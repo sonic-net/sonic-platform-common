@@ -1,0 +1,228 @@
+#!/usr/bin/env python
+#
+# ledd
+#
+# Front-panel LED control daemon for SONiC
+#
+
+try:
+    import ast
+    import getopt
+    import os
+    import imp
+    import signal
+    import subprocess
+    import swsssdk
+    import sys
+    import syslog
+    import time
+except ImportError, e:
+    raise ImportError (str(e) + " - required module not found")
+
+#============================= Constants =============================
+
+VERSION = '1.0'
+
+USAGE_HELP="""
+Usage: ledd [options]
+
+Options:
+  -h,--help       Print this usage statement and exit
+  -v,--version    Print version information and exit
+"""
+
+SYSLOG_IDENTIFIER = "ledd"
+
+LED_MODULE_NAME = "led_control"
+LED_CLASS_NAME = "LedControl"
+
+SONIC_CFGGEN = "/usr/local/bin/sonic-cfggen"
+MINIGRAPH_FILE = "/etc/sonic/minigraph.xml"
+HWSKU_KEY = "minigraph_hwsku"
+PLATFORM_KEY = "platform"
+
+PLATFORM_ROOT = "/usr/share/sonic/device"
+
+PORT_TABLE_PREFIX = "PORT_TABLE:"
+
+led_control = None
+
+#========================== Syslog wrappers ==========================
+
+def log_info(msg):
+    syslog.openlog(SYSLOG_IDENTIFIER)
+    syslog.syslog(syslog.LOG_INFO, msg)
+    syslog.closelog()
+
+def log_warning(msg):
+    syslog.openlog(SYSLOG_IDENTIFIER)
+    syslog.syslog(syslog.LOG_WARNING, msg)
+    syslog.closelog()
+
+def log_error(msg):
+    syslog.openlog(SYSLOG_IDENTIFIER)
+    syslog.syslog(syslog.LOG_ERR, msg)
+    syslog.closelog()
+
+#========================== Signal Handling ==========================
+
+def signal_handler(sig, frame):
+    if sig == signal.SIGHUP:
+        log_info("Caught SIGHUP - ignoring...\n")
+        return
+    elif sig == signal.SIGINT:
+        log_info("Caught SIGINT - exiting...\n")
+        sys.exit(0)
+    elif sig == signal.SIGTERM:
+        log_info("Caught SIGTERM - exiting...\n")
+        sys.exit(0)
+    else:
+        log_warning("Caught unhandled signal '" + sig + "'")
+
+#============ Functions to load platform-specific classes ============
+
+# Returns platform and HW SKU
+def get_platform_and_hwsku():
+    try:
+        proc = subprocess.Popen([SONIC_CFGGEN, '-v', PLATFORM_KEY],
+                stdout=subprocess.PIPE,
+                shell=False,
+                stderr=subprocess.STDOUT)
+        stdout = proc.communicate()[0]
+        proc.wait()
+        platform = stdout.rstrip('\n')
+
+        proc = subprocess.Popen([SONIC_CFGGEN, '-m', MINIGRAPH_FILE, '-v', HWSKU_KEY],
+                stdout=subprocess.PIPE,
+                shell=False,
+                stderr=subprocess.STDOUT)
+        stdout = proc.communicate()[0]
+        proc.wait()
+        hwsku = stdout.rstrip('\n')
+    except OSError, e:
+        log_error("Cannot detect platform")
+        raise OSError("Cannot detect platform")
+
+    return (platform, hwsku)
+
+
+# Loads platform-specific LED control module from source
+def load_platform_led_control_module():
+    global led_control
+
+    # Get platform and hwsku
+    (platform, hwsku) = get_platform_and_hwsku()
+
+    # Load platform module from source
+    platform_path = '/'.join([PLATFORM_ROOT, platform])
+    hwsku_path = '/'.join([platform_path, hwsku])
+
+    module_file = '/'.join([platform_path, 'plugins', LED_MODULE_NAME + '.py'])
+
+    # If we can't locate a platform-specific module, exit gracefully, assuming this
+    # platform utilizes a hardware-based LED control solution
+    if not os.path.isfile(module_file):
+        log_info("Failed to locate platform-specific %s module. Exiting..." % LED_MODULE_NAME)
+        sys.exit(0)
+
+    try:
+        module = imp.load_source(LED_MODULE_NAME, module_file)
+    except IOError, e:
+        log_error("Failed to load platform module '%s': %s" % (LED_MODULE_NAME, str(e)))
+        return -1
+
+    log_info("Loaded module '%s'." % LED_MODULE_NAME)
+
+    try:
+        led_control_class = getattr(module, LED_CLASS_NAME)
+        led_control = led_control_class()
+    except AttributeError, e:
+        log_error("Failed to instantiate '%s' class: %s" % (LED_CLASS_NAME, str(e)))
+        return -2
+
+    log_info("Instantiated class '%s.%s'." % (LED_MODULE_NAME, LED_CLASS_NAME))
+
+    return 0
+
+#=============================== Main ================================
+
+def main():
+    port_status_dict = {}
+
+    log_info("Starting up...")
+
+    if not os.geteuid() == 0:
+        log_error("Must be root to run this daemon")
+        print "Error: Must be root to run this daemon"
+        sys.exit(1)
+
+    # Parse options if provided
+    if (len(sys.argv) > 1):
+        try:
+            options, remainder = getopt.getopt(sys.argv[1:],
+                    'hv',
+                    ['help',
+                     'version'])
+        except getopt.GetoptError, e:
+            print e
+            print USAGE_HELP
+            sys.exit(2)
+
+        for opt, arg in options:
+            if opt == '--help' or opt == '-h':
+                print USAGE_HELP
+                sys.exit(0)
+            elif opt == '--version' or opt == '-v':
+                print 'ledd version ' + VERSION
+                sys.exit(0)
+
+    # Register our signal handlers
+    signal.signal(signal.SIGHUP, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
+    # Load platform-specific LedControl class
+    err = load_platform_led_control_module()
+    if err != 0:
+        sys.exit(1)
+
+    # Connect to APPL_DB using SwSS SDK
+    swss = swsssdk.SonicV2Connector()
+    swss.connect(swss.APPL_DB)
+
+    # Loop forever
+    while True:
+        # TODO: Move dictionary creation and population out of while loop. Do it only once
+        # and subscribe for notifications from DB when ports come or go. Add/remove
+        # dictionary entries as necessary.
+
+        # Get a list of all ports from the database
+        port_table_keys = swss.keys(swss.APPL_DB, PORT_TABLE_PREFIX + '*');
+
+        # Create a dictionary of <sonic_port_name>:<link_status> containing all ports
+        # Initially set all statuses to 'down'
+        for key in port_table_keys:
+            # Remove table name prefix
+            port_name = key[len(PORT_TABLE_PREFIX):]
+
+            # TODO: Once the DB is fixed and this 'ConfigDone' entry is gone, remove this check
+            if port_name == 'ConfigDone':
+                continue
+
+            port_status_dict[port_name] = 'down'
+            led_control.port_link_state_change(port_name, port_status_dict[port_name])
+
+        for (key, value) in port_status_dict.iteritems():
+            status = swss.get(swss.APPL_DB, PORT_TABLE_PREFIX + key, 'oper_status')
+
+            # If the status has changed, update it in our dictionary and report to our plugin
+            if value != status:
+                port_status_dict[key] = status
+                led_control.port_link_state_change(key, status)
+
+        time.sleep(1)
+        pass
+
+if __name__ == '__main__':
+    main()
+
