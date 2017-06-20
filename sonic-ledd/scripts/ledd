@@ -41,7 +41,11 @@ MINIGRAPH_FILE = "/etc/sonic/minigraph.xml"
 HWSKU_KEY = "minigraph_hwsku"
 PLATFORM_KEY = "platform"
 
+# platform directory in base image
 PLATFORM_ROOT = "/usr/share/sonic/device"
+
+# platform root directory inside docker
+PLATFORM_ROOT_DOCKER = "/usr/share/sonic/platform"
 
 PORT_TABLE_PREFIX = "PORT_TABLE:"
 
@@ -117,14 +121,19 @@ def load_platform_led_control_module():
     platform_path = '/'.join([PLATFORM_ROOT, platform])
     hwsku_path = '/'.join([platform_path, hwsku])
 
-    module_file = '/'.join([platform_path, 'plugins', LED_MODULE_NAME + '.py'])
+    module_file_base = '/'.join([platform_path, 'plugins', LED_MODULE_NAME + '.py'])
+
+    module_file_docker = '/'.join([PLATFORM_ROOT_DOCKER, 'plugins', LED_MODULE_NAME + '.py'])
 
     # If we can't locate a platform-specific module, exit gracefully, assuming this
     # platform utilizes a hardware-based LED control solution
-    if not os.path.isfile(module_file):
-        log_info("Failed to locate platform-specific %s module. Exiting..." % LED_MODULE_NAME)
+    if os.path.isfile(module_file_base):
+        module_file = module_file_base
+    elif os.path.isfile(module_file_docker):
+        module_file = module_file_docker
+    else:
+        log_info("Failed to locate platform-specific %s module." % LED_MODULE_NAME)
         sys.exit(0)
-
     try:
         module = imp.load_source(LED_MODULE_NAME, module_file)
     except IOError, e:
