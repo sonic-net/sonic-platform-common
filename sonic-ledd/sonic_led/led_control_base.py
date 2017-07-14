@@ -23,4 +23,3 @@ class LedControlBase(object):
         :param state: A string, the port link state (either "up" or "down")
         """
         return
-
