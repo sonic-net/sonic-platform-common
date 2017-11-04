@@ -214,8 +214,9 @@ def main():
             # Remove table name prefix
             port_name = key[len(PORT_TABLE_PREFIX):]
 
-            # TODO: Once the DB is fixed and this 'ConfigDone' entry is gone, remove this check
-            if port_name == 'ConfigDone':
+            # TODO: Once these flag entries have been removed from the DB,
+            # we can remove this check
+            if port_name in ["PortConfigDone", "PortInitDone"]:
                 continue
 
             port_status_dict[port_name] = 'down'
