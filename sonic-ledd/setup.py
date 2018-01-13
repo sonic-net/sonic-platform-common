@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='sonic-ledd',
-    version='1.0',
+    version='1.1',
     description='Front-panel LED control daemon for SONiC',
     license='Apache 2.0',
     author='SONiC Team',
@@ -10,7 +10,6 @@ setup(
     url='https://github.com/Azure/sonic-platform-daemons',
     maintainer='Joe LeVeque',
     maintainer_email='jolevequ@microsoft.com',
-    packages=['sonic_led'],
     scripts=[
         'scripts/ledd',
     ],

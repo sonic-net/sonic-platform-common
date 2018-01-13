@@ -7,7 +7,7 @@ Daemons for controlling platform-specific functionality in SONiC
 
 # Contribution guide
 
-All contributors must sign a contribution license agreement before contributions can be accepted.  Contact kasubra@microsoft.com or daloher@microsoft.com.  Later this will be automated.
+All contributors must sign a contribution license agreement (CLA) before contributions can be accepted. This process is now automated via a GitHub bot when submitting new pull request. If the contributor has not yet signed a CLA, the bot will create a comment on the pull request containing a link to electronically sign the CLA.
 
 ### GitHub Workflow
 
@@ -34,7 +34,7 @@ For example:
 >     * Health-Monitor - The idea of the patch is that if something went wrong with the notification channel,
 >       we will have the option to know about it (Query the LLEN table length).
 > 
->       Signed-off-by: user@dev.null
+>       Signed-off-by: John Doe user@dev.null
 
 
 * Each developer should fork this repository and [add the team as a Contributor](https://help.github.com/articles/adding-collaborators-to-a-personal-repository)
