@@ -156,8 +156,6 @@ def load_platform_led_control_module():
 #=============================== Main ================================
 
 def main():
-    port_status_dict = {}
-
     log_info("Starting up...")
 
     if not os.geteuid() == 0:
@@ -201,8 +199,7 @@ def main():
 
     # Loop forever
     while True:
-        # TODO: Move dictionary creation and population out of while loop. Do it only once
-        # and subscribe for notifications from DB when ports come or go. Add/remove
+        # TODO: Subscribe for notifications from DB when ports come or go. Add/remove
         # dictionary entries as necessary.
 
         # Get a list of all ports from the database
@@ -219,16 +216,8 @@ def main():
             if port_name in ["PortConfigDone", "PortInitDone"]:
                 continue
 
-            port_status_dict[port_name] = 'down'
-            led_control.port_link_state_change(port_name, port_status_dict[port_name])
-
-        for (key, value) in port_status_dict.iteritems():
-            status = swss.get(swss.APPL_DB, PORT_TABLE_PREFIX + key, 'oper_status')
-
-            # If the status has changed, update it in our dictionary and report to our plugin
-            if value != status:
-                port_status_dict[key] = status
-                led_control.port_link_state_change(key, status)
+            status = swss.get(swss.APPL_DB, PORT_TABLE_PREFIX + port_name, 'oper_status')
+            led_control.port_link_state_change(key, status)
 
         time.sleep(1)
 
