@@ -197,10 +197,47 @@ class sff8436InterfaceId(sffbase):
             '0a': 'X2',
             '0b': 'DWDM-SFP',
             '0c': 'QSFP',
-            '0d': 'QSFP+'
+            '0d': 'QSFP+',
+            '11': 'QSFP28'
             }
 
-    ext_type_of_transceiver = {}
+    ext_type_of_transceiver = {
+            '00': 'Power Class 1(1.5W max)',
+            '04': 'Power Class 1(1.5W max), CDR present in Tx',
+            '08': 'Power Class 1(1.5W max), CDR present in Rx',
+            '0c': 'Power Class 1(1.5W max), CDR present in Rx Tx',
+            '10': 'Power Class 1(1.5W max), CLEI present',
+            '14': 'Power Class 1(1.5W max), CLEI present, CDR present in Tx',
+            '18': 'Power Class 1(1.5W max), CLEI present, CDR present in Rx',
+            '1c': 'Power Class 1(1.5W max), CLEI present, CDR present in Rx Tx',
+
+            '40': 'Power Class 2(2.0W max)',
+            '44': 'Power Class 2(2.0W max), CDR present in Rx',
+            '48': 'Power Class 2(2.0W max), CDR present in Tx',
+            '4c': 'Power Class 2(2.0W max), CDR present in Rx Tx',
+            '50': 'Power Class 2(2.0W max), CLEI present',
+            '54': 'Power Class 2(2.0W max), CLEI present, CDR present in Rx',
+            '58': 'Power Class 2(2.0W max), CLEI present, CDR present in Tx',
+            '5c': 'Power Class 2(2.0W max), CLEI present, CDR present in Rx Tx',
+
+            '80': 'Power Class 3(2.5W max)',
+            '84': 'Power Class 3(2.5W max), CDR present in Rx',
+            '88': 'Power Class 3(2.5W max), CDR present in Tx',
+            '8c': 'Power Class 3(2.5W max), CDR present in Rx Tx',
+            '90': 'Power Class 3(2.5W max), CLEI present',
+            '94': 'Power Class 3(2.5W max), CLEI present, CDR present in Rx',
+            '98': 'Power Class 3(2.5W max), CLEI present, CDR present in Tx',
+            '9c': 'Power Class 3(2.5W max), CLEI present, CDR present in Rx Tx',
+
+            'c0': 'Power Class 4(3.5W max)',
+            'c4': 'Power Class 4(3.5W max), CDR present in Rx',
+            'c8': 'Power Class 4(3.5W max), CDR present in Tx',
+            'cc': 'Power Class 4(3.5W max), CDR present in Rx Tx',
+            'd0': 'Power Class 4(3.5W max), CLEI present',
+            'd4': 'Power Class 4(3.5W max), CLEI present, CDR present in Rx',
+            'd8': 'Power Class 4(3.5W max), CLEI present, CDR present in Tx',
+            'dc': 'Power Class 4(3.5W max), CLEI present, CDR present in Rx Tx'
+            }
 
     connector = {
             '00': 'Unknown or unspecified',
@@ -215,7 +252,8 @@ class sff8436InterfaceId(sffbase):
             '09': 'MU',
             '0a': 'SG',
             '0b': 'Optical Pigtail',
-            '0C': 'MPO',
+            '0c': 'MPOx12',
+            '0d': 'MPOx16',
             '20': 'HSSDC II',
             '21': 'Copper pigtail',
             '22': 'RJ45',
@@ -229,7 +267,8 @@ class sff8436InterfaceId(sffbase):
             '03': 'NRZ',
             '04': 'SONET Scrambled',
             '05': '64B66B',
-            '06': 'Manchester'
+            '06': 'Manchester',
+            '07': '256B257B'
             }
 
     rate_identifier = {'00':'QSFP+ Rate Select Version 1'}
