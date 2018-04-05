@@ -54,7 +54,7 @@ class bcmshell (object):
             raise SyntaxError("bcmshell constructor prompt expects an re string")
         else:
             self.re_prompt = re.compile(prompt, re.MULTILINE)
-            self.re_connectprompt = re.compile("bcmshell\r\n" + prompt, re.MULTILINE)
+            self.re_connectprompt = re.compile("bcmshell\r\n\s*" + prompt, re.MULTILINE)
 
         if timeout <= 0:
             raise ValueError("bcmshell.timeout must be > 0")
