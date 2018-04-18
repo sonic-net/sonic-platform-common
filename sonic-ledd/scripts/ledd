@@ -1,27 +1,28 @@
 #!/usr/bin/env python
-#
-# ledd
-#
-# Front-panel LED control daemon for SONiC
-#
+
+"""
+    ledd
+
+    Front-panel LED control daemon for SONiC
+"""
 
 try:
-    import ast
     import getopt
     import os
     import imp
     import signal
     import subprocess
-    import swsssdk
     import sys
     import syslog
-    import time
+    from swsscommon import swsscommon
 except ImportError, e:
     raise ImportError (str(e) + " - required module not found")
 
 #============================= Constants =============================
 
 VERSION = '1.0'
+
+SYSLOG_IDENTIFIER = "ledd"
 
 USAGE_HELP="""
 Usage: ledd [options]
@@ -30,8 +31,6 @@ Options:
   -h,--help       Print this usage statement and exit
   -v,--version    Print version information and exit
 """
-
-SYSLOG_IDENTIFIER = "ledd"
 
 LED_MODULE_NAME = "led_control"
 LED_CLASS_NAME = "LedControl"
@@ -47,9 +46,9 @@ PLATFORM_ROOT = "/usr/share/sonic/device"
 # platform root directory inside docker
 PLATFORM_ROOT_DOCKER = "/usr/share/sonic/platform"
 
-PORT_TABLE_PREFIX = "PORT_TABLE:"
-
-led_control = None
+REDIS_HOSTNAME = "localhost"
+REDIS_PORT = 6379
+REDIS_TIMEOUT_USECS = 0
 
 #========================== Syslog wrappers ==========================
 
@@ -72,16 +71,17 @@ def log_error(msg):
 
 def signal_handler(sig, frame):
     if sig == signal.SIGHUP:
-        log_info("Caught SIGHUP - ignoring...\n")
+        log_info("Caught SIGHUP - ignoring...")
         return
     elif sig == signal.SIGINT:
-        log_info("Caught SIGINT - exiting...\n")
-        sys.exit(0)
+        log_info("Caught SIGINT - exiting...")
+        sys.exit(128 + sig)
     elif sig == signal.SIGTERM:
-        log_info("Caught SIGTERM - exiting...\n")
-        sys.exit(0)
+        log_info("Caught SIGTERM - exiting...")
+        sys.exit(128 + sig)
     else:
         log_warning("Caught unhandled signal '" + sig + "'")
+
 
 #============ Functions to load platform-specific classes ============
 
@@ -112,8 +112,6 @@ def get_platform_and_hwsku():
 
 # Loads platform-specific LED control module from source
 def load_platform_led_control_module():
-    global led_control
-
     # Get platform and hwsku
     (platform, hwsku) = get_platform_and_hwsku()
 
@@ -133,12 +131,13 @@ def load_platform_led_control_module():
         module_file = module_file_docker
     else:
         log_info("Failed to locate platform-specific %s module." % LED_MODULE_NAME)
-        sys.exit(0)
+        return None
+
     try:
         module = imp.load_source(LED_MODULE_NAME, module_file)
     except IOError, e:
         log_error("Failed to load platform module '%s': %s" % (LED_MODULE_NAME, str(e)))
-        return -1
+        return None
 
     log_info("Loaded module '%s'." % LED_MODULE_NAME)
 
@@ -147,11 +146,11 @@ def load_platform_led_control_module():
         led_control = led_control_class()
     except AttributeError, e:
         log_error("Failed to instantiate '%s' class: %s" % (LED_CLASS_NAME, str(e)))
-        return -2
+        return None
 
     log_info("Instantiated class '%s.%s'." % (LED_MODULE_NAME, LED_CLASS_NAME))
 
-    return 0
+    return led_control
 
 #=============================== Main ================================
 
@@ -166,10 +165,9 @@ def main():
     # Parse options if provided
     if (len(sys.argv) > 1):
         try:
-            options, remainder = getopt.getopt(sys.argv[1:],
-                    'hv',
-                    ['help',
-                     'version'])
+            (options, remainder) = getopt.getopt(sys.argv[1:],
+                                               'hv',
+                                               ['help', 'version'])
         except getopt.GetoptError, e:
             print e
             print USAGE_HELP
@@ -188,38 +186,40 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-    # Load platform-specific LedControl class
-    err = load_platform_led_control_module()
-    if err != 0:
+    # Load platform-specific LedControl module
+    led_control = load_platform_led_control_module()
+    if led_control is None:
         sys.exit(1)
 
-    # Connect to APPL_DB using SwSS SDK
-    swss = swsssdk.SonicV2Connector()
-    swss.connect(swss.APPL_DB)
+    # Open a handle to the Application database
+    appl_db = swsscommon.DBConnector(swsscommon.APPL_DB,
+                                     REDIS_HOSTNAME,
+                                     REDIS_PORT,
+                                     REDIS_TIMEOUT_USECS)
 
-    # Loop forever
+    # Subscribe to PORT table notifications in the Application DB
+    sel = swsscommon.Select()
+    sst = swsscommon.SubscriberStateTable(appl_db, swsscommon.APP_PORT_TABLE_NAME)
+    sel.addSelectable(sst)
+
+    # Listen indefinitely for changes to the PORT table in the Application DB
     while True:
-        # TODO: Subscribe for notifications from DB when ports come or go. Add/remove
-        # dictionary entries as necessary.
+        (state, c) = sel.select()
+        if state != swsscommon.Select.OBJECT:
+            log_warning("sel.select() did not return swsscommon.Select.OBJECT")
+            continue
 
-        # Get a list of all ports from the database
-        port_table_keys = swss.keys(swss.APPL_DB, PORT_TABLE_PREFIX + '*', blocking = True);
+        (key, op, fvp) = sst.pop()
 
-        # Create a dictionary of <sonic_port_name>:<link_status> containing all ports
-        # Initially set all statuses to 'down'
-        for key in port_table_keys:
-            # Remove table name prefix
-            port_name = key[len(PORT_TABLE_PREFIX):]
+        # TODO: Once these flag entries have been removed from the DB,
+        # we can remove this check
+        if key in ["PortConfigDone", "PortInitDone"]:
+            continue
 
-            # TODO: Once these flag entries have been removed from the DB,
-            # we can remove this check
-            if port_name in ["PortConfigDone", "PortInitDone"]:
-                continue
+        fvp_dict = dict(fvp)
 
-            status = swss.get(swss.APPL_DB, PORT_TABLE_PREFIX + port_name, 'oper_status')
-            led_control.port_link_state_change(key, status)
-
-        time.sleep(1)
+        if op == "SET" and "oper_status" in fvp_dict:
+            led_control.port_link_state_change(key, fvp_dict["oper_status"])
 
 if __name__ == '__main__':
     main()
