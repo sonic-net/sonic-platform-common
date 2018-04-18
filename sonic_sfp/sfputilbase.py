@@ -272,7 +272,10 @@ class SfpUtilBase(object):
         # if something already exists
         for line in f:
             line.strip()
+            title = []
             if re.search("^#", line) is not None:
+                # The current format is: # name lanes alias index speed
+                title = line.split()[1:]
                 continue
 
             # Parsing logic for 'port_config.ini' file
@@ -284,7 +287,10 @@ class SfpUtilBase(object):
 
                 bcm_port = str(port_pos_in_file)
 
-                if len(line.split()) == 4:
+                if "index" in title:
+                    fp_port_index = int(line.split()[title.index("index")])
+                # Leave the old code for backward compatibility
+                elif len(line.split()) >= 4:
                     fp_port_index = int(line.split()[3])
                 else:
                     fp_port_index = portname.split("Ethernet").pop()
