@@ -132,7 +132,7 @@ class SfpUtilBase(object):
             nd_file.write(nd_str)
             nd_file.close()
 
-        except Exception, err:
+        except Exception as err:
             print "Error writing to new device file: %s" % str(err)
             return 1
         else:
@@ -149,7 +149,7 @@ class SfpUtilBase(object):
             nd_file = open(sysfs_nd_path, "w")
             nd_file.write(devaddr)
             nd_file.close()
-        except Exception, err:
+        except Exception as err:
             print "Error writing to new device file: %s" % str(err)
             return 1
         else:

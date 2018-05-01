@@ -11,7 +11,7 @@ try:
     import time
     import socket
     import re
-except ImportError, e:
+except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
 
 #-------------------------------------------------------------------------------

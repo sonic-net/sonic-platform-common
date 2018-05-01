@@ -15,7 +15,7 @@ try:
     import types
     from math import log10
     from sffbase import sffbase
-except ImportError, e:
+except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
 
 #------------------------------------------------------------------------------
@@ -551,7 +551,7 @@ class sff8472Dom(sffbase):
                 retval = '%.4f' %result + 'C'
             else:
                 retval = 'Unknown'
-        except Exception, err:
+        except Exception as err:
             retval = str(err)
 
         return retval
@@ -595,7 +595,7 @@ class sff8472Dom(sffbase):
             else:
                 #print indent, name, ' : Unknown'
                 retval = 'Unknown'
-        except Exception, err:
+        except Exception as err:
             retval = str(err)
 
         return retval
@@ -637,7 +637,7 @@ class sff8472Dom(sffbase):
                 retval = '%.4f' %result + 'mA'
             else:
                 retval = 'Unknown'
-        except Exception, err:
+        except Exception as err:
             retval = str(err)
 
         return retval
@@ -676,7 +676,7 @@ class sff8472Dom(sffbase):
                 retval = self.power_in_dbm_str(result)
             else:
                 retval = 'Unknown'
-        except Exception, err:
+        except Exception as err:
                 retval = str(err)
 
         return retval
@@ -748,7 +748,7 @@ class sff8472Dom(sffbase):
                 retval = self.power_in_dbm_str(result)
             else:
                 retval = 'Unknown'
-        except Exception, err:
+        except Exception as err:
             retval = str(err)
 
         return retval
