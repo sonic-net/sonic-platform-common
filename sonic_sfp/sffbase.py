@@ -13,7 +13,7 @@ try:
     import getopt
     import types
     from math import log10
-except ImportError, e:
+except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
 
 class sffbase(object):
@@ -35,7 +35,7 @@ class sffbase(object):
             for n in range(start, end):
                 ret_str += arr[n]
             return str.strip(binascii.unhexlify(ret_str))
-        except Exception, err:
+        except Exception as err:
             return str(err)
 
     # Convert Date to String
@@ -51,7 +51,7 @@ class sffbase(object):
                     date[month_offset:day_offset] + "-" + \
                     date[day_offset:lot_offset] + " " + \
                     date[lot_offset:size]
-        except Exception, err:
+        except Exception as err:
             retval = str(err)
         return retval
 

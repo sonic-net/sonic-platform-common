@@ -19,7 +19,7 @@ try:
     import struct
     import subprocess
     import fcntl
-except ImportError, e:
+except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
 
 

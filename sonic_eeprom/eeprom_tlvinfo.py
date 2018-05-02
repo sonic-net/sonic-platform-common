@@ -16,7 +16,7 @@ try:
     import os
     import sys
     import eeprom_base
-except ImportError, e:
+except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
 
 
