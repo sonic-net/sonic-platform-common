@@ -5,6 +5,9 @@
 #
 #-------------------------------------------------------------------------------
 #
+
+from __future__ import print_function
+
 try:
     import sys
     import os
@@ -346,7 +349,7 @@ class bcmshell (object):
         s = self.run(cmd)
         if 'Unknown command:' in s:
             raise ValueError(s)
-        print s
+        print(s)
 
                 
     #---------------
@@ -360,20 +363,20 @@ class bcmshell (object):
         if type(d) is dict:
             for I in sorted(d, key=self.__name_conv__):
                 if type(d[I]) is int:
-                    print "%s %30s: " % (s, I),
+                    print("%s %30s: " % (s, I), end=" ")
                 else:
-                    print "%s %s:" % (s, I) 
+                    print("%s %s:" % (s, I))
                 self.prettyprint(d[I], (level + 1))
         elif type(d) is list:
             for I in range(len(d)):
                 i = "[" + str(I) + "]"
                 if type(d[I]) is int or type(d[I]) is long:
-                    print "%s %10s: " % (s, i),
+                    print("%s %10s: " % (s, i), end=" ")
                 else:
-                    print "%s %s:" % (s, i) 
+                    print("%s %s:" % (s, i)) 
                 self.prettyprint(d[I], (level + 1))
         else:
-            print "%s" % (hex(d))
+            print("%s" % (hex(d)))
 
                 
     #---------------
@@ -403,7 +406,8 @@ class bcmshell (object):
         self.__open__()
         try:
             self.socketobj.sendall(cmd + '\n')
-        except socket.error as (errno, errstr):
+        except socket.error as err:
+            (errno, errstr) = err.args
             raise IOError("unable to send command \"%s\", %s" % (cmd, errstr))
 
         self.buffer = ''
@@ -460,7 +464,8 @@ class bcmshell (object):
                     self.socketobj = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
                     self.socketobj.settimeout(self.timeout)
                     self.socketobj.connect(self.socketname)
-                except socket.error as (errno, errstr):
+                except socket.error as err:
+                    (errno, errstr) = err.args
                     if timeout == 0:
                         raise IOError("unable to open %s, %s" % (self.socketname, errstr))
                     time.sleep(1)
@@ -488,7 +493,8 @@ class bcmshell (object):
                         raise IOError("unable to flush %s for %d seconds" %
                                       (self.socketname, self.timeout))
 
-            except socket.error as (errno, errstr):
+            except socket.error as err:
+                (errno, errstr) = err.args
                 raise IOError("Socket error: unable to flush %s on open: %s" % (self.socketname, errstr))
             except IOError as e:
                 raise IOError("unable to flush %s on open: %s" % (self.socketname, e.message))

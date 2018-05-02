@@ -3,6 +3,8 @@
 # sffbase class for sff8436 and sff8472
 #----------------------------------------------------------------------------
 
+from __future__ import print_function
+
 try:
     import fcntl
     import struct
@@ -232,19 +234,18 @@ class sffbase(object):
     def dump_pretty(self, indict):
         for elem, elem_val in sorted(indict.iteritems()):
             if type(elem_val) == types.DictType:
-                print self._indent, elem, ': '
+                print(self._indent, elem, ': ')
                 self.inc_indent()
                 sff8472.dump_pretty(self, elem_val)
                 self.dec_indent()
             elif type(elem_val) == types.ListType:
                 if len(elem_val) == 1:
-                    print (self._indent, elem, ': ',
-                        elem_val.pop())
+                    print(self._indent, elem, ': ', elem_val.pop())
                 else:
-                    print self._indent, elem, ': '
+                    print(self._indent, elem, ': ')
                     self.inc_indent()
                     for e in elem_val:
-                        print self._indent, e
+                        print(self._indent, e)
                     self.dec_indent()
             else:
-                print self._indent, elem, ': ', elem_val
+                print(self._indent, elem, ': ', elem_val)

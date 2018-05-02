@@ -4,6 +4,9 @@
 # Copyright 2012 Cumulus Networks, inc  all rights reserved
 #
 #--------------------------------------------------------------------------
+
+from __future__ import print_function
+
 try:
     import fcntl
     import struct
@@ -451,7 +454,7 @@ class sff8472InterfaceId(sffbase):
 
     def dump_pretty(self):
         if self.interface_data == None:
-            print 'Object not initialized, nothing to print'
+            print('Object not initialized, nothing to print')
             return
         sffbase.dump_pretty(self, self.interface_data)
 
@@ -570,7 +573,7 @@ class sff8472Dom(sffbase):
                 # Internal Calibration
 
                 result = float(result * 0.0001)
-                #print indent, name, ' : %.4f' %result, 'Volts'
+                #print(indent, name, ' : %.4f' %result, 'Volts')
                 retval = '%.4f' %result + 'Volts'
             elif cal_type == 2:
 
@@ -590,10 +593,10 @@ class sff8472Dom(sffbase):
 
                 result = v_slope * result + v_offset
                 result = float(result * 0.0001)
-                #print indent, name, ' : %.4f' %result, 'Volts'
+                #print(indent, name, ' : %.4f' %result, 'Volts')
                 retval = '%.4f' %result + 'Volts'
             else:
-                #print indent, name, ' : Unknown'
+                #print(indent, name, ' : Unknown')
                 retval = 'Unknown'
         except Exception as err:
             retval = str(err)
@@ -613,7 +616,7 @@ class sff8472Dom(sffbase):
                 # Internal Calibration
 
                 result = float(result * 0.002)
-                #print indent, name, ' : %.4f' %result, 'mA'
+                #print(indent, name, ' : %.4f' %result, 'mA')
                 retval = '%.4f' %result + 'mA'
 
             elif cal_type == 2:
@@ -633,7 +636,7 @@ class sff8472Dom(sffbase):
 
                 result = i_slope * result + i_offset
                 result = float(result * 0.002)
-                #print indent, name, ' : %.4f' %result, 'mA'
+                #print(indent, name, ' : %.4f' %result, 'mA')
                 retval = '%.4f' %result + 'mA'
             else:
                 retval = 'Unknown'
@@ -654,7 +657,7 @@ class sff8472Dom(sffbase):
             if cal_type == 1:
 
                 result = float(result * 0.0001)
-                #print indent, name, ' : ', power_in_dbm_str(result)
+                #print(indent, name, ' : ', power_in_dbm_str(result))
                 retval = self.power_in_dbm_str(result)
 
             elif cal_type == 2:
@@ -694,7 +697,7 @@ class sff8472Dom(sffbase):
 
                 # Internal Calibration
                 result = float(result * 0.0001)
-                #print indent, name, " : ", power_in_dbm_str(result)
+                #print(indent, name, " : ", power_in_dbm_str(result))
                 retval = self.power_in_dbm_str(result)
 
             elif cal_type == 2:
@@ -744,7 +747,7 @@ class sff8472Dom(sffbase):
                 rx_pwr = (rx_pwr_4 * result) + (rx_pwr_3 * result) + (rx_pwr_2 * result) + (rx_pwr_1 * result) + rx_pwr_0
 
                 result = float(result * 0.0001)
-                #print indent, name, " : ", power_in_dbm_str(result)
+                #print(indent, name, " : ", power_in_dbm_str(result))
                 retval = self.power_in_dbm_str(result)
             else:
                 retval = 'Unknown'
@@ -1037,7 +1040,7 @@ class sff8472Dom(sffbase):
 
     def dump_pretty(self):
         if self.dom_data == None:
-            print 'Object not initialized, nothing to print'
+            print('Object not initialized, nothing to print')
             return
         sffbase.dump_pretty(self, self.dom_data)
 

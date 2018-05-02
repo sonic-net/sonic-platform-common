@@ -9,6 +9,8 @@
 # 'burn' as a data name indicates the corresponding number of bytes are to
 # be ignored
 
+from __future__ import print_function
+
 try:
     import exceptions
     import binascii
@@ -35,7 +37,7 @@ class EepromDecoder(object):
         self.lock_file = None
 
     def check_status(self):
-        if self.u <> '':
+        if self.u != '':
             F = open(self.u, "r")
             d = F.readline().rstrip()
             F.close()
@@ -74,14 +76,14 @@ class EepromDecoder(object):
             return struct.pack('>I', crc)
         elif self.checksum_field_size() == 1:
             return struct.pack('>B', crc)
-        print 'checksum type not yet supported'
+        print('checksum type not yet supported')
         exit(1)
 
     def compute_2s_complement(self, e, size):
         crc = 0
         loc = 0
         end = len(e)
-        while loc <> end:
+        while loc != end:
             crc += int('0x' + binascii.b2a_hex(e[loc:loc+size]), 0)
             loc += size
         T = 1 << (size * 8)
@@ -113,7 +115,7 @@ class EepromDecoder(object):
 
         if self.checksum_type() == 'dell-crc':
             return self.compute_dell_crc(e)
-        print 'checksum type not yet supported'
+        print('checksum type not yet supported')
         exit(1)
 
     def is_checksum_valid(self, e):
@@ -147,7 +149,7 @@ class EepromDecoder(object):
                 i = t
             else:
                 i = self.decoder(I[0], t)
-            print "%-20s: %s" %(I[0], i)
+            print("%-20s: %s" %(I[0], i))
 
     def set_eeprom(self, e, cmd_args):
         line = ''
@@ -160,7 +162,7 @@ class EepromDecoder(object):
                 k = k.strip()
                 v = v.strip()
                 if k not in fields:
-                    print "Error: invalid field '%s'" %(k)
+                    print("Error: invalid field '%s'" %(k))
                     exit(1)
                 ndict[k] = v
 
@@ -181,7 +183,7 @@ class EepromDecoder(object):
 
             if len(cmd_args) == 0:
                 if self.is_checksum_field(I):
-                    print ("%-20s: %s " %(I[0], i))
+                    print("%-20s: %s " %(I[0], i))
                     continue
 
                 # prompt for new value
@@ -284,7 +286,7 @@ class EepromDecoder(object):
             ret_mac = ret_mac + 1
 
             if (ret_mac & 0xff000000):
-                print 'Error: increment carries into OUI'
+                print('Error: increment carries into OUI')
                 return ''
 
             mac_octets[5] = hex(ret_mac & 0xff)[2:].zfill(2)
@@ -320,7 +322,7 @@ class EepromDecoder(object):
 
         See also mgmtaddrstr() and switchaddrstr().
         '''
-        print "ERROR: Platform did not implement base_mac_addr()"
+        print("ERROR: Platform did not implement base_mac_addr()")
         raise NotImplementedError
 
     def mgmtaddrstr(self, e):
@@ -352,7 +354,7 @@ class EepromDecoder(object):
         # the platform specific import should have an override of this method
         # to provide the allocated mac range from syseeprom or flash sector or
         # wherever that platform stores this info
-        print "Platform did not indicate allocated mac address range"
+        print("Platform did not indicate allocated mac address range")
         raise NotImplementedError
 
     def serial_number_str(self, e):

@@ -3,6 +3,8 @@
 # Base class for creating platform-specific SFP transceiver interfaces for SONiC
 #
 
+from __future__ import print_function
+
 try:
     import abc
     import binascii
@@ -133,7 +135,7 @@ class SfpUtilBase(object):
             nd_file.close()
 
         except Exception as err:
-            print "Error writing to new device file: %s" % str(err)
+            print("Error writing to new device file: %s" % str(err))
             return 1
         else:
             return 0
@@ -143,14 +145,13 @@ class SfpUtilBase(object):
     def _delete_sfp_device(self, sysfs_sfp_i2c_adapter_path, devaddr):
         try:
             sysfs_nd_path = "%s/delete_device" % sysfs_sfp_i2c_adapter_path
-            print devaddr > sysfs_nd_path
 
             # Write device address to delete_device file
             nd_file = open(sysfs_nd_path, "w")
             nd_file.write(devaddr)
             nd_file.close()
         except Exception as err:
-            print "Error writing to new device file: %s" % str(err)
+            print("Error writing to new device file: %s" % str(err))
             return 1
         else:
             return 0
@@ -191,7 +192,7 @@ class SfpUtilBase(object):
 
             i2c_adapter_id = self._get_port_i2c_adapter_id(port_num)
             if i2c_adapter_id is None:
-                print "Error getting i2c bus num"
+                print("Error getting i2c bus num")
                 return None
 
             # Get i2c virtual bus path for the sfp
@@ -200,7 +201,7 @@ class SfpUtilBase(object):
 
             # If i2c bus for port does not exist
             if not os.path.exists(sysfs_sfp_i2c_adapter_path):
-                print "Could not find i2c bus %s. Driver not loaded?" % sysfs_sfp_i2c_adapter_path
+                print("Could not find i2c bus %s. Driver not loaded?" % sysfs_sfp_i2c_adapter_path)
                 return None
 
             sysfs_sfp_i2c_client_path = "%s/%s-00%s" % (sysfs_sfp_i2c_adapter_path,
@@ -212,7 +213,7 @@ class SfpUtilBase(object):
                 ret = self._add_new_sfp_device(
                         sysfs_sfp_i2c_adapter_path, devid)
                 if ret != 0:
-                    print "Error adding sfp device"
+                    print("Error adding sfp device")
                     return None
 
             sysfs_sfp_i2c_client_eeprom_path = "%s/eeprom" % sysfs_sfp_i2c_client_path
@@ -225,7 +226,7 @@ class SfpUtilBase(object):
             sysfsfile_eeprom.seek(offset)
             raw = sysfsfile_eeprom.read(num_bytes)
         except IOError:
-            print "Error: reading sysfs file %s" % sysfs_sfp_i2c_client_eeprom_path
+            print("Error: reading sysfs file %s" % sysfs_sfp_i2c_client_eeprom_path)
             return None
 
         try:
@@ -341,10 +342,10 @@ class SfpUtilBase(object):
         self.physical_to_logical = physical_to_logical
 
         """
-        print "logical: " +  self.logical
-        print "logical to bcm: " + self.logical_to_bcm
-        print "logical to physical: " + self.logical_to_physical
-        print "physical to logical: " + self.physical_to_logical
+        print("logical: " + self.logical)
+        print("logical to bcm: " + self.logical_to_bcm)
+        print("logical to physical: " + self.logical_to_physical)
+        print("physical to logical: " + self.physical_to_logical)
         """
 
     def read_phytab_mappings(self, phytabfile):
@@ -433,11 +434,11 @@ class SfpUtilBase(object):
         pp = pprint.PrettyPrinter(indent=4)
         pp.pprint(self.phytab_mappings)
 
-        print "logical: " +  self.logical
-        print "logical to bcm: " +  self.logical_to_bcm
-        print "phytab mappings: " + self.phytab_mappings
-        print "physical to logical: " + self.physical_to_logical
-        print "physical to phyaddrs: " + self.physical_to_phyaddrs
+        print("logical: " +  self.logical)
+        print("logical to bcm: " +  self.logical_to_bcm)
+        print("phytab mappings: " + self.phytab_mappings)
+        print("physical to logical: " + self.physical_to_logical)
+        print("physical to phyaddrs: " + self.physical_to_phyaddrs)
         """
 
     def get_physical_to_logical(self, port_num):
