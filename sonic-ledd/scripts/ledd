@@ -189,7 +189,7 @@ def main():
     # Load platform-specific LedControl module
     led_control = load_platform_led_control_module()
     if led_control is None:
-        sys.exit(1)
+        sys.exit(0)
 
     # Open a handle to the Application database
     appl_db = swsscommon.DBConnector(swsscommon.APPL_DB,
