@@ -223,6 +223,8 @@ class SfpUtilBase(object):
 
         try:
             sysfsfile_eeprom = open(sysfs_sfp_i2c_client_eeprom_path, "rb")
+            if devid == self.DOM_EEPROM_ADDR:
+                offset += 256
             sysfsfile_eeprom.seek(offset)
             raw = sysfsfile_eeprom.read(num_bytes)
         except IOError:
