@@ -267,14 +267,15 @@ class SfpUtilBase(object):
 
         # Read the porttab file and generate dicts
         # with mapping for future reference.
-        # XXX: move the porttab
-        # parsing stuff to a separate module, or reuse
-        # if something already exists
+        #
+        # TODO: Refactor this to use the portconfig.py module that now
+        # exists as part of the sonic-config-engine package.
+        title = []
         for line in f:
             line.strip()
-            title = []
             if re.search("^#", line) is not None:
                 # The current format is: # name lanes alias index speed
+                # Where the ordering of the columns can vary
                 title = line.split()[1:]
                 continue
 
