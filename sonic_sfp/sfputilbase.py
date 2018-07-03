@@ -777,13 +777,13 @@ class SfpUtilBase(object):
                 return None
 
             transceiver_dom_info_dict['rx1power'] = dom_channel_monitor_data['data']['RXPower']['value']
-            transceiver_dom_info_dict['rx2power'] = ''
-            transceiver_dom_info_dict['rx3power'] = ''
-            transceiver_dom_info_dict['rx4power'] = ''
+            transceiver_dom_info_dict['rx2power'] = 'N/A'
+            transceiver_dom_info_dict['rx3power'] = 'N/A'
+            transceiver_dom_info_dict['rx4power'] = 'N/A'
             transceiver_dom_info_dict['tx1bias'] = dom_channel_monitor_data['data']['TXBias']['value']
-            transceiver_dom_info_dict['tx2bias'] = ''
-            transceiver_dom_info_dict['tx3bias'] = ''
-            transceiver_dom_info_dict['tx4bias'] = ''
+            transceiver_dom_info_dict['tx2bias'] = 'N/A'
+            transceiver_dom_info_dict['tx3bias'] = 'N/A'
+            transceiver_dom_info_dict['tx4bias'] = 'N/A'
 
         try:
             sysfsfile_eeprom.close()
