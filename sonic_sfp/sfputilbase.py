@@ -19,6 +19,33 @@ try:
 except ImportError as e:
     raise ImportError("%s - required module not found" % str(e))
 
+# definitions of the offset and width for values in XCVR info eeprom
+XCVR_TYPE_OFFSET = 0
+XCVR_TYPE_WIDTH = 1
+XCVR_VENDOR_NAME_OFFSET = 20
+XCVR_VENDOR_NAME_WIDTH = 16
+XCVR_VENDOR_PN_OFFSET = 40
+XCVR_VENDOR_PN_WIDTH = 16
+XCVR_HW_REV_OFFSET = 56
+XCVR_HW_REV_WIDTH_QSFP = 2
+XCVR_HW_REV_WIDTH_SFP = 4
+XCVR_VENDOR_SN_OFFSET = 68
+XCVR_VENDOR_SN_WIDTH = 16
+
+#definitions of the offset and width for values in DOM info eeprom
+QSFP_TEMPE_OFFSET = 22
+QSFP_TEMPE_WIDTH = 2
+QSFP_VLOT_OFFSET = 26
+QSFP_VOLT_WIDTH = 2
+QSFP_CHANNL_MON_OFFSET = 34
+QSFP_CHANNL_MON_WIDTH = 16
+
+SFP_TEMPE_OFFSET = 96
+SFP_TEMPE_WIDTH = 2
+SFP_VLOT_OFFSET = 98
+SFP_VOLT_WIDTH = 2
+SFP_CHANNL_MON_OFFSET = 100
+SFP_CHANNL_MON_WIDTH = 6
 
 class SfpUtilError(Exception):
     """Base class for exceptions in this module."""
@@ -176,14 +203,8 @@ class SfpUtilBase(object):
             else:
                 return True
 
-    # Read eeprom
-    def _read_eeprom_devid(self, port_num, devid, offset):
+    def _get_port_eeprom_path(self, port_num, devid):
         sysfs_i2c_adapter_base_path = "/sys/class/i2c-adapter"
-        eeprom_raw = []
-        num_bytes = 256
-
-        for i in range(0, num_bytes):
-            eeprom_raw.append("0x00")
 
         if port_num in self.port_to_eeprom_mapping.keys():
             sysfs_sfp_i2c_client_eeprom_path = self.port_to_eeprom_mapping[port_num]
@@ -218,11 +239,15 @@ class SfpUtilBase(object):
 
             sysfs_sfp_i2c_client_eeprom_path = "%s/eeprom" % sysfs_sfp_i2c_client_path
 
-        if not self._sfp_eeprom_present(sysfs_sfp_i2c_client_eeprom_path, offset):
-            return None
+        return sysfs_sfp_i2c_client_eeprom_path
+
+    # Read out any bytes from any offset
+    def _read_eeprom_specific_bytes(self, sysfsfile_eeprom, offset, num_bytes):
+        eeprom_raw = []
+        for i in range(0, num_bytes):
+            eeprom_raw.append("0x00")
 
         try:
-            sysfsfile_eeprom = open(sysfs_sfp_i2c_client_eeprom_path, "rb")
             sysfsfile_eeprom.seek(offset)
             raw = sysfsfile_eeprom.read(num_bytes)
         except IOError:
@@ -235,10 +260,27 @@ class SfpUtilBase(object):
         except:
             return None
 
+        return eeprom_raw
+
+    # Read eeprom
+    def _read_eeprom_devid(self, port_num, devid, offset, num_bytes = 256):
+        sysfs_sfp_i2c_client_eeprom_path = self._get_port_eeprom_path(port_num, devid)
+
+        if not self._sfp_eeprom_present(sysfs_sfp_i2c_client_eeprom_path, offset):
+            return None
+
+        try:
+            sysfsfile_eeprom = open(sysfs_sfp_i2c_client_eeprom_path, "rb")
+        except IOError:
+            print("Error: reading sysfs file %s" % sysfs_sfp_i2c_client_eeprom_path)
+            return None
+
+        eeprom_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, offset, num_bytes)
+
         try:
             sysfsfile_eeprom.close()
         except:
-            return 0
+            return None
 
         return eeprom_raw
 
@@ -268,15 +310,14 @@ class SfpUtilBase(object):
 
         # Read the porttab file and generate dicts
         # with mapping for future reference.
-        #
-        # TODO: Refactor this to use the portconfig.py module that now
-        # exists as part of the sonic-config-engine package.
-        title = []
+        # XXX: move the porttab
+        # parsing stuff to a separate module, or reuse
+        # if something already exists
         for line in f:
             line.strip()
+            title = []
             if re.search("^#", line) is not None:
                 # The current format is: # name lanes alias index speed
-                # Where the ordering of the columns can vary
                 title = line.split()[1:]
                 continue
 
@@ -582,6 +623,179 @@ class SfpUtilBase(object):
 
         return sfp_data
 
+    # Read out SFP type, vendor name, PN, REV, SN from eeprom.
+    def get_transceiver_info_dict(self, port_num):
+        transceiver_info_dict = {}
+
+        if port_num in self.qsfp_ports:
+            offset = 128
+            vendor_rev_width = XCVR_HW_REV_WIDTH_QSFP
+        else:
+            offset = 0
+            vendor_rev_width = XCVR_HW_REV_WIDTH_SFP
+
+        file_path = self._get_port_eeprom_path(port_num, self.IDENTITY_EEPROM_ADDR)
+        if not self._sfp_eeprom_present(file_path, 0):
+            print("Error, file not exist %s" % file_path)
+            return None
+
+        try:
+            sysfsfile_eeprom = open(file_path, "rb")
+        except IOError:
+            print("Error: reading sysfs file %s" % file_path)
+            return None
+
+        sfpi_obj = sff8436InterfaceId()
+        if sfpi_obj is None:
+            print("Error: sfp_object open failed")
+            return None
+
+        sfp_type_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + XCVR_TYPE_OFFSET), XCVR_TYPE_WIDTH)
+        if sfp_type_raw is not None:
+            sfp_type_data = sfpi_obj.parse_sfp_type(sfp_type_raw, 0)
+        else:
+            return None
+
+        sfp_vendor_name_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + XCVR_VENDOR_NAME_OFFSET), XCVR_VENDOR_NAME_WIDTH)
+        if sfp_vendor_name_raw is not None:
+            sfp_vendor_name_data = sfpi_obj.parse_vendor_name(sfp_vendor_name_raw, 0)
+        else:
+            return None
+
+        sfp_vendor_pn_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + XCVR_VENDOR_PN_OFFSET), XCVR_VENDOR_PN_WIDTH)
+        if sfp_vendor_pn_raw is not None:
+            sfp_vendor_pn_data = sfpi_obj.parse_vendor_pn(sfp_vendor_pn_raw, 0)
+        else:
+            return None
+
+        sfp_vendor_rev_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + XCVR_HW_REV_OFFSET), vendor_rev_width)
+        if sfp_vendor_rev_raw is not None:
+            sfp_vendor_rev_data = sfpi_obj.parse_vendor_rev(sfp_vendor_rev_raw, 0)
+        else:
+            return None
+
+        sfp_vendor_sn_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + XCVR_VENDOR_SN_OFFSET), XCVR_VENDOR_SN_WIDTH)
+        if sfp_vendor_sn_raw is not None:
+            sfp_vendor_sn_data = sfpi_obj.parse_vendor_sn(sfp_vendor_sn_raw, 0)
+        else:
+            return None
+
+        try:
+            sysfsfile_eeprom.close()
+        except:
+            print("Error: file close failed")
+            return None
+
+        transceiver_info_dict['type'] = sfp_type_data['data']['type']['value']
+        transceiver_info_dict['manufacturename'] = sfp_vendor_name_data['data']['Vendor Name']['value']
+        transceiver_info_dict['modelname'] = sfp_vendor_pn_data['data']['Vendor PN']['value']
+        transceiver_info_dict['hardwarerev'] = sfp_vendor_rev_data['data']['Vendor Rev']['value']
+        transceiver_info_dict['serialnum'] = sfp_vendor_sn_data['data']['Vendor SN']['value']
+
+        #print("transceiver info succcessfully fetched")
+        return transceiver_info_dict
+        #return sfp_type_data, sfp_vendor_name_data, sfp_vendor_pn_data, sfp_vendor_rev_data, sfp_vendor_sn_data
+
+    def get_transceiver_dom_info_dict(self, port_num):
+        transceiver_dom_info_dict = {}
+
+        if port_num in self.qsfp_ports:
+            offset = 0
+            file_path = self._get_port_eeprom_path(port_num, self.IDENTITY_EEPROM_ADDR)
+            if not self._sfp_eeprom_present(file_path, 0):
+                return None
+
+            try:
+                sysfsfile_eeprom = open(file_path, "rb")
+            except IOError:
+                print("Error: reading sysfs file %s" % file_path)
+                return None
+
+            sfpd_obj = sff8436Dom()
+            if sfpd_obj is None:
+                return None
+
+            dom_temperature_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + QSFP_TEMPE_OFFSET), QSFP_TEMPE_WIDTH)
+            if dom_temperature_raw is not None:
+                dom_temperature_data = sfpd_obj.parse_temperature(dom_temperature_raw, 0)
+            else:
+                return None
+
+            dom_voltage_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + QSFP_VLOT_OFFSET), QSFP_VOLT_WIDTH)
+            if dom_voltage_raw is not None:
+                dom_voltage_data = sfpd_obj.parse_voltage(dom_voltage_raw, 0)
+            else:
+                return None
+
+            dom_channel_monitor_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + QSFP_CHANNL_MON_OFFSET), QSFP_CHANNL_MON_WIDTH)
+            if dom_channel_monitor_raw is not None:
+                dom_channel_monitor_data = sfpd_obj.parse_channel_monitor_params(dom_channel_monitor_raw, 0)
+            else:
+                return None
+
+            transceiver_dom_info_dict['rx1power'] = dom_channel_monitor_data['data']['RX1Power']['value']
+            transceiver_dom_info_dict['rx2power'] = dom_channel_monitor_data['data']['RX2Power']['value']
+            transceiver_dom_info_dict['rx3power'] = dom_channel_monitor_data['data']['RX3Power']['value']
+            transceiver_dom_info_dict['rx4power'] = dom_channel_monitor_data['data']['RX4Power']['value']
+            transceiver_dom_info_dict['tx1bias'] = dom_channel_monitor_data['data']['TX1Bias']['value']
+            transceiver_dom_info_dict['tx2bias'] = dom_channel_monitor_data['data']['TX2Bias']['value']
+            transceiver_dom_info_dict['tx3bias'] = dom_channel_monitor_data['data']['TX3Bias']['value']
+            transceiver_dom_info_dict['tx4bias'] = dom_channel_monitor_data['data']['TX4Bias']['value']
+
+        else:
+            offset = 256
+            file_path = self._get_port_eeprom_path(port_num, self.DOM_EEPROM_ADDR)
+            if not self._sfp_eeprom_present(file_path, 0):
+                return None
+
+            try:
+                sysfsfile_eeprom = open(file_path, "rb")
+            except IOError:
+                print("Error: reading sysfs file %s" % file_path)
+                return None
+
+            sfpd_obj = sff8472Dom()
+            if sfpd_obj is None:
+                return None
+
+            dom_temperature_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + SFP_TEMPE_OFFSET), SFP_TEMPE_WIDTH)
+            if dom_temperature_raw is not None:
+                dom_temperature_data = sfpd_obj.parse_temperature(dom_temperature_raw, 0)
+            else:
+                return None
+
+            dom_voltage_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + SFP_VLOT_OFFSET), SFP_VOLT_WIDTH)
+            if dom_voltage_raw is not None:
+                dom_voltage_data = sfpd_obj.parse_voltage(dom_voltage_raw, 0)
+            else:
+                return None
+
+            dom_channel_monitor_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + SFP_CHANNL_MON_OFFSET), SFP_CHANNL_MON_WIDTH)
+            if dom_channel_monitor_raw is not None:
+                dom_channel_monitor_data = sfpd_obj.parse_channel_monitor_params(dom_channel_monitor_raw, 0)
+            else:
+                return None
+
+            transceiver_dom_info_dict['rx1power'] = dom_channel_monitor_data['data']['RXPower']['value']
+            transceiver_dom_info_dict['rx2power'] = ''
+            transceiver_dom_info_dict['rx3power'] = ''
+            transceiver_dom_info_dict['rx4power'] = ''
+            transceiver_dom_info_dict['tx1bias'] = dom_channel_monitor_data['data']['TXBias']['value']
+            transceiver_dom_info_dict['tx2bias'] = ''
+            transceiver_dom_info_dict['tx3bias'] = ''
+            transceiver_dom_info_dict['tx4bias'] = ''
+
+        try:
+            sysfsfile_eeprom.close()
+        except:
+            return None
+
+        transceiver_dom_info_dict['temperature'] = dom_temperature_data['data']['Temperature']['value']
+        transceiver_dom_info_dict['voltage'] = dom_voltage_data['data']['Vcc']['value']
+
+        return transceiver_dom_info_dict
+        #return dom_temperature_data, dom_voltage_data, dom_channel_monitor_data
+
     @abc.abstractmethod
     def get_presence(self, port_num):
         """
@@ -613,4 +827,14 @@ class SfpUtilBase(object):
         :param port_num: Integer, index of physical port
         :returns: Boolean, True if reset successful, False if not
         """
+        return
+
+    @abc.abstractmethod
+    def get_transceiver_change_event(self, timeout=0):
+        """
+        :param timeout
+		:returns: Boolean, True if call successful, False if not;
+        dict for pysical interface number and the SFP status,
+		status='1' represent plug in, '0' represent plug out like {'0': '1', '31':'0'}
+    """
         return
