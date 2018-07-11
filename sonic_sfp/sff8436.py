@@ -366,15 +366,15 @@ class sff8436InterfaceId(sffbase):
 
     sfp_type = {
         'type':
-            {'offset':0,
-             'size':1,
-             'type' : 'enum',
-             'decode' : type_of_transceiver}
+            {'offset': 0,
+             'size': 1,
+             'type': 'enum',
+             'decode': type_of_transceiver}
         }
 
     vendor_name = {
         'Vendor Name':
-            {'offset' : 0,
+            {'offset': 0,
              'size': 16,
              'type': 'str'}
         }
@@ -382,22 +382,22 @@ class sff8436InterfaceId(sffbase):
     vendor_pn = {
         'Vendor PN':
             {'offset': 0,
-             'size'  : 16,
-             'type'  : 'str'}
+             'size': 16,
+             'type': 'str'}
         }
 
     vendor_rev = {
         'Vendor Rev':
             {'offset': 0,
-             'size'  : 2,
-             'type'  : 'str'}
+             'size': 2,
+             'type': 'str'}
         }
 
     vendor_sn = {
         'Vendor SN':
             {'offset': 0,
-             'size'  : 16,
-             'type'  : 'str'}
+             'size': 16,
+             'type': 'str'}
         }
 
     def __init__(self, eeprom_raw_data=None):
@@ -976,61 +976,61 @@ class sff8436Dom(sffbase):
 # TO DO: find a way to reuse the definitions in above code, need refactor
     dom_module_temperature = {
         'Temperature':
-            {'offset':0,
-             'size':2,
+            {'offset': 0,
+             'size': 2,
              'type': 'func',
-             'decode': {'func':calc_temperature}}
+             'decode': {'func': calc_temperature}}
         }
 
     dom_module_voltage = {
         'Vcc':
-            {'offset':0,
-             'size':2,
+            {'offset': 0,
+             'size': 2,
              'type': 'func',
-             'decode': { 'func':calc_voltage}}
+             'decode': {'func': calc_voltage}}
         }
 
     dom_channel_monitor_params = {
         'RX1Power':
-            {'offset':0,
-             'size':2,
+            {'offset': 0,
+             'size': 2,
              'type': 'func',
-             'decode': { 'func':calc_rx_power}},
+             'decode': {'func': calc_rx_power}},
         'RX2Power':
-            {'offset':2,
-             'size':2,
+            {'offset': 2,
+             'size': 2,
              'type': 'func',
-             'decode': { 'func':calc_rx_power}},
+             'decode': {'func': calc_rx_power}},
         'RX3Power':
-            {'offset':4,
-             'size':2,
+            {'offset': 4,
+             'size': 2,
              'type': 'func',
-             'decode': { 'func':calc_rx_power}},
+             'decode': {'func': calc_rx_power}},
         'RX4Power':
-            {'offset':6,
-             'size':2,
+            {'offset': 6,
+             'size': 2,
              'type': 'func',
-             'decode': { 'func':calc_rx_power}},
+             'decode': {'func': calc_rx_power}},
         'TX1Bias':
-            {'offset':8,
-             'size':2,
+            {'offset': 8,
+             'size': 2,
              'type': 'func',
-             'decode': { 'func':calc_bias}},
+             'decode': {'func': calc_bias}},
         'TX2Bias':
-            {'offset':10,
-             'size':2,
+            {'offset': 10,
+             'size': 2,
              'type': 'func',
-             'decode': { 'func':calc_bias}},
+             'decode': {'func': calc_bias}},
         'TX3Bias':
-            {'offset':12,
-             'size':2,
+            {'offset': 12,
+             'size': 2,
              'type': 'func',
-             'decode': { 'func':calc_bias}},
+             'decode': {'func': calc_bias}},
         'TX4Bias':
-            {'offset':14,
-             'size':2,
+            {'offset': 14,
+             'size': 2,
              'type': 'func',
-             'decode': { 'func':calc_bias}}
+             'decode': {'func': calc_bias}}
         }
 
     def __init__(self, eeprom_raw_data=None, calibration_type=1):

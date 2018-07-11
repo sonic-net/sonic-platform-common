@@ -428,24 +428,24 @@ class sff8472InterfaceId(sffbase):
 # Parser for specific values that interested by SNMP
     sfp_type = {
         'type':
-            {'offset':0,
-             'size':1,
-             'type':'enum',
-             'decode':type_of_transceiver}
+            {'offset': 0,
+             'size': 1,
+             'type': 'enum',
+             'decode': type_of_transceiver}
         }
 
     vendor_name = {
         'Vendor Name':
             {'offset': 0,
-             'size':16,
-             'type':'str'}
+             'size': 16,
+             'type': 'str'}
         }
 
     vendor_pn = {
         'Vendor PN':
             {'offset': 0,
              'size': 16,
-             'type':'str'}
+             'type': 'str'}
         }
 
     vendor_rev = {
@@ -459,7 +459,7 @@ class sff8472InterfaceId(sffbase):
         'Vendor SN':
                 {'offset': 0,
                  'size': 16,
-                 'type':'str'}
+                 'type': 'str'}
         }
 
     # Returns calibration type
@@ -1079,36 +1079,36 @@ class sff8472Dom(sffbase):
 # parsers for specific values that interested by SNMP
     dom_module_temperature = {
         'Temperature':
-            {'offset':0,
-             'size':2,
-             'type':'func',
-             'decode':{'func':calc_temperature}}
+            {'offset': 0,
+             'size': 2,
+             'type': 'func',
+             'decode': {'func': calc_temperature}}
         }
 
     dom_module_voltage = {
         'Vcc':
-            {'offset':0,
-             'size':2,
-             'type':'func',
-             'decode':{'func':calc_voltage}}
+            {'offset': 0,
+             'size': 2,
+             'type': 'func',
+             'decode': {'func':calc_voltage}}
         }
 
     dom_channel_monitor_params = {
         'TXBias':
-            {'offset':0,
-             'size':2,
-             'type':'func',
-             'decode':{'func':calc_bias}},
+            {'offset': 0,
+             'size': 2,
+             'type': 'func',
+             'decode': {'func': calc_bias}},
         'TXPower':
-            {'offset':2,
-             'size':2,
-             'type':'func',
-             'decode': {'func':calc_tx_power}},
+            {'offset': 2,
+             'size': 2,
+             'type': 'func',
+             'decode': {'func': calc_tx_power}},
         'RXPower':
-            {'offset':4,
-             'size':2,
-             'type':'func',
-             'decode': {'func':calc_rx_power}}
+            {'offset': 4,
+             'size': 2,
+             'type': 'func',
+             'decode': {'func': calc_rx_power}}
         }
 
     def __init__(self, eeprom_raw_data=None, calibration_type=0):

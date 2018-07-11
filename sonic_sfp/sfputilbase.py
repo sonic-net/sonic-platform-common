@@ -310,14 +310,15 @@ class SfpUtilBase(object):
 
         # Read the porttab file and generate dicts
         # with mapping for future reference.
-        # XXX: move the porttab
-        # parsing stuff to a separate module, or reuse
-        # if something already exists
+        #
+        # TODO: Refactor this to use the portconfig.py module that now
+        # exists as part of the sonic-config-engine package.
+        title = []
         for line in f:
             line.strip()
-            title = []
             if re.search("^#", line) is not None:
                 # The current format is: # name lanes alias index speed
+                # Where the ordering of the columns can vary
                 title = line.split()[1:]
                 continue
 
@@ -682,8 +683,8 @@ class SfpUtilBase(object):
 
         try:
             sysfsfile_eeprom.close()
-        except:
-            print("Error: file close failed")
+        except IOError:
+            print("Error: closing sysfs file %s" % file_path")
             return None
 
         transceiver_info_dict['type'] = sfp_type_data['data']['type']['value']
@@ -692,9 +693,7 @@ class SfpUtilBase(object):
         transceiver_info_dict['hardwarerev'] = sfp_vendor_rev_data['data']['Vendor Rev']['value']
         transceiver_info_dict['serialnum'] = sfp_vendor_sn_data['data']['Vendor SN']['value']
 
-        #print("transceiver info succcessfully fetched")
         return transceiver_info_dict
-        #return sfp_type_data, sfp_vendor_name_data, sfp_vendor_pn_data, sfp_vendor_rev_data, sfp_vendor_sn_data
 
     def get_transceiver_dom_info_dict(self, port_num):
         transceiver_dom_info_dict = {}
@@ -787,14 +786,14 @@ class SfpUtilBase(object):
 
         try:
             sysfsfile_eeprom.close()
-        except:
+        except IOError:
+            print("Error: closing sysfs file %s" % file_path)
             return None
 
         transceiver_dom_info_dict['temperature'] = dom_temperature_data['data']['Temperature']['value']
         transceiver_dom_info_dict['voltage'] = dom_voltage_data['data']['Vcc']['value']
 
         return transceiver_dom_info_dict
-        #return dom_temperature_data, dom_voltage_data, dom_channel_monitor_data
 
     @abc.abstractmethod
     def get_presence(self, port_num):
@@ -833,8 +832,8 @@ class SfpUtilBase(object):
     def get_transceiver_change_event(self, timeout=0):
         """
         :param timeout
-		:returns: Boolean, True if call successful, False if not;
+        :returns: Boolean, True if call successful, False if not;
         dict for pysical interface number and the SFP status,
-		status='1' represent plug in, '0' represent plug out like {'0': '1', '31':'0'}
+        status='1' represent plug in, '0' represent plug out like {'0': '1', '31':'0'}
     """
         return
