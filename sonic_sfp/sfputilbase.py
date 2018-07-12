@@ -835,5 +835,5 @@ class SfpUtilBase(object):
         :returns: Boolean, True if call successful, False if not;
         dict for pysical interface number and the SFP status,
         status='1' represent plug in, '0' represent plug out like {'0': '1', '31':'0'}
-    """
+        """
         return
