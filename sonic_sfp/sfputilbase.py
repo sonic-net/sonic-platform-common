@@ -732,6 +732,12 @@ class SfpUtilBase(object):
             else:
                 return None
 
+            try:
+                sysfsfile_eeprom.close()
+            except IOError:
+                print("Error: closing sysfs file %s" % file_path)
+                return None
+
             transceiver_dom_info_dict['rx1power'] = dom_channel_monitor_data['data']['RX1Power']['value']
             transceiver_dom_info_dict['rx2power'] = dom_channel_monitor_data['data']['RX2Power']['value']
             transceiver_dom_info_dict['rx3power'] = dom_channel_monitor_data['data']['RX3Power']['value']
@@ -775,6 +781,12 @@ class SfpUtilBase(object):
             else:
                 return None
 
+            try:
+                sysfsfile_eeprom.close()
+            except IOError:
+                print("Error: closing sysfs file %s" % file_path)
+                return None
+
             transceiver_dom_info_dict['rx1power'] = dom_channel_monitor_data['data']['RXPower']['value']
             transceiver_dom_info_dict['rx2power'] = 'N/A'
             transceiver_dom_info_dict['rx3power'] = 'N/A'
@@ -783,12 +795,6 @@ class SfpUtilBase(object):
             transceiver_dom_info_dict['tx2bias'] = 'N/A'
             transceiver_dom_info_dict['tx3bias'] = 'N/A'
             transceiver_dom_info_dict['tx4bias'] = 'N/A'
-
-        try:
-            sysfsfile_eeprom.close()
-        except IOError:
-            print("Error: closing sysfs file %s" % file_path)
-            return None
 
         transceiver_dom_info_dict['temperature'] = dom_temperature_data['data']['Temperature']['value']
         transceiver_dom_info_dict['voltage'] = dom_voltage_data['data']['Vcc']['value']
