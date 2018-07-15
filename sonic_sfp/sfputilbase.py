@@ -31,14 +31,19 @@ XCVR_HW_REV_WIDTH_QSFP = 2
 XCVR_HW_REV_WIDTH_SFP = 4
 XCVR_VENDOR_SN_OFFSET = 68
 XCVR_VENDOR_SN_WIDTH = 16
+XCVR_DOM_CAPABILITY_OFFSET = 92
+XCVR_DOM_CAPABILITY_WIDTH = 1
 
 #definitions of the offset and width for values in DOM info eeprom
+QSFP_DOM_REV_OFFSET = 1
+QSFP_DOM_REV_WIDTH = 1
 QSFP_TEMPE_OFFSET = 22
 QSFP_TEMPE_WIDTH = 2
 QSFP_VLOT_OFFSET = 26
 QSFP_VOLT_WIDTH = 2
 QSFP_CHANNL_MON_OFFSET = 34
 QSFP_CHANNL_MON_WIDTH = 16
+QSFP_CHANNL_MON_WITH_TX_POWER_WIDTH = 24
 
 SFP_TEMPE_OFFSET = 96
 SFP_TEMPE_WIDTH = 2
@@ -700,6 +705,7 @@ class SfpUtilBase(object):
 
         if port_num in self.qsfp_ports:
             offset = 0
+            offset_xcvr = 128
             file_path = self._get_port_eeprom_path(port_num, self.IDENTITY_EEPROM_ADDR)
             if not self._sfp_eeprom_present(file_path, 0):
                 return None
@@ -714,6 +720,20 @@ class SfpUtilBase(object):
             if sfpd_obj is None:
                 return None
 
+            sfpi_obj = sff8436InterfaceId()
+            if sfpi_obj is None:
+                return None
+
+            # QSFP capability byte parse, through this byte can know whether it support tx_power or not.
+            # TODO: in the future when decided to migarate to support SFF-8636 instead of SFF-8436, 
+            # need to add more code for determining the capability and version compliance
+            # in SFF-8636 dom capability definitions evolving with the version.
+            qsfp_dom_capability_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset_xcvr + XCVR_DOM_CAPABILITY_OFFSET), XCVR_DOM_CAPABILITY_WIDTH)
+            if qsfp_dom_capability_raw is not None:
+                qspf_dom_capability_data = sfpi_obj.parse_qsfp_dom_capability(qsfp_dom_capability_raw, 0)
+            else:
+                return None
+
             dom_temperature_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + QSFP_TEMPE_OFFSET), QSFP_TEMPE_WIDTH)
             if dom_temperature_raw is not None:
                 dom_temperature_data = sfpd_obj.parse_temperature(dom_temperature_raw, 0)
@@ -726,11 +746,42 @@ class SfpUtilBase(object):
             else:
                 return None
 
-            dom_channel_monitor_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + QSFP_CHANNL_MON_OFFSET), QSFP_CHANNL_MON_WIDTH)
-            if dom_channel_monitor_raw is not None:
-                dom_channel_monitor_data = sfpd_obj.parse_channel_monitor_params(dom_channel_monitor_raw, 0)
+            qsfp_dom_rev_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + QSFP_DOM_REV_OFFSET), QSFP_DOM_REV_WIDTH)
+            if qsfp_dom_rev_raw is not None:
+                qsfp_dom_rev_data = sfpd_obj.parse_sfp_dom_rev(qsfp_dom_rev_raw, 0)
             else:
                 return None
+
+            transceiver_dom_info_dict['temperature'] = dom_temperature_data['data']['Temperature']['value']
+            transceiver_dom_info_dict['voltage'] = dom_voltage_data['data']['Vcc']['value']
+
+            # The tx_power monitoring is only available on QSFP which compliant with SFF-8636
+            # and claimed that it support tx_power with one indicator bit.
+            dom_channel_monitor_data = {}
+            qsfp_dom_rev = qsfp_dom_rev_data['data']['dom_rev']['value']
+            qsfp_tx_power_support = qspf_dom_capability_data['data']['Tx_power_support']['value']
+            if (qsfp_dom_rev[0:8] != 'SFF-8636' or (qsfp_dom_rev[0:8] == 'SFF-8636' and qsfp_tx_power_support != 'on')):
+                dom_channel_monitor_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + QSFP_CHANNL_MON_OFFSET), QSFP_CHANNL_MON_WIDTH)
+                if dom_channel_monitor_raw is not None:
+                    dom_channel_monitor_data = sfpd_obj.parse_channel_monitor_params(dom_channel_monitor_raw, 0)
+                else:
+                    return None
+
+                transceiver_dom_info_dict['tx1power'] = 'N/A'
+                transceiver_dom_info_dict['tx2power'] = 'N/A'
+                transceiver_dom_info_dict['tx3power'] = 'N/A'
+                transceiver_dom_info_dict['tx4power'] = 'N/A'
+            else:
+                dom_channel_monitor_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + QSFP_CHANNL_MON_OFFSET), QSFP_CHANNL_MON_WITH_TX_POWER_WIDTH)
+                if dom_channel_monitor_raw is not None:
+                    dom_channel_monitor_data = sfpd_obj.parse_channel_monitor_params_with_tx_power(dom_channel_monitor_raw, 0)
+                else:
+                    return None
+
+                transceiver_dom_info_dict['tx1power'] = dom_channel_monitor_data['data']['TX1Power']['value']
+                transceiver_dom_info_dict['tx2power'] = dom_channel_monitor_data['data']['TX2Power']['value']
+                transceiver_dom_info_dict['tx3power'] = dom_channel_monitor_data['data']['TX3Power']['value']
+                transceiver_dom_info_dict['tx4power'] = dom_channel_monitor_data['data']['TX4Power']['value']
 
             try:
                 sysfsfile_eeprom.close()
@@ -738,6 +789,8 @@ class SfpUtilBase(object):
                 print("Error: closing sysfs file %s" % file_path)
                 return None
 
+            transceiver_dom_info_dict['temperature'] = dom_temperature_data['data']['Temperature']['value']
+            transceiver_dom_info_dict['voltage'] = dom_voltage_data['data']['Vcc']['value']
             transceiver_dom_info_dict['rx1power'] = dom_channel_monitor_data['data']['RX1Power']['value']
             transceiver_dom_info_dict['rx2power'] = dom_channel_monitor_data['data']['RX2Power']['value']
             transceiver_dom_info_dict['rx3power'] = dom_channel_monitor_data['data']['RX3Power']['value']
@@ -787,6 +840,8 @@ class SfpUtilBase(object):
                 print("Error: closing sysfs file %s" % file_path)
                 return None
 
+            transceiver_dom_info_dict['temperature'] = dom_temperature_data['data']['Temperature']['value']
+            transceiver_dom_info_dict['voltage'] = dom_voltage_data['data']['Vcc']['value']
             transceiver_dom_info_dict['rx1power'] = dom_channel_monitor_data['data']['RXPower']['value']
             transceiver_dom_info_dict['rx2power'] = 'N/A'
             transceiver_dom_info_dict['rx3power'] = 'N/A'
@@ -795,9 +850,10 @@ class SfpUtilBase(object):
             transceiver_dom_info_dict['tx2bias'] = 'N/A'
             transceiver_dom_info_dict['tx3bias'] = 'N/A'
             transceiver_dom_info_dict['tx4bias'] = 'N/A'
-
-        transceiver_dom_info_dict['temperature'] = dom_temperature_data['data']['Temperature']['value']
-        transceiver_dom_info_dict['voltage'] = dom_voltage_data['data']['Vcc']['value']
+            transceiver_dom_info_dict['tx1power'] = dom_channel_monitor_data['data']['TXPower']['value']
+            transceiver_dom_info_dict['tx2power'] = 'N/A'
+            transceiver_dom_info_dict['tx3power'] = 'N/A'
+            transceiver_dom_info_dict['tx4power'] = 'N/A'
 
         return transceiver_dom_info_dict
 

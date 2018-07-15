@@ -400,6 +400,26 @@ class sff8436InterfaceId(sffbase):
              'type': 'str'}
         }
 
+    qsfp_dom_capability = {
+        'Tx_power_support':
+            {'offset': 0,
+             'bit': 2,
+             'type': 'bitvalue'},
+        'Rx_power_support':
+            {'offset': 0,
+             'bit': 3,
+             'type': 'bitvalue'},
+        'Voltage_support':
+            {'offset': 0,
+             'bit': 4,
+             'type': 'bitvalue'},
+        'Temp_support':
+            {'offset': 0,
+             'bit': 5,
+             'type': 'bitvalue'}
+        }
+    
+
     def __init__(self, eeprom_raw_data=None):
         self.interface_data = None
         start_pos = 128
@@ -427,6 +447,9 @@ class sff8436InterfaceId(sffbase):
 
     def parse_vendor_sn(self, sn_raw_data, start_pos):
         return sffbase.parse(self, self.vendor_sn, sn_raw_data, start_pos)
+
+    def parse_qsfp_dom_capability(self, sn_raw_data, start_pos):
+        return sffbase.parse(self, self.qsfp_dom_capability, sn_raw_data, start_pos)
 
     def dump_pretty(self):
         if self.interface_data == None:
@@ -689,7 +712,6 @@ class sff8436Dom(sffbase):
             retval = str(err)
 
         return retval
-
 
     dom_status_indicator = {'DataNotReady':
                 {'offset': 2,
@@ -974,6 +996,25 @@ class sff8436Dom(sffbase):
 
 # new added parser for some specific values interested by SNMP
 # TO DO: find a way to reuse the definitions in above code, need refactor
+    revision_compliance = {
+        '00': 'Revision not specified',
+        '01': 'SFF-8436 Rev 4.8',
+        '02': 'SFF-8436 Rev 4.8 with extra bytes support',
+        '03': 'SFF-8636 Rev 1.3',
+        '04': 'SFF-8636 Rev 1.4',
+        '05': 'SFF-8636 Rev 1.5',
+        '06': 'SFF-8636 Rev 2.0',
+        '07': 'SFF-8636 Rev 2.5'
+        }
+
+    sfp_dom_rev = {
+        'dom_rev':
+            {'offset': 0,
+             'size': 1,
+             'type': 'enum',
+             'decode': revision_compliance}
+        }
+
     dom_module_temperature = {
         'Temperature':
             {'offset': 0,
@@ -1033,6 +1074,69 @@ class sff8436Dom(sffbase):
              'decode': {'func': calc_bias}}
         }
 
+    dom_channel_monitor_params_with_tx_power = {
+        'RX1Power':
+            {'offset': 0,
+             'size': 2,
+             'type': 'func',
+             'decode': {'func': calc_rx_power}},
+        'RX2Power':
+            {'offset': 2,
+             'size': 2,
+             'type': 'func',
+             'decode': {'func': calc_rx_power}},
+        'RX3Power':
+            {'offset': 4,
+             'size': 2,
+             'type': 'func',
+             'decode': {'func': calc_rx_power}},
+        'RX4Power':
+            {'offset': 6,
+             'size': 2,
+             'type': 'func',
+             'decode': {'func': calc_rx_power}},
+        'TX1Bias':
+            {'offset': 8,
+             'size': 2,
+             'type': 'func',
+             'decode': {'func': calc_bias}},
+        'TX2Bias':
+            {'offset': 10,
+             'size': 2,
+             'type': 'func',
+             'decode': {'func': calc_bias}},
+        'TX3Bias':
+            {'offset': 12,
+             'size': 2,
+             'type': 'func',
+             'decode': {'func': calc_bias}},
+        'TX4Bias':
+            {'offset': 14,
+             'size': 2,
+             'type': 'func',
+             'decode': {'func': calc_bias}},
+        'TX1Power':
+            {'offset': 0,
+             'size': 2,
+             'type': 'func',
+             'decode': {'func': calc_tx_power}},
+        'TX2Power':
+            {'offset': 2,
+             'size': 2,
+             'type': 'func',
+             'decode': {'func': calc_tx_power}},
+        'TX3Power':
+            {'offset': 4,
+             'size': 2,
+             'type': 'func',
+             'decode': {'func': calc_tx_power}},
+        'TX4Power':
+            {'offset': 6,
+             'size': 2,
+             'type': 'func',
+             'decode': {'func': calc_tx_power}}
+        }
+
     def __init__(self, eeprom_raw_data=None, calibration_type=1):
         self._calibration_type = calibration_type
         start_pos = 0
@@ -1046,6 +1150,9 @@ class sff8436Dom(sffbase):
                     start_pos)
 
 # Parser functions for specific values interested by SNMP
+    def parse_sfp_dom_rev(self, type_raw_data, start_pos):
+        return sffbase.parse(self, self.sfp_dom_rev, type_raw_data, start_pos)
+
     def parse_temperature(self, eeprom_raw_data, start_pos):
         return sffbase.parse(self, self.dom_module_temperature, eeprom_raw_data,
                     start_pos)
@@ -1056,6 +1163,10 @@ class sff8436Dom(sffbase):
 
     def parse_channel_monitor_params(self, eeprom_raw_data, start_pos):
         return sffbase.parse(self, self.dom_channel_monitor_params, eeprom_raw_data,
+                    start_pos)
+
+    def parse_channel_monitor_params_with_tx_power(self, eeprom_raw_data, start_pos):
+        return sffbase.parse(self, self.dom_channel_monitor_params_with_tx_power, eeprom_raw_data,
                     start_pos)
 
     def dump_pretty(self):
