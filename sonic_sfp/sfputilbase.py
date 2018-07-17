@@ -725,9 +725,9 @@ class SfpUtilBase(object):
                 return None
 
             # QSFP capability byte parse, through this byte can know whether it support tx_power or not.
-            # TODO: in the future when decided to migarate to support SFF-8636 instead of SFF-8436, 
+            # TODO: in the future when decided to migrate to support SFF-8636 instead of SFF-8436,
             # need to add more code for determining the capability and version compliance
-            # in SFF-8636 dom capability definitions evolving with the version.
+            # in SFF-8636 dom capability definitions evolving with the versions.
             qsfp_dom_capability_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset_xcvr + XCVR_DOM_CAPABILITY_OFFSET), XCVR_DOM_CAPABILITY_WIDTH)
             if qsfp_dom_capability_raw is not None:
                 qspf_dom_capability_data = sfpi_obj.parse_qsfp_dom_capability(qsfp_dom_capability_raw, 0)
