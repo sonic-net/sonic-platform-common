@@ -9,6 +9,8 @@
 # 'burn' as a data name indicates the corresponding number of bytes are to
 # be ignored
 
+from __future__ import print_function
+
 try:
     import exceptions
     import binascii
@@ -16,7 +18,7 @@ try:
     import os
     import sys
     import eeprom_base
-except ImportError, e:
+except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
 
 
@@ -84,27 +86,27 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
         '''
         if self._TLV_HDR_ENABLED :
             if not self.is_valid_tlvinfo_header(e):
-                print "EEPROM does not contain data in a valid TlvInfo format."
+                print("EEPROM does not contain data in a valid TlvInfo format.")
                 return
 
-            print "TlvInfo Header:"
-            print "   Id String:    %s" % (e[0:7],)
-            print "   Version:      %d" % (ord(e[8]),)
+            print("TlvInfo Header:")
+            print("   Id String:    %s" % (e[0:7],))
+            print("   Version:      %d" % (ord(e[8]),))
             total_len = (ord(e[9]) << 8) | ord(e[10])
-            print "   Total Length: %d" % (total_len,)
+            print("   Total Length: %d" % (total_len,))
             tlv_index = self._TLV_INFO_HDR_LEN
             tlv_end   = self._TLV_INFO_HDR_LEN + total_len
         else :
             tlv_index = self.eeprom_start
             tlv_end   = self._TLV_INFO_MAX_LEN
 
-        print "TLV Name             Code Len Value"
-        print "-------------------- ---- --- -----"
+        print("TLV Name             Code Len Value")
+        print("-------------------- ---- --- -----")
         while (tlv_index + 2) < len(e) and tlv_index < tlv_end:
             if not self.is_valid_tlv(e[tlv_index:]):
-                print "Invalid TLV field starting at EEPROM offset %d" % (tlv_index,)
+                print("Invalid TLV field starting at EEPROM offset %d" % (tlv_index,))
                 return
-            print self.decoder(None, e[tlv_index:tlv_index + 2 + ord(e[tlv_index + 1])])
+            print(self.decoder(None, e[tlv_index:tlv_index + 2 + ord(e[tlv_index + 1])]))
             if ord(e[tlv_index]) == self._TLV_CODE_QUANTA_CRC or \
                ord(e[tlv_index]) == self._TLV_CODE_CRC_32:
                 return
@@ -175,7 +177,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
                 elif action in ['f', 'F']:
                     pass
                 else:
-                    print "\nInvalid input, please enter 'a', 'm', 'd', or 'f'\n"
+                    print("\nInvalid input, please enter 'a', 'm', 'd', or 'f'\n")
 
         if self._TLV_HDR_ENABLED:
             new_tlvs_len = len(new_tlvs) + 6
@@ -190,7 +192,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
         elif self._TLV_CODE_QUANTA_CRC != self._TLV_CODE_UNDEFINED:
             new_e = new_e + chr(self._TLV_CODE_QUANTA_CRC) + chr(2)
         else:
-            print "\nFailed to formulate new eeprom\n"
+            print("\nFailed to formulate new eeprom\n")
             exit
         new_e += self.encode_checksum(self.calculate_checksum(new_e))
         self.decode_eeprom(new_e)

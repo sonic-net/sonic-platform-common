@@ -6,7 +6,7 @@ try:
     import exceptions
     import binascii
     import subprocess
-except ImportError, e:
+except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
 
 i2c_root = '/sys/class/i2c-adapter/'
@@ -38,7 +38,7 @@ def get_dev_attr_from_dtb(tokens):
                               shell=False, stderr=subprocess.STDOUT)
         cmdout = ph.communicate()[0]
         ph.wait()
-    except OSError, e:
+    except OSError as e:
         raise OSError("cannot access directory")
 
     lines = cmdout.splitlines()
@@ -101,7 +101,7 @@ def get_dev_attr_from_dtb(tokens):
                               shell=False, stderr=subprocess.STDOUT)
         cmdout = ph.communicate()[0]
         ph.wait()
-    except OSError, e:
+    except OSError as e:
         raise OSError("cannot access directory")
 
     lines = cmdout.splitlines()
