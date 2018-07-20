@@ -689,7 +689,7 @@ class SfpUtilBase(object):
         try:
             sysfsfile_eeprom.close()
         except IOError:
-            print("Error: closing sysfs file %s" % file_path")
+            print("Error: closing sysfs file %s" % file_path)
             return None
 
         transceiver_info_dict['type'] = sfp_type_data['data']['type']['value']
