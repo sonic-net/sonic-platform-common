@@ -345,7 +345,7 @@ class sff8472InterfaceId(sffbase):
                  'size' : 16,
                  'type' : 'str'},
             'VendorOUI':
-                {'offset':20,
+                {'offset':37,
                  'size':3,
                  'type' : 'str'},
             'VendorPN':
@@ -425,6 +425,43 @@ class sff8472InterfaceId(sffbase):
                 'size':8,
                 'type': 'date'}}
 
+# Parser for specific values that interested by SNMP
+    sfp_type = {
+        'type':
+            {'offset': 0,
+             'size': 1,
+             'type': 'enum',
+             'decode': type_of_transceiver}
+        }
+
+    vendor_name = {
+        'Vendor Name':
+            {'offset': 0,
+             'size': 16,
+             'type': 'str'}
+        }
+
+    vendor_pn = {
+        'Vendor PN':
+            {'offset': 0,
+             'size': 16,
+             'type': 'str'}
+        }
+
+    vendor_rev = {
+        'Vendor Rev':
+            {'offset': 0,
+             'size': 4,
+             'type': 'str'}
+        }
+
+    vendor_sn = {
+        'Vendor SN':
+                {'offset': 0,
+                 'size': 16,
+                 'type': 'str'}
+        }
+
     # Returns calibration type
     def _get_calibration_type(self, eeprom_data):
         try:
@@ -452,6 +489,22 @@ class sff8472InterfaceId(sffbase):
     def parse(self, eeprom_raw_data, start_pos):
         return sffbase.parse(self, self.interface_id, eeprom_raw_data, start_pos)
 
+#new parser functions for specific values that interested by SNMP
+    def parse_sfp_type(self, type_raw_data, start_pos):
+        return sffbase.parse(self, self.sfp_type, type_raw_data, start_pos)
+
+    def parse_vendor_name(self, name_raw_data, start_pos):
+        return sffbase.parse(self, self.vendor_name, name_raw_data, start_pos)
+
+    def parse_vendor_rev(self, rev_raw_data, start_pos):
+        return sffbase.parse(self, self.vendor_rev, rev_raw_data, start_pos)
+
+    def parse_vendor_pn(self, pn_raw_data, start_pos):
+        return sffbase.parse(self, self.vendor_pn, pn_raw_data, start_pos)
+
+    def parse_vendor_sn(self, sn_raw_data, start_pos):
+        return sffbase.parse(self, self.vendor_sn, sn_raw_data, start_pos)
+
     def dump_pretty(self):
         if self.interface_data == None:
             print('Object not initialized, nothing to print')
@@ -466,7 +519,6 @@ class sff8472InterfaceId(sffbase):
 
     def get_data_pretty(self):
         return sffbase.get_data_pretty(self, self.interface_data)
-
 
 class sff8472Dom(sffbase):
     """Parser and interpretor for Diagnostics data fields at address A2h"""
@@ -683,7 +735,6 @@ class sff8472Dom(sffbase):
                 retval = str(err)
 
         return retval
-
 
     def calc_rx_power(self, eeprom_data, offset, size):
         try:
@@ -1025,6 +1076,40 @@ class sff8472Dom(sffbase):
              'type' : 'nested',
              'decode':dom_warning_flags}}
 
+# parsers for specific values that interested by SNMP
+    dom_module_temperature = {
+        'Temperature':
+            {'offset': 0,
+             'size': 2,
+             'type': 'func',
+             'decode': {'func': calc_temperature}}
+        }
+
+    dom_module_voltage = {
+        'Vcc':
+            {'offset': 0,
+             'size': 2,
+             'type': 'func',
+             'decode': {'func':calc_voltage}}
+        }
+
+    dom_channel_monitor_params = {
+        'TXBias':
+            {'offset': 0,
+             'size': 2,
+             'type': 'func',
+             'decode': {'func': calc_bias}},
+        'TXPower':
+            {'offset': 2,
+             'size': 2,
+             'type': 'func',
+             'decode': {'func': calc_tx_power}},
+        'RXPower':
+            {'offset': 4,
+             'size': 2,
+             'type': 'func',
+             'decode': {'func': calc_rx_power}}
+        }
 
     def __init__(self, eeprom_raw_data=None, calibration_type=0):
         self._calibration_type = calibration_type
@@ -1037,6 +1122,18 @@ class sff8472Dom(sffbase):
     def parse(self, eeprom_raw_data, start_pos):
         return sffbase.parse(self, self.dom_map, eeprom_raw_data, start_pos)
 
+# parser functions for specific values interested by SNMP
+    def parse_temperature(self, eeprom_raw_data, start_pos):
+        return sffbase.parse(self, self.dom_module_temperature, eeprom_raw_data,
+                    start_pos)
+
+    def parse_voltage(self, eeprom_raw_data, start_pos):
+        return sffbase.parse(self, self.dom_module_voltage, eeprom_raw_data,
+                    start_pos)
+
+    def parse_channel_monitor_params(self, eeprom_raw_data, start_pos):
+        return sffbase.parse(self, self.dom_channel_monitor_params, eeprom_raw_data,
+                    start_pos)
 
     def dump_pretty(self):
         if self.dom_data == None:
