@@ -230,10 +230,22 @@ class EepromDecoder(object):
         F = self.open_eeprom()
         F.seek(self.s + offset)
         o = F.read(byteCount)
+
+        # If we read from the cache file and the byte count isn't what we
+        # expect, the file may be corrupt. Delete it and try again, this
+        # time reading from the actual EEPROM.
+        if len(o) != byteCount and not self.cache_update_needed:
+            os.remove(self.cache_name)
+            self.cache_update_needed = True
+            F.close()
+            F = self.open_eeprom()
+            F.seek(self.s + offset)
+            o = F.read(byteCount)
+
         if len(o) != byteCount:
-            raise RuntimeError("expected to read %d bytes from %s, " \
-                               %(byteCount, self.p) +
-                               "but only read %d" %(len(o)))
+            raise RuntimeError("Expected to read %d bytes from %s, "
+                               % (byteCount, self.p) +
+                               "but only read %d" % (len(o)))
         F.close()
         return o
 
