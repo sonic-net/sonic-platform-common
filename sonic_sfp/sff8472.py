@@ -347,7 +347,7 @@ class sff8472InterfaceId(sffbase):
             'VendorOUI':
                 {'offset':37,
                  'size':3,
-                 'type' : 'str'},
+                 'type' : 'hex'},
             'VendorPN':
                 {'offset':40,
                  'size':16,
