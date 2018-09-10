@@ -893,9 +893,13 @@ class SfpUtilBase(object):
     @abc.abstractmethod
     def get_transceiver_change_event(self, timeout=0):
         """
-        :param timeout
-        :returns: Boolean, True if call successful, False if not;
-        dict for pysical interface number and the SFP status,
+        :param timeout in milliseconds. The method is a blocking call. When timeout is 
+         zero, it only returns when there is change event, i.e., transceiver plug-in/out
+         event. When timeout is non-zero, the function can also return when the timer expires.
+         When timer expires, the return status is True and events is empty.
+        :returns: (status, events)
+        :status: Boolean, True if call successful, False if not;
+        :events: dictionary for pysical port index and the SFP status,
         status='1' represent plug in, '0' represent plug out like {'0': '1', '31':'0'}
         """
         return
