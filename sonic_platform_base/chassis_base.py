@@ -45,8 +45,8 @@ class ChassisBase(device_base.DeviceBase):
         Retrieves the cause of the previous reboot
 
         Returns:
-            An integer, the number of power supply units available on this
-            chassis
+            A string containing the cause of the previous reboot. This string
+            must be one of the predefined strings in this class.
         """
         return REBOOT_CAUSE_SOFTWARE
 

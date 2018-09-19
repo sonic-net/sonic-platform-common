@@ -49,9 +49,9 @@ class PsuBase(device_base.DeviceBase):
         return 0
 
     @abc.abstractmethod
-    def get_fan_expected_speed(self):
+    def get_fan_target_speed(self):
         """
-        Retrieves the expected speed of the PSU fan
+        Retrieves the target (expected) speed of the PSU fan
 
         Returns:
             An integer, the percentage of full fan speed, in the range 0 (off)
@@ -65,7 +65,7 @@ class PsuBase(device_base.DeviceBase):
         Retrieves the speed tolerance of the PSU fan
 
         Returns:
-            An integer, the percentage of variance from expected speed which is
+            An integer, the percentage of variance from target speed which is
             considered tolerable
         """
         return 0
