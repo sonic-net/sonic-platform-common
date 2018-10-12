@@ -34,7 +34,7 @@ XCVR_VENDOR_SN_WIDTH = 16
 XCVR_DOM_CAPABILITY_OFFSET = 92
 XCVR_DOM_CAPABILITY_WIDTH = 1
 
-#definitions of the offset and width for values in DOM info eeprom
+#  definitions of the offset and width for values in DOM info eeprom
 QSFP_DOM_REV_OFFSET = 1
 QSFP_DOM_REV_WIDTH = 1
 QSFP_TEMPE_OFFSET = 22
@@ -51,6 +51,7 @@ SFP_VLOT_OFFSET = 98
 SFP_VOLT_WIDTH = 2
 SFP_CHANNL_MON_OFFSET = 100
 SFP_CHANNL_MON_WIDTH = 6
+
 
 class SfpUtilError(Exception):
     """Base class for exceptions in this module."""
@@ -290,10 +291,8 @@ class SfpUtilBase(object):
         return eeprom_raw
 
     def _is_valid_port(self, port_num):
-        if port_num >= self.port_start and port_num <= self.port_end:
-            return True
 
-        return False
+        return port_num == self.port_end
 
     def read_porttab_mappings(self, porttabfile):
         logical = []
@@ -328,7 +327,7 @@ class SfpUtilBase(object):
                 continue
 
             # Parsing logic for 'port_config.ini' file
-            if (parse_fmt_port_config_ini):
+            if parse_fmt_port_config_ini:
                 # bcm_port is not explicitly listed in port_config.ini format
                 # Currently we assume ports are listed in numerical order according to bcm_port
                 # so we use the port's position in the file (zero-based) as bcm_port
@@ -350,7 +349,7 @@ class SfpUtilBase(object):
                 fp_port_index = portname.split("Ethernet").pop()
                 fp_port_index = int(fp_port_index.split("s").pop(0))/4
 
-            if ((len(self.sfp_ports) > 0) and (fp_port_index not in self.sfp_ports)):
+            if (len(self.sfp_ports) > 0) and (fp_port_index not in self.sfp_ports):
                 continue
 
             if first == 1:
@@ -435,7 +434,7 @@ class SfpUtilBase(object):
             # Some platforms have a list of physical sfp ports
             # defined. If such a list exists, check to see if this
             # port is blacklisted
-            if ((len(self.sfp_ports) > 0) and (physical_port not in self.sfp_ports)):
+            if (len(self.sfp_ports) > 0) and (physical_port not in self.sfp_ports):
                 continue
 
             if logical_port not in logical:
@@ -452,13 +451,13 @@ class SfpUtilBase(object):
             # Generate the next physical port number in the series
             # and append it to the list
             tmp_physical_port_list = phytab_mappings[logical_port]['physicalport']
-            if (type == "40G/4" and physical_port in tmp_physical_port_list):
+            if type == "40G/4" and physical_port in tmp_physical_port_list:
                 # Aha!...ganged port
                 new_physical_port = tmp_physical_port_list[-1] + 1
             else:
                 new_physical_port = physical_port
 
-            if (new_physical_port not in phytab_mappings[logical_port]['physicalport']):
+            if new_physical_port not in phytab_mappings[logical_port]['physicalport']:
                 phytab_mappings[logical_port]['physicalport'].append(new_physical_port)
             phytab_mappings[logical_port]['phyid'].append(phy_addr)
             phytab_mappings[logical_port]['bcmport'] = bcm_port
@@ -760,8 +759,9 @@ class SfpUtilBase(object):
             dom_channel_monitor_data = {}
             qsfp_dom_rev = qsfp_dom_rev_data['data']['dom_rev']['value']
             qsfp_tx_power_support = qspf_dom_capability_data['data']['Tx_power_support']['value']
-            if (qsfp_dom_rev[0:8] != 'SFF-8636' or (qsfp_dom_rev[0:8] == 'SFF-8636' and qsfp_tx_power_support != 'on')):
-                dom_channel_monitor_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + QSFP_CHANNL_MON_OFFSET), QSFP_CHANNL_MON_WIDTH)
+            if qsfp_dom_rev[0:8] != 'SFF-8636' or (qsfp_dom_rev[0:8] == 'SFF-8636' and qsfp_tx_power_support != 'on'):
+                dom_channel_monitor_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom,
+                                                            (offset + QSFP_CHANNL_MON_OFFSET), QSFP_CHANNL_MON_WIDTH)
                 if dom_channel_monitor_raw is not None:
                     dom_channel_monitor_data = sfpd_obj.parse_channel_monitor_params(dom_channel_monitor_raw, 0)
                 else:
@@ -772,9 +772,11 @@ class SfpUtilBase(object):
                 transceiver_dom_info_dict['tx3power'] = 'N/A'
                 transceiver_dom_info_dict['tx4power'] = 'N/A'
             else:
-                dom_channel_monitor_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + QSFP_CHANNL_MON_OFFSET), QSFP_CHANNL_MON_WITH_TX_POWER_WIDTH)
+                dom_channel_monitor_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom,
+                                                (offset + QSFP_CHANNL_MON_OFFSET), QSFP_CHANNL_MON_WITH_TX_POWER_WIDTH)
                 if dom_channel_monitor_raw is not None:
-                    dom_channel_monitor_data = sfpd_obj.parse_channel_monitor_params_with_tx_power(dom_channel_monitor_raw, 0)
+                    dom_channel_monitor_data = \
+                        sfpd_obj.parse_channel_monitor_params_with_tx_power(dom_channel_monitor_raw, 0)
                 else:
                     return None
 
@@ -816,19 +818,22 @@ class SfpUtilBase(object):
             if sfpd_obj is None:
                 return None
 
-            dom_temperature_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + SFP_TEMPE_OFFSET), SFP_TEMPE_WIDTH)
+            dom_temperature_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom,
+                                                                   (offset + SFP_TEMPE_OFFSET), SFP_TEMPE_WIDTH)
             if dom_temperature_raw is not None:
                 dom_temperature_data = sfpd_obj.parse_temperature(dom_temperature_raw, 0)
             else:
                 return None
 
-            dom_voltage_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + SFP_VLOT_OFFSET), SFP_VOLT_WIDTH)
+            dom_voltage_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom,
+                                                               (offset + SFP_VLOT_OFFSET), SFP_VOLT_WIDTH)
             if dom_voltage_raw is not None:
                 dom_voltage_data = sfpd_obj.parse_voltage(dom_voltage_raw, 0)
             else:
                 return None
 
-            dom_channel_monitor_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + SFP_CHANNL_MON_OFFSET), SFP_CHANNL_MON_WIDTH)
+            dom_channel_monitor_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom,
+                                                                (offset + SFP_CHANNL_MON_OFFSET), SFP_CHANNL_MON_WIDTH)
             if dom_channel_monitor_raw is not None:
                 dom_channel_monitor_data = sfpd_obj.parse_channel_monitor_params(dom_channel_monitor_raw, 0)
             else:
