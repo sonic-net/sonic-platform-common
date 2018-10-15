@@ -246,6 +246,19 @@ class SfpUtilBase(object):
 
         return sysfs_sfp_i2c_client_eeprom_path
 
+    def _get_eeprom_specific_bytes(self, eeprom, offset, num_bytes):
+        eeprom_raw = []
+        for i in range(0, num_bytes):
+            eeprom_raw.append("0x00")
+
+        try:
+            for n in range(offset, offset + num_bytes):
+                eeprom_raw[n - offset] = eeprom[n]
+        except:
+            return None
+
+        return eeprom_raw
+
     # Read out any bytes from any offset
     def _read_eeprom_specific_bytes(self, sysfsfile_eeprom, offset, num_bytes):
         eeprom_raw = []
@@ -256,7 +269,7 @@ class SfpUtilBase(object):
             sysfsfile_eeprom.seek(offset)
             raw = sysfsfile_eeprom.read(num_bytes)
         except IOError:
-            print("Error: reading sysfs file %s" % sysfs_sfp_i2c_client_eeprom_path)
+            print("Error: reading sysfs file %s for port %s" % (sysfs_sfp_i2c_client_eeprom_path, port_num))
             return None
 
         try:
@@ -651,45 +664,49 @@ class SfpUtilBase(object):
             print("Error: reading sysfs file %s" % file_path)
             return None
 
-        sfpi_obj = sff8436InterfaceId()
-        if sfpi_obj is None:
-            print("Error: sfp_object open failed")
-            return None
-
-        sfp_type_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + XCVR_TYPE_OFFSET), XCVR_TYPE_WIDTH)
-        if sfp_type_raw is not None:
-            sfp_type_data = sfpi_obj.parse_sfp_type(sfp_type_raw, 0)
-        else:
-            return None
-
-        sfp_vendor_name_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + XCVR_VENDOR_NAME_OFFSET), XCVR_VENDOR_NAME_WIDTH)
-        if sfp_vendor_name_raw is not None:
-            sfp_vendor_name_data = sfpi_obj.parse_vendor_name(sfp_vendor_name_raw, 0)
-        else:
-            return None
-
-        sfp_vendor_pn_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + XCVR_VENDOR_PN_OFFSET), XCVR_VENDOR_PN_WIDTH)
-        if sfp_vendor_pn_raw is not None:
-            sfp_vendor_pn_data = sfpi_obj.parse_vendor_pn(sfp_vendor_pn_raw, 0)
-        else:
-            return None
-
-        sfp_vendor_rev_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + XCVR_HW_REV_OFFSET), vendor_rev_width)
-        if sfp_vendor_rev_raw is not None:
-            sfp_vendor_rev_data = sfpi_obj.parse_vendor_rev(sfp_vendor_rev_raw, 0)
-        else:
-            return None
-
-        sfp_vendor_sn_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + XCVR_VENDOR_SN_OFFSET), XCVR_VENDOR_SN_WIDTH)
-        if sfp_vendor_sn_raw is not None:
-            sfp_vendor_sn_data = sfpi_obj.parse_vendor_sn(sfp_vendor_sn_raw, 0)
-        else:
+        eeprom_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, 0, 256)
+        if eeprom_raw is None:
             return None
 
         try:
             sysfsfile_eeprom.close()
         except IOError:
             print("Error: closing sysfs file %s" % file_path)
+            return None
+
+        sfpi_obj = sff8436InterfaceId()
+        if sfpi_obj is None:
+            print("Error: sfp_object open failed")
+            return None
+
+        sfp_type_raw = self._get_eeprom_specific_bytes(eeprom_raw, (offset + XCVR_TYPE_OFFSET), XCVR_TYPE_WIDTH)
+        if sfp_type_raw is not None:
+            sfp_type_data = sfpi_obj.parse_sfp_type(sfp_type_raw, 0)
+        else:
+            return None
+
+        sfp_vendor_name_raw = self._get_eeprom_specific_bytes(eeprom_raw, (offset + XCVR_VENDOR_NAME_OFFSET), XCVR_VENDOR_NAME_WIDTH)
+        if sfp_vendor_name_raw is not None:
+            sfp_vendor_name_data = sfpi_obj.parse_vendor_name(sfp_vendor_name_raw, 0)
+        else:
+            return None
+
+        sfp_vendor_pn_raw = self._get_eeprom_specific_bytes(eeprom_raw, (offset + XCVR_VENDOR_PN_OFFSET), XCVR_VENDOR_PN_WIDTH)
+        if sfp_vendor_pn_raw is not None:
+            sfp_vendor_pn_data = sfpi_obj.parse_vendor_pn(sfp_vendor_pn_raw, 0)
+        else:
+            return None
+
+        sfp_vendor_rev_raw = self._get_eeprom_specific_bytes(eeprom_raw, (offset + XCVR_HW_REV_OFFSET), vendor_rev_width)
+        if sfp_vendor_rev_raw is not None:
+            sfp_vendor_rev_data = sfpi_obj.parse_vendor_rev(sfp_vendor_rev_raw, 0)
+        else:
+            return None
+
+        sfp_vendor_sn_raw = self._get_eeprom_specific_bytes(eeprom_raw, (offset + XCVR_VENDOR_SN_OFFSET), XCVR_VENDOR_SN_WIDTH)
+        if sfp_vendor_sn_raw is not None:
+            sfp_vendor_sn_data = sfpi_obj.parse_vendor_sn(sfp_vendor_sn_raw, 0)
+        else:
             return None
 
         transceiver_info_dict['type'] = sfp_type_data['data']['type']['value']
@@ -716,6 +733,16 @@ class SfpUtilBase(object):
                 print("Error: reading sysfs file %s" % file_path)
                 return None
 
+            eeprom_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, 0, 256)
+            if eeprom_raw is None:
+                return None
+
+            try:
+                sysfsfile_eeprom.close()
+            except IOError:
+                print("Error: closing sysfs file %s" % file_path)
+                return None
+
             sfpd_obj = sff8436Dom()
             if sfpd_obj is None:
                 return None
@@ -724,29 +751,30 @@ class SfpUtilBase(object):
             if sfpi_obj is None:
                 return None
 
+
             # QSFP capability byte parse, through this byte can know whether it support tx_power or not.
             # TODO: in the future when decided to migrate to support SFF-8636 instead of SFF-8436,
             # need to add more code for determining the capability and version compliance
             # in SFF-8636 dom capability definitions evolving with the versions.
-            qsfp_dom_capability_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset_xcvr + XCVR_DOM_CAPABILITY_OFFSET), XCVR_DOM_CAPABILITY_WIDTH)
+            qsfp_dom_capability_raw = self._get_eeprom_specific_bytes(eeprom_raw, (offset_xcvr + XCVR_DOM_CAPABILITY_OFFSET), XCVR_DOM_CAPABILITY_WIDTH)
             if qsfp_dom_capability_raw is not None:
                 qspf_dom_capability_data = sfpi_obj.parse_qsfp_dom_capability(qsfp_dom_capability_raw, 0)
             else:
                 return None
 
-            dom_temperature_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + QSFP_TEMPE_OFFSET), QSFP_TEMPE_WIDTH)
+            dom_temperature_raw = self._get_eeprom_specific_bytes(eeprom_raw, (offset + QSFP_TEMPE_OFFSET), QSFP_TEMPE_WIDTH)
             if dom_temperature_raw is not None:
                 dom_temperature_data = sfpd_obj.parse_temperature(dom_temperature_raw, 0)
             else:
                 return None
 
-            dom_voltage_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + QSFP_VLOT_OFFSET), QSFP_VOLT_WIDTH)
+            dom_voltage_raw = self._get_eeprom_specific_bytes(eeprom_raw, (offset + QSFP_VLOT_OFFSET), QSFP_VOLT_WIDTH)
             if dom_voltage_raw is not None:
                 dom_voltage_data = sfpd_obj.parse_voltage(dom_voltage_raw, 0)
             else:
                 return None
 
-            qsfp_dom_rev_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + QSFP_DOM_REV_OFFSET), QSFP_DOM_REV_WIDTH)
+            qsfp_dom_rev_raw = self._get_eeprom_specific_bytes(eeprom_raw, (offset + QSFP_DOM_REV_OFFSET), QSFP_DOM_REV_WIDTH)
             if qsfp_dom_rev_raw is not None:
                 qsfp_dom_rev_data = sfpd_obj.parse_sfp_dom_rev(qsfp_dom_rev_raw, 0)
             else:
@@ -761,7 +789,7 @@ class SfpUtilBase(object):
             qsfp_dom_rev = qsfp_dom_rev_data['data']['dom_rev']['value']
             qsfp_tx_power_support = qspf_dom_capability_data['data']['Tx_power_support']['value']
             if (qsfp_dom_rev[0:8] != 'SFF-8636' or (qsfp_dom_rev[0:8] == 'SFF-8636' and qsfp_tx_power_support != 'on')):
-                dom_channel_monitor_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + QSFP_CHANNL_MON_OFFSET), QSFP_CHANNL_MON_WIDTH)
+                dom_channel_monitor_raw = self._get_eeprom_specific_bytes(eeprom_raw, (offset + QSFP_CHANNL_MON_OFFSET), QSFP_CHANNL_MON_WIDTH)
                 if dom_channel_monitor_raw is not None:
                     dom_channel_monitor_data = sfpd_obj.parse_channel_monitor_params(dom_channel_monitor_raw, 0)
                 else:
@@ -772,7 +800,7 @@ class SfpUtilBase(object):
                 transceiver_dom_info_dict['tx3power'] = 'N/A'
                 transceiver_dom_info_dict['tx4power'] = 'N/A'
             else:
-                dom_channel_monitor_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + QSFP_CHANNL_MON_OFFSET), QSFP_CHANNL_MON_WITH_TX_POWER_WIDTH)
+                dom_channel_monitor_raw = self._get_eeprom_specific_bytes(eeprom_raw, (offset + QSFP_CHANNL_MON_OFFSET), QSFP_CHANNL_MON_WITH_TX_POWER_WIDTH)
                 if dom_channel_monitor_raw is not None:
                     dom_channel_monitor_data = sfpd_obj.parse_channel_monitor_params_with_tx_power(dom_channel_monitor_raw, 0)
                 else:
@@ -782,12 +810,6 @@ class SfpUtilBase(object):
                 transceiver_dom_info_dict['tx2power'] = dom_channel_monitor_data['data']['TX2Power']['value']
                 transceiver_dom_info_dict['tx3power'] = dom_channel_monitor_data['data']['TX3Power']['value']
                 transceiver_dom_info_dict['tx4power'] = dom_channel_monitor_data['data']['TX4Power']['value']
-
-            try:
-                sysfsfile_eeprom.close()
-            except IOError:
-                print("Error: closing sysfs file %s" % file_path)
-                return None
 
             transceiver_dom_info_dict['temperature'] = dom_temperature_data['data']['Temperature']['value']
             transceiver_dom_info_dict['voltage'] = dom_voltage_data['data']['Vcc']['value']
@@ -812,32 +834,36 @@ class SfpUtilBase(object):
                 print("Error: reading sysfs file %s" % file_path)
                 return None
 
-            sfpd_obj = sff8472Dom()
-            if sfpd_obj is None:
-                return None
-
-            dom_temperature_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + SFP_TEMPE_OFFSET), SFP_TEMPE_WIDTH)
-            if dom_temperature_raw is not None:
-                dom_temperature_data = sfpd_obj.parse_temperature(dom_temperature_raw, 0)
-            else:
-                return None
-
-            dom_voltage_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + SFP_VLOT_OFFSET), SFP_VOLT_WIDTH)
-            if dom_voltage_raw is not None:
-                dom_voltage_data = sfpd_obj.parse_voltage(dom_voltage_raw, 0)
-            else:
-                return None
-
-            dom_channel_monitor_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + SFP_CHANNL_MON_OFFSET), SFP_CHANNL_MON_WIDTH)
-            if dom_channel_monitor_raw is not None:
-                dom_channel_monitor_data = sfpd_obj.parse_channel_monitor_params(dom_channel_monitor_raw, 0)
-            else:
+            eeprom_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, 0, 256)
+            if eeprom_raw is None:
                 return None
 
             try:
                 sysfsfile_eeprom.close()
             except IOError:
                 print("Error: closing sysfs file %s" % file_path)
+                return None
+
+            sfpd_obj = sff8472Dom()
+            if sfpd_obj is None:
+                return None
+
+            dom_temperature_raw = self._get_eeprom_specific_bytes(eeprom_raw, (offset + SFP_TEMPE_OFFSET), SFP_TEMPE_WIDTH)
+            if dom_temperature_raw is not None:
+                dom_temperature_data = sfpd_obj.parse_temperature(dom_temperature_raw, 0)
+            else:
+                return None
+
+            dom_voltage_raw = self._get_eeprom_specific_bytes(eeprom_raw, (offset + SFP_VLOT_OFFSET), SFP_VOLT_WIDTH)
+            if dom_voltage_raw is not None:
+                dom_voltage_data = sfpd_obj.parse_voltage(dom_voltage_raw, 0)
+            else:
+                return None
+
+            dom_channel_monitor_raw = self._get_eeprom_specific_bytes(eeprom_raw, (offset + SFP_CHANNL_MON_OFFSET), SFP_CHANNL_MON_WIDTH)
+            if dom_channel_monitor_raw is not None:
+                dom_channel_monitor_data = sfpd_obj.parse_channel_monitor_params(dom_channel_monitor_raw, 0)
+            else:
                 return None
 
             transceiver_dom_info_dict['temperature'] = dom_temperature_data['data']['Temperature']['value']
