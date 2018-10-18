@@ -12,12 +12,12 @@ except ImportError as e:
     raise ImportError(str(e) + " - required module not found")
 
 
+# NOTE: This class inherits the metaclass 'abc.ABCMeta' from DeviceBase
 class FanBase(device_base.DeviceBase):
     """
     Abstract base class for interfacing with a fan module
     """
-    __metaclass__ = abc.ABCMeta
-    
+
     # Possible fan directions
     FAN_DIRECTION_INTAKE = "intake"
     FAN_DIRECTION_EXHAUST = "exhaust"

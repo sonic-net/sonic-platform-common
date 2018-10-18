@@ -10,7 +10,6 @@
 from __future__ import print_function
 
 try:
-    import abc
     import sys
 except ImportError as e:
     raise ImportError(str(e) + " - required module not found")
@@ -18,9 +17,8 @@ except ImportError as e:
 
 class PlatformBase(object):
 
-    __metaclass__ = abc.ABCMeta
-
-    # List of all chassis available on the platform
+    # List of ChassisBase-derived objects representing all chassis available
+    # on the platform
     chassis_list = []
 
     def get_num_chassis(self):

@@ -13,22 +13,30 @@ except ImportError as e:
     raise ImportError(str(e) + " - required module not found")
 
 
+# NOTE: This class inherits the metaclass 'abc.ABCMeta' from DeviceBase
 class ChassisBase(device_base.DeviceBase):
     """
     Abstract base class for interfacing with a platform chassis
     """
 
-    __metaclass__ = abc.ABCMeta
-
     # Possible reboot causes
-    REBOOT_CAUSE_POWER_LOSS = "power_loss" 
+    REBOOT_CAUSE_POWER_LOSS = "power_loss"
     REBOOT_CAUSE_THERMAL_OVERLOAD = "thermal_overload"
     REBOOT_CAUSE_INSUFFICIENT_FAN = "insufficient_fan"
     REBOOT_CAUSE_WATCHDOG = "watchdog"
     REBOOT_CAUSE_SOFTWARE = "software"
 
-    # List of all fans available on the chassis
-    fan_list = []
+
+    # List of FanBase-derived objects representing all fans
+    # available on the chassis
+    _fan_list = []
+
+    # List of PsuBase-derived objects representing all power supply units
+    # available on the chassis
+    _psu_list = []
+
+    # Object derived from WatchdogBase for interacting with hardware watchdog
+    _watchdog = None
 
     @abc.abstractmethod
     def get_base_mac(self):
@@ -39,7 +47,7 @@ class ChassisBase(device_base.DeviceBase):
             A string containing the MAC address in the format
             'XX:XX:XX:XX:XX:XX'
         """
-        return None 
+        return None
 
     @abc.abstractmethod
     def get_reboot_cause(self):
@@ -52,6 +60,10 @@ class ChassisBase(device_base.DeviceBase):
         """
         return REBOOT_CAUSE_SOFTWARE
 
+    ##############################################
+    # Fan module methods
+    ##############################################
+
     def get_num_fans(self):
         """
         Retrieves the number of fan modules available on this chassis
@@ -59,7 +71,7 @@ class ChassisBase(device_base.DeviceBase):
         Returns:
             An integer, the number of fan modules available on this chassis
         """
-        return len(self.fan_list)
+        return len(self._fan_list)
 
     def get_all_fans(self):
         """
@@ -69,7 +81,7 @@ class ChassisBase(device_base.DeviceBase):
             A list of objects derived from FanBase representing all fan
             modules available on this chassis
         """
-        return self.fan_list
+        return self._fan_list
 
     def get_fan(self, index):
         """
@@ -86,9 +98,65 @@ class ChassisBase(device_base.DeviceBase):
         fan = None
 
         try:
-            fan = self.fan_list[index]
+            fan = self._fan_list[index]
         except IndexError:
             sys.stderr.write("Fan index {} out of range (0-{})\n".format(
-                             index, len(self.fan_list)-1))
+                             index, len(self._fan_list)-1))
 
         return fan
+
+    ##############################################
+    # PSU module methods
+    ##############################################
+
+    def get_num_psus(self):
+        """
+        Retrieves the number of power supply units available on this chassis
+
+        Returns:
+            An integer, the number of power supply units available on this
+            chassis
+        """
+        return len(self._psu_list)
+
+    def get_all_psus(self):
+        """
+        Retrieves all power supply units available on this chassis
+
+        Returns:
+            A list of objects derived from PsuBase representing all power
+            supply units available on this chassis
+        """
+        return self._psu_list
+
+    def get_fan(self, index):
+        """
+        Retrieves power supply unit represented by (1-based) index <index>
+
+        Args:
+            index: An integer, the index (1-based) of the power supply unit to
+            retrieve
+
+        Returns:
+            An object dervied from PsuBase representing the specified power
+            supply unit
+        """
+        psu = None
+
+        try:
+            psu = self._psu_list[index]
+        except IndexError:
+            sys.stderr.write("PSU index {} out of range (0-{})\n".format(
+                             index, len(self._psu_list)-1))
+
+        return psu
+
+    def get_watchdog(self):
+        """
+        Retreives hardware watchdog module on this chassis
+
+        Returns:
+            An object derived from WatchdogBase representing the hardware
+            watchdog module
+        """
+        return _watchdog

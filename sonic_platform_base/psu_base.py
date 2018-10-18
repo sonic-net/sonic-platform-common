@@ -11,12 +11,11 @@ try:
 except ImportError as e:
     raise ImportError(str(e) + " - required module not found")
 
-
+# NOTE: This class inherits the metaclass 'abc.ABCMeta' from DeviceBase
 class PsuBase(device_base.DeviceBase):
     """
     Abstract base class for interfacing with a power supply unit
     """
-    __metaclass__ = abc.ABCMeta
 
     # Possible fan directions
     FAN_DIRECTION_INTAKE = "intake"

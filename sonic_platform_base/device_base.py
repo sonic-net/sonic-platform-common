@@ -7,17 +7,19 @@
 
 try:
     import abc
+    import six
 except ImportError as e:
     raise ImportError(str(e) + " - required module not found")
 
 
+# NOTE: Using 'six' module here to ensure consistent abc metaclass behavior
+# with both Python 2.x and Python 3.x
+@six.add_metaclass(abc.ABCMeta)
 class DeviceBase(object):
     """
     Abstract base class for interfacing with a generic type of platform
     peripheral device
     """
-
-    __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
     def get_presence(self):
@@ -48,7 +50,7 @@ class DeviceBase(object):
             string: Serial number of device
         """
         return None
-    
+
     @abc.abstractmethod
     def get_status(self):
         """
