@@ -27,7 +27,6 @@ SYSLOG_IDENTIFIER = os.path.basename(__file__)
 
 PLATFORM_ROOT_PATH = '/usr/share/sonic/device'
 SONIC_CFGGEN_PATH = '/usr/local/bin/sonic-cfggen'
-MINIGRAPH_PATH = '/etc/sonic/minigraph.xml'
 HWSKU_KEY = 'DEVICE_METADATA.localhost.hwsku'
 PLATFORM_KEY = 'DEVICE_METADATA.localhost.platform'
 
@@ -117,7 +116,7 @@ def get_platform_and_hwsku():
     proc.wait()
     platform = stdout.rstrip('\n')
 
-    proc = subprocess.Popen([SONIC_CFGGEN_PATH, '-m', MINIGRAPH_PATH, '-v', HWSKU_KEY],
+    proc = subprocess.Popen([SONIC_CFGGEN_PATH, '-d', '-v', HWSKU_KEY],
                             stdout=subprocess.PIPE,
                             shell=False,
                             stderr=subprocess.STDOUT)
@@ -233,6 +232,9 @@ def post_port_sfp_info_to_db(logical_port_name, table):
         ganged_port = True
 
     for physical_port in physical_port_list:
+        if not platform_sfputil.get_presence(physical_port):
+            continue
+
         port_name = get_physical_port_name(logical_port_name, ganged_member_num, ganged_port)
         ganged_member_num += 1
 
@@ -266,6 +268,9 @@ def post_port_dom_info_to_db(logical_port_name, table):
         ganged_port = True
 
     for physical_port in physical_port_list:
+        if not platform_sfputil.get_presence(physical_port):
+            continue
+
         port_name = get_physical_port_name(logical_port_name, ganged_member_num, ganged_port)
         ganged_member_num += 1
 
