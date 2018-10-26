@@ -5,14 +5,9 @@
 # to interact with a hardware watchdog module in SONiC
 #
 
-try:
-    import abc
-    from . import device_base
-except ImportError as e:
-    raise ImportError(str(e) + " - required module not found")
+from . import device_base
 
 
-# NOTE: This class inherits the metaclass 'abc.ABCMeta' from DeviceBase
 class WatchdogBase(device_base.DeviceBase):
     """
     Abstract base class for interfacing with a hardware watchdog module
@@ -22,7 +17,6 @@ class WatchdogBase(device_base.DeviceBase):
     FAN_DIRECTION_INTAKE = "intake"
     FAN_DIRECTION_EXHAUST = "exhaust"
 
-    @abc.abstractmethod
     def arm(self, seconds):
         """
         Arm the hardware watchdog with a timeout of <seconds> seconds
@@ -30,9 +24,8 @@ class WatchdogBase(device_base.DeviceBase):
         Returns:
             A boolean, True if watchdog is armed successfully, False if not
         """
-        return None
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def disarm(self):
         """
         Disarm the hardware watchdog
@@ -40,9 +33,8 @@ class WatchdogBase(device_base.DeviceBase):
         Returns:
             A boolean, True if watchdog is disarmed successfully, False if not
         """
-        return 0
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def is_armed(self):
         """
         Retrieves the armed state of the hardware watchdog and if armed, the
@@ -55,4 +47,4 @@ class WatchdogBase(device_base.DeviceBase):
             is disarmed, the first value will be 'false' and the integer
             returned as the second value should be ignored.
         """
-        return (false, 0)
+        raise NotImplementedError

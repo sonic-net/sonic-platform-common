@@ -1,22 +1,17 @@
 #
 # chassis_base.py
 #
-# Abstract base class for implementing a platform-specific class with which
+# Base class for implementing a platform-specific class with which
 # to interact with a chassis device in SONiC.
 #
 
-try:
-    import abc
-    import sys
-    from . import device_base
-except ImportError as e:
-    raise ImportError(str(e) + " - required module not found")
+import sys
+from . import device_base
 
 
-# NOTE: This class inherits the metaclass 'abc.ABCMeta' from DeviceBase
 class ChassisBase(device_base.DeviceBase):
     """
-    Abstract base class for interfacing with a platform chassis
+    Base class for interfacing with a platform chassis
     """
 
     # Possible reboot causes
@@ -38,7 +33,6 @@ class ChassisBase(device_base.DeviceBase):
     # Object derived from WatchdogBase for interacting with hardware watchdog
     _watchdog = None
 
-    @abc.abstractmethod
     def get_base_mac(self):
         """
         Retrieves the base MAC address for the chassis
@@ -47,9 +41,8 @@ class ChassisBase(device_base.DeviceBase):
             A string containing the MAC address in the format
             'XX:XX:XX:XX:XX:XX'
         """
-        return None
+        raise NotImplementedError
 
-    @abc.abstractmethod
     def get_reboot_cause(self):
         """
         Retrieves the cause of the previous reboot
@@ -58,7 +51,7 @@ class ChassisBase(device_base.DeviceBase):
             A string containing the cause of the previous reboot. This string
             must be one of the predefined strings in this class.
         """
-        return REBOOT_CAUSE_SOFTWARE
+        raise NotImplementedError
 
     ##############################################
     # Fan module methods
