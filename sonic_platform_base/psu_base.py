@@ -13,10 +13,6 @@ class PsuBase(device_base.DeviceBase):
     Abstract base class for interfacing with a power supply unit
     """
 
-    # Possible fan directions
-    FAN_DIRECTION_INTAKE = "intake"
-    FAN_DIRECTION_EXHAUST = "exhaust"
-
     # Possible fan status LED colors
     STATUS_LED_COLOR_GREEN = "green"
     STATUS_LED_COLOR_RED = "red"
@@ -24,6 +20,16 @@ class PsuBase(device_base.DeviceBase):
 
     # FanBase-derived object representing fan module available on the PSU
     _fan = None
+
+    def get_fan(self):
+        """
+        Retrieves object representing the fan module contained in this PSU
+
+        Returns:
+            An object dervied from FanBase representing the fan module
+            contained in this PSU
+        """
+        return _fan
 
     def set_status_led(self, color):
         """
