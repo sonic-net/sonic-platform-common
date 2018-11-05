@@ -22,57 +22,8 @@ class PsuBase(device_base.DeviceBase):
     STATUS_LED_COLOR_RED = "red"
     STATUS_LED_COLOR_OFF = "off"
 
-    def get_fan_direction(self):
-        """
-        Retrieves the direction of PSU fan
-
-        Returns:
-            A string, either 'intake' or 'exhaust', depending on fan direction
-        """
-        raise NotImplementedError
-
-    def get_fan_speed(self):
-        """
-        Retrieves the speed of PSU fan as a percentage of full speed
-
-        Returns:
-            An integer, the percentage of full fan speed, in the range 0 (off)
-            to 100 (full speed)
-        """
-        raise NotImplementedError
-
-    def get_fan_target_speed(self):
-        """
-        Retrieves the target (expected) speed of the PSU fan
-
-        Returns:
-            An integer, the percentage of full fan speed, in the range 0 (off)
-            to 100 (full speed)
-        """
-        raise NotImplementedError
-
-    def get_fan_speed_tolerance(self):
-        """
-        Retrieves the speed tolerance of the PSU fan
-
-        Returns:
-            An integer, the percentage of variance from target speed which is
-            considered tolerable
-        """
-        raise NotImplementedError
-
-    def set_fan_speed(self, speed):
-        """
-        Sets the fan speed
-
-        Args:
-            speed: An integer, the percentage of full fan speed to set fan to,
-                   in the range 0 (off) to 100 (full speed)
-
-        Returns:
-            A boolean, True if fan speed is set successfully, False if not
-        """
-        raise NotImplementedError
+    # FanBase-derived object representing fan module available on the PSU
+    _fan = None
 
     def set_status_led(self, color):
         """
