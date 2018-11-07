@@ -81,10 +81,10 @@ class ChassisBase(device_base.DeviceBase):
 
     def get_module(self, index):
         """
-        Retrieves module represented by (1-based) index <index>
+        Retrieves module represented by (0-based) index <index>
 
         Args:
-            index: An integer, the index (1-based) of the module to
+            index: An integer, the index (0-based) of the module to
             retrieve
 
         Returns:
@@ -126,10 +126,10 @@ class ChassisBase(device_base.DeviceBase):
 
     def get_fan(self, index):
         """
-        Retrieves fan module represented by (1-based) index <index>
+        Retrieves fan module represented by (0-based) index <index>
 
         Args:
-            index: An integer, the index (1-based) of the fan module to
+            index: An integer, the index (0-based) of the fan module to
             retrieve
 
         Returns:
@@ -172,10 +172,10 @@ class ChassisBase(device_base.DeviceBase):
 
     def get_psu(self, index):
         """
-        Retrieves power supply unit represented by (1-based) index <index>
+        Retrieves power supply unit represented by (0-based) index <index>
 
         Args:
-            index: An integer, the index (1-based) of the power supply unit to
+            index: An integer, the index (0-based) of the power supply unit to
             retrieve
 
         Returns:
