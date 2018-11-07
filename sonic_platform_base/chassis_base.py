@@ -122,7 +122,7 @@ class ChassisBase(device_base.DeviceBase):
         """
         return self._psu_list
 
-    def get_fan(self, index):
+    def get_psu(self, index):
         """
         Retrieves power supply unit represented by (1-based) index <index>
 
