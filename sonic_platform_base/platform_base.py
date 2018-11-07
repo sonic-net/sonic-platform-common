@@ -14,46 +14,15 @@ import sys
 
 class PlatformBase(object):
 
-    # List of ChassisBase-derived objects representing all chassis available
-    # on the platform
-    chassis_list = []
+    # ChassisBase-derived object representing the platform's chassis
+    _chassis = None
 
-    def get_num_chassis(self):
+    def get_chassis(self):
         """
-        Retrieves the number of chassis available on the platform
+        Retrieves the chassis for this platform
 
         Returns:
-            An integer, the number of chassis available on the platform
+            An object derived from ChassisBase representing the platform's
+            chassis
         """
-        return len(self.chassis_list)
-
-    def get_all_chassis(self):
-        """
-        Retrieves all chassis available on the platform
-
-        Returns:
-            A list of objects derived from ChassisBase, one for each chassis
-            available on the platform
-        """
-        return self.chassis_list
-
-    def get_chassis(self, index):
-        """
-        Retrieves a chassis by its 1-based index
-
-        Args:
-            index: An integer, the index (1-based) of the chassis to retrieve
-
-        Returns:
-            An object derived from ChassisBase containing the chassis
-            specified by <index>
-        """
-        chassis = None
-
-        try:
-            chassis = self.chassis_list[index]
-        except IndexError:
-            sys.stderr.write("Chassis index {} out of range (0-{})\n".format(
-                                 index, len(self.chassis_list)-1))
-
-        return chassis
+        return self._chassis
