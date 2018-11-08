@@ -5,10 +5,8 @@
 # to interact with a hardware watchdog module in SONiC
 #
 
-from . import device_base
 
-
-class WatchdogBase(device_base.DeviceBase):
+class WatchdogBase:
     """
     Abstract base class for interfacing with a hardware watchdog module
     """
