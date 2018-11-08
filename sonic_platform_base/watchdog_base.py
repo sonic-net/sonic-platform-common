@@ -13,13 +13,11 @@ class WatchdogBase(device_base.DeviceBase):
     Abstract base class for interfacing with a hardware watchdog module
     """
 
-    # Possible fan directions
-    FAN_DIRECTION_INTAKE = "intake"
-    FAN_DIRECTION_EXHAUST = "exhaust"
-
     def arm(self, seconds):
         """
-        Arm the hardware watchdog with a timeout of <seconds> seconds
+        Arm the hardware watchdog with a timeout of <seconds> seconds.
+        If the watchdog is currently armed, calling this function will
+        simply reset the timer to the provided value.
 
         Returns:
             A boolean, True if watchdog is armed successfully, False if not
