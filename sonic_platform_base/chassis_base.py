@@ -58,6 +58,16 @@ class ChassisBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
+    def get_component_versions(self):
+        """
+        Retrieves platform-specific hardware/firmware versions for chassis
+        componenets such as BIOS, CPLD, FPGA, etc.
+
+        Returns:
+            A string containing platform-specific component versions
+        """
+        raise NotImplementedError
+
     ##############################################
     # Module methods
     ##############################################
