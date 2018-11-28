@@ -16,7 +16,9 @@ class ChassisBase(device_base.DeviceBase):
 
     # Possible reboot causes
     REBOOT_CAUSE_POWER_LOSS = "power_loss"
-    REBOOT_CAUSE_THERMAL_OVERLOAD = "thermal_overload"
+    REBOOT_CAUSE_THERMAL_OVERLOAD_CPU = "thermal_overload_cpu"
+    REBOOT_CAUSE_THERMAL_OVERLOAD_ASIC = "thermal_overload_asic"
+    REBOOT_CAUSE_THERMAL_OVERLOAD_OTHER = "thermal_overload_other"
     REBOOT_CAUSE_INSUFFICIENT_FAN = "insufficient_fan"
     REBOOT_CAUSE_WATCHDOG = "watchdog"
     REBOOT_CAUSE_SOFTWARE = "software"
