@@ -15,10 +15,14 @@ class WatchdogBase:
         """
         Arm the hardware watchdog with a timeout of <seconds> seconds.
         If the watchdog is currently armed, calling this function will
-        simply reset the timer to the provided value.
+        simply reset the timer to the provided value. If the underlying
+        hardware does not support the value provided in <seconds>, this
+        method should arm the watchdog with the *next greater* available
+        value.
 
         Returns:
-            A boolean, True if watchdog was armed successfully, False if not
+            An integer specifying the *actual* number of seconds the watchdog
+            was armed with. On failure returns -1.
         """
         raise NotImplementedError
 
