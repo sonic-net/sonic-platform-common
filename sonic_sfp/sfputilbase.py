@@ -198,9 +198,9 @@ class SfpUtilBase(object):
             return False
         else:
             try:
-                sysfsfile = open(sysfs_sfp_i2c_client_eeprompath, mode="rb", buffering=0)
-                sysfsfile.seek(offset)
-                sysfsfile.read(1)
+                with open(sysfs_sfp_i2c_client_eeprompath, mode="rb", buffering=0) as sysfsfile:
+                    sysfsfile.seek(offset)
+                    sysfsfile.read(1)
             except IOError:
                 return False
             except:
