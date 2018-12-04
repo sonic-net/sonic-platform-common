@@ -13,6 +13,7 @@ setup(
     packages=[
         'sonic_eeprom',
         'sonic_led',
+        'sonic_platform_base',
         'sonic_psu',
         'sonic_sfp',
     ],
