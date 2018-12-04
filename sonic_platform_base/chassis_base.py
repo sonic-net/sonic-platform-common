@@ -21,7 +21,8 @@ class ChassisBase(device_base.DeviceBase):
     REBOOT_CAUSE_THERMAL_OVERLOAD_OTHER = "thermal_overload_other"
     REBOOT_CAUSE_INSUFFICIENT_FAN = "insufficient_fan"
     REBOOT_CAUSE_WATCHDOG = "watchdog"
-    REBOOT_CAUSE_SOFTWARE = "software"
+    REBOOT_CAUSE_HARDWARE_OTHER = "hardware_other"
+    REBOOT_CAUSE_NON_HARDWARE = "non_hardware"
 
     # List of ModuleBase-derived objects representing all modules
     # available on the chassis (for use with modular chassis)
@@ -53,8 +54,11 @@ class ChassisBase(device_base.DeviceBase):
         Retrieves the cause of the previous reboot
 
         Returns:
-            A string containing the cause of the previous reboot. This string
-            must be one of the predefined strings in this class.
+            A tuple (string, string) where the first element is a string
+            containing the cause of the previous reboot. This string must be
+            one of the predefined strings in this class. If the first string
+            is "REBOOT_CAUSE_HARDWARE_OTHER", the second string can be used
+            to pass a description of the reboot cause.
         """
         raise NotImplementedError
 
