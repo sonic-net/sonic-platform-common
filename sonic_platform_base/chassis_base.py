@@ -36,6 +36,14 @@ class ChassisBase(device_base.DeviceBase):
     # available on the chassis
     _psu_list = []
 
+    # List of ThermalBase-derived objects representing all thermals
+    # available on the chassis
+    _thermal_list = []
+
+    # List of SfpBase-derived objects representing all sfps
+    # available on the chassis
+    _sfp_list = []
+
     # Object derived from WatchdogBase for interacting with hardware watchdog
     _watchdog = None
 
@@ -207,6 +215,93 @@ class ChassisBase(device_base.DeviceBase):
                              index, len(self._psu_list)-1))
 
         return psu
+
+    ##############################################
+    # THERMAL methods
+    ##############################################
+
+    def get_num_thermals(self):
+        """
+        Retrieves the number of thermals available on this chassis
+
+        Returns:
+            An integer, the number of thermals available on this chassis
+        """
+        return len(self._thermal_list)
+
+    def get_all_thermals(self):
+        """
+        Retrieves all thermals available on this chassis
+
+        Returns:
+            A list of objects derived from ThermalBase representing all thermals
+            available on this chassis
+        """
+        return self._thermal_list
+
+    def get_thermal(self, index):
+        """
+        Retrieves thermal unit represented by (0-based) index <index>
+
+        Args:
+            index: An integer, the index (0-based) of the thermal to
+            retrieve
+
+        Returns:
+            An object dervied from ThermalBase representing the specified thermal
+        """
+        thermal = None
+
+        try:
+            thermal = self._thermal_list[index]
+        except IndexError:
+            sys.stderr.write("THERMAL index {} out of range (0-{})\n".format(
+                             index, len(self._thermal_list)-1))
+
+        return thermal
+
+    ##############################################
+    # SFP methods
+    ##############################################
+
+    def get_num_sfps(self):
+        """
+        Retrieves the number of sfps available on this chassis
+
+        Returns:
+            An integer, the number of sfps available on this chassis
+        """
+        return len(self._sfp_list)
+
+    def get_all_sfps(self):
+        """
+        Retrieves all sfps available on this chassis
+
+        Returns:
+            A list of objects derived from SfpBase representing all sfps 
+            available on this chassis
+        """
+        return self._sfp_list
+
+    def get_sfp(self, index):
+        """
+        Retrieves sfp represented by (0-based) index <index>
+
+        Args:
+            index: An integer, the index (0-based) of the sfp toretrieve
+
+        Returns:
+            An object dervied from SfpBase representing the specified sfp
+        """
+        sfp = None
+
+        try:
+            sfp = self._sfp_list[index]
+        except IndexError:
+            sys.stderr.write("SFP index {} out of range (0-{})\n".format(
+                             index, len(self._sfp_list)-1))
+
+        return sfp
 
     ##############################################
     # Other methods

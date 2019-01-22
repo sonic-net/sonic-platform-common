@@ -11,6 +11,14 @@ class DeviceBase(object):
     peripheral device
     """
 
+    def get_name(self):
+        """
+        Retrieves the name of the device
+
+        Returns:
+            string: The name of device
+        """
+
     def get_presence(self):
         """
         Retrieves the presence of the device
