@@ -316,3 +316,22 @@ class ChassisBase(device_base.DeviceBase):
             watchdog device
         """
         return _watchdog
+
+    def get_change_event(self, timeout=0):
+        """
+        Returns a dictionary containing all devices which have experienced a
+        change at chassis level
+
+        Args:
+            timeout: Timeout in milliseconds (optional). If timeout == 0,
+                this method will block until a change is detected.
+
+        Returns:
+            (bool, dict):
+                - True if call successful, False if not;
+                - Dict where key is device ID and value is device event,
+                  status='1' represents device inserted,
+                  status='0' represents device removed. Ex. {'0': '1', '1': '0'}
+        """
+        raise NotImplementedError
+ 
