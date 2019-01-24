@@ -20,10 +20,30 @@ except ImportError as e:
     raise ImportError("%s - required module not found" % str(e))
 
 # definitions of the offset and width for values in XCVR info eeprom
+XCVR_INTFACE_BULK_OFFSET = 0
+XCVR_INTFACE_BULK_WIDTH_QSFP = 20
+XCVR_INTFACE_BULK_WIDTH_SFP = 21
 XCVR_TYPE_OFFSET = 0
 XCVR_TYPE_WIDTH = 1
+XCVR_EXT_TYPE_OFFSET = 1
+XCVR_EXT_TYPE_WIDTH = 1
+XCVR_CONNECTOR_OFFSET = 2
+XCVR_CONNECTOR_WIDTH = 1
+XCVR_COMPLIANCE_CODE_OFFSET = 3
+XCVR_COMPLIANCE_CODE_WIDTH = 8
+XCVR_ENCODING_OFFSET = 11
+XCVR_ENCODING_WIDTH = 1
+XCVR_NBR_OFFSET = 12
+XCVR_NBR_WIDTH = 1
+XCVR_EXT_RATE_SEL_OFFSET = 13
+XCVR_EXT_RATE_SEL_WIDTH = 1
+XCVR_CABLE_LENGTH_OFFSET = 14
+XCVR_CABLE_LENGTH_WIDTH_QSFP = 5
+XCVR_CABLE_LENGTH_WIDTH_SFP = 6
 XCVR_VENDOR_NAME_OFFSET = 20
 XCVR_VENDOR_NAME_WIDTH = 16
+XCVR_VENDOR_OUI_OFFSET = 37
+XCVR_VENDOR_OUI_WIDTH = 3
 XCVR_VENDOR_PN_OFFSET = 40
 XCVR_VENDOR_PN_WIDTH = 16
 XCVR_HW_REV_OFFSET = 56
@@ -31,6 +51,8 @@ XCVR_HW_REV_WIDTH_QSFP = 2
 XCVR_HW_REV_WIDTH_SFP = 4
 XCVR_VENDOR_SN_OFFSET = 68
 XCVR_VENDOR_SN_WIDTH = 16
+XCVR_VENDOR_DATE_OFFSET = 84
+XCVR_VENDOR_DATE_WIDTH = 8
 XCVR_DOM_CAPABILITY_OFFSET = 92
 XCVR_DOM_CAPABILITY_WIDTH = 1
 
@@ -51,6 +73,25 @@ SFP_VLOT_OFFSET = 98
 SFP_VOLT_WIDTH = 2
 SFP_CHANNL_MON_OFFSET = 100
 SFP_CHANNL_MON_WIDTH = 6
+
+qsfp_cable_length_tup = ('Length(km)', 'Length OM3(2m)', 
+                         'Length OM2(m)', 'Length OM1(m)',
+                         'Length Cable Assembly(m)')
+
+sfp_cable_length_tup = ('LengthSMFkm-UnitsOfKm', 'LengthSMF(UnitsOf100m)',
+                        'Length50um(UnitsOf10m)', 'Length62.5um(UnitsOfm)',
+                        'LengthCable(UnitsOfm)', 'LengthOM3(UnitsOf10m)')
+
+sfp_compliance_code_tup = ('10GEthernetComplianceCode', 'InfinibandComplianceCode', 
+                            'ESCONComplianceCodes', 'SONETComplianceCodes',
+                            'EthernetComplianceCodes','FibreChannelLinkLength',
+                            'FibreChannelTechnology', 'SFP+CableTechnology',
+                            'FibreChannelTransmissionMedia','FibreChannelSpeed')
+
+qsfp_compliance_code_tup = ('10/40G Ethernet Compliance Code', 'SONET Compliance codes',
+                            'SAS/SATA compliance codes', 'Gigabit Ethernet Compliant codes',
+                            'Fibre Channel link length/Transmitter Technology',
+                            'Fibre Channel transmission media', 'Fibre Channel Speed')
 
 class SfpUtilError(Exception):
     """Base class for exceptions in this module."""
@@ -632,13 +673,31 @@ class SfpUtilBase(object):
     # Read out SFP type, vendor name, PN, REV, SN from eeprom.
     def get_transceiver_info_dict(self, port_num):
         transceiver_info_dict = {}
+        compliance_code_dict = {}
 
         if port_num in self.qsfp_ports:
             offset = 128
             vendor_rev_width = XCVR_HW_REV_WIDTH_QSFP
+            cable_length_width = XCVR_CABLE_LENGTH_WIDTH_QSFP
+            interface_info_bulk_width = XCVR_INTFACE_BULK_WIDTH_QSFP
+            sfp_type = 'QSFP'
+
+            sfpi_obj = sff8436InterfaceId()
+            if sfpi_obj is None:
+                print("Error: sfp_object open failed")
+                return None
+
         else:
             offset = 0
             vendor_rev_width = XCVR_HW_REV_WIDTH_SFP
+            cable_length_width = XCVR_CABLE_LENGTH_WIDTH_SFP
+            interface_info_bulk_width = XCVR_INTFACE_BULK_WIDTH_SFP
+            sfp_type = 'SFP'
+
+            sfpi_obj = sff8472InterfaceId()
+            if sfpi_obj is None:
+                print("Error: sfp_object open failed")
+                return None
 
         file_path = self._get_port_eeprom_path(port_num, self.IDENTITY_EEPROM_ADDR)
         if not self._sfp_eeprom_present(file_path, 0):
@@ -651,14 +710,9 @@ class SfpUtilBase(object):
             print("Error: reading sysfs file %s" % file_path)
             return None
 
-        sfpi_obj = sff8436InterfaceId()
-        if sfpi_obj is None:
-            print("Error: sfp_object open failed")
-            return None
-
-        sfp_type_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + XCVR_TYPE_OFFSET), XCVR_TYPE_WIDTH)
-        if sfp_type_raw is not None:
-            sfp_type_data = sfpi_obj.parse_sfp_type(sfp_type_raw, 0)
+        sfp_interface_bulk_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + XCVR_INTFACE_BULK_OFFSET), interface_info_bulk_width)
+        if sfp_interface_bulk_raw is not None:
+            sfp_interface_bulk_data = sfpi_obj.parse_sfp_info_bulk(sfp_interface_bulk_raw, 0)
         else:
             return None
 
@@ -686,18 +740,61 @@ class SfpUtilBase(object):
         else:
             return None
 
+        sfp_vendor_oui_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + XCVR_VENDOR_OUI_OFFSET), XCVR_VENDOR_OUI_WIDTH)
+        if sfp_vendor_oui_raw is not None:
+            sfp_vendor_oui_data = sfpi_obj.parse_vendor_oui(sfp_vendor_oui_raw, 0)
+        else:
+            return None
+
+        sfp_vendor_date_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + XCVR_VENDOR_DATE_OFFSET), XCVR_VENDOR_DATE_WIDTH)
+        if sfp_vendor_date_raw is not None:
+            sfp_vendor_date_data = sfpi_obj.parse_vendor_date(sfp_vendor_date_raw, 0)
+        else:
+            return None
+
         try:
             sysfsfile_eeprom.close()
         except IOError:
             print("Error: closing sysfs file %s" % file_path)
             return None
 
-        transceiver_info_dict['type'] = sfp_type_data['data']['type']['value']
+        transceiver_info_dict['type'] = sfp_interface_bulk_data['data']['type']['value']
         transceiver_info_dict['manufacturename'] = sfp_vendor_name_data['data']['Vendor Name']['value']
         transceiver_info_dict['modelname'] = sfp_vendor_pn_data['data']['Vendor PN']['value']
         transceiver_info_dict['hardwarerev'] = sfp_vendor_rev_data['data']['Vendor Rev']['value']
         transceiver_info_dict['serialnum'] = sfp_vendor_sn_data['data']['Vendor SN']['value']
+        transceiver_info_dict['vendor_oui'] = sfp_vendor_oui_data['data']['Vendor OUI']['value']
+        transceiver_info_dict['vendor_date'] = sfp_vendor_date_data['data']['VendorDataCode(YYYY-MM-DD Lot)']['value']
+        transceiver_info_dict['Connector'] = sfp_interface_bulk_data['data']['Connector']['value']
+        transceiver_info_dict['encoding'] = sfp_interface_bulk_data['data']['EncodingCodes']['value']
+        transceiver_info_dict['ext_identifier'] = sfp_interface_bulk_data['data']['Extended Identifier']['value']
+        transceiver_info_dict['ext_rateselect_compliance'] = sfp_interface_bulk_data['data']['RateIdentifier']['value']
+        if sfp_type == 'QSFP':
+            for key in qsfp_cable_length_tup:
+                if key in sfp_interface_bulk_data['data']:
+                    transceiver_info_dict['cable_type'] = key
+                    transceiver_info_dict['cable_length'] = str(sfp_interface_bulk_data['data'][key]['value'])
 
+            for key in qsfp_compliance_code_tup:
+                if key in sfp_interface_bulk_data['data']['Specification compliance']['value']:
+                    compliance_code_dict[key] = sfp_interface_bulk_data['data']['Specification compliance']['value'][key]['value']
+            transceiver_info_dict['specification_compliance'] = str(compliance_code_dict)
+            
+            transceiver_info_dict['nominal_bit_rate'] = str(sfp_interface_bulk_data['data']['Nominal Bit Rate(100Mbs)']['value'])
+        else:
+            for key in sfp_cable_length_tup:
+                if key in sfp_interface_bulk_data['data']:
+                    transceiver_info_dict['cable_type'] = key
+                    transceiver_info_dict['cable_length'] = str(sfp_interface_bulk_data['data'][key]['value'])
+
+            for key in sfp_compliance_code_tup:
+                if key in sfp_interface_bulk_data['data']['Specification compliance']['value']:
+                    compliance_code_dict[key] = sfp_interface_bulk_data['data']['Specification compliance']['value'][key]['value']
+            transceiver_info_dict['specification_compliance'] = str(compliance_code_dict)
+
+            transceiver_info_dict['nominal_bit_rate'] = str(sfp_interface_bulk_data['data']['NominalSignallingRate(UnitsOf100Mbd)']['value'])
+    
+        #return sfp_interface_bulk_data
         return transceiver_info_dict
 
     def get_transceiver_dom_info_dict(self, port_num):

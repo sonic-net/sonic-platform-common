@@ -426,13 +426,65 @@ class sff8472InterfaceId(sffbase):
                 'type': 'date'}}
 
 # Parser for specific values that interested by SNMP
-    sfp_type = {
-        'type':
-            {'offset': 0,
-             'size': 1,
-             'type': 'enum',
-             'decode': type_of_transceiver}
-        }
+
+    sfp_info_bulk = {'type':
+                {'offset':0,
+                 'size':1,
+                 'type' : 'enum',
+                 'decode' : type_of_transceiver},
+             'Extended Identifier':
+                {'offset':1,
+                 'size':1,
+                 'type' : 'enum',
+                 'decode': exttypeoftransceiver},
+             'Connector':
+                {'offset':2,
+                 'size':1,
+                 'type' : 'enum',
+                 'decode': connector},
+            'Specification compliance':
+                {'offset' : 3,
+                 'type' : 'nested',
+                 'decode' : transceiver_codes},
+            'EncodingCodes':
+                {'offset':11,
+                 'size':1,
+                 'type' : 'enum',
+                 'decode' : encoding_codes},
+            'NominalSignallingRate(UnitsOf100Mbd)':
+                {'offset': 12,
+                 'size':1,
+                 'type':'int'},
+            'RateIdentifier':
+                {'offset':13,
+                 'size':1,
+                 'type' : 'enum',
+                 'decode' : rate_identifier},
+            'LengthSMFkm-UnitsOfKm':
+                {'offset':14,
+                 'size':1,
+                 'type':'int'},
+            'LengthSMF(UnitsOf100m)':
+                {'offset':15,
+                 'size':1,
+                 'type':'int'},
+            'Length50um(UnitsOf10m)':
+                {'offset':16,
+                'size':1,
+                 'type':'int'},
+            'Length62.5um(UnitsOfm)':
+                {'offset':17,
+                'size':1,
+                 'type':'int'},
+            'LengthCable(UnitsOfm)':
+                {'offset':18,
+                'size':1,
+                 'type':'int'},
+            'LengthOM3(UnitsOf10m)':
+                {'offset':19,
+                 'size':1,
+                 'type':'int'}
+    }
 
     vendor_name = {
         'Vendor Name':
@@ -457,9 +509,23 @@ class sff8472InterfaceId(sffbase):
 
     vendor_sn = {
         'Vendor SN':
-                {'offset': 0,
-                 'size': 16,
-                 'type': 'str'}
+            {'offset': 0,
+             'size': 16,
+             'type': 'str'}
+        }
+
+    vendor_oui = {
+        'Vendor OUI':
+            {'offset':0,
+             'size':3,
+             'type' : 'hex'}
+        }
+    
+    vendor_date = {
+        'VendorDataCode(YYYY-MM-DD Lot)':
+            {'offset':0,
+            'size':8,
+            'type': 'date'}
         }
 
     # Returns calibration type
@@ -490,8 +556,8 @@ class sff8472InterfaceId(sffbase):
         return sffbase.parse(self, self.interface_id, eeprom_raw_data, start_pos)
 
 #new parser functions for specific values that interested by SNMP
-    def parse_sfp_type(self, type_raw_data, start_pos):
-        return sffbase.parse(self, self.sfp_type, type_raw_data, start_pos)
+    def parse_sfp_info_bulk(self, type_raw_data, start_pos):
+        return sffbase.parse(self, self.sfp_info_bulk, type_raw_data, start_pos)
 
     def parse_vendor_name(self, name_raw_data, start_pos):
         return sffbase.parse(self, self.vendor_name, name_raw_data, start_pos)
@@ -505,6 +571,12 @@ class sff8472InterfaceId(sffbase):
     def parse_vendor_sn(self, sn_raw_data, start_pos):
         return sffbase.parse(self, self.vendor_sn, sn_raw_data, start_pos)
 
+    def parse_vendor_date(self, sn_raw_data, start_pos):
+        return sffbase.parse(self, self.vendor_date, sn_raw_data, start_pos)
+
+    def parse_vendor_oui(self, sn_raw_data, start_pos):
+        return sffbase.parse(self, self.vendor_oui, sn_raw_data, start_pos)
+    
     def dump_pretty(self):
         if self.interface_data == None:
             print('Object not initialized, nothing to print')
