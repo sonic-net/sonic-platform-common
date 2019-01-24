@@ -198,9 +198,9 @@ class SfpUtilBase(object):
             return False
         else:
             try:
-                sysfsfile = open(sysfs_sfp_i2c_client_eeprompath, "rb")
-                sysfsfile.seek(offset)
-                sysfsfile.read(1)
+                with open(sysfs_sfp_i2c_client_eeprompath, mode="rb", buffering=0) as sysfsfile:
+                    sysfsfile.seek(offset)
+                    sysfsfile.read(1)
             except IOError:
                 return False
             except:
@@ -275,7 +275,7 @@ class SfpUtilBase(object):
             return None
 
         try:
-            sysfsfile_eeprom = open(sysfs_sfp_i2c_client_eeprom_path, "rb")
+            sysfsfile_eeprom = open(sysfs_sfp_i2c_client_eeprom_path, mode="rb", buffering=0)
         except IOError:
             print("Error: reading sysfs file %s" % sysfs_sfp_i2c_client_eeprom_path)
             return None
@@ -646,7 +646,7 @@ class SfpUtilBase(object):
             return None
 
         try:
-            sysfsfile_eeprom = open(file_path, "rb")
+            sysfsfile_eeprom = open(file_path, mode="rb", buffering=0)
         except IOError:
             print("Error: reading sysfs file %s" % file_path)
             return None
@@ -711,7 +711,7 @@ class SfpUtilBase(object):
                 return None
 
             try:
-                sysfsfile_eeprom = open(file_path, "rb")
+                sysfsfile_eeprom = open(file_path, mode="rb", buffering=0)
             except IOError:
                 print("Error: reading sysfs file %s" % file_path)
                 return None
@@ -807,7 +807,7 @@ class SfpUtilBase(object):
                 return None
 
             try:
-                sysfsfile_eeprom = open(file_path, "rb")
+                sysfsfile_eeprom = open(file_path, mode="rb", buffering=0)
             except IOError:
                 print("Error: reading sysfs file %s" % file_path)
                 return None
