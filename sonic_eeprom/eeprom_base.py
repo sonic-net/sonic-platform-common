@@ -239,6 +239,9 @@ class EepromDecoder(object):
         F.close()
         return o
 
+    def read_eeprom_db(self):
+        return 0
+
     def write_eeprom(self, e):
         F = open(self.p, "wb")
         F.seek(self.s)
@@ -257,6 +260,9 @@ class EepromDecoder(object):
         if self.cache_update_needed:
             self.write_cache(e)
         fcntl.flock(self.lock_file, fcntl.LOCK_UN)
+
+    def update_eeprom_db(self, e):
+        return 0
 
     def diff_mac(self, mac1, mac2):
         if mac1 == '' or mac2 == '':
