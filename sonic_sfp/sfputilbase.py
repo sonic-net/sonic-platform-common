@@ -16,6 +16,7 @@ try:
     from sff8472 import sff8472Dom
     from sff8436 import sff8436InterfaceId
     from sff8436 import sff8436Dom
+    from inf8628 import inf8628InterfaceId
 except ImportError as e:
     raise ImportError("%s - required module not found" % str(e))
 
@@ -27,12 +28,20 @@ XCVR_VENDOR_NAME_WIDTH = 16
 XCVR_VENDOR_PN_OFFSET = 40
 XCVR_VENDOR_PN_WIDTH = 16
 XCVR_HW_REV_OFFSET = 56
+XCVR_HW_REV_WIDTH_OSFP = 2
 XCVR_HW_REV_WIDTH_QSFP = 2
 XCVR_HW_REV_WIDTH_SFP = 4
 XCVR_VENDOR_SN_OFFSET = 68
 XCVR_VENDOR_SN_WIDTH = 16
 XCVR_DOM_CAPABILITY_OFFSET = 92
 XCVR_DOM_CAPABILITY_WIDTH = 1
+
+# definitions of the offset for values in OSFP info eeprom
+OSFP_TYPE_OFFSET = 0
+OSFP_VENDOR_NAME_OFFSET = 129
+OSFP_VENDOR_PN_OFFSET = 148
+OSFP_HW_REV_OFFSET = 164
+OSFP_VENDOR_SN_OFFSET = 166
 
 #definitions of the offset and width for values in DOM info eeprom
 QSFP_DOM_REV_OFFSET = 1
@@ -124,8 +133,13 @@ class SfpUtilBase(object):
 
     @abc.abstractproperty
     def qsfp_ports(self):
-        """ Ending index of physical port range """
+        """ QSFP Ports """
         pass
+
+    @property
+    def osfp_ports(self):
+        """ OSFP/QSFP-DD Ports """
+        return []
 
     @abc.abstractproperty
     def port_to_eeprom_mapping(self):
@@ -579,11 +593,13 @@ class SfpUtilBase(object):
             if s > self.port_end:
                 break
 
-    def get_eeprom_raw(self, port_num):
+    def get_eeprom_raw(self, port_num, num_bytes=256):
         # Read interface id EEPROM at addr 0x50
-        return self._read_eeprom_devid(port_num, self.IDENTITY_EEPROM_ADDR, 0)
+        return self._read_eeprom_devid(port_num, self.IDENTITY_EEPROM_ADDR, 0, num_bytes)
 
     def get_eeprom_dom_raw(self, port_num):
+        if port_num in self.osfp_ports:
+            return None
         if port_num in self.qsfp_ports:
             # QSFP DOM EEPROM is also at addr 0x50 and thus also stored in eeprom_ifraw
             return None
@@ -605,7 +621,12 @@ class SfpUtilBase(object):
         if eeprom_ifraw is None:
             return None
 
-        if port_num in self.qsfp_ports:
+        if port_num in self.osfp_ports:
+            sfpi_obj = inf8628InterfaceId(eeprom_ifraw)
+            if sfpi_obj is not None:
+                sfp_data['interface'] = sfpi_obj.get_data_pretty()
+            return sfp_data
+        elif port_num in self.qsfp_ports:
             sfpi_obj = sff8436InterfaceId(eeprom_ifraw)
             if sfpi_obj is not None:
                 sfp_data['interface'] = sfpi_obj.get_data_pretty()
@@ -615,24 +636,28 @@ class SfpUtilBase(object):
             sfpd_obj = sff8436Dom(eeprom_ifraw)
             if sfpd_obj is not None:
                 sfp_data['dom'] = sfpd_obj.get_data_pretty()
+
             return sfp_data
+        else:
+            sfpi_obj = sff8472InterfaceId(eeprom_ifraw)
+            if sfpi_obj is not None:
+                sfp_data['interface'] = sfpi_obj.get_data_pretty()
+                cal_type = sfpi_obj.get_calibration_type()
 
-        sfpi_obj = sff8472InterfaceId(eeprom_ifraw)
-        if sfpi_obj is not None:
-            sfp_data['interface'] = sfpi_obj.get_data_pretty()
-            cal_type = sfpi_obj.get_calibration_type()
+            if eeprom_domraw is not None:
+                sfpd_obj = sff8472Dom(eeprom_domraw, cal_type)
+                if sfpd_obj is not None:
+                    sfp_data['dom'] = sfpd_obj.get_data_pretty()
 
-        if eeprom_domraw is not None:
-            sfpd_obj = sff8472Dom(eeprom_domraw, cal_type)
-            if sfpd_obj is not None:
-                sfp_data['dom'] = sfpd_obj.get_data_pretty()
-
-        return sfp_data
+            return sfp_data
 
     # Read out SFP type, vendor name, PN, REV, SN from eeprom.
     def get_transceiver_info_dict(self, port_num):
         transceiver_info_dict = {}
 
+        if port_num in self.osfp_ports:
+            offset = 0
+            vendor_rev_width = XCVR_HW_REV_WIDTH_OSFP
         if port_num in self.qsfp_ports:
             offset = 128
             vendor_rev_width = XCVR_HW_REV_WIDTH_QSFP
@@ -651,40 +676,77 @@ class SfpUtilBase(object):
             print("Error: reading sysfs file %s" % file_path)
             return None
 
-        sfpi_obj = sff8436InterfaceId()
+        if port_num in self.osfp_ports:
+            sfpi_obj = inf8628InterfaceId()
+        elif port_num in self.qsfp_ports:
+            sfpi_obj = sff8436InterfaceId()
+        else:
+            sfpi_obj = sff8472InterfaceId()
+
         if sfpi_obj is None:
             print("Error: sfp_object open failed")
             return None
 
-        sfp_type_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + XCVR_TYPE_OFFSET), XCVR_TYPE_WIDTH)
-        if sfp_type_raw is not None:
-            sfp_type_data = sfpi_obj.parse_sfp_type(sfp_type_raw, 0)
-        else:
-            return None
+        if port_num in self.osfp_ports:
+            sfp_type_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + OSFP_TYPE_OFFSET), XCVR_TYPE_WIDTH)
+            if sfp_type_raw is not None:
+                sfp_type_data = sfpi_obj.parse_sfp_type(sfp_type_raw, 0)
+            else:
+                return None
 
-        sfp_vendor_name_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + XCVR_VENDOR_NAME_OFFSET), XCVR_VENDOR_NAME_WIDTH)
-        if sfp_vendor_name_raw is not None:
-            sfp_vendor_name_data = sfpi_obj.parse_vendor_name(sfp_vendor_name_raw, 0)
-        else:
-            return None
+            sfp_vendor_name_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + OSFP_VENDOR_NAME_OFFSET), XCVR_VENDOR_NAME_WIDTH)
+            if sfp_vendor_name_raw is not None:
+                sfp_vendor_name_data = sfpi_obj.parse_vendor_name(sfp_vendor_name_raw, 0)
+            else:
+                return None
 
-        sfp_vendor_pn_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + XCVR_VENDOR_PN_OFFSET), XCVR_VENDOR_PN_WIDTH)
-        if sfp_vendor_pn_raw is not None:
-            sfp_vendor_pn_data = sfpi_obj.parse_vendor_pn(sfp_vendor_pn_raw, 0)
-        else:
-            return None
+            sfp_vendor_pn_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + OSFP_VENDOR_PN_OFFSET), XCVR_VENDOR_PN_WIDTH)
+            if sfp_vendor_pn_raw is not None:
+                sfp_vendor_pn_data = sfpi_obj.parse_vendor_pn(sfp_vendor_pn_raw, 0)
+            else:
+                return None
 
-        sfp_vendor_rev_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + XCVR_HW_REV_OFFSET), vendor_rev_width)
-        if sfp_vendor_rev_raw is not None:
-            sfp_vendor_rev_data = sfpi_obj.parse_vendor_rev(sfp_vendor_rev_raw, 0)
-        else:
-            return None
+            sfp_vendor_rev_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + OSFP_HW_REV_OFFSET), vendor_rev_width)
+            if sfp_vendor_rev_raw is not None:
+                sfp_vendor_rev_data = sfpi_obj.parse_vendor_rev(sfp_vendor_rev_raw, 0)
+            else:
+                return None
 
-        sfp_vendor_sn_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + XCVR_VENDOR_SN_OFFSET), XCVR_VENDOR_SN_WIDTH)
-        if sfp_vendor_sn_raw is not None:
-            sfp_vendor_sn_data = sfpi_obj.parse_vendor_sn(sfp_vendor_sn_raw, 0)
+            sfp_vendor_sn_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + OSFP_VENDOR_SN_OFFSET), XCVR_VENDOR_SN_WIDTH)
+            if sfp_vendor_sn_raw is not None:
+                sfp_vendor_sn_data = sfpi_obj.parse_vendor_sn(sfp_vendor_sn_raw, 0)
+            else:
+                return None
         else:
-            return None
+            sfp_type_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + XCVR_TYPE_OFFSET), XCVR_TYPE_WIDTH)
+            if sfp_type_raw is not None:
+                sfp_type_data = sfpi_obj.parse_sfp_type(sfp_type_raw, 0)
+            else:
+                return None
+
+            sfp_vendor_name_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + XCVR_VENDOR_NAME_OFFSET), XCVR_VENDOR_NAME_WIDTH)
+            if sfp_vendor_name_raw is not None:
+                sfp_vendor_name_data = sfpi_obj.parse_vendor_name(sfp_vendor_name_raw, 0)
+            else:
+                return None
+
+            sfp_vendor_pn_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + XCVR_VENDOR_PN_OFFSET), XCVR_VENDOR_PN_WIDTH)
+            if sfp_vendor_pn_raw is not None:
+                sfp_vendor_pn_data = sfpi_obj.parse_vendor_pn(sfp_vendor_pn_raw, 0)
+            else:
+                return None
+
+            sfp_vendor_rev_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + XCVR_HW_REV_OFFSET), vendor_rev_width)
+            if sfp_vendor_rev_raw is not None:
+                sfp_vendor_rev_data = sfpi_obj.parse_vendor_rev(sfp_vendor_rev_raw, 0)
+            else:
+                return None
+
+            sfp_vendor_sn_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + XCVR_VENDOR_SN_OFFSET), XCVR_VENDOR_SN_WIDTH)
+            if sfp_vendor_sn_raw is not None:
+                sfp_vendor_sn_data = sfpi_obj.parse_vendor_sn(sfp_vendor_sn_raw, 0)
+            else:
+                return None
 
         try:
             sysfsfile_eeprom.close()
@@ -703,7 +765,9 @@ class SfpUtilBase(object):
     def get_transceiver_dom_info_dict(self, port_num):
         transceiver_dom_info_dict = {}
 
-        if port_num in self.qsfp_ports:
+        if port_num in self.osfp_ports:
+            pass
+        elif port_num in self.qsfp_ports:
             offset = 0
             offset_xcvr = 128
             file_path = self._get_port_eeprom_path(port_num, self.IDENTITY_EEPROM_ADDR)
