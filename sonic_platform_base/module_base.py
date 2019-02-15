@@ -223,8 +223,8 @@ class ModuleBase(device_base.DeviceBase):
 
     def get_change_event(self, timeout=0):
         """
-        Returns a dictionary containing all devices which have experienced a
-        change in this module
+        Returns a nested dictionary containing all devices which have
+        experienced a change in this module
 
         Args:
             timeout: Timeout in milliseconds (optional). If timeout == 0,
@@ -233,9 +233,16 @@ class ModuleBase(device_base.DeviceBase):
         Returns:
             (bool, dict):
                 - True if call successful, False if not;
-                - Dict where key is device ID and value is device event,
-                  status='1' represents device inserted,
-                  status='0' represents device removed. Ex. {'0': '1', '1': '0'}
+                - A nested dictionary where key is a device type,
+                  value is a dictionary with key:value pairs in the format of
+                  {'device_id':'device_event'}, 
+                  where device_id is the device ID for this device and
+                        device_event,
+                             status='1' represents device inserted,
+                             status='0' represents device removed.
+                  Ex. {'fan':{'0':'0', '2':'1'}, 'sfp':{'11':'0'}}
+                      indicates that fan 0 has been removed, fan 2
+                      has been inserted and sfp 11 has been removed.
         """
         raise NotImplementedError
 
