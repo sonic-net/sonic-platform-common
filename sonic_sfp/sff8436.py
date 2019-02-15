@@ -15,6 +15,7 @@ try:
     import getopt
     import types
     from math import log10
+    from sff8024 import type_of_transceiver
     from sffbase import sffbase
 except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
@@ -184,24 +185,6 @@ class sff8436InterfaceId(sffbase):
                          '100 Mbytes/Sec':
                         {'offset': 9,
                          'bit': 0}}}}
-
-    type_of_transceiver = {
-            '00':'Unknown or unspecified',
-            '01':'GBIC',
-            '02': 'Module/connector soldered to motherboard',
-            '03': 'SFP',
-            '04': '300 pin XBI',
-            '05': 'XENPAK',
-            '06': 'XFP',
-            '07': 'XFF',
-            '08': 'XFP-E',
-            '09': 'XPAK',
-            '0a': 'X2',
-            '0b': 'DWDM-SFP',
-            '0c': 'QSFP',
-            '0d': 'QSFP+',
-            '11': 'QSFP28'
-            }
 
     ext_type_of_transceiver = {
             '00': 'Power Class 1(1.5W max)',
