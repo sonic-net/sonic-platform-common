@@ -14,26 +14,28 @@ class ModuleBase(device_base.DeviceBase):
     Base class for interfacing with a module (supervisor module, line card
     module, etc. (applicable for a modular chassis) 
     """
+    # Device type definition. Note, this is a constant.
+    DEVICE_TYPE = "module"
 
     # List of FanBase-derived objects representing all fans
-    # available on the chassis
+    # available on the module 
     _fan_list = []
 
     # List of PsuBase-derived objects representing all power supply units
-    # available on the chassis
+    # available on the module
     _psu_list = []
 
     # List of ThermalBase-derived objects representing all thermals
-    # available on the chassis
+    # available on the module
     _thermal_list = []
 
     # List of SfpBase-derived objects representing all sfps
-    # available on the chassis
+    # available on the module
     _sfp_list = []
 
     def get_base_mac(self):
         """
-        Retrieves the base MAC address for the chassis
+        Retrieves the base MAC address for the module
 
         Returns:
             A string containing the MAC address in the format
@@ -47,20 +49,20 @@ class ModuleBase(device_base.DeviceBase):
 
     def get_num_fans(self):
         """
-        Retrieves the number of fan modules available on this chassis
+        Retrieves the number of fan modules available on this module
 
         Returns:
-            An integer, the number of fan modules available on this chassis
+            An integer, the number of fan modules available on this module
         """
         return len(self._fan_list)
 
     def get_all_fans(self):
         """
-        Retrieves all fan modules available on this chassis
+        Retrieves all fan modules available on this module 
 
         Returns:
             A list of objects derived from FanBase representing all fan
-            modules available on this chassis
+            modules available on this module 
         """
         return self._fan_list
 
@@ -92,21 +94,21 @@ class ModuleBase(device_base.DeviceBase):
 
     def get_num_psus(self):
         """
-        Retrieves the number of power supply units available on this chassis
+        Retrieves the number of power supply units available on this module 
 
         Returns:
             An integer, the number of power supply units available on this
-            chassis
+            module 
         """
         return len(self._psu_list)
 
     def get_all_psus(self):
         """
-        Retrieves all power supply units available on this chassis
+        Retrieves all power supply units available on this module 
 
         Returns:
             A list of objects derived from PsuBase representing all power
-            supply units available on this chassis
+            supply units available on this module 
         """
         return self._psu_list
 
@@ -138,20 +140,20 @@ class ModuleBase(device_base.DeviceBase):
 
     def get_num_thermals(self):
         """
-        Retrieves the number of thermals available on this chassis
+        Retrieves the number of thermals available on this module 
 
         Returns:
-            An integer, the number of thermals available on this chassis
+            An integer, the number of thermals available on this module 
         """
         return len(self._thermal_list)
 
     def get_all_thermals(self):
         """
-        Retrieves all thermals available on this chassis
+        Retrieves all thermals available on this module 
 
         Returns:
             A list of objects derived from ThermalBase representing all thermals
-            available on this chassis
+            available on this module 
         """
         return self._thermal_list
 
@@ -182,20 +184,20 @@ class ModuleBase(device_base.DeviceBase):
 
     def get_num_sfps(self):
         """
-        Retrieves the number of sfps available on this chassis
+        Retrieves the number of sfps available on this module 
 
         Returns:
-            An integer, the number of sfps available on this chassis
+            An integer, the number of sfps available on this module 
         """
         return len(self._sfp_list)
 
     def get_all_sfps(self):
         """
-        Retrieves all sfps available on this chassis
+        Retrieves all sfps available on this module 
 
         Returns:
             A list of objects derived from PsuBase representing all sfps 
-            available on this chassis
+            available on this module 
         """
         return self._sfp_list
 
@@ -204,7 +206,7 @@ class ModuleBase(device_base.DeviceBase):
         Retrieves sfp represented by (0-based) index <index>
 
         Args:
-            index: An integer, the index (0-based) of the sfp toretrieve
+            index: An integer, the index (0-based) of the sfp to retrieve
 
         Returns:
             An object dervied from SfpBase representing the specified sfp

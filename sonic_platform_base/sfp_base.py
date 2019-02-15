@@ -13,6 +13,8 @@ class SfpBase(device_base.DeviceBase):
     """
     Abstract base class for interfacing with a SFP module
     """
+    # Device type definition. Note, this is a constant.
+    DEVICE_TYPE = "sfp"
 
     def get_transceiver_info(self):
         """
@@ -26,7 +28,7 @@ class SfpBase(device_base.DeviceBase):
         type                       |1*255VCHAR     |type of SFP
         hardwarerev                |1*255VCHAR     |hardware version of SFP
         serialnum                  |1*255VCHAR     |serial number of the SFP
-        manufacturename            |1*255VCHAR     |SFP venndor name
+        manufacturename            |1*255VCHAR     |SFP vendor name
         modelname                  |1*255VCHAR     |SFP model name
         Connector                  |1*255VCHAR     |connector information
         encoding                   |1*255VCHAR     |encoding information
@@ -50,17 +52,17 @@ class SfpBase(device_base.DeviceBase):
         ========================================================================
         keys                       |Value Format   |Information	
         ---------------------------|---------------|----------------------------
-        RX LOS                     |BOOLEAN        |rx lost-of-signal status,
-                                   |               |True if has rx los, False if not.
-        TX FAULT                   |BOOLEAN        |tx fault status,
-                                   |               |True if has tx fault, False if not.
+        RX LOS                     |BOOLEAN        |RX lost-of-signal status,
+                                   |               |True if has RX los, False if not.
+        TX FAULT                   |BOOLEAN        |TX fault status,
+                                   |               |True if has TX fault, False if not.
         Reset status               |BOOLEAN        |reset status,
                                    |               |True if SFP in reset, False if not.
         LP mode                    |BOOLEAN        |low power mode status,
                                    |               |True in lp mode, False if not.
-        tx disable                 |BOOLEAN        |tx disable status,
-                                   |               |True tx disabled, False if not.
-        tx disabled channel        |HEX            |disabled TX channles in hex,
+        TX disable                 |BOOLEAN        |TX disable status,
+                                   |               |True TX disabled, False if not.
+        TX disabled channel        |HEX            |disabled TX channles in hex,
                                    |               |bits 0 to 3 represent channel 0
                                    |               |to channel 3.
         ========================================================================
@@ -88,30 +90,30 @@ class SfpBase(device_base.DeviceBase):
 
     def get_tx_fault(self):
         """
-        Retrieves the tx fault status of SFP
+        Retrieves the TX fault status of SFP
 
         Returns:
-            A Boolean, True if SFP has tx-fault, False if not
-            Note : tx fault status is lached until a call to get_tx_fault or a reset.
+            A Boolean, True if SFP has TX fault, False if not
+            Note : TX fault status is lached until a call to get_tx_fault or a reset.
         """
         return NotImplementedError
 
     def get_tx_disable(self):
         """
-        Retrieves the tx-disable status of this SFP
+        Retrieves the tx_disable status of this SFP
 
         Returns:
-            A Boolean, True if tx-disable is enabled, False if disabled
+            A Boolean, True if tx_disable is enabled, False if disabled
         """
         return NotImplementedError
 
     def get_tx_disable_channel(self):
         """
-        Retrieves the tx disabled channels in this SFP
+        Retrieves the TX disabled channels in this SFP
 
         Returns:
             A hex of 4 bits (bit 0 to bit 3 as channel 0 to channel 3) to represent
-            tx channels which have been disabled in this SFP.
+            TX channels which have been disabled in this SFP.
             As an example, a returned value of 0x5 indicates that channel 0 
             and channel 2 have been disabled.
         """
@@ -119,10 +121,10 @@ class SfpBase(device_base.DeviceBase):
 
     def get_lpmode(self):
         """
-        Retrieves the lpmode status of this SFP
+        Retrieves the lpmode (low power mode) status of this SFP
 
         Returns:
-            A Boolean, True if lpmode (low power mode) is enabled, False if disabled
+            A Boolean, True if lpmode is enabled, False if disabled
         """
         return NotImplementedError
 
@@ -146,7 +148,7 @@ class SfpBase(device_base.DeviceBase):
     
     def tx_disable(self, tx_disable):
         """
-        Disable SFP tx for all channels
+        Disable SFP TX for all channels
 
         Args:
             tx_disable : A Boolean, True to enable tx_disable mode, False to disable
@@ -164,7 +166,7 @@ class SfpBase(device_base.DeviceBase):
         Args:
             channel : A hex of 4 bits (bit 0 to bit 3) which represent channel 0 to 3,
                       e.g. 0x5 for channel 0 and channel 2.
-            disable : A boolean, Trure to disable tx channels specified in channel,
+            disable : A boolean, True to disable TX channels specified in channel,
                       False to enable
 
         Returns:
@@ -174,11 +176,10 @@ class SfpBase(device_base.DeviceBase):
     
     def set_lpmode(self, lpmode):
         """
-        Sets the lpmode of SFP
+        Sets the lpmode (low power mode) of SFP
 
         Args:
-            lpmode: A Boolean, True to enable lpmode (low power mode),
-                    False to disable it
+            lpmode: A Boolean, True to enable lpmode, False to disable it
             Note  : lpmode can be overridden by set_power_override
 
         Returns:
@@ -191,10 +192,14 @@ class SfpBase(device_base.DeviceBase):
         Sets SFP power level using power_override and power_set
 
         Args:
-            power_override : A Boolean, True to override lpmode and have power_set
-                    to control SFP power, False to disable power_override and the
-                    control of power_set.
-            power_set : A Boolean, True to set power at low power mode, False to set
+            power_override : 
+                    A Boolean, True to override set_lpmode and have power_set
+                    to control SFP power, False to disable SFP power control
+                    through power_override/power_set and have set_lpmode
+                    to control SFP power.
+            power_set :
+                    Only valid when power_override is True.
+                    A Boolean, True to set power at low power mode, False to set
                     SFP to high power mode.
 
         Returns:

@@ -16,7 +16,7 @@ class DeviceBase(object):
         Retrieves the name of the device
 
         Returns:
-            string: The name of device
+            string: The name of the device
         """
 
     def get_presence(self):

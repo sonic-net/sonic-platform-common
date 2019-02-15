@@ -13,6 +13,8 @@ class ThermalBase(device_base.DeviceBase):
     """
     Abstract base class for interfacing with a thermal module
     """
+    # Device type definition. Note, this is a constant.
+    DEVICE_TYPE = "thermal"
 
     def get_temperature(self):
         """

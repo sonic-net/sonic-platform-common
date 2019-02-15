@@ -12,11 +12,58 @@ class PsuBase(device_base.DeviceBase):
     """
     Abstract base class for interfacing with a power supply unit
     """
+    # Device type definition. Note, this is a constant.
+    DEVICE_TYPE = "psu"
 
     # Possible fan status LED colors
     STATUS_LED_COLOR_GREEN = "green"
     STATUS_LED_COLOR_RED = "red"
     STATUS_LED_COLOR_OFF = "off"
+
+    # List of FanBase-derived objects representing all fans
+    # available on the PSU
+    _fan_list = []
+
+    def get_num_fans(self):
+        """
+        Retrieves the number of fan modules available on this PSU
+
+        Returns:
+            An integer, the number of fan modules available on this PSU
+        """
+        return len(self._fan_list)
+
+    def get_all_fans(self):
+        """
+        Retrieves all fan modules available on this PSU
+
+        Returns:
+            A list of objects derived from FanBase representing all fan
+            modules available on this PSU
+        """
+        return self._fan_list
+
+    def get_fan(self, index):
+        """
+        Retrieves fan module represented by (0-based) index <index>
+
+        Args:
+            index: An integer, the index (0-based) of the fan module to
+            retrieve
+
+        Returns:
+            An object dervied from FanBase representing the specified fan
+            module
+        """
+        fan = None
+
+        try:
+            fan = self._fan_list[index]
+        except IndexError:
+            sys.stderr.write("Fan index {} out of range (0-{})\n".format(
+                             index, len(self._fan_list)-1))
+
+        return fan
 
     def get_voltage(self):
         """
