@@ -493,6 +493,9 @@ class sff8436InterfaceId(sffbase):
 
     def parse_vendor_date(self, sn_raw_data, start_pos):
         return sffbase.parse(self, self.vendor_date, sn_raw_data, start_pos)
+    
+    def parse_vendor_oui(self, sn_raw_data, start_pos):
+        return sffbase.parse(self, self.vendor_oui, sn_raw_data, start_pos)
 
     def parse_qsfp_dom_capability(self, sn_raw_data, start_pos):
         return sffbase.parse(self, self.qsfp_dom_capability, sn_raw_data, start_pos)
