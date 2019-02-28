@@ -18,7 +18,7 @@ try:
     import types
     from math import log10
     from sff8024 import type_of_transceiver
-    from sffbase import sffbase
+    from .sffbase import sffbase
 except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
 

@@ -13,11 +13,14 @@ from __future__ import print_function
 
 try:
     import exceptions
+except ImportError:
+    import builtins as exceptions
+try:
     import binascii
     import optparse
     import os
     import sys
-    import eeprom_base
+    from . import eeprom_base
 except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
 

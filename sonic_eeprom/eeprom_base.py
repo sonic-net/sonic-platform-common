@@ -13,6 +13,9 @@ from __future__ import print_function
 
 try:
     import exceptions
+except ImportError:
+    import builtins as exceptions
+try:
     import binascii
     import optparse
     import os

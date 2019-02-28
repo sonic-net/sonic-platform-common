@@ -2,8 +2,11 @@
 # Copyright 2012 Cumulus Networks LLC, all rights reserved
 
 try:
-    import os
     import exceptions
+except ImportError:
+    import builtins as exceptions
+try:
+    import os
     import binascii
     import subprocess
 except ImportError as e:

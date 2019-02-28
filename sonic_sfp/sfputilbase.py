@@ -10,12 +10,12 @@ try:
     import binascii
     import os
     import re
-    import bcmshell
+    from . import bcmshell
     from sonic_eeprom import eeprom_dts
-    from sff8472 import sff8472InterfaceId
-    from sff8472 import sff8472Dom
-    from sff8436 import sff8436InterfaceId
-    from sff8436 import sff8436Dom
+    from .sff8472 import sff8472InterfaceId
+    from .sff8472 import sff8472Dom
+    from .sff8436 import sff8436InterfaceId
+    from .sff8436 import sff8436Dom
     from inf8628 import inf8628InterfaceId
 except ImportError as e:
     raise ImportError("%s - required module not found" % str(e))
