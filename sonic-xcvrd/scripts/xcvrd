@@ -1,50 +1,30 @@
 #!/usr/bin/env python2
 
 """
-    Xcvrd
+    xcvrd
     Transceiver information update daemon for SONiC
 """
 
 try:
-    import getopt
     import os
-    import imp
-    import signal
-    import subprocess
     import sys
-    import syslog
     import time
     import threading
     from swsscommon import swsscommon
+    from sonic_daemon_base.daemon_base import DaemonBase
 except ImportError, e:
     raise ImportError (str(e) + " - required module not found")
 
 #============================= Constants =============================
-
-VERSION = '1.0'
-
-SYSLOG_IDENTIFIER = os.path.basename(__file__)
-
-PLATFORM_ROOT_PATH = '/usr/share/sonic/device'
-SONIC_CFGGEN_PATH = '/usr/local/bin/sonic-cfggen'
-HWSKU_KEY = 'DEVICE_METADATA.localhost.hwsku'
-PLATFORM_KEY = 'DEVICE_METADATA.localhost.platform'
 
 PLATFORM_SPECIFIC_MODULE_NAME = "sfputil"
 PLATFORM_SPECIFIC_CLASS_NAME = "SfpUtil"
 
 # Global platform-specific sfputil class instance
 platform_sfputil = None
+# Global xcvr dameon util class instance
+daemon_xcvrd = None
 
-# platform directory in base image
-PLATFORM_ROOT = "/usr/share/sonic/device"
-
-# platform root directory inside docker
-PLATFORM_ROOT_DOCKER = "/usr/share/sonic/platform"
-
-REDIS_HOSTNAME = "localhost"
-REDIS_PORT = 6379
-REDIS_TIMEOUT_MSECS = 0
 SELECT_TIMEOUT_MSECS = 1000
 
 DOM_INFO_UPDATE_PERIOD_SECS = 60
@@ -61,125 +41,122 @@ VOLT_UNIT = 'Volts'
 POWER_UNIT = 'dBm'
 BIAS_UNIT = 'mA'
 
-#========================== Syslog wrappers ==========================
+class DaemonXcvrd(DaemonBase):
+    def __init__(self):
+        DaemonBase.__init__(self)
 
-def log_info(msg, also_print_to_console=False):
-    syslog.openlog(SYSLOG_IDENTIFIER)
-    syslog.syslog(syslog.LOG_INFO, msg)
-    syslog.closelog()
+    def __exit__(self):
+        DaemonBase.__exit__(self)
 
-    if also_print_to_console:
-        print msg
+    # Returns path to port config file
+    def get_path_to_port_config_file(self):
+        (platform_path, hwsku_path) = self.get_path_to_platform_and_hwsku()
+        # First check for the presence of the new 'port_config.ini' file
+        port_config_file_path = "/".join([hwsku_path, "port_config.ini"])
+        if not os.path.isfile(port_config_file_path):
+            # port_config.ini doesn't exist. Try loading the legacy 'portmap.ini' file
+            port_config_file_path = "/".join([hwsku_path, "portmap.ini"])
 
-def log_warning(msg, also_print_to_console=False):
-    syslog.openlog(SYSLOG_IDENTIFIER)
-    syslog.syslog(syslog.LOG_WARNING, msg)
-    syslog.closelog()
+        return port_config_file_path
 
-    if also_print_to_console:
-        print msg
-
-def log_error(msg, also_print_to_console=False):
-    syslog.openlog(SYSLOG_IDENTIFIER)
-    syslog.syslog(syslog.LOG_ERR, msg)
-    syslog.closelog()
-
-    if also_print_to_console:
-        print msg
-
-#========================== Signal Handling ==========================
-
-def signal_handler(sig, frame):
-    if sig == signal.SIGHUP:
-        log_info("Caught SIGHUP - ignoring...")
-        return
-    elif sig == signal.SIGINT:
-        log_info("Caught SIGINT - exiting...")
-        sys.exit(128 + sig)
-    elif sig == signal.SIGTERM:
-        log_info("Caught SIGTERM - exiting...")
-        sys.exit(128 + sig)
-    else:
-        log_warning("Caught unhandled signal '" + sig + "'")
-        return
-
-
-#============ Functions to load platform-specific classes ============
-
-# Returns platform and HW SKU
-def get_platform_and_hwsku():
-    proc = subprocess.Popen([SONIC_CFGGEN_PATH, '-H', '-v', PLATFORM_KEY],
-                            stdout=subprocess.PIPE,
-                            shell=False,
-                            stderr=subprocess.STDOUT)
-    stdout = proc.communicate()[0]
-    proc.wait()
-    platform = stdout.rstrip('\n')
-
-    proc = subprocess.Popen([SONIC_CFGGEN_PATH, '-d', '-v', HWSKU_KEY],
-                            stdout=subprocess.PIPE,
-                            shell=False,
-                            stderr=subprocess.STDOUT)
-    stdout = proc.communicate()[0]
-    proc.wait()
-    hwsku = stdout.rstrip('\n')
-
-    return (platform, hwsku)
-
-# Loads platform specific sfputil module from source
-def load_platform_sfputil():
-    global platform_sfputil
-
-    # Get platform and hwsku
-    (platform, hwsku) = get_platform_and_hwsku()
-
-    # Load platform module from source
-    platform_path = PLATFORM_ROOT_DOCKER
-    hwsku_path = "/".join([platform_path, hwsku])
-
-    try:
-        module_file = "/".join([platform_path, "plugins", PLATFORM_SPECIFIC_MODULE_NAME + ".py"])
-        module = imp.load_source(PLATFORM_SPECIFIC_MODULE_NAME, module_file)
-    except IOError, e:
-        log_error("Failed to load platform module '%s': %s" % (PLATFORM_SPECIFIC_MODULE_NAME, str(e)), True)
-        return -1
-
-    try:
-        platform_sfputil_class = getattr(module, PLATFORM_SPECIFIC_CLASS_NAME)
-        platform_sfputil = platform_sfputil_class()
-    except AttributeError, e:
-        log_error("Failed to instantiate '%s' class: %s" % (PLATFORM_SPECIFIC_CLASS_NAME, str(e)), True)
-        return -2
-
-    return 0
-
-# Returns path to port config file
-def get_path_to_port_config_file():
-    # Get platform and hwsku
-    (platform, hwsku) = get_platform_and_hwsku()
-
-    # Load platform module from source
-    platform_path = PLATFORM_ROOT_DOCKER
-    hwsku_path = "/".join([platform_path, hwsku])
-
-    # First check for the presence of the new 'port_config.ini' file
-    port_config_file_path = "/".join([hwsku_path, "port_config.ini"])
-    if not os.path.isfile(port_config_file_path):
-        # port_config.ini doesn't exist. Try loading the legacy 'portmap.ini' file
-        port_config_file_path = "/".join([hwsku_path, "portmap.ini"])
-
-    return port_config_file_path
-
-# find out the underneath physical port list by logical name
-def logical_port_name_to_physical_port_list(port_name):
-    if port_name.startswith("Ethernet"):
-        if platform_sfputil.is_logical_port(port_name):
-            return platform_sfputil.get_logical_to_physical(port_name)
+    # find out the underneath physical port list by logical name
+    def logical_port_name_to_physical_port_list(self, port_name):
+        if port_name.startswith("Ethernet"):
+            if platform_sfputil.is_logical_port(port_name):
+                return platform_sfputil.get_logical_to_physical(port_name)
+            else:
+                self.log_error("Invalid port '%s'" % port_name)
+                return None
         else:
-            print "Error: Invalid port '%s'" % port_name
-            return None
-    else:
-        return [int(port_name)]
+            return [int(port_name)]
+
+    def run(self):
+        global platform_sfputil
+
+        # Load platform-specific sfputil class
+        platform_sfputil = self.load_platform_util(PLATFORM_SPECIFIC_MODULE_NAME, PLATFORM_SPECIFIC_CLASS_NAME)
+        if not platform_sfputil:
+            self.log_error("failed to load sfputil")
+            sys.exit(1)
+
+        # Load port info
+        try:
+            port_config_file_path = self.get_path_to_port_config_file()
+            platform_sfputil.read_porttab_mappings(port_config_file_path)
+            # platform_sfputil.read_port_mappings()
+        except Exception, e:
+            self.log_error("failed to reading port info (%s)" % str(e))
+            sys.exit(2)
+
+        # Connect to STATE_DB and create transceiver info/dom info table
+        state_db = self.db_connect(swsscommon.STATE_DB)
+        int_tbl = swsscommon.Table(state_db, "TRANSCEIVER_INFO")
+        dom_tbl = swsscommon.Table(state_db, "TRANSCEIVER_DOM_SENSOR")
+
+        # Connect to APPL_DB abd subscribe to PORT table notifications
+        appl_db = self.db_connect(swsscommon.APPL_DB)
+
+        sel = swsscommon.Select()
+        sst = swsscommon.SubscriberStateTable(appl_db, swsscommon.APP_PORT_TABLE_NAME)
+        sel.addSelectable(sst)
+
+        # Make sure this daemon started after all port configured.
+        while True:
+            (state, c) = sel.select(SELECT_TIMEOUT_MSECS)
+            if state == swsscommon.Select.TIMEOUT:
+                continue
+            if state != swsscommon.Select.OBJECT:
+                self.log_warning("sel.select() did not return swsscommon.Select.OBJECT")
+                continue
+
+            (key, op, fvp) = sst.pop()
+            if key in ["PortConfigDone", "PortInitDone"]:
+                break
+
+        # Post all the current interface SFP info to STATE_DB
+        logical_port_list = platform_sfputil.logical
+        for logical_port_name in logical_port_list:
+            post_port_sfp_info_to_db(logical_port_name, int_tbl)
+            post_port_dom_info_to_db(logical_port_name, dom_tbl)
+
+        # Start the dom sensor info update timer thread
+        dom_info_update = dom_info_update_task(dom_tbl)
+        dom_info_update.task_run()
+
+        # Start main loop to listen to the SFP change event.
+        self.log_info("Start main loop")
+        while True:
+            status, port_dict = platform_sfputil.get_transceiver_change_event()
+            if status:
+                for key, value in port_dict.iteritems():
+                    logical_port_list = platform_sfputil.get_physical_to_logical(int(key))
+                    for logical_port in logical_port_list:
+                        if value == SFP_STATUS_INSERTED:
+                            rc = post_port_sfp_info_to_db(logical_port, int_tbl)
+                            # If we didn't get the sfp info, assuming the eeprom is not ready, give a try again.
+                            if rc == SFP_EEPROM_NOT_READY:
+                                time.sleep(TIME_FOR_SFP_READY_SECS)
+                                post_port_sfp_info_to_db(logical_port, int_tbl)
+                            post_port_dom_info_to_db(logical_port, dom_tbl)
+
+                        elif value == SFP_STATUS_REMOVED:
+                            del_port_sfp_dom_info_to_db(logical_port, int_tbl, dom_tbl)
+                        else:
+                            # TODO, SFP return error code, need handle accordingly.
+                            continue
+            else:
+                # If get_transceiver_change_event() return error, will clean up the DB and then exit
+                # TODO: next step need to define more error types to handle accordingly.
+                break
+
+        # Stop the dom info update timer
+        dom_info_update.task_stop()
+
+        # Clean all the information from DB and then exit
+        logical_port_list = platform_sfputil.logical
+        for logical_port_name in logical_port_list:
+            del_port_sfp_dom_info_to_db(logical_port_name, int_tbl, dom_tbl)
+        return 1
 
 # Returns,
 #   port_num if physical
@@ -223,9 +200,9 @@ def post_port_sfp_info_to_db(logical_port_name, table):
     ganged_port = False
     ganged_member_num = 1
 
-    physical_port_list = logical_port_name_to_physical_port_list(logical_port_name)
+    physical_port_list = daemon_xcvrd.logical_port_name_to_physical_port_list(logical_port_name)
     if physical_port_list is None:
-        log_error("Error: No physical ports found for logical port '%s'" % logical_port_name)
+        daemon_xcvrd.log_error("No physical ports found for logical port '%s'" % logical_port_name)
         return PHYSICAL_PORT_NOT_EXIST
 
     if len(physical_port_list) > 1:
@@ -251,7 +228,7 @@ def post_port_sfp_info_to_db(logical_port_name, table):
                 return SFP_EEPROM_NOT_READY
 
         except NotImplementedError:
-            log_error("This functionality is currently not implemented for this platform")
+            daemon_xcvrd.log_error("This functionality is currently not implemented for this platform")
             sys.exit(3)
 
 # update dom sensor info to db
@@ -259,9 +236,9 @@ def post_port_dom_info_to_db(logical_port_name, table):
     ganged_port = False
     ganged_member_num = 1
 
-    physical_port_list = logical_port_name_to_physical_port_list(logical_port_name)
+    physical_port_list = daemon_xcvrd.logical_port_name_to_physical_port_list(logical_port_name)
     if physical_port_list is None:
-        log_error("Error: No physical ports found for logical port '%s'" % logical_port_name)
+        daemon_xcvrd.log_error("No physical ports found for logical port '%s'" % logical_port_name)
         return PHYSICAL_PORT_NOT_EXIST
 
     if len(physical_port_list) > 1:
@@ -297,7 +274,7 @@ def post_port_dom_info_to_db(logical_port_name, table):
                 return SFP_EEPROM_NOT_READY
 
         except NotImplementedError:
-            log_error("This functionality is currently not implemented for this platform")
+            daemon_xcvrd.log_error("This functionality is currently not implemented for this platform")
             sys.exit(3)
 
 # del sfp and dom info from db
@@ -305,9 +282,9 @@ def del_port_sfp_dom_info_to_db(logical_port_name, int_tbl, dom_tbl):
     ganged_port = False
     ganged_member_num = 1
 
-    physical_port_list = logical_port_name_to_physical_port_list(logical_port_name)
+    physical_port_list = daemon_xcvrd.logical_port_name_to_physical_port_list(logical_port_name)
     if physical_port_list is None:
-        log_error("Error: No physical ports found for logical port '%s'" % logical_port_name)
+        daemon_xcvrd.log_error("No physical ports found for logical port '%s'" % logical_port_name)
         return PHYSICAL_PORT_NOT_EXIST
 
     if len(physical_port_list) > 1:
@@ -322,7 +299,7 @@ def del_port_sfp_dom_info_to_db(logical_port_name, int_tbl, dom_tbl):
             dom_tbl._del(port_name)
 
         except NotImplementedError:
-            log_error("This functionality is currently not implemented for this platform")
+            daemon_xcvrd.log_error("This functionality is currently not implemented for this platform")
             sys.exit(3)
 
 # Timer thread wrapper class to update dom info to DB periodically
@@ -334,7 +311,7 @@ class dom_info_update_task:
 
     def task_run(self):
         if self.task_stopping_event.isSet():
-            log_error("Error: dom info update thread received stop event, exiting...")
+            daemon_xcvrd.log_error("dom info update thread received stop event, exiting...")
             return
 
         logical_port_list = platform_sfputil.logical
@@ -348,107 +325,15 @@ class dom_info_update_task:
         self.task_stopping_event.set()
         self.task_timer.join()
 
-#=============================== Main ================================
-
 def main():
-    log_info("Starting up...")
+    global daemon_xcvrd
 
-    # Register our signal handlers
-    signal.signal(signal.SIGHUP, signal_handler)
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-
-    # Load platform-specific sfputil class
-    err = load_platform_sfputil()
-    if err != 0:
-        log_error("failed to load sfputil")
+    daemon_xcvrd = DaemonXcvrd()
+    if not daemon_xcvrd:
+        print "Failed to load xcvrd daemon utilities"
         sys.exit(1)
 
-    # Load port info
-    try:
-        port_config_file_path = get_path_to_port_config_file()
-        platform_sfputil.read_porttab_mappings(port_config_file_path)
-        # platform_sfputil.read_port_mappings()
-    except Exception, e:
-        log_error("Error reading port info (%s)" % str(e), True)
-        sys.exit(2)
-
-    # Connect to STATE_DB and create transceiver info/dom info table
-    state_db = swsscommon.DBConnector(swsscommon.STATE_DB,
-                                     REDIS_HOSTNAME,
-                                     REDIS_PORT,
-                                     REDIS_TIMEOUT_MSECS)
-    int_tbl = swsscommon.Table(state_db, "TRANSCEIVER_INFO")
-    dom_tbl = swsscommon.Table(state_db, "TRANSCEIVER_DOM_SENSOR")
-
-    # Connect to APPL_DB abd subscribe to PORT table notifications
-    appl_db = swsscommon.DBConnector(swsscommon.APPL_DB,
-                                     REDIS_HOSTNAME,
-                                     REDIS_PORT,
-                                     REDIS_TIMEOUT_MSECS)
-
-    sel = swsscommon.Select()
-    sst = swsscommon.SubscriberStateTable(appl_db, swsscommon.APP_PORT_TABLE_NAME)
-    sel.addSelectable(sst)
-
-    # Make sure this daemon started after all port configured.
-    while True:
-        (state, c) = sel.select(SELECT_TIMEOUT_MSECS)
-        if state == swsscommon.Select.TIMEOUT:
-            continue
-        if state != swsscommon.Select.OBJECT:
-            log_warning("sel.select() did not return swsscommon.Select.OBJECT")
-            continue
-
-        (key, op, fvp) = sst.pop()
-        if key in ["PortConfigDone", "PortInitDone"]:
-            break
-
-    # Post all the current interface SFP info to STATE_DB
-    logical_port_list = platform_sfputil.logical
-    for logical_port_name in logical_port_list:
-        post_port_sfp_info_to_db(logical_port_name, int_tbl)
-        post_port_dom_info_to_db(logical_port_name, dom_tbl)
-
-    # Start the dom sensor info update timer thread
-    dom_info_update = dom_info_update_task(dom_tbl)
-    dom_info_update.task_run()
-
-    # Start main loop to listen to the SFP change event.
-    log_info("Start main loop")
-    while True:
-        status, port_dict = platform_sfputil.get_transceiver_change_event()
-        if status:
-            for key, value in port_dict.iteritems():
-                logical_port_list = platform_sfputil.get_physical_to_logical(int(key))
-                for logical_port in logical_port_list:
-                    if value == SFP_STATUS_INSERTED:
-                        rc = post_port_sfp_info_to_db(logical_port, int_tbl)
-                        # If we didn't get the sfp info, assuming the eeprom is not ready, give a try again.
-                        if rc == SFP_EEPROM_NOT_READY:
-                            time.sleep(TIME_FOR_SFP_READY_SECS)
-                            post_port_sfp_info_to_db(logical_port, int_tbl)
-                        post_port_dom_info_to_db(logical_port, dom_tbl)
-
-                    elif value == SFP_STATUS_REMOVED:
-                        del_port_sfp_dom_info_to_db(logical_port, int_tbl, dom_tbl)
-                    else:
-                        # TODO, SFP return error code, need handle accordingly.
-                        continue
-        else:
-            # If get_transceiver_change_event() return error, will clean up the DB and then exit
-            # TODO: next step need to define more error types to handle accordingly.
-            break
-
-    # Stop the dom info update timer
-    dom_info_update.task_stop()
-
-    # Clean all the information from DB and then exit
-    logical_port_list = platform_sfputil.logical
-    for logical_port_name in logical_port_list:
-        del_port_sfp_dom_info_to_db(logical_port_name, int_tbl, dom_tbl)
-    log_error("Error: return error from get_transceiver_change_event(), exiting...")
-    return 1
+    daemon_xcvrd.run()
 
 if __name__ == '__main__':
     main()

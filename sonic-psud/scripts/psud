@@ -1,7 +1,7 @@
 #!/usr/bin/env python2
 
 """
-    Psud
+    psud
     PSU information update daemon for SONiC
     This daemon will loop to collect PSU related information and then write the information to state DB.
     Currently it is implemented based on old plugins rather than new platform APIs. So the PSU information just
@@ -10,181 +10,68 @@
 """
 
 try:
-    import getopt
-    import os
-    import imp
-    import signal
-    import subprocess
     import sys
-    import syslog
     import time
     from swsscommon import swsscommon
+    from sonic_daemon_base.daemon_base import DaemonBase
 except ImportError, e:
     raise ImportError (str(e) + " - required module not found")
 
 #============================= Constants =============================
 
-VERSION = '1.0'
-
-SYSLOG_IDENTIFIER = os.path.basename(__file__)
 PLATFORM_SPECIFIC_MODULE_NAME = "psuutil"
 PLATFORM_SPECIFIC_CLASS_NAME = "PsuUtil"
 
-# Platform root directory inside docker
-PLATFORM_ROOT_DOCKER = "/usr/share/sonic/platform"
-SONIC_CFGGEN_PATH = '/usr/local/bin/sonic-cfggen'
-HWSKU_KEY = 'DEVICE_METADATA.localhost.hwsku'
-PLATFORM_KEY = 'DEVICE_METADATA.localhost.platform'
-
-# Global platform-specific psuutil class instance
-platform_psuutil = None
-
-REDIS_HOSTNAME = "localhost"
-REDIS_PORT = 6379
-REDIS_TIMEOUT_MSECS = 0
-
 PSU_INFO_UPDATE_PERIOD_SECS = 3
 
-#========================== Syslog wrappers ==========================
+class DaemonPsud(DaemonBase):
+    def __init__(self):
+        DaemonBase.__init__(self)
 
-def log_info(msg, also_print_to_console=False):
-    syslog.openlog(SYSLOG_IDENTIFIER)
-    syslog.syslog(syslog.LOG_INFO, msg)
-    syslog.closelog()
+    def __exit__(self):
+        DaemonBase.__exit__(self)
 
-    if also_print_to_console:
-        print msg
+    def run(self):
+        # Load platform-specific psuutil class
+        platform_psuutil = self.load_platform_util(PLATFORM_SPECIFIC_MODULE_NAME, PLATFORM_SPECIFIC_CLASS_NAME)
+        if not platform_psuutil:
+            self.log_error("failed to load psuutil")
+            sys.exit(1)
 
-def log_warning(msg, also_print_to_console=False):
-    syslog.openlog(SYSLOG_IDENTIFIER)
-    syslog.syslog(syslog.LOG_WARNING, msg)
-    syslog.closelog()
+        state_db = self.db_connect(swsscommon.STATE_DB)
+        psu_tbl = swsscommon.Table(state_db, "PSU_INFO")
+        chassis_tbl = swsscommon.Table(state_db, "CHASSIS_INFO")
+        num_psus = platform_psuutil.get_num_psus()
+        fvs = swsscommon.FieldValuePairs([('num_psus', str(num_psus))])
+        chassis_tbl.set('chassis 1', fvs)
 
-    if also_print_to_console:
-        print msg
+        # Start main loop to listen to the PSU change event.
+        self.log_info("Start main loop")
+        while True:
+            psu_db_update(platform_psuutil, psu_tbl, num_psus)
+            time.sleep(PSU_INFO_UPDATE_PERIOD_SECS)
 
-def log_error(msg, also_print_to_console=False):
-    syslog.openlog(SYSLOG_IDENTIFIER)
-    syslog.syslog(syslog.LOG_ERR, msg)
-    syslog.closelog()
+        # Clean all the information from DB and then exit
+        for psu_index in range(1, num_psus + 1):
+            psu_tbl._del("PSU {}".format(psu_index))
+        chassis_tbl._del('chassis 1')
+        return 1
 
-    if also_print_to_console:
-        print msg
-
-#========================== Signal Handling ==========================
-
-def signal_handler(sig, frame):
-    if sig == signal.SIGHUP:
-        log_info("Caught SIGHUP - ignoring...")
-        return
-    elif sig == signal.SIGINT:
-        log_info("Caught SIGINT - exiting...")
-        sys.exit(128 + sig)
-    elif sig == signal.SIGTERM:
-        log_info("Caught SIGTERM - exiting...")
-        sys.exit(128 + sig)
-    else:
-        log_warning("Caught unhandled signal '" + sig + "'")
-        return
-
-#============ Functions to load platform-specific classes ============
-
-# Returns platform and HW SKU
-def get_platform_and_hwsku():
-    try:
-        proc = subprocess.Popen([SONIC_CFGGEN_PATH, '-H', '-v', PLATFORM_KEY],
-                                stdout=subprocess.PIPE,
-                                shell=False,
-                                stderr=subprocess.STDOUT)
-        stdout = proc.communicate()[0]
-        proc.wait()
-        platform = stdout.rstrip('\n')
-
-        proc = subprocess.Popen([SONIC_CFGGEN_PATH, '-d', '-v', HWSKU_KEY],
-                                stdout=subprocess.PIPE,
-                                shell=False,
-                                stderr=subprocess.STDOUT)
-        stdout = proc.communicate()[0]
-        proc.wait()
-        hwsku = stdout.rstrip('\n')
-    except OSError, e:
-        raise OSError("Cannot detect platform")
-
-    return (platform, hwsku)
-
-# Loads platform specific psuutil module from source
-def load_platform_psuutil():
-    global platform_psuutil
-
-    # Get platform and hwsku
-    (platform, hwsku) = get_platform_and_hwsku()
-
-    # Load platform module from source
-    platform_path = PLATFORM_ROOT_DOCKER
-    hwsku_path = "/".join([platform_path, hwsku])
-
-    try:
-        module_file = "/".join([platform_path, "plugins", PLATFORM_SPECIFIC_MODULE_NAME + ".py"])
-        module = imp.load_source(PLATFORM_SPECIFIC_MODULE_NAME, module_file)
-    except IOError, e:
-        log_error("Failed to load platform module '%s': %s" % (PLATFORM_SPECIFIC_MODULE_NAME, str(e)), True)
-        return -1
-
-    try:
-        platform_psuutil_class = getattr(module, PLATFORM_SPECIFIC_CLASS_NAME)
-        platform_psuutil = platform_psuutil_class()
-    except AttributeError, e:
-        log_error("Failed to instantiate '%s' class: %s" % (PLATFORM_SPECIFIC_CLASS_NAME, str(e)), True)
-        return -2
-
-    return 0
-
-def psu_db_update(psu_tbl, num_psus):
+def psu_db_update(psuutil, psu_tbl, num_psus):
     for psu_index in range(1, num_psus + 1):
         fvs = swsscommon.FieldValuePairs([('presence',
-                                           'true' if platform_psuutil.get_psu_presence(psu_index) else 'false'),
+                                           'true' if psuutil.get_psu_presence(psu_index) else 'false'),
                                           ('status',
-                                           'true' if platform_psuutil.get_psu_status(psu_index) else 'false')])
+                                           'true' if psuutil.get_psu_status(psu_index) else 'false')])
         psu_tbl.set("PSU {}".format(psu_index), fvs)
 
-#=============================== Main ================================
-
 def main():
-    log_info("Starting up...")
-
-    # Register our signal handlers
-    signal.signal(signal.SIGHUP, signal_handler)
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-
-    # Load platform-specific psuutil class
-    err = load_platform_psuutil()
-    if err != 0:
-        log_error("failed to load psuutil")
+    daemon_psud = DaemonPsud()
+    if not daemon_psud:
+        print "Failed to load psu daemon utilities"
         sys.exit(1)
 
-    state_db = swsscommon.DBConnector(swsscommon.STATE_DB,
-                                      REDIS_HOSTNAME,
-                                      REDIS_PORT,
-                                      REDIS_TIMEOUT_MSECS)
-    psu_tbl = swsscommon.Table(state_db, "PSU_INFO")
-    chassis_tbl = swsscommon.Table(state_db, "CHASSIS_INFO")
-    num_psus = platform_psuutil.get_num_psus()
-    fvs = swsscommon.FieldValuePairs([('num_psus', str(num_psus))])
-    chassis_tbl.set('chassis 1', fvs)
-
-    # Start main loop to listen to the PSU change event.
-    log_info("Start main loop")
-    while True:
-        psu_db_update(psu_tbl, num_psus)
-        time.sleep(PSU_INFO_UPDATE_PERIOD_SECS)
-
-    # Clean all the information from DB and then exit
-    for psu_index in range(1, num_psus + 1):
-        psu_tbl._del("PSU {}".format(psu_index))
-    chassis_tbl._del('chassis 1')
-    log_error("Error: return error from psu daemon, exiting...")
-    return 1
+    daemon_psud.run()
 
 if __name__ == '__main__':
     main()
