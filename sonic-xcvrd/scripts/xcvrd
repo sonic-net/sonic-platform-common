@@ -222,7 +222,18 @@ def post_port_sfp_info_to_db(logical_port_name, table):
                                                   ('hardwarerev', port_info_dict['hardwarerev']),
                                                   ('serialnum', port_info_dict['serialnum']),
                                                   ('manufacturename', port_info_dict['manufacturename']),
-                                                  ('modelname', port_info_dict['modelname'])])
+                                                  ('modelname', port_info_dict['modelname']),
+                                                  ('vendor_oui',port_info_dict['vendor_oui']),
+                                                  ('vendor_date',port_info_dict['vendor_date']),
+                                                  ('Connector',port_info_dict['Connector']),
+                                                  ('encoding',port_info_dict['encoding']),
+                                                  ('ext_identifier',port_info_dict['ext_identifier']),
+                                                  ('ext_rateselect_compliance',port_info_dict['ext_rateselect_compliance']),
+                                                  ('cable_type',port_info_dict['cable_type']),
+                                                  ('cable_length',port_info_dict['cable_length']),
+                                                  ('specification_compliance',port_info_dict['specification_compliance']),
+                                                  ('nominal_bit_rate',port_info_dict['nominal_bit_rate'])])
+                                                  
                 table.set(port_name, fvs)
             else:
                 return SFP_EEPROM_NOT_READY
