@@ -370,15 +370,6 @@ class SfpUtilBase(object):
                 physical_to_logical[fp_port_index].append(
                     portname)
 
-            if (fp_port_index - last_fp_port_index) > 1:
-                # last port was a gang port
-                for p in range(last_fp_port_index+1, fp_port_index):
-                    logical_to_physical[last_portname].append(p)
-                    if physical_to_logical.get(p) is None:
-                        physical_to_logical[p] = [last_portname]
-                    else:
-                        physical_to_logical[p].append(last_portname)
-
             last_fp_port_index = fp_port_index
             last_portname = portname
 
