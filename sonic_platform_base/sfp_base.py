@@ -65,6 +65,11 @@ class SfpBase(device_base.DeviceBase):
         TX disabled channel        |HEX            |disabled TX channles in hex,
                                    |               |bits 0 to 3 represent channel 0
                                    |               |to channel 3.
+        Temperature                |INT            |module temperature in Celsius
+        Voltage                    |INT            |supply voltage in mV
+        TX bias                    |INT            |TX Bias Current in mA
+        RX power                   |INT            |received optical power in mW
+        TX power                   |INT            |TX output power in mW
         ========================================================================
         """
         return NotImplementedError
@@ -136,7 +141,53 @@ class SfpBase(device_base.DeviceBase):
             A Boolean, True if power-override is enabled, False if disabled
         """
         return NotImplementedError
+    
+    def get_temperature(self):
+        """
+        Retrieves the temperature of this SFP
 
+        Returns:
+            An integer number of current temperature in Celsius
+        """
+        return NotImplementedError
+
+
+    def get_voltage(self):
+        """
+        Retrieves the supply voltage of this SFP
+
+        Returns:
+            An integer number of supply voltage in mV
+        """
+        return NotImplementedError
+    
+    def get_tx_bias(self):
+        """
+        Retrieves the TX bias current of this SFP
+
+        Returns:
+            An integer number of TX bias current in mA
+        """
+        return NotImplementedError
+    
+    def get_rx_power(self):
+        """
+        Retrieves the received optical power for this SFP
+
+        Returns:
+            An integer number of received optical power in mW
+        """
+        return NotImplementedError
+    
+    def get_tx_power(self):
+        """
+        Retrieves the TX power of this SFP
+
+        Returns:
+            An integer number of TX power in mW
+        """
+        return NotImplementedError
+    
     def reset(self):
         """
         Reset SFP and return all user module settings to their default srate.
