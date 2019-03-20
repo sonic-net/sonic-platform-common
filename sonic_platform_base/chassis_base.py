@@ -59,6 +59,27 @@ class ChassisBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
+    def get_serial_number(self):
+        """
+        Retrieves the hardware serial number for the chassis
+
+        Returns:
+            A string containing the hardware serial number for this chassis.
+        """
+        raise NotImplementedError
+
+    def get_system_eeprom_info(self):
+        """
+        Retrieves the full content of system EEPROM information for the chassis
+
+        Returns:
+            A dictionary containing system EEPROM information.
+            Ex. {'Model':'AA9064','Part Number':'v1.0','Vendor':'DDCompany',
+                 'Manufacturer':'FFCompany','Country Code':'USA',
+                 'Number of MAC':'64'}
+        """
+        raise NotImplementedError
+
     def get_reboot_cause(self):
         """
         Retrieves the cause of the previous reboot

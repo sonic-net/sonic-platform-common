@@ -166,7 +166,9 @@ class SfpBase(device_base.DeviceBase):
         Retrieves the TX bias current of this SFP
 
         Returns:
-            An integer number of TX bias current in mA
+            A list of four integer numbers, representing TX bias in mA
+            for channel 0 to channel 4.
+            Ex. ['110.09', '111.12', '108.21', '112.09']
         """
         return NotImplementedError
     
@@ -175,7 +177,9 @@ class SfpBase(device_base.DeviceBase):
         Retrieves the received optical power for this SFP
 
         Returns:
-            An integer number of received optical power in mW
+            A list of four integer numbers, representing received optical
+            power in mW for channel 0 to channel 4.
+            Ex. ['1.77', '1.71', '1.68', '1.70']
         """
         return NotImplementedError
     
@@ -184,7 +188,9 @@ class SfpBase(device_base.DeviceBase):
         Retrieves the TX power of this SFP
 
         Returns:
-            An integer number of TX power in mW
+            A list of four integer numbers, representing TX power in mW
+            for channel 0 to channel 4.
+            Ex. ['1.86', '1.86', '1.86', '1.86']
         """
         return NotImplementedError
     
