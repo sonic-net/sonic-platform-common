@@ -2,9 +2,9 @@
 # Copyright 2012 Cumulus Networks LLC, all rights reserved
 
 try:
-    import exceptions
+    import exceptions			# Python 2
 except ImportError:
-    import builtins as exceptions
+    import builtins as exceptions	# Python 3
 try:
     import os
     import binascii
