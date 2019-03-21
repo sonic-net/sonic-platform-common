@@ -12,9 +12,9 @@
 from __future__ import print_function
 
 try:
-    import exceptions			# Python 2
+    import exceptions              # Python 2
 except ImportError:
-    import builtins as exceptions	# Python 3
+    import builtins as exceptions  # Python 3
 try:
     import binascii
     import optparse

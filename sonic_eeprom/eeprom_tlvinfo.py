@@ -12,15 +12,16 @@
 from __future__ import print_function
 
 try:
-    import exceptions 			# Python 2
+    import exceptions              # Python 2
 except ImportError:
-    import builtins as exceptions	# Python 3
+    import builtins as exceptions  # Python 3
 try:
     import binascii
     import optparse
     import os
     import sys
-    from . import eeprom_base		# Dot module supports both Python 2 and Python 3 using explicit relative import methods
+    from . import eeprom_base    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
+    import redis
 except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
 

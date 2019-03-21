@@ -10,12 +10,12 @@ try:
     import binascii
     import os
     import re
-    from . import bcmshell			# Dot module supports both Python 2 and Python 3 using explicit relative import methods
+    from . import bcmshell       # Dot module supports both Python 2 and Python 3 using explicit relative import methods
     from sonic_eeprom import eeprom_dts
-    from .sff8472 import sff8472InterfaceId	# Dot module supports both Python 2 and Python 3 using explicit relative import methods
-    from .sff8472 import sff8472Dom		# Dot module supports both Python 2 and Python 3 using explicit relative import methods
-    from .sff8436 import sff8436InterfaceId	# Dot module supports both Python 2 and Python 3 using explicit relative import methods
-    from .sff8436 import sff8436Dom		# Dot module supports both Python 2 and Python 3 using explicit relative import methods
+    from .sff8472 import sff8472InterfaceId  # Dot module supports both Python 2 and Python 3 using explicit relative import methods
+    from .sff8472 import sff8472Dom    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
+    from .sff8436 import sff8436InterfaceId  # Dot module supports both Python 2 and Python 3 using explicit relative import methods
+    from .sff8436 import sff8436Dom    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
     from inf8628 import inf8628InterfaceId
 except ImportError as e:
     raise ImportError("%s - required module not found" % str(e))
