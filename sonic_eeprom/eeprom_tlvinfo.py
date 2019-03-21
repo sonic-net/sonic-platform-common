@@ -20,11 +20,12 @@ try:
     import optparse
     import os
     import sys
-    from . import eeprom_base    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
     import redis
+    from . import eeprom_base    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
 except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
 
+STATE_DB_INDEX = 6
 
 #
 # TlvInfo Format - This eeprom format was defined by Cumulus Networks
@@ -74,6 +75,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
 
     # TLV Value Display Switch
     _TLV_DISPLAY_VENDOR_EXT     = False
+    _TLV_NUM_VENDOR_EXT         = 0
 
     def __init__(self, path, start, status, ro, max_len=_TLV_INFO_MAX_LEN):
         super(TlvInfoDecoder, self).__init__(path,      \
@@ -83,6 +85,22 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
                                              ro)
         self.eeprom_start = start
         self.eeprom_max_len = max_len
+
+    def __print_db(self, db, code, num=0):
+        if not num:
+            field_name = db.hget('EEPROM_INFO|{}'.format(hex(code)), 'Name')
+            if not field_name:
+                pass
+            else:
+                field_len = db.hget('EEPROM_INFO|{}'.format(hex(code)), 'Len')
+                field_value = db.hget('EEPROM_INFO|{}'.format(hex(code)), 'Value')
+                print("%-20s 0x%02X %3s %s" % (field_name, code, field_len, field_value))
+        else:
+            for index in range(num):
+                field_name = db.hget('EEPROM_INFO|{}'.format(hex(code)), 'Name_{}'.format(index))
+                field_len = db.hget('EEPROM_INFO|{}'.format(hex(code)), 'Len_{}'.format(index))
+                field_value = db.hget('EEPROM_INFO|{}'.format(hex(code)), 'Value_{}'.format(index))
+                print("%-20s 0x%02X %3s %s" % (field_name, code, field_len, field_value))
 
     def decode_eeprom(self, e):
         '''
@@ -110,7 +128,9 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
             if not self.is_valid_tlv(e[tlv_index:]):
                 print("Invalid TLV field starting at EEPROM offset %d" % (tlv_index,))
                 return
-            print(self.decoder(None, e[tlv_index:tlv_index + 2 + ord(e[tlv_index + 1])]))
+            tlv = e[tlv_index:tlv_index + 2 + ord(e[tlv_index + 1])]
+            name, value = self.decoder(None, tlv)
+            print("%-20s 0x%02X %3d %s" % (name, ord(tlv[0]), ord(tlv[1]), value))
             if ord(e[tlv_index]) == self._TLV_CODE_QUANTA_CRC or \
                ord(e[tlv_index]) == self._TLV_CODE_CRC_32:
                 return
@@ -279,6 +299,89 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
                                %(sizeof_tlvs, self.p) + \
                                "but only read %d" %(len(t)))
         return h + t
+
+    def read_eeprom_db(self):
+        '''
+        Print out the contents of the EEPROM from database
+        '''
+        client = redis.Redis(db = STATE_DB_INDEX)
+        db_state = client.hget('EEPROM_INFO|State', 'Initialized')
+        if db_state != '1':
+            return -1
+        tlv_version = client.hget('EEPROM_INFO|TlvHeader', 'Version')
+        if tlv_version:
+            print("TlvInfo Header:")
+            print("   Id String:    %s" % client.hget('EEPROM_INFO|TlvHeader', 'Id String'))
+            print("   Version:      %s" % tlv_version)
+            print("   Total Length: %s" % client.hget('EEPROM_INFO|TlvHeader', 'Total Length'))
+
+        print("TLV Name             Code Len Value")
+        print("-------------------- ---- --- -----")
+
+        for index in range(self._TLV_CODE_PRODUCT_NAME, self._TLV_CODE_SERVICE_TAG + 1):
+            self.__print_db(client, index)
+
+        try:
+            num_vendor_ext = int(client.hget('EEPROM_INFO|{}'.format(hex(self._TLV_CODE_VENDOR_EXT)), 'Num_vendor_ext'))
+        except (ValueError, TypeError):
+            pass
+        else:
+            self.__print_db(client, self._TLV_CODE_VENDOR_EXT, num_vendor_ext)
+
+        self.__print_db(client, self._TLV_CODE_CRC_32)
+        return 0
+
+    def update_eeprom_db(self, e):
+        '''
+        Decode the contents of the EEPROM and update the contents to database
+        '''
+        client = redis.Redis(db=STATE_DB_INDEX)
+        fvs = {}
+        if self._TLV_HDR_ENABLED:
+            if not self.is_valid_tlvinfo_header(e):
+                print("EEPROM does not contain data in a valid TlvInfo format.")
+                return -1
+            total_len = (ord(e[9]) << 8) | ord(e[10])
+            fvs['Id String'] = e[0:7]
+            fvs['Version'] = ord(e[8])
+            fvs['Total Length'] = total_len
+            client.hmset("EEPROM_INFO|TlvHeader", fvs)
+            fvs.clear()
+            tlv_index = self._TLV_INFO_HDR_LEN
+            tlv_end = self._TLV_INFO_HDR_LEN + total_len
+        else:
+            tlv_index = self.eeprom_start
+            tlv_end = self._TLV_INFO_MAX_LEN
+
+        while (tlv_index + 2) < len(e) and tlv_index < tlv_end:
+            if not self.is_valid_tlv(e[tlv_index:]):
+                break
+            tlv = e[tlv_index:tlv_index + 2 + ord(e[tlv_index + 1])]
+            tlv_code = ord(tlv[0])
+            if tlv_code == self._TLV_CODE_VENDOR_EXT:
+                vendor_index = str(self._TLV_NUM_VENDOR_EXT)
+                fvs['Len_{}'.format(vendor_index)] = ord(tlv[1])
+                fvs['Name_{}'.format(vendor_index)], fvs['Value_{}'.format(vendor_index)] = self.decoder(None, tlv)
+                self._TLV_NUM_VENDOR_EXT += 1
+            else:
+                fvs['Len'] = ord(tlv[1])
+                fvs['Name'], fvs['Value'] = self.decoder(None, tlv)
+            client.hmset('EEPROM_INFO|{}'.format(hex(tlv_code)), fvs)
+            fvs.clear()
+            if ord(e[tlv_index]) == self._TLV_CODE_QUANTA_CRC or \
+                    ord(e[tlv_index]) == self._TLV_CODE_CRC_32:
+                break
+            else:
+                tlv_index += ord(e[tlv_index + 1]) + 2
+
+        if self._TLV_NUM_VENDOR_EXT:
+            fvs['Num_vendor_ext'] = self._TLV_NUM_VENDOR_EXT
+            client.hmset('EEPROM_INFO|{}'.format(hex(self._TLV_CODE_VENDOR_EXT)), fvs)
+            fvs.clear()
+
+        fvs['Initialized'] = '1'
+        client.hmset('EEPROM_INFO|State', fvs)
+        return 0
 
     def get_tlv_field(self, e, code):
         '''
@@ -460,7 +563,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
             value = ""
             for c in t[2:2 + ord(t[1])]:
                 value += "0x%02X " % (ord(c),)
-        return "%-20s 0x%02X %3d %s" % (name, ord(t[0]), ord(t[1]), value)
+        return name, value
 
     def encoder(self, I, v):
         '''
