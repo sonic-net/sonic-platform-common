@@ -12,7 +12,10 @@
 from __future__ import print_function
 
 try:
-    import exceptions
+    import exceptions              # Python 2
+except ImportError:
+    import builtins as exceptions  # Python 3
+try:
     import binascii
     import optparse
     import os
