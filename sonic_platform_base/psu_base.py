@@ -29,7 +29,7 @@ class PsuBase(device_base.DeviceBase):
             An object dervied from FanBase representing the fan module
             contained in this PSU
         """
-        return _fan
+        return self._fan
 
     def set_status_led(self, color):
         """

@@ -220,4 +220,4 @@ class ChassisBase(device_base.DeviceBase):
             An object derived from WatchdogBase representing the hardware
             watchdog device
         """
-        return _watchdog
+        return self._watchdog
