@@ -2,7 +2,6 @@
 
 """
     ledd
-
     Front-panel LED control daemon for SONiC
 """
 
@@ -15,6 +14,8 @@ try:
     import sys
     import syslog
     from swsscommon import swsscommon
+    from sonic_daemon_base import daemon_base
+    from sonic_daemon_base.daemon_base import Logger
     from sonic_daemon_base.daemon_base import DaemonBase
 except ImportError, e:
     raise ImportError (str(e) + " - required module not found")
@@ -35,15 +36,18 @@ Options:
 
 LED_MODULE_NAME = "led_control"
 LED_CLASS_NAME = "LedControl"
+
 SELECT_TIMEOUT = 1000
+
+LEDUTIL_LOAD_ERROR = 1
+
+logger = Logger(SYSLOG_IDENTIFIER)
 
 class DaemonLedd(DaemonBase):
     def __init__(self):
         DaemonBase.__init__(self)
 
-    def __exit__(self):
-        DaemonBase.__exit__(self)
-
+    # Run daemon
     def run(self):
         # Parse options if provided
         if (len(sys.argv) > 1):
@@ -65,13 +69,14 @@ class DaemonLedd(DaemonBase):
                     sys.exit(0)
 
         # Load platform-specific LedControl module
-        led_control = self.load_platform_util(LED_MODULE_NAME, LED_CLASS_NAME)
-        if not led_control:
-            self.log_error("failed to load ledutil")
-            sys.exit(1)
+        try:
+            led_control = self.load_platform_util(LED_MODULE_NAME, LED_CLASS_NAME)
+        except Exception as e:
+            logger.log_error("Failed to load ledutil: %s" % (str(e)), True)
+            sys.exit(LEDUTIL_LOAD_ERROR)
 
         # Open a handle to the Application database
-        appl_db = self.db_connect(swsscommon.APPL_DB)
+        appl_db = daemon_base.db_connect(swsscommon.APPL_DB)
 
         # Subscribe to PORT table notifications in the Application DB
         sel = swsscommon.Select()
@@ -88,7 +93,7 @@ class DaemonLedd(DaemonBase):
                 # Do not flood log when select times out
                 continue
             if state != swsscommon.Select.OBJECT:
-                self.log_warning("sel.select() did not  return swsscommon.Select.OBJECT")
+                logger.log_warning("sel.select() did not  return swsscommon.Select.OBJECT")
                 continue
 
             (key, op, fvp) = sst.pop()
@@ -106,16 +111,8 @@ class DaemonLedd(DaemonBase):
         return 1
 
 def main():
-    if not os.geteuid() == 0:
-        print "Error: Must be root to run this daemon"
-        sys.exit(1)
-
-    daemon_ledd = DaemonLedd()
-    if not daemon_ledd:
-        print "Failed to instantiate LED daemon"
-        sys.exit(1)
-
-    daemon_ledd.run()
+    ledd = DaemonLedd()
+    ledd.run()
 
 if __name__ == '__main__':
     main()

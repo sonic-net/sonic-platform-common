@@ -12,66 +12,118 @@
 try:
     import sys
     import time
+    import signal
+    import threading
     from swsscommon import swsscommon
+    from sonic_daemon_base import daemon_base
+    from sonic_daemon_base.daemon_base import Logger
     from sonic_daemon_base.daemon_base import DaemonBase
 except ImportError, e:
     raise ImportError (str(e) + " - required module not found")
 
-#============================= Constants =============================
+#
+# Constants ====================================================================
+#
+
+SYSLOG_IDENTIFIER = "psud"
 
 PLATFORM_SPECIFIC_MODULE_NAME = "psuutil"
 PLATFORM_SPECIFIC_CLASS_NAME = "PsuUtil"
 
+CHASSIS_INFO_TABLE = 'CHASSIS_INFO'
+CHASSIS_INFO_KEY_TEMPLATE = 'chassis {}'
+CHASSIS_INFO_PSU_NUM_FIELD = 'psu_num'
+
+PSU_INFO_TABLE = 'PSU_INFO'
+PSU_INFO_KEY_TEMPLATE = 'PSU {}'
+PSU_INFO_PRESENCE_FIELD = 'presence'
+PSU_INFO_STATUS_FIELD = 'status'
+
 PSU_INFO_UPDATE_PERIOD_SECS = 3
+
+PSUUTIL_LOAD_ERROR = 1
+
+logger = Logger(SYSLOG_IDENTIFIER)
+
+#
+# Helper functions =============================================================
+#
+
+def psu_db_update(psuutil, psu_tbl, psu_num):
+    for psu_index in range(1, psu_num + 1):
+        fvs = swsscommon.FieldValuePairs([(PSU_INFO_PRESENCE_FIELD,
+                                           'true' if psuutil.get_psu_presence(psu_index) else 'false'),
+                                          (PSU_INFO_STATUS_FIELD,
+                                           'true' if psuutil.get_psu_status(psu_index) else 'false')])
+        psu_tbl.set(PSU_INFO_KEY_TEMPLATE.format(psu_index), fvs)
+
+#
+# Daemon =======================================================================
+#
 
 class DaemonPsud(DaemonBase):
     def __init__(self):
         DaemonBase.__init__(self)
 
-    def __exit__(self):
-        DaemonBase.__exit__(self)
+        self.stop = threading.Event()
 
+    # Signal handler
+    def signal_handler(self, sig, frame):
+        if sig == signal.SIGHUP:
+            logger.log_info("Caught SIGHUP - ignoring...")
+        elif sig == signal.SIGINT:
+            logger.log_info("Caught SIGINT - exiting...")
+            self.stop.set()
+        elif sig == signal.SIGTERM:
+            logger.log_info("Caught SIGTERM - exiting...")
+            self.stop.set()
+        else:
+            logger.log_warning("Caught unhandled signal '" + sig + "'")
+
+    # Run daemon
     def run(self):
+        logger.log_info("Starting up...")
+
         # Load platform-specific psuutil class
-        platform_psuutil = self.load_platform_util(PLATFORM_SPECIFIC_MODULE_NAME, PLATFORM_SPECIFIC_CLASS_NAME)
-        if not platform_psuutil:
-            self.log_error("failed to load psuutil")
-            sys.exit(1)
+        try:
+            platform_psuutil = self.load_platform_util(PLATFORM_SPECIFIC_MODULE_NAME, PLATFORM_SPECIFIC_CLASS_NAME)
+        except Exception as e:
+            logger.log_error("Failed to load psuutil: %s" % (str(e)), True)
+            sys.exit(PSUUTIL_LOAD_ERROR)
 
-        state_db = self.db_connect(swsscommon.STATE_DB)
-        psu_tbl = swsscommon.Table(state_db, "PSU_INFO")
-        chassis_tbl = swsscommon.Table(state_db, "CHASSIS_INFO")
-        num_psus = platform_psuutil.get_num_psus()
-        fvs = swsscommon.FieldValuePairs([('num_psus', str(num_psus))])
-        chassis_tbl.set('chassis 1', fvs)
+        # Connect to STATE_DB and create psu/chassis info tables
+        state_db = daemon_base.db_connect(swsscommon.STATE_DB)
+        chassis_tbl = swsscommon.Table(state_db, CHASSIS_INFO_TABLE)
+        psu_tbl = swsscommon.Table(state_db, PSU_INFO_TABLE)
 
-        # Start main loop to listen to the PSU change event.
-        self.log_info("Start main loop")
-        while True:
-            psu_db_update(platform_psuutil, psu_tbl, num_psus)
-            time.sleep(PSU_INFO_UPDATE_PERIOD_SECS)
+        # Post psu number info to STATE_DB
+        psu_num = platform_psuutil.get_num_psus()
+        fvs = swsscommon.FieldValuePairs([(CHASSIS_INFO_PSU_NUM_FIELD, str(psu_num))])
+        chassis_tbl.set(CHASSIS_INFO_KEY_TEMPLATE.format(1), fvs)
 
-        # Clean all the information from DB and then exit
-        for psu_index in range(1, num_psus + 1):
-            psu_tbl._del("PSU {}".format(psu_index))
-        chassis_tbl._del('chassis 1')
-        return 1
+        # Start main loop
+        logger.log_info("Start daemon main loop")
 
-def psu_db_update(psuutil, psu_tbl, num_psus):
-    for psu_index in range(1, num_psus + 1):
-        fvs = swsscommon.FieldValuePairs([('presence',
-                                           'true' if psuutil.get_psu_presence(psu_index) else 'false'),
-                                          ('status',
-                                           'true' if psuutil.get_psu_status(psu_index) else 'false')])
-        psu_tbl.set("PSU {}".format(psu_index), fvs)
+        while not self.stop.wait(PSU_INFO_UPDATE_PERIOD_SECS):
+            psu_db_update(platform_psuutil, psu_tbl, psu_num)
+
+        logger.log_info("Stop daemon main loop")
+
+        # Delete all the information from DB and then exit
+        for psu_index in range(1, psu_num + 1):
+            psu_tbl._del(PSU_INFO_KEY_TEMPLATE.format(psu_index))
+
+        chassis_tbl._del(CHASSIS_INFO_KEY_TEMPLATE.format(1))
+
+        logger.log_info("Shutting down...")
+
+#
+# Main =========================================================================
+#
 
 def main():
-    daemon_psud = DaemonPsud()
-    if not daemon_psud:
-        print "Failed to load psu daemon utilities"
-        sys.exit(1)
-
-    daemon_psud.run()
+    psud = DaemonPsud()
+    psud.run()
 
 if __name__ == '__main__':
     main()
