@@ -22,6 +22,7 @@ setup(
         'sonic_psu',
         'sonic_sfp',
         'sonic_thermal',
+        'sonic_sensor'
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',
