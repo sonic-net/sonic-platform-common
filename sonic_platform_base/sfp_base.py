@@ -250,13 +250,13 @@ class SfpBase(device_base.DeviceBase):
 
         Args:
             power_override : 
-                    A Boolean, True to override set_lpmode and have power_set
+                    A Boolean, True to override set_lpmode and use power_set
                     to control SFP power, False to disable SFP power control
-                    through power_override/power_set and have set_lpmode
+                    through power_override/power_set and use set_lpmode
                     to control SFP power.
             power_set :
                     Only valid when power_override is True.
-                    A Boolean, True to set power at low power mode, False to set
+                    A Boolean, True to set SFP to low power mode, False to set
                     SFP to high power mode.
 
         Returns:
