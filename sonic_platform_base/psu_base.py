@@ -75,7 +75,7 @@ class PsuBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
-    def get_ampere(self):
+    def get_current(self):
         """
         Retrieves present electric current supplied by PSU
 
@@ -84,7 +84,7 @@ class PsuBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
-    def get_watt(self):
+    def get_power(self):
         """
         Retrieves current energy supplied by PSU
 
