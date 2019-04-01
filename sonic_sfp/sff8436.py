@@ -15,7 +15,8 @@ try:
     import getopt
     import types
     from math import log10
-    from sffbase import sffbase
+    from sff8024 import type_of_transceiver
+    from .sffbase import sffbase    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
 except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
 
@@ -185,24 +186,6 @@ class sff8436InterfaceId(sffbase):
                         {'offset': 9,
                          'bit': 0}}}}
 
-    type_of_transceiver = {
-            '00':'Unknown or unspecified',
-            '01':'GBIC',
-            '02': 'Module/connector soldered to motherboard',
-            '03': 'SFP',
-            '04': '300 pin XBI',
-            '05': 'XENPAK',
-            '06': 'XFP',
-            '07': 'XFF',
-            '08': 'XFP-E',
-            '09': 'XPAK',
-            '0a': 'X2',
-            '0b': 'DWDM-SFP',
-            '0c': 'QSFP',
-            '0d': 'QSFP+',
-            '11': 'QSFP28'
-            }
-
     ext_type_of_transceiver = {
             '00': 'Power Class 1(1.5W max)',
             '04': 'Power Class 1(1.5W max), CDR present in Tx',
@@ -363,15 +346,62 @@ class sff8436InterfaceId(sffbase):
                  'size'  : 1,
                  'type'  : 'bitmap',
                  'decode': {}}}
-
-    sfp_type = {
-        'type':
-            {'offset': 0,
-             'size': 1,
-             'type': 'enum',
-             'decode': type_of_transceiver}
-        }
-
+    
+    sfp_info_bulk = {'type':
+                {'offset':0,
+                 'size':1,
+                 'type' : 'enum',
+                 'decode' : type_of_transceiver},
+             'Extended Identifier':
+                {'offset':1,
+                 'size':1,
+                 'type' : 'enum',
+                 'decode': ext_type_of_transceiver},
+             'Connector':
+                {'offset':2,
+                 'size':1,
+                 'type' : 'enum',
+                 'decode': connector},
+            'Specification compliance':
+                {'offset' : 3,
+                 'type' : 'nested',
+                 'decode' : specification_compliance},
+            'EncodingCodes':
+                {'offset':11,
+                 'size':1,
+                 'type' : 'enum',
+                 'decode' : encoding_codes},
+            'Nominal Bit Rate(100Mbs)':
+                {'offset': 12,
+                 'size':1,
+                 'type':'int'},
+            'RateIdentifier':
+                {'offset':13,
+                 'size':1,
+                 'type' : 'enum',
+                 'decode' : rate_identifier},
+            'Length(km)':
+                {'offset':14,
+                 'size':1,
+                 'type':'int'},
+            'Length OM3(2m)':
+                {'offset':15,
+                 'size':1,
+                 'type':'int'},
+            'Length OM2(m)':
+                {'offset':16,
+                'size':1,
+                 'type':'int'},
+            'Length OM1(m)':
+                {'offset':17,
+                'size':1,
+                 'type':'int'},
+            'Length Cable Assembly(m)':
+                {'offset':18,
+                'size':1,
+                 'type':'int'}
+    }
+    
     vendor_name = {
         'Vendor Name':
             {'offset': 0,
@@ -400,6 +430,20 @@ class sff8436InterfaceId(sffbase):
              'type': 'str'}
         }
 
+    vendor_oui = {
+        'Vendor OUI':
+                {'offset':0,
+                 'size':3,
+                 'type' : 'hex'}
+        }
+    
+    vendor_date = {
+        'VendorDataCode(YYYY-MM-DD Lot)':
+                {'offset':0,
+                'size':8,
+                'type': 'date'}
+        }
+
     qsfp_dom_capability = {
         'Tx_power_support':
             {'offset': 0,
@@ -418,7 +462,6 @@ class sff8436InterfaceId(sffbase):
              'bit': 5,
              'type': 'bitvalue'}
         }
-    
 
     def __init__(self, eeprom_raw_data=None):
         self.interface_data = None
@@ -433,8 +476,8 @@ class sff8436InterfaceId(sffbase):
     def parse(self, eeprom_raw_data, start_pos):
         return sffbase.parse(self, self.interface_id, eeprom_raw_data, start_pos)
 
-    def parse_sfp_type(self, type_raw_data, start_pos):
-        return sffbase.parse(self, self.sfp_type, type_raw_data, start_pos)
+    def parse_sfp_info_bulk(self, type_raw_data, start_pos):
+        return sffbase.parse(self, self.sfp_info_bulk, type_raw_data, start_pos)
 
     def parse_vendor_name(self, name_raw_data, start_pos):
         return sffbase.parse(self, self.vendor_name, name_raw_data, start_pos)
@@ -447,6 +490,12 @@ class sff8436InterfaceId(sffbase):
 
     def parse_vendor_sn(self, sn_raw_data, start_pos):
         return sffbase.parse(self, self.vendor_sn, sn_raw_data, start_pos)
+
+    def parse_vendor_date(self, sn_raw_data, start_pos):
+        return sffbase.parse(self, self.vendor_date, sn_raw_data, start_pos)
+    
+    def parse_vendor_oui(self, sn_raw_data, start_pos):
+        return sffbase.parse(self, self.vendor_oui, sn_raw_data, start_pos)
 
     def parse_qsfp_dom_capability(self, sn_raw_data, start_pos):
         return sffbase.parse(self, self.qsfp_dom_capability, sn_raw_data, start_pos)
