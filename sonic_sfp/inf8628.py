@@ -6,8 +6,8 @@
 from __future__ import print_function
 
 try:
-    from sff8024 import type_of_transceiver
-    from sffbase import sffbase
+    from .sff8024 import type_of_transceiver    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
+    from .sffbase import sffbase    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
 except ImportError as e:
     raise ImportError ("%s - required module not found" % e)
 
