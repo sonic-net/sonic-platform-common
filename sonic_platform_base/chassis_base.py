@@ -73,10 +73,12 @@ class ChassisBase(device_base.DeviceBase):
         Retrieves the full content of system EEPROM information for the chassis
 
         Returns:
-            A dictionary containing system EEPROM information.
-            Ex. {'Model':'AA9064','Part Number':'v1.0','Vendor':'DDCompany',
-                 'Manufacturer':'FFCompany','Country Code':'USA',
-                 'Number of MAC':'64'}
+            A dictionary where keys are the type code defined in
+            OCP ONIE TlvInfo EEPROM format and values are their corresponding
+            values.
+            Ex. { ‘0x21’:’AG9064’, ‘0x22’:’V1.0’, ‘0x23’:’AG9064-0109867821’,
+                  ‘0x24’:’001c0f000fcd0a’, ‘0x25’:’02/03/2018 16:22:00’,
+                  ‘0x26’:’01’, ‘0x27’:’REV01’, ‘0x28’:’AG9064-C2358-16G’}
         """
         raise NotImplementedError
 
