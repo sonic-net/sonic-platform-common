@@ -11,6 +11,14 @@ class DeviceBase(object):
     peripheral device
     """
 
+    def get_name(self):
+        """
+        Retrieves the name of the device
+
+        Returns:
+            string: The name of the device
+        """
+
     def get_presence(self):
         """
         Retrieves the presence of the device
@@ -44,23 +52,5 @@ class DeviceBase(object):
 
         Returns:
             A boolean value, True if device is operating properly, False if not
-        """
-        raise NotImplementedError
-
-    def get_change_event(self, timeout=0):
-        """
-        Returns a dictionary containing all devices which have experienced a
-        change
-
-        Args:
-            timeout: Timeout in milliseconds (optional). If timeout == 0,
-                this method will block until a change is detected.
-
-        Returns:
-            (bool, dict):
-                - True if call successful, False if not;
-                - Dict where key is device ID and value is device event,
-                  status='1' represents device inserted,
-                  status='0' represents device removed. Ex. {'0': '1', '1': '0'}
         """
         raise NotImplementedError
