@@ -12,6 +12,8 @@ class FanBase(device_base.DeviceBase):
     """
     Abstract base class for interfacing with a fan module
     """
+    # Device type definition. Note, this is a constant.
+    DEVICE_TYPE = "fan"
 
     # Possible fan directions (relative to port-side of device)
     FAN_DIRECTION_INTAKE = "intake"
