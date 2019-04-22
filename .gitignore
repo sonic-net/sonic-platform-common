@@ -1,0 +1,4 @@
+*/deb_dist/
+*/dist/
+*/*.tar.gz
+*/*.egg-info
