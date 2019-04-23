@@ -14,6 +14,7 @@ try:
     from sff8472 import sff8472Dom
     from sff8436 import sff8436InterfaceId
     from sff8436 import sff8436Dom
+    from sff8436 import sff8436DomThreshold
 except ImportError as e:
     raise ImportError("%s - required module not found" % str(e))
 
@@ -543,6 +544,10 @@ class SfpUtilBase(object):
             # Read dom eeprom at addr 0x51
             return self._read_eeprom_devid(port_num, self.DOM_EEPROM_ADDR, 0)
 
+    def get_eeprom_dom_threshold_raw(self, port_num):
+        # Read interface id EEPROM at addr 0x50
+        return self._read_eeprom_devid(port_num, self.IDENTITY_EEPROM_ADDR, 384)
+
     def get_eeprom_dict(self, port_num):
         """Returns dictionary of interface and dom data.
         format: {<port_num> : {'interface': {'version' : '1.0', 'data' : {...}},
@@ -550,9 +555,11 @@ class SfpUtilBase(object):
         """
 
         sfp_data = {}
+        sfpd_threshold_data = {}
 
         eeprom_ifraw = self.get_eeprom_raw(port_num)
         eeprom_domraw = self.get_eeprom_dom_raw(port_num)
+        eeprom_dom_threshold_raw = self.get_eeprom_dom_threshold_raw(port_num)
 
         if eeprom_ifraw is None:
             return None
@@ -567,6 +574,11 @@ class SfpUtilBase(object):
             sfpd_obj = sff8436Dom(eeprom_ifraw)
             if sfpd_obj is not None:
                 sfp_data['dom'] = sfpd_obj.get_data_pretty()
+            sfpd_threshold_obj = sff8436DomThreshold(eeprom_dom_threshold_raw)
+            if sfpd_threshold_obj is not None:
+                sfpd_threshold_data['dom'] = sfpd_threshold_obj.get_data_pretty()
+                if sfpd_obj is not None:
+                    sfp_data['dom']['data'].update(sfpd_threshold_data['dom']['data'])
             return sfp_data
 
         sfpi_obj = sff8472InterfaceId(eeprom_ifraw)
