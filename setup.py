@@ -16,6 +16,7 @@ setup(
         'sonic_platform_base',
         'sonic_psu',
         'sonic_sfp',
+        'sonic_fw'
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',
