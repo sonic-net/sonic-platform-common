@@ -14,6 +14,8 @@ setup(
         'sonic_eeprom',
         'sonic_led',
         'sonic_platform_base',
+        'sonic_platform_base.sonic_eeprom',
+        'sonic_platform_base.sonic_sfp',
         'sonic_psu',
         'sonic_sfp',
     ],
