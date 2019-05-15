@@ -6,7 +6,7 @@
 from __future__ import print_function
 
 try:
-    from .sff8024 import type_of_transceiver    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
+    from .sff8024 import *    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
     from .sffbase import sffbase    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
 except ImportError as e:
     raise ImportError ("%s - required module not found" % e)
@@ -77,6 +77,14 @@ class inf8628InterfaceId(sffbase):
              'decode': type_of_transceiver}
         }
 
+    sfp_short_type = {
+        'short_type':
+            {'offset': 0,
+             'size': 1,
+             'type': 'enum',
+             'decode': short_type_name}
+        }
+
     vendor_name = {
         'Vendor Name':
             {'offset': 0,
@@ -120,6 +128,9 @@ class inf8628InterfaceId(sffbase):
 
     def parse_sfp_type(self, type_raw_data, start_pos):
         return sffbase.parse(self, self.sfp_type, type_raw_data, start_pos)
+
+    def parse_sfp_short_type(self, type_raw_data, start_pos):
+        return sffbase.parse(self, self.sfp_short_type, type_raw_data, start_pos)
 
     def parse_vendor_name(self, name_raw_data, start_pos):
         return sffbase.parse(self, self.vendor_name, name_raw_data, start_pos)
