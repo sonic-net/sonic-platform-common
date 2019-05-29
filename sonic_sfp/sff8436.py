@@ -1229,3 +1229,472 @@ class sff8436Dom(sffbase):
 
     def get_data_pretty(self):
         return sffbase.get_data_pretty(self, self.dom_data)
+
+class sff8436DomThreshold(sffbase):
+
+    version = '1.0'
+
+    def get_calibration_type(self):
+        return self._calibration_type
+
+    def calc_temperature(self, eeprom_data, offset, size):
+        try:
+            cal_type = self.get_calibration_type()
+
+            msb = int(eeprom_data[offset], 16)
+            lsb = int(eeprom_data[offset + 1], 16)
+
+            result = (msb << 8) | (lsb & 0xff)
+            result = self.twos_comp(result, 16)
+
+            if cal_type == 1:
+
+                # Internal calibration
+
+                result = float(result / 256.0)
+                retval = '%.4f' %result + 'C'
+            elif cal_type == 2:
+
+                # External calibration
+
+                # T(C) = T_Slope * T_AD + T_Offset
+                off = self.dom_ext_calibration_constants['T_Slope']['offset']
+                msb_t = int(eeprom_data[off], 16)
+                lsb_t = int(eeprom_data[off + 1], 16)
+                t_slope = (msb_t << 8) | (lsb_t & 0xff)
+
+                off = self.dom_ext_calibration_constants['T_Offset']['offset']
+                msb_t = int(eeprom_data[off], 16)
+                lsb_t = int(eeprom_data[off + 1], 16)
+                t_offset = (msb_t << 8) | (lsb_t & 0xff)
+                t_offset = self.twos_comp(t_offset, 16)
+
+                result = t_slope * result + t_offset
+                result = float(result / 256.0)
+                retval = '%.4f' %result + 'C'
+            else:
+                retval = 'Unknown'
+        except Exception as err:
+            retval = str(err)
+
+        return retval
+
+    def calc_voltage(self, eeprom_data, offset, size):
+        try:
+            cal_type = self.get_calibration_type()
+
+            msb = int(eeprom_data[offset], 16)
+            lsb = int(eeprom_data[offset + 1], 16)
+            result = (msb << 8) | (lsb & 0xff)
+
+            if cal_type == 1:
+
+                # Internal Calibration
+
+                result = float(result * 0.0001)
+                retval = '%.4f' %result + 'Volts'
+            elif cal_type == 2:
+
+                # External Calibration
+
+                # V(uV) = V_Slope * VAD + V_Offset
+                off = self.dom_ext_calibration_constants['V_Slope']['offset']
+                msb_v = int(eeprom_data[off], 16)
+                lsb_v = int(eeprom_data[off + 1], 16)
+                v_slope = (msb_v << 8) | (lsb_v & 0xff)
+
+                off = self.dom_ext_calibration_constants['V_Offset']['offset']
+                msb_v = int(eeprom_data[off], 16)
+                lsb_v = int(eeprom_data[off + 1], 16)
+                v_offset = (msb_v << 8) | (lsb_v & 0xff)
+                v_offset = self.twos_comp(v_offset, 16)
+
+                result = v_slope * result + v_offset
+                result = float(result * 0.0001)
+                retval = '%.4f' %result + 'Volts'
+            else:
+                retval = 'Unknown'
+        except Exception as err:
+            retval = str(err)
+
+        return retval
+
+
+    def calc_bias(self, eeprom_data, offset, size):
+        try:
+            cal_type = self.get_calibration_type()
+
+            msb = int(eeprom_data[offset], 16)
+            lsb = int(eeprom_data[offset + 1], 16)
+            result = (msb << 8) | (lsb & 0xff)
+
+            if cal_type == 1:
+                # Internal Calibration
+
+                result = float(result * 0.002)
+                retval = '%.4f' %result + 'mA'
+
+            elif cal_type == 2:
+                # External Calibration
+
+                # I(uA) = I_Slope * I_AD + I_Offset
+                off = self.dom_ext_calibration_constants['I_Slope']['offset']
+                msb_i = int(eeprom_data[off], 16)
+                lsb_i = int(eeprom_data[off + 1], 16)
+                i_slope = (msb_i << 8) | (lsb_i & 0xff)
+
+                off = self.dom_ext_calibration_constants['I_Offset']['offset']
+                msb_i = int(eeprom_data[off], 16)
+                lsb_i = int(eeprom_data[off + 1], 16)
+                i_offset = (msb_i << 8) | (lsb_i & 0xff)
+                i_offset = self.twos_comp(i_offset, 16)
+
+                result = i_slope * result + i_offset
+                result = float(result * 0.002)
+                retval = '%.4f' %result + 'mA'
+            else:
+                retval = 'Unknown'
+        except Exception as err:
+            retval = str(err)
+
+        return retval
+
+    def calc_rx_power(self, eeprom_data, offset, size):
+        try:
+            cal_type = self.get_calibration_type()
+
+            msb = int(eeprom_data[offset], 16)
+            lsb = int(eeprom_data[offset + 1], 16)
+            result = (msb << 8) | (lsb & 0xff)
+
+            if cal_type == 1:
+
+                # Internal Calibration
+                result = float(result * 0.0001)
+                retval = self.power_in_dbm_str(result)
+
+            elif cal_type == 2:
+
+                # External Calibration
+
+                # RX_PWR(uW) = RX_PWR_4 * RX_PWR_AD +
+                #          RX_PWR_3 * RX_PWR_AD +
+                #          RX_PWR_2 * RX_PWR_AD +
+                #          RX_PWR_1 * RX_PWR_AD +
+                #          RX_PWR(0)
+                off = self.dom_ext_calibration_constants['RX_PWR_4']['offset']
+                rx_pwr_byte3 = int(eeprom_data[off], 16)
+                rx_pwr_byte2 = int(eeprom_data[off + 1], 16)
+                rx_pwr_byte1 = int(eeprom_data[off + 2], 16)
+                rx_pwr_byte0 = int(eeprom_data[off + 3], 16)
+                rx_pwr_4 = (rx_pwr_byte3 << 24) | (rx_pwr_byte2 << 16) | (rx_pwr_byte1 << 8) | (rx_pwr_byte0 & 0xff)
+
+
+                off = self.dom_ext_calibration_constants['RX_PWR_3']['offset']
+                rx_pwr_byte3 = int(eeprom_data[off], 16)
+                rx_pwr_byte2 = int(eeprom_data[off + 1], 16)
+                rx_pwr_byte1 = int(eeprom_data[off + 2], 16)
+                rx_pwr_byte0 = int(eeprom_data[off + 3], 16)
+                rx_pwr_3 = (rx_pwr_byte3 << 24) | (rx_pwr_byte2 << 16) | (rx_pwr_byte1 << 8) | (rx_pwr_byte0 & 0xff)
+
+                off = self.dom_ext_calibration_constants['RX_PWR_2']['offset']
+                rx_pwr_byte3 = int(eeprom_data[off], 16)
+                rx_pwr_byte2 = int(eeprom_data[off + 1], 16)
+                rx_pwr_byte1 = int(eeprom_data[off + 2], 16)
+                rx_pwr_byte0 = int(eeprom_data[off + 3], 16)
+                rx_pwr_2 = (rx_pwr_byte3 << 24) | (rx_pwr_byte2 << 16) | (rx_pwr_byte1 << 8) | (rx_pwr_byte0 & 0xff)
+
+                off = self.dom_ext_calibration_constants['RX_PWR_1']['offset']
+                rx_pwr_byte3 = int(eeprom_data[off], 16)
+                rx_pwr_byte2 = int(eeprom_data[off + 1], 16)
+                rx_pwr_byte1 = int(eeprom_data[off + 2], 16)
+                rx_pwr_byte0 = int(eeprom_data[off + 3], 16)
+                rx_pwr_1 = (rx_pwr_byte3 << 24) | (rx_pwr_byte2 << 16) | (rx_pwr_byte1 << 8) | (rx_pwr_byte0 & 0xff)
+
+                off = self.dom_ext_calibration_constants['RX_PWR_0']['offset']
+                rx_pwr_byte3 = int(eeprom_data[off], 16)
+                rx_pwr_byte2 = int(eeprom_data[off + 1], 16)
+                rx_pwr_byte1 = int(eeprom_data[off + 2], 16)
+                rx_pwr_byte0 = int(eeprom_data[off + 3], 16)
+                rx_pwr_0 = (rx_pwr_byte3 << 24) | (rx_pwr_byte2 << 16) | (rx_pwr_byte1 << 8) | (rx_pwr_byte0 & 0xff)
+
+                rx_pwr = (rx_pwr_4 * result) + (rx_pwr_3 * result) + (rx_pwr_2 * result) + (rx_pwr_1 * result) + rx_pwr_0
+
+                result = float(result * 0.0001)
+            else:
+                retval = 'Unknown'
+        except Exception as err:
+            retval = str(err)
+
+        return retval
+
+
+    dom_module_threshold_values = {
+           'TempHighAlarm':
+                {'offset':0,
+                 'size':2,
+                 'type': 'func',
+                 'decode': { 'func':calc_temperature}},
+           'TempLowAlarm':
+                {'offset':2,
+                 'size':2,
+                 'type': 'func',
+                 'decode': { 'func':calc_temperature}},
+           'TempHighWarning':
+                 {'offset':4,
+                 'size':2,
+                 'type': 'func',
+                 'decode': { 'func':calc_temperature}},
+           'TempLowWarning':
+                {'offset':6,
+                 'size':2,
+                 'type': 'func',
+                 'decode': { 'func':calc_temperature}},
+           'VccHighAlarm':
+                {'offset':16,
+                 'size':2,
+                 'type': 'func',
+                 'decode': { 'func':calc_voltage}},
+           'VccLowAlarm':
+                {'offset':18,
+                 'size':2,
+                 'type': 'func',
+                 'decode': { 'func':calc_voltage}},
+           'VccHighWarning':
+                {'offset':20,
+                 'size':2,
+                 'type': 'func',
+                 'decode': { 'func':calc_voltage}},
+           'VccLowWarning':
+                {'offset':22,
+                 'size':2,
+                 'type': 'func',
+                 'decode': { 'func':calc_voltage}}}
+
+
+    dom_channel_threshold_values = {
+           'RxPowerHighAlarm':
+                {'offset':0,
+                 'size':2,
+                 'type': 'func',
+                 'decode': { 'func':calc_rx_power}},
+           'RxPowerLowAlarm':
+                {'offset':2,
+                 'size':2,
+                 'type': 'func',
+                 'decode': { 'func':calc_rx_power}},
+           'RxPowerHighWarning':
+                {'offset':4,
+                 'size':2,
+                 'type': 'func',
+                 'decode': { 'func':calc_rx_power}},
+           'RxPowerLowWarning':
+                {'offset':6,
+                 'size':2,
+                 'type': 'func',
+                 'decode': { 'func':calc_rx_power}},
+           'TxBiasHighAlarm':
+                {'offset':8,
+                 'size':2,
+                 'type': 'func',
+                 'decode': { 'func':calc_bias}},
+           'TxBiasLowAlarm':
+                {'offset':10,
+                 'size':2,
+                 'type': 'func',
+                 'decode': { 'func':calc_bias}},
+           'TxBiasHighWarning':
+                {'offset':12,
+                 'size':2,
+                 'type': 'func',
+                 'decode': { 'func':calc_bias}},
+           'TxBiasLowWarning':
+                {'offset':14,
+                 'size':2,
+                 'type': 'func',
+                 'decode': { 'func':calc_bias}}}
+
+    dom_channel_monitor_masks = {
+           'Rx1PowerHighAlarm':
+                {'offset':0,
+                 'bit': 7,
+                 'type': 'bitvalue'},
+           'Rx1PowerLowAlarm':
+                {'offset':0,
+                 'bit': 6,
+                 'type': 'bitvalue'},
+           'Rx1PowerHighWarning':
+                {'offset':0,
+                 'bit': 5,
+                 'type': 'bitvalue'},
+           'Rx1PowerLowWarning':
+                {'offset':0,
+                 'bit': 4,
+                 'type': 'bitvalue'},
+           'Rx2PowerHighAlarm':
+                {'offset':0,
+                 'bit': 3,
+                 'type': 'bitvalue'},
+           'Rx2PowerLowAlarm':
+                {'offset':0,
+                 'bit': 2,
+                 'type': 'bitvalue'},
+           'Rx2PowerHighWarning':
+                {'offset':0,
+                 'bit': 1,
+                 'type': 'bitvalue'},
+           'Rx2PowerLowWarning':
+                {'offset':0,
+                 'bit': 0,
+                 'type': 'bitvalue'},
+           'Rx3PowerHighAlarm':
+                {'offset':1,
+                 'bit': 7,
+                 'type': 'bitvalue'},
+           'Rx3PowerLowAlarm':
+                {'offset':1,
+                 'bit': 6,
+                 'type': 'bitvalue'},
+           'Rx3PowerHighWarning':
+                {'offset':1,
+                 'bit': 5,
+                 'type': 'bitvalue'},
+           'Rx3PowerLowWarning':
+                {'offset':1,
+                 'bit': 4,
+                 'type': 'bitvalue'},
+           'Rx4PowerHighAlarm':
+                {'offset':1,
+                 'bit': 3,
+                 'type': 'bitvalue'},
+           'Rx4PowerLowAlarm':
+                {'offset':1,
+                 'bit': 2,
+                 'type': 'bitvalue'},
+           'Rx4PowerHighWarning':
+                {'offset':1,
+                 'bit': 1,
+                 'type': 'bitvalue'},
+           'Rx4PowerLowWarning':
+                {'offset':1,
+                 'bit': 0,
+                 'type': 'bitvalue'},
+           'Tx1BiasHighAlarm':
+                {'offset':2,
+                 'bit': 7,
+                 'type': 'bitvalue'},
+           'Tx1BiasLowAlarm':
+                {'offset':2,
+                 'bit': 6,
+                 'type': 'bitvalue'},
+           'Tx1BiasHighWarning':
+                {'offset':2,
+                 'bit': 5,
+                 'type': 'bitvalue'},
+           'Tx1BiasLowWarning':
+                {'offset':2,
+                 'bit': 4,
+                 'type': 'bitvalue'},
+           'Tx2BiasHighAlarm':
+                {'offset':2,
+                 'bit': 3,
+                 'type': 'bitvalue'},
+           'Tx2BiasLowAlarm':
+                {'offset':2,
+                 'bit': 2,
+                 'type': 'bitvalue'},
+           'Tx2BiasHighWarning':
+                {'offset':2,
+                 'bit': 1,
+                 'type': 'bitvalue'},
+           'Tx2BiasLowWarning':
+                {'offset':2,
+                 'bit': 0,
+                 'type': 'bitvalue'},
+           'Tx3BiasHighAlarm':
+                {'offset':3,
+                 'bit': 7,
+                 'type': 'bitvalue'},
+           'Tx3BiasLowAlarm':
+                {'offset':3,
+                 'bit': 6,
+                 'type': 'bitvalue'},
+           'Tx3BiasHighWarning':
+                {'offset': 3,
+                 'bit': 5,
+                 'type': 'bitvalue'},
+           'Tx3BiasLowWarning':
+                {'offset': 3,
+                 'bit': 4,
+                 'type': 'bitvalue'},
+           'Tx4BiasHighAlarm':
+                {'offset': 3,
+                 'bit': 3,
+                 'type': 'bitvalue'},
+           'Tx4BiasLowAlarm':
+                {'offset': 3,
+                 'bit': 2,
+                 'type': 'bitvalue'},
+           'Tx4BiasHighWarning':
+                {'offset': 3,
+                 'bit': 1,
+                 'type': 'bitvalue'},
+           'Tx4BiasLowWarning':
+                {'offset': 3,
+                 'bit': 0,
+                 'type': 'bitvalue'}}
+
+    dom_threshold_map = {
+           'ChannelThresholdValues':
+                {'offset': 11,
+                 'size': 2,
+                 'type': 'nested',
+                 'decode': dom_channel_threshold_values},
+           'ChannelMonitorMasks':
+                {'offset': 12,
+                 'size': 2,
+                 'type': 'nested',
+                 'decode': dom_channel_monitor_masks},
+           'ModuleThresholdValues':
+                {'offset': 13,
+                 'size': 2,
+                 'type': 'nested',
+                 'decode': dom_module_threshold_values}}
+
+    def __init__(self, eeprom_raw_data=None, calibration_type=1):
+        self._calibration_type = calibration_type
+        start_pos = 0
+
+        if eeprom_raw_data != None:
+            self.dom_threshold_data = sffbase.parse(self,
+                           self.dom_threshold_map, eeprom_raw_data, start_pos)
+
+    def parse(self, eeprom_raw_data, start_pos):
+        return sffbase.parse(self, self.dom_threshold_map, eeprom_raw_data,
+                    start_pos)
+
+    # Parser functions for specific values interested by SNMP
+    def parse_module_threshold_values(self, eeprom_raw_data, start_pos):
+        return sffbase.parse(self, self.dom_module_threshold_values, eeprom_raw_data,
+                    start_pos)
+
+    def parse_channel_threshold_values(self, eeprom_raw_data, start_pos):
+        return sffbase.parse(self, self.dom_channel_threshold_values, eeprom_raw_data,
+                    start_pos)
+
+    def parse_channel_monitor_mask(self, eeprom_raw_data, start_pos):
+        return sffbase.parse(self, self.dom_channel_monitor_masks, eeprom_raw_data,
+                    start_pos)
+
+
+    def dump_pretty(self):
+        if self.dom_threshold_data == None:
+            print ('Object not initialized, nothing to print')
+            return
+        sffbase.dump_pretty(self, self.dom_threshold_data)
+
+    def get_data(self):
+        return self.dom_threshold_data
+
+    def get_data_pretty(self):
+        return sffbase.get_data_pretty(self, self.dom_threshold_data)
