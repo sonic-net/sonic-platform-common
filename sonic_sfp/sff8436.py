@@ -15,7 +15,8 @@ try:
     import getopt
     import types
     from math import log10
-    from .sff8024 import *    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
+    from .sff8024 import type_of_transceiver    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
+    from .sff8024 import type_abbrv_name    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
     from .sffbase import sffbase    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
 except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
@@ -352,11 +353,11 @@ class sff8436InterfaceId(sffbase):
                  'size':1,
                  'type' : 'enum',
                  'decode' : type_of_transceiver},
-             'short_type':
+             'type_abbrv_name':
                 {'offset':0,
                  'size':1,
                  'type' : 'enum',
-                 'decode' : short_type_name},
+                 'decode' : type_abbrv_name},
              'Extended Identifier':
                 {'offset':1,
                  'size':1,

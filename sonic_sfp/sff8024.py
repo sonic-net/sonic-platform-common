@@ -35,7 +35,7 @@ type_of_transceiver = {
     '1a': 'SFP-DD Double Density 2X Pluggable Transceiver'
 }
 
-short_type_name = {
+type_abbrv_name = {
     '00': 'Unknown',
     '01': 'GBIC',
     '02': 'Soldered',
@@ -59,7 +59,7 @@ short_type_name = {
     '14': 'HD4X-Fanout',
     '15': 'HD8X-Fanout',
     '16': 'CDFP-3',
-    '17': 'microQSFP',
+    '17': 'MicroQSFP',
     '18': 'QSFP-DD',
     '19': 'OSFP-8X',
     '1a': 'SFP-DD'
