@@ -748,6 +748,7 @@ class SfpUtilBase(object):
                 return None
 
             transceiver_info_dict['type'] = sfp_type_data['data']['type']['value']
+            transceiver_info_dict['type_abbrv_name'] = sfp_type_data['data']['type_abbrv_name']['value']
             transceiver_info_dict['manufacturename'] = sfp_vendor_name_data['data']['Vendor Name']['value']
             transceiver_info_dict['modelname'] = sfp_vendor_pn_data['data']['Vendor PN']['value']
             transceiver_info_dict['hardwarerev'] = sfp_vendor_rev_data['data']['Vendor Rev']['value']
@@ -849,6 +850,7 @@ class SfpUtilBase(object):
                 return None
 
             transceiver_info_dict['type'] = sfp_interface_bulk_data['data']['type']['value']
+            transceiver_info_dict['type_abbrv_name'] = sfp_interface_bulk_data['data']['type_abbrv_name']['value']
             transceiver_info_dict['manufacturename'] = sfp_vendor_name_data['data']['Vendor Name']['value']
             transceiver_info_dict['modelname'] = sfp_vendor_pn_data['data']['Vendor PN']['value']
             transceiver_info_dict['hardwarerev'] = sfp_vendor_rev_data['data']['Vendor Rev']['value']
