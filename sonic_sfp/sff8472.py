@@ -1194,6 +1194,10 @@ class sff8472Dom(sffbase):
         return sffbase.parse(self, self.dom_channel_monitor_params, eeprom_raw_data,
                     start_pos)
 
+    def parse_alarm_warning_threshold(self, eeprom_raw_data, start_pos):
+        return sffbase.parse(self, self.dom_aw_thresholds, eeprom_raw_data,
+                    start_pos)
+
     def dump_pretty(self):
         if self.dom_data == None:
             print('Object not initialized, nothing to print')
