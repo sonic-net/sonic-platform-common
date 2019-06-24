@@ -95,13 +95,27 @@ class ChassisBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
-    def get_component_versions(self):
+    def get_firmware_version(self, component):
         """
         Retrieves platform-specific hardware/firmware versions for chassis
         componenets such as BIOS, CPLD, FPGA, etc.
+        Args:
+            component: A string, the component name.
 
         Returns:
             A string containing platform-specific component versions
+        """
+        raise NotImplementedError
+
+    def install_component_firmware(self, component, image_path):
+        """
+        Install firmware to module
+        Args:
+            component: A string, the component name.
+            image_path: A string, path to firmware image.
+
+        Returns:
+            A boolean, True if install successfully, False if not
         """
         raise NotImplementedError
 
