@@ -20,10 +20,10 @@ class ChassisBase(device_base.DeviceBase):
     REBOOT_CAUSE_POWER_LOSS = "A/C Power Loss"
     REBOOT_CAUSE_THERMAL_OVERLOAD_CPU = "Thermal Overload: CPU"
     REBOOT_CAUSE_THERMAL_OVERLOAD_ASIC = "Thermal Overload: ASIC"
-    REBOOT_CAUSE_THERMAL_OVERLOAD_OTHER = "Thermal Overload: other"
+    REBOOT_CAUSE_THERMAL_OVERLOAD_OTHER = "Thermal Overload: Other"
     REBOOT_CAUSE_INSUFFICIENT_FAN = "Insufficient Fan Speed"
     REBOOT_CAUSE_WATCHDOG = "Watchdog"
-    REBOOT_CAUSE_HARDWARE_OTHER = "Other"
+    REBOOT_CAUSE_HARDWARE_OTHER = "Hardware - Other"
     REBOOT_CAUSE_NON_HARDWARE = "Non-Hardware"
 
     # List of ModuleBase-derived objects representing all modules
