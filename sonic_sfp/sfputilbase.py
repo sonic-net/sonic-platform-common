@@ -16,7 +16,6 @@ try:
     from .sff8472 import sff8472Dom    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
     from .sff8436 import sff8436InterfaceId  # Dot module supports both Python 2 and Python 3 using explicit relative import methods
     from .sff8436 import sff8436Dom    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
-    from .sff8436 import sff8436DomThreshold # Dot module supports both Python 2 and Python 3 using explicit relative import methods
     from .inf8628 import inf8628InterfaceId    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
 except ImportError as e:
     raise ImportError("%s - required module not found" % str(e))
@@ -909,6 +908,8 @@ class SfpUtilBase(object):
                               'vcclowalarm',      'vcclowwarning',
                               'rxpowerhighalarm', 'rxpowerhighwarning',
                               'rxpowerlowalarm',  'rxpowerlowwarning',
+                              'txpowerhighalarm', 'txpowerhighwarning',
+                              'txpowerlowalarm',  'txpowerlowwarning',
                               'txbiashighalarm',  'txbiashighwarning',
                               'txbiaslowalarm',   'txbiaslowwarning'
                              ]
@@ -946,10 +947,6 @@ class SfpUtilBase(object):
 
             sfpd_obj = sff8436Dom()
             if sfpd_obj is None:
-                return None
-
-            sfpdth_obj = sff8436DomThreshold()
-            if sfpdth_obj is None:
                 return None
 
             sfpi_obj = sff8436InterfaceId()
@@ -995,7 +992,7 @@ class SfpUtilBase(object):
                                      (offset + QSFP_MODULE_THRESHOLD_OFFSET),
                                      QSFP_MODULE_THRESHOLD_WIDTH)
             if dom_module_threshold_raw is not None:
-                dom_module_threshold_data = sfpdth_obj.parse_module_threshold_values(dom_module_threshold_raw, 0)
+                dom_module_threshold_data = sfpd_obj.parse_module_threshold_values(dom_module_threshold_raw, 0)
             else:
                 return None
 
@@ -1004,7 +1001,7 @@ class SfpUtilBase(object):
                                       (offset + QSFP_CHANNL_THRESHOLD_OFFSET),
                                       QSFP_CHANNL_THRESHOLD_WIDTH)
             if dom_channel_threshold_raw is not None:
-                dom_channel_threshold_data = sfpdth_obj.parse_channel_threshold_values(dom_channel_threshold_raw, 0)
+                dom_channel_threshold_data = sfpd_obj.parse_channel_threshold_values(dom_channel_threshold_raw, 0)
             else:
                 return None
 
