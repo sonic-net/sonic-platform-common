@@ -46,6 +46,9 @@ class ChassisBase(device_base.DeviceBase):
     # available on the chassis
     _sfp_list = []
 
+    # List of component names that available on the chassis
+    _component_list = []
+
     # Object derived from WatchdogBase for interacting with hardware watchdog
     _watchdog = None
 
@@ -94,6 +97,15 @@ class ChassisBase(device_base.DeviceBase):
             to pass a description of the reboot cause.
         """
         raise NotImplementedError
+
+    def get_component_list(self):
+        """
+        Retrieves chassis components list such as BIOS, CPLD, FPGA, etc.
+
+        Returns:
+            A list containing component name.
+        """
+        return self._component_list
 
     def get_firmware_version(self, component):
         """
