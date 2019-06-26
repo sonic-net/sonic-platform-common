@@ -902,16 +902,6 @@ class SfpUtilBase(object):
                               'tx1bias',     'tx2bias',  'tx3bias',
                               'tx4bias',     'tx1power', 'tx2power',
                               'tx3power',    'tx4power',
-                              'temphighalarm',    'temphighwarning',
-                              'templowalarm',     'templowwarning',
-                              'vcchighalarm',     'vcchighwarning',
-                              'vcclowalarm',      'vcclowwarning',
-                              'rxpowerhighalarm', 'rxpowerhighwarning',
-                              'rxpowerlowalarm',  'rxpowerlowwarning',
-                              'txpowerhighalarm', 'txpowerhighwarning',
-                              'txpowerlowalarm',  'txpowerlowwarning',
-                              'txbiashighalarm',  'txbiashighwarning',
-                              'txbiaslowalarm',   'txbiaslowwarning'
                              ]
         transceiver_dom_info_dict = dict.fromkeys(dom_info_dict_keys, 'N/A')
 
@@ -984,29 +974,6 @@ class SfpUtilBase(object):
             transceiver_dom_info_dict['temperature'] = dom_temperature_data['data']['Temperature']['value']
             transceiver_dom_info_dict['voltage'] = dom_voltage_data['data']['Vcc']['value']
 
-            # Dom Threshold data starts from offset 384
-            # Revert offset back to 0 once data is retrieved
-            offset = 384
-            dom_module_threshold_raw = self._read_eeprom_specific_bytes(
-                                     sysfsfile_eeprom,
-                                     (offset + QSFP_MODULE_THRESHOLD_OFFSET),
-                                     QSFP_MODULE_THRESHOLD_WIDTH)
-            if dom_module_threshold_raw is not None:
-                dom_module_threshold_data = sfpd_obj.parse_module_threshold_values(dom_module_threshold_raw, 0)
-            else:
-                return None
-
-            dom_channel_threshold_raw = self._read_eeprom_specific_bytes(
-                                      sysfsfile_eeprom,
-                                      (offset + QSFP_CHANNL_THRESHOLD_OFFSET),
-                                      QSFP_CHANNL_THRESHOLD_WIDTH)
-            if dom_channel_threshold_raw is not None:
-                dom_channel_threshold_data = sfpd_obj.parse_channel_threshold_values(dom_channel_threshold_raw, 0)
-            else:
-                return None
-
-            offset = 0
-
             # The tx_power monitoring is only available on QSFP which compliant with SFF-8636
             # and claimed that it support tx_power with one indicator bit.
             dom_channel_monitor_data = {}
@@ -1052,24 +1019,6 @@ class SfpUtilBase(object):
             transceiver_dom_info_dict['tx3bias'] = dom_channel_monitor_data['data']['TX3Bias']['value']
             transceiver_dom_info_dict['tx4bias'] = dom_channel_monitor_data['data']['TX4Bias']['value']
 
-            # Threshold Data
-            transceiver_dom_info_dict['temphighalarm'] = dom_module_threshold_data['data']['TempHighAlarm']['value']
-            transceiver_dom_info_dict['temphighwarning'] = dom_module_threshold_data['data']['TempHighWarning']['value']
-            transceiver_dom_info_dict['templowalarm'] = dom_module_threshold_data['data']['TempLowAlarm']['value']
-            transceiver_dom_info_dict['templowwarning'] = dom_module_threshold_data['data']['TempLowWarning']['value']
-            transceiver_dom_info_dict['vcchighalarm'] = dom_module_threshold_data['data']['VccHighAlarm']['value']
-            transceiver_dom_info_dict['vcchighwarning'] = dom_module_threshold_data['data']['VccHighWarning']['value']
-            transceiver_dom_info_dict['vcclowalarm'] = dom_module_threshold_data['data']['VccLowAlarm']['value']
-            transceiver_dom_info_dict['vcclowwarning'] = dom_module_threshold_data['data']['VccLowWarning']['value']
-            transceiver_dom_info_dict['rxpowerhighalarm'] = dom_channel_threshold_data['data']['RxPowerHighAlarm']['value']
-            transceiver_dom_info_dict['rxpowerhighwarning'] = dom_channel_threshold_data['data']['RxPowerHighWarning']['value']
-            transceiver_dom_info_dict['rxpowerlowalarm'] = dom_channel_threshold_data['data']['RxPowerLowAlarm']['value']
-            transceiver_dom_info_dict['rxpowerlowwarning'] = dom_channel_threshold_data['data']['RxPowerLowWarning']['value']
-            transceiver_dom_info_dict['txbiashighalarm'] = dom_channel_threshold_data['data']['TxBiasHighAlarm']['value']
-            transceiver_dom_info_dict['txbiashighwarning'] = dom_channel_threshold_data['data']['TxBiasHighWarning']['value']
-            transceiver_dom_info_dict['txbiaslowalarm'] = dom_channel_threshold_data['data']['TxBiasLowAlarm']['value']
-            transceiver_dom_info_dict['txbiaslowwarning'] = dom_channel_threshold_data['data']['TxBiasLowWarning']['value']
-
         else:
             offset = 256
             file_path = self._get_port_eeprom_path(port_num, self.DOM_EEPROM_ADDR)
@@ -1104,6 +1053,121 @@ class SfpUtilBase(object):
             else:
                 return None
 
+            try:
+                sysfsfile_eeprom.close()
+            except IOError:
+                print("Error: closing sysfs file %s" % file_path)
+                return None
+
+            transceiver_dom_info_dict['temperature'] = dom_temperature_data['data']['Temperature']['value']
+            transceiver_dom_info_dict['voltage'] = dom_voltage_data['data']['Vcc']['value']
+            transceiver_dom_info_dict['rx1power'] = dom_channel_monitor_data['data']['RXPower']['value']
+            transceiver_dom_info_dict['rx2power'] = 'N/A'
+            transceiver_dom_info_dict['rx3power'] = 'N/A'
+            transceiver_dom_info_dict['rx4power'] = 'N/A'
+            transceiver_dom_info_dict['tx1bias'] = dom_channel_monitor_data['data']['TXBias']['value']
+            transceiver_dom_info_dict['tx2bias'] = 'N/A'
+            transceiver_dom_info_dict['tx3bias'] = 'N/A'
+            transceiver_dom_info_dict['tx4bias'] = 'N/A'
+            transceiver_dom_info_dict['tx1power'] = dom_channel_monitor_data['data']['TXPower']['value']
+            transceiver_dom_info_dict['tx2power'] = 'N/A'
+            transceiver_dom_info_dict['tx3power'] = 'N/A'
+            transceiver_dom_info_dict['tx4power'] = 'N/A'
+
+        return transceiver_dom_info_dict
+
+    def get_transceiver_dom_threshold_info_dict(self, port_num):
+        transceiver_dom_threshold_info_dict = {}
+
+        dom_info_dict_keys = ['temphighalarm',    'temphighwarning',
+                              'templowalarm',     'templowwarning',
+                              'vcchighalarm',     'vcchighwarning',
+                              'vcclowalarm',      'vcclowwarning',
+                              'rxpowerhighalarm', 'rxpowerhighwarning',
+                              'rxpowerlowalarm',  'rxpowerlowwarning',
+                              'txpowerhighalarm', 'txpowerhighwarning',
+                              'txpowerlowalarm',  'txpowerlowwarning',
+                              'txbiashighalarm',  'txbiashighwarning',
+                              'txbiaslowalarm',   'txbiaslowwarning'
+                             ]
+        transceiver_dom_threshold_info_dict = dict.fromkeys(dom_info_dict_keys, 'N/A')
+
+        if port_num in self.qsfp_ports:
+            file_path = self._get_port_eeprom_path(port_num, self.IDENTITY_EEPROM_ADDR)
+            if not self._sfp_eeprom_present(file_path, 0):
+                return None
+
+            try:
+                sysfsfile_eeprom = open(file_path, mode="rb", buffering=0)
+            except IOError:
+                print("Error: reading sysfs file %s" % file_path)
+                return None
+
+            sfpd_obj = sff8436Dom()
+            if sfpd_obj is None:
+                return None
+
+            # Dom Threshold data starts from offset 384
+            # Revert offset back to 0 once data is retrieved
+            offset = 384
+            dom_module_threshold_raw = self._read_eeprom_specific_bytes(
+                                     sysfsfile_eeprom,
+                                     (offset + QSFP_MODULE_THRESHOLD_OFFSET),
+                                     QSFP_MODULE_THRESHOLD_WIDTH)
+            if dom_module_threshold_raw is not None:
+                dom_module_threshold_data = sfpd_obj.parse_module_threshold_values(dom_module_threshold_raw, 0)
+            else:
+                return None
+
+            dom_channel_threshold_raw = self._read_eeprom_specific_bytes(
+                                      sysfsfile_eeprom,
+                                      (offset + QSFP_CHANNL_THRESHOLD_OFFSET),
+                                      QSFP_CHANNL_THRESHOLD_WIDTH)
+            if dom_channel_threshold_raw is not None:
+                dom_channel_threshold_data = sfpd_obj.parse_channel_threshold_values(dom_channel_threshold_raw, 0)
+            else:
+                return None
+
+            try:
+                sysfsfile_eeprom.close()
+            except IOError:
+                print("Error: closing sysfs file %s" % file_path)
+                return None
+
+            # Threshold Data
+            transceiver_dom_threshold_info_dict['temphighalarm'] = dom_module_threshold_data['data']['TempHighAlarm']['value']
+            transceiver_dom_threshold_info_dict['temphighwarning'] = dom_module_threshold_data['data']['TempHighWarning']['value']
+            transceiver_dom_threshold_info_dict['templowalarm'] = dom_module_threshold_data['data']['TempLowAlarm']['value']
+            transceiver_dom_threshold_info_dict['templowwarning'] = dom_module_threshold_data['data']['TempLowWarning']['value']
+            transceiver_dom_threshold_info_dict['vcchighalarm'] = dom_module_threshold_data['data']['VccHighAlarm']['value']
+            transceiver_dom_threshold_info_dict['vcchighwarning'] = dom_module_threshold_data['data']['VccHighWarning']['value']
+            transceiver_dom_threshold_info_dict['vcclowalarm'] = dom_module_threshold_data['data']['VccLowAlarm']['value']
+            transceiver_dom_threshold_info_dict['vcclowwarning'] = dom_module_threshold_data['data']['VccLowWarning']['value']
+            transceiver_dom_threshold_info_dict['rxpowerhighalarm'] = dom_channel_threshold_data['data']['RxPowerHighAlarm']['value']
+            transceiver_dom_threshold_info_dict['rxpowerhighwarning'] = dom_channel_threshold_data['data']['RxPowerHighWarning']['value']
+            transceiver_dom_threshold_info_dict['rxpowerlowalarm'] = dom_channel_threshold_data['data']['RxPowerLowAlarm']['value']
+            transceiver_dom_threshold_info_dict['rxpowerlowwarning'] = dom_channel_threshold_data['data']['RxPowerLowWarning']['value']
+            transceiver_dom_threshold_info_dict['txbiashighalarm'] = dom_channel_threshold_data['data']['TxBiasHighAlarm']['value']
+            transceiver_dom_threshold_info_dict['txbiashighwarning'] = dom_channel_threshold_data['data']['TxBiasHighWarning']['value']
+            transceiver_dom_threshold_info_dict['txbiaslowalarm'] = dom_channel_threshold_data['data']['TxBiasLowAlarm']['value']
+            transceiver_dom_threshold_info_dict['txbiaslowwarning'] = dom_channel_threshold_data['data']['TxBiasLowWarning']['value']
+
+        else:
+            offset = 256
+            file_path = self._get_port_eeprom_path(port_num, self.DOM_EEPROM_ADDR)
+            if not self._sfp_eeprom_present(file_path, 0):
+                return None
+
+            try:
+                sysfsfile_eeprom = open(file_path, mode="rb", buffering=0)
+            except IOError:
+                print("Error: reading sysfs file %s" % file_path)
+                return None
+
+            sfpd_obj = sff8472Dom()
+            if sfpd_obj is None:
+                return None
+
             dom_module_threshold_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom,
                                          (offset + SFP_MODULE_THRESHOLD_OFFSET),
                                          SFP_MODULE_THRESHOLD_WIDTH)
@@ -1126,44 +1190,29 @@ class SfpUtilBase(object):
                 print("Error: closing sysfs file %s" % file_path)
                 return None
 
-            transceiver_dom_info_dict['temperature'] = dom_temperature_data['data']['Temperature']['value']
-            transceiver_dom_info_dict['voltage'] = dom_voltage_data['data']['Vcc']['value']
-            transceiver_dom_info_dict['rx1power'] = dom_channel_monitor_data['data']['RXPower']['value']
-            transceiver_dom_info_dict['rx2power'] = 'N/A'
-            transceiver_dom_info_dict['rx3power'] = 'N/A'
-            transceiver_dom_info_dict['rx4power'] = 'N/A'
-            transceiver_dom_info_dict['tx1bias'] = dom_channel_monitor_data['data']['TXBias']['value']
-            transceiver_dom_info_dict['tx2bias'] = 'N/A'
-            transceiver_dom_info_dict['tx3bias'] = 'N/A'
-            transceiver_dom_info_dict['tx4bias'] = 'N/A'
-            transceiver_dom_info_dict['tx1power'] = dom_channel_monitor_data['data']['TXPower']['value']
-            transceiver_dom_info_dict['tx2power'] = 'N/A'
-            transceiver_dom_info_dict['tx3power'] = 'N/A'
-            transceiver_dom_info_dict['tx4power'] = 'N/A'
-
             # Threshold Data
-            transceiver_dom_info_dict['temphighalarm'] = dom_module_threshold_data['data']['TempHighAlarm']['value']
-            transceiver_dom_info_dict['templowalarm'] = dom_module_threshold_data['data']['TempLowAlarm']['value']
-            transceiver_dom_info_dict['temphighwarning'] = dom_module_threshold_data['data']['TempHighWarning']['value']
-            transceiver_dom_info_dict['templowwarning'] = dom_module_threshold_data['data']['TempLowWarning']['value']
-            transceiver_dom_info_dict['vcchighalarm'] = dom_module_threshold_data['data']['VccHighAlarm']['value']
-            transceiver_dom_info_dict['vcclowalarm'] = dom_module_threshold_data['data']['VccLowAlarm']['value']
-            transceiver_dom_info_dict['vcchighwarning'] = dom_module_threshold_data['data']['VccHighWarning']['value']
-            transceiver_dom_info_dict['vcclowwarning'] = dom_module_threshold_data['data']['VccLowWarning']['value']
-            transceiver_dom_info_dict['txbiashighalarm'] = dom_channel_threshold_data['data']['BiasHighAlarm']['value']
-            transceiver_dom_info_dict['txbiaslowalarm'] = dom_channel_threshold_data['data']['BiasLowAlarm']['value']
-            transceiver_dom_info_dict['txbiashighwarning'] = dom_channel_threshold_data['data']['BiasHighWarning']['value']
-            transceiver_dom_info_dict['txbiaslowwarning'] = dom_channel_threshold_data['data']['BiasLowWarning']['value']
-            transceiver_dom_info_dict['txpowerhighalarm'] = dom_channel_threshold_data['data']['TxPowerHighAlarm']['value']
-            transceiver_dom_info_dict['txpowerlowalarm'] = dom_channel_threshold_data['data']['TxPowerLowAlarm']['value']
-            transceiver_dom_info_dict['txpowerhighwarning'] = dom_channel_threshold_data['data']['TxPowerHighWarning']['value']
-            transceiver_dom_info_dict['txpowerlowwarning'] = dom_channel_threshold_data['data']['TxPowerLowWarning']['value']
-            transceiver_dom_info_dict['rxpowerhighalarm'] = dom_channel_threshold_data['data']['RxPowerHighAlarm']['value']
-            transceiver_dom_info_dict['rxpowerlowalarm'] = dom_channel_threshold_data['data']['RxPowerLowAlarm']['value']
-            transceiver_dom_info_dict['rxpowerhighwarning'] = dom_channel_threshold_data['data']['RxPowerHighWarning']['value']
-            transceiver_dom_info_dict['rxpowerlowwarning'] = dom_channel_threshold_data['data']['RxPowerLowWarning']['value']
+            transceiver_dom_threshold_info_dict['temphighalarm'] = dom_module_threshold_data['data']['TempHighAlarm']['value']
+            transceiver_dom_threshold_info_dict['templowalarm'] = dom_module_threshold_data['data']['TempLowAlarm']['value']
+            transceiver_dom_threshold_info_dict['temphighwarning'] = dom_module_threshold_data['data']['TempHighWarning']['value']
+            transceiver_dom_threshold_info_dict['templowwarning'] = dom_module_threshold_data['data']['TempLowWarning']['value']
+            transceiver_dom_threshold_info_dict['vcchighalarm'] = dom_module_threshold_data['data']['VccHighAlarm']['value']
+            transceiver_dom_threshold_info_dict['vcclowalarm'] = dom_module_threshold_data['data']['VccLowAlarm']['value']
+            transceiver_dom_threshold_info_dict['vcchighwarning'] = dom_module_threshold_data['data']['VccHighWarning']['value']
+            transceiver_dom_threshold_info_dict['vcclowwarning'] = dom_module_threshold_data['data']['VccLowWarning']['value']
+            transceiver_dom_threshold_info_dict['txbiashighalarm'] = dom_channel_threshold_data['data']['BiasHighAlarm']['value']
+            transceiver_dom_threshold_info_dict['txbiaslowalarm'] = dom_channel_threshold_data['data']['BiasLowAlarm']['value']
+            transceiver_dom_threshold_info_dict['txbiashighwarning'] = dom_channel_threshold_data['data']['BiasHighWarning']['value']
+            transceiver_dom_threshold_info_dict['txbiaslowwarning'] = dom_channel_threshold_data['data']['BiasLowWarning']['value']
+            transceiver_dom_threshold_info_dict['txpowerhighalarm'] = dom_channel_threshold_data['data']['TxPowerHighAlarm']['value']
+            transceiver_dom_threshold_info_dict['txpowerlowalarm'] = dom_channel_threshold_data['data']['TxPowerLowAlarm']['value']
+            transceiver_dom_threshold_info_dict['txpowerhighwarning'] = dom_channel_threshold_data['data']['TxPowerHighWarning']['value']
+            transceiver_dom_threshold_info_dict['txpowerlowwarning'] = dom_channel_threshold_data['data']['TxPowerLowWarning']['value']
+            transceiver_dom_threshold_info_dict['rxpowerhighalarm'] = dom_channel_threshold_data['data']['RxPowerHighAlarm']['value']
+            transceiver_dom_threshold_info_dict['rxpowerlowalarm'] = dom_channel_threshold_data['data']['RxPowerLowAlarm']['value']
+            transceiver_dom_threshold_info_dict['rxpowerhighwarning'] = dom_channel_threshold_data['data']['RxPowerHighWarning']['value']
+            transceiver_dom_threshold_info_dict['rxpowerlowwarning'] = dom_channel_threshold_data['data']['RxPowerLowWarning']['value']
 
-        return transceiver_dom_info_dict
+        return transceiver_dom_threshold_info_dict
 
     @abc.abstractmethod
     def get_presence(self, port_num):
