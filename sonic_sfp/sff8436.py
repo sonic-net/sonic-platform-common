@@ -1192,6 +1192,237 @@ class sff8436Dom(sffbase):
              'decode': {'func': calc_tx_power}}
         }
 
+    dom_module_threshold_values = {
+        'TempHighAlarm':
+             {'offset':0,
+              'size':2,
+              'type': 'func',
+              'decode': { 'func':calc_temperature}},
+        'TempLowAlarm':
+             {'offset':2,
+              'size':2,
+              'type': 'func',
+              'decode': { 'func':calc_temperature}},
+        'TempHighWarning':
+              {'offset':4,
+              'size':2,
+              'type': 'func',
+              'decode': { 'func':calc_temperature}},
+        'TempLowWarning':
+             {'offset':6,
+              'size':2,
+              'type': 'func',
+              'decode': { 'func':calc_temperature}},
+        'VccHighAlarm':
+             {'offset':16,
+              'size':2,
+              'type': 'func',
+              'decode': { 'func':calc_voltage}},
+        'VccLowAlarm':
+             {'offset':18,
+              'size':2,
+              'type': 'func',
+              'decode': { 'func':calc_voltage}},
+        'VccHighWarning':
+             {'offset':20,
+              'size':2,
+              'type': 'func',
+              'decode': { 'func':calc_voltage}},
+        'VccLowWarning':
+             {'offset':22,
+              'size':2,
+              'type': 'func',
+              'decode': { 'func':calc_voltage}}}
+
+    dom_channel_threshold_values = {
+        'RxPowerHighAlarm':
+             {'offset':0,
+              'size':2,
+              'type': 'func',
+              'decode': { 'func':calc_rx_power}},
+        'RxPowerLowAlarm':
+             {'offset':2,
+              'size':2,
+              'type': 'func',
+              'decode': { 'func':calc_rx_power}},
+        'RxPowerHighWarning':
+             {'offset':4,
+              'size':2,
+              'type': 'func',
+              'decode': { 'func':calc_rx_power}},
+        'RxPowerLowWarning':
+             {'offset':6,
+              'size':2,
+              'type': 'func',
+              'decode': { 'func':calc_rx_power}},
+        'TxBiasHighAlarm':
+             {'offset':8,
+              'size':2,
+              'type': 'func',
+              'decode': { 'func':calc_bias}},
+        'TxBiasLowAlarm':
+             {'offset':10,
+              'size':2,
+              'type': 'func',
+              'decode': { 'func':calc_bias}},
+        'TxBiasHighWarning':
+             {'offset':12,
+              'size':2,
+              'type': 'func',
+              'decode': { 'func':calc_bias}},
+        'TxBiasLowWarning':
+             {'offset':14,
+              'size':2,
+              'type': 'func',
+              'decode': { 'func':calc_bias}}}
+
+    dom_channel_monitor_masks = {
+        'Rx1PowerHighAlarm':
+             {'offset':0,
+              'bit': 7,
+              'type': 'bitvalue'},
+        'Rx1PowerLowAlarm':
+             {'offset':0,
+              'bit': 6,
+              'type': 'bitvalue'},
+        'Rx1PowerHighWarning':
+             {'offset':0,
+              'bit': 5,
+              'type': 'bitvalue'},
+        'Rx1PowerLowWarning':
+             {'offset':0,
+              'bit': 4,
+              'type': 'bitvalue'},
+        'Rx2PowerHighAlarm':
+             {'offset':0,
+              'bit': 3,
+              'type': 'bitvalue'},
+        'Rx2PowerLowAlarm':
+             {'offset':0,
+              'bit': 2,
+              'type': 'bitvalue'},
+        'Rx2PowerHighWarning':
+             {'offset':0,
+              'bit': 1,
+              'type': 'bitvalue'},
+        'Rx2PowerLowWarning':
+             {'offset':0,
+              'bit': 0,
+              'type': 'bitvalue'},
+        'Rx3PowerHighAlarm':
+             {'offset':1,
+              'bit': 7,
+              'type': 'bitvalue'},
+        'Rx3PowerLowAlarm':
+             {'offset':1,
+              'bit': 6,
+              'type': 'bitvalue'},
+        'Rx3PowerHighWarning':
+             {'offset':1,
+              'bit': 5,
+              'type': 'bitvalue'},
+        'Rx3PowerLowWarning':
+             {'offset':1,
+              'bit': 4,
+              'type': 'bitvalue'},
+        'Rx4PowerHighAlarm':
+             {'offset':1,
+              'bit': 3,
+              'type': 'bitvalue'},
+        'Rx4PowerLowAlarm':
+             {'offset':1,
+              'bit': 2,
+              'type': 'bitvalue'},
+        'Rx4PowerHighWarning':
+             {'offset':1,
+              'bit': 1,
+              'type': 'bitvalue'},
+        'Rx4PowerLowWarning':
+             {'offset':1,
+              'bit': 0,
+              'type': 'bitvalue'},
+        'Tx1BiasHighAlarm':
+             {'offset':2,
+              'bit': 7,
+              'type': 'bitvalue'},
+        'Tx1BiasLowAlarm':
+             {'offset':2,
+              'bit': 6,
+              'type': 'bitvalue'},
+        'Tx1BiasHighWarning':
+             {'offset':2,
+              'bit': 5,
+              'type': 'bitvalue'},
+        'Tx1BiasLowWarning':
+             {'offset':2,
+              'bit': 4,
+              'type': 'bitvalue'},
+        'Tx2BiasHighAlarm':
+             {'offset':2,
+              'bit': 3,
+              'type': 'bitvalue'},
+        'Tx2BiasLowAlarm':
+             {'offset':2,
+              'bit': 2,
+              'type': 'bitvalue'},
+        'Tx2BiasHighWarning':
+             {'offset':2,
+              'bit': 1,
+              'type': 'bitvalue'},
+        'Tx2BiasLowWarning':
+             {'offset':2,
+              'bit': 0,
+              'type': 'bitvalue'},
+        'Tx3BiasHighAlarm':
+             {'offset':3,
+              'bit': 7,
+              'type': 'bitvalue'},
+        'Tx3BiasLowAlarm':
+             {'offset':3,
+              'bit': 6,
+              'type': 'bitvalue'},
+        'Tx3BiasHighWarning':
+             {'offset': 3,
+              'bit': 5,
+              'type': 'bitvalue'},
+        'Tx3BiasLowWarning':
+             {'offset': 3,
+              'bit': 4,
+              'type': 'bitvalue'},
+        'Tx4BiasHighAlarm':
+             {'offset': 3,
+              'bit': 3,
+              'type': 'bitvalue'},
+        'Tx4BiasLowAlarm':
+             {'offset': 3,
+              'bit': 2,
+              'type': 'bitvalue'},
+        'Tx4BiasHighWarning':
+             {'offset': 3,
+              'bit': 1,
+              'type': 'bitvalue'},
+        'Tx4BiasLowWarning':
+             {'offset': 3,
+              'bit': 0,
+              'type': 'bitvalue'}}
+
+    dom_threshold_map = {
+        'ChannelThresholdValues':
+             {'offset': 11,
+              'size': 2,
+              'type': 'nested',
+              'decode': dom_channel_threshold_values},
+        'ChannelMonitorMasks':
+             {'offset': 12,
+              'size': 2,
+              'type': 'nested',
+              'decode': dom_channel_monitor_masks},
+        'ModuleThresholdValues':
+             {'offset': 13,
+              'size': 2,
+              'type': 'nested',
+              'decode': dom_module_threshold_values}}
+
     def __init__(self, eeprom_raw_data=None, calibration_type=1):
         self._calibration_type = calibration_type
         start_pos = 0
@@ -1224,6 +1455,18 @@ class sff8436Dom(sffbase):
         return sffbase.parse(self, self.dom_channel_monitor_params_with_tx_power, eeprom_raw_data,
                     start_pos)
 
+    def parse_module_threshold_values(self, eeprom_raw_data, start_pos):
+        return sffbase.parse(self, self.dom_module_threshold_values, eeprom_raw_data,
+                    start_pos)
+
+    def parse_channel_threshold_values(self, eeprom_raw_data, start_pos):
+        return sffbase.parse(self, self.dom_channel_threshold_values, eeprom_raw_data,
+                    start_pos)
+
+    def parse_channel_monitor_mask(self, eeprom_raw_data, start_pos):
+        return sffbase.parse(self, self.dom_channel_monitor_masks, eeprom_raw_data,
+                    start_pos)
+
     def dump_pretty(self):
         if self.dom_data == None:
             print('Object not initialized, nothing to print')
@@ -1235,3 +1478,4 @@ class sff8436Dom(sffbase):
 
     def get_data_pretty(self):
         return sffbase.get_data_pretty(self, self.dom_data)
+
