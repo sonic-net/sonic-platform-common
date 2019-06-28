@@ -741,6 +741,12 @@ class SfpUtilBase(object):
             else:
                 return None
 
+            sfp_type_abbrv_name_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + OSFP_TYPE_OFFSET), XCVR_TYPE_WIDTH)
+            if sfp_type_abbrv_name_raw is not None:
+                sfp_type_abbrv_name = sfpi_obj.parse_sfp_type_abbrv_name(sfp_type_abbrv_name_raw, 0)
+            else:
+                return None
+
             try:
                 sysfsfile_eeprom.close()
             except IOError:
@@ -748,7 +754,7 @@ class SfpUtilBase(object):
                 return None
 
             transceiver_info_dict['type'] = sfp_type_data['data']['type']['value']
-            transceiver_info_dict['type_abbrv_name'] = sfp_type_data['data']['type_abbrv_name']['value']
+            transceiver_info_dict['type_abbrv_name'] = sfp_type_abbrv_name['data']['type_abbrv_name']['value']
             transceiver_info_dict['manufacturename'] = sfp_vendor_name_data['data']['Vendor Name']['value']
             transceiver_info_dict['modelname'] = sfp_vendor_pn_data['data']['Vendor PN']['value']
             transceiver_info_dict['hardwarerev'] = sfp_vendor_rev_data['data']['Vendor Rev']['value']
