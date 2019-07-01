@@ -33,6 +33,9 @@ class ModuleBase(device_base.DeviceBase):
     # available on the module
     _sfp_list = []
 
+    # List of component names that available on the chassis
+    _component_name_list = []
+
     def get_base_mac(self):
         """
         Retrieves the base MAC address for the module
@@ -63,6 +66,39 @@ class ModuleBase(device_base.DeviceBase):
             Ex. { ‘0x21’:’AG9064’, ‘0x22’:’V1.0’, ‘0x23’:’AG9064-0109867821’,
                   ‘0x24’:’001c0f000fcd0a’, ‘0x25’:’02/03/2018 16:22:00’,
                   ‘0x26’:’01’, ‘0x27’:’REV01’, ‘0x28’:’AG9064-C2358-16G’}
+        """
+        raise NotImplementedError
+
+    def get_component_name_list(self):
+        """
+        Retrieves a list of the names of components available on the module (e.g., BIOS, CPLD, FPGA, etc.)
+
+        Returns:
+            A list containing the names of components available on the module.
+        """
+        return self._component_name_list
+
+    def get_firmware_version(self, component_name):
+        """
+        Retrieves platform-specific hardware/firmware versions for chassis
+        componenets such as BIOS, CPLD, FPGA, etc.
+        Args:
+            component_name: A string, the component name.
+
+        Returns:
+            A string containing platform-specific component versions
+        """
+        raise NotImplementedError
+
+    def install_component_firmware(self, component_name, image_path):
+        """
+        Install firmware to component
+        Args:
+            component_name: A string, the component name.
+            image_path: A string, path to firmware image.
+
+        Returns:
+            A boolean, True if install was successful, False if not
         """
         raise NotImplementedError
 
