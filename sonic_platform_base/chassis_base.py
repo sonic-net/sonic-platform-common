@@ -46,7 +46,7 @@ class ChassisBase(device_base.DeviceBase):
     # available on the chassis
     _sfp_list = []
 
-    # List of component names that available on the chassis
+    # List of component names that are available on the chassis
     _component_name_list = []
 
     # Object derived from WatchdogBase for interacting with hardware watchdog
@@ -100,10 +100,10 @@ class ChassisBase(device_base.DeviceBase):
 
     def get_component_name_list(self):
         """
-        Retrieves chassis components list such as BIOS, CPLD, FPGA, etc.
+        Retrieves a list of the names of components available on the chassis (e.g., BIOS, CPLD, FPGA, etc.)
 
         Returns:
-            A list containing component name.
+            A list containing the names of components available on the chassis
         """
         return self._component_name_list
 
@@ -112,7 +112,7 @@ class ChassisBase(device_base.DeviceBase):
         Retrieves platform-specific hardware/firmware versions for chassis
         componenets such as BIOS, CPLD, FPGA, etc.
         Args:
-            component: A string, the component name.
+            component_name: A string, the component name.
 
         Returns:
             A string containing platform-specific component versions
@@ -121,13 +121,13 @@ class ChassisBase(device_base.DeviceBase):
 
     def install_component_firmware(self, component_name, image_path):
         """
-        Install firmware to module
+        Install firmware to component
         Args:
-            component: A string, the component name.
+            component_name: A string, the component name.
             image_path: A string, path to firmware image.
 
         Returns:
-            A boolean, True if install successfully, False if not
+            A boolean, True if install was successful, False if not
         """
         raise NotImplementedError
 
