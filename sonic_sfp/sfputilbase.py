@@ -544,7 +544,7 @@ class SfpUtilBase(object):
     def get_physical_to_logical(self, port_num):
         """Returns list of logical ports for the given physical port"""
 
-        return self.physical_to_logical[port_num]
+        return self.physical_to_logical.get(port_num)
 
     def get_logical_to_physical(self, logical_port):
         """Returns list of physical ports for the given logical port"""
