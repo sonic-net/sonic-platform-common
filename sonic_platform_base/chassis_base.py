@@ -17,7 +17,7 @@ class ChassisBase(device_base.DeviceBase):
     DEVICE_TYPE = "chassis"
 
     # Possible reboot causes
-    REBOOT_CAUSE_POWER_LOSS = "A/C Power Loss"
+    REBOOT_CAUSE_POWER_LOSS = "Power Loss"
     REBOOT_CAUSE_THERMAL_OVERLOAD_CPU = "Thermal Overload: CPU"
     REBOOT_CAUSE_THERMAL_OVERLOAD_ASIC = "Thermal Overload: ASIC"
     REBOOT_CAUSE_THERMAL_OVERLOAD_OTHER = "Thermal Overload: Other"
