@@ -17,14 +17,14 @@ class ChassisBase(device_base.DeviceBase):
     DEVICE_TYPE = "chassis"
 
     # Possible reboot causes
-    REBOOT_CAUSE_POWER_LOSS = "power_loss"
-    REBOOT_CAUSE_THERMAL_OVERLOAD_CPU = "thermal_overload_cpu"
-    REBOOT_CAUSE_THERMAL_OVERLOAD_ASIC = "thermal_overload_asic"
-    REBOOT_CAUSE_THERMAL_OVERLOAD_OTHER = "thermal_overload_other"
-    REBOOT_CAUSE_INSUFFICIENT_FAN = "insufficient_fan"
-    REBOOT_CAUSE_WATCHDOG = "watchdog"
-    REBOOT_CAUSE_HARDWARE_OTHER = "hardware_other"
-    REBOOT_CAUSE_NON_HARDWARE = "non_hardware"
+    REBOOT_CAUSE_POWER_LOSS = "Power Loss"
+    REBOOT_CAUSE_THERMAL_OVERLOAD_CPU = "Thermal Overload: CPU"
+    REBOOT_CAUSE_THERMAL_OVERLOAD_ASIC = "Thermal Overload: ASIC"
+    REBOOT_CAUSE_THERMAL_OVERLOAD_OTHER = "Thermal Overload: Other"
+    REBOOT_CAUSE_INSUFFICIENT_FAN_SPEED = "Insufficient Fan Speed"
+    REBOOT_CAUSE_WATCHDOG = "Watchdog"
+    REBOOT_CAUSE_HARDWARE_OTHER = "Hardware - Other"
+    REBOOT_CAUSE_NON_HARDWARE = "Non-Hardware"
 
     # List of ModuleBase-derived objects representing all modules
     # available on the chassis (for use with modular chassis)
