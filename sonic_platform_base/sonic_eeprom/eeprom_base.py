@@ -24,9 +24,11 @@ try:
     import struct
     import subprocess
     import fcntl
+    import redis
 except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
 
+STATE_DB_INDEX = 6
 
 class EepromDecoder(object):
     def __init__(self, path, format, start, status, readonly):
@@ -277,7 +279,23 @@ class EepromDecoder(object):
         fcntl.flock(self.lock_file, fcntl.LOCK_UN)
 
     def update_eeprom_db(self, e):
+        '''
+        Update EEPROM contents to database
+        '''
+        eeprom_dict = self.get_eeprom_dict(e)
+        if not eeprom_dict:
+            return -1
+        client = redis.Redis(db=STATE_DB_INDEX)
+        for key in eeprom_dict:
+            client.hmset("EEPROM_INFO|{}".format(key), eeprom_dict[key])
         return 0
+
+    def get_eeprom_dict(self, e):
+        '''
+        Decode the contents of the EEPROM into dict.
+        This is used to update the state DB's EEPROM_INFO.
+        '''
+        return {'0': {'0': '0'}}
 
     def diff_mac(self, mac1, mac2):
         if mac1 == '' or mac2 == '':
