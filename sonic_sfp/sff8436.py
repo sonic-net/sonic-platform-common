@@ -768,270 +768,279 @@ class sff8436Dom(sffbase):
 
         return retval
 
-    dom_status_indicator = {'DataNotReady':
+    dom_status_indicator = {
+            'DataNotReady':
                 {'offset': 2,
                  'bit': 0,
                  'type': 'bitvalue'}}
 
-    dom_channel_status = {'Tx4LOS':
+    dom_channel_status = {
+            'Tx4LOS':
                 {'offset': 3,
                  'bit': 7,
                  'type': 'bitvalue'},
-                  'Tx3LOS':
+            'Tx3LOS':
                 {'offset': 3,
                  'bit': 6,
                  'type': 'bitvalue'},
-                  'Tx2LOS':
+            'Tx2LOS':
                 {'offset': 3,
                  'bit': 5,
                  'type': 'bitvalue'},
-                  'Tx1LOS':
+            'Tx1LOS':
                 {'offset': 3,
                  'bit': 4,
                  'type': 'bitvalue'},
-                  'Rx4LOS':
+            'Rx4LOS':
                 {'offset': 3,
                  'bit': 3,
                  'type': 'bitvalue'},
-                  'Rx3LOS':
+            'Rx3LOS':
                 {'offset': 3,
                  'bit': 2,
                  'type': 'bitvalue'},
-                  'Rx2LOS':
+            'Rx2LOS':
                 {'offset': 3,
                  'bit': 1,
                  'type': 'bitvalue'},
-                  'Rx1LOS':
+            'Rx1LOS':
                 {'offset': 3,
                  'bit': 0,
                  'type': 'bitvalue'},
-                  'Tx4Fault':
+            'Tx4Fault':
                 {'offset': 4,
                  'bit': 3,
                  'type': 'bitvalue'},
-                  'Tx3Fault':
+            'Tx3Fault':
                 {'offset': 4,
                  'bit': 2,
                  'type': 'bitvalue'},
-                  'Tx2Fault':
+            'Tx2Fault':
                 {'offset': 4,
                  'bit': 1,
                  'type': 'bitvalue'},
-                  'Tx1Fault':
+            'Tx1Fault':
                 {'offset': 4,
                  'bit': 0,
                  'type': 'bitvalue'}}
 
-    dom_module_monitor = {'TempHighAlarm':
+    dom_module_monitor = {
+            'TempHighAlarm':
                 {'offset': 6,
                  'bit': 7,
                  'type': 'bitvalue'},
-                   'TempLowAlarm':
+            'TempLowAlarm':
                 {'offset': 6,
                  'bit': 6,
                  'type': 'bitvalue'},
-                   'TempHighWarning':
+            'TempHighWarning':
                 {'offset': 6,
                  'bit': 5,
                  'type': 'bitvalue'},
-                   'TempLowWarning':
+            'TempLowWarning':
                 {'offset': 6,
                  'bit': 4,
                  'type': 'bitvalue'},
-                   'VccHighAlarm':
+            'InitCompleteFlag':
+                {'offset': 6,
+                 'bit': 0,
+                 'type': 'bitvalue'},
+            'VccHighAlarm':
                 {'offset': 7,
                  'bit': 7,
                  'type': 'bitvalue'},
-                   'VccLowAlarm':
+            'VccLowAlarm':
                 {'offset': 7,
                  'bit': 6,
                  'type': 'bitvalue'},
-                   'VccHighWarning':
+            'VccHighWarning':
                 {'offset': 7,
                  'bit': 5,
                  'type': 'bitvalue'},
-                   'VccLowWarning':
+            'VccLowWarning':
                 {'offset': 7,
                  'bit': 4,
                  'type': 'bitvalue'}}
 
-    dom_channel_monitor = {'Rx1PowerHighAlarm':
+    dom_channel_monitor = {
+            'Rx1PowerHighAlarm':
                 {'offset': 9,
                  'bit': 7,
                  'type': 'bitvalue'},
-                   'Rx1PowerLowAlarm':
+            'Rx1PowerLowAlarm':
                 {'offset': 9,
                  'bit': 6,
                  'type': 'bitvalue'},
-                   'Rx1PowerHighWarning':
+            'Rx1PowerHighWarning':
                 {'offset': 9,
                  'bit': 5,
                  'type': 'bitvalue'},
-                   'Rx1PowerLowWarning':
+            'Rx1PowerLowWarning':
                 {'offset': 9,
                  'bit': 4,
                  'type': 'bitvalue'},
-                   'Rx2PowerHighAlarm':
+            'Rx2PowerHighAlarm':
                 {'offset': 9,
                  'bit': 3,
                  'type': 'bitvalue'},
-                   'Rx2PowerLowAlarm':
+            'Rx2PowerLowAlarm':
                 {'offset': 9,
                  'bit': 2,
                  'type': 'bitvalue'},
-                   'Rx2PowerHighWarning':
+            'Rx2PowerHighWarning':
                 {'offset': 9,
                  'bit': 1,
                  'type': 'bitvalue'},
-                   'Rx2PowerLowWarning':
+            'Rx2PowerLowWarning':
                 {'offset': 9,
                  'bit': 0,
                  'type': 'bitvalue'},
-                   'Rx3PowerHighAlarm':
+            'Rx3PowerHighAlarm':
                 {'offset': 10,
                  'bit': 7,
                  'type': 'bitvalue'},
-                   'Rx3PowerLowAlarm':
+            'Rx3PowerLowAlarm':
                 {'offset': 10,
                  'bit': 6,
                  'type': 'bitvalue'},
-                   'Rx3PowerHighWarning':
+            'Rx3PowerHighWarning':
                 {'offset': 10,
                  'bit': 5,
                  'type': 'bitvalue'},
-                   'Rx3PowerLowWarning':
+            'Rx3PowerLowWarning':
                 {'offset': 10,
                  'bit': 4,
                  'type': 'bitvalue'},
-                   'Rx4PowerHighAlarm':
+            'Rx4PowerHighAlarm':
                 {'offset': 10,
                  'bit': 3,
                  'type': 'bitvalue'},
-                   'Rx4PowerLowAlarm':
+            'Rx4PowerLowAlarm':
                 {'offset': 10,
                  'bit': 2,
                  'type': 'bitvalue'},
-                   'Rx4PowerHighWarning':
+            'Rx4PowerHighWarning':
                 {'offset': 10,
                  'bit': 1,
                  'type': 'bitvalue'},
-                   'Rx4PowerLowWarning':
+            'Rx4PowerLowWarning':
                 {'offset': 10,
                  'bit': 0,
                  'type': 'bitvalue'},
-                   'Tx1BiasHighAlarm':
+            'Tx1BiasHighAlarm':
                 {'offset': 11,
                  'bit': 7,
                  'type': 'bitvalue'},
-                   'Tx1BiasLowAlarm':
+            'Tx1BiasLowAlarm':
                 {'offset': 11,
                  'bit': 6,
                  'type': 'bitvalue'},
-                   'Tx1BiasHighWarning':
+            'Tx1BiasHighWarning':
                 {'offset': 11,
                  'bit': 5,
                  'type': 'bitvalue'},
-                   'Tx1BiasLowWarning':
+            'Tx1BiasLowWarning':
                 {'offset': 11,
                  'bit': 4,
                  'type': 'bitvalue'},
-                   'Tx2BiasHighAlarm':
+            'Tx2BiasHighAlarm':
                 {'offset': 11,
                  'bit': 3,
                  'type': 'bitvalue'},
-                   'Tx2BiasLowAlarm':
+            'Tx2BiasLowAlarm':
                 {'offset': 11,
                  'bit': 2,
                  'type': 'bitvalue'},
-                   'Tx2BiasHighWarning':
+            'Tx2BiasHighWarning':
                 {'offset': 11,
                  'bit': 1,
                  'type': 'bitvalue'},
-                   'Tx2BiasLowWarning':
+            'Tx2BiasLowWarning':
                 {'offset': 11,
                  'bit': 0,
                  'type': 'bitvalue'},
-                   'Tx3BiasHighAlarm':
+            'Tx3BiasHighAlarm':
                 {'offset': 12,
                  'bit': 7,
                  'type': 'bitvalue'},
-                   'Tx3BiasLowAlarm':
+            'Tx3BiasLowAlarm':
                 {'offset': 12,
                  'bit': 6,
                  'type': 'bitvalue'},
-                   'Tx3BiasHighWarning':
+            'Tx3BiasHighWarning':
                 {'offset': 12,
                  'bit': 5,
                  'type': 'bitvalue'},
-                   'Tx3BiasLowWarning':
+            'Tx3BiasLowWarning':
                 {'offset': 12,
                  'bit': 4,
                  'type': 'bitvalue'},
-                   'Tx4BiasHighAlarm':
+            'Tx4BiasHighAlarm':
                 {'offset': 12,
                  'bit': 3,
                  'type': 'bitvalue'},
-                   'Tx4BiasLowAlarm':
+            'Tx4BiasLowAlarm':
                 {'offset': 12,
                  'bit': 2,
                  'type': 'bitvalue'},
-                   'Tx4BiasHighWarning':
+            'Tx4BiasHighWarning':
                 {'offset': 12,
                  'bit': 1,
                  'type': 'bitvalue'},
-                   'Tx4BiasLowWarning':
+            'Tx4BiasLowWarning':
                 {'offset': 12,
                  'bit': 0,
                  'type': 'bitvalue'}}
 
-    dom_module_monitor_values = {'Temperature':
+    dom_module_monitor_values = {
+            'Temperature':
                 {'offset':22,
                  'size':2,
                  'type': 'func',
                  'decode': { 'func':calc_temperature}},
-                   'Vcc':   
+            'Vcc':   
                 {'offset':26,
                  'size':2,
                  'type': 'func',
                  'decode': { 'func':calc_voltage}}}
 
     dom_channel_monitor_values = {
-                   'RX1Power':
+            'RX1Power':
                 {'offset':34,
                  'size':2,
                  'type': 'func',
                  'decode': { 'func':calc_rx_power}},
-                   'RX2Power':
+            'RX2Power':
                 {'offset':36,
                  'size':2,
                  'type': 'func',
                  'decode': { 'func':calc_rx_power}},
-                   'RX3Power':
+            'RX3Power':
                 {'offset':38,
                  'size':2,
                  'type': 'func',
                  'decode': { 'func':calc_rx_power}},
-                   'RX4Power':
+            'RX4Power':
                 {'offset':40,
                  'size':2,
                  'type': 'func',
                  'decode': { 'func':calc_rx_power}},
-                   'TX1Bias':
+            'TX1Bias':
                 {'offset':42,
                  'size':2,
                  'type': 'func',
                  'decode': { 'func':calc_bias}},
-                   'TX2Bias':
+            'TX2Bias':
                 {'offset':44,
                  'size':2,
                  'type': 'func',
                  'decode': { 'func':calc_bias}},
-                   'TX3Bias':
+            'TX3Bias':
                 {'offset':46,
                  'size':2,
                  'type': 'func',
                  'decode': { 'func':calc_bias}},
-                   'TX4Bias':
+            'TX4Bias':
                 {'offset':48,
                  'size':2,
                  'type': 'func',
@@ -1423,6 +1432,104 @@ class sff8436Dom(sffbase):
               'type': 'nested',
               'decode': dom_module_threshold_values}}
 
+    dom_control_bytes_masks = {
+        'TX4Disable':
+            {'offset': 0,
+             'bit': 3,
+             'type': 'bitvalue'},
+        'TX3Disable':
+            {'offset': 0,
+             'bit': 2,
+             'type': 'bitvalue'},
+        'TX2Disable':
+            {'offset': 0,
+             'bit': 1,
+             'type': 'bitvalue'},
+        'TX1Disable':
+            {'offset': 0,
+             'bit': 0,
+             'type': 'bitvalue'},
+        # RxXRateSelect & Tx4RateSelect are not supported yet.
+        'Rx4AppSelect':
+            {'offset': 3,
+             'size': 1,
+             'type': 'int'},
+        'Rx3AppSelect':
+            {'offset': 4,
+             'size': 1,
+             'type': 'int'},
+        'Rx2AppSelect':
+            {'offset': 5,
+             'size': 1,
+             'type': 'int'},
+        'Rx1AppSelect':
+            {'offset': 6,
+             'size': 1,
+             'type': 'int'},
+        'PowerSet':
+            {'offset': 7,
+             'bit': 1,
+             'type': 'bitvalue'},
+        'PowerOverride':
+            {'offset': 7,
+             'bit': 0,
+             'type': 'bitvalue'},
+    }
+
+    #SFF8436 Table 39, Option Values (Address 192-195) (Page 00)
+    #each field indicates whether that feature is supported on this module
+    dom_option_value_masks = {
+        'RXOutputAmplitudeProgramming':
+            {'offset': 1,
+             'bit': 0,
+             'type': 'bitvalue'},
+        'RxSquelchDisable':
+            {'offset': 2,
+             'bit': 3,
+             'type': 'bitvalue'},
+        'RxOutputDisableCapable':
+            {'offset': 2,
+             'bit': 2,
+             'type': 'bitvalue'},
+        'TxSquelchDisable':
+            {'offset': 2,
+             'bit': 1,
+             'type': 'bitvalue'},
+        'TxSquelch':
+            {'offset': 2,
+             'bit': 0,
+             'type': 'bitvalue'},
+        'MemoryPage02Provided':
+            {'offset': 3,
+             'bit': 7,
+             'type': 'bitvalue'},
+        'MemoryPage01Provided':
+            {'offset': 3,
+             'bit': 6,
+             'type': 'bitvalue'},
+        'RATE_SELECT':
+            {'offset': 3,
+             'bit': 5,
+             'type': 'bitvalue'},
+        'TxDisable':
+            {'offset': 3,
+             'bit': 4,
+             'type': 'bitvalue'},
+        'TxFault':
+            {'offset': 3,
+             'bit': 3,
+             'type': 'bitvalue'},
+        'TxSquelch_OMA_or_ReducePave':
+            {'offset': 3,
+             'bit': 2,
+             'type': 'bitvalue'},
+        'TxLOS':
+            {'offset': 3,
+             'bit': 1,
+             'type': 'bitvalue'},
+    }
+
+
     def __init__(self, eeprom_raw_data=None, calibration_type=1):
         self._calibration_type = calibration_type
         start_pos = 0
@@ -1467,6 +1574,17 @@ class sff8436Dom(sffbase):
         return sffbase.parse(self, self.dom_channel_monitor_masks, eeprom_raw_data,
                     start_pos)
 
+    def parse_control_bytes(self, eeprom_raw_data, start_pos):
+        return sffbase.parse(self, self.dom_control_bytes_masks, eeprom_raw_data, start_pos)
+
+    def parse_module_monitor_params(self, eeprom_raw_data, start_pos):
+        return sffbase.parse(self, self.dom_module_monitor, eeprom_raw_data,
+                    start_pos)
+
+    def parse_option_params(self, eeprom_raw_data, start_pos):
+        return sffbase.parse(self, self.dom_option_value_masks, eeprom_raw_data,
+                    start_pos)
+
     def dump_pretty(self):
         if self.dom_data == None:
             print('Object not initialized, nothing to print')
@@ -1478,4 +1596,3 @@ class sff8436Dom(sffbase):
 
     def get_data_pretty(self):
         return sffbase.get_data_pretty(self, self.dom_data)
-

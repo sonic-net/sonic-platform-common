@@ -17,14 +17,14 @@ class ChassisBase(device_base.DeviceBase):
     DEVICE_TYPE = "chassis"
 
     # Possible reboot causes
-    REBOOT_CAUSE_POWER_LOSS = "power_loss"
-    REBOOT_CAUSE_THERMAL_OVERLOAD_CPU = "thermal_overload_cpu"
-    REBOOT_CAUSE_THERMAL_OVERLOAD_ASIC = "thermal_overload_asic"
-    REBOOT_CAUSE_THERMAL_OVERLOAD_OTHER = "thermal_overload_other"
-    REBOOT_CAUSE_INSUFFICIENT_FAN = "insufficient_fan"
-    REBOOT_CAUSE_WATCHDOG = "watchdog"
-    REBOOT_CAUSE_HARDWARE_OTHER = "hardware_other"
-    REBOOT_CAUSE_NON_HARDWARE = "non_hardware"
+    REBOOT_CAUSE_POWER_LOSS = "Power Loss"
+    REBOOT_CAUSE_THERMAL_OVERLOAD_CPU = "Thermal Overload: CPU"
+    REBOOT_CAUSE_THERMAL_OVERLOAD_ASIC = "Thermal Overload: ASIC"
+    REBOOT_CAUSE_THERMAL_OVERLOAD_OTHER = "Thermal Overload: Other"
+    REBOOT_CAUSE_INSUFFICIENT_FAN_SPEED = "Insufficient Fan Speed"
+    REBOOT_CAUSE_WATCHDOG = "Watchdog"
+    REBOOT_CAUSE_HARDWARE_OTHER = "Hardware - Other"
+    REBOOT_CAUSE_NON_HARDWARE = "Non-Hardware"
 
     # List of ModuleBase-derived objects representing all modules
     # available on the chassis (for use with modular chassis)
@@ -45,6 +45,9 @@ class ChassisBase(device_base.DeviceBase):
     # List of SfpBase-derived objects representing all sfps
     # available on the chassis
     _sfp_list = []
+
+    # List of component names that are available on the chassis
+    _component_name_list = []
 
     # Object derived from WatchdogBase for interacting with hardware watchdog
     _watchdog = None
@@ -95,13 +98,36 @@ class ChassisBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
-    def get_component_versions(self):
+    def get_component_name_list(self):
+        """
+        Retrieves a list of the names of components available on the chassis (e.g., BIOS, CPLD, FPGA, etc.)
+
+        Returns:
+            A list containing the names of components available on the chassis
+        """
+        return self._component_name_list
+
+    def get_firmware_version(self, component_name):
         """
         Retrieves platform-specific hardware/firmware versions for chassis
         componenets such as BIOS, CPLD, FPGA, etc.
+        Args:
+            component_name: A string, the component name.
 
         Returns:
             A string containing platform-specific component versions
+        """
+        raise NotImplementedError
+
+    def install_component_firmware(self, component_name, image_path):
+        """
+        Install firmware to component
+        Args:
+            component_name: A string, the component name.
+            image_path: A string, path to firmware image.
+
+        Returns:
+            A boolean, True if install was successful, False if not
         """
         raise NotImplementedError
 
