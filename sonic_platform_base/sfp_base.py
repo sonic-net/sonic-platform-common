@@ -73,7 +73,60 @@ class SfpBase(device_base.DeviceBase):
         ========================================================================
         """
         return NotImplementedError
-                
+
+    def get_transceiver_threshold_info(self):
+        """
+        Retrieves transceiver threshold info of this SFP
+
+        Returns:
+            A dict which contains following keys/values :
+        ========================================================================
+        keys                       |Value Format   |Information
+        ---------------------------|---------------|----------------------------
+        Temperature High Alarm     |FLOAT          |High Alarm Threshold value,
+                                   |               |of temperature in Celsius.
+        Temperature Low Alarm      |FLOAT          |Low Alarm Threshold value,
+                                   |               |of temperature in Celsius.
+        Temperature High Warning   |FLOAT          |High Warning Threshold value,
+                                   |               |of temperature in Celsius.
+        Temperature Low Warning    |FLOAT          |Low Warning Threshold value,
+                                   |               |of temperature in Celsius.
+        Voltage High Alarm         |FLOAT          |High Alarm Threshold value,
+                                   |               |of supply voltage in mV.
+        Voltage Low Alarm          |FLOAT          |Low Alarm Threshold value,
+                                   |               |of supply voltage in mV.
+        Voltage High Warning       |FLOAT          |High Warning Threshold value,
+                                   |               |of supply voltage in mV.
+        Voltage Low Warning        |FLOAT          |Low Warning Threshold value,
+                                   |               |of supply voltage in mV.
+        Rx Power High Alarm        |FLOAT          |High Alarm Threshold value,
+                                   |               |of received power in dBm.
+        Rx Power Low Alarm         |FLOAT          |Low Alarm Threshold value,
+                                   |               |of received power in dBm.
+        Rx Power High Warning      |FLOAT          |High Warning Threshold value,
+                                   |               |of received power in dBm.
+        Rx Power Low Warning       |FLOAT          |Low Warning Threshold value,
+                                   |               |of received power in dBm.
+        Tx Power High Alarm        |FLOAT          |High Alarm Threshold value,
+                                   |               |of transmit power in dBm.
+        Tx Power Low Alarm         |FLOAT          |Low Alarm Threshold value,
+                                   |               |of transmit power in dBm.
+        Tx Power High Warning      |FLOAT          |High Warning Threshold value,
+                                   |               |of transmit power in dBm.
+        Tx Power Low Warning       |FLOAT          |Low Warning Threshold value,
+                                   |               |of transmit power in dBm.
+        Tx Bias High Alarm         |FLOAT          |High Alarm Threshold value,
+                                   |               |of tx Bias Current in mA.
+        Tx Bias Low Alarm          |FLOAT          |Low Alarm Threshold value,
+                                   |               |of tx Bias Current in mA.
+        Tx Bias High Warning       |FLOAT          |High Warning Threshold value,
+                                   |               |of tx Bias Current in mA.
+        Tx Bias Low Warning        |FLOAT          |Low Warning Threshold value,
+                                   |               |of tx Bias Current in mA.
+        ========================================================================
+        """
+        return NotImplementedError
+
     def get_reset_status(self):
         """
         Retrieves the reset status of SFP
