@@ -9,6 +9,7 @@
 '''
 
 try:
+    import sys
     import signal
     import threading
     from sonic_daemon_base.daemon_base import DaemonBase
