@@ -764,7 +764,7 @@ class sff8436Dom(sffbase):
 
     dom_status_indicator = {
             'DataNotReady':
-                {'offset': 2,
+                {'offset': 0,
                  'bit': 0,
                  'type': 'bitvalue'}}
 
@@ -815,6 +815,56 @@ class sff8436Dom(sffbase):
                  'type': 'bitvalue'},
             'Tx1Fault':
                 {'offset': 4,
+                 'bit': 0,
+                 'type': 'bitvalue'}}
+
+    dom_tx_rx_los = {'Tx4LOS':
+                {'offset': 0,
+                 'bit': 7,
+                 'type': 'bitvalue'},
+                  'Tx3LOS':
+                {'offset': 0,
+                 'bit': 6,
+                 'type': 'bitvalue'},
+                  'Tx2LOS':
+                {'offset': 0,
+                 'bit': 5,
+                 'type': 'bitvalue'},
+                  'Tx1LOS':
+                {'offset': 0,
+                 'bit': 4,
+                 'type': 'bitvalue'},
+                  'Rx4LOS':
+                {'offset': 0,
+                 'bit': 3,
+                 'type': 'bitvalue'},
+                  'Rx3LOS':
+                {'offset': 0,
+                 'bit': 2,
+                 'type': 'bitvalue'},
+                  'Rx2LOS':
+                {'offset': 0,
+                 'bit': 1,
+                 'type': 'bitvalue'},
+                  'Rx1LOS':
+                {'offset': 0,
+                 'bit': 0,
+                 'type': 'bitvalue'}}
+
+    dom_tx_fault = {'Tx4Fault':
+                {'offset': 0,
+                 'bit': 3,
+                 'type': 'bitvalue'},
+                  'Tx3Fault':
+                {'offset': 0,
+                 'bit': 2,
+                 'type': 'bitvalue'},
+                  'Tx2Fault':
+                {'offset': 0,
+                 'bit': 1,
+                 'type': 'bitvalue'},
+                  'Tx1Fault':
+                {'offset': 0,
                  'bit': 0,
                  'type': 'bitvalue'}}
 
@@ -1409,6 +1459,34 @@ class sff8436Dom(sffbase):
               'bit': 0,
               'type': 'bitvalue'}}
 
+    dom_tx_disable = {
+        'Tx4Disable':
+             {'offset':0,
+              'bit': 3,
+              'type': 'bitvalue'},
+        'Tx3Disable':
+             {'offset':0,
+              'bit': 2,
+              'type': 'bitvalue'},
+        'Tx2Disable':
+             {'offset':0,
+              'bit': 1,
+              'type': 'bitvalue'},
+        'Tx1Disable':
+             {'offset':0,
+              'bit': 0,
+              'type': 'bitvalue'}}
+
+    dom_power_control = {
+        'PowerSet':
+             {'offset': 0,
+              'bit': 1,
+              'type': 'bitvalue'},
+        'PowerOverRide':
+             {'offset': 0,
+              'bit': 0,
+              'type': 'bitvalue'}}
+
     dom_threshold_map = {
         'ChannelThresholdValues':
              {'offset': 11,
@@ -1578,6 +1656,30 @@ class sff8436Dom(sffbase):
     def parse_option_params(self, eeprom_raw_data, start_pos):
         return sffbase.parse(self, self.dom_option_value_masks, eeprom_raw_data,
                     start_pos)
+
+    def parse_dom_status_indicator(self, eeprom_raw_data, start_pos):
+        return sffbase.parse(self, self.dom_status_indicator, eeprom_raw_data,
+                start_pos)
+
+    def parse_dom_channel_status(self, eeprom_raw_data, start_pos):
+        return sffbase.parse(self, self.dom_channel_status, eeprom_raw_data,
+                start_pos)
+
+    def parse_dom_tx_rx_los(self, eeprom_raw_data, start_pos):
+        return sffbase.parse(self, self.dom_tx_rx_los, eeprom_raw_data,
+                start_pos)
+
+    def parse_dom_tx_fault(self, eeprom_raw_data, start_pos):
+        return sffbase.parse(self, self.dom_tx_fault, eeprom_raw_data,
+                start_pos)
+
+    def parse_dom_tx_disable (self, eeprom_raw_data, start_pos):
+        return sffbase.parse(self, self.dom_tx_disable, eeprom_raw_data,
+                start_pos)
+
+    def parse_dom_power_control(self, eeprom_raw_data, start_pos):
+        return sffbase.parse(self, self.dom_power_control, eeprom_raw_data,
+                start_pos)
 
     def dump_pretty(self):
         if self.dom_data == None:
