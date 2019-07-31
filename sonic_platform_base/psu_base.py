@@ -17,6 +17,7 @@ class PsuBase(device_base.DeviceBase):
 
     # Possible fan status LED colors
     STATUS_LED_COLOR_GREEN = "green"
+    STATUS_LED_COLOR_AMBER = "amber"
     STATUS_LED_COLOR_RED = "red"
     STATUS_LED_COLOR_OFF = "off"
 
@@ -116,14 +117,11 @@ class PsuBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
-    def get_status_led(self, color):
+    def get_status_led(self):
         """
         Gets the state of the PSU status LED
 
-        Args:
-            color: A string representing the color of PSU status LED
-
         Returns:
-            bool: True if get LED state returned successfully, False if not
+            A string, one of the predefined STATUS_LED_COLOR_* strings above
         """
         raise NotImplementedError

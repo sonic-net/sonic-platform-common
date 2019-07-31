@@ -21,6 +21,7 @@ class FanBase(device_base.DeviceBase):
 
     # Possible fan status LED colors
     STATUS_LED_COLOR_GREEN = "green"
+    STATUS_LED_COLOR_AMBER = "amber"
     STATUS_LED_COLOR_RED = "red"
     STATUS_LED_COLOR_OFF = "off"
 
@@ -87,5 +88,14 @@ class FanBase(device_base.DeviceBase):
 
         Returns:
             bool: True if status LED state is set successfully, False if not
+        """
+        raise NotImplementedError
+
+    def get_status_led(self):
+        """
+        Gets the state of the fan status LED
+
+        Returns:
+            A string, one of the predefined STATUS_LED_COLOR_* strings above
         """
         raise NotImplementedError
