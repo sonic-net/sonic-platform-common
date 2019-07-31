@@ -73,7 +73,36 @@ class SfpBase(device_base.DeviceBase):
         ========================================================================
         """
         return NotImplementedError
-                
+
+    def get_transceiver_threshold_status(self):
+        """
+        Retrieves transceiver threshold status of this SFP
+
+        Returns:
+            A dict which contains following keys/values :
+        ========================================================================
+        keys                       |Value Format   |Information	
+        ---------------------------|---------------|----------------------------
+        temphighalarm              |float          |high alarm threshold of temperature
+        templowalarm               |float          |low alarm threshold of temperature
+        temphighwarning            |float          |high warning threshold of temperature
+        templowwarning             |float          |low warning threshold of temperature
+        vcchighalarm               |float          |high alarm threshold of Vcc
+        vcclowalarm                |float          |low alarm threshold of Vcc
+        vcchighwarning             |float          |high warning threshold of Vcc
+        vcclowwarning              |float          |low warning threshold of Vcc
+        txbiashighalarm            |float          |high alarm threshold of tx bias
+        txbiaslowalarm             |float          |low alarm threshold of tx bias
+        txbiashighwarning          |float          |high warning threshold of tx bias
+        txbiaslowwarning           |float          |low warning threshold of tx bias
+        txpowerhighalarm           |float          |high alarm threshold of tx power
+        txpowerlowalarm            |float          |low alarm threshold of tx power
+        txpowerhighwarning         |float          |high warning threshold of tx power
+        txpowerlowwarning          |float          |low warning threshold of tx power
+        ========================================================================
+        """
+        return NotImplementedError
+
     def get_reset_status(self):
         """
         Retrieves the reset status of SFP
