@@ -74,31 +74,55 @@ class SfpBase(device_base.DeviceBase):
         """
         return NotImplementedError
 
-    def get_transceiver_threshold_status(self):
+    def get_transceiver_threshold_info(self):
         """
-        Retrieves transceiver threshold status of this SFP
+        Retrieves transceiver threshold info of this SFP
 
         Returns:
             A dict which contains following keys/values :
         ========================================================================
-        keys                       |Value Format   |Information	
+        keys                       |Value Format   |Information
         ---------------------------|---------------|----------------------------
-        temphighalarm              |float          |high alarm threshold of temperature
-        templowalarm               |float          |low alarm threshold of temperature
-        temphighwarning            |float          |high warning threshold of temperature
-        templowwarning             |float          |low warning threshold of temperature
-        vcchighalarm               |float          |high alarm threshold of Vcc
-        vcclowalarm                |float          |low alarm threshold of Vcc
-        vcchighwarning             |float          |high warning threshold of Vcc
-        vcclowwarning              |float          |low warning threshold of Vcc
-        txbiashighalarm            |float          |high alarm threshold of tx bias
-        txbiaslowalarm             |float          |low alarm threshold of tx bias
-        txbiashighwarning          |float          |high warning threshold of tx bias
-        txbiaslowwarning           |float          |low warning threshold of tx bias
-        txpowerhighalarm           |float          |high alarm threshold of tx power
-        txpowerlowalarm            |float          |low alarm threshold of tx power
-        txpowerhighwarning         |float          |high warning threshold of tx power
-        txpowerlowwarning          |float          |low warning threshold of tx power
+        temphighalarm              |FLOAT          |High Alarm Threshold value,
+                                   |               |of temperature in Celsius.
+        templowalarm               |FLOAT          |Low Alarm Threshold value,
+                                   |               |of temperature in Celsius.
+        temphighwarning            |FLOAT          |High Warning Threshold value,
+                                   |               |of temperature in Celsius.
+        templowwarning             |FLOAT          |Low Warning Threshold value,
+                                   |               |of temperature in Celsius.
+        vcchighalarm               |FLOAT          |High Alarm Threshold value,
+                                   |               |of supply voltage in mV.
+        vcclowalarm                |FLOAT          |Low Alarm Threshold value,
+                                   |               |of supply voltage in mV.
+        vcchighwarning             |FLOAT          |High Warning Threshold value,
+                                   |               |of supply voltage in mV.
+        vcclowwarning              |FLOAT          |Low Warning Threshold value,
+                                   |               |of supply voltage in mV.
+        rxpowerhighalarm           |FLOAT          |High Alarm Threshold value,
+                                   |               |of received power in dBm.
+        rxpowerlowalarm            |FLOAT          |Low Alarm Threshold value,
+                                   |               |of received power in dBm.
+        rxpowerhighwarning         |FLOAT          |High Warning Threshold value,
+                                   |               |of received power in dBm.
+        rxpowerlowwarning          |FLOAT          |Low Warning Threshold value,
+                                   |               |of received power in dBm.
+        txpowerhighalarm           |FLOAT          |High Alarm Threshold value,
+                                   |               |of transmit power in dBm.
+        txpowerlowalarm            |FLOAT          |Low Alarm Threshold value,
+                                   |               |of transmit power in dBm.
+        txpowerhighwarning         |FLOAT          |High Warning Threshold value,
+                                   |               |of transmit power in dBm.
+        txpowerlowwarning          |FLOAT          |Low Warning Threshold value,
+                                   |               |of transmit power in dBm.
+        txbiashighalarm            |FLOAT          |High Alarm Threshold value,
+                                   |               |of tx Bias Current in mA.
+        txbiaslowalarm             |FLOAT          |Low Alarm Threshold value,
+                                   |               |of tx Bias Current in mA.
+        txbiashighwarning          |FLOAT          |High Warning Threshold value,
+                                   |               |of tx Bias Current in mA.
+        txbiaslowwarning           |FLOAT          |Low Warning Threshold value,
+                                   |               |of tx Bias Current in mA.
         ========================================================================
         """
         return NotImplementedError
