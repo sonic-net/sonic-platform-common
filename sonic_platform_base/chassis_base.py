@@ -342,7 +342,10 @@ class ChassisBase(device_base.DeviceBase):
         Retrieves sfp represented by (0-based) index <index>
 
         Args:
-            index: An integer, the index (0-based) of the sfp to retrieve
+            index: An integer, the index (0-based) of the sfp to retrieve.
+                   The index should be the sequence of a physical port in a chassis,
+                   starting from 0.
+                   For example, 0 for Ethernet0, 1 for Ethernet4 and so on.
 
         Returns:
             An object dervied from SfpBase representing the specified sfp
