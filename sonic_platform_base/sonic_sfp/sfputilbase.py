@@ -1253,8 +1253,12 @@ class SfpUtilBase(object):
          event. When timeout is non-zero, the function can also return when the timer expires.
          When timer expires, the return status is True and events is empty.
         :returns: (status, events)
-        :status: Boolean, True if call successful, False if not;
-        :events: dictionary for pysical port index and the SFP status,
-        status='1' represent plug in, '0' represent plug out like {'0': '1', '31':'0'}
+        :status: Boolean, True if call successful and no system level event/error occurred, 
+         False if call not success or system level event/error occurred.
+        :events: dictionary for physical port index and the SFP status,
+         status='1' represent plug in, '0' represent plug out like {'0': '1', '31':'0'}
+         when it comes to system level event/error, the index will be '-1',
+         and status can be 'system_not_ready', 'system_become_ready', 'system_fail',
+         like {'-1':'system_not_ready'}.
         """
         return
