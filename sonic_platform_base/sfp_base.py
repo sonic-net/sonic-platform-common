@@ -52,7 +52,7 @@ class SfpBase(device_base.DeviceBase):
         ========================================================================
         keys                       |Value Format   |Information	
         ---------------------------|---------------|----------------------------
-        rx_los                     |BOOLEAN        |RX lost-of-signal status, True if has RX los, False if not.
+        rx_los                     |BOOLEAN        |RX loss-of-signal status, True if has RX los, False if not.
         tx_fault                   |BOOLEAN        |TX fault status, True if has TX fault, False if not.
         reset_status               |BOOLEAN        |reset status, True if SFP in reset, False if not.
         lp_mode                    |BOOLEAN        |low power mode status, True in lp mode, False if not.
