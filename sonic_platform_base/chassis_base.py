@@ -52,6 +52,9 @@ class ChassisBase(device_base.DeviceBase):
     # Object derived from WatchdogBase for interacting with hardware watchdog
     _watchdog = None
 
+    # Object derived from eeprom_tlvinfo.TlvInfoDecoder indicating the eeprom on the chassis
+    _eeprom = None
+
     def get_base_mac(self):
         """
         Retrieves the base MAC address for the chassis
@@ -79,9 +82,9 @@ class ChassisBase(device_base.DeviceBase):
             A dictionary where keys are the type code defined in
             OCP ONIE TlvInfo EEPROM format and values are their corresponding
             values.
-            Ex. { ‘0x21’:’AG9064’, ‘0x22’:’V1.0’, ‘0x23’:’AG9064-0109867821’,
-                  ‘0x24’:’001c0f000fcd0a’, ‘0x25’:’02/03/2018 16:22:00’,
-                  ‘0x26’:’01’, ‘0x27’:’REV01’, ‘0x28’:’AG9064-C2358-16G’}
+            Ex. { '0x21':'AG9064', '0x22':'V1.0', '0x23':'AG9064-0109867821',
+                  '0x24':'001c0f000fcd0a', '0x25':'02/03/2018 16:22:00',
+                  '0x26':'01', '0x27':'REV01', '0x28':'AG9064-C2358-16G'}
         """
         raise NotImplementedError
 
@@ -339,7 +342,10 @@ class ChassisBase(device_base.DeviceBase):
         Retrieves sfp represented by (0-based) index <index>
 
         Args:
-            index: An integer, the index (0-based) of the sfp to retrieve
+            index: An integer, the index (0-based) of the sfp to retrieve.
+                   The index should be the sequence of a physical port in a chassis,
+                   starting from 0.
+                   For example, 0 for Ethernet0, 1 for Ethernet4 and so on.
 
         Returns:
             An object dervied from SfpBase representing the specified sfp
@@ -367,6 +373,16 @@ class ChassisBase(device_base.DeviceBase):
             watchdog device
         """
         return self._watchdog
+
+    def get_eeprom(self):
+        """
+        Retreives eeprom device on this chassis
+
+        Returns:
+            An object derived from WatchdogBase representing the hardware
+            eeprom device
+        """
+        return self._eeprom
 
     def get_change_event(self, timeout=0):
         """

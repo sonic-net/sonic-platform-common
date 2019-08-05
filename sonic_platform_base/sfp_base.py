@@ -52,24 +52,21 @@ class SfpBase(device_base.DeviceBase):
         ========================================================================
         keys                       |Value Format   |Information	
         ---------------------------|---------------|----------------------------
-        RX LOS                     |BOOLEAN        |RX lost-of-signal status,
-                                   |               |True if has RX los, False if not.
-        TX FAULT                   |BOOLEAN        |TX fault status,
-                                   |               |True if has TX fault, False if not.
-        Reset status               |BOOLEAN        |reset status,
-                                   |               |True if SFP in reset, False if not.
-        LP mode                    |BOOLEAN        |low power mode status,
-                                   |               |True in lp mode, False if not.
-        TX disable                 |BOOLEAN        |TX disable status,
-                                   |               |True TX disabled, False if not.
-        TX disabled channel        |HEX            |disabled TX channles in hex,
-                                   |               |bits 0 to 3 represent channel 0
+        rx_los                     |BOOLEAN        |RX loss-of-signal status, True if has RX los, False if not.
+        tx_fault                   |BOOLEAN        |TX fault status, True if has TX fault, False if not.
+        reset_status               |BOOLEAN        |reset status, True if SFP in reset, False if not.
+        lp_mode                    |BOOLEAN        |low power mode status, True in lp mode, False if not.
+        tx_disable                 |BOOLEAN        |TX disable status, True TX disabled, False if not.
+        tx_disabled_channel        |HEX            |disabled TX channels in hex, bits 0 to 3 represent channel 0
                                    |               |to channel 3.
-        Temperature                |INT            |module temperature in Celsius
-        Voltage                    |INT            |supply voltage in mV
-        TX bias                    |INT            |TX Bias Current in mA
-        RX power                   |INT            |received optical power in mW
-        TX power                   |INT            |TX output power in mW
+        temperature                |INT            |module temperature in Celsius
+        voltage                    |INT            |supply voltage in mV
+        tx<n>bias                  |INT            |TX Bias Current in mA, n is the channel number,
+                                   |               |for example, tx2bias stands for tx bias of channel 2.
+        rx<n>power                 |INT            |received optical power in mW, n is the channel number,
+                                   |               |for example, rx2power stands for rx power of channel 2.
+        tx<n>power                 |INT            |TX output power in mW, n is the channel number,
+                                   |               |for example, tx2power stands for tx power of channel 2.
         ========================================================================
         """
         return NotImplementedError
@@ -83,46 +80,26 @@ class SfpBase(device_base.DeviceBase):
         ========================================================================
         keys                       |Value Format   |Information
         ---------------------------|---------------|----------------------------
-        Temperature High Alarm     |FLOAT          |High Alarm Threshold value,
-                                   |               |of temperature in Celsius.
-        Temperature Low Alarm      |FLOAT          |Low Alarm Threshold value,
-                                   |               |of temperature in Celsius.
-        Temperature High Warning   |FLOAT          |High Warning Threshold value,
-                                   |               |of temperature in Celsius.
-        Temperature Low Warning    |FLOAT          |Low Warning Threshold value,
-                                   |               |of temperature in Celsius.
-        Voltage High Alarm         |FLOAT          |High Alarm Threshold value,
-                                   |               |of supply voltage in mV.
-        Voltage Low Alarm          |FLOAT          |Low Alarm Threshold value,
-                                   |               |of supply voltage in mV.
-        Voltage High Warning       |FLOAT          |High Warning Threshold value,
-                                   |               |of supply voltage in mV.
-        Voltage Low Warning        |FLOAT          |Low Warning Threshold value,
-                                   |               |of supply voltage in mV.
-        Rx Power High Alarm        |FLOAT          |High Alarm Threshold value,
-                                   |               |of received power in dBm.
-        Rx Power Low Alarm         |FLOAT          |Low Alarm Threshold value,
-                                   |               |of received power in dBm.
-        Rx Power High Warning      |FLOAT          |High Warning Threshold value,
-                                   |               |of received power in dBm.
-        Rx Power Low Warning       |FLOAT          |Low Warning Threshold value,
-                                   |               |of received power in dBm.
-        Tx Power High Alarm        |FLOAT          |High Alarm Threshold value,
-                                   |               |of transmit power in dBm.
-        Tx Power Low Alarm         |FLOAT          |Low Alarm Threshold value,
-                                   |               |of transmit power in dBm.
-        Tx Power High Warning      |FLOAT          |High Warning Threshold value,
-                                   |               |of transmit power in dBm.
-        Tx Power Low Warning       |FLOAT          |Low Warning Threshold value,
-                                   |               |of transmit power in dBm.
-        Tx Bias High Alarm         |FLOAT          |High Alarm Threshold value,
-                                   |               |of tx Bias Current in mA.
-        Tx Bias Low Alarm          |FLOAT          |Low Alarm Threshold value,
-                                   |               |of tx Bias Current in mA.
-        Tx Bias High Warning       |FLOAT          |High Warning Threshold value,
-                                   |               |of tx Bias Current in mA.
-        Tx Bias Low Warning        |FLOAT          |Low Warning Threshold value,
-                                   |               |of tx Bias Current in mA.
+        temphighalarm              |FLOAT          |High Alarm Threshold value of temperature in Celsius.
+        templowalarm               |FLOAT          |Low Alarm Threshold value of temperature in Celsius.
+        temphighwarning            |FLOAT          |High Warning Threshold value of temperature in Celsius.
+        templowwarning             |FLOAT          |Low Warning Threshold value of temperature in Celsius.
+        vcchighalarm               |FLOAT          |High Alarm Threshold value of supply voltage in mV.
+        vcclowalarm                |FLOAT          |Low Alarm Threshold value of supply voltage in mV.
+        vcchighwarning             |FLOAT          |High Warning Threshold value of supply voltage in mV.
+        vcclowwarning              |FLOAT          |Low Warning Threshold value of supply voltage in mV.
+        rxpowerhighalarm           |FLOAT          |High Alarm Threshold value of received power in dBm.
+        rxpowerlowalarm            |FLOAT          |Low Alarm Threshold value of received power in dBm.
+        rxpowerhighwarning         |FLOAT          |High Warning Threshold value of received power in dBm.
+        rxpowerlowwarning          |FLOAT          |Low Warning Threshold value of received power in dBm.
+        txpowerhighalarm           |FLOAT          |High Alarm Threshold value of transmit power in dBm.
+        txpowerlowalarm            |FLOAT          |Low Alarm Threshold value of transmit power in dBm.
+        txpowerhighwarning         |FLOAT          |High Warning Threshold value of transmit power in dBm.
+        txpowerlowwarning          |FLOAT          |Low Warning Threshold value of transmit power in dBm.
+        txbiashighalarm            |FLOAT          |High Alarm Threshold value of tx Bias Current in mA.
+        txbiaslowalarm             |FLOAT          |Low Alarm Threshold value of tx Bias Current in mA.
+        txbiashighwarning          |FLOAT          |High Warning Threshold value of tx Bias Current in mA.
+        txbiaslowwarning           |FLOAT          |Low Warning Threshold value of tx Bias Current in mA.
         ========================================================================
         """
         return NotImplementedError
