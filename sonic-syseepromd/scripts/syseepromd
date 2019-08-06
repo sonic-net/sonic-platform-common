@@ -42,32 +42,43 @@ class DaemonSyseeprom(DaemonBase):
         DaemonBase.__init__(self)
 
         self.stop_event = threading.Event()
-        self.eeprom_util = None
-        
+        self.eeprom = None
+
         state_db = daemon_base.db_connect(swsscommon.STATE_DB)
         self.eeprom_tbl = swsscommon.Table(state_db, EEPROM_TABLE_NAME)
         self.eepromtbl_keys = []
 
-    def load_eeprom_util(self):
-        try:
-            self.eeprom_util = self.load_platform_util(PLATFORM_SPECIFIC_MODULE_NAME, PLATFORM_SPECIFIC_CLASS_NAME)
-        except Exception as e:
-            logger.log_error("Failed to load eeprom utility: %s" % (str(e)), True)
-            sys.exit(ERR_EEPROMUTIL_LOAD)
+    def _wrapper_read_eeprom(self):
+        if self.eeprom is not None:
+            try:
+                return self.eeprom.read_eeprom()
+            except NotImplementedError:
+                pass
+
+        return self.eeprom.read_eeprom()
+
+    def _wrapper_update_eeprom_db(self, eeprom):
+        if self.eeprom is not None:
+            try:
+                return self.eeprom.update_eeprom_db(eeprom)
+            except NotImplementedError:
+                pass
+
+        return self.eeprom.update_eeprom_db(eeprom)
 
     def post_eeprom_to_db(self):
-        eeprom = self.eeprom_util.read_eeprom()
+        eeprom = self._wrapper_read_eeprom()
         if eeprom is None :
             logger.log_error("Failed to read eeprom")
             return ERR_FAILED_EEPROM
 
-        err = self.eeprom_util.update_eeprom_db(eeprom)
+        err = self._wrapper_update_eeprom_db(eeprom)
         if err:
             logger.log_error("Failed to update eeprom info to database")
             return ERR_FAILED_UPDATE_DB
 
         self.eepromtbl_keys = self.eeprom_tbl.getKeys()
-        
+
         return POST_EEPROM_SUCCESS
 
     def clear_db(self):
@@ -77,7 +88,7 @@ class DaemonSyseeprom(DaemonBase):
 
     def detect_eeprom_table_integrity(self):
         keys = self.eeprom_tbl.getKeys()
-        
+
         if len(keys) != len(self.eepromtbl_keys):
             return False
 
@@ -104,8 +115,23 @@ class DaemonSyseeprom(DaemonBase):
     def run(self):
         logger.log_info("Starting up...")
 
-        # Load platform-specific eepromutil class
-        self.load_eeprom_util()
+        # First, try to load the new platform API
+        try:
+            import sonic_platform
+            self.chassis = sonic_platform.platform.Platform().get_chassis()
+            self.eeprom = self.chassis.get_eeprom()
+        except Exception as e:
+            logger.log_warning("Failed to load platform-specific eeprom from sonic_platform package due to {}".format(repr(e)))
+
+        # If we didn't successfully load the class from the sonic_platform package, try loading the old plugin
+        if not self.eeprom:
+            try:
+                self.eeprom = self.load_platform_util(PLATFORM_SPECIFIC_MODULE_NAME, PLATFORM_SPECIFIC_CLASS_NAME)
+            except Exception as e:
+                logger.log_error("Failed to load platform-specific eeprom implementation: {}".format(repr(e)))
+
+        if not self.eeprom:
+            sys.exit(ERR_EEPROMUTIL_LOAD)
 
         # Connect to STATE_DB and post syseeprom info to state DB
         rc = self.post_eeprom_to_db()
