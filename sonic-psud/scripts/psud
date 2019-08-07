@@ -45,16 +45,44 @@ PSUUTIL_LOAD_ERROR = 1
 
 logger = Logger(SYSLOG_IDENTIFIER)
 
+platform_psuutil = None
+platform_chassis = None
+
+# temporary wrappers that are compliable with both new platform api and old-style plugin mode
+def _wrapper_get_num_psus():
+    if platform_chassis is not None:
+        try:
+            return platform_chassis.get_num_psus()
+        except NotImplementedError:
+            pass
+    return platform_psuutil.get_num_psus()
+
+def _wrapper_get_psus_presence(psu_index):
+    if platform_chassis is not None:
+        try:
+            return platform_chassis.get_psu(psu_index - 1).get_presence()
+        except NotImplementedError:
+            pass
+    return platform_psuutil.get_psu_presence(psu_index)
+
+def _wrapper_get_psus_status(psu_index):
+    if platform_chassis is not None:
+        try:
+            return platform_chassis.get_psu(psu_index - 1).get_powergood_status()
+        except NotImplementedError:
+            pass
+    return platform_psuutil.get_psu_status(psu_index)
+
 #
 # Helper functions =============================================================
 #
 
-def psu_db_update(psuutil, psu_tbl, psu_num):
+def psu_db_update(psu_tbl, psu_num):
     for psu_index in range(1, psu_num + 1):
         fvs = swsscommon.FieldValuePairs([(PSU_INFO_PRESENCE_FIELD,
-                                           'true' if psuutil.get_psu_presence(psu_index) else 'false'),
+                                           'true' if _wrapper_get_psus_presence(psu_index) else 'false'),
                                           (PSU_INFO_STATUS_FIELD,
-                                           'true' if psuutil.get_psu_status(psu_index) else 'false')])
+                                           'true' if _wrapper_get_psus_status(psu_index) else 'false')])
         psu_tbl.set(PSU_INFO_KEY_TEMPLATE.format(psu_index), fvs)
 
 #
@@ -82,14 +110,25 @@ class DaemonPsud(DaemonBase):
 
     # Run daemon
     def run(self):
+        global platform_psuutil
+        global platform_chassis
+
         logger.log_info("Starting up...")
 
-        # Load platform-specific psuutil class
+        # Load new platform api class
         try:
-            platform_psuutil = self.load_platform_util(PLATFORM_SPECIFIC_MODULE_NAME, PLATFORM_SPECIFIC_CLASS_NAME)
+            import sonic_platform.platform
+            platform_chassis = sonic_platform.platform.Platform().get_chassis()
         except Exception as e:
-            logger.log_error("Failed to load psuutil: %s" % (str(e)), True)
-            sys.exit(PSUUTIL_LOAD_ERROR)
+            logger.log_warning("Failed to load chassis due to {}".format(repr(e)))
+
+        # Load platform-specific psuutil class
+        if platform_chassis is None:
+            try:
+                platform_psuutil = self.load_platform_util(PLATFORM_SPECIFIC_MODULE_NAME, PLATFORM_SPECIFIC_CLASS_NAME)
+            except Exception as e:
+                logger.log_error("Failed to load psuutil: %s" % (str(e)), True)
+                sys.exit(PSUUTIL_LOAD_ERROR)
 
         # Connect to STATE_DB and create psu/chassis info tables
         state_db = daemon_base.db_connect(swsscommon.STATE_DB)
@@ -97,7 +136,7 @@ class DaemonPsud(DaemonBase):
         psu_tbl = swsscommon.Table(state_db, PSU_INFO_TABLE)
 
         # Post psu number info to STATE_DB
-        psu_num = platform_psuutil.get_num_psus()
+        psu_num = _wrapper_get_num_psus()
         fvs = swsscommon.FieldValuePairs([(CHASSIS_INFO_PSU_NUM_FIELD, str(psu_num))])
         chassis_tbl.set(CHASSIS_INFO_KEY_TEMPLATE.format(1), fvs)
 
@@ -105,7 +144,7 @@ class DaemonPsud(DaemonBase):
         logger.log_info("Start daemon main loop")
 
         while not self.stop.wait(PSU_INFO_UPDATE_PERIOD_SECS):
-            psu_db_update(platform_psuutil, psu_tbl, psu_num)
+            psu_db_update(psu_tbl, psu_num)
 
         logger.log_info("Stop daemon main loop")
 
