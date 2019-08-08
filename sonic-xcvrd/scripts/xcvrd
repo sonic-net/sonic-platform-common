@@ -59,6 +59,8 @@ media_settings = ''
 g_dict = {}
 # Global platform specific sfputil class instance
 platform_sfputil = None
+# Global chassis object based on new platform api
+platform_chassis = None
 
 # Global logger class instance
 logger = Logger(SYSLOG_IDENTIFIER)
@@ -90,11 +92,53 @@ def get_physical_port_name(logical_port, physical_port, ganged):
 # Strip units and beautify
 def strip_unit_and_beautify(value, unit):
     # Strip unit from raw data
-    width = len(unit)
-    if value[-width:] == unit:
-        value = value[:-width]
+    if type(value) is str:
+        width = len(unit)
+        if value[-width:] == unit:
+            value = value[:-width]
+        return value
+    else:
+        return str(value)
 
-    return value
+def _wrapper_get_presence(physical_port):
+    if platform_chassis is not None:
+        try:
+            return platform_chassis.get_sfp(physical_port).get_presence()
+        except NotImplementedError:
+            pass
+    return platform_sfputil.get_presence(physical_port)
+
+def _wrapper_get_transceiver_info(physical_port):
+    if platform_chassis is not None:
+        try:
+            return platform_chassis.get_sfp(physical_port).get_transceiver_info()
+        except NotImplementedError:
+            pass
+    return platform_sfputil.get_transceiver_info_dict(physical_port)
+
+def _wrapper_get_transceiver_dom_info(physical_port):
+    if platform_chassis is not None:
+        try:
+            return platform_chassis.get_sfp(physical_port).get_transceiver_bulk_status()
+        except NotImplementedError:
+            pass
+    return platform_sfputil.get_transceiver_dom_info_dict(physical_port)
+
+def _wrapper_get_transceiver_dom_threshold_info(physical_port):
+    if platform_chassis is not None:
+        return None
+
+    return platform_sfputil.get_transceiver_dom_threshold_info_dict(physical_port)
+
+def _wrapper_get_transceiver_change_event():
+    if platform_chassis is not None:
+        try:
+            status, events =  platform_chassis.get_change_event()
+            sfp_events = events['sfp']
+            return status, sfp_events
+        except NotImplementedError:
+            pass
+    return platform_sfputil.get_transceiver_change_event()
 
 # Remove unnecessary unit from the raw data
 def beautify_dom_info_dict(dom_info_dict):
@@ -157,14 +201,14 @@ def post_port_sfp_info_to_db(logical_port_name, table, transceiver_dict,
         if stop_event.is_set():
             break
 
-        if not platform_sfputil.get_presence(physical_port):
+        if not _wrapper_get_presence(physical_port):
             continue
 
         port_name = get_physical_port_name(logical_port_name, ganged_member_num, ganged_port)
         ganged_member_num += 1
 
         try:
-            port_info_dict = platform_sfputil.get_transceiver_info_dict(physical_port)
+            port_info_dict = _wrapper_get_transceiver_info(physical_port)
             if port_info_dict is not None:
                 transceiver_dict[physical_port]=port_info_dict
                 fvs = swsscommon.FieldValuePairs([('type', port_info_dict['type']),
@@ -209,7 +253,7 @@ def post_port_dom_threshold_info_to_db(logical_port_name, table,
         if stop.is_set():
             break
 
-        if not platform_sfputil.get_presence(physical_port):
+        if not _wrapper_get_presence(physical_port):
             continue
 
         port_name = get_physical_port_name(logical_port_name,
@@ -217,7 +261,7 @@ def post_port_dom_threshold_info_to_db(logical_port_name, table,
         ganged_member_num += 1
 
         try:
-            dom_info_dict = platform_sfputil.get_transceiver_dom_threshold_info_dict(physical_port)
+            dom_info_dict = _wrapper_get_transceiver_dom_threshold_info(physical_port)
             if dom_info_dict is not None:
                 beautify_dom_threshold_info_dict(dom_info_dict)
                 fvs = swsscommon.FieldValuePairs(
@@ -267,14 +311,14 @@ def post_port_dom_info_to_db(logical_port_name, table, stop_event=threading.Even
         if stop_event.is_set():
             break
 
-        if not platform_sfputil.get_presence(physical_port):
+        if not _wrapper_get_presence(physical_port):
             continue
 
         port_name = get_physical_port_name(logical_port_name, ganged_member_num, ganged_port)
         ganged_member_num += 1
 
         try:
-            dom_info_dict = platform_sfputil.get_transceiver_dom_info_dict(physical_port)
+            dom_info_dict = _wrapper_get_transceiver_dom_info(physical_port)
             if dom_info_dict is not None:
                 beautify_dom_info_dict(dom_info_dict)
                 fvs = swsscommon.FieldValuePairs(
@@ -537,7 +581,7 @@ def notify_media_setting(logical_port_name, transceiver_dict,
         logical_port_list = platform_sfputil.get_physical_to_logical(physical_port)
         num_logical_ports = len(logical_port_list)
         logical_idx = logical_port_list.index(logical_port_name)
-        if not platform_sfputil.get_presence(physical_port):
+        if not _wrapper_get_presence(physical_port):
             logger.log_info("Media %d presence not detected during notify"
                              % physical_port)
             continue
@@ -553,7 +597,7 @@ def notify_media_setting(logical_port_name, transceiver_dict,
         media_dict = get_media_settings_value(physical_port, key)
 
         if(len(media_dict) == 0):
-            logger.log_error("Error in obtainning media setting")
+            logger.log_error("Error in obtaining media setting")
             return
 
         fvs = swsscommon.FieldValuePairs(len(media_dict))
@@ -629,13 +673,13 @@ class sfp_state_update_task:
 
         # Start loop to listen to the sfp change event
         while not stopping_event.is_set():
-            status, port_dict = platform_sfputil.get_transceiver_change_event()
+            status, port_dict = _wrapper_get_transceiver_change_event()
             if status:
                 for key, value in port_dict.iteritems():
                     logical_port_list = platform_sfputil.get_physical_to_logical(int(key))
                     for logical_port in logical_port_list:
                         if value == SFP_STATUS_INSERTED:
-                            logger.log_info("Got SFP inserted event")
+                            logger.log_info("Got SFP inserted event {}".format(logical_port))
                             rc = post_port_sfp_info_to_db(logical_port, int_tbl, transceiver_dict)
                             # If we didn't get the sfp info, assuming the eeprom is not ready, give a try again.
                             if rc == SFP_EEPROM_NOT_READY:
@@ -647,7 +691,7 @@ class sfp_state_update_task:
                             notify_media_setting(logical_port, transceiver_dict, app_port_tbl)
                             transceiver_dict.clear()
                         elif value == SFP_STATUS_REMOVED:
-                            logger.log_info("Got SFP removed event")
+                            logger.log_info("Got SFP removed event {}".format(logical_port))
                             del_port_sfp_dom_info_from_db(logical_port, int_tbl, dom_tbl)
                         else:
                             # TODO, SFP return error code, need handle accordingly.
@@ -735,15 +779,32 @@ class DaemonXcvrd(DaemonBase):
     # Initialize daemon
     def init(self):
         global platform_sfputil
+        global platform_chassis
 
         logger.log_info("Start daemon init...")
 
-        # Load platform specific sfputil class
+        # Load new platform api class
         try:
-            platform_sfputil = self.load_platform_util(PLATFORM_SPECIFIC_MODULE_NAME, PLATFORM_SPECIFIC_CLASS_NAME)
+            import sonic_platform.platform
+            import sonic_platform_base.sonic_sfp.sfputilhelper
+            platform_chassis = sonic_platform.platform.Platform().get_chassis()
+            logger.log_info("chassis loaded {}".format(platform_chassis))
+            # we have to make use of sfputil for some features 
+            # even though when new platform api is used for all vendors.
+            # in this sense, we treat it as a part of new platform api.
+            # we have already moved sfputil to sonic_platform_base
+            # which is the root of new platform api.
+            platform_sfputil = sonic_platform_base.sonic_sfp.sfputilhelper.SfpUtilHelper()
         except Exception as e:
-            logger.log_error("Failed to load sfputil: %s" % (str(e)), True)
-            sys.exit(SFPUTIL_LOAD_ERROR)
+            logger.log_warning("Failed to load chassis due to {}".format(repr(e)))
+
+        # Load platform specific sfputil class
+        if platform_chassis is None or platform_sfputil is None:
+            try:
+                platform_sfputil = self.load_platform_util(PLATFORM_SPECIFIC_MODULE_NAME, PLATFORM_SPECIFIC_CLASS_NAME)
+            except Exception as e:
+                logger.log_error("Failed to load sfputil: %s" % (str(e)), True)
+                sys.exit(SFPUTIL_LOAD_ERROR)
 
         # Load port info
         try:
