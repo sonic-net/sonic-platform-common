@@ -132,9 +132,7 @@ class sffbase(object):
                               offset + size)
 
         elif type == 'int':
-            data = int(eeprom_data[offset], 16)
-            if data != 0:
-                value = data
+            value = int(eeprom_data[offset], 16)
 
         elif type == 'date':
             value = self.convert_date_to_string(eeprom_data, offset,
