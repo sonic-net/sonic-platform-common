@@ -88,8 +88,11 @@ SFP_VOLT_OFFSET = 98
 SFP_VOLT_WIDTH = 2
 SFP_CHANNL_MON_OFFSET = 100
 SFP_CHANNL_MON_WIDTH = 6
+SFP_MODULE_THRESHOLD_OFFSET = 0
+SFP_MODULE_THRESHOLD_WIDTH = 56
 
-qsfp_cable_length_tup = ('Length(km)', 'Length OM3(2m)', 
+
+qsfp_cable_length_tup = ('Length(km)', 'Length OM3(2m)',
                          'Length OM2(m)', 'Length OM1(m)',
                          'Length Cable Assembly(m)')
 
@@ -97,7 +100,7 @@ sfp_cable_length_tup = ('LengthSMFkm-UnitsOfKm', 'LengthSMF(UnitsOf100m)',
                         'Length50um(UnitsOf10m)', 'Length62.5um(UnitsOfm)',
                         'LengthCable(UnitsOfm)', 'LengthOM3(UnitsOf10m)')
 
-sfp_compliance_code_tup = ('10GEthernetComplianceCode', 'InfinibandComplianceCode', 
+sfp_compliance_code_tup = ('10GEthernetComplianceCode', 'InfinibandComplianceCode',
                             'ESCONComplianceCodes', 'SONETComplianceCodes',
                             'EthernetComplianceCodes','FibreChannelLinkLength',
                             'FibreChannelTechnology', 'SFP+CableTechnology',
@@ -883,7 +886,7 @@ class SfpUtilBase(object):
                     if key in sfp_interface_bulk_data['data']['Specification compliance']['value']:
                         compliance_code_dict[key] = sfp_interface_bulk_data['data']['Specification compliance']['value'][key]['value']
                 transceiver_info_dict['specification_compliance'] = str(compliance_code_dict)
-                
+
                 transceiver_info_dict['nominal_bit_rate'] = str(sfp_interface_bulk_data['data']['Nominal Bit Rate(100Mbs)']['value'])
             else:
                 for key in sfp_cable_length_tup:
@@ -897,7 +900,7 @@ class SfpUtilBase(object):
                 transceiver_info_dict['specification_compliance'] = str(compliance_code_dict)
 
                 transceiver_info_dict['nominal_bit_rate'] = str(sfp_interface_bulk_data['data']['NominalSignallingRate(UnitsOf100Mbd)']['value'])
-    
+
         return transceiver_info_dict
 
     def get_transceiver_dom_info_dict(self, port_num):
@@ -1256,12 +1259,12 @@ class SfpUtilBase(object):
     @abc.abstractmethod
     def get_transceiver_change_event(self, timeout=0):
         """
-        :param timeout in milliseconds. The method is a blocking call. When timeout is 
+        :param timeout in milliseconds. The method is a blocking call. When timeout is
          zero, it only returns when there is change event, i.e., transceiver plug-in/out
          event. When timeout is non-zero, the function can also return when the timer expires.
          When timer expires, the return status is True and events is empty.
         :returns: (status, events)
-        :status: Boolean, True if call successful and no system level event/error occurred, 
+        :status: Boolean, True if call successful and no system level event/error occurred,
          False if call not success or system level event/error occurred.
         :events: dictionary for physical port index and the SFP status,
          status='1' represent plug in, '0' represent plug out like {'0': '1', '31':'0'}
