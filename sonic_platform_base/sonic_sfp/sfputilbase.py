@@ -876,6 +876,8 @@ class SfpUtilBase(object):
             transceiver_info_dict['encoding'] = sfp_interface_bulk_data['data']['EncodingCodes']['value']
             transceiver_info_dict['ext_identifier'] = sfp_interface_bulk_data['data']['Extended Identifier']['value']
             transceiver_info_dict['ext_rateselect_compliance'] = sfp_interface_bulk_data['data']['RateIdentifier']['value']
+            transceiver_info_dict['cable_type'] = "Unknown"
+            transceiver_info_dict['cable_length'] = "Unknown"
             if sfp_type == 'QSFP':
                 for key in qsfp_cable_length_tup:
                     if key in sfp_interface_bulk_data['data']:
