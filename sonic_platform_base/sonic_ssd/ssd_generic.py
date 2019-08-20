@@ -62,7 +62,7 @@ class SsdUtil(SsdBase):
                 pass
         else:
             # Failed to get disk model
-            pass
+            self.model = "Unknown"
 
     def _execute_shell(self, cmd):
         process = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
