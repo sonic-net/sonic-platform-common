@@ -17,6 +17,7 @@ setup(
         'sonic_platform_base.sonic_eeprom',
         'sonic_platform_base.sonic_sfp',
         'sonic_psu',
+        'sonic_fan',
         'sonic_sfp',
     ],
     classifiers=[
