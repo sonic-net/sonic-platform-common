@@ -259,7 +259,7 @@ class SfpUtilBase(object):
             if sysfsfile_eeprom is not None:
                 print("Error: reading sysfs file %s" % sysfsfile_eeprom.name)
             else:
-                print("Error: reading sysfs, file is None")
+                print("Error: reading sysfs, file doesn't exist")
             return None
 
         try:
