@@ -256,7 +256,10 @@ class SfpUtilBase(object):
             sysfsfile_eeprom.seek(offset)
             raw = sysfsfile_eeprom.read(num_bytes)
         except IOError:
-            print("Error: reading sysfs file %s" % sysfs_sfp_i2c_client_eeprom_path)
+            if sysfsfile_eeprom is not None:
+                print("Error: reading sysfs file %s" % sysfsfile_eeprom.name)
+            else:
+                print("Error: reading sysfs, file is None")
             return None
 
         try:
