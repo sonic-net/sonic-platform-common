@@ -108,7 +108,7 @@ class ModuleBase(device_base.DeviceBase):
         try:
             component = self._component_list[index]
         except IndexError:
-            sys.stderr.write("PSU index {} out of range (0-{})\n".format(
+            sys.stderr.write("Component index {} out of range (0-{})\n".format(
                              index, len(self._component_list)-1))
 
         return component
