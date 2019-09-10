@@ -41,7 +41,7 @@ class SfpBase(device_base.DeviceBase):
         vendor_oui                 |1*255VCHAR     |vendor OUI
         ========================================================================
         """
-        return NotImplementedError
+        raise NotImplementedError
 
     def get_transceiver_bulk_status(self):
         """
@@ -72,8 +72,8 @@ class SfpBase(device_base.DeviceBase):
         TX power                   |INT            |TX output power in mW
         ========================================================================
         """
-        return NotImplementedError
-                
+        raise NotImplementedError
+
     def get_reset_status(self):
         """
         Retrieves the reset status of SFP
@@ -81,7 +81,7 @@ class SfpBase(device_base.DeviceBase):
         Returns:
             A Boolean, True if reset enabled, False if disabled
         """
-        return NotImplementedError
+        raise NotImplementedError
 
     def get_rx_los(self):
         """
@@ -91,7 +91,7 @@ class SfpBase(device_base.DeviceBase):
             A Boolean, True if SFP has RX LOS, False if not.
             Note : RX LOS status is latched until a call to get_rx_los or a reset.
         """
-        return NotImplementedError
+        raise NotImplementedError
 
     def get_tx_fault(self):
         """
@@ -101,7 +101,7 @@ class SfpBase(device_base.DeviceBase):
             A Boolean, True if SFP has TX fault, False if not
             Note : TX fault status is lached until a call to get_tx_fault or a reset.
         """
-        return NotImplementedError
+        raise NotImplementedError
 
     def get_tx_disable(self):
         """
@@ -110,7 +110,7 @@ class SfpBase(device_base.DeviceBase):
         Returns:
             A Boolean, True if tx_disable is enabled, False if disabled
         """
-        return NotImplementedError
+        raise NotImplementedError
 
     def get_tx_disable_channel(self):
         """
@@ -122,7 +122,7 @@ class SfpBase(device_base.DeviceBase):
             As an example, a returned value of 0x5 indicates that channel 0 
             and channel 2 have been disabled.
         """
-        return NotImplementedError
+        raise NotImplementedError
 
     def get_lpmode(self):
         """
@@ -131,7 +131,7 @@ class SfpBase(device_base.DeviceBase):
         Returns:
             A Boolean, True if lpmode is enabled, False if disabled
         """
-        return NotImplementedError
+        raise NotImplementedError
 
     def get_power_override(self):
         """
@@ -140,7 +140,7 @@ class SfpBase(device_base.DeviceBase):
         Returns:
             A Boolean, True if power-override is enabled, False if disabled
         """
-        return NotImplementedError
+        raise NotImplementedError
     
     def get_temperature(self):
         """
@@ -149,7 +149,7 @@ class SfpBase(device_base.DeviceBase):
         Returns:
             An integer number of current temperature in Celsius
         """
-        return NotImplementedError
+        raise NotImplementedError
 
 
     def get_voltage(self):
@@ -159,7 +159,7 @@ class SfpBase(device_base.DeviceBase):
         Returns:
             An integer number of supply voltage in mV
         """
-        return NotImplementedError
+        raise NotImplementedError
     
     def get_tx_bias(self):
         """
@@ -170,7 +170,7 @@ class SfpBase(device_base.DeviceBase):
             for channel 0 to channel 4.
             Ex. ['110.09', '111.12', '108.21', '112.09']
         """
-        return NotImplementedError
+        raise NotImplementedError
     
     def get_rx_power(self):
         """
@@ -181,7 +181,7 @@ class SfpBase(device_base.DeviceBase):
             power in mW for channel 0 to channel 4.
             Ex. ['1.77', '1.71', '1.68', '1.70']
         """
-        return NotImplementedError
+        raise NotImplementedError
     
     def get_tx_power(self):
         """
@@ -192,7 +192,7 @@ class SfpBase(device_base.DeviceBase):
             for channel 0 to channel 4.
             Ex. ['1.86', '1.86', '1.86', '1.86']
         """
-        return NotImplementedError
+        raise NotImplementedError
     
     def reset(self):
         """
@@ -201,7 +201,7 @@ class SfpBase(device_base.DeviceBase):
         Returns:
             A boolean, True if successful, False if not
         """
-        return NotImplementedError
+        raise NotImplementedError
     
     def tx_disable(self, tx_disable):
         """
@@ -214,7 +214,7 @@ class SfpBase(device_base.DeviceBase):
         Returns:
             A boolean, True if tx_disable is set successfully, False if not
         """
-        return NotImplementedError
+        raise NotImplementedError
     
     def tx_disable_channel(self, channel, disable):
         """
@@ -229,7 +229,7 @@ class SfpBase(device_base.DeviceBase):
         Returns:
             A boolean, True if successful, False if not
         """
-        return NotImplementedError
+        raise NotImplementedError
     
     def set_lpmode(self, lpmode):
         """
@@ -242,7 +242,7 @@ class SfpBase(device_base.DeviceBase):
         Returns:
             A boolean, True if lpmode is set successfully, False if not
         """
-        return NotImplementedError
+        raise NotImplementedError
     
     def set_power_override(self, power_override, power_set):
         """
@@ -263,4 +263,4 @@ class SfpBase(device_base.DeviceBase):
             A boolean, True if power-override and power_set are set successfully,
             False if not
         """
-        return NotImplementedError
+        raise NotImplementedError
