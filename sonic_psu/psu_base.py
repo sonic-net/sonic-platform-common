@@ -110,7 +110,7 @@ class PsuBase(object):
         """
         return 0
 
-    def get_fan_rpm(self, idx, fan_idx):
+    def get_fan_speed(self, idx, fan_idx):
         """
         Retrieves the speed of fan, in rpm, denoted by 1-based <fan_idx> of a power 
                 supply unit (PSU) defined by 1-based index <idx>
