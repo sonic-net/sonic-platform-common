@@ -64,6 +64,9 @@ NOT_IMPLEMENTED_ERROR = 3
 RETRY_TIMES_FOR_SYSTEM_READY = 24
 RETRY_PERIOD_FOR_SYSTEM_READY_MSECS = 5000
 
+RETRY_TIMES_FOR_SYSTEM_FAIL = 24
+RETRY_PERIOD_FOR_SYSTEM_FAIL_MSECS = 5000
+
 TEMP_UNIT = 'C'
 VOLT_UNIT = 'Volts'
 POWER_UNIT = 'dBm'
@@ -630,6 +633,12 @@ def notify_media_setting(logical_port_name, transceiver_dict,
         app_port_tbl.set(port_name, fvs)
 
 
+def waiting_time_compensation_with_sleep(time_start, time_to_wait):
+    time_now = time.time()
+    time_diff = time_now - time_start
+    if time_diff < time_to_wait:
+        time.sleep(time_to_wait - time_diff)
+
 #
 # Helper classes ===============================================================
 #
@@ -710,15 +719,17 @@ class sfp_state_update_task:
         app_port_tbl = swsscommon.ProducerStateTable(appl_db,
                                                      swsscommon.APP_PORT_TABLE_NAME)
 
-        # Start loop to listen to the sfp change event
+        # Start main loop to listen to the SFP change event.
         # The state migrating sequence:
         # 1. When the system starts, it is in "INIT" state, calling get_transceiver_change_event
-        #    with RETRY_PERIOD_FOR_SYSTEM_READY_MSECS as timeout for as many as RETRY_TIMES_FOR_SYSTEM_READY
-        #    times
+        #    with RETRY_PERIOD_FOR_SYSTEM_READY_MSECS as timeout for before reach RETRY_TIMES_FOR_SYSTEM_READY
+        #    times, otherwise it will transition to "EXIT" state
         # 2. Once 'system_become_ready' returned, the system enters "SYSTEM_READY" state and starts to monitor
         #    the insertion/removal event of all the SFP modules.
-        #    In this state, receiving any system level event will be treated as an unrecoverable error and cause
-        #    the daemon exit
+        #    In this state, receiving any system level event will be treated as an error and cause transition to
+        #    "INIT" state
+        # 3. When system back to "INIT" state, it will continue to handle system fail event, and retry until reach
+        #    RETRY_TIMES_FOR_SYSTEM_READY times, otherwise it will transition to "EXIT" state
 
         # states definition
         # - Initial state: INIT, before received system ready or a normal event
@@ -734,37 +745,45 @@ class sfp_state_update_task:
         #   - timeout returned by sfputil.get_change_event with status = true
         # - SYSTEM_FAIL
         
-        # State transmit:
+        # State transition:
         # 1. SYSTEM_NOT_READY
         #     - INIT
         #       - retry < RETRY_TIMES_FOR_SYSTEM_READY
         #             retry ++
         #       - else
-        #             max retry reached, treat as fatal, exit
+        #             max retry reached, treat as fatal, transition to EXIT
         #     - NORMAL
-        #         Treat as a fatal error, exit
+        #         Treat as an error, transition to INIT
         # 2. SYSTEM_BECOME_READY
         #     - INIT
-        #         transmit to NORMAL
+        #         transition to NORMAL
         #     - NORMAL
         #         log the event
         #         nop
         # 3. NORMAL_EVENT
         #     - INIT (for the vendors who don't implement SYSTEM_BECOME_READY)
-        #         transmit to NORMAL
+        #         transition to NORMAL
         #         handle the event normally
         #     - NORMAL
         #         handle the event normally
         # 4. SYSTEM_FAIL
-        #     treat as a fatal error
-        
+        #     - INIT
+        #       - retry < RETRY_TIMES_FOR_SYSTEM_READY
+        #             retry ++
+        #       - else
+        #             max retry reached, treat as fatal, transition to EXIT
+        #     - NORMAL
+        #         Treat as an error, transition to INIT
+
+
         # State           event               next state
         # INIT            SYSTEM NOT READY    INIT / EXIT
+        # INIT            SYSTEM FAIL         INIT / EXIT
         # INIT            SYSTEM BECOME READY NORMAL
         # NORMAL          SYSTEM BECOME READY NORMAL
-        # INIT/NORMAL     SYSTEM FAIL         EXIT
+        # NORMAL          SYSTEM FAIL         INIT
         # INIT/NORMAL     NORMAL EVENT        NORMAL
-        # NORMAL          SYSTEM NOT READY    EXIT
+        # NORMAL          SYSTEM NOT READY    INIT
         # EXIT            -
 
         retry = 0
@@ -802,7 +821,7 @@ class sfp_state_update_task:
             elif event == SYSTEM_BECOME_READY:
                 if state == STATE_INIT:
                     next_state = STATE_NORMAL
-                    logger.log_info("Got system_become_ready in init state, transmit to normal state")
+                    logger.log_info("Got system_become_ready in init state, transition to normal state")
                 elif state == STATE_NORMAL:
                     logger.log_info("Got system_become_ready in normal state, ignored")
                 else:
@@ -814,7 +833,7 @@ class sfp_state_update_task:
                     # this is the originally logic that handled the transceiver change event
                     # this can be reached in two cases:
                     #   1. the state has been normal before got the event
-                    #   2. the state was init and is transmitted to normal after got the event.
+                    #   2. the state was init and transition to normal after got the event.
                     #      this is for the vendors who don't implement "system_not_ready/system_becom_ready" logic
                     for key, value in port_dict.iteritems():
                         logical_port_list = platform_sfputil.get_physical_to_logical(int(key))
@@ -841,14 +860,29 @@ class sfp_state_update_task:
                 else:
                     next_state = STATE_EXIT
             elif event == SYSTEM_FAIL:
-                # no matter which state current it is, it's fatal
-                next_state = STATE_EXIT
-                logger.log_error("Got system_fail event on state {}, exiting".format(state))
+                if state == STATE_INIT:
+                    # To overcome a case that system is only temporarily not available,
+                    # when get system fail event will wait and retry for a certain period,  
+                    # if system recovered in this period xcvrd will transit to INIT state
+                    # and continue run, if can not recover then exit.
+                    if retry >= RETRY_TIMES_FOR_SYSTEM_FAIL:
+                        logger.log_error("System failed to recover in {} secs. Exiting...".format((RETRY_PERIOD_FOR_SYSTEM_FAIL_MSECS/1000)*RETRY_TIMES_FOR_SYSTEM_FAIL))
+                        next_state = STATE_EXIT
+                    else:
+                        retry = retry + 1                   
+                        waiting_time_compensation_with_sleep(time_start, RETRY_PERIOD_FOR_SYSTEM_FAIL_MSECS/1000)
+                elif state == STATE_NORMAL:
+                    logger.log_error("Got system_fail in normal state, treat as error, transition to INIT...")
+                    next_state = STATE_INIT
+                    timeout = RETRY_PERIOD_FOR_SYSTEM_FAIL_MSECS
+                    retry = 0
+                else:
+                    next_state = STATE_EXIT
             else:
                 logger.log_warning("Got unknown event {} on state {}.".format(event, state))
 
             if next_state != state:
-                logger.log_debug("State transmitted from {} to {}".format(state, next_state))
+                logger.log_debug("State transition from {} to {}".format(state, next_state))
                 state = next_state
 
             if next_state == STATE_EXIT:
