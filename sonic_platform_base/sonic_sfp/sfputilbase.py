@@ -777,7 +777,7 @@ class SfpUtilBase(object):
             transceiver_info_dict['ext_rateselect_compliance'] = 'N/A'
             transceiver_info_dict['cable_type'] = 'N/A'
             transceiver_info_dict['cable_length'] = 'N/A'
-            transceiver_info_dict['specification_compliance'] = 'N/A'
+            transceiver_info_dict['specification_compliance'] = '{}'
             transceiver_info_dict['nominal_bit_rate'] = 'N/A'
 
         else:
