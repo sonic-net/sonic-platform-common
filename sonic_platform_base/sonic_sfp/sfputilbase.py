@@ -777,7 +777,7 @@ class SfpUtilBase(object):
             transceiver_info_dict['ext_rateselect_compliance'] = 'N/A'
             transceiver_info_dict['cable_type'] = 'N/A'
             transceiver_info_dict['cable_length'] = 'N/A'
-            transceiver_info_dict['specification_compliance'] = 'N/A'
+            transceiver_info_dict['specification_compliance'] = '{}'
             transceiver_info_dict['nominal_bit_rate'] = 'N/A'
 
         else:
@@ -1103,7 +1103,11 @@ class SfpUtilBase(object):
                              ]
         transceiver_dom_threshold_info_dict = dict.fromkeys(dom_info_dict_keys, 'N/A')
 
-        if port_num in self.qsfp_ports:
+        if port_num in self.osfp_ports:
+            # Below part is added to avoid fail xcvrd, shall be implemented later
+            return transceiver_dom_threshold_info_dict
+
+        elif port_num in self.qsfp_ports:
             file_path = self._get_port_eeprom_path(port_num, self.IDENTITY_EEPROM_ADDR)
             if not self._sfp_eeprom_present(file_path, 0):
                 return None
