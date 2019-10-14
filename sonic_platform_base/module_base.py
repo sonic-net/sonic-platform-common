@@ -19,23 +19,30 @@ class ModuleBase(device_base.DeviceBase):
 
     # List of ComponentBase-derived objects representing all components
     # available on the module
-    _component_list = []
+    _component_list = None
 
     # List of FanBase-derived objects representing all fans
     # available on the module 
-    _fan_list = []
+    _fan_list = None
 
     # List of PsuBase-derived objects representing all power supply units
     # available on the module
-    _psu_list = []
+    _psu_list = None
 
     # List of ThermalBase-derived objects representing all thermals
     # available on the module
-    _thermal_list = []
+    _thermal_list = None
 
     # List of SfpBase-derived objects representing all sfps
     # available on the module
-    _sfp_list = []
+    _sfp_list = None
+
+    def __init__(self):
+        self._component_list = []
+        self._fan_list = []
+        self._psu_list = []
+        self._thermal_list = []
+        self._sfp_list = []
 
     def get_base_mac(self):
         """
