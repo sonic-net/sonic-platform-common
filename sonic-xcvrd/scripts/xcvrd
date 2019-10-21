@@ -837,6 +837,9 @@ class sfp_state_update_task:
                     #      this is for the vendors who don't implement "system_not_ready/system_becom_ready" logic
                     for key, value in port_dict.iteritems():
                         logical_port_list = platform_sfputil.get_physical_to_logical(int(key))
+                        if logical_port_list is None:
+                            logger.log_warning("Got unknown FP port index {}, ignored".format(key))
+                            continue
                         for logical_port in logical_port_list:
                             if value == SFP_STATUS_INSERTED:
                                 logger.log_info("Got SFP inserted event")
