@@ -117,7 +117,7 @@ class PcieUtil(PcieBase):
         curInfo = self.get_pcie_device()
         with open(self.config_path + "/" + "pcie.yaml", "w") as conf_file:
             yaml.dump(curInfo, conf_file, default_flow_style=False)
-        print "generate pci config file successfully ! ! !"
+        print "generate pcie config file successfully ! ! !"
         return 
         
         
