@@ -28,33 +28,41 @@ class ChassisBase(device_base.DeviceBase):
 
     # List of ComponentBase-derived objects representing all components
     # available on the chassis
-    _component_list = []
+    _component_list = None
 
     # List of ModuleBase-derived objects representing all modules
     # available on the chassis (for use with modular chassis)
-    _module_list = []
+    _module_list = None
 
     # List of FanBase-derived objects representing all fans
     # available on the chassis
-    _fan_list = []
+    _fan_list = None
 
     # List of PsuBase-derived objects representing all power supply units
     # available on the chassis
-    _psu_list = []
+    _psu_list = None
 
     # List of ThermalBase-derived objects representing all thermals
     # available on the chassis
-    _thermal_list = []
+    _thermal_list = None
 
     # List of SfpBase-derived objects representing all sfps
     # available on the chassis
-    _sfp_list = []
+    _sfp_list = None
 
     # Object derived from WatchdogBase for interacting with hardware watchdog
     _watchdog = None
 
     # Object derived from eeprom_tlvinfo.TlvInfoDecoder indicating the eeprom on the chassis
     _eeprom = None
+
+    def __init__(self):
+        self._component_list = []
+        self._module_list = []
+        self._fan_list = []
+        self._psu_list = []
+        self._thermal_list = []
+        self._sfp_list = []
 
     def get_base_mac(self):
         """
