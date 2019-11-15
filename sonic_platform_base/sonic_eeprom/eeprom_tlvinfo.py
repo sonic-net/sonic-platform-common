@@ -331,21 +331,21 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
         self.__print_db(client, self._TLV_CODE_CRC_32)
         return 0
 
-    def update_eeprom_db(self, e):
+    def get_eeprom_dict(self, e):
         '''
-        Decode the contents of the EEPROM and update the contents to database
+        Decode the contents of the EEPROM into dict
         '''
-        client = redis.Redis(db=STATE_DB_INDEX)
+        eeprom_dict = {}
         fvs = {}
         if self._TLV_HDR_ENABLED:
             if not self.is_valid_tlvinfo_header(e):
                 print("EEPROM does not contain data in a valid TlvInfo format.")
-                return -1
+                return {}
             total_len = (ord(e[9]) << 8) | ord(e[10])
             fvs['Id String'] = e[0:7]
             fvs['Version'] = ord(e[8])
             fvs['Total Length'] = total_len
-            client.hmset("EEPROM_INFO|TlvHeader", fvs)
+            eeprom_dict['TlvHeader'] = fvs
             fvs.clear()
             tlv_index = self._TLV_INFO_HDR_LEN
             tlv_end = self._TLV_INFO_HDR_LEN + total_len
@@ -366,7 +366,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
             else:
                 fvs['Len'] = ord(tlv[1])
                 fvs['Name'], fvs['Value'] = self.decoder(None, tlv)
-            client.hmset('EEPROM_INFO|{}'.format(hex(tlv_code)), fvs)
+            eeprom_dict[hex(tlv_code)] = fvs
             fvs.clear()
             if ord(e[tlv_index]) == self._TLV_CODE_QUANTA_CRC or \
                     ord(e[tlv_index]) == self._TLV_CODE_CRC_32:
@@ -376,12 +376,12 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
 
         if self._TLV_NUM_VENDOR_EXT:
             fvs['Num_vendor_ext'] = self._TLV_NUM_VENDOR_EXT
-            client.hmset('EEPROM_INFO|{}'.format(hex(self._TLV_CODE_VENDOR_EXT)), fvs)
+            eeprom_dict[hex(self._TLV_CODE_VENDOR_EXT)] = fvs
             fvs.clear()
 
         fvs['Initialized'] = '1'
-        client.hmset('EEPROM_INFO|State', fvs)
-        return 0
+        eeprom_dict['State'] = fvs
+        return eeprom_dict
 
     def get_tlv_field(self, e, code):
         '''
