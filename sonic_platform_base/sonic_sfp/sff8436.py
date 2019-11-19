@@ -772,6 +772,14 @@ class sff8436Dom(sffbase):
             'DataNotReady':
                 {'offset': 0,
                  'bit': 0,
+                 'type': 'bitvalue'},
+            'IntL':
+                {'offset': 0,
+                 'bit': 1,
+                 'type': 'bitvalue'},
+            'FlatMem':
+                {'offset': 0,
+                 'bit': 2,
                  'type': 'bitvalue'}}
 
     dom_channel_status = {
@@ -1333,7 +1341,27 @@ class sff8436Dom(sffbase):
              {'offset':14,
               'size':2,
               'type': 'func',
-              'decode': { 'func':calc_bias}}}
+              'decode': { 'func':calc_bias}},
+        'TxPowerHighAlarm':
+             {'offset':16,
+              'size':2,
+              'type': 'func',
+              'decode': { 'func':calc_rx_power}},
+        'TxPowerLowAlarm':
+             {'offset':18,
+              'size':2,
+              'type': 'func',
+              'decode': { 'func':calc_rx_power}},
+        'TxPowerHighWarning':
+             {'offset':20,
+              'size':2,
+              'type': 'func',
+              'decode': { 'func':calc_rx_power}},
+        'TxPowerLowWarning':
+             {'offset':22,
+              'size':2,
+              'type': 'func',
+              'decode': { 'func':calc_rx_power}}}
 
     dom_channel_monitor_masks = {
         'Rx1PowerHighAlarm':
