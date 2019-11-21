@@ -10,8 +10,17 @@ try:
     import binascii
     import os
     import re
+    from portconfig import get_port_config
+    from collections import OrderedDict
+    from natsort import natsorted
+    from sonic_daemon_base.daemon_base import DaemonBase
+
 except ImportError as e:
     raise ImportError("%s - required module not found" % str(e))
+
+# Global Variable
+PLATFORM_JSON = 'platform.json'
+PORT_CONFIG_INI = 'portconfig.ini'
 
 class SfpUtilHelper(object):
     # List to specify filter for sfp_ports
@@ -41,13 +50,55 @@ class SfpUtilHelper(object):
         first = 1
         port_pos_in_file = 0
         parse_fmt_port_config_ini = False
+        parse_fmt_platform_json = False
+
+        parse_fmt_port_config_ini = (os.path.basename(porttabfile) == PORT_CONFIG_INI)
+        parse_fmt_platform_json = (os.path.basename(porttabfile) == PLATFORM_JSON)
+
+        (platform, hwsku) =  DaemonBase.get_platform_and_hwsku()
+        if(parse_fmt_platform_json):
+            ports, _ = get_port_config(hwsku, platform)
+            if not ports:
+                print('Failed to get port config', file=sys.stderr)
+                sys.exit(1)
+            else:
+                logical_list = []
+                for intf in ports.keys():
+                    logical_list.append(intf)
+
+                logical = natsorted(logical_list, key=lambda y: y.lower())
+                logical_to_physical, physical_to_logical = OrderedDict(),  OrderedDict()
+
+                for intf_name in logical:
+                    bcm_port = str(port_pos_in_file)
+
+                    if 'index' in ports[intf_name].keys():
+                        fp_port_index = ports[intf_name]['index']
+                        logical_to_physical[intf_name] = [fp_port_index]
+
+                    if physical_to_logical.get(fp_port_index) is None:
+                        physical_to_logical[fp_port_index] = [intf_name]
+                    else:
+                        physical_to_logical[fp_port_index].append(intf_name)
+
+                    port_pos_in_file +=1
+
+                self.logical = logical
+                self.logical_to_physical = logical_to_physical
+                self.physical_to_logical = physical_to_logical
+
+                """
+                print("logical: {}".format(self.logical))
+                print("logical to physical: {}".format(self.logical_to_physical))
+                print("physical to logical: {}".format( self.physical_to_logical))
+                """
+                sys.exit(0)
+
 
         try:
             f = open(porttabfile)
         except:
             raise
-
-        parse_fmt_port_config_ini = (os.path.basename(porttabfile) == "port_config.ini")
 
         # Read the porttab file and generate dicts
         # with mapping for future reference.
@@ -102,8 +153,7 @@ class SfpUtilHelper(object):
             if physical_to_logical.get(fp_port_index) is None:
                 physical_to_logical[fp_port_index] = [portname]
             else:
-                physical_to_logical[fp_port_index].append(
-                    portname)
+                physical_to_logical[fp_port_index].append(portname)
 
             last_fp_port_index = fp_port_index
             last_portname = portname
@@ -119,7 +169,6 @@ class SfpUtilHelper(object):
         print("logical to physical: " + self.logical_to_physical)
         print("physical to logical: " + self.physical_to_logical)
         """
-
     def get_physical_to_logical(self, port_num):
         """Returns list of logical ports for the given physical port"""
 
