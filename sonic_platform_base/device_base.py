@@ -18,6 +18,8 @@ class DeviceBase(object):
         Returns:
             string: The name of the device
         """
+        raise NotImplementedError
+
 
     def get_presence(self):
         """
