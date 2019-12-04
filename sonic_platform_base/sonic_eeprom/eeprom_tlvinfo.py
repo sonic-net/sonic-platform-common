@@ -337,6 +337,15 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
             self.__print_db(client, self._TLV_CODE_VENDOR_EXT, num_vendor_ext)
 
         self.__print_db(client, self._TLV_CODE_CRC_32)
+
+        print("")
+
+        is_valid = client.hget('EEPROM_INFO|Checksum', 'Valid')
+        if is_valid != '1':
+            print("(*** checksum invalid)")
+        else:
+            print("(checksum valid)")
+
         return 0
 
 
@@ -388,6 +397,15 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
             fvs['Num_vendor_ext'] = str(vendor_ext_tlv_num)
             client.hmset('EEPROM_INFO|{}'.format(hex(self._TLV_CODE_VENDOR_EXT)), fvs)
             fvs.clear()
+
+        (is_valid, valid_crc) = self.is_checksum_valid(e)
+        if is_valid:
+            fvs['Valid'] = '1'
+        else:
+            fvs['Valid'] = '0'
+
+        client.hmset('EEPROM_INFO|Checksum', fvs)
+        fvs.clear()
 
         fvs['Initialized'] = '1'
         client.hmset('EEPROM_INFO|State', fvs)
