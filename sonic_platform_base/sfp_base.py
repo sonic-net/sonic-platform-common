@@ -41,7 +41,7 @@ class SfpBase(device_base.DeviceBase):
         vendor_oui                 |1*255VCHAR     |vendor OUI
         ========================================================================
         """
-        return NotImplementedError
+        raise NotImplementedError
 
     def get_transceiver_bulk_status(self):
         """
@@ -52,27 +52,24 @@ class SfpBase(device_base.DeviceBase):
         ========================================================================
         keys                       |Value Format   |Information	
         ---------------------------|---------------|----------------------------
-        RX LOS                     |BOOLEAN        |RX lost-of-signal status,
-                                   |               |True if has RX los, False if not.
-        TX FAULT                   |BOOLEAN        |TX fault status,
-                                   |               |True if has TX fault, False if not.
-        Reset status               |BOOLEAN        |reset status,
-                                   |               |True if SFP in reset, False if not.
-        LP mode                    |BOOLEAN        |low power mode status,
-                                   |               |True in lp mode, False if not.
-        TX disable                 |BOOLEAN        |TX disable status,
-                                   |               |True TX disabled, False if not.
-        TX disabled channel        |HEX            |disabled TX channles in hex,
-                                   |               |bits 0 to 3 represent channel 0
+        rx_los                     |BOOLEAN        |RX loss-of-signal status, True if has RX los, False if not.
+        tx_fault                   |BOOLEAN        |TX fault status, True if has TX fault, False if not.
+        reset_status               |BOOLEAN        |reset status, True if SFP in reset, False if not.
+        lp_mode                    |BOOLEAN        |low power mode status, True in lp mode, False if not.
+        tx_disable                 |BOOLEAN        |TX disable status, True TX disabled, False if not.
+        tx_disabled_channel        |HEX            |disabled TX channels in hex, bits 0 to 3 represent channel 0
                                    |               |to channel 3.
-        Temperature                |INT            |module temperature in Celsius
-        Voltage                    |INT            |supply voltage in mV
-        TX bias                    |INT            |TX Bias Current in mA
-        RX power                   |INT            |received optical power in mW
-        TX power                   |INT            |TX output power in mW
+        temperature                |INT            |module temperature in Celsius
+        voltage                    |INT            |supply voltage in mV
+        tx<n>bias                  |INT            |TX Bias Current in mA, n is the channel number,
+                                   |               |for example, tx2bias stands for tx bias of channel 2.
+        rx<n>power                 |INT            |received optical power in mW, n is the channel number,
+                                   |               |for example, rx2power stands for rx power of channel 2.
+        tx<n>power                 |INT            |TX output power in mW, n is the channel number,
+                                   |               |for example, tx2power stands for tx power of channel 2.
         ========================================================================
         """
-        return NotImplementedError
+        raise NotImplementedError
 
     def get_transceiver_threshold_info(self):
         """
@@ -83,49 +80,29 @@ class SfpBase(device_base.DeviceBase):
         ========================================================================
         keys                       |Value Format   |Information
         ---------------------------|---------------|----------------------------
-        Temperature High Alarm     |FLOAT          |High Alarm Threshold value,
-                                   |               |of temperature in Celsius.
-        Temperature Low Alarm      |FLOAT          |Low Alarm Threshold value,
-                                   |               |of temperature in Celsius.
-        Temperature High Warning   |FLOAT          |High Warning Threshold value,
-                                   |               |of temperature in Celsius.
-        Temperature Low Warning    |FLOAT          |Low Warning Threshold value,
-                                   |               |of temperature in Celsius.
-        Voltage High Alarm         |FLOAT          |High Alarm Threshold value,
-                                   |               |of supply voltage in mV.
-        Voltage Low Alarm          |FLOAT          |Low Alarm Threshold value,
-                                   |               |of supply voltage in mV.
-        Voltage High Warning       |FLOAT          |High Warning Threshold value,
-                                   |               |of supply voltage in mV.
-        Voltage Low Warning        |FLOAT          |Low Warning Threshold value,
-                                   |               |of supply voltage in mV.
-        Rx Power High Alarm        |FLOAT          |High Alarm Threshold value,
-                                   |               |of received power in dBm.
-        Rx Power Low Alarm         |FLOAT          |Low Alarm Threshold value,
-                                   |               |of received power in dBm.
-        Rx Power High Warning      |FLOAT          |High Warning Threshold value,
-                                   |               |of received power in dBm.
-        Rx Power Low Warning       |FLOAT          |Low Warning Threshold value,
-                                   |               |of received power in dBm.
-        Tx Power High Alarm        |FLOAT          |High Alarm Threshold value,
-                                   |               |of transmit power in dBm.
-        Tx Power Low Alarm         |FLOAT          |Low Alarm Threshold value,
-                                   |               |of transmit power in dBm.
-        Tx Power High Warning      |FLOAT          |High Warning Threshold value,
-                                   |               |of transmit power in dBm.
-        Tx Power Low Warning       |FLOAT          |Low Warning Threshold value,
-                                   |               |of transmit power in dBm.
-        Tx Bias High Alarm         |FLOAT          |High Alarm Threshold value,
-                                   |               |of tx Bias Current in mA.
-        Tx Bias Low Alarm          |FLOAT          |Low Alarm Threshold value,
-                                   |               |of tx Bias Current in mA.
-        Tx Bias High Warning       |FLOAT          |High Warning Threshold value,
-                                   |               |of tx Bias Current in mA.
-        Tx Bias Low Warning        |FLOAT          |Low Warning Threshold value,
-                                   |               |of tx Bias Current in mA.
+        temphighalarm              |FLOAT          |High Alarm Threshold value of temperature in Celsius.
+        templowalarm               |FLOAT          |Low Alarm Threshold value of temperature in Celsius.
+        temphighwarning            |FLOAT          |High Warning Threshold value of temperature in Celsius.
+        templowwarning             |FLOAT          |Low Warning Threshold value of temperature in Celsius.
+        vcchighalarm               |FLOAT          |High Alarm Threshold value of supply voltage in mV.
+        vcclowalarm                |FLOAT          |Low Alarm Threshold value of supply voltage in mV.
+        vcchighwarning             |FLOAT          |High Warning Threshold value of supply voltage in mV.
+        vcclowwarning              |FLOAT          |Low Warning Threshold value of supply voltage in mV.
+        rxpowerhighalarm           |FLOAT          |High Alarm Threshold value of received power in dBm.
+        rxpowerlowalarm            |FLOAT          |Low Alarm Threshold value of received power in dBm.
+        rxpowerhighwarning         |FLOAT          |High Warning Threshold value of received power in dBm.
+        rxpowerlowwarning          |FLOAT          |Low Warning Threshold value of received power in dBm.
+        txpowerhighalarm           |FLOAT          |High Alarm Threshold value of transmit power in dBm.
+        txpowerlowalarm            |FLOAT          |Low Alarm Threshold value of transmit power in dBm.
+        txpowerhighwarning         |FLOAT          |High Warning Threshold value of transmit power in dBm.
+        txpowerlowwarning          |FLOAT          |Low Warning Threshold value of transmit power in dBm.
+        txbiashighalarm            |FLOAT          |High Alarm Threshold value of tx Bias Current in mA.
+        txbiaslowalarm             |FLOAT          |Low Alarm Threshold value of tx Bias Current in mA.
+        txbiashighwarning          |FLOAT          |High Warning Threshold value of tx Bias Current in mA.
+        txbiaslowwarning           |FLOAT          |Low Warning Threshold value of tx Bias Current in mA.
         ========================================================================
         """
-        return NotImplementedError
+        raise NotImplementedError
 
     def get_reset_status(self):
         """
@@ -134,7 +111,7 @@ class SfpBase(device_base.DeviceBase):
         Returns:
             A Boolean, True if reset enabled, False if disabled
         """
-        return NotImplementedError
+        raise NotImplementedError
 
     def get_rx_los(self):
         """
@@ -144,7 +121,7 @@ class SfpBase(device_base.DeviceBase):
             A Boolean, True if SFP has RX LOS, False if not.
             Note : RX LOS status is latched until a call to get_rx_los or a reset.
         """
-        return NotImplementedError
+        raise NotImplementedError
 
     def get_tx_fault(self):
         """
@@ -154,7 +131,7 @@ class SfpBase(device_base.DeviceBase):
             A Boolean, True if SFP has TX fault, False if not
             Note : TX fault status is lached until a call to get_tx_fault or a reset.
         """
-        return NotImplementedError
+        raise NotImplementedError
 
     def get_tx_disable(self):
         """
@@ -163,7 +140,7 @@ class SfpBase(device_base.DeviceBase):
         Returns:
             A Boolean, True if tx_disable is enabled, False if disabled
         """
-        return NotImplementedError
+        raise NotImplementedError
 
     def get_tx_disable_channel(self):
         """
@@ -175,7 +152,7 @@ class SfpBase(device_base.DeviceBase):
             As an example, a returned value of 0x5 indicates that channel 0 
             and channel 2 have been disabled.
         """
-        return NotImplementedError
+        raise NotImplementedError
 
     def get_lpmode(self):
         """
@@ -184,7 +161,7 @@ class SfpBase(device_base.DeviceBase):
         Returns:
             A Boolean, True if lpmode is enabled, False if disabled
         """
-        return NotImplementedError
+        raise NotImplementedError
 
     def get_power_override(self):
         """
@@ -193,7 +170,7 @@ class SfpBase(device_base.DeviceBase):
         Returns:
             A Boolean, True if power-override is enabled, False if disabled
         """
-        return NotImplementedError
+        raise NotImplementedError
     
     def get_temperature(self):
         """
@@ -202,7 +179,7 @@ class SfpBase(device_base.DeviceBase):
         Returns:
             An integer number of current temperature in Celsius
         """
-        return NotImplementedError
+        raise NotImplementedError
 
 
     def get_voltage(self):
@@ -212,7 +189,7 @@ class SfpBase(device_base.DeviceBase):
         Returns:
             An integer number of supply voltage in mV
         """
-        return NotImplementedError
+        raise NotImplementedError
     
     def get_tx_bias(self):
         """
@@ -223,7 +200,7 @@ class SfpBase(device_base.DeviceBase):
             for channel 0 to channel 4.
             Ex. ['110.09', '111.12', '108.21', '112.09']
         """
-        return NotImplementedError
+        raise NotImplementedError
     
     def get_rx_power(self):
         """
@@ -234,7 +211,7 @@ class SfpBase(device_base.DeviceBase):
             power in mW for channel 0 to channel 4.
             Ex. ['1.77', '1.71', '1.68', '1.70']
         """
-        return NotImplementedError
+        raise NotImplementedError
     
     def get_tx_power(self):
         """
@@ -245,7 +222,7 @@ class SfpBase(device_base.DeviceBase):
             for channel 0 to channel 4.
             Ex. ['1.86', '1.86', '1.86', '1.86']
         """
-        return NotImplementedError
+        raise NotImplementedError
     
     def reset(self):
         """
@@ -254,7 +231,7 @@ class SfpBase(device_base.DeviceBase):
         Returns:
             A boolean, True if successful, False if not
         """
-        return NotImplementedError
+        raise NotImplementedError
     
     def tx_disable(self, tx_disable):
         """
@@ -267,7 +244,7 @@ class SfpBase(device_base.DeviceBase):
         Returns:
             A boolean, True if tx_disable is set successfully, False if not
         """
-        return NotImplementedError
+        raise NotImplementedError
     
     def tx_disable_channel(self, channel, disable):
         """
@@ -282,7 +259,7 @@ class SfpBase(device_base.DeviceBase):
         Returns:
             A boolean, True if successful, False if not
         """
-        return NotImplementedError
+        raise NotImplementedError
     
     def set_lpmode(self, lpmode):
         """
@@ -295,7 +272,7 @@ class SfpBase(device_base.DeviceBase):
         Returns:
             A boolean, True if lpmode is set successfully, False if not
         """
-        return NotImplementedError
+        raise NotImplementedError
     
     def set_power_override(self, power_override, power_set):
         """
@@ -316,4 +293,4 @@ class SfpBase(device_base.DeviceBase):
             A boolean, True if power-override and power_set are set successfully,
             False if not
         """
-        return NotImplementedError
+        raise NotImplementedError

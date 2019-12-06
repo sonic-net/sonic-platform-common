@@ -23,7 +23,10 @@ class PsuBase(device_base.DeviceBase):
 
     # List of FanBase-derived objects representing all fans
     # available on the PSU
-    _fan_list = []
+    _fan_list = None
+
+    def __init__(self):
+        self._fan_list = []
 
     def get_num_fans(self):
         """

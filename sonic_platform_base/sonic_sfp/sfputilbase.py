@@ -78,7 +78,7 @@ QSFP_CHANNL_MON_WITH_TX_POWER_WIDTH = 24
 QSFP_MODULE_THRESHOLD_OFFSET = 128
 QSFP_MODULE_THRESHOLD_WIDTH = 24
 QSFP_CHANNL_THRESHOLD_OFFSET = 176
-QSFP_CHANNL_THRESHOLD_WIDTH = 16
+QSFP_CHANNL_THRESHOLD_WIDTH = 24
 QSFP_CHANNL_MON_MASK_OFFSET = 242
 QSFP_CHANNL_MON_MASK_WIDTH = 4
 
@@ -88,8 +88,11 @@ SFP_VOLT_OFFSET = 98
 SFP_VOLT_WIDTH = 2
 SFP_CHANNL_MON_OFFSET = 100
 SFP_CHANNL_MON_WIDTH = 6
+SFP_MODULE_THRESHOLD_OFFSET = 0
+SFP_MODULE_THRESHOLD_WIDTH = 56
 
-qsfp_cable_length_tup = ('Length(km)', 'Length OM3(2m)', 
+
+qsfp_cable_length_tup = ('Length(km)', 'Length OM3(2m)',
                          'Length OM2(m)', 'Length OM1(m)',
                          'Length Cable Assembly(m)')
 
@@ -97,7 +100,7 @@ sfp_cable_length_tup = ('LengthSMFkm-UnitsOfKm', 'LengthSMF(UnitsOf100m)',
                         'Length50um(UnitsOf10m)', 'Length62.5um(UnitsOfm)',
                         'LengthCable(UnitsOfm)', 'LengthOM3(UnitsOf10m)')
 
-sfp_compliance_code_tup = ('10GEthernetComplianceCode', 'InfinibandComplianceCode', 
+sfp_compliance_code_tup = ('10GEthernetComplianceCode', 'InfinibandComplianceCode',
                             'ESCONComplianceCodes', 'SONETComplianceCodes',
                             'EthernetComplianceCodes','FibreChannelLinkLength',
                             'FibreChannelTechnology', 'SFP+CableTechnology',
@@ -544,7 +547,7 @@ class SfpUtilBase(object):
     def get_physical_to_logical(self, port_num):
         """Returns list of logical ports for the given physical port"""
 
-        return self.physical_to_logical[port_num]
+        return self.physical_to_logical.get(port_num)
 
     def get_logical_to_physical(self, logical_port):
         """Returns list of physical ports for the given logical port"""
@@ -747,6 +750,12 @@ class SfpUtilBase(object):
             else:
                 return None
 
+            sfp_type_abbrv_name_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + OSFP_TYPE_OFFSET), XCVR_TYPE_WIDTH)
+            if sfp_type_abbrv_name_raw is not None:
+                sfp_type_abbrv_name = sfpi_obj.parse_sfp_type_abbrv_name(sfp_type_abbrv_name_raw, 0)
+            else:
+                return None
+
             try:
                 sysfsfile_eeprom.close()
             except IOError:
@@ -754,6 +763,7 @@ class SfpUtilBase(object):
                 return None
 
             transceiver_info_dict['type'] = sfp_type_data['data']['type']['value']
+            transceiver_info_dict['type_abbrv_name'] = sfp_type_abbrv_name['data']['type_abbrv_name']['value']
             transceiver_info_dict['manufacturename'] = sfp_vendor_name_data['data']['Vendor Name']['value']
             transceiver_info_dict['modelname'] = sfp_vendor_pn_data['data']['Vendor PN']['value']
             transceiver_info_dict['hardwarerev'] = sfp_vendor_rev_data['data']['Vendor Rev']['value']
@@ -767,7 +777,7 @@ class SfpUtilBase(object):
             transceiver_info_dict['ext_rateselect_compliance'] = 'N/A'
             transceiver_info_dict['cable_type'] = 'N/A'
             transceiver_info_dict['cable_length'] = 'N/A'
-            transceiver_info_dict['specification_compliance'] = 'N/A'
+            transceiver_info_dict['specification_compliance'] = '{}'
             transceiver_info_dict['nominal_bit_rate'] = 'N/A'
 
         else:
@@ -855,6 +865,7 @@ class SfpUtilBase(object):
                 return None
 
             transceiver_info_dict['type'] = sfp_interface_bulk_data['data']['type']['value']
+            transceiver_info_dict['type_abbrv_name'] = sfp_interface_bulk_data['data']['type_abbrv_name']['value']
             transceiver_info_dict['manufacturename'] = sfp_vendor_name_data['data']['Vendor Name']['value']
             transceiver_info_dict['modelname'] = sfp_vendor_pn_data['data']['Vendor PN']['value']
             transceiver_info_dict['hardwarerev'] = sfp_vendor_rev_data['data']['Vendor Rev']['value']
@@ -865,6 +876,8 @@ class SfpUtilBase(object):
             transceiver_info_dict['encoding'] = sfp_interface_bulk_data['data']['EncodingCodes']['value']
             transceiver_info_dict['ext_identifier'] = sfp_interface_bulk_data['data']['Extended Identifier']['value']
             transceiver_info_dict['ext_rateselect_compliance'] = sfp_interface_bulk_data['data']['RateIdentifier']['value']
+            transceiver_info_dict['cable_type'] = "Unknown"
+            transceiver_info_dict['cable_length'] = "Unknown"
             if sfp_type == 'QSFP':
                 for key in qsfp_cable_length_tup:
                     if key in sfp_interface_bulk_data['data']:
@@ -875,7 +888,7 @@ class SfpUtilBase(object):
                     if key in sfp_interface_bulk_data['data']['Specification compliance']['value']:
                         compliance_code_dict[key] = sfp_interface_bulk_data['data']['Specification compliance']['value'][key]['value']
                 transceiver_info_dict['specification_compliance'] = str(compliance_code_dict)
-                
+
                 transceiver_info_dict['nominal_bit_rate'] = str(sfp_interface_bulk_data['data']['Nominal Bit Rate(100Mbs)']['value'])
             else:
                 for key in sfp_cable_length_tup:
@@ -889,7 +902,7 @@ class SfpUtilBase(object):
                 transceiver_info_dict['specification_compliance'] = str(compliance_code_dict)
 
                 transceiver_info_dict['nominal_bit_rate'] = str(sfp_interface_bulk_data['data']['NominalSignallingRate(UnitsOf100Mbd)']['value'])
-    
+
         return transceiver_info_dict
 
     def get_transceiver_dom_info_dict(self, port_num):
@@ -1090,7 +1103,11 @@ class SfpUtilBase(object):
                              ]
         transceiver_dom_threshold_info_dict = dict.fromkeys(dom_info_dict_keys, 'N/A')
 
-        if port_num in self.qsfp_ports:
+        if port_num in self.osfp_ports:
+            # Below part is added to avoid fail xcvrd, shall be implemented later
+            return transceiver_dom_threshold_info_dict
+
+        elif port_num in self.qsfp_ports:
             file_path = self._get_port_eeprom_path(port_num, self.IDENTITY_EEPROM_ADDR)
             if not self._sfp_eeprom_present(file_path, 0):
                 return None
@@ -1248,13 +1265,17 @@ class SfpUtilBase(object):
     @abc.abstractmethod
     def get_transceiver_change_event(self, timeout=0):
         """
-        :param timeout in milliseconds. The method is a blocking call. When timeout is 
+        :param timeout in milliseconds. The method is a blocking call. When timeout is
          zero, it only returns when there is change event, i.e., transceiver plug-in/out
          event. When timeout is non-zero, the function can also return when the timer expires.
          When timer expires, the return status is True and events is empty.
         :returns: (status, events)
-        :status: Boolean, True if call successful, False if not;
-        :events: dictionary for pysical port index and the SFP status,
-        status='1' represent plug in, '0' represent plug out like {'0': '1', '31':'0'}
+        :status: Boolean, True if call successful and no system level event/error occurred,
+         False if call not success or system level event/error occurred.
+        :events: dictionary for physical port index and the SFP status,
+         status='1' represent plug in, '0' represent plug out like {'0': '1', '31':'0'}
+         when it comes to system level event/error, the index will be '-1',
+         and status can be 'system_not_ready', 'system_become_ready', 'system_fail',
+         like {'-1':'system_not_ready'}.
         """
         return

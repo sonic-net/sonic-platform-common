@@ -16,6 +16,7 @@ try:
     import types
     from math import log10
     from .sff8024 import type_of_transceiver    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
+    from .sff8024 import type_abbrv_name    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
     from .sffbase import sffbase    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
 except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
@@ -352,6 +353,11 @@ class sff8436InterfaceId(sffbase):
                  'size':1,
                  'type' : 'enum',
                  'decode' : type_of_transceiver},
+             'type_abbrv_name':
+                {'offset':0,
+                 'size':1,
+                 'type' : 'enum',
+                 'decode' : type_abbrv_name},
              'Extended Identifier':
                 {'offset':1,
                  'size':1,
@@ -766,6 +772,14 @@ class sff8436Dom(sffbase):
             'DataNotReady':
                 {'offset': 0,
                  'bit': 0,
+                 'type': 'bitvalue'},
+            'IntL':
+                {'offset': 0,
+                 'bit': 1,
+                 'type': 'bitvalue'},
+            'FlatMem':
+                {'offset': 0,
+                 'bit': 2,
                  'type': 'bitvalue'}}
 
     dom_channel_status = {
@@ -1327,7 +1341,27 @@ class sff8436Dom(sffbase):
              {'offset':14,
               'size':2,
               'type': 'func',
-              'decode': { 'func':calc_bias}}}
+              'decode': { 'func':calc_bias}},
+        'TxPowerHighAlarm':
+             {'offset':16,
+              'size':2,
+              'type': 'func',
+              'decode': { 'func':calc_rx_power}},
+        'TxPowerLowAlarm':
+             {'offset':18,
+              'size':2,
+              'type': 'func',
+              'decode': { 'func':calc_rx_power}},
+        'TxPowerHighWarning':
+             {'offset':20,
+              'size':2,
+              'type': 'func',
+              'decode': { 'func':calc_rx_power}},
+        'TxPowerLowWarning':
+             {'offset':22,
+              'size':2,
+              'type': 'func',
+              'decode': { 'func':calc_rx_power}}}
 
     dom_channel_monitor_masks = {
         'Rx1PowerHighAlarm':

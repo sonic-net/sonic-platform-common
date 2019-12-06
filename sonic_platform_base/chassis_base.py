@@ -26,31 +26,43 @@ class ChassisBase(device_base.DeviceBase):
     REBOOT_CAUSE_HARDWARE_OTHER = "Hardware - Other"
     REBOOT_CAUSE_NON_HARDWARE = "Non-Hardware"
 
+    # List of ComponentBase-derived objects representing all components
+    # available on the chassis
+    _component_list = None
+
     # List of ModuleBase-derived objects representing all modules
     # available on the chassis (for use with modular chassis)
-    _module_list = []
+    _module_list = None
 
     # List of FanBase-derived objects representing all fans
     # available on the chassis
-    _fan_list = []
+    _fan_list = None
 
     # List of PsuBase-derived objects representing all power supply units
     # available on the chassis
-    _psu_list = []
+    _psu_list = None
 
     # List of ThermalBase-derived objects representing all thermals
     # available on the chassis
-    _thermal_list = []
+    _thermal_list = None
 
     # List of SfpBase-derived objects representing all sfps
     # available on the chassis
-    _sfp_list = []
-
-    # List of component names that are available on the chassis
-    _component_name_list = []
+    _sfp_list = None
 
     # Object derived from WatchdogBase for interacting with hardware watchdog
     _watchdog = None
+
+    # Object derived from eeprom_tlvinfo.TlvInfoDecoder indicating the eeprom on the chassis
+    _eeprom = None
+
+    def __init__(self):
+        self._component_list = []
+        self._module_list = []
+        self._fan_list = []
+        self._psu_list = []
+        self._thermal_list = []
+        self._sfp_list = []
 
     def get_base_mac(self):
         """
@@ -79,9 +91,9 @@ class ChassisBase(device_base.DeviceBase):
             A dictionary where keys are the type code defined in
             OCP ONIE TlvInfo EEPROM format and values are their corresponding
             values.
-            Ex. { ‘0x21’:’AG9064’, ‘0x22’:’V1.0’, ‘0x23’:’AG9064-0109867821’,
-                  ‘0x24’:’001c0f000fcd0a’, ‘0x25’:’02/03/2018 16:22:00’,
-                  ‘0x26’:’01’, ‘0x27’:’REV01’, ‘0x28’:’AG9064-C2358-16G’}
+            Ex. { '0x21':'AG9064', '0x22':'V1.0', '0x23':'AG9064-0109867821',
+                  '0x24':'001c0f000fcd0a', '0x25':'02/03/2018 16:22:00',
+                  '0x26':'01', '0x27':'REV01', '0x28':'AG9064-C2358-16G'}
         """
         raise NotImplementedError
 
@@ -98,38 +110,48 @@ class ChassisBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
-    def get_component_name_list(self):
+    ##############################################
+    # Component methods
+    ##############################################
+
+    def get_num_components(self):
         """
-        Retrieves a list of the names of components available on the chassis (e.g., BIOS, CPLD, FPGA, etc.)
+        Retrieves the number of components available on this chassis
 
         Returns:
-            A list containing the names of components available on the chassis
+            An integer, the number of components available on this chassis
         """
-        return self._component_name_list
+        return len(self._component_list)
 
-    def get_firmware_version(self, component_name):
+    def get_all_components(self):
         """
-        Retrieves platform-specific hardware/firmware versions for chassis
-        componenets such as BIOS, CPLD, FPGA, etc.
+        Retrieves all components available on this chassis
+
+        Returns:
+            A list of objects derived from ComponentBase representing all components
+            available on this chassis
+        """
+        return self._component_list
+
+    def get_component(self, index):
+        """
+        Retrieves component represented by (0-based) index <index>
+
         Args:
-            component_name: A string, the component name.
+            index: An integer, the index (0-based) of the component to retrieve
 
         Returns:
-            A string containing platform-specific component versions
+            An object dervied from ComponentBase representing the specified component
         """
-        raise NotImplementedError
+        component = None
 
-    def install_component_firmware(self, component_name, image_path):
-        """
-        Install firmware to component
-        Args:
-            component_name: A string, the component name.
-            image_path: A string, path to firmware image.
+        try:
+            component = self._component_list[index]
+        except IndexError:
+            sys.stderr.write("Component index {} out of range (0-{})\n".format(
+                             index, len(self._component_list)-1))
 
-        Returns:
-            A boolean, True if install was successful, False if not
-        """
-        raise NotImplementedError
+        return component
 
     ##############################################
     # Module methods
@@ -339,7 +361,10 @@ class ChassisBase(device_base.DeviceBase):
         Retrieves sfp represented by (0-based) index <index>
 
         Args:
-            index: An integer, the index (0-based) of the sfp to retrieve
+            index: An integer, the index (0-based) of the sfp to retrieve.
+                   The index should be the sequence of a physical port in a chassis,
+                   starting from 0.
+                   For example, 0 for Ethernet0, 1 for Ethernet4 and so on.
 
         Returns:
             An object dervied from SfpBase representing the specified sfp
@@ -367,6 +392,16 @@ class ChassisBase(device_base.DeviceBase):
             watchdog device
         """
         return self._watchdog
+
+    def get_eeprom(self):
+        """
+        Retreives eeprom device on this chassis
+
+        Returns:
+            An object derived from WatchdogBase representing the hardware
+            eeprom device
+        """
+        return self._eeprom
 
     def get_change_event(self, timeout=0):
         """
