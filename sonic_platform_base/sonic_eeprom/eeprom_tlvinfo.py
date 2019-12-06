@@ -370,7 +370,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
         else:
             tlv_index = self.eeprom_start
             tlv_end = self._TLV_INFO_MAX_LEN
-        
+
         vendor_ext_tlv_num = 0
         while (tlv_index + 2) < len(e) and tlv_index < tlv_end:
             if not self.is_valid_tlv(e[tlv_index:]):
@@ -393,8 +393,8 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
             else:
                 tlv_index += ord(e[tlv_index + 1]) + 2
 
-        if vendor_ext_tlv_num:
-            fvs['Num_vendor_ext'] = vendor_ext_tlv_num
+        if vendor_ext_tlv_num > 0
+            fvs['Num_vendor_ext'] = str(vendor_ext_tlv_num)
             client.hmset('EEPROM_INFO|{}'.format(hex(self._TLV_CODE_VENDOR_EXT)), fvs)
             fvs.clear()
 
