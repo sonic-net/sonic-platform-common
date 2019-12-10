@@ -143,8 +143,10 @@ def _wrapper_get_transceiver_dom_info(physical_port):
 
 def _wrapper_get_transceiver_dom_threshold_info(physical_port):
     if platform_chassis is not None:
-        return None
-
+        try:
+            return platform_chassis.get_sfp(physical_port).get_transceiver_threshold_info()
+        except NotImplementedError:
+            pass
     return platform_sfputil.get_transceiver_dom_threshold_info_dict(physical_port)
 
 def _wrapper_get_transceiver_change_event(timeout):
