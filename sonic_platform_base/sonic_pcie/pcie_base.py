@@ -39,5 +39,4 @@ class PcieBase(object):
          Returns:
             A list including pcie device and test result info
         """
-        return []
-    
+        return []    

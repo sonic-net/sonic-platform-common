@@ -13,7 +13,7 @@ try:
     from .pcie_base import PcieBase
 except ImportError as e:
     raise ImportError(str(e) + "- required module not found")
-    
+ 
 
 
 class PcieUtil(PcieBase):
@@ -31,7 +31,7 @@ class PcieUtil(PcieBase):
         except IOError as e:
             print "Error: {}".format(str(e))
             print "Not found config file, please add a config file manually, or generate it by running [show platform pcieinfo -g]"
-            sys.exit()  
+            sys.exit() 
 
     # load current PCIe device
     def get_pcie_device(self):
@@ -108,20 +108,14 @@ class PcieUtil(PcieBase):
             if flag:
                 item_conf["result"] = "Passed"
             else:
-                item_conf["result"] = "Failde"
+                item_conf["result"] = "Failed"
                 err+=1
         return self.confInfo
-     
+ 
     # generate the config file with current pci device
     def dump_conf_yaml(self):
         curInfo = self.get_pcie_device()
         with open(self.config_path + "/" + "pcie.yaml", "w") as conf_file:
             yaml.dump(curInfo, conf_file, default_flow_style=False)
         print "generate pcie config file successfully ! ! !"
-        return 
-        
-        
-            
-
-
-
+        return
