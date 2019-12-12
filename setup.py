@@ -19,6 +19,7 @@ setup(
         'sonic_platform_base.sonic_ssd',
         'sonic_psu',
         'sonic_sfp',
+        'sonic_thermal_control'
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',
