@@ -22,7 +22,16 @@ class ThermalManagerBase(object):
     def initialize(cls):
         """
         Initialize thermal manager, including register thermal condition types and thermal action types
-        and any other vendor specific initialization.
+        and any other vendor specific initialization. The default behavior of this function is a no-op.
+        :return:
+        """
+        pass
+
+    @classmethod
+    def destroy(cls):
+        """
+        Destroy thermal manager, including any vendor specific cleanup. The default behavior of this function 
+        is a no-op.
         :return:
         """
         pass
@@ -98,19 +107,19 @@ class ThermalManagerBase(object):
             if cls.JSON_FIELD_POLICIES in json_obj:
                 json_policies = json_obj[cls.JSON_FIELD_POLICIES]
                 for json_policy in json_policies:
-                    cls.load_policy(json_policy)
+                    cls._load_policy(json_policy)
 
             if cls.JSON_FIELD_INFO_TYPES in json_obj:
                 for json_info in json_obj[cls.JSON_FIELD_INFO_TYPES]:
                     info_type = ThermalInfoBase.get_type(json_info)
                     if info_type:
-                        cond_obj = info_type()
-                        cls._thermal_info_dict[json_info[ThermalInfoBase.JSON_FIELD_INFO_TYPE]] = cond_obj
+                        info_obj = info_type()
+                        cls._thermal_info_dict[json_info[ThermalInfoBase.JSON_FIELD_INFO_TYPE]] = info_obj
                     else:
                         raise KeyError('Invalid thermal information defined in policy file')
 
     @classmethod
-    def load_policy(cls, json_policy):
+    def _load_policy(cls, json_policy):
         """
         Load a policy object from a JSON object.
         :param json_policy: A JSON object representing a thermal policy.
@@ -136,14 +145,14 @@ class ThermalManagerBase(object):
         if not cls._policy_dict:
             return
 
-        cls.collect_thermal_information()
+        cls._collect_thermal_information()
 
         for policy in cls._policy_dict.values():
             if policy.is_match(cls._thermal_info_dict):
                 policy.do_action(cls._thermal_info_dict)
 
     @classmethod
-    def collect_thermal_information(cls, chassis):
+    def _collect_thermal_information(cls, chassis):
         """
         Collect thermal information. This function will be called before run_policy.
         :param chassis: The chassis object.
