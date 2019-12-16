@@ -1,6 +1,9 @@
 import json
 from .thermal_policy import ThermalPolicy
 from .thermal_info_base import ThermalInfoBase
+from .thermal_actions import *
+from .thermal_conditions import *
+from .thermal_infos import *
 
 
 class ThermalManagerBase(object):
@@ -22,7 +25,7 @@ class ThermalManagerBase(object):
     def initialize(cls):
         """
         Initialize thermal manager, including register thermal condition types and thermal action types
-        and any other vendor specific initialization. The default behavior of this function is a no-op.
+        and any other vendor specific initialization. 
         :return:
         """
         pass
@@ -137,15 +140,16 @@ class ThermalManagerBase(object):
             raise KeyError('{} not found in policy'.format(cls.JSON_FIELD_POLICY_NAME))
 
     @classmethod
-    def run_policy(cls):
+    def run_policy(cls, chassis):
         """
         Collect thermal information, run each policy, if one policy matches, execute the policy's action.
+        :param chassis: The chassis object.
         :return:
         """
         if not cls._policy_dict:
             return
 
-        cls._collect_thermal_information()
+        cls._collect_thermal_information(chassis)
 
         for policy in cls._policy_dict.values():
             if policy.is_match(cls._thermal_info_dict):

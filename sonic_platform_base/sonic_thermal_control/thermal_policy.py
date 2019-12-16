@@ -35,7 +35,7 @@ class ThermalPolicy(object):
                     cond_type = ThermalConditionBase.get_type(json_condition)
                     if cond_type:
                         cond_obj = cond_type()
-                        cond_obj.from_json(json_condition)
+                        cond_obj.load_from_json(json_condition)
                         self.conditions.append(cond_obj)
                     else:
                         raise KeyError('Invalid thermal condition defined in policy file')
@@ -45,7 +45,7 @@ class ThermalPolicy(object):
                     action_type = ThermalActionBase.get_type(json_action)
                     if action_type:
                         action_obj = action_type()
-                        action_obj.from_json(json_action)
+                        action_obj.load_from_json(json_action)
                         self.actions.append(action_obj)
                     else:
                         raise KeyError('Invalid thermal action defined in policy file')
