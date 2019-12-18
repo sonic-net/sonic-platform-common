@@ -19,15 +19,7 @@ setup(
         'sonic_platform_base.sonic_ssd',
         'sonic_psu',
         'sonic_sfp',
-        'sonic_platform_base.sonic_thermal_control',
-        'tests'
-    ],
-    setup_requires= [
-        'pytest-runner'
-    ],
-    tests_require = [
-        'pytest',
-        'mock>=2.0.0'
+        'sonic_platform_base.sonic_thermal_control'
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',
@@ -42,6 +34,5 @@ setup(
         'Programming Language :: Python :: 3.6',
         'Topic :: Utilities',
     ],
-    keywords='sonic SONiC platform hardware interface api API',
-    test_suite='setup.get_test_suite'
+    keywords='sonic SONiC platform hardware interface api API'
 )
