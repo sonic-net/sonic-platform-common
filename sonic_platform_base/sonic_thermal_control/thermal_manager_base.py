@@ -1,9 +1,6 @@
 import json
 from .thermal_policy import ThermalPolicy
 from .thermal_info_base import ThermalInfoBase
-from .thermal_actions import *
-from .thermal_conditions import *
-from .thermal_infos import *
 
 
 class ThermalManagerBase(object):
