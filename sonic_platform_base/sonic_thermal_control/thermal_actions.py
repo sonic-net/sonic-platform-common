@@ -45,7 +45,7 @@ class SetAllFanSpeedAction(SetFanSpeedAction):
         from .thermal_infos import FanInfo
         if FanInfo.INFO_NAME in thermal_info_dict and isinstance(thermal_info_dict[FanInfo.INFO_NAME], FanInfo):
             fan_info_obj = thermal_info_dict[FanInfo.INFO_NAME]
-            for fan in fan_info_obj.get_present_fans():
+            for fan in fan_info_obj.get_presence_fans():
                 fan.set_speed(self.speed)
 
 
@@ -90,12 +90,14 @@ class ControlThermalControlAlgoAction(ThermalActionBase):
         :param thermal_info_dict: A dictionary stores all thermal information.
         :return:
         """
-        import sonic_platform.platform
-        chassis = sonic_platform.platform.Platform().get_chassis()
-        thermal_manager = chassis.get_thermal_manager()
-        if self.status:
-            thermal_manager.start_thermal_control_algorithm()
-        else:
-            thermal_manager.stop_thermal_control_algorithm()
+        from .thermal_infos import ChassisInfo
+        if ChassisInfo.INFO_NAME in thermal_info_dict:
+            chassis_info_obj = thermal_info_dict[ChassisInfo.INFO_NAME]
+            chassis = chassis_info_obj.get_chassis()
+            thermal_manager = chassis.get_thermal_manager()
+            if self.status:
+                thermal_manager.start_thermal_control_algorithm()
+            else:
+                thermal_manager.stop_thermal_control_algorithm()
 
 

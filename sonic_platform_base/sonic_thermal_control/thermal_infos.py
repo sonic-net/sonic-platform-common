@@ -107,3 +107,29 @@ class PsuInfo(ThermalInfoBase):
         :return: True if status changed else False
         """
         return self._status_changed
+
+
+@thermal_info('chassis_info')
+class ChassisInfo(ThermalInfoBase):
+    """
+    Chassis information needed by thermal policy
+    """
+    INFO_NAME = 'chassis_info'
+
+    def __init__(self):
+        self._chassis = None
+
+    def collect(self, chassis):
+        """
+        Collect platform chassis.
+        :param chassis: The chassis object
+        :return:
+        """
+        self._chassis = chassis
+
+    def get_chassis(self):
+        """
+        Retrieves platform chassis object
+        :return: A platform chassis object.
+        """
+        return self._chassis

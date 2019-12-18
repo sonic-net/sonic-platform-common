@@ -7,8 +7,6 @@ class AnyFanAbsenceCondition(ThermalConditionBase):
         from .thermal_infos import FanInfo
         if FanInfo.INFO_NAME in thermal_info_dict and isinstance(thermal_info_dict[FanInfo.INFO_NAME], FanInfo):
             fan_info_obj = thermal_info_dict[FanInfo.INFO_NAME]
-            if not fan_info_obj.is_status_changed():
-                return False
             return len(fan_info_obj.get_absence_fans()) > 0
         return False
 
@@ -19,8 +17,6 @@ class AllFanAbsenceCondition(ThermalConditionBase):
         from .thermal_infos import FanInfo
         if FanInfo.INFO_NAME in thermal_info_dict and isinstance(thermal_info_dict[FanInfo.INFO_NAME], FanInfo):
             fan_info_obj = thermal_info_dict[FanInfo.INFO_NAME]
-            if not fan_info_obj.is_status_changed():
-                return False
             return len(fan_info_obj.get_presence_fans()) == 0
         return False
 
@@ -31,8 +27,6 @@ class AllFanPresenceCondition(ThermalConditionBase):
         from .thermal_infos import FanInfo
         if FanInfo.INFO_NAME in thermal_info_dict and isinstance(thermal_info_dict[FanInfo.INFO_NAME], FanInfo):
             fan_info_obj = thermal_info_dict[FanInfo.INFO_NAME]
-            if not fan_info_obj.is_status_changed():
-                return False
             return len(fan_info_obj.get_absence_fans()) == 0
         return False
 
@@ -43,8 +37,6 @@ class AnyPsuAbsenceCondition(ThermalConditionBase):
         from .thermal_infos import PsuInfo
         if PsuInfo.INFO_NAME in thermal_info_dict and isinstance(thermal_info_dict[PsuInfo.INFO_NAME], PsuInfo):
             psu_info_obj = thermal_info_dict[PsuInfo.INFO_NAME]
-            if not psu_info_obj.is_status_changed():
-                return False
             return len(psu_info_obj.get_absence_psus()) > 0
         return False
 
@@ -55,8 +47,6 @@ class AllPsuAbsenceCondition(ThermalConditionBase):
         from .thermal_infos import PsuInfo
         if PsuInfo.INFO_NAME in thermal_info_dict and isinstance(thermal_info_dict[PsuInfo.INFO_NAME], PsuInfo):
             psu_info_obj = thermal_info_dict[PsuInfo.INFO_NAME]
-            if not psu_info_obj.is_status_changed():
-                return False
             return len(psu_info_obj.get_presence_psus()) == 0
         return False
 
@@ -67,7 +57,5 @@ class AllFanPresenceCondition(ThermalConditionBase):
         from .thermal_infos import PsuInfo
         if PsuInfo.INFO_NAME in thermal_info_dict and isinstance(thermal_info_dict[PsuInfo.INFO_NAME], PsuInfo):
             psu_info_obj = thermal_info_dict[PsuInfo.INFO_NAME]
-            if not psu_info_obj.is_status_changed():
-                return False
             return len(psu_info_obj.get_absence_psus()) == 0
         return False
