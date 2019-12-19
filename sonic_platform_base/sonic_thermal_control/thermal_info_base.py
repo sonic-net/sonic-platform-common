@@ -1,11 +1,11 @@
-class ThermalInfoBase(object):
+class ThermalPolicyInfoBase(object):
     """
     Base class for thermal information
     """
     # JSON field definition
     JSON_FIELD_INFO_TYPE = 'type'
 
-    # Dictionary of ThermalActionBase-derived class representing all thermal action types
+    # Dictionary of ThermalPolicyInfoBase-derived class representing all thermal action types
     _info_type_dict = {}
 
     def collect(self, chassis):
@@ -26,10 +26,10 @@ class ThermalInfoBase(object):
         pass
 
     @classmethod
-    def register_type(cls, type_name, info_type):
+    def register_concrete_info_type(cls, type_name, info_type):
         """
         Register a concrete information class by type name. The concrete information class must derive from
-        ThermalInfoBase or have exactly the same member function 'collect'
+        ThermalPolicyInfoBase or have exactly the same member function 'collect'
         For any concrete information class, it must be registered explicitly.
         :param type_name: Type name of the information class.
         :param info_type: A concrete information class.
@@ -49,8 +49,8 @@ class ThermalInfoBase(object):
         :param json_obj: A json object representing an information.
         :return: A concrete information class if requested type exists; Otherwise None.
         """
-        if ThermalInfoBase.JSON_FIELD_INFO_TYPE in json_obj:
-            type_str = json_obj[ThermalInfoBase.JSON_FIELD_INFO_TYPE]
+        if ThermalPolicyInfoBase.JSON_FIELD_INFO_TYPE in json_obj:
+            type_str = json_obj[ThermalPolicyInfoBase.JSON_FIELD_INFO_TYPE]
             return cls._info_type_dict[type_str] if type_str in cls._info_type_dict else None
 
         return None
@@ -58,11 +58,11 @@ class ThermalInfoBase(object):
 
 def thermal_info(type_name):
     """
-    Decorator to auto register a ThermalInfoBase-derived class
+    Decorator to auto register a ThermalPolicyInfoBase-derived class
     :param type_name: Type name of the information class
     :return: Wrapper function
     """
     def wrapper(info_type):
-        ThermalInfoBase.register_type(type_name, info_type)
+        ThermalPolicyInfoBase.register_concrete_info_type(type_name, info_type)
         return info_type
     return wrapper

@@ -1,4 +1,4 @@
-class ThermalActionBase(object):
+class ThermalPolicyActionBase(object):
     """
     Base class for thermal action. Once all thermal conditions in a thermal policy are matched,
     all predefined thermal action would be executed.
@@ -6,7 +6,7 @@ class ThermalActionBase(object):
     # JSON field definition
     JSON_FIELD_ACTION_TYPE = 'type'
 
-    # Dictionary of ThermalActionBase-derived class representing all thermal action types
+    # Dictionary of ThermalPolicyActionBase-derived class representing all thermal action types
     _action_type_dict = {}
 
     def execute(self, thermal_info_dict):
@@ -28,10 +28,10 @@ class ThermalActionBase(object):
         pass
 
     @classmethod
-    def register_type(cls, type_name, action_type):
+    def register_concrete_action_type(cls, type_name, action_type):
         """
         Register a concrete action class by type name. The concrete action class must derive from
-        ThermalActionBase or have exactly the same member function 'execute' and 'load_from_json'.
+        ThermalPolicyActionBase or have exactly the same member function 'execute' and 'load_from_json'.
         For any concrete action class, it must be registered explicitly.
         :param type_name: Type name of the action class which corresponding to the 'type' field of
         an action in policy.json.
@@ -52,8 +52,8 @@ class ThermalActionBase(object):
         :param json_obj: A json object representing an action.
         :return: A concrete action class if requested type exists; Otherwise None.
         """
-        if ThermalActionBase.JSON_FIELD_ACTION_TYPE in json_obj:
-            type_str = json_obj[ThermalActionBase.JSON_FIELD_ACTION_TYPE]
+        if ThermalPolicyActionBase.JSON_FIELD_ACTION_TYPE in json_obj:
+            type_str = json_obj[ThermalPolicyActionBase.JSON_FIELD_ACTION_TYPE]
             return cls._action_type_dict[type_str] if type_str in cls._action_type_dict else None
 
         return None
@@ -61,12 +61,12 @@ class ThermalActionBase(object):
 
 def thermal_action(type_name):
     """
-    Decorator to auto register a ThermalActionBase-derived class
+    Decorator to auto register a ThermalPolicyActionBase-derived class
     :param type_name: Type name of the action class which corresponding to the 'type' field of
     a action in policy.json.
     :return: Wrapper function
     """
     def wrapper(action_type):
-        ThermalActionBase.register_type(type_name, action_type)
+        ThermalPolicyActionBase.register_concrete_action_type(type_name, action_type)
         return action_type
     return wrapper

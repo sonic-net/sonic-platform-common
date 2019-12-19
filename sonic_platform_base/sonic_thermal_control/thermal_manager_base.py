@@ -1,6 +1,6 @@
 import json
 from .thermal_policy import ThermalPolicy
-from .thermal_info_base import ThermalInfoBase
+from .thermal_info_base import ThermalPolicyInfoBase
 
 
 class ThermalManagerBase(object):
@@ -111,10 +111,10 @@ class ThermalManagerBase(object):
 
             if cls.JSON_FIELD_INFO_TYPES in json_obj:
                 for json_info in json_obj[cls.JSON_FIELD_INFO_TYPES]:
-                    info_type = ThermalInfoBase.get_type(json_info)
+                    info_type = ThermalPolicyInfoBase.get_type(json_info)
                     if info_type:
                         info_obj = info_type()
-                        cls._thermal_info_dict[json_info[ThermalInfoBase.JSON_FIELD_INFO_TYPE]] = info_obj
+                        cls._thermal_info_dict[json_info[ThermalPolicyInfoBase.JSON_FIELD_INFO_TYPE]] = info_obj
                     else:
                         raise KeyError('Invalid thermal information defined in policy file')
 

@@ -1,5 +1,5 @@
-from .thermal_action_base import ThermalActionBase
-from .thermal_condition_base import ThermalConditionBase
+from .thermal_action_base import ThermalPolicyActionBase
+from .thermal_condition_base import ThermalPolicyConditionBase
 
 
 class ThermalPolicy(object):
@@ -32,7 +32,7 @@ class ThermalPolicy(object):
 
             if self.JSON_FIELD_CONDITIONS in json_obj:
                 for json_condition in json_obj[self.JSON_FIELD_CONDITIONS]:
-                    cond_type = ThermalConditionBase.get_type(json_condition)
+                    cond_type = ThermalPolicyConditionBase.get_type(json_condition)
                     if cond_type:
                         cond_obj = cond_type()
                         cond_obj.load_from_json(json_condition)
@@ -42,7 +42,7 @@ class ThermalPolicy(object):
 
             if self.JSON_FIELD_ACTIONS in json_obj:
                 for json_action in json_obj[self.JSON_FIELD_ACTIONS]:
-                    action_type = ThermalActionBase.get_type(json_action)
+                    action_type = ThermalPolicyActionBase.get_type(json_action)
                     if action_type:
                         action_obj = action_type()
                         action_obj.load_from_json(json_action)
