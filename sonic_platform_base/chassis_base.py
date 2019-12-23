@@ -339,8 +339,7 @@ class ChassisBase(device_base.DeviceBase):
         :return: A class derived from ThermalManagerBase representing the
         specified thermal manager. ThermalManagerBase is returned as default
         """
-        from .sonic_thermal_control.thermal_manager_base import ThermalManagerBase
-        return ThermalManagerBase
+        raise NotImplementedError
 
     ##############################################
     # SFP methods

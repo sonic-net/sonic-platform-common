@@ -1,6 +1,6 @@
 import json
 from .thermal_policy import ThermalPolicy
-from .thermal_info_base import ThermalPolicyInfoBase
+from .thermal_json_object import ThermalJsonObject
 
 
 class ThermalManagerBase(object):
@@ -28,7 +28,7 @@ class ThermalManagerBase(object):
         pass
 
     @classmethod
-    def destroy(cls):
+    def deinitialize(cls):
         """
         Destroy thermal manager, including any vendor specific cleanup. The default behavior of this function 
         is a no-op.
@@ -111,12 +111,9 @@ class ThermalManagerBase(object):
 
             if cls.JSON_FIELD_INFO_TYPES in json_obj:
                 for json_info in json_obj[cls.JSON_FIELD_INFO_TYPES]:
-                    info_type = ThermalPolicyInfoBase.get_type(json_info)
-                    if info_type:
-                        info_obj = info_type()
-                        cls._thermal_info_dict[json_info[ThermalPolicyInfoBase.JSON_FIELD_INFO_TYPE]] = info_obj
-                    else:
-                        raise KeyError('Invalid thermal information defined in policy file')
+                    info_type = ThermalJsonObject.get_type(json_info)
+                    info_obj = info_type()
+                    cls._thermal_info_dict[json_info[ThermalJsonObject.JSON_FIELD_TYPE]] = info_obj
 
     @classmethod
     def _load_policy(cls, json_policy):
@@ -128,13 +125,13 @@ class ThermalManagerBase(object):
         if cls.JSON_FIELD_POLICY_NAME in json_policy:
             name = json_policy[cls.JSON_FIELD_POLICY_NAME]
             if name in cls._policy_dict:
-                raise KeyError('Policy {} already exists'.format(name))
+                raise Exception('Policy {} already exists'.format(name))
 
             policy = ThermalPolicy()
             policy.load_from_json(json_policy)
             cls._policy_dict[name] = policy
         else:
-            raise KeyError('{} not found in policy'.format(cls.JSON_FIELD_POLICY_NAME))
+            raise Exception('{} not found in policy'.format(cls.JSON_FIELD_POLICY_NAME))
 
     @classmethod
     def run_policy(cls, chassis):

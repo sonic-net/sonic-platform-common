@@ -1,5 +1,4 @@
-from .thermal_action_base import ThermalPolicyActionBase
-from .thermal_condition_base import ThermalPolicyConditionBase
+from .thermal_json_object import ThermalJsonObject
 
 
 class ThermalPolicy(object):
@@ -32,25 +31,19 @@ class ThermalPolicy(object):
 
             if self.JSON_FIELD_CONDITIONS in json_obj:
                 for json_condition in json_obj[self.JSON_FIELD_CONDITIONS]:
-                    cond_type = ThermalPolicyConditionBase.get_type(json_condition)
-                    if cond_type:
-                        cond_obj = cond_type()
-                        cond_obj.load_from_json(json_condition)
-                        self.conditions.append(cond_obj)
-                    else:
-                        raise KeyError('Invalid thermal condition defined in policy file')
+                    cond_type = ThermalJsonObject.get_type(json_condition)
+                    cond_obj = cond_type()
+                    cond_obj.load_from_json(json_condition)
+                    self.conditions.append(cond_obj)
 
             if self.JSON_FIELD_ACTIONS in json_obj:
                 for json_action in json_obj[self.JSON_FIELD_ACTIONS]:
-                    action_type = ThermalPolicyActionBase.get_type(json_action)
-                    if action_type:
-                        action_obj = action_type()
-                        action_obj.load_from_json(json_action)
-                        self.actions.append(action_obj)
-                    else:
-                        raise KeyError('Invalid thermal action defined in policy file')
+                    action_type = ThermalJsonObject.get_type(json_action)
+                    action_obj = action_type()
+                    action_obj.load_from_json(json_action)
+                    self.actions.append(action_obj)
         else:
-            raise KeyError('name field not found in policy')
+            raise Exception('name field not found in policy')
 
     def is_match(self, thermal_info_dict):
         """
