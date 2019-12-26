@@ -11,6 +11,9 @@ class ThermalManagerBase(object):
     JSON_FIELD_POLICIES = 'policies'
     JSON_FIELD_INFO_TYPES = 'info_types'
     JSON_FIELD_POLICY_NAME = 'name'
+    JSON_FIELD_THERMAL_ALGORITHM = "thermal_control_algorithm"
+    JSON_FIELD_FAN_SPEED_WHEN_SUSPEND = "fan_speed_when_suspend"
+    JSON_FIELD_RUN_AT_BOOT_UP = "run_at_boot_up"
 
     # Dictionary of ThermalPolicy objects.
     _policy_dict = {}
@@ -18,11 +21,15 @@ class ThermalManagerBase(object):
     # Dictionary of thermal information objects. A thermal information object is used by Thermal Policy
     _thermal_info_dict = {}
 
+    _fan_speed_when_suspend = None
+
+    _run_thermal_algorithm_at_boot_up = None
+
     @classmethod
     def initialize(cls):
         """
         Initialize thermal manager, including register thermal condition types and thermal action types
-        and any other vendor specific initialization. 
+        and any other vendor specific initialization.
         :return:
         """
         pass
@@ -30,7 +37,7 @@ class ThermalManagerBase(object):
     @classmethod
     def deinitialize(cls):
         """
-        Destroy thermal manager, including any vendor specific cleanup. The default behavior of this function 
+        Destroy thermal manager, including any vendor specific cleanup. The default behavior of this function
         is a no-op.
         :return:
         """
@@ -57,6 +64,10 @@ class ThermalManagerBase(object):
         """
         Load all thermal policies from policy.json file. An example looks like:
         {
+          "thermal_control_algorithm": {
+            "run_at_boot_up": "false",
+            "fan_speed_when_suspend": "60"
+          },
           "info_types": [
             {
               "type": "fan_info" # collect fan information for each iteration
@@ -115,6 +126,17 @@ class ThermalManagerBase(object):
                     info_obj = info_type()
                     cls._thermal_info_dict[json_info[ThermalJsonObject.JSON_FIELD_TYPE]] = info_obj
 
+            if cls.JSON_FIELD_THERMAL_ALGORITHM in json_obj:
+                json_thermal_algorithm_config = json_obj[cls.JSON_FIELD_THERMAL_ALGORITHM]
+                if cls.JSON_FIELD_RUN_AT_BOOT_UP in json_thermal_algorithm_config:
+                    cls._run_thermal_algorithm_at_boot_up = \
+                        True if json_thermal_algorithm_config[cls.JSON_FIELD_RUN_AT_BOOT_UP].lower() == 'true' else False
+
+                if cls.JSON_FIELD_FAN_SPEED_WHEN_SUSPEND in json_thermal_algorithm_config:
+                    # if the string is not a valid int, let it raise
+                    cls._fan_speed_when_suspend = \
+                        int(json_thermal_algorithm_config[cls.JSON_FIELD_FAN_SPEED_WHEN_SUSPEND])
+
     @classmethod
     def _load_policy(cls, json_policy):
         """
@@ -158,3 +180,23 @@ class ThermalManagerBase(object):
         """
         for thermal_info in cls._thermal_info_dict.values():
             thermal_info.collect(chassis)
+
+    @classmethod
+    def init_thermal_algorithm(cls, chassis):
+        """
+        Initialize thermal algorithm according to policy file.
+        :param chassis: The chassis object.
+        :return:
+        """
+        if cls._run_thermal_algorithm_at_boot_up is not None:
+            if cls._run_thermal_algorithm_at_boot_up:
+                cls.start_thermal_control_algorithm()
+            else:
+                cls.stop_thermal_control_algorithm()
+                if cls._fan_speed_when_suspend is not None:
+                    for fan in chassis.get_all_fans():
+                        fan.set_speed(cls._fan_speed_when_suspend)
+
+                    for psu in chassis.get_all_psus():
+                        for fan in psu.get_all_fans():
+                            fan.set_speed(cls._fan_speed_when_suspend)
