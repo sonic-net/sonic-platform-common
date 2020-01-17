@@ -62,7 +62,7 @@ class ThermalManagerBase(object):
     @classmethod
     def load(cls, policy_file_name):
         """
-        Load all thermal policies from policy.json file. An example looks like:
+        Load all thermal policies from JSON policy file. An example looks like:
         {
           "thermal_control_algorithm": {
             "run_at_boot_up": "false",
@@ -110,7 +110,7 @@ class ThermalManagerBase(object):
             }
           ]
         }
-        :param policy_file_name: Path of policy.json.
+        :param policy_file_name: Path of JSON policy file.
         :return:
         """
         with open(policy_file_name, 'r') as policy_file:

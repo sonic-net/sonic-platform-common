@@ -3,7 +3,7 @@ from .thermal_json_object import ThermalJsonObject
 
 class ThermalPolicy(object):
     """
-    Class representing a thermal policy. A thermal policy object is initialized by policy.json.
+    Class representing a thermal policy. A thermal policy object is initialized by JSON policy file.
     """
     # JSON field definition.
     JSON_FIELD_NAME = 'name'
@@ -14,15 +14,15 @@ class ThermalPolicy(object):
         # Name of the policy
         self.name = None
 
-        # Conditions load from policy.json
+        # Conditions load from JSON policy file
         self.conditions = []
 
-        # Actions load from policy.json
+        # Actions load from JSON policy file
         self.actions = []
 
     def load_from_json(self, json_obj):
         """
-        Load thermal policy from policy.json.
+        Load thermal policy from JSON policy file.
         :param json_obj: A json object representing a thermal policy.
         :return:
         """

@@ -4,7 +4,7 @@ from .thermal_json_object import ThermalJsonObject
 class ThermalPolicyActionBase(ThermalJsonObject):
     """
     Base class for thermal action. Once all thermal conditions in a thermal policy are matched,
-    all predefined thermal action would be executed.
+    all predefined thermal action will be executed.
     """
     def execute(self, thermal_info_dict):
         """
