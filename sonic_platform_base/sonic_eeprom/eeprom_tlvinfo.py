@@ -75,7 +75,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
 
     # TLV Value Display Switch
     _TLV_DISPLAY_VENDOR_EXT     = False
-    _TLV_NUM_VENDOR_EXT         = 0
+
 
     def __init__(self, path, start, status, ro, max_len=_TLV_INFO_MAX_LEN):
         super(TlvInfoDecoder, self).__init__(path,      \
@@ -85,6 +85,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
                                              ro)
         self.eeprom_start = start
         self.eeprom_max_len = max_len
+
 
     def __print_db(self, db, code, num=0):
         if not num:
@@ -101,6 +102,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
                 field_len = db.hget('EEPROM_INFO|{}'.format(hex(code)), 'Len_{}'.format(index))
                 field_value = db.hget('EEPROM_INFO|{}'.format(hex(code)), 'Value_{}'.format(index))
                 print("%-20s 0x%02X %3s %s" % (field_name, code, field_len, field_value))
+
 
     def decode_eeprom(self, e):
         '''
@@ -135,6 +137,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
                ord(e[tlv_index]) == self._TLV_CODE_CRC_32:
                 return
             tlv_index += ord(e[tlv_index+1]) + 2
+
 
     def set_eeprom(self, e, cmd_args):
         '''
@@ -225,6 +228,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
             exit(1)
         return new_e
 
+
     def is_valid_tlvinfo_header(self, e):
         '''
         Perform sanity checks on the first 11 bytes of the TlvInfo EEPROM
@@ -240,6 +244,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
                ord(e[8]) == self._TLV_INFO_VERSION and \
                ((ord(e[9]) << 8) | ord(e[10])) <= self._TLV_TOTAL_LEN_MAX
 
+
     def is_valid_tlv(self, e):
         '''
         Perform basic sanity checks on a TLV field. The TLV is in the string
@@ -249,6 +254,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
                field to go beyond the length of the string.
         '''
         return (len(e) >= 2 and (2 + ord(e[1]) <= len(e)))
+
 
     def is_checksum_valid(self, e):
         '''
@@ -270,6 +276,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
             return(True, crc)
 
         return (False, crc)
+
 
     def read_eeprom(self):
         '''
@@ -300,6 +307,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
                                "but only read %d" %(len(t)))
         return h + t
 
+
     def read_eeprom_db(self):
         '''
         Print out the contents of the EEPROM from database
@@ -329,7 +337,17 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
             self.__print_db(client, self._TLV_CODE_VENDOR_EXT, num_vendor_ext)
 
         self.__print_db(client, self._TLV_CODE_CRC_32)
+
+        print("")
+
+        is_valid = client.hget('EEPROM_INFO|Checksum', 'Valid')
+        if is_valid != '1':
+            print("(*** checksum invalid)")
+        else:
+            print("(checksum valid)")
+
         return 0
+
 
     def update_eeprom_db(self, e):
         '''
@@ -353,16 +371,17 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
             tlv_index = self.eeprom_start
             tlv_end = self._TLV_INFO_MAX_LEN
 
+        vendor_ext_tlv_num = 0
         while (tlv_index + 2) < len(e) and tlv_index < tlv_end:
             if not self.is_valid_tlv(e[tlv_index:]):
                 break
             tlv = e[tlv_index:tlv_index + 2 + ord(e[tlv_index + 1])]
             tlv_code = ord(tlv[0])
             if tlv_code == self._TLV_CODE_VENDOR_EXT:
-                vendor_index = str(self._TLV_NUM_VENDOR_EXT)
+                vendor_index = str(vendor_ext_tlv_num)
                 fvs['Len_{}'.format(vendor_index)] = ord(tlv[1])
                 fvs['Name_{}'.format(vendor_index)], fvs['Value_{}'.format(vendor_index)] = self.decoder(None, tlv)
-                self._TLV_NUM_VENDOR_EXT += 1
+                vendor_ext_tlv_num += 1
             else:
                 fvs['Len'] = ord(tlv[1])
                 fvs['Name'], fvs['Value'] = self.decoder(None, tlv)
@@ -374,14 +393,24 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
             else:
                 tlv_index += ord(e[tlv_index + 1]) + 2
 
-        if self._TLV_NUM_VENDOR_EXT:
-            fvs['Num_vendor_ext'] = self._TLV_NUM_VENDOR_EXT
+        if vendor_ext_tlv_num > 0:
+            fvs['Num_vendor_ext'] = str(vendor_ext_tlv_num)
             client.hmset('EEPROM_INFO|{}'.format(hex(self._TLV_CODE_VENDOR_EXT)), fvs)
             fvs.clear()
+
+        (is_valid, valid_crc) = self.is_checksum_valid(e)
+        if is_valid:
+            fvs['Valid'] = '1'
+        else:
+            fvs['Valid'] = '0'
+
+        client.hmset('EEPROM_INFO|Checksum', fvs)
+        fvs.clear()
 
         fvs['Initialized'] = '1'
         client.hmset('EEPROM_INFO|State', fvs)
         return 0
+
 
     def get_tlv_field(self, e, code):
         '''
@@ -411,6 +440,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
             tlv_index += ord(e[tlv_index+1]) + 2
         return (False, None)
 
+
     def get_tlv_index(self, e, code):
         '''
         Given an EEPROM string with just TLV fields (no TlvInfo header)
@@ -429,6 +459,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
             tlv_index += ord(e[tlv_index+1]) + 2
         return (False, 0)
 
+
     def base_mac_addr(self, e):
         '''
         Returns the value field of the MAC #1 Base TLV formatted as a string
@@ -439,6 +470,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
             return super(TlvInfoDecoder, self).switchaddrstr(e)
 
         return ":".join([binascii.b2a_hex(T) for T in t[2]])
+
 
     def switchaddrrange(self, e):
         '''
@@ -451,6 +483,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
 
         return str((ord(t[2][0]) << 8) | ord(t[2][1]))
 
+
     def modelstr(self, e):
         '''
         Returns the value field of the Product Name TLV as a string
@@ -461,6 +494,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
 
         return t[2]
 
+
     def serial_number_str(self, e):
         '''
         Returns the value field of the Serial Number TLV as a string
@@ -469,6 +503,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
         if not valid:
             return super(TlvInfoDecoder, self).serial_number_str(e)
         return t[2]
+
 
     def decoder(self, s, t):
         '''
@@ -565,6 +600,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
                 value += "0x%02X " % (ord(c),)
         return name, value
 
+
     def encoder(self, I, v):
         '''
         Validate and encode the string 'v' into the TLV specified by 'I'.
@@ -644,11 +680,14 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
 
         return chr(I[0]) + chr(len(value)) + value
 
+
     def is_checksum_field(self, I):
         return False
 
+
     def checksum_field_size(self):
         return 4
+
 
     def checksum_type(self):
         return 'crc32'

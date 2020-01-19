@@ -18,6 +18,7 @@ class FanBase(device_base.DeviceBase):
     # Possible fan directions (relative to port-side of device)
     FAN_DIRECTION_INTAKE = "intake"
     FAN_DIRECTION_EXHAUST = "exhaust"
+    FAN_DIRECTION_NOT_APPLICABLE = "N/A"
 
     # Possible fan status LED colors
     STATUS_LED_COLOR_GREEN = "green"
