@@ -663,6 +663,7 @@ class dom_info_update_task:
             logical_port_list = platform_sfputil.logical
             for logical_port_name in logical_port_list:
                 post_port_dom_info_to_db(logical_port_name, dom_tbl, self.task_stopping_event)
+                post_port_dom_threshold_info_to_db(logical_port_name, dom_tbl, self.task_stopping_event)
 
         logger.log_info("Stop DOM monitoring loop")
 
