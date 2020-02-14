@@ -2,3 +2,6 @@
 */dist/
 */*.tar.gz
 */*.egg-info
+*/.cache/
+*.pyc
+*/__pycache__/
