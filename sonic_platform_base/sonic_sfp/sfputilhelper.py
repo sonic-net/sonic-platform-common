@@ -14,7 +14,7 @@ try:
     from collections import OrderedDict
     from natsort import natsorted
     from sonic_daemon_base.daemon_base import DaemonBase
-
+    import sys
 except ImportError as e:
     raise ImportError("%s - required module not found" % str(e))
 
@@ -55,7 +55,7 @@ class SfpUtilHelper(object):
         parse_fmt_port_config_ini = (os.path.basename(porttabfile) == PORT_CONFIG_INI)
         parse_fmt_platform_json = (os.path.basename(porttabfile) == PLATFORM_JSON)
 
-        (platform, hwsku) =  DaemonBase.get_platform_and_hwsku()
+        (platform, hwsku) =  DaemonBase().get_platform_and_hwsku()
         if(parse_fmt_platform_json):
             ports, _ = get_port_config(hwsku, platform)
             if not ports:
@@ -92,7 +92,7 @@ class SfpUtilHelper(object):
                 print("logical to physical: {}".format(self.logical_to_physical))
                 print("physical to logical: {}".format( self.physical_to_logical))
                 """
-                sys.exit(0)
+                return None
 
 
         try:
