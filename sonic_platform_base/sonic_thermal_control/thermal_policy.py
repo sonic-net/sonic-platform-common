@@ -1,4 +1,5 @@
 from .thermal_json_object import ThermalJsonObject
+from collections import OrderedDict
 
 
 class ThermalPolicy(object):
@@ -15,10 +16,10 @@ class ThermalPolicy(object):
         self.name = None
 
         # Conditions load from JSON policy file
-        self.conditions = []
+        self.conditions = OrderedDict()
 
         # Actions load from JSON policy file
-        self.actions = []
+        self.actions = OrderedDict()
 
     def load_from_json(self, json_obj):
         """
@@ -32,16 +33,23 @@ class ThermalPolicy(object):
             if self.JSON_FIELD_CONDITIONS in json_obj:
                 for json_condition in json_obj[self.JSON_FIELD_CONDITIONS]:
                     cond_type = ThermalJsonObject.get_type(json_condition)
+                    if cond_type in self.conditions:
+                        raise Exception('Duplicate thermal condition type detected in policy [{}]!'.format(self.name))
                     cond_obj = cond_type()
                     cond_obj.load_from_json(json_condition)
-                    self.conditions.append(cond_obj)
+                    self.conditions[cond_type] = cond_obj
 
             if self.JSON_FIELD_ACTIONS in json_obj:
                 for json_action in json_obj[self.JSON_FIELD_ACTIONS]:
                     action_type = ThermalJsonObject.get_type(json_action)
+                    if action_type in self.actions:
+                        raise Exception('Duplicate thermal action type detected in policy [{}]!'.format(self.name))
                     action_obj = action_type()
                     action_obj.load_from_json(json_action)
-                    self.actions.append(action_obj)
+                    self.actions[action_type] = action_obj
+                
+            if not len(self.conditions) or not len(self.actions):
+                raise Exception('A policy requires at least 1 action and 1 condition')
         else:
             raise Exception('name field not found in policy')
 
@@ -51,7 +59,7 @@ class ThermalPolicy(object):
         :param thermal_info_dict: A dictionary stores all thermal information.
         :return: True if all conditions matches else False.
         """
-        for condition in self.conditions:
+        for condition in self.conditions.values():
             if not condition.is_match(thermal_info_dict):
                 return False
 
@@ -63,5 +71,5 @@ class ThermalPolicy(object):
         :param thermal_info_dict: A dictionary stores all thermal information.
         :return:
         """
-        for action in self.actions:
+        for action in self.actions.values():
             action.execute(thermal_info_dict)
