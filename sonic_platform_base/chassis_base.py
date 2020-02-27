@@ -333,6 +333,14 @@ class ChassisBase(device_base.DeviceBase):
 
         return thermal
 
+    def get_thermal_manager(self):
+        """
+        Retrieves thermal manager class on this chassis
+        :return: A class derived from ThermalManagerBase representing the
+        specified thermal manager. ThermalManagerBase is returned as default
+        """
+        raise NotImplementedError
+
     ##############################################
     # SFP methods
     ##############################################
