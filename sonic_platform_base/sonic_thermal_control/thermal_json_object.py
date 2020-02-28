@@ -17,6 +17,15 @@ class ThermalJsonObject(object):
         """
         pass
 
+    def __eq__(self, other):
+        """
+        Compare input object with this object, return True if equal. Subclass should override this
+        if necessary.
+        :param other: Object to compare with.
+        :return: True if equal else False
+        """
+        return self.__class__ == other.__class__
+
     @classmethod
     def register_concrete_type(cls, type_name, object_type):
         """

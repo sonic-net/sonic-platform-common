@@ -73,3 +73,17 @@ class ThermalPolicy(object):
         """
         for action in self.actions.values():
             action.execute(thermal_info_dict)
+
+    def validate_duplicate_policy(self, policies):
+        """
+        Detect this policy with existing policies, if a policy with same conditions exists, raise Exception.
+        :param policies: existing policies.
+        :return:
+        """
+        for policy in policies:
+            if len(policy.conditions) != len(self.conditions):
+                continue
+
+            for cond_type, value in policy.conditions.items():
+                if cond_type in self.conditions and policy.conditions[cond_type] == self.conditions[cond_type]:
+                    raise Exception('Policy [{}] and policy [{}] have duplicate conditions'.format(policy.name, self.name))
