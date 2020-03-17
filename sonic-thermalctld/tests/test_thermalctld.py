@@ -2,7 +2,7 @@ import os
 import sys
 from mock import Mock, MagicMock, patch
 from sonic_daemon_base import daemon_base
-from .mock_platform import MockChassis, MockFan
+from .mock_platform import MockChassis, MockFan, MockThermal
 
 daemon_base.db_connect = MagicMock()
 
@@ -198,3 +198,27 @@ def test_temperupdater_under_temper():
     temperature_updater.update()
     logger.log_notice.assert_called_once()
 
+
+def test_update_fan_with_exception():
+    chassis = MockChassis()
+    chassis.make_error_fan()
+    fan = MockFan()
+    fan.make_over_speed()
+    chassis.get_all_fans().append(fan)
+
+    fan_updater = FanUpdater(chassis)
+    fan_updater.update()
+    assert fan.get_status_led() == MockFan.STATUS_LED_COLOR_RED
+    logger.log_warning.assert_called()
+
+
+def test_update_thermal_with_exception():
+    chassis = MockChassis()
+    chassis.make_error_thermal()
+    thermal = MockThermal()
+    thermal.make_over_temper()
+    chassis.get_all_thermals().append(thermal)
+
+    temperature_updater = TemperatureUpdater(chassis)
+    temperature_updater.update()
+    logger.log_warning.assert_called()

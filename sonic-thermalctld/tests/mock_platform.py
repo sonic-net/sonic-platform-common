@@ -68,6 +68,11 @@ class MockFan(MockDevice):
         self.speed_tolerance = 0
 
 
+class MockErrorFan(MockFan):
+    def get_speed(self):
+        raise Exception('Fail to get speed')
+
+
 class MockPsu(MockDevice):
     def __init__(self):
         self.fan_list = []
@@ -118,6 +123,11 @@ class MockThermal:
         self.temperature = 2
         self.low_threshold = 1
 
+
+class MockErrorThermal(MockThermal):
+    def get_temperature(self):
+        raise Exception('Fail to get temperature')
+
     
 class MockChassis:
     def __init__(self):
@@ -149,6 +159,10 @@ class MockChassis:
         fan.make_over_speed()
         self.fan_list.append(fan)
 
+    def make_error_fan(self):
+        fan = MockErrorFan()
+        self.fan_list.append(fan)
+
     def make_over_temper_thermal(self):
         thermal = MockThermal()
         thermal.make_over_temper()
@@ -157,5 +171,9 @@ class MockChassis:
     def make_under_temper_thermal(self):
         thermal = MockThermal()
         thermal.make_under_temper()
+        self.thermal_list.append(thermal)
+
+    def make_error_thermal(self):
+        thermal = MockErrorThermal()
         self.thermal_list.append(thermal)
 
