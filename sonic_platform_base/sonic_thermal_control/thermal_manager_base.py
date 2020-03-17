@@ -151,6 +151,7 @@ class ThermalManagerBase(object):
 
             policy = ThermalPolicy()
             policy.load_from_json(json_policy)
+            policy.validate_duplicate_policy(cls._policy_dict.values())
             cls._policy_dict[name] = policy
         else:
             raise Exception('{} not found in policy'.format(cls.JSON_FIELD_POLICY_NAME))
