@@ -88,9 +88,10 @@ SFP_VOLT_OFFSET = 98
 SFP_VOLT_WIDTH = 2
 SFP_CHANNL_MON_OFFSET = 100
 SFP_CHANNL_MON_WIDTH = 6
-SFP_MODULE_THRESHOLD_OFFSET = 0
-SFP_MODULE_THRESHOLD_WIDTH = 56
-
+SFP_MODULE_THRESHOLD_OFFSET = 112
+SFP_MODULE_THRESHOLD_WIDTH = 5
+SFP_CHANNL_THRESHOLD_OFFSET = 112
+SFP_CHANNL_THRESHOLD_WIDTH = 6
 
 qsfp_cable_length_tup = ('Length(km)', 'Length OM3(2m)',
                          'Length OM2(m)', 'Length OM1(m)',
@@ -450,7 +451,6 @@ class SfpUtilBase(object):
         print("logical to physical: " + self.logical_to_physical)
         print("physical to logical: " + self.physical_to_logical)
         """
-
     def read_phytab_mappings(self, phytabfile):
         logical = []
         phytab_mappings = {}
@@ -1045,7 +1045,6 @@ class SfpUtilBase(object):
             sfpd_obj = sff8472Dom()
             if sfpd_obj is None:
                 return None
-
             dom_temperature_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + SFP_TEMPE_OFFSET), SFP_TEMPE_WIDTH)
             if dom_temperature_raw is not None:
                 dom_temperature_data = sfpd_obj.parse_temperature(dom_temperature_raw, 0)
@@ -1086,7 +1085,6 @@ class SfpUtilBase(object):
             transceiver_dom_info_dict['tx4power'] = 'N/A'
 
         return transceiver_dom_info_dict
-
     def get_transceiver_dom_threshold_info_dict(self, port_num):
         transceiver_dom_threshold_info_dict = {}
 
@@ -1195,7 +1193,7 @@ class SfpUtilBase(object):
                                          (offset + SFP_CHANNL_THRESHOLD_OFFSET),
                                          SFP_CHANNL_THRESHOLD_WIDTH)
             if dom_channel_threshold_raw is not None:
-                dom_channel_threshold_data = sfpd_obj.parse_channel_monitor_params(dom_channel_threshold_raw, 0)
+                dom_channel_threshold_data = sfpd_obj.parse_channel_thresh_monitor_params(dom_channel_threshold_raw, 0)
             else:
                 return None
 
@@ -1279,3 +1277,4 @@ class SfpUtilBase(object):
          like {'-1':'system_not_ready'}.
         """
         return
+
