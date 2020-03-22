@@ -781,7 +781,25 @@ class SfpUtilBase(object):
             transceiver_info_dict['nominal_bit_rate'] = 'N/A'
 
         else:
+            file_path = self._get_port_eeprom_path(port_num, self.IDENTITY_EEPROM_ADDR)
+            if not self._sfp_eeprom_present(file_path, 0):
+                print("Error, file not exist %s" % file_path)
+                return None
+
+            try:
+                sysfsfile_eeprom = open(file_path, mode="rb", buffering=0)
+            except IOError:
+                print("Error: reading sysfs file %s" % file_path)
+                return None
+
             if port_num in self.qsfp_ports:
+                # Check for QSA adapter
+                byte0 = self._read_eeprom_specific_bytes(sysfsfile_eeprom, 0, 1)[0]
+                is_qsfp = (byte0 != '03' and byte0 != '0b')
+            else:
+                is_qsfp = False
+
+            if is_qsfp:
                 offset = 128
                 vendor_rev_width = XCVR_HW_REV_WIDTH_QSFP
                 cable_length_width = XCVR_CABLE_LENGTH_WIDTH_QSFP
@@ -804,17 +822,6 @@ class SfpUtilBase(object):
                 if sfpi_obj is None:
                     print("Error: sfp_object open failed")
                     return None
-
-            file_path = self._get_port_eeprom_path(port_num, self.IDENTITY_EEPROM_ADDR)
-            if not self._sfp_eeprom_present(file_path, 0):
-                print("Error, file not exist %s" % file_path)
-                return None
-
-            try:
-                sysfsfile_eeprom = open(file_path, mode="rb", buffering=0)
-            except IOError:
-                print("Error: reading sysfs file %s" % file_path)
-                return None
 
             sfp_interface_bulk_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + XCVR_INTFACE_BULK_OFFSET), interface_info_bulk_width)
             if sfp_interface_bulk_raw is not None:
