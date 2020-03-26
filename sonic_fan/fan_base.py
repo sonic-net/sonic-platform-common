@@ -14,6 +14,11 @@ except ImportError as e:
 class FanBase(object):
     __metaclass__ = abc.ABCMeta
 
+    # Possible fan directions (relative to port-side of device)
+    FAN_DIRECTION_INTAKE = "intake"
+    FAN_DIRECTION_EXHAUST = "exhaust"
+    FAN_DIRECTION_NOT_APPLICABLE = "N/A"
+
     def get_num_fans(self):
         """
         Retrieves the number of FANs supported on the device

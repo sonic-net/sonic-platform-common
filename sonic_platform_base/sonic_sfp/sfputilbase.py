@@ -88,9 +88,10 @@ SFP_VOLT_OFFSET = 98
 SFP_VOLT_WIDTH = 2
 SFP_CHANNL_MON_OFFSET = 100
 SFP_CHANNL_MON_WIDTH = 6
-SFP_MODULE_THRESHOLD_OFFSET = 0
-SFP_MODULE_THRESHOLD_WIDTH = 56
-
+SFP_MODULE_THRESHOLD_OFFSET = 112
+SFP_MODULE_THRESHOLD_WIDTH = 5
+SFP_CHANNL_THRESHOLD_OFFSET = 112
+SFP_CHANNL_THRESHOLD_WIDTH = 6
 
 qsfp_cable_length_tup = ('Length(km)', 'Length OM3(2m)',
                          'Length OM2(m)', 'Length OM1(m)',
@@ -450,7 +451,6 @@ class SfpUtilBase(object):
         print("logical to physical: " + self.logical_to_physical)
         print("physical to logical: " + self.physical_to_logical)
         """
-
     def read_phytab_mappings(self, phytabfile):
         logical = []
         phytab_mappings = {}
@@ -781,7 +781,25 @@ class SfpUtilBase(object):
             transceiver_info_dict['nominal_bit_rate'] = 'N/A'
 
         else:
+            file_path = self._get_port_eeprom_path(port_num, self.IDENTITY_EEPROM_ADDR)
+            if not self._sfp_eeprom_present(file_path, 0):
+                print("Error, file not exist %s" % file_path)
+                return None
+
+            try:
+                sysfsfile_eeprom = open(file_path, mode="rb", buffering=0)
+            except IOError:
+                print("Error: reading sysfs file %s" % file_path)
+                return None
+
             if port_num in self.qsfp_ports:
+                # Check for QSA adapter
+                byte0 = self._read_eeprom_specific_bytes(sysfsfile_eeprom, 0, 1)[0]
+                is_qsfp = (byte0 != '03' and byte0 != '0b')
+            else:
+                is_qsfp = False
+
+            if is_qsfp:
                 offset = 128
                 vendor_rev_width = XCVR_HW_REV_WIDTH_QSFP
                 cable_length_width = XCVR_CABLE_LENGTH_WIDTH_QSFP
@@ -804,17 +822,6 @@ class SfpUtilBase(object):
                 if sfpi_obj is None:
                     print("Error: sfp_object open failed")
                     return None
-
-            file_path = self._get_port_eeprom_path(port_num, self.IDENTITY_EEPROM_ADDR)
-            if not self._sfp_eeprom_present(file_path, 0):
-                print("Error, file not exist %s" % file_path)
-                return None
-
-            try:
-                sysfsfile_eeprom = open(file_path, mode="rb", buffering=0)
-            except IOError:
-                print("Error: reading sysfs file %s" % file_path)
-                return None
 
             sfp_interface_bulk_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + XCVR_INTFACE_BULK_OFFSET), interface_info_bulk_width)
             if sfp_interface_bulk_raw is not None:
@@ -1045,7 +1052,6 @@ class SfpUtilBase(object):
             sfpd_obj = sff8472Dom()
             if sfpd_obj is None:
                 return None
-
             dom_temperature_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + SFP_TEMPE_OFFSET), SFP_TEMPE_WIDTH)
             if dom_temperature_raw is not None:
                 dom_temperature_data = sfpd_obj.parse_temperature(dom_temperature_raw, 0)
@@ -1086,7 +1092,6 @@ class SfpUtilBase(object):
             transceiver_dom_info_dict['tx4power'] = 'N/A'
 
         return transceiver_dom_info_dict
-
     def get_transceiver_dom_threshold_info_dict(self, port_num):
         transceiver_dom_threshold_info_dict = {}
 
@@ -1195,7 +1200,7 @@ class SfpUtilBase(object):
                                          (offset + SFP_CHANNL_THRESHOLD_OFFSET),
                                          SFP_CHANNL_THRESHOLD_WIDTH)
             if dom_channel_threshold_raw is not None:
-                dom_channel_threshold_data = sfpd_obj.parse_channel_monitor_params(dom_channel_threshold_raw, 0)
+                dom_channel_threshold_data = sfpd_obj.parse_channel_thresh_monitor_params(dom_channel_threshold_raw, 0)
             else:
                 return None
 
@@ -1279,3 +1284,4 @@ class SfpUtilBase(object):
          like {'-1':'system_not_ready'}.
         """
         return
+

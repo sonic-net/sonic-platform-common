@@ -513,7 +513,7 @@ class sff8472InterfaceId(sffbase):
              'size':3,
              'type' : 'hex'}
         }
-    
+
     vendor_date = {
         'VendorDataCode(YYYY-MM-DD Lot)':
             {'offset':0,
@@ -569,7 +569,7 @@ class sff8472InterfaceId(sffbase):
 
     def parse_vendor_oui(self, sn_raw_data, start_pos):
         return sffbase.parse(self, self.vendor_oui, sn_raw_data, start_pos)
-    
+
     def dump_pretty(self):
         if self.interface_data == None:
             print('Object not initialized, nothing to print')
@@ -1175,6 +1175,90 @@ class sff8472Dom(sffbase):
              'type': 'func',
              'decode': {'func': calc_rx_power}}
         }
+    dom_module_monitor = {
+        'TempHighAlarm':
+            {'offset':0,
+            'bit':7,
+            'type': 'bitvalue'},
+        'TempLowAlarm':
+             {'offset':0,
+             'bit':6,
+             'type': 'bitvalue'},
+        'TempHighWarning':
+             {'offset': 4,
+             'bit': 7,
+             'type': 'bitvalue'},
+        'TempLowWarning':
+             {'offset': 4,
+             'bit': 6,
+             'type': 'bitvalue'},
+        'VccHighAlarm':
+             {'offset': 0,
+             'bit': 5,
+             'type': 'bitvalue'},
+        'VccLowAlarm':
+              {'offset': 0,
+              'bit': 4,
+              'type': 'bitvalue'},
+        'VccHighWarning':
+             {'offset': 4,
+             'bit': 5,
+             'type': 'bitvalue'},
+        'VccLowWarning':
+             {'offset': 4,
+             'bit': 4,
+             'type': 'bitvalue'}}
+
+    dom_channel_thresh_monitor_params = {
+          'BiasHighAlarm':
+              {'offset':0,
+              'bit':3,
+              'type': 'bitvalue'},
+          'BiasLowAlarm':
+              {'offset':0,
+              'bit':2,
+              'type': 'bitvalue'},
+          'BiasHighWarning':
+               {'offset':4,
+               'bit':3,
+               'type': 'bitvalue'},
+          'BiasLowWarning':
+                {'offset':4,
+                'bit':2,
+                'type': 'bitvalue'},
+          'TxPowerHighAlarm':
+                 {'offset':0,
+                 'bit':1,
+                 'type': 'bitvalue'},
+          'TxPowerLowAlarm':
+                 {'offset':0,
+                 'bit':0,
+                 'type': 'bitvalue'},
+          'TxPowerHighWarning':
+                  {'offset':4,
+                  'bit':1,
+                  'type': 'bitvalue'},
+          'TxPowerLowWarning':
+                  {'offset':4,
+                  'bit':0,
+                  'type': 'bitvalue'},
+          'RxPowerHighAlarm':
+                  {'offset':1,
+                  'bit':7,
+                  'type': 'bitvalue'},
+          'RxPowerLowAlarm':
+                  {'offset':1,
+                  'bit':6,
+                  'type': 'bitvalue'},
+          'RxPowerHighWarning':
+                 {'offset':5,
+                 'bit':7,
+                 'type': 'bitvalue'},
+          'RxPowerLowWarning':
+                 {'offset':5,
+                 'bit':6,
+                  'type': 'bitvalue'}
+    }
 
     def __init__(self, eeprom_raw_data=None, calibration_type=0):
         self._calibration_type = calibration_type
@@ -1200,6 +1284,14 @@ class sff8472Dom(sffbase):
         return sffbase.parse(self, self.dom_channel_monitor_params, eeprom_raw_data,
                     start_pos)
 
+    def parse_module_monitor_params(self, eeprom_raw_data, start_pos):
+        return sffbase.parse(self, self.dom_module_monitor, eeprom_raw_data,
+                    start_pos)
+
+    def parse_channel_thresh_monitor_params(self, eeprom_raw_data, start_pos):
+         return sffbase.parse(self, self.dom_channel_thresh_monitor_params, eeprom_raw_data,
+                     start_pos)
+
     def parse_alarm_warning_threshold(self, eeprom_raw_data, start_pos):
         return sffbase.parse(self, self.dom_aw_thresholds, eeprom_raw_data,
                     start_pos)
@@ -1217,3 +1309,4 @@ class sff8472Dom(sffbase):
 
     def get_data_pretty(self):
         return sffbase.get_data_pretty(self, self.dom_data)
+
