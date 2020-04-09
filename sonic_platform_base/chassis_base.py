@@ -38,6 +38,10 @@ class ChassisBase(device_base.DeviceBase):
     # available on the chassis
     _fan_list = None
 
+    # List of FanDrawerBase-derived objects representing all fan drawers
+    # available on the chassis
+    _fan_drawer_list = None
+
     # List of PsuBase-derived objects representing all power supply units
     # available on the chassis
     _psu_list = None
@@ -63,6 +67,7 @@ class ChassisBase(device_base.DeviceBase):
         self._psu_list = []
         self._thermal_list = []
         self._sfp_list = []
+        self._fan_drawer_list = []
 
     def get_base_mac(self):
         """
@@ -242,6 +247,47 @@ class ChassisBase(device_base.DeviceBase):
                              index, len(self._fan_list)-1))
 
         return fan
+
+    def get_num_fan_drawers(self):
+        """
+        Retrieves the number of fan drawers available on this chassis
+
+        Returns:
+            An integer, the number of fan drawers available on this chassis
+        """
+        return len(self._fan_drawer_list)
+
+    def get_all_fan_drawers(self):
+        """
+        Retrieves all fan drawers available on this chassis
+
+        Returns:
+            A list of objects derived from FanDrawerBase representing all fan
+            drawers available on this chassis
+        """
+        return self._fan_drawer_list
+
+    def get_fan_drawer(self, index):
+        """
+        Retrieves fan drawers represented by (0-based) index <index>
+
+        Args:
+            index: An integer, the index (0-based) of the fan drawer to
+            retrieve
+
+        Returns:
+            An object dervied from FanDrawerBase representing the specified fan
+            drawer
+        """
+        fan_drawer = None
+
+        try:
+            fan_drawer = self._fan_drawer_list[index]
+        except IndexError:
+            sys.stderr.write("Fan drawer index {} out of range (0-{})\n".format(
+                             index, len(self._fan_drawer_list)-1))
+
+        return fan_drawer
 
     ##############################################
     # PSU methods
