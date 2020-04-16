@@ -425,6 +425,15 @@ class ChassisBase(device_base.DeviceBase):
                   Ex. {'fan':{'0':'0', '2':'1'}, 'sfp':{'11':'0'}}
                       indicates that fan 0 has been removed, fan 2
                       has been inserted and sfp 11 has been removed.
+                  Specifically for SFP event, besides SFP plug in and plug out,
+                  there are some other error event could be raised from SFP, when 
+                  these error happened, SFP eeprom will not be avalaible, XCVRD shall
+                  stop to read eeprom before SFP recovered from error status.
+                      status='2' I2C bus stuck,
+                      status='3' Bad eeprom,
+                      status='4' Unsupported cable,
+                      status='5' High Temperature,
+                      status='6' Bad cable.
         """
         raise NotImplementedError
 
