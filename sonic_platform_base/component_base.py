@@ -51,7 +51,7 @@ class ComponentBase(object):
         """
         raise NotImplementedError
 
-    def get_update_notification(self, image_path):
+    def get_firmware_update_notification(self, image_path):
         """
         Retrieves a notification on what should be done in order to complete
         the component firmware update
@@ -90,18 +90,5 @@ class ComponentBase(object):
 
         Raises:
             RuntimeError: update failed
-        """
-        raise NotImplementedError
-
-    def is_delayed_firmware_update_supported(self, image_path):
-        """
-        Retrieves a value indicating whether immediate actions are required
-        to complete the component firmware update (e.g., reboot, power cycle, etc.)
-
-        Args:
-            image_path: A string, path to firmware image
-
-        Returns:
-            A boolean, True if delayed firmware update supported, False if not
         """
         raise NotImplementedError
