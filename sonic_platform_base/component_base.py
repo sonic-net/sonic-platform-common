@@ -34,6 +34,8 @@ class ComponentBase(object):
         """
         Retrieves the firmware version of the component
 
+        Note: the firmware version will be read from HW
+
         Returns:
             A string containing the firmware version of the component
         """
@@ -42,6 +44,8 @@ class ComponentBase(object):
     def get_available_firmware_version(self, image_path):
         """
         Retrieves the available firmware version of the component
+
+        Note: the firmware version will be read from image
 
         Args:
             image_path: A string, path to firmware image
@@ -67,11 +71,11 @@ class ComponentBase(object):
 
     def install_firmware(self, image_path):
         """
-        Installs firmware to the component.
+        Installs firmware to the component
 
         This API performs firmware installation only: this may/may not be the same as firmware update.
         In case platform component requires some extra steps (apart from calling Low Level Utility)
-        to load the installed firmware (e.g, reboot, power cycle, etc.) - this must be done manually by user.
+        to load the installed firmware (e.g, reboot, power cycle, etc.) - this must be done manually by user
 
         Note: in case immediate actions are required to complete the component firmware update
         (e.g., reboot, power cycle, etc.) - will be done automatically by API and no return value provided
@@ -86,11 +90,11 @@ class ComponentBase(object):
 
     def update_firmware(self, image_path):
         """
-        Updates firmware of the component.
+        Updates firmware of the component
 
         This API performs firmware update: it assumes firmware installation and loading in a single call.
-        In case platform componet requires some extra steps (apart from calling Low Level Utility)
-        to load the installed firmware (e.g, reboot, power cycle, etc.) - this will be done automatically by API.
+        In case platform component requires some extra steps (apart from calling Low Level Utility)
+        to load the installed firmware (e.g, reboot, power cycle, etc.) - this will be done automatically by API
 
         Args:
             image_path: A string, path to firmware image
