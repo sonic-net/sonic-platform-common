@@ -64,14 +64,30 @@ def log_on_status_changed(normal_status, normal_log, abnormal_log):
 
 
 class FanStatus(object):
-    def __init__(self):
+    absence_fan_count = 0
+    fault_fan_count = 0
+    update_led_color = True
+
+    def __init__(self, fan=None, is_psu_fan=False):
         """
         Constructor of FanStatus
         """
+        self.fan = fan
+        self.is_psu_fan = is_psu_fan
         self.presence = True
+        self.status = True
         self.under_speed = False
         self.over_speed = False
         self.invalid_direction = False
+
+    @classmethod
+    def get_bad_fan_count(cls):
+        return cls.absence_fan_count + cls.fault_fan_count
+
+    @classmethod
+    def reset_fan_counter(cls):
+        cls.absence_fan_count = 0
+        cls.fault_fan_count = 0
 
     def set_presence(self, presence):
         """
@@ -79,10 +95,28 @@ class FanStatus(object):
         :param presence: Fan presence status
         :return: True if status changed else False
         """
+        if not presence and not self.is_psu_fan:
+            FanStatus.absence_fan_count += 1
+
         if presence == self.presence:
             return False
 
         self.presence = presence
+        return True
+
+    def set_fault_status(self, status):
+        """
+        Set and cache Fan fault status
+        :param status: Fan fault status, False indicate Fault
+        :return: True if status changed else False
+        """
+        if not status:
+            FanStatus.fault_fan_count += 1
+
+        if status == self.status:
+            return False
+
+        self.status = status
         return True
 
     def _check_speed_value_available(self, speed, target_speed, tolerance, current_status):
@@ -142,7 +176,11 @@ class FanStatus(object):
         Indicate the Fan works as expect
         :return: True if Fan works normal else False
         """
-        return self.presence and not self.under_speed and not self.over_speed and not self.invalid_direction
+        return self.presence and \
+               self.status and \
+               not self.under_speed and \
+               not self.over_speed and \
+               not self.invalid_direction
 
 
 #
@@ -176,33 +214,51 @@ class FanUpdater(object):
         :return:
         """
         logger.log_debug("Start fan updating")
-        for index, fan in enumerate(self.chassis.get_all_fans()):
-            try:
-                self._refresh_fan_status(fan, index)
-            except Exception as e:
-                logger.log_warning('Failed to update FAN status - {}'.format(e))
+        old_bad_fan_count = FanStatus.get_bad_fan_count()
+        FanStatus.reset_fan_counter()
+
+        fan_index = 0
+        for drawer in self.chassis.get_all_fan_drawers():
+            for fan in drawer.get_all_fans():
+                try:
+                    self._refresh_fan_status(drawer, fan, fan_index)
+                except Exception as e:
+                    logger.log_warning('Failed to update FAN status - {}'.format(e))
+                fan_index += 1
 
         for psu_index, psu in enumerate(self.chassis.get_all_psus()):
             psu_name = try_get(psu.get_name, 'PSU {}'.format(psu_index))
             for fan_index, fan in enumerate(psu.get_all_fans()):
                 try:
-                    self._refresh_fan_status(fan, fan_index, '{} FAN'.format(psu_name))
+                    self._refresh_fan_status(None, fan, fan_index, '{} FAN'.format(psu_name), True)
                 except Exception as e:
                     logger.log_warning('Failed to update PSU FAN status - {}'.format(e))
 
+        self._update_led_color()
+        
+        bad_fan_count = FanStatus.get_bad_fan_count()
+        if bad_fan_count > 0 and old_bad_fan_count != bad_fan_count:
+            logger.log_warning("Insufficient number of working fans warning: {} fans are not working.".format(
+                bad_fan_count
+            ))
+        elif old_bad_fan_count > 0 and bad_fan_count == 0:
+            logger.log_notice("Insufficient number of working fans warning cleared: all fans are back to normal.")
+
         logger.log_debug("End fan updating")
 
-    def _refresh_fan_status(self, fan, index, name_prefix='FAN'):
+    def _refresh_fan_status(self, fan_drawer, fan, index, name_prefix='FAN', is_psu_fan=False):
         """
         Get Fan status by platform API and write to database for a given Fan
+        :param fan_drawer: Object representing a platform Fan drawer
         :param fan: Object representing a platform Fan
         :param index: Index of the Fan object in the platform
         :param name_prefix: name prefix of Fan object if Fan.get_name not presented
         :return:
         """
+        drawer_name = NOT_AVAILABLE if is_psu_fan else str(try_get(fan_drawer.get_name))
         fan_name = try_get(fan.get_name, '{} {}'.format(name_prefix, index + 1))
         if fan_name not in self.fan_status_dict:
-            self.fan_status_dict[fan_name] = FanStatus()
+            self.fan_status_dict[fan_name] = FanStatus(fan, is_psu_fan)
 
         fan_status = self.fan_status_dict[fan_name]
 
@@ -228,29 +284,39 @@ class FanUpdater(object):
                                   'the system, potential overheat hazard'.format(fan_name)
                                   )
 
+        if presence and fan_status.set_fault_status(fan_fault_status):
+            set_led = True
+            log_on_status_changed(fan_status.status,
+                                  'Fan fault warning cleared: {} is back to normal.'.format(fan_name),
+                                  'Fan fault warning: {} is broken.'.format(fan_name)
+                                  )
+
         if presence and fan_status.set_under_speed(speed, speed_target, speed_tolerance):
             set_led = True
             log_on_status_changed(not fan_status.under_speed,
-                                  'Fan under speed warning cleared: {} speed back to normal.'.format(fan_name),
-                                  'Fan under speed warning: {} current speed={}, target speed={}, tolerance={}.'.
+                                  'Fan low speed warning cleared: {} speed is back to normal.'.format(fan_name),
+                                  'Fan low speed warning: {} current speed={}, target speed={}, tolerance={}.'.
                                   format(fan_name, speed, speed_target, speed_tolerance)
                                   )
 
         if presence and fan_status.set_over_speed(speed, speed_target, speed_tolerance):
             set_led = True
             log_on_status_changed(not fan_status.over_speed,
-                                  'Fan over speed warning cleared: {} speed back to normal.'.format(fan_name),
-                                  'Fan over speed warning: {} target speed={}, current speed={}, tolerance={}.'.
+                                  'Fan high speed warning cleared: {} speed is back to normal.'.format(fan_name),
+                                  'Fan high speed warning: {} target speed={}, current speed={}, tolerance={}.'.
                                   format(fan_name, speed_target, speed, speed_tolerance)
                                   )
 
         # TODO: handle invalid fan direction
 
-        if set_led:
-            self._set_fan_led(fan, fan_name, fan_status)
+        # We don't set PSU led here, PSU led will be handled in psud
+        if set_led and not is_psu_fan:
+            self._set_fan_led(fan_drawer, fan, fan_name, fan_status)
+            FanStatus.update_led_color = True
 
         fvs = swsscommon.FieldValuePairs(
             [('presence', str(presence)),
+             ('drawer_name', drawer_name),
              ('model', str(try_get(fan.get_model))),
              ('serial', str(try_get(fan.get_serial))),
              ('status', str(fan_fault_status)),
@@ -258,15 +324,15 @@ class FanUpdater(object):
              ('speed', str(speed)),
              ('speed_tolerance', str(speed_tolerance)),
              ('speed_target', str(speed_target)),
-             ('led_status', str(try_get(fan.get_status_led))),
              ('timestamp', datetime.now().strftime('%Y%m%d %H:%M:%S'))
              ])
 
         self.table.set(fan_name, fvs)
 
-    def _set_fan_led(self, fan, fan_name, fan_status):
+    def _set_fan_led(self, fan_drawer, fan, fan_name, fan_status):
         """
         Set fan led according to current status
+        :param fan_drawer: Object representing a platform Fan drawer or PSU
         :param fan: Object representing a platform Fan
         :param fan_name: Name of the Fan object in case any vendor not implement Fan.get_name
         :param fan_status: Object representing the FanStatus
@@ -275,12 +341,29 @@ class FanUpdater(object):
         try:
             if fan_status.is_ok():
                 fan.set_status_led(fan.STATUS_LED_COLOR_GREEN)
+                fan_drawer.set_status_led(fan.STATUS_LED_COLOR_GREEN)
             else:
                 # TODO: wait for Kebo to define the mapping of fan status to led color,
                 # just set it to red so far
                 fan.set_status_led(fan.STATUS_LED_COLOR_RED)
+                fan_drawer.set_status_led(fan.STATUS_LED_COLOR_RED)
         except NotImplementedError as e:
             logger.log_warning('Failed to set led to fan, set_status_led not implemented')
+
+    def _update_led_color(self):
+        if FanStatus.update_led_color:
+            for fan_name, fan_status in self.fan_status_dict.items():
+                try:
+                    fvs = swsscommon.FieldValuePairs([
+                        ('led_status', str(try_get(fan_status.fan.get_status_led)))
+                    ])
+                except Exception as e:
+                    logger.log_warning('Failed to get led status for fan')
+                    fvs = swsscommon.FieldValuePairs([
+                        ('led_status', NOT_AVAILABLE)
+                    ])
+                self.table.set(fan_name, fvs)
+            FanStatus.update_led_color = False
 
 
 class TemperatureStatus(object):

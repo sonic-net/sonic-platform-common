@@ -81,6 +81,25 @@ class MockPsu(MockDevice):
         return self.fan_list
 
 
+class MockFanDrawer(MockDevice):
+    def __init__(self):
+        self.name = 'FanDrawer'
+        self.fan_list = []
+        self.led_status = 'red'
+
+    def get_name(self):
+        return self.name
+
+    def get_all_fans(self):
+        return self.fan_list
+
+    def get_status_led(self):
+        return self.led_status
+
+    def set_status_led(self, value):
+        self.led_status = value
+
+
 class MockThermal:
     def __init__(self):
         self.name = None
@@ -134,6 +153,7 @@ class MockChassis:
         self.fan_list = []
         self.psu_list = []
         self.thermal_list = []
+        self.fan_drawer_list = []
 
     def get_all_fans(self):
         return self.fan_list
@@ -144,24 +164,47 @@ class MockChassis:
     def get_all_thermals(self):
         return self.thermal_list
 
+    def get_all_fan_drawers(self):
+        return self.fan_drawer_list
+
     def make_absence_fan(self):
         fan = MockFan()
         fan.presence = False
+        fan_drawer = MockFanDrawer()
+        fan_drawer.fan_list.append(fan)
         self.fan_list.append(fan)
+        self.fan_drawer_list.append(fan_drawer)
+
+    def make_fault_fan(self):
+        fan = MockFan()
+        fan.status = False
+        fan_drawer = MockFanDrawer()
+        fan_drawer.fan_list.append(fan)
+        self.fan_list.append(fan)
+        self.fan_drawer_list.append(fan_drawer)
 
     def make_under_speed_fan(self):
         fan = MockFan()
         fan.make_under_speed()
+        fan_drawer = MockFanDrawer()
+        fan_drawer.fan_list.append(fan)
         self.fan_list.append(fan)
+        self.fan_drawer_list.append(fan_drawer)
 
     def make_over_speed_fan(self):
         fan = MockFan()
         fan.make_over_speed()
+        fan_drawer = MockFanDrawer()
+        fan_drawer.fan_list.append(fan)
         self.fan_list.append(fan)
+        self.fan_drawer_list.append(fan_drawer)
 
     def make_error_fan(self):
         fan = MockErrorFan()
+        fan_drawer = MockFanDrawer()
+        fan_drawer.fan_list.append(fan)
         self.fan_list.append(fan)
+        self.fan_drawer_list.append(fan_drawer)
 
     def make_over_temper_thermal(self):
         thermal = MockThermal()

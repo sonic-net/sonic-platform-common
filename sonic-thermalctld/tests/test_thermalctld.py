@@ -95,12 +95,27 @@ def test_fanupdater_fan_absence():
     fan_updater.update()
     fan_list = chassis.get_all_fans()
     assert fan_list[0].get_status_led() == MockFan.STATUS_LED_COLOR_RED
-    logger.log_warning.assert_called_once()
+    logger.log_warning.assert_called()
 
     fan_list[0].presence = True
     fan_updater.update()
     assert fan_list[0].get_status_led() == MockFan.STATUS_LED_COLOR_GREEN
-    logger.log_notice.assert_called_once()
+    logger.log_notice.assert_called()
+
+
+def test_fanupdater_fan_fault():
+    chassis = MockChassis()
+    chassis.make_fault_fan()
+    fan_updater = FanUpdater(chassis)
+    fan_updater.update()
+    fan_list = chassis.get_all_fans()
+    assert fan_list[0].get_status_led() == MockFan.STATUS_LED_COLOR_RED
+    logger.log_warning.assert_called()
+
+    fan_list[0].status = True
+    fan_updater.update()
+    assert fan_list[0].get_status_led() == MockFan.STATUS_LED_COLOR_GREEN
+    logger.log_notice.assert_called()
 
 
 def test_fanupdater_fan_under_speed():
@@ -131,6 +146,35 @@ def test_fanupdater_fan_over_speed():
     fan_updater.update()
     assert fan_list[0].get_status_led() == MockFan.STATUS_LED_COLOR_GREEN
     logger.log_notice.assert_called_once()
+
+
+def test_insufficient_fan_number():
+    fan_status1 = FanStatus()
+    fan_status2 = FanStatus()
+    fan_status1.set_presence(False)
+    fan_status2.set_fault_status(False)
+    assert FanStatus.get_bad_fan_count() == 2
+    FanStatus.reset_fan_counter()
+    assert FanStatus.get_bad_fan_count() == 0
+
+    chassis = MockChassis()
+    chassis.make_absence_fan()
+    chassis.make_fault_fan()
+    fan_updater = FanUpdater(chassis)
+    fan_updater.update()
+    assert logger.log_warning.call_count == 3
+    logger.log_warning.assert_called_with('Insufficient number of working fans warning: 2 fans are not working.')
+
+    fan_list = chassis.get_all_fans()
+    fan_list[0].presence = True
+    fan_updater.update()
+    assert logger.log_notice.call_count == 1
+    logger.log_warning.assert_called_with('Insufficient number of working fans warning: 1 fans are not working.')
+    
+    fan_list[1].status = True
+    fan_updater.update()
+    assert logger.log_notice.call_count == 3
+    logger.log_notice.assert_called_with('Insufficient number of working fans warning cleared: all fans are back to normal.')
 
 
 def test_temperature_status_set_over_temper():
