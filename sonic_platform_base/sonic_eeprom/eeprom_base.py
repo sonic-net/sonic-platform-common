@@ -41,9 +41,13 @@ class EepromDecoder(object):
 
     def check_status(self):
         if self.u != '':
-            F = open(self.u, "r")
-            d = F.readline().rstrip()
-            F.close()
+            try:
+                F = open(self.u, "r")
+                d = F.readline().rstrip()
+            except IOError as e:
+                raise IOError("Failed to check status : %s" % (str(e)))
+            finally:
+                F.close()
             return d
         else:
             return 'ok'
@@ -232,44 +236,58 @@ class EepromDecoder(object):
         return o
 
     def read_eeprom_bytes(self, byteCount, offset=0):
-        F = self.open_eeprom()
-        F.seek(self.s + offset)
-        o = F.read(byteCount)
-
-        # If we read from the cache file and the byte count isn't what we
-        # expect, the file may be corrupt. Delete it and try again, this
-        # time reading from the actual EEPROM.
-        if len(o) != byteCount and not self.cache_update_needed:
-            os.remove(self.cache_name)
-            self.cache_update_needed = True
-            F.close()
+        try:
             F = self.open_eeprom()
             F.seek(self.s + offset)
             o = F.read(byteCount)
 
-        if len(o) != byteCount:
-            raise RuntimeError("Expected to read %d bytes from %s, "
+            # If we read from the cache file and the byte count isn't what we
+            # expect, the file may be corrupt. Delete it and try again, this
+            # time reading from the actual EEPROM.
+            if len(o) != byteCount and not self.cache_update_needed:
+                os.remove(self.cache_name)
+                self.cache_update_needed = True
+                F.close()
+                F = self.open_eeprom()
+                F.seek(self.s + offset)
+                o = F.read(byteCount)
+
+            if len(o) != byteCount:
+                raise RuntimeError("Expected to read %d bytes from %s, "
                                % (byteCount, self.p) +
                                "but only read %d" % (len(o)))
-        F.close()
+        except IOError as e:
+            raise IOError("Failed to read eeprom : %s" % (str(e)))
+        finally:
+            F.close()
+
         return o
 
     def read_eeprom_db(self):
         return 0
 
     def write_eeprom(self, e):
-        F = open(self.p, "wb")
-        F.seek(self.s)
-        F.write(e)
-        F.close()
+        try:
+            F = open(self.p, "wb")
+            F.seek(self.s)
+            F.write(e)
+        except IOError as e:
+            raise IOError("Failed to write eeprom : %s" % (str(e)))
+        finally:
+            F.close()
+
         self.write_cache(e)
 
     def write_cache(self, e):
         if self.cache_name:
-            F = open(self.cache_name, "wb")
-            F.seek(self.s)
-            F.write(e)
-            F.close()
+            try:
+                F = open(self.cache_name, "wb")
+                F.seek(self.s)
+                F.write(e)
+            except IOError as e:
+                raise IOError("Failed to write cache : %s" % (str(e)))
+            finally:
+                F.close()
 
     def update_cache(self, e):
         if self.cache_update_needed:
