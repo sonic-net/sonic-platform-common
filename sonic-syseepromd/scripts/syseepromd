@@ -52,10 +52,13 @@ class DaemonSyseeprom(DaemonBase):
         if self.eeprom is not None:
             try:
                 return self.eeprom.read_eeprom()
-            except NotImplementedError:
+            except (NotImplementedError, IOError):
                 pass
 
-        return self.eeprom.read_eeprom()
+        try:
+            return self.eeprom.read_eeprom()
+        except IOError:
+            pass
 
     def _wrapper_update_eeprom_db(self, eeprom):
         if self.eeprom is not None:
@@ -136,7 +139,7 @@ class DaemonSyseeprom(DaemonBase):
         # Connect to STATE_DB and post syseeprom info to state DB
         rc = self.post_eeprom_to_db()
         if rc != POST_EEPROM_SUCCESS:
-            return rc
+            logger.log_error("Failed to post eeprom to database")
 
         # Start main loop
         logger.log_info("Start daemon main loop")
@@ -148,7 +151,8 @@ class DaemonSyseeprom(DaemonBase):
                 self.clear_db()
                 rcs = self.post_eeprom_to_db()
                 if rcs != POST_EEPROM_SUCCESS:
-                    self.stop_event.set()
+                    logger.log_error("Failed to post eeprom to database")
+                    continue
 
         logger.log_info("Stop daemon main loop")
 
