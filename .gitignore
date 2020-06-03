@@ -1,3 +1,5 @@
-build/
+*.pyc
 */__pycache__/
+build/
 sonic_platform_common.egg-info/
+.cache

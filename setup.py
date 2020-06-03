@@ -17,6 +17,7 @@ setup(
         'sonic_platform_base.sonic_eeprom',
         'sonic_platform_base.sonic_sfp',
         'sonic_platform_base.sonic_ssd',
+        'sonic_platform_base.sonic_thermal_control',
         'sonic_psu',
         'sonic_sfp',
     ],
@@ -33,5 +34,5 @@ setup(
         'Programming Language :: Python :: 3.6',
         'Topic :: Utilities',
     ],
-    keywords='sonic SONiC platform hardware interface api API',
+    keywords='sonic SONiC platform hardware interface api API'
 )
