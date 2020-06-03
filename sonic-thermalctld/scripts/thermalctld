@@ -516,7 +516,7 @@ class TemperatureUpdater(object):
                                   'High temperature warning: {} current temperature {}C, high threshold {}C'.
                                   format(name, temperature, high_threshold)
                                   )
-            warning = warning | temperature_status.over_temperature
+        warning = warning | temperature_status.over_temperature
 
         if temperature != NOT_AVAILABLE and temperature_status.set_under_temperature(temperature, low_threshold):
             log_on_status_changed(not temperature_status.under_temperature,
@@ -525,7 +525,7 @@ class TemperatureUpdater(object):
                                   'Low temperature warning: {} current temperature {}C, low threshold {}C'.
                                   format(name, temperature, low_threshold)
                                   )
-            warning = warning | temperature_status.under_temperature
+        warning = warning | temperature_status.under_temperature
 
         fvs = swsscommon.FieldValuePairs(
             [('temperature', str(temperature)),
