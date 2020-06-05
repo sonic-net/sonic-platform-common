@@ -76,7 +76,7 @@ class DaemonLedd(DaemonBase):
             sys.exit(LEDUTIL_LOAD_ERROR)
 
         # Open a handle to the Application database
-        appl_db = daemon_base.db_connect(swsscommon.APPL_DB)
+        appl_db = daemon_base.db_connect("APPL_DB")
 
         # Subscribe to PORT table notifications in the Application DB
         sel = swsscommon.Select()

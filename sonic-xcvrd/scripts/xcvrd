@@ -381,11 +381,11 @@ def post_port_dom_info_to_db(logical_port_name, table, stop_event=threading.Even
 def post_port_sfp_dom_info_to_db(is_warm_start, stop_event=threading.Event()):
     # Connect to STATE_DB and create transceiver dom/sfp info tables
     transceiver_dict = {}
-    state_db = daemon_base.db_connect(swsscommon.STATE_DB)
+    state_db = daemon_base.db_connect("STATE_DB")
     int_tbl = swsscommon.Table(state_db, TRANSCEIVER_INFO_TABLE)
     dom_tbl = swsscommon.Table(state_db, TRANSCEIVER_DOM_SENSOR_TABLE)
 
-    appl_db = daemon_base.db_connect(swsscommon.APPL_DB)
+    appl_db = daemon_base.db_connect("APPL_DB")
     app_port_tbl = swsscommon.ProducerStateTable(appl_db,
                                                  swsscommon.APP_PORT_TABLE_NAME)
 
@@ -678,7 +678,7 @@ def detect_port_in_error_status(logical_port_name, status_tbl):
 # Init TRANSCEIVER_STATUS table
 def init_port_sfp_status_tbl(stop_event=threading.Event()):
     # Connect to STATE_DB and create transceiver status table
-    state_db = daemon_base.db_connect(swsscommon.STATE_DB)
+    state_db = daemon_base.db_connect("STATE_DB")
     status_tbl = swsscommon.Table(state_db, TRANSCEIVER_STATUS_TABLE)
 
     # Init TRANSCEIVER_STATUS table
@@ -715,7 +715,7 @@ class dom_info_update_task:
         logger.log_info("Start DOM monitoring loop")
 
         # Connect to STATE_DB and create transceiver dom info table
-        state_db = daemon_base.db_connect(swsscommon.STATE_DB)
+        state_db = daemon_base.db_connect("STATE_DB")
         dom_tbl = swsscommon.Table(state_db, TRANSCEIVER_DOM_SENSOR_TABLE)
         status_tbl = swsscommon.Table(state_db, TRANSCEIVER_STATUS_TABLE)
 
@@ -775,13 +775,13 @@ class sfp_state_update_task:
 
         transceiver_dict = {}
         # Connect to STATE_DB and create transceiver dom/sfp info tables
-        state_db = daemon_base.db_connect(swsscommon.STATE_DB)
+        state_db = daemon_base.db_connect("STATE_DB")
         int_tbl = swsscommon.Table(state_db, TRANSCEIVER_INFO_TABLE)
         dom_tbl = swsscommon.Table(state_db, TRANSCEIVER_DOM_SENSOR_TABLE)
         status_tbl = swsscommon.Table(state_db, TRANSCEIVER_STATUS_TABLE)
 
         # Connect to APPL_DB to notify Media notifications
-        appl_db = daemon_base.db_connect(swsscommon.APPL_DB)
+        appl_db = daemon_base.db_connect("APPL_DB")
         app_port_tbl = swsscommon.ProducerStateTable(appl_db,
                                                      swsscommon.APP_PORT_TABLE_NAME)
 
@@ -1017,7 +1017,7 @@ class DaemonXcvrd(DaemonBase):
     # Wait for port config is done
     def wait_for_port_config_done(self):
         # Connect to APPL_DB and subscribe to PORT table notifications
-        appl_db = daemon_base.db_connect(swsscommon.APPL_DB)
+        appl_db = daemon_base.db_connect("APPL_DB")
 
         sel = swsscommon.Select()
         sst = swsscommon.SubscriberStateTable(appl_db, swsscommon.APP_PORT_TABLE_NAME)
@@ -1089,7 +1089,7 @@ class DaemonXcvrd(DaemonBase):
             sys.exit(PORT_CONFIG_LOAD_ERROR)
 
         # Connect to STATE_DB and create transceiver dom/sfp info tables
-        state_db = daemon_base.db_connect(swsscommon.STATE_DB)
+        state_db = daemon_base.db_connect("STATE_DB")
         self.int_tbl = swsscommon.Table(state_db, TRANSCEIVER_INFO_TABLE)
         self.dom_tbl = swsscommon.Table(state_db, TRANSCEIVER_DOM_SENSOR_TABLE)
         self.status_tbl = swsscommon.Table(state_db, TRANSCEIVER_STATUS_TABLE)

@@ -235,7 +235,7 @@ class DaemonPsud(DaemonBase):
                 sys.exit(PSUUTIL_LOAD_ERROR)
 
         # Connect to STATE_DB and create psu/chassis info tables
-        state_db = daemon_base.db_connect(swsscommon.STATE_DB)
+        state_db = daemon_base.db_connect("STATE_DB")
         chassis_tbl = swsscommon.Table(state_db, CHASSIS_INFO_TABLE)
         psu_tbl = swsscommon.Table(state_db, PSU_INFO_TABLE)
 

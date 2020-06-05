@@ -44,7 +44,7 @@ class DaemonSyseeprom(DaemonBase):
         self.stop_event = threading.Event()
         self.eeprom = None
 
-        state_db = daemon_base.db_connect(swsscommon.STATE_DB)
+        state_db = daemon_base.db_connect("STATE_DB")
         self.eeprom_tbl = swsscommon.Table(state_db, EEPROM_TABLE_NAME)
         self.eepromtbl_keys = []
 

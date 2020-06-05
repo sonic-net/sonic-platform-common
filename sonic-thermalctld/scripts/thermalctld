@@ -197,7 +197,7 @@ class FanUpdater(object):
         """
         self.chassis = chassis
         self.fan_status_dict = {}
-        state_db = daemon_base.db_connect(swsscommon.STATE_DB)
+        state_db = daemon_base.db_connect("STATE_DB")
         self.table = swsscommon.Table(state_db, FanUpdater.FAN_INFO_TABLE_NAME)
 
     def deinit(self):
@@ -458,7 +458,7 @@ class TemperatureUpdater(object):
         """
         self.chassis = chassis
         self.temperature_status_dict = {}
-        state_db = daemon_base.db_connect(swsscommon.STATE_DB)
+        state_db = daemon_base.db_connect("STATE_DB")
         self.table = swsscommon.Table(state_db, TemperatureUpdater.TEMPER_INFO_TABLE_NAME)
 
     def deinit(self):
