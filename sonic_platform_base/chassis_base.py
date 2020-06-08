@@ -28,33 +28,46 @@ class ChassisBase(device_base.DeviceBase):
 
     # List of ComponentBase-derived objects representing all components
     # available on the chassis
-    _component_list = []
+    _component_list = None
 
     # List of ModuleBase-derived objects representing all modules
     # available on the chassis (for use with modular chassis)
-    _module_list = []
+    _module_list = None
 
     # List of FanBase-derived objects representing all fans
     # available on the chassis
-    _fan_list = []
+    _fan_list = None
+
+    # List of FanDrawerBase-derived objects representing all fan drawers
+    # available on the chassis
+    _fan_drawer_list = None
 
     # List of PsuBase-derived objects representing all power supply units
     # available on the chassis
-    _psu_list = []
+    _psu_list = None
 
     # List of ThermalBase-derived objects representing all thermals
     # available on the chassis
-    _thermal_list = []
+    _thermal_list = None
 
     # List of SfpBase-derived objects representing all sfps
     # available on the chassis
-    _sfp_list = []
+    _sfp_list = None
 
     # Object derived from WatchdogBase for interacting with hardware watchdog
     _watchdog = None
 
     # Object derived from eeprom_tlvinfo.TlvInfoDecoder indicating the eeprom on the chassis
     _eeprom = None
+
+    def __init__(self):
+        self._component_list = []
+        self._module_list = []
+        self._fan_list = []
+        self._psu_list = []
+        self._thermal_list = []
+        self._sfp_list = []
+        self._fan_drawer_list = []
 
     def get_base_mac(self):
         """
@@ -235,6 +248,47 @@ class ChassisBase(device_base.DeviceBase):
 
         return fan
 
+    def get_num_fan_drawers(self):
+        """
+        Retrieves the number of fan drawers available on this chassis
+
+        Returns:
+            An integer, the number of fan drawers available on this chassis
+        """
+        return len(self._fan_drawer_list)
+
+    def get_all_fan_drawers(self):
+        """
+        Retrieves all fan drawers available on this chassis
+
+        Returns:
+            A list of objects derived from FanDrawerBase representing all fan
+            drawers available on this chassis
+        """
+        return self._fan_drawer_list
+
+    def get_fan_drawer(self, index):
+        """
+        Retrieves fan drawers represented by (0-based) index <index>
+
+        Args:
+            index: An integer, the index (0-based) of the fan drawer to
+            retrieve
+
+        Returns:
+            An object dervied from FanDrawerBase representing the specified fan
+            drawer
+        """
+        fan_drawer = None
+
+        try:
+            fan_drawer = self._fan_drawer_list[index]
+        except IndexError:
+            sys.stderr.write("Fan drawer index {} out of range (0-{})\n".format(
+                             index, len(self._fan_drawer_list)-1))
+
+        return fan_drawer
+
     ##############################################
     # PSU methods
     ##############################################
@@ -324,6 +378,14 @@ class ChassisBase(device_base.DeviceBase):
                              index, len(self._thermal_list)-1))
 
         return thermal
+
+    def get_thermal_manager(self):
+        """
+        Retrieves thermal manager class on this chassis
+        :return: A class derived from ThermalManagerBase representing the
+        specified thermal manager. ThermalManagerBase is returned as default
+        """
+        raise NotImplementedError
 
     ##############################################
     # SFP methods
@@ -417,6 +479,15 @@ class ChassisBase(device_base.DeviceBase):
                   Ex. {'fan':{'0':'0', '2':'1'}, 'sfp':{'11':'0'}}
                       indicates that fan 0 has been removed, fan 2
                       has been inserted and sfp 11 has been removed.
+                  Specifically for SFP event, besides SFP plug in and plug out,
+                  there are some other error event could be raised from SFP, when 
+                  these error happened, SFP eeprom will not be avalaible, XCVRD shall
+                  stop to read eeprom before SFP recovered from error status.
+                      status='2' I2C bus stuck,
+                      status='3' Bad eeprom,
+                      status='4' Unsupported cable,
+                      status='5' High Temperature,
+                      status='6' Bad cable.
         """
         raise NotImplementedError
 

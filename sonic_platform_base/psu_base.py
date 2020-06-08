@@ -23,7 +23,10 @@ class PsuBase(device_base.DeviceBase):
 
     # List of FanBase-derived objects representing all fans
     # available on the PSU
-    _fan_list = []
+    _fan_list = None
+
+    def __init__(self):
+        self._fan_list = []
 
     def get_num_fans(self):
         """
@@ -123,5 +126,45 @@ class PsuBase(device_base.DeviceBase):
 
         Returns:
             A string, one of the predefined STATUS_LED_COLOR_* strings above
+        """
+        raise NotImplementedError
+
+    def get_temperature(self):
+        """
+        Retrieves current temperature reading from PSU
+
+        Returns:
+            A float number of current temperature in Celsius up to nearest thousandth
+            of one degree Celsius, e.g. 30.125 
+        """
+        raise NotImplementedError
+
+    def get_temperature_high_threshold(self):
+        """
+        Retrieves the high threshold temperature of PSU
+
+        Returns:
+            A float number, the high threshold temperature of PSU in Celsius
+            up to nearest thousandth of one degree Celsius, e.g. 30.125
+        """
+        raise NotImplementedError
+
+    def get_voltage_high_threshold(self):
+        """
+        Retrieves the high threshold PSU voltage output
+
+        Returns:
+            A float number, the high threshold output voltage in volts, 
+            e.g. 12.1 
+        """
+        raise NotImplementedError
+
+    def get_voltage_low_threshold(self):
+        """
+        Retrieves the low threshold PSU voltage output
+
+        Returns:
+            A float number, the low threshold output voltage in volts, 
+            e.g. 12.1 
         """
         raise NotImplementedError

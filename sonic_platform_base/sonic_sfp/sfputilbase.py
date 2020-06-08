@@ -17,8 +17,17 @@ try:
     from .sff8436 import sff8436InterfaceId  # Dot module supports both Python 2 and Python 3 using explicit relative import methods
     from .sff8436 import sff8436Dom    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
     from .inf8628 import inf8628InterfaceId    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
+    from portconfig import get_port_config
+    from collections import OrderedDict
+    from natsort import natsorted
+    from sonic_daemon_base.daemon_base import DaemonBase
+    import sys
 except ImportError as e:
     raise ImportError("%s - required module not found" % str(e))
+
+# Global Variable
+PLATFORM_JSON = 'platform.json'
+PORT_CONFIG_INI = 'portconfig.ini'
 
 # definitions of the offset and width for values in XCVR info eeprom
 XCVR_INTFACE_BULK_OFFSET = 0
@@ -78,7 +87,7 @@ QSFP_CHANNL_MON_WITH_TX_POWER_WIDTH = 24
 QSFP_MODULE_THRESHOLD_OFFSET = 128
 QSFP_MODULE_THRESHOLD_WIDTH = 24
 QSFP_CHANNL_THRESHOLD_OFFSET = 176
-QSFP_CHANNL_THRESHOLD_WIDTH = 16
+QSFP_CHANNL_THRESHOLD_WIDTH = 24
 QSFP_CHANNL_MON_MASK_OFFSET = 242
 QSFP_CHANNL_MON_MASK_WIDTH = 4
 
@@ -88,9 +97,10 @@ SFP_VOLT_OFFSET = 98
 SFP_VOLT_WIDTH = 2
 SFP_CHANNL_MON_OFFSET = 100
 SFP_CHANNL_MON_WIDTH = 6
-SFP_MODULE_THRESHOLD_OFFSET = 0
-SFP_MODULE_THRESHOLD_WIDTH = 56
-
+SFP_MODULE_THRESHOLD_OFFSET = 112
+SFP_MODULE_THRESHOLD_WIDTH = 5
+SFP_CHANNL_THRESHOLD_OFFSET = 112
+SFP_CHANNL_THRESHOLD_WIDTH = 6
 
 qsfp_cable_length_tup = ('Length(km)', 'Length OM3(2m)',
                          'Length OM2(m)', 'Length OM1(m)',
@@ -320,7 +330,7 @@ class SfpUtilBase(object):
             sysfsfile_eeprom.seek(offset)
             raw = sysfsfile_eeprom.read(num_bytes)
         except IOError:
-            print("Error: reading sysfs file %s" % sysfs_sfp_i2c_client_eeprom_path)
+            print("Error: reading EEPROM sysfs file")
             return None
 
         try:
@@ -369,13 +379,58 @@ class SfpUtilBase(object):
         first = 1
         port_pos_in_file = 0
         parse_fmt_port_config_ini = False
+        parse_fmt_platform_json = False
+
+        parse_fmt_port_config_ini = (os.path.basename(porttabfile) == PORT_CONFIG_INI)
+        parse_fmt_platform_json = (os.path.basename(porttabfile) == PLATFORM_JSON)
+
+        (platform, hwsku) =  DaemonBase().get_platform_and_hwsku()
+        if(parse_fmt_platform_json):
+            ports, _ = get_port_config(hwsku, platform)
+            if not ports:
+                print('Failed to get port config', file=sys.stderr)
+                sys.exit(1)
+            else:
+                logical_list = []
+                for intf in ports.keys():
+                    logical_list.append(intf)
+
+                logical = natsorted(logical_list, key=lambda y: y.lower())
+                logical_to_bcm, logical_to_physical, physical_to_logical = OrderedDict(),  OrderedDict(),  OrderedDict()
+
+                for intf_name in logical:
+                    bcm_port = str(port_pos_in_file)
+                    logical_to_bcm[intf_name] = "xe"+ bcm_port
+
+                    if 'index' in ports[intf_name].keys():
+                        fp_port_index = ports[intf_name]['index']
+                        logical_to_physical[intf_name] = [fp_port_index]
+
+                    if physical_to_logical.get(fp_port_index) is None:
+                        physical_to_logical[fp_port_index] = [intf_name]
+                    else:
+                        physical_to_logical[fp_port_index].append(intf_name)
+
+                    port_pos_in_file +=1
+
+                self.logical = logical
+                self.logical_to_bcm = logical_to_bcm
+                self.logical_to_physical = logical_to_physical
+                self.physical_to_logical = physical_to_logical
+
+                """
+                print("logical: {}".format(self.logical))
+                print("logical to bcm: {}".format(self.logical_to_bcm))
+                print("logical to physical: {}".format(self.logical_to_physical))
+                print("physical to logical: {}".format( self.physical_to_logical))
+                """
+                return None
+
 
         try:
             f = open(porttabfile)
         except:
             raise
-
-        parse_fmt_port_config_ini = (os.path.basename(porttabfile) == "port_config.ini")
 
         # Read the porttab file and generate dicts
         # with mapping for future reference.
@@ -431,8 +486,7 @@ class SfpUtilBase(object):
             if physical_to_logical.get(fp_port_index) is None:
                 physical_to_logical[fp_port_index] = [portname]
             else:
-                physical_to_logical[fp_port_index].append(
-                    portname)
+                physical_to_logical[fp_port_index].append(portname)
 
             last_fp_port_index = fp_port_index
             last_portname = portname
@@ -450,7 +504,6 @@ class SfpUtilBase(object):
         print("logical to physical: " + self.logical_to_physical)
         print("physical to logical: " + self.physical_to_logical)
         """
-
     def read_phytab_mappings(self, phytabfile):
         logical = []
         phytab_mappings = {}
@@ -781,7 +834,25 @@ class SfpUtilBase(object):
             transceiver_info_dict['nominal_bit_rate'] = 'N/A'
 
         else:
+            file_path = self._get_port_eeprom_path(port_num, self.IDENTITY_EEPROM_ADDR)
+            if not self._sfp_eeprom_present(file_path, 0):
+                print("Error, file not exist %s" % file_path)
+                return None
+
+            try:
+                sysfsfile_eeprom = open(file_path, mode="rb", buffering=0)
+            except IOError:
+                print("Error: reading sysfs file %s" % file_path)
+                return None
+
             if port_num in self.qsfp_ports:
+                # Check for QSA adapter
+                byte0 = self._read_eeprom_specific_bytes(sysfsfile_eeprom, 0, 1)[0]
+                is_qsfp = (byte0 != '03' and byte0 != '0b')
+            else:
+                is_qsfp = False
+
+            if is_qsfp:
                 offset = 128
                 vendor_rev_width = XCVR_HW_REV_WIDTH_QSFP
                 cable_length_width = XCVR_CABLE_LENGTH_WIDTH_QSFP
@@ -804,17 +875,6 @@ class SfpUtilBase(object):
                 if sfpi_obj is None:
                     print("Error: sfp_object open failed")
                     return None
-
-            file_path = self._get_port_eeprom_path(port_num, self.IDENTITY_EEPROM_ADDR)
-            if not self._sfp_eeprom_present(file_path, 0):
-                print("Error, file not exist %s" % file_path)
-                return None
-
-            try:
-                sysfsfile_eeprom = open(file_path, mode="rb", buffering=0)
-            except IOError:
-                print("Error: reading sysfs file %s" % file_path)
-                return None
 
             sfp_interface_bulk_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + XCVR_INTFACE_BULK_OFFSET), interface_info_bulk_width)
             if sfp_interface_bulk_raw is not None:
@@ -1045,7 +1105,6 @@ class SfpUtilBase(object):
             sfpd_obj = sff8472Dom()
             if sfpd_obj is None:
                 return None
-
             dom_temperature_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + SFP_TEMPE_OFFSET), SFP_TEMPE_WIDTH)
             if dom_temperature_raw is not None:
                 dom_temperature_data = sfpd_obj.parse_temperature(dom_temperature_raw, 0)
@@ -1086,7 +1145,6 @@ class SfpUtilBase(object):
             transceiver_dom_info_dict['tx4power'] = 'N/A'
 
         return transceiver_dom_info_dict
-
     def get_transceiver_dom_threshold_info_dict(self, port_num):
         transceiver_dom_threshold_info_dict = {}
 
@@ -1195,7 +1253,7 @@ class SfpUtilBase(object):
                                          (offset + SFP_CHANNL_THRESHOLD_OFFSET),
                                          SFP_CHANNL_THRESHOLD_WIDTH)
             if dom_channel_threshold_raw is not None:
-                dom_channel_threshold_data = sfpd_obj.parse_channel_monitor_params(dom_channel_threshold_raw, 0)
+                dom_channel_threshold_data = sfpd_obj.parse_channel_thresh_monitor_params(dom_channel_threshold_raw, 0)
             else:
                 return None
 
@@ -1279,3 +1337,4 @@ class SfpUtilBase(object):
          like {'-1':'system_not_ready'}.
         """
         return
+
