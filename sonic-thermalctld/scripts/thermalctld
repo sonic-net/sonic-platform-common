@@ -66,7 +66,6 @@ def log_on_status_changed(normal_status, normal_log, abnormal_log):
 class FanStatus(object):
     absence_fan_count = 0
     fault_fan_count = 0
-    update_led_color = True
 
     def __init__(self, fan=None, is_psu_fan=False):
         """
@@ -310,9 +309,9 @@ class FanUpdater(object):
         # TODO: handle invalid fan direction
 
         # We don't set PSU led here, PSU led will be handled in psud
-        if set_led and not is_psu_fan:
-            self._set_fan_led(fan_drawer, fan, fan_name, fan_status)
-            FanStatus.update_led_color = True
+        if set_led:
+            if not is_psu_fan:
+                self._set_fan_led(fan_drawer, fan, fan_name, fan_status)
 
         fvs = swsscommon.FieldValuePairs(
             [('presence', str(presence)),
@@ -351,19 +350,17 @@ class FanUpdater(object):
             logger.log_warning('Failed to set led to fan, set_status_led not implemented')
 
     def _update_led_color(self):
-        if FanStatus.update_led_color:
-            for fan_name, fan_status in self.fan_status_dict.items():
-                try:
-                    fvs = swsscommon.FieldValuePairs([
-                        ('led_status', str(try_get(fan_status.fan.get_status_led)))
-                    ])
-                except Exception as e:
-                    logger.log_warning('Failed to get led status for fan')
-                    fvs = swsscommon.FieldValuePairs([
-                        ('led_status', NOT_AVAILABLE)
-                    ])
-                self.table.set(fan_name, fvs)
-            FanStatus.update_led_color = False
+        for fan_name, fan_status in self.fan_status_dict.items():
+            try:
+                fvs = swsscommon.FieldValuePairs([
+                    ('led_status', str(try_get(fan_status.fan.get_status_led)))
+                ])
+            except Exception as e:
+                logger.log_warning('Failed to get led status for fan')
+                fvs = swsscommon.FieldValuePairs([
+                    ('led_status', NOT_AVAILABLE)
+                ])
+            self.table.set(fan_name, fvs)
 
 
 class TemperatureStatus(object):

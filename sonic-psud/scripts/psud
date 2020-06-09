@@ -122,8 +122,6 @@ def log_on_status_changed(normal_status, normal_log, abnormal_log):
 #
 
 class PsuStatus(object):
-    update_led_color = True
-
     def __init__(self, psu):
         self.psu = psu
         self.presence = True
@@ -325,7 +323,6 @@ class DaemonPsud(DaemonBase):
             )
         
         if set_led:
-            PsuStatus.update_led_color = True
             self._set_psu_led(psu, psu_status)
 
     def _set_psu_led(self, psu, psu_status):
@@ -339,19 +336,17 @@ class DaemonPsud(DaemonBase):
         if not platform_chassis:
             return
 
-        if PsuStatus.update_led_color:
-            for index, psu_status in self.psu_status_dict.items():
-                try:
-                    fvs = swsscommon.FieldValuePairs([
-                        ('led_status', str(try_get(psu_status.psu.get_status_led)))
-                    ])
-                except Exception as e:
-                    logger.log_warning('Failed to get led status for psu {}'.format(index))
-                    fvs = swsscommon.FieldValuePairs([
-                        ('led_status', NOT_AVAILABLE)
-                    ])
-                psu_tbl.set(PSU_INFO_KEY_TEMPLATE.format(index), fvs)
-            PsuStatus.update_led_color = False
+        for index, psu_status in self.psu_status_dict.items():
+            try:
+                fvs = swsscommon.FieldValuePairs([
+                    ('led_status', str(try_get(psu_status.psu.get_status_led)))
+                ])
+            except Exception as e:
+                logger.log_warning('Failed to get led status for psu {}'.format(index))
+                fvs = swsscommon.FieldValuePairs([
+                    ('led_status', NOT_AVAILABLE)
+                ])
+            psu_tbl.set(PSU_INFO_KEY_TEMPLATE.format(index), fvs)
 #
 # Main =========================================================================
 #
