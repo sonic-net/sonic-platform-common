@@ -60,6 +60,9 @@ class ChassisBase(device_base.DeviceBase):
     # Object derived from eeprom_tlvinfo.TlvInfoDecoder indicating the eeprom on the chassis
     _eeprom = None
 
+    # System status LED
+    _led = None
+
     def __init__(self):
         self._component_list = []
         self._module_list = []
@@ -384,26 +387,6 @@ class ChassisBase(device_base.DeviceBase):
         Retrieves thermal manager class on this chassis
         :return: A class derived from ThermalManagerBase representing the
         specified thermal manager. ThermalManagerBase is returned as default
-        """
-        raise NotImplementedError
-
-    def get_asic_temperature(self):
-        """
-        Retrieves current temperature reading from ASIC sensor
-
-        Returns:
-            A float number of current temperature in Celsius up to nearest thousandth
-            of one degree Celsius, e.g. 30.125 
-        """
-        raise NotImplementedError
-
-    def get_asic_temperature_threshold(self):
-        """
-        Retrieves the high threshold temperature of ASIC
-
-        Returns:
-            A float number, the high threshold temperature of ASIC in Celsius
-            up to nearest thousandth of one degree Celsius, e.g. 30.125
         """
         raise NotImplementedError
 
