@@ -60,6 +60,9 @@ class ChassisBase(device_base.DeviceBase):
     # Object derived from eeprom_tlvinfo.TlvInfoDecoder indicating the eeprom on the chassis
     _eeprom = None
 
+    # System status LED
+    _status_led = None
+
     def __init__(self):
         self._component_list = []
         self._module_list = []
@@ -432,6 +435,33 @@ class ChassisBase(device_base.DeviceBase):
                              index, len(self._sfp_list)-1))
 
         return sfp
+
+    ##############################################
+    # System LED methods
+    ##############################################
+
+    def set_status_led(self, color):
+        """
+        Sets the state of the system LED
+
+        Args:
+            color: A string representing the color with which to set the
+                   system LED
+
+        Returns:
+            bool: True if system LED state is set successfully, False if not
+        """
+        raise NotImplementedError
+
+    def get_status_led(self):
+        """
+        Gets the state of the system LED
+
+        Returns:
+            A string, one of the valid LED color strings which could be vendor
+            specified.
+        """
+        raise NotImplementedError
 
     ##############################################
     # Other methods
