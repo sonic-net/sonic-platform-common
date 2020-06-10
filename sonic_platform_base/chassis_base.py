@@ -61,7 +61,7 @@ class ChassisBase(device_base.DeviceBase):
     _eeprom = None
 
     # System status LED
-    _led = None
+    _status_led = None
 
     def __init__(self):
         self._component_list = []
