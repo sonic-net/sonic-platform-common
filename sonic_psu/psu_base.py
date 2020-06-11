@@ -88,29 +88,29 @@ class PsuBase(object):
         Retrieves the ouput volatage in milli volts of a power supply unit (PSU) defined
                 by 1-based index <idx>
         :param idx: An integer, 1-based index of the PSU of which to query o/p volatge
-        :return: An integer, value of o/p voltage in mV if PSU is good, else zero
+        :return: A float, value of o/p voltage in Volts if PSU is good, else zero
         """
-        return 0
+        return 0.0
 
     def get_output_current(self, idx):
         """
         Retrieves the output current in milli amperes of a power supply unit (PSU) defined
                 by 1-based index <idx>
         :param idx: An integer, 1-based index of the PSU of which to query o/p current
-        :return: An integer, value of o/p current in mA if PSU is good, else zero
+        :return: A float, value of o/p current in Amps if PSU is good, else zero
         """
-        return 0
+        return 0.0
 
     def get_output_power(self, idx):
         """
         Retrieves the output power in micro watts of a power supply unit (PSU) defined
                 by 1-based index <idx>
         :param idx: An integer, 1-based index of the PSU of which to query o/p power
-        :return: An integer, value of o/p power in micro Watts if PSU is good, else zero
+        :return: A float, value of o/p power in Watts if PSU is good, else zero
         """
-        return 0
+        return 0.0
 
-    def get_fan_speed(self, idx, fan_idx):
+    def get_fan_rpm(self, idx, fan_idx):
         """
         Retrieves the speed of fan, in rpm, denoted by 1-based <fan_idx> of a power 
                 supply unit (PSU) defined by 1-based index <idx>

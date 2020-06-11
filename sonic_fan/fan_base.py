@@ -61,7 +61,7 @@ class FanBase(object):
     
     def get_speed(self, index):
         """
-        Retrieves the speed of a Front FAN in the tray in revolutions per minute defined
+        Retrieves the speed of a FAN in the tray in revolutions per minute defined
                 by 1-based index <index>
 
         :param index: An integer, 1-based index of the FAN of which to query speed
@@ -69,16 +69,6 @@ class FanBase(object):
         """
         return 0
 
-    def get_speed_rear(self, index):
-        """
-        Retrieves the speed of a rear FAN in the tray (applicable only for 2-fan tray) 
-                in revolutions per minute defined by 1-based index <index>
-
-        :param index: An integer, 1-based index of the FAN of which to query speed
-        :return: integer, denoting rear FAN speed
-        """
-        return 0
-    
     def set_speed(self, val):
         """
         Sets the speed of all the FANs to a value denoted by the duty-cycle percentage val
