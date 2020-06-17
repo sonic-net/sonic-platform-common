@@ -20,7 +20,7 @@ except ImportError as e:
 
 # Global Variable
 PLATFORM_JSON = 'platform.json'
-PORT_CONFIG_INI = 'portconfig.ini'
+PORT_CONFIG_INI = 'port_config.ini'
 
 class SfpUtilHelper(object):
     # List to specify filter for sfp_ports

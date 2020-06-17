@@ -27,7 +27,7 @@ except ImportError as e:
 
 # Global Variable
 PLATFORM_JSON = 'platform.json'
-PORT_CONFIG_INI = 'portconfig.ini'
+PORT_CONFIG_INI = 'port_config.ini'
 
 # definitions of the offset and width for values in XCVR info eeprom
 XCVR_INTFACE_BULK_OFFSET = 0
