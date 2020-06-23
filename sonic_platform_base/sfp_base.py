@@ -26,11 +26,11 @@ class SfpBase(device_base.DeviceBase):
         keys                       |Value Format   |Information	
         ---------------------------|---------------|----------------------------
         type                       |1*255VCHAR     |type of SFP
-        hardwarerev                |1*255VCHAR     |hardware version of SFP
-        serialnum                  |1*255VCHAR     |serial number of the SFP
-        manufacturename            |1*255VCHAR     |SFP vendor name
-        modelname                  |1*255VCHAR     |SFP model name
-        Connector                  |1*255VCHAR     |connector information
+        hardware_rev               |1*255VCHAR     |hardware version of SFP
+        serial                     |1*255VCHAR     |serial number of the SFP
+        manufacturer               |1*255VCHAR     |SFP vendor name
+        model                      |1*255VCHAR     |SFP model name
+        connector                  |1*255VCHAR     |connector information
         encoding                   |1*255VCHAR     |encoding information
         ext_identifier             |1*255VCHAR     |extend identifier
         ext_rateselect_compliance  |1*255VCHAR     |extended rateSelect compliance
