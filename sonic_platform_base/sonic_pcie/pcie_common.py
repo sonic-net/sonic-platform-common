@@ -80,14 +80,14 @@ class PcieUtil(PcieBase):
                     print("CAN NOT MATCH PCIe DEVICE")
         return pciList
 
-  # check the sysfs tree for each PCIe device
+    # check the sysfs tree for each PCIe device
     def check_pcie_sysfs(self, domain=0, bus=0, device=0, func=0):
         dev_path = os.path.join('/sys/bus/pci/devices', '%04x:%02x:%02x.%d' % (domain, bus, device, func))
         if os.path.exists(dev_path):
             return True
         return False
 
-  # check the current PCIe device with config file and return the result
+    # check the current PCIe device with config file and return the result
     def get_pcie_check(self):
         self.load_config_file()
         for item_conf in self.confInfo:
