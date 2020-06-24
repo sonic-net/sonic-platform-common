@@ -118,7 +118,10 @@ class SfpBase(device_base.DeviceBase):
         Retrieves the RX LOS (loss-of-signal) status of SFP
 
         Returns:
-            A Boolean, True if SFP has RX LOS, False if not.
+            A list of boolean values, representing the RX LOS status
+            of each available channel, value is True if SFP channel
+            has RX LOS, False if not.
+            E.g., for a tranceiver with four channels: [False, False, True, False]
             Note : RX LOS status is latched until a call to get_rx_los or a reset.
         """
         raise NotImplementedError
@@ -128,7 +131,10 @@ class SfpBase(device_base.DeviceBase):
         Retrieves the TX fault status of SFP
 
         Returns:
-            A Boolean, True if SFP has TX fault, False if not
+            A list of boolean values, representing the TX fault status
+            of each available channel, value is True if SFP channel
+            has TX fault, False if not.
+            E.g., for a tranceiver with four channels: [False, False, True, False]
             Note : TX fault status is lached until a call to get_tx_fault or a reset.
         """
         raise NotImplementedError
@@ -138,7 +144,10 @@ class SfpBase(device_base.DeviceBase):
         Retrieves the tx_disable status of this SFP
 
         Returns:
-            A Boolean, True if tx_disable is enabled, False if disabled
+            A list of boolean values, representing the TX disable status
+            of each available channel, value is True if SFP channel
+            is TX disabled, False if not.
+            E.g., for a tranceiver with four channels: [False, False, True, False]
         """
         raise NotImplementedError
 
@@ -198,7 +207,7 @@ class SfpBase(device_base.DeviceBase):
         Returns:
             A list of floats, representing TX bias in mA
             for each available channel
-            Ex. ['110.09', '111.12', '108.21', '112.09']
+            E.g., for a tranceiver with four channels: ['110.09', '111.12', '108.21', '112.09']
         """
         raise NotImplementedError
     
@@ -209,7 +218,7 @@ class SfpBase(device_base.DeviceBase):
         Returns:
             A list of floats, representing received optical
             power in mW for each available channel
-            Ex. ['1.77', '1.71', '1.68', '1.70']
+            E.g., for a tranceiver with four channels: ['1.77', '1.71', '1.68', '1.70']
         """
         raise NotImplementedError
     
@@ -220,7 +229,7 @@ class SfpBase(device_base.DeviceBase):
         Returns:
             A list of floats, representing TX power in mW
             for each available channel
-            Ex. ['1.86', '1.86', '1.86', '1.86']
+            E.g., for a tranceiver with four channels: ['1.86', '1.86', '1.86', '1.86']
         """
         raise NotImplementedError
     
