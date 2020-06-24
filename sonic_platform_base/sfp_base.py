@@ -115,7 +115,7 @@ class SfpBase(device_base.DeviceBase):
 
     def get_rx_los(self):
         """
-        Retrieves the RX LOS (lost-of-signal) status of SFP
+        Retrieves the RX LOS (loss-of-signal) status of SFP
 
         Returns:
             A Boolean, True if SFP has RX LOS, False if not.
