@@ -193,33 +193,33 @@ class SfpBase(device_base.DeviceBase):
     
     def get_tx_bias(self):
         """
-        Retrieves the TX bias current of this SFP
+        Retrieves the TX bias current of all SFP channels
 
         Returns:
-            A list of four floats, representing TX bias in mA
-            for channel 0 to channel 4.
+            A list of floats, representing TX bias in mA
+            for each available channel
             Ex. ['110.09', '111.12', '108.21', '112.09']
         """
         raise NotImplementedError
     
     def get_rx_power(self):
         """
-        Retrieves the received optical power for this SFP
+        Retrieves the received optical power of all SFP channels
 
         Returns:
-            A list of four floats, representing received optical
-            power in mW for channel 0 to channel 4.
+            A list of floats, representing received optical
+            power in mW for each available channel
             Ex. ['1.77', '1.71', '1.68', '1.70']
         """
         raise NotImplementedError
     
     def get_tx_power(self):
         """
-        Retrieves the TX power of this SFP
+        Retrieves the TX power of all SFP channels
 
         Returns:
-            A list of four floats, representing TX power in mW
-            for channel 0 to channel 4.
+            A list of floats, representing TX power in mW
+            for each available channel
             Ex. ['1.86', '1.86', '1.86', '1.86']
         """
         raise NotImplementedError
