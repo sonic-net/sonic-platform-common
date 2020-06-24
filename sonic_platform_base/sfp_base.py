@@ -177,7 +177,7 @@ class SfpBase(device_base.DeviceBase):
         Retrieves the temperature of this SFP
 
         Returns:
-            An integer number of current temperature in Celsius
+            A float representing the current temperature in Celsius
         """
         raise NotImplementedError
 
@@ -187,7 +187,7 @@ class SfpBase(device_base.DeviceBase):
         Retrieves the supply voltage of this SFP
 
         Returns:
-            An integer number of supply voltage in mV
+            A float representing the supply voltage in mV
         """
         raise NotImplementedError
     
@@ -196,7 +196,7 @@ class SfpBase(device_base.DeviceBase):
         Retrieves the TX bias current of this SFP
 
         Returns:
-            A list of four integer numbers, representing TX bias in mA
+            A list of four floats, representing TX bias in mA
             for channel 0 to channel 4.
             Ex. ['110.09', '111.12', '108.21', '112.09']
         """
@@ -207,7 +207,7 @@ class SfpBase(device_base.DeviceBase):
         Retrieves the received optical power for this SFP
 
         Returns:
-            A list of four integer numbers, representing received optical
+            A list of four floats, representing received optical
             power in mW for channel 0 to channel 4.
             Ex. ['1.77', '1.71', '1.68', '1.70']
         """
@@ -218,7 +218,7 @@ class SfpBase(device_base.DeviceBase):
         Retrieves the TX power of this SFP
 
         Returns:
-            A list of four integer numbers, representing TX power in mW
+            A list of four floats, representing TX power in mW
             for channel 0 to channel 4.
             Ex. ['1.86', '1.86', '1.86', '1.86']
         """
