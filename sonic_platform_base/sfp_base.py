@@ -26,11 +26,11 @@ class SfpBase(device_base.DeviceBase):
         keys                       |Value Format   |Information	
         ---------------------------|---------------|----------------------------
         type                       |1*255VCHAR     |type of SFP
-        hardwarerev                |1*255VCHAR     |hardware version of SFP
-        serialnum                  |1*255VCHAR     |serial number of the SFP
-        manufacturename            |1*255VCHAR     |SFP vendor name
-        modelname                  |1*255VCHAR     |SFP model name
-        Connector                  |1*255VCHAR     |connector information
+        hardware_rev               |1*255VCHAR     |hardware version of SFP
+        serial                     |1*255VCHAR     |serial number of the SFP
+        manufacturer               |1*255VCHAR     |SFP vendor name
+        model                      |1*255VCHAR     |SFP model name
+        connector                  |1*255VCHAR     |connector information
         encoding                   |1*255VCHAR     |encoding information
         ext_identifier             |1*255VCHAR     |extend identifier
         ext_rateselect_compliance  |1*255VCHAR     |extended rateSelect compliance
@@ -115,7 +115,7 @@ class SfpBase(device_base.DeviceBase):
 
     def get_rx_los(self):
         """
-        Retrieves the RX LOS (lost-of-signal) status of SFP
+        Retrieves the RX LOS (loss-of-signal) status of SFP
 
         Returns:
             A Boolean, True if SFP has RX LOS, False if not.
@@ -177,7 +177,7 @@ class SfpBase(device_base.DeviceBase):
         Retrieves the temperature of this SFP
 
         Returns:
-            An integer number of current temperature in Celsius
+            A float representing the current temperature in Celsius
         """
         raise NotImplementedError
 
@@ -187,39 +187,39 @@ class SfpBase(device_base.DeviceBase):
         Retrieves the supply voltage of this SFP
 
         Returns:
-            An integer number of supply voltage in mV
+            A float representing the supply voltage in mV
         """
         raise NotImplementedError
     
     def get_tx_bias(self):
         """
-        Retrieves the TX bias current of this SFP
+        Retrieves the TX bias current of all SFP channels
 
         Returns:
-            A list of four integer numbers, representing TX bias in mA
-            for channel 0 to channel 4.
+            A list of floats, representing TX bias in mA
+            for each available channel
             Ex. ['110.09', '111.12', '108.21', '112.09']
         """
         raise NotImplementedError
     
     def get_rx_power(self):
         """
-        Retrieves the received optical power for this SFP
+        Retrieves the received optical power of all SFP channels
 
         Returns:
-            A list of four integer numbers, representing received optical
-            power in mW for channel 0 to channel 4.
+            A list of floats, representing received optical
+            power in mW for each available channel
             Ex. ['1.77', '1.71', '1.68', '1.70']
         """
         raise NotImplementedError
     
     def get_tx_power(self):
         """
-        Retrieves the TX power of this SFP
+        Retrieves the TX power of all SFP channels
 
         Returns:
-            A list of four integer numbers, representing TX power in mW
-            for channel 0 to channel 4.
+            A list of floats, representing TX power in mW
+            for each available channel
             Ex. ['1.86', '1.86', '1.86', '1.86']
         """
         raise NotImplementedError
