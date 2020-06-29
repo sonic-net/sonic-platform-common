@@ -35,7 +35,7 @@ class SfpBase(device_base.DeviceBase):
         ext_identifier             |1*255VCHAR     |extend identifier
         ext_rateselect_compliance  |1*255VCHAR     |extended rateSelect compliance
         cable_length               |INT            |cable length in m
-        mominal_bit_rate           |INT            |nominal bit rate by 100Mbs
+        nominal_bit_rate           |INT            |nominal bit rate by 100Mbs
         specification_compliance   |1*255VCHAR     |specification compliance
         vendor_date                |1*255VCHAR     |vendor date
         vendor_oui                 |1*255VCHAR     |vendor OUI
