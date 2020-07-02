@@ -523,8 +523,8 @@ def get_media_settings_value(physical_port, key):
 def get_media_settings_key(physical_port, transceiver_dict):
     sup_compliance_str = '10/40G Ethernet Compliance Code'
     sup_len_str = 'Length Cable Assembly(m)'
-    vendor_name_str = transceiver_dict[physical_port]['manufacturename']
-    vendor_pn_str = transceiver_dict[physical_port]['modelname']
+    vendor_name_str = transceiver_dict[physical_port]['manufacturer']
+    vendor_pn_str = transceiver_dict[physical_port]['model']
     vendor_key = string.upper(vendor_name_str) + '-' + vendor_pn_str
 
     media_len = ''
