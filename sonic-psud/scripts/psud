@@ -38,6 +38,11 @@ PSU_INFO_TABLE = 'PSU_INFO'
 PSU_INFO_KEY_TEMPLATE = 'PSU {}'
 PSU_INFO_PRESENCE_FIELD = 'presence'
 PSU_INFO_STATUS_FIELD = 'status'
+PSU_INFO_TEMP_FIELD = 'temp'
+PSU_INFO_TEMP_TH_FIELD = 'temp_threshold'
+PSU_INFO_VOLTAGE_FIELD = 'voltage'
+PSU_INFO_VOLTAGE_MAX_TH_FIELD = 'voltage_max_threshold'
+PSU_INFO_VOLTAGE_MIN_TH_FIELD = 'voltage_min_threshold'
 
 PSU_INFO_UPDATE_PERIOD_SECS = 3
 
@@ -247,7 +252,7 @@ class DaemonPsud(DaemonBase):
 
         while not self.stop.wait(PSU_INFO_UPDATE_PERIOD_SECS):
             psu_db_update(psu_tbl, psu_num)
-            self.update_psu_data()
+            self.update_psu_data(psu_tbl)
             self._update_led_color(psu_tbl)
 
         logger.log_info("Stop daemon main loop")
@@ -260,17 +265,17 @@ class DaemonPsud(DaemonBase):
 
         logger.log_info("Shutting down...")
 
-    def update_psu_data(self):
+    def update_psu_data(self, psu_tbl):
         if not platform_chassis:
             return
 
         for index, psu in enumerate(platform_chassis.get_all_psus()):
             try:
-                self._update_single_psu_data(index + 1, psu)
+                self._update_single_psu_data(index + 1, psu, psu_tbl)
             except Exception as e:
                 logger.log_warning("Failed to update PSU data - {}".format(e))
     
-    def _update_single_psu_data(self, index, psu):
+    def _update_single_psu_data(self, index, psu, psu_tbl):
         name = try_get(psu.get_name)
         if not name:
             name = PSU_INFO_KEY_TEMPLATE.format(index)
@@ -324,6 +329,16 @@ class DaemonPsud(DaemonBase):
         
         if set_led:
             self._set_psu_led(psu, psu_status)
+
+        fvs = swsscommon.FieldValuePairs(
+            [(PSU_INFO_TEMP_FIELD, str(temperature)),
+             (PSU_INFO_TEMP_TH_FIELD, str(temperature_threshold)),
+             (PSU_INFO_VOLTAGE_FIELD, str(voltage)),
+             (PSU_INFO_VOLTAGE_MIN_TH_FIELD, str(voltage_low_threshold)),
+             (PSU_INFO_VOLTAGE_MAX_TH_FIELD, str(voltage_high_threshold)),
+            ])
+        psu_tbl.set(PSU_INFO_KEY_TEMPLATE.format(index), fvs)
+        
 
     def _set_psu_led(self, psu, psu_status):
         try:
