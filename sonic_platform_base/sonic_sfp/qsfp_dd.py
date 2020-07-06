@@ -177,7 +177,7 @@ class qsfp_dd_InterfaceId(sffbase):
                  'type' : 'hex'}
         }
 
-    qsfp_dom_capability = {
+    qsfp_dd_dom_capability = {
         'Flat_MEM':
             {'offset': 0,
                 'bit': 7,
@@ -225,23 +225,10 @@ class qsfp_dd_InterfaceId(sffbase):
         return sffbase.parse(self, self.cable_len, cable_len_data, start_pos)
 
     def parse_qsfp_dom_capability(self, qsfp_dom_capability_raw_data, start_pos):
-        return sffbase.parse(self, self.qsfp_dom_capability, qsfp_dom_capability_raw_data, start_pos)
+        return sffbase.parse(self, self.qsfp_dd_dom_capability, qsfp_dom_capability_raw_data, start_pos)
 
     def parse_media_type(self, qsfp_media_type_raw_data, start_pos):
         return self.decode_media_type(qsfp_media_type_raw_data, start_pos, 1)
-
-    def dump_pretty(self):
-        if self.interface_data is None:
-            print('Object not initialized, nothing to print')
-            return
-        sffbase.dump_pretty(self, self.interface_data)
-
-    def get_data(self):
-        return self.interface_data
-
-    def get_data_pretty(self):
-        return sffbase.get_data_pretty(self, self.interface_data)
-
 
 class qsfp_dd_Dom(sffbase):
 
@@ -740,14 +727,3 @@ class qsfp_dd_Dom(sffbase):
         return sffbase.parse(self, self.dom_tx_disable, eeprom_raw_data,
                 start_pos)
 
-    def dump_pretty(self):
-        if self.dom_data == None:
-            print('Object not initialized, nothing to print')
-            return
-        sffbase.dump_pretty(self, self.dom_data)
-
-    def get_data(self):
-        return self.dom_data
-
-    def get_data_pretty(self):
-        return sffbase.get_data_pretty(self, self.dom_data)

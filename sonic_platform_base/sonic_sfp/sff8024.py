@@ -184,7 +184,7 @@ host_electrical_interface = {
     }
 
 nm_850_media_interface = {
-	'00': 'Undefined',
+    '00': 'Undefined',
     '01': '10GBASE-SW (Clause 52)',
     '02': '10GBASE-SR (Clause 52)',
     '03': '25GBASE-SR (Clause 112)',
@@ -214,7 +214,7 @@ nm_850_media_interface = {
     }
 
 sm_media_interface = {
-	'00': 'Undefined',
+    '00': 'Undefined',
     '01': '10GBASE-LW (Cl 52)',
     '02': '10GBASE-EW (Cl 52)',
     '03': '10G-ZW',
@@ -241,7 +241,7 @@ sm_media_interface = {
     '16': '100G-LR/100GBASE-LR1 (Cl 140)',
     '17': '200GBASE-DR4 (Cl 121)',
     '18': '200GBASE-FR4 (Cl 122)',
-	'19': '200GBASE-LR4 (Cl 122)',
+    '19': '200GBASE-LR4 (Cl 122)',
     '41': '200GBASE-ER4 (Cl 122)',
     '1a': '400GBASE-FR8 (Cl 122)',
     '1b': '400GBASE-LR8 (Cl 122)',
@@ -268,7 +268,7 @@ sm_media_interface = {
     '32': '8R1-4D1F (G.959.1)',
     '33': '8I1-4D1F (G.959.1)',
     '38': '10G-SR',
-	'39': '10G-LR',
+    '39': '10G-LR',
     '3a': '25G-SR',
     '3b': '25G-LR',
     '3c': '10G-LR-BiDi',
@@ -278,13 +278,13 @@ sm_media_interface = {
     }
 
 passive_copper_media_interface = {
-	'00': 'Undefined',
+    '00': 'Undefined',
     '01': 'Copper cable',
     '02': 'Passive Loopback module',
     }
 
 active_cable_media_interface = {
-	'00': 'Undefined',
+    '00': 'Undefined',
     '01': 'Active Cable assembly with BER < 10^-12',
     '02': 'Active Cable assembly with BER < 5x10^-5',
     '03': 'Active Cable assembly with BER < 2.6x10^-4',
@@ -293,9 +293,10 @@ active_cable_media_interface = {
     }
 
 base_t_media_interface = {
-	'00': 'Undefined',
+    '00': 'Undefined',
     '01': '1000BASE-T (Clause 40)',
     '02': '2.5GBASE-T (Clause 126)',
     '03': '5GBASE-T (Clause 126)',
     '04': '10GBASE-T (Clause 55)',
     }
+
