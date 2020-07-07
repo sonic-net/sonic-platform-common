@@ -27,7 +27,7 @@ except ImportError as e:
 
 # Global Variable
 PLATFORM_JSON = 'platform.json'
-PORT_CONFIG_INI = 'portconfig.ini'
+PORT_CONFIG_INI = 'port_config.ini'
 
 # definitions of the offset and width for values in XCVR info eeprom
 XCVR_INTFACE_BULK_OFFSET = 0
@@ -817,14 +817,14 @@ class SfpUtilBase(object):
 
             transceiver_info_dict['type'] = sfp_type_data['data']['type']['value']
             transceiver_info_dict['type_abbrv_name'] = sfp_type_abbrv_name['data']['type_abbrv_name']['value']
-            transceiver_info_dict['manufacturename'] = sfp_vendor_name_data['data']['Vendor Name']['value']
-            transceiver_info_dict['modelname'] = sfp_vendor_pn_data['data']['Vendor PN']['value']
-            transceiver_info_dict['hardwarerev'] = sfp_vendor_rev_data['data']['Vendor Rev']['value']
-            transceiver_info_dict['serialnum'] = sfp_vendor_sn_data['data']['Vendor SN']['value']
+            transceiver_info_dict['manufacturer'] = sfp_vendor_name_data['data']['Vendor Name']['value']
+            transceiver_info_dict['model'] = sfp_vendor_pn_data['data']['Vendor PN']['value']
+            transceiver_info_dict['hardware_rev'] = sfp_vendor_rev_data['data']['Vendor Rev']['value']
+            transceiver_info_dict['serial'] = sfp_vendor_sn_data['data']['Vendor SN']['value']
             # Below part is added to avoid fail the xcvrd, shall be implemented later
             transceiver_info_dict['vendor_oui'] = 'N/A'
             transceiver_info_dict['vendor_date'] = 'N/A'
-            transceiver_info_dict['Connector'] = 'N/A'
+            transceiver_info_dict['connector'] = 'N/A'
             transceiver_info_dict['encoding'] = 'N/A'
             transceiver_info_dict['ext_identifier'] = 'N/A'
             transceiver_info_dict['ext_rateselect_compliance'] = 'N/A'
@@ -926,13 +926,13 @@ class SfpUtilBase(object):
 
             transceiver_info_dict['type'] = sfp_interface_bulk_data['data']['type']['value']
             transceiver_info_dict['type_abbrv_name'] = sfp_interface_bulk_data['data']['type_abbrv_name']['value']
-            transceiver_info_dict['manufacturename'] = sfp_vendor_name_data['data']['Vendor Name']['value']
-            transceiver_info_dict['modelname'] = sfp_vendor_pn_data['data']['Vendor PN']['value']
-            transceiver_info_dict['hardwarerev'] = sfp_vendor_rev_data['data']['Vendor Rev']['value']
-            transceiver_info_dict['serialnum'] = sfp_vendor_sn_data['data']['Vendor SN']['value']
+            transceiver_info_dict['manufacturer'] = sfp_vendor_name_data['data']['Vendor Name']['value']
+            transceiver_info_dict['model'] = sfp_vendor_pn_data['data']['Vendor PN']['value']
+            transceiver_info_dict['hardware_rev'] = sfp_vendor_rev_data['data']['Vendor Rev']['value']
+            transceiver_info_dict['serial'] = sfp_vendor_sn_data['data']['Vendor SN']['value']
             transceiver_info_dict['vendor_oui'] = sfp_vendor_oui_data['data']['Vendor OUI']['value']
             transceiver_info_dict['vendor_date'] = sfp_vendor_date_data['data']['VendorDataCode(YYYY-MM-DD Lot)']['value']
-            transceiver_info_dict['Connector'] = sfp_interface_bulk_data['data']['Connector']['value']
+            transceiver_info_dict['connector'] = sfp_interface_bulk_data['data']['Connector']['value']
             transceiver_info_dict['encoding'] = sfp_interface_bulk_data['data']['EncodingCodes']['value']
             transceiver_info_dict['ext_identifier'] = sfp_interface_bulk_data['data']['Extended Identifier']['value']
             transceiver_info_dict['ext_rateselect_compliance'] = sfp_interface_bulk_data['data']['RateIdentifier']['value']

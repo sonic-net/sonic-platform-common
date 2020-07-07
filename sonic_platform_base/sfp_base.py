@@ -26,16 +26,16 @@ class SfpBase(device_base.DeviceBase):
         keys                       |Value Format   |Information	
         ---------------------------|---------------|----------------------------
         type                       |1*255VCHAR     |type of SFP
-        hardwarerev                |1*255VCHAR     |hardware version of SFP
-        serialnum                  |1*255VCHAR     |serial number of the SFP
-        manufacturename            |1*255VCHAR     |SFP vendor name
-        modelname                  |1*255VCHAR     |SFP model name
-        Connector                  |1*255VCHAR     |connector information
+        hardware_rev               |1*255VCHAR     |hardware version of SFP
+        serial                     |1*255VCHAR     |serial number of the SFP
+        manufacturer               |1*255VCHAR     |SFP vendor name
+        model                      |1*255VCHAR     |SFP model name
+        connector                  |1*255VCHAR     |connector information
         encoding                   |1*255VCHAR     |encoding information
         ext_identifier             |1*255VCHAR     |extend identifier
         ext_rateselect_compliance  |1*255VCHAR     |extended rateSelect compliance
         cable_length               |INT            |cable length in m
-        mominal_bit_rate           |INT            |nominal bit rate by 100Mbs
+        nominal_bit_rate           |INT            |nominal bit rate by 100Mbs
         specification_compliance   |1*255VCHAR     |specification compliance
         vendor_date                |1*255VCHAR     |vendor date
         vendor_oui                 |1*255VCHAR     |vendor OUI
@@ -115,10 +115,13 @@ class SfpBase(device_base.DeviceBase):
 
     def get_rx_los(self):
         """
-        Retrieves the RX LOS (lost-of-signal) status of SFP
+        Retrieves the RX LOS (loss-of-signal) status of SFP
 
         Returns:
-            A Boolean, True if SFP has RX LOS, False if not.
+            A list of boolean values, representing the RX LOS status
+            of each available channel, value is True if SFP channel
+            has RX LOS, False if not.
+            E.g., for a tranceiver with four channels: [False, False, True, False]
             Note : RX LOS status is latched until a call to get_rx_los or a reset.
         """
         raise NotImplementedError
@@ -128,7 +131,10 @@ class SfpBase(device_base.DeviceBase):
         Retrieves the TX fault status of SFP
 
         Returns:
-            A Boolean, True if SFP has TX fault, False if not
+            A list of boolean values, representing the TX fault status
+            of each available channel, value is True if SFP channel
+            has TX fault, False if not.
+            E.g., for a tranceiver with four channels: [False, False, True, False]
             Note : TX fault status is lached until a call to get_tx_fault or a reset.
         """
         raise NotImplementedError
@@ -138,7 +144,10 @@ class SfpBase(device_base.DeviceBase):
         Retrieves the tx_disable status of this SFP
 
         Returns:
-            A Boolean, True if tx_disable is enabled, False if disabled
+            A list of boolean values, representing the TX disable status
+            of each available channel, value is True if SFP channel
+            is TX disabled, False if not.
+            E.g., for a tranceiver with four channels: [False, False, True, False]
         """
         raise NotImplementedError
 
@@ -177,7 +186,7 @@ class SfpBase(device_base.DeviceBase):
         Retrieves the temperature of this SFP
 
         Returns:
-            An integer number of current temperature in Celsius
+            A float representing the current temperature in Celsius
         """
         raise NotImplementedError
 
@@ -187,40 +196,40 @@ class SfpBase(device_base.DeviceBase):
         Retrieves the supply voltage of this SFP
 
         Returns:
-            An integer number of supply voltage in mV
+            A float representing the supply voltage in mV
         """
         raise NotImplementedError
     
     def get_tx_bias(self):
         """
-        Retrieves the TX bias current of this SFP
+        Retrieves the TX bias current of all SFP channels
 
         Returns:
-            A list of four integer numbers, representing TX bias in mA
-            for channel 0 to channel 4.
-            Ex. ['110.09', '111.12', '108.21', '112.09']
+            A list of floats, representing TX bias in mA
+            for each available channel
+            E.g., for a tranceiver with four channels: ['110.09', '111.12', '108.21', '112.09']
         """
         raise NotImplementedError
     
     def get_rx_power(self):
         """
-        Retrieves the received optical power for this SFP
+        Retrieves the received optical power of all SFP channels
 
         Returns:
-            A list of four integer numbers, representing received optical
-            power in mW for channel 0 to channel 4.
-            Ex. ['1.77', '1.71', '1.68', '1.70']
+            A list of floats, representing received optical
+            power in mW for each available channel
+            E.g., for a tranceiver with four channels: ['1.77', '1.71', '1.68', '1.70']
         """
         raise NotImplementedError
     
     def get_tx_power(self):
         """
-        Retrieves the TX power of this SFP
+        Retrieves the TX power of all SFP channels
 
         Returns:
-            A list of four integer numbers, representing TX power in mW
-            for channel 0 to channel 4.
-            Ex. ['1.86', '1.86', '1.86', '1.86']
+            A list of floats, representing TX power in mW
+            for each available channel
+            E.g., for a tranceiver with four channels: ['1.86', '1.86', '1.86', '1.86']
         """
         raise NotImplementedError
     
