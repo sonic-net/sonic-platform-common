@@ -65,13 +65,18 @@ class DaemonLedd(daemon_base.DaemonBase):
             self.log_error("Failed to load ledutil: %s" % (str(e)), True)
             sys.exit(LEDUTIL_LOAD_ERROR)
 
-        # Open a handle to the Application database
-        appl_db = daemon_base.db_connect("APPL_DB")
+        # Get the namespaces in the platform
+        namespaces = multi_asic.get_namespaces()
 
         # Subscribe to PORT table notifications in the Application DB
+        appl_db, sst = {}, {}
         sel = swsscommon.Select()
-        sst = swsscommon.SubscriberStateTable(appl_db, swsscommon.APP_PORT_TABLE_NAME)
-        sel.addSelectable(sst)
+
+        for namespace in namespaces:
+            # Open a handle to the Application database
+            appl_db[namespace] = daemon_base.db_connect("APPL_DB", namespace=namespace)
+            sst[namespace] = swsscommon.SubscriberStateTable(appl_db[namespace], swsscommon.APP_PORT_TABLE_NAME)
+            sel.addSelectable(sst[namespace])
 
         # Listen indefinitely for changes to the PORT table in the Application DB
         while True:
@@ -86,17 +91,19 @@ class DaemonLedd(daemon_base.DaemonBase):
                 self.log_warning("sel.select() did not  return swsscommon.Select.OBJECT")
                 continue
 
-            (key, op, fvp) = sst.pop()
+            for namespace in namespaces:
+                (key, op, fvp) = sst[namespace].pop()
+                if fvp:
+                    # TODO: Once these flag entries have been removed from the DB,
+                    # we can remove this check
+                    if key in ["PortConfigDone", "PortInitDone"]:
+                        continue
 
-            # TODO: Once these flag entries have been removed from the DB,
-            # we can remove this check
-            if key in ["PortConfigDone", "PortInitDone"]:
-                continue
+                    fvp_dict = dict(fvp)
 
-            fvp_dict = dict(fvp)
-
-            if op == "SET" and "oper_status" in fvp_dict:
-                led_control.port_link_state_change(key, fvp_dict["oper_status"])
+                    if op == "SET" and "oper_status" in fvp_dict:
+                        if not key.startswith(INTERNAL_INTERFACE_PREFIX):
+                            led_control.port_link_state_change(key, fvp_dict["oper_status"])
 
         return 1
 
