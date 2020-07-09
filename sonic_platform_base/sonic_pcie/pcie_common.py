@@ -15,7 +15,6 @@ except ImportError as e:
     raise ImportError(str(e) + "- required module not found")
 
 
-
 class PcieUtil(PcieBase):
     """Platform-specific PCIEutil class"""
     # got the config file path
@@ -91,12 +90,9 @@ class PcieUtil(PcieBase):
     def get_pcie_check(self):
         self.load_config_file()
         for item_conf in self.confInfo:
-            flag = 0
             bus_conf = item_conf["bus"]
             dev_conf = item_conf["dev"]
             fn_conf = item_conf["fn"]
-            name_conf = item_conf["name"]
-            id_conf = item_conf["id"]
             if self.check_pcie_sysfs(bus=int(bus_conf, base=16), device=int(dev_conf, base=16), func=int(fn_conf, base=16)):
                 item_conf["result"] = "Passed"
             else:
