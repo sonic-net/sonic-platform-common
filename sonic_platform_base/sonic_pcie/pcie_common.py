@@ -1,6 +1,5 @@
-
-# pcieutil.py
-# Platform-specific PCIE status interface for SONIC
+# pcie_common.py
+# Common PCIE check interfaces for SONIC
 #
 
 import os
