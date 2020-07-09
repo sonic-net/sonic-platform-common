@@ -1,6 +1,5 @@
-
-# pcieutil.py
-# Platform-specific PCIE status interface for SONIC
+# pcie_common.py
+# Common PCIE check interfaces for SONIC
 #
 
 import os
@@ -13,11 +12,10 @@ try:
     from .pcie_base import PcieBase
 except ImportError as e:
     raise ImportError(str(e) + "- required module not found")
- 
 
 
 class PcieUtil(PcieBase):
-    """Platform-specific PCIEutil class"""    
+    """Platform-specific PCIEutil class"""
     # got the config file path
     def __init__(self, path):
         self.config_path = path
@@ -31,14 +29,14 @@ class PcieUtil(PcieBase):
         except IOError as e:
             print "Error: {}".format(str(e))
             print "Not found config file, please add a config file manually, or generate it by running [pcieutil pcie_generate]"
-            sys.exit() 
+            sys.exit()
 
     # load current PCIe device
     def get_pcie_device(self):
         pciDict = {}
         pciList = []
-        p1 = "^(\w+):(\w+)\.(\w)\s(.*)\s\(.*\)"
-        p2 = "^.*:.*:.*:(\w+)\s\(.*\)"
+        p1 = "^(\w+):(\w+)\.(\w)\s(.*)\s*\(*.*\)*"
+        p2 = "^.*:.*:.*:(\w+)\s*\(*.*\)*"
         command1 = "sudo lspci"
         command2 = "sudo lspci -n"
         # run command 1
@@ -73,45 +71,33 @@ class PcieUtil(PcieBase):
                     pciDict["bus"] = Bus
                     pciDict["dev"] = Dev
                     pciDict["fn"] = Fn
-                    pciDict["id"] = Id 
+                    pciDict["id"] = Id
                     pciList.append(pciDict)
                     pciDict = deepcopy(pciDict)
                 else:
                     print("CAN NOT MATCH PCIe DEVICE")
         return pciList
 
-  # check the current PCIe device with config file and return the result 
+    # check the sysfs tree for each PCIe device
+    def check_pcie_sysfs(self, domain=0, bus=0, device=0, func=0):
+        dev_path = os.path.join('/sys/bus/pci/devices', '%04x:%02x:%02x.%d' % (domain, bus, device, func))
+        if os.path.exists(dev_path):
+            return True
+        return False
+
+    # check the current PCIe device with config file and return the result
     def get_pcie_check(self):
         self.load_config_file()
-        infoList = []
-        infoDict = {}
-        err = 0 
-        curInfo = self.get_pcie_device()
         for item_conf in self.confInfo:
-            flag = 0            
             bus_conf = item_conf["bus"]
             dev_conf = item_conf["dev"]
             fn_conf = item_conf["fn"]
-            name_conf = item_conf["name"]
-            id_conf = item_conf["id"]
-            for item_cur in curInfo:
-                bus_cur = item_cur["bus"]
-                dev_cur = item_cur["dev"]
-                fn_cur = item_cur["fn"]
-                name_cur = item_cur["name"]
-                id_cur = item_cur["id"]
-                if bus_cur == bus_conf and dev_cur == dev_conf and \
-                   fn_cur == fn_conf and name_cur == name_conf and \
-                   id_cur == id_conf:
-                   flag+=1
-                   continue
-            if flag:
+            if self.check_pcie_sysfs(bus=int(bus_conf, base=16), device=int(dev_conf, base=16), func=int(fn_conf, base=16)):
                 item_conf["result"] = "Passed"
             else:
                 item_conf["result"] = "Failed"
-                err+=1
         return self.confInfo
- 
+
     # generate the config file with current pci device
     def dump_conf_yaml(self):
         curInfo = self.get_pcie_device()
