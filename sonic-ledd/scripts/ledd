@@ -73,12 +73,12 @@ class DaemonLedd(daemon_base.DaemonBase):
         sel = swsscommon.Select()
 
         for namespace in namespaces:
-            # Open a handle to the Application database
+            # Open a handle to the Application database, in all namespaces
             appl_db[namespace] = daemon_base.db_connect("APPL_DB", namespace=namespace)
             sst[namespace] = swsscommon.SubscriberStateTable(appl_db[namespace], swsscommon.APP_PORT_TABLE_NAME)
             sel.addSelectable(sst[namespace])
 
-        # Listen indefinitely for changes to the PORT table in the Application DB
+        # Listen indefinitely for changes to the PORT table in the Application DB's
         while True:
             # Use timeout to prevent ignoring the signals we want to handle
             # in signal_handler() (e.g. SIGTERM for graceful shutdown)
@@ -102,7 +102,7 @@ class DaemonLedd(daemon_base.DaemonBase):
                     fvp_dict = dict(fvp)
 
                     if op == "SET" and "oper_status" in fvp_dict:
-                        if not key.startswith(INTERNAL_INTERFACE_PREFIX):
+                        if not key.startswith(daemon_base.get_internal_interface_prefix()):
                             led_control.port_link_state_change(key, fvp_dict["oper_status"])
 
         return 1
