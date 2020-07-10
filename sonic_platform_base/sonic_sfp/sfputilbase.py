@@ -31,9 +31,6 @@ except ImportError as e:
 PLATFORM_JSON = 'platform.json'
 PORT_CONFIG_INI = 'port_config.ini'
 
-# TODO, to move this definition to a common place
-INTERNAL_INTERFACE_PREFIX = "Ethernet-BP"
-
 # definitions of the offset and width for values in XCVR info eeprom
 XCVR_INTFACE_BULK_OFFSET = 0
 XCVR_INTFACE_BULK_WIDTH_QSFP = 20
@@ -462,7 +459,7 @@ class SfpUtilBase(object):
                 portname = line.split()[0]
 
                 # Ignore if this is an internal backplane interface
-                if portname.startswith(INTERNAL_INTERFACE_PREFIX):
+                if portname.startswith(daemon_base.get_internal_interface_prefix()):
                     continue
 
                 bcm_port = str(port_pos_in_file)
@@ -529,7 +526,8 @@ class SfpUtilBase(object):
                  self.read_porttab_mappings(port_map_file, inst)
              else:
                  port_json_file = os.path.join(port_map_dir, PLATFORM_JSON)
-                 self.read_porttab_mappings(port_json_file, inst)
+                 if os.path.exists(port_json_file):
+                     self.read_porttab_mappings(port_json_file, inst)
 
     def read_phytab_mappings(self, phytabfile):
         logical = []

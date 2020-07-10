@@ -23,9 +23,6 @@ except ImportError as e:
 PLATFORM_JSON = 'platform.json'
 PORT_CONFIG_INI = 'port_config.ini'
 
-# TODO, to move this definition to a common place
-INTERNAL_INTERFACE_PREFIX = "Ethernet-BP"
-
 class SfpUtilHelper(object):
     # List to specify filter for sfp_ports
     # Needed by platforms like dni-6448 which
@@ -129,7 +126,7 @@ class SfpUtilHelper(object):
                 portname = line.split()[0]
 
                 # Ignore if this is an internal backplane interface
-                if portname.startswith(INTERNAL_INTERFACE_PREFIX):
+                if portname.startswith(daemon_base.get_internal_interface_prefix()):
                     continue
 
                 bcm_port = str(port_pos_in_file)
@@ -186,15 +183,15 @@ class SfpUtilHelper(object):
 
     def read_all_porttab_mappings(self, platform_dir, num_asic_inst):
         # In multi asic scenario, get all the port_config files for different asics
-
          for inst in range(num_asic_inst):
-             port_map_dir = os.path.join(platform_dir, str(inst), '/')
-             port_map_file = os.path.join(port_map_dir, str(inst), PORT_CONFIG_INI)
+             port_map_dir = os.path.join(platform_dir, str(inst))
+             port_map_file = os.path.join(port_map_dir, PORT_CONFIG_INI)
              if os.path.exists(port_map_file):
                  self.read_porttab_mappings(port_map_file, inst)
              else:
-                 port_json_file = os.path.join(port_map_dir, str(inst), PLATFORM_JSON)
-                 self.read_porttab_mappings(port_json_file, inst)
+                 port_json_file = os.path.join(port_map_dir, PLATFORM_JSON)
+                 if os.path.exists(port_json_file):
+                     self.read_porttab_mappings(port_json_file, inst)
 
     def get_physical_to_logical(self, port_num):
         """Returns list of logical ports for the given physical port"""
