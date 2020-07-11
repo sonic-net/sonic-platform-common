@@ -374,7 +374,7 @@ class SfpUtilBase(object):
 
         return False
 
-    def read_porttab_mappings(self, porttabfile, asic_inst = 0):
+    def read_porttab_mappings(self, porttabfile, asic_inst=0):
         logical = []
         logical_to_bcm = {}
         logical_to_physical = {}
@@ -638,7 +638,7 @@ class SfpUtilBase(object):
         else:
             return 0
 
-    def get_asicId_for_logical_port(self, logical_port):
+    def get_asic_id_for_logical_port(self, logical_port):
         """Returns the asic_id list of physical ports for the given logical port"""
         if logical_port in self.logical_to_asic.keys():
             return self.logical_to_asic[logical_port]
