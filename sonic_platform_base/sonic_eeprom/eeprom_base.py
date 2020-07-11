@@ -41,13 +41,15 @@ class EepromDecoder(object):
 
     def check_status(self):
         if self.u != '':
+            F = None
             try:
                 F = open(self.u, "r")
                 d = F.readline().rstrip()
             except IOError as e:
                 raise IOError("Failed to check status : %s" % (str(e)))
             finally:
-                F.close()
+                if F is not None:
+                    F.close()
             return d
         else:
             return 'ok'
@@ -236,6 +238,7 @@ class EepromDecoder(object):
         return o
 
     def read_eeprom_bytes(self, byteCount, offset=0):
+        F = None
         try:
             F = self.open_eeprom()
             F.seek(self.s + offset)
@@ -259,7 +262,8 @@ class EepromDecoder(object):
         except IOError as e:
             raise IOError("Failed to read eeprom : %s" % (str(e)))
         finally:
-            F.close()
+            if F is not None:
+                F.close()
 
         return o
 
@@ -267,6 +271,7 @@ class EepromDecoder(object):
         return 0
 
     def write_eeprom(self, e):
+        F = None
         try:
             F = open(self.p, "wb")
             F.seek(self.s)
@@ -274,12 +279,14 @@ class EepromDecoder(object):
         except IOError as e:
             raise IOError("Failed to write eeprom : %s" % (str(e)))
         finally:
-            F.close()
+            if F is not None:
+                F.close()
 
         self.write_cache(e)
 
     def write_cache(self, e):
         if self.cache_name:
+            F = None
             try:
                 F = open(self.cache_name, "wb")
                 F.seek(self.s)
@@ -287,7 +294,8 @@ class EepromDecoder(object):
             except IOError as e:
                 raise IOError("Failed to write cache : %s" % (str(e)))
             finally:
-                F.close()
+                if F is not None:
+                    F.close()
 
     def update_cache(self, e):
         if self.cache_update_needed:
