@@ -45,7 +45,7 @@ class SfpUtilHelper(object):
     def __init__(self):
         pass
 
-    def read_porttab_mappings(self, porttabfile, asic_inst = 0):
+    def read_porttab_mappings(self, porttabfile, asic_inst=0):
         logical = []
         logical_to_physical = {}
         physical_to_logical = {}
