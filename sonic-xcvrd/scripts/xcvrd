@@ -96,7 +96,7 @@ platform_chassis = None
 helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
 
 # MultiAsic class instance
-multi_asic = multiAsic()
+multi_asic = MultiAsic()
 
 #
 # Helper functions =============================================================
@@ -443,7 +443,7 @@ def post_port_sfp_dom_info_to_db(is_warm_start, stop_event=threading.Event()):
             break
 
         # Get the asic to which this port belongs
-        asic_index = platform_sfputil.get_asicId_for_logical_port(logical_port_name)
+        asic_index = platform_sfputil.get_asic_id_for_logical_port(logical_port_name)
         if asic_index is None:
             logger.log_warning("Got invalid asic index for {}, ignored".format(logical_port_name))
             continue
@@ -484,23 +484,23 @@ def del_port_sfp_dom_info_from_db(logical_port_name, int_tbl, dom_tbl):
             sys.exit(NOT_IMPLEMENTED_ERROR)
 
 # recover missing sfp table entries if any
-def recover_missing_sfp_table_entries(self, sfp_util, stop_event):
+def recover_missing_sfp_table_entries(sfp_util, int_tbl, status_tbl, stop_event):
     transceiver_dict = {}
     
-    keys = self.int_tbl.getKeys()
+    keys = int_tbl.getKeys()
     logical_port_list = sfp_util.logical
     for logical_port_name in logical_port_list:
         if stop_event.is_set():
             break
 
         # Get the asic to which this port belongs
-        asic_index = sfp_util.get_asicId_for_logical_port(logical_port_name)
+        asic_index = sfp_util.get_asic_id_for_logical_port(logical_port_name)
         if asic_index is None:
             logger.log_warning("Got invalid asic index for {}, ignored".format(logical_port_name))
             continue
 
-        if logical_port_name not in keys and not detect_port_in_error_status(logical_port_name, self.status_tbl[asic_index]):
-            post_port_sfp_info_to_db(logical_port_name, self.int_tbl[asic_index], transceiver_dict, stop_event)
+        if logical_port_name not in keys and not detect_port_in_error_status(logical_port_name, status_tbl[asic_index]):
+            post_port_sfp_info_to_db(logical_port_name, int_tbl[asic_index], transceiver_dict, stop_event)
     
 
 def check_port_in_range(range_str, physical_port):
@@ -753,7 +753,7 @@ def init_port_sfp_status_tbl(stop_event=threading.Event()):
             break
 
         # Get the asic to which this port belongs
-        asic_index = platform_sfputil.get_asicId_for_logical_port(logical_port_name)
+        asic_index = platform_sfputil.get_asic_id_for_logical_port(logical_port_name)
         if asic_index is None:
             logger.log_warning("Got invalid asic index for {}, ignored".format(logical_port_name))
             continue
@@ -801,7 +801,7 @@ class DomInfoUpdateTask(object):
             logical_port_list = platform_sfputil.logical
             for logical_port_name in logical_port_list:
                 # Get the asic to which this port belongs
-                asic_index = platform_sfputil.get_asicId_for_logical_port(logical_port_name)
+                asic_index = platform_sfputil.get_asic_id_for_logical_port(logical_port_name)
                 if asic_index is None:
                     logger.log_warning("Got invalid asic index for {}, ignored".format(logical_port_name))
                     continue
@@ -998,7 +998,7 @@ class SfpStateUpdateTask(object):
                         for logical_port in logical_port_list:
 
                             # Get the asic to which this port belongs
-                            asic_index = platform_sfputil.get_asicId_for_logical_port(logical_port)
+                            asic_index = platform_sfputil.get_asic_id_for_logical_port(logical_port)
                             if asic_index is None:
                                 logger.log_warning("Got invalid asic index for {}, ignored".format(logical_port))
                                 continue
@@ -1232,7 +1232,7 @@ class DaemonXcvrd(daemon_base.DaemonBase):
         logical_port_list = platform_sfputil.logical
         for logical_port_name in logical_port_list:
             # Get the asic to which this port belongs
-            asic_index = platform_sfputil.get_asicId_for_logical_port(logical_port_name)
+            asic_index = platform_sfputil.get_asic_id_for_logical_port(logical_port_name)
             if asic_index is None:
                 logger.log_warning("Got invalid asic index for {}, ignored".format(logical_port_name))
                 continue
@@ -1260,7 +1260,7 @@ class DaemonXcvrd(daemon_base.DaemonBase):
 
         while not self.stop_event.wait(self.timeout):
             # Check the integrity of the sfp info table and recover the missing entries if any
-            recover_missing_sfp_table_entries(self, platform_sfputil, self.stop_event)
+            recover_missing_sfp_table_entries(platform_sfputil, self.int_tbl, self.status_tbl, self.stop_event)
 
         self.log_info("Stop daemon main loop")
 
