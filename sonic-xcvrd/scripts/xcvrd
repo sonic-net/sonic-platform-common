@@ -255,7 +255,8 @@ def post_port_sfp_info_to_db(logical_port_name, table, transceiver_dict,
                                                   ('cable_type',port_info_dict['cable_type']),
                                                   ('cable_length',port_info_dict['cable_length']),
                                                   ('specification_compliance',port_info_dict['specification_compliance']),
-                                                  ('nominal_bit_rate',port_info_dict['nominal_bit_rate'])])
+                                                  ('nominal_bit_rate',port_info_dict['nominal_bit_rate']),
+                                                  ('application_advertisement',port_info_dict['application_advertisement'])])
                 table.set(port_name, fvs)
             else:
                 return SFP_EEPROM_NOT_READY
@@ -351,22 +352,52 @@ def post_port_dom_info_to_db(logical_port_name, table, stop_event=threading.Even
             dom_info_dict = _wrapper_get_transceiver_dom_info(physical_port)
             if dom_info_dict is not None:
                 beautify_dom_info_dict(dom_info_dict)
-                fvs = swsscommon.FieldValuePairs(
+                if platform_chassis.get_sfp(physical_port).sfp_type == 'QSFP_DD':
+                    fvs = swsscommon.FieldValuePairs(
                         [('temperature', dom_info_dict['temperature']),
                          ('voltage', dom_info_dict['voltage']),
                          ('rx1power', dom_info_dict['rx1power']),
                          ('rx2power', dom_info_dict['rx2power']),
                          ('rx3power', dom_info_dict['rx3power']),
                          ('rx4power', dom_info_dict['rx4power']),
+                         ('rx5power', dom_info_dict['rx5power']),
+                         ('rx6power', dom_info_dict['rx6power']),
+                         ('rx7power', dom_info_dict['rx7power']),
+                         ('rx8power', dom_info_dict['rx8power']),
                          ('tx1bias', dom_info_dict['tx1bias']),
                          ('tx2bias', dom_info_dict['tx2bias']),
                          ('tx3bias', dom_info_dict['tx3bias']),
                          ('tx4bias', dom_info_dict['tx4bias']),
+                         ('tx5bias', dom_info_dict['tx5bias']),
+                         ('tx6bias', dom_info_dict['tx6bias']),
+                         ('tx7bias', dom_info_dict['tx7bias']),
+                         ('tx8bias', dom_info_dict['tx8bias']),
                          ('tx1power', dom_info_dict['tx1power']),
                          ('tx2power', dom_info_dict['tx2power']),
                          ('tx3power', dom_info_dict['tx3power']),
-                         ('tx4power', dom_info_dict['tx4power'])
+                         ('tx4power', dom_info_dict['tx4power']),
+                         ('tx5power', dom_info_dict['tx5power']),
+                         ('tx6power', dom_info_dict['tx6power']),
+                         ('tx7power', dom_info_dict['tx7power']),
+                         ('tx8power', dom_info_dict['tx8power'])
                         ])
+                else:
+                    fvs = swsscommon.FieldValuePairs(
+                            [('temperature', dom_info_dict['temperature']),
+                            ('voltage', dom_info_dict['voltage']),
+                            ('rx1power', dom_info_dict['rx1power']),
+                            ('rx2power', dom_info_dict['rx2power']),
+                            ('rx3power', dom_info_dict['rx3power']),
+                            ('rx4power', dom_info_dict['rx4power']),
+                            ('tx1bias', dom_info_dict['tx1bias']),
+                            ('tx2bias', dom_info_dict['tx2bias']),
+                            ('tx3bias', dom_info_dict['tx3bias']),
+                            ('tx4bias', dom_info_dict['tx4bias']),
+                            ('tx1power', dom_info_dict['tx1power']),
+                            ('tx2power', dom_info_dict['tx2power']),
+                            ('tx3power', dom_info_dict['tx3power']),
+                            ('tx4power', dom_info_dict['tx4power'])
+                            ])
 
                 table.set(port_name, fvs)
 
