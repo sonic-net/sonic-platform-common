@@ -71,6 +71,7 @@ SFP_EEPROM_NOT_READY = -2
 SFPUTIL_LOAD_ERROR = 1
 PORT_CONFIG_LOAD_ERROR = 2
 NOT_IMPLEMENTED_ERROR = 3
+SFP_SYSTEM_ERROR = 4 
 
 RETRY_TIMES_FOR_SYSTEM_READY = 24
 RETRY_PERIOD_FOR_SYSTEM_READY_MSECS = 5000
@@ -801,7 +802,7 @@ class sfp_state_update_task:
         logger.log_debug("mapping from {} {} to {}".format(status, port_dict, event))
         return event
 
-    def task_worker(self, stopping_event):
+    def task_worker(self, stopping_event, sfp_error_event):
         logger.log_info("Start SFP monitoring loop")
 
         transceiver_dict = {}
@@ -898,6 +899,7 @@ class sfp_state_update_task:
                     if retry >= RETRY_TIMES_FOR_SYSTEM_READY:
                         logger.log_error("System failed to get ready in {} secs or received system error. Exiting...".format((RETRY_PERIOD_FOR_SYSTEM_READY_MSECS/1000)*RETRY_TIMES_FOR_SYSTEM_READY))
                         next_state = STATE_EXIT
+                        sfp_error_event.set()
                     else:
                         retry = retry + 1
 
@@ -985,6 +987,7 @@ class sfp_state_update_task:
                     if retry >= RETRY_TIMES_FOR_SYSTEM_FAIL:
                         logger.log_error("System failed to recover in {} secs. Exiting...".format((RETRY_PERIOD_FOR_SYSTEM_FAIL_MSECS/1000)*RETRY_TIMES_FOR_SYSTEM_FAIL))
                         next_state = STATE_EXIT
+                        sfp_error_event.set()
                     else:
                         retry = retry + 1                   
                         waiting_time_compensation_with_sleep(time_start, RETRY_PERIOD_FOR_SYSTEM_FAIL_MSECS/1000)
@@ -1010,11 +1013,11 @@ class sfp_state_update_task:
 
         logger.log_info("Stop SFP monitoring loop")
 
-    def task_run(self):
+    def task_run(self, sfp_error_event):
         if self.task_stopping_event.is_set():
             return
 
-        self.task_process = multiprocessing.Process(target=self.task_worker,args=(self.task_stopping_event,))
+        self.task_process = multiprocessing.Process(target=self.task_worker,args=(self.task_stopping_event, sfp_error_event))
         self.task_process.start()
 
     def task_stop(self):
@@ -1031,6 +1034,7 @@ class DaemonXcvrd(DaemonBase):
 
         self.timeout = XCVRD_MAIN_THREAD_SLEEP_SECS
         self.stop_event = threading.Event()
+        self.sfp_error_event = multiprocessing.Event()
 
     # Signal handler
     def signal_handler(self, sig, frame):
@@ -1166,7 +1170,7 @@ class DaemonXcvrd(DaemonBase):
 
         # Start the sfp state info update process
         sfp_state_update = sfp_state_update_task()
-        sfp_state_update.task_run()
+        sfp_state_update.task_run(self.sfp_error_event)
 
         # Start main loop
         logger.log_info("Start daemon main loop")
@@ -1187,6 +1191,9 @@ class DaemonXcvrd(DaemonBase):
         self.deinit()
 
         logger.log_info("Shutting down...")
+
+        if self.sfp_error_event.is_set():
+            sys.exit(SFP_SYSTEM_ERROR)
 
 #
 # Main =========================================================================
