@@ -1,3 +1,6 @@
+[![Total alerts](https://img.shields.io/lgtm/alerts/g/Azure/sonic-platform-daemons.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/Azure/sonic-platform-daemons/alerts/)
+[![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/Azure/sonic-platform-daemons.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/Azure/sonic-platform-daemons/context:python)
+
 # SONiC: Software for Open Networking in the Cloud
 
 ## sonic-platform-daemons
