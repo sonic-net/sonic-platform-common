@@ -7,12 +7,7 @@
 
 try:
     import getopt
-    import os
-    import imp
-    import signal
-    import subprocess
     import sys
-    import syslog
     from swsscommon import swsscommon
     from sonic_daemon_base import daemon_base
     from sonic_daemon_base.daemon_base import Logger
