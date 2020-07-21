@@ -91,19 +91,20 @@ class DaemonLedd(daemon_base.DaemonBase):
                 self.log_warning("sel.select() did not  return swsscommon.Select.OBJECT")
                 continue
 
-            for namespace in namespaces:
-                (key, op, fvp) = sst[namespace].pop()
-                if fvp:
-                    # TODO: Once these flag entries have been removed from the DB,
-                    # we can remove this check
-                    if key in ["PortConfigDone", "PortInitDone"]:
-                        continue
+            # Get the namespace from the selectable object and use it to index the SubscriberStateTable handle.
+            ns=c.getDbNamespace()
+            (key, op, fvp) = sst[ns].pop()
+            if fvp:
+                # TODO: Once these flag entries have been removed from the DB,
+                # we can remove this check
+                if key in ["PortConfigDone", "PortInitDone"]:
+                    continue
 
-                    fvp_dict = dict(fvp)
+                fvp_dict = dict(fvp)
 
-                    if op == "SET" and "oper_status" in fvp_dict:
-                        if not key.startswith(daemon_base.get_internal_interface_prefix()):
-                            led_control.port_link_state_change(key, fvp_dict["oper_status"])
+                if op == "SET" and "oper_status" in fvp_dict:
+                    if not key.startswith(daemon_base.get_internal_interface_prefix()):
+                        led_control.port_link_state_change(key, fvp_dict["oper_status"])
 
         return 1
 
