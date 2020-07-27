@@ -25,6 +25,7 @@ setup(
         'sonic_thermal',
     ],
     install_requires=[
+        'sonic-config-engine',
         'sonic-py-common'
     ],
     classifiers=[
