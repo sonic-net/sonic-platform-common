@@ -24,6 +24,9 @@ setup(
         'sonic_sfp',
         'sonic_thermal',
     ],
+    install_requires=[
+        'sonic-py-common'
+    ],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Environment :: Plugins',
