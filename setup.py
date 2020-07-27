@@ -25,7 +25,7 @@ setup(
         'sonic_thermal',
     ],
     install_requires=[
-        'sonic-config-engine',
+        'sonic-config-engine',  # For portconfig
         'sonic-py-common'
     ],
     classifiers=[
