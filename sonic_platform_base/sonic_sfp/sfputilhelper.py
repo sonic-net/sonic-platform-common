@@ -10,11 +10,12 @@ try:
     import binascii
     import os
     import re
-    from portconfig import get_port_config
-    from collections import OrderedDict
-    from natsort import natsorted
-    from sonic_daemon_base.daemon_base import DaemonBase
     import sys
+    from collections import OrderedDict
+
+    from natsort import natsorted
+    from portconfig import get_port_config
+    from sonic_py_common.daemon_base import DaemonBase
 except ImportError as e:
     raise ImportError("%s - required module not found" % str(e))
 
