@@ -316,7 +316,7 @@ class FanUpdater(object):
              ('drawer_name', drawer_name),
              ('model', str(try_get(fan.get_model))),
              ('serial', str(try_get(fan.get_serial))),
-             ('status', str(fan_fault_status)),
+             ('status', str(fan_fault_status and not(fan_status.under_speed or fan_status.over_speed))),
              ('direction', str(fan_direction)),
              ('speed', str(speed)),
              ('speed_tolerance', str(speed_tolerance)),
