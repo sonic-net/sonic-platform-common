@@ -4,6 +4,8 @@ from mock import Mock, MagicMock, patch
 from sonic_daemon_base import daemon_base
 from .mock_platform import MockChassis, MockFan, MockThermal
 
+NOT_AVAILABLE = 'N/A'
+
 daemon_base.db_connect = MagicMock()
 
 test_path = os.path.dirname(os.path.abspath(__file__))
