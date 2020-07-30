@@ -832,6 +832,7 @@ class SfpUtilBase(object):
             transceiver_info_dict['cable_length'] = 'N/A'
             transceiver_info_dict['specification_compliance'] = '{}'
             transceiver_info_dict['nominal_bit_rate'] = 'N/A'
+            transceiver_info_dict['application_advertisement'] = 'N/A'
 
         else:
             file_path = self._get_port_eeprom_path(port_num, self.IDENTITY_EEPROM_ADDR)
@@ -938,6 +939,8 @@ class SfpUtilBase(object):
             transceiver_info_dict['ext_rateselect_compliance'] = sfp_interface_bulk_data['data']['RateIdentifier']['value']
             transceiver_info_dict['cable_type'] = "Unknown"
             transceiver_info_dict['cable_length'] = "Unknown"
+            transceiver_info_dict['application_advertisement'] = 'N/A'
+
             if sfp_type == 'QSFP':
                 for key in qsfp_cable_length_tup:
                     if key in sfp_interface_bulk_data['data']:
