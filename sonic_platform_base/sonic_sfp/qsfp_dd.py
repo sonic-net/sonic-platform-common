@@ -6,17 +6,17 @@
 from __future__ import print_function
 
 try:
-    from sff8024 import type_of_transceiver    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
-    from sff8024 import type_abbrv_name    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
-    from sff8024 import connector_dict    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
-    from sff8024 import ext_type_of_transceiver    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
-    from sff8024 import type_of_media_interface    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
-    from sff8024 import host_electrical_interface    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
-    from sff8024 import nm_850_media_interface    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
-    from sff8024 import sm_media_interface    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
-    from sff8024 import passive_copper_media_interface    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
-    from sff8024 import active_cable_media_interface    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
-    from sff8024 import base_t_media_interface    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
+    from .sff8024 import type_of_transceiver    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
+    from .sff8024 import type_abbrv_name    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
+    from .sff8024 import connector_dict    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
+    from .sff8024 import ext_type_of_transceiver    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
+    from .sff8024 import type_of_media_interface    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
+    from .sff8024 import host_electrical_interface    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
+    from .sff8024 import nm_850_media_interface    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
+    from .sff8024 import sm_media_interface    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
+    from .sff8024 import passive_copper_media_interface    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
+    from .sff8024 import active_cable_media_interface    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
+    from .sff8024 import base_t_media_interface    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
     from sonic_platform_base.sonic_sfp.sffbase import sffbase    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
 except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
