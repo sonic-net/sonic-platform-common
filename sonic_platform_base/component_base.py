@@ -88,7 +88,7 @@ class ComponentBase(object):
         """
         raise NotImplementedError
 
-    def update_firmware(self, image_path):
+    def update_firmware(self, image_path, boot_action):
         """
         Updates firmware of the component
 
@@ -98,6 +98,7 @@ class ComponentBase(object):
 
         Args:
             image_path: A string, path to firmware image
+            boot_action: A string, boot action following the upgrade
 
         Raises:
             RuntimeError: update failed
