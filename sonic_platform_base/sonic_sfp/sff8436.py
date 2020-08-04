@@ -17,6 +17,7 @@ try:
     from math import log10
     from .sff8024 import type_of_transceiver    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
     from .sff8024 import type_abbrv_name    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
+    from .sff8024 import ext_specification_compliance    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
     from .sffbase import sffbase    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
 except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
@@ -372,6 +373,11 @@ class sff8436InterfaceId(sffbase):
                 {'offset' : 3,
                  'type' : 'nested',
                  'decode' : specification_compliance},
+            'Extended Specification compliance':
+                {'offset' : 64,
+                 'size':1,
+                 'type' : 'enum',
+                 'decode' : ext_specification_compliance},
             'EncodingCodes':
                 {'offset':11,
                  'size':1,
