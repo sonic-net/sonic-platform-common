@@ -15,7 +15,7 @@ try:
 
     from natsort import natsorted
     from portconfig import get_port_config
-    from sonic_py_common.daemon_base import DaemonBase
+    from sonic_py_common import device_info
 except ImportError as e:
     raise ImportError("%s - required module not found" % str(e))
 
@@ -56,7 +56,7 @@ class SfpUtilHelper(object):
         parse_fmt_port_config_ini = (os.path.basename(porttabfile) == PORT_CONFIG_INI)
         parse_fmt_platform_json = (os.path.basename(porttabfile) == PLATFORM_JSON)
 
-        (platform, hwsku) =  DaemonBase().get_platform_and_hwsku()
+        (platform, hwsku) = device_info.get_platform_and_hwsku()
         if(parse_fmt_platform_json):
             ports, _ = get_port_config(hwsku, platform)
             if not ports:
