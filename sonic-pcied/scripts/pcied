@@ -13,8 +13,8 @@ try:
     import threading
 
     import swsssdk
-    from sonic_daemon_base.daemon_base import Logger
-    from sonic_daemon_base.daemon_base import DaemonBase
+    from sonic_py_common.daemon_base import DaemonBase
+    from sonic_py_common.device_info import get_platform
 except ImportError, e:
     raise ImportError(str(e) + " - required module not found")
 
@@ -28,15 +28,9 @@ PCIE_TABLE_NAME = "PCIE_STATUS"
 
 PLATFORM_ROOT_PATH = '/usr/share/sonic/device'
 PCIE_CONF_FILE = 'pcie.yaml'
-SONIC_CFGGEN_PATH = '/usr/local/bin/sonic-cfggen'
-HWSKU_KEY = 'DEVICE_METADATA.localhost.hwsku'
-PLATFORM_KEY = 'DEVICE_METADATA.localhost.platform'
 
 PCIED_MAIN_THREAD_SLEEP_SECS = 60
 REDIS_HOSTIP = "127.0.0.1"
-
-# Global logger class instance
-logger = Logger(SYSLOG_IDENTIFIER)
 
 #
 # Daemon =======================================================================
@@ -44,14 +38,14 @@ logger = Logger(SYSLOG_IDENTIFIER)
 
 
 class DaemonPcied(DaemonBase):
-    def __init__(self):
-        DaemonBase.__init__(self)
+    def __init__(self, log_identifier):
+        super(DaemonPcied, self).__init__(log_identifier)
 
-        platform, hwsku = DaemonBase.get_platform_and_hwsku(self)
-        pciefilePath = "/".join([PLATFORM_ROOT_PATH, platform, "plugins", PCIE_CONF_FILE])
+        platform = get_platform()
+        pciefilePath = os.path.join(PLATFORM_ROOT_PATH, platform, "plugins", PCIE_CONF_FILE)
         sys.path.append(os.path.abspath(pciefilePath))
         if not os.path.exists(pciefilePath):
-            logger.log_error("Platform pcie configuration file doesn't exist! exit pcied")
+            self.log_error("Platform pcie configuration file doesn't exist! Exiting ...")
             sys.exit("Platform PCIe Configuration file doesn't exist!")
 
         self.timeout = PCIED_MAIN_THREAD_SLEEP_SECS
@@ -70,10 +64,10 @@ class DaemonPcied(DaemonBase):
             if PCIE_RESULT_REGEX in line:
                 if "PASSED" in line and "PASSED" not in pcie_db_state:
                     self.update_state_db("PCIE_STATUS|", "PCIE_DEVICES", "PASSED")
-                    logger.log_info("PCIe device status check : PASSED")
+                    self.log_info("PCIe device status check : PASSED")
                 elif "FAILED" in line and "PASSED" in pcie_db_state:
                     self.update_state_db("PCIE_STATUS|", "PCIE_DEVICES", "FAILED")
-                    logger.log_info("PCIe device status check : FAILED")
+                    self.log_info("PCIe device status check : FAILED")
 
     def read_state_db(self, key1, key2):
         return self.state_db.get('STATE_DB', key1, key2)
@@ -84,44 +78,44 @@ class DaemonPcied(DaemonBase):
     # Signal handler
     def signal_handler(self, sig, frame):
         if sig == signal.SIGHUP:
-            logger.log_info("Caught SIGHUP - ignoring...")
+            self.log_info("Caught SIGHUP - ignoring...")
         elif sig == signal.SIGINT:
-            logger.log_info("Caught SIGINT - exiting...")
+            self.log_info("Caught SIGINT - exiting...")
             self.stop_event.set()
         elif sig == signal.SIGTERM:
-            logger.log_info("Caught SIGTERM - exiting...")
+            self.log_info("Caught SIGTERM - exiting...")
             self.stop_event.set()
         else:
-            logger.log_warning("Caught unhandled signal '" + sig + "'")
+            self.log_warning("Caught unhandled signal '" + sig + "'")
 
     # Initialize daemon
     def init(self):
-        logger.log_info("Start daemon init...")
+        self.log_info("Start daemon init...")
 
     # Deinitialize daemon
     def deinit(self):
-        logger.log_info("Start daemon deinit...")
+        self.log_info("Start daemon deinit...")
 
     # Run daemon
     def run(self):
-        logger.log_info("Starting up...")
+        self.log_info("Starting up...")
 
         # Start daemon initialization sequence
         self.init()
 
         # Start main loop
-        logger.log_info("Start daemon main loop")
+        self.log_info("Start daemon main loop")
 
         while not self.stop_event.wait(self.timeout):
             # Check the Pcie device status
             self.check_pcie_devices()
 
-        logger.log_info("Stop daemon main loop")
+        self.log_info("Stop daemon main loop")
 
         # Start daemon deinitialization sequence
         self.deinit()
 
-        logger.log_info("Shutting down...")
+        self.log_info("Shutting down...")
 
 #
 # Main =========================================================================
@@ -129,7 +123,7 @@ class DaemonPcied(DaemonBase):
 
 
 def main():
-    pcied = DaemonPcied()
+    pcied = DaemonPcied(SYSLOG_IDENTIFIER)
     pcied.run()
 
 if __name__ == '__main__':

@@ -8,10 +8,9 @@
 try:
     import getopt
     import sys
+
+    from sonic_py_common import daemon_base
     from swsscommon import swsscommon
-    from sonic_daemon_base import daemon_base
-    from sonic_daemon_base.daemon_base import Logger
-    from sonic_daemon_base.daemon_base import DaemonBase
 except ImportError, e:
     raise ImportError (str(e) + " - required module not found")
 
@@ -36,11 +35,7 @@ SELECT_TIMEOUT = 1000
 
 LEDUTIL_LOAD_ERROR = 1
 
-logger = Logger(SYSLOG_IDENTIFIER)
-
-class DaemonLedd(DaemonBase):
-    def __init__(self):
-        DaemonBase.__init__(self)
+class DaemonLedd(daemon_base.DaemonBase):
 
     # Run daemon
     def run(self):
@@ -67,7 +62,7 @@ class DaemonLedd(DaemonBase):
         try:
             led_control = self.load_platform_util(LED_MODULE_NAME, LED_CLASS_NAME)
         except Exception as e:
-            logger.log_error("Failed to load ledutil: %s" % (str(e)), True)
+            self.log_error("Failed to load ledutil: %s" % (str(e)), True)
             sys.exit(LEDUTIL_LOAD_ERROR)
 
         # Open a handle to the Application database
@@ -88,7 +83,7 @@ class DaemonLedd(DaemonBase):
                 # Do not flood log when select times out
                 continue
             if state != swsscommon.Select.OBJECT:
-                logger.log_warning("sel.select() did not  return swsscommon.Select.OBJECT")
+                self.log_warning("sel.select() did not  return swsscommon.Select.OBJECT")
                 continue
 
             (key, op, fvp) = sst.pop()
@@ -106,7 +101,7 @@ class DaemonLedd(DaemonBase):
         return 1
 
 def main():
-    ledd = DaemonLedd()
+    ledd = DaemonLedd(SYSLOG_IDENTIFIER)
     ledd.run()
 
 if __name__ == '__main__':

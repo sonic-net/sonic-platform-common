@@ -1,7 +1,9 @@
 import os
 import sys
+
 from mock import Mock, MagicMock, patch
-from sonic_daemon_base import daemon_base
+from sonic_py_common import daemon_base
+
 from .mock_platform import MockChassis, MockFan, MockThermal
 
 NOT_AVAILABLE = 'N/A'

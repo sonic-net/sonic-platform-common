@@ -10,13 +10,12 @@
 """
 
 try:
-    import sys
     import signal
+    import sys
     import threading
+
+    from sonic_py_common import daemon_base
     from swsscommon import swsscommon
-    from sonic_daemon_base import daemon_base
-    from sonic_daemon_base.daemon_base import Logger
-    from sonic_daemon_base.daemon_base import DaemonBase
 except ImportError, e:
     raise ImportError (str(e) + " - required module not found")
 
@@ -48,8 +47,6 @@ NOT_AVAILABLE = 'N/A'
 PSU_INFO_UPDATE_PERIOD_SECS = 3
 
 PSUUTIL_LOAD_ERROR = 1
-
-logger = Logger(SYSLOG_IDENTIFIER)
 
 platform_psuutil = None
 platform_chassis = None
@@ -119,9 +116,9 @@ def log_on_status_changed(normal_status, normal_log, abnormal_log):
     :return:
     """
     if normal_status:
-        logger.log_notice(normal_log)
+        self.log_notice(normal_log)
     else:
-        logger.log_warning(abnormal_log)
+        self.log_warning(abnormal_log)
 
 #
 # PSU status ===================================================================
@@ -162,7 +159,7 @@ class PsuStatus(object):
     def set_voltage(self, voltage, high_threshold, low_threshold):
         if not voltage or not high_threshold or not low_threshold:
             if self.voltage_good is not True:
-                logger.log_warning('PSU voltage or high_threshold or low_threshold become unavailable, '
+                self.log_warning('PSU voltage or high_threshold or low_threshold become unavailable, '
                                    'voltage={}, high_threshold={}, low_threshold={}'.format(voltage, high_threshold, low_threshold))
                 self.voltage_good = True
             return False
@@ -177,7 +174,7 @@ class PsuStatus(object):
     def set_temperature(self, temperature, high_threshold):
         if not temperature or not high_threshold:
             if self.temperature_good is not True:
-                logger.log_warning('PSU temperature or high_threshold become unavailable, '
+                self.log_warning('PSU temperature or high_threshold become unavailable, '
                                    'temperature={}, high_threshold={}'.format(temperature, high_threshold))
                 self.temperature_good = True
             return False
@@ -196,9 +193,9 @@ class PsuStatus(object):
 # Daemon =======================================================================
 #
 
-class DaemonPsud(DaemonBase):
-    def __init__(self):
-        DaemonBase.__init__(self)
+class DaemonPsud(daemon_base.DaemonBase):
+    def __init__(self, log_identifier):
+        super(DaemonPsud, self).__init__(log_identifier)
 
         self.stop = threading.Event()
         self.psu_status_dict = {}
@@ -206,36 +203,36 @@ class DaemonPsud(DaemonBase):
     # Signal handler
     def signal_handler(self, sig, frame):
         if sig == signal.SIGHUP:
-            logger.log_info("Caught SIGHUP - ignoring...")
+            self.log_info("Caught SIGHUP - ignoring...")
         elif sig == signal.SIGINT:
-            logger.log_info("Caught SIGINT - exiting...")
+            self.log_info("Caught SIGINT - exiting...")
             self.stop.set()
         elif sig == signal.SIGTERM:
-            logger.log_info("Caught SIGTERM - exiting...")
+            self.log_info("Caught SIGTERM - exiting...")
             self.stop.set()
         else:
-            logger.log_warning("Caught unhandled signal '" + sig + "'")
+            self.log_warning("Caught unhandled signal '" + sig + "'")
 
     # Run daemon
     def run(self):
         global platform_psuutil
         global platform_chassis
 
-        logger.log_info("Starting up...")
+        self.log_info("Starting up...")
 
         # Load new platform api class
         try:
             import sonic_platform.platform
             platform_chassis = sonic_platform.platform.Platform().get_chassis()
         except Exception as e:
-            logger.log_warning("Failed to load chassis due to {}".format(repr(e)))
+            self.log_warning("Failed to load chassis due to {}".format(repr(e)))
 
         # Load platform-specific psuutil class
         if platform_chassis is None:
             try:
                 platform_psuutil = self.load_platform_util(PLATFORM_SPECIFIC_MODULE_NAME, PLATFORM_SPECIFIC_CLASS_NAME)
             except Exception as e:
-                logger.log_error("Failed to load psuutil: %s" % (str(e)), True)
+                self.log_error("Failed to load psuutil: %s" % (str(e)), True)
                 sys.exit(PSUUTIL_LOAD_ERROR)
 
         # Connect to STATE_DB and create psu/chassis info tables
@@ -249,14 +246,14 @@ class DaemonPsud(DaemonBase):
         chassis_tbl.set(CHASSIS_INFO_KEY_TEMPLATE.format(1), fvs)
 
         # Start main loop
-        logger.log_info("Start daemon main loop")
+        self.log_info("Start daemon main loop")
 
         while not self.stop.wait(PSU_INFO_UPDATE_PERIOD_SECS):
             psu_db_update(psu_tbl, psu_num)
             self.update_psu_data(psu_tbl)
             self._update_led_color(psu_tbl)
 
-        logger.log_info("Stop daemon main loop")
+        self.log_info("Stop daemon main loop")
 
         # Delete all the information from DB and then exit
         for psu_index in range(1, psu_num + 1):
@@ -264,7 +261,7 @@ class DaemonPsud(DaemonBase):
 
         chassis_tbl._del(CHASSIS_INFO_KEY_TEMPLATE.format(1))
 
-        logger.log_info("Shutting down...")
+        self.log_info("Shutting down...")
 
     def update_psu_data(self, psu_tbl):
         if not platform_chassis:
@@ -274,7 +271,7 @@ class DaemonPsud(DaemonBase):
             try:
                 self._update_single_psu_data(index + 1, psu, psu_tbl)
             except Exception as e:
-                logger.log_warning("Failed to update PSU data - {}".format(e))
+                self.log_warning("Failed to update PSU data - {}".format(e))
     
     def _update_single_psu_data(self, index, psu, psu_tbl):
         name = try_get(psu.get_name)
@@ -358,7 +355,7 @@ class DaemonPsud(DaemonBase):
                     ('led_status', str(try_get(psu_status.psu.get_status_led)))
                 ])
             except Exception as e:
-                logger.log_warning('Failed to get led status for psu {}'.format(index))
+                self.log_warning('Failed to get led status for psu {}'.format(index))
                 fvs = swsscommon.FieldValuePairs([
                     ('led_status', NOT_AVAILABLE)
                 ])
@@ -368,7 +365,7 @@ class DaemonPsud(DaemonBase):
 #
 
 def main():
-    psud = DaemonPsud()
+    psud = DaemonPsud(SYSLOG_IDENTIFIER)
     psud.run()
 
 if __name__ == '__main__':

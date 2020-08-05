@@ -9,12 +9,11 @@
 '''
 
 try:
-    import sys
     import signal
+    import sys
     import threading
-    from sonic_daemon_base.daemon_base import DaemonBase
-    from sonic_daemon_base.daemon_base import Logger
-    from sonic_daemon_base import daemon_base
+
+    from sonic_py_common import daemon_base
     from swsscommon import swsscommon
 except ImportError, e:
     raise ImportError (str(e) + " - required module not found")
@@ -34,12 +33,10 @@ ERR_EEPROMUTIL_LOAD = 5
 EEPROM_TABLE_NAME = 'EEPROM_INFO'
 SYSLOG_IDENTIFIER = 'syseepromd'
 
-# Global logger class instance
-logger = Logger(SYSLOG_IDENTIFIER)
 
-class DaemonSyseeprom(DaemonBase):
-    def __init__(self):
-        DaemonBase.__init__(self)
+class DaemonSyseeprom(daemon_base.DaemonBase):
+    def __init__(self, log_identifier):
+        super(DaemonSyseeprom, self).__init__(log_identifier)
 
         self.stop_event = threading.Event()
         self.eeprom = None
@@ -72,12 +69,12 @@ class DaemonSyseeprom(DaemonBase):
     def post_eeprom_to_db(self):
         eeprom = self._wrapper_read_eeprom()
         if eeprom is None :
-            logger.log_error("Failed to read eeprom")
+            self.log_error("Failed to read eeprom")
             return ERR_FAILED_EEPROM
 
         err = self._wrapper_update_eeprom_db(eeprom)
         if err:
-            logger.log_error("Failed to update eeprom info to database")
+            self.log_error("Failed to update eeprom info to database")
             return ERR_FAILED_UPDATE_DB
 
         self.eepromtbl_keys = self.eeprom_tbl.getKeys()
@@ -104,19 +101,19 @@ class DaemonSyseeprom(DaemonBase):
     # Signal handler
     def signal_handler(self, sig, frame):
         if sig == signal.SIGHUP:
-            logger.log_info("Caught SIGHUP - ignoring...")
+            self.log_info("Caught SIGHUP - ignoring...")
         elif sig == signal.SIGINT:
-            logger.log_info("Caught SIGINT - exiting...")
+            self.log_info("Caught SIGINT - exiting...")
             self.stop_event.set()
         elif sig == signal.SIGTERM:
-            logger.log_info("Caught SIGTERM - exiting...")
+            self.log_info("Caught SIGTERM - exiting...")
             self.stop_event.set()
         else:
-            logger.log_warning("Caught unhandled signal '" + sig + "'")
+            self.log_warning("Caught unhandled signal '" + sig + "'")
 
     # Run daemon
     def run(self):
-        logger.log_info("Starting up...")
+        self.log_info("Starting up...")
 
         # First, try to load the new platform API
         try:
@@ -124,14 +121,14 @@ class DaemonSyseeprom(DaemonBase):
             self.chassis = sonic_platform.platform.Platform().get_chassis()
             self.eeprom = self.chassis.get_eeprom()
         except Exception as e:
-            logger.log_warning("Failed to load platform-specific eeprom from sonic_platform package due to {}".format(repr(e)))
+            self.log_warning("Failed to load platform-specific eeprom from sonic_platform package due to {}".format(repr(e)))
 
         # If we didn't successfully load the class from the sonic_platform package, try loading the old plugin
         if not self.eeprom:
             try:
                 self.eeprom = self.load_platform_util(PLATFORM_SPECIFIC_MODULE_NAME, PLATFORM_SPECIFIC_CLASS_NAME)
             except Exception as e:
-                logger.log_error("Failed to load platform-specific eeprom implementation: {}".format(repr(e)))
+                self.log_error("Failed to load platform-specific eeprom implementation: {}".format(repr(e)))
 
         if not self.eeprom:
             sys.exit(ERR_EEPROMUTIL_LOAD)
@@ -139,34 +136,34 @@ class DaemonSyseeprom(DaemonBase):
         # Connect to STATE_DB and post syseeprom info to state DB
         rc = self.post_eeprom_to_db()
         if rc != POST_EEPROM_SUCCESS:
-            logger.log_error("Failed to post eeprom to database")
+            self.log_error("Failed to post eeprom to database")
 
         # Start main loop
-        logger.log_info("Start daemon main loop")
+        self.log_info("Start daemon main loop")
 
         while not self.stop_event.wait(EEPROM_INFO_UPDATE_PERIOD_SECS):
             rc = self.detect_eeprom_table_integrity()
             if not rc:
-                logger.log_info("sys eeprom table was changed, need update")
+                self.log_info("sys eeprom table was changed, need update")
                 self.clear_db()
                 rcs = self.post_eeprom_to_db()
                 if rcs != POST_EEPROM_SUCCESS:
-                    logger.log_error("Failed to post eeprom to database")
+                    self.log_error("Failed to post eeprom to database")
                     continue
 
-        logger.log_info("Stop daemon main loop")
+        self.log_info("Stop daemon main loop")
 
         # Delete all the information from DB and then exit
         self.clear_db()
 
-        logger.log_info("Shutting down...")
+        self.log_info("Shutting down...")
 
 #
 # Main =========================================================================
 #
 
 def main():
-    syseepromd = DaemonSyseeprom()
+    syseepromd = DaemonSyseeprom(SYSLOG_IDENTIFIER)
     syseepromd.run()
 
 if __name__ == '__main__':
