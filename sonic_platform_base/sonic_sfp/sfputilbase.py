@@ -10,6 +10,13 @@ try:
     import binascii
     import os
     import re
+    import sys
+    from collections import OrderedDict
+
+    from natsort import natsorted
+    from portconfig import get_port_config
+    from sonic_py_common import device_info
+
     from . import bcmshell       # Dot module supports both Python 2 and Python 3 using explicit relative import methods
     from sonic_eeprom import eeprom_dts
     from .sff8472 import sff8472InterfaceId  # Dot module supports both Python 2 and Python 3 using explicit relative import methods
@@ -17,11 +24,6 @@ try:
     from .sff8436 import sff8436InterfaceId  # Dot module supports both Python 2 and Python 3 using explicit relative import methods
     from .sff8436 import sff8436Dom    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
     from .inf8628 import inf8628InterfaceId    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
-    from portconfig import get_port_config
-    from collections import OrderedDict
-    from natsort import natsorted
-    from sonic_daemon_base.daemon_base import DaemonBase
-    import sys
 except ImportError as e:
     raise ImportError("%s - required module not found" % str(e))
 
@@ -384,7 +386,7 @@ class SfpUtilBase(object):
         parse_fmt_port_config_ini = (os.path.basename(porttabfile) == PORT_CONFIG_INI)
         parse_fmt_platform_json = (os.path.basename(porttabfile) == PLATFORM_JSON)
 
-        (platform, hwsku) =  DaemonBase().get_platform_and_hwsku()
+        (platform, hwsku) = device_info.get_platform_and_hwsku()
         if(parse_fmt_platform_json):
             ports, _ = get_port_config(hwsku, platform)
             if not ports:
