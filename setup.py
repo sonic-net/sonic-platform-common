@@ -25,7 +25,6 @@ setup(
         'sonic_thermal',
     ],
     install_requires=[
-        'sonic-config-engine',  # For portconfig. TODO: Remove this dependency
         'sonic-py-common'
     ],
     classifiers=[
