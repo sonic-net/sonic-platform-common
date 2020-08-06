@@ -11,7 +11,7 @@ try:
     import time
     from datetime import datetime
 
-    from sonic_py_common import daemon_base
+    from sonic_py_common import daemon_base, logger
     from sonic_py_common.task_base import ProcessTaskBase
 except ImportError as e:
     raise ImportError(str(e) + " - required module not found")
@@ -23,7 +23,6 @@ except ImportError as e:
 
 SYSLOG_IDENTIFIER = 'thermalctld'
 NOT_AVAILABLE = 'N/A'
-
 
 # utility functions
 
@@ -45,28 +44,16 @@ def try_get(callback, default=NOT_AVAILABLE):
     return ret
 
 
-def log_on_status_changed(normal_status, normal_log, abnormal_log):
-    """
-    Log when any status changed
-    :param normal_status: Expected status.
-    :param normal_log: Log string for expected status.
-    :param abnormal_log: Log string for unexpected status
-    :return:
-    """
-    if normal_status:
-        self.log_notice(normal_log)
-    else:
-        self.log_warning(abnormal_log)
-
-
-class FanStatus(object):
+class FanStatus(logger.Logger):
     absence_fan_count = 0
     fault_fan_count = 0
 
-    def __init__(self, fan=None, is_psu_fan=False):
+    def __init__(self, log_identifier, fan=None, is_psu_fan=False):
         """
         Constructor of FanStatus
         """
+        super(FanStatus, self).__init__(log_identifier)
+
         self.fan = fan
         self.is_psu_fan = is_psu_fan
         self.presence = True
@@ -181,15 +168,17 @@ class FanStatus(object):
 #
 # FanUpdater ===================================================================
 #
-class FanUpdater(object):
+class FanUpdater(logger.Logger):
     # Fan information table name in database
     FAN_INFO_TABLE_NAME = 'FAN_INFO'
 
-    def __init__(self, chassis):
+    def __init__(self, log_identifier, chassis):
         """
         Constructor for FanUpdater
         :param chassis: Object representing a platform chassis
         """
+        super(FanUpdater, self).__init__(log_identifier)
+
         self.chassis = chassis
         self.fan_status_dict = {}
         state_db = daemon_base.db_connect("STATE_DB")
@@ -202,6 +191,19 @@ class FanUpdater(object):
         """
         for name in self.fan_status_dict.keys():
             self.table._del(name)
+
+    def _log_on_status_changed(self, normal_status, normal_log, abnormal_log):
+        """
+        Log when any status changed
+        :param normal_status: Expected status.
+        :param normal_log: Log string for expected status.
+        :param abnormal_log: Log string for unexpected status
+        :return:
+        """
+        if normal_status:
+            self.log_notice(normal_log)
+        else:
+            self.log_warning(abnormal_log)
 
     def update(self):
         """
@@ -253,7 +255,7 @@ class FanUpdater(object):
         drawer_name = NOT_AVAILABLE if is_psu_fan else str(try_get(fan_drawer.get_name))
         fan_name = try_get(fan.get_name, '{} {}'.format(name_prefix, index + 1))
         if fan_name not in self.fan_status_dict:
-            self.fan_status_dict[fan_name] = FanStatus(fan, is_psu_fan)
+            self.fan_status_dict[fan_name] = FanStatus(SYSLOG_IDENTIFIER, fan, is_psu_fan)
 
         fan_status = self.fan_status_dict[fan_name]
 
@@ -273,34 +275,34 @@ class FanUpdater(object):
         set_led = False
         if fan_status.set_presence(presence):
             set_led = True
-            log_on_status_changed(fan_status.presence,
-                                  'Fan removed warning cleared: {} was inserted.'.format(fan_name),
-                                  'Fan removed warning: {} was removed from '
-                                  'the system, potential overheat hazard'.format(fan_name)
-                                  )
+            self._log_on_status_changed(fan_status.presence,
+                                        'Fan removed warning cleared: {} was inserted.'.format(fan_name),
+                                        'Fan removed warning: {} was removed from '
+                                        'the system, potential overheat hazard'.format(fan_name)
+                                        )
 
         if presence and fan_status.set_fault_status(fan_fault_status):
             set_led = True
-            log_on_status_changed(fan_status.status,
-                                  'Fan fault warning cleared: {} is back to normal.'.format(fan_name),
-                                  'Fan fault warning: {} is broken.'.format(fan_name)
-                                  )
+            self._log_on_status_changed(fan_status.status,
+                                        'Fan fault warning cleared: {} is back to normal.'.format(fan_name),
+                                        'Fan fault warning: {} is broken.'.format(fan_name)
+                                        )
 
         if presence and fan_status.set_under_speed(speed, speed_target, speed_tolerance):
             set_led = True
-            log_on_status_changed(not fan_status.under_speed,
-                                  'Fan low speed warning cleared: {} speed is back to normal.'.format(fan_name),
-                                  'Fan low speed warning: {} current speed={}, target speed={}, tolerance={}.'.
-                                  format(fan_name, speed, speed_target, speed_tolerance)
-                                  )
+            self._log_on_status_changed(not fan_status.under_speed,
+                                        'Fan low speed warning cleared: {} speed is back to normal.'.format(fan_name),
+                                        'Fan low speed warning: {} current speed={}, target speed={}, tolerance={}.'.
+                                        format(fan_name, speed, speed_target, speed_tolerance)
+                                        )
 
         if presence and fan_status.set_over_speed(speed, speed_target, speed_tolerance):
             set_led = True
-            log_on_status_changed(not fan_status.over_speed,
-                                  'Fan high speed warning cleared: {} speed is back to normal.'.format(fan_name),
-                                  'Fan high speed warning: {} target speed={}, current speed={}, tolerance={}.'.
-                                  format(fan_name, speed_target, speed, speed_tolerance)
-                                  )
+            self._log_on_status_changed(not fan_status.over_speed,
+                                        'Fan high speed warning cleared: {} speed is back to normal.'.format(fan_name),
+                                        'Fan high speed warning: {} target speed={}, current speed={}, tolerance={}.'.
+                                        format(fan_name, speed_target, speed, speed_tolerance)
+                                        )
 
         # TODO: handle invalid fan direction
 
@@ -359,10 +361,12 @@ class FanUpdater(object):
             self.table.set(fan_name, fvs)
 
 
-class TemperatureStatus(object):
+class TemperatureStatus(logger.Logger):
     TEMPERATURE_DIFF_THRESHOLD = 10
 
-    def __init__(self):
+    def __init__(self, log_identifier):
+        super(TemperatureStatus, self).__init__(log_identifier)
+
         self.temperature = None
         self.over_temperature = False
         self.under_temperature = False
@@ -440,15 +444,17 @@ class TemperatureStatus(object):
 #
 # TemperatureUpdater  ======================================================================
 #
-class TemperatureUpdater(object):
+class TemperatureUpdater(logger.Logger):
     # Temperature information table name in database
     TEMPER_INFO_TABLE_NAME = 'TEMPERATURE_INFO'
 
-    def __init__(self, chassis):
+    def __init__(self, log_identifier, chassis):
         """
         Constructor of TemperatureUpdater 
         :param chassis: Object representing a platform chassis
         """
+        super(TemperatureUpdater, self).__init__(log_identifier)
+
         self.chassis = chassis
         self.temperature_status_dict = {}
         state_db = daemon_base.db_connect("STATE_DB")
@@ -461,6 +467,19 @@ class TemperatureUpdater(object):
         """
         for name in self.temperature_status_dict.keys():
             self.table._del(name)
+
+    def _log_on_status_changed(self, normal_status, normal_log, abnormal_log):
+        """
+        Log when any status changed
+        :param normal_status: Expected status.
+        :param normal_log: Log string for expected status.
+        :param abnormal_log: Log string for unexpected status
+        :return:
+        """
+        if normal_status:
+            self.log_notice(normal_log)
+        else:
+            self.log_warning(abnormal_log)
 
     def update(self):
         """
@@ -485,7 +504,7 @@ class TemperatureUpdater(object):
         """
         name = try_get(thermal.get_name, 'Thermal {}'.format(index + 1))
         if name not in self.temperature_status_dict:
-            self.temperature_status_dict[name] = TemperatureStatus()
+            self.temperature_status_dict[name] = TemperatureStatus(SYSLOG_IDENTIFIER)
 
         temperature_status = self.temperature_status_dict[name]
 
@@ -503,21 +522,21 @@ class TemperatureUpdater(object):
             
         warning = False
         if temperature != NOT_AVAILABLE and temperature_status.set_over_temperature(temperature, high_threshold):
-            log_on_status_changed(not temperature_status.over_temperature,
-                                  'High temperature warning cleared: {} temperature restore to {}C, high threshold {}C.'.
-                                  format(name, temperature, high_threshold),
-                                  'High temperature warning: {} current temperature {}C, high threshold {}C'.
-                                  format(name, temperature, high_threshold)
-                                  )
+            self._log_on_status_changed(not temperature_status.over_temperature,
+                                        'High temperature warning cleared: {} temperature restore to {}C, high threshold {}C.'.
+                                        format(name, temperature, high_threshold),
+                                        'High temperature warning: {} current temperature {}C, high threshold {}C'.
+                                        format(name, temperature, high_threshold)
+                                        )
         warning = warning | temperature_status.over_temperature
 
         if temperature != NOT_AVAILABLE and temperature_status.set_under_temperature(temperature, low_threshold):
-            log_on_status_changed(not temperature_status.under_temperature,
-                                  'Low temperature warning cleared: {} temperature restore to {}C, low threshold {}C.'.
-                                  format(name, temperature, low_threshold),
-                                  'Low temperature warning: {} current temperature {}C, low threshold {}C'.
-                                  format(name, temperature, low_threshold)
-                                  )
+            self._log_on_status_changed(not temperature_status.under_temperature,
+                                        'Low temperature warning cleared: {} temperature restore to {}C, low threshold {}C.'.
+                                        format(name, temperature, low_threshold),
+                                        'Low temperature warning: {} current temperature {}C, low threshold {}C'.
+                                        format(name, temperature, low_threshold)
+                                        )
         warning = warning | temperature_status.under_temperature
 
         fvs = swsscommon.FieldValuePairs(
@@ -547,8 +566,8 @@ class ThermalMonitor(ProcessTaskBase):
         :param chassis: Object representing a platform chassis
         """
         ProcessTaskBase.__init__(self)
-        self.fan_updater = FanUpdater(chassis)
-        self.temperature_updater = TemperatureUpdater(chassis)
+        self.fan_updater = FanUpdater(SYSLOG_IDENTIFIER, chassis)
+        self.temperature_updater = TemperatureUpdater(SYSLOG_IDENTIFIER, chassis)
 
     def task_worker(self):
         """
