@@ -17,7 +17,7 @@ try:
     import time
 
     from enum import Enum
-    from sonic_py_common import daemon_base, device_info
+    from sonic_py_common import daemon_base, device_info, logger
     from swsscommon import swsscommon
 except ImportError, e:
     raise ImportError (str(e) + " - required module not found")
@@ -90,6 +90,10 @@ platform_sfputil = None
 # Global chassis object based on new platform api
 platform_chassis = None
 
+# Global logger instance for helper functions and classes
+# TODO: Refactor so that we only need the logger inherited
+# by DaemonXcvrd
+helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
 
 #
 # Helper functions =============================================================
@@ -101,7 +105,7 @@ def logical_port_name_to_physical_port_list(port_name):
         if platform_sfputil.is_logical_port(port_name):
             return platform_sfputil.get_logical_to_physical(port_name)
         else:
-            self.log_error("Invalid port '%s'" % port_name)
+            helper_logger.log_error("Invalid port '%s'" % port_name)
             return None
     else:
         return [int(port_name)]
@@ -227,7 +231,7 @@ def post_port_sfp_info_to_db(logical_port_name, table, transceiver_dict,
 
     physical_port_list = logical_port_name_to_physical_port_list(logical_port_name)
     if physical_port_list is None:
-        self.log_error("No physical ports found for logical port '%s'" % logical_port_name)
+        helper_logger.log_error("No physical ports found for logical port '%s'" % logical_port_name)
         return PHYSICAL_PORT_NOT_EXIST
 
     if len(physical_port_list) > 1:
@@ -268,7 +272,7 @@ def post_port_sfp_info_to_db(logical_port_name, table, transceiver_dict,
                 return SFP_EEPROM_NOT_READY
 
         except NotImplementedError:
-            self.log_error("This functionality is currently not implemented for this platform")
+            helper_logger.log_error("This functionality is currently not implemented for this platform")
             sys.exit(NOT_IMPLEMENTED_ERROR)
 
 # Update port dom threshold info in db
@@ -279,7 +283,7 @@ def post_port_dom_threshold_info_to_db(logical_port_name, table,
 
     physical_port_list = logical_port_name_to_physical_port_list(logical_port_name)
     if physical_port_list is None:
-        self.log_error("No physical ports found for logical port '%s'"
+        helper_logger.log_error("No physical ports found for logical port '%s'"
                                                            % logical_port_name)
         return PHYSICAL_PORT_NOT_EXIST
 
@@ -328,7 +332,7 @@ def post_port_dom_threshold_info_to_db(logical_port_name, table,
                 return SFP_EEPROM_NOT_READY
 
         except NotImplementedError:
-            self.log_error("This functionality is currently not implemented for this platform")
+            helper_logger.log_error("This functionality is currently not implemented for this platform")
             sys.exit(NOT_IMPLEMENTED_ERROR)
 
 # Update port dom sensor info in db
@@ -338,7 +342,7 @@ def post_port_dom_info_to_db(logical_port_name, table, stop_event=threading.Even
 
     physical_port_list = logical_port_name_to_physical_port_list(logical_port_name)
     if physical_port_list is None:
-        self.log_error("No physical ports found for logical port '%s'" % logical_port_name)
+        helper_logger.log_error("No physical ports found for logical port '%s'" % logical_port_name)
         return PHYSICAL_PORT_NOT_EXIST
 
     if len(physical_port_list) > 1:
@@ -411,7 +415,7 @@ def post_port_dom_info_to_db(logical_port_name, table, stop_event=threading.Even
                 return SFP_EEPROM_NOT_READY
 
         except NotImplementedError:
-            self.log_error("This functionality is currently not implemented for this platform")
+            helper_logger.log_error("This functionality is currently not implemented for this platform")
             sys.exit(NOT_IMPLEMENTED_ERROR)
 
 # Update port dom/sfp info in db
@@ -448,7 +452,7 @@ def del_port_sfp_dom_info_from_db(logical_port_name, int_tbl, dom_tbl):
 
     physical_port_list = logical_port_name_to_physical_port_list(logical_port_name)
     if physical_port_list is None:
-        self.log_error("No physical ports found for logical port '%s'" % logical_port_name)
+        helper_logger.log_error("No physical ports found for logical port '%s'" % logical_port_name)
         return PHYSICAL_PORT_NOT_EXIST
 
     if len(physical_port_list) > 1:
@@ -465,7 +469,7 @@ def del_port_sfp_dom_info_from_db(logical_port_name, int_tbl, dom_tbl):
                 dom_tbl._del(port_name)
 
         except NotImplementedError:
-            self.log_error("This functionality is currently not implemented for this platform")
+            helper_logger.log_error("This functionality is currently not implemented for this platform")
             sys.exit(NOT_IMPLEMENTED_ERROR)
 
 # recover missing sfp table entries if any
@@ -540,7 +544,7 @@ def get_media_settings_value(physical_port, key):
             if default_dict != 0:
                 return default_dict
             else:
-                self.log_error("Error: No values for physical port '%d'"
+                helper_logger.log_error("Error: No values for physical port '%d'"
                                   % physical_port)
             return {}
         if key[0] in media_dict:
@@ -639,7 +643,7 @@ def notify_media_setting(logical_port_name, transceiver_dict,
 
     physical_port_list = logical_port_name_to_physical_port_list(logical_port_name)
     if physical_port_list is None:
-        self.log_error("Error: No physical ports found for "
+        helper_logger.log_error("Error: No physical ports found for "
                                "logical port '%s'" % logical_port_name)
         return PHYSICAL_PORT_NOT_EXIST
 
@@ -651,11 +655,11 @@ def notify_media_setting(logical_port_name, transceiver_dict,
         num_logical_ports = len(logical_port_list)
         logical_idx = logical_port_list.index(logical_port_name)
         if not _wrapper_get_presence(physical_port):
-            self.log_info("Media %d presence not detected during notify"
+            helper_logger.log_info("Media %d presence not detected during notify"
                              % physical_port)
             continue
         if physical_port not in transceiver_dict:
-            self.log_error("Media %d eeprom not populated in "
+            helper_logger.log_error("Media %d eeprom not populated in "
                              "transceiver dict" % physical_port)
             continue
 
@@ -666,7 +670,7 @@ def notify_media_setting(logical_port_name, transceiver_dict,
         media_dict = get_media_settings_value(physical_port, key)
 
         if(len(media_dict) == 0):
-            self.log_error("Error in obtaining media setting")
+            helper_logger.log_error("Error in obtaining media setting")
             return
 
         fvs = swsscommon.FieldValuePairs(len(media_dict))
@@ -725,7 +729,7 @@ def init_port_sfp_status_tbl(stop_event=threading.Event()):
             break
         physical_port_list = logical_port_name_to_physical_port_list(logical_port_name)
         if physical_port_list is None:
-            self.log_error("No physical ports found for logical port '%s'" % logical_port_name)
+            helper_logger.log_error("No physical ports found for logical port '%s'" % logical_port_name)
             update_port_transceiver_status_table(logical_port_name, status_tbl, SFP_STATUS_REMOVED)
 
         for physical_port in physical_port_list:
@@ -743,13 +747,13 @@ def init_port_sfp_status_tbl(stop_event=threading.Event()):
 #
 
 # Thread wrapper class to update dom info periodically
-class dom_info_update_task:
+class DomInfoUpdateTask(object):
     def __init__(self):
         self.task_thread = None
         self.task_stopping_event = threading.Event()
 
     def task_worker(self):
-        self.log_info("Start DOM monitoring loop")
+        helper_logger.log_info("Start DOM monitoring loop")
 
         # Connect to STATE_DB and create transceiver dom info table
         state_db = daemon_base.db_connect("STATE_DB")
@@ -764,7 +768,7 @@ class dom_info_update_task:
                     post_port_dom_info_to_db(logical_port_name, dom_tbl, self.task_stopping_event)
                     post_port_dom_threshold_info_to_db(logical_port_name, dom_tbl, self.task_stopping_event)
 
-        self.log_info("Stop DOM monitoring loop")
+        helper_logger.log_info("Stop DOM monitoring loop")
 
     def task_run(self):
         if self.task_stopping_event.is_set():
@@ -778,7 +782,7 @@ class dom_info_update_task:
         self.task_thread.join()
 
 # Process wrapper class to update sfp state info periodically
-class sfp_state_update_task:
+class SfpStateUpdateTask(object):
     def __init__(self):
         self.task_process = None
         self.task_stopping_event = multiprocessing.Event()
@@ -804,11 +808,11 @@ class sfp_state_update_task:
                 event = SYSTEM_FAIL
                 port_dict[EVENT_ON_ALL_SFP] = SYSTEM_FAIL
 
-        self.log_debug("mapping from {} {} to {}".format(status, port_dict, event))
+        helper_logger.log_debug("mapping from {} {} to {}".format(status, port_dict, event))
         return event
 
     def task_worker(self, stopping_event, sfp_error_event):
-        self.log_info("Start SFP monitoring loop")
+        helper_logger.log_info("Start SFP monitoring loop")
 
         transceiver_dict = {}
         # Connect to STATE_DB and create transceiver dom/sfp info tables
@@ -896,13 +900,13 @@ class sfp_state_update_task:
             next_state = state
             time_start = time.time()
             status, port_dict = _wrapper_get_transceiver_change_event(timeout)
-            self.log_debug("Got event {} {} in state {}".format(status, port_dict, state))
+            helper_logger.log_debug("Got event {} {} in state {}".format(status, port_dict, state))
             event = self._mapping_event_from_change_event(status, port_dict)
             if event == SYSTEM_NOT_READY:
                 if state == STATE_INIT:
                     # system not ready, wait and retry
                     if retry >= RETRY_TIMES_FOR_SYSTEM_READY:
-                        self.log_error("System failed to get ready in {} secs or received system error. Exiting...".format((RETRY_PERIOD_FOR_SYSTEM_READY_MSECS/1000)*RETRY_TIMES_FOR_SYSTEM_READY))
+                        helper_logger.log_error("System failed to get ready in {} secs or received system error. Exiting...".format((RETRY_PERIOD_FOR_SYSTEM_READY_MSECS/1000)*RETRY_TIMES_FOR_SYSTEM_READY))
                         next_state = STATE_EXIT
                         sfp_error_event.set()
                     else:
@@ -918,16 +922,16 @@ class sfp_state_update_task:
                         if time_diff < RETRY_PERIOD_FOR_SYSTEM_READY_MSECS/1000:
                             time.sleep(RETRY_PERIOD_FOR_SYSTEM_READY_MSECS/1000 - time_diff)
                 elif state == STATE_NORMAL:
-                    self.log_error("Got system_not_ready in normal state, treat as fatal. Exiting...")
+                    helper_logger.log_error("Got system_not_ready in normal state, treat as fatal. Exiting...")
                     next_state = STATE_EXIT
                 else:
                     next_state = STATE_EXIT
             elif event == SYSTEM_BECOME_READY:
                 if state == STATE_INIT:
                     next_state = STATE_NORMAL
-                    self.log_info("Got system_become_ready in init state, transition to normal state")
+                    helper_logger.log_info("Got system_become_ready in init state, transition to normal state")
                 elif state == STATE_NORMAL:
-                    self.log_info("Got system_become_ready in normal state, ignored")
+                    helper_logger.log_info("Got system_become_ready in normal state, ignored")
                 else:
                     next_state = STATE_EXIT
             elif event == NORMAL_EVENT:
@@ -942,18 +946,18 @@ class sfp_state_update_task:
                     for key, value in port_dict.iteritems():
                         logical_port_list = platform_sfputil.get_physical_to_logical(int(key))
                         if logical_port_list is None:
-                            self.log_warning("Got unknown FP port index {}, ignored".format(key))
+                            helper_logger.log_warning("Got unknown FP port index {}, ignored".format(key))
                             continue
                         for logical_port in logical_port_list:
                             if value == SFP_STATUS_INSERTED:
-                                self.log_info("Got SFP inserted event")
+                                helper_logger.log_info("Got SFP inserted event")
                                 # A plugin event will clear the error state.
                                 update_port_transceiver_status_table(logical_port, status_tbl, SFP_STATUS_INSERTED)
-                                self.log_info("receive plug in and update port sfp status table.")
+                                helper_logger.log_info("receive plug in and update port sfp status table.")
                                 rc = post_port_sfp_info_to_db(logical_port, int_tbl, transceiver_dict)
                                 # If we didn't get the sfp info, assuming the eeprom is not ready, give a try again.
                                 if rc == SFP_EEPROM_NOT_READY:
-                                    self.log_warning("SFP EEPROM is not ready. One more try...")
+                                    helper_logger.log_warning("SFP EEPROM is not ready. One more try...")
                                     time.sleep(TIME_FOR_SFP_READY_SECS)
                                     post_port_sfp_info_to_db(logical_port, int_tbl, transceiver_dict)
                                 post_port_dom_info_to_db(logical_port, dom_tbl)
@@ -961,17 +965,17 @@ class sfp_state_update_task:
                                 notify_media_setting(logical_port, transceiver_dict, app_port_tbl)
                                 transceiver_dict.clear()
                             elif value == SFP_STATUS_REMOVED:
-                                self.log_info("Got SFP removed event")
+                                helper_logger.log_info("Got SFP removed event")
                                 update_port_transceiver_status_table(logical_port, status_tbl, SFP_STATUS_REMOVED)
-                                self.log_info("receive plug out and pdate port sfp status table.")
+                                helper_logger.log_info("receive plug out and pdate port sfp status table.")
                                 del_port_sfp_dom_info_from_db(logical_port, int_tbl, dom_tbl)
                             elif value in errors_block_eeprom_reading:
-                                self.log_info("Got SFP Error event")
+                                helper_logger.log_info("Got SFP Error event")
                                 # Add port to error table to stop accessing eeprom of it
                                 # If the port already in the error table, the stored error code will
                                 # be updated to the new one.
                                 update_port_transceiver_status_table(logical_port, status_tbl, value)
-                                self.log_info("receive error update port sfp status table.")
+                                helper_logger.log_info("receive error update port sfp status table.")
                                 # In this case EEPROM is not accessible, so remove the DOM info
                                 # since it will be outdated if long time no update.
                                 # but will keep the interface info in the DB since it static.
@@ -979,7 +983,7 @@ class sfp_state_update_task:
 
                             else:
                                 # SFP return unkown event, just ignore for now.
-                                self.log_warning("Got unknown event {}, ignored".format(value))
+                                helper_logger.log_warning("Got unknown event {}, ignored".format(value))
                                 continue
                 else:
                     next_state = STATE_EXIT
@@ -990,24 +994,24 @@ class sfp_state_update_task:
                     # if system recovered in this period xcvrd will transit to INIT state
                     # and continue run, if can not recover then exit.
                     if retry >= RETRY_TIMES_FOR_SYSTEM_FAIL:
-                        self.log_error("System failed to recover in {} secs. Exiting...".format((RETRY_PERIOD_FOR_SYSTEM_FAIL_MSECS/1000)*RETRY_TIMES_FOR_SYSTEM_FAIL))
+                        helper_logger.log_error("System failed to recover in {} secs. Exiting...".format((RETRY_PERIOD_FOR_SYSTEM_FAIL_MSECS/1000)*RETRY_TIMES_FOR_SYSTEM_FAIL))
                         next_state = STATE_EXIT
                         sfp_error_event.set()
                     else:
                         retry = retry + 1                   
                         waiting_time_compensation_with_sleep(time_start, RETRY_PERIOD_FOR_SYSTEM_FAIL_MSECS/1000)
                 elif state == STATE_NORMAL:
-                    self.log_error("Got system_fail in normal state, treat as error, transition to INIT...")
+                    helper_logger.log_error("Got system_fail in normal state, treat as error, transition to INIT...")
                     next_state = STATE_INIT
                     timeout = RETRY_PERIOD_FOR_SYSTEM_FAIL_MSECS
                     retry = 0
                 else:
                     next_state = STATE_EXIT
             else:
-                self.log_warning("Got unknown event {} on state {}.".format(event, state))
+                helper_logger.log_warning("Got unknown event {} on state {}.".format(event, state))
 
             if next_state != state:
-                self.log_debug("State transition from {} to {}".format(state, next_state))
+                helper_logger.log_debug("State transition from {} to {}".format(state, next_state))
                 state = next_state
 
             if next_state == STATE_EXIT:
@@ -1016,7 +1020,7 @@ class sfp_state_update_task:
             elif next_state == STATE_NORMAL:
                 timeout = 0
 
-        self.log_info("Stop SFP monitoring loop")
+        helper_logger.log_info("Stop SFP monitoring loop")
 
     def task_run(self, sfp_error_event):
         if self.task_stopping_event.is_set():
@@ -1170,11 +1174,11 @@ class DaemonXcvrd(daemon_base.DaemonBase):
         self.init()
 
         # Start the dom sensor info update thread
-        dom_info_update = dom_info_update_task()
+        dom_info_update = DomInfoUpdateTask()
         dom_info_update.task_run()
 
         # Start the sfp state info update process
-        sfp_state_update = sfp_state_update_task()
+        sfp_state_update = SfpStateUpdateTask()
         sfp_state_update.task_run(self.sfp_error_event)
 
         # Start main loop

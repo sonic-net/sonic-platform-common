@@ -566,6 +566,9 @@ class ThermalMonitor(ProcessTaskBase):
         :param chassis: Object representing a platform chassis
         """
         ProcessTaskBase.__init__(self)
+
+        # TODO: Refactor to eliminate the need for this Logger instance
+        self.logger = logger.Logger(SYSLOG_IDENTIFIER)
         self.fan_updater = FanUpdater(SYSLOG_IDENTIFIER, chassis)
         self.temperature_updater = TemperatureUpdater(SYSLOG_IDENTIFIER, chassis)
 
@@ -574,7 +577,7 @@ class ThermalMonitor(ProcessTaskBase):
         Thread function to handle Fan status update and temperature status update
         :return:
         """
-        self.log_info("Start thermal monitoring loop")
+        self.logger.log_info("Start thermal monitoring loop")
 
         # Start loop to update fan, temperature info in DB periodically
         wait_time = ThermalMonitor.INITIAL_INTERVAL
@@ -589,13 +592,13 @@ class ThermalMonitor(ProcessTaskBase):
                 wait_time = ThermalMonitor.INITIAL_INTERVAL
 
             if elapse > ThermalMonitor.UPDATE_ELAPSE_THRESHOLD:
-                self.log_warning('Update fan and temperature status takes {} seconds, '
-                                   'there might be performance risk'.format(elapse))
+                self.logger.log_warning('Update fan and temperature status takes {} seconds, '
+                                        'there might be performance risk'.format(elapse))
 
         self.fan_updater.deinit()
         self.temperature_updater.deinit()
 
-        self.log_info("Stop thermal monitoring loop")
+        self.logger.log_info("Stop thermal monitoring loop")
 
 
 #
