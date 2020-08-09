@@ -10,6 +10,8 @@ try:
     import sys
 
     from sonic_py_common import daemon_base
+    from sonic_py_common import multi_asic
+    from sonic_py_common.interface import backplane_prefix
     from swsscommon import swsscommon
 except ImportError as e:
     raise ImportError (str(e) + " - required module not found")
@@ -34,6 +36,9 @@ LED_CLASS_NAME = "LedControl"
 SELECT_TIMEOUT = 1000
 
 LEDUTIL_LOAD_ERROR = 1
+
+# The empty namespace refers to linux host namespace.
+EMPTY_NAMESPACE = ''
 
 class DaemonLedd(daemon_base.DaemonBase):
 
@@ -65,8 +70,15 @@ class DaemonLedd(daemon_base.DaemonBase):
             self.log_error("Failed to load ledutil: %s" % (str(e)), True)
             sys.exit(LEDUTIL_LOAD_ERROR)
 
-        # Get the namespaces in the platform
-        namespaces = multi_asic.get_namespaces()
+        # Load the namespace details first from the database_global.json file.
+        swsscommon.SonicDBConfig.initializeGlobalConfig()
+
+        # Get the namespaces in the platform. For multi-asic devices we get the namespaces
+        # of front-end ascis which have front-panel interfaces.
+        namespaces = [EMPTY_NAMESPACE]
+        if multi_asic.is_multi_asic():
+            ns_list = multi_asic.get_all_namespaces()
+            namespaces = ns_list['front_ns']
 
         # Subscribe to PORT table notifications in the Application DB
         appl_db, sst = {}, {}
@@ -103,7 +115,7 @@ class DaemonLedd(daemon_base.DaemonBase):
                 fvp_dict = dict(fvp)
 
                 if op == "SET" and "oper_status" in fvp_dict:
-                    if not key.startswith(daemon_base.get_internal_interface_prefix()):
+                    if not key.startswith(backplane_prefix()):
                         led_control.port_link_state_change(key, fvp_dict["oper_status"])
 
         return 1
