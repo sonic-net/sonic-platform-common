@@ -16,6 +16,8 @@ try:
     from natsort import natsorted
     from portconfig import get_port_config
     from sonic_py_common import device_info
+    from sonic_py_common.interface import backplane_prefix
+
 except ImportError as e:
     raise ImportError("%s - required module not found" % str(e))
 
@@ -126,7 +128,7 @@ class SfpUtilHelper(object):
                 portname = line.split()[0]
 
                 # Ignore if this is an internal backplane interface
-                if portname.startswith(daemon_base.get_internal_interface_prefix()):
+                if portname.startswith(backplane_prefix()):
                     continue
 
                 bcm_port = str(port_pos_in_file)
@@ -211,7 +213,4 @@ class SfpUtilHelper(object):
 
     def get_asic_id_for_logical_port(self, logical_port):
         """Returns the asic_id list of physical ports for the given logical port"""
-        if logical_port in self.logical_to_asic.keys():
-            return self.logical_to_asic[logical_port]
-        else:
-            return None
+        return self.logical_to_asic.get(logical_port)
