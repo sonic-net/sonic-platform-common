@@ -373,11 +373,6 @@ class sff8436InterfaceId(sffbase):
                 {'offset' : 3,
                  'type' : 'nested',
                  'decode' : specification_compliance},
-            'Extended Specification compliance':
-                {'offset' : 64,
-                 'size':1,
-                 'type' : 'enum',
-                 'decode' : ext_specification_compliance},
             'EncodingCodes':
                 {'offset':11,
                  'size':1,
@@ -456,6 +451,14 @@ class sff8436InterfaceId(sffbase):
                 'type': 'date'}
         }
 
+    sfp_ext_specification_compliance = {
+        'Extended Specification compliance':
+            {'offset' : 0,
+             'size':1,
+             'type' : 'enum',
+             'decode' : ext_specification_compliance}
+        }
+
     qsfp_dom_capability = {
         'Tx_power_support':
             {'offset': 0,
@@ -508,6 +511,9 @@ class sff8436InterfaceId(sffbase):
     
     def parse_vendor_oui(self, sn_raw_data, start_pos):
         return sffbase.parse(self, self.vendor_oui, sn_raw_data, start_pos)
+
+    def parse_ext_specification_compliance(self, sn_raw_data, start_pos):
+        return sffbase.parse(self, self.sfp_ext_specification_compliance, sn_raw_data, start_pos)
 
     def parse_qsfp_dom_capability(self, sn_raw_data, start_pos):
         return sffbase.parse(self, self.qsfp_dom_capability, sn_raw_data, start_pos)
