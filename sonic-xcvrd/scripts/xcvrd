@@ -19,7 +19,7 @@ try:
     from enum import Enum
     from sonic_py_common import daemon_base, device_info, logger
     from swsscommon import swsscommon
-except ImportError, e:
+except ImportError as e:
     raise ImportError (str(e) + " - required module not found")
 
 #
@@ -1128,7 +1128,7 @@ class DaemonXcvrd(daemon_base.DaemonBase):
         try:
             port_config_file_path = device_info.get_path_to_port_config_file()
             platform_sfputil.read_porttab_mappings(port_config_file_path)
-        except Exception, e:
+        except Exception as e:
             self.log_error("Failed to read port info: %s" % (str(e)), True)
             sys.exit(PORT_CONFIG_LOAD_ERROR)
 

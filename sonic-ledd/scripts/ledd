@@ -11,7 +11,7 @@ try:
 
     from sonic_py_common import daemon_base
     from swsscommon import swsscommon
-except ImportError, e:
+except ImportError as e:
     raise ImportError (str(e) + " - required module not found")
 
 #============================= Constants =============================
@@ -45,17 +45,17 @@ class DaemonLedd(daemon_base.DaemonBase):
                 (options, remainder) = getopt.getopt(sys.argv[1:],
                                                    'hv',
                                                    ['help', 'version'])
-            except getopt.GetoptError, e:
-                print e
-                print USAGE_HELP
+            except getopt.GetoptError as e:
+                print(e)
+                print(USAGE_HELP)
                 sys.exit(2)
 
             for opt, arg in options:
                 if opt == '--help' or opt == '-h':
-                    print USAGE_HELP
+                    print(USAGE_HELP)
                     sys.exit(0)
                 elif opt == '--version' or opt == '-v':
-                    print 'ledd version ' + VERSION
+                    print('ledd version ' + VERSION)
                     sys.exit(0)
 
         # Load platform-specific LedControl module

@@ -15,7 +15,7 @@ try:
     import swsssdk
     from sonic_py_common.daemon_base import DaemonBase
     from sonic_py_common.device_info import get_platform
-except ImportError, e:
+except ImportError as e:
     raise ImportError(str(e) + " - required module not found")
 
 #

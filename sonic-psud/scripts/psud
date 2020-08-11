@@ -16,7 +16,7 @@ try:
 
     from sonic_py_common import daemon_base
     from swsscommon import swsscommon
-except ImportError, e:
+except ImportError as e:
     raise ImportError (str(e) + " - required module not found")
 
 #
