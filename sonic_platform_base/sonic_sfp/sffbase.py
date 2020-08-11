@@ -94,6 +94,9 @@ class sffbase(object):
         type   = eeprom_ele.get('type')
         decode = eeprom_ele.get('decode');
 
+        if offset + size > len(eeprom_data):
+            return None
+
         if type == 'enum':
             # Get the matched value
             value = decode.get(str(eeprom_data[offset]), 'Unknown')
