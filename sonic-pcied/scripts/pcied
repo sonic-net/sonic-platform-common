@@ -14,7 +14,7 @@ try:
 
     import swsssdk
     from sonic_py_common.daemon_base import DaemonBase
-    from sonic_py_common.device_info import get_platform
+    from sonic_py_common import device_info
 except ImportError as e:
     raise ImportError(str(e) + " - required module not found")
 
@@ -26,7 +26,6 @@ SYSLOG_IDENTIFIER = "pcied"
 PCIE_RESULT_REGEX = "PCIe Device Checking All Test"
 PCIE_TABLE_NAME = "PCIE_STATUS"
 
-PLATFORM_ROOT_PATH = '/usr/share/sonic/device'
 PCIE_CONF_FILE = 'pcie.yaml'
 
 PCIED_MAIN_THREAD_SLEEP_SECS = 60
@@ -41,8 +40,8 @@ class DaemonPcied(DaemonBase):
     def __init__(self, log_identifier):
         super(DaemonPcied, self).__init__(log_identifier)
 
-        platform = get_platform()
-        pciefilePath = os.path.join(PLATFORM_ROOT_PATH, platform, "plugins", PCIE_CONF_FILE)
+        (platform_path, _) = device_info.get_paths_to_platform_and_hwsku_dirs()
+        pciefilePath = os.path.join(platform_path, "plugins", PCIE_CONF_FILE)
         sys.path.append(os.path.abspath(pciefilePath))
         if not os.path.exists(pciefilePath):
             self.log_error("Platform pcie configuration file doesn't exist! Exiting ...")
