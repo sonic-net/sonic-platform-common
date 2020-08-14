@@ -802,6 +802,9 @@ class DomInfoUpdateTask(object):
         self.task_thread = None
         self.task_stopping_event = threading.Event()
 
+        # Load the namespace details first from the database_global.json file.
+        swsscommon.SonicDBConfig.initializeGlobalConfig()
+
     def task_worker(self):
         helper_logger.log_info("Start DOM monitoring loop")
 
@@ -848,6 +851,9 @@ class SfpStateUpdateTask(object):
     def __init__(self):
         self.task_process = None
         self.task_stopping_event = multiprocessing.Event()
+
+        # Load the namespace details first from the database_global.json file.
+        swsscommon.SonicDBConfig.initializeGlobalConfig()
 
     def _mapping_event_from_change_event(self, status, port_dict):
         """
