@@ -42,7 +42,16 @@ PSU_INFO_VOLTAGE_FIELD = 'voltage'
 PSU_INFO_VOLTAGE_MAX_TH_FIELD = 'voltage_max_threshold'
 PSU_INFO_VOLTAGE_MIN_TH_FIELD = 'voltage_min_threshold'
 
+FAN_INFO_TABLE = 'FAN_INFO'
+FAN_INFO_PRESENCE_FIELD = 'presence'
+FAN_INFO_STATUS_FIELD = 'status'
+FAN_INFO_DIRECTION_FIELD = 'direction'
+FAN_INFO_SPEED_FIELD = 'speed'
+FAN_INFO_LED_STATUS_FIELD = 'led_status'
+FAN_INFO_TIMESTAMP_FIELD = 'timestamp'
+
 NOT_AVAILABLE = 'N/A'
+UPDATING_STATUS = 'Updating'
 
 PSU_INFO_UPDATE_PERIOD_SECS = 3
 
@@ -50,6 +59,7 @@ PSUUTIL_LOAD_ERROR = 1
 
 platform_psuutil = None
 platform_chassis = None
+
 
 # temporary wrappers that are compliable with both new platform api and old-style plugin mode
 def _wrapper_get_num_psus():
@@ -60,6 +70,7 @@ def _wrapper_get_num_psus():
             pass
     return platform_psuutil.get_num_psus()
 
+
 def _wrapper_get_psus_presence(psu_index):
     if platform_chassis is not None:
         try:
@@ -67,6 +78,7 @@ def _wrapper_get_psus_presence(psu_index):
         except NotImplementedError:
             pass
     return platform_psuutil.get_psu_presence(psu_index)
+
 
 def _wrapper_get_psus_status(psu_index):
     if platform_chassis is not None:
@@ -107,6 +119,7 @@ def try_get(callback, default=None):
 
     return ret
 
+
 def log_on_status_changed(normal_status, normal_log, abnormal_log):
     """
     Log when any status changed
@@ -119,6 +132,7 @@ def log_on_status_changed(normal_status, normal_log, abnormal_log):
         self.log_notice(normal_log)
     else:
         self.log_warning(abnormal_log)
+
 
 #
 # PSU status ===================================================================
@@ -188,7 +202,8 @@ class PsuStatus(object):
 
     def is_ok(self):
         return self.presence and self.power_good and self.voltage_good and self.temperature_good
-        
+
+
 #
 # Daemon =======================================================================
 #
@@ -199,6 +214,7 @@ class DaemonPsud(daemon_base.DaemonBase):
 
         self.stop = threading.Event()
         self.psu_status_dict = {}
+        self.fan_tbl = None
 
     # Signal handler
     def signal_handler(self, sig, frame):
@@ -239,6 +255,7 @@ class DaemonPsud(daemon_base.DaemonBase):
         state_db = daemon_base.db_connect("STATE_DB")
         chassis_tbl = swsscommon.Table(state_db, CHASSIS_INFO_TABLE)
         psu_tbl = swsscommon.Table(state_db, PSU_INFO_TABLE)
+        self.fan_tbl = swsscommon.Table(state_db, FAN_INFO_TABLE)
 
         # Post psu number info to STATE_DB
         psu_num = _wrapper_get_num_psus()
@@ -291,40 +308,48 @@ class DaemonPsud(daemon_base.DaemonBase):
             voltage_low_threshold = try_get(psu.get_voltage_low_threshold)
             temperature = try_get(psu.get_temperature)
             temperature_threshold = try_get(psu.get_temperature_high_threshold)
-    
+
         if index not in self.psu_status_dict:
             self.psu_status_dict[index] = PsuStatus(psu)
-        
+
         psu_status = self.psu_status_dict[index]
         set_led = False
         if psu_status.set_presence(presence):
             set_led = True
-            log_on_status_changed(psu_status.presence, 
-                                    'PSU absence warning cleared: {} is inserted back.'.format(name),
-                                    'PSU absence warning: {} is not present.'.format(name)
-            )
+            log_on_status_changed(psu_status.presence,
+                                  'PSU absence warning cleared: {} is inserted back.'.format(name),
+                                  'PSU absence warning: {} is not present.'.format(name)
+                                  )
+            # Have to update PSU fan data here because PSU presence status changed. If we don't
+            # update PSU fan data here, there might be an inconsistent output between "show platform psustatus"
+            # and "show platform fan". For example, say PSU 1 is removed, and psud query PSU status every 3 seconds,
+            # it will update PSU state to "Not OK" and PSU LED to "red"; but thermalctld query PSU fan status
+            # every 60 seconds, it may still treat PSU state to "OK" and PSU LED to "red".
+            self._update_psu_fan_data(psu, index)
 
         if presence and psu_status.set_power_good(power_good):
             set_led = True
-            log_on_status_changed(psu_status.power_good, 
-                                    'Power absence warning cleared: {} power is back to normal.'.format(name),
-                                    'Power absence warning: {} is out of power.'.format(name)
-            )
+            log_on_status_changed(psu_status.power_good,
+                                  'Power absence warning cleared: {} power is back to normal.'.format(name),
+                                  'Power absence warning: {} is out of power.'.format(name)
+                                  )
 
         if presence and psu_status.set_voltage(voltage, voltage_high_threshold, voltage_low_threshold):
             set_led = True
-            log_on_status_changed(psu_status.voltage_good, 
-                                    'PSU voltage warning cleared: {} voltage is back to normal.'.format(name),
-                                    'PSU voltage warning: {} voltage out of range, current voltage={}, valid range=[{}, {}].'.format(name, voltage, voltage_high_threshold, voltage_low_threshold)
-            )
+            log_on_status_changed(psu_status.voltage_good,
+                                  'PSU voltage warning cleared: {} voltage is back to normal.'.format(name),
+                                  'PSU voltage warning: {} voltage out of range, current voltage={}, valid range=[{}, {}].'.format(
+                                      name, voltage, voltage_high_threshold, voltage_low_threshold)
+                                  )
 
         if presence and psu_status.set_temperature(temperature, temperature_threshold):
             set_led = True
-            log_on_status_changed(psu_status.temperature_good, 
-                                    'PSU temperature warning cleared: {} temperature is back to normal.'.format(name),
-                                    'PSU temperature warning: {} temperature too hot, temperature={}, threshold={}.'.format(name, temperature, temperature_threshold)
-            )
-        
+            log_on_status_changed(psu_status.temperature_good,
+                                  'PSU temperature warning cleared: {} temperature is back to normal.'.format(name),
+                                  'PSU temperature warning: {} temperature too hot, temperature={}, threshold={}.'.format(
+                                      name, temperature, temperature_threshold)
+                                  )
+
         if set_led:
             self._set_psu_led(psu, psu_status)
 
@@ -334,9 +359,32 @@ class DaemonPsud(daemon_base.DaemonBase):
              (PSU_INFO_VOLTAGE_FIELD, str(voltage)),
              (PSU_INFO_VOLTAGE_MIN_TH_FIELD, str(voltage_low_threshold)),
              (PSU_INFO_VOLTAGE_MAX_TH_FIELD, str(voltage_high_threshold)),
-            ])
+             ])
         psu_tbl.set(PSU_INFO_KEY_TEMPLATE.format(index), fvs)
-        
+
+    def _update_psu_fan_data(self, psu, psu_index):
+        """
+
+        :param psu:
+        :param psu_index:
+        :return:
+        """
+        psu_name = try_get(psu.get_name, 'PSU {}'.format(psu_index))
+        presence = _wrapper_get_psus_presence(psu_index)
+        fan_list = psu.get_all_fans()
+        for index, fan in enumerate(fan_list):
+            fan_name = try_get(fan.get_name, '{} FAN {}'.format(psu_name, index + 1))
+            direction = try_get(fan.get_direction) if presence else NOT_AVAILABLE
+            speed = try_get(fan.get_speed) if presence else NOT_AVAILABLE
+            status = UPDATING_STATUS if presence else NOT_AVAILABLE
+            fvs = swsscommon.FieldValuePairs(
+                [(FAN_INFO_PRESENCE_FIELD, str(presence)),
+                 (FAN_INFO_STATUS_FIELD, str(status)),
+                 (FAN_INFO_DIRECTION_FIELD, str(direction)),
+                 (FAN_INFO_SPEED_FIELD, str(speed)),
+                 (FAN_INFO_TIMESTAMP_FIELD, datetime.now().strftime('%Y%m%d %H:%M:%S'))
+                 ])
+            self.fan_tbl.set(fan_name, fvs)
 
     def _set_psu_led(self, psu, psu_status):
         try:
@@ -360,6 +408,25 @@ class DaemonPsud(daemon_base.DaemonBase):
                     ('led_status', NOT_AVAILABLE)
                 ])
             psu_tbl.set(PSU_INFO_KEY_TEMPLATE.format(index), fvs)
+            self._update_psu_fan_led_status(psu_status.psu, index)
+
+    def _update_psu_fan_led_status(self, psu, psu_index):
+        psu_name = try_get(psu.get_name, 'PSU {}'.format(psu_index))
+        fan_list = psu.get_all_fans()
+        for index, fan in enumerate(fan_list):
+            fan_name = try_get(fan.get_name, '{} FAN {}'.format(psu_name, index + 1))
+            try:
+                fvs = swsscommon.FieldValuePairs([
+                    (FAN_INFO_LED_STATUS_FIELD, str(try_get(fan.get_status_led)))
+                ])
+            except Exception as e:
+                logger.log_warning('Failed to get led status for fan {}'.format(fan_name))
+                fvs = swsscommon.FieldValuePairs([
+                    (FAN_INFO_LED_STATUS_FIELD, NOT_AVAILABLE)
+                ])
+            self.fan_tbl.set(fan_name, fvs)
+
+
 #
 # Main =========================================================================
 #
@@ -367,6 +434,7 @@ class DaemonPsud(daemon_base.DaemonBase):
 def main():
     psud = DaemonPsud(SYSLOG_IDENTIFIER)
     psud.run()
+
 
 if __name__ == '__main__':
     main()
