@@ -117,10 +117,13 @@ def get_front_end_namesapces():
 # Get asic index from the namespace name
 # With single ASIC platform, namespace is EMPTY_NAMESPACE, return index 0
 def get_asic_id_from_namespace(namespace):
-    if namespace == EMPTY_NAMESPACE:
-        return 0 
-    else:
-        return multi_asic.get_asic_id_from_name(namespace)
+    asic_id_string = multi_asic.get_asic_id_from_name(namespace)
+    if asic_id_string is not None:
+        return int(asic_id_string)
+
+    # Default we return back 0, handles single asic platform and check when the func
+    # get_asic_id_from_name() returns back None.
+    return 0
 
 # Find out the underneath physical port list by logical name
 def logical_port_name_to_physical_port_list(port_name):
@@ -1212,7 +1215,7 @@ class DaemonXcvrd(daemon_base.DaemonBase):
         try:
             if multi_asic.is_multi_asic():
                 # For multi ASIC platforms we pass DIR of port_config_file_path and the number of asics
-                (platform_path, hwsku_path) = device_info.get_path_to_platform_and_hwsku()
+                (platform_path, hwsku_path) = device_info.get_paths_to_platform_and_hwsku_dirs()
                 platform_sfputil.read_all_porttab_mappings(hwsku_path, self.num_asics)
             else:
                 # For single ASIC platforms we pass port_config_file_path and the asic_inst as 0
