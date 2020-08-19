@@ -607,6 +607,9 @@ class ThermalMonitor(ProcessTaskBase):
 class ThermalControlDaemon(daemon_base.DaemonBase):
     # Interval to run thermal control logic
     INTERVAL = 60
+    RUN_POLICY_WARN_THRESHOLD_SECS = 30
+    FAST_START_INTERVAL = 15
+
     POLICY_FILE = '/usr/share/sonic/platform/thermal_policy.json'
 
     def __init__(self, log_identifier):
@@ -658,12 +661,23 @@ class ThermalControlDaemon(daemon_base.DaemonBase):
         except Exception as e:
             self.log_error('Caught exception while initializing thermal manager - {}'.format(e))
 
-        while not self.stop_event.wait(ThermalControlDaemon.INTERVAL):
+        wait_time = ThermalControlDaemon.INTERVAL
+        while not self.stop_event.wait(wait_time):
+            begin = time.time()
             try:
                 if thermal_manager:
                     thermal_manager.run_policy(chassis)
             except Exception as e:
                 self.log_error('Caught exception while running thermal policy - {}'.format(e))
+            elapsed = time.time() - begin
+            if elapsed < ThermalControlDaemon.INTERVAL:
+                wait_time = ThermalControlDaemon.INTERVAL - elapsed
+            else:
+                wait_time = ThermalControlDaemon.FAST_START_INTERVAL
+
+            if elapsed > ThermalControlDaemon.RUN_POLICY_WARN_THRESHOLD_SECS:
+                self.log_warning('Thermal policy execution takes {} seconds, '
+                                 'there might be performance risk'.format(elapsed))
 
         try:
             if thermal_manager:
