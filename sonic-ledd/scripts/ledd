@@ -75,10 +75,7 @@ class DaemonLedd(daemon_base.DaemonBase):
 
         # Get the namespaces in the platform. For multi-asic devices we get the namespaces
         # of front-end ascis which have front-panel interfaces.
-        namespaces = [EMPTY_NAMESPACE]
-        if multi_asic.is_multi_asic():
-            ns_list = multi_asic.get_all_namespaces()
-            namespaces = ns_list['front_ns']
+        namespaces = multi_asic.get_front_end_namespaces()
 
         # Subscribe to PORT table notifications in the Application DB
         appl_db, sst = {}, {}

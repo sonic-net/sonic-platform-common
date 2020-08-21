@@ -103,28 +103,6 @@ EMPTY_NAMESPACE = ''
 # Helper functions =============================================================
 #
 
-# Get namespaces, for single ASIC platform namespace is EMPTY_NAMESPACE
-def get_front_end_namesapces():
-    # Get the namespaces in the platform. For multi-asic devices we get the namespaces
-    # of front-end ascis which have front-panel interfaces.
-    namespaces = [EMPTY_NAMESPACE]
-    if multi_asic.is_multi_asic():
-        ns_list = multi_asic.get_all_namespaces()
-        namespaces = ns_list['front_ns']
-
-    return namespaces
-
-# Get asic index from the namespace name
-# With single ASIC platform, namespace is EMPTY_NAMESPACE, return index 0
-def get_asic_id_from_namespace(namespace):
-    asic_id_string = multi_asic.get_asic_id_from_name(namespace)
-    if asic_id_string is not None:
-        return int(asic_id_string)
-
-    # Default we return back 0, handles single asic platform and check when the func
-    # get_asic_id_from_name() returns back None.
-    return 0
-
 # Find out the underneath physical port list by logical name
 def logical_port_name_to_physical_port_list(port_name):
     if port_name.startswith("Ethernet"):
@@ -450,9 +428,9 @@ def post_port_sfp_dom_info_to_db(is_warm_start, stop_event=threading.Event()):
     transceiver_dict, state_db, appl_db, int_tbl, dom_tbl, app_port_tbl = {}, {}, {}, {}, {}, {}
 
     # Get the namespaces in the platform
-    namespaces = get_front_end_namesapces()
+    namespaces = multi_asic.get_front_end_namespaces()
     for namespace in namespaces:
-        asic_id = get_asic_id_from_namespace(namespace)
+        asic_id = multi_asic.get_asic_index_from_namespace(namespace)
         state_db[asic_id] = daemon_base.db_connect("STATE_DB", namespace)
         appl_db[asic_id] = daemon_base.db_connect("APPL_DB", namespace)
         int_tbl[asic_id] = swsscommon.Table(state_db[asic_id], TRANSCEIVER_INFO_TABLE)
@@ -763,9 +741,9 @@ def init_port_sfp_status_tbl(stop_event=threading.Event()):
     state_db, status_tbl = {},{}
 
     # Get the namespaces in the platform
-    namespaces = get_front_end_namesapces()
+    namespaces = multi_asic.get_front_end_namespaces()
     for namespace in namespaces:
-        asic_id = get_asic_id_from_namespace(namespace)
+        asic_id = multi_asic.get_asic_index_from_namespace(namespace)
         state_db[asic_id] = daemon_base.db_connect("STATE_DB", namespace)
         status_tbl[asic_id] = swsscommon.Table(state_db[asic_id], TRANSCEIVER_STATUS_TABLE)
 
@@ -815,9 +793,9 @@ class DomInfoUpdateTask(object):
         state_db, dom_tbl, status_tbl = {}, {}, {}
 
         # Get the namespaces in the platform
-        namespaces = get_front_end_namesapces()
+        namespaces = multi_asic.get_front_end_namespaces()
         for namespace in namespaces:
-            asic_id = get_asic_id_from_namespace(namespace)
+            asic_id = multi_asic.get_asic_index_from_namespace(namespace)
             state_db[asic_id] = daemon_base.db_connect("STATE_DB", namespace)
             dom_tbl[asic_id] = swsscommon.Table(state_db[asic_id], TRANSCEIVER_DOM_SENSOR_TABLE)
             status_tbl[asic_id] = swsscommon.Table(state_db[asic_id], TRANSCEIVER_STATUS_TABLE)
@@ -890,9 +868,9 @@ class SfpStateUpdateTask(object):
         state_db, appl_db, int_tbl, dom_tbl, status_tbl, app_port_tbl = {}, {}, {}, {}, {}, {}
 
         # Get the namespaces in the platform
-        namespaces = get_front_end_namesapces()
+        namespaces = multi_asic.get_front_end_namespaces()
         for namespace in namespaces:
-            asic_id = get_asic_id_from_namespace(namespace)
+            asic_id = multi_asic.get_asic_index_from_namespace(namespace)
             state_db[asic_id] = daemon_base.db_connect("STATE_DB", namespace)
             int_tbl[asic_id] = swsscommon.Table(state_db[asic_id], TRANSCEIVER_INFO_TABLE)
             dom_tbl[asic_id] = swsscommon.Table(state_db[asic_id], TRANSCEIVER_DOM_SENSOR_TABLE)
@@ -1229,9 +1207,9 @@ class DaemonXcvrd(daemon_base.DaemonBase):
         state_db, self.int_tbl, self.dom_tbl, self.status_tbl = {}, {}, {}, {}
 
         # Get the namespaces in the platform
-        namespaces = get_front_end_namesapces()
+        namespaces = multi_asic.get_front_end_namespaces()
         for namespace in namespaces:
-            asic_id = get_asic_id_from_namespace(namespace)
+            asic_id = multi_asic.get_asic_index_from_namespace(namespace)
             state_db[asic_id] = daemon_base.db_connect("STATE_DB", namespace)
             self.int_tbl[asic_id] = swsscommon.Table(state_db[asic_id], TRANSCEIVER_INFO_TABLE)
             self.dom_tbl[asic_id] = swsscommon.Table(state_db[asic_id], TRANSCEIVER_DOM_SENSOR_TABLE)
