@@ -738,7 +738,7 @@ def detect_port_in_error_status(logical_port_name, status_tbl):
 # Init TRANSCEIVER_STATUS table
 def init_port_sfp_status_tbl(stop_event=threading.Event()):
     # Connect to STATE_DB and create transceiver status table
-    state_db, status_tbl = {},{}
+    state_db, status_tbl = {}, {}
 
     # Get the namespaces in the platform
     namespaces = multi_asic.get_front_end_namespaces()
