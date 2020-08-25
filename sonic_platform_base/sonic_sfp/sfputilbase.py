@@ -16,6 +16,7 @@ try:
     from natsort import natsorted
     from portconfig import get_port_config
     from sonic_py_common import device_info
+    from sonic_py_common.interface import backplane_prefix
 
     from . import bcmshell       # Dot module supports both Python 2 and Python 3 using explicit relative import methods
     from sonic_eeprom import eeprom_dts
@@ -156,6 +157,9 @@ class SfpUtilBase(object):
     # List of logical port names available on a system
     """ ["swp1", "swp5", "swp6", "swp7", "swp8" ...] """
     logical = []
+
+    # Mapping of logical port names available on a system to ASIC num
+    logical_to_asic = {}
 
     # dicts for easier conversions between logical, physical and bcm ports
     logical_to_bcm = {}
@@ -371,7 +375,7 @@ class SfpUtilBase(object):
 
         return False
 
-    def read_porttab_mappings(self, porttabfile):
+    def read_porttab_mappings(self, porttabfile, asic_inst=0):
         logical = []
         logical_to_bcm = {}
         logical_to_physical = {}
@@ -455,12 +459,16 @@ class SfpUtilBase(object):
                 # so we use the port's position in the file (zero-based) as bcm_port
                 portname = line.split()[0]
 
+                # Ignore if this is an internal backplane interface
+                if portname.startswith(backplane_prefix()):
+                    continue
+
                 bcm_port = str(port_pos_in_file)
 
                 if "index" in title:
                     fp_port_index = int(line.split()[title.index("index")])
                 # Leave the old code for backward compatibility
-                elif len(line.split()) >= 4:
+                elif "asic_port_name" not in title and len(line.split()) >= 4:
                     fp_port_index = int(line.split()[3])
                 else:
                     fp_port_index = portname.split("Ethernet").pop()
@@ -483,6 +491,9 @@ class SfpUtilBase(object):
 
             logical.append(portname)
 
+            # Mapping of logical port names available on a system to ASIC instance
+            self.logical_to_asic[portname] = asic_inst
+
             logical_to_bcm[portname] = "xe" + bcm_port
             logical_to_physical[portname] = [fp_port_index]
             if physical_to_logical.get(fp_port_index) is None:
@@ -495,10 +506,10 @@ class SfpUtilBase(object):
 
             port_pos_in_file += 1
 
-        self.logical = logical
-        self.logical_to_bcm = logical_to_bcm
-        self.logical_to_physical = logical_to_physical
-        self.physical_to_logical = physical_to_logical
+        self.logical.extend(logical)
+        self.logical_to_bcm.update(logical_to_bcm)
+        self.logical_to_physical.update(logical_to_physical)
+        self.physical_to_logical.update(physical_to_logical)
 
         """
         print("logical: " + self.logical)
@@ -506,6 +517,19 @@ class SfpUtilBase(object):
         print("logical to physical: " + self.logical_to_physical)
         print("physical to logical: " + self.physical_to_logical)
         """
+
+    def read_all_porttab_mappings(self, platform_dir, num_asic_inst):
+        # In multi asic scenario, get all the port_config files for different asics
+         for inst in range(num_asic_inst):
+             port_map_dir = os.path.join(platform_dir, str(inst))
+             port_map_file = os.path.join(port_map_dir, PORT_CONFIG_INI)
+             if os.path.exists(port_map_file):
+                 self.read_porttab_mappings(port_map_file, inst)
+             else:
+                 port_json_file = os.path.join(port_map_dir, PLATFORM_JSON)
+                 if os.path.exists(port_json_file):
+                     self.read_porttab_mappings(port_json_file, inst)
+
     def read_phytab_mappings(self, phytabfile):
         logical = []
         phytab_mappings = {}
@@ -614,6 +638,10 @@ class SfpUtilBase(object):
             return 1
         else:
             return 0
+
+    def get_asic_id_for_logical_port(self, logical_port):
+        """Returns the asic_id list of physical ports for the given logical port"""
+        return self.logical_to_asic.get(logical_port)
 
     def is_logical_port_ganged_40_by_4(self, logical_port):
         physical_port_list = self.logical_to_physical[logical_port]
