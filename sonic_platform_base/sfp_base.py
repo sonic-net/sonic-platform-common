@@ -16,6 +16,51 @@ class SfpBase(device_base.DeviceBase):
     # Device type definition. Note, this is a constant.
     DEVICE_TYPE = "sfp"
 
+    def __init__(self):
+        # List of ThermalBase-derived objects representing all thermals
+        # available on the SFP
+        self._thermal_list = []
+
+    def get_num_thermals(self):
+        """
+        Retrieves the number of thermals available on this SFP
+
+        Returns:
+            An integer, the number of thermals available on this SFP
+        """
+        return len(self._thermal_list)
+
+    def get_all_thermals(self):
+        """
+        Retrieves all thermals available on this SFP
+
+        Returns:
+            A list of objects derived from ThermalBase representing all thermals
+            available on this SFP
+        """
+        return self._thermal_list
+
+    def get_thermal(self, index):
+        """
+        Retrieves thermal unit represented by (0-based) index <index>
+
+        Args:
+            index: An integer, the index (0-based) of the thermal to
+            retrieve
+
+        Returns:
+            An object derived from ThermalBase representing the specified thermal
+        """
+        thermal = None
+
+        try:
+            thermal = self._thermal_list[index]
+        except IndexError:
+            sys.stderr.write("THERMAL index {} out of range (0-{})\n".format(
+                             index, len(self._thermal_list)-1))
+
+        return thermal
+
     def get_transceiver_info(self):
         """
         Retrieves transceiver info of this SFP

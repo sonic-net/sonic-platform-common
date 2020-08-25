@@ -28,6 +28,10 @@ class PsuBase(device_base.DeviceBase):
     def __init__(self):
         self._fan_list = []
 
+        # List of ThermalBase-derived objects representing all thermals
+        # available on the PSU
+        self._thermal_list = []
+
     def get_num_fans(self):
         """
         Retrieves the number of fan modules available on this PSU
@@ -68,6 +72,46 @@ class PsuBase(device_base.DeviceBase):
                              index, len(self._fan_list)-1))
 
         return fan
+
+    def get_num_thermals(self):
+        """
+        Retrieves the number of thermals available on this PSU
+
+        Returns:
+            An integer, the number of thermals available on this PSU
+        """
+        return len(self._thermal_list)
+
+    def get_all_thermals(self):
+        """
+        Retrieves all thermals available on this PSU
+
+        Returns:
+            A list of objects derived from ThermalBase representing all thermals
+            available on this PSU
+        """
+        return self._thermal_list
+
+    def get_thermal(self, index):
+        """
+        Retrieves thermal unit represented by (0-based) index <index>
+
+        Args:
+            index: An integer, the index (0-based) of the thermal to
+            retrieve
+
+        Returns:
+            An object dervied from ThermalBase representing the specified thermal
+        """
+        thermal = None
+
+        try:
+            thermal = self._thermal_list[index]
+        except IndexError:
+            sys.stderr.write("THERMAL index {} out of range (0-{})\n".format(
+                             index, len(self._thermal_list)-1))
+
+        return thermal
 
     def get_voltage(self):
         """

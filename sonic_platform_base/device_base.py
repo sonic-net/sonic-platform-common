@@ -56,3 +56,19 @@ class DeviceBase(object):
             A boolean value, True if device is operating properly, False if not
         """
         raise NotImplementedError
+
+    def get_position_in_parent(self):
+		"""
+		Retrieves 1-based relative physical position in parent device
+		Returns:
+		    integer: The 1-based relative physical position in parent device
+		"""
+		raise NotImplementedError
+
+    def is_replaceable(self):
+		"""
+		Indicate whether this device is replaceable.
+		Returns:
+		    bool: True if it is replaceable.
+		"""
+		raise NotImplementedError
