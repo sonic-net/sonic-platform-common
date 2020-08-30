@@ -63,7 +63,7 @@ class SfpUtilHelper(object):
 
         (platform, hwsku) = device_info.get_platform_and_hwsku()
         if(parse_fmt_platform_json):
-            ports, _ = get_port_config(hwsku, platform)
+            ports, _, _ = get_port_config(hwsku, platform)
             if not ports:
                 print('Failed to get port config', file=sys.stderr)
                 sys.exit(1)
