@@ -25,6 +25,13 @@ class PsuBase(device_base.DeviceBase):
     # available on the PSU
     _fan_list = None
 
+    # List of ThermalBase-derived objects representing all thermals
+    # available on the PSU. Put a class level _thermal_list here to 
+    # avoid an exception when call get_num_thermals, get_all_thermals
+    # and get_thermal if vendor does not call PsuBase.__init__ in concrete
+    # PSU class
+    _thermal_list = []
+
     def __init__(self):
         self._fan_list = []
 
