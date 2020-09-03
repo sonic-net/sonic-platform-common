@@ -53,20 +53,35 @@ class DaemonPcied(DaemonBase):
         self.state_db = swsssdk.SonicV2Connector(host=REDIS_HOSTIP)
         self.state_db.connect("STATE_DB")
 
+    # Check the PCIe devices
     def check_pcie_devices(self):
-        cmd = [ 'sudo', 'pcieutil', 'pcie-check' ]
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        resultInfo, err = p.communicate()
-        pcie_db_state = self.read_state_db("PCIE_STATUS|", "PCIE_DEVICES")
+        try:
+            platform_path, _ = device_info.get_paths_to_platform_and_hwsku_dirs()
+            platform_plugins_path = os.path.join(platform_path, "plugins")
+            sys.path.append(os.path.abspath(platform_plugins_path))
+            from pcieutil import PcieUtil
+        except ImportError as e:
+            self.log_warning("Failed to load platform-specific PcieUtil module. Falling back to the common implementation")
+            try:
+                from sonic_platform_base.sonic_pcie.pcie_common import PcieUtil
+                platform_pcieutil = PcieUtil(platform_plugins_path)
+            except ImportError as e:
+                self.log_error("Failed to load default PcieUtil module. Error : {}".format(str(e)), True)
+                raise e
 
-        for line in resultInfo.splitlines():
-            if PCIE_RESULT_REGEX in line:
-                if "PASSED" in line and "PASSED" not in pcie_db_state:
-                    self.update_state_db("PCIE_STATUS|", "PCIE_DEVICES", "PASSED")
-                    self.log_info("PCIe device status check : PASSED")
-                elif "FAILED" in line and "PASSED" in pcie_db_state:
-                    self.update_state_db("PCIE_STATUS|", "PCIE_DEVICES", "FAILED")
-                    self.log_info("PCIe device status check : FAILED")
+        resultInfo = platform_pcieutil.get_pcie_check()
+
+        for item in resultInfo:
+            if item["result"] == "Failed":
+                self.log_warning("PCIe Device: " + item["name"] + " Not Found")
+                err += 1
+
+        if err:
+            self.update_state_db("PCIE_STATUS|", "PCIE_DEVICES", "FAILED")
+            self.log_error("PCIe device status check : FAILED")
+        else:
+            self.update_state_db("PCIE_STATUS|", "PCIE_DEVICES", "PASSED")
+            self.log_info("PCIe device status check : PASSED")
 
     def read_state_db(self, key1, key2):
         return self.state_db.get('STATE_DB', key1, key2)
