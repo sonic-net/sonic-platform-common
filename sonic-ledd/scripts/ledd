@@ -91,7 +91,7 @@ class DaemonLedd(daemon_base.DaemonBase):
         while True:
             # Use timeout to prevent ignoring the signals we want to handle
             # in signal_handler() (e.g. SIGTERM for graceful shutdown)
-            (state, c) = sel.select(SELECT_TIMEOUT)
+            (state, selectableObj) = sel.select(SELECT_TIMEOUT)
 
             if state == swsscommon.Select.TIMEOUT:
                 # Do not flood log when select times out
@@ -100,9 +100,12 @@ class DaemonLedd(daemon_base.DaemonBase):
                 self.log_warning("sel.select() did not  return swsscommon.Select.OBJECT")
                 continue
 
-            # Get the namespace from the selectable object and use it to index the SubscriberStateTable handle.
-            ns=c.getDbNamespace()
-            (key, op, fvp) = sst[ns].pop()
+            # Get the redisselect object  from selectable object
+            redisSelectObj = swsscommon.CastSelectableToRedisSelectObj(selectableObj)
+            # Get the corresponding namespace from redisselect db connector object
+            namespace = redisSelectObj.getDbConnector().getNamespace()
+
+            (key, op, fvp) = sst[namespace].pop()
             if fvp:
                 # TODO: Once these flag entries have been removed from the DB,
                 # we can remove this check
