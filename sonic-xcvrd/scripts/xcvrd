@@ -488,7 +488,6 @@ def del_port_sfp_dom_info_from_db(logical_port_name, int_tbl, dom_tbl):
 def recover_missing_sfp_table_entries(sfp_util, int_tbl, status_tbl, stop_event):
     transceiver_dict = {}
     
-    keys = int_tbl.getKeys()
     logical_port_list = sfp_util.logical
     for logical_port_name in logical_port_list:
         if stop_event.is_set():
@@ -500,6 +499,7 @@ def recover_missing_sfp_table_entries(sfp_util, int_tbl, status_tbl, stop_event)
             logger.log_warning("Got invalid asic index for {}, ignored".format(logical_port_name))
             continue
 
+        keys = int_tbl[asic_index].getKeys()
         if logical_port_name not in keys and not detect_port_in_error_status(logical_port_name, status_tbl[asic_index]):
             post_port_sfp_info_to_db(logical_port_name, int_tbl[asic_index], transceiver_dict, stop_event)
     
