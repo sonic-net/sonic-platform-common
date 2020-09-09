@@ -70,6 +70,7 @@ class DaemonPcied(DaemonBase):
                 raise e
 
         resultInfo = platform_pcieutil.get_pcie_check()
+        err = 0
 
         for item in resultInfo:
             if item["result"] == "Failed":
