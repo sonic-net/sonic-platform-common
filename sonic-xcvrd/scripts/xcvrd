@@ -954,6 +954,8 @@ class SfpStateUpdateTask(object):
             next_state = state
             time_start = time.time()
             status, port_dict = _wrapper_get_transceiver_change_event(timeout)
+            if not port_dict:
+                continue
             helper_logger.log_debug("Got event {} {} in state {}".format(status, port_dict, state))
             event = self._mapping_event_from_change_event(status, port_dict)
             if event == SYSTEM_NOT_READY:
