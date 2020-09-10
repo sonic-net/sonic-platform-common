@@ -88,7 +88,7 @@ class ComponentBase(object):
         """
         raise NotImplementedError
 
-    def update_firmware(self, image_path, boot_action):
+    def update_firmware(self, image_path):
         """
         Updates firmware of the component
 
@@ -98,7 +98,26 @@ class ComponentBase(object):
 
         Args:
             image_path: A string, path to firmware image
+
+        Raises:
+            RuntimeError: update failed
+        """
+        raise NotImplementedError
+
+    def auto_update_firmware(self, image_path, boot_action, command):
+        """
+        Updates firmware of the component
+
+        This API performs firmware update automatically based on boot_action: it assumes firmware installation 
+        and creating a loading task in a single call.
+        In case platform component requires some extra steps (apart from calling Low Level Utility)
+        to load the installed firmware (e.g, reboot, power cycle, etc.) - this will be done automatically during the reboot.
+        The loading task will be created by API and it will be performed by the reboot script.
+
+        Args:
+            image_path: A string, path to firmware image
             boot_action: A string, boot action following the upgrade
+            command: A string, command to be performed
 
         Raises:
             RuntimeError: update failed
