@@ -78,10 +78,10 @@ class DaemonPcied(DaemonBase):
                 err += 1
 
         if err:
-            self.update_state_db("PCIE_STATUS|", "PCIE_DEVICES", "FAILED")
+            self.update_state_db("PCIE_DEVICES", "status", "FAILED")
             self.log_error("PCIe device status check : FAILED")
         else:
-            self.update_state_db("PCIE_STATUS|", "PCIE_DEVICES", "PASSED")
+            self.update_state_db("PCIE_DEVICES", "status", "PASSED")
             self.log_info("PCIe device status check : PASSED")
 
     def read_state_db(self, key1, key2):
