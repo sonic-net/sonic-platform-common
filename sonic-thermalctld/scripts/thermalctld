@@ -622,6 +622,11 @@ class ThermalControlDaemon(daemon_base.DaemonBase):
         super(ThermalControlDaemon, self).__init__(log_identifier)
         self.stop_event = threading.Event()
 
+        # Thermal control daemon is designed to never exit, it must always
+        # return non zero exit code when exiting and so that supervisord will 
+        # restart it automatically.
+        self.exit_code = 1
+
     # Signal handler
     def signal_handler(self, sig, frame):
         """
@@ -632,11 +637,9 @@ class ThermalControlDaemon(daemon_base.DaemonBase):
         """
         if sig == signal.SIGHUP:
             self.log_info("Caught SIGHUP - ignoring...")
-        elif sig == signal.SIGINT:
-            self.log_info("Caught SIGINT - exiting...")
-            self.stop_event.set()
-        elif sig == signal.SIGTERM:
-            self.log_info("Caught SIGTERM - exiting...")
+        elif sig == signal.SIGINT or sig == signal.SIGTERM:
+            self.log_info("Caught signal {} - exiting...".format(sig))
+            self.exit_code = sig + 128
             self.stop_event.set()
         else:
             self.log_warning("Caught unhandled signal '" + sig + "'")
@@ -690,7 +693,8 @@ class ThermalControlDaemon(daemon_base.DaemonBase):
 
         thermal_monitor.task_stop()
 
-        self.log_info("Shutdown...")
+        self.log_info("Shutdown with exit code {}...".format(self.exit_code))
+        exit(self.exit_code)
 
 
 #
