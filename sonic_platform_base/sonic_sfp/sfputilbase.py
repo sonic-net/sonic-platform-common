@@ -467,13 +467,9 @@ class SfpUtilBase(object):
         # In multi asic scenario, get all the port_config files for different asics
          for inst in range(num_asic_inst):
              port_map_dir = os.path.join(platform_dir, str(inst))
-             port_map_file = os.path.join(port_map_dir, PORT_CONFIG_INI)
+             port_map_file = os.path.join(port_map_dir, "port_config.ini")
              if os.path.exists(port_map_file):
                  self.read_porttab_mappings(port_map_file, inst)
-             else:
-                 port_json_file = os.path.join(port_map_dir, PLATFORM_JSON)
-                 if os.path.exists(port_json_file):
-                     self.read_porttab_mappings(port_json_file, inst)
 
     def read_phytab_mappings(self, phytabfile):
         logical = []
