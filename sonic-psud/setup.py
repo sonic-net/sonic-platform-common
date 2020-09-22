@@ -13,6 +13,9 @@ setup(
     scripts=[
         'scripts/psud',
     ],
+    setup_requires= [
+        'wheel'
+    ],
     classifiers=[
         'Development Status :: 4 - Beta',
         'Environment :: No Input/Output (Daemon)',

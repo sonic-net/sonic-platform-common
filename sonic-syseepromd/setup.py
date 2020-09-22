@@ -13,6 +13,9 @@ setup(
     scripts=[
         'scripts/syseepromd',
     ],
+    setup_requires= [
+        'wheel'
+    ],
     classifiers=[
         'Development Status :: 4 - Beta',
         'Environment :: No Input/Output (Daemon)',
