@@ -79,7 +79,7 @@ class SfpUtilHelper(object):
                     bcm_port = str(port_pos_in_file)
 
                     if 'index' in ports[intf_name].keys():
-                        fp_port_index = ports[intf_name]['index']
+                        fp_port_index = int(ports[intf_name]['index'])
                         logical_to_physical[intf_name] = [fp_port_index]
 
                     if physical_to_logical.get(fp_port_index) is None:
