@@ -505,6 +505,16 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
         return t[2]
 
 
+    def part_number_str(self, e):
+        '''
+        Returns the value field of the Part Number TLV as a string
+        '''
+        valid, t = self.get_tlv_field(e, self._TLV_CODE_PART_NUMBER)
+        if not valid:
+            return super(TlvInfoDecoder, self).part_number_str(e)
+        return t[2]
+
+
     def decoder(self, s, t):
         '''
         Return a string representing the contents of the TLV field. The format of
