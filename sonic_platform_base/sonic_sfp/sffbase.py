@@ -36,7 +36,7 @@ class sffbase(object):
             ret_str = ''
             for n in range(start, end):
                 ret_str += arr[n]
-            return str.strip(binascii.unhexlify(ret_str))
+            return str.rstrip(binascii.unhexlify(ret_str),'\xff')
         except Exception as err:
             return str(err)
 
