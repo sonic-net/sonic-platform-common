@@ -11,8 +11,10 @@ try:
     import os
     import re
     import sys
+    import types
     from collections import OrderedDict
 
+    from ctypes import create_string_buffer
     from natsort import natsorted
     from portconfig import get_port_config
     from sonic_py_common import device_info
@@ -368,6 +370,104 @@ class SfpUtilBase(object):
             return None
 
         return eeprom_raw
+
+    def _write_eeprom_specific_bytes(self, sysfsfile_eeprom, offset, num_bytes, write_buffer):
+
+        try:
+            sysfsfile_eeprom.seek(offset)
+            sysfsfile_eeprom.write(write_buffer)
+            sysfsfile_eeprom.close()
+        except IOError:
+            print("Error: writing EEPROM sysfs file")
+            return False
+
+        return True
+
+    def _write_eeprom_devid(self, port_num, devid, offset, num_bytes, write_buffer):
+
+        sysfs_sfp_i2c_client_eeprom_path = self._get_port_eeprom_path(port_num, devid)
+
+        if not self._sfp_eeprom_present(sysfs_sfp_i2c_client_eeprom_path, offset):
+            return False
+
+        try:
+            sysfsfile_eeprom = open(sysfs_sfp_i2c_client_eeprom_path, mode="wb")
+        except IOError:
+            print("Error: trying to open sysfs file for writing %s" % sysfs_sfp_i2c_client_eeprom_path)
+            return False
+
+        result = self._write_eeprom_specific_bytes(sysfsfile_eeprom, offset, num_bytes, write_buffer)
+
+        try:
+            sysfsfile_eeprom.close()
+        except:
+            return None
+
+        return True
+
+    def y_cable_toggle_mux_to_torA(self, port_num, devid):
+       
+        regval = 0x2
+        buffer = create_string_buffer(1)
+        buffer[0] = chr(regval)
+        curr_offset = 642
+
+        result = self._write_eeprom_devid(port_num, devid, 642, 1,buffer)
+
+        return result
+
+    def y_cable_toggle_mux_to_torB(self, port_num, devid):
+       
+        regval = 0x3
+        buffer = create_string_buffer(1)
+        buffer[0] = chr(regval)
+        curr_offset = 642
+
+        result = self._write_eeprom_devid(port_num, devid, 642, 1,buffer)
+
+        return result
+
+    def y_cable_check_tor_side(self, port_num, devid):
+       
+        curr_offset = 640
+
+        result = self._read_eeprom_devid(port_num, devid, 640, 1)
+
+        if ((int(result[0]) >> 2) &  0x01):
+            print("Reading from TOR A")
+            return 1
+        elif ((int(result[0]) >> 1) & 0x01):
+            print("Reading from TOR B")
+            return 2
+        elif (int(result[0]) & 0x01):
+            print("Reading from NIC side")
+            return 0
+        else:
+            print("Error: unknown status for checking which side regval = {} ".format(result))
+            return -1
+
+        return -1
+
+    def y_cable_check_active_tor_side(self, port_num, devid):
+       
+        curr_offset = 645
+
+        result = self._read_eeprom_devid(port_num, devid, curr_offset, 1)
+
+        if ((int(result[0]) >> 1) &  0x01):
+            print("TOR B linked and actively routing")
+            return 1
+        elif (int(result[0]) & 0x01):
+            print("TOR A linked and actively routing")
+            return 2
+        elif (int(result[0])  == 0):
+            print("Nothing linked for routing")
+            return 0
+        else:
+            print("Error: unknown status for active TOR regval = {} ".format(result))
+            return -1
+
+        return -1
 
     def _is_valid_port(self, port_num):
         if port_num >= self.port_start and port_num <= self.port_end:
