@@ -120,7 +120,7 @@ def try_get(callback, default=None):
     return ret
 
 
-def log_on_status_changed(normal_status, normal_log, abnormal_log):
+def log_on_status_changed(logger, normal_status, normal_log, abnormal_log):
     """
     Log when any status changed
     :param normal_status: Expected status.
@@ -129,9 +129,9 @@ def log_on_status_changed(normal_status, normal_log, abnormal_log):
     :return:
     """
     if normal_status:
-        self.log_notice(normal_log)
+        logger.log_notice(normal_log)
     else:
-        self.log_warning(abnormal_log)
+        logger.log_warning(abnormal_log)
 
 
 #
@@ -139,12 +139,13 @@ def log_on_status_changed(normal_status, normal_log, abnormal_log):
 #
 
 class PsuStatus(object):
-    def __init__(self, psu):
+    def __init__(self, logger, psu):
         self.psu = psu
         self.presence = True
         self.power_good = True
         self.voltage_good = True
         self.temperature_good = True
+        self.logger = logger
 
     def set_presence(self, presence):
         """
@@ -173,7 +174,7 @@ class PsuStatus(object):
     def set_voltage(self, voltage, high_threshold, low_threshold):
         if not voltage or not high_threshold or not low_threshold:
             if self.voltage_good is not True:
-                self.log_warning('PSU voltage or high_threshold or low_threshold become unavailable, '
+                self.logger.log_warning('PSU voltage or high_threshold or low_threshold become unavailable, '
                                    'voltage={}, high_threshold={}, low_threshold={}'.format(voltage, high_threshold, low_threshold))
                 self.voltage_good = True
             return False
@@ -188,7 +189,7 @@ class PsuStatus(object):
     def set_temperature(self, temperature, high_threshold):
         if not temperature or not high_threshold:
             if self.temperature_good is not True:
-                self.log_warning('PSU temperature or high_threshold become unavailable, '
+                self.logger.log_warning('PSU temperature or high_threshold become unavailable, '
                                    'temperature={}, high_threshold={}'.format(temperature, high_threshold))
                 self.temperature_good = True
             return False
@@ -310,13 +311,13 @@ class DaemonPsud(daemon_base.DaemonBase):
             temperature_threshold = try_get(psu.get_temperature_high_threshold)
 
         if index not in self.psu_status_dict:
-            self.psu_status_dict[index] = PsuStatus(psu)
+            self.psu_status_dict[index] = PsuStatus(self, psu)
 
         psu_status = self.psu_status_dict[index]
         set_led = False
         if psu_status.set_presence(presence):
             set_led = True
-            log_on_status_changed(psu_status.presence,
+            log_on_status_changed(self, psu_status.presence,
                                   'PSU absence warning cleared: {} is inserted back.'.format(name),
                                   'PSU absence warning: {} is not present.'.format(name)
                                   )
@@ -329,14 +330,14 @@ class DaemonPsud(daemon_base.DaemonBase):
 
         if presence and psu_status.set_power_good(power_good):
             set_led = True
-            log_on_status_changed(psu_status.power_good,
+            log_on_status_changed(self, psu_status.power_good,
                                   'Power absence warning cleared: {} power is back to normal.'.format(name),
                                   'Power absence warning: {} is out of power.'.format(name)
                                   )
 
         if presence and psu_status.set_voltage(voltage, voltage_high_threshold, voltage_low_threshold):
             set_led = True
-            log_on_status_changed(psu_status.voltage_good,
+            log_on_status_changed(self, psu_status.voltage_good,
                                   'PSU voltage warning cleared: {} voltage is back to normal.'.format(name),
                                   'PSU voltage warning: {} voltage out of range, current voltage={}, valid range=[{}, {}].'.format(
                                       name, voltage, voltage_high_threshold, voltage_low_threshold)
@@ -344,7 +345,7 @@ class DaemonPsud(daemon_base.DaemonBase):
 
         if presence and psu_status.set_temperature(temperature, temperature_threshold):
             set_led = True
-            log_on_status_changed(psu_status.temperature_good,
+            log_on_status_changed(self, psu_status.temperature_good,
                                   'PSU temperature warning cleared: {} temperature is back to normal.'.format(name),
                                   'PSU temperature warning: {} temperature too hot, temperature={}, threshold={}.'.format(
                                       name, temperature, temperature_threshold)
@@ -420,7 +421,7 @@ class DaemonPsud(daemon_base.DaemonBase):
                     (FAN_INFO_LED_STATUS_FIELD, str(try_get(fan.get_status_led)))
                 ])
             except Exception as e:
-                logger.log_warning('Failed to get led status for fan {}'.format(fan_name))
+                self.log_warning('Failed to get led status for fan {}'.format(fan_name))
                 fvs = swsscommon.FieldValuePairs([
                     (FAN_INFO_LED_STATUS_FIELD, NOT_AVAILABLE)
                 ])
