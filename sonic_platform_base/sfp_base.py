@@ -308,7 +308,7 @@ class SfpBase(device_base.DeviceBase):
     def read_eeprom(self, offset, num_bytes):
         """
         read eeprom specfic bytes for a given port_num and device id
-        begining from a random offset with size as num_bytes
+        beginning from a random offset with size as num_bytes
 
         Args:
              offset :
@@ -317,22 +317,22 @@ class SfpBase(device_base.DeviceBase):
                      Integer, the number of bytes to be read
 
         Returns:
-            a bytearray , raw sequence of bytes which are read from the offset of size num_bytes
+            bytes, raw sequence of bytes which are read from the offset of size num_bytes
         """
         raise NotImplementedError
 
     def write_eeprom(self, offset, num_bytes, write_buffer):
         """
         write eeprom specfic bytes for a given port_num and device id
-        begining from a random offset with size as num_bytes and write_buffer as the required bytes
+        beginning from a random offset with size as num_bytes and write_buffer as the required bytes
 
         Args:
              offset :
                      Integer, the offset from which the read transaction will start
              num_bytes:
-                     Integer, the number of bytes to be read
+                     Integer, the number of bytes to be written
              write_buffer:
-                     bytearary, raw bytes buffer which is to be written beginning at the offset
+                     bytes, raw bytes buffer which is to be written beginning at the offset
 
         Returns:
             a Boolean, true if the write succeeded and false if it did not succeed.
