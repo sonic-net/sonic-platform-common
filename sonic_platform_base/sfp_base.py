@@ -307,8 +307,7 @@ class SfpBase(device_base.DeviceBase):
 
     def read_eeprom(self, offset, num_bytes):
         """
-        read eeprom specfic bytes for a given port_num and device id
-        beginning from a random offset with size as num_bytes
+        read eeprom specfic bytes beginning from a random offset with size as num_bytes
 
         Args:
              offset :
@@ -323,8 +322,8 @@ class SfpBase(device_base.DeviceBase):
 
     def write_eeprom(self, offset, num_bytes, write_buffer):
         """
-        write eeprom specfic bytes for a given port_num and device id
-        beginning from a random offset with size as num_bytes and write_buffer as the required bytes
+        write eeprom specfic bytes beginning from a random offset with size as num_bytes 
+        and write_buffer as the required bytes
 
         Args:
              offset :
