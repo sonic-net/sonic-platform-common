@@ -265,7 +265,7 @@ class EepromDecoder(object):
             if F is not None:
                 F.close()
 
-        return o
+        return bytearray(o)
 
     def read_eeprom_db(self):
         return 0
