@@ -11,10 +11,8 @@ try:
     import os
     import re
     import sys
-    import types
     from collections import OrderedDict
 
-    from ctypes import create_string_buffer
     from natsort import natsorted
     from portconfig import get_port_config
     from sonic_py_common import device_info
@@ -372,7 +370,6 @@ class SfpUtilBase(object):
         return eeprom_raw
 
     def _write_eeprom_specific_bytes(self, sysfsfile_eeprom, offset, num_bytes, write_buffer):
-
         try:
             sysfsfile_eeprom.seek(offset)
             sysfsfile_eeprom.write(write_buffer)
@@ -384,7 +381,6 @@ class SfpUtilBase(object):
         return True
 
     def _write_eeprom_devid(self, port_num, devid, offset, num_bytes, write_buffer):
-
         sysfs_sfp_i2c_client_eeprom_path = self._get_port_eeprom_path(port_num, devid)
 
         if not self._sfp_eeprom_present(sysfs_sfp_i2c_client_eeprom_path, offset):
