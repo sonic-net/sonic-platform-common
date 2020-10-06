@@ -6,7 +6,6 @@
 from __future__ import print_function
 
 try:
-    import abc
     import fcntl
     import struct
     import sys
@@ -22,8 +21,6 @@ except ImportError as e:
 class sffbase(object):
     """Class to parse and interpret sff8436 and sff8472 spec for
     diagnostically monitoring interfaces of optical transceivers"""
-
-    __metaclass__ = abc.ABCMeta
 
     _indent = '\t'
 
@@ -250,27 +247,3 @@ class sffbase(object):
                     self.dec_indent()
             else:
                 print(self._indent, elem, ': ', elem_val)
-
-    @abc.abstractmethod
-    def read_eeprom_devid(self, port_num, devid, offset, num_bytes):
-        """
-        :param port_num: Integer, index of physical port
-        :param devid: Integer, device id of the i2c bus required for reading for eeprom addr space
-        :param offset: Integer, the offset from which the read transaction will start
-        :param num_bytes: Integer, the number of bytes to be read
-        :returns: list , raw sequence of bytes which are read from the offset of size num_bytes
-        """
-        return
-
-    @abc.abstractmethod
-    def write_eeprom_devid(self, port_num, devid, offset, num_bytes, write_buffer):
-        """
-        :param port_num: Integer, index of physical port
-        :param devid: Integer, device id of the i2c bus required for reading for eeprom addr space
-        :param offset: Integer, the offset from which the read transaction will start
-        :param num_bytes: Integer, the number of bytes to be read
-        :param write_buffer: list, raw bytes buffer needed to be written beginning at the offset
-        :returns: list , raw sequence of bytes which are read from the offset of size num_bytes
-        """
-        return
-
