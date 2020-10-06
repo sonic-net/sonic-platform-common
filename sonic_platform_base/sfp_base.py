@@ -305,45 +305,37 @@ class SfpBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
-    def read_eeprom_devid(self, port_num, devid, offset, num_bytes):
+    def read_eeprom(self, offset, num_bytes):
         """
         read eeprom specfic bytes for a given port_num and device id
         begining from a random offset with size as num_bytes
 
         Args:
-             port_num :
-                     Integer, index of physical port from where to read the bytes
-             devid :
-                     Integer, device id of the i2c bus required for reading for eeprom addr space
              offset :
                      Integer, the offset from which the read transaction will start
              num_bytes:
                      Integer, the number of bytes to be read
 
         Returns:
-            a list , raw sequence of bytes which are read from the offset of size num_bytes
+            a bytearray , raw sequence of bytes which are read from the offset of size num_bytes
         """
         raise NotImplementedError
 
-    def write_eeprom_devid(self, port_num, devid, offset, num_bytes, write_buffer):
+    def write_eeprom(self, offset, num_bytes, write_buffer):
         """
         write eeprom specfic bytes for a given port_num and device id
         begining from a random offset with size as num_bytes and write_buffer as the required bytes
 
         Args:
-             port_num :
-                     Integer, index of physical port from where to read the bytes
-             devid :
-                     Integer, device id of the i2c bus required for reading for eeprom addr space
              offset :
                      Integer, the offset from which the read transaction will start
              num_bytes:
                      Integer, the number of bytes to be read
              write_buffer:
-                     list, raw bytes buffer which is to be written beginning at the offset
+                     bytearary, raw bytes buffer which is to be written beginning at the offset
 
         Returns:
-            a Boolean , true if the write succeeded and false if it did not succeed.
+            a Boolean, true if the write succeeded and false if it did not succeed.
         """
         raise NotImplementedError
 
