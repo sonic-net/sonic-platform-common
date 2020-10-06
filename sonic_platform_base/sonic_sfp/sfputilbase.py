@@ -397,7 +397,7 @@ class SfpUtilBase(object):
         try:
             sysfsfile_eeprom.close()
         except:
-            return None
+            return False
 
         return True
 
