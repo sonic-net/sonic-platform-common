@@ -316,7 +316,7 @@ class SfpBase(device_base.DeviceBase):
                      Integer, the number of bytes to be read
 
         Returns:
-            bytes, raw sequence of bytes which are read from the offset of size num_bytes
+            bytearray, raw sequence of bytes which are read from the offset of size num_bytes
         """
         raise NotImplementedError
 
@@ -331,7 +331,7 @@ class SfpBase(device_base.DeviceBase):
              num_bytes:
                      Integer, the number of bytes to be written
              write_buffer:
-                     bytes, raw bytes buffer which is to be written beginning at the offset
+                     bytearray, raw bytes buffer which is to be written beginning at the offset
 
         Returns:
             a Boolean, true if the write succeeded and false if it did not succeed.
