@@ -114,7 +114,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
                 return
 
             print("TlvInfo Header:")
-            print("   Id String:    %s" % e[0:7])
+            print("   Id String:    %s" % e[0:7].decode("ascii"))
             print("   Version:      %d" % e[8])
             total_len = (e[9] << 8) | e[10]
             print("   Total Length: %d" % total_len)
