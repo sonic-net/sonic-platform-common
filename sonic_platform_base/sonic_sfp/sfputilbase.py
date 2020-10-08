@@ -373,7 +373,6 @@ class SfpUtilBase(object):
         try:
             sysfsfile_eeprom.seek(offset)
             sysfsfile_eeprom.write(write_buffer)
-            sysfsfile_eeprom.close()
         except IOError:
             print("Error: writing EEPROM sysfs file")
             return False
