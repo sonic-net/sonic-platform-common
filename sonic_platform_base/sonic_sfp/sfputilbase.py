@@ -386,7 +386,7 @@ class SfpUtilBase(object):
             return False
 
         try:
-            sysfsfile_eeprom = open(sysfs_sfp_i2c_client_eeprom_path, mode="wb")
+            sysfsfile_eeprom = open(sysfs_sfp_i2c_client_eeprom_path, mode="wb", buffering=0)
         except IOError:
             print("Error: trying to open sysfs file for writing %s" % sysfs_sfp_i2c_client_eeprom_path)
             return False
