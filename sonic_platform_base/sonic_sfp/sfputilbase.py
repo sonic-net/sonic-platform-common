@@ -369,6 +369,37 @@ class SfpUtilBase(object):
 
         return eeprom_raw
 
+    def _write_eeprom_specific_bytes(self, sysfsfile_eeprom, offset, num_bytes, write_buffer):
+        try:
+            sysfsfile_eeprom.seek(offset)
+            sysfsfile_eeprom.write(write_buffer)
+        except IOError:
+            print("Error: writing EEPROM sysfs file")
+            return False
+
+        return True
+
+    def _write_eeprom_devid(self, port_num, devid, offset, num_bytes, write_buffer):
+        sysfs_sfp_i2c_client_eeprom_path = self._get_port_eeprom_path(port_num, devid)
+
+        if not self._sfp_eeprom_present(sysfs_sfp_i2c_client_eeprom_path, offset):
+            return False
+
+        try:
+            sysfsfile_eeprom = open(sysfs_sfp_i2c_client_eeprom_path, mode="wb", buffering=0)
+        except IOError:
+            print("Error: trying to open sysfs file for writing %s" % sysfs_sfp_i2c_client_eeprom_path)
+            return False
+
+        result = self._write_eeprom_specific_bytes(sysfsfile_eeprom, offset, num_bytes, write_buffer)
+
+        try:
+            sysfsfile_eeprom.close()
+        except:
+            return False
+
+        return True
+
     def _is_valid_port(self, port_num):
         if port_num >= self.port_start and port_num <= self.port_end:
             return True
