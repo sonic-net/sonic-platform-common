@@ -25,7 +25,7 @@ platform_chassis = sonic_platform.platform.Platform().get_chassis()
 # of MUX register specs of upper page 0x04 starting at 640
 # info eeprom
 Y_CABLE_IDENTFIER_LOWER_PAGE = 0
-Y_CABLE_IDENTFIER_UPPER_PAGE = 128:
+Y_CABLE_IDENTFIER_UPPER_PAGE = 128
 Y_CABLE_DETERMINE_CABLE_READ_SIDE = 640
 Y_CABLE_CHECK_LINK_ACTIVE = 641
 Y_CABLE_SWITCH_MUX_DIRECTION = 642
