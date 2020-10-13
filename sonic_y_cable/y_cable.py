@@ -59,10 +59,10 @@ def toggle_mux_to_torA(physical_port):
 
     Register Specification at offset 130 is documented below
 
-    Byte offset   bits   Name                   Description
-    130  	  7-2	 Reserved	        Reserved
-                  1	 Hard vs. soft switch	0b0 - Switch only if a valid TOR link on target; 0b1 Switch to new target regardless of link status
-                  0	 Switch Target	        Switch Target - 0b0 - TOR#1, 0b1 - TOR#2; default is TOR #1
+    Byte offset   bits     Name                    Description
+    130           7-2      Reserved                Reserved
+                  1        Hard vs. soft switch    0b0 - Switch only if a valid TOR link on target; 0b1 Switch to new target regardless of link status
+                  0        Switch Target           Switch Target - 0b0 - TOR#1, 0b1 - TOR#2; default is TOR #1
 
     Args:
          physical_port:
@@ -94,10 +94,10 @@ def toggle_mux_to_torB(physical_port):
 
     Register Specification at offset 130 is documented below
 
-    Byte offset   bits   Name                   Description
-    130  	  7-2	 Reserved	        Reserved
-                  1	 Hard vs. soft switch	0b0 - Switch only if a valid TOR link on target; 0b1 Switch to new target regardless of link status
-                  0	 Switch Target	        Switch Target - 0b0 - TOR#1, 0b1 - TOR#2; default is TOR #1
+    Byte offset   bits      Name                   Description
+    130           7-2       Reserved               Reserved
+                  1         Hard vs. soft switch   0b0 - Switch only if a valid TOR link on target; 0b1 Switch to new target regardless of link status
+                  0         Switch Target          Switch Target - 0b0 - TOR#1, 0b1 - TOR#2; default is TOR #1
 
     Args:
          physical_port:
@@ -130,12 +130,12 @@ def check_read_side(physical_port):
 
     Register Specification of upper page 0x4 at offset 128 is documented below
 
-    Byte offset   bits  Name                    Description
-                  7-3	Reserved	        Determine which side of the cable you are reading from - specifically to differentiate TOR #1 and TOR #2:
-                                                0b1 : Reading from indicated side, 0b0 not reading from that side.
-                  2	TOR #1 Side
-                  1	TOR #2 Side
-                  0	NIC Side
+    Byte offset   bits     Name                    Description
+                  7-3      Reserved                Determine which side of the cable you are reading from - specifically to differentiate TOR #1 and TOR #2:
+                                                   0b1 : Reading from indicated side, 0b0 not reading from that side.
+                  2        TOR #1 Side
+                  1        TOR #2 Side
+                  0        NIC Side
     Args:
          physical_port:
              an Integer, the actual physical port connected to Y end of a Y cable which can which side reading the MUX from
@@ -185,8 +185,8 @@ def check_active_linked_tor_side(physical_port):
 
     Register Specification of upper page 0x4 at offset 133 is documented below
 
-    Byte offset   bits  Name                    Description
-    133	          7-0	TOR Active Indicator	0x00, no sides linked and routing frames, 0x01 TOR #1 linked and routing, 0x02, TOR #2 linked and routing
+    Byte offset   bits     Name                     Description
+    133           7-0      TOR Active Indicator      0x00, no sides linked and routing frames, 0x01 TOR #1 linked and routing, 0x02, TOR #2 linked and routing
 
     Args:
          physical_port:
@@ -234,11 +234,11 @@ def check_if_link_is_active_for_NIC(physical_port):
 
     Register Specification of upper page 0x4 at offset 129 is documented below
 
-    Byte offset   bits  Name                    Description
-    129           7-3	Reserved	        Cable link status is for each end.  0b1 : Link up, 0b0 link not up.
-                  2	TOR #1 Side
-                  1	TOR #2 Side
-                  0	NIC Side
+    Byte offset   bits     Name                   Description
+    129           7-3      Reserved               Cable link status is for each end.  0b1 : Link up, 0b0 link not up.
+                  2        TOR #1 Side
+                  1        TOR #2 Side
+                  0        NIC Side
 
     Args:
         physical_port:
@@ -274,11 +274,11 @@ def check_if_link_is_active_for_torA(physical_port):
 
     Register Specification of upper page 0x4 at offset 129 is documented below
 
-    Byte offset   bits  Name                    Description
-    129           7-3	Reserved	        Cable link status is for each end.  0b1 : Link up, 0b0 link not up.
-                  2	TOR #1 Side
-                  1	TOR #2 Side
-                  0	NIC Side
+    Byte offset   bits     Name                    Description
+    129           7-3      Reserved                Cable link status is for each end.  0b1 : Link up, 0b0 link not up.
+                  2        TOR #1 Side
+                  1        TOR #2 Side
+                  0        NIC Side
 
     Args:
         physical_port:
@@ -315,11 +315,11 @@ def check_if_link_is_active_for_torB(physical_port):
 
     Register Specification of upper page 0x4 at offset 129 is documented below
 
-    Byte offset   bits  Name                    Description
-    129           7-3	Reserved	        Cable link status is for each end.  0b1 : Link up, 0b0 link not up.
-                  2	TOR #1 Side
-                  1	TOR #2 Side
-                  0	NIC Side
+    Byte offset   bits    Name                  Description
+    129           7-3     Reserved              Cable link status is for each end.  0b1 : Link up, 0b0 link not up.
+                  2       TOR #1 Side
+                  1       TOR #2 Side
+                  0       NIC Side
 
     Args:
         physical_port:
