@@ -75,7 +75,7 @@ def toggle_mux_to_torA(physical_port):
     buffer = bytearray([2])
     curr_offset = Y_CABLE_SWITCH_MUX_DIRECTION
 
-    if platform_chassis is not None
+    if platform_chassis is not None:
         result = platform_chassis.get_sfp(
             physical_port).write_eeprom(curr_offset, 1, buffer)
     else:
@@ -110,7 +110,7 @@ def toggle_mux_to_torB(physical_port):
     buffer = bytearray([3])
     curr_offset = Y_CABLE_SWITCH_MUX_DIRECTION
 
-    if platform_chassis is not None
+    if platform_chassis is not None:
         result = platform_chassis.get_sfp(
             physical_port).write_eeprom(curr_offset, 1, buffer)
     else:
@@ -149,7 +149,7 @@ def check_read_side(physical_port):
 
     curr_offset = Y_CABLE_DETERMINE_CABLE_READ_SIDE
 
-    if platform_chassis is not None
+    if platform_chassis is not None:
         result = platform_chassis.get_sfp(
             physical_port).read_eeprom(curr_offset, 1)
     else:
@@ -201,7 +201,7 @@ def check_active_linked_tor_side(physical_port):
 
     curr_offset = Y_CABLE_ACTIVE_TOR_INDICATOR
 
-    if platform_chassis is not None
+    if platform_chassis is not None:
         result = platform_chassis.get_sfp(
             physical_port).read_eeprom(curr_offset, 1)
     else:
@@ -250,7 +250,7 @@ def check_if_link_is_active_for_NIC(physical_port):
     """
     curr_offset = Y_CABLE_CHECK_LINK_ACTIVE
 
-    if platform_chassis is not None
+    if platform_chassis is not None:
         result = platform_chassis.get_sfp(
             physical_port).read_eeprom(curr_offset, 1)
     else:
@@ -291,7 +291,7 @@ def check_if_link_is_active_for_torA(physical_port):
 
     curr_offset = Y_CABLE_CHECK_LINK_ACTIVE
 
-    if platform_chassis is not None
+    if platform_chassis is not None:
         result = platform_chassis.get_sfp(
             physical_port).read_eeprom(curr_offset, 1)
     else:
@@ -332,7 +332,7 @@ def check_if_link_is_active_for_torB(physical_port):
 
     curr_offset = Y_CABLE_CHECK_LINK_ACTIVE
 
-    if platform_chassis is not None
+    if platform_chassis is not None:
         result = platform_chassis.get_sfp(
             physical_port).read_eeprom(curr_offset, 1)
     else:
