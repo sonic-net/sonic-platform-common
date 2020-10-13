@@ -186,7 +186,7 @@ def check_active_linked_tor_side(physical_port):
     Register Specification of upper page 0x4 at offset 133 is documented below
 
     Byte offset   bits     Name                     Description
-    133           7-0      TOR Active Indicator      0x00, no sides linked and routing frames, 0x01 TOR #1 linked and routing, 0x02, TOR #2 linked and routing
+    133           7-0      TOR Active Indicator     0x00, no sides linked and routing frames, 0x01 TOR #1 linked and routing, 0x02, TOR #2 linked and routing
 
     Args:
          physical_port:
