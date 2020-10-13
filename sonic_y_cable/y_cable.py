@@ -177,10 +177,10 @@ def check_read_side(physical_port):
 
 def check_active_linked_tor_side(physical_port):
     """
-    This API specifically ichecks which side of the Y cable is actively linked and Routing
+    This API specifically checks which side of the Y cable is actively linked and routing
     TOR A , TOR B (TOR A is chosed by convention as TOR 1 and TOR B is chosen as TOR 2 hereafter)
     API basically reads 1 byte at upper page 4 offset 133 and checks which side is actively linked
-    and Routing.
+    and routing.
 
 
     Register Specification of upper page 0x4 at offset 133 is documented below
@@ -194,7 +194,7 @@ def check_active_linked_tor_side(physical_port):
 
     Returns:
         an Integer, 1 if TOR A is actively linked and routing(TOR 1).
-                  , 2 if TOR B si actively linked and routing(TOR 2).
+                  , 2 if TOR B is actively linked and routing(TOR 2).
                   , 0 if nothing linked and actively routing
                   , -1 if checking which side linked for routing API fails.
     """
@@ -205,7 +205,7 @@ def check_active_linked_tor_side(physical_port):
         result = platform_chassis.get_sfp(
             physical_port).read_eeprom(curr_offset, 1)
     else:
-        helper_logger.log_error("platform_chassis is not loaded, failed to check Active Linked and Routing TOR side")
+        helper_logger.log_error("platform_chassis is not loaded, failed to check Active Linked and routing TOR side")
         return -1
 
     regval_read = struct.unpack(">i", result)
