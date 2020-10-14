@@ -53,8 +53,7 @@ def load_platform_chassis_for_y_cable():
 def toggle_mux_to_torA(physical_port):
     """
     This API specifically does a hard switch toggle of the Y cable's MUX regardless of link state to
-    TOR 1 or TOR A (TOR A is chosed by convention as TOR 1 and TOR B is chosen as TOR 2 hereafter)
-    API basically writes to upper page 4 offset 130 the value of 0x2 and expects the MUX to toggle
+    TOR A. API basically writes to upper page 4 offset 130 the value of 0x2 and expects the MUX to toggle
     to TOR A. Bit 0 value 0 means TOR A
 
     Register Specification at offset 130 is documented below
@@ -88,8 +87,7 @@ def toggle_mux_to_torA(physical_port):
 def toggle_mux_to_torB(physical_port):
     """
     This API specifically does a hard switch toggle of the Y cable's MUX regardless of link state to
-    TOR 2 or TOR B (TOR A is chosed by convention as TOR 1 and TOR B is chosen as TOR 2 hereafter)
-    API basically writes to upper page 4 offset 130 the value of 0x3 and expects the MUX to toggle
+    TOR B. API basically writes to upper page 4 offset 130 the value of 0x3 and expects the MUX to toggle
     to TOR B. Bit 0 value 1 means TOR B
 
     Register Specification at offset 130 is documented below
@@ -123,10 +121,8 @@ def toggle_mux_to_torB(physical_port):
 def check_read_side(physical_port):
     """
     This API specifically checks which side of the Y cable the reads are actually getting performed
-    TOR A , TOR B or NIC (TOR A is chosed by convention as TOR 1 and TOR B is chosen as TOR 2 hereafter)
-    API basically reads 1 byte at upper page 4 offset 128 and checks which side the read is being performed
-    from.
-
+    form either TOR A or TOR B or NIC and returns the value. API basically reads 1 byte at upper page 4 offset 128 and 
+    checks which side of the Y cable the read is being performed from.
 
     Register Specification of upper page 0x4 at offset 128 is documented below
 
@@ -178,9 +174,8 @@ def check_read_side(physical_port):
 def check_active_linked_tor_side(physical_port):
     """
     This API specifically checks which side of the Y cable is actively linked and routing
-    TOR A , TOR B (TOR A is chosed by convention as TOR 1 and TOR B is chosen as TOR 2 hereafter)
-    API basically reads 1 byte at upper page 4 offset 133 and checks which side is actively linked
-    and routing.
+    and returns either TOR A or TOR B. API basically reads 1 byte at upper page 4 offset 133
+    and checks which side is actively linked and routing.
 
 
     Register Specification of upper page 0x4 at offset 133 is documented below
@@ -269,7 +264,6 @@ def check_if_link_is_active_for_NIC(physical_port):
 def check_if_link_is_active_for_torA(physical_port):
     """
     This API specifically checks if TOR A side of the Y cable's link is active
-    (TOR A is chosed by convention as TOR 1 and TOR B is chosen as TOR 2 hereafter)
     API basically reads 1 byte at upper page 4 offset 129 and checks if the link is active on NIC side
 
     Register Specification of upper page 0x4 at offset 129 is documented below
@@ -310,7 +304,6 @@ def check_if_link_is_active_for_torA(physical_port):
 def check_if_link_is_active_for_torB(physical_port):
     """
     This API specifically checks if TOR B side of the Y cable's link is active
-    (TOR A is chosed by convention as TOR 1 and TOR B is chosen as TOR 2 hereafter)
     API basically reads 1 byte at upper page 4 offset 129 and checks if the link is active on NIC side
 
     Register Specification of upper page 0x4 at offset 129 is documented below
