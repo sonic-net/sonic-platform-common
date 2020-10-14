@@ -37,6 +37,29 @@ class FanDrawerBase(device_base.DeviceBase):
         """
         return self._fan_list
 
+     def get_fan(self, index):
+        """
+        Retrieves fan module represented by (0-based) index <index>
+
+        Args:
+            index: An integer, the index (0-based) of the fan module to
+            retrieve
+
+        Returns:
+            An object dervied from FanBase representing the specified fan
+            module
+        """
+        fan = None
+
+        try:
+            fan = self._fan_list[index]
+        except IndexError:
+            sys.stderr.write("Fan index {} out of range (0-{})\n".format(
+                             index, len(self._fan_list)-1))
+
+        return fan
+
+
     def set_status_led(self, color):
         """
         Sets the state of the fan drawer status LED
