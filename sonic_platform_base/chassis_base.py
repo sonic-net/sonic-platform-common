@@ -114,22 +114,22 @@ class ChassisBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
-    def get_controlcard_instance(self):
+    def get_controlcard_slot(self):
         """
-        Retrieves the slot/instance of the control card of the modular chassis
+        Retrieves the slot of the control card of the modular chassis
 
         Returns:
-            An integer, the slot/instance identifier of the control card of the
+            An integer, the slot identifier of the control card of the
             modular-chassis.
         """
         return 0
 
-    def get_my_instance(self):
+    def get_my_slot(self):
         """
-        Retrieves the slot/instance of this card of the modular chassis
+        Retrieves the slot of this card of the modular chassis
 
         Returns:
-            An integer, the slot/instance identifier of this card of the
+            An integer, the slot identifier of this card of the
             modular-chassis.
         """
         return 0
@@ -221,6 +221,19 @@ class ChassisBase(device_base.DeviceBase):
                              index, len(self._module_list)-1))
 
         return module
+
+    def get_module_index(self, module_name):
+        """
+        Retrieves module index from the module name
+
+        Args:
+            name: A string, prefixed by CONTROL-CARD, LINE-CARD or FABRIC-CARD
+            Ex. CONTROL-CARD1, LINE-CARD1, FABRIC-CARD5
+
+        Returns:
+            An index of the ModuleBase object in the module_list
+        """
+        raise NotImplementedError
 
     ##############################################
     # Fan methods
@@ -476,62 +489,6 @@ class ChassisBase(device_base.DeviceBase):
         Returns:
             A string, one of the valid LED color strings which could be vendor
             specified.
-        """
-        raise NotImplementedError
-
-    ##############################################
-    # Card methods
-    ##############################################
-
-    def get_num_cards(self):
-        """
-        Retrieves the number of cards available on this chassis
-
-        Returns:
-            An integer, the number of cards available on this chassis
-        """
-        return len(self._card_list)
-
-    def get_all_cards(self):
-        """
-        Retrieves all cards available on this chassis
-
-        Returns:
-            A list of objects derived from CardBase representing all
-            cards available on this chassis
-        """
-        return self._card_list
-
-    def get_card(self, index):
-        """
-        Retrieves card represented by (0-based) index <index>
-
-        Args:
-            index: An integer, the index (0-based) of the card to retrieve
-
-        Returns:
-            An object dervied from CardBase representing the specified card
-        """
-        card = None
-
-        try:
-            card = self._card_list[index]
-        except IndexError:
-            sys.stderr.write("Card index {} out of range (0-{})\n".format(
-                             index, len(self._card_list)-1))
-
-        return card
-
-    def get_card_index(self, instance, module_type):
-        """
-        Retrieves card represented by <instance, module-type>
-
-        Args:
-            instance: An integer, the instance (0-based) of the card to retrieve
-            module_type:
-
-        Returns:
-            An object dervied from CardBase representing the specified card
         """
         raise NotImplementedError
 

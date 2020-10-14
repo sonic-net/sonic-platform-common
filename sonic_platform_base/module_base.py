@@ -17,6 +17,18 @@ class ModuleBase(device_base.DeviceBase):
     # Device type definition. Note, this is a constant.
     DEVICE_TYPE = "module"
 
+    # Possible card types
+    MODULE_TYPE_CONTROL = "CONTROL-CARD"
+    MODULE_TYPE_LINE    = "LINE-CARD"
+    MODULE_TYPE_FABRIC  = "FABRIC-CARD"
+
+    # Possible card status
+    MODULE_STATUS_EMPTY   = "Empty"
+    MODULE_STATUS_OFFLINE = "Offline"
+    MODULE_STATUS_PRESENT = "Present"
+    MODULE_STATUS_FAULT   = "Fault"
+    MODULE_STATUS_ONLINE  = "Online"
+
     # List of ComponentBase-derived objects representing all components
     # available on the module
     _component_list = None
@@ -65,6 +77,83 @@ class ModuleBase(device_base.DeviceBase):
             Ex. { ‘0x21’:’AG9064’, ‘0x22’:’V1.0’, ‘0x23’:’AG9064-0109867821’,
                   ‘0x24’:’001c0f000fcd0a’, ‘0x25’:’02/03/2018 16:22:00’,
                   ‘0x26’:’01’, ‘0x27’:’REV01’, ‘0x28’:’AG9064-C2358-16G’}
+        """
+        raise NotImplementedError
+
+    def get_name(self):
+        """
+        Retrieves the name of the module prefixed by CONTROL-CARD, LINE-CARD,
+        FABRIC-CARD
+
+        Returns:
+            string: A string providing the name of the card prefixed by one of the
+            MODULE_TYPE_CONTROL, MODULE_TYPE_LINE, MODULE_TYPE_FABRIC followed by
+            an index.
+            Ex. A Chassis having 1 control-card, 4 line-cards and 6 fabric-cards
+            can provide names CONTROL-CARD1, LINE-CARD1 to LINE-CARD4,
+            FABRIC-CARD1 to FABRIC-CARD6
+        """
+        raise NotImplementedError
+
+    def get_description(self):
+        """
+        Retrieves the platform vendor's product description of the module
+
+        Returns:
+            string: A string providing the product description of the module. This
+            is vendor specific.
+        """
+        raise NotImplementedError
+
+    def get_slot(self):
+        """
+        Retrieves the platform vendor's slot number of the module
+
+        Returns:
+            string: slot representation, usually number
+        """
+        raise NotImplementedError
+
+    def get_type(self):
+        """
+        Retrieves the type of the module.
+
+        Returns:
+            string: A string providing the module-type. Supported values are
+            MODULE_TYPE_CONTROL, MODULE_TYPE_LINE, MODULE_TYPE_FABRIC
+        """
+        raise NotImplementedError
+
+    def get_status(self):
+        """
+        Retrieves the status of the card
+
+        Returns:
+            string: A string providing the status of the module. Support values
+            are MODULE_STATUS_EMPTY, MODULE_STATUS_OFFLINE, MODULE_STATUS_FAULT,
+            MODULE_STATUS_PRESENT, MODULE_STATUS_ONLINE
+        """
+        raise NotImplementedError
+
+    def reboot_card(self):
+        """
+        Request to reboot the card
+
+        Returns:
+            bool: True if the request has been issued successfully, False if not
+        """
+        raise NotImplementedError
+
+    def set_admin_state(self, up):
+        """
+        Request to keep the card in administratively up/down state.
+        The down state will power down the module and the status should show
+        MODULE_STATUS_OFFLINE.
+        The up state will take the module to MODULE_STATUS_PRESENT,
+        MODULE_STATUS_FAULT or MODULE_STAUS_ONLINE states.
+
+        Returns:
+            bool: True if the request has been issued successfully, False if not
         """
         raise NotImplementedError
 
