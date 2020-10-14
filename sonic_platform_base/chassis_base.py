@@ -54,10 +54,6 @@ class ChassisBase(device_base.DeviceBase):
     # available on the chassis
     _sfp_list = None
 
-    # List of Linecard-derived objects representing all linecards
-    # available on the chassis
-    _card_list = None
-
     # Object derived from WatchdogBase for interacting with hardware watchdog
     _watchdog = None
 
@@ -75,7 +71,6 @@ class ChassisBase(device_base.DeviceBase):
         self._thermal_list = []
         self._sfp_list = []
         self._fan_drawer_list = []
-        self._card_list = []
 
     def get_base_mac(self):
         """
