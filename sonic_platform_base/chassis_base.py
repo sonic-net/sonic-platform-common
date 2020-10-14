@@ -118,6 +118,17 @@ class ChassisBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
+    def is_modular_chassis(self):
+        """
+        Retrieves whether the sonic instance is part of modular chassis
+
+        Returns:
+            A bool value, should return False by default or for fixed-platforms.
+            Should return True for control-cards, line-cards etc running as part
+            of modular-chassis.
+        """
+        return False
+
     ##############################################
     # Component methods
     ##############################################

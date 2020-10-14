@@ -92,3 +92,23 @@ class ThermalBase(device_base.DeviceBase):
             up to nearest thousandth of one degree Celsius, e.g. 30.125
         """
         raise NotImplementedError
+
+    def get_minimum_recorded(self):
+        """
+        Retrieves the minimum recorded temperature of thermal
+
+        Returns:
+            A float number, the minimum recorded temperature of thermal in Celsius
+            up to nearest thousandth of one degree Celsius, e.g. 30.125
+        """
+        raise NotImplementedError
+
+    def get_maximum_recorded(self):
+        """
+        Retrieves the maximum recorded temperature of thermal
+
+        Returns:
+            A float number, the maximum recorded temperature of thermal in Celsius
+            up to nearest thousandth of one degree Celsius, e.g. 30.125
+        """
+        raise NotImplementedError
