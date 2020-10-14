@@ -54,15 +54,6 @@ class ModuleBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
-    def get_serial_number(self):
-        """
-        Retrieves the hardware serial number for the module
-
-        Returns:
-            A string containing the hardware serial number for this module.
-        """
-        raise NotImplementedError
-
     def get_system_eeprom_info(self):
         """
         Retrieves the full content of system EEPROM information for the module 
