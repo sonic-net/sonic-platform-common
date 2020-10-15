@@ -21,6 +21,12 @@ helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
 # Global platform_chassis instance to call get_sfp required for read/write eeprom
 platform_chassis = None
 
+try:
+    platform_chassis = sonic_platform.platform.Platform().get_chassis()
+    helper_logger.log_info("chassis loaded {}".format(platform_chassis))
+except Exception as e:
+    helper_logger.log_warning("Failed to load chassis due to {}".format(repr(e)))
+
 # definitions of the offset with width accomodated for values
 # of MUX register specs of upper page 0x04 starting at 640
 # info eeprom for Y Cable
@@ -31,24 +37,6 @@ Y_CABLE_CHECK_LINK_ACTIVE = 641
 Y_CABLE_SWITCH_MUX_DIRECTION = 642
 Y_CABLE_ACTIVE_TOR_INDICATOR = 645
 Y_CABLE_MANUAL_SWITCH_COUNT = 669
-
-
-def load_platform_chassis_for_y_cable():
-    global platform_chassis
-
-    """
-    This call is neccessary to load and store the global platform_chassis
-    variable which provides the utiliy to call the Sfp_Base's class
-    apis of reading and writing eeprom which are required for API's
-    of the Y cable.
-    """
-
-    try:
-        platform_chassis = sonic_platform.platform.Platform().get_chassis()
-        helper_logger.log_info("chassis loaded {}".format(platform_chassis))
-    except Exception as e:
-        helper_logger.log_warning("Failed to load chassis due to {}".format(repr(e)))
-
 
 def toggle_mux_to_torA(physical_port):
     """
