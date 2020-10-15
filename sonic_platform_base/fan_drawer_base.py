@@ -37,7 +37,7 @@ class FanDrawerBase(device_base.DeviceBase):
         """
         return self._fan_list
 
-     def get_fan(self, index):
+    def get_fan(self, index):
         """
         Retrieves fan module represented by (0-based) index <index>
 
