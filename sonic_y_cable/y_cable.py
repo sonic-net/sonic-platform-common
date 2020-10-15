@@ -6,8 +6,7 @@
 #   API's for Y cable functionality in SONiC
 
 try:
-    import binascii
-    import sys
+    import struct
 
     import sonic_platform.platform
     from sonic_py_common import logger
