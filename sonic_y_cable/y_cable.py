@@ -15,6 +15,17 @@ try:
 except ImportError as e:
     raise ImportError(str(e) + " - required module not found")
 
+# definitions of the offset with width accomodated for values
+# of MUX register specs of upper page 0x04 starting at 640
+# info eeprom for Y Cable
+Y_CABLE_IDENTFIER_LOWER_PAGE = 0
+Y_CABLE_IDENTFIER_UPPER_PAGE = 128
+Y_CABLE_DETERMINE_CABLE_READ_SIDE = 640
+Y_CABLE_CHECK_LINK_ACTIVE = 641
+Y_CABLE_SWITCH_MUX_DIRECTION = 642
+Y_CABLE_ACTIVE_TOR_INDICATOR = 645
+Y_CABLE_MANUAL_SWITCH_COUNT = 669
+
 # Global logger instance for helper functions and classes to log
 helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
 
@@ -26,17 +37,6 @@ try:
     helper_logger.log_info("chassis loaded {}".format(platform_chassis))
 except Exception as e:
     helper_logger.log_warning("Failed to load chassis due to {}".format(repr(e)))
-
-# definitions of the offset with width accomodated for values
-# of MUX register specs of upper page 0x04 starting at 640
-# info eeprom for Y Cable
-Y_CABLE_IDENTFIER_LOWER_PAGE = 0
-Y_CABLE_IDENTFIER_UPPER_PAGE = 128
-Y_CABLE_DETERMINE_CABLE_READ_SIDE = 640
-Y_CABLE_CHECK_LINK_ACTIVE = 641
-Y_CABLE_SWITCH_MUX_DIRECTION = 642
-Y_CABLE_ACTIVE_TOR_INDICATOR = 645
-Y_CABLE_MANUAL_SWITCH_COUNT = 669
 
 def toggle_mux_to_torA(physical_port):
     """
