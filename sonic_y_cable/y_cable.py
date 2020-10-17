@@ -25,6 +25,8 @@ Y_CABLE_SWITCH_MUX_DIRECTION = 642
 Y_CABLE_ACTIVE_TOR_INDICATOR = 645
 Y_CABLE_MANUAL_SWITCH_COUNT = 669
 
+SYSLOG_IDENTIFIER = "sonic_y_cable"
+
 # Global logger instance for helper functions and classes to log
 helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
 
@@ -145,15 +147,15 @@ def check_read_side(physical_port):
         helper_logger.log_error("platform_chassis is not loaded, failed to check read side")
         return -1
 
-    regval_read = struct.unpack(">i", result)
+    regval_read = struct.unpack(">B", result)
 
-    if ((regval_read >> 2) & 0x01):
+    if ((regval_read[0] >> 2) & 0x01):
         helper_logger.log_info("Reading from TOR A")
         return 1
-    elif ((regval_read >> 1) & 0x01):
+    elif ((regval_read[0] >> 1) & 0x01):
         helper_logger.log_info("Reading from TOR B")
         return 2
-    elif (regval_read & 0x01):
+    elif (regval_read[0] & 0x01):
         helper_logger.log_info("Reading from NIC side")
         return 0
     else:
@@ -196,15 +198,15 @@ def check_active_linked_tor_side(physical_port):
         helper_logger.log_error("platform_chassis is not loaded, failed to check Active Linked and routing TOR side")
         return -1
 
-    regval_read = struct.unpack(">i", result)
+    regval_read = struct.unpack(">B", result)
 
-    if ((regval_read >> 1) & 0x01):
+    if ((regval_read[0] >> 1) & 0x01):
         helper_logger.log_info("TOR B active linked and actively routing")
         return 2
-    elif ((regval_read) & 0x01):
+    elif ((regval_read[0]) & 0x01):
         helper_logger.log_info("TOR A standby linked and actively routing")
         return 1
-    elif regval_read == 0:
+    elif regval_read[0] == 0:
         helper_logger.log_info("Nothing linked for routing")
         return 0
     else:
@@ -245,9 +247,9 @@ def check_if_link_is_active_for_NIC(physical_port):
         helper_logger.log_error("platform_chassis is not loaded, failed to check if link is Active on NIC side")
         return -1
 
-    regval_read = struct.unpack(">i", result)
+    regval_read = struct.unpack(">B", result)
 
-    if (regval_read & 0x01):
+    if (regval_read[0] & 0x01):
         helper_logger.log_info("NIC link is up")
         return True
     else:
@@ -285,9 +287,9 @@ def check_if_link_is_active_for_torA(physical_port):
         helper_logger.log_error("platform_chassis is not loaded, failed to check if link is Active on TOR A side")
         return -1
 
-    regval_read = struct.unpack(">i", result)
+    regval_read = struct.unpack(">B", result)
 
-    if ((regval_read >> 2) & 0x01):
+    if ((regval_read[0] >> 2) & 0x01):
         helper_logger.log_info("TOR A link is up")
         return True
     else:
@@ -325,9 +327,9 @@ def check_if_link_is_active_for_torB(physical_port):
         helper_logger.log_error("platform_chassis is not loaded, failed to check if link is Active on TOR B side")
         return -1
 
-    regval_read = struct.unpack(">i", result)
+    regval_read = struct.unpack(">B", result)
 
-    if ((regval_read >> 1) & 0x01):
+    if ((regval_read[0] >> 1) & 0x01):
         helper_logger.log_info("TOR B link is up")
         return True
     else:
