@@ -14,7 +14,7 @@ try:
     from sonic_py_common import daemon_base, logger
     from sonic_py_common.task_base import ProcessTaskBase
 except ImportError as e:
-    raise ImportError(str(e) + " - required module not found")
+    raise ImportError(repr(e) + " - required module not found")
 
 try:
     from swsscommon import swsscommon
@@ -220,7 +220,7 @@ class FanUpdater(logger.Logger):
                 try:
                     self._refresh_fan_status(drawer, fan, fan_index)
                 except Exception as e:
-                    self.log_warning('Failed to update FAN status - {}'.format(e))
+                    self.log_warning('Failed to update FAN status - {}'.format(repr(e)))
                 fan_index += 1
 
         for psu_index, psu in enumerate(self.chassis.get_all_psus()):
@@ -229,7 +229,7 @@ class FanUpdater(logger.Logger):
                 try:
                     self._refresh_fan_status(None, fan, fan_index, '{} FAN'.format(psu_name), True)
                 except Exception as e:
-                    self.log_warning('Failed to update PSU FAN status - {}'.format(e))
+                    self.log_warning('Failed to update PSU FAN status - {}'.format(repr(e)))
 
         self._update_led_color()
         
@@ -357,7 +357,7 @@ class FanUpdater(logger.Logger):
                     ('led_status', str(try_get(fan_status.fan.get_status_led)))
                 ])
             except Exception as e:
-                self.log_warning('Failed to get led status for fan')
+                self.log_warning('Failed to get led status for fan - {}'.format(repr(e)))
                 fvs = swsscommon.FieldValuePairs([
                     ('led_status', NOT_AVAILABLE)
                 ])
@@ -494,7 +494,7 @@ class TemperatureUpdater(logger.Logger):
             try:
                 self._refresh_temperature_status(thermal, index)
             except Exception as e:
-                self.log_warning('Failed to update thermal status - {}'.format(e))
+                self.log_warning('Failed to update thermal status - {}'.format(repr(e)))
 
         self.log_debug("End temperature updating")
 
@@ -664,8 +664,10 @@ class ThermalControlDaemon(daemon_base.DaemonBase):
                 thermal_manager.initialize()
                 thermal_manager.load(ThermalControlDaemon.POLICY_FILE)
                 thermal_manager.init_thermal_algorithm(chassis)
+        except NotImplementedError:
+            self.log_warning('Thermal manager is not supported on this platform.')
         except Exception as e:
-            self.log_error('Caught exception while initializing thermal manager - {}'.format(e))
+            self.log_error('Caught exception while initializing thermal manager - {}'.format(repr(e)))
 
         wait_time = ThermalControlDaemon.INTERVAL
         while not self.stop_event.wait(wait_time):
@@ -674,7 +676,7 @@ class ThermalControlDaemon(daemon_base.DaemonBase):
                 if thermal_manager:
                     thermal_manager.run_policy(chassis)
             except Exception as e:
-                self.log_error('Caught exception while running thermal policy - {}'.format(e))
+                self.log_error('Caught exception while running thermal policy - {}'.format(repr(e)))
             elapsed = time.time() - begin
             if elapsed < ThermalControlDaemon.INTERVAL:
                 wait_time = ThermalControlDaemon.INTERVAL - elapsed
@@ -689,7 +691,7 @@ class ThermalControlDaemon(daemon_base.DaemonBase):
             if thermal_manager:
                 thermal_manager.deinitialize()
         except Exception as e:
-            self.log_error('Caught exception while destroy thermal manager - {}'.format(e))
+            self.log_error('Caught exception while destroy thermal manager - {}'.format(repr(e)))
 
         thermal_monitor.task_stop()
 
