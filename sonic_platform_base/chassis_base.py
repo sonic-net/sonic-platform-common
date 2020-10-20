@@ -26,6 +26,12 @@ class ChassisBase(device_base.DeviceBase):
     REBOOT_CAUSE_HARDWARE_OTHER = "Hardware - Other"
     REBOOT_CAUSE_NON_HARDWARE = "Non-Hardware"
 
+    # Possible fan status LED colors
+    STATUS_LED_COLOR_GREEN = "green"
+    STATUS_LED_COLOR_AMBER = "amber"
+    STATUS_LED_COLOR_RED = "red"
+    STATUS_LED_COLOR_OFF = "off"
+
     # List of ComponentBase-derived objects representing all components
     # available on the chassis
     _component_list = None
@@ -186,6 +192,45 @@ class ChassisBase(device_base.DeviceBase):
                              index, len(self._component_list)-1))
 
         return component
+
+    def get_all_power_consumers(self):
+        """
+        Retrieves a list of all power consumers in a modular chassis
+
+        Returns:
+            A list, where each entry is a unique power consumer. For example,
+            'FAN', 'CARD' etc
+        """
+        return None
+
+    def get_total_consumer_power(self, consumer):
+        """
+        Retrives the maximum total power drawn by the consumer component
+
+        Returns:
+            A float, with value of the maximum consumable power of the
+            component.
+        """
+        return 0.0
+
+    def get_status_master_led(self, device_type):
+        """
+        Gets the state of the Master status LED for a given device-type
+
+        Returns:
+            A string, one of the predefined STATUS_LED_COLOR_* strings.
+        """
+        return STATUS_LED_COLOR_OFF
+
+    def set_status_master_led(self, device_type, color):
+        """
+        Gets the state of the Master status LED for a given device-type
+
+        Returns:
+            bool: True if status LED state is set successfully, False if
+                  not
+        """
+        return False
 
     ##############################################
     # Module methods

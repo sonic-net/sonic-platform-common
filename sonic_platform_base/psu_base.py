@@ -219,3 +219,13 @@ class PsuBase(device_base.DeviceBase):
             e.g. 12.1 
         """
         raise NotImplementedError
+
+    def get_maximum_supplied_power(self):
+        """
+        Retrieves the maximum supplied power by PSU
+
+        Returns:
+            A float number, the maximum power output in Watts.
+            e.g. 1200.1
+        """
+        return 0.0

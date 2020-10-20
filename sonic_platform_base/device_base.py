@@ -10,6 +10,10 @@ class DeviceBase(object):
     Abstract base class for interfacing with a generic type of platform
     peripheral device
     """
+    #Device-types
+    DEVICE_TYPE_PSU     = "PSU"
+    DEVICE_TYPE_FAN     = "FAN"
+    DEVICE_TYPE_FANDRAWER = "FAN-DRAWER"
 
     def get_name(self):
         """
