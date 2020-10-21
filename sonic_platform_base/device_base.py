@@ -58,18 +58,18 @@ class DeviceBase(object):
         raise NotImplementedError
 
     def get_position_in_parent(self):
-		"""
-		Retrieves 1-based relative physical position in parent device. If the agent cannot determine the parent-relative position
+        """
+        Retrieves 1-based relative physical position in parent device. If the agent cannot determine the parent-relative position
         for some reason, or if the associated value of entPhysicalContainedIn is '0', then the value '-1' is returned
-		Returns:
-		    integer: The 1-based relative physical position in parent device or -1 if cannot determine the position
-		"""
-		raise NotImplementedError
+        Returns:
+            integer: The 1-based relative physical position in parent device or -1 if cannot determine the position
+        """
+        raise NotImplementedError
 
     def is_replaceable(self):
-		"""
-		Indicate whether this device is replaceable.
-		Returns:
-		    bool: True if it is replaceable.
-		"""
-		raise NotImplementedError
+        """
+        Indicate whether this device is replaceable.
+        Returns:
+            bool: True if it is replaceable.
+        """
+        raise NotImplementedError
