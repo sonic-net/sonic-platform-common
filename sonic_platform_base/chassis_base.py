@@ -117,7 +117,7 @@ class ChassisBase(device_base.DeviceBase):
             An integer, the slot identifier of the control card of the
             modular-chassis.
         """
-        return 0
+        return NotImplementedError
 
     def get_my_slot(self):
         """
@@ -127,7 +127,7 @@ class ChassisBase(device_base.DeviceBase):
             An integer, the slot identifier of this card of the
             modular-chassis.
         """
-        return 0
+        return NotImplementedError
 
     ##############################################
     # Component methods
@@ -222,8 +222,8 @@ class ChassisBase(device_base.DeviceBase):
         Retrieves module index from the module name
 
         Args:
-            name: A string, prefixed by CONTROL-CARD, LINE-CARD or FABRIC-CARD
-            Ex. CONTROL-CARD1, LINE-CARD1, FABRIC-CARD5
+            name: A string, prefixed by SUPERVISOR, LINE-CARD or FABRIC-CARD
+            Ex. SUPERVISOR0, LINE-CARD1, FABRIC-CARD5
 
         Returns:
             An index of the ModuleBase object in the module_list

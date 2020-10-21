@@ -18,15 +18,21 @@ class ModuleBase(device_base.DeviceBase):
     DEVICE_TYPE = "module"
 
     # Possible card types
-    MODULE_TYPE_CONTROL = "CONTROL-CARD"
+    MODULE_TYPE_SUPERVISOR = "SUPERVISOR"
     MODULE_TYPE_LINE    = "LINE-CARD"
     MODULE_TYPE_FABRIC  = "FABRIC-CARD"
 
     # Possible card status
+    #Module state is Empty if no module is inserted in the slot
     MODULE_STATUS_EMPTY   = "Empty"
+    #Module state if Offline if powered down. This is also the admin-down state.
     MODULE_STATUS_OFFLINE = "Offline"
+    #Module state is Present when it is powered up, but not fully functional.
     MODULE_STATUS_PRESENT = "Present"
+    #Module state is Present when it is powered up, but entered a fault state.
+    #Module is not able to go Online.
     MODULE_STATUS_FAULT   = "Fault"
+    #Module state is Online when fully operational
     MODULE_STATUS_ONLINE  = "Online"
 
     # List of ComponentBase-derived objects representing all components
@@ -82,16 +88,16 @@ class ModuleBase(device_base.DeviceBase):
 
     def get_name(self):
         """
-        Retrieves the name of the module prefixed by CONTROL-CARD, LINE-CARD,
+        Retrieves the name of the module prefixed by SUPERVISOR, LINE-CARD,
         FABRIC-CARD
 
         Returns:
             string: A string providing the name of the card prefixed by one of the
-            MODULE_TYPE_CONTROL, MODULE_TYPE_LINE, MODULE_TYPE_FABRIC followed by
+            MODULE_TYPE_SUPERVISOR, MODULE_TYPE_LINE, MODULE_TYPE_FABRIC followed by
             an index.
             Ex. A Chassis having 1 control-card, 4 line-cards and 6 fabric-cards
-            can provide names CONTROL-CARD1, LINE-CARD1 to LINE-CARD4,
-            FABRIC-CARD1 to FABRIC-CARD6
+            can provide names SUPERVISOR0, LINE-CARD0 to LINE-CARD3,
+            FABRIC-CARD0 to FABRIC-CARD5
         """
         raise NotImplementedError
 
@@ -110,7 +116,7 @@ class ModuleBase(device_base.DeviceBase):
         Retrieves the platform vendor's slot number of the module
 
         Returns:
-            string: slot representation, usually number
+            An integer, indicating the slot number in the chassis
         """
         raise NotImplementedError
 
@@ -120,7 +126,7 @@ class ModuleBase(device_base.DeviceBase):
 
         Returns:
             string: A string providing the module-type. Supported values are
-            MODULE_TYPE_CONTROL, MODULE_TYPE_LINE, MODULE_TYPE_FABRIC
+            MODULE_TYPE_SUPERVISOR, MODULE_TYPE_LINE, MODULE_TYPE_FABRIC
         """
         raise NotImplementedError
 
@@ -135,9 +141,9 @@ class ModuleBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
-    def reboot_card(self):
+    def reboot(self):
         """
-        Request to reboot the card
+        Request to reboot the module
 
         Returns:
             bool: True if the request has been issued successfully, False if not
