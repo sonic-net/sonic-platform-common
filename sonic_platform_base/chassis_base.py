@@ -109,22 +109,27 @@ class ChassisBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
-    def get_controlcard_slot(self):
+    def get_supervisor_slot(self):
         """
-        Retrieves the slot of the control card of the modular chassis
+        Retrieves the slot of the supervisor-module of the modular chassis.
+        On the supervisor or line-card modules, it will return the slot of the
+        supervisor-module.
 
         Returns:
-            An integer, the slot identifier of the control card of the
+            An integer, the slot identifier of the supervisor module of the
             modular-chassis.
         """
         return NotImplementedError
 
     def get_my_slot(self):
         """
-        Retrieves the slot of this card of the modular chassis
+        Retrieves the slot of this module of the modular chassis.
+        On the supervisor, it will return the slot of the supervisor-module.
+        On the linecard, it will return the slot of the linecard module where
+        this instance of SONiC is running.
 
         Returns:
-            An integer, the slot identifier of this card of the
+            An integer, the slot identifier of this module of the
             modular-chassis.
         """
         return NotImplementedError

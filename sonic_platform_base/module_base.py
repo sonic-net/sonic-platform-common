@@ -95,7 +95,7 @@ class ModuleBase(device_base.DeviceBase):
             string: A string providing the name of the card prefixed by one of the
             MODULE_TYPE_SUPERVISOR, MODULE_TYPE_LINE, MODULE_TYPE_FABRIC followed by
             an index.
-            Ex. A Chassis having 1 control-card, 4 line-cards and 6 fabric-cards
+            Ex. A Chassis having 1 supervisor, 4 line-cards and 6 fabric-cards
             can provide names SUPERVISOR0, LINE-CARD0 to LINE-CARD3,
             FABRIC-CARD0 to FABRIC-CARD5
         """
