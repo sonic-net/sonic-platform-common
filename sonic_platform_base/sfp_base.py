@@ -317,7 +317,7 @@ class SfpBase(device_base.DeviceBase):
 
         Returns:
             bytearray, if raw sequence of bytes are read correctly from the offset of size num_bytes
-            None , if the read_eeprom fails
+            None, if the read_eeprom fails
         """
         raise NotImplementedError
 
