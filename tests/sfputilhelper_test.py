@@ -5,25 +5,24 @@ import pytest
 try:
     import sonic_platform_base.sonic_sfp.sfputilhelper
 except Exception as e:
-    print("Failed to load chassis due to {}".format(repr(e)))
+    print("Failed to load sonic_platform_base.sonic_sfp.sfputilhelper  due to {}".format(repr(e)))
+
 
 @pytest.fixture(scope="class")
 def setup_class(request):
     # Configure the setup
-    print("SETUP")
-    request.cls.test_dir = os.path.dirname(os.path.realpath(__file__))
+    test_dir = os.path.dirname(os.path.realpath(__file__))
     request.cls.port_config = os.path.join(
-        request.cls.test_dir, 't0-sample-port-config.ini')
+        test_dir, 't0-sample-port-config.ini')
 
     request.cls.port_config = sonic_platform_base.sonic_sfp.sfputilhelper.SfpUtilHelper()
 
 
 @pytest.mark.usefixtures("setup_class")
-class TestPortMappingsRead(object):
+class TestSfpUtilHelper(object):
 
     platform_sfputil = None
     port_config = None
-    test_dir = None
 
     def test_read_port_mappings(self):
 
