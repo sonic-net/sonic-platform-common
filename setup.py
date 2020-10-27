@@ -40,6 +40,7 @@ setup(
     ],
     tests_require = [
         'pytest',
+        'pytest-cov',
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',
