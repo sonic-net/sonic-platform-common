@@ -1,33 +1,36 @@
 import os
 import sys
 
+import pytest
 try:
-
     import sonic_platform_base.sonic_sfp.sfputilhelper
 except Exception as e:
     print("Failed to load chassis due to {}".format(repr(e)))
 
+@pytest.fixture(scope="class")
+def setup_class(request):
+    # Configure the setup
+    print("SETUP")
+    request.cls.test_dir = os.path.dirname(os.path.realpath(__file__))
+    request.cls.port_config = os.path.join(
+        request.cls.test_dir, 't0-sample-port-config.ini')
 
+    request.cls.port_config = sonic_platform_base.sonic_sfp.sfputilhelper.SfpUtilHelper()
+
+
+@pytest.mark.usefixtures("setup_class")
 class TestPortMappingsRead(object):
 
-    self.platform_sfputil = None
-    self.test_dir = None
-    self.port_config = None
+    platform_sfputil = None
+    port_config = None
+    test_dir = None
 
-    @classmethod
-    def setup_class(cls):
-        print("SETUP")
-        self.test_dir = os.path.dirname(os.path.realpath(__file__))
-        self.port_config = os.path.join(
-            self.test_dir, 't0-sample-port-config.ini')
+    def test_read_port_mappings(self):
 
-        self.platform_sfputil = sonic_platform_base.sonic_sfp.sfputilhelper.SfpUtilHelper()
         try:
             platform_sfputil.read_porttab_mappings(self.port_config, 0)
         except Exception as e:
             print("Failed to read port tab mappings to {}".format(repr(e)))
-
-    def test_port_names(self):
 
         PORT_LIST = ["Ethernet0",
                      "Ethernet4",
@@ -42,9 +45,11 @@ class TestPortMappingsRead(object):
                      "Ethernet40",
                      "Ethernet44",
                      "Ethernet48"]
+
         if self.platform_sfputil is not None:
             logical_port_list = self.platform_sfputil.logical
-                for logical_port_name in logical_port_list:
-                    assert logical_port_name in self.port_list
+            assert len(logical_port_name) == len(self.port_list)
+            for logical_port_name in logical_port_list:
+                assert logical_port_name in PORT_LIST
         else:
             print("platform_sfputil is None, cannot read Ports")
