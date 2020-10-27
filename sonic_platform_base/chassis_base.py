@@ -115,6 +115,11 @@ class ChassisBase(device_base.DeviceBase):
         On the supervisor or line-card modules, it will return the slot of the
         supervisor-module.
 
+        On the fixed-platforms, the API can be ignored.
+
+        Users of the API can catch the exception and return a default
+        ModuleBase.MODULE_INVALID_SLOT and bypass code for fixed-platforms.
+
         Returns:
             An integer, the slot identifier of the supervisor module of the
             modular-chassis.
@@ -127,6 +132,11 @@ class ChassisBase(device_base.DeviceBase):
         On the supervisor, it will return the slot of the supervisor-module.
         On the linecard, it will return the slot of the linecard module where
         this instance of SONiC is running.
+
+        On the fixed-platforms, the API can be ignored.
+
+        Users of the API can catch the exception and return a default
+        ModuleBase.MODULE_INVALID_SLOT and bypass code for fixed-platforms.
 
         Returns:
             An integer, the slot identifier of this module of the

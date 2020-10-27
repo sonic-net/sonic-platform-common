@@ -17,12 +17,12 @@ class ModuleBase(device_base.DeviceBase):
     # Device type definition. Note, this is a constant.
     DEVICE_TYPE = "module"
 
-    # Possible card types
+    # Possible card types for modular chassis
     MODULE_TYPE_SUPERVISOR = "SUPERVISOR"
     MODULE_TYPE_LINE    = "LINE-CARD"
     MODULE_TYPE_FABRIC  = "FABRIC-CARD"
 
-    # Possible card status
+    # Possible card status for modular chassis
     #Module state is Empty if no module is inserted in the slot
     MODULE_STATUS_EMPTY   = "Empty"
     #Module state if Offline if powered down. This is also the admin-down state.
@@ -34,6 +34,9 @@ class ModuleBase(device_base.DeviceBase):
     MODULE_STATUS_FAULT   = "Fault"
     #Module state is Online when fully operational
     MODULE_STATUS_ONLINE  = "Online"
+
+    #Invalid slot for modular chassis
+    MODULE_INVALID_SLOT = -1
 
     # List of ComponentBase-derived objects representing all components
     # available on the module
