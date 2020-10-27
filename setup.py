@@ -34,8 +34,12 @@ setup(
         'redis',
         'sonic-py-common'
     ],
-    setup_requires= [
+    setup_requires = [
+        'pytest-runner',
         'wheel'
+    ],
+    tests_require = [
+        'pytest',
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',
