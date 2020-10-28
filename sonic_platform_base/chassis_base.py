@@ -237,7 +237,7 @@ class ChassisBase(device_base.DeviceBase):
         Retrieves module index from the module name
 
         Args:
-            name: A string, prefixed by SUPERVISOR, LINE-CARD or FABRIC-CARD
+            module_name: A string, prefixed by SUPERVISOR, LINE-CARD or FABRIC-CARD
             Ex. SUPERVISOR0, LINE-CARD1, FABRIC-CARD5
 
         Returns:

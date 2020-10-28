@@ -38,6 +38,14 @@ class ModuleBase(device_base.DeviceBase):
     #Invalid slot for modular chassis
     MODULE_INVALID_SLOT = -1
 
+    #Possible reboot types for modular chassis
+    #Module reboot type to reboot entire card
+    MODULE_REBOOT_DEFAULT = "Default"
+    #Module reboot type to reboot CPU complex
+    MODULE_REBOOT_CPU_COMPLEX = "CPU"
+    #Module reboot type to reboot FPGA complex
+    MODULE_REBOOT_FPGA_COMPLEX = "FPGA"
+
     # List of ComponentBase-derived objects representing all components
     # available on the module
     _component_list = None
@@ -144,9 +152,14 @@ class ModuleBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
-    def reboot(self):
+    def reboot(self, reboot_type):
         """
         Request to reboot the module
+
+        Args:
+            reboot_type: A string, choose from one of pre-defined module
+            reboot-types. MODULE_REBOOT_DEFAULT, MODULE_REBOOT_CPU_COMPLEX,
+            MODULE_REBOOT_FPGA_COMPLEX
 
         Returns:
             bool: True if the request has been issued successfully, False if not
@@ -160,6 +173,10 @@ class ModuleBase(device_base.DeviceBase):
         MODULE_STATUS_OFFLINE.
         The up state will take the module to MODULE_STATUS_PRESENT,
         MODULE_STATUS_FAULT or MODULE_STAUS_ONLINE states.
+
+        Args:
+            up: A boolean, True to set the admin-state to UP. False to set the
+            admin-state to DOWN.
 
         Returns:
             bool: True if the request has been issued successfully, False if not
