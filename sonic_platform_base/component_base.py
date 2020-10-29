@@ -108,7 +108,7 @@ class ComponentBase(object):
         """
         Updates firmware of the component
 
-        This API performs firmware update automatically based on boot_action: it assumes firmware installation 
+        This API performs firmware update automatically based on boot_action: it assumes firmware installation
         and/or creating a loading task during a boot action, if needed, in a single call.
         In case platform component requires some extra steps (apart from calling Low Level Utility)
         to load the installed firmware (e.g, reboot, power cycle, etc.) - this will be done automatically during the reboot.
@@ -117,6 +117,12 @@ class ComponentBase(object):
         Args:
             image_path: A string, path to firmware image
             boot_action: A string, boot action following the upgrade
+
+        Returns:
+            Output: A string, status and info
+                status: True or False, firmware auto-update status
+                info: The detail information of the firmware auto-update status.
+                    "updated"/"installed"(which needs a reboot for the firmware to be active)/"scheduled"
 
         Raises:
             RuntimeError: auto-update failure cause
