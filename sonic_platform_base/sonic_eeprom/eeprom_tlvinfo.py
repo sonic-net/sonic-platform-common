@@ -360,7 +360,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
                 print("EEPROM does not contain data in a valid TlvInfo format.")
                 return -1
             total_len = (e[9] << 8) | e[10]
-            fvs['Id String'] = e[0:7]
+            fvs['Id String'] = e[0:7].decode("ascii")
             fvs['Version'] = e[8]
             fvs['Total Length'] = total_len
             client.hmset("EEPROM_INFO|TlvHeader", fvs)
