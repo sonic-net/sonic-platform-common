@@ -35,7 +35,7 @@ STATE_DB_INDEX = 6
 class TlvInfoDecoder(eeprom_base.EepromDecoder):
 
     # Header Field Constants
-    _TLV_INFO_ID_STRING         = "TlvInfo\x00"
+    _TLV_INFO_ID_STRING         = b"TlvInfo\x00"
     _TLV_INFO_VERSION           = 0x01
     _TLV_INFO_HDR_LEN           = 11
     _TLV_INFO_MAX_LEN           = 2048
@@ -114,10 +114,10 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
                 return
 
             print("TlvInfo Header:")
-            print("   Id String:    %s" % (e[0:7],))
-            print("   Version:      %d" % (ord(e[8]),))
-            total_len = (ord(e[9]) << 8) | ord(e[10])
-            print("   Total Length: %d" % (total_len,))
+            print("   Id String:    %s" % e[0:7].decode("ascii"))
+            print("   Version:      %d" % e[8])
+            total_len = (e[9] << 8) | e[10]
+            print("   Total Length: %d" % total_len)
             tlv_index = self._TLV_INFO_HDR_LEN
             tlv_end   = self._TLV_INFO_HDR_LEN + total_len
         else :
@@ -128,15 +128,15 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
         print("-------------------- ---- --- -----")
         while (tlv_index + 2) < len(e) and tlv_index < tlv_end:
             if not self.is_valid_tlv(e[tlv_index:]):
-                print("Invalid TLV field starting at EEPROM offset %d" % (tlv_index,))
+                print("Invalid TLV field starting at EEPROM offset %d" % tlv_index)
                 return
-            tlv = e[tlv_index:tlv_index + 2 + ord(e[tlv_index + 1])]
+            tlv = e[tlv_index:tlv_index + 2 + e[tlv_index + 1]]
             name, value = self.decoder(None, tlv)
-            print("%-20s 0x%02X %3d %s" % (name, ord(tlv[0]), ord(tlv[1]), value))
-            if ord(e[tlv_index]) == self._TLV_CODE_QUANTA_CRC or \
-               ord(e[tlv_index]) == self._TLV_CODE_CRC_32:
+            print("%-20s 0x%02X %3d %s" % (name, tlv[0], tlv[1], value))
+            if e[tlv_index] == self._TLV_CODE_QUANTA_CRC or \
+               e[tlv_index] == self._TLV_CODE_CRC_32:
                 return
-            tlv_index += ord(e[tlv_index+1]) + 2
+            tlv_index += e[tlv_index+1] + 2
 
 
     def set_eeprom(self, e, cmd_args):
@@ -151,7 +151,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
         if crc_is_valid:
             if self._TLV_HDR_ENABLED:
                 tlv_index = self._TLV_INFO_HDR_LEN
-                tlv_end   = self._TLV_INFO_HDR_LEN + ((ord(e[9]) << 8) | ord(e[10]))
+                tlv_end   = self._TLV_INFO_HDR_LEN + ((e[9] << 8) | e[10])
             else :
                 tlv_index = self.eeprom_start
                 tlv_end   = self._TLV_INFO_MAX_LEN
@@ -159,10 +159,10 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
             while tlv_index < len(e) and \
                   tlv_index < tlv_end and \
                   self.is_valid_tlv(e[tlv_index:]) and \
-                  ord(e[tlv_index]) != self._TLV_CODE_CRC_32 and \
-                  ord(e[tlv_index]) != self._TLV_CODE_QUANTA_CRC:
-                new_tlvs += e[tlv_index:tlv_index + 2 + ord(e[tlv_index + 1])]
-                tlv_index += ord(e[tlv_index+1]) + 2
+                  e[tlv_index] != self._TLV_CODE_CRC_32 and \
+                  e[tlv_index] != self._TLV_CODE_QUANTA_CRC:
+                new_tlvs += e[tlv_index:tlv_index + 2 + e[tlv_index + 1]]
+                tlv_index += e[tlv_index+1] + 2
 
         if len(cmd_args):
             for arg_str in cmd_args:
@@ -174,7 +174,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
                     (tlv_found, index) = self.get_tlv_index(new_tlvs, k)
                     if tlv_found:
                         new_tlvs = new_tlvs[:index] + new_tlv + \
-                                   new_tlvs[index + 2 + ord(new_tlvs[index + 1]):]
+                                   new_tlvs[index + 2 + new_tlvs[index + 1]:]
                     else:
                         new_tlvs += new_tlv
 
@@ -191,7 +191,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
                     (tlv_found, index) = self.get_tlv_index(new_tlvs, code)
                     if tlv_found:
                         new_tlvs = new_tlvs[:index] + new_tlv + \
-                                   new_tlvs[index + 2 + ord(new_tlvs[index + 1]):]
+                                   new_tlvs[index + 2 + new_tlvs[index + 1]:]
                     else:
                         new_tlvs += new_tlv
                 elif action in ['d', 'D']:
@@ -200,7 +200,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
                     (tlv_found, index) = self.get_tlv_index(new_tlvs, code)
                     if tlv_found:
                         new_tlvs = new_tlvs[:index] + \
-                                   new_tlvs[index + 2 + ord(new_tlvs[index + 1]):]
+                                   new_tlvs[index + 2 + new_tlvs[index + 1]:]
                 elif action in ['f', 'F']:
                     pass
                 else:
@@ -232,7 +232,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
     def is_valid_tlvinfo_header(self, e):
         '''
         Perform sanity checks on the first 11 bytes of the TlvInfo EEPROM
-        data passed in as a string.
+        data passed in as a bytearray.
             1. Large enough to hold the header
             2. First 8 bytes contain null-terminated ASCII string "TlvInfo"
             3. Version byte is 1
@@ -241,19 +241,19 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
         '''
         return len(e) >= self._TLV_INFO_HDR_LEN and \
                e[0:8] == self._TLV_INFO_ID_STRING and \
-               ord(e[8]) == self._TLV_INFO_VERSION and \
-               ((ord(e[9]) << 8) | ord(e[10])) <= self._TLV_TOTAL_LEN_MAX
+               e[8] == self._TLV_INFO_VERSION and \
+               ((e[9] << 8) | e[10]) <= self._TLV_TOTAL_LEN_MAX
 
 
     def is_valid_tlv(self, e):
         '''
-        Perform basic sanity checks on a TLV field. The TLV is in the string
+        Perform basic sanity checks on a TLV field. The TLV is in the bytearray
         provided.
             1. The TLV is at least 2 bytes long
             2. The length byte contains a value which does not cause the value
                field to go beyond the length of the string.
         '''
-        return (len(e) >= 2 and (2 + ord(e[1]) <= len(e)))
+        return (len(e) >= 2 and (2 + e[1] <= len(e)))
 
 
     def is_checksum_valid(self, e):
@@ -263,15 +263,15 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
         if not self.is_valid_tlvinfo_header(e):
             return (False, 0)
 
-        offset = self._TLV_INFO_HDR_LEN + ((ord(e[9]) << 8) | ord(e[10]))
+        offset = self._TLV_INFO_HDR_LEN + ((e[9] << 8) | e[10])
         if len(e) < offset or \
-           ord(e[offset-6]) != self._TLV_CODE_CRC_32 or \
-           ord(e[offset-5]) != 4:
+           e[offset-6] != self._TLV_CODE_CRC_32 or \
+           e[offset-5] != 4:
             return (False, 0)
 
         crc = self.calculate_checksum(e[:offset-4])
-        tlv_crc = ord(e[offset-4]) << 24 | ord(e[offset-3]) << 16 | \
-                  ord(e[offset-2]) <<  8 | ord(e[offset-1])
+        tlv_crc = e[offset-4] << 24 | e[offset-3] << 16 | \
+                  e[offset-2] <<  8 | e[offset-1]
         if tlv_crc == crc:
             return(True, crc)
 
@@ -295,7 +295,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
                                    "but only read %d" %(len(h),))
             if not self.is_valid_tlvinfo_header(h):
                 return h
-            sizeof_tlvs = (ord(h[9]) << 8) | ord(h[10])
+            sizeof_tlvs = (h[9] << 8) | h[10]
         else:
             h = ""
             sizeof_tlvs   = self._TLV_INFO_MAX_LEN
@@ -359,9 +359,9 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
             if not self.is_valid_tlvinfo_header(e):
                 print("EEPROM does not contain data in a valid TlvInfo format.")
                 return -1
-            total_len = (ord(e[9]) << 8) | ord(e[10])
-            fvs['Id String'] = e[0:7]
-            fvs['Version'] = ord(e[8])
+            total_len = (e[9] << 8) | e[10]
+            fvs['Id String'] = e[0:7].decode("ascii")
+            fvs['Version'] = e[8]
             fvs['Total Length'] = total_len
             client.hmset("EEPROM_INFO|TlvHeader", fvs)
             fvs.clear()
@@ -375,23 +375,23 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
         while (tlv_index + 2) < len(e) and tlv_index < tlv_end:
             if not self.is_valid_tlv(e[tlv_index:]):
                 break
-            tlv = e[tlv_index:tlv_index + 2 + ord(e[tlv_index + 1])]
-            tlv_code = ord(tlv[0])
+            tlv = e[tlv_index:tlv_index + 2 + e[tlv_index + 1]]
+            tlv_code = tlv[0]
             if tlv_code == self._TLV_CODE_VENDOR_EXT:
                 vendor_index = str(vendor_ext_tlv_num)
-                fvs['Len_{}'.format(vendor_index)] = ord(tlv[1])
+                fvs['Len_{}'.format(vendor_index)] = tlv[1]
                 fvs['Name_{}'.format(vendor_index)], fvs['Value_{}'.format(vendor_index)] = self.decoder(None, tlv)
                 vendor_ext_tlv_num += 1
             else:
-                fvs['Len'] = ord(tlv[1])
+                fvs['Len'] = tlv[1]
                 fvs['Name'], fvs['Value'] = self.decoder(None, tlv)
             client.hmset('EEPROM_INFO|{}'.format(hex(tlv_code)), fvs)
             fvs.clear()
-            if ord(e[tlv_index]) == self._TLV_CODE_QUANTA_CRC or \
-                    ord(e[tlv_index]) == self._TLV_CODE_CRC_32:
+            if e[tlv_index] == self._TLV_CODE_QUANTA_CRC or \
+                    e[tlv_index] == self._TLV_CODE_CRC_32:
                 break
             else:
-                tlv_index += ord(e[tlv_index + 1]) + 2
+                tlv_index += e[tlv_index + 1] + 2
 
         if vendor_ext_tlv_num > 0:
             fvs['Num_vendor_ext'] = str(vendor_ext_tlv_num)
@@ -414,49 +414,49 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
 
     def get_tlv_field(self, e, code):
         '''
-        Given an EEPROM string the TLV field for the provided code is
+        Given an EEPROM bytearray the TLV field for the provided code is
         returned. This routine validates the EEPROM data (checksum and
         other sanity checks) and then searches for a TLV field with the
         supplied type code. A tuple of two items is returned. The first
         item is a boolean indicating success and, if True, the second
         item is a 3 element list with the type (int), length (int),
-        and value (string) of the requested TLV.
+        and value (bytearray) of the requested TLV.
         '''
         (is_valid, valid_crc) = self.is_checksum_valid(e)
         if not is_valid:
             return (False, None)
         if self._TLV_HDR_ENABLED:
             tlv_index = self._TLV_INFO_HDR_LEN
-            tlv_end = ((ord(e[9]) << 8) | ord(e[10])) + self._TLV_INFO_HDR_LEN
-        else :
+            tlv_end = ((e[9] << 8) | e[10]) + self._TLV_INFO_HDR_LEN
+        else:
             tlv_index = self.eeprom_start
-            tlv_end   = self._TLV_INFO_MAX_LEN
+            tlv_end = self._TLV_INFO_MAX_LEN
         while tlv_index < len(e) and tlv_index < tlv_end:
             if not self.is_valid_tlv(e[tlv_index:]):
                 return (False, None)
-            if ord(e[tlv_index]) == code:
-                return (True, [ord(e[tlv_index]), ord(e[tlv_index+1]), \
-                               e[tlv_index+2:tlv_index+2+ord(e[tlv_index+1])]])
-            tlv_index += ord(e[tlv_index+1]) + 2
+            if e[tlv_index] == code:
+                return (True, [e[tlv_index], e[tlv_index+1], \
+                               e[tlv_index+2:tlv_index+2+e[tlv_index+1]]])
+            tlv_index += e[tlv_index+1] + 2
         return (False, None)
 
 
     def get_tlv_index(self, e, code):
         '''
-        Given an EEPROM string with just TLV fields (no TlvInfo header)
+        Given an EEPROM bytearray with just TLV fields (no TlvInfo header)
         finds the index of the requested type code. This routine searches
         for a TLV field with the supplied type code. A tuple of two items
         is returned. The first item is a boolean indicating success and,
-        if True, the second item is the index in the supplied EEPROM string
+        if True, the second item is the index in the supplied EEPROM bytearray
         of the matching type code.
         '''
         tlv_index = 0
         while tlv_index < len(e):
             if not self.is_valid_tlv(e[tlv_index:]):
                 return (False, 0)
-            if ord(e[tlv_index]) == code:
-                return (True, tlv_index )
-            tlv_index += ord(e[tlv_index+1]) + 2
+            if e[tlv_index] == code:
+                return (True, tlv_index)
+            tlv_index += e[tlv_index+1] + 2
         return (False, 0)
 
 
@@ -469,7 +469,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
         if not is_valid or t[1] != 6:
             return super(TlvInfoDecoder, self).switchaddrstr(e)
 
-        return ":".join([binascii.b2a_hex(T) for T in t[2]])
+        return ":".join(["{:02x}".format(T) for T in t[2]]).upper()
 
 
     def switchaddrrange(self, e):
@@ -481,7 +481,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
         if not is_valid:
             return super(TlvInfoDecoder, self).switchaddrrange(e)
 
-        return str((ord(t[2][0]) << 8) | ord(t[2][1]))
+        return str((t[2][0] << 8) | t[2][1])
 
 
     def modelstr(self, e):
@@ -492,7 +492,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
         if not is_valid:
             return super(TlvInfoDecoder, self).modelstr(e)
 
-        return t[2]
+        return t[2].decode("ascii")
 
 
     def serial_number_str(self, e):
@@ -502,7 +502,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
         valid, t = self.get_tlv_field(e, self._TLV_CODE_SERIAL_NUMBER)
         if not valid:
             return super(TlvInfoDecoder, self).serial_number_str(e)
-        return t[2]
+        return t[2].decode("ascii")
 
 
     def part_number_str(self, e):
@@ -512,7 +512,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
         valid, t = self.get_tlv_field(e, self._TLV_CODE_PART_NUMBER)
         if not valid:
             return super(TlvInfoDecoder, self).part_number_str(e)
-        return t[2]
+        return t[2].decode("ascii")
 
 
     def decoder(self, s, t):
@@ -526,88 +526,88 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
         The vailidity of EEPROM contents and the TLV field has been verified
         prior to calling this function. The 's' parameter is unused
         '''
-        if ord(t[0]) == self._TLV_CODE_PRODUCT_NAME:
+        if t[0] == self._TLV_CODE_PRODUCT_NAME:
             name  = "Product Name"
-            value = str(t[2:2 + ord(t[1])])
-        elif ord(t[0]) == self._TLV_CODE_PART_NUMBER:
+            value = t[2:2 + t[1]].decode("ascii")
+        elif t[0] == self._TLV_CODE_PART_NUMBER:
             name = "Part Number"
-            value = t[2:2 + ord(t[1])]
-        elif ord(t[0]) == self._TLV_CODE_SERIAL_NUMBER:
+            value = t[2:2 + t[1]].decode("ascii")
+        elif t[0] == self._TLV_CODE_SERIAL_NUMBER:
             name  = "Serial Number"
-            value = t[2:2 + ord(t[1])]
-        elif ord(t[0]) == self._TLV_CODE_MAC_BASE:
+            value = t[2:2 + t[1]].decode("ascii")
+        elif t[0] == self._TLV_CODE_MAC_BASE:
             name = "Base MAC Address"
-            value = ":".join([binascii.b2a_hex(T) for T in t[2:8]]).upper()
-        elif ord(t[0]) == self._TLV_CODE_MANUF_DATE:
+            value = ":".join(["{:02x}".format(T) for T in t[2:8]]).upper()
+        elif t[0] == self._TLV_CODE_MANUF_DATE:
             name = "Manufacture Date"
-            value = t[2:2 + ord(t[1])]
-        elif ord(t[0]) == self._TLV_CODE_DEVICE_VERSION:
+            value = t[2:2 + t[1]].decode("ascii")
+        elif t[0] == self._TLV_CODE_DEVICE_VERSION:
             name  = "Device Version"
-            value = str(ord(t[2]))
-        elif ord(t[0]) == self._TLV_CODE_LABEL_REVISION:
+            value = str(t[2])
+        elif t[0] == self._TLV_CODE_LABEL_REVISION:
             name  = "Label Revision"
-            value = t[2:2 + ord(t[1])]
-        elif ord(t[0]) == self._TLV_CODE_PLATFORM_NAME:
+            value = t[2:2 + t[1]].decode("ascii")
+        elif t[0] == self._TLV_CODE_PLATFORM_NAME:
             name  = "Platform Name"
-            value = t[2:2 + ord(t[1])]
-        elif ord(t[0]) == self._TLV_CODE_ONIE_VERSION:
+            value = t[2:2 + t[1]].decode("ascii")
+        elif t[0] == self._TLV_CODE_ONIE_VERSION:
             name  = "ONIE Version"
-            value = t[2:2 + ord(t[1])]
-        elif ord(t[0]) == self._TLV_CODE_MAC_SIZE:
+            value = t[2:2 + t[1]].decode("ascii")
+        elif t[0] == self._TLV_CODE_MAC_SIZE:
             name = "MAC Addresses"
-            value = str((ord(t[2]) << 8) | ord(t[3]))
-        elif ord(t[0]) == self._TLV_CODE_MANUF_NAME:
+            value = str((t[2] << 8) | t[3])
+        elif t[0] == self._TLV_CODE_MANUF_NAME:
             name = "Manufacturer"
-            value = t[2:2 + ord(t[1])]
-        elif ord(t[0]) == self._TLV_CODE_MANUF_COUNTRY:
+            value = t[2:2 + t[1]].decode("ascii")
+        elif t[0] == self._TLV_CODE_MANUF_COUNTRY:
             name = "Manufacture Country"
-            value = t[2:2 + ord(t[1])]
-        elif ord(t[0]) == self._TLV_CODE_VENDOR_NAME:
+            value = t[2:2 + t[1]].decode("ascii")
+        elif t[0] == self._TLV_CODE_VENDOR_NAME:
             name = "Vendor Name"
-            value = t[2:2 + ord(t[1])]
-        elif ord(t[0]) == self._TLV_CODE_DIAG_VERSION:
+            value = t[2:2 + t[1]].decode("ascii")
+        elif t[0] == self._TLV_CODE_DIAG_VERSION:
             name = "Diag Version"
-            value = t[2:2 + ord(t[1])]
-        elif ord(t[0]) == self._TLV_CODE_SERVICE_TAG:
+            value = t[2:2 + t[1]].decode("ascii")
+        elif t[0] == self._TLV_CODE_SERVICE_TAG:
             name = "Service Tag"
-            value = t[2:2 + ord(t[1])]
-        elif ord(t[0]) == self._TLV_CODE_VENDOR_EXT:
+            value = t[2:2 + t[1]].decode("ascii")
+        elif t[0] == self._TLV_CODE_VENDOR_EXT:
             name = "Vendor Extension"
             value = ""
             if self._TLV_DISPLAY_VENDOR_EXT:
-                for c in t[2:2 + ord(t[1])]:
-                    value += "0x%02X " % (ord(c),)
-        elif ord(t[0]) == self._TLV_CODE_CRC_32 and len(t) == 6:
+                for c in t[2:2 + t[1]]:
+                    value += "0x%02X " % c
+        elif t[0] == self._TLV_CODE_CRC_32 and len(t) == 6:
             name = "CRC-32"
-            value = "0x%08X" % (((ord(t[2]) << 24) | (ord(t[3]) << 16) | (ord(t[4]) << 8) | ord(t[5])),)
+            value = "0x%08X" % ((t[2] << 24) | (t[3] << 16) | (t[4] << 8) | t[5])
         # Quanta specific codes below here.
         # These decodes are lifted from their U-Boot codes
-        elif ord(t[0]) == self._TLV_CODE_QUANTA_MAGIC and len(t) == 3:
+        elif t[0] == self._TLV_CODE_QUANTA_MAGIC and len(t) == 3:
             name  = "Magic Number"
-            value = "0x%02X" % (ord(t[2]))
-        elif ord(t[0]) == self._TLV_CODE_QUANTA_CRC and len(t) == 4:
+            value = "0x%02X" % t[2]
+        elif t[0] == self._TLV_CODE_QUANTA_CRC and len(t) == 4:
             name = "QUANTA-CRC"
-            value = "0x%04X" % ((ord(t[2]) << 8) + ord(t[3]))
-        elif ord(t[0]) == self._TLV_CODE_QUANTA_CARD_TYPE and len(t) == 6:
+            value = "0x%04X" % ((t[2] << 8) + t[3])
+        elif t[0] == self._TLV_CODE_QUANTA_CARD_TYPE and len(t) == 6:
             name = "Card Type"
-            value = "0x%08X" % (((ord(t[2]) << 24) | (ord(t[3]) << 16) | (ord(t[4]) << 8) | ord(t[5])),)
-        elif ord(t[0]) == self._TLV_CODE_QUANTA_HW_VERSION and len(t) == 6:
+            value = "0x%08X" % ((t[2] << 24) | (t[3] << 16) | (t[4] << 8) | t[5])
+        elif t[0] == self._TLV_CODE_QUANTA_HW_VERSION and len(t) == 6:
             name = "Hardware Version"
-            value = "%d.%d" % (ord(t[2]), ord(t[3]))
-        elif ord(t[0]) == self._TLV_CODE_QUANTA_SW_VERSION and len(t) == 6:
+            value = "%d.%d" % (t[2], t[3])
+        elif t[0] == self._TLV_CODE_QUANTA_SW_VERSION and len(t) == 6:
             name = "Software Version"
-            value = "%d.%d.%d.%d" % ((ord(t[2]) >> 4), (ord(t[2]) & 0xF), (ord(t[3]) >> 4), (ord(t[3]) & 0xF))
-        elif ord(t[0]) == self._TLV_CODE_QUANTA_MANUF_DATE and len(t) == 6:
+            value = "%d.%d.%d.%d" % ((t[2] >> 4), (t[2] & 0xF), (t[3] >> 4), (t[3] & 0xF))
+        elif t[0] == self._TLV_CODE_QUANTA_MANUF_DATE and len(t) == 6:
             name = "Manufacture Date"
-            value = "%04d/%d/%d" % (((ord(t[2]) << 8) | ord(t[3])), ord(t[4]), ord(t[5]))
-        elif ord(t[0]) == self._TLV_CODE_QUANTA_MODEL_NAME:
+            value = "%04d/%d/%d" % (((t[2] << 8) | t[3]), t[4], t[5])
+        elif t[0] == self._TLV_CODE_QUANTA_MODEL_NAME:
             name  = "Model Name"
-            value = t[2:2 + ord(t[1])]
+            value = t[2:2 + t[1]].decode("ascii")
         else:
             name = "Unknown"
             value = ""
-            for c in t[2:2 + ord(t[1])]:
-                value += "0x%02X " % (ord(c),)
+            for c in t[2:2 + t[1]]:
+                value += "0x%02X " % c
         return name, value
 
 
