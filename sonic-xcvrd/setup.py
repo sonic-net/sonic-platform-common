@@ -15,6 +15,7 @@ setup(
     ],
     install_requires = [
         # NOTE: This package also requires swsscommon, but it is not currently installed as a wheel
+        'enum34; python_version < "3.4"',
         'sonic-py-common',
     ],
     setup_requires = [
