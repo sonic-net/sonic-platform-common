@@ -111,9 +111,9 @@ class ChassisBase(device_base.DeviceBase):
 
     def get_supervisor_slot(self):
         """
-        Retrieves the slot of the supervisor-module of the modular chassis.
-        On the supervisor or line-card modules, it will return the slot of the
-        supervisor-module.
+        Retrieves the physical-slot of the supervisor-module in the modular
+        chassis. On the supervisor or line-card modules, it will return the
+        physical-slot of the supervisor-module.
 
         On the fixed-platforms, the API can be ignored.
 
@@ -121,17 +121,17 @@ class ChassisBase(device_base.DeviceBase):
         ModuleBase.MODULE_INVALID_SLOT and bypass code for fixed-platforms.
 
         Returns:
-            An integer, the slot identifier of the supervisor module of the
-            modular-chassis.
+            An integer, the vendor specific physical slot identifier of the
+            supervisor module in the modular-chassis.
         """
         return NotImplementedError
 
     def get_my_slot(self):
         """
-        Retrieves the slot of this module of the modular chassis.
-        On the supervisor, it will return the slot of the supervisor-module.
-        On the linecard, it will return the slot of the linecard module where
-        this instance of SONiC is running.
+        Retrieves the physical-slot of this module in the modular chassis.
+        On the supervisor, it will return the physical-slot of the supervisor
+        module. On the linecard, it will return the physical-slot of the
+        linecard module where this instance of SONiC is running.
 
         On the fixed-platforms, the API can be ignored.
 
@@ -139,8 +139,8 @@ class ChassisBase(device_base.DeviceBase):
         ModuleBase.MODULE_INVALID_SLOT and bypass code for fixed-platforms.
 
         Returns:
-            An integer, the slot identifier of this module of the
-            modular-chassis.
+            An integer, the vendor specific physical slot identifier of this
+            module in the modular-chassis.
         """
         return NotImplementedError
 
@@ -241,7 +241,7 @@ class ChassisBase(device_base.DeviceBase):
             Ex. SUPERVISOR0, LINE-CARD1, FABRIC-CARD5
 
         Returns:
-            An index of the ModuleBase object in the module_list
+            An integer, the index of the ModuleBase object in the module_list
         """
         raise NotImplementedError
 

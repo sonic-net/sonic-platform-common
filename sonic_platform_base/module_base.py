@@ -103,9 +103,9 @@ class ModuleBase(device_base.DeviceBase):
         FABRIC-CARD
 
         Returns:
-            string: A string providing the name of the card prefixed by one of the
-            MODULE_TYPE_SUPERVISOR, MODULE_TYPE_LINE, MODULE_TYPE_FABRIC followed by
-            an index.
+            A string, the module name prefixed by one of MODULE_TYPE_SUPERVISOR,
+            MODULE_TYPE_LINE or MODULE_TYPE_FABRIC and followed by a 0-based index
+
             Ex. A Chassis having 1 supervisor, 4 line-cards and 6 fabric-cards
             can provide names SUPERVISOR0, LINE-CARD0 to LINE-CARD3,
             FABRIC-CARD0 to FABRIC-CARD5
@@ -117,8 +117,7 @@ class ModuleBase(device_base.DeviceBase):
         Retrieves the platform vendor's product description of the module
 
         Returns:
-            string: A string providing the product description of the module. This
-            is vendor specific.
+            A string, providing the vendor's product description of the module.
         """
         raise NotImplementedError
 
@@ -136,19 +135,19 @@ class ModuleBase(device_base.DeviceBase):
         Retrieves the type of the module.
 
         Returns:
-            string: A string providing the module-type. Supported values are
-            MODULE_TYPE_SUPERVISOR, MODULE_TYPE_LINE, MODULE_TYPE_FABRIC
+            A string, the module-type from one of the predefined types:
+            MODULE_TYPE_SUPERVISOR, MODULE_TYPE_LINE or MODULE_TYPE_FABRIC
         """
         raise NotImplementedError
 
-    def get_status(self):
+    def get_oper_status(self):
         """
-        Retrieves the status of the card
+        Retrieves the operational status of the module
 
         Returns:
-            string: A string providing the status of the module. Support values
-            are MODULE_STATUS_EMPTY, MODULE_STATUS_OFFLINE, MODULE_STATUS_FAULT,
-            MODULE_STATUS_PRESENT, MODULE_STATUS_ONLINE
+            A string, the operational status of the module from one of the
+            predefined status values: MODULE_STATUS_EMPTY, MODULE_STATUS_OFFLINE,
+            MODULE_STATUS_FAULT, MODULE_STATUS_PRESENT or MODULE_STATUS_ONLINE
         """
         raise NotImplementedError
 
@@ -157,9 +156,9 @@ class ModuleBase(device_base.DeviceBase):
         Request to reboot the module
 
         Args:
-            reboot_type: A string, choose from one of pre-defined module
-            reboot-types. MODULE_REBOOT_DEFAULT, MODULE_REBOOT_CPU_COMPLEX,
-            MODULE_REBOOT_FPGA_COMPLEX
+            reboot_type: A string, the type of reboot requested from one of the
+            predefined reboot types: MODULE_REBOOT_DEFAULT, MODULE_REBOOT_CPU_COMPLEX,
+            or MODULE_REBOOT_FPGA_COMPLEX
 
         Returns:
             bool: True if the request has been issued successfully, False if not
