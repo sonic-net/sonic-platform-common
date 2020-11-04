@@ -25,8 +25,12 @@ class ModuleBase(device_base.DeviceBase):
     # Possible card status for modular chassis
     # Module state is Empty if no module is inserted in the slot
     MODULE_STATUS_EMPTY   = "Empty"
-    # Module state if Offline if powered down. This is also the admin-down state.
+    # Module state if Offline. This is also the admin-down state.
     MODULE_STATUS_OFFLINE = "Offline"
+    # Module state if power down was triggered. Example, this could be a
+    # policy action from sensors reaching a critical state triggering the
+    # module to be powered-down.
+    MODULE_STATUS_POWERED_DOWN = "PoweredDown"
     # Module state is Present when it is powered up, but not fully functional.
     MODULE_STATUS_PRESENT = "Present"
     # Module state is Present when it is powered up, but entered a fault state.
@@ -170,8 +174,8 @@ class ModuleBase(device_base.DeviceBase):
         Request to keep the card in administratively up/down state.
         The down state will power down the module and the status should show
         MODULE_STATUS_OFFLINE.
-        The up state will take the module to MODULE_STATUS_PRESENT,
-        MODULE_STATUS_FAULT or MODULE_STAUS_ONLINE states.
+        The up state will take the module to MODULE_STATUS_FAULT or
+        MODULE_STAUS_ONLINE states.
 
         Args:
             up: A boolean, True to set the admin-state to UP. False to set the
