@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 #
 # thermal_base.py
 #
