@@ -10,9 +10,11 @@ setup(
     url = 'https://github.com/Azure/sonic-platform-daemons',
     maintainer = 'Kebo Liu',
     maintainer_email = 'kebol@mellanox.com',
-    scripts = [
-        'scripts/xcvrd',
-    ],
+    entry_points = {
+        'console_scripts': [
+            'xcvrd = src.xcvrd:main',
+        ]
+    },
     install_requires = [
         # NOTE: This package also requires swsscommon, but it is not currently installed as a wheel
         'enum34; python_version < "3.4"',
