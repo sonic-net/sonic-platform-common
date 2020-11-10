@@ -17,6 +17,39 @@ class ModuleBase(device_base.DeviceBase):
     # Device type definition. Note, this is a constant.
     DEVICE_TYPE = "module"
 
+    # Possible card types for modular chassis
+    MODULE_TYPE_SUPERVISOR = "SUPERVISOR"
+    MODULE_TYPE_LINE    = "LINE-CARD"
+    MODULE_TYPE_FABRIC  = "FABRIC-CARD"
+
+    # Possible card status for modular chassis
+    # Module state is Empty if no module is inserted in the slot
+    MODULE_STATUS_EMPTY   = "Empty"
+    # Module state if Offline. This is also the admin-down state.
+    MODULE_STATUS_OFFLINE = "Offline"
+    # Module state if power down was triggered. Example, this could be a
+    # policy action from sensors reaching a critical state triggering the
+    # module to be powered-down.
+    MODULE_STATUS_POWERED_DOWN = "PoweredDown"
+    # Module state is Present when it is powered up, but not fully functional.
+    MODULE_STATUS_PRESENT = "Present"
+    # Module state is Present when it is powered up, but entered a fault state.
+    # Module is not able to go Online.
+    MODULE_STATUS_FAULT   = "Fault"
+    # Module state is Online when fully operational
+    MODULE_STATUS_ONLINE  = "Online"
+
+    # Invalid slot for modular chassis
+    MODULE_INVALID_SLOT = -1
+
+    # Possible reboot types for modular chassis
+    # Module reboot type to reboot entire card
+    MODULE_REBOOT_DEFAULT = "Default"
+    # Module reboot type to reboot CPU complex
+    MODULE_REBOOT_CPU_COMPLEX = "CPU"
+    # Module reboot type to reboot FPGA complex
+    MODULE_REBOOT_FPGA_COMPLEX = "FPGA"
+
     # List of ComponentBase-derived objects representing all components
     # available on the module
     _component_list = None
@@ -65,6 +98,91 @@ class ModuleBase(device_base.DeviceBase):
             Ex. { ‘0x21’:’AG9064’, ‘0x22’:’V1.0’, ‘0x23’:’AG9064-0109867821’,
                   ‘0x24’:’001c0f000fcd0a’, ‘0x25’:’02/03/2018 16:22:00’,
                   ‘0x26’:’01’, ‘0x27’:’REV01’, ‘0x28’:’AG9064-C2358-16G’}
+        """
+        raise NotImplementedError
+
+    def get_name(self):
+        """
+        Retrieves the name of the module prefixed by SUPERVISOR, LINE-CARD,
+        FABRIC-CARD
+
+        Returns:
+            A string, the module name prefixed by one of MODULE_TYPE_SUPERVISOR,
+            MODULE_TYPE_LINE or MODULE_TYPE_FABRIC and followed by a 0-based index
+
+            Ex. A Chassis having 1 supervisor, 4 line-cards and 6 fabric-cards
+            can provide names SUPERVISOR0, LINE-CARD0 to LINE-CARD3,
+            FABRIC-CARD0 to FABRIC-CARD5
+        """
+        raise NotImplementedError
+
+    def get_description(self):
+        """
+        Retrieves the platform vendor's product description of the module
+
+        Returns:
+            A string, providing the vendor's product description of the module.
+        """
+        raise NotImplementedError
+
+    def get_slot(self):
+        """
+        Retrieves the platform vendor's slot number of the module
+
+        Returns:
+            An integer, indicating the slot number in the chassis
+        """
+        raise NotImplementedError
+
+    def get_type(self):
+        """
+        Retrieves the type of the module.
+
+        Returns:
+            A string, the module-type from one of the predefined types:
+            MODULE_TYPE_SUPERVISOR, MODULE_TYPE_LINE or MODULE_TYPE_FABRIC
+        """
+        raise NotImplementedError
+
+    def get_oper_status(self):
+        """
+        Retrieves the operational status of the module
+
+        Returns:
+            A string, the operational status of the module from one of the
+            predefined status values: MODULE_STATUS_EMPTY, MODULE_STATUS_OFFLINE,
+            MODULE_STATUS_FAULT, MODULE_STATUS_PRESENT or MODULE_STATUS_ONLINE
+        """
+        raise NotImplementedError
+
+    def reboot(self, reboot_type):
+        """
+        Request to reboot the module
+
+        Args:
+            reboot_type: A string, the type of reboot requested from one of the
+            predefined reboot types: MODULE_REBOOT_DEFAULT, MODULE_REBOOT_CPU_COMPLEX,
+            or MODULE_REBOOT_FPGA_COMPLEX
+
+        Returns:
+            bool: True if the request has been issued successfully, False if not
+        """
+        raise NotImplementedError
+
+    def set_admin_state(self, up):
+        """
+        Request to keep the card in administratively up/down state.
+        The down state will power down the module and the status should show
+        MODULE_STATUS_OFFLINE.
+        The up state will take the module to MODULE_STATUS_FAULT or
+        MODULE_STAUS_ONLINE states.
+
+        Args:
+            up: A boolean, True to set the admin-state to UP. False to set the
+            admin-state to DOWN.
+
+        Returns:
+            bool: True if the request has been issued successfully, False if not
         """
         raise NotImplementedError
 

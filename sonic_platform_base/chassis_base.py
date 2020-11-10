@@ -109,6 +109,41 @@ class ChassisBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
+    def get_supervisor_slot(self):
+        """
+        Retrieves the physical-slot of the supervisor-module in the modular
+        chassis. On the supervisor or line-card modules, it will return the
+        physical-slot of the supervisor-module.
+
+        On the fixed-platforms, the API can be ignored.
+
+        Users of the API can catch the exception and return a default
+        ModuleBase.MODULE_INVALID_SLOT and bypass code for fixed-platforms.
+
+        Returns:
+            An integer, the vendor specific physical slot identifier of the
+            supervisor module in the modular-chassis.
+        """
+        return NotImplementedError
+
+    def get_my_slot(self):
+        """
+        Retrieves the physical-slot of this module in the modular chassis.
+        On the supervisor, it will return the physical-slot of the supervisor
+        module. On the linecard, it will return the physical-slot of the
+        linecard module where this instance of SONiC is running.
+
+        On the fixed-platforms, the API can be ignored.
+
+        Users of the API can catch the exception and return a default
+        ModuleBase.MODULE_INVALID_SLOT and bypass code for fixed-platforms.
+
+        Returns:
+            An integer, the vendor specific physical slot identifier of this
+            module in the modular-chassis.
+        """
+        return NotImplementedError
+
     ##############################################
     # Component methods
     ##############################################
@@ -196,6 +231,19 @@ class ChassisBase(device_base.DeviceBase):
                              index, len(self._module_list)-1))
 
         return module
+
+    def get_module_index(self, module_name):
+        """
+        Retrieves module index from the module name
+
+        Args:
+            module_name: A string, prefixed by SUPERVISOR, LINE-CARD or FABRIC-CARD
+            Ex. SUPERVISOR0, LINE-CARD1, FABRIC-CARD5
+
+        Returns:
+            An integer, the index of the ModuleBase object in the module_list
+        """
+        raise NotImplementedError
 
     ##############################################
     # Fan methods
