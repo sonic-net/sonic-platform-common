@@ -1,0 +1,73 @@
+class MockDevice:
+    def __init__(self):
+        self.name = None
+        self.presence = True
+        self.model = 'Module Model'
+        self.serial = 'Module Serial'
+
+    def get_name(self):
+        return self.name
+
+    def get_presence(self):
+        return self.presence
+
+    def get_model(self):
+        return self.model
+
+    def get_serial(self):
+        return self.serial
+
+
+class MockModule(MockDevice):
+    def __init__(self, module_index, module_name, module_desc, module_type, module_slot):
+        self.module_index = module_index
+        self.module_name = module_name
+        self.module_desc = module_desc
+        self.module_type = module_type
+        self.hw_slot = module_slot
+        self.module_status = ''
+        self.admin_state = 1
+
+    def get_name(self):
+        return self.module_name
+
+    def get_description(self):
+        return self.module_desc
+
+    def get_type(self):
+        return self.module_type
+
+    def get_slot(self):
+        return self.hw_slot
+
+    def get_oper_status(self):
+        return self.module_status
+
+    def set_oper_status(self, status):
+        self.module_status = status
+
+    def set_admin_state(self, up):
+        self.admin_state = up
+
+    def get_admin_state(self):
+        return self.admin_state
+
+class MockChassis:
+    def __init__(self):
+        self.module_list = []
+
+    def get_num_modules(self):
+        return len(self.module_list)
+
+    def get_module(self, index):
+        module = self.module_list[index]
+        return module
+
+    def get_all_modules(self):
+        return self.module_list
+
+    def get_module_index(self, module_name):
+        for module in self.module_list:
+            if module.module_name == module_name:
+                return module.module_index
+        return -1

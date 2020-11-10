@@ -1,0 +1,334 @@
+#!/usr/bin/env python3
+
+"""
+    chassisd
+    Module information update daemon for SONiC
+    This daemon will loop to collect all modules related information and then write the information to state DB.
+    The loop interval is CHASSIS_INFO_UPDATE_PERIOD_SECS in seconds.
+"""
+
+try:
+    import signal
+    import sys
+    import threading
+
+    from sonic_py_common import daemon_base, logger
+    from sonic_py_common.task_base import ProcessTaskBase
+except ImportError as e:
+    raise ImportError (str(e) + " - required module not found")
+
+try:
+    from swsscommon import swsscommon
+except ImportError as e:
+    from tests import mock_swsscommon as swsscommon
+
+try:
+    from sonic_platform_base.module_base import ModuleBase
+except ImportError as e:
+    from tests.mock_module_base import ModuleBase
+
+#
+# Constants ====================================================================
+#
+
+SYSLOG_IDENTIFIER = "chassisd"
+
+CHASSIS_CFG_TABLE = 'CHASSIS_MODULE'
+
+CHASSIS_INFO_TABLE = 'CHASSIS_TABLE'
+CHASSIS_INFO_KEY_TEMPLATE = 'CHASSIS {}'
+CHASSIS_INFO_CARD_NUM_FIELD = 'module_num'
+
+CHASSIS_MODULE_INFO_TABLE = 'CHASSIS_MODULE_TABLE'
+CHASSIS_MODULE_INFO_KEY_TEMPLATE = 'CHASSIS_MODULE {}'
+CHASSIS_MODULE_INFO_NAME_FIELD = 'name'
+CHASSIS_MODULE_INFO_DESC_FIELD = 'desc'
+CHASSIS_MODULE_INFO_SLOT_FIELD = 'slot'
+CHASSIS_MODULE_INFO_OPERSTATUS_FIELD = 'oper_status'
+
+CHASSIS_INFO_UPDATE_PERIOD_SECS = 10
+
+CHASSIS_LOAD_ERROR = 1
+CHASSIS_NOT_SUPPORTED = 2
+
+platform_chassis = None
+
+SELECT_TIMEOUT = 1000
+
+NOT_AVAILABLE = 'N/A'
+INVALID_SLOT = ModuleBase.MODULE_INVALID_SLOT
+INVALID_MODULE_INDEX = -1
+
+MODULE_ADMIN_DOWN = 0
+MODULE_ADMIN_UP   = 1
+
+#
+# Helper functions =============================================================
+#
+
+# try get information from platform API and return a default value if caught NotImplementedError
+def try_get(callback, *args, **kwargs):
+    """
+    Handy function to invoke the callback and catch NotImplementedError
+    :param callback: Callback to be invoked
+    :param default: Default return value if exception occur
+    :return: Default return value if exception occur else return value of the callback
+    """
+    default = kwargs.get('default', NOT_AVAILABLE)
+    try:
+        ret = callback(*args)
+        if ret is None:
+            ret = default
+    except NotImplementedError:
+        ret = default
+
+    return ret
+
+#
+# Module Config Updater ========================================================
+#
+class ModuleConfigUpdater(logger.Logger):
+
+    def __init__(self, log_identifier, chassis):
+       """
+       Constructor for ModuleConfigUpdater
+       :param chassis: Object representing a platform chassis
+       """
+       super(ModuleConfigUpdater, self).__init__(log_identifier)
+
+       self.chassis = chassis
+
+    def deinit(self):
+        """
+        Destructor of ModuleConfigUpdater
+        :return:
+        """
+
+    def module_config_update(self, key, admin_state):
+        if not key.startswith(ModuleBase.MODULE_TYPE_SUPERVISOR) and \
+           not key.startswith(ModuleBase.MODULE_TYPE_LINE) and \
+           not key.startswith(ModuleBase.MODULE_TYPE_FABRIC):
+            self.log_error("Incorrect module-name {}. Should start with {} or {} or {}".format(key,
+                           ModuleBase.MODULE_TYPE_SUPERVISOR, ModuleBase.MODULE_TYPE_LINE,
+                           ModuleBase.MODULE_TYPE_FABRIC))
+            return
+
+        module_index = try_get(self.chassis.get_module_index, key, default=INVALID_MODULE_INDEX)
+
+        # Continue if the index is invalid
+        if module_index < 0:
+            self.log_error("Unable to get module-index for key {} to set admin-state {}". format(key, admin_state))
+            return
+
+        if (admin_state == MODULE_ADMIN_DOWN) or (admin_state == MODULE_ADMIN_UP):
+            # Setting the module to administratively up/down state
+            self.log_info("Changing module {} to admin {} state".format(key,
+                          'DOWN' if admin_state == MODULE_ADMIN_DOWN else 'UP'))
+            try_get(self.chassis.get_module(module_index).set_admin_state, admin_state, default=False)
+
+#
+# Module Updater ==============================================================
+#
+class ModuleUpdater(logger.Logger):
+
+    def __init__(self, log_identifier, chassis):
+       """
+       Constructor for ModuleUpdater
+       :param chassis: Object representing a platform chassis
+       """
+       super(ModuleUpdater, self).__init__(log_identifier)
+
+       self.chassis = chassis
+       self.num_modules = chassis.get_num_modules()
+       # Connect to STATE_DB and create chassis info tables
+       state_db = daemon_base.db_connect("STATE_DB")
+       self.chassis_table = swsscommon.Table(state_db, CHASSIS_INFO_TABLE)
+       self.module_table = swsscommon.Table(state_db, CHASSIS_MODULE_INFO_TABLE)
+       self.info_dict_keys = [CHASSIS_MODULE_INFO_NAME_FIELD,
+                              CHASSIS_MODULE_INFO_DESC_FIELD,
+                              CHASSIS_MODULE_INFO_SLOT_FIELD,
+                              CHASSIS_MODULE_INFO_OPERSTATUS_FIELD]
+
+    def deinit(self):
+        """
+        Destructor of ModuleUpdater
+        :return:
+        """
+        # Delete all the information from DB and then exit
+        for module_index in range(0, self.num_modules):
+            name = try_get(self.chassis.get_module(module_index).get_name)
+            self.module_table._del(name)
+
+        if self.chassis_table is not None:
+            self.chassis_table._del(CHASSIS_INFO_KEY_TEMPLATE.format(1))
+
+    def modules_num_update(self):
+        # Check if module list is populated
+        num_modules = self.chassis.get_num_modules()
+        if num_modules == 0:
+            self.log_error("Chassisd has no modules available")
+            return
+
+        # Post number-of-modules info to STATE_DB
+        fvs = swsscommon.FieldValuePairs([(CHASSIS_INFO_CARD_NUM_FIELD, str(num_modules))])
+        self.chassis_table.set(CHASSIS_INFO_KEY_TEMPLATE.format(1), fvs)
+
+    def module_db_update(self):
+        for module_index in range(0, self.num_modules):
+            module_info_dict = self._get_module_info(module_index)
+            if module_info_dict is not None:
+                key = module_info_dict[CHASSIS_MODULE_INFO_NAME_FIELD]
+
+                if not key.startswith(ModuleBase.MODULE_TYPE_SUPERVISOR) and \
+                   not key.startswith(ModuleBase.MODULE_TYPE_LINE) and \
+                   not key.startswith(ModuleBase.MODULE_TYPE_FABRIC):
+                    self.log_error("Incorrect module-name {}. Should start with {} or {} or {}".format(key,
+                                   ModuleBase.MODULE_TYPE_SUPERVISOR, ModuleBase.MODULE_TYPE_LINE,
+                                   ModuleBase.MODULE_TYPE_FABRIC))
+                    continue
+
+                fvs = swsscommon.FieldValuePairs([(CHASSIS_MODULE_INFO_DESC_FIELD, module_info_dict[CHASSIS_MODULE_INFO_DESC_FIELD]),
+                                                  (CHASSIS_MODULE_INFO_SLOT_FIELD, module_info_dict[CHASSIS_MODULE_INFO_SLOT_FIELD]),
+                                                  (CHASSIS_MODULE_INFO_OPERSTATUS_FIELD, module_info_dict[CHASSIS_MODULE_INFO_OPERSTATUS_FIELD])])
+                self.module_table.set(key, fvs)
+
+    def _get_module_info(self, module_index):
+        """
+        Retrieves module info of this module
+        """
+        module_info_dict = {}
+        module_info_dict = dict.fromkeys(self.info_dict_keys, 'N/A')
+        name = try_get(self.chassis.get_module(module_index).get_name)
+        desc = try_get(self.chassis.get_module(module_index).get_description)
+        slot = try_get(self.chassis.get_module(module_index).get_slot, default=INVALID_SLOT)
+        status = try_get(self.chassis.get_module(module_index).get_oper_status, default=ModuleBase.MODULE_STATUS_OFFLINE)
+
+        module_info_dict[CHASSIS_MODULE_INFO_NAME_FIELD] = name
+        module_info_dict[CHASSIS_MODULE_INFO_DESC_FIELD] = str(desc)
+        module_info_dict[CHASSIS_MODULE_INFO_SLOT_FIELD] = str(slot)
+        module_info_dict[CHASSIS_MODULE_INFO_OPERSTATUS_FIELD] = str(status)
+
+        return module_info_dict
+
+#
+# Config Manager task ========================================================
+#
+class ConfigManagerTask(ProcessTaskBase):
+    def __init__(self):
+        ProcessTaskBase.__init__(self)
+
+        # TODO: Refactor to eliminate the need for this Logger instance
+        self.logger = logger.Logger(SYSLOG_IDENTIFIER)
+
+    def task_worker(self):
+        self.config_updater = ModuleConfigUpdater(SYSLOG_IDENTIFIER, platform_chassis)
+        config_db = daemon_base.db_connect("CONFIG_DB")
+
+        # Subscribe to CHASSIS_MODULE table notifications in the Config DB
+        sel = swsscommon.Select()
+        sst = swsscommon.SubscriberStateTable(config_db, CHASSIS_CFG_TABLE)
+        sel.addSelectable(sst)
+
+        # Listen indefinitely for changes to the CFG_CHASSIS_MODULE_TABLE table in the Config DB
+        while True:
+            # Use timeout to prevent ignoring the signals we want to handle
+            # in signal_handler() (e.g. SIGTERM for graceful shutdown)
+            (state, c) = sel.select(SELECT_TIMEOUT)
+
+            if state == swsscommon.Select.TIMEOUT:
+                # Do not flood log when select times out
+                continue
+            if state != swsscommon.Select.OBJECT:
+                self.logger.log_warning("sel.select() did not return swsscommon.Select.OBJECT")
+                continue
+
+            (key, op, fvp) = sst.pop()
+
+            if op == 'SET':
+                admin_state = MODULE_ADMIN_DOWN
+            elif op == 'DEL':
+                admin_state = MODULE_ADMIN_UP
+            else:
+                continue
+
+            self.config_updater.module_config_update(key, admin_state)
+
+#
+# Daemon =======================================================================
+#
+
+class ChassisdDaemon(daemon_base.DaemonBase):
+    def __init__(self, log_identifier):
+        super(ChassisdDaemon, self).__init__(log_identifier)
+
+        self.stop = threading.Event()
+
+    # Signal handler
+    def signal_handler(self, sig, frame):
+        if sig == signal.SIGHUP:
+            self.log_info("Caught SIGHUP - ignoring...")
+        elif sig == signal.SIGINT:
+            self.log_info("Caught SIGINT - exiting...")
+            self.stop.set()
+        elif sig == signal.SIGTERM:
+            self.log_info("Caught SIGTERM - exiting...")
+            self.stop.set()
+        else:
+            self.log_warning("Caught unhandled signal '" + sig + "'")
+
+    # Run daemon
+    def run(self):
+        global platform_chassis
+
+        self.log_info("Starting up...")
+
+        # Load new platform api class
+        try:
+            import sonic_platform.platform
+            platform_chassis = sonic_platform.platform.Platform().get_chassis()
+        except Exception as e:
+            self.log_error("Failed to load chassis due to {}".format(repr(e)))
+            sys.exit(CHASSIS_LOAD_ERROR)
+
+        # Check if module list is populated
+        self.module_updater = ModuleUpdater(SYSLOG_IDENTIFIER, platform_chassis)
+        self.module_updater.modules_num_update()
+
+        # Check for valid slot numbers
+        my_slot = try_get(platform_chassis.get_my_slot, default=INVALID_SLOT)
+        supervisor_slot = try_get(platform_chassis.get_supervisor_slot, default=INVALID_SLOT)
+        if (my_slot == INVALID_SLOT) or (supervisor_slot == INVALID_SLOT):
+            self.log_error("Chassisd not supported for this platform")
+            sys.exit(CHASSIS_NOT_SUPPORTED)
+
+        # Start configuration manager task on supervisor module
+        if supervisor_slot == my_slot:
+            config_manager = ConfigManagerTask()
+            config_manager.task_run()
+
+        # Start main loop
+        self.log_info("Start daemon main loop")
+
+        while not self.stop.wait(CHASSIS_INFO_UPDATE_PERIOD_SECS):
+           self.module_updater.module_db_update()
+
+        self.log_info("Stop daemon main loop")
+
+        if config_manager is not None:
+            config_manager.task_stop()
+
+        # Delete all the information from DB and then exit
+        self.module_updater.deinit()
+
+        self.log_info("Shutting down...")
+
+#
+# Main =========================================================================
+#
+
+def main():
+    chassisd = ChassisdDaemon(SYSLOG_IDENTIFIER)
+    chassisd.run()
+
+if __name__ == '__main__':
+    main()
