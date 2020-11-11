@@ -11,11 +11,6 @@ class DeviceBase(object):
     peripheral device
     """
 
-    #Device-types
-    DEVICE_TYPE_PSU     = "PSU"
-    DEVICE_TYPE_FAN     = "FAN"
-    DEVICE_TYPE_FANDRAWER = "FAN-DRAWER"
-
     # Possible status LED colors
     STATUS_LED_COLOR_GREEN = "green"
     STATUS_LED_COLOR_AMBER = "amber"
