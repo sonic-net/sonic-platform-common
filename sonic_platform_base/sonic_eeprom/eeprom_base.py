@@ -1,4 +1,3 @@
-#! /usr/bin/python
 # Copyright 2012 Cumulus Networks LLC, all rights reserved
 
 #############################################################################
@@ -101,12 +100,12 @@ class EepromDecoder(object):
     def compute_dell_crc(self, message):
         poly = 0x8005
         reg = 0x0000
-        message += '\x00\x00'
+        message += bytearray(b'\x00\x00')
         for byte in message:
             mask = 0x80
             while (mask > 0):
                 reg<<=1
-                if ord(byte) & mask:
+                if byte & mask:
                     reg += 1
                 mask>>=1
                 if reg > 0xffff:
@@ -265,7 +264,7 @@ class EepromDecoder(object):
             if F is not None:
                 F.close()
 
-        return o
+        return bytearray(o)
 
     def read_eeprom_db(self):
         return 0

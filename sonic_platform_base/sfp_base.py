@@ -16,6 +16,58 @@ class SfpBase(device_base.DeviceBase):
     # Device type definition. Note, this is a constant.
     DEVICE_TYPE = "sfp"
 
+    # List of ThermalBase-derived objects representing all thermals
+    # available on the SFP. Put a class level _thermal_list here to 
+    # avoid an exception when call get_num_thermals, get_all_thermals
+    # and get_thermal if vendor does not call SfpBase.__init__ in concrete
+    # SFP class
+    _thermal_list = []
+
+    def __init__(self):
+        # List of ThermalBase-derived objects representing all thermals
+        # available on the SFP
+        self._thermal_list = []
+
+    def get_num_thermals(self):
+        """
+        Retrieves the number of thermals available on this SFP
+
+        Returns:
+            An integer, the number of thermals available on this SFP
+        """
+        return len(self._thermal_list)
+
+    def get_all_thermals(self):
+        """
+        Retrieves all thermals available on this SFP
+
+        Returns:
+            A list of objects derived from ThermalBase representing all thermals
+            available on this SFP
+        """
+        return self._thermal_list
+
+    def get_thermal(self, index):
+        """
+        Retrieves thermal unit represented by (0-based) index <index>
+
+        Args:
+            index: An integer, the index (0-based) of the thermal to
+            retrieve
+
+        Returns:
+            An object derived from ThermalBase representing the specified thermal
+        """
+        thermal = None
+
+        try:
+            thermal = self._thermal_list[index]
+        except IndexError:
+            sys.stderr.write("THERMAL index {} out of range (0-{})\n".format(
+                             index, len(self._thermal_list)-1))
+
+        return thermal
+
     def get_transceiver_info(self):
         """
         Retrieves transceiver info of this SFP
@@ -304,3 +356,39 @@ class SfpBase(device_base.DeviceBase):
             False if not
         """
         raise NotImplementedError
+
+    def read_eeprom(self, offset, num_bytes):
+        """
+        read eeprom specfic bytes beginning from a random offset with size as num_bytes
+
+        Args:
+             offset :
+                     Integer, the offset from which the read transaction will start
+             num_bytes:
+                     Integer, the number of bytes to be read
+
+        Returns:
+            bytearray, if raw sequence of bytes are read correctly from the offset of size num_bytes
+            None, if the read_eeprom fails
+        """
+        raise NotImplementedError
+
+    def write_eeprom(self, offset, num_bytes, write_buffer):
+        """
+        write eeprom specfic bytes beginning from a random offset with size as num_bytes 
+        and write_buffer as the required bytes
+
+        Args:
+             offset :
+                     Integer, the offset from which the read transaction will start
+             num_bytes:
+                     Integer, the number of bytes to be written
+             write_buffer:
+                     bytearray, raw bytes buffer which is to be written beginning at the offset
+
+        Returns:
+            a Boolean, true if the write succeeded and false if it did not succeed.
+        """
+        raise NotImplementedError
+
+

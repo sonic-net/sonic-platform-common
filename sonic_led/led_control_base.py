@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 #
 # led_control_base.py
 #

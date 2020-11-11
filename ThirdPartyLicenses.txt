@@ -1,0 +1,29 @@
+Third Party Notices
+
+This Microsoft Open Source project incorporates material from the project(s) listed below 
+(Third Party Code).  Microsoft is not the original author of the Third Party Code.  Microsoft 
+reserves all other rights not expressly granted, whether by implication, estoppel or otherwise.
+
+1.   sonic_platform_base/sonic_eeprom/eeprom_base.py       https://cumulusnetworks.com
+2.   sonic_platform_base/sonic_eeprom/eeprom_dts.py        https://cumulusnetworks.com
+3.   sonic_platform_base/sonic_eeprom/eeprom_tlvinfo.py    https://cumulusnetworks.com
+4.   sonic_platform_base/sonic_sfp/bcmshell.py             https://cumulusnetworks.com
+5.   sonic_platform_base/sonic_sfp/sff8472.py              https://cumulusnetworks.com
+6.   sonic_platform_base/sonic_sfp/sfputilbase.py          https://cumulusnetworks.com
+
+
++ * Copyright (C) 2014 Cumulus Networks, LLC
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA."

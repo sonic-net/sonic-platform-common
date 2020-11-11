@@ -23,6 +23,7 @@ setup(
         'sonic_psu',
         'sonic_sfp',
         'sonic_thermal',
+        'sonic_y_cable',
     ],
     # NOTE: Install also depends on sonic-config-engine for portconfig.py, but we are not yet
     # building a Python 3 version of sonic-config-engine. Also, this dependency should be
@@ -33,8 +34,13 @@ setup(
         'redis',
         'sonic-py-common'
     ],
-    setup_requires= [
+    setup_requires = [
+        'pytest-runner',
         'wheel'
+    ],
+    tests_require = [
+        'pytest',
+        'pytest-cov',
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',
