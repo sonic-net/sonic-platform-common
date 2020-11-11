@@ -21,6 +21,7 @@ from imp import load_source
 load_source('thermalctld', scripts_path + '/thermalctld')
 from thermalctld import *
 
+TEMPER_INFO_TABLE_NAME = 'TEMPERATURE_INFO'
 
 def setup_function():
     FanStatus.log_notice = MagicMock()
@@ -283,3 +284,58 @@ def test_update_thermal_with_exception():
     temperature_updater = TemperatureUpdater(SYSLOG_IDENTIFIER, chassis)
     temperature_updater.update()
     temperature_updater.log_warning.assert_called()
+
+#Modular chassis related tests
+def test_updater_thermal_check_modular_chassis():
+    chassis = MockChassis()
+    assert chassis.is_modular_chassis() == False
+
+    temperature_updater = TemperatureUpdater(SYSLOG_IDENTIFIER, chassis)
+    assert temperature_updater.chassis_table == None
+
+    chassis.set_modular_chassis(True)
+    chassis.set_my_slot(-1)
+    temperature_updater = TemperatureUpdater(SYSLOG_IDENTIFIER, chassis)
+    assert temperature_updater.chassis_table == None
+
+    my_slot = 1
+    chassis.set_my_slot(my_slot)
+    temperature_updater = TemperatureUpdater(SYSLOG_IDENTIFIER, chassis)
+    assert temperature_updater.chassis_table != None
+    assert temperature_updater.chassis_table.table_name == TEMPER_INFO_TABLE_NAME+'_'+str(my_slot)
+
+def test_updater_thermal_check_chassis_table():
+    chassis = MockChassis()
+
+    thermal1 = MockThermal()
+    chassis.get_all_thermals().append(thermal1)
+
+    chassis.set_modular_chassis(True)
+    chassis.set_my_slot(1)
+    temperature_updater = TemperatureUpdater(SYSLOG_IDENTIFIER, chassis)
+
+    temperature_updater.update()
+    assert temperature_updater.chassis_table.get_size() == chassis.get_num_thermals()
+
+    thermal2 = MockThermal()
+    chassis.get_all_thermals().append(thermal2)
+    temperature_updater.update()
+    assert temperature_updater.chassis_table.get_size() == chassis.get_num_thermals()
+
+    temperature_updater.deinit()
+    assert temperature_updater.chassis_table.get_size() == 0
+
+def test_updater_thermal_check_min_max():
+    chassis = MockChassis()
+
+    thermal = MockThermal()
+    chassis.get_all_thermals().append(thermal)
+
+    chassis.set_modular_chassis(True)
+    chassis.set_my_slot(1)
+    temperature_updater = TemperatureUpdater(SYSLOG_IDENTIFIER, chassis)
+
+    temperature_updater.update()
+    slot_dict = temperature_updater.chassis_table.get('Thermal 1')
+    assert slot_dict['minimum_temperature'] == str(thermal.get_minimum_recorded())
+    assert slot_dict['maximum_temperature'] == str(thermal.get_maximum_recorded())
