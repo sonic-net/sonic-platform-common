@@ -10,11 +10,20 @@ setup(
     url='https://github.com/Azure/sonic-platform-daemons',
     maintainer='Kevin Wang',
     maintainer_email='kevinw@mellanox.com',
+    packages=[
+        'tests'
+    ],
     scripts=[
         'scripts/psud',
     ],
     setup_requires= [
+        'pytest-runner',
         'wheel'
+    ],
+    tests_require = [
+        'pytest',
+        'mock>=2.0.0',
+        'pytest-cov'
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
@@ -29,4 +38,5 @@ setup(
         'Topic :: System :: Hardware',
     ],
     keywords='sonic SONiC psu PSU daemon psud PSUD',
+    test_suite='setup.get_test_suite'
 )

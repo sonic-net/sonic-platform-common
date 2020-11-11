@@ -14,10 +14,20 @@ try:
     import sys
     import threading
 
-    from sonic_py_common import daemon_base
-    from swsscommon import swsscommon
+    from sonic_py_common import daemon_base, logger
+
 except ImportError as e:
     raise ImportError (str(e) + " - required module not found")
+
+try:
+    from swsscommon import swsscommon
+except ImportError as e:
+    from tests import mock_swsscommon as swsscommon
+
+try:
+    from sonic_platform_base.device_base import DeviceBase
+except ImportError as e:
+    from tests.mock_device_base import DeviceBase
 
 #
 # Constants ====================================================================
@@ -31,6 +41,12 @@ PLATFORM_SPECIFIC_CLASS_NAME = "PsuUtil"
 CHASSIS_INFO_TABLE = 'CHASSIS_INFO'
 CHASSIS_INFO_KEY_TEMPLATE = 'chassis {}'
 CHASSIS_INFO_PSU_NUM_FIELD = 'psu_num'
+
+CHASSIS_INFO_POWER_CONSUMER_FIELD = 'Consumed Power {}'
+CHASSIS_INFO_POWER_SUPPLIER_FIELD = 'Supplied Power {}'
+CHASSIS_INFO_TOTAL_POWER_CONSUMED_FIELD = 'Total Consumed Power'
+CHASSIS_INFO_TOTAL_POWER_SUPPLIED_FIELD = 'Total Supplied Power'
+CHASSIS_INFO_POWER_KEY_TEMPLATE = 'chassis_power_budget {}'
 
 PSU_INFO_TABLE = 'PSU_INFO'
 PSU_INFO_KEY_TEMPLATE = 'PSU {}'
@@ -133,8 +149,111 @@ def log_on_status_changed(logger, normal_status, normal_log, abnormal_log):
     else:
         logger.log_warning(abnormal_log)
 
-
 #
+# PSU Chassis Info ==========================================================
+#
+class PsuChassisInfo(logger.Logger):
+
+    def __init__(self, log_identifier, chassis):
+        """
+        Constructor for PsuChassisInfo
+        :param chassis: Object representing a platform chassis
+        """
+        super(PsuChassisInfo, self).__init__(log_identifier)
+
+        self.chassis = chassis
+        self.master_status_good = True
+        self.total_consumed_power = 0.0
+        self.total_supplied_power = 0.0
+
+    def run_power_budget(self, chassis_tbl):
+        self.total_supplied_power = 0.0
+        self.total_consumed_power = 0.0
+        total_supplied_power = 0.0
+        total_fan_consumed_power = 0.0
+        total_module_consumed_power = 0.0
+
+        dict_index = 0
+        total_entries_len = 2 #For total supplied and consumed
+        dict_len = self.chassis.get_num_psus() +\
+                   self.chassis.get_num_fan_drawers() +\
+                   self.chassis.get_num_modules() + \
+                   total_entries_len
+
+        fvs = swsscommon.FieldValuePairs(dict_len)
+
+        for index, psu in enumerate(self.chassis.get_all_psus()):
+            presence = try_get(psu.get_presence)
+            if not presence:
+                continue
+
+            power_good = try_get(psu.get_powergood_status)
+            if not power_good:
+                continue
+
+            name = try_get(psu.get_name, 'PSU {}'.format(index + 1))
+            supplied_power = try_get(psu.get_maximum_supplied_power, 0.0)
+            total_supplied_power = total_supplied_power + supplied_power
+            fvs[dict_index] = (CHASSIS_INFO_POWER_SUPPLIER_FIELD.format(name), str(supplied_power))
+            dict_index += 1
+
+        for index, power_consumer in enumerate(self.chassis.get_all_fan_drawers()):
+            presence = try_get(power_consumer.get_presence)
+            if not presence:
+                continue
+
+            name = try_get(power_consumer.get_name, 'FAN-DRAWER {}'.format(index))
+            fan_drawer_power = try_get(power_consumer.get_maximum_consumed_power, 0.0)
+            total_fan_consumed_power = total_fan_consumed_power + fan_drawer_power
+            fvs[dict_index] = (CHASSIS_INFO_POWER_CONSUMER_FIELD.format(name), str(fan_drawer_power))
+            dict_index += 1
+
+        for index, power_consumer in enumerate(self.chassis.get_all_modules()):
+            presence = try_get(power_consumer.get_presence)
+            if not presence:
+                continue
+
+            name = try_get(power_consumer.get_name, 'MODULE {}'.format(index))
+            module_power = try_get(power_consumer.get_maximum_consumed_power, 0.0)
+            total_module_consumed_power = total_module_consumed_power + module_power
+            fvs[dict_index] = (CHASSIS_INFO_POWER_CONSUMER_FIELD.format(name), str(module_power))
+            dict_index += 1
+
+        #Record total supplied and consumed power
+        self.total_supplied_power = total_supplied_power
+        self.total_consumed_power = total_fan_consumed_power + total_module_consumed_power
+
+        #Record in state DB in chassis table
+        fvs[dict_index] = (CHASSIS_INFO_TOTAL_POWER_SUPPLIED_FIELD, str(self.total_supplied_power))
+        fvs[dict_index + 1] = (CHASSIS_INFO_TOTAL_POWER_CONSUMED_FIELD, str(self.total_consumed_power))
+        chassis_tbl.set(CHASSIS_INFO_POWER_KEY_TEMPLATE.format(1), fvs)
+
+    def update_master_status(self):
+        if not self.total_supplied_power or not self.total_consumed_power:
+            if self.master_status_good is not True:
+                self.master_status_good = True
+            return False
+
+        master_status_good = (self.total_consumed_power < self.total_supplied_power)
+        if master_status_good == self.master_status_good:
+            return False
+
+        self.master_status_good = master_status_good
+
+        return True
+
+    def _set_psu_master_led(self, master_status):
+        try:
+            try:
+                from sonic_platform.psu import Psu
+            except ImportError as e:
+                from tests.mock_platform import MockPsu as Psu
+
+            color = DeviceBase.STATUS_LED_COLOR_GREEN if master_status else DeviceBase.STATUS_LED_COLOR_RED
+            Psu.set_status_master_led(color)
+        except NotImplementedError as e:
+            pass
+
 # PSU status ===================================================================
 #
 
@@ -216,6 +335,7 @@ class DaemonPsud(daemon_base.DaemonBase):
         self.stop = threading.Event()
         self.psu_status_dict = {}
         self.fan_tbl = None
+        self.psu_chassis_info = None
 
     # Signal handler
     def signal_handler(self, sig, frame):
@@ -263,6 +383,7 @@ class DaemonPsud(daemon_base.DaemonBase):
         fvs = swsscommon.FieldValuePairs([(CHASSIS_INFO_PSU_NUM_FIELD, str(psu_num))])
         chassis_tbl.set(CHASSIS_INFO_KEY_TEMPLATE.format(1), fvs)
 
+
         # Start main loop
         self.log_info("Start daemon main loop")
 
@@ -271,6 +392,10 @@ class DaemonPsud(daemon_base.DaemonBase):
             self.update_psu_data(psu_tbl)
             self._update_led_color(psu_tbl)
 
+            if platform_chassis is not None and platform_chassis.is_modular_chassis():
+                self.update_psu_chassis_info(chassis_tbl)
+                self.update_master_led_color(chassis_tbl)
+
         self.log_info("Stop daemon main loop")
 
         # Delete all the information from DB and then exit
@@ -278,6 +403,7 @@ class DaemonPsud(daemon_base.DaemonBase):
             psu_tbl._del(PSU_INFO_KEY_TEMPLATE.format(psu_index))
 
         chassis_tbl._del(CHASSIS_INFO_KEY_TEMPLATE.format(1))
+        chassis_tbl._del(CHASSIS_INFO_POWER_KEY_TEMPLATE.format(1))
 
         self.log_info("Shutting down...")
 
@@ -426,6 +552,28 @@ class DaemonPsud(daemon_base.DaemonBase):
                     (FAN_INFO_LED_STATUS_FIELD, NOT_AVAILABLE)
                 ])
             self.fan_tbl.set(fan_name, fvs)
+
+    def update_psu_chassis_info(self, chassis_tbl):
+        if not platform_chassis:
+            return
+
+        if not self.psu_chassis_info:
+            self.psu_chassis_info = PsuChassisInfo(SYSLOG_IDENTIFIER, platform_chassis)
+
+        self.psu_chassis_info.run_power_budget(chassis_tbl)
+
+    def update_master_led_color(self, chassis_tbl):
+        if not platform_chassis or not self.psu_chassis_info:
+            return
+
+        psu_chassis_info = self.psu_chassis_info
+        if psu_chassis_info.update_master_status():
+            log_on_status_changed(self, psu_chassis_info.master_status_good,
+                                  'PSU supplied power warning cleared: supplied power is back to normal.',
+                                  'PSU supplied power warning: {}W supplied-power less than {}W consumed-power'.format(
+                                      psu_chassis_info.total_supplied_power, psu_chassis_info.total_consumed_power)
+                                  )
+            psu_chassis_info._set_psu_master_led(psu_chassis_info.master_status_good)
 
 
 #
