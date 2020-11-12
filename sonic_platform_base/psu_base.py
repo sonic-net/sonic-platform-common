@@ -15,12 +15,6 @@ class PsuBase(device_base.DeviceBase):
     # Device type definition. Note, this is a constant.
     DEVICE_TYPE = "psu"
 
-    # Possible fan status LED colors
-    STATUS_LED_COLOR_GREEN = "green"
-    STATUS_LED_COLOR_AMBER = "amber"
-    STATUS_LED_COLOR_RED = "red"
-    STATUS_LED_COLOR_OFF = "off"
-
     # List of FanBase-derived objects representing all fans
     # available on the PSU
     _fan_list = None
@@ -31,6 +25,9 @@ class PsuBase(device_base.DeviceBase):
     # and get_thermal if vendor does not call PsuBase.__init__ in concrete
     # PSU class
     _thermal_list = []
+
+    # Status of Master LED
+    psu_master_led_color = device_base.DeviceBase.STATUS_LED_COLOR_OFF
 
     def __init__(self):
         self._fan_list = []
@@ -219,3 +216,35 @@ class PsuBase(device_base.DeviceBase):
             e.g. 12.1 
         """
         raise NotImplementedError
+
+    def get_maximum_supplied_power(self):
+        """
+        Retrieves the maximum supplied power by PSU
+
+        Returns:
+            A float number, the maximum power output in Watts.
+            e.g. 1200.1
+        """
+        raise NotImplementedError
+
+    @classmethod
+    def get_status_master_led(cls):
+        """
+        Gets the state of the Master status LED for a given device-type
+
+        Returns:
+            A string, one of the predefined STATUS_LED_COLOR_* strings.
+        """
+        return cls.psu_master_led_color
+
+    @classmethod
+    def set_status_master_led(cls, color):
+        """
+        Gets the state of the Master status LED for a given device-type
+
+        Returns:
+            bool: True if status LED state is set successfully, False if
+                  not
+        """
+        cls.psu_master_led_color = color
+        return True

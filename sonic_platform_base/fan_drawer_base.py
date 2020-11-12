@@ -81,3 +81,13 @@ class FanDrawerBase(device_base.DeviceBase):
             A string, one of the predefined STATUS_LED_COLOR_* strings above
         """
         raise NotImplementedError
+
+    def get_maximum_consumed_power(self):
+        """
+        Retrives the maximum power drawn by Fan Drawer
+
+        Returns:
+            A float, with value of the maximum consumable power of the
+            component.
+        """
+        raise NotImplementedError

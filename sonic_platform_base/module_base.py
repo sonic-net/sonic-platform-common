@@ -186,6 +186,16 @@ class ModuleBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
+    def get_maximum_consumed_power(self):
+        """
+        Retrives the maximum power drawn by this module
+
+        Returns:
+            A float, with value of the maximum consumable power of the
+            module.
+        """
+        raise NotImplementedError
+
     ##############################################
     # Component methods
     ##############################################

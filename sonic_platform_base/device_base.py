@@ -11,6 +11,12 @@ class DeviceBase(object):
     peripheral device
     """
 
+    # Possible status LED colors
+    STATUS_LED_COLOR_GREEN = "green"
+    STATUS_LED_COLOR_AMBER = "amber"
+    STATUS_LED_COLOR_RED = "red"
+    STATUS_LED_COLOR_OFF = "off"
+
     def get_name(self):
         """
         Retrieves the name of the device

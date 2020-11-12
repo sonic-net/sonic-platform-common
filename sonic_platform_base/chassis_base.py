@@ -150,7 +150,7 @@ class ChassisBase(device_base.DeviceBase):
 
         Returns:
             A bool value, should return False by default or for fixed-platforms.
-            Should return True for control-cards, line-cards etc running as part
+            Should return True for supervisor-cards, line-cards etc running as part
             of modular-chassis.
         """
         return False
