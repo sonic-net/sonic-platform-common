@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name = 'sonic-xcvrd',
@@ -10,9 +10,10 @@ setup(
     url = 'https://github.com/Azure/sonic-platform-daemons',
     maintainer = 'Kebo Liu',
     maintainer_email = 'kebol@mellanox.com',
+    packages = find_packages(),
     entry_points = {
         'console_scripts': [
-            'xcvrd = src.xcvrd:main',
+            'xcvrd = xcvrd.xcvrd:main',
         ]
     },
     install_requires = [
