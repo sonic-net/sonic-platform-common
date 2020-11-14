@@ -14,18 +14,16 @@ try:
 
     from sonic_py_common import daemon_base, logger
     from sonic_py_common.task_base import ProcessTaskBase
+
+    # If unit testing is occurring, mock swsscommon and module_base
+    if os.environ["CHASSISD_UNIT_TESTING"] == "1":
+        from tests import mock_swsscommon as swsscommon
+        from tests.mock_module_base import ModuleBase
+    else:
+        from swsscommon import swsscommon
+        from sonic_platform_base.module_base import ModuleBase
 except ImportError as e:
     raise ImportError (str(e) + " - required module not found")
-
-try:
-    from swsscommon import swsscommon
-except ImportError as e:
-    from tests import mock_swsscommon as swsscommon
-
-try:
-    from sonic_platform_base.module_base import ModuleBase
-except ImportError as e:
-    from tests.mock_module_base import ModuleBase
 
 #
 # Constants ====================================================================

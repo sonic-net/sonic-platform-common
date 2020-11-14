@@ -1,5 +1,6 @@
 import os
 import sys
+from imp import load_source
 
 from mock import Mock, MagicMock, patch
 from sonic_py_common import daemon_base
@@ -17,10 +18,7 @@ modules_path = os.path.dirname(test_path)
 scripts_path = os.path.join(modules_path, "scripts")
 sys.path.insert(0, modules_path)
 
-from imp import load_source
 
-load_source('chassisd', scripts_path + '/chassisd')
-from chassisd import *
 
 CHASSIS_MODULE_INFO_NAME_FIELD = 'name'
 CHASSIS_MODULE_INFO_DESC_FIELD = 'desc'
@@ -31,6 +29,11 @@ CHASSIS_INFO_KEY_TEMPLATE = 'CHASSIS {}'
 CHASSIS_INFO_CARD_NUM_FIELD = 'module_num'
 
 def setup_function():
+    os.environ["CHASSISD_UNIT_TESTING"] = "1"
+
+    load_source('chassisd', scripts_path + '/chassisd')
+    from chassisd import *
+
     ModuleUpdater.log_notice = MagicMock()
     ModuleUpdater.log_warning = MagicMock()
 
@@ -38,6 +41,7 @@ def setup_function():
 def teardown_function():
     ModuleUpdater.log_notice.reset()
     ModuleUpdater.log_warning.reset()
+    os.environ["CHASSISD_UNIT_TESTING"] = "0"
 
 
 def test_moduleupdater_check_valid_fields():
