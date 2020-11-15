@@ -17,15 +17,14 @@ modules_path = os.path.dirname(test_path)
 scripts_path = os.path.join(modules_path, "scripts")
 sys.path.insert(0, modules_path)
 
+os.environ["THERMALCTLD_UNIT_TESTING"] = "1"
+load_source('thermalctld', scripts_path + '/thermalctld')
+from thermalctld import *
+
 
 TEMPER_INFO_TABLE_NAME = 'TEMPERATURE_INFO'
 
 def setup_function():
-    os.environ["THERMALCTLD_UNIT_TESTING"] = "1"
-
-    load_source('thermalctld', scripts_path + '/thermalctld')
-    from thermalctld import *
-
     FanStatus.log_notice = MagicMock()
     FanStatus.log_warning = MagicMock()
     FanUpdater.log_notice = MagicMock()
@@ -45,7 +44,6 @@ def teardown_function():
     TemperatureStatus.log_warning.reset()
     TemperatureUpdater.log_warning.reset()
     TemperatureUpdater.log_warning.reset()
-    os.environ["THERMALCTLD_UNIT_TESTING"] = "0"
 
 
 def test_fanstatus_set_presence():
