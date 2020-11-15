@@ -1,5 +1,6 @@
 import os
 import sys
+from imp import load_source
 
 from mock import Mock, MagicMock, patch
 from sonic_py_common import daemon_base
@@ -17,8 +18,7 @@ modules_path = os.path.dirname(test_path)
 scripts_path = os.path.join(modules_path, "scripts")
 sys.path.insert(0, modules_path)
 
-from imp import load_source
-
+os.environ["PSUD_UNIT_TESTING"] = "1"
 load_source('psud', scripts_path + '/psud')
 from psud import *
 
