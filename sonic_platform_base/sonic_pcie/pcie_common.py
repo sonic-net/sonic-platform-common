@@ -98,6 +98,42 @@ class PcieUtil(PcieBase):
                 item_conf["result"] = "Failed"
         return self.confInfo
 
+    # return AER stats of PCIe device
+    def get_pcie_aer_stats(self, domain=0, bus=0, device=0, func=0):
+        aer_stats = dict.fromkeys(['correctable', 'fatal', 'non_fatal'], {})
+        dev_path = os.path.join('/sys/bus/pci/devices', '%04x:%02x:%02x.%d' % (domain, bus, device, func))
+
+        # construct AER sysfs filepath
+        correctable_path = os.path.join(dev_path, "aer_dev_correctable")
+        fatal_path = os.path.join(dev_path, "aer_dev_fatal")
+        non_fatal_path = os.path.join(dev_path, "aer_dev_nonfatal")
+
+        # update AER-correctable fields
+        if os.path.isfile(correctable_path):
+            with open(correctable_path, 'r') as fh:
+                lines = fh.readlines()
+            for line in lines:
+                correctable_field, value = line.split()
+                aer_stats['correctable'][correctable_field] = value
+
+        # update AER-Fatal fields
+        if os.path.isfile(fatal_path):
+            with open(fatal_path, 'r') as fh:
+                lines = fh.readlines()
+            for line in lines:
+                fatal_field, value = line.split()
+                aer_stats['fatal'][fatal_field] = value
+
+        # update AER-Non Fatal fields
+        if os.path.isfile(non_fatal_path):
+            with open(non_fatal_path, 'r') as fh:
+                lines = fh.readlines()
+            for line in lines:
+                non_fatal_field, value = line.split()
+                aer_stats['non_fatal'][non_fatal_field] = value
+
+        return aer_stats
+
     # generate the config file with current pci device
     def dump_conf_yaml(self):
         curInfo = self.get_pcie_device()
