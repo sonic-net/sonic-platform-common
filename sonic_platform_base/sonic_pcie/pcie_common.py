@@ -100,7 +100,7 @@ class PcieUtil(PcieBase):
 
     # return AER stats of PCIe device
     def get_pcie_aer_stats(self, domain=0, bus=0, device=0, func=0):
-        aer_stats = dict.fromkeys(['correctable', 'fatal', 'non_fatal'], {})
+        aer_stats = {'correctable': {}, 'fatal': {}, 'non_fatal': {}}
         dev_path = os.path.join('/sys/bus/pci/devices', '%04x:%02x:%02x.%d' % (domain, bus, device, func))
 
         # construct AER sysfs filepath
