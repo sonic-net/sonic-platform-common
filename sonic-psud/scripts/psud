@@ -38,7 +38,7 @@ PLATFORM_SPECIFIC_MODULE_NAME = "psuutil"
 PLATFORM_SPECIFIC_CLASS_NAME = "PsuUtil"
 
 CHASSIS_INFO_TABLE = 'CHASSIS_INFO'
-CHASSIS_INFO_KEY_TEMPLATE = 'chassis {}'
+CHASSIS_INFO_KEY = 'chassis 1'
 CHASSIS_INFO_PSU_NUM_FIELD = 'psu_num'
 
 CHASSIS_INFO_POWER_CONSUMER_FIELD = 'Consumed Power {}'
@@ -50,12 +50,19 @@ CHASSIS_INFO_POWER_KEY_TEMPLATE = 'chassis_power_budget {}'
 PSU_INFO_TABLE = 'PSU_INFO'
 PSU_INFO_KEY_TEMPLATE = 'PSU {}'
 PSU_INFO_PRESENCE_FIELD = 'presence'
+PSU_INFO_MODEL_FIELD = 'model'
+PSU_INFO_SERIAL_FIELD = 'serial'
 PSU_INFO_STATUS_FIELD = 'status'
 PSU_INFO_TEMP_FIELD = 'temp'
 PSU_INFO_TEMP_TH_FIELD = 'temp_threshold'
 PSU_INFO_VOLTAGE_FIELD = 'voltage'
 PSU_INFO_VOLTAGE_MAX_TH_FIELD = 'voltage_max_threshold'
 PSU_INFO_VOLTAGE_MIN_TH_FIELD = 'voltage_min_threshold'
+PSU_INFO_CURRENT_FIELD = 'current'
+PSU_INFO_POWER_FIELD = 'power'
+PSU_INFO_FRU_FIELD = 'is_replaceable'
+
+PHYSICAL_ENTITY_INFO_TABLE = 'PHYSICAL_ENTITY_INFO'
 
 FAN_INFO_TABLE = 'FAN_INFO'
 FAN_INFO_PRESENCE_FIELD = 'presence'
@@ -108,13 +115,17 @@ def _wrapper_get_psus_status(psu_index):
 # Helper functions =============================================================
 #
 
+def get_psu_key(psu_index):
+    return PSU_INFO_KEY_TEMPLATE.format(psu_index)
+
+
 def psu_db_update(psu_tbl, psu_num):
     for psu_index in range(1, psu_num + 1):
         fvs = swsscommon.FieldValuePairs([(PSU_INFO_PRESENCE_FIELD,
                                            'true' if _wrapper_get_psus_presence(psu_index) else 'false'),
                                           (PSU_INFO_STATUS_FIELD,
                                            'true' if _wrapper_get_psus_status(psu_index) else 'false')])
-        psu_tbl.set(PSU_INFO_KEY_TEMPLATE.format(psu_index), fvs)
+        psu_tbl.set(get_psu_key(psu_index), fvs)
 
 
 # try get information from platform API and return a default value if caught NotImplementedError
@@ -138,6 +149,7 @@ def try_get(callback, default=None):
 def log_on_status_changed(logger, normal_status, normal_log, abnormal_log):
     """
     Log when any status changed
+    :param logger: Logger object.
     :param normal_status: Expected status.
     :param normal_log: Log string for expected status.
     :param abnormal_log: Log string for unexpected status
@@ -255,9 +267,9 @@ class PsuChassisInfo(logger.Logger):
 
 # PSU status ===================================================================
 #
-
 class PsuStatus(object):
     def __init__(self, logger, psu):
+
         self.psu = psu
         self.presence = True
         self.power_good = True
@@ -376,17 +388,19 @@ class DaemonPsud(daemon_base.DaemonBase):
         chassis_tbl = swsscommon.Table(state_db, CHASSIS_INFO_TABLE)
         psu_tbl = swsscommon.Table(state_db, PSU_INFO_TABLE)
         self.fan_tbl = swsscommon.Table(state_db, FAN_INFO_TABLE)
+        self.phy_entity_tbl = swsscommon.Table(state_db, PHYSICAL_ENTITY_INFO_TABLE)
 
         # Post psu number info to STATE_DB
         psu_num = _wrapper_get_num_psus()
         fvs = swsscommon.FieldValuePairs([(CHASSIS_INFO_PSU_NUM_FIELD, str(psu_num))])
-        chassis_tbl.set(CHASSIS_INFO_KEY_TEMPLATE.format(1), fvs)
+        chassis_tbl.set(CHASSIS_INFO_KEY, fvs)
 
 
         # Start main loop
         self.log_info("Start daemon main loop")
 
         while not self.stop.wait(PSU_INFO_UPDATE_PERIOD_SECS):
+            self._update_psu_entity_info()
             psu_db_update(psu_tbl, psu_num)
             self.update_psu_data(psu_tbl)
             self._update_led_color(psu_tbl)
@@ -399,9 +413,9 @@ class DaemonPsud(daemon_base.DaemonBase):
 
         # Delete all the information from DB and then exit
         for psu_index in range(1, psu_num + 1):
-            psu_tbl._del(PSU_INFO_KEY_TEMPLATE.format(psu_index))
+            psu_tbl._del(get_psu_key(psu_index))
 
-        chassis_tbl._del(CHASSIS_INFO_KEY_TEMPLATE.format(1))
+        chassis_tbl._del(CHASSIS_INFO_KEY)
         chassis_tbl._del(CHASSIS_INFO_POWER_KEY_TEMPLATE.format(1))
 
         self.log_info("Shutting down...")
@@ -417,9 +431,7 @@ class DaemonPsud(daemon_base.DaemonBase):
                 self.log_warning("Failed to update PSU data - {}".format(e))
     
     def _update_single_psu_data(self, index, psu, psu_tbl):
-        name = try_get(psu.get_name)
-        if not name:
-            name = PSU_INFO_KEY_TEMPLATE.format(index)
+        name = get_psu_key(index)
         presence = _wrapper_get_psus_presence(index)
         power_good = False
         voltage = None
@@ -427,6 +439,9 @@ class DaemonPsud(daemon_base.DaemonBase):
         voltage_low_threshold = None
         temperature = None
         temperature_threshold = None
+        current = None
+        power = None
+        is_replaceable = try_get(psu.is_replaceable, False)
         if presence:
             power_good = _wrapper_get_psus_status(index)
             voltage = try_get(psu.get_voltage)
@@ -434,6 +449,8 @@ class DaemonPsud(daemon_base.DaemonBase):
             voltage_low_threshold = try_get(psu.get_voltage_low_threshold)
             temperature = try_get(psu.get_temperature)
             temperature_threshold = try_get(psu.get_temperature_high_threshold)
+            current = try_get(psu.get_current)
+            power = try_get(psu.get_power)
 
         if index not in self.psu_status_dict:
             self.psu_status_dict[index] = PsuStatus(self, psu)
@@ -480,22 +497,44 @@ class DaemonPsud(daemon_base.DaemonBase):
             self._set_psu_led(psu, psu_status)
 
         fvs = swsscommon.FieldValuePairs(
-            [(PSU_INFO_TEMP_FIELD, str(temperature)),
+            [(PSU_INFO_MODEL_FIELD, str(try_get(psu.get_model))),
+             (PSU_INFO_SERIAL_FIELD, str(try_get(psu.get_serial))),
+             (PSU_INFO_TEMP_FIELD, str(temperature)),
              (PSU_INFO_TEMP_TH_FIELD, str(temperature_threshold)),
              (PSU_INFO_VOLTAGE_FIELD, str(voltage)),
              (PSU_INFO_VOLTAGE_MIN_TH_FIELD, str(voltage_low_threshold)),
              (PSU_INFO_VOLTAGE_MAX_TH_FIELD, str(voltage_high_threshold)),
+             (PSU_INFO_CURRENT_FIELD, str(current)),
+             (PSU_INFO_POWER_FIELD, str(power)),
+             (PSU_INFO_FRU_FIELD, str(is_replaceable)),
              ])
-        psu_tbl.set(PSU_INFO_KEY_TEMPLATE.format(index), fvs)
+        psu_tbl.set(name, fvs)
+
+    def _update_psu_entity_info(self):
+        if not platform_chassis:
+            return
+
+        for index, psu in enumerate(platform_chassis.get_all_psus()):
+            try:
+                self._update_single_psu_entity_info(index + 1, psu)
+            except Exception as e:
+                self.log_warning("Failed to update PSU data - {}".format(e))
+
+    def _update_single_psu_entity_info(self, psu_index, psu):
+        position = try_get(psu.get_position_in_parent, psu_index)
+        fvs = swsscommon.FieldValuePairs(
+            [('position_in_parent', str(position)),
+             ('parent_name', CHASSIS_INFO_KEY),
+             ])
+        self.phy_entity_tbl.set(get_psu_key(psu_index), fvs)
 
     def _update_psu_fan_data(self, psu, psu_index):
         """
-
         :param psu:
         :param psu_index:
         :return:
         """
-        psu_name = try_get(psu.get_name, 'PSU {}'.format(psu_index))
+        psu_name = get_psu_key(psu_index)
         presence = _wrapper_get_psus_presence(psu_index)
         fan_list = psu.get_all_fans()
         for index, fan in enumerate(fan_list):
@@ -533,11 +572,11 @@ class DaemonPsud(daemon_base.DaemonBase):
                 fvs = swsscommon.FieldValuePairs([
                     ('led_status', NOT_AVAILABLE)
                 ])
-            psu_tbl.set(PSU_INFO_KEY_TEMPLATE.format(index), fvs)
+            psu_tbl.set(get_psu_key(index), fvs)
             self._update_psu_fan_led_status(psu_status.psu, index)
 
     def _update_psu_fan_led_status(self, psu, psu_index):
-        psu_name = try_get(psu.get_name, 'PSU {}'.format(psu_index))
+        psu_name = get_psu_key(psu_index)
         fan_list = psu.get_all_fans()
         for index, fan in enumerate(fan_list):
             fan_name = try_get(fan.get_name, '{} FAN {}'.format(psu_name, index + 1))

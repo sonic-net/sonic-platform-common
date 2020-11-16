@@ -17,6 +17,15 @@ class MockDevice:
     def get_serial(self):
         return self.serial
 
+    def get_position_in_parent(self):
+        return 1
+
+    def is_replaceable(self):
+        return True
+
+    def get_status(self):
+        return True
+
 
 class MockFan(MockDevice):
     STATUS_LED_COLOR_RED = 'red'
@@ -75,6 +84,7 @@ class MockErrorFan(MockFan):
 
 class MockPsu(MockDevice):
     def __init__(self):
+        MockDevice.__init__(self)
         self.fan_list = []
 
     def get_all_fans(self):
@@ -82,8 +92,9 @@ class MockPsu(MockDevice):
 
 
 class MockFanDrawer(MockDevice):
-    def __init__(self):
-        self.name = 'FanDrawer'
+    def __init__(self, index):
+        MockDevice.__init__(self)
+        self.name = 'FanDrawer {}'.format(index)
         self.fan_list = []
         self.led_status = 'red'
 
@@ -100,8 +111,9 @@ class MockFanDrawer(MockDevice):
         self.led_status = value
 
 
-class MockThermal:
+class MockThermal(MockDevice):
     def __init__(self):
+        MockDevice.__init__(self)
         self.name = None
         self.temperature = 2
         self.minimum_temperature = 1
@@ -162,6 +174,7 @@ class MockChassis:
         self.psu_list = []
         self.thermal_list = []
         self.fan_drawer_list = []
+        self.sfp_list = []
         self.is_chassis_system = False
 
     def get_all_fans(self):
@@ -176,13 +189,16 @@ class MockChassis:
     def get_all_fan_drawers(self):
         return self.fan_drawer_list
 
+    def get_all_sfps(self):
+        return self.sfp_list
+
     def get_num_thermals(self):
         return len(self.thermal_list)
 
     def make_absence_fan(self):
         fan = MockFan()
         fan.presence = False
-        fan_drawer = MockFanDrawer()
+        fan_drawer = MockFanDrawer(len(self.fan_drawer_list))
         fan_drawer.fan_list.append(fan)
         self.fan_list.append(fan)
         self.fan_drawer_list.append(fan_drawer)
@@ -190,7 +206,7 @@ class MockChassis:
     def make_fault_fan(self):
         fan = MockFan()
         fan.status = False
-        fan_drawer = MockFanDrawer()
+        fan_drawer = MockFanDrawer(len(self.fan_drawer_list))
         fan_drawer.fan_list.append(fan)
         self.fan_list.append(fan)
         self.fan_drawer_list.append(fan_drawer)
@@ -198,7 +214,7 @@ class MockChassis:
     def make_under_speed_fan(self):
         fan = MockFan()
         fan.make_under_speed()
-        fan_drawer = MockFanDrawer()
+        fan_drawer = MockFanDrawer(len(self.fan_drawer_list))
         fan_drawer.fan_list.append(fan)
         self.fan_list.append(fan)
         self.fan_drawer_list.append(fan_drawer)
@@ -206,14 +222,14 @@ class MockChassis:
     def make_over_speed_fan(self):
         fan = MockFan()
         fan.make_over_speed()
-        fan_drawer = MockFanDrawer()
+        fan_drawer = MockFanDrawer(len(self.fan_drawer_list))
         fan_drawer.fan_list.append(fan)
         self.fan_list.append(fan)
         self.fan_drawer_list.append(fan_drawer)
 
     def make_error_fan(self):
         fan = MockErrorFan()
-        fan_drawer = MockFanDrawer()
+        fan_drawer = MockFanDrawer(len(self.fan_drawer_list))
         fan_drawer.fan_list.append(fan)
         self.fan_list.append(fan)
         self.fan_drawer_list.append(fan_drawer)

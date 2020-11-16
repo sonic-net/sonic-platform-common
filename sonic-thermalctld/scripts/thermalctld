@@ -26,6 +26,8 @@ except ImportError as e:
 
 SYSLOG_IDENTIFIER = 'thermalctld'
 NOT_AVAILABLE = 'N/A'
+CHASSIS_INFO_KEY = 'chassis 1'
+PHYSICAL_ENTITY_INFO_TABLE = 'PHYSICAL_ENTITY_INFO'
 INVALID_SLOT = -1
 
 # utility functions
@@ -46,6 +48,13 @@ def try_get(callback, default=NOT_AVAILABLE):
         ret = default
 
     return ret
+
+
+def update_entity_info(table, parent_name, key, device, device_index):
+    fvs = swsscommon.FieldValuePairs(
+        [('position_in_parent', str(try_get(device.get_position_in_parent, device_index))),
+         ('parent_name', parent_name)])
+    table.set(key, fvs)
 
 
 class FanStatus(logger.Logger):
@@ -175,6 +184,7 @@ class FanStatus(logger.Logger):
 class FanUpdater(logger.Logger):
     # Fan information table name in database
     FAN_INFO_TABLE_NAME = 'FAN_INFO'
+    FAN_DRAWER_INFO_TABLE_NAME = 'FAN_DRAWER_INFO'
 
     def __init__(self, log_identifier, chassis):
         """
@@ -187,6 +197,8 @@ class FanUpdater(logger.Logger):
         self.fan_status_dict = {}
         state_db = daemon_base.db_connect("STATE_DB")
         self.table = swsscommon.Table(state_db, FanUpdater.FAN_INFO_TABLE_NAME)
+        self.drawer_table = swsscommon.Table(state_db, FanUpdater.FAN_DRAWER_INFO_TABLE_NAME)
+        self.phy_entity_table = swsscommon.Table(state_db, PHYSICAL_ENTITY_INFO_TABLE)
 
     def deinit(self):
         """
@@ -218,20 +230,18 @@ class FanUpdater(logger.Logger):
         old_bad_fan_count = FanStatus.get_bad_fan_count()
         FanStatus.reset_fan_counter()
 
-        fan_index = 0
-        for drawer in self.chassis.get_all_fan_drawers():
-            for fan in drawer.get_all_fans():
+        for drawer_index, drawer in enumerate(self.chassis.get_all_fan_drawers()):
+            self._refresh_fan_drawer_status(drawer, drawer_index)
+            for fan_index, fan in enumerate(drawer.get_all_fans()):
                 try:
-                    self._refresh_fan_status(drawer, fan, fan_index)
+                    self._refresh_fan_status(drawer, drawer_index, fan, fan_index)
                 except Exception as e:
                     self.log_warning('Failed to update FAN status - {}'.format(repr(e)))
-                fan_index += 1
 
         for psu_index, psu in enumerate(self.chassis.get_all_psus()):
-            psu_name = try_get(psu.get_name, 'PSU {}'.format(psu_index))
             for fan_index, fan in enumerate(psu.get_all_fans()):
                 try:
-                    self._refresh_fan_status(None, fan, fan_index, '{} FAN'.format(psu_name), True)
+                    self._refresh_fan_status(psu, psu_index, fan, fan_index, True)
                 except Exception as e:
                     self.log_warning('Failed to update PSU FAN status - {}'.format(repr(e)))
 
@@ -247,17 +257,40 @@ class FanUpdater(logger.Logger):
 
         self.log_debug("End fan updating")
 
-    def _refresh_fan_status(self, fan_drawer, fan, index, name_prefix='FAN', is_psu_fan=False):
+    def _refresh_fan_drawer_status(self, fan_drawer, drawer_index):
+        drawer_name = try_get(fan_drawer.get_name)
+        if drawer_name == NOT_AVAILABLE:
+            return
+
+        update_entity_info(self.phy_entity_table, CHASSIS_INFO_KEY, drawer_name, fan_drawer, drawer_index)
+
+        fvs = swsscommon.FieldValuePairs(
+            [('presence', str(try_get(fan_drawer.get_presence, False))),
+             ('model', str(try_get(fan_drawer.get_model))),
+             ('serial', str(try_get(fan_drawer.get_serial))),
+             ('status', str(try_get(fan_drawer.get_status))),
+             ('is_replaceable', str(try_get(fan_drawer.is_replaceable, False))),
+             ])
+
+        self.drawer_table.set(drawer_name, fvs)
+
+    def _refresh_fan_status(self, parent, parent_index, fan, fan_index, is_psu_fan=False):
         """
         Get Fan status by platform API and write to database for a given Fan
-        :param fan_drawer: Object representing a platform Fan drawer
+        :param parent: Parent device of this fan
+        :param parent_index: Parent device index
         :param fan: Object representing a platform Fan
-        :param index: Index of the Fan object in the platform
+        :param fan_index: Index of the Fan object in its parent device
         :param name_prefix: name prefix of Fan object if Fan.get_name not presented
         :return:
         """
-        drawer_name = NOT_AVAILABLE if is_psu_fan else str(try_get(fan_drawer.get_name))
-        fan_name = try_get(fan.get_name, '{} {}'.format(name_prefix, index + 1))
+        drawer_name = NOT_AVAILABLE if is_psu_fan else str(try_get(parent.get_name))
+        if is_psu_fan:
+            parent_name = 'PSU {}'.format(parent_index + 1)
+        else:
+            parent_name = drawer_name if drawer_name != NOT_AVAILABLE else CHASSIS_INFO_KEY
+        fan_name = try_get(fan.get_name, '{} FAN {}'.format(parent_name, fan_index + 1))
+        update_entity_info(self.phy_entity_table, parent_name, fan_name, fan, fan_index + 1)
         if fan_name not in self.fan_status_dict:
             self.fan_status_dict[fan_name] = FanStatus(SYSLOG_IDENTIFIER, fan, is_psu_fan)
 
@@ -268,6 +301,7 @@ class FanUpdater(logger.Logger):
         speed_target = NOT_AVAILABLE
         fan_fault_status = NOT_AVAILABLE
         fan_direction = NOT_AVAILABLE
+        is_replaceable = try_get(fan.is_replaceable, False)
         presence = try_get(fan.get_presence, False)
         if presence:
             speed = try_get(fan.get_speed)
@@ -313,7 +347,7 @@ class FanUpdater(logger.Logger):
         # We don't set PSU led here, PSU led will be handled in psud
         if set_led:
             if not is_psu_fan:
-                self._set_fan_led(fan_drawer, fan, fan_name, fan_status)
+                self._set_fan_led(parent, fan, fan_name, fan_status)
 
         if fan_fault_status != NOT_AVAILABLE:
             fan_fault_status = fan_status.is_ok()
@@ -328,6 +362,7 @@ class FanUpdater(logger.Logger):
              ('speed', str(speed)),
              ('speed_tolerance', str(speed_tolerance)),
              ('speed_target', str(speed_target)),
+             ('is_replaceable', str(is_replaceable)),
              ('timestamp', datetime.now().strftime('%Y%m%d %H:%M:%S'))
              ])
 
@@ -366,6 +401,21 @@ class FanUpdater(logger.Logger):
                     ('led_status', NOT_AVAILABLE)
                 ])
             self.table.set(fan_name, fvs)
+
+        for drawer in self.chassis.get_all_fan_drawers():
+            drawer_name = try_get(drawer.get_name)
+            if drawer_name == NOT_AVAILABLE:
+                continue
+            try:
+                fvs = swsscommon.FieldValuePairs([
+                    ('led_status', str(try_get(drawer.get_status_led)))
+                ])
+            except Exception as e:
+                self.log_warning('Failed to get led status for fan drawer')
+                fvs = swsscommon.FieldValuePairs([
+                    ('led_status', NOT_AVAILABLE)
+                ])
+            self.drawer_table.set(drawer_name, fvs)
 
 
 class TemperatureStatus(logger.Logger):
@@ -466,6 +516,7 @@ class TemperatureUpdater(logger.Logger):
         self.temperature_status_dict = {}
         state_db = daemon_base.db_connect("STATE_DB")
         self.table = swsscommon.Table(state_db, TemperatureUpdater.TEMPER_INFO_TABLE_NAME)
+        self.phy_entity_table = swsscommon.Table(state_db, PHYSICAL_ENTITY_INFO_TABLE)
         self.chassis_table = None
 
         self.is_chassis_system = chassis.is_modular_chassis()
@@ -507,20 +558,45 @@ class TemperatureUpdater(logger.Logger):
         self.log_debug("Start temperature updating") 
         for index, thermal in enumerate(self.chassis.get_all_thermals()):
             try:
-                self._refresh_temperature_status(thermal, index)
+                self._refresh_temperature_status(CHASSIS_INFO_KEY, thermal, index)
             except Exception as e:
                 self.log_warning('Failed to update thermal status - {}'.format(repr(e)))
 
+        for psu_index, psu in enumerate(self.chassis.get_all_psus()):
+            parent_name = 'PSU {}'.format(psu_index + 1)
+            for thermal_index, thermal in enumerate(psu.get_all_thermals()):
+                try:
+                    self._refresh_temperature_status(parent_name, thermal, thermal_index)
+                except Exception as e:
+                    self.log_warning('Failed to update thermal status - {}'.format(e))
+
+        for sfp_index, sfp in enumerate(self.chassis.get_all_sfps()):
+            parent_name = 'SFP {}'.format(sfp_index + 1)
+            for thermal_index, thermal in enumerate(sfp.get_all_thermals()):
+                try:
+                    self._refresh_temperature_status(parent_name, thermal, thermal_index)
+                except Exception as e:
+                    self.log_warning('Failed to update thermal status - {}'.format(e))
+
         self.log_debug("End temperature updating")
 
-    def _refresh_temperature_status(self, thermal, index):
+    def _refresh_temperature_status(self, parent_name, thermal, thermal_index):
         """
         Get temperature status by platform API and write to database
+        :param parent_name: Name of parent device of the thermal object
         :param thermal: Object representing a platform thermal zone
-        :param index: Index of the thermal object in platform chassis
+        :param thermal_index: Index of the thermal object in platform chassis
         :return:
         """
-        name = try_get(thermal.get_name, 'Thermal {}'.format(index + 1))
+        name = try_get(thermal.get_name, '{} Thermal {}'.format(parent_name, thermal_index + 1))
+
+        # Only save entity info for thermals that belong to chassis and PSU
+        # for SFP thermal, they don't need save entity info because snmp can deduce the relation from TRANSCEIVER_DOM_SENSOR
+        # and as we save logical port in TRANSCEIVER_INFO table, for split cable, a SFP thermal might have multiple parent
+        # logical port
+        if 'SFP' not in parent_name:
+            update_entity_info(self.phy_entity_table, parent_name, name, thermal, thermal_index + 1)
+
         if name not in self.temperature_status_dict:
             self.temperature_status_dict[name] = TemperatureStatus(SYSLOG_IDENTIFIER)
 
@@ -533,6 +609,7 @@ class TemperatureUpdater(logger.Logger):
         maximum_temperature = NOT_AVAILABLE
         minimum_temperature = NOT_AVAILABLE
         temperature = try_get(thermal.get_temperature)
+        is_replaceable = try_get(thermal.is_replaceable, False)
         if temperature != NOT_AVAILABLE:
             temperature_status.set_temperature(name, temperature)
             minimum_temperature = try_get(thermal.get_minimum_recorded)
@@ -570,6 +647,7 @@ class TemperatureUpdater(logger.Logger):
              ('warning_status', str(warning)),
              ('critical_high_threshold', str(high_critical_threshold)),
              ('critical_low_threshold', str(low_critical_threshold)),
+             ('is_replaceable', str(is_replaceable)),
              ('timestamp', datetime.now().strftime('%Y%m%d %H:%M:%S'))
              ])
 

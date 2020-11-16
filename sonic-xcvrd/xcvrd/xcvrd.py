@@ -144,6 +144,14 @@ def _wrapper_get_presence(physical_port):
             pass
     return platform_sfputil.get_presence(physical_port)
 
+def _wrapper_is_replaceable(physical_port):
+    if platform_chassis is not None:
+        try:
+            return platform_chassis.get_sfp(physical_port).is_replaceable()
+        except NotImplementedError:
+            pass
+    return False
+
 def _wrapper_get_transceiver_info(physical_port):
     if platform_chassis is not None:
         try:
@@ -256,6 +264,7 @@ def post_port_sfp_info_to_db(logical_port_name, table, transceiver_dict,
         try:
             port_info_dict = _wrapper_get_transceiver_info(physical_port)
             if port_info_dict is not None:
+                is_replaceable = _wrapper_is_replaceable(physical_port)
                 transceiver_dict[physical_port]=port_info_dict
                 fvs = swsscommon.FieldValuePairs([('type', port_info_dict['type']),
                                                   ('hardware_rev', port_info_dict['hardware_rev']),
@@ -272,7 +281,9 @@ def post_port_sfp_info_to_db(logical_port_name, table, transceiver_dict,
                                                   ('cable_length',port_info_dict['cable_length']),
                                                   ('specification_compliance',port_info_dict['specification_compliance']),
                                                   ('nominal_bit_rate',port_info_dict['nominal_bit_rate']),
-                                                  ('application_advertisement',port_info_dict['application_advertisement'] if 'application_advertisement' in port_info_dict else 'N/A')])
+                                                  ('application_advertisement',port_info_dict['application_advertisement'] if 'application_advertisement' in port_info_dict else 'N/A'),
+                                                  ('is_replaceable',str(is_replaceable)),
+                                                  ])
                 table.set(port_name, fvs)
             else:
                 return SFP_EEPROM_NOT_READY
