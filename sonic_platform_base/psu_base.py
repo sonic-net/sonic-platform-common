@@ -27,7 +27,7 @@ class PsuBase(device_base.DeviceBase):
     _thermal_list = []
 
     # Status of Master LED
-    psu_master_led_color = device_base.DeviceBase.STATUS_LED_COLOR_OFF
+    psu_master_led_color = None
 
     def __init__(self):
         self._fan_list = []
@@ -35,6 +35,8 @@ class PsuBase(device_base.DeviceBase):
         # List of ThermalBase-derived objects representing all thermals
         # available on the PSU
         self._thermal_list = []
+
+        self.psu_master_led_color = self.STATUS_LED_COLOR_OFF
 
     def get_num_fans(self):
         """
