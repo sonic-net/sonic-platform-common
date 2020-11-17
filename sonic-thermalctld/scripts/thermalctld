@@ -16,7 +16,7 @@ try:
     from sonic_py_common.task_base import ProcessTaskBase
 
     # If unit testing is occurring, mock swsscommon
-    if os.environ["THERMALCTLD_UNIT_TESTING"] == "1":
+    if os.getenv("THERMALCTLD_UNIT_TESTING") == "1":
         from tests import mock_swsscommon as swsscommon
     else:
         from swsscommon import swsscommon

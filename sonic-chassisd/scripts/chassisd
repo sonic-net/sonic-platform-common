@@ -17,7 +17,7 @@ try:
     from sonic_py_common.task_base import ProcessTaskBase
 
     # If unit testing is occurring, mock swsscommon and module_base
-    if os.environ["CHASSISD_UNIT_TESTING"] == "1":
+    if os.getenv("CHASSISD_UNIT_TESTING") == "1":
         from tests import mock_swsscommon as swsscommon
         from tests.mock_module_base import ModuleBase
     else:

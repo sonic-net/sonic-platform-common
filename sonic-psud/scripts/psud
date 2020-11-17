@@ -18,7 +18,7 @@ try:
     from sonic_py_common import daemon_base, logger
 
     # If unit testing is occurring, mock swsscommon and module_base
-    if os.environ["PSUD_UNIT_TESTING"] == "1":
+    if os.getenv("PSUD_UNIT_TESTING") == "1":
         from tests import mock_swsscommon as swsscommon
         from tests.mock_device_base import DeviceBase
     else:
