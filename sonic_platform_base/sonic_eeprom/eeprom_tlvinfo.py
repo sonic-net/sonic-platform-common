@@ -145,7 +145,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
         not command line arguments are supplied, the user is prompted for the contents
         of the EEPROM.
         '''
-        new_tlvs = ""
+        new_tlvs = bytearray()
         (crc_is_valid, crc) = self.is_checksum_valid(e)
         if crc_is_valid:
             if self._TLV_HDR_ENABLED:
