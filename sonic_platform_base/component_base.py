@@ -117,12 +117,14 @@ class ComponentBase(object):
         Args:
             image_path: A string, path to firmware image
             boot_action: A string, boot action following the upgrade
+                         - none/fast/warm/cold
 
         Returns:
             Output: A string, status and info
                 status: True or False, firmware auto-update status
                 info: The detail information of the firmware auto-update status.
-                    "updated"/"installed"(which needs a reboot for the firmware to be active)/"scheduled"
+                      - "updated"/"installed"(which needs a reboot for the firmware to be active)/"scheduled"
+                      - "ns_boot_type/image_error/exec_fail"
 
         Raises:
             RuntimeError: auto-update failure cause
