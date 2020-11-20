@@ -7,7 +7,6 @@ from __future__ import print_function
 
 try:
     import abc
-    import binascii
     import os
     import re
     import sys
@@ -18,7 +17,6 @@ try:
     from sonic_py_common import device_info
     from sonic_py_common.interface import backplane_prefix
 
-    from . import bcmshell       # Dot module supports both Python 2 and Python 3 using explicit relative import methods
     from sonic_eeprom import eeprom_dts
     from .sff8472 import sff8472InterfaceId  # Dot module supports both Python 2 and Python 3 using explicit relative import methods
     from .sff8472 import sff8472Dom    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
@@ -283,7 +281,7 @@ class SfpUtilBase(object):
                     sysfsfile.read(1)
             except IOError:
                 return False
-            except:
+            except Exception:
                 return False
             else:
                 return True
@@ -342,7 +340,7 @@ class SfpUtilBase(object):
         try:
             for n in range(0, num_bytes):
                 eeprom_raw[n] = hex(ord(raw[n]))[2:].zfill(2)
-        except:
+        except Exception:
             return None
 
         return eeprom_raw
@@ -364,7 +362,7 @@ class SfpUtilBase(object):
 
         try:
             sysfsfile_eeprom.close()
-        except:
+        except Exception:
             return None
 
         return eeprom_raw
@@ -395,7 +393,7 @@ class SfpUtilBase(object):
 
         try:
             sysfsfile_eeprom.close()
-        except:
+        except Exception:
             return False
 
         return True
@@ -466,7 +464,7 @@ class SfpUtilBase(object):
 
         try:
             f = open(porttabfile)
-        except:
+        except Exception:
             raise
 
         # Read the porttab file and generate dicts
@@ -569,7 +567,7 @@ class SfpUtilBase(object):
 
         try:
             f = open(phytabfile)
-        except:
+        except Exception:
             raise
 
         # Read the phytab file and generate dicts
