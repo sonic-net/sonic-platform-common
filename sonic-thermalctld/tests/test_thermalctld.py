@@ -329,7 +329,7 @@ def test_updater_thermal_check_chassis_table():
 def test_updater_thermal_check_min_max():
     chassis = MockChassis()
 
-    thermal = MockThermal()
+    thermal = MockThermal(1)
     chassis.get_all_thermals().append(thermal)
 
     chassis.set_modular_chassis(True)
@@ -337,6 +337,6 @@ def test_updater_thermal_check_min_max():
     temperature_updater = TemperatureUpdater(SYSLOG_IDENTIFIER, chassis)
 
     temperature_updater.update()
-    slot_dict = temperature_updater.chassis_table.get('Thermal 1')
+    slot_dict = temperature_updater.chassis_table.get(thermal.get_name())
     assert slot_dict['minimum_temperature'] == str(thermal.get_minimum_recorded())
     assert slot_dict['maximum_temperature'] == str(thermal.get_maximum_recorded())

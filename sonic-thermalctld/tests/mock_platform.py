@@ -112,9 +112,10 @@ class MockFanDrawer(MockDevice):
 
 
 class MockThermal(MockDevice):
-    def __init__(self):
+    def __init__(self, index = None):
         MockDevice.__init__(self)
         self.name = None
+        self.name = 'Thermal {}'.format(index) if index != None else None
         self.temperature = 2
         self.minimum_temperature = 1
         self.maximum_temperature = 5
@@ -122,7 +123,7 @@ class MockThermal(MockDevice):
         self.low_threshold = 1
         self.high_critical_threshold = 4
         self.low_critical_threshold = 0
-    
+
     def get_name(self):
         return self.name
 
