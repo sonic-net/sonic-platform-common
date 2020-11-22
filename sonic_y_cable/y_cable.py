@@ -38,6 +38,7 @@ try:
 except Exception as e:
     helper_logger.log_warning("Failed to load chassis due to {}".format(repr(e)))
 
+
 def toggle_mux_to_torA(physical_port):
     """
     This API specifically does a hard switch toggle of the Y cable's MUX regardless of link state to
@@ -146,6 +147,21 @@ def check_read_side(physical_port):
         helper_logger.log_error("platform_chassis is not loaded, failed to check read side")
         return -1
 
+    if result is not None:
+        if isinstance(result, bytearray):
+            if len(result) != 1:
+                helper_logger.log_error("Error: for checking mux_cable read side, eeprom read returned a size {} not equal to 1 for port {}".format(
+                    len(result), physical_port))
+                return -1
+        else:
+            helper_logger.log_error("Error: for checking mux_cable read_side, eeprom read returned an instance value of type {} which is not a bytearray for port {}".format(
+                type(result), physical_port))
+            return -1
+    else:
+        helper_logger.log_error(
+            "Error: for checking mux_cable read_side, eeprom read returned a None value for port {} which is not expected".format(physical_port))
+        return -1
+
     regval_read = struct.unpack(">B", result)
 
     if ((regval_read[0] >> 2) & 0x01):
@@ -197,6 +213,21 @@ def check_active_linked_tor_side(physical_port):
         helper_logger.log_error("platform_chassis is not loaded, failed to check Active Linked and routing TOR side")
         return -1
 
+    if result is not None:
+        if isinstance(result, bytearray):
+            if len(result) != 1:
+                helper_logger.log_error("Error: for checking mux_cable active linked side, eeprom read returned a size {} not equal to 1 for port {}".format(
+                    len(result), physical_port))
+                return -1
+        else:
+            helper_logger.log_error("Error: for checking mux_cable active linked side, eeprom read returned an instance value of type {} which is not a bytearray for port {}".format(
+                type(result), physical_port))
+            return -1
+    else:
+        helper_logger.log_error(
+            "Error: for checking mux_cable active linked side, eeprom read returned a None value from eeprom read for port {} which is not expected".format(physical_port))
+        return -1
+
     regval_read = struct.unpack(">B", result)
 
     if ((regval_read[0] >> 1) & 0x01):
@@ -246,6 +277,21 @@ def check_if_link_is_active_for_NIC(physical_port):
         helper_logger.log_error("platform_chassis is not loaded, failed to check if link is Active on NIC side")
         return -1
 
+    if result is not None:
+        if isinstance(result, bytearray):
+            if len(result) != 1:
+                helper_logger.log_error("Error: for checking mux_cable link is active on NIC side, eeprom read returned a size {} not equal to 1 for port {}".format(
+                    len(result), physical_port))
+                return -1
+        else:
+            helper_logger.log_error("Error: for checking mux_cable link is active on NIC side, eeprom read returned an instance value of type {} which is not a bytearray for port {}".format(
+                type(result), physical_port))
+            return -1
+    else:
+        helper_logger.log_error(
+            "Error: for checking mux_cable link is active on NIC side, eeprom read returned a None value from eeprom read for port {} which is not expected".format(physical_port))
+        return -1
+
     regval_read = struct.unpack(">B", result)
 
     if (regval_read[0] & 0x01):
@@ -286,6 +332,21 @@ def check_if_link_is_active_for_torA(physical_port):
         helper_logger.log_error("platform_chassis is not loaded, failed to check if link is Active on TOR A side")
         return -1
 
+    if result is not None:
+        if isinstance(result, bytearray):
+            if len(result) != 1:
+                helper_logger.log_error("Error: for checking mux_cable link is active on TOR A side, eeprom read returned a size {} not equal to 1 for port {}".format(
+                    len(result), physical_port))
+                return -1
+        else:
+            helper_logger.log_error("Error: for checking mux_cable link is active on TOR A side, eeprom read returned an instance value of type {} which is not a bytearray for port {}".format(
+                type(result), physical_port))
+            return -1
+    else:
+        helper_logger.log_error(
+            "Error: for checking mux_cable link is active on TOR A side, eeprom read returned a None value from eeprom read for port {} which is not expected".format(physical_port))
+        return -1
+
     regval_read = struct.unpack(">B", result)
 
     if ((regval_read[0] >> 2) & 0x01):
@@ -324,6 +385,21 @@ def check_if_link_is_active_for_torB(physical_port):
             physical_port).read_eeprom(curr_offset, 1)
     else:
         helper_logger.log_error("platform_chassis is not loaded, failed to check if link is Active on TOR B side")
+        return -1
+
+    if result is not None:
+        if isinstance(result, bytearray):
+            if len(result) != 1:
+                helper_logger.log_error("Error: for checking mux_cable link is active on TOR B side, eeprom read returned a size {} not equal to 1 for port {}".format(
+                    len(result), physical_port))
+                return -1
+        else:
+            helper_logger.log_error("Error: for checking mux_cable link is active on TOR B side, eeprom read returned an instance value of type {} which is not a bytearray for port {}".format(
+                type(result), physical_port))
+            return -1
+    else:
+        helper_logger.log_error(
+            "Error: for checking mux_cable link is active on TOR B side, eeprom read returned a None value from eeprom read for port {} which is not expected".format(physical_port))
         return -1
 
     regval_read = struct.unpack(">B", result)
