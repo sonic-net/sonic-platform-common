@@ -120,11 +120,16 @@ class ComponentBase(object):
                          - none/fast/warm/cold
 
         Returns:
-            Output: A string, status and info
-                status: True or False, firmware auto-update status
-                info: The detail information of the firmware auto-update status.
-                      - "updated"/"installed"(which needs a reboot for the firmware to be active)/"scheduled"
-                      - "ns_boot_type/image_error/exec_fail"
+            Output: A return code
+                return_code: An integer number, status of component firmware auto-update
+                    - return code of a positive number indicates successful auto-update
+                        - status_installed = 1
+                        - status_updated = 2
+                        - status_scheduled = 3
+                    - return_code of a negative number indicates failed auto-update
+                        - status_err_boot_type = -1
+                        - status_err_image = -2
+                        - status_err_others = -3
 
         Raises:
             RuntimeError: auto-update failure cause
