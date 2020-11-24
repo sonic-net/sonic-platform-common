@@ -300,6 +300,7 @@ class EepromDecoder(object):
         if self.cache_update_needed:
             self.write_cache(e)
         fcntl.flock(self.lock_file, fcntl.LOCK_UN)
+        self.lock_file.close()
 
     def update_eeprom_db(self, e):
         return 0
