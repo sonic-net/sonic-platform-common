@@ -8,10 +8,6 @@
 #  - Virtium
 
 try:
-    import exceptions              # Python 2
-except ImportError:
-    import builtins as exceptions  # Python 3
-try:
     import re
     import subprocess
     from .ssd_base import SsdBase
@@ -54,7 +50,7 @@ class SsdUtil(SsdBase):
         # Known vendor part
         if self.model:
             model_short = self.model.split()[0]
-            if self.vendor_ssd_utility.has_key(model_short):
+            if model_short in self.vendor_ssd_utility:
                 self.fetch_vendor_ssd_info(diskdev, model_short)
                 self.parse_vendor_ssd_info(model_short)
             else:
@@ -65,7 +61,7 @@ class SsdUtil(SsdBase):
             self.model = "Unknown"
 
     def _execute_shell(self, cmd):
-        process = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
+        process = subprocess.Popen(cmd.split(), universal_newlines=True, stdout=subprocess.PIPE)
         output, error = process.communicate()
         return output
 
