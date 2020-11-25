@@ -347,6 +347,7 @@ class DaemonPsud(daemon_base.DaemonBase):
         self.psu_status_dict = {}
         self.fan_tbl = None
         self.psu_chassis_info = None
+        self.first_run = True
 
     # Signal handler
     def signal_handler(self, sig, frame):
@@ -409,6 +410,8 @@ class DaemonPsud(daemon_base.DaemonBase):
                 self.update_psu_chassis_info(chassis_tbl)
                 self.update_master_led_color(chassis_tbl)
 
+            self.first_run = False
+
         self.log_info("Stop daemon main loop")
 
         # Delete all the information from DB and then exit
@@ -456,7 +459,7 @@ class DaemonPsud(daemon_base.DaemonBase):
             self.psu_status_dict[index] = PsuStatus(self, psu)
 
         psu_status = self.psu_status_dict[index]
-        set_led = False
+        set_led = self.first_run
         if psu_status.set_presence(presence):
             set_led = True
             log_on_status_changed(self, psu_status.presence,
