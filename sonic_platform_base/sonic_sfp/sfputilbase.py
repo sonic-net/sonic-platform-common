@@ -448,6 +448,8 @@ class SfpUtilBase(object):
                     else:
                         physical_to_logical[fp_port_index].append(intf_name)
 
+                    # Mapping of logical port names available on a system to ASIC instance
+                    self.logical_to_asic[intf_name] = asic_inst
                     port_pos_in_file +=1
 
                 self.logical = logical
