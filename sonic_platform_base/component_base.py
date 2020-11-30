@@ -104,19 +104,19 @@ class ComponentBase(object):
         """
         raise NotImplementedError
 
-    def auto_update_firmware(self, image_path, boot_action):
+    def auto_update_firmware(self, image_path, boot_type):
         """
         Updates firmware of the component
 
-        This API performs firmware update automatically based on boot_action: it assumes firmware installation
-        and/or creating a loading task during a boot action, if needed, in a single call.
+        This API performs firmware update automatically based on boot_type: it assumes firmware installation
+        and/or creating a loading task during the reboot, if needed, in a single call.
         In case platform component requires some extra steps (apart from calling Low Level Utility)
         to load the installed firmware (e.g, reboot, power cycle, etc.) - this will be done automatically during the reboot.
         The loading task will be created by API.
 
         Args:
             image_path: A string, path to firmware image
-            boot_action: A string, boot action following the upgrade
+            boot_type: A string, reboot type following the upgrade
                          - none/fast/warm/cold
 
         Returns:
