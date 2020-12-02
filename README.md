@@ -1,3 +1,6 @@
+[![Total alerts](https://img.shields.io/lgtm/alerts/g/Azure/sonic-platform-common.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/Azure/sonic-platform-common/alerts/)
+[![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/Azure/sonic-platform-common.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/Azure/sonic-platform-common/context:python)
+
 # SONiC: Software for Open Networking in the Cloud
 
 ## sonic-platform-common

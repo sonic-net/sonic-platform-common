@@ -6,8 +6,6 @@
 from __future__ import print_function
 
 try:
-    import abc
-    import binascii
     import os
     import re
     import sys
@@ -105,7 +103,7 @@ class SfpUtilHelper(object):
 
         try:
             f = open(porttabfile)
-        except:
+        except Exception:
             raise
 
         # Read the porttab file and generate dicts

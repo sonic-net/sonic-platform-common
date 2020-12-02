@@ -63,7 +63,7 @@ class sffbase(object):
                 return 0
             else:
                 return 1
-        except:
+        except Exception:
             return -1
 
     def twos_comp(self, num, bits):
@@ -71,7 +71,7 @@ class sffbase(object):
             if ((num & (1 << (bits - 1))) != 0):
                 num = num - (1 << bits)
             return num
-        except:
+        except Exception:
             return 0
 
     def mw_to_dbm(self, mW):

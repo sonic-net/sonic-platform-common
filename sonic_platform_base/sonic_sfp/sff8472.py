@@ -11,7 +11,6 @@ try:
     import struct
     import sys
     import time
-    import binascii
     import os
     import getopt
     import types
@@ -530,7 +529,7 @@ class sff8472InterfaceId(sffbase):
                 return 2  # externally calibrated
             else:
                 return 0  # Could not find calibration type
-        except:
+        except Exception:
             return 0
 
     def __init__(self, eeprom_raw_data=None):

@@ -11,17 +11,10 @@
 from __future__ import print_function
 
 try:
-    import exceptions              # Python 2
-except ImportError:
-    import builtins as exceptions  # Python 3
-try:
     import binascii
-    import optparse
     import os
     import io
-    import sys
     import struct
-    import subprocess
     import fcntl
 except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
@@ -224,7 +217,7 @@ class EepromDecoder(object):
             if os.path.isfile(self.cache_name):
                 eeprom_file = self.cache_name
                 using_eeprom = False
-        except:
+        except Exception:
             pass
         self.cache_update_needed = using_eeprom
         return io.open(eeprom_file, "rb")

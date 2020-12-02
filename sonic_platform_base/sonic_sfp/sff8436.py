@@ -9,7 +9,6 @@ try:
     import struct
     import sys
     import time
-    import binascii
     import os
     import getopt
     import types

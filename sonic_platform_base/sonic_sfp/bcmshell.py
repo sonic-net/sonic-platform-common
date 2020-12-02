@@ -116,7 +116,7 @@ class bcmshell (object):
 
         try:
             self.close()
-        except:
+        except Exception:
             pass
 
     #---------------
@@ -497,5 +497,5 @@ class bcmshell (object):
                 raise IOError("Socket error: unable to flush %s on open: %s" % (self.socketname, errstr))
             except IOError as e:
                 raise IOError("unable to flush %s on open: %s" % (self.socketname, e.message))
-            except:
+            except Exception:
                 raise IOError("unable to flush %s on open" % self.socketname)

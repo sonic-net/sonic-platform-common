@@ -5,7 +5,6 @@
 # to interact with a thermal module in SONiC
 #
 
-import sys
 from . import device_base
 
 
