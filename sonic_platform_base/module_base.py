@@ -442,3 +442,29 @@ class ModuleBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
+    ##############################################
+    # Midplane methods for modular chassis
+    ##############################################
+    def get_midplane_ip(self):
+        """
+        Retrieves the midplane IP-address of the module in a modular chassis
+        When called from the Supervisor, the module could represent the
+        line-card and return the midplane IP-address of the line-card.
+        When called from the line-card, the module will represent the
+        Supervisor and return its midplane IP-address.
+
+        Returns:
+            A string, the IP-address of the module reachable over the midplane
+
+        """
+        return NotImplementedError
+
+    def is_midplane_reachable(self):
+        """
+        Retrieves the reachability status of the module from the Supervisor or
+        of the Supervisor from the module via the midplane of the modular chassis
+
+        Returns:
+            A bool value, should return True if module is reachable via midplane
+        """
+        return NotImplementedError

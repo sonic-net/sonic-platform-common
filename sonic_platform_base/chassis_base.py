@@ -155,6 +155,20 @@ class ChassisBase(device_base.DeviceBase):
         """
         return False
 
+    def init_midplane_switch(self):
+        """
+        Initializes the midplane functionality of the modular chassis. For
+        example, any validation of midplane, populating any lookup tables etc
+        can be done here. The expectation is that the required kernel modules,
+        ip-address assignment etc are done before the pmon, database dockers
+        are up.
+
+        Returns:
+            A bool value, should return True if the midplane initialized
+            successfully.
+        """
+        return NotImplementedError
+
     ##############################################
     # Component methods
     ##############################################
