@@ -37,9 +37,6 @@ SELECT_TIMEOUT = 1000
 
 LEDUTIL_LOAD_ERROR = 1
 
-# The empty namespace refers to linux host namespace.
-EMPTY_NAMESPACE = ''
-
 class DaemonLedd(daemon_base.DaemonBase):
 
     # Run daemon
@@ -70,8 +67,9 @@ class DaemonLedd(daemon_base.DaemonBase):
             self.log_error("Failed to load ledutil: %s" % (str(e)), True)
             sys.exit(LEDUTIL_LOAD_ERROR)
 
-        # Load the namespace details first from the database_global.json file.
-        swsscommon.SonicDBConfig.initializeGlobalConfig()
+        if multi_asic.is_multi_asic():
+            # Load the namespace details first from the database_global.json file.
+            swsscommon.SonicDBConfig.initializeGlobalConfig()
 
         # Get the namespaces in the platform. For multi-asic devices we get the namespaces
         # of front-end ascis which have front-panel interfaces.

@@ -98,9 +98,6 @@ platform_chassis = None
 # by DaemonXcvrd
 helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
 
-# The empty namespace refers to linux host namespace.
-EMPTY_NAMESPACE = ''
-
 #
 # Helper functions =============================================================
 #

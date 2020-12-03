@@ -393,8 +393,9 @@ class YCableTableUpdateTask(object):
     def __init__(self):
         self.task_thread = None
 
-        # Load the namespace details first from the database_global.json file.
-        swsscommon.SonicDBConfig.initializeGlobalConfig()
+        if multi_asic.is_multi_asic():
+            # Load the namespace details first from the database_global.json file.
+            swsscommon.SonicDBConfig.initializeGlobalConfig()
 
     def task_worker(self):
 
