@@ -44,7 +44,19 @@ errors_block_eeprom_reading = {
     SFP_STATUS_ERR_BAD_CABLE
 }
 
+Y_CABLE_STATUS_NO_TOR_ACTIVE = 0
+Y_CABLE_STATUS_TORA_ACTIVE = 1
+Y_CABLE_STATUS_TORB_ACTIVE = 2
+
+y_cable_switch_state_values = {
+    Y_CABLE_STATUS_NO_TOR_ACTIVE,
+    Y_CABLE_STATUS_TORA_ACTIVE,
+    Y_CABLE_STATUS_TORB_ACTIVE
+}
+
 # Find out the underneath physical port list by logical name
+
+
 def logical_port_name_to_physical_port_list(port_name):
     if port_name.startswith("Ethernet"):
         if y_cable_platform_sfputil.is_logical_port(port_name):
@@ -69,40 +81,43 @@ def _wrapper_get_presence(physical_port):
 def delete_port_from_y_cable_table(logical_port_name, y_cable_tbl):
     y_cable_tbl._del(logical_port_name)
 
+# Delete port from Y cable status table
+def delete_port_from_y_cable_command_table(logical_port_name, y_cable_command_tbl):
+    y_cable_command_tbl._del(logical_port_name)
 
-def update_tor_active_side(read_side, status, logical_port_name):
-    physical_port_list = logical_port_name_to_physical_port_list(
-        logical_port_name)
+def update_table_mux_status_for_response_tbl(table_name, status, logical_port_name):
+    fvs = swsscommon.FieldValuePairs([('response', status)])
+    table_name.set(logical_port_name, fvs)
 
-    if len(physical_port_list) == 1:
 
-        physical_port = physical_port_list[0]
-        if int(read_side) == 1:
-            if status == "active":
-                y_cable.toggle_mux_to_torA(physical_port)
-                return 1
-            elif status == "standby":
-                y_cable.toggle_mux_to_torB(physical_port)
-                return 2
-        elif int(read_side) == 2:
-            if status == "active":
-                y_cable.toggle_mux_to_torB(physical_port)
-                return 2
-            elif status == "standby":
-                y_cable.toggle_mux_to_torA(physical_port)
-                return 1
+def update_table_mux_status_for_statedb_port_tbl(table_name, status, read_side, active_side, logical_port_name):
+    fvs = swsscommon.FieldValuePairs([('state', status),
+                                      ('read_side', str(read_side)),
+                                      ('active_side', str(active_side))])
+    table_name.set(logical_port_name, fvs)
 
-        # TODO: Should we confirm that the mux was indeed toggled?
+
+def y_cable_toggle_mux_torA(physical_port):
+    update_status = y_cable.toggle_mux_to_torA(physical_port)
+    if update_status is True:
+        return 1
     else:
-        # Y cable ports should always have
-        # one to one mapping of physical-to-logical
-        # This should not happen
         helper_logger.log_warning(
-            "Error: Retreived multiple ports for a Y cable table".format(logical_port_name))
+            "Error: Could not toggle the mux for port {} to torA write eeprom failed".format(physical_port))
         return -1
 
 
-def update_appdb_port_mux_cable_response_table(logical_port_name, asic_index, appl_db):
+def y_cable_toggle_mux_torB(physical_port):
+    update_status = y_cable.toggle_mux_to_torB(physical_port)
+    if update_status is True:
+        return 2
+    else:
+        helper_logger.log_warning(
+            "Error: Could not toggle the mux for port {} to torB write eeprom failed".format(physical_port))
+        return -1
+
+
+def update_tor_active_side(read_side, state, logical_port_name):
     physical_port_list = logical_port_name_to_physical_port_list(
         logical_port_name)
 
@@ -110,31 +125,65 @@ def update_appdb_port_mux_cable_response_table(logical_port_name, asic_index, ap
 
         physical_port = physical_port_list[0]
         if _wrapper_get_presence(physical_port):
-            status = None
-            y_cable_response_tbl = {}
+            if int(read_side) == 1:
+                if state == "active":
+                    return y_cable_toggle_mux_torA(physical_port)
+                elif state == "standby":
+                    return y_cable_toggle_mux_torB(physical_port)
+            elif int(read_side) == 2:
+                if state == "active":
+                    return y_cable_toggle_mux_torB(physical_port)
+                elif state == "standby":
+                    return y_cable_toggle_mux_torA(physical_port)
+
+            # TODO: Should we confirm that the mux was indeed toggled?
+
+        else:
+            helper_logger.log_warning(
+                "Error: Could not establish presence for  Y cable port {} while trying to toggle the mux".format(logical_port_name))
+            return -1
+
+    else:
+        # Y cable ports should always have
+        # one to one mapping of physical-to-logical
+        # This should not happen
+        helper_logger.log_warning(
+            "Error: Retreived multiple ports for a Y cable table port {} while trying to toggle the mux".format(logical_port_name))
+        return -1
+
+
+def update_appdb_port_mux_cable_response_table(logical_port_name, asic_index, appl_db):
+
+    status = None
+    y_cable_response_tbl = {}
+
+    y_cable_response_tbl[asic_index] = swsscommon.Table(
+        appl_db[asic_index], "MUX_CABLE_RESPONSE_TABLE")
+    physical_port_list = logical_port_name_to_physical_port_list(
+        logical_port_name)
+
+    if len(physical_port_list) == 1:
+
+        physical_port = physical_port_list[0]
+        if _wrapper_get_presence(physical_port):
+
             read_side = y_cable.check_read_side(physical_port)
-            y_cable_response_tbl[asic_index] = swsscommon.Table(
-                appl_db[asic_index], swsscommon.APP_MUX_CABLE_RESPONSE_TABLE_NAME)
+            if read_side is None:
 
-            if not read_side:
-                status = 'failure'
-
-                fvs = swsscommon.FieldValuePairs([('status', status)])
-                y_cable_response_tbl[asic_index].set(logical_port_name, fvs)
-
+                status = 'unknown'
+                update_table_mux_status_for_response_tbl(y_cable_response_tbl[asic_index], status, logical_port_name)
                 helper_logger.log_warning(
-                    "Error: Could not get read side for mux cable port probe failed {}".format(logical_port_name))
+                    "Error: Could not get read side for mux cable port probe command logical port {} and physical port {}".format(logical_port_name, physical_port))
                 return
 
             active_side = y_cable.check_active_linked_tor_side(physical_port)
-            if not active_side:
-                status = 'failure'
 
-                fvs = swsscommon.FieldValuePairs([('status', status)])
-                y_cable_response_tbl[asic_index].set(logical_port_name, fvs)
+            if active_side is None:
 
+                status = 'unknown'
+                update_table_mux_status_for_response_tbl(y_cable_response_tbl[asic_index], status, logical_port_name)
                 helper_logger.log_warning(
-                    "Error: Could not get active side for mux cable port probe failed {}".format(logical_port_name))
+                    "Error: Could not get active side for mux cable port probe command logical port {} and physical port {}".format(logical_port_name, physical_port))
                 return
 
             if read_side == active_side and (active_side == 1 or active_side == 2):
@@ -142,50 +191,84 @@ def update_appdb_port_mux_cable_response_table(logical_port_name, asic_index, ap
             elif read_side != active_side and (active_side == 1 or active_side == 2):
                 status = 'standby'
             else:
-                status = 'inactive'
+                status = 'unknown'
+                helper_logger.log_warning(
+                    "Error: Could not get state for mux cable port probe command logical port {} and physical port {}".format(logical_port_name, physical_port))
 
+            update_table_mux_status_for_response_tbl(y_cable_response_tbl[asic_index], status, logical_port_name)
 
-            fvs = swsscommon.FieldValuePairs([('status', status)])
-
-            y_cable_response_tbl[asic_index].set(logical_port_name, fvs)
         else:
+
+            status = 'unknown'
+            update_table_mux_status_for_response_tbl(y_cable_response_tbl[asic_index], status, logical_port_name)
             helper_logger.log_warning(
-                "Error: Could not establish presence for  Y cable port {}".format(logical_port_name))
+                "Error: Could not establish presence for Y cable port {} while responding to command probe".format(logical_port_name))
     else:
         # Y cable ports should always have
         # one to one mapping of physical-to-logical
         # This should not happen
-        helper_logger.log_warning(
-            "Error: Retreived multiple ports for a Y cable port {}".format(logical_port_name))
 
-def update_statedb_port_mux_status_table(logical_port_name, mux_config_tbl):
+        status = 'unknown'
+        update_table_mux_status_for_response_tbl(y_cable_response_tbl[asic_index], status, logical_port_name)
+        helper_logger.log_warning(
+            "Error: Retreived multiple ports for a Y cable port {} while responding to command probe".format(logical_port_name))
+
+
+def read_y_cable_and_update_statedb_port_tbl(logical_port_name, mux_config_tbl):
     physical_port_list = logical_port_name_to_physical_port_list(
         logical_port_name)
 
+    read_side = None
+    active_side = None
+    status = None
     if len(physical_port_list) == 1:
 
         physical_port = physical_port_list[0]
         if _wrapper_get_presence(physical_port):
             read_side = y_cable.check_read_side(physical_port)
-            active_side = y_cable.check_active_linked_tor_side(physical_port)
-            if read_side == active_side:
-                status = 'active'
-            elif active_side == 0:
-                status = 'inactive'
-            else:
-                status = 'standby'
+            if read_side is None:
+                read_side = active_side = -1
+                update_table_mux_status_for_statedb_port_tbl(
+                    mux_config_tbl, "unknown", read_side, active_side, logical_port_name)
+                helper_logger.log_error(
+                    "Error: Could not establish the read side for  Y cable port {}".format(logical_port_name))
+                return
 
-            fvs = swsscommon.FieldValuePairs([('status', status),
-                                              ('read_side', str(read_side)),
-                                              ('active_side', str(active_side))])
-            mux_config_tbl.set(logical_port_name, fvs)
+            active_side = y_cable.check_active_linked_tor_side(physical_port)
+            if active_side is None or active_side not in y_cable_switch_state_values:
+                read_side = active_side = -1
+                update_table_mux_status_for_statedb_port_tbl(
+                    mux_config_tbl, "unknown", read_side, active_side, logical_port_name)
+                helper_logger.log_error(
+                    "Error: Could not establish the active side for  Y cable port {}".format(logical_port_name))
+                return
+
+            if read_side == active_side and (active_side == 1 or active_side == 2):
+                status = 'active'
+            elif read_side != active_side and (active_side == 1 or active_side == 2):
+                status = 'standby'
+            else:
+                status = 'unknown'
+                helper_logger.log_warning(
+                    "Error: Could not establish the active status for  Y cable port {}".format(logical_port_name))
+
+            update_table_mux_status_for_statedb_port_tbl(
+                mux_config_tbl, status, read_side, active_side, logical_port_name)
+            return
+
         else:
+            read_side = active_side = -1
+            update_table_mux_status_for_statedb_port_tbl(
+                mux_config_tbl, "unknown", read_side, active_side, logical_port_name)
             helper_logger.log_warning(
                 "Error: Could not establish presence for  Y cable port {}".format(logical_port_name))
     else:
         # Y cable ports should always have
         # one to one mapping of physical-to-logical
         # This should not happen
+        read_side = active_side = -1
+        update_table_mux_status_for_statedb_port_tbl(
+            mux_config_tbl, "unknown", read_side, active_side, logical_port_name)
         helper_logger.log_warning(
             "Error: Retreived multiple ports for a Y cable port {}".format(logical_port_name))
 
@@ -202,26 +285,29 @@ def check_identifier_presence_and_update_mux_table_entry(state_db, port_tbl, y_c
         # Convert list of tuples to a dictionary
         mux_table_dict = dict(fvs)
         if "mux_cable" in mux_table_dict:
-            y_cable_asic_table = y_cable_tbl.get(asic_index, None)
-            if y_cable_presence[0] is True and y_cable_asic_table is not None:
-                # fill in the newly found entry
-                update_statedb_port_mux_status_table(
-                    logical_port_name, y_cable_tbl[asic_index])
+            val = mux_table_dict.get("mux_cable", None)
+            if val == "true":
 
-            else:
-                # first create the state db y cable table and then fill in the entry
-                y_cable_presence[:] = [True]
-                namespaces = multi_asic.get_front_end_namespaces()
-                for namespace in namespaces:
-                    asic_id = multi_asic.get_asic_index_from_namespace(
-                        namespace)
-                    state_db[asic_id] = daemon_base.db_connect(
-                        "STATE_DB", namespace)
-                    y_cable_tbl[asic_id] = swsscommon.Table(
-                        state_db[asic_id], swsscommon.STATE_HW_MUX_CABLE_TABLE_NAME)
-                # fill the newly found entry
-                update_statedb_port_mux_status_table(
-                    logical_port_name, y_cable_tbl[asic_index])
+                y_cable_asic_table = y_cable_tbl.get(asic_index, None)
+                if y_cable_presence[0] is True and y_cable_asic_table is not None:
+                    # fill in the newly found entry
+                    read_y_cable_and_update_statedb_port_tbl(
+                        logical_port_name, y_cable_tbl[asic_index])
+
+                else:
+                    # first create the state db y cable table and then fill in the entry
+                    y_cable_presence[:] = [True]
+                    namespaces = multi_asic.get_front_end_namespaces()
+                    for namespace in namespaces:
+                        asic_id = multi_asic.get_asic_index_from_namespace(
+                            namespace)
+                        state_db[asic_id] = daemon_base.db_connect(
+                            "STATE_DB", namespace)
+                        y_cable_tbl[asic_id] = swsscommon.Table(
+                            state_db[asic_id], swsscommon.STATE_HW_MUX_CABLE_TABLE_NAME)
+                    # fill the newly found entry
+                    read_y_cable_and_update_statedb_port_tbl(
+                        logical_port_name, y_cable_tbl[asic_index])
 
 
 def check_identifier_presence_and_delete_mux_table_entry(state_db, port_tbl, asic_index, logical_port_name, y_cable_presence, delete_change_event):
@@ -402,7 +488,7 @@ class YCableTableUpdateTask(object):
         # Connect to STATE_DB and APPL_DB and get both the HW_MUX_STATUS_TABLE info
         appl_db, state_db, status_tbl, y_cable_tbl = {}, {}, {}, {}
         y_cable_tbl_keys = {}
-        mux_cable_command_tbl = {}
+        mux_cable_command_tbl, y_cable_command_tbl = {}, {}
 
         sel = swsscommon.Select()
 
@@ -415,6 +501,8 @@ class YCableTableUpdateTask(object):
             status_tbl[asic_id] = swsscommon.SubscriberStateTable(
                 appl_db[asic_id], swsscommon.APP_HW_MUX_CABLE_TABLE_NAME)
             mux_cable_command_tbl[asic_id] = swsscommon.SubscriberStateTable(
+                appl_db[asic_id], swsscommon.APP_MUX_CABLE_COMMAND_TABLE_NAME)
+            y_cable_command_tbl[asic_id] = swsscommon.Table(
                 appl_db[asic_id], swsscommon.APP_MUX_CABLE_COMMAND_TABLE_NAME)
             state_db[asic_id] = daemon_base.db_connect("STATE_DB", namespace)
             y_cable_tbl[asic_id] = swsscommon.Table(
@@ -454,29 +542,38 @@ class YCableTableUpdateTask(object):
 
                 fvp_dict = dict(fvp)
 
-                if "status" in fvp_dict:
-                    # got a status change
-                    new_status = fvp_dict["status"]
+                if "state" in fvp_dict:
+                    # got a state change
+                    new_status = fvp_dict["state"]
                     (status, fvs) = y_cable_tbl[asic_index].get(port)
                     if status is False:
                         helper_logger.log_warning("Could not retreive fieldvalue pairs for {}, inside state_db table {}".format(
                             port, y_cable_tbl[asic_index]))
                         continue
                     mux_port_dict = dict(fvs)
-                    old_status = mux_port_dict.get("status")
+                    old_status = mux_port_dict.get("state")
                     read_side = mux_port_dict.get("read_side")
                     prev_active_side = mux_port_dict.get("active_side")
                     # Now if the old_status does not match new_status toggle the mux appropriately
                     if old_status != new_status:
                         active_side = update_tor_active_side(
                             read_side, new_status, port)
-                        fvs_updated = swsscommon.FieldValuePairs([('status', new_status),
+                        if active_side == -1:
+                            new_status = 'unknown'
+
+                        fvs_updated = swsscommon.FieldValuePairs([('state', new_status),
                                                                   ('read_side',
                                                                    read_side),
                                                                   ('active_side', str(active_side))])
                         y_cable_tbl[asic_index].set(port, fvs_updated)
-                        # nothing to do since no status change
                     else:
+                        # nothing to do since no status change
+                        active_side = prev_active_side
+                        fvs_updated = swsscommon.FieldValuePairs([('state', new_status),
+                                                                  ('read_side',
+                                                                   read_side),
+                                                                  ('active_side', str(active_side))])
+                        y_cable_tbl[asic_index].set(port, fvs_updated)
                         helper_logger.log_warning("Got a change event on that does not toggle the TOR active side for port  {} status {} active linked side = {} ".format(
                             port, old_status, prev_active_side))
                 else:
@@ -486,14 +583,19 @@ class YCableTableUpdateTask(object):
             (port_m, op_m, fvp_m) = mux_cable_command_tbl[asic_index].pop()
             if fvp_m:
 
+                if port_m not in y_cable_tbl_keys[asic_index]:
+                    continue
+
                 fvp_dict = dict(fvp_m)
 
                 if "command" in fvp_dict:
-                    #check if xcvrd got a probe command
+
+                    # check if xcvrd got a probe command
                     probe_identifier = fvp_dict["command"]
 
                     if probe_identifier == "probe":
                         update_appdb_port_mux_cable_response_table(port_m, asic_index, appl_db)
+                    delete_port_from_y_cable_command_table(port_m, y_cable_command_tbl[asic_index])
 
     def task_run(self):
         self.task_thread = threading.Thread(target=self.task_worker)
