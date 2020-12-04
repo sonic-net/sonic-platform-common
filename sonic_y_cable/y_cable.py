@@ -177,9 +177,9 @@ def check_read_side(physical_port):
     else:
         helper_logger.log_error(
             "Error: unknown status for checking which side regval = {} ".format(result))
-        return -1
 
     return -1
+
 
 def check_mux_direction(physical_port):
     """
