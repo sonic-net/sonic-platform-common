@@ -191,7 +191,7 @@ def check_mux_direction(physical_port):
     Register Specification of upper page 0x4 at offset 133 is documented below
 
     Byte offset   bits     Name                           Description
-    133           7-0      MUX Switch Status Register     0x00 : MUX pointing at TOR#2, 0x01 MUX pointing at TOR#1 regardless of connection status
+    132           7-0      MUX Switch Status Register     0x00 : MUX pointing at TOR#2, 0x01 MUX pointing at TOR#1 regardless of connection status
 
     Args:
          physical_port:
