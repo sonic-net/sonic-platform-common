@@ -176,7 +176,7 @@ def update_appdb_port_mux_cable_response_table(logical_port_name, asic_index, ap
                     "Error: Could not get read side for mux cable port probe command logical port {} and physical port {}".format(logical_port_name, physical_port))
                 return
 
-            active_side = y_cable.check_active_linked_tor_side(physical_port)
+            active_side = y_cable.check_mux_direction(physical_port)
 
             if active_side is None:
 
@@ -234,7 +234,7 @@ def read_y_cable_and_update_statedb_port_tbl(logical_port_name, mux_config_tbl):
                     "Error: Could not establish the read side for  Y cable port {}".format(logical_port_name))
                 return
 
-            active_side = y_cable.check_active_linked_tor_side(physical_port)
+            active_side = y_cable.check_mux_direction(physical_port)
             if active_side is None or active_side not in y_cable_switch_state_values:
                 read_side = active_side = -1
                 update_table_mux_status_for_statedb_port_tbl(
