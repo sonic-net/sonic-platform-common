@@ -21,6 +21,7 @@ Y_CABLE_IDENTFIER_UPPER_PAGE = 128
 Y_CABLE_DETERMINE_CABLE_READ_SIDE = 640
 Y_CABLE_CHECK_LINK_ACTIVE = 641
 Y_CABLE_SWITCH_MUX_DIRECTION = 642
+Y_CABLE_MUX_DIRECTION = 644
 Y_CABLE_ACTIVE_TOR_INDICATOR = 645
 Y_CABLE_MANUAL_SWITCH_COUNT = 669
 
@@ -176,6 +177,67 @@ def check_read_side(physical_port):
     else:
         helper_logger.log_error(
             "Error: unknown status for checking which side regval = {} ".format(result))
+        return -1
+
+    return -1
+
+def check_mux_direction(physical_port):
+    """
+    This API specifically checks which side of the Y cable mux is currently point to
+    and returns either TOR A or TOR B. API basically reads 1 byte at upper page 4 offset 132
+    and checks which side the mux is pointing to
+
+
+    Register Specification of upper page 0x4 at offset 133 is documented below
+
+    Byte offset   bits     Name                           Description
+    133           7-0      MUX Switch Status Register     0x00 : MUX pointing at TOR#2, 0x01 MUX pointing at TOR#1 regardless of connection status
+
+    Args:
+         physical_port:
+             an Integer, the actual physical port connected to a Y cable
+
+    Returns:
+        an Integer, 1 if the mux is pointing to TOR A .
+                  , 2 if the mux is pointing to TOR B.
+                  , -1 if checking which side mux is pointing to API fails.
+    """
+
+    curr_offset = Y_CABLE_MUX_DIRECTION
+
+    if platform_chassis is not None:
+        result = platform_chassis.get_sfp(
+            physical_port).read_eeprom(curr_offset, 1)
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to check Active Linked and routing TOR side")
+        return -1
+
+    if result is not None:
+        if isinstance(result, bytearray):
+            if len(result) != 1:
+                helper_logger.log_error("Error: for checking mux_cable mux pointing side, eeprom read returned a size {} not equal to 1 for port {}".format(
+                    len(result), physical_port))
+                return -1
+        else:
+            helper_logger.log_error("Error: for checking mux_cable mux pointing side, eeprom read returned an instance value of type {} which is not a bytearray for port {}".format(
+                type(result), physical_port))
+            return -1
+    else:
+        helper_logger.log_error(
+            "Error: for checking mux_cable mux pointing side, eeprom read returned a None value from eeprom read for port {} which is not expected".format(physical_port))
+        return -1
+
+    regval_read = struct.unpack(">B", result)
+
+    if ((regval_read[0]) & 0x01):
+        helper_logger.log_info("mux pointing to TOR A")
+        return 1
+    elif regval_read[0] == 0:
+        helper_logger.log_info("mux pointing to TOR B")
+        return 2
+    else:
+        helper_logger.log_error(
+            "Error: unknown status for mux direction regval = {} ".format(result))
         return -1
 
     return -1
