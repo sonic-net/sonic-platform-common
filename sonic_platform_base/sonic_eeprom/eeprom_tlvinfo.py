@@ -202,16 +202,16 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
 
         if self._TLV_HDR_ENABLED:
             new_tlvs_len = len(new_tlvs) + 6
-            new_e = self._TLV_INFO_ID_STRING + chr(self._TLV_INFO_VERSION) + \
-                    chr((new_tlvs_len >> 8) & 0xFF) + \
-                    chr(new_tlvs_len & 0xFF) + new_tlvs
+            new_e = self._TLV_INFO_ID_STRING + bytes([self._TLV_INFO_VERSION]) + \
+                    bytes([(new_tlvs_len >> 8) & 0xFF]) + \
+                    bytes([new_tlvs_len & 0xFF]) + new_tlvs
         else:
             new_e = new_tlvs
 
         if self._TLV_CODE_CRC_32 != self._TLV_CODE_UNDEFINED:
-            new_e = new_e + chr(self._TLV_CODE_CRC_32) + chr(4)
+            new_e = new_e + bytes([self._TLV_CODE_CRC_32]) + bytes([4])
         elif self._TLV_CODE_QUANTA_CRC != self._TLV_CODE_UNDEFINED:
-            new_e = new_e + chr(self._TLV_CODE_QUANTA_CRC) + chr(2)
+            new_e = new_e + bytes([self._TLV_CODE_QUANTA_CRC]) + bytes([2])
         else:
             print("\nFailed to formulate new eeprom\n")
             exit
@@ -682,7 +682,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
                 sys.stderr.write("Error: '" + "0x%02X" % (I[0],) + "' correct format is " + errstr + "\n")
             exit(0)
 
-        return chr(I[0]) + chr(len(value)) + value
+        return (chr(I[0]) + chr(len(value)) + value).encode()
 
 
     def is_checksum_field(self, I):
