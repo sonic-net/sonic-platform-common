@@ -1,6 +1,9 @@
-from .mock_device_base import DeviceBase
-
 class MockDevice:
+    STATUS_LED_COLOR_GREEN = "green"
+    STATUS_LED_COLOR_AMBER = "amber"
+    STATUS_LED_COLOR_RED = "red"
+    STATUS_LED_COLOR_OFF = "off"
+
     def __init__(self):
         self.name = None
         self.presence = True
@@ -24,7 +27,7 @@ class MockDevice:
 
 class MockPsu(MockDevice):
 
-    psu_master_led_color = DeviceBase.STATUS_LED_COLOR_OFF
+    psu_master_led_color = MockDevice.STATUS_LED_COLOR_OFF
 
     def __init__(self, psu_presence, psu_status, psu_name):
         self.name = psu_name

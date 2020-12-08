@@ -6,7 +6,6 @@ from mock import Mock, MagicMock, patch
 from sonic_py_common import daemon_base
 
 from .mock_platform import MockChassis, MockPsu, MockFanDrawer, MockModule
-from .mock_device_base import DeviceBase
 
 SYSLOG_IDENTIFIER = 'psud_test'
 NOT_AVAILABLE = 'N/A'
@@ -148,7 +147,7 @@ def test_psuchassis_check_power_budget():
 
     assert float(fvs[CHASSIS_INFO_TOTAL_POWER_SUPPLIED_FIELD]) < float(fvs[CHASSIS_INFO_TOTAL_POWER_CONSUMED_FIELD])
     assert chassis_info.master_status_good == False
-    assert MockPsu.get_status_master_led() == DeviceBase.STATUS_LED_COLOR_RED
+    assert MockPsu.get_status_master_led() == MockPsu.STATUS_LED_COLOR_RED
 
     #Add a PSU
     psu = MockPsu(True, True, "PSU 2")
@@ -164,4 +163,4 @@ def test_psuchassis_check_power_budget():
 
     assert float(fvs[CHASSIS_INFO_TOTAL_POWER_SUPPLIED_FIELD]) > float(fvs[CHASSIS_INFO_TOTAL_POWER_CONSUMED_FIELD])
     assert chassis_info.master_status_good == True
-    assert MockPsu.get_status_master_led() == DeviceBase.STATUS_LED_COLOR_GREEN
+    assert MockPsu.get_status_master_led() == MockPsu.STATUS_LED_COLOR_GREEN

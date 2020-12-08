@@ -20,10 +20,8 @@ try:
     # If unit testing is occurring, mock swsscommon and module_base
     if os.getenv("PSUD_UNIT_TESTING") == "1":
         from tests import mock_swsscommon as swsscommon
-        from tests.mock_device_base import DeviceBase
     else:
         from swsscommon import swsscommon
-        from sonic_platform_base.device_base import DeviceBase
 except ImportError as e:
     raise ImportError (str(e) + " - required module not found")
 
@@ -256,11 +254,14 @@ class PsuChassisInfo(logger.Logger):
     def _set_psu_master_led(self, master_status):
         try:
             try:
-                from sonic_platform.psu import Psu
+                if os.getenv("PSUD_UNIT_TESTING") == "1":
+                    from tests.mock_platform import MockPsu as Psu
+                else:
+                    from sonic_platform.psu import Psu
             except ImportError as e:
-                from tests.mock_platform import MockPsu as Psu
+                raise ImportError (str(e) + " - required module not found")
 
-            color = DeviceBase.STATUS_LED_COLOR_GREEN if master_status else DeviceBase.STATUS_LED_COLOR_RED
+            color = Psu.STATUS_LED_COLOR_GREEN if master_status else Psu.STATUS_LED_COLOR_RED
             Psu.set_status_master_led(color)
         except NotImplementedError as e:
             pass
