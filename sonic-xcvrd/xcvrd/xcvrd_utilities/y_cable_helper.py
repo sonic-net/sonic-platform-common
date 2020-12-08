@@ -10,7 +10,7 @@ try:
     from sonic_py_common import multi_asic
     from sonic_y_cable import y_cable
     from swsscommon import swsscommon
-except ImportError, e:
+except ImportError as e:
     raise ImportError(str(e) + " - required module not found")
 
 
@@ -403,7 +403,7 @@ def change_ports_status_for_y_cable_change_event(port_dict, y_cable_presence, st
         port_table_keys[asic_id] = port_tbl[asic_id].getKeys()
 
     # Init PORT_STATUS table if ports are on Y cable and an event is received
-    for key, value in port_dict.iteritems():
+    for key, value in port_dict.items():
         logical_port_list = y_cable_platform_sfputil.get_physical_to_logical(int(key))
         if logical_port_list is None:
             helper_logger.log_warning("Got unknown FP port index {}, ignored".format(key))

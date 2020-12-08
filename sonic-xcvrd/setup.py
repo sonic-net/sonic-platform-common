@@ -34,6 +34,7 @@ setup(
         'Natural Language :: English',
         'Operating System :: POSIX :: Linux',
         'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3.7',
         'Topic :: System :: Hardware',
     ],
     keywords = 'sonic SONiC TRANSCEIVER transceiver daemon XCVRD xcvrd',

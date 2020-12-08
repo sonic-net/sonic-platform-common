@@ -116,7 +116,7 @@ class FanStatus(logger.Logger):
 
     def _check_speed_value_available(self, speed, target_speed, tolerance, current_status):
         if speed == NOT_AVAILABLE or target_speed == NOT_AVAILABLE or tolerance == NOT_AVAILABLE:
-            if tolerance > 100 or tolerance < 0:
+            if isinstance(tolerance, int) and (tolerance > 100 or tolerance < 0):
                 self.log_warning('Invalid tolerance value: {}'.format(tolerance))
                 return False
 

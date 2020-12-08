@@ -22,7 +22,7 @@ try:
     from swsscommon import swsscommon
 
     from .xcvrd_utilities import y_cable_helper
-except ImportError, e:
+except ImportError as e:
     raise ImportError (str(e) + " - required module not found")
 
 #
@@ -1003,7 +1003,7 @@ class SfpStateUpdateTask(object):
                     #   1. the state has been normal before got the event
                     #   2. the state was init and transition to normal after got the event.
                     #      this is for the vendors who don't implement "system_not_ready/system_becom_ready" logic
-                    for key, value in port_dict.iteritems():
+                    for key, value in port_dict.items():
                         logical_port_list = platform_sfputil.get_physical_to_logical(int(key))
                         if logical_port_list is None:
                             helper_logger.log_warning("Got unknown FP port index {}, ignored".format(key))
@@ -1210,7 +1210,7 @@ class DaemonXcvrd(daemon_base.DaemonBase):
                 # For single ASIC platforms we pass port_config_file_path and the asic_inst as 0
                 port_config_file_path = device_info.get_path_to_port_config_file()
                 platform_sfputil.read_porttab_mappings(port_config_file_path, 0)
-        except Exception, e:
+        except Exception as e:
             self.log_error("Failed to read port info: %s" % (str(e)), True)
             sys.exit(PORT_CONFIG_LOAD_ERROR)
 
