@@ -52,6 +52,7 @@ class MockModule(MockDevice):
     def get_admin_state(self):
         return self.admin_state
 
+
 class MockChassis:
     def __init__(self):
         self.module_list = []

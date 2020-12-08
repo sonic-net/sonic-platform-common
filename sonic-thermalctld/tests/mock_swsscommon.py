@@ -1,10 +1,11 @@
 STATE_DB = ''
 CHASSIS_STATE_DB = ''
 
+
 class Table:
     def __init__(self, db, table_name):
-      self.table_name = table_name
-      self.mock_dict = {}
+        self.table_name = table_name
+        self.mock_dict = {}
 
     def _del(self, key):
         del self.mock_dict[key]
@@ -21,6 +22,7 @@ class Table:
 
     def get_size(self):
         return (len(self.mock_dict))
+
 
 class FieldValuePairs:
     def __init__(self, fvs):

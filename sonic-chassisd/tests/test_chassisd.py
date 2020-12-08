@@ -31,6 +31,7 @@ CHASSIS_MODULE_INFO_OPERSTATUS_FIELD = 'oper_status'
 CHASSIS_INFO_KEY_TEMPLATE = 'CHASSIS {}'
 CHASSIS_INFO_CARD_NUM_FIELD = 'module_num'
 
+
 def setup_function():
     ModuleUpdater.log_notice = MagicMock()
     ModuleUpdater.log_warning = MagicMock()
@@ -63,6 +64,7 @@ def test_moduleupdater_check_valid_fields():
     assert slot == int(fvs[CHASSIS_MODULE_INFO_SLOT_FIELD])
     assert status == fvs[CHASSIS_MODULE_INFO_OPERSTATUS_FIELD]
 
+
 def test_moduleupdater_check_invalid_name():
     chassis = MockChassis()
     index = 0
@@ -82,6 +84,7 @@ def test_moduleupdater_check_invalid_name():
     module_updater.module_db_update()
     fvs = module_updater.module_table.get(name)
     assert fvs == None
+
 
 def test_moduleupdater_check_status_update():
     chassis = MockChassis()
@@ -116,6 +119,7 @@ def test_moduleupdater_check_status_update():
     print('Updated DB-entry {}'.format(fvs))
     assert status == fvs[CHASSIS_MODULE_INFO_OPERSTATUS_FIELD]
 
+
 def test_moduleupdater_check_deinit():
     chassis = MockChassis()
     index = 0
@@ -141,6 +145,7 @@ def test_moduleupdater_check_deinit():
     fvs = module_table.get(name)
     assert fvs == None
 
+
 def test_configupdater_check_valid_names():
     chassis = MockChassis()
     index = 0
@@ -162,6 +167,7 @@ def test_configupdater_check_valid_names():
     # No change since invalid key
     assert module.get_admin_state() != admin_state
 
+
 def test_configupdater_check_valid_index():
     chassis = MockChassis()
     index = -1
@@ -182,6 +188,7 @@ def test_configupdater_check_valid_index():
 
     # No change since invalid index
     assert module.get_admin_state() != admin_state
+
 
 def test_configupdater_check_admin_state():
     chassis = MockChassis()
@@ -205,6 +212,7 @@ def test_configupdater_check_admin_state():
     admin_state = 1
     config_updater.module_config_update(name, admin_state)
     assert module.get_admin_state() == admin_state
+
 
 def test_configupdater_check_num_modules():
     chassis = MockChassis()

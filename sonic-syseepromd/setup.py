@@ -13,7 +13,7 @@ setup(
     scripts=[
         'scripts/syseepromd',
     ],
-    setup_requires= [
+    setup_requires=[
         'wheel'
     ],
     classifiers=[

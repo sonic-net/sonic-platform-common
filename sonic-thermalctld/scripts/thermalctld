@@ -33,6 +33,8 @@ INVALID_SLOT = -1
 # utility functions
 
 # try get information from platform API and return a default value if caught NotImplementedError
+
+
 def try_get(callback, default=NOT_AVAILABLE):
     """
     Handy function to invoke the callback and catch NotImplementedError
@@ -122,7 +124,7 @@ class FanStatus(logger.Logger):
 
             if current_status is True:
                 self.log_warning('Fan speed or target_speed or tolerance become unavailable, '
-                                   'speed={}, target_speed={}, tolerance={}'.format(speed, target_speed, tolerance))
+                                 'speed={}, target_speed={}, tolerance={}'.format(speed, target_speed, tolerance))
             return False
         return True
 
@@ -172,10 +174,10 @@ class FanStatus(logger.Logger):
         :return: True if Fan works normal else False
         """
         return self.presence and \
-               self.status and \
-               not self.under_speed and \
-               not self.over_speed and \
-               not self.invalid_direction
+            self.status and \
+            not self.under_speed and \
+            not self.over_speed and \
+            not self.invalid_direction
 
 
 #
@@ -246,7 +248,7 @@ class FanUpdater(logger.Logger):
                     self.log_warning('Failed to update PSU FAN status - {}'.format(repr(e)))
 
         self._update_led_color()
-        
+
         bad_fan_count = FanStatus.get_bad_fan_count()
         if bad_fan_count > 0 and old_bad_fan_count != bad_fan_count:
             self.log_warning("Insufficient number of working fans warning: {} fans are not working.".format(
@@ -455,7 +457,7 @@ class TemperatureStatus(logger.Logger):
         if temperature == NOT_AVAILABLE or threshold == NOT_AVAILABLE:
             if current_status is True:
                 self.log_warning('Thermal temperature or threshold become unavailable, '
-                                   'temperature={}, threshold={}'.format(temperature, threshold))
+                                 'temperature={}, threshold={}'.format(temperature, threshold))
             return False
         return True
 
@@ -555,7 +557,7 @@ class TemperatureUpdater(logger.Logger):
         Update all temperature information to database
         :return:
         """
-        self.log_debug("Start temperature updating") 
+        self.log_debug("Start temperature updating")
         for index, thermal in enumerate(self.chassis.get_all_thermals()):
             try:
                 self._refresh_temperature_status(CHASSIS_INFO_KEY, thermal, index)
@@ -618,7 +620,7 @@ class TemperatureUpdater(logger.Logger):
             low_threshold = try_get(thermal.get_low_threshold)
             high_critical_threshold = try_get(thermal.get_high_critical_threshold)
             low_critical_threshold = try_get(thermal.get_low_critical_threshold)
-            
+
         warning = False
         if temperature != NOT_AVAILABLE and temperature_status.set_over_temperature(temperature, high_threshold):
             self._log_on_status_changed(not temperature_status.over_temperature,
@@ -724,7 +726,7 @@ class ThermalControlDaemon(daemon_base.DaemonBase):
         self.stop_event = threading.Event()
 
         # Thermal control daemon is designed to never exit, it must always
-        # return non zero exit code when exiting and so that supervisord will 
+        # return non zero exit code when exiting and so that supervisord will
         # restart it automatically.
         self.exit_code = 1
 

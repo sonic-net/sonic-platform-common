@@ -23,7 +23,7 @@ try:
     else:
         from swsscommon import swsscommon
 except ImportError as e:
-    raise ImportError (str(e) + " - required module not found")
+    raise ImportError(str(e) + " - required module not found")
 
 
 #
@@ -161,6 +161,8 @@ def log_on_status_changed(logger, normal_status, normal_log, abnormal_log):
 #
 # PSU Chassis Info ==========================================================
 #
+
+
 class PsuChassisInfo(logger.Logger):
 
     def __init__(self, log_identifier, chassis):
@@ -183,11 +185,11 @@ class PsuChassisInfo(logger.Logger):
         total_module_consumed_power = 0.0
 
         dict_index = 0
-        total_entries_len = 2 #For total supplied and consumed
+        total_entries_len = 2  # For total supplied and consumed
         dict_len = self.chassis.get_num_psus() +\
-                   self.chassis.get_num_fan_drawers() +\
-                   self.chassis.get_num_modules() + \
-                   total_entries_len
+            self.chassis.get_num_fan_drawers() +\
+            self.chassis.get_num_modules() + \
+            total_entries_len
 
         fvs = swsscommon.FieldValuePairs(dict_len)
 
@@ -228,11 +230,11 @@ class PsuChassisInfo(logger.Logger):
             fvs[dict_index] = (CHASSIS_INFO_POWER_CONSUMER_FIELD.format(name), str(module_power))
             dict_index += 1
 
-        #Record total supplied and consumed power
+        # Record total supplied and consumed power
         self.total_supplied_power = total_supplied_power
         self.total_consumed_power = total_fan_consumed_power + total_module_consumed_power
 
-        #Record in state DB in chassis table
+        # Record in state DB in chassis table
         fvs[dict_index] = (CHASSIS_INFO_TOTAL_POWER_SUPPLIED_FIELD, str(self.total_supplied_power))
         fvs[dict_index + 1] = (CHASSIS_INFO_TOTAL_POWER_CONSUMED_FIELD, str(self.total_consumed_power))
         chassis_tbl.set(CHASSIS_INFO_POWER_KEY_TEMPLATE.format(1), fvs)
@@ -259,7 +261,7 @@ class PsuChassisInfo(logger.Logger):
                 else:
                     from sonic_platform.psu import Psu
             except ImportError as e:
-                raise ImportError (str(e) + " - required module not found")
+                raise ImportError(str(e) + " - required module not found")
 
             color = Psu.STATUS_LED_COLOR_GREEN if master_status else Psu.STATUS_LED_COLOR_RED
             Psu.set_status_master_led(color)
@@ -268,6 +270,8 @@ class PsuChassisInfo(logger.Logger):
 
 # PSU status ===================================================================
 #
+
+
 class PsuStatus(object):
     def __init__(self, logger, psu):
 
@@ -306,7 +310,7 @@ class PsuStatus(object):
         if not voltage or not high_threshold or not low_threshold:
             if self.voltage_good is not True:
                 self.logger.log_warning('PSU voltage or high_threshold or low_threshold become unavailable, '
-                                   'voltage={}, high_threshold={}, low_threshold={}'.format(voltage, high_threshold, low_threshold))
+                                        'voltage={}, high_threshold={}, low_threshold={}'.format(voltage, high_threshold, low_threshold))
                 self.voltage_good = True
             return False
 
@@ -321,7 +325,7 @@ class PsuStatus(object):
         if not temperature or not high_threshold:
             if self.temperature_good is not True:
                 self.logger.log_warning('PSU temperature or high_threshold become unavailable, '
-                                   'temperature={}, high_threshold={}'.format(temperature, high_threshold))
+                                        'temperature={}, high_threshold={}'.format(temperature, high_threshold))
                 self.temperature_good = True
             return False
 
@@ -397,7 +401,6 @@ class DaemonPsud(daemon_base.DaemonBase):
         fvs = swsscommon.FieldValuePairs([(CHASSIS_INFO_PSU_NUM_FIELD, str(psu_num))])
         chassis_tbl.set(CHASSIS_INFO_KEY, fvs)
 
-
         # Start main loop
         self.log_info("Start daemon main loop")
 
@@ -433,7 +436,7 @@ class DaemonPsud(daemon_base.DaemonBase):
                 self._update_single_psu_data(index + 1, psu, psu_tbl)
             except Exception as e:
                 self.log_warning("Failed to update PSU data - {}".format(e))
-    
+
     def _update_single_psu_data(self, index, psu, psu_tbl):
         name = get_psu_key(index)
         presence = _wrapper_get_psus_presence(index)

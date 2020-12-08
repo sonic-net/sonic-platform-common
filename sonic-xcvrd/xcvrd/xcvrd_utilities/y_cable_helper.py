@@ -81,9 +81,11 @@ def _wrapper_get_presence(physical_port):
 def delete_port_from_y_cable_table(logical_port_name, y_cable_tbl):
     y_cable_tbl._del(logical_port_name)
 
+
 # Delete port from Y cable status table
 def delete_port_from_y_cable_command_table(logical_port_name, y_cable_command_tbl):
     y_cable_command_tbl._del(logical_port_name)
+
 
 def update_table_mux_status_for_response_tbl(table_name, status, logical_port_name):
     fvs = swsscommon.FieldValuePairs([('response', status)])
@@ -589,7 +591,6 @@ class YCableTableUpdateTask(object):
                 fvp_dict = dict(fvp_m)
 
                 if "command" in fvp_dict:
-
                     # check if xcvrd got a probe command
                     probe_identifier = fvp_dict["command"]
 

@@ -13,7 +13,7 @@ setup(
     scripts=[
         'scripts/pcied',
     ],
-    setup_requires= [
+    setup_requires=[
         'wheel'
     ],
     classifiers=[

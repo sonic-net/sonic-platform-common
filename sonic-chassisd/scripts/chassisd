@@ -24,7 +24,7 @@ try:
         from swsscommon import swsscommon
         from sonic_platform_base.module_base import ModuleBase
 except ImportError as e:
-    raise ImportError (str(e) + " - required module not found")
+    raise ImportError(str(e) + " - required module not found")
 
 #
 # Constants ====================================================================
@@ -59,13 +59,15 @@ INVALID_SLOT = ModuleBase.MODULE_INVALID_SLOT
 INVALID_MODULE_INDEX = -1
 
 MODULE_ADMIN_DOWN = 0
-MODULE_ADMIN_UP   = 1
+MODULE_ADMIN_UP = 1
 
 #
 # Helper functions =============================================================
 #
 
 # try get information from platform API and return a default value if caught NotImplementedError
+
+
 def try_get(callback, *args, **kwargs):
     """
     Handy function to invoke the callback and catch NotImplementedError
@@ -86,16 +88,18 @@ def try_get(callback, *args, **kwargs):
 #
 # Module Config Updater ========================================================
 #
+
+
 class ModuleConfigUpdater(logger.Logger):
 
     def __init__(self, log_identifier, chassis):
-       """
-       Constructor for ModuleConfigUpdater
-       :param chassis: Object representing a platform chassis
-       """
-       super(ModuleConfigUpdater, self).__init__(log_identifier)
+        """
+        Constructor for ModuleConfigUpdater
+        :param chassis: Object representing a platform chassis
+        """
+        super(ModuleConfigUpdater, self).__init__(log_identifier)
 
-       self.chassis = chassis
+        self.chassis = chassis
 
     def deinit(self):
         """
@@ -108,8 +112,9 @@ class ModuleConfigUpdater(logger.Logger):
            not key.startswith(ModuleBase.MODULE_TYPE_LINE) and \
            not key.startswith(ModuleBase.MODULE_TYPE_FABRIC):
             self.log_error("Incorrect module-name {}. Should start with {} or {} or {}".format(key,
-                           ModuleBase.MODULE_TYPE_SUPERVISOR, ModuleBase.MODULE_TYPE_LINE,
-                           ModuleBase.MODULE_TYPE_FABRIC))
+                                                                                               ModuleBase.MODULE_TYPE_SUPERVISOR,
+                                                                                               ModuleBase.MODULE_TYPE_LINE,
+                                                                                               ModuleBase.MODULE_TYPE_FABRIC))
             return
 
         module_index = try_get(self.chassis.get_module_index, key, default=INVALID_MODULE_INDEX)
@@ -121,32 +126,33 @@ class ModuleConfigUpdater(logger.Logger):
 
         if (admin_state == MODULE_ADMIN_DOWN) or (admin_state == MODULE_ADMIN_UP):
             # Setting the module to administratively up/down state
-            self.log_info("Changing module {} to admin {} state".format(key,
-                          'DOWN' if admin_state == MODULE_ADMIN_DOWN else 'UP'))
+            self.log_info("Changing module {} to admin {} state".format(key, 'DOWN' if admin_state == MODULE_ADMIN_DOWN else 'UP'))
             try_get(self.chassis.get_module(module_index).set_admin_state, admin_state, default=False)
 
 #
 # Module Updater ==============================================================
 #
+
+
 class ModuleUpdater(logger.Logger):
 
     def __init__(self, log_identifier, chassis):
-       """
-       Constructor for ModuleUpdater
-       :param chassis: Object representing a platform chassis
-       """
-       super(ModuleUpdater, self).__init__(log_identifier)
+        """
+        Constructor for ModuleUpdater
+        :param chassis: Object representing a platform chassis
+        """
+        super(ModuleUpdater, self).__init__(log_identifier)
 
-       self.chassis = chassis
-       self.num_modules = chassis.get_num_modules()
-       # Connect to STATE_DB and create chassis info tables
-       state_db = daemon_base.db_connect("STATE_DB")
-       self.chassis_table = swsscommon.Table(state_db, CHASSIS_INFO_TABLE)
-       self.module_table = swsscommon.Table(state_db, CHASSIS_MODULE_INFO_TABLE)
-       self.info_dict_keys = [CHASSIS_MODULE_INFO_NAME_FIELD,
-                              CHASSIS_MODULE_INFO_DESC_FIELD,
-                              CHASSIS_MODULE_INFO_SLOT_FIELD,
-                              CHASSIS_MODULE_INFO_OPERSTATUS_FIELD]
+        self.chassis = chassis
+        self.num_modules = chassis.get_num_modules()
+        # Connect to STATE_DB and create chassis info tables
+        state_db = daemon_base.db_connect("STATE_DB")
+        self.chassis_table = swsscommon.Table(state_db, CHASSIS_INFO_TABLE)
+        self.module_table = swsscommon.Table(state_db, CHASSIS_MODULE_INFO_TABLE)
+        self.info_dict_keys = [CHASSIS_MODULE_INFO_NAME_FIELD,
+                               CHASSIS_MODULE_INFO_DESC_FIELD,
+                               CHASSIS_MODULE_INFO_SLOT_FIELD,
+                               CHASSIS_MODULE_INFO_OPERSTATUS_FIELD]
 
     def deinit(self):
         """
@@ -182,12 +188,14 @@ class ModuleUpdater(logger.Logger):
                    not key.startswith(ModuleBase.MODULE_TYPE_LINE) and \
                    not key.startswith(ModuleBase.MODULE_TYPE_FABRIC):
                     self.log_error("Incorrect module-name {}. Should start with {} or {} or {}".format(key,
-                                   ModuleBase.MODULE_TYPE_SUPERVISOR, ModuleBase.MODULE_TYPE_LINE,
-                                   ModuleBase.MODULE_TYPE_FABRIC))
+                                                                                                       ModuleBase.MODULE_TYPE_SUPERVISOR,
+                                                                                                       ModuleBase.MODULE_TYPE_LINE,
+                                                                                                       ModuleBase.MODULE_TYPE_FABRIC))
                     continue
 
                 fvs = swsscommon.FieldValuePairs([(CHASSIS_MODULE_INFO_DESC_FIELD, module_info_dict[CHASSIS_MODULE_INFO_DESC_FIELD]),
-                                                  (CHASSIS_MODULE_INFO_SLOT_FIELD, module_info_dict[CHASSIS_MODULE_INFO_SLOT_FIELD]),
+                                                  (CHASSIS_MODULE_INFO_SLOT_FIELD,
+                                                   module_info_dict[CHASSIS_MODULE_INFO_SLOT_FIELD]),
                                                   (CHASSIS_MODULE_INFO_OPERSTATUS_FIELD, module_info_dict[CHASSIS_MODULE_INFO_OPERSTATUS_FIELD])])
                 self.module_table.set(key, fvs)
 
@@ -200,7 +208,8 @@ class ModuleUpdater(logger.Logger):
         name = try_get(self.chassis.get_module(module_index).get_name)
         desc = try_get(self.chassis.get_module(module_index).get_description)
         slot = try_get(self.chassis.get_module(module_index).get_slot, default=INVALID_SLOT)
-        status = try_get(self.chassis.get_module(module_index).get_oper_status, default=ModuleBase.MODULE_STATUS_OFFLINE)
+        status = try_get(self.chassis.get_module(module_index).get_oper_status,
+                         default=ModuleBase.MODULE_STATUS_OFFLINE)
 
         module_info_dict[CHASSIS_MODULE_INFO_NAME_FIELD] = name
         module_info_dict[CHASSIS_MODULE_INFO_DESC_FIELD] = str(desc)
@@ -212,6 +221,8 @@ class ModuleUpdater(logger.Logger):
 #
 # Config Manager task ========================================================
 #
+
+
 class ConfigManagerTask(ProcessTaskBase):
     def __init__(self):
         ProcessTaskBase.__init__(self)
@@ -255,6 +266,7 @@ class ConfigManagerTask(ProcessTaskBase):
 #
 # Daemon =======================================================================
 #
+
 
 class ChassisdDaemon(daemon_base.DaemonBase):
     def __init__(self, log_identifier):
@@ -309,7 +321,7 @@ class ChassisdDaemon(daemon_base.DaemonBase):
         self.log_info("Start daemon main loop")
 
         while not self.stop.wait(CHASSIS_INFO_UPDATE_PERIOD_SECS):
-           self.module_updater.module_db_update()
+            self.module_updater.module_db_update()
 
         self.log_info("Stop daemon main loop")
 
@@ -325,9 +337,11 @@ class ChassisdDaemon(daemon_base.DaemonBase):
 # Main =========================================================================
 #
 
+
 def main():
     chassisd = ChassisdDaemon(SYSLOG_IDENTIFIER)
     chassisd.run()
+
 
 if __name__ == '__main__':
     main()

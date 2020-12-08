@@ -16,7 +16,7 @@ try:
     from sonic_py_common import daemon_base
     from swsscommon import swsscommon
 except ImportError as e:
-    raise ImportError (str(e) + " - required module not found")
+    raise ImportError(str(e) + " - required module not found")
 
 PLATFORM_SPECIFIC_MODULE_NAME = 'eeprom'
 PLATFORM_SPECIFIC_CLASS_NAME = 'board'
@@ -28,7 +28,7 @@ ERR_PLATFORM_NOT_SUPPORT = 1
 ERR_FAILED_EEPROM = 2
 ERR_FAILED_UPDATE_DB = 3
 ERR_INVALID_PARAMETER = 4
-ERR_EEPROMUTIL_LOAD = 5 
+ERR_EEPROMUTIL_LOAD = 5
 
 EEPROM_TABLE_NAME = 'EEPROM_INFO'
 SYSLOG_IDENTIFIER = 'syseepromd'
@@ -68,7 +68,7 @@ class DaemonSyseeprom(daemon_base.DaemonBase):
 
     def post_eeprom_to_db(self):
         eeprom = self._wrapper_read_eeprom()
-        if eeprom is None :
+        if eeprom is None:
             self.log_error("Failed to read eeprom")
             return ERR_FAILED_EEPROM
 
@@ -121,7 +121,8 @@ class DaemonSyseeprom(daemon_base.DaemonBase):
             self.chassis = sonic_platform.platform.Platform().get_chassis()
             self.eeprom = self.chassis.get_eeprom()
         except Exception as e:
-            self.log_warning("Failed to load platform-specific eeprom from sonic_platform package due to {}".format(repr(e)))
+            self.log_warning(
+                "Failed to load platform-specific eeprom from sonic_platform package due to {}".format(repr(e)))
 
         # If we didn't successfully load the class from the sonic_platform package, try loading the old plugin
         if not self.eeprom:
@@ -162,10 +163,11 @@ class DaemonSyseeprom(daemon_base.DaemonBase):
 # Main =========================================================================
 #
 
+
 def main():
     syseepromd = DaemonSyseeprom(SYSLOG_IDENTIFIER)
     syseepromd.run()
 
+
 if __name__ == '__main__':
     main()
-

@@ -16,11 +16,11 @@ setup(
     scripts=[
         'scripts/psud',
     ],
-    setup_requires= [
+    setup_requires=[
         'pytest-runner',
         'wheel'
     ],
-    tests_require = [
+    tests_require=[
         'pytest',
         'mock>=2.0.0',
         'pytest-cov'

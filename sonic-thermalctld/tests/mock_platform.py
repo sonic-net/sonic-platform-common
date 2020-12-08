@@ -112,7 +112,7 @@ class MockFanDrawer(MockDevice):
 
 
 class MockThermal(MockDevice):
-    def __init__(self, index = None):
+    def __init__(self, index=None):
         MockDevice.__init__(self)
         self.name = None
         self.name = 'Thermal {}'.format(index) if index != None else None
@@ -168,7 +168,7 @@ class MockErrorThermal(MockThermal):
     def get_temperature(self):
         raise Exception('Fail to get temperature')
 
-    
+
 class MockChassis:
     def __init__(self):
         self.fan_list = []

@@ -24,6 +24,7 @@ from thermalctld import *
 
 TEMPER_INFO_TABLE_NAME = 'TEMPERATURE_INFO'
 
+
 def setup_function():
     FanStatus.log_notice = MagicMock()
     FanStatus.log_warning = MagicMock()
@@ -189,11 +190,12 @@ def test_insufficient_fan_number():
     fan_updater.update()
     assert fan_updater.log_notice.call_count == 1
     fan_updater.log_warning.assert_called_with('Insufficient number of working fans warning: 1 fans are not working.')
-    
+
     fan_list[1].status = True
     fan_updater.update()
     assert fan_updater.log_notice.call_count == 3
-    fan_updater.log_notice.assert_called_with('Insufficient number of working fans warning cleared: all fans are back to normal.')
+    fan_updater.log_notice.assert_called_with(
+        'Insufficient number of working fans warning cleared: all fans are back to normal.')
 
 
 def test_temperature_status_set_over_temper():
@@ -286,7 +288,9 @@ def test_update_thermal_with_exception():
     temperature_updater.update()
     temperature_updater.log_warning.assert_called()
 
-#Modular chassis related tests
+# Modular chassis related tests
+
+
 def test_updater_thermal_check_modular_chassis():
     chassis = MockChassis()
     assert chassis.is_modular_chassis() == False
@@ -304,6 +308,7 @@ def test_updater_thermal_check_modular_chassis():
     temperature_updater = TemperatureUpdater(SYSLOG_IDENTIFIER, chassis)
     assert temperature_updater.chassis_table != None
     assert temperature_updater.chassis_table.table_name == TEMPER_INFO_TABLE_NAME+'_'+str(my_slot)
+
 
 def test_updater_thermal_check_chassis_table():
     chassis = MockChassis()
@@ -325,6 +330,7 @@ def test_updater_thermal_check_chassis_table():
 
     temperature_updater.deinit()
     assert temperature_updater.chassis_table.get_size() == 0
+
 
 def test_updater_thermal_check_min_max():
     chassis = MockChassis()

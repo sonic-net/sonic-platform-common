@@ -23,7 +23,7 @@ try:
 
     from .xcvrd_utilities import y_cable_helper
 except ImportError as e:
-    raise ImportError (str(e) + " - required module not found")
+    raise ImportError(str(e) + " - required module not found")
 
 #
 # Constants ====================================================================
@@ -49,9 +49,9 @@ SFP_STATUS_REMOVED = '0'
 SFP_STATUS_INSERTED = '1'
 
 # SFP error code enum, new elements can be added to the enum if new errors need to be supported.
-SFP_STATUS_ERR_ENUM = Enum('SFP_STATUS_ERR_ENUM', ['SFP_STATUS_ERR_I2C_STUCK', 'SFP_STATUS_ERR_BAD_EEPROM', 
-                                                  'SFP_STATUS_ERR_UNSUPPORTED_CABLE', 'SFP_STATUS_ERR_HIGH_TEMP',
-                                                  'SFP_STATUS_ERR_BAD_CABLE'], start=2)
+SFP_STATUS_ERR_ENUM = Enum('SFP_STATUS_ERR_ENUM', ['SFP_STATUS_ERR_I2C_STUCK', 'SFP_STATUS_ERR_BAD_EEPROM',
+                                                   'SFP_STATUS_ERR_UNSUPPORTED_CABLE', 'SFP_STATUS_ERR_HIGH_TEMP',
+                                                   'SFP_STATUS_ERR_BAD_CABLE'], start=2)
 
 # Convert the error code to string and store them in a set for convenience
 errors_block_eeprom_reading = set(str(error_code.value) for error_code in SFP_STATUS_ERR_ENUM)
@@ -73,7 +73,7 @@ SFP_EEPROM_NOT_READY = -2
 SFPUTIL_LOAD_ERROR = 1
 PORT_CONFIG_LOAD_ERROR = 2
 NOT_IMPLEMENTED_ERROR = 3
-SFP_SYSTEM_ERROR = 4 
+SFP_SYSTEM_ERROR = 4
 
 RETRY_TIMES_FOR_SYSTEM_READY = 24
 RETRY_PERIOD_FOR_SYSTEM_READY_MSECS = 5000
@@ -103,26 +103,32 @@ helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
 #
 
 # Find out the underneath physical port list by logical name
+
+
 def logical_port_name_to_physical_port_list(port_name):
     if port_name.startswith("Ethernet"):
         if platform_sfputil.is_logical_port(port_name):
             return platform_sfputil.get_logical_to_physical(port_name)
         else:
-            helper_logger.log_error("Invalid port '%s'" % port_name)
+            helper_logger.log_error("Invalid port '{}'".format(port_name))
             return None
     else:
         return [int(port_name)]
 
 # Get physical port name
+
+
 def get_physical_port_name(logical_port, physical_port, ganged):
     if logical_port == physical_port:
         return logical_port
     elif ganged:
-        return logical_port + ":%d (ganged)" % physical_port
+        return logical_port + ":{} (ganged)".format(physical_port)
     else:
         return logical_port
 
 # Strip units and beautify
+
+
 def strip_unit_and_beautify(value, unit):
     # Strip unit from raw data
     if type(value) is str:
@@ -133,6 +139,7 @@ def strip_unit_and_beautify(value, unit):
     else:
         return str(value)
 
+
 def _wrapper_get_presence(physical_port):
     if platform_chassis is not None:
         try:
@@ -140,6 +147,7 @@ def _wrapper_get_presence(physical_port):
         except NotImplementedError:
             pass
     return platform_sfputil.get_presence(physical_port)
+
 
 def _wrapper_is_replaceable(physical_port):
     if platform_chassis is not None:
@@ -149,6 +157,7 @@ def _wrapper_is_replaceable(physical_port):
             pass
     return False
 
+
 def _wrapper_get_transceiver_info(physical_port):
     if platform_chassis is not None:
         try:
@@ -156,6 +165,7 @@ def _wrapper_get_transceiver_info(physical_port):
         except NotImplementedError:
             pass
     return platform_sfputil.get_transceiver_info_dict(physical_port)
+
 
 def _wrapper_get_transceiver_dom_info(physical_port):
     if platform_chassis is not None:
@@ -165,6 +175,7 @@ def _wrapper_get_transceiver_dom_info(physical_port):
             pass
     return platform_sfputil.get_transceiver_dom_info_dict(physical_port)
 
+
 def _wrapper_get_transceiver_dom_threshold_info(physical_port):
     if platform_chassis is not None:
         try:
@@ -173,15 +184,17 @@ def _wrapper_get_transceiver_dom_threshold_info(physical_port):
             pass
     return platform_sfputil.get_transceiver_dom_threshold_info_dict(physical_port)
 
+
 def _wrapper_get_transceiver_change_event(timeout):
     if platform_chassis is not None:
         try:
-            status, events =  platform_chassis.get_change_event(timeout)
+            status, events = platform_chassis.get_change_event(timeout)
             sfp_events = events['sfp']
             return status, sfp_events
         except NotImplementedError:
             pass
     return platform_sfputil.get_transceiver_change_event(timeout)
+
 
 def _wrapper_get_sfp_type(physical_port):
     if platform_chassis:
@@ -192,6 +205,8 @@ def _wrapper_get_sfp_type(physical_port):
     return None
 
 # Remove unnecessary unit from the raw data
+
+
 def beautify_dom_info_dict(dom_info_dict):
     dom_info_dict['temperature'] = strip_unit_and_beautify(dom_info_dict['temperature'], TEMP_UNIT)
     dom_info_dict['voltage'] = strip_unit_and_beautify(dom_info_dict['voltage'], VOLT_UNIT)
@@ -207,6 +222,7 @@ def beautify_dom_info_dict(dom_info_dict):
     dom_info_dict['tx2power'] = strip_unit_and_beautify(dom_info_dict['tx2power'], POWER_UNIT)
     dom_info_dict['tx3power'] = strip_unit_and_beautify(dom_info_dict['tx3power'], POWER_UNIT)
     dom_info_dict['tx4power'] = strip_unit_and_beautify(dom_info_dict['tx4power'], POWER_UNIT)
+
 
 def beautify_dom_threshold_info_dict(dom_info_dict):
     dom_info_dict['temphighalarm'] = strip_unit_and_beautify(dom_info_dict['temphighalarm'], TEMP_UNIT)
@@ -235,14 +251,16 @@ def beautify_dom_threshold_info_dict(dom_info_dict):
     dom_info_dict['txbiaslowwarning'] = strip_unit_and_beautify(dom_info_dict['txbiaslowwarning'], BIAS_UNIT)
 
 # Update port sfp info in db
-def post_port_sfp_info_to_db(logical_port_name, table, transceiver_dict, 
+
+
+def post_port_sfp_info_to_db(logical_port_name, table, transceiver_dict,
                              stop_event=threading.Event()):
     ganged_port = False
     ganged_member_num = 1
 
     physical_port_list = logical_port_name_to_physical_port_list(logical_port_name)
     if physical_port_list is None:
-        helper_logger.log_error("No physical ports found for logical port '%s'" % logical_port_name)
+        helper_logger.log_error("No physical ports found for logical port '{}'".format(logical_port_name))
         return PHYSICAL_PORT_NOT_EXIST
 
     if len(physical_port_list) > 1:
@@ -262,25 +280,27 @@ def post_port_sfp_info_to_db(logical_port_name, table, transceiver_dict,
             port_info_dict = _wrapper_get_transceiver_info(physical_port)
             if port_info_dict is not None:
                 is_replaceable = _wrapper_is_replaceable(physical_port)
-                transceiver_dict[physical_port]=port_info_dict
-                fvs = swsscommon.FieldValuePairs([('type', port_info_dict['type']),
-                                                  ('hardware_rev', port_info_dict['hardware_rev']),
-                                                  ('serial', port_info_dict['serial']),
-                                                  ('manufacturer', port_info_dict['manufacturer']),
-                                                  ('model', port_info_dict['model']),
-                                                  ('vendor_oui',port_info_dict['vendor_oui']),
-                                                  ('vendor_date',port_info_dict['vendor_date']),
-                                                  ('connector',port_info_dict['connector']),
-                                                  ('encoding',port_info_dict['encoding']),
-                                                  ('ext_identifier',port_info_dict['ext_identifier']),
-                                                  ('ext_rateselect_compliance',port_info_dict['ext_rateselect_compliance']),
-                                                  ('cable_type',port_info_dict['cable_type']),
-                                                  ('cable_length',port_info_dict['cable_length']),
-                                                  ('specification_compliance',port_info_dict['specification_compliance']),
-                                                  ('nominal_bit_rate',port_info_dict['nominal_bit_rate']),
-                                                  ('application_advertisement',port_info_dict['application_advertisement'] if 'application_advertisement' in port_info_dict else 'N/A'),
-                                                  ('is_replaceable',str(is_replaceable)),
-                                                  ])
+                transceiver_dict[physical_port] = port_info_dict
+                fvs = swsscommon.FieldValuePairs(
+                    [('type', port_info_dict['type']),
+                     ('hardware_rev', port_info_dict['hardware_rev']),
+                     ('serial', port_info_dict['serial']),
+                     ('manufacturer', port_info_dict['manufacturer']),
+                     ('model', port_info_dict['model']),
+                     ('vendor_oui', port_info_dict['vendor_oui']),
+                     ('vendor_date', port_info_dict['vendor_date']),
+                     ('connector', port_info_dict['connector']),
+                     ('encoding', port_info_dict['encoding']),
+                     ('ext_identifier', port_info_dict['ext_identifier']),
+                     ('ext_rateselect_compliance', port_info_dict['ext_rateselect_compliance']),
+                     ('cable_type', port_info_dict['cable_type']),
+                     ('cable_length', port_info_dict['cable_length']),
+                     ('specification_compliance', port_info_dict['specification_compliance']),
+                     ('nominal_bit_rate', port_info_dict['nominal_bit_rate']),
+                     ('application_advertisement', port_info_dict['application_advertisement']
+                      if 'application_advertisement' in port_info_dict else 'N/A'),
+                     ('is_replaceable', str(is_replaceable)),
+                     ])
                 table.set(port_name, fvs)
             else:
                 return SFP_EEPROM_NOT_READY
@@ -290,6 +310,8 @@ def post_port_sfp_info_to_db(logical_port_name, table, transceiver_dict,
             sys.exit(NOT_IMPLEMENTED_ERROR)
 
 # Update port dom threshold info in db
+
+
 def post_port_dom_threshold_info_to_db(logical_port_name, table,
                                        stop=threading.Event()):
     ganged_port = False
@@ -297,8 +319,7 @@ def post_port_dom_threshold_info_to_db(logical_port_name, table,
 
     physical_port_list = logical_port_name_to_physical_port_list(logical_port_name)
     if physical_port_list is None:
-        helper_logger.log_error("No physical ports found for logical port '%s'"
-                                                           % logical_port_name)
+        helper_logger.log_error("No physical ports found for logical port '{}'".format(logical_port_name))
         return PHYSICAL_PORT_NOT_EXIST
 
     if len(physical_port_list) > 1:
@@ -320,27 +341,27 @@ def post_port_dom_threshold_info_to_db(logical_port_name, table,
             if dom_info_dict is not None:
                 beautify_dom_threshold_info_dict(dom_info_dict)
                 fvs = swsscommon.FieldValuePairs(
-                        [('temphighalarm', dom_info_dict['temphighalarm']),
-                         ('temphighwarning', dom_info_dict['temphighwarning']),
-                         ('templowalarm', dom_info_dict['templowalarm']),
-                         ('templowwarning', dom_info_dict['templowwarning']),
-                         ('vcchighalarm', dom_info_dict['vcchighalarm']),
-                         ('vcchighwarning', dom_info_dict['vcchighwarning']),
-                         ('vcclowalarm', dom_info_dict['vcclowalarm']),
-                         ('vcclowwarning', dom_info_dict['vcclowwarning']),
-                         ('txpowerhighalarm', dom_info_dict['txpowerhighalarm']),
-                         ('txpowerlowalarm', dom_info_dict['txpowerlowalarm']),
-                         ('txpowerhighwarning', dom_info_dict['txpowerhighwarning']),
-                         ('txpowerlowwarning', dom_info_dict['txpowerlowwarning']),
-                         ('rxpowerhighalarm', dom_info_dict['rxpowerhighalarm']),
-                         ('rxpowerlowalarm', dom_info_dict['rxpowerlowalarm']),
-                         ('rxpowerhighwarning', dom_info_dict['rxpowerhighwarning']),
-                         ('rxpowerlowwarning', dom_info_dict['rxpowerlowwarning']),
-                         ('txbiashighalarm', dom_info_dict['txbiashighalarm']),
-                         ('txbiaslowalarm', dom_info_dict['txbiaslowalarm']),
-                         ('txbiashighwarning', dom_info_dict['txbiashighwarning']),
-                         ('txbiaslowwarning', dom_info_dict['txbiaslowwarning'])
-                        ])
+                    [('temphighalarm', dom_info_dict['temphighalarm']),
+                     ('temphighwarning', dom_info_dict['temphighwarning']),
+                     ('templowalarm', dom_info_dict['templowalarm']),
+                     ('templowwarning', dom_info_dict['templowwarning']),
+                     ('vcchighalarm', dom_info_dict['vcchighalarm']),
+                     ('vcchighwarning', dom_info_dict['vcchighwarning']),
+                     ('vcclowalarm', dom_info_dict['vcclowalarm']),
+                     ('vcclowwarning', dom_info_dict['vcclowwarning']),
+                     ('txpowerhighalarm', dom_info_dict['txpowerhighalarm']),
+                     ('txpowerlowalarm', dom_info_dict['txpowerlowalarm']),
+                     ('txpowerhighwarning', dom_info_dict['txpowerhighwarning']),
+                     ('txpowerlowwarning', dom_info_dict['txpowerlowwarning']),
+                     ('rxpowerhighalarm', dom_info_dict['rxpowerhighalarm']),
+                     ('rxpowerlowalarm', dom_info_dict['rxpowerlowalarm']),
+                     ('rxpowerhighwarning', dom_info_dict['rxpowerhighwarning']),
+                     ('rxpowerlowwarning', dom_info_dict['rxpowerlowwarning']),
+                     ('txbiashighalarm', dom_info_dict['txbiashighalarm']),
+                     ('txbiaslowalarm', dom_info_dict['txbiaslowalarm']),
+                     ('txbiashighwarning', dom_info_dict['txbiashighwarning']),
+                     ('txbiaslowwarning', dom_info_dict['txbiaslowwarning'])
+                     ])
                 table.set(port_name, fvs)
             else:
                 return SFP_EEPROM_NOT_READY
@@ -350,13 +371,15 @@ def post_port_dom_threshold_info_to_db(logical_port_name, table,
             sys.exit(NOT_IMPLEMENTED_ERROR)
 
 # Update port dom sensor info in db
+
+
 def post_port_dom_info_to_db(logical_port_name, table, stop_event=threading.Event()):
     ganged_port = False
     ganged_member_num = 1
 
     physical_port_list = logical_port_name_to_physical_port_list(logical_port_name)
     if physical_port_list is None:
-        helper_logger.log_error("No physical ports found for logical port '%s'" % logical_port_name)
+        helper_logger.log_error("No physical ports found for logical port '{}'".format(logical_port_name))
         return PHYSICAL_PORT_NOT_EXIST
 
     if len(physical_port_list) > 1:
@@ -404,24 +427,24 @@ def post_port_dom_info_to_db(logical_port_name, table, stop_event=threading.Even
                          ('tx6power', dom_info_dict['tx6power']),
                          ('tx7power', dom_info_dict['tx7power']),
                          ('tx8power', dom_info_dict['tx8power'])
-                        ])
+                         ])
                 else:
                     fvs = swsscommon.FieldValuePairs(
-                            [('temperature', dom_info_dict['temperature']),
-                            ('voltage', dom_info_dict['voltage']),
-                            ('rx1power', dom_info_dict['rx1power']),
-                            ('rx2power', dom_info_dict['rx2power']),
-                            ('rx3power', dom_info_dict['rx3power']),
-                            ('rx4power', dom_info_dict['rx4power']),
-                            ('tx1bias', dom_info_dict['tx1bias']),
-                            ('tx2bias', dom_info_dict['tx2bias']),
-                            ('tx3bias', dom_info_dict['tx3bias']),
-                            ('tx4bias', dom_info_dict['tx4bias']),
-                            ('tx1power', dom_info_dict['tx1power']),
-                            ('tx2power', dom_info_dict['tx2power']),
-                            ('tx3power', dom_info_dict['tx3power']),
-                            ('tx4power', dom_info_dict['tx4power'])
-                            ])
+                        [('temperature', dom_info_dict['temperature']),
+                         ('voltage', dom_info_dict['voltage']),
+                         ('rx1power', dom_info_dict['rx1power']),
+                         ('rx2power', dom_info_dict['rx2power']),
+                         ('rx3power', dom_info_dict['rx3power']),
+                         ('rx4power', dom_info_dict['rx4power']),
+                         ('tx1bias', dom_info_dict['tx1bias']),
+                         ('tx2bias', dom_info_dict['tx2bias']),
+                         ('tx3bias', dom_info_dict['tx3bias']),
+                         ('tx4bias', dom_info_dict['tx4bias']),
+                         ('tx1power', dom_info_dict['tx1power']),
+                         ('tx2power', dom_info_dict['tx2power']),
+                         ('tx3power', dom_info_dict['tx3power']),
+                         ('tx4power', dom_info_dict['tx4power'])
+                         ])
 
                 table.set(port_name, fvs)
 
@@ -433,6 +456,8 @@ def post_port_dom_info_to_db(logical_port_name, table, stop_event=threading.Even
             sys.exit(NOT_IMPLEMENTED_ERROR)
 
 # Update port dom/sfp info in db
+
+
 def post_port_sfp_dom_info_to_db(is_warm_start, stop_event=threading.Event()):
     # Connect to STATE_DB and create transceiver dom/sfp info tables
     transceiver_dict, state_db, appl_db, int_tbl, dom_tbl, app_port_tbl = {}, {}, {}, {}, {}, {}
@@ -462,19 +487,21 @@ def post_port_sfp_dom_info_to_db(is_warm_start, stop_event=threading.Event()):
         post_port_dom_info_to_db(logical_port_name, dom_tbl[asic_index], stop_event)
         post_port_dom_threshold_info_to_db(logical_port_name, dom_tbl[asic_index], stop_event)
 
-        ## Do not notify media settings during warm reboot to avoid dataplane traffic impact
+        # Do not notify media settings during warm reboot to avoid dataplane traffic impact
         if is_warm_start == False:
             notify_media_setting(logical_port_name, transceiver_dict, app_port_tbl[asic_index])
             transceiver_dict.clear()
 
 # Delete port dom/sfp info from db
+
+
 def del_port_sfp_dom_info_from_db(logical_port_name, int_tbl, dom_tbl):
     ganged_port = False
     ganged_member_num = 1
 
     physical_port_list = logical_port_name_to_physical_port_list(logical_port_name)
     if physical_port_list is None:
-        helper_logger.log_error("No physical ports found for logical port '%s'" % logical_port_name)
+        helper_logger.log_error("No physical ports found for logical port '{}'".format(logical_port_name))
         return PHYSICAL_PORT_NOT_EXIST
 
     if len(physical_port_list) > 1:
@@ -495,9 +522,11 @@ def del_port_sfp_dom_info_from_db(logical_port_name, int_tbl, dom_tbl):
             sys.exit(NOT_IMPLEMENTED_ERROR)
 
 # recover missing sfp table entries if any
+
+
 def recover_missing_sfp_table_entries(sfp_util, int_tbl, status_tbl, stop_event):
     transceiver_dict = {}
-    
+
     logical_port_list = sfp_util.logical
     for logical_port_name in logical_port_list:
         if stop_event.is_set():
@@ -512,7 +541,7 @@ def recover_missing_sfp_table_entries(sfp_util, int_tbl, status_tbl, stop_event)
         keys = int_tbl[asic_index].getKeys()
         if logical_port_name not in keys and not detect_port_in_error_status(logical_port_name, status_tbl[asic_index]):
             post_port_sfp_info_to_db(logical_port_name, int_tbl[asic_index], transceiver_dict, stop_event)
-    
+
 
 def check_port_in_range(range_str, physical_port):
     range_separator = '-'
@@ -573,8 +602,7 @@ def get_media_settings_value(physical_port, key):
             if default_dict != 0:
                 return default_dict
             else:
-                helper_logger.log_error("Error: No values for physical port '%d'"
-                                  % physical_port)
+                helper_logger.log_error("Error: No values for physical port '{}'".format(physical_port))
             return {}
         if key[0] in media_dict:
             return media_dict[key[0]]
@@ -587,8 +615,9 @@ def get_media_settings_value(physical_port, key):
         else:
             return {}
     else:
-       if default_dict != 0:
+        if default_dict != 0:
             return default_dict
+
 
 def get_media_settings_key(physical_port, transceiver_dict):
     sup_compliance_str = '10/40G Ethernet Compliance Code'
@@ -622,11 +651,12 @@ def get_media_settings_key(physical_port, transceiver_dict):
 
     return [vendor_key, media_key]
 
+
 def get_media_val_str_from_dict(media_dict):
     media_str = ''
     lane_str = 'lane'
     lane_separator = ','
-    tmp_dict={}
+    tmp_dict = {}
 
     for keys in media_dict:
         lane_num = int(keys.strip()[len(lane_str):])
@@ -637,6 +667,7 @@ def get_media_val_str_from_dict(media_dict):
         if key != tmp_dict.keys()[-1]:
             media_str += lane_separator
     return media_str
+
 
 def get_media_val_str(num_logical_ports, lane_dict, logical_idx):
     lane_str = "lane"
@@ -651,16 +682,17 @@ def get_media_val_str(num_logical_ports, lane_dict, logical_idx):
         num_lanes_per_logical_port = num_lanes_on_port/num_logical_ports
         start_lane = logical_idx * num_lanes_per_logical_port
 
-        for lane_idx in range(start_lane, start_lane + \
+        for lane_idx in range(start_lane, start_lane +
                               num_lanes_per_logical_port):
-             lane_idx_str = lane_str + str(lane_idx)
-             logical_lane_idx_str = lane_str + str(lane_idx - start_lane)
-             logical_media_dict[logical_lane_idx_str] = lane_dict[lane_idx_str]
+            lane_idx_str = lane_str + str(lane_idx)
+            logical_lane_idx_str = lane_str + str(lane_idx - start_lane)
+            logical_media_dict[logical_lane_idx_str] = lane_dict[lane_idx_str]
 
         media_val_str = get_media_val_str_from_dict(logical_media_dict)
     else:
         media_val_str = get_media_val_str_from_dict(lane_dict)
     return media_val_str
+
 
 def notify_media_setting(logical_port_name, transceiver_dict,
                          app_port_tbl):
@@ -672,8 +704,7 @@ def notify_media_setting(logical_port_name, transceiver_dict,
 
     physical_port_list = logical_port_name_to_physical_port_list(logical_port_name)
     if physical_port_list is None:
-        helper_logger.log_error("Error: No physical ports found for "
-                               "logical port '%s'" % logical_port_name)
+        helper_logger.log_error("Error: No physical ports found for logical port '{}'".format(logical_port_name))
         return PHYSICAL_PORT_NOT_EXIST
 
     if len(physical_port_list) > 1:
@@ -684,12 +715,10 @@ def notify_media_setting(logical_port_name, transceiver_dict,
         num_logical_ports = len(logical_port_list)
         logical_idx = logical_port_list.index(logical_port_name)
         if not _wrapper_get_presence(physical_port):
-            helper_logger.log_info("Media %d presence not detected during notify"
-                             % physical_port)
+            helper_logger.log_info("Media {} presence not detected during notify".format(physical_port))
             continue
         if physical_port not in transceiver_dict:
-            helper_logger.log_error("Media %d eeprom not populated in "
-                             "transceiver dict" % physical_port)
+            helper_logger.log_error("Media {} eeprom not populated in transceiver dict".format(physical_port))
             continue
 
         port_name = get_physical_port_name(logical_port_name,
@@ -707,7 +736,7 @@ def notify_media_setting(logical_port_name, transceiver_dict,
         index = 0
         for media_key in media_dict:
             if type(media_dict[media_key]) is dict:
-                media_val_str = get_media_val_str(num_logical_ports, \
+                media_val_str = get_media_val_str(num_logical_ports,
                                                   media_dict[media_key],
                                                   logical_idx)
             else:
@@ -725,19 +754,25 @@ def waiting_time_compensation_with_sleep(time_start, time_to_wait):
         time.sleep(time_to_wait - time_diff)
 
 # Update port SFP status table on receiving SFP change event
+
+
 def update_port_transceiver_status_table(logical_port_name, status_tbl, status):
     fvs = swsscommon.FieldValuePairs([('status', status)])
     status_tbl.set(logical_port_name, fvs)
 
 # Delete port from SFP status table
+
+
 def delete_port_from_status_table(logical_port_name, status_tbl):
     status_tbl._del(logical_port_name)
 
 # Check whether port in error status
+
+
 def detect_port_in_error_status(logical_port_name, status_tbl):
     rec, fvp = status_tbl.get(logical_port_name)
     if rec:
-        status_dict  = dict(fvp)
+        status_dict = dict(fvp)
         if status_dict['status'] in errors_block_eeprom_reading:
             return True
         else:
@@ -746,6 +781,8 @@ def detect_port_in_error_status(logical_port_name, status_tbl):
         return False
 
 # Init TRANSCEIVER_STATUS table
+
+
 def init_port_sfp_status_tbl(stop_event=threading.Event()):
     # Connect to STATE_DB and create transceiver status table
     state_db, status_tbl = {}, {}
@@ -771,7 +808,7 @@ def init_port_sfp_status_tbl(stop_event=threading.Event()):
 
         physical_port_list = logical_port_name_to_physical_port_list(logical_port_name)
         if physical_port_list is None:
-            helper_logger.log_error("No physical ports found for logical port '%s'" % logical_port_name)
+            helper_logger.log_error("No physical ports found for logical port '{}'".format(logical_port_name))
             update_port_transceiver_status_table(logical_port_name, status_tbl[asic_index], SFP_STATUS_REMOVED)
 
         for physical_port in physical_port_list:
@@ -788,6 +825,8 @@ def init_port_sfp_status_tbl(stop_event=threading.Event()):
 #
 
 # Thread wrapper class to update dom info periodically
+
+
 class DomInfoUpdateTask(object):
     def __init__(self):
         self.task_thread = None
@@ -835,6 +874,8 @@ class DomInfoUpdateTask(object):
         self.task_thread.join()
 
 # Process wrapper class to update sfp state info periodically
+
+
 class SfpStateUpdateTask(object):
     def __init__(self):
         self.task_process = None
@@ -900,16 +941,16 @@ class SfpStateUpdateTask(object):
         # - Initial state: INIT, before received system ready or a normal event
         # - Final state: EXIT
         # - other state: NORMAL, after has received system-ready or a normal event
-        
+
         # events definition
         # - SYSTEM_NOT_READY
         # - SYSTEM_BECOME_READY
-        #   - 
+        #   -
         # - NORMAL_EVENT
         #   - sfp insertion/removal
         #   - timeout returned by sfputil.get_change_event with status = true
         # - SYSTEM_FAIL
-        
+
         # State transition:
         # 1. SYSTEM_NOT_READY
         #     - INIT
@@ -940,7 +981,6 @@ class SfpStateUpdateTask(object):
         #     - NORMAL
         #         Treat as an error, transition to INIT
 
-
         # State           event               next state
         # INIT            SYSTEM NOT READY    INIT / EXIT
         # INIT            SYSTEM FAIL         INIT / EXIT
@@ -966,16 +1006,17 @@ class SfpStateUpdateTask(object):
                 if state == STATE_INIT:
                     # system not ready, wait and retry
                     if retry >= RETRY_TIMES_FOR_SYSTEM_READY:
-                        helper_logger.log_error("System failed to get ready in {} secs or received system error. Exiting...".format((RETRY_PERIOD_FOR_SYSTEM_READY_MSECS/1000)*RETRY_TIMES_FOR_SYSTEM_READY))
+                        helper_logger.log_error("System failed to get ready in {} secs or received system error. Exiting...".format(
+                            (RETRY_PERIOD_FOR_SYSTEM_READY_MSECS/1000)*RETRY_TIMES_FOR_SYSTEM_READY))
                         next_state = STATE_EXIT
                         sfp_error_event.set()
                     else:
                         retry = retry + 1
 
-                        # get_transceiver_change_event may return immediately, 
-                        # we want the retry expired in expected time period, 
-                        # So need to calc the time diff, 
-                        # if time diff less that the pre-defined waiting time, 
+                        # get_transceiver_change_event may return immediately,
+                        # we want the retry expired in expected time period,
+                        # So need to calc the time diff,
+                        # if time diff less that the pre-defined waiting time,
                         # use sleep() to complete the time.
                         time_now = time.time()
                         time_diff = time_now - time_start
@@ -1019,7 +1060,8 @@ class SfpStateUpdateTask(object):
                             if value == SFP_STATUS_INSERTED:
                                 helper_logger.log_info("Got SFP inserted event")
                                 # A plugin event will clear the error state.
-                                update_port_transceiver_status_table(logical_port, status_tbl[asic_index], SFP_STATUS_INSERTED)
+                                update_port_transceiver_status_table(
+                                    logical_port, status_tbl[asic_index], SFP_STATUS_INSERTED)
                                 helper_logger.log_info("receive plug in and update port sfp status table.")
                                 rc = post_port_sfp_info_to_db(logical_port, int_tbl[asic_index], transceiver_dict)
                                 # If we didn't get the sfp info, assuming the eeprom is not ready, give a try again.
@@ -1033,7 +1075,8 @@ class SfpStateUpdateTask(object):
                                 transceiver_dict.clear()
                             elif value == SFP_STATUS_REMOVED:
                                 helper_logger.log_info("Got SFP removed event")
-                                update_port_transceiver_status_table(logical_port, status_tbl[asic_index], SFP_STATUS_REMOVED)
+                                update_port_transceiver_status_table(
+                                    logical_port, status_tbl[asic_index], SFP_STATUS_REMOVED)
                                 helper_logger.log_info("receive plug out and pdate port sfp status table.")
                                 del_port_sfp_dom_info_from_db(logical_port, int_tbl[asic_index], dom_tbl[asic_index])
                             elif value in errors_block_eeprom_reading:
@@ -1054,21 +1097,23 @@ class SfpStateUpdateTask(object):
                                 continue
 
                     # Since ports could be connected to a mux cable, if there is a change event process the change for being on a Y cable Port
-                    y_cable_helper.change_ports_status_for_y_cable_change_event(port_dict, y_cable_presence, stopping_event)      
+                    y_cable_helper.change_ports_status_for_y_cable_change_event(
+                        port_dict, y_cable_presence, stopping_event)
                 else:
                     next_state = STATE_EXIT
             elif event == SYSTEM_FAIL:
                 if state == STATE_INIT:
                     # To overcome a case that system is only temporarily not available,
-                    # when get system fail event will wait and retry for a certain period,  
+                    # when get system fail event will wait and retry for a certain period,
                     # if system recovered in this period xcvrd will transit to INIT state
                     # and continue run, if can not recover then exit.
                     if retry >= RETRY_TIMES_FOR_SYSTEM_FAIL:
-                        helper_logger.log_error("System failed to recover in {} secs. Exiting...".format((RETRY_PERIOD_FOR_SYSTEM_FAIL_MSECS/1000)*RETRY_TIMES_FOR_SYSTEM_FAIL))
+                        helper_logger.log_error("System failed to recover in {} secs. Exiting...".format(
+                            (RETRY_PERIOD_FOR_SYSTEM_FAIL_MSECS/1000)*RETRY_TIMES_FOR_SYSTEM_FAIL))
                         next_state = STATE_EXIT
                         sfp_error_event.set()
                     else:
-                        retry = retry + 1                   
+                        retry = retry + 1
                         waiting_time_compensation_with_sleep(time_start, RETRY_PERIOD_FOR_SYSTEM_FAIL_MSECS/1000)
                 elif state == STATE_NORMAL:
                     helper_logger.log_error("Got system_fail in normal state, treat as error, transition to INIT...")
@@ -1096,7 +1141,8 @@ class SfpStateUpdateTask(object):
         if self.task_stopping_event.is_set():
             return
 
-        self.task_process = multiprocessing.Process(target=self.task_worker,args=(self.task_stopping_event, sfp_error_event, y_cable_presence))
+        self.task_process = multiprocessing.Process(target=self.task_worker, args=(
+            self.task_stopping_event, sfp_error_event, y_cable_presence))
         self.task_process.start()
 
     def task_stop(self):
@@ -1106,6 +1152,7 @@ class SfpStateUpdateTask(object):
 #
 # Daemon =======================================================================
 #
+
 
 class DaemonXcvrd(daemon_base.DaemonBase):
     def __init__(self, log_identifier):
@@ -1179,7 +1226,7 @@ class DaemonXcvrd(daemon_base.DaemonBase):
             import sonic_platform_base.sonic_sfp.sfputilhelper
             platform_chassis = sonic_platform.platform.Platform().get_chassis()
             self.log_info("chassis loaded {}".format(platform_chassis))
-            # we have to make use of sfputil for some features 
+            # we have to make use of sfputil for some features
             # even though when new platform api is used for all vendors.
             # in this sense, we treat it as a part of new platform api.
             # we have already moved sfputil to sonic_platform_base
@@ -1193,7 +1240,7 @@ class DaemonXcvrd(daemon_base.DaemonBase):
             try:
                 platform_sfputil = self.load_platform_util(PLATFORM_SPECIFIC_MODULE_NAME, PLATFORM_SPECIFIC_CLASS_NAME)
             except Exception as e:
-                self.log_error("Failed to load sfputil: %s" % (str(e)), True)
+                self.log_error("Failed to load sfputil: {}".format(str(e)), True)
                 sys.exit(SFPUTIL_LOAD_ERROR)
 
         if multi_asic.is_multi_asic():
@@ -1211,7 +1258,7 @@ class DaemonXcvrd(daemon_base.DaemonBase):
                 port_config_file_path = device_info.get_path_to_port_config_file()
                 platform_sfputil.read_porttab_mappings(port_config_file_path, 0)
         except Exception as e:
-            self.log_error("Failed to read port info: %s" % (str(e)), True)
+            self.log_error("Failed to read port info: {}".format(str(e)), True)
             sys.exit(PORT_CONFIG_LOAD_ERROR)
 
         # Connect to STATE_DB and create transceiver dom/sfp info tables
@@ -1246,7 +1293,8 @@ class DaemonXcvrd(daemon_base.DaemonBase):
         init_port_sfp_status_tbl(self.stop_event)
 
         # Init port y_cable status table
-        y_cable_helper.init_ports_status_for_y_cable(platform_sfputil, platform_chassis, self.y_cable_presence, self.stop_event)
+        y_cable_helper.init_ports_status_for_y_cable(
+            platform_sfputil, platform_chassis, self.y_cable_presence, self.stop_event)
 
     # Deinitialize daemon
     def deinit(self):
@@ -1267,8 +1315,8 @@ class DaemonXcvrd(daemon_base.DaemonBase):
         if self.y_cable_presence[0] is True:
             y_cable_helper.delete_ports_status_for_y_cable()
 
-
     # Run daemon
+
     def run(self):
         self.log_info("Starting up...")
 
@@ -1321,9 +1369,12 @@ class DaemonXcvrd(daemon_base.DaemonBase):
 #
 
 # This is our main entry point for xcvrd script
+
+
 def main():
     xcvrd = DaemonXcvrd(SYSLOG_IDENTIFIER)
     xcvrd.run()
+
 
 if __name__ == '__main__':
     main()

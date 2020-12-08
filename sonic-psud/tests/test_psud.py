@@ -30,6 +30,7 @@ CHASSIS_INFO_TOTAL_POWER_CONSUMED_FIELD = 'Total Consumed Power'
 CHASSIS_INFO_TOTAL_POWER_SUPPLIED_FIELD = 'Total Supplied Power'
 CHASSIS_INFO_POWER_KEY_TEMPLATE = 'chassis_power_budget {}'
 
+
 def setup_function():
     PsuChassisInfo.log_notice = MagicMock()
     PsuChassisInfo.log_warning = MagicMock()
@@ -39,7 +40,9 @@ def teardown_function():
     PsuChassisInfo.log_notice.reset()
     PsuChassisInfo.log_warning.reset()
 
-#Test cases to cover functionality in PsuChassisInfo class
+# Test cases to cover functionality in PsuChassisInfo class
+
+
 def test_psuchassis_check_psu_supplied_power():
     chassis = MockChassis()
     psu1 = MockPsu(True, True, "PSU 1")
@@ -64,22 +67,23 @@ def test_psuchassis_check_psu_supplied_power():
     chassis_info.run_power_budget(chassis_tbl)
     fvs = chassis_tbl.get(CHASSIS_INFO_POWER_KEY_TEMPLATE.format(1))
 
-    #Check if supplied power is recorded in DB
+    # Check if supplied power is recorded in DB
     assert total_power == float(fvs[CHASSIS_INFO_TOTAL_POWER_SUPPLIED_FIELD])
 
-    #Check if psu1 is not present
+    # Check if psu1 is not present
     psu1.set_presence(False)
     total_power = psu2_power + psu3_power
     chassis_info.run_power_budget(chassis_tbl)
     fvs = chassis_tbl.get(CHASSIS_INFO_POWER_KEY_TEMPLATE.format(1))
     assert total_power == float(fvs[CHASSIS_INFO_TOTAL_POWER_SUPPLIED_FIELD])
 
-    #Check if psu2 status is NOT_OK
+    # Check if psu2 status is NOT_OK
     psu2.set_status(False)
     total_power = psu3_power
     chassis_info.run_power_budget(chassis_tbl)
     fvs = chassis_tbl.get(CHASSIS_INFO_POWER_KEY_TEMPLATE.format(1))
     assert total_power == float(fvs[CHASSIS_INFO_TOTAL_POWER_SUPPLIED_FIELD])
+
 
 def test_psuchassis_check_consumed_power():
     chassis = MockChassis()
@@ -100,23 +104,24 @@ def test_psuchassis_check_consumed_power():
     chassis_info.run_power_budget(chassis_tbl)
     fvs = chassis_tbl.get(CHASSIS_INFO_POWER_KEY_TEMPLATE.format(1))
 
-    #Check if supplied power is recorded in DB
+    # Check if supplied power is recorded in DB
     assert total_power == float(fvs[CHASSIS_INFO_TOTAL_POWER_CONSUMED_FIELD])
 
-    #Check if fan_drawer1 present
+    # Check if fan_drawer1 present
     fan_drawer1.set_presence(False)
     total_power = module1_power
     chassis_info.run_power_budget(chassis_tbl)
     fvs = chassis_tbl.get(CHASSIS_INFO_POWER_KEY_TEMPLATE.format(1))
     assert total_power == float(fvs[CHASSIS_INFO_TOTAL_POWER_CONSUMED_FIELD])
 
-    #Check if module1 present
+    # Check if module1 present
     fan_drawer1.set_presence(True)
     module1.set_presence(False)
     total_power = fan_drawer1_power
     chassis_info.run_power_budget(chassis_tbl)
     fvs = chassis_tbl.get(CHASSIS_INFO_POWER_KEY_TEMPLATE.format(1))
     assert total_power == float(fvs[CHASSIS_INFO_TOTAL_POWER_CONSUMED_FIELD])
+
 
 def test_psuchassis_check_power_budget():
     chassis = MockChassis()
@@ -139,7 +144,7 @@ def test_psuchassis_check_power_budget():
     chassis_tbl = swsscommon.Table(state_db, CHASSIS_INFO_TABLE)
     chassis_info = PsuChassisInfo(SYSLOG_IDENTIFIER, chassis)
 
-    #Check if supplied_power < consumed_power
+    # Check if supplied_power < consumed_power
     chassis_info.run_power_budget(chassis_tbl)
     if chassis_info.update_master_status():
         chassis_info._set_psu_master_led(chassis_info.master_status_good)
@@ -149,13 +154,13 @@ def test_psuchassis_check_power_budget():
     assert chassis_info.master_status_good == False
     assert MockPsu.get_status_master_led() == MockPsu.STATUS_LED_COLOR_RED
 
-    #Add a PSU
+    # Add a PSU
     psu = MockPsu(True, True, "PSU 2")
     psu2_power = 800.0
     psu.set_maximum_supplied_power(psu2_power)
     chassis.psu_list.append(psu)
 
-    #Check if supplied_power > consumed_power
+    # Check if supplied_power > consumed_power
     chassis_info.run_power_budget(chassis_tbl)
     if chassis_info.update_master_status():
         chassis_info._set_psu_master_led(chassis_info.master_status_good)
