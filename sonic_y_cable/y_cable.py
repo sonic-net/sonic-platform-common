@@ -11,7 +11,13 @@ try:
     from sonic_py_common import logger
 
 except ImportError as e:
-    raise ImportError(str(e) + " - required module not found")
+    # When build python3 xcvrd, it tries to do basic check which will import this file. However,
+    # not all platform supports python3 API now, so it could cause an issue when importing 
+    # sonic_platform.platform. We skip the ImportError here. This is safe because:
+    #   1. If any python package is not available, there will be exception when use it
+    #   2. Vendors know their platform API version, they are responsible to use correct python
+    #   version when importing this file.
+    pass
 
 # definitions of the offset with width accomodated for values
 # of MUX register specs of upper page 0x04 starting at 640
