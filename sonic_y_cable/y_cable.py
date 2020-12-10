@@ -13,7 +13,7 @@ try:
 except ImportError as e:
     raise ImportError(str(e) + " - required module not found")
 
-# definitions of the offset with width accomodated for values
+# definitions of the offset with width accommodated for values
 # of MUX register specs of upper page 0x04 starting at 640
 # info eeprom for Y Cable
 Y_CABLE_IDENTFIER_LOWER_PAGE = 0
@@ -40,6 +40,31 @@ except Exception as e:
     helper_logger.log_warning("Failed to load chassis due to {}".format(repr(e)))
 
 
+def hook_y_cable_simulator(target):
+    """Decorator to add hook for calling y_cable_simulator_client.
+
+    This decorator updates the y_cable driver functions to call hook functions defined in the y_cable_simulator_client
+    module if importing the module is successful. If importing the y_cable_simulator_client module failed, just call
+    the original y_cable driver functions defined in this module.
+
+    Args:
+        target (function): The y_cable driver function to be updated.
+    """
+    def wrapper(*args, **kwargs):
+        try:
+            import y_cable_simulator_client
+            y_cable_func = getattr(y_cable_simulator_client, target.__name__, None)
+            if y_cable_func and callable(y_cable_func):
+                return y_cable_func(*args, **kwargs)
+            else:
+                return target(*args, **kwargs)
+        except ImportError:
+            return target(*args, **kwargs)
+    wrapper.__name__ = target.__name__
+    return wrapper
+
+
+@hook_y_cable_simulator
 def toggle_mux_to_torA(physical_port):
     """
     This API specifically does a hard switch toggle of the Y cable's MUX regardless of link state to
@@ -77,6 +102,7 @@ def toggle_mux_to_torA(physical_port):
     return result
 
 
+@hook_y_cable_simulator
 def toggle_mux_to_torB(physical_port):
     """
     This API specifically does a hard switch toggle of the Y cable's MUX regardless of link state to
@@ -114,6 +140,7 @@ def toggle_mux_to_torB(physical_port):
     return result
 
 
+@hook_y_cable_simulator
 def check_read_side(physical_port):
     """
     This API specifically checks which side of the Y cable the reads are actually getting performed
@@ -181,6 +208,7 @@ def check_read_side(physical_port):
     return -1
 
 
+@hook_y_cable_simulator
 def check_mux_direction(physical_port):
     """
     This API specifically checks which side of the Y cable mux is currently point to
@@ -243,6 +271,7 @@ def check_mux_direction(physical_port):
     return -1
 
 
+@hook_y_cable_simulator
 def check_active_linked_tor_side(physical_port):
     """
     This API specifically checks which side of the Y cable is actively linked and routing
@@ -309,6 +338,7 @@ def check_active_linked_tor_side(physical_port):
     return -1
 
 
+@hook_y_cable_simulator
 def check_if_link_is_active_for_NIC(physical_port):
     """
     This API specifically checks if NIC side of the Y cable's link is active
@@ -363,6 +393,7 @@ def check_if_link_is_active_for_NIC(physical_port):
         return False
 
 
+@hook_y_cable_simulator
 def check_if_link_is_active_for_torA(physical_port):
     """
     This API specifically checks if TOR A side of the Y cable's link is active
@@ -418,6 +449,7 @@ def check_if_link_is_active_for_torA(physical_port):
         return False
 
 
+@hook_y_cable_simulator
 def check_if_link_is_active_for_torB(physical_port):
     """
     This API specifically checks if TOR B side of the Y cable's link is active
