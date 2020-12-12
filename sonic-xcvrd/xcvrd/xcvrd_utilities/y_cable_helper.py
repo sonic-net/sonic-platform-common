@@ -82,11 +82,6 @@ def delete_port_from_y_cable_table(logical_port_name, y_cable_tbl):
     y_cable_tbl._del(logical_port_name)
 
 
-# Delete port from Y cable status table
-def delete_port_from_y_cable_command_table(logical_port_name, y_cable_command_tbl):
-    y_cable_command_tbl._del(logical_port_name)
-
-
 def update_table_mux_status_for_response_tbl(table_name, status, logical_port_name):
     fvs = swsscommon.FieldValuePairs([('response', status)])
     table_name.set(logical_port_name, fvs)
@@ -154,7 +149,7 @@ def update_tor_active_side(read_side, state, logical_port_name):
         return -1
 
 
-def update_appdb_port_mux_cable_response_table(logical_port_name, asic_index, appl_db):
+def update_appdb_port_mux_cable_response_table(logical_port_name, asic_index, appl_db, read_side):
 
     status = None
     y_cable_response_tbl = {}
@@ -169,7 +164,6 @@ def update_appdb_port_mux_cable_response_table(logical_port_name, asic_index, ap
         physical_port = physical_port_list[0]
         if _wrapper_get_presence(physical_port):
 
-            read_side = y_cable.check_read_side(physical_port)
             if read_side is None:
 
                 status = 'unknown'
@@ -595,8 +589,14 @@ class YCableTableUpdateTask(object):
                     probe_identifier = fvp_dict["command"]
 
                     if probe_identifier == "probe":
-                        update_appdb_port_mux_cable_response_table(port_m, asic_index, appl_db)
-                    delete_port_from_y_cable_command_table(port_m, y_cable_command_tbl[asic_index])
+                        (status, fv) = y_cable_tbl[asic_index].get(port_m)
+                        if status is False:
+                            helper_logger.log_warning("Could not retreive fieldvalue pairs for {}, inside state_db table {}".format(
+                                port_m, y_cable_tbl[asic_index]))
+                            continue
+                        mux_port_dict = dict(fv)
+                        read_side = mux_port_dict.get("read_side")
+                        update_appdb_port_mux_cable_response_table(port_m, asic_index, appl_db, int(read_side))
 
     def task_run(self):
         self.task_thread = threading.Thread(target=self.task_worker)
