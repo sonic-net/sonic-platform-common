@@ -2,7 +2,7 @@
 # sffbase class for sff8436 and sff8472
 #----------------------------------------------------------------------------
 
-from __future__ import print_function
+
 
 try:
     import fcntl
@@ -100,7 +100,7 @@ class sffbase(object):
         elif type == 'bitmap':
             # Get the 'on' bitname
             bitvalue_dict = {}
-            for bitname, bitinfo in sorted(decode.iteritems()):
+            for bitname, bitinfo in sorted(decode.items()):
                 bitinfo_offset = bitinfo.get('offset') + start_pos
                 bitinfo_pos = bitinfo.get('bit')
                 bitinfo_value = bitinfo.get('value')
@@ -145,7 +145,7 @@ class sffbase(object):
     # Recursively parses sff data into dictionary
     def parse_sff(self, eeprom_map, eeprom_data, start_pos):
         outdict = {}
-        for name, meta_data in sorted(eeprom_map.iteritems()):
+        for name, meta_data in sorted(eeprom_map.items()):
             type = meta_data.get('type')
 
             # Initialize output value
@@ -195,9 +195,9 @@ class sffbase(object):
     def get_data_pretty_dict(self, indict):
         outdict = {}
 
-        for elem, elem_val in sorted(indict.iteritems()):
+        for elem, elem_val in sorted(indict.items()):
             value = elem_val.get('value')
-            if type(value) == types.DictType:
+            if type(value) == dict:
                 outdict[elem] = sffbase.get_data_pretty_dict(
                                 self, value)
             else:
@@ -229,13 +229,13 @@ class sffbase(object):
 
     # Dumps dict in pretty format
     def dump_pretty(self, indict):
-        for elem, elem_val in sorted(indict.iteritems()):
-            if type(elem_val) == types.DictType:
+        for elem, elem_val in sorted(indict.items()):
+            if type(elem_val) == dict:
                 print(self._indent, elem, ': ')
                 self.inc_indent()
                 sff8472.dump_pretty(self, elem_val)
                 self.dec_indent()
-            elif type(elem_val) == types.ListType:
+            elif type(elem_val) == list:
                 if len(elem_val) == 1:
                     print(self._indent, elem, ': ', elem_val.pop())
                 else:
