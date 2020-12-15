@@ -202,16 +202,16 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
 
         if self._TLV_HDR_ENABLED:
             new_tlvs_len = len(new_tlvs) + 6
-            new_e = self._TLV_INFO_ID_STRING + bytes([self._TLV_INFO_VERSION]) + \
-                    bytes([(new_tlvs_len >> 8) & 0xFF]) + \
-                    bytes([new_tlvs_len & 0xFF]) + new_tlvs
+            new_e = self._TLV_INFO_ID_STRING + bytearray([self._TLV_INFO_VERSION]) + \
+                    bytearray([(new_tlvs_len >> 8) & 0xFF]) + \
+                    bytearray([new_tlvs_len & 0xFF]) + new_tlvs
         else:
             new_e = new_tlvs
 
         if self._TLV_CODE_CRC_32 != self._TLV_CODE_UNDEFINED:
-            new_e = new_e + bytes([self._TLV_CODE_CRC_32]) + bytes([4])
+            new_e = new_e + bytearray([self._TLV_CODE_CRC_32]) + bytearray([4])
         elif self._TLV_CODE_QUANTA_CRC != self._TLV_CODE_UNDEFINED:
-            new_e = new_e + bytes([self._TLV_CODE_QUANTA_CRC]) + bytes([2])
+            new_e = new_e + bytearray([self._TLV_CODE_QUANTA_CRC]) + bytearray([2])
         else:
             print("\nFailed to formulate new eeprom\n")
             exit
@@ -624,19 +624,19 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
                 errstr = "A string less than 256 characters"
                 if len(v) > 255:
                     raise
-                value = v
+                value = v.encode("ascii", "replace")
             elif I[0] == self._TLV_CODE_DEVICE_VERSION:
                 errstr  = "A number between 0 and 255"
                 num = int(v, 0)
                 if num < 0 or num > 255:
                     raise
-                value = chr(num)
+                value = bytearray([num])
             elif I[0] == self._TLV_CODE_MAC_SIZE:
                 errstr  = "A number between 0 and 65535"
                 num = int(v, 0)
                 if num < 0 or num > 65535:
                     raise
-                value = chr((num >> 8) & 0xFF) + chr(num & 0xFF)
+                value = bytearray([(num >> 8) & 0xFF, num & 0xFF])
             elif I[0] == self._TLV_CODE_MANUF_DATE:
                 errstr = 'MM/DD/YYYY HH:MM:SS'
                 date, time = v.split()
@@ -646,22 +646,22 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
                    mo < 1 or mo > 12 or da < 1 or da > 31 or yr < 0 or yr > 9999 or \
                    hr < 0 or hr > 23 or mn < 0 or mn > 59 or sc < 0 or sc > 59:
                     raise
-                value = v
+                value = v.encode("ascii", "replace")
             elif I[0] == self._TLV_CODE_MAC_BASE:
                 errstr = 'XX:XX:XX:XX:XX:XX'
                 mac_digits = v.split(':')
                 if len(mac_digits) != 6:
                     raise
-                value = ""
+                value = bytearray()
                 for c in mac_digits:
-                    value = value + chr(int(c, 16))
+                    value += bytearray([int(c, 16)])
             elif I[0] == self._TLV_CODE_MANUF_COUNTRY:
                 errstr = 'CC, a two character ISO 3166-1 alpha-2 country code'
                 if len(v) < 2:
                     raise
-                value = v[0:2]
+                value = v.encode("ascii", "replace")
             elif I[0] == self._TLV_CODE_CRC_32:
-                value = ''
+                value = bytearray()
             # Disallow setting any Quanta specific codes
             elif I[0] == self._TLV_CODE_QUANTA_MAGIC      or \
                  I[0] == self._TLV_CODE_QUANTA_CARD_TYPE  or \
@@ -672,9 +672,9 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
                 raise Exception('quanta-read-only')
             else:
                 errstr = '0xXX ... A list of space-separated hexidecimal numbers'
-                value = ""
+                value = bytearray()
                 for c in v.split():
-                    value += chr(int(c, 0))
+                    value += bytearray([int(c, 0)])
         except Exception as inst:
             if (len(inst.args) > 0) and (inst.args[0] == 'quanta-read-only'):
                 sys.stderr.write("Error: '" + "0x%02X" % (I[0],) + "' -- Unable to set the read-only Quanta codes.\n")
@@ -682,7 +682,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
                 sys.stderr.write("Error: '" + "0x%02X" % (I[0],) + "' correct format is " + errstr + "\n")
             exit(0)
 
-        return (chr(I[0]) + chr(len(value)) + value).encode()
+        return bytearray([I[0]]) + bytearray([len(value)]) + value
 
 
     def is_checksum_field(self, I):
