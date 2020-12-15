@@ -24,6 +24,10 @@ setup(
     setup_requires=[
         'wheel'
     ],
+    tests_require=[
+        'pytest',
+        'pytest-cov',
+    ],
     classifiers=[
         'Development Status :: 4 - Beta',
         'Environment :: No Input/Output (Daemon)',
