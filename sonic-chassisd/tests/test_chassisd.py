@@ -238,3 +238,131 @@ def test_configupdater_check_num_modules():
     module_updater.deinit()
     fvs = module_updater.chassis_table.get(CHASSIS_INFO_KEY_TEMPLATE.format(1))
     assert fvs == None
+
+def test_midplane_presence_modules():
+    chassis = MockChassis()
+
+    #Supervisor
+    index = 0
+    name = "SUPERVISOR0"
+    desc = "Supervisor card"
+    slot = 16
+    module_type = ModuleBase.MODULE_TYPE_SUPERVISOR
+    supervisor = MockModule(index, name, desc, module_type, slot)
+    supervisor.set_midplane_ip()
+    chassis.module_list.append(supervisor)
+
+    #Linecard
+    index = 1
+    name = "LINE-CARD0"
+    desc = "36 port 400G card"
+    slot = 1
+    module_type = ModuleBase.MODULE_TYPE_LINE
+    module = MockModule(index, name, desc, module_type, slot)
+    module.set_midplane_ip()
+    chassis.module_list.append(module)
+
+    #Fabric-card
+    index = 1
+    name = "FABRIC-CARD0"
+    desc = "Switch fabric card"
+    slot = 17
+    module_type = ModuleBase.MODULE_TYPE_FABRIC
+    fabric = MockModule(index, name, desc, module_type, slot)
+    chassis.module_list.append(fabric)
+
+    #Run on supervisor
+    module_updater = ModuleUpdater(SYSLOG_IDENTIFIER, chassis)
+    module_updater.supervisor_slot = supervisor.get_slot()
+    module_updater.my_slot = supervisor.get_slot()
+    module_updater.modules_num_update()
+    module_updater.module_db_update()
+    module_updater.check_midplane_reachability()
+
+    midplane_table = module_updater.midplane_table
+    #Check only one entry in database
+    assert 1 == midplane_table.size()
+
+    #Check fields in database
+    name = "LINE-CARD0"
+    fvs = midplane_table.get(name)
+    assert fvs != None
+    assert module.get_midplane_ip() == fvs[CHASSIS_MIDPLANE_INFO_IP_FIELD]
+    assert str(module.is_midplane_reachable()) == fvs[CHASSIS_MIDPLANE_INFO_ACCESS_FIELD]
+
+    #Set access of line-card to down
+    module.set_midplane_reachable(False)
+    module_updater.check_midplane_reachability()
+    fvs = midplane_table.get(name)
+    assert fvs != None
+    assert module.get_midplane_ip() == fvs[CHASSIS_MIDPLANE_INFO_IP_FIELD]
+    assert str(module.is_midplane_reachable()) == fvs[CHASSIS_MIDPLANE_INFO_ACCESS_FIELD]
+
+    #Deinit
+    module_updater.deinit()
+    fvs = midplane_table.get(name)
+    assert fvs == None
+
+def test_midplane_presence_supervisor():
+    chassis = MockChassis()
+
+    #Supervisor
+    index = 0
+    name = "SUPERVISOR0"
+    desc = "Supervisor card"
+    slot = 16
+    module_type = ModuleBase.MODULE_TYPE_SUPERVISOR
+    supervisor = MockModule(index, name, desc, module_type, slot)
+    supervisor.set_midplane_ip()
+    chassis.module_list.append(supervisor)
+
+    #Linecard
+    index = 1
+    name = "LINE-CARD0"
+    desc = "36 port 400G card"
+    slot = 1
+    module_type = ModuleBase.MODULE_TYPE_LINE
+    module = MockModule(index, name, desc, module_type, slot)
+    module.set_midplane_ip()
+    chassis.module_list.append(module)
+
+    #Fabric-card
+    index = 1
+    name = "FABRIC-CARD0"
+    desc = "Switch fabric card"
+    slot = 17
+    module_type = ModuleBase.MODULE_TYPE_FABRIC
+    fabric = MockModule(index, name, desc, module_type, slot)
+    chassis.module_list.append(fabric)
+
+    #Run on supervisor
+    module_updater = ModuleUpdater(SYSLOG_IDENTIFIER, chassis)
+    module_updater.supervisor_slot = supervisor.get_slot()
+    module_updater.my_slot = module.get_slot()
+    module_updater.modules_num_update()
+    module_updater.module_db_update()
+    module_updater.check_midplane_reachability()
+
+    midplane_table = module_updater.midplane_table
+    #Check only one entry in database
+    assert 1 == midplane_table.size()
+
+    #Check fields in database
+    name = "SUPERVISOR0"
+    fvs = midplane_table.get(name)
+    assert fvs != None
+    assert supervisor.get_midplane_ip() == fvs[CHASSIS_MIDPLANE_INFO_IP_FIELD]
+    assert str(supervisor.is_midplane_reachable()) == fvs[CHASSIS_MIDPLANE_INFO_ACCESS_FIELD]
+
+    #Set access of line-card to down
+    supervisor.set_midplane_reachable(False)
+    module_updater.check_midplane_reachability()
+    fvs = midplane_table.get(name)
+    assert fvs != None
+    assert supervisor.get_midplane_ip() == fvs[CHASSIS_MIDPLANE_INFO_IP_FIELD]
+    assert str(supervisor.is_midplane_reachable()) == fvs[CHASSIS_MIDPLANE_INFO_ACCESS_FIELD]
+
+    #Deinit
+    module_updater.deinit()
+    fvs = midplane_table.get(name)
+    assert fvs == None

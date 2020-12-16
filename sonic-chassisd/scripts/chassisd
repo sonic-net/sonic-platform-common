@@ -45,6 +45,12 @@ CHASSIS_MODULE_INFO_DESC_FIELD = 'desc'
 CHASSIS_MODULE_INFO_SLOT_FIELD = 'slot'
 CHASSIS_MODULE_INFO_OPERSTATUS_FIELD = 'oper_status'
 
+CHASSIS_MIDPLANE_INFO_TABLE = 'CHASSIS_MIDPLANE_TABLE'
+CHASSIS_MIDPLANE_INFO_KEY_TEMPLATE = 'CHASSIS_MIDPLANE {}'
+CHASSIS_MIDPLANE_INFO_NAME_FIELD = 'name'
+CHASSIS_MIDPLANE_INFO_IP_FIELD = 'ip_address'
+CHASSIS_MIDPLANE_INFO_ACCESS_FIELD = 'access'
+
 CHASSIS_INFO_UPDATE_PERIOD_SECS = 10
 
 CHASSIS_LOAD_ERROR = 1
@@ -57,6 +63,7 @@ SELECT_TIMEOUT = 1000
 NOT_AVAILABLE = 'N/A'
 INVALID_SLOT = ModuleBase.MODULE_INVALID_SLOT
 INVALID_MODULE_INDEX = -1
+INVALID_IP = '0.0.0.0'
 
 MODULE_ADMIN_DOWN = 0
 MODULE_ADMIN_UP = 1
@@ -72,7 +79,8 @@ def try_get(callback, *args, **kwargs):
     """
     Handy function to invoke the callback and catch NotImplementedError
     :param callback: Callback to be invoked
-    :param default: Default return value if exception occur
+    :param args: Arguments to be passed to callback
+    :param kwargs: Default return value if exception occur
     :return: Default return value if exception occur else return value of the callback
     """
     default = kwargs.get('default', NOT_AVAILABLE)
@@ -149,10 +157,15 @@ class ModuleUpdater(logger.Logger):
         state_db = daemon_base.db_connect("STATE_DB")
         self.chassis_table = swsscommon.Table(state_db, CHASSIS_INFO_TABLE)
         self.module_table = swsscommon.Table(state_db, CHASSIS_MODULE_INFO_TABLE)
+        self.midplane_table = swsscommon.Table(state_db, CHASSIS_MIDPLANE_INFO_TABLE)
         self.info_dict_keys = [CHASSIS_MODULE_INFO_NAME_FIELD,
                                CHASSIS_MODULE_INFO_DESC_FIELD,
                                CHASSIS_MODULE_INFO_SLOT_FIELD,
                                CHASSIS_MODULE_INFO_OPERSTATUS_FIELD]
+
+        self.midplane_initialized = try_get(chassis.init_midplane_switch, default=False)
+        if not self.midplane_initialized:
+            self.log_error("Chassisd midplane intialization failed")
 
     def deinit(self):
         """
@@ -163,6 +176,8 @@ class ModuleUpdater(logger.Logger):
         for module_index in range(0, self.num_modules):
             name = try_get(self.chassis.get_module(module_index).get_name)
             self.module_table._del(name)
+            if self.midplane_table.get(name) is not None:
+                self.midplane_table._del(name)
 
         if self.chassis_table is not None:
             self.chassis_table._del(CHASSIS_INFO_KEY_TEMPLATE.format(1))
@@ -217,6 +232,41 @@ class ModuleUpdater(logger.Logger):
         module_info_dict[CHASSIS_MODULE_INFO_OPERSTATUS_FIELD] = str(status)
 
         return module_info_dict
+
+    def _is_supervisor(self):
+        if self.my_slot == self.supervisor_slot:
+            return True
+        else:
+            return False
+
+    def check_midplane_reachability(self):
+        if not self.midplane_initialized:
+            return
+
+        index = -1
+        for module in self.chassis.get_all_modules():
+            index += 1
+            # Skip fabric cards
+            if module.get_type() == ModuleBase.MODULE_TYPE_FABRIC:
+                continue
+
+            if self._is_supervisor():
+                # On supervisor skip checking for supervisor
+                if module.get_slot() == self.supervisor_slot:
+                    continue
+            else:
+                # On line-card check only supervisor
+                if module.get_slot() != self.supervisor_slot:
+                    continue
+
+            module_key = try_get(module.get_name, default='MODULE {}'.format(index))
+            midplane_ip = try_get(module.get_midplane_ip, default=INVALID_IP)
+            midplane_access = try_get(module.is_midplane_reachable, default=False)
+
+            # Update db with midplane information
+            fvs = swsscommon.FieldValuePairs([(CHASSIS_MIDPLANE_INFO_IP_FIELD, midplane_ip),
+                                              (CHASSIS_MIDPLANE_INFO_ACCESS_FIELD, str(midplane_access))])
+            self.midplane_table.set(module_key, fvs)
 
 #
 # Config Manager task ========================================================
@@ -306,14 +356,17 @@ class ChassisdDaemon(daemon_base.DaemonBase):
         self.module_updater.modules_num_update()
 
         # Check for valid slot numbers
-        my_slot = try_get(platform_chassis.get_my_slot, default=INVALID_SLOT)
-        supervisor_slot = try_get(platform_chassis.get_supervisor_slot, default=INVALID_SLOT)
-        if (my_slot == INVALID_SLOT) or (supervisor_slot == INVALID_SLOT):
+        self.module_updater.my_slot = try_get(platform_chassis.get_my_slot,
+                                              default=INVALID_SLOT)
+        self.module_updater.supervisor_slot = try_get(platform_chassis.get_supervisor_slot,
+                                                      default=INVALID_SLOT)
+        if ((self.module_updater.my_slot == INVALID_SLOT) or
+                (self.module_updater.supervisor_slot == INVALID_SLOT)):
             self.log_error("Chassisd not supported for this platform")
             sys.exit(CHASSIS_NOT_SUPPORTED)
 
         # Start configuration manager task on supervisor module
-        if supervisor_slot == my_slot:
+        if self.module_updater.supervisor_slot == self.module_updater.my_slot:
             config_manager = ConfigManagerTask()
             config_manager.task_run()
 
@@ -322,6 +375,7 @@ class ChassisdDaemon(daemon_base.DaemonBase):
 
         while not self.stop.wait(CHASSIS_INFO_UPDATE_PERIOD_SECS):
             self.module_updater.module_db_update()
+            self.module_updater.check_midplane_reachability()
 
         self.log_info("Stop daemon main loop")
 

@@ -19,6 +19,8 @@ class Table:
             return self.mock_dict[key]
         return None
 
+    def size(self):
+        return len(self.mock_dict)
 
 class FieldValuePairs:
     def __init__(self, fvs):

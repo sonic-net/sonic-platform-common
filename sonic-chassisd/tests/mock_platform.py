@@ -27,6 +27,8 @@ class MockModule(MockDevice):
         self.hw_slot = module_slot
         self.module_status = ''
         self.admin_state = 1
+        self.supervisor_slot = 16
+        self.midplane_access = False
 
     def get_name(self):
         return self.module_name
@@ -52,10 +54,25 @@ class MockModule(MockDevice):
     def get_admin_state(self):
         return self.admin_state
 
+    def get_midplane_ip(self):
+        return self.midplane_ip
+
+    def set_midplane_ip(self):
+        if self.supervisor_slot == self.get_slot():
+            self.midplane_ip = '192.168.1.100'
+        else:
+            self.midplane_ip = '192.168.1.{}'.format(self.get_slot())
+
+    def is_midplane_reachable(self):
+        return self.midplane_access
+
+    def set_midplane_reachable(self, up):
+        self.midplane_access = up
 
 class MockChassis:
     def __init__(self):
         self.module_list = []
+        self.midplane_supervisor_access = False
 
     def get_num_modules(self):
         return len(self.module_list)
@@ -72,3 +89,6 @@ class MockChassis:
             if module.module_name == module_name:
                 return module.module_index
         return -1
+
+    def init_midplane_switch(self):
+        return True
