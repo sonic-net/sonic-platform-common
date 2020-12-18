@@ -6,7 +6,7 @@ import pytest
 import unittest
 from imp import load_source
 if sys.version_info >= (3, 3):
-    from unittest.mock import MagicMock
+    from unittest.mock import MagicMock, patch
 else:
     from mock import MagicMock, patch
 
