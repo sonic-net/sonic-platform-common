@@ -14,7 +14,7 @@ try:
     import signal
     import sys
     import threading
-
+    from datetime import datetime
     from sonic_py_common import daemon_base, logger
 
     # If unit testing is occurring, mock swsscommon and module_base
@@ -276,10 +276,10 @@ class PsuStatus(object):
     def __init__(self, logger, psu):
 
         self.psu = psu
-        self.presence = True
-        self.power_good = True
-        self.voltage_good = True
-        self.temperature_good = True
+        self.presence = False
+        self.power_good = False
+        self.voltage_good = False
+        self.temperature_good = False
         self.logger = logger
 
     def set_presence(self, presence):
@@ -548,7 +548,7 @@ class DaemonPsud(daemon_base.DaemonBase):
             fan_name = try_get(fan.get_name, '{} FAN {}'.format(psu_name, index + 1))
             direction = try_get(fan.get_direction) if presence else NOT_AVAILABLE
             speed = try_get(fan.get_speed) if presence else NOT_AVAILABLE
-            status = UPDATING_STATUS if presence else NOT_AVAILABLE
+            status = "True" if presence else "False"
             fvs = swsscommon.FieldValuePairs(
                 [(FAN_INFO_PRESENCE_FIELD, str(presence)),
                  (FAN_INFO_STATUS_FIELD, str(status)),
