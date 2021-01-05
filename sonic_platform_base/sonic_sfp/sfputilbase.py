@@ -338,8 +338,16 @@ class SfpUtilBase(object):
             return None
 
         try:
-            for n in range(0, num_bytes):
-                eeprom_raw[n] = hex(ord(raw[n]))[2:].zfill(2)
+            # in case raw is bytes (python3 is used) raw[n] will return int,
+            # and in case raw is str(python2 is used) raw[n] will return str,
+            # so for python3 the are no need to call ord to convert str to int.
+            # TODO: Remove this check once we no longer support Python 2
+            if type(raw) == bytes:
+                for n in range(0, num_bytes):
+                    eeprom_raw[n] = hex(raw[n])[2:].zfill(2)
+            else:
+                for n in range(0, num_bytes):
+                    eeprom_raw[n] = hex(ord(raw[n]))[2:].zfill(2)
         except Exception:
             return None
 
@@ -736,7 +744,7 @@ class SfpUtilBase(object):
         i2cbus_list = []
         self.port_to_i2cbus_mapping = {}
         s = self.port_start
-        for sfp_sysfs_path, attrs in sorted(self.eep_dict.iteritems()):
+        for sfp_sysfs_path, attrs in sorted(self.eep_dict.items()):
             i2cbus = attrs.get("dev-id")
             if i2cbus is None:
                 raise DeviceTreeError("No 'dev-id' attribute found in attr: %s" % repr(attrs))
