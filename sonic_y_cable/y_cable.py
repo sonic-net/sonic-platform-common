@@ -10,7 +10,7 @@ try:
     import sonic_platform.platform
 except ImportError as e:
     # When build python3 xcvrd, it tries to do basic check which will import this file. However,
-    # not all platform supports python3 API now, so it could cause an issue when importing 
+    # not all platform supports python3 API now, so it could cause an issue when importing
     # sonic_platform.platform. We skip the ImportError here. This is safe because:
     #   1. If any python package is not available, there will be exception when use it
     #   2. Vendors know their platform API version, they are responsible to use correct python
@@ -28,6 +28,16 @@ Y_CABLE_SWITCH_MUX_DIRECTION = 642
 Y_CABLE_MUX_DIRECTION = 644
 Y_CABLE_ACTIVE_TOR_INDICATOR = 645
 Y_CABLE_MANUAL_SWITCH_COUNT = 669
+Y_CABLE_CONFIGURE_PRBS_TYPE = 768
+Y_CABLE_ENABLE_PRBS = 769
+Y_CABLE_INITIATE_BER_MEASUREMENT = 770
+Y_CABLE_TARGET =794
+Y_CABLE_ENABLE_LOOPBACK =793
+Y_CABLE_LANE_1_BER_RESULT =771
+Y_CABLE_MAX_LANES =2
+Y_CABLE_INITIATE_EYE_MEASUREMENT =788
+Y_CABLE_LANE_1_EYE_RESULT =789
+
 
 SYSLOG_IDENTIFIER = "sonic_y_cable"
 
@@ -504,6 +514,389 @@ def check_if_link_is_active_for_torB(physical_port):
 
     if ((regval_read[0] >> 1) & 0x01):
         helper_logger.log_info("TOR B link is up")
+        return True
+    else:
+        return False
+
+@hook_y_cable_simulator
+def enable_PRBS_mode(physical_port, target, mode_value, laneMap):
+    """
+    This API specifically configures and enables the PRBS mode/type depending upon the mode_value the user provides.
+    The mode_value configures the PRBS Type for generation and BER sensing on a per side basis.  Each side can only R/W its own value.  0x00 = PRBS 9, 0x01 = PRBS 15, 0x02 = PRBS 23, 0x03 = PRBS 31, 0x04-0xFF reserved. Target is an integer for selecting which end of the Y cable we want to run PRBS on. LaneMap specifies the lane configuration to run the PRBS on.
+
+
+    Register Specification of upper page 0x5 at offset 128, 129 is documented below
+
+    Byte offset   bits    Name                  Description
+    128           7-0     Reserved              PRBS Type for generation and BER sensing on a per side basis.  Each side can only R/W its own value.  0x00 = PRBS 9, 0x01 = PRBS 15, 0x02 = PRBS 23, 0x03 = PRBS 31, 0x04-0xFF reserved
+
+    129           7-4     Reserved
+                  3       Lane 4 enable         "Enable PRBS generation on target lane 0b1 : Enable, 0b0 disable If any lanes are enabled, then that side of cable is removed fro mission mode and no longer passing valid traffic."
+                  2       Lane 3 enable
+                  1       Lane 2 enable
+                  0       Lane 1 enable
+
+    Args:
+        physical_port:
+             an Integer, the actual physical port connected to a Y cable
+        target:
+             an Integer, the target on which to enable the PRBS
+                         0 -> local side,
+                         1 -> TOR 1
+                         2 -> TOR 2
+                         3 -> NIC
+        mode_value:
+             an Integer, the mode/type for configuring the PRBS mode.
+             0x00 = PRBS 9, 0x01 = PRBS 15, 0x02 = PRBS 23, 0x03 = PRBS 31
+        laneMap:
+             an Integer, representing the laneMap to be run PRBS on
+             0bit for lane 0, 1bit for lane1 and so on.
+             for example 3 -> 0b'0011 , means running on lane0 and lane1
+
+    Returns:
+        a boolean, true if the enable is successful
+                 , false if the enable failed
+    """
+
+    buffer = bytearray([target])
+    curr_offset = Y_CABLE_TARGET
+
+    if platform_chassis is not None:
+        result = platform_chassis.get_sfp(
+            physical_port).write_eeprom(curr_offset, 1, buffer)
+        if result is False:
+            return result
+        buffer = bytearray([mode_value])
+        curr_offset = Y_CABLE_CONFIGURE_PRBS_TYPE
+        result = platform_chassis.get_sfp(
+            physical_port).write_eeprom(curr_offset, 1, buffer)
+        if result is False:
+            return result
+        buffer = bytearray([laneMap])
+        curr_offset = Y_CABLE_ENABLE_PRBS
+        result = platform_chassis.get_sfp(
+            physical_port).write_eeprom(curr_offset, 1, buffer)
+
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to configure the PRBS type")
+        return -1
+
+    return result
+
+@hook_y_cable_simulator
+def enable_Loopback_mode(physical_port, target, laneMap):
+    """
+    This API specifically configures and enables the Loopback mode on the port user provides.
+    Target is an integer for selecting which end of the Y cable we want to run loopback on. LaneMap specifies the lane configuration to run the loopback on.
+
+
+    Register Specification of upper page 0x5 at offset 153 is documented below
+
+    Byte offset   bits    Name                  Description
+    153           7-4                           Reserved
+                  3     Lane 4 enable           "Enable loopback generation on target lane 0b1 : Enable, 0b0 disable.The cable supports 3 modes of operation : mission mode; PRBS mode or loopback mode.  Enabling loopback on any lane of any sides puts cable in loopback mode and disables PRBS.
+                  2     Lane 3 enable
+                  1     Lane 2 enable
+                  0     Lane 1 enable
+
+    Args:
+        physical_port:
+             an Integer, the actual physical port connected to a Y cable
+        target:
+             an Integer, the target on which to enable the PRBS
+                         0 -> local side,
+                         1 -> TOR 1
+                         2 -> TOR 2
+                         3 -> NIC
+        laneMap:
+             an Integer, representing the laneMap to be run PRBS on
+             0bit for lane 0, 1bit for lane1 and so on.
+             for example 3 -> 0b'0011 , means running on lane0 and lane1
+
+    Returns:
+        a boolean, true if the enable is successful
+                 , false if the enable failed
+    """
+
+    buffer = bytearray([target])
+    curr_offset = Y_CABLE_TARGET
+
+    if platform_chassis is not None:
+        result = platform_chassis.get_sfp(
+            physical_port).write_eeprom(curr_offset, 1, buffer)
+        if result is False:
+            return result
+        buffer = bytearray([laneMap])
+        curr_offset = Y_CABLE_ENABLE_LOOPBACK
+        result = platform_chassis.get_sfp(
+            physical_port).write_eeprom(curr_offset, 1, buffer)
+
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to configure the PRBS type")
+        return -1
+
+    return result
+
+@hook_y_cable_simulator
+def Get_BER_info(physical_port, target):
+    """
+    This API specifically returns the BER(Bit error rate) value for a specfic port.
+    The target could be local side, TOR1, TOR2, NIC etc.
+
+
+    Register Specification of upper page 0x5 at offset 130 is documented below
+
+    Byte offset   bits    Name                     Description
+    130           1-0     Initiate BER Measurement "Write 0x00 - initiate gated BER measurement on target side with PRBS traffic
+                                                    Write 0x01-0xFF - reserved
+                                                    Read 0x00 - BER Gate in process
+                                                    Read 0x01 - BER Gate complete, valid values in Lane BER registers
+                                                    NB this command is only valid when PRBS has been enabled on at least one lane
+                                                    The cable supports 3 modes of operation : mission mode; PRBS mode or loopback mode.
+                                                    Enabling PRBS on any lane of any sides puts cable in PRBS mode and disables loopback and mission mode."
+
+    Args:
+        physical_port:
+             an Integer, the actual physical port connected to a Y cable
+        target:
+             an Integer, the target on which to enable the PRBS
+                         0 -> local side,
+                         1 -> TOR 1
+                         2 -> TOR 2
+                         3 -> NIC
+    Returns:
+        a list, with BER values of lane 0 and lane 1 with corresponding index
+    """
+
+    buffer = bytearray([target])
+    curr_offset = Y_CABLE_TARGET
+
+    result = []
+
+    if platform_chassis is not None:
+        result = platform_chassis.get_sfp(
+            physical_port).write_eeprom(curr_offset, 1, buffer)
+        if result is False:
+            return result
+        buffer = bytearray([laneMap])
+        curr_offset = Y_CABLE_INITIATE_BER_MEASUREMENT
+        result = platform_chassis.get_sfp(
+            physical_port).write_eeprom(curr_offset, 1, buffer)
+        while(1):
+            done = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1, buffer)
+            if done == 1: break
+
+        idx = 0
+        maxLane = 2
+        for lane in range(maxLane):
+            curr_offset = Y_CABLE_LANE_1_BER_RESULT
+            msb = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+idx, 1, buffer)
+            msb = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+1+idx, 1, buffer)
+            lane_result = msb * math.pow(10, (lsb-24))
+            result.append(lane_result)
+            #print('[%s] lane[%1d] BER[%e]' % (targetDes[target], lane + 1, result))
+            idx += 2
+
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to configure the PRBS type")
+        return -1
+
+    return result
+
+@hook_y_cable_simulator
+def Get_EYE_info(physical_port, target):
+    """
+    This API specifically returns the EYE height value for a specfic port.
+    The target could be local side, TOR1, TOR2, NIC etc.
+
+
+    Register Specification of upper page 0x5 at offset 144 is documented below
+
+    Byte offset   bits    Name                     Description
+    144           1-0     Initiate EYE Measurement "Write 0x00 - initiate gated eye height measurement on target side with any traffic (PRBS or mission mode)
+                                                    Write 0x01-0xFF - reserved
+                                                    Read 0x00 - Eye Height Measurement in process
+                                                    Read 0x01 - Eye Height Gate complete, valid values in Eye Height Registers
+                                                    NB this command can be issued whenever the side is linked, this does not interrupt mission mode traffic"	R/W
+
+    Args:
+        physical_port:
+             an Integer, the actual physical port connected to a Y cable
+        target:
+             an Integer, the target on which to enable the PRBS
+                         0 -> local side,
+                         1 -> TOR 1
+                         2 -> TOR 2
+                         3 -> NIC
+    Returns:
+        a list, with EYE values of lane 0 and lane 1 with corresponding index
+    """
+
+    buffer = bytearray([target])
+    curr_offset = Y_CABLE_TARGET
+
+    result = []
+
+    if platform_chassis is not None:
+        result = platform_chassis.get_sfp(
+            physical_port).write_eeprom(curr_offset, 1, buffer)
+        if result is False:
+            return result
+        buffer = bytearray([laneMap])
+        curr_offset =  Y_CABLE_INITIATE_EYE_MEASUREMENT
+        result = platform_chassis.get_sfp(
+            physical_port).write_eeprom(curr_offset, 1, buffer)
+        while(1):
+            done = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1, buffer)
+            if done == 1: break
+
+        idx = 0
+        maxLane = 2
+        for lane in range(maxLane):
+            curr_offset = Y_CABLE_LANE_1_EYE_RESULT
+            msb = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+idx, 1, buffer)
+            msb = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+1+idx, 1, buffer)
+            lane_result = (msb << 8 | lsb)
+            result.append(lane_result)
+            #print('[%s] lane[%1d] BER[%e]' % (targetDes[target], lane + 1, result))
+            idx += 2
+
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to configure the PRBS type")
+        return -1
+
+    return result
+
+@hook_y_cable_simulator
+def enable_PRBS_per_port_lane(physical_port, lane_number):
+    """
+    This API specifically enables the PRBS on the lane number user provides.
+    The lane_number specifies on which lane the PRBS will be enabled.
+    Note that this API if enabled for any lane will specifically stop the mission mode traffic, and start PRBS internal traffic.
+
+    Register Specification of upper page 0x5 at offset 129 is documented below
+
+    Byte offset   bits    Name                  Description
+    129           7-4                           Reserved
+                  3     Lane 4 enable           "Enable PRBS generation on target lane 0b1 : Enable, 0b0 disable If any lanes are enabled, then that side of cable is removed fro mission mode and no longer passing valid traffic."
+                  2     Lane 3 enable
+                  1     Lane 2 enable
+                  0     Lane 1 enable
+
+
+    Args:
+        physical_port:
+             an Integer, the actual physical port connected to a Y cable
+             an Integer, the lane on which PRBS has to be enabled.
+
+    Returns:
+        a boolean, true if the PRBS enable is successful
+                 , false if the PRBS config is failed
+    """
+
+    buffer = bytearray([1<<lane_number])
+    curr_offset = Y_CABLE_ENABLE_PRBS
+
+    if platform_chassis is not None:
+        result = platform_chassis.get_sfp(
+            physical_port).write_eeprom(curr_offset, 1, buffer)
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to configure the PRBS type")
+        return -1
+
+    return result
+
+@hook_y_cable_simulator
+def initiate_BER_measurement(physical_port):
+    """
+    This API specifically enables the BER measurement when the PRBS is enabled on any lane
+
+    Register Specification of upper page 0x5 at offset 130 is documented below
+
+    Byte offset   bits    Name                     Description
+    130           1-0     Initiate BER Measurement "Write 0x00 - initiate gated BER measurement on target side with PRBS traffic
+                                                    Write 0x01-0xFF - reserved
+                                                    Read 0x00 - BER Gate in process
+                                                    Read 0x01 - BER Gate complete, valid values in Lane BER registers
+                                                    NB this command is only valid when PRBS has been enabled on at least one lane
+                                                    The cable supports 3 modes of operation : mission mode; PRBS mode or loopback mode.
+                                                    Enabling PRBS on any lane of any sides puts cable in PRBS mode and disables loopback and mission mode."
+
+    Args:
+        physical_port:
+             an Integer, the actual physical port connected to a Y cable
+
+    Returns:
+        a boolean, true if the BER initiate is successful
+                 , false if the BER initiation failed
+    """
+
+    buffer = bytearray([0])
+    curr_offset = Y_CABLE_INITIATE_BER_MEASUREMENT
+
+    if platform_chassis is not None:
+        result = platform_chassis.get_sfp(
+            physical_port).write_eeprom(curr_offset, 1, buffer)
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to configure the PRBS type")
+        return -1
+
+    return result
+
+@hook_y_cable_simulator
+def check_if_BER_initiation_complete(physical_port):
+    """
+    This API specifically checks if the BER measurement is available when the PRBS is enabled on any lane
+
+    Register Specification of upper page 0x5 at offset 130 is documented below
+
+    Byte offset   bits    Name                     Description
+    130           1-0     Initiate BER Measurement "Write 0x00 - initiate gated BER measurement on target side with PRBS traffic
+                                                    Write 0x01-0xFF - reserved
+                                                    Read 0x00 - BER Gate in process
+                                                    Read 0x01 - BER Gate complete, valid values in Lane BER registers
+                                                    NB this command is only valid when PRBS has been enabled on at least one lane
+                                                    The cable supports 3 modes of operation : mission mode; PRBS mode or loopback mode.
+                                                    Enabling PRBS on any lane of any sides puts cable in PRBS mode and disables loopback and mission mode."
+
+    Args:
+        physical_port:
+             an Integer, the actual physical port connected to a Y cable
+
+    Returns:
+        a boolean, true if the BER is ready to be read
+                 , false if the BER is not ready to be read
+    """
+
+    buffer = bytearray([0])
+    curr_offset = Y_CABLE_INITIATE_BER_MEASUREMENT
+
+    if platform_chassis is not None:
+        result = platform_chassis.get_sfp(
+            physical_port).read_eeprom(curr_offset, 1)
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to check if link is Active on TOR A side")
+        return -1
+
+    if result is not None:
+        if isinstance(result, bytearray):
+            if len(result) != 1:
+                helper_logger.log_error("Error: for checking if BER is ready to be read, eeprom returned a size {} not equal to 1 for port {}".format(
+                    len(result), physical_port))
+                return -1
+        else:
+            helper_logger.log_error("Error: for checking if BER is ready to be read, eeprom read returned an instance value of type {} which is not a bytearray for port {}".format(
+                type(result), physical_port))
+            return -1
+    else:
+        helper_logger.log_error(
+            "Error: for checking if BER is ready to be read, eeprom read returned a None value from eeprom read for port {} which is not expected".format(physical_port))
+        return -1
+
+    regval_read = struct.unpack(">B", result)
+
+    if ((regval_read[0]) & 0x01):
+        helper_logger.log_info("BER is available to be read")
         return True
     else:
         return False
