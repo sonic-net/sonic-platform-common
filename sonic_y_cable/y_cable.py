@@ -8,7 +8,6 @@ try:
     import struct
     from sonic_py_common import logger
     import sonic_platform.platform
-    import binascii
     import math
 except ImportError as e:
     # When build python3 xcvrd, it tries to do basic check which will import this file. However,
@@ -33,12 +32,12 @@ Y_CABLE_MANUAL_SWITCH_COUNT = 669
 Y_CABLE_CONFIGURE_PRBS_TYPE = 768
 Y_CABLE_ENABLE_PRBS = 769
 Y_CABLE_INITIATE_BER_MEASUREMENT = 770
-Y_CABLE_TARGET =794
-Y_CABLE_ENABLE_LOOPBACK =793
-Y_CABLE_LANE_1_BER_RESULT =771
-Y_CABLE_MAX_LANES =2
-Y_CABLE_INITIATE_EYE_MEASUREMENT =784
-Y_CABLE_LANE_1_EYE_RESULT =785
+Y_CABLE_TARGET = 794
+Y_CABLE_ENABLE_LOOPBACK = 793
+Y_CABLE_LANE_1_BER_RESULT = 771
+Y_CABLE_MAX_LANES = 2
+Y_CABLE_INITIATE_EYE_MEASUREMENT = 784
+Y_CABLE_LANE_1_EYE_RESULT = 785
 
 
 SYSLOG_IDENTIFIER = "sonic_y_cable"
@@ -62,11 +61,11 @@ def y_cable_validate_read_data(result, size, physical_port, message):
         if isinstance(result, bytearray):
             if len(result) != size:
                 helper_logger.log_error("Error: for checking mux_cable {}, eeprom read returned a size {} not equal to 1 for port {}".format(message,
-                    len(result), physical_port))
+                                                                                                                                             len(result), physical_port))
                 return -1
         else:
             helper_logger.log_error("Error: for checking mux_cable {}, eeprom read returned an instance value of type {} which is not a bytearray for port {}".format(message,
-                type(result), physical_port))
+                                                                                                                                                                      type(result), physical_port))
             return -1
     else:
         helper_logger.log_error(
@@ -538,20 +537,28 @@ def check_if_link_is_active_for_torB(physical_port):
     else:
         return False
 
+
 @hook_y_cable_simulator
-def enable_prbs_mode(physical_port, target, mode_value, laneMap):
+def enable_prbs_mode(physical_port, target, mode_value, lane_map):
     """
     This API specifically configures and enables the PRBS mode/type depending upon the mode_value the user provides.
-    The mode_value configures the PRBS Type for generation and BER sensing on a per side basis.  Each side can only R/W its own value.  0x00 = PRBS 9, 0x01 = PRBS 15, 0x02 = PRBS 23, 0x03 = PRBS 31, 0x04-0xFF reserved. Target is an integer for selecting which end of the Y cable we want to run PRBS on. LaneMap specifies the lane configuration to run the PRBS on.
+    The mode_value configures the PRBS Type for generation and BER sensing on a per side basis.
+    Each side can only R/W its own value.  0x00 = PRBS 9, 0x01 = PRBS 15, 0x02 = PRBS 23, 0x03 = PRBS 31, 0x04-0xFF reserved.
+    Target is an integer for selecting which end of the Y cable we want to run PRBS on.
+    LaneMap specifies the lane configuration to run the PRBS on.
 
 
     Register Specification of upper page 0x5 at offset 128, 129 is documented below
 
     Byte offset   bits    Name                  Description
-    128           7-0     Reserved              PRBS Type for generation and BER sensing on a per side basis.  Each side can only R/W its own value.  0x00 = PRBS 9, 0x01 = PRBS 15, 0x02 = PRBS 23, 0x03 = PRBS 31, 0x04-0xFF reserved
+    128           7-0     Reserved              PRBS Type for generation and BER sensing on a per side basis.
+                                                Each side can only R/W its own value.
+                                                0x00 = PRBS 9, 0x01 = PRBS 15, 0x02 = PRBS 23, 0x03 = PRBS 31, 0x04-0xFF reserved
 
     129           7-4     Reserved
-                  3       Lane 4 enable         "Enable PRBS generation on target lane 0b1 : Enable, 0b0 disable If any lanes are enabled, then that side of cable is removed fro mission mode and no longer passing valid traffic."
+                  3       Lane 4 enable         "Enable PRBS generation on target lane 0b1 :
+                                                 Enable, 0b0 disable If any lanes are enabled,
+                                                 then that side of cable is removed fro mission mode and no longer passing valid traffic."
                   2       Lane 3 enable
                   1       Lane 2 enable
                   0       Lane 1 enable
@@ -568,8 +575,8 @@ def enable_prbs_mode(physical_port, target, mode_value, laneMap):
         mode_value:
              an Integer, the mode/type for configuring the PRBS mode.
              0x00 = PRBS 9, 0x01 = PRBS 15, 0x02 = PRBS 23, 0x03 = PRBS 31
-        laneMap:
-             an Integer, representing the laneMap to be run PRBS on
+        lane_map:
+             an Integer, representing the lane_map to be run PRBS on
              0bit for lane 0, 1bit for lane1 and so on.
              for example 3 -> 0b'0011 , means running on lane0 and lane1
 
@@ -592,7 +599,7 @@ def enable_prbs_mode(physical_port, target, mode_value, laneMap):
             physical_port).write_eeprom(curr_offset, 1, buffer)
         if result is False:
             return result
-        buffer = bytearray([laneMap])
+        buffer = bytearray([lane_map])
         curr_offset = Y_CABLE_ENABLE_PRBS
         result = platform_chassis.get_sfp(
             physical_port).write_eeprom(curr_offset, 1, buffer)
@@ -603,6 +610,7 @@ def enable_prbs_mode(physical_port, target, mode_value, laneMap):
 
     return result
 
+
 @hook_y_cable_simulator
 def disable_prbs_mode(physical_port, target):
     """
@@ -612,7 +620,9 @@ def disable_prbs_mode(physical_port, target):
 
     Byte offset   bits    Name                  Description
     129           7-4     Reserved
-                  3       Lane 4 enable         "Enable PRBS generation on target lane 0b1 : Enable, 0b0 disable If any lanes are enabled, then that side of cable is removed fro mission mode and no longer passing valid traffic."
+                  3       Lane 4 enable         "Enable PRBS generation on target lane 0b1 :
+                                                 Enable, 0b0 disable If any lanes are enabled,
+                                                 then that side of cable is removed fro mission mode and no longer passing valid traffic."
                   2       Lane 3 enable
                   1       Lane 2 enable
                   0       Lane 1 enable
@@ -651,18 +661,22 @@ def disable_prbs_mode(physical_port, target):
 
     return result
 
+
 @hook_y_cable_simulator
-def enable_loopback_mode(physical_port, target, laneMap):
+def enable_loopback_mode(physical_port, target, lane_map):
     """
     This API specifically configures and enables the Loopback mode on the port user provides.
-    Target is an integer for selecting which end of the Y cable we want to run loopback on. LaneMap specifies the lane configuration to run the loopback on.
+    Target is an integer for selecting which end of the Y cable we want to run loopback on.
+    LaneMap specifies the lane configuration to run the loopback on.
 
 
     Register Specification of upper page 0x5 at offset 153 is documented below
 
     Byte offset   bits    Name                  Description
     153           7-4                           Reserved
-                  3     Lane 4 enable           "Enable loopback generation on target lane 0b1 : Enable, 0b0 disable.The cable supports 3 modes of operation : mission mode; PRBS mode or loopback mode.  Enabling loopback on any lane of any sides puts cable in loopback mode and disables PRBS.
+                  3     Lane 4 enable           "Enable loopback generation on target lane 0b1 :
+                                                 Enable, 0b0 disable.The cable supports 3 modes of operation : mission mode; PRBS mode or loopback mode.
+                                                 Enabling loopback on any lane of any sides puts cable in loopback mode and disables PRBS.
                   2     Lane 3 enable
                   1     Lane 2 enable
                   0     Lane 1 enable
@@ -676,8 +690,8 @@ def enable_loopback_mode(physical_port, target, laneMap):
                          1 -> TOR 1
                          2 -> TOR 2
                          3 -> NIC
-        laneMap:
-             an Integer, representing the laneMap to be run PRBS on
+        lane_map:
+             an Integer, representing the lane_map to be run PRBS on
              0bit for lane 0, 1bit for lane1 and so on.
              for example 3 -> 0b'0011 , means running on lane0 and lane1
 
@@ -694,7 +708,7 @@ def enable_loopback_mode(physical_port, target, laneMap):
             physical_port).write_eeprom(curr_offset, 1, buffer)
         if result is False:
             return result
-        buffer = bytearray([laneMap])
+        buffer = bytearray([lane_map])
         curr_offset = Y_CABLE_ENABLE_LOOPBACK
         result = platform_chassis.get_sfp(
             physical_port).write_eeprom(curr_offset, 1, buffer)
@@ -704,6 +718,7 @@ def enable_loopback_mode(physical_port, target, laneMap):
         return -1
 
     return result
+
 
 @hook_y_cable_simulator
 def disable_loopback_mode(physical_port, target):
@@ -716,7 +731,10 @@ def disable_loopback_mode(physical_port, target):
 
     Byte offset   bits    Name                  Description
     153           7-4                           Reserved
-                  3     Lane 4 enable           "Enable loopback generation on target lane 0b1 : Enable, 0b0 disable.The cable supports 3 modes of operation : mission mode; PRBS mode or loopback mode.  Enabling loopback on any lane of any sides puts cable in loopback mode and disables PRBS.
+                  3     Lane 4 enable           "Enable loopback generation on target lane 0b1 :
+                                                 Enable, 0b0 disable.The cable supports 3 modes of operation :
+                                                 mission mode; PRBS mode or loopback mode.
+                                                 Enabling loopback on any lane of any sides puts cable in loopback mode and disables PRBS.
                   2     Lane 3 enable
                   1     Lane 2 enable
                   0     Lane 1 enable
@@ -754,6 +772,7 @@ def disable_loopback_mode(physical_port, target):
         return -1
 
     return result
+
 
 @hook_y_cable_simulator
 def get_ber_info(physical_port, target):
@@ -794,7 +813,6 @@ def get_ber_info(physical_port, target):
     if platform_chassis is not None:
         result = platform_chassis.get_sfp(
             physical_port).write_eeprom(curr_offset, 1, buffer)
-        target_wr = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
         if result is False:
             return result
         buffer = bytearray([0])
@@ -806,7 +824,8 @@ def get_ber_info(physical_port, target):
         while(1):
             done = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
             y_cable_validate_read_data(done, 1, physical_port, "BER data ready to read")
-            if done[0] == 1: break
+            if done[0] == 1:
+                break
 
         idx = 0
         maxLane = 2
@@ -826,6 +845,7 @@ def get_ber_info(physical_port, target):
         return -1
 
     return ber_result
+
 
 @hook_y_cable_simulator
 def get_eye_info(physical_port, target):
@@ -867,7 +887,7 @@ def get_eye_info(physical_port, target):
         if result is False:
             return result
         buffer = bytearray([0])
-        curr_offset =  Y_CABLE_INITIATE_EYE_MEASUREMENT
+        curr_offset = Y_CABLE_INITIATE_EYE_MEASUREMENT
         result = platform_chassis.get_sfp(
             physical_port).write_eeprom(curr_offset, 1, buffer)
         if result is False:
@@ -876,7 +896,8 @@ def get_eye_info(physical_port, target):
         while(1):
             done = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
             y_cable_validate_read_data(done, 1, physical_port, "EYE data ready to read")
-            if done[0] == 1: break
+            if done[0] == 1:
+                break
 
         idx = 0
         maxLane = 2
@@ -896,4 +917,3 @@ def get_eye_info(physical_port, target):
         return -1
 
     return eye_result
-
