@@ -129,7 +129,7 @@ class ComponentBase(object):
                     - return_code of a negative number indicates failed auto-update
                         - status_err_boot_type = -1
                         - status_err_image = -2
-                        - status_err_others = -3
+                        - status_err_unknown = -3
 
         Raises:
             RuntimeError: auto-update failure cause
