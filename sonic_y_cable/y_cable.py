@@ -777,7 +777,7 @@ def disable_loopback_mode(physical_port, target):
 @hook_y_cable_simulator
 def get_ber_info(physical_port, target):
     """
-    This API specifically returns the BER(Bit error rate) value for a specfic port.
+    This API specifically returns the BER (Bit error rate) value for a specfic port.
     The target could be local side, TOR1, TOR2, NIC etc.
 
 
