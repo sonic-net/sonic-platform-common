@@ -56,6 +56,24 @@ except Exception as e:
     helper_logger.log_warning("Failed to load chassis due to {}".format(repr(e)))
 
 
+def y_cable_validate_read_data(result, size, physical_port, message):
+
+    if result is not None:
+        if isinstance(result, bytearray):
+            if len(result) != size:
+                helper_logger.log_error("Error: for checking mux_cable {}, eeprom read returned a size {} not equal to 1 for port {}".format(message,
+                    len(result), physical_port))
+                return -1
+        else:
+            helper_logger.log_error("Error: for checking mux_cable {}, eeprom read returned an instance value of type {} which is not a bytearray for port {}".format(message,
+                type(result), physical_port))
+            return -1
+    else:
+        helper_logger.log_error(
+            "Error: for checking mux_cable {}, eeprom read returned a None value for port {} which is not expected".format(message, physical_port))
+        return -1
+
+
 def hook_y_cable_simulator(target):
     """Decorator to add hook for calling y_cable_simulator_client.
 
@@ -586,6 +604,54 @@ def enable_prbs_mode(physical_port, target, mode_value, laneMap):
     return result
 
 @hook_y_cable_simulator
+def disable_prbs_mode(physical_port, target):
+    """
+    This API specifically disables the PRBS mode on the physcial port.
+
+    Register Specification of upper page 0x5 at offset 129 is documented below
+
+    Byte offset   bits    Name                  Description
+    129           7-4     Reserved
+                  3       Lane 4 enable         "Enable PRBS generation on target lane 0b1 : Enable, 0b0 disable If any lanes are enabled, then that side of cable is removed fro mission mode and no longer passing valid traffic."
+                  2       Lane 3 enable
+                  1       Lane 2 enable
+                  0       Lane 1 enable
+
+    Args:
+        physical_port:
+             an Integer, the actual physical port connected to a Y cable
+        target:
+             an Integer, the target on which to enable the PRBS
+                         0 -> local side,
+                         1 -> TOR 1
+                         2 -> TOR 2
+                         3 -> NIC
+
+    Returns:
+        a boolean, true if the disable is successful
+                 , false if the disable failed
+    """
+
+    buffer = bytearray([target])
+    curr_offset = Y_CABLE_TARGET
+
+    if platform_chassis is not None:
+        result = platform_chassis.get_sfp(
+            physical_port).write_eeprom(curr_offset, 1, buffer)
+        if result is False:
+            return result
+        buffer = bytearray([0])
+        curr_offset = Y_CABLE_ENABLE_PRBS
+        result = platform_chassis.get_sfp(
+            physical_port).write_eeprom(curr_offset, 1, buffer)
+
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to configure the PRBS type")
+        return -1
+
+    return result
+
+@hook_y_cable_simulator
 def enable_loopback_mode(physical_port, target, laneMap):
     """
     This API specifically configures and enables the Loopback mode on the port user provides.
@@ -640,6 +706,56 @@ def enable_loopback_mode(physical_port, target, laneMap):
     return result
 
 @hook_y_cable_simulator
+def disable_loopback_mode(physical_port, target):
+    """
+    This API specifically disables the Loopback mode on the port user provides.
+    Target is an integer for selecting which end of the Y cable we want to run loopback on.
+
+
+    Register Specification of upper page 0x5 at offset 153 is documented below
+
+    Byte offset   bits    Name                  Description
+    153           7-4                           Reserved
+                  3     Lane 4 enable           "Enable loopback generation on target lane 0b1 : Enable, 0b0 disable.The cable supports 3 modes of operation : mission mode; PRBS mode or loopback mode.  Enabling loopback on any lane of any sides puts cable in loopback mode and disables PRBS.
+                  2     Lane 3 enable
+                  1     Lane 2 enable
+                  0     Lane 1 enable
+
+    Args:
+        physical_port:
+             an Integer, the actual physical port connected to a Y cable
+        target:
+             an Integer, the target on which to enable the PRBS
+                         0 -> local side,
+                         1 -> TOR 1
+                         2 -> TOR 2
+                         3 -> NIC
+
+    Returns:
+        a boolean, true if the disable is successful
+                 , false if the disable failed
+    """
+
+    buffer = bytearray([target])
+    curr_offset = Y_CABLE_TARGET
+
+    if platform_chassis is not None:
+        result = platform_chassis.get_sfp(
+            physical_port).write_eeprom(curr_offset, 1, buffer)
+        if result is False:
+            return result
+        buffer = bytearray([0])
+        curr_offset = Y_CABLE_ENABLE_LOOPBACK
+        result = platform_chassis.get_sfp(
+            physical_port).write_eeprom(curr_offset, 1, buffer)
+
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to configure the PRBS type")
+        return -1
+
+    return result
+
+@hook_y_cable_simulator
 def get_ber_info(physical_port, target):
     """
     This API specifically returns the BER(Bit error rate) value for a specfic port.
@@ -675,11 +791,9 @@ def get_ber_info(physical_port, target):
 
     ber_result = []
 
-    print("before write done {}"%(buffer))
     if platform_chassis is not None:
         result = platform_chassis.get_sfp(
             physical_port).write_eeprom(curr_offset, 1, buffer)
-        print("one write done")
         target_wr = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
         if result is False:
             return result
@@ -689,11 +803,9 @@ def get_ber_info(physical_port, target):
             physical_port).write_eeprom(curr_offset, 1, buffer)
         if result is False:
             return result
-        print("second write done")
-        cnt = 0
         while(1):
             done = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
-            cnt+=1
+            y_cable_validate_read_data(done, 1, physical_port, "BER data ready to read")
             if done[0] == 1: break
 
         idx = 0
@@ -701,7 +813,9 @@ def get_ber_info(physical_port, target):
         curr_offset = Y_CABLE_LANE_1_BER_RESULT
         for lane in range(maxLane):
             msb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+idx, 1)
+            y_cable_validate_read_data(msb_result, 1, physical_port, "BER data msb result")
             lsb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+1+idx, 1)
+            y_cable_validate_read_data(lsb_result, 1, physical_port, "BER data lsb result")
             lane_result = msb_result[0] * math.pow(10, (lsb_result[0]-24))
             ber_result.append(lane_result)
             #print(' lane[%1d] BER[%e]' % ( lane + 1, lane_result))
@@ -711,7 +825,7 @@ def get_ber_info(physical_port, target):
         helper_logger.log_error("platform_chassis is not loaded, failed to configure the PRBS type")
         return -1
 
-    return result
+    return ber_result
 
 @hook_y_cable_simulator
 def get_eye_info(physical_port, target):
@@ -761,7 +875,7 @@ def get_eye_info(physical_port, target):
 
         while(1):
             done = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
-            cnt+=1
+            y_cable_validate_read_data(done, 1, physical_port, "EYE data ready to read")
             if done[0] == 1: break
 
         idx = 0
@@ -769,16 +883,17 @@ def get_eye_info(physical_port, target):
         for lane in range(maxLane):
             curr_offset = Y_CABLE_LANE_1_EYE_RESULT
             msb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+idx, 1)
+            y_cable_validate_read_data(msb_result, 1, physical_port, "EYE data msb result")
             lsb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+1+idx, 1)
+            y_cable_validate_read_data(lsb_result, 1, physical_port, "EYE data lsb result")
             lane_result = (msb_result[0] << 8 | lsb_result[0])
             eye_result.append(lane_result)
-            #print('[%s] lane[%1d] EYE[%d]' % (targetDes[target], lane + 1, lane_result))
-            print(' lane[%1d] EYE[%d]' % (lane + 1, lane_result))
+            #print(' lane[%1d] EYE[%d]' % (lane + 1, lane_result))
             idx += 2
 
     else:
         helper_logger.log_error("platform_chassis is not loaded, failed to configure the PRBS type")
         return -1
 
-    return result
+    return eye_result
 
