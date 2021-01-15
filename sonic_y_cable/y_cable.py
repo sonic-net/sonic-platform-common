@@ -38,6 +38,8 @@ Y_CABLE_LANE_1_BER_RESULT = 771
 Y_CABLE_MAX_LANES = 2
 Y_CABLE_INITIATE_EYE_MEASUREMENT = 784
 Y_CABLE_LANE_1_EYE_RESULT = 785
+Y_CABLE_PN_NUMBER = 168
+Y_CABLE_VENDOR_NAME = 148
 
 
 SYSLOG_IDENTIFIER = "sonic_y_cable"
@@ -821,7 +823,7 @@ def get_ber_info(physical_port, target):
             physical_port).write_eeprom(curr_offset, 1, buffer)
         if result is False:
             return result
-        while(1):
+        while(True):
             done = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
             y_cable_validate_read_data(done, 1, physical_port, "BER data ready to read")
             if done[0] == 1:
@@ -837,7 +839,6 @@ def get_ber_info(physical_port, target):
             y_cable_validate_read_data(lsb_result, 1, physical_port, "BER data lsb result")
             lane_result = msb_result[0] * math.pow(10, (lsb_result[0]-24))
             ber_result.append(lane_result)
-            #print(' lane[%1d] BER[%e]' % ( lane + 1, lane_result))
             idx += 2
 
     else:
@@ -893,7 +894,7 @@ def get_eye_info(physical_port, target):
         if result is False:
             return result
 
-        while(1):
+        while(True):
             done = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
             y_cable_validate_read_data(done, 1, physical_port, "EYE data ready to read")
             if done[0] == 1:
@@ -909,7 +910,6 @@ def get_eye_info(physical_port, target):
             y_cable_validate_read_data(lsb_result, 1, physical_port, "EYE data lsb result")
             lane_result = (msb_result[0] << 8 | lsb_result[0])
             eye_result.append(lane_result)
-            #print(' lane[%1d] EYE[%d]' % (lane + 1, lane_result))
             idx += 2
 
     else:
@@ -917,3 +917,34 @@ def get_eye_info(physical_port, target):
         return -1
 
     return eye_result
+
+@hook_y_cable_simulator
+def get_pn_number_and_vendor_name(physical_port):
+    """
+    This API specifically returns the pn number and vendor name for a specfic port.
+
+    Args:
+        physical_port:
+             an Integer, the actual physical port connected to a Y cable
+    Returns:
+        a list, with pn_number and vendor name
+    """
+
+    curr_offset = Y_CABLE_PN_NUMBER
+
+    pin_result = []
+
+    if platform_chassis is not None:
+        pn_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 15)
+        y_cable_validate_read_data(pn_result, 1, physical_port, "PN number")
+        pin_result.append(pn_result)
+        curr_offset = Y_CABLE_VENDOR_NAME
+        vendor_name = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 15)
+        y_cable_validate_read_data(vendor_name, 15, physical_port, "vendor name")
+        pin_result.append(vendor_name)
+
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to get pin results")
+        return -1
+
+    return pin_result
