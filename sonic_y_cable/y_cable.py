@@ -62,16 +62,16 @@ def y_cable_validate_read_data(result, size, physical_port, message):
     if result is not None:
         if isinstance(result, bytearray):
             if len(result) != size:
-                helper_logger.log_error("Error: for checking mux_cable {}, eeprom read returned a size {} not equal to 1 for port {}".format(message,
-                                                                                                                                             len(result), physical_port))
+                LOG_MESSAGE_TEMPLATE = "Error: for checking mux_cable {}, eeprom read returned a size {} not equal to 1 for port {}"
+                helper_logger.log_error(LOG_MESSAGE_TEMPLATE.format(message, len(result), physical_port))
                 return -1
         else:
-            helper_logger.log_error("Error: for checking mux_cable {}, eeprom read returned an instance value of type {} which is not a bytearray for port {}".format(message,
-                                                                                                                                                                      type(result), physical_port))
+            LOG_MESSAGE_TEMPLATE = "Error: for checking mux_cable {}, eeprom read returned an instance value of type {} which is not a bytearray for port {}"
+            helper_logger.log_error(LOG_MESSAGE_TEMPLATE.format(message, type(result), physical_port))
             return -1
     else:
-        helper_logger.log_error(
-            "Error: for checking mux_cable {}, eeprom read returned a None value for port {} which is not expected".format(message, physical_port))
+        LOG_MESSAGE_TEMPLATE = "Error: for checking mux_cable {}, eeprom read returned a None value for port {} which is not expected"
+        helper_logger.log_error(LOG_MESSAGE_TEMPLATE.format(message, physical_port))
         return -1
 
 
