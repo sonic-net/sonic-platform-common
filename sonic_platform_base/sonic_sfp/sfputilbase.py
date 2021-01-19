@@ -122,6 +122,12 @@ qsfp_compliance_code_tup = ('10/40G Ethernet Compliance Code', 'SONET Compliance
                             'Fibre Channel link length/Transmitter Technology',
                             'Fibre Channel transmission media', 'Fibre Channel Speed')
 
+qsfp_dom_capability_tup = ('Tx_power_support', 'Rx_power_support',
+                           'Voltage_support', 'Temp_support')
+
+# Add an EOL to prevent this being viewed as string instead of list
+sfp_dom_capability_tup = ('sff8472_dom_support', 'EOL')
+
 class SfpUtilError(Exception):
     """Base class for exceptions in this module."""
     pass
@@ -818,6 +824,7 @@ class SfpUtilBase(object):
     def get_transceiver_info_dict(self, port_num):
         transceiver_info_dict = {}
         compliance_code_dict = {}
+        dom_capability_dict = {}
 
         # ToDo: OSFP tranceiver info parsing not fully supported.
         # in inf8628.py lack of some memory map definition
@@ -902,6 +909,7 @@ class SfpUtilBase(object):
             transceiver_info_dict['specification_compliance'] = '{}'
             transceiver_info_dict['nominal_bit_rate'] = 'N/A'
             transceiver_info_dict['application_advertisement'] = 'N/A'
+            transceiver_info_dict['dom_capability'] = '{}'
 
         else:
             file_path = self._get_port_eeprom_path(port_num, self.IDENTITY_EEPROM_ADDR)
@@ -988,6 +996,12 @@ class SfpUtilBase(object):
             else:
                 return None
 
+            sfp_dom_capability_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + XCVR_DOM_CAPABILITY_OFFSET), XCVR_DOM_CAPABILITY_WIDTH)
+            if sfp_dom_capability_raw is not None:
+                sfp_dom_capability_data = sfpi_obj.parse_dom_capability(sfp_dom_capability_raw, 0)
+            else:
+                return None
+
             try:
                 sysfsfile_eeprom.close()
             except IOError:
@@ -1021,6 +1035,11 @@ class SfpUtilBase(object):
                         compliance_code_dict[key] = sfp_interface_bulk_data['data']['Specification compliance']['value'][key]['value']
                 transceiver_info_dict['specification_compliance'] = str(compliance_code_dict)
 
+                for key in qsfp_dom_capability_tup:
+                    if key in sfp_dom_capability_data['data']:
+                        dom_capability_dict[key] = "yes" if sfp_dom_capability_data['data'][key]['value'] == 'on' else "no"
+                transceiver_info_dict['dom_capability'] = str(dom_capability_dict)
+
                 transceiver_info_dict['nominal_bit_rate'] = str(sfp_interface_bulk_data['data']['Nominal Bit Rate(100Mbs)']['value'])
             else:
                 for key in sfp_cable_length_tup:
@@ -1032,6 +1051,11 @@ class SfpUtilBase(object):
                     if key in sfp_interface_bulk_data['data']['Specification compliance']['value']:
                         compliance_code_dict[key] = sfp_interface_bulk_data['data']['Specification compliance']['value'][key]['value']
                 transceiver_info_dict['specification_compliance'] = str(compliance_code_dict)
+
+                for key in sfp_dom_capability_tup:
+                    if key in sfp_dom_capability_data['data']:
+                        dom_capability_dict[key] = "yes" if sfp_dom_capability_data['data'][key]['value'] == 'on' else "no"
+                transceiver_info_dict['dom_capability'] = str(dom_capability_dict)
 
                 transceiver_info_dict['nominal_bit_rate'] = str(sfp_interface_bulk_data['data']['NominalSignallingRate(UnitsOf100Mbd)']['value'])
 
@@ -1092,7 +1116,7 @@ class SfpUtilBase(object):
             # in SFF-8636 dom capability definitions evolving with the versions.
             qsfp_dom_capability_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset_xcvr + XCVR_DOM_CAPABILITY_OFFSET), XCVR_DOM_CAPABILITY_WIDTH)
             if qsfp_dom_capability_raw is not None:
-                qspf_dom_capability_data = sfpi_obj.parse_qsfp_dom_capability(qsfp_dom_capability_raw, 0)
+                qspf_dom_capability_data = sfpi_obj.parse_dom_capability(qsfp_dom_capability_raw, 0)
             else:
                 return None
 

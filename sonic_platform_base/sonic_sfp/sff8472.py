@@ -519,6 +519,13 @@ class sff8472InterfaceId(sffbase):
             'type': 'date'}
         }
 
+    sfp_dom_capability = {
+        'sff8472_dom_support':
+            {'offset': 0,
+             'bit': 6,
+             'type': 'bitvalue'}
+        }
+
     # Returns calibration type
     def _get_calibration_type(self, eeprom_data):
         try:
@@ -567,6 +574,9 @@ class sff8472InterfaceId(sffbase):
 
     def parse_vendor_oui(self, sn_raw_data, start_pos):
         return sffbase.parse(self, self.vendor_oui, sn_raw_data, start_pos)
+
+    def parse_dom_capability(self, dom_type_raw_data, start_pos):
+        return sffbase.parse(self, self.sfp_dom_capability, dom_type_raw_data, start_pos)
 
     def dump_pretty(self):
         if self.interface_data == None:
