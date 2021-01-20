@@ -5,10 +5,12 @@
 #   API's for Y cable functionality in SONiC
 
 try:
-    import struct
-    from sonic_py_common import logger
-    import sonic_platform.platform
     import math
+    import struct
+    from ctypes import c_int8
+
+    import sonic_platform.platform
+    from sonic_py_common import logger
 except ImportError as e:
     # When build python3 xcvrd, it tries to do basic check which will import this file. However,
     # not all platform supports python3 API now, so it could cause an issue when importing
@@ -40,6 +42,12 @@ Y_CABLE_INITIATE_EYE_MEASUREMENT = 784
 Y_CABLE_LANE_1_EYE_RESULT = 785
 Y_CABLE_PN_NUMBER = 168
 Y_CABLE_VENDOR_NAME = 148
+Y_CABLE_MANUAL_SWITCH_COUNT = 653
+Y_CABLE_AUTO_SWITCH_COUNT = 657
+Y_CABLE_NIC_CURSOR_VALUES = 661
+Y_CABLE_TOR1_CURSOR_VALUES = 681
+Y_CABLE_TOR2_CURSOR_VALUES = 701
+Y_CABLE_NIC_LANE_ACTIVE = 721
 
 
 SYSLOG_IDENTIFIER = "sonic_y_cable"
@@ -918,6 +926,7 @@ def get_eye_info(physical_port, target):
 
     return eye_result
 
+
 @hook_y_cable_simulator
 def get_pn_number_and_vendor_name(physical_port):
     """
@@ -948,3 +957,244 @@ def get_pn_number_and_vendor_name(physical_port):
         return -1
 
     return pin_result
+
+
+@hook_y_cable_simulator
+def get_manual_switch_count(physical_port):
+    """
+    This API specifically returns the switch count to change the Active TOR which has
+    been done manually by the user.
+
+    Args:
+        physical_port:
+             an Integer, the actual physical port connected to a Y cable
+    Returns:
+        an integer, the number of times manually the Y-cable has been switched
+    """
+
+    curr_offset = Y_CABLE_MANUAL_SWITCH_COUNT
+
+    count = 0
+
+    if platform_chassis is not None:
+        msb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
+        y_cable_validate_read_data(msb_result, 1, physical_port, "manual switch count msb result")
+        msb_result_1 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + 1, 1)
+        y_cable_validate_read_data(msb_result_1, 1, physical_port, "manual switch count msb result 1")
+        msb_result_2 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + 2, 1)
+        y_cable_validate_read_data(msb_result_2, 1, physical_port, "manual switch count msb result 2")
+        lsb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+3, 1)
+        y_cable_validate_read_data(lsb_result, 1, physical_port, "manual switch count lsb result")
+        count = (msb_result[0] << 24 | msb_result_1[0] << 16 | msb_result_2[0] << 8 | lsb_result[0])
+
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to get manual switch count")
+        return -1
+
+    return count
+
+
+@hook_y_cable_simulator
+def get_automatic_switch_count(physical_port):
+    """
+    This API specifically returns the switch count to change the Active TOR which has
+    been done automatically by the cable.
+
+    Args:
+        physical_port:
+             an Integer, the actual physical port connected to a Y cable
+    Returns:
+        an integer, the number of times automatically  the Y-cable has been switched
+    """
+
+    curr_offset = Y_CABLE_AUTO_SWITCH_COUNT
+
+    count = 0
+
+    if platform_chassis is not None:
+        msb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
+        y_cable_validate_read_data(msb_result, 1, physical_port, "auto switch count msb result")
+        msb_result_1 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + 1, 1)
+        y_cable_validate_read_data(msb_result_1, 1, physical_port, "auto switch count msb result 1")
+        msb_result_2 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + 2, 1)
+        y_cable_validate_read_data(msb_result_2, 1, physical_port, "auto switch count msb result 2")
+        lsb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+3, 1)
+        y_cable_validate_read_data(lsb_result, 1, physical_port, "auto switch count lsb result")
+        count = (msb_result[0] << 24 | msb_result_1[0] << 16 | msb_result_2[0] << 8 | lsb_result[0])
+
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to get manual switch count")
+        return -1
+
+    return count
+
+
+@hook_y_cable_simulator
+def get_nic_cursor_values(physical_port, lane):
+    """
+    This API specifically returns the cursor equalization parameters for NIC.
+    This includes pre one, pre two , main, post one, post two cursor values
+
+    Args:
+        physical_port:
+             an Integer, the actual physical port connected to a Y cable
+        lane:
+             an Integer, the lane on which to collect the cursor values
+                         1 -> lane 1,
+                         2 -> lane 2
+                         3 -> lane 3
+                         4 -> lane 4
+    Returns:
+        an list, with  pre one, pre two , main, post one, post two cursor values in the order
+    """
+
+    curr_offset = Y_CABLE_NIC_CURSOR_VALUES
+
+    result = []
+
+    if platform_chassis is not None:
+        pre1 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + (lane-1)*5, 1)
+        y_cable_validate_read_data(pre1, 1, physical_port, "nic cursor result")
+        result.append(c_int8(pre1[0]).value)
+        pre2 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + (lane-1)*5 + 1, 1)
+        y_cable_validate_read_data(pre2, 1, physical_port, "nic cursor result")
+        result.append(c_int8(pre2[0]).value)
+        main = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + (lane-1)*5 + 2, 1)
+        y_cable_validate_read_data(main, 1, physical_port, "nic cursor result")
+        result.append(c_int8(main[0]).value)
+        post1 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + (lane-1)*5 + 3, 1)
+        y_cable_validate_read_data(post1, 1, physical_port, "nic cursor result")
+        result.append(c_int8(post1[0]).value)
+        post2 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + (lane-1)*5 + 4, 1)
+        y_cable_validate_read_data(post2, 1, physical_port, "nic cursor result")
+        result.append(c_int8(post2[0]).value)
+
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to get NIC cursor values")
+        return -1
+
+    return result
+
+
+@hook_y_cable_simulator
+def get_tor1_cursor_values(physical_port, lane):
+    """
+    This API specifically returns the cursor equalization parameters for TOR 1.
+    This includes pre one, pre two , main, post one, post two cursor values
+
+    Args:
+        physical_port:
+             an Integer, the actual physical port connected to a Y cable
+        lane:
+             an Integer, the lane on which to collect the cursor values
+                         1 -> lane 1,
+                         2 -> lane 2
+                         3 -> lane 3
+                         4 -> lane 4
+    Returns:
+        an list, with  pre one, pre two , main, post one, post two cursor values in the order
+    """
+
+    curr_offset = Y_CABLE_TOR1_CURSOR_VALUES
+
+    result = []
+
+    if platform_chassis is not None:
+        pre1 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + (lane-1)*5, 1)
+        y_cable_validate_read_data(pre1, 1, physical_port, "tor1 cursor result")
+        result.append(c_int8(pre1[0]).value)
+        pre2 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + (lane-1)*5 + 1, 1)
+        y_cable_validate_read_data(pre2, 1, physical_port, "tor1 cursor result")
+        result.append(c_int8(pre2[0]).value)
+        main = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + (lane-1)*5 + 2, 1)
+        y_cable_validate_read_data(main, 1, physical_port, "tor1 cursor result")
+        result.append(c_int8(main[0]).value)
+        post1 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + (lane-1)*5 + 3, 1)
+        y_cable_validate_read_data(post1, 1, physical_port, "tor1 cursor result")
+        result.append(c_int8(post1[0]).value)
+        post2 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + (lane-1)*5 + 4, 1)
+        y_cable_validate_read_data(post2, 1, physical_port, "tor1 cursor result")
+        result.append(c_int8(post2[0]).value)
+
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to get TOR 1 cursor values")
+        return -1
+
+    return result
+
+
+@hook_y_cable_simulator
+def get_tor2_cursor_values(physical_port, lane):
+    """
+    This API specifically returns the cursor equalization parameters for TOR 2.
+    This includes pre one, pre two , main, post one, post two cursor values
+
+    Args:
+        physical_port:
+             an Integer, the actual physical port connected to a Y cable
+        lane:
+             an Integer, the lane on which to collect the cursor values
+                         1 -> lane 1,
+                         2 -> lane 2
+                         3 -> lane 3
+                         4 -> lane 4
+    Returns:
+        an list, with  pre one, pre two , main, post one, post two cursor values in the order
+    """
+
+    curr_offset = Y_CABLE_TOR2_CURSOR_VALUES
+
+    result = []
+
+    if platform_chassis is not None:
+        pre1 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + (lane-1)*5, 1)
+        y_cable_validate_read_data(pre1, 1, physical_port, "tor 2 cursor result")
+        result.append(c_int8(pre1[0]).value)
+        pre2 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + (lane-1)*5 + 1, 1)
+        y_cable_validate_read_data(pre2, 1, physical_port, "tor 2 cursor result")
+        result.append(c_int8(pre2[0]).value)
+        main = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + (lane-1)*5 + 2, 1)
+        y_cable_validate_read_data(main, 1, physical_port, "tor 2 cursor result")
+        result.append(c_int8(main[0]).value)
+        post1 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + (lane-1)*5 + 3, 1)
+        y_cable_validate_read_data(post1, 1, physical_port, "tor 2 cursor result")
+        result.append(c_int8(post1[0]).value)
+        post2 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + (lane-1)*5 + 4, 1)
+        y_cable_validate_read_data(post2, 1, physical_port, "tor 2 cursor result")
+        result.append(c_int8(post2[0]).value)
+
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to get NIC cursor values")
+        return -1
+
+    return result
+
+
+@hook_y_cable_simulator
+def check_if_nic_lanes_active(physical_port):
+    """
+    This API specifically returns the byte value which denotes which nic lanes
+    are detected and active
+
+    Args:
+        physical_port:
+             an Integer, the actual physical port connected to a Y cable
+    Returns:
+        an integer, with  lower 4 bits representing which lanes are active from 1, 2, 3, 4
+             in that order.
+    """
+
+    curr_offset = Y_CABLE_NIC_LANE_ACTIVE
+
+    result = None
+
+    if platform_chassis is not None:
+        res = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
+        y_cable_validate_read_data(res, 1, physical_port, "nic lanes active")
+        result = res[0]
+
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to get NIC lanes active")
+        return -1
+
+    return result
