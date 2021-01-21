@@ -56,7 +56,6 @@ Y_CABLE_EYE_PRBS_TARGET_TOR1 = 1
 Y_CABLE_EYE_PRBS_TARGET_TOR2 = 2
 Y_CABLE_EYE_PRBS_TARGET_NIC = 3
 
-
 SYSLOG_IDENTIFIER = "sonic_y_cable"
 
 # Global logger instance for helper functions and classes to log
