@@ -48,6 +48,13 @@ Y_CABLE_NIC_CURSOR_VALUES = 661
 Y_CABLE_TOR1_CURSOR_VALUES = 681
 Y_CABLE_TOR2_CURSOR_VALUES = 701
 Y_CABLE_NIC_LANE_ACTIVE = 721
+Y_CABLE_COUNT_TARGET_NIC = 0
+Y_CABLE_COUNT_TARGET_TOR1 = 1
+Y_CABLE_COUNT_TARGET_TOR2 = 2
+Y_CABLE_EYE_PRBS_TARGET_LOCAL = 0
+Y_CABLE_EYE_PRBS_TARGET_TOR1 = 1
+Y_CABLE_EYE_PRBS_TARGET_TOR2 = 2
+Y_CABLE_EYE_PRBS_TARGET_NIC = 3
 
 
 SYSLOG_IDENTIFIER = "sonic_y_cable"
@@ -578,10 +585,10 @@ def enable_prbs_mode(physical_port, target, mode_value, lane_map):
              an Integer, the actual physical port connected to a Y cable
         target:
              an Integer, the target on which to enable the PRBS
-                         0 -> local side,
-                         1 -> TOR 1
-                         2 -> TOR 2
-                         3 -> NIC
+                         Y_CABLE_EYE_PRBS_TARGET_LOCAL -> local side,
+                         Y_CABLE_EYE_PRBS_TARGET_TOR1 -> TOR 1
+                         Y_CABLE_EYE_PRBS_TARGET_TOR2 -> TOR 2
+                         Y_CABLE_EYE_PRBS_TARGET_NIC -> NIC
         mode_value:
              an Integer, the mode/type for configuring the PRBS mode.
              0x00 = PRBS 9, 0x01 = PRBS 15, 0x02 = PRBS 23, 0x03 = PRBS 31
@@ -642,10 +649,10 @@ def disable_prbs_mode(physical_port, target):
              an Integer, the actual physical port connected to a Y cable
         target:
              an Integer, the target on which to enable the PRBS
-                         0 -> local side,
-                         1 -> TOR 1
-                         2 -> TOR 2
-                         3 -> NIC
+                         Y_CABLE_EYE_PRBS_TARGET_LOCAL -> local side,
+                         Y_CABLE_EYE_PRBS_TARGET_TOR1 -> TOR 1
+                         Y_CABLE_EYE_PRBS_TARGET_TOR2 -> TOR 2
+                         Y_CABLE_EYE_PRBS_TARGET_NIC -> NIC
 
     Returns:
         a boolean, true if the disable is successful
@@ -696,10 +703,10 @@ def enable_loopback_mode(physical_port, target, lane_map):
              an Integer, the actual physical port connected to a Y cable
         target:
              an Integer, the target on which to enable the PRBS
-                         0 -> local side,
-                         1 -> TOR 1
-                         2 -> TOR 2
-                         3 -> NIC
+                         Y_CABLE_EYE_PRBS_TARGET_LOCAL -> local side,
+                         Y_CABLE_EYE_PRBS_TARGET_TOR1 -> TOR 1
+                         Y_CABLE_EYE_PRBS_TARGET_TOR2 -> TOR 2
+                         Y_CABLE_EYE_PRBS_TARGET_NIC -> NIC
         lane_map:
              an Integer, representing the lane_map to be run PRBS on
              0bit for lane 0, 1bit for lane1 and so on.
@@ -754,10 +761,10 @@ def disable_loopback_mode(physical_port, target):
              an Integer, the actual physical port connected to a Y cable
         target:
              an Integer, the target on which to enable the PRBS
-                         0 -> local side,
-                         1 -> TOR 1
-                         2 -> TOR 2
-                         3 -> NIC
+                         Y_CABLE_EYE_PRBS_TARGET_LOCAL -> local side,
+                         Y_CABLE_EYE_PRBS_TARGET_TOR1 -> TOR 1
+                         Y_CABLE_EYE_PRBS_TARGET_TOR2 -> TOR 2
+                         Y_CABLE_EYE_PRBS_TARGET_NIC -> NIC
 
     Returns:
         a boolean, true if the disable is successful
@@ -807,10 +814,10 @@ def get_ber_info(physical_port, target):
              an Integer, the actual physical port connected to a Y cable
         target:
              an Integer, the target on which to enable the PRBS
-                         0 -> local side,
-                         1 -> TOR 1
-                         2 -> TOR 2
-                         3 -> NIC
+                         Y_CABLE_EYE_PRBS_TARGET_LOCAL -> local side,
+                         Y_CABLE_EYE_PRBS_TARGET_TOR1 -> TOR 1
+                         Y_CABLE_EYE_PRBS_TARGET_TOR2 -> TOR 2
+                         Y_CABLE_EYE_PRBS_TARGET_NIC -> NIC
     Returns:
         a list, with BER values of lane 0 and lane 1 with corresponding index
     """
@@ -877,10 +884,10 @@ def get_eye_info(physical_port, target):
              an Integer, the actual physical port connected to a Y cable
         target:
              an Integer, the target on which to enable the PRBS
-                         0 -> local side,
-                         1 -> TOR 1
-                         2 -> TOR 2
-                         3 -> NIC
+                         Y_CABLE_EYE_PRBS_TARGET_LOCAL -> local side,
+                         Y_CABLE_EYE_PRBS_TARGET_TOR1 -> TOR 1
+                         Y_CABLE_EYE_PRBS_TARGET_TOR2 -> TOR 2
+                         Y_CABLE_EYE_PRBS_TARGET_NIC -> NIC
     Returns:
         a list, with EYE values of lane 0 and lane 1 with corresponding index
     """
@@ -956,7 +963,7 @@ def get_pn_number_and_vendor_name(physical_port):
 
 
 @hook_y_cable_simulator
-def get_manual_switch_count(physical_port):
+def get_switch_count(physical_port, count_type):
     """
     This API specifically returns the switch count to change the Active TOR which has
     been done manually by the user.
@@ -964,58 +971,33 @@ def get_manual_switch_count(physical_port):
     Args:
         physical_port:
              an Integer, the actual physical port connected to a Y cable
+        count_type:
+             a string, for getting the count type
+                      "manual" -> manual switch count
+                      "auto" -> automatic switch count
     Returns:
         an integer, the number of times manually the Y-cable has been switched
     """
 
-    curr_offset = Y_CABLE_MANUAL_SWITCH_COUNT
-
-    count = 0
-
-    if platform_chassis is not None:
-        msb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
-        y_cable_validate_read_data(msb_result, 1, physical_port, "manual switch count msb result")
-        msb_result_1 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + 1, 1)
-        y_cable_validate_read_data(msb_result_1, 1, physical_port, "manual switch count msb result 1")
-        msb_result_2 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + 2, 1)
-        y_cable_validate_read_data(msb_result_2, 1, physical_port, "manual switch count msb result 2")
-        lsb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+3, 1)
-        y_cable_validate_read_data(lsb_result, 1, physical_port, "manual switch count lsb result")
-        count = (msb_result[0] << 24 | msb_result_1[0] << 16 | msb_result_2[0] << 8 | lsb_result[0])
-
+    if count_type == "manual":
+        curr_offset = Y_CABLE_MANUAL_SWITCH_COUNT
+    elif count_type == "auto":
+        curr_offset = Y_CABLE_AUTO_SWITCH_COUNT
     else:
-        helper_logger.log_error("platform_chassis is not loaded, failed to get manual switch count")
+        helper_logger.log_error("not a valid count_type, failed to get switch count")
         return -1
 
-    return count
-
-
-@hook_y_cable_simulator
-def get_automatic_switch_count(physical_port):
-    """
-    This API specifically returns the switch count to change the Active TOR which has
-    been done automatically by the cable.
-
-    Args:
-        physical_port:
-             an Integer, the actual physical port connected to a Y cable
-    Returns:
-        an integer, the number of times automatically  the Y-cable has been switched
-    """
-
-    curr_offset = Y_CABLE_AUTO_SWITCH_COUNT
-
     count = 0
 
     if platform_chassis is not None:
         msb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
-        y_cable_validate_read_data(msb_result, 1, physical_port, "auto switch count msb result")
+        y_cable_validate_read_data(msb_result, 1, physical_port, "{} switch count msb result".format(count_type))
         msb_result_1 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + 1, 1)
-        y_cable_validate_read_data(msb_result_1, 1, physical_port, "auto switch count msb result 1")
+        y_cable_validate_read_data(msb_result_1, 1, physical_port, "{} switch count msb result 1".format(count_type))
         msb_result_2 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + 2, 1)
-        y_cable_validate_read_data(msb_result_2, 1, physical_port, "auto switch count msb result 2")
+        y_cable_validate_read_data(msb_result_2, 1, physical_port, "{} switch count msb result 2".format(count_type))
         lsb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+3, 1)
-        y_cable_validate_read_data(lsb_result, 1, physical_port, "auto switch count lsb result")
+        y_cable_validate_read_data(lsb_result, 1, physical_port, "{} switch count lsb result".format(count_type))
         count = (msb_result[0] << 24 | msb_result_1[0] << 16 | msb_result_2[0] << 8 | lsb_result[0])
 
     else:
@@ -1042,9 +1024,9 @@ def get_target_cursor_values(physical_port, lane, target):
                          4 -> lane 4
         target:
              an Integer, the actual target to get the cursor values on
-                         0 -> NIC,
-                         1 -> TOR1,
-                         2 -> TOR2
+                         Y_CABLE_COUNT_TARGET_NIC -> NIC,
+                         Y_CABLE_COUNT_TARGET_TOR1-> TOR1,
+                         Y_CABLE_COUNT_TARGET_TOR2 -> TOR2
     Returns:
         an list, with  pre one, pre two , main, post one, post two cursor values in the order
     """
