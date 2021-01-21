@@ -48,9 +48,9 @@ Y_CABLE_NIC_CURSOR_VALUES = 661
 Y_CABLE_TOR1_CURSOR_VALUES = 681
 Y_CABLE_TOR2_CURSOR_VALUES = 701
 Y_CABLE_NIC_LANE_ACTIVE = 721
-Y_CABLE_COUNT_TARGET_NIC = 0
-Y_CABLE_COUNT_TARGET_TOR1 = 1
-Y_CABLE_COUNT_TARGET_TOR2 = 2
+Y_CABLE_TARGET_NIC = 0
+Y_CABLE_TARGET_TOR1 = 1
+Y_CABLE_TARGET_TOR2 = 2
 Y_CABLE_EYE_PRBS_TARGET_LOCAL = 0
 Y_CABLE_EYE_PRBS_TARGET_TOR1 = 1
 Y_CABLE_EYE_PRBS_TARGET_TOR2 = 2
@@ -1023,9 +1023,9 @@ def get_target_cursor_values(physical_port, lane, target):
                          4 -> lane 4
         target:
              an Integer, the actual target to get the cursor values on
-                         Y_CABLE_COUNT_TARGET_NIC -> NIC,
-                         Y_CABLE_COUNT_TARGET_TOR1-> TOR1,
-                         Y_CABLE_COUNT_TARGET_TOR2 -> TOR2
+                         Y_CABLE_TARGET_NIC -> NIC,
+                         Y_CABLE_TARGET_TOR1-> TOR1,
+                         Y_CABLE_TARGET_TOR2 -> TOR2
     Returns:
         an list, with  pre one, pre two , main, post one, post two cursor values in the order
     """
