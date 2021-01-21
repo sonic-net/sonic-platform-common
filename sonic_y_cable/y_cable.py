@@ -941,7 +941,6 @@ def get_pn_number_and_vendor_name(physical_port):
 
     curr_offset = Y_CABLE_PN_NUMBER
 
-
     if platform_chassis is not None:
         pn_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 15)
         y_cable_validate_read_data(pn_result, 1, physical_port, "PN number")
@@ -1027,9 +1026,9 @@ def get_automatic_switch_count(physical_port):
 
 
 @hook_y_cable_simulator
-def get_nic_cursor_values(physical_port, lane, target):
+def get_target_cursor_values(physical_port, lane, target):
     """
-    This API specifically returns the cursor equalization parameters for NIC.
+    This API specifically returns the cursor equalization parameters for a target(NIC, TOR1, TOR2).
     This includes pre one, pre two , main, post one, post two cursor values
 
     Args:
@@ -1056,23 +1055,23 @@ def get_nic_cursor_values(physical_port, lane, target):
 
     if platform_chassis is not None:
         pre1 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + (target)*20 + (lane-1)*5, 1)
-        y_cable_validate_read_data(pre1, 1, physical_port, "nic cursor result")
+        y_cable_validate_read_data(pre1, 1, physical_port, "target cursor result")
         result.append(c_int8(pre1[0]).value)
         pre2 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + (target)*20 + (lane-1)*5 + 1, 1)
-        y_cable_validate_read_data(pre2, 1, physical_port, "nic cursor result")
+        y_cable_validate_read_data(pre2, 1, physical_port, "target cursor result")
         result.append(c_int8(pre2[0]).value)
         main = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + (target)*20 + (lane-1)*5 + 2, 1)
-        y_cable_validate_read_data(main, 1, physical_port, "nic cursor result")
+        y_cable_validate_read_data(main, 1, physical_port, "target cursor result")
         result.append(c_int8(main[0]).value)
         post1 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + (target)*20 + (lane-1)*5 + 3, 1)
-        y_cable_validate_read_data(post1, 1, physical_port, "nic cursor result")
+        y_cable_validate_read_data(post1, 1, physical_port, "target cursor result")
         result.append(c_int8(post1[0]).value)
         post2 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + (target)*20 + (lane-1)*5 + 4, 1)
-        y_cable_validate_read_data(post2, 1, physical_port, "nic cursor result")
+        y_cable_validate_read_data(post2, 1, physical_port, "target cursor result")
         result.append(c_int8(post2[0]).value)
 
     else:
-        helper_logger.log_error("platform_chassis is not loaded, failed to get NIC cursor values")
+        helper_logger.log_error("platform_chassis is not loaded, failed to get target cursor values")
         return -1
 
     return result
