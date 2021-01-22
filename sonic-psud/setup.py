@@ -21,8 +21,8 @@ setup(
         'wheel'
     ],
     tests_require=[
+        'mock>=2.0.0; python_version < "3.3"',
         'pytest',
-        'mock>=2.0.0',
         'pytest-cov'
     ],
     classifiers=[

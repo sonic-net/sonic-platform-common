@@ -2,7 +2,11 @@ import os
 import sys
 from imp import load_source
 
-from mock import Mock, MagicMock, patch
+# TODO: Clean this up once we no longer need to support Python 2
+if sys.version_info.major == 3:
+    from unittest.mock import Mock, MagicMock, patch
+else:
+    from mock import Mock, MagicMock, patch
 from sonic_py_common import daemon_base
 
 from .mock_platform import MockChassis, MockPsu, MockFanDrawer, MockModule
@@ -169,3 +173,87 @@ def test_psuchassis_check_power_budget():
     assert float(fvs[CHASSIS_INFO_TOTAL_POWER_SUPPLIED_FIELD]) > float(fvs[CHASSIS_INFO_TOTAL_POWER_CONSUMED_FIELD])
     assert chassis_info.master_status_good == True
     assert MockPsu.get_status_master_led() == MockPsu.STATUS_LED_COLOR_GREEN
+
+
+def test_get_psu_key():
+    assert get_psu_key(0) == PSU_INFO_KEY_TEMPLATE.format(0)
+    assert get_psu_key(1) == PSU_INFO_KEY_TEMPLATE.format(1)
+
+
+def test_try_get():
+    # Test a proper, working callback
+    GOOD_CALLBACK_RETURN_VALUE = "This is a test"
+
+    def callback1():
+        return GOOD_CALLBACK_RETURN_VALUE
+
+    ret = try_get(callback1)
+    assert ret == GOOD_CALLBACK_RETURN_VALUE
+
+    # Ensure try_get returns default value if callback returns None
+    DEFAULT_VALUE = "Default value"
+
+    def callback2():
+        return None
+
+    ret = try_get(callback2, default=DEFAULT_VALUE)
+    assert ret == DEFAULT_VALUE
+
+    # Ensure try_get returns default value if callback returns None
+    def callback3():
+        raise NotImplementedError
+
+    ret = try_get(callback3, default=DEFAULT_VALUE)
+    assert ret == DEFAULT_VALUE
+
+
+class TestDaemonPsud(object):
+    """
+    Test cases to cover functionality in DaemonPsud class
+    """
+
+    def test_set_psu_led(self):
+        mock_logger = MagicMock()
+        mock_psu = MockPsu(True, True, "PSU 1")
+        psu_status = PsuStatus(mock_logger, mock_psu)
+
+        daemon_psud = DaemonPsud(SYSLOG_IDENTIFIER)
+
+        psu_status.presence = True
+        psu_status.power_good = True
+        psu_status.voltage_good = True
+        psu_status.temperature_good = True
+        daemon_psud._set_psu_led(mock_psu, psu_status)
+        assert mock_psu.get_status_led() == mock_psu.STATUS_LED_COLOR_GREEN
+
+        psu_status.presence = False
+        daemon_psud._set_psu_led(mock_psu, psu_status)
+        assert mock_psu.get_status_led() == mock_psu.STATUS_LED_COLOR_RED
+
+        psu_status.presence = True
+        daemon_psud._set_psu_led(mock_psu, psu_status)
+        assert mock_psu.get_status_led() == mock_psu.STATUS_LED_COLOR_GREEN
+
+        psu_status.power_good = False
+        daemon_psud._set_psu_led(mock_psu, psu_status)
+        assert mock_psu.get_status_led() == mock_psu.STATUS_LED_COLOR_RED
+
+        psu_status.power_good = True
+        daemon_psud._set_psu_led(mock_psu, psu_status)
+        assert mock_psu.get_status_led() == mock_psu.STATUS_LED_COLOR_GREEN
+
+        psu_status.voltage_good = False
+        daemon_psud._set_psu_led(mock_psu, psu_status)
+        assert mock_psu.get_status_led() == mock_psu.STATUS_LED_COLOR_RED
+
+        psu_status.voltage_good = True
+        daemon_psud._set_psu_led(mock_psu, psu_status)
+        assert mock_psu.get_status_led() == mock_psu.STATUS_LED_COLOR_GREEN
+
+        psu_status.temperature_good = False
+        daemon_psud._set_psu_led(mock_psu, psu_status)
+        assert mock_psu.get_status_led() == mock_psu.STATUS_LED_COLOR_RED
+
+        psu_status.temperature_good = True
+        daemon_psud._set_psu_led(mock_psu, psu_status)
+        assert mock_psu.get_status_led() == mock_psu.STATUS_LED_COLOR_GREEN

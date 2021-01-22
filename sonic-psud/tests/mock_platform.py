@@ -37,9 +37,17 @@ class MockPsu(MockDevice):
         self.name = psu_name
         self.presence = True
         self.psu_status = psu_status
+        self.status_led_color = self.STATUS_LED_COLOR_OFF
 
     def get_powergood_status(self):
         return self.psu_status
+
+    def set_status_led(self, color):
+        self.status_led_color = color
+        return True
+
+    def get_status_led(self):
+        return self.status_led_color
 
     def set_status(self, status):
         self.psu_status = status
