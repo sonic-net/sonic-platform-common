@@ -2,7 +2,11 @@ import os
 import sys
 from imp import load_source
 
-from mock import Mock, MagicMock, patch
+# TODO: Clean this up once we no longer need to support Python 2
+if sys.version_info.major == 3:
+    from unittest.mock import Mock, MagicMock, patch
+else:
+    from mock import Mock, MagicMock, patch
 from sonic_py_common import daemon_base
 
 from .mock_platform import MockChassis, MockFan, MockThermal
