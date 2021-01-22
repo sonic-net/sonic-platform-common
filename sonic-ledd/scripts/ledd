@@ -5,16 +5,13 @@
     Front-panel LED control daemon for SONiC
 """
 
-try:
-    import getopt
-    import sys
+import getopt
+import sys
 
-    from sonic_py_common import daemon_base
-    from sonic_py_common import multi_asic
-    from sonic_py_common.interface import backplane_prefix
-    from swsscommon import swsscommon
-except ImportError as e:
-    raise ImportError(str(e) + " - required module not found")
+from sonic_py_common import daemon_base
+from sonic_py_common import multi_asic
+from sonic_py_common.interface import backplane_prefix
+from swsscommon import swsscommon
 
 #============================= Constants =============================
 
@@ -42,25 +39,6 @@ class DaemonLedd(daemon_base.DaemonBase):
 
     # Run daemon
     def run(self):
-        # Parse options if provided
-        if (len(sys.argv) > 1):
-            try:
-                (options, remainder) = getopt.getopt(sys.argv[1:],
-                                                     'hv',
-                                                     ['help', 'version'])
-            except getopt.GetoptError as e:
-                print(e)
-                print(USAGE_HELP)
-                sys.exit(2)
-
-            for opt, arg in options:
-                if opt == '--help' or opt == '-h':
-                    print(USAGE_HELP)
-                    sys.exit(0)
-                elif opt == '--version' or opt == '-v':
-                    print('ledd version ' + VERSION)
-                    sys.exit(0)
-
         # Load platform-specific LedControl module
         try:
             led_control = self.load_platform_util(LED_MODULE_NAME, LED_CLASS_NAME)
@@ -117,10 +95,25 @@ class DaemonLedd(daemon_base.DaemonBase):
                     if not key.startswith(backplane_prefix()):
                         led_control.port_link_state_change(key, fvp_dict["oper_status"])
 
-        return 1
-
 
 def main():
+    # Parse options if provided
+    if len(sys.argv) > 1:
+        try:
+            (options, remainder) = getopt.getopt(sys.argv[1:], 'hv', ['help', 'version'])
+        except getopt.GetoptError as e:
+            print(e)
+            print(USAGE_HELP)
+            sys.exit(1)
+
+        for opt, arg in options:
+            if opt == '--help' or opt == '-h':
+                print(USAGE_HELP)
+                sys.exit(0)
+            elif opt == '--version' or opt == '-v':
+                print('ledd version {}'.format(VERSION))
+                sys.exit(0)
+
     ledd = DaemonLedd(SYSLOG_IDENTIFIER)
     ledd.run()
 
