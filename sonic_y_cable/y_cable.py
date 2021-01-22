@@ -23,38 +23,57 @@ except ImportError as e:
 # definitions of the offset with width accommodated for values
 # of MUX register specs of upper page 0x04 starting at 640
 # info eeprom for Y Cable
-Y_CABLE_IDENTFIER_LOWER_PAGE = 0
-Y_CABLE_IDENTFIER_UPPER_PAGE = 128
-Y_CABLE_DETERMINE_CABLE_READ_SIDE = 640
-Y_CABLE_CHECK_LINK_ACTIVE = 641
-Y_CABLE_SWITCH_MUX_DIRECTION = 642
-Y_CABLE_MUX_DIRECTION = 644
-Y_CABLE_ACTIVE_TOR_INDICATOR = 645
-Y_CABLE_MANUAL_SWITCH_COUNT = 669
-Y_CABLE_CONFIGURE_PRBS_TYPE = 768
-Y_CABLE_ENABLE_PRBS = 769
-Y_CABLE_INITIATE_BER_MEASUREMENT = 770
-Y_CABLE_TARGET = 794
-Y_CABLE_ENABLE_LOOPBACK = 793
-Y_CABLE_LANE_1_BER_RESULT = 771
-Y_CABLE_MAX_LANES = 2
-Y_CABLE_INITIATE_EYE_MEASUREMENT = 784
-Y_CABLE_LANE_1_EYE_RESULT = 785
-Y_CABLE_PN_NUMBER = 168
-Y_CABLE_VENDOR_NAME = 148
-Y_CABLE_MANUAL_SWITCH_COUNT = 653
-Y_CABLE_AUTO_SWITCH_COUNT = 657
-Y_CABLE_NIC_CURSOR_VALUES = 661
-Y_CABLE_TOR1_CURSOR_VALUES = 681
-Y_CABLE_TOR2_CURSOR_VALUES = 701
-Y_CABLE_NIC_LANE_ACTIVE = 721
-Y_CABLE_TARGET_NIC = 0
-Y_CABLE_TARGET_TOR1 = 1
-Y_CABLE_TARGET_TOR2 = 2
-Y_CABLE_EYE_PRBS_TARGET_LOCAL = 0
-Y_CABLE_EYE_PRBS_TARGET_TOR1 = 1
-Y_CABLE_EYE_PRBS_TARGET_TOR2 = 2
-Y_CABLE_EYE_PRBS_TARGET_NIC = 3
+OFFSET_IDENTFIER_LOWER_PAGE = 0
+OFFSET_IDENTFIER_UPPER_PAGE = 128
+OFFSET_DETERMINE_CABLE_READ_SIDE = 640
+OFFSET_CHECK_LINK_ACTIVE = 641
+OFFSET_SWITCH_MUX_DIRECTION = 642
+OFFSET_MUX_DIRECTION = 644
+OFFSET_ACTIVE_TOR_INDICATOR = 645
+OFFSET_MANUAL_SWITCH_COUNT = 669
+OFFSET_CONFIGURE_PRBS_TYPE = 768
+OFFSET_ENABLE_PRBS = 769
+OFFSET_INITIATE_BER_MEASUREMENT = 770
+OFFSET_TARGET = 794
+OFFSET_ENABLE_LOOPBACK = 793
+OFFSET_LANE_1_BER_RESULT = 771
+OFFSET_MAX_LANES = 2
+OFFSET_INITIATE_EYE_MEASUREMENT = 784
+OFFSET_LANE_1_EYE_RESULT = 785
+OFFSET_PN_NUMBER = 168
+OFFSET_VENDOR_NAME = 148
+OFFSET_MANUAL_SWITCH_COUNT = 653
+OFFSET_AUTO_SWITCH_COUNT = 657
+OFFSET_NIC_CURSOR_VALUES = 661
+OFFSET_TOR1_CURSOR_VALUES = 681
+OFFSET_TOR2_CURSOR_VALUES = 701
+OFFSET_NIC_LANE_ACTIVE = 721
+
+# definitions of targets for getting the cursor
+# equalization parameters from the register spec
+# the name of the target denotes which side cursor
+# values will be retreived
+
+TARGET_NIC = 0
+TARGET_TOR1 = 1
+TARGET_TOR2 = 2
+
+# definitions of targets for getting the EYE/BER
+# and initiating PRBS/Loopback on the Y cable
+# the name of the target denotes which side values
+# will be retreived/initiated
+
+EYE_PRBS_TARGET_LOCAL = 0
+EYE_PRBS_TARGET_TOR1 = 1
+EYE_PRBS_TARGET_TOR2 = 2
+EYE_PRBS_TARGET_NIC = 3
+
+# definitions of switch counter types
+# to be entered by the user in get_switch_count api
+# for retreiving the counter values
+
+SWITCH_COUNT_MANUAL = "manual"
+SWITCH_COUNT_AUTO = "auto"
 
 SYSLOG_IDENTIFIER = "sonic_y_cable"
 
@@ -139,7 +158,7 @@ def toggle_mux_to_torA(physical_port):
     """
 
     buffer = bytearray([2])
-    curr_offset = Y_CABLE_SWITCH_MUX_DIRECTION
+    curr_offset = OFFSET_SWITCH_MUX_DIRECTION
 
     if platform_chassis is not None:
         result = platform_chassis.get_sfp(
@@ -177,7 +196,7 @@ def toggle_mux_to_torB(physical_port):
     """
 
     buffer = bytearray([3])
-    curr_offset = Y_CABLE_SWITCH_MUX_DIRECTION
+    curr_offset = OFFSET_SWITCH_MUX_DIRECTION
 
     if platform_chassis is not None:
         result = platform_chassis.get_sfp(
@@ -215,7 +234,7 @@ def check_read_side(physical_port):
                   , -1 if reading the Y cable API fails.
     """
 
-    curr_offset = Y_CABLE_DETERMINE_CABLE_READ_SIDE
+    curr_offset = OFFSET_DETERMINE_CABLE_READ_SIDE
 
     if platform_chassis is not None:
         result = platform_chassis.get_sfp(
@@ -280,7 +299,7 @@ def check_mux_direction(physical_port):
                   , -1 if checking which side mux is pointing to API fails.
     """
 
-    curr_offset = Y_CABLE_MUX_DIRECTION
+    curr_offset = OFFSET_MUX_DIRECTION
 
     if platform_chassis is not None:
         result = platform_chassis.get_sfp(
@@ -344,7 +363,7 @@ def check_active_linked_tor_side(physical_port):
                   , -1 if checking which side linked for routing API fails.
     """
 
-    curr_offset = Y_CABLE_ACTIVE_TOR_INDICATOR
+    curr_offset = OFFSET_ACTIVE_TOR_INDICATOR
 
     if platform_chassis is not None:
         result = platform_chassis.get_sfp(
@@ -409,7 +428,7 @@ def check_if_link_is_active_for_NIC(physical_port):
         a boolean, true if the link is active
                  , false if the link is not active
     """
-    curr_offset = Y_CABLE_CHECK_LINK_ACTIVE
+    curr_offset = OFFSET_CHECK_LINK_ACTIVE
 
     if platform_chassis is not None:
         result = platform_chassis.get_sfp(
@@ -465,7 +484,7 @@ def check_if_link_is_active_for_torA(physical_port):
                  , false if the link is not active
     """
 
-    curr_offset = Y_CABLE_CHECK_LINK_ACTIVE
+    curr_offset = OFFSET_CHECK_LINK_ACTIVE
 
     if platform_chassis is not None:
         result = platform_chassis.get_sfp(
@@ -521,7 +540,7 @@ def check_if_link_is_active_for_torB(physical_port):
                  , false if the link is not active
     """
 
-    curr_offset = Y_CABLE_CHECK_LINK_ACTIVE
+    curr_offset = OFFSET_CHECK_LINK_ACTIVE
 
     if platform_chassis is not None:
         result = platform_chassis.get_sfp(
@@ -584,10 +603,10 @@ def enable_prbs_mode(physical_port, target, mode_value, lane_map):
              an Integer, the actual physical port connected to a Y cable
         target:
              an Integer, the target on which to enable the PRBS
-                         Y_CABLE_EYE_PRBS_TARGET_LOCAL -> local side,
-                         Y_CABLE_EYE_PRBS_TARGET_TOR1 -> TOR 1
-                         Y_CABLE_EYE_PRBS_TARGET_TOR2 -> TOR 2
-                         Y_CABLE_EYE_PRBS_TARGET_NIC -> NIC
+                         EYE_PRBS_TARGET_LOCAL -> local side,
+                         EYE_PRBS_TARGET_TOR1 -> TOR 1
+                         EYE_PRBS_TARGET_TOR2 -> TOR 2
+                         EYE_PRBS_TARGET_NIC -> NIC
         mode_value:
              an Integer, the mode/type for configuring the PRBS mode.
              0x00 = PRBS 9, 0x01 = PRBS 15, 0x02 = PRBS 23, 0x03 = PRBS 31
@@ -602,7 +621,7 @@ def enable_prbs_mode(physical_port, target, mode_value, lane_map):
     """
 
     buffer = bytearray([target])
-    curr_offset = Y_CABLE_TARGET
+    curr_offset = OFFSET_TARGET
 
     if platform_chassis is not None:
         result = platform_chassis.get_sfp(
@@ -610,13 +629,13 @@ def enable_prbs_mode(physical_port, target, mode_value, lane_map):
         if result is False:
             return result
         buffer = bytearray([mode_value])
-        curr_offset = Y_CABLE_CONFIGURE_PRBS_TYPE
+        curr_offset = OFFSET_CONFIGURE_PRBS_TYPE
         result = platform_chassis.get_sfp(
             physical_port).write_eeprom(curr_offset, 1, buffer)
         if result is False:
             return result
         buffer = bytearray([lane_map])
-        curr_offset = Y_CABLE_ENABLE_PRBS
+        curr_offset = OFFSET_ENABLE_PRBS
         result = platform_chassis.get_sfp(
             physical_port).write_eeprom(curr_offset, 1, buffer)
 
@@ -648,10 +667,10 @@ def disable_prbs_mode(physical_port, target):
              an Integer, the actual physical port connected to a Y cable
         target:
              an Integer, the target on which to enable the PRBS
-                         Y_CABLE_EYE_PRBS_TARGET_LOCAL -> local side,
-                         Y_CABLE_EYE_PRBS_TARGET_TOR1 -> TOR 1
-                         Y_CABLE_EYE_PRBS_TARGET_TOR2 -> TOR 2
-                         Y_CABLE_EYE_PRBS_TARGET_NIC -> NIC
+                         EYE_PRBS_TARGET_LOCAL -> local side,
+                         EYE_PRBS_TARGET_TOR1 -> TOR 1
+                         EYE_PRBS_TARGET_TOR2 -> TOR 2
+                         EYE_PRBS_TARGET_NIC -> NIC
 
     Returns:
         a boolean, true if the disable is successful
@@ -659,7 +678,7 @@ def disable_prbs_mode(physical_port, target):
     """
 
     buffer = bytearray([target])
-    curr_offset = Y_CABLE_TARGET
+    curr_offset = OFFSET_TARGET
 
     if platform_chassis is not None:
         result = platform_chassis.get_sfp(
@@ -667,7 +686,7 @@ def disable_prbs_mode(physical_port, target):
         if result is False:
             return result
         buffer = bytearray([0])
-        curr_offset = Y_CABLE_ENABLE_PRBS
+        curr_offset = OFFSET_ENABLE_PRBS
         result = platform_chassis.get_sfp(
             physical_port).write_eeprom(curr_offset, 1, buffer)
 
@@ -702,10 +721,10 @@ def enable_loopback_mode(physical_port, target, lane_map):
              an Integer, the actual physical port connected to a Y cable
         target:
              an Integer, the target on which to enable the PRBS
-                         Y_CABLE_EYE_PRBS_TARGET_LOCAL -> local side,
-                         Y_CABLE_EYE_PRBS_TARGET_TOR1 -> TOR 1
-                         Y_CABLE_EYE_PRBS_TARGET_TOR2 -> TOR 2
-                         Y_CABLE_EYE_PRBS_TARGET_NIC -> NIC
+                         EYE_PRBS_TARGET_LOCAL -> local side,
+                         EYE_PRBS_TARGET_TOR1 -> TOR 1
+                         EYE_PRBS_TARGET_TOR2 -> TOR 2
+                         EYE_PRBS_TARGET_NIC -> NIC
         lane_map:
              an Integer, representing the lane_map to be run PRBS on
              0bit for lane 0, 1bit for lane1 and so on.
@@ -717,7 +736,7 @@ def enable_loopback_mode(physical_port, target, lane_map):
     """
 
     buffer = bytearray([target])
-    curr_offset = Y_CABLE_TARGET
+    curr_offset = OFFSET_TARGET
 
     if platform_chassis is not None:
         result = platform_chassis.get_sfp(
@@ -725,7 +744,7 @@ def enable_loopback_mode(physical_port, target, lane_map):
         if result is False:
             return result
         buffer = bytearray([lane_map])
-        curr_offset = Y_CABLE_ENABLE_LOOPBACK
+        curr_offset = OFFSET_ENABLE_LOOPBACK
         result = platform_chassis.get_sfp(
             physical_port).write_eeprom(curr_offset, 1, buffer)
 
@@ -760,10 +779,10 @@ def disable_loopback_mode(physical_port, target):
              an Integer, the actual physical port connected to a Y cable
         target:
              an Integer, the target on which to enable the PRBS
-                         Y_CABLE_EYE_PRBS_TARGET_LOCAL -> local side,
-                         Y_CABLE_EYE_PRBS_TARGET_TOR1 -> TOR 1
-                         Y_CABLE_EYE_PRBS_TARGET_TOR2 -> TOR 2
-                         Y_CABLE_EYE_PRBS_TARGET_NIC -> NIC
+                         EYE_PRBS_TARGET_LOCAL -> local side,
+                         EYE_PRBS_TARGET_TOR1 -> TOR 1
+                         EYE_PRBS_TARGET_TOR2 -> TOR 2
+                         EYE_PRBS_TARGET_NIC -> NIC
 
     Returns:
         a boolean, true if the disable is successful
@@ -771,7 +790,7 @@ def disable_loopback_mode(physical_port, target):
     """
 
     buffer = bytearray([target])
-    curr_offset = Y_CABLE_TARGET
+    curr_offset = OFFSET_TARGET
 
     if platform_chassis is not None:
         result = platform_chassis.get_sfp(
@@ -779,7 +798,7 @@ def disable_loopback_mode(physical_port, target):
         if result is False:
             return result
         buffer = bytearray([0])
-        curr_offset = Y_CABLE_ENABLE_LOOPBACK
+        curr_offset = OFFSET_ENABLE_LOOPBACK
         result = platform_chassis.get_sfp(
             physical_port).write_eeprom(curr_offset, 1, buffer)
 
@@ -813,16 +832,16 @@ def get_ber_info(physical_port, target):
              an Integer, the actual physical port connected to a Y cable
         target:
              an Integer, the target on which to enable the PRBS
-                         Y_CABLE_EYE_PRBS_TARGET_LOCAL -> local side,
-                         Y_CABLE_EYE_PRBS_TARGET_TOR1 -> TOR 1
-                         Y_CABLE_EYE_PRBS_TARGET_TOR2 -> TOR 2
-                         Y_CABLE_EYE_PRBS_TARGET_NIC -> NIC
+                         EYE_PRBS_TARGET_LOCAL -> local side,
+                         EYE_PRBS_TARGET_TOR1 -> TOR 1
+                         EYE_PRBS_TARGET_TOR2 -> TOR 2
+                         EYE_PRBS_TARGET_NIC -> NIC
     Returns:
         a list, with BER values of lane 0 and lane 1 with corresponding index
     """
 
     buffer = bytearray([target])
-    curr_offset = Y_CABLE_TARGET
+    curr_offset = OFFSET_TARGET
 
     ber_result = []
 
@@ -832,7 +851,7 @@ def get_ber_info(physical_port, target):
         if result is False:
             return result
         buffer = bytearray([0])
-        curr_offset = Y_CABLE_INITIATE_BER_MEASUREMENT
+        curr_offset = OFFSET_INITIATE_BER_MEASUREMENT
         result = platform_chassis.get_sfp(
             physical_port).write_eeprom(curr_offset, 1, buffer)
         if result is False:
@@ -845,7 +864,7 @@ def get_ber_info(physical_port, target):
 
         idx = 0
         maxLane = 2
-        curr_offset = Y_CABLE_LANE_1_BER_RESULT
+        curr_offset = OFFSET_LANE_1_BER_RESULT
         for lane in range(maxLane):
             msb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+idx, 1)
             y_cable_validate_read_data(msb_result, 1, physical_port, "BER data msb result")
@@ -883,16 +902,16 @@ def get_eye_info(physical_port, target):
              an Integer, the actual physical port connected to a Y cable
         target:
              an Integer, the target on which to enable the PRBS
-                         Y_CABLE_EYE_PRBS_TARGET_LOCAL -> local side,
-                         Y_CABLE_EYE_PRBS_TARGET_TOR1 -> TOR 1
-                         Y_CABLE_EYE_PRBS_TARGET_TOR2 -> TOR 2
-                         Y_CABLE_EYE_PRBS_TARGET_NIC -> NIC
+                         EYE_PRBS_TARGET_LOCAL -> local side,
+                         EYE_PRBS_TARGET_TOR1 -> TOR 1
+                         EYE_PRBS_TARGET_TOR2 -> TOR 2
+                         EYE_PRBS_TARGET_NIC -> NIC
     Returns:
         a list, with EYE values of lane 0 and lane 1 with corresponding index
     """
 
     buffer = bytearray([target])
-    curr_offset = Y_CABLE_TARGET
+    curr_offset = OFFSET_TARGET
 
     eye_result = []
 
@@ -902,7 +921,7 @@ def get_eye_info(physical_port, target):
         if result is False:
             return result
         buffer = bytearray([0])
-        curr_offset = Y_CABLE_INITIATE_EYE_MEASUREMENT
+        curr_offset = OFFSET_INITIATE_EYE_MEASUREMENT
         result = platform_chassis.get_sfp(
             physical_port).write_eeprom(curr_offset, 1, buffer)
         if result is False:
@@ -917,7 +936,7 @@ def get_eye_info(physical_port, target):
         idx = 0
         maxLane = 2
         for lane in range(maxLane):
-            curr_offset = Y_CABLE_LANE_1_EYE_RESULT
+            curr_offset = OFFSET_LANE_1_EYE_RESULT
             msb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+idx, 1)
             y_cable_validate_read_data(msb_result, 1, physical_port, "EYE data msb result")
             lsb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+1+idx, 1)
@@ -945,12 +964,12 @@ def get_pn_number_and_vendor_name(physical_port):
         a tuple, with pn_number and vendor name
     """
 
-    curr_offset = Y_CABLE_PN_NUMBER
+    curr_offset = OFFSET_PN_NUMBER
 
     if platform_chassis is not None:
         pn_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 15)
         y_cable_validate_read_data(pn_result, 1, physical_port, "PN number")
-        curr_offset = Y_CABLE_VENDOR_NAME
+        curr_offset = OFFSET_VENDOR_NAME
         vendor_name = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 15)
         y_cable_validate_read_data(vendor_name, 15, physical_port, "vendor name")
 
@@ -978,10 +997,10 @@ def get_switch_count(physical_port, count_type):
         an integer, the number of times manually the Y-cable has been switched
     """
 
-    if count_type == "manual":
-        curr_offset = Y_CABLE_MANUAL_SWITCH_COUNT
-    elif count_type == "auto":
-        curr_offset = Y_CABLE_AUTO_SWITCH_COUNT
+    if count_type == SWITCH_COUNT_MANUAL:
+        curr_offset = OFFSET_MANUAL_SWITCH_COUNT
+    elif count_type == SWITCH_COUNT_AUTO:
+        curr_offset = OFFSET_AUTO_SWITCH_COUNT
     else:
         helper_logger.log_error("not a valid count_type, failed to get switch count")
         return -1
@@ -1023,14 +1042,14 @@ def get_target_cursor_values(physical_port, lane, target):
                          4 -> lane 4
         target:
              an Integer, the actual target to get the cursor values on
-                         Y_CABLE_TARGET_NIC -> NIC,
-                         Y_CABLE_TARGET_TOR1-> TOR1,
-                         Y_CABLE_TARGET_TOR2 -> TOR2
+                         TARGET_NIC -> NIC,
+                         TARGET_TOR1-> TOR1,
+                         TARGET_TOR2 -> TOR2
     Returns:
         an list, with  pre one, pre two , main, post one, post two cursor values in the order
     """
 
-    curr_offset = Y_CABLE_NIC_CURSOR_VALUES
+    curr_offset = OFFSET_NIC_CURSOR_VALUES
 
     result = []
 
@@ -1072,7 +1091,7 @@ def check_if_nic_lanes_active(physical_port):
              in that order.
     """
 
-    curr_offset = Y_CABLE_NIC_LANE_ACTIVE
+    curr_offset = OFFSET_NIC_LANE_ACTIVE
 
     result = None
 
