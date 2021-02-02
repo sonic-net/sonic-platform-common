@@ -37,11 +37,12 @@ LEDUTIL_LOAD_ERROR = 1
 
 class DaemonLedd(daemon_base.DaemonBase):
 
-    # Run daemon
-    def run(self):
+    def __init__(self):
+        daemon_base.DaemonBase.__init__(self, SYSLOG_IDENTIFIER)
+
         # Load platform-specific LedControl module
         try:
-            led_control = self.load_platform_util(LED_MODULE_NAME, LED_CLASS_NAME)
+            self.led_control = self.load_platform_util(LED_MODULE_NAME, LED_CLASS_NAME)
         except Exception as e:
             self.log_error("Failed to load ledutil: %s" % (str(e)), True)
             sys.exit(LEDUTIL_LOAD_ERROR)
@@ -55,45 +56,52 @@ class DaemonLedd(daemon_base.DaemonBase):
         namespaces = multi_asic.get_front_end_namespaces()
 
         # Subscribe to PORT table notifications in the Application DB
-        appl_db, sst = {}, {}
-        sel = swsscommon.Select()
+        appl_db = {}
+        self.sst = {}
+        self.sel = swsscommon.Select()
 
         for namespace in namespaces:
             # Open a handle to the Application database, in all namespaces
             appl_db[namespace] = daemon_base.db_connect("APPL_DB", namespace=namespace)
-            sst[namespace] = swsscommon.SubscriberStateTable(appl_db[namespace], swsscommon.APP_PORT_TABLE_NAME)
-            sel.addSelectable(sst[namespace])
+            self.sst[namespace] = swsscommon.SubscriberStateTable(appl_db[namespace], swsscommon.APP_PORT_TABLE_NAME)
+            self.sel.addSelectable(self.sst[namespace])
 
-        # Listen indefinitely for changes to the PORT table in the Application DB's
-        while True:
-            # Use timeout to prevent ignoring the signals we want to handle
-            # in signal_handler() (e.g. SIGTERM for graceful shutdown)
-            (state, selectableObj) = sel.select(SELECT_TIMEOUT)
+    # Run daemon
+    def run(self):
+        # Use timeout to prevent ignoring the signals we want to handle
+        # in signal_handler() (e.g. SIGTERM for graceful shutdown)
+        (state, selectableObj) = self.sel.select(SELECT_TIMEOUT)
 
-            if state == swsscommon.Select.TIMEOUT:
-                # Do not flood log when select times out
-                continue
-            if state != swsscommon.Select.OBJECT:
-                self.log_warning("sel.select() did not  return swsscommon.Select.OBJECT")
-                continue
+        if state == swsscommon.Select.TIMEOUT:
+            # Do not flood log when select times out
+            return 1
 
-            # Get the redisselect object  from selectable object
-            redisSelectObj = swsscommon.CastSelectableToRedisSelectObj(selectableObj)
-            # Get the corresponding namespace from redisselect db connector object
-            namespace = redisSelectObj.getDbConnector().getNamespace()
+        if state != swsscommon.Select.OBJECT:
+            self.log_warning("sel.select() did not return swsscommon.Select.OBJECT")
+            return 2
 
-            (key, op, fvp) = sst[namespace].pop()
-            if fvp:
-                # TODO: Once these flag entries have been removed from the DB,
-                # we can remove this check
-                if key in ["PortConfigDone", "PortInitDone"]:
-                    continue
+        # Get the redisselect object from selectable object
+        redisSelectObj = swsscommon.CastSelectableToRedisSelectObj(selectableObj)
 
-                fvp_dict = dict(fvp)
+        # Get the corresponding namespace from redisselect db connector object
+        namespace = redisSelectObj.getDbConnector().getNamespace()
 
-                if op == "SET" and "oper_status" in fvp_dict:
-                    if not key.startswith(backplane_prefix()):
-                        led_control.port_link_state_change(key, fvp_dict["oper_status"])
+        (key, op, fvp) = self.sst[namespace].pop()
+        if fvp:
+            # TODO: Once these flag entries have been removed from the DB,
+            # we can remove this check
+            if key in ["PortConfigDone", "PortInitDone"]:
+                return 3
+
+            fvp_dict = dict(fvp)
+
+            if op == "SET" and "oper_status" in fvp_dict:
+                if not key.startswith(backplane_prefix()):
+                    self.led_control.port_link_state_change(key, fvp_dict["oper_status"])
+        else:
+            return 4
+
+        return 0
 
 
 def main():
@@ -114,8 +122,11 @@ def main():
                 print('ledd version {}'.format(VERSION))
                 sys.exit(0)
 
-    ledd = DaemonLedd(SYSLOG_IDENTIFIER)
-    ledd.run()
+    ledd = DaemonLedd()
+
+    # Listen indefinitely for changes to the PORT table in the Application DB's
+    while True:
+        ledd.run()
 
 
 if __name__ == '__main__':
