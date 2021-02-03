@@ -28,7 +28,7 @@ class PcieUtil(PcieBase):
                 self.confInfo = yaml.load(conf_file)
         except IOError as e:
             print("Error: {}".format(str(e)))
-            print("Not found config file, please add a config file manually, or generate it by running [pcieutil pcie_generate]")
+            print("Pcie config file:'{}' Not Found".format(config_file))
             sys.exit()
 
     # load current PCIe device
