@@ -1157,8 +1157,7 @@ def get_firmware_version(physical_port, target):
 
     result = {}
     NUM_MCU_SIDE = 3
-    addr = target * (FIRMWARE_INFO_PAYLOAD_SIZE / NUM_MCU_SIDE)
-    base_addr = int(addr)
+    base_addr = int(target * (FIRMWARE_INFO_PAYLOAD_SIZE / NUM_MCU_SIDE))
     rev_major_slot1 = struct.unpack_from('<B', data[0 + base_addr:  1 + base_addr])[0]
     rev_minor_slot1 = struct.unpack_from('<B', data[2 + base_addr:  3 + base_addr])[0]
     rev_build_lsb_slot1 = struct.unpack_from('<B', data[4 + base_addr:  5 + base_addr])[0]
@@ -1172,14 +1171,14 @@ def get_firmware_version(physical_port, target):
     if (rev_major_slot1 == 0 and rev_minor_slot1 == 0 and rev_build_lsb_slot1 == 0 and rev_build_msb_slot1 == 0 and rev_major_slot2 == 0 and rev_minor_slot2 == 0 and rev_build_lsb_slot2 == 0 and rev_build_msb_slot2 == 0):
         return None
     else:
-        result["rev_major_slot1"] = rev_major_slot1
-        result["rev_minor_slot1"] = rev_minor_slot1
-        result["rev_build_lsb_slot1"] = rev_build_lsb_slot1
-        result["rev_build_msb_slot1"] = rev_build_msb_slot1
-        result["rev_major_slot2"] = rev_major_slot2
-        result["rev_minor_slot2"] = rev_minor_slot2
-        result["rev_build_lsb_slot2"] = rev_build_lsb_slot2
-        result["rev_build_msb_slot2"] = rev_build_msb_slot2
+        build_slot1 = chr(rev_build_lsb_slot1)+ chr(rev_build_msb_slot1)
+        version_slot1 = str(rev_major_slot1) + "."+ str(rev_minor_slot1)
+        build_slot2 = chr(rev_build_lsb_slot2)+ chr(rev_build_msb_slot2)
+        version_slot2 = str(rev_major_slot2) + "."+ str(rev_minor_slot2)
+        result["build_slot1"] =  build_slot1
+        result["version_slot1"] =  version_slot1
+        result["build_slot2"] =  build_slot2
+        result["version_slot2"] =  version_slot2
         result["slot_status"] = slot_status
 
     return result
