@@ -4,16 +4,144 @@
 # https://aka.ms/yaml
 
 trigger:
-- main
+  branches:
+    include:
+      - '*'
 
 pool:
   vmImage: 'ubuntu-20.04'
 
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+resources:
+  containers:
+  - container: sonic-slave-buster
+    image: sonicdev-microsoft.azurecr.io:443/sonic-slave-buster:latest
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+parameters:
+- name: project_list
+  type: object
+  default:
+    - name: chassisd
+      root_dir: sonic-chassisd
+      python2: false
+      python3: true
+    - name: ledd
+      root_dir: sonic-ledd
+      python2: true
+      python3: true
+    - name: pcied
+      root_dir: sonic-pcied
+      python2: true
+      python3: true
+    - name: psud
+      root_dir: sonic-psud
+      python2: true
+      python3: true
+    - name: syseepromd
+      root_dir: sonic-syseepromd
+      python2: true
+      python3: true
+    - name: thermalctld
+      root_dir: sonic-thermalctld
+      python2: true
+      python3: true
+    - name: xcvrd
+      root_dir: sonic-xcvrd
+      python2: true
+      python3: true
+
+jobs:
+  - ${{ each project in parameters.project_list }}:
+    - job: ${{ project.name }}
+      container: sonic-slave-buster
+      steps:
+      - task: DownloadPipelineArtifact@2
+        inputs:
+          source: specific
+          project: build
+          pipeline: 1
+          artifact: sonic-buildimage.kvm
+          runVersion: 'latestFromBranch'
+          runBranch: 'refs/heads/master'
+        displayName: "Download artifacts from latest sonic-buildimage build"
+
+      - script: |
+          set -xe
+          sudo dpkg -i libnl-3-200_*.deb
+          sudo dpkg -i libnl-genl-3-200_*.deb
+          sudo dpkg -i libnl-route-3-200_*.deb
+          sudo dpkg -i libnl-nf-3-200_*.deb
+          sudo dpkg -i libhiredis0.14_*.deb
+          sudo dpkg -i libswsscommon_1.0.0_amd64.deb
+          sudo dpkg -i python-swsscommon_1.0.0_amd64.deb
+          sudo dpkg -i python3-swsscommon_1.0.0_amd64.deb
+        workingDirectory: $(Pipeline.Workspace)/target/debs/buster/
+        displayName: 'Install Debian dependencies'
+
+      - script: |
+          set -xe
+          pip2 install swsssdk-2.0.1-py2-none-any.whl
+          pip2 install sonic_py_common-1.0-py2-none-any.whl
+          pip3 install swsssdk-2.0.1-py3-none-any.whl
+          pip3 install sonic_py_common-1.0-py3-none-any.whl
+        workingDirectory: $(Pipeline.Workspace)/target/python-wheels/
+        displayName: 'Install Python dependencies'
+
+      # Python 2
+      - ${{ if eq(project.python2, true) }}:
+        - script: |
+            python2 setup.py test
+          workingDirectory: ${{ project.root_dir }}
+          displayName: 'Test ${{ project.name }} (Python 2)'
+
+        - task: PublishTestResults@2
+          inputs:
+            testResultsFiles: '$(System.DefaultWorkingDirectory)/${{ project.root_dir }}/test-results.xml'
+            testRunTitle: ${{ project.name }} (Python 2)
+            failTaskOnFailedTests: true
+          condition: succeededOrFailed()
+          displayName: 'Publish ${{ project.name }} (Python 2) test results'
+
+        - task: PublishCodeCoverageResults@1
+          inputs:
+            codeCoverageTool: Cobertura
+            summaryFileLocation: '$(System.DefaultWorkingDirectory)/${{ project.root_dir }}/coverage.xml'
+            reportDirectory: '$(System.DefaultWorkingDirectory)/${{ project.root_dir }}/htmlcov/'
+          displayName: 'Publish ${{ project.name }} (Python 2) test coverage'
+
+        - script: |
+            set -e
+            python2 setup.py bdist_wheel
+          workingDirectory: ${{ project.root_dir }}
+          displayName: 'Build ${{ project.name }} (Python 2)'
+
+      # Python 3
+      - ${{ if eq(project.python3, true) }}:
+        - script: |
+            python3 setup.py test
+          workingDirectory: ${{ project.root_dir }}
+          displayName: 'Test ${{ project.name }} (Python 3)'
+
+        - task: PublishTestResults@2
+          inputs:
+            testResultsFiles: '$(System.DefaultWorkingDirectory)/${{ project.root_dir }}/test-results.xml'
+            testRunTitle: ${{ project.name }} (Python 3)
+            failTaskOnFailedTests: true
+          condition: succeededOrFailed()
+          displayName: 'Publish ${{ project.name }} (Python 3) test results'
+
+        - task: PublishCodeCoverageResults@1
+          inputs:
+            codeCoverageTool: Cobertura
+            summaryFileLocation: '$(System.DefaultWorkingDirectory)/${{ project.root_dir }}/coverage.xml'
+            reportDirectory: '$(System.DefaultWorkingDirectory)/${{ project.root_dir }}/htmlcov/'
+          displayName: 'Publish ${{ project.name }} (Python 3) test coverage'
+
+        - script: |
+            set -e
+            python3 setup.py bdist_wheel
+          workingDirectory: ${{ project.root_dir }}
+          displayName: 'Build ${{ project.name }} (Python 3)'
+
+      - publish: '$(System.DefaultWorkingDirectory)/${{ project.root_dir }}/dist/'
+        artifact: ${{ project.root_dir }}
+        displayName: "Publish ${{ project.name }} wheels"
