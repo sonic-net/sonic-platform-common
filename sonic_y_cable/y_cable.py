@@ -1155,31 +1155,32 @@ def get_firmware_version(physical_port, target):
         helper_logger.log_error("platform_chassis is not loaded, failed to get NIC lanes active")
         return -1
 
-    result = []
+    result = {}
     NUM_MCU_SIDE = 3
-    Addr = target * (FIRMWARE_INFO_PAYLOAD_SIZE / NUM_MCU_SIDE)
-    baseAddr = int(Addr)
-    rev_major_slot1 = struct.unpack_from('<B', data[0 + baseAddr:  1 + baseAddr])[0]
-    rev_minor_slot1 = struct.unpack_from('<B', data[2 + baseAddr:  3 + baseAddr])[0]
-    rev_build_lsb_slot1 = struct.unpack_from('<B', data[4 + baseAddr:  5 + baseAddr])[0]
-    rev_build_msb_slot1 = struct.unpack_from('<B', data[5 + baseAddr:  6 + baseAddr])[0]
-    rev_major_slot2 = struct.unpack_from('<B', data[1 + baseAddr:  2 + baseAddr])[0]
-    rev_minor_slot2 = struct.unpack_from('<B', data[3 + baseAddr:  4 + baseAddr])[0]
-    rev_build_lsb_slot2 = struct.unpack_from('<B', data[6 + baseAddr:  7 + baseAddr])[0]
-    rev_build_msb_slot2 = struct.unpack_from('<B', data[7 + baseAddr:  8 + baseAddr])[0]
-    slotStatus = struct.unpack_from('<B', data[8 + baseAddr:  9 + baseAddr])[0]
+    addr = target * (FIRMWARE_INFO_PAYLOAD_SIZE / NUM_MCU_SIDE)
+    base_addr = int(addr)
+    rev_major_slot1 = struct.unpack_from('<B', data[0 + base_addr:  1 + base_addr])[0]
+    rev_minor_slot1 = struct.unpack_from('<B', data[2 + base_addr:  3 + base_addr])[0]
+    rev_build_lsb_slot1 = struct.unpack_from('<B', data[4 + base_addr:  5 + base_addr])[0]
+    rev_build_msb_slot1 = struct.unpack_from('<B', data[5 + base_addr:  6 + base_addr])[0]
+    rev_major_slot2 = struct.unpack_from('<B', data[1 + base_addr:  2 + base_addr])[0]
+    rev_minor_slot2 = struct.unpack_from('<B', data[3 + base_addr:  4 + base_addr])[0]
+    rev_build_lsb_slot2 = struct.unpack_from('<B', data[6 + base_addr:  7 + base_addr])[0]
+    rev_build_msb_slot2 = struct.unpack_from('<B', data[7 + base_addr:  8 + base_addr])[0]
+    slot_status = struct.unpack_from('<B', data[8 + base_addr:  9 + base_addr])[0]
 
     if (rev_major_slot1 == 0 and rev_minor_slot1 == 0 and rev_build_lsb_slot1 == 0 and rev_build_msb_slot1 == 0 and rev_major_slot2 == 0 and rev_minor_slot2 == 0 and rev_build_lsb_slot2 == 0 and rev_build_msb_slot2 == 0):
-        return -1
+        return None
     else:
-        result.append(rev_major_slot1)
-        result.append(rev_minor_slot1)
-        result.append(rev_build_lsb_slot1)
-        result.append(rev_major_slot2)
-        result.append(rev_minor_slot2)
-        result.append(rev_build_lsb_slot2)
-        result.append(rev_build_msb_slot2)
-        result.append(slotStatus)
+        result["rev_major_slot1"] = rev_major_slot1
+        result["rev_minor_slot1"] = rev_minor_slot1
+        result["rev_build_lsb_slot1"] = rev_build_lsb_slot1
+        result["rev_build_msb_slot1"] = rev_build_msb_slot1
+        result["rev_major_slot2"] = rev_major_slot2
+        result["rev_minor_slot2"] = rev_minor_slot2
+        result["rev_build_lsb_slot2"] = rev_build_lsb_slot2
+        result["rev_build_msb_slot2"] = rev_build_msb_slot2
+        result["slot_status"] = slot_status
 
     return result
 
