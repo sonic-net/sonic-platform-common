@@ -25,13 +25,14 @@ setup(
         'sonic_thermal',
         'sonic_y_cable',
     ],
-    # NOTE: Install also depends on sonic-config-engine for portconfig.py, but we are not yet
-    # building a Python 3 version of sonic-config-engine. Also, this dependency should be
-    # eliminated by moving portconfig.py functionality into sonic-py-common
+    # NOTE: Install also depends on sonic-config-engine for portconfig.py
+    # This dependency should be eliminated by moving portconfig.py
+    # functionality into sonic-py-common
     install_requires=[
         'natsort==6.2.1', # 6.2.1 is the last version which supports Python 2
         'PyYAML',
         'redis',
+        'sonic-config-engine',
         'sonic-py-common'
     ],
     setup_requires = [
