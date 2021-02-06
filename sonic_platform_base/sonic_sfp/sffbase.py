@@ -35,7 +35,7 @@ class sffbase(object):
             ret_str = ''
             for n in range(start, end):
                 ret_str += arr[n]
-            return str.strip(binascii.unhexlify(ret_str))
+            return binascii.unhexlify(ret_str).decode("utf-8").strip()
         except Exception as err:
             return str(err)
 
