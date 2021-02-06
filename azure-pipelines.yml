@@ -40,12 +40,12 @@ steps:
 
 - script: |
     set -xe
-    pip2 install swsssdk-2.0.1-py2-none-any.whl
-    pip2 install sonic_py_common-1.0-py2-none-any.whl
-    pip2 install sonic_config_engine-1.0-py2-none-any.whl
-    pip3 install swsssdk-2.0.1-py3-none-any.whl
-    pip3 install sonic_py_common-1.0-py3-none-any.whl
-    pip3 install sonic_config_engine-1.0-py3-none-any.whl
+    sudo pip2 install swsssdk-2.0.1-py2-none-any.whl
+    sudo pip2 install sonic_py_common-1.0-py2-none-any.whl
+    sudo pip2 install sonic_config_engine-1.0-py2-none-any.whl
+    sudo pip3 install swsssdk-2.0.1-py3-none-any.whl
+    sudo pip3 install sonic_py_common-1.0-py3-none-any.whl
+    sudo pip3 install sonic_config_engine-1.0-py3-none-any.whl
   workingDirectory: $(Pipeline.Workspace)/target/python-wheels/
   displayName: 'Install Python dependencies'
 
