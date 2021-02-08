@@ -852,7 +852,6 @@ def get_ber_info(physical_port, target):
     buffer = bytearray([target])
     curr_offset = OFFSET_TARGET
 
-
     ber_result = []
 
     if platform_chassis is not None:
@@ -1171,15 +1170,46 @@ def get_firmware_version(physical_port, target):
     if (rev_major_slot1 == 0 and rev_minor_slot1 == 0 and rev_build_lsb_slot1 == 0 and rev_build_msb_slot1 == 0 and rev_major_slot2 == 0 and rev_minor_slot2 == 0 and rev_build_lsb_slot2 == 0 and rev_build_msb_slot2 == 0):
         return None
     else:
-        build_slot1 = chr(rev_build_lsb_slot1)+ chr(rev_build_msb_slot1)
-        version_slot1 = str(rev_major_slot1) + "."+ str(rev_minor_slot1)
-        build_slot2 = chr(rev_build_lsb_slot2)+ chr(rev_build_msb_slot2)
-        version_slot2 = str(rev_major_slot2) + "."+ str(rev_minor_slot2)
-        result["build_slot1"] =  build_slot1
-        result["version_slot1"] =  version_slot1
-        result["build_slot2"] =  build_slot2
-        result["version_slot2"] =  version_slot2
+        build_slot1 = chr(rev_build_lsb_slot1) + chr(rev_build_msb_slot1)
+        version_slot1 = str(rev_major_slot1) + "." + str(rev_minor_slot1)
+        build_slot2 = chr(rev_build_lsb_slot2) + chr(rev_build_msb_slot2)
+        version_slot2 = str(rev_major_slot2) + "." + str(rev_minor_slot2)
+        if slot_status & 0x01:
+            run_slot1 = True
+        else:
+            run_slot1 = False
+        if slot_status & 0x02:
+            commit_slot1 = True
+        else:
+            commit_slot1 = False
+        if slot_status & 0x04:
+            empty_slot1 = True
+        else:
+            empty_slot1 = False
+        if slot_status & 0x10:
+            run_slot2 = True
+        else:
+            run_slot2 = False
+        if slot_status & 0x20:
+            commit_slot2 = True
+        else:
+            commit_slot2 = False
+        if slot_status & 0x40:
+            empty_slot2 = True
+        else:
+            empty_slot2 = False
+
+        result["build_slot1"] = build_slot1
+        result["version_slot1"] = version_slot1
+        result["build_slot2"] = build_slot2
+        result["version_slot2"] = version_slot2
         result["slot_status"] = slot_status
+        result["run_slot1"] = run_slot1
+        result["run_slot2"] = run_slot2
+        result["commit_slot1"] = commit_slot1
+        result["commit_slot2"] = commit_slot2
+        result["empty_slot1"] = empty_slot1
+        result["empty_slot2"] = empty_slot2
 
     return result
 
