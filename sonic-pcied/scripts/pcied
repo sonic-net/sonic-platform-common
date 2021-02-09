@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 """
     pcied
@@ -41,8 +41,7 @@ class DaemonPcied(daemon_base.DaemonBase):
         super(DaemonPcied, self).__init__(log_identifier)
 
         (platform_path, _) = device_info.get_paths_to_platform_and_hwsku_dirs()
-        pciefilePath = os.path.join(platform_path, "plugins", PCIE_CONF_FILE)
-        sys.path.append(os.path.abspath(pciefilePath))
+        pciefilePath = os.path.join(platform_path, PCIE_CONF_FILE)
         if not os.path.exists(pciefilePath):
             self.log_error("Platform pcie configuration file doesn't exist! Exiting ...")
             sys.exit("Platform PCIe Configuration file doesn't exist!")
@@ -82,17 +81,11 @@ class DaemonPcied(daemon_base.DaemonBase):
     def check_pcie_devices(self):
         try:
             platform_path, _ = device_info.get_paths_to_platform_and_hwsku_dirs()
-            platform_plugins_path = os.path.join(platform_path, "plugins")
-            sys.path.append(os.path.abspath(platform_plugins_path))
-            from pcieutil import PcieUtil
+            from sonic_platform_base.sonic_pcie.pcie_common import PcieUtil
+            platform_pcieutil = PcieUtil(platform_path)
         except ImportError as e:
-            self.log_warning("Failed to load platform-specific PcieUtil module. Falling back to the common implementation")
-            try:
-                from sonic_platform_base.sonic_pcie.pcie_common import PcieUtil
-                platform_pcieutil = PcieUtil(platform_plugins_path)
-            except ImportError as e:
-                self.log_error("Failed to load default PcieUtil module. Error : {}".format(str(e)), True)
-                raise e
+            self.log_error("Failed to load default PcieUtil module. Error : {}".format(str(e)), True)
+            raise e
 
         resultInfo = platform_pcieutil.get_pcie_check()
         err = 0
@@ -183,7 +176,6 @@ class DaemonPcied(daemon_base.DaemonBase):
 def main():
     pcied = DaemonPcied(SYSLOG_IDENTIFIER)
     pcied.run()
-
 
 if __name__ == '__main__':
     main()
