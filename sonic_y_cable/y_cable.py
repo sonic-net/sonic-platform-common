@@ -1157,15 +1157,15 @@ def get_firmware_version(physical_port, target):
     result = {}
     NUM_MCU_SIDE = 3
     base_addr = int(target * (FIRMWARE_INFO_PAYLOAD_SIZE / NUM_MCU_SIDE))
-    rev_major_slot1 = struct.unpack_from('<B', data[0 + base_addr:  1 + base_addr])[0]
-    rev_minor_slot1 = struct.unpack_from('<B', data[2 + base_addr:  3 + base_addr])[0]
-    rev_build_lsb_slot1 = struct.unpack_from('<B', data[4 + base_addr:  5 + base_addr])[0]
-    rev_build_msb_slot1 = struct.unpack_from('<B', data[5 + base_addr:  6 + base_addr])[0]
-    rev_major_slot2 = struct.unpack_from('<B', data[1 + base_addr:  2 + base_addr])[0]
-    rev_minor_slot2 = struct.unpack_from('<B', data[3 + base_addr:  4 + base_addr])[0]
-    rev_build_lsb_slot2 = struct.unpack_from('<B', data[6 + base_addr:  7 + base_addr])[0]
-    rev_build_msb_slot2 = struct.unpack_from('<B', data[7 + base_addr:  8 + base_addr])[0]
-    slot_status = struct.unpack_from('<B', data[8 + base_addr:  9 + base_addr])[0]
+    rev_major_slot1 = struct.unpack_from('<B', data[0 + base_addr:1 + base_addr])[0]
+    rev_minor_slot1 = struct.unpack_from('<B', data[2 + base_addr:3 + base_addr])[0]
+    rev_build_lsb_slot1 = struct.unpack_from('<B', data[4 + base_addr:5 + base_addr])[0]
+    rev_build_msb_slot1 = struct.unpack_from('<B', data[5 + base_addr:6 + base_addr])[0]
+    rev_major_slot2 = struct.unpack_from('<B', data[1 + base_addr:2 + base_addr])[0]
+    rev_minor_slot2 = struct.unpack_from('<B', data[3 + base_addr:4 + base_addr])[0]
+    rev_build_lsb_slot2 = struct.unpack_from('<B', data[6 + base_addr:7 + base_addr])[0]
+    rev_build_msb_slot2 = struct.unpack_from('<B', data[7 + base_addr:8 + base_addr])[0]
+    slot_status = struct.unpack_from('<B', data[8 + base_addr:9 + base_addr])[0]
 
     if (rev_major_slot1 == 0 and rev_minor_slot1 == 0 and rev_build_lsb_slot1 == 0 and rev_build_msb_slot1 == 0 and rev_major_slot2 == 0 and rev_minor_slot2 == 0 and rev_build_lsb_slot2 == 0 and rev_build_msb_slot2 == 0):
         return None
@@ -1174,30 +1174,13 @@ def get_firmware_version(physical_port, target):
         version_slot1 = str(rev_major_slot1) + "." + str(rev_minor_slot1)
         build_slot2 = chr(rev_build_lsb_slot2) + chr(rev_build_msb_slot2)
         version_slot2 = str(rev_major_slot2) + "." + str(rev_minor_slot2)
-        if slot_status & 0x01:
-            run_slot1 = True
-        else:
-            run_slot1 = False
-        if slot_status & 0x02:
-            commit_slot1 = True
-        else:
-            commit_slot1 = False
-        if slot_status & 0x04:
-            empty_slot1 = True
-        else:
-            empty_slot1 = False
-        if slot_status & 0x10:
-            run_slot2 = True
-        else:
-            run_slot2 = False
-        if slot_status & 0x20:
-            commit_slot2 = True
-        else:
-            commit_slot2 = False
-        if slot_status & 0x40:
-            empty_slot2 = True
-        else:
-            empty_slot2 = False
+
+        run_slot1 = True if slot_status & 0x01 else False
+        commit_slot1 = True if slot_status & 0x02 else False
+        empty_slot1 = True if slot_status & 0x04 else False
+        run_slot2 = True if slot_status & 0x10 else False
+        commit_slot2 = True if slot_status & 0x20 else False
+        empty_slot2 = True if slot_status & 0x40 else False
 
         result["build_slot1"] = build_slot1
         result["version_slot1"] = version_slot1
