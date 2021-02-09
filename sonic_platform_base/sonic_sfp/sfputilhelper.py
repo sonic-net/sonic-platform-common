@@ -10,9 +10,16 @@ try:
     import binascii
     import os
     import re
+    import ast
+    import json
     from sonic_py_common.interface import backplane_prefix
+    from swsssdk import ConfigDBConnector
+    from sonic_py_common import logger
 except ImportError as e:
     raise ImportError("%s - required module not found" % str(e))
+
+SYSLOG_IDENTIFIER = "sfputilhelper"
+helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
 
 class SfpUtilHelper(object):
     # List to specify filter for sfp_ports
@@ -36,7 +43,7 @@ class SfpUtilHelper(object):
     def __init__(self):
         pass
 
-    def read_porttab_mappings(self, porttabfile, asic_inst=0):
+    def read_porttab_mappings(self, porttabfile, asic_inst=0, get_ports_from_db=False):
         logical = []
         logical_to_physical = {}
         physical_to_logical = {}
@@ -45,6 +52,32 @@ class SfpUtilHelper(object):
         first = 1
         port_pos_in_file = 0
         parse_fmt_port_config_ini = False
+
+        if get_ports_from_db:
+            config_db = ConfigDBConnector()
+            config_db.connect()
+            ports_table = config_db.get_table("PORT")
+            ports = ast.literal_eval(json.dumps(ports_table))
+            if not ports:
+                helper_logger.log_error("failed to get ports data from config DB")
+                return
+
+            for port_alias in ports.keys():
+                self.logical.append(port_alias)
+
+                if 'index' in ports[port_alias].keys():
+                    port_idx = int(ports[port_alias]['index'])
+                    self.logical_to_physical[port_alias] = [port_idx]
+
+                    if self.physical_to_logical.get(port_idx) is None:
+                        self.physical_to_logical[port_idx] = [port_alias]
+                    else:
+                        self.physical_to_logical[port_idx].append(port_alias)
+
+                    self.logical_to_asic[port_alias] = asic_inst
+                else:
+                    helper_logger.log_error("failed to parse port {} data, port index is missing".format(port_alias))
+            return
 
         try:
             f = open(porttabfile)
