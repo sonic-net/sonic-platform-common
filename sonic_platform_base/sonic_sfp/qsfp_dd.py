@@ -223,8 +223,8 @@ class qsfp_dd_InterfaceId(sffbase):
     def parse_cable_len(self, cable_len_data, start_pos):
         return sffbase.parse(self, self.cable_len, cable_len_data, start_pos)
 
-    def parse_qsfp_dom_capability(self, qsfp_dom_capability_raw_data, start_pos):
-        return sffbase.parse(self, self.qsfp_dd_dom_capability, qsfp_dom_capability_raw_data, start_pos)
+    def parse_dom_capability(self, dom_capability_raw_data, start_pos):
+        return sffbase.parse(self, self.qsfp_dd_dom_capability, dom_capability_raw_data, start_pos)
 
     def parse_media_type(self, qsfp_media_type_raw_data, start_pos):
         return self.decode_media_type(qsfp_media_type_raw_data, start_pos, 1)
