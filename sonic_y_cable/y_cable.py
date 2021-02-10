@@ -87,7 +87,10 @@ EEPROM_READ_DATA_INVALID = -1
 EEPROM_ERROR = -1
 EEPROM_TIMEOUT_ERROR = -1
 
-WAIT_TIMEOUT_FOR_BER_EYE = 1
+BER_TIMEOUT_SECS = 1
+EYE_TIMEOUT_SECS = 1
+
+MAX_NUM_LANES = 4
 
 SYSLOG_IDENTIFIER = "sonic_y_cable"
 
@@ -874,13 +877,12 @@ def get_ber_info(physical_port, target):
             time_diff = time_now - time_start
             if done[0] == 1:
                 break
-            elif time_diff >= WAIT_TIMEOUT_FOR_BER_EYE:
+            elif time_diff >= BER_TIMEOUT_SECS:
                 return EEPROM_TIMEOUT_ERROR
 
         idx = 0
-        maxLane = 4
         curr_offset = OFFSET_LANE_1_BER_RESULT
-        for lane in range(maxLane):
+        for lane in range(MAX_NUM_LANES):
             msb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+idx, 1)
             if y_cable_validate_read_data(msb_result, 1, physical_port, "BER data msb result") == EEPROM_READ_DATA_INVALID:
                 return EEPROM_ERROR
@@ -952,12 +954,11 @@ def get_eye_info(physical_port, target):
             time_diff = time_now - time_start
             if done[0] == 1:
                 break
-            elif time_diff >= WAIT_TIMEOUT_FOR_BER_EYE:
+            elif time_diff >= EYE_TIMEOUT_SECS:
                 return EEPROM_TIMEOUT_ERROR
 
         idx = 0
-        maxLane = 4
-        for lane in range(maxLane):
+        for lane in range(MAX_NUM_LANES):
             curr_offset = OFFSET_LANE_1_EYE_RESULT
             msb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+idx, 1)
             if y_cable_validate_read_data(msb_result, 1, physical_port, "EYE data msb result") == EEPROM_READ_DATA_INVALID:
@@ -1144,12 +1145,12 @@ def get_firmware_version(physical_port, target):
     data = bytearray(FIRMWARE_INFO_PAYLOAD_SIZE)
 
     if platform_chassis is not None:
-        for byteIdx in range(0, FIRMWARE_INFO_PAYLOAD_SIZE):
-            curr_offset = 0xfc * 128 + 128 + byteIdx
-            readOut = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
-            if y_cable_validate_read_data(readOut, 1, physical_port, "firmware info") == EEPROM_READ_DATA_INVALID:
+        for byte_idx in range(0, FIRMWARE_INFO_PAYLOAD_SIZE):
+            curr_offset = 0xfc * 128 + 128 + byte_idx
+            read_out = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
+            if y_cable_validate_read_data(read_out, 1, physical_port, "firmware info") == EEPROM_READ_DATA_INVALID:
                 return EEPROM_ERROR
-            data[byteIdx] = readOut[0]
+            data[byte_idx] = read_out[0]
     else:
         helper_logger.log_error("platform_chassis is not loaded, failed to get NIC lanes active")
         return -1
