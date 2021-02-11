@@ -1181,7 +1181,6 @@ def get_firmware_version(physical_port, target):
         result["version_slot1"] = version_slot1
         result["build_slot2"] = build_slot2
         result["version_slot2"] = version_slot2
-        result["slot_status"] = slot_status
         result["run_slot1"] = True if slot_status & 0x01 else False
         result["run_slot2"] = True if slot_status & 0x10 else False
         result["commit_slot1"] = True if slot_status & 0x02 else False
