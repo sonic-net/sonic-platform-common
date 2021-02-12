@@ -6,6 +6,7 @@
 
 try:
     import math
+    import time
     import struct
     from ctypes import c_int8
 
@@ -48,6 +49,10 @@ OFFSET_NIC_CURSOR_VALUES = 661
 OFFSET_TOR1_CURSOR_VALUES = 681
 OFFSET_TOR2_CURSOR_VALUES = 701
 OFFSET_NIC_LANE_ACTIVE = 721
+OFFSET_INTERNAL_TEMPERATURE = 22
+OFFSET_INTERNAL_VOLTAGE = 26
+OFFSET_NIC_TEMPERATURE = 727
+OFFSET_NIC_VOLTAGE = 729
 
 # definitions of targets for getting the cursor
 # equalization parameters from the register spec
@@ -75,6 +80,18 @@ EYE_PRBS_TARGET_NIC = 3
 SWITCH_COUNT_MANUAL = "manual"
 SWITCH_COUNT_AUTO = "auto"
 
+FIRMWARE_INFO_PAYLOAD_SIZE = 48
+NUM_MCU_SIDE = 3
+
+EEPROM_READ_DATA_INVALID = -1
+EEPROM_ERROR = -1
+EEPROM_TIMEOUT_ERROR = -1
+
+BER_TIMEOUT_SECS = 1
+EYE_TIMEOUT_SECS = 1
+
+MAX_NUM_LANES = 4
+
 SYSLOG_IDENTIFIER = "sonic_y_cable"
 
 # Global logger instance for helper functions and classes to log
@@ -97,15 +114,15 @@ def y_cable_validate_read_data(result, size, physical_port, message):
             if len(result) != size:
                 LOG_MESSAGE_TEMPLATE = "Error: for checking mux_cable {}, eeprom read returned a size {} not equal to 1 for port {}"
                 helper_logger.log_error(LOG_MESSAGE_TEMPLATE.format(message, len(result), physical_port))
-                return -1
+                return EEPROM_READ_DATA_INVALID
         else:
             LOG_MESSAGE_TEMPLATE = "Error: for checking mux_cable {}, eeprom read returned an instance value of type {} which is not a bytearray for port {}"
             helper_logger.log_error(LOG_MESSAGE_TEMPLATE.format(message, type(result), physical_port))
-            return -1
+            return EEPROM_READ_DATA_INVALID
     else:
         LOG_MESSAGE_TEMPLATE = "Error: for checking mux_cable {}, eeprom read returned a None value for port {} which is not expected"
         helper_logger.log_error(LOG_MESSAGE_TEMPLATE.format(message, physical_port))
-        return -1
+        return EEPROM_READ_DATA_INVALID
 
 
 def hook_y_cable_simulator(target):
@@ -573,7 +590,6 @@ def check_if_link_is_active_for_torB(physical_port):
         return False
 
 
-@hook_y_cable_simulator
 def enable_prbs_mode(physical_port, target, mode_value, lane_map):
     """
     This API specifically configures and enables the PRBS mode/type depending upon the mode_value the user provides.
@@ -646,7 +662,6 @@ def enable_prbs_mode(physical_port, target, mode_value, lane_map):
     return result
 
 
-@hook_y_cable_simulator
 def disable_prbs_mode(physical_port, target):
     """
     This API specifically disables the PRBS mode on the physcial port.
@@ -697,7 +712,6 @@ def disable_prbs_mode(physical_port, target):
     return result
 
 
-@hook_y_cable_simulator
 def enable_loopback_mode(physical_port, target, lane_map):
     """
     This API specifically configures and enables the Loopback mode on the port user provides.
@@ -755,7 +769,6 @@ def enable_loopback_mode(physical_port, target, lane_map):
     return result
 
 
-@hook_y_cable_simulator
 def disable_loopback_mode(physical_port, target):
     """
     This API specifically disables the Loopback mode on the port user provides.
@@ -809,7 +822,6 @@ def disable_loopback_mode(physical_port, target):
     return result
 
 
-@hook_y_cable_simulator
 def get_ber_info(physical_port, target):
     """
     This API specifically returns the BER (Bit error rate) value for a specfic port.
@@ -856,20 +868,27 @@ def get_ber_info(physical_port, target):
             physical_port).write_eeprom(curr_offset, 1, buffer)
         if result is False:
             return result
+        time_start = time.time()
         while(True):
             done = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
-            y_cable_validate_read_data(done, 1, physical_port, "BER data ready to read")
+            if y_cable_validate_read_data(done, 1, physical_port, "BER data ready to read") == EEPROM_READ_DATA_INVALID:
+                return EEPROM_ERROR
+            time_now = time.time()
+            time_diff = time_now - time_start
             if done[0] == 1:
                 break
+            elif time_diff >= BER_TIMEOUT_SECS:
+                return EEPROM_TIMEOUT_ERROR
 
         idx = 0
-        maxLane = 2
         curr_offset = OFFSET_LANE_1_BER_RESULT
-        for lane in range(maxLane):
+        for lane in range(MAX_NUM_LANES):
             msb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+idx, 1)
-            y_cable_validate_read_data(msb_result, 1, physical_port, "BER data msb result")
+            if y_cable_validate_read_data(msb_result, 1, physical_port, "BER data msb result") == EEPROM_READ_DATA_INVALID:
+                return EEPROM_ERROR
             lsb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+1+idx, 1)
-            y_cable_validate_read_data(lsb_result, 1, physical_port, "BER data lsb result")
+            if y_cable_validate_read_data(lsb_result, 1, physical_port, "BER data lsb result") == EEPROM_READ_DATA_INVALID:
+                return EEPROM_ERROR
             lane_result = msb_result[0] * math.pow(10, (lsb_result[0]-24))
             ber_result.append(lane_result)
             idx += 2
@@ -881,7 +900,6 @@ def get_ber_info(physical_port, target):
     return ber_result
 
 
-@hook_y_cable_simulator
 def get_eye_info(physical_port, target):
     """
     This API specifically returns the EYE height value for a specfic port.
@@ -927,20 +945,27 @@ def get_eye_info(physical_port, target):
         if result is False:
             return result
 
+        time_start = time.time()
         while(True):
             done = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
-            y_cable_validate_read_data(done, 1, physical_port, "EYE data ready to read")
+            if y_cable_validate_read_data(done, 1, physical_port, "EYE data ready to read") == EEPROM_READ_DATA_INVALID:
+                return EEPROM_ERROR
+            time_now = time.time()
+            time_diff = time_now - time_start
             if done[0] == 1:
                 break
+            elif time_diff >= EYE_TIMEOUT_SECS:
+                return EEPROM_TIMEOUT_ERROR
 
         idx = 0
-        maxLane = 2
-        for lane in range(maxLane):
+        for lane in range(MAX_NUM_LANES):
             curr_offset = OFFSET_LANE_1_EYE_RESULT
             msb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+idx, 1)
-            y_cable_validate_read_data(msb_result, 1, physical_port, "EYE data msb result")
+            if y_cable_validate_read_data(msb_result, 1, physical_port, "EYE data msb result") == EEPROM_READ_DATA_INVALID:
+                return EEPROM_ERROR
             lsb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+1+idx, 1)
-            y_cable_validate_read_data(lsb_result, 1, physical_port, "EYE data lsb result")
+            if y_cable_validate_read_data(lsb_result, 1, physical_port, "EYE data lsb result") == EEPROM_READ_DATA_INVALID:
+                return EEPROM_ERROR
             lane_result = (msb_result[0] << 8 | lsb_result[0])
             eye_result.append(lane_result)
             idx += 2
@@ -952,7 +977,6 @@ def get_eye_info(physical_port, target):
     return eye_result
 
 
-@hook_y_cable_simulator
 def get_pn_number_and_vendor_name(physical_port):
     """
     This API specifically returns the pn number and vendor name for a specfic port.
@@ -968,10 +992,12 @@ def get_pn_number_and_vendor_name(physical_port):
 
     if platform_chassis is not None:
         pn_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 15)
-        y_cable_validate_read_data(pn_result, 1, physical_port, "PN number")
+        if y_cable_validate_read_data(pn_result, 15, physical_port, "PN number") == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
         curr_offset = OFFSET_VENDOR_NAME
         vendor_name = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 15)
-        y_cable_validate_read_data(vendor_name, 15, physical_port, "vendor name")
+        if y_cable_validate_read_data(vendor_name, 15, physical_port, "vendor name") == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
 
     else:
         helper_logger.log_error("platform_chassis is not loaded, failed to get pin results")
@@ -980,7 +1006,6 @@ def get_pn_number_and_vendor_name(physical_port):
     return pn_result, vendor_name
 
 
-@hook_y_cable_simulator
 def get_switch_count(physical_port, count_type):
     """
     This API specifically returns the switch count to change the Active TOR which has
@@ -1009,13 +1034,17 @@ def get_switch_count(physical_port, count_type):
 
     if platform_chassis is not None:
         msb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
-        y_cable_validate_read_data(msb_result, 1, physical_port, "{} switch count msb result".format(count_type))
+        if y_cable_validate_read_data(msb_result, 1, physical_port, "{} switch count msb result".format(count_type)) == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
         msb_result_1 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + 1, 1)
-        y_cable_validate_read_data(msb_result_1, 1, physical_port, "{} switch count msb result 1".format(count_type))
+        if y_cable_validate_read_data(msb_result_1, 1, physical_port, "{} switch count msb result 1".format(count_type)) == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
         msb_result_2 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + 2, 1)
-        y_cable_validate_read_data(msb_result_2, 1, physical_port, "{} switch count msb result 2".format(count_type))
+        if y_cable_validate_read_data(msb_result_2, 1, physical_port, "{} switch count msb result 2".format(count_type)) == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
         lsb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+3, 1)
-        y_cable_validate_read_data(lsb_result, 1, physical_port, "{} switch count lsb result".format(count_type))
+        if y_cable_validate_read_data(lsb_result, 1, physical_port, "{} switch count lsb result".format(count_type)) == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
         count = (msb_result[0] << 24 | msb_result_1[0] << 16 | msb_result_2[0] << 8 | lsb_result[0])
 
     else:
@@ -1025,7 +1054,6 @@ def get_switch_count(physical_port, count_type):
     return count
 
 
-@hook_y_cable_simulator
 def get_target_cursor_values(physical_port, lane, target):
     """
     This API specifically returns the cursor equalization parameters for a target(NIC, TOR1, TOR2).
@@ -1055,19 +1083,24 @@ def get_target_cursor_values(physical_port, lane, target):
 
     if platform_chassis is not None:
         pre1 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + (target)*20 + (lane-1)*5, 1)
-        y_cable_validate_read_data(pre1, 1, physical_port, "target cursor result")
+        if y_cable_validate_read_data(pre1, 1, physical_port, "target cursor result") == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
         result.append(c_int8(pre1[0]).value)
         pre2 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + (target)*20 + (lane-1)*5 + 1, 1)
-        y_cable_validate_read_data(pre2, 1, physical_port, "target cursor result")
+        if y_cable_validate_read_data(pre2, 1, physical_port, "target cursor result") == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
         result.append(c_int8(pre2[0]).value)
         main = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + (target)*20 + (lane-1)*5 + 2, 1)
-        y_cable_validate_read_data(main, 1, physical_port, "target cursor result")
+        if y_cable_validate_read_data(main, 1, physical_port, "target cursor result") == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
         result.append(c_int8(main[0]).value)
         post1 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + (target)*20 + (lane-1)*5 + 3, 1)
-        y_cable_validate_read_data(post1, 1, physical_port, "target cursor result")
+        if y_cable_validate_read_data(post1, 1, physical_port, "target cursor result") == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
         result.append(c_int8(post1[0]).value)
         post2 = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset + (target)*20 + (lane-1)*5 + 4, 1)
-        y_cable_validate_read_data(post2, 1, physical_port, "target cursor result")
+        if y_cable_validate_read_data(post2, 1, physical_port, "target cursor result") == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
         result.append(c_int8(post2[0]).value)
 
     else:
@@ -1077,7 +1110,6 @@ def get_target_cursor_values(physical_port, lane, target):
     return result
 
 
-@hook_y_cable_simulator
 def check_if_nic_lanes_active(physical_port):
     """
     This API specifically returns the byte value which denotes which nic lanes
@@ -1097,7 +1129,8 @@ def check_if_nic_lanes_active(physical_port):
 
     if platform_chassis is not None:
         res = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
-        y_cable_validate_read_data(res, 1, physical_port, "nic lanes active")
+        if y_cable_validate_read_data(res, 1, physical_port, "nic lanes active") == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
         result = res[0]
 
     else:
@@ -1105,3 +1138,102 @@ def check_if_nic_lanes_active(physical_port):
         return -1
 
     return result
+
+
+def get_firmware_version(physical_port, target):
+
+    data = bytearray(FIRMWARE_INFO_PAYLOAD_SIZE)
+
+    if platform_chassis is not None:
+        for byte_idx in range(0, FIRMWARE_INFO_PAYLOAD_SIZE):
+            curr_offset = 0xfc * 128 + 128 + byte_idx
+            read_out = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
+            if y_cable_validate_read_data(read_out, 1, physical_port, "firmware info") == EEPROM_READ_DATA_INVALID:
+                return EEPROM_ERROR
+            data[byte_idx] = read_out[0]
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to get NIC lanes active")
+        return -1
+
+    result = {}
+    NUM_MCU_SIDE = 3
+
+    base_addr = int(target * (FIRMWARE_INFO_PAYLOAD_SIZE / NUM_MCU_SIDE))
+    rev_major_slot1 = struct.unpack_from('<B', data[(0 + base_addr):(1 + base_addr)])[0]
+    rev_minor_slot1 = struct.unpack_from('<B', data[(2 + base_addr):(3 + base_addr)])[0]
+    rev_build_lsb_slot1 = struct.unpack_from('<B', data[(4 + base_addr):(5 + base_addr)])[0]
+    rev_build_msb_slot1 = struct.unpack_from('<B', data[(5 + base_addr):(6 + base_addr)])[0]
+    rev_major_slot2 = struct.unpack_from('<B', data[(1 + base_addr):(2 + base_addr)])[0]
+    rev_minor_slot2 = struct.unpack_from('<B', data[(3 + base_addr):(4 + base_addr)])[0]
+    rev_build_lsb_slot2 = struct.unpack_from('<B', data[(6 + base_addr):(7 + base_addr)])[0]
+    rev_build_msb_slot2 = struct.unpack_from('<B', data[(7 + base_addr):(8 + base_addr)])[0]
+    slot_status = struct.unpack_from('<B', data[(8 + base_addr):(9 + base_addr)])[0]
+
+    if (rev_major_slot1 == 0 and rev_minor_slot1 == 0 and rev_build_lsb_slot1 == 0 and rev_build_msb_slot1 == 0 and rev_major_slot2 == 0 and rev_minor_slot2 == 0 and rev_build_lsb_slot2 == 0 and rev_build_msb_slot2 == 0):
+        return None
+    else:
+        build_slot1 = chr(rev_build_lsb_slot1) + chr(rev_build_msb_slot1)
+        version_slot1 = str(rev_major_slot1) + "." + str(rev_minor_slot1)
+        build_slot2 = chr(rev_build_lsb_slot2) + chr(rev_build_msb_slot2)
+        version_slot2 = str(rev_major_slot2) + "." + str(rev_minor_slot2)
+
+        result["build_slot1"] = build_slot1
+        result["version_slot1"] = version_slot1
+        result["build_slot2"] = build_slot2
+        result["version_slot2"] = version_slot2
+        result["run_slot1"] = True if slot_status & 0x01 else False
+        result["run_slot2"] = True if slot_status & 0x10 else False
+        result["commit_slot1"] = True if slot_status & 0x02 else False
+        result["commit_slot2"] = True if slot_status & 0x20 else False
+        result["empty_slot1"] = True if slot_status & 0x04 else False
+        result["empty_slot2"] = True if slot_status & 0x40 else False
+
+    return result
+
+
+def get_internal_voltage_temp(physical_port):
+
+    curr_offset = OFFSET_INTERNAL_TEMPERATURE
+    if platform_chassis is not None:
+        result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
+        if y_cable_validate_read_data(result, 1, physical_port, "internal voltage") == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
+        curr_offset = OFFSET_INTERNAL_VOLTAGE
+        msb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
+        if y_cable_validate_read_data(msb_result, 1, physical_port, "internal temperature msb") == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
+        lsb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+1, 1)
+        if y_cable_validate_read_data(lsb_result, 1, physical_port, "internal temperature lsb") == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
+
+        temp = result[0]
+        voltage = (((msb_result[0] << 8) | lsb_result[0]) * 0.0001)
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to get internal voltage and temp")
+        return -1
+
+    return temp, voltage
+
+
+def get_nic_voltage_temp(physical_port):
+
+    curr_offset = OFFSET_NIC_TEMPERATURE
+    if platform_chassis is not None:
+        result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
+        if y_cable_validate_read_data(result, 1, physical_port, "internal voltage") == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
+        curr_offset = OFFSET_NIC_VOLTAGE
+        msb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
+        if y_cable_validate_read_data(msb_result, 1, physical_port, "internal temperature msb") == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
+        lsb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+1, 1)
+        if y_cable_validate_read_data(lsb_result, 1, physical_port, "internal temperature lsb") == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
+
+        temp = result[0]
+        voltage = (((msb_result[0] << 8) | lsb_result[0]) * 0.0001)
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to get NIC voltage and temp")
+        return -1
+
+    return temp, voltage
