@@ -832,11 +832,12 @@ class DomInfoUpdateTask(object):
         self.task_thread = None
         self.task_stopping_event = threading.Event()
 
-    def task_worker(self):
+    def task_worker(self, y_cable_presence):
         helper_logger.log_info("Start DOM monitoring loop")
 
         # Connect to STATE_DB and create transceiver dom info table
         state_db, dom_tbl, status_tbl = {}, {}, {}
+        mux_tbl = {}
 
         # Get the namespaces in the platform
         namespaces = multi_asic.get_front_end_namespaces()
@@ -859,14 +860,16 @@ class DomInfoUpdateTask(object):
                 if not detect_port_in_error_status(logical_port_name, status_tbl[asic_index]):
                     post_port_dom_info_to_db(logical_port_name, dom_tbl[asic_index], self.task_stopping_event)
                     post_port_dom_threshold_info_to_db(logical_port_name, dom_tbl[asic_index], self.task_stopping_event)
+                    if y_cable_presence[0] is True:
+                        y_cable_helper.check_identifier_presence_and_update_mux_info_entry(state_db, mux_tbl, asic_index, logical_port_name)
 
         helper_logger.log_info("Stop DOM monitoring loop")
 
-    def task_run(self):
+    def task_run(self, y_cable_presence):
         if self.task_stopping_event.is_set():
             return
 
-        self.task_thread = threading.Thread(target=self.task_worker)
+        self.task_thread = threading.Thread(target=self.task_worker, args=(y_cable_presence,))
         self.task_thread.start()
 
     def task_stop(self):
@@ -1325,7 +1328,7 @@ class DaemonXcvrd(daemon_base.DaemonBase):
 
         # Start the dom sensor info update thread
         dom_info_update = DomInfoUpdateTask()
-        dom_info_update.task_run()
+        dom_info_update.task_run(self.y_cable_presence)
 
         # Start the sfp state info update process
         sfp_state_update = SfpStateUpdateTask()

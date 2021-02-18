@@ -69,7 +69,7 @@ class TestXcvrdScript(object):
     def test_post_port_dom_info_to_db(self):
         logical_port_name = "Ethernet0"
         stop_event = threading.Event()
-        dom_tbl = Table("state_db", "dom_info_tbl")
+        dom_tbl = Table("STATE_DB", TRANSCEIVER_DOM_SENSOR_TABLE)
         post_port_dom_info_to_db(logical_port_name, dom_tbl, stop_event)
 
     @patch('xcvrd.xcvrd.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
@@ -77,8 +77,8 @@ class TestXcvrdScript(object):
     def test_del_port_sfp_dom_info_from_db(self):
         logical_port_name = "Ethernet0"
         stop_event = threading.Event()
-        dom_tbl = Table("state_db", "dom_info_tbl")
-        init_tbl = Table("state_db", "init_info_tbl")
+        dom_tbl = Table("STATE_DB", TRANSCEIVER_DOM_SENSOR_TABLE)
+        init_tbl = Table("STATE_DB", TRANSCEIVER_INFO_TABLE)
         del_port_sfp_dom_info_from_db(logical_port_name, init_tbl, dom_tbl)
 
     @patch('xcvrd.xcvrd.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
@@ -106,7 +106,7 @@ class TestXcvrdScript(object):
     def test_post_port_dom_threshold_info_to_db(self):
         logical_port_name = "Ethernet0"
         stop_event = threading.Event()
-        dom_tbl = Table("state_db", "dom_info_tbl")
+        dom_tbl = Table("STATE_DB", TRANSCEIVER_DOM_SENSOR_TABLE)
         post_port_dom_threshold_info_to_db(logical_port_name, dom_tbl, stop_event)
 
     @patch('xcvrd.xcvrd.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
@@ -132,7 +132,7 @@ class TestXcvrdScript(object):
     def test_post_port_sfp_info_to_db(self):
         logical_port_name = "Ethernet0"
         stop_event = threading.Event()
-        dom_tbl = Table("state_db", "dom_info_tbl")
+        dom_tbl = Table("STATE_DB", TRANSCEIVER_DOM_SENSOR_TABLE)
         transceiver_dict = {}
         post_port_sfp_info_to_db(logical_port_name, dom_tbl, transceiver_dict, stop_event)
 
@@ -215,3 +215,103 @@ class TestXcvrdScript(object):
     def test_init_port_sfp_status_tbl(self):
         stop_event = threading.Event()
         init_port_sfp_status_tbl(stop_event)
+
+    @patch('xcvrd.xcvrd_utilities.y_cable_helper.y_cable_platform_sfputil', MagicMock(return_value=[0]))
+    @patch('y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('y_cable_helper._wrapper_get_presence', MagicMock(return_value=True))
+    @patch('y_cable_helper.get_muxcable_info', MagicMock(return_value={'tor_active': 'self',
+                                                                       'mux_direction': 'self',
+                                                                       'manual_switch_count': '7',
+                                                                       'auto_switch_count': '71',
+                                                                       'link_status_self': 'up',
+                                                                       'link_status_peer': 'up',
+                                                                       'link_status_nic': 'up',
+                                                                       'nic_lane1_active': 'True',
+                                                                       'nic_lane2_active': 'True',
+                                                                       'nic_lane3_active': 'True',
+                                                                       'nic_lane4_active': 'True',
+                                                                       'self_eye_height_lane1': '500',
+                                                                       'self_eye_height_lane2': '510',
+                                                                       'peer_eye_height_lane1': '520',
+                                                                       'peer_eye_height_lane2': '530',
+                                                                       'nic_eye_height_lane1': '742',
+                                                                       'nic_eye_height_lane2': '750',
+                                                                       'internal_temperature': '28',
+                                                                       'internal_voltage': '3.3',
+                                                                       'nic_temperature': '20',
+                                                                       'nic_voltage': '2.7',
+                                                                       'build_slot1_nic': 'MS',
+                                                                       'build_slot2_nic': 'MS',
+                                                                       'version_slot1_nic': '1.7',
+                                                                       'version_slot2_nic': '1.7',
+                                                                       'run_slot1_nic': 'True',
+                                                                       'run_slot2_nic': 'False',
+                                                                       'commit_slot1_nic': 'True',
+                                                                       'commit_slot2_nic': 'False',
+                                                                       'empty_slot1_nic': 'True',
+                                                                       'empty_slot2_nic': 'False',
+                                                                       'build_slot1_tor1': 'MS',
+                                                                       'build_slot2_tor1': 'MS',
+                                                                       'version_slot1_tor1': '1.7',
+                                                                       'version_slot2_tor1': '1.7',
+                                                                       'run_slot1_tor1': 'True',
+                                                                       'run_slot2_tor1': 'False',
+                                                                       'commit_slot1_tor1': 'True',
+                                                                       'commit_slot2_tor1': 'False',
+                                                                       'empty_slot1_tor1': 'True',
+                                                                       'empty_slot2_tor1': 'False',
+                                                                       'build_slot1_tor2': 'MS',
+                                                                       'build_slot2_tor2': 'MS',
+                                                                       'version_slot1_tor2': '1.7',
+                                                                       'version_slot2_tor2': '1.7',
+                                                                       'run_slot1_tor2': 'True',
+                                                                       'run_slot2_tor2': 'False',
+                                                                       'commit_slot1_tor2': 'True',
+                                                                       'commit_slot2_tor2': 'False',
+                                                                       'empty_slot1_tor2': 'True',
+                                                                       'empty_slot2_tor2': 'False'}))
+    def test_post_port_mux_info_to_db(self):
+        logical_port_name = "Ethernet0"
+        mux_tbl = Table("STATE_DB", y_cable_helper.MUX_CABLE_INFO_TABLE)
+        rc = post_port_mux_info_to_db(logical_port_name, mux_tbl)
+        assert(rc != -1)
+
+    @patch('xcvrd.xcvrd_utilities.y_cable_helper.y_cable_platform_sfputil', MagicMock(return_value=[0]))
+    @patch('y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('y_cable_helper._wrapper_get_presence', MagicMock(return_value=True))
+    @patch('y_cable_helper.get_muxcable_static_info', MagicMock(return_value={'read_side': 'self',
+                                                                              'nic_lane1_precursor1': '1',
+                                                                              'nic_lane1_precursor2': '-7',
+                                                                              'nic_lane1_maincursor': '-1',
+                                                                              'nic_lane1_postcursor1': '11',
+                                                                              'nic_lane1_postcursor2': '11',
+                                                                              'nic_lane2_precursor1': '12',
+                                                                              'nic_lane2_precursor2': '7',
+                                                                              'nic_lane2_maincursor': '7',
+                                                                              'nic_lane2_postcursor1': '7',
+                                                                              'nic_lane2_postcursor2': '7',
+                                                                              'tor_self_lane1_precursor1': '17',
+                                                                              'tor_self_lane1_precursor2': '17',
+                                                                              'tor_self_lane1_maincursor': '17',
+                                                                              'tor_self_lane1_postcursor1': '17',
+                                                                              'tor_self_lane1_postcursor2': '17',
+                                                                              'tor_self_lane2_precursor1': '7',
+                                                                              'tor_self_lane2_precursor2': '7',
+                                                                              'tor_self_lane2_maincursor': '7',
+                                                                              'tor_self_lane2_postcursor1': '7',
+                                                                              'tor_self_lane2_postcursor2': '7',
+                                                                              'tor_peer_lane1_precursor1': '7',
+                                                                              'tor_peer_lane1_precursor2': '7',
+                                                                              'tor_peer_lane1_maincursor': '17',
+                                                                              'tor_peer_lane1_postcursor1': '7',
+                                                                              'tor_peer_lane1_postcursor2': '17',
+                                                                              'tor_peer_lane2_precursor1': '7',
+                                                                              'tor_peer_lane2_precursor2': '7',
+                                                                              'tor_peer_lane2_maincursor': '17',
+                                                                              'tor_peer_lane2_postcursor1': '7',
+                                                                              'tor_peer_lane2_postcursor2': '17'}))
+    def test_post_port_mux_static_info_to_db(self):
+        logical_port_name = "Ethernet0"
+        mux_tbl = Table("STATE_DB", y_cable_helper.MUX_CABLE_STATIC_INFO_TABLE)
+        rc = post_port_mux_static_info_to_db(logical_port_name, mux_tbl)
+        assert(rc != -1)
