@@ -1237,3 +1237,36 @@ def get_nic_voltage_temp(physical_port):
         return -1
 
     return temp, voltage
+
+def firmware_upgrade(physical_port, fwfile):
+
+    """ This routine should facilitate complete firmware
+    upgrade of the Y cable on all the three ends of the Y cable.
+    All the componenets of the Y cable should be upgraded
+    in their entirety by this single call subroutine.
+    This should return True on success and an error code otherwise.
+    If an error occurs during firmware upgrade this function,
+    should not attempt to do a rollback to the original version but
+    rather just return an error code stating the cause of failure as applicable.
+    Note that the error code on failure should reflect whether a rollback
+    or synchronization is required or not after calling this routine.
+    Meaning for example if one of the ends of the Y cable could not complete the upgrade
+    and the cable could require synchronization after this subroutine call,
+    then an error code to stating that should be the return value. Likewise if all the links are down
+    then that would not require a rollback of any sort and hence the error code should just reflect that.
+    Hence after calling this subroutine the caller can then determine
+    whether further action is necessary for firmware upgrade or not.
+
+    Args:
+        physical_port:
+             an Integer, the actual physical port connected to a Y cable
+        fwfile:
+             a File, the actual binary or executable which contains the firmware
+    Returns:
+        an Boolean:
+             True on sucessful firmware upgrade
+        an Integer:
+             an error code stating what was the cause of firmware upgrade failure
+    """
+
+    return True
