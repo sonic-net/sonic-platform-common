@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 """
     psud
@@ -9,26 +9,31 @@
     The loop interval is PSU_INFO_UPDATE_PERIOD_SECS in seconds.
 """
 
-try:
-    import os
-    import signal
-    import sys
-    import threading
-    from datetime import datetime
-    from sonic_py_common import daemon_base, logger
+import os
+import signal
+import sys
+import threading
+from datetime import datetime
 
-    # If unit testing is occurring, mock swsscommon and module_base
-    if os.getenv("PSUD_UNIT_TESTING") == "1":
-        from tests import mock_swsscommon as swsscommon
-    else:
-        from swsscommon import swsscommon
-except ImportError as e:
-    raise ImportError(str(e) + " - required module not found")
+from sonic_py_common import daemon_base, logger
+
+# If unit testing is occurring, mock swsscommon and module_base
+if os.getenv("PSUD_UNIT_TESTING") == "1":
+    from tests.mock_platform import MockPsu as Psu
+    from tests import mock_swsscommon as swsscommon
+else:
+    from sonic_platform.psu import Psu
+    from swsscommon import swsscommon
 
 
 #
 # Constants ====================================================================
 #
+
+# TODO: Once we no longer support Python 2, we can eliminate this and get the
+# name using the 'name' field (e.g., `signal.SIGINT.name`) starting with Python 3.5
+SIGNALS_TO_NAMES_DICT = dict((getattr(signal, n), n) \
+        for n in dir(signal) if n.startswith('SIG') and '_' not in n )
 
 SYSLOG_IDENTIFIER = "psud"
 
@@ -91,7 +96,7 @@ def _wrapper_get_num_psus():
     return platform_psuutil.get_num_psus()
 
 
-def _wrapper_get_psus_presence(psu_index):
+def _wrapper_get_psu_presence(psu_index):
     if platform_chassis is not None:
         try:
             return platform_chassis.get_psu(psu_index - 1).get_presence()
@@ -100,7 +105,7 @@ def _wrapper_get_psus_presence(psu_index):
     return platform_psuutil.get_psu_presence(psu_index)
 
 
-def _wrapper_get_psus_status(psu_index):
+def _wrapper_get_psu_status(psu_index):
     if platform_chassis is not None:
         try:
             return platform_chassis.get_psu(psu_index - 1).get_powergood_status()
@@ -120,9 +125,9 @@ def get_psu_key(psu_index):
 def psu_db_update(psu_tbl, psu_num):
     for psu_index in range(1, psu_num + 1):
         fvs = swsscommon.FieldValuePairs([(PSU_INFO_PRESENCE_FIELD,
-                                           'true' if _wrapper_get_psus_presence(psu_index) else 'false'),
+                                           'true' if _wrapper_get_psu_presence(psu_index) else 'false'),
                                           (PSU_INFO_STATUS_FIELD,
-                                           'true' if _wrapper_get_psus_status(psu_index) else 'false')])
+                                           'true' if _wrapper_get_psu_status(psu_index) else 'false')])
         psu_tbl.set(get_psu_key(psu_index), fvs)
 
 
@@ -251,22 +256,20 @@ class PsuChassisInfo(logger.Logger):
 
         self.master_status_good = master_status_good
 
-        return True
-
-    def _set_psu_master_led(self, master_status):
+        # Update the PSU master status LED
         try:
-            try:
-                if os.getenv("PSUD_UNIT_TESTING") == "1":
-                    from tests.mock_platform import MockPsu as Psu
-                else:
-                    from sonic_platform.psu import Psu
-            except ImportError as e:
-                raise ImportError(str(e) + " - required module not found")
-
-            color = Psu.STATUS_LED_COLOR_GREEN if master_status else Psu.STATUS_LED_COLOR_RED
+            color = Psu.STATUS_LED_COLOR_GREEN if master_status_good else Psu.STATUS_LED_COLOR_RED
             Psu.set_status_master_led(color)
-        except NotImplementedError as e:
-            pass
+        except NotImplementedError:
+            self.log_warning("set_status_master_led() not implemented")
+
+        log_on_status_changed(self, self.master_status_good,
+                              'PSU supplied power warning cleared: supplied power is back to normal.',
+                              'PSU supplied power warning: {}W supplied-power less than {}W consumed-power'.format(
+                                  self.total_supplied_power, self.total_consumed_power)
+                              )
+
+        return True
 
 # PSU status ===================================================================
 #
@@ -365,7 +368,7 @@ class DaemonPsud(daemon_base.DaemonBase):
             self.log_info("Caught SIGTERM - exiting...")
             self.stop.set()
         else:
-            self.log_warning("Caught unhandled signal '" + sig + "'")
+            self.log_warning("Caught unhandled signal '{}'".format(SIGNALS_TO_NAMES_DICT[sig]))
 
     # Run daemon
     def run(self):
@@ -410,9 +413,8 @@ class DaemonPsud(daemon_base.DaemonBase):
             self.update_psu_data(psu_tbl)
             self._update_led_color(psu_tbl)
 
-            if platform_chassis is not None and platform_chassis.is_modular_chassis():
+            if platform_chassis and platform_chassis.is_modular_chassis():
                 self.update_psu_chassis_info(chassis_tbl)
-                self.update_master_led_color(chassis_tbl)
 
             self.first_run = False
 
@@ -439,7 +441,7 @@ class DaemonPsud(daemon_base.DaemonBase):
 
     def _update_single_psu_data(self, index, psu, psu_tbl):
         name = get_psu_key(index)
-        presence = _wrapper_get_psus_presence(index)
+        presence = _wrapper_get_psu_presence(index)
         power_good = False
         voltage = None
         voltage_high_threshold = None
@@ -450,7 +452,7 @@ class DaemonPsud(daemon_base.DaemonBase):
         power = None
         is_replaceable = try_get(psu.is_replaceable, False)
         if presence:
-            power_good = _wrapper_get_psus_status(index)
+            power_good = _wrapper_get_psu_status(index)
             voltage = try_get(psu.get_voltage)
             voltage_high_threshold = try_get(psu.get_voltage_high_threshold)
             voltage_low_threshold = try_get(psu.get_voltage_low_threshold)
@@ -542,17 +544,17 @@ class DaemonPsud(daemon_base.DaemonBase):
         :return:
         """
         psu_name = get_psu_key(psu_index)
-        presence = _wrapper_get_psus_presence(psu_index)
+        presence = _wrapper_get_psu_presence(psu_index)
         fan_list = psu.get_all_fans()
         for index, fan in enumerate(fan_list):
             fan_name = try_get(fan.get_name, '{} FAN {}'.format(psu_name, index + 1))
-            direction = try_get(fan.get_direction) if presence else NOT_AVAILABLE
-            speed = try_get(fan.get_speed) if presence else NOT_AVAILABLE
+            direction = try_get(fan.get_direction, NOT_AVAILABLE) if presence else NOT_AVAILABLE
+            speed = try_get(fan.get_speed, NOT_AVAILABLE) if presence else NOT_AVAILABLE
             status = "True" if presence else "False"
             fvs = swsscommon.FieldValuePairs(
                 [(FAN_INFO_PRESENCE_FIELD, str(presence)),
-                 (FAN_INFO_STATUS_FIELD, str(status)),
-                 (FAN_INFO_DIRECTION_FIELD, str(direction)),
+                 (FAN_INFO_STATUS_FIELD, status),
+                 (FAN_INFO_DIRECTION_FIELD, direction),
                  (FAN_INFO_SPEED_FIELD, str(speed)),
                  (FAN_INFO_TIMESTAMP_FIELD, datetime.now().strftime('%Y%m%d %H:%M:%S'))
                  ])
@@ -562,22 +564,16 @@ class DaemonPsud(daemon_base.DaemonBase):
         try:
             color = psu.STATUS_LED_COLOR_GREEN if psu_status.is_ok() else psu.STATUS_LED_COLOR_RED
             psu.set_status_led(color)
-        except NotImplementedError as e:
-            pass
+        except NotImplementedError:
+            self.log_warning("set_status_led() not implemented")
 
     def _update_led_color(self, psu_tbl):
         if not platform_chassis:
             return
 
         for index, psu_status in self.psu_status_dict.items():
-            try:
-                fvs = swsscommon.FieldValuePairs([
-                    ('led_status', str(try_get(psu_status.psu.get_status_led)))
-                ])
-            except Exception as e:
-                self.log_warning('Failed to get led status for psu {}'.format(index))
-                fvs = swsscommon.FieldValuePairs([
-                    ('led_status', NOT_AVAILABLE)
+            fvs = swsscommon.FieldValuePairs([
+                ('led_status', str(try_get(psu_status.psu.get_status_led, NOT_AVAILABLE)))
                 ])
             psu_tbl.set(get_psu_key(index), fvs)
             self._update_psu_fan_led_status(psu_status.psu, index)
@@ -587,15 +583,9 @@ class DaemonPsud(daemon_base.DaemonBase):
         fan_list = psu.get_all_fans()
         for index, fan in enumerate(fan_list):
             fan_name = try_get(fan.get_name, '{} FAN {}'.format(psu_name, index + 1))
-            try:
-                fvs = swsscommon.FieldValuePairs([
-                    (FAN_INFO_LED_STATUS_FIELD, str(try_get(fan.get_status_led)))
-                ])
-            except Exception as e:
-                self.log_warning('Failed to get led status for fan {}'.format(fan_name))
-                fvs = swsscommon.FieldValuePairs([
-                    (FAN_INFO_LED_STATUS_FIELD, NOT_AVAILABLE)
-                ])
+            fvs = swsscommon.FieldValuePairs([
+                (FAN_INFO_LED_STATUS_FIELD, str(try_get(fan.get_status_led, NOT_AVAILABLE)))
+            ])
             self.fan_tbl.set(fan_name, fvs)
 
     def update_psu_chassis_info(self, chassis_tbl):
@@ -606,24 +596,13 @@ class DaemonPsud(daemon_base.DaemonBase):
             self.psu_chassis_info = PsuChassisInfo(SYSLOG_IDENTIFIER, platform_chassis)
 
         self.psu_chassis_info.run_power_budget(chassis_tbl)
-
-    def update_master_led_color(self, chassis_tbl):
-        if not platform_chassis or not self.psu_chassis_info:
-            return
-
-        psu_chassis_info = self.psu_chassis_info
-        if psu_chassis_info.update_master_status():
-            log_on_status_changed(self, psu_chassis_info.master_status_good,
-                                  'PSU supplied power warning cleared: supplied power is back to normal.',
-                                  'PSU supplied power warning: {}W supplied-power less than {}W consumed-power'.format(
-                                      psu_chassis_info.total_supplied_power, psu_chassis_info.total_consumed_power)
-                                  )
-            psu_chassis_info._set_psu_master_led(psu_chassis_info.master_status_good)
+        self.psu_chassis_info.update_master_status()
 
 
 #
 # Main =========================================================================
 #
+
 
 def main():
     psud = DaemonPsud(SYSLOG_IDENTIFIER)

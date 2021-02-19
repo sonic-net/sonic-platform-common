@@ -4,9 +4,9 @@ from imp import load_source
 
 # TODO: Clean this up once we no longer need to support Python 2
 if sys.version_info.major == 3:
-    from unittest.mock import MagicMock
+    from unittest import mock
 else:
-    from mock import MagicMock
+    import mock
 
 from .mock_platform import MockPsu
 
@@ -17,7 +17,7 @@ sys.path.insert(0, modules_path)
 
 os.environ["PSUD_UNIT_TESTING"] = "1"
 load_source('psud', scripts_path + '/psud')
-from psud import *
+import psud
 
 
 class TestPsuStatus(object):
@@ -26,10 +26,10 @@ class TestPsuStatus(object):
     """
 
     def test_set_presence(self):
-        mock_logger = MagicMock()
-        mock_psu = MockPsu(True, True, "PSU 1")
+        mock_logger = mock.MagicMock()
+        mock_psu = MockPsu(True, True, "PSU 1", 0)
 
-        psu_status = PsuStatus(mock_logger, mock_psu)
+        psu_status = psud.PsuStatus(mock_logger, mock_psu)
         assert psu_status.presence == False
 
         # Test toggling presence to True
@@ -48,10 +48,10 @@ class TestPsuStatus(object):
         assert psu_status.presence == False
 
     def test_set_power_good(self):
-        mock_logger = MagicMock()
-        mock_psu = MockPsu(True, True, "PSU 1")
+        mock_logger = mock.MagicMock()
+        mock_psu = MockPsu(True, True, "PSU 1", 0)
 
-        psu_status = PsuStatus(mock_logger, mock_psu)
+        psu_status = psud.PsuStatus(mock_logger, mock_psu)
         assert psu_status.power_good == False
 
         # Test toggling power_good to True
@@ -75,10 +75,10 @@ class TestPsuStatus(object):
         assert psu_status.power_good == False
 
     def test_set_voltage(self):
-        mock_logger = MagicMock()
-        mock_psu = MockPsu(True, True, "PSU 1")
+        mock_logger = mock.MagicMock()
+        mock_psu = MockPsu(True, True, "PSU 1", 0)
 
-        psu_status = PsuStatus(mock_logger, mock_psu)
+        psu_status = psud.PsuStatus(mock_logger, mock_psu)
         assert psu_status.voltage_good == False
 
         # Pass in a good voltage
@@ -142,10 +142,10 @@ class TestPsuStatus(object):
         assert psu_status.voltage_good == True
 
     def test_set_temperature(self):
-        mock_logger = MagicMock()
-        mock_psu = MockPsu(True, True, "PSU 1")
+        mock_logger = mock.MagicMock()
+        mock_psu = MockPsu(True, True, "PSU 1", 0)
 
-        psu_status = PsuStatus(mock_logger, mock_psu)
+        psu_status = psud.PsuStatus(mock_logger, mock_psu)
         assert psu_status.temperature_good == False
 
         # Pass in a good temperature
@@ -192,10 +192,10 @@ class TestPsuStatus(object):
         assert psu_status.temperature_good == True
 
     def test_is_ok(self):
-        mock_logger = MagicMock()
-        mock_psu = MockPsu(True, True, "PSU 1")
+        mock_logger = mock.MagicMock()
+        mock_psu = MockPsu(True, True, "PSU 1", 0)
 
-        psu_status = PsuStatus(mock_logger, mock_psu)
+        psu_status = psud.PsuStatus(mock_logger, mock_psu)
         psu_status.presence = True
         psu_status.power_good = True
         psu_status.voltage_good = True

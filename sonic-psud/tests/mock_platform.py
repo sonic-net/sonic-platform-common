@@ -30,17 +30,21 @@ class MockDevice:
 
 
 class MockPsu(MockDevice):
+    master_led_color = MockDevice.STATUS_LED_COLOR_OFF
 
-    psu_master_led_color = MockDevice.STATUS_LED_COLOR_OFF
-
-    def __init__(self, psu_presence, psu_status, psu_name):
-        self.name = psu_name
+    def __init__(self, presence, status, name, position_in_parent):
+        self.name = name
         self.presence = True
-        self.psu_status = psu_status
+        self.status = status
         self.status_led_color = self.STATUS_LED_COLOR_OFF
+        self.position_in_parent = position_in_parent
+        self._fan_list = []
+
+    def get_all_fans(self):
+        return self._fan_list
 
     def get_powergood_status(self):
-        return self.psu_status
+        return self.status
 
     def set_status_led(self, color):
         self.status_led_color = color
@@ -50,7 +54,10 @@ class MockPsu(MockDevice):
         return self.status_led_color
 
     def set_status(self, status):
-        self.psu_status = status
+        self.status = status
+
+    def get_position_in_parent(self):
+        return self.position_in_parent
 
     def set_maximum_supplied_power(self, supplied_power):
         self.max_supplied_power = supplied_power
@@ -60,11 +67,11 @@ class MockPsu(MockDevice):
 
     @classmethod
     def set_status_master_led(cls, color):
-        cls.psu_master_led_color = color
+        cls.master_led_color = color
 
     @classmethod
     def get_status_master_led(cls):
-        return cls.psu_master_led_color
+        return cls.master_led_color
 
 
 class MockFanDrawer(MockDevice):
@@ -84,6 +91,31 @@ class MockFanDrawer(MockDevice):
 
     def get_maximum_consumed_power(self):
         return self.max_consumed_power
+
+
+class MockFan(MockDevice):
+    FAN_DIRECTION_INTAKE = "intake"
+    FAN_DIRECTION_EXHAUST = "exhaust"
+
+    def __init__(self, name, direction, speed=50):
+        self.name = name
+        self.direction = direction
+        self.speed = speed
+        self.status_led_color = self.STATUS_LED_COLOR_OFF
+
+    def get_direction(self):
+        return self.direction
+
+    def get_speed(self):
+        return self.speed
+
+    def set_status_led(self, color):
+        self.status_led_color = color
+        return True
+
+    def get_status_led(self):
+        return self.status_led_color
+
 
 
 class MockModule(MockDevice):
@@ -106,7 +138,6 @@ class MockModule(MockDevice):
 
 
 class MockChassis:
-
     def __init__(self):
         self.psu_list = []
         self.fan_drawer_list = []

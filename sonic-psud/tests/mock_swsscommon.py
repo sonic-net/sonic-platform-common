@@ -20,9 +20,28 @@ class Table:
         return None
 
 
-class FieldValuePairs(dict):
-    def __init__(self, len):
-        self.fv_dict = {}
+class FieldValuePairs:
+    fv_dict = {}
 
-    def __setitem__(self, key, val_tuple):
-        self.fv_dict[val_tuple[0]] = val_tuple[1]
+    def __init__(self, tuple_list):
+        if isinstance(tuple_list, list) and isinstance(tuple_list[0], tuple):
+            self.fv_dict = dict(tuple_list)
+
+    def __setitem__(self, key, kv_tuple):
+        self.fv_dict[kv_tuple[0]] = kv_tuple[1]
+
+    def __getitem__(self, key):
+        return self.fv_dict[key]
+
+    def __eq__(self, other):
+        if not isinstance(other, FieldValuePairs):
+            # don't attempt to compare against unrelated types
+            return NotImplemented
+
+        return self.fv_dict == other.fv_dict
+
+    def __repr__(self):
+        return repr(self.fv_dict)
+
+    def __str__(self):
+        return repr(self.fv_dict)
