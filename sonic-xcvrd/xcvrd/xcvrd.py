@@ -11,7 +11,6 @@ try:
     import multiprocessing
     import os
     import signal
-    import string
     import sys
     import threading
     import time
@@ -624,7 +623,7 @@ def get_media_settings_key(physical_port, transceiver_dict):
     sup_len_str = 'Length Cable Assembly(m)'
     vendor_name_str = transceiver_dict[physical_port]['manufacturer']
     vendor_pn_str = transceiver_dict[physical_port]['model']
-    vendor_key = string.upper(vendor_name_str) + '-' + vendor_pn_str
+    vendor_key = vendor_name_str.upper() + '-' + vendor_pn_str
 
     media_len = ''
     if transceiver_dict[physical_port]['cable_type'] == sup_len_str:
@@ -664,7 +663,7 @@ def get_media_val_str_from_dict(media_dict):
 
     for key in range(0, len(tmp_dict)):
         media_str += tmp_dict[key]
-        if key != tmp_dict.keys()[-1]:
+        if key != list(tmp_dict.keys())[-1]:
             media_str += lane_separator
     return media_str
 
