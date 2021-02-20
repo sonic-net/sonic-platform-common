@@ -92,6 +92,12 @@ EYE_TIMEOUT_SECS = 1
 
 MAX_NUM_LANES = 4
 
+# definitions of firmware upgrade codes
+# to be returned by the user when calling the
+# firmware upgrade routine
+FIRMWARE_UPGRADE_SUCCESS = 0
+FIRMWARE_UPGRADE_FAILURE = 1
+
 SYSLOG_IDENTIFIER = "sonic_y_cable"
 
 # Global logger instance for helper functions and classes to log
@@ -1241,19 +1247,21 @@ def get_nic_voltage_temp(physical_port):
 def firmware_upgrade(physical_port, fwfile):
 
     """ This routine should facilitate complete firmware
-    upgrade of the Y cable on all the three ends of the Y cable.
-    All the componenets of the Y cable should be upgraded
+    upgrade of the Y cable on all the three ends of the
+    Y cable of the port specified.
+    All the components of the Y cable should be upgraded and committed
     in their entirety by this single call subroutine.
-    This should return True on success and an error code otherwise.
-    If an error occurs during firmware upgrade this function,
-    should not attempt to do a rollback to the original version but
-    rather just return an error code stating the cause of failure as applicable.
+    This should return success code if firmware upgrade is successfull
+    and an error code otherwise.
     Note that the error code on failure should reflect whether a rollback
-    or synchronization is required or not after calling this routine.
-    Meaning for example if one of the ends of the Y cable could not complete the upgrade
-    and the cable could require synchronization after this subroutine call,
-    then an error code to stating that should be the return value. Likewise if all the links are down
-    then that would not require a rollback of any sort and hence the error code should just reflect that.
+    or synchronization would be required or not required after calling this
+    routine.
+    Meaning for example if one of the ends of the Y cable could not
+    complete the upgrade and the cable could then require synchronization
+    after this subroutine call, then an error code stating that should
+    be the return value. Likewise if all the links are down
+    then that would not require a rollback of any sort and hence the error code 
+    should just reflect that.
     Hence after calling this subroutine the caller can then determine
     whether further action is necessary for firmware upgrade or not.
 
@@ -1263,10 +1271,9 @@ def firmware_upgrade(physical_port, fwfile):
         fwfile:
              a File, the actual binary or executable which contains the firmware
     Returns:
-        an Boolean:
-             True on sucessful firmware upgrade
         an Integer:
-             an error code stating what was the cause of firmware upgrade failure
+             a predefined code stating whether the firmware upgrade was successful
+             or an error code as to what was the cause of firmware upgrade failure
     """
 
-    return True
+    return FIRMWARE_UPGRADE_SUCCESS 
