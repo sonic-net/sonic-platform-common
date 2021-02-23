@@ -105,14 +105,14 @@ helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
 
 
 def logical_port_name_to_physical_port_list(port_name):
-    if port_name.startswith("Ethernet"):
+    try:
+        return [int(port_name)]
+    except ValueError:
         if platform_sfputil.is_logical_port(port_name):
             return platform_sfputil.get_logical_to_physical(port_name)
         else:
             helper_logger.log_error("Invalid port '{}'".format(port_name))
             return None
-    else:
-        return [int(port_name)]
 
 # Get physical port name
 
