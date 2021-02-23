@@ -41,7 +41,7 @@ OFFSET_LANE_1_BER_RESULT = 771
 OFFSET_MAX_LANES = 2
 OFFSET_INITIATE_EYE_MEASUREMENT = 784
 OFFSET_LANE_1_EYE_RESULT = 785
-OFFSET_PN_NUMBER = 168
+OFFSET_PART_NUMBER = 168
 OFFSET_VENDOR_NAME = 148
 OFFSET_MANUAL_SWITCH_COUNT = 653
 OFFSET_AUTO_SWITCH_COUNT = 657
@@ -992,17 +992,17 @@ def get_part_number(physical_port):
         a string, with part number
     """
 
-    curr_offset = OFFSET_PN_NUMBER
+    curr_offset = OFFSET_PART_NUMBER
 
     if platform_chassis is not None:
-        pn_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 15)
-        if y_cable_validate_read_data(pn_result, 15, physical_port, "PN number") == EEPROM_READ_DATA_INVALID:
+        part_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 15)
+        if y_cable_validate_read_data(part_result, 15, physical_port, "Part number") == EEPROM_READ_DATA_INVALID:
             return EEPROM_ERROR
     else:
         helper_logger.log_error("platform_chassis is not loaded, failed to get part number")
         return -1
 
-    part_number = str(pn_result.decode())
+    part_number = str(part_result.decode())
 
     return part_number
 
@@ -1021,7 +1021,7 @@ def get_vendor(physical_port):
 
     if platform_chassis is not None:
         result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 15)
-        if y_cable_validate_read_data(result, 15, physical_port, "PN number") == EEPROM_READ_DATA_INVALID:
+        if y_cable_validate_read_data(result, 15, physical_port, "Part number") == EEPROM_READ_DATA_INVALID:
             return EEPROM_ERROR
     else:
         helper_logger.log_error("platform_chassis is not loaded, failed to get vendor")
@@ -1263,34 +1263,34 @@ def get_nic_voltage_temp(physical_port):
 
     return temp, voltage
 
-def get_internal_temperature(physical_port):
+def get_local_temperature(physical_port):
 
     curr_offset = OFFSET_INTERNAL_TEMPERATURE
     if platform_chassis is not None:
         result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
-        if y_cable_validate_read_data(result, 1, physical_port, "internal temperature") == EEPROM_READ_DATA_INVALID:
+        if y_cable_validate_read_data(result, 1, physical_port, "local temperature") == EEPROM_READ_DATA_INVALID:
             return EEPROM_ERROR
         temp = result[0]
     else:
-        helper_logger.log_error("platform_chassis is not loaded, failed to get internal temp")
+        helper_logger.log_error("platform_chassis is not loaded, failed to get local temp")
         return -1
 
     return temp
 
-def get_internal_voltage(physical_port):
+def get_local_voltage(physical_port):
 
     if platform_chassis is not None:
         curr_offset = OFFSET_INTERNAL_VOLTAGE
         msb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
-        if y_cable_validate_read_data(msb_result, 1, physical_port, "internal voltage msb") == EEPROM_READ_DATA_INVALID:
+        if y_cable_validate_read_data(msb_result, 1, physical_port, "local voltage msb") == EEPROM_READ_DATA_INVALID:
             return EEPROM_ERROR
         lsb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+1, 1)
-        if y_cable_validate_read_data(lsb_result, 1, physical_port, "internal voltage lsb") == EEPROM_READ_DATA_INVALID:
+        if y_cable_validate_read_data(lsb_result, 1, physical_port, "local voltage lsb") == EEPROM_READ_DATA_INVALID:
             return EEPROM_ERROR
 
         voltage = (((msb_result[0] << 8) | lsb_result[0]) * 0.0001)
     else:
-        helper_logger.log_error("platform_chassis is not loaded, failed to get internal voltage")
+        helper_logger.log_error("platform_chassis is not loaded, failed to get local voltage")
         return -1
 
     return voltage
