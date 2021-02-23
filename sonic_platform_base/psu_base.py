@@ -1,9 +1,9 @@
-#
-# psu_base.py
-#
-# Abstract base class for implementing a platform-specific class with which
-# to interact with a power supply unit (PSU) in SONiC
-#
+"""
+    psu_base.py
+
+    Abstract base class for implementing a platform-specific class with which
+    to interact with a power supply unit (PSU) in SONiC
+"""
 
 from . import device_base
 
@@ -15,28 +15,22 @@ class PsuBase(device_base.DeviceBase):
     # Device type definition. Note, this is a constant.
     DEVICE_TYPE = "psu"
 
-    # List of FanBase-derived objects representing all fans
-    # available on the PSU
-    _fan_list = None
-
-    # List of ThermalBase-derived objects representing all thermals
-    # available on the PSU. Put a class level _thermal_list here to 
-    # avoid an exception when call get_num_thermals, get_all_thermals
-    # and get_thermal if vendor does not call PsuBase.__init__ in concrete
-    # PSU class
-    _thermal_list = []
-
     # Status of Master LED
-    psu_master_led_color = None
+    # This is a class attribute because there is only one master status LED
+    # on the platform. This attribute is shared among all objects inheriting
+    # from this class and can be read or set from any of them.
+    _psu_master_led_color = None
 
     def __init__(self):
+        # List of FanBase-derived objects representing all fans
+        # available on the PSU
         self._fan_list = []
 
         # List of ThermalBase-derived objects representing all thermals
         # available on the PSU
         self._thermal_list = []
 
-        self.psu_master_led_color = self.STATUS_LED_COLOR_OFF
+        PsuBase._psu_master_led_color = self.STATUS_LED_COLOR_OFF
 
     def get_num_fans(self):
         """
@@ -124,8 +118,8 @@ class PsuBase(device_base.DeviceBase):
         Retrieves current PSU voltage output
 
         Returns:
-            A float number, the output voltage in volts, 
-            e.g. 12.1 
+            A float number, the output voltage in volts,
+            e.g. 12.1
         """
         raise NotImplementedError
 
@@ -185,7 +179,7 @@ class PsuBase(device_base.DeviceBase):
 
         Returns:
             A float number of current temperature in Celsius up to nearest thousandth
-            of one degree Celsius, e.g. 30.125 
+            of one degree Celsius, e.g. 30.125
         """
         raise NotImplementedError
 
@@ -204,8 +198,8 @@ class PsuBase(device_base.DeviceBase):
         Retrieves the high threshold PSU voltage output
 
         Returns:
-            A float number, the high threshold output voltage in volts, 
-            e.g. 12.1 
+            A float number, the high threshold output voltage in volts,
+            e.g. 12.1
         """
         raise NotImplementedError
 
@@ -214,8 +208,8 @@ class PsuBase(device_base.DeviceBase):
         Retrieves the low threshold PSU voltage output
 
         Returns:
-            A float number, the low threshold output voltage in volts, 
-            e.g. 12.1 
+            A float number, the low threshold output voltage in volts,
+            e.g. 12.1
         """
         raise NotImplementedError
 
@@ -237,7 +231,7 @@ class PsuBase(device_base.DeviceBase):
         Returns:
             A string, one of the predefined STATUS_LED_COLOR_* strings.
         """
-        return cls.psu_master_led_color
+        return cls._psu_master_led_color
 
     @classmethod
     def set_status_master_led(cls, color):
@@ -248,5 +242,5 @@ class PsuBase(device_base.DeviceBase):
             bool: True if status LED state is set successfully, False if
                   not
         """
-        cls.psu_master_led_color = color
+        cls._psu_master_led_color = color
         return True

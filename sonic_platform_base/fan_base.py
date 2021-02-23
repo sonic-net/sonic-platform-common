@@ -1,9 +1,9 @@
-#
-# fan_base.py
-#
-# Abstract base class for implementing a platform-specific class with which
-# to interact with a fan module in SONiC
-#
+"""
+    fan_base.py
+
+    Abstract base class for implementing a platform-specific class with which
+    to interact with a fan module in SONiC
+"""
 
 from . import device_base
 

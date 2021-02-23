@@ -1,9 +1,9 @@
-#
-# component_base.py
-#
-# Abstract base class for implementing a platform-specific class
-# to interact with a chassis/module component (e.g., BIOS, CPLD, FPGA, etc.) in SONiC
-#
+"""
+    component_base.py
+
+    Abstract base class for implementing a platform-specific class
+    to interact with a chassis/module component (e.g., BIOS, CPLD, FPGA, etc.) in SONiC
+"""
 
 
 class ComponentBase(object):

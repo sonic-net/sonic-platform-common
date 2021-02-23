@@ -1,9 +1,9 @@
-#
-# sfp_base.py
-#
-# Abstract base class for implementing a platform-specific class with which
-# to interact with a SFP module in SONiC
-#
+"""
+    sfp_base.py
+
+    Abstract base class for implementing a platform-specific class with which
+    to interact with a SFP module in SONiC
+"""
 
 import sys
 from . import device_base
@@ -15,13 +15,6 @@ class SfpBase(device_base.DeviceBase):
     """
     # Device type definition. Note, this is a constant.
     DEVICE_TYPE = "sfp"
-
-    # List of ThermalBase-derived objects representing all thermals
-    # available on the SFP. Put a class level _thermal_list here to 
-    # avoid an exception when call get_num_thermals, get_all_thermals
-    # and get_thermal if vendor does not call SfpBase.__init__ in concrete
-    # SFP class
-    _thermal_list = []
 
     def __init__(self):
         # List of ThermalBase-derived objects representing all thermals
@@ -75,7 +68,7 @@ class SfpBase(device_base.DeviceBase):
         Returns:
             A dict which contains following keys/values :
         ================================================================================
-        keys                       |Value Format   |Information	
+        keys                       |Value Format   |Information
         ---------------------------|---------------|----------------------------
         type                       |1*255VCHAR     |type of SFP
         hardware_rev               |1*255VCHAR     |hardware version of SFP
@@ -103,7 +96,7 @@ class SfpBase(device_base.DeviceBase):
         Returns:
             A dict which contains following keys/values :
         ========================================================================
-        keys                       |Value Format   |Information	
+        keys                       |Value Format   |Information
         ---------------------------|---------------|----------------------------
         rx_los                     |BOOLEAN        |RX loss-of-signal status, True if has RX los, False if not.
         tx_fault                   |BOOLEAN        |TX fault status, True if has TX fault, False if not.
@@ -211,7 +204,7 @@ class SfpBase(device_base.DeviceBase):
         Returns:
             A hex of 4 bits (bit 0 to bit 3 as channel 0 to channel 3) to represent
             TX channels which have been disabled in this SFP.
-            As an example, a returned value of 0x5 indicates that channel 0 
+            As an example, a returned value of 0x5 indicates that channel 0
             and channel 2 have been disabled.
         """
         raise NotImplementedError
@@ -233,7 +226,7 @@ class SfpBase(device_base.DeviceBase):
             A Boolean, True if power-override is enabled, False if disabled
         """
         raise NotImplementedError
-    
+
     def get_temperature(self):
         """
         Retrieves the temperature of this SFP
@@ -252,7 +245,7 @@ class SfpBase(device_base.DeviceBase):
             A float representing the supply voltage in mV
         """
         raise NotImplementedError
-    
+
     def get_tx_bias(self):
         """
         Retrieves the TX bias current of all SFP channels
@@ -263,7 +256,7 @@ class SfpBase(device_base.DeviceBase):
             E.g., for a tranceiver with four channels: ['110.09', '111.12', '108.21', '112.09']
         """
         raise NotImplementedError
-    
+
     def get_rx_power(self):
         """
         Retrieves the received optical power of all SFP channels
@@ -274,7 +267,7 @@ class SfpBase(device_base.DeviceBase):
             E.g., for a tranceiver with four channels: ['1.77', '1.71', '1.68', '1.70']
         """
         raise NotImplementedError
-    
+
     def get_tx_power(self):
         """
         Retrieves the TX power of all SFP channels
@@ -285,7 +278,7 @@ class SfpBase(device_base.DeviceBase):
             E.g., for a tranceiver with four channels: ['1.86', '1.86', '1.86', '1.86']
         """
         raise NotImplementedError
-    
+
     def reset(self):
         """
         Reset SFP and return all user module settings to their default srate.
@@ -294,7 +287,7 @@ class SfpBase(device_base.DeviceBase):
             A boolean, True if successful, False if not
         """
         raise NotImplementedError
-    
+
     def tx_disable(self, tx_disable):
         """
         Disable SFP TX for all channels
@@ -307,7 +300,7 @@ class SfpBase(device_base.DeviceBase):
             A boolean, True if tx_disable is set successfully, False if not
         """
         raise NotImplementedError
-    
+
     def tx_disable_channel(self, channel, disable):
         """
         Sets the tx_disable for specified SFP channels
@@ -322,7 +315,7 @@ class SfpBase(device_base.DeviceBase):
             A boolean, True if successful, False if not
         """
         raise NotImplementedError
-    
+
     def set_lpmode(self, lpmode):
         """
         Sets the lpmode (low power mode) of SFP
@@ -335,13 +328,13 @@ class SfpBase(device_base.DeviceBase):
             A boolean, True if lpmode is set successfully, False if not
         """
         raise NotImplementedError
-    
+
     def set_power_override(self, power_override, power_set):
         """
         Sets SFP power level using power_override and power_set
 
         Args:
-            power_override : 
+            power_override :
                     A Boolean, True to override set_lpmode and use power_set
                     to control SFP power, False to disable SFP power control
                     through power_override/power_set and use set_lpmode
@@ -375,7 +368,7 @@ class SfpBase(device_base.DeviceBase):
 
     def write_eeprom(self, offset, num_bytes, write_buffer):
         """
-        write eeprom specfic bytes beginning from a random offset with size as num_bytes 
+        write eeprom specfic bytes beginning from a random offset with size as num_bytes
         and write_buffer as the required bytes
 
         Args:

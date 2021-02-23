@@ -1,9 +1,9 @@
-#
-# thermal_base.py
-#
-# Abstract base class for implementing a platform-specific class with which
-# to interact with a thermal module in SONiC
-#
+"""
+    thermal_base.py
+
+    Abstract base class for implementing a platform-specific class with which
+    to interact with a thermal module in SONiC
+"""
 
 from . import device_base
 
@@ -21,10 +21,10 @@ class ThermalBase(device_base.DeviceBase):
 
         Returns:
             A float number of current temperature in Celsius up to nearest thousandth
-            of one degree Celsius, e.g. 30.125 
+            of one degree Celsius, e.g. 30.125
         """
         raise NotImplementedError
-        
+
 
     def get_high_threshold(self):
         """
@@ -50,8 +50,8 @@ class ThermalBase(device_base.DeviceBase):
         """
         Sets the high threshold temperature of thermal
 
-        Args : 
-            temperature: A float number up to nearest thousandth of one degree Celsius, 
+        Args :
+            temperature: A float number up to nearest thousandth of one degree Celsius,
             e.g. 30.125
 
         Returns:
@@ -63,7 +63,7 @@ class ThermalBase(device_base.DeviceBase):
         """
         Sets the low threshold temperature of thermal
 
-        Args : 
+        Args :
             temperature: A float number up to nearest thousandth of one degree Celsius,
             e.g. 30.125
 

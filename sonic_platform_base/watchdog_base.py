@@ -1,9 +1,9 @@
-#
-# watchdog_base.py
-#
-# Abstract base class for implementing a platform-specific class with which
-# to interact with a hardware watchdog module in SONiC
-#
+"""
+    watchdog_base.py
+
+    Abstract base class for implementing a platform-specific class with which
+    to interact with a hardware watchdog module in SONiC
+"""
 
 
 class WatchdogBase:

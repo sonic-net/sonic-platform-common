@@ -1,9 +1,9 @@
-#
-# chassis_base.py
-#
-# Base class for implementing a platform-specific class with which
-# to interact with a chassis device in SONiC.
-#
+"""
+    chassis_base.py
+
+    Base class for implementing a platform-specific class with which
+    to interact with a chassis device in SONiC.
+"""
 
 import sys
 from . import device_base
@@ -26,51 +26,44 @@ class ChassisBase(device_base.DeviceBase):
     REBOOT_CAUSE_HARDWARE_OTHER = "Hardware - Other"
     REBOOT_CAUSE_NON_HARDWARE = "Non-Hardware"
 
-    # List of ComponentBase-derived objects representing all components
-    # available on the chassis
-    _component_list = None
-
-    # List of ModuleBase-derived objects representing all modules
-    # available on the chassis (for use with modular chassis)
-    _module_list = None
-
-    # List of FanBase-derived objects representing all fans
-    # available on the chassis
-    _fan_list = None
-
-    # List of FanDrawerBase-derived objects representing all fan drawers
-    # available on the chassis
-    _fan_drawer_list = None
-
-    # List of PsuBase-derived objects representing all power supply units
-    # available on the chassis
-    _psu_list = None
-
-    # List of ThermalBase-derived objects representing all thermals
-    # available on the chassis
-    _thermal_list = None
-
-    # List of SfpBase-derived objects representing all sfps
-    # available on the chassis
-    _sfp_list = None
-
-    # Object derived from WatchdogBase for interacting with hardware watchdog
-    _watchdog = None
-
-    # Object derived from eeprom_tlvinfo.TlvInfoDecoder indicating the eeprom on the chassis
-    _eeprom = None
-
-    # System status LED
-    _status_led = None
-
     def __init__(self):
+        # List of ComponentBase-derived objects representing all components
+        # available on the chassis
         self._component_list = []
+
+        # List of ModuleBase-derived objects representing all modules
+        # available on the chassis (for use with modular chassis)
         self._module_list = []
+
+        # List of FanBase-derived objects representing all fans
+        # available on the chassis
         self._fan_list = []
-        self._psu_list = []
-        self._thermal_list = []
-        self._sfp_list = []
+
+        # List of FanDrawerBase-derived objects representing all fan drawers
+        # available on the chassis
         self._fan_drawer_list = []
+
+        # List of PsuBase-derived objects representing all power supply units
+        # available on the chassis
+        self._psu_list = []
+
+        # List of ThermalBase-derived objects representing all thermals
+        # available on the chassis
+        self._thermal_list = []
+
+        # List of SfpBase-derived objects representing all sfps
+        # available on the chassis
+        self._sfp_list = []
+
+        # Object derived from WatchdogBase for interacting with hardware watchdog
+        self._watchdog = None
+
+        # Object derived from eeprom_tlvinfo.TlvInfoDecoder indicating the eeprom on the chassis
+        self._eeprom = None
+
+        # System status LED
+        self._status_led = None
+
 
     def get_base_mac(self):
         """
@@ -472,7 +465,7 @@ class ChassisBase(device_base.DeviceBase):
         Retrieves all sfps available on this chassis
 
         Returns:
-            A list of objects derived from SfpBase representing all sfps 
+            A list of objects derived from SfpBase representing all sfps
             available on this chassis
         """
         return self._sfp_list
@@ -565,7 +558,7 @@ class ChassisBase(device_base.DeviceBase):
                 - True if call successful, False if not;
                 - A nested dictionary where key is a device type,
                   value is a dictionary with key:value pairs in the format of
-                  {'device_id':'device_event'}, 
+                  {'device_id':'device_event'},
                   where device_id is the device ID for this device and
                         device_event,
                              status='1' represents device inserted,
@@ -574,7 +567,7 @@ class ChassisBase(device_base.DeviceBase):
                       indicates that fan 0 has been removed, fan 2
                       has been inserted and sfp 11 has been removed.
                   Specifically for SFP event, besides SFP plug in and plug out,
-                  there are some other error event could be raised from SFP, when 
+                  there are some other error event could be raised from SFP, when
                   these error happened, SFP eeprom will not be avalaible, XCVRD shall
                   stop to read eeprom before SFP recovered from error status.
                       status='2' I2C bus stuck,
