@@ -999,7 +999,7 @@ def get_part_number(physical_port):
         if y_cable_validate_read_data(pn_result, 15, physical_port, "PN number") == EEPROM_READ_DATA_INVALID:
             return EEPROM_ERROR
     else:
-        helper_logger.log_error("platform_chassis is not loaded, failed to get pin results")
+        helper_logger.log_error("platform_chassis is not loaded, failed to get part number")
         return -1
 
     part_number = str(pn_result.decode())
@@ -1024,7 +1024,7 @@ def get_vendor(physical_port):
         if y_cable_validate_read_data(result, 15, physical_port, "PN number") == EEPROM_READ_DATA_INVALID:
             return EEPROM_ERROR
     else:
-        helper_logger.log_error("platform_chassis is not loaded, failed to get pin results")
+        helper_logger.log_error("platform_chassis is not loaded, failed to get vendor")
         return -1
 
     vendor_name = str(result.decode())
@@ -1262,6 +1262,70 @@ def get_nic_voltage_temp(physical_port):
         return -1
 
     return temp, voltage
+
+def get_internal_temperature(physical_port):
+
+    curr_offset = OFFSET_INTERNAL_TEMPERATURE
+    if platform_chassis is not None:
+        result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
+        if y_cable_validate_read_data(result, 1, physical_port, "internal temperature") == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
+        temp = result[0]
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to get internal temp")
+        return -1
+
+    return temp
+
+def get_internal_voltage(physical_port):
+
+    if platform_chassis is not None:
+        curr_offset = OFFSET_INTERNAL_VOLTAGE
+        msb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
+        if y_cable_validate_read_data(msb_result, 1, physical_port, "internal voltage msb") == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
+        lsb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+1, 1)
+        if y_cable_validate_read_data(lsb_result, 1, physical_port, "internal voltage lsb") == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
+
+        voltage = (((msb_result[0] << 8) | lsb_result[0]) * 0.0001)
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to get internal voltage")
+        return -1
+
+    return voltage
+
+def get_nic_temperature(physical_port):
+
+    curr_offset = OFFSET_NIC_TEMPERATURE
+    if platform_chassis is not None:
+        result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
+        if y_cable_validate_read_data(result, 1, physical_port, "internal voltage") == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
+        temp = result[0]
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to get NIC temp")
+        return -1
+
+    return temp
+
+def get_nic_voltage(physical_port):
+
+    curr_offset = OFFSET_NIC_VOLTAGE
+    if platform_chassis is not None:
+        msb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
+        if y_cable_validate_read_data(msb_result, 1, physical_port, "nic voltage msb") == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
+        lsb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+1, 1)
+        if y_cable_validate_read_data(lsb_result, 1, physical_port, "nic voltage lsb") == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
+
+        voltage = (((msb_result[0] << 8) | lsb_result[0]) * 0.0001)
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to get NIC voltage")
+        return -1
+
+    return voltage
 
 def upgrade_firmware(physical_port, fwfile):
 
