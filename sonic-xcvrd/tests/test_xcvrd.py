@@ -128,7 +128,8 @@ class TestXcvrdScript(object):
                                                                                 'specification_compliance': '0.7',
                                                                                 'nominal_bit_rate': '0.7',
                                                                                 'application_advertisement': '0.7',
-                                                                                'is_replaceable': '0.7', }))
+                                                                                'is_replaceable': '0.7',
+                                                                                'dom_capability': '0.7', }))
     def test_post_port_sfp_info_to_db(self):
         logical_port_name = "Ethernet0"
         stop_event = threading.Event()
@@ -156,7 +157,8 @@ class TestXcvrdScript(object):
                                                                                 'specification_compliance': '0.7',
                                                                                 'nominal_bit_rate': '0.7',
                                                                                 'application_advertisement': '0.7',
-                                                                                'is_replaceable': '0.7', }))
+                                                                                'is_replaceable': '0.7',
+                                                                                'dom_capability': '0.7', }))
     @patch('xcvrd.xcvrd._wrapper_get_transceiver_dom_threshold_info', MagicMock(return_value={'temphighalarm': '22.75',
                                                                                               'temphighwarning': '0.5',
                                                                                               'templowalarm': '0.7',
