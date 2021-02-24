@@ -1006,6 +1006,7 @@ def get_part_number(physical_port):
 
     return part_number
 
+
 def get_vendor(physical_port):
     """
     This API specifically returns the vendor name of the Y cable for a specfic port.
@@ -1030,6 +1031,7 @@ def get_vendor(physical_port):
     vendor_name = str(result.decode())
 
     return vendor_name
+
 
 def get_switch_count(physical_port, count_type):
     """
@@ -1263,6 +1265,7 @@ def get_nic_voltage_temp(physical_port):
 
     return temp, voltage
 
+
 def get_local_temperature(physical_port):
 
     curr_offset = OFFSET_INTERNAL_TEMPERATURE
@@ -1276,6 +1279,7 @@ def get_local_temperature(physical_port):
         return -1
 
     return temp
+
 
 def get_local_voltage(physical_port):
 
@@ -1295,6 +1299,7 @@ def get_local_voltage(physical_port):
 
     return voltage
 
+
 def get_nic_temperature(physical_port):
 
     curr_offset = OFFSET_NIC_TEMPERATURE
@@ -1308,6 +1313,7 @@ def get_nic_temperature(physical_port):
         return -1
 
     return temp
+
 
 def get_nic_voltage(physical_port):
 
@@ -1327,8 +1333,8 @@ def get_nic_voltage(physical_port):
 
     return voltage
 
-def upgrade_firmware(physical_port, fwfile):
 
+def upgrade_firmware(physical_port, fwfile):
     """ This routine should facilitate complete firmware
     upgrade of the Y cable on all the three ends of the
     Y cable of the port specified.
@@ -1348,4 +1354,4 @@ def upgrade_firmware(physical_port, fwfile):
              or an error code as to what was the cause of firmware upgrade failure
     """
 
-    return FIRMWARE_UPGRADE_SUCCESS 
+    return FIRMWARE_UPGRADE_SUCCESS
