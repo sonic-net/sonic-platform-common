@@ -41,7 +41,7 @@ OFFSET_LANE_1_BER_RESULT = 771
 OFFSET_MAX_LANES = 2
 OFFSET_INITIATE_EYE_MEASUREMENT = 784
 OFFSET_LANE_1_EYE_RESULT = 785
-OFFSET_PN_NUMBER = 168
+OFFSET_PART_NUMBER = 168
 OFFSET_VENDOR_NAME = 148
 OFFSET_MANUAL_SWITCH_COUNT = 653
 OFFSET_AUTO_SWITCH_COUNT = 657
@@ -91,6 +91,10 @@ BER_TIMEOUT_SECS = 1
 EYE_TIMEOUT_SECS = 1
 
 MAX_NUM_LANES = 4
+
+# Valid return codes for upgrade_firmware() routine
+FIRMWARE_UPGRADE_SUCCESS = 0
+FIRMWARE_UPGRADE_FAILURE = 1
 
 SYSLOG_IDENTIFIER = "sonic_y_cable"
 
@@ -977,33 +981,56 @@ def get_eye_info(physical_port, target):
     return eye_result
 
 
-def get_pn_number_and_vendor_name(physical_port):
+def get_part_number(physical_port):
     """
-    This API specifically returns the pn number and vendor name for a specfic port.
+    This API specifically returns the part number of the Y cable for a specfic port.
 
     Args:
         physical_port:
              an Integer, the actual physical port connected to a Y cable
     Returns:
-        a tuple, with pn_number and vendor name
+        a string, with part number
     """
 
-    curr_offset = OFFSET_PN_NUMBER
+    curr_offset = OFFSET_PART_NUMBER
 
     if platform_chassis is not None:
-        pn_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 15)
-        if y_cable_validate_read_data(pn_result, 15, physical_port, "PN number") == EEPROM_READ_DATA_INVALID:
+        part_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 15)
+        if y_cable_validate_read_data(part_result, 15, physical_port, "Part number") == EEPROM_READ_DATA_INVALID:
             return EEPROM_ERROR
-        curr_offset = OFFSET_VENDOR_NAME
-        vendor_name = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 15)
-        if y_cable_validate_read_data(vendor_name, 15, physical_port, "vendor name") == EEPROM_READ_DATA_INVALID:
-            return EEPROM_ERROR
-
     else:
-        helper_logger.log_error("platform_chassis is not loaded, failed to get pin results")
+        helper_logger.log_error("platform_chassis is not loaded, failed to get part number")
         return -1
 
-    return pn_result, vendor_name
+    part_number = str(part_result.decode())
+
+    return part_number
+
+
+def get_vendor(physical_port):
+    """
+    This API specifically returns the vendor name of the Y cable for a specfic port.
+
+    Args:
+        physical_port:
+             an Integer, the actual physical port connected to a Y cable
+    Returns:
+        a string, with vendor name
+    """
+
+    curr_offset = OFFSET_VENDOR_NAME
+
+    if platform_chassis is not None:
+        result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 15)
+        if y_cable_validate_read_data(result, 15, physical_port, "Vendor name") == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to get Vendor name")
+        return -1
+
+    vendor_name = str(result.decode())
+
+    return vendor_name
 
 
 def get_switch_count(physical_port, count_type):
@@ -1237,3 +1264,94 @@ def get_nic_voltage_temp(physical_port):
         return -1
 
     return temp, voltage
+
+
+def get_local_temperature(physical_port):
+
+    curr_offset = OFFSET_INTERNAL_TEMPERATURE
+    if platform_chassis is not None:
+        result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
+        if y_cable_validate_read_data(result, 1, physical_port, "local temperature") == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
+        temp = result[0]
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to get local temp")
+        return -1
+
+    return temp
+
+
+def get_local_voltage(physical_port):
+
+    if platform_chassis is not None:
+        curr_offset = OFFSET_INTERNAL_VOLTAGE
+        msb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
+        if y_cable_validate_read_data(msb_result, 1, physical_port, "local voltage MSB") == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
+        lsb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+1, 1)
+        if y_cable_validate_read_data(lsb_result, 1, physical_port, "local voltage LSB") == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
+
+        voltage = (((msb_result[0] << 8) | lsb_result[0]) * 0.0001)
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to get local voltage")
+        return -1
+
+    return voltage
+
+
+def get_nic_temperature(physical_port):
+
+    curr_offset = OFFSET_NIC_TEMPERATURE
+    if platform_chassis is not None:
+        result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
+        if y_cable_validate_read_data(result, 1, physical_port, "NIC temperature") == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
+        temp = result[0]
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to get NIC temp")
+        return -1
+
+    return temp
+
+
+def get_nic_voltage(physical_port):
+
+    curr_offset = OFFSET_NIC_VOLTAGE
+    if platform_chassis is not None:
+        msb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
+        if y_cable_validate_read_data(msb_result, 1, physical_port, "NIC voltage MSB") == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
+        lsb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+1, 1)
+        if y_cable_validate_read_data(lsb_result, 1, physical_port, "NIC voltage LSB") == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
+
+        voltage = (((msb_result[0] << 8) | lsb_result[0]) * 0.0001)
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to get NIC voltage")
+        return -1
+
+    return voltage
+
+
+def upgrade_firmware(physical_port, fwfile):
+    """ This routine should facilitate complete firmware
+    upgrade of the Y cable on all the three ends of the
+    Y cable of the port specified.
+    All the components of the Y cable should be upgraded and committed
+    in their entirety by this single call subroutine.
+    This should return success code if firmware upgrade is successful
+    and an error code otherwise.
+
+    Args:
+        physical_port:
+             an Integer, the actual physical port connected to a Y cable
+        fwfile:
+             a string, a path to the binary file which contains the firmware image
+    Returns:
+        an Integer:
+             a predefined code stating whether the firmware upgrade was successful
+             or an error code as to what was the cause of firmware upgrade failure
+    """
+
+    return FIRMWARE_UPGRADE_SUCCESS
