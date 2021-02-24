@@ -1022,10 +1022,10 @@ def get_vendor(physical_port):
 
     if platform_chassis is not None:
         result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 15)
-        if y_cable_validate_read_data(result, 15, physical_port, "Part number") == EEPROM_READ_DATA_INVALID:
+        if y_cable_validate_read_data(result, 15, physical_port, "Vendor name") == EEPROM_READ_DATA_INVALID:
             return EEPROM_ERROR
     else:
-        helper_logger.log_error("platform_chassis is not loaded, failed to get vendor")
+        helper_logger.log_error("platform_chassis is not loaded, failed to get Vendor name")
         return -1
 
     vendor_name = str(result.decode())
