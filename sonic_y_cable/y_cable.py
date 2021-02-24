@@ -1282,10 +1282,10 @@ def get_local_voltage(physical_port):
     if platform_chassis is not None:
         curr_offset = OFFSET_INTERNAL_VOLTAGE
         msb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
-        if y_cable_validate_read_data(msb_result, 1, physical_port, "local voltage msb") == EEPROM_READ_DATA_INVALID:
+        if y_cable_validate_read_data(msb_result, 1, physical_port, "local voltage MSB") == EEPROM_READ_DATA_INVALID:
             return EEPROM_ERROR
         lsb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+1, 1)
-        if y_cable_validate_read_data(lsb_result, 1, physical_port, "local voltage lsb") == EEPROM_READ_DATA_INVALID:
+        if y_cable_validate_read_data(lsb_result, 1, physical_port, "local voltage LSB") == EEPROM_READ_DATA_INVALID:
             return EEPROM_ERROR
 
         voltage = (((msb_result[0] << 8) | lsb_result[0]) * 0.0001)
@@ -1300,7 +1300,7 @@ def get_nic_temperature(physical_port):
     curr_offset = OFFSET_NIC_TEMPERATURE
     if platform_chassis is not None:
         result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
-        if y_cable_validate_read_data(result, 1, physical_port, "internal voltage") == EEPROM_READ_DATA_INVALID:
+        if y_cable_validate_read_data(result, 1, physical_port, "NIC temperature") == EEPROM_READ_DATA_INVALID:
             return EEPROM_ERROR
         temp = result[0]
     else:
@@ -1314,10 +1314,10 @@ def get_nic_voltage(physical_port):
     curr_offset = OFFSET_NIC_VOLTAGE
     if platform_chassis is not None:
         msb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 1)
-        if y_cable_validate_read_data(msb_result, 1, physical_port, "nic voltage msb") == EEPROM_READ_DATA_INVALID:
+        if y_cable_validate_read_data(msb_result, 1, physical_port, "NIC voltage MSB") == EEPROM_READ_DATA_INVALID:
             return EEPROM_ERROR
         lsb_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset+1, 1)
-        if y_cable_validate_read_data(lsb_result, 1, physical_port, "nic voltage lsb") == EEPROM_READ_DATA_INVALID:
+        if y_cable_validate_read_data(lsb_result, 1, physical_port, "NIC voltage LSB") == EEPROM_READ_DATA_INVALID:
             return EEPROM_ERROR
 
         voltage = (((msb_result[0] << 8) | lsb_result[0]) * 0.0001)
