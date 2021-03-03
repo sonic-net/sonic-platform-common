@@ -1105,31 +1105,22 @@ class YCableTableUpdateTask(object):
                     mux_port_dict = dict(fvs)
                     old_status = mux_port_dict.get("state")
                     read_side = mux_port_dict.get("read_side")
-                    prev_active_side = mux_port_dict.get("active_side")
-                    # Now if the old_status does not match new_status toggle the mux appropriately
-                    if old_status != new_status:
-                        active_side = update_tor_active_side(
-                            read_side, new_status, port)
-                        if active_side == -1:
-                            new_status = 'unknown'
+                    # Now whatever is the state requested, toggle the mux appropriately
+                    active_side = update_tor_active_side(read_side, new_status, port)
+                    if active_side == -1:
+                        helper_logger.log_warning("ERR: Got a change event for toggle but could not toggle the mux-direction for port {} state from {} to {}, writing unknown".format(
+                            port, old_status, new_status))
+                        new_status = 'unknown'
 
-                        fvs_updated = swsscommon.FieldValuePairs([('state', new_status),
-                                                                  ('read_side',
-                                                                   read_side),
-                                                                  ('active_side', str(active_side))])
-                        y_cable_tbl[asic_index].set(port, fvs_updated)
-                    else:
-                        # nothing to do since no status change
-                        active_side = prev_active_side
-                        fvs_updated = swsscommon.FieldValuePairs([('state', new_status),
-                                                                  ('read_side',
-                                                                   read_side),
-                                                                  ('active_side', str(active_side))])
-                        y_cable_tbl[asic_index].set(port, fvs_updated)
-                        helper_logger.log_warning("Got a change event on that does not toggle the TOR active side for port  {} status {} active linked side = {} ".format(
-                            port, old_status, prev_active_side))
+                    fvs_updated = swsscommon.FieldValuePairs([('state', new_status),
+                                                              ('read_side',
+                                                               read_side),
+                                                              ('active_side', str(active_side))])
+                    y_cable_tbl[asic_index].set(port, fvs_updated)
+                    helper_logger.log_info("Got a change event for toggle the mux-direction active side for port {} state from {} to {}".format(
+                        port, old_status, new_status))
                 else:
-                    helper_logger.log_info("Got a change event on port {} of table {} that does not contain status ".format(
+                    helper_logger.log_info("Got a change event on port {} of table {} that does not contain state".format(
                         port, swsscommon.APP_HW_MUX_CABLE_TABLE_NAME))
 
             (port_m, op_m, fvp_m) = mux_cable_command_tbl[asic_index].pop()
