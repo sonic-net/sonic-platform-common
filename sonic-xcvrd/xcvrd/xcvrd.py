@@ -679,7 +679,7 @@ def get_media_val_str(num_logical_ports, lane_dict, logical_idx):
     media_val_str = ''
     if (num_logical_ports > 1) and \
        (num_lanes_on_port >= num_logical_ports):
-        num_lanes_per_logical_port = num_lanes_on_port/num_logical_ports
+        num_lanes_per_logical_port = num_lanes_on_port//num_logical_ports
         start_lane = logical_idx * num_lanes_per_logical_port
 
         for lane_idx in range(start_lane, start_lane +
