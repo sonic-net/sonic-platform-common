@@ -1,9 +1,10 @@
-#
-# device_base.py
-#
-# Abstract base class for interfacing with a generic type of platform
-# peripheral device in SONiC
-#
+"""
+    device_base.py
+
+    Abstract base class for interfacing with a generic type of platform
+    peripheral device in SONiC
+"""
+
 
 class DeviceBase(object):
     """
