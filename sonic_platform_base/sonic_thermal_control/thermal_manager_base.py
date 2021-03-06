@@ -14,6 +14,7 @@ class ThermalManagerBase(object):
     JSON_FIELD_THERMAL_ALGORITHM = "thermal_control_algorithm"
     JSON_FIELD_FAN_SPEED_WHEN_SUSPEND = "fan_speed_when_suspend"
     JSON_FIELD_RUN_AT_BOOT_UP = "run_at_boot_up"
+    JSON_FIELD_INTERVAL = "interval"
 
     # Dictionary of ThermalPolicy objects.
     _policy_dict = {}
@@ -24,6 +25,8 @@ class ThermalManagerBase(object):
     _fan_speed_when_suspend = None
 
     _run_thermal_algorithm_at_boot_up = None
+
+    _interval = 60
 
     @classmethod
     def initialize(cls):
@@ -108,7 +111,8 @@ class ThermalManagerBase(object):
                 }
               ]
             }
-          ]
+          ],
+          "interval": "30",
         }
         :param policy_file_name: Path of JSON policy file.
         :return:
@@ -136,6 +140,10 @@ class ThermalManagerBase(object):
                     # if the string is not a valid int, let it raise
                     cls._fan_speed_when_suspend = \
                         int(json_thermal_algorithm_config[cls.JSON_FIELD_FAN_SPEED_WHEN_SUSPEND])
+
+            if cls.JSON_FIELD_INTERVAL in json_obj:
+               cls._interval = int(json_obj[cls.JSON_FIELD_INTERVAL])
+
 
     @classmethod
     def _load_policy(cls, json_policy):
@@ -201,3 +209,10 @@ class ThermalManagerBase(object):
                     for psu in chassis.get_all_psus():
                         for fan in psu.get_all_fans():
                             fan.set_speed(cls._fan_speed_when_suspend)
+
+    @classmethod
+    def get_interval(cls):
+        """
+        Get the wait interval for executing thermal policies
+        """
+        return cls._interval
