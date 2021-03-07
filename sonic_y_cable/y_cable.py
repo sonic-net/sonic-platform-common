@@ -1340,7 +1340,7 @@ def get_nic_voltage(physical_port):
 def download_firmware(physical_port, fwfile):
     """ This routine should download and store the firmware on all the
     components of the Y cable of the port specified.
-    This should include any internal transfers ,checksum validation etc.
+    This should include any internal transfers, checksum validation etc.
     from TOR to TOR or TOR to NIC side of the firmware specified by the fwfile.
     This basically means that the firmware which is being downloaded should be
     available to be activated (start being utilized by the cable) once this API is
