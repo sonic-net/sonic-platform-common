@@ -1353,7 +1353,7 @@ def download_firmware(physical_port, fwfile):
         physical_port:
              an Integer, the actual physical port connected to a Y cable
         fwfile:
-             a string, a path to the binary file which contains the firmware image.
+             a string, a path to the file which contains the firmware image.
              Note that the firmware file can be in the format of the vendor's
              choosing (binary, archive, etc.). But note that it should be one file
              which contains firmware for all components of the Y-cable
