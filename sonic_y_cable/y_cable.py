@@ -31,7 +31,6 @@ OFFSET_CHECK_LINK_ACTIVE = 641
 OFFSET_SWITCH_MUX_DIRECTION = 642
 OFFSET_MUX_DIRECTION = 644
 OFFSET_ACTIVE_TOR_INDICATOR = 645
-OFFSET_MANUAL_SWITCH_COUNT = 669
 OFFSET_CONFIGURE_PRBS_TYPE = 768
 OFFSET_ENABLE_PRBS = 769
 OFFSET_INITIATE_BER_MEASUREMENT = 770
@@ -92,9 +91,13 @@ EYE_TIMEOUT_SECS = 1
 
 MAX_NUM_LANES = 4
 
-# Valid return codes for upgrade_firmware() routine
-FIRMWARE_UPGRADE_SUCCESS = 0
-FIRMWARE_UPGRADE_FAILURE = 1
+# Valid return codes for upgrade firmware routine steps
+FIRMWARE_DOWNLOAD_SUCCESS = 0
+FIRMWARE_DOWNLOAD_FAILURE = 1
+FIRMWARE_ACTIVATE_SUCCESS = 0
+FIRMWARE_ACTIVATE_FAILURE = 1
+FIRMWARE_ROLLBACK_SUCCESS = 0
+FIRMWARE_ROLLBACK_FAILURE = 1
 
 SYSLOG_IDENTIFIER = "sonic_y_cable"
 
@@ -995,8 +998,8 @@ def get_part_number(physical_port):
     curr_offset = OFFSET_PART_NUMBER
 
     if platform_chassis is not None:
-        part_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 15)
-        if y_cable_validate_read_data(part_result, 15, physical_port, "Part number") == EEPROM_READ_DATA_INVALID:
+        part_result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 16)
+        if y_cable_validate_read_data(part_result, 16, physical_port, "Part number") == EEPROM_READ_DATA_INVALID:
             return EEPROM_ERROR
     else:
         helper_logger.log_error("platform_chassis is not loaded, failed to get part number")
@@ -1021,8 +1024,8 @@ def get_vendor(physical_port):
     curr_offset = OFFSET_VENDOR_NAME
 
     if platform_chassis is not None:
-        result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 15)
-        if y_cable_validate_read_data(result, 15, physical_port, "Vendor name") == EEPROM_READ_DATA_INVALID:
+        result = platform_chassis.get_sfp(physical_port).read_eeprom(curr_offset, 16)
+        if y_cable_validate_read_data(result, 16, physical_port, "Vendor name") == EEPROM_READ_DATA_INVALID:
             return EEPROM_ERROR
     else:
         helper_logger.log_error("platform_chassis is not loaded, failed to get Vendor name")
@@ -1334,24 +1337,67 @@ def get_nic_voltage(physical_port):
     return voltage
 
 
-def upgrade_firmware(physical_port, fwfile):
-    """ This routine should facilitate complete firmware
-    upgrade of the Y cable on all the three ends of the
-    Y cable of the port specified.
-    All the components of the Y cable should be upgraded and committed
-    in their entirety by this single call subroutine.
-    This should return success code if firmware upgrade is successful
-    and an error code otherwise.
+def download_firmware(physical_port, fwfile):
+    """ This routine should download and store the firmware on all the
+    components of the Y cable of the port specified.
+    This should include any internal transfers, checksum validation etc.
+    from TOR to TOR or TOR to NIC side of the firmware specified by the fwfile.
+    This basically means that the firmware which is being downloaded should be
+    available to be activated (start being utilized by the cable) once this API is
+    successfully executed.
+    Note that this API should ideally not require any rollback even if it fails
+    as this should not interfere with the existing cable functionality because
+    this has not been activated yet.
 
     Args:
         physical_port:
              an Integer, the actual physical port connected to a Y cable
         fwfile:
-             a string, a path to the binary file which contains the firmware image
+             a string, a path to the file which contains the firmware image.
+             Note that the firmware file can be in the format of the vendor's
+             choosing (binary, archive, etc.). But note that it should be one file
+             which contains firmware for all components of the Y-cable
     Returns:
         an Integer:
-             a predefined code stating whether the firmware upgrade was successful
-             or an error code as to what was the cause of firmware upgrade failure
+             a predefined code stating whether the firmware download was successful
+             or an error code as to what was the cause of firmware download failure
     """
 
-    return FIRMWARE_UPGRADE_SUCCESS
+    return FIRMWARE_DOWNLOAD_SUCCESS
+
+def activate_firmware(physical_port):
+    """ This routine should activate the downloaded firmware on all the
+    components of the Y cable of the port specified.
+    This API is meant to be used in conjunction with download_firmware API, and
+    should be called once download_firmware API is succesful.
+    This means that the firmware which has been downloaded should be
+    activated (start being utilized by the cable) once this API is
+    successfully executed.
+
+    Args:
+        physical_port:
+             an Integer, the actual physical port connected to a Y cable
+    Returns:
+        an Integer:
+             a predefined code stating whether the firmware activate was successful
+             or an error code as to what was the cause of firmware activate failure
+    """
+
+    return FIRMWARE_ACTIVATE_SUCCESS
+
+def rollback_firmware(physical_port):
+    """ This routine should rollback the firmware to the previous version
+    which was being used by the cable. This API is intended to be called when the
+    user either witnesses an activate_firmware API failure or sees issues with
+    newer firmware in regards to stable cable functioning.
+
+    Args:
+        physical_port:
+             an Integer, the actual physical port connected to a Y cable
+    Returns:
+        an Integer:
+             a predefined code stating whether the firmware rollback was successful
+             or an error code as to what was the cause of firmware rollback failure
+    """
+
+    return FIRMWARE_ROLLBACK_SUCCESS
