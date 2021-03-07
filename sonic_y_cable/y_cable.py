@@ -1338,12 +1338,12 @@ def get_nic_voltage(physical_port):
 
 
 def download_firmware(physical_port, fwfile):
-    """ This routine should basically download and store the firmware
-    of the Y cable on all the componenets of the Y cable of the port specified.
+    """ This routine should download and store the firmware on all the
+    components of the Y cable of the port specified.
     This should include any internal transfers ,checksum validation etc.
     from TOR to TOR or TOR to NIC side of the firmware specified by the fwfile.
     This basically means that the firmware which is being downloaded should be
-    available to be activated(start being utilized by the cable) once this API is
+    available to be activated (start being utilized by the cable) once this API is
     successfully executed.
     Note that this API should ideally not require any rollback even if it fails
     as this should not interfere with the existing cable functionality because
@@ -1353,22 +1353,25 @@ def download_firmware(physical_port, fwfile):
         physical_port:
              an Integer, the actual physical port connected to a Y cable
         fwfile:
-             a string, a path to the binary file which contains the firmware image
+             a string, a path to the binary file which contains the firmware image.
+             Note that the firmware file can be in the format of the vendor's
+             choosing (binary, archive, etc.). But note that it should be one file
+             which contains firmware for all components of the Y-cable
     Returns:
         an Integer:
              a predefined code stating whether the firmware download was successful
              or an error code as to what was the cause of firmware download failure
     """
 
-    return FIRMWARE_UPGRADE_SUCCESS
+    return FIRMWARE_DOWNLOAD_SUCCESS
 
 def activate_firmware(physical_port):
-    """ This routine should basically activate the downloaded firmware
-    of the Y cable on all the componenets of the Y cable of the port specified.
+    """ This routine should activate the downloaded firmware on all the
+    components of the Y cable of the port specified.
     This API is meant to be used in conjunction with download_firmware API, and
     should be called once download_firmware API is succesful.
-    This basically means that the firmware which has been downloaded should be
-    activated(start being utilized by the cable) once this API is
+    This means that the firmware which has been downloaded should be
+    activated (start being utilized by the cable) once this API is
     successfully executed.
 
     Args:
@@ -1383,8 +1386,8 @@ def activate_firmware(physical_port):
     return FIRMWARE_ACTIVATE_SUCCESS
 
 def rollback_firmware(physical_port):
-    """ This routine should basically rollback the firmware to the previous version
-    which was being used by the cable. This API should be mostly called when the
+    """ This routine should rollback the firmware to the previous version
+    which was being used by the cable. This API is intended to be called when the
     user either witnesses an activate_firmware API failure or sees issues with
     newer firmware in regards to stable cable functioning.
 
