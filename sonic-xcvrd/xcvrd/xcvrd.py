@@ -299,7 +299,8 @@ def post_port_sfp_info_to_db(logical_port_name, table, transceiver_dict,
                      ('application_advertisement', port_info_dict['application_advertisement']
                       if 'application_advertisement' in port_info_dict else 'N/A'),
                      ('is_replaceable', str(is_replaceable)),
-                     ('dom_capability',port_info_dict['dom_capability']),
+                     ('dom_capability', port_info_dict['dom_capability']
+                      if 'dom_capability' in port_info_dict else 'N/A'),
                      ])
                 table.set(port_name, fvs)
             else:
