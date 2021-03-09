@@ -73,7 +73,7 @@ class FanDrawerBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
-    def get_status_led(self, color):
+    def get_status_led(self):
         """
         Gets the state of the fan drawer LED
 
