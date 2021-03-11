@@ -52,6 +52,7 @@ OFFSET_INTERNAL_TEMPERATURE = 22
 OFFSET_INTERNAL_VOLTAGE = 26
 OFFSET_NIC_TEMPERATURE = 727
 OFFSET_NIC_VOLTAGE = 729
+OFFSET_ENABLE_AUTO_SWITCH = 651
 
 # definitions of targets for getting the cursor
 # equalization parameters from the register spec
@@ -90,6 +91,10 @@ BER_TIMEOUT_SECS = 1
 EYE_TIMEOUT_SECS = 1
 
 MAX_NUM_LANES = 4
+
+# definitions for enable/disable mode for autoswitch feature
+ENABLE_AUTO_SWITCH = 1
+DISABLE_AUTO_SWITCH = 0
 
 # Valid return codes for upgrade firmware routine steps
 FIRMWARE_DOWNLOAD_SUCCESS = 0
@@ -1365,6 +1370,7 @@ def download_firmware(physical_port, fwfile):
 
     return FIRMWARE_DOWNLOAD_SUCCESS
 
+
 def activate_firmware(physical_port):
     """ This routine should activate the downloaded firmware on all the
     components of the Y cable of the port specified.
@@ -1385,6 +1391,7 @@ def activate_firmware(physical_port):
 
     return FIRMWARE_ACTIVATE_SUCCESS
 
+
 def rollback_firmware(physical_port):
     """ This routine should rollback the firmware to the previous version
     which was being used by the cable. This API is intended to be called when the
@@ -1401,3 +1408,84 @@ def rollback_firmware(physical_port):
     """
 
     return FIRMWARE_ROLLBACK_SUCCESS
+
+
+def enable_auto_switch(physical_port, mode):
+    """
+    This API specifically enables/disables the auto switch feature on the muxcable.
+    Autoswitch feature if enabled actually does an automatic toggle of the mux in case the active
+    side link goes down and basically points the mux to the other side.
+
+    Register Specification at offset 139 is documented below
+
+    Byte offset   bits      Name                   Description
+    139           0         Switch Target          "0x01 - enable auto switchover; if both TOR#1 and TOR#2 are linked and the active link fails,
+                                                    the cable will automatically switchover to the inactive link.
+                                                    0x00 - disable auto switchover.  Default is disabled."
+
+
+    Args:
+         physical_port:
+             an Integer, the actual physical port connected to Y end of a Y cable which can toggle the MUX
+         mode:
+             an Integer, specifies whether to enable or disable the auto switch
+
+    Returns:
+        a Boolean, true if the auto-switch succeeded and false if it did not succeed.
+    """
+
+    if mode == ENABLE_AUTO_SWITCH:
+        buffer = bytearray([1])
+    elif mode == DISABLE_AUTO_SWITCH:
+        buffer = bytearray([0])
+    else:
+        helper_logger.log_error(
+            "ERR: invalid mode provided for autoswitch feature, failed to enable/disable autoswitch")
+        return False
+
+    curr_offset = OFFSET_ENABLE_AUTO_SWITCH
+
+    if platform_chassis is not None:
+        result = platform_chassis.get_sfp(
+            physical_port).write_eeprom(curr_offset, 1, buffer)
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to enable/disable autoswitch")
+        return False
+
+    return result
+
+def check_if_auto_switch_enabled(physical_port):
+    """
+    This API specifically checks if the auto switch feature on the muxcable.
+
+    Register Specification at offset 139 is documented below
+
+    Byte offset   bits      Name                   Description
+    139           0         Switch Target          "0x01 - enable auto switchover; if both TOR#1 and TOR#2 are linked and the active link fails,
+                                                    the cable will automatically switchover to the inactive link.
+                                                    0x00 - disable auto switchover.  Default is disabled."
+
+
+    Args:
+         physical_port:
+             an Integer, the actual physical port connected to Y end of a Y cable which can toggle the MUX
+
+    Returns:
+        a Boolean, true if the auto-switch is enabled and false if it is not.
+    """
+
+    curr_offset = OFFSET_ENABLE_AUTO_SWITCH
+
+    if platform_chassis is not None:
+        result = platform_chassis.get_sfp(
+            physical_port).read_eeprom(curr_offset, 1)
+        if y_cable_validate_read_data(result, 1, physical_port, "check if autoswitch is enabled") == EEPROM_READ_DATA_INVALID:
+            return EEPROM_ERROR
+    else:
+        helper_logger.log_error("platform_chassis is not loaded, failed to check if autoswitch is enabled/disabled")
+        return False
+
+    if result[0] == 1:
+        return True
+    else:
+        return False
