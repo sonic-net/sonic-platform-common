@@ -10,8 +10,8 @@ try:
     import struct
     from ctypes import c_int8
 
-    import sonic_platform.platform
     from sonic_py_common import logger
+    import sonic_platform.platform
 except ImportError as e:
     # When build python3 xcvrd, it tries to do basic check which will import this file. However,
     # not all platform supports python3 API now, so it could cause an issue when importing
