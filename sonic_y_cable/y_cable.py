@@ -92,9 +92,9 @@ EYE_TIMEOUT_SECS = 1
 
 MAX_NUM_LANES = 4
 
-# definitions for enable/disable mode for autoswitch feature
-ENABLE_AUTO_SWITCH = 1
-DISABLE_AUTO_SWITCH = 0
+# definitions for switching modes inside muxcable
+SWITCHING_MODE_AUTO = 1
+SWITCHING_MODE_MANUAL = 0
 
 # Valid return codes for upgrade firmware routine steps
 FIRMWARE_DOWNLOAD_SUCCESS = 0
@@ -1410,9 +1410,10 @@ def rollback_firmware(physical_port):
     return FIRMWARE_ROLLBACK_SUCCESS
 
 
-def enable_auto_switch(physical_port, mode):
+def set_switching_mode(physical_port, mode):
     """
-    This API specifically enables/disables the auto switch feature on the muxcable.
+    This API specifically enables the auto switching or manual switching feature on the muxcable,
+    depending upon the mode entered by the user.
     Autoswitch feature if enabled actually does an automatic toggle of the mux in case the active
     side link goes down and basically points the mux to the other side.
 
@@ -1428,19 +1429,20 @@ def enable_auto_switch(physical_port, mode):
          physical_port:
              an Integer, the actual physical port connected to Y end of a Y cable which can toggle the MUX
          mode:
-             an Integer, specifies whether to enable or disable the auto switch
+             an Integer, specifies which type of switching mode we set the muxcable to
+             either SWITCHING_MODE_AUTO or SWITCHING_MODE_MANUAL
 
     Returns:
-        a Boolean, true if the auto-switch succeeded and false if it did not succeed.
+        a Boolean, true if the switch succeeded and false if it did not succeed.
     """
 
-    if mode == ENABLE_AUTO_SWITCH:
+    if mode == SWITCHING_MODE_AUTO:
         buffer = bytearray([1])
-    elif mode == DISABLE_AUTO_SWITCH:
+    elif mode == SWITCHING_MODE_MANUAL:
         buffer = bytearray([0])
     else:
         helper_logger.log_error(
-            "ERR: invalid mode provided for autoswitch feature, failed to enable/disable autoswitch")
+            "ERR: invalid mode provided for autoswitch feature, failed to do a switch")
         return False
 
     curr_offset = OFFSET_ENABLE_AUTO_SWITCH
@@ -1449,14 +1451,14 @@ def enable_auto_switch(physical_port, mode):
         result = platform_chassis.get_sfp(
             physical_port).write_eeprom(curr_offset, 1, buffer)
     else:
-        helper_logger.log_error("platform_chassis is not loaded, failed to enable/disable autoswitch")
+        helper_logger.log_error("platform_chassis is not loaded, failed to do a switch target")
         return False
 
     return result
 
-def check_if_auto_switch_enabled(physical_port):
+def get_switching_mode(physical_port):
     """
-    This API specifically checks if the auto switch feature on the muxcable.
+    This API specifically returns which type of switching mode the cable is set to auto/manual
 
     Register Specification at offset 139 is documented below
 
@@ -1471,7 +1473,8 @@ def check_if_auto_switch_enabled(physical_port):
              an Integer, the actual physical port connected to Y end of a Y cable which can toggle the MUX
 
     Returns:
-        a Boolean, true if the auto-switch is enabled and false if it is not.
+        an Integer, SWITCHING_MODE_AUTO if auto switch is enabled.
+                    SWITCHING_MODE_MANUAL if manual switch is enabled.
     """
 
     curr_offset = OFFSET_ENABLE_AUTO_SWITCH
@@ -1482,10 +1485,10 @@ def check_if_auto_switch_enabled(physical_port):
         if y_cable_validate_read_data(result, 1, physical_port, "check if autoswitch is enabled") == EEPROM_READ_DATA_INVALID:
             return EEPROM_ERROR
     else:
-        helper_logger.log_error("platform_chassis is not loaded, failed to check if autoswitch is enabled/disabled")
-        return False
+        helper_logger.log_error("platform_chassis is not loaded, failed to get the switch mode")
+        return -1
 
     if result[0] == 1:
-        return True
+        return SWITCHING_MODE_AUTO
     else:
-        return False
+        return SWITCHING_MODE_MANUAL
