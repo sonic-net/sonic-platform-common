@@ -92,9 +92,9 @@ EYE_TIMEOUT_SECS = 1
 
 MAX_NUM_LANES = 4
 
-# definitions for switching modes inside muxcable
-SWITCHING_MODE_AUTO = 1
+# switching modes inside muxcable
 SWITCHING_MODE_MANUAL = 0
+SWITCHING_MODE_AUTO = 1
 
 # Valid return codes for upgrade firmware routine steps
 FIRMWARE_DOWNLOAD_SUCCESS = 0
