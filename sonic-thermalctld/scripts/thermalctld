@@ -1,28 +1,26 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 """
     thermalctld
     Thermal control daemon for SONiC
 """
 
-try:
-    import os
-    import signal
-    import threading
-    import time
-    from datetime import datetime
+import signal
+import sys
+import threading
+import time
+from datetime import datetime
 
-    from sonic_py_common import daemon_base, logger
-    from sonic_py_common.task_base import ProcessTaskBase
+import sonic_platform
+from sonic_py_common import daemon_base, logger
+from sonic_py_common.task_base import ProcessTaskBase
+from swsscommon import swsscommon
 
-    # If unit testing is occurring, mock swsscommon
-    if os.getenv("THERMALCTLD_UNIT_TESTING") == "1":
-        from tests import mock_swsscommon as swsscommon
-    else:
-        from swsscommon import swsscommon
-except ImportError as e:
-    raise ImportError(repr(e) + " - required module not found")
 
+# TODO: Once we no longer support Python 2, we can eliminate this and get the
+# name using the 'name' field (e.g., `signal.SIGINT.name`) starting with Python 3.5
+SIGNALS_TO_NAMES_DICT = dict((getattr(signal, n), n)
+                             for n in dir(signal) if n.startswith('SIG') and '_' not in n)
 
 SYSLOG_IDENTIFIER = 'thermalctld'
 NOT_AVAILABLE = 'N/A'
@@ -30,10 +28,15 @@ CHASSIS_INFO_KEY = 'chassis 1'
 PHYSICAL_ENTITY_INFO_TABLE = 'PHYSICAL_ENTITY_INFO'
 INVALID_SLOT = -1
 
+ERR_UNKNOWN = 1
+ERR_INIT_FAILED = 2
+
+# Thermal control daemon is designed to never exit, it must always
+# return non-zero exit code when exiting and so that supervisord will
+# restart it automatically.
+exit_code = ERR_UNKNOWN
+
 # utility functions
-
-# try get information from platform API and return a default value if caught NotImplementedError
-
 
 def try_get(callback, default=NOT_AVAILABLE):
     """
@@ -60,14 +63,14 @@ def update_entity_info(table, parent_name, key, device, device_index):
 
 
 class FanStatus(logger.Logger):
-    absence_fan_count = 0
-    fault_fan_count = 0
+    absent_fan_count = 0
+    faulty_fan_count = 0
 
-    def __init__(self, log_identifier, fan=None, is_psu_fan=False):
+    def __init__(self, fan=None, is_psu_fan=False):
         """
-        Constructor of FanStatus
+        Initializer of FanStatus
         """
-        super(FanStatus, self).__init__(log_identifier)
+        super(FanStatus, self).__init__(SYSLOG_IDENTIFIER)
 
         self.fan = fan
         self.is_psu_fan = is_psu_fan
@@ -79,12 +82,12 @@ class FanStatus(logger.Logger):
 
     @classmethod
     def get_bad_fan_count(cls):
-        return cls.absence_fan_count + cls.fault_fan_count
+        return cls.absent_fan_count + cls.faulty_fan_count
 
     @classmethod
     def reset_fan_counter(cls):
-        cls.absence_fan_count = 0
-        cls.fault_fan_count = 0
+        cls.absent_fan_count = 0
+        cls.faulty_fan_count = 0
 
     def set_presence(self, presence):
         """
@@ -93,7 +96,7 @@ class FanStatus(logger.Logger):
         :return: True if status changed else False
         """
         if not presence and not self.is_psu_fan:
-            FanStatus.absence_fan_count += 1
+            FanStatus.absent_fan_count += 1
 
         if presence == self.presence:
             return False
@@ -108,7 +111,7 @@ class FanStatus(logger.Logger):
         :return: True if status changed else False
         """
         if not status:
-            FanStatus.fault_fan_count += 1
+            FanStatus.faulty_fan_count += 1
 
         if status == self.status:
             return False
@@ -123,7 +126,7 @@ class FanStatus(logger.Logger):
                 return False
 
             if current_status is True:
-                self.log_warning('Fan speed or target_speed or tolerance become unavailable, '
+                self.log_warning('Fan speed or target_speed or tolerance became unavailable, '
                                  'speed={}, target_speed={}, tolerance={}'.format(speed, target_speed, tolerance))
             return False
         return True
@@ -173,11 +176,11 @@ class FanStatus(logger.Logger):
         Indicate the Fan works as expect
         :return: True if Fan works normal else False
         """
-        return self.presence and \
-            self.status and \
-            not self.under_speed and \
-            not self.over_speed and \
-            not self.invalid_direction
+        return (self.presence and
+                self.status and
+                not self.under_speed and
+                not self.over_speed and
+                not self.invalid_direction)
 
 
 #
@@ -188,12 +191,12 @@ class FanUpdater(logger.Logger):
     FAN_INFO_TABLE_NAME = 'FAN_INFO'
     FAN_DRAWER_INFO_TABLE_NAME = 'FAN_DRAWER_INFO'
 
-    def __init__(self, log_identifier, chassis):
+    def __init__(self, chassis):
         """
-        Constructor for FanUpdater
+        Initializer for FanUpdater
         :param chassis: Object representing a platform chassis
         """
-        super(FanUpdater, self).__init__(log_identifier)
+        super(FanUpdater, self).__init__(SYSLOG_IDENTIFIER)
 
         self.chassis = chassis
         self.fan_status_dict = {}
@@ -204,7 +207,7 @@ class FanUpdater(logger.Logger):
 
     def deinit(self):
         """
-        Destructor of FanUpdater
+        Deinitializer of FanUpdater
         :return:
         """
         for name in self.fan_status_dict.keys():
@@ -238,24 +241,24 @@ class FanUpdater(logger.Logger):
                 try:
                     self._refresh_fan_status(drawer, drawer_index, fan, fan_index)
                 except Exception as e:
-                    self.log_warning('Failed to update FAN status - {}'.format(repr(e)))
+                    self.log_warning('Failed to update fan status - {}'.format(repr(e)))
 
         for psu_index, psu in enumerate(self.chassis.get_all_psus()):
             for fan_index, fan in enumerate(psu.get_all_fans()):
                 try:
                     self._refresh_fan_status(psu, psu_index, fan, fan_index, True)
                 except Exception as e:
-                    self.log_warning('Failed to update PSU FAN status - {}'.format(repr(e)))
+                    self.log_warning('Failed to update PSU fan status - {}'.format(repr(e)))
 
         self._update_led_color()
 
         bad_fan_count = FanStatus.get_bad_fan_count()
         if bad_fan_count > 0 and old_bad_fan_count != bad_fan_count:
-            self.log_warning("Insufficient number of working fans warning: {} fans are not working.".format(
-                bad_fan_count
+            self.log_warning("Insufficient number of working fans warning: {} fan{} not working".format(
+                bad_fan_count, " is" if bad_fan_count == 1 else "s are"
             ))
         elif old_bad_fan_count > 0 and bad_fan_count == 0:
-            self.log_notice("Insufficient number of working fans warning cleared: all fans are back to normal.")
+            self.log_notice("Insufficient number of working fans warning cleared: all fans are back to normal")
 
         self.log_debug("End fan updating")
 
@@ -291,10 +294,10 @@ class FanUpdater(logger.Logger):
             parent_name = 'PSU {}'.format(parent_index + 1)
         else:
             parent_name = drawer_name if drawer_name != NOT_AVAILABLE else CHASSIS_INFO_KEY
-        fan_name = try_get(fan.get_name, '{} FAN {}'.format(parent_name, fan_index + 1))
+        fan_name = try_get(fan.get_name, '{} fan {}'.format(parent_name, fan_index + 1))
         update_entity_info(self.phy_entity_table, parent_name, fan_name, fan, fan_index + 1)
         if fan_name not in self.fan_status_dict:
-            self.fan_status_dict[fan_name] = FanStatus(SYSLOG_IDENTIFIER, fan, is_psu_fan)
+            self.fan_status_dict[fan_name] = FanStatus(fan, is_psu_fan)
 
         fan_status = self.fan_status_dict[fan_name]
 
@@ -316,7 +319,7 @@ class FanUpdater(logger.Logger):
         if fan_status.set_presence(presence):
             set_led = True
             self._log_on_status_changed(fan_status.presence,
-                                        'Fan removed warning cleared: {} was inserted.'.format(fan_name),
+                                        'Fan removed warning cleared: {} was inserted'.format(fan_name),
                                         'Fan removed warning: {} was removed from '
                                         'the system, potential overheat hazard'.format(fan_name)
                                         )
@@ -324,23 +327,23 @@ class FanUpdater(logger.Logger):
         if presence and fan_status.set_fault_status(fan_fault_status):
             set_led = True
             self._log_on_status_changed(fan_status.status,
-                                        'Fan fault warning cleared: {} is back to normal.'.format(fan_name),
-                                        'Fan fault warning: {} is broken.'.format(fan_name)
+                                        'Fan fault warning cleared: {} is back to normal'.format(fan_name),
+                                        'Fan fault warning: {} is broken'.format(fan_name)
                                         )
 
         if presence and fan_status.set_under_speed(speed, speed_target, speed_tolerance):
             set_led = True
             self._log_on_status_changed(not fan_status.under_speed,
-                                        'Fan low speed warning cleared: {} speed is back to normal.'.format(fan_name),
-                                        'Fan low speed warning: {} current speed={}, target speed={}, tolerance={}.'.
+                                        'Fan low speed warning cleared: {} speed is back to normal'.format(fan_name),
+                                        'Fan low speed warning: {} current speed={}, target speed={}, tolerance={}'.
                                         format(fan_name, speed, speed_target, speed_tolerance)
                                         )
 
         if presence and fan_status.set_over_speed(speed, speed_target, speed_tolerance):
             set_led = True
             self._log_on_status_changed(not fan_status.over_speed,
-                                        'Fan high speed warning cleared: {} speed is back to normal.'.format(fan_name),
-                                        'Fan high speed warning: {} target speed={}, current speed={}, tolerance={}.'.
+                                        'Fan high speed warning cleared: {} speed is back to normal'.format(fan_name),
+                                        'Fan high speed warning: {} target speed={}, current speed={}, tolerance={}'.
                                         format(fan_name, speed_target, speed, speed_tolerance)
                                         )
 
@@ -389,7 +392,7 @@ class FanUpdater(logger.Logger):
                 fan.set_status_led(fan.STATUS_LED_COLOR_RED)
                 fan_drawer.set_status_led(fan.STATUS_LED_COLOR_RED)
         except NotImplementedError as e:
-            self.log_warning('Failed to set led to fan, set_status_led not implemented')
+            self.log_warning('Failed to set status LED for fan {}, set_status_led not implemented'.format(fan_name))
 
     def _update_led_color(self):
         for fan_name, fan_status in self.fan_status_dict.items():
@@ -398,7 +401,7 @@ class FanUpdater(logger.Logger):
                     ('led_status', str(try_get(fan_status.fan.get_status_led)))
                 ])
             except Exception as e:
-                self.log_warning('Failed to get led status for fan - {}'.format(repr(e)))
+                self.log_warning('Failed to get status LED state for fan {} - {}'.format(fan_name, e))
                 fvs = swsscommon.FieldValuePairs([
                     ('led_status', NOT_AVAILABLE)
                 ])
@@ -413,7 +416,7 @@ class FanUpdater(logger.Logger):
                     ('led_status', str(try_get(drawer.get_status_led)))
                 ])
             except Exception as e:
-                self.log_warning('Failed to get led status for fan drawer')
+                self.log_warning('Failed to get status LED state for fan drawer')
                 fvs = swsscommon.FieldValuePairs([
                     ('led_status', NOT_AVAILABLE)
                 ])
@@ -423,8 +426,8 @@ class FanUpdater(logger.Logger):
 class TemperatureStatus(logger.Logger):
     TEMPERATURE_DIFF_THRESHOLD = 10
 
-    def __init__(self, log_identifier):
-        super(TemperatureStatus, self).__init__(log_identifier)
+    def __init__(self):
+        super(TemperatureStatus, self).__init__(SYSLOG_IDENTIFIER)
 
         self.temperature = None
         self.over_temperature = False
@@ -439,7 +442,7 @@ class TemperatureStatus(logger.Logger):
         """
         if temperature == NOT_AVAILABLE:
             if self.temperature is not None:
-                self.log_warning('Temperature of {} become unavailable'.format(name))
+                self.log_warning('Temperature of {} became unavailable'.format(name))
                 self.temperature = None
             return
 
@@ -456,7 +459,7 @@ class TemperatureStatus(logger.Logger):
     def _check_temperature_value_available(self, temperature, threshold, current_status):
         if temperature == NOT_AVAILABLE or threshold == NOT_AVAILABLE:
             if current_status is True:
-                self.log_warning('Thermal temperature or threshold become unavailable, '
+                self.log_warning('Thermal temperature or threshold became unavailable, '
                                  'temperature={}, threshold={}'.format(temperature, threshold))
             return False
         return True
@@ -507,12 +510,12 @@ class TemperatureUpdater(logger.Logger):
     # Temperature information table name in database
     TEMPER_INFO_TABLE_NAME = 'TEMPERATURE_INFO'
 
-    def __init__(self, log_identifier, chassis):
+    def __init__(self, chassis):
         """
-        Constructor of TemperatureUpdater 
+        Initializer of TemperatureUpdater
         :param chassis: Object representing a platform chassis
         """
-        super(TemperatureUpdater, self).__init__(log_identifier)
+        super(TemperatureUpdater, self).__init__(SYSLOG_IDENTIFIER)
 
         self.chassis = chassis
         self.temperature_status_dict = {}
@@ -531,7 +534,7 @@ class TemperatureUpdater(logger.Logger):
 
     def deinit(self):
         """
-        Destructor of TemperatureUpdater 
+        Deinitializer of TemperatureUpdater
         :return:
         """
         for name in self.temperature_status_dict.keys():
@@ -570,7 +573,7 @@ class TemperatureUpdater(logger.Logger):
                 try:
                     self._refresh_temperature_status(parent_name, thermal, thermal_index)
                 except Exception as e:
-                    self.log_warning('Failed to update thermal status - {}'.format(e))
+                    self.log_warning('Failed to update thermal status - {}'.format(repr(e)))
 
         for sfp_index, sfp in enumerate(self.chassis.get_all_sfps()):
             parent_name = 'SFP {}'.format(sfp_index + 1)
@@ -578,7 +581,7 @@ class TemperatureUpdater(logger.Logger):
                 try:
                     self._refresh_temperature_status(parent_name, thermal, thermal_index)
                 except Exception as e:
-                    self.log_warning('Failed to update thermal status - {}'.format(e))
+                    self.log_warning('Failed to update thermal status - {}'.format(repr(e)))
 
         self.log_debug("End temperature updating")
 
@@ -600,7 +603,7 @@ class TemperatureUpdater(logger.Logger):
             update_entity_info(self.phy_entity_table, parent_name, name, thermal, thermal_index + 1)
 
         if name not in self.temperature_status_dict:
-            self.temperature_status_dict[name] = TemperatureStatus(SYSLOG_IDENTIFIER)
+            self.temperature_status_dict[name] = TemperatureStatus()
 
         temperature_status = self.temperature_status_dict[name]
 
@@ -624,7 +627,7 @@ class TemperatureUpdater(logger.Logger):
         warning = False
         if temperature != NOT_AVAILABLE and temperature_status.set_over_temperature(temperature, high_threshold):
             self._log_on_status_changed(not temperature_status.over_temperature,
-                                        'High temperature warning cleared: {} temperature restore to {}C, high threshold {}C.'.
+                                        'High temperature warning cleared: {} temperature restored to {}C, high threshold {}C'.
                                         format(name, temperature, high_threshold),
                                         'High temperature warning: {} current temperature {}C, high threshold {}C'.
                                         format(name, temperature, high_threshold)
@@ -633,7 +636,7 @@ class TemperatureUpdater(logger.Logger):
 
         if temperature != NOT_AVAILABLE and temperature_status.set_under_temperature(temperature, low_threshold):
             self._log_on_status_changed(not temperature_status.under_temperature,
-                                        'Low temperature warning cleared: {} temperature restore to {}C, low threshold {}C.'.
+                                        'Low temperature warning cleared: {} temperature restored to {}C, low threshold {}C'.
                                         format(name, temperature, low_threshold),
                                         'Low temperature warning: {} current temperature {}C, low threshold {}C'.
                                         format(name, temperature, low_threshold)
@@ -661,22 +664,44 @@ class TemperatureUpdater(logger.Logger):
 class ThermalMonitor(ProcessTaskBase):
     # Initial update interval
     INITIAL_INTERVAL = 5
+
     # Update interval value
     UPDATE_INTERVAL = 60
+
     # Update elapse threshold. If update used time is larger than the value, generate a warning log.
-    UPDATE_ELAPSE_THRESHOLD = 30
+    UPDATE_ELAPSED_THRESHOLD = 30
 
     def __init__(self, chassis):
         """
-        Constructor for ThermalMonitor
+        Initializer for ThermalMonitor
         :param chassis: Object representing a platform chassis
         """
-        ProcessTaskBase.__init__(self)
+        super(ThermalMonitor, self).__init__()
+
+        self.wait_time = self.INITIAL_INTERVAL
 
         # TODO: Refactor to eliminate the need for this Logger instance
         self.logger = logger.Logger(SYSLOG_IDENTIFIER)
-        self.fan_updater = FanUpdater(SYSLOG_IDENTIFIER, chassis)
-        self.temperature_updater = TemperatureUpdater(SYSLOG_IDENTIFIER, chassis)
+
+        # Set minimum logging level to INFO
+        self.logger.set_min_log_priority_info()
+
+        self.fan_updater = FanUpdater(chassis)
+        self.temperature_updater = TemperatureUpdater(chassis)
+
+    def main(self):
+        begin = time.time()
+        self.fan_updater.update()
+        self.temperature_updater.update()
+        elapsed = time.time() - begin
+        if elapsed < self.UPDATE_INTERVAL:
+            self.wait_time = self.UPDATE_INTERVAL - elapsed
+        else:
+            self.wait_time = self.INITIAL_INTERVAL
+
+        if elapsed > self.UPDATE_ELAPSED_THRESHOLD:
+            self.logger.log_warning('Update fan and temperature status took {} seconds, '
+                                    'there might be performance risk'.format(elapsed))
 
     def task_worker(self):
         """
@@ -686,20 +711,8 @@ class ThermalMonitor(ProcessTaskBase):
         self.logger.log_info("Start thermal monitoring loop")
 
         # Start loop to update fan, temperature info in DB periodically
-        wait_time = ThermalMonitor.INITIAL_INTERVAL
-        while not self.task_stopping_event.wait(wait_time):
-            begin = time.time()
-            self.fan_updater.update()
-            self.temperature_updater.update()
-            elapse = time.time() - begin
-            if elapse < ThermalMonitor.UPDATE_INTERVAL:
-                wait_time = ThermalMonitor.UPDATE_INTERVAL - elapse
-            else:
-                wait_time = ThermalMonitor.INITIAL_INTERVAL
-
-            if elapse > ThermalMonitor.UPDATE_ELAPSE_THRESHOLD:
-                self.logger.log_warning('Update fan and temperature status takes {} seconds, '
-                                        'there might be performance risk'.format(elapse))
+        while not self.task_stopping_event.wait(self.wait_time):
+            self.main()
 
         self.fan_updater.deinit()
         self.temperature_updater.deinit()
@@ -718,19 +731,50 @@ class ThermalControlDaemon(daemon_base.DaemonBase):
 
     POLICY_FILE = '/usr/share/sonic/platform/thermal_policy.json'
 
-    def __init__(self, log_identifier):
+    def __init__(self):
         """
-        Constructor of ThermalControlDaemon
+        Initializer of ThermalControlDaemon
         """
-        super(ThermalControlDaemon, self).__init__(log_identifier)
+        super(ThermalControlDaemon, self).__init__(SYSLOG_IDENTIFIER)
+
+        # Set minimum logging level to INFO
+        self.set_min_log_priority_info()
+
         self.stop_event = threading.Event()
 
-        # Thermal control daemon is designed to never exit, it must always
-        # return non zero exit code when exiting and so that supervisord will
-        # restart it automatically.
-        self.exit_code = 1
+        self.wait_time = self.INTERVAL
 
-    # Signal handler
+        chassis = sonic_platform.platform.Platform().get_chassis()
+
+        self.thermal_monitor = ThermalMonitor(chassis)
+        self.thermal_monitor.task_run()
+
+        self.thermal_manager = None
+        try:
+            self.thermal_manager = chassis.get_thermal_manager()
+            if self.thermal_manager:
+                self.thermal_manager.initialize()
+                self.thermal_manager.load(ThermalControlDaemon.POLICY_FILE)
+                self.thermal_manager.init_thermal_algorithm(chassis)
+        except NotImplementedError:
+            self.log_warning('Thermal manager is not supported on this platform')
+        except Exception as e:
+            self.log_error('Caught exception while initializing thermal manager - {}'.format(repr(e)))
+            sys.exit(ERR_INIT_FAILED)
+
+    def deinit(self):
+        """
+        Deinitializer of ThermalControlDaemon
+        """
+        try:
+            if self.thermal_manager:
+                self.thermal_manager.deinitialize()
+        except Exception as e:
+            self.log_error('Caught exception while destroying thermal manager - {}'.format(repr(e)))
+
+        self.thermal_monitor.task_stop()
+
+    # Override signal handler from DaemonBase
     def signal_handler(self, sig, frame):
         """
         Signal handler
@@ -738,77 +782,67 @@ class ThermalControlDaemon(daemon_base.DaemonBase):
         :param frame: not used
         :return:
         """
-        if sig == signal.SIGHUP:
-            self.log_info("Caught SIGHUP - ignoring...")
-        elif sig == signal.SIGINT or sig == signal.SIGTERM:
-            self.log_info("Caught signal {} - exiting...".format(sig))
-            self.exit_code = sig + 128
-            self.stop_event.set()
-        else:
-            self.log_warning("Caught unhandled signal '" + sig + "'")
+        FATAL_SIGNALS = [signal.SIGINT, signal.SIGTERM]
+        NONFATAL_SIGNALS = [signal.SIGHUP]
 
+        global exit_code
+
+        if sig in FATAL_SIGNALS:
+            self.log_info("Caught signal '{}' - exiting...".format(SIGNALS_TO_NAMES_DICT[sig]))
+            exit_code = 128 + sig  # Make sure we exit with a non-zero code so that supervisor will try to restart us
+            self.stop_event.set()
+        elif sig in NONFATAL_SIGNALS:
+            self.log_info("Caught signal '{}' - ignoring...".format(SIGNALS_TO_NAMES_DICT[sig]))
+        else:
+            self.log_warning("Caught unhandled signal '{}' - ignoring...".format(SIGNALS_TO_NAMES_DICT[sig]))
+
+    # Main daemon logic
     def run(self):
         """
         Run main logical of this daemon
         :return:
         """
-        self.log_info("Starting up...")
+        if self.stop_event.wait(self.wait_time):
+            # We received a fatal signal
+            return False
 
-        import sonic_platform.platform
-        chassis = sonic_platform.platform.Platform().get_chassis()
-
-        thermal_monitor = ThermalMonitor(chassis)
-        thermal_monitor.task_run()
-
-        thermal_manager = None
+        begin = time.time()
         try:
-            thermal_manager = chassis.get_thermal_manager()
-            if thermal_manager:
-                thermal_manager.initialize()
-                thermal_manager.load(ThermalControlDaemon.POLICY_FILE)
-                thermal_manager.init_thermal_algorithm(chassis)
-        except NotImplementedError:
-            self.log_warning('Thermal manager is not supported on this platform.')
+            if self.thermal_manager:
+                self.thermal_manager.run_policy(chassis)
         except Exception as e:
-            self.log_error('Caught exception while initializing thermal manager - {}'.format(repr(e)))
+            self.log_error('Caught exception while running thermal policy - {}'.format(repr(e)))
 
-        wait_time = ThermalControlDaemon.INTERVAL
-        while not self.stop_event.wait(wait_time):
-            begin = time.time()
-            try:
-                if thermal_manager:
-                    thermal_manager.run_policy(chassis)
-            except Exception as e:
-                self.log_error('Caught exception while running thermal policy - {}'.format(repr(e)))
-            elapsed = time.time() - begin
-            if elapsed < ThermalControlDaemon.INTERVAL:
-                wait_time = ThermalControlDaemon.INTERVAL - elapsed
-            else:
-                wait_time = ThermalControlDaemon.FAST_START_INTERVAL
+        elapsed = time.time() - begin
+        if elapsed < self.INTERVAL:
+            self.wait_time = self.INTERVAL - elapsed
+        else:
+            self.wait_time = self.FAST_START_INTERVAL
 
-            if elapsed > ThermalControlDaemon.RUN_POLICY_WARN_THRESHOLD_SECS:
-                self.log_warning('Thermal policy execution takes {} seconds, '
-                                 'there might be performance risk'.format(elapsed))
+        if elapsed > self.RUN_POLICY_WARN_THRESHOLD_SECS:
+            self.log_warning('Thermal policy execution took {} seconds, '
+                             'there might be performance risk'.format(elapsed))
 
-        try:
-            if thermal_manager:
-                thermal_manager.deinitialize()
-        except Exception as e:
-            self.log_error('Caught exception while destroy thermal manager - {}'.format(repr(e)))
-
-        thermal_monitor.task_stop()
-
-        self.log_info("Shutdown with exit code {}...".format(self.exit_code))
-        exit(self.exit_code)
+        return True
 
 
 #
 # Main =========================================================================
 #
 def main():
-    thermal_control = ThermalControlDaemon(SYSLOG_IDENTIFIER)
-    thermal_control.run()
+    thermal_control = ThermalControlDaemon()
+
+    thermal_control.log_info("Starting up...")
+
+    while thermal_control.run():
+        pass
+
+    thermal_control.log_info("Shutting down with exit code {}...".format(exit_code))
+
+    thermal_control.deinit()
+
+    return exit_code
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

@@ -1,3 +1,7 @@
+'''
+    Mock implementation of swsscommon package for unit testing
+'''
+
 STATE_DB = ''
 CHASSIS_STATE_DB = ''
 
