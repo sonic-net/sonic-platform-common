@@ -79,6 +79,7 @@ class FanStatus(logger.Logger):
         self.under_speed = False
         self.over_speed = False
         self.invalid_direction = False
+        self.led_initialized = False
 
     @classmethod
     def get_bad_fan_count(cls):
@@ -315,7 +316,7 @@ class FanUpdater(logger.Logger):
             fan_fault_status = try_get(fan.get_status, False)
             fan_direction = try_get(fan.get_direction)
 
-        set_led = False
+        set_led = not fan_status.led_initialized
         if fan_status.set_presence(presence):
             set_led = True
             self._log_on_status_changed(fan_status.presence,
@@ -383,16 +384,16 @@ class FanUpdater(logger.Logger):
         :return:
         """
         try:
-            if fan_status.is_ok():
-                fan.set_status_led(fan.STATUS_LED_COLOR_GREEN)
-                fan_drawer.set_status_led(fan.STATUS_LED_COLOR_GREEN)
-            else:
-                # TODO: wait for Kebo to define the mapping of fan status to led color,
-                # just set it to red so far
-                fan.set_status_led(fan.STATUS_LED_COLOR_RED)
-                fan_drawer.set_status_led(fan.STATUS_LED_COLOR_RED)
+            led_color = fan.STATUS_LED_COLOR_GREEN if fan_status.is_ok() else fan.STATUS_LED_COLOR_RED
+            fan.set_status_led(led_color)
+            fan_drawer.set_status_led(led_color)
         except NotImplementedError as e:
             self.log_warning('Failed to set status LED for fan {}, set_status_led not implemented'.format(fan_name))
+        
+        # Set led_initialized to True even if there is NotImplementedError as it is not neccessary to 
+        # print the warning log again and again. But if there is other exception, we could not
+        # reach this line, and it will retry setting led color in the next run.
+        fan_status.led_initialized = True
 
     def _update_led_color(self):
         for fan_name, fan_status in self.fan_status_dict.items():
