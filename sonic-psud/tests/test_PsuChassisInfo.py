@@ -1,6 +1,6 @@
 import os
 import sys
-from imp import load_source
+from imp import load_source  # Replace with importlib once we no longer need to support Python 2
 
 import pytest
 
@@ -11,7 +11,6 @@ else:
     import mock
 from sonic_py_common import daemon_base
 
-from . import mock_swsscommon
 from .mock_platform import MockChassis, MockPsu, MockFanDrawer, MockModule
 
 SYSLOG_IDENTIFIER = 'test_PsuChassisInfo'
@@ -19,14 +18,23 @@ NOT_AVAILABLE = 'N/A'
 
 daemon_base.db_connect = mock.MagicMock()
 
-test_path = os.path.dirname(os.path.abspath(__file__))
-modules_path = os.path.dirname(test_path)
+tests_path = os.path.dirname(os.path.abspath(__file__))
+
+# Add mocked_libs path so that the file under test can load mocked modules from there
+mocked_libs_path = os.path.join(tests_path, "mocked_libs")
+sys.path.insert(0, mocked_libs_path)
+
+# We also need to load the mocked swsscommon locally for use below
+load_source('swsscommon', os.path.join(mocked_libs_path, 'swsscommon', 'swsscommon.py'))
+import swsscommon as mock_swsscommon
+
+# Add path to the file under test so that we can load it
+modules_path = os.path.dirname(tests_path)
 scripts_path = os.path.join(modules_path, "scripts")
 sys.path.insert(0, modules_path)
-
-os.environ["PSUD_UNIT_TESTING"] = "1"
-load_source('psud', scripts_path + '/psud')
+load_source('psud', os.path.join(scripts_path, 'psud'))
 import psud
+
 
 CHASSIS_INFO_TABLE = 'CHASSIS_INFO'
 CHASSIS_INFO_KEY_TEMPLATE = 'chassis {}'
@@ -52,6 +60,7 @@ class TestPsuChassisInfo(object):
     """
     Test cases to cover functionality in PsuChassisInfo class
     """
+
     def test_update_master_status(self):
         chassis = MockChassis()
         chassis_info = psud.PsuChassisInfo(SYSLOG_IDENTIFIER, chassis)
@@ -97,33 +106,22 @@ class TestPsuChassisInfo(object):
         assert ret == False
         assert chassis_info.master_status_good == False
 
-        # Test set_status_master_led not implemented
-        with mock.patch.object(MockPsu, "set_status_master_led", mock.Mock(side_effect = NotImplementedError)):
-            chassis_info.total_supplied_power = 510.0
-            chassis_info.total_consumed_power = 350.0
-            chassis_info.master_status_good = False
-            chassis_info.log_warning = mock.MagicMock()
-            ret = chassis_info.update_master_status()
-            assert ret == True
-            assert chassis_info.master_status_good == True
-            chassis_info.log_warning.assert_called_with("set_status_master_led() not implemented")
-
     def test_supplied_power(self):
         chassis = MockChassis()
-        psu1 = MockPsu(True, True, "PSU 1", 0)
+        psu1 = MockPsu("PSU 1", 0, True, True)
         psu1_power = 510.0
         psu1.set_maximum_supplied_power(psu1_power)
-        chassis.psu_list.append(psu1)
+        chassis._psu_list.append(psu1)
 
-        psu2 = MockPsu(True, True, "PSU 2", 1)
+        psu2 = MockPsu("PSU 2", 1, True, True)
         psu2_power = 800.0
         psu2.set_maximum_supplied_power(psu2_power)
-        chassis.psu_list.append(psu2)
+        chassis._psu_list.append(psu2)
 
-        psu3 = MockPsu(True, True, "PSU 3", 2)
+        psu3 = MockPsu("PSU 3", 2, True, True)
         psu3_power = 350.0
         psu3.set_maximum_supplied_power(psu3_power)
-        chassis.psu_list.append(psu3)
+        chassis._psu_list.append(psu3)
 
         total_power = psu1_power + psu2_power + psu3_power
         state_db = daemon_base.db_connect("STATE_DB")
@@ -151,15 +149,15 @@ class TestPsuChassisInfo(object):
 
     def test_consumed_power(self):
         chassis = MockChassis()
-        fan_drawer1 = MockFanDrawer(True, True, "FanDrawer 1")
+        fan_drawer1 = MockFanDrawer("FanDrawer 1", 0, True, True)
         fan_drawer1_power = 510.0
         fan_drawer1.set_maximum_consumed_power(fan_drawer1_power)
-        chassis.fan_drawer_list.append(fan_drawer1)
+        chassis._fan_drawer_list.append(fan_drawer1)
 
-        module1 = MockFanDrawer(True, True, "Module 1")
+        module1 = MockModule("Module 1", 0, True, True)
         module1_power = 700.0
         module1.set_maximum_consumed_power(module1_power)
-        chassis.module_list.append(module1)
+        chassis._module_list.append(module1)
 
         total_power = fan_drawer1_power + module1_power
         state_db = daemon_base.db_connect("STATE_DB")
@@ -186,57 +184,62 @@ class TestPsuChassisInfo(object):
         fvs = chassis_tbl.get(CHASSIS_INFO_POWER_KEY_TEMPLATE.format(1))
         assert total_power == float(fvs[CHASSIS_INFO_TOTAL_POWER_CONSUMED_FIELD])
 
-
     def test_power_budget(self):
         chassis = MockChassis()
-        psu = MockPsu(True, True, "PSU 1", 0)
+        psu1 = MockPsu("PSU 1", 0, True, True)
         psu1_power = 510.0
-        psu.set_maximum_supplied_power(psu1_power)
-        chassis.psu_list.append(psu)
+        psu1.set_maximum_supplied_power(psu1_power)
+        chassis._psu_list.append(psu1)
 
-        fan_drawer1 = MockFanDrawer(True, True, "FanDrawer 1")
+        fan_drawer1 = MockFanDrawer("FanDrawer 1", 0, True, True)
         fan_drawer1_power = 510.0
         fan_drawer1.set_maximum_consumed_power(fan_drawer1_power)
-        chassis.fan_drawer_list.append(fan_drawer1)
+        chassis._fan_drawer_list.append(fan_drawer1)
 
-        module1 = MockFanDrawer(True, True, "Module 1")
+        module1 = MockModule("Module 1", 0, True, True)
         module1_power = 700.0
         module1.set_maximum_consumed_power(module1_power)
-        chassis.module_list.append(module1)
+        chassis._module_list.append(module1)
 
         state_db = daemon_base.db_connect("STATE_DB")
         chassis_tbl = mock_swsscommon.Table(state_db, CHASSIS_INFO_TABLE)
         chassis_info = psud.PsuChassisInfo(SYSLOG_IDENTIFIER, chassis)
 
-        # Check if supplied_power < consumed_power
+        # Check case where supplied_power < consumed_power
         chassis_info.run_power_budget(chassis_tbl)
         chassis_info.update_master_status()
         fvs = chassis_tbl.get(CHASSIS_INFO_POWER_KEY_TEMPLATE.format(1))
 
         assert float(fvs[CHASSIS_INFO_TOTAL_POWER_SUPPLIED_FIELD]) < float(fvs[CHASSIS_INFO_TOTAL_POWER_CONSUMED_FIELD])
         assert chassis_info.master_status_good == False
-        assert MockPsu.get_status_master_led() == MockPsu.STATUS_LED_COLOR_RED
+
+        # We cannot call get_status_master_led() on our mocked PSUs, because
+        # they are not instantiated from the same Psu class loaded in psud,
+        # so we must call it on the class there.
+        assert psud.Psu.get_status_master_led() == MockPsu.STATUS_LED_COLOR_RED
 
         # Add a PSU
-        psu = MockPsu(True, True, "PSU 2", 1)
+        psu2 = MockPsu("PSU 2", 1, True, True)
         psu2_power = 800.0
-        psu.set_maximum_supplied_power(psu2_power)
-        chassis.psu_list.append(psu)
+        psu2.set_maximum_supplied_power(psu2_power)
+        chassis._psu_list.append(psu2)
 
-        # Check if supplied_power > consumed_power
+        # Check case where supplied_power > consumed_power
         chassis_info.run_power_budget(chassis_tbl)
         chassis_info.update_master_status()
         fvs = chassis_tbl.get(CHASSIS_INFO_POWER_KEY_TEMPLATE.format(1))
 
         assert float(fvs[CHASSIS_INFO_TOTAL_POWER_SUPPLIED_FIELD]) > float(fvs[CHASSIS_INFO_TOTAL_POWER_CONSUMED_FIELD])
         assert chassis_info.master_status_good == True
-        assert MockPsu.get_status_master_led() == MockPsu.STATUS_LED_COLOR_GREEN
 
+        # We cannot call get_status_master_led() on our mocked PSUs, because
+        # they are not instantiated from the same Psu class loaded in psud,
+        # so we must call it on the class there.
+        assert psud.Psu.get_status_master_led() == MockPsu.STATUS_LED_COLOR_GREEN
 
     def test_get_psu_key(self):
         assert psud.get_psu_key(0) == psud.PSU_INFO_KEY_TEMPLATE.format(0)
         assert psud.get_psu_key(1) == psud.PSU_INFO_KEY_TEMPLATE.format(1)
-
 
     def test_try_get(self):
         # Test a proper, working callback

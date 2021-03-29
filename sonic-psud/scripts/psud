@@ -9,21 +9,14 @@
     The loop interval is PSU_INFO_UPDATE_PERIOD_SECS in seconds.
 """
 
-import os
 import signal
 import sys
 import threading
 from datetime import datetime
 
+from sonic_platform.psu import Psu
 from sonic_py_common import daemon_base, logger
-
-# If unit testing is occurring, mock swsscommon and module_base
-if os.getenv("PSUD_UNIT_TESTING") == "1":
-    from tests.mock_platform import MockPsu as Psu
-    from tests import mock_swsscommon as swsscommon
-else:
-    from sonic_platform.psu import Psu
-    from swsscommon import swsscommon
+from swsscommon import swsscommon
 
 
 #
@@ -32,8 +25,8 @@ else:
 
 # TODO: Once we no longer support Python 2, we can eliminate this and get the
 # name using the 'name' field (e.g., `signal.SIGINT.name`) starting with Python 3.5
-SIGNALS_TO_NAMES_DICT = dict((getattr(signal, n), n) \
-        for n in dir(signal) if n.startswith('SIG') and '_' not in n )
+SIGNALS_TO_NAMES_DICT = dict((getattr(signal, n), n)
+                             for n in dir(signal) if n.startswith('SIG') and '_' not in n)
 
 SYSLOG_IDENTIFIER = "psud"
 
@@ -85,8 +78,11 @@ PSUUTIL_LOAD_ERROR = 1
 platform_psuutil = None
 platform_chassis = None
 
+exit_code = 0
 
 # temporary wrappers that are compliable with both new platform api and old-style plugin mode
+
+
 def _wrapper_get_num_psus():
     if platform_chassis is not None:
         try:
@@ -131,7 +127,7 @@ def psu_db_update(psu_tbl, psu_num):
         psu_tbl.set(get_psu_key(psu_index), fvs)
 
 
-# try get information from platform API and return a default value if caught NotImplementedError
+# try get information from platform API and return a default value if we catch NotImplementedError
 def try_get(callback, default=None):
     """
     Handy function to invoke the callback and catch NotImplementedError
@@ -257,11 +253,10 @@ class PsuChassisInfo(logger.Logger):
         self.master_status_good = master_status_good
 
         # Update the PSU master status LED
-        try:
-            color = Psu.STATUS_LED_COLOR_GREEN if master_status_good else Psu.STATUS_LED_COLOR_RED
-            Psu.set_status_master_led(color)
-        except NotImplementedError:
-            self.log_warning("set_status_master_led() not implemented")
+        # set_status_master_led() is a class method implemented in PsuBase
+        # so we do not need to catch NotImplementedError here
+        color = Psu.STATUS_LED_COLOR_GREEN if master_status_good else Psu.STATUS_LED_COLOR_RED
+        Psu.set_status_master_led(color)
 
         log_on_status_changed(self, self.master_status_good,
                               'PSU supplied power warning cleared: supplied power is back to normal.',
@@ -351,31 +346,20 @@ class DaemonPsud(daemon_base.DaemonBase):
     def __init__(self, log_identifier):
         super(DaemonPsud, self).__init__(log_identifier)
 
-        self.stop = threading.Event()
+        # Set minimum logging level to INFO
+        self.set_min_log_priority_info()
+
+        self.stop_event = threading.Event()
+        self.num_psus = 0
         self.psu_status_dict = {}
+        self.chassis_tbl = None
         self.fan_tbl = None
+        self.psu_tbl = None
         self.psu_chassis_info = None
         self.first_run = True
 
-    # Signal handler
-    def signal_handler(self, sig, frame):
-        if sig == signal.SIGHUP:
-            self.log_info("Caught SIGHUP - ignoring...")
-        elif sig == signal.SIGINT:
-            self.log_info("Caught SIGINT - exiting...")
-            self.stop.set()
-        elif sig == signal.SIGTERM:
-            self.log_info("Caught SIGTERM - exiting...")
-            self.stop.set()
-        else:
-            self.log_warning("Caught unhandled signal '{}'".format(SIGNALS_TO_NAMES_DICT[sig]))
-
-    # Run daemon
-    def run(self):
         global platform_psuutil
         global platform_chassis
-
-        self.log_info("Starting up...")
 
         # Load new platform api class
         try:
@@ -394,52 +378,70 @@ class DaemonPsud(daemon_base.DaemonBase):
 
         # Connect to STATE_DB and create psu/chassis info tables
         state_db = daemon_base.db_connect("STATE_DB")
-        chassis_tbl = swsscommon.Table(state_db, CHASSIS_INFO_TABLE)
-        psu_tbl = swsscommon.Table(state_db, PSU_INFO_TABLE)
+        self.chassis_tbl = swsscommon.Table(state_db, CHASSIS_INFO_TABLE)
+        self.psu_tbl = swsscommon.Table(state_db, PSU_INFO_TABLE)
         self.fan_tbl = swsscommon.Table(state_db, FAN_INFO_TABLE)
         self.phy_entity_tbl = swsscommon.Table(state_db, PHYSICAL_ENTITY_INFO_TABLE)
 
         # Post psu number info to STATE_DB
-        psu_num = _wrapper_get_num_psus()
-        fvs = swsscommon.FieldValuePairs([(CHASSIS_INFO_PSU_NUM_FIELD, str(psu_num))])
-        chassis_tbl.set(CHASSIS_INFO_KEY, fvs)
+        self.num_psus = _wrapper_get_num_psus()
+        fvs = swsscommon.FieldValuePairs([(CHASSIS_INFO_PSU_NUM_FIELD, str(self.num_psus))])
+        self.chassis_tbl.set(CHASSIS_INFO_KEY, fvs)
 
-        # Start main loop
-        self.log_info("Start daemon main loop")
+    def __del__(self):
+        # Delete all the information from DB and then exit
+        for psu_index in range(1, self.num_psus + 1):
+            self.psu_tbl._del(get_psu_key(psu_index))
 
-        while not self.stop.wait(PSU_INFO_UPDATE_PERIOD_SECS):
-            self._update_psu_entity_info()
-            psu_db_update(psu_tbl, psu_num)
-            self.update_psu_data(psu_tbl)
-            self._update_led_color(psu_tbl)
+        self.chassis_tbl._del(CHASSIS_INFO_KEY)
+        self.chassis_tbl._del(CHASSIS_INFO_POWER_KEY_TEMPLATE.format(1))
 
-            if platform_chassis and platform_chassis.is_modular_chassis():
-                self.update_psu_chassis_info(chassis_tbl)
+    # Override signal handler from DaemonBase
+    def signal_handler(self, sig, frame):
+        FATAL_SIGNALS = [signal.SIGINT, signal.SIGTERM]
+        NONFATAL_SIGNALS = [signal.SIGHUP]
 
+        global exit_code
+
+        if sig in FATAL_SIGNALS:
+            self.log_info("Caught signal '{}' - exiting...".format(SIGNALS_TO_NAMES_DICT[sig]))
+            exit_code = 128 + sig  # Make sure we exit with a non-zero code so that supervisor will try to restart us
+            self.stop_event.set()
+        elif sig in NONFATAL_SIGNALS:
+            self.log_info("Caught signal '{}' - ignoring...".format(SIGNALS_TO_NAMES_DICT[sig]))
+        else:
+            self.log_warning("Caught unhandled signal '{}' - ignoring...".format(SIGNALS_TO_NAMES_DICT[sig]))
+
+    # Main daemon logic
+    def run(self):
+        if self.stop_event.wait(PSU_INFO_UPDATE_PERIOD_SECS):
+            # We received a fatal signal
+            return False
+
+        self._update_psu_entity_info()
+        psu_db_update(self.psu_tbl, self.num_psus)
+        self.update_psu_data()
+        self._update_led_color()
+
+        if platform_chassis and platform_chassis.is_modular_chassis():
+            self.update_psu_chassis_info()
+
+        if self.first_run:
             self.first_run = False
 
-        self.log_info("Stop daemon main loop")
+        return True
 
-        # Delete all the information from DB and then exit
-        for psu_index in range(1, psu_num + 1):
-            psu_tbl._del(get_psu_key(psu_index))
-
-        chassis_tbl._del(CHASSIS_INFO_KEY)
-        chassis_tbl._del(CHASSIS_INFO_POWER_KEY_TEMPLATE.format(1))
-
-        self.log_info("Shutting down...")
-
-    def update_psu_data(self, psu_tbl):
+    def update_psu_data(self):
         if not platform_chassis:
             return
 
         for index, psu in enumerate(platform_chassis.get_all_psus()):
             try:
-                self._update_single_psu_data(index + 1, psu, psu_tbl)
+                self._update_single_psu_data(index + 1, psu)
             except Exception as e:
                 self.log_warning("Failed to update PSU data - {}".format(e))
 
-    def _update_single_psu_data(self, index, psu, psu_tbl):
+    def _update_single_psu_data(self, index, psu):
         name = get_psu_key(index)
         presence = _wrapper_get_psu_presence(index)
         power_good = False
@@ -517,7 +519,7 @@ class DaemonPsud(daemon_base.DaemonBase):
              (PSU_INFO_POWER_FIELD, str(power)),
              (PSU_INFO_FRU_FIELD, str(is_replaceable)),
              ])
-        psu_tbl.set(name, fvs)
+        self.psu_tbl.set(name, fvs)
 
     def _update_psu_entity_info(self):
         if not platform_chassis:
@@ -567,15 +569,15 @@ class DaemonPsud(daemon_base.DaemonBase):
         except NotImplementedError:
             self.log_warning("set_status_led() not implemented")
 
-    def _update_led_color(self, psu_tbl):
+    def _update_led_color(self):
         if not platform_chassis:
             return
 
         for index, psu_status in self.psu_status_dict.items():
             fvs = swsscommon.FieldValuePairs([
                 ('led_status', str(try_get(psu_status.psu.get_status_led, NOT_AVAILABLE)))
-                ])
-            psu_tbl.set(get_psu_key(index), fvs)
+            ])
+            self.psu_tbl.set(get_psu_key(index), fvs)
             self._update_psu_fan_led_status(psu_status.psu, index)
 
     def _update_psu_fan_led_status(self, psu, psu_index):
@@ -588,14 +590,14 @@ class DaemonPsud(daemon_base.DaemonBase):
             ])
             self.fan_tbl.set(fan_name, fvs)
 
-    def update_psu_chassis_info(self, chassis_tbl):
+    def update_psu_chassis_info(self):
         if not platform_chassis:
             return
 
         if not self.psu_chassis_info:
             self.psu_chassis_info = PsuChassisInfo(SYSLOG_IDENTIFIER, platform_chassis)
 
-        self.psu_chassis_info.run_power_budget(chassis_tbl)
+        self.psu_chassis_info.run_power_budget(self.chassis_tbl)
         self.psu_chassis_info.update_master_status()
 
 
@@ -606,8 +608,16 @@ class DaemonPsud(daemon_base.DaemonBase):
 
 def main():
     psud = DaemonPsud(SYSLOG_IDENTIFIER)
-    psud.run()
+
+    psud.log_info("Starting up...")
+
+    while psud.run():
+        pass
+
+    psud.log_info("Shutting down...")
+
+    return exit_code
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
