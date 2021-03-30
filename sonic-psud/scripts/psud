@@ -305,7 +305,7 @@ class PsuStatus(object):
         return True
 
     def set_voltage(self, voltage, high_threshold, low_threshold):
-        if not voltage or not high_threshold or not low_threshold:
+        if voltage == NOT_AVAILABLE or high_threshold == NOT_AVAILABLE or low_threshold == NOT_AVAILABLE:
             if self.voltage_good is not True:
                 self.logger.log_warning('PSU voltage or high_threshold or low_threshold become unavailable, '
                                         'voltage={}, high_threshold={}, low_threshold={}'.format(voltage, high_threshold, low_threshold))
@@ -320,7 +320,7 @@ class PsuStatus(object):
         return True
 
     def set_temperature(self, temperature, high_threshold):
-        if not temperature or not high_threshold:
+        if temperature == NOT_AVAILABLE or high_threshold == NOT_AVAILABLE:
             if self.temperature_good is not True:
                 self.logger.log_warning('PSU temperature or high_threshold become unavailable, '
                                         'temperature={}, high_threshold={}'.format(temperature, high_threshold))
@@ -445,23 +445,23 @@ class DaemonPsud(daemon_base.DaemonBase):
         name = get_psu_key(index)
         presence = _wrapper_get_psu_presence(index)
         power_good = False
-        voltage = None
-        voltage_high_threshold = None
-        voltage_low_threshold = None
-        temperature = None
-        temperature_threshold = None
-        current = None
-        power = None
+        voltage = NOT_AVAILABLE
+        voltage_high_threshold = NOT_AVAILABLE
+        voltage_low_threshold = NOT_AVAILABLE
+        temperature = NOT_AVAILABLE
+        temperature_threshold = NOT_AVAILABLE
+        current = NOT_AVAILABLE
+        power = NOT_AVAILABLE
         is_replaceable = try_get(psu.is_replaceable, False)
         if presence:
             power_good = _wrapper_get_psu_status(index)
-            voltage = try_get(psu.get_voltage)
-            voltage_high_threshold = try_get(psu.get_voltage_high_threshold)
-            voltage_low_threshold = try_get(psu.get_voltage_low_threshold)
-            temperature = try_get(psu.get_temperature)
-            temperature_threshold = try_get(psu.get_temperature_high_threshold)
-            current = try_get(psu.get_current)
-            power = try_get(psu.get_power)
+            voltage = try_get(psu.get_voltage, NOT_AVAILABLE)
+            voltage_high_threshold = try_get(psu.get_voltage_high_threshold, NOT_AVAILABLE)
+            voltage_low_threshold = try_get(psu.get_voltage_low_threshold, NOT_AVAILABLE)
+            temperature = try_get(psu.get_temperature, NOT_AVAILABLE)
+            temperature_threshold = try_get(psu.get_temperature_high_threshold, NOT_AVAILABLE)
+            current = try_get(psu.get_current, NOT_AVAILABLE)
+            power = try_get(psu.get_power, NOT_AVAILABLE)
 
         if index not in self.psu_status_dict:
             self.psu_status_dict[index] = PsuStatus(self, psu)
@@ -508,8 +508,8 @@ class DaemonPsud(daemon_base.DaemonBase):
             self._set_psu_led(psu, psu_status)
 
         fvs = swsscommon.FieldValuePairs(
-            [(PSU_INFO_MODEL_FIELD, str(try_get(psu.get_model))),
-             (PSU_INFO_SERIAL_FIELD, str(try_get(psu.get_serial))),
+            [(PSU_INFO_MODEL_FIELD, str(try_get(psu.get_model, NOT_AVAILABLE))),
+             (PSU_INFO_SERIAL_FIELD, str(try_get(psu.get_serial, NOT_AVAILABLE))),
              (PSU_INFO_TEMP_FIELD, str(temperature)),
              (PSU_INFO_TEMP_TH_FIELD, str(temperature_threshold)),
              (PSU_INFO_VOLTAGE_FIELD, str(voltage)),

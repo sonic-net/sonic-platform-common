@@ -121,27 +121,27 @@ class TestPsuStatus(object):
         assert psu_status.voltage_good == True
 
         # Test passing parameters as None when voltage_good == True
-        ret = psu_status.set_voltage(None, 12.5, 11.5)
+        ret = psu_status.set_voltage(psud.NOT_AVAILABLE, 12.5, 11.5)
         assert ret == False
         assert psu_status.voltage_good == True
-        ret = psu_status.set_voltage(11.5, None, 11.5)
+        ret = psu_status.set_voltage(11.5, psud.NOT_AVAILABLE, 11.5)
         assert ret == False
         assert psu_status.voltage_good == True
-        ret = psu_status.set_voltage(11.5, 12.5, None)
+        ret = psu_status.set_voltage(11.5, 12.5, psud.NOT_AVAILABLE)
         assert ret == False
         assert psu_status.voltage_good == True
 
         # Test passing parameters as None when voltage_good == False
         psu_status.voltage_good = False
-        ret = psu_status.set_voltage(None, 12.5, 11.5)
+        ret = psu_status.set_voltage(psud.NOT_AVAILABLE, 12.5, 11.5)
         assert ret == False
         assert psu_status.voltage_good == True
         psu_status.voltage_good = False
-        ret = psu_status.set_voltage(11.5, None, 11.5)
+        ret = psu_status.set_voltage(11.5, psud.NOT_AVAILABLE, 11.5)
         assert ret == False
         assert psu_status.voltage_good == True
         psu_status.voltage_good = False
-        ret = psu_status.set_voltage(11.5, 12.5, None)
+        ret = psu_status.set_voltage(11.5, 12.5, psud.NOT_AVAILABLE)
         assert ret == False
         assert psu_status.voltage_good == True
 
@@ -178,20 +178,20 @@ class TestPsuStatus(object):
         assert psu_status.temperature_good == True
 
         # Test passing parameters as None when temperature_good == True
-        ret = psu_status.set_temperature(None, 50.0)
+        ret = psu_status.set_temperature(psud.NOT_AVAILABLE, 50.0)
         assert ret == False
         assert psu_status.temperature_good == True
-        ret = psu_status.set_temperature(20.123, None)
+        ret = psu_status.set_temperature(20.123, psud.NOT_AVAILABLE)
         assert ret == False
         assert psu_status.temperature_good == True
 
         # Test passing parameters as None when temperature_good == False
         psu_status.temperature_good = False
-        ret = psu_status.set_temperature(None, 50.0)
+        ret = psu_status.set_temperature(psud.NOT_AVAILABLE, 50.0)
         assert ret == False
         assert psu_status.temperature_good == True
         psu_status.temperature_good = False
-        ret = psu_status.set_temperature(20.123, None)
+        ret = psu_status.set_temperature(20.123, psud.NOT_AVAILABLE)
         assert ret == False
         assert psu_status.temperature_good == True
 
