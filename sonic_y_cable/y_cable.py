@@ -602,6 +602,7 @@ def check_if_link_is_active_for_torB(physical_port):
         return False
 
 
+@hook_y_cable_simulator
 def enable_prbs_mode(physical_port, target, mode_value, lane_map):
     """
     This API specifically configures and enables the PRBS mode/type depending upon the mode_value the user provides.
@@ -674,6 +675,7 @@ def enable_prbs_mode(physical_port, target, mode_value, lane_map):
     return result
 
 
+@hook_y_cable_simulator
 def disable_prbs_mode(physical_port, target):
     """
     This API specifically disables the PRBS mode on the physcial port.
@@ -724,6 +726,7 @@ def disable_prbs_mode(physical_port, target):
     return result
 
 
+@hook_y_cable_simulator
 def enable_loopback_mode(physical_port, target, lane_map):
     """
     This API specifically configures and enables the Loopback mode on the port user provides.
@@ -781,6 +784,7 @@ def enable_loopback_mode(physical_port, target, lane_map):
     return result
 
 
+@hook_y_cable_simulator
 def disable_loopback_mode(physical_port, target):
     """
     This API specifically disables the Loopback mode on the port user provides.
@@ -834,6 +838,7 @@ def disable_loopback_mode(physical_port, target):
     return result
 
 
+@hook_y_cable_simulator
 def get_ber_info(physical_port, target):
     """
     This API specifically returns the BER (Bit error rate) value for a specfic port.
@@ -912,6 +917,7 @@ def get_ber_info(physical_port, target):
     return ber_result
 
 
+@hook_y_cable_simulator
 def get_eye_info(physical_port, target):
     """
     This API specifically returns the EYE height value for a specfic port.
@@ -989,6 +995,7 @@ def get_eye_info(physical_port, target):
     return eye_result
 
 
+@hook_y_cable_simulator
 def get_part_number(physical_port):
     """
     This API specifically returns the part number of the Y cable for a specfic port.
@@ -1015,6 +1022,7 @@ def get_part_number(physical_port):
     return part_number
 
 
+@hook_y_cable_simulator
 def get_vendor(physical_port):
     """
     This API specifically returns the vendor name of the Y cable for a specfic port.
@@ -1041,6 +1049,7 @@ def get_vendor(physical_port):
     return vendor_name
 
 
+@hook_y_cable_simulator
 def get_switch_count(physical_port, count_type):
     """
     This API specifically returns the switch count to change the Active TOR which has
@@ -1089,6 +1098,7 @@ def get_switch_count(physical_port, count_type):
     return count
 
 
+@hook_y_cable_simulator
 def get_target_cursor_values(physical_port, lane, target):
     """
     This API specifically returns the cursor equalization parameters for a target(NIC, TOR1, TOR2).
@@ -1145,6 +1155,7 @@ def get_target_cursor_values(physical_port, lane, target):
     return result
 
 
+@hook_y_cable_simulator
 def check_if_nic_lanes_active(physical_port):
     """
     This API specifically returns the byte value which denotes which nic lanes
@@ -1175,6 +1186,7 @@ def check_if_nic_lanes_active(physical_port):
     return result
 
 
+@hook_y_cable_simulator
 def get_firmware_version(physical_port, target):
 
     data = bytearray(FIRMWARE_INFO_PAYLOAD_SIZE)
@@ -1226,6 +1238,7 @@ def get_firmware_version(physical_port, target):
     return result
 
 
+@hook_y_cable_simulator
 def get_internal_voltage_temp(physical_port):
 
     curr_offset = OFFSET_INTERNAL_TEMPERATURE
@@ -1250,6 +1263,7 @@ def get_internal_voltage_temp(physical_port):
     return temp, voltage
 
 
+@hook_y_cable_simulator
 def get_nic_voltage_temp(physical_port):
 
     curr_offset = OFFSET_NIC_TEMPERATURE
@@ -1274,6 +1288,7 @@ def get_nic_voltage_temp(physical_port):
     return temp, voltage
 
 
+@hook_y_cable_simulator
 def get_local_temperature(physical_port):
 
     curr_offset = OFFSET_INTERNAL_TEMPERATURE
@@ -1289,6 +1304,7 @@ def get_local_temperature(physical_port):
     return temp
 
 
+@hook_y_cable_simulator
 def get_local_voltage(physical_port):
 
     if platform_chassis is not None:
@@ -1308,6 +1324,7 @@ def get_local_voltage(physical_port):
     return voltage
 
 
+@hook_y_cable_simulator
 def get_nic_temperature(physical_port):
 
     curr_offset = OFFSET_NIC_TEMPERATURE
@@ -1323,6 +1340,7 @@ def get_nic_temperature(physical_port):
     return temp
 
 
+@hook_y_cable_simulator
 def get_nic_voltage(physical_port):
 
     curr_offset = OFFSET_NIC_VOLTAGE
@@ -1342,6 +1360,7 @@ def get_nic_voltage(physical_port):
     return voltage
 
 
+@hook_y_cable_simulator
 def download_firmware(physical_port, fwfile):
     """ This routine should download and store the firmware on all the
     components of the Y cable of the port specified.
@@ -1371,6 +1390,7 @@ def download_firmware(physical_port, fwfile):
     return FIRMWARE_DOWNLOAD_SUCCESS
 
 
+@hook_y_cable_simulator
 def activate_firmware(physical_port):
     """ This routine should activate the downloaded firmware on all the
     components of the Y cable of the port specified.
@@ -1392,6 +1412,7 @@ def activate_firmware(physical_port):
     return FIRMWARE_ACTIVATE_SUCCESS
 
 
+@hook_y_cable_simulator
 def rollback_firmware(physical_port):
     """ This routine should rollback the firmware to the previous version
     which was being used by the cable. This API is intended to be called when the
@@ -1410,6 +1431,7 @@ def rollback_firmware(physical_port):
     return FIRMWARE_ROLLBACK_SUCCESS
 
 
+@hook_y_cable_simulator
 def set_switching_mode(physical_port, mode):
     """
     This API specifically enables the auto switching or manual switching feature on the muxcable,
@@ -1456,6 +1478,8 @@ def set_switching_mode(physical_port, mode):
 
     return result
 
+
+@hook_y_cable_simulator
 def get_switching_mode(physical_port):
     """
     This API specifically returns which type of switching mode the cable is set to auto/manual
