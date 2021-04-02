@@ -1235,6 +1235,15 @@ def get_firmware_version(physical_port, target):
         result["empty_slot1"] = True if slot_status & 0x04 else False
         result["empty_slot2"] = True if slot_status & 0x40 else False
 
+        version_build_slot1 = version_slot1 + build_slot1
+        version_build_slot2 = version_slot2 + build_slot2
+
+        result["version_active"] = version_build_slot1 if slot_status & 0x01 else version_build_slot2
+        result["version_inactive"] = version_build_slot2 if slot_status & 0x01 else version_build_slot1
+        result["version_next"] = version_build_slot1 if slot_status & 0x02
+        result["version_next"] = version_build_slot2 if slot_status & 0x20
+
+
     return result
 
 
