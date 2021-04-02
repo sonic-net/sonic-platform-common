@@ -1224,6 +1224,10 @@ def get_firmware_version(physical_port, target):
         build_slot2 = chr(rev_build_lsb_slot2) + chr(rev_build_msb_slot2)
         version_slot2 = str(rev_major_slot2) + "." + str(rev_minor_slot2)
 
+        '''TODO: the fields with slot number as suffix are redundant and must
+        be removed eventually since they are covered by the fields which
+        have version as prefix. '''
+
         result["build_slot1"] = build_slot1
         result["version_slot1"] = version_slot1
         result["build_slot2"] = build_slot2
