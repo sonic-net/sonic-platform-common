@@ -1224,6 +1224,10 @@ def get_firmware_version(physical_port, target):
         build_slot2 = chr(rev_build_lsb_slot2) + chr(rev_build_msb_slot2)
         version_slot2 = str(rev_major_slot2) + "." + str(rev_minor_slot2)
 
+        '''TODO: the fields with slot number as suffix are redundant and must
+        be removed eventually since they are covered by the fields which
+        have version as prefix. '''
+
         result["build_slot1"] = build_slot1
         result["version_slot1"] = version_slot1
         result["build_slot2"] = build_slot2
@@ -1234,6 +1238,14 @@ def get_firmware_version(physical_port, target):
         result["commit_slot2"] = True if slot_status & 0x20 else False
         result["empty_slot1"] = True if slot_status & 0x04 else False
         result["empty_slot2"] = True if slot_status & 0x40 else False
+
+        version_build_slot1 = version_slot1 + build_slot1
+        version_build_slot2 = version_slot2 + build_slot2
+
+        result["version_active"] = version_build_slot1 if slot_status & 0x01 else version_build_slot2
+        result["version_inactive"] = version_build_slot2 if slot_status & 0x01 else version_build_slot1
+        result["version_next"] = version_build_slot1 if slot_status & 0x02 else version_build_slot2
+
 
     return result
 
