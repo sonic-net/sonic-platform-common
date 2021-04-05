@@ -545,8 +545,9 @@ def recover_missing_sfp_table_entries(sfp_util, int_tbl, status_tbl, stop_event)
 
 
 def check_port_in_range(range_str, physical_port):
-    range_separator = '-'
-    range_list = range_str.split(range_separator)
+    RANGE_SEPARATOR = '-'
+
+    range_list = range_str.split(RANGE_SEPARATOR)
     start_num = int(range_list[0].strip())
     end_num = int(range_list[1].strip())
     if start_num <= physical_port <= end_num:
@@ -555,8 +556,11 @@ def check_port_in_range(range_str, physical_port):
 
 
 def get_media_settings_value(physical_port, key):
-    range_separator = '-'
-    comma_separator = ','
+    GLOBAL_MEDIA_SETTINGS_KEY = 'GLOBAL_MEDIA_SETTINGS'
+    PORT_MEDIA_SETTINGS_KEY = 'PORT_MEDIA_SETTINGS'
+    DEFAULT_KEY = 'Default'
+    RANGE_SEPARATOR = '-'
+    COMMA_SEPARATOR = ','
     media_dict = {}
     default_dict = {}
 
@@ -566,22 +570,22 @@ def get_media_settings_value(physical_port, key):
     # 1,2,3,4,5
     # 1-4,9-12
 
-    if "GLOBAL_MEDIA_SETTINGS" in g_dict:
-        for keys in g_dict["GLOBAL_MEDIA_SETTINGS"]:
-            if comma_separator in keys:
-                port_list = keys.split(comma_separator)
+    if GLOBAL_MEDIA_SETTINGS_KEY in g_dict:
+        for keys in g_dict[GLOBAL_MEDIA_SETTINGS_KEY]:
+            if COMMA_SEPARATOR in keys:
+                port_list = keys.split(COMMA_SEPARATOR)
                 for port in port_list:
-                    if range_separator in port:
+                    if RANGE_SEPARATOR in port:
                         if check_port_in_range(port, physical_port):
-                            media_dict = g_dict["GLOBAL_MEDIA_SETTINGS"][keys]
+                            media_dict = g_dict[GLOBAL_MEDIA_SETTINGS_KEY][keys]
                             break
                     elif str(physical_port) == port:
-                        media_dict = g_dict["GLOBAL_MEDIA_SETTINGS"][keys]
+                        media_dict = g_dict[GLOBAL_MEDIA_SETTINGS_KEY][keys]
                         break
 
-            elif range_separator in keys:
+            elif RANGE_SEPARATOR in keys:
                 if check_port_in_range(keys, physical_port):
-                    media_dict = g_dict["GLOBAL_MEDIA_SETTINGS"][keys]
+                    media_dict = g_dict[GLOBAL_MEDIA_SETTINGS_KEY][keys]
 
             # If there is a match in the global profile for a media type,
             # fetch those values
@@ -589,35 +593,37 @@ def get_media_settings_value(physical_port, key):
                 return media_dict[key[0]]
             elif key[1] in media_dict:
                 return media_dict[key[1]]
-            elif "Default" in media_dict:
-                default_dict = media_dict['Default']
+            elif DEFAULT_KEY in media_dict:
+                default_dict = media_dict[DEFAULT_KEY]
 
     media_dict = {}
 
-    if "PORT_MEDIA_SETTINGS" in g_dict:
-        for keys in g_dict["PORT_MEDIA_SETTINGS"]:
+    if PORT_MEDIA_SETTINGS_KEY in g_dict:
+        for keys in g_dict[PORT_MEDIA_SETTINGS_KEY]:
             if int(keys) == physical_port:
-                media_dict = g_dict["PORT_MEDIA_SETTINGS"][keys]
+                media_dict = g_dict[PORT_MEDIA_SETTINGS_KEY][keys]
                 break
+
         if len(media_dict) == 0:
-            if default_dict != 0:
+            if len(default_dict) != 0:
                 return default_dict
             else:
                 helper_logger.log_error("Error: No values for physical port '{}'".format(physical_port))
             return {}
+
         if key[0] in media_dict:
             return media_dict[key[0]]
         elif key[1] in media_dict:
             return media_dict[key[1]]
-        elif "Default" in media_dict:
-            return media_dict['Default']
+        elif DEFAULT_KEY in media_dict:
+            return media_dict[DEFAULT_KEY]
         elif len(default_dict) != 0:
             return default_dict
-        else:
-            return {}
     else:
-        if default_dict != 0:
+        if len(default_dict) != 0:
             return default_dict
+
+    return {}
 
 
 def get_media_settings_key(physical_port, transceiver_dict):
@@ -632,7 +638,13 @@ def get_media_settings_key(physical_port, transceiver_dict):
         media_len = transceiver_dict[physical_port]['cable_length']
 
     media_compliance_dict_str = transceiver_dict[physical_port]['specification_compliance']
-    media_compliance_dict = ast.literal_eval(media_compliance_dict_str)
+
+    media_compliance_dict = {}
+    try:
+        media_compliance_dict = ast.literal_eval(media_compliance_dict_str)
+    except ValueError as e:
+        helper_logger.log_error("Invalid value for port {} 'specification_compliance': {}".format(physical_port, media_compliance_dict_str))
+
     media_compliance_code = ''
     media_type = ''
 
@@ -654,24 +666,26 @@ def get_media_settings_key(physical_port, transceiver_dict):
 
 
 def get_media_val_str_from_dict(media_dict):
+    LANE_STR = 'lane'
+    LANE_SEPARATOR = ','
+
     media_str = ''
-    lane_str = 'lane'
-    lane_separator = ','
     tmp_dict = {}
 
     for keys in media_dict:
-        lane_num = int(keys.strip()[len(lane_str):])
+        lane_num = int(keys.strip()[len(LANE_STR):])
         tmp_dict[lane_num] = media_dict[keys]
 
     for key in range(0, len(tmp_dict)):
         media_str += tmp_dict[key]
         if key != list(tmp_dict.keys())[-1]:
-            media_str += lane_separator
+            media_str += LANE_SEPARATOR
     return media_str
 
 
 def get_media_val_str(num_logical_ports, lane_dict, logical_idx):
-    lane_str = "lane"
+    LANE_STR = 'lane'
+
     logical_media_dict = {}
     num_lanes_on_port = len(lane_dict)
 
@@ -685,8 +699,8 @@ def get_media_val_str(num_logical_ports, lane_dict, logical_idx):
 
         for lane_idx in range(start_lane, start_lane +
                               num_lanes_per_logical_port):
-            lane_idx_str = lane_str + str(lane_idx)
-            logical_lane_idx_str = lane_str + str(lane_idx - start_lane)
+            lane_idx_str = LANE_STR + str(lane_idx)
+            logical_lane_idx_str = LANE_STR + str(lane_idx - start_lane)
             logical_media_dict[logical_lane_idx_str] = lane_dict[lane_idx_str]
 
         media_val_str = get_media_val_str_from_dict(logical_media_dict)

@@ -317,3 +317,25 @@ class TestXcvrdScript(object):
         mux_tbl = Table("STATE_DB", y_cable_helper.MUX_CABLE_STATIC_INFO_TABLE)
         rc = post_port_mux_static_info_to_db(logical_port_name, mux_tbl)
         assert(rc != -1)
+
+    def test_get_media_settings_key(self):
+        xcvr_info_dict = {
+            0: {
+                'manufacturer': 'Molex',
+                'model': '1064141421',
+                'cable_type': 'Length Cable Assembly(m)',
+                'cable_length': '255',
+                'specification_compliance': "{'10/40G Ethernet Compliance Code': '10GBase-SR'}",
+                'type_abbrv_name': 'QSFP+'
+            }
+        }
+
+        # Test a good 'specification_compliance' value
+        result = get_media_settings_key(0, xcvr_info_dict)
+        assert result == ['MOLEX-1064141421', 'QSFP+-10GBase-SR-255M']
+
+        # Test a bad 'specification_compliance' value
+        xcvr_info_dict[0]['specification_compliance'] = 'N/A'
+        result = get_media_settings_key(0, xcvr_info_dict)
+        assert result == ['MOLEX-1064141421', 'QSFP+']
+        # TODO: Ensure that error message was logged
