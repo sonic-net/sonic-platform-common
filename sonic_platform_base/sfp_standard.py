@@ -553,9 +553,6 @@ class SfpStandard(SfpBase):
             transceiver_dom_info_dict['tx1disable']  = 'true' if transceiver_dom_info_dict['tx1disable'] == 'On' else 'false'
             transceiver_dom_info_dict['tx1fault']    = dom_data['data']['StatusControl']['TXFaultState']
             transceiver_dom_info_dict['tx1fault']    = 'true' if transceiver_dom_info_dict['tx1fault'] == 'On' else 'false'
-            for k in transceiver_dom_info_dict.keys():
-                if k.startswith('rx1') or k.startswith('tx1'):
-                    transceiver_dom_info_dict["{0}{1}".format(k[0:2], k[3:])] = transceiver_dom_info_dict[k]
 
         return transceiver_dom_info_dict
 
