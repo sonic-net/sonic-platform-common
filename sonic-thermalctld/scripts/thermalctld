@@ -745,18 +745,18 @@ class ThermalControlDaemon(daemon_base.DaemonBase):
 
         self.wait_time = self.INTERVAL
 
-        chassis = sonic_platform.platform.Platform().get_chassis()
+        self.chassis = sonic_platform.platform.Platform().get_chassis()
 
-        self.thermal_monitor = ThermalMonitor(chassis)
+        self.thermal_monitor = ThermalMonitor(self.chassis)
         self.thermal_monitor.task_run()
 
         self.thermal_manager = None
         try:
-            self.thermal_manager = chassis.get_thermal_manager()
+            self.thermal_manager = self.chassis.get_thermal_manager()
             if self.thermal_manager:
                 self.thermal_manager.initialize()
                 self.thermal_manager.load(ThermalControlDaemon.POLICY_FILE)
-                self.thermal_manager.init_thermal_algorithm(chassis)
+                self.thermal_manager.init_thermal_algorithm(self.chassis)
         except NotImplementedError:
             self.log_warning('Thermal manager is not supported on this platform')
         except Exception as e:
@@ -810,7 +810,7 @@ class ThermalControlDaemon(daemon_base.DaemonBase):
         begin = time.time()
         try:
             if self.thermal_manager:
-                self.thermal_manager.run_policy(chassis)
+                self.thermal_manager.run_policy(self.chassis)
         except Exception as e:
             self.log_error('Caught exception while running thermal policy - {}'.format(repr(e)))
 
