@@ -100,7 +100,19 @@ ext_type_of_transceiver = {
     '6': 'Power Class 7',
     '7': 'Power Class 8'
     }
-    
+
+# CMIS4
+power_class_of_transceiver = {
+    '00': 'Power Class 1',
+    '01': 'Power Class 2',
+    '02': 'Power Class 3',
+    '03': 'Power Class 4',
+    '04': 'Power Class 5',
+    '05': 'Power Class 6',
+    '06': 'Power Class 7',
+    '07': 'Power Class 8'
+    }
+
 type_of_media_interface = {
     '00': 'Undefined',
     '01': 'nm_850_media_interface',
@@ -355,4 +367,3 @@ ext_specification_compliance = {
     '54': '128GFC SW',
     '55': '128GFC LW'
 }
-

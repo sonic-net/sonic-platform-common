@@ -75,7 +75,7 @@ class qsfp_dd_InterfaceId(sffbase):
         return base_len * mult
 
     def decode_media_type(self, eeprom_data, offset, size):
-        media_type_code = eeprom_data[0]
+        media_type_code = eeprom_data[offset]
         dict_name = type_of_media_interface[media_type_code]
         if dict_name == "nm_850_media_interface":
             return nm_850_media_interface
