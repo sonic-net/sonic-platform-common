@@ -9,6 +9,7 @@ from __future__ import print_function
 
 try:
     import abc
+    import sys
     import json
     import time
     from multiprocessing import Lock
@@ -136,8 +137,13 @@ class SfpStandard(SfpBase):
 
         if buf is None:
             return None
-        for x in buf:
-            eeprom_raw.append(x)
+        # TODO: Remove this check once we no longer support Python 2
+        if sys.version_info >= (3,0):
+            for x in buf:
+                eeprom_raw.append(x)
+        else:
+            for x in buf:
+                eeprom_raw.append(ord(x))
         while len(eeprom_raw) < num_bytes:
             eeprom_raw.append(0)
         return eeprom_raw
@@ -186,8 +192,13 @@ class SfpStandard(SfpBase):
         try:
             sysfsfile_eeprom = open(sysfs_sfp_i2c_client_eeprom_path, "wb", 0)
             sysfsfile_eeprom.seek(offset)
-            for i in range(num_bytes):
-                sysfsfile_eeprom.write(write_buffer[i])
+            # TODO: Remove this check once we no longer support Python 2
+            if sys.version_info >= (3,0):
+                for i in range(num_bytes):
+                    sysfsfile_eeprom.write(write_buffer[i])
+            else:
+                for i in range(num_bytes):
+                    sysfsfile_eeprom.write(chr(write_buffer[i]))
         except Exception as ex:
             print("port {0}: {1}: offset {2}: write failed: {3}".format(self.port_index, sysfs_sfp_i2c_client_eeprom_path, hex(offset), ex))
             return False
@@ -323,9 +334,10 @@ class SfpStandard(SfpBase):
             sfp_keys['power_class']      = 'Power Class'
             sfp_keys['revision_compliance'] = 'Revision Compliance'
 
-            if int(sfp_data['data']['Length Cable Assembly(m)']) != 0:
+            cable_length = float(sfp_data['data']['Length Cable Assembly(m)'])
+            if cable_length != 0.0:
                 transceiver_info_dict['cable_type'] = 'Length Cable Assembly(m)'
-                transceiver_info_dict['cable_length'] = sfp_data['data']['Length Cable Assembly(m)']
+                transceiver_info_dict['cable_length'] = str(cable_length)
 
             app_adv_dict = sfp_data['data'].get('Application Advertisement')
             if (app_adv_dict is not None) and len(app_adv_dict) > 0:
