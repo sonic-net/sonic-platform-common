@@ -10,7 +10,6 @@ from __future__ import print_function
 try:
     import abc
     import sys
-    import json
     import time
     from multiprocessing import Lock
     from .sfp_base import SfpBase
@@ -18,7 +17,6 @@ try:
     from .sonic_sfp.sff8436 import sff8436Dom
     from .sonic_sfp.sff8472 import sff8472InterfaceId
     from .sonic_sfp.sff8472 import sff8472Dom
-    from .sonic_sfp.sff8472 import sffbase
     from .sonic_sfp.inf8628 import inf8628InterfaceId
     from .sonic_sfp.inf8628 import inf8628Dom
 except ImportError as e:
@@ -467,8 +465,9 @@ class SfpStandard(SfpBase):
                 dom_raw[dom_pos] = x
                 dom_pos += 1
             dom_pos = CMIS4_PAGE_ADDR_11h
-            # Refresh the Lane-specific Clear-on-Read registers (e.g. LOS, LOL...)
+            # Clear the Lane-specific Clear-on-Read registers (e.g. LOS, LOL...)
             tmp = self.get_eeprom_raw(dom_pos + (137 & 0x7f), 16)
+            # Now fetch the page 11h
             tmp = self.get_eeprom_raw(dom_pos, CMIS4_PAGE_SIZE)
             if tmp is not None:
                 for x in tmp:
