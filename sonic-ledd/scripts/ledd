@@ -10,7 +10,7 @@ import sys
 
 from sonic_py_common import daemon_base
 from sonic_py_common import multi_asic
-from sonic_py_common.interface import backplane_prefix
+from sonic_py_common.interface import backplane_prefix, inband_prefix
 from swsscommon import swsscommon
 
 #============================= Constants =============================
@@ -96,7 +96,7 @@ class DaemonLedd(daemon_base.DaemonBase):
             fvp_dict = dict(fvp)
 
             if op == "SET" and "oper_status" in fvp_dict:
-                if not key.startswith(backplane_prefix()):
+                if not key.startswith(backplane_prefix()) and not key.startswith(inband_prefix()):
                     self.led_control.port_link_state_change(key, fvp_dict["oper_status"])
         else:
             return 4
