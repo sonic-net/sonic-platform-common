@@ -29,7 +29,6 @@ PHYSICAL_ENTITY_INFO_TABLE = 'PHYSICAL_ENTITY_INFO'
 INVALID_SLOT = -1
 
 ERR_UNKNOWN = 1
-ERR_INIT_FAILED = 2
 
 # Thermal control daemon is designed to never exit, it must always
 # return non-zero exit code when exiting and so that supervisord will
@@ -761,7 +760,6 @@ class ThermalControlDaemon(daemon_base.DaemonBase):
             self.log_warning('Thermal manager is not supported on this platform')
         except Exception as e:
             self.log_error('Caught exception while initializing thermal manager - {}'.format(repr(e)))
-            sys.exit(ERR_INIT_FAILED)
 
     def deinit(self):
         """
