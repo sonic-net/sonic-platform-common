@@ -542,27 +542,14 @@ def get_firmware_dict(physical_port, target, side, mux_info_dict):
     result = y_cable.get_firmware_version(physical_port, target)
 
     if result is not None and isinstance(result, dict):
-        mux_info_dict[("build_slot1_{}".format(side))] = result.get("build_slot1", None)
-        mux_info_dict[("version_slot1_{}".format(side))] = result.get("version_slot1", None)
-        mux_info_dict[("build_slot2_{}".format(side))] = result.get("build_slot2", None)
-        mux_info_dict[("version_slot2_{}".format(side))] = result.get("version_slot2", None)
-        mux_info_dict[("run_slot1_{}".format(side))] = result.get("run_slot1", None)
-        mux_info_dict[("run_slot2_{}".format(side))] = result.get("run_slot2", None)
-        mux_info_dict[("commit_slot1_{}".format(side))] = result.get("commit_slot1", None)
-        mux_info_dict[("commit_slot2_{}".format(side))] = result.get("commit_slot2", None)
-        mux_info_dict[("empty_slot1_{}".format(side))] = result.get("empty_slot1", None)
-        mux_info_dict[("empty_slot2_{}".format(side))] = result.get("empty_slot2", None)
+        mux_info_dict[("version_{}_active".format(side))] = result.get("version_active", None)
+        mux_info_dict[("version_{}_inactive".format(side))] = result.get("version_inactive", None)
+        mux_info_dict[("version_{}_next".format(side))] = result.get("version_next", None)
+
     else:
-        mux_info_dict[("build_slot1_{}".format(side))] = "N/A"
-        mux_info_dict[("version_slot1_{}".format(side))] = "N/A"
-        mux_info_dict[("build_slot2_{}".format(side))] = "N/A"
-        mux_info_dict[("version_slot2_{}".format(side))] = "N/A"
-        mux_info_dict[("run_slot1_{}".format(side))] = "N/A"
-        mux_info_dict[("run_slot2_{}".format(side))] = "N/A"
-        mux_info_dict[("commit_slot1_{}".format(side))] = "N/A"
-        mux_info_dict[("commit_slot2_{}".format(side))] = "N/A"
-        mux_info_dict[("empty_slot1_{}".format(side))] = "N/A"
-        mux_info_dict[("empty_slot2_{}".format(side))] = "N/A"
+        mux_info_dict[("version_{}_active".format(side))] = "N/A"
+        mux_info_dict[("version_{}_inactive".format(side))] = "N/A"
+        mux_info_dict[("version_{}_next".format(side))] = "N/A"
 
 
 def get_muxcable_info(physical_port, logical_port_name):
@@ -715,11 +702,11 @@ def get_muxcable_info(physical_port, logical_port_name):
 
     get_firmware_dict(physical_port, 0, "nic", mux_info_dict)
     if read_side == 1:
-        get_firmware_dict(physical_port, 1, "tor_self", mux_info_dict)
-        get_firmware_dict(physical_port, 2, "tor_peer", mux_info_dict)
+        get_firmware_dict(physical_port, 1, "self", mux_info_dict)
+        get_firmware_dict(physical_port, 2, "peer", mux_info_dict)
     else:
-        get_firmware_dict(physical_port, 1, "tor_peer", mux_info_dict)
-        get_firmware_dict(physical_port, 2, "tor_self", mux_info_dict)
+        get_firmware_dict(physical_port, 1, "peer", mux_info_dict)
+        get_firmware_dict(physical_port, 2, "self", mux_info_dict)
 
     res = y_cable.get_internal_voltage_temp(physical_port)
 
@@ -879,36 +866,15 @@ def post_port_mux_info_to_db(logical_port_name, table):
                  ('internal_voltage', str(mux_info_dict["internal_voltage"])),
                  ('nic_temperature', str(mux_info_dict["nic_temperature"])),
                  ('nic_voltage', str(mux_info_dict["nic_voltage"])),
-                 ('build_slot1_nic', str(mux_info_dict["build_slot1_nic"])),
-                 ('build_slot2_nic', str(mux_info_dict["build_slot2_nic"])),
-                 ('version_slot1_nic', str(mux_info_dict["version_slot1_nic"])),
-                 ('version_slot2_nic', str(mux_info_dict["version_slot2_nic"])),
-                 ('run_slot1_nic', str(mux_info_dict["run_slot1_nic"])),
-                 ('run_slot2_nic', str(mux_info_dict["run_slot2_nic"])),
-                 ('commit_slot1_nic', str(mux_info_dict["commit_slot1_nic"])),
-                 ('commit_slot2_nic', str(mux_info_dict["commit_slot2_nic"])),
-                 ('empty_slot1_nic', str(mux_info_dict["empty_slot1_nic"])),
-                 ('empty_slot2_nic', str(mux_info_dict["empty_slot2_nic"])),
-                 ('build_slot1_tor_self', str(mux_info_dict["build_slot1_tor_self"])),
-                 ('build_slot2_tor_self', str(mux_info_dict["build_slot2_tor_self"])),
-                 ('version_slot1_tor_self', str(mux_info_dict["version_slot1_tor_self"])),
-                 ('version_slot2_tor_self', str(mux_info_dict["version_slot2_tor_self"])),
-                 ('run_slot1_tor_self', str(mux_info_dict["run_slot1_tor_self"])),
-                 ('run_slot2_tor_self', str(mux_info_dict["run_slot2_tor_self"])),
-                 ('commit_slot1_tor_self', str(mux_info_dict["commit_slot1_tor_self"])),
-                 ('commit_slot2_tor_self', str(mux_info_dict["commit_slot2_tor_self"])),
-                 ('empty_slot1_tor_self', str(mux_info_dict["empty_slot1_tor_self"])),
-                 ('empty_slot2_tor_self', str(mux_info_dict["empty_slot2_tor_self"])),
-                 ('build_slot1_tor_peer', str(mux_info_dict["build_slot1_tor_peer"])),
-                 ('build_slot2_tor_peer', str(mux_info_dict["build_slot2_tor_peer"])),
-                 ('version_slot1_tor_peer', str(mux_info_dict["version_slot1_tor_peer"])),
-                 ('version_slot2_tor_peer', str(mux_info_dict["version_slot2_tor_peer"])),
-                 ('run_slot1_tor_peer', str(mux_info_dict["run_slot1_tor_peer"])),
-                 ('run_slot2_tori_peer', str(mux_info_dict["run_slot2_tor_peer"])),
-                 ('commit_slot1_tor_peer', str(mux_info_dict["commit_slot1_tor_peer"])),
-                 ('commit_slot2_tor_peer', str(mux_info_dict["commit_slot2_tor_peer"])),
-                 ('empty_slot1_tor_peer', str(mux_info_dict["empty_slot1_tor_peer"])),
-                 ('empty_slot2_tor_peer', str(mux_info_dict["empty_slot2_tor_peer"]))
+                 ('version_self_active', str(mux_info_dict["version_self_active"])),
+                 ('version_self_inactive', str(mux_info_dict["version_self_inactive"])),
+                 ('version_self_next', str(mux_info_dict["version_self_next"])),
+                 ('version_peer_active', str(mux_info_dict["version_peer_active"])),
+                 ('version_peer_inactive', str(mux_info_dict["version_peer_inactive"])),
+                 ('version_peer_next', str(mux_info_dict["version_peer_next"])),
+                 ('version_nic_active', str(mux_info_dict["version_nic_active"])),
+                 ('version_nic_inactive', str(mux_info_dict["version_nic_inactive"])),
+                 ('version_nic_next', str(mux_info_dict["version_nic_next"]))
                  ])
             table.set(logical_port_name, fvs)
         else:
