@@ -55,6 +55,15 @@ class DeviceBase(object):
         """
         raise NotImplementedError
 
+    def get_revision(self):
+        """
+        Retrieves the hardware revision number of the device
+
+        Returns:
+            string: Revision number of device
+        """
+        raise NotImplementedError
+
     def get_status(self):
         """
         Retrieves the operational status of the device
