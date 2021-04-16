@@ -1054,66 +1054,71 @@ class YCableTableUpdateTask(object):
             namespace = redisSelectObj.getDbConnector().getNamespace()
             asic_index = multi_asic.get_asic_index_from_namespace(namespace)
 
-            (port, op, fvp) = status_tbl[asic_index].pop()
-            if fvp:
-                # This check might be redundant, to check, the presence of this Port in keys
-                # in logical_port_list but keep for now for coherency
-                # also skip checking in logical_port_list inside sfp_util
-                if port not in y_cable_tbl_keys[asic_index]:
-                    continue
-
-                fvp_dict = dict(fvp)
-
-                if "state" in fvp_dict:
-                    # got a state change
-                    new_status = fvp_dict["state"]
-                    (status, fvs) = y_cable_tbl[asic_index].get(port)
-                    if status is False:
-                        helper_logger.log_warning("Could not retreive fieldvalue pairs for {}, inside state_db table {}".format(
-                            port, y_cable_tbl[asic_index]))
+            while True:
+                (port, op, fvp) = status_tbl[asic_index].pop()
+                if not port:
+                    break
+                if fvp:
+                    # This check might be redundant, to check, the presence of this Port in keys
+                    # in logical_port_list but keep for now for coherency
+                    # also skip checking in logical_port_list inside sfp_util
+                    if port not in y_cable_tbl_keys[asic_index]:
                         continue
-                    mux_port_dict = dict(fvs)
-                    old_status = mux_port_dict.get("state")
-                    read_side = mux_port_dict.get("read_side")
-                    # Now whatever is the state requested, toggle the mux appropriately
-                    active_side = update_tor_active_side(read_side, new_status, port)
-                    if active_side == -1:
-                        helper_logger.log_warning("ERR: Got a change event for toggle but could not toggle the mux-direction for port {} state from {} to {}, writing unknown".format(
-                            port, old_status, new_status))
-                        new_status = 'unknown'
 
-                    fvs_updated = swsscommon.FieldValuePairs([('state', new_status),
-                                                              ('read_side',
-                                                               read_side),
-                                                              ('active_side', str(active_side))])
-                    y_cable_tbl[asic_index].set(port, fvs_updated)
-                    helper_logger.log_info("Got a change event for toggle the mux-direction active side for port {} state from {} to {}".format(
-                        port, old_status, new_status))
-                else:
-                    helper_logger.log_info("Got a change event on port {} of table {} that does not contain state".format(
-                        port, swsscommon.APP_HW_MUX_CABLE_TABLE_NAME))
+                    fvp_dict = dict(fvp)
 
-            (port_m, op_m, fvp_m) = mux_cable_command_tbl[asic_index].pop()
-            if fvp_m:
-
-                if port_m not in y_cable_tbl_keys[asic_index]:
-                    continue
-
-                fvp_dict = dict(fvp_m)
-
-                if "command" in fvp_dict:
-                    # check if xcvrd got a probe command
-                    probe_identifier = fvp_dict["command"]
-
-                    if probe_identifier == "probe":
-                        (status, fv) = y_cable_tbl[asic_index].get(port_m)
+                    if "state" in fvp_dict:
+                        # got a state change
+                        new_status = fvp_dict["state"]
+                        (status, fvs) = y_cable_tbl[asic_index].get(port)
                         if status is False:
                             helper_logger.log_warning("Could not retreive fieldvalue pairs for {}, inside state_db table {}".format(
-                                port_m, y_cable_tbl[asic_index]))
+                                port, y_cable_tbl[asic_index]))
                             continue
-                        mux_port_dict = dict(fv)
+                        mux_port_dict = dict(fvs)
+                        old_status = mux_port_dict.get("state")
                         read_side = mux_port_dict.get("read_side")
-                        update_appdb_port_mux_cable_response_table(port_m, asic_index, appl_db, int(read_side))
+                        # Now whatever is the state requested, toggle the mux appropriately
+                        active_side = update_tor_active_side(read_side, new_status, port)
+                        if active_side == -1:
+                            helper_logger.log_warning("ERR: Got a change event for toggle but could not toggle the mux-direction for port {} state from {} to {}, writing unknown".format(
+                                port, old_status, new_status))
+                            new_status = 'unknown'
+
+                        fvs_updated = swsscommon.FieldValuePairs([('state', new_status),
+                                                                  ('read_side', read_side),
+                                                                  ('active_side', str(active_side))])
+                        y_cable_tbl[asic_index].set(port, fvs_updated)
+                        helper_logger.log_info("Got a change event for toggle the mux-direction active side for port {} state from {} to {}".format(
+                            port, old_status, new_status))
+                    else:
+                        helper_logger.log_info("Got a change event on port {} of table {} that does not contain state".format(
+                            port, swsscommon.APP_HW_MUX_CABLE_TABLE_NAME))
+
+            while True:
+                (port_m, op_m, fvp_m) = mux_cable_command_tbl[asic_index].pop()
+                if not port_m:
+                    break
+                if fvp_m:
+
+                    if port_m not in y_cable_tbl_keys[asic_index]:
+                        continue
+
+                    fvp_dict = dict(fvp_m)
+
+                    if "command" in fvp_dict:
+                        # check if xcvrd got a probe command
+                        probe_identifier = fvp_dict["command"]
+
+                        if probe_identifier == "probe":
+                            (status, fv) = y_cable_tbl[asic_index].get(port_m)
+                            if status is False:
+                                helper_logger.log_warning("Could not retreive fieldvalue pairs for {}, inside state_db table {}".format(
+                                    port_m, y_cable_tbl[asic_index]))
+                                continue
+                            mux_port_dict = dict(fv)
+                            read_side = mux_port_dict.get("read_side")
+                            update_appdb_port_mux_cable_response_table(port_m, asic_index, appl_db, int(read_side))
 
     def task_run(self):
         self.task_thread = threading.Thread(target=self.task_worker)
