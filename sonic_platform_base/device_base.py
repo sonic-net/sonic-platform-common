@@ -57,10 +57,10 @@ class DeviceBase(object):
 
     def get_revision(self):
         """
-        Retrieves the hardware revision number of the device
+        Retrieves the hardware revision of the device
 
         Returns:
-            string: Revision number of device
+            string: Revision value of device
         """
         raise NotImplementedError
 
