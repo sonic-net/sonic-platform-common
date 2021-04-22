@@ -71,6 +71,10 @@ class ModuleBase(device_base.DeviceBase):
         # available on the module
         self._sfp_list = []
 
+        # List of Asic-derived objects representing all asics
+        # visibile in PCI domain on the module
+        self._asic_list = []
+
     def get_base_mac(self):
         """
         Retrieves the base MAC address for the module
@@ -462,3 +466,33 @@ class ModuleBase(device_base.DeviceBase):
             A bool value, should return True if module is reachable via midplane
         """
         return NotImplementedError
+
+    ##############################################
+    # Asic methods
+    ##############################################
+    def get_all_asics(self):
+        """
+        Retrieves the list of all asics on the module that are visible in PCI domain.
+        When called from the Supervisor of modular system, the module could be
+        fabric card, and the function returns all fabric asics on this module that
+        appear in PCI domain of the Supervisor.
+
+        Returns:
+            A list of asics. Index of an asic in the list is the index of the asic
+            on the module. Index is 0 based.
+
+            An item in the list is a tuple that includes:
+               - Asic instance number (indexed globally across all modules of
+                 the chassis). This number is used to find settings for the asic
+                 from /usr/share/sonic/device/platform/hwsku/asic_instance_number/.
+               - Asic PCI address: It is used by syncd to attach the correct asic.
+
+            For example: [('4', '0000:05:00.0'), ('5', '0000:07:00.0')]
+               In this example, from the output, we know the module has 2 asics.
+               Item ('4', '0000:05:00.0') describes information about the first asic
+               in the module.
+               '4' means it is asic4 in the chassis. Settings for this asic is at
+               /usr/share/sonic/device/platform/hwsku/4/.
+               And '0000:05:00.0' is its PCI address.
+        """
+        return self._asic_list
