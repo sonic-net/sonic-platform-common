@@ -638,29 +638,36 @@ def get_media_settings_key(physical_port, transceiver_dict):
         media_len = transceiver_dict[physical_port]['cable_length']
 
     media_compliance_dict_str = transceiver_dict[physical_port]['specification_compliance']
-
+    media_compliance_code = ''
+    media_type = ''
+    media_key = ''
     media_compliance_dict = {}
+
     try:
-        media_compliance_dict = ast.literal_eval(media_compliance_dict_str)
+        if _wrapper_get_sfp_type(physical_port) == 'QSFP_DD':
+            media_compliance_code = media_compliance_dict_str
+        else:
+            media_compliance_dict = ast.literal_eval(media_compliance_dict_str)
+            if sup_compliance_str in media_compliance_dict:
+                media_compliance_code = media_compliance_dict[sup_compliance_str]
     except ValueError as e:
         helper_logger.log_error("Invalid value for port {} 'specification_compliance': {}".format(physical_port, media_compliance_dict_str))
 
-    media_compliance_code = ''
-    media_type = ''
-
-    if sup_compliance_str in media_compliance_dict:
-        media_compliance_code = media_compliance_dict[sup_compliance_str]
-
     media_type = transceiver_dict[physical_port]['type_abbrv_name']
-
-    media_key = ''
 
     if len(media_type) != 0:
         media_key += media_type
     if len(media_compliance_code) != 0:
         media_key += '-' + media_compliance_code
-        if len(media_len) != 0:
-            media_key += '-' + media_len + 'M'
+        if _wrapper_get_sfp_type(physical_port) == 'QSFP_DD':
+            if media_compliance_code == "passive_copper_media_interface":
+                if len(media_len) != 0:
+                    media_key += '-' + media_len + 'M'
+        else:
+            if len(media_len) != 0:
+                media_key += '-' + media_len + 'M'
+    else:
+        media_key += '-' + '*'
 
     return [vendor_key, media_key]
 
@@ -742,8 +749,8 @@ def notify_media_setting(logical_port_name, transceiver_dict,
         key = get_media_settings_key(physical_port, transceiver_dict)
         media_dict = get_media_settings_value(physical_port, key)
 
-        if(len(media_dict) == 0):
-            helper_logger.log_error("Error in obtaining media setting")
+        if len(media_dict) == 0:
+            helper_logger.log_error("Error in obtaining media setting for {}".format(logical_port_name))
             return
 
         fvs = swsscommon.FieldValuePairs(len(media_dict))
