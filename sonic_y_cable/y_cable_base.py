@@ -399,7 +399,11 @@ class YCableBase(object):
              physical_port:
                  an Integer, the actual physical port connected to Y end of a Y cable which can toggle the MUX
              mode:
-                 an Integer, specifies which type of switching mode we set the muxcable to
+                 One of the following predefined constant:
+                 SWITCHING_MODE_AUTO
+                 SWITCHING_MODE_MANUAL
+
+                 specifies which type of switching mode we set the muxcable to
                  either SWITCHING_MODE_AUTO or SWITCHING_MODE_MANUAL
 
         Returns:
