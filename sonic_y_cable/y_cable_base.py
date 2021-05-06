@@ -11,15 +11,15 @@
 
 class YCableBase(object):
 
-    # definitions of targets for getting the cursor
+    # definitions of targets for getting the various fields/cursor
     # equalization parameters from the register spec
-    # the name of the target denotes which side cursor
-    # values will be retreived
+    # the name of the target denotes which side MCU
+    # values will be retreived on the Y-Cable
 
+    TARGET_UNKNOWN = -1
     TARGET_NIC = 0
     TARGET_TORA = 1
     TARGET_TORB = 2
-    TARGET_UNKNOWN = -1
 
     # definitions of targets for getting the EYE/BER
     # and initiating PRBS/Loopback on the Y cable
@@ -99,8 +99,8 @@ class YCableBase(object):
 
         Returns:
             One of the following predefined constants:
-                TARGET_TORA, if reading the Y cable from TOR A side(TOR A).
-                TARGET_TORB, if reading the Y cable from TOR B side(TOR B).
+                TARGET_TORA, if reading the Y cable from TOR A side.
+                TARGET_TORB, if reading the Y cable from TOR B side.
                 TARGET_NIC, if reading the Y cable from NIC side.
                 TARGET_UNKNOWN, if reading the Y cable API fails.
         """
@@ -119,8 +119,8 @@ class YCableBase(object):
 
         Returns:
             One of the following predefined constants:
-                TARGET_TORA, if mux is pointing to TOR A side(TOR A).
-                TARGET_TORB, if mux is pointing to TOR B side(TOR B).
+                TARGET_TORA, if mux is pointing to TOR A side.
+                TARGET_TORB, if mux is pointing to TOR B side.
                 TARGET_UNKNOWN, if mux direction API fails.
         """
 
@@ -128,7 +128,7 @@ class YCableBase(object):
 
     def check_active_linked_tor_side(self, port):
         """
-        This API specifically checks which side of the Y cable is actively linked and routing
+        This API specifically checks which side of the Y cable is actively linked and routing/sending
         and returns either TOR A or TOR B.
 
         Args:
@@ -137,8 +137,8 @@ class YCableBase(object):
 
         Returns:
             One of the following predefined constants:
-                TARGET_TORA, if TOR A is actively linked and routing(TOR A).
-                TARGET_TORB, if TOR B is actively linked and routing(TOR B).
+                TARGET_TORA, if TOR A is actively linked and routing/sending traffic.
+                TARGET_TORB, if TOR B is actively linked and routin/sending traffic.
                 TARGET_UNKNOWN, if checking which side linked for routing API fails.
         """
 
@@ -262,13 +262,13 @@ class YCableBase(object):
 
         Args:
             physical_port:
-                 an Integer, the actual physical port connected to a Y cable
+                an Integer, the actual physical port connected to a Y cable
             count_type:
-                 a string, for getting the count type
-                          SWITCH_COUNT_MANUAL -> manual switch count
-                          SWITCH_COUNT_MANUAL -> automatic switch count
-        Returns:
-            an integer, the number of times manually the Y-cable has been switched
+                One of the following predefined constants, for getting the count type:
+                    SWITCH_COUNT_MANUAL -> manual switch count
+                    SWITCH_COUNT_AUTO -> automatic switch count
+            Returns:
+                an integer, the number of times manually the Y-cable has been switched
         """
 
         raise NotImplementedError
@@ -288,10 +288,10 @@ class YCableBase(object):
                              3 -> lane 3
                              4 -> lane 4
             target:
-                One of the following predefined constant, the actual target to get the cursor values on:
+                One of the following predefined constants, the actual target to get the cursor values on:
                      TARGET_NIC -> NIC,
-                     TARGET_TORA-> TOR1,
-                     TARGET_TORB -> TOR2
+                     TARGET_TORA-> TORA,
+                     TARGET_TORB -> TORB
         Returns:
             a list, with  pre one, pre two , main, post one, post two cursor values in the order
         """
@@ -307,10 +307,10 @@ class YCableBase(object):
             physical_port:
                  an Integer, the actual physical port connected to a Y cable
             target:
-                One of the following predefined constant, the actual target to get the firmware version on:
+                One of the following predefined constants, the actual target to get the firmware version on:
                      TARGET_NIC -> NIC,
-                     TARGET_TORA-> TOR1,
-                     TARGET_TORB -> TOR2
+                     TARGET_TORA-> TORA,
+                     TARGET_TORB -> TORB
         Returns:
             a Dictionary:
                  with version_active, version_inactive and version_next keys
@@ -341,7 +341,7 @@ class YCableBase(object):
                  choosing (binary, archive, etc.). But note that it should be one file
                  which contains firmware for all components of the Y-cable
         Returns:
-            One of the following predefined constant:
+            One of the following predefined constants:
                 FIRMWARE_DOWNLOAD_SUCCESS
                 FIRMWARE_DOWNLOAD_FAILURE
 
@@ -364,7 +364,7 @@ class YCableBase(object):
             physical_port:
                  an Integer, the actual physical port connected to a Y cable
         Returns:
-            One of the following predefined constant:
+            One of the following predefined constants:
                 FIRMWARE_ACTIVATE_SUCCESS
                 FIRMWARE_ACTIVATE_FAILURE
         """
@@ -381,7 +381,7 @@ class YCableBase(object):
             physical_port:
                  an Integer, the actual physical port connected to a Y cable
         Returns:
-            One of the following predefined constant:
+            One of the following predefined constants:
                 FIRMWARE_ROLLBACK_SUCCESS
                 FIRMWARE_ROLLBACK_FAILURE
         """
@@ -399,7 +399,7 @@ class YCableBase(object):
              physical_port:
                  an Integer, the actual physical port connected to Y end of a Y cable which can toggle the MUX
              mode:
-                 One of the following predefined constant:
+                 One of the following predefined constants:
                  SWITCHING_MODE_AUTO
                  SWITCHING_MODE_MANUAL
 
