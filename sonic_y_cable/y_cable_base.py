@@ -17,8 +17,9 @@ class YCableBase(object):
     # values will be retreived
 
     TARGET_NIC = 0
-    TARGET_TOR1 = 1
-    TARGET_TOR2 = 2
+    TARGET_TORA = 1
+    TARGET_TORB = 2
+    TARGET_UNKNOWN = -1
 
     # definitions of targets for getting the EYE/BER
     # and initiating PRBS/Loopback on the Y cable
@@ -26,8 +27,8 @@ class YCableBase(object):
     # will be retreived/initiated
 
     EYE_PRBS_TARGET_LOCAL = 0
-    EYE_PRBS_TARGET_TOR1 = 1
-    EYE_PRBS_TARGET_TOR2 = 2
+    EYE_PRBS_TARGET_TORA = 1
+    EYE_PRBS_TARGET_TORB = 2
     EYE_PRBS_TARGET_NIC = 3
 
     # definitions of switch counter types
@@ -65,7 +66,7 @@ class YCableBase(object):
             an Integer, the actual physical port connected to Y end of a Y cable which can toggle the MUX
 
         Returns:
-            a Boolean, true if the toggle succeeded and false if it did not succeed.
+            a Boolean, True if the toggle succeeded and False if it did not succeed.
         """
 
         raise NotImplementedError
@@ -83,7 +84,7 @@ class YCableBase(object):
                 an Integer, the actual physical port connected to Y end of a Y cable which can toggle the MUX
 
         Returns:
-            a Boolean, true if the toggle succeeded and false if it did not succeed.
+            a Boolean, True if the toggle succeeded and False if it did not succeed.
         """
         raise NotImplementedError
 
@@ -97,10 +98,11 @@ class YCableBase(object):
                 an Integer, the actual physical port connected to Y end of a Y cable which can which side reading the MUX from
 
         Returns:
-            an Integer, 1 if reading the Y cable from TOR A side(TOR 1).
-                      , 2 if reading the Y cable from TOR B side(TOR 2).
-                      , 0 if reading the Y cable from NIC side.
-                      , -1 if reading the Y cable API fails.
+            One of the following predefined constants:
+                TARGET_TORA, if reading the Y cable from TOR A side(TOR A).
+                TARGET_TORB, if reading the Y cable from TOR B side(TOR B).
+                TARGET_NIC, if reading the Y cable from NIC side.
+                TARGET_UNKNOWN, if reading the Y cable API fails.
         """
 
         raise NotImplementedError
@@ -116,9 +118,10 @@ class YCableBase(object):
                 an Integer, the actual physical port connected to a Y cable
 
         Returns:
-            an Integer, 1 if the mux is pointing to TOR A .
-                      , 2 if the mux is pointing to TOR B.
-                      , -1 if checking which side mux is pointing to API fails.
+            One of the following predefined constants:
+                TARGET_TORA, if mux is pointing to TOR A side(TOR A).
+                TARGET_TORB, if mux is pointing to TOR B side(TOR B).
+                TARGET_UNKNOWN, if mux direction API fails.
         """
 
         raise NotImplementedError
@@ -133,10 +136,10 @@ class YCableBase(object):
                 an Integer, the actual physical port connected to a Y cable
 
         Returns:
-            an Integer, 1 if TOR A is actively linked and routing(TOR 1).
-                      , 2 if TOR B is actively linked and routing(TOR 2).
-                      , 0 if nothing linked and actively routing
-                      , -1 if checking which side linked for routing API fails.
+            One of the following predefined constants:
+                TARGET_TORA, if TOR A is actively linked and routing(TOR A).
+                TARGET_TORB, if TOR B is actively linked and routing(TOR B).
+                TARGET_UNKNOWN, if checking which side linked for routing API fails.
         """
 
         raise NotImplementedError
@@ -150,8 +153,8 @@ class YCableBase(object):
                  an Integer, the actual physical port connected to a Y cable
 
         Returns:
-            a boolean, true if the link is active
-                     , false if the link is not active
+            a boolean, True if the link is active
+                     , False if the link is not active
         """
 
         raise NotImplementedError
@@ -165,8 +168,8 @@ class YCableBase(object):
                  an Integer, the actual physical port connected to a Y cable
 
         Returns:
-            a boolean, true if the link is active
-                     , false if the link is not active
+            a boolean, True if the link is active
+                     , False if the link is not active
         """
 
         raise NotImplementedError
@@ -180,8 +183,8 @@ class YCableBase(object):
                  an Integer, the actual physical port connected to a Y cable
 
         Returns:
-            a boolean, true if the link is active
-                     , false if the link is not active
+            a boolean, True if the link is active
+                     , False if the link is not active
         """
 
         raise NotImplementedError
@@ -189,17 +192,17 @@ class YCableBase(object):
     def get_eye_info(self, port):
         """
         This API specifically returns the EYE height value for a specfic port.
-        The target could be local side, TOR1, TOR2, NIC etc.
+        The target could be local side, TORA, TORB, NIC etc.
 
         Args:
             physical_port:
                  an Integer, the actual physical port connected to a Y cable
             target:
-                 an Integer, the target on which to enable the PRBS
-                             EYE_PRBS_TARGET_LOCAL -> local side,
-                             EYE_PRBS_TARGET_TOR1 -> TOR 1
-                             EYE_PRBS_TARGET_TOR2 -> TOR 2
-                             EYE_PRBS_TARGET_NIC -> NIC
+                 One of the following predefined constant, the target on which to get the eye:
+                     EYE_PRBS_TARGET_LOCAL -> local side,
+                     EYE_PRBS_TARGET_TORA -> TOR A
+                     EYE_PRBS_TARGET_TORB -> TOR B
+                     EYE_PRBS_TARGET_NIC -> NIC
         Returns:
             a list, with EYE values of lane 0 lane 1 lane 2 lane 3 with corresponding index
         """
@@ -209,17 +212,17 @@ class YCableBase(object):
     def get_ber_info(self, port):
         """
         This API specifically returns the BER (Bit error rate) value for a specfic port.
-        The target could be local side, TOR1, TOR2, NIC etc.
+        The target could be local side, TORA, TORB, NIC etc.
 
         Args:
             physical_port:
                  an Integer, the actual physical port connected to a Y cable
             target:
-                 an Integer, the target on which to enable the PRBS
-                             EYE_PRBS_TARGET_LOCAL -> local side,
-                             EYE_PRBS_TARGET_TOR1 -> TOR 1
-                             EYE_PRBS_TARGET_TOR2 -> TOR 2
-                             EYE_PRBS_TARGET_NIC -> NIC
+                 One of the following predefined constant, the target on which to get the ber:
+                     EYE_PRBS_TARGET_LOCAL -> local side,
+                     EYE_PRBS_TARGET_TORA -> TOR A
+                     EYE_PRBS_TARGET_TORB -> TOR B
+                     EYE_PRBS_TARGET_NIC -> NIC
         Returns:
             a list, with BER values of lane 0 lane 1 lane 2 lane 3 with corresponding index
         """
@@ -262,8 +265,8 @@ class YCableBase(object):
                  an Integer, the actual physical port connected to a Y cable
             count_type:
                  a string, for getting the count type
-                          "manual" -> manual switch count
-                          "auto" -> automatic switch count
+                          SWITCH_COUNT_MANUAL -> manual switch count
+                          SWITCH_COUNT_MANUAL -> automatic switch count
         Returns:
             an integer, the number of times manually the Y-cable has been switched
         """
@@ -272,7 +275,7 @@ class YCableBase(object):
 
     def get_target_cursor_values(self, port, lane, target):
         """
-        This API specifically returns the cursor equalization parameters for a target(NIC, TOR1, TOR2).
+        This API specifically returns the cursor equalization parameters for a target(NIC, TORA, TORB).
         This includes pre one, pre two , main, post one, post two cursor values
 
         Args:
@@ -285,10 +288,10 @@ class YCableBase(object):
                              3 -> lane 3
                              4 -> lane 4
             target:
-                 an Integer, the actual target to get the cursor values on
-                             TARGET_NIC -> NIC,
-                             TARGET_TOR1-> TOR1,
-                             TARGET_TOR2 -> TOR2
+                One of the following predefined constant, the actual target to get the cursor values on:
+                     TARGET_NIC -> NIC,
+                     TARGET_TORA-> TOR1,
+                     TARGET_TORB -> TOR2
         Returns:
             a list, with  pre one, pre two , main, post one, post two cursor values in the order
         """
@@ -304,10 +307,10 @@ class YCableBase(object):
             physical_port:
                  an Integer, the actual physical port connected to a Y cable
             target:
-                 an Integer, the actual target to get the cursor values on
-                             TARGET_NIC -> NIC,
-                             TARGET_TOR1-> TOR1,
-                             TARGET_TOR2 -> TOR2
+                One of the following predefined constant, the actual target to get the firmware version on:
+                     TARGET_NIC -> NIC,
+                     TARGET_TORA-> TOR1,
+                     TARGET_TORB -> TOR2
         Returns:
             a Dictionary:
                  with version_active, version_inactive and version_next keys
@@ -338,9 +341,12 @@ class YCableBase(object):
                  choosing (binary, archive, etc.). But note that it should be one file
                  which contains firmware for all components of the Y-cable
         Returns:
-            an Integer:
-                 a predefined code stating whether the firmware download was successful
-                 or an error code as to what was the cause of firmware download failure
+            One of the following predefined constant:
+                FIRMWARE_DOWNLOAD_SUCCESS
+                FIRMWARE_DOWNLOAD_FAILURE
+
+                a predefined code stating whether the firmware download was successful
+                or an error code as to what was the cause of firmware download failure
         """
 
         raise NotImplementedError
@@ -358,8 +364,9 @@ class YCableBase(object):
             physical_port:
                  an Integer, the actual physical port connected to a Y cable
         Returns:
-            an Integer:
-                 a predefined code stating whether the firmware activate was successful
+            One of the following predefined constant:
+                FIRMWARE_ACTIVATE_SUCCESS
+                FIRMWARE_ACTIVATE_FAILURE
         """
 
         raise NotImplementedError
@@ -374,9 +381,9 @@ class YCableBase(object):
             physical_port:
                  an Integer, the actual physical port connected to a Y cable
         Returns:
-            an Integer:
-                 a predefined code stating whether the firmware rollback was successful
-                 or an error code as to what was the cause of firmware rollback failure
+            One of the following predefined constant:
+                FIRMWARE_ROLLBACK_SUCCESS
+                FIRMWARE_ROLLBACK_FAILURE
         """
 
         raise NotImplementedError
@@ -396,7 +403,7 @@ class YCableBase(object):
                  either SWITCHING_MODE_AUTO or SWITCHING_MODE_MANUAL
 
         Returns:
-            a Boolean, true if the switch succeeded and false if it did not succeed.
+            a Boolean, True if the switch succeeded and False if it did not succeed.
         """
 
         raise NotImplementedError
@@ -410,8 +417,9 @@ class YCableBase(object):
                  an Integer, the actual physical port connected to Y end of a Y cable which can toggle the MUX
 
         Returns:
-            an Integer, SWITCHING_MODE_AUTO if auto switch is enabled.
-                        SWITCHING_MODE_MANUAL if manual switch is enabled.
+            One of the following predefined constants:
+               SWITCHING_MODE_AUTO if auto switch is enabled.
+               SWITCHING_MODE_MANUAL if manual switch is enabled.
         """
 
         raise NotImplementedError
@@ -484,11 +492,11 @@ class YCableBase(object):
             physical_port:
                 an Integer, the actual physical port connected to a Y cable
             target:
-                an Integer, the target on which to enable the PRBS
-                             EYE_PRBS_TARGET_LOCAL -> local side,
-                             EYE_PRBS_TARGET_TOR1 -> TOR 1
-                             EYE_PRBS_TARGET_TOR2 -> TOR 2
-                             EYE_PRBS_TARGET_NIC -> NIC
+                One of the following predefined constants, the target on which to enable the PRBS:
+                    EYE_PRBS_TARGET_LOCAL -> local side,
+                    EYE_PRBS_TARGET_TORA -> TOR A
+                    EYE_PRBS_TARGET_TORB -> TOR B
+                    EYE_PRBS_TARGET_NIC -> NIC
             mode_value:
                  an Integer, the mode/type for configuring the PRBS mode.
 
@@ -498,8 +506,8 @@ class YCableBase(object):
                  for example 3 -> 0b'0011 , means running on lane0 and lane1
 
         Returns:
-            a boolean, true if the enable is successful
-                     , false if the enable failed
+            a boolean, True if the enable is successful
+                     , False if the enable failed
 
         """
 
@@ -513,15 +521,15 @@ class YCableBase(object):
             physical_port:
                  an Integer, the actual physical port connected to a Y cable
             target:
-                 an Integer, the target on which to enable the PRBS
-                             EYE_PRBS_TARGET_LOCAL -> local side,
-                             EYE_PRBS_TARGET_TOR1 -> TOR 1
-                             EYE_PRBS_TARGET_TOR2 -> TOR 2
-                             EYE_PRBS_TARGET_NIC -> NIC
+                One of the following predefined constants, the target on which to disable the PRBS:
+                    EYE_PRBS_TARGET_LOCAL -> local side,
+                    EYE_PRBS_TARGET_TORA -> TOR A
+                    EYE_PRBS_TARGET_TORB -> TOR B
+                    EYE_PRBS_TARGET_NIC -> NIC
 
         Returns:
-            a boolean, true if the disable is successful
-                     , false if the disable failed
+            a boolean, True if the disable is successful
+                     , False if the disable failed
         """
 
         raise NotImplementedError
@@ -537,19 +545,19 @@ class YCableBase(object):
             physical_port:
                  an Integer, the actual physical port connected to a Y cable
             target:
-                 an Integer, the target on which to enable the PRBS
-                             EYE_PRBS_TARGET_LOCAL -> local side,
-                             EYE_PRBS_TARGET_TOR1 -> TOR 1
-                             EYE_PRBS_TARGET_TOR2 -> TOR 2
-                             EYE_PRBS_TARGET_NIC -> NIC
+                One of the following predefined constants, the target on which to enable the loopback:
+                    EYE_PRBS_TARGET_LOCAL -> local side,
+                    EYE_PRBS_TARGET_TORA -> TOR A
+                    EYE_PRBS_TARGET_TORB -> TOR B
+                    EYE_PRBS_TARGET_NIC -> NIC
             lane_map:
                  an Integer, representing the lane_map to be run PRBS on
                  0bit for lane 0, 1bit for lane1 and so on.
                  for example 3 -> 0b'0011 , means running on lane0 and lane1
 
         Returns:
-            a boolean, true if the enable is successful
-                     , false if the enable failed
+            a boolean, True if the enable is successful
+                     , False if the enable failed
         """
 
         raise NotImplementedError
@@ -563,15 +571,15 @@ class YCableBase(object):
             physical_port:
                  an Integer, the actual physical port connected to a Y cable
             target:
-                 an Integer, the target on which to enable the PRBS
-                             EYE_PRBS_TARGET_LOCAL -> local side,
-                             EYE_PRBS_TARGET_TOR1 -> TOR 1
-                             EYE_PRBS_TARGET_TOR2 -> TOR 2
-                             EYE_PRBS_TARGET_NIC -> NIC
+                One of the following predefined constants, the target on which to disable the loopback:
+                    EYE_PRBS_TARGET_LOCAL -> local side,
+                    EYE_PRBS_TARGET_TORA -> TOR A
+                    EYE_PRBS_TARGET_TORB -> TOR B
+                    EYE_PRBS_TARGET_NIC -> NIC
 
         Returns:
-            a boolean, true if the disable is successful
-                     , false if the disable failed
+            a boolean, True if the disable is successful
+                     , False if the disable failed
         """
 
         raise NotImplementedError
