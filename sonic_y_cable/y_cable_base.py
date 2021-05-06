@@ -198,7 +198,7 @@ class YCableBase(object):
             physical_port:
                  an Integer, the actual physical port connected to a Y cable
             target:
-                 One of the following predefined constant, the target on which to get the eye:
+                 One of the following predefined constants, the target on which to get the eye:
                      EYE_PRBS_TARGET_LOCAL -> local side,
                      EYE_PRBS_TARGET_TORA -> TOR A
                      EYE_PRBS_TARGET_TORB -> TOR B
@@ -218,7 +218,7 @@ class YCableBase(object):
             physical_port:
                  an Integer, the actual physical port connected to a Y cable
             target:
-                 One of the following predefined constant, the target on which to get the ber:
+                 One of the following predefined constants, the target on which to get the ber:
                      EYE_PRBS_TARGET_LOCAL -> local side,
                      EYE_PRBS_TARGET_TORA -> TOR A
                      EYE_PRBS_TARGET_TORB -> TOR B
