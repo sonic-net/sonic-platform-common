@@ -18,8 +18,8 @@ class YCableBase(object):
 
     TARGET_UNKNOWN = -1
     TARGET_NIC = 0
-    TARGET_TORA = 1
-    TARGET_TORB = 2
+    TARGET_TOR_A = 1
+    TARGET_TOR_B = 2
 
     # definitions of targets for getting the EYE/BER
     # and initiating PRBS/Loopback on the Y cable
@@ -27,8 +27,8 @@ class YCableBase(object):
     # will be retreived/initiated
 
     EYE_PRBS_TARGET_LOCAL = 0
-    EYE_PRBS_TARGET_TORA = 1
-    EYE_PRBS_TARGET_TORB = 2
+    EYE_PRBS_TARGET_TOR_A = 1
+    EYE_PRBS_TARGET_TOR_B = 2
     EYE_PRBS_TARGET_NIC = 3
 
     # definitions of switch counter types
@@ -56,9 +56,9 @@ class YCableBase(object):
     def toggle_mux_to_torA(self, port):
         """
         This API specifically does a hard switch toggle of the Y cable's MUX regardless of link state to
-        TOR A. This means if the Y cable is actively routing, the "check_active_linked_tor_side"
-        API will now return Tor A. It also implies that if the link is actively routing on this port, Y cable
-        MUX will start forwarding packets from TOR A to NIC, and drop packets from TOR B to NIC
+        TOR A. This means if the Y cable is actively sending traffic, the "check_active_linked_tor_side"
+        API will now return Tor A. It also implies that if the link is actively sending traffic on this port,
+        Y cable MUX will start forwarding packets from TOR A to NIC, and drop packets from TOR B to NIC
         regardless of previous forwarding state.
 
         Args:
@@ -74,9 +74,9 @@ class YCableBase(object):
     def toggle_mux_to_torB(self, port):
         """
         This API specifically does a hard switch toggle of the Y cable's MUX regardless of link state to
-        TOR B. This means if the Y cable is actively routing, the "check_active_linked_tor_side"
-        API will now return Tor B. It also implies that if the link is actively routing on this port, Y cable
-        MUX will start forwarding packets from TOR B to NIC, and drop packets from TOR A to NIC
+        TOR B. This means if the Y cable is actively sending traffic, the "check_active_linked_tor_side"
+        API will now return Tor B. It also implies that if the link is actively sending traffic on this port,
+        Y cable. MUX will start forwarding packets from TOR B to NIC, and drop packets from TOR A to NIC
         regardless of previous forwarding state.
 
         Args:
@@ -99,8 +99,8 @@ class YCableBase(object):
 
         Returns:
             One of the following predefined constants:
-                TARGET_TORA, if reading the Y cable from TOR A side.
-                TARGET_TORB, if reading the Y cable from TOR B side.
+                TARGET_TOR_A, if reading the Y cable from TOR A side.
+                TARGET_TOR_B, if reading the Y cable from TOR B side.
                 TARGET_NIC, if reading the Y cable from NIC side.
                 TARGET_UNKNOWN, if reading the Y cable API fails.
         """
@@ -111,7 +111,7 @@ class YCableBase(object):
         """
         This API specifically checks which side of the Y cable mux is currently point to
         and returns either TOR A or TOR B. Note that this API should return mux-direction
-        regardless of whether the link is active/routing state or not.
+        regardless of whether the link is active and sending traffic or not.
 
         Args:
             port:
@@ -119,8 +119,8 @@ class YCableBase(object):
 
         Returns:
             One of the following predefined constants:
-                TARGET_TORA, if mux is pointing to TOR A side.
-                TARGET_TORB, if mux is pointing to TOR B side.
+                TARGET_TOR_A, if mux is pointing to TOR A side.
+                TARGET_TOR_B, if mux is pointing to TOR B side.
                 TARGET_UNKNOWN, if mux direction API fails.
         """
 
@@ -128,7 +128,7 @@ class YCableBase(object):
 
     def check_active_linked_tor_side(self, port):
         """
-        This API specifically checks which side of the Y cable is actively linked and routing/sending
+        This API specifically checks which side of the Y cable is actively linked and sending traffic
         and returns either TOR A or TOR B.
 
         Args:
@@ -137,9 +137,9 @@ class YCableBase(object):
 
         Returns:
             One of the following predefined constants:
-                TARGET_TORA, if TOR A is actively linked and routing/sending traffic.
-                TARGET_TORB, if TOR B is actively linked and routin/sending traffic.
-                TARGET_UNKNOWN, if checking which side linked for routing API fails.
+                TARGET_TOR_A, if TOR A is actively linked and sending traffic.
+                TARGET_TOR_B, if TOR B is actively linked and sending traffic.
+                TARGET_UNKNOWN, if checking which side is linked and sending traffic API fails.
         """
 
         raise NotImplementedError
@@ -192,7 +192,7 @@ class YCableBase(object):
     def get_eye_info(self, port):
         """
         This API specifically returns the EYE height value for a specfic port.
-        The target could be local side, TORA, TORB, NIC etc.
+        The target could be local side, TOR_A, TOR_B, NIC etc.
 
         Args:
             physical_port:
@@ -200,8 +200,8 @@ class YCableBase(object):
             target:
                  One of the following predefined constants, the target on which to get the eye:
                      EYE_PRBS_TARGET_LOCAL -> local side,
-                     EYE_PRBS_TARGET_TORA -> TOR A
-                     EYE_PRBS_TARGET_TORB -> TOR B
+                     EYE_PRBS_TARGET_TOR_A -> TOR A
+                     EYE_PRBS_TARGET_TOR_B -> TOR B
                      EYE_PRBS_TARGET_NIC -> NIC
         Returns:
             a list, with EYE values of lane 0 lane 1 lane 2 lane 3 with corresponding index
@@ -212,16 +212,16 @@ class YCableBase(object):
     def get_ber_info(self, port):
         """
         This API specifically returns the BER (Bit error rate) value for a specfic port.
-        The target could be local side, TORA, TORB, NIC etc.
+        The target could be local side, TOR_A, TOR_B, NIC etc.
 
         Args:
             physical_port:
                  an Integer, the actual physical port connected to a Y cable
             target:
-                 One of the following predefined constants, the target on which to get the ber:
+                 One of the following predefined constants, the target on which to get the BER:
                      EYE_PRBS_TARGET_LOCAL -> local side,
-                     EYE_PRBS_TARGET_TORA -> TOR A
-                     EYE_PRBS_TARGET_TORB -> TOR B
+                     EYE_PRBS_TARGET_TOR_A -> TOR A
+                     EYE_PRBS_TARGET_TOR_B -> TOR B
                      EYE_PRBS_TARGET_NIC -> NIC
         Returns:
             a list, with BER values of lane 0 lane 1 lane 2 lane 3 with corresponding index
@@ -275,7 +275,7 @@ class YCableBase(object):
 
     def get_target_cursor_values(self, port, lane, target):
         """
-        This API specifically returns the cursor equalization parameters for a target(NIC, TORA, TORB).
+        This API specifically returns the cursor equalization parameters for a target(NIC, TOR_A, TOR_B).
         This includes pre one, pre two , main, post one, post two cursor values
 
         Args:
@@ -290,8 +290,8 @@ class YCableBase(object):
             target:
                 One of the following predefined constants, the actual target to get the cursor values on:
                      TARGET_NIC -> NIC,
-                     TARGET_TORA-> TORA,
-                     TARGET_TORB -> TORB
+                     TARGET_TOR_A-> TORA,
+                     TARGET_TOR_B -> TORB
         Returns:
             a list, with  pre one, pre two , main, post one, post two cursor values in the order
         """
@@ -299,7 +299,8 @@ class YCableBase(object):
         raise NotImplementedError
 
     def get_firmware_version(self, port, target):
-        """ This routine should return the active, inactive and next (committed)
+        """
+        This routine should return the active, inactive and next (committed)
         firmware running on the target. Each of the version values in this context
         could be a string with a major and minor number and a build value.
 
@@ -309,8 +310,8 @@ class YCableBase(object):
             target:
                 One of the following predefined constants, the actual target to get the firmware version on:
                      TARGET_NIC -> NIC,
-                     TARGET_TORA-> TORA,
-                     TARGET_TORB -> TORB
+                     TARGET_TOR_A-> TORA,
+                     TARGET_TOR_B -> TORB
         Returns:
             a Dictionary:
                  with version_active, version_inactive and version_next keys
@@ -321,7 +322,8 @@ class YCableBase(object):
         raise NotImplementedError
 
     def download_firmware(self, port, fwfile):
-        """ This routine should download and store the firmware on all the
+        """
+        This routine should download and store the firmware on all the
         components of the Y cable of the port specified.
         This should include any internal transfers, checksum validation etc.
         from TOR to TOR or TOR to NIC side of the firmware specified by the fwfile.
@@ -352,7 +354,8 @@ class YCableBase(object):
         raise NotImplementedError
 
     def activate_firmware(self, port, fwfile):
-        """ This routine should activate the downloaded firmware on all the
+        """
+        This routine should activate the downloaded firmware on all the
         components of the Y cable of the port specified.
         This API is meant to be used in conjunction with download_firmware API, and
         should be called once download_firmware API is succesful.
@@ -372,7 +375,8 @@ class YCableBase(object):
         raise NotImplementedError
 
     def rollback_firmware(self, port):
-        """ This routine should rollback the firmware to the previous version
+        """
+        This routine should rollback the firmware to the previous version
         which was being used by the cable. This API is intended to be called when the
         user either witnesses an activate_firmware API failure or sees issues with
         newer firmware in regards to stable cable functioning.
@@ -498,8 +502,8 @@ class YCableBase(object):
             target:
                 One of the following predefined constants, the target on which to enable the PRBS:
                     EYE_PRBS_TARGET_LOCAL -> local side,
-                    EYE_PRBS_TARGET_TORA -> TOR A
-                    EYE_PRBS_TARGET_TORB -> TOR B
+                    EYE_PRBS_TARGET_TOR_A -> TOR A
+                    EYE_PRBS_TARGET_TOR_B -> TOR B
                     EYE_PRBS_TARGET_NIC -> NIC
             mode_value:
                  an Integer, the mode/type for configuring the PRBS mode.
@@ -527,8 +531,8 @@ class YCableBase(object):
             target:
                 One of the following predefined constants, the target on which to disable the PRBS:
                     EYE_PRBS_TARGET_LOCAL -> local side,
-                    EYE_PRBS_TARGET_TORA -> TOR A
-                    EYE_PRBS_TARGET_TORB -> TOR B
+                    EYE_PRBS_TARGET_TOR_A -> TOR A
+                    EYE_PRBS_TARGET_TOR_B -> TOR B
                     EYE_PRBS_TARGET_NIC -> NIC
 
         Returns:
@@ -551,8 +555,8 @@ class YCableBase(object):
             target:
                 One of the following predefined constants, the target on which to enable the loopback:
                     EYE_PRBS_TARGET_LOCAL -> local side,
-                    EYE_PRBS_TARGET_TORA -> TOR A
-                    EYE_PRBS_TARGET_TORB -> TOR B
+                    EYE_PRBS_TARGET_TOR_A -> TOR A
+                    EYE_PRBS_TARGET_TOR_B -> TOR B
                     EYE_PRBS_TARGET_NIC -> NIC
             lane_map:
                  an Integer, representing the lane_map to be run PRBS on
@@ -577,8 +581,8 @@ class YCableBase(object):
             target:
                 One of the following predefined constants, the target on which to disable the loopback:
                     EYE_PRBS_TARGET_LOCAL -> local side,
-                    EYE_PRBS_TARGET_TORA -> TOR A
-                    EYE_PRBS_TARGET_TORB -> TOR B
+                    EYE_PRBS_TARGET_TOR_A -> TOR A
+                    EYE_PRBS_TARGET_TOR_B -> TOR B
                     EYE_PRBS_TARGET_NIC -> NIC
 
         Returns:
