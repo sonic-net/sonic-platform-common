@@ -195,7 +195,7 @@ class YCableBase(object):
         The target could be local side, TOR_A, TOR_B, NIC etc.
 
         Args:
-            physical_port:
+            port:
                  an Integer, the actual physical port connected to a Y cable
             target:
                  One of the following predefined constants, the target on which to get the eye:
@@ -215,7 +215,7 @@ class YCableBase(object):
         The target could be local side, TOR_A, TOR_B, NIC etc.
 
         Args:
-            physical_port:
+            port:
                  an Integer, the actual physical port connected to a Y cable
             target:
                  One of the following predefined constants, the target on which to get the BER:
@@ -234,7 +234,7 @@ class YCableBase(object):
         This API specifically returns the vendor name of the Y cable for a specfic port.
 
         Args:
-            physical_port:
+            port:
                  an Integer, the actual physical port connected to a Y cable
         Returns:
             a string, with vendor name
@@ -247,7 +247,7 @@ class YCableBase(object):
         This API specifically returns the part number of the Y cable for a specfic port.
 
         Args:
-            physical_port:
+            port:
                  an Integer, the actual physical port connected to a Y cable
         Returns:
             a string, with part number
@@ -261,7 +261,7 @@ class YCableBase(object):
         been done manually by the user.
 
         Args:
-            physical_port:
+            port:
                 an Integer, the actual physical port connected to a Y cable
             count_type:
                 One of the following predefined constants, for getting the count type:
@@ -279,7 +279,7 @@ class YCableBase(object):
         This includes pre one, pre two , main, post one, post two cursor values
 
         Args:
-            physical_port:
+            port:
                  an Integer, the actual physical port connected to a Y cable
             lane:
                  an Integer, the lane on which to collect the cursor values
@@ -305,7 +305,7 @@ class YCableBase(object):
         could be a string with a major and minor number and a build value.
 
         Args:
-            physical_port:
+            port:
                  an Integer, the actual physical port connected to a Y cable
             target:
                 One of the following predefined constants, the actual target to get the firmware version on:
@@ -335,7 +335,7 @@ class YCableBase(object):
         this has not been activated yet.
 
         Args:
-            physical_port:
+            port:
                  an Integer, the actual physical port connected to a Y cable
             fwfile:
                  a string, a path to the file which contains the firmware image.
@@ -353,7 +353,7 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def activate_firmware(self, port, fwfile):
+    def activate_firmware(self, port, fwfile=None):
         """
         This routine should activate the downloaded firmware on all the
         components of the Y cable of the port specified.
@@ -364,8 +364,17 @@ class YCableBase(object):
         successfully executed.
 
         Args:
-            physical_port:
+            port:
                  an Integer, the actual physical port connected to a Y cable
+            fwfile:
+                 a string, a path to the file which contains the firmware image.
+                 Note that the firmware file can be in the format of the vendor's
+                 choosing (binary, archive, etc.). But note that it should be one file
+                 which contains firmware for all components of the Y-cable. In case the
+                 vendor chooses to pass this file in activate_firmware, the API should
+                 have the logic to retreive the firmware version from this file
+                 which has to be activated on the componenets of the Y-Cable
+                 this API has been called for.
         Returns:
             One of the following predefined constants:
                 FIRMWARE_ACTIVATE_SUCCESS
@@ -382,7 +391,7 @@ class YCableBase(object):
         newer firmware in regards to stable cable functioning.
 
         Args:
-            physical_port:
+            port:
                  an Integer, the actual physical port connected to a Y cable
         Returns:
             One of the following predefined constants:
@@ -400,7 +409,7 @@ class YCableBase(object):
         side link goes down and basically points the mux to the other side.
 
         Args:
-             physical_port:
+             port:
                  an Integer, the actual physical port connected to Y end of a Y cable which can toggle the MUX
              mode:
                  One of the following predefined constants:
@@ -421,7 +430,7 @@ class YCableBase(object):
         This API specifically returns which type of switching mode the cable is set to auto/manual
 
         Args:
-             physical_port:
+             port:
                  an Integer, the actual physical port connected to Y end of a Y cable which can toggle the MUX
 
         Returns:
@@ -437,7 +446,7 @@ class YCableBase(object):
         This API specifically returns nic temperature of the physical port specified
 
         Args:
-             physical_port:
+             port:
                  an Integer, the actual physical port connected to Y end of a Y cable which can toggle the MUX
 
         Returns:
@@ -451,7 +460,7 @@ class YCableBase(object):
         This API specifically returns local ToR temperature of the physical port specified
 
         Args:
-             physical_port:
+             port:
                  an Integer, the actual physical port connected to Y end of a Y cable which can toggle the MUX
 
         Returns:
@@ -465,7 +474,7 @@ class YCableBase(object):
         This API specifically returns nic voltage of the physical port specified
 
         Args:
-             physical_port:
+             port:
                  an Integer, the actual physical port connected to Y end of a Y cable which can toggle the MUX
 
         Returns:
@@ -479,7 +488,7 @@ class YCableBase(object):
         This API specifically returns local ToR voltage of the physical port specified
 
         Args:
-             physical_port:
+             port:
                  an Integer, the actual physical port connected to Y end of a Y cable which can toggle the MUX
 
         Returns:
@@ -497,7 +506,7 @@ class YCableBase(object):
         Note that this is a diagnostic mode command and must not run during normal traffic/switch operation
 
         Args:
-            physical_port:
+            port:
                 an Integer, the actual physical port connected to a Y cable
             target:
                 One of the following predefined constants, the target on which to enable the PRBS:
@@ -526,7 +535,7 @@ class YCableBase(object):
         This API specifically disables the PRBS mode on the physical port.
 
         Args:
-            physical_port:
+            port:
                  an Integer, the actual physical port connected to a Y cable
             target:
                 One of the following predefined constants, the target on which to disable the PRBS:
@@ -550,7 +559,7 @@ class YCableBase(object):
         Note that this is a diagnostic mode command and must not run during normal traffic/switch operation
 
         Args:
-            physical_port:
+            port:
                  an Integer, the actual physical port connected to a Y cable
             target:
                 One of the following predefined constants, the target on which to enable the loopback:
@@ -576,7 +585,7 @@ class YCableBase(object):
         Target is an integer for selecting which end of the Y cable we want to run loopback on.
 
         Args:
-            physical_port:
+            port:
                  an Integer, the actual physical port connected to a Y cable
             target:
                 One of the following predefined constants, the target on which to disable the loopback:
