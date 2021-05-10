@@ -51,19 +51,24 @@ class YCableBase(object):
     FIRMWARE_ROLLBACK_FAILURE = 1
 
     def __init__(self, port):
-        self.port = port
-
-    def toggle_mux_to_torA(self, port):
         """
-        This API specifically does a hard switch toggle of the Y cable's MUX regardless of link state to
-        TOR A. This means if the Y cable is actively sending traffic, the "check_active_linked_tor_side"
-        API will now return Tor A. It also implies that if the link is actively sending traffic on this port,
-        Y cable MUX will start forwarding packets from TOR A to NIC, and drop packets from TOR B to NIC
-        regardless of previous forwarding state.
-
         Args:
             port:
-            an Integer, the actual physical port connected to Y end of a Y cable which can toggle the MUX
+                 an Integer, the actual physical port connected to a Y cable
+        """
+        self.port = port
+
+    def toggle_mux_to_torA(self):
+        """
+        This API specifically does a hard switch toggle of the Y cable's MUX regardless of link state to
+        TOR A on the port this is called for. This means if the Y cable is actively sending traffic,
+        the "get_active_linked_tor_side" API will now return Tor A.
+        It also implies that if the link is actively sending traffic on this port,
+        Y cable MUX will start forwarding packets from TOR A to NIC, and drop packets from TOR B to NIC
+        regardless of previous forwarding state.
+        The port on which this API is called for can be referred using self.port.
+
+        Args:
 
         Returns:
             a Boolean, True if the toggle succeeded and False if it did not succeed.
@@ -71,31 +76,29 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def toggle_mux_to_torB(self, port):
+    def toggle_mux_to_torB(self):
         """
         This API specifically does a hard switch toggle of the Y cable's MUX regardless of link state to
-        TOR B. This means if the Y cable is actively sending traffic, the "check_active_linked_tor_side"
+        TOR B. This means if the Y cable is actively sending traffic, the "get_active_linked_tor_side"
         API will now return Tor B. It also implies that if the link is actively sending traffic on this port,
         Y cable. MUX will start forwarding packets from TOR B to NIC, and drop packets from TOR A to NIC
         regardless of previous forwarding state.
+        The port on which this API is called for can be referred using self.port.
 
         Args:
-            port:
-                an Integer, the actual physical port connected to Y end of a Y cable which can toggle the MUX
 
         Returns:
             a Boolean, True if the toggle succeeded and False if it did not succeed.
         """
         raise NotImplementedError
 
-    def check_read_side(self, port):
+    def get_read_side(self):
         """
         This API specifically checks which side of the Y cable the reads are actually getting performed
         from, either TOR A or TOR B or NIC and returns the value.
+        The port on which this API is called for can be referred using self.port.
 
         Args:
-            port:
-                an Integer, the actual physical port connected to Y end of a Y cable which can which side reading the MUX from
 
         Returns:
             One of the following predefined constants:
@@ -107,15 +110,14 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def check_mux_direction(self, port):
+    def get_mux_direction(self):
         """
         This API specifically checks which side of the Y cable mux is currently point to
         and returns either TOR A or TOR B. Note that this API should return mux-direction
         regardless of whether the link is active and sending traffic or not.
+        The port on which this API is called for can be referred using self.port.
 
         Args:
-            port:
-                an Integer, the actual physical port connected to a Y cable
 
         Returns:
             One of the following predefined constants:
@@ -126,14 +128,16 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def check_active_linked_tor_side(self, port):
+    def get_active_linked_tor_side(self):
         """
         This API specifically checks which side of the Y cable is actively linked and sending traffic
         and returns either TOR A or TOR B.
+        The port on which this API is called for can be referred using self.port.
+        This is different from get_mux_direction in a sense it also implies the link on the side
+        where mux is pointing to must be active and sending traffic, whereas get_mux_direction
+        just tells where the mux is pointing to.
 
         Args:
-            port:
-                an Integer, the actual physical port connected to a Y cable
 
         Returns:
             One of the following predefined constants:
@@ -144,13 +148,18 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def check_if_link_is_active_for_NIC(self, port):
+    def is_link_active(self, target):
         """
-        This API specifically checks if NIC side of the Y cable's link is active
+        This API specifically checks if NIC, TOR_A and TOR_B  of the Y cable's link is active.
+        The target specifies which link is supposed to be checked
+        The port on which this API is called for can be referred using self.port.
 
         Args:
-            port:
-                 an Integer, the actual physical port connected to a Y cable
+            target:
+                One of the following predefined constants, the actual target to check the link on:
+                     TARGET_NIC -> NIC,
+                     TARGET_TOR_A-> TORA,
+                     TARGET_TOR_B -> TORB
 
         Returns:
             a boolean, True if the link is active
@@ -159,44 +168,13 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def check_if_link_is_active_for_torA(self, port):
-        """
-        This API specifically checks if tor A side of the Y cable's link is active
-
-        Args:
-            port:
-                 an Integer, the actual physical port connected to a Y cable
-
-        Returns:
-            a boolean, True if the link is active
-                     , False if the link is not active
-        """
-
-        raise NotImplementedError
-
-    def check_if_link_is_active_for_torB(self, port):
-        """
-        This API specifically checks if tor B side of the Y cable's link is active
-
-        Args:
-            port:
-                 an Integer, the actual physical port connected to a Y cable
-
-        Returns:
-            a boolean, True if the link is active
-                     , False if the link is not active
-        """
-
-        raise NotImplementedError
-
-    def get_eye_info(self, port):
+    def get_eye_info(self, target):
         """
         This API specifically returns the EYE height value for a specfic port.
         The target could be local side, TOR_A, TOR_B, NIC etc.
+        The port on which this API is called for can be referred using self.port.
 
         Args:
-            port:
-                 an Integer, the actual physical port connected to a Y cable
             target:
                  One of the following predefined constants, the target on which to get the eye:
                      EYE_PRBS_TARGET_LOCAL -> local side,
@@ -209,14 +187,13 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def get_ber_info(self, port):
+    def get_ber_info(self, target):
         """
         This API specifically returns the BER (Bit error rate) value for a specfic port.
         The target could be local side, TOR_A, TOR_B, NIC etc.
+        The port on which this API is called for can be referred using self.port.
 
         Args:
-            port:
-                 an Integer, the actual physical port connected to a Y cable
             target:
                  One of the following predefined constants, the target on which to get the BER:
                      EYE_PRBS_TARGET_LOCAL -> local side,
@@ -229,40 +206,39 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def get_vendor(self, port):
+    def get_vendor(self):
         """
         This API specifically returns the vendor name of the Y cable for a specfic port.
+        The port on which this API is called for can be referred using self.port.
 
         Args:
-            port:
-                 an Integer, the actual physical port connected to a Y cable
+
         Returns:
             a string, with vendor name
         """
 
         raise NotImplementedError
 
-    def get_part_number(self, port):
+    def get_part_number(self):
         """
         This API specifically returns the part number of the Y cable for a specfic port.
+        The port on which this API is called for can be referred using self.port.
 
         Args:
-            port:
-                 an Integer, the actual physical port connected to a Y cable
+
         Returns:
             a string, with part number
         """
 
         raise NotImplementedError
 
-    def get_switch_count(self, port, count_type):
+    def get_switch_count(self, count_type):
         """
         This API specifically returns the switch count to change the Active TOR which has
         been done manually by the user.
+        The port on which this API is called for can be referred using self.port.
 
         Args:
-            port:
-                an Integer, the actual physical port connected to a Y cable
             count_type:
                 One of the following predefined constants, for getting the count type:
                     SWITCH_COUNT_MANUAL -> manual switch count
@@ -273,14 +249,13 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def get_target_cursor_values(self, port, lane, target):
+    def get_target_cursor_values(self, lane, target):
         """
         This API specifically returns the cursor equalization parameters for a target(NIC, TOR_A, TOR_B).
         This includes pre one, pre two , main, post one, post two cursor values
+        The port on which this API is called for can be referred using self.port.
 
         Args:
-            port:
-                 an Integer, the actual physical port connected to a Y cable
             lane:
                  an Integer, the lane on which to collect the cursor values
                              1 -> lane 1,
@@ -298,15 +273,14 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def get_firmware_version(self, port, target):
+    def get_firmware_version(self, target):
         """
         This routine should return the active, inactive and next (committed)
         firmware running on the target. Each of the version values in this context
         could be a string with a major and minor number and a build value.
+        The port on which this API is called for can be referred using self.port.
 
         Args:
-            port:
-                 an Integer, the actual physical port connected to a Y cable
             target:
                 One of the following predefined constants, the actual target to get the firmware version on:
                      TARGET_NIC -> NIC,
@@ -321,10 +295,10 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def download_firmware(self, port, fwfile):
+    def download_firmware(self, fwfile):
         """
         This routine should download and store the firmware on all the
-        components of the Y cable of the port specified.
+        components of the Y cable of the port for which this API is called..
         This should include any internal transfers, checksum validation etc.
         from TOR to TOR or TOR to NIC side of the firmware specified by the fwfile.
         This basically means that the firmware which is being downloaded should be
@@ -333,10 +307,9 @@ class YCableBase(object):
         Note that this API should ideally not require any rollback even if it fails
         as this should not interfere with the existing cable functionality because
         this has not been activated yet.
+        The port on which this API is called for can be referred using self.port.
 
         Args:
-            port:
-                 an Integer, the actual physical port connected to a Y cable
             fwfile:
                  a string, a path to the file which contains the firmware image.
                  Note that the firmware file can be in the format of the vendor's
@@ -353,28 +326,31 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def activate_firmware(self, port, fwfile=None):
+    def activate_firmware(self, fwfile=None):
         """
         This routine should activate the downloaded firmware on all the
-        components of the Y cable of the port specified.
+        components of the Y cable of the port for which this API is called..
         This API is meant to be used in conjunction with download_firmware API, and
         should be called once download_firmware API is succesful.
         This means that the firmware which has been downloaded should be
         activated (start being utilized by the cable) once this API is
         successfully executed.
+        The port on which this API is called for can be referred using self.port.
 
         Args:
-            port:
-                 an Integer, the actual physical port connected to a Y cable
-            fwfile:
+            fwfile (optional):
                  a string, a path to the file which contains the firmware image.
                  Note that the firmware file can be in the format of the vendor's
                  choosing (binary, archive, etc.). But note that it should be one file
                  which contains firmware for all components of the Y-cable. In case the
                  vendor chooses to pass this file in activate_firmware, the API should
                  have the logic to retreive the firmware version from this file
-                 which has to be activated on the componenets of the Y-Cable
+                 which has to be activated on the components of the Y-Cable
                  this API has been called for.
+                 If None is passed for fwfile, the cable should activate whatever
+                 firmware is marked to be activated next.
+                 If provided, it should retreive the firmware version(s) from this file, ensure
+                 they are downloaded on the cable, then activate them.
         Returns:
             One of the following predefined constants:
                 FIRMWARE_ACTIVATE_SUCCESS
@@ -383,16 +359,15 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def rollback_firmware(self, port):
+    def rollback_firmware(self):
         """
         This routine should rollback the firmware to the previous version
         which was being used by the cable. This API is intended to be called when the
         user either witnesses an activate_firmware API failure or sees issues with
         newer firmware in regards to stable cable functioning.
+        The port on which this API is called for can be referred using self.port.
 
         Args:
-            port:
-                 an Integer, the actual physical port connected to a Y cable
         Returns:
             One of the following predefined constants:
                 FIRMWARE_ROLLBACK_SUCCESS
@@ -401,16 +376,15 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def set_switching_mode(self, port, mode):
+    def set_switching_mode(self, mode):
         """
         This API specifically enables the auto switching or manual switching feature on the muxcable,
         depending upon the mode entered by the user.
         Autoswitch feature if enabled actually does an automatic toggle of the mux in case the active
         side link goes down and basically points the mux to the other side.
+        The port on which this API is called for can be referred using self.port.
 
         Args:
-             port:
-                 an Integer, the actual physical port connected to Y end of a Y cable which can toggle the MUX
              mode:
                  One of the following predefined constants:
                  SWITCHING_MODE_AUTO
@@ -425,13 +399,12 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def get_switching_mode(self, port):
+    def get_switching_mode(self):
         """
         This API specifically returns which type of switching mode the cable is set to auto/manual
+        The port on which this API is called for can be referred using self.port.
 
         Args:
-             port:
-                 an Integer, the actual physical port connected to Y end of a Y cable which can toggle the MUX
 
         Returns:
             One of the following predefined constants:
@@ -441,13 +414,12 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def get_nic_temperature(self, port):
+    def get_nic_temperature(self):
         """
-        This API specifically returns nic temperature of the physical port specified
+        This API specifically returns nic temperature of the physical port for which this API is called.
+        The port on which this API is called for can be referred using self.port.
 
         Args:
-             port:
-                 an Integer, the actual physical port connected to Y end of a Y cable which can toggle the MUX
 
         Returns:
             an Integer, the temperature of the NIC MCU
@@ -455,13 +427,12 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def get_local_temperature(self, port):
+    def get_local_temperature(self):
         """
-        This API specifically returns local ToR temperature of the physical port specified
+        This API specifically returns local ToR temperature of the physical port for which this API is called.
+        The port on which this API is called for can be referred using self.port.
 
         Args:
-             port:
-                 an Integer, the actual physical port connected to Y end of a Y cable which can toggle the MUX
 
         Returns:
             an Integer, the temperature of the local MCU
@@ -469,13 +440,12 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def get_nic_voltage(self, port):
+    def get_nic_voltage(self):
         """
-        This API specifically returns nic voltage of the physical port specified
+        This API specifically returns nic voltage of the physical port for which this API is called.
+        The port on which this API is called for can be referred using self.port.
 
         Args:
-             port:
-                 an Integer, the actual physical port connected to Y end of a Y cable which can toggle the MUX
 
         Returns:
             a float, the voltage of the NIC MCU
@@ -483,13 +453,12 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def get_local_voltage(self, port):
+    def get_local_voltage(self):
         """
-        This API specifically returns local ToR voltage of the physical port specified
+        This API specifically returns local ToR voltage of the physical port for which this API is called.
+        The port on which this API is called for can be referred using self.port.
 
         Args:
-             port:
-                 an Integer, the actual physical port connected to Y end of a Y cable which can toggle the MUX
 
         Returns:
             a float, the voltage of the local MCU
@@ -497,17 +466,16 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def enable_prbs_mode(self, port, target, mode_value, lane_map):
+    def enable_prbs_mode(self, target, mode_value, lane_map):
         """
         This API specifically configures and enables the PRBS mode/type depending upon the mode_value the user provides.
         The mode_value configures the PRBS Type for generation and BER sensing on a per side basis.
         Target is an integer for selecting which end of the Y cable we want to run PRBS on.
         LaneMap specifies the lane configuration to run the PRBS on.
         Note that this is a diagnostic mode command and must not run during normal traffic/switch operation
+        The port on which this API is called for can be referred using self.port.
 
         Args:
-            port:
-                an Integer, the actual physical port connected to a Y cable
             target:
                 One of the following predefined constants, the target on which to enable the PRBS:
                     EYE_PRBS_TARGET_LOCAL -> local side,
@@ -530,13 +498,12 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def disable_prbs_mode(self, port, target):
+    def disable_prbs_mode(self, target):
         """
         This API specifically disables the PRBS mode on the physical port.
+        The port on which this API is called for can be referred using self.port.
 
         Args:
-            port:
-                 an Integer, the actual physical port connected to a Y cable
             target:
                 One of the following predefined constants, the target on which to disable the PRBS:
                     EYE_PRBS_TARGET_LOCAL -> local side,
@@ -551,16 +518,15 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def enable_loopback_mode(self, port, target, lane_map):
+    def enable_loopback_mode(self, target, lane_map):
         """
         This API specifically configures and enables the Loopback mode on the port user provides.
         Target is an integer for selecting which end of the Y cable we want to run loopback on.
         LaneMap specifies the lane configuration to run the loopback on.
         Note that this is a diagnostic mode command and must not run during normal traffic/switch operation
+        The port on which this API is called for can be referred using self.port.
 
         Args:
-            port:
-                 an Integer, the actual physical port connected to a Y cable
             target:
                 One of the following predefined constants, the target on which to enable the loopback:
                     EYE_PRBS_TARGET_LOCAL -> local side,
@@ -579,14 +545,13 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def disable_loopback_mode(self, port, target):
+    def disable_loopback_mode(self, target):
         """
         This API specifically disables the Loopback mode on the port user provides.
         Target is an integer for selecting which end of the Y cable we want to run loopback on.
+        The port on which this API is called for can be referred using self.port.
 
         Args:
-            port:
-                 an Integer, the actual physical port connected to a Y cable
             target:
                 One of the following predefined constants, the target on which to disable the loopback:
                     EYE_PRBS_TARGET_LOCAL -> local side,
