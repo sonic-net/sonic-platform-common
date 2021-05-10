@@ -191,7 +191,7 @@ class FanUpdater(logger.Logger):
     FAN_INFO_TABLE_NAME = 'FAN_INFO'
     FAN_DRAWER_INFO_TABLE_NAME = 'FAN_DRAWER_INFO'
 
-    def __init__(self, chassis):
+    def __init__(self, chassis, task_stopping_event):
         """
         Initializer for FanUpdater
         :param chassis: Object representing a platform chassis
@@ -199,6 +199,7 @@ class FanUpdater(logger.Logger):
         super(FanUpdater, self).__init__(SYSLOG_IDENTIFIER)
 
         self.chassis = chassis
+        self.task_stopping_event = task_stopping_event
         self.fan_status_dict = {}
         state_db = daemon_base.db_connect("STATE_DB")
         self.table = swsscommon.Table(state_db, FanUpdater.FAN_INFO_TABLE_NAME)
@@ -236,8 +237,12 @@ class FanUpdater(logger.Logger):
         FanStatus.reset_fan_counter()
 
         for drawer_index, drawer in enumerate(self.chassis.get_all_fan_drawers()):
+            if self.task_stopping_event.is_set():
+                return
             self._refresh_fan_drawer_status(drawer, drawer_index)
             for fan_index, fan in enumerate(drawer.get_all_fans()):
+                if self.task_stopping_event.is_set():
+                    return
                 try:
                     self._refresh_fan_status(drawer, drawer_index, fan, fan_index)
                 except Exception as e:
@@ -245,6 +250,8 @@ class FanUpdater(logger.Logger):
 
         for psu_index, psu in enumerate(self.chassis.get_all_psus()):
             for fan_index, fan in enumerate(psu.get_all_fans()):
+                if self.task_stopping_event.is_set():
+                    return
                 try:
                     self._refresh_fan_status(psu, psu_index, fan, fan_index, True)
                 except Exception as e:
@@ -396,6 +403,8 @@ class FanUpdater(logger.Logger):
 
     def _update_led_color(self):
         for fan_name, fan_status in self.fan_status_dict.items():
+            if self.task_stopping_event.is_set():
+                return
             try:
                 fvs = swsscommon.FieldValuePairs([
                     ('led_status', str(try_get(fan_status.fan.get_status_led)))
@@ -408,6 +417,8 @@ class FanUpdater(logger.Logger):
             self.table.set(fan_name, fvs)
 
         for drawer in self.chassis.get_all_fan_drawers():
+            if self.task_stopping_event.is_set():
+                return
             drawer_name = try_get(drawer.get_name)
             if drawer_name == NOT_AVAILABLE:
                 continue
@@ -510,7 +521,7 @@ class TemperatureUpdater(logger.Logger):
     # Temperature information table name in database
     TEMPER_INFO_TABLE_NAME = 'TEMPERATURE_INFO'
 
-    def __init__(self, chassis):
+    def __init__(self, chassis, task_stopping_event):
         """
         Initializer of TemperatureUpdater
         :param chassis: Object representing a platform chassis
@@ -518,6 +529,7 @@ class TemperatureUpdater(logger.Logger):
         super(TemperatureUpdater, self).__init__(SYSLOG_IDENTIFIER)
 
         self.chassis = chassis
+        self.task_stopping_event = task_stopping_event
         self.temperature_status_dict = {}
         state_db = daemon_base.db_connect("STATE_DB")
         self.table = swsscommon.Table(state_db, TemperatureUpdater.TEMPER_INFO_TABLE_NAME)
@@ -562,6 +574,8 @@ class TemperatureUpdater(logger.Logger):
         """
         self.log_debug("Start temperature updating")
         for index, thermal in enumerate(self.chassis.get_all_thermals()):
+            if self.task_stopping_event.is_set():
+                return
             try:
                 self._refresh_temperature_status(CHASSIS_INFO_KEY, thermal, index)
             except Exception as e:
@@ -570,6 +584,8 @@ class TemperatureUpdater(logger.Logger):
         for psu_index, psu in enumerate(self.chassis.get_all_psus()):
             parent_name = 'PSU {}'.format(psu_index + 1)
             for thermal_index, thermal in enumerate(psu.get_all_thermals()):
+                if self.task_stopping_event.is_set():
+                    return
                 try:
                     self._refresh_temperature_status(parent_name, thermal, thermal_index)
                 except Exception as e:
@@ -578,6 +594,8 @@ class TemperatureUpdater(logger.Logger):
         for sfp_index, sfp in enumerate(self.chassis.get_all_sfps()):
             parent_name = 'SFP {}'.format(sfp_index + 1)
             for thermal_index, thermal in enumerate(sfp.get_all_thermals()):
+                if self.task_stopping_event.is_set():
+                    return
                 try:
                     self._refresh_temperature_status(parent_name, thermal, thermal_index)
                 except Exception as e:
@@ -686,8 +704,8 @@ class ThermalMonitor(ProcessTaskBase):
         # Set minimum logging level to INFO
         self.logger.set_min_log_priority_info()
 
-        self.fan_updater = FanUpdater(chassis)
-        self.temperature_updater = TemperatureUpdater(chassis)
+        self.fan_updater = FanUpdater(chassis, self.task_stopping_event)
+        self.temperature_updater = TemperatureUpdater(chassis, self.task_stopping_event)
 
     def main(self):
         begin = time.time()
@@ -789,6 +807,8 @@ class ThermalControlDaemon(daemon_base.DaemonBase):
         if sig in FATAL_SIGNALS:
             self.log_info("Caught signal '{}' - exiting...".format(SIGNALS_TO_NAMES_DICT[sig]))
             exit_code = 128 + sig  # Make sure we exit with a non-zero code so that supervisor will try to restart us
+            self.thermal_monitor.task_stop()
+            self.thermal_manager.stop()
             self.stop_event.set()
         elif sig in NONFATAL_SIGNALS:
             self.log_info("Caught signal '{}' - ignoring...".format(SIGNALS_TO_NAMES_DICT[sig]))
