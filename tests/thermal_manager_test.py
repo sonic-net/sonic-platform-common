@@ -1,3 +1,4 @@
+import os
 import sys
 
 # TODO: Clean this up once we no longer need to support Python 2
@@ -47,7 +48,8 @@ class MockChassis:
 class TestThermalManagerBase:
     @classmethod
     def setup_class(cls):
-        tmb.ThermalManagerBase.load('thermal_policy.json')
+        tests_dir = os.path.dirname(os.path.abspath(__file__))
+        tmb.ThermalManagerBase.load(os.path.join(tests_dir, 'thermal_policy.json'))
 
     def test_load_policy(self):
         assert tmb.ThermalManagerBase._fan_speed_when_suspend == 60
