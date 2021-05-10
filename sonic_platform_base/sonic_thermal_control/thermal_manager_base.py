@@ -25,6 +25,8 @@ class ThermalManagerBase(object):
 
     _run_thermal_algorithm_at_boot_up = None
 
+    _running = True
+
     @classmethod
     def initialize(cls):
         """
@@ -42,6 +44,14 @@ class ThermalManagerBase(object):
         :return:
         """
         pass
+
+    @classmethod
+    def stop(cls):
+        """
+        Stop thermal manager.
+        :return:
+        """
+        cls._running = False
 
     @classmethod
     def start_thermal_control_algorithm(cls):
@@ -169,6 +179,8 @@ class ThermalManagerBase(object):
         cls._collect_thermal_information(chassis)
 
         for policy in cls._policy_dict.values():
+            if not cls._running:
+                return
             if policy.is_match(cls._thermal_info_dict):
                 policy.do_action(cls._thermal_info_dict)
 
@@ -180,6 +192,8 @@ class ThermalManagerBase(object):
         :return:
         """
         for thermal_info in cls._thermal_info_dict.values():
+            if not cls._running:
+                return
             thermal_info.collect(chassis)
 
     @classmethod
