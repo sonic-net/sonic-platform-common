@@ -206,7 +206,7 @@ def _wrapper_get_sfp_type(physical_port):
 # Remove unnecessary unit from the raw data
 
 
-def beautify_dom_info_dict(dom_info_dict):
+def beautify_dom_info_dict(dom_info_dict, physical_port):
     dom_info_dict['temperature'] = strip_unit_and_beautify(dom_info_dict['temperature'], TEMP_UNIT)
     dom_info_dict['voltage'] = strip_unit_and_beautify(dom_info_dict['voltage'], VOLT_UNIT)
     dom_info_dict['rx1power'] = strip_unit_and_beautify(dom_info_dict['rx1power'], POWER_UNIT)
@@ -221,6 +221,19 @@ def beautify_dom_info_dict(dom_info_dict):
     dom_info_dict['tx2power'] = strip_unit_and_beautify(dom_info_dict['tx2power'], POWER_UNIT)
     dom_info_dict['tx3power'] = strip_unit_and_beautify(dom_info_dict['tx3power'], POWER_UNIT)
     dom_info_dict['tx4power'] = strip_unit_and_beautify(dom_info_dict['tx4power'], POWER_UNIT)
+    if _wrapper_get_sfp_type(physical_port) == 'QSFP_DD':
+        dom_info_dict['rx5power'] = strip_unit_and_beautify(dom_info_dict['rx5power'], POWER_UNIT)
+        dom_info_dict['rx6power'] = strip_unit_and_beautify(dom_info_dict['rx6power'], POWER_UNIT)
+        dom_info_dict['rx7power'] = strip_unit_and_beautify(dom_info_dict['rx7power'], POWER_UNIT)
+        dom_info_dict['rx8power'] = strip_unit_and_beautify(dom_info_dict['rx8power'], POWER_UNIT)
+        dom_info_dict['tx5bias'] = strip_unit_and_beautify(dom_info_dict['tx5bias'], BIAS_UNIT)
+        dom_info_dict['tx6bias'] = strip_unit_and_beautify(dom_info_dict['tx6bias'], BIAS_UNIT)
+        dom_info_dict['tx7bias'] = strip_unit_and_beautify(dom_info_dict['tx7bias'], BIAS_UNIT)
+        dom_info_dict['tx8bias'] = strip_unit_and_beautify(dom_info_dict['tx8bias'], BIAS_UNIT)
+        dom_info_dict['tx5power'] = strip_unit_and_beautify(dom_info_dict['tx5power'], POWER_UNIT)
+        dom_info_dict['tx6power'] = strip_unit_and_beautify(dom_info_dict['tx6power'], POWER_UNIT)
+        dom_info_dict['tx7power'] = strip_unit_and_beautify(dom_info_dict['tx7power'], POWER_UNIT)
+        dom_info_dict['tx8power'] = strip_unit_and_beautify(dom_info_dict['tx8power'], POWER_UNIT)
 
 
 def beautify_dom_threshold_info_dict(dom_info_dict):
@@ -399,7 +412,7 @@ def post_port_dom_info_to_db(logical_port_name, table, stop_event=threading.Even
         try:
             dom_info_dict = _wrapper_get_transceiver_dom_info(physical_port)
             if dom_info_dict is not None:
-                beautify_dom_info_dict(dom_info_dict)
+                beautify_dom_info_dict(dom_info_dict, physical_port)
                 if _wrapper_get_sfp_type(physical_port) == 'QSFP_DD':
                     fvs = swsscommon.FieldValuePairs(
                         [('temperature', dom_info_dict['temperature']),
