@@ -58,7 +58,7 @@ class YCableBase(object):
         """
         self.port = port
 
-    def toggle_mux_to_torA(self):
+    def toggle_mux_to_tor_a(self):
         """
         This API specifically does a hard switch toggle of the Y cable's MUX regardless of link state to
         TOR A on the port this is called for. This means if the Y cable is actively sending traffic,
@@ -76,7 +76,7 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def toggle_mux_to_torB(self):
+    def toggle_mux_to_tor_b(self):
         """
         This API specifically does a hard switch toggle of the Y cable's MUX regardless of link state to
         TOR B. This means if the Y cable is actively sending traffic, the "get_active_linked_tor_side"
@@ -613,6 +613,24 @@ class YCableBase(object):
         Returns:
             a boolean, True if debug mode enabled
                      , False if debug mode not enabled
+        """
+
+        raise NotImplementedError
+
+    def debug_dump_registers(self):
+        """
+        This API specifically should dump all registers with meaningful values
+        for the cable to be diagnosed for proper functioning.
+        This means that for all the fields on relevant vendor specific pages
+        this API should dump the appropriate fields with parsed values
+        which would help debug the Y-Cable
+
+        Args:
+
+        Returns:
+            a Dictionary:
+                 with all the relevant key-value pairs for all the meaningful fields
+                 which would help diagnose the cable for proper functioning
         """
 
         raise NotImplementedError
