@@ -565,3 +565,54 @@ class YCableBase(object):
         """
 
         raise NotImplementedError
+
+    def enable_debug_mode(self):
+        """
+        This API specifically configures and enables a debug mode that the port is now
+        going to be run on. This means that PRBS/Loopback etc. type diagnostic mode
+        is now going to be run on the port and hence normal traffic will be disabled
+        on it.
+        The port on which this API is called for can be referred using self.port.
+
+        Args:
+
+        Returns:
+            a boolean, True if the enable is successful
+                     , False if the enable failed
+        """
+
+        raise NotImplementedError
+
+    def disable_debug_mode(self):
+        """
+        This API specifically disables a debug mode that the port was currently being run on.
+        This means that PRBS/Loopback etc. type diagnostic mode
+        are now going to be stopped the port and hence normal traffic will be enabled
+        on it.
+        The port on which this API is called for can be referred using self.port.
+
+        Args:
+
+        Returns:
+            a boolean, True if the disable is successful
+                     , False if the disable failed
+        """
+
+        raise NotImplementedError
+
+    def is_debug_mode_enabled(self):
+        """
+        This API specifically checks if a debug mode is currently being run on the port
+        for which this API is called for.
+        This means that PRBS/Loopback etc. type diagnostic mode
+        if any are being run on the port this should return True else False
+        The port on which this API is called for can be referred using self.port.
+
+        Args:
+
+        Returns:
+            a boolean, True if debug mode enabled
+                     , False if debug mode not enabled
+        """
+
+        raise NotImplementedError
