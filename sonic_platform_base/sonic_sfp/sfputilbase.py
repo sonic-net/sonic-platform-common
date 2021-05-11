@@ -15,7 +15,7 @@ try:
     from natsort import natsorted
     from portconfig import get_port_config
     from sonic_py_common import device_info
-    from sonic_py_common.interface import backplane_prefix
+    from sonic_py_common.interface import backplane_prefix, inband_prefix
 
     from sonic_eeprom import eeprom_dts
     from .sff8472 import sff8472InterfaceId  # Dot module supports both Python 2 and Python 3 using explicit relative import methods
@@ -344,16 +344,10 @@ class SfpUtilBase(object):
             return None
 
         try:
-            # in case raw is bytes (python3 is used) raw[n] will return int,
-            # and in case raw is str(python2 is used) raw[n] will return str,
-            # so for python3 the are no need to call ord to convert str to int.
-            # TODO: Remove this check once we no longer support Python 2
-            if type(raw) == bytes:
-                for n in range(0, num_bytes):
-                    eeprom_raw[n] = hex(raw[n])[2:].zfill(2)
-            else:
-                for n in range(0, num_bytes):
-                    eeprom_raw[n] = hex(ord(raw[n]))[2:].zfill(2)
+            # raw is changed to bytearray to support both python 2 and 3.
+            raw = bytearray(raw)
+            for n in range(0, num_bytes):
+                eeprom_raw[n] = hex(raw[n])[2:].zfill(2)
         except Exception:
             return None
 
@@ -504,8 +498,8 @@ class SfpUtilBase(object):
                 # so we use the port's position in the file (zero-based) as bcm_port
                 portname = line.split()[0]
 
-                # Ignore if this is an internal backplane interface
-                if portname.startswith(backplane_prefix()):
+                # Ignore if this is an internal backplane interface and Inband interface
+                if portname.startswith(backplane_prefix()) or portname.startswith(inband_prefix()):
                     continue
 
                 bcm_port = str(port_pos_in_file)
