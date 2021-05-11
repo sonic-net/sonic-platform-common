@@ -472,6 +472,45 @@ class YCableBase(object):
 ###                                  Debug Functionality                                  ###
 #############################################################################################
 
+
+    def set_debug_mode(self, enable):
+        """
+        This API specifically enables/disables a debug mode that the port is now
+        going to be run on. If enabled, this means that PRBS/Loopback etc. type diagnostic mode
+        is now going to be run on the port and hence normal traffic will be disabled
+        on it if enabled and vice-versa if disabled.
+        The port on which this API is called for can be referred using self.port.
+
+        Args:
+            enable:
+            a boolean, True if the debug mode needs to be enabled
+                     , False if the debug mode needs to be disabled
+
+
+        Returns:
+            a boolean, True if the enable is successful
+                     , False if the enable failed
+        """
+
+        raise NotImplementedError
+
+    def get_debug_mode(self):
+        """
+        This API specifically checks if a debug mode is currently being run on the port
+        for which this API is called for.
+        This means that PRBS/Loopback etc. type diagnostic mode
+        if any are being run on the port this should return True else False.
+        The port on which this API is called for can be referred using self.port.
+
+        Args:
+
+        Returns:
+            a boolean, True if debug mode enabled
+                     , False if debug mode not enabled
+        """
+
+        raise NotImplementedError
+
     def enable_prbs_mode(self, target, mode_value, lane_map):
         """
         This API specifically configures and enables the PRBS mode/type depending upon the mode_value the user provides.
@@ -572,43 +611,6 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def set_debug_mode(self, enable):
-        """
-        This API specifically enables/disables a debug mode that the port is now
-        going to be run on. If enabled, this means that PRBS/Loopback etc. type diagnostic mode
-        is now going to be run on the port and hence normal traffic will be disabled
-        on it if enabled and vice-versa if disabled.
-        The port on which this API is called for can be referred using self.port.
-
-        Args:
-            enable:
-            a boolean, True if the debug mode needs to be enabled
-                     , False if the debug mode needs to be disabled
-
-
-        Returns:
-            a boolean, True if the enable is successful
-                     , False if the enable failed
-        """
-
-        raise NotImplementedError
-
-    def get_debug_mode(self):
-        """
-        This API specifically checks if a debug mode is currently being run on the port
-        for which this API is called for.
-        This means that PRBS/Loopback etc. type diagnostic mode
-        if any are being run on the port this should return True else False.
-        The port on which this API is called for can be referred using self.port.
-
-        Args:
-
-        Returns:
-            a boolean, True if debug mode enabled
-                     , False if debug mode not enabled
-        """
-
-        raise NotImplementedError
 
     def debug_dump_registers(self):
         """
