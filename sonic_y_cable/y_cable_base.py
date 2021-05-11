@@ -2,7 +2,7 @@
     y_cable_base.py
 
     Base class for implementing Y-Cable specific functionality in SONiC.
-    This is the base class of sonic_y_cable implentation. A vendor specific 
+    This is the base class of sonic_y_cable implentation. A vendor-specific
     implementation of a 'YCable' class needs to inherit from this class.
     Classes derived from this class provide the ability to interact
     with a vendor-specific Y-Cable
@@ -616,7 +616,7 @@ class YCableBase(object):
         """
         This API specifically should dump all registers with meaningful values
         for the cable to be diagnosed for proper functioning.
-        This means that for all the fields on relevant vendor specific pages
+        This means that for all the fields on relevant vendor-specific pages
         this API should dump the appropriate fields with parsed values
         which would help debug the Y-Cable
 
