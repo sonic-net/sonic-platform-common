@@ -3,18 +3,19 @@
 
     Base class for implementing Y-Cable specific functionality in SONiC.
     This is the base class of sonic_y_cable implentation. A vendor specific 
-    implementation of YCable needs to inherit from this class.
+    implementation of a 'YCable' class needs to inherit from this class.
     Classes derived from this class provide the ability to interact
-    with a vendor specific Y-Cable
+    with a vendor-specific Y-Cable
 """
 
 
 class YCableBase(object):
 
     # definitions of targets for getting the various fields/cursor
-    # equalization parameters from the register spec
+    # equalization parameters from the register spec.
     # the name of the target denotes which side MCU
-    # values will be retreived on the Y-Cable
+    # values will be retrieved from or written to
+    # on the Y-Cable
 
     TARGET_UNKNOWN = -1
     TARGET_NIC = 0
@@ -38,7 +39,7 @@ class YCableBase(object):
     SWITCH_COUNT_MANUAL = "manual"
     SWITCH_COUNT_AUTO = "auto"
 
-    # switching modes inside muxcable
+    # switching modes inside Y-Cable
     SWITCHING_MODE_MANUAL = 0
     SWITCHING_MODE_AUTO = 1
 
@@ -378,7 +379,7 @@ class YCableBase(object):
 
     def set_switching_mode(self, mode):
         """
-        This API specifically enables the auto switching or manual switching feature on the muxcable,
+        This API specifically enables the auto switching or manual switching feature on the Y-Cable,
         depending upon the mode entered by the user.
         Autoswitch feature if enabled actually does an automatic toggle of the mux in case the active
         side link goes down and basically points the mux to the other side.
@@ -390,7 +391,7 @@ class YCableBase(object):
                  SWITCHING_MODE_AUTO
                  SWITCHING_MODE_MANUAL
 
-                 specifies which type of switching mode we set the muxcable to
+                 specifies which type of switching mode we set the Y-Cable to
                  either SWITCHING_MODE_AUTO or SWITCHING_MODE_MANUAL
 
         Returns:
@@ -465,6 +466,11 @@ class YCableBase(object):
         """
 
         raise NotImplementedError
+
+
+#############################################################################################
+###                                  Debug Functionality                                  ###
+#############################################################################################
 
     def enable_prbs_mode(self, target, mode_value, lane_map):
         """
@@ -566,15 +572,19 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def enable_debug_mode(self):
+    def set_debug_mode(self, enable):
         """
-        This API specifically configures and enables a debug mode that the port is now
-        going to be run on. This means that PRBS/Loopback etc. type diagnostic mode
+        This API specifically enables/disables a debug mode that the port is now
+        going to be run on. If enabled, this means that PRBS/Loopback etc. type diagnostic mode
         is now going to be run on the port and hence normal traffic will be disabled
-        on it.
+        on it if enabled and vice-versa if disabled.
         The port on which this API is called for can be referred using self.port.
 
         Args:
+            enable:
+            a boolean, True if the debug mode needs to be enabled
+                     , False if the debug mode needs to be disabled
+
 
         Returns:
             a boolean, True if the enable is successful
@@ -583,29 +593,12 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def disable_debug_mode(self):
-        """
-        This API specifically disables a debug mode that the port was currently being run on.
-        This means that PRBS/Loopback etc. type diagnostic mode
-        are now going to be stopped the port and hence normal traffic will be enabled
-        on it.
-        The port on which this API is called for can be referred using self.port.
-
-        Args:
-
-        Returns:
-            a boolean, True if the disable is successful
-                     , False if the disable failed
-        """
-
-        raise NotImplementedError
-
-    def is_debug_mode_enabled(self):
+    def get_debug_mode(self):
         """
         This API specifically checks if a debug mode is currently being run on the port
         for which this API is called for.
         This means that PRBS/Loopback etc. type diagnostic mode
-        if any are being run on the port this should return True else False
+        if any are being run on the port this should return True else False.
         The port on which this API is called for can be referred using self.port.
 
         Args:
