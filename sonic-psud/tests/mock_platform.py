@@ -273,6 +273,7 @@ class MockPsu(psu_base.PsuBase):
                  presence=True,
                  model='Module Model',
                  serial='Module Serial',
+                 revision='Module Revision',
                  status=True,
                  voltage=12.0,
                  current=8.0,
@@ -287,6 +288,7 @@ class MockPsu(psu_base.PsuBase):
         self._presence = presence
         self._model = model
         self._serial = serial
+        self._revision = revision
         self._status = status
         self._position_in_parent = position_in_parent
         self._replaceable = replaceable
@@ -364,6 +366,9 @@ class MockPsu(psu_base.PsuBase):
 
     def get_serial(self):
         return self._serial
+
+    def get_revision(self):
+        return self._revision
 
     def get_status(self):
         return self._status

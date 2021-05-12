@@ -148,13 +148,14 @@ class TestDaemonPsud(object):
         psud._wrapper_get_psu_presence.return_value = True
         psud._wrapper_get_psu_status.return_value = True
 
-        psu1 = MockPsu('PSU 1', 0, True, 'Fake Model', '12345678')
+        psu1 = MockPsu('PSU 1', 0, True, 'Fake Model', '12345678', '1234')
         psud.platform_chassis = MockChassis()
         psud.platform_chassis._psu_list.append(psu1)
 
         expected_fvp = psud.swsscommon.FieldValuePairs(
             [(psud.PSU_INFO_MODEL_FIELD, 'Fake Model'),
              (psud.PSU_INFO_SERIAL_FIELD, '12345678'),
+             (psud.PSU_INFO_REV_FIELD, '1234'),
              (psud.PSU_INFO_TEMP_FIELD, '30.0'),
              (psud.PSU_INFO_TEMP_TH_FIELD, '50.0'),
              (psud.PSU_INFO_VOLTAGE_FIELD, '12.0'),

@@ -48,6 +48,7 @@ PSU_INFO_KEY_TEMPLATE = 'PSU {}'
 PSU_INFO_PRESENCE_FIELD = 'presence'
 PSU_INFO_MODEL_FIELD = 'model'
 PSU_INFO_SERIAL_FIELD = 'serial'
+PSU_INFO_REV_FIELD = 'revision'
 PSU_INFO_STATUS_FIELD = 'status'
 PSU_INFO_TEMP_FIELD = 'temp'
 PSU_INFO_TEMP_TH_FIELD = 'temp_threshold'
@@ -510,6 +511,7 @@ class DaemonPsud(daemon_base.DaemonBase):
         fvs = swsscommon.FieldValuePairs(
             [(PSU_INFO_MODEL_FIELD, str(try_get(psu.get_model, NOT_AVAILABLE))),
              (PSU_INFO_SERIAL_FIELD, str(try_get(psu.get_serial, NOT_AVAILABLE))),
+             (PSU_INFO_REV_FIELD, str(try_get(psu.get_revision, NOT_AVAILABLE))),
              (PSU_INFO_TEMP_FIELD, str(temperature)),
              (PSU_INFO_TEMP_TH_FIELD, str(temperature_threshold)),
              (PSU_INFO_VOLTAGE_FIELD, str(voltage)),
