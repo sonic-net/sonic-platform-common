@@ -3,6 +3,7 @@
     helper utlities configuring y_cable for xcvrd daemon
 """
 
+import datetime
 import threading
 
 from sonic_py_common import daemon_base, logger
@@ -1010,6 +1011,7 @@ class YCableTableUpdateTask(object):
         appl_db, state_db, status_tbl, y_cable_tbl = {}, {}, {}, {}
         y_cable_tbl_keys = {}
         mux_cable_command_tbl, y_cable_command_tbl = {}, {}
+        mux_metrics_tbl = {}
 
         sel = swsscommon.Select()
 
@@ -1028,6 +1030,8 @@ class YCableTableUpdateTask(object):
             state_db[asic_id] = daemon_base.db_connect("STATE_DB", namespace)
             y_cable_tbl[asic_id] = swsscommon.Table(
                 state_db[asic_id], swsscommon.STATE_HW_MUX_CABLE_TABLE_NAME)
+            mux_metrics_tbl[asic_id] = swsscommon.Table(
+                state_db[asic_id], swsscommon.STATE_MUX_METRICS_TABLE_NAME)
             y_cable_tbl_keys[asic_id] = y_cable_tbl[asic_id].getKeys()
             sel.addSelectable(status_tbl[asic_id])
             sel.addSelectable(mux_cable_command_tbl[asic_id])
@@ -1058,6 +1062,10 @@ class YCableTableUpdateTask(object):
                 (port, op, fvp) = status_tbl[asic_index].pop()
                 if not port:
                     break
+
+                # entering this section signifies a start for xcvrd state
+                # change request from swss so initiate recording in mux_metrics table
+                time_start = datetime.datetime.utcnow().strftime("%Y-%b-%d %H:%M:%S.%f")
                 if fvp:
                     # This check might be redundant, to check, the presence of this Port in keys
                     # in logical_port_list but keep for now for coherency
@@ -1091,6 +1099,10 @@ class YCableTableUpdateTask(object):
                         y_cable_tbl[asic_index].set(port, fvs_updated)
                         helper_logger.log_info("Got a change event for toggle the mux-direction active side for port {} state from {} to {}".format(
                             port, old_status, new_status))
+                        time_end = datetime.datetime.utcnow().strftime("%Y-%b-%d %H:%M:%S.%f")
+                        fvs_metrics = swsscommon.FieldValuePairs([('xcvrd_switch_{}_start'.format(new_status), str(time_start)),
+                                                                  ('xcvrd_switch_{}_end'.format(new_status), str(time_end))])
+                        mux_metrics_tbl[asic_index].set(port, fvs_metrics)
                     else:
                         helper_logger.log_info("Got a change event on port {} of table {} that does not contain state".format(
                             port, swsscommon.APP_HW_MUX_CABLE_TABLE_NAME))
