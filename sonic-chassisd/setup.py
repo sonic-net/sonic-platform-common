@@ -15,6 +15,7 @@ setup(
     ],
     scripts=[
         'scripts/chassisd',
+        'scripts/chassis_db_init'
     ],
     setup_requires=[
         'pytest-runner',
