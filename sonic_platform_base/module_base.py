@@ -71,7 +71,7 @@ class ModuleBase(device_base.DeviceBase):
         # available on the module
         self._sfp_list = []
 
-        # List of Asic-derived objects representing all asics
+        # List of ASIC-derived objects representing all ASICs
         # visibile in PCI domain on the module
         self._asic_list = []
 
@@ -468,30 +468,30 @@ class ModuleBase(device_base.DeviceBase):
         return NotImplementedError
 
     ##############################################
-    # Asic methods
+    # ASIC methods
     ##############################################
     def get_all_asics(self):
         """
-        Retrieves the list of all asics on the module that are visible in PCI domain.
+        Retrieves the list of all ASICs on the module that are visible in PCI domain.
         When called from the Supervisor of modular system, the module could be
-        fabric card, and the function returns all fabric asics on this module that
+        fabric card, and the function returns all fabric ASICs on this module that
         appear in PCI domain of the Supervisor.
 
         Returns:
-            A list of asics. Index of an asic in the list is the index of the asic
+            A list of ASICs. Index of an ASIC in the list is the index of the ASIC
             on the module. Index is 0 based.
 
             An item in the list is a tuple that includes:
-               - Asic instance number (indexed globally across all modules of
-                 the chassis). This number is used to find settings for the asic
+               - ASIC instance number (indexed globally across all modules of
+                 the chassis). This number is used to find settings for the ASIC
                  from /usr/share/sonic/device/platform/hwsku/asic_instance_number/.
-               - Asic PCI address: It is used by syncd to attach the correct asic.
+               - ASIC PCI address: It is used by syncd to attach the correct ASIC.
 
             For example: [('4', '0000:05:00.0'), ('5', '0000:07:00.0')]
-               In this example, from the output, we know the module has 2 asics.
-               Item ('4', '0000:05:00.0') describes information about the first asic
+               In this example, from the output, we know the module has 2 ASICs.
+               Item ('4', '0000:05:00.0') describes information about the first ASIC
                in the module.
-               '4' means it is asic4 in the chassis. Settings for this asic is at
+               '4' means it is asic4 in the chassis. Settings for this ASIC is at
                /usr/share/sonic/device/platform/hwsku/4/.
                And '0000:05:00.0' is its PCI address.
         """
