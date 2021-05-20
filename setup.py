@@ -23,6 +23,7 @@ setup(
         'sonic_platform_base.sonic_xcvr',
         'sonic_platform_base.sonic_xcvr.fields',
         'sonic_platform_base.sonic_xcvr.mem_maps',
+        'sonic_platform_base.sonic_xcvr.api',
         'sonic_psu',
         'sonic_sfp',
         'sonic_thermal',
