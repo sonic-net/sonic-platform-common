@@ -10,17 +10,23 @@ else:
     import mock
 
 import pytest
-from sonic_py_common import daemon_base
-
-from .mock_platform import MockChassis, MockFan, MockPsu, MockSfp, MockThermal
-
-daemon_base.db_connect = mock.MagicMock()
-
 tests_path = os.path.dirname(os.path.abspath(__file__))
 
 # Add mocked_libs path so that the file under test can load mocked modules from there
 mocked_libs_path = os.path.join(tests_path, 'mocked_libs')
 sys.path.insert(0, mocked_libs_path)
+
+
+import swsscommon
+# Check we are using the mocked package
+assert len(swsscommon.__path__) == 1
+assert(os.path.samefile(swsscommon.__path__[0], os.path.join(mocked_libs_path, 'swsscommon')))
+
+from sonic_py_common import daemon_base
+
+from .mock_platform import MockChassis, MockFan, MockPsu, MockSfp, MockThermal
+
+daemon_base.db_connect = mock.MagicMock()
 
 # Add path to the file under test so that we can load it
 modules_path = os.path.dirname(tests_path)
