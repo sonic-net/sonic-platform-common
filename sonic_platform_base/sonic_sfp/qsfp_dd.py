@@ -92,7 +92,10 @@ class qsfp_dd_InterfaceId(sffbase):
 
     def parse_application(self, sfp_media_type_dict, host_interface, media_interface):
         host_result = host_electrical_interface[host_interface]
-        media_result = sfp_media_type_dict[media_interface]
+        if media_interface in sfp_media_type_dict.keys():
+            media_result = sfp_media_type_dict[media_interface]
+        else:
+            media_result = 'Unknown'
         return host_result, media_result
 
     version = '1.0'
