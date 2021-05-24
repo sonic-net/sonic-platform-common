@@ -11,7 +11,7 @@ else:
     import mock
 from sonic_py_common import daemon_base
 
-from .mock_platform import MockPsu
+from .mock_platform import MockPsu, MockChassis
 
 tests_path = os.path.dirname(os.path.abspath(__file__))
 
@@ -179,6 +179,7 @@ def test_log_on_status_changed():
     mock_logger.log_warning.assert_called_with(abnormal_log)
 
 
+@mock.patch('psud.platform_chassis', mock.MagicMock())
 @mock.patch('psud.DaemonPsud.run')
 def test_main(mock_run):
     mock_run.return_value = False
