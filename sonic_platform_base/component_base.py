@@ -5,6 +5,15 @@
     to interact with a chassis/module component (e.g., BIOS, CPLD, FPGA, etc.) in SONiC
 """
 
+# Return codes for firmware updates
+
+FW_AUTO_INSTALLED = 1
+FW_AUTO_UPDATED = 2
+FW_AUTO_SCHEDULED = 3
+FW_AUTO_ERR_BOOT_TYPE = -1
+FW_AUTO_ERR_IMAGE = -2
+FW_AUTO_ERR_UKNOWN = -3
+
 
 class ComponentBase(object):
     """
