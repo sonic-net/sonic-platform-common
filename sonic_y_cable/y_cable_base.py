@@ -45,14 +45,14 @@ class YCableBase(object):
 
     # definitions of the fec mode to be configured
     # on a port/cable
-    FEC_MODE_NONE,
-    FEC_MODE_RS,
-    FEC_MODE_FC
+    FEC_MODE_NONE = 0
+    FEC_MODE_RS = 1
+    FEC_MODE_FC = 2
 
     # definitions of the modes to be run for loopback mode
     # on the port/cable
-    LOOPBACK_MODE_NEAR_END
-    LOOPBACK_MODE_FAR_END
+    LOOPBACK_MODE_NEAR_END = 0
+    LOOPBACK_MODE_FAR_END = 1
 
     # Valid return codes for upgrade firmware routine steps
     FIRMWARE_DOWNLOAD_SUCCESS = 0
@@ -170,7 +170,7 @@ class YCableBase(object):
             target:
                 One of the following predefined constants, the actual target to check the link on:
                      TARGET_NIC -> NIC,
-                     TARGET_TOR_A-> TORA,
+                     TARGET_TOR_A -> TORA,
                      TARGET_TOR_B -> TORB
 
         Returns:
@@ -313,7 +313,7 @@ class YCableBase(object):
                     SWITCH_COUNT_AUTO -> automatic switch count
             target:
                 One of the following predefined constants, the actual target to check the link on:
-                     TARGET_TOR_A-> TORA,
+                     TARGET_TOR_A -> TORA,
                      TARGET_TOR_B -> TORB
             clear_on_read:
                 a boolean, True if the count has to be reset after read to zero
@@ -340,7 +340,7 @@ class YCableBase(object):
             target:
                 One of the following predefined constants, the actual target to get the cursor values on:
                      TARGET_NIC -> NIC,
-                     TARGET_TOR_A-> TORA,
+                     TARGET_TOR_A -> TORA,
                      TARGET_TOR_B -> TORB
         Returns:
             a list, with  pre one, pre two , main, post one, post two cursor values in the order
@@ -366,7 +366,7 @@ class YCableBase(object):
             target:
                 One of the following predefined constants, the actual target to get the cursor values on:
                      TARGET_NIC -> NIC,
-                     TARGET_TOR_A-> TORA,
+                     TARGET_TOR_A -> TORA,
                      TARGET_TOR_B -> TORB
         Returns:
             a boolean, True if cursor values setting is successful
@@ -386,7 +386,7 @@ class YCableBase(object):
             target:
                 One of the following predefined constants, the actual target to get the firmware version on:
                      TARGET_NIC -> NIC,
-                     TARGET_TOR_A-> TORA,
+                     TARGET_TOR_A -> TORA,
                      TARGET_TOR_B -> TORB
         Returns:
             a Dictionary:
@@ -592,7 +592,7 @@ class YCableBase(object):
             target:
                 One of the following predefined constants, the actual target to check the link on:
                      TARGET_NIC -> NIC,
-                     TARGET_TOR_A-> TORA,
+                     TARGET_TOR_A -> TORA,
                      TARGET_TOR_B -> TORB
 
         Returns:
