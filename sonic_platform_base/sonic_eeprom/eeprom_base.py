@@ -29,6 +29,7 @@ class EepromDecoder(object):
         self.r = readonly
         self.cache_name = None
         self.cache_update_needed = False
+        self.eeprom_file_handle = None
         self.lock_file = None
 
     def check_status(self):
@@ -220,7 +221,8 @@ class EepromDecoder(object):
         except Exception:
             pass
         self.cache_update_needed = using_eeprom
-        return io.open(eeprom_file, "rb")
+        self.eeprom_file_handle = io.open(eeprom_file, "rb")
+        return using_eeprom
 
     def read_eeprom(self):
         sizeof_info = 0
@@ -231,8 +233,9 @@ class EepromDecoder(object):
 
     def read_eeprom_bytes(self, byteCount, offset=0):
         F = None
+        eeprom_flag = False
         try:
-            F = self.open_eeprom()
+            F = self.eeprom_file_handle
             F.seek(self.s + offset)
             o = F.read(byteCount)
 
@@ -243,9 +246,11 @@ class EepromDecoder(object):
                 os.remove(self.cache_name)
                 self.cache_update_needed = True
                 F.close()
-                F = self.open_eeprom()
-                F.seek(self.s + offset)
-                o = F.read(byteCount)
+                eeprom_flag = self.open_eeprom()
+                if (eeprom_flag == self.cache_update_needed):
+                    F = self.eeprom_file_handle
+                    F.seek(self.s + offset)
+                    o = F.read(byteCount)
 
             if len(o) != byteCount:
                 raise RuntimeError("Expected to read %d bytes from %s, "
