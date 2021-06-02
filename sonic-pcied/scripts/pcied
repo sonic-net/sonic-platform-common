@@ -11,7 +11,6 @@ try:
     import sys
     import threading
 
-    import swsssdk
     from sonic_py_common import daemon_base, device_info
     from swsscommon import swsscommon
 except ImportError as e:
@@ -49,7 +48,7 @@ class DaemonPcied(daemon_base.DaemonBase):
         self.timeout = PCIED_MAIN_THREAD_SLEEP_SECS
         self.stop_event = threading.Event()
 
-        self.state_db = swsssdk.SonicV2Connector(host=REDIS_HOSTIP)
+        self.state_db = swsscommon.SonicV2Connector(host=REDIS_HOSTIP)
         self.state_db.connect("STATE_DB")
         state_db = daemon_base.db_connect("STATE_DB")
         self.device_table = swsscommon.Table(state_db, PCIE_DEVICE_TABLE_NAME)
