@@ -1275,6 +1275,10 @@ def check_if_nic_lanes_active(physical_port):
 
 @hook_y_cable_simulator
 def get_firmware_version(physical_port, target):
+    vsc_req_form = [None] * (VSC_CMD_ATTRIBUTE_LENGTH)
+    vsc_req_form[VSC_BYTE_OPCODE] = VSC_OPCODE_FWUPD
+    vsc_req_form[VSC_BYTE_OPTION] = FWUPD_OPTION_GET_INFO
+    status = send_vsc_cmd(physical_port, vsc_req_form)
 
     data = bytearray(FIRMWARE_INFO_PAYLOAD_SIZE)
 
