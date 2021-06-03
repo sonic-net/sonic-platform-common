@@ -672,7 +672,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
 class EepromDefaultVisitor:
     def visit_header(self, eeprom_id, version, header_length):
         """Visit EEPROM header. If EEPROM header is not present, this method is still called, 
-           but the inpurt arguments will all be None.
+           but the input arguments will all be None.
            
         Args:
             eeprom_id (str): EEPROM ID
