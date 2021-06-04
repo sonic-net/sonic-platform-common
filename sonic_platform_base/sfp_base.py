@@ -17,29 +17,29 @@ class SfpBase(device_base.DeviceBase):
     DEVICE_TYPE = "sfp"
 
     # Generic error types definition
-    SFP_STATUS_INITIALIZING = 'Initializing'
-    SFP_STATUS_OK = 'OK'
-    SFP_STATUS_UNPLUGGED = 'Unplugged'
-    SFP_STATUS_DISABLED = 'Disabled'
-    SFP_ERROR_DESCRIPTION_BLOCKING = 'Blocking Error'
-    SFP_ERROR_DESCRIPTION_POWER_BUDGET_EXCEEDED = 'Power budget exceeded'
-    SFP_ERROR_DESCRIPTION_I2C_STUCK = 'Bus stuck (I2C data or clock shorted)'
-    SFP_ERROR_DESCRIPTION_BAD_EEPROM = 'Bad or unsupported eeprom'
-    SFP_ERROR_DESCRIPTION_UNSUPPORTED_CABLE = 'Unsupported cable'
-    SFP_ERROR_DESCRIPTION_HIGH_TEMP = 'High temperature'
-    SFP_ERROR_DESCRIPTION_BAD_CABLE = 'Bad cable (module/cable is shorted)'
+    SFP_STATUS_INITIALIZING                         = 'Initializing'
+    SFP_STATUS_OK                                   = 'OK'
+    SFP_STATUS_UNPLUGGED                            = 'Unplugged'
+    SFP_STATUS_DISABLED                             = 'Disabled'
+    SFP_ERROR_DESCRIPTION_BLOCKING                  = 'Blocking EEPROM from being read'
+    SFP_ERROR_DESCRIPTION_POWER_BUDGET_EXCEEDED     = 'Power budget exceeded'
+    SFP_ERROR_DESCRIPTION_I2C_STUCK                 = 'Bus stuck (I2C data or clock shorted)'
+    SFP_ERROR_DESCRIPTION_BAD_EEPROM                = 'Bad or unsupported eeprom'
+    SFP_ERROR_DESCRIPTION_UNSUPPORTED_CABLE         = 'Unsupported cable'
+    SFP_ERROR_DESCRIPTION_HIGH_TEMP                 = 'High temperature'
+    SFP_ERROR_DESCRIPTION_BAD_CABLE                 = 'Bad cable (module/cable is shorted)'
 
     # SFP status
-    SFP_STATUS_BIT_REMOVED = 0
-    SFP_STATUS_BIT_INSERTED = 1
+    SFP_STATUS_BIT_REMOVED                = 0x00000000
+    SFP_STATUS_BIT_INSERTED               = 0x00000001
     # SFP error status
-    SFP_ERROR_BIT_BLOCKING = 2
-    SFP_ERROR_BIT_POWER_BUDGET_EXCEEDED = 4
-    SFP_ERROR_BIT_I2C_STUCK = 8
-    SFP_ERROR_BIT_BAD_EEPROM = 16
-    SFP_ERROR_BIT_UNSUPPORTED_CABLE = 32
-    SFP_ERROR_BIT_HIGH_TEMP = 64
-    SFP_ERROR_BIT_BAD_CABLE = 128
+    SFP_ERROR_BIT_BLOCKING                = 0x00000002
+    SFP_ERROR_BIT_POWER_BUDGET_EXCEEDED   = 0x00000004
+    SFP_ERROR_BIT_I2C_STUCK               = 0x00000008
+    SFP_ERROR_BIT_BAD_EEPROM              = 0x00000010
+    SFP_ERROR_BIT_UNSUPPORTED_CABLE       = 0x00000020
+    SFP_ERROR_BIT_HIGH_TEMP               = 0x00000040
+    SFP_ERROR_BIT_BAD_CABLE               = 0x00000080
 
     SFP_ERROR_BIT_TO_DESCRIPTION_DICT = {
         SFP_ERROR_BIT_BLOCKING:                SFP_ERROR_DESCRIPTION_BLOCKING,
@@ -421,8 +421,10 @@ class SfpBase(device_base.DeviceBase):
 
     def get_error_description(self):
         """
-        Retrives the error status of the SFP module
+        Retrives the error descriptions of the SFP module
 
         Returns:
-
+            String that represents the current error descriptions of vendor specific errors
+            In case there are multiple errors, they should be joined by '|',
+            like: "Bad EEPROM|Unsupported cable"
         """
