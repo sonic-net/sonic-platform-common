@@ -428,3 +428,4 @@ class SfpBase(device_base.DeviceBase):
             In case there are multiple errors, they should be joined by '|',
             like: "Bad EEPROM|Unsupported cable"
         """
+        raise NotImplementedError
