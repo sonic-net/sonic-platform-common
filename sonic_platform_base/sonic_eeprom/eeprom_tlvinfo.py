@@ -280,7 +280,6 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
         '''
         Print out the contents of the EEPROM from database
         '''
-        client = self.redis_client
         db_state = self._redis_hget('EEPROM_INFO|State', 'Initialized')
         if db_state != '1':
             return -1
