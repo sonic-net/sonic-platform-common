@@ -451,7 +451,7 @@ class ModuleBase(device_base.DeviceBase):
             A string, the IP-address of the module reachable over the midplane
 
         """
-        return NotImplementedError
+        raise NotImplementedError
 
     def is_midplane_reachable(self):
         """
@@ -461,4 +461,4 @@ class ModuleBase(device_base.DeviceBase):
         Returns:
             A bool value, should return True if module is reachable via midplane
         """
-        return NotImplementedError
+        raise NotImplementedError
