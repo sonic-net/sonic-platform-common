@@ -27,10 +27,10 @@ class YCableBase(object):
     # the name of the target denotes which side values
     # will be retreived/initiated
 
-    EYE_PRBS_TARGET_LOCAL = 0
-    EYE_PRBS_TARGET_TOR_A = 1
-    EYE_PRBS_TARGET_TOR_B = 2
-    EYE_PRBS_TARGET_NIC = 3
+    EYE_PRBS_LOOPBACK_TARGET_NIC = 0
+    EYE_PRBS_LOOPBACK_TARGET_TOR_A = 1
+    EYE_PRBS_LOOPBACK_TARGET_TOR_B = 2
+    EYE_PRBS_LOOPBACK_TARGET_LOCAL = 3
 
     # definitions of switch counter types
     # to be entered by the user in get_switch_count api
@@ -61,6 +61,11 @@ class YCableBase(object):
     FIRMWARE_ACTIVATE_FAILURE = 1
     FIRMWARE_ROLLBACK_SUCCESS = 0
     FIRMWARE_ROLLBACK_FAILURE = 1
+
+    # definitions of PRBS run modes
+    PRBS_DIRECTION_BOTH = 0
+    PRBS_DIRECTION_GENERATOR = 1
+    PRBS_DIRECTION_CHECKER = 2
 
     def __init__(self, port):
         """
@@ -180,7 +185,7 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def get_eye_info(self, target):
+    def get_eye_heights(self, target):
         """
         This API returns the EYE height value for a specfic port.
         The target could be local side, TOR_A, TOR_B, NIC etc.
@@ -189,10 +194,10 @@ class YCableBase(object):
         Args:
             target:
                  One of the following predefined constants, the target on which to get the eye:
-                     EYE_PRBS_TARGET_LOCAL -> local side,
-                     EYE_PRBS_TARGET_TOR_A -> TOR A
-                     EYE_PRBS_TARGET_TOR_B -> TOR B
-                     EYE_PRBS_TARGET_NIC -> NIC
+                     EYE_PRBS_LOOPBACK_TARGET_LOCAL -> local side,
+                     EYE_PRBS_LOOPBACK_TARGET_TOR_A -> TOR A
+                     EYE_PRBS_LOOPBACK_TARGET_TOR_B -> TOR B
+                     EYE_PRBS_LOOPBACK_TARGET_NIC -> NIC
         Returns:
             a list, with EYE values of lane 0 lane 1 lane 2 lane 3 with corresponding index
         """
@@ -208,10 +213,10 @@ class YCableBase(object):
         Args:
             target:
                  One of the following predefined constants, the target on which to get the BER:
-                     EYE_PRBS_TARGET_LOCAL -> local side,
-                     EYE_PRBS_TARGET_TOR_A -> TOR A
-                     EYE_PRBS_TARGET_TOR_B -> TOR B
-                     EYE_PRBS_TARGET_NIC -> NIC
+                     EYE_PRBS_LOOPBACK_TARGET_LOCAL -> local side,
+                     EYE_PRBS_LOOPBACK_TARGET_TOR_A -> TOR A
+                     EYE_PRBS_LOOPBACK_TARGET_TOR_B -> TOR B
+                     EYE_PRBS_LOOPBACK_TARGET_NIC -> NIC
         Returns:
             a list, with BER values of lane 0 lane 1 lane 2 lane 3 with corresponding index
         """
@@ -268,6 +273,8 @@ class YCableBase(object):
         """
         This API returns the switch count to change the Active TOR which has
         been done manually by the user initiated from ToR A
+        This is essentially all the successful switches initiated from ToR A. Toggles which were
+        initiated to toggle from ToR A and did not succed do not count.
         The port on which this API is called for can be referred using self.port.
 
         Args:
@@ -285,6 +292,8 @@ class YCableBase(object):
         """
         This API returns the switch count to change the Active TOR which has
         been done manually by the user initiated from ToR B
+        This is essentially all the successful switches initiated from ToR B. Toggles which were
+        initiated to toggle from ToR B and did not succed do not count.
         The port on which this API is called for can be referred using self.port.
 
         Args:
@@ -327,7 +336,8 @@ class YCableBase(object):
     def get_target_cursor_values(self, lane, target):
         """
         This API returns the cursor equalization parameters for a target(NIC, TOR_A, TOR_B).
-        This includes pre one, pre two , main, post one, post two cursor values
+        This includes pre one, pre two , main, post one, post two , post three cursor values
+        If any of the value is not available please return None for that filter
         The port on which this API is called for can be referred using self.port.
 
         Args:
@@ -343,7 +353,7 @@ class YCableBase(object):
                      TARGET_TOR_A -> TORA,
                      TARGET_TOR_B -> TORB
         Returns:
-            a list, with  pre one, pre two , main, post one, post two cursor values in the order
+            a list, with  pre one, pre two , main, post one, post two , post three cursor values in the order
         """
 
         raise NotImplementedError
@@ -362,7 +372,7 @@ class YCableBase(object):
                              3 -> lane 3
                              4 -> lane 4
             cursor_values:
-                a list, with  pre one, pre two , main, post one, post two cursor etc. values in the order
+                a list, with  pre one, pre two , main, post one, post two cursor, post three etc. values in the order
             target:
                 One of the following predefined constants, the actual target to get the cursor values on:
                      TARGET_NIC -> NIC,
@@ -461,7 +471,7 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def rollback_firmware(self):
+    def rollback_firmware(self, fwfile=None):
         """
         This routine should rollback the firmware to the previous version
         which was being used by the cable. This API is intended to be called when the
@@ -470,6 +480,20 @@ class YCableBase(object):
         The port on which this API is called for can be referred using self.port.
 
         Args:
+            fwfile (optional):
+                 a string, a path to the file which contains the firmware image.
+                 Note that the firmware file can be in the format of the vendor's
+                 choosing (binary, archive, etc.). But note that it should be one file
+                 which contains firmware for all components of the Y-cable. In case the
+                 vendor chooses to pass this file in rollback_firmware, the API should
+                 have the logic to retreive the firmware version from this file
+                 which should not be activated on the components of the Y-Cable
+                 this API has been called for.
+                 If None is passed for fwfile, the cable should rollback whatever
+                 firmware is marked to be rollback next.
+                 If provided, it should retreive the firmware version(s) from this file, ensure
+                 that the firmware is rollbacked to a version which does not match to retreived version(s).
+                 This is exactly the opposite behavior of this param to activate_firmware
         Returns:
             One of the following predefined constants:
                 FIRMWARE_ROLLBACK_SUCCESS
@@ -602,11 +626,14 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def create_port(self, speed, fec_mode=FEC_MODE_NONE, anlt=False):
+    def create_port(self, speed, fec_mode_tor_a=FEC_MODE_NONE, fec_mode_tor_b=FEC_MODE_NONE,
+                    fec_mode_nic=FEC_MODE_NONE, anlt_tor_a=False, anlt_tor_b= False, anlt_nic=False):
         """
         This API sets the mode of the cable/port for corresponding lane/fec etc. configuration as specified.
         The speed specifies which mode is supposed to be set 50G, 100G etc
         the anlt specifies if auto-negotiation + link training (AN/LT) has to be enabled
+        Note that in case create_port is called multiple times, the most recent api call will take the precedence
+        on either of TOR side.
         The port on which this API is called for can be referred using self.port.
 
         Args:
@@ -616,15 +643,35 @@ class YCableBase(object):
                 50000 -> 50G
                 100000 -> 100G
 
-            fec_mode:
-                One of the following predefined constants, the actual fec mode for the port to be configured:
+            fec_mode_tor_a:
+                One of the following predefined constants, the actual fec mode for the tor A to be configured:
                      FEC_MODE_NONE,
                      FEC_MODE_RS,
                      FEC_MODE_FC
 
-            anlt:
-                a boolean, True if auto-negotiation + link training (AN/LT) is to be enabled
-                         , False if auto-negotiation + link training (AN/LT) is not to be enabled
+            fec_mode_tor_b:
+                One of the following predefined constants, the actual fec mode for the tor B to be configured:
+                     FEC_MODE_NONE,
+                     FEC_MODE_RS,
+                     FEC_MODE_FC
+
+            fec_mode_nic:
+                One of the following predefined constants, the actual fec mode for the nic to be configured:
+                     FEC_MODE_NONE,
+                     FEC_MODE_RS,
+                     FEC_MODE_FC
+
+            anlt_tor_a:
+                a boolean, True if auto-negotiation + link training (AN/LT) is to be enabled on tor A
+                         , False if auto-negotiation + link training (AN/LT) is not to be enabled on tor A
+
+            anlt_tor_b:
+                a boolean, True if auto-negotiation + link training (AN/LT) is to be enabled on tor B
+                         , False if auto-negotiation + link training (AN/LT) is not to be enabled on tor B
+
+            anlt_nic:
+                a boolean, True if auto-negotiation + link training (AN/LT) is to be enabled on nic
+                         , False if auto-negotiation + link training (AN/LT) is not to be enabled on nic
 
 
         Returns:
@@ -651,7 +698,7 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def set_fec_mode(self, fec_mode):
+    def set_fec_mode(self, fec_mode, target):
         """
         This API gets the fec mode of the cable for which it is set to.
         The port on which this API is called for can be referred using self.port.
@@ -662,6 +709,11 @@ class YCableBase(object):
                      FEC_MODE_NONE,
                      FEC_MODE_RS,
                      FEC_MODE_FC
+            target:
+                One of the following predefined constants, the actual target to set the fec mode on:
+                     TARGET_NIC -> NIC,
+                     TARGET_TOR_A -> TORA,
+                     TARGET_TOR_B -> TORB
 
 
         Returns:
@@ -671,12 +723,17 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def get_fec_mode(self):
+    def get_fec_mode(self, target):
         """
         This API gets the fec mode of the cable which it is set to.
         The port on which this API is called for can be referred using self.port.
 
         Args:
+            target:
+                One of the following predefined constants, the actual target to fec mode on:
+                     TARGET_NIC -> NIC,
+                     TARGET_TOR_A -> TORA,
+                     TARGET_TOR_B -> TORB
 
         Returns:
             fec_mode:
@@ -688,7 +745,7 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def set_anlt(self, enable):
+    def set_anlt(self, enable, target):
         """
         This API enables/disables the cable auto-negotiation + link training (AN/LT).
         The port on which this API is called for can be referred using self.port.
@@ -697,6 +754,11 @@ class YCableBase(object):
             enable:
                 a boolean, True if auto-negotiation + link training (AN/LT) is to be enabled
                          , False if auto-negotiation + link training (AN/LT) is not to be enabled
+            target:
+                One of the following predefined constants, the actual target to get the stats on:
+                     TARGET_NIC -> NIC,
+                     TARGET_TOR_A -> TORA,
+                     TARGET_TOR_B -> TORB
 
 
         Returns:
@@ -706,12 +768,17 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def get_anlt(self):
+    def get_anlt(self, target):
         """
         This API gets the mode of the cable for corresponding lane configuration.
         The port on which this API is called for can be referred using self.port.
 
         Args:
+            target:
+                One of the following predefined constants, the actual target to get the anlt on:
+                     TARGET_NIC -> NIC,
+                     TARGET_TOR_A -> TORA,
+                     TARGET_TOR_B -> TORB
 
         Returns:
             a boolean, True if auto-negotiation + link training (AN/LT) is enabled
@@ -737,12 +804,17 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def get_pcs_stats(self):
+    def get_pcs_stats(self, target):
         """
         This API returns the pcs statistics of the cable
         The port on which this API is called for can be referred using self.port.
 
         Args:
+            target:
+                One of the following predefined constants, the actual target to get the stats on:
+                     TARGET_NIC -> NIC,
+                     TARGET_TOR_A -> TORA,
+                     TARGET_TOR_B -> TORB
 
         Returns:
            a dictionary:
@@ -751,12 +823,17 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def get_fec_stats(self):
+    def get_fec_stats(self, target):
         """
         This API returns the fec statistics of the cable
         The port on which this API is called for can be referred using self.port.
 
         Args:
+            target:
+                One of the following predefined constants, the actual target to get the stats on:
+                     TARGET_NIC -> NIC,
+                     TARGET_TOR_A -> TORA,
+                     TARGET_TOR_B -> TORB
 
         Returns:
            a dictionary:
@@ -803,6 +880,11 @@ class YCableBase(object):
         The port on which this API is called for can be referred using self.port.
 
         Args:
+            target:
+                One of the following predefined constants, the actual target to restart anlt on:
+                     TARGET_NIC -> NIC,
+                     TARGET_TOR_A -> TORA,
+                     TARGET_TOR_B -> TORB
 
         Returns:
             a boolean, True if restart is successful
@@ -811,12 +893,17 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def get_anlt_stats(self):
+    def get_anlt_stats(self, target):
         """
         This API returns auto-negotiation + link training (AN/LT) mode statistics
         The port on which this API is called for can be referred using self.port.
 
         Args:
+            target:
+                One of the following predefined constants, the actual target to get anlt stats on:
+                     TARGET_NIC -> NIC,
+                     TARGET_TOR_A -> TORA,
+                     TARGET_TOR_B -> TORB
 
         Returns:
            a dictionary:
@@ -835,6 +922,10 @@ class YCableBase(object):
         going to be run on. If enabled, this means that PRBS/Loopback etc. type diagnostic mode
         is now going to be run on the port and hence normal traffic will be disabled
         on it if enabled and vice-versa if disabled.
+        enable is typically to be used at the software level to inform the software
+        that debug APIs will be called afterwords.
+        disable will disable any previously enabled debug functionality inside the cable
+        so that traffic can pass through. Also it'll inform the software to come out of the debug mode.
         The port on which this API is called for can be referred using self.port.
 
         Args:
@@ -867,7 +958,7 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def enable_prbs_mode(self, target, mode_value, lane_map):
+    def enable_prbs_mode(self, target, mode_value, lane_mask, direction=PRBS_DIRECTION_BOTH):
         """
         This API configures and enables the PRBS mode/type depending upon the mode_value the user provides.
         The mode_value configures the PRBS Type for generation and BER sensing on a per side basis.
@@ -879,17 +970,22 @@ class YCableBase(object):
         Args:
             target:
                 One of the following predefined constants, the target on which to enable the PRBS:
-                    EYE_PRBS_TARGET_LOCAL -> local side,
-                    EYE_PRBS_TARGET_TOR_A -> TOR A
-                    EYE_PRBS_TARGET_TOR_B -> TOR B
-                    EYE_PRBS_TARGET_NIC -> NIC
+                    EYE_PRBS_LOOPBACK_TARGET_LOCAL -> local side,
+                    EYE_PRBS_LOOPBACK_TARGET_TOR_A -> TOR A
+                    EYE_PRBS_LOOPBACK_TARGET_TOR_B -> TOR B
+                    EYE_PRBS_LOOPBACK_TARGET_NIC -> NIC
             mode_value:
                  an Integer, the mode/type for configuring the PRBS mode.
 
-            lane_map:
-                 an Integer, representing the lane_map to be run PRBS on
+            lane_mask:
+                 an Integer, representing the lane_mask to be run PRBS on
                  0bit for lane 0, 1bit for lane1 and so on.
                  for example 3 -> 0b'0011 , means running on lane0 and lane1
+            direction:
+                One of the following predefined constants, the direction to run the PRBS:
+                    PRBS_DIRECTION_BOTH
+                    PRBS_DIRECTION_GENERATOR
+                    PRBS_DIRECTION_CHECKER
 
         Returns:
             a boolean, True if the enable is successful
@@ -899,7 +995,7 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def disable_prbs_mode(self, target):
+    def disable_prbs_mode(self, target, direction=PRBS_DIRECTION_BOTH):
         """
         This API disables the PRBS mode on the physical port.
         The port on which this API is called for can be referred using self.port.
@@ -907,10 +1003,15 @@ class YCableBase(object):
         Args:
             target:
                 One of the following predefined constants, the target on which to disable the PRBS:
-                    EYE_PRBS_TARGET_LOCAL -> local side,
-                    EYE_PRBS_TARGET_TOR_A -> TOR A
-                    EYE_PRBS_TARGET_TOR_B -> TOR B
-                    EYE_PRBS_TARGET_NIC -> NIC
+                    EYE_PRBS_LOOPBACK_TARGET_LOCAL -> local side,
+                    EYE_PRBS_LOOPBACK_TARGET_TOR_A -> TOR A
+                    EYE_PRBS_LOOPBACK_TARGET_TOR_B -> TOR B
+                    EYE_PRBS_LOOPBACK_TARGET_NIC -> NIC
+            direction:
+                One of the following predefined constants, the direction to run the PRBS:
+                    PRBS_DIRECTION_BOTH
+                    PRBS_DIRECTION_GENERATOR
+                    PRBS_DIRECTION_CHECKER
 
         Returns:
             a boolean, True if the disable is successful
@@ -919,7 +1020,7 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def enable_loopback_mode(self, target, mode=NEAR_END_LOOPBACK, lane_map):
+    def enable_loopback_mode(self, target, mode=NEAR_END_LOOPBACK, lane_mask):
         """
         This API configures and enables the Loopback mode on the port user provides.
         Target is an integer for selecting which end of the Y cable we want to run loopback on.
@@ -930,16 +1031,16 @@ class YCableBase(object):
         Args:
             target:
                 One of the following predefined constants, the target on which to enable the loopback:
-                    EYE_PRBS_TARGET_LOCAL -> local side,
-                    EYE_PRBS_TARGET_TOR_A -> TOR A
-                    EYE_PRBS_TARGET_TOR_B -> TOR B
-                    EYE_PRBS_TARGET_NIC -> NIC
+                    EYE_PRBS_LOOPBACK_TARGET_LOCAL -> local side,
+                    EYE_PRBS_LOOPBACK_TARGET_TOR_A -> TOR A
+                    EYE_PRBS_LOOPBACK_TARGET_TOR_B -> TOR B
+                    EYE_PRBS_LOOPBACK_TARGET_NIC -> NIC
             mode_value:
                 One of the following predefined constants, the mode to be run for loopback:
                     LOOPBACK_MODE_NEAR_END
                     LOOPBACK_MODE_FAR_END
-            lane_map:
-                 an Integer, representing the lane_map to be run PRBS on
+            lane_mask:
+                 an Integer, representing the lane_mask to be run loopback on
                  0bit for lane 0, 1bit for lane1 and so on.
                  for example 3 -> 0b'0011 , means running on lane0 and lane1
 
@@ -959,10 +1060,10 @@ class YCableBase(object):
         Args:
             target:
                 One of the following predefined constants, the target on which to disable the loopback:
-                    EYE_PRBS_TARGET_LOCAL -> local side,
-                    EYE_PRBS_TARGET_TOR_A -> TOR A
-                    EYE_PRBS_TARGET_TOR_B -> TOR B
-                    EYE_PRBS_TARGET_NIC -> NIC
+                    EYE_PRBS_LOOPBACK_TARGET_LOCAL -> local side,
+                    EYE_PRBS_LOOPBACK_TARGET_TOR_A -> TOR A
+                    EYE_PRBS_LOOPBACK_TARGET_TOR_B -> TOR B
+                    EYE_PRBS_LOOPBACK_TARGET_NIC -> NIC
 
         Returns:
             a boolean, True if the disable is successful
@@ -980,10 +1081,10 @@ class YCableBase(object):
         Args:
             target:
                 One of the following predefined constants, the target on which to disable the loopback:
-                    EYE_PRBS_TARGET_LOCAL -> local side,
-                    EYE_PRBS_TARGET_TOR_A -> TOR A
-                    EYE_PRBS_TARGET_TOR_B -> TOR B
-                    EYE_PRBS_TARGET_NIC -> NIC
+                    EYE_PRBS_LOOPBACK_TARGET_LOCAL -> local side,
+                    EYE_PRBS_LOOPBACK_TARGET_TOR_A -> TOR A
+                    EYE_PRBS_LOOPBACK_TARGET_TOR_B -> TOR B
+                    EYE_PRBS_LOOPBACK_TARGET_NIC -> NIC
 
         Returns:
             mode_value:
