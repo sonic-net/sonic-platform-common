@@ -24,6 +24,8 @@ setup(
         'sonic_platform_base.sonic_xcvr.fields',
         'sonic_platform_base.sonic_xcvr.mem_maps',
         'sonic_platform_base.sonic_xcvr.api',
+        'sonic_platform_base.sonic_xcvr.codes',
+        'sonic_platform_base.sonic_xcvr.codes.public',
         'sonic_psu',
         'sonic_sfp',
         'sonic_thermal',
