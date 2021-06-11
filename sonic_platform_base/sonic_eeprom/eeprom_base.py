@@ -27,6 +27,8 @@ class EepromDecoder(object):
         self.s = start
         self.u = status
         self.r = readonly
+        # Warning: the following members are deprecated, the parsed EEPROM data is stored in the
+        # Redis STATE_DB, cached data should be fetched from STATE_DB.EEPROM_INFO. 
         self.cache_name = None
         self.cache_update_needed = False
         self.lock_file = None
@@ -47,6 +49,9 @@ class EepromDecoder(object):
             return 'ok'
 
     def set_cache_name(self, name):
+        # Warning: this method is deprecated, the parsed EEPROM data is stored in the
+        # Redis STATE_DB, cached data should be fetched from STATE_DB.EEPROM_INFO. 
+
         # before accessing the eeprom we acquire an exclusive lock on the eeprom file.
         # this will prevent a race condition where multiple instances of this app
         # could try to update the cache at the same time
@@ -214,6 +219,9 @@ class EepromDecoder(object):
         using_eeprom = True
         eeprom_file = self.p
         try:
+        # Warning: cache file is deprecated, the parsed EEPROM data is stored in the
+        # Redis STATE_DB, cached data should be fetched from STATE_DB.EEPROM_INFO. This
+        # code need to be adjusted once cache file is completely removing from the system.
             if os.path.isfile(self.cache_name):
                 eeprom_file = self.cache_name
                 using_eeprom = False
@@ -240,6 +248,9 @@ class EepromDecoder(object):
             # expect, the file may be corrupt. Delete it and try again, this
             # time reading from the actual EEPROM.
             if len(o) != byteCount and not self.cache_update_needed:
+                # Warning: cache file is deprecated, the parsed EEPROM data is stored in the
+                # Redis STATE_DB, cached data should be fetched from STATE_DB.EEPROM_INFO. This
+                # code needs to be adjusted once cache file is completely removed from the system.
                 os.remove(self.cache_name)
                 self.cache_update_needed = True
                 F.close()
@@ -277,6 +288,9 @@ class EepromDecoder(object):
         self.write_cache(e)
 
     def write_cache(self, e):
+        # Warning: this method is deprecated, the parsed EEPROM data is stored in the
+        # Redis STATE_DB, cached data should be fetched from STATE_DB.EEPROM_INFO. 
+
         if self.cache_name:
             F = None
             try:
@@ -290,6 +304,9 @@ class EepromDecoder(object):
                     F.close()
 
     def update_cache(self, e):
+        # Warning: this method is deprecated, the parsed EEPROM data is stored in the
+        # Redis STATE_DB, cached data should be fetched from STATE_DB.EEPROM_INFO. 
+
         if self.cache_update_needed:
             self.write_cache(e)
         fcntl.flock(self.lock_file, fcntl.LOCK_UN)
