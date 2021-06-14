@@ -24,7 +24,7 @@ class SfpBase(device_base.DeviceBase):
     SFP_ERROR_DESCRIPTION_BLOCKING                  = 'Blocking EEPROM from being read'
     SFP_ERROR_DESCRIPTION_POWER_BUDGET_EXCEEDED     = 'Power budget exceeded'
     SFP_ERROR_DESCRIPTION_I2C_STUCK                 = 'Bus stuck (I2C data or clock shorted)'
-    SFP_ERROR_DESCRIPTION_BAD_EEPROM                = 'Bad or unsupported eeprom'
+    SFP_ERROR_DESCRIPTION_BAD_EEPROM                = 'Bad or unsupported EEPROM'
     SFP_ERROR_DESCRIPTION_UNSUPPORTED_CABLE         = 'Unsupported cable'
     SFP_ERROR_DESCRIPTION_HIGH_TEMP                 = 'High temperature'
     SFP_ERROR_DESCRIPTION_BAD_CABLE                 = 'Bad cable (module/cable is shorted)'
