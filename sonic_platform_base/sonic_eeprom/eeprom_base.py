@@ -30,8 +30,7 @@ class EepromDecoder(object):
         self.cache_name = None
         self.cache_update_needed = False
         self.eeprom_file_handle = None
-        self.o = None
-        self.byte_array = None
+        self.eeprom_raw_bytes = None
         self.lock_file = None
 
     def check_status(self):
@@ -230,8 +229,8 @@ class EepromDecoder(object):
         sizeof_info = 0
         for I in self.f:
             sizeof_info += I[2]
-        self.o = self.read_eeprom_bytes(sizeof_info)
-        return self.o
+        self.eeprom_raw_bytes = self.read_eeprom_bytes(sizeof_info)
+        return self.eeprom_raw_bytes
 
     def read_eeprom_bytes(self, byteCount, offset=0):
         F = None
@@ -261,8 +260,8 @@ class EepromDecoder(object):
         finally:
             if F is not None:
                 F.close()
-        self.byte_array = bytearray(o)
-        return self.byte_array
+                
+        return bytearray(o)
 
     def read_eeprom_db(self):
         return 0
