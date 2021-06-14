@@ -101,9 +101,9 @@ class PcieUtil(PcieBase):
         return self.confInfo
 
     # return AER stats of PCIe device
-    def get_pcie_aer_stats(self, domain=0, bus=0, device=0, func=0):
+    def get_pcie_aer_stats(self, domain=0, bus=0, dev=0, func=0):
         aer_stats = {'correctable': {}, 'fatal': {}, 'non_fatal': {}}
-        dev_path = os.path.join('/sys/bus/pci/devices', '%04x:%02x:%02x.%d' % (domain, bus, device, func))
+        dev_path = os.path.join('/sys/bus/pci/devices', '%04x:%02x:%02x.%d' % (domain, bus, dev, func))
 
         # construct AER sysfs filepath
         correctable_path = os.path.join(dev_path, "aer_dev_correctable")
