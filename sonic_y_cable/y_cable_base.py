@@ -43,7 +43,7 @@ class YCableBase(object):
     SWITCHING_MODE_MANUAL = 0
     SWITCHING_MODE_AUTO = 1
 
-    # definitions of the fec mode to be configured
+    # definitions of the FEC mode to be configured
     # on a port/cable
     FEC_MODE_NONE = 0
     FEC_MODE_RS = 1
@@ -204,24 +204,6 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def get_ber_info(self, target):
-        """
-        This API returns the BER (Bit error rate) value for a specfic port.
-        The target could be local side, TOR_A, TOR_B, NIC etc.
-        The port on which this API is called for can be referred using self.port.
-
-        Args:
-            target:
-                 One of the following predefined constants, the target on which to get the BER:
-                     EYE_PRBS_LOOPBACK_TARGET_LOCAL -> local side,
-                     EYE_PRBS_LOOPBACK_TARGET_TOR_A -> TOR A
-                     EYE_PRBS_LOOPBACK_TARGET_TOR_B -> TOR B
-                     EYE_PRBS_LOOPBACK_TARGET_NIC -> NIC
-        Returns:
-            a list, with BER values of lane 0 lane 1 lane 2 lane 3 with corresponding index
-        """
-
-        raise NotImplementedError
 
     def get_vendor(self):
         """
@@ -274,7 +256,7 @@ class YCableBase(object):
         This API returns the switch count to change the Active TOR which has
         been done manually by the user initiated from ToR A
         This is essentially all the successful switches initiated from ToR A. Toggles which were
-        initiated to toggle from ToR A and did not succed do not count.
+        initiated to toggle from ToR A and did not succeed do not count.
         The port on which this API is called for can be referred using self.port.
 
         Args:
@@ -293,7 +275,7 @@ class YCableBase(object):
         This API returns the switch count to change the Active TOR which has
         been done manually by the user initiated from ToR B
         This is essentially all the successful switches initiated from ToR B. Toggles which were
-        initiated to toggle from ToR B and did not succed do not count.
+        initiated to toggle from ToR B and did not succeed do not count.
         The port on which this API is called for can be referred using self.port.
 
         Args:
@@ -336,7 +318,7 @@ class YCableBase(object):
     def get_target_cursor_values(self, lane, target):
         """
         This API returns the cursor equalization parameters for a target(NIC, TOR_A, TOR_B).
-        This includes pre one, pre two , main, post one, post two , post three cursor values
+        This includes pre one, pre two, main, post one, post two, post three cursor values
         If any of the value is not available please return None for that filter
         The port on which this API is called for can be referred using self.port.
 
@@ -353,7 +335,7 @@ class YCableBase(object):
                      TARGET_TOR_A -> TORA,
                      TARGET_TOR_B -> TORB
         Returns:
-            a list, with  pre one, pre two , main, post one, post two , post three cursor values in the order
+            a list, with  pre one, pre two, main, post one, post two, post three cursor values in the order
         """
 
         raise NotImplementedError
@@ -361,7 +343,7 @@ class YCableBase(object):
     def set_target_cursor_values(self, lane, cursor_values, target):
         """
         This API sets the cursor equalization parameters for a target(NIC, TOR_A, TOR_B).
-        This includes pre one, pre two , main, post one, post two etc. cursor values
+        This includes pre one, pre two, main, post one, post two etc. cursor values
         The port on which this API is called for can be referred using self.port.
 
         Args:
@@ -372,7 +354,7 @@ class YCableBase(object):
                              3 -> lane 3
                              4 -> lane 4
             cursor_values:
-                a list, with  pre one, pre two , main, post one, post two cursor, post three etc. values in the order
+                a list, with  pre one, pre two, main, post one, post two cursor, post three etc. values in the order
             target:
                 One of the following predefined constants, the actual target to get the cursor values on:
                      TARGET_NIC -> NIC,
@@ -438,7 +420,7 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def activate_firmware(self, fwfile=None):
+    def activate_firmware(self, fwfile=None, hitless=False):
         """
         This routine should activate the downloaded firmware on all the
         components of the Y cable of the port for which this API is called..
@@ -463,6 +445,13 @@ class YCableBase(object):
                  firmware is marked to be activated next.
                  If provided, it should retreive the firmware version(s) from this file, ensure
                  they are downloaded on the cable, then activate them.
+
+            hitless (optional):
+                a boolean, True, Hitless upgrade: it will backup/restore the current state
+                                 (ex. variables of link status, API attributes...etc.) before
+                                 and after firmware upgrade.
+                a boolean, False, Non-hitless upgrade: it will update the firmware regardless
+                                  the current status, a link flip can be observed during the upgrade.
         Returns:
             One of the following predefined constants:
                 FIRMWARE_ACTIVATE_SUCCESS
@@ -629,9 +618,9 @@ class YCableBase(object):
     def create_port(self, speed, fec_mode_tor_a=FEC_MODE_NONE, fec_mode_tor_b=FEC_MODE_NONE,
                     fec_mode_nic=FEC_MODE_NONE, anlt_tor_a=False, anlt_tor_b= False, anlt_nic=False):
         """
-        This API sets the mode of the cable/port for corresponding lane/fec etc. configuration as specified.
+        This API sets the mode of the cable/port for corresponding lane/FEC etc. configuration as specified.
         The speed specifies which mode is supposed to be set 50G, 100G etc
-        the anlt specifies if auto-negotiation + link training (AN/LT) has to be enabled
+        the AN/LT specifies if auto-negotiation + link training (AN/LT) has to be enabled
         Note that in case create_port is called multiple times, the most recent api call will take the precedence
         on either of TOR side.
         The port on which this API is called for can be referred using self.port.
@@ -644,30 +633,30 @@ class YCableBase(object):
                 100000 -> 100G
 
             fec_mode_tor_a:
-                One of the following predefined constants, the actual fec mode for the tor A to be configured:
+                One of the following predefined constants, the actual FEC mode for the ToR A to be configured:
                      FEC_MODE_NONE,
                      FEC_MODE_RS,
                      FEC_MODE_FC
 
             fec_mode_tor_b:
-                One of the following predefined constants, the actual fec mode for the tor B to be configured:
+                One of the following predefined constants, the actual FEC mode for the ToR B to be configured:
                      FEC_MODE_NONE,
                      FEC_MODE_RS,
                      FEC_MODE_FC
 
             fec_mode_nic:
-                One of the following predefined constants, the actual fec mode for the nic to be configured:
+                One of the following predefined constants, the actual FEC mode for the nic to be configured:
                      FEC_MODE_NONE,
                      FEC_MODE_RS,
                      FEC_MODE_FC
 
             anlt_tor_a:
-                a boolean, True if auto-negotiation + link training (AN/LT) is to be enabled on tor A
-                         , False if auto-negotiation + link training (AN/LT) is not to be enabled on tor A
+                a boolean, True if auto-negotiation + link training (AN/LT) is to be enabled on ToR A
+                         , False if auto-negotiation + link training (AN/LT) is not to be enabled on ToR A
 
             anlt_tor_b:
-                a boolean, True if auto-negotiation + link training (AN/LT) is to be enabled on tor B
-                         , False if auto-negotiation + link training (AN/LT) is not to be enabled on tor B
+                a boolean, True if auto-negotiation + link training (AN/LT) is to be enabled on ToR B
+                         , False if auto-negotiation + link training (AN/LT) is not to be enabled on ToR B
 
             anlt_nic:
                 a boolean, True if auto-negotiation + link training (AN/LT) is to be enabled on nic
@@ -700,44 +689,44 @@ class YCableBase(object):
 
     def set_fec_mode(self, fec_mode, target):
         """
-        This API gets the fec mode of the cable for which it is set to.
+        This API gets the FEC mode of the cable for which it is set to.
         The port on which this API is called for can be referred using self.port.
 
         Args:
             fec_mode:
-                One of the following predefined constants, the actual fec mode for the port to be configured:
+                One of the following predefined constants, the actual FEC mode for the port to be configured:
                      FEC_MODE_NONE,
                      FEC_MODE_RS,
                      FEC_MODE_FC
             target:
-                One of the following predefined constants, the actual target to set the fec mode on:
+                One of the following predefined constants, the actual target to set the FEC mode on:
                      TARGET_NIC -> NIC,
                      TARGET_TOR_A -> TORA,
                      TARGET_TOR_B -> TORB
 
 
         Returns:
-            a boolean, True if the fec mode is configured
-                     , False if the fec mode is not configured
+            a boolean, True if the FEC mode is configured
+                     , False if the FEC mode is not configured
         """
 
         raise NotImplementedError
 
     def get_fec_mode(self, target):
         """
-        This API gets the fec mode of the cable which it is set to.
+        This API gets the FEC mode of the cable which it is set to.
         The port on which this API is called for can be referred using self.port.
 
         Args:
             target:
-                One of the following predefined constants, the actual target to fec mode on:
+                One of the following predefined constants, the actual target to FEC mode on:
                      TARGET_NIC -> NIC,
                      TARGET_TOR_A -> TORA,
                      TARGET_TOR_B -> TORB
 
         Returns:
             fec_mode:
-                One of the following predefined constants, the actual fec mode for the port to be configured:
+                One of the following predefined constants, the actual FEC mode for the port to be configured:
                      FEC_MODE_NONE,
                      FEC_MODE_RS,
                      FEC_MODE_FC
@@ -770,12 +759,12 @@ class YCableBase(object):
 
     def get_anlt(self, target):
         """
-        This API gets the mode of the cable for corresponding lane configuration.
+        This API gets the auto-negotiation + link training (AN/LT) mode of the cable for corresponding port.
         The port on which this API is called for can be referred using self.port.
 
         Args:
             target:
-                One of the following predefined constants, the actual target to get the anlt on:
+                One of the following predefined constants, the actual target to get the AN/LT on:
                      TARGET_NIC -> NIC,
                      TARGET_TOR_A -> TORA,
                      TARGET_TOR_B -> TORB
@@ -825,7 +814,7 @@ class YCableBase(object):
 
     def get_fec_stats(self, target):
         """
-        This API returns the fec statistics of the cable
+        This API returns the FEC statistics of the cable
         The port on which this API is called for can be referred using self.port.
 
         Args:
@@ -881,7 +870,7 @@ class YCableBase(object):
 
         Args:
             target:
-                One of the following predefined constants, the actual target to restart anlt on:
+                One of the following predefined constants, the actual target to restart AN/LT on:
                      TARGET_NIC -> NIC,
                      TARGET_TOR_A -> TORA,
                      TARGET_TOR_B -> TORB
@@ -900,7 +889,7 @@ class YCableBase(object):
 
         Args:
             target:
-                One of the following predefined constants, the actual target to get anlt stats on:
+                One of the following predefined constants, the actual target to get AN/LT stats on:
                      TARGET_NIC -> NIC,
                      TARGET_TOR_A -> TORA,
                      TARGET_TOR_B -> TORB
@@ -980,7 +969,7 @@ class YCableBase(object):
             lane_mask:
                  an Integer, representing the lane_mask to be run PRBS on
                  0bit for lane 0, 1bit for lane1 and so on.
-                 for example 3 -> 0b'0011 , means running on lane0 and lane1
+                 for example 3 -> 0b'0011, means running on lane0 and lane1
             direction:
                 One of the following predefined constants, the direction to run the PRBS:
                     PRBS_DIRECTION_BOTH
@@ -1042,7 +1031,7 @@ class YCableBase(object):
             lane_mask:
                  an Integer, representing the lane_mask to be run loopback on
                  0bit for lane 0, 1bit for lane1 and so on.
-                 for example 3 -> 0b'0011 , means running on lane0 and lane1
+                 for example 3 -> 0b'0011, means running on lane0 and lane1
 
         Returns:
             a boolean, True if the enable is successful
@@ -1094,6 +1083,26 @@ class YCableBase(object):
         """
 
         raise NotImplementedError
+
+    def get_ber_info(self, target):
+        """
+        This API returns the BER (Bit error rate) value for a specfic port.
+        The target could be local side, TOR_A, TOR_B, NIC etc.
+        The port on which this API is called for can be referred using self.port.
+
+        Args:
+            target:
+                 One of the following predefined constants, the target on which to get the BER:
+                     EYE_PRBS_LOOPBACK_TARGET_LOCAL -> local side,
+                     EYE_PRBS_LOOPBACK_TARGET_TOR_A -> TOR A
+                     EYE_PRBS_LOOPBACK_TARGET_TOR_B -> TOR B
+                     EYE_PRBS_LOOPBACK_TARGET_NIC -> NIC
+        Returns:
+            a list, with BER values of lane 0 lane 1 lane 2 lane 3 with corresponding index
+        """
+
+        raise NotImplementedError
+
 
     def debug_dump_registers(self):
         """
