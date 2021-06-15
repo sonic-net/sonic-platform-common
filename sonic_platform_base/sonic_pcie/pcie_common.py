@@ -27,7 +27,7 @@ class PcieUtil(PcieBase):
         config_file = "{}/pcie{}.yaml".format(self.config_path, conf_rev)
         try:
             with open(config_file) as conf_file:
-                self.confInfo = yaml.load(conf_file)
+                self.confInfo = yaml.safe_load(conf_file)
         except IOError as e:
             print("Error: {}".format(str(e)))
             print("Not found config file, please add a config file manually, or generate it by running [pcieutil pcie_generate]")
