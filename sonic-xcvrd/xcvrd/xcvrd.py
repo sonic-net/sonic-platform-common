@@ -1353,6 +1353,8 @@ class DaemonXcvrd(daemon_base.DaemonBase):
         if self.y_cable_presence[0] is True:
             y_cable_helper.delete_ports_status_for_y_cable()
 
+        del globals()['platform_chassis']
+
     # Run daemon
 
     def run(self):
