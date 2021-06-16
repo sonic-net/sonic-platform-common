@@ -56,3 +56,6 @@ class XcvrApi(object):
 
     def tx_disable_channel(self, channel, disable):
         raise NotImplementedError
+
+    def get_coherent_optic_api(self):
+        raise NotImplementedError
