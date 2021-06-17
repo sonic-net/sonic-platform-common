@@ -1104,7 +1104,7 @@ class YCableBase(object):
         raise NotImplementedError
 
 
-    def debug_dump_registers(self):
+    def debug_dump_registers(self, option=None):
         """
         This API should dump all registers with meaningful values
         for the cable to be diagnosed for proper functioning.
@@ -1113,6 +1113,13 @@ class YCableBase(object):
         which would help debug the Y-Cable
 
         Args:
+            option:
+                 a string, the option param can be a string which if passed can help a vendor utilize it
+                 as an input param or a concatenation of params for a function which they can call internally.
+                 This essentially helps if the vendor chooses to dump only some of the registers instead of all
+                 the registers, and thus provides more granularity for debugging/printing.
+                 For example, the option can serdes_lane0, in this case the vendor would just dump
+                 registers related to serdes lane 0.
 
         Returns:
             a Dictionary:
