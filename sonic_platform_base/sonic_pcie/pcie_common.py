@@ -27,7 +27,7 @@ class PcieUtil(PcieBase):
         config_file = "{}/pcie{}.yaml".format(self.config_path, conf_rev)
         try:
             with open(config_file) as conf_file:
-                self.confInfo = yaml.load(conf_file)
+                self.confInfo = yaml.safe_load(conf_file)
         except IOError as e:
             print("Error: {}".format(str(e)))
             print("Not found config file, please add a config file manually, or generate it by running [pcieutil pcie_generate]")
@@ -101,9 +101,9 @@ class PcieUtil(PcieBase):
         return self.confInfo
 
     # return AER stats of PCIe device
-    def get_pcie_aer_stats(self, domain=0, bus=0, device=0, func=0):
+    def get_pcie_aer_stats(self, domain=0, bus=0, dev=0, func=0):
         aer_stats = {'correctable': {}, 'fatal': {}, 'non_fatal': {}}
-        dev_path = os.path.join('/sys/bus/pci/devices', '%04x:%02x:%02x.%d' % (domain, bus, device, func))
+        dev_path = os.path.join('/sys/bus/pci/devices', '%04x:%02x:%02x.%d' % (domain, bus, dev, func))
 
         # construct AER sysfs filepath
         correctable_path = os.path.join(dev_path, "aer_dev_correctable")
