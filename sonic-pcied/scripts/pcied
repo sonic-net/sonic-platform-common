@@ -5,30 +5,62 @@
     PCIe device monitoring daemon for SONiC
 """
 
-try:
-    import os
-    import signal
-    import sys
-    import threading
+import os
+import signal
+import sys
+import threading
 
-    from sonic_py_common import daemon_base, device_info
-    from swsscommon import swsscommon
-except ImportError as e:
-    raise ImportError(str(e) + " - required module not found")
+from sonic_py_common import daemon_base, device_info
+from swsscommon import swsscommon
 
 #
 # Constants ====================================================================
 #
+
+# TODO: Once we no longer support Python 2, we can eliminate this and get the
+# name using the 'name' field (e.g., `signal.SIGINT.name`) starting with Python 3.5
+SIGNALS_TO_NAMES_DICT = dict((getattr(signal, n), n)
+                             for n in dir(signal) if n.startswith('SIG') and '_' not in n)
+
 SYSLOG_IDENTIFIER = "pcied"
 
 PCIE_RESULT_REGEX = "PCIe Device Checking All Test"
-PCIE_TABLE_NAME = "PCIE_STATUS"
 PCIE_DEVICE_TABLE_NAME = "PCIE_DEVICE"
-
-PCIE_CONF_FILE = 'pcie.yaml'
+PCIE_STATUS_TABLE_NAME = "PCIE_DEVICES"
 
 PCIED_MAIN_THREAD_SLEEP_SECS = 60
-REDIS_HOSTIP = "127.0.0.1"
+
+PCIEUTIL_CONF_FILE_ERROR = 1
+PCIEUTIL_LOAD_ERROR = 2
+
+platform_pcieutil = None
+
+exit_code = 0
+
+# wrapper functions to call the platform api
+def load_platform_pcieutil():
+    _platform_pcieutil = None
+    (platform_path, _) = device_info.get_paths_to_platform_and_hwsku_dirs()
+    try:
+        from sonic_platform.pcie import Pcie
+        _platform_pcieutil = Pcie(platform_path)
+    except ImportError as e:
+        self.log_error("Failed to load platform Pcie module. Error : {}".format(str(e)), True)
+        try:
+            from sonic_platform_base.sonic_pcie.pcie_common import PcieUtil
+            _platform_pcieutil = PcieUtil(platform_path)
+        except ImportError as e:
+            self.log_error("Failed to load default PcieUtil module. Error : {}".format(str(e)), True)
+    return _platform_pcieutil
+
+def read_id_file(device_name):
+    id = None
+    dev_id_path = '/sys/bus/pci/devices/0000:%s/device' % device_name
+
+    if os.path.exists(dev_id_path):
+        with open(dev_id_path, 'r') as fd:
+            id = fd.read().strip()
+    return id
 
 #
 # Daemon =======================================================================
@@ -39,134 +71,129 @@ class DaemonPcied(daemon_base.DaemonBase):
     def __init__(self, log_identifier):
         super(DaemonPcied, self).__init__(log_identifier)
 
-        (platform_path, _) = device_info.get_paths_to_platform_and_hwsku_dirs()
-        pciefilePath = os.path.join(platform_path, PCIE_CONF_FILE)
-        if not os.path.exists(pciefilePath):
-            self.log_error("Platform pcie configuration file doesn't exist! Exiting ...")
-            sys.exit("Platform PCIe Configuration file doesn't exist!")
-
         self.timeout = PCIED_MAIN_THREAD_SLEEP_SECS
         self.stop_event = threading.Event()
+        self.state_db = None
+        self.device_table = None
+        self.table = None
+        self.resultInfo = []
+        self.device_name = None
+        self.aer_stats = {}
 
-        self.state_db = swsscommon.SonicV2Connector(host=REDIS_HOSTIP)
-        self.state_db.connect("STATE_DB")
-        state_db = daemon_base.db_connect("STATE_DB")
-        self.device_table = swsscommon.Table(state_db, PCIE_DEVICE_TABLE_NAME)
+        global platform_pcieutil
 
-    # Load AER-fields into STATEDB
-    def update_aer_to_statedb(self, device_name, aer_stats):
+        platform_pcieutil = load_platform_pcieutil()
+        if platform_pcieutil is None:
+            sys.exit(PCIEUTIL_LOAD_ERROR)
+
+        # Connect to STATE_DB and create pcie device table
+        self.state_db = daemon_base.db_connect("STATE_DB")
+        self.device_table = swsscommon.Table(self.state_db, PCIE_DEVICE_TABLE_NAME)
+        self.status_table = swsscommon.Table(self.state_db, PCIE_STATUS_TABLE_NAME)
+
+    def __del__(self):
+        if self.device_table:
+            table_keys = self.device_table.getKeys()
+            for tk in table_keys:
+                self.device_table._del(tk)
+        if self.status_table:
+            stable_keys = self.status_table.getKeys()
+            for stk in stable_keys:
+                self.status_table._del(stk)
+
+    # load aer-fields into statedb
+    def update_aer_to_statedb(self):
+        if self.aer_stats is None:
+            self.log_debug("PCIe device {} has no AER Stats".format(device_name))
+            return
 
         aer_fields = {}
 
-        for field, value in aer_stats['correctable'].items():
-            correctable_field = "correctable|" + field
-            aer_fields[correctable_field] = value
-
-        for field, value in aer_stats['fatal'].items():
-            fatal_field = "fatal|" + field
-            aer_fields[fatal_field] = value
-
-        for field, value in aer_stats['non_fatal'].items():
-            non_fatal_field = "non_fatal|" + field
-            aer_fields[non_fatal_field] = value
+        for key, fv in self.aer_stats.items():
+            for field, value in fv.items():
+                key_field = "{}|{}".format(key,field)
+                aer_fields[key_field] = value
 
         if aer_fields:
             formatted_fields = swsscommon.FieldValuePairs(list(aer_fields.items()))
-            self.device_table.set(device_name, formatted_fields)
+            self.device_table.set(self.device_name, formatted_fields)
         else:
-            self.log_debug("PCIe device {} has no AER attriutes".format(device_name))
+            self.log_debug("PCIe device {} has no AER attriutes".format(self.device_name))
+
+
+    # Check the PCIe AER Stats
+    def check_n_update_pcie_aer_stats(self, Bus, Dev, Fn):
+        self.device_name = "%02x:%02x.%d" % (Bus, Dev, Fn)
+
+        Id = read_id_file(self.device_name)
+
+        self.aer_stats = {}
+        if Id is not None:
+            self.device_table.set(self.device_name, [('id', Id)])
+            self.aer_stats = platform_pcieutil.get_pcie_aer_stats(bus=Bus, dev=Dev, func=Fn)
+            self.update_aer_to_statedb()
+
+
+    # Update the PCIe devices status to DB
+    def update_pcie_devices_status_db(self, err):
+        if err:
+            pcie_status = "FAILED"
+            self.log_error("PCIe device status check : {}".format(pcie_status))
+        else:
+            pcie_status = "PASSED"
+            self.log_info("PCIe device status check : {}".format(pcie_status))
+        fvs = swsscommon.FieldValuePairs([
+            ('status', pcie_status)
+        ])
+
+        self.status_table.set("status", fvs)
 
     # Check the PCIe devices
     def check_pcie_devices(self):
-        try:
-            platform_path, _ = device_info.get_paths_to_platform_and_hwsku_dirs()
-            from sonic_platform_base.sonic_pcie.pcie_common import PcieUtil
-            platform_pcieutil = PcieUtil(platform_path)
-        except ImportError as e:
-            self.log_error("Failed to load default PcieUtil module. Error : {}".format(str(e)), True)
-            raise e
-
-        resultInfo = platform_pcieutil.get_pcie_check()
+        self.resultInfo = platform_pcieutil.get_pcie_check()
         err = 0
+        if self.resultInfo is None:
+            return
 
-        for item in resultInfo:
-            if item["result"] == "Failed":
-                self.log_warning("PCIe Device: " + item["name"] + " Not Found")
+        for result in self.resultInfo:
+            if result["result"] == "Failed":
+                self.log_warning("PCIe Device: " + result["name"] + " Not Found")
                 err += 1
+            else:
+                Bus = int(result["bus"], 16)
+                Dev = int(result["dev"], 16)
+                Fn = int(result["fn"], 16)
+                # update AER-attributes to DB
+                self.check_n_update_pcie_aer_stats(Bus, Dev, Fn)
 
-        if err:
-            self.update_state_db("PCIE_DEVICES", "status", "FAILED")
-            self.log_error("PCIe device status check : FAILED")
-        else:
-            self.update_state_db("PCIE_DEVICES", "status", "PASSED")
-            self.log_info("PCIe device status check : PASSED")
+        # update PCIe Device Status to DB
+        self.update_pcie_devices_status_db(err)
 
-        # update AER-attributes to DB
-        for item in resultInfo:
-            if item["result"] == "Failed":
-                continue
-
-            Bus = int(item["bus"], 16)
-            Dev = int(item["dev"], 16)
-            Fn = int(item["fn"], 16)
-
-            device_name = "%02x:%02x.%d" % (Bus, Dev, Fn)
-            dev_id_path = '/sys/bus/pci/devices/0000:%s/device' % device_name
-            with open(dev_id_path, 'r') as fd:
-                Id = fd.read().strip()
-
-            self.device_table.set(device_name, [('id', Id)])
-            aer_stats = platform_pcieutil.get_pcie_aer_stats(bus=Bus, device=Dev, func=Fn)
-            self.update_aer_to_statedb(device_name, aer_stats)
-
-    def read_state_db(self, key1, key2):
-        return self.state_db.get('STATE_DB', key1, key2)
-
-    def update_state_db(self, key1, key2, value):
-        self.state_db.set('STATE_DB', key1, key2, value)
-
-    # Signal handler
+   # Override signal handler from DaemonBase
     def signal_handler(self, sig, frame):
-        if sig == signal.SIGHUP:
-            self.log_info("Caught SIGHUP - ignoring...")
-        elif sig == signal.SIGINT:
-            self.log_info("Caught SIGINT - exiting...")
+        FATAL_SIGNALS = [signal.SIGINT, signal.SIGTERM]
+        NONFATAL_SIGNALS = [signal.SIGHUP]
+
+        global exit_code
+
+        if sig in FATAL_SIGNALS:
+            self.log_info("Caught signal '{}' - exiting...".format(SIGNALS_TO_NAMES_DICT[sig]))
+            exit_code = 128 + sig  # Make sure we exit with a non-zero code so that supervisor will try to restart us
             self.stop_event.set()
-        elif sig == signal.SIGTERM:
-            self.log_info("Caught SIGTERM - exiting...")
-            self.stop_event.set()
+        elif sig in NONFATAL_SIGNALS:
+            self.log_info("Caught signal '{}' - ignoring...".format(SIGNALS_TO_NAMES_DICT[sig]))
         else:
-            self.log_warning("Caught unhandled signal '" + sig + "'")
+            self.log_warning("Caught unhandled signal '{}' - ignoring...".format(SIGNALS_TO_NAMES_DICT[sig]))
 
-    # Initialize daemon
-    def init(self):
-        self.log_info("Start daemon init...")
-
-    # Deinitialize daemon
-    def deinit(self):
-        self.log_info("Start daemon deinit...")
-
-    # Run daemon
+    # Main daemon logic
     def run(self):
-        self.log_info("Starting up...")
+        if self.stop_event.wait(self.timeout):
+            # We received a fatal signal
+            return False
 
-        # Start daemon initialization sequence
-        self.init()
+        self.check_pcie_devices()
 
-        # Start main loop
-        self.log_info("Start daemon main loop")
-
-        while not self.stop_event.wait(self.timeout):
-            # Check the Pcie device status
-            self.check_pcie_devices()
-
-        self.log_info("Stop daemon main loop")
-
-        # Start daemon deinitialization sequence
-        self.deinit()
-
-        self.log_info("Shutting down...")
-
+        return True
 #
 # Main =========================================================================
 #
@@ -174,7 +201,15 @@ class DaemonPcied(daemon_base.DaemonBase):
 
 def main():
     pcied = DaemonPcied(SYSLOG_IDENTIFIER)
-    pcied.run()
+
+    pcied.log_info("Starting up...")
+
+    while pcied.run():
+        pass
+
+    pcied.log_info("Shutting down...")
+
+    return exit_code
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
