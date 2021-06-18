@@ -8,8 +8,20 @@
     with a vendor-specific Y-Cable
 """
 
+from .logger import Logger
 
-class YCableBase(object):
+#
+# YCableBase ===================================================================
+#
+
+class YCableBase(Logger):
+
+    def __init__(self, log_identifier):
+        super(YCableBase, self).__init__(
+            log_identifier=log_identifier,
+            log_facility=Logger.LOG_FACILITY_DAEMON,
+            log_option=(Logger.LOG_OPTION_NDELAY | Logger.LOG_OPTION_PID)
+        )
 
     # definitions of targets for getting the various fields/cursor
     # equalization parameters from the register spec.
@@ -1009,7 +1021,7 @@ class YCableBase(object):
 
         raise NotImplementedError
 
-    def enable_loopback_mode(self, target, mode=NEAR_END_LOOPBACK, lane_mask):
+    def enable_loopback_mode(self, target, lane_mask, mode=LOOPBACK_MODE_NEAR_END):
         """
         This API configures and enables the Loopback mode on the port user provides.
         Target is an integer for selecting which end of the Y cable we want to run loopback on.
