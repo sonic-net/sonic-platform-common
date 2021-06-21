@@ -19,13 +19,15 @@ class PcieUtil(PcieBase):
     # got the config file path
     def __init__(self, path):
         self.config_path = path
+        self._conf_rev = None
 
     # load the config file
     def load_config_file(self):
-        config_file = self.config_path + "/" + "pcie.yaml"
+        conf_rev = "_{}".format(self._conf_rev) if self._conf_rev else ""
+        config_file = "{}/pcie{}.yaml".format(self.config_path, conf_rev)
         try:
             with open(config_file) as conf_file:
-                self.confInfo = yaml.load(conf_file)
+                self.confInfo = yaml.safe_load(conf_file)
         except IOError as e:
             print("Error: {}".format(str(e)))
             print("Not found config file, please add a config file manually, or generate it by running [pcieutil pcie_generate]")
@@ -99,9 +101,9 @@ class PcieUtil(PcieBase):
         return self.confInfo
 
     # return AER stats of PCIe device
-    def get_pcie_aer_stats(self, domain=0, bus=0, device=0, func=0):
+    def get_pcie_aer_stats(self, domain=0, bus=0, dev=0, func=0):
         aer_stats = {'correctable': {}, 'fatal': {}, 'non_fatal': {}}
-        dev_path = os.path.join('/sys/bus/pci/devices', '%04x:%02x:%02x.%d' % (domain, bus, device, func))
+        dev_path = os.path.join('/sys/bus/pci/devices', '%04x:%02x:%02x.%d' % (domain, bus, dev, func))
 
         # construct AER sysfs filepath
         correctable_path = os.path.join(dev_path, "aer_dev_correctable")
@@ -137,6 +139,8 @@ class PcieUtil(PcieBase):
     # generate the config file with current pci device
     def dump_conf_yaml(self):
         curInfo = self.get_pcie_device()
-        with open(self.config_path + "/" + "pcie.yaml", "w") as conf_file:
+        conf_rev = "_{}".format(self._conf_rev) if self._conf_rev else ""
+        config_file = "{}/pcie{}.yaml".format(self.config_path, conf_rev)
+        with open(config_file, "w") as conf_file:
             yaml.dump(curInfo, conf_file, default_flow_style=False)
         return

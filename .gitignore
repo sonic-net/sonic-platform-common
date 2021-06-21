@@ -11,3 +11,5 @@ sonic_platform_common.egg-info/
 # Unit test / coverage reports
 .coverage
 htmlcov/
+coverage.xml
+test-results.xml
