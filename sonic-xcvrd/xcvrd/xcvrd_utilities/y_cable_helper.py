@@ -10,6 +10,7 @@ from sonic_py_common import daemon_base, logger
 from sonic_py_common import multi_asic
 from sonic_y_cable import y_cable
 from swsscommon import swsscommon
+from . import sfp_status_helper
 
 
 SELECT_TIMEOUT = 1000
@@ -20,27 +21,6 @@ y_cable_platform_chassis = None
 SYSLOG_IDENTIFIER = "y_cable_helper"
 
 helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
-
-
-# SFP status definition, shall be aligned with the definition in get_change_event() of ChassisBase
-SFP_STATUS_REMOVED = '0'
-SFP_STATUS_INSERTED = '1'
-
-# SFP error codes, stored as strings. Can add more as needed.
-SFP_STATUS_ERR_I2C_STUCK = '2'
-SFP_STATUS_ERR_BAD_EEPROM = '3'
-SFP_STATUS_ERR_UNSUPPORTED_CABLE = '4'
-SFP_STATUS_ERR_HIGH_TEMP = '5'
-SFP_STATUS_ERR_BAD_CABLE = '6'
-
-# Store the error codes in a set for convenience
-errors_block_eeprom_reading = {
-    SFP_STATUS_ERR_I2C_STUCK,
-    SFP_STATUS_ERR_BAD_EEPROM,
-    SFP_STATUS_ERR_UNSUPPORTED_CABLE,
-    SFP_STATUS_ERR_HIGH_TEMP,
-    SFP_STATUS_ERR_BAD_CABLE
-}
 
 Y_CABLE_STATUS_NO_TOR_ACTIVE = 0
 Y_CABLE_STATUS_TORA_ACTIVE = 1
@@ -438,15 +418,23 @@ def change_ports_status_for_y_cable_change_event(port_dict, y_cable_presence, st
                 continue
 
             if logical_port_name in port_table_keys[asic_index]:
-                if value == SFP_STATUS_INSERTED:
+                if value == sfp_status_helper.SFP_STATUS_INSERTED:
                     helper_logger.log_info("Got SFP inserted event")
                     check_identifier_presence_and_update_mux_table_entry(
                         state_db, port_tbl, y_cable_tbl, static_tbl, mux_tbl, asic_index, logical_port_name, y_cable_presence)
-                elif value == SFP_STATUS_REMOVED or value in errors_block_eeprom_reading:
+                elif value == sfp_status_helper.SFP_STATUS_REMOVED:
                     check_identifier_presence_and_delete_mux_table_entry(
                         state_db, port_tbl, asic_index, logical_port_name, y_cable_presence, delete_change_event)
 
                 else:
+                    try:
+                        # Now that the value is in bitmap format, let's convert it to number
+                        event_bits = int(value)
+                        if sfp_status_helper.is_error_block_eeprom_reading(event_bits):
+                            check_identifier_presence_and_delete_mux_table_entry(
+                                state_db, port_tbl, asic_index, logical_port_name, y_cable_presence, delete_change_event)
+                    except:
+                        pass
                     # SFP return unkown event, just ignore for now.
                     helper_logger.log_warning("Got unknown event {}, ignored".format(value))
                     continue
