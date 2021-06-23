@@ -15,6 +15,8 @@ ADMIN_INFO_FIELD = "AdminInfo"
 # C-CMIS
 
 ## Media Lane FEC Performance Monitoring
+MEDIA_LANE_FEC_PM_FIELD = "Media Lane FEC Performance Monitoring"
+MEDIA_LANE_LINK_PM_FIELD = "Media Lane Link Performance Monitoring"
 RX_BITS_PM_FIELD = "rxBitsPm"
 RX_BITS_SUB_INT_PM_FIELD = "rxBitsSubIntPm"
 
