@@ -19,6 +19,9 @@ class Table:
             return self.mock_dict[key]
         return None
 
+    def getKeys(self):
+        return list(self.mock_dict)
+
     def size(self):
         return len(self.mock_dict)
 
