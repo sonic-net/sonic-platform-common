@@ -1946,7 +1946,7 @@ def read_mmap(physical_port, page, byte, len = 1):
         if len == 1:
             try:
                 return ret[0]
-            except BaseException:
+            except Exception as e:
                 helper_logger.log_error('Unknown read_mmap error')
                 return 0xFF
         else:
