@@ -13,6 +13,14 @@ class MockXcvrCodes(XcvrCodes):
     CODE_DICT = {
         0: "Code0",
         1: "Code1"
+
+    }
+
+    LARGE_CODE_DICT = {
+       0: "Code0",
+       128: "Code128",
+       256: "Code256",
+       384: "Code384"
     }
 
 class MockXcvrMemMap(XcvrMemMap):
@@ -20,6 +28,10 @@ class MockXcvrMemMap(XcvrMemMap):
         super(MockXcvrMemMap, self).__init__(codes)
 
         self.CODE_REG = CodeRegField("CodeReg", 5, self.codes.CODE_DICT)
+        self.LARGE_CODE_REG = CodeRegField("LargeCodeReg", 50, self.codes.LARGE_CODE_DICT,
+            RegBitField("CodeBit7", bitpos=7),
+            RegBitField("CodeBit8", bitpos=8),
+            size=2, format=">H")
         self.NUM_REG = NumberRegField("NumReg", 100, format=">Q", size=8, ro=False)
         self.SCALE_NUM_REG = NumberRegField("ScaleNumReg", 120, format=">i", size=4, scale=100, ro=False)
         self.STRING_REG = StringRegField("StringReg", 12, size=15)
@@ -28,7 +40,7 @@ class MockXcvrMemMap(XcvrMemMap):
             NumberRegField("Field0", 6, ro=False),
             NumberRegField("Field1", 7,
                 RegBitField("BitField0", bitpos=0, ro=False),
-                RegBitField( "BitField1", bitpos=1, ro=False),
+                RegBitField("BitField1", bitpos=1, ro=False),
                 ro=False
             ),
             NumberRegField("Field2", 7, format=">I", size=4),
@@ -139,6 +151,16 @@ class TestCodeRegField(object):
 
         data = bytearray([1])
         assert field.decode(data) == "Code1"
+
+        field = mem_map.get_field("LargeCodeReg")
+        data = bytearray([0xFE, 0x7F])
+        assert field.decode(data) == "Code0"
+        data = bytearray([0xFE, 0xFF])
+        assert field.decode(data) == "Code128"
+        data = bytearray([0xFF, 0x7F])
+        assert field.decode(data) == "Code256"
+        data = bytearray([0xFF, 0xFF])
+        assert field.decode(data) == "Code384"
 
 class TestHexRegField(object):
     def test_decode(self):

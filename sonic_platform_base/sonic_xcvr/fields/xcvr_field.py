@@ -151,8 +151,20 @@ class CodeRegField(RegField):
         self.code_dict = code_dict
         self.format = kwargs.get("format", "B")
 
+    def _get_bitmask(self):
+        if not self.fields:
+            return None
+        mask = 0
+        for field in self.fields:
+            mask |= 1 << field.bitpos
+        return mask
+
     def decode(self, raw_data):
-        return self.code_dict[struct.unpack(self.format, raw_data)[0]]
+        code = struct.unpack(self.format, raw_data)[0]
+        mask = self._get_bitmask()
+        if mask is not None:
+            code &= mask
+        return self.code_dict[code]
 
 class HexRegField(RegField):
     """
