@@ -1385,7 +1385,7 @@ def get_firmware_version(physical_port, target):
     vsc_req_form = [None] * (VSC_CMD_ATTRIBUTE_LENGTH)
     vsc_req_form[VSC_BYTE_OPCODE] = VSC_OPCODE_FWUPD
     vsc_req_form[VSC_BYTE_OPTION] = FWUPD_OPTION_GET_INFO
-    status = send_vsc_cmd(physical_port, vsc_req_form)
+    send_vsc_cmd(physical_port, vsc_req_form)
 
     data = bytearray(FIRMWARE_INFO_PAYLOAD_SIZE)
 
@@ -1683,9 +1683,9 @@ def download_firmware(physical_port, fwfile):
         return FIRMWARE_DOWNLOAD_FAILURE
 
     busy        = read_mmap(physical_port, MIS_PAGE_FC, 128)
-    percentNIC  = read_mmap(physical_port, MIS_PAGE_FC, 129)
-    percentTOR1 = read_mmap(physical_port, MIS_PAGE_FC, 130)
-    percentTOR2 = read_mmap(physical_port, MIS_PAGE_FC, 131)
+    #percentNIC  = read_mmap(physical_port, MIS_PAGE_FC, 129)
+    #percentTOR1 = read_mmap(physical_port, MIS_PAGE_FC, 130)
+    #percentTOR2 = read_mmap(physical_port, MIS_PAGE_FC, 131)
 
     while busy != 0:
         vsc_req_form = [None] * (VSC_CMD_ATTRIBUTE_LENGTH)
@@ -1698,9 +1698,9 @@ def download_firmware(physical_port, fwfile):
 
         time.sleep(0.2)
         busy        = read_mmap(physical_port, MIS_PAGE_FC, 128)
-        percentNIC  = read_mmap(physical_port, MIS_PAGE_FC, 129)
-        percentTOR1 = read_mmap(physical_port, MIS_PAGE_FC, 130)
-        percentTOR2 = read_mmap(physical_port, MIS_PAGE_FC, 131)
+        #percentNIC  = read_mmap(physical_port, MIS_PAGE_FC, 129)
+        #percentTOR1 = read_mmap(physical_port, MIS_PAGE_FC, 130)
+        #percentTOR2 = read_mmap(physical_port, MIS_PAGE_FC, 131)
 
     return FIRMWARE_DOWNLOAD_SUCCESS
 
@@ -1939,14 +1939,14 @@ def read_mmap(physical_port, page, byte, len = 1):
 
     ret = platform_chassis.get_sfp(physical_port).read_eeprom(linear_addr, len)
 
-    if ret == None:
+    if ret is None:
         helper_logger.log_error('Memorymap Read Nack!  page:0x%02X byte:0x%02X' % (page, byte))
         return 0xFF
     else:
         if len == 1:
             try:
                 return ret[0]
-            except:
+            except BaseException:
                 helper_logger.log_error('Unknown read_mmap error')
                 return 0xFF
         else:
