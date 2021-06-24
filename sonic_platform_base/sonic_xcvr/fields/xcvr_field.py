@@ -115,7 +115,7 @@ class NumberRegField(RegField):
     def __init__(self, name, offset, *fields, **kwargs):
         super(NumberRegField, self).__init__( name, offset, *fields, **kwargs)
         self.scale = kwargs.get("scale")
-        self.format = kwargs.get("format", ">B")
+        self.format = kwargs.get("format", "B")
 
     def decode(self, raw_data):
         decoded = struct.unpack(self.format, raw_data)[0]
@@ -144,14 +144,15 @@ class StringRegField(RegField):
 
 class CodeRegField(RegField):
     """
-    Interprets byte as a code
+    Interprets byte(s) as a code
     """
     def __init__(self, name, offset, code_dict, *fields, **kwargs):
         super(CodeRegField, self).__init__(name, offset, *fields, **kwargs)
         self.code_dict = code_dict
+        self.format = kwargs.get("format", "B")
 
     def decode(self, raw_data):
-        return self.code_dict[raw_data[0]]
+        return self.code_dict[struct.unpack(self.format, raw_data)[0]]
 
 class HexRegField(RegField):
     """
@@ -163,22 +164,22 @@ class HexRegField(RegField):
     def decode(self, raw_data):
         return '-'.join([ "%02x" % byte for byte in raw_data])
 
-
 class RegGroupField(XcvrField):
     """
-    Field denoting one or more bytes, logically interpreted as one or more RegFields
-    (e.g. a 4-byte integer followed by a 16-byte string)
+    Field denoting one or more bytes, logically interpreted as one or more contiguous RegFields
+    (e.g. a 4-byte integer followed by a 16-byte string) or RegGroupFields
     """
     def __init__(self, name, *fields, **kwargs):
         super(RegGroupField, self).__init__(
-            name, fields[0].offset, kwargs.get("ro", True))
+            name, fields[0].get_offset(), kwargs.get("ro", True))
         self.fields = fields
 
     def get_size(self):
-        size = 0
+        start = self.offset
+        end = start
         for field in self.fields:
-            size += field.get_size()
-        return size
+            end = max(end, field.get_offset() + field.get_size())
+        return end - start
 
     def read_before_write(self):
         return False
@@ -188,9 +189,9 @@ class RegGroupField(XcvrField):
             Return: a dict mapping member field names to their decoded results
         """
         result = {}
-        index = 0
+        start = self.offset
         for field in self.fields:
+            offset = field.get_offset()
             result[field.name] = field.decode(
-                raw_data[index: index + field.get_size()])
-            index += field.get_size()
+                raw_data[offset - start: offset + field.get_size() - start])
         return result

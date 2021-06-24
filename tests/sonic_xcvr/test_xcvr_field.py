@@ -31,6 +31,7 @@ class MockXcvrMemMap(XcvrMemMap):
                 RegBitField( "BitField1", bitpos=1, ro=False),
                 ro=False
             ),
+            NumberRegField("Field2", 7, format=">I", size=4),
         )
 
         self.REG_GROUP_NESTED = RegGroupField("RegGroupNested",
@@ -52,7 +53,8 @@ class TestXcvrField(object):
             "Field0": mem_map.get_field("Field0"),
             "Field1": mem_map.get_field("Field1"),
             "BitField0": mem_map.get_field("BitField0"),
-            "BitField1": mem_map.get_field("BitField1")
+            "BitField1": mem_map.get_field("BitField1"),
+            "Field2": mem_map.get_field("Field2")
         }
 
         field = mem_map.get_field("RegGroupNested")
@@ -151,7 +153,7 @@ class TestRegGroupField(object):
 
     def test_size(self):
         field = mem_map.get_field("RegGroup")
-        assert field.get_size() == 2
+        assert field.get_size() == 5
 
         field = mem_map.get_field("RegGroupNested")
         assert field.get_size() == 3
@@ -162,12 +164,13 @@ class TestRegGroupField(object):
 
     def test_decode(self):
         field = mem_map.get_field("RegGroup")
-        data = bytearray([0, 1])
+        data = bytearray([0, 1, 2, 0, 0])
         decoded = field.decode(data)
 
         assert decoded == {
             "Field0": 0,
-            "Field1": 1
+            "Field1": 1,
+            "Field2": 0x01020000,
         }
 
         field = mem_map.get_field("RegGroupNested")
