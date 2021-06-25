@@ -57,5 +57,11 @@ class XcvrApi(object):
     def tx_disable_channel(self, channel, disable):
         raise NotImplementedError
 
+    def get_power_override(self):
+        raise NotImplementedError
+
+    def set_power_override(self, power_override, power_set):
+        raise NotImplementedError
+
     def get_coherent_optic_api(self):
         raise NotImplementedError

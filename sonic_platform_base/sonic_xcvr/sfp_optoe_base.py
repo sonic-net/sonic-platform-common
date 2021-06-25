@@ -59,6 +59,12 @@ class SfpOptoeBase(SfpBase):
     def tx_disable_channel(self, channel, disable):
         return self.xcvr_api.tx_disable_channel(channel, disable)
 
+    def get_power_override(self):
+        return self.xcvr_api.get_power_override()
+
+    def set_power_override(self, power_override, power_set):
+        return self.xcvr_api.set_power_override(power_override, power_set)
+
     def get_eeprom_path(self):
         raise NotImplementedError
 
