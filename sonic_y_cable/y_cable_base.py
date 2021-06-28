@@ -16,13 +16,6 @@ from .logger import Logger
 
 class YCableBase(Logger):
 
-    def __init__(self, log_identifier):
-        super(YCableBase, self).__init__(
-            log_identifier=log_identifier,
-            log_facility=Logger.LOG_FACILITY_DAEMON,
-            log_option=(Logger.LOG_OPTION_NDELAY | Logger.LOG_OPTION_PID)
-        )
-
     # definitions of targets for getting the various fields/cursor
     # equalization parameters from the register spec.
     # the name of the target denotes which side MCU
@@ -79,13 +72,19 @@ class YCableBase(Logger):
     PRBS_DIRECTION_GENERATOR = 1
     PRBS_DIRECTION_CHECKER = 2
 
-    def __init__(self, port):
+    def __init__(self, port, log_identifier):
         """
         Args:
             port:
                  an Integer, the actual physical port connected to a Y cable
         """
         self.port = port
+
+        super(YCableBase, self).__init__(
+        log_identifier=log_identifier,
+        log_facility=Logger.LOG_FACILITY_DAEMON,
+        log_option=(Logger.LOG_OPTION_NDELAY | Logger.LOG_OPTION_PID)
+        )
 
     def toggle_mux_to_tor_a(self):
         """
