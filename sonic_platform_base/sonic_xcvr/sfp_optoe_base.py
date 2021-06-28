@@ -12,58 +12,58 @@ class SfpOptoeBase(SfpBase):
         SfpBase.__init__(self)
 
     def get_model(self):
-        return self.xcvr_api.get_model()
+        return self.get_xcvr_api().get_model()
 
     def get_serial(self):
-        return self.xcvr_api.get_serial()
+        return self.get_xcvr_api().get_serial()
 
     def get_transceiver_info(self):
-        return self.xcvr_api.get_transceiver_info()
+        return self.get_xcvr_api().get_transceiver_info()
 
     def get_transceiver_bulk_status(self):
-        return self.xcvr_api.get_transceiver_bulk_status()
+        return self.get_xcvr_api().get_transceiver_bulk_status()
 
     def get_transceiver_threshold_info(self):
-        return self.xcvr_api.get_transceiver_threshold_info()
+        return self.get_xcvr_api().get_transceiver_threshold_info()
 
     def get_rx_los(self):
-        return self.xcvr_api.get_rx_los()
+        return self.get_xcvr_api().get_rx_los()
 
     def get_tx_fault(self):
-        return self.xcvr_api.get_tx_fault()
+        return self.get_xcvr_api().get_tx_fault()
 
     def get_tx_disable(self):
-        return self.xcvr_api.get_tx_disable()
+        return self.get_xcvr_api().get_tx_disable()
 
     def get_tx_disable_channel(self):
-        return self.xcvr_api.get_tx_disable_channel()
+        return self.get_xcvr_api().get_tx_disable_channel()
 
     def get_temperature(self):
-        return self.xcvr_api.get_temperature()
+        return self.get_xcvr_api().get_temperature()
 
     def get_voltage(self):
-        return self.xcvr_api.get_voltage()
+        return self.get_xcvr_api().get_voltage()
 
     def get_tx_bias(self):
-        return self.xcvr_api.get_tx_bias()
+        return self.get_xcvr_api().get_tx_bias()
 
     def get_rx_power(self):
-        return self.xcvr_api.get_rx_power()
+        return self.get_xcvr_api().get_rx_power()
 
     def get_tx_power(self):
-        return self.xcvr_api.get_tx_power()
+        return self.get_xcvr_api().get_tx_power()
 
     def tx_disable(self, tx_disable):
-        return self.xcvr_api.tx_disable(tx_disable)
+        return self.get_xcvr_api().tx_disable(tx_disable)
 
     def tx_disable_channel(self, channel, disable):
-        return self.xcvr_api.tx_disable_channel(channel, disable)
+        return self.get_xcvr_api().tx_disable_channel(channel, disable)
 
     def get_power_override(self):
-        return self.xcvr_api.get_power_override()
+        return self.get_xcvr_api().get_power_override()
 
     def set_power_override(self, power_override, power_set):
-        return self.xcvr_api.set_power_override(power_override, power_set)
+        return self.get_xcvr_api().set_power_override(power_override, power_set)
 
     def get_eeprom_path(self):
         raise NotImplementedError
