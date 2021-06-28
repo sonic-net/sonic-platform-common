@@ -753,6 +753,8 @@ def enable_prbs_mode(physical_port, target, mode_value, lane_map):
         curr_offset = OFFSET_ENABLE_PRBS
         result = platform_chassis.get_sfp(
             physical_port).write_eeprom(curr_offset, 1, buffer)
+        if result is False:
+            return result
         buffer = bytearray([mode_value])
         curr_offset = OFFSET_CONFIGURE_PRBS_TYPE
         result = platform_chassis.get_sfp(
