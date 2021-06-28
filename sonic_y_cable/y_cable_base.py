@@ -81,9 +81,9 @@ class YCableBase(Logger):
         self.port = port
 
         super(YCableBase, self).__init__(
-        log_identifier=log_identifier,
-        log_facility=Logger.LOG_FACILITY_DAEMON,
-        log_option=(Logger.LOG_OPTION_NDELAY | Logger.LOG_OPTION_PID)
+            log_identifier=log_identifier,
+            log_facility=Logger.LOG_FACILITY_DAEMON,
+            log_option=(Logger.LOG_OPTION_NDELAY | Logger.LOG_OPTION_PID)
         )
 
     def toggle_mux_to_tor_a(self):
