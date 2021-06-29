@@ -9,7 +9,7 @@ import time
 import struct
 from ctypes import c_int8
 from sonic_y_cable.y_cable_base import YCableBase
-from sonic_py_common import logger
+
 try:
     import sonic_platform.platform
 except ImportError as e:
@@ -158,8 +158,6 @@ class YCable(YCableBase):
         YCableBase.__init__(self, port, "y_cable_credo_%d" % port)
 
         self.platform_chassis = None
-
-        #self.helper_logger = logger.Logger("y_cable_credo_%d" % port)
         self.helper_logger = logging_caller_name
 
         try:
@@ -193,14 +191,14 @@ class YCable(YCableBase):
 
         ret = self.platform_chassis.get_sfp(self.port).read_eeprom(linear_addr, len)
 
-        if ret == None:
+        if ret is None:
             self.helper_logger.log_error('Read Nack!  page:%2X byte:%2X' % (page, byte))
             return 0xFF
         else:
             if len == 1:
                 try:
                     return ret[0]
-                except:
+                except Exception as e:
                     self.helper_logger.log_error('Unknown read_mmap error')
                     return 0xFF
             else:
@@ -437,10 +435,8 @@ class YCable(YCableBase):
         elif regval_read[0] == 0:
             self.helper_logger.log_info("mux pointing to TOR B")
             return YCableBase.TARGET_TOR_B
-        else:
-            self.helper_logger.log_error("Error: unknown status for mux direction regval = {} ".format(result))
-            return YCableBase.TARGET_UNKNOWN
 
+        self.helper_logger.log_error("Error: unknown status for mux direction regval = {} ".format(result))
         return YCableBase.TARGET_UNKNOWN
 
     def get_active_linked_tor_side(self):
@@ -495,10 +491,8 @@ class YCable(YCableBase):
         elif regval_read[0] == 0:
             self.helper_logger.log_info("Nothing linked for routing")
             return YCableBase.TARGET_NIC
-        else:
-            self.helper_logger.log_error("Error: unknown status for active TOR regval = {} ".format(result))
-            return YCableBase.TARGET_UNKNOWN
 
+        self.helper_logger.log_error("Error: unknown status for active TOR regval = {} ".format(result))
         return YCableBase.TARGET_UNKNOWN
 
     def is_link_active(self, target):
@@ -866,7 +860,7 @@ class YCable(YCableBase):
         vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
         vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
         vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_GET_INFO
-        status = self.send_vsc_cmd(vsc_req_form)
+        self.send_vsc_cmd(vsc_req_form)
 
         data = bytearray(YCable.FIRMWARE_INFO_PAYLOAD_SIZE)
 
@@ -1031,9 +1025,9 @@ class YCable(YCableBase):
             return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
 
         busy = self.read_mmap(YCable.MIS_PAGE_FC, 128)
-        percentNIC = self.read_mmap(YCable.MIS_PAGE_FC, 129)
-        percentTOR1 = self.read_mmap(YCable.MIS_PAGE_FC, 130)
-        percentTOR2 = self.read_mmap(YCable.MIS_PAGE_FC, 131)
+        self.read_mmap(YCable.MIS_PAGE_FC, 129)
+        self.read_mmap(YCable.MIS_PAGE_FC, 130)
+        self.read_mmap(YCable.MIS_PAGE_FC, 131)
 
         while busy != 0:
             vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
@@ -1047,9 +1041,9 @@ class YCable(YCableBase):
 
             time.sleep(0.2)
             busy = self.read_mmap(YCable.MIS_PAGE_FC, 128)
-            percentNIC = self.read_mmap(YCable.MIS_PAGE_FC, 129)
-            percentTOR1 = self.read_mmap(YCable.MIS_PAGE_FC, 130)
-            percentTOR2 = self.read_mmap(YCable.MIS_PAGE_FC, 131)
+            self.read_mmap(YCable.MIS_PAGE_FC, 129)
+            self.read_mmap(YCable.MIS_PAGE_FC, 130)
+            self.read_mmap(YCable.MIS_PAGE_FC, 131)
 
         return YCableBase.FIRMWARE_DOWNLOAD_SUCCESS
 
@@ -1513,7 +1507,7 @@ class YCable(YCableBase):
             vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
             vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_EVENTLOG
             vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.EVENTLOG_OPTION_CLEAR
-            status = self.send_vsc_cmd(vsc_req_form)
+            self.send_vsc_cmd(vsc_req_form)
 
         last_read_id = -1
         result = []
