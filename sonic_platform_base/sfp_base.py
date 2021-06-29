@@ -433,7 +433,7 @@ class SfpBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
-    def reload(self):
+    def refresh_xcvr_api(self):
         """
         Updates the XcvrApi associated with this SFP
         """
@@ -447,5 +447,5 @@ class SfpBase(device_base.DeviceBase):
             An object derived from XcvrApi that corresponds to the SFP
         """
         if self._xcvr_api is None:
-            self.reload()
+            self.refresh_xcvr_api()
         return self._xcvr_api

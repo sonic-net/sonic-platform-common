@@ -12,58 +12,76 @@ class SfpOptoeBase(SfpBase):
         SfpBase.__init__(self)
 
     def get_model(self):
-        return self.get_xcvr_api().get_model()
+        api = self.get_xcvr_api()
+        return api.get_model() if api is not None else None
 
     def get_serial(self):
-        return self.get_xcvr_api().get_serial()
+        api = self.get_xcvr_api()
+        return api.get_serial() if api is not None else None
 
     def get_transceiver_info(self):
-        return self.get_xcvr_api().get_transceiver_info()
+        api = self.get_xcvr_api()
+        return api.get_transceiver_info() if api is not None else None
 
     def get_transceiver_bulk_status(self):
-        return self.get_xcvr_api().get_transceiver_bulk_status()
+        api = self.get_xcvr_api()
+        return api.get_transceiver_bulk_status() if api is not None else None
 
     def get_transceiver_threshold_info(self):
-        return self.get_xcvr_api().get_transceiver_threshold_info()
+        api = self.get_xcvr_api()
+        return api.get_transceiver_threshold_info() if api is not None else None
 
     def get_rx_los(self):
-        return self.get_xcvr_api().get_rx_los()
+        api = self.get_xcvr_api()
+        return api.get_rx_los() if api is not None else None
 
     def get_tx_fault(self):
-        return self.get_xcvr_api().get_tx_fault()
+        api = self.get_xcvr_api()
+        return api.get_tx_fault() if api is not None else None
 
     def get_tx_disable(self):
-        return self.get_xcvr_api().get_tx_disable()
+        api = self.get_xcvr_api()
+        return api.get_tx_disable() if api is not None else None
 
     def get_tx_disable_channel(self):
-        return self.get_xcvr_api().get_tx_disable_channel()
+        api = self.get_xcvr_api()
+        return api.get_tx_disable_channel() if api is not None else None
 
     def get_temperature(self):
-        return self.get_xcvr_api().get_temperature()
+        api = self.get_xcvr_api()
+        return api.get_temperature() if api is not None else None
 
     def get_voltage(self):
-        return self.get_xcvr_api().get_voltage()
+        api = self.get_xcvr_api()
+        return api.get_voltage() if api is not None else None
 
     def get_tx_bias(self):
-        return self.get_xcvr_api().get_tx_bias()
+        api = self.get_xcvr_api()
+        return api.get_tx_bias() if api is not None else None
 
     def get_rx_power(self):
-        return self.get_xcvr_api().get_rx_power()
+        api = self.get_xcvr_api()
+        return api.get_rx_power() if api is not None else None
 
     def get_tx_power(self):
-        return self.get_xcvr_api().get_tx_power()
+        api = self.get_xcvr_api()
+        return api.get_tx_power() if api is not None else None
 
     def tx_disable(self, tx_disable):
-        return self.get_xcvr_api().tx_disable(tx_disable)
+        api = self.get_xcvr_api()
+        return api.tx_disable(tx_disable) if api is not None else None
 
     def tx_disable_channel(self, channel, disable):
-        return self.get_xcvr_api().tx_disable_channel(channel, disable)
+        api = self.get_xcvr_api()
+        return api.tx_disable_channel(channel, disable) if api is not None else None
 
     def get_power_override(self):
-        return self.get_xcvr_api().get_power_override()
+        api = self.get_xcvr_api()
+        return api.get_power_override() if api is not None else None
 
     def set_power_override(self, power_override, power_set):
-        return self.get_xcvr_api().set_power_override(power_override, power_set)
+        api = self.get_xcvr_api()
+        return api.set_power_override(power_override, power_set) if api is not None else None
 
     def get_eeprom_path(self):
         raise NotImplementedError

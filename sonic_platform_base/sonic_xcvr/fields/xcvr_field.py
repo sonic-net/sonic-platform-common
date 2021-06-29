@@ -164,7 +164,7 @@ class CodeRegField(RegField):
         mask = self._get_bitmask()
         if mask is not None:
             code &= mask
-        return self.code_dict[code]
+        return self.code_dict.get(code, "Unknown")
 
 class HexRegField(RegField):
     """
