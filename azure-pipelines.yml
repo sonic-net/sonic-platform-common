@@ -59,7 +59,7 @@ steps:
     curl -sSL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
     sudo apt-add-repository https://packages.microsoft.com/debian/10/prod
     sudo apt-get update
-    sudo apt-get install -y dotnet-sdk-5.0
+    sudo apt-get install -y dotnet-sdk-5.0 || sudo apt-get -y install -f
   displayName: "Install .NET CORE"
 
 # Python 2
