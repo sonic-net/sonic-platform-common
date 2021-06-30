@@ -9,7 +9,6 @@ import time
 import struct
 from ctypes import c_int8
 from sonic_y_cable.y_cable_base import YCableBase
-
 try:
     import sonic_platform.platform
 except ImportError as e:
@@ -149,22 +148,21 @@ class YCable(YCableBase):
         MCU_EC_UNDEFINED_ERROR: 'Undefined Error',
     }
 
-    def __init__(self, port, logidentifier, logging_caller_name):
+    def __init__(self, port, main_logger):
         """
         Args:
             port:
                  an Integer, the actual physical port connected to a Y cable
         """
-        YCableBase.__init__(self, port, "y_cable_credo_%d" % port)
+        YCableBase.__init__(self, port, main_logger)
 
         self.platform_chassis = None
-        self.helper_logger = logging_caller_name
 
         try:
             self.platform_chassis = sonic_platform.platform.Platform().get_chassis()
-            self.helper_logger.log_info("chassis loaded {}".format(self.platform_chassis))
+            self.log_info("chassis loaded {}".format(self.platform_chassis))
         except Exception as e:
-            self.helper_logger.log_warning("Failed to load chassis due to {}".format(repr(e)))
+            self.log_warning("Failed to load chassis due to {}".format(repr(e)))
 
     def read_mmap(self, page, byte, len=1):
         """
@@ -191,15 +189,15 @@ class YCable(YCableBase):
 
         ret = self.platform_chassis.get_sfp(self.port).read_eeprom(linear_addr, len)
 
-        if ret is None:
-            self.helper_logger.log_error('Read Nack!  page:%2X byte:%2X' % (page, byte))
+        if ret == None:
+            self.log_error('Read Nack!  page:%2X byte:%2X' % (page, byte))
             return 0xFF
         else:
             if len == 1:
                 try:
                     return ret[0]
-                except Exception as e:
-                    self.helper_logger.log_error('Unknown read_mmap error')
+                except:
+                    self.log_error('Unknown read_mmap error')
                     return 0xFF
             else:
                 return ret
@@ -240,7 +238,7 @@ class YCable(YCableBase):
         ret = self.platform_chassis.get_sfp(self.port).write_eeprom(linear_addr, len, ba)
 
         if (ret == False):
-            self.helper_logger.log_error('Write Failed!  page:%2X byte:%2X value:%2X' % (page, byte, value))
+            self.log_error('Write Failed!  page:%2X byte:%2X value:%2X' % (page, byte, value))
 
         return ret
 
@@ -273,7 +271,7 @@ class YCable(YCableBase):
             timeout -= 1
 
             if timeout == 0:
-                self.helper_logger.log_error("wait vsc status value timeout")
+                self.log_error("wait vsc status value timeout")
                 return YCable.MCU_EC_WAIT_VSC_STATUS_TIMEOUT
 
         status = self.read_mmap(YCable.MIS_PAGE_VSC, YCable.VSC_BYTE_STATUS)
@@ -302,7 +300,7 @@ class YCable(YCableBase):
         if self.platform_chassis is not None:
             result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
         else:
-            self.helper_logger.log_error("platform_chassis is not loaded, failed to toggle mux to TOR A")
+            self.log_error("platform_chassis is not loaded, failed to toggle mux to TOR A")
             return False
 
         return result
@@ -327,7 +325,7 @@ class YCable(YCableBase):
         if self.platform_chassis is not None:
             result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
         else:
-            self.helper_logger.log_error("platform_chassis is not loaded, failed to toggle mux to TOR B")
+            self.log_error("platform_chassis is not loaded, failed to toggle mux to TOR B")
             return False
 
         return result
@@ -353,37 +351,37 @@ class YCable(YCableBase):
         if self.platform_chassis is not None:
             result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
         else:
-            self.helper_logger.log_error("platform_chassis is not loaded, failed to check read side")
+            self.log_error("platform_chassis is not loaded, failed to check read side")
             return YCableBase.TARGET_UNKNOWN
 
         if result is not None:
             if isinstance(result, bytearray):
                 if len(result) != 1:
-                    self.helper_logger.log_error("Error: for checking mux_cable read side, eeprom read returned a size {} not equal to 1 for port {}".format(
+                    self.log_error("Error: for checking mux_cable read side, eeprom read returned a size {} not equal to 1 for port {}".format(
                         len(result), self.port))
                     return YCableBase.TARGET_UNKNOWN
             else:
-                self.helper_logger.log_error("Error: for checking mux_cable read_side, eeprom read returned an instance value of type {} which is not a bytearray for port {}".format(
+                self.log_error("Error: for checking mux_cable read_side, eeprom read returned an instance value of type {} which is not a bytearray for port {}".format(
                     type(result), self.port))
                 return YCableBase.TARGET_UNKNOWN
         else:
-            self.helper_logger.log_error(
+            self.log_error(
                 "Error: for checking mux_cable read_side, eeprom read returned a None value for port {} which is not expected".format(self.port))
             return YCableBase.TARGET_UNKNOWN
 
         regval_read = struct.unpack(">B", result)
 
         if ((regval_read[0] >> 2) & 0x01):
-            self.helper_logger.log_info("Reading from TOR A")
+            self.log_info("Reading from TOR A")
             return YCableBase.TARGET_TOR_A
         elif ((regval_read[0] >> 1) & 0x01):
-            self.helper_logger.log_info("Reading from TOR B")
+            self.log_info("Reading from TOR B")
             return YCableBase.TARGET_TOR_B
         elif (regval_read[0] & 0x01):
-            self.helper_logger.log_info("Reading from NIC side")
+            self.log_info("Reading from NIC side")
             return YCableBase.TARGET_NIC
         else:
-            self.helper_logger.log_error("Error: unknown status for checking which side regval = {} ".format(result))
+            self.log_error("Error: unknown status for checking which side regval = {} ".format(result))
 
         return YCableBase.TARGET_UNKNOWN
 
@@ -408,35 +406,37 @@ class YCable(YCableBase):
         if self.platform_chassis is not None:
             result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
         else:
-            self.helper_logger.log_error(
+            self.log_error(
                 "platform_chassis is not loaded, failed to check Active Linked and routing TOR side")
             return YCableBase.TARGET_UNKNOWN
 
         if result is not None:
             if isinstance(result, bytearray):
                 if len(result) != 1:
-                    self.helper_logger.log_error("Error: for checking mux_cable mux pointing side, eeprom read returned a size {} not equal to 1 for port {}".format(
+                    self.log_error("Error: for checking mux_cable mux pointing side, eeprom read returned a size {} not equal to 1 for port {}".format(
                         len(result), self.port))
                     return YCableBase.TARGET_UNKNOWN
             else:
-                self.helper_logger.log_error("Error: for checking mux_cable mux pointing side, eeprom read returned an instance value of type {} which is not a bytearray for port {}".format(
+                self.log_error("Error: for checking mux_cable mux pointing side, eeprom read returned an instance value of type {} which is not a bytearray for port {}".format(
                     type(result), self.port))
                 return YCableBase.TARGET_UNKNOWN
         else:
-            self.helper_logger.log_error(
+            self.log_error(
                 "Error: for checking mux_cable mux pointing side, eeprom read returned a None value from eeprom read for port {} which is not expected".format(self.port))
             return YCableBase.TARGET_UNKNOWN
 
         regval_read = struct.unpack(">B", result)
 
         if ((regval_read[0]) & 0x01):
-            self.helper_logger.log_info("mux pointing to TOR A")
+            self.log_info("mux pointing to TOR A")
             return YCableBase.TARGET_TOR_A
         elif regval_read[0] == 0:
-            self.helper_logger.log_info("mux pointing to TOR B")
+            self.log_info("mux pointing to TOR B")
             return YCableBase.TARGET_TOR_B
+        else:
+            self.log_error("Error: unknown status for mux direction regval = {} ".format(result))
+            return YCableBase.TARGET_UNKNOWN
 
-        self.helper_logger.log_error("Error: unknown status for mux direction regval = {} ".format(result))
         return YCableBase.TARGET_UNKNOWN
 
     def get_active_linked_tor_side(self):
@@ -461,38 +461,40 @@ class YCable(YCableBase):
         if self.platform_chassis is not None:
             result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
         else:
-            self.helper_logger.log_error(
+            self.log_error(
                 "platform_chassis is not loaded, failed to check Active Linked and routing TOR side")
             return YCableBase.TARGET_UNKNOWN
 
         if result is not None:
             if isinstance(result, bytearray):
                 if len(result) != 1:
-                    self.helper_logger.log_error("Error: for checking mux_cable active linked side, eeprom read returned a size {} not equal to 1 for port {}".format(
+                    self.log_error("Error: for checking mux_cable active linked side, eeprom read returned a size {} not equal to 1 for port {}".format(
                         len(result), self.port))
                     return YCableBase.TARGET_UNKNOWN
             else:
-                self.helper_logger.log_error("Error: for checking mux_cable active linked side, eeprom read returned an instance value of type {} which is not a bytearray for port {}".format(
+                self.log_error("Error: for checking mux_cable active linked side, eeprom read returned an instance value of type {} which is not a bytearray for port {}".format(
                     type(result), self.port))
                 return YCableBase.TARGET_UNKNOWN
         else:
-            self.helper_logger.log_error(
+            self.log_error(
                 "Error: for checking mux_cable active linked side, eeprom read returned a None value from eeprom read for port {} which is not expected".format(self.port))
             return YCableBase.TARGET_UNKNOWN
 
         regval_read = struct.unpack(">B", result)
 
         if ((regval_read[0] >> 1) & 0x01):
-            self.helper_logger.log_info("TOR B active linked and actively routing")
+            self.log_info("TOR B active linked and actively routing")
             return YCableBase.TARGET_TOR_B
         elif ((regval_read[0]) & 0x01):
-            self.helper_logger.log_info("TOR A standby linked and actively routing")
+            self.log_info("TOR A standby linked and actively routing")
             return YCableBase.TARGET_TOR_A
         elif regval_read[0] == 0:
-            self.helper_logger.log_info("Nothing linked for routing")
+            self.log_info("Nothing linked for routing")
             return YCableBase.TARGET_NIC
+        else:
+            self.log_error("Error: unknown status for active TOR regval = {} ".format(result))
+            return YCableBase.TARGET_UNKNOWN
 
-        self.helper_logger.log_error("Error: unknown status for active TOR regval = {} ".format(result))
         return YCableBase.TARGET_UNKNOWN
 
     def is_link_active(self, target):
@@ -517,35 +519,35 @@ class YCable(YCableBase):
         if self.platform_chassis is not None:
             result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
         else:
-            self.helper_logger.log_error(
+            self.log_error(
                 "platform_chassis is not loaded, failed to check if link is Active on target side")
             return YCableBase.TARGET_UNKNOWN
 
         if result is not None:
             if isinstance(result, bytearray):
                 if len(result) != 1:
-                    self.helper_logger.log_error("Error: for checking mux_cable link is active on target side, eeprom read returned a size {} not equal to 1 for port {}".format(
+                    self.log_error("Error: for checking mux_cable link is active on target side, eeprom read returned a size {} not equal to 1 for port {}".format(
                         len(result), self.port))
                     return YCableBase.TARGET_UNKNOWN
             else:
-                self.helper_logger.log_error("Error: for checking mux_cable link is active on target side, eeprom read returned an instance value of type {} which is not a bytearray for port {}".format(
+                self.log_error("Error: for checking mux_cable link is active on target side, eeprom read returned an instance value of type {} which is not a bytearray for port {}".format(
                     type(result), self.port))
                 return YCableBase.TARGET_UNKNOWN
         else:
-            self.helper_logger.log_error(
+            self.log_error(
                 "Error: for checking mux_cable link is active on target side, eeprom read returned a None value from eeprom read for port {} which is not expected".format(self.port))
             return YCableBase.TARGET_UNKNOWN
 
         regval_read = struct.unpack(">B", result)
 
         if (regval_read[0] & 0x01):
-            self.helper_logger.log_info("NIC link is up")
+            self.log_info("NIC link is up")
             return True
         elif ((regval_read[0] >> 2) & 0x01):
-            self.helper_logger.log_info("TOR A link is up")
+            self.log_info("TOR A link is up")
             return True
         elif ((regval_read[0] >> 1) & 0x01):
-            self.helper_logger.log_info("TOR B link is up")
+            self.log_info("TOR B link is up")
             return True
         else:
             return YCableBase.TARGET_UNKNOWN
@@ -603,7 +605,7 @@ class YCable(YCableBase):
                 eye_result.append(lane_result)
                 idx += 2
         else:
-            self.helper_logger.log_error("platform_chassis is not loaded, failed to configure the PRBS type")
+            self.log_error("platform_chassis is not loaded, failed to configure the PRBS type")
             return YCable.EEPROM_ERROR
 
         return eye_result
@@ -624,7 +626,7 @@ class YCable(YCableBase):
         if self.platform_chassis is not None:
             result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 16)
         else:
-            self.helper_logger.log_error("platform_chassis is not loaded, failed to get Vendor name")
+            self.log_error("platform_chassis is not loaded, failed to get Vendor name")
             return -1
 
         vendor_name = str(result.decode())
@@ -646,7 +648,7 @@ class YCable(YCableBase):
         if self.platform_chassis is not None:
             part_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 16)
         else:
-            self.helper_logger.log_error("platform_chassis is not loaded, failed to get part number")
+            self.log_error("platform_chassis is not loaded, failed to get part number")
             return -1
 
         part_number = str(part_result.decode())
@@ -675,7 +677,7 @@ class YCable(YCableBase):
         elif switch_count_type == YCableBase.SWITCH_COUNT_AUTO:
             curr_offset = YCable.OFFSET_AUTO_SWITCH_COUNT
         else:
-            self.helper_logger.log_error("not a valid switch_count_type, failed to get switch count")
+            self.log_error("not a valid switch_count_type, failed to get switch count")
             return -1
 
         count = 0
@@ -687,7 +689,7 @@ class YCable(YCableBase):
             lsb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset+3, 1)
             count = (msb_result[0] << 24 | msb_result_1[0] << 16 | msb_result_2[0] << 8 | lsb_result[0])
         else:
-            self.helper_logger.log_error("platform_chassis is not loaded, failed to get manual switch count")
+            self.log_error("platform_chassis is not loaded, failed to get manual switch count")
             return -1
 
         return count
@@ -794,7 +796,7 @@ class YCable(YCableBase):
             post2 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + (target)*20 + (lane-1)*5 + 4, 1)
             result.append(c_int8(post2[0]).value)
         else:
-            self.helper_logger.log_error("platform_chassis is not loaded, failed to get target cursor values")
+            self.log_error("platform_chassis is not loaded, failed to get target cursor values")
             return -1
 
         return result
@@ -833,7 +835,7 @@ class YCable(YCableBase):
                     curr_offset + (target)*20 + (lane-1)*5 + idx, 1, buffer)
                 idx += 1
         else:
-            self.helper_logger.log_error("platform_chassis is not loaded, failed to get target cursor values")
+            self.log_error("platform_chassis is not loaded, failed to get target cursor values")
             return -1
 
         return True
@@ -860,7 +862,7 @@ class YCable(YCableBase):
         vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
         vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
         vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_GET_INFO
-        self.send_vsc_cmd(vsc_req_form)
+        status = self.send_vsc_cmd(vsc_req_form)
 
         data = bytearray(YCable.FIRMWARE_INFO_PAYLOAD_SIZE)
 
@@ -870,7 +872,7 @@ class YCable(YCableBase):
                 read_out = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
                 data[byte_idx] = read_out[0]
         else:
-            self.helper_logger.log_error("platform_chassis is not loaded, failed to get NIC lanes active")
+            self.log_error("platform_chassis is not loaded, failed to get NIC lanes active")
             return -1
 
         result = {}
@@ -949,7 +951,7 @@ class YCable(YCableBase):
         vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_START
         status = self.send_vsc_cmd(vsc_req_form)
         if status != YCable.MCU_EC_NO_ERROR:
-            self.helper_logger.log_error(YCable.MCU_ERROR_CODE_STRING[status])
+            self.log_error(YCable.MCU_ERROR_CODE_STRING[status])
             return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
 
         '''
@@ -986,10 +988,10 @@ class YCable(YCableBase):
                 chunk_idx += 1
                 retry_count = 0
             else:
-                self.helper_logger.log_error('Firmware binary transfer error (error code:%04X)' % (status))
+                self.log_error('Firmware binary transfer error (error code:%04X)' % (status))
 
                 if retry_count == 3:
-                    self.helper_logger.log_error('Retry Xfer Fw Bin Error, abort firmware update')
+                    self.log_error('Retry Xfer Fw Bin Error, abort firmware update')
                     return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
                 retry_count += 1
 
@@ -1001,7 +1003,7 @@ class YCable(YCableBase):
         vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_LOCAL_XFER_COMPLETE
         status = self.send_vsc_cmd(vsc_req_form)
         if status != YCable.MCU_EC_NO_ERROR:
-            self.helper_logger.log_error('Veriyf firmware binary error (error code:0x%04X)' % (status))
+            self.log_error('Veriyf firmware binary error (error code:0x%04X)' % (status))
             return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
 
         '''
@@ -1012,7 +1014,7 @@ class YCable(YCableBase):
         vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_UART_XFER
         status = self.send_vsc_cmd(vsc_req_form)
         if status != YCable.MCU_EC_NO_ERROR:
-            self.helper_logger.log_error('Firmware binary UART transfer error (error code:0x%04X)' % (status))
+            self.log_error('Firmware binary UART transfer error (error code:0x%04X)' % (status))
             return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
 
         vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
@@ -1020,14 +1022,14 @@ class YCable(YCableBase):
         vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_UART_XFER_STATUS
         status = self.send_vsc_cmd(vsc_req_form)
         if status != YCable.MCU_EC_NO_ERROR:
-            self.helper_logger.log_error(
+            self.log_error(
                 'Get firmware binary UART transfer status error (error code:0x%04X)' % (status))
             return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
 
         busy = self.read_mmap(YCable.MIS_PAGE_FC, 128)
-        self.read_mmap(YCable.MIS_PAGE_FC, 129)
-        self.read_mmap(YCable.MIS_PAGE_FC, 130)
-        self.read_mmap(YCable.MIS_PAGE_FC, 131)
+        percentNIC = self.read_mmap(YCable.MIS_PAGE_FC, 129)
+        percentTOR1 = self.read_mmap(YCable.MIS_PAGE_FC, 130)
+        percentTOR2 = self.read_mmap(YCable.MIS_PAGE_FC, 131)
 
         while busy != 0:
             vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
@@ -1035,15 +1037,15 @@ class YCable(YCableBase):
             vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_UART_XFER_STATUS
             status = self.send_vsc_cmd(vsc_req_form)
             if status != YCable.MCU_EC_NO_ERROR:
-                self.helper_logger.log_error(
+                self.log_error(
                     'Get firmware binary UART transfer status error (error code:0x%04X)' % (status))
                 return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
 
             time.sleep(0.2)
             busy = self.read_mmap(YCable.MIS_PAGE_FC, 128)
-            self.read_mmap(YCable.MIS_PAGE_FC, 129)
-            self.read_mmap(YCable.MIS_PAGE_FC, 130)
-            self.read_mmap(YCable.MIS_PAGE_FC, 131)
+            percentNIC = self.read_mmap(YCable.MIS_PAGE_FC, 129)
+            percentTOR1 = self.read_mmap(YCable.MIS_PAGE_FC, 130)
+            percentTOR2 = self.read_mmap(YCable.MIS_PAGE_FC, 131)
 
         return YCableBase.FIRMWARE_DOWNLOAD_SUCCESS
 
@@ -1092,7 +1094,7 @@ class YCable(YCableBase):
         vsc_req_form[YCable.VSC_BYTE_ADDR0] = side
         status = self.send_vsc_cmd(vsc_req_form)
         if status != YCable.MCU_EC_NO_ERROR:
-            self.helper_logger.log_error(YCable.MCU_ERROR_CODE_STRING[status])
+            self.log_error(YCable.MCU_ERROR_CODE_STRING[status])
             return YCableBase.FIRMWARE_ACTIVATE_FAILURE
 
         vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
@@ -1103,7 +1105,7 @@ class YCable(YCableBase):
         status = self.send_vsc_cmd(vsc_req_form)
         time.sleep(5)
         if status != YCable.MCU_EC_NO_ERROR:
-            self.helper_logger.log_error(YCable.MCU_ERROR_CODE_STRING[status])
+            self.log_error(YCable.MCU_ERROR_CODE_STRING[status])
             return YCableBase.FIRMWARE_ACTIVATE_FAILURE
 
         return YCableBase.FIRMWARE_ACTIVATE_SUCCESS
@@ -1166,7 +1168,7 @@ class YCable(YCableBase):
         elif mode == YCableBase.SWITCHING_MODE_MANUAL:
             buffer = bytearray([0])
         else:
-            self.helper_logger.log_error(
+            self.log_error(
                 "ERR: invalid mode provided for autoswitch feature, failed to do a switch")
             return False
 
@@ -1176,7 +1178,7 @@ class YCable(YCableBase):
             result = self.platform_chassis.get_sfp(
                 self.port).write_eeprom(curr_offset, 1, buffer)
         else:
-            self.helper_logger.log_error("platform_chassis is not loaded, failed to do a switch target")
+            self.log_error("platform_chassis is not loaded, failed to do a switch target")
             return False
 
         return result
@@ -1199,7 +1201,7 @@ class YCable(YCableBase):
             result = self.platform_chassis.get_sfp(
                 self.port).read_eeprom(curr_offset, 1)
         else:
-            self.helper_logger.log_error("platform_chassis is not loaded, failed to get the switch mode")
+            self.log_error("platform_chassis is not loaded, failed to get the switch mode")
             return -1
 
         if result[0] == 1:
@@ -1223,7 +1225,7 @@ class YCable(YCableBase):
             result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
             temp = result[0]
         else:
-            self.helper_logger.log_error("platform_chassis is not loaded, failed to get NIC temp")
+            self.log_error("platform_chassis is not loaded, failed to get NIC temp")
             return -1
 
         return temp
@@ -1244,7 +1246,7 @@ class YCable(YCableBase):
             result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
             temp = result[0]
         else:
-            self.helper_logger.log_error("platform_chassis is not loaded, failed to get local temp")
+            self.log_error("platform_chassis is not loaded, failed to get local temp")
             return -1
 
         return temp
@@ -1266,7 +1268,7 @@ class YCable(YCableBase):
             lsb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset+1, 1)
             voltage = (((msb_result[0] << 8) | lsb_result[0]) * 0.0001)
         else:
-            self.helper_logger.log_error("platform_chassis is not loaded, failed to get NIC voltage")
+            self.log_error("platform_chassis is not loaded, failed to get NIC voltage")
             return -1
 
         return voltage
@@ -1288,7 +1290,7 @@ class YCable(YCableBase):
             lsb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset+1, 1)
             voltage = (((msb_result[0] << 8) | lsb_result[0]) * 0.0001)
         else:
-            self.helper_logger.log_error("platform_chassis is not loaded, failed to get local voltage")
+            self.log_error("platform_chassis is not loaded, failed to get local voltage")
             return -1
 
         return voltage
@@ -1507,7 +1509,7 @@ class YCable(YCableBase):
             vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
             vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_EVENTLOG
             vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.EVENTLOG_OPTION_CLEAR
-            self.send_vsc_cmd(vsc_req_form)
+            status = self.send_vsc_cmd(vsc_req_form)
 
         last_read_id = -1
         result = []
@@ -1542,7 +1544,7 @@ class YCable(YCableBase):
                 if (fetch_cnt == 0):
                     break
             else:
-                self.helper_logger.log_error("download event log error(error code:%04X)" % (status))
+                self.log_error("download event log error(error code:%04X)" % (status))
                 return None
 
             event_data = bytearray(YCable.EVENTLOG_PAYLOAD_SIZE * fetch_cnt)
@@ -1633,7 +1635,7 @@ class YCable(YCableBase):
         if self.platform_chassis is not None:
             self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
         else:
-            self.helper_logger.log_error("platform_chassis is not loaded, failed to get NIC temp")
+            self.log_error("platform_chassis is not loaded, failed to get NIC temp")
             return -1
 
         return True
@@ -1655,7 +1657,7 @@ class YCable(YCableBase):
         if self.platform_chassis is not None:
             time = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
         else:
-            self.helper_logger.log_error("platform_chassis is not loaded, failed to get NIC temp")
+            self.log_error("platform_chassis is not loaded, failed to get NIC temp")
             return -1
 
         return int(time[0])
@@ -1799,7 +1801,7 @@ class YCable(YCableBase):
                 self.port).write_eeprom(curr_offset, 1, buffer)
 
         else:
-            self.helper_logger.log_error("platform_chassis is not loaded, failed to configure the PRBS type")
+            self.log_error("platform_chassis is not loaded, failed to configure the PRBS type")
             return -1
 
         return result
@@ -1841,7 +1843,7 @@ class YCable(YCableBase):
                 self.port).write_eeprom(curr_offset, 1, buffer)
 
         else:
-            self.helper_logger.log_error("platform_chassis is not loaded, failed to configure the PRBS type")
+            self.log_error("platform_chassis is not loaded, failed to configure the PRBS type")
             return -1
 
         return result
@@ -1889,7 +1891,7 @@ class YCable(YCableBase):
                 self.port).write_eeprom(curr_offset, 1, buffer)
 
         else:
-            self.helper_logger.log_error("platform_chassis is not loaded, failed to configure the PRBS type")
+            self.log_error("platform_chassis is not loaded, failed to configure the PRBS type")
             return -1
 
         return result
@@ -1926,7 +1928,7 @@ class YCable(YCableBase):
                 self.port).write_eeprom(curr_offset, 1, buffer)
 
         else:
-            self.helper_logger.log_error("platform_chassis is not loaded, failed to configure the PRBS type")
+            self.log_error("platform_chassis is not loaded, failed to configure the PRBS type")
             return -1
 
         return result
@@ -2006,7 +2008,7 @@ class YCable(YCableBase):
                 ber_result.append(lane_result)
                 idx += 2
         else:
-            self.helper_logger.log_error("platform_chassis is not loaded, failed to configure the PRBS type")
+            self.log_error("platform_chassis is not loaded, failed to configure the PRBS type")
             return -1
 
         return ber_result
