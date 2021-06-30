@@ -434,7 +434,6 @@ class YCable(YCableBase):
         elif regval_read[0] == 0:
             self.log_info("mux pointing to TOR B")
             return YCableBase.TARGET_TOR_B
-        else:
 
         self.log_error("Error: unknown status for mux direction regval = {} ".format(result))
         return YCableBase.TARGET_UNKNOWN
