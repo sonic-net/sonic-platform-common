@@ -8,13 +8,11 @@
     with a vendor-specific Y-Cable
 """
 
-from .logger import Logger
-
 #
 # YCableBase ===================================================================
 #
 
-class YCableBase(Logger):
+class YCableBase():
 
     # definitions of targets for getting the various fields/cursor
     # equalization parameters from the register spec.
@@ -72,19 +70,33 @@ class YCableBase(Logger):
     PRBS_DIRECTION_GENERATOR = 1
     PRBS_DIRECTION_CHECKER = 2
 
-    def __init__(self, port, log_identifier):
+    def __init__(self, port, main_logger):
         """
         Args:
             port:
                  an Integer, the actual physical port connected to a Y cable
+            main_logger:
+                 a logging instance object, the main logging instance which can be used to log messages into syslog
+                 which can be called from derived classes using functions defined as log_info, log_warning etc.
+
         """
         self.port = port
+        self.main_logger = main_logger
 
-        super(YCableBase, self).__init__(
-            log_identifier=log_identifier,
-            log_facility=Logger.LOG_FACILITY_DAEMON,
-            log_option=(Logger.LOG_OPTION_NDELAY | Logger.LOG_OPTION_PID)
-        )
+    def log_warning(self, msg):
+        self.main_logger.log_warning("y_cable_port {} {}".format(self.port, msg))
+
+    def log_error(self, msg):
+        self.main_logger.log_error("y_cable_port {} {}".format(self.port, msg))
+
+    def log_info(self, msg):
+        self.main_logger.log_info("y_cable_port {} {}".format(self.port, msg))
+
+    def log_notice(self, msg):
+        self.main_logger.log_notice("y_cable_port {} {}".format(self.port, msg))
+
+    def log_debug(self, msg):
+        self.main_logger.log_debug("y_cable_port {} {}".format(self.port, msg))
 
     def toggle_mux_to_tor_a(self):
         """
@@ -1131,6 +1143,7 @@ class YCableBase(Logger):
                  the registers, and thus provides more granularity for debugging/printing.
                  For example, the option can serdes_lane0, in this case the vendor would just dump
                  registers related to serdes lane 0.
+
 
         Returns:
             a Dictionary:
