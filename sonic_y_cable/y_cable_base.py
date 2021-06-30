@@ -70,33 +70,33 @@ class YCableBase():
     PRBS_DIRECTION_GENERATOR = 1
     PRBS_DIRECTION_CHECKER = 2
 
-    def __init__(self, port, main_logger):
+    def __init__(self, port, logger):
         """
         Args:
             port:
                  an Integer, the actual physical port connected to a Y cable
-            main_logger:
-                 a logging instance object, the main logging instance which can be used to log messages into syslog
-                 which can be called from derived classes using functions defined as log_info, log_warning etc.
+            logger:
+                 a logging instance object, must be an instance of the Logger class from sonic_py_common instantiated
+                 by the program which is instantiating this class.
 
         """
         self.port = port
-        self.main_logger = main_logger
+        self._logger = logger
 
     def log_warning(self, msg):
-        self.main_logger.log_warning("y_cable_port {} {}".format(self.port, msg))
+        self._logger.log_warning("y_cable_port {} {}".format(self.port, msg))
 
     def log_error(self, msg):
-        self.main_logger.log_error("y_cable_port {} {}".format(self.port, msg))
+        self._logger.log_error("y_cable_port {} {}".format(self.port, msg))
 
     def log_info(self, msg):
-        self.main_logger.log_info("y_cable_port {} {}".format(self.port, msg))
+        self._logger.log_info("y_cable_port {} {}".format(self.port, msg))
 
     def log_notice(self, msg):
-        self.main_logger.log_notice("y_cable_port {} {}".format(self.port, msg))
+        self._logger.log_notice("y_cable_port {} {}".format(self.port, msg))
 
     def log_debug(self, msg):
-        self.main_logger.log_debug("y_cable_port {} {}".format(self.port, msg))
+        self._logger.log_debug("y_cable_port {} {}".format(self.port, msg))
 
     def toggle_mux_to_tor_a(self):
         """
