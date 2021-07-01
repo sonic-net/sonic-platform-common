@@ -20,35 +20,36 @@ class YCable(YCableBase):
     # definitions of the offset with width accommodated for values
     # of MUX register specs of upper page 0x04 starting at 640
     # info eeprom for Y Cable
-    OFFSET_IDENTFIER_LOWER_PAGE = 0
-    OFFSET_INTERNAL_TEMPERATURE = 22
-    OFFSET_INTERNAL_VOLTAGE = 26
-    OFFSET_IDENTFIER_UPPER_PAGE = 128
-    OFFSET_VENDOR_NAME = 148
-    OFFSET_PART_NUMBER = 168
+    OFFSET_IDENTFIER_LOWER_PAGE      = 0
+    OFFSET_INTERNAL_TEMPERATURE      = 22
+    OFFSET_INTERNAL_VOLTAGE          = 26
+    OFFSET_IDENTFIER_UPPER_PAGE      = 128
+    OFFSET_VENDOR_NAME               = 148
+    OFFSET_PART_NUMBER               = 168
     OFFSET_DETERMINE_CABLE_READ_SIDE = 640
-    OFFSET_CHECK_LINK_ACTIVE = 641
-    OFFSET_SWITCH_MUX_DIRECTION = 642
-    OFFSET_MUX_DIRECTION = 644
-    OFFSET_ACTIVE_TOR_INDICATOR = 645
-    OFFSET_ENABLE_AUTO_SWITCH = 651
-    OFFSET_AUTO_SWITCH_HYSTERESIS = 652
-    OFFSET_MANUAL_SWITCH_COUNT = 653
-    OFFSET_AUTO_SWITCH_COUNT = 657
-    OFFSET_NIC_CURSOR_VALUES = 661
-    OFFSET_TOR1_CURSOR_VALUES = 681
-    OFFSET_TOR2_CURSOR_VALUES = 701
-    OFFSET_NIC_LANE_ACTIVE = 721
-    OFFSET_NIC_TEMPERATURE = 727
-    OFFSET_NIC_VOLTAGE = 729
-    OFFSET_CONFIGURE_PRBS_TYPE = 768
-    OFFSET_ENABLE_PRBS = 769
-    OFFSET_INITIATE_BER_MEASUREMENT = 770
-    OFFSET_LANE_1_BER_RESULT = 771
-    OFFSET_INITIATE_EYE_MEASUREMENT = 784
-    OFFSET_LANE_1_EYE_RESULT = 785
-    OFFSET_TARGET = 794
-    OFFSET_ENABLE_LOOPBACK = 793
+    OFFSET_CHECK_LINK_ACTIVE         = 641
+    OFFSET_SWITCH_MUX_DIRECTION      = 642
+    OFFSET_MUX_DIRECTION             = 644
+    OFFSET_ACTIVE_TOR_INDICATOR      = 645
+    OFFSET_ENABLE_AUTO_SWITCH        = 651
+    OFFSET_AUTO_SWITCH_HYSTERESIS    = 652
+    OFFSET_MANUAL_SWITCH_COUNT_TOR_A = 653
+    OFFSET_AUTO_SWITCH_COUNT         = 657
+    OFFSET_NIC_CURSOR_VALUES         = 661
+    OFFSET_TOR1_CURSOR_VALUES        = 681
+    OFFSET_TOR2_CURSOR_VALUES        = 701
+    OFFSET_NIC_LANE_ACTIVE           = 721
+    OFFSET_NIC_TEMPERATURE           = 727
+    OFFSET_NIC_VOLTAGE               = 729
+    OFFSET_MANUAL_SWITCH_COUNT_TOR_B = 737
+    OFFSET_CONFIGURE_PRBS_TYPE       = 768
+    OFFSET_ENABLE_PRBS               = 769
+    OFFSET_INITIATE_BER_MEASUREMENT  = 770
+    OFFSET_LANE_1_BER_RESULT         = 771
+    OFFSET_INITIATE_EYE_MEASUREMENT  = 784
+    OFFSET_LANE_1_EYE_RESULT         = 785
+    OFFSET_TARGET                    = 794
+    OFFSET_ENABLE_LOOPBACK           = 793
 
     # definition of VSC command byte
     VSC_BYTE_OPCODE = 128
@@ -669,24 +670,25 @@ class YCable(YCableBase):
             Returns:
                 an integer, the number of times the Y-cable has been switched
         """
-        if switch_count_type == YCableBase.SWITCH_COUNT_MANUAL:
-            curr_offset = YCable.OFFSET_MANUAL_SWITCH_COUNT
-        elif switch_count_type == YCableBase.SWITCH_COUNT_AUTO:
-            curr_offset = YCable.OFFSET_AUTO_SWITCH_COUNT
-        else:
-            self.log_error("not a valid switch_count_type, failed to get switch count")
-            return -1
 
         count = 0
 
-        if self.platform_chassis is not None:
-            msb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
-            msb_result_1 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 1, 1)
-            msb_result_2 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 2, 1)
-            lsb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset+3, 1)
-            count = (msb_result[0] << 24 | msb_result_1[0] << 16 | msb_result_2[0] << 8 | lsb_result[0])
+        if switch_count_type == YCableBase.SWITCH_COUNT_MANUAL:
+            count = self.get_switch_count_tor_a(clear_on_read) + self.get_switch_count_tor_b(clear_on_read)
+        elif switch_count_type == YCableBase.SWITCH_COUNT_AUTO:
+            curr_offset = YCable.OFFSET_AUTO_SWITCH_COUNT
+
+            if self.platform_chassis is not None:
+                msb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+                msb_result_1 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 1, 1)
+                msb_result_2 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 2, 1)
+                lsb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset+3, 1)
+                count = (msb_result[0] << 24 | msb_result_1[0] << 16 | msb_result_2[0] << 8 | lsb_result[0])
+            else:
+                self.log_error("platform_chassis is not loaded, failed to get manual switch count")
+                return -1
         else:
-            self.log_error("platform_chassis is not loaded, failed to get manual switch count")
+            self.log_error("not a valid switch_count_type, failed to get switch count")
             return -1
 
         return count
@@ -708,7 +710,20 @@ class YCable(YCableBase):
                 an integer, the number of times the Y-cable has been switched from ToR A
         """
 
-        raise NotImplementedError
+        curr_offset = YCable.OFFSET_MANUAL_SWITCH_COUNT_TOR_A
+        count = 0
+
+        if self.platform_chassis is not None:
+            msb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+            msb_result_1 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 1, 1)
+            msb_result_2 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 2, 1)
+            lsb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset+3, 1)
+            count = (msb_result[0] << 24 | msb_result_1[0] << 16 | msb_result_2[0] << 8 | lsb_result[0])
+        else:
+            self.log_error("platform_chassis is not loaded, failed to get manual switch count")
+            return -1
+
+        return count
 
     def get_switch_count_tor_b(self, clear_on_read=False):
         """
@@ -727,7 +742,20 @@ class YCable(YCableBase):
                 an integer, the number of times the Y-cable has been switched from ToR B
         """
 
-        raise NotImplementedError
+        curr_offset = YCable.OFFSET_MANUAL_SWITCH_COUNT_TOR_B
+        count = 0
+
+        if self.platform_chassis is not None:
+            msb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+            msb_result_1 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 1, 1)
+            msb_result_2 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 2, 1)
+            lsb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset+3, 1)
+            count = (msb_result[0] << 24 | msb_result_1[0] << 16 | msb_result_2[0] << 8 | lsb_result[0])
+        else:
+            self.log_error("platform_chassis is not loaded, failed to get manual switch count")
+            return -1
+
+        return count
 
     def get_switch_count_target(self, switch_count_type, target, clear_on_read=False):
         """
