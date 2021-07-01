@@ -84,19 +84,19 @@ class YCableBase():
         self._logger = logger
 
     def log_warning(self, msg):
-        self._logger.log_warning("y_cable_port {} {}".format(self.port, msg))
+        self._logger.log_warning("y_cable_port {}: {}".format(self.port, msg))
 
     def log_error(self, msg):
-        self._logger.log_error("y_cable_port {} {}".format(self.port, msg))
+        self._logger.log_error("y_cable_port {}: {}".format(self.port, msg))
 
     def log_info(self, msg):
-        self._logger.log_info("y_cable_port {} {}".format(self.port, msg))
+        self._logger.log_info("y_cable_port {}: {}".format(self.port, msg))
 
     def log_notice(self, msg):
-        self._logger.log_notice("y_cable_port {} {}".format(self.port, msg))
+        self._logger.log_notice("y_cable_port {}: {}".format(self.port, msg))
 
     def log_debug(self, msg):
-        self._logger.log_debug("y_cable_port {} {}".format(self.port, msg))
+        self._logger.log_debug("y_cable_port {}: {}".format(self.port, msg))
 
     def toggle_mux_to_tor_a(self):
         """
