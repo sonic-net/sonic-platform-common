@@ -38,7 +38,7 @@ class YCable(YCableBase):
     OFFSET_NIC_CURSOR_VALUES         = 661
     OFFSET_TOR1_CURSOR_VALUES        = 681
     OFFSET_TOR2_CURSOR_VALUES        = 701
-    OFFSET_NIC_LANE_ACTIVE           = 721
+    OFFSET_NIC_MODE_CONFIGURATION    = 721
     OFFSET_NIC_TEMPERATURE           = 727
     OFFSET_NIC_VOLTAGE               = 729
     OFFSET_MANUAL_SWITCH_COUNT_TOR_B = 737
@@ -1424,7 +1424,23 @@ class YCable(YCableBase):
                 100000 -> 100G
         """
 
-        raise NotImplementedError
+        speed = 0
+        if self.platform_chassis is not None:
+            curr_offset = YCable.OFFSET_NIC_MODE_CONFIGURATION
+            mode = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+
+            if (mode[0] >> 6) == 0:
+                speed = 50000
+            elif (mode[0] >> 6) == 1:
+                speed = 100000
+            else:
+                self.log_error("unsupported speed")
+                return -1
+        else:
+            self.log_error("platform_chassis is not loaded, failed to get NIC voltage")
+            return -1
+
+        return speed
 
     def set_fec_mode(self, fec_mode, target):
         """
