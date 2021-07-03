@@ -52,31 +52,31 @@ class YCable(YCableBase):
     OFFSET_ENABLE_LOOPBACK           = 793
 
     # definition of VSC command byte
-    VSC_BYTE_OPCODE = 128
-    VSC_BYTE_STATUS = 129
-    VSC_BYTE_ADDR0 = 130
-    VSC_BYTE_ADDR1 = 131
-    VSC_BYTE_ADDR2 = 132
-    VSC_BYTE_ADDR3 = 133
-    VSC_BYTE_DATA0 = 134
-    VSC_BYTE_DATA1 = 135
-    VSC_BYTE_DATA2 = 136
-    VSC_BYTE_DATA3 = 137
+    VSC_BYTE_OPCODE     = 128
+    VSC_BYTE_STATUS     = 129
+    VSC_BYTE_ADDR0      = 130
+    VSC_BYTE_ADDR1      = 131
+    VSC_BYTE_ADDR2      = 132
+    VSC_BYTE_ADDR3      = 133
+    VSC_BYTE_DATA0      = 134
+    VSC_BYTE_DATA1      = 135
+    VSC_BYTE_DATA2      = 136
+    VSC_BYTE_DATA3      = 137
     VSC_BYTE_CHKSUM_LSB = 138
     VSC_BYTE_CHKSUM_MSB = 139
-    VSC_BYTE_OPTION = 140
+    VSC_BYTE_OPTION     = 140
 
     # firmware upgrade command options
-    FWUPD_OPTION_GET_INFO = 0x01
-    FWUPD_OPTION_START = 0x02
-    FWUPD_OPTION_LOCAL_XFER = 0x03
+    FWUPD_OPTION_GET_INFO            = 0x01
+    FWUPD_OPTION_START               = 0x02
+    FWUPD_OPTION_LOCAL_XFER          = 0x03
     FWUPD_OPTION_LOCAL_XFER_COMPLETE = 0x04
-    FWUPD_OPTION_UART_XFER = 0x05
-    FWUPD_OPTION_UART_XFER_STATUS = 0x06
-    FWUPD_OPTION_RUN = 0x07
-    FWUPD_OPTION_COMMIT = 0x08
-    FWUPD_OPTION_SYNC = 0x09
-    FWUPD_OPTION_SYNC_STATUS = 0x0A
+    FWUPD_OPTION_UART_XFER           = 0x05
+    FWUPD_OPTION_UART_XFER_STATUS    = 0x06
+    FWUPD_OPTION_RUN                 = 0x07
+    FWUPD_OPTION_COMMIT              = 0x08
+    FWUPD_OPTION_SYNC                = 0x09
+    FWUPD_OPTION_SYNC_STATUS         = 0x0A
 
     # upper page 0xFA VSC command attribute length
     VSC_CMD_ATTRIBUTE_LENGTH = 141
@@ -108,46 +108,46 @@ class YCable(YCableBase):
     EEPROM_TIMEOUT_ERROR = -1
 
     # MCU error code
-    MCU_EC_NO_ERROR = 0
-    MCU_EC_GET_FW_INFO_ERROR = 11
-    MCU_EC_UART_TX_BUSY = 13
-    MCU_EC_FWUPD_ABORT = 14
-    MCU_EC_FWUPD_HEADER_CRC_ERROR = 15
-    MCU_EC_FWUPD_META_CRC_ERROR = 16
-    MCU_EC_FWUPD_MCU_CRC_ERROR = 17
-    MCU_EC_FWUPD_DSP_CRC_ERROR = 18
-    MCU_EC_FWUPD_SCRIPT_CRC_ERROR = 19
-    MCU_EC_FWUPD_COMPLETE_ERROR = 20
-    MCU_EC_FWUPD_COMMIT_ERROR = 21
-    MCU_EC_INVALID_EVENT_LOG = 22
-    MCU_EC_FWUPD_UART_TIMEOUT = 26
-    MCU_EC_FWUPD_INVALID_SEQUENCE = 27
-    MCU_EC_FWUPD_SYNC_ERROR = 28
+    MCU_EC_NO_ERROR                         = 0
+    MCU_EC_GET_FW_INFO_ERROR                = 11
+    MCU_EC_UART_TX_BUSY                     = 13
+    MCU_EC_FWUPD_ABORT                      = 14
+    MCU_EC_FWUPD_HEADER_CRC_ERROR           = 15
+    MCU_EC_FWUPD_META_CRC_ERROR             = 16
+    MCU_EC_FWUPD_MCU_CRC_ERROR              = 17
+    MCU_EC_FWUPD_DSP_CRC_ERROR              = 18
+    MCU_EC_FWUPD_SCRIPT_CRC_ERROR           = 19
+    MCU_EC_FWUPD_COMPLETE_ERROR             = 20
+    MCU_EC_FWUPD_COMMIT_ERROR               = 21
+    MCU_EC_INVALID_EVENT_LOG                = 22
+    MCU_EC_FWUPD_UART_TIMEOUT               = 26
+    MCU_EC_FWUPD_INVALID_SEQUENCE           = 27
+    MCU_EC_FWUPD_SYNC_ERROR                 = 28
     MCU_EC_FWUPD_ABORT_FROM_THER_OTHER_SIDE = 30
-    MCU_EC_FWUPD_IMAGE_SIZE_ERROR = 31
-    MCU_EC_WAIT_VSC_STATUS_TIMEOUT = 254
-    MCU_EC_UNDEFINED_ERROR = 255
+    MCU_EC_FWUPD_IMAGE_SIZE_ERROR           = 31
+    MCU_EC_WAIT_VSC_STATUS_TIMEOUT          = 254
+    MCU_EC_UNDEFINED_ERROR                  = 255
 
     MCU_ERROR_CODE_STRING = {
-        MCU_EC_NO_ERROR: 'No Error',
-        MCU_EC_GET_FW_INFO_ERROR: 'Get Firmware Info Error',
-        MCU_EC_UART_TX_BUSY: 'UART TX Busy',
-        MCU_EC_FWUPD_ABORT: 'Firmware Update Abort',
-        MCU_EC_FWUPD_HEADER_CRC_ERROR: 'Firmware Update Header CRC Error',
-        MCU_EC_FWUPD_META_CRC_ERROR: 'Firmware Update Meta CRC Error',
-        MCU_EC_FWUPD_MCU_CRC_ERROR: 'Firmware Update MCU CRC Error',
-        MCU_EC_FWUPD_DSP_CRC_ERROR: 'Firmware Update DSP CRC Error',
-        MCU_EC_FWUPD_SCRIPT_CRC_ERROR: 'Firmware Update Script CRC Error',
-        MCU_EC_FWUPD_COMPLETE_ERROR: 'Firmware Update Local Transfer Error',
-        MCU_EC_FWUPD_COMMIT_ERROR: 'Firmware Update Commit Error',
-        MCU_EC_INVALID_EVENT_LOG: 'Invalid Event Log',
-        MCU_EC_FWUPD_UART_TIMEOUT: 'Firmware Update UART Timeout',
-        MCU_EC_FWUPD_INVALID_SEQUENCE: 'Invalid Firmware Update Sequence',
-        MCU_EC_FWUPD_SYNC_ERROR: 'Firmware Synchronization Error',
+        MCU_EC_NO_ERROR                        : 'No Error',
+        MCU_EC_GET_FW_INFO_ERROR               : 'Get Firmware Info Error',
+        MCU_EC_UART_TX_BUSY                    : 'UART TX Busy',
+        MCU_EC_FWUPD_ABORT                     : 'Firmware Update Abort',
+        MCU_EC_FWUPD_HEADER_CRC_ERROR          : 'Firmware Update Header CRC Error',
+        MCU_EC_FWUPD_META_CRC_ERROR            : 'Firmware Update Meta CRC Error',
+        MCU_EC_FWUPD_MCU_CRC_ERROR             : 'Firmware Update MCU CRC Error',
+        MCU_EC_FWUPD_DSP_CRC_ERROR             : 'Firmware Update DSP CRC Error',
+        MCU_EC_FWUPD_SCRIPT_CRC_ERROR          : 'Firmware Update Script CRC Error',
+        MCU_EC_FWUPD_COMPLETE_ERROR            : 'Firmware Update Local Transfer Error',
+        MCU_EC_FWUPD_COMMIT_ERROR              : 'Firmware Update Commit Error',
+        MCU_EC_INVALID_EVENT_LOG               : 'Invalid Event Log',
+        MCU_EC_FWUPD_UART_TIMEOUT              : 'Firmware Update UART Timeout',
+        MCU_EC_FWUPD_INVALID_SEQUENCE          : 'Invalid Firmware Update Sequence',
+        MCU_EC_FWUPD_SYNC_ERROR                : 'Firmware Synchronization Error',
         MCU_EC_FWUPD_ABORT_FROM_THER_OTHER_SIDE: 'Firmware Update Abort from the Other Side',
-        MCU_EC_FWUPD_IMAGE_SIZE_ERROR: 'Firmware Update Image Size Error',
-        MCU_EC_WAIT_VSC_STATUS_TIMEOUT: 'Wait VSC Status Timeout',
-        MCU_EC_UNDEFINED_ERROR: 'Undefined Error',
+        MCU_EC_FWUPD_IMAGE_SIZE_ERROR          : 'Firmware Update Image Size Error',
+        MCU_EC_WAIT_VSC_STATUS_TIMEOUT         : 'Wait VSC Status Timeout',
+        MCU_EC_UNDEFINED_ERROR                 : 'Undefined Error',
     }
 
     def __init__(self, port, main_logger):
@@ -1437,7 +1437,7 @@ class YCable(YCableBase):
                 self.log_error("unsupported speed")
                 return -1
         else:
-            self.log_error("platform_chassis is not loaded, failed to get NIC voltage")
+            self.log_error("platform_chassis is not loaded, failed to get speed")
             return -1
 
         return speed
@@ -1465,7 +1465,28 @@ class YCable(YCableBase):
                      , False if the FEC mode is not configured
         """
 
-        raise NotImplementedError
+        if self.platform_chassis is not None:
+            curr_offset = YCable.OFFSET_NIC_MODE_CONFIGURATION
+            mode = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+
+            if target == YCableBase.TARGET_NIC:
+                mode[0] &= ~(1 << 3)
+                mode[0] |= (1 << 3) if fec_mode == YCableBase.FEC_MODE_RS else (0 << 3)
+            elif target == YCableBase.TARGET_TOR_A or target == YCableBase.TARGET_TOR_B:
+                mode[0] &= ~(1 << 4)
+                mode[0] |= (1 << 4) if fec_mode == YCableBase.FEC_MODE_RS else (0 << 4)
+            else:
+                self.log_error("set fec mode: unsupported target")
+                return False
+
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, mode)
+            if result is False:
+                return result
+        else:
+            self.log_error("platform_chassis is not loaded, failed to set fec mode")
+            return False
+
+        return True
 
     def get_fec_mode(self, target):
         """
@@ -1487,7 +1508,24 @@ class YCable(YCableBase):
                      FEC_MODE_FC
         """
 
-        raise NotImplementedError
+        fec_mode = YCableBase.FEC_MODE_NONE
+        if self.platform_chassis is not None:
+            curr_offset = YCable.OFFSET_NIC_MODE_CONFIGURATION
+            mode = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+
+            if target == YCableBase.TARGET_NIC:
+                if mode[0] & (1 << 3):
+                    fec_mode = YCableBase.FEC_MODE_RS
+            elif target == YCableBase.TARGET_TOR_A or target == YCableBase.TARGET_TOR_B:
+                if mode[0] & (1 << 4):
+                    fec_mode = YCableBase.FEC_MODE_RS
+            else:
+                self.log_error("get fec mode: unsupported target")
+        else:
+            self.log_error("platform_chassis is not loaded, failed to get fec mode")
+            return -1
+
+        return fec_mode
 
     def set_anlt(self, enable, target):
         """
@@ -1510,7 +1548,28 @@ class YCable(YCableBase):
                      , False if the auto-negotiation + link training (AN/LT) enable/disable specified is not configured
         """
 
-        raise NotImplementedError
+        if self.platform_chassis is not None:
+            curr_offset = YCable.OFFSET_NIC_MODE_CONFIGURATION
+            mode = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+
+            if target == YCableBase.TARGET_NIC:
+                mode[0] &= ~(1 << 0)
+                mode[0] |= (1 << 0) if enable else (0 << 0)
+            elif target == YCableBase.TARGET_TOR_A or target == YCableBase.TARGET_TOR_B:
+                mode[0] &= ~(1 << 1)
+                mode[0] |= (1 << 1) if enable else (0 << 1)
+            else:
+                self.log_error("set anlt: unsupported target")
+                return False
+
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, mode)
+            if result is False:
+                return result
+        else:
+            self.log_error("platform_chassis is not loaded, failed to set anlt")
+            return False
+
+        return True
 
     def get_anlt(self, target):
         """
@@ -1529,7 +1588,25 @@ class YCable(YCableBase):
                      , False if auto-negotiation + link training (AN/LT) is not enabled
         """
 
-        raise NotImplementedError
+        anlt_mode = False
+        if self.platform_chassis is not None:
+            curr_offset = YCable.OFFSET_NIC_MODE_CONFIGURATION
+            mode = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+
+            if target == YCableBase.TARGET_NIC:
+                if mode[0] & (1 << 0):
+                    anlt_mode = True
+
+            elif target == YCableBase.TARGET_TOR_A or target == YCableBase.TARGET_TOR_B:
+                if mode[0] & (1 << 1):
+                    anlt_mode = True
+            else:
+                self.log_error("get anlt: unsupported target")
+        else:
+            self.log_error("platform_chassis is not loaded, failed to get anlt")
+            return -1
+
+        return anlt_mode
 
     def get_event_log(self, clear_on_read=False):
         """
@@ -1676,7 +1753,7 @@ class YCable(YCableBase):
         if self.platform_chassis is not None:
             self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
         else:
-            self.log_error("platform_chassis is not loaded, failed to get NIC temp")
+            self.log_error("platform_chassis is not loaded, failed to set autoswitch hysteresis timer")
             return -1
 
         return True
@@ -1698,7 +1775,7 @@ class YCable(YCableBase):
         if self.platform_chassis is not None:
             time = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
         else:
-            self.log_error("platform_chassis is not loaded, failed to get NIC temp")
+            self.log_error("platform_chassis is not loaded, failed to get autoswitch hysteresis timer")
             return -1
 
         return int(time[0])
@@ -1842,7 +1919,7 @@ class YCable(YCableBase):
                 self.port).write_eeprom(curr_offset, 1, buffer)
 
         else:
-            self.log_error("platform_chassis is not loaded, failed to configure the PRBS type")
+            self.log_error("platform_chassis is not loaded, failed to enable the PRBS mode")
             return -1
 
         return result
@@ -1884,7 +1961,7 @@ class YCable(YCableBase):
                 self.port).write_eeprom(curr_offset, 1, buffer)
 
         else:
-            self.log_error("platform_chassis is not loaded, failed to configure the PRBS type")
+            self.log_error("platform_chassis is not loaded, failed to disable the PRBS mode")
             return -1
 
         return result
@@ -1932,7 +2009,7 @@ class YCable(YCableBase):
                 self.port).write_eeprom(curr_offset, 1, buffer)
 
         else:
-            self.log_error("platform_chassis is not loaded, failed to configure the PRBS type")
+            self.log_error("platform_chassis is not loaded, failed to enable the loopback mode")
             return -1
 
         return result
@@ -1969,7 +2046,7 @@ class YCable(YCableBase):
                 self.port).write_eeprom(curr_offset, 1, buffer)
 
         else:
-            self.log_error("platform_chassis is not loaded, failed to configure the PRBS type")
+            self.log_error("platform_chassis is not loaded, failed to disable the loopback mode")
             return -1
 
         return result
@@ -2049,7 +2126,7 @@ class YCable(YCableBase):
                 ber_result.append(lane_result)
                 idx += 2
         else:
-            self.log_error("platform_chassis is not loaded, failed to configure the PRBS type")
+            self.log_error("platform_chassis is not loaded, failed to get ber info")
             return -1
 
         return ber_result
