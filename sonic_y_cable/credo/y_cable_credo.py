@@ -1352,7 +1352,30 @@ class YCable(YCableBase):
                      , False if the cable target is not reset
         """
 
-        raise NotImplementedError
+        '''
+        use firmare_run cmd to emulate module reset
+        '''
+        if target != YCableBase.TARGET_NIC and target != YCableBase.TARGET_TOR_A and target != YCableBase.TARGET_TOR_B:
+            self.log_error("reset: unsupported target")
+            return False
+
+        vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+        vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_RUN
+        vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
+        vsc_req_form[YCable.VSC_BYTE_ADDR0] = (1 << target)
+        vsc_req_form[YCable.VSC_BYTE_ADDR1] = 0
+        status = self.send_vsc_cmd(vsc_req_form)
+
+        if target  == YCableBase.TARGET_NIC:
+            time.sleep(4)
+        else:
+            time.sleep(2)
+            
+        if status != YCable.MCU_EC_NO_ERROR:
+            self.log_error("unable to reset the module")
+            return False
+
+        return True
 
     def create_port(self, speed, fec_mode_tor_a=YCableBase.FEC_MODE_NONE, fec_mode_tor_b=YCableBase.FEC_MODE_NONE,
                     fec_mode_nic=YCableBase.FEC_MODE_NONE, anlt_tor_a=False, anlt_tor_b=False, anlt_nic=False):
