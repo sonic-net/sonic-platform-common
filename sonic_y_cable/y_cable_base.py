@@ -886,7 +886,7 @@ class YCableBase():
 
         raise NotImplementedError
 
-    def restart_anlt(self):
+    def restart_anlt(self, target):
         """
         This API restarts auto-negotiation + link training (AN/LT) mode
         The port on which this API is called for can be referred using self.port.
