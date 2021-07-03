@@ -1500,7 +1500,31 @@ class YCable(YCableBase):
                      , False if the port is not configured
         """
 
-        raise NotImplementedError
+        if self.platform_chassis is not None:
+            mode = 0
+            if speed == 50000:
+                mode |= (0 << 6)
+            elif speed == 100000:
+                mode |= (1 << 6)
+            else:
+                self.log_error("create port: unsupported speed:%d" % (speed))
+                return False
+
+            mode |= (1 << 0) if anlt_nic else (0 << 0)
+            mode |= (1 << 1) if anlt_tor_a else (0 << 1)
+            mode |= (1 << 3) if fec_mode_nic == YCableBase.FEC_MODE_RS else (0 << 3)
+            mode |= (1 << 4) if fec_mode_tor_a == YCableBase.FEC_MODE_RS else (0 << 4)
+
+            curr_offset = YCable.OFFSET_NIC_MODE_CONFIGURATION
+            buffer = bytearray([mode])
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
+            if result is False:
+                return result
+        else:
+            self.log_error("platform_chassis is not loaded, failed to create port")
+            return False
+
+        return True
 
     def get_speed(self):
         """
