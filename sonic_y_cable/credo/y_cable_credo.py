@@ -1370,7 +1370,7 @@ class YCable(YCableBase):
             time.sleep(4)
         else:
             time.sleep(2)
-            
+
         if status != YCable.MCU_EC_NO_ERROR:
             self.log_error("unable to reset the module")
             return False
@@ -1926,20 +1926,23 @@ class YCable(YCableBase):
         curr_offset = YCable.OFFSET_TARGET
 
         if self.platform_chassis is not None:
-            result = self.platform_chassis.get_sfp(
-                self.port).write_eeprom(curr_offset, 1, buffer)
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
             if result is False:
                 return result
+
+            buffer = bytearray([0])
+            curr_offset = YCable.OFFSET_ENABLE_PRBS
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
+
             buffer = bytearray([mode_value])
             curr_offset = YCable.OFFSET_CONFIGURE_PRBS_TYPE
-            result = self.platform_chassis.get_sfp(
-                self.port).write_eeprom(curr_offset, 1, buffer)
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
             if result is False:
                 return result
+
             buffer = bytearray([lane_mask])
             curr_offset = YCable.OFFSET_ENABLE_PRBS
-            result = self.platform_chassis.get_sfp(
-                self.port).write_eeprom(curr_offset, 1, buffer)
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
 
         else:
             self.log_error("platform_chassis is not loaded, failed to enable the PRBS mode")
