@@ -1933,6 +1933,8 @@ class YCable(YCableBase):
             buffer = bytearray([0])
             curr_offset = YCable.OFFSET_ENABLE_PRBS
             result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
+            if result is False:
+                return result
 
             buffer = bytearray([mode_value])
             curr_offset = YCable.OFFSET_CONFIGURE_PRBS_TYPE
