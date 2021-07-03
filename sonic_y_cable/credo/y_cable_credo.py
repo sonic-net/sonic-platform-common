@@ -20,10 +20,10 @@ class YCable(YCableBase):
     # definitions of the offset with width accommodated for values
     # of MUX register specs of upper page 0x04 starting at 640
     # info eeprom for Y Cable
-    OFFSET_IDENTFIER_LOWER_PAGE      = 0
+    OFFSET_IDENTIFIER_LOWER_PAGE     = 0
     OFFSET_INTERNAL_TEMPERATURE      = 22
     OFFSET_INTERNAL_VOLTAGE          = 26
-    OFFSET_IDENTFIER_UPPER_PAGE      = 128
+    OFFSET_IDENTIFIER_UPPER_PAGE     = 128
     OFFSET_VENDOR_NAME               = 148
     OFFSET_PART_NUMBER               = 168
     OFFSET_DETERMINE_CABLE_READ_SIDE = 640
@@ -90,15 +90,20 @@ class YCable(YCableBase):
 
     # definition of MIS memorymap page
     MIS_PAGE_VSC = 0xFA
-    MIS_PAGE_FC = 0xFC
+    MIS_PAGE_FC  = 0xFC
 
     # eventlog command option
-    EVENTLOG_OPTION_DUMP = 0x01
+    EVENTLOG_OPTION_DUMP  = 0x01
     EVENTLOG_OPTION_CLEAR = 0x02
 
     # VSC opcode
-    VSC_OPCODE_FWUPD = 0x80
-    VSC_OPCODE_EVENTLOG = 0x81
+    VSC_OPCODE_FWUPD      = 0x80
+    VSC_OPCODE_EVENTLOG   = 0x81
+    VSC_OPCODE_TCM_READ   = 0x82
+    VSC_OPCODE_TCM_WRITE  = 0x83
+    VSC_OPCODE_FW_CMD     = 0x84
+    VSC_OPCODE_FW_CMD_EXT = 0x85
+
     BER_TIMEOUT_SECS = 1
     EYE_TIMEOUT_SECS = 1
 
@@ -168,7 +173,7 @@ class YCable(YCableBase):
 
     def read_mmap(self, page, byte, len=1):
         """
-        This API specifically converts memory map page and offset to linar address, then returns eeprom values
+        This API converts memory map page and offset to linar address, then returns eeprom values
         by calling read_eeprom()
 
         Args:
@@ -206,7 +211,7 @@ class YCable(YCableBase):
 
     def write_mmap(self, page, byte, value, len=1):
         """
-        This API specifically converts memory map page and offset to linar address for calling write_eeprom()
+        This API converts memory map page and offset to linar address for calling write_eeprom()
 
         Args:
              page:
@@ -246,7 +251,7 @@ class YCable(YCableBase):
 
     def send_vsc_cmd(self, vsc_req_form, timeout=1200):
         """
-        This routine sends the vsc payload to MCU and returns the status code
+        This API sends Credo vendor specific command to the MCU
 
         Args:
              vsc_req_form:
@@ -279,6 +284,71 @@ class YCable(YCableBase):
         status = self.read_mmap(YCable.MIS_PAGE_VSC, YCable.VSC_BYTE_STATUS)
 
         return status
+
+    def fw_cmd(self, cmd, detail1):
+        """
+        This API sends the firmware command to the serdes chip via VSC cmd
+
+        Args:
+             cmd:
+                 an Integer, command code of the firmware command
+
+             detail1:
+                 an Integer, extra input parameter 1
+
+        Returns:
+            a Bytearray, a list of response code and return value
+        """
+        vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+        vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FW_CMD
+        vsc_req_form[YCable.VSC_BYTE_OPTION] = 0
+        vsc_req_form[130]  = (cmd     >> 0) & 0xFF
+        vsc_req_form[131]  = (cmd     >> 8) & 0xFF
+        vsc_req_form[132]  = (detail1 >> 0) & 0xFF
+        vsc_req_form[133]  = (detail1 >> 8) & 0xFF
+        status = self.send_vsc_cmd(vsc_req_form)
+        if status != YCable.MCU_EC_NO_ERROR:
+            self.log_error('fw cmd[%04X] detail1[%04X] error[%04X]' % (cmd, detail1, status))
+
+        response = (self.read_mmap(YCable.MIS_PAGE_VSC, 131) << 8) | self.read_mmap(YCable.MIS_PAGE_VSC, 130)
+        param1   = (self.read_mmap(YCable.MIS_PAGE_VSC, 137) << 8) | self.read_mmap(YCable.MIS_PAGE_VSC, 136)
+
+        return [response, param1]
+
+    def fw_cmd_ext(self, cmd, detail1, detail2):
+        """
+        This API sends the extended firmware command to the serdes chip via VSC cmd
+
+        Args:
+             cmd:
+                 an Integer, command code of the firmware command
+
+             detail1:
+                 an Integer, extra input parameter 1
+
+             detail2:
+                 an Integer, extra input parameter 2
+        Returns:
+            a Bytearray, a list of response code, returned value1 and value2
+        """
+        vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+        vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FW_CMD_EXT
+        vsc_req_form[YCable.VSC_BYTE_OPTION] = 0
+        vsc_req_form[130]  = (cmd     >> 0) & 0xFF
+        vsc_req_form[131]  = (cmd     >> 8) & 0xFF
+        vsc_req_form[132]  = (detail1 >> 0) & 0xFF
+        vsc_req_form[133]  = (detail1 >> 8) & 0xFF
+        vsc_req_form[134]  = (detail2 >> 0) & 0xFF
+        vsc_req_form[135]  = (detail2 >> 8) & 0xFF
+        status = self.send_vsc_cmd(vsc_req_form)
+        if status != YCable.MCU_EC_NO_ERROR:
+            self.log_error('fw cmd ext[%04X] detail1[%04X] detail2[%04X] error[%04X]' % (cmd, detail1, detail2, status))
+
+        response = (self.read_mmap(YCable.MIS_PAGE_VSC, 131) << 8) | self.read_mmap(YCable.MIS_PAGE_VSC, 130)
+        param1   = (self.read_mmap(YCable.MIS_PAGE_VSC, 137) << 8) | self.read_mmap(YCable.MIS_PAGE_VSC, 136)
+        param2   = (self.read_mmap(YCable.MIS_PAGE_VSC, 139) << 8) | self.read_mmap(YCable.MIS_PAGE_VSC, 138)
+
+        return [response, param1, param2]
 
     def toggle_mux_to_tor_a(self):
         """
@@ -1803,7 +1873,7 @@ class YCable(YCableBase):
 
         return int(time[0])
 
-    def restart_anlt(self):
+    def restart_anlt(self, target):
         """
         This API restarts auto-negotiation + link training (AN/LT) mode
         The port on which this API is called for can be referred using self.port.
@@ -1820,7 +1890,24 @@ class YCable(YCableBase):
                      , False if the restart is not successful
         """
 
-        raise NotImplementedError
+        if self.platform_chassis is not None:
+            lane = 0
+            if target == YCableBase.TARGET_NIC:
+                lane = 0
+            elif target == YCableBase.TARGET_TOR_A:
+                lane = 12
+            elif target == YCableBase.TARGET_TOR_B:
+                lane = 20
+            else:
+                self.log_error("restart anlt: unsupported target")
+                return False
+
+            self.fw_cmd_ext(0x7040, 0, lane)
+        else:
+            self.log_error("platform_chassis is not loaded, failed to restart anlt")
+            return -1
+
+        return True
 
     def get_anlt_stats(self, target):
         """
