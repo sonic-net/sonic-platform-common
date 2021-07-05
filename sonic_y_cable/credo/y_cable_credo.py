@@ -350,6 +350,66 @@ class YCable(YCableBase):
 
         return [response, param1, param2]
 
+    def tcm_read(self, addr):
+        """
+        This API sends the tcm read command to the serdes chip via VSC cmd
+
+        Args:
+             addr:
+                 an Integer, address of tcm space
+        Returns:
+            an Integer, return data of tcm address
+        """
+
+        vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+        vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_TCM_READ
+        vsc_req_form[130]  = (addr >>  0) & 0xFF
+        vsc_req_form[131]  = (addr >>  8) & 0xFF
+        vsc_req_form[132]  = (addr >> 16) & 0xFF
+        vsc_req_form[133]  = (addr >> 24) & 0xFF
+        status = self.send_vsc_cmd(vsc_req_form)
+        if status != YCable.MCU_EC_NO_ERROR:
+            self.log_error('tcm read addr[%04X]  error[%04X]' % (addr, status))
+            return -1
+
+        data = (self.read_mmap(YCable.MIS_PAGE_VSC, 134) | (self.read_mmap(YCable.MIS_PAGE_VSC, 135) << 8) |
+               (self.read_mmap(YCable.MIS_PAGE_VSC, 136) << 16) | (self.read_mmap(YCable.MIS_PAGE_VSC, 137) << 24))
+
+        return data
+
+    def tcm_write(self, addr, data):
+        """
+        This API sends the tcm write command to the serdes chip via VSC cmd
+
+        Args:
+             addr:
+                 an Integer, address of tcm space
+
+             data:
+                 an Integer, value to be written to the address
+
+        Returns:
+            a boolean, True if the tcm write succeeded and False if it did not succeed.
+        """
+
+        vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+        vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_TCM_WRITE
+        vsc_req_form[130]  = (addr >>  0) & 0xFF
+        vsc_req_form[131]  = (addr >>  8) & 0xFF
+        vsc_req_form[132]  = (addr >> 16) & 0xFF
+        vsc_req_form[133]  = (addr >> 24) & 0xFF
+        vsc_req_form[134]  = (data >>  0) & 0xFF
+        vsc_req_form[135]  = (data >>  8) & 0xFF
+        vsc_req_form[136]  = (data >> 16) & 0xFF
+        vsc_req_form[137]  = (data >> 24) & 0xFF
+
+        status = self.send_vsc_cmd(vsc_req_form)
+        if status != YCable.MCU_EC_NO_ERROR:
+            self.log_error('tcm read addr[%04X] data[%04X] error[%04X]' % (addr, data, status))
+            return False
+
+        return True
+
     def toggle_mux_to_tor_a(self):
         """
         This API does a hard switch toggle of the Y cable's MUX regardless of link state to
@@ -1828,7 +1888,40 @@ class YCable(YCableBase):
                a detailed format agreed upon by vendors
         """
 
-        raise NotImplementedError
+        pcs_stats = {}
+
+        if self.platform_chassis is not None:
+            quad = 0
+            ch = 0
+            if target == YCableBase.TARGET_NIC:
+                quad = 0
+            elif target == YCableBase.TARGET_TOR_A:
+                quad = 4
+            elif target == YCableBase.TARGET_TOR_B:
+                quad = 6
+            else:
+                self.log_error("get pcs stats: unsupported target")
+                return pcs_stats
+
+            base = (quad << 20) + 0xa0000
+            Rx = (ch * 35) + 0x40
+            pcs_stats['Rx Frames OK']         = self.tcm_read(base + 4 * (Rx + 6))
+            pcs_stats['Rx Chk SEQ Errs']      = self.tcm_read(base + 4 * (Rx + 7))
+            pcs_stats['Rx Alignment Errs']    = self.tcm_read(base + 4 * (Rx + 2))
+            pcs_stats['Rx In Errs']           = self.tcm_read(base + 4 * (Rx + 9))
+            pcs_stats['Rx FrameTooLong Errs'] = self.tcm_read(base + 4 * (Rx + 4))
+            pcs_stats['Rx Octets OK']         = self.tcm_read(base + 4 * (Rx + 1))
+
+            Tx = (ch * 26) + 0xC
+            pcs_stats['Tx Frames OK'] = self.tcm_read(base + 4 * (Tx + 3))
+            pcs_stats['Tx Out Errs']  = self.tcm_read(base + 4 * (Tx + 5))
+            pcs_stats['Tx Octets OK'] = self.tcm_read(base + 4 * (Tx + 1))
+
+        else:
+            self.log_error("platform_chassis is not loaded, failed to get pcs statisics")
+            return pcs_stats
+
+        return pcs_stats
 
     def get_fec_stats(self, target):
         """
