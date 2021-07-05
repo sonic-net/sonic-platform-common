@@ -41,6 +41,7 @@ class YCable(YCableBase):
     OFFSET_NIC_MODE_CONFIGURATION    = 721
     OFFSET_NIC_TEMPERATURE           = 727
     OFFSET_NIC_VOLTAGE               = 729
+    OFFSET_NIC_SIGNAL_DETECTION      = 731
     OFFSET_MANUAL_SWITCH_COUNT_TOR_B = 737
     OFFSET_CONFIGURE_PRBS_TYPE       = 768
     OFFSET_ENABLE_PRBS               = 769
@@ -1466,7 +1467,20 @@ class YCable(YCableBase):
                      , False if the cable is not alive
         """
 
-        raise NotImplementedError
+        if self.platform_chassis is not None:
+            curr_offset = YCable.OFFSET_NIC_SIGNAL_DETECTION
+            result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 6)
+            if result is False:
+                return result
+
+            for idx in range(6):
+                if result[idx] == 0:
+                    return False
+        else:
+            self.log_error("platform_chassis is not loaded, failed to get anlt")
+            return False
+
+        return True
 
     def reset(self, target):
         """
