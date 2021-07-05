@@ -248,6 +248,8 @@ class SfpBase(device_base.DeviceBase):
         """
         Retrieves the lpmode (low power mode) status of this SFP
 
+        Raises NotImplementedError if the lpmode pin is not available for this SFP
+
         Returns:
             A Boolean, True if lpmode is enabled, False if disabled
         """
@@ -259,6 +261,15 @@ class SfpBase(device_base.DeviceBase):
 
         Returns:
             A Boolean, True if power-override is enabled, False if disabled
+        """
+        raise NotImplementedError
+
+    def get_power_set(self):
+        """
+        Retrieves the power-set status of this SFP
+
+        Returns:
+            A Boolean, True if power-set is enabled, False if disabled
         """
         raise NotImplementedError
 
@@ -354,6 +365,8 @@ class SfpBase(device_base.DeviceBase):
     def set_lpmode(self, lpmode):
         """
         Sets the lpmode (low power mode) of SFP
+
+        Raises NotImplementedError if the lpmode pin is not available for this SFP
 
         Args:
             lpmode: A Boolean, True to enable lpmode, False to disable it
