@@ -249,7 +249,7 @@ class YCable(YCableBase):
 
         return ret
 
-    def send_vsc_cmd(self, vsc_req_form, timeout=1200):
+    def send_vsc(self, vsc_req_form, timeout=1200):
         """
         This API sends Credo vendor specific command to the MCU
 
@@ -258,30 +258,34 @@ class YCable(YCableBase):
                  a bytearray, command request form follow by vsc command structure
 
              timeout:
-                 an Integer, number of 5ms delay time, default value is 1200 (6 seconds).
+                 an Integer, unit is 5ms, default value is 1200 (6 seconds).
 
         Returns:
             an Integer, status code of vsc command, find the 'MCU_ERROR_CODE_STRING' for the interpretation.
         """
 
-        for idx in range(129, YCable.VSC_CMD_ATTRIBUTE_LENGTH):
-            if vsc_req_form[idx] != None:
-                self.write_mmap(YCable.MIS_PAGE_VSC, idx, vsc_req_form[idx])
-        self.write_mmap(YCable.MIS_PAGE_VSC, YCable.VSC_BYTE_OPCODE, vsc_req_form[YCable.VSC_BYTE_OPCODE])
+        if self.platform_chassis is not None:
+            for idx in range(129, YCable.VSC_CMD_ATTRIBUTE_LENGTH):
+                if vsc_req_form[idx] != None:
+                    self.write_mmap(YCable.MIS_PAGE_VSC, idx, vsc_req_form[idx])
+            self.write_mmap(YCable.MIS_PAGE_VSC, YCable.VSC_BYTE_OPCODE, vsc_req_form[YCable.VSC_BYTE_OPCODE])
 
-        while True:
-            done = self.read_mmap(YCable.MIS_PAGE_VSC, YCable.VSC_BYTE_OPCODE)
-            if done == 0:
-                break
+            while True:
+                done = self.read_mmap(YCable.MIS_PAGE_VSC, YCable.VSC_BYTE_OPCODE)
+                if done == 0:
+                    break
 
-            time.sleep(0.005)
-            timeout -= 1
+                time.sleep(0.005)
+                timeout -= 1
 
-            if timeout == 0:
-                self.log_error("wait vsc status value timeout")
-                return YCable.MCU_EC_WAIT_VSC_STATUS_TIMEOUT
+                if timeout == 0:
+                    self.log_error("wait vsc status value timeout")
+                    return YCable.MCU_EC_WAIT_VSC_STATUS_TIMEOUT
 
-        status = self.read_mmap(YCable.MIS_PAGE_VSC, YCable.VSC_BYTE_STATUS)
+            status = self.read_mmap(YCable.MIS_PAGE_VSC, YCable.VSC_BYTE_STATUS)
+        else:
+            self.log_error("platform_chassis is not loaded, failed to send vsc cmd")
+            return YCable.MCU_EC_UNDEFINED_ERROR
 
         return status
 
@@ -306,7 +310,7 @@ class YCable(YCableBase):
         vsc_req_form[131]  = (cmd     >> 8) & 0xFF
         vsc_req_form[132]  = (detail1 >> 0) & 0xFF
         vsc_req_form[133]  = (detail1 >> 8) & 0xFF
-        status = self.send_vsc_cmd(vsc_req_form)
+        status = self.send_vsc(vsc_req_form)
         if status != YCable.MCU_EC_NO_ERROR:
             self.log_error('fw cmd[%04X] detail1[%04X] error[%04X]' % (cmd, detail1, status))
 
@@ -340,7 +344,7 @@ class YCable(YCableBase):
         vsc_req_form[133]  = (detail1 >> 8) & 0xFF
         vsc_req_form[134]  = (detail2 >> 0) & 0xFF
         vsc_req_form[135]  = (detail2 >> 8) & 0xFF
-        status = self.send_vsc_cmd(vsc_req_form)
+        status = self.send_vsc(vsc_req_form)
         if status != YCable.MCU_EC_NO_ERROR:
             self.log_error('fw cmd ext[%04X] detail1[%04X] detail2[%04X] error[%04X]' % (cmd, detail1, detail2, status))
 
@@ -367,7 +371,7 @@ class YCable(YCableBase):
         vsc_req_form[131]  = (addr >>  8) & 0xFF
         vsc_req_form[132]  = (addr >> 16) & 0xFF
         vsc_req_form[133]  = (addr >> 24) & 0xFF
-        status = self.send_vsc_cmd(vsc_req_form)
+        status = self.send_vsc(vsc_req_form)
         if status != YCable.MCU_EC_NO_ERROR:
             self.log_error('tcm read addr[%04X]  error[%04X]' % (addr, status))
             return -1
@@ -403,7 +407,7 @@ class YCable(YCableBase):
         vsc_req_form[136]  = (data >> 16) & 0xFF
         vsc_req_form[137]  = (data >> 24) & 0xFF
 
-        status = self.send_vsc_cmd(vsc_req_form)
+        status = self.send_vsc(vsc_req_form)
         if status != YCable.MCU_EC_NO_ERROR:
             self.log_error('tcm read addr[%04X] data[%04X] error[%04X]' % (addr, data, status))
             return False
@@ -1017,7 +1021,7 @@ class YCable(YCableBase):
         vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
         vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
         vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_GET_INFO
-        self.send_vsc_cmd(vsc_req_form)
+        self.send_vsc(vsc_req_form)
 
         data = bytearray(YCable.FIRMWARE_INFO_PAYLOAD_SIZE)
 
@@ -1104,7 +1108,7 @@ class YCable(YCableBase):
         vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
         vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
         vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_START
-        status = self.send_vsc_cmd(vsc_req_form)
+        status = self.send_vsc(vsc_req_form)
         if status != YCable.MCU_EC_NO_ERROR:
             self.log_error(YCable.MCU_ERROR_CODE_STRING[status])
             return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
@@ -1137,7 +1141,7 @@ class YCable(YCableBase):
             vsc_req_form[YCable.VSC_BYTE_ADDR3] = (fw_img_offset >> 24) & 0xFF
             vsc_req_form[YCable.VSC_BYTE_CHKSUM_MSB] = (checksum >> 8) & 0xFF
             vsc_req_form[YCable.VSC_BYTE_CHKSUM_LSB] = (checksum >> 0) & 0xFF
-            status = self.send_vsc_cmd(vsc_req_form)
+            status = self.send_vsc(vsc_req_form)
 
             if status == YCable.MCU_EC_NO_ERROR:
                 chunk_idx += 1
@@ -1156,7 +1160,7 @@ class YCable(YCableBase):
         vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
         vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
         vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_LOCAL_XFER_COMPLETE
-        status = self.send_vsc_cmd(vsc_req_form)
+        status = self.send_vsc(vsc_req_form)
         if status != YCable.MCU_EC_NO_ERROR:
             self.log_error('Veriyf firmware binary error (error code:0x%04X)' % (status))
             return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
@@ -1167,7 +1171,7 @@ class YCable(YCableBase):
         vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
         vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
         vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_UART_XFER
-        status = self.send_vsc_cmd(vsc_req_form)
+        status = self.send_vsc(vsc_req_form)
         if status != YCable.MCU_EC_NO_ERROR:
             self.log_error('Firmware binary UART transfer error (error code:0x%04X)' % (status))
             return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
@@ -1175,7 +1179,7 @@ class YCable(YCableBase):
         vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
         vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
         vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_UART_XFER_STATUS
-        status = self.send_vsc_cmd(vsc_req_form)
+        status = self.send_vsc(vsc_req_form)
         if status != YCable.MCU_EC_NO_ERROR:
             self.log_error(
                 'Get firmware binary UART transfer status error (error code:0x%04X)' % (status))
@@ -1190,7 +1194,7 @@ class YCable(YCableBase):
             vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
             vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
             vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_UART_XFER_STATUS
-            status = self.send_vsc_cmd(vsc_req_form)
+            status = self.send_vsc(vsc_req_form)
             if status != YCable.MCU_EC_NO_ERROR:
                 self.log_error(
                     'Get firmware binary UART transfer status error (error code:0x%04X)' % (status))
@@ -1247,7 +1251,7 @@ class YCable(YCableBase):
         vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_COMMIT
         vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
         vsc_req_form[YCable.VSC_BYTE_ADDR0] = side
-        status = self.send_vsc_cmd(vsc_req_form)
+        status = self.send_vsc(vsc_req_form)
         if status != YCable.MCU_EC_NO_ERROR:
             self.log_error(YCable.MCU_ERROR_CODE_STRING[status])
             return YCableBase.FIRMWARE_ACTIVATE_FAILURE
@@ -1257,7 +1261,7 @@ class YCable(YCableBase):
         vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
         vsc_req_form[YCable.VSC_BYTE_ADDR0] = side
         vsc_req_form[YCable.VSC_BYTE_ADDR1] = hitless
-        status = self.send_vsc_cmd(vsc_req_form)
+        status = self.send_vsc(vsc_req_form)
         time.sleep(5)
         if status != YCable.MCU_EC_NO_ERROR:
             self.log_error(YCable.MCU_ERROR_CODE_STRING[status])
@@ -1494,7 +1498,7 @@ class YCable(YCableBase):
         vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
         vsc_req_form[YCable.VSC_BYTE_ADDR0] = (1 << target)
         vsc_req_form[YCable.VSC_BYTE_ADDR1] = 0
-        status = self.send_vsc_cmd(vsc_req_form)
+        status = self.send_vsc(vsc_req_form)
 
         if target  == YCableBase.TARGET_NIC:
             time.sleep(4)
@@ -1804,7 +1808,7 @@ class YCable(YCableBase):
             vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
             vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_EVENTLOG
             vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.EVENTLOG_OPTION_CLEAR
-            self.send_vsc_cmd(vsc_req_form)
+            self.send_vsc(vsc_req_form)
 
         last_read_id = -1
         result = []
@@ -1832,7 +1836,7 @@ class YCable(YCableBase):
             vsc_req_form[YCable.VSC_BYTE_ADDR1] = (last_read_id >> 8) & 0xFF
             vsc_req_form[YCable.VSC_BYTE_ADDR2] = (last_read_id >> 16) & 0xFF
             vsc_req_form[YCable.VSC_BYTE_ADDR3] = (last_read_id >> 24) & 0xFF
-            status = self.send_vsc_cmd(vsc_req_form)
+            status = self.send_vsc(vsc_req_form)
 
             if status == YCable.MCU_EC_NO_ERROR:
                 fetch_cnt = self.read_mmap(YCable.MIS_PAGE_VSC, 134)
