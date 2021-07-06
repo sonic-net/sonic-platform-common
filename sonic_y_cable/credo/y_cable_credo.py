@@ -26,6 +26,7 @@ class YCable(YCableBase):
     OFFSET_IDENTIFIER_UPPER_PAGE     = 128
     OFFSET_VENDOR_NAME               = 148
     OFFSET_PART_NUMBER               = 168
+    OFFSET_SERIAL_NUMBER             = 196
     OFFSET_DETERMINE_CABLE_READ_SIDE = 640
     OFFSET_CHECK_LINK_ACTIVE         = 641
     OFFSET_SWITCH_MUX_DIRECTION      = 642
@@ -777,6 +778,28 @@ class YCable(YCableBase):
             a string, with part number
         """
         curr_offset = YCable.OFFSET_PART_NUMBER
+
+        if self.platform_chassis is not None:
+            part_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 16)
+        else:
+            self.log_error("platform_chassis is not loaded, failed to get part number")
+            return -1
+
+        part_number = str(part_result.decode())
+
+        return part_number
+
+    def get_serial_number(self):
+        """
+        This API returns the serial number of the Y cable for a specfic port.
+        The port on which this API is called for can be referred using self.port.
+
+        Args:
+
+        Returns:
+            a string, with serial number
+        """
+        curr_offset = YCable.OFFSET_SERIAL_NUMBER
 
         if self.platform_chassis is not None:
             part_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 16)
