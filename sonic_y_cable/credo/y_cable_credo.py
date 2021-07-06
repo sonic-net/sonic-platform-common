@@ -1246,26 +1246,30 @@ class YCable(YCableBase):
                 FIRMWARE_ACTIVATE_SUCCESS
                 FIRMWARE_ACTIVATE_FAILURE
         """
-        side = 0x7
+        if self.platform_chassis is not None:
+            side = 0x7
 
-        vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
-        vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_COMMIT
-        vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
-        vsc_req_form[YCable.VSC_BYTE_ADDR0] = side
-        status = self.send_vsc(vsc_req_form)
-        if status != YCable.MCU_EC_NO_ERROR:
-            self.log_error(YCable.MCU_ERROR_CODE_STRING[status])
-            return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+            vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+            vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_COMMIT
+            vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
+            vsc_req_form[YCable.VSC_BYTE_ADDR0] = side
+            status = self.send_vsc(vsc_req_form)
+            if status != YCable.MCU_EC_NO_ERROR:
+                self.log_error(YCable.MCU_ERROR_CODE_STRING[status])
+                return YCableBase.FIRMWARE_ACTIVATE_FAILURE
 
-        vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
-        vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_RUN
-        vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
-        vsc_req_form[YCable.VSC_BYTE_ADDR0] = side
-        vsc_req_form[YCable.VSC_BYTE_ADDR1] = hitless
-        status = self.send_vsc(vsc_req_form)
-        time.sleep(5)
-        if status != YCable.MCU_EC_NO_ERROR:
-            self.log_error(YCable.MCU_ERROR_CODE_STRING[status])
+            vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+            vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_RUN
+            vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
+            vsc_req_form[YCable.VSC_BYTE_ADDR0] = side
+            vsc_req_form[YCable.VSC_BYTE_ADDR1] = hitless
+            status = self.send_vsc(vsc_req_form)
+            time.sleep(5)
+            if status != YCable.MCU_EC_NO_ERROR:
+                self.log_error(YCable.MCU_ERROR_CODE_STRING[status])
+                return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+        else:
+            self.log_error("platform_chassis is not loaded, failed to activate firmware")
             return YCableBase.FIRMWARE_ACTIVATE_FAILURE
 
         return YCableBase.FIRMWARE_ACTIVATE_SUCCESS
@@ -1298,7 +1302,15 @@ class YCable(YCableBase):
                 FIRMWARE_ROLLBACK_SUCCESS
                 FIRMWARE_ROLLBACK_FAILURE
         """
-        self.activate_firmware()
+
+        if self.platform_chassis is not None:
+            if self.activate_firmware() == YCableBase.FIRMWARE_ACTIVATE_SUCCESS:
+                return YCableBase.FIRMWARE_ROLLBACK_SUCCESS
+            else:
+                return YCableBase.FIRMWARE_ROLLBACK_FAILURE
+        else:
+            self.log_error("platform_chassis is not loaded, failed to activate firmware")
+            return YCableBase.FIRMWARE_ROLLBACK_FAILURE
 
         return YCableBase.FIRMWARE_ROLLBACK_SUCCESS
 
@@ -1503,24 +1515,28 @@ class YCable(YCableBase):
         '''
         use firmare_run cmd to emulate module reset
         '''
-        if target != YCableBase.TARGET_NIC and target != YCableBase.TARGET_TOR_A and target != YCableBase.TARGET_TOR_B:
-            self.log_error("reset: unsupported target")
-            return False
+        if self.platform_chassis is not None:
+            if target != YCableBase.TARGET_NIC and target != YCableBase.TARGET_TOR_A and target != YCableBase.TARGET_TOR_B:
+                self.log_error("reset: unsupported target")
+                return False
 
-        vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
-        vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_RUN
-        vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
-        vsc_req_form[YCable.VSC_BYTE_ADDR0] = (1 << target)
-        vsc_req_form[YCable.VSC_BYTE_ADDR1] = 0
-        status = self.send_vsc(vsc_req_form)
+            vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+            vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_RUN
+            vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
+            vsc_req_form[YCable.VSC_BYTE_ADDR0] = (1 << target)
+            vsc_req_form[YCable.VSC_BYTE_ADDR1] = 0
+            status = self.send_vsc(vsc_req_form)
 
-        if target  == YCableBase.TARGET_NIC:
-            time.sleep(4)
+            if target  == YCableBase.TARGET_NIC:
+                time.sleep(4)
+            else:
+                time.sleep(2)
+
+            if status != YCable.MCU_EC_NO_ERROR:
+                self.log_error("unable to reset the module")
+                return False
         else:
-            time.sleep(2)
-
-        if status != YCable.MCU_EC_NO_ERROR:
-            self.log_error("unable to reset the module")
+            self.log_error("platform_chassis is not loaded, failed to reset")
             return False
 
         return True
@@ -1818,75 +1834,81 @@ class YCable(YCableBase):
               a list of strings which correspond to the event logs of the cable
         """
 
-        if (clear_on_read):
-            vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
-            vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_EVENTLOG
-            vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.EVENTLOG_OPTION_CLEAR
-            self.send_vsc(vsc_req_form)
-
-        last_read_id = -1
         result = []
 
-        event_type_str = {
-            0x0000: 'EventLog Header',
-            0x0001: 'Auto Switch',
-            0x0002: 'Manual Switch',
-            0x0003: 'BER Measurement',
-            0x0004: 'PRBS Generation',
-            0x0005: 'Loopback Mode',
-            0x0006: 'Eye Measurement',
-            0x0007: 'Epoch Time',
-            0x0008: 'Temperature',
-            0x0009: 'Voltage',
-            0x0100: 'Link Down',
-            0x0200: 'Firmware Update',
-        }
+        if self.platform_chassis is not None:
+            if (clear_on_read):
+                vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_EVENTLOG
+                vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.EVENTLOG_OPTION_CLEAR
+                self.send_vsc(vsc_req_form)
 
-        while (True):
-            vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
-            vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_EVENTLOG
-            vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.EVENTLOG_OPTION_DUMP
-            vsc_req_form[YCable.VSC_BYTE_ADDR0] = (last_read_id >> 0) & 0xFF
-            vsc_req_form[YCable.VSC_BYTE_ADDR1] = (last_read_id >> 8) & 0xFF
-            vsc_req_form[YCable.VSC_BYTE_ADDR2] = (last_read_id >> 16) & 0xFF
-            vsc_req_form[YCable.VSC_BYTE_ADDR3] = (last_read_id >> 24) & 0xFF
-            status = self.send_vsc(vsc_req_form)
+            last_read_id = -1
 
-            if status == YCable.MCU_EC_NO_ERROR:
-                fetch_cnt = self.read_mmap(YCable.MIS_PAGE_VSC, 134)
-                if (fetch_cnt == 0):
-                    break
-            else:
-                self.log_error("download event log error(error code:%04X)" % (status))
-                return None
+            event_type_str = {
+                0x0000: 'EventLog Header',
+                0x0001: 'Auto Switch',
+                0x0002: 'Manual Switch',
+                0x0003: 'BER Measurement',
+                0x0004: 'PRBS Generation',
+                0x0005: 'Loopback Mode',
+                0x0006: 'Eye Measurement',
+                0x0007: 'Epoch Time',
+                0x0008: 'Temperature',
+                0x0009: 'Voltage',
+                0x0100: 'Link Down',
+                0x0200: 'Firmware Update',
+            }
 
-            event_data = bytearray(YCable.EVENTLOG_PAYLOAD_SIZE * fetch_cnt)
+            while (True):
+                vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_EVENTLOG
+                vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.EVENTLOG_OPTION_DUMP
+                vsc_req_form[YCable.VSC_BYTE_ADDR0] = (last_read_id >> 0) & 0xFF
+                vsc_req_form[YCable.VSC_BYTE_ADDR1] = (last_read_id >> 8) & 0xFF
+                vsc_req_form[YCable.VSC_BYTE_ADDR2] = (last_read_id >> 16) & 0xFF
+                vsc_req_form[YCable.VSC_BYTE_ADDR3] = (last_read_id >> 24) & 0xFF
+                status = self.send_vsc(vsc_req_form)
 
-            for byte_offset in range(0, YCable.EVENTLOG_PAYLOAD_SIZE * fetch_cnt):
-                byte_data = self.read_mmap(YCable.MIS_PAGE_FC, 128 + byte_offset)
-                event_data[byte_offset] = byte_data
+                if status == YCable.MCU_EC_NO_ERROR:
+                    fetch_cnt = self.read_mmap(YCable.MIS_PAGE_VSC, 134)
+                    if (fetch_cnt == 0):
+                        break
+                else:
+                    self.log_error("download event log error(error code:%04X)" % (status))
+                    return None
 
-            for curr_idx in range(0, fetch_cnt):
-                byte_offset = curr_idx * YCable.EVENTLOG_PAYLOAD_SIZE
-                event_id = struct.unpack_from('<H', event_data[byte_offset + 0: byte_offset + 2])[0]
-                epoch = struct.unpack_from('<I', event_data[byte_offset + 2: byte_offset + 6])[0]
-                epoch_ms = struct.unpack_from('<H', event_data[byte_offset + 6: byte_offset + 8])[0]
-                event_type = struct.unpack_from('<H', event_data[byte_offset + 8: byte_offset + 10])[0]
-                detail1 = struct.unpack_from('<I', event_data[byte_offset + 10: byte_offset + 14])[0]
-                detail2 = struct.unpack_from('<I', event_data[byte_offset + 14: byte_offset + 18])[0]
+                event_data = bytearray(YCable.EVENTLOG_PAYLOAD_SIZE * fetch_cnt)
 
-                if epoch != 0xFFFFFFFF:
-                    entry = {}
+                for byte_offset in range(0, YCable.EVENTLOG_PAYLOAD_SIZE * fetch_cnt):
+                    byte_data = self.read_mmap(YCable.MIS_PAGE_FC, 128 + byte_offset)
+                    event_data[byte_offset] = byte_data
 
-                    entry['EventId'] = event_id
-                    entry['Timestamp'] = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(epoch)) + '.%03d' % (epoch_ms)
-                    entry['EventType'] = event_type_str[event_type]
-                    entry['Detail1'] = detail1
-                    entry['Detail2'] = detail2
+                for curr_idx in range(0, fetch_cnt):
+                    byte_offset = curr_idx * YCable.EVENTLOG_PAYLOAD_SIZE
+                    event_id = struct.unpack_from('<H', event_data[byte_offset + 0: byte_offset + 2])[0]
+                    epoch = struct.unpack_from('<I', event_data[byte_offset + 2: byte_offset + 6])[0]
+                    epoch_ms = struct.unpack_from('<H', event_data[byte_offset + 6: byte_offset + 8])[0]
+                    event_type = struct.unpack_from('<H', event_data[byte_offset + 8: byte_offset + 10])[0]
+                    detail1 = struct.unpack_from('<I', event_data[byte_offset + 10: byte_offset + 14])[0]
+                    detail2 = struct.unpack_from('<I', event_data[byte_offset + 14: byte_offset + 18])[0]
 
-                    result.append(entry)
+                    if epoch != 0xFFFFFFFF:
+                        entry = {}
 
-                    last_read_id = event_id
+                        entry['EventId'] = event_id
+                        entry['Timestamp'] = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(epoch)) + '.%03d' % (epoch_ms)
+                        entry['EventType'] = event_type_str[event_type]
+                        entry['Detail1'] = detail1
+                        entry['Detail2'] = detail2
+
+                        result.append(entry)
+
+                        last_read_id = event_id
+        else:
+            self.log_error("platform_chassis is not loaded, failed to get pcs statisics")
+            return result
+
         return result
 
     def get_pcs_stats(self, target):
@@ -2231,7 +2253,7 @@ class YCable(YCableBase):
                     EYE_PRBS_LOOPBACK_TARGET_TOR_A -> TOR A
                     EYE_PRBS_LOOPBACK_TARGET_TOR_B -> TOR B
                     EYE_PRBS_LOOPBACK_TARGET_NIC -> NIC
-            mode_value:
+            mode:
                 One of the following predefined constants, the mode to be run for loopback:
                     LOOPBACK_MODE_NEAR_END
                     LOOPBACK_MODE_FAR_END
@@ -2381,7 +2403,7 @@ class YCable(YCableBase):
 
         return ber_result
 
-    def debug_dump_registers(self):
+    def debug_dump_registers(self, option=None):
         """
         This API should dump all registers with meaningful values
         for the cable to be diagnosed for proper functioning.
@@ -2390,6 +2412,14 @@ class YCable(YCableBase):
         which would help debug the Y-Cable
 
         Args:
+            option:
+                 a string, the option param can be a string which if passed can help a vendor utilize it
+                 as an input param or a concatenation of params for a function which they can call internally.
+                 This essentially helps if the vendor chooses to dump only some of the registers instead of all
+                 the registers, and thus provides more granularity for debugging/printing.
+                 For example, the option can serdes_lane0, in this case the vendor would just dump
+                 registers related to serdes lane 0.
+
 
         Returns:
             a Dictionary:
