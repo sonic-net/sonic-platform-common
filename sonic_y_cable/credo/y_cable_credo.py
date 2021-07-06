@@ -1304,9 +1304,7 @@ class YCable(YCableBase):
         """
 
         if self.platform_chassis is not None:
-            if self.activate_firmware() == YCableBase.FIRMWARE_ACTIVATE_SUCCESS:
-                return YCableBase.FIRMWARE_ROLLBACK_SUCCESS
-            else:
+            if self.activate_firmware() == YCableBase.FIRMWARE_ACTIVATE_FAILURE:
                 return YCableBase.FIRMWARE_ROLLBACK_FAILURE
         else:
             self.log_error("platform_chassis is not loaded, failed to activate firmware")
