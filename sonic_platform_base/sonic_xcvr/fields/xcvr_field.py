@@ -100,7 +100,7 @@ class RegField(XcvrField):
 
     def _updateBitOffsets(self):
         for field in self.fields:
-            field.offset = self.offset + field.bitpos / 8
+            field.offset = self.offset + field.bitpos // 8
 
     def get_size(self):
         return self.size
