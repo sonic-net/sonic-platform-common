@@ -76,7 +76,7 @@ class RegBitField(XcvrField):
         return True
 
     def decode(self, raw_data):
-        return (raw_data[0] >> self.bitpos) & 1
+        return bool((raw_data[0] >> self.bitpos) & 1)
 
     def encode(self, val, raw_state=None):
         assert not self.ro and raw_state is not None
