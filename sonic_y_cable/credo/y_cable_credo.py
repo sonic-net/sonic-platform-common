@@ -105,6 +105,8 @@ class YCable(YCableBase):
     VSC_OPCODE_TCM_WRITE  = 0x83
     VSC_OPCODE_FW_CMD     = 0x84
     VSC_OPCODE_FW_CMD_EXT = 0x85
+    VSC_OPCODE_REG_READ   = 0x86
+    VSC_OPCODE_REG_WRITE  = 0x87
 
     BER_TIMEOUT_SECS = 1
     EYE_TIMEOUT_SECS = 1
@@ -412,6 +414,59 @@ class YCable(YCableBase):
         status = self.send_vsc(vsc_req_form)
         if status != YCable.MCU_EC_NO_ERROR:
             self.log_error('tcm read addr[%04X] data[%04X] error[%04X]' % (addr, data, status))
+            return False
+
+        return True
+
+    def reg_read(self, addr):
+        """
+        This API reads the serdes register via vsc
+
+        Args:
+             addr:
+                 an Integer, address of the serdes register
+        Returns:
+            an Integer, return data of the register
+        """
+
+        vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+        vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_REG_READ
+        vsc_req_form[130]  = (addr >>  0) & 0xFF
+        vsc_req_form[131]  = (addr >>  8) & 0xFF
+        vsc_req_form[132]  = (addr >> 16) & 0xFF
+        vsc_req_form[133]  = (addr >> 24) & 0xFF
+        status = self.send_vsc(vsc_req_form)
+        if status != YCable.MCU_EC_NO_ERROR:
+            self.log_error('reg read addr[%04X]  error[%04X]' % (addr, status))
+            return -1
+
+        return self.read_mmap(YCable.MIS_PAGE_VSC, 134) | (self.read_mmap(YCable.MIS_PAGE_VSC, 135) << 8)
+
+    def reg_write(self, addr, data):
+        """
+        This API writes the serdes register via vsc
+
+        Args:
+             addr:
+                 an Integer, address of the serdes register
+
+             data:
+                 an Integer, value to be written to the register address
+
+        Returns:
+            a boolean, True if the register write succeeded and False if it did not succeed.
+        """
+
+        vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+        vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_REG_WRITE
+        vsc_req_form[130]  = (addr >>  0) & 0xFF
+        vsc_req_form[131]  = (addr >>  8) & 0xFF
+        vsc_req_form[134]  = (data >>  0) & 0xFF
+        vsc_req_form[135]  = (data >>  8) & 0xFF
+
+        status = self.send_vsc(vsc_req_form)
+        if status != YCable.MCU_EC_NO_ERROR:
+            self.log_error('reg write addr[%04X] data[%04X] error[%04X]' % (addr, data, status))
             return False
 
         return True
@@ -2104,7 +2159,31 @@ class YCable(YCableBase):
                a detailed format agreed upon by vendors
         """
 
-        raise NotImplementedError
+        anlt_stat = {}
+        if self.platform_chassis is not None:
+            an_sm = 0
+            if target == YCableBase.TARGET_NIC:
+                an_sm = self.reg_read(0x0048)
+                lanes=[0,4]
+            elif target == YCableBase.TARGET_TOR_A:
+                an_sm = self.reg_read(0x5448)
+                lanes=[12,16]
+            elif target == YCableBase.TARGET_TOR_B:
+                an_sm = self.reg_read(0x5C48)
+                lanes=[20,24]
+            else:
+                self.log_error("get anlt stats: unsupported target")
+
+            anlt_stat['AN_StateMachine'] = an_sm
+
+            for idx, ln in enumerate(range(lanes[0], lanes[1])):
+                lt_tx1 = self.reg_read(0xB3 | 0x200 * ln)
+                lt_tx2 = self.reg_read(0xB4 | 0x200 * ln)
+                anlt_stat['LT_TX_lane%d' % idx] = [(lt_tx1 >> 8) & 0xFF, lt_tx1 & 0xFF, (lt_tx2 >> 8) & 0xFF, lt_tx2 & 0xFF]
+        else:
+            self.log_error("platform_chassis is not loaded, failed to get anlt stats")
+
+        return anlt_stat
 
 #############################################################################################
 ###                                  Debug Functionality                                  ###
