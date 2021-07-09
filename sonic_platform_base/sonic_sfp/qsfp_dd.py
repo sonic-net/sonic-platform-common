@@ -46,7 +46,10 @@ class qsfp_dd_InterfaceId(sffbase):
 
     def decode_connector(self, eeprom_data, offset, size):
         connector_id = eeprom_data[offset]
-        return connector_dict[connector_id]
+        if connector_id in connector_dict.keys():
+            return connector_dict[connector_id]
+        else:
+            return 'N/A'
 
     def decode_ext_id(self, eeprom_data, offset, size):
         # bits 5-7 represent Module Card Power Class
@@ -213,7 +216,7 @@ class qsfp_dd_InterfaceId(sffbase):
 
     def parse_vendor_date(self, date_raw_data, start_pos):
         return sffbase.parse(self, self.vendor_date, date_raw_data, start_pos)
-    
+
     def parse_vendor_oui(self, vendor_oui_data, start_pos):
         return sffbase.parse(self, self.vendor_oui, vendor_oui_data, start_pos)
 
@@ -700,7 +703,7 @@ class qsfp_dd_Dom(sffbase):
     def parse_channel_monitor_params(self, eeprom_raw_data, start_pos):
         return sffbase.parse(self, self.dom_channel_monitor_params, eeprom_raw_data,
                     start_pos)
-    
+
     def parse_dom_tx_bias(self, eeprom_raw_data, start_pos):
         return sffbase.parse(self, self.dom_tx_bias, eeprom_raw_data,
                     start_pos)
