@@ -44,6 +44,9 @@ class YCable(YCableBase):
     OFFSET_NIC_VOLTAGE               = 729
     OFFSET_NIC_SIGNAL_DETECTION      = 731
     OFFSET_MANUAL_SWITCH_COUNT_TOR_B = 737
+    OFFSET_EXTEND_SWITCH_COUNT_TYPE  = 741
+    OFFSET_EXTEND_SWITCH_COUNT       = 742
+    OFFSET_CLEAR_SWITCH_COUNT        = 746
     OFFSET_CONFIGURE_PRBS_TYPE       = 768
     OFFSET_ENABLE_PRBS               = 769
     OFFSET_INITIATE_BER_MEASUREMENT  = 770
@@ -110,6 +113,7 @@ class YCable(YCableBase):
 
     BER_TIMEOUT_SECS = 1
     EYE_TIMEOUT_SECS = 1
+    EXTEND_SWITCH_CNT_TIMEOUT_SECS = 1
 
     # error code of EEPROM
     EEPROM_READ_DATA_INVALID = -1
@@ -904,6 +908,16 @@ class YCable(YCableBase):
             self.log_error("not a valid switch_count_type, failed to get switch count")
             return -1
 
+        if clear_on_read:
+            if switch_count_type == YCableBase.SWITCH_COUNT_AUTO:
+                curr_offset = YCable.OFFSET_AUTO_SWITCH_COUNT
+                buffer = bytearray([6])
+                curr_offset = YCable.OFFSET_CLEAR_SWITCH_COUNT
+                result = self.platform_chassis.get_sfp(
+                    self.port).write_eeprom(curr_offset, 1, buffer)
+                if result is False:
+                    return result
+
         return count
 
     def get_switch_count_tor_a(self, clear_on_read=False):
@@ -935,6 +949,14 @@ class YCable(YCableBase):
         else:
             self.log_error("platform_chassis is not loaded, failed to get manual switch count")
             return -1
+
+        if clear_on_read:
+            buffer = bytearray([4])
+            curr_offset = YCable.OFFSET_CLEAR_SWITCH_COUNT
+            result = self.platform_chassis.get_sfp(
+                self.port).write_eeprom(curr_offset, 1, buffer)
+            if result is False:
+                return result
 
         return count
 
@@ -968,6 +990,14 @@ class YCable(YCableBase):
             self.log_error("platform_chassis is not loaded, failed to get manual switch count")
             return -1
 
+        if clear_on_read:
+            buffer = bytearray([5])
+            curr_offset = YCable.OFFSET_CLEAR_SWITCH_COUNT
+            result = self.platform_chassis.get_sfp(
+                self.port).write_eeprom(curr_offset, 1, buffer)
+            if result is False:
+                return result
+
         return count
 
     def get_switch_count_target(self, switch_count_type, target, clear_on_read=False):
@@ -994,7 +1024,61 @@ class YCable(YCableBase):
                 an integer, the number of times manually the Y-cable has been switched
         """
 
-        raise NotImplementedError
+        curr_offset = YCable.OFFSET_EXTEND_SWITCH_COUNT_TYPE
+
+        if switch_count_type == YCableBase.SWITCH_COUNT_MANUAL:
+            if target == YCableBase.TARGET_TOR_A:
+                buffer = bytearray([0])
+            elif target == YCableBase.TARGET_TOR_B:
+                buffer = bytearray([1])
+            else:
+                self.log_error("not a valid target")
+                return -1
+        elif switch_count_type == YCableBase.SWITCH_COUNT_AUTO:
+            if target == YCableBase.TARGET_TOR_A:
+                buffer = bytearray([2])
+            elif target == YCableBase.TARGET_TOR_B:
+                buffer = bytearray([3])
+            else:
+                self.log_error("not a valid target")
+                return -1
+        else:
+            self.log_error("not a valid switch_count_type, failed to get switch count")
+            return -1
+
+        if self.platform_chassis is not None:
+            result = self.platform_chassis.get_sfp(
+                self.port).write_eeprom(curr_offset, 1, buffer)
+            if result is False:
+                return result
+            time_start = time.time()
+            while(True):
+                done = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+                time_now = time.time()
+                time_diff = time_now - time_start
+                if done[0] & 0x80:
+                    break
+                elif time_diff >= YCable.EXTEND_SWITCH_CNT_TIMEOUT_SECS:
+                    return YCable.EEPROM_TIMEOUT_ERROR
+
+            curr_offset = YCable.OFFSET_EXTEND_SWITCH_COUNT
+            msb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 3, 1)
+            msb_result_1 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 2, 1)
+            msb_result_2 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 1, 1)
+            lsb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+            count = (msb_result[0] << 24 | msb_result_1[0] << 16 | msb_result_2[0] << 8 | lsb_result[0])
+
+            if clear_on_read:
+                curr_offset = YCable.OFFSET_CLEAR_SWITCH_COUNT
+                result = self.platform_chassis.get_sfp(
+                    self.port).write_eeprom(curr_offset, 1, buffer)
+                if result is False:
+                    return result
+        else:
+            self.log_error("platform_chassis is not loaded, failed to get switch count target")
+            return -1
+
+        return count
 
     def get_target_cursor_values(self, lane, target):
         """
