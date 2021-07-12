@@ -912,7 +912,6 @@ class YCable(YCableBase):
             if switch_count_type == YCableBase.SWITCH_COUNT_AUTO:
                 curr_offset = YCable.OFFSET_AUTO_SWITCH_COUNT
                 buffer = bytearray([6])
-                curr_offset = YCable.OFFSET_CLEAR_SWITCH_COUNT
                 result = self.platform_chassis.get_sfp(
                     self.port).write_eeprom(curr_offset, 1, buffer)
                 if result is False:
