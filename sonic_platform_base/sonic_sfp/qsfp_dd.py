@@ -46,7 +46,10 @@ class qsfp_dd_InterfaceId(sffbase):
 
     def decode_connector(self, eeprom_data, offset, size):
         connector_id = eeprom_data[offset]
-        return connector_dict[connector_id]
+        if connector_id in connector_dict.keys():
+            return connector_dict[connector_id]
+        else:
+            return 'N/A'
 
     def decode_ext_id(self, eeprom_data, offset, size):
         # bits 5-7 represent Module Card Power Class
@@ -76,7 +79,12 @@ class qsfp_dd_InterfaceId(sffbase):
 
     def decode_media_type(self, eeprom_data, offset, size):
         media_type_code = eeprom_data[0]
+
+        if media_type_code not in type_of_media_interface.keys():
+            return None
+
         dict_name = type_of_media_interface[media_type_code]
+
         if dict_name == "nm_850_media_interface":
             return nm_850_media_interface
         elif dict_name == "sm_media_interface":
@@ -91,11 +99,14 @@ class qsfp_dd_InterfaceId(sffbase):
              return None
 
     def parse_application(self, sfp_media_type_dict, host_interface, media_interface):
-        host_result = host_electrical_interface[host_interface]
+        media_result = 'Unknown'
+        host_result = 'Unknown'
+
+        if host_interface in host_electrical_interface:
+            host_result = host_electrical_interface[host_interface]
+
         if media_interface in sfp_media_type_dict.keys():
             media_result = sfp_media_type_dict[media_interface]
-        else:
-            media_result = 'Unknown'
         return host_result, media_result
 
     version = '1.0'
@@ -213,7 +224,7 @@ class qsfp_dd_InterfaceId(sffbase):
 
     def parse_vendor_date(self, date_raw_data, start_pos):
         return sffbase.parse(self, self.vendor_date, date_raw_data, start_pos)
-    
+
     def parse_vendor_oui(self, vendor_oui_data, start_pos):
         return sffbase.parse(self, self.vendor_oui, vendor_oui_data, start_pos)
 
@@ -700,7 +711,7 @@ class qsfp_dd_Dom(sffbase):
     def parse_channel_monitor_params(self, eeprom_raw_data, start_pos):
         return sffbase.parse(self, self.dom_channel_monitor_params, eeprom_raw_data,
                     start_pos)
-    
+
     def parse_dom_tx_bias(self, eeprom_raw_data, start_pos):
         return sffbase.parse(self, self.dom_tx_bias, eeprom_raw_data,
                     start_pos)
