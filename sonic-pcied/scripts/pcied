@@ -10,7 +10,7 @@ import signal
 import sys
 import threading
 
-from sonic_py_common import daemon_base, device_info
+from sonic_py_common import daemon_base, device_info, logger
 from swsscommon import swsscommon
 
 #
@@ -35,6 +35,8 @@ PCIEUTIL_LOAD_ERROR = 2
 
 platform_pcieutil = None
 
+log = logger.Logger(SYSLOG_IDENTIFIER)
+
 exit_code = 0
 
 # wrapper functions to call the platform api
@@ -45,12 +47,12 @@ def load_platform_pcieutil():
         from sonic_platform.pcie import Pcie
         _platform_pcieutil = Pcie(platform_path)
     except ImportError as e:
-        self.log_error("Failed to load platform Pcie module. Error : {}".format(str(e)), True)
+        log.log_notice("Failed to load platform Pcie module. Error : {}, Fallback to default module".format(str(e)), True)
         try:
             from sonic_platform_base.sonic_pcie.pcie_common import PcieUtil
             _platform_pcieutil = PcieUtil(platform_path)
         except ImportError as e:
-            self.log_error("Failed to load default PcieUtil module. Error : {}".format(str(e)), True)
+            log.log_error("Failed to load default PcieUtil module. Error : {}".format(str(e)), True)
     return _platform_pcieutil
 
 def read_id_file(device_name):
