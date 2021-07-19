@@ -65,6 +65,18 @@ class YCableBase():
     FIRMWARE_ROLLBACK_SUCCESS = 0
     FIRMWARE_ROLLBACK_FAILURE = 1
 
+
+    # Valid status values for download_firmware
+    # The download_firmware_status variable should be assigned
+    # one of these predefined values inside download_firmware routine
+    # as to signify what is the current status of the firmware
+    # download is
+
+    FIRMWARE_DOWNLOAD_STATUS_NOT_INITIATED_OR_FINISHED = 0
+    FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
+    FIRMWARE_DOWNLOAD_STATUS_FAILED = 2
+
+
     # definitions of PRBS run modes
     PRBS_DIRECTION_BOTH = 0
     PRBS_DIRECTION_GENERATOR = 1
@@ -82,6 +94,8 @@ class YCableBase():
         """
         self.port = port
         self._logger = logger
+        self.download_firmware_status = FIRMWARE_DOWNLOAD_STATUS_NOT_INITIATED_OR_FINISHED
+
 
     def log_warning(self, msg):
         self._logger.log_warning("y_cable_port {}: {}".format(self.port, msg))
@@ -638,8 +652,7 @@ class YCableBase():
 
         raise NotImplementedError
 
-    def create_port(self, speed, fec_mode_tor_a=FEC_MODE_NONE, fec_mode_tor_b=FEC_MODE_NONE,
-                    fec_mode_nic=FEC_MODE_NONE, anlt_tor_a=False, anlt_tor_b= False, anlt_nic=False):
+    def create_port(self, speed, fec_mode_tor=FEC_MODE_NONE, fec_mode_nic= FEC_MODE_NONE, anlt_tor=False, anlt_nic=False):
         """
         This API sets the mode of the cable/port for corresponding lane/FEC etc. configuration as specified.
         The speed specifies which mode is supposed to be set 50G, 100G etc
@@ -655,14 +668,8 @@ class YCableBase():
                 50000 -> 50G
                 100000 -> 100G
 
-            fec_mode_tor_a:
-                One of the following predefined constants, the actual FEC mode for the ToR A to be configured:
-                     FEC_MODE_NONE,
-                     FEC_MODE_RS,
-                     FEC_MODE_FC
-
-            fec_mode_tor_b:
-                One of the following predefined constants, the actual FEC mode for the ToR B to be configured:
+            fec_mode_tor:
+                One of the following predefined constants, the actual FEC mode for the ToR to be configured:
                      FEC_MODE_NONE,
                      FEC_MODE_RS,
                      FEC_MODE_FC
@@ -673,13 +680,9 @@ class YCableBase():
                      FEC_MODE_RS,
                      FEC_MODE_FC
 
-            anlt_tor_a:
-                a boolean, True if auto-negotiation + link training (AN/LT) is to be enabled on ToR A
-                         , False if auto-negotiation + link training (AN/LT) is not to be enabled on ToR A
-
-            anlt_tor_b:
-                a boolean, True if auto-negotiation + link training (AN/LT) is to be enabled on ToR B
-                         , False if auto-negotiation + link training (AN/LT) is not to be enabled on ToR B
+            anlt_tor:
+                a boolean, True if auto-negotiation + link training (AN/LT) is to be enabled on ToR's
+                         , False if auto-negotiation + link training (AN/LT) is not to be enabled on ToR's
 
             anlt_nic:
                 a boolean, True if auto-negotiation + link training (AN/LT) is to be enabled on nic
