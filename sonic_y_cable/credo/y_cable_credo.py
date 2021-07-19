@@ -102,14 +102,17 @@ class YCable(YCableBase):
     EVENTLOG_OPTION_CLEAR = 0x02
 
     # VSC opcode
-    VSC_OPCODE_FWUPD      = 0x80
-    VSC_OPCODE_EVENTLOG   = 0x81
-    VSC_OPCODE_TCM_READ   = 0x82
-    VSC_OPCODE_TCM_WRITE  = 0x83
-    VSC_OPCODE_FW_CMD     = 0x84
-    VSC_OPCODE_FW_CMD_EXT = 0x85
-    VSC_OPCODE_REG_READ   = 0x86
-    VSC_OPCODE_REG_WRITE  = 0x87
+    VSC_OPCODE_UART_STAT       = 0x1C
+    VSC_OPCODE_SERDES_INFO     = 0x1D
+    VSC_OPCODE_DSP_LOADFW_STAT = 0x1F
+    VSC_OPCODE_FWUPD           = 0x80
+    VSC_OPCODE_EVENTLOG        = 0x81
+    VSC_OPCODE_TCM_READ        = 0x82
+    VSC_OPCODE_TCM_WRITE       = 0x83
+    VSC_OPCODE_FW_CMD          = 0x84
+    VSC_OPCODE_FW_CMD_EXT      = 0x85
+    VSC_OPCODE_REG_READ        = 0x86
+    VSC_OPCODE_REG_WRITE       = 0x87
 
     BER_TIMEOUT_SECS = 1
     EYE_TIMEOUT_SECS = 1
@@ -2609,5 +2612,164 @@ class YCable(YCableBase):
                  with all the relevant key-value pairs for all the meaningful fields
                  which would help diagnose the cable for proper functioning
         """
+        if self.platform_chassis is not None:
+            result = {}
+            result['pn'] = self.get_part_number()
+            result['sn'] = self.get_serial_number()
+            result['uart_stat'] = self.get_uart_stat()
+            result['nic_temp'] = self.get_nic_temperature()
+            result['nic_voltage'] = self.get_nic_voltage()
+            result['fw_init_status'] = self.get_dsp_fw_init_stat()
+            result['serdes_detect'] = self.get_dsp_link_Dect()
 
-        raise NotImplementedError
+            lanes = [0,1,2,3,12,13,14,15,20,21,22,23]
+            for ln in list(lanes):
+                data = self.get_serdes_params(ln)
+                serdes = {}
+                serdes['eye']       = struct.unpack_from('<H', data[ 8  : 10])[0]
+                serdes['ppm']       = struct.unpack_from('<h', data[ 18 : 20])[0]
+                serdes['adp_cnt']   = struct.unpack_from('<H', data[ 28 : 30])[0]
+                serdes['adp_done']  = struct.unpack_from('<B', data[ 30 : 31])[0]
+                serdes['agc_g1']    = struct.unpack_from('<H', data[ 31 : 33])[0]
+                serdes['agc_g2']    = struct.unpack_from('<H', data[ 33 : 35])[0]
+                serdes['exit_code'] = struct.unpack_from('<H', data[118 :120])[0]
+                serdes['pll_tx']    = struct.unpack_from('<H', data[ 20 : 22])[0]
+                serdes['pll_rx']    = struct.unpack_from('<H', data[ 22 : 24])[0]
+
+                result['serde_lane_%d' % ln] = serdes
+
+        else:
+            self.log_error("platform_chassis is not loaded, failed to dump registers")
+
+        return result
+
+    def get_dsp_link_Dect(self):
+        """
+        This API returns rdy/sd of DSP.
+        The port on which this API is called for can be referred using self.port.
+
+        Args:
+
+        Returns:
+           a dictionary:
+               a detailed format agreed upon by vendors
+        """
+
+        if self.platform_chassis is not None:
+            result = {}
+            curr_offset = YCable.OFFSET_NIC_SIGNAL_DETECTION
+            result['sdNic']   = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 0, 1)[0]
+            result['rdyNic']  = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 1, 1)[0]
+            result['sdTorA']  = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 2, 1)[0]
+            result['rdyTorA'] = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 3, 1)[0]
+            result['sdTorB']  = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 4, 1)[0]
+            result['rdyTorB'] = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 5, 1)[0]
+
+        else:
+            self.log_error("platform_chassis is not loaded, failed to get init. status of DSP firmware")
+
+        return result
+
+    def get_dsp_fw_init_stat(self):
+        """
+        This API returns init. status of DSP FW.
+        The port on which this API is called for can be referred using self.port.
+
+        Returns:
+           a dictionary:
+               a detailed format agreed upon by vendors
+        """
+
+        if self.platform_chassis is not None:
+            vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+            vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_DSP_LOADFW_STAT
+            status = self.send_vsc(vsc_req_form)
+            if status != YCable.MCU_EC_NO_ERROR:
+                self.log_error('Get DSP firmware init status error (error code:0x%04X)' % (status))
+
+            result = {}
+            result['err_code'] = self.read_mmap(YCable.MIS_PAGE_VSC, 134)
+            result['err_stat'] = self.read_mmap(YCable.MIS_PAGE_VSC, 135)
+
+        else:
+            self.log_error("platform_chassis is not loaded, failed to get init. status of DSP firmware")
+
+        return result
+
+    def get_uart_stat(self):
+        """
+        This API returns Uart statstics.
+        The port on which this API is called for can be referred using self.port.
+
+        Returns:
+           a dictionary:
+               a detailed format agreed upon by vendors
+        """
+
+        if self.platform_chassis is not None:
+            cnt = {}
+            uartPort = {}
+            result = {}
+
+            for option in range(2):
+                vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_UART_STAT
+                vsc_req_form[YCable.VSC_BYTE_OPTION] = option
+                status = self.send_vsc(vsc_req_form)
+                if status != YCable.MCU_EC_NO_ERROR:
+                    self.log_error('Dump Uart statstics error (error code:0x%04X)' % (status))
+
+                addr = 128
+
+                for idx in range(1, 3):
+                    cnt['TxPktCnt']   = (self.read_mmap(YCable.MIS_PAGE_FC, addr + 3) << 24) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 2) << 16) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 1) << 8) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 0) << 0)
+                    addr += 4
+                    cnt['RxPktCnt']   = (self.read_mmap(YCable.MIS_PAGE_FC, addr + 3) << 24) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 2) << 16) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 1) << 8) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 0) << 0)
+                    addr += 4
+                    cnt['AckCnt']     = (self.read_mmap(YCable.MIS_PAGE_FC, addr + 3) << 24) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 2) << 16) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 1) << 8) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 0) << 0)
+                    addr += 4
+                    cnt['NackCnt']    = (self.read_mmap(YCable.MIS_PAGE_FC, addr + 3) << 24) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 2) << 16) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 1) << 8) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 0) << 0)
+                    addr += 4
+                    cnt['TxRetryCnt'] = (self.read_mmap(YCable.MIS_PAGE_FC, addr + 3) << 24) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 2) << 16) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 1) << 8) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 0) << 0)
+                    addr += 4
+                    cnt['TxAbortCnt'] = (self.read_mmap(YCable.MIS_PAGE_FC, addr + 3) << 24) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 2) << 16) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 1) << 8) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 0) << 0)
+                    addr += 4
+                    uartPort['UART%d' % idx] = cnt
+                if option == 0: result['Local']  = uartPort
+                else:           result['Remote'] = uartPort
+
+        else:
+            self.log_error("platform_chassis is not loaded, failed to get Uart statstics")
+
+        return result
+
+    def get_serdes_params(self, lane):
+        """
+        This API returns Serdes parameters.
+        The port on which this API is called for can be referred using self.port.
+
+        Args:
+            lane:
+                id of lane
+
+        Returns:
+           a bytearray:
+               raw data of serdes information
+        """
+        if self.platform_chassis is not None:
+            ln = lane
+
+            vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+            vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_SERDES_INFO
+            vsc_req_form[YCable.VSC_BYTE_OPTION] = 0
+            vsc_req_form[YCable.VSC_BYTE_ADDR0]  = ln & 0xFF
+            vsc_req_form[YCable.VSC_BYTE_DATA0]  = 1
+            status = self.send_vsc(vsc_req_form)
+            if status != YCable.MCU_EC_NO_ERROR:
+                self.log_error('Dump Serdes Info error (error code:0x%04X)' % (status))
+
+            result = self.read_mmap(YCable.MIS_PAGE_FC, 128, 128)
+        else:
+            self.log_error("platform_chassis is not loaded, failed to get serdes params")
+
+        return result
