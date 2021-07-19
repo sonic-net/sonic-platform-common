@@ -2626,15 +2626,25 @@ class YCable(YCableBase):
             for ln in list(lanes):
                 data = self.get_serdes_params(ln)
                 serdes = {}
-                serdes['eye']       = struct.unpack_from('<H', data[ 8  : 10])[0]
-                serdes['ppm']       = struct.unpack_from('<h', data[ 18 : 20])[0]
-                serdes['adp_cnt']   = struct.unpack_from('<H', data[ 28 : 30])[0]
-                serdes['adp_done']  = struct.unpack_from('<B', data[ 30 : 31])[0]
-                serdes['agc_g1']    = struct.unpack_from('<H', data[ 31 : 33])[0]
-                serdes['agc_g2']    = struct.unpack_from('<H', data[ 33 : 35])[0]
-                serdes['exit_code'] = struct.unpack_from('<H', data[118 :120])[0]
-                serdes['pll_tx']    = struct.unpack_from('<H', data[ 20 : 22])[0]
-                serdes['pll_rx']    = struct.unpack_from('<H', data[ 22 : 24])[0]
+                serdes['ch_est']    = struct.unpack_from('<f', data[  4 :  8])[0]
+                serdes['of']        = struct.unpack_from('<H', data[  8 : 10])[0]
+                serdes['hf']        = struct.unpack_from('<H', data[ 10 : 12])[0]
+                serdes['ctle1']     = struct.unpack_from('<H', data[ 14 : 16])[0]
+                serdes['ctle2']     = struct.unpack_from('<H', data[ 16 : 18])[0]
+                serdes['delta']     = struct.unpack_from('<h', data[ 18 : 20])[0]
+                serdes['eye']       = struct.unpack_from('<H', data[ 30 : 32])[0]
+                serdes['ppm']       = struct.unpack_from('<h', data[ 40 : 42])[0]
+                serdes['adp_cnt']   = struct.unpack_from('<H', data[ 56 : 58])[0]
+                serdes['adp_done']  = struct.unpack_from('<B', data[ 58 : 59])[0]
+                serdes['agc_g1']    = struct.unpack_from('<H', data[ 59 : 61])[0]
+                serdes['agc_g2']    = struct.unpack_from('<H', data[ 61 : 63])[0]
+                serdes['exit_code'] = struct.unpack_from('<H', data[112 :114])[0]
+                serdes['pll_tx']    = struct.unpack_from('<H', data[ 42 : 44])[0]
+                serdes['pll_rx']    = struct.unpack_from('<H', data[ 44 : 46])[0]
+                serdes['f1']        = struct.unpack_from('<h', data[ 46 : 48])[0]
+                serdes['f2']        = struct.unpack_from('<h', data[ 48 : 50])[0]
+                serdes['f3']        = struct.unpack_from('<h', data[ 50 : 52])[0]
+                serdes['temp']      = struct.unpack_from('<b', data[111 :112])[0]
 
                 result['serde_lane_%d' % ln] = serdes
 
