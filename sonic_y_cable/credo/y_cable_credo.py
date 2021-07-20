@@ -1232,6 +1232,13 @@ class YCable(YCableBase):
             result["empty_slot1"] = True if slot_status & 0x04 else False
             result["empty_slot2"] = True if slot_status & 0x40 else False
 
+        version_build_slot1 = version_slot1 + build_slot1
+        version_build_slot2 = version_slot2 + build_slot2
+
+        result["version_active"] = version_build_slot1 if slot_status & 0x01 else version_build_slot2
+        result["version_inactive"] = version_build_slot2 if slot_status & 0x01 else version_build_slot1
+        result["version_next"] = version_build_slot1 if slot_status & 0x02 else version_build_slot2
+
         return result
 
     def download_firmware(self, fwfile):
@@ -1267,6 +1274,8 @@ class YCable(YCableBase):
         fwImage = bytearray(inFile.read())
         inFile.close()
 
+        self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS
+
         '''
         Firmware update start
         '''
@@ -1276,6 +1285,7 @@ class YCable(YCableBase):
         status = self.send_vsc(vsc_req_form)
         if status != YCable.MCU_EC_NO_ERROR:
             self.log_error(YCable.MCU_ERROR_CODE_STRING[status])
+            self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
             return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
 
         '''
@@ -1316,6 +1326,7 @@ class YCable(YCableBase):
 
                 if retry_count == 3:
                     self.log_error('Retry Xfer Fw Bin Error, abort firmware update')
+                    self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
                     return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
                 retry_count += 1
 
@@ -1328,6 +1339,7 @@ class YCable(YCableBase):
         status = self.send_vsc(vsc_req_form)
         if status != YCable.MCU_EC_NO_ERROR:
             self.log_error('Veriyf firmware binary error (error code:0x%04X)' % (status))
+            self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
             return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
 
         '''
@@ -1339,6 +1351,7 @@ class YCable(YCableBase):
         status = self.send_vsc(vsc_req_form)
         if status != YCable.MCU_EC_NO_ERROR:
             self.log_error('Firmware binary UART transfer error (error code:0x%04X)' % (status))
+            self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
             return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
 
         vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
@@ -1348,6 +1361,7 @@ class YCable(YCableBase):
         if status != YCable.MCU_EC_NO_ERROR:
             self.log_error(
                 'Get firmware binary UART transfer status error (error code:0x%04X)' % (status))
+            self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
             return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
 
         busy = self.read_mmap(YCable.MIS_PAGE_FC, 128)
@@ -1363,6 +1377,8 @@ class YCable(YCableBase):
             if status != YCable.MCU_EC_NO_ERROR:
                 self.log_error(
                     'Get firmware binary UART transfer status error (error code:0x%04X)' % (status))
+
+                self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
                 return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
 
             time.sleep(0.2)
@@ -1370,6 +1386,8 @@ class YCable(YCableBase):
             self.read_mmap(YCable.MIS_PAGE_FC, 129)
             self.read_mmap(YCable.MIS_PAGE_FC, 130)
             self.read_mmap(YCable.MIS_PAGE_FC, 131)
+
+        self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_NOT_INITIATED_OR_FINISHED
 
         return YCableBase.FIRMWARE_DOWNLOAD_SUCCESS
 
@@ -1703,8 +1721,7 @@ class YCable(YCableBase):
 
         return True
 
-    def create_port(self, speed, fec_mode_tor_a=YCableBase.FEC_MODE_NONE, fec_mode_tor_b=YCableBase.FEC_MODE_NONE,
-                    fec_mode_nic=YCableBase.FEC_MODE_NONE, anlt_tor_a=False, anlt_tor_b=False, anlt_nic=False):
+    def create_port(self, speed, fec_mode_tor = YCableBase.FEC_MODE_NONE, fec_mode_nic = YCableBase.FEC_MODE_NONE, anlt_tor = False, anlt_nic = False):
         """
         This API sets the mode of the cable/port for corresponding lane/FEC etc. configuration as specified.
         The speed specifies which mode is supposed to be set 50G, 100G etc
@@ -1720,14 +1737,8 @@ class YCable(YCableBase):
                 50000 -> 50G
                 100000 -> 100G
 
-            fec_mode_tor_a:
-                One of the following predefined constants, the actual FEC mode for the ToR A to be configured:
-                     FEC_MODE_NONE,
-                     FEC_MODE_RS,
-                     FEC_MODE_FC
-
-            fec_mode_tor_b:
-                One of the following predefined constants, the actual FEC mode for the ToR B to be configured:
+            fec_mode_tor:
+                One of the following predefined constants, the actual FEC mode for the ToR to be configured:
                      FEC_MODE_NONE,
                      FEC_MODE_RS,
                      FEC_MODE_FC
@@ -1738,13 +1749,9 @@ class YCable(YCableBase):
                      FEC_MODE_RS,
                      FEC_MODE_FC
 
-            anlt_tor_a:
-                a boolean, True if auto-negotiation + link training (AN/LT) is to be enabled on ToR A
-                         , False if auto-negotiation + link training (AN/LT) is not to be enabled on ToR A
-
-            anlt_tor_b:
-                a boolean, True if auto-negotiation + link training (AN/LT) is to be enabled on ToR B
-                         , False if auto-negotiation + link training (AN/LT) is not to be enabled on ToR B
+            anlt_tor:
+                a boolean, True if auto-negotiation + link training (AN/LT) is to be enabled on ToR's
+                         , False if auto-negotiation + link training (AN/LT) is not to be enabled on ToR's
 
             anlt_nic:
                 a boolean, True if auto-negotiation + link training (AN/LT) is to be enabled on nic
@@ -1767,9 +1774,9 @@ class YCable(YCableBase):
                 return False
 
             mode |= (1 << 0) if anlt_nic else (0 << 0)
-            mode |= (1 << 1) if anlt_tor_a else (0 << 1)
+            mode |= (1 << 1) if anlt_tor else (0 << 1)
             mode |= (1 << 3) if fec_mode_nic == YCableBase.FEC_MODE_RS else (0 << 3)
-            mode |= (1 << 4) if fec_mode_tor_a == YCableBase.FEC_MODE_RS else (0 << 4)
+            mode |= (1 << 4) if fec_mode_tor == YCableBase.FEC_MODE_RS else (0 << 4)
 
             curr_offset = YCable.OFFSET_NIC_MODE_CONFIGURATION
             buffer = bytearray([mode])
