@@ -1429,27 +1429,50 @@ class YCable(YCableBase):
                 FIRMWARE_ACTIVATE_FAILURE
         """
         if self.platform_chassis is not None:
-            side = 0x7
+            if fwfile is None:
+                side = 0x7
 
-            vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
-            vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_COMMIT
-            vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
-            vsc_req_form[YCable.VSC_BYTE_ADDR0] = side
-            status = self.send_vsc(vsc_req_form)
-            if status != YCable.MCU_EC_NO_ERROR:
-                self.log_error(YCable.MCU_ERROR_CODE_STRING[status])
-                return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+                vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_COMMIT
+                vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
+                vsc_req_form[YCable.VSC_BYTE_ADDR0] = side
+                status = self.send_vsc(vsc_req_form)
+                if status != YCable.MCU_EC_NO_ERROR:
+                    self.log_error(YCable.MCU_ERROR_CODE_STRING[status])
+                    return YCableBase.FIRMWARE_ACTIVATE_FAILURE
 
-            vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
-            vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_RUN
-            vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
-            vsc_req_form[YCable.VSC_BYTE_ADDR0] = side
-            vsc_req_form[YCable.VSC_BYTE_ADDR1] = hitless
-            status = self.send_vsc(vsc_req_form)
-            time.sleep(5)
-            if status != YCable.MCU_EC_NO_ERROR:
-                self.log_error(YCable.MCU_ERROR_CODE_STRING[status])
-                return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+                vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_RUN
+                vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
+                vsc_req_form[YCable.VSC_BYTE_ADDR0] = side
+                vsc_req_form[YCable.VSC_BYTE_ADDR1] = hitless
+                status = self.send_vsc(vsc_req_form)
+                time.sleep(5)
+                if status != YCable.MCU_EC_NO_ERROR:
+                    self.log_error(YCable.MCU_ERROR_CODE_STRING[status])
+                    return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+            else:
+                inFile = open(fwfile, 'rb')
+                fwImage = bytearray(inFile.read())
+                inFile.close()
+
+                build_msb = struct.unpack_from('<B', fwImage[7:8])[0]
+                build_lsb = struct.unpack_from('<B', fwImage[8:9])[0]
+                rev_major = struct.unpack_from('<B', fwImage[9:10])[0]
+                rev_minor = struct.unpack_from('<B', fwImage[10:11])[0]
+
+                version_build_file = str(rev_major) + '.' + str(rev_minor) + chr(build_msb) + chr(build_lsb)
+
+                fwVer = self.get_firmware_version(YCableBase.TARGET_NIC)
+
+                if fwVer['version_active'] == version_build_file:
+                    return YCableBase.FIRMWARE_ACTIVATE_SUCCESS
+                elif fwVer['version_inactive'] == version_build_file:
+                    return self.activate_firmware(hitless=hitless)
+                else:
+                    if self.download_firmware(fwfile) != YCableBase.FIRMWARE_DOWNLOAD_SUCCESS:
+                        return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+                    return self.activate_firmware(fwfile, hitless)
         else:
             self.log_error("platform_chassis is not loaded, failed to activate firmware")
             return YCableBase.FIRMWARE_ACTIVATE_FAILURE
@@ -1486,7 +1509,7 @@ class YCable(YCableBase):
         """
 
         if self.platform_chassis is not None:
-            if self.activate_firmware() == YCableBase.FIRMWARE_ACTIVATE_FAILURE:
+            if self.activate_firmware(fwfile) == YCableBase.FIRMWARE_ACTIVATE_FAILURE:
                 return YCableBase.FIRMWARE_ROLLBACK_FAILURE
         else:
             self.log_error("platform_chassis is not loaded, failed to activate firmware")
