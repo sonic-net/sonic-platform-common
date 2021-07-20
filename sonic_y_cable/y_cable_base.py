@@ -94,7 +94,7 @@ class YCableBase():
         """
         self.port = port
         self._logger = logger
-        self.download_firmware_status = FIRMWARE_DOWNLOAD_STATUS_NOT_INITIATED_OR_FINISHED
+        self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_NOT_INITIATED_OR_FINISHED
 
 
     def log_warning(self, msg):
