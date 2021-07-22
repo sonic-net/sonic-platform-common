@@ -11,20 +11,15 @@
 from sonic_y_cable.y_cable_base import YCableBase
 
 try:
-    import math
     import time
     import struct
-    import sys
     import array
-    import io
     import os
     import threading
 
     import sonic_platform.platform
-    from ctypes import c_int8, c_int32, c_int16
+    from ctypes import c_int16
     from datetime import datetime
-    from dataclasses import dataclass
-
 
     #from chassis import chassis
     import sonic_platform.platform
@@ -38,7 +33,7 @@ except ImportError as e:
     #   1. If any python package is not available, there will be exception when use it
     #   2. Vendors know their platform API version, they are responsible to use correct python
     #   version when importing this file.
-    pass
+    #pass
 
 # strut definitions used in fw related functions
 class cable_image_version_s(object):
@@ -124,8 +119,6 @@ class YCable(YCableBase):
 
     # temperature and voltage register offsets
     QSFP28_VENFD_128_DIE_TEMP_LSB                 = 0x00007f00
-    QSFP28_VENFD_129_DIE_TEMP_MSB                 = 0x00007f01
-    QSFP28_VENFD_130_DIE_VOLTAGE_LSB              = 0x00007f02
     QSFP28_VENFD_131_DIE_VOLTAGE_MSB              = 0x00007f03
     QSFP28_VENFD_134_TORA_TEMP_MSB                = 0x00007f06
     QSFP28_VENFD_135_TORA_TEMP_LSB                = 0x00007f07
@@ -202,7 +195,6 @@ class YCable(YCableBase):
     QSFP_BRCM_DIAGNOSTIC_PAGE           = 0x04
     QSFP_BRCM_DIAGNOSTIC_STATUS         = 0x81
     
-    QSFP_BRCM_FW_UPGRADE_CMD_STS        = 0x81
     QSFP_BRCM_FW_UPGRADE_PACKET_SIZE    = 0x92
     QSFP_BRCM_FW_UPGRADE_CURRENT_BANK   = 0x80
     
@@ -290,13 +282,13 @@ class YCable(YCableBase):
     def enable_all_log(self, enable):
         if enable:
             self.CONSOLE_PRINT = True
-            if self.helper_logger is not None:
-                self.helper_logger.set_min_log_priority(9)
+            if self._logger is not None:
+                self._logger.set_min_log_priority(9)
             print("Logging enabled...")
         else:
             self.CONSOLE_PRINT = False
-            if self.helper_logger is not None:
-                self.helper_logger.set_min_log_priority(7)
+            if self._logger is not None:
+                self._logger.set_min_log_priority(7)
             print("Logging disabled...")
     
     def __get_pid_str(self):
@@ -438,6 +430,8 @@ class YCable(YCableBase):
                 curr_offset = self.QSFP_VEN_FE_128_BRCM_CABLE_CMD
                 buffer1 = bytearray([cmd_req])
                 result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer1)
+                if result is False:
+                    return self.ERROR_WR_EEPROM_FAILED, None
 
                 # poll command status for 100ms
                 start = time.monotonic_ns()
@@ -476,6 +470,8 @@ class YCable(YCableBase):
                 if wr_len > 0:
                     curr_offset = self.CMD_REQ_PARAM_START_OFFSET
                     result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, wr_len, cmd_req_body)
+                    if result is False:
+                        return self.ERROR_WRITE_EEPROM_FAILED, None
 
                 # write the command request byte now
                 cmd_req = 1
@@ -483,6 +479,8 @@ class YCable(YCableBase):
                 curr_offset = self.QSFP_VEN_FE_128_BRCM_CABLE_CMD
                 buffer1 = bytearray([cmd_req])
                 result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer1)
+                if result is False:
+                    return self.ERROR_WRITE_EEPROM_FAILED, None
                 rd = False
 
                 start = time.monotonic_ns()
@@ -579,7 +577,7 @@ class YCable(YCableBase):
         """
         cmd_hdr = bytearray(5)
         cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
-        cmd_rsp_body = bytearray(self.MAX_RSP_PARAM_LEN)
+        #cmd_rsp_body = bytearray(self.MAX_RSP_PARAM_LEN)
     
         cmd_hdr[0] = 5
         cmd_hdr[1] = 4
@@ -625,7 +623,7 @@ class YCable(YCableBase):
     
         cmd_hdr = bytearray(5)
         cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
-        cmd_rsp_body = bytearray(self.MAX_RSP_PARAM_LEN)
+        #cmd_rsp_body = bytearray(self.MAX_RSP_PARAM_LEN)
     
         cmd_hdr[0] = 9
         cmd_hdr[1] = 0
@@ -711,7 +709,7 @@ class YCable(YCableBase):
     
         cmd_hdr = bytearray(5)
         cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
-        cmd_rsp_body = bytearray(self.MAX_RSP_PARAM_LEN)
+        #cmd_rsp_body = bytearray(self.MAX_RSP_PARAM_LEN)
     
         cmd_hdr[0] = 4
         cmd_hdr[1] = 16
@@ -763,7 +761,7 @@ class YCable(YCableBase):
         """
         cmd_hdr = bytearray(5)
         cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
-        cmd_rsp_body = bytearray(self.MAX_RSP_PARAM_LEN)
+        #cmd_rsp_body = bytearray(self.MAX_RSP_PARAM_LEN)
     
         cmd_hdr[0] = 0
         cmd_hdr[1] = 1
@@ -921,7 +919,7 @@ class YCable(YCableBase):
 
         cmd_hdr = bytearray(5)
         cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
-        cmd_rsp_body = bytearray(self.MAX_RSP_PARAM_LEN)
+        #cmd_rsp_body = bytearray(self.MAX_RSP_PARAM_LEN)
 
         cmd_hdr[0] = 0
         cmd_hdr[1] = 1
@@ -966,7 +964,7 @@ class YCable(YCableBase):
 
         cmd_hdr = bytearray(5)
         cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
-        cmd_rsp_body = bytearray(self.MAX_RSP_PARAM_LEN)
+        #cmd_rsp_body = bytearray(self.MAX_RSP_PARAM_LEN)
 
         cmd_hdr[0] = 1
         cmd_hdr[1] = 0
@@ -1006,7 +1004,7 @@ class YCable(YCableBase):
 
         cmd_hdr = bytearray(5)
         cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
-        cmd_rsp_body = bytearray(self.MAX_RSP_PARAM_LEN)
+        #cmd_rsp_body = bytearray(self.MAX_RSP_PARAM_LEN)
 
         cmd_hdr[0] = 1
         cmd_hdr[1] = 0
@@ -1130,7 +1128,7 @@ class YCable(YCableBase):
 
         cmd_hdr = bytearray(5)
         cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
-        cmd_rsp_body = bytearray(self.MAX_RSP_PARAM_LEN)
+        #cmd_rsp_body = bytearray(self.MAX_RSP_PARAM_LEN)
 
         byte_list = []
 
@@ -1358,6 +1356,8 @@ class YCable(YCableBase):
             dat[0] = 0x00
             curr_offset = (self.QSFP_BRCM_FW_UPGRADE_PAGE * 128) + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD
             result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, dat)
+            if result is False:
+                return self.ERROR_WRITE_EEPROM_FAILED
 
             # wait for mcu response to be pulled down
             for i in range(30):
@@ -1533,12 +1533,16 @@ class YCable(YCableBase):
                 dat[0] = upgrade_info.destination
                 current_offset = (self.QSFP_BRCM_FW_UPGRADE_PAGE*128) + self.QSFP_BRCM_FW_UPGRADE_HEADER_24_31
                 result = self.platform_chassis.get_sfp(self.port).write_eeprom(current_offset, 1, dat)
+                if result is False:
+                    return self.ERROR_WRITE_EEPROM_FAILED
 
                 # Send command status request
                 self.log_info("send command status request ")
                 dat[0] = (self.FW_CMD_INFO << 1) | 1
                 current_offset = (self.QSFP_BRCM_FW_UPGRADE_PAGE*128) + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD
                 result = self.platform_chassis.get_sfp(self.port).write_eeprom(current_offset, 1, dat)
+                if result is False:
+                    return self.ERROR_WRITE_EEPROM_FAILED
 
                 #Delay reading status as this can block during swap
                 #time.sleep(0.2)
@@ -1602,6 +1606,8 @@ class YCable(YCableBase):
                     dat[0] = 0x00
                     curr_offset = (self.QSFP_BRCM_FW_UPGRADE_PAGE*128) + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD
                     result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, dat)
+                    if result is False:
+                        return self.ERROR_WRITE_EEPROM_FAILED
 
                     # Delay reading status as this can block during swap
                     #time.sleep(0.3)
@@ -1660,20 +1666,15 @@ class YCable(YCableBase):
                  and their corresponding values
         """
 
-        result_dictionary = {}
-        ret_val = self.RR_ERROR
         #dat = bytearray(30)
         dat = [1000]
         dat1 = [1000]
-        status = 0
-        info_stat = 0
-        req_status = False
         i = 0
         result = {}
         upgrade_info = cable_upgrade_info_s()
 
         if (target != self.TARGET_TOR_A) and (target != self.TARGET_TOR_B) and (target != self.TARGET_NIC):
-                return self.RR_ERROR
+            return self.RR_ERROR
 
         if self.platform_chassis is not None:
 
@@ -1891,7 +1892,7 @@ class YCable(YCableBase):
 
         cmd_hdr = bytearray(5)
         cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
-        cmd_rsp_body = bytearray(self.MAX_RSP_PARAM_LEN)
+        #cmd_rsp_body = bytearray(self.MAX_RSP_PARAM_LEN)
 
         cmd_hdr[0] = 0
         cmd_hdr[1] = 14
@@ -1899,8 +1900,7 @@ class YCable(YCableBase):
         cmd_hdr[3] = lane_mask if (core_ip == self.CORE_IP_LW) else 0
         cmd_hdr[4] = core_ip
 
-        cmd_rsp_body = []
-        result = bytearray(15)
+        #cmd_rsp_body = []
         ret_val, cmd_rsp_body = self.__cable_cmd_execute(self.CABLE_CMD_ID_GET_TXFIR, cmd_hdr, cmd_req_body)
 
         if ret_val == 0:
@@ -2063,7 +2063,7 @@ class YCable(YCableBase):
 
         cmd_hdr = bytearray(5)
         cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
-        cmd_rsp_body = bytearray(self.MAX_RSP_PARAM_LEN)
+        #cmd_rsp_body = bytearray(self.MAX_RSP_PARAM_LEN)
 
         cmd_hdr[0] = 4
         cmd_hdr[1] = 0
@@ -2101,7 +2101,7 @@ class YCable(YCableBase):
 
         cmd_hdr = bytearray(5)
         cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
-        cmd_rsp_body = bytearray(self.MAX_RSP_PARAM_LEN)
+        #cmd_rsp_body = bytearray(self.MAX_RSP_PARAM_LEN)
 
         cmd_hdr[0] = 0
         cmd_hdr[1] = 4
@@ -2119,32 +2119,6 @@ class YCable(YCableBase):
                 return self.SWITCHING_MODE_MANUAL
         else:
             return None
-
-
-
-
-    def get_nic_temperature(self):
-        """
-        This API returns nic temperature of the physical port for which this API is called.
-        The port on which this API is called for can be referred using self.port.
-        Args:
-        Returns:
-            an Integer, the temperature of the NIC MCU
-        """
-
-        return None
-
-    def get_nic_voltage(self):
-        """
-        This API returns nic voltage of the physical port for which this API is called.
-        The port on which this API is called for can be referred using self.port.
-        Args:
-        Returns:
-            a float, the voltage of the NIC MCU
-        """
-
-        return None
-
 
     def get_alive_status(self):
         """
@@ -2199,6 +2173,9 @@ class YCable(YCableBase):
     
             status[0] = rval
             result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, status)
+            if result is False:
+                self.log_error("write to QSFP28_VENFD_184_NIC_TORB_TORA_RESET failed.")
+                return False
             time.sleep(3)
     
             # for next one second, keep checking the register to see if it becomes 0
@@ -2281,6 +2258,9 @@ class YCable(YCableBase):
 
             curr_offset = self.QSFP28_VENFD_184_NIC_TORB_TORA_RESET
             result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, status)
+            if result is False:
+                self.log_error("write to QSFP28_VENFD_184_NIC_TORB_TORA_RESET failed.")
+                return False
             time.sleep(3)
 
             self.log_info("reset value to write.  rval: {} ".format(status[0]))
@@ -2754,8 +2734,12 @@ class YCable(YCableBase):
         
         # clear the stickies
         ret_code = self.wr_reg_ex(0x5200C81C, 0xFFFF, 0x0)
+        if ret_code is False:
+            print("ERROR: Writing to 0x5200C81C Failed!")
         
         ret_code = self.wr_reg_ex(0x5200C81C, 0x0, 0x0)
+        if ret_code is False:
+            print("ERROR: Writing to 0x5200C81C Failed!")
         
         # print out the interrupt register
         ret_code, reg_val = self.rd_reg_ex(0x5200C8B4, 0x0)
@@ -2766,28 +2750,28 @@ class YCable(YCableBase):
         for i in range(0,4):
             reg_addr = 0x5200CC20 + i * 4
             ret_code, reg_val = self.rd_reg_ex(reg_addr, 0x0)
-            print("Lane {} = {}".format(i, hex(reg_val)))
+            print("Lane {} = {} (cmd ret_code: {})".format(i, hex(reg_val), ret_code))
         
         # print out the ipc registers LW=>CW 
         print("LW=>CW IPC registers")
         for i in range(0,4):
             reg_addr = 0x5200CC40 + i * 4
             ret_code, reg_val = self.rd_reg_ex(reg_addr, 0x0)
-            print("Lane {} = {}".format(i, hex(reg_val)))
+            print("Lane {} = {} (cmd ret_code: {})".format(i, hex(reg_val), ret_code))
         
         # print out the ipc registers CW=>BH
         print("CW=>BH IPC registers")
         for i in range(0,8):
             reg_addr = 0x5200CC60 + i * 4
             ret_code, reg_val = self.rd_reg_ex(reg_addr, 0x0)
-            print("{} Lane {} = {}".format( "TORB" if i> 3 else "TORA", i, hex(reg_val)))
+            print("{} Lane {} = {} (cmd ret_code: {})".format( "TORB" if i> 3 else "TORA", i, hex(reg_val), ret_code))
         
         # print out the ipc registers BH=>CW
         print("BH=>CW IPC registers")
         for i in range(0,8):
             reg_addr = 0x5200CCA0 + i * 4
             ret_code, reg_val = self.rd_reg_ex(reg_addr, 0x0)
-            print("{} Lane {} = {}".format( "TORB" if i> 3 else "TORA", i, hex(reg_val)))
+            print("{} Lane {} = {} (cmd ret_code: {})".format( "TORB" if i> 3 else "TORA", i, hex(reg_val), ret_code))
         
         # print out the PCS receive irq registers 
         mode = self.cable_get_mode()
@@ -2796,7 +2780,13 @@ class YCable(YCableBase):
         for i in range(0,3):
             reg_addr = 0x52007E80 + i * 4
             ret_code, reg_val = self.rd_reg_ex(reg_addr, 0x0)
+            if ret_code is False:
+                print("\n")
+
             ret_code = self.wr_reg_ex(reg_addr, reg_val, 0x0)
+            if ret_code is False:
+                print("ERROR: wr_reg_ex failed for {}".format(hex(reg_addr)))
+
             if(i==0):
                 print("{} {} = {}".format( "DESK_ALIGN_LOSS:", hex(reg_addr), hex(reg_val)))
             elif i==1:
@@ -2807,15 +2797,27 @@ class YCable(YCableBase):
         for i in range(0,4):
             reg_addr = 0x52007E8C + i * 4
             ret_code, reg_val = self.rd_reg_ex(reg_addr, 0x0)
+            if ret_code is False:
+                print("\n")
+
             reg_val = reg_val & 0x7FFF#dont clear bit 15
             ret_code = self.wr_reg_ex(reg_addr, reg_val, 0x0)
+            if ret_code is False:
+                print("ERROR: wr_reg_ex failed for {}".format(hex(reg_addr)))
+
             print("Lane {} {} = {}".format( i, hex(reg_addr), hex(reg_val)))
         if(mode == 0 or mode == 2):#for fec modes
             print("FEC irq status")
             for i in range(0,4):
                 reg_addr = 0x52007ED0 + i * 4
                 ret_code, reg_val = self.rd_reg_ex(reg_addr, 0x0)
+                if ret_code is False:
+                    print("\n")
+
                 ret_code = self.wr_reg_ex(reg_addr, reg_val, 0x0)
+                if ret_code is False:
+                    print("ERROR: wr_reg_ex failed for {}".format(hex(reg_addr)))
+
                 if(i==0):
                     print("{} {} = {}".format( "DEC_AM_LOCK_UNLOCK:", hex(reg_addr), hex(reg_val)))
                 elif i==1:
@@ -2827,7 +2829,13 @@ class YCable(YCableBase):
             for i in range(0,2):
                 reg_addr = 0x52007E60 + i * 4
                 ret_code, reg_val = self.rd_reg_ex(reg_addr, 0x0)
+                if ret_code is False:
+                    print("\n")
+
                 ret_code = self.wr_reg_ex(reg_addr, reg_val, 0x0)
+                if ret_code is False:
+                    print("ERROR: wr_reg_ex failed for {}".format(hex(reg_addr)))
+
                 if(i==0):
                     print("{} {} = {}".format( "ENC_GBOX:", hex(reg_addr), hex(reg_val)))
                 elif i==1:
@@ -2836,7 +2844,13 @@ class YCable(YCableBase):
         for i in range(0,3):
             reg_addr = 0x52017E80 + i * 4
             ret_code, reg_val = self.rd_reg_ex(reg_addr, 0x0)
+            if ret_code is False:
+                print("\n")
+
             ret_code = self.wr_reg_ex(reg_addr, reg_val, 0x0)
+            if ret_code is False:
+                print("ERROR: wr_reg_ex failed for {}".format(hex(reg_addr)))
+
             if(i==0):
                 print("{} {} = {}".format( "DESK_ALIGN_LOSS:", hex(reg_addr), hex(reg_val)))
             elif i==1:
@@ -2847,15 +2861,27 @@ class YCable(YCableBase):
         for i in range(0,4):
             reg_addr = 0x52017E8C + i * 4
             ret_code, reg_val = self.rd_reg_ex(reg_addr, 0x0)
+            if ret_code is False:
+                print("\n")
+
             reg_val = reg_val & 0x7FFF#dont clear bit 15
             ret_code = self.wr_reg_ex(reg_addr, reg_val, 0x0)
+            if ret_code is False:
+                print("ERROR: wr_reg_ex failed for {}".format(hex(reg_addr)))
+
             print("Lane {} {} = {}".format( i, hex(reg_addr), hex(reg_val)))
         if(mode == 0 or mode == 2):#for fec modes
             print("FEC irq status")
             for i in range(0,4):
                 reg_addr = 0x52017ED0 + i * 4
                 ret_code, reg_val = self.rd_reg_ex(reg_addr, 0x0)
+                if ret_code is False:
+                    print("\n")
+
                 ret_code = self.wr_reg_ex(reg_addr, reg_val, 0x0)
+                if ret_code is False:
+                    print("ERROR: wr_reg_ex failed for {}".format(hex(reg_addr)))
+
                 if(i==0):
                     print("{} {} = {}".format( "DEC_AM_LOCK_UNLOCK:", hex(reg_addr), hex(reg_val)))
                 elif i==1:
