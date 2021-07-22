@@ -2171,8 +2171,63 @@ class YCable(YCableBase):
            a dictionary:
                a detailed format agreed upon by vendors
         """
+        fec_stats = {}
 
-        raise NotImplementedError
+        if self.platform_chassis is not None:
+            quad = 0
+            ch = 0
+            if target == YCableBase.TARGET_NIC:
+                quad = 0
+            elif target == YCableBase.TARGET_TOR_A:
+                quad = 4
+            elif target == YCableBase.TARGET_TOR_B:
+                quad = 6
+            else:
+                self.log_error("get fec stats: unsupported target")
+                return fec_stats
+
+            base = (quad << 20) + 0xA2800
+
+            self.tcm_write(base + (3 << 2), 0x10000000 | (1 << ch))
+
+            lsb = self.tcm_read(base + (8 << 2))
+            msb = self.tcm_read(base + (0 << 2))
+            fec_stats['Total recevied CW'] = (msb << 32) | lsb
+
+            lsb = self.tcm_read(base + (9 << 2))
+            msb = self.tcm_read(base + (0 << 2))
+            fec_stats['Total correct CW'] = (msb << 32) | lsb
+
+            lsb = self.tcm_read(base + (10 << 2))
+            msb = self.tcm_read(base + (0 << 2))
+            fec_stats['Total corrected CW'] = (msb << 32) | lsb
+
+            fec_stats['Total uncorrectable CW'] = self.tcm_read(base + (11 << 2))
+
+            lsb = self.tcm_read(base + (12 << 2))
+            msb = self.tcm_read(base + ( 0 << 2))
+            fec_stats['Corrected CW ( 1 sym err)'] = (msb << 32) | lsb
+            lsb = self.tcm_read(base + (13 << 2))
+            msb = self.tcm_read(base + ( 0 << 2))
+            fec_stats['Corrected CW ( 2 sym err)'] = (msb << 32) | lsb
+            fec_stats['Corrected CW ( 3 sym err)'] = self.tcm_read(base + (14 << 2))
+            fec_stats['Corrected CW ( 4 sym err)'] = self.tcm_read(base + (15 << 2))
+            fec_stats['Corrected CW ( 5 sym err)'] = self.tcm_read(base + (16 << 2))
+            fec_stats['Corrected CW ( 6 sym err)'] = self.tcm_read(base + (17 << 2))
+            fec_stats['Corrected CW ( 7 sym err)'] = self.tcm_read(base + (18 << 2))
+            fec_stats['Corrected CW ( 8 sym err)'] = self.tcm_read(base + (19 << 2))
+            fec_stats['Corrected CW ( 9 sym err)'] = self.tcm_read(base + (20 << 2))
+            fec_stats['Corrected CW (10 sym err)'] = self.tcm_read(base + (21 << 2))
+            fec_stats['Corrected CW (11 sym err)'] = self.tcm_read(base + (22 << 2))
+            fec_stats['Corrected CW (12 sym err)'] = self.tcm_read(base + (23 << 2))
+            fec_stats['Corrected CW (13 sym err)'] = self.tcm_read(base + (24 << 2))
+            fec_stats['Corrected CW (14 sym err)'] = self.tcm_read(base + (25 << 2))
+            fec_stats['Corrected CW (15 sym err)'] = self.tcm_read(base + (26 << 2))
+        else:
+            self.log_error("platform_chassis is not loaded, failed to get fec statisics")
+            return fec_stats
+
+        return fec_stats
 
     def set_autoswitch_hysteresis_timer(self, time):
         """
