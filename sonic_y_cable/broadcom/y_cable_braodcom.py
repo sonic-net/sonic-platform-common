@@ -23,7 +23,6 @@ try:
 
     #from chassis import chassis
     import sonic_platform.platform
-    from sonic_py_common import logger
     from sonic_y_cable.y_cable_base import YCableBase
 except ImportError as e:
     print("{}".format(e))
