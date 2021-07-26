@@ -54,8 +54,9 @@ class YCableBase():
 
     # definitions of the modes to be run for loopback mode
     # on the port/cable
-    LOOPBACK_MODE_NEAR_END = 0
-    LOOPBACK_MODE_FAR_END = 1
+    LOOPBACK_MODE_NONE = 0
+    LOOPBACK_MODE_NEAR_END = 1
+    LOOPBACK_MODE_FAR_END = 2
 
     # Valid return codes for upgrade firmware routine steps
     FIRMWARE_DOWNLOAD_SUCCESS = 0
@@ -1104,6 +1105,7 @@ class YCableBase():
         Returns:
             mode_value:
                 One of the following predefined constants, the mode to be run for loopback:
+                    LOOPBACK_MODE_NONE
                     LOOPBACK_MODE_NEAR_END
                     LOOPBACK_MODE_FAR_END
         """
