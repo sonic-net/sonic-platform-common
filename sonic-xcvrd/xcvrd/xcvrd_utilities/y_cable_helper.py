@@ -1102,10 +1102,6 @@ class YCableTableUpdateTask(object):
                                 port, old_status, new_status))
                             new_status = 'unknown'
 
-                        fvs_updated = swsscommon.FieldValuePairs([('state', new_status),
-                                                                  ('read_side', read_side),
-                                                                  ('active_side', str(active_side))])
-                        y_cable_tbl[asic_index].set(port, fvs_updated)
                         helper_logger.log_debug("Y_CABLE_DEBUG: xcvrd successful to transition port {} from {} to {} and write back to the DB".format(port, old_status, new_status))
                         helper_logger.log_info("Got a change event for toggle the mux-direction active side for port {} state from {} to {}".format(
                             port, old_status, new_status))
@@ -1113,6 +1109,11 @@ class YCableTableUpdateTask(object):
                         fvs_metrics = swsscommon.FieldValuePairs([('xcvrd_switch_{}_start'.format(new_status), str(time_start)),
                                                                   ('xcvrd_switch_{}_end'.format(new_status), str(time_end))])
                         mux_metrics_tbl[asic_index].set(port, fvs_metrics)
+
+                        fvs_updated = swsscommon.FieldValuePairs([('state', new_status),
+                                                                  ('read_side', read_side),
+                                                                  ('active_side', str(active_side))])
+                        y_cable_tbl[asic_index].set(port, fvs_updated)
                     else:
                         helper_logger.log_info("Got a change event on port {} of table {} that does not contain state".format(
                             port, swsscommon.APP_HW_MUX_CABLE_TABLE_NAME))
