@@ -1,13 +1,13 @@
 mapping = {
-    "Credo": {
-        "CACL05321P2PA1MS": "credo.y_cable_credo",
-        "CACL1X321P2PA1MS": "credo.y_cable_credo",
-        "CACL15321P2PA1MS": "credo.y_cable_credo",
-        "CACL2X321P2PA1MS": "credo.y_cable_credo",
+    "credo": {
+        "cacl05321p2pa1ms": "credo.y_cable_credo",
+        "cacl1x321p2pa1ms": "credo.y_cable_credo",
+        "cacl15321p2pa1ms": "credo.y_cable_credo",
+        "cacl2x321p2pa1ms": "credo.y_cable_credo",
 
-        "CAC105321P2PA2MS": "credo.y_cable_credo",
-        "CAC11X321P2PA2MS": "credo.y_cable_credo",
-        "CAC115321P2PA2MS": "credo.y_cable_credo",
-        "CAC12X321P2PA2MS": "credo.y_cable_credo"
+        "cac105321p2pa2ms": "credo.y_cable_credo",
+        "cac11x321p2pa2ms": "credo.y_cable_credo",
+        "cac115321p2pa2ms": "credo.y_cable_credo",
+        "cac12x321p2pa2ms": "credo.y_cable_credo"
     }
 }
