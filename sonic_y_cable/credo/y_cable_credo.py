@@ -53,8 +53,10 @@ class YCable(YCableBase):
     OFFSET_LANE_1_BER_RESULT         = 771
     OFFSET_INITIATE_EYE_MEASUREMENT  = 784
     OFFSET_LANE_1_EYE_RESULT         = 785
-    OFFSET_TARGET                    = 794
     OFFSET_ENABLE_LOOPBACK           = 793
+    OFFSET_TARGET                    = 794
+    OFFSET_SYNC_DEBUG_MODE           = 795
+
 
     # definition of VSC command byte
     VSC_BYTE_OPCODE     = 128
@@ -116,6 +118,7 @@ class YCable(YCableBase):
 
     BER_TIMEOUT_SECS = 1
     EYE_TIMEOUT_SECS = 1
+    GET_DEBUG_MODE_TIMEOUT_SECS = 1
     EXTEND_SWITCH_CNT_TIMEOUT_SECS = 1
 
     # error code of EEPROM
@@ -784,7 +787,6 @@ class YCable(YCableBase):
             time_start = time.time()
             while(True):
                 done = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
-
                 time_now = time.time()
                 time_diff = time_now - time_start
                 if done[0] == 1:
@@ -2612,11 +2614,44 @@ class YCable(YCableBase):
         Returns:
             mode_value:
                 One of the following predefined constants, the mode to be run for loopback:
+                    LOOPBACK_MODE_NONE
                     LOOPBACK_MODE_NEAR_END
                     LOOPBACK_MODE_FAR_END
         """
 
-        raise NotImplementedError
+        if self.platform_chassis is not None:
+            buffer = bytearray([target])
+            curr_offset = YCable.OFFSET_TARGET
+
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
+            if result is False:
+                return -1
+
+            buffer = bytearray([0])
+            curr_offset = YCable.OFFSET_SYNC_DEBUG_MODE
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
+            if result is False:
+                return -1
+            time_start = time.time()
+            while(True):
+                done = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+                time_now = time.time()
+                time_diff = time_now - time_start
+                if done[0] == 1:
+                    break
+                elif time_diff >= YCable.GET_DEBUG_MODE_TIMEOUT_SECS:
+                    return YCable.EEPROM_TIMEOUT_ERROR
+
+            curr_offset = YCable.OFFSET_ENABLE_LOOPBACK
+            result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+
+            if result[0]:
+                return YCableBase.LOOPBACK_MODE_NEAR_END
+        else:
+            self.log_error("platform_chassis is not loaded, failed to get loopback mode")
+            return -1
+
+        return YCableBase.LOOPBACK_MODE_NONE
 
     def get_ber_info(self, target):
         """
@@ -2709,6 +2744,7 @@ class YCable(YCableBase):
             result['serdes_detect'] = self.get_dsp_link_Dect()
 
             lanes = [0,1,2,3,12,13,14,15,20,21,22,23]
+
             for ln in list(lanes):
                 data = self.get_serdes_params(ln)
                 serdes = {}
