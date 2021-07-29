@@ -122,6 +122,7 @@ class YCable(YCableBase):
     EEPROM_READ_DATA_INVALID = -1
     EEPROM_ERROR = -1
     EEPROM_TIMEOUT_ERROR = -1
+    EEPROM_GENERIC_ERROR = -1
 
     # MCU error code
     MCU_EC_NO_ERROR                         = 0
