@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 
 import unittest
 if sys.version_info >= (3, 3):
@@ -28,7 +29,6 @@ os.environ["XCVRD_UNIT_TESTING"] = "1"
 from xcvrd.xcvrd import *
 from xcvrd.xcvrd_utilities.y_cable_helper import *
 from xcvrd.xcvrd_utilities.sfp_status_helper import *
-
 
 class TestXcvrdScript(object):
 
@@ -335,3 +335,28 @@ class TestXcvrdScript(object):
 
         assert not is_error_block_eeprom_reading(int(SFP_STATUS_INSERTED))
         assert not is_error_block_eeprom_reading(int(SFP_STATUS_REMOVED))
+
+    def test_sfp_insert_events(self):
+        from xcvrd.xcvrd import _wrapper_soak_sfp_insert_event
+        sfp_insert_events = {}
+        insert = port_dict = {1:'1', 2:'1', 3:'1', 4:'1', 5:'1'}
+        start = time.time()
+        while True:
+            _wrapper_soak_sfp_insert_event(sfp_insert_events, insert)
+            assert not bool(insert)
+            if time.time() - start > MGMT_INIT_TIME_DELAY_SECS:
+                break
+        assert insert == port_dict
+
+    def test_sfp_remove_events(self):
+        from xcvrd.xcvrd import _wrapper_soak_sfp_insert_event
+        sfp_insert_events = {}
+        insert = {1:'1', 2:'1', 3:'1', 4:'1', 5:'1'}
+        removal = {1:'0', 2:'0', 3:'0', 4:'0', 5:'0'}
+        port_dict = {1:'0', 2:'0', 3:'0', 4:'0', 5:'0'}
+        for x in range(5):
+            _wrapper_soak_sfp_insert_event(sfp_insert_events, insert)
+            time.sleep(1)
+            _wrapper_soak_sfp_insert_event(sfp_insert_events, removal)
+
+        assert port_dict == removal
