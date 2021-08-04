@@ -7,6 +7,10 @@ trigger:
   branches:
     include:
       - '*'
+pr:
+  branches:
+    include:
+      - '*'
 
 pool:
   vmImage: 'ubuntu-20.04'
@@ -48,66 +52,81 @@ parameters:
       root_dir: sonic-xcvrd
       python2: true
       python3: true
+- name: artifactBranch
+  type: string
+  default: 'refs/heads/master'
 
 jobs:
-  - ${{ each project in parameters.project_list }}:
-    - job: ${{ project.name }}
-      container: sonic-slave-buster
-      steps:
-      - task: DownloadPipelineArtifact@2
-        inputs:
-          source: specific
-          project: build
-          pipeline: 1
-          artifact: sonic-buildimage.vs
-          runVersion: 'latestFromBranch'
-          runBranch: 'refs/heads/master'
-        displayName: "Download artifacts from latest sonic-buildimage build"
+  - job: build_test
+    container: sonic-slave-buster
+    variables:
+      sourceBranch: "$(Build.SourceBranch)"
+    steps:
+    - checkout: self
+      clean: true
+    - script: |
+        if [[ $(Build.Reason) == "Manual" ]];then
+          echo "##vso[task.setvariable variable=sourceBranch]${{ parameters.artifactBranch }}"
+        fi
+        if [[ $(Build.Reason) == "PullRequest" ]];then
+          echo "##vso[task.setvariable variable=sourceBranch]refs/heads/$(System.PullRequest.TargetBranch)"
+        fi
+      displayName: Setup artifacts download branch
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        source: 'specific'
+        project: 'build'
+        pipeline: 142
+        artifact: 'sonic-buildimage.vs'
+        runVersion: 'latestFromBranch'
+        runBranch: "$(sourceBranch)"
+      displayName: "Download artifacts from latest sonic-buildimage build"
 
-      - script: |
-          set -xe
-          sudo apt-get -y purge libhiredis-dev libnl-3-dev libnl-route-3-dev
-          sudo dpkg -i libnl-3-200_*.deb
-          sudo dpkg -i libnl-genl-3-200_*.deb
-          sudo dpkg -i libnl-route-3-200_*.deb
-          sudo dpkg -i libnl-nf-3-200_*.deb
-          sudo dpkg -i libhiredis0.14_*.deb
-          sudo dpkg -i libswsscommon_1.0.0_amd64.deb
-          sudo dpkg -i python-swsscommon_1.0.0_amd64.deb
-          sudo dpkg -i python3-swsscommon_1.0.0_amd64.deb
-        workingDirectory: $(Pipeline.Workspace)/target/debs/buster/
-        displayName: 'Install Debian dependencies'
+    - script: |
+        set -xe
+        sudo apt-get -y purge libhiredis-dev libnl-3-dev libnl-route-3-dev
+        sudo dpkg -i libnl-3-200_*.deb
+        sudo dpkg -i libnl-genl-3-200_*.deb
+        sudo dpkg -i libnl-route-3-200_*.deb
+        sudo dpkg -i libnl-nf-3-200_*.deb
+        sudo dpkg -i libhiredis0.14_*.deb
+        sudo dpkg -i libswsscommon_1.0.0_amd64.deb
+        sudo dpkg -i python-swsscommon_1.0.0_amd64.deb
+        sudo dpkg -i python3-swsscommon_1.0.0_amd64.deb
+      workingDirectory: $(Pipeline.Workspace)/target/debs/buster/
+      displayName: 'Install Debian dependencies'
 
-      - script: |
-          set -xe
-          sudo pip2 install swsssdk-2.0.1-py2-none-any.whl
-          sudo pip2 install sonic_py_common-1.0-py2-none-any.whl
-          sudo pip2 install sonic_config_engine-1.0-py2-none-any.whl
-          sudo pip2 install sonic_platform_common-1.0-py2-none-any.whl
-          sudo pip3 install swsssdk-2.0.1-py3-none-any.whl
-          sudo pip3 install sonic_py_common-1.0-py3-none-any.whl
-          sudo pip3 install sonic_yang_mgmt-1.0-py3-none-any.whl
-          sudo pip3 install sonic_yang_models-1.0-py3-none-any.whl
-          sudo pip3 install sonic_config_engine-1.0-py3-none-any.whl
-          sudo pip3 install sonic_platform_common-1.0-py3-none-any.whl
-        workingDirectory: $(Pipeline.Workspace)/target/python-wheels/
-        displayName: 'Install Python dependencies'
+    - script: |
+        set -xe
+        sudo pip2 install swsssdk-2.0.1-py2-none-any.whl
+        sudo pip2 install sonic_py_common-1.0-py2-none-any.whl
+        sudo pip2 install sonic_config_engine-1.0-py2-none-any.whl
+        sudo pip2 install sonic_platform_common-1.0-py2-none-any.whl
+        sudo pip3 install swsssdk-2.0.1-py3-none-any.whl
+        sudo pip3 install sonic_py_common-1.0-py3-none-any.whl
+        sudo pip3 install sonic_yang_mgmt-1.0-py3-none-any.whl
+        sudo pip3 install sonic_yang_models-1.0-py3-none-any.whl
+        sudo pip3 install sonic_config_engine-1.0-py3-none-any.whl
+        sudo pip3 install sonic_platform_common-1.0-py3-none-any.whl
+      workingDirectory: $(Pipeline.Workspace)/target/python-wheels/
+      displayName: 'Install Python dependencies'
 
-      - script: |
-          set -ex
-          # Install .NET CORE
-          curl -sSL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
-          sudo apt-add-repository https://packages.microsoft.com/debian/10/prod
-          sudo apt-get update
-          sudo apt-get install -y dotnet-sdk-5.0
-        displayName: "Install .NET CORE"
+    - script: |
+        set -ex
+        # Install .NET CORE
+        curl -sSL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+        sudo apt-add-repository https://packages.microsoft.com/debian/10/prod
+        sudo apt-get update
+        sudo apt-get install -y dotnet-sdk-5.0
+      displayName: "Install .NET CORE"
 
+    - ${{ each project in parameters.project_list }}:
       # Python 2
       - ${{ if eq(project.python2, true) }}:
         - script: |
             python2 setup.py test
           workingDirectory: ${{ project.root_dir }}
-          displayName: 'Test ${{ project.name }} (Python 2)'
+          displayName: '${{ project.name }}(Py2) Test'
 
         - task: PublishTestResults@2
           inputs:
@@ -115,27 +134,20 @@ jobs:
             testRunTitle: ${{ project.name }} (Python 2)
             failTaskOnFailedTests: true
           condition: succeededOrFailed()
-          displayName: 'Publish ${{ project.name }} (Python 2) test results'
-
-        - task: PublishCodeCoverageResults@1
-          inputs:
-            codeCoverageTool: Cobertura
-            summaryFileLocation: '$(System.DefaultWorkingDirectory)/${{ project.root_dir }}/coverage.xml'
-            reportDirectory: '$(System.DefaultWorkingDirectory)/${{ project.root_dir }}/htmlcov/'
-          displayName: 'Publish ${{ project.name }} (Python 2) test coverage'
+          displayName: '${{ project.name }}(Py2) Publish test results'
 
         - script: |
             set -e
             python2 setup.py bdist_wheel
           workingDirectory: ${{ project.root_dir }}
-          displayName: 'Build ${{ project.name }} (Python 2)'
+          displayName: '${{ project.name }}(Py2) Build'
 
       # Python 3
       - ${{ if eq(project.python3, true) }}:
         - script: |
             python3 setup.py test
           workingDirectory: ${{ project.root_dir }}
-          displayName: 'Test ${{ project.name }} (Python 3)'
+          displayName: '${{ project.name }}(Py3) Test'
 
         - task: PublishTestResults@2
           inputs:
@@ -143,21 +155,23 @@ jobs:
             testRunTitle: ${{ project.name }} (Python 3)
             failTaskOnFailedTests: true
           condition: succeededOrFailed()
-          displayName: 'Publish ${{ project.name }} (Python 3) test results'
-
-        - task: PublishCodeCoverageResults@1
-          inputs:
-            codeCoverageTool: Cobertura
-            summaryFileLocation: '$(System.DefaultWorkingDirectory)/${{ project.root_dir }}/coverage.xml'
-            reportDirectory: '$(System.DefaultWorkingDirectory)/${{ project.root_dir }}/htmlcov/'
-          displayName: 'Publish ${{ project.name }} (Python 3) test coverage'
+          displayName: '${{ project.name }}(Py3) Publish test results'
 
         - script: |
             set -e
             python3 setup.py bdist_wheel
           workingDirectory: ${{ project.root_dir }}
-          displayName: 'Build ${{ project.name }} (Python 3)'
+          displayName: '${{ project.name }}(Py3) Build'
 
-      - publish: '$(System.DefaultWorkingDirectory)/${{ project.root_dir }}/dist/'
-        artifact: ${{ project.root_dir }}
-        displayName: "Publish ${{ project.name }} wheels"
+        - publish: '$(System.DefaultWorkingDirectory)/${{ project.root_dir }}/dist/'
+          artifact: ${{ project.root_dir }}
+          displayName: "${{ project.name }}(Py3) Publish wheels"
+    - task: reportgenerator@4
+      inputs:
+        reports: '$(Build.SourcesDirectory)/**/coverage.xml'
+        targetdir: '$(Build.SourcesDirectory)/'
+    - task: PublishCodeCoverageResults@1
+      inputs:
+        codeCoverageTool: 'Cobertura'
+        summaryFileLocation: '$(Build.SourcesDirectory)/Cobertura.xml'
+        pathToSources: $(System.DefaultWorkingDirectory)/
