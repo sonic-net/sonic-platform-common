@@ -505,7 +505,7 @@ class YCable(YCableBase):
             result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
         else:
             self.log_error("platform_chassis is not loaded, failed to toggle mux to TOR A")
-            return False
+            return YCable.EEPROM_ERROR
 
         return result
 
@@ -530,7 +530,7 @@ class YCable(YCableBase):
             result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
         else:
             self.log_error("platform_chassis is not loaded, failed to toggle mux to TOR B")
-            return False
+            return YCable.EEPROM_ERROR
 
         return result
 
@@ -556,7 +556,7 @@ class YCable(YCableBase):
             result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
         else:
             self.log_error("platform_chassis is not loaded, failed to check read side")
-            return YCableBase.TARGET_UNKNOWN
+            return YCable.EEPROM_ERROR
 
         if result is not None:
             if isinstance(result, bytearray):
@@ -612,7 +612,7 @@ class YCable(YCableBase):
         else:
             self.log_error(
                 "platform_chassis is not loaded, failed to check Active Linked and routing TOR side")
-            return YCableBase.TARGET_UNKNOWN
+            return YCable.EEPROM_ERROR
 
         if result is not None:
             if isinstance(result, bytearray):
@@ -665,7 +665,7 @@ class YCable(YCableBase):
         else:
             self.log_error(
                 "platform_chassis is not loaded, failed to check Active Linked and routing TOR side")
-            return YCableBase.TARGET_UNKNOWN
+            return YCable.EEPROM_ERROR
 
         if result is not None:
             if isinstance(result, bytearray):
@@ -721,7 +721,7 @@ class YCable(YCableBase):
         else:
             self.log_error(
                 "platform_chassis is not loaded, failed to check if link is Active on target side")
-            return YCableBase.TARGET_UNKNOWN
+            return YCable.EEPROM_ERROR
 
         if result is not None:
             if isinstance(result, bytearray):
@@ -736,7 +736,7 @@ class YCable(YCableBase):
         else:
             self.log_error(
                 "Error: for checking mux_cable link is active on target side, eeprom read returned a None value from eeprom read for port {} which is not expected".format(self.port))
-            return YCableBase.TARGET_UNKNOWN
+            return YCable.EEPROM_ERROR
 
         regval_read = struct.unpack(">B", result)
 
@@ -826,7 +826,7 @@ class YCable(YCableBase):
             result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 16)
         else:
             self.log_error("platform_chassis is not loaded, failed to get Vendor name")
-            return -1
+            return YCable.EEPROM_ERROR
 
         vendor_name = str(result.decode())
 
@@ -848,7 +848,7 @@ class YCable(YCableBase):
             part_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 16)
         else:
             self.log_error("platform_chassis is not loaded, failed to get part number")
-            return -1
+            return YCable.EEPROM_ERROR
 
         part_number = str(part_result.decode())
 
@@ -870,7 +870,7 @@ class YCable(YCableBase):
             part_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 16)
         else:
             self.log_error("platform_chassis is not loaded, failed to get part number")
-            return -1
+            return YCable.EEPROM_ERROR
 
         part_number = str(part_result.decode())
 
@@ -909,10 +909,10 @@ class YCable(YCableBase):
                 count = (msb_result[0] << 24 | msb_result_1[0] << 16 | msb_result_2[0] << 8 | lsb_result[0])
             else:
                 self.log_error("platform_chassis is not loaded, failed to get manual switch count")
-                return -1
+                return YCable.EEPROM_ERROR
         else:
             self.log_error("not a valid switch_count_type, failed to get switch count")
-            return -1
+            return YCable.EEPROM_ERROR
 
         if clear_on_read:
             if switch_count_type == YCableBase.SWITCH_COUNT_AUTO:
@@ -921,7 +921,7 @@ class YCable(YCableBase):
                 result = self.platform_chassis.get_sfp(
                     self.port).write_eeprom(curr_offset, 1, buffer)
                 if result is False:
-                    return result
+                    return YCable.EEPROM_ERROR
 
         return count
 
@@ -953,7 +953,7 @@ class YCable(YCableBase):
             count = (msb_result[0] << 24 | msb_result_1[0] << 16 | msb_result_2[0] << 8 | lsb_result[0])
         else:
             self.log_error("platform_chassis is not loaded, failed to get manual switch count")
-            return -1
+            return YCable.EEPROM_ERROR
 
         if clear_on_read:
             buffer = bytearray([4])
@@ -961,7 +961,7 @@ class YCable(YCableBase):
             result = self.platform_chassis.get_sfp(
                 self.port).write_eeprom(curr_offset, 1, buffer)
             if result is False:
-                return result
+                return YCable.EEPROM_ERROR
 
         return count
 
@@ -993,7 +993,7 @@ class YCable(YCableBase):
             count = (msb_result[0] << 24 | msb_result_1[0] << 16 | msb_result_2[0] << 8 | lsb_result[0])
         else:
             self.log_error("platform_chassis is not loaded, failed to get manual switch count")
-            return -1
+            return YCable.EEPROM_ERROR
 
         if clear_on_read:
             buffer = bytearray([5])
@@ -1001,7 +1001,7 @@ class YCable(YCableBase):
             result = self.platform_chassis.get_sfp(
                 self.port).write_eeprom(curr_offset, 1, buffer)
             if result is False:
-                return result
+                return YCable.EEPROM_ERROR
 
         return count
 
@@ -1038,7 +1038,7 @@ class YCable(YCableBase):
                 buffer = bytearray([1])
             else:
                 self.log_error("not a valid target")
-                return -1
+                return YCable.EEPROM_ERROR
         elif switch_count_type == YCableBase.SWITCH_COUNT_AUTO:
             if target == YCableBase.TARGET_TOR_A:
                 buffer = bytearray([2])
@@ -1046,16 +1046,16 @@ class YCable(YCableBase):
                 buffer = bytearray([3])
             else:
                 self.log_error("not a valid target")
-                return -1
+                return YCable.EEPROM_ERROR
         else:
             self.log_error("not a valid switch_count_type, failed to get switch count")
-            return -1
+            return YCable.EEPROM_ERROR
 
         if self.platform_chassis is not None:
             result = self.platform_chassis.get_sfp(
                 self.port).write_eeprom(curr_offset, 1, buffer)
             if result is False:
-                return result
+                return YCable.EEPROM_ERROR
             time_start = time.time()
             while(True):
                 done = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
@@ -1078,10 +1078,10 @@ class YCable(YCableBase):
                 result = self.platform_chassis.get_sfp(
                     self.port).write_eeprom(curr_offset, 1, buffer)
                 if result is False:
-                    return result
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get switch count target")
-            return -1
+            return YCable.EEPROM_ERROR
 
         return count
 
@@ -1124,7 +1124,7 @@ class YCable(YCableBase):
             result.append(c_int8(post2[0]).value)
         else:
             self.log_error("platform_chassis is not loaded, failed to get target cursor values")
-            return -1
+            return YCable.EEPROM_ERROR
 
         return result
 
@@ -1163,7 +1163,7 @@ class YCable(YCableBase):
                 idx += 1
         else:
             self.log_error("platform_chassis is not loaded, failed to get target cursor values")
-            return -1
+            return YCable.EEPROM_ERROR
 
         return True
 
@@ -1200,7 +1200,7 @@ class YCable(YCableBase):
                 data[byte_idx] = read_out[0]
         else:
             self.log_error("platform_chassis is not loaded, failed to get NIC lanes active")
-            return -1
+            return YCable.EEPROM_ERROR
 
         result = {}
         NUM_MCU_SIDE = 3
@@ -1273,106 +1273,92 @@ class YCable(YCableBase):
                 or an error code as to what was the cause of firmware download failure
         """
 
-        inFile = open(fwfile, 'rb')
-        fwImage = bytearray(inFile.read())
-        inFile.close()
+        if self.platform_chassis is not None:
 
-        self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS
+            inFile = open(fwfile, 'rb')
+            fwImage = bytearray(inFile.read())
+            inFile.close()
 
-        '''
-        Firmware update start
-        '''
-        vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
-        vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
-        vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_START
-        status = self.send_vsc(vsc_req_form)
-        if status != YCable.MCU_EC_NO_ERROR:
-            self.log_error(YCable.MCU_ERROR_CODE_STRING[status])
-            self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
-            return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
+            self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS
 
-        '''
-        Transfer firmwre image to local side MCU
-        '''
-        total_chunk = len(fwImage) // YCable.VSC_BUFF_SIZE
-        chunk_idx = 0
-        retry_count = 0
-        while chunk_idx < total_chunk:
-            checksum = 0
-            fw_img_offset = chunk_idx * YCable.VSC_BUFF_SIZE
-            for byte_offset in range(YCable.VSC_BUFF_SIZE):
-                checksum += fwImage[fw_img_offset]
-                fw_img_offset += 1
-                if (((byte_offset + 1) % YCable.VSC_BLOCK_WRITE_LENGTH) == 0):
-                    page = YCable.MIS_PAGE_FC + byte_offset // 128
-                    byte = 128 + ((byte_offset + 1) - YCable.VSC_BLOCK_WRITE_LENGTH) % 128
-                    self.write_mmap(page, byte, bytearray(
-                        fwImage[fw_img_offset - YCable.VSC_BLOCK_WRITE_LENGTH: fw_img_offset]), YCable.VSC_BLOCK_WRITE_LENGTH)
-
-            fw_img_offset = chunk_idx * YCable.VSC_BUFF_SIZE
+            '''
+            Firmware update start
+            '''
             vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
             vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
-            vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_LOCAL_XFER
-            vsc_req_form[YCable.VSC_BYTE_ADDR0] = (fw_img_offset >> 0) & 0xFF
-            vsc_req_form[YCable.VSC_BYTE_ADDR1] = (fw_img_offset >> 8) & 0xFF
-            vsc_req_form[YCable.VSC_BYTE_ADDR2] = (fw_img_offset >> 16) & 0xFF
-            vsc_req_form[YCable.VSC_BYTE_ADDR3] = (fw_img_offset >> 24) & 0xFF
-            vsc_req_form[YCable.VSC_BYTE_CHKSUM_MSB] = (checksum >> 8) & 0xFF
-            vsc_req_form[YCable.VSC_BYTE_CHKSUM_LSB] = (checksum >> 0) & 0xFF
+            vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_START
             status = self.send_vsc(vsc_req_form)
+            if status != YCable.MCU_EC_NO_ERROR:
+                self.log_error(YCable.MCU_ERROR_CODE_STRING[status])
+                self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
+                return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
 
-            if status == YCable.MCU_EC_NO_ERROR:
-                chunk_idx += 1
-                retry_count = 0
-            else:
-                self.log_error('Firmware binary transfer error (error code:%04X)' % (status))
+            '''
+            Transfer firmwre image to local side MCU
+            '''
+            total_chunk = len(fwImage) // YCable.VSC_BUFF_SIZE
+            chunk_idx = 0
+            retry_count = 0
+            while chunk_idx < total_chunk:
+                checksum = 0
+                fw_img_offset = chunk_idx * YCable.VSC_BUFF_SIZE
+                for byte_offset in range(YCable.VSC_BUFF_SIZE):
+                    checksum += fwImage[fw_img_offset]
+                    fw_img_offset += 1
+                    if (((byte_offset + 1) % YCable.VSC_BLOCK_WRITE_LENGTH) == 0):
+                        page = YCable.MIS_PAGE_FC + byte_offset // 128
+                        byte = 128 + ((byte_offset + 1) - YCable.VSC_BLOCK_WRITE_LENGTH) % 128
+                        self.write_mmap(page, byte, bytearray(
+                            fwImage[fw_img_offset - YCable.VSC_BLOCK_WRITE_LENGTH: fw_img_offset]), YCable.VSC_BLOCK_WRITE_LENGTH)
 
-                if retry_count == 3:
-                    self.log_error('Retry Xfer Fw Bin Error, abort firmware update')
-                    self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
-                    return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
-                retry_count += 1
+                fw_img_offset = chunk_idx * YCable.VSC_BUFF_SIZE
+                vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
+                vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_LOCAL_XFER
+                vsc_req_form[YCable.VSC_BYTE_ADDR0] = (fw_img_offset >> 0) & 0xFF
+                vsc_req_form[YCable.VSC_BYTE_ADDR1] = (fw_img_offset >> 8) & 0xFF
+                vsc_req_form[YCable.VSC_BYTE_ADDR2] = (fw_img_offset >> 16) & 0xFF
+                vsc_req_form[YCable.VSC_BYTE_ADDR3] = (fw_img_offset >> 24) & 0xFF
+                vsc_req_form[YCable.VSC_BYTE_CHKSUM_MSB] = (checksum >> 8) & 0xFF
+                vsc_req_form[YCable.VSC_BYTE_CHKSUM_LSB] = (checksum >> 0) & 0xFF
+                status = self.send_vsc(vsc_req_form)
 
-        '''
-        Complete the local side firmware transferring
-        '''
-        vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
-        vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
-        vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_LOCAL_XFER_COMPLETE
-        status = self.send_vsc(vsc_req_form)
-        if status != YCable.MCU_EC_NO_ERROR:
-            self.log_error('Veriyf firmware binary error (error code:0x%04X)' % (status))
-            self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
-            return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
+                if status == YCable.MCU_EC_NO_ERROR:
+                    chunk_idx += 1
+                    retry_count = 0
+                else:
+                    self.log_error('Firmware binary transfer error (error code:%04X)' % (status))
 
-        '''
-        transfer firmware image from local side MCU to the other two via UART
-        '''
-        vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
-        vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
-        vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_UART_XFER
-        status = self.send_vsc(vsc_req_form)
-        if status != YCable.MCU_EC_NO_ERROR:
-            self.log_error('Firmware binary UART transfer error (error code:0x%04X)' % (status))
-            self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
-            return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
+                    if retry_count == 3:
+                        self.log_error('Retry Xfer Fw Bin Error, abort firmware update')
+                        self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
+                        return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
+                    retry_count += 1
 
-        vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
-        vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
-        vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_UART_XFER_STATUS
-        status = self.send_vsc(vsc_req_form)
-        if status != YCable.MCU_EC_NO_ERROR:
-            self.log_error(
-                'Get firmware binary UART transfer status error (error code:0x%04X)' % (status))
-            self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
-            return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
+            '''
+            Complete the local side firmware transferring
+            '''
+            vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+            vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
+            vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_LOCAL_XFER_COMPLETE
+            status = self.send_vsc(vsc_req_form)
+            if status != YCable.MCU_EC_NO_ERROR:
+                self.log_error('Veriyf firmware binary error (error code:0x%04X)' % (status))
+                self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
+                return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
 
-        busy = self.read_mmap(YCable.MIS_PAGE_FC, 128)
-        self.read_mmap(YCable.MIS_PAGE_FC, 129)
-        self.read_mmap(YCable.MIS_PAGE_FC, 130)
-        self.read_mmap(YCable.MIS_PAGE_FC, 131)
+            '''
+            transfer firmware image from local side MCU to the other two via UART
+            '''
+            vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+            vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
+            vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_UART_XFER
+            status = self.send_vsc(vsc_req_form)
+            if status != YCable.MCU_EC_NO_ERROR:
+                self.log_error('Firmware binary UART transfer error (error code:0x%04X)' % (status))
+                self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
+                return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
 
-        while busy != 0:
             vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
             vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
             vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_UART_XFER_STATUS
@@ -1380,17 +1366,36 @@ class YCable(YCableBase):
             if status != YCable.MCU_EC_NO_ERROR:
                 self.log_error(
                     'Get firmware binary UART transfer status error (error code:0x%04X)' % (status))
-
                 self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
                 return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
 
-            time.sleep(0.2)
             busy = self.read_mmap(YCable.MIS_PAGE_FC, 128)
             self.read_mmap(YCable.MIS_PAGE_FC, 129)
             self.read_mmap(YCable.MIS_PAGE_FC, 130)
             self.read_mmap(YCable.MIS_PAGE_FC, 131)
 
-        self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_NOT_INITIATED_OR_FINISHED
+            while busy != 0:
+                vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
+                vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_UART_XFER_STATUS
+                status = self.send_vsc(vsc_req_form)
+                if status != YCable.MCU_EC_NO_ERROR:
+                    self.log_error(
+                        'Get firmware binary UART transfer status error (error code:0x%04X)' % (status))
+
+                    self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
+                    return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
+
+                time.sleep(0.2)
+                busy = self.read_mmap(YCable.MIS_PAGE_FC, 128)
+                self.read_mmap(YCable.MIS_PAGE_FC, 129)
+                self.read_mmap(YCable.MIS_PAGE_FC, 130)
+                self.read_mmap(YCable.MIS_PAGE_FC, 131)
+
+            self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_NOT_INITIATED_OR_FINISHED
+        else:
+            self.log_error("platform_chassis is not loaded, failed to download firmware")
+            return YCable.EEPROM_ERROR
 
         return YCableBase.FIRMWARE_DOWNLOAD_SUCCESS
 
@@ -1478,7 +1483,7 @@ class YCable(YCableBase):
                     return self.activate_firmware(fwfile, hitless)
         else:
             self.log_error("platform_chassis is not loaded, failed to activate firmware")
-            return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+            return YCable.EEPROM_ERROR
 
         return YCableBase.FIRMWARE_ACTIVATE_SUCCESS
 
@@ -1516,7 +1521,7 @@ class YCable(YCableBase):
                 return YCableBase.FIRMWARE_ROLLBACK_FAILURE
         else:
             self.log_error("platform_chassis is not loaded, failed to activate firmware")
-            return YCableBase.FIRMWARE_ROLLBACK_FAILURE
+            return YCable.EEPROM_ERROR
 
         return YCableBase.FIRMWARE_ROLLBACK_SUCCESS
 
@@ -1557,7 +1562,7 @@ class YCable(YCableBase):
                 self.port).write_eeprom(curr_offset, 1, buffer)
         else:
             self.log_error("platform_chassis is not loaded, failed to do a switch target")
-            return False
+            return YCable.EEPROM_ERROR
 
         return result
 
@@ -1580,7 +1585,7 @@ class YCable(YCableBase):
                 self.port).read_eeprom(curr_offset, 1)
         else:
             self.log_error("platform_chassis is not loaded, failed to get the switch mode")
-            return -1
+            return YCable.EEPROM_ERROR
 
         if result[0] == 1:
             return YCableBase.SWITCHING_MODE_AUTO
@@ -1625,7 +1630,7 @@ class YCable(YCableBase):
             temp = result[0]
         else:
             self.log_error("platform_chassis is not loaded, failed to get local temp")
-            return -1
+            return YCable.EEPROM_ERROR
 
         return temp
 
@@ -1669,7 +1674,7 @@ class YCable(YCableBase):
             voltage = (((msb_result[0] << 8) | lsb_result[0]) * 0.0001)
         else:
             self.log_error("platform_chassis is not loaded, failed to get local voltage")
-            return -1
+            return YCable.EEPROM_ERROR
 
         return voltage
 
@@ -1696,7 +1701,7 @@ class YCable(YCableBase):
                     return False
         else:
             self.log_error("platform_chassis is not loaded, failed to get anlt")
-            return False
+            return YCable.EEPROM_ERROR
 
         return True
 
@@ -1743,7 +1748,7 @@ class YCable(YCableBase):
                 return False
         else:
             self.log_error("platform_chassis is not loaded, failed to reset")
-            return False
+            return YCable.EEPROM_ERROR
 
         return True
 
@@ -1811,7 +1816,7 @@ class YCable(YCableBase):
                 return result
         else:
             self.log_error("platform_chassis is not loaded, failed to create port")
-            return False
+            return YCable.EEPROM_ERROR
 
         return True
 
@@ -1844,7 +1849,7 @@ class YCable(YCableBase):
                 return -1
         else:
             self.log_error("platform_chassis is not loaded, failed to get speed")
-            return -1
+            return YCable.EEPROM_ERROR
 
         return speed
 
@@ -1890,7 +1895,7 @@ class YCable(YCableBase):
                 return result
         else:
             self.log_error("platform_chassis is not loaded, failed to set fec mode")
-            return False
+            return YCable.EEPROM_ERROR
 
         return True
 
@@ -1929,7 +1934,7 @@ class YCable(YCableBase):
                 self.log_error("get fec mode: unsupported target")
         else:
             self.log_error("platform_chassis is not loaded, failed to get fec mode")
-            return -1
+            return YCable.EEPROM_ERROR
 
         return fec_mode
 
@@ -1973,7 +1978,7 @@ class YCable(YCableBase):
                 return result
         else:
             self.log_error("platform_chassis is not loaded, failed to set anlt")
-            return False
+            return YCable.EEPROM_ERROR
 
         return True
 
@@ -2010,7 +2015,7 @@ class YCable(YCableBase):
                 self.log_error("get anlt: unsupported target")
         else:
             self.log_error("platform_chassis is not loaded, failed to get anlt")
-            return -1
+            return YCable.EEPROM_ERROR
 
         return anlt_mode
 
@@ -2102,7 +2107,7 @@ class YCable(YCableBase):
                         last_read_id = event_id
         else:
             self.log_error("platform_chassis is not loaded, failed to get pcs statisics")
-            return result
+            return YCable.EEPROM_ERROR
 
         return result
 
@@ -2154,7 +2159,7 @@ class YCable(YCableBase):
 
         else:
             self.log_error("platform_chassis is not loaded, failed to get pcs statisics")
-            return pcs_stats
+            return YCable.EEPROM_ERROR
 
         return pcs_stats
 
@@ -2228,7 +2233,7 @@ class YCable(YCableBase):
             fec_stats['Corrected CW (15 sym err)'] = self.tcm_read(base + (26 << 2))
         else:
             self.log_error("platform_chassis is not loaded, failed to get fec statisics")
-            return fec_stats
+            return YCable.EEPROM_ERROR
 
         return fec_stats
 
@@ -2254,7 +2259,7 @@ class YCable(YCableBase):
             self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
         else:
             self.log_error("platform_chassis is not loaded, failed to set autoswitch hysteresis timer")
-            return -1
+            return YCable.EEPROM_ERROR
 
         return True
 
@@ -2276,7 +2281,7 @@ class YCable(YCableBase):
             time = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
         else:
             self.log_error("platform_chassis is not loaded, failed to get autoswitch hysteresis timer")
-            return -1
+            return YCable.EEPROM_ERROR
 
         return int(time[0])
 
@@ -2312,7 +2317,7 @@ class YCable(YCableBase):
             self.fw_cmd_ext(0x7040, 0, lane)
         else:
             self.log_error("platform_chassis is not loaded, failed to restart anlt")
-            return -1
+            return YCable.EEPROM_ERROR
 
         return True
 
@@ -2356,6 +2361,7 @@ class YCable(YCableBase):
                 anlt_stat['LT_TX_lane%d' % idx] = [(lt_tx1 >> 8) & 0xFF, lt_tx1 & 0xFF, (lt_tx2 >> 8) & 0xFF, lt_tx2 & 0xFF]
         else:
             self.log_error("platform_chassis is not loaded, failed to get anlt stats")
+            return YCable.EEPROM_ERROR
 
         return anlt_stat
 
@@ -2466,7 +2472,7 @@ class YCable(YCableBase):
 
         else:
             self.log_error("platform_chassis is not loaded, failed to enable the PRBS mode")
-            return -1
+            return YCable.EEPROM_ERROR
 
         return result
 
@@ -2508,7 +2514,7 @@ class YCable(YCableBase):
 
         else:
             self.log_error("platform_chassis is not loaded, failed to disable the PRBS mode")
-            return -1
+            return YCable.EEPROM_ERROR
 
         return result
 
@@ -2556,7 +2562,7 @@ class YCable(YCableBase):
 
         else:
             self.log_error("platform_chassis is not loaded, failed to enable the loopback mode")
-            return -1
+            return YCable.EEPROM_ERROR
 
         return result
 
@@ -2593,7 +2599,7 @@ class YCable(YCableBase):
 
         else:
             self.log_error("platform_chassis is not loaded, failed to disable the loopback mode")
-            return -1
+            return YCable.EEPROM_ERROR
 
         return result
 
@@ -2649,7 +2655,7 @@ class YCable(YCableBase):
                 return YCableBase.LOOPBACK_MODE_NEAR_END
         else:
             self.log_error("platform_chassis is not loaded, failed to get loopback mode")
-            return -1
+            return YCable.EEPROM_ERROR
 
         return YCableBase.LOOPBACK_MODE_NONE
 
@@ -2706,7 +2712,7 @@ class YCable(YCableBase):
                 idx += 2
         else:
             self.log_error("platform_chassis is not loaded, failed to get ber info")
-            return -1
+            return YCable.EEPROM_ERROR
 
         return ber_result
 
@@ -2772,6 +2778,7 @@ class YCable(YCableBase):
 
         else:
             self.log_error("platform_chassis is not loaded, failed to dump registers")
+            return YCable.EEPROM_ERROR
 
         return result
 
