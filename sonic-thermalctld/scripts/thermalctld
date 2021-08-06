@@ -774,6 +774,8 @@ class ThermalControlDaemon(daemon_base.DaemonBase):
                 self.thermal_manager.initialize()
                 self.thermal_manager.load(ThermalControlDaemon.POLICY_FILE)
                 self.thermal_manager.init_thermal_algorithm(self.chassis)
+                # Use thermal manager interval if it's available
+                self.wait_time = self.thermal_manager.get_interval()
         except NotImplementedError:
             self.log_warning('Thermal manager is not supported on this platform')
         except Exception as e:
@@ -832,9 +834,10 @@ class ThermalControlDaemon(daemon_base.DaemonBase):
         except Exception as e:
             self.log_error('Caught exception while running thermal policy - {}'.format(repr(e)))
 
+        interval = self.thermal_manager.get_interval() if self.thermal_manager else self.INTERVAL
         elapsed = time.time() - begin
-        if elapsed < self.INTERVAL:
-            self.wait_time = self.INTERVAL - elapsed
+        if elapsed < interval:
+            self.wait_time = interval - elapsed
         else:
             self.wait_time = self.FAST_START_INTERVAL
 

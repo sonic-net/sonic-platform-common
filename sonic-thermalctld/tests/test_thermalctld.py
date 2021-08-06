@@ -651,12 +651,14 @@ def test_signal_handler():
 def test_daemon_run():
     daemon_thermalctld = thermalctld.ThermalControlDaemon()
     daemon_thermalctld.stop_event.wait = mock.MagicMock(return_value=True)
+    daemon_thermalctld.thermal_manager.get_interval = mock.MagicMock(return_value=60)
     ret = daemon_thermalctld.run()
     daemon_thermalctld.deinit() # Deinit becuase the test will hang if we assert
     assert ret is False
 
     daemon_thermalctld = thermalctld.ThermalControlDaemon()
     daemon_thermalctld.stop_event.wait = mock.MagicMock(return_value=False)
+    daemon_thermalctld.thermal_manager.get_interval = mock.MagicMock(return_value=60)
     ret = daemon_thermalctld.run()
     daemon_thermalctld.deinit() # Deinit becuase the test will hang if we assert
     assert ret is True
