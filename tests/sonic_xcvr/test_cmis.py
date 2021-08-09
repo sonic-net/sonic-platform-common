@@ -15,8 +15,7 @@ class TestCmis(object):
 
     def test_api(self):
         """
-        Verify all api access valid fields    
+        Verify all api access valid fields
         """
         self.api.get_model()
-        self.api.get_coherent_optic_api()
         # TODO: call other methods in the api

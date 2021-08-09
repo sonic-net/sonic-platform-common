@@ -63,5 +63,3 @@ class XcvrApi(object):
     def set_power_override(self, power_override, power_set):
         raise NotImplementedError
 
-    def get_coherent_optic_api(self):
-        raise NotImplementedError

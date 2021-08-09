@@ -19,12 +19,3 @@ class CmisApi(XcvrApi):
 
     # TODO: other XcvrApi methods
 
-    def _is_coherent_optic(self):
-        # TODO: check module media interface code
-        return True
-
-    def get_coherent_optic_api(self):
-        api = None
-        if self._is_coherent_optic():
-            api = CoherentOpticApi(self.xcvr_eeprom)
-        return api
