@@ -27,6 +27,7 @@ steps:
 
 - script: |
     set -xe
+    sudo apt-get -y purge libhiredis-dev libnl-3-dev libnl-route-3-dev
     sudo dpkg -i libnl-3-200_*.deb
     sudo dpkg -i libnl-genl-3-200_*.deb
     sudo dpkg -i libnl-route-3-200_*.deb
@@ -50,6 +51,15 @@ steps:
     sudo pip3 install sonic_config_engine-1.0-py3-none-any.whl
   workingDirectory: $(Pipeline.Workspace)/target/python-wheels/
   displayName: 'Install Python dependencies'
+
+- script: |
+    set -ex
+    # Install .NET CORE
+    curl -sSL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+    sudo apt-add-repository https://packages.microsoft.com/debian/10/prod
+    sudo apt-get update
+    sudo apt-get install -y dotnet-sdk-5.0
+  displayName: "Install .NET CORE"
 
 # Python 2
 - script: |
