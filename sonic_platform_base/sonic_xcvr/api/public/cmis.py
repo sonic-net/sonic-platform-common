@@ -6,7 +6,6 @@
 
 from ...fields import consts
 from ..xcvr_api import XcvrApi
-from ..coh_optic_api import CoherentOpticApi
 
 class CmisApi(XcvrApi):
     NUM_CHANNELS = 8
