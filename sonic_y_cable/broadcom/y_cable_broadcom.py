@@ -24,7 +24,7 @@ try:
 
     #from chassis import chassis
     import sonic_platform.platform
-    from sonic_py_common import logger
+    #from sonic_py_common import logger
 except ImportError as e:
     print("{}".format(e))
     # When build python3 xcvrd, it tries to do basic check which will import this file. However,
@@ -280,7 +280,7 @@ class YCable(YCableBase):
     # destination values
     TOR_MCU             = 0x01
     TOR_MCU_SELF        = 0x01
-    NIC_MCU	            = 0x02
+    NIC_MCU             = 0x02
     MUX_CHIP            = 0x03
     TOR_MCU_PEER        = 0x04
 
@@ -346,7 +346,6 @@ class YCable(YCableBase):
     ERROR_CMD_PROCESSING_FAILED   = -1 #-4
     ERROR_MCU_NOT_RELEASED        = -1 #-5
     ERROR_MCU_BUSY                = -1 #-6
-    ERROR_PLATFORM_NOT_LOADED     = -1 #-7
     ERROR_INVALID_PRBS_MODE       = -1 #-8
     ERROR_INVALID_TARGET          = -1 #-9
     ERROR_INVALID_DIRECTION       = -1 #-10
@@ -379,12 +378,6 @@ class YCable(YCableBase):
     ERROR_CRC32_FAILED		  = -1 #-37	    #Flash CRC validation failed
     ERROR_CMD_TIMEOUT		  = -1 #-38	    #No response after command sent
     ERROR_SYSTEM_BUSY		  = -1 #-39	    #System is busy
-    ERROR_NO_MATCHING_FW	  = -1 #-40     #Could not find for each end of the cable at least
-                                                    #one bank matching the firmware version in the file
-    ERROR_TOGGLE_FAILED		  = -1 #-41     #Toggling inactive bank to active failed
-    ERROR_RESET_FAILED		  = -1 #-42	    #Could not reset.
-    WARNING_FW_ALREADY_ACTIVE	  = -1 #-43     #Warning indicating new firmware version alread  active
-    WARNING_FW_ALREADY_ROLLEDBACK = -1 #-5      #Warning indicating previous firmware version already rollback
 
 
     def __init__(self, port, logger1):
@@ -395,6 +388,7 @@ class YCable(YCableBase):
         self.lock             = PortLock(port)
         self.logger           = logger1
         self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_NOT_INITIATED_OR_FINISHED
+        super(YCable, self).__init__(port, logger1)
         try:
             #self.platform_chassis = chassis()
             self.platform_chassis = sonic_platform.platform.Platform().get_chassis()
@@ -421,9 +415,7 @@ class YCable(YCableBase):
             print("Logging disabled...")
     
     def __get_pid_str(self):
-        curr_timestamp = datetime.utcnow()
-        cur_tstr = curr_timestamp.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
-        pid_str = "[{},{}] {} : ".format(os.getpid(), threading.currentThread().getName(), cur_tstr)
+        pid_str = "[{},{}] Port-{} : ".format(os.getpid(), threading.currentThread().getName(), self.port)
         return pid_str
 
     def log_timestamp(self, last_timestamp, log_msg):
@@ -433,7 +425,7 @@ class YCable(YCableBase):
 
         tstr = "({}s {}ms)".format(difftime.seconds, difftime.microseconds//1000)
         ret_str = cur_tstr + tstr
-        self.log(self.LOG_INFO, "{} : {}".format(ret_str, log_msg))
+        self.log(self.LOG_DEBUG, "{} : {}".format(ret_str, log_msg))
 
         return curr_timestamp
 
@@ -453,6 +445,9 @@ class YCable(YCableBase):
             self.logger.log_error(msg)
 
         if self.CONSOLE_PRINT or also_print_to_console:
+            curr_timestamp = datetime.utcnow()
+            cur_tstr = curr_timestamp.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+            msg = cur_tstr + " " + msg
             print(msg)
 
     def __util_convert_to_phyinfo_details(self, target, lane_map):
@@ -483,7 +478,7 @@ class YCable(YCableBase):
         elif (target == self.TARGET_TOR_A or target == self.EYE_PRBS_LOOPBACK_TARGET_TOR_A) and read_side == self.TARGET_TOR_B:
             is_torA = True
     
-        lane_mask = lane_map
+        #lane_mask = lane_map
     
         if core_ip == self.CORE_IP_NIC:
             lane_mask = lane_map
@@ -531,7 +526,7 @@ class YCable(YCableBase):
         elif (target == self.TARGET_TOR_A or target == self.EYE_PRBS_LOOPBACK_TARGET_TOR_A) and read_side == self.TARGET_TOR_B:
             is_torA = True
     
-        lane_mask = lane_map
+        #lane_mask = lane_map
     
         if core_ip == self.CORE_IP_NIC:
             lane_mask = lane_map
@@ -737,7 +732,7 @@ class YCable(YCableBase):
                             ms_elapsed = (time.monotonic_ns()//1000000) - (start//1000000)
                         else:
                             ret_val = self.ERROR_MCU_NOT_RELEASED
-                        ts = self.log_timestamp(ts, "poll for MCU response to be puled down - done")
+                        self.log_timestamp(ts, "poll for MCU response to be puled down - done")
 
                         if error:
                             return -1, None
@@ -809,7 +804,7 @@ class YCable(YCableBase):
             return self.EEPROM_ERROR
 
         part_number = str(part_result.decode())
-        self.log(self.LOG_INFO, "Part number = {}".format(part_number))
+        self.log(self.LOG_DEBUG, "Part number = {}".format(part_number))
     
         return part_number
     
@@ -836,7 +831,7 @@ class YCable(YCableBase):
             return self.EEPROM_ERROR
 
         vendor_name = str(vendor_result.decode())
-        self.log(self.LOG_INFO, "vendor name = {}".format(vendor_name))
+        self.log(self.LOG_DEBUG, "vendor name = {}".format(vendor_name))
 
         return vendor_name
 
@@ -870,7 +865,7 @@ class YCable(YCableBase):
         if self.__validate_read_data(result, 1, "read side") == self.EEPROM_READ_DATA_INVALID:
             return self.EEPROM_ERROR
         read_side = struct.unpack("<B", result)
-        ts = self.log_timestamp(ts," get_read_side() completed")
+        self.log_timestamp(ts," get_read_side() completed")
         if read_side[0] & 0x1:
             self.log(self.LOG_INFO, "Reading the Y cable from TOR A side")
             ret = self.TARGET_TOR_A
@@ -922,7 +917,7 @@ class YCable(YCableBase):
             if status[0] & 0x1 == 0:
                 break
 
-        ts = self.log_timestamp(ts,"get_mux_direction() completed")
+        self.log_timestamp(ts,"get_mux_direction() completed")
 
         if status[1] == 1:
             self.log(self.LOG_INFO, "Mux is pointing to TOR B")
@@ -971,15 +966,15 @@ class YCable(YCableBase):
 
             if status[0] & 0x2 == 0:
                 if status[1] == 0xFF:
-                    self.log(self.LOG_INFO, "ERROR: NIC not available")
+                    self.log(self.LOG_ERROR, "ERROR: NIC not available")
                 else:
                     cmd_ok = True
                 break
 
-        ts = self.log_timestamp(ts,"toggle_mux_to_tor_a() completed")
+        self.log_timestamp(ts,"toggle_mux_to_tor_a() completed")
 
         if cmd_ok == True:
-            self.log(self.LOG_INFO, "Toggle mux to torA succeeded")
+            self.log(self.LOG_DEBUG, "Toggle mux to torA succeeded")
 
         return cmd_ok
 
@@ -1021,15 +1016,15 @@ class YCable(YCableBase):
 
             if status[0] & 0x4 == 0:
                 if status[1] == 0xFF:
-                    self.log(self.LOG_INFO, "ERROR: NIC not available")
+                    self.log(self.LOG_ERROR, "ERROR: NIC not available")
                 else:
                     cmd_ok = True
                 break
 
-        ts = self.log_timestamp(ts,"toggle_mux_to_tor_b() completed")
+        self.log_timestamp(ts,"toggle_mux_to_tor_b() completed")
 
         if cmd_ok == True:
-            self.log(self.LOG_INFO, "Toggle mux to torB succeeded")
+            self.log(self.LOG_DEBUG, "Toggle mux to torB succeeded")
 
         return cmd_ok
 
@@ -1159,14 +1154,14 @@ class YCable(YCableBase):
                 count_list.append(struct.unpack("<H", byte_array)[0])
                 ind += 2
 
-            self.log(self.LOG_INFO, "\nDebug: counter tables")
-            self.log(self.LOG_INFO, "to_tora_from_readside_tora_manual_cnt = {} ".format(count_list[0]))
-            self.log(self.LOG_INFO, "to_torb_from_readside_tora_manual_cnt = {} ".format(count_list[1]))
-            self.log(self.LOG_INFO, "to_tora_from_readside_torb_manual_cnt = {} ".format(count_list[2]))
-            self.log(self.LOG_INFO, "to_torb_from_readside_torb_manual_cnt = {} ".format(count_list[3]))
-            self.log(self.LOG_INFO, "to_tora_as_cnt                        = {} ".format(count_list[4]))
-            self.log(self.LOG_INFO, "to_torb_as_cnt                        = {} ".format(count_list[5]))
-            self.log(self.LOG_INFO, "\n")
+            self.log(self.LOG_DEBUG, "\nDebug: counter tables")
+            self.log(self.LOG_DEBUG, "to_tora_from_readside_tora_manual_cnt = {} ".format(count_list[0]))
+            self.log(self.LOG_DEBUG, "to_torb_from_readside_tora_manual_cnt = {} ".format(count_list[1]))
+            self.log(self.LOG_DEBUG, "to_tora_from_readside_torb_manual_cnt = {} ".format(count_list[2]))
+            self.log(self.LOG_DEBUG, "to_torb_from_readside_torb_manual_cnt = {} ".format(count_list[3]))
+            self.log(self.LOG_DEBUG, "to_tora_as_cnt                        = {} ".format(count_list[4]))
+            self.log(self.LOG_DEBUG, "to_torb_as_cnt                        = {} ".format(count_list[5]))
+            self.log(self.LOG_DEBUG, "\n")
 
             return count_list
 
@@ -1417,10 +1412,10 @@ class YCable(YCableBase):
         elif dat[0] == 0x04:
             self.log(self.LOG_INFO, "Current side NIC")
         else:
-            self.log(self.LOG_INFO, "Current side UNKNOWN")
+            self.log(self.LOG_ERROR, "Current side UNKNOWN")
 
         # Make sure TOR to NIC MCU communication is alive
-        self.log(self.LOG_INFO, "Make sure TOR to NIC MCU communication is alive ")
+        self.log(self.LOG_DEBUG, "Make sure TOR to NIC MCU communication is alive ")
         if (upgrade_info.destination == self.NIC_MCU) and ((dat[0] == 0x02) or (dat[0] == 0x01)):
             # Since we are running from TOR side, make sure no flush is on going
             for _ in range(3000):
@@ -1533,8 +1528,8 @@ class YCable(YCableBase):
                 self.log(self.LOG_INFO, "Current side UNKNOWN")
 
             # Make sure TOR to NIC MCU communication is alive
-            self.log(self.LOG_INFO, "cable_fw_get_status : .................................................... ")
-            self.log(self.LOG_INFO, "Make sure TOR to NIC MCU communication is alive ")
+            self.log(self.LOG_DEBUG, "cable_fw_get_status : .................................................... ")
+            self.log(self.LOG_DEBUG, "Make sure TOR to NIC MCU communication is alive ")
             if (upgrade_info.destination == self.NIC_MCU) and ((dat[0] == 0x02) or (dat[0] == 0x01)):
 
                 for _ in range(3000):
@@ -1550,14 +1545,14 @@ class YCable(YCableBase):
                     return self.ERROR_RW_NIC_FAILED
 
             # read cable command and status offsets
-            self.log(self.LOG_INFO, "read cable command and status offsets ")
+            self.log(self.LOG_DEBUG, "read cable command and status offsets ")
             result = self.__util_read_eeprom(((self.QSFP_BRCM_FW_UPGRADE_PAGE * 128) + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD), 2, "cable_fw_get_status")
             if result != self.EEPROM_READ_DATA_INVALID:
                 dat[0] = result[0]
                 dat[1] = result[1]
 
             if ((dat[0] & 0x01) != 0) or ((dat[1] & 0x01) != 0):
-                self.log(self.LOG_INFO, "MCU not in the right state. Sending abort")
+                self.log(self.LOG_DEBUG, "MCU not in the right state. Sending abort")
                 self.__cable_fw_mcu_abort(upgrade_info)
                 time.sleep(0.001)
                 result = self.__util_read_eeprom(((self.QSFP_BRCM_FW_UPGRADE_PAGE * 128) + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD), 2, "cable_fw_upgrade")
@@ -1567,10 +1562,10 @@ class YCable(YCableBase):
             with self.lock.acquire_timeout(self.PORT_LOCK_TIMEOUT) as result:
                 if result:
                     # check if any command is currently being executed
-                    self.log(self.LOG_INFO, "check if any command is currently being executed ")
+                    self.log(self.LOG_DEBUG, "check if any command is currently being executed ")
                     if ((dat[0] & 0x01) == 0) and ((dat[1] & 0x01) == 0):
                         # Send destination
-                        self.log(self.LOG_INFO, "send destination ")
+                        self.log(self.LOG_DEBUG, "send destination ")
                         dat[0] = upgrade_info.destination
                         current_offset = (self.QSFP_BRCM_FW_UPGRADE_PAGE*128) + self.QSFP_BRCM_FW_UPGRADE_HEADER_24_31
                         result = self.platform_chassis.get_sfp(self.port).write_eeprom(current_offset, 1, dat)
@@ -1578,7 +1573,7 @@ class YCable(YCableBase):
                             return self.ERROR_WRITE_EEPROM_FAILED
 
                         # Send command status request
-                        self.log(self.LOG_INFO, "send command status request ")
+                        self.log(self.LOG_DEBUG, "send command status request ")
                         dat[0] = (self.FW_CMD_INFO << 1) | 1
                         current_offset = (self.QSFP_BRCM_FW_UPGRADE_PAGE*128) + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD
                         result = self.platform_chassis.get_sfp(self.port).write_eeprom(current_offset, 1, dat)
@@ -1643,7 +1638,7 @@ class YCable(YCableBase):
                         if req_status:
                             req_status = False
                             # set the command request to idle state
-                            self.log(self.LOG_INFO, "set the command request to idle state ")
+                            self.log(self.LOG_DEBUG, "set the command request to idle state ")
                             dat[0] = 0x00
                             curr_offset = (self.QSFP_BRCM_FW_UPGRADE_PAGE*128) + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD
                             result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, dat)
@@ -1654,7 +1649,7 @@ class YCable(YCableBase):
                             #time.sleep(0.3)
 
                             # wait for mcu response to be pulled down
-                            self.log(self.LOG_INFO, "wait for mcu response to be pulled down  ")
+                            self.log(self.LOG_DEBUG, "wait for mcu response to be pulled down  ")
                             for _ in range(100):
                                 status = self.platform_chassis.get_sfp(self.port).read_eeprom(((self.QSFP_BRCM_FW_UPGRADE_PAGE*128) + self.QSFP_BRCM_FW_UPGRADE_CMD_STS), 1)
                                 if (status[0] & 0x01) == 0:
@@ -1666,13 +1661,13 @@ class YCable(YCableBase):
 
                             if not req_status:
                                 # Timeout, how to handle?
-                                self.log(self.LOG_INFO, "timeout handle error abort  ")
+                                self.log(self.LOG_DEBUG, "timeout handle error abort  ")
                                 self.__handle_error_abort(upgrade_info, 2)
                                 #return ret_val
                                 return self.ERROR_CMD_TIMEOUT
                         else:
                             # Error
-                            self.log(self.LOG_INFO, "Error handle error abort  ")
+                            self.log(self.LOG_DEBUG, "Error handle error abort  ")
                             self.__handle_error_abort(upgrade_info, 17)
                             return ret_val
                     else:
@@ -1722,7 +1717,7 @@ class YCable(YCableBase):
                 self.log(self.LOG_INFO, "Current side UNKNOWN")
 
             # Make sure TOR to NIC MCU communication is alive
-            self.log(self.LOG_INFO, "Make sure TOR to NIC MCU communication is alive ")
+            self.log(self.LOG_DEBUG, "Make sure TOR to NIC MCU communication is alive ")
             if (upgrade_info.destination == self.NIC_MCU) and ((ctrl_result[0] == 0x02) or (ctrl_result[0] == 0x01)):
                 # Since we are running from TOR side, make sure no flush is on going
                 for _ in range(3000):
@@ -1757,12 +1752,12 @@ class YCable(YCableBase):
                         # send destinationn
                         ctrl_result[0] = upgrade_info.destination
                         curr_offset = ((self.QSFP_BRCM_FW_UPGRADE_PAGE*128) + self.QSFP_BRCM_FW_UPGRADE_HEADER_24_31)
-                        result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, ctrl_result)
+                        self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, ctrl_result)
 
                         # send swap request
                         ctrl_result[0] = (self.FW_CMD_SWAP << 1) | 1
                         curr_offset = ((self.QSFP_BRCM_FW_UPGRADE_PAGE*128) + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD)
-                        result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, ctrl_result)
+                        self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, ctrl_result)
 
                         # Delay reading status as this can block during swap.
                         time.sleep(0.3)
@@ -1786,7 +1781,7 @@ class YCable(YCableBase):
                             req_status = False
                             ctrl_result[0] = 0x00
                             curr_offset = ((self.QSFP_BRCM_FW_UPGRADE_PAGE*128) + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD)
-                            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, ctrl_result)
+                            self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, ctrl_result)
                             # Delay reading status as this can block during swap.
                             time.sleep(0.1)
 
@@ -1876,9 +1871,9 @@ class YCable(YCableBase):
             self.log(self.LOG_INFO, "Current side UNKNOWN")
         
         # Make sure TPR to NIC MCU communication is alive
-        self.log(self.LOG_INFO, "In cable_fw_upgrade().........................................")
+        self.log(self.LOG_DEBUG, "In cable_fw_upgrade().........................................")
         ts = datetime.utcnow()
-        self.log(self.LOG_INFO, "Make sure TOR to NIC MCU communication is alive")
+        self.log(self.LOG_DEBUG, "Make sure TOR to NIC MCU communication is alive")
         #if (upgrade_info.destination == NIC_MCU):
         if (upgrade_info.destination == self.NIC_MCU) and ( (dat[0] == 0x02) or (dat[0] == 0x01) ):
 
@@ -1899,13 +1894,13 @@ class YCable(YCableBase):
         with self.lock.acquire_timeout(self.PORT_LOCK_TIMEOUT) as result:
             if result:
                 # read cable command and status offsets
-                self.log(self.LOG_INFO, "read cable command and status offsets")
+                self.log(self.LOG_DEBUG, "read cable command and status offsets")
                 result = self.__util_read_eeprom((QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD), 2, "cable_fw_upgrade")
                 if result != self.EEPROM_READ_DATA_INVALID:
                     dat[0] = result[0]
                     dat[1] = result[1]
                 if ((dat[0] & 0x01) != 0) or ((dat[1] & 0x01) != 0):
-                    self.log(self.LOG_INFO, "MCU not in the right state. Sending abort")
+                    self.log(self.LOG_DEBUG, "MCU not in the right state. Sending abort")
                     ret_val = self.__cable_fw_mcu_abort(upgrade_info)
                     if ret_val != self.RR_SUCCESS:
                         self.log(self.LOG_ERROR, "MCU abort failed")
@@ -1917,7 +1912,7 @@ class YCable(YCableBase):
                     dat[1] = result[1]
 
                 # check if any command is currently being executed
-                self.log(self.LOG_INFO, "check if any command is currently being executed")
+                self.log(self.LOG_DEBUG, "check if any command is currently being executed")
                 if ((dat[0] & 0x01) == 0) and ((dat[1] & 0x01) == 0):
                     # Start command - Debug Prints
                     destination = None
@@ -1934,18 +1929,18 @@ class YCable(YCableBase):
                         self.log(self.LOG_ERROR, "Wrong destination")
                         return self.ERROR_INVALID_TARGET
 
-                    self.log(self.LOG_INFO, "Starting firmware upgrade to {}".format(destination))
+                    self.log(self.LOG_DEBUG, "Starting firmware upgrade to {}".format(destination))
 
-                    self.log(self.LOG_INFO, "FW Version minor: {}".format(hex(upgrade_info.image_info.image_fw_version.image_version_minor)))
-                    self.log(self.LOG_INFO, "FW Version major: {}".format(hex(upgrade_info.image_info.image_fw_version.image_version_major)))
+                    self.log(self.LOG_DEBUG, "FW Version minor: {}".format(hex(upgrade_info.image_info.image_fw_version.image_version_minor)))
+                    self.log(self.LOG_DEBUG, "FW Version major: {}".format(hex(upgrade_info.image_info.image_fw_version.image_version_major)))
                     if upgrade_info.destination == self.TOR_MCU_SELF or upgrade_info.destination == self.TOR_MCU_PEER:
-                        self.log(self.LOG_INFO, "API version minor: {}".format(hex(upgrade_info.image_info.image_api_version.image_version_minor)))
-                        self.log(self.LOG_INFO, "API version major: {}".format(hex(upgrade_info.image_info.image_api_version.image_version_major)))
-                    self.log(self.LOG_INFO, "CRC32 : {}".format(hex(upgrade_info.image_info.image_crc32)))
-                    self.log(self.LOG_INFO, "Image size : {}".format(hex(upgrade_info.image_info.image_size)))
+                        self.log(self.LOG_DEBUG, "API version minor: {}".format(hex(upgrade_info.image_info.image_api_version.image_version_minor)))
+                        self.log(self.LOG_DEBUG, "API version major: {}".format(hex(upgrade_info.image_info.image_api_version.image_version_major)))
+                    self.log(self.LOG_DEBUG, "CRC32 : {}".format(hex(upgrade_info.image_info.image_crc32)))
+                    self.log(self.LOG_DEBUG, "Image size : {}".format(hex(upgrade_info.image_info.image_size)))
 
                     # Send image header
-                    self.log(self.LOG_INFO, "send image header")
+                    self.log(self.LOG_DEBUG, "send image header")
                     dat[0] = upgrade_info.image_info.image_size & 0xff
                     dat[1] = (upgrade_info.image_info.image_size >> 8) & 0xFF
                     dat[2] = (upgrade_info.image_info.image_size >> 16) & 0xFF
@@ -1980,12 +1975,12 @@ class YCable(YCableBase):
                     ts = self.log_timestamp(ts,"Erase command sent")
                     
                     # Check response status
-                    self.log(self.LOG_INFO, "check MCU ready status")
+                    self.log(self.LOG_DEBUG, "check MCU ready status")
                     for i in range(3000):
                         status = self.__util_read_eeprom((QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CMD_STS), 1, "cable_fw_upgrade")
                         if status[0] & 0x01:
                             if (status[0] & 0xFC) == (self.FW_UP_SUCCESS << 2):
-                                self.log(self.LOG_INFO, "MCU is Ready")
+                                self.log(self.LOG_DEBUG, "MCU is Ready")
                                 req_status = True
                                 break
                             else:
@@ -2002,12 +1997,12 @@ class YCable(YCableBase):
                     if req_status:
                         req_status = False
                         # set the command request to idle state
-                        self.log(self.LOG_INFO, "set the command request to idle state ")
+                        self.log(self.LOG_DEBUG, "set the command request to idle state ")
                         dat[0] = 0x00
                         self.platform_chassis.get_sfp(self.port).write_eeprom(QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD, 1, dat)
 
                         # wait for mcu response to be pulled down
-                        self.log(self.LOG_INFO, "wait for mcu response to be pulled down ")
+                        self.log(self.LOG_DEBUG, "wait for mcu response to be pulled down ")
                         for i in range(100):
                             status = self.__util_read_eeprom((QSFP_PAGE_OFFSET + self. QSFP_BRCM_FW_UPGRADE_CMD_STS), 1, "cable_fw_upgrade")
                             if (status[0] & 0x01) == 0:
@@ -2036,11 +2031,11 @@ class YCable(YCableBase):
                         page_loc = self.QSFP_BRCM_FW_UPGRADE_DATA_PAGE_1
 
                         # MCU is now ready for firmware upgrade, Start the loop to transfre the data
-                        self.log(self.LOG_INFO, "MCU is now ready for firmware upgrade, Start the loop to transfer the data")
+                        self.log(self.LOG_DEBUG, "MCU is now ready for firmware upgrade, Start the loop to transfer the data")
                         dat[0] = self.FW_UP_PACKET_SIZE
                         dat[1] = page_loc
                         self.platform_chassis.get_sfp(self.port).write_eeprom(QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_PACKET_SIZE, 2, dat)
-                        self.log(self.LOG_INFO, "fw_up_packet_size : {}".format(dat[0]),"page_loc : {}".format(dat[1]))
+                        self.log(self.LOG_DEBUG, "fw_up_packet_size : {}".format(dat[0]),"page_loc : {}".format(dat[1]))
 
                         for i in range(0, self.FW_UP_PACKET_SIZE, 4):
                             dat[0 + i] = tmp_image_ptr[count] & 0xFF
@@ -2052,7 +2047,7 @@ class YCable(YCableBase):
                         self.platform_chassis.get_sfp(self.port).write_eeprom((page_loc*128) + self.QSFP_BRCM_FW_UPGRADE_DATA_START, self.FW_UP_PACKET_SIZE, dat)
                         ts = self.log_timestamp(ts, "First packet written")
 
-                        self.log(self.LOG_INFO, "TRANSFERING remaining packets..")
+                        self.log(self.LOG_DEBUG, "TRANSFERING remaining packets..")
 
                         dat[0] = (self.FW_CMD_TRANSFER << 1) | 1
                         self.platform_chassis.get_sfp(self.port).write_eeprom(QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD, 1, dat)
@@ -2122,7 +2117,7 @@ class YCable(YCableBase):
                                     time.sleep(0.001)
 
                                 if not req_status:
-                                    self.log(self.LOG_INFO, "cable_fw_upgrade : handle error abort1")
+                                    self.log(self.LOG_ERROR, "cable_fw_upgrade : handle error abort1")
                                     self.__handle_error_abort(upgrade_info, 4)
                                     return ret_val
 
@@ -2141,7 +2136,7 @@ class YCable(YCableBase):
                             if status[0] & 0x01:
                                 if (status[0] & 0xFC) == (self.FW_UP_SUCCESS << 2):
                                     req_status = True
-                                    self.log(self.LOG_INFO, "   100% ")
+                                    self.log(self.LOG_DEBUG, "   100% ")
                                     break
                                 else:
                                     # ERROR
@@ -2230,25 +2225,19 @@ class YCable(YCableBase):
                                 #return ret_val
                                 return self.ERROR_CMD_TIMEOUT
 
-                            ts = self.log_timestamp(ts,"wait for mcu response to be pulled down3")
+                            self.log_timestamp(ts,"wait for mcu response to be pulled down3")
                         else:
                             # ERROR
-                            self.log(self.LOG_INFO, "ERROR")
+                            self.log(self.LOG_ERROR, "ERROR")
                             self.__handle_error_abort(upgrade_info, 8)
                             return ret_val
-                    else:
-                        # Timeout out.
-                        self.log(self.LOG_INFO, "Timeout")
-                        self.__handle_error_abort(upgrade_info, 15)
-                        #return ret_val
-                        return self.ERROR_CMD_TIMEOUT
                 else:
-                    self.log(self.LOG_INFO, "MCU not in the right state")
+                    self.log(self.LOG_WARN, "MCU not in the right state")
             else:
                 self.log(self.LOG_ERROR, "Port lock timed-out!")
                 return self.ERROR_PORT_LOCK_TIMEOUT
 
-        ts = self.log_timestamp(start_tstamp, "FW upgrade complete")
+        self.log_timestamp(start_tstamp, "FW upgrade complete")
 
         return ret_val
 
@@ -2298,7 +2287,7 @@ class YCable(YCableBase):
             
             upgrade_info.destination = target
 
-            self.log(self.LOG_INFO, "read_side {} target {}".format(read_side, target))
+            self.log(self.LOG_DEBUG, "read_side {} target {}".format(read_side, target))
 
             ret_val = self.cable_fw_get_status(upgrade_info)
             if ret_val != self.RR_ERROR:
@@ -2442,7 +2431,7 @@ class YCable(YCableBase):
             a list, with EYE values of lane 0 lane 1 lane 2 lane 3 with corresponding index
         """
         if target == self.EYE_PRBS_LOOPBACK_TARGET_NIC or target == self.TARGET_NIC:
-            self.log(self.LOG_INFO, "Get eye heights not supported for NIC target ")
+            self.log(self.LOG_WARN, "Get eye heights not supported for NIC target ")
             return None
 
         core_ip, lane_mask = self.__util_convert_to_phyinfo_details(target, 0X0F)
@@ -2538,7 +2527,7 @@ class YCable(YCableBase):
 
         for i  in range(0, 8):
             prbs_error_per_lane = err_cnt_list[i]
-            self.log(self.LOG_INFO, "prbs_error_per_lane : {}".format(hex(prbs_error_per_lane)))
+            self.log(self.LOG_DEBUG, "prbs_error_per_lane : {}".format(hex(prbs_error_per_lane)))
             ber_result.append(prbs_error_per_lane/(25.78125*(math.pow(10, 9))))
 
         return ber_result
@@ -2579,7 +2568,7 @@ class YCable(YCableBase):
 
         core_ip = ret_val[0]
         lane_mask = ret_val[1]
-        self.log(self.LOG_INFO, "lane_mask = {} core_ip {} target {}".format(hex(lane_mask), core_ip, target))
+        self.log(self.LOG_DEBUG, "lane_mask = {} core_ip {} target {}".format(hex(lane_mask), core_ip, target))
 
         cmd_hdr = bytearray(5)
         cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
@@ -2603,13 +2592,13 @@ class YCable(YCableBase):
                 txfir.append(struct.unpack("h", byte_array)[0])
                 ind += 2
 
-            self.log(self.LOG_INFO, "lane {} : pre1  = {}".format(lane,txfir[0]))
-            self.log(self.LOG_INFO, "lane {} : pre2  = {}".format(lane,txfir[1]))
-            self.log(self.LOG_INFO, "lane {} : main  = {}".format(lane,txfir[2]))
-            self.log(self.LOG_INFO, "lane {} : post1 = {}".format(lane,txfir[3]))
-            self.log(self.LOG_INFO, "lane {} : post2 = {}".format(lane,txfir[4]))
-            self.log(self.LOG_INFO, "lane {} : post3 = {}".format(lane,txfir[5]))
-            self.log(self.LOG_INFO, "lane {} : taps  = {}".format(lane,txfir[6]))
+            self.log(self.LOG_DEBUG, "lane {} : pre1  = {}".format(lane,txfir[0]))
+            self.log(self.LOG_DEBUG, "lane {} : pre2  = {}".format(lane,txfir[1]))
+            self.log(self.LOG_DEBUG, "lane {} : main  = {}".format(lane,txfir[2]))
+            self.log(self.LOG_DEBUG, "lane {} : post1 = {}".format(lane,txfir[3]))
+            self.log(self.LOG_DEBUG, "lane {} : post2 = {}".format(lane,txfir[4]))
+            self.log(self.LOG_DEBUG, "lane {} : post3 = {}".format(lane,txfir[5]))
+            self.log(self.LOG_DEBUG, "lane {} : taps  = {}".format(lane,txfir[6]))
             return txfir
 
         return None
@@ -2646,9 +2635,9 @@ class YCable(YCableBase):
         ret_val = self.__util_convert_to_phyinfo_details(target, lane_mask)
         core_ip = ret_val[0]
         lane_mask = ret_val[1]
-        self.log(self.LOG_INFO, "lane_mask = {} core_ip {} target {}".format(hex(lane_mask), core_ip, target))
+        self.log(self.LOG_DEBUG, "lane_mask = {} core_ip {} target {}".format(hex(lane_mask), core_ip, target))
         cmd_hdr = bytearray(5)
-        cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
+        #cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
         cmd_req_body1 = bytearray()
         cmd_hdr[0] = 14
         cmd_hdr[1] = 40
@@ -2693,7 +2682,6 @@ class YCable(YCableBase):
                 ERROR_GET_VERSION_FAILED : Failed to get fw version from MCU
         """
 
-        ret_val = self.RR_ERROR
         fw_up_buff = array.array('I', [])
         
         read_side = self.get_read_side()
@@ -2747,7 +2735,7 @@ class YCable(YCableBase):
         upgrade_info[self.MUX_CHIP - 1].destination = self.MUX_CHIP
 
         # Check MUX firmware version
-        self.log(self.LOG_INFO, "Check MUX firmware version")
+        self.log(self.LOG_DEBUG, "Check MUX firmware version")
 
         self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS
         self.log(self.LOG_INFO, "Firmware download status inprogress")
@@ -2756,11 +2744,11 @@ class YCable(YCableBase):
         if ret_val != self.RR_SUCCESS:
             file1.close()
             self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
-            self.log(self.LOG_INFO, "MUX CHIP Firmware download status failed")
+            self.log(self.LOG_ERROR, "MUX CHIP Firmware download status failed")
             return self.ERROR_GET_VERSION_FAILED
         else:
             # If version in inactive bank is different or bank is empty, then upgrade else skip
-            self.log(self.LOG_INFO, "If version in inactive bank is different or bank is empty, then upgrade else skip")
+            self.log(self.LOG_DEBUG, "If version in inactive bank is different or bank is empty, then upgrade else skip")
             if(
                 ((upgrade_info[self.MUX_CHIP - 1].status_info.current_bank == 1) \
                 and (((upgrade_info[self.MUX_CHIP - 1].status_info.bank2_info.image_fw_version.image_version_major != upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_major) \
@@ -2771,12 +2759,12 @@ class YCable(YCableBase):
             ):
 
                 # Do an upgrade
-                self.log(self.LOG_INFO, "MUX chip new firmware available: Downloading")
+                self.log(self.LOG_DEBUG, "MUX chip new firmware available: Downloading")
                 ret_val = self.__cable_fw_upgrade(upgrade_info[self.MUX_CHIP - 1])
                 if ret_val != self.RR_SUCCESS:
                     file1.close()
                     self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
-                    self.log(self.LOG_INFO, "MUX CHIP Firmware upgrade failed")
+                    self.log(self.LOG_ERROR, "MUX CHIP Firmware upgrade failed")
                     return self.RR_ERROR
             else:
                 self.log(self.LOG_INFO, "MUX chip: Firmware is up to date")
@@ -2818,7 +2806,7 @@ class YCable(YCableBase):
         if ret_val != self.RR_SUCCESS:
             file1.close()
             self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
-            self.log(self.LOG_INFO, "NIC MCU Firmware download status failed")
+            self.log(self.LOG_ERROR, "NIC MCU Firmware download status failed")
             return self.ERROR_GET_VERSION_FAILED
         else:
             # If version in inactive bank is old or bank is empty, then upgrade else skip
@@ -2836,7 +2824,7 @@ class YCable(YCableBase):
                 if ret_val != self.RR_SUCCESS:
                     file1.close()
                     self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
-                    self.log(self.LOG_INFO, "NIC MCU Firmware upgrade failed")
+                    self.log(self.LOG_ERROR, "NIC MCU Firmware upgrade failed")
                     return self.RR_ERROR
             else:
                 self.log(self.LOG_INFO, "NIC MCU: Firmware is up to date")
@@ -2876,7 +2864,7 @@ class YCable(YCableBase):
         if ret_val != self.RR_SUCCESS:
             file1.close()
             self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
-            self.log(self.LOG_INFO, "TOR SELF Firmware download status failed")
+            self.log(self.LOG_ERROR, "TOR SELF Firmware download status failed")
             return self.ERROR_GET_VERSION_FAILED
         else:
 
@@ -2899,7 +2887,7 @@ class YCable(YCableBase):
                 if ret_val != self.RR_SUCCESS:
                     file1.close()
                     self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
-                    self.log(self.LOG_INFO, "TOR MCU Firmware upgrade failed")
+                    self.log(self.LOG_ERROR, "TOR MCU Firmware upgrade failed")
                     return self.RR_ERROR
             
             else:
@@ -2941,7 +2929,7 @@ class YCable(YCableBase):
             file1.close()
             #return self.RR_ERROR
             self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
-            self.log(self.LOG_INFO, "TOR PEER Firmware download status failed")
+            self.log(self.LOG_ERROR, "TOR PEER Firmware download status failed")
             return self.ERROR_GET_VERSION_FAILED
         else:
             # If version in inactive bank is old or bank is empty, then upgrade else skip
@@ -2963,7 +2951,7 @@ class YCable(YCableBase):
                 if ret_val != self.RR_SUCCESS:
                     file1.close()
                     self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
-                    self.log(self.LOG_INFO, "TOR PEER Firmware upgrade failed")
+                    self.log(self.LOG_ERROR, "TOR PEER Firmware upgrade failed")
                     return self.RR_ERROR
             else:
                 self.log(self.LOG_INFO, "TOR PEER : Firmware is up to date")
@@ -3010,7 +2998,7 @@ class YCable(YCableBase):
                 RR_ERROR                   : Cannot activate due to fw version mismatch
         """
 
-        ret_val = self.ERROR_FW_ACTIVATE_FAILURE
+        #ret_val = self.ERROR_FW_ACTIVATE_FAILURE
         skip_reset = False
 
         upgrade_info = []
@@ -3032,7 +3020,7 @@ class YCable(YCableBase):
             return self.ERROR_FW_GET_STATUS_FAILED
 
         # Get Chip MUX firmware version 
-        self.log(self.LOG_INFO, "Check MUX firmware version")
+        self.log(self.LOG_DEBUG, "Check MUX firmware version")
         ret_val = self.cable_fw_get_status(upgrade_info[self.MUX_CHIP - 1])
 
         if ret_val != self.RR_SUCCESS:
@@ -3317,19 +3305,19 @@ class YCable(YCableBase):
             (upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank1_info.image_fw_version.image_version_minor == \
                     upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_minor))) )):
 
-            self.log(self.LOG_INFO, "Toggle TOR-PEER MCU")
+            self.log(self.LOG_DEBUG, "Toggle TOR-PEER MCU")
             ret_val_nic = self.cable_fw_bank_toggle(upgrade_info[self.TOR_MCU_PEER - 1])
             if ret_val_nic == self.RR_SUCCESS:
                 if skip_reset == False:
                     rst_ret = self.reset_peer()
                     if rst_ret == True:
-                        self.log(self.LOG_INFO, "in activate_firmware(), reset_peer success")
+                        self.log(self.LOG_DEBUG, "in activate_firmware(), reset_peer success")
                         ret_val =self.RR_SUCCESS
                     else:
                         self.log(self.LOG_ERROR, "ERROR: in activate_firmware(), reset_peer failed")
                         return self.ERROR_RESET_FAILED
                 else:
-                    self.log(self.LOG_INFO, "in activate_firmware(), reset_peer skipped (flag set) for debugging purpose")
+                    self.log(self.LOG_DEBUG, "in activate_firmware(), reset_peer skipped (flag set) for debugging purpose")
 
                 self.log(self.LOG_INFO, " In activate fw TOR PEER toggle success")
             else:
@@ -3400,13 +3388,13 @@ class YCable(YCableBase):
                 if skip_reset == False:
                     rst_ret = self.reset_nic()
                     if rst_ret == True:
-                        self.log(self.LOG_INFO, "in activate_firmware(), reset_nic success")
+                        self.log(self.LOG_DEBUG, "in activate_firmware(), reset_nic success")
                         ret_val = self.RR_SUCCESS
                     else:
                         self.log(self.LOG_ERROR, "ERROR: in activate_firmware(), reset_nic failed")
                         return self.ERROR_RESET_FAILED
                 else:
-                    self.log(self.LOG_INFO, "in activate_firmware(), reset_nic skipped (flag set) for debugging purpose")
+                    self.log(self.LOG_DEBUG, "in activate_firmware(), reset_nic skipped (flag set) for debugging purpose")
 
                 self.log(self.LOG_INFO, "In activate fw NIC toggle success")
             else:
@@ -3464,19 +3452,19 @@ class YCable(YCableBase):
             (upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank1_info.image_fw_version.image_version_minor == \
                     upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_minor))) )):
 
-            self.log(self.LOG_INFO, "Toggle TOR-SELF MCU")
+            self.log(self.LOG_DEBUG, "Toggle TOR-SELF MCU")
             ret_val_nic = self.cable_fw_bank_toggle(upgrade_info[self.TOR_MCU_SELF - 1])
             if ret_val_nic == self.RR_SUCCESS:
                 if skip_reset == False:
                     rst_ret = self.reset_self()
                     if rst_ret == True:
-                        self.log(self.LOG_INFO, "in activate_firmware(), reset_self success")
+                        self.log(self.LOG_DEBUG, "in activate_firmware(), reset_self success")
                         ret_val = self.RR_SUCCESS
                     else:
                         self.log(self.LOG_ERROR, "ERROR: in activate_firmware(), reset_self failed")
                         return self.ERROR_RESET_FAILED
                 else:
-                    self.log(self.LOG_INFO, "in activate_firmware(), reset_self skipped (flag set) for debugging purpose")
+                    self.log(self.LOG_DEBUG, "in activate_firmware(), reset_self skipped (flag set) for debugging purpose")
 
                 self.log(self.LOG_INFO, " In activate fw TOR SELF toggle success")
             else:
@@ -3539,7 +3527,7 @@ class YCable(YCableBase):
                  RR_ERROR                      : cannot activate due to fw version mismatch
 
         """
-        ret_val = self.ERROR_FW_ROLLBACK_FAILURE
+        #ret_val = self.ERROR_FW_ROLLBACK_FAILURE
 
         upgrade_info = []
         upgrade_info.append(cable_upgrade_info_s())
@@ -3560,7 +3548,7 @@ class YCable(YCableBase):
             return self.ERROR_FW_GET_STATUS_FAILED
 
         # Get Chip MUX firmware version 
-        self.log(self.LOG_INFO, "Check MUX firmware version")
+        self.log(self.LOG_DEBUG, "Check MUX firmware version")
         ret_val = self.cable_fw_get_status(upgrade_info[self.MUX_CHIP - 1])
 
         if ret_val != self.RR_SUCCESS:
@@ -3926,7 +3914,7 @@ class YCable(YCableBase):
             if ret_val_nic == self.RR_SUCCESS:
                 rst_ret = self.reset_self()
                 if rst_ret == True:
-                    self.log(self.LOG_INFO, "in rollback_firmware(), reset_self success")
+                    self.log(self.LOG_DEBUG, "in rollback_firmware(), reset_self success")
                     ret_val = self.RR_SUCCESS
                 else:
                     self.log(self.LOG_ERROR, "ERROR: in rollback_firmware(), reset_self failed")
@@ -3947,11 +3935,13 @@ class YCable(YCableBase):
                     upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_minor)) ) ):
 
             self.log(self.LOG_INFO, "TOR-SELF Previous version already rolled back")
-            ret_val = self.WARNING_FW_ALREADY_ROLLEDBACK
+            if ret_val != self.WARNING_FW_ALREADY_ROLLEDBACK:
+                ret_val = self.WARNING_FW_ALREADY_ROLLEDBACK
 
         else:
             self.log(self.LOG_ERROR, "ERROR: TOR-SELF cannot rollback: no previous version found to rollback")
-            ret_val = self.RR_ERROR
+            if ret_val != self.RR_ERROR:
+                ret_val = self.RR_ERROR
 
         # If version in active bank is same and version in inactive bank different, then rollback else skip
         if((fwfile is None) or \
@@ -3979,7 +3969,7 @@ class YCable(YCableBase):
             if ret_val_nic == self.RR_SUCCESS:
                 rst_ret = self.reset_peer()
                 if rst_ret == True:
-                    self.log(self.LOG_INFO, "in rollback_firmware(), reset_peer success")
+                    self.log(self.LOG_DEBUG, "in rollback_firmware(), reset_peer success")
                     ret_val = self.RR_SUCCESS
                 else:
                     self.log(self.LOG_ERROR, "ERROR: in rollback_firmware(), reset_peer failed")
@@ -4000,11 +3990,13 @@ class YCable(YCableBase):
                     upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_minor)) ) ):
 
             self.log(self.LOG_INFO, "TOR-PEER Previous version already rolled back")
-            ret_val =self.WARNING_FW_ALREADY_ROLLEDBACK
+            if ret_val != self.WARNING_FW_ALREADY_ROLLEDBACK:
+                ret_val = self.WARNING_FW_ALREADY_ROLLEDBACK
 
         else:
             self.log(self.LOG_ERROR, "ERROR: TOR-PEER cannot rollback: no previous version found to rollback")
-            ret_val = self.RR_ERROR
+            if ret_val != self.RR_ERROR:
+                ret_val = self.RR_ERROR
 
         return ret_val
 
@@ -4069,10 +4061,10 @@ class YCable(YCableBase):
         ret_val, cmd_rsp_body = self.__cable_cmd_execute(self.CABLE_CMD_ID_GET_HMUX_CONFIG, cmd_hdr, cmd_req_body)
         if ret_val == 0:
             if cmd_rsp_body[0] & 0x1:
-                self.log(self.LOG_INFO, "Auto switch enabled")
+                self.log(self.LOG_DEBUG, "Auto switch enabled")
                 return self.SWITCHING_MODE_AUTO
             else:
-                self.log(self.LOG_INFO, "Manual switch enabled")
+                self.log(self.LOG_DEBUG, "Manual switch enabled")
                 return self.SWITCHING_MODE_MANUAL
         else:
             return None
@@ -4100,10 +4092,10 @@ class YCable(YCableBase):
 
         regval_read = struct.unpack("<B", result)
 
-        self.log(self.LOG_INFO, "TOR-A active link is {}".format("up" if (regval_read[0] & 0x1 == 0) else "down"))
-        self.log(self.LOG_INFO, "TOR-B active link is {}".format("up" if (regval_read[0] & 0x2 == 0) else "down"))
-        self.log(self.LOG_INFO, "NIC   active link is {}".format("up" if (regval_read[0] & 0x4 == 0) else "down"))
-        self.log(self.LOG_INFO, "PHY chip status   is {}".format("up" if (regval_read[0] & 0x8 == 0) else "down"))
+        self.log(self.LOG_DEBUG, "TOR-A active link is {}".format("up" if (regval_read[0] & 0x1 == 0) else "down"))
+        self.log(self.LOG_DEBUG, "TOR-B active link is {}".format("up" if (regval_read[0] & 0x2 == 0) else "down"))
+        self.log(self.LOG_DEBUG, "NIC   active link is {}".format("up" if (regval_read[0] & 0x4 == 0) else "down"))
+        self.log(self.LOG_DEBUG, "PHY chip status   is {}".format("up" if (regval_read[0] & 0x8 == 0) else "down"))
         
         if regval_read[0] & 0x7 == 0:
             return True
@@ -4208,7 +4200,7 @@ class YCable(YCableBase):
             else:
                 return False
         elif read_side == self.TARGET_NIC:
-            self.log(self.LOG_INFO, "Cannot apply reset peer from NIC")
+            self.log(self.LOG_WARN, "Cannot apply reset peer from NIC")
             return False
         else:
             self.log(self.LOG_ERROR, "get_read_side failed")
@@ -4263,7 +4255,7 @@ class YCable(YCableBase):
 
                     time.sleep(3)
 
-                    self.log(self.LOG_INFO, "reset value to write.  rval: {} ".format(status[0]))
+                    self.log(self.LOG_DEBUG, "reset value to write.  rval: {} ".format(status[0]))
                     # for next one second, keep checking the register to see if it becomes 0
                     for _ in range(30):
                         rval = 0
@@ -4520,7 +4512,7 @@ class YCable(YCableBase):
         values = self.__util_convert_to_phyinfo_details(target, 0x0F)
         core_ip = values[0]
         lane_mask = values[1]
-        self.log(self.LOG_INFO, "core_ip {} lane_mask {}".format(core_ip, hex(lane_mask)))
+        self.log(self.LOG_DEBUG, "core_ip {} lane_mask {}".format(core_ip, hex(lane_mask)))
 
 
         cmd_hdr = bytearray(5)
@@ -4561,7 +4553,7 @@ class YCable(YCableBase):
         values = self.__util_convert_to_phyinfo_details(target, 0x0F)
         core_ip = values[0]
         lane_mask = values[1]
-        self.log(self.LOG_INFO, "core_ip {} lane_mask {} target {}".format(core_ip, hex(lane_mask), target))
+        self.log(self.LOG_DEBUG, "core_ip {} lane_mask {} target {}".format(core_ip, hex(lane_mask), target))
 
         cmd_hdr = bytearray(5)
         cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
@@ -4694,7 +4686,7 @@ class YCable(YCableBase):
         ret_val, cmd_rsp_body = self.__cable_cmd_execute(self.CABLE_CMD_ID_GET_HMUX_CONFIG, cmd_hdr, cmd_req_body)
         if ret_val == 0:
             timer = (cmd_rsp_body[0] >> 1)
-            self.log(self.LOG_INFO, "Timer  = {}".format(timer))
+            self.log(self.LOG_DEBUG, "Timer  = {}".format(timer))
 
             return timer
         else:
@@ -4719,7 +4711,7 @@ class YCable(YCableBase):
         values = self.__util_convert_to_phyinfo_details(target, 0x0F)
         core_ip = values[0]
         lane_mask = values[1]
-        self.log(self.LOG_INFO, "core_ip {} lane_mask {}".format(core_ip, hex(lane_mask)))
+        self.log(self.LOG_DEBUG, "core_ip {} lane_mask {}".format(core_ip, hex(lane_mask)))
         
         cmd_hdr = bytearray(5)
         cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
@@ -4783,11 +4775,11 @@ class YCable(YCableBase):
             ret_array[3] = lp_ability3 = struct.unpack('H', cmd_rsp_body[5:7])[0]
             ret_array[4] = lp_fec_ability = struct.unpack('H', cmd_rsp_body[7:9])[0]
 
-            self.log(self.LOG_INFO, "Get AN LT AN State = {}".format(an_state))
-            self.log(self.LOG_INFO, "Get AN LT LP ability1 = {}".format(lp_ability1))
-            self.log(self.LOG_INFO, "Get AN LT LP ability2 = {}".format(lp_ability2))
-            self.log(self.LOG_INFO, "Get AN LT LP ability3 = {}".format(lp_ability3))
-            self.log(self.LOG_INFO, "Get AN LT LP FEC ability = {}".format(lp_fec_ability))
+            self.log(self.LOG_DEBUG, "Get AN LT AN State = {}".format(an_state))
+            self.log(self.LOG_DEBUG, "Get AN LT LP ability1 = {}".format(lp_ability1))
+            self.log(self.LOG_DEBUG, "Get AN LT LP ability2 = {}".format(lp_ability2))
+            self.log(self.LOG_DEBUG, "Get AN LT LP ability3 = {}".format(lp_ability3))
+            self.log(self.LOG_DEBUG, "Get AN LT LP FEC ability = {}".format(lp_fec_ability))
 
         else:
             self.log(self.LOG_ERROR, "Get AN LT status is failed")
@@ -4889,7 +4881,7 @@ class YCable(YCableBase):
             prbs_type = self.CABLE_PRBS58
         elif mode_value == 7:
             prbs_type = self.CABLE_PRBS49
-        elif mode_value == 6:
+        elif mode_value == 8:
             prbs_type = self.CABLE_PRBS13
         else:
             self.log(self.LOG_ERROR, "Error: for checking mux_cable enable PRBS mode, the mode_value is wrong")
@@ -4913,7 +4905,7 @@ class YCable(YCableBase):
             self.log(self.LOG_INFO, "Enable PRBS mode is successful")
             return True
         else:
-            self.log(self.LOG_INFO, "Enable PRBS mode is failed")
+            self.log(self.LOG_ERROR, "Enable PRBS mode is failed")
             return False
 
 
@@ -4959,7 +4951,7 @@ class YCable(YCableBase):
             self.log(self.LOG_INFO, "Disable PRBS mode is successful")
             return True
         else:
-            self.log(self.LOG_INFO, "Disable PRBS mode is failed")
+            self.log(self.LOG_ERROR, "Disable PRBS mode is failed")
             return False
 
 
@@ -5013,7 +5005,7 @@ class YCable(YCableBase):
             self.log(self.LOG_INFO, "Enable looback mode is successful")
             return True
         else:
-            self.log(self.LOG_INFO, "Enable loopback mode is failed")
+            self.log(self.LOG_ERROR, "Enable loopback mode is failed")
             return False
 
 
@@ -5055,7 +5047,7 @@ class YCable(YCableBase):
         ret_val, cmd_rsp_body = self.__cable_cmd_execute(self.CABLE_CMD_ID_SET_LOOPBACK, cmd_hdr, cmd_req_body)
 
         if ret_val != 0:
-            self.log(self.LOG_INFO, "Disable loopback mode is failed")
+            self.log(self.LOG_ERROR, "Disable loopback mode is failed")
             return False
 
         # disable LOOPBACK_MODE_FAR_END next
@@ -5071,7 +5063,7 @@ class YCable(YCableBase):
             self.log(self.LOG_INFO, "Disable looback mode is successful")
             return True
         else:
-            self.log(self.LOG_INFO, "Disable loopback mode is failed")
+            self.log(self.LOG_ERROR, "Disable loopback mode is failed")
             return False
 
     def get_loopback_mode(self, target):
@@ -5208,7 +5200,12 @@ class YCable(YCableBase):
         for i in range(0,3):
             reg_addr = 0x52007E80 + i * 4
             ret_code, reg_val = self.rd_reg_ex(reg_addr, 0x0)
+            if ret_code == -1:
+                print("ERROR: rd_reg_ex {} Failed!".format(hex(reg_addr)))
+
             ret_code = self.wr_reg_ex(reg_addr, reg_val, 0x0)
+            if ret_code is False:
+                print("ERROR: wr_reg_ex to {} Failed!".format(hex(reg_addr)))
             if(i==0):
                 print("{} {} = {}".format( "DESK_ALIGN_LOSS:", hex(reg_addr), hex(reg_val)))
             elif i==1:
@@ -5219,19 +5216,23 @@ class YCable(YCableBase):
         for i in range(0,4):
             reg_addr = 0x52007E8C + i * 4
             ret_code, reg_val = self.rd_reg_ex(reg_addr, 0x0)
+            if ret_code == -1:
+                print("ERROR: rd_reg_ex {} Failed!".format(hex(reg_addr)))
             reg_val = reg_val & 0x7FFF#dont clear bit 15
             ret_code = self.wr_reg_ex(reg_addr, reg_val, 0x0)
             if ret_code is False:
-                print("ERROR: wr_reg_ex() Failed!")
+                print("ERROR: wr_reg_ex to {} Failed!".format(hex(reg_addr)))
             print("Lane {} {} = {}".format( i, hex(reg_addr), hex(reg_val)))
         if(mode == 0 or mode == 2):#for fec modes
             print("FEC irq status")
             for i in range(0,4):
                 reg_addr = 0x52007ED0 + i * 4
                 ret_code, reg_val = self.rd_reg_ex(reg_addr, 0x0)
+                if ret_code == -1:
+                    print("ERROR: rd_reg_ex {} Failed!".format(hex(reg_addr)))
                 ret_code = self.wr_reg_ex(reg_addr, reg_val, 0x0)
                 if ret_code is False:
-                    print("ERROR: wr_reg_ex() Failed!")
+                    print("ERROR: wr_reg_ex to {} Failed!".format(hex(reg_addr)))
                 if(i==0):
                     print("{} {} = {}".format( "DEC_AM_LOCK_UNLOCK:", hex(reg_addr), hex(reg_val)))
                 elif i==1:
@@ -5243,9 +5244,11 @@ class YCable(YCableBase):
             for i in range(0,2):
                 reg_addr = 0x52007E60 + i * 4
                 ret_code, reg_val = self.rd_reg_ex(reg_addr, 0x0)
+                if ret_code == -1:
+                    print("ERROR: rd_reg_ex {} Failed!".format(hex(reg_addr)))
                 ret_code = self.wr_reg_ex(reg_addr, reg_val, 0x0)
                 if ret_code is False:
-                    print("ERROR: wr_reg_ex() Failed!")
+                    print("ERROR: wr_reg_ex to {} Failed!".format(hex(reg_addr)))
                 if(i==0):
                     print("{} {} = {}".format( "ENC_GBOX:", hex(reg_addr), hex(reg_val)))
                 elif i==1:
@@ -5254,9 +5257,11 @@ class YCable(YCableBase):
         for i in range(0,3):
             reg_addr = 0x52017E80 + i * 4
             ret_code, reg_val = self.rd_reg_ex(reg_addr, 0x0)
+            if ret_code == -1:
+                print("ERROR: rd_reg_ex {} Failed!".format(hex(reg_addr)))
             ret_code = self.wr_reg_ex(reg_addr, reg_val, 0x0)
             if ret_code is False:
-                print("ERROR: wr_reg_ex() Failed!")
+                print("ERROR: wr_reg_ex to {} Failed!".format(hex(reg_addr)))
             if(i==0):
                 print("{} {} = {}".format( "DESK_ALIGN_LOSS:", hex(reg_addr), hex(reg_val)))
             elif i==1:
@@ -5267,19 +5272,23 @@ class YCable(YCableBase):
         for i in range(0,4):
             reg_addr = 0x52017E8C + i * 4
             ret_code, reg_val = self.rd_reg_ex(reg_addr, 0x0)
+            if ret_code == -1:
+                print("ERROR: rd_reg_ex {} Failed!".format(hex(reg_addr)))
             reg_val = reg_val & 0x7FFF#dont clear bit 15
             ret_code = self.wr_reg_ex(reg_addr, reg_val, 0x0)
             if ret_code is False:
-                print("ERROR: wr_reg_ex() Failed!")
+                print("ERROR: wr_reg_ex to {} Failed!".format(hex(reg_addr)))
             print("Lane {} {} = {}".format( i, hex(reg_addr), hex(reg_val)))
         if(mode == 0 or mode == 2):#for fec modes
             print("FEC irq status")
             for i in range(0,4):
                 reg_addr = 0x52017ED0 + i * 4
                 ret_code, reg_val = self.rd_reg_ex(reg_addr, 0x0)
+                if ret_code == -1:
+                    print("ERROR: rd_reg_ex {} Failed!".format(hex(reg_addr)))
                 ret_code = self.wr_reg_ex(reg_addr, reg_val, 0x0)
                 if ret_code is False:
-                    print("ERROR: wr_reg_ex() Failed!")
+                    print("ERROR: wr_reg_ex to {} Failed!".format(hex(reg_addr)))
                 if(i==0):
                     print("{} {} = {}".format( "DEC_AM_LOCK_UNLOCK:", hex(reg_addr), hex(reg_val)))
                 elif i==1:
@@ -5446,8 +5455,7 @@ class YCable(YCableBase):
     
         if ((page == 5 or page == 6 or page == 7 or page == 8 or page == 9 or page == 10 or page == 11 or page == 12) or \
             (page == 0 or page == 1 or page == 2 or page == 4 or page == 3 or page == 0x80 or page == 0x81 or \
-             page == 0x82 or page == 0xB1 or page == 0xFF or page == 0xFE or page == 0xFD) or \
-            (page == 4 or page == 0x80 or page == 0x81 or page == 0x82 or page == 0xB1 or page == 0xFF or page == 0xFE)):
+             page == 0x82 or page == 0xB1 or page == 0xFF or page == 0xFE or page == 0xFD)):
             return True
     
         return False
@@ -5541,7 +5549,6 @@ class YCable(YCableBase):
         cmd_hdr[3] = 0
         cmd_hdr[4] = 0
 
-        mode = "NONE"
         if cable_mode == 0:
             mode = "CABLE_MODE_100G_FEC"
         elif cable_mode == 1:
@@ -5567,9 +5574,9 @@ class YCable(YCableBase):
             return True
         else:
             if cmd_rsp_body is not None:
-                self.log(self.LOG_INFO, "ERROR: Responce unexpected")
+                self.log(self.LOG_ERROR, "ERROR: Responce unexpected")
 
-            self.log(self.LOG_INFO, "CABLE MODE SET {} NOT SUCCESSFUL".format(mode))
+            self.log(self.LOG_WARN, "CABLE MODE SET {} NOT SUCCESSFUL".format(mode))
             return False
 
 
@@ -5604,19 +5611,19 @@ class YCable(YCableBase):
         if ret_val == 0:
             regval_read = struct.unpack("<B", cmd_rsp_body)
             if regval_read[0] == 0:
-                self.log(self.LOG_INFO, "CABLE_MODE_100G_FEC")
+                self.log(self.LOG_DEBUG, "CABLE_MODE_100G_FEC")
                 ret_mode = 0
             elif regval_read[0] == 1:
-                self.log(self.LOG_INFO, "CABLE_MODE_100G_PCS")
+                self.log(self.LOG_DEBUG, "CABLE_MODE_100G_PCS")
                 ret_mode = 1
             elif regval_read[0] == 2:
-                self.log(self.LOG_INFO, "CABLE_MODE_50G_FEC")
+                self.log(self.LOG_DEBUG, "CABLE_MODE_50G_FEC")
                 ret_mode = 2
             elif regval_read[0] == 3:
-                self.log(self.LOG_INFO, "CABLE_MODE_50G_PCS")
+                self.log(self.LOG_DEBUG, "CABLE_MODE_50G_PCS")
                 ret_mode = 3
             else:
-                self.log(self.LOG_INFO, "Cable mode not set")
+                self.log(self.LOG_DEBUG, "Cable mode not set")
                 ret_mode = -1
         else:
             ret_mode = -1
@@ -5671,7 +5678,7 @@ class YCable(YCableBase):
             prbs_type = self.CABLE_PRBS58
         elif mode_value == 7:
             prbs_type = self.CABLE_PRBS49
-        elif mode_value == 6:
+        elif mode_value == 8:
             prbs_type = self.CABLE_PRBS13
         elif mode_value == 0xff:
             prbs_type = 0xff
@@ -5679,7 +5686,7 @@ class YCable(YCableBase):
             self.log(self.LOG_ERROR, "Error: for checking mux_cable check PRBS mode, the mode_value is wrong")
             return self.ERROR_INVALID_PRBS_MODE
     
-        self.log(self.LOG_INFO, "Check PRBS for core_ip {} lane_mask {} prbs_type {}".format(core_ip, hex(lane_mask), prbs_type))
+        self.log(self.LOG_DEBUG, "Check PRBS for core_ip {} lane_mask {} prbs_type {}".format(core_ip, hex(lane_mask), prbs_type))
     
         cmd_hdr = bytearray(5)
         cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
@@ -5699,7 +5706,7 @@ class YCable(YCableBase):
             return self.EEPROM_ERROR, None, None
     
         lock_sts = int(cmd_rsp_body[0])
-        self.log(self.LOG_INFO, "ret_val {} lock_status {}".format(ret_val, hex(lock_sts)))
+        self.log(self.LOG_DEBUG, "ret_val {} lock_status {}".format(ret_val, hex(lock_sts)))
         err_cnt_list = []
     
         if ret_val == 0:
@@ -5707,15 +5714,15 @@ class YCable(YCableBase):
                 for i in range(0, 8):
                     if lane_mask & (1 << i):
                         if lock_sts & (1 << i):
-                            self.log(self.LOG_INFO, "Lane {} PRBS_LOCKED".format(i))
+                            self.log(self.LOG_DEBUG, "Lane {} PRBS_LOCKED".format(i))
                         else:
-                            self.log(self.LOG_INFO, "Lane {} PRBS_NOT_LOCKED".format(i))
+                            self.log(self.LOG_DEBUG, "Lane {} PRBS_NOT_LOCKED".format(i))
     
                     err_cnt = struct.unpack_from('I', cmd_rsp_body, 1 + i*4)[0]
                     err_cnt_list.append(err_cnt)
-                    self.log(self.LOG_INFO, "Error count[{}] : {} ".format(i, hex(err_cnt_list[i])))
+                    self.log(self.LOG_DEBUG, "Error count[{}] : {} ".format(i, hex(err_cnt_list[i])))
             else:
-                self.log(self.LOG_INFO, "The check PRBS returned none")
+                self.log(self.LOG_WARN, "The check PRBS returned none")
                 return self.EEPROM_ERROR, None, None
         else:
             self.log(self.LOG_ERROR, "Check PRBS mode is failed")
@@ -5776,71 +5783,71 @@ class YCable(YCableBase):
                 self.log(self.LOG_ERROR,"intr_status read_eeprom failed")
                 return self.EEPROM_ERROR
             else:
-                self.log(self.LOG_INFO, "intr_result[{}] value : {}".format(ind, hex(result[0])))
+                self.log(self.LOG_DEBUG, "intr_result[{}] value : {}".format(ind, hex(result[0])))
     
             if curr_offset[ind] == self.QSFP28_LP_5_TX_RX_CDR_LOL:
-                self.log(self.LOG_INFO, "LANE Interupt status")
+                self.log(self.LOG_DEBUG, "LANE Interupt status")
                 status = struct.unpack("<B", result)
                 intr_status[0] = status[0]
-                self.log(self.LOG_INFO, "nic_cdr_loss_of_lock_ln0 = {}" .format(1 if((status[0] & (1 << 0))) else 0))
-                self.log(self.LOG_INFO, "nic_cdr_loss_of_lock_ln1 = {}" .format(1 if((status[0] & (1 << 1))) else 0))
-                self.log(self.LOG_INFO, "nic_cdr_loss_of_lock_ln2 = {}" .format(1 if((status[0] & (1 << 2))) else 0))
-                self.log(self.LOG_INFO, "nic_cdr_loss_of_lock_ln3 = {}" .format(1 if((status[0] & (1 << 3))) else 0))
-                self.log(self.LOG_INFO, "torA_cdr_loss_of_lock_ln0 = {}".format(1 if((status[0] & (1 << 4))) else 0))
-                self.log(self.LOG_INFO, "torA_cdr_loss_of_lock_ln1 = {}".format(1 if((status[0] & (1 << 5))) else 0))
-                self.log(self.LOG_INFO, "torA_cdr_loss_of_lock_ln2 = {}".format(1 if((status[0] & (1 << 6))) else 0))
-                self.log(self.LOG_INFO, "torA_cdr_loss_of_lock_ln3 = {}".format(1 if((status[0] & (1 << 7))) else 0))
+                self.log(self.LOG_DEBUG, "nic_cdr_loss_of_lock_ln0 = {}" .format(1 if((status[0] & (1 << 0))) else 0))
+                self.log(self.LOG_DEBUG, "nic_cdr_loss_of_lock_ln1 = {}" .format(1 if((status[0] & (1 << 1))) else 0))
+                self.log(self.LOG_DEBUG, "nic_cdr_loss_of_lock_ln2 = {}" .format(1 if((status[0] & (1 << 2))) else 0))
+                self.log(self.LOG_DEBUG, "nic_cdr_loss_of_lock_ln3 = {}" .format(1 if((status[0] & (1 << 3))) else 0))
+                self.log(self.LOG_DEBUG, "torA_cdr_loss_of_lock_ln0 = {}".format(1 if((status[0] & (1 << 4))) else 0))
+                self.log(self.LOG_DEBUG, "torA_cdr_loss_of_lock_ln1 = {}".format(1 if((status[0] & (1 << 5))) else 0))
+                self.log(self.LOG_DEBUG, "torA_cdr_loss_of_lock_ln2 = {}".format(1 if((status[0] & (1 << 6))) else 0))
+                self.log(self.LOG_DEBUG, "torA_cdr_loss_of_lock_ln3 = {}".format(1 if((status[0] & (1 << 7))) else 0))
     
             if curr_offset[ind] == self.QSFP28_LOS_LOL_SEC:
                 status = struct.unpack("<B", result)
                 intr_status[1] = status[0]
-                self.log(self.LOG_INFO, "torB_cdr_loss_of_lock_ln0 = {}".format(1 if((status[0] & (1 << 0))) else 0))
-                self.log(self.LOG_INFO, "torB_cdr_loss_of_lock_ln1 = {}".format(1 if((status[0] & (1 << 1))) else 0))
-                self.log(self.LOG_INFO, "torB_cdr_loss_of_lock_ln2 = {}".format(1 if((status[0] & (1 << 2))) else 0))
-                self.log(self.LOG_INFO, "torB_cdr_loss_of_lock_ln3 = {}".format(1 if((status[0] & (1 << 3))) else 0))
-                self.log(self.LOG_INFO, "torB_los_ln0 = {}".format(1 if((status[0] & (1 << 4))) else 0))
-                self.log(self.LOG_INFO, "torB_los_ln1 = {}".format(1 if((status[0] & (1 << 5))) else 0))
-                self.log(self.LOG_INFO, "torB_los_ln2 = {}".format(1 if((status[0] & (1 << 6))) else 0))
-                self.log(self.LOG_INFO, "torB_los_ln3 = {}".format(1 if((status[0] & (1 << 7))) else 0))
+                self.log(self.LOG_DEBUG, "torB_cdr_loss_of_lock_ln0 = {}".format(1 if((status[0] & (1 << 0))) else 0))
+                self.log(self.LOG_DEBUG, "torB_cdr_loss_of_lock_ln1 = {}".format(1 if((status[0] & (1 << 1))) else 0))
+                self.log(self.LOG_DEBUG, "torB_cdr_loss_of_lock_ln2 = {}".format(1 if((status[0] & (1 << 2))) else 0))
+                self.log(self.LOG_DEBUG, "torB_cdr_loss_of_lock_ln3 = {}".format(1 if((status[0] & (1 << 3))) else 0))
+                self.log(self.LOG_DEBUG, "torB_los_ln0 = {}".format(1 if((status[0] & (1 << 4))) else 0))
+                self.log(self.LOG_DEBUG, "torB_los_ln1 = {}".format(1 if((status[0] & (1 << 5))) else 0))
+                self.log(self.LOG_DEBUG, "torB_los_ln2 = {}".format(1 if((status[0] & (1 << 6))) else 0))
+                self.log(self.LOG_DEBUG, "torB_los_ln3 = {}".format(1 if((status[0] & (1 << 7))) else 0))
     
             if curr_offset[ind] == self.QSFP28_LP_3_TX_RX_LOSS:
                 status = struct.unpack("<B", result)
                 intr_status[2] = status[0]
-                self.log(self.LOG_INFO, "nic_los_ln0  = {}".format(1 if((status[0] & (1 << 0))) else 0))
-                self.log(self.LOG_INFO, "nic_los_ln1  = {}".format(1 if((status[0] & (1 << 1))) else 0))
-                self.log(self.LOG_INFO, "nic_los_ln2  = {}".format(1 if((status[0] & (1 << 2))) else 0))
-                self.log(self.LOG_INFO, "nic_los_ln3  = {}".format(1 if((status[0] & (1 << 3))) else 0))
-                self.log(self.LOG_INFO, "torA_los_ln0 = {}".format(1 if((status[0] & (1 << 4))) else 0))
-                self.log(self.LOG_INFO, "torA_los_ln1 = {}".format(1 if((status[0] & (1 << 5))) else 0))
-                self.log(self.LOG_INFO, "torA_los_ln2 = {}".format(1 if((status[0] & (1 << 6))) else 0))
-                self.log(self.LOG_INFO, "torA_los_ln3 = {}".format(1 if((status[0] & (1 << 7))) else 0))
+                self.log(self.LOG_DEBUG, "nic_los_ln0  = {}".format(1 if((status[0] & (1 << 0))) else 0))
+                self.log(self.LOG_DEBUG, "nic_los_ln1  = {}".format(1 if((status[0] & (1 << 1))) else 0))
+                self.log(self.LOG_DEBUG, "nic_los_ln2  = {}".format(1 if((status[0] & (1 << 2))) else 0))
+                self.log(self.LOG_DEBUG, "nic_los_ln3  = {}".format(1 if((status[0] & (1 << 3))) else 0))
+                self.log(self.LOG_DEBUG, "torA_los_ln0 = {}".format(1 if((status[0] & (1 << 4))) else 0))
+                self.log(self.LOG_DEBUG, "torA_los_ln1 = {}".format(1 if((status[0] & (1 << 5))) else 0))
+                self.log(self.LOG_DEBUG, "torA_los_ln2 = {}".format(1 if((status[0] & (1 << 6))) else 0))
+                self.log(self.LOG_DEBUG, "torA_los_ln3 = {}".format(1 if((status[0] & (1 << 7))) else 0))
     
             if curr_offset[ind] == self.QSFP28_MESC_FAULT:
-                self.log(self.LOG_INFO, "CHIP  Intrerupt Status")
+                self.log(self.LOG_DEBUG, "CHIP  Intrerupt Status")
                 status = struct.unpack("<B", result)
                 intr_status[3] = status[0]
-                self.log(self.LOG_INFO, "phy_watchdog      = {}".format(1 if((status[0] & (1 << 0))) else 0))
-                self.log(self.LOG_INFO, "phy_fw_ser        = {}".format(1 if((status[0] & (1 << 1))) else 0))
-                self.log(self.LOG_INFO, "phy_fw_ded        = {}".format(1 if((status[0] & (1 << 2))) else 0))
-                self.log(self.LOG_INFO, "nic_mcu_wd_expiry = {}".format(1 if((status[0] & (1 << 3))) else 0))
-                self.log(self.LOG_INFO, "torA_mcu_wd_expiry= {}".format(1 if((status[0] & (1 << 4))) else 0))
-                self.log(self.LOG_INFO, "torB_mcu_wd_expiry= {}".format(1 if((status[0] & (1 << 5))) else 0))
-                self.log(self.LOG_INFO, "avs_failure       = {}".format(1 if((status[0] & (1 << 6))) else 0))
-                self.log(self.LOG_INFO, "mux_switch        = {}".format(1 if((status[0] & (1 << 7))) else 0))
+                self.log(self.LOG_DEBUG, "phy_watchdog      = {}".format(1 if((status[0] & (1 << 0))) else 0))
+                self.log(self.LOG_DEBUG, "phy_fw_ser        = {}".format(1 if((status[0] & (1 << 1))) else 0))
+                self.log(self.LOG_DEBUG, "phy_fw_ded        = {}".format(1 if((status[0] & (1 << 2))) else 0))
+                self.log(self.LOG_DEBUG, "nic_mcu_wd_expiry = {}".format(1 if((status[0] & (1 << 3))) else 0))
+                self.log(self.LOG_DEBUG, "torA_mcu_wd_expiry= {}".format(1 if((status[0] & (1 << 4))) else 0))
+                self.log(self.LOG_DEBUG, "torB_mcu_wd_expiry= {}".format(1 if((status[0] & (1 << 5))) else 0))
+                self.log(self.LOG_DEBUG, "avs_failure       = {}".format(1 if((status[0] & (1 << 6))) else 0))
+                self.log(self.LOG_DEBUG, "mux_switch        = {}".format(1 if((status[0] & (1 << 7))) else 0))
     
             if curr_offset[ind] == self.QSFP28_LINK_FAULT:
-                self.log(self.LOG_INFO, "PORT  Intrerupt Status")
+                self.log(self.LOG_DEBUG, "PORT  Intrerupt Status")
                 status = struct.unpack("<B", result)
                 intr_status[4] = status[0]
-                self.log(self.LOG_INFO, "active_tor_to_nic_fault = {}".format(1 if((status[0] & (1 << 0))) else 0))
-                self.log(self.LOG_INFO, "nic_to_torA_link_fault  = {}".format(1 if((status[0] & (1 << 1))) else 0))
-                self.log(self.LOG_INFO, "nic_to_torB_link_fault  = {}".format(1 if((status[0] & (1 << 2))) else 0))
+                self.log(self.LOG_DEBUG, "active_tor_to_nic_fault = {}".format(1 if((status[0] & (1 << 0))) else 0))
+                self.log(self.LOG_DEBUG, "nic_to_torA_link_fault  = {}".format(1 if((status[0] & (1 << 1))) else 0))
+                self.log(self.LOG_DEBUG, "nic_to_torB_link_fault  = {}".format(1 if((status[0] & (1 << 2))) else 0))
     
             if curr_offset[ind] == self.QSFP28_LINK_DOWN:
                 status = struct.unpack("<B", result)
                 intr_status[5] = status[0]
-                self.log(self.LOG_INFO, "torA_to_nic_pcs_fec_link_down = {}".format(1 if((status[0] & (1 << 0))) else 0))
-                self.log(self.LOG_INFO, "torB_to_nic_pcs_fec_link_down = {}".format(1 if((status[0] & (1 << 1))) else 0))
+                self.log(self.LOG_DEBUG, "torA_to_nic_pcs_fec_link_down = {}".format(1 if((status[0] & (1 << 0))) else 0))
+                self.log(self.LOG_DEBUG, "torB_to_nic_pcs_fec_link_down = {}".format(1 if((status[0] & (1 << 1))) else 0))
     
         return intr_status
 
@@ -5943,35 +5950,35 @@ class YCable(YCableBase):
             lane = 0
             for _ in range(0, 8):
                 if cmd_rsp_body[0] & (1<<lane):
-                    self.log(self.LOG_INFO, "client side rx lane {} is squelch".format(lane))
+                    self.log(self.LOG_DEBUG, "client side rx lane {} is squelch".format(lane))
                     lane += 1
                 else:
-                    self.log(self.LOG_INFO, "client side rx lane {} is un-squelch".format(lane))
+                    self.log(self.LOG_DEBUG, "client side rx lane {} is un-squelch".format(lane))
                     lane += 1
             lane = 0
             for _ in range(0, 8):
                 if cmd_rsp_body[1] & (1<<lane):
-                    self.log(self.LOG_INFO, "client side tx lane {} is squelch".format(lane))
+                    self.log(self.LOG_DEBUG, "client side tx lane {} is squelch".format(lane))
                     lane += 1
                 else:
-                    self.log(self.LOG_INFO, "client side tx lane {} is un-squelch".format(lane))
+                    self.log(self.LOG_DEBUG, "client side tx lane {} is un-squelch".format(lane))
                     lane += 1
     
             lane = 0
             for _ in range(0, 8):
                 if cmd_rsp_body[2] & (1<<lane):
-                    self.log(self.LOG_INFO, "line side rx lane {} is squelch".format(lane))
+                    self.log(self.LOG_DEBUG, "line side rx lane {} is squelch".format(lane))
                     lane += 1
                 else:
-                    self.log(self.LOG_INFO, "line side rx lane {} is un-squelch".format(lane))
+                    self.log(self.LOG_DEBUG, "line side rx lane {} is un-squelch".format(lane))
                     lane += 1
             lane = 0
             for _ in range(0, 8):
                 if cmd_rsp_body[3] & (1<<lane):
-                    self.log(self.LOG_INFO, "line side tx lane {} is squelch".format(lane))
+                    self.log(self.LOG_DEBUG, "line side tx lane {} is squelch".format(lane))
                     lane += 1
                 else:
-                    self.log(self.LOG_INFO, "line side tx lane {} is un-squelch".format(lane))
+                    self.log(self.LOG_DEBUG, "line side tx lane {} is un-squelch".format(lane))
                     lane += 1
 
         return cmd_rsp_body
@@ -6001,7 +6008,7 @@ class YCable(YCableBase):
             values.append(struct.unpack('<f', cmd_rsp_body[8:12]))
             values.append(struct.unpack('<f', cmd_rsp_body[12:16]))
             for i in range(len(values)):
-                self.log(self.LOG_INFO, "lane {} = (snr) = {}".format(i, values[i]))
+                self.log(self.LOG_DEBUG, "lane {} = (snr) = {}".format(i, values[i]))
 
             return values
         else:
@@ -6060,67 +6067,67 @@ class YCable(YCableBase):
                 self.log(self.LOG_ERROR, "cable_get_intr_mask read eeprom failed")
                 return self.EEPROM_ERROR
 
-            self.log(self.LOG_INFO, "intr_result[{}] value : {}".format(ind, hex(result[0])))
+            self.log(self.LOG_DEBUG, "intr_result[{}] value : {}".format(ind, hex(result[0])))
             
             if curr_offset[ind] == self.QSFP28_LP_102_TX_RX_CDR_LOL_MASK:
-                self.log(self.LOG_INFO, "LANE Interupt status")
+                self.log(self.LOG_DEBUG, "LANE Interupt status")
                 status = struct.unpack("<B", result)
                 intr_mask[0] = status[0]
-                self.log(self.LOG_INFO, "nic_cdr_loss_of_lock_ln0 = {}" .format(1 if((status[0] & (1 << 0))) else 0))
-                self.log(self.LOG_INFO, "nic_cdr_loss_of_lock_ln0 = {}" .format(1 if((status[0] & (1 << 1))) else 0))
-                self.log(self.LOG_INFO, "nic_cdr_loss_of_lock_ln0 = {}" .format(1 if((status[0] & (1 << 2))) else 0))
-                self.log(self.LOG_INFO, "nic_cdr_loss_of_lock_ln0 = {}" .format(1 if((status[0] & (1 << 3))) else 0))
-                self.log(self.LOG_INFO, "torA_cdr_loss_of_lock_ln0 = {}".format(1 if((status[0] & (1 << 4))) else 0))
-                self.log(self.LOG_INFO, "torA_cdr_loss_of_lock_ln0 = {}".format(1 if((status[0] & (1 << 5))) else 0))
-                self.log(self.LOG_INFO, "torA_cdr_loss_of_lock_ln0 = {}".format(1 if((status[0] & (1 << 6))) else 0))
-                self.log(self.LOG_INFO, "torA_cdr_loss_of_lock_ln0 = {}".format(1 if((status[0] & (1 << 7))) else 0))
+                self.log(self.LOG_DEBUG, "nic_cdr_loss_of_lock_ln0 = {}" .format(1 if((status[0] & (1 << 0))) else 0))
+                self.log(self.LOG_DEBUG, "nic_cdr_loss_of_lock_ln0 = {}" .format(1 if((status[0] & (1 << 1))) else 0))
+                self.log(self.LOG_DEBUG, "nic_cdr_loss_of_lock_ln0 = {}" .format(1 if((status[0] & (1 << 2))) else 0))
+                self.log(self.LOG_DEBUG, "nic_cdr_loss_of_lock_ln0 = {}" .format(1 if((status[0] & (1 << 3))) else 0))
+                self.log(self.LOG_DEBUG, "torA_cdr_loss_of_lock_ln0 = {}".format(1 if((status[0] & (1 << 4))) else 0))
+                self.log(self.LOG_DEBUG, "torA_cdr_loss_of_lock_ln0 = {}".format(1 if((status[0] & (1 << 5))) else 0))
+                self.log(self.LOG_DEBUG, "torA_cdr_loss_of_lock_ln0 = {}".format(1 if((status[0] & (1 << 6))) else 0))
+                self.log(self.LOG_DEBUG, "torA_cdr_loss_of_lock_ln0 = {}".format(1 if((status[0] & (1 << 7))) else 0))
 
             if curr_offset[ind] == self.QSFP28_LOS_LOL_SEC_MASK:
                 status = struct.unpack("<B", result)
                 intr_mask[1] = status[0]
-                self.log(self.LOG_INFO, "torB_cdr_loss_of_lock_ln0 = {}".format(1 if((status[0] & (1 << 0))) else 0))
-                self.log(self.LOG_INFO, "torB_cdr_loss_of_lock_ln0 = {}".format(1 if((status[0] & (1 << 1))) else 0))
-                self.log(self.LOG_INFO, "torB_cdr_loss_of_lock_ln0 = {}".format(1 if((status[0] & (1 << 2))) else 0))
-                self.log(self.LOG_INFO, "torB_cdr_loss_of_lock_ln0 = {}".format(1 if((status[0] & (1 << 3))) else 0))
-                self.log(self.LOG_INFO, "torB_los_ln0= {}".format(1 if((status[0] & (1 << 4))) else 0))
-                self.log(self.LOG_INFO, "torB_los_ln0= {}".format(1 if((status[0] & (1 << 5))) else 0))
-                self.log(self.LOG_INFO, "torB_los_ln0= {}".format(1 if((status[0] & (1 << 6))) else 0))
-                self.log(self.LOG_INFO, "torB_los_ln0= {}".format(1 if((status[0] & (1 << 7))) else 0))
+                self.log(self.LOG_DEBUG, "torB_cdr_loss_of_lock_ln0 = {}".format(1 if((status[0] & (1 << 0))) else 0))
+                self.log(self.LOG_DEBUG, "torB_cdr_loss_of_lock_ln0 = {}".format(1 if((status[0] & (1 << 1))) else 0))
+                self.log(self.LOG_DEBUG, "torB_cdr_loss_of_lock_ln0 = {}".format(1 if((status[0] & (1 << 2))) else 0))
+                self.log(self.LOG_DEBUG, "torB_cdr_loss_of_lock_ln0 = {}".format(1 if((status[0] & (1 << 3))) else 0))
+                self.log(self.LOG_DEBUG, "torB_los_ln0= {}".format(1 if((status[0] & (1 << 4))) else 0))
+                self.log(self.LOG_DEBUG, "torB_los_ln0= {}".format(1 if((status[0] & (1 << 5))) else 0))
+                self.log(self.LOG_DEBUG, "torB_los_ln0= {}".format(1 if((status[0] & (1 << 6))) else 0))
+                self.log(self.LOG_DEBUG, "torB_los_ln0= {}".format(1 if((status[0] & (1 << 7))) else 0))
 
             if curr_offset[ind] == self.QSFP28_LP_100_TX_RX_LOS_MASK:
                 status = struct.unpack("<B", result)
                 intr_mask[2] = status[0]
-                self.log(self.LOG_INFO, "torA_los_ln0 ={}".format(1 if((status[0] & (1 << 4))) else 0))
-                self.log(self.LOG_INFO, "torA_los_ln0 ={}".format(1 if((status[0] & (1 << 5))) else 0))
-                self.log(self.LOG_INFO, "torA_los_ln0 ={}".format(1 if((status[0] & (1 << 6))) else 0))
-                self.log(self.LOG_INFO, "torA_los_ln0 ={}".format(1 if((status[0] & (1 << 7))) else 0))
-                self.log(self.LOG_INFO, "nic_los_ln0 ={}".format(1 if((status[0] & (1 << 0))) else 0))
-                self.log(self.LOG_INFO, "nic_los_ln0 ={}".format(1 if((status[0] & (1 << 1))) else 0))
-                self.log(self.LOG_INFO, "nic_los_ln0 ={}".format(1 if((status[0] & (1 << 2))) else 0))
-                self.log(self.LOG_INFO, "nic_los_ln0 ={}".format(1 if((status[0] & (1 << 3))) else 0))
+                self.log(self.LOG_DEBUG, "torA_los_ln0 ={}".format(1 if((status[0] & (1 << 4))) else 0))
+                self.log(self.LOG_DEBUG, "torA_los_ln0 ={}".format(1 if((status[0] & (1 << 5))) else 0))
+                self.log(self.LOG_DEBUG, "torA_los_ln0 ={}".format(1 if((status[0] & (1 << 6))) else 0))
+                self.log(self.LOG_DEBUG, "torA_los_ln0 ={}".format(1 if((status[0] & (1 << 7))) else 0))
+                self.log(self.LOG_DEBUG, "nic_los_ln0 ={}".format(1 if((status[0] & (1 << 0))) else 0))
+                self.log(self.LOG_DEBUG, "nic_los_ln0 ={}".format(1 if((status[0] & (1 << 1))) else 0))
+                self.log(self.LOG_DEBUG, "nic_los_ln0 ={}".format(1 if((status[0] & (1 << 2))) else 0))
+                self.log(self.LOG_DEBUG, "nic_los_ln0 ={}".format(1 if((status[0] & (1 << 3))) else 0))
 
             if curr_offset[ind] == self.QSFP_MESC_MASK:
-                self.log(self.LOG_INFO, "CHIP  Intrerupt Status")
+                self.log(self.LOG_DEBUG, "CHIP  Intrerupt Status")
                 status = struct.unpack("<B", result)
                 intr_mask[3] = status[0]
-                self.log(self.LOG_INFO, "phy_watchdog={}".format(1 if((status[0] & (1 << 0))) else 0))
-                self.log(self.LOG_INFO, "phy_fw_ser= {}".format(1 if((status[0] & (1 << 1))) else 0))
-                self.log(self.LOG_INFO, "phy_fw_ded= {}".format(1 if((status[0] & (1 << 2))) else 0))
-                self.log(self.LOG_INFO, "avs_failure={}".format(1 if((status[0] & (1 << 6))) else 0))
+                self.log(self.LOG_DEBUG, "phy_watchdog={}".format(1 if((status[0] & (1 << 0))) else 0))
+                self.log(self.LOG_DEBUG, "phy_fw_ser= {}".format(1 if((status[0] & (1 << 1))) else 0))
+                self.log(self.LOG_DEBUG, "phy_fw_ded= {}".format(1 if((status[0] & (1 << 2))) else 0))
+                self.log(self.LOG_DEBUG, "avs_failure={}".format(1 if((status[0] & (1 << 6))) else 0))
 
             if curr_offset[ind] == self.QSFP_LINK_FAULT_MASK:
-                self.log(self.LOG_INFO, "PORT  Intrerupt Status")
+                self.log(self.LOG_DEBUG, "PORT  Intrerupt Status")
                 status = struct.unpack("<B", result)
                 intr_mask[4] = status[0]
-                self.log(self.LOG_INFO, "active_tor_to_nic_fault= {}".format(1 if((status[0] & (1 << 0))) else 0))
-                self.log(self.LOG_INFO, "nic_to_torA_link_fault={}".format(1 if((status[0] & (1 << 1))) else 0))
-                self.log(self.LOG_INFO, "nic_to_torB_link_fault= {}".format(1 if((status[0] & (1 << 2))) else 0))
+                self.log(self.LOG_DEBUG, "active_tor_to_nic_fault= {}".format(1 if((status[0] & (1 << 0))) else 0))
+                self.log(self.LOG_DEBUG, "nic_to_torA_link_fault={}".format(1 if((status[0] & (1 << 1))) else 0))
+                self.log(self.LOG_DEBUG, "nic_to_torB_link_fault= {}".format(1 if((status[0] & (1 << 2))) else 0))
 
             if curr_offset[ind] == self.QSFP28_UP_DOWN_MASK:
                 status = struct.unpack("<B", result)
                 intr_mask[5] = status[0]
-                self.log(self.LOG_INFO, "torA_to_nic_pcs_fec_link_down={}".format(1 if((status[0] & (1 << 0))) else 0))
-                self.log(self.LOG_INFO, "torB_to_nic_pcs_fec_link_down= {}".format(1 if((status[0] & (1 << 1))) else 0))
+                self.log(self.LOG_DEBUG, "torA_to_nic_pcs_fec_link_down={}".format(1 if((status[0] & (1 << 0))) else 0))
+                self.log(self.LOG_DEBUG, "torB_to_nic_pcs_fec_link_down= {}".format(1 if((status[0] & (1 << 1))) else 0))
 
         return intr_mask
 
@@ -6178,7 +6185,7 @@ class YCable(YCableBase):
             buffer1[0] = intr_mask[5]
             result6 = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer1)
         else:
-            self.log(self.LOG_INFO, "platform_chassis is not loaded, failed to set intr mask ")
+            self.log(self.LOG_WARN, "platform_chassis is not loaded, failed to set intr mask ")
             return -1
         if False in {result1, result2, result3, result4, result5, result6}:
             return False
@@ -6191,6 +6198,6 @@ class YCable(YCableBase):
         if self.__validate_read_data(result, 1, "get check_active_status") == self.EEPROM_READ_DATA_INVALID:
             return self.EEPROM_ERROR
         else:
-            self.log(self.LOG_INFO, "intr value : {}".format(hex(result[0])))
+            self.log(self.LOG_DEBUG, "intr value : {}".format(hex(result[0])))
             return result[0]
 
