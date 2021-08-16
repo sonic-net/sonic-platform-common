@@ -810,7 +810,8 @@ class ThermalControlDaemon(daemon_base.DaemonBase):
             self.log_info("Caught signal '{}' - exiting...".format(SIGNALS_TO_NAMES_DICT[sig]))
             exit_code = 128 + sig  # Make sure we exit with a non-zero code so that supervisor will try to restart us
             self.thermal_monitor.task_stop()
-            self.thermal_manager.stop()
+            if self.thermal_manager:
+                self.thermal_manager.stop()
             self.stop_event.set()
         elif sig in NONFATAL_SIGNALS:
             self.log_info("Caught signal '{}' - ignoring...".format(SIGNALS_TO_NAMES_DICT[sig]))
