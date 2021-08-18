@@ -16,11 +16,11 @@ class MockXcvrCodes(XcvrCodes):
 
     }
 
-    LARGE_CODE_DICT = {
+    SHIFTED_CODE_DICT = {
        0: "Code0",
-       128: "Code128",
-       256: "Code256",
-       384: "Code384"
+       1: "Code1",
+       2: "Code2",
+       3: "Code3",
     }
 
 class MockXcvrMemMap(XcvrMemMap):
@@ -28,7 +28,7 @@ class MockXcvrMemMap(XcvrMemMap):
         super(MockXcvrMemMap, self).__init__(codes)
 
         self.CODE_REG = CodeRegField("CodeReg", 5, self.codes.CODE_DICT)
-        self.LARGE_CODE_REG = CodeRegField("LargeCodeReg", 50, self.codes.LARGE_CODE_DICT,
+        self.SHIFTED_CODE_REG = CodeRegField("ShiftedCodeReg", 50, self.codes.SHIFTED_CODE_DICT,
             RegBitField("CodeBit7", bitpos=7),
             RegBitField("CodeBit8", bitpos=8),
             size=2, format=">H")
@@ -52,6 +52,11 @@ class MockXcvrMemMap(XcvrMemMap):
                 NumberRegField( "NestedField1", 10),
             ),
             NumberRegField("NestedField2", 11)
+        )
+
+        self.REG_GROUP_NON_CONTIGUOUS = RegGroupField("RegGroupNonContiguous",
+            NumberRegField("Field3", 50, format="<I", size=4),
+            NumberRegField("Field4", 55, format="<I", size=4)
         )
 
 codes = MockXcvrCodes
@@ -134,7 +139,7 @@ class TestNumberRegField(object):
 
         field = mem_map.get_field("Field1")
         val = 0xFF
-        assert field.decode(field.encode(val)) == val
+        assert field.decode(field.encode(val)) == 3
         assert field.decode(field.encode(0)) == 0
 
 class TestStringRegField(object):
@@ -152,15 +157,15 @@ class TestCodeRegField(object):
         data = bytearray([1])
         assert field.decode(data) == "Code1"
 
-        field = mem_map.get_field("LargeCodeReg")
+        field = mem_map.get_field("ShiftedCodeReg")
         data = bytearray([0xFE, 0x7F])
         assert field.decode(data) == "Code0"
         data = bytearray([0xFE, 0xFF])
-        assert field.decode(data) == "Code128"
+        assert field.decode(data) == "Code1"
         data = bytearray([0xFF, 0x7F])
-        assert field.decode(data) == "Code256"
+        assert field.decode(data) == "Code2"
         data = bytearray([0xFF, 0xFF])
-        assert field.decode(data) == "Code384"
+        assert field.decode(data) == "Code3"
 
 class TestHexRegField(object):
     def test_decode(self):
@@ -179,6 +184,9 @@ class TestRegGroupField(object):
 
         field = mem_map.get_field("RegGroupNested")
         assert field.get_size() == 3
+
+        field = mem_map.get_field("RegGroupNonContiguous")
+        assert field.get_size() == 9
 
     def test_read_before_write(self):
         field = mem_map.get_field("RegGroup")
@@ -205,4 +213,13 @@ class TestRegGroupField(object):
                 "NestedField1": 1,
             },
             "NestedField2": 2,
+        }
+
+        field = mem_map.get_field("RegGroupNonContiguous")
+        data = bytearray(b'\x01\x02\x03\x04\x01\x02\x03\x04\x01')
+        decoded = field.decode(data)
+        
+        assert decoded == {
+            "Field3": 0x04030201,
+            "Field4": 0x01040302,
         }
