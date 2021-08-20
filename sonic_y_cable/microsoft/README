@@ -13,6 +13,6 @@ Simply create a json file to `/etc/sonic/mux_simulator.json` with content like
     "server_ip": "192.168.0.10",
     "server_port": "8000",
     "vm_set": "vms17-7",
-    "side": "tor_a"
+    "side": "upper_tor"
 }
 ```
