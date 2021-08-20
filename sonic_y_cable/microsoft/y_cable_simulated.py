@@ -40,11 +40,12 @@ class YCable(YCableBase):
         self.debug_mode = False
         self._init_port_index()
         try:
-            mux_simulator = json.load(open(self.UX_SIMULATOR_CONFIG_FILE))
+            mux_simulator = json.load(open(self.MUX_SIMULATOR_CONFIG_FILE))
             self._vmset_url = 'http://{}:{}/mux/{}/{}'.format(
                 mux_simulator['server_ip'],
                 mux_simulator['server_port'],
-                mux_simulator['vm_set'])
+                mux_simulator['vm_set'],
+                self.port_index)
             self._url = '{}/{}'.format(self._vmset_url, self.port_index)
             self.side = mux_simulator['side']  # Either "upper_tor" or "lower_tor"
             self._initialized = True
@@ -88,7 +89,7 @@ class YCable(YCableBase):
                 return None
             return resp.json
         except Exception as e:
-            self.log_warning('Post {} with data for physical_port {} failed, exception: {}'.format(self._url, json.dumps(data), physical_port, repr(e)))
+            self.log_warning('Post {} with data {} for physical_port {} failed, exception: {}'.format(self._url, json.dumps(data), physical_port, repr(e)))
             return None
 
     def _get_status(self):
@@ -106,12 +107,11 @@ class YCable(YCableBase):
         Helper function for toggling active side of physical_port to target side.
 
         Args:
-            physical_port: physical port on switch, an integer starting from 1
             target: UPPER_TOR / LOWER_TOR
         Returns:
-            Latest mux status. False otherwise
+            Latest mux status. None otherwise
         """
-        self.log_info("Toggle active side of physical_port {} to {}".format(physical_port, target))
+        self.log_info("Toggle active side of physical_port {} to {}".format(self.port, target))
         return self._post(data={"active_side": target})
 
     def _clear_counter(self):
@@ -382,7 +382,7 @@ class YCable(YCableBase):
             a list, with  pre one, pre two, main, post one, post two, post three cursor values in the order
         """
 
-        raise [None, None, None, None, None, None]
+        return [None, None, None, None, None, None]
 
     def set_target_cursor_values(self, lane, cursor_values, target):
         """
@@ -409,7 +409,7 @@ class YCable(YCableBase):
                      , False if cursor values setting is not successful
         """
 
-        raise True
+        return True
 
     def get_firmware_version(self, target):
         """
