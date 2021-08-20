@@ -102,7 +102,7 @@ class YCable(YCableBase):
             self.log_warning('Get {} failed, exception: {}'.format(self._url, repr(e)))
             return None
 
-    def _toggle_to(self, physical_port, target):
+    def _toggle_to(self, target):
         """
         Helper function for toggling active side of physical_port to target side.
 
