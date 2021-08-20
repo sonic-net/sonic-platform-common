@@ -36,7 +36,7 @@ class YCable(YCableBase):
 
         self._initialized = False
 
-        self.switching_mode = self.SWITCHING_MODE_AUTO
+        self.switching_mode = self.SWITCHING_MODE_MANUAL
         self.debug_mode = False
         self._init_port_index()
         try:
