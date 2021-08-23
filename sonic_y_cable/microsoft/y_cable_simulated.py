@@ -7,7 +7,8 @@ Mux simulator documentation: https://github.com/Azure/sonic-mgmt/blob/master/ans
 """
 import json
 import os
-import requests
+import urllib.request
+import urllib.error
 
 from sonic_py_common import device_info
 from portconfig import get_port_config
@@ -16,6 +17,8 @@ from sonic_y_cable.y_cable_base import YCableBase
 
 
 class YCable(YCableBase):
+
+    EEPROM_ERROR = -1
 
     MUX_SIMULATOR_CONFIG_FILE = '/etc/sonic/mux_simulator.json'
 
@@ -41,14 +44,14 @@ class YCable(YCableBase):
         self._init_port_index()
         try:
             mux_simulator = json.load(open(self.MUX_SIMULATOR_CONFIG_FILE))
-            self._vmset_url = 'http://{}:{}/mux/{}/{}'.format(
+            self._vmset_url = 'http://{}:{}/mux/{}'.format(
                 mux_simulator['server_ip'],
                 mux_simulator['server_port'],
-                mux_simulator['vm_set'],
-                self.port_index)
+                mux_simulator['vm_set'])
             self._url = '{}/{}'.format(self._vmset_url, self.port_index)
             self.side = mux_simulator['side']  # Either "upper_tor" or "lower_tor"
             self._initialized = True
+            self.log_notice('Initialized simulated y_cable driver, port={}, index={}'.format(self.port, port_index))
         except Exception as e:
             self.log_error('Unexpected content in {}, {}'.format(self.MUX_SIMULATOR_CONFIG_FILE, repr(e)))
 
@@ -73,31 +76,78 @@ class YCable(YCableBase):
         if self.port_index is None:
             self.log_error('Failed to find index of physical port {}, ports={}'.format(self.port, json.dumps(ports)))
 
+    def _get(self, url=None):
+        if not self._initialized:
+            return None
+
+        if url:
+            get_url = url
+        else:
+            get_url = self._url
+
+        try:
+            try:
+                headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
+                req = urllib.request.Request(get_url)
+                with urllib.request.urlopen(req) as resp:
+                    return json.loads(resp.read().decode('utf-8'))
+            except urllib.error.HTTPError as e:
+                self.log_error('GET {} for physical_port {} failed with {}, detail: {}'.format(
+                    get_url,
+                    self.port,
+                    repr(e),
+                    e.read()))
+        except (urllib.error.URLError, json.decoder.JSONDecodeError, Exception) as e:
+            self.log_error('GET {} for physical_port {} failed with {}'.format(
+                get_url,
+                self.port,
+                repr(e)))
+
+        return None
+
     def _post(self, url=None, data=None):
         if not self._initialized:
             return None
 
-        headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
+        if url:
+            post_url = url
+        else:
+            post_url = self._url
+
+        if data is not None:
+            post_data = json.dumps(data).encode('utf-8')
+        else:
+            post_data = None
+
         try:
-            if url:
-                post_url = url
-            else:
-                post_url = self._url
-            resp = requests.post(post_url, headers=headers, data=data, timeout=10)
-            if resp.status_code != 200:
-                self.log_warning('Post {} with data {} for physical_port {} failed, resp: {}'.format(self._url, json.dumps(data), physical_port, resp.text))
-                return None
-            return resp.json
-        except Exception as e:
-            self.log_warning('Post {} with data {} for physical_port {} failed, exception: {}'.format(self._url, json.dumps(data), physical_port, repr(e)))
-            return None
+            try:
+                headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
+                req = urllib.request.Request(post_url, post_data, headers, method='POST')
+                with urllib.request.urlopen(req) as resp:
+                    return json.loads(resp.read().decode('utf-8'))
+            except urllib.error.HTTPError as e:
+                self.log_error('POST {} with data {} for physical_port {} failed with {}, detail: {}'.format(
+                    post_url,
+                    post_data,
+                    self.port,
+                    repr(e),
+                    e.read()
+                ))
+        except (urllib.error.URLError, json.decoder.JSONDecodeError, Exception) as e:
+            self.log_error('POST {} with data {} for physical_port {} failed with {}'.format(
+                    post_url,
+                    post_data,
+                    self.port,
+                    repr(e)
+                ))
+
+        return None
 
     def _get_status(self):
         if not self._initialized:
             return None
         try:
-            resp = requests.get(self.url)
-            return resp.json()
+            return self._get()
         except Exception as e:
             self.log_warning('Get {} failed, exception: {}'.format(self._url, repr(e)))
             return None
@@ -112,10 +162,18 @@ class YCable(YCableBase):
             Latest mux status. None otherwise
         """
         self.log_info("Toggle active side of physical_port {} to {}".format(self.port, target))
-        return self._post(data={"active_side": target})
+        status = self._post(data={"active_side": target})  # mux simulator returns latest mux status
+        if not status:
+            return False
+        if 'active_side' in status and status['active_side'] == target:
+            return True
+        else:
+            return False
 
     def _clear_counter(self):
-        return self._post(url=self._vmset_url, data={'port_to_clear': str(self.port_index)}).values()[0]
+        if self.port_index is not None:
+            self._post(url="{}/clear_flap_counter".format(self._vmset_url),
+                    data={'port_to_clear': str(self.port_index)})
 
     def toggle_mux_to_tor_a(self):
         """
@@ -237,6 +295,25 @@ class YCable(YCableBase):
 
         # For simulated y-cable, the DUT is connected to fanout. Link should always be active.
         return True
+
+    def get_eye_heights(self, target):
+        """
+        This API returns the EYE height value for a specfic port.
+        The target could be local side, TOR_A, TOR_B, NIC etc.
+        The port on which this API is called for can be referred using self.port.
+
+        Args:
+            target:
+                 One of the following predefined constants, the target on which to get the eye:
+                     EYE_PRBS_LOOPBACK_TARGET_LOCAL -> local side,
+                     EYE_PRBS_LOOPBACK_TARGET_TOR_A -> TOR A
+                     EYE_PRBS_LOOPBACK_TARGET_TOR_B -> TOR B
+                     EYE_PRBS_LOOPBACK_TARGET_NIC -> NIC
+        Returns:
+            a list, with EYE values of lane 0 lane 1 lane 2 lane 3 with corresponding index
+        """
+
+        return [0, 1, 2, 3]
 
     def get_vendor(self):
         """
