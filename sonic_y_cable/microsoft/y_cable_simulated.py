@@ -87,7 +87,6 @@ class YCable(YCableBase):
 
         try:
             try:
-                headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
                 req = urllib.request.Request(get_url)
                 with urllib.request.urlopen(req) as resp:
                     return json.loads(resp.read().decode('utf-8'))
