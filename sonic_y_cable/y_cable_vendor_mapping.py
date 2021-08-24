@@ -23,6 +23,7 @@ mapping = {
         "2164352502": "broadcom.y_cable_broadcom",
         "2164352503": "broadcom.y_cable_broadcom",
         "2164352504": "broadcom.y_cable_broadcom"
+    },
     "microsoft": {
         "simulated": "microsoft.y_cable_simulated"
     }
