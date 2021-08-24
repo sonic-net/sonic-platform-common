@@ -51,7 +51,7 @@ class YCable(YCableBase):
             self._url = '{}/{}'.format(self._vmset_url, self.port_index)
             self.side = mux_simulator['side']  # Either "upper_tor" or "lower_tor"
             self._initialized = True
-            self.log_notice('Initialized simulated y_cable driver, port={}, index={}'.format(self.port, port_index))
+            self.log_notice('Initialized simulated y_cable driver, port={}, index={}'.format(self.port, self.port_index))
         except Exception as e:
             self.log_error('Unexpected content in {}, {}'.format(self.MUX_SIMULATOR_CONFIG_FILE, repr(e)))
 
@@ -160,7 +160,7 @@ class YCable(YCableBase):
         Returns:
             Latest mux status. None otherwise
         """
-        self.log_info("Toggle active side of physical_port {} to {}".format(self.port, target))
+        self.log_notice("Toggle active side of physical_port {} to {}".format(self.port, target))
         status = self._post(data={"active_side": target})  # mux simulator returns latest mux status
         if not status:
             return False
