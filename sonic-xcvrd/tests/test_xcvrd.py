@@ -17,6 +17,10 @@ from .mock_swsscommon import Table
 daemon_base.db_connect = MagicMock()
 swsscommon.Table = MagicMock()
 swsscommon.ProducerStateTable = MagicMock()
+swsscommon.SubscriberStateTable = MagicMock()
+swsscommon.SonicDBConfig = MagicMock()
+#swsscommon.Select = MagicMock()
+
 sys.modules['sonic_y_cable'] = MagicMock()
 sys.modules['sonic_y_cable.y_cable'] = MagicMock()
 
@@ -217,7 +221,7 @@ class TestXcvrdScript(object):
 
     @patch('xcvrd.xcvrd_utilities.y_cable_helper.y_cable_platform_sfputil', MagicMock(return_value=[0]))
     @patch('xcvrd.xcvrd_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
-    @patch('xcvrd.xcvrd_utilities.y_cable_helper._wrapper_get_presence', MagicMock(return_value=True))
+    @patch('xcvrd.xcvrd_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
     @patch('xcvrd.xcvrd_utilities.y_cable_helper.get_muxcable_info', MagicMock(return_value={'tor_active': 'self',
                                                                        'mux_direction': 'self',
                                                                        'manual_switch_count': '7',
@@ -254,9 +258,10 @@ class TestXcvrdScript(object):
         rc = post_port_mux_info_to_db(logical_port_name, mux_tbl)
         assert(rc != -1)
 
+
     @patch('xcvrd.xcvrd_utilities.y_cable_helper.y_cable_platform_sfputil', MagicMock(return_value=[0]))
     @patch('xcvrd.xcvrd_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
-    @patch('xcvrd.xcvrd_utilities.y_cable_helper._wrapper_get_presence', MagicMock(return_value=True))
+    @patch('xcvrd.xcvrd_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
     @patch('xcvrd.xcvrd_utilities.y_cable_helper.get_muxcable_static_info', MagicMock(return_value={'read_side': 'self',
                                                                               'nic_lane1_precursor1': '1',
                                                                               'nic_lane1_precursor2': '-7',
@@ -293,6 +298,65 @@ class TestXcvrdScript(object):
         mux_tbl = Table("STATE_DB", y_cable_helper.MUX_CABLE_STATIC_INFO_TABLE)
         rc = post_port_mux_static_info_to_db(logical_port_name, mux_tbl)
         assert(rc != -1)
+
+    def test_y_cable_helper_format_mapping_identifier1(self):
+        rc = format_mapping_identifier("ABC        ")
+        assert(rc == "abc")
+
+    def test_y_cable_wrapper_get_transceiver_info(self):
+        with patch('xcvrd.xcvrd_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+            patched_util.get_transceiver_info_dict.return_value = {'manufacturer': 'Microsoft',
+                                                                              'model': 'model1'}
+
+            transceiver_dict = y_cable_wrapper_get_transceiver_info(1)
+            vendor = transceiver_dict.get('manufacturer')
+            model = transceiver_dict.get('model')
+
+        assert(vendor == "Microsoft")
+        assert(model == "model1")
+
+    def test_y_cable_wrapper_get_presence(self):
+        with patch('xcvrd.xcvrd_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+            patched_util.get_presence.return_value = True
+
+            presence = y_cable_wrapper_get_presence(1)
+
+        assert(presence == True)
+
+    @patch('xcvrd.xcvrd_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('xcvrd.xcvrd_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    def test_get_ycable_physical_port_from_logical_port(self):
+
+        instance = get_ycable_physical_port_from_logical_port("Ethernet0")
+
+        assert(instance == 0)
+
+    @patch('xcvrd.xcvrd_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('xcvrd.xcvrd_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    def test_get_ycable_port_instance_from_logical_port(self):
+
+        with patch('xcvrd.xcvrd_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+            patched_util.get.return_value = 0
+            instance = get_ycable_port_instance_from_logical_port("Ethernet0")
+
+        assert(instance == 0)
+
+    def test_set_show_firmware_fields(self):
+
+        mux_info_dict = {}
+        xcvrd_show_fw_res_tbl = Table("STATE_DB", "XCVRD_SHOW_FW_RES")
+        mux_info_dict['version_self_active'] = '0.8'
+        mux_info_dict['version_self_inactive'] = '0.7'
+        mux_info_dict['version_self_next'] = '0.7'
+        mux_info_dict['version_peer_active'] = '0.8'
+        mux_info_dict['version_peer_inactive'] = '0.7'
+        mux_info_dict['version_peer_next'] = '0.7'
+        mux_info_dict['version_nic_active'] = '0.8'
+        mux_info_dict['version_nic_inactive'] = '0.7'
+        mux_info_dict['version_nic_next'] = '0.7'
+        rc = set_show_firmware_fields("Ethernet0", mux_info_dict, xcvrd_show_fw_res_tbl)
+
+        assert(rc == 0)
 
     def test_get_media_settings_key(self):
         xcvr_info_dict = {
