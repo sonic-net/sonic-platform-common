@@ -26,6 +26,7 @@ setup(
         'sonic_y_cable',
         'sonic_y_cable.credo',
         'sonic_y_cable.broadcom',
+        'sonic_y_cable.microsoft'
     ],
     # NOTE: Install also depends on sonic-config-engine for portconfig.py
     # This dependency should be eliminated by moving portconfig.py
