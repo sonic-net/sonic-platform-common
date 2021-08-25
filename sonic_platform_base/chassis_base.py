@@ -468,17 +468,18 @@ class ChassisBase(device_base.DeviceBase):
             A list of objects derived from SfpBase representing all sfps
             available on this chassis
         """
-        return self._sfp_list
+        return [ sfp for sfp in self._sfp_list if sfp is not None ]
 
     def get_sfp(self, index):
         """
-        Retrieves sfp represented by (0-based) index <index>
+        Retrieves sfp corresponding to physical port <index>
 
         Args:
-            index: An integer, the index (0-based) of the sfp to retrieve.
-                   The index should be the sequence of a physical port in a chassis,
-                   starting from 0.
-                   For example, 0 for Ethernet0, 1 for Ethernet4 and so on.
+            index: An integer (>=0), the index of the sfp to retrieve.
+                   The index should correspond to the physical port in a chassis.
+                   For example:-
+                   1 for Ethernet0, 2 for Ethernet4 and so on for one platform.
+                   0 for Ethernet0, 1 for Ethernet4 and so on for another platform.
 
         Returns:
             An object dervied from SfpBase representing the specified sfp
