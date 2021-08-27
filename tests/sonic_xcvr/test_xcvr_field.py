@@ -1,5 +1,6 @@
 from sonic_platform_base.sonic_xcvr.fields.xcvr_field import (
     CodeRegField,
+    DateField,
     HexRegField,
     NumberRegField,
     RegBitField,
@@ -58,6 +59,8 @@ class MockXcvrMemMap(XcvrMemMap):
             NumberRegField("Field3", 50, format="<I", size=4),
             NumberRegField("Field4", 55, format="<I", size=4)
         )
+
+        self.DATE = DateField("Date", 60, size=8)
 
 codes = MockXcvrCodes
 mem_map = MockXcvrMemMap(codes)
@@ -223,3 +226,10 @@ class TestRegGroupField(object):
             "Field3": 0x04030201,
             "Field4": 0x01040302,
         }
+
+class TestDateField(object):
+    def test_decode(self):
+        field = mem_map.get_field("Date")
+        data = bytearray(b'\x32\x31\x31\x30\x32\x30\x00')
+        decoded = field.decode(data)
+        assert decoded == "2021-10-22 "

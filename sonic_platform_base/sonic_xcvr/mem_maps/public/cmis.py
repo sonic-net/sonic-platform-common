@@ -114,6 +114,11 @@ class CmisMemMap(XcvrMemMap):
             ),
         )
 
+        self.MODULE_LEVEL_MONITORS = RegGroupField(consts.MODULE_MONITORS_FIELD,
+            NumberRegField(consts.TEMPERATURE_FIELD, get_addr(0x0, 14), size=2, format=">h", scale=256),
+            NumberRegField(consts.VOLTAGE_FIELD, get_addr(0x0, 16), size=2, format=">H", scale=1000),
+        )
+
         self.MEDIA_LANE_FEC_PM = RegGroupField(consts.MEDIA_LANE_FEC_PM_FIELD,
             NumberRegField(consts.RX_BITS_PM_FIELD, self.get_addr(0x34, 128), format=">Q", size=8),
             NumberRegField(consts.RX_BITS_SUB_INT_PM_FIELD, self.get_addr(0x34, 136), format=">Q", size=8),
