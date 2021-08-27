@@ -48,7 +48,9 @@ TX_BIAS_HIGH_WARNING_FIELD = "TxHighWarning"
 TX_BIAS_LOW_WARNING_FIELD = "TxLowWarning"
 
 TX_FAULT_FIELD = "TxFault"
+TX_FAULT_SUPPORT_FIELD = "TxFaultSupported"
 TX_DISABLE_FIELD = "TxDisable"
+TX_DISABLE_SUPPORT_FIELD = "TxDisableSupported"
 
 TX_POWER_FIELD = "TxPower"
 TX_POWER_SUPPORT_FIELD = "TxPowerSupported"
@@ -93,9 +95,15 @@ FIBRE_CHANNEL_TRANSMITTER_TECH_FIELD = "Fibre Channel Transmitter Technology"
 FIBRE_CHANNEL_TRANSMISSION_MEDIA_FIELD = "Fibre Channel Transmission Media"
 FIBRE_CHANNEL_SPEED_FIELD = "Fibre Channel Speed"
 
+OPTIONS_FIELD = "Options"
+
 POWER_CTRL_FIELD = "Power Control"
 POWER_OVERRIDE_FIELD = "Power Override"
 POWER_SET_FIELD = "Power Set"
+
+# SFF-8636
+
+REV_COMPLIANCE_FIELD = "Revision Compliance"
 
 # CMIS
 

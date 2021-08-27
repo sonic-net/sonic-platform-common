@@ -1,3 +1,9 @@
+"""
+    sff8636.py
+
+    Implementation of SFF-8636 Rev 2.10a
+"""
+
 from ..xcvr_mem_map import XcvrMemMap
 from ...fields.xcvr_field import (
     CodeRegField,
@@ -9,12 +15,13 @@ from ...fields.xcvr_field import (
 )
 from ...fields import consts
 
-class Sff8436MemMap(XcvrMemMap):
+class Sff8636MemMap(XcvrMemMap):
     def __init__(self, codes):
-        super(Sff8436MemMap, self).__init__(codes)
+        super(Sff8636MemMap, self).__init__(codes)
 
         self.STATUS = RegGroupField(consts.STATUS_FIELD,
-            NumberRegField(consts.STATUS_IND_BITS_FIELD, self.get_addr(0, 2), 
+            CodeRegField(consts.REV_COMPLIANCE_FIELD, self.get_addr(0, 1), self.codes.REV_COMPLIANCE),
+            NumberRegField(consts.STATUS_IND_BITS_FIELD, self.get_addr(0, 2),
                 RegBitField(consts.FLAT_MEM_FIELD, 2)
             )
         )
@@ -24,6 +31,9 @@ class Sff8436MemMap(XcvrMemMap):
             CodeRegField(consts.ID_ABBRV_FIELD, self.get_addr(0, 128), self.codes.XCVR_IDENTIFIER_ABBRV),
             RegGroupField(consts.EXT_ID_FIELD, 
                 CodeRegField(consts.POWER_CLASS_FIELD, self.get_addr(0, 129), self.codes.POWER_CLASSES,
+                    RegBitField("%s_0" % consts.POWER_CLASS_FIELD, 0),
+                    RegBitField("%s_1" % consts.POWER_CLASS_FIELD, 1),
+                    RegBitField("%s_5" % consts.POWER_CLASS_FIELD, 5),
                     RegBitField("%s_6" % consts.POWER_CLASS_FIELD, 6),
                     RegBitField("%s_7" % consts.POWER_CLASS_FIELD, 7)
                 ),
@@ -65,12 +75,18 @@ class Sff8436MemMap(XcvrMemMap):
             HexRegField(consts.VENDOR_OUI_FIELD, self.get_addr(0, 165), size=3),
             StringRegField(consts.VENDOR_PART_NO_FIELD, self.get_addr(0, 168), size=16),
             StringRegField(consts.VENDOR_REV_FIELD, self.get_addr(0, 184), size=2),
-            NumberRegField(consts.OPTIONS_FIELD, self.get_addr(0, 192),
-                RegBitField(consts.TX_FAULT_SUPPORT_FIELD, 27),
-                RegBitField(consts.TX_DISABLE_SUPPORT_FIELD, 28),
+            CodeRegField(consts.EXT_SPEC_COMPLIANCE_FIELD, self.get_addr(0, 192), self.codes.EXT_SPEC_COMPLIANCE),
+            NumberRegField(consts.OPTIONS_FIELD, self.get_addr(0, 193),
+                RegBitField(consts.TX_FAULT_SUPPORT_FIELD, 19),
+                RegBitField(consts.TX_DISABLE_SUPPORT_FIELD, 20),
             size=4, format="<I"),
             StringRegField(consts.VENDOR_SERIAL_NO_FIELD, self.get_addr(0, 196), size=16),
-            StringRegField(consts.VENDOR_DATE_FIELD, self.get_addr(0, 212), size=8)
+            StringRegField(consts.VENDOR_DATE_FIELD, self.get_addr(0, 212), size=8),
+            NumberRegField(consts.DIAG_MON_TYPE_FIELD, self.get_addr(0, 220),
+                RegBitField(consts.TEMP_SUPPORT_FIELD, 5),
+                RegBitField(consts.VOLTAGE_SUPPORT_FIELD, 4),
+                RegBitField(consts.TX_POWER_SUPPORT_FIELD, 2),
+            ),
         )
 
         self.RX_LOS = NumberRegField(consts.RX_LOS_FIELD, self.get_addr(0, 3),
@@ -97,6 +113,11 @@ class Sff8436MemMap(XcvrMemMap):
         self.TX_BIAS = RegGroupField(consts.TX_BIAS_FIELD,
             *(NumberRegField("Tx%dBiasField" % channel, self.get_addr(0, offset), size=2, format=">H", scale=500)
               for channel, offset in zip(range(1, 5), range(42, 49, 2)))
+        )
+
+        self.TX_POWER = RegGroupField(consts.TX_POWER_FIELD,
+            *(NumberRegField("Tx%dPowerField" % channel, self.get_addr(0, offset), size=2, format=">H", scale=1000)
+              for channel, offset in zip(range(1, 5), range(50, 58, 2)))
         )
 
         self.TEMP = NumberRegField(consts.TEMPERATURE_FIELD, self.get_addr(0, 22), size=2, format=">h", scale=256)
@@ -135,6 +156,13 @@ class Sff8436MemMap(XcvrMemMap):
             NumberRegField(consts.TX_BIAS_LOW_ALARM_FIELD, self.get_addr(3, 186), size=2, format=">H", scale=500),
             NumberRegField(consts.TX_BIAS_HIGH_WARNING_FIELD, self.get_addr(3, 188), size=2, format=">H", scale=500),
             NumberRegField(consts.TX_BIAS_LOW_WARNING_FIELD, self.get_addr(3, 190), size=2, format=">H", scale=500),
+        )
+
+        self.TX_POWER_THRESHOLDS = RegGroupField(consts.TX_POWER_THRESHOLDS_FIELD,
+            NumberRegField(consts.TX_POWER_HIGH_ALARM_FIELD, self.get_addr(3, 192), size=2, format=">H", scale=1000),
+            NumberRegField(consts.TX_POWER_LOW_ALARM_FIELD, self.get_addr(3, 194), size=2, format=">H", scale=1000),
+            NumberRegField(consts.TX_POWER_HIGH_WARNING_FIELD, self.get_addr(3, 196), size=2, format=">H", scale=1000),
+            NumberRegField(consts.TX_POWER_LOW_WARNING_FIELD, self.get_addr(3, 198), size=2, format=">H", scale=1000),
         )
 
     def get_addr(self, page, offset, page_size=128):

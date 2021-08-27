@@ -1,17 +1,17 @@
 from mock import MagicMock
 
-from sonic_platform_base.sonic_xcvr.api.public.sff8436 import Sff8436Api
-from sonic_platform_base.sonic_xcvr.codes.public.sff8436 import Sff8436Codes
-from sonic_platform_base.sonic_xcvr.mem_maps.public.sff8436 import Sff8436MemMap
+from sonic_platform_base.sonic_xcvr.api.public.sff8636 import Sff8636Api
+from sonic_platform_base.sonic_xcvr.codes.public.sff8636 import Sff8636Codes
+from sonic_platform_base.sonic_xcvr.mem_maps.public.sff8636 import Sff8636MemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
 
-class TestSff8436(object):
-    codes = Sff8436Codes
-    mem_map = Sff8436MemMap(codes)
+class TestSff8636(object):
+    codes = Sff8636Codes
+    mem_map = Sff8636MemMap(codes)
     reader = MagicMock(return_value=None)
     writer = MagicMock()
     eeprom = XcvrEeprom(reader, writer, mem_map)
-    api = Sff8436Api(eeprom)
+    api = Sff8636Api(eeprom)
 
     def test_api(self):
         """

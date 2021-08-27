@@ -344,6 +344,15 @@ class XcvrApi(object):
         """
         raise NotImplementedError
 
+    def get_rx_power_support(self):
+        """
+        Retrieves the tx power measurement capability of this xcvr
+
+        Returns:
+            A Boolean, True if tx power measurement is supported, False otherwise
+        """
+        raise NotImplementedError
+
     def is_copper(self):
         """
         Returns:
@@ -372,5 +381,41 @@ class XcvrApi(object):
             A Boolean, True if module voltage measurement is supported, False otherwise
 
             If there is an issue with reading the xcvr, None should be returned.
+        """
+        raise NotImplementedError
+
+    def get_rx_los_support(self):
+        """
+        Retrieves the RX LOS status reporting capability of this xcvr
+
+        Returns:
+            A Boolean, True if xcvr reports RX LOS status, False otherwise
+        """
+        raise NotImplementedError
+
+    def get_tx_bias_support(self):
+        """
+        Retrieves the TX bias measurement capability of this xcvr
+
+        Returns:
+            A Boolean, True if TX bias is supported, False otherwise
+        """
+        raise NotImplementedError
+
+    def get_tx_fault_support(self):
+        """
+        Retrieves the TX fault status reporting capability of this xcvr
+
+        Returns:
+            A Boolean, True if xcvr reports TX fault, False otherwise
+        """
+        raise NotImplementedError
+
+    def get_tx_disable_support(self):
+        """
+        Retrieves the TX disable capability of this xcvr
+
+        Returns:
+            A Boolean, True if Tx can be disabled, False otherwise
         """
         raise NotImplementedError
