@@ -1,3 +1,10 @@
+"""
+    sff8436.py
+
+    Implementation of XcvrApi that corresponds to the SFF-8436 specification for
+    QSFP+ pluggable transceivers.
+"""
+
 from ...fields import consts
 from ..xcvr_api import XcvrApi
 

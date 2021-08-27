@@ -7,7 +7,7 @@
 
 from .xcvr_eeprom import XcvrEeprom
 # TODO: remove the following imports
-from .codes.public.sff8024 import Sff8024
+from .codes.public.sff8024 import CmisCodes
 from .api.public.cmis import CmisApi
 from .mem_maps.public.cmis import CmisMemMap
 
@@ -34,7 +34,7 @@ class XcvrApiFactory(object):
         id = self._get_id()
         # QSFP-DD or OSFP
         if id == 0x18 or id == 0x19:
-            codes = Sff8024
+            codes = CmisCodes
             mem_map = CmisMemMap(codes)
             xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
             api = CmisApi(xcvr_eeprom)

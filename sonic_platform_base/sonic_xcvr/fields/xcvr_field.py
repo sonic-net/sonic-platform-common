@@ -15,10 +15,11 @@ class XcvrField(object):
         offset: integer, the absolute offset of the field in a memory map, assuming a linear address space
         ro: boolean, True if the field is read-only and False otherwise
     """
-    def __init__(self, name, offset, ro):
+    def __init__(self, name, offset, **kwargs):
         self.name = name
         self.offset = offset
-        self.ro = ro
+        self.ro = kwargs.get("ro", True)
+        self.deps = kwargs.get("deps", [])
 
     def get_fields(self):
         """
@@ -49,9 +50,16 @@ class XcvrField(object):
         """
         raise NotImplementedError
 
-    def decode(self, raw_data):
+    def get_deps(self):
+        """
+        Return: List of field names corresponding to fields that this field is dependent on for decoding
+        """
+        return self.deps
+
+    def decode(self, raw_data, **decoded_deps):
         """
         raw_data: bytearray of length equal to size of field
+        decoded_deps: mapping of this field's dependencies to their decoded results
         Return: decoded data (high level meaning)
         """
         raise NotImplementedError
@@ -74,8 +82,8 @@ class RegBitField(XcvrField):
     Args:
         bitpos: the bit position of this field relative to its parent's offset
     """
-    def __init__(self, name, bitpos, ro=True, offset=None):
-        super(RegBitField, self).__init__(name, offset, ro)
+    def __init__(self, name, bitpos, offset=None, **kwargs):
+        super(RegBitField, self).__init__(name, offset, **kwargs)
         assert bitpos < 64
         self.bitpos = bitpos
 
@@ -85,7 +93,7 @@ class RegBitField(XcvrField):
     def read_before_write(self):
         return True
 
-    def decode(self, raw_data):
+    def decode(self, raw_data, **decoded_deps):
         return bool((raw_data[0] >> self.bitpos) & 1)
 
     def encode(self, val, raw_state=None):
@@ -103,7 +111,7 @@ class RegField(XcvrField):
     Field denoting one or more bytes, but logically interpreted as one unit (e.g. a 4-byte integer)
     """
     def __init__(self, name, offset, *fields, **kwargs):
-        super(RegField, self).__init__(name, offset, kwargs.get("ro", True))
+        super(RegField, self).__init__(name, offset, **kwargs)
         self.fields = fields
         self.size = kwargs.get("size", 1)
         self.start_bitpos = self.size * 8 - 1 # max bitpos
@@ -134,11 +142,11 @@ class NumberRegField(RegField):
     Interprets byte(s) as a number
     """
     def __init__(self, name, offset, *fields, **kwargs):
-        super(NumberRegField, self).__init__( name, offset, *fields, **kwargs)
+        super(NumberRegField, self).__init__(name, offset, *fields, **kwargs)
         self.scale = kwargs.get("scale")
         self.format = kwargs.get("format", "B")
 
-    def decode(self, raw_data):
+    def decode(self, raw_data, **decoded_deps):
         decoded = struct.unpack(self.format, raw_data)[0]
         mask = self.get_bitmask()
         if mask is not None:
@@ -163,7 +171,7 @@ class StringRegField(RegField):
         self.encoding = kwargs.get("encoding", "ascii")
         self.format = kwargs.get("format", ">%ds" % self.size)
 
-    def decode(self, raw_data):
+    def decode(self, raw_data, **decoded_deps):
         return struct.unpack(self.format, raw_data)[0].decode(self.encoding)
 
 class CodeRegField(RegField):
@@ -175,7 +183,7 @@ class CodeRegField(RegField):
         self.code_dict = code_dict
         self.format = kwargs.get("format", "B")
 
-    def decode(self, raw_data):
+    def decode(self, raw_data, **decoded_deps):
         code = struct.unpack(self.format, raw_data)[0]
         mask = self.get_bitmask()
         if mask is not None:
@@ -190,7 +198,7 @@ class HexRegField(RegField):
     def __init__(self, name, offset, *fields, **kwargs):
         super(HexRegField, self).__init__(name, offset, *fields, **kwargs)
 
-    def decode(self, raw_data):
+    def decode(self, raw_data, **decoded_deps):
         return '-'.join([ "%02x" % byte for byte in raw_data])
 
 class RegGroupField(XcvrField):
@@ -203,8 +211,7 @@ class RegGroupField(XcvrField):
     The member fields need not be contiguous, but the first field must be the one with the smallest offset.
     """
     def __init__(self, name, *fields, **kwargs):
-        super(RegGroupField, self).__init__(
-            name, fields[0].get_offset(), kwargs.get("ro", True))
+        super(RegGroupField, self).__init__(name, fields[0].get_offset(), **kwargs)
         self.fields = fields
 
     def get_size(self):
@@ -217,7 +224,7 @@ class RegGroupField(XcvrField):
     def read_before_write(self):
         return False
 
-    def decode(self, raw_data):
+    def decode(self, raw_data, **decoded_deps):
         """
             Return: a dict mapping member field names to their decoded results
         """
@@ -225,6 +232,6 @@ class RegGroupField(XcvrField):
         start = self.offset
         for field in self.fields:
             offset = field.get_offset()
-            result[field.name] = field.decode(
-                raw_data[offset - start: offset + field.get_size() - start])
+            result[field.name] = field.decode(raw_data[offset - start: offset + field.get_size() - start], 
+                                              **decoded_deps)
         return result
