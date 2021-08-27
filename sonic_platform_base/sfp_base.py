@@ -8,6 +8,7 @@
 import sys
 from . import device_base
 
+from .sonic_xcvr.xcvr_api_factory import XcvrApiFactory
 
 class SfpBase(device_base.DeviceBase):
     """
@@ -55,6 +56,8 @@ class SfpBase(device_base.DeviceBase):
         # List of ThermalBase-derived objects representing all thermals
         # available on the SFP
         self._thermal_list = []
+        self._xcvr_api_factory = XcvrApiFactory(self.read_eeprom, self.write_eeprom)
+        self._xcvr_api = None
 
     def get_num_thermals(self):
         """
@@ -429,3 +432,20 @@ class SfpBase(device_base.DeviceBase):
             like: "Bad EEPROM|Unsupported cable"
         """
         raise NotImplementedError
+
+    def refresh_xcvr_api(self):
+        """
+        Updates the XcvrApi associated with this SFP
+        """
+        self._xcvr_api = self._xcvr_api_factory.create_xcvr_api()
+
+    def get_xcvr_api(self):
+        """
+        Retrieves the XcvrApi associated with this SFP
+
+        Returns:
+            An object derived from XcvrApi that corresponds to the SFP
+        """
+        if self._xcvr_api is None:
+            self.refresh_xcvr_api()
+        return self._xcvr_api
