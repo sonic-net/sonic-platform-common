@@ -4,10 +4,18 @@
     Abstract base class for platform-independent APIs used to interact with
     xcvrs in SONiC
 """
-
+from math import log10
 class XcvrApi(object):
     def __init__(self, xcvr_eeprom):
         self.xcvr_eeprom = xcvr_eeprom
+
+    @staticmethod
+    def mw_to_dbm(mW):
+        if mW == 0:
+            return float("-inf")
+        elif mW < 0:
+            return float("NaN")
+        return 10. * log10(mW)
 
     def get_model(self):
         """
@@ -281,5 +289,48 @@ class XcvrApi(object):
         Returns:
             A boolean, True if power-override and power_set are set successfully,
             False if not
+        """
+        raise NotImplementedError
+
+    def get_paging(self):
+        """
+        Retrieves the paging status of this xcvr, i.e. whether the memory map is paged
+
+        Returns:
+            A Boolean, True if paging is implemented, False otherwise (i.e. flat memory)
+        """
+        raise NotImplementedError
+
+    def get_tx_power_support(self):
+        """
+        Retrieves the tx power measurement capability of this xcvr
+
+        Returns:
+            A Boolean, True if tx power measurement is supported, False otherwise
+        """
+        raise NotImplementedError
+
+    def is_copper(self):
+        """
+        Returns:
+            A Boolean, True if xcvr is copper, False if optical
+        """
+        raise NotImplementedError
+
+    def get_temperature_support(self):
+        """
+        Retrieves the temperature measurement capability of this xcvr
+
+        Returns:
+            A Boolean, True if module temperature is supported, False otherwise
+        """
+        raise NotImplementedError
+
+    def get_voltage_support(self):
+        """
+        Retrieves the temperature measurement capability of this xcvr
+
+        Returns:
+            A Boolean, True if module voltage measurement is supported, False otherwise
         """
         raise NotImplementedError

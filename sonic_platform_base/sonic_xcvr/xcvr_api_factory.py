@@ -11,18 +11,33 @@ from .codes.public.sff8024 import Sff8024
 from .api.public.cmis import CmisApi
 from .mem_maps.public.cmis import CmisMemMap
 
+from .codes.public.sff8436 import Sff8436Codes
+from .api.public.sff8436 import Sff8436Api
+from .mem_maps.public.sff8436 import Sff8436MemMap
 class XcvrApiFactory(object):
     def __init__(self, reader, writer):
         self.reader = reader
         self.writer = writer
 
     def _get_id(self):
-        # TODO: read ID from eeprom
-        pass
+        id_byte_raw = self.reader(0, 1)
+        if id_byte_raw is None:
+            return None
+        return id_byte_raw[0]
 
     def create_xcvr_api(self):
         # TODO: load correct classes from id_mapping file
-        codes = Sff8024
-        mem_map = CmisMemMap(codes)
-        xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
-        return CmisApi(xcvr_eeprom)
+        id = self._get_id()
+        if id == 0x18 or id == 0x19:
+            codes = Sff8024
+            mem_map = CmisMemMap(codes)
+            xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
+            api = CmisApi(xcvr_eeprom)
+        elif id == 0x0D:
+            codes = Sff8436Codes
+            mem_map = Sff8436MemMap(codes)
+            xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
+            api = Sff8436Api(xcvr_eeprom)
+        else:
+            api = None
+        return api
