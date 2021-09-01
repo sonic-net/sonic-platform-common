@@ -151,8 +151,8 @@ class NumberRegField(RegField):
     def encode(self, val, raw_state=None):
         assert not self.ro
         if self.scale is not None:
-            return bytearray(struct.pack(self.format, val * self.scale))
-        return bytearray(struct.pack(self.format, val))
+            return bytearray(struct.pack(self.format, int(val * self.scale)))
+        return bytearray(struct.pack(self.format, int(val)))
 
 class StringRegField(RegField):
     """

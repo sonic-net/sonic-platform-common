@@ -241,7 +241,8 @@ class CmisApi(XcvrApi):
 
     def get_PM(self):
         self.xcvr_eeprom.write(consts.FREEZE_REQUEST, 128)
-        time.sleep(1)
+        time.sleep(5)
+        self.xcvr_eeprom.write(consts.FREEZE_REQUEST, 0)
         PM_dict = dict()
 
         rx_bits_pm = self.xcvr_eeprom.read(consts.RX_BITS_PM)
@@ -318,7 +319,7 @@ class CmisApi(XcvrApi):
         PM_dict['rx_mer_min'] = self.xcvr_eeprom.read(consts.RX_MIN_MER_PM)
         PM_dict['rx_mer_max'] = self.xcvr_eeprom.read(consts.RX_MAX_MER_PM)
 
-        self.xcvr_eeprom.write(consts.FREEZE_REQUEST, 0)
+        
         return PM_dict
 
     def get_module_state(self):
@@ -443,6 +444,68 @@ class CmisApi(XcvrApi):
             laser_tuning_summary.append("TuningComplete")
         return laser_tuning_summary
 
+    def set_low_power(self, AssertLowPower):
+        low_power_control = AssertLowPower << 6
+        self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, low_power_control)
+
+    def set_laser_freq(self, freq):
+        freq_grid = 0x70
+        self.xcvr_eeprom.write(consts.GRID_SPACING, freq_grid)
+        channel_number = int(round((freq - 193.1)/0.025))
+        assert channel_number % 3 == 0
+        self.set_low_power(True)
+        time.sleep(5)
+        self.xcvr_eeprom.write(consts.LASER_CONFIG_CHANNEL, channel_number)
+        time.sleep(1)
+        self.set_low_power(False)
+        time.sleep(1)
+    
+    def set_TX_power(self, TX_power):
+        self.xcvr_eeprom.write(consts.TX_CONFIG_POWER, TX_power)
+        time.sleep(1)
+
+    def get_loopback_capability(self):
+        allowed_loopback_result = self.xcvr_eeprom.read(consts.LOOPBACK_CAPABILITY)
+        loopback_capability = dict()
+        loopback_capability['simultaneous_host_media_loopback_supported'] = bool((allowed_loopback_result >> 6) & 0x1)
+        loopback_capability['per_lane_media_loopback_supported'] = bool((allowed_loopback_result >> 5) & 0x1)
+        loopback_capability['per_lane_host_loopback_supported'] = bool((allowed_loopback_result >> 4) & 0x1)
+        loopback_capability['host_side_input_loopback_supported'] = bool((allowed_loopback_result >> 3) & 0x1)
+        loopback_capability['host_side_output_loopback_supported'] = bool((allowed_loopback_result >> 2) & 0x1)
+        loopback_capability['media_side_input_loopback_supported'] = bool((allowed_loopback_result >> 1) & 0x1)
+        loopback_capability['media_side_output_loopback_supported'] = bool((allowed_loopback_result >> 0) & 0x1)
+        return loopback_capability
+
+    def set_loopback_mode(self, loopback_mode):
+        '''
+        Loopback mode has to be one of the five:
+        1. "none" (default)
+        2. "host-side-input"
+        3. "host-side-output"
+        4. "media-side-input"
+        5. "media-side-output"
+        The function will look at 13h:128 to check advertized loopback capabilities.
+        '''
+        loopback_capability = self.get_loopback_capability()
+        if loopback_mode == 'none':
+            self.xcvr_eeprom.write(consts.HOST_INPUT_LOOPBACK, 0)
+            self.xcvr_eeprom.write(consts.HOST_OUTPUT_LOOPBACK, 0)
+            self.xcvr_eeprom.write(consts.MEDIA_INPUT_LOOPBACK, 0)
+            self.xcvr_eeprom.write(consts.MEDIA_OUTPUT_LOOPBACK, 0)
+        elif loopback_mode == 'host-side-input':
+            assert loopback_capability['host_side_input_loopback_supported']
+            self.xcvr_eeprom.write(consts.HOST_INPUT_LOOPBACK, 0xff)
+        elif loopback_mode == 'host-side-output':
+            assert loopback_capability['host_side_output_loopback_supported']
+            self.xcvr_eeprom.write(consts.HOST_OUTPUT_LOOPBACK, 0xff)
+        elif loopback_mode == 'media-side-input':
+            assert loopback_capability['media_side_input_loopback_supported']
+            self.xcvr_eeprom.write(consts.MEDIA_INPUT_LOOPBACK, 0x1)
+        elif loopback_mode == 'media-side-output':
+            assert loopback_capability['media_side_output_loopback_supported']
+            self.xcvr_eeprom.write(consts.MEDIA_OUTPUT_LOOPBACK, 0x1)
+
 
     # TODO: other XcvrApi methods
+
 

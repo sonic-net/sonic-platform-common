@@ -78,6 +78,10 @@ TUNING_IN_PROGRESS = "TxTuningInProgress"
 WAVELENGTH_UNLOCKED = "TxWavelengthUnlocked"
 LASER_TUNING_DETAIL = "TxTuningDetail"
 
+# CONFIG
+TRANS_CONFIG_FIELD = "TransceriverConfig"
+MODULE_LEVEL_CONTROL = "ModuleControl"
+LOOPBACK_CAPABILITY = "LoopbackCapability"
 
 # C-CMIS
 

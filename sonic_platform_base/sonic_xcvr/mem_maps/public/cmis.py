@@ -73,14 +73,15 @@ class CmisMemMap(XcvrMemMap):
             NumberRegField(consts.TX_BIAS2, get_addr(0x11, 172), format=">H", size=2, scale=500.0),
             NumberRegField(consts.TX_BIAS3, get_addr(0x11, 174), format=">H", size=2, scale=500.0),
             NumberRegField(consts.TX_BIAS4, get_addr(0x11, 176), format=">H", size=2, scale=500.0),
-            NumberRegField(consts.GRID_SPACING, get_addr(0x12, 128), size=1),
-            NumberRegField(consts.LASER_CONFIG_CHANNEL, get_addr(0x12, 136), format=">h", size=2),
+            NumberRegField(consts.GRID_SPACING, get_addr(0x12, 128), size=1, ro=False),
+            NumberRegField(consts.LASER_CONFIG_CHANNEL, get_addr(0x12, 136), format=">h", size=2, ro=False),
             NumberRegField(consts.LASER_CURRENT_FREQ, get_addr(0x12, 168), format=">L", size=4),
-            NumberRegField(consts.TX_CONFIG_POWER, get_addr(0x12, 200), format=">h", size=2,scale=100.0),
-            RegBitField(consts.MEDIA_OUTPUT_LOOPBACK, offset=get_addr(0x13, 180), bitpos=0),
-            RegBitField(consts.MEDIA_INPUT_LOOPBACK, offset=get_addr(0x13, 181), bitpos=0),
-            NumberRegField(consts.HOST_OUTPUT_LOOPBACK, get_addr(0x13, 182), size=1),
-            NumberRegField(consts.HOST_INPUT_LOOPBACK, get_addr(0x13, 183), size=1),
+            NumberRegField(consts.TX_CONFIG_POWER, get_addr(0x12, 200), format=">h", size=2, scale=100.0, ro=False),
+            NumberRegField(consts.LOOPBACK_CAPABILITY, get_addr(0x13, 128), size=1),
+            RegBitField(consts.MEDIA_OUTPUT_LOOPBACK, offset=get_addr(0x13, 180), bitpos=0, ro=False),
+            RegBitField(consts.MEDIA_INPUT_LOOPBACK, offset=get_addr(0x13, 181), bitpos=0, ro=False),
+            NumberRegField(consts.HOST_OUTPUT_LOOPBACK, get_addr(0x13, 182), size=1, ro=False),
+            NumberRegField(consts.HOST_INPUT_LOOPBACK, get_addr(0x13, 183), size=1, ro=False),
             NumberRegField(consts.AUX_MON_TYPE, get_addr(0x1, 145), size=1),
             NumberRegField(consts.AUX1_MON, get_addr(0x0, 18), format=">h", size=2),
             NumberRegField(consts.AUX2_MON, get_addr(0x0, 20), format=">h", size=2),
@@ -167,6 +168,10 @@ class CmisMemMap(XcvrMemMap):
             NumberRegField(consts.RX_MIN_MER_PM, get_addr(0x35,208), format=">H", size=2, scale=10.0),
             NumberRegField(consts.RX_MAX_MER_PM, get_addr(0x35,210), format=">H", size=2, scale=10.0),
             # TODO: add others PMs...
+        )
+
+        self.TRANS_CONFIG = RegGroupField(consts.TRANS_CONFIG_FIELD,
+            NumberRegField(consts.MODULE_LEVEL_CONTROL, get_addr(0x0, 26), size=1, ro=False),
         )
 
         # TODO: add remaining fields
