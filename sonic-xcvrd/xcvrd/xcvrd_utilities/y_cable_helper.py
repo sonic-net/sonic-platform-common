@@ -405,6 +405,9 @@ def read_y_cable_and_update_statedb_port_tbl(logical_port_name, mux_config_tbl):
 
             port_instance = y_cable_port_instances.get(physical_port)
             if port_instance is None or port_instance == -1:
+                read_side = active_side = -1
+                update_table_mux_status_for_statedb_port_tbl(
+                    mux_config_tbl, "unknown", read_side, active_side, logical_port_name)
                 helper_logger.log_error(
                     "Error: Could not get port instance to perform read_y_cable update state db for read side for  Y cable port {}".format(logical_port_name))
                 return
@@ -521,6 +524,7 @@ def check_identifier_presence_and_update_mux_table_entry(state_db, port_tbl, y_c
                             if vendor is None:
                                 helper_logger.log_warning(
                                     "Error: Unable to find Vendor name for Transceiver for Y-Cable initiation {}".format(logical_port_name))
+                                create_tables_and_insert_mux_unknown_entries(state_db, y_cable_tbl, static_tbl, mux_tbl, asic_index, logical_port_name)
                                 return
 
                             model = port_info_dict.get('model')
@@ -528,6 +532,7 @@ def check_identifier_presence_and_update_mux_table_entry(state_db, port_tbl, y_c
                             if model is None:
                                 helper_logger.log_warning(
                                     "Error: Unable to find model name for Transceiver for Y-Cable initiation {}".format(logical_port_name))
+                                create_tables_and_insert_mux_unknown_entries(state_db, y_cable_tbl, static_tbl, mux_tbl, asic_index, logical_port_name)
                                 return
 
                             vendor = format_mapping_identifier(vendor)
@@ -537,12 +542,14 @@ def check_identifier_presence_and_update_mux_table_entry(state_db, port_tbl, y_c
                             if module_dir is None:
                                 helper_logger.log_warning(
                                     "Error: Unable to find module dir name from vendor for Y-Cable initiation {}".format(logical_port_name))
+                                create_tables_and_insert_mux_unknown_entries(state_db, y_cable_tbl, static_tbl, mux_tbl, asic_index, logical_port_name)
                                 return
 
                             module = module_dir.get(model)
                             if module is None:
                                 helper_logger.log_warning(
                                     "Error: Unable to find module name from model for Y-Cable initiation {}".format(logical_port_name))
+                                create_tables_and_insert_mux_unknown_entries(state_db, y_cable_tbl, static_tbl, mux_tbl, asic_index, logical_port_name)
                                 return
 
                             attr_name = 'sonic_y_cable.' + module
@@ -550,10 +557,12 @@ def check_identifier_presence_and_update_mux_table_entry(state_db, port_tbl, y_c
                                 y_cable_attribute = getattr(import_module(attr_name), 'YCable')
                             except Exception as e:
                                 helper_logger.log_warning("Failed to load the attr due to {}".format(repr(e)))
+                                create_tables_and_insert_mux_unknown_entries(state_db, y_cable_tbl, static_tbl, mux_tbl, asic_index, logical_port_name)
                                 return
                             if y_cable_attribute is None:
                                 helper_logger.log_warning(
                                     "Error: Unable to import attr name for Y-Cable initiation {}".format(logical_port_name))
+                                create_tables_and_insert_mux_unknown_entries(state_db, y_cable_tbl, static_tbl, mux_tbl, asic_index, logical_port_name)
                                 return
  
                             y_cable_port_instances[physical_port] = y_cable_attribute(physical_port, helper_logger)
@@ -563,11 +572,13 @@ def check_identifier_presence_and_update_mux_table_entry(state_db, port_tbl, y_c
                                     vendor_name_api = y_cable_port_instances.get(physical_port).get_vendor()
                                 except Exception as e:
                                     helper_logger.log_warning("Failed to call the get_vendor API for port {} due to {}".format(physical_port,repr(e)))
+                                    create_tables_and_insert_mux_unknown_entries(state_db, y_cable_tbl, static_tbl, mux_tbl, asic_index, logical_port_name)
                                     return
 
                             if format_mapping_identifier(vendor_name_api) != vendor:
                                 y_cable_port_instances.pop(physical_port)
                                 y_cable_port_locks.pop(physical_port)
+                                create_tables_and_insert_mux_unknown_entries(state_db, y_cable_tbl, static_tbl, mux_tbl, asic_index, logical_port_name)
                                 helper_logger.log_warning("Error: Y Cable api does not work for {}, {} actual vendor name {}".format(
                                     logical_port_name, vendor_name_api, vendor))
                                 return
@@ -1433,12 +1444,11 @@ def post_mux_info_to_db(is_warm_start, stop_event=threading.Event()):
 
 def task_download_firmware_worker(port, physical_port, port_instance, file_full_path, xcvrd_down_fw_rsp_tbl, xcvrd_down_fw_cmd_sts_tbl, rc):
     helper_logger.log_debug("worker thread launched for downloading physical port {} path {}".format(physical_port, file_full_path))
-    with y_cable_port_locks[physical_port]:
-        try:
-            status = port_instance.download_firmware(file_full_path)
-        except Exception as e:
-            status = -1
-            helper_logger.log_warning("Failed to execute the download firmware API for port {} due to {}".format(physical_port,repr(e)))
+    try:
+        status = port_instance.download_firmware(file_full_path)
+    except Exception as e:
+        status = -1
+        helper_logger.log_warning("Failed to execute the download firmware API for port {} due to {}".format(physical_port,repr(e)))
 
     set_result_and_delete_port('status', status, xcvrd_down_fw_cmd_sts_tbl, xcvrd_down_fw_rsp_tbl, port)
     helper_logger.log_debug(" downloading complete {} {} {}".format(physical_port, file_full_path, status))
