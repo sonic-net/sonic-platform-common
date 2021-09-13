@@ -72,8 +72,6 @@ VOLTAGE_LOW_ALARM_FIELD = "VoltageLowAlarm"
 VOLTAGE_HIGH_WARNING_FIELD = "VoltageHighWarning"
 VOLTAGE_LOW_WARNING_FIELD = "VoltageLowWarning"
 
-# SFF-8436
-
 SERIAL_ID_FIELD = "Serial ID"
 EXT_ID_FIELD = "Extended Identifier"
 POWER_CLASS_FIELD = "Power Class"
