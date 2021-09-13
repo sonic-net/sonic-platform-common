@@ -292,12 +292,12 @@ class XcvrApi(object):
         """
         raise NotImplementedError
 
-    def get_paging(self):
+    def is_flat_memory(self):
         """
-        Retrieves the paging status of this xcvr, i.e. whether the memory map is paged
+        Determines whether the xcvr's memory map is flat or paged
 
         Returns:
-            A Boolean, True if paging is implemented, False otherwise (i.e. flat memory)
+            A Boolean, True if flat memory, False if paging is implemented
         """
         raise NotImplementedError
 

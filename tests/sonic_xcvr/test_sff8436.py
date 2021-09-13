@@ -37,7 +37,7 @@ class TestSff8436(object):
         self.reader.return_value = bytearray([0xFF])
         self.api.set_power_override(True, True)
         self.reader.return_value = None
-        self.api.get_paging()
+        self.api.is_flat_memory()
         self.api.get_tx_power_support()
         self.api.is_copper()
         self.api.get_temperature_support()

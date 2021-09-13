@@ -111,10 +111,10 @@ class Sff8436Api(XcvrApi):
                                'txbiaslowalarm',   'txbiaslowwarning'
                               ]
         threshold_info_dict = dict.fromkeys(threshold_info_keys, 'N/A')
-        paging = self.get_paging()
-        if paging is None:
+        flat_mem = self.is_flat_memory()
+        if flat_mem is None:
             return None
-        if not paging:
+        if flat_mem:
             return threshold_info_dict
 
         temp_thresholds = self.xcvr_eeprom.read(consts.TEMP_THRESHOLDS_FIELD)
@@ -233,8 +233,8 @@ class Sff8436Api(XcvrApi):
         return self.xcvr_eeprom.write(consts.POWER_OVERRIDE_FIELD, power_override) and \
                self.xcvr_eeprom.write(consts.POWER_SET_FIELD, power_set)
     
-    def get_paging(self):
-        return not self.xcvr_eeprom.read(consts.FLAT_MEM_FIELD)
+    def is_flat_memory(self):
+        return self.xcvr_eeprom.read(consts.FLAT_MEM_FIELD)
 
     def get_tx_power_support(self):
         return False
