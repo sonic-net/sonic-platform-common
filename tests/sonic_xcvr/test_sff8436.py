@@ -26,7 +26,7 @@ class TestSff8436(object):
         self.api.get_tx_fault()
         self.api.get_tx_disable()
         self.api.get_tx_disable_channel()
-        self.api.get_temperature()
+        self.api.get_module_temperature()
         self.api.get_voltage()
         self.api.get_tx_bias()
         self.api.get_tx_power()

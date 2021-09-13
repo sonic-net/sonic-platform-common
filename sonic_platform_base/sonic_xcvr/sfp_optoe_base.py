@@ -49,7 +49,7 @@ class SfpOptoeBase(SfpBase):
 
     def get_temperature(self):
         api = self.get_xcvr_api()
-        return api.get_temperature() if api is not None else None
+        return api.get_module_temperature() if api is not None else None
 
     def get_voltage(self):
         api = self.get_xcvr_api()

@@ -65,7 +65,7 @@ class Sff8436Api(XcvrApi):
         tx_fault = self.get_tx_fault()
         tx_disable = self.get_tx_disable()
         tx_disabled_channel = self.get_tx_disable_channel()
-        temp = self.get_temperature()
+        temp = self.get_module_temperature()
         voltage = self.get_voltage()
         tx_bias = self.get_tx_bias()
         rx_power = self.get_rx_power()
@@ -179,7 +179,7 @@ class Sff8436Api(XcvrApi):
     def get_tx_disable_channel(self):
         return self.xcvr_eeprom.read(consts.TX_DISABLE_FIELD)
 
-    def get_temperature(self):
+    def get_module_temperature(self):
         temp = self.xcvr_eeprom.read(consts.TEMPERATURE_FIELD)
         if temp is None:
             return None

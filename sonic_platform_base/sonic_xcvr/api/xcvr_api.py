@@ -175,7 +175,7 @@ class XcvrApi(object):
         """
         raise NotImplementedError
 
-    def get_temperature(self):
+    def get_module_temperature(self):
         """
         Retrieves the temperature of this xcvr
 
