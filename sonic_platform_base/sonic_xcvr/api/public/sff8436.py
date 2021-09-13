@@ -230,8 +230,10 @@ class Sff8436Api(XcvrApi):
         return self.xcvr_eeprom.read(consts.POWER_OVERRIDE_FIELD)
 
     def set_power_override(self, power_override, power_set):
-        return self.xcvr_eeprom.write(consts.POWER_OVERRIDE_FIELD, power_override) and \
-               self.xcvr_eeprom.write(consts.POWER_SET_FIELD, power_set)
+        ret = self.xcvr_eeprom.write(consts.POWER_OVERRIDE_FIELD, power_override)
+        if power_override:
+            ret &= self.xcvr_eeprom.write(consts.POWER_SET_FIELD, power_set)
+        return ret 
     
     def is_flat_memory(self):
         return self.xcvr_eeprom.read(consts.FLAT_MEM_FIELD)
