@@ -28,11 +28,13 @@ class XcvrApiFactory(object):
     def create_xcvr_api(self):
         # TODO: load correct classes from id_mapping file
         id = self._get_id()
+        # QSFP-DD or OSFP
         if id == 0x18 or id == 0x19:
             codes = Sff8024
             mem_map = CmisMemMap(codes)
             xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
             api = CmisApi(xcvr_eeprom)
+        # QSFP+
         elif id == 0x0D:
             codes = Sff8436Codes
             mem_map = Sff8436MemMap(codes)
