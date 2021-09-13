@@ -23,6 +23,8 @@ class XcvrApi(object):
 
         Returns:
             A string, the model/part number of the xcvr
+
+            If there is an issue with reading the xcvr, None should be returned.
         """
         raise NotImplementedError
 
@@ -32,6 +34,8 @@ class XcvrApi(object):
 
         Returns:
             A string, the serial number of the xcvr
+
+            If there is an issue with reading the xcvr, None should be returned.
         """
         raise NotImplementedError
 
@@ -61,6 +65,8 @@ class XcvrApi(object):
         vendor_oui                 |string         |vendor OUI
         application_advertisement  |string         |supported applications advertisement
         ================================================================================
+
+        If there is an issue with reading the xcvr, None should be returned.
         """
         raise NotImplementedError
 
@@ -87,6 +93,8 @@ class XcvrApi(object):
         tx<n>power                 |float          |TX output power in mW, n is the channel number,
                                    |               |for example, tx2power stands for tx power of channel 2.
         ========================================================================
+
+        If there is an issue with reading the xcvr, None should be returned.
         """
         raise NotImplementedError
 
@@ -120,6 +128,8 @@ class XcvrApi(object):
         txbiashighwarning          |FLOAT          |High Warning Threshold value of tx Bias Current in mA.
         txbiaslowwarning           |FLOAT          |Low Warning Threshold value of tx Bias Current in mA.
         ========================================================================
+
+        If there is an issue with reading the xcvr, None should be returned.
         """
         raise NotImplementedError
 
@@ -134,6 +144,8 @@ class XcvrApi(object):
             E.g., for a tranceiver with four channels: [False, False, True, False]
 
             If Rx LOS status is unsupported on the xcvr, each list element should be "N/A" instead.
+
+            If there is an issue with reading the xcvr, None should be returned.
         """
         raise NotImplementedError
 
@@ -148,6 +160,8 @@ class XcvrApi(object):
             E.g., for a tranceiver with four channels: [False, False, True, False]
 
             If TX fault status is unsupported on the xcvr, each list element should be "N/A" instead.
+
+            If there is an issue with reading the xcvr, None should be returned.
         """
         raise NotImplementedError
 
@@ -160,6 +174,8 @@ class XcvrApi(object):
             TX channels which have been disabled in this xcvr.
             As an example, a returned value of 0x5 indicates that channel 0
             and channel 2 have been disabled.
+
+            If there is an issue with reading the xcvr, None should be returned.
         """
         raise NotImplementedError
 
@@ -172,6 +188,8 @@ class XcvrApi(object):
             TX channels which have been disabled in this xcvr.
             As an example, a returned value of 0x5 indicates that channel 0
             and channel 2 have been disabled.
+
+            If there is an issue with reading the xcvr, None should be returned.
         """
         raise NotImplementedError
 
@@ -182,6 +200,8 @@ class XcvrApi(object):
         Returns:
             A float representing the current temperature in Celsius, or "N/A" if temperature
             measurements are unsupported on the xcvr.
+
+            If there is an issue with reading the xcvr, None should be returned.
         """
         raise NotImplementedError
 
@@ -192,6 +212,8 @@ class XcvrApi(object):
         Returns:
             A float representing the supply voltage in mV, or "N/A" if voltage measurements are
             unsupported on the xcvr.
+
+            If there is an issue with reading the xcvr, None should be returned.
         """
         raise NotImplementedError
 
@@ -205,6 +227,8 @@ class XcvrApi(object):
             E.g., for a tranceiver with four channels: ['110.09', '111.12', '108.21', '112.09']
 
             If TX bias is unsupported on the xcvr, each list element should be "N/A" instead.
+
+            If there is an issue with reading the xcvr, None should be returned.
         """
         raise NotImplementedError
 
@@ -218,6 +242,8 @@ class XcvrApi(object):
             E.g., for a tranceiver with four channels: ['1.77', '1.71', '1.68', '1.70']
 
             If RX power is unsupported on the xcvr, each list element should be "N/A" instead.
+
+            If there is an issue with reading the xcvr, None should be returned.
         """
         raise NotImplementedError
 
@@ -231,6 +257,8 @@ class XcvrApi(object):
             E.g., for a tranceiver with four channels: ['1.86', '1.86', '1.86', '1.86']
 
             If TX power is unsupported on the xcvr, each list element should be "N/A" instead.
+
+            If there is an issue with reading the xcvr, None should be returned.
         """
         raise NotImplementedError
 
@@ -268,6 +296,8 @@ class XcvrApi(object):
 
         Returns:
             A boolean, True if power-override is enabled, False if disabled
+
+            If there is an issue with reading the xcvr, None should be returned.
         """
         raise NotImplementedError
 
@@ -298,6 +328,8 @@ class XcvrApi(object):
 
         Returns:
             A Boolean, True if flat memory, False if paging is implemented
+
+            If there is an issue with reading the xcvr, None should be returned.
         """
         raise NotImplementedError
 
@@ -307,6 +339,8 @@ class XcvrApi(object):
 
         Returns:
             A Boolean, True if tx power measurement is supported, False otherwise
+
+            If there is an issue with reading the xcvr, None should be returned.
         """
         raise NotImplementedError
 
@@ -314,6 +348,8 @@ class XcvrApi(object):
         """
         Returns:
             A Boolean, True if xcvr is copper, False if optical
+
+            If there is an issue with reading the xcvr, None should be returned.
         """
         raise NotImplementedError
 
@@ -323,6 +359,8 @@ class XcvrApi(object):
 
         Returns:
             A Boolean, True if module temperature is supported, False otherwise
+
+            If there is an issue with reading the xcvr, None should be returned.
         """
         raise NotImplementedError
 
@@ -332,5 +370,7 @@ class XcvrApi(object):
 
         Returns:
             A Boolean, True if module voltage measurement is supported, False otherwise
+
+            If there is an issue with reading the xcvr, None should be returned.
         """
         raise NotImplementedError
