@@ -248,6 +248,8 @@ class ModuleUpdater(logger.Logger):
         asics = list(self.asic_table.getKeys())
         for asic in asics:
            fvs = self.asic_table.get(asic)
+           if isinstance(fvs, list):
+              fvs = dict(fvs[-1])
            if fvs[CHASSIS_MODULE_INFO_NAME_FIELD] in notOnlineModules:
               self.asic_table._del(asic)
 
