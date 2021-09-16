@@ -407,10 +407,11 @@ class TestXcvrdScript(object):
         start = time.time()
         while True:
             _wrapper_soak_sfp_insert_event(sfp_insert_events, insert)
-            assert not bool(insert)
             if time.time() - start > MGMT_INIT_TIME_DELAY_SECS:
                 break
+            assert not bool(insert)
         assert insert == port_dict
+
 
     def test_sfp_remove_events(self):
         from xcvrd.xcvrd import _wrapper_soak_sfp_insert_event
