@@ -8,7 +8,6 @@
 #   definitions for implementing Y cable access and configurations
 #   API's for Y cable functionality in SONiC
 #
-
 from sonic_y_cable.y_cable_base import YCableBase
 
 try:
@@ -21,6 +20,7 @@ try:
     from ctypes import c_int16
     from datetime import datetime
     from contextlib import contextmanager
+    #import chassis
 
     #from chassis import chassis
     import sonic_platform.platform
@@ -66,7 +66,7 @@ class cable_status_info_s():
         self.bank1_info   = cable_bank_info_s()
         self.bank2_info   = cable_bank_info_s()
 
-class cable_upgrade_info_s():
+class cable_upgrade_info_s(object):
 
     def __init__(self):
         self.image_info  = cable_image_info_s()
@@ -75,6 +75,25 @@ class cable_upgrade_info_s():
         self.bank        = 0
 
 
+class cable_upgrade_head_s():
+
+    def __init__(self):
+        self.compression       = 0
+        self.compressed_size   = 0
+        self.compressed_crc32  = 0
+        self.add_size          = 0
+        self.add_crc32         = 0
+        self.cable_up_info          = cable_upgrade_info_s()
+
+class cmd_handle_s(object):
+    
+    def __init__(self):
+        self.cmd_wr    = 0
+        self.read_info = 0
+        self.cmd_rd    = 0
+        self.info_len  = 0
+        self.data_read = bytearray(30)
+        
 class valid_port_option_table_s: 
     
     def __init__(self, speed, fec_tor, fec_nic, anlt_tor, anlt_nic, mode): 
@@ -84,6 +103,34 @@ class valid_port_option_table_s:
         self.anlt_tor  = anlt_tor
         self.anlt_nic  = anlt_nic
         self.mode      = mode
+
+class context_state_frame_s(object):
+    def __init__(self):
+        self.r0             = 0
+        self.r1             = 0
+        self.r2             = 0
+        self.r3             = 0
+        self.r12            = 0
+        self.lr             = 0
+        self.return_address = 0
+        self.xpsr           = 0
+
+class ram2_exp_hdr_s(object):
+    def __init__(self):
+        self.crash        = 0
+        self.crash_len    = 0
+        self.cfsr_reg     = 0
+        self.ufsr_reg     = 0
+        self.bfsr_reg     = 0
+        self.mmfsr_reg    = 0
+        self.val          = context_state_frame_s()
+        self.exp_sp_depth = 0
+
+class ram2_exp_s(object):
+    def __init__(self):
+        self.hdr_val   = ram2_exp_hdr_s()
+        self.exp_stack = array.array('I', [])
+
 
 
 ENABLE_DBG_PRINT = False
@@ -143,6 +190,8 @@ class PortLock(object):
 #
 class YCable(YCableBase):
 
+    WARMBOOT = 0
+    COLDBOOT = 1
 
     # definitions of the modes to be run for loopback mode
     # on the port/cable
@@ -153,7 +202,7 @@ class YCable(YCableBase):
     PRBS_DIRECTION_GENERATOR = 1
     PRBS_DIRECTION_CHECKER = 2
 
-    BCM_API_VERSION = "1.0"
+    BCM_API_VERSION = "1.1"
     CONSOLE_PRINT = False
 
     # Log levels
@@ -192,6 +241,7 @@ class YCable(YCableBase):
     QSFP28_LINK_DOWN                              = 0x0000004B
     QSFP28_LINK_FAULT                             = 0x0000004C
     QSFP28_MESC_FAULT                             = 0x0000004D
+    QSFP28_BIP_CW_ERR_FAULT                       = 0x00000050
     QSFP28_LP_22_TEMP_MSB                         = 0x00000016
     QSFP_SQL_STATUS                               = 0x0000004E
     QSFP_LP_31_VENDOR                             = 0x0000004F           # CHANGED to 79 -- Not used. Check!
@@ -201,6 +251,7 @@ class YCable(YCableBase):
     QSFP28_LP_102_TX_RX_CDR_LOL_MASK              = 0x00000066		 
     QSFP28_LOS_LOL_SEC_MASK                       = 0x00007F63
     QSFP28_UP_DOWN_MASK                           = 0x00007F64
+    QSFP28_BIP_UNCORR_MASK                        = 0x00007F65
     QSFP28_UP0_148_VENDOR_NAME_0                  = 0x00000094		 
     QSFP28_UP0_168_PN_1                           = 0x000000a8		 
     QSFP28_UP0_224_SPECIFIC_1_RSV                 = 0x000000e0
@@ -224,7 +275,7 @@ class YCable(YCableBase):
     QSFP28_VENFD_143_NIC_TEMP_LSB                 = 0x00007f0f
 
     QSFP28_LP_QSFP28_LP_2_STATUS_CR               = 0x00000002
-
+    QSFP_BRCM_FW_UPGRADE_COMP_SET		  = 0x00000094
 
     # User defined
     CMD_REQ_PARAM_START_OFFSET = 0x7F87
@@ -264,6 +315,25 @@ class YCable(YCableBase):
     CABLE_CMD_ID_GET_SNR             = 0x20
     CABLE_CMD_ID_SET_HMUX_CONTEXT_PRI= 0x21
     CABLE_CMD_ID_SET_HMUX_CONTEXT_SEC= 0x22
+    CABLE_CMD_ID_GET_TOT_MAN_SWT_CNT         = 0x23
+    CABLE_CMD_ID_GET_TOT_MAN_SWT_CNT_CLR     = 0x24
+    CABLE_CMD_ID_GET_TO_TORA_MAN_SWT_CNT     = 0x25
+    CABLE_CMD_ID_GET_TO_TORA_MAN_SWT_CNT_CLR = 0x26
+    CABLE_CMD_ID_GET_TO_TORB_MAN_SWT_CNT     = 0x27
+    CABLE_CMD_ID_GET_TO_TORB_MAN_SWT_CNT_CLR = 0x28
+    CABLE_CMD_ID_GET_FM_TORA_MAN_SWT_CNT     = 0x29
+    CABLE_CMD_ID_GET_FM_TORA_MAN_SWT_CNT_CLR = 0x2A
+    CABLE_CMD_ID_GET_FM_TORB_MAN_SWT_CNT     = 0x2B
+    CABLE_CMD_ID_GET_FM_TORB_MAN_SWT_CNT_CLR = 0x2C
+    CABLE_CMD_ID_GET_TOT_AUT_SWT_CNT         = 0x2D
+    CABLE_CMD_ID_GET_TOT_AUT_SWT_CNT_CLR     = 0x2E
+    CABLE_CMD_ID_GET_TO_TORA_AUT_SWT_CNT     = 0x2F
+    CABLE_CMD_ID_GET_TO_TORA_AUT_SWT_CNT_CLR = 0x30
+    CABLE_CMD_ID_GET_TO_TORB_AUT_SWT_CNT     = 0x31
+    CABLE_CMD_ID_GET_TO_TORB_AUT_SWT_CNT_CLR = 0x32
+    CABLE_CMD_ID_READ_MCU_RAM                = 0x33
+    CABLE_CMD_ID_CLEAR_CRASH                 = 0x34
+
 
     # Download commands
     FW_CMD_START        = 1
@@ -276,11 +346,14 @@ class YCable(YCableBase):
     
     FW_UP_SUCCESS       = 1
     FW_UP_IN_PROGRESS   = 2
-    
+   
+    FW_CMD_WARM_BOOT   = 13
+    FW_CMD_BOOT_STATUS = 14
+
     # destination values
     TOR_MCU             = 0x01
     TOR_MCU_SELF        = 0x01
-    NIC_MCU             = 0x02
+    NIC_MCU	            = 0x02
     MUX_CHIP            = 0x03
     TOR_MCU_PEER        = 0x04
 
@@ -308,6 +381,7 @@ class YCable(YCableBase):
     QSFP_BRCM_FW_UPGRADE_PAGE           = 0x80
     QSFP_BRCM_FW_UPGRADE_HEADER_0_7     = 0x82
     QSFP_BRCM_FW_UPGRADE_HEADER_24_31   = 0x85
+    QSFP_BRCM_FW_UPGRADE_BOOT_STATUS    = 0x9A
 
     # muxchip return codes
     RR_ERROR                        = -1 #-255      # Error Category
@@ -353,16 +427,19 @@ class YCable(YCableBase):
     ERROR_CMD_EXEC_FAILED         = -1 #-12
     ERROR_PORT_LOCK_TIMEOUT       = -1 #-13
     ERROR_INVALID_INPUT           = -1 #-14
+    ERROR_WR_EEPROM_FAILED        = -1
     
     ERROR_FW_GET_STATUS_FAILED    = -1 #-15
     ERROR_NO_MATCHING_FW          = -1 #-16
     ERROR_RESET_FAILED            = -1 #-17
     ERROR_TOGGLE_FAILED           = -1 #-18
-    ERROR_FW_ACTIVATE_FAILURE     = -1 #-19
-    ERROR_FW_ROLLBACK_FAILURE     = -1 #-20
+    #ERROR_FW_ACTIVATE_FAILURE     = -1 #-19
+    #ERROR_FW_ROLLBACK_FAILURE     = -1 #-20
+    ERROR_GET_FEC_MODE_FAILED     = -1 #-21
+    ERROR_READ_SIDE_FAILED        = -1 #-22
     
-    WARNING_FW_ALREADY_ACTIVE     = -1 #-50
-    WARNING_FW_ALREADY_ROLLEDBACK = -1 #-51
+    WARNING_FW_ALREADY_ACTIVE     = -50
+    WARNING_FW_ALREADY_ROLLEDBACK = -51
     
     EEPROM_READ_DATA_INVALID      = -1 #-100
     EEPROM_ERROR                  = -1 #-101
@@ -624,6 +701,8 @@ class YCable(YCableBase):
                             sta = 0
                             curr_offset = self.QSFP_BRCM_CABLE_CTRL_CMD_STS
                             result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+                            if result is None:
+                                return self.EEPROM_ERROR, None
                             sta = result[0]
 
                             if (sta & 0x01) == 0x0:
@@ -646,14 +725,25 @@ class YCable(YCableBase):
                         #
                         
                         # skip sending cmd_hdr for SET_HMUX_CONTEXT_PRI and SET_HMUX_CONTEXT_SEC
-                        if (command_id != self.CABLE_CMD_ID_SET_HMUX_CONTEXT_PRI and \
-                                command_id != self.CABLE_CMD_ID_SET_HMUX_CONTEXT_SEC):
+                        if ((command_id < self.CABLE_CMD_ID_SET_HMUX_CONTEXT_PRI) or \
+                            (command_id == self.CABLE_CMD_ID_READ_MCU_RAM) or \
+                            (command_id == self.CABLE_CMD_ID_CLEAR_CRASH)):
                             curr_offset = self.QSFP_VEN_FE_130_BRCM_DATA_LENGHT_LSB
                             result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 5, cmd_hdr)
                             if result is False:
                                 self.log(self.LOG_ERROR, "write_eeprom() failed")
                                 return self.ERROR_WRITE_EEPROM_FAILED, None
                             ts = self.log_timestamp(ts, "writing of cmd_hdr 5 bytes done")
+                        else:
+                            curr_offset = self.QSFP_VEN_FE_130_BRCM_DATA_LENGHT_LSB + 1
+                            cmd_rsp_len = cmd_hdr[1]
+                            buffer1 = bytearray([cmd_rsp_len])
+                            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer1)
+                            if result is False:
+                                self.log(self.LOG_ERROR, "write_eeprom() failed")
+                                return self.ERROR_WRITE_EEPROM_FAILED, None
+                            ts = self.log_timestamp(ts, "writing of cmd_hdr (only rsp_len) 1 byte done")
+
 
                         # write request data
                         wr_len = cmd_hdr[0]
@@ -682,6 +772,8 @@ class YCable(YCableBase):
                             sta = 0
                             curr_offset = self.QSFP_BRCM_CABLE_CTRL_CMD_STS
                             result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+                            if result is None:
+                                return self.EEPROM_ERROR, None
                             sta = result[0]
 
                             if (sta & 0x7F) == 0x11:
@@ -706,6 +798,8 @@ class YCable(YCableBase):
                             if rd_len > 0:
                                 curr_offset = self.CMD_RSP_PARAM_START_OFFSET
                                 cmd_rsp_body = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, rd_len)
+                                if cmd_rsp_body is None:
+                                    return self.EEPROM_ERROR, None
                             ts = self.log_timestamp(ts, "read cmd response bytes {} done".format(rd_len))
 
                         # set the command request to idle state
@@ -725,6 +819,8 @@ class YCable(YCableBase):
                             sta = 0
                             curr_offset = self.QSFP_BRCM_CABLE_CTRL_CMD_STS
                             result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+                            if result is None:
+                                return self.EEPROM_ERROR, None
                             sta = result[0]
 
                             if (sta & 0x01) == 0x0:
@@ -867,16 +963,16 @@ class YCable(YCableBase):
         read_side = struct.unpack("<B", result)
         self.log_timestamp(ts," get_read_side() completed")
         if read_side[0] & 0x1:
-            self.log(self.LOG_INFO, "Reading the Y cable from TOR A side")
+            self.log(self.LOG_DEBUG, "Reading the Y cable from TOR A side")
             ret = self.TARGET_TOR_A
         elif read_side[0] & 0x2:
-            self.log(self.LOG_INFO, "Reading the Y cable from TOR B side")
+            self.log(self.LOG_DEBUG, "Reading the Y cable from TOR B side")
             ret = self.TARGET_TOR_B
         elif read_side[0] & 0x4:
-            self.log(self.LOG_INFO, "Reading the Y cable from NIC side")
+            self.log(self.LOG_DEBUG, "Reading the Y cable from NIC side")
             ret = self.TARGET_NIC
         else:
-            self.log(self.LOG_INFO, "Target unknown")
+            self.log(self.LOG_WARN, "Target unknown")
             return self.TARGET_UNKNOWN
 
         return ret
@@ -974,7 +1070,7 @@ class YCable(YCableBase):
         self.log_timestamp(ts,"toggle_mux_to_tor_a() completed")
 
         if cmd_ok == True:
-            self.log(self.LOG_DEBUG, "Toggle mux to torA succeeded")
+            self.log(self.LOG_INFO, "Toggle mux to torA succeeded")
 
         return cmd_ok
 
@@ -1024,7 +1120,7 @@ class YCable(YCableBase):
         self.log_timestamp(ts,"toggle_mux_to_tor_b() completed")
 
         if cmd_ok == True:
-            self.log(self.LOG_DEBUG, "Toggle mux to torB succeeded")
+            self.log(self.LOG_INFO, "Toggle mux to torB succeeded")
 
         return cmd_ok
 
@@ -1044,6 +1140,10 @@ class YCable(YCableBase):
             a boolean, True if the link is active
                      , False if the link is not active
         """
+
+        if (target != self.TARGET_TOR_A) and (target != self.TARGET_TOR_B) and (target != self.TARGET_NIC):
+            self.log(self.LOG_ERROR, "Invalid target : {}".format(target))
+            return self.ERROR_INVALID_TARGET
 
         if self.platform_chassis is not None:
             curr_offset = self.QSFP28_VENFD_216_LINK_STATUS
@@ -1081,7 +1181,7 @@ class YCable(YCableBase):
                 self.log(self.LOG_INFO, "NIC link is down")
                 return False
         else:
-            self.log(self.LOG_INFO, "target is unkown")
+            self.log(self.LOG_WARN, "target is unkown")
             return self.TARGET_UNKNOWN
 
 
@@ -1123,7 +1223,7 @@ class YCable(YCableBase):
 
         return ret_val
     
-    def util_get_switch_count(self, clear_on_read):
+    def util_get_switch_count(self, cmd_id):
         """
         utility function returns all switchover counters in a list
 
@@ -1131,42 +1231,21 @@ class YCable(YCableBase):
 
         cmd_hdr = bytearray(5)
         cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
+        count_value = None
 
-        byte_list = []
-
-        cmd_hdr[0] = 1
-        cmd_hdr[1] = 12
+        cmd_hdr[0] = 0
+        cmd_hdr[1] = 4
         cmd_hdr[2] = 0
         cmd_hdr[3] = 0
         cmd_hdr[4] = self.CORE_IP_CENTRAL
 
-        cmd_req_body[0] = clear_on_read
-
-        ret_val, cmd_rsp_body = self.__cable_cmd_execute(self.CABLE_CMD_ID_GET_HMUX_STATS, cmd_hdr, cmd_req_body)
-        if ret_val == 0:
-            count_list = []
-            ind = 0
-            for _ in range(0, 6):
-                byte_list = []
-                for j in range(0, 2):
-                    byte_list.append(cmd_rsp_body[ind + j])
-                byte_array = bytearray(byte_list)
-                count_list.append(struct.unpack("<H", byte_array)[0])
-                ind += 2
-
-            self.log(self.LOG_DEBUG, "\nDebug: counter tables")
-            self.log(self.LOG_DEBUG, "to_tora_from_readside_tora_manual_cnt = {} ".format(count_list[0]))
-            self.log(self.LOG_DEBUG, "to_torb_from_readside_tora_manual_cnt = {} ".format(count_list[1]))
-            self.log(self.LOG_DEBUG, "to_tora_from_readside_torb_manual_cnt = {} ".format(count_list[2]))
-            self.log(self.LOG_DEBUG, "to_torb_from_readside_torb_manual_cnt = {} ".format(count_list[3]))
-            self.log(self.LOG_DEBUG, "to_tora_as_cnt                        = {} ".format(count_list[4]))
-            self.log(self.LOG_DEBUG, "to_torb_as_cnt                        = {} ".format(count_list[5]))
-            self.log(self.LOG_DEBUG, "\n")
-
-            return count_list
-
+        ret_val, cmd_rsp_body = self.__cable_cmd_execute(cmd_id, cmd_hdr, cmd_req_body)
+        if ret_val == 0 and cmd_rsp_body is not None:
+            count_value = struct.unpack("<I", cmd_rsp_body)[0]
         else:
-            return None
+            self.log(self.LOG_ERROR, "Get switch count is failed ")
+
+        return count_value
 
 
     def get_switch_count_total(self, switch_count_type, clear_on_read=False):
@@ -1187,28 +1266,20 @@ class YCable(YCableBase):
         Returns:
             an integer, the number of times the Y-cable has been switched
         """
-        count_value = None
-        count_list = self.util_get_switch_count(clear_on_read)
-        if count_list is None:
-            self.log(self.LOG_ERROR, "Get switch count is failed ")
-            return None
+
+        if switch_count_type == self.SWITCH_COUNT_AUTO:
+            cmd_id = self.CABLE_CMD_ID_GET_TOT_AUT_SWT_CNT_CLR if (clear_on_read) else self.CABLE_CMD_ID_GET_TOT_AUT_SWT_CNT
+        elif switch_count_type == self.SWITCH_COUNT_MANUAL:
+            cmd_id = self.CABLE_CMD_ID_GET_TOT_MAN_SWT_CNT_CLR if (clear_on_read) else self.CABLE_CMD_ID_GET_TOT_MAN_SWT_CNT
         else:
-            to_tora_from_tora_manual_cnt = count_list[0]
-            to_torb_from_tora_manual_cnt = count_list[1]
-            to_tora_from_torb_manual_cnt = count_list[2]
-            to_torb_from_torb_manual_cnt = count_list[3]
-            to_tora_as_cnt = count_list[4]
-            to_torb_as_cnt = count_list[5]
+            self.log(self.LOG_ERROR, "Invalid switch_count_type {}".format(switch_count_type))
+            return self.ERROR_INVALID_INPUT
 
-            if (switch_count_type == self.SWITCH_COUNT_MANUAL):
-                count_value = to_tora_from_tora_manual_cnt + to_torb_from_tora_manual_cnt + \
-                              to_tora_from_torb_manual_cnt + to_torb_from_torb_manual_cnt
-                self.log(self.LOG_INFO, "Total manual count is : {}".format(count_value))
-            elif (switch_count_type == self.SWITCH_COUNT_AUTO):
-                count_value = to_tora_as_cnt + to_torb_as_cnt
-                self.log(self.LOG_INFO, "Total auto count is : {}".format(count_value))
 
-            return count_value
+        count_value = self.util_get_switch_count(cmd_id)
+        self.log(self.LOG_INFO, "get_switch_count_total value = {} ".format(count_value))
+
+        return count_value
 
 
     def get_switch_count_tor_a(self, clear_on_read=False):
@@ -1228,14 +1299,10 @@ class YCable(YCableBase):
             an integer, the number of times the Y-cable has been switched from ToR A
         """
 
-        count_value = None
-        count_list = self.util_get_switch_count(clear_on_read)
-        if count_list is None:
-            self.log(self.LOG_ERROR, "Get switch count is failed ")
-        else:
-            to_tora_from_tora_manual_cnt = count_list[0]
-            to_torb_from_tora_manual_cnt = count_list[1]
-            count_value = to_tora_from_tora_manual_cnt + to_torb_from_tora_manual_cnt
+        cmd_id = self.CABLE_CMD_ID_GET_FM_TORA_MAN_SWT_CNT_CLR if (clear_on_read) else self.CABLE_CMD_ID_GET_FM_TORA_MAN_SWT_CNT
+
+        count_value = self.util_get_switch_count(cmd_id)
+        self.log(self.LOG_INFO, "get_switch_count_tor_a value = {} ".format(count_value))
 
         return count_value
 
@@ -1257,15 +1324,10 @@ class YCable(YCableBase):
             an integer, the number of times the Y-cable has been switched from ToR B
         """
 
-        count_value = None
-        count_list = self.util_get_switch_count(clear_on_read)
-        if count_list is None:
-            self.log(self.LOG_ERROR, "Get switch count is failed ")
-        else:
-            to_tora_from_torb_manual_cnt = count_list[2]
-            to_torb_from_torb_manual_cnt = count_list[3]
+        cmd_id = self.CABLE_CMD_ID_GET_FM_TORB_MAN_SWT_CNT_CLR if (clear_on_read) else self.CABLE_CMD_ID_GET_FM_TORB_MAN_SWT_CNT
 
-            count_value = to_tora_from_torb_manual_cnt + to_torb_from_torb_manual_cnt
+        count_value = self.util_get_switch_count(cmd_id)
+        self.log(self.LOG_INFO, "get_switch_count_tor_b value = {} ".format(count_value))
 
         return count_value
 
@@ -1293,38 +1355,31 @@ class YCable(YCableBase):
         Returns:
                 an integer, the number of times manually the Y-cable has been switched
         """
-        count_value = None 
-        if target != self.TARGET_TOR_A and target != self.TARGET_TOR_B:
-            self.log(self.LOG_ERROR, "Invalid target")
-            return None
 
-        count_list = self.util_get_switch_count(clear_on_read)
+        if (target == self.TARGET_TOR_A):
+            if switch_count_type == self.SWITCH_COUNT_AUTO:
+                cmd_id = self.CABLE_CMD_ID_GET_TO_TORA_AUT_SWT_CNT_CLR if (clear_on_read) else self.CABLE_CMD_ID_GET_TO_TORA_AUT_SWT_CNT
+            elif switch_count_type == self.SWITCH_COUNT_MANUAL:
+                cmd_id = self.CABLE_CMD_ID_GET_TO_TORA_MAN_SWT_CNT_CLR if (clear_on_read) else self.CABLE_CMD_ID_GET_TO_TORA_MAN_SWT_CNT
+            else:
+                self.log(self.LOG_ERROR, "Invalid switch_count_type {}".format(switch_count_type))
+                return self.ERROR_INVALID_INPUT
 
-        if count_list is None:
-            self.log(self.LOG_ERROR, "Get switch count is failed ")
+        elif (target == self.TARGET_TOR_B):
+            if switch_count_type == self.SWITCH_COUNT_AUTO:
+                cmd_id = self.CABLE_CMD_ID_GET_TO_TORB_AUT_SWT_CNT_CLR if (clear_on_read) else self.CABLE_CMD_ID_GET_TO_TORB_AUT_SWT_CNT
+            elif switch_count_type == self.SWITCH_COUNT_MANUAL:
+                cmd_id = self.CABLE_CMD_ID_GET_TO_TORB_MAN_SWT_CNT_CLR if (clear_on_read) else self.CABLE_CMD_ID_GET_TO_TORB_MAN_SWT_CNT
+            else:
+                self.log(self.LOG_ERROR, "Invalid switch_count_type {}".format(switch_count_type))
+                return self.ERROR_INVALID_INPUT
+
         else:
-            to_tora_from_tora_manual_cnt = count_list[0]
-            to_torb_from_tora_manual_cnt = count_list[1]
-            to_tora_from_torb_manual_cnt = count_list[2]
-            to_torb_from_torb_manual_cnt = count_list[3]
-            to_tora_as_cnt = count_list[4]
-            to_torb_as_cnt = count_list[5]
+            self.log(self.LOG_ERROR, "Invalid target")
+            return self.ERROR_INVALID_TARGET  
 
-            if target == self.TARGET_TOR_A:
-                if (switch_count_type == self.SWITCH_COUNT_MANUAL):
-                    count_value = to_tora_from_tora_manual_cnt + to_tora_from_torb_manual_cnt
-                elif (switch_count_type == self.SWITCH_COUNT_AUTO):
-                    count_value = to_tora_as_cnt
-                else:
-                    count_value = None
-
-            if target == self.TARGET_TOR_B:
-                if (switch_count_type == self.SWITCH_COUNT_MANUAL):
-                    count_value = to_torb_from_tora_manual_cnt + to_torb_from_torb_manual_cnt
-                elif (switch_count_type == self.SWITCH_COUNT_AUTO):
-                    count_value = to_torb_as_cnt
-                else:
-                    count_value = None
+        count_value = self.util_get_switch_count(cmd_id)
+        self.log(self.LOG_INFO, "get_switch_count_target {} count_value = {} ".format(("TOR_A" if target == self.TARGET_TOR_A else "TOR_B"), count_value))
 
         return count_value
 
@@ -1391,35 +1446,34 @@ class YCable(YCableBase):
     def __cable_fw_mcu_abort(self, upgrade_info):
         """
         Internal API used to abort the execution of FW related function in case of error
+
+        Args:
+            upgrade_info : MCU details
         """
         ret_val = self.RR_ERROR
         dat = bytearray(30)
         status = 0
         req_status = False
 
-        # SEE which MCU it is: Assuming constant pages have been set for each MCU
-        curr_offset = (0 * 128) + 0xE0
-        result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
-        if result is None:
-            self.log(self.LOG_ERROR, "__cable_fw_mcu_abort read eeprom failed")
-            return self.EEPROM_ERROR
-        dat[0] = result[0]
 
-        if dat[0] == 0x02:
-            self.log(self.LOG_INFO, "Current side: TOR B")
-        elif dat[0] == 0x01:
-            self.log(self.LOG_INFO, "Current side TOR A")
-        elif dat[0] == 0x04:
-            self.log(self.LOG_INFO, "Current side NIC")
+        read_side = self.get_read_side()
+
+        if read_side == 0x02:
+            self.log(self.LOG_DEBUG, "Current side: TOR B")
+        elif read_side == 0x01:
+            self.log(self.LOG_DEBUG, "Current side TOR A")
+        elif read_side == 0x04:
+            self.log(self.LOG_DEBUG, "Current side NIC")
         else:
             self.log(self.LOG_ERROR, "Current side UNKNOWN")
+            return self.ERROR_READ_SIDE_FAILED
 
         # Make sure TOR to NIC MCU communication is alive
         self.log(self.LOG_DEBUG, "Make sure TOR to NIC MCU communication is alive ")
-        if (upgrade_info.destination == self.NIC_MCU) and ((dat[0] == 0x02) or (dat[0] == 0x01)):
+        if (upgrade_info.destination == self.NIC_MCU) and ((read_side == 0x02) or (read_side == 0x01)):
             # Since we are running from TOR side, make sure no flush is on going
             for _ in range(3000):
-                curr_offset = (self.QSFP_BRCM_DIAGNOSTIC_PAGE * 128) + self.QSFP_BRCM_DIAGNOSTIC_STATUS
+                curr_offset = ((self.QSFP_BRCM_DIAGNOSTIC_PAGE * 128) + self.QSFP_BRCM_DIAGNOSTIC_STATUS)
                 status = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
                 if status is None:
                     self.log(self.LOG_ERROR, "__cable_fw_mcu_abort read eeprom failed")
@@ -1427,7 +1481,9 @@ class YCable(YCableBase):
 
                 if status[0] == 0:
                     break
+
                 time.sleep(0.001)
+
             if status[0]:
                 self.log(self.LOG_ERROR, "Unable to communicate with NIC MCU")
                 return self.ERROR_RW_NIC_FAILED
@@ -1437,19 +1493,26 @@ class YCable(YCableBase):
                 # Make sure to clear command first else can have unforseen consequences
                 curr_offset = (self.QSFP_BRCM_FW_UPGRADE_PAGE*128)
                 dat[0] = 0x00
-                self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD, 1, dat)
+                if self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD, 1, dat) is False:
+                    return self.ERROR_WR_EEPROM_FAILED
 
                 # Send destination
                 dat[0] = upgrade_info.destination
-                self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset + self.QSFP_BRCM_FW_UPGRADE_HEADER_24_31, 1, dat)
+                if self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset + self.QSFP_BRCM_FW_UPGRADE_HEADER_24_31, 1, dat) is False:
+                    return self.ERROR_WR_EEPROM_FAILED
 
                 # Send Abort request
                 dat[0] = (self.FW_CMD_ABORT << 1) | 1
-                self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD, 1, dat)
+                if self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD, 1, dat) is False:
+                    return self.ERROR_WR_EEPROM_FAILED
+                
+                time.sleep(0.3)
 
                 # Check response status
                 for _ in range(100):
                     status = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + self.QSFP_BRCM_FW_UPGRADE_CMD_STS, 1)
+                    if status is None:
+                        return self.EEPROM_ERROR
 
                     if (status[0] & 0x01) == 0:
                         req_status = True
@@ -1457,9 +1520,18 @@ class YCable(YCableBase):
 
                         # Set the command request to idle state
                         dat[0] = 0x00
-                        self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD, 1, dat)
+                        if self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD, 1, dat) is False:
+                            return self.ERROR_WR_EEPROM_FAILED
                         break
                     time.sleep(0.001)
+
+                if not req_status:
+                    # Pull down anyway
+                    dat[0] = 0x00
+                    curr_offset = ((self.QSFP_BRCM_FW_UPGRADE_PAGE*128) + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD)
+                    if self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, dat) is False:
+                        return self.ERROR_WR_EEPROM_FAILED
+
             else:
                 self.log(self.LOG_ERROR, "Port lock timed-out!")
                 return self.ERROR_PORT_LOCK_TIMEOUT
@@ -1467,7 +1539,6 @@ class YCable(YCableBase):
         if not req_status:
             self.log(self.LOG_ERROR, "Abort timeout. No response from MCU")
             self.__handle_error(17)
-            #return ret_val
             return self.ERROR_CMD_TIMEOUT
 
         return ret_val
@@ -1503,323 +1574,768 @@ class YCable(YCableBase):
 
         """
         ret_val = self.RR_ERROR
-        dat = bytearray(30)
-        status = 0
-        info_stat = 0
-        req_status = False
+        cmd_handle = cmd_handle_s()
 
         if self.platform_chassis is not None:
             # SEE which MCU it is: Assuming constant pages have been set for each MCU
-            curr_offset = (0*128) + 0xE0
-            result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
-            if result is None:
-                self.log(self.LOG_ERROR, "cable_fw_get_status read eeprom failed")
-                return self.EEPROM_ERROR
 
-            dat[0] = result[0]
+            if(self.__pre_cmd_check(upgrade_info) == self.RR_SUCCESS):
 
-            if dat[0] == 0x02:
-                self.log(self.LOG_INFO, "Current side: TOR B")
-            elif dat[0] == 0x01:
-                self.log(self.LOG_INFO, "Current side TOR A")
-            elif dat[0] == 0x04:
-                self.log(self.LOG_INFO, "Current side NIC")
+                cmd_handle.cmd_wr = self.FW_CMD_INFO
+                cmd_handle.read_info = 1
+                cmd_handle.cmd_rd = self.QSFP_BRCM_FW_UPGRADE_CURRENT_BANK
+                cmd_handle.info_len = 26
+                ret_val = self.__handle_cmd(upgrade_info, cmd_handle)
+                if( (ret_val != self.RR_SUCCESS) and  (ret_val != self.RR_ERROR_SYSTEM_UNAVAILABLE) ):
+                    return ret_val
+
+                # Current bank
+                upgrade_info.status_info.current_bank = cmd_handle.data_read[0]
+                upgrade_info.status_info.next_bank = cmd_handle.data_read[25]
+
+                # Bank 1 minor fw version
+                upgrade_info.status_info.bank1_info.image_fw_version.image_version_minor = (cmd_handle.data_read[2] << 8) | cmd_handle.data_read[1]
+
+                # Bank 1 major fw version
+                upgrade_info.status_info.bank1_info.image_fw_version.image_version_major = (cmd_handle.data_read[4] << 8) | cmd_handle.data_read[3]
+
+                # Bank 1 minor API version
+                upgrade_info.status_info.bank1_info.image_api_version.image_version_minor = (cmd_handle.data_read[6] << 8) | cmd_handle.data_read[5]
+
+                # Bank 1 major API version
+                upgrade_info.status_info.bank1_info.image_api_version.image_version_major = (cmd_handle.data_read[8] << 8) | cmd_handle.data_read[7]
+
+                # Bank 1 CRC32
+                upgrade_info.status_info.bank1_info.image_crc32 = (cmd_handle.data_read[12] << 24) | (cmd_handle.data_read[11] << 16) | (cmd_handle.data_read[10] << 8) | cmd_handle.data_read[9]
+                # Bank 2 minor fw version
+                upgrade_info.status_info.bank2_info.image_fw_version.image_version_minor = (cmd_handle.data_read[14] << 8) | cmd_handle.data_read[13]
+
+                # Bank 2 major fw version
+                upgrade_info.status_info.bank2_info.image_fw_version.image_version_major = (cmd_handle.data_read[16] << 8) | cmd_handle.data_read[15]
+
+                # Bank 2 minor API version
+                upgrade_info.status_info.bank2_info.image_api_version.image_version_minor = (cmd_handle.data_read[18] << 8) | cmd_handle.data_read[17]
+
+                # Bank 2 major API version
+                upgrade_info.status_info.bank2_info.image_api_version.image_version_major = (cmd_handle.data_read[20] << 8) | cmd_handle.data_read[19]
+
+                # Bank2 CRC32
+                upgrade_info.status_info.bank2_info.image_crc32 = (cmd_handle.data_read[24] << 24) | (cmd_handle.data_read[23] << 16) | (cmd_handle.data_read[22] << 8) | cmd_handle.data_read[21]
+
             else:
-                self.log(self.LOG_INFO, "Current side UNKNOWN")
-
-            # Make sure TOR to NIC MCU communication is alive
-            self.log(self.LOG_DEBUG, "cable_fw_get_status : .................................................... ")
-            self.log(self.LOG_DEBUG, "Make sure TOR to NIC MCU communication is alive ")
-            if (upgrade_info.destination == self.NIC_MCU) and ((dat[0] == 0x02) or (dat[0] == 0x01)):
-
-                for _ in range(3000):
-                    curr_offset = (self.QSFP_BRCM_DIAGNOSTIC_PAGE * 128) + self.QSFP_BRCM_DIAGNOSTIC_STATUS
-                    status = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
-                    if status[0] == 0:
-                        break
-                    time.sleep(0.001)
-
-                if status[0]:
-                    self.log(self.LOG_ERROR, "Unable to communicate with NIC MCU")
-                    #return self.RR_ERROR
-                    return self.ERROR_RW_NIC_FAILED
-
-            # read cable command and status offsets
-            self.log(self.LOG_DEBUG, "read cable command and status offsets ")
-            result = self.__util_read_eeprom(((self.QSFP_BRCM_FW_UPGRADE_PAGE * 128) + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD), 2, "cable_fw_get_status")
-            if result != self.EEPROM_READ_DATA_INVALID:
-                dat[0] = result[0]
-                dat[1] = result[1]
-
-            if ((dat[0] & 0x01) != 0) or ((dat[1] & 0x01) != 0):
-                self.log(self.LOG_DEBUG, "MCU not in the right state. Sending abort")
-                self.__cable_fw_mcu_abort(upgrade_info)
-                time.sleep(0.001)
-                result = self.__util_read_eeprom(((self.QSFP_BRCM_FW_UPGRADE_PAGE * 128) + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD), 2, "cable_fw_upgrade")
-                dat[0] = result[0]
-                dat[1] = result[1]
-
-            with self.lock.acquire_timeout(self.PORT_LOCK_TIMEOUT) as result:
-                if result:
-                    # check if any command is currently being executed
-                    self.log(self.LOG_DEBUG, "check if any command is currently being executed ")
-                    if ((dat[0] & 0x01) == 0) and ((dat[1] & 0x01) == 0):
-                        # Send destination
-                        self.log(self.LOG_DEBUG, "send destination ")
-                        dat[0] = upgrade_info.destination
-                        current_offset = (self.QSFP_BRCM_FW_UPGRADE_PAGE*128) + self.QSFP_BRCM_FW_UPGRADE_HEADER_24_31
-                        result = self.platform_chassis.get_sfp(self.port).write_eeprom(current_offset, 1, dat)
-                        if result is False:
-                            return self.ERROR_WRITE_EEPROM_FAILED
-
-                        # Send command status request
-                        self.log(self.LOG_DEBUG, "send command status request ")
-                        dat[0] = (self.FW_CMD_INFO << 1) | 1
-                        current_offset = (self.QSFP_BRCM_FW_UPGRADE_PAGE*128) + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD
-                        result = self.platform_chassis.get_sfp(self.port).write_eeprom(current_offset, 1, dat)
-                        if result is False:
-                            return self.ERROR_WRITE_EEPROM_FAILED
-
-                        #Delay reading status as this can block during swap
-                        #time.sleep(0.2)
-                        req_status = False
-                        for _ in range(0, 100):
-                            status = self.__util_read_eeprom(((self.QSFP_BRCM_FW_UPGRADE_PAGE * 128) + self.QSFP_BRCM_FW_UPGRADE_CMD_STS), 1, "cable_fw_get_status")
-                            if status[0] & 0x01:
-                                if ((status[0] & 0xFC) == (self.FW_UP_SUCCESS << 2)) or ((status[0] & 0xFC) == (self.FW_UP_IN_PROGRESS << 2)):
-
-                                    # SUCCESS, read the status info
-                                    dat = self.__util_read_eeprom(((self.QSFP_BRCM_FW_UPGRADE_DATA_PAGE_1 * 128) + self.QSFP_BRCM_FW_UPGRADE_CURRENT_BANK), 26, "cable_fw_get_status")
-
-                                    # Current bank
-                                    upgrade_info.status_info.current_bank = dat[0]
-                                    upgrade_info.status_info.next_bank = dat[25]
-
-                                    # Bank 1 minor fw version
-                                    upgrade_info.status_info.bank1_info.image_fw_version.image_version_minor = (dat[2] << 8) | dat[1]
-
-                                    # Bank 1 major fw version
-                                    upgrade_info.status_info.bank1_info.image_fw_version.image_version_major = (dat[4] << 8) | dat[3]
-
-                                    # Bank 1 minor API version
-                                    upgrade_info.status_info.bank1_info.image_api_version.image_version_minor = (dat[6] << 8) | dat[5]
-
-                                    # Bank 1 major API version
-                                    upgrade_info.status_info.bank1_info.image_api_version.image_version_major = (dat[8] << 8) | dat[7]
-
-                                    # Bank 1 CRC32
-                                    upgrade_info.status_info.bank1_info.image_crc32 = (dat[12] << 24) | (dat[11] << 16) | (dat[10] << 8) | dat[9]
-                                    # Bank 2 minor fw version
-                                    upgrade_info.status_info.bank2_info.image_fw_version.image_version_minor = (dat[14] << 8) | dat[13]
-
-                                    # Bank 2 major fw version
-                                    upgrade_info.status_info.bank2_info.image_fw_version.image_version_major = (dat[16] << 8) | dat[15]
-
-                                    # Bank 2 minor API version
-                                    upgrade_info.status_info.bank2_info.image_api_version.image_version_minor = (dat[18] << 8) | dat[17]
-
-                                    # Bank 2 major API version
-                                    upgrade_info.status_info.bank2_info.image_api_version.image_version_major = (dat[20] << 8) | dat[19]
-
-                                    # Bank2 CRC32
-                                    upgrade_info.status_info.bank2_info.image_crc32 = (dat[24] << 24) | (dat[23] << 16) | (dat[22] << 8) | dat[21]
-
-                                    req_status = True
-
-                                    if (status[0] & 0xFC) == (self.FW_UP_IN_PROGRESS << 2):
-                                        info_stat = 1
-
-                                    break
-                                else:
-                                    self.__handle_error_abort(upgrade_info, 1)
-                                    return ret_val
-                            time.sleep(0.01)
-
-                        if req_status:
-                            req_status = False
-                            # set the command request to idle state
-                            self.log(self.LOG_DEBUG, "set the command request to idle state ")
-                            dat[0] = 0x00
-                            curr_offset = (self.QSFP_BRCM_FW_UPGRADE_PAGE*128) + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD
-                            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, dat)
-                            if result is False:
-                                return self.ERROR_WRITE_EEPROM_FAILED
-
-                            # Delay reading status as this can block during swap
-                            #time.sleep(0.3)
-
-                            # wait for mcu response to be pulled down
-                            self.log(self.LOG_DEBUG, "wait for mcu response to be pulled down  ")
-                            for _ in range(100):
-                                status = self.platform_chassis.get_sfp(self.port).read_eeprom(((self.QSFP_BRCM_FW_UPGRADE_PAGE*128) + self.QSFP_BRCM_FW_UPGRADE_CMD_STS), 1)
-                                if (status[0] & 0x01) == 0:
-                                    req_status = True
-                                    ret_val = self.RR_SUCCESS
-                                    break
-
-                                time.sleep(0.001)
-
-                            if not req_status:
-                                # Timeout, how to handle?
-                                self.log(self.LOG_DEBUG, "timeout handle error abort  ")
-                                self.__handle_error_abort(upgrade_info, 2)
-                                #return ret_val
-                                return self.ERROR_CMD_TIMEOUT
-                        else:
-                            # Error
-                            self.log(self.LOG_DEBUG, "Error handle error abort  ")
-                            self.__handle_error_abort(upgrade_info, 17)
-                            return ret_val
-                    else:
-                        self.log(self.LOG_ERROR, "MCU not in the right state")
-
-                    if info_stat:
-                        ret_val = self.RR_ERROR_SYSTEM_UNAVAILABLE
-                        return ret_val
-
-                else:
-                    self.log(self.LOG_ERROR, "Port lock timed-out!")
-                    return self.ERROR_PORT_LOCK_TIMEOUT
-
-        else:
-            self.log(self.LOG_ERROR, "platform_chassis is not loaded, failed to read " + "fw_get_status")
-            return self.ERROR_PLATFORM_NOT_LOADED
+                self.log(self.LOG_ERROR, "MCU not in the right state")
 
         return ret_val
+
+    
+    def cable_fw_toggle_bcomp(self, upgrade_info):
+        '''
+        This API is internally used by activate firmware. Used to activate old FW only.
+
+        Args:
+            upgrade_info: MCU details
+        '''
+        ret_val = self.RR_ERROR
+        cmd_handle = cmd_handle_s()
+
+        if self.platform_chassis is not None:
+
+            if(self.__pre_cmd_check(upgrade_info) == self.RR_SUCCESS):
+                cmd_handle.cmd_wr = self.FW_CMD_SWAP
+                ret_val = self.__handle_cmd(upgrade_info, cmd_handle)
+                if (ret_val != self.RR_SUCCESS):
+                    return ret_val
+                
+                # Do reset
+                time.sleep(0.3)
+
+                ret_val = self.__cable_fw_mcu_reset(upgrade_info)
+                if( ret_val != self.RR_SUCCESS ):
+                    self.log(self.LOG_ERROR, "cable_fw_mcu_reset failed. ret_val {}".format(ret_val))
+                    return self.ERROR_RESET_FAILED
+
+                time.sleep(0.3)
+                ret_val = self.RR_SUCCESS
+                
+            else:
+                self.log(self.LOG_ERROR, "MCU not in the right state")
+
+
+        return ret_val
+
+
 
     def cable_fw_bank_toggle(self, upgrade_info):
         '''
         This API is internally used by activate firmware
+
+        Args:
+            upgrade_info: MCU details
         '''
-        ctrl_result = bytearray(30)
         ret_val = self.RR_ERROR
         status = 0
-        info_stat = 0
-        req_status = False
+        cmd_handle = cmd_handle_s()
 
         if self.platform_chassis is not None:
-            # SEE which MCU it is: Assuming constant pages have been set for each MCU
-            curr_offset = (0 * 128) + 0xE0
-            result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
-            if result is None:
-                self.log(self.LOG_ERROR, "cable_fw_get_status read eeprom failed")
-                return self.EEPROM_ERROR
 
-            ctrl_result[0] = result[0]
+            if(self.__pre_cmd_check(upgrade_info) == self.RR_SUCCESS):
+                cmd_handle.cmd_wr = self.FW_CMD_SWAP
+                ret_val = self.__handle_cmd(upgrade_info, cmd_handle)
+                if (ret_val != self.RR_SUCCESS):
+                    return ret_val
+                
+                # Do reset
+                time.sleep(0.3)
 
-            if ctrl_result[0] == 0x02:
-                self.log(self.LOG_INFO, "Current side: TOR B")
-            elif ctrl_result[0] == 0x01:
-                self.log(self.LOG_INFO, "Current side TOR A")
-            elif ctrl_result[0] == 0x04:
-                self.log(self.LOG_INFO, "Current side NIC")
+                ret_val = self.__cable_fw_mcu_reset(upgrade_info)
+                if( ret_val != self.RR_SUCCESS ):
+                    self.log(self.LOG_ERROR, "cable_fw_mcu_reset failed. ret_val {}".format(ret_val))
+                    return self.ERROR_RESET_FAILED
+
+                time.sleep(0.3)
+                
+                cmd_handle.cmd_wr = self.FW_CMD_BOOT_STATUS
+                cmd_handle.read_info = 1
+                cmd_handle.cmd_rd = self.QSFP_BRCM_FW_UPGRADE_BOOT_STATUS
+                cmd_handle.info_len = 1
+                ret_val = self.__handle_cmd(upgrade_info, cmd_handle)
+                if( ret_val != self.RR_SUCCESS ):
+                    self.log(self.LOG_ERROR, "handle_cmd failed. ret_val {}".format(ret_val))
+                    return ret_val
+
+                if upgrade_info.destination == self.NIC_MCU:
+                    if cmd_handle.data_read[0] == 0:
+                        # Reset went through. Check mux chip status
+                        for _ in range(0, 3000):
+                            curr_offset = ((self.QSFP_BRCM_DIAGNOSTIC_PAGE*128) + self.QSFP_BRCM_DIAGNOSTIC_STATUS)
+                            status  = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 2)
+                            if status is None:
+                                return self.EEPROM_ERROR
+                            if status[0] == 0:
+                                break
+                            time.sleep(0.001)
+
+                        if status[0]:
+                            self.log(self.LOG_ERROR, "Unable to communicate with MUX chip")
+                            return self.RR_ERROR
+
+                        ret_val = self.RR_SUCCESS
+                        return ret_val
+
+                    elif cmd_handle.data_read[0] == 1:
+                        # RESET ERROR
+                        self.log(self.LOG_ERROR, "COLD BOOT reset succeeded but MUX chip failed")
+                        ret_val = self.RR_ERROR
+                        return ret_val
+                    else:
+                        # RESET ERROR
+                        self.log(self.LOG_ERROR, "COLD BOOT reset failed")
+                        ret_val = self.RR_ERROR
+                        return ret_val
+                else:
+                    if cmd_handle.data_read[0] == 0 :
+                        ret_val = self.RR_SUCCESS
+                        return ret_val
+                    else:
+                        # RESET ERROR
+                        self.log(self.LOG_ERROR, "COLD BOOT reset failed")
+                        ret_val = self.RR_ERROR
+                        return ret_val
             else:
-                self.log(self.LOG_INFO, "Current side UNKNOWN")
+                self.log(self.LOG_ERROR, "MCU not in the right state")
 
-            # Make sure TOR to NIC MCU communication is alive
-            self.log(self.LOG_DEBUG, "Make sure TOR to NIC MCU communication is alive ")
-            if (upgrade_info.destination == self.NIC_MCU) and ((ctrl_result[0] == 0x02) or (ctrl_result[0] == 0x01)):
-                # Since we are running from TOR side, make sure no flush is on going
-                for _ in range(3000):
-                    curr_offset = (self.QSFP_BRCM_DIAGNOSTIC_PAGE * 128) + self.QSFP_BRCM_DIAGNOSTIC_STATUS
+
+        return ret_val
+
+
+
+            
+    def __cable_fw_warm_boot(self, upgrade_info):
+
+        ret_val = self.RR_ERROR
+        status = 0
+        cmd_handle = cmd_handle_s()
+
+        if self.__pre_cmd_check(upgrade_info) == self.RR_SUCCESS:
+            cmd_handle.cmd_wr = self.FW_CMD_WARM_BOOT
+
+            ret_val = self.__handle_cmd(upgrade_info, cmd_handle)
+            if ret_val != self.RR_SUCCESS:
+                return ret_val
+            time.sleep(2)
+
+            cmd_handle.cmd_wr = self.FW_CMD_BOOT_STATUS
+            cmd_handle.read_info = 1
+            cmd_handle.cmd_rd = self.QSFP_BRCM_FW_UPGRADE_BOOT_STATUS
+            cmd_handle.info_len = 1
+            ret_val = self.__handle_cmd(upgrade_info, cmd_handle)
+            if( ret_val != self.RR_SUCCESS ):
+                return ret_val
+
+            if cmd_handle.data_read[0] == 0 :
+                # Reset went through. Check mux chip status
+                for _ in range(0, 3000):
+                    curr_offset = ((self.QSFP_BRCM_DIAGNOSTIC_PAGE*128) + self.QSFP_BRCM_DIAGNOSTIC_STATUS)
                     status = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+                    if status is None:
+                        self.log(self.LOG_ERROR, "__cmd_handle read eeprom failed")
+                        return self.EEPROM_ERROR
+
                     if status[0] == 0:
                         break
                     time.sleep(0.001)
 
                 if status[0]:
-                    self.log(self.LOG_ERROR, "Unable to communicate with NIC MCU")
-                    #return self.RR_ERROR
-                    return self.ERROR_RW_NIC_FAILED
+                    self.log(self.LOG_ERROR, "Unable to communicate with MUX chip")
+                    return self.RR_ERROR
 
-            with self.lock.acquire_timeout(self.PORT_LOCK_TIMEOUT) as result:
-                if result:
-                    # read cable command and status offsets
-                    curr_offset = ((self.QSFP_BRCM_FW_UPGRADE_PAGE*128) + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD)
-                    ctrl_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 2)
+                ret_val = self.RR_SUCCESS
+                return ret_val
 
-                    if ((ctrl_result[0] & 0x01) != 0) or ((ctrl_result[1] & 0x01) != 0):
-                        self.log(self.LOG_ERROR, "MCU not in the right state. Sending abort")
-                        ret_val = self.__cable_fw_mcu_abort(upgrade_info)
-                        if ret_val != self.RR_SUCCESS:
-                            return ret_val
-                        time.sleep(0.001)
-                        ctrl_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 2)
-
-
-                    if ((ctrl_result[0] & 0x01) == 0) and ((ctrl_result[1] & 0x01) == 0):
-
-                        # send destinationn
-                        ctrl_result[0] = upgrade_info.destination
-                        curr_offset = ((self.QSFP_BRCM_FW_UPGRADE_PAGE*128) + self.QSFP_BRCM_FW_UPGRADE_HEADER_24_31)
-                        self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, ctrl_result)
-
-                        # send swap request
-                        ctrl_result[0] = (self.FW_CMD_SWAP << 1) | 1
-                        curr_offset = ((self.QSFP_BRCM_FW_UPGRADE_PAGE*128) + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD)
-                        self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, ctrl_result)
-
-                        # Delay reading status as this can block during swap.
-                        time.sleep(0.3)
-
-                        # check response status
-                        for _ in range(0, 100):
-                            curr_offset = ((self.QSFP_BRCM_FW_UPGRADE_PAGE*128) + self.QSFP_BRCM_FW_UPGRADE_CTRL_STS)
-                            status = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
-                            if status[0] & 0x01:
-                                if ((status[0] & 0xFC) == (self.FW_UP_SUCCESS << 2)) or ((status[0] & 0xFC) == (self.FW_UP_IN_PROGRESS << 2)):
-                                    if  (status[0] & 0xFC) == (self.FW_UP_IN_PROGRESS << 2):
-                                        info_stat = 1
-                                    req_status = True
-                                    break
-                                else:
-                                    # ERROR?
-                                    self.__handle_error_abort(upgrade_info, 1)
-                                    return ret_val
-                            time.sleep(0.001)
-                        if req_status:
-                            req_status = False
-                            ctrl_result[0] = 0x00
-                            curr_offset = ((self.QSFP_BRCM_FW_UPGRADE_PAGE*128) + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD)
-                            self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, ctrl_result)
-                            # Delay reading status as this can block during swap.
-                            time.sleep(0.1)
-
-                            for _ in range(0, 100):
-                                curr_offset = ((self.QSFP_BRCM_FW_UPGRADE_PAGE*128) + self.QSFP_BRCM_FW_UPGRADE_CMD_STS)
-                                status = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
-                                if (status[0] & 0x01) == 0:
-                                    req_status = True
-                                    ret_val = self.RR_SUCCESS
-                                    break
-                                time.sleep(0.001)
-
-                            if not req_status:
-                                # Timeout, how to handle?
-                                self.__handle_error_abort(upgrade_info, 2)
-                                #return ret_val
-                                return self.ERROR_CMD_TIMEOUT
-                        else:
-                            # ERROR
-                            self.__handle_error_abort(upgrade_info, 17)
-                            return ret_val
-
-                    else:
-                        self.log(self.LOG_ERROR, "MCU not in the right state")
-                else:
-                    self.log(self.LOG_ERROR, "Port lock timed-out!")
-                    return self.ERROR_PORT_LOCK_TIMEOUT
-
+            elif cmd_handle.data_read[0] == 1:
+                # RESET ERROR
+                self.log(self.LOG_ERROR, "WARM BOOT reset succeeded but MUX chip failed")
+                ret_val = self.RR_ERROR
+                return ret_val
+            else:
+                # RESET ERROR
+                self.log(self.LOG_ERROR, "WARM BOOT reset failed")
+                ret_val = self.RR_ERROR
+                return ret_val
         else:
-            self.log(self.LOG_ERROR, "platform_chassis is not loaded, failed to read " + "firmware_version")
-            return self.ERROR_PLATFORM_NOT_LOADED
-
-        if info_stat:
-            ret_val = self.RR_ERROR_SYSTEM_UNAVAILABLE
+            self.log(self.LOG_ERROR, "MCU not in the right state")
 
         return ret_val
 
-    def __cable_fw_upgrade(self, upgrade_info):
+
+    def __handle_cmd(self, upgrade_info, cmd_handle):
+        
+        ret_val = self.RR_ERROR
+        req_status = False
+        dat = bytearray(100)
+        info_stat = 0
+        status = 0
+        QSFP_PAGE_OFFSET = self.QSFP_BRCM_FW_UPGRADE_PAGE * 128
+ 
+        dat[0] = 0x00
+        curr_offset = ((self.QSFP_BRCM_FW_UPGRADE_PAGE*128) + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD)
+        result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, dat)
+        if result is False:
+            return self.ERROR_WRITE_EEPROM_FAILED
+        
+        # Send destination
+        dat[0] = upgrade_info.destination
+        curr_offset = ((self.QSFP_BRCM_FW_UPGRADE_PAGE*128) + self.QSFP_BRCM_FW_UPGRADE_HEADER_24_31)
+        result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, dat)
+        if result is False:
+            return self.ERROR_WRITE_EEPROM_FAILED
+
+        # Send command request
+        dat[0] = (cmd_handle.cmd_wr  << 1) | 1
+        curr_offset = ((self.QSFP_BRCM_FW_UPGRADE_PAGE*128) + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD)
+        result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, dat)
+        if result is False:
+            return self.ERROR_WRITE_EEPROM_FAILED
+    
+        # Delay reading status as this can block during swap
+        time.sleep(0.1)
+        #time.sleep(1)
+        
+        # First check if any errors
+        for _ in range(0, 100):
+            curr_offset = ((self.QSFP_BRCM_FW_UPGRADE_PAGE*128) + self.QSFP_BRCM_FW_UPGRADE_CMD_STS)
+            status = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+            if status is None:
+                self.log(self.LOG_ERROR, "__cmd_handle read eeprom failed")
+                return self.EEPROM_ERROR
+            if status[0] & 0x01:
+                if (((status[0] & 0xFC) == (self.FW_UP_SUCCESS << 2)) or ((status[0] & 0xFC) == (self.FW_UP_IN_PROGRESS << 2))):
+                    if((status[0] & 0xFC) == (self.FW_UP_IN_PROGRESS << 2)):
+                        info_stat = 1
+
+                    if cmd_handle.read_info == 1:
+                        curr_offset = (self.QSFP_BRCM_FW_UPGRADE_DATA_PAGE_1*128) + cmd_handle.cmd_rd
+                        cmd_handle.data_read = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, cmd_handle.info_len)
+                        if status is None:
+                            self.log(self.LOG_ERROR, "__cmd_handle read eeprom failed")
+                            return self.EEPROM_ERROR
+                    req_status = True
+                    break
+                else:
+                    self.log(self.LOG_ERROR, "CMD {} failed".format(cmd_handle.cmd_wr))
+                    self.__handle_error_abort(upgrade_info, status[0])
+                    return ret_val
+            time.sleep(0.001)
+
+        if req_status:
+            req_status = False
+            # set the command request to idle state
+            self.log(self.LOG_DEBUG, "set the command request to idle state ")
+            dat[0] = 0x00
+            if self.platform_chassis.get_sfp(self.port).write_eeprom(QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD, 1, dat) is False:
+                return self.ERROR_WR_EEPROM_FAILED
+
+            time.sleep(0.3)
+
+            # wait for mcu response to be pulled down
+            self.log(self.LOG_DEBUG, "wait for mcu response to be pulled down ")
+            for _ in range(100):
+                status = self.__util_read_eeprom((QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CMD_STS), 1, "__handle_cmd")
+                if status is None:
+                    self.log(self.LOG_ERROR, "__handle_cmd: read_eeprom failed")
+                    return self.EEPROM_ERROR
+
+                if (status[0] & 0x01) == 0:
+                    req_status = True
+                    break
+
+                time.sleep(0.001)
+
+            if not req_status:
+                # Timeout, no response to pull down
+                self.log(self.LOG_ERROR, "Timeout waiting pull down")
+                self.__handle_error_abort(upgrade_info, 1)
+                return ret_val
+
+            elif info_stat == 1:
+                ret_val = self.RR_ERROR_SYSTEM_UNAVAILABLE
+                return ret_val
+            else:
+                ret_val = self.RR_SUCCESS
+                return ret_val
+        else:
+            # Timeout, no response to pull down
+            self.log(self.LOG_ERROR, "Timeout waiting for cmd {} status".format(cmd_handle.cmd_wr))
+            self.__handle_error_abort(upgrade_info, 1)
+            return ret_val
+
+    
+    def parse_image(self, upgrade_head, destination, fwfile):
+
+        File_seek = 0
+        image_compressed = 0 
+        image_offset = 0
+        fw_up_buff = array.array('I', [])
+
+        for i in range(self.MUX_FW_IMG_SIZE):
+            fw_up_buff.append(0)
+
+        file1 = open(fwfile, 'rb')
+        if file1 is None:
+            self.log(self.LOG_ERROR, "File {} failed to open".format(fwfile))
+            return self.RR_ERROR
+
+        if (destination == self.TOR_MCU_SELF) or (destination == self.TOR_MCU_PEER):
+            # Check TOR current bank to find which TOR image to download
+            upgrade_head.cable_up_info.destination = destination
+            if (self.cable_fw_get_status(upgrade_head.cable_up_info) != self.RR_SUCCESS):
+                file1.close()
+                return self.RR_ERROR
+            if upgrade_head.cable_up_info.status_info.current_bank == 1:
+                # Select TOR bank 2 image
+		#First read TOR bank 1 image header to find header location of TOR bank2 image header
+                file1.seek(image_offset + 0x10)
+                image_compressed = struct.unpack('I', file1.read(4))[0]
+                if image_compressed:
+                    # Read compressed image size
+                    File_seek = struct.unpack('I', file1.read(4))[0]
+                    file1.seek(image_offset)
+                else:
+                    # Read image size
+                    file1.seek(image_offset)
+                    File_seek = struct.unpack('I', file1.read(4))[0]
+                # Next set TOR bank2 image header location
+                File_seek += (image_offset + 0x24)
+            else:
+                File_seek = image_offset
+            # Parse TOR image now
+            file1.seek(File_seek)
+            upgrade_head.cable_up_info.image_info.image_size = struct.unpack('I', file1.read(4))[0]
+
+            fw_version_array = array.array('I', [])
+            for i in range(self.FW_IMG_INFO_SIZE):
+                if i < 4:
+                    byte_val = file1.read(2)
+                    fw_version_array.append(0)
+                    fw_version_array[i] = struct.unpack('H', byte_val)[0]
+                else:
+                    byte_val = file1.read(4)
+                    fw_version_array.append(0)
+                    fw_version_array[i] = struct.unpack('I', byte_val)[0]
+                    break
+
+            upgrade_head.compression = struct.unpack('I', file1.read(4))[0]
+            upgrade_head.compressed_size = struct.unpack('I', file1.read(4))[0]
+            upgrade_head.compressed_crc32 = struct.unpack('I', file1.read(4))[0]
+            upgrade_head.add_size = struct.unpack('I', file1.read(4))[0]
+            upgrade_head.add_crc32 = struct.unpack('I', file1.read(4))[0]
+
+            for i in range(upgrade_head.cable_up_info.image_info.image_size):
+                byte_val = file1.read(4)
+                if len(byte_val) == 4:
+                    fw_up_buff[i] = struct.unpack('I', byte_val)[0]
+
+            upgrade_head.cable_up_info.image_info.image_fw_version.image_version_major = fw_version_array[1]
+            upgrade_head.cable_up_info.image_info.image_fw_version.image_version_minor = fw_version_array[0]
+            upgrade_head.cable_up_info.image_info.image_api_version.image_version_minor = fw_version_array[2]
+            upgrade_head.cable_up_info.image_info.image_api_version.image_version_major = fw_version_array[3]
+            upgrade_head.cable_up_info.image_info.image_crc32 = fw_version_array[4]
+            upgrade_head.cable_up_info.image_info.image_ptr = fw_up_buff
+            
+            if destination == self.TOR_MCU_SELF:
+                upgrade_head.cable_up_info.destination = self.TOR_MCU_SELF
+            else:
+                upgrade_head.cable_up_info.destination = self.TOR_MCU_PEER
+            
+        
+        elif destination == self.NIC_MCU:
+            # Parse NIC image
+            # Seek to location of NIC bank1 image
+            file1.seek(0x10)
+            image_compressed = struct.unpack('I', file1.read(4))[0]
+            if image_compressed:
+                # Read compressed image size
+                image_offset = struct.unpack('I', file1.read(4))[0]
+                file1.seek(0)
+            else:
+                # Read image size
+                file1.seek(0)
+                image_offset = struct.unpack('I', file1.read(4))[0]
+
+            image_offset +=  0x24
+            # Seek to TOR bank2 image
+            file1.seek(image_offset)
+            # Read TOR bank 2 image header to find header location of NIC bank1 image header
+            file1.seek((image_offset + 0x10))
+            image_compressed = struct.unpack('I', file1.read(4))[0]
+            if image_compressed:
+                # Read compressed image size
+                File_seek = struct.unpack('I', file1.read(4))[0]
+                file1.seek(image_offset)
+            else:
+                # Read image size
+                file1.seek(image_offset)
+                File_seek = struct.unpack('I', file1.read(4))[0]
+
+            # Seek to NIC bank1 image
+            File_seek += (image_offset + 0x24)
+            file1.seek(File_seek)
+            image_offset = File_seek
+            
+            # Check NIC current bank to find which NIC image to download
+            upgrade_head.cable_up_info.destination = destination
+            if (self.cable_fw_get_status(upgrade_head.cable_up_info) != self.RR_SUCCESS):
+                file1.close()
+                return self.RR_ERROR
+            
+            if upgrade_head.cable_up_info.status_info.current_bank == 1:
+                # Select NIC bank 2 image
+                # First read NIC bank 1 image header to find header location of NIC bank2 image header
+                file1.seek((image_offset + 0x10))
+                image_compressed = struct.unpack('I', file1.read(4))[0]
+
+                if image_compressed:
+                    # Read compressed image size
+                    File_seek = struct.unpack('I', file1.read(4))[0]
+                    file1.seek(image_offset)
+                else:
+                    # Read image size
+                    file1.seek(image_offset)
+                    File_seek = struct.unpack('I', file1.read(4))[0]
+
+                # Next set NIC bank2 image header location
+                File_seek += (image_offset + 0x24)
+            else:
+                File_seek = image_offset
+
+            file1.seek(File_seek)
+            upgrade_head.cable_up_info.image_info.image_size = struct.unpack('I', file1.read(4))[0]
+            
+            
+            fw_version_array = array.array('I', [])
+            for i in range(self.FW_IMG_INFO_SIZE):
+                if i < 4:
+                    byte_val = file1.read(2)
+                    fw_version_array.append(0)
+                    fw_version_array[i] = struct.unpack('H', byte_val)[0]
+                else:
+                    byte_val = file1.read(4)
+                    fw_version_array.append(0)
+                    fw_version_array[i] = struct.unpack('I', byte_val)[0]
+                    break
+
+
+
+            upgrade_head.compression = struct.unpack('I', file1.read(4))[0]
+            upgrade_head.compressed_size = struct.unpack('I', file1.read(4))[0]
+            upgrade_head.compressed_crc32 = struct.unpack('I', file1.read(4))[0]
+            upgrade_head.add_size = struct.unpack('I', file1.read(4))[0]
+            upgrade_head.add_crc32 = struct.unpack('I', file1.read(4))[0]
+
+            upgrade_head.cable_up_info.destination = self.NIC_MCU
+                        
+            for i in range(upgrade_head.cable_up_info.image_info.image_size):
+                byte_val = file1.read(4)
+                if len(byte_val) == 4:
+                    fw_up_buff[i] = struct.unpack('I', byte_val)[0]
+
+            upgrade_head.cable_up_info.image_info.image_fw_version.image_version_major = fw_version_array[1]
+            upgrade_head.cable_up_info.image_info.image_fw_version.image_version_minor = fw_version_array[0]
+            upgrade_head.cable_up_info.image_info.image_api_version.image_version_minor = fw_version_array[2]
+            upgrade_head.cable_up_info.image_info.image_api_version.image_version_major = fw_version_array[3]
+            upgrade_head.cable_up_info.image_info.image_crc32 = fw_version_array[4]
+            upgrade_head.cable_up_info.image_info.image_ptr = fw_up_buff
+            upgrade_head.cable_up_info.destination = self.NIC_MCU
+        
+        elif destination == self.MUX_CHIP:
+            # Parse MUX CHIP image
+            # Seek to location of NIC bank1 image
+            file1.seek(0x10)
+            image_compressed = struct.unpack('I', file1.read(4))[0]
+            if image_compressed:
+                # Read compressed image size
+                image_offset = struct.unpack('I', file1.read(4))[0]
+                file1.seek(0)
+            else:
+                # Read image size
+                file1.seek(0)
+                image_offset = struct.unpack('I', file1.read(4))[0]
+
+            image_offset +=  0x24
+            # Seek to TOR bank2 image
+            file1.seek(image_offset)
+
+            # Read TOR bank 2 image header to find header location of NIC bank1 image header
+            file1.seek(image_offset + 0x10)
+            image_compressed = struct.unpack('I', file1.read(4))[0]
+            
+            if image_compressed:
+                # Read compressed image size
+                File_seek = struct.unpack('I', file1.read(4))[0]
+                file1.seek(image_offset)
+            else:
+                # Read image size
+                file1.seek(image_offset)
+                File_seek = struct.unpack('I', file1.read(4))[0]
+
+            # Seek to NIC bank1 image
+            File_seek += (image_offset + 0x24)
+            file1.seek(File_seek)
+            image_offset = File_seek
+
+
+            # Read NIC bank 1 image header to find header location of N
+            file1.seek(image_offset + 0x10)
+            image_compressed = struct.unpack('I', file1.read(4))[0]
+            if image_compressed:
+                # Read compressed image size
+                File_seek = struct.unpack('I', file1.read(4))[0]
+                file1.seek(image_offset)
+            else:
+                # Read image size
+                file1.seek(image_offset)
+                File_seek = struct.unpack('I', file1.read(4))[0]
+
+            # Next set NIC bank2 image header location
+            File_seek += (image_offset + 0x24)
+            image_offset = File_seek
+
+
+            file1.seek(File_seek + 0x10)
+            image_compressed = struct.unpack('I', file1.read(4))[0]
+            
+            if image_compressed:
+                # Read compressed image size
+                File_seek = struct.unpack('I', file1.read(4))[0]
+                file1.seek(image_offset)
+            else:
+                # Read image size
+                file1.seek(image_offset)
+                File_seek = struct.unpack('I', file1.read(4))[0]
+            
+            File_seek += (image_offset + 0x24)
+            file1.seek(File_seek)
+            image_offset = File_seek
+            
+            for i in range(self.MUX_FW_IMG_SIZE):
+                byte_val = file1.read(4)
+                if len(byte_val) == 4:
+                    fw_up_buff[i] = struct.unpack('I', byte_val)[0]
+
+            upgrade_head.cable_up_info.image_info.image_size = self.MUX_FW_IMG_SIZE
+            
+            file1.seek(0)
+            file1.seek(image_offset + self.MUX_FW_IMG_INFO_ADDR)
+            fw_version_array = array.array('I', [])
+            for i in range(self.FW_IMG_INFO_SIZE):
+                if i < 4:
+                    byte_val = file1.read(2)
+                    fw_version_array.append(0)
+                    fw_version_array[i] = struct.unpack('H', byte_val)[0]
+                else:
+                    byte_val = file1.read(4)
+                    fw_version_array.append(0)
+                    fw_version_array[i] = struct.unpack('I', byte_val)[0]
+                    break
+
+            
+            upgrade_head.compression = 0
+            upgrade_head.compressed_size = 0
+            upgrade_head.compressed_crc32 = 0
+            upgrade_head.add_size = 0
+            upgrade_head.add_crc32 = 0
+            upgrade_head.cable_up_info.image_info.image_fw_version.image_version_major = fw_version_array[1]
+            upgrade_head.cable_up_info.image_info.image_fw_version.image_version_minor = fw_version_array[0]
+            upgrade_head.cable_up_info.image_info.image_api_version.image_version_minor = fw_version_array[2]
+            upgrade_head.cable_up_info.image_info.image_api_version.image_version_major = fw_version_array[3]
+            upgrade_head.cable_up_info.image_info.image_crc32 = fw_version_array[4]
+            upgrade_head.cable_up_info.image_info.image_ptr = fw_up_buff
+            upgrade_head.cable_up_info.destination = self.MUX_CHIP
+
+        else:
+            file1.close()
+            return self.RR_ERROR
+
+        file1.close()
+        return self.RR_SUCCESS
+
+    def  __cable_fw_mcu_reset(self, upgrade_info):
+        
+        ret_val = self.RR_ERROR
+        dat = bytearray(30)
+        status = 0
+        req_status = False
+
+        if (self.__pre_cmd_check(upgrade_info) == self.RR_SUCCESS):
+            # If TOR MCU, reset self
+            if( upgrade_info.destination == self.TOR_MCU_SELF ):
+                curr_offset = ((0x00*128) + 0x5D) 
+                dat = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+                if dat is None:
+                    return self.EEPROM_ERROR
+                dat[0] |= 0x80
+                curr_offset = ((0x00*128) + 0x5D)
+                if self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, dat) is False:
+                    return self.ERROR_WR_EEPROM_FAILED
+
+                time.sleep(1)
+
+                # Check response status
+                for _ in range(0, 2000):
+                    curr_offset = ((0x00*128) + 0x5D)
+                    status = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+                    if status is None:
+                        return self.EEPROM_ERROR
+
+                    if (status[0] & 0x80) == 0:
+                        ret_val = self.RR_SUCCESS
+                        return ret_val
+                    time.sleep(0.001)
+
+            elif((upgrade_info.destination == self.TOR_MCU_PEER) or (upgrade_info.destination == self.NIC_MCU)):
+                if(upgrade_info.destination == self.TOR_MCU_PEER):
+                    read_side = self.get_read_side()
+                    if (read_side == self.TARGET_UNKNOWN):
+                        self.log(self.LOG_ERROR, "ERROR: get_read_side Failed!")
+                        return None
+                    dat[0] = 0x02 if read_side == 0x01 else 0x01 
+                else:
+                    dat[0] = 0x04
+                curr_offset = ((0xFD*128) + 0xB8)
+                if self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, dat) is False:
+                    return self.ERROR_WR_EEPROM_FAILED
+
+                if( upgrade_info.destination == self.NIC_MCU ):
+                    # MUST WAIT FOR mux CHIP TO BOOT
+                    time.sleep(7.5)
+
+                # Check response status
+                for _ in range(0, 2000):
+                    curr_offset = ((0xFD*128) + 0xB8)
+                    status = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+                    if status is None:
+                        return self.EEPROM_ERROR
+
+                    if ( (status[0] & 0x01) == 0 ):
+                        ret_val = self.RR_SUCCESS
+                        return ret_val
+                    time.sleep(0.001)
+
+            # Should not be here unless no response
+            if not req_status:
+                #ERROR
+                return ret_val
+        else:
+            self.log(self.LOG_ERROR, "MCU not in the right state")
+
+        return ret_val
+
+
+
+
+    def __pre_cmd_check(self, upgrade_info):
+        ret_val = self.RR_ERROR
+        dat = bytearray(30)
+        QSFP_PAGE_OFFSET = self.QSFP_BRCM_FW_UPGRADE_PAGE * 128
+ 
+        read_side = self.get_read_side()
+        if read_side == self.TARGET_UNKNOWN:
+            self.log(self.LOG_ERROR, "ERROR: get_read_side Failed!")
+            return None
+
+        ts = datetime.utcnow()
+        # Make sure TOR to NIC MCU communication is alive
+        if upgrade_info.destination == self.NIC_MCU and ( (read_side == 0x02) or (read_side == 0x01) ):
+            # Since we are running from TOR side, make sure no flush is on going
+            for _ in range(0, 3000):
+                curr_offset = ((self.QSFP_BRCM_DIAGNOSTIC_PAGE*128) + self.QSFP_BRCM_DIAGNOSTIC_STATUS)
+                status = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+                if status is None:
+                    self.log(self.LOG_ERROR, "__pre_cmd_check read eeprom failed")
+                    return self.EEPROM_ERROR
+                if status[0] == 0:
+                    break
+                time.sleep(0.001)
+
+            if status[0]:
+                self.log(self.LOG_ERROR, "Unable to communicate with NIC MCU")
+                return self.ERROR_RW_NIC_FAILED
+            ts = self.log_timestamp(ts,"TOR to NIC MCU communication is alive")
+        
+        # read cable command and status offsets
+        self.log(self.LOG_DEBUG, "read cable command and status offsets")
+        result = self.__util_read_eeprom((QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD), 2, "pre_cmd_check")
+        if result is None:
+            return self.EEPROM_ERROR
+        if result != self.EEPROM_READ_DATA_INVALID:
+            dat[0] = result[0]
+            dat[1] = result[1]
+        
+        if ((dat[0] & 0x01) != 0) or ((dat[1] & 0x01) != 0):
+            self.log(self.LOG_DEBUG, "MCU not in the right state. Sending abort")
+            ret_val = self.__cable_fw_mcu_abort(upgrade_info)
+            if ret_val != self.RR_SUCCESS:
+                self.log(self.LOG_ERROR, "MCU abort failed")
+                return ret_val
+
+            time.sleep(0.001)
+            result = self.__util_read_eeprom((QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD), 2, "pre_cmd_check")
+            if result is None:
+                return self.EEPROM_ERROR
+        result = self.__util_read_eeprom((QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD), 2, "pre_cmd_check")
+        if result is None:
+            return self.EEPROM_ERROR
+        if result != self.EEPROM_READ_DATA_INVALID:
+            dat[0] = result[0]
+            dat[1] = result[1]
+        if ((dat[0] & 0x01) == 0) and ((dat[1] & 0x01) == 0):
+            ret_val = self.RR_SUCCESS
+        else:
+            ret_val = self.RR_ERROR
+
+        return ret_val
+
+    def __cable_fw_upgrade(self, upgrade_head):
         """
         This function used internally to upgrade the firmware of TOR, NIC and MUX
         physical_port:
@@ -1843,404 +2359,469 @@ class YCable(YCableBase):
         i = 0
         tmp_cnt = 0
         tmp_print = 0
+        QSFP_PAGE_OFFSET = self.QSFP_BRCM_FW_UPGRADE_PAGE * 128
         start_tstamp = datetime.utcnow()
 
-        QSFP_PAGE_OFFSET = self.QSFP_BRCM_FW_UPGRADE_PAGE * 128
+        if(self.__pre_cmd_check(upgrade_head.cable_up_info) == self.RR_SUCCESS):
+            # START CMD ============================================
+            # Debug prints
+            self.log(self.LOG_DEBUG, "Starting firmware upgrade to {}".format("TOR MCU SELF" \
+                    if upgrade_head.cable_up_info.destination == self.TOR_MCU_SELF \
+                    else "TOR MCU PEER" if  upgrade_head.cable_up_info.destination == self.TOR_MCU_PEER \
+                    else "NIC MCU" if upgrade_head.cable_up_info.destination == self.NIC_MCU else "MUX_CHIP"))
 
-        if self.platform_chassis is None:
-            self.log(self.LOG_ERROR, "platform_chassis is not loaded, failed to read - fw_get_status")
-            return self.ERROR_PLATFORM_NOT_LOADED
-        if upgrade_info.image_info.image_size == 0:
-            return self.RR_ERROR
+            self.log(self.LOG_DEBUG, "FW Version minor: {}".format(hex(upgrade_head.cable_up_info.image_info.image_fw_version.image_version_minor)))
+            self.log(self.LOG_DEBUG, "FW Version major: {}".format(hex(upgrade_head.cable_up_info.image_info.image_fw_version.image_version_major)))
+            if (upgrade_head.cable_up_info.destination == self.TOR_MCU_SELF or upgrade_head.cable_up_info.destination == self.TOR_MCU_PEER):
+                self.log(self.LOG_DEBUG, "API version minor: {}".format(hex(upgrade_head.cable_up_info.image_info.image_api_version.image_version_minor)))
+                self.log(self.LOG_DEBUG, "API version major: {}".format(hex(upgrade_head.cable_up_info.image_info.image_api_version.image_version_major)))
+            self.log(self.LOG_DEBUG, "CRC32 : {}".format(hex(upgrade_head.cable_up_info.image_info.image_crc32)))
+            self.log(self.LOG_DEBUG, "Image size : {}".format(hex(upgrade_head.cable_up_info.image_info.image_size)))
 
-        # SEE which MCU it is: Assuming constant pages have been set for each MCU
-        curr_offset = (0*128) + 0xE0
-        result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
-        if result is None:
-            self.log(self.LOG_ERROR, "__cable_fw_upgrade read eeprom failed")
-            return self.EEPROM_ERROR
-        dat[0] = result[0]
+            ts = datetime.utcnow() 
+            # Send image header
+            self.log(self.LOG_INFO, "send image header")
+            dat[0] = upgrade_head.cable_up_info.image_info.image_size & 0xff
+            dat[1] = (upgrade_head.cable_up_info.image_info.image_size >> 8) & 0xFF
+            dat[2] = (upgrade_head.cable_up_info.image_info.image_size >> 16) & 0xFF
+            dat[3] = upgrade_head.cable_up_info.destination
+            dat[4] = upgrade_head.cable_up_info.image_info.image_fw_version.image_version_minor & 0xFF
+            dat[5] = (upgrade_head.cable_up_info.image_info.image_fw_version.image_version_minor >> 8) & 0xFF
+            dat[6] = upgrade_head.cable_up_info.image_info.image_fw_version.image_version_major & 0xFF
+            dat[7] = (upgrade_head.cable_up_info.image_info.image_fw_version.image_version_major >> 8) & 0xFF
+            dat[8] = upgrade_head.cable_up_info.image_info.image_api_version.image_version_minor & 0xFF
+            dat[9] = (upgrade_head.cable_up_info.image_info.image_api_version.image_version_minor >> 8) & 0xFF
+            dat[10] = upgrade_head.cable_up_info.image_info.image_api_version.image_version_major & 0xFF
+            dat[11] = (upgrade_head.cable_up_info.image_info.image_api_version.image_version_major >> 8) & 0xFF
+            dat[12] = upgrade_head.cable_up_info.image_info.image_crc32 & 0xFF
+            dat[13] = (upgrade_head.cable_up_info.image_info.image_crc32 >> 8) & 0xFF
+            dat[14] = (upgrade_head.cable_up_info.image_info.image_crc32 >> 16) & 0xFF
+            dat[15] = (upgrade_head.cable_up_info.image_info.image_crc32 >> 24) & 0xFF
+            dat[16] = self.FW_UP_PACKET_SIZE
+            dat[17] = self.QSFP_BRCM_FW_UPGRADE_DATA_PAGE_1
 
-        if dat[0] == 0x02:
-            self.log(self.LOG_INFO, "Current side: TOR B")
-        elif dat[0] == 0x01:
-            self.log(self.LOG_INFO, "Current side TOR A")
-        elif dat[0] == 0x04:
-            self.log(self.LOG_INFO, "Current side NIC")
-        else:
-            self.log(self.LOG_INFO, "Current side UNKNOWN")
-        
-        # Make sure TPR to NIC MCU communication is alive
-        self.log(self.LOG_DEBUG, "In cable_fw_upgrade().........................................")
-        ts = datetime.utcnow()
-        self.log(self.LOG_DEBUG, "Make sure TOR to NIC MCU communication is alive")
-        #if (upgrade_info.destination == NIC_MCU):
-        if (upgrade_info.destination == self.NIC_MCU) and ( (dat[0] == 0x02) or (dat[0] == 0x01) ):
+            if self.platform_chassis.get_sfp(self.port).write_eeprom(QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_HEADER_0_7, 18, dat) is False:
+                return self.ERROR_WR_EEPROM_FAILED
+            
+            ts = self.log_timestamp(ts,"Image header sent")
+            
+            # Write compression header
+            dat[0] = (upgrade_head.compression & 0xFF)
+            dat[1] = (upgrade_head.compressed_size & 0xFF)
+            dat[2] = ((upgrade_head.compressed_size >> 8) & 0xFF)
+            dat[3] = ((upgrade_head.compressed_size >> 16) & 0xFF)
+            dat[4] = ((upgrade_head.compressed_size >> 24) & 0xFF)
+            dat[5] = (upgrade_head.compressed_crc32 & 0xFF)
+            dat[6] = ((upgrade_head.compressed_crc32 >> 8) & 0xFF)
+            dat[7] = ((upgrade_head.compressed_crc32 >> 16) & 0xFF)
+            dat[8] = ((upgrade_head.compressed_crc32 >> 24) & 0xFF)
+            dat[9] =  (upgrade_head.add_size & 0xFF)
+            dat[10] = ((upgrade_head.add_size >> 8) & 0xFF)
+            dat[11] = ((upgrade_head.add_size >> 16) & 0xFF)
+            dat[12] = ((upgrade_head.add_size >> 24) & 0xFF)
+            dat[13] = (upgrade_head.add_crc32 & 0xFF)
+            dat[14] = ((upgrade_head.add_crc32 >> 8) & 0xFF)
+            dat[15] = ((upgrade_head.add_crc32 >> 16) & 0xFF)
+            dat[16] = ((upgrade_head.add_crc32 >> 24) & 0xFF)
 
+            curr_offset = ((self.QSFP_BRCM_FW_UPGRADE_PAGE*128) + self.QSFP_BRCM_FW_UPGRADE_COMP_SET)
+            if self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset , 17, dat) is False:
+                return self.ERROR_WR_EEPROM_FAILED
+            ts = self.log_timestamp(ts,"compression  header sent")
+            
+            # Send request firmware upgrad to START
+            self.log(self.LOG_INFO, "START ERASING")
+
+            dat[0] = (self.FW_CMD_START << 1) | 1
+            if self.platform_chassis.get_sfp(self.port).write_eeprom(QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD, 1, dat) is False:
+                return self.ERROR_WR_EEPROM_FAILED
+
+            time.sleep(3.5)
+            ts = self.log_timestamp(ts,"Erase command sent")
+            
+            # Check response status
+            self.log(self.LOG_DEBUG, "check MCU ready status")
             for i in range(3000):
-                curr_offset = (self.QSFP_BRCM_DIAGNOSTIC_PAGE * 128) + self.QSFP_BRCM_DIAGNOSTIC_STATUS
-                status = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
-                if status[0] == 0:
-                    break
+                status = self.__util_read_eeprom((self.QSFP_BRCM_FW_UPGRADE_PAGE * 128 + self.QSFP_BRCM_FW_UPGRADE_CMD_STS), 1, "cable_fw_upgrade")
+                if status is None:
+                    return self.EEPROM_ERROR
+                if status[0] & 0x01:
+                    if (status[0] & 0xFC) == (self.FW_UP_SUCCESS << 2):
+                        self.log(self.LOG_DEBUG, "MCU is Ready")
+                        req_status = True
+                        break
+                    else:
+                        if (status[0] & 0xFC) == (self.FW_UP_IN_PROGRESS << 2):
+                            ret_val = self.RR_ERROR_SYSTEM_UNAVAILABLE
+                            self.log(self.LOG_WARN, "System Unavailable/busy...")
+                            #self.__handle_error_abort(upgrade_head.cable_up_info, 1)
+                            return ret_val
+
                 time.sleep(0.001)
 
-            if status[0]:
-                self.log(self.LOG_ERROR, "Unable to communicate with NIC MCU")
-                #return self.RR_ERROR
-                return self.ERROR_RW_NIC_FAILED
-            ts = self.log_timestamp(ts,"TOR to NIC MCU communication is alive")
+            ts = self.log_timestamp(ts,"MCU ready check done")
 
+            # if MCU is ready
+            if req_status:
+                req_status = False
+                # set the command request to idle state
+                self.log(self.LOG_DEBUG, "set the command request to idle state ")
+                dat[0] = 0x00
+                if self.platform_chassis.get_sfp(self.port).write_eeprom(QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD, 1, dat) is False:
+                    return self.ERROR_WR_EEPROM_FAILED
 
-        with self.lock.acquire_timeout(self.PORT_LOCK_TIMEOUT) as result:
-            if result:
-                # read cable command and status offsets
-                self.log(self.LOG_DEBUG, "read cable command and status offsets")
-                result = self.__util_read_eeprom((QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD), 2, "cable_fw_upgrade")
-                if result != self.EEPROM_READ_DATA_INVALID:
-                    dat[0] = result[0]
-                    dat[1] = result[1]
-                if ((dat[0] & 0x01) != 0) or ((dat[1] & 0x01) != 0):
-                    self.log(self.LOG_DEBUG, "MCU not in the right state. Sending abort")
-                    ret_val = self.__cable_fw_mcu_abort(upgrade_info)
-                    if ret_val != self.RR_SUCCESS:
-                        self.log(self.LOG_ERROR, "MCU abort failed")
-                        return ret_val
+                # wait for mcu response to be pulled down
+                self.log(self.LOG_DEBUG, "wait for mcu response to be pulled down ")
+                for _ in range(100):
+                    status = self.__util_read_eeprom((QSFP_PAGE_OFFSET + self. QSFP_BRCM_FW_UPGRADE_CMD_STS), 1, "cable_fw_upgrade")
+                    if status is None:
+                        return self.EEPROM_ERROR
+                    if (status[0] & 0x01) == 0:
+                        req_status = True
+                        break
 
                     time.sleep(0.001)
-                    result = self.__util_read_eeprom((QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD), 2, "cable_fw_upgrade")
-                    dat[0] = result[0]
-                    dat[1] = result[1]
 
-                # check if any command is currently being executed
-                self.log(self.LOG_DEBUG, "check if any command is currently being executed")
-                if ((dat[0] & 0x01) == 0) and ((dat[1] & 0x01) == 0):
-                    # Start command - Debug Prints
-                    destination = None
+                if not req_status:
+                    self.log(self.LOG_ERROR, "Timeout ")
+                    self.__handle_error_abort(upgrade_head.cable_up_info, 2)
+                    return ret_val
+                ts = self.log_timestamp(ts, "MCU response pulled down")
 
-                    if upgrade_info.destination == self.TOR_MCU_SELF:
-                        destination = "TOR MCU SELF"
-                    elif upgrade_info.destination == self.TOR_MCU_PEER:
-                        destination = "TOR MCU PEER"
-                    elif upgrade_info.destination == self.NIC_MCU:
-                        destination = "NIC MCU"
-                    elif upgrade_info.destination == self.MUX_CHIP:
-                        destination = "MUX CHIP"
-                    else:
-                        self.log(self.LOG_ERROR, "Wrong destination")
-                        return self.ERROR_INVALID_TARGET
+            else:
+                self.log(self.LOG_ERROR, "ERROR MCU is not ready ")
+                self.__handle_error_abort(upgrade_head.cable_up_info, 17)
+                return ret_val
 
-                    self.log(self.LOG_DEBUG, "Starting firmware upgrade to {}".format(destination))
+            # if MCU response pulled down
+            if req_status:
+                # TRANSFER command
+                self.log(self.LOG_INFO, "FW image transfer start ")
+                tmp_image_ptr = upgrade_head.cable_up_info.image_info.image_ptr
+                remain_page_size = 0
+                image_to_page_size = 0
+                count = 0
+                page_loc = self.QSFP_BRCM_FW_UPGRADE_DATA_PAGE_1
+                if((upgrade_head.compression & 0xFF)):
+                    tmp_image_size = upgrade_head.compressed_size
+                else:
+                    tmp_image_size = upgrade_head.cable_up_info.image_info.image_size
+                
+                remain_page_size = tmp_image_size % self.FW_UP_PACKET_SIZE
+                image_to_page_size = tmp_image_size - remain_page_size
 
-                    self.log(self.LOG_DEBUG, "FW Version minor: {}".format(hex(upgrade_info.image_info.image_fw_version.image_version_minor)))
-                    self.log(self.LOG_DEBUG, "FW Version major: {}".format(hex(upgrade_info.image_info.image_fw_version.image_version_major)))
-                    if upgrade_info.destination == self.TOR_MCU_SELF or upgrade_info.destination == self.TOR_MCU_PEER:
-                        self.log(self.LOG_DEBUG, "API version minor: {}".format(hex(upgrade_info.image_info.image_api_version.image_version_minor)))
-                        self.log(self.LOG_DEBUG, "API version major: {}".format(hex(upgrade_info.image_info.image_api_version.image_version_major)))
-                    self.log(self.LOG_DEBUG, "CRC32 : {}".format(hex(upgrade_info.image_info.image_crc32)))
-                    self.log(self.LOG_DEBUG, "Image size : {}".format(hex(upgrade_info.image_info.image_size)))
 
-                    # Send image header
-                    self.log(self.LOG_DEBUG, "send image header")
-                    dat[0] = upgrade_info.image_info.image_size & 0xff
-                    dat[1] = (upgrade_info.image_info.image_size >> 8) & 0xFF
-                    dat[2] = (upgrade_info.image_info.image_size >> 16) & 0xFF
-                    dat[3] = upgrade_info.destination
-                    dat[4] = upgrade_info.image_info.image_fw_version.image_version_minor & 0xFF
-                    dat[5] = (upgrade_info.image_info.image_fw_version.image_version_minor >> 8) & 0xFF
-                    dat[6] = upgrade_info.image_info.image_fw_version.image_version_major & 0xFF
-                    dat[7] = (upgrade_info.image_info.image_fw_version.image_version_major >> 8) & 0xFF
-                    dat[8] = upgrade_info.image_info.image_api_version.image_version_minor & 0xFF
-                    dat[9] = (upgrade_info.image_info.image_api_version.image_version_minor >> 8) & 0xFF
-                    dat[10] = upgrade_info.image_info.image_api_version.image_version_major & 0xFF
-                    dat[11] = (upgrade_info.image_info.image_api_version.image_version_major >> 8) & 0xFF
-                    dat[12] = upgrade_info.image_info.image_crc32 & 0xFF
-                    dat[13] = (upgrade_info.image_info.image_crc32 >> 8) & 0xFF
-                    dat[14] = (upgrade_info.image_info.image_crc32 >> 16) & 0xFF
-                    dat[15] = (upgrade_info.image_info.image_crc32 >> 24) & 0xFF
-                    dat[16] = self.FW_UP_PACKET_SIZE
-                    dat[17] = self.QSFP_BRCM_FW_UPGRADE_DATA_PAGE_1
+                # MCU is now ready for firmware upgrade, Start the loop to transfre the data
+                self.log(self.LOG_DEBUG, "MCU is now ready for firmware upgrade, Start the loop to transfer the data")
+                dat[0] = self.FW_UP_PACKET_SIZE
+                dat[1] = page_loc
+                if self.platform_chassis.get_sfp(self.port).write_eeprom(QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_PACKET_SIZE, 2, dat) is False:
+                    return self.ERROR_WR_EEPROM_FAILED
+                self.log(self.LOG_DEBUG, "Writing packet to page_loc {} fw_up_packet_size : {}".format(page_loc, self.FW_UP_PACKET_SIZE))
 
-                    self.platform_chassis.get_sfp(self.port).write_eeprom(QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_HEADER_0_7, 18, dat)
+                for i in range(0, self.FW_UP_PACKET_SIZE, 4):
+                    dat[0 + i] = tmp_image_ptr[count] & 0xFF
+                    dat[1 + i] = (tmp_image_ptr[count] >> 8) & 0xFF
+                    dat[2 + i] = (tmp_image_ptr[count] >> 16) & 0xFF
+                    dat[3 + i] = (tmp_image_ptr[count] >> 24) & 0xFF
+                    count += 1
 
-                    ts = self.log_timestamp(ts,"Image header sent")
+                if self.platform_chassis.get_sfp(self.port).write_eeprom((page_loc*128) + self.QSFP_BRCM_FW_UPGRADE_DATA_START, self.FW_UP_PACKET_SIZE, dat) is False:
+                    return self.ERROR_WR_EEPROM_FAILED
+                ts = self.log_timestamp(ts, "First packet written")
 
-                    # Send request firmware upgrad to START
-                    self.log(self.LOG_INFO, "START ERASING")
+                self.log(self.LOG_INFO, "TRANSFERING remaining packets..")
 
-                    dat[0] = (self.FW_CMD_START << 1) | 1
-                    self.platform_chassis.get_sfp(self.port).write_eeprom(QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD, 1, dat)
+                dat[0] = (self.FW_CMD_TRANSFER << 1) | 1
+                if self.platform_chassis.get_sfp(self.port).write_eeprom(QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD, 1, dat) is False:
+                    return self.ERROR_WR_EEPROM_FAILED
 
-                    time.sleep(3.5)
+                # prepare and send remaining packets
+                for _ in range(self.FW_UP_PACKET_SIZE, image_to_page_size, self.FW_UP_PACKET_SIZE):
+                    req_status = False
 
-                    ts = self.log_timestamp(ts,"Erase command sent")
-                    
-                    # Check response status
-                    self.log(self.LOG_DEBUG, "check MCU ready status")
-                    for i in range(3000):
+                    # Toggle data page_loc
+                    page_loc = self.QSFP_BRCM_FW_UPGRADE_DATA_PAGE_1 if(page_loc == self.QSFP_BRCM_FW_UPGRADE_DATA_PAGE_2) else self.QSFP_BRCM_FW_UPGRADE_DATA_PAGE_2
+
+                    # prepare packet data
+                    for i in range(0, self.FW_UP_PACKET_SIZE, 4):
+                        dat[0 + i] = tmp_image_ptr[count] & 0xFF
+                        dat[1 + i] = (tmp_image_ptr[count] >> 8) & 0xFF
+                        dat[2 + i] = (tmp_image_ptr[count] >> 16) & 0xFF
+                        dat[3 + i] = (tmp_image_ptr[count] >> 24) & 0xFF
+                        count += 1
+
+                    # write packet
+                    if self.platform_chassis.get_sfp(self.port).write_eeprom((page_loc*128) + self.QSFP_BRCM_FW_UPGRADE_DATA_START, self.FW_UP_PACKET_SIZE, dat) is False:
+                        return self.ERROR_WR_EEPROM_FAILED
+
+                    # Check response status for previous packet
+                    for i in range(500):
                         status = self.__util_read_eeprom((QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CMD_STS), 1, "cable_fw_upgrade")
+                        if status is None:
+                            return self.EEPROM_ERROR
                         if status[0] & 0x01:
-                            if (status[0] & 0xFC) == (self.FW_UP_SUCCESS << 2):
-                                self.log(self.LOG_DEBUG, "MCU is Ready")
+                            if(status[0] & 0xFC) == (self.FW_UP_SUCCESS << 2):
                                 req_status = True
+                                tmp_cnt += self.FW_UP_PACKET_SIZE
+                                if tmp_cnt >= (tmp_image_size/ 100):
+                                    tmp_cnt = 0
+                                    tmp_print += 1 
+                                    #_logger.log_info("  {}%".format(tmp_print),CONSOLE_PRINT)
+                                    print("  {}%".format(tmp_print))
                                 break
                             else:
-                                if (status[0] & 0xFC) == (self.FW_UP_IN_PROGRESS << 2):
-                                    ret_val = self.RR_ERROR_SYSTEM_UNAVAILABLE
-                                    self.__handle_error_abort(upgrade_info, 1)
-                                    return ret_val
+                                #ERROR
+                                self.log(self.LOG_ERROR, "ERROR: TRANSFER error {}".format((status[0] & 0xFC) >> 2))
+                                self.__handle_error_abort(upgrade_head.cable_up_info, 3)
+                                return ret_val
 
                         time.sleep(0.001)
 
-                    ts = self.log_timestamp(ts,"MCU ready check done")
-
-                    # if MCU is ready
+                    # if previous packet sent successfully
                     if req_status:
                         req_status = False
-                        # set the command request to idle state
-                        self.log(self.LOG_DEBUG, "set the command request to idle state ")
+
+                        # Set the command request to idle state
                         dat[0] = 0x00
-                        self.platform_chassis.get_sfp(self.port).write_eeprom(QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD, 1, dat)
+                        if self.platform_chassis.get_sfp(self.port).write_eeprom(QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD, 1, dat) is False:
+                            return self.ERROR_WR_EEPROM_FAILED
 
                         # wait for mcu response to be pulled down
-                        self.log(self.LOG_DEBUG, "wait for mcu response to be pulled down ")
-                        for i in range(100):
-                            status = self.__util_read_eeprom((QSFP_PAGE_OFFSET + self. QSFP_BRCM_FW_UPGRADE_CMD_STS), 1, "cable_fw_upgrade")
-                            if (status[0] & 0x01) == 0:
+                        for i in range(1000):
+                            status = self.__util_read_eeprom((QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CMD_STS), 1, "cable_fw_upgrade")
+                            if status is None:
+                                return self.EEPROM_ERROR
+                            if(status[0] & 0x01) == 0:
+                                # Previous packet is OK
+                                # Set MCU write the next packet
+                                dat[0] = self.FW_UP_PACKET_SIZE
+                                dat[1] = page_loc
+                                if self.platform_chassis.get_sfp(self.port).write_eeprom(QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_PACKET_SIZE, 2, dat) is False:
+                                    return self.ERROR_WR_EEPROM_FAILED
+
+                                dat[0] = (self.FW_CMD_TRANSFER << 1) | 1
+                                if self.platform_chassis.get_sfp(self.port).write_eeprom(QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD, 1, dat) is False:
+                                    return self.ERROR_WR_EEPROM_FAILED
                                 req_status = True
                                 break
-
                             time.sleep(0.001)
 
                         if not req_status:
-                            self.log(self.LOG_ERROR, "MCU state - not pulled down ")
-                            self.__handle_error_abort(upgrade_info, 2)
+                            # Time out how to handle
+                            self.log(self.LOG_ERROR, "cable_fw_upgrade : handle erro abort1")
+                            self.__handle_error_abort(upgrade_head.cable_up_info, 4)
                             return ret_val
 
-                        ts = self.log_timestamp(ts, "MCU response pulled down")
                     else:
-                        self.log(self.LOG_ERROR, "ERROR MCU is not ready ")
-                        self.__handle_error_abort(upgrade_info, 17)
+                        # Check if error status or timeout
+                        if not req_status:
+                            self.log(self.LOG_ERROR, "ERROR: TRANSFER timed out")
+
+                        self.__handle_error_abort(upgrade_head.cable_up_info, 5)
                         return ret_val
+                ts = self.log_timestamp(ts,"All packets written... Check response for last page")
 
-                    # if MCU response pulled down
-                    if req_status:
-                        # TRANSFER command
-                        self.log(self.LOG_INFO, "FW image transfer start ")
-                        tmp_image_ptr = upgrade_info.image_info.image_ptr
-                        count = 0
-                        page_loc = self.QSFP_BRCM_FW_UPGRADE_DATA_PAGE_1
-
-                        # MCU is now ready for firmware upgrade, Start the loop to transfre the data
-                        self.log(self.LOG_DEBUG, "MCU is now ready for firmware upgrade, Start the loop to transfer the data")
-                        dat[0] = self.FW_UP_PACKET_SIZE
-                        dat[1] = page_loc
-                        self.platform_chassis.get_sfp(self.port).write_eeprom(QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_PACKET_SIZE, 2, dat)
-                        self.log(self.LOG_DEBUG, "fw_up_packet_size : {}".format(dat[0]),"page_loc : {}".format(dat[1]))
-
-                        for i in range(0, self.FW_UP_PACKET_SIZE, 4):
-                            dat[0 + i] = tmp_image_ptr[count] & 0xFF
-                            dat[1 + i] = (tmp_image_ptr[count] >> 8) & 0xFF
-                            dat[2 + i] = (tmp_image_ptr[count] >> 16) & 0xFF
-                            dat[3 + i] = (tmp_image_ptr[count] >> 24) & 0xFF
+                # Transfer remaining bytes if less than a page
+                if remain_page_size:
+                    req_status = False
+                    
+                    # Toggle data page_loc
+                    page_loc = self.QSFP_BRCM_FW_UPGRADE_DATA_PAGE_1 if(page_loc == self.QSFP_BRCM_FW_UPGRADE_DATA_PAGE_2) else self.QSFP_BRCM_FW_UPGRADE_DATA_PAGE_2
+                    j = 0
+                    for i in range(remain_page_size):
+                        dat[i] =((tmp_image_ptr[count] >> (8 *j)) & 0xFF)
+                        j += 1
+                        if j >= 4:
                             count += 1
+                            j=0
+                    # write packet
+                    if self.platform_chassis.get_sfp(self.port).write_eeprom(((page_loc*128) + self.QSFP_BRCM_FW_UPGRADE_DATA_START), remain_page_size, dat) is False:
+                        return self.ERROR_WR_EEPROM_FAILED
 
-                        self.platform_chassis.get_sfp(self.port).write_eeprom((page_loc*128) + self.QSFP_BRCM_FW_UPGRADE_DATA_START, self.FW_UP_PACKET_SIZE, dat)
-                        ts = self.log_timestamp(ts, "First packet written")
-
-                        self.log(self.LOG_DEBUG, "TRANSFERING remaining packets..")
-
-                        dat[0] = (self.FW_CMD_TRANSFER << 1) | 1
-                        self.platform_chassis.get_sfp(self.port).write_eeprom(QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD, 1, dat)
-
-                        # prepare and send remaining packets
-                        for _ in range(self.FW_UP_PACKET_SIZE, upgrade_info.image_info.image_size, self.FW_UP_PACKET_SIZE):
-                            req_status = False
-
-                            # Toggle data page_loc
-                            page_loc = self.QSFP_BRCM_FW_UPGRADE_DATA_PAGE_1 if(page_loc == self.QSFP_BRCM_FW_UPGRADE_DATA_PAGE_2) else self.QSFP_BRCM_FW_UPGRADE_DATA_PAGE_2
-
-                            # prepare packet data
-                            for i in range(0, self.FW_UP_PACKET_SIZE, 4):
-                                dat[0 + i] = tmp_image_ptr[count] & 0xFF
-                                dat[1 + i] = (tmp_image_ptr[count] >> 8) & 0xFF
-                                dat[2 + i] = (tmp_image_ptr[count] >> 16) & 0xFF
-                                dat[3 + i] = (tmp_image_ptr[count] >> 24) & 0xFF
-                                count += 1
-
-                            # write packet
-                            self.platform_chassis.get_sfp(self.port).write_eeprom((page_loc*128) + self.QSFP_BRCM_FW_UPGRADE_DATA_START, self.FW_UP_PACKET_SIZE, dat)
-
-                            # Check response status for previous packet
-                            for i in range(500):
-                                status = self.__util_read_eeprom((QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CMD_STS), 1, "cable_fw_upgrade")
-                                if status[0] & 0x01:
-                                    if(status[0] & 0xFC) == (self.FW_UP_SUCCESS << 2):
-                                        req_status = True
-                                        tmp_cnt += self.FW_UP_PACKET_SIZE
-                                        if tmp_cnt >= (upgrade_info.image_info.image_size / 100):
-                                            tmp_cnt = 0
-                                            tmp_print += 1 
-                                            #_logger.log_info("  {}%".format(tmp_print),CONSOLE_PRINT)
-                                            print("  {}%".format(tmp_print))
-                                        break
-                                    else:
-                                        #ERROR
-                                        self.log(self.LOG_ERROR, "ERROR: TRANSFER error {}".format((status[0] & 0xFC) >> 2))
-                                        self.__handle_error_abort(upgrade_info, 3)
-                                        return ret_val
-
-                                time.sleep(0.001)
-
-                            # if previous packet sent successfully
-                            if req_status:
-                                req_status = False
-
-                                # Set the command request to idle state
-                                dat[0] = 0x00
-                                self.platform_chassis.get_sfp(self.port).write_eeprom(QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD, 1, dat)
-
-                                # wait for mcu response to be pulled down
-                                for i in range(100):
-                                    status = self.__util_read_eeprom((QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CMD_STS), 1, "cable_fw_upgrade")
-
-                                    if(status[0] & 0x01) == 0:
-                                        # Previous packet is OK
-                                        # Set MCU write the next packet
-                                        dat[0] = self.FW_UP_PACKET_SIZE
-                                        dat[1] = page_loc
-                                        self.platform_chassis.get_sfp(self.port).write_eeprom(QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_PACKET_SIZE, 2, dat)
-
-                                        dat[0] = (self.FW_CMD_TRANSFER << 1) | 1
-                                        self.platform_chassis.get_sfp(self.port).write_eeprom(QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD, 1, dat)
-                                        req_status = True
-                                        break
-                                    time.sleep(0.001)
-
-                                if not req_status:
-                                    self.log(self.LOG_ERROR, "cable_fw_upgrade : handle error abort1")
-                                    self.__handle_error_abort(upgrade_info, 4)
-                                    return ret_val
-
+                    # Check response status for previous packet
+                    for i in range(500):
+                        status = self.__util_read_eeprom((QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CMD_STS), 1, "cable_fw_upgrade")
+                        if status is None:
+                            return self.EEPROM_ERROR
+                        if status[0] & 0x01:
+                            if(status[0] & 0xFC) == (self.FW_UP_SUCCESS << 2):
+                                req_status = True
+                                tmp_cnt += self.FW_UP_PACKET_SIZE
+                                if tmp_cnt >= (upgrade_head.cable_up_info.image_info.image_size / 100):
+                                    tmp_cnt = 0
+                                    tmp_print += 1
+                                    #_logger.log_info("  {}%".format(tmp_print),CONSOLE_PRINT)
+                                    print("  {}%".format(tmp_print))
+                                break
                             else:
-                                if not req_status:
-                                    self.log(self.LOG_ERROR, "ERROR: TRANSFER timed out")
-
-                                self.__handle_error_abort(upgrade_info, 5)
+                                #ERROR
+                                self.log(self.LOG_ERROR, "ERROR: TRANSFER error {}".format((status[0] & 0xFC) >> 2))
+                                self.__handle_error_abort(upgrade_head.cable_up_info, 3)
                                 return ret_val
 
-                        ts = self.log_timestamp(ts,"All packets written... Check response for last page")
-                        # Check response status for last page
-                        for i in range(100):
-                            status = self.__util_read_eeprom((QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CMD_STS), 1, "cable_fw_upgrade")
+                        time.sleep(0.001)
 
-                            if status[0] & 0x01:
-                                if (status[0] & 0xFC) == (self.FW_UP_SUCCESS << 2):
-                                    req_status = True
-                                    self.log(self.LOG_DEBUG, "   100% ")
-                                    break
-                                else:
-                                    # ERROR
-                                    self.log(self.LOG_ERROR, "ERROR: TRANSFER error{}".format((status[0] & 0xFC) >> 2))
-                                    self.__handle_error_abort(upgrade_info, 3)
-                                    return ret_val
+                    # if previous packet sent successfully
+                    if req_status:
 
-                            time.sleep(0.001)
-
-                        ts = self.log_timestamp(ts,"Check response for last page done")
-
-                        if req_status:
-                            req_status = False
-
-                            # Set the command request to idle state
-                            dat[0] = 0x00
-                            self.platform_chassis.get_sfp(self.port).write_eeprom(QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD, 1, dat)
-
-                            # Wait for mcu response to be pulled down
-                            for i in range(100):
-                                status = self.__util_read_eeprom((QSFP_PAGE_OFFSET + self. QSFP_BRCM_FW_UPGRADE_CMD_STS), 1, "cable_fw_upgrade")
-                                if (status[0] & 0x01) == 0:
-                                    # Last packet is OK
-                                    req_status = True
-                                    break
-                                time.sleep(0.001)
-                            if not req_status:
-                                # Timeout, how to handle?
-                                self.__handle_error_abort(upgrade_info, 4)
-                                #return ret_val
-                                return self.ERROR_CMD_TIMEOUT
-
-                            ts = self.log_timestamp(ts,"Wait for mcu response to be pulled down2")
-                        else:
-                            if not req_status:
-                                self.log(self.LOG_ERROR, "ERROR: TRANSFER timed out")
-                            self.__handle_error_abort( upgrade_info, 5)
-                            return ret_val
-
-                        # COMPLETE command
-                        # Send firmware upgrade complete
                         req_status = False
-                        self.log(self.LOG_INFO, "TRANSFER COMPLETE")
-                        ts = self.log_timestamp(ts,"TRANSFER complete")
+                        # Set the command request to idle state
+                        dat[0] = 0x00
+                        if self.platform_chassis.get_sfp(self.port).write_eeprom(QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD, 1, dat) is False:
+                            return self.ERROR_WR_EEPROM_FAILED,
 
-                        dat[0] = (self.FW_CMD_COMPLETE << 1) | 1
-                        self.platform_chassis.get_sfp(self.port).write_eeprom(QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD, 1, dat)
-
-                        # Check response status
-                        for i in range(100):
-                            status = self.__util_read_eeprom((QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CMD_STS), 1, "cable_fw_upgrade")
-
-                            # Check response status
-                            if status[0] & 0x01:
-                                if (status[0] & 0xFC) == (self.FW_UP_SUCCESS << 2):
-                                    # MCU SUCCEEDED
-                                    req_status = True
-                                    break
-                                else:
-                                    # ERROR
-                                    self.__handle_error_abort(upgrade_info, 6)
-                                    return ret_val
+                        # Wait for mcu response to be pulled down
+                        for i in range(1000):
+                            status = self.__util_read_eeprom((QSFP_PAGE_OFFSET + self. QSFP_BRCM_FW_UPGRADE_CMD_STS), 1, "cable_fw_upgrade")
+                            if status is None:
+                                return self.EEPROM_ERROR
+                            if (status[0] & 0x01) == 0:
+                                # Previous packet is OK
+                                # Set MCU to write the next packet
+                                dat[0] = remain_page_size
+                                dat[1] = page_loc
+                                curr_offset = ((self.QSFP_BRCM_FW_UPGRADE_PAGE*128) + self.QSFP_BRCM_FW_UPGRADE_PACKET_SIZE)
+                                if self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset,2 , dat) is False:
+                                    return self.ERROR_WR_EEPROM_FAILED
+                                
+                                dat[0] = (self.FW_CMD_TRANSFER << 1) | 1
+                                curr_offset = ((self.QSFP_BRCM_FW_UPGRADE_PAGE*128) + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD)
+                                if self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, dat) is False:
+                                    return self.ERROR_WR_EEPROM_FAILED
+                                req_status = True
+                                break
                             time.sleep(0.001)
+                        if not req_status:
+                            self.__handle_error_abort(upgrade_head.cable_up_info, 4)
+                            #return ret_val
+                            return self.ERROR_CMD_TIMEOUT
+                    else:
+                        if not req_status:
+                            # Timeout
+                            self.log(self.LOG_ERROR, "Transfer timeout")
+                            self.__handle_error_abort(upgrade_head.cable_up_info, 5)
+                            #return ret_val
+                            return self.ERROR_CMD_TIMEOUT
 
-                        ts = self.log_timestamp(ts,"MCU check response state good")
-                        if req_status:
-                            req_status = False
-                            # Set the command request to idle state
-                            dat[0] = 0x00
-                            self.platform_chassis.get_sfp(self.port).write_eeprom(QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD, 1, dat)
+                # Check response status for last page
+                for i in range(100):
+                    status = self.__util_read_eeprom((QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CMD_STS), 1, "cable_fw_upgrade")
+                    if status is None:
+                        return self.EEPROM_ERROR
 
-                            # wait for mcu response to be pulled down
-                            for i in range(100):
-                                status = self.__util_read_eeprom((QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CMD_STS), 1, "cable_fw_upgrade")
-                                if (status[0] & 0x01) == 0:
-                                    # MCU is Ready
-                                    req_status = True
-                                    ret_val = self.RR_SUCCESS
-                                    break
-                                time.sleep(0.001)
-
-                            if not req_status:
-                                # Timeout
-                                self.log(self.LOG_ERROR, "Timed out - MCU pull down polling")
-                                self.__handle_error_abort(upgrade_info, 7)
-                                #return ret_val
-                                return self.ERROR_CMD_TIMEOUT
-
-                            self.log_timestamp(ts,"wait for mcu response to be pulled down3")
+                    if status[0] & 0x01:
+                        if (status[0] & 0xFC) == (self.FW_UP_SUCCESS << 2):
+                            req_status = True
+                            self.log(self.LOG_DEBUG, "   100% ")
+                            break
                         else:
                             # ERROR
-                            self.log(self.LOG_ERROR, "ERROR")
-                            self.__handle_error_abort(upgrade_info, 8)
+                            self.log(self.LOG_ERROR, "ERROR: TRANSFER error{}".format((status[0] & 0xFC) >> 2))
+                            self.__handle_error_abort(upgrade_head.cable_up_info, 3)
                             return ret_val
+
+                    time.sleep(0.001)
+                ts = self.log_timestamp(ts,"Check response for last page done")
+
+
+                if req_status:
+                    req_status = False
+
+                    # Set the command request to idle state
+                    dat[0] = 0x00
+                    if self.platform_chassis.get_sfp(self.port).write_eeprom(QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD, 1, dat) is False:
+                        return self.ERROR_WR_EEPROM_FAILED
+
+                    # Wait for mcu response to be pulled down
+                    for i in range(100):
+                        status = self.__util_read_eeprom((QSFP_PAGE_OFFSET + self. QSFP_BRCM_FW_UPGRADE_CMD_STS), 1, "cable_fw_upgrade")
+                        if status is None:
+                            return self.EEPROM_ERROR
+                        if (status[0] & 0x01) == 0:
+                            # Last packet is OK
+                            req_status = True
+                            break
+                        time.sleep(0.001)
+                    if not req_status:
+                        # Timeout, how to handle?
+                        self.__handle_error_abort(upgrade_head.cable_up_info, 4)
+                        #return ret_val
+                        return self.ERROR_CMD_TIMEOUT
+                    ts = self.log_timestamp(ts,"Wait for mcu response to be pulled down2")
+
                 else:
-                    self.log(self.LOG_WARN, "MCU not in the right state")
-            else:
-                self.log(self.LOG_ERROR, "Port lock timed-out!")
-                return self.ERROR_PORT_LOCK_TIMEOUT
+                    if not req_status:
+                        self.log(self.LOG_ERROR, "ERROR: TRANSFER timed out")
+                    self.__handle_error_abort( upgrade_head.cable_up_info, 5)
+                    return ret_val
+
+                # COMPLETE command
+                # Send firmware upgrade complete
+                req_status = False
+                self.log(self.LOG_INFO, "TRANSFER COMPLETE")
+                ts = self.log_timestamp(ts,"TRANSFER complete")
+
+                dat[0] = (self.FW_CMD_COMPLETE << 1) | 1
+                if self.platform_chassis.get_sfp(self.port).write_eeprom(QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD, 1, dat) is False:
+                    return self.ERROR_WR_EEPROM_FAILED
+
+                # Check response status
+                for i in range(100):
+                    status = self.__util_read_eeprom((QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CMD_STS), 1, "cable_fw_upgrade")
+                    if status is None:
+                        return self.EEPROM_ERROR
+
+                    # Check response status
+                    if status[0] & 0x01:
+                        if (status[0] & 0xFC) == (self.FW_UP_SUCCESS << 2):
+                            # MCU SUCCEEDED
+                            req_status = True
+                            break
+                        else:
+                            # ERROR
+                            self.__handle_error_abort(upgrade_head.cable_up_info, 6)
+                            return ret_val
+                    time.sleep(0.001)
+                
+                ts = self.log_timestamp(ts,"MCU check response state good")
+                if req_status:
+                    req_status = False
+                    # Set the command request to idle state
+                    dat[0] = 0x00
+                    if self.platform_chassis.get_sfp(self.port).write_eeprom(QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CTRL_CMD, 1, dat) is False:
+                        return self.ERROR_WR_EEPROM_FAILED
+
+                    # wait for mcu response to be pulled down
+                    for i in range(100):
+                        status = self.__util_read_eeprom((QSFP_PAGE_OFFSET + self.QSFP_BRCM_FW_UPGRADE_CMD_STS), 1, "cable_fw_upgrade")
+                        if status is None:
+                            return self.EEPROM_ERROR
+                        if (status[0] & 0x01) == 0:
+                            # MCU is Ready
+                            req_status = True
+                            ret_val = self.RR_SUCCESS
+                            break
+                        time.sleep(0.001)
+
+                    if not req_status:
+                        # Timeout
+                        self.log(self.LOG_ERROR, "Timed out - MCU pull down polling")
+                        self.__handle_error_abort(upgrade_head.cable_up_info, 7)
+                        #return ret_val
+                        return self.ERROR_CMD_TIMEOUT
+                    self.log_timestamp(ts,"wait for mcu response to be pulled down3")
+
+                else:
+                    # ERROR
+                    self.log(self.LOG_ERROR, "ERROR")
+                    self.__handle_error_abort(upgrade_head.cable_up_info, 8)
+                    return ret_val
+        else:
+            self.log(self.LOG_WARN, "MCU not in the right state")
 
         self.log_timestamp(start_tstamp, "FW upgrade complete")
-
         return ret_val
-
 
 
     def get_firmware_version(self, target):
@@ -2269,7 +2850,8 @@ class YCable(YCableBase):
         upgrade_info = cable_upgrade_info_s()
 
         if (target != self.TARGET_TOR_A) and (target != self.TARGET_TOR_B) and (target != self.TARGET_NIC):
-            return self.RR_ERROR
+            self.log(self.LOG_ERROR, "Invalid target : {}".format(target))
+            return self.ERROR_INVALID_TARGET
 
         if self.platform_chassis is not None:
 
@@ -2362,9 +2944,20 @@ class YCable(YCableBase):
         Returns:
             an Integer, the temperature of the local MCU
         """
+        read_side = self.get_read_side()
+
+        if read_side == self.TARGET_TOR_A:
+            curr_offset = 0xFD * 128 + 0x86
+        elif read_side == self.TARGET_TOR_B:
+            curr_offset = 0xFD * 128 + 0x8a
+        elif read_side == self.TARGET_NIC:
+            curr_offset = 0xFD * 128 + 0x8e
+        else:
+            self.log(self.LOG_ERROR, "get_local_temperature: unknown read_side")
+            return -1 
 
         if self.platform_chassis is not None:
-            curr_offset = self.QSFP28_VENFD_129_DIE_TEMP_MSB
+            #curr_offset = self.QSFP28_VENFD_129_DIE_TEMP_MSB
             result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
             if result is None:
                 self.log(self.LOG_ERROR, "get local temperature  read  eeprom failed")
@@ -2389,7 +2982,30 @@ class YCable(YCableBase):
             a float, the voltage of the local MCU
         """
 
-        return None
+        read_side = self.get_read_side()
+
+        if read_side == self.TARGET_TOR_A:
+            curr_offset = 0xFD * 128 + 0x88
+        elif read_side == self.TARGET_TOR_B:
+            curr_offset = 0xFD * 128 + 0x8c
+        elif read_side == self.TARGET_NIC:
+            return None
+        else:
+            self.log(self.LOG_ERROR, "get_local_voltage: unknown read_side")
+            return -1 
+
+        if self.platform_chassis is not None:
+            result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 2)
+            if result is None:
+                self.log(self.LOG_ERROR, "get local temperature  read  eeprom failed")
+                return self.EEPROM_ERROR
+            else:
+                temperature = result[0] << 8 | result[1]
+        else:
+            self.log(self.LOG_ERROR, "platform_chassis is not loaded, failed to check read side")
+            temperature = None
+
+        return temperature
 
 
     def get_nic_voltage(self):
@@ -2412,7 +3028,30 @@ class YCable(YCableBase):
             an Integer, the temperature of the NIC MCU
         """
 
-        return None
+        read_side = self.get_read_side()
+
+        if read_side == self.TARGET_TOR_A:
+            curr_offset = 0xFD * 128 + 0x8e
+        elif read_side == self.TARGET_TOR_B:
+            curr_offset = 0xFD * 128 + 0x8e
+        elif read_side == self.TARGET_NIC:
+            curr_offset = 0xFD * 128 + 0x81
+        else:
+            self.log(self.LOG_ERROR, "get_nic_temperature: unknown read_side")
+            return -1 
+
+        if self.platform_chassis is not None:
+            result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+            if result is None:
+                self.log(self.LOG_ERROR, "get local temperature  read  eeprom failed")
+                return self.EEPROM_ERROR
+            else:
+                temperature = result[0]
+        else:
+            self.log(self.LOG_ERROR, "platform_chassis is not loaded, failed to check read side")
+            temperature = None
+
+        return temperature
 
 
     def get_eye_heights(self, target):
@@ -2433,9 +3072,13 @@ class YCable(YCableBase):
         if target == self.EYE_PRBS_LOOPBACK_TARGET_NIC or target == self.TARGET_NIC:
             self.log(self.LOG_WARN, "Get eye heights not supported for NIC target ")
             return None
+        elif (target != self.EYE_PRBS_LOOPBACK_TARGET_TOR_A) and (target != self.EYE_PRBS_LOOPBACK_TARGET_TOR_B) and \
+             (target != self.EYE_PRBS_LOOPBACK_TARGET_LOCAL):
+            self.log(self.LOG_ERROR, "Invalid target : {}".format(target))
+            return self.ERROR_INVALID_TARGET 
 
         core_ip, lane_mask = self.__util_convert_to_phyinfo_details(target, 0X0F)
-        print(lane_mask) 
+
         cmd_hdr = bytearray(10)
         cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
 
@@ -2493,6 +3136,7 @@ class YCable(YCableBase):
 
             return lrud_list
         else:
+            self.log(self.LOG_ERROR, "Command execute failed ret_val: {}".format(ret_val))
             return None
 
 
@@ -2512,6 +3156,12 @@ class YCable(YCableBase):
         Returns:
             a list, with BER values of lane 0 lane 1 lane 2 lane 3 with corresponding index
         """
+
+        if (target != self.EYE_PRBS_LOOPBACK_TARGET_LOCAL and target != self.EYE_PRBS_LOOPBACK_TARGET_TOR_A and \
+            target != self.EYE_PRBS_LOOPBACK_TARGET_TOR_B and target != self.EYE_PRBS_LOOPBACK_TARGET_NIC):    
+            self.log(self.LOG_ERROR,"Invalid Traget : {}".format(target))
+            return self.ERROR_INVALID_TARGET
+
         mode_value = 0xff
         lane = 0x0f
         ber_result = []
@@ -2531,8 +3181,6 @@ class YCable(YCableBase):
             ber_result.append(prbs_error_per_lane/(25.78125*(math.pow(10, 9))))
 
         return ber_result
-
-
 
 
     def get_target_cursor_values(self, lane, target):
@@ -2560,7 +3208,11 @@ class YCable(YCableBase):
         # validate lane number
         if lane < 1 or lane > 4:
             self.log(self.LOG_ERROR, "Invalid lane = {} valid lane is 1 to 4".format(lane))
-            return self.ERROR_INVALID_INPUT, None
+            return self.ERROR_INVALID_INPUT
+
+        if (target != self.TARGET_TOR_A) and (target != self.TARGET_TOR_B) and (target != self.TARGET_NIC) and (target != self.EYE_PRBS_LOOPBACK_TARGET_LOCAL):
+            self.log(self.LOG_ERROR, "Invalid target : {}".format(target))
+            return self.ERROR_INVALID_TARGET
 
         lane -= 1 # internally lane starts from 0 
         lane_mask = 1 << lane
@@ -2600,6 +3252,8 @@ class YCable(YCableBase):
             self.log(self.LOG_DEBUG, "lane {} : post3 = {}".format(lane,txfir[5]))
             self.log(self.LOG_DEBUG, "lane {} : taps  = {}".format(lane,txfir[6]))
             return txfir
+        else:
+            self.log(self.LOG_ERROR, "command execution failed ret_val: {}".format(ret_val))
 
         return None
 
@@ -2628,7 +3282,11 @@ class YCable(YCableBase):
 
         if lane < 1 or lane > 4:
             self.log(self.LOG_ERROR, "Invalid lane = {} valid lane is 1 to 4".format(lane))
-            return self.ERROR_INVALID_INPUT, None
+            return self.ERROR_INVALID_INPUT
+
+        if (target != self.TARGET_TOR_A) and (target != self.TARGET_TOR_B) and (target != self.TARGET_NIC) and (target != self.EYE_PRBS_LOOPBACK_TARGET_LOCAL):
+            self.log(self.LOG_ERROR, "Invalid target : {}".format(target))
+            return self.ERROR_INVALID_TARGET
 
         lane -= 1 # internally lane starts from 0
         lane_mask = 1 << lane
@@ -2649,13 +3307,15 @@ class YCable(YCableBase):
             cmd_req_body1 += struct.pack("<h", cursor_values[i])
         cmd_req_body = cmd_req_body1
         ret_val, cmd_rsp_body = self.__cable_cmd_execute(self.CABLE_CMD_ID_SET_TXFIR, cmd_hdr, cmd_req_body)
-        if (ret_val == 0 and cmd_rsp_body is None):
+        if ret_val == 0:
             return True
         else:
+            if cmd_rsp_body is None:
+                self.log(self.LOG_DEBUG, "Command response body not received")
+            self.log(self.LOG_ERROR, "Command execution failed ret_val : {}".format(ret_val))
             return False
 
 
-    
     def download_firmware(self, fwfile):
         """
         This routine should download and store the firmware on all the
@@ -2681,11 +3341,8 @@ class YCable(YCableBase):
                 RR_ERROR                 : Failed
                 ERROR_GET_VERSION_FAILED : Failed to get fw version from MCU
         """
-
-        fw_up_buff = array.array('I', [])
         
         read_side = self.get_read_side()
-
         if read_side == self.TARGET_NIC:
             self.log(self.LOG_ERROR, "Connot perform download from NIC side")    
             return False
@@ -2693,56 +3350,36 @@ class YCable(YCableBase):
             self.log(self.LOG_ERROR, "Target self unknown. Can't upgrade")    
             return False
 
-        for i in range(self.MUX_FW_IMG_SIZE):
-            fw_up_buff.append(0)
+        upgrade_head = []
+        upgrade_head.append(cable_upgrade_head_s())
+        upgrade_head.append(cable_upgrade_head_s())
+        upgrade_head.append(cable_upgrade_head_s())
+        upgrade_head.append(cable_upgrade_head_s())
 
         upgrade_info = []
         upgrade_info.append(cable_upgrade_info_s())
         upgrade_info.append(cable_upgrade_info_s())
         upgrade_info.append(cable_upgrade_info_s())
         upgrade_info.append(cable_upgrade_info_s())
+        
 
-        file1 = open(fwfile, 'rb')
-        file1.seek(2 * self.MCU_FW_IMG_SIZE)
-        for i in range(self.MUX_FW_IMG_SIZE):
-            byte_val = file1.read(4)
-            if len(byte_val) == 4:
-                fw_up_buff[i] = struct.unpack('I', byte_val)[0]
-
-
-        fw_version_array = array.array('I', [])
-        file1.seek(0)
-        file1.seek((2 * self.MCU_FW_IMG_SIZE) + self.MUX_FW_IMG_INFO_ADDR)
-        for i in range(self.FW_IMG_INFO_SIZE):
-            if i < 4:
-                byte_val = file1.read(2)
-                fw_version_array.append(0)
-                fw_version_array[i] = struct.unpack('H', byte_val)[0]
-            else:
-                byte_val = file1.read(4)
-                fw_version_array.append(0)
-                fw_version_array[i] = struct.unpack('I', byte_val)[0]
-                break
-
-        upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_major = fw_version_array[1]
-        upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_minor = fw_version_array[0]
-        upgrade_info[self.MUX_CHIP - 1].image_info.image_api_version.image_version_minor = fw_version_array[2]
-        upgrade_info[self.MUX_CHIP - 1].image_info.image_api_version.image_version_major = fw_version_array[3]
-        upgrade_info[self.MUX_CHIP - 1].image_info.image_crc32 = fw_version_array[4]
-
-        upgrade_info[self.MUX_CHIP - 1].image_info.image_ptr = fw_up_buff
-        upgrade_info[self.MUX_CHIP - 1].image_info.image_size = self.MUX_FW_IMG_SIZE
-        upgrade_info[self.MUX_CHIP - 1].destination = self.MUX_CHIP
-
+        for i in range(0, 4):
+            ret = self.parse_image(upgrade_head[i], i+1, fwfile)
+            if ret != self.RR_SUCCESS:
+                self.log(self.LOG_ERROR, "Parse image failed")
+                return self.RR_ERROR
+        
         # Check MUX firmware version
         self.log(self.LOG_DEBUG, "Check MUX firmware version")
 
         self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS
         self.log(self.LOG_INFO, "Firmware download status inprogress")
+        
+        upgrade_info[self.MUX_CHIP - 1].destination = self.MUX_CHIP
+
         ret_val = self.cable_fw_get_status(upgrade_info[self.MUX_CHIP - 1])
 
         if ret_val != self.RR_SUCCESS:
-            file1.close()
             self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
             self.log(self.LOG_ERROR, "MUX CHIP Firmware download status failed")
             return self.ERROR_GET_VERSION_FAILED
@@ -2751,118 +3388,62 @@ class YCable(YCableBase):
             self.log(self.LOG_DEBUG, "If version in inactive bank is different or bank is empty, then upgrade else skip")
             if(
                 ((upgrade_info[self.MUX_CHIP - 1].status_info.current_bank == 1) \
-                and (((upgrade_info[self.MUX_CHIP - 1].status_info.bank2_info.image_fw_version.image_version_major != upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_major) \
-                or (upgrade_info[self.MUX_CHIP - 1].status_info.bank2_info.image_fw_version.image_version_minor != upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_minor)))) \
+                and (((upgrade_info[self.MUX_CHIP - 1].status_info.bank2_info.image_fw_version.image_version_major != upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_major) \
+                or (upgrade_info[self.MUX_CHIP - 1].status_info.bank2_info.image_fw_version.image_version_minor != upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_minor)))) \
                 or ((upgrade_info[self.MUX_CHIP - 1].status_info.current_bank == 2) \
-                and (((upgrade_info[self.MUX_CHIP - 1].status_info.bank1_info.image_fw_version.image_version_major != upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_major) \
-                or (upgrade_info[self.MUX_CHIP - 1].status_info.bank1_info.image_fw_version.image_version_minor != upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_minor)))) \
+                and (((upgrade_info[self.MUX_CHIP - 1].status_info.bank1_info.image_fw_version.image_version_major != upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_major) \
+                or (upgrade_info[self.MUX_CHIP - 1].status_info.bank1_info.image_fw_version.image_version_minor != upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_minor)))) \
             ):
 
+                #upgrade_info[self.MUX_CHIP - 1].destination = self.MUX_CHIP
                 # Do an upgrade
                 self.log(self.LOG_DEBUG, "MUX chip new firmware available: Downloading")
-                ret_val = self.__cable_fw_upgrade(upgrade_info[self.MUX_CHIP - 1])
+                ret_val = self.__cable_fw_upgrade(upgrade_head[self.MUX_CHIP - 1])
                 if ret_val != self.RR_SUCCESS:
-                    file1.close()
                     self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
                     self.log(self.LOG_ERROR, "MUX CHIP Firmware upgrade failed")
                     return self.RR_ERROR
             else:
                 self.log(self.LOG_INFO, "MUX chip: Firmware is up to date")
-
-
+         
+        # Check NIC current bank to find which NIC image to download
         # Check if NIC MCU needs fw upgrade
-        file1.seek(0)
-        file1.seek(self.MCU_FW_IMG_SIZE)
-        for i in range(self.MUX_FW_IMG_SIZE):
-            byte_val = file1.read(4)
-            if len(byte_val) == 4:
-                fw_up_buff[i] = struct.unpack('I', byte_val)[0]
-
-        file1.seek(0)
-        file1.seek(self.MCU_FW_IMG_SIZE + self.MCU_FW_IMG_INFO_ADDR)
-        for i in range(self.FW_IMG_INFO_SIZE):
-            if i < 4:
-                byte_val = file1.read(2)
-                fw_version_array.append(0)
-                fw_version_array[i] = struct.unpack('H', byte_val)[0]
-            else:
-                byte_val = file1.read(4)
-                fw_version_array.append(0)
-                fw_version_array[i] = struct.unpack('I', byte_val)[0]
-                break
-
-        upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_major = fw_version_array[1]
-        upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_minor = fw_version_array[0]
-        upgrade_info[self.NIC_MCU - 1].image_info.image_api_version.image_version_minor = fw_version_array[2]
-        upgrade_info[self.NIC_MCU - 1].image_info.image_api_version.image_version_major = fw_version_array[3]
-        upgrade_info[self.NIC_MCU - 1].image_info.image_crc32 = fw_version_array[4]
-        upgrade_info[self.NIC_MCU - 1].image_info.image_ptr = fw_up_buff
-        upgrade_info[self.NIC_MCU - 1].image_info.image_size = self.MCU_FW_IMG_SIZE
         upgrade_info[self.NIC_MCU - 1].destination = self.NIC_MCU
 
         # Check NIC firmware version
-
+        self.log(self.LOG_DEBUG, "Check NIC fw version")
         ret_val = self.cable_fw_get_status( upgrade_info[self.NIC_MCU - 1])
         if ret_val != self.RR_SUCCESS:
-            file1.close()
             self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
             self.log(self.LOG_ERROR, "NIC MCU Firmware download status failed")
             return self.ERROR_GET_VERSION_FAILED
+
+        # If version in inactive bank is old or bank is empty, then upgrade else skip
+        if(
+            ((upgrade_info[self.NIC_MCU - 1].status_info.current_bank == 1) \
+            and (((upgrade_info[self.NIC_MCU - 1].status_info.bank2_info.image_fw_version.image_version_major != upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_major)  \
+            or  (upgrade_info[self.NIC_MCU - 1].status_info.bank2_info.image_fw_version.image_version_minor != upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_minor)))) \
+            or  ((upgrade_info[self.NIC_MCU - 1].status_info.current_bank == 2) \
+            and (((upgrade_info[self.NIC_MCU - 1].status_info.bank1_info.image_fw_version.image_version_major != upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_major) \
+            or  (upgrade_info[self.NIC_MCU - 1].status_info.bank1_info.image_fw_version.image_version_minor != upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_minor)))) \
+        ):
+            # Do an upgrade
+            self.log(self.LOG_INFO, "NIC MCU new firmware available: Downloading")
+            ret_val = self.__cable_fw_upgrade(upgrade_head[self.NIC_MCU - 1])
+            if ret_val != self.RR_SUCCESS:
+                self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
+                self.log(self.LOG_ERROR, "NIC MCU Firmware upgrade failed")
+                return self.RR_ERROR
         else:
-            # If version in inactive bank is old or bank is empty, then upgrade else skip
-            if(
-                ((upgrade_info[self.NIC_MCU - 1].status_info.current_bank == 1) \
-                and (((upgrade_info[self.NIC_MCU - 1].status_info.bank2_info.image_fw_version.image_version_major != upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_major)  \
-                or  (upgrade_info[self.NIC_MCU - 1].status_info.bank2_info.image_fw_version.image_version_minor != upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_minor)))) \
-                or  ((upgrade_info[self.NIC_MCU - 1].status_info.current_bank == 2) \
-                and (((upgrade_info[self.NIC_MCU - 1].status_info.bank1_info.image_fw_version.image_version_major != upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_major) \
-                or  (upgrade_info[self.NIC_MCU - 1].status_info.bank1_info.image_fw_version.image_version_minor != upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_minor)))) \
-            ):
-                # Do an upgrade
-                self.log(self.LOG_INFO, "NIC MCU new firmware available: Downloading")
-                ret_val = self.__cable_fw_upgrade(upgrade_info[self.NIC_MCU - 1])
-                if ret_val != self.RR_SUCCESS:
-                    file1.close()
-                    self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
-                    self.log(self.LOG_ERROR, "NIC MCU Firmware upgrade failed")
-                    return self.RR_ERROR
-            else:
-                self.log(self.LOG_INFO, "NIC MCU: Firmware is up to date")
-
-        # Check if TOR chip needs fw upgrade
-        file1.seek(0)
-        for i in range(self.MUX_FW_IMG_SIZE):
-            byte_val = file1.read(4)
-            if len(byte_val) == 4:
-                fw_up_buff[i] = struct.unpack('I', byte_val)[0]
-
-        file1.seek(0)
-        file1.seek(self.MCU_FW_IMG_INFO_ADDR)
-        for i in range(self.FW_IMG_INFO_SIZE):
-            if i < 4:
-                byte_val = file1.read(2)
-                fw_version_array.append(0)
-                fw_version_array[i] = struct.unpack('H', byte_val)[0]
-            else:
-                byte_val = file1.read(4)
-                fw_version_array.append(0)
-                fw_version_array[i] = struct.unpack('I', byte_val)[0]
-                break
-
-        upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_major = fw_version_array[1]
-        upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_minor = fw_version_array[0]
-        upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_api_version.image_version_minor = fw_version_array[2]
-        upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_api_version.image_version_major = fw_version_array[3]
-        upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_crc32 = fw_version_array[4]
-        upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_ptr = fw_up_buff
-        upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_size = self.MCU_FW_IMG_SIZE
+            self.log(self.LOG_INFO, "NIC MCU: Firmware is up to date")
+        
+        # Check TOR firmware version
+        self.log(self.LOG_DEBUG, "Check TOR firmware version")
         upgrade_info[self.TOR_MCU_SELF - 1].destination = self.TOR_MCU_SELF
 
-        # Check TOR firmware version
-
         ret_val = self.cable_fw_get_status(upgrade_info[self.TOR_MCU_SELF - 1])
+
         if ret_val != self.RR_SUCCESS:
-            file1.close()
             self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
             self.log(self.LOG_ERROR, "TOR SELF Firmware download status failed")
             return self.ERROR_GET_VERSION_FAILED
@@ -2871,21 +3452,20 @@ class YCable(YCableBase):
             # If version in inactive bank is old or bank is empty, then upgrade else skip
             if(
                 ((upgrade_info[self.TOR_MCU_SELF - 1].status_info.current_bank == 1) \
-                and (((upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank2_info.image_fw_version.image_version_major != upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_major) \
-                or  (upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank2_info.image_fw_version.image_version_minor != upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_minor))) \
-                or    (((upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank2_info.image_api_version.image_version_major != upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_api_version.image_version_major) \
-                or  (upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank2_info.image_api_version.image_version_minor != upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_api_version.image_version_minor)))) \
+                and (((upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank2_info.image_fw_version.image_version_major != upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_major) \
+                or  (upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank2_info.image_fw_version.image_version_minor != upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_minor))) \
+                or    (((upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank2_info.image_api_version.image_version_major != upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_api_version.image_version_major) \
+                or  (upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank2_info.image_api_version.image_version_minor != upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_api_version.image_version_minor)))) \
                 or     ((upgrade_info[self.TOR_MCU_SELF - 1].status_info.current_bank == 2) \
-            and (((upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank1_info.image_fw_version.image_version_major != upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_major) \
-                or (upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank1_info.image_fw_version.image_version_minor != upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_minor))) \
-            or (((upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank1_info.image_api_version.image_version_major != upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_api_version.image_version_major) \
-                or (upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank1_info.image_api_version.image_version_minor != upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_api_version.image_version_minor))))
+            and (((upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank1_info.image_fw_version.image_version_major != upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_major) \
+                or (upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank1_info.image_fw_version.image_version_minor != upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_minor))) \
+            or (((upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank1_info.image_api_version.image_version_major != upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_api_version.image_version_major) \
+                or (upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank1_info.image_api_version.image_version_minor != upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_api_version.image_version_minor))))
             ):
                 # Do an upgrade
                 self.log(self.LOG_INFO, "TOR SELF new firmware available: Downloading")
-                ret_val = self.__cable_fw_upgrade(upgrade_info[self.TOR_MCU_SELF - 1])
+                ret_val = self.__cable_fw_upgrade(upgrade_head[self.TOR_MCU_SELF - 1])
                 if ret_val != self.RR_SUCCESS:
-                    file1.close()
                     self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
                     self.log(self.LOG_ERROR, "TOR MCU Firmware upgrade failed")
                     return self.RR_ERROR
@@ -2893,41 +3473,11 @@ class YCable(YCableBase):
             else:
                 self.log(self.LOG_INFO, "TOR SELF: Firmware is up to date")
         
-         # Check if TOR chip needs fw upgrade
-        file1.seek(0)
-        for i in range(self.MUX_FW_IMG_SIZE):
-            byte_val = file1.read(4)
-            if len(byte_val) == 4:
-                fw_up_buff[i] = struct.unpack('I', byte_val)[0]
-
-        file1.seek(0)
-        file1.seek(self.MCU_FW_IMG_INFO_ADDR)
-        for i in range(self.FW_IMG_INFO_SIZE):
-            if i < 4:
-                byte_val = file1.read(2)
-                fw_version_array.append(0)
-                fw_version_array[i] = struct.unpack('H', byte_val)[0]
-            else:
-                byte_val = file1.read(4)
-                fw_version_array.append(0)
-                fw_version_array[i] = struct.unpack('I', byte_val)[0]
-                break
-
-        upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_major = fw_version_array[1]
-        upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_minor = fw_version_array[0]
-        upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_api_version.image_version_minor = fw_version_array[2]
-        upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_api_version.image_version_major = fw_version_array[3]
-        upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_crc32 = fw_version_array[4]
-        upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_ptr = fw_up_buff
-        upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_size =self. MCU_FW_IMG_SIZE
-        upgrade_info[self.TOR_MCU_PEER - 1].destination = self.TOR_MCU_PEER
-
         # Check TOR firmware version
-        
+        self.log(self.LOG_DEBUG, "Check TOR firmware version")
+        upgrade_info[self.TOR_MCU_PEER - 1].destination = self.TOR_MCU_PEER
         ret_val = self.cable_fw_get_status(upgrade_info[self.TOR_MCU_PEER - 1])
         if ret_val != self.RR_SUCCESS:
-            file1.close()
-            #return self.RR_ERROR
             self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
             self.log(self.LOG_ERROR, "TOR PEER Firmware download status failed")
             return self.ERROR_GET_VERSION_FAILED
@@ -2935,21 +3485,20 @@ class YCable(YCableBase):
             # If version in inactive bank is old or bank is empty, then upgrade else skip
             if(
                 ((upgrade_info[self.TOR_MCU_PEER - 1].status_info.current_bank == 1) \
-                and (((upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank2_info.image_fw_version.image_version_major != upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_major) \
-                or  (upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank2_info.image_fw_version.image_version_minor != upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_minor))) \
-                or    (((upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank2_info.image_api_version.image_version_major != upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_api_version.image_version_major) \
-                or  (upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank2_info.image_api_version.image_version_minor != upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_api_version.image_version_minor)))) \
+                and (((upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank2_info.image_fw_version.image_version_major != upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_major) \
+                or  (upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank2_info.image_fw_version.image_version_minor != upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_minor))) \
+                or    (((upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank2_info.image_api_version.image_version_major != upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_api_version.image_version_major) \
+                or  (upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank2_info.image_api_version.image_version_minor != upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_api_version.image_version_minor)))) \
                 or     ((upgrade_info[self.TOR_MCU_PEER - 1].status_info.current_bank == 2) \
-            and (((upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank1_info.image_fw_version.image_version_major != upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_major) \
-                or (upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank1_info.image_fw_version.image_version_minor != upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_minor))) \
-            or (((upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank1_info.image_api_version.image_version_major != upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_api_version.image_version_major) \
-                or (upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank1_info.image_api_version.image_version_minor != upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_api_version.image_version_minor))))
+            and (((upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank1_info.image_fw_version.image_version_major != upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_major) \
+                or (upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank1_info.image_fw_version.image_version_minor != upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_minor))) \
+            or (((upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank1_info.image_api_version.image_version_major != upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_api_version.image_version_major) \
+                or (upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank1_info.image_api_version.image_version_minor != upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_api_version.image_version_minor))))
             ):
                 # Do an upgrade
                 self.log(self.LOG_INFO, "TOR PEER new firmware available: Downloading")
-                ret_val = self.__cable_fw_upgrade(upgrade_info[self.TOR_MCU_PEER - 1])
+                ret_val = self.__cable_fw_upgrade(upgrade_head[self.TOR_MCU_PEER - 1])
                 if ret_val != self.RR_SUCCESS:
-                    file1.close()
                     self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
                     self.log(self.LOG_ERROR, "TOR PEER Firmware upgrade failed")
                     return self.RR_ERROR
@@ -2958,11 +3507,10 @@ class YCable(YCableBase):
 
         self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_NOT_INITIATED_OR_FINISHED
         self.log(self.LOG_INFO, "Firmware download finished")
-        file1.close()
         return ret_val
+        
 
-
-    def activate_firmware(self, fwfile=None):
+    def activate_firmware(self, fwfile=None, hitless=False):
         """
         This routine should activate the downloaded firmware on all the
         components of the Y cable of the port for which this API is called..
@@ -2973,6 +3521,11 @@ class YCable(YCableBase):
         successfully executed.
         The port on which this API is called for can be referred using self.port.
         Args:
+            boot_type:
+                an Integer, one of the follwing predefine constants defines the boot type
+                    WARMBOOT = 0 
+                    COLDBOOT = 1
+
             fwfile (optional):
                  a string, a path to the file which contains the firmware image.
                  Note that the firmware file can be in the format of the vendor's
@@ -2999,7 +3552,17 @@ class YCable(YCableBase):
         """
 
         #ret_val = self.ERROR_FW_ACTIVATE_FAILURE
-        skip_reset = False
+
+        if hitless == True:
+            boot_type = self.WARMBOOT
+        else:
+            boot_type = self.COLDBOOT
+
+        upgrade_head = []
+        upgrade_head.append(cable_upgrade_head_s())
+        upgrade_head.append(cable_upgrade_head_s())
+        upgrade_head.append(cable_upgrade_head_s())
+        upgrade_head.append(cable_upgrade_head_s())
 
         upgrade_info = []
         upgrade_info.append(cable_upgrade_info_s())
@@ -3011,213 +3574,67 @@ class YCable(YCableBase):
         upgrade_info[self.MUX_CHIP - 1].destination = self.MUX_CHIP
         upgrade_info[self.TOR_MCU_SELF - 1].destination = self.TOR_MCU_SELF
         upgrade_info[self.TOR_MCU_PEER - 1].destination = self.TOR_MCU_PEER
+        
+        if boot_type == self.WARMBOOT:
+            if( self.cable_fw_get_status(upgrade_info[self.MUX_CHIP - 1]) == self.RR_SUCCESS):
+                if ((upgrade_info[self.MUX_CHIP - 1].status_info.bank1_info.image_fw_version.image_version_major) != \
+                    (upgrade_info[self.MUX_CHIP - 1].status_info.bank2_info.image_fw_version.image_version_major) or \
+                    (upgrade_info[self.MUX_CHIP - 1].status_info.bank1_info.image_fw_version.image_version_minor) != \
+                    (upgrade_info[self.MUX_CHIP - 1].status_info.bank2_info.image_fw_version.image_version_minor)):
+                    self.log(self.LOG_ERROR, "Can not perform Warm Boot, MUX CHIP banks have diffrent versions")
+                    return self.RR_ERROR
+            else:
+                self.log(self.LOG_ERROR, "MUX CHIP get firmware status failed")
+                return self.RR_ERROR
 
-        # Get Chip NIC firmware version 
-        ret_val = self.cable_fw_get_status(upgrade_info[self.NIC_MCU - 1])
-
-        if ret_val != self.RR_SUCCESS:
-            self.log(self.LOG_ERROR, "ERROR: cable_fw_get_status() failed to get NIC FW version")
-            return self.ERROR_FW_GET_STATUS_FAILED
-
-        # Get Chip MUX firmware version 
-        self.log(self.LOG_DEBUG, "Check MUX firmware version")
-        ret_val = self.cable_fw_get_status(upgrade_info[self.MUX_CHIP - 1])
-
-        if ret_val != self.RR_SUCCESS:
-            self.log(self.LOG_ERROR, "ERROR: cable_fw_get_status() failed to get MUX FW version")
-            return self.ERROR_FW_GET_STATUS_FAILED
-
-        # Get Chip TOR-SELF firmware version 
-        ret_val = self.cable_fw_get_status(upgrade_info[self.TOR_MCU_SELF - 1])
-        if ret_val != self.RR_SUCCESS:
-            self.log(self.LOG_ERROR, "ERROR: cable_fw_get_status() failed to get TOR-SELF FW version")
-            return self.ERROR_FW_GET_STATUS_FAILED
-
-        # Get Chip TOR-PEER firmware version 
-        ret_val = self.cable_fw_get_status(upgrade_info[self.TOR_MCU_PEER - 1])
-        if ret_val != self.RR_SUCCESS:
-            self.log(self.LOG_ERROR, "ERROR: cable_fw_get_status() failed to get TOR-PEER FW version")
-            return self.ERROR_FW_GET_STATUS_FAILED
-
-
-        # if fwfile is provided
+        for i in range(0, 4):
+            if fwfile is not None:
+                ret = self.parse_image(upgrade_head[i], i+1, fwfile)
+                if ret != self.RR_SUCCESS:
+                    self.log(self.LOG_ERROR, "Parse image failed")
+                    return self.RR_ERROR
+            
+            upgrade_info[i].destination = i+1
+            if( self. cable_fw_get_status(upgrade_info[i]) != self.RR_SUCCESS):
+                return self.RR_ERROR
+            
+        # First make sure there was a successful download_firmware prior to activate
+        # Check that all the ends of the cable have at least one bank matching the firmware version in fwfile 
         if fwfile is not None:
-            fw_up_buff = array.array('I', [])
-
-            for i in range(self.MUX_FW_IMG_SIZE):
-                fw_up_buff.append(0)
-
-            # Check if NIC MCU and MUX chip needs activation 
-            #_logger.log_info("NIC MCU activation", CONSOLE_PRINT)
-            # Get NIC firmware version
-
-            file1 = open(fwfile, 'rb')
-            file1.seek(0)
-            file1.seek(self.MCU_FW_IMG_SIZE)
-
-            for i in range(self.MCU_FW_IMG_SIZE):
-                byte_val = file1.read(4)
-                if len(byte_val) == 4:
-                    fw_up_buff[i] = struct.unpack('I', byte_val)[0]
-
-            upgrade_info[self.NIC_MCU - 1].image_info.image_ptr = fw_up_buff
-            upgrade_info[self.NIC_MCU - 1].image_info.image_size = self.MCU_FW_IMG_SIZE
-
-            fw_version_array = array.array('I', [])
-            file1.seek(0)
-            file1.seek(self.MCU_FW_IMG_SIZE + self.MCU_FW_IMG_INFO_ADDR)
-
-            for i in range(self.FW_IMG_INFO_SIZE):
-                if i < 4:
-                    byte_val = file1.read(2)
-                    fw_version_array.append(0)
-                    fw_version_array[i] = struct.unpack('H', byte_val)[0]
-                else:
-                    byte_val = file1.read(4)
-                    fw_version_array.append(0)
-                    fw_version_array[i] = struct.unpack('I', byte_val)[0]
-                    break
-
-            upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_major = fw_version_array[1]
-            upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_minor = fw_version_array[0]
-            upgrade_info[self.NIC_MCU - 1].image_info.image_api_version.image_version_minor = fw_version_array[2]
-            upgrade_info[self.NIC_MCU - 1].image_info.image_api_version.image_version_major = fw_version_array[3]
-            upgrade_info[self.NIC_MCU - 1].image_info.image_crc32 = fw_version_array[4]
-            
-            # Get MUX chip version
-            file1.seek(2 * self.MCU_FW_IMG_SIZE)
-            for i in range(self.MUX_FW_IMG_SIZE):
-                byte_val = file1.read(4)
-                if len(byte_val) == 4:
-                    fw_up_buff[i] = struct.unpack('I', byte_val)[0]
-
-
-            fw_version_array = array.array('I', [])
-            file1.seek(0)
-            file1.seek((2 * self.MCU_FW_IMG_SIZE) +self. MUX_FW_IMG_INFO_ADDR)
-            for i in range(self.FW_IMG_INFO_SIZE):
-                if i < 4:
-                    byte_val = file1.read(2)
-                    fw_version_array.append(0)
-                    fw_version_array[i] = struct.unpack('H', byte_val)[0]
-                else:
-                    byte_val = file1.read(4)
-                    fw_version_array.append(0)
-                    fw_version_array[i] = struct.unpack('I', byte_val)[0]
-                    break
-
-            upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_major = fw_version_array[1]
-            upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_minor = fw_version_array[0]
-            upgrade_info[self.MUX_CHIP - 1].image_info.image_api_version.image_version_minor = fw_version_array[2]
-            upgrade_info[self.MUX_CHIP - 1].image_info.image_api_version.image_version_major = fw_version_array[3]
-            upgrade_info[self.MUX_CHIP - 1].image_info.image_crc32 = fw_version_array[4]
-
-            upgrade_info[self.MUX_CHIP - 1].image_info.image_ptr = fw_up_buff
-            upgrade_info[self.MUX_CHIP - 1].image_info.image_size = self.MUX_FW_IMG_SIZE
-
-       
-            # Get TOR self version
-            file1.seek(0)
-            
-            for i in range(self.MCU_FW_IMG_SIZE):
-                byte_val = file1.read(4)
-                if len(byte_val) == 4:
-                    fw_up_buff[i] = struct.unpack('I', byte_val)[0]
-            
-            upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_ptr = fw_up_buff
-            upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_size = self.MCU_FW_IMG_SIZE
-            
-            file1.seek(0)
-            file1.seek(self.MCU_FW_IMG_INFO_ADDR)
-            
-            for i in range(self.FW_IMG_INFO_SIZE):
-                if i < 4:
-                    byte_val = file1.read(2)
-                    fw_version_array.append(0)
-                    fw_version_array[i] = struct.unpack('H', byte_val)[0]
-                else:
-                    byte_val = file1.read(4)
-                    fw_version_array.append(0)
-                    fw_version_array[i] = struct.unpack('I', byte_val)[0]
-                    break
-            
-            upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_minor = fw_version_array[0]
-            upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_major = fw_version_array[1]
-            upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_api_version.image_version_minor = fw_version_array[2]
-            upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_api_version.image_version_major = fw_version_array[3]
-            upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_crc32 = fw_version_array[4]
-            
-            # Get TOR peer version
-            file1.seek(0)
-
-            for i in range(self.MCU_FW_IMG_SIZE):
-                byte_val = file1.read(4)
-                if len(byte_val) == 4:
-                    fw_up_buff[i] = struct.unpack('I', byte_val)[0]
-            
-            upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_ptr = fw_up_buff
-            upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_size = self.MCU_FW_IMG_SIZE
-            
-            file1.seek(0)
-            file1.seek(self.MCU_FW_IMG_INFO_ADDR)
-            
-            for i in range(self.FW_IMG_INFO_SIZE):
-                if i < 4:
-                    byte_val = file1.read(2)
-                    fw_version_array.append(0)
-                    fw_version_array[i] = struct.unpack('H', byte_val)[0]
-                else:
-                    byte_val = file1.read(4)
-                    fw_version_array.append(0)
-                    fw_version_array[i] = struct.unpack('I', byte_val)[0]
-                    break
-            
-            upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_minor = fw_version_array[0]
-            upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_major = fw_version_array[1]
-            upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_api_version.image_version_minor = fw_version_array[2]
-            upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_api_version.image_version_major = fw_version_array[3]
-            upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_crc32 = fw_version_array[4]
-
-
-            # version details are read. Now, file can be closed
-            file1.close()
-
-            # First make sure there was a successful download_firmware prior to activate
-            # Check that all the ends of the cable have at least one bank matching the firmware version in fwfile 
             if not ((\
                 (((upgrade_info[self.NIC_MCU - 1].status_info.bank1_info.image_fw_version.image_version_major == \
-                        upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_major) and \
+                        upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
                 (upgrade_info[self.NIC_MCU - 1].status_info.bank1_info.image_fw_version.image_version_minor == \
-                        upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_minor)) and \
+                        upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_minor)) and \
                 ((upgrade_info[self.MUX_CHIP - 1].status_info.bank1_info.image_fw_version.image_version_major == \
-                        upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_major) and \
+                        upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
                 (upgrade_info[self.MUX_CHIP - 1].status_info.bank1_info.image_fw_version.image_version_minor == \
-                        upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_minor))) or \
+                        upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_minor))) or \
                 (((upgrade_info[self.NIC_MCU - 1].status_info.bank2_info.image_fw_version.image_version_major == \
-                        upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_major) and \
+                        upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
                 (upgrade_info[self.NIC_MCU - 1].status_info.bank2_info.image_fw_version.image_version_minor == \
-                        upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_minor)) and \
+                        upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_minor)) and \
                 ((upgrade_info[self.MUX_CHIP - 1].status_info.bank2_info.image_fw_version.image_version_major == \
-                        upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_major) and  \
+                        upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_major) and  \
                 (upgrade_info[self.MUX_CHIP - 1].status_info.bank2_info.image_fw_version.image_version_minor == \
-                        upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_minor)))) and \
+                        upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_minor)))) and \
                 ( \
                 (((upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank1_info.image_fw_version.image_version_major == \
-                        upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_major) and \
+                        upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
                 (upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank1_info.image_fw_version.image_version_minor == \
-                        upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_minor))) or \
+                        upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_minor))) or \
                 (((upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank2_info.image_fw_version.image_version_major == \
-                        upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_major) and \
+                        upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
                 (upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank2_info.image_fw_version.image_version_minor == \
-                        upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_minor)))) and \
+                        upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_minor)))) and \
                 ((((upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank1_info.image_fw_version.image_version_major == \
-                        upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_major) and \
+                        upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
                 (upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank1_info.image_fw_version.image_version_minor == \
-                        upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_minor))) or \
+                        upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_minor))) or \
                 (((upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank2_info.image_fw_version.image_version_major == \
-                        upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_major) and \
+                        upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
                 (upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank2_info.image_fw_version.image_version_minor == \
-                        upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_minor))))) :
+                        upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_minor))))) :
                 
                 self.log(self.LOG_ERROR, "Error: Could not find for each end of the cable at least one bank matching the firmware version in the file. Please make sure to download the firmware in the file for each end")
                 return self.ERROR_NO_MATCHING_FW
@@ -3278,8 +3695,6 @@ class YCable(YCableBase):
                     self.log(self.LOG_ERROR, "TOR_MCU_PEER Inactive bank (bank1) has Inavlid firmware image")
                     return -1
 
-
-
         # Check if TOR PEER MCU needs activation
         self.log(self.LOG_INFO, "TOR PEER activation:")
 
@@ -3288,52 +3703,47 @@ class YCable(YCableBase):
         if((fwfile is None) or \
            (((upgrade_info[self.TOR_MCU_PEER - 1].status_info.current_bank == 1) and \
             ((upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank1_info.image_fw_version.image_version_major != \
-                    upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_major) or \
+                    upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_major) or \
             (upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank1_info.image_fw_version.image_version_minor != \
-                    upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_minor)) and \
+                    upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_minor)) and \
             ((upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank2_info.image_fw_version.image_version_major == \
-                    upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_major) and \
+                    upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
             (upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank2_info.image_fw_version.image_version_minor == \
-                    upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_minor))) or \
+                    upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_minor))) or \
             ((upgrade_info[self.TOR_MCU_PEER - 1].status_info.current_bank == 2) and \
             ((upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank2_info.image_fw_version.image_version_major != \
-                    upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_major) or \
+                    upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_major) or \
             (upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank2_info.image_fw_version.image_version_minor != \
-                    upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_minor)) and \
+                    upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_minor)) and \
             ((upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank1_info.image_fw_version.image_version_major == \
-                    upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_major) and \
+                    upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
             (upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank1_info.image_fw_version.image_version_minor == \
-                    upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_minor))) )):
+                    upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_minor))) )):
 
-            self.log(self.LOG_DEBUG, "Toggle TOR-PEER MCU")
-            ret_val_nic = self.cable_fw_bank_toggle(upgrade_info[self.TOR_MCU_PEER - 1])
-            if ret_val_nic == self.RR_SUCCESS:
-                if skip_reset == False:
-                    rst_ret = self.reset_peer()
-                    if rst_ret == True:
-                        self.log(self.LOG_DEBUG, "in activate_firmware(), reset_peer success")
-                        ret_val =self.RR_SUCCESS
-                    else:
-                        self.log(self.LOG_ERROR, "ERROR: in activate_firmware(), reset_peer failed")
-                        return self.ERROR_RESET_FAILED
-                else:
-                    self.log(self.LOG_DEBUG, "in activate_firmware(), reset_peer skipped (flag set) for debugging purpose")
-
-                self.log(self.LOG_INFO, " In activate fw TOR PEER toggle success")
+            if boot_type == self.WARMBOOT:
+                self.log(self.LOG_INFO, "Toggle TOR-PEER MCU - warm boot")
+                ret_val = self.__cable_fw_warm_boot(upgrade_info[self.TOR_MCU_PEER - 1])
             else:
-                self.log(self.LOG_ERROR, "ERROR: while activating NIC firwmware")
+                self.log(self.LOG_INFO, "Toggle TOR-PEER MCU - cold boot")
+                ret_val = self.cable_fw_bank_toggle(upgrade_info[self.TOR_MCU_PEER - 1])
+
+            if ret_val == self.RR_SUCCESS:
+                self.log(self.LOG_INFO, "In activate fw TOR-PEER toggle success")
+            else:
+                self.log(self.LOG_ERROR, "ERROR: while activating TOR-PEER firwmware")
                 return self.ERROR_TOGGLE_FAILED
+          
 
         elif(((upgrade_info[self.TOR_MCU_PEER - 1].status_info.current_bank == 1) and \
             ((upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank1_info.image_fw_version.image_version_major == \
-                    upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_major) and \
+                    upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
             (upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank1_info.image_fw_version.image_version_minor == \
-                    upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_minor))) or \
+                    upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_minor))) or \
             ((upgrade_info[self.TOR_MCU_PEER - 1].status_info.current_bank == 2) and \
             ((upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank2_info.image_fw_version.image_version_major == \
-                    upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_major) and \
+                    upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
             (upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank2_info.image_fw_version.image_version_minor == \
-                    upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_minor)) ) ):
+                    upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_minor)) ) ):
 
             self.log(self.LOG_INFO, "TOR-PEER MCU FW Version already active")
             ret_val = self.WARNING_FW_ALREADY_ACTIVE
@@ -3350,52 +3760,47 @@ class YCable(YCableBase):
         if((fwfile is None) or \
            (((upgrade_info[self.NIC_MCU - 1].status_info.current_bank == 1) and \
             (((upgrade_info[self.NIC_MCU - 1].status_info.bank1_info.image_fw_version.image_version_major != \
-                    upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_major) or \
+                    upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_major) or \
             (upgrade_info[self.NIC_MCU - 1].status_info.bank1_info.image_fw_version.image_version_minor != \
-                    upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_minor)) or \
+                    upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_minor)) or \
             ((upgrade_info[self.MUX_CHIP - 1].status_info.bank1_info.image_fw_version.image_version_major != \
-                    upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_major) or \
+                    upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_major) or \
             (upgrade_info[self.MUX_CHIP - 1].status_info.bank1_info.image_fw_version.image_version_minor != \
-                    upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_minor))) and \
+                    upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_minor))) and \
             (((upgrade_info[self.NIC_MCU - 1].status_info.bank2_info.image_fw_version.image_version_major == \
-                    upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_major) and \
+                    upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
             (upgrade_info[self.NIC_MCU - 1].status_info.bank2_info.image_fw_version.image_version_minor == \
-                    upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_minor)) and \
+                    upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_minor)) and \
             ((upgrade_info[self.MUX_CHIP - 1].status_info.bank2_info.image_fw_version.image_version_major == \
-                    upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_major) and  \
+                    upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_major) and  \
             (upgrade_info[self.MUX_CHIP - 1].status_info.bank2_info.image_fw_version.image_version_minor == \
-                    upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_minor)))) or \
+                    upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_minor)))) or \
             ((upgrade_info[self.NIC_MCU - 1].status_info.current_bank == 2) and \
             (((upgrade_info[self.NIC_MCU - 1].status_info.bank2_info.image_fw_version.image_version_major != \
-                    upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_major) or \
+                    upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_major) or \
             (upgrade_info[self.NIC_MCU - 1].status_info.bank2_info.image_fw_version.image_version_minor != \
-                    upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_minor)) or \
+                    upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_minor)) or \
             ((upgrade_info[self.MUX_CHIP - 1].status_info.bank2_info.image_fw_version.image_version_major != \
-                    upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_major) or \
+                    upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_major) or \
             (upgrade_info[self.MUX_CHIP - 1].status_info.bank2_info.image_fw_version.image_version_minor != \
-                    upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_minor))) and \
+                    upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_minor))) and \
             (((upgrade_info[self.NIC_MCU - 1].status_info.bank1_info.image_fw_version.image_version_major == \
-                    upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_major) and \
+                    upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
             (upgrade_info[self.NIC_MCU - 1].status_info.bank1_info.image_fw_version.image_version_minor == \
-                    upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_minor))  and \
+                    upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_minor))  and \
             ((upgrade_info[self.MUX_CHIP - 1].status_info.bank1_info.image_fw_version.image_version_major == \
-                    upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_major) and \
+                    upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
             (upgrade_info[self.MUX_CHIP - 1].status_info.bank1_info.image_fw_version.image_version_minor == \
-                    upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_minor)))))) :
+                    upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_minor)))))) :
+            
+            if boot_type == self.WARMBOOT:
+                self.log(self.LOG_INFO, "Toggle NIC MCU - warm boot")
+                ret_val = self.__cable_fw_warm_boot(upgrade_info[self.NIC_MCU - 1])
+            else:
+                self.log(self.LOG_INFO, "Toggle NIC MCU - cold boot")
+                ret_val = self.cable_fw_bank_toggle(upgrade_info[self.NIC_MCU - 1])
 
-            ret_val_nic = self.cable_fw_bank_toggle(upgrade_info[self.NIC_MCU - 1])
-            if ret_val_nic == self.RR_SUCCESS:
-                if skip_reset == False:
-                    rst_ret = self.reset_nic()
-                    if rst_ret == True:
-                        self.log(self.LOG_DEBUG, "in activate_firmware(), reset_nic success")
-                        ret_val = self.RR_SUCCESS
-                    else:
-                        self.log(self.LOG_ERROR, "ERROR: in activate_firmware(), reset_nic failed")
-                        return self.ERROR_RESET_FAILED
-                else:
-                    self.log(self.LOG_DEBUG, "in activate_firmware(), reset_nic skipped (flag set) for debugging purpose")
-
+            if ret_val == self.RR_SUCCESS:
                 self.log(self.LOG_INFO, "In activate fw NIC toggle success")
             else:
                 self.log(self.LOG_ERROR, "ERROR: while activating NIC firwmware")
@@ -3403,22 +3808,22 @@ class YCable(YCableBase):
 
         elif (((upgrade_info[self.NIC_MCU - 1].status_info.current_bank == 1) and \
             (((upgrade_info[self.NIC_MCU - 1].status_info.bank1_info.image_fw_version.image_version_major == \
-                    upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_major) and \
+                    upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
             (upgrade_info[self.NIC_MCU - 1].status_info.bank1_info.image_fw_version.image_version_minor == \
-                    upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_minor)) and \
+                    upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_minor)) and \
             ((upgrade_info[self.MUX_CHIP - 1].status_info.bank1_info.image_fw_version.image_version_major == \
-                    upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_major) and \
+                    upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
             (upgrade_info[self.MUX_CHIP - 1].status_info.bank1_info.image_fw_version.image_version_minor == \
-                    upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_minor)))) or \
+                    upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_minor)))) or \
             ((upgrade_info[self.NIC_MCU - 1].status_info.current_bank == 2) and \
             (((upgrade_info[self.NIC_MCU - 1].status_info.bank2_info.image_fw_version.image_version_major == \
-                    upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_major) and \
+                    upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
             (upgrade_info[self.NIC_MCU - 1].status_info.bank2_info.image_fw_version.image_version_minor == \
-                    upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_minor))  and \
+                    upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_minor))  and \
             ((upgrade_info[self.MUX_CHIP - 1].status_info.bank2_info.image_fw_version.image_version_major == \
-                    upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_major) and \
+                    upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
             (upgrade_info[self.MUX_CHIP - 1].status_info.bank2_info.image_fw_version.image_version_minor == \
-                    upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_minor)) ) )):
+                    upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_minor)) ) )):
 
             self.log(self.LOG_INFO, "NIC MCU FW Version already active")
             ret_val = self.WARNING_FW_ALREADY_ACTIVE
@@ -3435,52 +3840,47 @@ class YCable(YCableBase):
         if((fwfile is None) or \
            (((upgrade_info[self.TOR_MCU_SELF - 1].status_info.current_bank == 1) and \
             ((upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank1_info.image_fw_version.image_version_major != \
-                    upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_major) or \
+                    upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_major) or \
             (upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank1_info.image_fw_version.image_version_minor != \
-                    upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_minor)) and \
+                    upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_minor)) and \
             ((upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank2_info.image_fw_version.image_version_major == \
-                    upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_major) and \
+                    upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
             (upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank2_info.image_fw_version.image_version_minor == \
-                    upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_minor))) or \
+                    upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_minor))) or \
             ((upgrade_info[self.TOR_MCU_SELF - 1].status_info.current_bank == 2) and \
             ((upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank2_info.image_fw_version.image_version_major != \
-                    upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_major) or \
+                    upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_major) or \
             (upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank2_info.image_fw_version.image_version_minor != \
-                    upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_minor)) and \
+                    upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_minor)) and \
             ((upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank1_info.image_fw_version.image_version_major == \
-                    upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_major) and \
+                    upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
             (upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank1_info.image_fw_version.image_version_minor == \
-                    upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_minor))) )):
+                    upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_minor))) )):
 
-            self.log(self.LOG_DEBUG, "Toggle TOR-SELF MCU")
-            ret_val_nic = self.cable_fw_bank_toggle(upgrade_info[self.TOR_MCU_SELF - 1])
-            if ret_val_nic == self.RR_SUCCESS:
-                if skip_reset == False:
-                    rst_ret = self.reset_self()
-                    if rst_ret == True:
-                        self.log(self.LOG_DEBUG, "in activate_firmware(), reset_self success")
-                        ret_val = self.RR_SUCCESS
-                    else:
-                        self.log(self.LOG_ERROR, "ERROR: in activate_firmware(), reset_self failed")
-                        return self.ERROR_RESET_FAILED
-                else:
-                    self.log(self.LOG_DEBUG, "in activate_firmware(), reset_self skipped (flag set) for debugging purpose")
-
-                self.log(self.LOG_INFO, " In activate fw TOR SELF toggle success")
+            if boot_type == self.WARMBOOT:
+                self.log(self.LOG_INFO, "Toggle TOR-SELF MCU - warm boot")
+                ret_val = self.__cable_fw_warm_boot(upgrade_info[self.TOR_MCU_SELF - 1])
             else:
-                self.log(self.LOG_ERROR, "ERROR: while activating NIC firwmware")
+                self.log(self.LOG_INFO, "Toggle TOR-SELF MCU - cold boot")
+                ret_val = self.cable_fw_bank_toggle(upgrade_info[self.TOR_MCU_SELF - 1])
+
+            if ret_val == self.RR_SUCCESS:
+                self.log(self.LOG_INFO, "In activate fw TOR-SELF toggle success")
+            else:
+                self.log(self.LOG_ERROR, "ERROR: while activating TOR-SELF firwmware")
                 return self.ERROR_TOGGLE_FAILED
+            
 
         elif(((upgrade_info[self.TOR_MCU_SELF - 1].status_info.current_bank == 1) and \
             ((upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank1_info.image_fw_version.image_version_major == \
-                    upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_major) and \
+                    upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
             (upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank1_info.image_fw_version.image_version_minor == \
-                    upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_minor))) or \
+                    upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_minor))) or \
             ((upgrade_info[self.TOR_MCU_SELF - 1].status_info.current_bank == 2) and \
             ((upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank2_info.image_fw_version.image_version_major == \
-                    upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_major) and \
+                    upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
             (upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank2_info.image_fw_version.image_version_minor == \
-                    upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_minor)) ) ):
+                    upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_minor)) ) ):
 
             self.log(self.LOG_INFO, "TOR-SELF MCU FW Version already active")
             ret_val = self.WARNING_FW_ALREADY_ACTIVE
@@ -3488,7 +3888,7 @@ class YCable(YCableBase):
         else:
             self.log(self.LOG_ERROR, "ERROR: cannot activate due to fw version mismatch")
             ret_val = self.RR_ERROR
-
+        
         return ret_val
 
 
@@ -3501,6 +3901,10 @@ class YCable(YCableBase):
         newer firmware in regards to stable cable functioning.
         The port on which this API is called for can be referred using self.port.
         Args:
+            boot_type:
+                an Integer, one of the follwing predefine constants defines the boot type
+                    WARMBOOT 
+                    COLDBOOT
             fwfile (optional):
                  a string, a path to the file which contains the firmware image.
                  Note that the firmware file can be in the format of the vendor's
@@ -3527,7 +3931,16 @@ class YCable(YCableBase):
                  RR_ERROR                      : cannot activate due to fw version mismatch
 
         """
+
+
         #ret_val = self.ERROR_FW_ROLLBACK_FAILURE
+        boot_type = self.COLDBOOT
+
+        upgrade_head = []
+        upgrade_head.append(cable_upgrade_head_s())
+        upgrade_head.append(cable_upgrade_head_s())
+        upgrade_head.append(cable_upgrade_head_s())
+        upgrade_head.append(cable_upgrade_head_s())
 
         upgrade_info = []
         upgrade_info.append(cable_upgrade_info_s())
@@ -3540,215 +3953,70 @@ class YCable(YCableBase):
         upgrade_info[self.TOR_MCU_SELF - 1].destination = self.TOR_MCU_SELF
         upgrade_info[self.TOR_MCU_PEER - 1].destination = self.TOR_MCU_PEER
 
-        # Get Chip NIC firmware version 
-        ret_val = self.cable_fw_get_status(upgrade_info[self.NIC_MCU - 1])
+        if boot_type == self.WARMBOOT:
+            if( self.cable_fw_get_status(upgrade_info[self.MUX_CHIP - 1]) == self.RR_SUCCESS):
+                if ((upgrade_info[self.MUX_CHIP - 1].status_info.bank1_info.image_fw_version.image_version_major) != \
+                    (upgrade_info[self.MUX_CHIP - 1].status_info.bank2_info.image_fw_version.image_version_major) or \
+                    (upgrade_info[self.MUX_CHIP - 1].status_info.bank1_info.image_fw_version.image_version_minor) != \
+                    (upgrade_info[self.MUX_CHIP - 1].status_info.bank2_info.image_fw_version.image_version_minor)):
+                    self.log(self.LOG_ERROR, "Can not perform Warm Boot, MUX CHIP banks have diffrent versions")
+                    return self.RR_ERROR
+            else:
+                self.log(self.LOG_ERROR, "MUX CHIP get firmware status failed")
+                return self.RR_ERROR
 
-        if ret_val != self.RR_SUCCESS:
-            self.log(self.LOG_ERROR, "ERROR: cable_fw_get_status() failed to get NIC FW version")
-            return self.ERROR_FW_GET_STATUS_FAILED
+        for i in range(0, 4):
+            if fwfile is not None:
+                ret = self.parse_image(upgrade_head[i], i+1, fwfile)
+                if ret != self.RR_SUCCESS:
+                    self.log(self.LOG_ERROR, "Parse image failed")
+                    return self.RR_ERROR
 
-        # Get Chip MUX firmware version 
-        self.log(self.LOG_DEBUG, "Check MUX firmware version")
-        ret_val = self.cable_fw_get_status(upgrade_info[self.MUX_CHIP - 1])
+            upgrade_info[i].destination = i+1
+            if( self. cable_fw_get_status(upgrade_info[i]) != self.RR_SUCCESS):
+                return self.RR_ERROR
 
-        if ret_val != self.RR_SUCCESS:
-            self.log(self.LOG_ERROR, "ERROR: cable_fw_get_status() failed to get MUX FW version")
-            return self.ERROR_FW_GET_STATUS_FAILED
-
-        # Get Chip TOR-SELF firmware version 
-        ret_val = self.cable_fw_get_status(upgrade_info[self.TOR_MCU_SELF - 1])
-        if ret_val != self.RR_SUCCESS:
-            self.log(self.LOG_ERROR, "ERROR: cable_fw_get_status() failed to get TOR-SELF FW version")
-            return self.ERROR_FW_GET_STATUS_FAILED
-
-        # Get Chip TOR-PEER firmware version 
-        ret_val = self.cable_fw_get_status(upgrade_info[self.TOR_MCU_PEER - 1])
-        if ret_val != self.RR_SUCCESS:
-            self.log(self.LOG_ERROR, "ERROR: cable_fw_get_status() failed to get TOR-PEER FW version")
-            return self.ERROR_FW_GET_STATUS_FAILED
-
-
-        if fwfile is not None:
-            fw_up_buff = array.array('I', [])
-
-            for i in range(self.MUX_FW_IMG_SIZE):
-                fw_up_buff.append(0)
-
-            # Check if NIC MCU and MUX chip needs activation 
-            #_logger.log_info("NIC MCU activation", CONSOLE_PRINT)
-            # Get NIC firmware version
-
-            file1 = open(fwfile, 'rb')
-            file1.seek(0)
-            file1.seek(self.MCU_FW_IMG_SIZE)
-
-            for i in range(self.MCU_FW_IMG_SIZE):
-                byte_val = file1.read(4)
-                if len(byte_val) == 4:
-                    fw_up_buff[i] = struct.unpack('I', byte_val)[0]
-
-            upgrade_info[self.NIC_MCU - 1].image_info.image_ptr = fw_up_buff
-            upgrade_info[self.NIC_MCU - 1].image_info.image_size = self.MCU_FW_IMG_SIZE
-
-            fw_version_array = array.array('I', [])
-            file1.seek(0)
-            file1.seek(self.MCU_FW_IMG_SIZE + self.MCU_FW_IMG_INFO_ADDR)
-
-            for i in range(self.FW_IMG_INFO_SIZE):
-                if i < 4:
-                    byte_val = file1.read(2)
-                    fw_version_array.append(0)
-                    fw_version_array[i] = struct.unpack('H', byte_val)[0]
-                else:
-                    byte_val = file1.read(4)
-                    fw_version_array.append(0)
-                    fw_version_array[i] = struct.unpack('I', byte_val)[0]
-                    break
-
-            upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_major = fw_version_array[1]
-            upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_minor = fw_version_array[0]
-            upgrade_info[self.NIC_MCU - 1].image_info.image_api_version.image_version_minor = fw_version_array[2]
-            upgrade_info[self.NIC_MCU - 1].image_info.image_api_version.image_version_major = fw_version_array[3]
-            upgrade_info[self.NIC_MCU - 1].image_info.image_crc32 = fw_version_array[4]
-
-                        
-            # Get MUX chip version
-            file1.seek(2 * self.MCU_FW_IMG_SIZE)
-            for i in range(self.MUX_FW_IMG_SIZE):
-                byte_val = file1.read(4)
-                if len(byte_val) == 4:
-                    fw_up_buff[i] = struct.unpack('I', byte_val)[0]
-
-
-            fw_version_array = array.array('I', [])
-            file1.seek(0)
-            file1.seek((2 * self.MCU_FW_IMG_SIZE) +self. MUX_FW_IMG_INFO_ADDR)
-            for i in range(self.FW_IMG_INFO_SIZE):
-                if i < 4:
-                    byte_val = file1.read(2)
-                    fw_version_array.append(0)
-                    fw_version_array[i] = struct.unpack('H', byte_val)[0]
-                else:
-                    byte_val = file1.read(4)
-                    fw_version_array.append(0)
-                    fw_version_array[i] = struct.unpack('I', byte_val)[0]
-                    break
-
-            upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_major = fw_version_array[1]
-            upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_minor = fw_version_array[0]
-            upgrade_info[self.MUX_CHIP - 1].image_info.image_api_version.image_version_minor = fw_version_array[2]
-            upgrade_info[self.MUX_CHIP - 1].image_info.image_api_version.image_version_major = fw_version_array[3]
-            upgrade_info[self.MUX_CHIP - 1].image_info.image_crc32 = fw_version_array[4]
-
-            upgrade_info[self.MUX_CHIP - 1].image_info.image_ptr = fw_up_buff
-            upgrade_info[self.MUX_CHIP - 1].image_info.image_size = self.MUX_FW_IMG_SIZE
-
-                   
-            # Get TOR self version
-            file1.seek(0)
-            
-            for i in range(self.MCU_FW_IMG_SIZE):
-                byte_val = file1.read(4)
-                if len(byte_val) == 4:
-                    fw_up_buff[i] = struct.unpack('I', byte_val)[0]
-            
-            upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_ptr = fw_up_buff
-            upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_size = self.MCU_FW_IMG_SIZE
-            
-            file1.seek(0)
-            file1.seek(self.MCU_FW_IMG_INFO_ADDR)
-            
-            for i in range(self.FW_IMG_INFO_SIZE):
-                if i < 4:
-                    byte_val = file1.read(2)
-                    fw_version_array.append(0)
-                    fw_version_array[i] = struct.unpack('H', byte_val)[0]
-                else:
-                    byte_val = file1.read(4)
-                    fw_version_array.append(0)
-                    fw_version_array[i] = struct.unpack('I', byte_val)[0]
-                    break
-            
-            upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_minor = fw_version_array[0]
-            upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_major = fw_version_array[1]
-            upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_api_version.image_version_minor = fw_version_array[2]
-            upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_api_version.image_version_major = fw_version_array[3]
-            upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_crc32 = fw_version_array[4]
-            
-            
-            # Get TOR peer version
-            file1.seek(0)
-
-            for i in range(self.MCU_FW_IMG_SIZE):
-                byte_val = file1.read(4)
-                if len(byte_val) == 4:
-                    fw_up_buff[i] = struct.unpack('I', byte_val)[0]
-            
-            upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_ptr = fw_up_buff
-            upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_size = self.MCU_FW_IMG_SIZE
-            
-            file1.seek(0)
-            file1.seek(self.MCU_FW_IMG_INFO_ADDR)
-            
-            for i in range(self.FW_IMG_INFO_SIZE):
-                if i < 4:
-                    byte_val = file1.read(2)
-                    fw_version_array.append(0)
-                    fw_version_array[i] = struct.unpack('H', byte_val)[0]
-                else:
-                    byte_val = file1.read(4)
-                    fw_version_array.append(0)
-                    fw_version_array[i] = struct.unpack('I', byte_val)[0]
-                    break
-            
-            upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_minor = fw_version_array[0]
-            upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_major = fw_version_array[1]
-            upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_api_version.image_version_minor = fw_version_array[2]
-            upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_api_version.image_version_major = fw_version_array[3]
-            upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_crc32 = fw_version_array[4]
-
-            # version details are read. Now, file can be closed
-            file1.close()
-
+        
             # First make sure there was a successful download_firmware prior to activate
             # Check that all the ends of the cable have at least one bank matching the firmware version in fwfile 
+        if fwfile is not None:
             if not ((\
                 (((upgrade_info[self.NIC_MCU - 1].status_info.bank1_info.image_fw_version.image_version_major == \
-                        upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_major) and \
+                        upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
                 (upgrade_info[self.NIC_MCU - 1].status_info.bank1_info.image_fw_version.image_version_minor == \
-                        upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_minor)) and \
+                        upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_minor)) and \
                 ((upgrade_info[self.MUX_CHIP - 1].status_info.bank1_info.image_fw_version.image_version_major == \
-                        upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_major) and \
+                        upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
                 (upgrade_info[self.MUX_CHIP - 1].status_info.bank1_info.image_fw_version.image_version_minor == \
-                        upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_minor))) or \
+                        upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_minor))) or \
                 (((upgrade_info[self.NIC_MCU - 1].status_info.bank2_info.image_fw_version.image_version_major == \
-                        upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_major) and \
+                        upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
                 (upgrade_info[self.NIC_MCU - 1].status_info.bank2_info.image_fw_version.image_version_minor == \
-                        upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_minor)) and \
+                        upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_minor)) and \
                 ((upgrade_info[self.MUX_CHIP - 1].status_info.bank2_info.image_fw_version.image_version_major == \
-                        upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_major) and  \
+                        upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_major) and  \
                 (upgrade_info[self.MUX_CHIP - 1].status_info.bank2_info.image_fw_version.image_version_minor == \
-                        upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_minor)))) and \
+                        upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_minor)))) and \
                 ( \
                 (((upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank1_info.image_fw_version.image_version_major == \
-                        upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_major) and \
+                        upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
                 (upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank1_info.image_fw_version.image_version_minor == \
-                        upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_minor))) or \
+                        upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_minor))) or \
                 (((upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank2_info.image_fw_version.image_version_major == \
-                        upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_major) and \
+                        upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
                 (upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank2_info.image_fw_version.image_version_minor == \
-                        upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_minor)))) and \
+                        upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_minor)))) and \
                 ((((upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank1_info.image_fw_version.image_version_major == \
-                        upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_major) and \
+                        upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
                 (upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank1_info.image_fw_version.image_version_minor == \
-                        upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_minor))) or \
+                        upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_minor))) or \
                 (((upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank2_info.image_fw_version.image_version_major == \
-                        upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_major) and \
+                        upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
                 (upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank2_info.image_fw_version.image_version_minor == \
-                        upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_minor))))) :
+                        upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_minor))))) :
                 self.log(self.LOG_ERROR, "Error: Could not find for each end of the cable at least one bank matching the firmware version in the file. Please make sure to download the firmware in the file for each end")
                 return self.ERROR_NO_MATCHING_FW
-           
+       
 
         else:
             # if anyone of the MCU's inactive bank has 0xDEADBEEF, return error
@@ -3805,81 +4073,83 @@ class YCable(YCableBase):
                     (upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank1_info.image_crc32 == 0xDEADBEEF)):
                     self.log(self.LOG_ERROR, "TOR_MCU_PEER Inactive bank (bank1) has Inavlid firmware image")
                     return -1
+        
+        # Check NIC MCU needs rollback
+        self.log(self.LOG_INFO, "NIC MCU rollback:")
 
         # If version in active bank is same and version in inactive bank different, then rollback
         if((fwfile is None) or \
            (((upgrade_info[self.NIC_MCU - 1].status_info.current_bank == 1) and \
             (((upgrade_info[self.NIC_MCU - 1].status_info.bank1_info.image_fw_version.image_version_major == \
-                    upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_major) and \
+                    upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
              (upgrade_info[self.NIC_MCU - 1].status_info.bank1_info.image_fw_version.image_version_minor == \
-                    upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_minor)) or \
+                    upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_minor)) or \
             ((upgrade_info[self.MUX_CHIP - 1].status_info.bank1_info.image_fw_version.image_version_major == \
-                    upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_major) and \
+                    upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
              (upgrade_info[self.MUX_CHIP - 1].status_info.bank1_info.image_fw_version.image_version_minor == \
-                    upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_minor))) \
+                    upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_minor))) \
             and \
             (((upgrade_info[self.NIC_MCU - 1].status_info.bank2_info.image_fw_version.image_version_major != \
-                    upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_major) or \
+                    upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_major) or \
              (upgrade_info[self.NIC_MCU - 1].status_info.bank2_info.image_fw_version.image_version_minor != \
-                    upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_minor)) or \
+                    upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_minor)) or \
             ((upgrade_info[self.MUX_CHIP - 1].status_info.bank2_info.image_fw_version.image_version_major != \
-                    upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_major) or  \
+                    upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_major) or  \
              (upgrade_info[self.MUX_CHIP - 1].status_info.bank2_info.image_fw_version.image_version_minor != \
-                    upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_minor)))) \
+                    upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_minor)))) \
             or \
            ((upgrade_info[self.NIC_MCU - 1].status_info.current_bank == 2) and \
             (((upgrade_info[self.NIC_MCU - 1].status_info.bank2_info.image_fw_version.image_version_major == \
-                    upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_major) and \
+                    upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
              (upgrade_info[self.NIC_MCU - 1].status_info.bank2_info.image_fw_version.image_version_minor == \
-                    upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_minor)) or \
+                    upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_minor)) or \
             ((upgrade_info[self.MUX_CHIP - 1].status_info.bank2_info.image_fw_version.image_version_major == \
-                    upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_major) and \
+                    upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
              (upgrade_info[self.MUX_CHIP - 1].status_info.bank2_info.image_fw_version.image_version_minor == \
-                    upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_minor))) \
+                    upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_minor))) \
              and \
             (((upgrade_info[self.NIC_MCU - 1].status_info.bank1_info.image_fw_version.image_version_major != \
-                    upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_major) or \
+                    upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_major) or \
              (upgrade_info[self.NIC_MCU - 1].status_info.bank1_info.image_fw_version.image_version_minor != \
-                    upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_minor)) or \
+                    upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_minor)) or \
             ((upgrade_info[self.MUX_CHIP - 1].status_info.bank1_info.image_fw_version.image_version_major != \
-                    upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_major) or \
+                    upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_major) or \
              (upgrade_info[self.MUX_CHIP - 1].status_info.bank1_info.image_fw_version.image_version_minor != \
-             upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_minor)))))) :
-
-            self.log(self.LOG_INFO, "Toggle NIC MCU")
-
-            ret_val_nic = self.cable_fw_bank_toggle(upgrade_info[self.NIC_MCU - 1])
-            if ret_val_nic == self.RR_SUCCESS:
-                rst_ret = self.reset_nic()
-                if rst_ret == True:
-                    self.log(self.LOG_INFO, "in rollback_firmware(), reset_nic success")
-                    ret_val = self.RR_SUCCESS
-                else:
-                    self.log(self.LOG_ERROR, "ERROR: in rollback_firmware(), reset_nic failed")
-                    return self.ERROR_RESET_FAILED
+             upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_minor)))))) :
+            
+            if boot_type == self.WARMBOOT:
+                self.log(self.LOG_INFO, "Rollback NIC MCU - warm boot")
+                ret_val = self.__cable_fw_warm_boot(upgrade_info[self.NIC_MCU - 1])
             else:
-                self.log(self.LOG_ERROR, "ERROR: while rollback NIC MCU to previous version")
-                return self.ERROR_TOGGLE_FAILED
+                self.log(self.LOG_INFO, "Rollback NIC MCU - cold boot")
+                ret_val = self.cable_fw_bank_toggle(upgrade_info[self.NIC_MCU - 1])
 
+            if ret_val == self.RR_SUCCESS:
+                self.log(self.LOG_INFO, "In rollback fw NIC MCU toggle success")
+            else:
+                self.log(self.LOG_ERROR, "ERROR: while rollback NIC MCU firwmware")
+                return self.ERROR_TOGGLE_FAILED
+            
+                
         elif(((upgrade_info[self.NIC_MCU - 1].status_info.current_bank == 1) and \
               (((upgrade_info[self.NIC_MCU - 1].status_info.bank1_info.image_fw_version.image_version_major != \
-                    upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_major) or \
+                    upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_major) or \
                (upgrade_info[self.NIC_MCU - 1].status_info.bank1_info.image_fw_version.image_version_minor != \
-                    upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_minor)) and \
+                    upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_minor)) and \
               ((upgrade_info[self.MUX_CHIP - 1].status_info.bank1_info.image_fw_version.image_version_major != \
-                    upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_major) or \
+                    upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_major) or \
                (upgrade_info[self.MUX_CHIP - 1].status_info.bank1_info.image_fw_version.image_version_minor != \
-                    upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_minor)))) \
+                    upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_minor)))) \
                     or \
              ((upgrade_info[self.NIC_MCU - 1].status_info.current_bank == 2) and \
               (((upgrade_info[self.NIC_MCU - 1].status_info.bank2_info.image_fw_version.image_version_major != \
-                     upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_major) or \
+                     upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_major) or \
                (upgrade_info[self.NIC_MCU - 1].status_info.bank2_info.image_fw_version.image_version_minor != \
-                    upgrade_info[self.NIC_MCU - 1].image_info.image_fw_version.image_version_minor))and \
+                    upgrade_head[self.NIC_MCU - 1].cable_up_info.image_info.image_fw_version.image_version_minor))and \
               ((upgrade_info[self.MUX_CHIP - 1].status_info.bank2_info.image_fw_version.image_version_major != \
-                     upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_major) or \
+                     upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_major) or \
                (upgrade_info[self.MUX_CHIP - 1].status_info.bank2_info.image_fw_version.image_version_minor != \
-                    upgrade_info[self.MUX_CHIP - 1].image_info.image_fw_version.image_version_minor))))):
+                    upgrade_head[self.MUX_CHIP - 1].cable_up_info.image_info.image_fw_version.image_version_minor))))):
 
             self.log(self.LOG_INFO, "NIC/MUX Previous version already rolled back")
             ret_val = self.WARNING_FW_ALREADY_ROLLEDBACK
@@ -3888,51 +4158,53 @@ class YCable(YCableBase):
             self.log(self.LOG_ERROR, "ERROR: NIC/MUX cannot rollback: no previous version found to rollback")
             ret_val = self.RR_ERROR
 
+        # Check TOR SELF MCU needs rollback
+        self.log(self.LOG_INFO, "TOR SELF MCU rollback:")
+
         # If version in active bank is same and version in inactive bank different, then rollback else skip
         if((fwfile is None) or \
            (((upgrade_info[self.TOR_MCU_SELF - 1].status_info.current_bank == 1) and \
             ((upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank1_info.image_fw_version.image_version_major == \
-                    upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_major) and \
+                    upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
              (upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank1_info.image_fw_version.image_version_minor == \
-                    upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_minor)) and \
+                    upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_minor)) and \
             ((upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank2_info.image_fw_version.image_version_major != \
-                    upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_major) or \
+                    upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_major) or \
              (upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank2_info.image_fw_version.image_version_minor != \
-                    upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_minor))) or \
+                    upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_minor))) or \
            ((upgrade_info[self.TOR_MCU_SELF - 1].status_info.current_bank == 2) and \
-            ((upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank2_info.image_fw_version.image_version_major == \
-                    upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_major) and \
+            ((upgrade_info[self.TOR_MCU_SELF- 1].status_info.bank2_info.image_fw_version.image_version_major == \
+                    upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
              (upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank2_info.image_fw_version.image_version_minor == \
-                    upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_minor)) and \
+                    upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_minor)) and \
             ((upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank1_info.image_fw_version.image_version_major != \
-                    upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_major) or \
+                    upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_major) or \
              (upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank1_info.image_fw_version.image_version_minor != \
-                    upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_minor))))) :
+                    upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_minor))))) :
 
-            self.log(self.LOG_INFO, "Toggle TOR-SELF MCU")
-            ret_val_nic = self.cable_fw_bank_toggle(upgrade_info[self.TOR_MCU_SELF - 1])
-            if ret_val_nic == self.RR_SUCCESS:
-                rst_ret = self.reset_self()
-                if rst_ret == True:
-                    self.log(self.LOG_DEBUG, "in rollback_firmware(), reset_self success")
-                    ret_val = self.RR_SUCCESS
-                else:
-                    self.log(self.LOG_ERROR, "ERROR: in rollback_firmware(), reset_self failed")
-                    return self.ERROR_RESET_FAILED
+            if boot_type == self.WARMBOOT:
+                self.log(self.LOG_INFO, "Rollback TOR-SELF MCU - warm boot")
+                ret_val = self.__cable_fw_warm_boot(upgrade_info[self.TOR_MCU_SELF - 1])
             else:
-                self.log(self.LOG_ERROR, "ERROR while rollback TOR-SELF to previous version")
+                self.log(self.LOG_INFO, "Rollback TOR-SELF MCU - cold boot")
+                ret_val = self.cable_fw_bank_toggle(upgrade_info[self.TOR_MCU_SELF - 1])
+
+            if ret_val == self.RR_SUCCESS:
+                self.log(self.LOG_INFO, "In rollback fw TOR-SELF toggle success")
+            else:
+                self.log(self.LOG_ERROR, "ERROR: while rollback TOR-SELF firwmware")
                 return self.ERROR_TOGGLE_FAILED
 
         elif(((upgrade_info[self.TOR_MCU_SELF - 1].status_info.current_bank == 1) and \
               ((upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank1_info.image_fw_version.image_version_major != \
-                    upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_major) or \
+                    upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_major) or \
                (upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank1_info.image_fw_version.image_version_minor != \
-                    upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_minor))) or \
+                    upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_minor))) or \
              ((upgrade_info[self.TOR_MCU_SELF - 1].status_info.current_bank == 2) and \
               ((upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank2_info.image_fw_version.image_version_major != \
-                     upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_major) or \
+                     upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_major) or \
                (upgrade_info[self.TOR_MCU_SELF - 1].status_info.bank2_info.image_fw_version.image_version_minor != \
-                    upgrade_info[self.TOR_MCU_SELF - 1].image_info.image_fw_version.image_version_minor)) ) ):
+                    upgrade_head[self.TOR_MCU_SELF - 1].cable_up_info.image_info.image_fw_version.image_version_minor)) ) ):
 
             self.log(self.LOG_INFO, "TOR-SELF Previous version already rolled back")
             if ret_val != self.WARNING_FW_ALREADY_ROLLEDBACK:
@@ -3942,56 +4214,59 @@ class YCable(YCableBase):
             self.log(self.LOG_ERROR, "ERROR: TOR-SELF cannot rollback: no previous version found to rollback")
             if ret_val != self.RR_ERROR:
                 ret_val = self.RR_ERROR
+        
+        # Check TOR PEER MCU needs rollback
+        self.log(self.LOG_INFO, "TOR PEER MCU rollback:")
 
         # If version in active bank is same and version in inactive bank different, then rollback else skip
         if((fwfile is None) or \
            (((upgrade_info[self.TOR_MCU_PEER - 1].status_info.current_bank == 1) and \
             ((upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank1_info.image_fw_version.image_version_major == \
-                    upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_major) and \
+                    upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
              (upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank1_info.image_fw_version.image_version_minor == \
-                    upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_minor)) and \
+                    upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_minor)) and \
             ((upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank2_info.image_fw_version.image_version_major != \
-                    upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_major) or \
+                    upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_major) or \
              (upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank2_info.image_fw_version.image_version_minor != \
-                    upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_minor))) or \
+                    upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_minor))) or \
            ((upgrade_info[self.TOR_MCU_PEER - 1].status_info.current_bank == 2) and \
             ((upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank2_info.image_fw_version.image_version_major == \
-                    upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_major) and \
+                    upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_major) and \
              (upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank2_info.image_fw_version.image_version_minor == \
-                    upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_minor)) and \
+                    upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_minor)) and \
             ((upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank1_info.image_fw_version.image_version_major != \
-                    upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_major) or \
+                    upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_major) or \
              (upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank1_info.image_fw_version.image_version_minor != \
-                    upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_minor))))) :
+                    upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_minor))))) :
 
-            self.log(self.LOG_INFO, "Toggle TOR-PEER MCU")
-            ret_val_nic = self.cable_fw_bank_toggle(upgrade_info[self.TOR_MCU_PEER - 1])
-            if ret_val_nic == self.RR_SUCCESS:
-                rst_ret = self.reset_peer()
-                if rst_ret == True:
-                    self.log(self.LOG_DEBUG, "in rollback_firmware(), reset_peer success")
-                    ret_val = self.RR_SUCCESS
-                else:
-                    self.log(self.LOG_ERROR, "ERROR: in rollback_firmware(), reset_peer failed")
-                    return self.ERROR_RESET_FAILED
+            if boot_type == self.WARMBOOT:
+                self.log(self.LOG_INFO, "Toggle TOR-PEER MCU - warm boot")
+                ret_val = self.__cable_fw_warm_boot(upgrade_info[self.TOR_MCU_PEER - 1])
             else:
-                self.log(self.LOG_ERROR, "ERROR while rollback TOR-PEER to previous version")
+                self.log(self.LOG_INFO, "Toggle TOR-PEER MCU - cold boot")
+                ret_val = self.cable_fw_bank_toggle(upgrade_info[self.TOR_MCU_PEER - 1])
+
+            if ret_val == self.RR_SUCCESS:
+                self.log(self.LOG_INFO, "In rollback fw TOR-PEER toggle success")
+            else:
+                self.log(self.LOG_ERROR, "ERROR: while rollback TOR-PEER firwmware")
                 return self.ERROR_TOGGLE_FAILED
+
 
         elif(((upgrade_info[self.TOR_MCU_PEER - 1].status_info.current_bank == 1) and \
               ((upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank1_info.image_fw_version.image_version_major != \
-                    upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_major) or \
+                    upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_major) or \
                (upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank1_info.image_fw_version.image_version_minor != \
-                    upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_minor))) or \
+                    upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_minor))) or \
              ((upgrade_info[self.TOR_MCU_PEER - 1].status_info.current_bank == 2) and \
               ((upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank2_info.image_fw_version.image_version_major != \
-                     upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_major) or \
+                     upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_major) or \
                (upgrade_info[self.TOR_MCU_PEER - 1].status_info.bank2_info.image_fw_version.image_version_minor != \
-                    upgrade_info[self.TOR_MCU_PEER - 1].image_info.image_fw_version.image_version_minor)) ) ):
+                    upgrade_head[self.TOR_MCU_PEER - 1].cable_up_info.image_info.image_fw_version.image_version_minor)) ) ):
 
             self.log(self.LOG_INFO, "TOR-PEER Previous version already rolled back")
             if ret_val != self.WARNING_FW_ALREADY_ROLLEDBACK:
-                ret_val = self.WARNING_FW_ALREADY_ROLLEDBACK
+                ret_val =self.WARNING_FW_ALREADY_ROLLEDBACK
 
         else:
             self.log(self.LOG_ERROR, "ERROR: TOR-PEER cannot rollback: no previous version found to rollback")
@@ -4019,6 +4294,14 @@ class YCable(YCableBase):
             a Boolean, True if the switch succeeded and False if it did not succeed.
         """
 
+        if mode == self.SWITCHING_MODE_AUTO:
+            mode_val = 1
+        elif mode == self.SWITCHING_MODE_MANUAL:
+            mode_val = 0
+        else:
+            self.log(self.LOG_ERROR, "Invalid mode {}".format(mode))
+            return self.ERROR_INVALID_INPUT 
+
         cmd_hdr = bytearray(5)
         cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
 
@@ -4027,7 +4310,7 @@ class YCable(YCableBase):
         cmd_hdr[2] = 0
         cmd_hdr[3] = 0
         cmd_hdr[4] = self.CORE_IP_CENTRAL
-        cmd_req_body[0] = mode
+        cmd_req_body[0] = mode_val
 
         ret_val, cmd_rsp_body = self.__cable_cmd_execute(self.CABLE_CMD_ID_SET_HMUX_CONFIG, cmd_hdr, cmd_req_body)
         
@@ -4061,12 +4344,13 @@ class YCable(YCableBase):
         ret_val, cmd_rsp_body = self.__cable_cmd_execute(self.CABLE_CMD_ID_GET_HMUX_CONFIG, cmd_hdr, cmd_req_body)
         if ret_val == 0:
             if cmd_rsp_body[0] & 0x1:
-                self.log(self.LOG_DEBUG, "Auto switch enabled")
+                self.log(self.LOG_INFO, "Auto switch enabled")
                 return self.SWITCHING_MODE_AUTO
             else:
-                self.log(self.LOG_DEBUG, "Manual switch enabled")
+                self.log(self.LOG_INFO, "Manual switch enabled")
                 return self.SWITCHING_MODE_MANUAL
         else:
+            self.log(self.LOG_ERROR, "Command execution failed. ret_val: {}".format(ret_val))
             return None
 
 
@@ -4083,6 +4367,8 @@ class YCable(YCableBase):
         if self.platform_chassis is not None:
             curr_offset = (0xFD * 128) + 217
             result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+            if result is None:
+                return self.EEPROM_ERROR
         else:
             self.log(self.LOG_ERROR, "platform_chassis is not loaded, failed to check active link status")
             return self.ERROR_PLATFORM_NOT_LOADED
@@ -4116,6 +4402,7 @@ class YCable(YCableBase):
         if ret_code == True:
             return True
         else:
+            self.log(self.LOG_ERROR, "reset_nic failed. ret_val: {}".format(ret_code))
             return False
 
 
@@ -4157,6 +4444,8 @@ class YCable(YCableBase):
                     # for next one second, keep checking the register to see if it becomes 0
                     for _ in range(30):
                         result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+                        if result is None:
+                            return self.EEPROM_ERROR
                         rval = result[0]
                         if (rval & 0x80) == 0x00:
                             ret_code = True
@@ -4203,7 +4492,7 @@ class YCable(YCableBase):
             self.log(self.LOG_WARN, "Cannot apply reset peer from NIC")
             return False
         else:
-            self.log(self.LOG_ERROR, "get_read_side failed")
+            self.log(self.LOG_ERROR, "reset_peer: get_read_side failed")
             return False 
 
     
@@ -4234,7 +4523,7 @@ class YCable(YCableBase):
             status[0] = 0x4
         else:
             self.log(self.LOG_ERROR, "Invalid target")
-            return False
+            return self.ERROR_INVALID_TARGET  
 
         # if read side is matching target, invoke reset_self()
         read_side = self.get_read_side()
@@ -4260,6 +4549,8 @@ class YCable(YCableBase):
                     for _ in range(30):
                         rval = 0
                         result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+                        if result is None:
+                            return self.EEPROM_ERROR
                         rval = result[0]
 
                         if (rval & status[0]) == 0x00:
@@ -4432,6 +4723,10 @@ class YCable(YCableBase):
         entry_to_match = valid_port_option_table_s
         
         mode_select = self.cable_get_mode()
+        if (mode_select < 0):
+            self.log(self.LOG_ERROR,"get_mode failed ret_code: {}".format(mode_select))
+            return False
+
         entry_to_match.mode = mode_select        
         curr_fec_mode = self.FEC_MODE_NONE if (mode_select == self.CABLE_MODE_50G_PCS  or mode_select == self.CABLE_MODE_100G_PCS) else self.FEC_MODE_RS
         
@@ -4442,22 +4737,27 @@ class YCable(YCableBase):
         if fec_mode == self.FEC_MODE_NONE:
             entry_to_match.fec_nic  = self.FEC_MODE_NONE
             entry_to_match.fec_tor = self.FEC_MODE_NONE
-        else:
+        elif fec_mode == self.FEC_MODE_RS:
             entry_to_match.fec_nic  = self.FEC_MODE_RS
             entry_to_match.fec_tor  = self.FEC_MODE_RS
+        else:
+            self.log(self.LOG_ERROR,"Invalid Input/NotSupported mode: {}".format(fec_mode))
+            return False
         
         entry_to_match.speed = self.PORT_SPEED_50 if (mode_select == self.CABLE_MODE_50G_PCS  or mode_select == self.CABLE_MODE_50G_FEC) else self.PORT_SPEED_100
 
         anlt_enable = self.get_anlt(self.TARGET_NIC)
         entry_to_match.anlt_nic  = 1 if anlt_enable == True else 0
-        
+
         anlt_enable = self.get_anlt(self.TARGET_TOR_A)
         entry_to_match.anlt_tor = 1 if anlt_enable == True else 0
-        
+
         anlt_enable = self.get_anlt(self.TARGET_TOR_B)
         entry_to_match.anlt_tor = 1 if anlt_enable == True else 0
 
-        ret_code = self.create_port(entry_to_match.speed, entry_to_match.fec_tor, entry_to_match.fec_nic, (1 if entry_to_match.anlt_tor == True else 0), (1 if entry_to_match.anlt_nic==True else 0))
+        ret_code = self.create_port(entry_to_match.speed, entry_to_match.fec_tor, \
+                entry_to_match.fec_nic, (1 if entry_to_match.anlt_tor == True else 0), \
+                (1 if entry_to_match.anlt_nic==True else 0))
         
         if ret_code == True:
             self.log(self.LOG_INFO, "Set {} fec mode success".format(fec_mode))
@@ -4485,6 +4785,10 @@ class YCable(YCableBase):
                      FEC_MODE_FC
         """
         mode_select  = self.cable_get_mode()
+        if (mode_select < 0):
+            self.log(self.LOG_ERROR,"get_mode failed ret_code: {}".format(mode_select))
+            return self.ERROR_GET_FEC_MODE_FAILED
+
         return  self.FEC_MODE_NONE if (mode_select == self.CABLE_MODE_50G_PCS or mode_select == self.CABLE_MODE_100G_PCS) else self.FEC_MODE_RS
 
     def set_anlt(self, enable, target):
@@ -4504,16 +4808,14 @@ class YCable(YCableBase):
             a boolean, True if the auto-negotiation + link training (AN/LT) enable/disable specified is configured
                      , False if the auto-negotiation + link training (AN/LT) enable/disable specified is not configured
         """
-        # supported only for NIC LW
-        #if target != self.TARGET_NIC: 
-        #    self.log(self.LOG_ERROR, "ANLT not supported for CLIENT")
-        #    return -1
-       
+        if (target != self.TARGET_TOR_A) and (target != self.TARGET_TOR_B) and (target != self.TARGET_NIC) and (target != self.EYE_PRBS_LOOPBACK_TARGET_LOCAL):
+            self.log(self.LOG_ERROR, "Invalid target : {}".format(target))
+            return self.ERROR_INVALID_INPUT
+
         values = self.__util_convert_to_phyinfo_details(target, 0x0F)
         core_ip = values[0]
         lane_mask = values[1]
         self.log(self.LOG_DEBUG, "core_ip {} lane_mask {}".format(core_ip, hex(lane_mask)))
-
 
         cmd_hdr = bytearray(5)
         cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
@@ -4549,6 +4851,9 @@ class YCable(YCableBase):
             a boolean, True if auto-negotiation + link training (AN/LT) is enabled
                      , False if auto-negotiation + link training (AN/LT) is not enabled
         """
+        if (target != self.TARGET_TOR_A) and (target != self.TARGET_TOR_B) and (target != self.TARGET_NIC) and (target != self.EYE_PRBS_LOOPBACK_TARGET_LOCAL):
+            self.log(self.LOG_ERROR, "Invalid target : {}".format(target))
+            return self.ERROR_INVALID_INPUT
 
         values = self.__util_convert_to_phyinfo_details(target, 0x0F)
         core_ip = values[0]
@@ -4577,11 +4882,9 @@ class YCable(YCableBase):
                 self.log(self.LOG_INFO, "AN/LT mode disabled")
                 return False
         else:
-            self.log(self.LOG_ERROR, "Get AN LT mode is failed")
+            self.log(self.LOG_ERROR, "Get AN/LT get mode command execution failed")
             return False
 
-
-     
 
     def get_event_log(self, clear_on_read=False):
         """
@@ -4660,6 +4963,7 @@ class YCable(YCableBase):
         if ret_val == 0 and cmd_rsp_body is None:
             return True
         else:
+            self.log(self.LOG_ERROR, "Command execution failed. ret_val: {}".format(ret_val))
             return False
 
 
@@ -4690,7 +4994,7 @@ class YCable(YCableBase):
 
             return timer
         else:
-            self.log(self.LOG_ERROR, "Failed to get Timer")
+            self.log(self.LOG_ERROR, "Get Timer value command execution failed")
             return False
 
 
@@ -4707,7 +5011,11 @@ class YCable(YCableBase):
         Returns:
             a boolean, True if restart is successful
         """
-        
+
+        if (target != self.TARGET_TOR_A) and (target != self.TARGET_TOR_B) and (target != self.TARGET_NIC) and (target != self.EYE_PRBS_LOOPBACK_TARGET_LOCAL):
+            self.log(self.LOG_ERROR, "Invalid target : {}".format(target))
+            return self.ERROR_INVALID_TARGET
+
         values = self.__util_convert_to_phyinfo_details(target, 0x0F)
         core_ip = values[0]
         lane_mask = values[1]
@@ -4732,8 +5040,6 @@ class YCable(YCableBase):
             return False
 
 
-
-
     def get_anlt_stats(self, target):
         """
         This API returns auto-negotiation + link training (AN/LT) mode statistics
@@ -4748,7 +5054,10 @@ class YCable(YCableBase):
            a dictionary:
                a detailed format agreed upon by vendors
         """
-        
+        if (target != self.TARGET_TOR_A) and (target != self.TARGET_TOR_B) and (target != self.TARGET_NIC) and (target != self.EYE_PRBS_LOOPBACK_TARGET_LOCAL):
+            self.log(self.LOG_ERROR, "Invalid target : {}".format(target))
+            return self.ERROR_INVALID_TARGET, None
+
         values = self.__util_convert_to_phyinfo_details(target, 0x0F)
         core_ip = values[0]
         lane_mask = values[1]
@@ -4862,6 +5171,13 @@ class YCable(YCableBase):
             a boolean, True if the enable is successful
                      , False if the enable failed
         """
+        if (target != self.TARGET_TOR_A) and (target != self.TARGET_TOR_B) and (target != self.TARGET_NIC) and (target != self.EYE_PRBS_LOOPBACK_TARGET_LOCAL):
+            self.log(self.LOG_ERROR, "Invalid target : {}".format(target))
+            return False
+
+        if lane_mask & 0xF == 0:
+            self.log(self.LOG_ERROR, "Invalid lane_mask : {}".format(hex(lane_mask)))
+            return False
 
         core_ip, lane_mask = self.__util_convert_to_phyinfo_details(target, lane_mask)
 
@@ -4931,6 +5247,10 @@ class YCable(YCableBase):
                      , False if the disable failed
         """
 
+        if (target != self.TARGET_TOR_A) and (target != self.TARGET_TOR_B) and (target != self.TARGET_NIC) and (target != self.EYE_PRBS_LOOPBACK_TARGET_LOCAL):
+            self.log(self.LOG_ERROR, "Invalid target : {}".format(target))
+            return self.ERROR_INVALID_TARGET
+
         core_ip, lane_mask = self.__util_convert_to_phyinfo_details(target, 0xF)
 
         cmd_hdr = bytearray(5)
@@ -4951,7 +5271,7 @@ class YCable(YCableBase):
             self.log(self.LOG_INFO, "Disable PRBS mode is successful")
             return True
         else:
-            self.log(self.LOG_ERROR, "Disable PRBS mode is failed")
+            self.log(self.LOG_ERROR, "Disable PRBS mode command execution failed")
             return False
 
 
@@ -4981,6 +5301,14 @@ class YCable(YCableBase):
             a boolean, True if the enable is successful
                      , False if the enable failed
         """
+        if (target != self.EYE_PRBS_LOOPBACK_TARGET_NIC) and (target != self.EYE_PRBS_LOOPBACK_TARGET_TOR_A) and \
+           (target != self.EYE_PRBS_LOOPBACK_TARGET_TOR_B) and (target != self.EYE_PRBS_LOOPBACK_TARGET_LOCAL):
+            self.log(self.LOG_ERROR, "Invalid target : {}".format(target))
+            return False
+
+        if lane_mask & 0xF == 0:
+            self.log(self.LOG_ERROR, "Invalid lane mask {}".format(hex(lane_mask)))
+            return False
 
         ret_val = self.__util_convert_to_loopback_phyinfo(target, lane_mask, mode)
         core_ip = ret_val[0]
@@ -5025,6 +5353,11 @@ class YCable(YCableBase):
             a boolean, True if the disable is successful
                      , False if the disable failed
         """
+
+        if (target != self.EYE_PRBS_LOOPBACK_TARGET_NIC) and (target != self.EYE_PRBS_LOOPBACK_TARGET_TOR_A) and \
+           (target != self.EYE_PRBS_LOOPBACK_TARGET_TOR_B) and (target != self.EYE_PRBS_LOOPBACK_TARGET_LOCAL):
+            self.log(self.LOG_ERROR, "Invalid target : {}".format(target))
+            return False
 
         ret_val = self.__util_convert_to_loopback_phyinfo(target, 0xF, self.LOOPBACK_MODE_NEAR_END)
         core_ip = ret_val[0]
@@ -5084,6 +5417,11 @@ class YCable(YCableBase):
                     LOOPBACK_MODE_NEAR_END
                     LOOPBACK_MODE_FAR_END
         """
+        if (target != self.EYE_PRBS_LOOPBACK_TARGET_NIC) and (target != self.EYE_PRBS_LOOPBACK_TARGET_TOR_A) and \
+           (target != self.EYE_PRBS_LOOPBACK_TARGET_TOR_B) and (target != self.EYE_PRBS_LOOPBACK_TARGET_LOCAL):
+            self.log(self.LOG_ERROR, "Invalid target : {}".format(target))
+            return self.ERROR_INVALID_TARGET
+
         ret_val = self.__util_convert_to_loopback_phyinfo(target, 0xF, self.LOOPBACK_MODE_FAR_END)
         core_ip = ret_val[0]
         lane_mask = ret_val[1]
@@ -5108,7 +5446,7 @@ class YCable(YCableBase):
                 self.log(self.LOG_INFO, "The Far-End loopback mode is set ON")
                 return self.LOOPBACK_MODE_FAR_END
         else:
-            self.log(self.LOG_INFO, "Error getting the loopback mode ON/OFF")
+            self.log(self.LOG_ERROR, "Error getting the loopback mode ON/OFF")
             return self.LOOPBACK_MODE_NONE
 
         # check NEAR_END loopback
@@ -5126,7 +5464,7 @@ class YCable(YCableBase):
                 self.log(self.LOG_INFO, "The Near-End loopback mode is set ON")
                 return self.LOOPBACK_MODE_NEAR_END
         else:
-            self.log(self.LOG_INFO, "Error getting the loopback mode ON/OFF")
+            self.log(self.LOG_ERROR, "Error getting the loopback mode ON/OFF")
             return self.LOOPBACK_MODE_NONE
 
         return self.LOOPBACK_MODE_NONE
@@ -5202,7 +5540,6 @@ class YCable(YCableBase):
             ret_code, reg_val = self.rd_reg_ex(reg_addr, 0x0)
             if ret_code == -1:
                 print("ERROR: rd_reg_ex {} Failed!".format(hex(reg_addr)))
-
             ret_code = self.wr_reg_ex(reg_addr, reg_val, 0x0)
             if ret_code is False:
                 print("ERROR: wr_reg_ex to {} Failed!".format(hex(reg_addr)))
@@ -5477,6 +5814,10 @@ class YCable(YCableBase):
                      False on failure
         """
 
+        if interface != self.TARGET_NIC and interface != self.TARGET_TOR_A and interface != self.TARGET_TOR_B:
+            self.log(self.LOG_ERROR, "Invalid target {}".format(interface))
+            return False
+
         if self.__qsfp_is_valid_page(page_no) == False:
             self.log(self.LOG_ERROR, "Error: invalid page no {}".format(hex(page_no)))
             return False
@@ -5519,7 +5860,6 @@ class YCable(YCableBase):
                 return False
     
         return True
-
 
 
     def cable_set_mode(self, cable_mode):
@@ -5576,7 +5916,7 @@ class YCable(YCableBase):
             if cmd_rsp_body is not None:
                 self.log(self.LOG_ERROR, "ERROR: Responce unexpected")
 
-            self.log(self.LOG_WARN, "CABLE MODE SET {} NOT SUCCESSFUL".format(mode))
+            self.log(self.LOG_ERROR, "CABLE MODE SET {} NOT SUCCESSFUL".format(mode))
             return False
 
 
@@ -5623,7 +5963,7 @@ class YCable(YCableBase):
                 self.log(self.LOG_DEBUG, "CABLE_MODE_50G_PCS")
                 ret_mode = 3
             else:
-                self.log(self.LOG_DEBUG, "Cable mode not set")
+                self.log(self.LOG_ERROR, "Cable mode not set")
                 ret_mode = -1
         else:
             ret_mode = -1
@@ -5661,6 +6001,10 @@ class YCable(YCableBase):
             list,      error count list contains error count for each lane
         """
     
+        if lane_mask & 0xF == 0:
+            self.log(self.LOG_ERROR, "Lane mask not Valid ")
+            return self.ERROR_INVALID_INPUT
+
         core_ip, lane_mask = self.__util_convert_to_phyinfo_details(target, lane_mask)
         if mode_value == 0:
             prbs_type = self.CABLE_PRBS7
@@ -5769,13 +6113,14 @@ class YCable(YCableBase):
     
         """
     
-        intr_status = bytearray(6)
+        intr_status = bytearray(7)
         curr_offset = [self.QSFP28_LP_5_TX_RX_CDR_LOL,
                        self.QSFP28_LOS_LOL_SEC,
                        self.QSFP28_LP_3_TX_RX_LOSS,
                        self.QSFP28_MESC_FAULT,
                        self.QSFP28_LINK_FAULT,
-                       self.QSFP28_LINK_DOWN]
+                       self.QSFP28_LINK_DOWN,
+                       self.QSFP28_BIP_CW_ERR_FAULT]
     
         for ind in range(0, len(curr_offset)):
             result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset[ind], 1)
@@ -5829,9 +6174,9 @@ class YCable(YCableBase):
                 self.log(self.LOG_DEBUG, "phy_watchdog      = {}".format(1 if((status[0] & (1 << 0))) else 0))
                 self.log(self.LOG_DEBUG, "phy_fw_ser        = {}".format(1 if((status[0] & (1 << 1))) else 0))
                 self.log(self.LOG_DEBUG, "phy_fw_ded        = {}".format(1 if((status[0] & (1 << 2))) else 0))
-                self.log(self.LOG_DEBUG, "nic_mcu_wd_expiry = {}".format(1 if((status[0] & (1 << 3))) else 0))
-                self.log(self.LOG_DEBUG, "torA_mcu_wd_expiry= {}".format(1 if((status[0] & (1 << 4))) else 0))
-                self.log(self.LOG_DEBUG, "torB_mcu_wd_expiry= {}".format(1 if((status[0] & (1 << 5))) else 0))
+                self.log(self.LOG_DEBUG, "torA_mcu_wd_expiry = {}".format(1 if((status[0] & (1 << 3))) else 0))
+                self.log(self.LOG_DEBUG, "torB_mcu_wd_expiry= {}".format(1 if((status[0] & (1 << 4))) else 0))
+                self.log(self.LOG_DEBUG, "nic_mcu_wd_expiry= {}".format(1 if((status[0] & (1 << 5))) else 0))
                 self.log(self.LOG_DEBUG, "avs_failure       = {}".format(1 if((status[0] & (1 << 6))) else 0))
                 self.log(self.LOG_DEBUG, "mux_switch        = {}".format(1 if((status[0] & (1 << 7))) else 0))
     
@@ -5848,6 +6193,12 @@ class YCable(YCableBase):
                 intr_status[5] = status[0]
                 self.log(self.LOG_DEBUG, "torA_to_nic_pcs_fec_link_down = {}".format(1 if((status[0] & (1 << 0))) else 0))
                 self.log(self.LOG_DEBUG, "torB_to_nic_pcs_fec_link_down = {}".format(1 if((status[0] & (1 << 1))) else 0))
+
+            if curr_offset[ind] == self.QSFP28_BIP_CW_ERR_FAULT:
+                status = struct.unpack("<B", result)
+                intr_status[6] = status[0]
+                self.log(self.LOG_DEBUG, "torA BIP or CW Uncorrected error = {}".format(1 if((status[0] & (1 << 0))) else 0))
+                self.log(self.LOG_DEBUG, "torB BIP or CW Uncorrected error = {}".format(1 if((status[0] & (1 << 1))) else 0))
     
         return intr_status
 
@@ -5888,6 +6239,12 @@ class YCable(YCableBase):
                        False on api fail
         """
     
+        if (target != self.TARGET_TOR_A) and (target != self.TARGET_TOR_B) and (target != self.TARGET_NIC) and (target != self.EYE_PRBS_LOOPBACK_TARGET_LOCAL):
+            self.log(self.LOG_ERROR, "Invalid target : {}".format(target))
+            return self.ERROR_INVALID_TARGET
+        elif lane_map & 0xF == 0:
+            self.log(self.LOG_ERROR, "Invalid Lane map {}".format(lane_map))
+            return self.ERROR_INVALID_INPUT
     
         ret_val = self.__util_convert_to_phyinfo_details(target, lane_map)
         core_ip = ret_val[0]
@@ -5909,6 +6266,7 @@ class YCable(YCableBase):
         if ret_val == 0 and cmd_rsp_body is None:
             return True
         else:
+            self.log(self.LOG_ERROR, "Command execution failed. ret_val: {}".format(ret_val))
             return False
 
     def cable_get_squelch(self):
@@ -5980,6 +6338,9 @@ class YCable(YCableBase):
                 else:
                     self.log(self.LOG_DEBUG, "line side tx lane {} is un-squelch".format(lane))
                     lane += 1
+        else:
+            self.log(self.LOG_ERROR, "Command execution failed. ret_val: {}".format(ret_val))
+            return None
 
         return cmd_rsp_body
 
@@ -6057,9 +6418,10 @@ class YCable(YCableBase):
                        self.QSFP28_LP_100_TX_RX_LOS_MASK,
                        self.QSFP_MESC_MASK,
                        self.QSFP28_UP_DOWN_MASK,
-                       self.QSFP_LINK_FAULT_MASK]
+                       self.QSFP_LINK_FAULT_MASK,
+                       self.QSFP28_BIP_UNCORR_MASK]
 
-        intr_mask = bytearray(6)
+        intr_mask = bytearray(7)
 
         for ind in range(0, len(curr_offset)):
             result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset[ind], 1)
@@ -6129,6 +6491,12 @@ class YCable(YCableBase):
                 self.log(self.LOG_DEBUG, "torA_to_nic_pcs_fec_link_down={}".format(1 if((status[0] & (1 << 0))) else 0))
                 self.log(self.LOG_DEBUG, "torB_to_nic_pcs_fec_link_down= {}".format(1 if((status[0] & (1 << 1))) else 0))
 
+            if curr_offset[ind] == self.QSFP28_BIP_UNCORR_MASK:
+                status = struct.unpack("<B", result)
+                intr_mask[6] = status[0]
+                self.log(self.LOG_DEBUG, "tora bip error/fec un correctable error = {}".format(1 if((status[0] & (1 << 0))) else 0))
+                self.log(self.LOG_DEBUG, "torb bip error/fec un correctable error = {}".format(1 if((status[0] & (1 << 1))) else 0))
+
         return intr_mask
 
 
@@ -6168,31 +6536,40 @@ class YCable(YCableBase):
             buffer1 = bytearray(self.MAX_REQ_PARAM_LEN)
             curr_offset = self.QSFP28_LP_102_TX_RX_CDR_LOL_MASK
             buffer1[0] = intr_mask[0]
-            result1 = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer1)
+            if self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer1) is False:
+                return self.ERROR_WR_EEPROM_FAILED
             curr_offset = self.QSFP28_LOS_LOL_SEC_MASK
             buffer1[0] = intr_mask[1]
-            result2 = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer1)
+            if self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer1) is False:
+                return self.ERROR_WR_EEPROM_FAILED
             curr_offset = self.QSFP28_LP_100_TX_RX_LOS_MASK
             buffer1[0] = intr_mask[2]
-            result3 = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer1)
+            if self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer1) is False:
+                return self.ERROR_WR_EEPROM_FAILED
             curr_offset = self.QSFP_MESC_MASK
             buffer1[0] = intr_mask[3]
-            result4 = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer1)
+            if self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer1) is False:
+                return self.ERROR_WR_EEPROM_FAILED
             curr_offset = self.QSFP_LINK_FAULT_MASK
             buffer1[0] = intr_mask[4]
-            result5 = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer1)
+            if self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer1) is False:
+                return self.ERROR_WR_EEPROM_FAILED
             curr_offset = self.QSFP28_UP_DOWN_MASK
             buffer1[0] = intr_mask[5]
-            result6 = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer1)
+            if self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer1) is False:
+                return self.ERROR_WR_EEPROM_FAILED
+            curr_offset = self.QSFP28_BIP_UNCORR_MASK
+            buffer1[0] = intr_mask[6]
+            if self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer1) is False:
+                return self.ERROR_WR_EEPROM_FAILED
         else:
             self.log(self.LOG_WARN, "platform_chassis is not loaded, failed to set intr mask ")
             return -1
-        if False in {result1, result2, result3, result4, result5, result6}:
-            return False
-        else:
-            return True
+
+        return True
 
     def cable_check_intr_active_status(self):
+
         curr_offset = self.QSFP28_LP_QSFP28_LP_2_STATUS_CR
         result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
         if self.__validate_read_data(result, 1, "get check_active_status") == self.EEPROM_READ_DATA_INVALID:
@@ -6201,3 +6578,302 @@ class YCable(YCableBase):
             self.log(self.LOG_DEBUG, "intr value : {}".format(hex(result[0])))
             return result[0]
 
+    def cable_read_nic_mcu_ram(self, address):
+        """
+        utility function reads RAM address and returns value
+
+        """
+
+        cmd_hdr = bytearray(5)
+        cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
+
+        cmd_hdr[0] = 5
+        cmd_hdr[1] = 4
+        cmd_hdr[2] = 0
+        cmd_hdr[3] = 0
+        cmd_hdr[4] = self.CORE_IP_CENTRAL
+
+        cmd_req_body[0] = address & 0xFF
+        cmd_req_body[1] = (address >> 8) & 0xFF
+        cmd_req_body[2] = (address >> 16) & 0xFF
+        cmd_req_body[3] = (address >> 24) & 0xFF
+        cmd_req_body[4] = 4
+
+        ret_val, cmd_rsp_body = self.__cable_cmd_execute(self.CABLE_CMD_ID_READ_MCU_RAM, cmd_hdr, cmd_req_body)
+        if ret_val == 0 and cmd_rsp_body is not None:
+            return cmd_rsp_body
+        else:
+            self.log(self.LOG_ERROR, "cable_read_nic_mcu_ram failed ")
+
+        return None
+
+    def cable_clear_nic_mcu_dump(self):
+        """
+        utility function reads RAM address and returns value
+
+        """
+
+        cmd_hdr = bytearray(5)
+        cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
+
+        cmd_hdr[0] = 0
+        cmd_hdr[1] = 0
+        cmd_hdr[2] = 0
+        cmd_hdr[3] = 0
+        cmd_hdr[4] = self.CORE_IP_CENTRAL
+
+        ret_val, cmd_rsp_body = self.__cable_cmd_execute(self.CABLE_CMD_ID_CLEAR_CRASH, cmd_hdr, cmd_req_body)
+        if ret_val == 0 :
+            self.log(self.LOG_ERROR, "nic_mcu_crash cleared ")
+            if cmd_rsp_body is not None:
+                self.log(self.LOG_DEBUG, "CABLE_CMD_ID_CLEAR_CRASH returned value?")
+        else:
+            self.log(self.LOG_ERROR, "cable_clear_nic_mcu_crash failed ")
+
+        return None
+
+    def read_tor_ram(self, address):
+        """
+        Utility function to read SRAM address
+        """
+        addr_array = bytearray(4)
+        buf = bytearray(4)
+
+        addr_array[0] = address & 0xFF
+        addr_array[1] = (address >> 8) & 0xFF
+        addr_array[2] = (address >> 16) & 0xFF
+        addr_array[3] = (address >> 24) & 0xFF
+
+        # write the ram address to read
+        curr_offset = (0xFD * 128) + 0xF8
+        result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 4, addr_array)
+        if result is False:
+            return self.ERROR_WR_EEPROM_FAILED
+
+        # write count
+        curr_offset = (0xFD * 128) + 0xF6
+        buf[0] = 4
+        result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buf)
+        if result is False:
+            return self.ERROR_WR_EEPROM_FAILED
+
+        curr_offset = (0xFD * 128) + 0xF6
+        for _ in range(0, 3000):
+            status = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+            if status is None:
+                self.log(self.LOG_ERROR, "read_tor_ram: read_eeprom failed")
+                return self.EEPROM_ERROR
+
+            if status[0] == 0:
+                break
+
+        curr_offset = (0xFD * 128) + 0xF7
+        status = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+        if status is None:
+            self.log(self.LOG_ERROR, "read_tor_ram: read_eeprom failed")
+            return self.EEPROM_ERROR
+
+        if status[0] == 0:
+            curr_offset = (0xFD * 128) + 0xFC
+            val_arr = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 4)
+            if val_arr is None:
+                return self.EEPROM_ERROR
+        else:
+            return -1
+
+        return val_arr
+
+    def cable_clear_tor_mcu_dump(self):
+        """
+        Utility function to cear TOR crash info
+        """
+        # clear TOR crash
+        buf = bytearray(1)
+        buf[0] = 1
+        curr_offset = ((0xFD * 128) + 0xF2)
+        result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buf)
+        if result is False:
+            return self.ERROR_WR_EEPROM_FAILED
+        
+        curr_offset = ((0xFD * 128) + 0xF2)
+        for _ in range(0, 3000):
+            status = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+            if status is None:
+                self.log(self.LOG_ERROR, "clear_tor_crash_info: read_eeprom failed")
+                return self.EEPROM_ERROR
+            if status[0] == 0:
+                break
+    
+    def cable_print_nic_mcu_dump(self):
+        """
+        Dump NIC crash info
+        """
+        buff      = bytearray()
+        itr_count = 2048
+        address   = 0x20030000
+        no_crash  = 1
+        exp_val   = ram2_exp_s()
+
+        self.log(self.LOG_DEBUG, "Reading NIC dump data...")
+        for i in range(0, itr_count):
+            tval = self.cable_read_nic_mcu_ram(address)
+            if tval is None:
+                self.log(self.LOG_ERROR, "cable_print_nic_mcu_dump: read_tor_ram failed")
+                break
+
+            if i == 0:
+                value = struct.unpack("<I", tval)[0]
+                if value != 0xDEADBEEF:
+                    self.log(self.LOG_WARN, "No new crash on NIC")
+                    break
+            elif i == 1:
+                value = struct.unpack("<I", tval)[0]
+                itr_count = value
+
+            no_crash = 0
+            buff += tval
+            address = address + 4
+
+
+        # print the crash info
+        if no_crash == 0:
+            exp_val.hdr_val.crash      = struct.unpack('I', buff[0:4])[0]
+            exp_val.hdr_val.crash_len  = struct.unpack('I', buff[4:8])[0]
+            exp_val.hdr_val.cfsr_reg   = struct.unpack('I', buff[8:12])[0]
+            exp_val.hdr_val.ufsr_reg   = struct.unpack('H', buff[12:14])[0]
+            exp_val.hdr_val.bfsr_reg   = struct.unpack('B', buff[14:15])[0]
+            exp_val.hdr_val.mmfsr_reg  = struct.unpack('B', buff[15:16])[0]
+            exp_val.hdr_val.val.r0     = struct.unpack('I', buff[16:20])[0]
+            exp_val.hdr_val.val.r1     = struct.unpack('I', buff[20:24])[0]
+            exp_val.hdr_val.val.r2     = struct.unpack('I', buff[24:28])[0]
+            exp_val.hdr_val.val.r3     = struct.unpack('I', buff[28:32])[0]
+            exp_val.hdr_val.val.r12    = struct.unpack('I', buff[32:36])[0]
+            exp_val.hdr_val.val.lr     = struct.unpack('I', buff[36:40])[0]
+            exp_val.hdr_val.val.return_address = struct.unpack('I', buff[40:44])[0]
+            exp_val.hdr_val.val.xpsr           = struct.unpack('I', buff[44:48])[0]
+            exp_val.hdr_val.exp_sp_depth       = struct.unpack('I', buff[48:52])[0]
+            stack_depth = exp_val.hdr_val.exp_sp_depth
+
+            sidx = 52
+            for i in range(stack_depth):
+                exp_val.exp_stack.append(0)
+
+            for i in range(stack_depth):
+                exp_val.exp_stack[i] = struct.unpack('I', buff[sidx:sidx+4])[0]
+                sidx += 4
+
+
+            output_str = "Exception status register values:\n"
+            output_str += "csfr=>>>>>>> = {}\n".format(hex(exp_val.hdr_val.cfsr_reg))
+            output_str += "ufsr_reg=>>> = {}\n".format(hex(exp_val.hdr_val.ufsr_reg))
+            output_str += "bfsr_reg=>>> = {}\n".format(hex(exp_val.hdr_val.bfsr_reg))
+            output_str += "mmfsr_reg=>> = {}\n".format(hex(exp_val.hdr_val.mmfsr_reg))
+            output_str += "-------------------------------------------------\n"
+            output_str += "Exception context Frame\n"
+            output_str += "R0=>>>>> {}\n".format(hex(exp_val.hdr_val.val.r0))
+            output_str += "R1=>>>>> {}\n".format(hex(exp_val.hdr_val.val.r1))
+            output_str += "R2=>>>>> {}\n".format(hex(exp_val.hdr_val.val.r2))
+            output_str += "R3=>>>>> {}\n".format(hex(exp_val.hdr_val.val.r3))
+            output_str += "R12=>>>> {}\n".format(hex(exp_val.hdr_val.val.r12))
+            output_str += "LR=>>>>> {}\n".format(hex(exp_val.hdr_val.val.lr))
+            output_str += "Return Address=>>>>> {}\n".format(hex(exp_val.hdr_val.val.return_address))
+            output_str += "XPSR=>>>>> {}\n".format(hex(exp_val.hdr_val.val.xpsr))
+            output_str += "-------------------------------------------------\n"
+            i = stack_depth - 1
+
+            for j in range(i, -1, -1):
+                output_str +=  "stack value at {}  >>>>>> {}\n".format(j, hex(exp_val.exp_stack[j]))
+
+            return output_str
+
+        return None
+
+
+
+    def cable_print_tor_mcu_dump(self):
+        """
+        Dump TOR crash info
+        """
+        buff      = bytearray()
+        itr_count = 2048
+        address   = 0x20030000
+        no_crash  = 1
+        exp_val   = ram2_exp_s()
+
+        self.log(self.LOG_DEBUG, "Reading TOR dump data...")
+        for i in range(0, itr_count):
+            tval = self.read_tor_ram(address)
+            if tval is None:
+                self.log(self.LOG_ERROR, "cable_print_tor_mcu_dump: read_tor_ram failed")
+                break
+
+            if i == 0:
+                value = struct.unpack("<I", tval)[0]
+                if value != 0xDEADBEEF:
+                    self.log(self.LOG_DEBUG, "No new crash on TOR")
+                    break
+            elif i == 1:
+                value = struct.unpack("<I", tval)[0]
+                itr_count = value
+
+            no_crash = 0
+            buff += tval
+
+            address = address + 4
+
+        if no_crash == 0:
+            
+            exp_val.hdr_val.crash = struct.unpack('I', buff[0:4])[0]
+            exp_val.hdr_val.crash_len = struct.unpack('I', buff[4:8])[0]
+            exp_val.hdr_val.cfsr_reg  = struct.unpack('I', buff[8:12])[0]
+            exp_val.hdr_val.ufsr_reg  = struct.unpack('H', buff[12:14])[0]
+            exp_val.hdr_val.bfsr_reg  = struct.unpack('B', buff[14:15])[0]
+            exp_val.hdr_val.mmfsr_reg = struct.unpack('B', buff[15:16])[0]
+            exp_val.hdr_val.val.r0    = struct.unpack('I', buff[16:20])[0]
+            exp_val.hdr_val.val.r1    = struct.unpack('I', buff[20:24])[0]
+            exp_val.hdr_val.val.r2    = struct.unpack('I', buff[24:28])[0]
+            exp_val.hdr_val.val.r3    = struct.unpack('I', buff[28:32])[0]
+            exp_val.hdr_val.val.r12   = struct.unpack('I', buff[32:36])[0]
+            exp_val.hdr_val.val.lr    = struct.unpack('I', buff[36:40])[0]
+            exp_val.hdr_val.val.return_address = struct.unpack('I', buff[40:44])[0]
+            exp_val.hdr_val.val.xpsr     = struct.unpack('I', buff[44:48])[0]
+            exp_val.hdr_val.exp_sp_depth = struct.unpack('I', buff[48:52])[0]
+            stack_depth = exp_val.hdr_val.exp_sp_depth
+
+            sidx = 52
+            for i in range(stack_depth):
+                exp_val.exp_stack.append(0)
+
+            for i in range(stack_depth):
+                exp_val.exp_stack[i] = struct.unpack('I', buff[sidx:sidx+4])[0]
+                sidx += 4
+
+            output_str = "Exception status register values:\n"
+            output_str += "csfr=>>>>>>> = {}\n".format(hex(exp_val.hdr_val.cfsr_reg))
+            output_str += "ufsr_reg=>>> = {}\n".format(hex(exp_val.hdr_val.ufsr_reg))
+            output_str += "bfsr_reg=>>> = {}\n".format(hex(exp_val.hdr_val.bfsr_reg))
+            output_str += "mmfsr_reg=>> = {}\n".format(hex(exp_val.hdr_val.mmfsr_reg))
+            output_str += "-------------------------------------------------\n"
+            output_str += "Exception context Frame\n"
+            output_str += "R0=>>>>> {}\n".format(hex(exp_val.hdr_val.val.r0))
+            output_str += "R1=>>>>> {}\n".format(hex(exp_val.hdr_val.val.r1))
+            output_str += "R2=>>>>> {}\n".format(hex(exp_val.hdr_val.val.r2))
+            output_str += "R3=>>>>> {}\n".format(hex(exp_val.hdr_val.val.r3))
+            output_str += "R12=>>>> {}\n".format(hex(exp_val.hdr_val.val.r12))
+            output_str += "LR=>>>>> {}\n".format(hex(exp_val.hdr_val.val.lr))
+            output_str += "Return Address=>>>>> {}\n".format(hex(exp_val.hdr_val.val.return_address))
+            output_str += "XPSR=>>>>> {}\n".format(hex(exp_val.hdr_val.val.xpsr))
+            output_str += "-------------------------------------------------\n"
+            i = stack_depth - 1
+
+            for j in range(i, -1, -1):
+                output_str += "stack value at {}  >>>>>> {}\n".format(j, hex(exp_val.exp_stack[j]))
+
+
+            return output_str
+
+        return None
+
+
+        
+ 
