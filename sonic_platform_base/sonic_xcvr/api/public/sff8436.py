@@ -83,8 +83,8 @@ class Sff8436Api(XcvrApi):
             return None
 
         bulk_status = {
-            "rx_los": all(rx_los),
-            "tx_fault": all(tx_fault),
+            "rx_los": all(rx_los) if self.get_rx_los_support() else 'N/A',
+            "tx_fault": all(tx_fault) if self.get_tx_fault_support() else 'N/A',
             "tx_disable": all(tx_disable),
             "tx_disabled_channel": tx_disabled_channel,
             "temperature": temp,
