@@ -111,10 +111,10 @@ class Sff8436Api(XcvrApi):
                                'txbiaslowalarm',   'txbiaslowwarning'
                               ]
         threshold_info_dict = dict.fromkeys(threshold_info_keys, 'N/A')
-        flat_mem = self.is_flat_memory()
-        if flat_mem is None:
+        thresh_support = self.get_transceiver_thresholds_support()
+        if thresh_support is None:
             return None
-        if flat_mem:
+        if not thresh_support:
             return threshold_info_dict
 
         temp_thresholds = self.xcvr_eeprom.read(consts.TEMP_THRESHOLDS_FIELD)
@@ -268,3 +268,6 @@ class Sff8436Api(XcvrApi):
 
     def get_tx_disable_support(self):
         return self.xcvr_eeprom.read(consts.TX_DISABLE_SUPPORT_FIELD)
+
+    def get_transceiver_thresholds_support(self):
+        return not self.is_flat_memory()

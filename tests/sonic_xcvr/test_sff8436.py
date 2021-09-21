@@ -47,3 +47,4 @@ class TestSff8436(object):
         self.api.get_tx_bias_support()
         self.api.get_tx_fault_support()
         self.api.get_tx_disable_support()
+        self.api.get_transceiver_thresholds_support()

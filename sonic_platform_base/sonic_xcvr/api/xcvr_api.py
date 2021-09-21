@@ -419,3 +419,12 @@ class XcvrApi(object):
             A Boolean, True if Tx can be disabled, False otherwise
         """
         raise NotImplementedError
+
+    def get_transceiver_thresholds_support(self):
+        """
+        Retrieves the thresholds reporting capability by this xcvr
+
+        Returns:
+            A Boolean, True if thresholds are supported, False otherwise
+        """
+        raise NotImplementedError
