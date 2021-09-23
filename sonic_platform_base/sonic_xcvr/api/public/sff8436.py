@@ -230,6 +230,9 @@ class Sff8436Api(XcvrApi):
     def get_power_override(self):
         return self.xcvr_eeprom.read(consts.POWER_OVERRIDE_FIELD)
 
+    def get_power_set(self):
+        return self.xcvr_eeprom.read(consts.POWER_SET_FIELD)
+
     def set_power_override(self, power_override, power_set):
         ret = self.xcvr_eeprom.write(consts.POWER_OVERRIDE_FIELD, power_override)
         if power_override:

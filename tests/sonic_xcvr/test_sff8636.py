@@ -34,6 +34,7 @@ class TestSff8636(object):
         self.api.tx_disable(True)
         self.api.tx_disable_channel(0x5, True)
         self.api.get_power_override()
+        self.api.get_power_set()
         self.reader.return_value = bytearray([0xFF])
         self.api.set_power_override(True, True)
         self.reader.return_value = None
