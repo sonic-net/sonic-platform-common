@@ -8,7 +8,8 @@
 from .xcvr_eeprom import XcvrEeprom
 # TODO: remove the following imports
 from .codes.public.sff8024 import Sff8024
-from .api.public.cmis import CmisApi
+from .codes.public.cmis_code import CmisCode
+from .api.public.c_cmis import CCmisApi
 from .mem_maps.public.cmis import CmisMemMap
 
 class XcvrApiFactory(object):
@@ -22,7 +23,7 @@ class XcvrApiFactory(object):
 
     def create_xcvr_api(self):
         # TODO: load correct classes from id_mapping file
-        codes = Sff8024
+        codes = {'sff8024':Sff8024, 'cmis_code':CmisCode}
         mem_map = CmisMemMap(codes)
         xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
-        return CmisApi(xcvr_eeprom)
+        return CCmisApi(xcvr_eeprom)
