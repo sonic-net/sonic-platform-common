@@ -1,9 +1,5 @@
 #
-# bcm_cable_api.py
-#
-# property
-#   $Copyright: (c) 2021 Broadcom.
-#   Broadcom Proprietary and Confidential. All rights reserved.
+# y_cable_broadcom.py
 #
 #   definitions for implementing Y cable access and configurations
 #   API's for Y cable functionality in SONiC
@@ -886,6 +882,7 @@ class YCable(YCableBase):
 # Public APIs
 #
 ##############################################################################
+
 
     def get_api_version(self):
         """
@@ -2177,7 +2174,7 @@ class YCable(YCableBase):
 
             File_seek += (image_offset + 0x28)
             file1.seek(File_seek)
-            image_offset = File_seek
+            #image_offset = File_seek
 
             upgrade_head.cable_up_info.image_info.image_size = struct.unpack('I', file1.read(4))[0]
 
@@ -3960,7 +3957,8 @@ class YCable(YCableBase):
                     self_ret_val = self.RR_ERROR
             else:
                 self.log(self.LOG_ERROR, "DL Port lock timed-out!")
-                ret_val = self.ERROR_PORT_LOCK_TIMEOUT
+                #ret_val = self.ERROR_PORT_LOCK_TIMEOUT
+                return self.ERROR_PORT_LOCK_TIMEOUT
 
         if peer_ret_val == self.RR_ERROR or self_ret_val == self.RR_ERROR or nic_ret_val == self.RR_ERROR:
             return self.RR_ERROR
@@ -4351,7 +4349,8 @@ class YCable(YCableBase):
                         peer_ret_val = self.RR_ERROR
             else:
                 self.log(self.LOG_ERROR, "DL Port lock timed-out!")
-                ret_val = self.ERROR_PORT_LOCK_TIMEOUT
+                #ret_val = self.ERROR_PORT_LOCK_TIMEOUT
+                return self.ERROR_PORT_LOCK_TIMEOUT
 
         if peer_ret_val == self.RR_ERROR or self_ret_val == self.RR_ERROR or nic_ret_val == self.RR_ERROR:
             return self.RR_ERROR
@@ -5183,7 +5182,6 @@ class YCable(YCableBase):
 #############################################################################################
 ###                                  Debug Functionality                                  ###
 #############################################################################################
-
 
     def set_debug_mode(self, enable):
         """
@@ -6801,8 +6799,8 @@ class YCable(YCableBase):
                 if value != 0xDEADBEEF:
                     self.log(self.LOG_WARN, "No new crash on NIC")
                     break
-            elif i == 1:
-                value = struct.unpack("<I", tval)[0]
+            # elif i == 1:
+                #value = struct.unpack("<I", tval)[0]
 
             no_crash = 0
             buff += tval
@@ -6882,8 +6880,8 @@ class YCable(YCableBase):
                 if value != 0xDEADBEEF:
                     self.log(self.LOG_DEBUG, "No new crash on TOR")
                     break
-            elif i == 1:
-                value = struct.unpack("<I", tval)[0]
+            # elif i == 1:
+                #value = struct.unpack("<I", tval)[0]
 
             no_crash = 0
             buff += tval
