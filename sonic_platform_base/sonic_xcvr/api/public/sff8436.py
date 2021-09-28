@@ -274,3 +274,9 @@ class Sff8436Api(XcvrApi):
 
     def get_transceiver_thresholds_support(self):
         return not self.is_flat_memory()
+
+    def get_lpmode_support(self):
+        power_class = self.xcvr_eeprom.read(consts.POWER_CLASS_FIELD)
+        if power_class is None:
+            return False
+        return "Power Class 1" not in power_class

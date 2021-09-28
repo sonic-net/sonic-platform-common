@@ -428,3 +428,12 @@ class XcvrApi(object):
             A Boolean, True if thresholds are supported, False otherwise
         """
         raise NotImplementedError
+
+    def get_lpmode_support(self):
+        """
+        Retrieves the lpmode support of this xcvr
+
+        Returns:
+            A Boolean, True if lpmode is supported, False otherwise
+        """
+        raise NotImplementedError
