@@ -167,13 +167,15 @@ class XcvrApi(object):
 
     def get_tx_disable(self):
         """
-        Retrieves the TX disabled channels in this xcvr
+        Retrieves the tx_disable status of this xcvr
 
         Returns:
-            A hex of 4 bits (bit 0 to bit 3 as channel 0 to channel 3) to represent
-            TX channels which have been disabled in this xcvr.
-            As an example, a returned value of 0x5 indicates that channel 0
-            and channel 2 have been disabled.
+            A list of boolean values, representing the TX disable status
+            of each available channel, value is True if xcvr channel
+            is TX disabled, False if not.
+            E.g., for a tranceiver with four channels: [False, False, True, False]
+
+            If TX disable status is unsupported on the xcvr, each list element should be "N/A" instead.
 
             If there is an issue with reading the xcvr, None should be returned.
         """

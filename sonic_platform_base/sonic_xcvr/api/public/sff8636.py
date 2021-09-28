@@ -195,6 +195,11 @@ class Sff8636Api(XcvrApi):
         return [bool(tx_disable & (1 << i)) for i in range(self.NUM_CHANNELS)]
 
     def get_tx_disable_channel(self):
+        tx_disable_support = self.get_tx_disable_support()
+        if tx_disable_support is None:
+            return None
+        if not tx_disable_support:
+            return 'N/A'
         return self.xcvr_eeprom.read(consts.TX_DISABLE_FIELD)
 
     def get_module_temperature(self):
