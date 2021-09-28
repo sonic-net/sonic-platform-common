@@ -290,3 +290,6 @@ class Sff8436Api(XcvrApi):
         if power_class is None:
             return False
         return "Power Class 1" not in power_class
+
+    def get_power_override_support(self):
+        return not self.is_copper()

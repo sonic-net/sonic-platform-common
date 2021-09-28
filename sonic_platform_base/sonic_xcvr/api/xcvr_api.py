@@ -439,3 +439,12 @@ class XcvrApi(object):
             A Boolean, True if lpmode is supported, False otherwise
         """
         raise NotImplementedError
+
+    def get_power_override_support(self):
+        """
+        Retrieves the power override support of this xcvr
+
+        Returns:
+            A Boolean, True if power override is supported, False otherwise
+        """
+        raise NotImplementedError

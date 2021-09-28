@@ -50,3 +50,4 @@ class TestSff8436(object):
         self.api.get_tx_disable_support()
         self.api.get_transceiver_thresholds_support()
         self.api.get_lpmode_support()
+        self.api.get_power_override_support()
