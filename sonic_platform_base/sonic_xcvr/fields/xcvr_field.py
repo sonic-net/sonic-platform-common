@@ -146,12 +146,30 @@ class NumberRegField(RegField):
             decoded >>= self.start_bitpos
         if self.scale is not None:
             return decoded / self.scale
-        return decoded 
+        return decoded
 
     def encode(self, val, raw_state=None):
         assert not self.ro
         if self.scale is not None:
             return bytearray(struct.pack(self.format, int(val * self.scale)))
+        return bytearray(struct.pack(self.format, int(val)))
+
+class ListRegField(RegField):
+    """
+    Interprets byte(s) as a number
+    """
+    def __init__(self, name, offset, *fields, **kwargs):
+        super(ListRegField, self).__init__( name, offset, *fields, **kwargs)
+        self.format = kwargs.get("format", "B")
+
+    def decode(self, raw_data):
+        decoded = struct.unpack(self.format, raw_data)
+        return decoded
+
+    def encode(self, val, raw_state=None):
+        assert not self.ro
+        if type(val) == bytearray:
+            return val
         return bytearray(struct.pack(self.format, int(val)))
 
 class StringRegField(RegField):

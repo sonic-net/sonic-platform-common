@@ -5,7 +5,11 @@
 """
 from ...fields import consts
 from ..xcvr_api import XcvrApi
+from .cmisCDB import CmisCdbApi
+from .cmisVDM import CmisVdmApi
 import time
+import datetime
+
 BYTELENGTH = 8
 class CCmisApi(XcvrApi):
     NUM_CHANNELS = 8
@@ -427,6 +431,18 @@ class CCmisApi(XcvrApi):
         result /= scale
         return result
 
+
+    def get_VDM_api(self):
+        self.vdm = CmisVdmApi(self.xcvr_eeprom)
+
+    def get_VDM(self):
+        try: 
+            self.vdm
+        except:
+            self.get_VDM_api()
+        
+        VDM = self.vdm.get_VDM_allpage()
+        return VDM
 
     def get_PM(self):
         '''
@@ -865,6 +881,35 @@ class CCmisApi(XcvrApi):
             laser_tuning_summary.append("TuningComplete")
         return laser_tuning_summary
 
+    def get_supported_freq_config(self):
+        '''
+        This function returns the supported freq grid
+        allowed channel number bound in 75 GHz grid
+        allowed frequency bound in 75 GHz grid 
+        '''
+        grid_supported = self.xcvr_eeprom.read(consts.SUPPORT_GRID)
+        low_ch_num = self.xcvr_eeprom.read(consts.LOW_CHANNEL)
+        hi_ch_num = self.xcvr_eeprom.read(consts.HIGH_CHANNEL)
+        low_freq_supported = 193.1 + low_ch_num * 0.025
+        high_freq_supported = 193.1 + hi_ch_num * 0.025
+        return grid_supported, low_ch_num, hi_ch_num, low_freq_supported, high_freq_supported
+
+    def get_supported_power_config(self):
+        '''
+        This function returns the supported TX power range
+        '''
+        min_prog_tx_output_power = self.xcvr_eeprom.read(consts.MIN_PROG_OUTPUT_POWER)
+        max_prog_tx_output_power = self.xcvr_eeprom.read(consts.MAX_PROG_OUTPUT_POWER)
+        return min_prog_tx_output_power, max_prog_tx_output_power
+
+    def reset_module(self, reset = False):
+        '''
+        This function resets the module
+        '''
+        if reset:
+            reset_control = reset << 3
+            self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, reset_control)
+
     def set_low_power(self, AssertLowPower):
         '''
         This function sets the module to low power state. 
@@ -879,15 +924,13 @@ class CCmisApi(XcvrApi):
         This function sets the laser frequency. Unit in THz
         ZR application will not support fine tuning of the laser
         '''
-        GridSupported = self.xcvr_eeprom.read(consts.SUPPORT_GRID)
-        GridSupported_75GHz = (GridSupported >> 7) & 0x1
-        assert GridSupported_75GHz
+        grid_supported, low_ch_num, hi_ch_num, _, _ = self.get_supported_freq_config()
+        grid_supported_75GHz = (grid_supported >> 7) & 0x1
+        assert grid_supported_75GHz
         freq_grid = 0x70
         self.xcvr_eeprom.write(consts.GRID_SPACING, freq_grid)
         channel_number = int(round((freq - 193.1)/0.025))
         assert channel_number % 3 == 0
-        low_ch_num = self.xcvr_eeprom.read(consts.LOW_CHANNEL)
-        hi_ch_num = self.xcvr_eeprom.read(consts.HIGH_CHANNEL)
         if channel_number > hi_ch_num or channel_number < low_ch_num:
             raise ValueError('Provisioned frequency out of range. Max Freq: 196.1; Min Freq: 191.3 THz.')
         self.set_low_power(True)
@@ -901,8 +944,7 @@ class CCmisApi(XcvrApi):
         '''
         This function sets the TX output power. Unit in dBm
         '''
-        min_prog_tx_output_power = self.xcvr_eeprom.read(consts.MIN_PROG_OUTPUT_POWER)
-        max_prog_tx_output_power = self.xcvr_eeprom.read(consts.MAX_PROG_OUTPUT_POWER)
+        min_prog_tx_output_power, max_prog_tx_output_power = self.get_supported_power_config()
         if TX_power > max_prog_tx_output_power or TX_power < min_prog_tx_output_power:
             raise ValueError('Provisioned TX power out of range. Max: %.1f; Min: %.1f dBm.' 
                              %(max_prog_tx_output_power, min_prog_tx_output_power))
@@ -953,3 +995,184 @@ class CCmisApi(XcvrApi):
         elif loopback_mode == 'media-side-output':
             assert loopback_capability['media_side_output_loopback_supported']
             self.xcvr_eeprom.write(consts.MEDIA_OUTPUT_LOOPBACK, 0x1)
+
+
+    def get_CDB_api(self):
+        self.cdb = CmisCdbApi(self.xcvr_eeprom)
+    
+    def get_module_FW_upgrade_feature(self, verbose = False):
+        try:
+            self.cdb
+        except:
+            self.get_CDB_api()
+        # get fw upgrade features (CMD 0041h)
+        starttime = time.time()
+        autopaging_flag = bool((self.xcvr_eeprom.read(consts.CDB_SUPPORT) >> 4) & 0x1)
+        writelength = (self.xcvr_eeprom.read(consts.CDB_SEQ_WRITE_LENGTH_EXT) + 1) * 8
+        print('Auto page support: %s' %autopaging_flag)
+        print('Max write length: %d' %writelength)
+        rpllen, rpl_chkcode, rpl = self.cdb.cmd0041h()
+        if self.cdb.cdb_chkcode(rpl) == rpl_chkcode:
+            startLPLsize = rpl[2]
+            print('Start payload size %d' % startLPLsize)
+            maxblocksize = (rpl[4] + 1) * 8
+            print('Max block size %d' % maxblocksize)
+            lplEplSupport = {0x00 : 'No write to LPL/EPL supported',
+                            0x01 : 'Write to LPL supported',
+                            0x10 : 'Write to EPL supported',
+                            0x11 : 'Write to LPL/EPL supported'}
+            print('{}'.format(lplEplSupport[rpl[5]]))
+            if rpl[5] == 1:
+                lplonly_flag = True
+            else:
+                lplonly_flag = False
+            print('Abort CMD102h supported %s' %bool(rpl[1] & 0x01))
+            if verbose:
+                print('Copy CMD108h supported %s' %bool((rpl[1] >> 1) & 0x01))
+                print('Skipping erased blocks supported %s' %bool((rpl[1] >> 2) & 0x01))
+                print('Full image readback supported %s' %bool((rpl[1] >> 7) & 0x01))
+                print('Default erase byte {:#x}'.format(rpl[3]))
+                print('Read to LPL/EPL {:#x}'.format(rpl[6]))
+
+        else:
+            raise ValueError, 'Reply payload check code error'
+        elapsedtime = time.time()-starttime
+        print('Get module FW upgrade features time: %.2f s' %elapsedtime)
+        return startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength
+
+    def get_module_FW_info(self):
+        try:
+            self.cdb
+        except:
+            self.get_CDB_api()
+        # get fw info (CMD 0100h)
+        starttime = time.time()
+        print('\nGet module FW info')
+        rpllen, rpl_chkcode, rpl = self.cdb.cmd0100h()
+        if self.cdb.cdb_chkcode(rpl) == rpl_chkcode:
+            # Regiter 9Fh:136
+            fwStatus = rpl[0]
+            # Registers 9Fh:138,139; 140,141
+            print('Image A Version: %d.%d; BuildNum: %d' %(rpl[2], rpl[3], ((rpl[4]<< 8) | rpl[5])))
+            # Registers 9Fh:174,175; 176.177
+            print('Image B Version: %d.%d; BuildNum: %d' %(rpl[38], rpl[39], ((rpl[40]<< 8) | rpl[41])))
+
+            ImageARunning = (fwStatus & 0x01) # bit 0 - image A is running
+            ImageACommitted = ((fwStatus >> 1) & 0x01) # bit 1 - image A is committed
+            ImageBRunning = ((fwStatus >> 4) & 0x01) # bit 4 - image B is running
+            ImageBCommitted = ((fwStatus >> 5) & 0x01)  # bit 5 - image B is committed
+
+            if ImageARunning == 1: 
+                RunningImage = 'A'
+            elif ImageBRunning == 1:
+                RunningImage = 'B'
+            if ImageACommitted == 1:
+                CommittedImage = 'A'
+            elif ImageBCommitted == 1:
+                CommittedImage = 'B'
+            print('Running Image: %s; Committed Image: %s' %(RunningImage, CommittedImage))
+        else:
+            raise ValueError, 'Reply payload check code error'
+        elapsedtime = time.time()-starttime
+        print('Get module FW info time: %.2f s' %elapsedtime)
+
+    def module_FW_run(self):
+        try:
+            self.cdb
+        except:
+            self.get_CDB_api()
+        # run module FW (CMD 0109h)
+        starttime = time.time()
+        _, FW_run_status, _ = self.cdb.cmd0109h()
+        if FW_run_status == 1:
+            print('Module FW run: Success')
+        else:
+            self.cdb.cmd0102h()
+            print('Module FW run: Fail')
+        elapsedtime = time.time()-starttime
+        print('Module FW run time: %.2f s\n' %elapsedtime)
+
+    def module_FW_commit(self):
+        try:
+            self.cdb
+        except:
+            self.get_CDB_api()
+        # commit module FW (CMD 010Ah)
+        starttime = time.time()
+        _, FW_run_status, _ = self.cdb.cmd010Ah()
+        if FW_commit_status == 1:
+            print('Module FW commit: Success')
+        else:
+            self.cdb.cmd0102h()
+            print('Module FW commit: Fail')
+        elapsedtime = time.time()-starttime
+        print('Module FW commit time: %.2f s\n' %elapsedtime)
+
+    def module_FW_download(self, startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength, imagepath):
+        try:
+            self.cdb
+        except:
+            self.get_CDB_api()
+        # start fw download (CMD 0101h)
+        starttime = time.time()
+        f = open(imagepath, 'rb')
+        f.seek(0, 2)
+        imagesize = f.tell()
+        f.seek(0, 0)
+        startdata = f.read(startLPLsize)
+        print('\nStart FW downloading')
+        print("startLPLsize is %d" %startLPLsize)
+        FW_start_status = self.cdb.cmd0101h(startLPLsize, bytearray(startdata), imagesize)
+        if FW_start_status == 1:
+            print('Start module FW download: Success')
+        else:
+            print('Start module FW download: Fail')
+            self.cdb.cmd0102h()
+            raise ValueError, 'FW_start_status %d' %FW_start_status
+        elapsedtime = time.time()-starttime
+        print('Start module FW download time: %.2f s' %elapsedtime)
+
+        # start periodically writing (CMD 0103h or 0104h)
+        assert maxblocksize == 2048 or lplonly_flag
+        if lplonly_flag:
+            BLOCK_SIZE = 116
+        else:
+            BLOCK_SIZE = maxblocksize
+        address = 0
+        remaining = imagesize - startLPLsize
+        print("\nTotal size: {} start bytes: {} remaining: {}".format(imagesize, startLPLsize, remaining))
+        while remaining > 0:
+            if remaining < BLOCK_SIZE:
+                count = remaining
+            else:
+                count = BLOCK_SIZE
+            data = f.read(count)
+            progress = (imagesize - remaining) * 100.0 / imagesize
+            if lplonly_flag:
+                self.cdb.cmd0103h(address, data)
+            else:
+                self.cdb.cmd0104h(address, data, autopaging_flag, writelength)
+            elapsedtime = time.time()-starttime
+            print('Address: {:#08x}; Count: {}; Progress: {:.2f}%; Time: {:.2f}s'.format(address, count, progress, elapsedtime))
+            address += count
+            remaining -= count
+        elapsedtime = time.time()-starttime
+        print('Total module FW download time: %.2f s' %elapsedtime)
+
+        # complete FW download (CMD 0107h)
+        FW_complete_status = self.cdb.cmd0107h()
+        if FW_complete_status == 1:
+            print('Module FW download complete: Success')
+        else:
+            print('Module FW download complete: Fail')
+        elapsedtime = time.time()-elapsedtime-starttime
+        print('Complete module FW download time: %.2f s\n' %elapsedtime)
+
+    def module_firmware_upgrade(self, imagepath):
+        self.get_module_FW_info()
+        startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength = self.get_module_FW_upgrade_feature()
+        self.module_FW_download(startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength, imagepath)
+        self.module_FW_run()
+        time.sleep(60)
+        self.module_FW_commit()
+        self.get_module_FW_info()

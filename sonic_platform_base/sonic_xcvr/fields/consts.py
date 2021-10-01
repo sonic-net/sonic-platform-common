@@ -108,6 +108,7 @@ MODULE_FIRMWARE_FAULT_INFO = "FirmwareFault"
 MODULE_FLAG_BYTE1 = "ModuleFlagByte1"
 MODULE_FLAG_BYTE2 = "ModuleFlagByte2"
 MODULE_FLAG_BYTE3 = "ModuleFlagByte3"
+CDB1_STATUS = "Cdb1Status"
 DATAPATH_STATE= "DataPathStateHostLane"
 TX_OUTPUT_STATUS = "TxOutputStatus"
 RX_OUTPUT_STATUS = "RxOutputStatus"
@@ -147,6 +148,7 @@ MODULE_LEVEL_CONTROL = "ModuleControl"
 ## Media Lane Link Performance Monitoring
 # PM
 TRANS_PM_FIELD = "TransceiverPm"
+VDM_SUPPORTED_PAGE = "VdmSupportedPage"
 VDM_CONTROL = "VdmControl"
 MEDIA_LANE_FEC_PM = "Media Lane FEC Performance Monitoring"
 MEDIA_LANE_LINK_PM = "Media Lane Link Performance Monitoring"
@@ -204,7 +206,14 @@ RX_AVG_MER_PM = "rxAvgMerPm"
 RX_MIN_MER_PM = "rxMinMerPm"
 RX_MAX_MER_PM = "rxMaxMerPm"
 
-
-
+# CDB
+TRANS_CDB_FIELD = "TransceiverCdb"
+CDB_SUPPORT = "CdbSupport"
+CDB_SEQ_WRITE_LENGTH_EXT = "CdbReadWriteLengthExtension"
+CDB_RPL_LENGTH = "CdbReplyLength"
+CDB_RPL_CHKCODE = "CdbReplyCheckCode"
+CDB_LPL = "CdbLocalPayload"
+CDB_CMD = "CdbCommand"
+CDB_WRITE_MSG = "CdbWriteMessage"
 
 

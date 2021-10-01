@@ -9,6 +9,7 @@ from ...fields.xcvr_field import (
     CodeRegField,
     HexRegField,
     NumberRegField,
+    ListRegField,
     RegGroupField,
     StringRegField,
     RegBitField,
@@ -133,6 +134,7 @@ class CmisMemMap(XcvrMemMap):
             NumberRegField(consts.MODULE_FLAG_BYTE1, get_addr(0x0, 9), size=1),
             NumberRegField(consts.MODULE_FLAG_BYTE2, get_addr(0x0, 10), size=1),
             NumberRegField(consts.MODULE_FLAG_BYTE3, get_addr(0x0, 11), size=1),
+            NumberRegField(consts.CDB1_STATUS, get_addr(0x0, 37), size=1),
         )
 
         self.TRANS_LANE_STATUS = RegGroupField(consts.TRANS_LANE_STATUS_FIELD,
@@ -164,6 +166,7 @@ class CmisMemMap(XcvrMemMap):
         )
 
         self.TRANS_PM = RegGroupField(consts.TRANS_PM_FIELD,
+            NumberRegField(consts.VDM_SUPPORTED_PAGE, get_addr(0x2f, 128), size=1, ro=False),
             NumberRegField(consts.VDM_CONTROL, get_addr(0x2f, 144), size=1, ro=False),
         )
 
@@ -232,4 +235,13 @@ class CmisMemMap(XcvrMemMap):
             NumberRegField(consts.MODULE_LEVEL_CONTROL, get_addr(0x0, 26), size=1, ro=False),
         )
 
+        self.TRANS_CDB = RegGroupField(consts.TRANS_CDB_FIELD,
+            NumberRegField(consts.CDB_SUPPORT, get_addr(0x01, 163), size=1),
+            NumberRegField(consts.CDB_SEQ_WRITE_LENGTH_EXT, get_addr(0x01, 164), size=1),
+            NumberRegField(consts.CDB_RPL_LENGTH, get_addr(0x9f, 134), size=1, ro=False),
+            NumberRegField(consts.CDB_RPL_CHKCODE, get_addr(0x9f, 135), size=1, ro=False),
+            ListRegField(consts.CDB_LPL, get_addr(0x9f, 136), format='120B', size=120, ro=False),
+            ListRegField(consts.CDB_CMD, get_addr(0x9f, 128), format='2B', size=2, ro=False),
+            ListRegField(consts.CDB_WRITE_MSG, get_addr(0x9f, 130), format='126B', size=126, ro=False),
+        )
         # TODO: add remaining fields
