@@ -223,7 +223,7 @@ class Sff8436Api(XcvrApi):
 
     def tx_disable_channel(self, channel, disable):
         channel_state = self.get_tx_disable_channel()
-        if channel_state is None:
+        if channel_state is None or channel_state == "N/A":
             return False
 
         for i in range(self.NUM_CHANNELS):

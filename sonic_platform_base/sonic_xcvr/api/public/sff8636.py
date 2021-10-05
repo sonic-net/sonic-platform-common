@@ -189,6 +189,11 @@ class Sff8636Api(XcvrApi):
         return [bool(tx_fault & (1 << i)) for i in range(self.NUM_CHANNELS)]
 
     def get_tx_disable(self):
+        tx_disable_support = self.get_tx_disable_support()
+        if tx_disable_support is None:
+            return None
+        if not tx_disable_support:
+            return ["N/A" for _ in range(self.NUM_CHANNELS)]
         tx_disable = self.xcvr_eeprom.read(consts.TX_DISABLE_FIELD)
         if tx_disable is None:
             return None
@@ -247,7 +252,7 @@ class Sff8636Api(XcvrApi):
 
     def tx_disable_channel(self, channel, disable):
         channel_state = self.get_tx_disable_channel()
-        if channel_state is None:
+        if channel_state is None or channel_state == "N/A":
             return False
 
         for i in range(self.NUM_CHANNELS):
