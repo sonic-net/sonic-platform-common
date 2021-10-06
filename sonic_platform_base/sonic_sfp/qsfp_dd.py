@@ -54,7 +54,7 @@ class qsfp_dd_InterfaceId(sffbase):
     def decode_ext_id(self, eeprom_data, offset, size):
         # bits 5-7 represent Module Card Power Class
         ext_id_power_class_byte = eeprom_data[offset]
-        ext_id_power_class_code = (int(ext_id_power_class_byte, 16) >> 5) & 3
+        ext_id_power_class_code = (int(ext_id_power_class_byte, 16) >> 5) & 7
         # Max power is in multiply of 0.25W
         ext_id_max_power_byte = eeprom_data[offset + 1]
         ext_id_max_power_value = int(ext_id_max_power_byte, 16)
