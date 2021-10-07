@@ -299,21 +299,21 @@ class CCmisApi(XcvrApi):
 
     def get_laser_config_freq(self):
         '''
-        This function returns the configured laser frequency. Unit in MHz
+        This function returns the configured laser frequency. Unit in GHz
         '''
         freq_grid = self.get_freq_grid()
         channel = self.xcvr_eeprom.read(consts.LASER_CONFIG_CHANNEL)
         if freq_grid == 75:
-            config_freq = 193100000 + channel * freq_grid/3*1000 
+            config_freq = 193100 + channel * freq_grid/3
         else:
-            config_freq = 193100000 + channel * freq_grid
+            config_freq = 193100 + channel * freq_grid
         return config_freq
 
     def get_current_laser_freq(self):
         '''
-        This function returns the monitored laser frequency. Unit in MHz
+        This function returns the monitored laser frequency. Unit in GHz
         '''
-        return self.xcvr_eeprom.read(consts.LASER_CURRENT_FREQ)
+        return self.xcvr_eeprom.read(consts.LASER_CURRENT_FREQ)/1000
 
     def get_TX_config_power(self):
         '''
@@ -883,15 +883,16 @@ class CCmisApi(XcvrApi):
 
     def get_supported_freq_config(self):
         '''
-        This function returns the supported freq grid
+        This function returns the supported freq grid, low and high supported channel in 75GHz grid,
+        and low and high frequency supported in GHz.
         allowed channel number bound in 75 GHz grid
-        allowed frequency bound in 75 GHz grid 
+        allowed frequency bound in 75 GHz grid
         '''
         grid_supported = self.xcvr_eeprom.read(consts.SUPPORT_GRID)
         low_ch_num = self.xcvr_eeprom.read(consts.LOW_CHANNEL)
         hi_ch_num = self.xcvr_eeprom.read(consts.HIGH_CHANNEL)
-        low_freq_supported = 193.1 + low_ch_num * 0.025
-        high_freq_supported = 193.1 + hi_ch_num * 0.025
+        low_freq_supported = 193100 + low_ch_num * 25
+        high_freq_supported = 193100 + hi_ch_num * 25
         return grid_supported, low_ch_num, hi_ch_num, low_freq_supported, high_freq_supported
 
     def get_supported_power_config(self):
@@ -921,7 +922,7 @@ class CCmisApi(XcvrApi):
 
     def set_laser_freq(self, freq):
         '''
-        This function sets the laser frequency. Unit in THz
+        This function sets the laser frequency. Unit in GHz
         ZR application will not support fine tuning of the laser
         '''
         grid_supported, low_ch_num, hi_ch_num, _, _ = self.get_supported_freq_config()
@@ -929,10 +930,10 @@ class CCmisApi(XcvrApi):
         assert grid_supported_75GHz
         freq_grid = 0x70
         self.xcvr_eeprom.write(consts.GRID_SPACING, freq_grid)
-        channel_number = int(round((freq - 193.1)/0.025))
+        channel_number = int(round((freq - 193100)/25))
         assert channel_number % 3 == 0
         if channel_number > hi_ch_num or channel_number < low_ch_num:
-            raise ValueError('Provisioned frequency out of range. Max Freq: 196.1; Min Freq: 191.3 THz.')
+            raise ValueError('Provisioned frequency out of range. Max Freq: 196100; Min Freq: 191300 GHz.')
         self.set_low_power(True)
         time.sleep(5)
         self.xcvr_eeprom.write(consts.LASER_CONFIG_CHANNEL, channel_number)
@@ -1035,7 +1036,7 @@ class CCmisApi(XcvrApi):
                 print('Read to LPL/EPL {:#x}'.format(rpl[6]))
 
         else:
-            raise ValueError, 'Reply payload check code error'
+            raise ValueError('Reply payload check code error')
         elapsedtime = time.time()-starttime
         print('Get module FW upgrade features time: %.2f s' %elapsedtime)
         return startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength
@@ -1072,7 +1073,7 @@ class CCmisApi(XcvrApi):
                 CommittedImage = 'B'
             print('Running Image: %s; Committed Image: %s' %(RunningImage, CommittedImage))
         else:
-            raise ValueError, 'Reply payload check code error'
+            raise ValueError('Reply payload check code error')
         elapsedtime = time.time()-starttime
         print('Get module FW info time: %.2f s' %elapsedtime)
 
@@ -1128,7 +1129,7 @@ class CCmisApi(XcvrApi):
         else:
             print('Start module FW download: Fail')
             self.cdb.cmd0102h()
-            raise ValueError, 'FW_start_status %d' %FW_start_status
+            raise ValueError('FW_start_status %d' %FW_start_status)
         elapsedtime = time.time()-starttime
         print('Start module FW download time: %.2f s' %elapsedtime)
 
