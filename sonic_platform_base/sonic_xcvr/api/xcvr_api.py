@@ -167,13 +167,15 @@ class XcvrApi(object):
 
     def get_tx_disable(self):
         """
-        Retrieves the TX disabled channels in this xcvr
+        Retrieves the tx_disable status of this xcvr
 
         Returns:
-            A hex of 4 bits (bit 0 to bit 3 as channel 0 to channel 3) to represent
-            TX channels which have been disabled in this xcvr.
-            As an example, a returned value of 0x5 indicates that channel 0
-            and channel 2 have been disabled.
+            A list of boolean values, representing the TX disable status
+            of each available channel, value is True if xcvr channel
+            is TX disabled, False if not.
+            E.g., for a tranceiver with four channels: [False, False, True, False]
+
+            If TX disable status is unsupported on the xcvr, each list element should be "N/A" instead.
 
             If there is an issue with reading the xcvr, None should be returned.
         """
@@ -344,6 +346,15 @@ class XcvrApi(object):
         """
         raise NotImplementedError
 
+    def get_rx_power_support(self):
+        """
+        Retrieves the tx power measurement capability of this xcvr
+
+        Returns:
+            A Boolean, True if tx power measurement is supported, False otherwise
+        """
+        raise NotImplementedError
+
     def is_copper(self):
         """
         Returns:
@@ -372,5 +383,68 @@ class XcvrApi(object):
             A Boolean, True if module voltage measurement is supported, False otherwise
 
             If there is an issue with reading the xcvr, None should be returned.
+        """
+        raise NotImplementedError
+
+    def get_rx_los_support(self):
+        """
+        Retrieves the RX LOS status reporting capability of this xcvr
+
+        Returns:
+            A Boolean, True if xcvr reports RX LOS status, False otherwise
+        """
+        raise NotImplementedError
+
+    def get_tx_bias_support(self):
+        """
+        Retrieves the TX bias measurement capability of this xcvr
+
+        Returns:
+            A Boolean, True if TX bias is supported, False otherwise
+        """
+        raise NotImplementedError
+
+    def get_tx_fault_support(self):
+        """
+        Retrieves the TX fault status reporting capability of this xcvr
+
+        Returns:
+            A Boolean, True if xcvr reports TX fault, False otherwise
+        """
+        raise NotImplementedError
+
+    def get_tx_disable_support(self):
+        """
+        Retrieves the TX disable capability of this xcvr
+
+        Returns:
+            A Boolean, True if Tx can be disabled, False otherwise
+        """
+        raise NotImplementedError
+
+    def get_transceiver_thresholds_support(self):
+        """
+        Retrieves the thresholds reporting capability by this xcvr
+
+        Returns:
+            A Boolean, True if thresholds are supported, False otherwise
+        """
+        raise NotImplementedError
+
+    def get_lpmode_support(self):
+        """
+        Retrieves the lpmode support of this xcvr
+
+        Returns:
+            A Boolean, True if lpmode is supported, False otherwise
+        """
+        raise NotImplementedError
+
+    def get_power_override_support(self):
+        """
+        Retrieves the power override support of this xcvr
+
+        Returns:
+            A Boolean, True if power override is supported, False otherwise
         """
         raise NotImplementedError

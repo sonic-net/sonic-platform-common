@@ -33,11 +33,25 @@ class SfpOptoeBase(SfpBase):
 
     def get_rx_los(self):
         api = self.get_xcvr_api()
-        return api.get_rx_los() if api is not None else None
+        if api is not None:
+            rx_los = api.get_rx_los()
+            # TODO Current expected behaviour is to return list of Boolean but
+            # xcvr_api can return list of N/A. Return list of Boolean here for now.
+            if isinstance(rx_los, list) and "N/A" in rx_los:
+                return [False for _ in rx_los]
+            return rx_los
+        return None
 
     def get_tx_fault(self):
         api = self.get_xcvr_api()
-        return api.get_tx_fault() if api is not None else None
+        if api is not None:
+            tx_fault = api.get_tx_fault()
+            # TODO Current expected behaviour is to return list of Boolean but
+            # xcvr_api can return list of N/A. Return list of Boolean here for now.
+            if isinstance(tx_fault, list) and "N/A" in tx_fault:
+                return [False for _ in tx_fault]
+            return tx_fault
+        return None
 
     def get_tx_disable(self):
         api = self.get_xcvr_api()
@@ -49,19 +63,47 @@ class SfpOptoeBase(SfpBase):
 
     def get_temperature(self):
         api = self.get_xcvr_api()
-        return api.get_module_temperature() if api is not None else None
+        if api is not None:
+            temp = api.get_module_temperature()
+            # TODO Current expected behaviour is to only return float but
+            # xcvr_api can return N/A. Return float here for now.
+            if temp == "N/A":
+                return 0.0
+            return temp
+        return None
 
     def get_voltage(self):
         api = self.get_xcvr_api()
-        return api.get_voltage() if api is not None else None
+        if api is not None:
+            voltage = api.get_voltage()
+            # TODO Current expected behaviour is to only return float but
+            # xcvr_api can return N/A. Return float here for now.
+            if voltage == "N/A":
+                return 0.0
+            return voltage
+        return None
 
     def get_tx_bias(self):
         api = self.get_xcvr_api()
-        return api.get_tx_bias() if api is not None else None
+        if api is not None:
+            tx_bias = api.get_tx_bias()
+            # TODO Current expected behaviour is to return list of float but
+            # xcvr_api can return list of N/A. Return list of float here for now.
+            if isinstance(tx_bias, list) and "N/A" in tx_bias:
+                return [0.0 for _ in tx_bias]
+            return tx_bias
+        return None
 
     def get_rx_power(self):
         api = self.get_xcvr_api()
-        return api.get_rx_power() if api is not None else None
+        if api is not None:
+            rx_power = api.get_rx_power()
+            # TODO Current expected behaviour is to return list of float but
+            # xcvr_api can return list of N/A. Return list of float here for now.
+            if isinstance(rx_power, list) and "N/A" in rx_power:
+                return [0.0 for _ in rx_power]
+            return rx_power
+        return None
 
     def get_tx_power(self):
         api = self.get_xcvr_api()

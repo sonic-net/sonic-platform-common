@@ -1,11 +1,15 @@
 from ...fields import consts
 from ..xcvr_api import XcvrApi
 
-class Sff8436Api(XcvrApi):
+from ...codes.public.sff8636 import Sff8636Codes
+
+class Sff8636Api(XcvrApi):
     NUM_CHANNELS = 4
 
     def __init__(self, xcvr_eeprom):
-        super(Sff8436Api, self).__init__(xcvr_eeprom)
+        super(Sff8636Api, self).__init__(xcvr_eeprom)
+        self._temp_support = None
+        self._voltage_support = None
 
     def get_model(self):
         return self.xcvr_eeprom.read(consts.VENDOR_PART_NO_FIELD)
@@ -23,6 +27,9 @@ class Sff8436Api(XcvrApi):
         clei_code = ext_id[consts.CLEI_CODE_FIELD]
         cdr_tx = ext_id[consts.CDR_TX_FIELD]
         cdr_rx = ext_id[consts.CDR_RX_FIELD]
+
+        spec_compliance = serial_id[consts.SPEC_COMPLIANCE_FIELD]
+        spec_compliance[consts.EXT_SPEC_COMPLIANCE_FIELD] = serial_id[consts.EXT_SPEC_COMPLIANCE_FIELD]
 
         smf_len = serial_id[consts.LENGTH_SMF_KM_FIELD]
         om3_len = serial_id[consts.LENGTH_OM3_FIELD]
@@ -52,7 +59,7 @@ class Sff8436Api(XcvrApi):
             "cable_type": cable_type,
             "cable_length": cable_len,
             "nominal_bit_rate": serial_id[consts.NOMINAL_BR_FIELD],
-            "specification_compliance": str(serial_id[consts.SPEC_COMPLIANCE_FIELD]),
+            "specification_compliance": str(spec_compliance),
             "vendor_date": serial_id[consts.VENDOR_DATE_FIELD],
             "vendor_oui": serial_id[consts.VENDOR_OUI_FIELD],
             "application_advertisement": "N/A",
@@ -116,20 +123,30 @@ class Sff8436Api(XcvrApi):
             return None
         if not thresh_support:
             return threshold_info_dict
-
         temp_thresholds = self.xcvr_eeprom.read(consts.TEMP_THRESHOLDS_FIELD)
         voltage_thresholds = self.xcvr_eeprom.read(consts.VOLTAGE_THRESHOLDS_FIELD)
         rx_power_thresholds = self.xcvr_eeprom.read(consts.RX_POWER_THRESHOLDS_FIELD)
         tx_bias_thresholds = self.xcvr_eeprom.read(consts.TX_BIAS_THRESHOLDS_FIELD)
+        tx_power_thresholds = self.xcvr_eeprom.read(consts.TX_POWER_THRESHOLDS_FIELD)
+        tx_power_support = self.get_tx_power_support()
         read_failed = temp_thresholds is None or \
                       voltage_thresholds is None or \
                       rx_power_thresholds is None or \
-                      tx_bias_thresholds is None
+                      tx_bias_thresholds is None or \
+                      tx_power_thresholds is None or \
+                      tx_power_support is None
         if read_failed:
             return None
 
         for thresh in rx_power_thresholds:
-            rx_power_thresholds[thresh] = self.mw_to_dbm(rx_power_thresholds[thresh])
+            rx_power_thresholds[thresh] = float("{:.3f}".format(self.mw_to_dbm(rx_power_thresholds[thresh])))
+
+        for thresh in tx_power_thresholds:
+            if tx_power_support:
+                tx_power_thresholds[thresh] = float("{:.3f}".format(self.mw_to_dbm(tx_power_thresholds[thresh])))
+            else:
+                tx_power_thresholds[thresh] = "N/A"
+
 
         return {
             "temphighalarm": float("{:.3f}".format(temp_thresholds[consts.TEMP_HIGH_ALARM_FIELD])),
@@ -140,14 +157,14 @@ class Sff8436Api(XcvrApi):
             "vcclowalarm": float("{:.3f}".format(voltage_thresholds[consts.VOLTAGE_LOW_ALARM_FIELD])),
             "vcchighwarning": float("{:.3f}".format(voltage_thresholds[consts.VOLTAGE_HIGH_WARNING_FIELD])),
             "vcclowwarning": float("{:.3f}".format(voltage_thresholds[consts.VOLTAGE_LOW_WARNING_FIELD])),
-            "rxpowerhighalarm": float("{:.3f}".format(rx_power_thresholds[consts.RX_POWER_HIGH_ALARM_FIELD])),
-            "rxpowerlowalarm": float("{:.3f}".format(rx_power_thresholds[consts.RX_POWER_LOW_ALARM_FIELD])),
-            "rxpowerhighwarning": float("{:.3f}".format(rx_power_thresholds[consts.RX_POWER_HIGH_WARNING_FIELD])),
-            "rxpowerlowwarning": float("{:.3f}".format(rx_power_thresholds[consts.RX_POWER_LOW_WARNING_FIELD])),
-            "txpowerhighalarm": "N/A",
-            "txpowerlowalarm": "N/A",
-            "txpowerhighwarning": "N/A",
-            "txpowerlowwarning": "N/A",
+            "rxpowerhighalarm": rx_power_thresholds[consts.RX_POWER_HIGH_ALARM_FIELD],
+            "rxpowerlowalarm": rx_power_thresholds[consts.RX_POWER_LOW_ALARM_FIELD],
+            "rxpowerhighwarning": rx_power_thresholds[consts.RX_POWER_HIGH_WARNING_FIELD],
+            "rxpowerlowwarning": rx_power_thresholds[consts.RX_POWER_LOW_WARNING_FIELD],
+            "txpowerhighalarm": tx_power_thresholds[consts.TX_POWER_HIGH_ALARM_FIELD],
+            "txpowerlowalarm": tx_power_thresholds[consts.TX_POWER_LOW_ALARM_FIELD],
+            "txpowerhighwarning": tx_power_thresholds[consts.TX_POWER_HIGH_WARNING_FIELD],
+            "txpowerlowwarning": tx_power_thresholds[consts.TX_POWER_LOW_WARNING_FIELD],
             "txbiashighalarm": float("{:.3f}".format(tx_bias_thresholds[consts.TX_BIAS_HIGH_ALARM_FIELD])),
             "txbiaslowalarm": float("{:.3f}".format(tx_bias_thresholds[consts.TX_BIAS_LOW_ALARM_FIELD])),
             "txbiashighwarning": float("{:.3f}".format(tx_bias_thresholds[consts.TX_BIAS_HIGH_WARNING_FIELD])),
@@ -191,12 +208,16 @@ class Sff8436Api(XcvrApi):
         return self.xcvr_eeprom.read(consts.TX_DISABLE_FIELD)
 
     def get_module_temperature(self):
+        if not self.get_temperature_support():
+            return 'N/A'
         temp = self.xcvr_eeprom.read(consts.TEMPERATURE_FIELD)
         if temp is None:
             return None
         return float("{:.3f}".format(temp))
 
     def get_voltage(self):
+        if not self.get_voltage_support():
+            return 'N/A'
         voltage = self.xcvr_eeprom.read(consts.VOLTAGE_FIELD)
         if voltage is None:
             return None
@@ -215,7 +236,15 @@ class Sff8436Api(XcvrApi):
         return [float("{:.3f}".format(channel_power)) for channel_power in rx_power.values()]
 
     def get_tx_power(self):
-        return ["N/A" for _ in range(self.NUM_CHANNELS)]
+        tx_power_support = self.get_tx_power_support()
+        if tx_power_support is None:
+            return None
+        if not tx_power_support:
+            return ["N/A" for _ in range(self.NUM_CHANNELS)]
+        tx_power = self.xcvr_eeprom.read(consts.TX_POWER_FIELD)
+        if tx_power is None:
+            return None
+        return [float("{:.3f}".format(channel_power)) for channel_power in tx_power.values()]
 
     def tx_disable(self, tx_disable):
         val = 0xF if tx_disable else 0x0
@@ -248,27 +277,48 @@ class Sff8436Api(XcvrApi):
         if power_override:
             ret &= self.xcvr_eeprom.write(consts.POWER_SET_FIELD, power_set)
         return ret
-    
+
     def is_flat_memory(self):
         return self.xcvr_eeprom.read(consts.FLAT_MEM_FIELD)
 
     def get_tx_power_support(self):
-        return False
+        return self.xcvr_eeprom.read(consts.TX_POWER_SUPPORT_FIELD)
 
     def get_rx_power_support(self):
         return True
 
     def is_copper(self):
         eth_compliance = self.xcvr_eeprom.read(consts.ETHERNET_10_40G_COMPLIANCE_FIELD)
-        if eth_compliance is None:
+        ext_spec_compliance = self.xcvr_eeprom.read(consts.EXT_SPEC_COMPLIANCE_FIELD)
+        if eth_compliance is None or ext_spec_compliance is None:
             return None
-        return eth_compliance == "40GBASE-CR4"
+
+        return eth_compliance == "40GBASE-CR4" or \
+               "CR" in ext_spec_compliance or \
+               "ACC" in ext_spec_compliance or \
+               "Copper" in ext_spec_compliance
 
     def get_temperature_support(self):
-        return True
+        if self._temp_support is None:
+            rev_compliance = self.xcvr_eeprom.read(consts.REV_COMPLIANCE_FIELD)
+            # TODO: instead of checking for specific decoded value, should
+            # get the raw code and check if it is >= 0x08, i.e. Rev 2.8 or higher
+            if rev_compliance == Sff8636Codes.REV_COMPLIANCE[8]:
+                self._temp_support = self.xcvr_eeprom.read(consts.TEMP_SUPPORT_FIELD)
+            else:
+                self._temp_support = True
+        return self._temp_support
 
     def get_voltage_support(self):
-        return True
+        if self._voltage_support is None:
+            rev_compliance = self.xcvr_eeprom.read(consts.REV_COMPLIANCE_FIELD)
+            # TODO: instead of checking for specific decoded value, should
+            # get the raw code and check if it is >= 0x08, i.e. Rev 2.8 or higher
+            if rev_compliance == Sff8636Codes.REV_COMPLIANCE[8]:
+                self._voltage_support = self.xcvr_eeprom.read(consts.VOLTAGE_SUPPORT_FIELD)
+            else:
+                self._voltage_support = True
+        return self._voltage_support
 
     def get_rx_los_support(self):
         return True
