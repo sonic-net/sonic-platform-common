@@ -7,6 +7,7 @@ PAGE_SIZE = 128
 PAGE_OFFSET = 128
 THRSH_SPACING = 8
 VDM_SIZE = 2
+VDM_FLAG_PAGE = 0x2c
 
 class CmisVdmApi(XcvrApi):
     def __init__(self, xcvr_eeprom):
@@ -18,10 +19,11 @@ class CmisVdmApi(XcvrApi):
         result = mantissa*10**(scale_exponent-24)
         return result
 
-    def get_VDM_page(self, page):
+    def get_VDM_page(self, page, VDM_flag_page):
         if page not in [0x20, 0x21, 0x22, 0x23]:
             raise ValueError('Page not in VDM Descriptor range!')
         VDM_descriptor = self.xcvr_eeprom.read_flexible(page * PAGE_SIZE + PAGE_OFFSET, PAGE_SIZE)
+        
         # Odd Adress VDM observable type ID, real-time monitored value in Page + 4
         VDM_typeID = VDM_descriptor[1::2]
         # Even Address
@@ -32,11 +34,12 @@ class CmisVdmApi(XcvrApi):
         VDM_valuePage = page + 4
         VDM_thrshPage = page + 8
         VDM_Page_data = {}
+        VDM_TYPE_DICT = self.xcvr_eeprom.mem_map.codes['cmis_code'].VDM_TYPE
         for index, typeID in enumerate(VDM_typeID):
-            if typeID not in self.xcvr_eeprom.mem_map.codes['cmis_code'].VDM_TYPE:
+            if typeID not in VDM_TYPE_DICT:
                 continue
             else:
-                vdm_info_dict = self.xcvr_eeprom.mem_map.codes['cmis_code'].VDM_TYPE[typeID]
+                vdm_info_dict = VDM_TYPE_DICT[typeID]
                 thrshID = VDM_thresholdID[index]
                 vdm_type = vdm_info_dict[0]
                 vdm_format = vdm_info_dict[1]
@@ -80,13 +83,25 @@ class CmisVdmApi(XcvrApi):
                 else:
                     continue
 
+            vdm_flag_offset = 32 * (page - 0x20) + index//2
+            bit_offset = 4*(index%2)
+            vdm_high_alarm_flag = bool((VDM_flag_page[vdm_flag_offset] >> (bit_offset)) & 0x1)
+            vdm_low_alarm_flag = bool((VDM_flag_page[vdm_flag_offset] >> (bit_offset+1)) & 0x1)
+            vdm_high_warn_flag = bool((VDM_flag_page[vdm_flag_offset] >> (bit_offset+2)) & 0x1)
+            vdm_low_warn_flag = bool((VDM_flag_page[vdm_flag_offset] >> (bit_offset+3)) & 0x1)
+
             if vdm_type not in VDM_Page_data:
                 VDM_Page_data[vdm_type] = {
-                    VDM_lane[index]+1: [vdm_value,
-                                        vdm_thrsh_high_alarm,
-                                        vdm_thrsh_low_alarm,
-                                        vdm_thrsh_high_warn,
-                                        vdm_thrsh_low_warn]
+                    VDM_lane[index]+1: [
+                        vdm_value,
+                        vdm_thrsh_high_alarm,
+                        vdm_thrsh_low_alarm,
+                        vdm_thrsh_high_warn,
+                        vdm_thrsh_low_warn,
+                        vdm_high_alarm_flag,
+                        vdm_low_alarm_flag,
+                        vdm_high_warn_flag,
+                        vdm_low_warn_flag]
                 }
 
             else:
@@ -95,8 +110,11 @@ class CmisVdmApi(XcvrApi):
                     vdm_thrsh_high_alarm,
                     vdm_thrsh_low_alarm,
                     vdm_thrsh_high_warn,
-                    vdm_thrsh_low_warn
-                ]
+                    vdm_thrsh_low_warn,
+                    vdm_high_alarm_flag,
+                    vdm_low_alarm_flag,
+                    vdm_high_warn_flag,
+                    vdm_low_warn_flag]
         return VDM_Page_data
 
     def get_VDM_allpage(self):
@@ -107,7 +125,8 @@ class CmisVdmApi(XcvrApi):
         time.sleep(5)
         self.xcvr_eeprom.write(consts.VDM_CONTROL, 0)
         time.sleep(1)
+        VDM_flag_page = self.xcvr_eeprom.read_flexible(VDM_FLAG_PAGE * PAGE_SIZE + PAGE_OFFSET, PAGE_SIZE)
         for page in range(VDM_START_PAGE, VDM_START_PAGE + vdm_page_supported_raw + 1):
-            VDM_current_page = self.get_VDM_page(page)
+            VDM_current_page = self.get_VDM_page(page, VDM_flag_page)
             VDM.update(VDM_current_page)
         return VDM
