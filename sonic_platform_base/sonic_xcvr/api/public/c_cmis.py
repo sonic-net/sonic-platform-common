@@ -43,7 +43,7 @@ class CCmisApi(XcvrApi):
         rx_max_corr_bits_subint_pm = self.xcvr_eeprom.read(consts.RX_MAX_CORR_BITS_SUB_INTERVAL_PM)
 
         if (rx_bits_subint_pm != 0) and (rx_bits_pm != 0):
-            PM_dict['preFEC_BER_cur'] = rx_corr_bits_pm*1.0/rx_bits_pm
+            PM_dict['preFEC_BER_avg'] = rx_corr_bits_pm*1.0/rx_bits_pm
             PM_dict['preFEC_BER_min'] = rx_min_corr_bits_subint_pm*1.0/rx_bits_subint_pm
             PM_dict['preFEC_BER_max'] = rx_max_corr_bits_subint_pm*1.0/rx_bits_subint_pm
 
@@ -54,7 +54,7 @@ class CCmisApi(XcvrApi):
         rx_max_frames_uncorr_err_subint_pm = self.xcvr_eeprom.read(consts.RX_MIN_FRAMES_UNCORR_ERR_SUB_INTERVAL_PM)
 
         if (rx_frames_subint_pm != 0) and (rx_frames_pm != 0):
-            PM_dict['preFEC_uncorr_frame_ratio_cur'] = rx_frames_uncorr_err_pm*1.0/rx_frames_subint_pm
+            PM_dict['preFEC_uncorr_frame_ratio_avg'] = rx_frames_uncorr_err_pm*1.0/rx_frames_subint_pm
             PM_dict['preFEC_uncorr_frame_ratio_min'] = rx_min_frames_uncorr_err_subint_pm*1.0/rx_frames_subint_pm
             PM_dict['preFEC_uncorr_frame_ratio_max'] = rx_max_frames_uncorr_err_subint_pm*1.0/rx_frames_subint_pm        
 

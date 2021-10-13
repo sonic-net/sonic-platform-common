@@ -35,6 +35,13 @@ class CmisCode(XcvrCodes):
     5: 'ModuleFault',
     }
 
+    MODULE_FAULT_CAUSE = {
+    0: 'No Fault detected',
+    1: 'TEC runawawy',
+    2: 'Data memory corrupted',
+    3: 'Program memory corrupted',
+    }
+
     DATAPATH_STATE = {
     1: 'DataPathDeactivated',
     2: 'DataPathInit',
@@ -78,7 +85,7 @@ class CmisCode(XcvrCodes):
     17: ['Errored Frames Minimum Media Input', 'F16', 1], 
     18: ['Errored Frames Minimum Host Input', 'F16', 1], 
     19: ['Errored Frames Maximum Media Input', 'F16', 1], 
-    20: ['Errored Frames Minimum Host Input', 'F16', 1], 
+    20: ['Errored Frames Maximum Host Input', 'F16', 1], 
     21: ['Errored Frames Average Media Input', 'F16', 1], 
     22: ['Errored Frames Average Host Input', 'F16', 1], 
     23: ['Errored Frames Current Value Media Input', 'F16', 1],

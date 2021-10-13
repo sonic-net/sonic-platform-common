@@ -135,6 +135,7 @@ class CmisMemMap(XcvrMemMap):
             NumberRegField(consts.MODULE_FLAG_BYTE2, get_addr(0x0, 10), size=1),
             NumberRegField(consts.MODULE_FLAG_BYTE3, get_addr(0x0, 11), size=1),
             NumberRegField(consts.CDB1_STATUS, get_addr(0x0, 37), size=1),
+            CodeRegField(consts.MODULE_FAULT_CAUSE, get_addr(0x0, 41), self.codes['cmis_code'].MODULE_FAULT_CAUSE),
         )
 
         self.TRANS_LANE_STATUS = RegGroupField(consts.TRANS_LANE_STATUS_FIELD,
