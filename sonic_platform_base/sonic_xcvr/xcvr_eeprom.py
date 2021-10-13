@@ -23,7 +23,7 @@ class XcvrEeprom(object):
       """
       field = self.mem_map.get_field(field_name)
       raw_data = self.reader(field.get_offset(), field.get_size())
-      return field.decode(raw_data) if raw_data is not None else None
+      return field.decode(raw_data) if raw_data else None
 
    def read_flexible(self, offset, size, return_raw = False):
       """
