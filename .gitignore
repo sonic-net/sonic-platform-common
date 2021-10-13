@@ -17,3 +17,7 @@ sonic-psud/scripts/psudc
 coverage.xml
 .coverage
 htmlcov/
+test-results.xml
+leddc
+pciedc
+syseepromdc
