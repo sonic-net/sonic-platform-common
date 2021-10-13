@@ -28,13 +28,13 @@ class CmisApi(XcvrApi):
         '''
         This function returns the revision level for part number provided by vendor 
         '''
-        return self.xcvr_eeprom.read(consts.VENDOR_REV)
+        return self.xcvr_eeprom.read(consts.VENDOR_REV_FIELD)
 
     def get_vendor_serial(self):
         '''
         This function returns the serial number of the module
         '''
-        return self.xcvr_eeprom.read(consts.VENDOR_SERIAL_NO)
+        return self.xcvr_eeprom.read(consts.VENDOR_SERIAL_NO_FIELD)
 
     def get_vendor_name(self):
         '''
@@ -58,13 +58,13 @@ class CmisApi(XcvrApi):
         '''
         This function returns the module manufacture date. It returns YYMMDDXX. XX is the lot code.
         '''
-        return self.xcvr_eeprom.read(consts.VENDOR_DATE)
+        return self.xcvr_eeprom.read(consts.VENDOR_DATE_FIELD)
 
     def get_connector_type(self):
         '''
         This function returns module connector. Table 4-3 in SFF-8024 Rev4.6
         '''
-        return self.xcvr_eeprom.read(consts.CONNECTOR_TYPE)
+        return self.xcvr_eeprom.read(consts.CONNECTOR_FIELD)
 
     def get_module_media_type(self):
         '''
@@ -193,7 +193,6 @@ class CmisApi(XcvrApi):
         '''
         This function returns the module case temperature and its thresholds. Unit in deg C
         '''
-        case_temp_dict = dict()
         case_temp = self.xcvr_eeprom.read(consts.CASE_TEMP)
         case_temp_high_alarm = self.xcvr_eeprom.read(consts.CASE_TEMP_HIGH_ALARM)
         case_temp_low_alarm = self.xcvr_eeprom.read(consts.CASE_TEMP_LOW_ALARM)
@@ -211,7 +210,6 @@ class CmisApi(XcvrApi):
         This function returns the monitored value of the 3.3-V supply voltage and its thresholds.
         Unit in V
         '''
-        voltage_dict = dict()
         voltage = self.xcvr_eeprom.read(consts.VOLTAGE)
         voltage_high_alarm = self.xcvr_eeprom.read(consts.VOLTAGE_HIGH_ALARM)
         voltage_low_alarm = self.xcvr_eeprom.read(consts.VOLTAGE_LOW_ALARM)
@@ -228,7 +226,6 @@ class CmisApi(XcvrApi):
         '''
         This function returns the TX output power. Unit in mW
         '''
-        tx_power_dict = dict()
         tx_power = self.xcvr_eeprom.read(consts.TX_POW)
         tx_power_high_alarm = self.xcvr_eeprom.read(consts.TX_POWER_HIGH_ALARM)
         tx_power_low_alarm = self.xcvr_eeprom.read(consts.TX_POWER_LOW_ALARM)
@@ -245,7 +242,6 @@ class CmisApi(XcvrApi):
         '''
         This function returns the RX input power. Unit in mW
         '''
-        rx_power_dict = dict()
         rx_power = self.xcvr_eeprom.read(consts.RX_POW)
         rx_power_high_alarm = self.xcvr_eeprom.read(consts.RX_POWER_HIGH_ALARM)
         rx_power_low_alarm = self.xcvr_eeprom.read(consts.RX_POWER_LOW_ALARM)
@@ -262,7 +258,6 @@ class CmisApi(XcvrApi):
         '''
         This function returns the TX laser bias current. Unit in mA
         '''
-        tx_bias_current_dict = dict()
         tx_bias_current = self.xcvr_eeprom.read(consts.TX_BIAS)
         tx_bias_current_high_alarm = self.xcvr_eeprom.read(consts.TX_BIAS_CURR_HIGH_ALARM)
         tx_bias_current_low_alarm = self.xcvr_eeprom.read(consts.TX_BIAS_CURR_LOW_ALARM)
@@ -371,7 +366,6 @@ class CmisApi(XcvrApi):
         '''
         aux1_mon_type, aux2_mon_type, aux3_mon_type = self.get_aux_mon_type()
         LASER_TEMP_SCALE = 256.0
-        laser_temp_dict = dict()
         if aux2_mon_type == 0:
             laser_temp = self.xcvr_eeprom.read(consts.AUX2_MON)/LASER_TEMP_SCALE
             laser_temp_high_alarm = self.xcvr_eeprom.read(consts.AUX2_HIGH_ALARM)/LASER_TEMP_SCALE
@@ -399,7 +393,6 @@ class CmisApi(XcvrApi):
         '''
         aux1_mon_type, aux2_mon_type, aux3_mon_type = self.get_aux_mon_type()
         LASER_TEC_CURRENT_SCALE = 32767.0
-        laser_tec_current_dict = dict()
         if aux1_mon_type == 1:
             laser_tec_current = self.xcvr_eeprom.read(consts.AUX1_MON)/LASER_TEC_CURRENT_SCALE
             laser_tec_current_high_alarm = self.xcvr_eeprom.read(consts.AUX1_HIGH_ALARM)/LASER_TEC_CURRENT_SCALE
@@ -441,7 +434,7 @@ class CmisApi(XcvrApi):
         '''
         try: 
             self.vdm
-        except:
+        except AttributeError:
             self.get_VDM_api()
         VDM = self.vdm.get_VDM_allpage()
         return VDM
@@ -456,7 +449,7 @@ class CmisApi(XcvrApi):
         '''
         try:
             self.ccmis
-        except:
+        except AttributeError:
             self.get_ccmis_api()
         PM_dict = self.ccmis.get_PM_all()
         return PM_dict
@@ -745,8 +738,6 @@ class CmisApi(XcvrApi):
         config_status_lane4 = (result >> 20) & 0xf
         config_status_lane1 = (result >> 24) & 0xf
         config_status_lane2 = (result >> 28) & 0xf
-        config_status_raw = [config_status_lane1, config_status_lane2, config_status_lane3, config_status_lane4,
-                             config_status_lane5, config_status_lane6, config_status_lane7, config_status_lane8]
         DICT = self.xcvr_eeprom.mem_map.codes['cmis_code'].CONFIG_STATUS
         config_status_dict = {'config_DP_status_hostlane1': DICT.get(config_status_lane1, "Unknown"),
                               'config_DP_status_hostlane2': DICT.get(config_status_lane2, "Unknown"),
@@ -930,9 +921,15 @@ class CmisApi(XcvrApi):
         self.cdb = CmisCdbApi(self.xcvr_eeprom)
     
     def get_module_FW_upgrade_feature(self, verbose = False):
+        """
+        This function obtains CDB features supported by the module from CDB command 0041h,
+        such as start header size, maximum block size, whether extended payload messaging
+        (page 0xA0 - 0xAF) or only local payload is supported. These features are important because
+        the following upgrade with depend on these parameters.
+        """
         try:
             self.cdb
-        except:
+        except AttributeError:
             self.get_CDB_api()
         # get fw upgrade features (CMD 0041h)
         starttime = time.time()
@@ -970,9 +967,16 @@ class CmisApi(XcvrApi):
         return startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength
 
     def get_module_FW_info(self):
+        """
+        This function returns firmware Image A and B version, running version, committed version
+        and whether both firmware images are valid.
+        Operational Status: 1 = running, 0 = not running
+        Administrative Status: 1=committed, 0=uncommitted
+        Validity Status: 1 = invalid, 0 = valid
+        """
         try:
             self.cdb
-        except:
+        except AttributeError:
             self.get_CDB_api()
         # get fw info (CMD 0100h)
         starttime = time.time()
@@ -982,14 +986,18 @@ class CmisApi(XcvrApi):
             # Regiter 9Fh:136
             fwStatus = rpl[0]
             # Registers 9Fh:138,139; 140,141
-            print('Image A Version: %d.%d; BuildNum: %d' %(rpl[2], rpl[3], ((rpl[4]<< 8) | rpl[5])))
+            ImageA = '%d.%d.%d' %(rpl[2], rpl[3], ((rpl[4]<< 8) | rpl[5]))
+            print('Image A Version: %s' %ImageA)
             # Registers 9Fh:174,175; 176.177
-            print('Image B Version: %d.%d; BuildNum: %d' %(rpl[38], rpl[39], ((rpl[40]<< 8) | rpl[41])))
+            ImageB = '%d.%d.%d' %(rpl[38], rpl[39], ((rpl[40]<< 8) | rpl[41]))
+            print('Image B Version: %s' %ImageB)
 
             ImageARunning = (fwStatus & 0x01) # bit 0 - image A is running
             ImageACommitted = ((fwStatus >> 1) & 0x01) # bit 1 - image A is committed
+            ImageAValid = ((fwStatus >> 2) & 0x01) # bit 2 - image A is valid
             ImageBRunning = ((fwStatus >> 4) & 0x01) # bit 4 - image B is running
             ImageBCommitted = ((fwStatus >> 5) & 0x01)  # bit 5 - image B is committed
+            ImageBValid = ((fwStatus >> 6) & 0x01) # bit 6 - image B is valid
 
             if ImageARunning == 1: 
                 RunningImage = 'A'
@@ -1004,15 +1012,28 @@ class CmisApi(XcvrApi):
             raise ValueError('Reply payload check code error')
         elapsedtime = time.time()-starttime
         print('Get module FW info time: %.2f s' %elapsedtime)
+        return ImageA, ImageARunning, ImageACommitted, ImageAValid, ImageB, ImageBRunning, ImageBCommitted, ImageBValid
 
-    def module_FW_run(self):
+    def module_FW_run(self, mode = 0x01):
+        """
+        This command is used to start and run a selected image. 
+        This command transfers control from the currently 
+        running firmware to a selected firmware that is started. It 
+        can be used to switch between firmware versions, or to 
+        perform a restart of the currently running firmware.
+        mode:
+        00h = Traffic affecting Reset to Inactive Image.
+        01h = Attempt Hitless Reset to Inactive Image
+        02h = Traffic affecting Reset to Running Image.
+        03h = Attempt Hitless Reset to Running Image
+        """
         try:
             self.cdb
-        except:
+        except AttributeError:
             self.get_CDB_api()
         # run module FW (CMD 0109h)
         starttime = time.time()
-        _, FW_run_status, _ = self.cdb.cmd0109h()
+        FW_run_status = self.cdb.cmd0109h(mode)
         if FW_run_status == 1:
             print('Module FW run: Success')
         else:
@@ -1022,13 +1043,17 @@ class CmisApi(XcvrApi):
         print('Module FW run time: %.2f s\n' %elapsedtime)
 
     def module_FW_commit(self):
+        """
+        The host uses this command to commit the running image 
+        so that the module will boot from it on future boots.
+        """
         try:
             self.cdb
-        except:
+        except AttributeError:
             self.get_CDB_api()
         # commit module FW (CMD 010Ah)
         starttime = time.time()
-        _, FW_run_status, _ = self.cdb.cmd010Ah()
+        FW_commit_status= self.cdb.cmd010Ah()
         if FW_commit_status == 1:
             print('Module FW commit: Success')
         else:
@@ -1038,9 +1063,24 @@ class CmisApi(XcvrApi):
         print('Module FW commit time: %.2f s\n' %elapsedtime)
 
     def module_FW_download(self, startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength, imagepath):
+        """
+        This function performs the download of a firmware image to module eeprom
+        It starts CDB download by writing the header of start header size
+        from the designated firmware file to the local payload page 0x9F, with CDB command 0101h.
+
+        Then it repeatedly reads from the given firmware file and write to the payload
+        space advertised from the first step. We use CDB command 0103h to write to the local payload;
+        we use CDB command 0104h to write to the extended paylaod. This step repeats until it reaches
+        end of the firmware file, or the CDB status failed.
+
+        The last step is to complete the firmware upgrade with CDB command 0107h.
+
+        Note that if the download process fails anywhere in the middle, we need to run CDB command 0102h
+        to abort the upgrade before we restart another upgrade process.
+        """
         try:
             self.cdb
-        except:
+        except AttributeError:
             self.get_CDB_api()
         # start fw download (CMD 0101h)
         starttime = time.time()
@@ -1098,13 +1138,37 @@ class CmisApi(XcvrApi):
         print('Complete module FW download time: %.2f s\n' %elapsedtime)
 
     def module_firmware_upgrade(self, imagepath):
+        """
+        This function performs firmware upgrade. 
+        1.  show FW version in the beginning 
+        2.  check module advertised FW download capability
+        3.  configure download
+        4.  show download progress
+        5.  configure run downloaded firmware
+        6.  configure commit downloaded firmware
+        7.  show FW version in the end
+        """
         self.get_module_FW_info()
         startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength = self.get_module_FW_upgrade_feature()
         self.module_FW_download(startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength, imagepath)
-        self.module_FW_run()
+        self.module_FW_run(mode = 0x01)
         time.sleep(60)
         self.module_FW_commit()
         self.get_module_FW_info()
+
+    def module_firmware_switch(self):
+        """
+        This function switch the active/inactive module firmwarein the current module memory
+        """
+        _, _, _, ImageAValid, _, _, _, ImageBValid = self.get_module_FW_info()
+        if ImageAValid == 0 and ImageBValid == 0:
+            self.module_FW_run(mode = 0x01)
+            time.sleep(60)
+            self.module_FW_commit()
+            self.get_module_FW_info()
+        else:
+            print('Not both images are valid.')
+
 
     def get_transceiver_info(self):
         """
@@ -1690,7 +1754,7 @@ class CmisApi(XcvrApi):
         trans_status['rxoutput_status_hostlane7'] = rx_output_status_dict['RX_lane7']
         trans_status['rxoutput_status_hostlane8'] = rx_output_status_dict['RX_lane8']
         tx_fault_dict = self.get_tx_fault()
-        trans_status['txfault'] = tx_output_status_dict['TX_lane1']
+        trans_status['txfault'] = tx_fault_dict['TX_lane1']
         tx_los_dict = self.get_tx_los()
         trans_status['txlos_hostlane1'] = tx_los_dict['TX_lane1']
         trans_status['txlos_hostlane2'] = tx_los_dict['TX_lane2']

@@ -51,7 +51,6 @@ class CmisVdmApi(XcvrApi):
                 vdm_high_warn_offset = vdm_high_alarm_offset + 4
                 vdm_low_warn_offset = vdm_high_alarm_offset + 6
 
-                thrshID = VDM_thresholdID[index]
                 vdm_value_raw = self.xcvr_eeprom.read_flexible(vdm_value_offset, VDM_SIZE, True)
                 vdm_thrsh_high_alarm_raw = self.xcvr_eeprom.read_flexible(vdm_high_alarm_offset, VDM_SIZE, True)
                 vdm_thrsh_low_alarm_raw = self.xcvr_eeprom.read_flexible(vdm_low_alarm_offset, VDM_SIZE, True)

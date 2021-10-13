@@ -332,7 +332,7 @@ class CmisCdbApi(XcvrApi):
     # 01h = Attempt Hitless Reset to Inactive Image
     # 02h = Traffic affecting Reset to Running Image.
     # 03h = Attempt Hitless Reset to Running Image
-    def cmd0109h(self, mode=0x01):
+    def cmd0109h(self, mode = 0x01):
         cmd = bytearray(b'\x01\x09\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00')
         cmd[137-INIT_OFFSET] = mode
         cmd[138-INIT_OFFSET] = 2 # Delay to Reset 512 ms

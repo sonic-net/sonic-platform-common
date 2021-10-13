@@ -5,8 +5,6 @@
 """
 from ...fields import consts
 from ..xcvr_api import XcvrApi
-from .cmisCDB import CmisCdbApi
-from .cmisVDM import CmisVdmApi
 import time
 BYTELENGTH = 8
 class CCmisApi(XcvrApi):
