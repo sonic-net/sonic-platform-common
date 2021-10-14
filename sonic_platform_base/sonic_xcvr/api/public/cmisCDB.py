@@ -161,7 +161,7 @@ class CmisCdbApi(XcvrApi):
                 continue
             else:
                 break
-        return self.read_cdb()
+        return status
 
     def cmd0040h(self):
         cmd = bytearray(b'\x00\x40\x00\x00\x00\x00\x00\x00')
