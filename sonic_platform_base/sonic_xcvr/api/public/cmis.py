@@ -1118,9 +1118,12 @@ class CmisApi(XcvrApi):
             data = f.read(count)
             progress = (imagesize - remaining) * 100.0 / imagesize
             if lplonly_flag:
-                self.cdb.cmd0103h(address, data)
+                FW_download_status = self.cdb.cmd0103h(address, data)
             else:
-                self.cdb.cmd0104h(address, data, autopaging_flag, writelength)
+                FW_download_status = self.cdb.cmd0104h(address, data, autopaging_flag, writelength)
+            if FW_download_status != 1:
+                print('CDB download failed. CDB Status: %d' %FW_download_status)
+                exit(1)
             elapsedtime = time.time()-starttime
             print('Address: {:#08x}; Count: {}; Progress: {:.2f}%; Time: {:.2f}s'.format(address, count, progress, elapsedtime))
             address += count
@@ -1128,6 +1131,7 @@ class CmisApi(XcvrApi):
         elapsedtime = time.time()-starttime
         print('Total module FW download time: %.2f s' %elapsedtime)
 
+        time.sleep(2)
         # complete FW download (CMD 0107h)
         FW_complete_status = self.cdb.cmd0107h()
         if FW_complete_status == 1:
@@ -1220,7 +1224,6 @@ class CmisApi(XcvrApi):
         trans_info['media_lane_count'] = self.get_media_lane_count()
         trans_info['host_lane_assignment_option'] = self.get_host_lane_assignment_option()
         trans_info['media_lane_assignment_option'] = self.get_media_lane_assignment_option()
-        trans_info['media_lane_assignment_option'] = self.get_media_lane_assignment_option()
         apsel_dict = self.get_active_apsel_hostlane()
         trans_info['active_apsel_hostlane1'] = apsel_dict['hostlane1']
         trans_info['active_apsel_hostlane2'] = apsel_dict['hostlane2']
@@ -1243,7 +1246,7 @@ class CmisApi(XcvrApi):
         trans_info['inactive_firmware'] = self.get_module_inactive_firmware()
         min_power, max_power = self.get_supported_power_config()
         trans_info['supported_max_tx_power'] = max_power
-        trans_info['supported_max_tx_power'] = min_power
+        trans_info['supported_min_tx_power'] = min_power
         _, _, _, low_freq_supported, high_freq_supported = self.get_supported_freq_config()
         trans_info['supported_max_laser_freq'] = high_freq_supported
         trans_info['supported_min_laser_freq'] = low_freq_supported
@@ -1732,7 +1735,6 @@ class CmisApi(XcvrApi):
         trans_status['datapath_firmware_fault'] = dp_fw_fault
         trans_status['module_firmware_fault'] = module_fw_fault
         trans_status['module_state_changed'] = module_state_changed
-        trans_status['datapath_firmware_fault'] = dp_fw_fault
         dp_state_dict = self.get_datapath_state()
         trans_status['datapath_hostlane1'] = dp_state_dict['dp_lane1']
         trans_status['datapath_hostlane2'] = dp_state_dict['dp_lane2']
@@ -1775,7 +1777,7 @@ class CmisApi(XcvrApi):
         trans_status['txcdrlol_hostlane8'] = tx_lol_dict['TX_lane8']
         rx_los_dict = self.get_rx_los()
         trans_status['rxlos'] = rx_los_dict['RX_lane1']
-        rx_lol_dict = self.get_rx_los()
+        rx_lol_dict = self.get_rx_cdr_lol()
         trans_status['rxcdrlol'] = rx_lol_dict['RX_lane1']
         config_status_dict = self.get_config_datapath_hostlane_status()
         trans_status['config_state_hostlane1'] = config_status_dict['config_DP_status_hostlane1']

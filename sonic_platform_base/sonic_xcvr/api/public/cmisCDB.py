@@ -10,6 +10,7 @@ PAGE_LENGTH = 128
 INIT_OFFSET = 128
 CMDLEN = 2
 MAX_TRY = 3
+MAX_WAIT = 10
 
 class CmisCdbApi(XcvrApi):
     def __init__(self, xcvr_eeprom):
@@ -109,9 +110,11 @@ class CmisCdbApi(XcvrApi):
         '''
         status = self.xcvr_eeprom.read(consts.CDB1_STATUS)
         is_busy =  bool((status >> 7) & 0x1)
-        while is_busy:
+        cnt = 0
+        while is_busy and cnt < MAX_WAIT:
             time.sleep(1)
             is_busy =  bool((status >> 7) & 0x1)
+            cnt += 1
         return status
 
     def write_cdb(self, cmd):
