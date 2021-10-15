@@ -82,8 +82,8 @@ class CmisMemMap(XcvrMemMap):
 
         self.TRANS_LOOPBACK = RegGroupField(consts.TRANS_LOOPBACK_FIELD,
             NumberRegField(consts.LOOPBACK_CAPABILITY, get_addr(0x13, 128), size=1),
-            RegBitField(consts.MEDIA_OUTPUT_LOOPBACK, offset=get_addr(0x13, 180), bitpos=0, ro=False),
-            RegBitField(consts.MEDIA_INPUT_LOOPBACK, offset=get_addr(0x13, 181), bitpos=0, ro=False),
+            NumberRegField(consts.MEDIA_OUTPUT_LOOPBACK, offset=get_addr(0x13, 180), size=1,  ro=False),
+            NumberRegField(consts.MEDIA_INPUT_LOOPBACK, offset=get_addr(0x13, 181), size=1, ro=False),
             NumberRegField(consts.HOST_OUTPUT_LOOPBACK, get_addr(0x13, 182), size=1, ro=False),
             NumberRegField(consts.HOST_INPUT_LOOPBACK, get_addr(0x13, 183), size=1, ro=False),
         )

@@ -32,9 +32,9 @@ class TestVDM(object):
             [0x20, [0]*128],    # input_param
             [                   # mock_response
                 (
-                    16, 9, 16, 11, 16, 13, 16, 15,  0,  0,  0,  0,  0,  0,  0,  0,
-                    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-                    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                    16, 9, 16, 11, 16, 13, 16, 15, 32, 10, 33, 10,  0,  0,  0,  0,
+                    80,128, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                    160,143,0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
                     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
                     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
                     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
@@ -46,13 +46,22 @@ class TestVDM(object):
                 bytearray(b'\x00\x00'), bytearray(b'\x00\x00'), bytearray(b'\x00\x00'), bytearray(b'\x00\x00'), bytearray(b'\x00\x00'),
                 bytearray(b'\x00\x00'), bytearray(b'\x00\x00'), bytearray(b'\x00\x00'), bytearray(b'\x00\x00'), bytearray(b'\x00\x00'),
                 bytearray(b'\x00\x00'), bytearray(b'\x00\x00'), bytearray(b'\x00\x00'), bytearray(b'\x00\x00'), bytearray(b'\x00\x00'),
+                bytearray(b'\x00\x00'), bytearray(b'\x00\x00'), bytearray(b'\x00\x00'), bytearray(b'\x00\x00'), bytearray(b'\x00\x00'),
+                bytearray(b'\x00\x00'), bytearray(b'\x00\x00'), bytearray(b'\x00\x00'), bytearray(b'\x00\x00'), bytearray(b'\x00\x00'),
+                bytearray(b'\x00\x00'), bytearray(b'\x00\x00'), bytearray(b'\x00\x00'), bytearray(b'\x00\x00'), bytearray(b'\x00\x00'),
+                bytearray(b'\x00\x00'), bytearray(b'\x00\x00'), bytearray(b'\x00\x00'), bytearray(b'\x00\x00'), bytearray(b'\x00\x00'),
             ],
             {
                 'Pre-FEC BER Minimum Media Input': {1: [0, 0, 0, 0, 0, False, False, False, False]},
                 'Pre-FEC BER Maximum Media Input': {1: [0, 0, 0, 0, 0, False, False, False, False]},
                 'Pre-FEC BER Average Media Input': {1: [0, 0, 0, 0, 0, False, False, False, False]},
                 'Pre-FEC BER Current Value Media Input': {1: [0, 0, 0, 0, 0, False, False, False, False]},
-                
+                'Pre-FEC BER Minimum Host Input': {
+                    1: [0, 0, 0, 0, 0, False, False, False, False],
+                    2: [0, 0, 0, 0, 0, False, False, False, False],
+                },
+                'Modulator Bias X/I [%]': {1: [0, 0, 0, 0, 0, False, False, False, False]},
+                'Tx Power [dBm]': {1: [0, 0, 0, 0, 0, False, False, False, False]},               
             }
         )
     ])

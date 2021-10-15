@@ -911,10 +911,10 @@ class CmisApi(XcvrApi):
             self.xcvr_eeprom.write(consts.HOST_OUTPUT_LOOPBACK, 0xff)
         elif loopback_mode == 'media-side-input':
             assert loopback_capability['media_side_input_loopback_supported']
-            self.xcvr_eeprom.write(consts.MEDIA_INPUT_LOOPBACK, 0x1)
+            self.xcvr_eeprom.write(consts.MEDIA_INPUT_LOOPBACK, 0xff)
         elif loopback_mode == 'media-side-output':
             assert loopback_capability['media_side_output_loopback_supported']
-            self.xcvr_eeprom.write(consts.MEDIA_OUTPUT_LOOPBACK, 0x1)
+            self.xcvr_eeprom.write(consts.MEDIA_OUTPUT_LOOPBACK, 0xff)
 
 
     def get_CDB_api(self):
@@ -1315,9 +1315,15 @@ class CmisApi(XcvrApi):
         trans_dom['bias_yq'] = vdm_dict['Modulator Bias Y/Q [%]'][1][0]
         trans_dom['bias_yp'] = vdm_dict['Modulator Bias Y_Phase [%]'][1][0]
         trans_dom['cd_shortlink'] = vdm_dict['CD high granularity, short link [ps/nm]'][1][0]
-        trans_dom['cd_longlink'] = vdm_dict['CD low granularity, long link [ps/nm]'][1][0]
+        try:
+            trans_dom['cd_longlink'] = vdm_dict['CD low granularity, long link [ps/nm]'][1][0]
+        except KeyError:
+            pass
         trans_dom['dgd'] = vdm_dict['DGD [ps]'][1][0]
-        trans_dom['sopmd'] = vdm_dict['SOPMD [ps^2]'][1][0]
+        try:
+            trans_dom['sopmd'] = vdm_dict['SOPMD [ps^2]'][1][0]
+        except KeyError:
+            pass
         trans_dom['pdl'] = vdm_dict['PDL [dB]'][1][0]
         trans_dom['osnr'] = vdm_dict['OSNR [dB]'][1][0]
         trans_dom['esnr'] = vdm_dict['eSNR [dB]'][1][0]
@@ -1509,18 +1515,24 @@ class CmisApi(XcvrApi):
         trans_dom_th['cdshortlowalarm'] = vdm_dict['CD high granularity, short link [ps/nm]'][1][2]
         trans_dom_th['cdshorthighwarning'] = vdm_dict['CD high granularity, short link [ps/nm]'][1][3]
         trans_dom_th['cdshortlowwarning'] = vdm_dict['CD high granularity, short link [ps/nm]'][1][4]
-        trans_dom_th['cdlonghighalarm'] = vdm_dict['CD low granularity, long link [ps/nm]'][1][1]
-        trans_dom_th['cdlonglowalarm'] = vdm_dict['CD low granularity, long link [ps/nm]'][1][2]
-        trans_dom_th['cdlonghighwarning'] = vdm_dict['CD low granularity, long link [ps/nm]'][1][3]
-        trans_dom_th['cdlonglowwarning'] = vdm_dict['CD low granularity, long link [ps/nm]'][1][4]
+        try:
+            trans_dom_th['cdlonghighalarm'] = vdm_dict['CD low granularity, long link [ps/nm]'][1][1]
+            trans_dom_th['cdlonglowalarm'] = vdm_dict['CD low granularity, long link [ps/nm]'][1][2]
+            trans_dom_th['cdlonghighwarning'] = vdm_dict['CD low granularity, long link [ps/nm]'][1][3]
+            trans_dom_th['cdlonglowwarning'] = vdm_dict['CD low granularity, long link [ps/nm]'][1][4]
+        except KeyError:
+            pass
         trans_dom_th['dgdhighalarm'] = vdm_dict['DGD [ps]'][1][1]
         trans_dom_th['dgdlowalarm'] = vdm_dict['DGD [ps]'][1][2]
         trans_dom_th['dgdhighwarning'] = vdm_dict['DGD [ps]'][1][3]
         trans_dom_th['dgdlowwarning'] = vdm_dict['DGD [ps]'][1][4]
-        trans_dom_th['sopmdhighalarm'] = vdm_dict['SOPMD [ps^2]'][1][1]
-        trans_dom_th['sopmdlowalarm'] = vdm_dict['SOPMD [ps^2]'][1][2]
-        trans_dom_th['sopmdhighwarning'] = vdm_dict['SOPMD [ps^2]'][1][3]
-        trans_dom_th['sopmdlowwarning'] = vdm_dict['SOPMD [ps^2]'][1][4]
+        try:
+            trans_dom_th['sopmdhighalarm'] = vdm_dict['SOPMD [ps^2]'][1][1]
+            trans_dom_th['sopmdlowalarm'] = vdm_dict['SOPMD [ps^2]'][1][2]
+            trans_dom_th['sopmdhighwarning'] = vdm_dict['SOPMD [ps^2]'][1][3]
+            trans_dom_th['sopmdlowwarning'] = vdm_dict['SOPMD [ps^2]'][1][4]
+        except KeyError:
+            pass
         trans_dom_th['pdlhighalarm'] = vdm_dict['PDL [dB]'][1][1]
         trans_dom_th['pdllowalarm'] = vdm_dict['PDL [dB]'][1][2]
         trans_dom_th['pdlhighwarning'] = vdm_dict['PDL [dB]'][1][3]

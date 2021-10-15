@@ -63,6 +63,19 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
+        (
+            'QSFP-DD Double Density 8X Pluggable Transceiver',
+            'QSFP-DD Double Density 8X Pluggable Transceiver'
+        )
+    ])
+    def test_get_module_type(self, mock_response, expected):
+        api = self.mock_cmis_api()
+        api.xcvr_eeprom.read = MagicMock()
+        api.xcvr_eeprom.read.return_value = mock_response
+        result = api.get_module_type()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response, expected", [
         ("ABCDE", "ABCDE")
     ])
     def test_get_vendor_OUI(self, mock_response, expected):
@@ -113,7 +126,12 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
-        ("Single Mode Fiber (SMF)", "400ZR", "400ZR")
+            ("Single Mode Fiber (SMF)", "400ZR", "400ZR"),
+            ("Multimode Fiber (MMF)", "100GE BiDi", "100GE BiDi"),
+            ("Passive Copper Cable", "Copper cable", "Copper cable"),
+            ("Active Cable Assembly", "Active Loopback module", "Active Loopback module"),
+            ("BASE-T", "1000BASE-T (Clause 40)", "1000BASE-T (Clause 40)"),
+            ("ABCD", "ABCD", "Unknown media interface")
     ])
     def test_get_module_media_interface(self, mock_response1, mock_response2, expected):
         api = self.mock_cmis_api()
@@ -282,7 +300,14 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        (0x70, 75)
+        (0x70, 75),
+        (0x60, 33),
+        (0x50, 100),
+        (0x40, 50),
+        (0x30, 25),
+        (0x20, 12.5),
+        (0x10, 6.25),
+        (0x0, 3.125),
     ])
     def test_get_freq_grid(self, mock_response, expected):
         api = self.mock_cmis_api()
@@ -294,6 +319,7 @@ class TestCmis(object):
     @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
         (75, 12, 193400),
         (75, -30, 192350),
+        (100, 10, 194100),
     ])
     def test_get_laser_config_freq(self, mock_response1, mock_response2, expected):
         api = self.mock_cmis_api()
@@ -377,10 +403,21 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
-        ([0,1,0],
-        [11520, 20480, -2560, 19200, 0],
-        {'monitor value': 45, 'high alarm': 80, 'low alarm': -10, 'high warn': 75, 'low warn': 0}
-        )
+        (
+            [0,1,0],
+            [11520, 20480, -2560, 19200, 0],
+            {'monitor value': 45, 'high alarm': 80, 'low alarm': -10, 'high warn': 75, 'low warn': 0}
+        ),
+        (
+            [0,0,0],
+            [11520, 20480, -2560, 19200, 0],
+            {'monitor value': 45, 'high alarm': 80, 'low alarm': -10, 'high warn': 75, 'low warn': 0}
+        ),
+        (
+            [0,1,1],
+            [11520, 20480, -2560, 19200, 0],
+            None
+        ),
     ])
     def test_get_laser_temperature(self, mock_response1, mock_response2, expected):
         api = self.mock_cmis_api()
@@ -392,10 +429,21 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
-        ([0,1,0],
-        [32767, 65534, 0, 49150.5, 0],
-        {'monitor value': 1, 'high alarm': 2, 'low alarm': 0, 'high warn': 1.5, 'low warn': 0}
-        )
+        (
+            [0,1,0],
+            [32767, 65534, 0, 49150.5, 0],
+            {'monitor value': 1, 'high alarm': 2, 'low alarm': 0, 'high warn': 1.5, 'low warn': 0}
+        ),
+        (
+            [1,0,0],
+            [32767, 65534, 0, 49150.5, 0],
+            {'monitor value': 1, 'high alarm': 2, 'low alarm': 0, 'high warn': 1.5, 'low warn': 0}
+        ),
+        (
+            [0,0,0],
+            [32767, 65534, 0, 49150.5, 0],
+            None
+        ),
     ])
     def test_get_laser_TEC_current(self, mock_response1, mock_response2, expected):
         api = self.mock_cmis_api()
@@ -407,7 +455,8 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("input_param, mock_response, expected", [
-        ([False, 1.0], 100, 100.0)
+        ([False, 1.0], 100, 100.0),
+        ([True, 1.0], 32668, -100.0),
     ])
     def test_get_custom_field(self, input_param, mock_response, expected):
         api = self.mock_cmis_api()
@@ -430,6 +479,12 @@ class TestCmis(object):
         result = api.get_PM()
         assert result == expected
 
+
+    def test_get_VDM_api(self):
+        api = self.mock_cmis_api()
+        api.vdm = api.get_VDM_api()
+
+
     @pytest.mark.parametrize("mock_response, expected",[
         (
             {'Pre-FEC BER Average Media Input': {1: [0.001, 0.0125, 0, 0.01, 0, False, False, False, False]}},
@@ -444,6 +499,10 @@ class TestCmis(object):
         result = api.get_VDM()
         assert result == expected
 
+    def test_get_ccmis_api(self):
+        api = self.mock_cmis_api()
+        api.ccmis = api.get_ccmis_api()
+
     @pytest.mark.parametrize("mock_response, expected", [
         (6, "ModuleReady")
     ])
@@ -452,6 +511,16 @@ class TestCmis(object):
         api.xcvr_eeprom.read = MagicMock()
         api.xcvr_eeprom.read.return_value = mock_response
         result = api.get_module_state()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response, expected", [
+        (1, (False, False, True))
+    ])
+    def test_get_module_firmware_fault_state_changed(self, mock_response, expected):
+        api = self.mock_cmis_api()
+        api.xcvr_eeprom.read = MagicMock()
+        api.xcvr_eeprom.read.return_value = mock_response
+        result = api.get_module_firmware_fault_state_changed()
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
@@ -889,7 +958,9 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        (1, ['TuningComplete'])
+        (1, ['TuningComplete']),
+        (62, ['TargetOutputPowerOOR', 'FineTuningOutOfRange', 'TuningNotAccepted',
+              'InvalidChannel', 'WavelengthUnlocked']),
     ])
     def test_get_laser_tuning_summary(self, mock_response, expected):
         api = self.mock_cmis_api()
@@ -918,6 +989,40 @@ class TestCmis(object):
         result = api.get_supported_power_config()
         assert result == expected
 
+    @pytest.mark.parametrize("input_param",[
+        (True), (False)
+    ])
+    def test_reset_module(self, input_param):
+        api = self.mock_cmis_api()
+        api.reset_module(input_param)
+
+    @pytest.mark.parametrize("input_param",[
+        (True), (False)
+    ])
+    def test_set_low_power(self, input_param):
+        api = self.mock_cmis_api()
+        api.set_low_power(input_param)
+
+    @pytest.mark.parametrize("input_param, mock_response",[
+        (193100, (0xff, -72, 120, 191300, 196100)),
+        (195950, (0xff, -72, 120, 191300, 196100)),
+    ])
+    def test_set_laser_freq(self, input_param, mock_response):
+        api = self.mock_cmis_api()
+        api.get_supported_freq_config = MagicMock()
+        api.get_supported_freq_config.return_value = mock_response
+        api.set_laser_freq(input_param)
+
+    @pytest.mark.parametrize("input_param, mock_response",[
+        (-10, (-14, -9)),
+        (-8, (-12, -8)),
+    ])
+    def test_set_TX_power(self, input_param, mock_response):
+        api = self.mock_cmis_api()
+        api.get_supported_power_config = MagicMock()
+        api.get_supported_power_config.return_value = mock_response
+        api.set_TX_power(input_param)
+
     @pytest.mark.parametrize("mock_response, expected", [
         (127,
         {
@@ -937,12 +1042,63 @@ class TestCmis(object):
         result = api.get_loopback_capability()
         assert result == expected
 
-    @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
-        ([0x77, 0xff], [18, 35, (0, 7, 112, 255, 255, 16, 0, 0, 19, 136, 0, 100, 3, 232, 19, 136, 58, 152)],
-        (112, 2048, False, True, 2048)
-        )
+    @pytest.mark.parametrize("input_param, mock_response",[
+        ('none', {
+            'host_side_input_loopback_supported': True,
+            'host_side_output_loopback_supported': True,
+            'media_side_input_loopback_supported': True,
+            'media_side_output_loopback_supported': True
+        }),
+        ('host-side-input', {
+            'host_side_input_loopback_supported': True,
+            'host_side_output_loopback_supported': True,
+            'media_side_input_loopback_supported': True,
+            'media_side_output_loopback_supported': True
+        }),
+        ('host-side-output', {
+            'host_side_input_loopback_supported': True,
+            'host_side_output_loopback_supported': True,
+            'media_side_input_loopback_supported': True,
+            'media_side_output_loopback_supported': True
+        }),
+        ('media-side-input', {
+            'host_side_input_loopback_supported': True,
+            'host_side_output_loopback_supported': True,
+            'media_side_input_loopback_supported': True,
+            'media_side_output_loopback_supported': True
+        }),
+        ('media-side-output', {
+            'host_side_input_loopback_supported': True,
+            'host_side_output_loopback_supported': True,
+            'media_side_input_loopback_supported': True,
+            'media_side_output_loopback_supported': True
+        }),
     ])
-    def test_get_module_FW_upgrade_feature(self, mock_response1, mock_response2, expected):
+    def test_set_loopback_mode(self, input_param, mock_response):
+        api = self.mock_cmis_api()
+        api.get_loopback_capability = MagicMock()
+        api.get_loopback_capability.return_value = mock_response
+        api.set_loopback_mode(input_param)
+
+    def test_get_CDB_api(self):
+        api = self.mock_cmis_api()
+        api.cdb = api.get_CDB_api()
+
+    @pytest.mark.parametrize("input_param, mock_response1, mock_response2, expected", [
+        (
+            False,
+            [0x77, 0xff],
+            [18, 35, (0, 7, 112, 255, 255, 16, 0, 0, 19, 136, 0, 100, 3, 232, 19, 136, 58, 152)],
+            (112, 2048, False, True, 2048)
+        ),
+        (
+            True,
+            [0x77, 0xff],
+            [18, 35, (0, 7, 112, 255, 255, 1, 0, 0, 19, 136, 0, 100, 3, 232, 19, 136, 58, 152)],
+            (112, 2048, True, True, 2048)
+        ),
+    ])
+    def test_get_module_FW_upgrade_feature(self, input_param, mock_response1, mock_response2, expected):
         api = self.mock_cmis_api()
         api.xcvr_eeprom.read = MagicMock()
         api.xcvr_eeprom.read.side_effect = mock_response1
@@ -951,13 +1107,18 @@ class TestCmis(object):
         api.cdb.cmd0041h.return_value = mock_response2
         api.cdb.cdb_chkcode = MagicMock()
         api.cdb.cdb_chkcode.return_value = mock_response2[1]
-        result = api.get_module_FW_upgrade_feature()
+        result = api.get_module_FW_upgrade_feature(input_param)
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ([110, 26, (3, 3, 1, 1, 0, 4, 1, 4, 3, 0, 0, 100, 3, 232, 19, 136, 58, 152, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 4, 1, 4, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)],
-        ('1.1.4', 1, 1, 0, '1.1.4', 0, 0, 0)
-        )
+        (
+            [110, 26, (3, 3, 0, 0, 0, 1, 1, 4, 3, 0, 0, 100, 3, 232, 19, 136, 58, 152, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 4, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)],
+            ('0.0.1', 1, 1, 0, '0.0.0', 0, 0, 0)
+        ),
+        (
+            [110, 26, (48, 3, 0, 0, 0, 1, 1, 4, 3, 0, 0, 100, 3, 232, 19, 136, 58, 152, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 4, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)],
+            ('0.0.1', 0, 0, 0, '0.0.0', 1, 1, 0)
+        ),
     ])
     def test_get_module_FW_info(self, mock_response, expected):
         api = self.mock_cmis_api()
@@ -968,7 +1129,65 @@ class TestCmis(object):
         api.cdb.cdb_chkcode.return_value = mock_response[1]
         result = api.get_module_FW_info()
         assert result == expected
-        # TODO: call other methods in the api
+
+    @pytest.mark.parametrize("input_param, mock_response", [
+        (1, 1),
+        (1, 64)
+    ])
+    def test_module_FW_run(self, input_param, mock_response):
+        api = self.mock_cmis_api()
+        api.cdb = MagicMock()
+        api.cdb.cmd0109h = MagicMock()
+        api.cdb.cmd0109h.return_value = mock_response
+        api.module_FW_run(input_param)
+
+    @pytest.mark.parametrize("mock_response", [
+        (1), (64)
+    ])
+    def test_module_FW_commit(self, mock_response):
+        api = self.mock_cmis_api()
+        api.cdb = MagicMock()
+        api.cdb.cmd010Ah = MagicMock()
+        api.cdb.cmd010Ah.return_value = mock_response
+        api.module_FW_commit()
+    
+    # @pytest.mark.parametrize("input_param", [
+    #     (112, 2048, True, True, 2048, 'abc'),
+    #     (112, 2048, False, True, 2048, 'abc')
+    # ])
+    # def test_module_FW_download(self, input_param):
+    #     api = self.mock_cmis_api()
+    #     api.cdb = MagicMock()
+    #     api.module_FW_download(*input_param)
+
+
+    @pytest.mark.parametrize("input_param, mock_response", [
+        (
+            'abc',
+            (112, 2048, True, True, 2048)
+        )
+    ])
+    def test_module_firmware_upgrade(self, input_param, mock_response):
+        api = self.mock_cmis_api()
+        api.cdb = MagicMock()
+        api.cdb.get_module_FW_upgrade_feature = MagicMock()
+        api.cdb.get_module_FW_upgrade_feature.return_value = mock_response
+        api.cdb.module_firmware_upgrade(input_param)
+    
+    @pytest.mark.parametrize("mock_response", [
+        (
+            ('0.0.0', 1, 1, 0, '0.0.1', 0, 0, 0),
+            ('0.0.0', 1, 1, 0, '0.0.1', 0, 0, 1),
+        )
+    ])
+    def test_module_firmware_switch(self, mock_response):
+        api = self.mock_cmis_api()
+        api.cdb = MagicMock()
+        api.cdb.get_module_FW_info = MagicMock()
+        api.cdb.get_module_FW_info.return_value = mock_response
+        api.cdb.module_firmware_switch()
+
+
 
     @pytest.mark.parametrize("mock_response, expected",[
         (
