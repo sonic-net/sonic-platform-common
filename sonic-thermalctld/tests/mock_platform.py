@@ -388,6 +388,17 @@ class MockChassis(chassis_base.ChassisBase):
         thermal = MockErrorThermal()
         self._thermal_list.append(thermal)
 
+    def make_module_thermal(self):
+        module = MockModule()
+        self._module_list.append(module)
+        sfp = MockSfp()
+        sfp._thermal_list.append(MockThermal())
+        psu = MockPsu()
+        psu._thermal_list.append(MockThermal())
+        module._sfp_list.append(sfp)
+        module._psu_list.append(psu)
+        module._thermal_list.append(MockThermal())
+
     def is_modular_chassis(self):
         return self._is_chassis_system
 
@@ -430,3 +441,8 @@ class MockChassis(chassis_base.ChassisBase):
 
     def is_replaceable(self):
         return self._replaceable
+
+
+class MockModule(module_base.ModuleBase):
+    def __init__(self):
+        super(MockModule, self).__init__()

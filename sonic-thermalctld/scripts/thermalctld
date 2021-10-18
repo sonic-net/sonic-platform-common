@@ -538,11 +538,17 @@ class TemperatureUpdater(logger.Logger):
 
         self.is_chassis_system = chassis.is_modular_chassis()
         if self.is_chassis_system:
+            self.module_thermals = set()
             my_slot = try_get(chassis.get_my_slot, INVALID_SLOT)
             if my_slot != INVALID_SLOT:
-                table_name = TemperatureUpdater.TEMPER_INFO_TABLE_NAME+'_'+str(my_slot)
-                chassis_state_db = daemon_base.db_connect("CHASSIS_STATE_DB")
-                self.chassis_table = swsscommon.Table(chassis_state_db, table_name)
+                try:
+                    # Modular chassis does not have to have table CHASSIS_STATE_DB.
+                    # So catch the exception here and ignore it.
+                    table_name = TemperatureUpdater.TEMPER_INFO_TABLE_NAME+'_'+str(my_slot)
+                    chassis_state_db = daemon_base.db_connect("CHASSIS_STATE_DB")
+                    self.chassis_table = swsscommon.Table(chassis_state_db, table_name)
+                except Exception as e:
+                    self.chassis_table = None
 
     def deinit(self):
         """
@@ -576,31 +582,61 @@ class TemperatureUpdater(logger.Logger):
         for index, thermal in enumerate(self.chassis.get_all_thermals()):
             if self.task_stopping_event.is_set():
                 return
-            try:
-                self._refresh_temperature_status(CHASSIS_INFO_KEY, thermal, index)
-            except Exception as e:
-                self.log_warning('Failed to update thermal status - {}'.format(repr(e)))
+
+            self._refresh_temperature_status(CHASSIS_INFO_KEY, thermal, index)
 
         for psu_index, psu in enumerate(self.chassis.get_all_psus()):
             parent_name = 'PSU {}'.format(psu_index + 1)
             for thermal_index, thermal in enumerate(psu.get_all_thermals()):
                 if self.task_stopping_event.is_set():
                     return
-                try:
-                    self._refresh_temperature_status(parent_name, thermal, thermal_index)
-                except Exception as e:
-                    self.log_warning('Failed to update thermal status - {}'.format(repr(e)))
+
+                self._refresh_temperature_status(parent_name, thermal, thermal_index)
 
         for sfp_index, sfp in enumerate(self.chassis.get_all_sfps()):
             parent_name = 'SFP {}'.format(sfp_index + 1)
             for thermal_index, thermal in enumerate(sfp.get_all_thermals()):
                 if self.task_stopping_event.is_set():
                     return
-                try:
-                    self._refresh_temperature_status(parent_name, thermal, thermal_index)
-                except Exception as e:
-                    self.log_warning('Failed to update thermal status - {}'.format(repr(e)))
 
+                self._refresh_temperature_status(parent_name, thermal, thermal_index)
+
+        if self.is_chassis_system:
+            available_thermals = set()
+            for module_index, module in enumerate(self.chassis.get_all_modules()):
+                module_name = try_get(module.get_name, 'Module {}'.format(module_index + 1))
+                
+                for thermal_index, thermal in enumerate(module.get_all_thermals()):
+                    if self.task_stopping_event.is_set():
+                        return
+
+                    available_thermals.add((thermal, module_name, thermal_index))
+                    self._refresh_temperature_status(module_name, thermal, thermal_index)
+
+                for sfp_index, sfp in enumerate(module.get_all_sfps()):
+                    sfp_name = '{} SFP {}'.format(module_name, sfp_index + 1)
+                    for thermal_index, thermal in enumerate(sfp.get_all_thermals()):
+                        if self.task_stopping_event.is_set():
+                            return
+
+                        available_thermals.add((thermal, sfp_name, thermal_index))
+                        self._refresh_temperature_status(sfp_name, thermal, thermal_index)
+
+                for psu_index, psu in enumerate(module.get_all_psus()):
+                    psu_name = '{} PSU {}'.format(module_name, psu_index + 1)
+                    for thermal_index, thermal in enumerate(psu.get_all_thermals()):
+                        if self.task_stopping_event.is_set():
+                            return
+
+                        available_thermals.add((thermal, psu_name, thermal_index))
+                        self._refresh_temperature_status(psu_name, thermal, thermal_index)
+
+            
+            thermals_to_remove = self.module_thermals - available_thermals
+            self.module_thermals = available_thermals
+            for thermal, parent_name, thermal_index in thermals_to_remove:
+                self._remove_thermal_from_db(thermal, parent_name, thermal_index)
+                
         self.log_debug("End temperature updating")
 
     def _refresh_temperature_status(self, parent_name, thermal, thermal_index):
@@ -611,72 +647,82 @@ class TemperatureUpdater(logger.Logger):
         :param thermal_index: Index of the thermal object in platform chassis
         :return:
         """
+        try:
+            name = try_get(thermal.get_name, '{} Thermal {}'.format(parent_name, thermal_index + 1))
+
+            # Only save entity info for thermals that belong to chassis and PSU
+            # for SFP thermal, they don't need save entity info because snmp can deduce the relation from TRANSCEIVER_DOM_SENSOR
+            # and as we save logical port in TRANSCEIVER_INFO table, for split cable, a SFP thermal might have multiple parent
+            # logical port
+            if 'SFP' not in parent_name:
+                update_entity_info(self.phy_entity_table, parent_name, name, thermal, thermal_index + 1)
+
+            if name not in self.temperature_status_dict:
+                self.temperature_status_dict[name] = TemperatureStatus()
+
+            temperature_status = self.temperature_status_dict[name]
+
+            high_threshold = NOT_AVAILABLE
+            low_threshold = NOT_AVAILABLE
+            high_critical_threshold = NOT_AVAILABLE
+            low_critical_threshold = NOT_AVAILABLE
+            maximum_temperature = NOT_AVAILABLE
+            minimum_temperature = NOT_AVAILABLE
+            temperature = try_get(thermal.get_temperature)
+            is_replaceable = try_get(thermal.is_replaceable, False)
+            if temperature != NOT_AVAILABLE:
+                temperature_status.set_temperature(name, temperature)
+                minimum_temperature = try_get(thermal.get_minimum_recorded)
+                maximum_temperature = try_get(thermal.get_maximum_recorded)
+                high_threshold = try_get(thermal.get_high_threshold)
+                low_threshold = try_get(thermal.get_low_threshold)
+                high_critical_threshold = try_get(thermal.get_high_critical_threshold)
+                low_critical_threshold = try_get(thermal.get_low_critical_threshold)
+
+            warning = False
+            if temperature != NOT_AVAILABLE and temperature_status.set_over_temperature(temperature, high_threshold):
+                self._log_on_status_changed(not temperature_status.over_temperature,
+                                            'High temperature warning cleared: {} temperature restored to {}C, high threshold {}C'.
+                                            format(name, temperature, high_threshold),
+                                            'High temperature warning: {} current temperature {}C, high threshold {}C'.
+                                            format(name, temperature, high_threshold)
+                                            )
+            warning = warning | temperature_status.over_temperature
+
+            if temperature != NOT_AVAILABLE and temperature_status.set_under_temperature(temperature, low_threshold):
+                self._log_on_status_changed(not temperature_status.under_temperature,
+                                            'Low temperature warning cleared: {} temperature restored to {}C, low threshold {}C'.
+                                            format(name, temperature, low_threshold),
+                                            'Low temperature warning: {} current temperature {}C, low threshold {}C'.
+                                            format(name, temperature, low_threshold)
+                                            )
+            warning = warning | temperature_status.under_temperature
+
+            fvs = swsscommon.FieldValuePairs(
+                [('temperature', str(temperature)),
+                ('minimum_temperature', str(minimum_temperature)),
+                ('maximum_temperature', str(maximum_temperature)),
+                ('high_threshold', str(high_threshold)),
+                ('low_threshold', str(low_threshold)),
+                ('warning_status', str(warning)),
+                ('critical_high_threshold', str(high_critical_threshold)),
+                ('critical_low_threshold', str(low_critical_threshold)),
+                ('is_replaceable', str(is_replaceable)),
+                ('timestamp', datetime.now().strftime('%Y%m%d %H:%M:%S'))
+                ])
+
+            self.table.set(name, fvs)
+            if self.is_chassis_system and self.chassis_table is not None:
+                self.chassis_table.set(name, fvs)
+        except Exception as e:
+            self.log_warning('Failed to update thermal status for {} - {}'.format(name, repr(e)))
+
+    def _remove_thermal_from_db(self, thermal, parent_name, thermal_index):
         name = try_get(thermal.get_name, '{} Thermal {}'.format(parent_name, thermal_index + 1))
+        self.table._del(name)
 
-        # Only save entity info for thermals that belong to chassis and PSU
-        # for SFP thermal, they don't need save entity info because snmp can deduce the relation from TRANSCEIVER_DOM_SENSOR
-        # and as we save logical port in TRANSCEIVER_INFO table, for split cable, a SFP thermal might have multiple parent
-        # logical port
-        if 'SFP' not in parent_name:
-            update_entity_info(self.phy_entity_table, parent_name, name, thermal, thermal_index + 1)
-
-        if name not in self.temperature_status_dict:
-            self.temperature_status_dict[name] = TemperatureStatus()
-
-        temperature_status = self.temperature_status_dict[name]
-
-        high_threshold = NOT_AVAILABLE
-        low_threshold = NOT_AVAILABLE
-        high_critical_threshold = NOT_AVAILABLE
-        low_critical_threshold = NOT_AVAILABLE
-        maximum_temperature = NOT_AVAILABLE
-        minimum_temperature = NOT_AVAILABLE
-        temperature = try_get(thermal.get_temperature)
-        is_replaceable = try_get(thermal.is_replaceable, False)
-        if temperature != NOT_AVAILABLE:
-            temperature_status.set_temperature(name, temperature)
-            minimum_temperature = try_get(thermal.get_minimum_recorded)
-            maximum_temperature = try_get(thermal.get_maximum_recorded)
-            high_threshold = try_get(thermal.get_high_threshold)
-            low_threshold = try_get(thermal.get_low_threshold)
-            high_critical_threshold = try_get(thermal.get_high_critical_threshold)
-            low_critical_threshold = try_get(thermal.get_low_critical_threshold)
-
-        warning = False
-        if temperature != NOT_AVAILABLE and temperature_status.set_over_temperature(temperature, high_threshold):
-            self._log_on_status_changed(not temperature_status.over_temperature,
-                                        'High temperature warning cleared: {} temperature restored to {}C, high threshold {}C'.
-                                        format(name, temperature, high_threshold),
-                                        'High temperature warning: {} current temperature {}C, high threshold {}C'.
-                                        format(name, temperature, high_threshold)
-                                        )
-        warning = warning | temperature_status.over_temperature
-
-        if temperature != NOT_AVAILABLE and temperature_status.set_under_temperature(temperature, low_threshold):
-            self._log_on_status_changed(not temperature_status.under_temperature,
-                                        'Low temperature warning cleared: {} temperature restored to {}C, low threshold {}C'.
-                                        format(name, temperature, low_threshold),
-                                        'Low temperature warning: {} current temperature {}C, low threshold {}C'.
-                                        format(name, temperature, low_threshold)
-                                        )
-        warning = warning | temperature_status.under_temperature
-
-        fvs = swsscommon.FieldValuePairs(
-            [('temperature', str(temperature)),
-             ('minimum_temperature', str(minimum_temperature)),
-             ('maximum_temperature', str(maximum_temperature)),
-             ('high_threshold', str(high_threshold)),
-             ('low_threshold', str(low_threshold)),
-             ('warning_status', str(warning)),
-             ('critical_high_threshold', str(high_critical_threshold)),
-             ('critical_low_threshold', str(low_critical_threshold)),
-             ('is_replaceable', str(is_replaceable)),
-             ('timestamp', datetime.now().strftime('%Y%m%d %H:%M:%S'))
-             ])
-
-        self.table.set(name, fvs)
-        if self.is_chassis_system and self.chassis_table is not None:
-            self.chassis_table.set(name, fvs)
+        if self.chassis_table is not None:
+            self.chassis_table._del(name)
 
 
 class ThermalMonitor(ProcessTaskBase):
