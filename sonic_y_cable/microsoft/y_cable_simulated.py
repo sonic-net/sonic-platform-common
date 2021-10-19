@@ -9,6 +9,7 @@ import json
 import os
 import urllib.request
 import urllib.error
+import time
 
 from sonic_py_common import device_info
 from portconfig import get_port_config
@@ -31,6 +32,10 @@ class YCable(YCableBase):
     LOCAL_TEMPERATURE = 20
     NIC_VOLTAGE = 5.0
     LOCAL_VOLTAGE = 5.0
+
+    POLL_TIMEOUT = 30
+    POLL_INTERVAL = 1
+    URLOPEN_TIMEOUT = 5
 
     def __init__(self, port, logger):
         YCableBase.__init__(self, port, logger)
@@ -85,22 +90,45 @@ class YCable(YCableBase):
         else:
             get_url = self._url
 
-        try:
+        start_time = time.time()
+        attempt = 1
+        while True:
             try:
-                req = urllib.request.Request(get_url)
-                with urllib.request.urlopen(req) as resp:
-                    return json.loads(resp.read().decode('utf-8'))
-            except urllib.error.HTTPError as e:
-                self.log_error('GET {} for physical_port {} failed with {}, detail: {}'.format(
+                try:
+                    req = urllib.request.Request(get_url)
+                    with urllib.request.urlopen(req, timeout=self.URLOPEN_TIMEOUT) as resp:
+                        return json.loads(resp.read().decode('utf-8'))
+                except urllib.error.HTTPError as e:
+                    self.log_error('attempt={}, GET {} for physical_port {} failed with {}, detail: {}'.format(
+                        attempt,
+                        get_url,
+                        self.port,
+                        repr(e),
+                        e.read()))
+            except (urllib.error.URLError, json.decoder.JSONDecodeError, Exception) as e:
+                self.log_error('attempt={}, GET {} for physical_port {} failed with {}'.format(
+                    attempt,
                     get_url,
                     self.port,
-                    repr(e),
-                    e.read()))
-        except (urllib.error.URLError, json.decoder.JSONDecodeError, Exception) as e:
-            self.log_error('GET {} for physical_port {} failed with {}'.format(
-                get_url,
-                self.port,
-                repr(e)))
+                    repr(e)))
+
+            # Retry in case of exception, to workaround 'no route to host' issue after pmon restart
+            if (time.time() - start_time) > self.POLL_TIMEOUT:
+                self.log_error('Retry GET {} for physical port {} timeout after {} seconds, attempted={}'.format(
+                    get_url,
+                    self.port,
+                    self.POLL_TIMEOUT,
+                    attempt
+                ))
+                break
+            else:
+                self.log_notice('Sleep {} seconds to retry GET {} for physical port {}'.format(
+                    self.POLL_INTERVAL,
+                    get_url,
+                    self.port
+                ))
+                attempt += 1
+                time.sleep(self.POLL_INTERVAL)
 
         return None
 
@@ -118,27 +146,52 @@ class YCable(YCableBase):
         else:
             post_data = None
 
-        try:
+        start_time = time.time()
+        attempt = 1
+        while True:
             try:
-                headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
-                req = urllib.request.Request(post_url, post_data, headers, method='POST')
-                with urllib.request.urlopen(req) as resp:
-                    return json.loads(resp.read().decode('utf-8'))
-            except urllib.error.HTTPError as e:
-                self.log_error('POST {} with data {} for physical_port {} failed with {}, detail: {}'.format(
-                    post_url,
+                try:
+                    headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
+                    req = urllib.request.Request(post_url, post_data, headers, method='POST')
+                    with urllib.request.urlopen(req, timeout=self.URLOPEN_TIMEOUT) as resp:
+                        return json.loads(resp.read().decode('utf-8'))
+                except urllib.error.HTTPError as e:
+                    self.log_error('attempt={}, POST {} with data {} for physical_port {} failed with {}, detail: {}'.format(
+                        attempt,
+                        post_url,
+                        post_data,
+                        self.port,
+                        repr(e),
+                        e.read()
+                    ))
+            except (urllib.error.URLError, json.decoder.JSONDecodeError, Exception) as e:
+                self.log_error('attempt={}, POST {} with data {} for physical_port {} failed with {}'.format(
+                        attempt,
+                        post_url,
+                        post_data,
+                        self.port,
+                        repr(e)
+                    ))
+
+            # Retry in case of exception, to workaround 'no route to host' issue after pmon restart
+            if time.time() - start_time > self.POLL_TIMEOUT:
+                self.log_error('Retry POST {} with data{} for physical port {} timeout after {} seconds, attempted={}'.format(
+                    get_url,
                     post_data,
                     self.port,
-                    repr(e),
-                    e.read()
+                    self.POLL_TIMEOUT,
+                    attempt
                 ))
-        except (urllib.error.URLError, json.decoder.JSONDecodeError, Exception) as e:
-            self.log_error('POST {} with data {} for physical_port {} failed with {}'.format(
-                    post_url,
+                break
+            else:
+                self.log_notice('Sleep {} seconds to retry POST {} with data {} for physical port {}'.format(
+                    self.POLL_INTERVAL,
+                    get_url,
                     post_data,
-                    self.port,
-                    repr(e)
+                    self.port
                 ))
+                attempt += 1
+                time.sleep(self.POLL_INTERVAL)
 
         return None
 
@@ -244,13 +297,17 @@ class YCable(YCableBase):
                 TARGET_UNKNOWN, if mux direction API fails.
         """
         status = self._get_status()
-        if not status:
+
+        if not isinstance(status, dict):
             return self.TARGET_UNKNOWN
 
-        if status['active_side'] == self.UPPER_TOR:
-            return self.TARGET_TOR_A
-        elif status['active_side'] == self.LOWER_TOR:
-            return self.TARGET_TOR_B
+        if 'active_side' in status:
+            if status['active_side'] == self.UPPER_TOR:
+                return self.TARGET_TOR_A
+            elif status['active_side'] == self.LOWER_TOR:
+                return self.TARGET_TOR_B
+            else:
+                return self.TARGET_UNKNOWN
         else:
             return self.TARGET_UNKNOWN
 
