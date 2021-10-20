@@ -57,7 +57,7 @@ class Sff8436Api(XcvrApi):
             "ext_identifier": ", ".join([power_class, clei_code, cdr_tx, cdr_rx]),
             "ext_rateselect_compliance": serial_id[consts.EXT_RATE_SELECT_COMPLIANCE_FIELD],
             "cable_type": cable_type,
-            "cable_length": cable_len,
+            "cable_length": float(cable_len),
             "nominal_bit_rate": serial_id[consts.NOMINAL_BR_FIELD],
             "specification_compliance": str(serial_id[consts.SPEC_COMPLIANCE_FIELD]),
             "vendor_date": serial_id[consts.VENDOR_DATE_FIELD],

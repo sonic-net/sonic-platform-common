@@ -41,7 +41,7 @@ class CmisApi(XcvrApi):
             "ext_identifier": "%s (%sW Max)" % (power_class, max_power),
             "ext_rateselect_compliance": "N/A", # Not supported
             "cable_type": "Length cable Assembly(m)",
-            "cable_length": int(admin_info[consts.LENGTH_ASSEMBLY_FIELD]),
+            "cable_length": float(admin_info[consts.LENGTH_ASSEMBLY_FIELD]),
             "nominal_bit_rate": 0, # Not supported
             "specification_compliance": media_type,
             "vendor_date": admin_info[consts.VENDOR_DATE_FIELD],

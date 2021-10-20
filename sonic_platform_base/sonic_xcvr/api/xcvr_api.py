@@ -58,7 +58,7 @@ class XcvrApi(object):
         encoding                   |string         |encoding information
         ext_identifier             |string         |extend identifier
         ext_rateselect_compliance  |string         |extended rateSelect compliance
-        cable_length               |int            |cable length in m
+        cable_length               |float          |cable length in m
         nominal_bit_rate           |int            |nominal bit rate by 100Mbs
         specification_compliance   |string         |specification compliance
         vendor_date                |string         |vendor date

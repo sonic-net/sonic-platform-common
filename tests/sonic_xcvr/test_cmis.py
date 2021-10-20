@@ -4,6 +4,7 @@ from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis import CmisMemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
 from sonic_platform_base.sonic_xcvr.codes.public.cmis import CmisCodes
+from sonic_platform_base.sonic_xcvr.fields.consts import LENGTH_ASSEMBLY_FIELD, LEN_MULT_FIELD
 
 class TestCmis(object):
     codes = CmisCodes
@@ -43,3 +44,11 @@ class TestCmis(object):
         self.api.tx_disable_channel(0x5, True)
         self.api.get_lpmode_support()
         self.api.get_power_override_support()
+
+    def test_cable_len(self):
+        cable_len_field = self.mem_map.get_field(LENGTH_ASSEMBLY_FIELD)
+        data = bytearray([0xFF])
+        dep = {LEN_MULT_FIELD: 0b11}
+        decoded = cable_len_field.decode(data, **dep)
+
+        assert decoded == 6300
