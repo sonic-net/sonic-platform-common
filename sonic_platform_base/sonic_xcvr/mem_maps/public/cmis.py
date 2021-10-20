@@ -55,7 +55,7 @@ class CmisMemMap(XcvrMemMap):
 
         self.MODULE_LEVEL_MONITORS = RegGroupField(consts.MODULE_MONITORS_FIELD,
             NumberRegField(consts.TEMPERATURE_FIELD, self.get_addr(0x0, 14), size=2, format=">h", scale=256),
-            NumberRegField(consts.VOLTAGE_FIELD, self.get_addr(0x0, 16), size=2, format=">H", scale=1000),
+            NumberRegField(consts.VOLTAGE_FIELD, self.get_addr(0x0, 16), size=2, format=">H", scale=10000),
         )
 
         self.MODULE_CHAR_ADVT = RegGroupField(consts.MODULE_CHAR_ADVT_FIELD,
@@ -74,10 +74,10 @@ class CmisMemMap(XcvrMemMap):
             NumberRegField(consts.TEMP_LOW_ALARM_FIELD, self.get_addr(0x2, 130), size=2, format=">h", scale=256),
             NumberRegField(consts.TEMP_HIGH_WARNING_FIELD, self.get_addr(0x2, 132), size=2, format=">h", scale=256),
             NumberRegField(consts.TEMP_LOW_WARNING_FIELD, self.get_addr(0x2, 134), size=2, format=">h", scale=256),
-            NumberRegField(consts.VOLTAGE_HIGH_ALARM_FIELD, self.get_addr(0x2, 136), size=2, format=">H", scale=1000),
-            NumberRegField(consts.VOLTAGE_LOW_ALARM_FIELD, self.get_addr(0x2, 138), size=2, format=">H", scale=1000),
-            NumberRegField(consts.VOLTAGE_HIGH_WARNING_FIELD, self.get_addr(0x2, 140), size=2, format=">H", scale=1000),
-            NumberRegField(consts.VOLTAGE_LOW_WARNING_FIELD, self.get_addr(0x2, 142), size=2, format=">H", scale=1000),
+            NumberRegField(consts.VOLTAGE_HIGH_ALARM_FIELD, self.get_addr(0x2, 136), size=2, format=">H", scale=10000),
+            NumberRegField(consts.VOLTAGE_LOW_ALARM_FIELD, self.get_addr(0x2, 138), size=2, format=">H", scale=10000),
+            NumberRegField(consts.VOLTAGE_HIGH_WARNING_FIELD, self.get_addr(0x2, 140), size=2, format=">H", scale=10000),
+            NumberRegField(consts.VOLTAGE_LOW_WARNING_FIELD, self.get_addr(0x2, 142), size=2, format=">H", scale=10000),
             NumberRegField(consts.TX_POWER_HIGH_ALARM_FIELD, self.get_addr(0x2, 176), size=2, format=">H", scale=1000),
             NumberRegField(consts.TX_POWER_LOW_ALARM_FIELD, self.get_addr(0x2, 178), size=2, format=">H", scale=1000),
             NumberRegField(consts.TX_POWER_HIGH_WARNING_FIELD, self.get_addr(0x2, 180), size=2, format=">H", scale=1000),

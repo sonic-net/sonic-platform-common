@@ -122,7 +122,7 @@ class Sff8636MemMap(XcvrMemMap):
 
         self.TEMP = NumberRegField(consts.TEMPERATURE_FIELD, self.get_addr(0, 22), size=2, format=">h", scale=256)
         
-        self.VOLTAGE = NumberRegField(consts.VOLTAGE_FIELD, self.get_addr(0, 26), size=2, format=">H", scale=1000)
+        self.VOLTAGE = NumberRegField(consts.VOLTAGE_FIELD, self.get_addr(0, 26), size=2, format=">H", scale=10000)
 
         self.POWER_CTRL = NumberRegField(consts.POWER_CTRL_FIELD, self.get_addr(0, 93),
             RegBitField(consts.POWER_OVERRIDE_FIELD, 0, ro=False),
@@ -138,10 +138,10 @@ class Sff8636MemMap(XcvrMemMap):
         )
 
         self.VOLTAGE_THRESHOLDS = RegGroupField(consts.VOLTAGE_THRESHOLDS_FIELD,
-            NumberRegField(consts.VOLTAGE_HIGH_ALARM_FIELD, self.get_addr(3, 144), size=2, format=">H", scale=1000),
-            NumberRegField(consts.VOLTAGE_LOW_ALARM_FIELD, self.get_addr(3, 146), size=2, format=">H", scale=1000),
-            NumberRegField(consts.VOLTAGE_HIGH_WARNING_FIELD, self.get_addr(3, 148), size=2, format=">H", scale=1000),
-            NumberRegField(consts.VOLTAGE_LOW_WARNING_FIELD, self.get_addr(3, 150), size=2, format=">H", scale=1000),
+            NumberRegField(consts.VOLTAGE_HIGH_ALARM_FIELD, self.get_addr(3, 144), size=2, format=">H", scale=10000),
+            NumberRegField(consts.VOLTAGE_LOW_ALARM_FIELD, self.get_addr(3, 146), size=2, format=">H", scale=10000),
+            NumberRegField(consts.VOLTAGE_HIGH_WARNING_FIELD, self.get_addr(3, 148), size=2, format=">H", scale=10000),
+            NumberRegField(consts.VOLTAGE_LOW_WARNING_FIELD, self.get_addr(3, 150), size=2, format=">H", scale=10000),
         )
 
         self.RX_POWER_THRESHOLDS = RegGroupField(consts.RX_POWER_THRESHOLDS_FIELD,
