@@ -7,6 +7,7 @@
 from ..xcvr_mem_map import XcvrMemMap
 from ...fields.xcvr_field import (
     CodeRegField,
+    DateField,
     HexRegField,
     NumberRegField,
     RegBitField,
@@ -36,7 +37,7 @@ class CmisMemMap(XcvrMemMap):
             StringRegField(consts.VENDOR_PART_NO_FIELD, self.get_addr(0x0, 148), size=16),
             StringRegField(consts.VENDOR_REV_FIELD, self.get_addr(0x0, 164), size=2),
             StringRegField(consts.VENDOR_SERIAL_NO_FIELD, self.get_addr(0x0, 166), size=16),
-            StringRegField(consts.VENDOR_DATE_FIELD, self.get_addr(0x0, 182), size=8),
+            DateField(consts.VENDOR_DATE_FIELD, self.get_addr(0x0, 182), size=8),
             RegGroupField(consts.EXT_ID_FIELD,
                 CodeRegField(consts.POWER_CLASS_FIELD, self.get_addr(0x0, 200), self.codes.POWER_CLASSES,
                     *(RegBitField("%s_%d" % (consts.POWER_CLASS_FIELD, bit), bit) for bit in range(5, 8))

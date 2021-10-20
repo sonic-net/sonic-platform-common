@@ -235,3 +235,25 @@ class RegGroupField(XcvrField):
             result[field.name] = field.decode(raw_data[offset - start: offset + field.get_size() - start], 
                                               **decoded_deps)
         return result
+
+class DateField(StringRegField):
+    """
+    Common representation of date codes in xcvr memory maps
+    """
+    def __init__(self, name, offset, *fields, **kwargs):
+        super(DateField, self).__init__(name, offset, *fields, **kwargs)
+
+    def decode(self, raw_data, **decoded_deps):
+        date = super(DateField, self).decode(raw_data, **decoded_deps)
+        year_offset  = 0
+        month_offset = 2
+        day_offset   = 4
+        lot_offset   = 6
+
+        date = "20%s-%s-%s %s" % (
+            date[year_offset:month_offset],
+            date[month_offset:day_offset],
+            date[day_offset:lot_offset],
+            date[lot_offset:self.get_size()]
+        )
+        return date

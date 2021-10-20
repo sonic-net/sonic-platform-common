@@ -1,6 +1,7 @@
 from ..xcvr_mem_map import XcvrMemMap
 from ...fields.xcvr_field import (
     CodeRegField,
+    DateField,
     HexRegField,
     NumberRegField,
     RegBitField,
@@ -70,7 +71,7 @@ class Sff8436MemMap(XcvrMemMap):
                 RegBitField(consts.TX_DISABLE_SUPPORT_FIELD, 28),
             size=4, format="<I"),
             StringRegField(consts.VENDOR_SERIAL_NO_FIELD, self.get_addr(0, 196), size=16),
-            StringRegField(consts.VENDOR_DATE_FIELD, self.get_addr(0, 212), size=8)
+            DateField(consts.VENDOR_DATE_FIELD, self.get_addr(0, 212), size=8)
         )
 
         self.RX_LOS = NumberRegField(consts.RX_LOS_FIELD, self.get_addr(0, 3),
