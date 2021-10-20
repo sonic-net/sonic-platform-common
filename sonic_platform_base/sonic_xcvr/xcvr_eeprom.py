@@ -22,9 +22,11 @@ class XcvrEeprom(object):
       """
       field = self.mem_map.get_field(field_name)
       raw_data = self.reader(field.get_offset(), field.get_size())
-      deps = field.get_deps()
-      decoded_deps = {dep: self.read(dep) for dep in deps}
-      return field.decode(raw_data, **decoded_deps) if raw_data else None
+      if raw_data:
+         deps = field.get_deps()
+         decoded_deps = {dep: self.read(dep) for dep in deps}
+         return field.decode(raw_data, **decoded_deps)
+      return None
 
    def write(self, field_name, value):
       """
