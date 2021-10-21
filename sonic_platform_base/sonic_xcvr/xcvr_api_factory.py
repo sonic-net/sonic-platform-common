@@ -7,7 +7,7 @@
 
 from .xcvr_eeprom import XcvrEeprom
 # TODO: remove the following imports
-from .codes.public.sff8024 import CmisCodes
+from .codes.public.cmis import CmisCodes
 from .api.public.cmis import CmisApi
 from .mem_maps.public.cmis import CmisMemMap
 
