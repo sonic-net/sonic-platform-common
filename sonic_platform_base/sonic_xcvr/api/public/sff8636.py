@@ -1,3 +1,10 @@
+"""
+    sff8636.py
+
+    Implementation of XcvrApi that corresponds to the SFF-8636 specification for
+    QSFP28 pluggable transceivers.
+"""
+
 from ...fields import consts
 from ..xcvr_api import XcvrApi
 
@@ -57,7 +64,7 @@ class Sff8636Api(XcvrApi):
             "ext_identifier": ", ".join([power_class, clei_code, cdr_tx, cdr_rx]),
             "ext_rateselect_compliance": serial_id[consts.EXT_RATE_SELECT_COMPLIANCE_FIELD],
             "cable_type": cable_type,
-            "cable_length": cable_len,
+            "cable_length": float(cable_len),
             "nominal_bit_rate": serial_id[consts.NOMINAL_BR_FIELD],
             "specification_compliance": str(spec_compliance),
             "vendor_date": serial_id[consts.VENDOR_DATE_FIELD],

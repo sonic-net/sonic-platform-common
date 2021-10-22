@@ -109,13 +109,26 @@ REV_COMPLIANCE_FIELD = "Revision Compliance"
 
 ADMIN_INFO_FIELD = "AdminInfo"
 
+CTRLS_ADVT_FIELD = "Supported Controls Advertisement"
+FLAGS_ADVT_FIELD = "Supported Flags Advertisement"
+
+LANE_DATAPATH_CTRL_FIELD = "Lane Control and Data Path Control"
+LANE_DATAPATH_STATUS_FIELD = "Lane Status and Data Path Status"
+LEN_MULT_FIELD = "LengthMultiplier"
+MAX_POWER_FIELD = "MaxPower"
+MEDIA_TYPE_FIELD = "Media Type"
+MGMT_CHAR_FIELD = "Management Characteristics"
+MGMT_CHAR_MISC_FIELD = "Management Characteristics (Misc)"
+
+MODULE_CHAR_ADVT_FIELD = "Module Characteristics Advertising"
+
 # C-CMIS
 
 ## Media Lane FEC Performance Monitoring
-MEDIA_LANE_FEC_PM_FIELD = "Media Lane FEC Performance Monitoring"
-MEDIA_LANE_LINK_PM_FIELD = "Media Lane Link Performance Monitoring"
 RX_BITS_PM_FIELD = "rxBitsPm"
 RX_BITS_SUB_INT_PM_FIELD = "rxBitsSubIntPm"
+MEDIA_LANE_FEC_PM_FIELD = "Media Lane FEC Performance Monitoring"
+MEDIA_LANE_LINK_PM_FIELD = "Media Lane Link Performance Monitoring"
 
 ## Media Lane Link Performance Monitoring
 RX_AVG_CD_PM_FIELD = "rxAvgCdPm"

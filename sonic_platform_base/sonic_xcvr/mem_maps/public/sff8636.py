@@ -7,6 +7,7 @@
 from ..xcvr_mem_map import XcvrMemMap
 from ...fields.xcvr_field import (
     CodeRegField,
+    DateField,
     HexRegField,
     NumberRegField,
     RegBitField,
@@ -81,7 +82,7 @@ class Sff8636MemMap(XcvrMemMap):
                 RegBitField(consts.TX_DISABLE_SUPPORT_FIELD, 20),
             size=4, format="<I"),
             StringRegField(consts.VENDOR_SERIAL_NO_FIELD, self.get_addr(0, 196), size=16),
-            StringRegField(consts.VENDOR_DATE_FIELD, self.get_addr(0, 212), size=8),
+            DateField(consts.VENDOR_DATE_FIELD, self.get_addr(0, 212), size=8),
             NumberRegField(consts.DIAG_MON_TYPE_FIELD, self.get_addr(0, 220),
                 RegBitField(consts.TEMP_SUPPORT_FIELD, 5),
                 RegBitField(consts.VOLTAGE_SUPPORT_FIELD, 4),
@@ -122,7 +123,7 @@ class Sff8636MemMap(XcvrMemMap):
 
         self.TEMP = NumberRegField(consts.TEMPERATURE_FIELD, self.get_addr(0, 22), size=2, format=">h", scale=256)
         
-        self.VOLTAGE = NumberRegField(consts.VOLTAGE_FIELD, self.get_addr(0, 26), size=2, format=">H", scale=1000)
+        self.VOLTAGE = NumberRegField(consts.VOLTAGE_FIELD, self.get_addr(0, 26), size=2, format=">H", scale=10000)
 
         self.POWER_CTRL = NumberRegField(consts.POWER_CTRL_FIELD, self.get_addr(0, 93),
             RegBitField(consts.POWER_OVERRIDE_FIELD, 0, ro=False),
@@ -138,10 +139,10 @@ class Sff8636MemMap(XcvrMemMap):
         )
 
         self.VOLTAGE_THRESHOLDS = RegGroupField(consts.VOLTAGE_THRESHOLDS_FIELD,
-            NumberRegField(consts.VOLTAGE_HIGH_ALARM_FIELD, self.get_addr(3, 144), size=2, format=">H", scale=1000),
-            NumberRegField(consts.VOLTAGE_LOW_ALARM_FIELD, self.get_addr(3, 146), size=2, format=">H", scale=1000),
-            NumberRegField(consts.VOLTAGE_HIGH_WARNING_FIELD, self.get_addr(3, 148), size=2, format=">H", scale=1000),
-            NumberRegField(consts.VOLTAGE_LOW_WARNING_FIELD, self.get_addr(3, 150), size=2, format=">H", scale=1000),
+            NumberRegField(consts.VOLTAGE_HIGH_ALARM_FIELD, self.get_addr(3, 144), size=2, format=">H", scale=10000),
+            NumberRegField(consts.VOLTAGE_LOW_ALARM_FIELD, self.get_addr(3, 146), size=2, format=">H", scale=10000),
+            NumberRegField(consts.VOLTAGE_HIGH_WARNING_FIELD, self.get_addr(3, 148), size=2, format=">H", scale=10000),
+            NumberRegField(consts.VOLTAGE_LOW_WARNING_FIELD, self.get_addr(3, 150), size=2, format=">H", scale=10000),
         )
 
         self.RX_POWER_THRESHOLDS = RegGroupField(consts.RX_POWER_THRESHOLDS_FIELD,
