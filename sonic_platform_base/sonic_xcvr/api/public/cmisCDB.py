@@ -1,7 +1,16 @@
+"""
+    cmisCDB.py
+
+    Implementation of APIs related to CDB commands
+"""
+import logging
 from ...fields import consts
 from ..xcvr_api import XcvrApi
 import struct
 import time
+
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 LPLPAGE = 0x9f
 CDB_RPL_OFFSET = 136
@@ -121,8 +130,8 @@ class CmisCdbApi(XcvrApi):
         '''
         This function writes a CDB command to page 0x9f
         '''
-        self.xcvr_eeprom.write_flexible(LPLPAGE*PAGE_LENGTH+CDB_WRITE_MSG_START, len(cmd)-CMDLEN, cmd[CMDLEN:])
-        self.xcvr_eeprom.write_flexible(LPLPAGE*PAGE_LENGTH+INIT_OFFSET, CMDLEN, cmd[:CMDLEN])
+        self.xcvr_eeprom.write_raw(LPLPAGE*PAGE_LENGTH+CDB_WRITE_MSG_START, len(cmd)-CMDLEN, cmd[CMDLEN:])
+        self.xcvr_eeprom.write_raw(LPLPAGE*PAGE_LENGTH+INIT_OFFSET, CMDLEN, cmd[:CMDLEN])
 
     def read_cdb(self):
         '''
@@ -130,7 +139,7 @@ class CmisCdbApi(XcvrApi):
         '''
         rpllen = self.xcvr_eeprom.read(consts.CDB_RPL_LENGTH)
         rpl_chkcode = self.xcvr_eeprom.read(consts.CDB_RPL_CHKCODE)
-        rpl = self.xcvr_eeprom.read_flexible(LPLPAGE*PAGE_LENGTH+CDB_RPL_OFFSET, rpllen)
+        rpl = self.xcvr_eeprom.read_raw(LPLPAGE*PAGE_LENGTH+CDB_RPL_OFFSET, rpllen)
         return rpllen, rpl_chkcode, rpl
 
     # Query status
@@ -142,7 +151,7 @@ class CmisCdbApi(XcvrApi):
             time.sleep(2)
             status = self.cdb1_chkstatus()
             if (status != 0x1):
-                print('CDB1 status: Fail. CDB1 status %d' %status)
+                logger.info('CDB1 status: Fail. CDB1 status %d' %status)
                 continue
             else:
                 break
@@ -157,13 +166,16 @@ class CmisCdbApi(XcvrApi):
             time.sleep(2)
             status = self.cdb1_chkstatus()
             if (status != 0x1):
-                print('CDB1 status: Fail. CDB1 status %d' %status)
+                logger.info('CDB1 status: Fail. CDB1 status %d' %status)
                 continue
             else:
                 break
         return status
 
     def cmd0040h(self):
+        '''
+        This command is used to query which CDB commands are supported
+        '''
         cmd = bytearray(b'\x00\x40\x00\x00\x00\x00\x00\x00')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
         for attemp in range(MAX_TRY):
@@ -171,7 +183,7 @@ class CmisCdbApi(XcvrApi):
             time.sleep(2)
             status = self.cdb1_chkstatus()
             if (status != 0x1):
-                print('CDB1 status: Fail. CDB1 status %d' %status)
+                logger.info('CDB1 status: Fail. CDB1 status %d' %status)
                 continue
             else:
                 break
@@ -179,6 +191,9 @@ class CmisCdbApi(XcvrApi):
 
     # Firmware Update Features Supported
     def cmd0041h(self):
+        '''
+        This command is used to query supported firmware update features
+        '''
         cmd = bytearray(b'\x00\x41\x00\x00\x00\x00\x00\x00')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
         for attemp in range(MAX_TRY):
@@ -186,7 +201,7 @@ class CmisCdbApi(XcvrApi):
             time.sleep(2)
             status = self.cdb1_chkstatus()
             if (status != 0x1):
-                print('CDB1 status: Fail. CDB1 status %d' %status)
+                logger.info('CDB1 status: Fail. CDB1 status %d' %status)
                 continue
             else:
                 break
@@ -194,6 +209,10 @@ class CmisCdbApi(XcvrApi):
 
     # Get FW info
     def cmd0100h(self):
+        '''
+        This command returns the firmware versions and firmware default running 
+        images that reside in the module
+        '''
         cmd = bytearray(b'\x01\x00\x00\x00\x00\x00\x00\x00')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
         for attemp in range(MAX_TRY):
@@ -201,7 +220,7 @@ class CmisCdbApi(XcvrApi):
             time.sleep(2)
             status = self.cdb1_chkstatus()
             if (status != 0x1):
-                print('CDB1 status: Fail. CDB1 status %d' %status)
+                logger.info('CDB1 status: Fail. CDB1 status %d' %status)
                 continue
             else:
                 break
@@ -209,7 +228,10 @@ class CmisCdbApi(XcvrApi):
 
     # Start FW download
     def cmd0101h(self, startLPLsize, header, imagesize):
-        print("Image size is {}".format(imagesize))
+        '''
+        This command starts the firmware download
+        '''
+        logger.info("Image size is {}".format(imagesize))
         cmd = bytearray(b'\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
         cmd[132-INIT_OFFSET] = startLPLsize + 8
         cmd[136-INIT_OFFSET] = (imagesize >> 24) & 0xff
@@ -220,10 +242,10 @@ class CmisCdbApi(XcvrApi):
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
         for attemp in range(MAX_TRY):
             self.write_cdb(cmd)
-            time.sleep(2)
+            time.sleep(10)
             status = self.cdb1_chkstatus()
             if (status != 0x1):
-                print('CDB1 status: Fail. CDB1 status %d' %status)
+                logger.info('CDB1 status: Fail. CDB1 status %d' %status)
                 continue
             else:
                 break
@@ -231,6 +253,9 @@ class CmisCdbApi(XcvrApi):
 
     # Abort FW download
     def cmd0102h(self):
+        '''
+        This command aborts the firmware download
+        '''
         cmd = bytearray(b'\x01\x02\x00\x00\x00\x00\x00\x00')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
         for attemp in range(MAX_TRY):
@@ -238,7 +263,7 @@ class CmisCdbApi(XcvrApi):
             time.sleep(2)
             status = self.cdb1_chkstatus()
             if (status != 0x1):
-                print('CDB1 status: Fail. CDB1 status %d' %status)
+                logger.info('CDB1 status: Fail. CDB1 status %d' %status)
                 continue
             else:
                 break
@@ -246,6 +271,9 @@ class CmisCdbApi(XcvrApi):
 
     # Download FW with LPL
     def cmd0103h(self, addr, data):
+        '''
+        This command writes one block of the firmware image into the LPL
+        '''
         # lpl_len includes 136-139, four bytes, data is 116-byte long. 
         lpl_len = len(data) + 4
         cmd = bytearray(b'\x01\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
@@ -263,7 +291,7 @@ class CmisCdbApi(XcvrApi):
             time.sleep(2)
             status = self.cdb1_chkstatus()
             if (status != 0x1):
-                print('CDB1 status: Fail. CDB1 status %d' %status)
+                logger.info('CDB1 status: Fail. CDB1 status %d' %status)
                 continue
             else:
                 break
@@ -271,6 +299,9 @@ class CmisCdbApi(XcvrApi):
 
     #  Download FW with EPL
     def cmd0104h(self, addr, data, autopaging_flag, writelength):
+        '''
+        This command writes one block of the firmware image into the EPL
+        '''
         epl_len = 2048
         subtime = time.time()
         if not autopaging_flag:
@@ -282,10 +313,10 @@ class CmisCdbApi(XcvrApi):
                 next_page = 0xa0 + pageoffset
                 if PAGE_LENGTH*(pageoffset + 1) <= epl_len:
                     datachunk = data[PAGE_LENGTH*pageoffset : PAGE_LENGTH*(pageoffset + 1)]
-                    self.xcvr_eeprom.write_flexible(next_page*PAGE_LENGTH+INIT_OFFSET, PAGE_LENGTH, datachunk)
+                    self.xcvr_eeprom.write_raw(next_page*PAGE_LENGTH+INIT_OFFSET, PAGE_LENGTH, datachunk)
                 else:
                     datachunk = data[INIT_OFFSET*pageoffset : ]
-                    self.xcvr_eeprom.write_flexible(next_page*PAGE_LENGTH+INIT_OFFSET, len(datachunk), datachunk)
+                    self.xcvr_eeprom.write_raw(next_page*PAGE_LENGTH+INIT_OFFSET, len(datachunk), datachunk)
         else:
             sections = epl_len // writelength
             if (epl_len % writelength) != 0:
@@ -294,12 +325,12 @@ class CmisCdbApi(XcvrApi):
             for offset in range(0, epl_len, writelength):
                 if offset + writelength <= epl_len:
                     datachunk = data[offset : offset + writelength]
-                    self.xcvr_eeprom.write_flexible(0xA0*PAGE_LENGTH+offset+INIT_OFFSET, writelength, datachunk)
+                    self.xcvr_eeprom.write_raw(0xA0*PAGE_LENGTH+offset+INIT_OFFSET, writelength, datachunk)
                 else:
                     datachunk = data[offset : ]
-                    self.xcvr_eeprom.write_flexible(0xA0*PAGE_LENGTH+offset+INIT_OFFSET, len(datachunk), datachunk)
+                    self.xcvr_eeprom.write_raw(0xA0*PAGE_LENGTH+offset+INIT_OFFSET, len(datachunk), datachunk)
         subtimeint = time.time()-subtime
-        print('2048B write time:  %.2fs' %subtimeint)
+        logger.info('2048B write time:  %.2fs' %subtimeint)
         cmd = bytearray(b'\x01\x04\x08\x00\x04\x00\x00\x00')
         addr_byte = struct.pack('>L',addr)
         cmd += addr_byte
@@ -309,13 +340,18 @@ class CmisCdbApi(XcvrApi):
             time.sleep(2)
             status = self.cdb1_chkstatus()
             if (status != 0x1):
-                print('CDB1 status: Fail. CDB1 status %d' %status)
+                logger.info('CDB1 status: Fail. CDB1 status %d' %status)
                 continue
             else:
                 break
         return status
+
     # FW download complete
     def cmd0107h(self):
+        '''
+        When this command is issued, the module shall validate the complete
+        image and then return success or failure
+        '''
         cmd = bytearray(b'\x01\x07\x00\x00\x00\x00\x00\x00')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
         for attemp in range(MAX_TRY):
@@ -323,7 +359,7 @@ class CmisCdbApi(XcvrApi):
             time.sleep(2)
             status = self.cdb1_chkstatus()
             if (status != 0x1):
-                print('CDB1 status: Fail. CDB1 status %d' %status)
+                logger.info('CDB1 status: Fail. CDB1 status %d' %status)
                 continue
             else:
                 break
@@ -336,6 +372,9 @@ class CmisCdbApi(XcvrApi):
     # 02h = Traffic affecting Reset to Running Image.
     # 03h = Attempt Hitless Reset to Running Image
     def cmd0109h(self, mode = 0x01):
+        '''
+        The host uses this command to run a selected image from module internal firmware banks
+        '''
         cmd = bytearray(b'\x01\x09\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00')
         cmd[137-INIT_OFFSET] = mode
         cmd[138-INIT_OFFSET] = 2 # Delay to Reset 512 ms
@@ -345,7 +384,9 @@ class CmisCdbApi(XcvrApi):
             time.sleep(2)
             status = self.cdb1_chkstatus()
             if (status != 0x1):
-                print('CDB1 status: Fail. CDB1 status %d' %status)
+                logger.info('CDB1 status: Fail. CDB1 status %d' %status)
+                if status == 0x46 and self.password_type == 'msaPassword':
+                    self.xcvr_eeprom.write_raw(122, 4, b'\x00\x00\x10\x11')
                 continue
             else:
                 break
@@ -353,14 +394,27 @@ class CmisCdbApi(XcvrApi):
 
     # Commit FW image
     def cmd010Ah(self):
+        '''
+        A Commit is the process where the running image is set to be the image to be used on exit from module
+        reset. In other words, a committed image is the image that will run and is expected to be a 'good' firmware
+        version to run upon any resets (including watch dog).
+
+        This command is used to switch the committed image after the firmware update process, when the new
+        firmware is running and when the host has determined that the new firmware is working properly. The module
+        shall only execute a Commit Image command on the image that it is currently running. If a non-running image
+        is allowed to be committed, it is possible that a bad version may be committed and attempted to run after the
+        next module reset.
+        '''
         cmd = bytearray(b'\x01\x0A\x00\x00\x00\x00\x00\x00')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
         for attemp in range(MAX_TRY):
             self.write_cdb(cmd)
-            time.sleep(2)
+            time.sleep(5)
             status = self.cdb1_chkstatus()
             if (status != 0x1):
-                print('CDB1 status: Fail. CDB1 status %d' %status)
+                logger.info('CDB1 status: Fail. CDB1 status %d' %status)
+                if status == 0x46 and self.password_type == 'msaPassword':
+                    self.xcvr_eeprom.write_raw(122, 4, b'\x00\x00\x10\x11')
                 continue
             else:
                 break

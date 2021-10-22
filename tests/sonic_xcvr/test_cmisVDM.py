@@ -10,7 +10,7 @@ from sonic_platform_base.sonic_xcvr.codes.public.cmis_code import CmisCode
 class TestVDM(object):
 
     def mock_vdm_api(self):
-        codes = {'sff8024':Sff8024, 'cmis_code':CmisCode}
+        codes = CmisCode
         mem_map = CmisMemMap(codes)
         reader = MagicMock(return_value=None)
         writer = MagicMock()
@@ -65,11 +65,11 @@ class TestVDM(object):
             }
         )
     ])
-    def test_get_VDM_page(self, input_param, mock_response, expected):
+    def test_get_vdm_page(self, input_param, mock_response, expected):
         vdm = self.mock_vdm_api()
-        vdm.xcvr_eeprom.read_flexible = MagicMock()
-        vdm.xcvr_eeprom.read_flexible.side_effect = mock_response
-        result = vdm.get_VDM_page(*input_param)
+        vdm.xcvr_eeprom.read_raw = MagicMock()
+        vdm.xcvr_eeprom.read_raw.side_effect = mock_response
+        result = vdm.get_vdm_page(*input_param)
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
@@ -102,14 +102,14 @@ class TestVDM(object):
 
         )
     ])
-    def test_get_VDM_allpage(self, mock_response, expected):
+    def test_get_vdm_allpage(self, mock_response, expected):
         vdm = self.mock_vdm_api()
         vdm.xcvr_eeprom.read = MagicMock()
         vdm.xcvr_eeprom.read.return_value = mock_response[0]
-        vdm.xcvr_eeprom.read_flexible = MagicMock()
-        vdm.xcvr_eeprom.read_flexible.return_value = mock_response[1]
+        vdm.xcvr_eeprom.read_raw = MagicMock()
+        vdm.xcvr_eeprom.read_raw.return_value = mock_response[1]
         # input_param = [0x20, mock_response[1]]
-        vdm.get_VDM_page = MagicMock()
-        vdm.get_VDM_page.side_effect = mock_response[2:]
-        result = vdm.get_VDM_allpage()
+        vdm.get_vdm_page = MagicMock()
+        vdm.get_vdm_page.side_effect = mock_response[2:]
+        result = vdm.get_vdm_allpage()
         assert result == expected

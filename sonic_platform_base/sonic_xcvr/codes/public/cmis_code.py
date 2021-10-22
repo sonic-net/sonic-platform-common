@@ -3,9 +3,9 @@
 
     Implementation of dictionaries used in CMIS
 """
-from ..xcvr_codes import XcvrCodes
+from .sff8024 import Sff8024
 
-class CmisCode(XcvrCodes):
+class CmisCode(Sff8024):
     MEDIA_INTERFACE_TECH = {
     0: '850 nm VCSEL',
     1: '1310 nm VCSEL',

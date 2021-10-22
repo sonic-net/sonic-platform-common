@@ -10,7 +10,7 @@ from sonic_platform_base.sonic_xcvr.codes.public.cmis_code import CmisCode
 class TestCDB(object):
 
     def mock_cdb_api(self):
-        codes = {'sff8024':Sff8024, 'cmis_code':CmisCode}
+        codes = CmisCode
         mem_map = CmisMemMap(codes)
         reader = MagicMock(return_value=None)
         writer = MagicMock()
@@ -59,8 +59,8 @@ class TestCDB(object):
         cdb = self.mock_cdb_api()
         cdb.xcvr_eeprom.read = MagicMock()
         cdb.xcvr_eeprom.read.side_effect = mock_response[0:2]
-        cdb.xcvr_eeprom.read_flexible = MagicMock()
-        cdb.xcvr_eeprom.read_flexible.return_value = mock_response[2]
+        cdb.xcvr_eeprom.read_raw = MagicMock()
+        cdb.xcvr_eeprom.read_raw.return_value = mock_response[2]
         result = cdb.read_cdb()
         assert result == expected
 
