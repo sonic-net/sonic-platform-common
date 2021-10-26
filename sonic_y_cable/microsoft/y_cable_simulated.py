@@ -176,7 +176,7 @@ class YCable(YCableBase):
             # Retry in case of exception, to workaround 'no route to host' issue after pmon restart
             if time.time() - start_time > self.POLL_TIMEOUT:
                 self.log_error('Retry POST {} with data{} for physical port {} timeout after {} seconds, attempted={}'.format(
-                    get_url,
+                    post_url,
                     post_data,
                     self.port,
                     self.POLL_TIMEOUT,
@@ -186,7 +186,7 @@ class YCable(YCableBase):
             else:
                 self.log_notice('Sleep {} seconds to retry POST {} with data {} for physical port {}'.format(
                     self.POLL_INTERVAL,
-                    get_url,
+                    post_url,
                     post_data,
                     self.port
                 ))
