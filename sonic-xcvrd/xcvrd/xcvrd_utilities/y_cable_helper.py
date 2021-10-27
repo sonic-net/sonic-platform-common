@@ -8,6 +8,7 @@ import datetime
 import os
 import re
 import threading
+import time
 
 from importlib import import_module
 
@@ -491,7 +492,7 @@ def check_identifier_presence_and_update_mux_table_entry(state_db, port_tbl, y_c
 
             val = mux_table_dict.get("state", None)
 
-            if val in ["active", "auto"]:
+            if val in ["active", "auto", "manual", "standby"]:
 
                 # import the module and load the port instance
                 physical_port_list = port_mapping.logical_port_name_to_physical_port_list(
@@ -852,7 +853,7 @@ def check_identifier_presence_and_update_mux_info_entry(state_db, mux_tbl, asic_
         mux_table_dict = dict(fvs)
         if "state" in mux_table_dict:
             val = mux_table_dict.get("state", None)
-            if val in ["active", "auto"]:
+            if val in ["active", "auto", "manual", "standby"]:
 
                 if mux_tbl.get(asic_index, None) is not None:
                     # fill in the newly found entry
@@ -871,17 +872,47 @@ def check_identifier_presence_and_update_mux_info_entry(state_db, mux_tbl, asic_
                     "Could not retreive active or auto value for state kvp for {}, inside MUX_CABLE table".format(logical_port_name))
 
 
-def get_firmware_dict(physical_port, port_instance, target, side, mux_info_dict):
+def get_firmware_dict(physical_port, port_instance, target, side, mux_info_dict, logical_port_name):
 
     result = {}
-    if port_instance.download_firmware_status == port_instance.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS or port_instance.download_firmware_status == port_instance.FIRMWARE_DOWNLOAD_STATUS_FAILED:
-        mux_info_dict[("version_{}_active".format(side))] = "N/A"
-        mux_info_dict[("version_{}_inactive".format(side))] = "N/A"
-        mux_info_dict[("version_{}_next".format(side))] = "N/A"
-        helper_logger.log_warning(
-            "trying to post firmware info while download in progress returning without execute {}".format(physical_port))
+    if port_instance.download_firmware_status == port_instance.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS:
 
+        # if there is a firmware download in progress, retreive the last known firmware
+        state_db, mux_tbl = {}, {}
+        mux_firmware_dict = {}
+
+        namespaces = multi_asic.get_front_end_namespaces()
+        for namespace in namespaces:
+            asic_id = multi_asic.get_asic_index_from_namespace(namespace)
+            state_db[asic_id] = daemon_base.db_connect("STATE_DB", namespace)
+            mux_tbl[asic_id] = swsscommon.Table(
+                state_db[asic_id], MUX_CABLE_INFO_TABLE)
+
+        asic_index = y_cable_platform_sfputil.get_asic_id_for_logical_port(
+            logical_port_name)
+
+        (status, fvs) = mux_tbl[asic_index].get(logical_port_name)
+        if status is False:
+            helper_logger.log_warning("Could not retreive fieldvalue pairs for {}, inside state_db table {}".format(logical_port_name, mux_tbl[asic_index].getTableName()))
+            mux_info_dict[("version_{}_active".format(side))] = "N/A"
+            mux_info_dict[("version_{}_inactive".format(side))] = "N/A"
+            mux_info_dict[("version_{}_next".format(side))] = "N/A"
+            return
+
+        mux_firmware_dict = dict(fvs)
+
+        mux_info_dict[("version_{}_active".format(side))] = mux_firmware_dict.get(("version_{}_active".format(side)), None)
+        mux_info_dict[("version_{}_inactive".format(side))] = mux_firmware_dict.get(("version_{}_inactive".format(side)), None)
+        mux_info_dict[("version_{}_next".format(side))] = mux_firmware_dict.get(("version_{}_next".format(side)), None)
+
+        helper_logger.log_warning(
+            "trying to get/post firmware info while download in progress returning with last known firmware without execute {}".format(physical_port))
         return
+
+    elif port_instance.download_firmware_status == port_instance.FIRMWARE_DOWNLOAD_STATUS_FAILED:
+        # if there is a firmware download failed, retreive the current MCU's firmware with a log message
+        helper_logger.log_error(
+            "Firmware Download API failed in the previous run, firmware download status was set to failed;retry required {}".format(physical_port))
 
     with y_cable_port_locks[physical_port]:
         try:
@@ -1087,13 +1118,13 @@ def get_muxcable_info(physical_port, logical_port_name, port_mapping):
         else:
             mux_info_dict["link_status_nic"] = "down"
 
-    get_firmware_dict(physical_port, port_instance, port_instance.TARGET_NIC, "nic", mux_info_dict)
+    get_firmware_dict(physical_port, port_instance, port_instance.TARGET_NIC, "nic", mux_info_dict, logical_port_name)
     if read_side == 1:
-        get_firmware_dict(physical_port, port_instance, port_instance.TARGET_TOR_A, "self", mux_info_dict)
-        get_firmware_dict(physical_port, port_instance, port_instance.TARGET_TOR_B, "peer", mux_info_dict)
+        get_firmware_dict(physical_port, port_instance, port_instance.TARGET_TOR_A, "self", mux_info_dict, logical_port_name)
+        get_firmware_dict(physical_port, port_instance, port_instance.TARGET_TOR_B, "peer", mux_info_dict, logical_port_name)
     else:
-        get_firmware_dict(physical_port, port_instance, port_instance.TARGET_TOR_A, "peer", mux_info_dict)
-        get_firmware_dict(physical_port, port_instance, port_instance.TARGET_TOR_B, "self", mux_info_dict)
+        get_firmware_dict(physical_port, port_instance, port_instance.TARGET_TOR_A, "peer", mux_info_dict, logical_port_name)
+        get_firmware_dict(physical_port, port_instance, port_instance.TARGET_TOR_B, "self", mux_info_dict, logical_port_name)
 
     with y_cable_port_locks[physical_port]:
         try:
@@ -1429,6 +1460,7 @@ def task_download_firmware_worker(port, physical_port, port_instance, file_full_
     helper_logger.log_debug("worker thread launched for downloading physical port {} path {}".format(physical_port, file_full_path))
     try:
         status = port_instance.download_firmware(file_full_path)
+        time.sleep(5)
     except Exception as e:
         status = -1
         helper_logger.log_warning("Failed to execute the download firmware API for port {} due to {}".format(physical_port,repr(e)))
@@ -2142,13 +2174,13 @@ class YCableTableUpdateTask(object):
                             break
 
 
-                        get_firmware_dict(physical_port, port_instance, port_instance.TARGET_NIC, "nic", mux_info_dict)
+                        get_firmware_dict(physical_port, port_instance, port_instance.TARGET_NIC, "nic", mux_info_dict, port)
                         if read_side == port_instance.TARGET_TOR_A:
-                            get_firmware_dict(physical_port, port_instance, port_instance.TARGET_TOR_A, "self", mux_info_dict)
-                            get_firmware_dict(physical_port, port_instance, port_instance.TARGET_TOR_B, "peer", mux_info_dict)
+                            get_firmware_dict(physical_port, port_instance, port_instance.TARGET_TOR_A, "self", mux_info_dict, port)
+                            get_firmware_dict(physical_port, port_instance, port_instance.TARGET_TOR_B, "peer", mux_info_dict, port)
                         else:
-                            get_firmware_dict(physical_port, port_instance, port_instance.TARGET_TOR_A, "peer", mux_info_dict)
-                            get_firmware_dict(physical_port, port_instance, port_instance.TARGET_TOR_B, "self", mux_info_dict)
+                            get_firmware_dict(physical_port, port_instance, port_instance.TARGET_TOR_A, "peer", mux_info_dict, port)
+                            get_firmware_dict(physical_port, port_instance, port_instance.TARGET_TOR_B, "self", mux_info_dict, port)
 
                         status = 'True'
                         set_show_firmware_fields(port, mux_info_dict, xcvrd_show_fw_res_tbl[asic_index])
