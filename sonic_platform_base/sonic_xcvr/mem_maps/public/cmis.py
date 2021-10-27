@@ -48,10 +48,10 @@ class CmisMemMap(XcvrMemMap):
                 *(RegBitField("%s_%d" % (consts.LEN_MULT_FIELD, bit), bit) for bit in range (6, 8))
             ),
             CableLenField(consts.LENGTH_ASSEMBLY_FIELD, self.get_addr(0x0, 202),
-                *(RegBitField("%s_%d" % (consts.LENGTH_ASSEMBLY_FIELD, bit), bit) for bit in range(0, 6)),
-                deps=[consts.LEN_MULT_FIELD]
+                *(RegBitField("%s_%d" % (consts.LENGTH_ASSEMBLY_FIELD, bit), bit) for bit in range(0, 6))
             ),
             CodeRegField(consts.CONNECTOR_FIELD, self.get_addr(0x0, 203), self.codes.CONNECTORS),
+            deps=[consts.LEN_MULT_FIELD]
         )
 
         self.MODULE_LEVEL_MONITORS = RegGroupField(consts.MODULE_MONITORS_FIELD,
