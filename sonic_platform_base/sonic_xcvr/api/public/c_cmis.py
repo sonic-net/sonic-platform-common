@@ -106,7 +106,7 @@ class CCmisApi(CmisApi):
         '''
         This function sets the laser frequency. Unit in GHz
         ZR application will not support fine tuning of the laser
-        Microsoft will only supports 75 GHz frequency grid
+        SONiC will only support 75 GHz frequency grid
         '''
         grid_supported, low_ch_num, hi_ch_num, _, _ = self.get_supported_freq_config()
         grid_supported_75GHz = (grid_supported >> 7) & 0x1
@@ -122,6 +122,17 @@ class CCmisApi(CmisApi):
         self.xcvr_eeprom.write(consts.LASER_CONFIG_CHANNEL, channel_number)
         time.sleep(1)
         self.set_low_power(False)
+        time.sleep(1)
+
+    def set_tx_power(self, tx_power):
+        '''
+        This function sets the TX output power. Unit in dBm
+        '''
+        min_prog_tx_output_power, max_prog_tx_output_power = self.get_supported_power_config()
+        if tx_power > max_prog_tx_output_power or tx_power < min_prog_tx_output_power:
+            raise ValueError('Provisioned TX power out of range. Max: %.1f; Min: %.1f dBm.' 
+                             %(max_prog_tx_output_power, min_prog_tx_output_power))
+        self.xcvr_eeprom.write(consts.TX_CONFIG_POWER, tx_power)
         time.sleep(1)
 
     def get_pm_all(self):
@@ -263,34 +274,7 @@ class CCmisApi(CmisApi):
         supported_min_laser_freq     = FLOAT                    ; support minimum laser frequency
         ================================================================================
         """
-        trans_info = dict()
-        trans_info['module_media_type'] = self.get_module_media_type()
-        trans_info['host_electrical_interface'] = self.get_host_electrical_interface()
-        trans_info['media_interface_code'] = self.get_module_media_interface()
-        trans_info['host_lane_count'] = self.get_host_lane_count()
-        trans_info['media_lane_count'] = self.get_media_lane_count()
-        trans_info['host_lane_assignment_option'] = self.get_host_lane_assignment_option()
-        trans_info['media_lane_assignment_option'] = self.get_media_lane_assignment_option()
-        apsel_dict = self.get_active_apsel_hostlane()
-        trans_info['active_apsel_hostlane1'] = apsel_dict['hostlane1']
-        trans_info['active_apsel_hostlane2'] = apsel_dict['hostlane2']
-        trans_info['active_apsel_hostlane3'] = apsel_dict['hostlane3']
-        trans_info['active_apsel_hostlane4'] = apsel_dict['hostlane4']
-        trans_info['active_apsel_hostlane5'] = apsel_dict['hostlane5']
-        trans_info['active_apsel_hostlane6'] = apsel_dict['hostlane6']
-        trans_info['active_apsel_hostlane7'] = apsel_dict['hostlane7']
-        trans_info['active_apsel_hostlane8'] = apsel_dict['hostlane8']
-        trans_info['media_interface_technology'] = self.get_media_interface_technology()
-        trans_info['hardwarerev'] = self.get_module_hardware_revision()
-        trans_info['serialnum'] = self.get_vendor_serial()
-        trans_info['manufacturename'] = self.get_vendor_name()
-        trans_info['vendor_rev'] = self.get_vendor_rev()
-        trans_info['vendor_oui'] = self.get_vendor_OUI()
-        trans_info['vendor_date'] = self.get_vendor_date()
-        trans_info['connector_type'] = self.get_connector_type()
-        trans_info['specification_compliance'] = self.get_cmis_rev()
-        trans_info['active_firmware'] = self.get_module_active_firmware()
-        trans_info['inactive_firmware'] = self.get_module_inactive_firmware()
+        trans_info = super(CCmisApi,self).get_transceiver_info()
         min_power, max_power = self.get_supported_power_config()
         trans_info['supported_max_tx_power'] = max_power
         trans_info['supported_min_tx_power'] = min_power
@@ -339,45 +323,30 @@ class CCmisApi(CmisApi):
         bias_yp                      = FLOAT                            ; modulator bias yp
         ========================================================================
         """
-        trans_dom = dict()
-        case_temp_dict = self.get_module_temperature()
-        trans_dom['temperature'] = case_temp_dict['monitor value']
-        voltage_dict = self.get_module_voltage()
-        trans_dom['voltage'] = voltage_dict['monitor value']
-        tx_power_dict = self.get_txpower()
-        trans_dom['txpower'] = tx_power_dict['monitor value lane1']
-        rx_power_dict = self.get_rxpower()
-        trans_dom['rxpower'] = rx_power_dict['monitor value lane1']
-        tx_bias_current_dict = self.get_txbias()
-        trans_dom['txbias'] = tx_bias_current_dict['monitor value lane1']
-        laser_temp_dict = self.get_laser_temperature()
-        trans_dom['laser_temperature'] = laser_temp_dict['monitor value']
-        vdm_dict = self.get_vdm()
-        trans_dom['prefec_ber'] = vdm_dict['Pre-FEC BER Average Media Input'][1][0]
-        trans_dom['postfec_ber'] = vdm_dict['Errored Frames Average Media Input'][1][0]
-        trans_dom['bias_xi'] = vdm_dict['Modulator Bias X/I [%]'][1][0]
-        trans_dom['bias_xq'] = vdm_dict['Modulator Bias X/Q [%]'][1][0]
-        trans_dom['bias_xp'] = vdm_dict['Modulator Bias X_Phase [%]'][1][0]
-        trans_dom['bias_yi'] = vdm_dict['Modulator Bias Y/I [%]'][1][0]
-        trans_dom['bias_yq'] = vdm_dict['Modulator Bias Y/Q [%]'][1][0]
-        trans_dom['bias_yp'] = vdm_dict['Modulator Bias Y_Phase [%]'][1][0]
-        trans_dom['cd_shortlink'] = vdm_dict['CD high granularity, short link [ps/nm]'][1][0]
+        trans_dom = super(CCmisApi,self).get_transceiver_bulk_status()
+        trans_dom['bias_xi'] = self.vdm_dict['Modulator Bias X/I [%]'][1][0]
+        trans_dom['bias_xq'] = self.vdm_dict['Modulator Bias X/Q [%]'][1][0]
+        trans_dom['bias_xp'] = self.vdm_dict['Modulator Bias X_Phase [%]'][1][0]
+        trans_dom['bias_yi'] = self.vdm_dict['Modulator Bias Y/I [%]'][1][0]
+        trans_dom['bias_yq'] = self.vdm_dict['Modulator Bias Y/Q [%]'][1][0]
+        trans_dom['bias_yp'] = self.vdm_dict['Modulator Bias Y_Phase [%]'][1][0]
+        trans_dom['cd_shortlink'] = self.vdm_dict['CD high granularity, short link [ps/nm]'][1][0]
         try:
-            trans_dom['cd_longlink'] = vdm_dict['CD low granularity, long link [ps/nm]'][1][0]
+            trans_dom['cd_longlink'] = self.vdm_dict['CD low granularity, long link [ps/nm]'][1][0]
         except KeyError:
             pass
-        trans_dom['dgd'] = vdm_dict['DGD [ps]'][1][0]
+        trans_dom['dgd'] = self.vdm_dict['DGD [ps]'][1][0]
         try:
-            trans_dom['sopmd'] = vdm_dict['SOPMD [ps^2]'][1][0]
+            trans_dom['sopmd'] = self.vdm_dict['SOPMD [ps^2]'][1][0]
         except KeyError:
             pass
-        trans_dom['pdl'] = vdm_dict['PDL [dB]'][1][0]
-        trans_dom['osnr'] = vdm_dict['OSNR [dB]'][1][0]
-        trans_dom['esnr'] = vdm_dict['eSNR [dB]'][1][0]
-        trans_dom['cfo'] = vdm_dict['CFO [MHz]'][1][0]
-        trans_dom['tx_curr_power'] = vdm_dict['Tx Power [dBm]'][1][0]
-        trans_dom['rx_tot_power'] = vdm_dict['Rx Total Power [dBm]'][1][0]
-        trans_dom['rx_sig_power'] = vdm_dict['Rx Signal Power [dBm]'][1][0]
+        trans_dom['pdl'] = self.vdm_dict['PDL [dB]'][1][0]
+        trans_dom['osnr'] = self.vdm_dict['OSNR [dB]'][1][0]
+        trans_dom['esnr'] = self.vdm_dict['eSNR [dB]'][1][0]
+        trans_dom['cfo'] = self.vdm_dict['CFO [MHz]'][1][0]
+        trans_dom['tx_curr_power'] = self.vdm_dict['Tx Power [dBm]'][1][0]
+        trans_dom['rx_tot_power'] = self.vdm_dict['Rx Total Power [dBm]'][1][0]
+        trans_dom['rx_sig_power'] = self.vdm_dict['Rx Signal Power [dBm]'][1][0]
         trans_dom['laser_config_freq'] = self.get_laser_config_freq()
         trans_dom['laser_curr_freq'] = self.get_current_laser_freq()
         trans_dom['tx_config_power'] = self.get_tx_config_power()
@@ -494,120 +463,81 @@ class CCmisApi(CmisApi):
         rxsigpowerlowwarning         = FLOAT                            ; rxsigpower low warning threshold in dbm
         ========================================================================
         """
-        trans_dom_th = dict()
-        case_temp_dict = self.get_module_temperature()
-        trans_dom_th['temphighalarm'] = case_temp_dict['high alarm']
-        trans_dom_th['templowalarm'] = case_temp_dict['low alarm']
-        trans_dom_th['temphighwarning'] = case_temp_dict['high warn']
-        trans_dom_th['templowwarning'] = case_temp_dict['low warn']
-        voltage_dict = self.get_module_voltage()
-        trans_dom_th['vcchighalarm'] = voltage_dict['high alarm']
-        trans_dom_th['vcclowalarm'] = voltage_dict['low alarm']
-        trans_dom_th['vcchighwarning'] = voltage_dict['high warn']
-        trans_dom_th['vcclowwarning'] = voltage_dict['low warn']
-        tx_power_dict = self.get_txpower()
-        trans_dom_th['txpowerhighalarm'] = tx_power_dict['high alarm']
-        trans_dom_th['txpowerlowalarm'] = tx_power_dict['low alarm']
-        trans_dom_th['txpowerhighwarning'] = tx_power_dict['high warn']
-        trans_dom_th['txpowerlowwarning'] = tx_power_dict['low warn']
-        rx_power_dict = self.get_rxpower()
-        trans_dom_th['rxpowerhighalarm'] = rx_power_dict['high alarm']
-        trans_dom_th['rxpowerlowalarm'] = rx_power_dict['low alarm']
-        trans_dom_th['rxpowerhighwarning'] = rx_power_dict['high warn']
-        trans_dom_th['rxpowerlowwarning'] = rx_power_dict['low warn']
-        tx_bias_current_dict = self.get_txbias()
-        trans_dom_th['txbiashighalarm'] = tx_bias_current_dict['high alarm']
-        trans_dom_th['txbiaslowalarm'] = tx_bias_current_dict['low alarm']
-        trans_dom_th['txbiashighwarning'] = tx_bias_current_dict['high warn']
-        trans_dom_th['txbiaslowwarning'] = tx_bias_current_dict['low warn']
-        laser_temp_dict = self.get_laser_temperature()
-        trans_dom_th['lasertemphighalarm'] = laser_temp_dict['high alarm']
-        trans_dom_th['lasertemplowalarm'] = laser_temp_dict['low alarm']
-        trans_dom_th['lasertemphighwarning'] = laser_temp_dict['high warn']
-        trans_dom_th['lasertemplowwarning'] = laser_temp_dict['low warn']
-        vdm_dict = self.get_vdm()
-        trans_dom_th['prefecberhighalarm'] = vdm_dict['Pre-FEC BER Average Media Input'][1][1]
-        trans_dom_th['prefecberlowalarm'] = vdm_dict['Pre-FEC BER Average Media Input'][1][2]
-        trans_dom_th['prefecberhighwarning'] = vdm_dict['Pre-FEC BER Average Media Input'][1][3]
-        trans_dom_th['prefecberlowwarning'] = vdm_dict['Pre-FEC BER Average Media Input'][1][4]     
-        trans_dom_th['postfecberhighalarm'] = vdm_dict['Errored Frames Average Media Input'][1][1]
-        trans_dom_th['postfecberlowalarm'] = vdm_dict['Errored Frames Average Media Input'][1][2]
-        trans_dom_th['postfecberhighwarning'] = vdm_dict['Errored Frames Average Media Input'][1][3]
-        trans_dom_th['postfecberlowwarning'] = vdm_dict['Errored Frames Average Media Input'][1][4]
-        trans_dom_th['biasxihighalarm'] = vdm_dict['Modulator Bias X/I [%]'][1][1]
-        trans_dom_th['biasxilowalarm'] = vdm_dict['Modulator Bias X/I [%]'][1][2]
-        trans_dom_th['biasxihighwarning'] = vdm_dict['Modulator Bias X/I [%]'][1][3]
-        trans_dom_th['biasxilowwarning'] = vdm_dict['Modulator Bias X/I [%]'][1][4]
-        trans_dom_th['biasxqhighalarm'] = vdm_dict['Modulator Bias X/Q [%]'][1][1]
-        trans_dom_th['biasxqlowalarm'] = vdm_dict['Modulator Bias X/Q [%]'][1][2]
-        trans_dom_th['biasxqhighwarning'] = vdm_dict['Modulator Bias X/Q [%]'][1][3]
-        trans_dom_th['biasxqlowwarning'] = vdm_dict['Modulator Bias X/Q [%]'][1][4]
-        trans_dom_th['biasxphighalarm'] = vdm_dict['Modulator Bias X_Phase [%]'][1][1]
-        trans_dom_th['biasxplowalarm'] = vdm_dict['Modulator Bias X_Phase [%]'][1][2]
-        trans_dom_th['biasxphighwarning'] = vdm_dict['Modulator Bias X_Phase [%]'][1][3]
-        trans_dom_th['biasxplowwarning'] = vdm_dict['Modulator Bias X_Phase [%]'][1][4]
-        trans_dom_th['biasyihighalarm'] = vdm_dict['Modulator Bias Y/I [%]'][1][1]
-        trans_dom_th['biasyilowalarm'] = vdm_dict['Modulator Bias Y/I [%]'][1][2]
-        trans_dom_th['biasyihighwarning'] = vdm_dict['Modulator Bias Y/I [%]'][1][3]
-        trans_dom_th['biasyilowwarning'] = vdm_dict['Modulator Bias Y/I [%]'][1][4]
-        trans_dom_th['biasyqhighalarm'] = vdm_dict['Modulator Bias Y/Q [%]'][1][1]
-        trans_dom_th['biasyqlowalarm'] = vdm_dict['Modulator Bias Y/Q [%]'][1][2]
-        trans_dom_th['biasyqhighwarning'] = vdm_dict['Modulator Bias Y/Q [%]'][1][3]
-        trans_dom_th['biasyqlowwarning'] = vdm_dict['Modulator Bias Y/Q [%]'][1][4]
-        trans_dom_th['biasyphighalarm'] = vdm_dict['Modulator Bias Y_Phase [%]'][1][1]
-        trans_dom_th['biasyplowalarm'] = vdm_dict['Modulator Bias Y_Phase [%]'][1][2]
-        trans_dom_th['biasyphighwarning'] = vdm_dict['Modulator Bias Y_Phase [%]'][1][3]
-        trans_dom_th['biasyplowwarning'] = vdm_dict['Modulator Bias Y_Phase [%]'][1][4]
-        trans_dom_th['cdshorthighalarm'] = vdm_dict['CD high granularity, short link [ps/nm]'][1][1]
-        trans_dom_th['cdshortlowalarm'] = vdm_dict['CD high granularity, short link [ps/nm]'][1][2]
-        trans_dom_th['cdshorthighwarning'] = vdm_dict['CD high granularity, short link [ps/nm]'][1][3]
-        trans_dom_th['cdshortlowwarning'] = vdm_dict['CD high granularity, short link [ps/nm]'][1][4]
+        trans_dom_th = super(CCmisApi,self).get_transceiver_threshold_info()
+        trans_dom_th['biasxihighalarm'] = self.vdm_dict['Modulator Bias X/I [%]'][1][1]
+        trans_dom_th['biasxilowalarm'] = self.vdm_dict['Modulator Bias X/I [%]'][1][2]
+        trans_dom_th['biasxihighwarning'] = self.vdm_dict['Modulator Bias X/I [%]'][1][3]
+        trans_dom_th['biasxilowwarning'] = self.vdm_dict['Modulator Bias X/I [%]'][1][4]
+        trans_dom_th['biasxqhighalarm'] = self.vdm_dict['Modulator Bias X/Q [%]'][1][1]
+        trans_dom_th['biasxqlowalarm'] = self.vdm_dict['Modulator Bias X/Q [%]'][1][2]
+        trans_dom_th['biasxqhighwarning'] = self.vdm_dict['Modulator Bias X/Q [%]'][1][3]
+        trans_dom_th['biasxqlowwarning'] = self.vdm_dict['Modulator Bias X/Q [%]'][1][4]
+        trans_dom_th['biasxphighalarm'] = self.vdm_dict['Modulator Bias X_Phase [%]'][1][1]
+        trans_dom_th['biasxplowalarm'] = self.vdm_dict['Modulator Bias X_Phase [%]'][1][2]
+        trans_dom_th['biasxphighwarning'] = self.vdm_dict['Modulator Bias X_Phase [%]'][1][3]
+        trans_dom_th['biasxplowwarning'] = self.vdm_dict['Modulator Bias X_Phase [%]'][1][4]
+        trans_dom_th['biasyihighalarm'] = self.vdm_dict['Modulator Bias Y/I [%]'][1][1]
+        trans_dom_th['biasyilowalarm'] = self.vdm_dict['Modulator Bias Y/I [%]'][1][2]
+        trans_dom_th['biasyihighwarning'] = self.vdm_dict['Modulator Bias Y/I [%]'][1][3]
+        trans_dom_th['biasyilowwarning'] = self.vdm_dict['Modulator Bias Y/I [%]'][1][4]
+        trans_dom_th['biasyqhighalarm'] = self.vdm_dict['Modulator Bias Y/Q [%]'][1][1]
+        trans_dom_th['biasyqlowalarm'] = self.vdm_dict['Modulator Bias Y/Q [%]'][1][2]
+        trans_dom_th['biasyqhighwarning'] = self.vdm_dict['Modulator Bias Y/Q [%]'][1][3]
+        trans_dom_th['biasyqlowwarning'] = self.vdm_dict['Modulator Bias Y/Q [%]'][1][4]
+        trans_dom_th['biasyphighalarm'] = self.vdm_dict['Modulator Bias Y_Phase [%]'][1][1]
+        trans_dom_th['biasyplowalarm'] = self.vdm_dict['Modulator Bias Y_Phase [%]'][1][2]
+        trans_dom_th['biasyphighwarning'] = self.vdm_dict['Modulator Bias Y_Phase [%]'][1][3]
+        trans_dom_th['biasyplowwarning'] = self.vdm_dict['Modulator Bias Y_Phase [%]'][1][4]
+        trans_dom_th['cdshorthighalarm'] = self.vdm_dict['CD high granularity, short link [ps/nm]'][1][1]
+        trans_dom_th['cdshortlowalarm'] = self.vdm_dict['CD high granularity, short link [ps/nm]'][1][2]
+        trans_dom_th['cdshorthighwarning'] = self.vdm_dict['CD high granularity, short link [ps/nm]'][1][3]
+        trans_dom_th['cdshortlowwarning'] = self.vdm_dict['CD high granularity, short link [ps/nm]'][1][4]
         try:
-            trans_dom_th['cdlonghighalarm'] = vdm_dict['CD low granularity, long link [ps/nm]'][1][1]
-            trans_dom_th['cdlonglowalarm'] = vdm_dict['CD low granularity, long link [ps/nm]'][1][2]
-            trans_dom_th['cdlonghighwarning'] = vdm_dict['CD low granularity, long link [ps/nm]'][1][3]
-            trans_dom_th['cdlonglowwarning'] = vdm_dict['CD low granularity, long link [ps/nm]'][1][4]
+            trans_dom_th['cdlonghighalarm'] = self.vdm_dict['CD low granularity, long link [ps/nm]'][1][1]
+            trans_dom_th['cdlonglowalarm'] = self.vdm_dict['CD low granularity, long link [ps/nm]'][1][2]
+            trans_dom_th['cdlonghighwarning'] = self.vdm_dict['CD low granularity, long link [ps/nm]'][1][3]
+            trans_dom_th['cdlonglowwarning'] = self.vdm_dict['CD low granularity, long link [ps/nm]'][1][4]
         except KeyError:
             pass
-        trans_dom_th['dgdhighalarm'] = vdm_dict['DGD [ps]'][1][1]
-        trans_dom_th['dgdlowalarm'] = vdm_dict['DGD [ps]'][1][2]
-        trans_dom_th['dgdhighwarning'] = vdm_dict['DGD [ps]'][1][3]
-        trans_dom_th['dgdlowwarning'] = vdm_dict['DGD [ps]'][1][4]
+        trans_dom_th['dgdhighalarm'] = self.vdm_dict['DGD [ps]'][1][1]
+        trans_dom_th['dgdlowalarm'] = self.vdm_dict['DGD [ps]'][1][2]
+        trans_dom_th['dgdhighwarning'] = self.vdm_dict['DGD [ps]'][1][3]
+        trans_dom_th['dgdlowwarning'] = self.vdm_dict['DGD [ps]'][1][4]
         try:
-            trans_dom_th['sopmdhighalarm'] = vdm_dict['SOPMD [ps^2]'][1][1]
-            trans_dom_th['sopmdlowalarm'] = vdm_dict['SOPMD [ps^2]'][1][2]
-            trans_dom_th['sopmdhighwarning'] = vdm_dict['SOPMD [ps^2]'][1][3]
-            trans_dom_th['sopmdlowwarning'] = vdm_dict['SOPMD [ps^2]'][1][4]
+            trans_dom_th['sopmdhighalarm'] = self.vdm_dict['SOPMD [ps^2]'][1][1]
+            trans_dom_th['sopmdlowalarm'] = self.vdm_dict['SOPMD [ps^2]'][1][2]
+            trans_dom_th['sopmdhighwarning'] = self.vdm_dict['SOPMD [ps^2]'][1][3]
+            trans_dom_th['sopmdlowwarning'] = self.vdm_dict['SOPMD [ps^2]'][1][4]
         except KeyError:
             pass
-        trans_dom_th['pdlhighalarm'] = vdm_dict['PDL [dB]'][1][1]
-        trans_dom_th['pdllowalarm'] = vdm_dict['PDL [dB]'][1][2]
-        trans_dom_th['pdlhighwarning'] = vdm_dict['PDL [dB]'][1][3]
-        trans_dom_th['pdllowwarning'] = vdm_dict['PDL [dB]'][1][4]
-        trans_dom_th['osnrhighalarm'] = vdm_dict['OSNR [dB]'][1][1]
-        trans_dom_th['osnrlowalarm'] = vdm_dict['OSNR [dB]'][1][2]
-        trans_dom_th['osnrhighwarning'] = vdm_dict['OSNR [dB]'][1][3]
-        trans_dom_th['osnrlowwarning'] = vdm_dict['OSNR [dB]'][1][4]
-        trans_dom_th['esnrhighalarm'] = vdm_dict['eSNR [dB]'][1][1]
-        trans_dom_th['esnrlowalarm'] = vdm_dict['eSNR [dB]'][1][2]
-        trans_dom_th['esnrhighwarning'] = vdm_dict['eSNR [dB]'][1][3]
-        trans_dom_th['esnrlowwarning'] = vdm_dict['eSNR [dB]'][1][4]
-        trans_dom_th['cfohighalarm'] = vdm_dict['CFO [MHz]'][1][1]
-        trans_dom_th['cfolowalarm'] = vdm_dict['CFO [MHz]'][1][2]
-        trans_dom_th['cfohighwarning'] = vdm_dict['CFO [MHz]'][1][3]
-        trans_dom_th['cfolowwarning'] = vdm_dict['CFO [MHz]'][1][4]
-        trans_dom_th['txcurrpowerhighalarm'] = vdm_dict['Tx Power [dBm]'][1][1]
-        trans_dom_th['txcurrpowerlowalarm'] = vdm_dict['Tx Power [dBm]'][1][2]
-        trans_dom_th['txcurrpowerhighwarning'] = vdm_dict['Tx Power [dBm]'][1][3]
-        trans_dom_th['txcurrpowerlowwarning'] = vdm_dict['Tx Power [dBm]'][1][4]
-        trans_dom_th['rxtotpowerhighalarm'] = vdm_dict['Rx Total Power [dBm]'][1][1]
-        trans_dom_th['rxtotpowerlowalarm'] = vdm_dict['Rx Total Power [dBm]'][1][2]
-        trans_dom_th['rxtotpowerhighwarning'] = vdm_dict['Rx Total Power [dBm]'][1][3]
-        trans_dom_th['rxtotpowerlowwarning'] = vdm_dict['Rx Total Power [dBm]'][1][4]
-        trans_dom_th['rxsigpowerhighalarm'] = vdm_dict['Rx Signal Power [dBm]'][1][1]
-        trans_dom_th['rxsigpowerlowalarm'] = vdm_dict['Rx Signal Power [dBm]'][1][2]
-        trans_dom_th['rxsigpowerhighwarning'] = vdm_dict['Rx Signal Power [dBm]'][1][3]
-        trans_dom_th['rxsigpowerlowwarning'] = vdm_dict['Rx Signal Power [dBm]'][1][4]
+        trans_dom_th['pdlhighalarm'] = self.vdm_dict['PDL [dB]'][1][1]
+        trans_dom_th['pdllowalarm'] = self.vdm_dict['PDL [dB]'][1][2]
+        trans_dom_th['pdlhighwarning'] = self.vdm_dict['PDL [dB]'][1][3]
+        trans_dom_th['pdllowwarning'] = self.vdm_dict['PDL [dB]'][1][4]
+        trans_dom_th['osnrhighalarm'] = self.vdm_dict['OSNR [dB]'][1][1]
+        trans_dom_th['osnrlowalarm'] = self.vdm_dict['OSNR [dB]'][1][2]
+        trans_dom_th['osnrhighwarning'] = self.vdm_dict['OSNR [dB]'][1][3]
+        trans_dom_th['osnrlowwarning'] = self.vdm_dict['OSNR [dB]'][1][4]
+        trans_dom_th['esnrhighalarm'] = self.vdm_dict['eSNR [dB]'][1][1]
+        trans_dom_th['esnrlowalarm'] = self.vdm_dict['eSNR [dB]'][1][2]
+        trans_dom_th['esnrhighwarning'] = self.vdm_dict['eSNR [dB]'][1][3]
+        trans_dom_th['esnrlowwarning'] = self.vdm_dict['eSNR [dB]'][1][4]
+        trans_dom_th['cfohighalarm'] = self.vdm_dict['CFO [MHz]'][1][1]
+        trans_dom_th['cfolowalarm'] = self.vdm_dict['CFO [MHz]'][1][2]
+        trans_dom_th['cfohighwarning'] = self.vdm_dict['CFO [MHz]'][1][3]
+        trans_dom_th['cfolowwarning'] = self.vdm_dict['CFO [MHz]'][1][4]
+        trans_dom_th['txcurrpowerhighalarm'] = self.vdm_dict['Tx Power [dBm]'][1][1]
+        trans_dom_th['txcurrpowerlowalarm'] = self.vdm_dict['Tx Power [dBm]'][1][2]
+        trans_dom_th['txcurrpowerhighwarning'] = self.vdm_dict['Tx Power [dBm]'][1][3]
+        trans_dom_th['txcurrpowerlowwarning'] = self.vdm_dict['Tx Power [dBm]'][1][4]
+        trans_dom_th['rxtotpowerhighalarm'] = self.vdm_dict['Rx Total Power [dBm]'][1][1]
+        trans_dom_th['rxtotpowerlowalarm'] = self.vdm_dict['Rx Total Power [dBm]'][1][2]
+        trans_dom_th['rxtotpowerhighwarning'] = self.vdm_dict['Rx Total Power [dBm]'][1][3]
+        trans_dom_th['rxtotpowerlowwarning'] = self.vdm_dict['Rx Total Power [dBm]'][1][4]
+        trans_dom_th['rxsigpowerhighalarm'] = self.vdm_dict['Rx Signal Power [dBm]'][1][1]
+        trans_dom_th['rxsigpowerlowalarm'] = self.vdm_dict['Rx Signal Power [dBm]'][1][2]
+        trans_dom_th['rxsigpowerhighwarning'] = self.vdm_dict['Rx Signal Power [dBm]'][1][3]
+        trans_dom_th['rxsigpowerlowwarning'] = self.vdm_dict['Rx Signal Power [dBm]'][1][4]
         return trans_dom_th
 
     def get_transceiver_status(self):
@@ -787,75 +717,7 @@ class CCmisApi(CmisApi):
         rxsigpowerlowwarning_flag    = BOOLEAN                          ; rxsigpower low warning flag
         ================================================================================
         """
-        trans_status = dict()
-        trans_status['module_state'] = self.get_module_state()
-        trans_status['module_fault_cause'] = self.get_module_fault_cause()
-        dp_fw_fault, module_fw_fault, module_state_changed = self.get_module_firmware_fault_state_changed()
-        trans_status['datapath_firmware_fault'] = dp_fw_fault
-        trans_status['module_firmware_fault'] = module_fw_fault
-        trans_status['module_state_changed'] = module_state_changed
-        dp_state_dict = self.get_datapath_state()
-        trans_status['datapath_hostlane1'] = dp_state_dict['dp_lane1']
-        trans_status['datapath_hostlane2'] = dp_state_dict['dp_lane2']
-        trans_status['datapath_hostlane3'] = dp_state_dict['dp_lane3']
-        trans_status['datapath_hostlane4'] = dp_state_dict['dp_lane4']
-        trans_status['datapath_hostlane5'] = dp_state_dict['dp_lane5']
-        trans_status['datapath_hostlane6'] = dp_state_dict['dp_lane6']
-        trans_status['datapath_hostlane7'] = dp_state_dict['dp_lane7']
-        trans_status['datapath_hostlane8'] = dp_state_dict['dp_lane8']
-        tx_output_status_dict = self.get_tx_output_status()
-        trans_status['txoutput_status'] = tx_output_status_dict['TX_lane1']
-        rx_output_status_dict = self.get_rx_output_status()
-        trans_status['rxoutput_status_hostlane1'] = rx_output_status_dict['RX_lane1']
-        trans_status['rxoutput_status_hostlane2'] = rx_output_status_dict['RX_lane2']
-        trans_status['rxoutput_status_hostlane3'] = rx_output_status_dict['RX_lane3']
-        trans_status['rxoutput_status_hostlane4'] = rx_output_status_dict['RX_lane4']
-        trans_status['rxoutput_status_hostlane5'] = rx_output_status_dict['RX_lane5']
-        trans_status['rxoutput_status_hostlane6'] = rx_output_status_dict['RX_lane6']
-        trans_status['rxoutput_status_hostlane7'] = rx_output_status_dict['RX_lane7']
-        trans_status['rxoutput_status_hostlane8'] = rx_output_status_dict['RX_lane8']
-        tx_fault_dict = self.get_tx_fault()
-        trans_status['txfault'] = tx_fault_dict['TX_lane1']
-        tx_los_dict = self.get_tx_los()
-        trans_status['txlos_hostlane1'] = tx_los_dict['TX_lane1']
-        trans_status['txlos_hostlane2'] = tx_los_dict['TX_lane2']
-        trans_status['txlos_hostlane3'] = tx_los_dict['TX_lane3']
-        trans_status['txlos_hostlane4'] = tx_los_dict['TX_lane4']
-        trans_status['txlos_hostlane5'] = tx_los_dict['TX_lane5']
-        trans_status['txlos_hostlane6'] = tx_los_dict['TX_lane6']
-        trans_status['txlos_hostlane7'] = tx_los_dict['TX_lane7']
-        trans_status['txlos_hostlane8'] = tx_los_dict['TX_lane8']
-        tx_lol_dict = self.get_tx_cdr_lol()
-        trans_status['txcdrlol_hostlane1'] = tx_lol_dict['TX_lane1']
-        trans_status['txcdrlol_hostlane2'] = tx_lol_dict['TX_lane2']
-        trans_status['txcdrlol_hostlane3'] = tx_lol_dict['TX_lane3']
-        trans_status['txcdrlol_hostlane4'] = tx_lol_dict['TX_lane4']
-        trans_status['txcdrlol_hostlane5'] = tx_lol_dict['TX_lane5']
-        trans_status['txcdrlol_hostlane6'] = tx_lol_dict['TX_lane6']
-        trans_status['txcdrlol_hostlane7'] = tx_lol_dict['TX_lane7']
-        trans_status['txcdrlol_hostlane8'] = tx_lol_dict['TX_lane8']
-        rx_los_dict = self.get_rx_los()
-        trans_status['rxlos'] = rx_los_dict['RX_lane1']
-        rx_lol_dict = self.get_rx_cdr_lol()
-        trans_status['rxcdrlol'] = rx_lol_dict['RX_lane1']
-        config_status_dict = self.get_config_datapath_hostlane_status()
-        trans_status['config_state_hostlane1'] = config_status_dict['config_DP_status_hostlane1']
-        trans_status['config_state_hostlane2'] = config_status_dict['config_DP_status_hostlane2']
-        trans_status['config_state_hostlane3'] = config_status_dict['config_DP_status_hostlane3']
-        trans_status['config_state_hostlane4'] = config_status_dict['config_DP_status_hostlane4']
-        trans_status['config_state_hostlane5'] = config_status_dict['config_DP_status_hostlane5']
-        trans_status['config_state_hostlane6'] = config_status_dict['config_DP_status_hostlane6']
-        trans_status['config_state_hostlane7'] = config_status_dict['config_DP_status_hostlane7']
-        trans_status['config_state_hostlane8'] = config_status_dict['config_DP_status_hostlane8']
-        dpinit_pending_dict = self.get_dpinit_pending()
-        trans_status['dpinit_pending_hostlane1'] = dpinit_pending_dict['hostlane1']
-        trans_status['dpinit_pending_hostlane2'] = dpinit_pending_dict['hostlane2']
-        trans_status['dpinit_pending_hostlane3'] = dpinit_pending_dict['hostlane3']
-        trans_status['dpinit_pending_hostlane4'] = dpinit_pending_dict['hostlane4']
-        trans_status['dpinit_pending_hostlane5'] = dpinit_pending_dict['hostlane5']
-        trans_status['dpinit_pending_hostlane6'] = dpinit_pending_dict['hostlane6']
-        trans_status['dpinit_pending_hostlane7'] = dpinit_pending_dict['hostlane7']
-        trans_status['dpinit_pending_hostlane8'] = dpinit_pending_dict['hostlane8']
+        trans_status = super(CCmisApi,self).get_transceiver_status()
         trans_status['tuning_in_progress'] = self.get_tuning_in_progress()
         trans_status['wavelength_unlock_status'] = self.get_wavelength_unlocked()
         laser_tuning_summary = self.get_laser_tuning_summary()
@@ -864,119 +726,80 @@ class CCmisApi(CmisApi):
         trans_status['tuning_not_accepted'] = 'TuningNotAccepted' in laser_tuning_summary
         trans_status['invalid_channel_num'] = 'InvalidChannel' in laser_tuning_summary
         trans_status['tuning_complete'] = 'TuningComplete' in laser_tuning_summary
-        module_flag = self.get_module_level_flag()
-        trans_status['temphighalarm_flag'] = module_flag['case_temp_flags']['case_temp_high_alarm_flag']
-        trans_status['templowalarm_flag'] = module_flag['case_temp_flags']['case_temp_low_alarm_flag']
-        trans_status['temphighwarning_flag'] = module_flag['case_temp_flags']['case_temp_high_warn_flag']
-        trans_status['templowwarning_flag'] = module_flag['case_temp_flags']['case_temp_low_warn_flag']
-        trans_status['vcchighalarm_flag'] = module_flag['voltage_flags']['voltage_high_alarm_flag']
-        trans_status['vcclowalarm_flag'] = module_flag['voltage_flags']['voltage_low_alarm_flag']
-        trans_status['vcchighwarning_flag'] = module_flag['voltage_flags']['voltage_high_warn_flag']
-        trans_status['vcclowwarning_flag'] = module_flag['voltage_flags']['voltage_low_warn_flag']
-        aux1_mon_type, aux2_mon_type, aux3_mon_type = self.get_aux_mon_type()
-        if aux2_mon_type == 0:
-            trans_status['lasertemphighalarm_flag'] = module_flag['aux2_flags']['aux2_high_alarm_flag']
-            trans_status['lasertemplowalarm_flag'] = module_flag['aux2_flags']['aux2_low_alarm_flag']
-            trans_status['lasertemphighwarning_flag'] = module_flag['aux2_flags']['aux2_high_warn_flag']
-            trans_status['lasertemplowwarning_flag'] = module_flag['aux2_flags']['aux2_low_warn_flag']
-        elif aux2_mon_type == 1 and aux3_mon_type == 0:
-            trans_status['lasertemphighalarm_flag'] = module_flag['aux3_flags']['aux3_high_alarm_flag']
-            trans_status['lasertemplowalarm_flag'] = module_flag['aux3_flags']['aux3_low_alarm_flag']
-            trans_status['lasertemphighwarning_flag'] = module_flag['aux3_flags']['aux3_high_warn_flag']
-            trans_status['lasertemplowwarning_flag'] = module_flag['aux3_flags']['aux3_low_warn_flag']
-
-        tx_power_flag_dict = self.get_tx_power_flag()
-        trans_status['txpowerhighalarm_flag'] = tx_power_flag_dict['tx_power_high_alarm']['TX_lane1']
-        trans_status['txpowerlowalarm_flag'] = tx_power_flag_dict['tx_power_low_alarm']['TX_lane1']
-        trans_status['txpowerhighwarning_flag'] = tx_power_flag_dict['tx_power_high_warn']['TX_lane1']
-        trans_status['txpowerlowwarning_flag'] = tx_power_flag_dict['tx_power_low_warn']['TX_lane1']
-        rx_power_flag_dict = self.get_rx_power_flag()
-        trans_status['rxpowerhighalarm_flag'] = rx_power_flag_dict['rx_power_high_alarm']['RX_lane1']
-        trans_status['rxpowerlowalarm_flag'] = rx_power_flag_dict['rx_power_low_alarm']['RX_lane1']
-        trans_status['rxpowerhighwarning_flag'] = rx_power_flag_dict['rx_power_high_warn']['RX_lane1']
-        trans_status['rxpowerlowwarning_flag'] = rx_power_flag_dict['rx_power_low_warn']['RX_lane1']
-        tx_bias_flag_dict = self.get_tx_bias_flag()
-        trans_status['txbiashighalarm_flag'] = tx_bias_flag_dict['tx_bias_high_alarm']['TX_lane1']
-        trans_status['txbiaslowalarm_flag'] = tx_bias_flag_dict['tx_bias_low_alarm']['TX_lane1']
-        trans_status['txbiashighwarning_flag'] = tx_bias_flag_dict['tx_bias_high_warn']['TX_lane1']
-        trans_status['txbiaslowwarning_flag'] = tx_bias_flag_dict['tx_bias_low_warn']['TX_lane1']
-        vdm_dict = self.get_vdm()
-        trans_status['prefecberhighalarm_flag'] = vdm_dict['Pre-FEC BER Average Media Input'][1][5]
-        trans_status['prefecberlowalarm_flag'] = vdm_dict['Pre-FEC BER Average Media Input'][1][6]
-        trans_status['prefecberhighwarning_flag'] = vdm_dict['Pre-FEC BER Average Media Input'][1][7]
-        trans_status['prefecberlowwarning_flag'] = vdm_dict['Pre-FEC BER Average Media Input'][1][8]
-        trans_status['postfecberhighalarm_flag'] = vdm_dict['Errored Frames Average Media Input'][1][5]
-        trans_status['postfecberlowalarm_flag'] = vdm_dict['Errored Frames Average Media Input'][1][6]
-        trans_status['postfecberhighwarning_flag'] = vdm_dict['Errored Frames Average Media Input'][1][7]
-        trans_status['postfecberlowwarning_flag'] = vdm_dict['Errored Frames Average Media Input'][1][8]
-        trans_status['biasxihighalarm_flag'] = vdm_dict['Modulator Bias X/I [%]'][1][5]
-        trans_status['biasxilowalarm_flag'] = vdm_dict['Modulator Bias X/I [%]'][1][6]
-        trans_status['biasxihighwarning_flag'] = vdm_dict['Modulator Bias X/I [%]'][1][7]
-        trans_status['biasxilowwarning_flag'] = vdm_dict['Modulator Bias X/I [%]'][1][8]
-        trans_status['biasxqhighalarm_flag'] = vdm_dict['Modulator Bias X/Q [%]'][1][5]
-        trans_status['biasxqlowalarm_flag'] = vdm_dict['Modulator Bias X/Q [%]'][1][6]
-        trans_status['biasxqhighwarning_flag'] = vdm_dict['Modulator Bias X/Q [%]'][1][7]
-        trans_status['biasxqlowwarning_flag'] = vdm_dict['Modulator Bias X/Q [%]'][1][8]        
-        trans_status['biasxphighalarm_flag'] = vdm_dict['Modulator Bias X_Phase [%]'][1][5]
-        trans_status['biasxplowalarm_flag'] = vdm_dict['Modulator Bias X_Phase [%]'][1][6]
-        trans_status['biasxphighwarning_flag'] = vdm_dict['Modulator Bias X_Phase [%]'][1][7]
-        trans_status['biasxplowwarning_flag'] = vdm_dict['Modulator Bias X_Phase [%]'][1][8]
-        trans_status['biasyihighalarm_flag'] = vdm_dict['Modulator Bias Y/I [%]'][1][5]
-        trans_status['biasyilowalarm_flag'] = vdm_dict['Modulator Bias Y/I [%]'][1][6]
-        trans_status['biasyihighwarning_flag'] = vdm_dict['Modulator Bias Y/I [%]'][1][7]
-        trans_status['biasyilowwarning_flag'] = vdm_dict['Modulator Bias Y/I [%]'][1][8]
-        trans_status['biasyqhighalarm_flag'] = vdm_dict['Modulator Bias Y/Q [%]'][1][5]
-        trans_status['biasyqlowalarm_flag'] = vdm_dict['Modulator Bias Y/Q [%]'][1][6]
-        trans_status['biasyqhighwarning_flag'] = vdm_dict['Modulator Bias Y/Q [%]'][1][7]
-        trans_status['biasyqlowwarning_flag'] = vdm_dict['Modulator Bias Y/Q [%]'][1][8]        
-        trans_status['biasyphighalarm_flag'] = vdm_dict['Modulator Bias Y_Phase [%]'][1][5]
-        trans_status['biasyplowalarm_flag'] = vdm_dict['Modulator Bias Y_Phase [%]'][1][6]
-        trans_status['biasyphighwarning_flag'] = vdm_dict['Modulator Bias Y_Phase [%]'][1][7]
-        trans_status['biasyplowwarning_flag'] = vdm_dict['Modulator Bias Y_Phase [%]'][1][8]
-        trans_status['cdshorthighalarm_flag'] = vdm_dict['CD high granularity, short link [ps/nm]'][1][5]
-        trans_status['cdshortlowalarm_flag'] = vdm_dict['CD high granularity, short link [ps/nm]'][1][6]
-        trans_status['cdshorthighwarning_flag'] = vdm_dict['CD high granularity, short link [ps/nm]'][1][7]
-        trans_status['cdshortlowwarning_flag'] = vdm_dict['CD high granularity, short link [ps/nm]'][1][8]
-        trans_status['cdlonghighalarm_flag'] = vdm_dict['CD low granularity, long link [ps/nm]'][1][5]
-        trans_status['cdlonglowalarm_flag'] = vdm_dict['CD low granularity, long link [ps/nm]'][1][6]
-        trans_status['cdlonghighwarning_flag'] = vdm_dict['CD low granularity, long link [ps/nm]'][1][7]
-        trans_status['cdlonglowwarning_flag'] = vdm_dict['CD low granularity, long link [ps/nm]'][1][8]
-        trans_status['dgdhighalarm_flag'] = vdm_dict['DGD [ps]'][1][5]
-        trans_status['dgdlowalarm_flag'] = vdm_dict['DGD [ps]'][1][6]
-        trans_status['dgdhighwarning_flag'] = vdm_dict['DGD [ps]'][1][7]
-        trans_status['dgdlowwarning_flag'] = vdm_dict['DGD [ps]'][1][8]
-        trans_status['sopmdhighalarm_flag'] = vdm_dict['SOPMD [ps^2]'][1][5]
-        trans_status['sopmdlowalarm_flag'] = vdm_dict['SOPMD [ps^2]'][1][6]
-        trans_status['sopmdhighwarning_flag'] = vdm_dict['SOPMD [ps^2]'][1][7]
-        trans_status['sopmdlowwarning_flag'] = vdm_dict['SOPMD [ps^2]'][1][8]
-        trans_status['pdlhighalarm_flag'] = vdm_dict['PDL [dB]'][1][5]
-        trans_status['pdllowalarm_flag'] = vdm_dict['PDL [dB]'][1][6]
-        trans_status['pdlhighwarning_flag'] = vdm_dict['PDL [dB]'][1][7]
-        trans_status['pdllowwarning_flag'] = vdm_dict['PDL [dB]'][1][8]
-        trans_status['osnrhighalarm_flag'] = vdm_dict['OSNR [dB]'][1][5]
-        trans_status['osnrlowalarm_flag'] = vdm_dict['OSNR [dB]'][1][6]
-        trans_status['osnrhighwarning_flag'] = vdm_dict['OSNR [dB]'][1][7]
-        trans_status['osnrlowwarning_flag'] = vdm_dict['OSNR [dB]'][1][8]
-        trans_status['esnrhighalarm_flag'] = vdm_dict['eSNR [dB]'][1][5]
-        trans_status['esnrlowalarm_flag'] = vdm_dict['eSNR [dB]'][1][6]
-        trans_status['esnrhighwarning_flag'] = vdm_dict['eSNR [dB]'][1][7]
-        trans_status['esnrlowwarning_flag'] = vdm_dict['eSNR [dB]'][1][8]
-        trans_status['cfohighalarm_flag'] = vdm_dict['CFO [MHz]'][1][5]
-        trans_status['cfolowalarm_flag'] = vdm_dict['CFO [MHz]'][1][6]
-        trans_status['cfohighwarning_flag'] = vdm_dict['CFO [MHz]'][1][7]
-        trans_status['cfolowwarning_flag'] = vdm_dict['CFO [MHz]'][1][8]
-        trans_status['txcurrpowerhighalarm_flag'] = vdm_dict['Tx Power [dBm]'][1][5]
-        trans_status['txcurrpowerlowalarm_flag'] = vdm_dict['Tx Power [dBm]'][1][6]
-        trans_status['txcurrpowerhighwarning_flag'] = vdm_dict['Tx Power [dBm]'][1][7]
-        trans_status['txcurrpowerlowwarning_flag'] = vdm_dict['Tx Power [dBm]'][1][8]
-        trans_status['rxtotpowerhighalarm_flag'] = vdm_dict['Rx Total Power [dBm]'][1][5]
-        trans_status['rxtotpowerlowalarm_flag'] = vdm_dict['Rx Total Power [dBm]'][1][6]
-        trans_status['rxtotpowerhighwarning_flag'] = vdm_dict['Rx Total Power [dBm]'][1][7]
-        trans_status['rxtotpowerlowwarning_flag'] = vdm_dict['Rx Total Power [dBm]'][1][8]
-        trans_status['rxsigpowerhighalarm_flag'] = vdm_dict['Rx Signal Power [dBm]'][1][5]
-        trans_status['rxsigpowerlowalarm_flag'] = vdm_dict['Rx Signal Power [dBm]'][1][6]
-        trans_status['rxsigpowerhighwarning_flag'] = vdm_dict['Rx Signal Power [dBm]'][1][7]
-        trans_status['rxsigpowerlowwarning_flag'] = vdm_dict['Rx Signal Power [dBm]'][1][8]
+        trans_status['biasxihighalarm_flag'] = self.vdm_dict['Modulator Bias X/I [%]'][1][5]
+        trans_status['biasxilowalarm_flag'] = self.vdm_dict['Modulator Bias X/I [%]'][1][6]
+        trans_status['biasxihighwarning_flag'] = self.vdm_dict['Modulator Bias X/I [%]'][1][7]
+        trans_status['biasxilowwarning_flag'] = self.vdm_dict['Modulator Bias X/I [%]'][1][8]
+        trans_status['biasxqhighalarm_flag'] = self.vdm_dict['Modulator Bias X/Q [%]'][1][5]
+        trans_status['biasxqlowalarm_flag'] = self.vdm_dict['Modulator Bias X/Q [%]'][1][6]
+        trans_status['biasxqhighwarning_flag'] = self.vdm_dict['Modulator Bias X/Q [%]'][1][7]
+        trans_status['biasxqlowwarning_flag'] = self.vdm_dict['Modulator Bias X/Q [%]'][1][8]        
+        trans_status['biasxphighalarm_flag'] = self.vdm_dict['Modulator Bias X_Phase [%]'][1][5]
+        trans_status['biasxplowalarm_flag'] = self.vdm_dict['Modulator Bias X_Phase [%]'][1][6]
+        trans_status['biasxphighwarning_flag'] = self.vdm_dict['Modulator Bias X_Phase [%]'][1][7]
+        trans_status['biasxplowwarning_flag'] = self.vdm_dict['Modulator Bias X_Phase [%]'][1][8]
+        trans_status['biasyihighalarm_flag'] = self.vdm_dict['Modulator Bias Y/I [%]'][1][5]
+        trans_status['biasyilowalarm_flag'] = self.vdm_dict['Modulator Bias Y/I [%]'][1][6]
+        trans_status['biasyihighwarning_flag'] = self.vdm_dict['Modulator Bias Y/I [%]'][1][7]
+        trans_status['biasyilowwarning_flag'] = self.vdm_dict['Modulator Bias Y/I [%]'][1][8]
+        trans_status['biasyqhighalarm_flag'] = self.vdm_dict['Modulator Bias Y/Q [%]'][1][5]
+        trans_status['biasyqlowalarm_flag'] = self.vdm_dict['Modulator Bias Y/Q [%]'][1][6]
+        trans_status['biasyqhighwarning_flag'] = self.vdm_dict['Modulator Bias Y/Q [%]'][1][7]
+        trans_status['biasyqlowwarning_flag'] = self.vdm_dict['Modulator Bias Y/Q [%]'][1][8]        
+        trans_status['biasyphighalarm_flag'] = self.vdm_dict['Modulator Bias Y_Phase [%]'][1][5]
+        trans_status['biasyplowalarm_flag'] = self.vdm_dict['Modulator Bias Y_Phase [%]'][1][6]
+        trans_status['biasyphighwarning_flag'] = self.vdm_dict['Modulator Bias Y_Phase [%]'][1][7]
+        trans_status['biasyplowwarning_flag'] = self.vdm_dict['Modulator Bias Y_Phase [%]'][1][8]
+        trans_status['cdshorthighalarm_flag'] = self.vdm_dict['CD high granularity, short link [ps/nm]'][1][5]
+        trans_status['cdshortlowalarm_flag'] = self.vdm_dict['CD high granularity, short link [ps/nm]'][1][6]
+        trans_status['cdshorthighwarning_flag'] = self.vdm_dict['CD high granularity, short link [ps/nm]'][1][7]
+        trans_status['cdshortlowwarning_flag'] = self.vdm_dict['CD high granularity, short link [ps/nm]'][1][8]
+        try:
+            trans_status['cdlonghighalarm_flag'] = self.vdm_dict['CD low granularity, long link [ps/nm]'][1][5]
+            trans_status['cdlonglowalarm_flag'] = self.vdm_dict['CD low granularity, long link [ps/nm]'][1][6]
+            trans_status['cdlonghighwarning_flag'] = self.vdm_dict['CD low granularity, long link [ps/nm]'][1][7]
+            trans_status['cdlonglowwarning_flag'] = self.vdm_dict['CD low granularity, long link [ps/nm]'][1][8]
+        except KeyError:
+            pass
+        trans_status['dgdhighalarm_flag'] = self.vdm_dict['DGD [ps]'][1][5]
+        trans_status['dgdlowalarm_flag'] = self.vdm_dict['DGD [ps]'][1][6]
+        trans_status['dgdhighwarning_flag'] = self.vdm_dict['DGD [ps]'][1][7]
+        trans_status['dgdlowwarning_flag'] = self.vdm_dict['DGD [ps]'][1][8]
+        try:
+            trans_status['sopmdhighalarm_flag'] = self.vdm_dict['SOPMD [ps^2]'][1][5]
+            trans_status['sopmdlowalarm_flag'] = self.vdm_dict['SOPMD [ps^2]'][1][6]
+            trans_status['sopmdhighwarning_flag'] = self.vdm_dict['SOPMD [ps^2]'][1][7]
+            trans_status['sopmdlowwarning_flag'] = self.vdm_dict['SOPMD [ps^2]'][1][8]
+        except KeyError:
+            pass
+        trans_status['pdlhighalarm_flag'] = self.vdm_dict['PDL [dB]'][1][5]
+        trans_status['pdllowalarm_flag'] = self.vdm_dict['PDL [dB]'][1][6]
+        trans_status['pdlhighwarning_flag'] = self.vdm_dict['PDL [dB]'][1][7]
+        trans_status['pdllowwarning_flag'] = self.vdm_dict['PDL [dB]'][1][8]
+        trans_status['osnrhighalarm_flag'] = self.vdm_dict['OSNR [dB]'][1][5]
+        trans_status['osnrlowalarm_flag'] = self.vdm_dict['OSNR [dB]'][1][6]
+        trans_status['osnrhighwarning_flag'] = self.vdm_dict['OSNR [dB]'][1][7]
+        trans_status['osnrlowwarning_flag'] = self.vdm_dict['OSNR [dB]'][1][8]
+        trans_status['esnrhighalarm_flag'] = self.vdm_dict['eSNR [dB]'][1][5]
+        trans_status['esnrlowalarm_flag'] = self.vdm_dict['eSNR [dB]'][1][6]
+        trans_status['esnrhighwarning_flag'] = self.vdm_dict['eSNR [dB]'][1][7]
+        trans_status['esnrlowwarning_flag'] = self.vdm_dict['eSNR [dB]'][1][8]
+        trans_status['cfohighalarm_flag'] = self.vdm_dict['CFO [MHz]'][1][5]
+        trans_status['cfolowalarm_flag'] = self.vdm_dict['CFO [MHz]'][1][6]
+        trans_status['cfohighwarning_flag'] = self.vdm_dict['CFO [MHz]'][1][7]
+        trans_status['cfolowwarning_flag'] = self.vdm_dict['CFO [MHz]'][1][8]
+        trans_status['txcurrpowerhighalarm_flag'] = self.vdm_dict['Tx Power [dBm]'][1][5]
+        trans_status['txcurrpowerlowalarm_flag'] = self.vdm_dict['Tx Power [dBm]'][1][6]
+        trans_status['txcurrpowerhighwarning_flag'] = self.vdm_dict['Tx Power [dBm]'][1][7]
+        trans_status['txcurrpowerlowwarning_flag'] = self.vdm_dict['Tx Power [dBm]'][1][8]
+        trans_status['rxtotpowerhighalarm_flag'] = self.vdm_dict['Rx Total Power [dBm]'][1][5]
+        trans_status['rxtotpowerlowalarm_flag'] = self.vdm_dict['Rx Total Power [dBm]'][1][6]
+        trans_status['rxtotpowerhighwarning_flag'] = self.vdm_dict['Rx Total Power [dBm]'][1][7]
+        trans_status['rxtotpowerlowwarning_flag'] = self.vdm_dict['Rx Total Power [dBm]'][1][8]
+        trans_status['rxsigpowerhighalarm_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][5]
+        trans_status['rxsigpowerlowalarm_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][6]
+        trans_status['rxsigpowerhighwarning_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][7]
+        trans_status['rxsigpowerlowwarning_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][8]
         return trans_status
 
     def get_transceiver_pm(self):
@@ -1071,55 +894,3 @@ class CCmisApi(CmisApi):
         trans_pm['rx_sig_power_min'] = PM_dict['rx_sigpwr_min']
         trans_pm['rx_sig_power_max'] = PM_dict['rx_sigpwr_max']
         return trans_pm
-
-    def get_transceiver_loopback(self):
-        """
-        Retrieves loopback mode for this xcvr
-
-        Returns:
-            A dict containing the following keys/values :
-        ========================================================================
-        key                          = TRANSCEIVER_PM|ifname            ; information of loopback on port
-        ; field                      = value 
-        media_output_loopback        = BOOLEAN                          ; media side output loopback enable
-        media_input_loopback         = BOOLEAN                          ; media side input loopback enable
-        host_output_loopback_lane1   = BOOLEAN                          ; host side output loopback enable lane1
-        host_output_loopback_lane2   = BOOLEAN                          ; host side output loopback enable lane2
-        host_output_loopback_lane3   = BOOLEAN                          ; host side output loopback enable lane3
-        host_output_loopback_lane4   = BOOLEAN                          ; host side output loopback enable lane4
-        host_output_loopback_lane5   = BOOLEAN                          ; host side output loopback enable lane5
-        host_output_loopback_lane6   = BOOLEAN                          ; host side output loopback enable lane6
-        host_output_loopback_lane7   = BOOLEAN                          ; host side output loopback enable lane7
-        host_output_loopback_lane8   = BOOLEAN                          ; host side output loopback enable lane8
-        host_input_loopback_lane1   = BOOLEAN                          ; host side input loopback enable lane1
-        host_input_loopback_lane2   = BOOLEAN                          ; host side input loopback enable lane2
-        host_input_loopback_lane3   = BOOLEAN                          ; host side input loopback enable lane3
-        host_input_loopback_lane4   = BOOLEAN                          ; host side input loopback enable lane4
-        host_input_loopback_lane5   = BOOLEAN                          ; host side input loopback enable lane5
-        host_input_loopback_lane6   = BOOLEAN                          ; host side input loopback enable lane6
-        host_input_loopback_lane7   = BOOLEAN                          ; host side input loopback enable lane7
-        host_input_loopback_lane8   = BOOLEAN                          ; host side input loopback enable lane8        
-        ========================================================================
-        """
-        trans_loopback = dict()
-        trans_loopback['media_output_loopback'] = self.get_media_output_loopback()
-        trans_loopback['media_input_loopback'] = self.get_media_input_loopback()
-        host_output_loopback_status = self.get_host_output_loopback()
-        trans_loopback['host_output_loopback_lane1'] = host_output_loopback_status[0]
-        trans_loopback['host_output_loopback_lane2'] = host_output_loopback_status[1]
-        trans_loopback['host_output_loopback_lane3'] = host_output_loopback_status[2]
-        trans_loopback['host_output_loopback_lane4'] = host_output_loopback_status[3]
-        trans_loopback['host_output_loopback_lane5'] = host_output_loopback_status[4]
-        trans_loopback['host_output_loopback_lane6'] = host_output_loopback_status[5]
-        trans_loopback['host_output_loopback_lane7'] = host_output_loopback_status[6]
-        trans_loopback['host_output_loopback_lane8'] = host_output_loopback_status[7]
-        host_input_loopback_status = self.get_host_input_loopback()
-        trans_loopback['host_input_loopback_lane1'] = host_input_loopback_status[0]
-        trans_loopback['host_input_loopback_lane2'] = host_input_loopback_status[1]
-        trans_loopback['host_input_loopback_lane3'] = host_input_loopback_status[2]
-        trans_loopback['host_input_loopback_lane4'] = host_input_loopback_status[3]
-        trans_loopback['host_input_loopback_lane5'] = host_input_loopback_status[4]
-        trans_loopback['host_input_loopback_lane6'] = host_input_loopback_status[5]
-        trans_loopback['host_input_loopback_lane7'] = host_input_loopback_status[6]
-        trans_loopback['host_input_loopback_lane8'] = host_input_loopback_status[7]
-        return trans_loopback

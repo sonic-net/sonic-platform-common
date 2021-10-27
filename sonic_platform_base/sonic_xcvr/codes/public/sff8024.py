@@ -109,8 +109,8 @@ class Sff8024(XcvrCodes):
         # 4-6 differ between 8472 and 8436/8636
         7: "256B/257B (transcoded FEC-enabled data)",
         8: "PAM4"
-    }    
-    
+    }
+
     EXT_SPEC_COMPLIANCE = {
         0: 'Unspecified',
         1: '100G AOC (Active Optical Cable) or 25GAUI C2M AOC',

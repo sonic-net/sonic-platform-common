@@ -75,4 +75,4 @@ class XcvrApiFactory(object):
             api = Sff8436Api(xcvr_eeprom)
         else:
             api = None
-        return api        
+        return api

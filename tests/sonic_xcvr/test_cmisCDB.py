@@ -101,99 +101,99 @@ class TestCDB(object):
         ([1], (None, None, None)),
         ([64, 64, 64], (None, None, None)),
     ])
-    def test_cmd0041h(self, mock_response, expected):
+    def test_get_fw_management_features(self, mock_response, expected):
         cdb = self.mock_cdb_api()
         cdb.cdb1_chkstatus = MagicMock()
         cdb.cdb1_chkstatus.side_effect = mock_response
-        result = cdb.cmd0041h()
+        result = cdb.get_fw_management_features()
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
         ([1], (None, None, None)),
         ([64, 64, 64], (None, None, None)),
     ])
-    def test_cmd0100h(self, mock_response, expected):
+    def test_get_fw_info(self, mock_response, expected):
         cdb = self.mock_cdb_api()
         cdb.cdb1_chkstatus = MagicMock()
         cdb.cdb1_chkstatus.side_effect = mock_response
-        result = cdb.cmd0100h()
+        result = cdb.get_fw_info()
         assert result == expected
 
     @pytest.mark.parametrize("input_param, mock_response, expected", [
         ([3, bytearray(b'\x00\x00\x00'), 1000000], [1], 1),
         ([3, bytearray(b'\x00\x00\x00'), 1000000], [64, 64, 64], 64)
     ])
-    def test_cmd0101h(self, input_param, mock_response, expected):
+    def test_start_fw_download(self, input_param, mock_response, expected):
         cdb = self.mock_cdb_api()
         cdb.cdb1_chkstatus = MagicMock()
         cdb.cdb1_chkstatus.side_effect = mock_response
-        result = cdb.cmd0101h(*input_param)
+        result = cdb.start_fw_download(*input_param)
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
         ([1], 1),
         ([64, 64, 64], 64),
     ])
-    def test_cmd0102h(self, mock_response, expected):
+    def test_abort_fw_download(self, mock_response, expected):
         cdb = self.mock_cdb_api()
         cdb.cdb1_chkstatus = MagicMock()
         cdb.cdb1_chkstatus.side_effect = mock_response
-        result = cdb.cmd0102h()
+        result = cdb.abort_fw_download()
         assert result == expected
 
     @pytest.mark.parametrize("input_param, mock_response, expected", [
         ([100, bytearray(116)], [1], 1),
         ([100, bytearray(116)], [64, 64, 64], 64)
     ])
-    def test_cmd0103h(self, input_param, mock_response, expected):
+    def test_block_write_lpl(self, input_param, mock_response, expected):
         cdb = self.mock_cdb_api()
         cdb.cdb1_chkstatus = MagicMock()
         cdb.cdb1_chkstatus.side_effect = mock_response
-        result = cdb.cmd0103h(*input_param)
+        result = cdb.block_write_lpl(*input_param)
         assert result == expected
 
     @pytest.mark.parametrize("input_param, mock_response, expected", [
         ([100, bytearray(2048), True, 100], [1], 1),
         ([100, bytearray(2047), False, 100], [64, 64, 64], 64),
     ])
-    def test_cmd0104h(self, input_param, mock_response, expected):
+    def test_block_write_epl(self, input_param, mock_response, expected):
         cdb = self.mock_cdb_api()
         cdb.cdb1_chkstatus = MagicMock()
         cdb.cdb1_chkstatus.side_effect = mock_response
-        result = cdb.cmd0104h(*input_param)
+        result = cdb.block_write_epl(*input_param)
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
         ([1], 1),
         ([64, 64, 64], 64),
     ])
-    def test_cmd0107h(self, mock_response, expected):
+    def test_validate_fw_image(self, mock_response, expected):
         cdb = self.mock_cdb_api()
         cdb.cdb1_chkstatus = MagicMock()
         cdb.cdb1_chkstatus.side_effect = mock_response
-        result = cdb.cmd0107h()
+        result = cdb.validate_fw_image()
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
         ([1], 1),
         ([64, 64, 64], 64),
     ])
-    def test_cmd0109h(self, mock_response, expected):
+    def test_run_fw_image(self, mock_response, expected):
         cdb = self.mock_cdb_api()
         cdb.cdb1_chkstatus = MagicMock()
         cdb.cdb1_chkstatus.side_effect = mock_response
-        result = cdb.cmd0109h()
+        result = cdb.run_fw_image()
         assert result == expected
         
     @pytest.mark.parametrize("mock_response, expected", [
         ([1], 1),
         ([64, 64, 64], 64),
     ])
-    def test_cmd010Ah(self, mock_response, expected):
+    def test_commit_fw_image(self, mock_response, expected):
         cdb = self.mock_cdb_api()
         cdb.cdb1_chkstatus = MagicMock()
         cdb.cdb1_chkstatus.side_effect = mock_response
-        result = cdb.cmd010Ah()
+        result = cdb.commit_fw_image()
         assert result == expected
     
 

@@ -1,3 +1,9 @@
+"""
+    cmisCDB.py
+
+    Implementation of APIs related to VDMs
+"""
+
 from ...fields import consts
 from ..xcvr_api import XcvrApi
 import struct
@@ -14,12 +20,31 @@ class CmisVdmApi(XcvrApi):
         super(CmisVdmApi, self).__init__(xcvr_eeprom)
     
     def get_F16(self, value):
+        '''
+        This function converts raw data to "F16" format defined in cmis.
+        '''
         scale_exponent = (value >> 11) & 0x1f
         mantissa = value & 0x7ff
         result = mantissa*10**(scale_exponent-24)
         return result
 
     def get_vdm_page(self, page, VDM_flag_page):
+        '''
+        This function returns VDM items from a specific VDM page.
+        Output format is a dictionary. Key is observable type; value is a dictionary.
+        In the inside dictionary, key is lane; value is a list
+        [
+            vdm_value,
+            vdm_thrsh_high_alarm,
+            vdm_thrsh_low_alarm,
+            vdm_thrsh_high_warn,
+            vdm_thrsh_low_warn,
+            vdm_high_alarm_flag,
+            vdm_low_alarm_flag,
+            vdm_high_warn_flag,
+            vdm_low_warn_flag
+        ]
+        '''
         if page not in [0x20, 0x21, 0x22, 0x23]:
             raise ValueError('Page not in VDM Descriptor range!')
         vdm_descriptor = self.xcvr_eeprom.read_raw(page * PAGE_SIZE + PAGE_OFFSET, PAGE_SIZE)
@@ -117,6 +142,22 @@ class CmisVdmApi(XcvrApi):
         return vdm_Page_data
 
     def get_vdm_allpage(self):
+        '''
+        This function returns VDM items from all advertised VDM pages.
+        Output format is a dictionary. Key is observable type; value is a dictionary.
+        In the inside dictionary, key is lane; value is a list
+        [
+            vdm_value,
+            vdm_thrsh_high_alarm,
+            vdm_thrsh_low_alarm,
+            vdm_thrsh_high_warn,
+            vdm_thrsh_low_warn,
+            vdm_high_alarm_flag,
+            vdm_low_alarm_flag,
+            vdm_high_warn_flag,
+            vdm_low_warn_flag
+        ]
+        '''
         vdm_page_supported_raw = self.xcvr_eeprom.read(consts.VDM_SUPPORTED_PAGE) & 0x3
         VDM_START_PAGE = 0x20
         vdm = dict()

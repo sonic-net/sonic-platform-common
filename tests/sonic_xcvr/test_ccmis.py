@@ -1,5 +1,7 @@
 from mock import MagicMock
+from unittest.mock import patch
 import pytest
+from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi
 from sonic_platform_base.sonic_xcvr.api.public.c_cmis import CCmisApi
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis import CmisMemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
@@ -110,6 +112,16 @@ class TestCCmis(object):
         ccmis.get_supported_freq_config.return_value = mock_response
         ccmis.set_laser_freq(input_param)
 
+    @pytest.mark.parametrize("input_param, mock_response",[
+        (-10, (-14, -9)),
+        (-8, (-12, -8)),
+    ])
+    def test_set_tx_power(self, input_param, mock_response):
+        ccmis = self.mock_ccmis_api()
+        ccmis.get_supported_power_config = MagicMock()
+        ccmis.get_supported_power_config.return_value = mock_response
+        ccmis.set_tx_power(input_param)
+
     @pytest.mark.parametrize("mock_response, expected", [
         (
             [
@@ -155,27 +167,36 @@ class TestCCmis(object):
         result = ccmis.get_pm_all()
         assert result == expected
 
-
     @pytest.mark.parametrize("mock_response, expected",[
         (
-            [
-                'Single Mode Fiber (SMF)', 
-                '400GAUI-8 C2M (Annex 120E)',
-                '400ZR, DWDM, amplified',
-                8, 1, 1, 1,
-                {'hostlane1': 1, 'hostlane2': 1, 'hostlane3': 1, 'hostlane4': 1,
-                'hostlane5': 1, 'hostlane6': 1, 'hostlane7': 1, 'hostlane8': 1},
-                '1550 nm DFB',
-                '0.0',
-                '00000000',
-                'VENDOR_NAME',
-                '0.0',
-                'xx-xx-xx',
-                '21010100',
-                'LC',
-                '5.0',
-                '0.1',
-                '0.0',
+            [   {
+                    'active_firmware': '0.1',
+                    'media_lane_count': 1,
+                    'inactive_firmware': '0.0',
+                    'vendor_rev': '0.0',
+                    'host_electrical_interface': '400GAUI-8 C2M (Annex 120E)',
+                    'vendor_oui': 'xx-xx-xx',
+                    'manufacturename': 'VENDOR_NAME',
+                    'media_interface_technology': '1550 nm DFB',
+                    'media_interface_code': '400ZR, DWDM, amplified',
+                    'serialnum': '00000000',
+                    'module_media_type': 'Single Mode Fiber (SMF)',
+                    'host_lane_count': 8,
+                    'active_apsel_hostlane1': 1,
+                    'active_apsel_hostlane3': 1,
+                    'active_apsel_hostlane2': 1,
+                    'active_apsel_hostlane5': 1,
+                    'active_apsel_hostlane4': 1,
+                    'active_apsel_hostlane7': 1,
+                    'active_apsel_hostlane6': 1,
+                    'active_apsel_hostlane8': 1,
+                    'hardwarerev': '0.0',
+                    'specification_compliance': '5.0',
+                    'media_lane_assignment_option': 1,
+                    'connector_type': 'LC',
+                    'host_lane_assignment_option': 1,
+                    'vendor_date': '21010100'
+                },
                 (-20, 0),
                 (0xff, -72, 120, 191300, 196100)
             ],
@@ -213,62 +234,30 @@ class TestCCmis(object):
             }
         )
     ])
-    def test_get_transceiver_info(self, mock_response, expected):
+    @patch("sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_transceiver_info")
+    def test_get_transceiver_info(self, get_transceiver_info_func, mock_response, expected):
         ccmis = self.mock_ccmis_api()
-        ccmis.get_module_media_type = MagicMock()
-        ccmis.get_module_media_type.return_value = mock_response[0]
-        ccmis.get_host_electrical_interface = MagicMock()
-        ccmis.get_host_electrical_interface.return_value = mock_response[1]
-        ccmis.get_module_media_interface = MagicMock()
-        ccmis.get_module_media_interface.return_value = mock_response[2]
-        ccmis.get_host_lane_count = MagicMock()
-        ccmis.get_host_lane_count.return_value = mock_response[3]
-        ccmis.get_media_lane_count = MagicMock()
-        ccmis.get_media_lane_count.return_value = mock_response[4]
-        ccmis.get_host_lane_assignment_option = MagicMock()
-        ccmis.get_host_lane_assignment_option.return_value = mock_response[5]
-        ccmis.get_media_lane_assignment_option = MagicMock()
-        ccmis.get_media_lane_assignment_option.return_value = mock_response[6]
-        ccmis.get_active_apsel_hostlane = MagicMock()
-        ccmis.get_active_apsel_hostlane.return_value = mock_response[7]
-        ccmis.get_media_interface_technology = MagicMock()
-        ccmis.get_media_interface_technology.return_value = mock_response[8]
-        ccmis.get_module_hardware_revision = MagicMock()
-        ccmis.get_module_hardware_revision.return_value = mock_response[9]
-        ccmis.get_vendor_serial = MagicMock()
-        ccmis.get_vendor_serial.return_value = mock_response[10]
-        ccmis.get_vendor_name = MagicMock()
-        ccmis.get_vendor_name.return_value = mock_response[11]
-        ccmis.get_vendor_rev = MagicMock()
-        ccmis.get_vendor_rev.return_value = mock_response[12]
-        ccmis.get_vendor_OUI = MagicMock()
-        ccmis.get_vendor_OUI.return_value = mock_response[13]
-        ccmis.get_vendor_date = MagicMock()
-        ccmis.get_vendor_date.return_value = mock_response[14]
-        ccmis.get_connector_type = MagicMock()
-        ccmis.get_connector_type.return_value = mock_response[15]
-        ccmis.get_cmis_rev = MagicMock()
-        ccmis.get_cmis_rev.return_value = mock_response[16]
-        ccmis.get_module_active_firmware = MagicMock()
-        ccmis.get_module_active_firmware.return_value = mock_response[17]
-        ccmis.get_module_inactive_firmware = MagicMock()
-        ccmis.get_module_inactive_firmware.return_value = mock_response[18]
+        get_transceiver_info_func.return_value = mock_response[0]
         ccmis.get_supported_power_config = MagicMock()
-        ccmis.get_supported_power_config.return_value = mock_response[19]
+        ccmis.get_supported_power_config.return_value = mock_response[1]
         ccmis.get_supported_freq_config = MagicMock()
-        ccmis.get_supported_freq_config.return_value = mock_response[20]
+        ccmis.get_supported_freq_config.return_value = mock_response[2]
         result = ccmis.get_transceiver_info()
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected",[
         (
             [
-                {'monitor value': 50},
-                {'monitor value': 3.3},
-                {'monitor value lane1': 0.1},
-                {'monitor value lane1': 0.09},
-                {'monitor value lane1': 70},
-                {'monitor value': 40},
+                {
+                    'temperature': 50,
+                    'voltage': 3.3,
+                    'txpower': 0.1,
+                    'rxpower': 0.09,
+                    'txbias': 70,
+                    'laser_temperature': 40,
+                    'prefec_ber': 0.001,
+                    'postfec_ber': 0,
+                },
                 {
                     'Pre-FEC BER Average Media Input':{1:[0.001, 0.0125, 0, 0.01, 0, False, False, False, False]},
                     'Errored Frames Average Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
@@ -324,28 +313,17 @@ class TestCCmis(object):
             }
         )
     ])
-    def test_get_transceiver_bulk_status(self, mock_response, expected):
+    @patch("sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_transceiver_bulk_status")
+    def test_get_transceiver_bulk_status(self, get_transceiver_bulk_status_func, mock_response, expected):
         ccmis = self.mock_ccmis_api()
-        ccmis.get_module_temperature = MagicMock()
-        ccmis.get_module_temperature.return_value = mock_response[0]
-        ccmis.get_module_voltage = MagicMock()
-        ccmis.get_module_voltage.return_value = mock_response[1]
-        ccmis.get_txpower = MagicMock()
-        ccmis.get_txpower.return_value = mock_response[2]
-        ccmis.get_rxpower = MagicMock()
-        ccmis.get_rxpower.return_value = mock_response[3]
-        ccmis.get_txbias = MagicMock()
-        ccmis.get_txbias.return_value = mock_response[4]
-        ccmis.get_laser_temperature = MagicMock()
-        ccmis.get_laser_temperature.return_value = mock_response[5]
-        ccmis.get_vdm = MagicMock()
-        ccmis.get_vdm.return_value = mock_response[6]
+        get_transceiver_bulk_status_func.return_value = mock_response[0]
+        ccmis.vdm_dict = mock_response[1]
         ccmis.get_laser_config_freq = MagicMock()
-        ccmis.get_laser_config_freq.return_value = mock_response[7]
+        ccmis.get_laser_config_freq.return_value = mock_response[2]
         ccmis.get_current_laser_freq = MagicMock()
-        ccmis.get_current_laser_freq.return_value = mock_response[8]
+        ccmis.get_current_laser_freq.return_value = mock_response[3]
         ccmis.get_tx_config_power = MagicMock()
-        ccmis.get_tx_config_power.return_value = mock_response[9]
+        ccmis.get_tx_config_power.return_value = mock_response[4]
         result = ccmis.get_transceiver_bulk_status()
         assert result == expected
 
@@ -353,12 +331,16 @@ class TestCCmis(object):
     @pytest.mark.parametrize("mock_response, expected",[
         (
             [
-                {'high alarm': 80, 'low alarm': 0, 'high warn': 75, 'low warn': 10},
-                {'high alarm': 3.5, 'low alarm': 3.1, 'high warn': 3.45, 'low warn': 3.15},
-                {'high alarm': 1.0, 'low alarm': 0.01, 'high warn': 0.7, 'low warn': 0.02},
-                {'high alarm': 2.0, 'low alarm': 0.01, 'high warn': 1.0, 'low warn': 0.02},
-                {'high alarm': 90, 'low alarm': 10, 'high warn': 80, 'low warn': 20},
-                {'high alarm': 80, 'low alarm': 10, 'high warn': 75, 'low warn': 20},
+                {
+                    'temphighalarm': 80, 'templowalarm': 0, 'temphighwarning': 75, 'templowwarning': 10,
+                    'vcchighalarm': 3.5, 'vcclowalarm': 3.1, 'vcchighwarning': 3.45, 'vcclowwarning': 3.15,
+                    'txpowerhighalarm': 1.0, 'txpowerlowalarm': 0.01, 'txpowerhighwarning': 0.7, 'txpowerlowwarning': 0.02,
+                    'rxpowerhighalarm': 2.0, 'rxpowerlowalarm': 0.01, 'rxpowerhighwarning': 1.0, 'rxpowerlowwarning': 0.02,
+                    'txbiashighalarm': 90, 'txbiaslowalarm': 10, 'txbiashighwarning': 80, 'txbiaslowwarning': 20,
+                    'lasertemphighalarm': 80, 'lasertemplowalarm': 10, 'lasertemphighwarning': 75, 'lasertemplowwarning': 20,
+                    'prefecberhighalarm': 0.0125, 'prefecberlowalarm': 0, 'prefecberhighwarning': 0.01, 'prefecberlowwarning': 0,
+                    'postfecberhighalarm': 1, 'postfecberlowalarm': 0, 'postfecberhighwarning': 1, 'postfecberlowwarning': 0,
+                },
                 {
                     'Pre-FEC BER Average Media Input':{1:[0.001, 0.0125, 0, 0.01, 0, False, False, False, False]},
                     'Errored Frames Average Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
@@ -410,115 +392,93 @@ class TestCCmis(object):
             }
         )
     ])
-    def test_get_transceiver_threshold_info(self, mock_response, expected):
+    @patch("sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_transceiver_threshold_info")
+    def test_get_transceiver_threshold_info(self, get_transceiver_threshold_info_func, mock_response, expected):
         ccmis = self.mock_ccmis_api()
-        ccmis.get_module_temperature = MagicMock()
-        ccmis.get_module_temperature.return_value = mock_response[0]
-        ccmis.get_module_voltage = MagicMock()
-        ccmis.get_module_voltage.return_value = mock_response[1]
-        ccmis.get_txpower = MagicMock()
-        ccmis.get_txpower.return_value = mock_response[2]
-        ccmis.get_rxpower = MagicMock()
-        ccmis.get_rxpower.return_value = mock_response[3]
-        ccmis.get_txbias = MagicMock()
-        ccmis.get_txbias.return_value = mock_response[4]
-        ccmis.get_laser_temperature = MagicMock()
-        ccmis.get_laser_temperature.return_value = mock_response[5]
-        ccmis.get_vdm = MagicMock()
-        ccmis.get_vdm.return_value = mock_response[6]
+        get_transceiver_threshold_info_func.return_value = mock_response[0]
+        ccmis.vdm_dict = mock_response[1]
         result = ccmis.get_transceiver_threshold_info()
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected",[
         (
             [
-                'ModuleReady', 'No Fault detected', (False, False, True),
                 {
-                    'dp_lane1': 'DataPathActivated', 'dp_lane2': 'DataPathActivated',
-                    'dp_lane3': 'DataPathActivated', 'dp_lane4': 'DataPathActivated',
-                    'dp_lane5': 'DataPathActivated', 'dp_lane6': 'DataPathActivated', 
-                    'dp_lane7': 'DataPathActivated', 'dp_lane8': 'DataPathActivated'
-                },
-                {'TX_lane1': True},
-                {
-                    'RX_lane1': True, 'RX_lane2': True, 'RX_lane3': True, 'RX_lane4': True, 
-                    'RX_lane5': True, 'RX_lane6': True, 'RX_lane7': True, 'RX_lane8': True 
-                },
-                {'TX_lane1': False},
-                {
-                    'TX_lane1': False, 'TX_lane2': False, 'TX_lane3': False, 'TX_lane4': False, 
-                    'TX_lane5': False, 'TX_lane6': False, 'TX_lane7': False, 'TX_lane8': False 
-                },
-                {
-                    'TX_lane1': False, 'TX_lane2': False, 'TX_lane3': False, 'TX_lane4': False, 
-                    'TX_lane5': False, 'TX_lane6': False, 'TX_lane7': False, 'TX_lane8': False 
-                },
-                {'RX_lane1': False},
-                {'RX_lane1': False},
-                {
-                    'config_DP_status_hostlane1': 'ConfigSuccess', 'config_DP_status_hostlane2': 'ConfigSuccess',
-                    'config_DP_status_hostlane3': 'ConfigSuccess', 'config_DP_status_hostlane4': 'ConfigSuccess',
-                    'config_DP_status_hostlane5': 'ConfigSuccess', 'config_DP_status_hostlane6': 'ConfigSuccess', 
-                    'config_DP_status_hostlane7': 'ConfigSuccess', 'config_DP_status_hostlane8': 'ConfigSuccess'
-                },
-                {
-                    'hostlane1': False, 'hostlane2': False,
-                    'hostlane3': False, 'hostlane4': False,
-                    'hostlane5': False, 'hostlane6': False, 
-                    'hostlane7': False, 'hostlane8': False
+                    'module_state': 'ModuleReady',
+                    'module_fault_cause': 'No Fault detected',
+                    'datapath_firmware_fault': False,
+                    'module_firmware_fault': False,
+                    'module_state_changed': True,
+                    'datapath_hostlane1': 'DataPathActivated',
+                    'datapath_hostlane2': 'DataPathActivated',
+                    'datapath_hostlane3': 'DataPathActivated',
+                    'datapath_hostlane4': 'DataPathActivated',
+                    'datapath_hostlane5': 'DataPathActivated',
+                    'datapath_hostlane6': 'DataPathActivated',
+                    'datapath_hostlane7': 'DataPathActivated',
+                    'datapath_hostlane8': 'DataPathActivated',
+                    'txoutput_status': True,
+                    'rxoutput_status_hostlane1': True,
+                    'rxoutput_status_hostlane2': True,
+                    'rxoutput_status_hostlane3': True,
+                    'rxoutput_status_hostlane4': True,
+                    'rxoutput_status_hostlane5': True,
+                    'rxoutput_status_hostlane6': True,
+                    'rxoutput_status_hostlane7': True,
+                    'rxoutput_status_hostlane8': True,
+                    'txfault': False,
+                    'txlos_hostlane1': False,
+                    'txlos_hostlane2': False,
+                    'txlos_hostlane3': False,
+                    'txlos_hostlane4': False,
+                    'txlos_hostlane5': False,
+                    'txlos_hostlane6': False,
+                    'txlos_hostlane7': False,
+                    'txlos_hostlane8': False,
+                    'txcdrlol_hostlane1': False,
+                    'txcdrlol_hostlane2': False,
+                    'txcdrlol_hostlane3': False,
+                    'txcdrlol_hostlane4': False,
+                    'txcdrlol_hostlane5': False,
+                    'txcdrlol_hostlane6': False,
+                    'txcdrlol_hostlane7': False,
+                    'txcdrlol_hostlane8': False,
+                    'rxlos': False,
+                    'rxcdrlol': False,
+                    'config_state_hostlane1': 'ConfigSuccess',
+                    'config_state_hostlane2': 'ConfigSuccess',
+                    'config_state_hostlane3': 'ConfigSuccess',
+                    'config_state_hostlane4': 'ConfigSuccess',
+                    'config_state_hostlane5': 'ConfigSuccess',
+                    'config_state_hostlane6': 'ConfigSuccess',
+                    'config_state_hostlane7': 'ConfigSuccess',
+                    'config_state_hostlane8': 'ConfigSuccess',
+                    'dpinit_pending_hostlane1': False,
+                    'dpinit_pending_hostlane2': False,
+                    'dpinit_pending_hostlane3': False,
+                    'dpinit_pending_hostlane4': False,
+                    'dpinit_pending_hostlane5': False,
+                    'dpinit_pending_hostlane6': False,
+                    'dpinit_pending_hostlane7': False,
+                    'dpinit_pending_hostlane8': False,
+                    'temphighalarm_flag': False, 'templowalarm_flag': False, 
+                    'temphighwarning_flag': False, 'templowwarning_flag': False,
+                    'vcchighalarm_flag': False, 'vcclowalarm_flag': False, 
+                    'vcchighwarning_flag': False, 'vcclowwarning_flag': False,
+                    'lasertemphighalarm_flag': False, 'lasertemplowalarm_flag': False, 
+                    'lasertemphighwarning_flag': False, 'lasertemplowwarning_flag': False,
+                    'txpowerhighalarm_flag': False, 'txpowerlowalarm_flag': False, 
+                    'txpowerhighwarning_flag': False, 'txpowerlowwarning_flag': False,
+                    'rxpowerhighalarm_flag': False, 'rxpowerlowalarm_flag': False, 
+                    'rxpowerhighwarning_flag': False, 'rxpowerlowwarning_flag': False,
+                    'txbiashighalarm_flag': False, 'txbiaslowalarm_flag': False, 
+                    'txbiashighwarning_flag': False, 'txbiaslowwarning_flag': False,
+                    'prefecberhighalarm_flag': False, 'prefecberlowalarm_flag': False, 
+                    'prefecberhighwarning_flag': False, 'prefecberlowwarning_flag': False,
+                    'postfecberhighalarm_flag': False, 'postfecberlowalarm_flag': False, 
+                    'postfecberhighwarning_flag': False, 'postfecberlowwarning_flag': False,
                 },
                 False, False, ['TuningComplete'],
-                {
-                    'case_temp_flags': {
-                        'case_temp_high_alarm_flag': False,
-                        'case_temp_low_alarm_flag': False,
-                        'case_temp_high_warn_flag': False,
-                        'case_temp_low_warn_flag': False,
-                    },
-                    'voltage_flags': {
-                        'voltage_high_alarm_flag': False,
-                        'voltage_low_alarm_flag': False,
-                        'voltage_high_warn_flag': False,
-                        'voltage_low_warn_flag': False,
-                    },
-                    'aux1_flags': {
-                        'aux1_high_alarm_flag': False,
-                        'aux1_low_alarm_flag': False,
-                        'aux1_high_warn_flag': False,
-                        'aux1_low_warn_flag': False,
-                    },
-                    'aux2_flags': {
-                        'aux2_high_alarm_flag': False,
-                        'aux2_low_alarm_flag': False,
-                        'aux2_high_warn_flag': False,
-                        'aux2_low_warn_flag': False,
-                    },
-                    'aux3_flags': {
-                        'aux3_high_alarm_flag': False,
-                        'aux3_low_alarm_flag': False,
-                        'aux3_high_warn_flag': False,
-                        'aux3_low_warn_flag': False,
-                    }
-                },
-                (0, 0, 0),
-                {
-                    'tx_power_high_alarm': {'TX_lane1': False},
-                    'tx_power_low_alarm': {'TX_lane1': False},
-                    'tx_power_high_warn': {'TX_lane1': False},
-                    'tx_power_low_warn': {'TX_lane1': False},
-                },
-                {
-                    'rx_power_high_alarm': {'RX_lane1': False},
-                    'rx_power_low_alarm': {'RX_lane1': False},
-                    'rx_power_high_warn': {'RX_lane1': False},
-                    'rx_power_low_warn': {'RX_lane1': False},
-                },
-                {
-                    'tx_bias_high_alarm': {'TX_lane1': False},
-                    'tx_bias_low_alarm': {'TX_lane1': False},
-                    'tx_bias_high_warn': {'TX_lane1': False},
-                    'tx_bias_low_warn': {'TX_lane1': False},
-                },
                 {
                     'Pre-FEC BER Average Media Input':{1:[0.001, 0.0125, 0, 0.01, 0, False, False, False, False]},
                     'Errored Frames Average Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
@@ -660,52 +620,17 @@ class TestCCmis(object):
             }
         )
     ])
-    def test_get_transceiver_status(self, mock_response, expected):
+    @patch("sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_transceiver_status")
+    def test_get_transceiver_status(self, get_transceiver_status_func, mock_response, expected):
         ccmis = self.mock_ccmis_api()
-        ccmis.get_module_state = MagicMock()
-        ccmis.get_module_state.return_value = mock_response[0]
-        ccmis.get_module_fault_cause = MagicMock()
-        ccmis.get_module_fault_cause.return_value = mock_response[1]
-        ccmis.get_module_firmware_fault_state_changed = MagicMock()
-        ccmis.get_module_firmware_fault_state_changed.return_value = mock_response[2]
-        ccmis.get_datapath_state = MagicMock()
-        ccmis.get_datapath_state.return_value = mock_response[3]
-        ccmis.get_tx_output_status = MagicMock()
-        ccmis.get_tx_output_status.return_value = mock_response[4]
-        ccmis.get_rx_output_status = MagicMock()
-        ccmis.get_rx_output_status.return_value = mock_response[5]
-        ccmis.get_tx_fault = MagicMock()
-        ccmis.get_tx_fault.return_value = mock_response[6]
-        ccmis.get_tx_los = MagicMock()
-        ccmis.get_tx_los.return_value = mock_response[7]
-        ccmis.get_tx_cdr_lol = MagicMock()
-        ccmis.get_tx_cdr_lol.return_value = mock_response[8]
-        ccmis.get_rx_los = MagicMock()
-        ccmis.get_rx_los.return_value = mock_response[9]
-        ccmis.get_rx_cdr_lol = MagicMock()
-        ccmis.get_rx_cdr_lol.return_value = mock_response[10]
-        ccmis.get_config_datapath_hostlane_status = MagicMock()
-        ccmis.get_config_datapath_hostlane_status.return_value = mock_response[11]
-        ccmis.get_dpinit_pending = MagicMock()
-        ccmis.get_dpinit_pending.return_value = mock_response[12]
+        get_transceiver_status_func.return_value = mock_response[0]
         ccmis.get_tuning_in_progress = MagicMock()
-        ccmis.get_tuning_in_progress.return_value = mock_response[13]
+        ccmis.get_tuning_in_progress.return_value = mock_response[1]
         ccmis.get_wavelength_unlocked = MagicMock()
-        ccmis.get_wavelength_unlocked.return_value = mock_response[14]
+        ccmis.get_wavelength_unlocked.return_value = mock_response[2]
         ccmis.get_laser_tuning_summary = MagicMock()
-        ccmis.get_laser_tuning_summary.return_value = mock_response[15]
-        ccmis.get_module_level_flag = MagicMock()
-        ccmis.get_module_level_flag.return_value = mock_response[16]
-        ccmis.get_aux_mon_type = MagicMock()
-        ccmis.get_aux_mon_type.return_value = mock_response[17]
-        ccmis.get_tx_power_flag = MagicMock()
-        ccmis.get_tx_power_flag.return_value = mock_response[18]
-        ccmis.get_rx_power_flag = MagicMock()
-        ccmis.get_rx_power_flag.return_value = mock_response[19]
-        ccmis.get_tx_bias_flag = MagicMock()
-        ccmis.get_tx_bias_flag.return_value = mock_response[20]
-        ccmis.get_vdm = MagicMock()
-        ccmis.get_vdm.return_value = mock_response[21]
+        ccmis.get_laser_tuning_summary.return_value = mock_response[3]
+        ccmis.vdm_dict = mock_response[4]
         result = ccmis.get_transceiver_status()
         assert result == expected
 
@@ -748,49 +673,6 @@ class TestCCmis(object):
         ccmis.get_pm_all = MagicMock()
         ccmis.get_pm_all.return_value = mock_response
         result = ccmis.get_transceiver_pm()
-        assert result == expected
-
-    @pytest.mark.parametrize("mock_response, expected",[
-        (
-            [
-                False,
-                False,
-                [False, False, False, False, False, False, False, False],
-                [False, False, False, False, False, False, False, False]
-            ],
-            {
-                'media_output_loopback': False,
-                'media_input_loopback': False,
-                'host_output_loopback_lane1': False,
-                'host_output_loopback_lane2': False,
-                'host_output_loopback_lane3': False,
-                'host_output_loopback_lane4': False,
-                'host_output_loopback_lane5': False,
-                'host_output_loopback_lane6': False,
-                'host_output_loopback_lane7': False,
-                'host_output_loopback_lane8': False,
-                'host_input_loopback_lane1': False,
-                'host_input_loopback_lane2': False,
-                'host_input_loopback_lane3': False,
-                'host_input_loopback_lane4': False,
-                'host_input_loopback_lane5': False,
-                'host_input_loopback_lane6': False,
-                'host_input_loopback_lane7': False,
-                'host_input_loopback_lane8': False
-            }
-        )
-    ])
-    def test_get_transceiver_loopback(self, mock_response, expected):
-        ccmis = self.mock_ccmis_api()
-        ccmis.get_media_output_loopback = MagicMock()
-        ccmis.get_media_output_loopback.return_value = mock_response[0]
-        ccmis.get_media_input_loopback = MagicMock()
-        ccmis.get_media_input_loopback.return_value = mock_response[1]
-        ccmis.get_host_output_loopback = MagicMock()
-        ccmis.get_host_output_loopback.return_value = mock_response[2]
-        ccmis.get_host_input_loopback = MagicMock()
-        ccmis.get_host_input_loopback.return_value = mock_response[3]
-        result = ccmis.get_transceiver_loopback()
         assert result == expected
 
     # TODO: call other methods in the api

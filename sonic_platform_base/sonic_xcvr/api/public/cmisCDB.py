@@ -24,6 +24,8 @@ MAX_WAIT = 10
 class CmisCdbApi(XcvrApi):
     def __init__(self, xcvr_eeprom):
         super(CmisCdbApi, self).__init__(xcvr_eeprom)
+        self.cdb_instance_supported = self.xcvr_eeprom.read(consts.CDB_SUPPORT) >> 6
+        assert self.cdb_instance_supported == 0
     
     def cdb1_chkflags(self):
         '''
@@ -144,6 +146,10 @@ class CmisCdbApi(XcvrApi):
 
     # Query status
     def cmd0000h(self):
+        '''
+        This QUERY Status command may be used to retrieve the password acceptance
+        status and to perform a test of the CDB interface
+        '''
         cmd = bytearray(b'\x00\x00\x00\x00\x02\x00\x00\x00\x00\x10')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
         for attemp in range(MAX_TRY):
@@ -159,6 +165,9 @@ class CmisCdbApi(XcvrApi):
 
     # Enter password
     def cmd0001h(self):
+        '''
+        The Enter Password command allows the host to enter a host password
+        '''
         cmd = bytearray(b'\x00\x01\x00\x00\x04\x00\x00\x00\x00\x00\x10\x11')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
         for attemp in range(MAX_TRY):
@@ -190,7 +199,7 @@ class CmisCdbApi(XcvrApi):
         return self.read_cdb()
 
     # Firmware Update Features Supported
-    def cmd0041h(self):
+    def get_fw_management_features(self):
         '''
         This command is used to query supported firmware update features
         '''
@@ -208,7 +217,7 @@ class CmisCdbApi(XcvrApi):
         return self.read_cdb()
 
     # Get FW info
-    def cmd0100h(self):
+    def get_fw_info(self):
         '''
         This command returns the firmware versions and firmware default running 
         images that reside in the module
@@ -227,7 +236,7 @@ class CmisCdbApi(XcvrApi):
         return self.read_cdb()
 
     # Start FW download
-    def cmd0101h(self, startLPLsize, header, imagesize):
+    def start_fw_download(self, startLPLsize, header, imagesize):
         '''
         This command starts the firmware download
         '''
@@ -252,7 +261,7 @@ class CmisCdbApi(XcvrApi):
         return status
 
     # Abort FW download
-    def cmd0102h(self):
+    def abort_fw_download(self):
         '''
         This command aborts the firmware download
         '''
@@ -270,7 +279,7 @@ class CmisCdbApi(XcvrApi):
         return status
 
     # Download FW with LPL
-    def cmd0103h(self, addr, data):
+    def block_write_lpl(self, addr, data):
         '''
         This command writes one block of the firmware image into the LPL
         '''
@@ -298,11 +307,11 @@ class CmisCdbApi(XcvrApi):
         return status
 
     #  Download FW with EPL
-    def cmd0104h(self, addr, data, autopaging_flag, writelength):
+    def block_write_epl(self, addr, data, autopaging_flag, writelength):
         '''
         This command writes one block of the firmware image into the EPL
         '''
-        epl_len = 2048
+        epl_len = len(data)
         subtime = time.time()
         if not autopaging_flag:
             pages = epl_len // PAGE_LENGTH
@@ -330,7 +339,7 @@ class CmisCdbApi(XcvrApi):
                     datachunk = data[offset : ]
                     self.xcvr_eeprom.write_raw(0xA0*PAGE_LENGTH+offset+INIT_OFFSET, len(datachunk), datachunk)
         subtimeint = time.time()-subtime
-        logger.info('2048B write time:  %.2fs' %subtimeint)
+        logger.info('%dB write time:  %.2fs' %(epl_len, subtimeint))
         cmd = bytearray(b'\x01\x04\x08\x00\x04\x00\x00\x00')
         addr_byte = struct.pack('>L',addr)
         cmd += addr_byte
@@ -347,7 +356,7 @@ class CmisCdbApi(XcvrApi):
         return status
 
     # FW download complete
-    def cmd0107h(self):
+    def validate_fw_image(self):
         '''
         When this command is issued, the module shall validate the complete
         image and then return success or failure
@@ -371,7 +380,7 @@ class CmisCdbApi(XcvrApi):
     # 01h = Attempt Hitless Reset to Inactive Image
     # 02h = Traffic affecting Reset to Running Image.
     # 03h = Attempt Hitless Reset to Running Image
-    def cmd0109h(self, mode = 0x01):
+    def run_fw_image(self, mode = 0x01):
         '''
         The host uses this command to run a selected image from module internal firmware banks
         '''
@@ -393,7 +402,7 @@ class CmisCdbApi(XcvrApi):
         return status
 
     # Commit FW image
-    def cmd010Ah(self):
+    def commit_fw_image(self):
         '''
         A Commit is the process where the running image is set to be the image to be used on exit from module
         reset. In other words, a committed image is the image that will run and is expected to be a 'good' firmware

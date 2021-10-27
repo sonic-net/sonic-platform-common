@@ -735,17 +735,6 @@ class CmisApi(XcvrApi):
         '''
         low_power_control = AssertLowPower << 6
         self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, low_power_control)
-    
-    def set_tx_power(self, tx_power):
-        '''
-        This function sets the TX output power. Unit in dBm
-        '''
-        min_prog_tx_output_power, max_prog_tx_output_power = self.get_supported_power_config()
-        if tx_power > max_prog_tx_output_power or tx_power < min_prog_tx_output_power:
-            raise ValueError('Provisioned TX power out of range. Max: %.1f; Min: %.1f dBm.' 
-                             %(max_prog_tx_output_power, min_prog_tx_output_power))
-        self.xcvr_eeprom.write(consts.TX_CONFIG_POWER, tx_power)
-        time.sleep(1)
 
     def get_loopback_capability(self):
         '''
@@ -814,7 +803,7 @@ class CmisApi(XcvrApi):
         writelength = (self.xcvr_eeprom.read(consts.CDB_SEQ_WRITE_LENGTH_EXT) + 1) * 8
         logger.info('Auto page support: %s' %autopaging_flag)
         logger.info('Max write length: %d' %writelength)
-        rpllen, rpl_chkcode, rpl = self.cdb.cmd0041h()
+        rpllen, rpl_chkcode, rpl = self.cdb.get_fw_management_features()
         if self.cdb.cdb_chkcode(rpl) == rpl_chkcode:
             password_type = {
                 0x00 : 'vendorPassword',
@@ -866,7 +855,7 @@ class CmisApi(XcvrApi):
         # get fw info (CMD 0100h)
         starttime = time.time()
         logger.info('\nGet module FW info')
-        rpllen, rpl_chkcode, rpl = self.cdb.cmd0100h()
+        rpllen, rpl_chkcode, rpl = self.cdb.get_fw_info()
         if self.cdb.cdb_chkcode(rpl) == rpl_chkcode:
             # Regiter 9Fh:136
             fwStatus = rpl[0]
@@ -918,11 +907,11 @@ class CmisApi(XcvrApi):
             self.get_cdb_api()
         # run module FW (CMD 0109h)
         starttime = time.time()
-        fw_run_status = self.cdb.cmd0109h(mode)
+        fw_run_status = self.cdb.run_fw_image(mode)
         if fw_run_status == 1:
             logger.info('Module FW run: Success')
         else:
-            self.cdb.cmd0102h()
+            self.cdb.abort_fw_download()
             logger.info('Module FW run: Fail')
         elapsedtime = time.time()-starttime
         logger.info('Module FW run time: %.2f s\n' %elapsedtime)
@@ -938,11 +927,11 @@ class CmisApi(XcvrApi):
             self.get_cdb_api()
         # commit module FW (CMD 010Ah)
         starttime = time.time()
-        fw_commit_status= self.cdb.cmd010Ah()
+        fw_commit_status= self.cdb.commit_fw_image()
         if fw_commit_status == 1:
             logger.info('Module FW commit: Success')
         else:
-            self.cdb.cmd0102h()
+            self.cdb.abort_fw_download()
             logger.info('Module FW commit: Fail')
         elapsedtime = time.time()-starttime
         logger.info('Module FW commit time: %.2f s\n' %elapsedtime)
@@ -978,18 +967,18 @@ class CmisApi(XcvrApi):
             self.xcvr_eeprom.write_raw(122, 4, b'\x00\x00\x10\x11')
         logger.info('\nStart FW downloading')
         logger.info("startLPLsize is %d" %startLPLsize)
-        fw_start_status = self.cdb.cmd0101h(startLPLsize, bytearray(startdata), imagesize)
+        fw_start_status = self.cdb.start_fw_download(startLPLsize, bytearray(startdata), imagesize)
         if fw_start_status == 1:
             logger.info('Start module FW download: Success')
         else:
             logger.info('Start module FW download: Fail')
-            self.cdb.cmd0102h()
+            self.cdb.abort_fw_download()
             raise ValueError('FW_start_status %d' %fw_start_status)
         elapsedtime = time.time()-starttime
         logger.info('Start module FW download time: %.2f s' %elapsedtime)
 
         # start periodically writing (CMD 0103h or 0104h)
-        assert maxblocksize == 2048 or lplonly_flag
+        # assert maxblocksize == 2048 or lplonly_flag
         if lplonly_flag:
             BLOCK_SIZE = 116
         else:
@@ -1005,9 +994,9 @@ class CmisApi(XcvrApi):
             data = f.read(count)
             progress = (imagesize - remaining) * 100.0 / imagesize
             if lplonly_flag:
-                fw_download_status = self.cdb.cmd0103h(address, data)
+                fw_download_status = self.cdb.block_write_lpl(address, data)
             else:
-                fw_download_status = self.cdb.cmd0104h(address, data, autopaging_flag, writelength)
+                fw_download_status = self.cdb.block_write_epl(address, data, autopaging_flag, writelength)
             if fw_download_status != 1:
                 logger.info('CDB download failed. CDB Status: %d' %fw_download_status)
                 exit(1)
@@ -1020,7 +1009,7 @@ class CmisApi(XcvrApi):
 
         time.sleep(2)
         # complete FW download (CMD 0107h)
-        fw_complete_status = self.cdb.cmd0107h()
+        fw_complete_status = self.cdb.validate_fw_image()
         if fw_complete_status == 1:
             logger.info('Module FW download complete: Success')
         else:
@@ -1059,6 +1048,466 @@ class CmisApi(XcvrApi):
             self.get_module_fw_info()
         else:
             logger.info('Not both images are valid.')
+
+    def get_transceiver_info(self):
+        """
+        Retrieves transceiver info of this SFP
+
+        Returns:
+            A dict which contains following keys/values :
+        ================================================================================
+        key                          = TRANSCEIVER_INFO|ifname  ; information for module on port
+        ; field                      = value
+        module_media_type            = 1*255VCHAR               ; module media interface ID
+        host_electrical_interface    = 1*255VCHAR               ; host electrical interface ID
+        media_interface_code         = 1*255VCHAR               ; media interface code
+        host_lane_count              = INTEGER                  ; host lane count
+        media_lane_count             = INTEGER                  ; media lane count
+        host_lane_assignment_option  = INTEGER                  ; permissible first host lane number for application
+        media_lane_assignment_option = INTEGER                  ; permissible first media lane number for application
+        active_apsel_hostlane1       = INTEGER                  ; active application selected code assigned to host lane 1
+        active_apsel_hostlane2       = INTEGER                  ; active application selected code assigned to host lane 2
+        active_apsel_hostlane3       = INTEGER                  ; active application selected code assigned to host lane 3
+        active_apsel_hostlane4       = INTEGER                  ; active application selected code assigned to host lane 4
+        active_apsel_hostlane5       = INTEGER                  ; active application selected code assigned to host lane 5
+        active_apsel_hostlane6       = INTEGER                  ; active application selected code assigned to host lane 6
+        active_apsel_hostlane7       = INTEGER                  ; active application selected code assigned to host lane 7
+        active_apsel_hostlane8       = INTEGER                  ; active application selected code assigned to host lane 8
+        media_interface_technology   = 1*255VCHAR               ; media interface technology
+        hardwarerev                  = 1*255VCHAR               ; module hardware revision 
+        serialnum                    = 1*255VCHAR               ; module serial number 
+        manufacturename              = 1*255VCHAR               ; module venndor name
+        modelname                    = 1*255VCHAR               ; module model name
+        vendor_rev                   = 1*255VCHAR               ; module vendor revision
+        vendor_oui                   = 1*255VCHAR               ; vendor organizationally unique identifier
+        vendor_date                  = 1*255VCHAR               ; module manufacture date
+        connector_type               = 1*255VCHAR               ; connector type
+        specification_compliance     = 1*255VCHAR               ; electronic or optical interfaces that supported
+        active_firmware              = 1*255VCHAR               ; active firmware
+        inactive_firmware            = 1*255VCHAR               ; inactive firmware
+        ================================================================================
+        """
+        trans_info = dict()
+        trans_info['module_media_type'] = self.get_module_media_type()
+        trans_info['host_electrical_interface'] = self.get_host_electrical_interface()
+        trans_info['media_interface_code'] = self.get_module_media_interface()
+        trans_info['host_lane_count'] = self.get_host_lane_count()
+        trans_info['media_lane_count'] = self.get_media_lane_count()
+        trans_info['host_lane_assignment_option'] = self.get_host_lane_assignment_option()
+        trans_info['media_lane_assignment_option'] = self.get_media_lane_assignment_option()
+        apsel_dict = self.get_active_apsel_hostlane()
+        trans_info['active_apsel_hostlane1'] = apsel_dict['hostlane1']
+        trans_info['active_apsel_hostlane2'] = apsel_dict['hostlane2']
+        trans_info['active_apsel_hostlane3'] = apsel_dict['hostlane3']
+        trans_info['active_apsel_hostlane4'] = apsel_dict['hostlane4']
+        trans_info['active_apsel_hostlane5'] = apsel_dict['hostlane5']
+        trans_info['active_apsel_hostlane6'] = apsel_dict['hostlane6']
+        trans_info['active_apsel_hostlane7'] = apsel_dict['hostlane7']
+        trans_info['active_apsel_hostlane8'] = apsel_dict['hostlane8']
+        trans_info['media_interface_technology'] = self.get_media_interface_technology()
+        trans_info['hardwarerev'] = self.get_module_hardware_revision()
+        trans_info['serialnum'] = self.get_vendor_serial()
+        trans_info['manufacturename'] = self.get_vendor_name()
+        trans_info['vendor_rev'] = self.get_vendor_rev()
+        trans_info['vendor_oui'] = self.get_vendor_OUI()
+        trans_info['vendor_date'] = self.get_vendor_date()
+        trans_info['connector_type'] = self.get_connector_type()
+        trans_info['specification_compliance'] = self.get_cmis_rev()
+        trans_info['active_firmware'] = self.get_module_active_firmware()
+        trans_info['inactive_firmware'] = self.get_module_inactive_firmware()
+        return trans_info
+
+    def get_transceiver_bulk_status(self):
+        """
+        Retrieves bulk status info for this xcvr
+
+        Returns:
+            A dict containing the following keys/values :
+        ========================================================================
+        key                          = TRANSCEIVER_DOM_SENSOR|ifname    ; information module DOM sensors on port
+        ; field                      = value
+        temperature                  = FLOAT                            ; temperature value in Celsius
+        voltage                      = FLOAT                            ; voltage value
+        txpower                      = FLOAT                            ; tx power in mW
+        rxpower                      = FLOAT                            ; rx power in mW
+        txbias                       = FLOAT                            ; tx bias in mA
+        laser_temperature	         = FLOAT                            ; laser temperature value in Celsius
+        prefec_ber                   = FLOAT                            ; prefec ber
+        postfec_ber                  = FLOAT                            ; postfec ber
+        ========================================================================
+        """
+        trans_dom = dict()
+        case_temp_dict = self.get_module_temperature()
+        trans_dom['temperature'] = case_temp_dict['monitor value']
+        voltage_dict = self.get_module_voltage()
+        trans_dom['voltage'] = voltage_dict['monitor value']
+        tx_power_dict = self.get_txpower()
+        trans_dom['txpower'] = tx_power_dict['monitor value lane1']
+        rx_power_dict = self.get_rxpower()
+        trans_dom['rxpower'] = rx_power_dict['monitor value lane1']
+        tx_bias_current_dict = self.get_txbias()
+        trans_dom['txbias'] = tx_bias_current_dict['monitor value lane1']
+        laser_temp_dict = self.get_laser_temperature()
+        trans_dom['laser_temperature'] = laser_temp_dict['monitor value']
+        self.vdm_dict = self.get_vdm()
+        trans_dom['prefec_ber'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][0]
+        trans_dom['postfec_ber'] = self.vdm_dict['Errored Frames Average Media Input'][1][0]
+        return trans_dom
+
+    def get_transceiver_threshold_info(self):
+        """
+        Retrieves threshold info for this xcvr
+
+        Returns:
+            A dict containing the following keys/values :
+        ========================================================================
+        key                          = TRANSCEIVER_STATUS|ifname        ; DOM threshold information for module on port
+        ; field                      = value
+        temphighalarm                = FLOAT                            ; temperature high alarm threshold in Celsius
+        temphighwarning              = FLOAT                            ; temperature high warning threshold in Celsius
+        templowalarm                 = FLOAT                            ; temperature low alarm threshold in Celsius
+        templowwarning               = FLOAT                            ; temperature low warning threshold in Celsius
+        vcchighalarm                 = FLOAT                            ; vcc high alarm threshold in V
+        vcchighwarning               = FLOAT                            ; vcc high warning threshold in V
+        vcclowalarm                  = FLOAT                            ; vcc low alarm threshold in V
+        vcclowwarning                = FLOAT                            ; vcc low warning threshold in V
+        txpowerhighalarm             = FLOAT                            ; tx power high alarm threshold in mW
+        txpowerlowalarm              = FLOAT                            ; tx power low alarm threshold in mW
+        txpowerhighwarning           = FLOAT                            ; tx power high warning threshold in mW
+        txpowerlowwarning            = FLOAT                            ; tx power low alarm threshold in mW
+        rxpowerhighalarm             = FLOAT                            ; rx power high alarm threshold in mW
+        rxpowerlowalarm              = FLOAT                            ; rx power low alarm threshold in mW
+        rxpowerhighwarning           = FLOAT                            ; rx power high warning threshold in mW
+        rxpowerlowwarning            = FLOAT                            ; rx power low warning threshold in mW
+        txbiashighalarm              = FLOAT                            ; tx bias high alarm threshold in mA
+        txbiaslowalarm               = FLOAT                            ; tx bias low alarm threshold in mA
+        txbiashighwarning            = FLOAT                            ; tx bias high warning threshold in mA
+        txbiaslowwarning             = FLOAT                            ; tx bias low warning threshold in mA
+        lasertemphighalarm           = FLOAT                            ; laser temperature high alarm threshold in Celsius
+        lasertemplowalarm            = FLOAT                            ; laser temperature low alarm threshold in Celsius
+        lasertemphighwarning         = FLOAT                            ; laser temperature high warning threshold in Celsius
+        lasertemplowwarning          = FLOAT                            ; laser temperature low warning threshold in Celsius
+        prefecberhighalarm           = FLOAT                            ; prefec ber high alarm threshold
+        prefecberlowalarm            = FLOAT                            ; prefec ber low alarm threshold
+        prefecberhighwarning         = FLOAT                            ; prefec ber high warning threshold
+        prefecberlowwarning          = FLOAT                            ; prefec ber low warning threshold
+        postfecberhighalarm          = FLOAT                            ; postfec ber high alarm threshold
+        postfecberlowalarm           = FLOAT                            ; postfec ber low alarm threshold
+        postfecberhighwarning        = FLOAT                            ; postfec ber high warning threshold
+        postfecberlowwarning         = FLOAT                            ; postfec ber low warning threshold
+        ========================================================================
+        """
+        trans_dom_th = dict()
+        case_temp_dict = self.get_module_temperature()
+        trans_dom_th['temphighalarm'] = case_temp_dict['high alarm']
+        trans_dom_th['templowalarm'] = case_temp_dict['low alarm']
+        trans_dom_th['temphighwarning'] = case_temp_dict['high warn']
+        trans_dom_th['templowwarning'] = case_temp_dict['low warn']
+        voltage_dict = self.get_module_voltage()
+        trans_dom_th['vcchighalarm'] = voltage_dict['high alarm']
+        trans_dom_th['vcclowalarm'] = voltage_dict['low alarm']
+        trans_dom_th['vcchighwarning'] = voltage_dict['high warn']
+        trans_dom_th['vcclowwarning'] = voltage_dict['low warn']
+        tx_power_dict = self.get_txpower()
+        trans_dom_th['txpowerhighalarm'] = tx_power_dict['high alarm']
+        trans_dom_th['txpowerlowalarm'] = tx_power_dict['low alarm']
+        trans_dom_th['txpowerhighwarning'] = tx_power_dict['high warn']
+        trans_dom_th['txpowerlowwarning'] = tx_power_dict['low warn']
+        rx_power_dict = self.get_rxpower()
+        trans_dom_th['rxpowerhighalarm'] = rx_power_dict['high alarm']
+        trans_dom_th['rxpowerlowalarm'] = rx_power_dict['low alarm']
+        trans_dom_th['rxpowerhighwarning'] = rx_power_dict['high warn']
+        trans_dom_th['rxpowerlowwarning'] = rx_power_dict['low warn']
+        tx_bias_current_dict = self.get_txbias()
+        trans_dom_th['txbiashighalarm'] = tx_bias_current_dict['high alarm']
+        trans_dom_th['txbiaslowalarm'] = tx_bias_current_dict['low alarm']
+        trans_dom_th['txbiashighwarning'] = tx_bias_current_dict['high warn']
+        trans_dom_th['txbiaslowwarning'] = tx_bias_current_dict['low warn']
+        laser_temp_dict = self.get_laser_temperature()
+        trans_dom_th['lasertemphighalarm'] = laser_temp_dict['high alarm']
+        trans_dom_th['lasertemplowalarm'] = laser_temp_dict['low alarm']
+        trans_dom_th['lasertemphighwarning'] = laser_temp_dict['high warn']
+        trans_dom_th['lasertemplowwarning'] = laser_temp_dict['low warn']
+        self.vdm_dict = self.get_vdm()
+        trans_dom_th['prefecberhighalarm'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][1]
+        trans_dom_th['prefecberlowalarm'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][2]
+        trans_dom_th['prefecberhighwarning'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][3]
+        trans_dom_th['prefecberlowwarning'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][4]     
+        trans_dom_th['postfecberhighalarm'] = self.vdm_dict['Errored Frames Average Media Input'][1][1]
+        trans_dom_th['postfecberlowalarm'] = self.vdm_dict['Errored Frames Average Media Input'][1][2]
+        trans_dom_th['postfecberhighwarning'] = self.vdm_dict['Errored Frames Average Media Input'][1][3]
+        trans_dom_th['postfecberlowwarning'] = self.vdm_dict['Errored Frames Average Media Input'][1][4]
+        return trans_dom_th
+
+    def get_transceiver_status(self):
+        """
+        Retrieves transceiver status of this SFP
+
+        Returns:
+            A dict which contains following keys/values :
+        ================================================================================
+        key                          = TRANSCEIVER_STATUS|ifname        ; Error information for module on port
+        ; field                      = value
+        status                       = 1*255VCHAR                       ; code of the module status (plug in, plug out)
+        error                        = 1*255VCHAR                       ; module error (N/A or a string consisting of error descriptions joined by "|", like "error1 | error2" )
+        module_state                 = 1*255VCHAR                       ; current module state (ModuleLowPwr, ModulePwrUp, ModuleReady, ModulePwrDn, Fault)
+        module_fault_cause           = 1*255VCHAR                       ; reason of entering the module fault state
+        datapath_firmware_fault      = BOOLEAN                          ; datapath (DSP) firmware fault
+        module_firmware_fault        = BOOLEAN                          ; module firmware fault
+        module_state_changed         = BOOLEAN                          ; module state changed
+        datapath_hostlane1           = 1*255VCHAR                       ; data path state indicator on host lane 1
+        datapath_hostlane2           = 1*255VCHAR                       ; data path state indicator on host lane 2
+        datapath_hostlane3           = 1*255VCHAR                       ; data path state indicator on host lane 3
+        datapath_hostlane4           = 1*255VCHAR                       ; data path state indicator on host lane 4
+        datapath_hostlane5           = 1*255VCHAR                       ; data path state indicator on host lane 5
+        datapath_hostlane6           = 1*255VCHAR                       ; data path state indicator on host lane 6
+        datapath_hostlane7           = 1*255VCHAR                       ; data path state indicator on host lane 7
+        datapath_hostlane8           = 1*255VCHAR                       ; data path state indicator on host lane 8
+        txoutput_status              = BOOLEAN                          ; tx output status on media lane
+        rxoutput_status_hostlane1    = BOOLEAN                          ; rx output status on host lane 1
+        rxoutput_status_hostlane2    = BOOLEAN                          ; rx output status on host lane 2
+        rxoutput_status_hostlane3    = BOOLEAN                          ; rx output status on host lane 3
+        rxoutput_status_hostlane4    = BOOLEAN                          ; rx output status on host lane 4
+        rxoutput_status_hostlane5    = BOOLEAN                          ; rx output status on host lane 5
+        rxoutput_status_hostlane6    = BOOLEAN                          ; rx output status on host lane 6
+        rxoutput_status_hostlane7    = BOOLEAN                          ; rx output status on host lane 7
+        rxoutput_status_hostlane8    = BOOLEAN                          ; rx output status on host lane 8
+        txfault                      = BOOLEAN                          ; tx fault flag on media lane
+        txlos_hostlane1              = BOOLEAN                          ; tx loss of signal flag on host lane 1
+        txlos_hostlane2              = BOOLEAN                          ; tx loss of signal flag on host lane 2
+        txlos_hostlane3              = BOOLEAN                          ; tx loss of signal flag on host lane 3
+        txlos_hostlane4              = BOOLEAN                          ; tx loss of signal flag on host lane 4
+        txlos_hostlane5              = BOOLEAN                          ; tx loss of signal flag on host lane 5
+        txlos_hostlane6              = BOOLEAN                          ; tx loss of signal flag on host lane 6
+        txlos_hostlane7              = BOOLEAN                          ; tx loss of signal flag on host lane 7
+        txlos_hostlane8              = BOOLEAN                          ; tx loss of signal flag on host lane 8
+        txcdrlol_hostlane1           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 1
+        txcdrlol_hostlane2           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 2
+        txcdrlol_hostlane3           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 3
+        txcdrlol_hostlane4           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 4
+        txcdrlol_hostlane5           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 5
+        txcdrlol_hostlane6           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 6
+        txcdrlol_hostlane7           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 7
+        txcdrlol_hostlane8           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 8
+        rxlos                        = BOOLEAN                          ; rx loss of signal flag on media lane
+        rxcdrlol                     = BOOLEAN                          ; rx clock and data recovery loss of lock on media lane
+        config_state_hostlane1       = 1*255VCHAR                       ; configuration status for the data path of host line 1
+        config_state_hostlane2       = 1*255VCHAR                       ; configuration status for the data path of host line 2
+        config_state_hostlane3       = 1*255VCHAR                       ; configuration status for the data path of host line 3
+        config_state_hostlane4       = 1*255VCHAR                       ; configuration status for the data path of host line 4
+        config_state_hostlane5       = 1*255VCHAR                       ; configuration status for the data path of host line 5
+        config_state_hostlane6       = 1*255VCHAR                       ; configuration status for the data path of host line 6
+        config_state_hostlane7       = 1*255VCHAR                       ; configuration status for the data path of host line 7
+        config_state_hostlane8       = 1*255VCHAR                       ; configuration status for the data path of host line 8
+        dpinit_pending_hostlane1     = BOOLEAN                          ; data path configuration updated on host lane 1 
+        dpinit_pending_hostlane2     = BOOLEAN                          ; data path configuration updated on host lane 2
+        dpinit_pending_hostlane3     = BOOLEAN                          ; data path configuration updated on host lane 3
+        dpinit_pending_hostlane4     = BOOLEAN                          ; data path configuration updated on host lane 4
+        dpinit_pending_hostlane5     = BOOLEAN                          ; data path configuration updated on host lane 5
+        dpinit_pending_hostlane6     = BOOLEAN                          ; data path configuration updated on host lane 6
+        dpinit_pending_hostlane7     = BOOLEAN                          ; data path configuration updated on host lane 7
+        dpinit_pending_hostlane8     = BOOLEAN                          ; data path configuration updated on host lane 8
+        temphighalarm_flag           = BOOLEAN                          ; temperature high alarm flag 
+        temphighwarning_flag         = BOOLEAN                          ; temperature high warning flag
+        templowalarm_flag            = BOOLEAN                          ; temperature low alarm flag
+        templowwarning_flag          = BOOLEAN                          ; temperature low warning flag
+        vcchighalarm_flag            = BOOLEAN                          ; vcc high alarm flag
+        vcchighwarning_flag          = BOOLEAN                          ; vcc high warning flag
+        vcclowalarm_flag             = BOOLEAN                          ; vcc low alarm flag
+        vcclowwarning_flag           = BOOLEAN                          ; vcc low warning flag
+        txpowerhighalarm_flag        = BOOLEAN                          ; tx power high alarm flag
+        txpowerlowalarm_flag         = BOOLEAN                          ; tx power low alarm flag
+        txpowerhighwarning_flag      = BOOLEAN                          ; tx power high warning flag
+        txpowerlowwarning_flag       = BOOLEAN                          ; tx power low alarm flag
+        rxpowerhighalarm_flag        = BOOLEAN                          ; rx power high alarm flag
+        rxpowerlowalarm_flag         = BOOLEAN                          ; rx power low alarm flag
+        rxpowerhighwarning_flag      = BOOLEAN                          ; rx power high warning flag
+        rxpowerlowwarning_flag       = BOOLEAN                          ; rx power low warning flag
+        txbiashighalarm_flag         = BOOLEAN                          ; tx bias high alarm flag
+        txbiaslowalarm_flag          = BOOLEAN                          ; tx bias low alarm flag
+        txbiashighwarning_flag       = BOOLEAN                          ; tx bias high warning flag
+        txbiaslowwarning_flag        = BOOLEAN                          ; tx bias low warning flag
+        lasertemphighalarm_flag      = BOOLEAN                          ; laser temperature high alarm flag
+        lasertemplowalarm_flag       = BOOLEAN                          ; laser temperature low alarm flag
+        lasertemphighwarning_flag    = BOOLEAN                          ; laser temperature high warning flag
+        lasertemplowwarning_flag     = BOOLEAN                          ; laser temperature low warning flag
+        prefecberhighalarm_flag      = BOOLEAN                          ; prefec ber high alarm flag
+        prefecberlowalarm_flag       = BOOLEAN                          ; prefec ber low alarm flag
+        prefecberhighwarning_flag    = BOOLEAN                          ; prefec ber high warning flag
+        prefecberlowwarning_flag     = BOOLEAN                          ; prefec ber low warning flag
+        postfecberhighalarm_flag     = BOOLEAN                          ; postfec ber high alarm flag
+        postfecberlowalarm_flag      = BOOLEAN                          ; postfec ber low alarm flag
+        postfecberhighwarning_flag   = BOOLEAN                          ; postfec ber high warning flag
+        postfecberlowwarning_flag    = BOOLEAN                          ; postfec ber low warning flag
+        ================================================================================
+        """
+        trans_status = dict()
+        trans_status['module_state'] = self.get_module_state()
+        trans_status['module_fault_cause'] = self.get_module_fault_cause()
+        dp_fw_fault, module_fw_fault, module_state_changed = self.get_module_firmware_fault_state_changed()
+        trans_status['datapath_firmware_fault'] = dp_fw_fault
+        trans_status['module_firmware_fault'] = module_fw_fault
+        trans_status['module_state_changed'] = module_state_changed
+        dp_state_dict = self.get_datapath_state()
+        trans_status['datapath_hostlane1'] = dp_state_dict['dp_lane1']
+        trans_status['datapath_hostlane2'] = dp_state_dict['dp_lane2']
+        trans_status['datapath_hostlane3'] = dp_state_dict['dp_lane3']
+        trans_status['datapath_hostlane4'] = dp_state_dict['dp_lane4']
+        trans_status['datapath_hostlane5'] = dp_state_dict['dp_lane5']
+        trans_status['datapath_hostlane6'] = dp_state_dict['dp_lane6']
+        trans_status['datapath_hostlane7'] = dp_state_dict['dp_lane7']
+        trans_status['datapath_hostlane8'] = dp_state_dict['dp_lane8']
+        tx_output_status_dict = self.get_tx_output_status()
+        trans_status['txoutput_status'] = tx_output_status_dict['TX_lane1']
+        rx_output_status_dict = self.get_rx_output_status()
+        trans_status['rxoutput_status_hostlane1'] = rx_output_status_dict['RX_lane1']
+        trans_status['rxoutput_status_hostlane2'] = rx_output_status_dict['RX_lane2']
+        trans_status['rxoutput_status_hostlane3'] = rx_output_status_dict['RX_lane3']
+        trans_status['rxoutput_status_hostlane4'] = rx_output_status_dict['RX_lane4']
+        trans_status['rxoutput_status_hostlane5'] = rx_output_status_dict['RX_lane5']
+        trans_status['rxoutput_status_hostlane6'] = rx_output_status_dict['RX_lane6']
+        trans_status['rxoutput_status_hostlane7'] = rx_output_status_dict['RX_lane7']
+        trans_status['rxoutput_status_hostlane8'] = rx_output_status_dict['RX_lane8']
+        tx_fault_dict = self.get_tx_fault()
+        trans_status['txfault'] = tx_fault_dict['TX_lane1']
+        tx_los_dict = self.get_tx_los()
+        trans_status['txlos_hostlane1'] = tx_los_dict['TX_lane1']
+        trans_status['txlos_hostlane2'] = tx_los_dict['TX_lane2']
+        trans_status['txlos_hostlane3'] = tx_los_dict['TX_lane3']
+        trans_status['txlos_hostlane4'] = tx_los_dict['TX_lane4']
+        trans_status['txlos_hostlane5'] = tx_los_dict['TX_lane5']
+        trans_status['txlos_hostlane6'] = tx_los_dict['TX_lane6']
+        trans_status['txlos_hostlane7'] = tx_los_dict['TX_lane7']
+        trans_status['txlos_hostlane8'] = tx_los_dict['TX_lane8']
+        tx_lol_dict = self.get_tx_cdr_lol()
+        trans_status['txcdrlol_hostlane1'] = tx_lol_dict['TX_lane1']
+        trans_status['txcdrlol_hostlane2'] = tx_lol_dict['TX_lane2']
+        trans_status['txcdrlol_hostlane3'] = tx_lol_dict['TX_lane3']
+        trans_status['txcdrlol_hostlane4'] = tx_lol_dict['TX_lane4']
+        trans_status['txcdrlol_hostlane5'] = tx_lol_dict['TX_lane5']
+        trans_status['txcdrlol_hostlane6'] = tx_lol_dict['TX_lane6']
+        trans_status['txcdrlol_hostlane7'] = tx_lol_dict['TX_lane7']
+        trans_status['txcdrlol_hostlane8'] = tx_lol_dict['TX_lane8']
+        rx_los_dict = self.get_rx_los()
+        trans_status['rxlos'] = rx_los_dict['RX_lane1']
+        rx_lol_dict = self.get_rx_cdr_lol()
+        trans_status['rxcdrlol'] = rx_lol_dict['RX_lane1']
+        config_status_dict = self.get_config_datapath_hostlane_status()
+        trans_status['config_state_hostlane1'] = config_status_dict['config_DP_status_hostlane1']
+        trans_status['config_state_hostlane2'] = config_status_dict['config_DP_status_hostlane2']
+        trans_status['config_state_hostlane3'] = config_status_dict['config_DP_status_hostlane3']
+        trans_status['config_state_hostlane4'] = config_status_dict['config_DP_status_hostlane4']
+        trans_status['config_state_hostlane5'] = config_status_dict['config_DP_status_hostlane5']
+        trans_status['config_state_hostlane6'] = config_status_dict['config_DP_status_hostlane6']
+        trans_status['config_state_hostlane7'] = config_status_dict['config_DP_status_hostlane7']
+        trans_status['config_state_hostlane8'] = config_status_dict['config_DP_status_hostlane8']
+        dpinit_pending_dict = self.get_dpinit_pending()
+        trans_status['dpinit_pending_hostlane1'] = dpinit_pending_dict['hostlane1']
+        trans_status['dpinit_pending_hostlane2'] = dpinit_pending_dict['hostlane2']
+        trans_status['dpinit_pending_hostlane3'] = dpinit_pending_dict['hostlane3']
+        trans_status['dpinit_pending_hostlane4'] = dpinit_pending_dict['hostlane4']
+        trans_status['dpinit_pending_hostlane5'] = dpinit_pending_dict['hostlane5']
+        trans_status['dpinit_pending_hostlane6'] = dpinit_pending_dict['hostlane6']
+        trans_status['dpinit_pending_hostlane7'] = dpinit_pending_dict['hostlane7']
+        trans_status['dpinit_pending_hostlane8'] = dpinit_pending_dict['hostlane8']
+        module_flag = self.get_module_level_flag()
+        trans_status['temphighalarm_flag'] = module_flag['case_temp_flags']['case_temp_high_alarm_flag']
+        trans_status['templowalarm_flag'] = module_flag['case_temp_flags']['case_temp_low_alarm_flag']
+        trans_status['temphighwarning_flag'] = module_flag['case_temp_flags']['case_temp_high_warn_flag']
+        trans_status['templowwarning_flag'] = module_flag['case_temp_flags']['case_temp_low_warn_flag']
+        trans_status['vcchighalarm_flag'] = module_flag['voltage_flags']['voltage_high_alarm_flag']
+        trans_status['vcclowalarm_flag'] = module_flag['voltage_flags']['voltage_low_alarm_flag']
+        trans_status['vcchighwarning_flag'] = module_flag['voltage_flags']['voltage_high_warn_flag']
+        trans_status['vcclowwarning_flag'] = module_flag['voltage_flags']['voltage_low_warn_flag']
+        aux1_mon_type, aux2_mon_type, aux3_mon_type = self.get_aux_mon_type()
+        if aux2_mon_type == 0:
+            trans_status['lasertemphighalarm_flag'] = module_flag['aux2_flags']['aux2_high_alarm_flag']
+            trans_status['lasertemplowalarm_flag'] = module_flag['aux2_flags']['aux2_low_alarm_flag']
+            trans_status['lasertemphighwarning_flag'] = module_flag['aux2_flags']['aux2_high_warn_flag']
+            trans_status['lasertemplowwarning_flag'] = module_flag['aux2_flags']['aux2_low_warn_flag']
+        elif aux2_mon_type == 1 and aux3_mon_type == 0:
+            trans_status['lasertemphighalarm_flag'] = module_flag['aux3_flags']['aux3_high_alarm_flag']
+            trans_status['lasertemplowalarm_flag'] = module_flag['aux3_flags']['aux3_low_alarm_flag']
+            trans_status['lasertemphighwarning_flag'] = module_flag['aux3_flags']['aux3_high_warn_flag']
+            trans_status['lasertemplowwarning_flag'] = module_flag['aux3_flags']['aux3_low_warn_flag']
+
+        tx_power_flag_dict = self.get_tx_power_flag()
+        trans_status['txpowerhighalarm_flag'] = tx_power_flag_dict['tx_power_high_alarm']['TX_lane1']
+        trans_status['txpowerlowalarm_flag'] = tx_power_flag_dict['tx_power_low_alarm']['TX_lane1']
+        trans_status['txpowerhighwarning_flag'] = tx_power_flag_dict['tx_power_high_warn']['TX_lane1']
+        trans_status['txpowerlowwarning_flag'] = tx_power_flag_dict['tx_power_low_warn']['TX_lane1']
+        rx_power_flag_dict = self.get_rx_power_flag()
+        trans_status['rxpowerhighalarm_flag'] = rx_power_flag_dict['rx_power_high_alarm']['RX_lane1']
+        trans_status['rxpowerlowalarm_flag'] = rx_power_flag_dict['rx_power_low_alarm']['RX_lane1']
+        trans_status['rxpowerhighwarning_flag'] = rx_power_flag_dict['rx_power_high_warn']['RX_lane1']
+        trans_status['rxpowerlowwarning_flag'] = rx_power_flag_dict['rx_power_low_warn']['RX_lane1']
+        tx_bias_flag_dict = self.get_tx_bias_flag()
+        trans_status['txbiashighalarm_flag'] = tx_bias_flag_dict['tx_bias_high_alarm']['TX_lane1']
+        trans_status['txbiaslowalarm_flag'] = tx_bias_flag_dict['tx_bias_low_alarm']['TX_lane1']
+        trans_status['txbiashighwarning_flag'] = tx_bias_flag_dict['tx_bias_high_warn']['TX_lane1']
+        trans_status['txbiaslowwarning_flag'] = tx_bias_flag_dict['tx_bias_low_warn']['TX_lane1']
+        self.vdm_dict = self.get_vdm()
+        trans_status['prefecberhighalarm_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][5]
+        trans_status['prefecberlowalarm_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][6]
+        trans_status['prefecberhighwarning_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][7]
+        trans_status['prefecberlowwarning_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][8]
+        trans_status['postfecberhighalarm_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][5]
+        trans_status['postfecberlowalarm_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][6]
+        trans_status['postfecberhighwarning_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][7]
+        trans_status['postfecberlowwarning_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][8]
+        return trans_status
+
+    def get_transceiver_loopback(self):
+        """
+        Retrieves loopback mode for this xcvr
+
+        Returns:
+            A dict containing the following keys/values :
+        ========================================================================
+        key                          = TRANSCEIVER_PM|ifname            ; information of loopback on port
+        ; field                      = value 
+        media_output_loopback        = BOOLEAN                          ; media side output loopback enable
+        media_input_loopback         = BOOLEAN                          ; media side input loopback enable
+        host_output_loopback_lane1   = BOOLEAN                          ; host side output loopback enable lane1
+        host_output_loopback_lane2   = BOOLEAN                          ; host side output loopback enable lane2
+        host_output_loopback_lane3   = BOOLEAN                          ; host side output loopback enable lane3
+        host_output_loopback_lane4   = BOOLEAN                          ; host side output loopback enable lane4
+        host_output_loopback_lane5   = BOOLEAN                          ; host side output loopback enable lane5
+        host_output_loopback_lane6   = BOOLEAN                          ; host side output loopback enable lane6
+        host_output_loopback_lane7   = BOOLEAN                          ; host side output loopback enable lane7
+        host_output_loopback_lane8   = BOOLEAN                          ; host side output loopback enable lane8
+        host_input_loopback_lane1   = BOOLEAN                          ; host side input loopback enable lane1
+        host_input_loopback_lane2   = BOOLEAN                          ; host side input loopback enable lane2
+        host_input_loopback_lane3   = BOOLEAN                          ; host side input loopback enable lane3
+        host_input_loopback_lane4   = BOOLEAN                          ; host side input loopback enable lane4
+        host_input_loopback_lane5   = BOOLEAN                          ; host side input loopback enable lane5
+        host_input_loopback_lane6   = BOOLEAN                          ; host side input loopback enable lane6
+        host_input_loopback_lane7   = BOOLEAN                          ; host side input loopback enable lane7
+        host_input_loopback_lane8   = BOOLEAN                          ; host side input loopback enable lane8        
+        ========================================================================
+        """
+        trans_loopback = dict()
+        trans_loopback['media_output_loopback'] = self.get_media_output_loopback()
+        trans_loopback['media_input_loopback'] = self.get_media_input_loopback()
+        host_output_loopback_status = self.get_host_output_loopback()
+        trans_loopback['host_output_loopback_lane1'] = host_output_loopback_status[0]
+        trans_loopback['host_output_loopback_lane2'] = host_output_loopback_status[1]
+        trans_loopback['host_output_loopback_lane3'] = host_output_loopback_status[2]
+        trans_loopback['host_output_loopback_lane4'] = host_output_loopback_status[3]
+        trans_loopback['host_output_loopback_lane5'] = host_output_loopback_status[4]
+        trans_loopback['host_output_loopback_lane6'] = host_output_loopback_status[5]
+        trans_loopback['host_output_loopback_lane7'] = host_output_loopback_status[6]
+        trans_loopback['host_output_loopback_lane8'] = host_output_loopback_status[7]
+        host_input_loopback_status = self.get_host_input_loopback()
+        trans_loopback['host_input_loopback_lane1'] = host_input_loopback_status[0]
+        trans_loopback['host_input_loopback_lane2'] = host_input_loopback_status[1]
+        trans_loopback['host_input_loopback_lane3'] = host_input_loopback_status[2]
+        trans_loopback['host_input_loopback_lane4'] = host_input_loopback_status[3]
+        trans_loopback['host_input_loopback_lane5'] = host_input_loopback_status[4]
+        trans_loopback['host_input_loopback_lane6'] = host_input_loopback_status[5]
+        trans_loopback['host_input_loopback_lane7'] = host_input_loopback_status[6]
+        trans_loopback['host_input_loopback_lane8'] = host_input_loopback_status[7]
+        return trans_loopback
     # TODO: other XcvrApi methods
 
 
