@@ -23,6 +23,16 @@ class MockXcvrCodes(XcvrCodes):
        3: "Code3",
     }
 
+    DATAPATH_STATE = {
+        1: 'DataPathDeactivated',
+        2: 'DataPathInit',
+        3: 'DataPathDeinit',
+        4: 'DataPathActivated',
+        5: 'DataPathTxTurnOn',
+        6: 'DataPathTxTurnOff',
+        7: 'DataPathInitialized',
+    }
+
 class MockXcvrMemMap(XcvrMemMap):
     def __init__(self, codes):
         super(MockXcvrMemMap, self).__init__(codes)
@@ -59,8 +69,49 @@ class MockXcvrMemMap(XcvrMemMap):
             NumberRegField("Field4", 55, format="<I", size=4)
         )
 
+        self.combo = RegGroupField("COMBO_ACTIVE_APPL",
+                        *(NumberRegField("ACTIVE_APPL%d" % (lane) , offset,
+                            *(RegBitField("Bit%d" % bit, bit) for bit in range(0, 4)))
+                            for lane, offset in zip(range(1, 9), range(186, 214)))
+        )
+
+        self.dp_state = RegGroupField("DATA_PATH_STATE",
+                *(CodeRegField("DP%dState" % (lane) , 0, self.codes.DATAPATH_STATE,
+                    *(RegBitField("Bit%d" % bit, bit) for bit in [range(4, 8), range(0, 4)][lane%2]))
+                 for lane in range(1, 9))
+        )
+
 codes = MockXcvrCodes
 mem_map = MockXcvrMemMap(codes)
+
+field = mem_map.get_field("COMBO_ACTIVE_APPL")
+data = bytearray([0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7])
+decoded = field.decode(data)
+print(decoded)
+assert decoded == {
+               "ACTIVE_APPL1": 0,
+               "ACTIVE_APPL2": 1,
+               "ACTIVE_APPL3": 2,
+               "ACTIVE_APPL4": 3,
+               "ACTIVE_APPL5": 4,
+               "ACTIVE_APPL6": 5,
+               "ACTIVE_APPL7": 6,
+               "ACTIVE_APPL8": 7
+            }
+
+field = mem_map.get_field("DATA_PATH_STATE")
+data = bytearray([0x47, 0x47, 0x47, 0x47])
+decoded = field.decode(data)
+assert decoded == {
+        "DP1State" : "DataPathInitialized",
+        "DP2State" : "DataPathActivated",
+        "DP3State" : "DataPathInitialized",
+        "DP4State" : "DataPathActivated",
+        "DP5State" : "DataPathInitialized",
+        "DP6State" : "DataPathActivated",
+        "DP7State" : "DataPathInitialized",
+        "DP8State" : "DataPathActivated",
+}
 
 class TestXcvrField(object):
     def test_get_fields(self):
@@ -218,7 +269,7 @@ class TestRegGroupField(object):
         field = mem_map.get_field("RegGroupNonContiguous")
         data = bytearray(b'\x01\x02\x03\x04\x01\x02\x03\x04\x01')
         decoded = field.decode(data)
-        
+
         assert decoded == {
             "Field3": 0x04030201,
             "Field4": 0x01040302,

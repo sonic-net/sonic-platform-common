@@ -72,7 +72,7 @@ class Sff8024(XcvrCodes):
         27: 'DSFP',
         28: 'Link-x4',
         29: 'Link-x8',
-        30: 'QSFP+',
+        30: 'QSFP+'
     }
 
     CONNECTORS = {
@@ -98,7 +98,7 @@ class Sff8024(XcvrCodes):
         37: 'CS optical connector',
         38: 'SN optical connector',
         39: 'MPO 2x12',
-        40: 'MPO 1x16',
+        40: 'MPO 1x16'
     }
 
     ENCODINGS = {
@@ -108,7 +108,7 @@ class Sff8024(XcvrCodes):
         3: "NRZ",
         # 4-6 differ between 8472 and 8436/8636
         7: "256B/257B (transcoded FEC-enabled data)",
-        8: "PAM4",
+        8: "PAM4"
     }
 
     EXT_SPEC_COMPLIANCE = {
@@ -172,6 +172,199 @@ class Sff8024(XcvrCodes):
         127: '256GFC-SW4',
         128: 'Capable of 64GFC',
         129: 'Capable of 128GFC'
+    }
+
+
+    MODULE_MEDIA_TYPE = {
+        0: 'Undefined',
+        1: 'Multimode Fiber (MMF)',
+        2: 'Single Mode Fiber (SMF)',
+        3: 'Passive Copper Cable',
+        4: 'Active Cable Assembly',
+        5: 'BASE-T'
+    }
+
+    HOST_ELECTRICAL_INTERFACE = {
+        0: 'Undefined',
+        1: '1000BASE -CX(Clause 39)',
+        2: 'XAUI(Clause 47)',
+        3: 'XFI (SFF INF-8071i)',
+        4: 'SFI (SFF-8431)',
+        5: '25GAUI C2M (Annex 109B)',
+        6: 'XLAUI C2M (Annex 83B)',
+        7: 'XLPPI (Annex 86A)',
+        8: 'LAUI-2 C2M (Annex 135C)',
+        9: '50GAUI-2 C2M (Annex 135E)',
+        10: '50GAUI-1 C2M (Annex 135G)',
+        11: 'CAUI-4 C2M (Annex 83E)',
+        12: '100GAUI-4 C2M (Annex 135E)',
+        13: '100GAUI-2 C2M (Annex 135G)',
+        14: '200GAUI-8 C2M (Annex 120C)',
+        15: '200GAUI-4 C2M (Annex 120E)',
+        16: '400GAUI-16 C2M (Annex 120C)',
+        17: '400GAUI-8 C2M (Annex 120E)',
+        19: '10GBASE-CX4 (Clause 54)',
+        20: '25GBASE-CR CA-L (Clause 110)',
+        21: '25GBASE-CR CA-S (Clause 110)',
+        22: '25GBASE-CR CA-N (Clause 110)',
+        23: '40GBASE-CR4 (Clause 85)',
+        24: '50GBASE-CR (Clause 126)',
+        25: '100GBASE-CR10 (Clause 85)',
+        26: '100GBASE-CR4 (Clause 92)',
+        27: '100GBASE-CR2 (Clause 136)',
+        28: '200GBASE-CR4 (Clause 136)',
+        29: '400G CR8',
+        30: '1000BASE-T (Clause 40)',
+        31: '2.5GBASE-T (Clause 126)',
+        32: '5GBASE-T (Clause 126)',
+        33: '10GBASE-T (Clause 55)',
+        34: '25GBASE-T (Clause 113)',
+        35: '40GBASE-T (Clause 113)',
+        36: '50GBASE-T (Placeholder)',
+        37: '8GFC (FC-PI-4)',
+        38: '10GFC (10GFC)',
+        39: '16GFC (FC-PI-5)',
+        40: '32GFC (FC-PI-6)',
+        41: '64GFC (FC-PI-7)',
+        42: '128GFC (FC-PI-6P)',
+        43: '256GFC (FC-PI-7P)',
+        44: 'IB SDR (Arch.Spec.Vol.2)',
+        45: 'IB DDR (Arch.Spec.Vol.2)',
+        46: 'IB QDR (Arch.Spec.Vol.2)',
+        47: 'IB FDR (Arch.Spec.Vol.2)',
+        48: 'IB EDR (Arch.Spec.Vol.2)',
+        49: 'IB HDR (Arch.Spec.Vol.2)',
+        50: 'IB NDR',
+        51: 'E.96 (CPRI Specification V7.0)',
+        52: 'E.99 (CPRI Specification V7.0)',
+        53: 'E.119 (CPRI Specification V7.0)',
+        54: 'E.238 (CPRI Specification V7.0)',
+        55: 'OTL3.4 (ITU-T G.709/Y.1331 G.Sup58)',
+        56: 'OTL4.10 (ITU-T G.709/Y.1331 G.Sup58)',
+        57: 'OTL4.4 (ITU-T G.709/Y.1331 G.Sup58)',
+        58: 'OTLC.4 (ITU-T G.709.1/Y.1331 G.Sup58)',
+        59: 'FOIC1.4 (ITU-T G.709.1/Y.1331 G.Sup58)',
+        60: 'FOIC1.2 (ITU-T G.709.1/Y.1331 G.Sup58)',
+        61: 'FOIC2.8 (ITU-T G.709.1/Y.1331 G.Sup58)',
+        62: 'FOIC2.4 (ITU-T G.709.1/Y.1331 G.Sup58)',
+        63: 'FOIC4.16 (ITU-T G.709.1 G.Sup58)',
+        64: 'FOIC4.8 (ITU-T G.709.1 G.Sup58)'
+    }
+
+    NM_850_MEDIA_INTERFACE = {
+        0: 'Undefined',
+        1: '10GBASE-SW (Clause 52)',
+        2: '10GBASE-SR (Clause 52)',
+        3: '25GBASE-SR (Clause 112)',
+        4: '40GBASE-SR4 (Clause 86)',
+        5: '40GE SWDM4 MSA Spec',
+        6: '40GE BiDi',
+        7: '50GBASE-SR (Clause 138)',
+        8: '100GBASE-SR10 (Clause 86)',
+        9: '100GBASE-SR4 (Clause 95)',
+        10: '100GE SWDM4 MSA Spec',
+        11: '100GE BiDi',
+        12: '100GBASE-SR2 (Clause 138)',
+        13: '100G-SR (Placeholder)',
+        14: '200GBASE-SR4 (Clause 138)',
+        15: '400GBASE-SR16 (Clause 123)',
+        16: '400GBASE-SR8 (Clause 138)',
+        17: '400G-SR4 (Placeholder)',
+        18: '800G-SR8 (Placeholder)',
+        26: '400GBASE-SR4.2 (Clause 150) (400GE BiDi)',
+        19: '8GFC-MM (FC-PI-4)',
+        20: '10GFC-MM (10GFC)',
+        21: '16GFC-MM (FC-PI-5)',
+        22: '32GFC-MM (FC-PI-6)',
+        23: '64GFC-MM (FC-PI 7)',
+        24: '128GFC-MM4 (FC-PI-6P)',
+        25: '256GFC-MM4 (FC-PI-7P)'
+    }
+
+    SM_MEDIA_INTERFACE = {
+        0: 'Undefined',
+        1: '10GBASE-LW (Cl 52)',
+        2: '10GBASE-EW (Cl 52)',
+        3: '10G-ZW',
+        4: '10GBASE-LR (Cl 52)',
+        5: '10GBASE-ER (Cl 52)',
+        6: '10G-ZR',
+        7: '25GBASE-LR (Cl 114)',
+        8: '25GBASE-ER (Cl 114)',
+        9: '40GBASE-LR4 (Cl 87)',
+        10: '40GBASE-FR (Cl 89)',
+        11: '50GBASE-FR (Cl 139)',
+        12: '50GBASE-LR (Cl 139)',
+        13: '100GBASE-LR4 (Cl 88)',
+        14: '100GBASE-ER4 (Cl 88)',
+        15: '100G PSM4 MSA Spec',
+        16: '100G CWDM4 MSA Spec',
+        17: '100G 4WDM-10 MSA Spec',
+        18: '100G 4WDM-20 MSA Spec',
+        19: '100G 4WDM-40 MSA Spec',
+        20: '100GBASE-DR (Cl 140)',
+        21: '100G-FR/100GBASE-FR1 (Cl 140)',
+        22: '100G-LR/100GBASE-LR1 (Cl 140)',
+        23: '200GBASE-DR4 (Cl 121)',
+        24: '200GBASE-FR4 (Cl 122)',
+        25: '200GBASE-LR4 (Cl 122)',
+        26: '400GBASE-FR8 (Cl 122)',
+        27: '400GBASE-LR8 (Cl 122)',
+        28: '400GBASE-DR4 (Cl 124)',
+        29: '400G-FR4/400GBASE-FR4 (Cl 151)',
+        30: '400G-LR4-10',
+        31: '8GFC-SM (FC-PI-4)',
+        32: '10GFC-SM (10GFC)',
+        33: '16GFC-SM (FC-PI-5)',
+        34: '32GFC-SM (FC-PI-6)',
+        35: '64GFC-SM (FC-PI-7)',
+        36: '128GFC-PSM4 (FC-PI-6P)',
+        37: '256GFC-PSM4 (FC-PI-7P)',
+        38: '128GFC-CWDM4 (FC-PI-6P)',
+        39: '256GFC-CWDM4 (FC-PI-7P)',
+        44: '4I1-9D1F (G.959.1)',
+        45: '4L1-9C1F (G.959.1)',
+        46: '4L1-9D1F (G.959.1)',
+        47: 'C4S1-9D1F (G.695)',
+        48: 'C4S1-4D1F (G.695)',
+        49: '4I1-4D1F (G.959.1)',
+        50: '8R1-4D1F (G.959.1)',
+        51: '8I1-4D1F (G.959.1)',
+        56: '10G-SR',
+        57: '10G-LR',
+        58: '25G-SR',
+        59: '25G-LR',
+        60: '10G-LR-BiDi',
+        61: '25G-LR-BiDi',
+        62: '400ZR, DWDM, amplified',
+        63: '400ZR, Single Wavelength, Unamplified',
+        70: 'ZR400-OFEC-16QAM',
+        71: 'ZR300-OFEC-8QAM',
+        72: 'ZR200-OFEC-QPSK',
+        73: 'ZR100-OFEC-QPSK'
+    }
+
+    PASSIVE_COPPER_MEDIA_INTERFACE = {
+        '00': 'Undefined',
+        '01': 'Copper cable',
+        '02': 'Passive Loopback module'
+    }
+
+    ACTIVE_CABLE_MEDIA_INTERFACE = {
+        '00': 'Undefined',
+        '01': 'Active Cable assembly with BER < 10^-12',
+        '02': 'Active Cable assembly with BER < 5x10^-5',
+        '03': 'Active Cable assembly with BER < 2.6x10^-4',
+        '04': 'Active Cable assembly with BER < 10^-6',
+        'bf': 'Active Loopback module'
+    }
+
+    BASE_T_MEDIA_INTERFACE = {
+        '00': 'Undefined',
+        '01': '1000BASE-T (Clause 40)',
+        '02': '2.5GBASE-T (Clause 126)',
+        '03': '5GBASE-T (Clause 126)',
+        '04': '10GBASE-T (Clause 55)'
     }
 
     # TODO: Add other codes

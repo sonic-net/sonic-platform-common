@@ -16,7 +16,7 @@ class TestCmis(object):
 
     def test_api(self):
         """
-        Verify all api access valid fields    
+        Verify all api access valid fields
         """
         self.api.get_model()
         self.api.get_transceiver_info()
@@ -44,6 +44,8 @@ class TestCmis(object):
         self.api.tx_disable_channel(0x5, True)
         self.api.get_lpmode_support()
         self.api.get_power_override_support()
+        self.api.get_active_apsel_hostlane()
+        self.api.get_datapath_state()
 
     def test_cable_len(self):
         cable_len_field = self.mem_map.get_field(LENGTH_ASSEMBLY_FIELD)
