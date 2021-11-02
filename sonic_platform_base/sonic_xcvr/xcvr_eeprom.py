@@ -3,6 +3,7 @@
 
    Common API used by all XcvrApis to read and write to various fields that can be found in a xcvr EEPROM
 """
+
 import struct
 
 class XcvrEeprom(object):
@@ -23,14 +24,18 @@ class XcvrEeprom(object):
       """
       field = self.mem_map.get_field(field_name)
       raw_data = self.reader(field.get_offset(), field.get_size())
-      return field.decode(raw_data) if raw_data else None
+      if raw_data:
+         deps = field.get_deps()
+         decoded_deps = {dep: self.read(dep) for dep in deps}
+         return field.decode(raw_data, **decoded_deps)
+      return None
 
    def read_raw(self, offset, size, return_raw = False):
       """
       Read values from a field in EEPROM in a more flexible way
 
       Args:
-         offset: an integer indicating the offset of the starting position of the 
+         offset: an integer indicating the offset of the starting position of the
          EEPROM byte(s) to read from
 
          size: an integer indicating how many bytes to read from
@@ -48,6 +53,7 @@ class XcvrEeprom(object):
          else:
             data = struct.unpack("%dB" %size, raw_data)
       return data
+
 
    def write(self, field_name, value):
       """
@@ -74,7 +80,7 @@ class XcvrEeprom(object):
       Write values to a field in EEPROM in a more flexible way
 
       Args:
-         offset: an integer indicating the offset of the starting position of the 
+         offset: an integer indicating the offset of the starting position of the
          EEPROM byte(s) to write to
 
          size: an integer indicating how many bytes to write to
@@ -83,5 +89,5 @@ class XcvrEeprom(object):
 
       Returns:
          Boolean, True if the write is successful and False otherwise
-      """      
+      """
       return self.writer(offset, size, bytearray_data)
