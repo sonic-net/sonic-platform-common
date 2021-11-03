@@ -24,7 +24,7 @@ MAX_WAIT = 10
 class CmisCdbApi(XcvrApi):
     def __init__(self, xcvr_eeprom):
         super(CmisCdbApi, self).__init__(xcvr_eeprom)
-        self.cdb_instance_supported = self.xcvr_eeprom.read(consts.CDB_SUPPORT) >> 6
+        self.cdb_instance_supported = self.xcvr_eeprom.read(consts.CDB_SUPPORT)
         assert self.cdb_instance_supported != 0
     
     def cdb1_chkflags(self):

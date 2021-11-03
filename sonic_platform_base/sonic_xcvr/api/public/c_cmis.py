@@ -16,7 +16,7 @@ class CCmisApi(CmisApi):
         '''
         This function returns the configured frequency grid. Unit in GHz
         '''
-        freq_grid = self.xcvr_eeprom.read(consts.GRID_SPACING) >> 4
+        freq_grid = self.xcvr_eeprom.read(consts.GRID_SPACING)
         if freq_grid == 7:
             return 75
         elif freq_grid == 6:
@@ -50,7 +50,7 @@ class CCmisApi(CmisApi):
         '''
         This function returns the monitored laser frequency. Unit in GHz
         '''
-        return self.xcvr_eeprom.read(consts.LASER_CURRENT_FREQ)/1000
+        return self.xcvr_eeprom.read(consts.LASER_CURRENT_FREQ)
 
     def get_tuning_in_progress(self):
         '''

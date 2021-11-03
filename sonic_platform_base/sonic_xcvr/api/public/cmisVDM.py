@@ -158,7 +158,9 @@ class CmisVdmApi(XcvrApi):
             vdm_low_warn_flag
         ]
         '''
-        vdm_page_supported_raw = self.xcvr_eeprom.read(consts.VDM_SUPPORTED_PAGE) & 0x3
+        vdm_page_supported_raw = self.xcvr_eeprom.read(consts.VDM_SUPPORTED_PAGE)
+        if vdm_page_supported_raw is None:
+            return None
         VDM_START_PAGE = 0x20
         vdm = dict()
         self.xcvr_eeprom.write(consts.VDM_CONTROL, 128)

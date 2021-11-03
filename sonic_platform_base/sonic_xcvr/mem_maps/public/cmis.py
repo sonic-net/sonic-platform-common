@@ -91,9 +91,12 @@ class CmisMemMap(XcvrMemMap):
         self.MODULE_LEVEL_MONITORS = RegGroupField(consts.MODULE_MONITORS_FIELD,
             NumberRegField(consts.TEMPERATURE_FIELD, self.getaddr(0x0, 14), size=2, format=">h", scale=256.0),
             NumberRegField(consts.VOLTAGE_FIELD, self.getaddr(0x0, 16), size=2, format=">H", scale=10000.0),
-            NumberRegField(consts.GRID_SPACING, self.getaddr(0x12, 128), size=1, ro=False),
+            # NumberRegField(consts.GRID_SPACING, self.getaddr(0x12, 128), size=1, ro=False),
+            NumberRegField(consts.GRID_SPACING, self.getaddr(0x12, 128),
+                *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8)), ro = False
+            ),
             NumberRegField(consts.LASER_CONFIG_CHANNEL, self.getaddr(0x12, 136), format=">h", size=2, ro=False),
-            NumberRegField(consts.LASER_CURRENT_FREQ, self.getaddr(0x12, 168), format=">L", size=4),
+            NumberRegField(consts.LASER_CURRENT_FREQ, self.getaddr(0x12, 168), format=">L", size=4, scale = 1000.0),
             NumberRegField(consts.TX_CONFIG_POWER, self.getaddr(0x12, 200), format=">h", size=2, scale=100.0, ro=False),
             NumberRegField(consts.AUX_MON_TYPE, self.getaddr(0x1, 145), size=1),
             NumberRegField(consts.AUX1_MON, self.getaddr(0x0, 18), format=">h", size=2),
@@ -328,7 +331,9 @@ class CmisMemMap(XcvrMemMap):
         )
 
         self.TRANS_PM = RegGroupField(consts.TRANS_PM_FIELD,
-            NumberRegField(consts.VDM_SUPPORTED_PAGE, self.getaddr(0x2f, 128), size=1, ro=False),
+            NumberRegField(consts.VDM_SUPPORTED_PAGE, self.getaddr(0x2f, 128),
+                *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 2))
+            ),
             NumberRegField(consts.VDM_CONTROL, self.getaddr(0x2f, 144), size=1, ro=False),
         )
 
@@ -397,7 +402,12 @@ class CmisMemMap(XcvrMemMap):
         )
 
         self.TRANS_CDB = RegGroupField(consts.TRANS_CDB_FIELD,
-            NumberRegField(consts.CDB_SUPPORT, self.getaddr(0x01, 163), size=1),
+            NumberRegField(consts.CDB_SUPPORT, self.getaddr(0x1, 163),
+                *(RegBitField("Bit%d" % (bit), bit) for bit in range (6, 8))
+            ),
+            NumberRegField(consts.AUTO_PAGING_SUPPORT, self.getaddr(0x1, 163),
+                (RegBitField("Bit4", 4))
+            ),
             NumberRegField(consts.CDB_SEQ_WRITE_LENGTH_EXT, self.getaddr(0x01, 164), size=1),
             NumberRegField(consts.CDB_RPL_LENGTH, self.getaddr(0x9f, 134), size=1, ro=False),
             NumberRegField(consts.CDB_RPL_CHKCODE, self.getaddr(0x9f, 135), size=1, ro=False),

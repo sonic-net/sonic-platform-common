@@ -309,6 +309,7 @@ RX_MAX_MER_PM = "rxMaxMerPm"
 # CDB
 TRANS_CDB_FIELD = "TransceiverCdb"
 CDB_SUPPORT = "CdbSupport"
+AUTO_PAGING_SUPPORT = "AutoPagingSupport"
 CDB_SEQ_WRITE_LENGTH_EXT = "CdbReadWriteLengthExtension"
 CDB_RPL_LENGTH = "CdbReplyLength"
 CDB_RPL_CHKCODE = "CdbReplyCheckCode"
