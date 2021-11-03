@@ -230,6 +230,6 @@ class TestRegGroupField(object):
 class TestDateField(object):
     def test_decode(self):
         field = mem_map.get_field("Date")
-        data = bytearray(b'\x32\x31\x31\x30\x32\x30\x00')
+        data = bytearray(b'\x32\x31\x31\x30\x32\x30\x00\x00')
         decoded = field.decode(data)
-        assert decoded == "2021-10-22 "
+        assert decoded == "2021-10-20 \0\0"
