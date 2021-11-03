@@ -29,6 +29,7 @@ class CmisMemMap(XcvrMemMap):
 
         self.ADMIN_INFO = RegGroupField(consts.ADMIN_INFO_FIELD,
             CodeRegField(consts.ID_FIELD, self.getaddr(0x0, 128), self.codes.XCVR_IDENTIFIERS),
+            CodeRegField(consts.ID_ABBRV_FIELD, self.getaddr(0x0, 128), self.codes.XCVR_IDENTIFIER_ABBRV),
             StringRegField(consts.VENDOR_NAME_FIELD, self.getaddr(0x0, 129), size=16),
             HexRegField(consts.VENDOR_OUI_FIELD, self.getaddr(0x0, 145), size=3),
             StringRegField(consts.VENDOR_PART_NO_FIELD, self.getaddr(0x0, 148), size=16),
@@ -39,14 +40,14 @@ class CmisMemMap(XcvrMemMap):
                 CodeRegField(consts.POWER_CLASS_FIELD, self.getaddr(0x0, 200), self.codes.POWER_CLASSES,
                     *(RegBitField("%s_%d" % (consts.POWER_CLASS_FIELD, bit), bit) for bit in range(5, 8))
                 ),
-                NumberRegField(consts.MAX_POWER_FIELD, self.getaddr(0x0, 201), scale=4),
+                NumberRegField(consts.MAX_POWER_FIELD, self.getaddr(0x0, 201), scale=4.0),
             ),
-            NumberRegField(consts.LEN_MULT_FIELD, self.getaddr(0x0, 202),
-                *(RegBitField("%s_%d" % (consts.LEN_MULT_FIELD, bit), bit) for bit in range (6, 8))
-            ),
-            CableLenField(consts.LENGTH_ASSEMBLY_FIELD, self.getaddr(0x0, 202),
-                *(RegBitField("%s_%d" % (consts.LENGTH_ASSEMBLY_FIELD, bit), bit) for bit in range(0, 6))
-            ),
+            # NumberRegField(consts.LEN_MULT_FIELD, self.getaddr(0x0, 202),
+            #     *(RegBitField("%s_%d" % (consts.LEN_MULT_FIELD, bit), bit) for bit in range (6, 8))
+            # ),
+            # CableLenField(consts.LENGTH_ASSEMBLY_FIELD, self.getaddr(0x0, 202),
+            #     *(RegBitField("%s_%d" % (consts.LENGTH_ASSEMBLY_FIELD, bit), bit) for bit in range(0, 6))
+            # ),
 
             CodeRegField(consts.CONNECTOR_FIELD, self.getaddr(0x0, 203), self.codes.CONNECTORS,
                 deps=[consts.LEN_MULT_FIELD]
@@ -58,13 +59,23 @@ class CmisMemMap(XcvrMemMap):
             CodeRegField(consts.MODULE_MEDIA_INTERFACE_PASSIVE_COPPER, self.getaddr(0x0, 87), self.codes.PASSIVE_COPPER_MEDIA_INTERFACE),
             CodeRegField(consts.MODULE_MEDIA_INTERFACE_ACTIVE_CABLE, self.getaddr(0x0, 87), self.codes.ACTIVE_CABLE_MEDIA_INTERFACE),
             CodeRegField(consts.MODULE_MEDIA_INTERFACE_BASE_T, self.getaddr(0x0, 87), self.codes.BASE_T_MEDIA_INTERFACE),
-            NumberRegField(consts.LANE_COUNT, self.getaddr(0x0, 88), format="B", size=1),
+            NumberRegField(consts.MEDIA_LANE_COUNT, self.getaddr(0x0, 88), 
+                *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 4))
+            ),
+            NumberRegField(consts.HOST_LANE_COUNT, self.getaddr(0x0, 88), 
+                *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8))
+            ),
             NumberRegField(consts.HOST_LANE_ASSIGNMENT_OPTION, self.getaddr(0x0, 89), format="B", size=1),
             NumberRegField(consts.MEDIA_LANE_ASSIGNMENT_OPTION, self.getaddr(0x1, 176), format="B", size=1),
             CodeRegField(consts.MEDIA_INTERFACE_TECH, self.getaddr(0x0, 212), self.codes.MEDIA_INTERFACE_TECH),
             NumberRegField(consts.HW_MAJOR_REV, self.getaddr(0x1, 130), size=1),
             NumberRegField(consts.HW_MINOR_REV, self.getaddr(0x1, 131), size=1),
-            NumberRegField(consts.CMIS_REVISION, self.getaddr(0x0, 1), format="B", size=1),
+            NumberRegField(consts.CMIS_MAJOR_REVISION, self.getaddr(0x0, 1),
+                *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8))
+            ),
+            NumberRegField(consts.CMIS_MINOR_REVISION, self.getaddr(0x0, 1),
+                *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 4))
+            ),
             NumberRegField(consts.ACTIVE_FW_MAJOR_REV, self.getaddr(0x0, 39), format="B", size=1),
             NumberRegField(consts.ACTIVE_FW_MINOR_REV, self.getaddr(0x0, 40), format="B", size=1),
             NumberRegField(consts.INACTIVE_FW_MAJOR_REV, self.getaddr(0x1, 128), format="B", size=1),
@@ -72,17 +83,14 @@ class CmisMemMap(XcvrMemMap):
 
             RegGroupField(consts.ACTIVE_APSEL_CODE,
                 *(NumberRegField("%s%d" % (consts.ACTIVE_APSEL_HOSTLANE, lane) , self.getaddr(0x11, offset),
-                    *(RegBitField("Bit%d" % bit, bit) for bit in range(0, 4)))
+                    *(RegBitField("Bit%d" % bit, bit) for bit in range(4, 7)))
                  for lane, offset in zip(range(1, 9), range(206, 214)))
             )
         )
 
         self.MODULE_LEVEL_MONITORS = RegGroupField(consts.MODULE_MONITORS_FIELD,
-            NumberRegField(consts.TEMPERATURE_FIELD, self.getaddr(0x0, 14), size=2, format=">h", scale=256),
-            NumberRegField(consts.VOLTAGE_FIELD, self.getaddr(0x0, 16), size=2, format=">H", scale=10000),
-            NumberRegField(consts.TX_POW, self.getaddr(0x11, 154), format=">H", size=2, scale=10000.0),
-            NumberRegField(consts.RX_POW, self.getaddr(0x11, 186), format=">H", size=2, scale=10000.0),
-            NumberRegField(consts.TX_BIAS, self.getaddr(0x11, 170), format=">H", size=2, scale=500.0),
+            NumberRegField(consts.TEMPERATURE_FIELD, self.getaddr(0x0, 14), size=2, format=">h", scale=256.0),
+            NumberRegField(consts.VOLTAGE_FIELD, self.getaddr(0x0, 16), size=2, format=">H", scale=10000.0),
             NumberRegField(consts.GRID_SPACING, self.getaddr(0x12, 128), size=1, ro=False),
             NumberRegField(consts.LASER_CONFIG_CHANNEL, self.getaddr(0x12, 136), format=">h", size=2, ro=False),
             NumberRegField(consts.LASER_CURRENT_FREQ, self.getaddr(0x12, 168), format=">L", size=4),
@@ -106,26 +114,26 @@ class CmisMemMap(XcvrMemMap):
         )
 
         self.THRESHOLDS = RegGroupField(consts.THRESHOLDS_FIELD,
-            NumberRegField(consts.TEMP_HIGH_ALARM_FIELD, self.getaddr(0x2, 128), size=2, format=">h", scale=256),
-            NumberRegField(consts.TEMP_LOW_ALARM_FIELD, self.getaddr(0x2, 130), size=2, format=">h", scale=256),
-            NumberRegField(consts.TEMP_HIGH_WARNING_FIELD, self.getaddr(0x2, 132), size=2, format=">h", scale=256),
-            NumberRegField(consts.TEMP_LOW_WARNING_FIELD, self.getaddr(0x2, 134), size=2, format=">h", scale=256),
-            NumberRegField(consts.VOLTAGE_HIGH_ALARM_FIELD, self.getaddr(0x2, 136), size=2, format=">H", scale=10000),
-            NumberRegField(consts.VOLTAGE_LOW_ALARM_FIELD, self.getaddr(0x2, 138), size=2, format=">H", scale=10000),
-            NumberRegField(consts.VOLTAGE_HIGH_WARNING_FIELD, self.getaddr(0x2, 140), size=2, format=">H", scale=10000),
-            NumberRegField(consts.VOLTAGE_LOW_WARNING_FIELD, self.getaddr(0x2, 142), size=2, format=">H", scale=10000),
-            NumberRegField(consts.TX_POWER_HIGH_ALARM_FIELD, self.getaddr(0x2, 176), size=2, format=">H", scale=1000),
-            NumberRegField(consts.TX_POWER_LOW_ALARM_FIELD, self.getaddr(0x2, 178), size=2, format=">H", scale=1000),
-            NumberRegField(consts.TX_POWER_HIGH_WARNING_FIELD, self.getaddr(0x2, 180), size=2, format=">H", scale=1000),
-            NumberRegField(consts.TX_POWER_LOW_WARNING_FIELD, self.getaddr(0x2, 182), size=2, format=">H", scale=1000),
-            NumberRegField(consts.TX_BIAS_HIGH_ALARM_FIELD, self.getaddr(0x2, 184), size=2, format=">H", scale=500),
-            NumberRegField(consts.TX_BIAS_LOW_ALARM_FIELD, self.getaddr(0x2, 186), size=2, format=">H", scale=500),
-            NumberRegField(consts.TX_BIAS_HIGH_WARNING_FIELD, self.getaddr(0x2, 188), size=2, format=">H", scale=500),
-            NumberRegField(consts.TX_BIAS_LOW_WARNING_FIELD, self.getaddr(0x2, 190), size=2, format=">H", scale=500),
-            NumberRegField(consts.RX_POWER_HIGH_ALARM_FIELD, self.getaddr(0x2, 192), size=2, format=">H", scale=1000),
-            NumberRegField(consts.RX_POWER_LOW_ALARM_FIELD, self.getaddr(0x2, 194), size=2, format=">H", scale=1000),
-            NumberRegField(consts.RX_POWER_HIGH_WARNING_FIELD, self.getaddr(0x2, 196), size=2, format=">H", scale=1000),
-            NumberRegField(consts.RX_POWER_LOW_WARNING_FIELD, self.getaddr(0x2, 198), size=2, format=">H", scale=1000),
+            NumberRegField(consts.TEMP_HIGH_ALARM_FIELD, self.getaddr(0x2, 128), size=2, format=">h", scale=256.0),
+            NumberRegField(consts.TEMP_LOW_ALARM_FIELD, self.getaddr(0x2, 130), size=2, format=">h", scale=256.0),
+            NumberRegField(consts.TEMP_HIGH_WARNING_FIELD, self.getaddr(0x2, 132), size=2, format=">h", scale=256.0),
+            NumberRegField(consts.TEMP_LOW_WARNING_FIELD, self.getaddr(0x2, 134), size=2, format=">h", scale=256.0),
+            NumberRegField(consts.VOLTAGE_HIGH_ALARM_FIELD, self.getaddr(0x2, 136), size=2, format=">H", scale=10000.0),
+            NumberRegField(consts.VOLTAGE_LOW_ALARM_FIELD, self.getaddr(0x2, 138), size=2, format=">H", scale=10000.0),
+            NumberRegField(consts.VOLTAGE_HIGH_WARNING_FIELD, self.getaddr(0x2, 140), size=2, format=">H", scale=10000.0),
+            NumberRegField(consts.VOLTAGE_LOW_WARNING_FIELD, self.getaddr(0x2, 142), size=2, format=">H", scale=10000.0),
+            NumberRegField(consts.TX_POWER_HIGH_ALARM_FIELD, self.getaddr(0x2, 176), size=2, format=">H", scale=1000.0),
+            NumberRegField(consts.TX_POWER_LOW_ALARM_FIELD, self.getaddr(0x2, 178), size=2, format=">H", scale=1000.0),
+            NumberRegField(consts.TX_POWER_HIGH_WARNING_FIELD, self.getaddr(0x2, 180), size=2, format=">H", scale=1000.0),
+            NumberRegField(consts.TX_POWER_LOW_WARNING_FIELD, self.getaddr(0x2, 182), size=2, format=">H", scale=1000.0),
+            NumberRegField(consts.TX_BIAS_HIGH_ALARM_FIELD, self.getaddr(0x2, 184), size=2, format=">H", scale=500.0),
+            NumberRegField(consts.TX_BIAS_LOW_ALARM_FIELD, self.getaddr(0x2, 186), size=2, format=">H", scale=500.0),
+            NumberRegField(consts.TX_BIAS_HIGH_WARNING_FIELD, self.getaddr(0x2, 188), size=2, format=">H", scale=500.0),
+            NumberRegField(consts.TX_BIAS_LOW_WARNING_FIELD, self.getaddr(0x2, 190), size=2, format=">H", scale=500.0),
+            NumberRegField(consts.RX_POWER_HIGH_ALARM_FIELD, self.getaddr(0x2, 192), size=2, format=">H", scale=1000.0),
+            NumberRegField(consts.RX_POWER_LOW_ALARM_FIELD, self.getaddr(0x2, 194), size=2, format=">H", scale=1000.0),
+            NumberRegField(consts.RX_POWER_HIGH_WARNING_FIELD, self.getaddr(0x2, 196), size=2, format=">H", scale=1000.0),
+            NumberRegField(consts.RX_POWER_LOW_WARNING_FIELD, self.getaddr(0x2, 198), size=2, format=">H", scale=1000.0),
             NumberRegField(consts.AUX1_HIGH_ALARM, self.getaddr(0x2, 144), format=">h", size=2),
             NumberRegField(consts.AUX1_LOW_ALARM, self.getaddr(0x2, 146), format=">h", size=2),
             NumberRegField(consts.AUX1_HIGH_WARN, self.getaddr(0x2, 148), format=">h", size=2),
@@ -150,46 +158,150 @@ class CmisMemMap(XcvrMemMap):
         )
 
         self.LANE_DATAPATH_STATUS = RegGroupField(consts.LANE_DATAPATH_STATUS_FIELD,
-            NumberRegField(consts.TX_FAULT_FIELD, self.getaddr(0x11, 135)),
-            NumberRegField(consts.RX_LOS_FIELD, self.getaddr(0x11, 147)),
+            RegGroupField(consts.TX_FAULT_FIELD,
+                *(NumberRegField("%s%d" % (consts.TX_FAULT_FIELD, lane), self.getaddr(0x11, 135),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                )
+                for lane in range(1, 9))
+            ),
+            RegGroupField(consts.RX_LOS_FIELD,
+                *(NumberRegField("%s%d" % (consts.RX_LOS_FIELD, lane), self.getaddr(0x11, 147),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                )
+                for lane in range(1, 9))
+            ),
+
             RegGroupField(consts.TX_POWER_FIELD,
-                *(NumberRegField("OpticalPowerTx%dField" % channel, self.getaddr(0x11, offset), size=2, format=">H", scale=1000)
+                *(NumberRegField("OpticalPowerTx%dField" % channel, self.getaddr(0x11, offset), size=2, format=">H", scale=1000.0)
                 for channel, offset in zip(range(1, 9), range(154, 170, 2)))
             ),
             RegGroupField(consts.TX_BIAS_FIELD,
-                *(NumberRegField("LaserBiasTx%dField" % channel, self.getaddr(0x11, offset), size=2, format=">H", scale=500)
+                *(NumberRegField("LaserBiasTx%dField" % channel, self.getaddr(0x11, offset), size=2, format=">H", scale=500.0)
                 for channel, offset in zip(range(1, 9), range(170, 186, 2)))
             ),
             RegGroupField(consts.RX_POWER_FIELD,
-                *(NumberRegField("OpticalPowerRx%dField" % channel, self.getaddr(0x11, offset), size=2, format=">H", scale=1000)
+                *(NumberRegField("OpticalPowerRx%dField" % channel, self.getaddr(0x11, offset), size=2, format=">H", scale=1000.0)
                 for channel, offset in zip(range(1, 9), range(186, 202, 2)))
             ),
 
             RegGroupField(consts.DATA_PATH_STATE,
-                *(CodeRegField("DP%dState" % (lane) , self.getaddr(0x11, 128 + int(lane/3)), self.codes.DATAPATH_STATE,
+                *(CodeRegField("DP%dState" % (lane) , self.getaddr(0x11, 128 + int((lane-1)/2)), self.codes.DATAPATH_STATE,
                     *(RegBitField("Bit%d" % bit, bit) for bit in [range(4, 8), range(0, 4)][lane%2]))
                  for lane in range(1, 9))
             ),
-
-            NumberRegField(consts.RX_OUTPUT_STATUS, self.getaddr(0x11, 132), size=1),
-            NumberRegField(consts.TX_OUTPUT_STATUS, self.getaddr(0x11, 133), size=1),
-            NumberRegField(consts.TX_LOS_FLAG, self.getaddr(0x11, 136), size=1),
-            NumberRegField(consts.TX_CDR_LOL, self.getaddr(0x11, 137), size=1),
-            NumberRegField(consts.TX_POWER_HIGH_ALARM_FLAG, self.getaddr(0x11, 139), size=1),
-            NumberRegField(consts.TX_POWER_LOW_ALARM_FLAG, self.getaddr(0x11, 140), size=1),
-            NumberRegField(consts.TX_POWER_HIGH_WARN_FLAG, self.getaddr(0x11, 141), size=1),
-            NumberRegField(consts.TX_POWER_LOW_WARN_FLAG, self.getaddr(0x11, 142), size=1),
-            NumberRegField(consts.TX_BIAS_HIGH_ALARM_FLAG, self.getaddr(0x11, 143), size=1),
-            NumberRegField(consts.TX_BIAS_LOW_ALARM_FLAG, self.getaddr(0x11, 144), size=1),
-            NumberRegField(consts.TX_BIAS_HIGH_WARN_FLAG, self.getaddr(0x11, 145), size=1),
-            NumberRegField(consts.TX_BIAS_LOW_WARN_FLAG, self.getaddr(0x11, 146), size=1),
-            NumberRegField(consts.RX_CDR_LOL, self.getaddr(0x11, 148), size=1),
-            NumberRegField(consts.RX_POWER_HIGH_ALARM_FLAG, self.getaddr(0x11, 149), size=1),
-            NumberRegField(consts.RX_POWER_LOW_ALARM_FLAG, self.getaddr(0x11, 150), size=1),
-            NumberRegField(consts.RX_POWER_HIGH_WARN_FLAG, self.getaddr(0x11, 151), size=1),
-            NumberRegField(consts.RX_POWER_LOW_WARN_FLAG, self.getaddr(0x11, 152), size=1),
-            NumberRegField(consts.CONFIG_LANE_STATUS, self.getaddr(0x11, 202), format=">I", size=4),
-            NumberRegField(consts.DPINIT_PENDING, self.getaddr(0x11, 235), size=1),
+            RegGroupField(consts.RX_OUTPUT_STATUS,
+                *(NumberRegField("%s%d" % (consts.RX_OUTPUT_STATUS, lane), self.getaddr(0x11, 132),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                )
+                for lane in range(1, 9))
+            ),
+            RegGroupField(consts.TX_OUTPUT_STATUS,
+                *(NumberRegField("%s%d" % (consts.TX_OUTPUT_STATUS, lane), self.getaddr(0x11, 133),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                )
+                for lane in range(1, 9))
+            ),
+            RegGroupField(consts.TX_LOS_FIELD,
+                *(NumberRegField("%s%d" % (consts.TX_LOS_FIELD, lane), self.getaddr(0x11, 136),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                )
+                for lane in range(1, 9))
+            ),
+            RegGroupField(consts.TX_CDR_LOL,
+                *(NumberRegField("%s%d" % (consts.TX_CDR_LOL, lane), self.getaddr(0x11, 137),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                )
+                for lane in range(1, 9))
+            ),
+            RegGroupField(consts.TX_POWER_HIGH_ALARM_FLAG,
+                *(NumberRegField("%s%d" % (consts.TX_POWER_HIGH_ALARM_FLAG, lane), self.getaddr(0x11, 139),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                )
+                for lane in range(1, 9))
+            ),
+            RegGroupField(consts.TX_POWER_LOW_ALARM_FLAG,
+                *(NumberRegField("%s%d" % (consts.TX_POWER_LOW_ALARM_FLAG, lane), self.getaddr(0x11, 140),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                )
+                for lane in range(1, 9))
+            ),
+            RegGroupField(consts.TX_POWER_HIGH_WARN_FLAG,
+                *(NumberRegField("%s%d" % (consts.TX_POWER_HIGH_WARN_FLAG, lane), self.getaddr(0x11, 141),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                )
+                for lane in range(1, 9))
+            ),
+            RegGroupField(consts.TX_POWER_LOW_WARN_FLAG,
+                *(NumberRegField("%s%d" % (consts.TX_POWER_LOW_WARN_FLAG, lane), self.getaddr(0x11, 142),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                )
+                for lane in range(1, 9))
+            ),
+            RegGroupField(consts.TX_BIAS_HIGH_ALARM_FLAG,
+                *(NumberRegField("%s%d" % (consts.TX_BIAS_HIGH_ALARM_FLAG, lane), self.getaddr(0x11, 143),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                )
+                for lane in range(1, 9))
+            ),
+            RegGroupField(consts.TX_BIAS_LOW_ALARM_FLAG,
+                *(NumberRegField("%s%d" % (consts.TX_BIAS_LOW_ALARM_FLAG, lane), self.getaddr(0x11, 144),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                )
+                for lane in range(1, 9))
+            ),
+            RegGroupField(consts.TX_BIAS_HIGH_WARN_FLAG,
+                *(NumberRegField("%s%d" % (consts.TX_BIAS_HIGH_WARN_FLAG, lane), self.getaddr(0x11, 145),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                )
+                for lane in range(1, 9))
+            ),
+            RegGroupField(consts.TX_BIAS_LOW_WARN_FLAG,
+                *(NumberRegField("%s%d" % (consts.TX_BIAS_LOW_WARN_FLAG, lane), self.getaddr(0x11, 146),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                )
+                for lane in range(1, 9))
+            ),
+            RegGroupField(consts.RX_CDR_LOL,
+                *(NumberRegField("%s%d" % (consts.RX_CDR_LOL, lane), self.getaddr(0x11, 148),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                )
+                for lane in range(1, 9))
+            ),
+            RegGroupField(consts.RX_POWER_HIGH_ALARM_FLAG,
+                *(NumberRegField("%s%d" % (consts.RX_POWER_HIGH_ALARM_FLAG, lane), self.getaddr(0x11, 149),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                )
+                for lane in range(1, 9))
+            ),
+            RegGroupField(consts.RX_POWER_LOW_ALARM_FLAG,
+                *(NumberRegField("%s%d" % (consts.RX_POWER_LOW_ALARM_FLAG, lane), self.getaddr(0x11, 150),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                )
+                for lane in range(1, 9))
+            ),
+            RegGroupField(consts.RX_POWER_HIGH_WARN_FLAG,
+                *(NumberRegField("%s%d" % (consts.RX_POWER_HIGH_WARN_FLAG, lane), self.getaddr(0x11, 151),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                )
+                for lane in range(1, 9))
+            ),
+            RegGroupField(consts.RX_POWER_LOW_WARN_FLAG,
+                *(NumberRegField("%s%d" % (consts.RX_POWER_LOW_WARN_FLAG, lane), self.getaddr(0x11, 152),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                )
+                for lane in range(1, 9))
+            ),
+            RegGroupField(consts.CONFIG_LANE_STATUS,
+                *(CodeRegField("%s%d" % (consts.CONFIG_LANE_STATUS, lane) , self.getaddr(0x11, 202 + int((lane-1)/2)), self.codes.CONFIG_STATUS,
+                    *(RegBitField("Bit%d" % bit, bit) for bit in [range(4, 8), range(0, 4)][lane%2]))
+                 for lane in range(1, 9))
+            ),
+            RegGroupField(consts.DPINIT_PENDING,
+                *(NumberRegField("%s%d" % (consts.DPINIT_PENDING, lane), self.getaddr(0x11, 235),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                )
+                for lane in range(1, 9))
+            ),
             RegBitField(consts.TUNING_IN_PROGRESS, offset=self.getaddr(0x12, 222), bitpos=1),
             RegBitField(consts.WAVELENGTH_UNLOCKED, offset=self.getaddr(0x12, 222), bitpos=0),
             NumberRegField(consts.LASER_TUNING_DETAIL, self.getaddr(0x12, 231), size=1),

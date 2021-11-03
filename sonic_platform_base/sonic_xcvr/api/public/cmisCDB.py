@@ -25,7 +25,7 @@ class CmisCdbApi(XcvrApi):
     def __init__(self, xcvr_eeprom):
         super(CmisCdbApi, self).__init__(xcvr_eeprom)
         self.cdb_instance_supported = self.xcvr_eeprom.read(consts.CDB_SUPPORT) >> 6
-        assert self.cdb_instance_supported == 0
+        assert self.cdb_instance_supported != 0
     
     def cdb1_chkflags(self):
         '''
