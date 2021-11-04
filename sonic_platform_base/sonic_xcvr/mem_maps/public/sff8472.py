@@ -118,8 +118,8 @@ class Sff8472MemMap(XcvrMemMap):
             TempField(consts.TEMPERATURE_FIELD, self.get_addr(0xA2, 0, 96), size=2, format=">h", scale=256),
             VoltageField(consts.VOLTAGE_FIELD, self.get_addr(0xA2, 0, 98), size=2, format=">H", scale=10000),
             TxBiasField(consts.TX_BIAS_FIELD, self.get_addr(0xA2, 0, 100), size=2, format=">H", scale=500),
-            TxPowerField(consts.TX_POWER_FIELD, self.get_addr(0xA2, 0, 102), size=2, format=">H", scale=1000),
-            RxPowerField(consts.RX_POWER_FIELD, self.get_addr(0xA2, 0, 104), size=2, format=">H", scale=1000),
+            TxPowerField(consts.TX_POWER_FIELD, self.get_addr(0xA2, 0, 102), size=2, format=">H", scale=10000),
+            RxPowerField(consts.RX_POWER_FIELD, self.get_addr(0xA2, 0, 104), size=2, format=">H", scale=10000),
             deps=ext_cal_deps
         )
 
@@ -136,14 +136,14 @@ class Sff8472MemMap(XcvrMemMap):
             TxBiasField(consts.TX_BIAS_LOW_ALARM_FIELD, self.get_addr(0xA2, 0, 18), size=2, format=">H", scale=500),
             TxBiasField(consts.TX_BIAS_HIGH_WARNING_FIELD, self.get_addr(0xA2, 0, 20), size=2, format=">H", scale=500),
             TxBiasField(consts.TX_BIAS_LOW_WARNING_FIELD, self.get_addr(0xA2, 0, 22), size=2, format=">H", scale=500),
-            TxPowerField(consts.TX_POWER_HIGH_ALARM_FIELD, self.get_addr(0xA2, 0, 24), size=2, format=">H", scale=1000),
-            TxPowerField(consts.TX_POWER_LOW_ALARM_FIELD, self.get_addr(0xA2, 0, 26), size=2, format=">H", scale=1000),
-            TxPowerField(consts.TX_POWER_HIGH_WARNING_FIELD, self.get_addr(0xA2, 0, 28), size=2, format=">H", scale=1000),
-            TxPowerField(consts.TX_POWER_LOW_WARNING_FIELD, self.get_addr(0xA2, 0, 30), size=2, format=">H", scale=1000),
-            RxPowerField(consts.RX_POWER_HIGH_ALARM_FIELD, self.get_addr(0xA2, 0, 32), size=2, format=">H", scale=1000),
-            RxPowerField(consts.RX_POWER_LOW_ALARM_FIELD, self.get_addr(0xA2, 0, 34), size=2, format=">H", scale=1000),
-            RxPowerField(consts.RX_POWER_HIGH_WARNING_FIELD, self.get_addr(0xA2, 0, 36), size=2, format=">H", scale=1000),
-            RxPowerField(consts.RX_POWER_LOW_WARNING_FIELD, self.get_addr(0xA2, 0, 38), size=2, format=">H", scale=1000),
+            TxPowerField(consts.TX_POWER_HIGH_ALARM_FIELD, self.get_addr(0xA2, 0, 24), size=2, format=">H", scale=10000),
+            TxPowerField(consts.TX_POWER_LOW_ALARM_FIELD, self.get_addr(0xA2, 0, 26), size=2, format=">H", scale=10000),
+            TxPowerField(consts.TX_POWER_HIGH_WARNING_FIELD, self.get_addr(0xA2, 0, 28), size=2, format=">H", scale=10000),
+            TxPowerField(consts.TX_POWER_LOW_WARNING_FIELD, self.get_addr(0xA2, 0, 30), size=2, format=">H", scale=10000),
+            RxPowerField(consts.RX_POWER_HIGH_ALARM_FIELD, self.get_addr(0xA2, 0, 32), size=2, format=">H", scale=10000),
+            RxPowerField(consts.RX_POWER_LOW_ALARM_FIELD, self.get_addr(0xA2, 0, 34), size=2, format=">H", scale=10000),
+            RxPowerField(consts.RX_POWER_HIGH_WARNING_FIELD, self.get_addr(0xA2, 0, 36), size=2, format=">H", scale=10000),
+            RxPowerField(consts.RX_POWER_LOW_WARNING_FIELD, self.get_addr(0xA2, 0, 38), size=2, format=">H", scale=10000),
             deps=ext_cal_deps
         )
 
