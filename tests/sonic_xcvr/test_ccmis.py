@@ -1,5 +1,5 @@
 from mock import MagicMock
-from unittest.mock import patch
+from mock import patch
 import pytest
 from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi
 from sonic_platform_base.sonic_xcvr.api.public.c_cmis import CCmisApi
