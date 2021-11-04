@@ -42,16 +42,14 @@ class CmisMemMap(XcvrMemMap):
                 ),
                 NumberRegField(consts.MAX_POWER_FIELD, self.getaddr(0x0, 201), scale=4.0),
             ),
-            # NumberRegField(consts.LEN_MULT_FIELD, self.getaddr(0x0, 202),
-            #     *(RegBitField("%s_%d" % (consts.LEN_MULT_FIELD, bit), bit) for bit in range (6, 8))
-            # ),
-            # CableLenField(consts.LENGTH_ASSEMBLY_FIELD, self.getaddr(0x0, 202),
-            #     *(RegBitField("%s_%d" % (consts.LENGTH_ASSEMBLY_FIELD, bit), bit) for bit in range(0, 6))
-            # ),
-
-            CodeRegField(consts.CONNECTOR_FIELD, self.getaddr(0x0, 203), self.codes.CONNECTORS,
-                deps=[consts.LEN_MULT_FIELD]
+            NumberRegField(consts.LEN_MULT_FIELD, self.getaddr(0x0, 202),
+                *(RegBitField("%s_%d" % (consts.LEN_MULT_FIELD, bit), bit) for bit in range (6, 8))
             ),
+            CableLenField(consts.LENGTH_ASSEMBLY_FIELD, self.getaddr(0x0, 202),
+                *(RegBitField("%s_%d" % (consts.LENGTH_ASSEMBLY_FIELD, bit), bit) for bit in range(0, 6))
+            ),
+
+            CodeRegField(consts.CONNECTOR_FIELD, self.getaddr(0x0, 203), self.codes.CONNECTORS),
             CodeRegField(consts.HOST_ELECTRICAL_INTERFACE, self.getaddr(0x0, 86), self.codes.HOST_ELECTRICAL_INTERFACE),
             CodeRegField(consts.MEDIA_TYPE_FIELD, self.getaddr(0x0, 85), self.codes.MODULE_MEDIA_TYPE),
             CodeRegField(consts.MODULE_MEDIA_INTERFACE_850NM, self.getaddr(0x0, 87), self.codes.NM_850_MEDIA_INTERFACE),
@@ -91,7 +89,6 @@ class CmisMemMap(XcvrMemMap):
         self.MODULE_LEVEL_MONITORS = RegGroupField(consts.MODULE_MONITORS_FIELD,
             NumberRegField(consts.TEMPERATURE_FIELD, self.getaddr(0x0, 14), size=2, format=">h", scale=256.0),
             NumberRegField(consts.VOLTAGE_FIELD, self.getaddr(0x0, 16), size=2, format=">H", scale=10000.0),
-            # NumberRegField(consts.GRID_SPACING, self.getaddr(0x12, 128), size=1, ro=False),
             NumberRegField(consts.GRID_SPACING, self.getaddr(0x12, 128),
                 *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8)), ro = False
             ),
@@ -103,7 +100,7 @@ class CmisMemMap(XcvrMemMap):
             NumberRegField(consts.AUX2_MON, self.getaddr(0x0, 20), format=">h", size=2),
             NumberRegField(consts.AUX3_MON, self.getaddr(0x0, 22), format=">h", size=2),
             NumberRegField(consts.CUSTOM_MON, self.getaddr(0x0, 24), format=">H", size=2),
-)
+        )
 
         self.MODULE_CHAR_ADVT = RegGroupField(consts.MODULE_CHAR_ADVT_FIELD,
             NumberRegField(consts.CTRLS_ADVT_FIELD, self.getaddr(0x1, 155),

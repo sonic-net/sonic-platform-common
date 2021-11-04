@@ -104,8 +104,7 @@ class CmisApi(XcvrApi):
 
     def get_transceiver_info(self):
         admin_info = self.xcvr_eeprom.read(consts.ADMIN_INFO_FIELD)
-        media_type = self.xcvr_eeprom.read(consts.MEDIA_TYPE_FIELD)
-        if admin_info is None or media_type is None:
+        if admin_info is None:
             return None
 
         ext_id = admin_info[consts.EXT_ID_FIELD]
@@ -115,7 +114,7 @@ class CmisApi(XcvrApi):
         xcvr_info = {
             "type": admin_info[consts.ID_FIELD],
             "type_abbrv_name": admin_info[consts.ID_ABBRV_FIELD],
-            "hardware_rev": admin_info[consts.VENDOR_REV_FIELD],
+            "hardware_rev": '.'.join([str(admin_info[consts.HW_MAJOR_REV]),str(admin_info[consts.HW_MINOR_REV])]),
             "serial": admin_info[consts.VENDOR_SERIAL_NO_FIELD],
             "manufacturer": admin_info[consts.VENDOR_NAME_FIELD],
             "model": admin_info[consts.VENDOR_PART_NO_FIELD],
@@ -124,9 +123,9 @@ class CmisApi(XcvrApi):
             "ext_identifier": "%s (%sW Max)" % (power_class, max_power),
             "ext_rateselect_compliance": "N/A", # Not supported
             "cable_type": "Length cable Assembly(m)",
-            # "cable_length": float(admin_info[consts.LENGTH_ASSEMBLY_FIELD]),
+            "cable_length": float(admin_info[consts.LENGTH_ASSEMBLY_FIELD]),
             "nominal_bit_rate": 0, # Not supported
-            "specification_compliance": media_type,
+            "specification_compliance": admin_info[consts.MEDIA_TYPE_FIELD],
             "vendor_date": admin_info[consts.VENDOR_DATE_FIELD],
             "vendor_oui": admin_info[consts.VENDOR_OUI_FIELD],
             # TODO
@@ -153,6 +152,7 @@ class CmisApi(XcvrApi):
         xcvr_info['cmis_rev'] = self.get_cmis_rev()
         xcvr_info['active_firmware'] = self.get_module_active_firmware()
         xcvr_info['inactive_firmware'] = self.get_module_inactive_firmware()
+        xcvr_info['specification_compliance'] = self.get_module_media_type()
         return xcvr_info
 
     def get_transceiver_bulk_status(self):
@@ -230,7 +230,7 @@ class CmisApi(XcvrApi):
             "vcclowalarm": float("{:.3f}".format(thresh[consts.VOLTAGE_LOW_ALARM_FIELD])),
             "vcchighwarning": float("{:.3f}".format(thresh[consts.VOLTAGE_HIGH_WARNING_FIELD])),
             "vcclowwarning": float("{:.3f}".format(thresh[consts.VOLTAGE_LOW_WARNING_FIELD])),
-            "rxpowerhighalarm": float("{:.3f}".format(thresh[consts.RX_POWER_HIGH_ALARM_FIELD])),
+            "rxpowerhighalarm": float("{:.3f}".format(self.mw_to_dbm(thresh[consts.RX_POWER_HIGH_ALARM_FIELD]))),
             "rxpowerlowalarm": float("{:.3f}".format(self.mw_to_dbm(thresh[consts.RX_POWER_LOW_ALARM_FIELD]))),
             "rxpowerhighwarning": float("{:.3f}".format(self.mw_to_dbm(thresh[consts.RX_POWER_HIGH_WARNING_FIELD]))),
             "rxpowerlowwarning": float("{:.3f}".format(self.mw_to_dbm(thresh[consts.RX_POWER_LOW_WARNING_FIELD]))),
@@ -824,8 +824,9 @@ class CmisApi(XcvrApi):
         AssertLowPower being 0 means "set to high power"
         AssertLowPower being 1 means "set to low power"
         '''
-        low_power_control = AssertLowPower << 6
-        self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, low_power_control)
+        if AssertLowPower:
+            low_power_control = AssertLowPower << 6
+            self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, low_power_control)
 
     def get_loopback_capability(self):
         '''
