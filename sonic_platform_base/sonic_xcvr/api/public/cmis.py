@@ -824,9 +824,8 @@ class CmisApi(XcvrApi):
         AssertLowPower being 0 means "set to high power"
         AssertLowPower being 1 means "set to low power"
         '''
-        if AssertLowPower:
-            low_power_control = AssertLowPower << 6
-            self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, low_power_control)
+        low_power_control = AssertLowPower << 6
+        self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, low_power_control)
 
     def get_loopback_capability(self):
         '''

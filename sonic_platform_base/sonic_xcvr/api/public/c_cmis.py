@@ -346,7 +346,10 @@ class CCmisApi(CmisApi):
         trans_dom['cfo'] = self.vdm_dict['CFO [MHz]'][1][0]
         trans_dom['tx_curr_power'] = self.vdm_dict['Tx Power [dBm]'][1][0]
         trans_dom['rx_tot_power'] = self.vdm_dict['Rx Total Power [dBm]'][1][0]
-        trans_dom['rx_sig_power'] = self.vdm_dict['Rx Signal Power [dBm]'][1][0]
+        try:
+            trans_dom['rx_sig_power'] = self.vdm_dict['Rx Signal Power [dBm]'][1][0]
+        except KeyError:
+            pass
         trans_dom['laser_config_freq'] = self.get_laser_config_freq()
         trans_dom['laser_curr_freq'] = self.get_current_laser_freq()
         trans_dom['tx_config_power'] = self.get_tx_config_power()
