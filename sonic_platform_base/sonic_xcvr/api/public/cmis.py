@@ -194,8 +194,11 @@ class CmisApi(XcvrApi):
         laser_temp_dict = self.get_laser_temperature()
         bulk_status['laser_temperature'] = laser_temp_dict['monitor value']
         self.vdm_dict = self.get_vdm()
-        bulk_status['prefec_ber'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][0]
-        bulk_status['postfec_ber'] = self.vdm_dict['Errored Frames Average Media Input'][1][0]
+        try:
+            bulk_status['prefec_ber'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][0]
+            bulk_status['postfec_ber'] = self.vdm_dict['Errored Frames Average Media Input'][1][0]
+        except KeyError:
+            pass
         return bulk_status
 
     def get_transceiver_threshold_info(self):
@@ -249,14 +252,17 @@ class CmisApi(XcvrApi):
         threshold_info_dict['lasertemphighwarning'] = laser_temp_dict['high warn']
         threshold_info_dict['lasertemplowwarning'] = laser_temp_dict['low warn']
         self.vdm_dict = self.get_vdm()
-        threshold_info_dict['prefecberhighalarm'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][1]
-        threshold_info_dict['prefecberlowalarm'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][2]
-        threshold_info_dict['prefecberhighwarning'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][3]
-        threshold_info_dict['prefecberlowwarning'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][4]     
-        threshold_info_dict['postfecberhighalarm'] = self.vdm_dict['Errored Frames Average Media Input'][1][1]
-        threshold_info_dict['postfecberlowalarm'] = self.vdm_dict['Errored Frames Average Media Input'][1][2]
-        threshold_info_dict['postfecberhighwarning'] = self.vdm_dict['Errored Frames Average Media Input'][1][3]
-        threshold_info_dict['postfecberlowwarning'] = self.vdm_dict['Errored Frames Average Media Input'][1][4]
+        try:
+            threshold_info_dict['prefecberhighalarm'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][1]
+            threshold_info_dict['prefecberlowalarm'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][2]
+            threshold_info_dict['prefecberhighwarning'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][3]
+            threshold_info_dict['prefecberlowwarning'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][4]     
+            threshold_info_dict['postfecberhighalarm'] = self.vdm_dict['Errored Frames Average Media Input'][1][1]
+            threshold_info_dict['postfecberlowalarm'] = self.vdm_dict['Errored Frames Average Media Input'][1][2]
+            threshold_info_dict['postfecberhighwarning'] = self.vdm_dict['Errored Frames Average Media Input'][1][3]
+            threshold_info_dict['postfecberlowwarning'] = self.vdm_dict['Errored Frames Average Media Input'][1][4]
+        except KeyError:
+            pass
         return threshold_info_dict
 
     def get_module_temperature(self):
@@ -1063,19 +1069,26 @@ class CmisApi(XcvrApi):
         if self.cdb.cdb_chkcode(rpl) == rpl_chkcode:
             # Regiter 9Fh:136
             fwStatus = rpl[0]
-            # Registers 9Fh:138,139; 140,141
-            ImageA = '%d.%d.%d' %(rpl[2], rpl[3], ((rpl[4]<< 8) | rpl[5]))
-            logger.info('Image A Version: %s' %ImageA)
-            # Registers 9Fh:174,175; 176.177
-            ImageB = '%d.%d.%d' %(rpl[38], rpl[39], ((rpl[40]<< 8) | rpl[41]))
-            logger.info('Image B Version: %s' %ImageB)
-
             ImageARunning = (fwStatus & 0x01) # bit 0 - image A is running
             ImageACommitted = ((fwStatus >> 1) & 0x01) # bit 1 - image A is committed
             ImageAValid = ((fwStatus >> 2) & 0x01) # bit 2 - image A is valid
             ImageBRunning = ((fwStatus >> 4) & 0x01) # bit 4 - image B is running
             ImageBCommitted = ((fwStatus >> 5) & 0x01)  # bit 5 - image B is committed
             ImageBValid = ((fwStatus >> 6) & 0x01) # bit 6 - image B is valid
+
+            if ImageAValid == 0:
+                # Registers 9Fh:138,139; 140,141
+                ImageA = '%d.%d.%d' %(rpl[2], rpl[3], ((rpl[4]<< 8) | rpl[5]))
+            else:
+                ImageA = "N/A"
+            logger.info('Image A Version: %s' %ImageA)
+            
+            if ImageBValid == 0:
+                # Registers 9Fh:174,175; 176.177
+                ImageB = '%d.%d.%d' %(rpl[38], rpl[39], ((rpl[40]<< 8) | rpl[41]))
+            else:
+                ImageB = "N/A"
+            logger.info('Image B Version: %s' %ImageB)
 
             if ImageARunning == 1:
                 RunningImage = 'A'
@@ -1466,14 +1479,17 @@ class CmisApi(XcvrApi):
         trans_status['txbiashighwarning_flag'] = tx_bias_flag_dict['tx_bias_high_warn']['TxBiasHighWarnFlag1']
         trans_status['txbiaslowwarning_flag'] = tx_bias_flag_dict['tx_bias_low_warn']['TxBiasLowWarnFlag1']
         self.vdm_dict = self.get_vdm()
-        trans_status['prefecberhighalarm_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][5]
-        trans_status['prefecberlowalarm_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][6]
-        trans_status['prefecberhighwarning_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][7]
-        trans_status['prefecberlowwarning_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][8]
-        trans_status['postfecberhighalarm_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][5]
-        trans_status['postfecberlowalarm_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][6]
-        trans_status['postfecberhighwarning_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][7]
-        trans_status['postfecberlowwarning_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][8]
+        try:
+            trans_status['prefecberhighalarm_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][5]
+            trans_status['prefecberlowalarm_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][6]
+            trans_status['prefecberhighwarning_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][7]
+            trans_status['prefecberlowwarning_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][8]
+            trans_status['postfecberhighalarm_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][5]
+            trans_status['postfecberlowalarm_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][6]
+            trans_status['postfecberhighwarning_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][7]
+            trans_status['postfecberlowwarning_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][8]
+        except KeyError:
+            pass
         return trans_status
 
     def get_transceiver_loopback(self):
