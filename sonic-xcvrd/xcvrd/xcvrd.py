@@ -668,11 +668,11 @@ def get_media_settings_key(physical_port, transceiver_dict):
         media_key += '-' + media_compliance_code
         if _wrapper_get_sfp_type(physical_port) == 'QSFP_DD':
             if media_compliance_code == "passive_copper_media_interface":
-                if len(media_len) != 0:
-                    media_key += '-' + media_len + 'M'
+                if media_len != 0:
+                    media_key += '-' + str(media_len) + 'M'
         else:
-            if len(media_len) != 0:
-                media_key += '-' + media_len + 'M'
+            if media_len != 0:
+                media_key += '-' + str(media_len) + 'M'
     else:
         media_key += '-' + '*'
 
