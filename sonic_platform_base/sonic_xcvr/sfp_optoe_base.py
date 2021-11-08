@@ -125,6 +125,14 @@ class SfpOptoeBase(SfpBase):
         api = self.get_xcvr_api()
         return api.set_power_override(power_override, power_set) if api is not None else None
 
+    def get_lpmode(self):
+        api = self.get_xcvr_api()
+        return api.get_lpmode() if api is not None else None
+
+    def set_lpmode(self, flag):
+        api = self.get_xcvr_api()
+        return api.set_lp_mode(flag) if api is not None else None
+
     def get_eeprom_path(self):
         raise NotImplementedError
 

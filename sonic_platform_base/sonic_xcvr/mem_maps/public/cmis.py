@@ -27,6 +27,9 @@ class CmisMemMap(XcvrMemMap):
             )
         )
 
+        self.MODULE_STATE = NumberRegField(consts.MODULE_STATE_FIELD, self.get_addr(0x0, 3), size=1)
+        self.SET_LP_MODE = NumberRegField(consts.SET_LP_MODE_FIELD, self.get_addr(0x0, 26), size=1, ro=False)
+
         self.MEDIA_TYPE = CodeRegField(consts.MEDIA_TYPE_FIELD, self.get_addr(0x0, 85), self.codes.MEDIA_TYPES)
 
         self.ADMIN_INFO = RegGroupField(consts.ADMIN_INFO_FIELD,
