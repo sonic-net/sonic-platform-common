@@ -282,7 +282,7 @@ class CmisApi(XcvrApi):
         return "Power Class 1" not in power_class
 
     def get_lpmode(self):
-        if self.is_flat_memory() or self.get_lpmode_support() is None:
+        if self.is_flat_memory() or not self.get_lpmode_support():
             return False
         lpmode = self.xcvr_eeprom.read(consts.MODULE_STATE_FIELD)
         if lpmode is not None:
