@@ -291,7 +291,7 @@ class CmisApi(XcvrApi):
         return False
 
     def set_lpmode(self, lpmode):
-        if self.is_flat_memory() or self.get_lpmode_support() is None:
+        if self.is_flat_memory() or not self.get_lpmode_support():
             return False
 
         if lpmode is True:
