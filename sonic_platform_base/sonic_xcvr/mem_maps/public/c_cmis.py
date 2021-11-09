@@ -4,15 +4,9 @@
     Implementation of XcvrMemMap for C-CMIS Rev 1.1
 """
 
-from ..xcvr_mem_map import XcvrMemMap
 from ...fields.xcvr_field import (
-    CodeRegField,
-    DateField,
-    HexRegField,
     NumberRegField,
-    RegBitField,
-    RegGroupField,
-    StringRegField,
+    RegGroupField
 )
 from ...fields import consts
 from .cmis import CmisMemMap
