@@ -284,6 +284,7 @@ class CmisApi(XcvrApi):
     def get_lpmode(self):
         if self.is_flat_memory() or not self.get_lpmode_support():
             return False
+
         lpmode = self.xcvr_eeprom.read(consts.MODULE_STATE_FIELD)
         if lpmode is not None:
             if lpmode >> 1 == 1:
@@ -294,12 +295,14 @@ class CmisApi(XcvrApi):
         if self.is_flat_memory() or not self.get_lpmode_support():
             return False
 
-        if lpmode is True:
-            lpmode_val = 0x10
-        else:
-            lpmode_val = 0x0
-
-        return self.xcvr_eeprom.write(consts.SET_LP_MODE_FIELD, lpmode_val)
+        lpmode_val = self.xcvr_eeprom.read(consts.MODULE_STATE_FIELD)
+        if lpmode_val is not None:
+            if lpmode is True:
+                lpmode_val = lpmode_val | (1 << 4)
+            else:
+                lpmode_val = lpmode_val & ~(1 << 4)
+            return self.xcvr_eeprom.write(consts.SET_LP_MODE_FIELD, lpmode_val)
+        return False
 
     def get_power_override_support(self):
         return False
