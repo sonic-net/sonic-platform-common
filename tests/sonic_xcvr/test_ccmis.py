@@ -3,13 +3,13 @@ from mock import patch
 import pytest
 from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi
 from sonic_platform_base.sonic_xcvr.api.public.c_cmis import CCmisApi
-from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis import CmisMemMap
+from sonic_platform_base.sonic_xcvr.mem_maps.public.c_cmis import CCmisMemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
 from sonic_platform_base.sonic_xcvr.codes.public.cmis import CmisCodes
 
 class TestCCmis(object):
     codes = CmisCodes
-    mem_map = CmisMemMap(codes)
+    mem_map = CCmisMemMap(codes)
     reader = MagicMock(return_value=None)
     writer = MagicMock()
     eeprom = XcvrEeprom(reader, writer, mem_map)
@@ -24,6 +24,7 @@ class TestCCmis(object):
         (2, 12.5),
         (1, 6.25),
         (0, 3.125),
+        (None, None)
     ])
     def test_get_freq_grid(self, mock_response, expected):
         self.api.xcvr_eeprom.read = MagicMock()

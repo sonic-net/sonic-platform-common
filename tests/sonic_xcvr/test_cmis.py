@@ -28,6 +28,18 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
+        ("ABCD", "ABCD")
+    ])
+    def test_get_name(self, mock_response, expected):
+        """
+        Verify all api access valid fields
+        """
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.return_value = mock_response
+        result = self.api.get_name()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response, expected", [
         ("0.0", "0.0"),
         ("1.2", "1.2")
     ])
@@ -40,10 +52,10 @@ class TestCmis(object):
     @pytest.mark.parametrize("mock_response, expected", [
         ("100000000", "100000000")
     ])
-    def test_get_vendor_serial(self, mock_response, expected):
+    def test_get_serial(self, mock_response, expected):
         self.api.xcvr_eeprom.read = MagicMock()
         self.api.xcvr_eeprom.read.return_value = mock_response
-        result = self.api.get_vendor_serial()
+        result = self.api.get_serial()
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
@@ -1036,7 +1048,7 @@ class TestCmis(object):
                 'encoding': 'N/A',
                 'ext_identifier': 'Power Class 8 (20.0W Max)',
                 'ext_rateselect_compliance': 'N/A',
-                'cable_type': 'Length cable Assembly(m)',
+                'cable_type': 'Length Cable Assembly(m)',
                 'cable_length': 0.0,
                 'nominal_bit_rate': 0,
                 'specification_compliance': 'Single Mode Fiber (SMF)',

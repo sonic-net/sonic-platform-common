@@ -164,7 +164,7 @@ class CmisCdbApi(XcvrApi):
         return self.read_cdb()
 
     # Enter password
-    def cmd0001h(self):
+    def module_enter_password(self):
         '''
         The Enter Password command allows the host to enter a host password
         '''

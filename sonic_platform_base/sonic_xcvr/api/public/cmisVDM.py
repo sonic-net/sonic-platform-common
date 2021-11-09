@@ -164,9 +164,8 @@ class CmisVdmApi(XcvrApi):
         VDM_START_PAGE = 0x20
         vdm = dict()
         self.xcvr_eeprom.write(consts.VDM_CONTROL, 128)
-        time.sleep(5)
-        self.xcvr_eeprom.write(consts.VDM_CONTROL, 0)
         time.sleep(1)
+        self.xcvr_eeprom.write(consts.VDM_CONTROL, 0)
         vdm_flag_page = self.xcvr_eeprom.read_raw(VDM_FLAG_PAGE * PAGE_SIZE + PAGE_OFFSET, PAGE_SIZE)
         for page in range(VDM_START_PAGE, VDM_START_PAGE + vdm_page_supported_raw + 1):
             vdm_current_page = self.get_vdm_page(page, vdm_flag_page)

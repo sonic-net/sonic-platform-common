@@ -29,13 +29,19 @@ class CmisApi(XcvrApi):
         '''
         return self.xcvr_eeprom.read(consts.VENDOR_PART_NO_FIELD)
 
+    def get_name(self):
+        '''
+        This function returns the part name of the module vendor
+        '''
+        return self.xcvr_eeprom.read(consts.VENDOR_NAME_FIELD)
+
     def get_vendor_rev(self):
         '''
         This function returns the revision level for part number provided by vendor 
         '''
         return self.xcvr_eeprom.read(consts.VENDOR_REV_FIELD)
 
-    def get_vendor_serial(self):
+    def get_serial(self):
         '''
         This function returns the serial number of the module
         '''
@@ -122,8 +128,8 @@ class CmisApi(XcvrApi):
             "encoding": "N/A", # Not supported
             "ext_identifier": "%s (%sW Max)" % (power_class, max_power),
             "ext_rateselect_compliance": "N/A", # Not supported
-            "cable_type": "Length cable Assembly(m)",
-            "cable_length": float(admin_info[consts.LENGTH_ASSEMBLY_FIELD]),
+            "cable_type": "Length Cable Assembly(m)",
+            "cable_length": admin_info[consts.LENGTH_ASSEMBLY_FIELD],
             "nominal_bit_rate": 0, # Not supported
             "specification_compliance": admin_info[consts.MEDIA_TYPE_FIELD],
             "vendor_date": admin_info[consts.VENDOR_DATE_FIELD],
@@ -1180,8 +1186,8 @@ class CmisApi(XcvrApi):
         imagesize = f.tell()
         f.seek(0, 0)
         startdata = f.read(startLPLsize)
-        if self.cdb.password_type == 'msaPassword':
-            self.xcvr_eeprom.write_raw(122, 4, b'\x00\x00\x10\x11')
+        pwd_status = self.cdb.module_enter_password()
+        logger.info('Module password enter status is %d' %pwd_status)
         logger.info('\nStart FW downloading')
         logger.info("startLPLsize is %d" %startLPLsize)
         fw_start_status = self.cdb.start_fw_download(startLPLsize, bytearray(startdata), imagesize)

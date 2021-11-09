@@ -33,6 +33,8 @@ class CCmisApi(CmisApi):
             return 6.25
         elif freq_grid == 0:
             return 3.125
+        else:
+            return None
 
     def get_laser_config_freq(self):
         '''
@@ -152,7 +154,7 @@ class CCmisApi(CmisApi):
         MER:    unit in dB
         '''
         self.xcvr_eeprom.write(consts.VDM_CONTROL, 128)
-        time.sleep(5)
+        time.sleep(1)
         self.xcvr_eeprom.write(consts.VDM_CONTROL, 0)
         PM_dict = dict()
 

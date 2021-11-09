@@ -187,11 +187,6 @@ RX_POWER_HIGH_ALARM = "RxOpticalPowerHighAlarmThreshold"
 RX_POWER_LOW_ALARM = "RxOpticalPowerLowAlarmThreshold"
 RX_POWER_HIGH_WARN = "RxOpticalPowerHighWarningThreshold"
 RX_POWER_LOW_WARN = "RxOpticalPowerLowWarningThreshold"
-SUPPORT_GRID = "GridSupported"
-LOW_CHANNEL = "LowChannel75GHz"
-HIGH_CHANNEL = "HighChannel75GHz"
-MIN_PROG_OUTPUT_POWER = "MinProgOutputPower"
-MAX_PROG_OUTPUT_POWER = "MaxProgOutputPower"
 
 # Status
 TRANS_MODULE_STATUS_FIELD = "TransceiverModuleStatus"
@@ -246,8 +241,15 @@ MODULE_CHAR_ADVT_FIELD = "Module Characteristics Advertising"
 
 # C-CMIS
 
-## Media Lane FEC Performance Monitoring
+# Module configuration support fields
+MODULE_CONFIG_SUPPORT_FIELD = "ModuleConfigSupport"
+SUPPORT_GRID = "GridSupported"
+LOW_CHANNEL = "LowChannel75GHz"
+HIGH_CHANNEL = "HighChannel75GHz"
+MIN_PROG_OUTPUT_POWER = "MinProgOutputPower"
+MAX_PROG_OUTPUT_POWER = "MaxProgOutputPower"
 
+## Media Lane FEC Performance Monitoring
 ## Media Lane Link Performance Monitoring
 # PM
 TRANS_PM_FIELD = "TransceiverPm"

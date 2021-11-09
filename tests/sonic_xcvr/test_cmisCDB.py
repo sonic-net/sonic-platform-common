@@ -73,10 +73,10 @@ class TestCDB(object):
         ([1], 1),
         ([128, 128, 64], 64)
     ])
-    def test_cmd0001h(self, mock_response, expected):
+    def test_module_enter_password(self, mock_response, expected):
         self.api.cdb1_chkstatus = MagicMock()
         self.api.cdb1_chkstatus.side_effect = mock_response
-        result = self.api.cmd0001h()
+        result = self.api.module_enter_password()
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
