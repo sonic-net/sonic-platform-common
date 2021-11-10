@@ -573,6 +573,12 @@ class CmisApi(XcvrApi):
 
         return self.xcvr_eeprom.write(consts.TX_DISABLE_FIELD, channel_state)
 
+    def get_power_override(self):
+        return None
+
+    def set_power_override(self, power_override, power_set):
+        return True
+
     def get_transceiver_thresholds_support(self):
         return not self.is_flat_memory()
 

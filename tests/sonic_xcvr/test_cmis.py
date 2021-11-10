@@ -503,6 +503,11 @@ class TestCmis(object):
         self.api.get_tx_disable_channel.return_value = mock_response
         self.api.tx_disable_channel(*input_param)
 
+    def test_get_power_override(self):
+        self.api.get_power_override()
+
+    def test_set_power_override(self):
+        self.api.set_power_override(None, None)
     @pytest.mark.parametrize("mock_response, expected", [
         (False, True)
     ])
