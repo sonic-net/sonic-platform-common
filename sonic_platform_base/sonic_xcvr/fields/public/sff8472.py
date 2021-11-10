@@ -41,13 +41,13 @@ class VoltageField(NumberRegField):
 
 class TxBiasField(NumberRegField):
     def __init__(self, name, offset, *fields, **kwargs):
-        kwargs["deps"] = [consts.INT_CAL_FIELD, consts.EXT_CAL_FIELD, consts.V_SLOPE_FIELD, consts.V_OFFSET_FIELD]
+        kwargs["deps"] = [consts.INT_CAL_FIELD, consts.EXT_CAL_FIELD, consts.TX_I_SLOPE_FIELD, consts.TX_I_OFFSET_FIELD]
         super(TxBiasField, self).__init__(name, offset, *fields, **kwargs)
 
     def decode(self, raw_data, **decoded_deps):
         int_cal = decoded_deps.get(consts.INT_CAL_FIELD)
         ext_cal = decoded_deps.get(consts.EXT_CAL_FIELD)
-        measured_val = struct.unpack(self.format, raw_data)[0] 
+        measured_val = struct.unpack(self.format, raw_data)[0]
         if int_cal:
             return measured_val / self.scale
         elif ext_cal:
@@ -65,7 +65,7 @@ class TxPowerField(NumberRegField):
     def decode(self, raw_data, **decoded_deps):
         int_cal = decoded_deps.get(consts.INT_CAL_FIELD)
         ext_cal = decoded_deps.get(consts.EXT_CAL_FIELD)
-        measured_val = struct.unpack(self.format, raw_data)[0] 
+        measured_val = struct.unpack(self.format, raw_data)[0]
         if int_cal:
             return measured_val / self.scale
         elif ext_cal:
@@ -77,7 +77,7 @@ class TxPowerField(NumberRegField):
 
 class RxPowerField(NumberRegField):
     def __init__(self, name, offset, *fields, **kwargs):
-        kwargs["deps"] = [consts.INT_CAL_FIELD, consts.EXT_CAL_FIELD, consts.RX_PWR_0_FIELD, consts.RX_PWR_1_FIELD, 
+        kwargs["deps"] = [consts.INT_CAL_FIELD, consts.EXT_CAL_FIELD, consts.RX_PWR_0_FIELD, consts.RX_PWR_1_FIELD,
                           consts.RX_PWR_2_FIELD, consts.RX_PWR_3_FIELD, consts.RX_PWR_4_FIELD]
         super(RxPowerField, self).__init__(name, offset, *fields, **kwargs)
 

@@ -1,6 +1,7 @@
 from sonic_platform_base.sonic_xcvr.fields.xcvr_field import (
     CodeRegField,
     DateField,
+    FixedNumberRegField,
     HexRegField,
     NumberRegField,
     RegBitField,
@@ -35,6 +36,7 @@ class MockXcvrMemMap(XcvrMemMap):
             size=2, format=">H")
         self.NUM_REG = NumberRegField("NumReg", 100, format=">Q", size=8, ro=False)
         self.SCALE_NUM_REG = NumberRegField("ScaleNumReg", 120, format=">i", size=4, scale=100, ro=False)
+        self.FIXED_NUM_REG = FixedNumberRegField("FixedNumReg", 130, 8, format=">f", size=4, ro=False)
         self.STRING_REG = StringRegField("StringReg", 12, size=15)
         self.HEX_REG = HexRegField("HexReg", 30, size=3)
         self.REG_GROUP = RegGroupField("RegGroup",
@@ -144,6 +146,12 @@ class TestNumberRegField(object):
         val = 0xFF
         assert field.decode(field.encode(val)) == 3
         assert field.decode(field.encode(0)) == 0
+
+class TestFixedNumberRegField(object):
+    def test_encode_decode(self):
+        field = mem_map.get_field("FixedNumReg")
+        val = 1.25
+        assert field.decode(field.encode(val)) == val
 
 class TestStringRegField(object):
     def test_decode(self):

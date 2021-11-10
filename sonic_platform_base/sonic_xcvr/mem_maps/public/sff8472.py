@@ -8,6 +8,7 @@ from ..xcvr_mem_map import XcvrMemMap
 from ...fields.xcvr_field import (
     CodeRegField,
     DateField,
+    FixedNumberRegField,
     HexRegField,
     NumberRegField,
     RegBitField,
@@ -153,13 +154,13 @@ class Sff8472MemMap(XcvrMemMap):
             NumberRegField(consts.RX_PWR_2_FIELD, self.get_addr(0xA2, 0, 64), size=4, format=">f"),
             NumberRegField(consts.RX_PWR_1_FIELD, self.get_addr(0xA2, 0, 68), size=4, format=">f"),
             NumberRegField(consts.RX_PWR_0_FIELD, self.get_addr(0xA2, 0, 72), size=4, format=">f"),
-            NumberRegField(consts.TX_I_SLOPE_FIELD, self.get_addr(0xA2, 0, 76), size=2, format=">H"),
+            FixedNumberRegField(consts.TX_I_SLOPE_FIELD, self.get_addr(0xA2, 0, 76), 8, size=2, format=">H"),
             NumberRegField(consts.TX_I_OFFSET_FIELD, self.get_addr(0xA2, 0, 78), size=2, format=">h"),
-            NumberRegField(consts.TX_PWR_SLOPE_FIELD, self.get_addr(0xA2, 0, 80), size=2, format=">H"),
+            FixedNumberRegField(consts.TX_PWR_SLOPE_FIELD, self.get_addr(0xA2, 0, 80), 8, size=2, format=">H"),
             NumberRegField(consts.TX_PWR_OFFSET_FIELD, self.get_addr(0xA2, 0, 82), size=2, format=">h"),
-            NumberRegField(consts.T_SLOPE_FIELD, self.get_addr(0xA2, 0, 84), size=2, format=">H"),
+            FixedNumberRegField(consts.T_SLOPE_FIELD, self.get_addr(0xA2, 0, 84), 8, size=2, format=">H"),
             NumberRegField(consts.T_OFFSET_FIELD, self.get_addr(0xA2, 0, 86), size=2, format=">H"),
-            NumberRegField(consts.V_SLOPE_FIELD, self.get_addr(0xA2, 0, 88), size=2, format=">H"),
+            FixedNumberRegField(consts.V_SLOPE_FIELD, self.get_addr(0xA2, 0, 88), 8, size=2, format=">H"),
             NumberRegField(consts.V_OFFSET_FIELD, self.get_addr(0xA2, 0, 90), size=2, format=">h") 
         )
 

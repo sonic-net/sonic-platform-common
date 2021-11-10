@@ -162,6 +162,22 @@ class NumberRegField(RegField):
             return bytearray(struct.pack(self.format, val * self.scale))
         return bytearray(struct.pack(self.format, val))
 
+class FixedNumberRegField(NumberRegField):
+    """
+    Interprets byte(s) as a fixed-point number
+    """
+    def __init__(self, name, offset, num_frac_bits, *fields, **kwargs):
+        super(FixedNumberRegField, self).__init__(name, offset, *fields, **kwargs)
+        self.num_frac_bits = num_frac_bits
+
+    def decode(self, raw_data, **decoded_deps):
+        decoded = super(FixedNumberRegField, self).decode(raw_data, **decoded_deps)
+        return decoded / (1 << self.num_frac_bits)
+
+    def encode(self, val, raw_state=None):
+        bin = val * (1 << self.num_frac_bits)
+        return super(FixedNumberRegField, self).encode(bin, raw_state)
+
 class StringRegField(RegField):
     """
     Interprets byte(s) as a string
