@@ -87,7 +87,6 @@ mem_map = MockXcvrMemMap(codes)
 field = mem_map.get_field("COMBO_ACTIVE_APPL")
 data = bytearray([0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7])
 decoded = field.decode(data)
-print(decoded)
 assert decoded == {
                "ACTIVE_APPL1": 0,
                "ACTIVE_APPL2": 1,

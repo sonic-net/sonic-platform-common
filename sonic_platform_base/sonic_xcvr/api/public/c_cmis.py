@@ -56,17 +56,17 @@ class CCmisApi(CmisApi):
 
     def get_tuning_in_progress(self):
         '''
-        This function returns tunning in progress status on media lane
-        0 means tuning not in progress
-        1 means tuning in progress
+        This function returns tuning in progress status on media lane
+        False means tuning not in progress
+        True means tuning in progress
         '''
         return bool(self.xcvr_eeprom.read(consts.TUNING_IN_PROGRESS))
 
     def get_wavelength_unlocked(self):
         '''
         This function returns wavelength unlocked status on media lane
-        0 means wavelength locked
-        1 means wavelength unlocked
+        False means wavelength locked
+        True means wavelength unlocked
         '''
         return bool(self.xcvr_eeprom.read(consts.WAVELENGTH_UNLOCKED))
 
@@ -109,6 +109,7 @@ class CCmisApi(CmisApi):
         This function sets the laser frequency. Unit in GHz
         ZR application will not support fine tuning of the laser
         SONiC will only support 75 GHz frequency grid
+        Return True if the provision succeeds, False if it fails
         '''
         grid_supported, low_ch_num, hi_ch_num, _, _ = self.get_supported_freq_config()
         grid_supported_75GHz = (grid_supported >> 7) & 0x1
@@ -121,21 +122,24 @@ class CCmisApi(CmisApi):
             raise ValueError('Provisioned frequency out of range. Max Freq: 196100; Min Freq: 191300 GHz.')
         self.set_low_power(True)
         time.sleep(5)
-        self.xcvr_eeprom.write(consts.LASER_CONFIG_CHANNEL, channel_number)
+        status = self.xcvr_eeprom.write(consts.LASER_CONFIG_CHANNEL, channel_number)
         time.sleep(1)
         self.set_low_power(False)
         time.sleep(1)
+        return status
 
     def set_tx_power(self, tx_power):
         '''
         This function sets the TX output power. Unit in dBm
+        Return True if the provision succeeds, False if it fails
         '''
         min_prog_tx_output_power, max_prog_tx_output_power = self.get_supported_power_config()
         if tx_power > max_prog_tx_output_power or tx_power < min_prog_tx_output_power:
             raise ValueError('Provisioned TX power out of range. Max: %.1f; Min: %.1f dBm.' 
                              %(max_prog_tx_output_power, min_prog_tx_output_power))
-        self.xcvr_eeprom.write(consts.TX_CONFIG_POWER, tx_power)
+        status = self.xcvr_eeprom.write(consts.TX_CONFIG_POWER, tx_power)
         time.sleep(1)
+        return status
 
     def get_pm_all(self):
         '''

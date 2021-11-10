@@ -28,18 +28,6 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ("ABCD", "ABCD")
-    ])
-    def test_get_name(self, mock_response, expected):
-        """
-        Verify all api access valid fields
-        """
-        self.api.xcvr_eeprom.read = MagicMock()
-        self.api.xcvr_eeprom.read.return_value = mock_response
-        result = self.api.get_name()
-        assert result == expected
-
-    @pytest.mark.parametrize("mock_response, expected", [
         ("0.0", "0.0"),
         ("1.2", "1.2")
     ])

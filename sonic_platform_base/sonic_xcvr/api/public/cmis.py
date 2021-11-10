@@ -29,12 +29,6 @@ class CmisApi(XcvrApi):
         '''
         return self.xcvr_eeprom.read(consts.VENDOR_PART_NO_FIELD)
 
-    def get_name(self):
-        '''
-        This function returns the part name of the module vendor
-        '''
-        return self.xcvr_eeprom.read(consts.VENDOR_NAME_FIELD)
-
     def get_vendor_rev(self):
         '''
         This function returns the revision level for part number provided by vendor 
@@ -790,15 +784,13 @@ class CmisApi(XcvrApi):
         This function returns configuration command execution
         / result status for the datapath of each host lane
         '''
-        result = self.xcvr_eeprom.read(consts.CONFIG_LANE_STATUS)
-        return result
+        return self.xcvr_eeprom.read(consts.CONFIG_LANE_STATUS)
 
     def get_datapath_state(self):
         '''
         This function returns the eight datapath states
         '''
-        result = self.xcvr_eeprom.read(consts.DATA_PATH_STATE)
-        return result
+        return self.xcvr_eeprom.read(consts.DATA_PATH_STATE)
 
     def get_dpinit_pending(self):
         '''
@@ -825,19 +817,24 @@ class CmisApi(XcvrApi):
     def reset_module(self, reset = False):
         '''
         This function resets the module
+        Return True if the provision succeeds, False if it fails
+        Return True if no action.
         '''
         if reset:
             reset_control = reset << 3
-            self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, reset_control)
+            return self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, reset_control)
+        else:
+            return True
 
     def set_low_power(self, AssertLowPower):
         '''
         This function sets the module to low power state.
         AssertLowPower being 0 means "set to high power"
         AssertLowPower being 1 means "set to low power"
+        Return True if the provision succeeds, False if it fails
         '''
         low_power_control = AssertLowPower << 6
-        self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, low_power_control)
+        return self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, low_power_control)
 
     def get_loopback_capability(self):
         '''
@@ -866,27 +863,31 @@ class CmisApi(XcvrApi):
         4. "media-side-input"
         5. "media-side-output"
         The function will look at 13h:128 to check advertized loopback capabilities.
+        Return True if the provision succeeds, False if it fails
         '''
         loopback_capability = self.get_loopback_capability()
         if loopback_capability is None:
             return None
         if loopback_mode == 'none':
-            self.xcvr_eeprom.write(consts.HOST_INPUT_LOOPBACK, 0)
-            self.xcvr_eeprom.write(consts.HOST_OUTPUT_LOOPBACK, 0)
-            self.xcvr_eeprom.write(consts.MEDIA_INPUT_LOOPBACK, 0)
-            self.xcvr_eeprom.write(consts.MEDIA_OUTPUT_LOOPBACK, 0)
+            status_host_input = self.xcvr_eeprom.write(consts.HOST_INPUT_LOOPBACK, 0)
+            status_host_output = self.xcvr_eeprom.write(consts.HOST_OUTPUT_LOOPBACK, 0)
+            status_media_input = self.xcvr_eeprom.write(consts.MEDIA_INPUT_LOOPBACK, 0)
+            status_media_output = self.xcvr_eeprom.write(consts.MEDIA_OUTPUT_LOOPBACK, 0)
+            return all([status_host_input, status_host_output, status_media_input, status_media_output])
         elif loopback_mode == 'host-side-input':
             assert loopback_capability['host_side_input_loopback_supported']
-            self.xcvr_eeprom.write(consts.HOST_INPUT_LOOPBACK, 0xff)
+            return self.xcvr_eeprom.write(consts.HOST_INPUT_LOOPBACK, 0xff)
         elif loopback_mode == 'host-side-output':
             assert loopback_capability['host_side_output_loopback_supported']
-            self.xcvr_eeprom.write(consts.HOST_OUTPUT_LOOPBACK, 0xff)
+            return self.xcvr_eeprom.write(consts.HOST_OUTPUT_LOOPBACK, 0xff)
         elif loopback_mode == 'media-side-input':
             assert loopback_capability['media_side_input_loopback_supported']
-            self.xcvr_eeprom.write(consts.MEDIA_INPUT_LOOPBACK, 0xff)
+            return self.xcvr_eeprom.write(consts.MEDIA_INPUT_LOOPBACK, 0xff)
         elif loopback_mode == 'media-side-output':
             assert loopback_capability['media_side_output_loopback_supported']
-            self.xcvr_eeprom.write(consts.MEDIA_OUTPUT_LOOPBACK, 0xff)
+            return self.xcvr_eeprom.write(consts.MEDIA_OUTPUT_LOOPBACK, 0xff)
+        else:
+            return 'N/A'
 
 
     def get_cdb_api(self):
