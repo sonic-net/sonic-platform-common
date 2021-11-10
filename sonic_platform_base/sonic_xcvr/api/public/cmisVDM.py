@@ -14,6 +14,8 @@ PAGE_OFFSET = 128
 THRSH_SPACING = 8
 VDM_SIZE = 2
 VDM_FLAG_PAGE = 0x2c
+VDM_FREEZE = 128
+VDM_UNFREEZE = 0
 
 class CmisVdmApi(XcvrApi):
     def __init__(self, xcvr_eeprom):
@@ -163,9 +165,14 @@ class CmisVdmApi(XcvrApi):
             return None
         VDM_START_PAGE = 0x20
         vdm = dict()
-        self.xcvr_eeprom.write(consts.VDM_CONTROL, 128)
+        # When raised by the host, causes the module to freeze and hold all 
+        # reported statistics reporting registers (minimum, maximum and 
+        # average values)in Pages 24h-27h.
+        # When ceased by the host, releases the freeze request, allowing the 
+        # reported minimum, maximum and average values to update again.
+        self.xcvr_eeprom.write(consts.VDM_CONTROL, VDM_FREEZE)
         time.sleep(1)
-        self.xcvr_eeprom.write(consts.VDM_CONTROL, 0)
+        self.xcvr_eeprom.write(consts.VDM_CONTROL, VDM_UNFREEZE)
         vdm_flag_page = self.xcvr_eeprom.read_raw(VDM_FLAG_PAGE * PAGE_SIZE + PAGE_OFFSET, PAGE_SIZE)
         for page in range(VDM_START_PAGE, VDM_START_PAGE + vdm_page_supported_raw + 1):
             vdm_current_page = self.get_vdm_page(page, vdm_flag_page)

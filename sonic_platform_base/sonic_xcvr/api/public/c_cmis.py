@@ -7,6 +7,8 @@ from ...fields import consts
 from .cmis import CmisApi
 import time
 BYTELENGTH = 8
+VDM_FREEZE = 128
+VDM_UNFREEZE = 0
 
 class CCmisApi(CmisApi):
     def __init__(self, xcvr_eeprom):
@@ -157,9 +159,14 @@ class CCmisApi(CmisApi):
         SOPROC: unit in krad/s
         MER:    unit in dB
         '''
-        self.xcvr_eeprom.write(consts.VDM_CONTROL, 128)
+        # When raised by the host, causes the module to freeze and hold all 
+        # reported statistics reporting registers (minimum, maximum and 
+        # average values)in Pages 24h-27h.
+        # When ceased by the host, releases the freeze request, allowing the 
+        # reported minimum, maximum and average values to update again.
+        self.xcvr_eeprom.write(consts.VDM_CONTROL, VDM_FREEZE)
         time.sleep(1)
-        self.xcvr_eeprom.write(consts.VDM_CONTROL, 0)
+        self.xcvr_eeprom.write(consts.VDM_CONTROL, VDM_UNFREEZE)
         PM_dict = dict()
 
         rx_bits_pm = self.xcvr_eeprom.read(consts.RX_BITS_PM)

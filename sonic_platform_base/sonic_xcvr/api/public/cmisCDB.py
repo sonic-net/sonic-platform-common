@@ -145,7 +145,7 @@ class CmisCdbApi(XcvrApi):
         return rpllen, rpl_chkcode, rpl
 
     # Query status
-    def cmd0000h(self):
+    def query_cdb_status(self):
         '''
         This QUERY Status command may be used to retrieve the password acceptance
         status and to perform a test of the CDB interface
@@ -167,6 +167,8 @@ class CmisCdbApi(XcvrApi):
     def module_enter_password(self):
         '''
         The Enter Password command allows the host to enter a host password
+        The default host password is 00001011h. CDB command 0001h puts the
+        password in Page 9Fh, Byte 136-139.
         '''
         cmd = bytearray(b'\x00\x01\x00\x00\x04\x00\x00\x00\x00\x00\x10\x11')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
@@ -181,7 +183,7 @@ class CmisCdbApi(XcvrApi):
                 break
         return status
 
-    def cmd0040h(self):
+    def get_module_feature(self):
         '''
         This command is used to query which CDB commands are supported
         '''
@@ -388,14 +390,14 @@ class CmisCdbApi(XcvrApi):
         cmd[137-INIT_OFFSET] = mode
         cmd[138-INIT_OFFSET] = 2 # Delay to Reset 512 ms
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
+        pwd_status = self.module_enter_password()
+        logger.info('Module password enter status is %d' %pwd_status)        
         for attemp in range(MAX_TRY):
             self.write_cdb(cmd)
             time.sleep(2)
             status = self.cdb1_chkstatus()
             if (status != 0x1):
                 logger.info('CDB1 status: Fail. CDB1 status %d' %status)
-                if status == 0x46 and self.password_type == 'msaPassword':
-                    self.xcvr_eeprom.write_raw(122, 4, b'\x00\x00\x10\x11')
                 continue
             else:
                 break
@@ -416,14 +418,14 @@ class CmisCdbApi(XcvrApi):
         '''
         cmd = bytearray(b'\x01\x0A\x00\x00\x00\x00\x00\x00')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
+        pwd_status = self.module_enter_password()
+        logger.info('Module password enter status is %d' %pwd_status)  
         for attemp in range(MAX_TRY):
             self.write_cdb(cmd)
             time.sleep(5)
             status = self.cdb1_chkstatus()
             if (status != 0x1):
                 logger.info('CDB1 status: Fail. CDB1 status %d' %status)
-                if status == 0x46 and self.password_type == 'msaPassword':
-                    self.xcvr_eeprom.write_raw(122, 4, b'\x00\x00\x10\x11')
                 continue
             else:
                 break

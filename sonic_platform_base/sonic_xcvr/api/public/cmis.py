@@ -1028,14 +1028,6 @@ class CmisApi(XcvrApi):
         logger.info('Max write length: %d' %writelength)
         rpllen, rpl_chkcode, rpl = self.cdb.get_fw_management_features()
         if self.cdb.cdb_chkcode(rpl) == rpl_chkcode:
-            password_type = {
-                0x00 : 'vendorPassword',
-                0x01 : 'vendorPasswordSeq',
-                0x80 : 'msaPassword'
-            }
-            self.cdb.password_type = password_type[rpl[0]]
-            logger.info('Download password type: %s' %self.cdb.password_type)
-
             startLPLsize = rpl[2]
             logger.info('Start payload size %d' % startLPLsize)
             maxblocksize = (rpl[4] + 1) * 8
@@ -1130,6 +1122,9 @@ class CmisApi(XcvrApi):
         01h = Attempt Hitless Reset to Inactive Image
         02h = Traffic affecting Reset to Running Image.
         03h = Attempt Hitless Reset to Running Image
+
+        This function returns True if firmware run successfully completes. 
+        Otherwise it will raise exception where it fails. 
         """
         try:
             self.cdb
@@ -1143,13 +1138,18 @@ class CmisApi(XcvrApi):
         else:
             self.cdb.abort_fw_download()
             logger.info('Module FW run: Fail')
+            raise ValueError('FW_run_status %d' %fw_run_status)
         elapsedtime = time.time()-starttime
         logger.info('Module FW run time: %.2f s\n' %elapsedtime)
+        return True
 
     def module_fw_commit(self):
         """
         The host uses this command to commit the running image
         so that the module will boot from it on future boots.
+
+        This function returns True if firmware commit successfully completes. 
+        Otherwise it will raise exception where it fails. 
         """
         try:
             self.cdb
@@ -1163,8 +1163,10 @@ class CmisApi(XcvrApi):
         else:
             self.cdb.abort_fw_download()
             logger.info('Module FW commit: Fail')
+            raise ValueError('FW_commit_status %d' %fw_commit_status)
         elapsedtime = time.time()-starttime
         logger.info('Module FW commit time: %.2f s\n' %elapsedtime)
+        return True
 
     def module_fw_download(self, startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength, imagepath):
         """
@@ -1181,6 +1183,9 @@ class CmisApi(XcvrApi):
 
         Note that if the download process fails anywhere in the middle, we need to run CDB command 0102h
         to abort the upgrade before we restart another upgrade process.
+
+        This function returns True if download successfully completes. Otherwise it will raise
+        exception where it fails.
         """
         try:
             self.cdb
@@ -1188,7 +1193,11 @@ class CmisApi(XcvrApi):
             self.get_cdb_api()
         # start fw download (CMD 0101h)
         starttime = time.time()
-        f = open(imagepath, 'rb')
+        try:
+            f = open(imagepath, 'rb')
+        except FileNotFoundError:
+            raise FileNotFoundError('Image path  %s is incorrect.' % imagepath)
+
         f.seek(0, 2)
         imagesize = f.tell()
         f.seek(0, 0)
@@ -1229,7 +1238,7 @@ class CmisApi(XcvrApi):
                 fw_download_status = self.cdb.block_write_epl(address, data, autopaging_flag, writelength)
             if fw_download_status != 1:
                 logger.info('CDB download failed. CDB Status: %d' %fw_download_status)
-                exit(1)
+                raise ValueError('FW_download_status %d' %fw_download_status)
             elapsedtime = time.time()-starttime
             logger.info('Address: {:#08x}; Count: {}; Progress: {:.2f}%; Time: {:.2f}s'.format(address, count, progress, elapsedtime))
             address += count
@@ -1244,10 +1253,12 @@ class CmisApi(XcvrApi):
             logger.info('Module FW download complete: Success')
         else:
             logger.info('Module FW download complete: Fail')
+            raise ValueError('FW_complete_status %d' %fw_complete_status)
         elapsedtime = time.time()-elapsedtime-starttime
         logger.info('Complete module FW download time: %.2f s\n' %elapsedtime)
+        return True
 
-    def module_fw_upgrade(self, imagepath):
+    def module_fw_upgrade(self, imagepath, target_firmware):
         """
         This function performs firmware upgrade.
         1.  show FW version in the beginning
@@ -1257,27 +1268,45 @@ class CmisApi(XcvrApi):
         5.  configure run downloaded firmware
         6.  configure commit downloaded firmware
         7.  show FW version in the end
+
+        imagepath specifies where firmware image file is located.
+        target_firmware is a string that specifies the firmware version to upgrade to
+
+        This function returns True if download successfully completes. 
+        Otherwise it will raise exception where it fails.
         """
         self.get_module_fw_info()
         startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength = self.get_module_fw_upgrade_feature()
-        self.module_fw_download(startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength, imagepath)
-        self.module_fw_run(mode = 0x01)
-        time.sleep(60)
-        self.module_fw_commit()
-        self.get_module_fw_info()
+        download_status = self.module_fw_download(startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength, imagepath)
+        assert download_status
+        return self.module_fw_switch(target_firmware)
 
-    def module_fw_switch(self):
+    def module_fw_switch(self, target_firmware):
         """
         This function switch the active/inactive module firmware in the current module memory
+        This function returns True if firmware switch successfully completes. 
+        Otherwise it will raise exception where it fails.
+        If not both images are valid, it will stop firmware switch and return False
         """
         _, _, _, ImageAValid, _, _, _, ImageBValid = self.get_module_fw_info()
         if ImageAValid == 0 and ImageBValid == 0:
             self.module_fw_run(mode = 0x01)
             time.sleep(60)
             self.module_fw_commit()
-            self.get_module_fw_info()
+            (ImageA, ImageARunning, ImageACommitted, ImageAValid,
+            ImageB, ImageBRunning, ImageBCommitted, ImageBValid) = self.get_module_fw_info()
+            if ImageARunning == 1 and ImageACommitted == 1:
+                return ImageA == target_firmware
+            elif ImageBRunning == 1 and ImageBCommitted == 1:
+                return ImageB == target_firmware
+            else:
+                logger.info('Image A: %s; Run: %d Commit: %d, Valid: %d' %(ImageA, ImageARunning, ImageACommitted, ImageAValid))
+                logger.info('Image B: %s; Run: %d Commit: %d, Valid: %d' %(ImageB, ImageBRunning, ImageBCommitted, ImageBValid))
+                logger.info('Target Firmware: %s' %target_firmware)
+                return False
         else:
             logger.info('Not both images are valid.')
+            return False
 
     def get_transceiver_status(self):
         """

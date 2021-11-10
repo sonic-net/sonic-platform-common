@@ -61,12 +61,12 @@ class TestCDB(object):
         ([[1], (None, None, None)], (None, None, None)),
         ([[128, 128, 128], (None, None, None)], (None, None, None)),
     ])
-    def test_cmd0000h(self, mock_response, expected):
+    def test_query_cdb_status(self, mock_response, expected):
         self.api.cdb1_chkstatus = MagicMock()
         self.api.cdb1_chkstatus.side_effect = mock_response[0]
         self.api.read_cdb = MagicMock()
         self.api.read_cdb.return_value = mock_response[1]
-        result = self.api.cmd0000h()
+        result = self.api.query_cdb_status()
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
@@ -83,12 +83,12 @@ class TestCDB(object):
         ([[1], (None, None, None)], (None, None, None)),
         ([[64, 64, 64], (None, None, None)], (None, None, None)),
     ])
-    def test_cmd0040h(self, mock_response, expected):
+    def test_get_module_feature(self, mock_response, expected):
         self.api.cdb1_chkstatus = MagicMock()
         self.api.cdb1_chkstatus.side_effect = mock_response[0]
         self.api.read_cdb = MagicMock()
         self.api.read_cdb.return_value = mock_response[1]
-        result = self.api.cmd0040h()
+        result = self.api.get_module_feature()
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
@@ -170,6 +170,8 @@ class TestCDB(object):
         ([64, 64, 64], 64),
     ])
     def test_run_fw_image(self, mock_response, expected):
+        self.api.module_enter_password = MagicMock()
+        self.api.module_enter_password.return_value = 1
         self.api.cdb1_chkstatus = MagicMock()
         self.api.cdb1_chkstatus.side_effect = mock_response
         result = self.api.run_fw_image()
@@ -180,6 +182,8 @@ class TestCDB(object):
         ([64, 64, 64], 64),
     ])
     def test_commit_fw_image(self, mock_response, expected):
+        self.api.module_enter_password = MagicMock()
+        self.api.module_enter_password.return_value = 1
         self.api.cdb1_chkstatus = MagicMock()
         self.api.cdb1_chkstatus.side_effect = mock_response
         result = self.api.commit_fw_image()
