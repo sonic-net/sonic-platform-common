@@ -16,7 +16,8 @@ try:
     import sys
     import threading
     import time
-
+    import subprocess
+ 
     from sonic_py_common import daemon_base, device_info, logger
     from sonic_py_common import multi_asic
     from swsscommon import swsscommon
@@ -826,6 +827,18 @@ def init_port_sfp_status_tbl(port_mapping, stop_event=threading.Event()):
             else:
                 update_port_transceiver_status_table(logical_port_name, xcvr_table_helper.get_status_tbl(asic_index), sfp_status_helper.SFP_STATUS_INSERTED)
 
+def is_fast_reboot_enabled():
+    fastboot_enabled = False
+    state_db_host =  daemon_base.db_connect("STATE_DB")
+    fastboot_tbl = swsscommon.Table(state_db_host, 'FAST_REBOOT')
+    keys = fastboot_tbl.getKeys()
+
+    if "system" in keys:
+        output = subprocess.check_output('sonic-db-cli STATE_DB get "FAST_REBOOT|system"', shell=True, universal_newlines=True)
+        if "1" in output:
+            fastboot_enabled = True
+
+    return fastboot_enabled
 #
 # Helper classes ===============================================================
 #
@@ -1463,7 +1476,11 @@ class DaemonXcvrd(daemon_base.DaemonBase):
         # Initialize xcvr table helper
         xcvr_table_helper = XcvrTableHelper()
 
-        self.load_media_settings()
+        if is_fast_reboot_enabled():
+            self.log_info("Skip loading media_settings.json in case of fast-reboot")
+        else:
+            self.load_media_settings()
+
         warmstart = swsscommon.WarmStart()
         warmstart.initialize("xcvrd", "pmon")
         warmstart.checkWarmStart("xcvrd", "pmon", False)
