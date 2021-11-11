@@ -63,6 +63,9 @@ class SsdUtil(SsdBase):
     def _execute_shell(self, cmd):
         process = subprocess.Popen(cmd.split(), universal_newlines=True, stdout=subprocess.PIPE)
         output, error = process.communicate()
+        exit_code = process.returncode
+        if exit_code:
+            return None
         return output
 
     def _parse_re(self, pattern, buffer):
@@ -72,10 +75,13 @@ class SsdUtil(SsdBase):
     def fetch_generic_ssd_info(self, diskdev):
         self.ssd_info = self._execute_shell(self.vendor_ssd_utility["Generic"]["utility"].format(diskdev))
 
+    # Health and temperature values may be overwritten with vendor specific data
     def parse_generic_ssd_info(self):
         self.model = self._parse_re('Device Model:\s*(.+?)\n', self.ssd_info)
         self.serial = self._parse_re('Serial Number:\s*(.+?)\n', self.ssd_info)
         self.firmware = self._parse_re('Firmware Version:\s*(.+?)\n', self.ssd_info)
+        self.health = self._parse_re('Remaining_Lifetime_Perc\s*(.+?)\n', self.ssd_info).split()[-1]
+        self.temperature = self._parse_re('Temperature_Celsius\s*(.+?)\n', self.ssd_info).split()[-6]
 
     def parse_innodisk_info(self):
         self.health = self._parse_re('Health:\s*(.+?)%', self.vendor_ssd_info)
@@ -94,7 +100,8 @@ class SsdUtil(SsdBase):
         self.vendor_ssd_info = self._execute_shell(self.vendor_ssd_utility[model]["utility"].format(diskdev))
 
     def parse_vendor_ssd_info(self, model):
-        self.vendor_ssd_utility[model]["parser"]()
+        if self.vendor_ssd_info:
+            self.vendor_ssd_utility[model]["parser"]()
 
     def get_health(self):
         """
