@@ -127,4 +127,15 @@ class CmisCodes(Sff8024):
         147: ['MER [dB]', 'U16', 0.1]
     }
 
+    CDB_FAIL_STATUS = {
+        0: 'reserved',
+        1: 'CMDID unknown',
+        2: 'Parameter range error or parameter not supported',
+        3: 'Previous CMD was not properly ABORTED',
+        4: 'Command checking time out',
+        5: 'CdbChkCode Error',
+        6: 'Password related error',
+        7: 'Command not compatible with operating status'
+    }
+
     # TODO: Add other codes

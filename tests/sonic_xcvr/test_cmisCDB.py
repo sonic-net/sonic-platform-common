@@ -35,7 +35,7 @@ class TestCDB(object):
 
     @pytest.mark.parametrize("mock_response, expected", [
         ([1], 1),
-        ([128,128,128], 128)
+        ([128,128,1], 1)
     ])
     def test_cdb1_chkstatus(self, mock_response, expected):
         self.api.xcvr_eeprom.read = MagicMock()
@@ -58,133 +58,145 @@ class TestCDB(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ([[1], (None, None, None)], (None, None, None)),
-        ([[128, 128, 128], (None, None, None)], (None, None, None)),
+        ([1, (None, None, None)], (None, None, None)),
+        ([64, (None, None, None)], (None, None, None)),
+        ([128, (None, None, None)], (None, None, None)),
     ])
     def test_query_cdb_status(self, mock_response, expected):
         self.api.cdb1_chkstatus = MagicMock()
-        self.api.cdb1_chkstatus.side_effect = mock_response[0]
+        self.api.cdb1_chkstatus.return_value = mock_response[0]
         self.api.read_cdb = MagicMock()
         self.api.read_cdb.return_value = mock_response[1]
         result = self.api.query_cdb_status()
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ([1], 1),
-        ([128, 128, 64], 64)
+        (1, 1),
+        (64, 64),
+        (128, 128),
     ])
     def test_module_enter_password(self, mock_response, expected):
         self.api.cdb1_chkstatus = MagicMock()
-        self.api.cdb1_chkstatus.side_effect = mock_response
+        self.api.cdb1_chkstatus.return_value = mock_response
         result = self.api.module_enter_password()
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ([[1], (None, None, None)], (None, None, None)),
-        ([[64, 64, 64], (None, None, None)], (None, None, None)),
+        ([1, (None, None, None)], (None, None, None)),
+        ([64, (None, None, None)], (None, None, None)),
+        ([128, (None, None, None)], (None, None, None)),
     ])
     def test_get_module_feature(self, mock_response, expected):
         self.api.cdb1_chkstatus = MagicMock()
-        self.api.cdb1_chkstatus.side_effect = mock_response[0]
+        self.api.cdb1_chkstatus.return_value = mock_response[0]
         self.api.read_cdb = MagicMock()
         self.api.read_cdb.return_value = mock_response[1]
         result = self.api.get_module_feature()
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ([[1], (None, None, None)], (None, None, None)),
-        ([[64, 64, 64], (None, None, None)], (None, None, None)),
+        ([1, (None, None, None)], (None, None, None)),
+        ([64, (None, None, None)], (None, None, None)),
+        ([128, (None, None, None)], (None, None, None)),
     ])
     def test_get_fw_management_features(self, mock_response, expected):
         self.api.cdb1_chkstatus = MagicMock()
-        self.api.cdb1_chkstatus.side_effect = mock_response[0]
+        self.api.cdb1_chkstatus.return_value = mock_response[0]
         self.api.read_cdb = MagicMock()
         self.api.read_cdb.return_value = mock_response[1]        
         result = self.api.get_fw_management_features()
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ([[1], (None, None, None)], (None, None, None)),
-        ([[64, 64, 64], (None, None, None)], (None, None, None)),
+        ([1, (None, None, None)], (None, None, None)),
+        ([64, (None, None, None)], (None, None, None)),
+        ([128, (None, None, None)], (None, None, None)),
     ])
     def test_get_fw_info(self, mock_response, expected):
         self.api.cdb1_chkstatus = MagicMock()
-        self.api.cdb1_chkstatus.side_effect = mock_response[0]
+        self.api.cdb1_chkstatus.return_value = mock_response[0]
         self.api.read_cdb = MagicMock()
         self.api.read_cdb.return_value = mock_response[1]
         result = self.api.get_fw_info()
         assert result == expected
 
     @pytest.mark.parametrize("input_param, mock_response, expected", [
-        ([3, bytearray(b'\x00\x00\x00'), 1000000], [1], 1),
-        ([3, bytearray(b'\x00\x00\x00'), 1000000], [64, 64, 64], 64)
+        ([3, bytearray(b'\x00\x00\x00'), 1000000], 1, 1),
+        ([3, bytearray(b'\x00\x00\x00'), 1000000], 64, 64),
+        ([3, bytearray(b'\x00\x00\x00'), 1000000], 128, 128),
     ])
     def test_start_fw_download(self, input_param, mock_response, expected):
         self.api.cdb1_chkstatus = MagicMock()
-        self.api.cdb1_chkstatus.side_effect = mock_response
+        self.api.cdb1_chkstatus.return_value = mock_response
         result = self.api.start_fw_download(*input_param)
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ([1], 1),
-        ([64, 64, 64], 64),
+        (1, 1),
+        (64, 64),
+        (128, 128),
     ])
     def test_abort_fw_download(self, mock_response, expected):
         self.api.cdb1_chkstatus = MagicMock()
-        self.api.cdb1_chkstatus.side_effect = mock_response
+        self.api.cdb1_chkstatus.return_value = mock_response
         result = self.api.abort_fw_download()
         assert result == expected
 
     @pytest.mark.parametrize("input_param, mock_response, expected", [
-        ([100, bytearray(116)], [1], 1),
-        ([100, bytearray(116)], [64, 64, 64], 64)
+        ([100, bytearray(116)], 1, 1),
+        ([100, bytearray(116)], 64, 64),
+        ([100, bytearray(116)], 128, 128),
     ])
     def test_block_write_lpl(self, input_param, mock_response, expected):
         self.api.cdb1_chkstatus = MagicMock()
-        self.api.cdb1_chkstatus.side_effect = mock_response
+        self.api.cdb1_chkstatus.return_value = mock_response
         result = self.api.block_write_lpl(*input_param)
         assert result == expected
 
     @pytest.mark.parametrize("input_param, mock_response, expected", [
-        ([100, bytearray(2048), True, 100], [1], 1),
-        ([100, bytearray(2047), False, 100], [64, 64, 64], 64),
+        ([100, bytearray(2048), True, 100], 1, 1),
+        ([100, bytearray(2047), False, 100], 64, 64),
+        ([100, bytearray(2047), False, 100], 128, 128),
     ])
     def test_block_write_epl(self, input_param, mock_response, expected):
         self.api.cdb1_chkstatus = MagicMock()
-        self.api.cdb1_chkstatus.side_effect = mock_response
+        self.api.cdb1_chkstatus.return_value = mock_response
         result = self.api.block_write_epl(*input_param)
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ([1], 1),
-        ([64, 64, 64], 64),
+        (1, 1),
+        (64, 64),
+        (128, 128),
     ])
     def test_validate_fw_image(self, mock_response, expected):
         self.api.cdb1_chkstatus = MagicMock()
-        self.api.cdb1_chkstatus.side_effect = mock_response
+        self.api.cdb1_chkstatus.return_value = mock_response
         result = self.api.validate_fw_image()
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ([1], 1),
-        ([64, 64, 64], 64),
+        (1, 1),
+        (64, 64),
+        (128, 128),
     ])
     def test_run_fw_image(self, mock_response, expected):
         self.api.module_enter_password = MagicMock()
         self.api.module_enter_password.return_value = 1
         self.api.cdb1_chkstatus = MagicMock()
-        self.api.cdb1_chkstatus.side_effect = mock_response
+        self.api.cdb1_chkstatus.return_value = mock_response
         result = self.api.run_fw_image()
         assert result == expected
         
     @pytest.mark.parametrize("mock_response, expected", [
-        ([1], 1),
-        ([64, 64, 64], 64),
+        (1, 1),
+        (64, 64),
+        (128, 128),
     ])
     def test_commit_fw_image(self, mock_response, expected):
         self.api.module_enter_password = MagicMock()
         self.api.module_enter_password.return_value = 1
         self.api.cdb1_chkstatus = MagicMock()
-        self.api.cdb1_chkstatus.side_effect = mock_response
+        self.api.cdb1_chkstatus.return_value = mock_response
         result = self.api.commit_fw_image()
         assert result == expected

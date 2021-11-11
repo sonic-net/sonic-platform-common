@@ -1016,6 +1016,7 @@ class CmisApi(XcvrApi):
             self.cdb
         except AttributeError:
             self.get_cdb_api()
+        txt = ''
         # get fw upgrade features (CMD 0041h)
         starttime = time.time()
         autopaging = self.xcvr_eeprom.read(consts.AUTO_PAGING_SUPPORT)
@@ -1024,35 +1025,37 @@ class CmisApi(XcvrApi):
         if writelength_raw is None:
             return None
         writelength = (writelength_raw + 1) * 8
-        logger.info('Auto page support: %s' %autopaging_flag)
-        logger.info('Max write length: %d' %writelength)
+        txt += 'Auto page support: %s\n' %autopaging_flag
+        txt += 'Max write length: %d\n' %writelength
         rpllen, rpl_chkcode, rpl = self.cdb.get_fw_management_features()
         if self.cdb.cdb_chkcode(rpl) == rpl_chkcode:
             startLPLsize = rpl[2]
-            logger.info('Start payload size %d' % startLPLsize)
+            txt += 'Start payload size %d\n' % startLPLsize
             maxblocksize = (rpl[4] + 1) * 8
-            logger.info('Max block size %d' % maxblocksize)
+            txt += 'Max block size %d\n' % maxblocksize
             lplEplSupport = {0x00 : 'No write to LPL/EPL supported',
                             0x01 : 'Write to LPL supported',
                             0x10 : 'Write to EPL supported',
                             0x11 : 'Write to LPL/EPL supported'}
-            logger.info('{}'.format(lplEplSupport[rpl[5]]))
+            txt += '{}\n'.format(lplEplSupport[rpl[5]])
             if rpl[5] == 1:
                 lplonly_flag = True
             else:
                 lplonly_flag = False
-            logger.info('Abort CMD102h supported %s' %bool(rpl[1] & 0x01))
+            txt += 'Abort CMD102h supported %s\n' %bool(rpl[1] & 0x01)
             if verbose:
-                logger.info('Copy CMD108h supported %s' %bool((rpl[1] >> 1) & 0x01))
-                logger.info('Skipping erased blocks supported %s' %bool((rpl[1] >> 2) & 0x01))
-                logger.info('Full image readback supported %s' %bool((rpl[1] >> 7) & 0x01))
-                logger.info('Default erase byte {:#x}'.format(rpl[3]))
-                logger.info('Read to LPL/EPL {:#x}'.format(rpl[6]))
+                txt += 'Copy CMD108h supported %s\n' %bool((rpl[1] >> 1) & 0x01)
+                txt += 'Skipping erased blocks supported %s\n' %bool((rpl[1] >> 2) & 0x01)
+                txt += 'Full image readback supported %s\n' %bool((rpl[1] >> 7) & 0x01)
+                txt += 'Default erase byte {:#x}\n'.format(rpl[3])
+                txt += 'Read to LPL/EPL {:#x}\n'.format(rpl[6])
 
         else:
-            raise ValueError('Reply payload check code error')
+            txt += 'Reply payload check code error\n'
+            return False, txt
         elapsedtime = time.time()-starttime
-        logger.info('Get module FW upgrade features time: %.2f s' %elapsedtime)
+        txt += 'Get module FW upgrade features time: %.2f s\n' %elapsedtime
+        logger.info(txt)
         return startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength
 
     def get_module_fw_info(self):
@@ -1067,10 +1070,18 @@ class CmisApi(XcvrApi):
             self.cdb
         except AttributeError:
             self.get_cdb_api()
+        txt = ''
         # get fw info (CMD 0100h)
         starttime = time.time()
-        logger.info('\nGet module FW info')
+        txt += 'Get module FW info\n'
         rpllen, rpl_chkcode, rpl = self.cdb.get_fw_info()
+        # password issue
+        if self.cdb.cdb_chkcode(rpl) != rpl_chkcode:
+            string = 'Get module FW info: Need to enter password\n'
+            logger.info(string)
+            self.cdb.module_enter_password(0)
+            rpllen, rpl_chkcode, rpl = self.cdb.get_fw_info()
+
         if self.cdb.cdb_chkcode(rpl) == rpl_chkcode:
             # Regiter 9Fh:136
             fwStatus = rpl[0]
@@ -1086,28 +1097,34 @@ class CmisApi(XcvrApi):
                 ImageA = '%d.%d.%d' %(rpl[2], rpl[3], ((rpl[4]<< 8) | rpl[5]))
             else:
                 ImageA = "N/A"
-            logger.info('Image A Version: %s' %ImageA)
+            txt += 'Image A Version: %s\n' %ImageA
             
             if ImageBValid == 0:
                 # Registers 9Fh:174,175; 176.177
                 ImageB = '%d.%d.%d' %(rpl[38], rpl[39], ((rpl[40]<< 8) | rpl[41]))
             else:
                 ImageB = "N/A"
-            logger.info('Image B Version: %s' %ImageB)
+            txt += 'Image B Version: %s\n' %ImageB
 
             if ImageARunning == 1:
                 RunningImage = 'A'
             elif ImageBRunning == 1:
                 RunningImage = 'B'
+            else:
+                RunningImage = 'N/A'
             if ImageACommitted == 1:
                 CommittedImage = 'A'
             elif ImageBCommitted == 1:
                 CommittedImage = 'B'
-            logger.info('Running Image: %s; Committed Image: %s' %(RunningImage, CommittedImage))
+            else:
+                CommittedImage = 'N/A'            
+            txt += 'Running Image: %s; Committed Image: %s\n' %(RunningImage, CommittedImage)
         else:
-            raise ValueError('Reply payload check code error')
+            txt += 'Reply payload check code error\n'
+            return False, txt
         elapsedtime = time.time()-starttime
-        logger.info('Get module FW info time: %.2f s' %elapsedtime)
+        txt += 'Get module FW info time: %.2f s\n' %elapsedtime
+        logger.info(txt)
         return ImageA, ImageARunning, ImageACommitted, ImageAValid, ImageB, ImageBRunning, ImageBCommitted, ImageBValid
 
     def module_fw_run(self, mode = 0x01):
@@ -1124,24 +1141,34 @@ class CmisApi(XcvrApi):
         03h = Attempt Hitless Reset to Running Image
 
         This function returns True if firmware run successfully completes. 
-        Otherwise it will raise exception where it fails. 
+        Otherwise it will return False. 
         """
         try:
             self.cdb
         except AttributeError:
             self.get_cdb_api()
         # run module FW (CMD 0109h)
+        txt = ''
         starttime = time.time()
         fw_run_status = self.cdb.run_fw_image(mode)
         if fw_run_status == 1:
-            logger.info('Module FW run: Success')
+            txt += 'Module FW run: Success\n'
+        # password issue
+        elif fw_run_status == 70:
+            string = 'Module FW run: Need to enter password\n'
+            logger.info(string)
+            self.cdb.module_enter_password()
+            fw_run_status = self.cdb.run_fw_image(mode)
+            txt += 'FW_run_status %d\n' %fw_run_status
         else:
-            self.cdb.abort_fw_download()
-            logger.info('Module FW run: Fail')
-            raise ValueError('FW_run_status %d' %fw_run_status)
+            # self.cdb.abort_fw_download()
+            txt += 'Module FW run: Fail\n'
+            txt += 'FW_run_status %d\n' %fw_run_status
+            return False, txt
         elapsedtime = time.time()-starttime
-        logger.info('Module FW run time: %.2f s\n' %elapsedtime)
-        return True
+        txt += 'Module FW run time: %.2f s\n' %elapsedtime
+        logger.info(txt)
+        return True, txt
 
     def module_fw_commit(self):
         """
@@ -1149,24 +1176,34 @@ class CmisApi(XcvrApi):
         so that the module will boot from it on future boots.
 
         This function returns True if firmware commit successfully completes. 
-        Otherwise it will raise exception where it fails. 
+        Otherwise it will return False. 
         """
         try:
             self.cdb
         except AttributeError:
             self.get_cdb_api()
+        txt = ''
         # commit module FW (CMD 010Ah)
         starttime = time.time()
         fw_commit_status= self.cdb.commit_fw_image()
         if fw_commit_status == 1:
-            logger.info('Module FW commit: Success')
+            txt += 'Module FW commit: Success\n'
+        # password issue
+        elif fw_commit_status == 70:
+            string = 'Module FW commit: Need to enter password\n'
+            logger.info(string)
+            self.cdb.module_enter_password()
+            fw_commit_status = self.cdb.commit_fw_image()
+            txt += 'FW_commit_status %d\n' %fw_commit_status
         else:
-            self.cdb.abort_fw_download()
-            logger.info('Module FW commit: Fail')
-            raise ValueError('FW_commit_status %d' %fw_commit_status)
+            # self.cdb.abort_fw_download()
+            txt += 'Module FW commit: Fail\n'
+            txt += 'FW_commit_status %d\n' %fw_commit_status
+            return False, txt
         elapsedtime = time.time()-starttime
-        logger.info('Module FW commit time: %.2f s\n' %elapsedtime)
-        return True
+        txt += 'Module FW commit time: %.2f s\n' %elapsedtime
+        logger.info(txt)
+        return True, txt
 
     def module_fw_download(self, startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength, imagepath):
         """
@@ -1184,35 +1221,45 @@ class CmisApi(XcvrApi):
         Note that if the download process fails anywhere in the middle, we need to run CDB command 0102h
         to abort the upgrade before we restart another upgrade process.
 
-        This function returns True if download successfully completes. Otherwise it will raise
-        exception where it fails.
+        This function returns True if download successfully completes. Otherwise it will return False where it fails.
         """
         try:
             self.cdb
         except AttributeError:
             self.get_cdb_api()
+        txt = ''
         # start fw download (CMD 0101h)
         starttime = time.time()
         try:
             f = open(imagepath, 'rb')
         except FileNotFoundError:
-            raise FileNotFoundError('Image path  %s is incorrect.' % imagepath)
+            txt += 'Image path  %s is incorrect.\n' % imagepath
+            logger.info(txt)
+            return False, txt
 
         f.seek(0, 2)
         imagesize = f.tell()
         f.seek(0, 0)
         startdata = f.read(startLPLsize)
-        pwd_status = self.cdb.module_enter_password()
-        logger.info('Module password enter status is %d' %pwd_status)
         logger.info('\nStart FW downloading')
         logger.info("startLPLsize is %d" %startLPLsize)
         fw_start_status = self.cdb.start_fw_download(startLPLsize, bytearray(startdata), imagesize)
         if fw_start_status == 1:
-            logger.info('Start module FW download: Success')
+            string = 'Start module FW download: Success\n'
+            logger.info(string)
+        # password error
+        elif fw_start_status == 70:
+            string = 'Start module FW download: Need to enter password\n'
+            logger.info(string)
+            self.cdb.module_enter_password()
+            fw_start_status = self.cdb.start_fw_download(startLPLsize, bytearray(startdata), imagesize)
         else:
-            logger.info('Start module FW download: Fail')
+            string = 'Start module FW download: Fail\n'
+            txt += string
             self.cdb.abort_fw_download()
-            raise ValueError('FW_start_status %d' %fw_start_status)
+            txt += 'FW_start_status %d\n' %fw_start_status
+            logger.info(txt)
+            return False, txt
         elapsedtime = time.time()-starttime
         logger.info('Start module FW download time: %.2f s' %elapsedtime)
 
@@ -1237,8 +1284,11 @@ class CmisApi(XcvrApi):
             else:
                 fw_download_status = self.cdb.block_write_epl(address, data, autopaging_flag, writelength)
             if fw_download_status != 1:
-                logger.info('CDB download failed. CDB Status: %d' %fw_download_status)
-                raise ValueError('FW_download_status %d' %fw_download_status)
+                self.cdb.abort_fw_download()
+                txt += 'CDB download failed. CDB Status: %d\n' %fw_download_status
+                txt += 'FW_download_status %d\n' %fw_download_status
+                logger.info(txt)
+                return False, txt
             elapsedtime = time.time()-starttime
             logger.info('Address: {:#08x}; Count: {}; Progress: {:.2f}%; Time: {:.2f}s'.format(address, count, progress, elapsedtime))
             address += count
@@ -1252,13 +1302,15 @@ class CmisApi(XcvrApi):
         if fw_complete_status == 1:
             logger.info('Module FW download complete: Success')
         else:
-            logger.info('Module FW download complete: Fail')
-            raise ValueError('FW_complete_status %d' %fw_complete_status)
+            txt += 'Module FW download complete: Fail\n'
+            txt += 'FW_complete_status %d\n' %fw_complete_status
+            logger.info(txt)
+            return False, txt
         elapsedtime = time.time()-elapsedtime-starttime
         logger.info('Complete module FW download time: %.2f s\n' %elapsedtime)
-        return True
+        return True, txt
 
-    def module_fw_upgrade(self, imagepath, target_firmware):
+    def module_fw_upgrade(self, imagepath):
         """
         This function performs firmware upgrade.
         1.  show FW version in the beginning
@@ -1273,40 +1325,67 @@ class CmisApi(XcvrApi):
         target_firmware is a string that specifies the firmware version to upgrade to
 
         This function returns True if download successfully completes. 
-        Otherwise it will raise exception where it fails.
+        Otherwise it will return False.
         """
-        self.get_module_fw_info()
-        startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength = self.get_module_fw_upgrade_feature()
-        download_status = self.module_fw_download(startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength, imagepath)
-        assert download_status
-        return self.module_fw_switch(target_firmware)
+        try:
+            ImageA, ImageARunning, ImageACommitted, ImageAValid, ImageB, ImageBRunning, ImageBCommitted, ImageBValid = self.get_module_fw_info()
+        except ValueError:
+            status, txt = self.get_module_fw_info()
+            return status, txt
+        try: 
+            startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength = self.get_module_fw_upgrade_feature()
+        except ValueError:
+            status, txt = self.get_module_fw_upgrade_feature()
+            return status, txt
+   
+        download_status, txt = self.module_fw_download(startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength, imagepath)
+        if not download_status:
+            return False, txt
+        switch_status, switch_txt = self.module_fw_switch()
+        status = download_status and switch_status
+        txt += switch_txt
+        return status, txt
 
-    def module_fw_switch(self, target_firmware):
+    def module_fw_switch(self):
         """
         This function switch the active/inactive module firmware in the current module memory
         This function returns True if firmware switch successfully completes. 
-        Otherwise it will raise exception where it fails.
+        Otherwise it will return False.
         If not both images are valid, it will stop firmware switch and return False
         """
-        _, _, _, ImageAValid, _, _, _, ImageBValid = self.get_module_fw_info()
-        if ImageAValid == 0 and ImageBValid == 0:
+        txt = ''
+        try:
+            (ImageA_init, ImageARunning_init, ImageACommitted_init, ImageAValid_init,
+             ImageB_init, ImageBRunning_init, ImageBCommitted_init, ImageBValid_init) = self.get_module_fw_info()
+        except ValueError:
+            status, txt = self.get_module_fw_info()
+            return status, txt        
+        if ImageAValid_init == 0 and ImageBValid_init == 0:
             self.module_fw_run(mode = 0x01)
             time.sleep(60)
             self.module_fw_commit()
             (ImageA, ImageARunning, ImageACommitted, ImageAValid,
-            ImageB, ImageBRunning, ImageBCommitted, ImageBValid) = self.get_module_fw_info()
-            if ImageARunning == 1 and ImageACommitted == 1:
-                return ImageA == target_firmware
-            elif ImageBRunning == 1 and ImageBCommitted == 1:
-                return ImageB == target_firmware
+             ImageB, ImageBRunning, ImageBCommitted, ImageBValid) = self.get_module_fw_info()
+            # detect if image switch happened
+            txt += 'Before switch Image A: %s; Run: %d Commit: %d, Valid: %d\n' %(
+                ImageA_init, ImageARunning_init, ImageACommitted_init, ImageAValid_init
+            )
+            txt += 'Befpre switch Image B: %s; Run: %d Commit: %d, Valid: %d\n' %(
+                ImageB_init, ImageBRunning_init, ImageBCommitted_init, ImageBValid_init
+            )
+            txt += 'Image A: %s; Run: %d Commit: %d, Valid: %d\n' %(ImageA, ImageARunning, ImageACommitted, ImageAValid)
+            txt += 'Image B: %s; Run: %d Commit: %d, Valid: %d\n' %(ImageB, ImageBRunning, ImageBCommitted, ImageBValid)
+            if (ImageARunning_init == 1 and ImageARunning == 1) or (ImageBRunning_init == 1 and ImageBRunning == 1):
+                txt += 'Switch did not happen.\n'
+                logger.info(txt)
+                return False, txt
             else:
-                logger.info('Image A: %s; Run: %d Commit: %d, Valid: %d' %(ImageA, ImageARunning, ImageACommitted, ImageAValid))
-                logger.info('Image B: %s; Run: %d Commit: %d, Valid: %d' %(ImageB, ImageBRunning, ImageBCommitted, ImageBValid))
-                logger.info('Target Firmware: %s' %target_firmware)
-                return False
+                logger.info(txt)
+                return True, txt
         else:
-            logger.info('Not both images are valid.')
-            return False
+            txt += 'Not both images are valid.'
+            logger.info(txt)
+            return False, txt
 
     def get_transceiver_status(self):
         """

@@ -179,7 +179,11 @@ class CCmisApi(CmisApi):
             PM_dict['preFEC_BER_avg'] = rx_corr_bits_pm*1.0/rx_bits_pm
             PM_dict['preFEC_BER_min'] = rx_min_corr_bits_subint_pm*1.0/rx_bits_subint_pm
             PM_dict['preFEC_BER_max'] = rx_max_corr_bits_subint_pm*1.0/rx_bits_subint_pm
-
+        # when module is low power, still need these values to show 1.0
+        else:
+            PM_dict['preFEC_BER_avg'] = 1.0
+            PM_dict['preFEC_BER_min'] = 1.0
+            PM_dict['preFEC_BER_max'] = 1.0
         rx_frames_pm = self.xcvr_eeprom.read(consts.RX_FRAMES_PM)
         rx_frames_subint_pm = self.xcvr_eeprom.read(consts.RX_FRAMES_SUB_INTERVAL_PM)
         rx_frames_uncorr_err_pm = self.xcvr_eeprom.read(consts.RX_FRAMES_UNCORR_ERR_PM)
@@ -189,8 +193,12 @@ class CCmisApi(CmisApi):
         if (rx_frames_subint_pm != 0) and (rx_frames_pm != 0):
             PM_dict['preFEC_uncorr_frame_ratio_avg'] = rx_frames_uncorr_err_pm*1.0/rx_frames_subint_pm
             PM_dict['preFEC_uncorr_frame_ratio_min'] = rx_min_frames_uncorr_err_subint_pm*1.0/rx_frames_subint_pm
-            PM_dict['preFEC_uncorr_frame_ratio_max'] = rx_max_frames_uncorr_err_subint_pm*1.0/rx_frames_subint_pm        
-
+            PM_dict['preFEC_uncorr_frame_ratio_max'] = rx_max_frames_uncorr_err_subint_pm*1.0/rx_frames_subint_pm
+        # when module is low power, still need these values
+        else:
+            PM_dict['preFEC_uncorr_frame_ratio_avg'] = 0
+            PM_dict['preFEC_uncorr_frame_ratio_min'] = 0
+            PM_dict['preFEC_uncorr_frame_ratio_max'] = 0
         PM_dict['rx_cd_avg'] = self.xcvr_eeprom.read(consts.RX_AVG_CD_PM)
         PM_dict['rx_cd_min'] = self.xcvr_eeprom.read(consts.RX_MIN_CD_PM)
         PM_dict['rx_cd_max'] = self.xcvr_eeprom.read(consts.RX_MAX_CD_PM)

@@ -18,13 +18,14 @@ CDB_WRITE_MSG_START = 130
 PAGE_LENGTH = 128
 INIT_OFFSET = 128
 CMDLEN = 2
-MAX_TRY = 3
-MAX_WAIT = 10
+MAX_WAIT = 100
+
 
 class CmisCdbApi(XcvrApi):
     def __init__(self, xcvr_eeprom):
         super(CmisCdbApi, self).__init__(xcvr_eeprom)
         self.cdb_instance_supported = self.xcvr_eeprom.read(consts.CDB_SUPPORT)
+        self.failed_status_dict = self.xcvr_eeprom.mem_map.codes.CDB_FAIL_STATUS
         assert self.cdb_instance_supported != 0
     
     def cdb1_chkflags(self):
@@ -123,7 +124,8 @@ class CmisCdbApi(XcvrApi):
         is_busy =  bool((status >> 7) & 0x1)
         cnt = 0
         while is_busy and cnt < MAX_WAIT:
-            time.sleep(1)
+            time.sleep(0.1)
+            status = self.xcvr_eeprom.read(consts.CDB1_STATUS)
             is_busy =  bool((status >> 7) & 0x1)
             cnt += 1
         return status
@@ -152,35 +154,40 @@ class CmisCdbApi(XcvrApi):
         '''
         cmd = bytearray(b'\x00\x00\x00\x00\x02\x00\x00\x00\x00\x10')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
-        for attemp in range(MAX_TRY):
-            self.write_cdb(cmd)
-            time.sleep(2)
-            status = self.cdb1_chkstatus()
-            if (status != 0x1):
-                logger.info('CDB1 status: Fail. CDB1 status %d' %status)
-                continue
+        self.write_cdb(cmd)
+        status = self.cdb1_chkstatus()
+        if (status != 0x1):
+            if status > 127: 
+                txt = 'Query CDB status: Busy'
             else:
-                break
+                status_txt = self.failed_status_dict[status & 0x3f]
+                txt = 'Query CDB status: Fail- ' + status_txt
+        else:
+            txt = 'Query CDB status: Success'
+        logger.info(txt)
         return self.read_cdb()
 
     # Enter password
-    def module_enter_password(self):
+    def module_enter_password(self, psw = 0x00001011):
         '''
         The Enter Password command allows the host to enter a host password
         The default host password is 00001011h. CDB command 0001h puts the
         password in Page 9Fh, Byte 136-139.
         '''
-        cmd = bytearray(b'\x00\x01\x00\x00\x04\x00\x00\x00\x00\x00\x10\x11')
+        psw = psw.to_bytes(4, 'big')
+        cmd = bytearray(b'\x00\x01\x00\x00\x04\x00\x00\x00') + psw
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
-        for attemp in range(MAX_TRY):
-            self.write_cdb(cmd)
-            time.sleep(2)
-            status = self.cdb1_chkstatus()
-            if (status != 0x1):
-                logger.info('CDB1 status: Fail. CDB1 status %d' %status)
-                continue
+        self.write_cdb(cmd)
+        status = self.cdb1_chkstatus()
+        if (status != 0x1):
+            if status > 127: 
+                txt = 'Enter password status: Busy'
             else:
-                break
+                status_txt = self.failed_status_dict[status & 0x3f]
+                txt = 'Enter password status: Fail- ' + status_txt
+        else:
+            txt = 'Enter password status: Success'
+        logger.info(txt)
         return status
 
     def get_module_feature(self):
@@ -189,15 +196,17 @@ class CmisCdbApi(XcvrApi):
         '''
         cmd = bytearray(b'\x00\x40\x00\x00\x00\x00\x00\x00')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
-        for attemp in range(MAX_TRY):
-            self.write_cdb(cmd)
-            time.sleep(2)
-            status = self.cdb1_chkstatus()
-            if (status != 0x1):
-                logger.info('CDB1 status: Fail. CDB1 status %d' %status)
-                continue
+        self.write_cdb(cmd)
+        status = self.cdb1_chkstatus()
+        if (status != 0x1):
+            if status > 127: 
+                txt = 'Get module feature status: Busy'
             else:
-                break
+                status_txt = self.failed_status_dict[status & 0x3f]
+                txt = 'Get module feature status: Fail- ' + status_txt
+        else:
+            txt = 'Get module feature status: Success'
+        logger.info(txt)
         return self.read_cdb()
 
     # Firmware Update Features Supported
@@ -207,15 +216,17 @@ class CmisCdbApi(XcvrApi):
         '''
         cmd = bytearray(b'\x00\x41\x00\x00\x00\x00\x00\x00')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
-        for attemp in range(MAX_TRY):
-            self.write_cdb(cmd)
-            time.sleep(2)
-            status = self.cdb1_chkstatus()
-            if (status != 0x1):
-                logger.info('CDB1 status: Fail. CDB1 status %d' %status)
-                continue
+        self.write_cdb(cmd)
+        status = self.cdb1_chkstatus()
+        if (status != 0x1):
+            if status > 127: 
+                txt = 'Get firmware management feature status: Busy'
             else:
-                break
+                status_txt = self.failed_status_dict[status & 0x3f]
+                txt = 'Get firmware management feature status: Fail- ' + status_txt
+        else:
+            txt = 'Get firmware management feature status: Success'
+        logger.info(txt)
         return self.read_cdb()
 
     # Get FW info
@@ -224,17 +235,20 @@ class CmisCdbApi(XcvrApi):
         This command returns the firmware versions and firmware default running 
         images that reside in the module
         '''
+        # self.module_enter_password(0x00000000)
         cmd = bytearray(b'\x01\x00\x00\x00\x00\x00\x00\x00')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
-        for attemp in range(MAX_TRY):
-            self.write_cdb(cmd)
-            time.sleep(2)
-            status = self.cdb1_chkstatus()
-            if (status != 0x1):
-                logger.info('CDB1 status: Fail. CDB1 status %d' %status)
-                continue
+        self.write_cdb(cmd)
+        status = self.cdb1_chkstatus()
+        if (status != 0x1):
+            if status > 127: 
+                txt = 'Get firmware info status: Busy'
             else:
-                break
+                status_txt = self.failed_status_dict[status & 0x3f]
+                txt = 'Get firmware info status: Fail- ' + status_txt
+        else:
+            txt = 'Get firmware info status: Success'
+        logger.info(txt)
         return self.read_cdb()
 
     # Start FW download
@@ -242,6 +256,8 @@ class CmisCdbApi(XcvrApi):
         '''
         This command starts the firmware download
         '''
+        # pwd_status = self.module_enter_password()
+        # logger.info('Module password enter status is %d' %pwd_status)
         logger.info("Image size is {}".format(imagesize))
         cmd = bytearray(b'\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
         cmd[132-INIT_OFFSET] = startLPLsize + 8
@@ -251,15 +267,18 @@ class CmisCdbApi(XcvrApi):
         cmd[139-INIT_OFFSET] = (imagesize >> 0)  & 0xff
         cmd += header
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
-        for attemp in range(MAX_TRY):
-            self.write_cdb(cmd)
-            time.sleep(10)
-            status = self.cdb1_chkstatus()
-            if (status != 0x1):
-                logger.info('CDB1 status: Fail. CDB1 status %d' %status)
-                continue
+        self.write_cdb(cmd)
+        time.sleep(2)
+        status = self.cdb1_chkstatus()
+        if (status != 0x1):
+            if status > 127: 
+                txt = 'Start firmware download status: Busy'
             else:
-                break
+                status_txt = self.failed_status_dict[status & 0x3f]
+                txt = 'Start firmware download status: Fail- ' + status_txt
+        else:
+            txt = 'Start firmware download status: Success'
+        logger.info(txt)
         return status
 
     # Abort FW download
@@ -267,17 +286,21 @@ class CmisCdbApi(XcvrApi):
         '''
         This command aborts the firmware download
         '''
+        # pwd_status = self.module_enter_password()
+        # logger.info('Module password enter status is %d' %pwd_status)
         cmd = bytearray(b'\x01\x02\x00\x00\x00\x00\x00\x00')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
-        for attemp in range(MAX_TRY):
-            self.write_cdb(cmd)
-            time.sleep(2)
-            status = self.cdb1_chkstatus()
-            if (status != 0x1):
-                logger.info('CDB1 status: Fail. CDB1 status %d' %status)
-                continue
+        self.write_cdb(cmd)
+        status = self.cdb1_chkstatus()
+        if (status != 0x1):
+            if status > 127: 
+                txt = 'Abort firmware download status: Busy'
             else:
-                break
+                status_txt = self.failed_status_dict[status & 0x3f]
+                txt = 'Abort firmware download status: Fail- ' + status_txt
+        else:
+            txt = 'Abort firmware download status: Success'
+        logger.info(txt)
         return status
 
     # Download FW with LPL
@@ -297,15 +320,18 @@ class CmisCdbApi(XcvrApi):
         paddedPayload = data.ljust(116, b'\x00')
         cmd += paddedPayload
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
-        for attemp in range(MAX_TRY):
-            self.write_cdb(cmd)
-            time.sleep(2)
-            status = self.cdb1_chkstatus()
-            if (status != 0x1):
-                logger.info('CDB1 status: Fail. CDB1 status %d' %status)
-                continue
+        self.write_cdb(cmd)
+        time.sleep(0.2)
+        status = self.cdb1_chkstatus()
+        if (status != 0x1):
+            if status > 127: 
+                txt = 'LPL firmware download status: Busy'
             else:
-                break
+                status_txt = self.failed_status_dict[status & 0x3f]
+                txt = 'LPL firmware download status: Fail- ' + status_txt
+        else:
+            txt = 'LPL firmware download status: Success'
+        logger.info(txt)
         return status
 
     #  Download FW with EPL
@@ -346,15 +372,18 @@ class CmisCdbApi(XcvrApi):
         addr_byte = struct.pack('>L',addr)
         cmd += addr_byte
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
-        for attemp in range(MAX_TRY):
-            self.write_cdb(cmd)
-            time.sleep(2)
-            status = self.cdb1_chkstatus()
-            if (status != 0x1):
-                logger.info('CDB1 status: Fail. CDB1 status %d' %status)
-                continue
+        self.write_cdb(cmd)
+        time.sleep(0.2)
+        status = self.cdb1_chkstatus()
+        if (status != 0x1):
+            if status > 127: 
+                txt = 'EPL firmware download status: Busy'
             else:
-                break
+                status_txt = self.failed_status_dict[status & 0x3f]
+                txt = 'EPL firmware download status: Fail- ' + status_txt
+        else:
+            txt = 'EPL firmware download status: Success'
+        logger.info(txt)
         return status
 
     # FW download complete
@@ -365,15 +394,17 @@ class CmisCdbApi(XcvrApi):
         '''
         cmd = bytearray(b'\x01\x07\x00\x00\x00\x00\x00\x00')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
-        for attemp in range(MAX_TRY):
-            self.write_cdb(cmd)
-            time.sleep(2)
-            status = self.cdb1_chkstatus()
-            if (status != 0x1):
-                logger.info('CDB1 status: Fail. CDB1 status %d' %status)
-                continue
+        self.write_cdb(cmd)
+        status = self.cdb1_chkstatus()
+        if (status != 0x1):
+            if status > 127: 
+                txt = 'Firmware download complete status: Busy'
             else:
-                break
+                status_txt = self.failed_status_dict[status & 0x3f]
+                txt = 'Firmware download complete status: Fail- ' + status_txt
+        else:
+            txt = 'Firmware download complete status: Success'
+        logger.info(txt)
         return status
 
     # Run FW image
@@ -390,17 +421,19 @@ class CmisCdbApi(XcvrApi):
         cmd[137-INIT_OFFSET] = mode
         cmd[138-INIT_OFFSET] = 2 # Delay to Reset 512 ms
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
-        pwd_status = self.module_enter_password()
-        logger.info('Module password enter status is %d' %pwd_status)        
-        for attemp in range(MAX_TRY):
-            self.write_cdb(cmd)
-            time.sleep(2)
-            status = self.cdb1_chkstatus()
-            if (status != 0x1):
-                logger.info('CDB1 status: Fail. CDB1 status %d' %status)
-                continue
+        # pwd_status = self.module_enter_password()
+        # logger.info('Module password enter status is %d' %pwd_status)        
+        self.write_cdb(cmd)
+        status = self.cdb1_chkstatus()
+        if (status != 0x1):
+            if status > 127: 
+                txt = 'Run firmware status: Busy'
             else:
-                break
+                status_txt = self.failed_status_dict[status & 0x3f]
+                txt = 'Run firmware status: Fail- ' + status_txt
+        else:
+            txt = 'Run firmware status: Success'
+        logger.info(txt)
         return status
 
     # Commit FW image
@@ -418,15 +451,17 @@ class CmisCdbApi(XcvrApi):
         '''
         cmd = bytearray(b'\x01\x0A\x00\x00\x00\x00\x00\x00')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
-        pwd_status = self.module_enter_password()
-        logger.info('Module password enter status is %d' %pwd_status)  
-        for attemp in range(MAX_TRY):
-            self.write_cdb(cmd)
-            time.sleep(5)
-            status = self.cdb1_chkstatus()
-            if (status != 0x1):
-                logger.info('CDB1 status: Fail. CDB1 status %d' %status)
-                continue
+        # pwd_status = self.module_enter_password()
+        # logger.info('Module password enter status is %d' %pwd_status)  
+        self.write_cdb(cmd)
+        status = self.cdb1_chkstatus()
+        if (status != 0x1):
+            if status > 127: 
+                txt = 'Commit firmware status: Busy'
             else:
-                break
+                status_txt = self.failed_status_dict[status & 0x3f]
+                txt = 'Commit firmware status: Fail- ' + status_txt
+        else:
+            txt = 'Commit firmware status: Success'
+        logger.info(txt)
         return status
