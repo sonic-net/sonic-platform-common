@@ -174,7 +174,7 @@ class CmisCdbApi(XcvrApi):
         The default host password is 00001011h. CDB command 0001h puts the
         password in Page 9Fh, Byte 136-139.
         '''
-        psw = psw.to_bytes(4, 'big')
+        psw = struct.pack('>L', psw)
         cmd = bytearray(b'\x00\x01\x00\x00\x04\x00\x00\x00') + psw
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
         self.write_cdb(cmd)
