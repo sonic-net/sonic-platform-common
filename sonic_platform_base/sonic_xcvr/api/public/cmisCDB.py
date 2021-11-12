@@ -169,7 +169,7 @@ class CmisCdbApi(XcvrApi):
                 txt = 'Query CDB status: Fail- ' + status_txt
         else:
             txt = 'Query CDB status: Success'
-        print(txt)
+        logger.info(txt)
         return self.read_cdb()
 
     # Enter password
@@ -193,7 +193,7 @@ class CmisCdbApi(XcvrApi):
                 txt = 'Enter password status: Fail- ' + status_txt
         else:
             txt = 'Enter password status: Success'
-        print(txt)
+        logger.info(txt)
         return status
 
     def get_module_feature(self):
@@ -213,7 +213,7 @@ class CmisCdbApi(XcvrApi):
                 txt = 'Get module feature status: Fail- ' + status_txt
         else:
             txt = 'Get module feature status: Success'
-        print(txt)
+        logger.info(txt)
         return self.read_cdb()
 
     # Firmware Update Features Supported
@@ -234,7 +234,7 @@ class CmisCdbApi(XcvrApi):
                 txt = 'Get firmware management feature status: Fail- ' + status_txt
         else:
             txt = 'Get firmware management feature status: Success'
-        print(txt)
+        logger.info(txt)
         return self.read_cdb()
 
     # Get FW info
@@ -257,7 +257,7 @@ class CmisCdbApi(XcvrApi):
                 txt = 'Get firmware info status: Fail- ' + status_txt
         else:
             txt = 'Get firmware info status: Success'
-        print(txt)
+        logger.info(txt)
         return self.read_cdb()
 
     # Start FW download
@@ -267,8 +267,8 @@ class CmisCdbApi(XcvrApi):
         It returns the status of CDB command 0101h
         '''
         # pwd_status = self.module_enter_password()
-        # print('Module password enter status is %d' %pwd_status)
-        print("Image size is {}".format(imagesize))
+        # logger.info('Module password enter status is %d' %pwd_status)
+        logger.info("Image size is {}".format(imagesize))
         cmd = bytearray(b'\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
         cmd[132-INIT_OFFSET] = startLPLsize + 8
         cmd[136-INIT_OFFSET] = (imagesize >> 24) & 0xff
@@ -288,7 +288,7 @@ class CmisCdbApi(XcvrApi):
                 txt = 'Start firmware download status: Fail- ' + status_txt
         else:
             txt = 'Start firmware download status: Success'
-        print(txt)
+        logger.info(txt)
         return status
 
     # Abort FW download
@@ -298,7 +298,7 @@ class CmisCdbApi(XcvrApi):
         It returns the status of CDB command 0102h
         '''
         # pwd_status = self.module_enter_password()
-        # print('Module password enter status is %d' %pwd_status)
+        # logger.info('Module password enter status is %d' %pwd_status)
         cmd = bytearray(b'\x01\x02\x00\x00\x00\x00\x00\x00')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
         self.write_cdb(cmd)
@@ -311,7 +311,7 @@ class CmisCdbApi(XcvrApi):
                 txt = 'Abort firmware download status: Fail- ' + status_txt
         else:
             txt = 'Abort firmware download status: Success'
-        print(txt)
+        logger.info(txt)
         return status
 
     # Download FW with LPL
@@ -343,7 +343,7 @@ class CmisCdbApi(XcvrApi):
                 txt = 'LPL firmware download status: Fail- ' + status_txt
         else:
             txt = 'LPL firmware download status: Success'
-        print(txt)
+        logger.info(txt)
         return status
 
     #  Download FW with EPL
@@ -380,7 +380,7 @@ class CmisCdbApi(XcvrApi):
                     datachunk = data[offset : ]
                     self.xcvr_eeprom.write_raw(0xA0*PAGE_LENGTH+offset+INIT_OFFSET, len(datachunk), datachunk)
         subtimeint = time.time()-subtime
-        print('%dB write time:  %.2fs' %(epl_len, subtimeint))
+        logger.info('%dB write time:  %.2fs' %(epl_len, subtimeint))
         cmd = bytearray(b'\x01\x04\x08\x00\x04\x00\x00\x00')
         addr_byte = struct.pack('>L',addr)
         cmd += addr_byte
@@ -396,7 +396,7 @@ class CmisCdbApi(XcvrApi):
                 txt = 'EPL firmware download status: Fail- ' + status_txt
         else:
             txt = 'EPL firmware download status: Success'
-        print(txt)
+        logger.info(txt)
         return status
 
     # FW download complete
@@ -418,7 +418,7 @@ class CmisCdbApi(XcvrApi):
                 txt = 'Firmware download complete status: Fail- ' + status_txt
         else:
             txt = 'Firmware download complete status: Success'
-        print(txt)
+        logger.info(txt)
         return status
 
     # Run FW image
@@ -446,7 +446,7 @@ class CmisCdbApi(XcvrApi):
                 txt = 'Run firmware status: Fail- ' + status_txt
         else:
             txt = 'Run firmware status: Success'
-        print(txt)
+        logger.info(txt)
         return status
 
     # Commit FW image
@@ -476,5 +476,5 @@ class CmisCdbApi(XcvrApi):
                 txt = 'Commit firmware status: Fail- ' + status_txt
         else:
             txt = 'Commit firmware status: Success'
-        print(txt)
+        logger.info(txt)
         return status
