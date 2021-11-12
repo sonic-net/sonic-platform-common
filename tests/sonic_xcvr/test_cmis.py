@@ -1463,6 +1463,7 @@ class TestCmis(object):
         self.api.get_vdm = MagicMock()
         self.api.get_vdm.return_value = mock_response[18]
         result = self.api.get_transceiver_status()
+        assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected",[
         (

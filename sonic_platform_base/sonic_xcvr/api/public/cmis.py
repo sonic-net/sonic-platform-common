@@ -1329,7 +1329,7 @@ class CmisApi(XcvrApi):
         Otherwise it will return False.
         """
         try:
-            ImageA, ImageARunning, ImageACommitted, ImageAValid, ImageB, ImageBRunning, ImageBCommitted, ImageBValid = self.get_module_fw_info()
+            _, _, _, _, _, _, _, _ = self.get_module_fw_info()
         except ValueError:
             status, txt = self.get_module_fw_info()
             return status, txt
