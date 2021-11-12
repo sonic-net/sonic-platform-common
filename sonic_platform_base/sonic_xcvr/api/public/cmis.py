@@ -1079,6 +1079,7 @@ class CmisApi(XcvrApi):
         if self.cdb.cdb_chkcode(rpl) != rpl_chkcode:
             string = 'Get module FW info: Need to enter password\n'
             logger.info(string)
+            # Reset password for module using CMIS 4.0
             self.cdb.module_enter_password(0)
             rpllen, rpl_chkcode, rpl = self.cdb.get_fw_info()
 

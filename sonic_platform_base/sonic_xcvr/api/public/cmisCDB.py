@@ -139,7 +139,11 @@ class CmisCdbApi(XcvrApi):
 
     def read_cdb(self):
         '''
-        This function reads the reply of a CDB command from page 0x9f
+        This function reads the reply of a CDB command from page 0x9f.
+        It returns the reply message of a CDB command. 
+        rpllen is the length (number of bytes) of rpl
+        rpl_chkcode is the check code of rpl and can be calculated by cdb_chkcode()
+        rpl is the reply message.
         '''
         rpllen = self.xcvr_eeprom.read(consts.CDB_RPL_LENGTH)
         rpl_chkcode = self.xcvr_eeprom.read(consts.CDB_RPL_CHKCODE)
@@ -150,7 +154,8 @@ class CmisCdbApi(XcvrApi):
     def query_cdb_status(self):
         '''
         This QUERY Status command may be used to retrieve the password acceptance
-        status and to perform a test of the CDB interface
+        status and to perform a test of the CDB interface.
+        It returns the reply message of this CDB command 0000h.
         '''
         cmd = bytearray(b'\x00\x00\x00\x00\x02\x00\x00\x00\x00\x10')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
@@ -173,6 +178,7 @@ class CmisCdbApi(XcvrApi):
         The Enter Password command allows the host to enter a host password
         The default host password is 00001011h. CDB command 0001h puts the
         password in Page 9Fh, Byte 136-139.
+        It returns the status of CDB command 0001h
         '''
         psw = struct.pack('>L', psw)
         cmd = bytearray(b'\x00\x01\x00\x00\x04\x00\x00\x00') + psw
@@ -192,7 +198,8 @@ class CmisCdbApi(XcvrApi):
 
     def get_module_feature(self):
         '''
-        This command is used to query which CDB commands are supported
+        This command is used to query which CDB commands are supported.
+        It returns the reply message of this CDB command 0040h.
         '''
         cmd = bytearray(b'\x00\x40\x00\x00\x00\x00\x00\x00')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
@@ -213,6 +220,7 @@ class CmisCdbApi(XcvrApi):
     def get_fw_management_features(self):
         '''
         This command is used to query supported firmware update features
+        It returns the reply message of this CDB command 0041h.
         '''
         cmd = bytearray(b'\x00\x41\x00\x00\x00\x00\x00\x00')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
@@ -234,6 +242,7 @@ class CmisCdbApi(XcvrApi):
         '''
         This command returns the firmware versions and firmware default running 
         images that reside in the module
+        It returns the reply message of this CDB command 0100h.
         '''
         # self.module_enter_password(0x00000000)
         cmd = bytearray(b'\x01\x00\x00\x00\x00\x00\x00\x00')
@@ -255,6 +264,7 @@ class CmisCdbApi(XcvrApi):
     def start_fw_download(self, startLPLsize, header, imagesize):
         '''
         This command starts the firmware download
+        It returns the status of CDB command 0101h
         '''
         # pwd_status = self.module_enter_password()
         # logger.info('Module password enter status is %d' %pwd_status)
@@ -285,6 +295,7 @@ class CmisCdbApi(XcvrApi):
     def abort_fw_download(self):
         '''
         This command aborts the firmware download
+        It returns the status of CDB command 0102h
         '''
         # pwd_status = self.module_enter_password()
         # logger.info('Module password enter status is %d' %pwd_status)
@@ -307,6 +318,7 @@ class CmisCdbApi(XcvrApi):
     def block_write_lpl(self, addr, data):
         '''
         This command writes one block of the firmware image into the LPL
+        It returns the status of CDB command 0103h
         '''
         # lpl_len includes 136-139, four bytes, data is 116-byte long. 
         lpl_len = len(data) + 4
@@ -338,6 +350,7 @@ class CmisCdbApi(XcvrApi):
     def block_write_epl(self, addr, data, autopaging_flag, writelength):
         '''
         This command writes one block of the firmware image into the EPL
+        It returns the status of CDB command 0104h
         '''
         epl_len = len(data)
         subtime = time.time()
@@ -391,6 +404,7 @@ class CmisCdbApi(XcvrApi):
         '''
         When this command is issued, the module shall validate the complete
         image and then return success or failure
+        It returns the status of CDB command 0107h
         '''
         cmd = bytearray(b'\x01\x07\x00\x00\x00\x00\x00\x00')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
@@ -416,13 +430,12 @@ class CmisCdbApi(XcvrApi):
     def run_fw_image(self, mode = 0x01):
         '''
         The host uses this command to run a selected image from module internal firmware banks
+        It returns the status of CDB command 0109h
         '''
         cmd = bytearray(b'\x01\x09\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00')
         cmd[137-INIT_OFFSET] = mode
         cmd[138-INIT_OFFSET] = 2 # Delay to Reset 512 ms
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
-        # pwd_status = self.module_enter_password()
-        # logger.info('Module password enter status is %d' %pwd_status)        
         self.write_cdb(cmd)
         status = self.cdb1_chkstatus()
         if (status != 0x1):
@@ -448,11 +461,11 @@ class CmisCdbApi(XcvrApi):
         shall only execute a Commit Image command on the image that it is currently running. If a non-running image
         is allowed to be committed, it is possible that a bad version may be committed and attempted to run after the
         next module reset.
+
+        It returns the status of CDB command 010Ah
         '''
         cmd = bytearray(b'\x01\x0A\x00\x00\x00\x00\x00\x00')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
-        # pwd_status = self.module_enter_password()
-        # logger.info('Module password enter status is %d' %pwd_status)  
         self.write_cdb(cmd)
         status = self.cdb1_chkstatus()
         if (status != 0x1):
