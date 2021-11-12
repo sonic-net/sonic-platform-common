@@ -9,6 +9,5 @@ class CableLenField(NumberRegField):
     def decode(self, raw_data, **decoded_deps):
         base_len = super(CableLenField, self).decode(raw_data, **decoded_deps)
         len_mult = decoded_deps.get(consts.LEN_MULT_FIELD)
-
         mult = 10 ** (len_mult - 1)
         return base_len * mult
