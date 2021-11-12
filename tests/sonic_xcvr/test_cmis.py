@@ -922,13 +922,13 @@ class TestCmis(object):
             False,
             [0x77, 0xff],
             [18, 35, (0, 7, 112, 255, 255, 16, 0, 0, 19, 136, 0, 100, 3, 232, 19, 136, 58, 152)],
-            (112, 2048, False, True, 2048)
+            {'status':True, 'info': 'Auto page support: True\nMax write length: 2048\nStart payload size 112\nMax block size 2048\nWrite to EPL supported\nAbort CMD102h supported True\nGet module FW upgrade features time: 0.00 s\n', 'result': (112, 2048, False, True, 2048)}
         ),
         (
-            True,
+            False,
             [0x77, 0xff],
             [18, 35, (0, 7, 112, 255, 255, 1, 0, 0, 19, 136, 0, 100, 3, 232, 19, 136, 58, 152)],
-            (112, 2048, True, True, 2048)
+            {'status':True, 'info': 'Auto page support: True\nMax write length: 2048\nStart payload size 112\nMax block size 2048\nWrite to LPL supported\nAbort CMD102h supported True\nGet module FW upgrade features time: 0.00 s\n', 'result': (112, 2048, True, True, 2048)}
         ),
     ])
     def test_get_module_fw_upgrade_feature(self, input_param, mock_response1, mock_response2, expected):
@@ -945,11 +945,11 @@ class TestCmis(object):
     @pytest.mark.parametrize("mock_response, expected", [
         (
             [110, 26, (3, 3, 0, 0, 0, 1, 1, 4, 3, 0, 0, 100, 3, 232, 19, 136, 58, 152, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 4, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)],
-            ('0.0.1', 1, 1, 0, '0.0.0', 0, 0, 0)
+            {'status':True, 'info': 'Get module FW info\nImage A Version: 0.0.1\nImage B Version: 0.0.0\nRunning Image: A; Committed Image: A\nGet module FW info time: 0.00 s\n', 'result': ('0.0.1', 1, 1, 0, '0.0.0', 0, 0, 0)}
         ),
         (
             [110, 26, (48, 3, 0, 0, 0, 1, 1, 4, 3, 0, 0, 100, 3, 232, 19, 136, 58, 152, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 4, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)],
-            ('0.0.1', 0, 0, 0, '0.0.0', 1, 1, 0)
+            {'status':True, 'info': 'Get module FW info\nImage A Version: 0.0.1\nImage B Version: 0.0.0\nRunning Image: B; Committed Image: B\nGet module FW info time: 0.00 s\n', 'result': ('0.0.1', 0, 0, 0, '0.0.0', 1, 1, 0)}
         ),
     ])
     def test_get_module_fw_info(self, mock_response, expected):
@@ -986,30 +986,30 @@ class TestCmis(object):
     @pytest.mark.parametrize("input_param, mock_response, expected", [
         (
             'abc',
-            [[('a', 1, 1, 0, 'b', 0, 0, 0)], [(112, 2048, True, True, 2048)], (True, ''), (True, '')],
+            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0)}, {'status': True, 'info': '', 'result': (112, 2048, True, True, 2048)}, (True, ''), (True, '')],
             (True, '')
         ),
         (
             'abc',
-            [[(False, ''), (False, '')], [(112, 2048, True, True, 2048)], (True, ''), (True, '')],
+            [{'status': False, 'info': '', 'result': None}, {'status': True, 'info': '', 'result': (112, 2048, True, True, 2048)}, (True, ''), (True, '')],
             (False, '')
         ),
         (
             'abc',
-            [[('a', 1, 1, 0, 'b', 0, 0, 0)], [(False, ''), (False, '')], (True, ''), (True, '')],
+            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0)}, {'status': False, 'info': '', 'result': None}, (True, ''), (True, '')],
             (False, '')
         ),
         (
             'abc',
-            [[('a', 1, 1, 0, 'b', 0, 0, 0)], [(112, 2048, True, True, 2048)], (False, ''), (True, '')],
+            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0)}, {'status': True, 'info': '', 'result': (112, 2048, True, True, 2048)}, (False, ''), (True, '')],
             (False, '')
         ),
     ])
     def test_module_fw_upgrade(self, input_param, mock_response, expected):
         self.api.get_module_fw_info = MagicMock()
-        self.api.get_module_fw_info.side_effect = mock_response[0]
+        self.api.get_module_fw_info.return_value = mock_response[0]
         self.api.get_module_fw_upgrade_feature = MagicMock()
-        self.api.get_module_fw_upgrade_feature.side_effect = mock_response[1]
+        self.api.get_module_fw_upgrade_feature.return_value = mock_response[1]
         self.api.module_fw_download = MagicMock()
         self.api.module_fw_download.return_value = mock_response[2]
         self.api.module_fw_switch = MagicMock()
