@@ -154,12 +154,12 @@ class NumberRegField(RegField):
             decoded >>= self.start_bitpos
         if self.scale is not None:
             return decoded / self.scale
-        return decoded 
+        return decoded
 
     def encode(self, val, raw_state=None):
         assert not self.ro
         if self.scale is not None:
-            return bytearray(struct.pack(self.format, val * self.scale))
+            return bytearray(struct.pack(self.format, int(val * self.scale)))
         return bytearray(struct.pack(self.format, val))
 
 class StringRegField(RegField):
@@ -232,8 +232,18 @@ class RegGroupField(XcvrField):
         start = self.offset
         for field in self.fields:
             offset = field.get_offset()
-            result[field.name] = field.decode(raw_data[offset - start: offset + field.get_size() - start], 
+            if not field.get_deps():
+                result[field.name] = field.decode(raw_data[offset - start: offset + field.get_size() - start], 
                                               **decoded_deps)
+
+        # Now decode any fields that have dependant fields in the same RegGroupField scope
+        for field in self.fields:
+            offset = field.get_offset()
+            deps = field.get_deps()
+            if deps:
+                decoded_deps = {dep: result[dep] for dep in deps}
+                result[field.name] = field.decode(raw_data[offset - start: offset + field.get_size() - start],
+                                                **decoded_deps)
         return result
 
 class DateField(StringRegField):
