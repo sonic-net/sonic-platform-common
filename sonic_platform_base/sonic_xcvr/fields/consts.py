@@ -100,8 +100,6 @@ OPTIONS_FIELD = "Options"
 POWER_CTRL_FIELD = "Power Control"
 POWER_OVERRIDE_FIELD = "Power Override"
 POWER_SET_FIELD = "Power Set"
-MODULE_STATE_FIELD = "Module Status"
-SET_LP_MODE_FIELD = "Low power Mode"
 # SFF-8636
 
 REV_COMPLIANCE_FIELD = "Revision Compliance"

@@ -589,27 +589,31 @@ class CmisApi(XcvrApi):
         return "Power Class 1" not in power_class
 
     def get_lpmode(self):
+        '''
+        Retrieves Low power module status
+        '''
         if self.is_flat_memory() or not self.get_lpmode_support():
             return False
 
-        lpmode = self.xcvr_eeprom.read(consts.MODULE_STATE_FIELD)
+        lpmode = self.xcvr_eeprom.read(consts.TRANS_MODULE_STATUS_FIELD)
         if lpmode is not None:
-            if lpmode >> 1 == 1:
+            if lpmode.get('ModuleState') == 'ModuleLowPwr':
                 return True
         return False
 
     def set_lpmode(self, lpmode):
+        '''
+        This function sets the module to low power state.
+        lpmode being False means "set to high power"
+        lpmode being True means "set to low power"
+        Return True if the provision succeeds, False if it fails
+        '''
+
         if self.is_flat_memory() or not self.get_lpmode_support():
             return False
 
-        lpmode_val = self.xcvr_eeprom.read(consts.MODULE_STATE_FIELD)
-        if lpmode_val is not None:
-            if lpmode is True:
-                lpmode_val = lpmode_val | (1 << 4)
-            else:
-                lpmode_val = lpmode_val & ~(1 << 4)
-            return self.xcvr_eeprom.write(consts.SET_LP_MODE_FIELD, lpmode_val)
-        return False
+        lpmode_val = lpmode << 4
+        return self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, lpmode_val)
 
     def get_power_override_support(self):
         return False
