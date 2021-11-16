@@ -8,6 +8,16 @@
 from ...fields import consts
 from ..xcvr_api import XcvrApi
 
+import logging
+from ...fields import consts
+from ..xcvr_api import XcvrApi
+from .cmisCDB import CmisCdbApi
+from .cmisVDM import CmisVdmApi
+import time
+
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
+
 class CmisApi(XcvrApi):
     NUM_CHANNELS = 8
 
@@ -15,15 +25,87 @@ class CmisApi(XcvrApi):
         super(CmisApi, self).__init__(xcvr_eeprom)
 
     def get_model(self):
+        '''
+        This function returns the part number of the module
+        '''
         return self.xcvr_eeprom.read(consts.VENDOR_PART_NO_FIELD)
 
+    def get_vendor_rev(self):
+        '''
+        This function returns the revision level for part number provided by vendor 
+        '''
+        return self.xcvr_eeprom.read(consts.VENDOR_REV_FIELD)
+
     def get_serial(self):
+        '''
+        This function returns the serial number of the module
+        '''
         return self.xcvr_eeprom.read(consts.VENDOR_SERIAL_NO_FIELD)
+
+    def get_module_type(self):
+        '''
+        This function returns the SFF8024Identifier (module type / form-factor). Table 4-1 in SFF-8024 Rev4.6
+        '''
+        return self.xcvr_eeprom.read(consts.ID_FIELD)
+
+    def get_connector_type(self):
+        '''
+        This function returns module connector. Table 4-3 in SFF-8024 Rev4.6
+        '''
+        return self.xcvr_eeprom.read(consts.CONNECTOR_FIELD)
+
+    def get_module_hardware_revision(self):
+        '''
+        This function returns the module hardware revision
+        '''
+        hw_major_rev = self.xcvr_eeprom.read(consts.HW_MAJOR_REV)
+        hw_minor_rev = self.xcvr_eeprom.read(consts.HW_MAJOR_REV)
+        hw_rev = [str(num) for num in [hw_major_rev, hw_minor_rev]]
+        return '.'.join(hw_rev)
+
+    def get_cmis_rev(self):
+        '''
+        This function returns the CMIS version the module complies to
+        '''
+        cmis_major = self.xcvr_eeprom.read(consts.CMIS_MAJOR_REVISION)
+        cmis_minor = self.xcvr_eeprom.read(consts.CMIS_MINOR_REVISION)
+        cmis_rev = [str(num) for num in [cmis_major, cmis_minor]]
+        return '.'.join(cmis_rev)
+
+    # Transceiver status
+    def get_module_state(self):
+        '''
+        This function returns the module state
+        '''
+        return self.xcvr_eeprom.read(consts.MODULE_STATE)
+
+    def get_module_fault_cause(self):
+        '''
+        This function returns the module fault cause
+        '''
+        return self.xcvr_eeprom.read(consts.MODULE_FAULT_CAUSE)
+
+    def get_module_active_firmware(self):
+        '''
+        This function returns the active firmware version
+        '''
+        active_fw_major = self.xcvr_eeprom.read(consts.ACTIVE_FW_MAJOR_REV)
+        active_fw_minor = self.xcvr_eeprom.read(consts.ACTIVE_FW_MINOR_REV)
+        active_fw = [str(num) for num in [active_fw_major, active_fw_minor]]
+        return '.'.join(active_fw)
+
+    def get_module_inactive_firmware(self):
+        '''
+        This function returns the inactive firmware version
+        '''
+        inactive_fw_major = self.xcvr_eeprom.read(consts.INACTIVE_FW_MAJOR_REV)
+        inactive_fw_minor = self.xcvr_eeprom.read(consts.INACTIVE_FW_MINOR_REV)
+        inactive_fw = [str(num) for num in [inactive_fw_major, inactive_fw_minor]]
+        return '.'.join(inactive_fw)
 
     def get_transceiver_info(self):
         admin_info = self.xcvr_eeprom.read(consts.ADMIN_INFO_FIELD)
-        media_type = self.xcvr_eeprom.read(consts.MEDIA_TYPE_FIELD)
-        if admin_info is None or media_type is None:
+        if admin_info is None:
             return None
 
         ext_id = admin_info[consts.EXT_ID_FIELD]
@@ -33,7 +115,7 @@ class CmisApi(XcvrApi):
         xcvr_info = {
             "type": admin_info[consts.ID_FIELD],
             "type_abbrv_name": admin_info[consts.ID_ABBRV_FIELD],
-            "hardware_rev": admin_info[consts.VENDOR_REV_FIELD],
+            "hardware_rev": '.'.join([str(admin_info[consts.HW_MAJOR_REV]),str(admin_info[consts.HW_MINOR_REV])]),
             "serial": admin_info[consts.VENDOR_SERIAL_NO_FIELD],
             "manufacturer": admin_info[consts.VENDOR_NAME_FIELD],
             "model": admin_info[consts.VENDOR_PART_NO_FIELD],
@@ -41,15 +123,37 @@ class CmisApi(XcvrApi):
             "encoding": "N/A", # Not supported
             "ext_identifier": "%s (%sW Max)" % (power_class, max_power),
             "ext_rateselect_compliance": "N/A", # Not supported
-            "cable_type": "Length cable Assembly(m)",
-            "cable_length": float(admin_info[consts.LENGTH_ASSEMBLY_FIELD]),
+            "cable_type": "Length Cable Assembly(m)",
+            "cable_length": admin_info[consts.LENGTH_ASSEMBLY_FIELD],
             "nominal_bit_rate": 0, # Not supported
-            "specification_compliance": media_type,
+            "specification_compliance": admin_info[consts.MEDIA_TYPE_FIELD],
             "vendor_date": admin_info[consts.VENDOR_DATE_FIELD],
             "vendor_oui": admin_info[consts.VENDOR_OUI_FIELD],
             # TODO
             "application_advertisement": "N/A",
         }
+        xcvr_info['host_electrical_interface'] = self.get_host_electrical_interface()
+        xcvr_info['media_interface_code'] = self.get_module_media_interface()
+        xcvr_info['host_lane_count'] = self.get_host_lane_count()
+        xcvr_info['media_lane_count'] = self.get_media_lane_count()
+        xcvr_info['host_lane_assignment_option'] = self.get_host_lane_assignment_option()
+        xcvr_info['media_lane_assignment_option'] = self.get_media_lane_assignment_option()
+        apsel_dict = self.get_active_apsel_hostlane()
+        xcvr_info['active_apsel_hostlane1'] = apsel_dict['ActiveAppSelLane1']
+        xcvr_info['active_apsel_hostlane2'] = apsel_dict['ActiveAppSelLane2']
+        xcvr_info['active_apsel_hostlane3'] = apsel_dict['ActiveAppSelLane3']
+        xcvr_info['active_apsel_hostlane4'] = apsel_dict['ActiveAppSelLane4']
+        xcvr_info['active_apsel_hostlane5'] = apsel_dict['ActiveAppSelLane5']
+        xcvr_info['active_apsel_hostlane6'] = apsel_dict['ActiveAppSelLane6']
+        xcvr_info['active_apsel_hostlane7'] = apsel_dict['ActiveAppSelLane7']
+        xcvr_info['active_apsel_hostlane8'] = apsel_dict['ActiveAppSelLane8']
+
+        xcvr_info['media_interface_technology'] = self.get_media_interface_technology()
+        xcvr_info['vendor_rev'] = self.get_vendor_rev()
+        xcvr_info['cmis_rev'] = self.get_cmis_rev()
+        xcvr_info['active_firmware'] = self.get_module_active_firmware()
+        xcvr_info['inactive_firmware'] = self.get_module_inactive_firmware()
+        xcvr_info['specification_compliance'] = self.get_module_media_type()
         return xcvr_info
 
     def get_transceiver_bulk_status(self):
@@ -75,8 +179,8 @@ class CmisApi(XcvrApi):
             return None
 
         bulk_status = {
-            "rx_los": all(rx_los) if self.get_rx_los_support() else 'N/A',
-            "tx_fault": all(tx_fault) if self.get_tx_fault_support() else 'N/A',
+            "rx_los": all(rx_los.values()) if self.get_rx_los_support() else 'N/A',
+            "tx_fault": all(tx_fault.values()) if self.get_tx_fault_support() else 'N/A',
             "tx_disable": all(tx_disable),
             "tx_disabled_channel": tx_disabled_channel,
             "temperature": temp,
@@ -84,10 +188,18 @@ class CmisApi(XcvrApi):
         }
 
         for i in range(1, self.NUM_CHANNELS + 1):
-            bulk_status["tx%dbias" % i] = tx_bias[i - 1]
-            bulk_status["rx%dpower" % i] = rx_power[i - 1]
-            bulk_status["tx%dpower" % i] = tx_power[i - 1]
+            bulk_status["tx%dbias" % i] = tx_bias['LaserBiasTx%dField' % i]
+            bulk_status["rx%dpower" % i] = rx_power['OpticalPowerRx%dField' %i]
+            bulk_status["tx%dpower" % i] = tx_power['OpticalPowerTx%dField' %i]
 
+        laser_temp_dict = self.get_laser_temperature()
+        bulk_status['laser_temperature'] = laser_temp_dict['monitor value']
+        self.vdm_dict = self.get_vdm()
+        try:
+            bulk_status['prefec_ber'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][0]
+            bulk_status['postfec_ber'] = self.vdm_dict['Errored Frames Average Media Input'][1][0]
+        except KeyError:
+            pass
         return bulk_status
 
     def get_transceiver_threshold_info(self):
@@ -113,7 +225,7 @@ class CmisApi(XcvrApi):
         if thresh is None:
             return None
 
-        return {
+        threshold_info_dict =  {
             "temphighalarm": float("{:.3f}".format(thresh[consts.TEMP_HIGH_ALARM_FIELD])),
             "templowalarm": float("{:.3f}".format(thresh[consts.TEMP_LOW_ALARM_FIELD])),
             "temphighwarning": float("{:.3f}".format(thresh[consts.TEMP_HIGH_WARNING_FIELD])),
@@ -122,7 +234,7 @@ class CmisApi(XcvrApi):
             "vcclowalarm": float("{:.3f}".format(thresh[consts.VOLTAGE_LOW_ALARM_FIELD])),
             "vcchighwarning": float("{:.3f}".format(thresh[consts.VOLTAGE_HIGH_WARNING_FIELD])),
             "vcclowwarning": float("{:.3f}".format(thresh[consts.VOLTAGE_LOW_WARNING_FIELD])),
-            "rxpowerhighalarm": float("{:.3f}".format(thresh[consts.RX_POWER_HIGH_ALARM_FIELD])),
+            "rxpowerhighalarm": float("{:.3f}".format(self.mw_to_dbm(thresh[consts.RX_POWER_HIGH_ALARM_FIELD]))),
             "rxpowerlowalarm": float("{:.3f}".format(self.mw_to_dbm(thresh[consts.RX_POWER_LOW_ALARM_FIELD]))),
             "rxpowerhighwarning": float("{:.3f}".format(self.mw_to_dbm(thresh[consts.RX_POWER_HIGH_WARNING_FIELD]))),
             "rxpowerlowwarning": float("{:.3f}".format(self.mw_to_dbm(thresh[consts.RX_POWER_LOW_WARNING_FIELD]))),
@@ -135,16 +247,41 @@ class CmisApi(XcvrApi):
             "txbiashighwarning": float("{:.3f}".format(thresh[consts.TX_BIAS_HIGH_WARNING_FIELD])),
             "txbiaslowwarning": float("{:.3f}".format(thresh[consts.TX_BIAS_LOW_WARNING_FIELD]))
         }
+        laser_temp_dict = self.get_laser_temperature()
+        threshold_info_dict['lasertemphighalarm'] = laser_temp_dict['high alarm']
+        threshold_info_dict['lasertemplowalarm'] = laser_temp_dict['low alarm']
+        threshold_info_dict['lasertemphighwarning'] = laser_temp_dict['high warn']
+        threshold_info_dict['lasertemplowwarning'] = laser_temp_dict['low warn']
+        self.vdm_dict = self.get_vdm()
+        try:
+            threshold_info_dict['prefecberhighalarm'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][1]
+            threshold_info_dict['prefecberlowalarm'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][2]
+            threshold_info_dict['prefecberhighwarning'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][3]
+            threshold_info_dict['prefecberlowwarning'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][4]     
+            threshold_info_dict['postfecberhighalarm'] = self.vdm_dict['Errored Frames Average Media Input'][1][1]
+            threshold_info_dict['postfecberlowalarm'] = self.vdm_dict['Errored Frames Average Media Input'][1][2]
+            threshold_info_dict['postfecberhighwarning'] = self.vdm_dict['Errored Frames Average Media Input'][1][3]
+            threshold_info_dict['postfecberlowwarning'] = self.vdm_dict['Errored Frames Average Media Input'][1][4]
+        except KeyError:
+            pass
+        return threshold_info_dict
 
     def get_module_temperature(self):
+        '''
+        This function returns the module case temperature and its thresholds. Unit in deg C
+        '''
         if not self.get_temperature_support():
             return 'N/A'
         temp = self.xcvr_eeprom.read(consts.TEMPERATURE_FIELD)
         if temp is None:
             return None
         return float("{:.3f}".format(temp))
- 
+
     def get_voltage(self):
+        '''
+        This function returns the monitored value of the 3.3-V supply voltage and its thresholds.
+        Unit in V
+        '''
         if not self.get_voltage_support():
             return 'N/A'
         voltage = self.xcvr_eeprom.read(consts.VOLTAGE_FIELD)
@@ -154,7 +291,7 @@ class CmisApi(XcvrApi):
 
     def is_flat_memory(self):
         return self.xcvr_eeprom.read(consts.FLAT_MEM_FIELD)
- 
+
     def get_temperature_support(self):
         return not self.is_flat_memory()
 
@@ -164,7 +301,29 @@ class CmisApi(XcvrApi):
     def get_rx_los_support(self):
         return not self.is_flat_memory()
 
+    def get_tx_cdr_lol_support(self):
+        return not self.is_flat_memory()
+
+    def get_tx_cdr_lol(self):
+        '''
+        This function returns TX CDR LOL flag on TX host lane
+        '''
+        tx_cdr_lol_support = self.get_tx_cdr_lol_support()
+        if tx_cdr_lol_support is None:
+            return None
+        if not tx_cdr_lol_support:
+            return ["N/A" for _ in range(self.NUM_CHANNELS)]
+        tx_cdr_lol = self.xcvr_eeprom.read(consts.TX_CDR_LOL)
+        if tx_cdr_lol is None:
+            return None
+        for key, value in tx_cdr_lol.items():
+            tx_cdr_lol[key] = bool(value)
+        return tx_cdr_lol
+
     def get_rx_los(self):
+        '''
+        This function returns RX LOS flag on RX media lane
+        '''
         rx_los_support = self.get_rx_los_support()
         if rx_los_support is None:
             return None
@@ -173,46 +332,164 @@ class CmisApi(XcvrApi):
         rx_los = self.xcvr_eeprom.read(consts.RX_LOS_FIELD)
         if rx_los is None:
             return None
-        return [bool(rx_los & (1 << i)) for i in range(self.NUM_CHANNELS)]
+        for key, value in rx_los.items():
+            rx_los[key] = bool(value)
+        return rx_los
+
+    def get_rx_cdr_lol_support(self):
+        return not self.is_flat_memory()
+
+    def get_rx_cdr_lol(self):
+        '''
+        This function returns RX CDR LOL flag on RX media lane
+        '''
+        rx_cdr_lol_support = self.get_rx_cdr_lol_support()
+        if rx_cdr_lol_support is None:
+            return None
+        if not rx_cdr_lol_support:
+            return ["N/A" for _ in range(self.NUM_CHANNELS)]
+        rx_cdr_lol = self.xcvr_eeprom.read(consts.RX_CDR_LOL)
+        if rx_cdr_lol is None:
+            return None
+        for key, value in rx_cdr_lol.items():
+            rx_cdr_lol[key] = bool(value)
+        return rx_cdr_lol
+
+    def get_tx_power_flag(self):
+        '''
+        This function returns TX power out of range flag on TX media lane
+        '''
+        tx_power_high_alarm_dict = self.xcvr_eeprom.read(consts.TX_POWER_HIGH_ALARM_FLAG)
+        tx_power_low_alarm_dict = self.xcvr_eeprom.read(consts.TX_POWER_LOW_ALARM_FLAG)
+        tx_power_high_warn_dict = self.xcvr_eeprom.read(consts.TX_POWER_HIGH_WARN_FLAG)
+        tx_power_low_warn_dict = self.xcvr_eeprom.read(consts.TX_POWER_LOW_WARN_FLAG)
+        if tx_power_high_alarm_dict is None or tx_power_low_alarm_dict is None or tx_power_high_warn_dict is None or tx_power_low_warn_dict is None:
+            return None
+        for key, value in tx_power_high_alarm_dict.items():
+            tx_power_high_alarm_dict[key] = bool(value)
+        for key, value in tx_power_low_alarm_dict.items():
+            tx_power_low_alarm_dict[key] = bool(value)
+        for key, value in tx_power_high_warn_dict.items():
+            tx_power_high_warn_dict[key] = bool(value)
+        for key, value in tx_power_low_warn_dict.items():
+            tx_power_low_warn_dict[key] = bool(value)
+        tx_power_flag_dict = {'tx_power_high_alarm': tx_power_high_alarm_dict,
+                              'tx_power_low_alarm': tx_power_low_alarm_dict,
+                              'tx_power_high_warn': tx_power_high_warn_dict,
+                              'tx_power_low_warn': tx_power_low_warn_dict,}
+        return tx_power_flag_dict
+
+    def get_tx_bias_flag(self):
+        '''
+        This function returns TX bias out of range flag on TX media lane
+        '''
+        tx_bias_high_alarm_dict = self.xcvr_eeprom.read(consts.TX_BIAS_HIGH_ALARM_FLAG)
+        tx_bias_low_alarm_dict = self.xcvr_eeprom.read(consts.TX_BIAS_LOW_ALARM_FLAG)
+        tx_bias_high_warn_dict = self.xcvr_eeprom.read(consts.TX_BIAS_HIGH_WARN_FLAG)
+        tx_bias_low_warn_dict = self.xcvr_eeprom.read(consts.TX_BIAS_LOW_WARN_FLAG)
+        if tx_bias_high_alarm_dict is None or tx_bias_low_alarm_dict is None or tx_bias_high_warn_dict is None or tx_bias_low_warn_dict is None:
+            return None
+        for key, value in tx_bias_high_alarm_dict.items():
+            tx_bias_high_alarm_dict[key] = bool(value)
+        for key, value in tx_bias_low_alarm_dict.items():
+            tx_bias_low_alarm_dict[key] = bool(value)
+        for key, value in tx_bias_high_warn_dict.items():
+            tx_bias_high_warn_dict[key] = bool(value)
+        for key, value in tx_bias_low_warn_dict.items():
+            tx_bias_low_warn_dict[key] = bool(value)
+        tx_bias_flag_dict = {'tx_bias_high_alarm': tx_bias_high_alarm_dict,
+                              'tx_bias_low_alarm': tx_bias_low_alarm_dict,
+                              'tx_bias_high_warn': tx_bias_high_warn_dict,
+                              'tx_bias_low_warn': tx_bias_low_warn_dict,}
+        return tx_bias_flag_dict
+
+    def get_rx_power_flag(self):
+        '''
+        This function returns RX power out of range flag on RX media lane
+        '''
+        rx_power_high_alarm_dict = self.xcvr_eeprom.read(consts.RX_POWER_HIGH_ALARM_FLAG)
+        rx_power_low_alarm_dict = self.xcvr_eeprom.read(consts.RX_POWER_LOW_ALARM_FLAG)
+        rx_power_high_warn_dict = self.xcvr_eeprom.read(consts.RX_POWER_HIGH_WARN_FLAG)
+        rx_power_low_warn_dict = self.xcvr_eeprom.read(consts.RX_POWER_LOW_WARN_FLAG)
+        if rx_power_high_alarm_dict is None or rx_power_low_alarm_dict is None or rx_power_high_warn_dict is None or rx_power_low_warn_dict is None:
+            return None
+        for key, value in rx_power_high_alarm_dict.items():
+            rx_power_high_alarm_dict[key] = bool(value)
+        for key, value in rx_power_low_alarm_dict.items():
+            rx_power_low_alarm_dict[key] = bool(value)
+        for key, value in rx_power_high_warn_dict.items():
+            rx_power_high_warn_dict[key] = bool(value)
+        for key, value in rx_power_low_warn_dict.items():
+            rx_power_low_warn_dict[key] = bool(value)
+        rx_power_flag_dict = {'rx_power_high_alarm': rx_power_high_alarm_dict,
+                              'rx_power_low_alarm': rx_power_low_alarm_dict,
+                              'rx_power_high_warn': rx_power_high_warn_dict,
+                              'rx_power_low_warn': rx_power_low_warn_dict,}
+        return rx_power_flag_dict
+
+    def get_tx_output_status(self):
+        '''
+        This function returns whether TX output signals are valid on TX media lane
+        '''
+        tx_output_status_dict = self.xcvr_eeprom.read(consts.TX_OUTPUT_STATUS)
+        if tx_output_status_dict is None:
+            return None
+        for key, value in tx_output_status_dict.items():
+            tx_output_status_dict[key] = bool(value)
+        return tx_output_status_dict
+
+    def get_rx_output_status(self):
+        '''
+        This function returns whether RX output signals are valid on RX host lane
+        '''
+        rx_output_status_dict = self.xcvr_eeprom.read(consts.RX_OUTPUT_STATUS)
+        if rx_output_status_dict is None:
+            return None
+        for key, value in rx_output_status_dict.items():
+            rx_output_status_dict[key] = bool(value)
+        return rx_output_status_dict
 
     def get_tx_bias_support(self):
         return not self.is_flat_memory()
 
     def get_tx_bias(self):
+        '''
+        This function returns TX bias current on each media lane
+        '''
         tx_bias_support = self.get_tx_bias_support()
         if tx_bias_support is None:
             return None
         if not tx_bias_support:
             return ["N/A" for _ in range(self.NUM_CHANNELS)]
         tx_bias = self.xcvr_eeprom.read(consts.TX_BIAS_FIELD)
-        if tx_bias is None:
-            return None
-        return [channel_bias for channel_bias in tx_bias.values()]
-    
+        return tx_bias
+
     def get_tx_power(self):
+        '''
+        This function returns TX output power in mW on each media lane
+        '''
         tx_power_support = self.get_tx_power_support()
         if tx_power_support is None:
             return None
         if not tx_power_support:
             return ["N/A" for _ in range(self.NUM_CHANNELS)]
         tx_power = self.xcvr_eeprom.read(consts.TX_POWER_FIELD)
-        if tx_power is None:
-            return None
-        return [float("{:.3f}".format(channel_power)) for channel_power in tx_power.values()]
+        return tx_power
 
     def get_tx_power_support(self):
         return not self.is_flat_memory()
 
     def get_rx_power(self):
+        '''
+        This function returns RX input power in mW on each media lane
+        '''
         rx_power_support = self.get_rx_power_support()
         if rx_power_support is None:
             return None
         if not rx_power_support:
             return ["N/A" for _ in range(self.NUM_CHANNELS)]
         rx_power = self.xcvr_eeprom.read(consts.RX_POWER_FIELD)
-        if rx_power is None:
-            return None
-        return [float("{:.3f}".format(channel_power)) for channel_power in rx_power.values()]
+        return rx_power
 
     def get_rx_power_support(self):
         return not self.is_flat_memory()
@@ -221,6 +498,9 @@ class CmisApi(XcvrApi):
         return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.TX_FAULT_SUPPORT_FIELD)
 
     def get_tx_fault(self):
+        '''
+        This function returns TX fault flag on TX media lane
+        '''
         tx_fault_support = self.get_tx_fault_support()
         if tx_fault_support is None:
             return None
@@ -229,7 +509,28 @@ class CmisApi(XcvrApi):
         tx_fault = self.xcvr_eeprom.read(consts.TX_FAULT_FIELD)
         if tx_fault is None:
             return None
-        return [bool(tx_fault & (1 << i)) for i in range(self.NUM_CHANNELS)]
+        for key, value in tx_fault.items():
+            tx_fault[key] = bool(value)
+        return tx_fault
+
+    def get_tx_los_support(self):
+        return not self.is_flat_memory()
+
+    def get_tx_los(self):
+        '''
+        This function returns TX LOS flag on TX host lane
+        '''
+        tx_los_support = self.get_tx_los_support()
+        if tx_los_support is None:
+            return None
+        if not tx_los_support:
+            return ["N/A" for _ in range(self.NUM_CHANNELS)]
+        tx_los = self.xcvr_eeprom.read(consts.TX_LOS_FIELD)
+        if tx_los is None:
+            return None
+        for key, value in tx_los.items():
+            tx_los[key] = bool(value)
+        return tx_los
 
     def get_tx_disable_support(self):
         return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.TX_DISABLE_SUPPORT_FIELD)
@@ -273,6 +574,12 @@ class CmisApi(XcvrApi):
 
         return self.xcvr_eeprom.write(consts.TX_DISABLE_FIELD, channel_state)
 
+    def get_power_override(self):
+        return None
+
+    def set_power_override(self, power_override, power_set):
+        return True
+
     def get_transceiver_thresholds_support(self):
         return not self.is_flat_memory()
 
@@ -284,3 +591,1078 @@ class CmisApi(XcvrApi):
 
     def get_power_override_support(self):
         return False
+
+    def get_module_media_type(self):
+        '''
+        This function returns module media type: MMF, SMF, Passive Copper Cable, Active Cable Assembly or Base-T.
+        '''
+        return self.xcvr_eeprom.read(consts.MEDIA_TYPE_FIELD)
+
+    def get_host_electrical_interface(self):
+        '''
+        This function returns module host electrical interface. Table 4-5 in SFF-8024 Rev4.6
+        '''
+        return self.xcvr_eeprom.read(consts.HOST_ELECTRICAL_INTERFACE)
+
+    def get_module_media_interface(self):
+        '''
+        This function returns module media electrical interface. Table 4-6 ~ 4-10 in SFF-8024 Rev4.6
+        '''
+        media_type = self.get_module_media_type()
+        if media_type == 'Multimode Fiber (MMF)':
+            return self.xcvr_eeprom.read(consts.MODULE_MEDIA_INTERFACE_850NM)
+        elif media_type == 'Single Mode Fiber (SMF)':
+            return self.xcvr_eeprom.read(consts.MODULE_MEDIA_INTERFACE_SM)
+        elif media_type == 'Passive Copper Cable':
+            return self.xcvr_eeprom.read(consts.MODULE_MEDIA_INTERFACE_PASSIVE_COPPER)
+        elif media_type == 'Active Cable Assembly':
+            return self.xcvr_eeprom.read(consts.MODULE_MEDIA_INTERFACE_ACTIVE_CABLE)
+        elif media_type == 'BASE-T':
+            return self.xcvr_eeprom.read(consts.MODULE_MEDIA_INTERFACE_BASE_T)
+        else:
+            return 'Unknown media interface'
+
+    def is_coherent_module(self):
+        '''
+        Returns True if the module follow C-CMIS spec, False otherwise
+        '''
+        mintf = self.get_module_media_interface()
+        return False if 'ZR' not in mintf else True
+
+    def get_host_lane_count(self):
+        '''
+        This function returns number of host lanes
+        '''
+        return self.xcvr_eeprom.read(consts.HOST_LANE_COUNT)
+
+
+    def get_media_lane_count(self):
+        '''
+        This function returns number of media lanes
+        '''
+        return self.xcvr_eeprom.read(consts.MEDIA_LANE_COUNT)
+
+    def get_media_interface_technology(self):
+        '''
+        This function returns the media lane technology
+        '''
+        return self.xcvr_eeprom.read(consts.MEDIA_INTERFACE_TECH)
+
+    def get_host_lane_assignment_option(self):
+        '''
+        This function returns the host lane that the application begins on
+        '''
+        return self.xcvr_eeprom.read(consts.HOST_LANE_ASSIGNMENT_OPTION)
+
+    def get_media_lane_assignment_option(self):
+        '''
+        This function returns the media lane that the application is allowed to begin on
+        '''
+        return self.xcvr_eeprom.read(consts.MEDIA_LANE_ASSIGNMENT_OPTION)
+
+    def get_active_apsel_hostlane(self):
+        '''
+        This function returns the application select code that each host lane has
+        '''
+        return self.xcvr_eeprom.read(consts.ACTIVE_APSEL_CODE)
+
+    def get_tx_config_power(self):
+        '''
+        This function returns the configured TX output power. Unit in dBm
+        '''
+        return self.xcvr_eeprom.read(consts.TX_CONFIG_POWER)
+
+    def get_media_output_loopback(self):
+        '''
+        This function returns the media output loopback status
+        '''
+        result = self.xcvr_eeprom.read(consts.MEDIA_OUTPUT_LOOPBACK)
+        if result is None:
+            return None
+        return result == 1
+
+    def get_media_input_loopback(self):
+        '''
+        This function returns the media input loopback status
+        '''
+        result = self.xcvr_eeprom.read(consts.MEDIA_INPUT_LOOPBACK)
+        if result is None:
+            return None
+        return result == 1
+
+    def get_host_output_loopback(self):
+        '''
+        This function returns the host output loopback status
+        '''
+        result = self.xcvr_eeprom.read(consts.HOST_OUTPUT_LOOPBACK)
+        if result is None:
+            return None
+        loopback_status = []
+        for bitpos in range(self.NUM_CHANNELS):
+            loopback_status.append(bool((result >> bitpos) & 0x1))
+        return loopback_status
+
+    def get_host_input_loopback(self):
+        '''
+        This function returns the host input loopback status
+        '''
+        result = self.xcvr_eeprom.read(consts.HOST_INPUT_LOOPBACK)
+        if result is None:
+            return None
+        loopback_status = []
+        for bitpos in range(self.NUM_CHANNELS):
+            loopback_status.append(bool((result >> bitpos) & 0x1))
+        return loopback_status
+
+    def get_aux_mon_type(self):
+        '''
+        This function returns the aux monitor types
+        '''
+        result = self.xcvr_eeprom.read(consts.AUX_MON_TYPE)
+        if result is None:
+            return None
+        aux1_mon_type = result & 0x1
+        aux2_mon_type = (result >> 1) & 0x1
+        aux3_mon_type = (result >> 2) & 0x1
+        return aux1_mon_type, aux2_mon_type, aux3_mon_type
+
+    def get_laser_temperature(self):
+        '''
+        This function returns the laser temperature monitor value
+        '''
+        try:
+            aux1_mon_type, aux2_mon_type, aux3_mon_type = self.get_aux_mon_type()
+        except TypeError:
+            return None
+        LASER_TEMP_SCALE = 256.0
+        if aux2_mon_type == 0:
+            laser_temp = self.xcvr_eeprom.read(consts.AUX2_MON)/LASER_TEMP_SCALE
+            laser_temp_high_alarm = self.xcvr_eeprom.read(consts.AUX2_HIGH_ALARM)/LASER_TEMP_SCALE
+            laser_temp_low_alarm = self.xcvr_eeprom.read(consts.AUX2_LOW_ALARM)/LASER_TEMP_SCALE
+            laser_temp_high_warn = self.xcvr_eeprom.read(consts.AUX2_HIGH_WARN)/LASER_TEMP_SCALE
+            laser_temp_low_warn = self.xcvr_eeprom.read(consts.AUX2_LOW_WARN)/LASER_TEMP_SCALE
+        elif aux2_mon_type == 1 and aux3_mon_type == 0:
+            laser_temp = self.xcvr_eeprom.read(consts.AUX3_MON)/LASER_TEMP_SCALE
+            laser_temp_high_alarm = self.xcvr_eeprom.read(consts.AUX3_HIGH_ALARM)/LASER_TEMP_SCALE
+            laser_temp_low_alarm = self.xcvr_eeprom.read(consts.AUX3_LOW_ALARM)/LASER_TEMP_SCALE
+            laser_temp_high_warn = self.xcvr_eeprom.read(consts.AUX3_HIGH_WARN)/LASER_TEMP_SCALE
+            laser_temp_low_warn = self.xcvr_eeprom.read(consts.AUX3_LOW_WARN)/LASER_TEMP_SCALE
+        else:
+            return None
+        laser_temp_dict = {'monitor value': laser_temp,
+                           'high alarm': laser_temp_high_alarm,
+                           'low alarm': laser_temp_low_alarm,
+                           'high warn': laser_temp_high_warn,
+                           'low warn': laser_temp_low_warn}
+        return laser_temp_dict
+
+    def get_laser_TEC_current(self):
+        '''
+        This function returns the laser TEC current monitor value
+        '''
+        try:
+            aux1_mon_type, aux2_mon_type, aux3_mon_type = self.get_aux_mon_type()
+        except TypeError:
+            return None
+        LASER_TEC_CURRENT_SCALE = 32767.0
+        if aux1_mon_type == 1:
+            laser_tec_current = self.xcvr_eeprom.read(consts.AUX1_MON)/LASER_TEC_CURRENT_SCALE
+            laser_tec_current_high_alarm = self.xcvr_eeprom.read(consts.AUX1_HIGH_ALARM)/LASER_TEC_CURRENT_SCALE
+            laser_tec_current_low_alarm = self.xcvr_eeprom.read(consts.AUX1_LOW_ALARM)/LASER_TEC_CURRENT_SCALE
+            laser_tec_current_high_warn = self.xcvr_eeprom.read(consts.AUX1_HIGH_WARN)/LASER_TEC_CURRENT_SCALE
+            laser_tec_current_low_warn = self.xcvr_eeprom.read(consts.AUX1_LOW_WARN)/LASER_TEC_CURRENT_SCALE
+        elif aux1_mon_type == 0 and aux2_mon_type == 1:
+            laser_tec_current = self.xcvr_eeprom.read(consts.AUX2_MON)/LASER_TEC_CURRENT_SCALE
+            laser_tec_current_high_alarm = self.xcvr_eeprom.read(consts.AUX2_HIGH_ALARM)/LASER_TEC_CURRENT_SCALE
+            laser_tec_current_low_alarm = self.xcvr_eeprom.read(consts.AUX2_LOW_ALARM)/LASER_TEC_CURRENT_SCALE
+            laser_tec_current_high_warn = self.xcvr_eeprom.read(consts.AUX2_HIGH_WARN)/LASER_TEC_CURRENT_SCALE
+            laser_tec_current_low_warn = self.xcvr_eeprom.read(consts.AUX2_LOW_WARN)/LASER_TEC_CURRENT_SCALE
+        else:
+            return None
+        laser_tec_current_dict = {'monitor value': laser_tec_current,
+                                  'high alarm': laser_tec_current_high_alarm,
+                                  'low alarm': laser_tec_current_low_alarm,
+                                  'high warn': laser_tec_current_high_warn,
+                                  'low warn': laser_tec_current_low_warn}
+        return laser_tec_current_dict
+
+    def get_config_datapath_hostlane_status(self):
+        '''
+        This function returns configuration command execution
+        / result status for the datapath of each host lane
+        '''
+        return self.xcvr_eeprom.read(consts.CONFIG_LANE_STATUS)
+
+    def get_datapath_state(self):
+        '''
+        This function returns the eight datapath states
+        '''
+        return self.xcvr_eeprom.read(consts.DATA_PATH_STATE)
+
+    def get_dpinit_pending(self):
+        '''
+        This function returns datapath init pending status.
+        0 means datapath init not pending.
+        1 means datapath init pending. DPInit not yet executed after successful ApplyDPInit.
+        Hence the active control set content may deviate from the actual hardware config
+        '''
+        dpinit_pending_dict = self.xcvr_eeprom.read(consts.DPINIT_PENDING)
+        if dpinit_pending_dict is None:
+            return None
+        for key, value in dpinit_pending_dict.items():
+            dpinit_pending_dict[key] = bool(value)
+        return dpinit_pending_dict
+
+    def get_supported_power_config(self):
+        '''
+        This function returns the supported TX power range
+        '''
+        min_prog_tx_output_power = self.xcvr_eeprom.read(consts.MIN_PROG_OUTPUT_POWER)
+        max_prog_tx_output_power = self.xcvr_eeprom.read(consts.MAX_PROG_OUTPUT_POWER)
+        return min_prog_tx_output_power, max_prog_tx_output_power
+
+    def reset_module(self, reset = False):
+        '''
+        This function resets the module
+        Return True if the provision succeeds, False if it fails
+        Return True if no action.
+        '''
+        if reset:
+            reset_control = reset << 3
+            return self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, reset_control)
+        else:
+            return True
+
+    def set_low_power(self, AssertLowPower):
+        '''
+        This function sets the module to low power state.
+        AssertLowPower being 0 means "set to high power"
+        AssertLowPower being 1 means "set to low power"
+        Return True if the provision succeeds, False if it fails
+        '''
+        low_power_control = AssertLowPower << 6
+        return self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, low_power_control)
+
+    def get_loopback_capability(self):
+        '''
+        This function returns the module loopback capability as advertised
+        '''
+        allowed_loopback_result = self.xcvr_eeprom.read(consts.LOOPBACK_CAPABILITY)
+        if allowed_loopback_result is None:
+            return None
+        loopback_capability = dict()
+        loopback_capability['simultaneous_host_media_loopback_supported'] = bool((allowed_loopback_result >> 6) & 0x1)
+        loopback_capability['per_lane_media_loopback_supported'] = bool((allowed_loopback_result >> 5) & 0x1)
+        loopback_capability['per_lane_host_loopback_supported'] = bool((allowed_loopback_result >> 4) & 0x1)
+        loopback_capability['host_side_input_loopback_supported'] = bool((allowed_loopback_result >> 3) & 0x1)
+        loopback_capability['host_side_output_loopback_supported'] = bool((allowed_loopback_result >> 2) & 0x1)
+        loopback_capability['media_side_input_loopback_supported'] = bool((allowed_loopback_result >> 1) & 0x1)
+        loopback_capability['media_side_output_loopback_supported'] = bool((allowed_loopback_result >> 0) & 0x1)
+        return loopback_capability
+
+    def set_loopback_mode(self, loopback_mode):
+        '''
+        This function sets the module loopback mode.
+        Loopback mode has to be one of the five:
+        1. "none" (default)
+        2. "host-side-input"
+        3. "host-side-output"
+        4. "media-side-input"
+        5. "media-side-output"
+        The function will look at 13h:128 to check advertized loopback capabilities.
+        Return True if the provision succeeds, False if it fails
+        '''
+        loopback_capability = self.get_loopback_capability()
+        if loopback_capability is None:
+            return None
+        if loopback_mode == 'none':
+            status_host_input = self.xcvr_eeprom.write(consts.HOST_INPUT_LOOPBACK, 0)
+            status_host_output = self.xcvr_eeprom.write(consts.HOST_OUTPUT_LOOPBACK, 0)
+            status_media_input = self.xcvr_eeprom.write(consts.MEDIA_INPUT_LOOPBACK, 0)
+            status_media_output = self.xcvr_eeprom.write(consts.MEDIA_OUTPUT_LOOPBACK, 0)
+            return all([status_host_input, status_host_output, status_media_input, status_media_output])
+        elif loopback_mode == 'host-side-input':
+            assert loopback_capability['host_side_input_loopback_supported']
+            return self.xcvr_eeprom.write(consts.HOST_INPUT_LOOPBACK, 0xff)
+        elif loopback_mode == 'host-side-output':
+            assert loopback_capability['host_side_output_loopback_supported']
+            return self.xcvr_eeprom.write(consts.HOST_OUTPUT_LOOPBACK, 0xff)
+        elif loopback_mode == 'media-side-input':
+            assert loopback_capability['media_side_input_loopback_supported']
+            return self.xcvr_eeprom.write(consts.MEDIA_INPUT_LOOPBACK, 0xff)
+        elif loopback_mode == 'media-side-output':
+            assert loopback_capability['media_side_output_loopback_supported']
+            return self.xcvr_eeprom.write(consts.MEDIA_OUTPUT_LOOPBACK, 0xff)
+        else:
+            return 'N/A'
+
+
+    def get_cdb_api(self):
+        self.cdb = CmisCdbApi(self.xcvr_eeprom)
+        return self.cdb
+
+    def get_vdm_api(self):
+        self.vdm = CmisVdmApi(self.xcvr_eeprom)
+        return self.vdm
+
+    def get_vdm(self):
+        '''
+        This function returns all the VDM items, including real time monitor value, threholds and flags
+        '''
+        try:
+            self.vdm
+        except AttributeError:
+            self.get_vdm_api()
+        vdm = self.vdm.get_vdm_allpage()
+        return vdm
+
+    def get_module_firmware_fault_state_changed(self):
+        '''
+        This function returns datapath firmware fault state, module firmware fault state
+        and whether module state changed
+        '''
+        result = self.xcvr_eeprom.read(consts.MODULE_FIRMWARE_FAULT_INFO)
+        if result is None:
+            return None
+        datapath_firmware_fault = bool((result >> 2) & 0x1)
+        module_firmware_fault = bool((result >> 1) & 0x1)
+        module_state_changed = bool(result & 0x1)
+        return datapath_firmware_fault, module_firmware_fault, module_state_changed
+
+    def get_module_level_flag(self):
+        '''
+        This function returns teh module level flags, including
+        - 3.3 V voltage supply flags
+        - Case temperature flags
+        - Aux 1 flags
+        - Aux 2 flags
+        - Aux 3 flags
+        - Custom field flags
+        '''
+        module_flag_byte1 = self.xcvr_eeprom.read(consts.MODULE_FLAG_BYTE1)
+        module_flag_byte2 = self.xcvr_eeprom.read(consts.MODULE_FLAG_BYTE2)
+        module_flag_byte3 = self.xcvr_eeprom.read(consts.MODULE_FLAG_BYTE3)
+        if module_flag_byte1 is None or module_flag_byte2 is None or module_flag_byte3 is None:
+            return None
+        voltage_high_alarm_flag = bool((module_flag_byte1 >> 4) & 0x1)
+        voltage_low_alarm_flag = bool((module_flag_byte1 >> 5) & 0x1)
+        voltage_high_warn_flag = bool((module_flag_byte1 >> 6) & 0x1)
+        voltage_low_warn_flag = bool((module_flag_byte1 >> 7) & 0x1)
+        voltage_flags = {'voltage_high_alarm_flag': voltage_high_alarm_flag,
+                         'voltage_low_alarm_flag': voltage_low_alarm_flag,
+                         'voltage_high_warn_flag': voltage_high_warn_flag,
+                         'voltage_low_warn_flag': voltage_low_warn_flag}
+
+        case_temp_high_alarm_flag = bool((module_flag_byte1 >> 0) & 0x1)
+        case_temp_low_alarm_flag = bool((module_flag_byte1 >> 1) & 0x1)
+        case_temp_high_warn_flag = bool((module_flag_byte1 >> 2) & 0x1)
+        case_temp_low_warn_flag = bool((module_flag_byte1 >> 3) & 0x1)
+        case_temp_flags = {'case_temp_high_alarm_flag': case_temp_high_alarm_flag,
+                           'case_temp_low_alarm_flag': case_temp_low_alarm_flag,
+                           'case_temp_high_warn_flag': case_temp_high_warn_flag,
+                           'case_temp_low_warn_flag': case_temp_low_warn_flag}
+
+        aux2_high_alarm_flag = bool((module_flag_byte2 >> 4) & 0x1)
+        aux2_low_alarm_flag = bool((module_flag_byte2 >> 5) & 0x1)
+        aux2_high_warn_flag = bool((module_flag_byte2 >> 6) & 0x1)
+        aux2_low_warn_flag = bool((module_flag_byte2 >> 7) & 0x1)
+        aux2_flags = {'aux2_high_alarm_flag': aux2_high_alarm_flag,
+                      'aux2_low_alarm_flag': aux2_low_alarm_flag,
+                      'aux2_high_warn_flag': aux2_high_warn_flag,
+                      'aux2_low_warn_flag': aux2_low_warn_flag}
+
+        aux1_high_alarm_flag = bool((module_flag_byte2 >> 0) & 0x1)
+        aux1_low_alarm_flag = bool((module_flag_byte2 >> 1) & 0x1)
+        aux1_high_warn_flag = bool((module_flag_byte2 >> 2) & 0x1)
+        aux1_low_warn_flag = bool((module_flag_byte2 >> 3) & 0x1)
+        aux1_flags = {'aux1_high_alarm_flag': aux1_high_alarm_flag,
+                      'aux1_low_alarm_flag': aux1_low_alarm_flag,
+                      'aux1_high_warn_flag': aux1_high_warn_flag,
+                      'aux1_low_warn_flag': aux1_low_warn_flag}
+
+        custom_mon_high_alarm_flag = bool((module_flag_byte3 >> 4) & 0x1)
+        custom_mon_low_alarm_flag = bool((module_flag_byte3 >> 5) & 0x1)
+        custom_mon_high_warn_flag = bool((module_flag_byte3 >> 6) & 0x1)
+        custom_mon_low_warn_flag = bool((module_flag_byte3 >> 7) & 0x1)
+        custom_mon_flags = {'custom_mon_high_alarm_flag': custom_mon_high_alarm_flag,
+                            'custom_mon_low_alarm_flag': custom_mon_low_alarm_flag,
+                            'custom_mon_high_warn_flag': custom_mon_high_warn_flag,
+                            'custom_mon_low_warn_flag': custom_mon_low_warn_flag}
+
+        aux3_high_alarm_flag = bool((module_flag_byte3 >> 0) & 0x1)
+        aux3_low_alarm_flag = bool((module_flag_byte3 >> 1) & 0x1)
+        aux3_high_warn_flag = bool((module_flag_byte3 >> 2) & 0x1)
+        aux3_low_warn_flag = bool((module_flag_byte3 >> 3) & 0x1)
+        aux3_flags = {'aux3_high_alarm_flag': aux3_high_alarm_flag,
+                      'aux3_low_alarm_flag': aux3_low_alarm_flag,
+                      'aux3_high_warn_flag': aux3_high_warn_flag,
+                      'aux3_low_warn_flag': aux3_low_warn_flag}
+
+        module_flag = {'voltage_flags': voltage_flags,
+                       'case_temp_flags': case_temp_flags,
+                       'aux1_flags': aux1_flags,
+                       'aux2_flags': aux2_flags,
+                       'aux3_flags': aux3_flags,
+                       'custom_mon_flags': custom_mon_flags}
+        return module_flag
+
+    def get_module_fw_upgrade_feature(self, verbose = False):
+        """
+        This function obtains CDB features supported by the module from CDB command 0041h,
+        such as start header size, maximum block size, whether extended payload messaging
+        (page 0xA0 - 0xAF) or only local payload is supported. These features are important because
+        the following upgrade with depend on these parameters.
+        """
+        try:
+            self.cdb
+        except AttributeError:
+            self.get_cdb_api()
+        txt = ''
+        # get fw upgrade features (CMD 0041h)
+        starttime = time.time()
+        autopaging = self.xcvr_eeprom.read(consts.AUTO_PAGING_SUPPORT)
+        autopaging_flag = bool(autopaging)
+        writelength_raw = self.xcvr_eeprom.read(consts.CDB_SEQ_WRITE_LENGTH_EXT)
+        if writelength_raw is None:
+            return None
+        writelength = (writelength_raw + 1) * 8
+        txt += 'Auto page support: %s\n' %autopaging_flag
+        txt += 'Max write length: %d\n' %writelength
+        rpllen, rpl_chkcode, rpl = self.cdb.get_fw_management_features()
+        if self.cdb.cdb_chkcode(rpl) == rpl_chkcode:
+            startLPLsize = rpl[2]
+            txt += 'Start payload size %d\n' % startLPLsize
+            maxblocksize = (rpl[4] + 1) * 8
+            txt += 'Max block size %d\n' % maxblocksize
+            lplEplSupport = {0x00 : 'No write to LPL/EPL supported',
+                            0x01 : 'Write to LPL supported',
+                            0x10 : 'Write to EPL supported',
+                            0x11 : 'Write to LPL/EPL supported'}
+            txt += '{}\n'.format(lplEplSupport[rpl[5]])
+            if rpl[5] == 1:
+                lplonly_flag = True
+            else:
+                lplonly_flag = False
+            txt += 'Abort CMD102h supported %s\n' %bool(rpl[1] & 0x01)
+            if verbose:
+                txt += 'Copy CMD108h supported %s\n' %bool((rpl[1] >> 1) & 0x01)
+                txt += 'Skipping erased blocks supported %s\n' %bool((rpl[1] >> 2) & 0x01)
+                txt += 'Full image readback supported %s\n' %bool((rpl[1] >> 7) & 0x01)
+                txt += 'Default erase byte {:#x}\n'.format(rpl[3])
+                txt += 'Read to LPL/EPL {:#x}\n'.format(rpl[6])
+
+        else:
+            txt += 'Reply payload check code error\n'
+            return {'status': False, 'info': txt, 'result': None}
+        elapsedtime = time.time()-starttime
+        txt += 'Get module FW upgrade features time: %.2f s\n' %elapsedtime
+        logger.info(txt)
+        return {'status': True, 'info': txt, 'result': (startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength)}
+
+    def get_module_fw_info(self):
+        """
+        This function returns firmware Image A and B version, running version, committed version
+        and whether both firmware images are valid.
+        Operational Status: 1 = running, 0 = not running
+        Administrative Status: 1=committed, 0=uncommitted
+        Validity Status: 1 = invalid, 0 = valid
+        """
+        try:
+            self.cdb
+        except AttributeError:
+            self.get_cdb_api()
+        txt = ''
+        # get fw info (CMD 0100h)
+        starttime = time.time()
+        txt += 'Get module FW info\n'
+        rpllen, rpl_chkcode, rpl = self.cdb.get_fw_info()
+        # password issue
+        if self.cdb.cdb_chkcode(rpl) != rpl_chkcode:
+            string = 'Get module FW info: Need to enter password\n'
+            logger.info(string)
+            # Reset password for module using CMIS 4.0
+            self.cdb.module_enter_password(0)
+            rpllen, rpl_chkcode, rpl = self.cdb.get_fw_info()
+
+        if self.cdb.cdb_chkcode(rpl) == rpl_chkcode:
+            # Regiter 9Fh:136
+            fwStatus = rpl[0]
+            ImageARunning = (fwStatus & 0x01) # bit 0 - image A is running
+            ImageACommitted = ((fwStatus >> 1) & 0x01) # bit 1 - image A is committed
+            ImageAValid = ((fwStatus >> 2) & 0x01) # bit 2 - image A is valid
+            ImageBRunning = ((fwStatus >> 4) & 0x01) # bit 4 - image B is running
+            ImageBCommitted = ((fwStatus >> 5) & 0x01)  # bit 5 - image B is committed
+            ImageBValid = ((fwStatus >> 6) & 0x01) # bit 6 - image B is valid
+
+            if ImageAValid == 0:
+                # Registers 9Fh:138,139; 140,141
+                ImageA = '%d.%d.%d' %(rpl[2], rpl[3], ((rpl[4]<< 8) | rpl[5]))
+            else:
+                ImageA = "N/A"
+            txt += 'Image A Version: %s\n' %ImageA
+            
+            if ImageBValid == 0:
+                # Registers 9Fh:174,175; 176.177
+                ImageB = '%d.%d.%d' %(rpl[38], rpl[39], ((rpl[40]<< 8) | rpl[41]))
+            else:
+                ImageB = "N/A"
+            txt += 'Image B Version: %s\n' %ImageB
+
+            if ImageARunning == 1:
+                RunningImage = 'A'
+            elif ImageBRunning == 1:
+                RunningImage = 'B'
+            else:
+                RunningImage = 'N/A'
+            if ImageACommitted == 1:
+                CommittedImage = 'A'
+            elif ImageBCommitted == 1:
+                CommittedImage = 'B'
+            else:
+                CommittedImage = 'N/A'            
+            txt += 'Running Image: %s; Committed Image: %s\n' %(RunningImage, CommittedImage)
+        else:
+            txt += 'Reply payload check code error\n'
+            return {'status': False, 'info': txt, 'result': None}
+        elapsedtime = time.time()-starttime
+        txt += 'Get module FW info time: %.2f s\n' %elapsedtime
+        logger.info(txt)
+        return {'status': True, 'info': txt, 'result': (ImageA, ImageARunning, ImageACommitted, ImageAValid, ImageB, ImageBRunning, ImageBCommitted, ImageBValid)}
+
+    def module_fw_run(self, mode = 0x01):
+        """
+        This command is used to start and run a selected image.
+        This command transfers control from the currently
+        running firmware to a selected firmware that is started. It
+        can be used to switch between firmware versions, or to
+        perform a restart of the currently running firmware.
+        mode:
+        00h = Traffic affecting Reset to Inactive Image.
+        01h = Attempt Hitless Reset to Inactive Image
+        02h = Traffic affecting Reset to Running Image.
+        03h = Attempt Hitless Reset to Running Image
+
+        This function returns True if firmware run successfully completes. 
+        Otherwise it will return False. 
+        """
+        try:
+            self.cdb
+        except AttributeError:
+            self.get_cdb_api()
+        # run module FW (CMD 0109h)
+        txt = ''
+        starttime = time.time()
+        fw_run_status = self.cdb.run_fw_image(mode)
+        if fw_run_status == 1:
+            txt += 'Module FW run: Success\n'
+        # password issue
+        elif fw_run_status == 70:
+            string = 'Module FW run: Need to enter password\n'
+            logger.info(string)
+            self.cdb.module_enter_password()
+            fw_run_status = self.cdb.run_fw_image(mode)
+            txt += 'FW_run_status %d\n' %fw_run_status
+        else:
+            # self.cdb.abort_fw_download()
+            txt += 'Module FW run: Fail\n'
+            txt += 'FW_run_status %d\n' %fw_run_status
+            return False, txt
+        elapsedtime = time.time()-starttime
+        txt += 'Module FW run time: %.2f s\n' %elapsedtime
+        logger.info(txt)
+        return True, txt
+
+    def module_fw_commit(self):
+        """
+        The host uses this command to commit the running image
+        so that the module will boot from it on future boots.
+
+        This function returns True if firmware commit successfully completes. 
+        Otherwise it will return False. 
+        """
+        try:
+            self.cdb
+        except AttributeError:
+            self.get_cdb_api()
+        txt = ''
+        # commit module FW (CMD 010Ah)
+        starttime = time.time()
+        fw_commit_status= self.cdb.commit_fw_image()
+        if fw_commit_status == 1:
+            txt += 'Module FW commit: Success\n'
+        # password issue
+        elif fw_commit_status == 70:
+            string = 'Module FW commit: Need to enter password\n'
+            logger.info(string)
+            self.cdb.module_enter_password()
+            fw_commit_status = self.cdb.commit_fw_image()
+            txt += 'FW_commit_status %d\n' %fw_commit_status
+        else:
+            # self.cdb.abort_fw_download()
+            txt += 'Module FW commit: Fail\n'
+            txt += 'FW_commit_status %d\n' %fw_commit_status
+            return False, txt
+        elapsedtime = time.time()-starttime
+        txt += 'Module FW commit time: %.2f s\n' %elapsedtime
+        logger.info(txt)
+        return True, txt
+
+    def module_fw_download(self, startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength, imagepath):
+        """
+        This function performs the download of a firmware image to module eeprom
+        It starts CDB download by writing the header of start header size
+        from the designated firmware file to the local payload page 0x9F, with CDB command 0101h.
+
+        Then it repeatedly reads from the given firmware file and write to the payload
+        space advertised from the first step. We use CDB command 0103h to write to the local payload;
+        we use CDB command 0104h to write to the extended paylaod. This step repeats until it reaches
+        end of the firmware file, or the CDB status failed.
+
+        The last step is to complete the firmware upgrade with CDB command 0107h.
+
+        Note that if the download process fails anywhere in the middle, we need to run CDB command 0102h
+        to abort the upgrade before we restart another upgrade process.
+
+        This function returns True if download successfully completes. Otherwise it will return False where it fails.
+        """
+        try:
+            self.cdb
+        except AttributeError:
+            self.get_cdb_api()
+        txt = ''
+        # start fw download (CMD 0101h)
+        starttime = time.time()
+        try:
+            f = open(imagepath, 'rb')
+        except FileNotFoundError:
+            txt += 'Image path  %s is incorrect.\n' % imagepath
+            logger.info(txt)
+            return False, txt
+
+        f.seek(0, 2)
+        imagesize = f.tell()
+        f.seek(0, 0)
+        startdata = f.read(startLPLsize)
+        logger.info('\nStart FW downloading')
+        logger.info("startLPLsize is %d" %startLPLsize)
+        fw_start_status = self.cdb.start_fw_download(startLPLsize, bytearray(startdata), imagesize)
+        if fw_start_status == 1:
+            string = 'Start module FW download: Success\n'
+            logger.info(string)
+        # password error
+        elif fw_start_status == 70:
+            string = 'Start module FW download: Need to enter password\n'
+            logger.info(string)
+            self.cdb.module_enter_password()
+            self.cdb.start_fw_download(startLPLsize, bytearray(startdata), imagesize)
+        else:
+            string = 'Start module FW download: Fail\n'
+            txt += string
+            self.cdb.abort_fw_download()
+            txt += 'FW_start_status %d\n' %fw_start_status
+            logger.info(txt)
+            return False, txt
+        elapsedtime = time.time()-starttime
+        logger.info('Start module FW download time: %.2f s' %elapsedtime)
+
+        # start periodically writing (CMD 0103h or 0104h)
+        # assert maxblocksize == 2048 or lplonly_flag
+        if lplonly_flag:
+            BLOCK_SIZE = 116
+        else:
+            BLOCK_SIZE = maxblocksize
+        address = 0
+        remaining = imagesize - startLPLsize
+        logger.info("\nTotal size: {} start bytes: {} remaining: {}".format(imagesize, startLPLsize, remaining))
+        while remaining > 0:
+            if remaining < BLOCK_SIZE:
+                count = remaining
+            else:
+                count = BLOCK_SIZE
+            data = f.read(count)
+            progress = (imagesize - remaining) * 100.0 / imagesize
+            if lplonly_flag:
+                fw_download_status = self.cdb.block_write_lpl(address, data)
+            else:
+                fw_download_status = self.cdb.block_write_epl(address, data, autopaging_flag, writelength)
+            if fw_download_status != 1:
+                self.cdb.abort_fw_download()
+                txt += 'CDB download failed. CDB Status: %d\n' %fw_download_status
+                txt += 'FW_download_status %d\n' %fw_download_status
+                logger.info(txt)
+                return False, txt
+            elapsedtime = time.time()-starttime
+            logger.info('Address: {:#08x}; Count: {}; Progress: {:.2f}%; Time: {:.2f}s'.format(address, count, progress, elapsedtime))
+            address += count
+            remaining -= count
+        elapsedtime = time.time()-starttime
+        logger.info('Total module FW download time: %.2f s' %elapsedtime)
+
+        time.sleep(2)
+        # complete FW download (CMD 0107h)
+        fw_complete_status = self.cdb.validate_fw_image()
+        if fw_complete_status == 1:
+            logger.info('Module FW download complete: Success')
+        else:
+            txt += 'Module FW download complete: Fail\n'
+            txt += 'FW_complete_status %d\n' %fw_complete_status
+            logger.info(txt)
+            return False, txt
+        elapsedtime = time.time()-elapsedtime-starttime
+        logger.info('Complete module FW download time: %.2f s\n' %elapsedtime)
+        return True, txt
+
+    def module_fw_upgrade(self, imagepath):
+        """
+        This function performs firmware upgrade.
+        1.  show FW version in the beginning
+        2.  check module advertised FW download capability
+        3.  configure download
+        4.  show download progress
+        5.  configure run downloaded firmware
+        6.  configure commit downloaded firmware
+        7.  show FW version in the end
+
+        imagepath specifies where firmware image file is located.
+        target_firmware is a string that specifies the firmware version to upgrade to
+
+        This function returns True if download successfully completes. 
+        Otherwise it will return False.
+        """
+        result = self.get_module_fw_info()
+        try:
+            _, _, _, _, _, _, _, _ = result['result']
+        except (ValueError, TypeError):
+            return result['status'], result['info']
+        result = self.get_module_fw_upgrade_feature()
+        try: 
+            startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength = result['result']
+        except (ValueError, TypeError):
+            return result['status'], result['info']
+        download_status, txt = self.module_fw_download(startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength, imagepath)
+        if not download_status:
+            return False, txt
+        switch_status, switch_txt = self.module_fw_switch()
+        status = download_status and switch_status
+        txt += switch_txt
+        return status, txt
+
+    def module_fw_switch(self):
+        """
+        This function switch the active/inactive module firmware in the current module memory
+        This function returns True if firmware switch successfully completes. 
+        Otherwise it will return False.
+        If not both images are valid, it will stop firmware switch and return False
+        """
+        txt = ''
+        result = self.get_module_fw_info()
+        try:
+            (ImageA_init, ImageARunning_init, ImageACommitted_init, ImageAValid_init,
+             ImageB_init, ImageBRunning_init, ImageBCommitted_init, ImageBValid_init) = result['result']
+        except (ValueError, TypeError):
+            return result['status'], result['info']
+        if ImageAValid_init == 0 and ImageBValid_init == 0:
+            self.module_fw_run(mode = 0x01)
+            time.sleep(60)
+            self.module_fw_commit()
+            (ImageA, ImageARunning, ImageACommitted, ImageAValid,
+             ImageB, ImageBRunning, ImageBCommitted, ImageBValid) = self.get_module_fw_info()['result']
+            # detect if image switch happened
+            txt += 'Before switch Image A: %s; Run: %d Commit: %d, Valid: %d\n' %(
+                ImageA_init, ImageARunning_init, ImageACommitted_init, ImageAValid_init
+            )
+            txt += 'Befpre switch Image B: %s; Run: %d Commit: %d, Valid: %d\n' %(
+                ImageB_init, ImageBRunning_init, ImageBCommitted_init, ImageBValid_init
+            )
+            txt += 'Image A: %s; Run: %d Commit: %d, Valid: %d\n' %(ImageA, ImageARunning, ImageACommitted, ImageAValid)
+            txt += 'Image B: %s; Run: %d Commit: %d, Valid: %d\n' %(ImageB, ImageBRunning, ImageBCommitted, ImageBValid)
+            if (ImageARunning_init == 1 and ImageARunning == 1) or (ImageBRunning_init == 1 and ImageBRunning == 1):
+                txt += 'Switch did not happen.\n'
+                logger.info(txt)
+                return False, txt
+            else:
+                logger.info(txt)
+                return True, txt
+        else:
+            txt += 'Not both images are valid.'
+            logger.info(txt)
+            return False, txt
+
+    def get_transceiver_status(self):
+        """
+        Retrieves transceiver status of this SFP
+
+        Returns:
+            A dict which contains following keys/values :
+        ================================================================================
+        key                          = TRANSCEIVER_STATUS|ifname        ; Error information for module on port
+        ; field                      = value
+        status                       = 1*255VCHAR                       ; code of the module status (plug in, plug out)
+        error                        = 1*255VCHAR                       ; module error (N/A or a string consisting of error descriptions joined by "|", like "error1 | error2" )
+        module_state                 = 1*255VCHAR                       ; current module state (ModuleLowPwr, ModulePwrUp, ModuleReady, ModulePwrDn, Fault)
+        module_fault_cause           = 1*255VCHAR                       ; reason of entering the module fault state
+        datapath_firmware_fault      = BOOLEAN                          ; datapath (DSP) firmware fault
+        module_firmware_fault        = BOOLEAN                          ; module firmware fault
+        module_state_changed         = BOOLEAN                          ; module state changed
+        datapath_hostlane1           = 1*255VCHAR                       ; data path state indicator on host lane 1
+        datapath_hostlane2           = 1*255VCHAR                       ; data path state indicator on host lane 2
+        datapath_hostlane3           = 1*255VCHAR                       ; data path state indicator on host lane 3
+        datapath_hostlane4           = 1*255VCHAR                       ; data path state indicator on host lane 4
+        datapath_hostlane5           = 1*255VCHAR                       ; data path state indicator on host lane 5
+        datapath_hostlane6           = 1*255VCHAR                       ; data path state indicator on host lane 6
+        datapath_hostlane7           = 1*255VCHAR                       ; data path state indicator on host lane 7
+        datapath_hostlane8           = 1*255VCHAR                       ; data path state indicator on host lane 8
+        txoutput_status              = BOOLEAN                          ; tx output status on media lane
+        rxoutput_status_hostlane1    = BOOLEAN                          ; rx output status on host lane 1
+        rxoutput_status_hostlane2    = BOOLEAN                          ; rx output status on host lane 2
+        rxoutput_status_hostlane3    = BOOLEAN                          ; rx output status on host lane 3
+        rxoutput_status_hostlane4    = BOOLEAN                          ; rx output status on host lane 4
+        rxoutput_status_hostlane5    = BOOLEAN                          ; rx output status on host lane 5
+        rxoutput_status_hostlane6    = BOOLEAN                          ; rx output status on host lane 6
+        rxoutput_status_hostlane7    = BOOLEAN                          ; rx output status on host lane 7
+        rxoutput_status_hostlane8    = BOOLEAN                          ; rx output status on host lane 8
+        txfault                      = BOOLEAN                          ; tx fault flag on media lane
+        txlos_hostlane1              = BOOLEAN                          ; tx loss of signal flag on host lane 1
+        txlos_hostlane2              = BOOLEAN                          ; tx loss of signal flag on host lane 2
+        txlos_hostlane3              = BOOLEAN                          ; tx loss of signal flag on host lane 3
+        txlos_hostlane4              = BOOLEAN                          ; tx loss of signal flag on host lane 4
+        txlos_hostlane5              = BOOLEAN                          ; tx loss of signal flag on host lane 5
+        txlos_hostlane6              = BOOLEAN                          ; tx loss of signal flag on host lane 6
+        txlos_hostlane7              = BOOLEAN                          ; tx loss of signal flag on host lane 7
+        txlos_hostlane8              = BOOLEAN                          ; tx loss of signal flag on host lane 8
+        txcdrlol_hostlane1           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 1
+        txcdrlol_hostlane2           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 2
+        txcdrlol_hostlane3           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 3
+        txcdrlol_hostlane4           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 4
+        txcdrlol_hostlane5           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 5
+        txcdrlol_hostlane6           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 6
+        txcdrlol_hostlane7           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 7
+        txcdrlol_hostlane8           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 8
+        rxlos                        = BOOLEAN                          ; rx loss of signal flag on media lane
+        rxcdrlol                     = BOOLEAN                          ; rx clock and data recovery loss of lock on media lane
+        config_state_hostlane1       = 1*255VCHAR                       ; configuration status for the data path of host line 1
+        config_state_hostlane2       = 1*255VCHAR                       ; configuration status for the data path of host line 2
+        config_state_hostlane3       = 1*255VCHAR                       ; configuration status for the data path of host line 3
+        config_state_hostlane4       = 1*255VCHAR                       ; configuration status for the data path of host line 4
+        config_state_hostlane5       = 1*255VCHAR                       ; configuration status for the data path of host line 5
+        config_state_hostlane6       = 1*255VCHAR                       ; configuration status for the data path of host line 6
+        config_state_hostlane7       = 1*255VCHAR                       ; configuration status for the data path of host line 7
+        config_state_hostlane8       = 1*255VCHAR                       ; configuration status for the data path of host line 8
+        dpinit_pending_hostlane1     = BOOLEAN                          ; data path configuration updated on host lane 1
+        dpinit_pending_hostlane2     = BOOLEAN                          ; data path configuration updated on host lane 2
+        dpinit_pending_hostlane3     = BOOLEAN                          ; data path configuration updated on host lane 3
+        dpinit_pending_hostlane4     = BOOLEAN                          ; data path configuration updated on host lane 4
+        dpinit_pending_hostlane5     = BOOLEAN                          ; data path configuration updated on host lane 5
+        dpinit_pending_hostlane6     = BOOLEAN                          ; data path configuration updated on host lane 6
+        dpinit_pending_hostlane7     = BOOLEAN                          ; data path configuration updated on host lane 7
+        dpinit_pending_hostlane8     = BOOLEAN                          ; data path configuration updated on host lane 8
+        temphighalarm_flag           = BOOLEAN                          ; temperature high alarm flag
+        temphighwarning_flag         = BOOLEAN                          ; temperature high warning flag
+        templowalarm_flag            = BOOLEAN                          ; temperature low alarm flag
+        templowwarning_flag          = BOOLEAN                          ; temperature low warning flag
+        vcchighalarm_flag            = BOOLEAN                          ; vcc high alarm flag
+        vcchighwarning_flag          = BOOLEAN                          ; vcc high warning flag
+        vcclowalarm_flag             = BOOLEAN                          ; vcc low alarm flag
+        vcclowwarning_flag           = BOOLEAN                          ; vcc low warning flag
+        txpowerhighalarm_flag        = BOOLEAN                          ; tx power high alarm flag
+        txpowerlowalarm_flag         = BOOLEAN                          ; tx power low alarm flag
+        txpowerhighwarning_flag      = BOOLEAN                          ; tx power high warning flag
+        txpowerlowwarning_flag       = BOOLEAN                          ; tx power low alarm flag
+        rxpowerhighalarm_flag        = BOOLEAN                          ; rx power high alarm flag
+        rxpowerlowalarm_flag         = BOOLEAN                          ; rx power low alarm flag
+        rxpowerhighwarning_flag      = BOOLEAN                          ; rx power high warning flag
+        rxpowerlowwarning_flag       = BOOLEAN                          ; rx power low warning flag
+        txbiashighalarm_flag         = BOOLEAN                          ; tx bias high alarm flag
+        txbiaslowalarm_flag          = BOOLEAN                          ; tx bias low alarm flag
+        txbiashighwarning_flag       = BOOLEAN                          ; tx bias high warning flag
+        txbiaslowwarning_flag        = BOOLEAN                          ; tx bias low warning flag
+        lasertemphighalarm_flag      = BOOLEAN                          ; laser temperature high alarm flag
+        lasertemplowalarm_flag       = BOOLEAN                          ; laser temperature low alarm flag
+        lasertemphighwarning_flag    = BOOLEAN                          ; laser temperature high warning flag
+        lasertemplowwarning_flag     = BOOLEAN                          ; laser temperature low warning flag
+        prefecberhighalarm_flag      = BOOLEAN                          ; prefec ber high alarm flag
+        prefecberlowalarm_flag       = BOOLEAN                          ; prefec ber low alarm flag
+        prefecberhighwarning_flag    = BOOLEAN                          ; prefec ber high warning flag
+        prefecberlowwarning_flag     = BOOLEAN                          ; prefec ber low warning flag
+        postfecberhighalarm_flag     = BOOLEAN                          ; postfec ber high alarm flag
+        postfecberlowalarm_flag      = BOOLEAN                          ; postfec ber low alarm flag
+        postfecberhighwarning_flag   = BOOLEAN                          ; postfec ber high warning flag
+        postfecberlowwarning_flag    = BOOLEAN                          ; postfec ber low warning flag
+        ================================================================================
+        """
+        trans_status = dict()
+        trans_status['module_state'] = self.get_module_state()
+        trans_status['module_fault_cause'] = self.get_module_fault_cause()
+        try:
+            dp_fw_fault, module_fw_fault, module_state_changed = self.get_module_firmware_fault_state_changed()
+            trans_status['datapath_firmware_fault'] = dp_fw_fault
+            trans_status['module_firmware_fault'] = module_fw_fault
+            trans_status['module_state_changed'] = module_state_changed
+        except TypeError:
+            pass
+        dp_state_dict = self.get_datapath_state()
+        trans_status['DP1State'] = dp_state_dict['DP1State']
+        trans_status['DP2State'] = dp_state_dict['DP2State']
+        trans_status['DP3State'] = dp_state_dict['DP3State']
+        trans_status['DP4State'] = dp_state_dict['DP4State']
+        trans_status['DP5State'] = dp_state_dict['DP5State']
+        trans_status['DP6State'] = dp_state_dict['DP6State']
+        trans_status['DP7State'] = dp_state_dict['DP7State']
+        trans_status['DP8State'] = dp_state_dict['DP8State']
+        tx_output_status_dict = self.get_tx_output_status()
+        trans_status['txoutput_status'] = tx_output_status_dict['TxOutputStatus1']
+        rx_output_status_dict = self.get_rx_output_status()
+        trans_status['rxoutput_status_hostlane1'] = rx_output_status_dict['RxOutputStatus1']
+        trans_status['rxoutput_status_hostlane2'] = rx_output_status_dict['RxOutputStatus2']
+        trans_status['rxoutput_status_hostlane3'] = rx_output_status_dict['RxOutputStatus3']
+        trans_status['rxoutput_status_hostlane4'] = rx_output_status_dict['RxOutputStatus4']
+        trans_status['rxoutput_status_hostlane5'] = rx_output_status_dict['RxOutputStatus5']
+        trans_status['rxoutput_status_hostlane6'] = rx_output_status_dict['RxOutputStatus6']
+        trans_status['rxoutput_status_hostlane7'] = rx_output_status_dict['RxOutputStatus7']
+        trans_status['rxoutput_status_hostlane8'] = rx_output_status_dict['RxOutputStatus8']
+        tx_fault_dict = self.get_tx_fault()
+        trans_status['txfault'] = tx_fault_dict['TxFault1']
+        tx_los_dict = self.get_tx_los()
+        trans_status['txlos_hostlane1'] = tx_los_dict['TxLOS1']
+        trans_status['txlos_hostlane2'] = tx_los_dict['TxLOS2']
+        trans_status['txlos_hostlane3'] = tx_los_dict['TxLOS3']
+        trans_status['txlos_hostlane4'] = tx_los_dict['TxLOS4']
+        trans_status['txlos_hostlane5'] = tx_los_dict['TxLOS5']
+        trans_status['txlos_hostlane6'] = tx_los_dict['TxLOS6']
+        trans_status['txlos_hostlane7'] = tx_los_dict['TxLOS7']
+        trans_status['txlos_hostlane8'] = tx_los_dict['TxLOS8']
+        tx_lol_dict = self.get_tx_cdr_lol()
+        trans_status['txcdrlol_hostlane1'] = tx_lol_dict['TxCDRLOL1']
+        trans_status['txcdrlol_hostlane2'] = tx_lol_dict['TxCDRLOL2']
+        trans_status['txcdrlol_hostlane3'] = tx_lol_dict['TxCDRLOL3']
+        trans_status['txcdrlol_hostlane4'] = tx_lol_dict['TxCDRLOL4']
+        trans_status['txcdrlol_hostlane5'] = tx_lol_dict['TxCDRLOL5']
+        trans_status['txcdrlol_hostlane6'] = tx_lol_dict['TxCDRLOL6']
+        trans_status['txcdrlol_hostlane7'] = tx_lol_dict['TxCDRLOL7']
+        trans_status['txcdrlol_hostlane8'] = tx_lol_dict['TxCDRLOL8']
+        rx_los_dict = self.get_rx_los()
+        trans_status['rxlos'] = rx_los_dict['RxLOS1']
+        rx_lol_dict = self.get_rx_cdr_lol()
+        trans_status['rxcdrlol'] = rx_lol_dict['RxCDRLOL1']
+        config_status_dict = self.get_config_datapath_hostlane_status()
+        trans_status['config_state_hostlane1'] = config_status_dict['ConfigStatusLane1']
+        trans_status['config_state_hostlane2'] = config_status_dict['ConfigStatusLane2']
+        trans_status['config_state_hostlane3'] = config_status_dict['ConfigStatusLane3']
+        trans_status['config_state_hostlane4'] = config_status_dict['ConfigStatusLane4']
+        trans_status['config_state_hostlane5'] = config_status_dict['ConfigStatusLane5']
+        trans_status['config_state_hostlane6'] = config_status_dict['ConfigStatusLane6']
+        trans_status['config_state_hostlane7'] = config_status_dict['ConfigStatusLane7']
+        trans_status['config_state_hostlane8'] = config_status_dict['ConfigStatusLane8']
+        dpinit_pending_dict = self.get_dpinit_pending()
+        trans_status['dpinit_pending_hostlane1'] = dpinit_pending_dict['DPInitPending1']
+        trans_status['dpinit_pending_hostlane2'] = dpinit_pending_dict['DPInitPending2']
+        trans_status['dpinit_pending_hostlane3'] = dpinit_pending_dict['DPInitPending3']
+        trans_status['dpinit_pending_hostlane4'] = dpinit_pending_dict['DPInitPending4']
+        trans_status['dpinit_pending_hostlane5'] = dpinit_pending_dict['DPInitPending5']
+        trans_status['dpinit_pending_hostlane6'] = dpinit_pending_dict['DPInitPending6']
+        trans_status['dpinit_pending_hostlane7'] = dpinit_pending_dict['DPInitPending7']
+        trans_status['dpinit_pending_hostlane8'] = dpinit_pending_dict['DPInitPending8']
+        module_flag = self.get_module_level_flag()
+        trans_status['temphighalarm_flag'] = module_flag['case_temp_flags']['case_temp_high_alarm_flag']
+        trans_status['templowalarm_flag'] = module_flag['case_temp_flags']['case_temp_low_alarm_flag']
+        trans_status['temphighwarning_flag'] = module_flag['case_temp_flags']['case_temp_high_warn_flag']
+        trans_status['templowwarning_flag'] = module_flag['case_temp_flags']['case_temp_low_warn_flag']
+        trans_status['vcchighalarm_flag'] = module_flag['voltage_flags']['voltage_high_alarm_flag']
+        trans_status['vcclowalarm_flag'] = module_flag['voltage_flags']['voltage_low_alarm_flag']
+        trans_status['vcchighwarning_flag'] = module_flag['voltage_flags']['voltage_high_warn_flag']
+        trans_status['vcclowwarning_flag'] = module_flag['voltage_flags']['voltage_low_warn_flag']
+        try: 
+            aux1_mon_type, aux2_mon_type, aux3_mon_type = self.get_aux_mon_type()
+            if aux2_mon_type == 0:
+                trans_status['lasertemphighalarm_flag'] = module_flag['aux2_flags']['aux2_high_alarm_flag']
+                trans_status['lasertemplowalarm_flag'] = module_flag['aux2_flags']['aux2_low_alarm_flag']
+                trans_status['lasertemphighwarning_flag'] = module_flag['aux2_flags']['aux2_high_warn_flag']
+                trans_status['lasertemplowwarning_flag'] = module_flag['aux2_flags']['aux2_low_warn_flag']
+            elif aux2_mon_type == 1 and aux3_mon_type == 0:
+                trans_status['lasertemphighalarm_flag'] = module_flag['aux3_flags']['aux3_high_alarm_flag']
+                trans_status['lasertemplowalarm_flag'] = module_flag['aux3_flags']['aux3_low_alarm_flag']
+                trans_status['lasertemphighwarning_flag'] = module_flag['aux3_flags']['aux3_high_warn_flag']
+                trans_status['lasertemplowwarning_flag'] = module_flag['aux3_flags']['aux3_low_warn_flag']
+        except TypeError:
+            pass
+        tx_power_flag_dict = self.get_tx_power_flag()
+        trans_status['txpowerhighalarm_flag'] = tx_power_flag_dict['tx_power_high_alarm']['TxPowerHighAlarmFlag1']
+        trans_status['txpowerlowalarm_flag'] = tx_power_flag_dict['tx_power_low_alarm']['TxPowerLowAlarmFlag1']
+        trans_status['txpowerhighwarning_flag'] = tx_power_flag_dict['tx_power_high_warn']['TxPowerHighWarnFlag1']
+        trans_status['txpowerlowwarning_flag'] = tx_power_flag_dict['tx_power_low_warn']['TxPowerLowWarnFlag1']
+        rx_power_flag_dict = self.get_rx_power_flag()
+        trans_status['rxpowerhighalarm_flag'] = rx_power_flag_dict['rx_power_high_alarm']['RxPowerHighAlarmFlag1']
+        trans_status['rxpowerlowalarm_flag'] = rx_power_flag_dict['rx_power_low_alarm']['RxPowerLowAlarmFlag1']
+        trans_status['rxpowerhighwarning_flag'] = rx_power_flag_dict['rx_power_high_warn']['RxPowerHighWarnFlag1']
+        trans_status['rxpowerlowwarning_flag'] = rx_power_flag_dict['rx_power_low_warn']['RxPowerLowWarnFlag1']
+        tx_bias_flag_dict = self.get_tx_bias_flag()
+        trans_status['txbiashighalarm_flag'] = tx_bias_flag_dict['tx_bias_high_alarm']['TxBiasHighAlarmFlag1']
+        trans_status['txbiaslowalarm_flag'] = tx_bias_flag_dict['tx_bias_low_alarm']['TxBiasLowAlarmFlag1']
+        trans_status['txbiashighwarning_flag'] = tx_bias_flag_dict['tx_bias_high_warn']['TxBiasHighWarnFlag1']
+        trans_status['txbiaslowwarning_flag'] = tx_bias_flag_dict['tx_bias_low_warn']['TxBiasLowWarnFlag1']
+        self.vdm_dict = self.get_vdm()
+        try:
+            trans_status['prefecberhighalarm_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][5]
+            trans_status['prefecberlowalarm_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][6]
+            trans_status['prefecberhighwarning_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][7]
+            trans_status['prefecberlowwarning_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][8]
+            trans_status['postfecberhighalarm_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][5]
+            trans_status['postfecberlowalarm_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][6]
+            trans_status['postfecberhighwarning_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][7]
+            trans_status['postfecberlowwarning_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][8]
+        except KeyError:
+            pass
+        return trans_status
+
+    def get_transceiver_loopback(self):
+        """
+        Retrieves loopback mode for this xcvr
+
+        Returns:
+            A dict containing the following keys/values :
+        ========================================================================
+        key                          = TRANSCEIVER_PM|ifname            ; information of loopback on port
+        ; field                      = value
+        media_output_loopback        = BOOLEAN                          ; media side output loopback enable
+        media_input_loopback         = BOOLEAN                          ; media side input loopback enable
+        host_output_loopback_lane1   = BOOLEAN                          ; host side output loopback enable lane1
+        host_output_loopback_lane2   = BOOLEAN                          ; host side output loopback enable lane2
+        host_output_loopback_lane3   = BOOLEAN                          ; host side output loopback enable lane3
+        host_output_loopback_lane4   = BOOLEAN                          ; host side output loopback enable lane4
+        host_output_loopback_lane5   = BOOLEAN                          ; host side output loopback enable lane5
+        host_output_loopback_lane6   = BOOLEAN                          ; host side output loopback enable lane6
+        host_output_loopback_lane7   = BOOLEAN                          ; host side output loopback enable lane7
+        host_output_loopback_lane8   = BOOLEAN                          ; host side output loopback enable lane8
+        host_input_loopback_lane1   = BOOLEAN                          ; host side input loopback enable lane1
+        host_input_loopback_lane2   = BOOLEAN                          ; host side input loopback enable lane2
+        host_input_loopback_lane3   = BOOLEAN                          ; host side input loopback enable lane3
+        host_input_loopback_lane4   = BOOLEAN                          ; host side input loopback enable lane4
+        host_input_loopback_lane5   = BOOLEAN                          ; host side input loopback enable lane5
+        host_input_loopback_lane6   = BOOLEAN                          ; host side input loopback enable lane6
+        host_input_loopback_lane7   = BOOLEAN                          ; host side input loopback enable lane7
+        host_input_loopback_lane8   = BOOLEAN                          ; host side input loopback enable lane8
+        ========================================================================
+        """
+        trans_loopback = dict()
+        trans_loopback['media_output_loopback'] = self.get_media_output_loopback()
+        trans_loopback['media_input_loopback'] = self.get_media_input_loopback()
+        host_output_loopback_status = self.get_host_output_loopback()
+        trans_loopback['host_output_loopback_lane1'] = host_output_loopback_status[0]
+        trans_loopback['host_output_loopback_lane2'] = host_output_loopback_status[1]
+        trans_loopback['host_output_loopback_lane3'] = host_output_loopback_status[2]
+        trans_loopback['host_output_loopback_lane4'] = host_output_loopback_status[3]
+        trans_loopback['host_output_loopback_lane5'] = host_output_loopback_status[4]
+        trans_loopback['host_output_loopback_lane6'] = host_output_loopback_status[5]
+        trans_loopback['host_output_loopback_lane7'] = host_output_loopback_status[6]
+        trans_loopback['host_output_loopback_lane8'] = host_output_loopback_status[7]
+        host_input_loopback_status = self.get_host_input_loopback()
+        trans_loopback['host_input_loopback_lane1'] = host_input_loopback_status[0]
+        trans_loopback['host_input_loopback_lane2'] = host_input_loopback_status[1]
+        trans_loopback['host_input_loopback_lane3'] = host_input_loopback_status[2]
+        trans_loopback['host_input_loopback_lane4'] = host_input_loopback_status[3]
+        trans_loopback['host_input_loopback_lane5'] = host_input_loopback_status[4]
+        trans_loopback['host_input_loopback_lane6'] = host_input_loopback_status[5]
+        trans_loopback['host_input_loopback_lane7'] = host_input_loopback_status[6]
+        trans_loopback['host_input_loopback_lane8'] = host_input_loopback_status[7]
+        return trans_loopback
+    # TODO: other XcvrApi methods

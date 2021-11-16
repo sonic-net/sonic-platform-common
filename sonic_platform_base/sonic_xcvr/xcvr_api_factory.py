@@ -9,7 +9,9 @@ from .xcvr_eeprom import XcvrEeprom
 # TODO: remove the following imports
 from .codes.public.cmis import CmisCodes
 from .api.public.cmis import CmisApi
+from .api.public.c_cmis import CCmisApi
 from .mem_maps.public.cmis import CmisMemMap
+from .mem_maps.public.c_cmis import CCmisMemMap
 
 from .codes.public.sff8436 import Sff8436Codes
 from .api.public.sff8436 import Sff8436Api
@@ -43,6 +45,11 @@ class XcvrApiFactory(object):
             mem_map = CmisMemMap(codes)
             xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
             api = CmisApi(xcvr_eeprom)
+            if api.is_coherent_module():
+                mem_map = CCmisMemMap(codes)
+                xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
+                api = CCmisApi(xcvr_eeprom)
+
         # QSFP28
         elif id == 0x11:
             codes = Sff8636Codes

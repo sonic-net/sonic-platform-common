@@ -216,7 +216,7 @@ class YCable(YCableBase):
     PRBS_DIRECTION_GENERATOR = 1
     PRBS_DIRECTION_CHECKER = 2
 
-    BCM_API_VERSION = "1.2"
+    BCM_API_VERSION = "1.3"
     CONSOLE_PRINT = False
 
     # Log levels
@@ -395,9 +395,16 @@ class YCable(YCableBase):
     QSFP_BRCM_FW_UPGRADE_HEADER_24_31 = 0x85
     QSFP_BRCM_FW_UPGRADE_BOOT_STATUS = 0x9A
 
+    # The Qsfp page for broadcom firmware version support
+    QSFP_BRCM_FW_VERSION_PAGE = 0x83
+    QSFP_BRCM_FW_VERSION_CTRL_CMD = 0x80
+    QSFP_BRCM_FW_VERSION_CMD_STS = 0x81
+    QSFP_BRCM_FW_VERSION_HEADER_24_31 = 0x85
+    QSFP_BRCM_FW_VERSION_CURRENT_BANK = 0x86
+
     # muxchip return codes
     RR_ERROR = -1  # -255      # Error Category
-    RR_ERROR_SYSTEM_UNAVAILABLE = -1  # -250      # System Unavailable Error
+    RR_ERROR_SYSTEM_UNAVAILABLE = -250      # System Unavailable Error
     RR_SUCCESS = 0         # Success
 
     # PRBS polynomials
@@ -459,14 +466,18 @@ class YCable(YCableBase):
 
     ERROR_RW_NIC_FAILED = -1  # -30     #Unable to communicate with NIC MCU
     ERROR_RW_TOR_FAILED = -1  # -31     #Unable to communicate with TOR MCU
-    ERROR_GET_VERSION_FAILED = -1  # -32	    #Unable to get firmware version from MCU
-    ERROR_FLASH_SIZE_INVALID = -1  # -33	    #Firmware image size is greater than flash bank size
-    ERROR_FLASH_ERASE_FAILED = -1  # -34	    #Flash erase failed
-    ERROR_FLASH_WRITE_FAILED = -1  # -35	    #Flash write failed
-    ERROR_FLASH_READ_FAILED = -1  # -36	    #Flash read failed
-    ERROR_CRC32_FAILED = -1  # -37	    #Flash CRC validation failed
-    ERROR_CMD_TIMEOUT = -1  # -38	    #No response after command sent
-    ERROR_SYSTEM_BUSY = -1  # -39	    #System is busy
+    ERROR_GET_VERSION_FAILED = -1  # -32 #Unable to get firmware version from MCU
+    ERROR_FLASH_SIZE_INVALID = -1  # -33        #Firmware image size is greater than flash bank size
+    ERROR_FLASH_ERASE_FAILED = -1  # -34        #Flash erase failed
+    ERROR_FLASH_WRITE_FAILED = -1  # -35        #Flash write failed
+    ERROR_FLASH_READ_FAILED = -1  # -36        #Flash read failed
+    ERROR_CRC32_FAILED = -1  # -37        #Flash CRC validation failed
+    ERROR_CMD_TIMEOUT = -1  # -38        #No response after command sent
+    ERROR_SYSTEM_BUSY = -1  # -39        #System is busy
+
+    # debug_dump commands
+    CMD_REG_DUMP = "reg_dump"
+    CMD_INTR_STATUS = "intr_status"
 
     def __init__(self, port, logger1):
 
@@ -505,7 +516,7 @@ class YCable(YCableBase):
             print("Logging disabled...")
 
     def __get_pid_str(self):
-        pid_str = "[{},{}] Port-{} : ".format(os.getpid(), threading.currentThread().getName(), self.port)
+        pid_str = "[{},{}] BCM_YCABLE Port-{} : ".format(os.getpid(), threading.currentThread().getName(), self.port)
         return pid_str
 
     def log_timestamp(self, last_timestamp, log_msg):
@@ -538,6 +549,12 @@ class YCable(YCableBase):
             cur_tstr = curr_timestamp.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
             msg = cur_tstr + " " + msg
             print(msg)
+
+    def log_start(self, msg):
+        self.log(self.LOG_DEBUG, msg + " Start")
+
+    def log_end(self, msg):
+        self.log(self.LOG_DEBUG, msg + " Exit")
 
     def __util_convert_to_phyinfo_details(self, target, lane_map):
         """
@@ -722,7 +739,7 @@ class YCable(YCableBase):
                             self.log(self.LOG_ERROR, "CMD_REQ/STS both are stuck at 1")
                             return self.ERROR_CMD_STS_CHECK_FAILED, None
                         ts = self.log_timestamp(ts, "resetting cmd to 0 done (error logic)")
-
+                    self.log(self.LOG_DEBUG, "Currently processing COMMAND ID is {}".format(command_id))
                     # check if any command is currently being executed
                     if ((cmd_req & 0x01) == 0) and ((cmd_sts & 0x01) == 0):
                         #
@@ -882,7 +899,6 @@ class YCable(YCableBase):
 # Public APIs
 #
 ##############################################################################
-
 
     def get_api_version(self):
         """
@@ -1075,7 +1091,7 @@ class YCable(YCableBase):
                     return self.EEPROM_ERROR
 
                 cmd_ok = False
-                for _ in range(0, 30):
+                for _ in range(0, 500):
                     # read 32 and 33
                     status = self.platform_chassis.get_sfp(self.port).read_eeprom(32, 2)
                     if status is None:
@@ -1131,7 +1147,7 @@ class YCable(YCableBase):
                     return self.EEPROM_ERROR
 
                 cmd_ok = False
-                for _ in range(0, 30):
+                for _ in range(0, 500):
                     # read 32 and 33
                     status = self.platform_chassis.get_sfp(self.port).read_eeprom(32, 2)
                     if status is None:
@@ -1152,6 +1168,8 @@ class YCable(YCableBase):
 
         if cmd_ok == True:
             self.log(self.LOG_INFO, "Toggle mux to torB succeeded")
+        else:
+            self.log(self.LOG_ERROR, "ERROR: polling timed-out. Cmd_ok not received!")
 
         return cmd_ok
 
@@ -1427,6 +1445,202 @@ class YCable(YCableBase):
 
         return result
 
+    def __handle_ver_error(self, upgrade_info, error):
+
+        self.log(self.LOG_ERROR, "ERROR : {} Sending abort".format(error))
+
+        self.__cable_fw_ver_mcu_abort(upgrade_info)
+        time.sleep(0.001)
+
+    def __handle_ver_cmd(self, upgrade_info, cmd_handle):
+
+        ret_val = self.RR_ERROR
+        dat = bytearray(100)
+        req_status = False
+        info_stat = 0
+        dat[0] = 0x00
+        curr_offset = ((self.QSFP_BRCM_FW_VERSION_PAGE*128) + self.QSFP_BRCM_FW_VERSION_CTRL_CMD)
+        result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, dat)
+        if result is False:
+            return self.ERROR_WRITE_EEPROM_FAILED
+
+        # Send destination
+        dat[0] = upgrade_info.destination
+        curr_offset = ((self.QSFP_BRCM_FW_VERSION_PAGE*128) + self.QSFP_BRCM_FW_VERSION_HEADER_24_31)
+        if self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, dat) is False:
+            return self.ERROR_WR_EEPROM_FAILED
+
+        # Send cmd request
+        dat[0] = (cmd_handle.cmd_wr << 1) | 1
+        curr_offset = ((self.QSFP_BRCM_FW_VERSION_PAGE*128) + self.QSFP_BRCM_FW_VERSION_CTRL_CMD)
+        if self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, dat) is False:
+            return self.ERROR_WR_EEPROM_FAILED
+
+        # Delay reading status as this can block during swap.
+        time.sleep(0.1)
+
+        for _ in range(0, 100):
+            curr_offset = ((self.QSFP_BRCM_FW_VERSION_PAGE*128) + self.QSFP_BRCM_FW_VERSION_CMD_STS)
+            status = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+            if status is None:
+                self.log(self.LOG_ERROR, "__handle_ver_cmd read eeprom failed")
+                return self.EEPROM_ERROR
+            if status[0] & 0x01:
+                if (((status[0] & 0xFC) == (self.FW_UP_SUCCESS << 2)) or ((status[0] & 0xFC) == (self.FW_UP_IN_PROGRESS << 2))):
+                    if((status[0] & 0xFC) == (self.FW_UP_IN_PROGRESS << 2)):
+                        info_stat = 1
+
+                    if cmd_handle.read_info == 1:
+                        curr_offset = (self.QSFP_BRCM_FW_VERSION_PAGE*128) + cmd_handle.cmd_rd
+                        cmd_handle.data_read = self.platform_chassis.get_sfp(
+                            self.port).read_eeprom(curr_offset, cmd_handle.info_len)
+                        if cmd_handle.data_read is None:
+                            self.log(self.LOG_ERROR, "__cmd_handle read eeprom failed")
+                            return self.EEPROM_ERROR
+                    req_status = True
+                    break
+                else:
+                    self.log(self.LOG_ERROR, "CMD {} failed".format(cmd_handle.cmd_wr))
+                    self.__handle_ver_error(upgrade_info, status[0])
+                    return ret_val
+            time.sleep(0.001)
+
+        if req_status:
+            req_status = False
+            # set the command request to idle state
+            self.log(self.LOG_DEBUG, "set the command request to idle state ")
+            dat[0] = 0x00
+            curr_offset = (self.QSFP_BRCM_FW_VERSION_PAGE*128 + self.QSFP_BRCM_FW_VERSION_CTRL_CMD)
+            if self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, dat) is False:
+                return self.ERROR_WR_EEPROM_FAILED
+
+            # Delay reading status as this can block during swap.
+            time.sleep(0.001)
+
+            # wait for mcu response to be pulled down
+            self.log(self.LOG_DEBUG, "wait for mcu response to be pulled down ")
+            for _ in range(100):
+                curr_offset = (self.QSFP_BRCM_FW_VERSION_PAGE*128 + self.QSFP_BRCM_FW_VERSION_CMD_STS)
+                status = self.__util_read_eeprom(curr_offset, 1, "__handle_cmd")
+                if status is None:
+                    self.log(self.LOG_ERROR, "__handle_cmd: read_eeprom failed")
+                    return self.EEPROM_ERROR
+
+                if (status[0] & 0x01) == 0:
+                    req_status = True
+                    break
+
+                time.sleep(0.001)
+
+            if not req_status:
+                # Timeout, no response to pull down
+                self.log(self.LOG_ERROR, "Timeout waiting pull down")
+                self.__handle_ver_error(upgrade_info, 1)
+                return ret_val
+            elif info_stat == 1:
+                ret_val = self.RR_ERROR_SYSTEM_UNAVAILABLE
+                return ret_val
+            else:
+                ret_val = self.RR_SUCCESS
+                return ret_val
+        else:
+            # Timeout, no response to pull down
+            self.log(self.LOG_ERROR, "ERROR: Timeout waiting for cmd {} status in __handle_ver_cmd()".format(cmd_handle.cmd_wr))
+            self.__handle_ver_error(upgrade_info, 1)
+            return self.RR_ERROR
+
+    def __cable_fw_ver_mcu_abort(self, upgrade_info):
+        """
+        Internal API used to abort the execution of FW related function in case of error
+
+        Args:
+            upgrade_info : MCU details
+        """
+        ret_val = self.RR_ERROR
+        dat = bytearray(30)
+        status = 0
+        req_status = False
+
+        read_side = self.get_read_side()
+
+        if read_side == 0x02:
+            self.log(self.LOG_DEBUG, "Current side: TOR B")
+        elif read_side == 0x01:
+            self.log(self.LOG_DEBUG, "Current side TOR A")
+        elif read_side == 0x04:
+            self.log(self.LOG_DEBUG, "Current side NIC")
+        else:
+            self.log(self.LOG_ERROR, "Current side UNKNOWN")
+            return self.ERROR_READ_SIDE_FAILED
+
+        # Make sure TOR to NIC MCU communication is alive
+        self.log(self.LOG_DEBUG, "Make sure TOR to NIC MCU communication is alive ")
+        if (upgrade_info.destination == self.NIC_MCU) and ((read_side == 0x02) or (read_side == 0x01)):
+            # Since we are running from TOR side, make sure no flush is on going
+            for _ in range(3000):
+                curr_offset = ((self.QSFP_BRCM_DIAGNOSTIC_PAGE * 128) + self.QSFP_BRCM_DIAGNOSTIC_STATUS)
+                status = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+                if status is None:
+                    self.log(self.LOG_ERROR, "__cable_fw_ver_mcu_abort read eeprom failed")
+                    return self.EEPROM_ERROR
+
+                if status[0] == 0:
+                    break
+
+                time.sleep(0.001)
+
+            if status[0]:
+                self.log(self.LOG_ERROR, "Unable to communicate with NIC MCU")
+                return self.ERROR_RW_NIC_FAILED
+
+        # Make sure to clear command first else can have unforseen consequences
+        curr_offset = ((self.QSFP_BRCM_FW_VERSION_PAGE*128) + self.QSFP_BRCM_FW_VERSION_CTRL_CMD)
+        dat[0] = 0x00
+        if self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, dat) is False:
+            return self.ERROR_WR_EEPROM_FAILED
+
+        # Send destination
+        dat[0] = upgrade_info.destination
+        curr_offset = ((self.QSFP_BRCM_FW_VERSION_PAGE*128) + self.QSFP_BRCM_FW_VERSION_HEADER_24_31)
+        if self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, dat) is False:
+            return self.ERROR_WR_EEPROM_FAILED
+
+        # Send Abort request
+        dat[0] = (self.FW_CMD_ABORT << 1) | 1
+        curr_offset = ((self.QSFP_BRCM_FW_VERSION_PAGE*128) + self.QSFP_BRCM_FW_VERSION_CTRL_CMD)
+        if self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, dat) is False:
+            return self.ERROR_WR_EEPROM_FAILED
+
+        time.sleep(0.3)
+
+        # Check response status
+        for _ in range(100):
+            curr_offset = ((self.QSFP_BRCM_FW_VERSION_PAGE*128) + self.QSFP_BRCM_FW_VERSION_CMD_STS)
+            status = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+            if status is None:
+                return self.EEPROM_ERROR
+
+            if (status[0] & 0x01) == 0:
+                req_status = True
+                ret_val = self.RR_SUCCESS
+
+                # Set the command request to idle state
+                dat[0] = 0x00
+                curr_offset = ((self.QSFP_BRCM_FW_VERSION_PAGE*128) + self.QSFP_BRCM_FW_VERSION_CTRL_CMD)
+                if self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, dat) is False:
+                    return self.ERROR_WR_EEPROM_FAILED
+                break
+            time.sleep(0.001)
+
+        if not req_status:
+            # Pull down anyway
+            dat[0] = 0x00
+            curr_offset = ((self.QSFP_BRCM_FW_VERSION_PAGE*128) + self.QSFP_BRCM_FW_VERSION_CTRL_CMD)
+            if self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, dat) is False:
+                return self.ERROR_WR_EEPROM_FAILED
+
+        return ret_val
+
     def __handle_error_abort(self, upgrade_info, error):
         """
         Internal API used to abort in case of error in FW related functions
@@ -1563,7 +1777,7 @@ class YCable(YCableBase):
 
         return ret_val
 
-    def cable_fw_get_status(self, upgrade_info):
+    def cable_fw_get_status(self, upgrade_info, crc_check_version=False):
         """
         This function used internally to get the status information of existing firmware.
         The status information has the following details,
@@ -1603,11 +1817,29 @@ class YCable(YCableBase):
 
                 cmd_handle.cmd_wr = self.FW_CMD_INFO
                 cmd_handle.read_info = 1
-                cmd_handle.cmd_rd = self.QSFP_BRCM_FW_UPGRADE_CURRENT_BANK
                 cmd_handle.info_len = 26
-                ret_val = self.__handle_cmd(upgrade_info, cmd_handle)
-                if((ret_val != self.RR_SUCCESS) and (ret_val != self.RR_ERROR_SYSTEM_UNAVAILABLE)):
-                    return ret_val
+
+                curr_offset = (0*128) + 0x6A
+                status = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+                if status is None:
+                    return self.EEPROM_ERROR
+
+                if (status[0] == 1) and (crc_check_version == False):
+                    # CMD version supported
+                    self.log(self.LOG_DEBUG, "CMD version supported. calling handle_ver_cmd()")
+                    cmd_handle.cmd_rd = self.QSFP_BRCM_FW_VERSION_CURRENT_BANK
+                    ret_val = self.__handle_ver_cmd(upgrade_info, cmd_handle)
+
+                    if((ret_val != self.RR_SUCCESS) and (ret_val != self.RR_ERROR_SYSTEM_UNAVAILABLE)):
+                        # Try with older version
+                        self.log(self.LOG_DEBUG, "CMD version not supported. calling handle_cmd()")
+                        cmd_handle.cmd_rd = self.QSFP_BRCM_FW_UPGRADE_CURRENT_BANK
+                        ret_val = self.__handle_cmd(upgrade_info, cmd_handle)
+                else:
+                    # CMD version not supported. CRC check performed in the FW
+                    self.log(self.LOG_DEBUG, "CMD version not supported. calling handle_cmd()")
+                    cmd_handle.cmd_rd = self.QSFP_BRCM_FW_UPGRADE_CURRENT_BANK
+                    ret_val = self.__handle_cmd(upgrade_info, cmd_handle)
 
                 # Current bank
                 upgrade_info.status_info.current_bank = cmd_handle.data_read[0]
@@ -1940,6 +2172,7 @@ class YCable(YCableBase):
         image_offset = 0
         fw_up_buff = array.array('I', [])
 
+        self.log(self.LOG_DEBUG, "parse_image for destination {} fwfile {}".format(destination, fwfile))
         for i in range(self.MUX_FW_IMG_SIZE):
             fw_up_buff.append(0)
 
@@ -1950,13 +2183,15 @@ class YCable(YCableBase):
 
         if (destination == self.TOR_MCU_SELF) or (destination == self.TOR_MCU_PEER):
             # Check TOR current bank to find which TOR image to download
+            self.log(self.LOG_DEBUG, "Check TOR current bank to find which TOR image to download")
             upgrade_head.cable_up_info.destination = destination
-            if (self.cable_fw_get_status(upgrade_head.cable_up_info) != self.RR_SUCCESS):
+            if (self.cable_fw_get_status(upgrade_head.cable_up_info, True) != self.RR_SUCCESS):
                 file1.close()
                 return self.RR_ERROR
             if upgrade_head.cable_up_info.status_info.current_bank == 1:
                 # Select TOR bank 2 image
                 # First read TOR bank 1 image header to find header location of TOR bank2 image header
+                self.log(self.LOG_INFO, "First read TOR bank 1 image header to find header location of TOR bank2 image header")
                 file1.seek(image_offset + 0x10)
                 image_compressed = struct.unpack('I', file1.read(4))[0]
                 if image_compressed:
@@ -1972,6 +2207,7 @@ class YCable(YCableBase):
             else:
                 File_seek = image_offset
             # Parse TOR image now
+            self.log(self.LOG_INFO, "Parse TOR image now")
             file1.seek(File_seek)
             upgrade_head.cable_up_info.image_info.image_size = struct.unpack('I', file1.read(4))[0]
 
@@ -2013,6 +2249,7 @@ class YCable(YCableBase):
 
         elif destination == self.NIC_MCU:
             # Parse NIC image
+            self.log(self.LOG_INFO, "Parse NIC image")
             # Seek to location of NIC bank1 image
             file1.seek(0x10)
             image_compressed = struct.unpack('I', file1.read(4))[0]
@@ -2047,7 +2284,7 @@ class YCable(YCableBase):
 
             # Check NIC current bank to find which NIC image to download
             upgrade_head.cable_up_info.destination = destination
-            if (self.cable_fw_get_status(upgrade_head.cable_up_info) != self.RR_SUCCESS):
+            if (self.cable_fw_get_status(upgrade_head.cable_up_info, True) != self.RR_SUCCESS):
                 file1.close()
                 return self.RR_ERROR
 
@@ -3354,7 +3591,7 @@ class YCable(YCableBase):
         #cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
         cmd_req_body1 = bytearray()
         cmd_hdr[0] = 14
-        cmd_hdr[1] = 40
+        cmd_hdr[1] = 0
         cmd_hdr[2] = lane_mask if (core_ip == self.CORE_IP_CLIENT) else 0
         cmd_hdr[3] = lane_mask if (core_ip == self.CORE_IP_LW) else 0
         cmd_hdr[4] = core_ip
@@ -3437,7 +3674,7 @@ class YCable(YCableBase):
 
                 upgrade_info[self.MUX_CHIP - 1].destination = self.MUX_CHIP
 
-                ret_val = self.cable_fw_get_status(upgrade_info[self.MUX_CHIP - 1])
+                ret_val = self.cable_fw_get_status(upgrade_info[self.MUX_CHIP - 1], True)
 
                 if ret_val != self.RR_SUCCESS:
                     self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
@@ -3472,7 +3709,7 @@ class YCable(YCableBase):
 
                 # Check NIC firmware version
                 self.log(self.LOG_DEBUG, "Check NIC fw version")
-                ret_val = self.cable_fw_get_status(upgrade_info[self.NIC_MCU - 1])
+                ret_val = self.cable_fw_get_status(upgrade_info[self.NIC_MCU - 1], True)
                 if ret_val != self.RR_SUCCESS:
                     self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
                     self.log(self.LOG_ERROR, "NIC MCU Firmware download status failed")
@@ -3501,7 +3738,7 @@ class YCable(YCableBase):
                 self.log(self.LOG_DEBUG, "Check TOR firmware version")
                 upgrade_info[self.TOR_MCU_SELF - 1].destination = self.TOR_MCU_SELF
 
-                ret_val = self.cable_fw_get_status(upgrade_info[self.TOR_MCU_SELF - 1])
+                ret_val = self.cable_fw_get_status(upgrade_info[self.TOR_MCU_SELF - 1], True)
 
                 if ret_val != self.RR_SUCCESS:
                     self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
@@ -3536,7 +3773,7 @@ class YCable(YCableBase):
                 # Check TOR firmware version
                 self.log(self.LOG_DEBUG, "Check TOR firmware version")
                 upgrade_info[self.TOR_MCU_PEER - 1].destination = self.TOR_MCU_PEER
-                ret_val = self.cable_fw_get_status(upgrade_info[self.TOR_MCU_PEER - 1])
+                ret_val = self.cable_fw_get_status(upgrade_info[self.TOR_MCU_PEER - 1], True)
                 if ret_val != self.RR_SUCCESS:
                     self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
                     self.log(self.LOG_ERROR, "TOR PEER Firmware download status failed")
@@ -3613,8 +3850,8 @@ class YCable(YCableBase):
                 ERROR_RESET_FAILED         : Reset Failed
                 ERROR_FW_ACTIVATE_FAILURE  : Activate firmware failed
                 RR_ERROR                   : Cannot activate due to fw version mismatch
-        """
 
+        """
         #ret_val = self.ERROR_FW_ACTIVATE_FAILURE
         nic_ret_val = self.RR_SUCCESS
         self_ret_val = self.RR_SUCCESS
@@ -3645,7 +3882,7 @@ class YCable(YCableBase):
                 upgrade_info[self.TOR_MCU_PEER - 1].destination = self.TOR_MCU_PEER
 
                 if boot_type == self.WARMBOOT:
-                    if(self.cable_fw_get_status(upgrade_info[self.MUX_CHIP - 1]) == self.RR_SUCCESS):
+                    if(self.cable_fw_get_status(upgrade_info[self.MUX_CHIP - 1], True) == self.RR_SUCCESS):
                         if ((upgrade_info[self.MUX_CHIP - 1].status_info.bank1_info.image_fw_version.image_version_major) !=
                             (upgrade_info[self.MUX_CHIP - 1].status_info.bank2_info.image_fw_version.image_version_major) or
                             (upgrade_info[self.MUX_CHIP - 1].status_info.bank1_info.image_fw_version.image_version_minor) !=
@@ -3664,7 +3901,7 @@ class YCable(YCableBase):
                             return self.RR_ERROR
 
                     upgrade_info[i].destination = i+1
-                    if(self. cable_fw_get_status(upgrade_info[i]) != self.RR_SUCCESS):
+                    if(self. cable_fw_get_status(upgrade_info[i], True) != self.RR_SUCCESS):
                         return self.RR_ERROR
 
                 # First make sure there was a successful download_firmware prior to activate
@@ -4033,7 +4270,7 @@ class YCable(YCableBase):
                 upgrade_info[self.TOR_MCU_PEER - 1].destination = self.TOR_MCU_PEER
 
                 if boot_type == self.WARMBOOT:
-                    if(self.cable_fw_get_status(upgrade_info[self.MUX_CHIP - 1]) == self.RR_SUCCESS):
+                    if(self.cable_fw_get_status(upgrade_info[self.MUX_CHIP - 1], True) == self.RR_SUCCESS):
                         if ((upgrade_info[self.MUX_CHIP - 1].status_info.bank1_info.image_fw_version.image_version_major) !=
                             (upgrade_info[self.MUX_CHIP - 1].status_info.bank2_info.image_fw_version.image_version_major) or
                             (upgrade_info[self.MUX_CHIP - 1].status_info.bank1_info.image_fw_version.image_version_minor) !=
@@ -4052,7 +4289,7 @@ class YCable(YCableBase):
                             return self.RR_ERROR
 
                     upgrade_info[i].destination = i+1
-                    if(self. cable_fw_get_status(upgrade_info[i]) != self.RR_SUCCESS):
+                    if(self. cable_fw_get_status(upgrade_info[i], True) != self.RR_SUCCESS):
                         return self.RR_ERROR
 
                     # First make sure there was a successful download_firmware prior to activate
@@ -4389,7 +4626,7 @@ class YCable(YCableBase):
         cmd_hdr = bytearray(5)
         cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
 
-        cmd_hdr[0] = 4
+        cmd_hdr[0] = 1
         cmd_hdr[1] = 0
         cmd_hdr[2] = 0
         cmd_hdr[3] = 0
@@ -4420,7 +4657,7 @@ class YCable(YCableBase):
         cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
 
         cmd_hdr[0] = 0
-        cmd_hdr[1] = 4
+        cmd_hdr[1] = 1
         cmd_hdr[2] = 0
         cmd_hdr[3] = 0
         cmd_hdr[4] = self.CORE_IP_CENTRAL
@@ -5037,7 +5274,7 @@ class YCable(YCableBase):
         cmd_hdr = bytearray(5)
         cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
 
-        cmd_hdr[0] = 4
+        cmd_hdr[0] = 1
         cmd_hdr[1] = 0
         cmd_hdr[2] = 0
         cmd_hdr[3] = 0
@@ -5067,7 +5304,7 @@ class YCable(YCableBase):
         cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
 
         cmd_hdr[0] = 0
-        cmd_hdr[1] = 4
+        cmd_hdr[1] = 1
         cmd_hdr[2] = 0
         cmd_hdr[3] = 0
         cmd_hdr[4] = self.CORE_IP_CENTRAL
@@ -5182,6 +5419,7 @@ class YCable(YCableBase):
 #############################################################################################
 ###                                  Debug Functionality                                  ###
 #############################################################################################
+
 
     def set_debug_mode(self, enable):
         """
@@ -5545,7 +5783,7 @@ class YCable(YCableBase):
 
         return self.LOOPBACK_MODE_NONE
 
-    def debug_dump_registers(self):
+    def __reg_dump(self):
         """
         This API should dump all registers with meaningful values
         for the cable to be diagnosed for proper functioning.
@@ -5556,7 +5794,7 @@ class YCable(YCableBase):
         Args:
             None
         Returns:
-            a Dictionary:
+            a string:
                  with all the relevant key-value pairs for all the meaningful fields
                  which would help diagnose the cable for proper functioning
         """
@@ -5715,6 +5953,91 @@ class YCable(YCableBase):
 
         return output_str
 
+    def __intr_status(self):
+
+        output_str = None
+        output_str = "Interrupt status info\n"
+        intr_status = self.cable_get_intr_status()
+
+        if intr_status != -1:
+           # print("Interrupt_status:",intr_status)
+
+            output_str += ("nic_cdr_loss_of_lock_ln0  = {} \n".format(1 if((intr_status[0] & (1 << 0))) else 0))
+            output_str += ("nic_cdr_loss_of_lock_ln1  = {} \n".format(1 if((intr_status[0] & (1 << 1))) else 0))
+            output_str += ("nic_cdr_loss_of_lock_ln2  = {} \n".format(1 if((intr_status[0] & (1 << 2))) else 0))
+            output_str += ("nic_cdr_loss_of_lock_ln3  = {} \n".format(1 if((intr_status[0] & (1 << 3))) else 0))
+            output_str += ("torA_cdr_loss_of_lock_ln0 = {} \n".format(1 if((intr_status[0] & (1 << 4))) else 0))
+            output_str += ("torA_cdr_loss_of_lock_ln1 = {} \n".format(1 if((intr_status[0] & (1 << 5))) else 0))
+            output_str += ("torA_cdr_loss_of_lock_ln2 = {} \n".format(1 if((intr_status[0] & (1 << 6))) else 0))
+            output_str += ("torA_cdr_loss_of_lock_ln3 = {} \n".format(1 if((intr_status[0] & (1 << 7))) else 0))
+
+            output_str += ("torB_cdr_loss_of_lock_ln0 = {} \n".format(1 if((intr_status[1] & (1 << 0))) else 0))
+            output_str += ("torB_cdr_loss_of_lock_ln1 = {} \n".format(1 if((intr_status[1] & (1 << 1))) else 0))
+            output_str += ("torB_cdr_loss_of_lock_ln2 = {} \n".format(1 if((intr_status[1] & (1 << 2))) else 0))
+            output_str += ("torB_cdr_loss_of_lock_ln3 = {} \n".format(1 if((intr_status[1] & (1 << 3))) else 0))
+            output_str += ("torB_los_ln0 = {} \n".format(1 if((intr_status[1] & (1 << 4))) else 0))
+            output_str += ("torB_los_ln1 = {} \n".format(1 if((intr_status[1] & (1 << 5))) else 0))
+            output_str += ("torB_los_ln2 = {} \n".format(1 if((intr_status[1] & (1 << 6))) else 0))
+            output_str += ("torB_los_ln3 = {}\n".format(1 if((intr_status[1] & (1 << 7))) else 0))
+
+            output_str += ("nic_los_ln0  = {} \n".format(1 if((intr_status[2] & (1 << 0))) else 0))
+            output_str += ("nic_los_ln1  = {} \n".format(1 if((intr_status[2] & (1 << 1))) else 0))
+            output_str += ("nic_los_ln2  = {} \n".format(1 if((intr_status[2] & (1 << 2))) else 0))
+            output_str += ("nic_los_ln3  = {} \n".format(1 if((intr_status[2] & (1 << 3))) else 0))
+            output_str += ("torA_los_ln0 = {} \n".format(1 if((intr_status[2] & (1 << 4))) else 0))
+            output_str += ("torA_los_ln1 = {} \n".format(1 if((intr_status[2] & (1 << 5))) else 0))
+            output_str += ("torA_los_ln2 = {} \n".format(1 if((intr_status[2] & (1 << 6))) else 0))
+            output_str += ("torA_los_ln3 = {} \n".format(1 if((intr_status[2] & (1 << 7))) else 0))
+
+            output_str += ("phy_watchdog       = {} \n".format(1 if((intr_status[3] & (1 << 0))) else 0))
+            output_str += ("phy_fw_ser         = {} \n".format(1 if((intr_status[3] & (1 << 1))) else 0))
+            output_str += ("phy_fw_ded         = {} \n".format(1 if((intr_status[3] & (1 << 2))) else 0))
+            output_str += ("torA_mcu_wd_expiry = {} \n".format(1 if((intr_status[3] & (1 << 3))) else 0))
+            output_str += ("torB_mcu_wd_expiry = {} \n".format(1 if((intr_status[3] & (1 << 4))) else 0))
+            output_str += ("nic_mcu_wd_expiry  = {} \n".format(1 if((intr_status[3] & (1 << 5))) else 0))
+            output_str += ("avs_failure        = {} \n".format(1 if((intr_status[3] & (1 << 6))) else 0))
+            output_str += ("mux_switch         = {} \n".format(1 if((intr_status[3] & (1 << 7))) else 0))
+
+            output_str += ("active_tor_to_nic_fault = {}\n".format(1 if((intr_status[4] & (1 << 0))) else 0))
+            output_str += ("nic_to_torA_link_fault  = {}\n".format(1 if((intr_status[4] & (1 << 1))) else 0))
+            output_str += ("nic_to_torB_link_fault  = {}\n".format(1 if((intr_status[4] & (1 << 2))) else 0))
+
+            output_str += ("torA_to_nic_pcs_fec_link_down = {}\n".format(1 if((intr_status[5] & (1 << 0))) else 0))
+            output_str += ("torB_to_nic_pcs_fec_link_down = {}\n".format(1 if((intr_status[5] & (1 << 1))) else 0))
+
+            output_str += ("torA BIP or CW Uncorrected error = {}\n".format(1 if((intr_status[6] & (1 << 0))) else 0))
+            output_str += ("torB BIP or CW Uncorrected error = {}\n".format(1 if((intr_status[6] & (1 << 1))) else 0))
+        else:
+            output_str += "ERROR: Failed to get interrupt status\n"
+
+        return output_str
+
+    def debug_dump_registers(self, option):
+        """
+        This API should dump all registers with meaningful values
+        for the cable to be diagnosed for proper functioning.
+        This means that for all the fields on relevant vendor-specific pages
+        this API should dump the appropriate fields with parsed values
+        which would help debug the Y-Cable
+
+        Args:
+            None
+        Returns:
+            a Dictionary:
+                 with all the relevant key-value pairs for all the meaningful fields
+                 which would help diagnose the cable for proper functioning
+        """
+
+        if option == self.CMD_REG_DUMP:
+            output_str = self.__reg_dump()
+        elif option == self.CMD_INTR_STATUS:
+            output_str = self.__intr_status()
+        else:
+            self.log(self.LOG_ERROR, "Command not supported")
+            output_str = "Warning: {} command unrecognized".format(option)
+
+        return output_str
+
 ##############################################################################
 #
 # Broadcom internal/debug functions
@@ -5867,8 +6190,8 @@ class YCable(YCableBase):
 
     def __qsfp_is_valid_page(self, page):
 
-        if ((page == 5 or page == 6 or page == 7 or page == 8 or page == 9 or page == 10 or page == 11 or page == 12) or
-            (page == 0 or page == 1 or page == 2 or page == 4 or page == 3 or page == 0x80 or page == 0x81 or
+        if ((page == 5 or page == 6 or page == 7 or page == 8 or page == 9 or page == 10 or page == 11 or page == 12 or page == 13 or page == 14) or
+            (page == 0 or page == 1 or page == 2 or page == 4 or page == 3 or page == 0x80 or page == 0x81 or page == 0x83 or
              page == 0x82 or page == 0xB1 or page == 0xFF or page == 0xFE or page == 0xFD)):
             return True
 
@@ -6328,7 +6651,7 @@ class YCable(YCableBase):
         cmd_hdr = bytearray(5)
         cmd_req_body = bytearray(self.MAX_REQ_PARAM_LEN)
 
-        cmd_hdr[0] = 4
+        cmd_hdr[0] = 2
         cmd_hdr[1] = 0
         cmd_hdr[2] = lane_mask if (core_ip == self.CORE_IP_CLIENT) else 0
         cmd_hdr[3] = lane_mask if (core_ip == self.CORE_IP_LW) else 0
