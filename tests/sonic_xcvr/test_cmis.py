@@ -1152,7 +1152,7 @@ class TestCmis(object):
                  'OpticalPowerTx3Field': 0, 'OpticalPowerTx4Field': 0,
                  'OpticalPowerTx5Field': 0, 'OpticalPowerTx6Field': 0,
                  'OpticalPowerTx7Field': 0, 'OpticalPowerTx8Field': 0,},
-                True, True, True, True, True,
+                True, True, True, True, True, True,
                 {'monitor value': 40},
                 {
                     'Pre-FEC BER Average Media Input':{1:[0.001, 0.0125, 0, 0.01, 0, False, False, False, False]},
@@ -1176,6 +1176,38 @@ class TestCmis(object):
                 'prefec_ber': 0.001,
                 'postfec_ber': 0,
             }
+        ),
+        (   
+            [
+                ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
+                ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
+                ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
+                'N/A',
+                50, 3.3, 
+                ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
+                ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
+                ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
+                False, False, False, False, False, False,
+                {'monitor value': 40},
+                None,
+            ],
+            {
+                'temperature': 50,
+                'voltage': 3.3,
+                'tx1power': 'N/A', 'tx2power': 'N/A', 'tx3power': 'N/A', 'tx4power': 'N/A',
+                'tx5power': 'N/A', 'tx6power': 'N/A', 'tx7power': 'N/A', 'tx8power': 'N/A', 
+                'rx1power': 'N/A', 'rx2power': 'N/A', 'rx3power': 'N/A', 'rx4power': 'N/A',
+                'rx5power': 'N/A', 'rx6power': 'N/A', 'rx7power': 'N/A', 'rx8power': 'N/A', 
+                'tx1bias': 'N/A', 'tx2bias': 'N/A', 'tx3bias': 'N/A', 'tx4bias': 'N/A',
+                'tx5bias': 'N/A', 'tx6bias': 'N/A', 'tx7bias': 'N/A', 'tx8bias': 'N/A',
+                'rx_los': 'N/A',
+                'tx_fault': 'N/A',
+                'tx_disable': 'N/A',
+                'tx_disabled_channel': 'N/A',
+                'laser_temperature': 40
+            }
+
+
         )
     ])
     def test_get_transceiver_bulk_status(self, mock_response, expected):
@@ -1201,16 +1233,18 @@ class TestCmis(object):
         self.api.get_rx_los_support.return_value = mock_response[9]
         self.api.get_tx_fault_support = MagicMock()
         self.api.get_tx_fault_support.return_value = mock_response[10]
+        self.api.get_tx_disable_support = MagicMock()
+        self.api.get_tx_disable_support.return_value = mock_response[11]
         self.api.get_tx_bias_support = MagicMock()
-        self.api.get_tx_bias_support.return_value = mock_response[11]
+        self.api.get_tx_bias_support.return_value = mock_response[12]
         self.api.get_tx_power_support = MagicMock()
-        self.api.get_tx_power_support.return_value = mock_response[12]
+        self.api.get_tx_power_support.return_value = mock_response[13]
         self.api.get_rx_power_support = MagicMock()
-        self.api.get_rx_power_support.return_value = mock_response[13]
+        self.api.get_rx_power_support.return_value = mock_response[14]
         self.api.get_laser_temperature = MagicMock()
-        self.api.get_laser_temperature.return_value = mock_response[14]
+        self.api.get_laser_temperature.return_value = mock_response[15]
         self.api.get_vdm = MagicMock()
-        self.api.get_vdm.return_value = mock_response[15]
+        self.api.get_vdm.return_value = mock_response[16]
         result = self.api.get_transceiver_bulk_status()
         assert result == expected
 
@@ -1271,6 +1305,39 @@ class TestCmis(object):
         (
             [
                 'ModuleReady', 'No Fault detected', (False, False, True),
+                {
+                    'case_temp_flags': {
+                        'case_temp_high_alarm_flag': False,
+                        'case_temp_low_alarm_flag': False,
+                        'case_temp_high_warn_flag': False,
+                        'case_temp_low_warn_flag': False,
+                    },
+                    'voltage_flags': {
+                        'voltage_high_alarm_flag': False,
+                        'voltage_low_alarm_flag': False,
+                        'voltage_high_warn_flag': False,
+                        'voltage_low_warn_flag': False,
+                    },
+                    'aux1_flags': {
+                        'aux1_high_alarm_flag': False,
+                        'aux1_low_alarm_flag': False,
+                        'aux1_high_warn_flag': False,
+                        'aux1_low_warn_flag': False,
+                    },
+                    'aux2_flags': {
+                        'aux2_high_alarm_flag': False,
+                        'aux2_low_alarm_flag': False,
+                        'aux2_high_warn_flag': False,
+                        'aux2_low_warn_flag': False,
+                    },
+                    'aux3_flags': {
+                        'aux3_high_alarm_flag': False,
+                        'aux3_low_alarm_flag': False,
+                        'aux3_high_warn_flag': False,
+                        'aux3_low_warn_flag': False,
+                    }
+                },
+                (0, 0, 0), False,
                 {'DP1State': 'DataPathActivated', 'DP2State': 'DataPathActivated',
                  'DP3State': 'DataPathActivated', 'DP4State': 'DataPathActivated',
                  'DP5State': 'DataPathActivated', 'DP6State': 'DataPathActivated',
@@ -1305,39 +1372,7 @@ class TestCmis(object):
                     'DPInitPending5': False, 'DPInitPending6': False, 
                     'DPInitPending7': False, 'DPInitPending8': False
                 },
-                {
-                    'case_temp_flags': {
-                        'case_temp_high_alarm_flag': False,
-                        'case_temp_low_alarm_flag': False,
-                        'case_temp_high_warn_flag': False,
-                        'case_temp_low_warn_flag': False,
-                    },
-                    'voltage_flags': {
-                        'voltage_high_alarm_flag': False,
-                        'voltage_low_alarm_flag': False,
-                        'voltage_high_warn_flag': False,
-                        'voltage_low_warn_flag': False,
-                    },
-                    'aux1_flags': {
-                        'aux1_high_alarm_flag': False,
-                        'aux1_low_alarm_flag': False,
-                        'aux1_high_warn_flag': False,
-                        'aux1_low_warn_flag': False,
-                    },
-                    'aux2_flags': {
-                        'aux2_high_alarm_flag': False,
-                        'aux2_low_alarm_flag': False,
-                        'aux2_high_warn_flag': False,
-                        'aux2_low_warn_flag': False,
-                    },
-                    'aux3_flags': {
-                        'aux3_high_alarm_flag': False,
-                        'aux3_low_alarm_flag': False,
-                        'aux3_high_warn_flag': False,
-                        'aux3_low_warn_flag': False,
-                    }
-                },
-                (0, 0, 0),
+
                 {
                     'tx_power_high_alarm': {'TxPowerHighAlarmFlag1': False},
                     'tx_power_low_alarm': {'TxPowerLowAlarmFlag1': False},
@@ -1436,6 +1471,114 @@ class TestCmis(object):
                 'postfecberhighalarm_flag': False, 'postfecberlowalarm_flag': False, 
                 'postfecberhighwarning_flag': False, 'postfecberlowwarning_flag': False,
             }
+        ),
+        (
+            [
+                'ModuleReady', 'No Fault detected', (False, False, True),
+                {
+                    'case_temp_flags': {
+                        'case_temp_high_alarm_flag': False,
+                        'case_temp_low_alarm_flag': False,
+                        'case_temp_high_warn_flag': False,
+                        'case_temp_low_warn_flag': False,
+                    },
+                    'voltage_flags': {
+                        'voltage_high_alarm_flag': False,
+                        'voltage_low_alarm_flag': False,
+                        'voltage_high_warn_flag': False,
+                        'voltage_low_warn_flag': False,
+                    },
+                    'aux1_flags': {
+                        'aux1_high_alarm_flag': False,
+                        'aux1_low_alarm_flag': False,
+                        'aux1_high_warn_flag': False,
+                        'aux1_low_warn_flag': False,
+                    },
+                    'aux2_flags': {
+                        'aux2_high_alarm_flag': False,
+                        'aux2_low_alarm_flag': False,
+                        'aux2_high_warn_flag': False,
+                        'aux2_low_warn_flag': False,
+                    },
+                    'aux3_flags': {
+                        'aux3_high_alarm_flag': False,
+                        'aux3_low_alarm_flag': False,
+                        'aux3_high_warn_flag': False,
+                        'aux3_low_warn_flag': False,
+                    }
+                },
+                (0, 0, 0), True,
+                {'DP1State': 'DataPathActivated', 'DP2State': 'DataPathActivated',
+                 'DP3State': 'DataPathActivated', 'DP4State': 'DataPathActivated',
+                 'DP5State': 'DataPathActivated', 'DP6State': 'DataPathActivated',
+                 'DP7State': 'DataPathActivated', 'DP8State': 'DataPathActivated'},
+                {'TxOutputStatus1': True},
+                {
+                    'RxOutputStatus1': True, 'RxOutputStatus2': True,
+                    'RxOutputStatus3': True, 'RxOutputStatus4': True,
+                    'RxOutputStatus5': True, 'RxOutputStatus6': True,
+                    'RxOutputStatus7': True, 'RxOutputStatus8': True
+                },
+                {'TxFault1': False},
+                {
+                    'TxLOS1': False, 'TxLOS2': False, 'TxLOS3': False, 'TxLOS4': False, 
+                    'TxLOS5': False, 'TxLOS6': False, 'TxLOS7': False, 'TxLOS8': False 
+                },
+                {
+                    'TxCDRLOL1': False, 'TxCDRLOL2': False, 'TxCDRLOL3': False, 'TxCDRLOL4': False, 
+                    'TxCDRLOL5': False, 'TxCDRLOL6': False, 'TxCDRLOL7': False, 'TxCDRLOL8': False 
+                },
+                {'RxLOS1': False},
+                {'RxCDRLOL1': False},
+                {
+                    'ConfigStatusLane1': 'ConfigSuccess', 'ConfigStatusLane2': 'ConfigSuccess',
+                    'ConfigStatusLane3': 'ConfigSuccess', 'ConfigStatusLane4': 'ConfigSuccess',
+                    'ConfigStatusLane5': 'ConfigSuccess', 'ConfigStatusLane6': 'ConfigSuccess', 
+                    'ConfigStatusLane7': 'ConfigSuccess', 'ConfigStatusLane8': 'ConfigSuccess'
+                },
+                {
+                    'DPInitPending1': False, 'DPInitPending2': False,
+                    'DPInitPending3': False, 'DPInitPending4': False,
+                    'DPInitPending5': False, 'DPInitPending6': False, 
+                    'DPInitPending7': False, 'DPInitPending8': False
+                },
+
+                {
+                    'tx_power_high_alarm': {'TxPowerHighAlarmFlag1': False},
+                    'tx_power_low_alarm': {'TxPowerLowAlarmFlag1': False},
+                    'tx_power_high_warn': {'TxPowerHighWarnFlag1': False},
+                    'tx_power_low_warn': {'TxPowerLowWarnFlag1': False},
+                },
+                {
+                    'rx_power_high_alarm': {'RxPowerHighAlarmFlag1': False},
+                    'rx_power_low_alarm': {'RxPowerLowAlarmFlag1': False},
+                    'rx_power_high_warn': {'RxPowerHighWarnFlag1': False},
+                    'rx_power_low_warn': {'RxPowerLowWarnFlag1': False},
+                },
+                {
+                    'tx_bias_high_alarm': {'TxBiasHighAlarmFlag1': False},
+                    'tx_bias_low_alarm': {'TxBiasLowAlarmFlag1': False},
+                    'tx_bias_high_warn': {'TxBiasHighWarnFlag1': False},
+                    'tx_bias_low_warn': {'TxBiasLowWarnFlag1': False},
+                },
+                {
+                    'Pre-FEC BER Average Media Input':{1:[0.001, 0.0125, 0, 0.01, 0, False, False, False, False]},
+                    'Errored Frames Average Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
+                }
+            ],
+            {
+                'module_state': 'ModuleReady',
+                'module_fault_cause': 'No Fault detected',
+                'datapath_firmware_fault': False,
+                'module_firmware_fault': False,
+                'module_state_changed': True,
+                'temphighalarm_flag': False, 'templowalarm_flag': False, 
+                'temphighwarning_flag': False, 'templowwarning_flag': False,
+                'vcchighalarm_flag': False, 'vcclowalarm_flag': False, 
+                'vcchighwarning_flag': False, 'vcclowwarning_flag': False,
+                'lasertemphighalarm_flag': False, 'lasertemplowalarm_flag': False, 
+                'lasertemphighwarning_flag': False, 'lasertemplowwarning_flag': False,
+            }            
         )
     ])
     def test_get_transceiver_status(self, mock_response, expected):
@@ -1445,38 +1588,41 @@ class TestCmis(object):
         self.api.get_module_fault_cause.return_value = mock_response[1]
         self.api.get_module_firmware_fault_state_changed = MagicMock()
         self.api.get_module_firmware_fault_state_changed.return_value = mock_response[2]
-        self.api.get_datapath_state = MagicMock()
-        self.api.get_datapath_state.return_value = mock_response[3]
-        self.api.get_tx_output_status = MagicMock()
-        self.api.get_tx_output_status.return_value = mock_response[4]
-        self.api.get_rx_output_status = MagicMock()
-        self.api.get_rx_output_status.return_value = mock_response[5]
-        self.api.get_tx_fault = MagicMock()
-        self.api.get_tx_fault.return_value = mock_response[6]
-        self.api.get_tx_los = MagicMock()
-        self.api.get_tx_los.return_value = mock_response[7]
-        self.api.get_tx_cdr_lol = MagicMock()
-        self.api.get_tx_cdr_lol.return_value = mock_response[8]
-        self.api.get_rx_los = MagicMock()
-        self.api.get_rx_los.return_value = mock_response[9]
-        self.api.get_rx_cdr_lol = MagicMock()
-        self.api.get_rx_cdr_lol.return_value = mock_response[10]
-        self.api.get_config_datapath_hostlane_status = MagicMock()
-        self.api.get_config_datapath_hostlane_status.return_value = mock_response[11]
-        self.api.get_dpinit_pending = MagicMock()
-        self.api.get_dpinit_pending.return_value = mock_response[12]
         self.api.get_module_level_flag = MagicMock()
-        self.api.get_module_level_flag.return_value = mock_response[13]
+        self.api.get_module_level_flag.return_value = mock_response[3]
         self.api.get_aux_mon_type = MagicMock()
-        self.api.get_aux_mon_type.return_value = mock_response[14]
+        self.api.get_aux_mon_type.return_value = mock_response[4]
+        self.api.is_flat_memory = MagicMock()
+        self.api.is_flat_memory.return_value = mock_response[5]
+        self.api.get_datapath_state = MagicMock()
+        self.api.get_datapath_state.return_value = mock_response[6]
+        self.api.get_tx_output_status = MagicMock()
+        self.api.get_tx_output_status.return_value = mock_response[7]
+        self.api.get_rx_output_status = MagicMock()
+        self.api.get_rx_output_status.return_value = mock_response[8]
+        self.api.get_tx_fault = MagicMock()
+        self.api.get_tx_fault.return_value = mock_response[9]
+        self.api.get_tx_los = MagicMock()
+        self.api.get_tx_los.return_value = mock_response[10]
+        self.api.get_tx_cdr_lol = MagicMock()
+        self.api.get_tx_cdr_lol.return_value = mock_response[11]
+        self.api.get_rx_los = MagicMock()
+        self.api.get_rx_los.return_value = mock_response[12]
+        self.api.get_rx_cdr_lol = MagicMock()
+        self.api.get_rx_cdr_lol.return_value = mock_response[13]
+        self.api.get_config_datapath_hostlane_status = MagicMock()
+        self.api.get_config_datapath_hostlane_status.return_value = mock_response[14]
+        self.api.get_dpinit_pending = MagicMock()
+        self.api.get_dpinit_pending.return_value = mock_response[15]
+
         self.api.get_tx_power_flag = MagicMock()
-        self.api.get_tx_power_flag.return_value = mock_response[15]
+        self.api.get_tx_power_flag.return_value = mock_response[16]
         self.api.get_rx_power_flag = MagicMock()
-        self.api.get_rx_power_flag.return_value = mock_response[16]
+        self.api.get_rx_power_flag.return_value = mock_response[17]
         self.api.get_tx_bias_flag = MagicMock()
-        self.api.get_tx_bias_flag.return_value = mock_response[17]
+        self.api.get_tx_bias_flag.return_value = mock_response[18]
         self.api.get_vdm = MagicMock()
-        self.api.get_vdm.return_value = mock_response[18]
+        self.api.get_vdm.return_value = mock_response[19]
         result = self.api.get_transceiver_status()
         assert result == expected
 

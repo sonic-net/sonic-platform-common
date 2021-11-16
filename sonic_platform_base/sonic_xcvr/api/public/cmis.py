@@ -180,7 +180,7 @@ class CmisApi(XcvrApi):
         bulk_status = {
             "rx_los": all(rx_los.values()) if self.get_rx_los_support() else 'N/A',
             "tx_fault": all(tx_fault.values()) if self.get_tx_fault_support() else 'N/A',
-            "tx_disable": all(tx_disable),
+            "tx_disable": all(tx_disable) if self.get_tx_disable_support() else 'N/A',
             "tx_disabled_channel": tx_disabled_channel,
             "temperature": temp,
             "voltage": voltage
@@ -197,7 +197,7 @@ class CmisApi(XcvrApi):
         try:
             bulk_status['prefec_ber'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][0]
             bulk_status['postfec_ber'] = self.vdm_dict['Errored Frames Average Media Input'][1][0]
-        except KeyError:
+        except (KeyError, TypeError):
             pass
         return bulk_status
 
@@ -261,7 +261,7 @@ class CmisApi(XcvrApi):
             threshold_info_dict['postfecberlowalarm'] = self.vdm_dict['Errored Frames Average Media Input'][1][2]
             threshold_info_dict['postfecberhighwarning'] = self.vdm_dict['Errored Frames Average Media Input'][1][3]
             threshold_info_dict['postfecberlowwarning'] = self.vdm_dict['Errored Frames Average Media Input'][1][4]
-        except KeyError:
+        except (KeyError, TypeError):
             pass
         return threshold_info_dict
 
@@ -898,10 +898,15 @@ class CmisApi(XcvrApi):
         else:
             return 'N/A'
 
+    def get_cdb_support(self):
+        return not self.is_flat_memory()
 
     def get_cdb_api(self):
         self.cdb = CmisCdbApi(self.xcvr_eeprom)
         return self.cdb
+
+    def get_vdm_support(self):
+        return not self.is_flat_memory()
 
     def get_vdm_api(self):
         self.vdm = CmisVdmApi(self.xcvr_eeprom)
@@ -911,6 +916,8 @@ class CmisApi(XcvrApi):
         '''
         This function returns all the VDM items, including real time monitor value, threholds and flags
         '''
+        if not self.get_vdm_support():
+            return None
         try:
             self.vdm
         except AttributeError:
@@ -1502,7 +1509,29 @@ class CmisApi(XcvrApi):
             trans_status['module_state_changed'] = module_state_changed
         except TypeError:
             pass
-
+        module_flag = self.get_module_level_flag()
+        trans_status['temphighalarm_flag'] = module_flag['case_temp_flags']['case_temp_high_alarm_flag']
+        trans_status['templowalarm_flag'] = module_flag['case_temp_flags']['case_temp_low_alarm_flag']
+        trans_status['temphighwarning_flag'] = module_flag['case_temp_flags']['case_temp_high_warn_flag']
+        trans_status['templowwarning_flag'] = module_flag['case_temp_flags']['case_temp_low_warn_flag']
+        trans_status['vcchighalarm_flag'] = module_flag['voltage_flags']['voltage_high_alarm_flag']
+        trans_status['vcclowalarm_flag'] = module_flag['voltage_flags']['voltage_low_alarm_flag']
+        trans_status['vcchighwarning_flag'] = module_flag['voltage_flags']['voltage_high_warn_flag']
+        trans_status['vcclowwarning_flag'] = module_flag['voltage_flags']['voltage_low_warn_flag']
+        try: 
+            aux1_mon_type, aux2_mon_type, aux3_mon_type = self.get_aux_mon_type()
+            if aux2_mon_type == 0:
+                trans_status['lasertemphighalarm_flag'] = module_flag['aux2_flags']['aux2_high_alarm_flag']
+                trans_status['lasertemplowalarm_flag'] = module_flag['aux2_flags']['aux2_low_alarm_flag']
+                trans_status['lasertemphighwarning_flag'] = module_flag['aux2_flags']['aux2_high_warn_flag']
+                trans_status['lasertemplowwarning_flag'] = module_flag['aux2_flags']['aux2_low_warn_flag']
+            elif aux2_mon_type == 1 and aux3_mon_type == 0:
+                trans_status['lasertemphighalarm_flag'] = module_flag['aux3_flags']['aux3_high_alarm_flag']
+                trans_status['lasertemplowalarm_flag'] = module_flag['aux3_flags']['aux3_low_alarm_flag']
+                trans_status['lasertemphighwarning_flag'] = module_flag['aux3_flags']['aux3_high_warn_flag']
+                trans_status['lasertemplowwarning_flag'] = module_flag['aux3_flags']['aux3_low_warn_flag']
+        except TypeError:
+            pass
         if not self.is_flat_memory():
             dp_state_dict = self.get_datapath_state()
             trans_status['DP1State'] = dp_state_dict['DP1State']
@@ -1566,30 +1595,6 @@ class CmisApi(XcvrApi):
             trans_status['dpinit_pending_hostlane6'] = dpinit_pending_dict['DPInitPending6']
             trans_status['dpinit_pending_hostlane7'] = dpinit_pending_dict['DPInitPending7']
             trans_status['dpinit_pending_hostlane8'] = dpinit_pending_dict['DPInitPending8']
-        module_flag = self.get_module_level_flag()
-        trans_status['temphighalarm_flag'] = module_flag['case_temp_flags']['case_temp_high_alarm_flag']
-        trans_status['templowalarm_flag'] = module_flag['case_temp_flags']['case_temp_low_alarm_flag']
-        trans_status['temphighwarning_flag'] = module_flag['case_temp_flags']['case_temp_high_warn_flag']
-        trans_status['templowwarning_flag'] = module_flag['case_temp_flags']['case_temp_low_warn_flag']
-        trans_status['vcchighalarm_flag'] = module_flag['voltage_flags']['voltage_high_alarm_flag']
-        trans_status['vcclowalarm_flag'] = module_flag['voltage_flags']['voltage_low_alarm_flag']
-        trans_status['vcchighwarning_flag'] = module_flag['voltage_flags']['voltage_high_warn_flag']
-        trans_status['vcclowwarning_flag'] = module_flag['voltage_flags']['voltage_low_warn_flag']
-        try: 
-            aux1_mon_type, aux2_mon_type, aux3_mon_type = self.get_aux_mon_type()
-            if aux2_mon_type == 0:
-                trans_status['lasertemphighalarm_flag'] = module_flag['aux2_flags']['aux2_high_alarm_flag']
-                trans_status['lasertemplowalarm_flag'] = module_flag['aux2_flags']['aux2_low_alarm_flag']
-                trans_status['lasertemphighwarning_flag'] = module_flag['aux2_flags']['aux2_high_warn_flag']
-                trans_status['lasertemplowwarning_flag'] = module_flag['aux2_flags']['aux2_low_warn_flag']
-            elif aux2_mon_type == 1 and aux3_mon_type == 0:
-                trans_status['lasertemphighalarm_flag'] = module_flag['aux3_flags']['aux3_high_alarm_flag']
-                trans_status['lasertemplowalarm_flag'] = module_flag['aux3_flags']['aux3_low_alarm_flag']
-                trans_status['lasertemphighwarning_flag'] = module_flag['aux3_flags']['aux3_high_warn_flag']
-                trans_status['lasertemplowwarning_flag'] = module_flag['aux3_flags']['aux3_low_warn_flag']
-        except TypeError:
-            pass
-        if not self.is_flat_memory():
             tx_power_flag_dict = self.get_tx_power_flag()
             trans_status['txpowerhighalarm_flag'] = tx_power_flag_dict['tx_power_high_alarm']['TxPowerHighAlarmFlag1']
             trans_status['txpowerlowalarm_flag'] = tx_power_flag_dict['tx_power_low_alarm']['TxPowerLowAlarmFlag1']
@@ -1615,7 +1620,7 @@ class CmisApi(XcvrApi):
                 trans_status['postfecberlowalarm_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][6]
                 trans_status['postfecberhighwarning_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][7]
                 trans_status['postfecberlowwarning_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][8]
-            except KeyError:
+            except (KeyError, TypeError):
                 pass
         return trans_status
 
