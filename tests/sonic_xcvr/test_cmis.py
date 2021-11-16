@@ -518,6 +518,15 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
+        (False, True)
+    ])
+    def test_get_transceiver_loopback_support(self, mock_response, expected):
+        self.api.is_flat_memory = MagicMock()
+        self.api.is_flat_memory.return_value = mock_response
+        result = self.api.get_transceiver_loopback_support()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response, expected", [
         (None, False),
         ('Power Class 1', False),
         ('Power Class 8', True),
@@ -1143,7 +1152,7 @@ class TestCmis(object):
                  'OpticalPowerTx3Field': 0, 'OpticalPowerTx4Field': 0,
                  'OpticalPowerTx5Field': 0, 'OpticalPowerTx6Field': 0,
                  'OpticalPowerTx7Field': 0, 'OpticalPowerTx8Field': 0,},
-                True, True,
+                True, True, True, True, True,
                 {'monitor value': 40},
                 {
                     'Pre-FEC BER Average Media Input':{1:[0.001, 0.0125, 0, 0.01, 0, False, False, False, False]},
@@ -1192,10 +1201,16 @@ class TestCmis(object):
         self.api.get_rx_los_support.return_value = mock_response[9]
         self.api.get_tx_fault_support = MagicMock()
         self.api.get_tx_fault_support.return_value = mock_response[10]
+        self.api.get_tx_bias_support = MagicMock()
+        self.api.get_tx_bias_support.return_value = mock_response[11]
+        self.api.get_tx_power_support = MagicMock()
+        self.api.get_tx_power_support.return_value = mock_response[12]
+        self.api.get_rx_power_support = MagicMock()
+        self.api.get_rx_power_support.return_value = mock_response[13]
         self.api.get_laser_temperature = MagicMock()
-        self.api.get_laser_temperature.return_value = mock_response[11]
+        self.api.get_laser_temperature.return_value = mock_response[14]
         self.api.get_vdm = MagicMock()
-        self.api.get_vdm.return_value = mock_response[12]
+        self.api.get_vdm.return_value = mock_response[15]
         result = self.api.get_transceiver_bulk_status()
         assert result == expected
 
@@ -1468,6 +1483,7 @@ class TestCmis(object):
     @pytest.mark.parametrize("mock_response, expected",[
         (
             [
+                True,
                 False,
                 False,
                 [False, False, False, False, False, False, False, False],
@@ -1496,14 +1512,16 @@ class TestCmis(object):
         )
     ])
     def test_get_transceiver_loopback(self, mock_response, expected):
+        self.api.get_transceiver_loopback_support = MagicMock()
+        self.api.get_transceiver_loopback_support.return_value = mock_response[0]
         self.api.get_media_output_loopback = MagicMock()
-        self.api.get_media_output_loopback.return_value = mock_response[0]
+        self.api.get_media_output_loopback.return_value = mock_response[1]
         self.api.get_media_input_loopback = MagicMock()
-        self.api.get_media_input_loopback.return_value = mock_response[1]
+        self.api.get_media_input_loopback.return_value = mock_response[2]
         self.api.get_host_output_loopback = MagicMock()
-        self.api.get_host_output_loopback.return_value = mock_response[2]
+        self.api.get_host_output_loopback.return_value = mock_response[3]
         self.api.get_host_input_loopback = MagicMock()
-        self.api.get_host_input_loopback.return_value = mock_response[3]
+        self.api.get_host_input_loopback.return_value = mock_response[4]
         result = self.api.get_transceiver_loopback()
         assert result == expected
 

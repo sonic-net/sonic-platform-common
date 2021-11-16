@@ -187,9 +187,9 @@ class CmisApi(XcvrApi):
         }
 
         for i in range(1, self.NUM_CHANNELS + 1):
-            bulk_status["tx%dbias" % i] = tx_bias['LaserBiasTx%dField' % i]
-            bulk_status["rx%dpower" % i] = rx_power['OpticalPowerRx%dField' %i]
-            bulk_status["tx%dpower" % i] = tx_power['OpticalPowerTx%dField' %i]
+            bulk_status["tx%dbias" % i] = tx_bias['LaserBiasTx%dField' % i] if self.get_tx_bias_support() else 'N/A'
+            bulk_status["rx%dpower" % i] = rx_power['OpticalPowerRx%dField' %i] if self.get_tx_power_support() else 'N/A'
+            bulk_status["tx%dpower" % i] = tx_power['OpticalPowerTx%dField' %i] if self.get_rx_power_support() else 'N/A'
 
         laser_temp_dict = self.get_laser_temperature()
         bulk_status['laser_temperature'] = laser_temp_dict['monitor value']
@@ -580,6 +580,9 @@ class CmisApi(XcvrApi):
         return True
 
     def get_transceiver_thresholds_support(self):
+        return not self.is_flat_memory()
+
+    def get_transceiver_loopback_support(self):
         return not self.is_flat_memory()
 
     def get_lpmode_support(self):
@@ -1499,68 +1502,70 @@ class CmisApi(XcvrApi):
             trans_status['module_state_changed'] = module_state_changed
         except TypeError:
             pass
-        dp_state_dict = self.get_datapath_state()
-        trans_status['DP1State'] = dp_state_dict['DP1State']
-        trans_status['DP2State'] = dp_state_dict['DP2State']
-        trans_status['DP3State'] = dp_state_dict['DP3State']
-        trans_status['DP4State'] = dp_state_dict['DP4State']
-        trans_status['DP5State'] = dp_state_dict['DP5State']
-        trans_status['DP6State'] = dp_state_dict['DP6State']
-        trans_status['DP7State'] = dp_state_dict['DP7State']
-        trans_status['DP8State'] = dp_state_dict['DP8State']
-        tx_output_status_dict = self.get_tx_output_status()
-        trans_status['txoutput_status'] = tx_output_status_dict['TxOutputStatus1']
-        rx_output_status_dict = self.get_rx_output_status()
-        trans_status['rxoutput_status_hostlane1'] = rx_output_status_dict['RxOutputStatus1']
-        trans_status['rxoutput_status_hostlane2'] = rx_output_status_dict['RxOutputStatus2']
-        trans_status['rxoutput_status_hostlane3'] = rx_output_status_dict['RxOutputStatus3']
-        trans_status['rxoutput_status_hostlane4'] = rx_output_status_dict['RxOutputStatus4']
-        trans_status['rxoutput_status_hostlane5'] = rx_output_status_dict['RxOutputStatus5']
-        trans_status['rxoutput_status_hostlane6'] = rx_output_status_dict['RxOutputStatus6']
-        trans_status['rxoutput_status_hostlane7'] = rx_output_status_dict['RxOutputStatus7']
-        trans_status['rxoutput_status_hostlane8'] = rx_output_status_dict['RxOutputStatus8']
-        tx_fault_dict = self.get_tx_fault()
-        trans_status['txfault'] = tx_fault_dict['TxFault1']
-        tx_los_dict = self.get_tx_los()
-        trans_status['txlos_hostlane1'] = tx_los_dict['TxLOS1']
-        trans_status['txlos_hostlane2'] = tx_los_dict['TxLOS2']
-        trans_status['txlos_hostlane3'] = tx_los_dict['TxLOS3']
-        trans_status['txlos_hostlane4'] = tx_los_dict['TxLOS4']
-        trans_status['txlos_hostlane5'] = tx_los_dict['TxLOS5']
-        trans_status['txlos_hostlane6'] = tx_los_dict['TxLOS6']
-        trans_status['txlos_hostlane7'] = tx_los_dict['TxLOS7']
-        trans_status['txlos_hostlane8'] = tx_los_dict['TxLOS8']
-        tx_lol_dict = self.get_tx_cdr_lol()
-        trans_status['txcdrlol_hostlane1'] = tx_lol_dict['TxCDRLOL1']
-        trans_status['txcdrlol_hostlane2'] = tx_lol_dict['TxCDRLOL2']
-        trans_status['txcdrlol_hostlane3'] = tx_lol_dict['TxCDRLOL3']
-        trans_status['txcdrlol_hostlane4'] = tx_lol_dict['TxCDRLOL4']
-        trans_status['txcdrlol_hostlane5'] = tx_lol_dict['TxCDRLOL5']
-        trans_status['txcdrlol_hostlane6'] = tx_lol_dict['TxCDRLOL6']
-        trans_status['txcdrlol_hostlane7'] = tx_lol_dict['TxCDRLOL7']
-        trans_status['txcdrlol_hostlane8'] = tx_lol_dict['TxCDRLOL8']
-        rx_los_dict = self.get_rx_los()
-        trans_status['rxlos'] = rx_los_dict['RxLOS1']
-        rx_lol_dict = self.get_rx_cdr_lol()
-        trans_status['rxcdrlol'] = rx_lol_dict['RxCDRLOL1']
-        config_status_dict = self.get_config_datapath_hostlane_status()
-        trans_status['config_state_hostlane1'] = config_status_dict['ConfigStatusLane1']
-        trans_status['config_state_hostlane2'] = config_status_dict['ConfigStatusLane2']
-        trans_status['config_state_hostlane3'] = config_status_dict['ConfigStatusLane3']
-        trans_status['config_state_hostlane4'] = config_status_dict['ConfigStatusLane4']
-        trans_status['config_state_hostlane5'] = config_status_dict['ConfigStatusLane5']
-        trans_status['config_state_hostlane6'] = config_status_dict['ConfigStatusLane6']
-        trans_status['config_state_hostlane7'] = config_status_dict['ConfigStatusLane7']
-        trans_status['config_state_hostlane8'] = config_status_dict['ConfigStatusLane8']
-        dpinit_pending_dict = self.get_dpinit_pending()
-        trans_status['dpinit_pending_hostlane1'] = dpinit_pending_dict['DPInitPending1']
-        trans_status['dpinit_pending_hostlane2'] = dpinit_pending_dict['DPInitPending2']
-        trans_status['dpinit_pending_hostlane3'] = dpinit_pending_dict['DPInitPending3']
-        trans_status['dpinit_pending_hostlane4'] = dpinit_pending_dict['DPInitPending4']
-        trans_status['dpinit_pending_hostlane5'] = dpinit_pending_dict['DPInitPending5']
-        trans_status['dpinit_pending_hostlane6'] = dpinit_pending_dict['DPInitPending6']
-        trans_status['dpinit_pending_hostlane7'] = dpinit_pending_dict['DPInitPending7']
-        trans_status['dpinit_pending_hostlane8'] = dpinit_pending_dict['DPInitPending8']
+
+        if not self.is_flat_memory():
+            dp_state_dict = self.get_datapath_state()
+            trans_status['DP1State'] = dp_state_dict['DP1State']
+            trans_status['DP2State'] = dp_state_dict['DP2State']
+            trans_status['DP3State'] = dp_state_dict['DP3State']
+            trans_status['DP4State'] = dp_state_dict['DP4State']
+            trans_status['DP5State'] = dp_state_dict['DP5State']
+            trans_status['DP6State'] = dp_state_dict['DP6State']
+            trans_status['DP7State'] = dp_state_dict['DP7State']
+            trans_status['DP8State'] = dp_state_dict['DP8State']
+            tx_output_status_dict = self.get_tx_output_status()
+            trans_status['txoutput_status'] = tx_output_status_dict['TxOutputStatus1']
+            rx_output_status_dict = self.get_rx_output_status()
+            trans_status['rxoutput_status_hostlane1'] = rx_output_status_dict['RxOutputStatus1']
+            trans_status['rxoutput_status_hostlane2'] = rx_output_status_dict['RxOutputStatus2']
+            trans_status['rxoutput_status_hostlane3'] = rx_output_status_dict['RxOutputStatus3']
+            trans_status['rxoutput_status_hostlane4'] = rx_output_status_dict['RxOutputStatus4']
+            trans_status['rxoutput_status_hostlane5'] = rx_output_status_dict['RxOutputStatus5']
+            trans_status['rxoutput_status_hostlane6'] = rx_output_status_dict['RxOutputStatus6']
+            trans_status['rxoutput_status_hostlane7'] = rx_output_status_dict['RxOutputStatus7']
+            trans_status['rxoutput_status_hostlane8'] = rx_output_status_dict['RxOutputStatus8']
+            tx_fault_dict = self.get_tx_fault()
+            trans_status['txfault'] = tx_fault_dict['TxFault1']
+            tx_los_dict = self.get_tx_los()
+            trans_status['txlos_hostlane1'] = tx_los_dict['TxLOS1']
+            trans_status['txlos_hostlane2'] = tx_los_dict['TxLOS2']
+            trans_status['txlos_hostlane3'] = tx_los_dict['TxLOS3']
+            trans_status['txlos_hostlane4'] = tx_los_dict['TxLOS4']
+            trans_status['txlos_hostlane5'] = tx_los_dict['TxLOS5']
+            trans_status['txlos_hostlane6'] = tx_los_dict['TxLOS6']
+            trans_status['txlos_hostlane7'] = tx_los_dict['TxLOS7']
+            trans_status['txlos_hostlane8'] = tx_los_dict['TxLOS8']
+            tx_lol_dict = self.get_tx_cdr_lol()
+            trans_status['txcdrlol_hostlane1'] = tx_lol_dict['TxCDRLOL1']
+            trans_status['txcdrlol_hostlane2'] = tx_lol_dict['TxCDRLOL2']
+            trans_status['txcdrlol_hostlane3'] = tx_lol_dict['TxCDRLOL3']
+            trans_status['txcdrlol_hostlane4'] = tx_lol_dict['TxCDRLOL4']
+            trans_status['txcdrlol_hostlane5'] = tx_lol_dict['TxCDRLOL5']
+            trans_status['txcdrlol_hostlane6'] = tx_lol_dict['TxCDRLOL6']
+            trans_status['txcdrlol_hostlane7'] = tx_lol_dict['TxCDRLOL7']
+            trans_status['txcdrlol_hostlane8'] = tx_lol_dict['TxCDRLOL8']
+            rx_los_dict = self.get_rx_los()
+            trans_status['rxlos'] = rx_los_dict['RxLOS1']
+            rx_lol_dict = self.get_rx_cdr_lol()
+            trans_status['rxcdrlol'] = rx_lol_dict['RxCDRLOL1']
+            config_status_dict = self.get_config_datapath_hostlane_status()
+            trans_status['config_state_hostlane1'] = config_status_dict['ConfigStatusLane1']
+            trans_status['config_state_hostlane2'] = config_status_dict['ConfigStatusLane2']
+            trans_status['config_state_hostlane3'] = config_status_dict['ConfigStatusLane3']
+            trans_status['config_state_hostlane4'] = config_status_dict['ConfigStatusLane4']
+            trans_status['config_state_hostlane5'] = config_status_dict['ConfigStatusLane5']
+            trans_status['config_state_hostlane6'] = config_status_dict['ConfigStatusLane6']
+            trans_status['config_state_hostlane7'] = config_status_dict['ConfigStatusLane7']
+            trans_status['config_state_hostlane8'] = config_status_dict['ConfigStatusLane8']
+            dpinit_pending_dict = self.get_dpinit_pending()
+            trans_status['dpinit_pending_hostlane1'] = dpinit_pending_dict['DPInitPending1']
+            trans_status['dpinit_pending_hostlane2'] = dpinit_pending_dict['DPInitPending2']
+            trans_status['dpinit_pending_hostlane3'] = dpinit_pending_dict['DPInitPending3']
+            trans_status['dpinit_pending_hostlane4'] = dpinit_pending_dict['DPInitPending4']
+            trans_status['dpinit_pending_hostlane5'] = dpinit_pending_dict['DPInitPending5']
+            trans_status['dpinit_pending_hostlane6'] = dpinit_pending_dict['DPInitPending6']
+            trans_status['dpinit_pending_hostlane7'] = dpinit_pending_dict['DPInitPending7']
+            trans_status['dpinit_pending_hostlane8'] = dpinit_pending_dict['DPInitPending8']
         module_flag = self.get_module_level_flag()
         trans_status['temphighalarm_flag'] = module_flag['case_temp_flags']['case_temp_high_alarm_flag']
         trans_status['templowalarm_flag'] = module_flag['case_temp_flags']['case_temp_low_alarm_flag']
@@ -1584,33 +1589,34 @@ class CmisApi(XcvrApi):
                 trans_status['lasertemplowwarning_flag'] = module_flag['aux3_flags']['aux3_low_warn_flag']
         except TypeError:
             pass
-        tx_power_flag_dict = self.get_tx_power_flag()
-        trans_status['txpowerhighalarm_flag'] = tx_power_flag_dict['tx_power_high_alarm']['TxPowerHighAlarmFlag1']
-        trans_status['txpowerlowalarm_flag'] = tx_power_flag_dict['tx_power_low_alarm']['TxPowerLowAlarmFlag1']
-        trans_status['txpowerhighwarning_flag'] = tx_power_flag_dict['tx_power_high_warn']['TxPowerHighWarnFlag1']
-        trans_status['txpowerlowwarning_flag'] = tx_power_flag_dict['tx_power_low_warn']['TxPowerLowWarnFlag1']
-        rx_power_flag_dict = self.get_rx_power_flag()
-        trans_status['rxpowerhighalarm_flag'] = rx_power_flag_dict['rx_power_high_alarm']['RxPowerHighAlarmFlag1']
-        trans_status['rxpowerlowalarm_flag'] = rx_power_flag_dict['rx_power_low_alarm']['RxPowerLowAlarmFlag1']
-        trans_status['rxpowerhighwarning_flag'] = rx_power_flag_dict['rx_power_high_warn']['RxPowerHighWarnFlag1']
-        trans_status['rxpowerlowwarning_flag'] = rx_power_flag_dict['rx_power_low_warn']['RxPowerLowWarnFlag1']
-        tx_bias_flag_dict = self.get_tx_bias_flag()
-        trans_status['txbiashighalarm_flag'] = tx_bias_flag_dict['tx_bias_high_alarm']['TxBiasHighAlarmFlag1']
-        trans_status['txbiaslowalarm_flag'] = tx_bias_flag_dict['tx_bias_low_alarm']['TxBiasLowAlarmFlag1']
-        trans_status['txbiashighwarning_flag'] = tx_bias_flag_dict['tx_bias_high_warn']['TxBiasHighWarnFlag1']
-        trans_status['txbiaslowwarning_flag'] = tx_bias_flag_dict['tx_bias_low_warn']['TxBiasLowWarnFlag1']
-        self.vdm_dict = self.get_vdm()
-        try:
-            trans_status['prefecberhighalarm_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][5]
-            trans_status['prefecberlowalarm_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][6]
-            trans_status['prefecberhighwarning_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][7]
-            trans_status['prefecberlowwarning_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][8]
-            trans_status['postfecberhighalarm_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][5]
-            trans_status['postfecberlowalarm_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][6]
-            trans_status['postfecberhighwarning_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][7]
-            trans_status['postfecberlowwarning_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][8]
-        except KeyError:
-            pass
+        if not self.is_flat_memory():
+            tx_power_flag_dict = self.get_tx_power_flag()
+            trans_status['txpowerhighalarm_flag'] = tx_power_flag_dict['tx_power_high_alarm']['TxPowerHighAlarmFlag1']
+            trans_status['txpowerlowalarm_flag'] = tx_power_flag_dict['tx_power_low_alarm']['TxPowerLowAlarmFlag1']
+            trans_status['txpowerhighwarning_flag'] = tx_power_flag_dict['tx_power_high_warn']['TxPowerHighWarnFlag1']
+            trans_status['txpowerlowwarning_flag'] = tx_power_flag_dict['tx_power_low_warn']['TxPowerLowWarnFlag1']
+            rx_power_flag_dict = self.get_rx_power_flag()
+            trans_status['rxpowerhighalarm_flag'] = rx_power_flag_dict['rx_power_high_alarm']['RxPowerHighAlarmFlag1']
+            trans_status['rxpowerlowalarm_flag'] = rx_power_flag_dict['rx_power_low_alarm']['RxPowerLowAlarmFlag1']
+            trans_status['rxpowerhighwarning_flag'] = rx_power_flag_dict['rx_power_high_warn']['RxPowerHighWarnFlag1']
+            trans_status['rxpowerlowwarning_flag'] = rx_power_flag_dict['rx_power_low_warn']['RxPowerLowWarnFlag1']
+            tx_bias_flag_dict = self.get_tx_bias_flag()
+            trans_status['txbiashighalarm_flag'] = tx_bias_flag_dict['tx_bias_high_alarm']['TxBiasHighAlarmFlag1']
+            trans_status['txbiaslowalarm_flag'] = tx_bias_flag_dict['tx_bias_low_alarm']['TxBiasLowAlarmFlag1']
+            trans_status['txbiashighwarning_flag'] = tx_bias_flag_dict['tx_bias_high_warn']['TxBiasHighWarnFlag1']
+            trans_status['txbiaslowwarning_flag'] = tx_bias_flag_dict['tx_bias_low_warn']['TxBiasLowWarnFlag1']
+            self.vdm_dict = self.get_vdm()
+            try:
+                trans_status['prefecberhighalarm_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][5]
+                trans_status['prefecberlowalarm_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][6]
+                trans_status['prefecberhighwarning_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][7]
+                trans_status['prefecberlowwarning_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][8]
+                trans_status['postfecberhighalarm_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][5]
+                trans_status['postfecberlowalarm_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][6]
+                trans_status['postfecberhighwarning_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][7]
+                trans_status['postfecberlowwarning_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][8]
+            except KeyError:
+                pass
         return trans_status
 
     def get_transceiver_loopback(self):
@@ -1642,6 +1648,9 @@ class CmisApi(XcvrApi):
         host_input_loopback_lane8   = BOOLEAN                          ; host side input loopback enable lane8
         ========================================================================
         """
+        loopback_support = self.get_transceiver_loopback_support()
+        if loopback_support is None:
+            return None
         trans_loopback = dict()
         trans_loopback['media_output_loopback'] = self.get_media_output_loopback()
         trans_loopback['media_input_loopback'] = self.get_media_input_loopback()
