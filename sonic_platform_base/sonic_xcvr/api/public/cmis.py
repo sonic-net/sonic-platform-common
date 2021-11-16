@@ -188,8 +188,8 @@ class CmisApi(XcvrApi):
 
         for i in range(1, self.NUM_CHANNELS + 1):
             bulk_status["tx%dbias" % i] = tx_bias['LaserBiasTx%dField' % i] if self.get_tx_bias_support() else 'N/A'
-            bulk_status["rx%dpower" % i] = rx_power['OpticalPowerRx%dField' %i] if self.get_tx_power_support() else 'N/A'
-            bulk_status["tx%dpower" % i] = tx_power['OpticalPowerTx%dField' %i] if self.get_rx_power_support() else 'N/A'
+            bulk_status["rx%dpower" % i] = self.mw_to_dbm(rx_power['OpticalPowerRx%dField' %i]) if self.get_tx_power_support() else 'N/A'
+            bulk_status["tx%dpower" % i] = self.mw_to_dbm(tx_power['OpticalPowerTx%dField' %i]) if self.get_rx_power_support() else 'N/A'
 
         laser_temp_dict = self.get_laser_temperature()
         bulk_status['laser_temperature'] = laser_temp_dict['monitor value']
@@ -223,7 +223,8 @@ class CmisApi(XcvrApi):
         thresh = self.xcvr_eeprom.read(consts.THRESHOLDS_FIELD)
         if thresh is None:
             return None
-
+        tx_bias_scale_raw = self.xcvr_eeprom.read(consts.TX_BIAS_SCALE)
+        tx_bias_scale = 2**tx_bias_scale_raw
         threshold_info_dict =  {
             "temphighalarm": float("{:.3f}".format(thresh[consts.TEMP_HIGH_ALARM_FIELD])),
             "templowalarm": float("{:.3f}".format(thresh[consts.TEMP_LOW_ALARM_FIELD])),
@@ -241,10 +242,10 @@ class CmisApi(XcvrApi):
             "txpowerlowalarm": float("{:.3f}".format(self.mw_to_dbm(thresh[consts.TX_POWER_LOW_ALARM_FIELD]))),
             "txpowerhighwarning": float("{:.3f}".format(self.mw_to_dbm(thresh[consts.TX_POWER_HIGH_WARNING_FIELD]))),
             "txpowerlowwarning": float("{:.3f}".format(self.mw_to_dbm(thresh[consts.TX_POWER_LOW_WARNING_FIELD]))),
-            "txbiashighalarm": float("{:.3f}".format(thresh[consts.TX_BIAS_HIGH_ALARM_FIELD])),
-            "txbiaslowalarm": float("{:.3f}".format(thresh[consts.TX_BIAS_LOW_ALARM_FIELD])),
-            "txbiashighwarning": float("{:.3f}".format(thresh[consts.TX_BIAS_HIGH_WARNING_FIELD])),
-            "txbiaslowwarning": float("{:.3f}".format(thresh[consts.TX_BIAS_LOW_WARNING_FIELD]))
+            "txbiashighalarm": float("{:.3f}".format(thresh[consts.TX_BIAS_HIGH_ALARM_FIELD]*tx_bias_scale)),
+            "txbiaslowalarm": float("{:.3f}".format(thresh[consts.TX_BIAS_LOW_ALARM_FIELD]*tx_bias_scale)),
+            "txbiashighwarning": float("{:.3f}".format(thresh[consts.TX_BIAS_HIGH_WARNING_FIELD]*tx_bias_scale)),
+            "txbiaslowwarning": float("{:.3f}".format(thresh[consts.TX_BIAS_LOW_WARNING_FIELD]*tx_bias_scale))
         }
         laser_temp_dict = self.get_laser_temperature()
         threshold_info_dict['lasertemphighalarm'] = laser_temp_dict['high alarm']
@@ -298,10 +299,10 @@ class CmisApi(XcvrApi):
         return not self.is_flat_memory()
 
     def get_rx_los_support(self):
-        return not self.is_flat_memory()
+        return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.RX_LOS_SUPPORT_FIELD)
 
     def get_tx_cdr_lol_support(self):
-        return not self.is_flat_memory()
+        return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.TX_CDR_LOL_SUPPORT_FIELD)
 
     def get_tx_cdr_lol(self):
         '''
@@ -336,7 +337,7 @@ class CmisApi(XcvrApi):
         return rx_los
 
     def get_rx_cdr_lol_support(self):
-        return not self.is_flat_memory()
+        return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.RX_CDR_LOL_SUPPORT_FIELD)
 
     def get_rx_cdr_lol(self):
         '''
@@ -449,7 +450,7 @@ class CmisApi(XcvrApi):
         return rx_output_status_dict
 
     def get_tx_bias_support(self):
-        return not self.is_flat_memory()
+        return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.TX_BIAS_SUPPORT_FIELD)
 
     def get_tx_bias(self):
         '''
@@ -460,7 +461,11 @@ class CmisApi(XcvrApi):
             return None
         if not tx_bias_support:
             return ["N/A" for _ in range(self.NUM_CHANNELS)]
+        scale_raw = self.xcvr_eeprom.read(consts.TX_BIAS_SCALE)
+        scale = 2**scale_raw if scale_raw < 3 else 1
         tx_bias = self.xcvr_eeprom.read(consts.TX_BIAS_FIELD)
+        for key, value in tx_bias.items():
+            tx_bias[key] *= scale
         return tx_bias
 
     def get_tx_power(self):
@@ -476,7 +481,7 @@ class CmisApi(XcvrApi):
         return tx_power
 
     def get_tx_power_support(self):
-        return not self.is_flat_memory()
+        return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.TX_POWER_SUPPORT_FIELD)
 
     def get_rx_power(self):
         '''
@@ -491,7 +496,7 @@ class CmisApi(XcvrApi):
         return rx_power
 
     def get_rx_power_support(self):
-        return not self.is_flat_memory()
+        return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.RX_POWER_SUPPORT_FIELD)
 
     def get_tx_fault_support(self):
         return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.TX_FAULT_SUPPORT_FIELD)
@@ -513,7 +518,7 @@ class CmisApi(XcvrApi):
         return tx_fault
 
     def get_tx_los_support(self):
-        return not self.is_flat_memory()
+        return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.TX_LOS_SUPPORT_FIELD)
 
     def get_tx_los(self):
         '''
@@ -906,7 +911,7 @@ class CmisApi(XcvrApi):
         return self.cdb
 
     def get_vdm_support(self):
-        return not self.is_flat_memory()
+        return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.VDM_SUPPORTED)
 
     def get_vdm_api(self):
         self.vdm = CmisVdmApi(self.xcvr_eeprom)
@@ -1656,26 +1661,55 @@ class CmisApi(XcvrApi):
         loopback_support = self.get_transceiver_loopback_support()
         if loopback_support is None:
             return None
+        loopback_capability = self.get_loopback_capability()
+        if loopback_capability is None:
+            return None        
         trans_loopback = dict()
-        trans_loopback['media_output_loopback'] = self.get_media_output_loopback()
-        trans_loopback['media_input_loopback'] = self.get_media_input_loopback()
-        host_output_loopback_status = self.get_host_output_loopback()
-        trans_loopback['host_output_loopback_lane1'] = host_output_loopback_status[0]
-        trans_loopback['host_output_loopback_lane2'] = host_output_loopback_status[1]
-        trans_loopback['host_output_loopback_lane3'] = host_output_loopback_status[2]
-        trans_loopback['host_output_loopback_lane4'] = host_output_loopback_status[3]
-        trans_loopback['host_output_loopback_lane5'] = host_output_loopback_status[4]
-        trans_loopback['host_output_loopback_lane6'] = host_output_loopback_status[5]
-        trans_loopback['host_output_loopback_lane7'] = host_output_loopback_status[6]
-        trans_loopback['host_output_loopback_lane8'] = host_output_loopback_status[7]
-        host_input_loopback_status = self.get_host_input_loopback()
-        trans_loopback['host_input_loopback_lane1'] = host_input_loopback_status[0]
-        trans_loopback['host_input_loopback_lane2'] = host_input_loopback_status[1]
-        trans_loopback['host_input_loopback_lane3'] = host_input_loopback_status[2]
-        trans_loopback['host_input_loopback_lane4'] = host_input_loopback_status[3]
-        trans_loopback['host_input_loopback_lane5'] = host_input_loopback_status[4]
-        trans_loopback['host_input_loopback_lane6'] = host_input_loopback_status[5]
-        trans_loopback['host_input_loopback_lane7'] = host_input_loopback_status[6]
-        trans_loopback['host_input_loopback_lane8'] = host_input_loopback_status[7]
+        if loopback_capability['media_side_output_loopback_supported']:
+            trans_loopback['media_output_loopback'] = self.get_media_output_loopback()
+        else:
+            trans_loopback['media_output_loopback'] = 'N/A'
+        if loopback_capability['media_side_input_loopback_supported']:
+            trans_loopback['media_input_loopback'] = self.get_media_input_loopback()
+        else:
+            trans_loopback['media_input_loopback'] = 'N/A'
+        if loopback_capability['host_side_output_loopback_supported']:
+            host_output_loopback_status = self.get_host_output_loopback()
+            trans_loopback['host_output_loopback_lane1'] = host_output_loopback_status[0]
+            trans_loopback['host_output_loopback_lane2'] = host_output_loopback_status[1]
+            trans_loopback['host_output_loopback_lane3'] = host_output_loopback_status[2]
+            trans_loopback['host_output_loopback_lane4'] = host_output_loopback_status[3]
+            trans_loopback['host_output_loopback_lane5'] = host_output_loopback_status[4]
+            trans_loopback['host_output_loopback_lane6'] = host_output_loopback_status[5]
+            trans_loopback['host_output_loopback_lane7'] = host_output_loopback_status[6]
+            trans_loopback['host_output_loopback_lane8'] = host_output_loopback_status[7]
+        else:
+            trans_loopback['host_output_loopback_lane1'] = 'N/A'
+            trans_loopback['host_output_loopback_lane2'] = 'N/A'
+            trans_loopback['host_output_loopback_lane3'] = 'N/A'
+            trans_loopback['host_output_loopback_lane4'] = 'N/A'
+            trans_loopback['host_output_loopback_lane5'] = 'N/A'
+            trans_loopback['host_output_loopback_lane6'] = 'N/A'
+            trans_loopback['host_output_loopback_lane7'] = 'N/A'
+            trans_loopback['host_output_loopback_lane8'] = 'N/A'
+        if loopback_capability['host_side_input_loopback_supported']:
+            host_input_loopback_status = self.get_host_input_loopback()
+            trans_loopback['host_input_loopback_lane1'] = host_input_loopback_status[0]
+            trans_loopback['host_input_loopback_lane2'] = host_input_loopback_status[1]
+            trans_loopback['host_input_loopback_lane3'] = host_input_loopback_status[2]
+            trans_loopback['host_input_loopback_lane4'] = host_input_loopback_status[3]
+            trans_loopback['host_input_loopback_lane5'] = host_input_loopback_status[4]
+            trans_loopback['host_input_loopback_lane6'] = host_input_loopback_status[5]
+            trans_loopback['host_input_loopback_lane7'] = host_input_loopback_status[6]
+            trans_loopback['host_input_loopback_lane8'] = host_input_loopback_status[7]
+        else:
+            trans_loopback['host_input_loopback_lane1'] = 'N/A'
+            trans_loopback['host_input_loopback_lane2'] = 'N/A'
+            trans_loopback['host_input_loopback_lane3'] = 'N/A'
+            trans_loopback['host_input_loopback_lane4'] = 'N/A'
+            trans_loopback['host_input_loopback_lane5'] = 'N/A'
+            trans_loopback['host_input_loopback_lane6'] = 'N/A'
+            trans_loopback['host_input_loopback_lane7'] = 'N/A'
+            trans_loopback['host_input_loopback_lane8'] = 'N/A'
         return trans_loopback
     # TODO: other XcvrApi methods

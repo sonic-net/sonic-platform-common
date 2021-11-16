@@ -354,9 +354,9 @@ class Sff8024(XcvrCodes):
         0: 'Undefined',
         1: 'Active Cable assembly with BER < 10^-12',
         2: 'Active Cable assembly with BER < 5x10^-5',
-        '03': 'Active Cable assembly with BER < 2.6x10^-4',
-        '04': 'Active Cable assembly with BER < 10^-6',
-        'bf': 'Active Loopback module'
+        3: 'Active Cable assembly with BER < 2.6x10^-4',
+        4: 'Active Cable assembly with BER < 10^-6',
+        191: 'Active Loopback module'
     }
 
     BASE_T_MEDIA_INTERFACE = {
