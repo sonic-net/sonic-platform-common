@@ -224,7 +224,7 @@ class CmisApi(XcvrApi):
         if thresh is None:
             return None
         tx_bias_scale_raw = self.xcvr_eeprom.read(consts.TX_BIAS_SCALE)
-        tx_bias_scale = 2**tx_bias_scale_raw
+        tx_bias_scale = 2**tx_bias_scale_raw if tx_bias_scale_raw < 3 else 1
         threshold_info_dict =  {
             "temphighalarm": float("{:.3f}".format(thresh[consts.TEMP_HIGH_ALARM_FIELD])),
             "templowalarm": float("{:.3f}".format(thresh[consts.TEMP_LOW_ALARM_FIELD])),
@@ -587,9 +587,6 @@ class CmisApi(XcvrApi):
     def get_transceiver_thresholds_support(self):
         return not self.is_flat_memory()
 
-    def get_transceiver_loopback_support(self):
-        return not self.is_flat_memory()
-
     def get_lpmode_support(self):
         power_class = self.xcvr_eeprom.read(consts.POWER_CLASS_FIELD)
         if power_class is None:
@@ -879,6 +876,9 @@ class CmisApi(XcvrApi):
         The function will look at 13h:128 to check advertized loopback capabilities.
         Return True if the provision succeeds, False if it fails
         '''
+        loopback_support = not self.is_flat_memory()
+        if loopback_support is None:
+            return None
         loopback_capability = self.get_loopback_capability()
         if loopback_capability is None:
             return None
@@ -1658,13 +1658,20 @@ class CmisApi(XcvrApi):
         host_input_loopback_lane8   = BOOLEAN                          ; host side input loopback enable lane8
         ========================================================================
         """
-        loopback_support = self.get_transceiver_loopback_support()
+        loopback_support = not self.is_flat_memory()
         if loopback_support is None:
             return None
         loopback_capability = self.get_loopback_capability()
         if loopback_capability is None:
             return None        
         trans_loopback = dict()
+        trans_loopback['simultaneous_host_media_loopback_supported'] = loopback_capability['simultaneous_host_media_loopback_supported']
+        trans_loopback['per_lane_media_loopback_supported'] = loopback_capability['per_lane_media_loopback_supported']
+        trans_loopback['per_lane_host_loopback_supported'] = loopback_capability['per_lane_host_loopback_supported']
+        trans_loopback['host_side_input_loopback_supported'] = loopback_capability['host_side_input_loopback_supported']
+        trans_loopback['host_side_output_loopback_supported'] = loopback_capability['host_side_output_loopback_supported']
+        trans_loopback['media_side_input_loopback_supported'] = loopback_capability['media_side_input_loopback_supported']
+        trans_loopback['media_side_output_loopback_supported'] = loopback_capability['media_side_output_loopback_supported']
         if loopback_capability['media_side_output_loopback_supported']:
             trans_loopback['media_output_loopback'] = self.get_media_output_loopback()
         else:

@@ -533,15 +533,6 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        (False, True)
-    ])
-    def test_get_transceiver_loopback_support(self, mock_response, expected):
-        self.api.is_flat_memory = MagicMock()
-        self.api.is_flat_memory.return_value = mock_response
-        result = self.api.get_transceiver_loopback_support()
-        assert result == expected
-
-    @pytest.mark.parametrize("mock_response, expected", [
         (None, False),
         ('Power Class 1', False),
         ('Power Class 8', True),
@@ -1669,6 +1660,13 @@ class TestCmis(object):
                 [False, False, False, False, False, False, False, False]
             ],
             {
+                'simultaneous_host_media_loopback_supported': True,
+                'per_lane_media_loopback_supported': True,
+                'per_lane_host_loopback_supported': True,
+                'host_side_input_loopback_supported': True,
+                'host_side_output_loopback_supported': True,
+                'media_side_input_loopback_supported': True,
+                'media_side_output_loopback_supported': True,
                 'media_output_loopback': False,
                 'media_input_loopback': False,
                 'host_output_loopback_lane1': False,
@@ -1711,6 +1709,13 @@ class TestCmis(object):
                 [False, False, False, False, False, False, False, False]
             ],
             {
+                'simultaneous_host_media_loopback_supported': False,
+                'per_lane_media_loopback_supported': False,
+                'per_lane_host_loopback_supported': False,
+                'host_side_input_loopback_supported': False,
+                'host_side_output_loopback_supported': False,
+                'media_side_input_loopback_supported': False,
+                'media_side_output_loopback_supported': False,
                 'media_output_loopback': 'N/A',
                 'media_input_loopback': 'N/A',
                 'host_output_loopback_lane1': 'N/A',
@@ -1733,8 +1738,8 @@ class TestCmis(object):
         )
     ])
     def test_get_transceiver_loopback(self, mock_response, expected):
-        self.api.get_transceiver_loopback_support = MagicMock()
-        self.api.get_transceiver_loopback_support.return_value = mock_response[0]
+        self.api.is_flat_memory = MagicMock()
+        self.api.is_flat_memory.return_value = mock_response[0]
         self.api.get_loopback_capability = MagicMock()
         self.api.get_loopback_capability.return_value = mock_response[1]
         self.api.get_media_output_loopback = MagicMock()
