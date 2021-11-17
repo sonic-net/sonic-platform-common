@@ -508,7 +508,7 @@ def post_port_sfp_dom_info_to_db(is_warm_start, port_mapping, stop_event=threadi
         if asic_index is None:
             helper_logger.log_warning("Got invalid asic index for {}, ignored".format(logical_port_name))
             continue
-        rc = post_port_sfp_info_to_db(logical_port_name, port_mapping, xcvr_table_helper.get_int_tbl(asic_index), transceiver_dict, stop_event)
+        rc = post_port_sfp_info_to_db(logical_port_name, port_mapping, xcvr_table_helper.get_intf_tbl(asic_index), transceiver_dict, stop_event)
         if rc != SFP_EEPROM_NOT_READY:
             post_port_dom_info_to_db(logical_port_name, port_mapping, xcvr_table_helper.get_dom_tbl(asic_index), stop_event)
             post_port_dom_threshold_info_to_db(logical_port_name, port_mapping, xcvr_table_helper.get_dom_tbl(asic_index), stop_event)
@@ -1522,7 +1522,7 @@ class DaemonXcvrd(daemon_base.DaemonBase):
                 helper_logger.log_warning("Got invalid asic index for {}, ignored".format(logical_port_name))
                 continue
 
-            del_port_sfp_dom_info_from_db(logical_port_name, port_mapping_data, xcvr_table_helper.get_int_tbl(asic_index), xcvr_table_helper.get_dom_tbl(asic_index))
+            del_port_sfp_dom_info_from_db(logical_port_name, port_mapping_data, xcvr_table_helper.get_intf_tbl(asic_index), xcvr_table_helper.get_dom_tbl(asic_index))
             delete_port_from_status_table(logical_port_name, xcvr_table_helper.get_status_tbl(asic_index))
 
         if self.y_cable_presence[0] is True:
