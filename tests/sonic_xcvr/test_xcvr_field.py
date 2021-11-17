@@ -1,5 +1,7 @@
 from sonic_platform_base.sonic_xcvr.fields.xcvr_field import (
     CodeRegField,
+    DateField,
+    FixedNumberRegField,
     HexRegField,
     NumberRegField,
     RegBitField,
@@ -44,6 +46,7 @@ class MockXcvrMemMap(XcvrMemMap):
             size=2, format=">H")
         self.NUM_REG = NumberRegField("NumReg", 100, format=">Q", size=8, ro=False)
         self.SCALE_NUM_REG = NumberRegField("ScaleNumReg", 120, format=">i", size=4, scale=100, ro=False)
+        self.FIXED_NUM_REG = FixedNumberRegField("FixedNumReg", 130, 8, format=">f", size=4, ro=False)
         self.STRING_REG = StringRegField("StringReg", 12, size=15)
         self.HEX_REG = HexRegField("HexReg", 30, size=3)
         self.REG_GROUP = RegGroupField("RegGroup",
@@ -69,6 +72,7 @@ class MockXcvrMemMap(XcvrMemMap):
             NumberRegField("Field4", 55, format="<I", size=4)
         )
 
+        self.DATE = DateField("Date", 60, size=8)
         self.combo = RegGroupField("COMBO_ACTIVE_APPL",
                         *(NumberRegField("ACTIVE_APPL%d" % (lane) , offset,
                             *(RegBitField("Bit%d" % bit, bit) for bit in range(0, 4)))
@@ -192,6 +196,12 @@ class TestNumberRegField(object):
         assert field.decode(field.encode(val)) == 3
         assert field.decode(field.encode(0)) == 0
 
+class TestFixedNumberRegField(object):
+    def test_encode_decode(self):
+        field = mem_map.get_field("FixedNumReg")
+        val = 1.25
+        assert field.decode(field.encode(val)) == val
+
 class TestStringRegField(object):
     def test_decode(self):
         field = mem_map.get_field("StringReg")
@@ -273,3 +283,10 @@ class TestRegGroupField(object):
             "Field3": 0x04030201,
             "Field4": 0x01040302,
         }
+
+class TestDateField(object):
+    def test_decode(self):
+        field = mem_map.get_field("Date")
+        data = bytearray(b'\x32\x31\x31\x30\x32\x30\x00\x00')
+        decoded = field.decode(data)
+        assert decoded == "2021-10-20 \0\0"

@@ -20,6 +20,11 @@ from .mem_maps.public.sff8436 import Sff8436MemMap
 from .codes.public.sff8636 import Sff8636Codes
 from .api.public.sff8636 import Sff8636Api
 from .mem_maps.public.sff8636 import Sff8636MemMap
+
+from .codes.public.sff8472 import Sff8472Codes
+from .api.public.sff8472 import Sff8472Api
+from .mem_maps.public.sff8472 import Sff8472MemMap
+
 class XcvrApiFactory(object):
     def __init__(self, reader, writer):
         self.reader = reader
@@ -57,6 +62,11 @@ class XcvrApiFactory(object):
             mem_map = Sff8436MemMap(codes)
             xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
             api = Sff8436Api(xcvr_eeprom)
+        elif id == 0x03:
+            codes = Sff8472Codes
+            mem_map = Sff8472MemMap(codes)
+            xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
+            api = Sff8472Api(xcvr_eeprom)
         else:
             api = None
         return api
