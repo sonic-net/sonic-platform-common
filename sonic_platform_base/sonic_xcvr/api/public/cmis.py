@@ -1325,14 +1325,18 @@ class CmisApi(XcvrApi):
         # complete FW download (CMD 0107h)
         fw_complete_status = self.cdb.validate_fw_image()
         if fw_complete_status == 1:
-            logger.info('Module FW download complete: Success')
+            string = 'Module FW download complete: Success'
+            logger.info(string)
+            txt += string
         else:
             txt += 'Module FW download complete: Fail\n'
             txt += 'FW_complete_status %d\n' %fw_complete_status
             logger.info(txt)
             return False, txt
         elapsedtime = time.time()-elapsedtime-starttime
-        logger.info('Complete module FW download time: %.2f s\n' %elapsedtime)
+        string = 'Complete module FW download time: %.2f s\n' %elapsedtime
+        logger.info(string)
+        txt += string
         return True, txt
 
     def module_fw_upgrade(self, imagepath):
@@ -1394,11 +1398,11 @@ class CmisApi(XcvrApi):
             txt += 'Before switch Image A: %s; Run: %d Commit: %d, Valid: %d\n' %(
                 ImageA_init, ImageARunning_init, ImageACommitted_init, ImageAValid_init
             )
-            txt += 'Befpre switch Image B: %s; Run: %d Commit: %d, Valid: %d\n' %(
+            txt += 'Before switch Image B: %s; Run: %d Commit: %d, Valid: %d\n' %(
                 ImageB_init, ImageBRunning_init, ImageBCommitted_init, ImageBValid_init
             )
-            txt += 'Image A: %s; Run: %d Commit: %d, Valid: %d\n' %(ImageA, ImageARunning, ImageACommitted, ImageAValid)
-            txt += 'Image B: %s; Run: %d Commit: %d, Valid: %d\n' %(ImageB, ImageBRunning, ImageBCommitted, ImageBValid)
+            txt += 'After switch Image A: %s; Run: %d Commit: %d, Valid: %d\n' %(ImageA, ImageARunning, ImageACommitted, ImageAValid)
+            txt += 'After switch Image B: %s; Run: %d Commit: %d, Valid: %d\n' %(ImageB, ImageBRunning, ImageBCommitted, ImageBValid)
             if (ImageARunning_init == 1 and ImageARunning == 1) or (ImageBRunning_init == 1 and ImageBRunning == 1):
                 txt += 'Switch did not happen.\n'
                 logger.info(txt)
