@@ -9,8 +9,9 @@ trigger:
       - '*'
 
 variables:
-  DIFF_COVER_CHECK_THRESHOLD: 0
+  DIFF_COVER_CHECK_THRESHOLD: 50
   DIFF_COVER_ENABLE: 'true'
+  DIFF_COVER_WORKING_DIRECTORY: $(System.DefaultWorkingDirectory)
 
 pool:
   vmImage: 'ubuntu-20.04'
