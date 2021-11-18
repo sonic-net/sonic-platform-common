@@ -300,7 +300,7 @@ class CmisApi(XcvrApi):
         return not self.is_flat_memory()
 
     def get_rx_los_support(self):
-        return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.RX_LOS_SUPPORT_FIELD)
+        return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.RX_LOS_SUPPORT)
 
     def get_tx_cdr_lol_support(self):
         return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.TX_CDR_LOL_SUPPORT_FIELD)

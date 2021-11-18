@@ -116,7 +116,7 @@ class CmisMemMap(XcvrMemMap):
                 RegBitField(consts.TX_CDR_LOL_SUPPORT_FIELD, 2),
             ),
             NumberRegField(consts.RX_FLAGS_ADVT_FIELD, self.getaddr(0x1, 158),
-                RegBitField(consts.RX_LOS_SUPPORT_FIELD, 1),
+                RegBitField(consts.RX_LOS_SUPPORT, 1),
                 RegBitField(consts.RX_CDR_LOL_SUPPORT_FIELD, 2),
             ),
             NumberRegField(consts.LANE_MON_ADVT_FIELD, self.getaddr(0x1, 160),
