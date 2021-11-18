@@ -852,6 +852,9 @@ class CmisApi(XcvrApi):
         '''
         This function returns the module loopback capability as advertised
         '''
+        loopback_capability = dict()
+        if self.is_flat_memory():
+            return None
         allowed_loopback_result = self.xcvr_eeprom.read(consts.LOOPBACK_CAPABILITY)
         if allowed_loopback_result is None:
             return None
@@ -877,12 +880,9 @@ class CmisApi(XcvrApi):
         The function will look at 13h:128 to check advertized loopback capabilities.
         Return True if the provision succeeds, False if it fails
         '''
-        loopback_support = not self.is_flat_memory()
-        if loopback_support is None:
-            return None
         loopback_capability = self.get_loopback_capability()
         if loopback_capability is None:
-            return None
+            return False
         if loopback_mode == 'none':
             status_host_input = self.xcvr_eeprom.write(consts.HOST_INPUT_LOOPBACK, 0)
             status_host_output = self.xcvr_eeprom.write(consts.HOST_OUTPUT_LOOPBACK, 0)
@@ -890,19 +890,27 @@ class CmisApi(XcvrApi):
             status_media_output = self.xcvr_eeprom.write(consts.MEDIA_OUTPUT_LOOPBACK, 0)
             return all([status_host_input, status_host_output, status_media_input, status_media_output])
         elif loopback_mode == 'host-side-input':
-            assert loopback_capability['host_side_input_loopback_supported']
-            return self.xcvr_eeprom.write(consts.HOST_INPUT_LOOPBACK, 0xff)
+            if loopback_capability['host_side_input_loopback_supported']:
+                return self.xcvr_eeprom.write(consts.HOST_INPUT_LOOPBACK, 0xff)
+            else:
+                return False
         elif loopback_mode == 'host-side-output':
-            assert loopback_capability['host_side_output_loopback_supported']
-            return self.xcvr_eeprom.write(consts.HOST_OUTPUT_LOOPBACK, 0xff)
+            if loopback_capability['host_side_output_loopback_supported']:
+                return self.xcvr_eeprom.write(consts.HOST_OUTPUT_LOOPBACK, 0xff)
+            else:
+                return False
         elif loopback_mode == 'media-side-input':
-            assert loopback_capability['media_side_input_loopback_supported']
-            return self.xcvr_eeprom.write(consts.MEDIA_INPUT_LOOPBACK, 0xff)
+            if loopback_capability['media_side_input_loopback_supported']:
+                return self.xcvr_eeprom.write(consts.MEDIA_INPUT_LOOPBACK, 0xff)
+            else:
+                return False
         elif loopback_mode == 'media-side-output':
-            assert loopback_capability['media_side_output_loopback_supported']
-            return self.xcvr_eeprom.write(consts.MEDIA_OUTPUT_LOOPBACK, 0xff)
+            if loopback_capability['media_side_output_loopback_supported']:
+                return self.xcvr_eeprom.write(consts.MEDIA_OUTPUT_LOOPBACK, 0xff)
+            else:
+                return False
         else:
-            return 'N/A'
+            return False
 
     def get_cdb_support(self):
         return not self.is_flat_memory()
@@ -1659,20 +1667,43 @@ class CmisApi(XcvrApi):
         host_input_loopback_lane8   = BOOLEAN                          ; host side input loopback enable lane8
         ========================================================================
         """
-        loopback_support = not self.is_flat_memory()
-        if loopback_support is None:
-            return None
+        trans_loopback = dict()
         loopback_capability = self.get_loopback_capability()
         if loopback_capability is None:
-            return None        
-        trans_loopback = dict()
-        trans_loopback['simultaneous_host_media_loopback_supported'] = loopback_capability['simultaneous_host_media_loopback_supported']
-        trans_loopback['per_lane_media_loopback_supported'] = loopback_capability['per_lane_media_loopback_supported']
-        trans_loopback['per_lane_host_loopback_supported'] = loopback_capability['per_lane_host_loopback_supported']
-        trans_loopback['host_side_input_loopback_supported'] = loopback_capability['host_side_input_loopback_supported']
-        trans_loopback['host_side_output_loopback_supported'] = loopback_capability['host_side_output_loopback_supported']
-        trans_loopback['media_side_input_loopback_supported'] = loopback_capability['media_side_input_loopback_supported']
-        trans_loopback['media_side_output_loopback_supported'] = loopback_capability['media_side_output_loopback_supported']
+            trans_loopback['simultaneous_host_media_loopback_supported'] = 'N/A'
+            trans_loopback['per_lane_media_loopback_supported'] = 'N/A'
+            trans_loopback['per_lane_host_loopback_supported'] = 'N/A'
+            trans_loopback['host_side_input_loopback_supported'] = 'N/A'
+            trans_loopback['host_side_output_loopback_supported'] = 'N/A'
+            trans_loopback['media_side_input_loopback_supported'] = 'N/A'
+            trans_loopback['media_side_output_loopback_supported'] = 'N/A'
+            trans_loopback['media_output_loopback'] = 'N/A'
+            trans_loopback['media_input_loopback'] = 'N/A'
+            trans_loopback['host_output_loopback_lane1'] = 'N/A'
+            trans_loopback['host_output_loopback_lane2'] = 'N/A'
+            trans_loopback['host_output_loopback_lane3'] = 'N/A'
+            trans_loopback['host_output_loopback_lane4'] = 'N/A'
+            trans_loopback['host_output_loopback_lane5'] = 'N/A'
+            trans_loopback['host_output_loopback_lane6'] = 'N/A'
+            trans_loopback['host_output_loopback_lane7'] = 'N/A'
+            trans_loopback['host_output_loopback_lane8'] = 'N/A'
+            trans_loopback['host_input_loopback_lane1'] = 'N/A'
+            trans_loopback['host_input_loopback_lane2'] = 'N/A'
+            trans_loopback['host_input_loopback_lane3'] = 'N/A'
+            trans_loopback['host_input_loopback_lane4'] = 'N/A'
+            trans_loopback['host_input_loopback_lane5'] = 'N/A'
+            trans_loopback['host_input_loopback_lane6'] = 'N/A'
+            trans_loopback['host_input_loopback_lane7'] = 'N/A'
+            trans_loopback['host_input_loopback_lane8'] = 'N/A'
+            return trans_loopback
+        else:
+            trans_loopback['simultaneous_host_media_loopback_supported'] = loopback_capability['simultaneous_host_media_loopback_supported']
+            trans_loopback['per_lane_media_loopback_supported'] = loopback_capability['per_lane_media_loopback_supported']
+            trans_loopback['per_lane_host_loopback_supported'] = loopback_capability['per_lane_host_loopback_supported']
+            trans_loopback['host_side_input_loopback_supported'] = loopback_capability['host_side_input_loopback_supported']
+            trans_loopback['host_side_output_loopback_supported'] = loopback_capability['host_side_output_loopback_supported']
+            trans_loopback['media_side_input_loopback_supported'] = loopback_capability['media_side_input_loopback_supported']
+            trans_loopback['media_side_output_loopback_supported'] = loopback_capability['media_side_output_loopback_supported']
         if loopback_capability['media_side_output_loopback_supported']:
             trans_loopback['media_output_loopback'] = self.get_media_output_loopback()
         else:
