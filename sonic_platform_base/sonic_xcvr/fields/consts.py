@@ -109,6 +109,41 @@ POWER_SET_FIELD = "Power Set"
 
 REV_COMPLIANCE_FIELD = "Revision Compliance"
 
+# SFF-8472
+
+ENHANCED_OPTIONS_FIELD = "Enhanced Options"
+ETHERNET_10G_COMPLIANCE_FIELD = "10G Ethernet Compliance"
+INFINIBAND_COMPLIANCE_FIELD = "Infiniband Compliance"
+ESCON_COMPLIANCE_FIELD = "ESCON Compliance"
+ETHERNET_COMPLIANCE_FIELD = "Ethernet Compliance"
+SFP_CABLE_TECH_FIELD = "SFP+ Cable Technology"
+RATE_ID_FIELD = "Rate Identifier"
+EXT_CAL_FIELD = "Externally Calibrated"
+INT_CAL_FIELD = "Internally Calibrated"
+DOM_EXT_CAL_CONST_FIELD = "Calibration Constants for External Calibration"
+RX_LOS_SUPPORT_FIELD = "RxLOSSupported"
+RX_PWR_4_FIELD = "Rx_PWR(4)"
+RX_PWR_3_FIELD = "Rx_PWR(3)"
+RX_PWR_2_FIELD = "Rx_PWR(2)"
+RX_PWR_1_FIELD = "Rx_PWR(1)"
+RX_PWR_0_FIELD = "Rx_PWR(0)"
+TX_I_SLOPE_FIELD = "Tx_I(Slope)"
+TX_I_OFFSET_FIELD = "Tx_I(Offset)" 
+TX_PWR_SLOPE_FIELD = "Tx_PWR(Slope)"
+TX_PWR_OFFSET_FIELD = "Tx_PWR(Offset)"
+T_SLOPE_FIELD = "T (Slope)"
+T_OFFSET_FIELD = "T (Offet)"
+V_SLOPE_FIELD = "V (Slope)"
+V_OFFSET_FIELD = "V (Offset)"
+
+DDM_SUPPORT_FIELD = "Digital Diagnostic Monitoring Implemented"
+DOM_FIELD = "DOM"
+
+PAGING_SUPPORT_FIELD = "Paging Implemented"
+
+STATUS_CTRL_FIELD = "Status/Control"
+TX_DISABLE_SELECT_FIELD = "Soft TX Disable Select"
+
 # CMIS
 
 ADMIN_INFO_FIELD = "AdminInfo"

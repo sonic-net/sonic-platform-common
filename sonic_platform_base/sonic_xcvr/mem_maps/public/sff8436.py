@@ -91,7 +91,7 @@ class Sff8436MemMap(XcvrMemMap):
         )
 
         self.RX_POWER = RegGroupField(consts.RX_POWER_FIELD,
-            *(NumberRegField("Rx%dPowerField" % channel, self.get_addr(0, offset), size=2, format=">H", scale=1000)
+            *(NumberRegField("Rx%dPowerField" % channel, self.get_addr(0, offset), size=2, format=">H", scale=10000)
               for channel, offset in zip(range(1, 5), range(34, 41, 2)))
         )
 
@@ -125,10 +125,10 @@ class Sff8436MemMap(XcvrMemMap):
         )
 
         self.RX_POWER_THRESHOLDS = RegGroupField(consts.RX_POWER_THRESHOLDS_FIELD,
-            NumberRegField(consts.RX_POWER_HIGH_ALARM_FIELD, self.get_addr(3, 176), size=2, format=">H", scale=1000),
-            NumberRegField(consts.RX_POWER_LOW_ALARM_FIELD, self.get_addr(3, 178), size=2, format=">H", scale=1000),
-            NumberRegField(consts.RX_POWER_HIGH_WARNING_FIELD, self.get_addr(3, 180), size=2, format=">H", scale=1000),
-            NumberRegField(consts.RX_POWER_LOW_WARNING_FIELD, self.get_addr(3, 182), size=2, format=">H", scale=1000),
+            NumberRegField(consts.RX_POWER_HIGH_ALARM_FIELD, self.get_addr(3, 176), size=2, format=">H", scale=10000),
+            NumberRegField(consts.RX_POWER_LOW_ALARM_FIELD, self.get_addr(3, 178), size=2, format=">H", scale=10000),
+            NumberRegField(consts.RX_POWER_HIGH_WARNING_FIELD, self.get_addr(3, 180), size=2, format=">H", scale=10000),
+            NumberRegField(consts.RX_POWER_LOW_WARNING_FIELD, self.get_addr(3, 182), size=2, format=">H", scale=10000),
         )
 
         self.TX_BIAS_THRESHOLDS = RegGroupField(consts.TX_BIAS_THRESHOLDS_FIELD,
