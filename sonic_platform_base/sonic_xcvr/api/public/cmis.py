@@ -852,7 +852,6 @@ class CmisApi(XcvrApi):
         '''
         This function returns the module loopback capability as advertised
         '''
-        loopback_capability = dict()
         if self.is_flat_memory():
             return None
         allowed_loopback_result = self.xcvr_eeprom.read(consts.LOOPBACK_CAPABILITY)
