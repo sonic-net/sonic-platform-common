@@ -197,7 +197,7 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ([True, {'TxCDRLOL1': 0}], {'TxCDRLOL1': False}),
+        ([True, {'TxCDRLOL1': 0}], [False]),
         ([False, {'TxCDRLOL1': 0}], ['N/A','N/A','N/A','N/A','N/A','N/A','N/A','N/A']),
         ([None, None], None),
         ([True, None], None)
@@ -211,7 +211,7 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ([True, {'RxLOS1': 0}], {'RxLOS1': False}),
+        ([True, {'RxLOS1': 0}], [False]),
         ([False, {'RxLOS1': 0}], ['N/A','N/A','N/A','N/A','N/A','N/A','N/A','N/A']),
         ([None, None], None),
         ([True, None], None)
@@ -236,7 +236,7 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ([True, {'RxCDRLOL1': 0}], {'RxCDRLOL1': False}),
+        ([True, {'RxCDRLOL1': 0}], [False]),
         ([False, {'RxCDRLOL1': 0}], ['N/A','N/A','N/A','N/A','N/A','N/A','N/A','N/A']),
         ([None, None], None),
         ([True, None], None)
@@ -426,7 +426,7 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ([True, {'TxFault1': 0}], {'TxFault1': False}),
+        ([True, {'TxFault1': 0}], [False]),
         ([False, {'TxFault1': 0}], ['N/A','N/A','N/A','N/A','N/A','N/A','N/A','N/A']),
         ([None, None], None),
         ([True, None], None)
@@ -451,7 +451,7 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ([True, {'TxLOS1': 0}], {'TxLOS1': False}),
+        ([True, {'TxLOS1': 0}], [False]),
         ([False, {'TxLOS1': 0}], ['N/A','N/A','N/A','N/A','N/A','N/A','N/A','N/A']),
         ([None, None], None),
         ([True, None], None)
@@ -1155,10 +1155,8 @@ class TestCmis(object):
     @pytest.mark.parametrize("mock_response, expected",[
         (
             [   
-                {'RxLOS8': False, 'RxLOS2': False, 'RxLOS3': False, 'RxLOS1': False,
-                 'RxLOS6': False, 'RxLOS7': False, 'RxLOS4': False, 'RxLOS5': False},
-                {'TxFault1': False, 'TxFault2': False, 'TxFault3': False, 'TxFault4': False,
-                 'TxFault5': False, 'TxFault6': False, 'TxFault7': False, 'TxFault8': False},
+                [False, False, False, False, False, False, False, False],
+                [False, False, False, False, False, False, False, False],
                 [False, False, False, False, False, False, False, False],
                 0,
                 50,
@@ -1193,7 +1191,8 @@ class TestCmis(object):
                 'tx5bias': 70, 'tx6bias': 70, 'tx7bias': 70, 'tx8bias': 70,
                 'rx_los': False,
                 'tx_fault': False,
-                'tx_disable': False,
+                'tx1disable': False, 'tx2disable': False, 'tx3disable': False, 'tx4disable': False,
+                'tx5disable': False, 'tx6disable': False, 'tx7disable': False, 'tx8disable': False,
                 'tx_disabled_channel': 0,
                 'laser_temperature': 40,
                 'prefec_ber': 0.001,
@@ -1225,7 +1224,8 @@ class TestCmis(object):
                 'tx5bias': 'N/A', 'tx6bias': 'N/A', 'tx7bias': 'N/A', 'tx8bias': 'N/A',
                 'rx_los': 'N/A',
                 'tx_fault': 'N/A',
-                'tx_disable': 'N/A',
+                'tx1disable': 'N/A', 'tx2disable': 'N/A', 'tx3disable': 'N/A', 'tx4disable': 'N/A',
+                'tx5disable': 'N/A', 'tx6disable': 'N/A', 'tx7disable': 'N/A', 'tx8disable': 'N/A',
                 'tx_disabled_channel': 'N/A',
                 'laser_temperature': 40
             }
@@ -1373,17 +1373,11 @@ class TestCmis(object):
                     'RxOutputStatus5': True, 'RxOutputStatus6': True,
                     'RxOutputStatus7': True, 'RxOutputStatus8': True
                 },
-                {'TxFault1': False},
-                {
-                    'TxLOS1': False, 'TxLOS2': False, 'TxLOS3': False, 'TxLOS4': False, 
-                    'TxLOS5': False, 'TxLOS6': False, 'TxLOS7': False, 'TxLOS8': False 
-                },
-                {
-                    'TxCDRLOL1': False, 'TxCDRLOL2': False, 'TxCDRLOL3': False, 'TxCDRLOL4': False, 
-                    'TxCDRLOL5': False, 'TxCDRLOL6': False, 'TxCDRLOL7': False, 'TxCDRLOL8': False 
-                },
-                {'RxLOS1': False},
-                {'RxCDRLOL1': False},
+                [False],
+                [False, False, False, False, False, False, False, False],
+                [False, False, False, False, False, False, False, False],
+                [False],
+                [False],
                 {
                     'ConfigStatusLane1': 'ConfigSuccess', 'ConfigStatusLane2': 'ConfigSuccess',
                     'ConfigStatusLane3': 'ConfigSuccess', 'ConfigStatusLane4': 'ConfigSuccess',
@@ -1543,17 +1537,11 @@ class TestCmis(object):
                     'RxOutputStatus5': True, 'RxOutputStatus6': True,
                     'RxOutputStatus7': True, 'RxOutputStatus8': True
                 },
-                {'TxFault1': False},
-                {
-                    'TxLOS1': False, 'TxLOS2': False, 'TxLOS3': False, 'TxLOS4': False, 
-                    'TxLOS5': False, 'TxLOS6': False, 'TxLOS7': False, 'TxLOS8': False 
-                },
-                {
-                    'TxCDRLOL1': False, 'TxCDRLOL2': False, 'TxCDRLOL3': False, 'TxCDRLOL4': False, 
-                    'TxCDRLOL5': False, 'TxCDRLOL6': False, 'TxCDRLOL7': False, 'TxCDRLOL8': False 
-                },
-                {'RxLOS1': False},
-                {'RxCDRLOL1': False},
+                [False],
+                [False, False, False, False, False, False, False, False],
+                [False, False, False, False, False, False, False, False],
+                [False],
+                [False],
                 {
                     'ConfigStatusLane1': 'ConfigSuccess', 'ConfigStatusLane2': 'ConfigSuccess',
                     'ConfigStatusLane3': 'ConfigSuccess', 'ConfigStatusLane4': 'ConfigSuccess',

@@ -179,15 +179,15 @@ class CmisApi(XcvrApi):
             return None
 
         bulk_status = {
-            "rx_los": all(rx_los.values()) if self.get_rx_los_support() else 'N/A',
-            "tx_fault": all(tx_fault.values()) if self.get_tx_fault_support() else 'N/A',
-            "tx_disable": all(tx_disable) if self.get_tx_disable_support() else 'N/A',
+            "rx_los": all(rx_los) if self.get_rx_los_support() else 'N/A',
+            "tx_fault": all(tx_fault) if self.get_tx_fault_support() else 'N/A',
             "tx_disabled_channel": tx_disabled_channel,
             "temperature": temp,
             "voltage": voltage
         }
 
         for i in range(1, self.NUM_CHANNELS + 1):
+            bulk_status["tx%ddisable" % i] = tx_disable[i-1] if self.get_tx_disable_support() else 'N/A'
             bulk_status["tx%dbias" % i] = tx_bias['LaserBiasTx%dField' % i] if self.get_tx_bias_support() else 'N/A'
             bulk_status["rx%dpower" % i] = self.mw_to_dbm(rx_power['OpticalPowerRx%dField' %i]) if self.get_tx_power_support() else 'N/A'
             bulk_status["tx%dpower" % i] = self.mw_to_dbm(tx_power['OpticalPowerTx%dField' %i]) if self.get_rx_power_support() else 'N/A'
@@ -317,9 +317,11 @@ class CmisApi(XcvrApi):
         tx_cdr_lol = self.xcvr_eeprom.read(consts.TX_CDR_LOL)
         if tx_cdr_lol is None:
             return None
-        for key, value in tx_cdr_lol.items():
-            tx_cdr_lol[key] = bool(value)
-        return tx_cdr_lol
+        keys = sorted(tx_cdr_lol.keys())
+        tx_cdr_lol_final = []
+        for key in keys:
+            tx_cdr_lol_final.append(bool(tx_cdr_lol[key]))
+        return tx_cdr_lol_final
 
     def get_rx_los(self):
         '''
@@ -333,9 +335,11 @@ class CmisApi(XcvrApi):
         rx_los = self.xcvr_eeprom.read(consts.RX_LOS_FIELD)
         if rx_los is None:
             return None
-        for key, value in rx_los.items():
-            rx_los[key] = bool(value)
-        return rx_los
+        keys = sorted(rx_los.keys())
+        rx_los_final = []
+        for key in keys:
+            rx_los_final.append(bool(rx_los[key]))
+        return rx_los_final
 
     def get_rx_cdr_lol_support(self):
         return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.RX_CDR_LOL_SUPPORT_FIELD)
@@ -352,9 +356,11 @@ class CmisApi(XcvrApi):
         rx_cdr_lol = self.xcvr_eeprom.read(consts.RX_CDR_LOL)
         if rx_cdr_lol is None:
             return None
-        for key, value in rx_cdr_lol.items():
-            rx_cdr_lol[key] = bool(value)
-        return rx_cdr_lol
+        keys = sorted(rx_cdr_lol.keys())
+        rx_cdr_lol_final = []
+        for key in keys:
+            rx_cdr_lol_final.append(bool(rx_cdr_lol[key]))
+        return rx_cdr_lol_final
 
     def get_tx_power_flag(self):
         '''
@@ -514,9 +520,11 @@ class CmisApi(XcvrApi):
         tx_fault = self.xcvr_eeprom.read(consts.TX_FAULT_FIELD)
         if tx_fault is None:
             return None
-        for key, value in tx_fault.items():
-            tx_fault[key] = bool(value)
-        return tx_fault
+        keys = sorted(tx_fault.keys())
+        tx_fault_final = []
+        for key in keys:
+            tx_fault_final.append(bool(tx_fault[key]))
+        return tx_fault_final
 
     def get_tx_los_support(self):
         return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.TX_LOS_SUPPORT_FIELD)
@@ -533,9 +541,11 @@ class CmisApi(XcvrApi):
         tx_los = self.xcvr_eeprom.read(consts.TX_LOS_FIELD)
         if tx_los is None:
             return None
-        for key, value in tx_los.items():
-            tx_los[key] = bool(value)
-        return tx_los
+        keys = sorted(tx_los.keys())
+        tx_los_final = []
+        for key in keys:
+            tx_los_final.append(bool(tx_los[key]))
+        return tx_los_final
 
     def get_tx_disable_support(self):
         return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.TX_DISABLE_SUPPORT_FIELD)
@@ -1570,30 +1580,30 @@ class CmisApi(XcvrApi):
             trans_status['rxoutput_status_hostlane6'] = rx_output_status_dict['RxOutputStatus6']
             trans_status['rxoutput_status_hostlane7'] = rx_output_status_dict['RxOutputStatus7']
             trans_status['rxoutput_status_hostlane8'] = rx_output_status_dict['RxOutputStatus8']
-            tx_fault_dict = self.get_tx_fault()
-            trans_status['txfault'] = tx_fault_dict['TxFault1']
-            tx_los_dict = self.get_tx_los()
-            trans_status['txlos_hostlane1'] = tx_los_dict['TxLOS1']
-            trans_status['txlos_hostlane2'] = tx_los_dict['TxLOS2']
-            trans_status['txlos_hostlane3'] = tx_los_dict['TxLOS3']
-            trans_status['txlos_hostlane4'] = tx_los_dict['TxLOS4']
-            trans_status['txlos_hostlane5'] = tx_los_dict['TxLOS5']
-            trans_status['txlos_hostlane6'] = tx_los_dict['TxLOS6']
-            trans_status['txlos_hostlane7'] = tx_los_dict['TxLOS7']
-            trans_status['txlos_hostlane8'] = tx_los_dict['TxLOS8']
-            tx_lol_dict = self.get_tx_cdr_lol()
-            trans_status['txcdrlol_hostlane1'] = tx_lol_dict['TxCDRLOL1']
-            trans_status['txcdrlol_hostlane2'] = tx_lol_dict['TxCDRLOL2']
-            trans_status['txcdrlol_hostlane3'] = tx_lol_dict['TxCDRLOL3']
-            trans_status['txcdrlol_hostlane4'] = tx_lol_dict['TxCDRLOL4']
-            trans_status['txcdrlol_hostlane5'] = tx_lol_dict['TxCDRLOL5']
-            trans_status['txcdrlol_hostlane6'] = tx_lol_dict['TxCDRLOL6']
-            trans_status['txcdrlol_hostlane7'] = tx_lol_dict['TxCDRLOL7']
-            trans_status['txcdrlol_hostlane8'] = tx_lol_dict['TxCDRLOL8']
-            rx_los_dict = self.get_rx_los()
-            trans_status['rxlos'] = rx_los_dict['RxLOS1']
-            rx_lol_dict = self.get_rx_cdr_lol()
-            trans_status['rxcdrlol'] = rx_lol_dict['RxCDRLOL1']
+            tx_fault = self.get_tx_fault()
+            trans_status['txfault'] = tx_fault[0]
+            tx_los = self.get_tx_los()
+            trans_status['txlos_hostlane1'] = tx_los[0]
+            trans_status['txlos_hostlane2'] = tx_los[1]
+            trans_status['txlos_hostlane3'] = tx_los[2]
+            trans_status['txlos_hostlane4'] = tx_los[3]
+            trans_status['txlos_hostlane5'] = tx_los[4]
+            trans_status['txlos_hostlane6'] = tx_los[5]
+            trans_status['txlos_hostlane7'] = tx_los[6]
+            trans_status['txlos_hostlane8'] = tx_los[7]
+            tx_lol = self.get_tx_cdr_lol()
+            trans_status['txcdrlol_hostlane1'] = tx_lol[0]
+            trans_status['txcdrlol_hostlane2'] = tx_lol[1]
+            trans_status['txcdrlol_hostlane3'] = tx_lol[2]
+            trans_status['txcdrlol_hostlane4'] = tx_lol[3]
+            trans_status['txcdrlol_hostlane5'] = tx_lol[4]
+            trans_status['txcdrlol_hostlane6'] = tx_lol[5]
+            trans_status['txcdrlol_hostlane7'] = tx_lol[6]
+            trans_status['txcdrlol_hostlane8'] = tx_lol[7]
+            rx_los = self.get_rx_los()
+            trans_status['rxlos'] = rx_los[0]
+            rx_lol = self.get_rx_cdr_lol()
+            trans_status['rxcdrlol'] = rx_lol[0]
             config_status_dict = self.get_config_datapath_hostlane_status()
             trans_status['config_state_hostlane1'] = config_status_dict['ConfigStatusLane1']
             trans_status['config_state_hostlane2'] = config_status_dict['ConfigStatusLane2']
