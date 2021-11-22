@@ -122,11 +122,11 @@ class CCmisApi(CmisApi):
         assert channel_number % 3 == 0
         if channel_number > hi_ch_num or channel_number < low_ch_num:
             raise ValueError('Provisioned frequency out of range. Max Freq: 196100; Min Freq: 191300 GHz.')
-        self.set_low_power(True)
+        self.set_lpmode(True)
         time.sleep(5)
         status = self.xcvr_eeprom.write(consts.LASER_CONFIG_CHANNEL, channel_number)
         time.sleep(1)
-        self.set_low_power(False)
+        self.set_lpmode(False)
         time.sleep(1)
         return status
 
