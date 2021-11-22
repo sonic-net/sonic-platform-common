@@ -856,8 +856,14 @@ class CmisApi(XcvrApi):
         if self.is_flat_memory() or not self.get_lpmode_support():
             return False
 
-        lpmode_val = lpmode << 4
-        return self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, lpmode_val)
+        lpmode_val = self.xcvr_eeprom.read(consts.MODULE_LEVEL_CONTROL)
+        if lpmode_val is not None:
+            if lpmode is True:
+                lpmode_val = lpmode_val | (1 << 4)
+            else:
+                lpmode_val = lpmode_val & ~(1 << 4)
+            return self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, lpmode_val)
+        return False
 
     def get_loopback_capability(self):
         '''
