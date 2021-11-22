@@ -142,7 +142,8 @@ TX_DISABLE_SELECT_FIELD = "Soft TX Disable Select"
 
 # CMIS
 
-ADMIN_INFO_FIELD = "AdminInfo"
+ADMIN_INFO_FIELD0 = "AdminInfoLowerPage"
+ADMIN_INFO_FIELD1 = "AdminInfoUpperPage"
 MEDIA_TYPE_FIELD = "ModuleMediaType"
 HOST_ELECTRICAL_INTERFACE = "HostElectricalInterfaceID"
 MODULE_MEDIA_INTERFACE_850NM = "ModuleMediaInterface850nm"
