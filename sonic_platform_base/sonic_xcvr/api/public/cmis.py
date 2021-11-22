@@ -1,6 +1,6 @@
+
 """
     cmis.py
-
     Implementation of XcvrApi that corresponds to the CMIS specification.
 """
 
@@ -588,33 +588,6 @@ class CmisApi(XcvrApi):
             return False
         return "Power Class 1" not in power_class
 
-    def get_lpmode(self):
-        '''
-        Retrieves Low power module status
-        '''
-        if self.is_flat_memory() or not self.get_lpmode_support():
-            return False
-
-        lpmode = self.xcvr_eeprom.read(consts.TRANS_MODULE_STATUS_FIELD)
-        if lpmode is not None:
-            if lpmode.get('ModuleState') == 'ModuleLowPwr':
-                return True
-        return False
-
-    def set_lpmode(self, lpmode):
-        '''
-        This function sets the module to low power state.
-        lpmode being False means "set to high power"
-        lpmode being True means "set to low power"
-        Return True if the provision succeeds, False if it fails
-        '''
-
-        if self.is_flat_memory() or not self.get_lpmode_support():
-            return False
-
-        lpmode_val = lpmode << 4
-        return self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, lpmode_val)
-
     def get_power_override_support(self):
         return False
 
@@ -859,15 +832,32 @@ class CmisApi(XcvrApi):
         else:
             return True
 
-    def set_low_power(self, AssertLowPower):
+    def get_lpmode(self):
+        '''
+        Retrieves Low power module status
+        '''
+        if self.is_flat_memory() or not self.get_lpmode_support():
+            return False
+
+        lpmode = self.xcvr_eeprom.read(consts.TRANS_MODULE_STATUS_FIELD)
+        if lpmode is not None:
+            if lpmode.get('ModuleState') == 'ModuleLowPwr':
+                return True
+        return False
+
+    def set_lpmode(self, lpmode):
         '''
         This function sets the module to low power state.
-        AssertLowPower being 0 means "set to high power"
-        AssertLowPower being 1 means "set to low power"
+        lpmode being False means "set to high power"
+        lpmode being True means "set to low power"
         Return True if the provision succeeds, False if it fails
         '''
-        low_power_control = AssertLowPower << 6
-        return self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, low_power_control)
+
+        if self.is_flat_memory() or not self.get_lpmode_support():
+            return False
+
+        lpmode_val = lpmode << 4
+        return self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, lpmode_val)
 
     def get_loopback_capability(self):
         '''
@@ -1167,7 +1157,6 @@ class CmisApi(XcvrApi):
         01h = Attempt Hitless Reset to Inactive Image
         02h = Traffic affecting Reset to Running Image.
         03h = Attempt Hitless Reset to Running Image
-
         This function returns True if firmware run successfully completes. 
         Otherwise it will return False. 
         """
@@ -1202,7 +1191,6 @@ class CmisApi(XcvrApi):
         """
         The host uses this command to commit the running image
         so that the module will boot from it on future boots.
-
         This function returns True if firmware commit successfully completes. 
         Otherwise it will return False. 
         """
@@ -1238,17 +1226,13 @@ class CmisApi(XcvrApi):
         This function performs the download of a firmware image to module eeprom
         It starts CDB download by writing the header of start header size
         from the designated firmware file to the local payload page 0x9F, with CDB command 0101h.
-
         Then it repeatedly reads from the given firmware file and write to the payload
         space advertised from the first step. We use CDB command 0103h to write to the local payload;
         we use CDB command 0104h to write to the extended paylaod. This step repeats until it reaches
         end of the firmware file, or the CDB status failed.
-
         The last step is to complete the firmware upgrade with CDB command 0107h.
-
         Note that if the download process fails anywhere in the middle, we need to run CDB command 0102h
         to abort the upgrade before we restart another upgrade process.
-
         This function returns True if download successfully completes. Otherwise it will return False where it fails.
         """
         try:
@@ -1348,10 +1332,8 @@ class CmisApi(XcvrApi):
         5.  configure run downloaded firmware
         6.  configure commit downloaded firmware
         7.  show FW version in the end
-
         imagepath specifies where firmware image file is located.
         target_firmware is a string that specifies the firmware version to upgrade to
-
         This function returns True if download successfully completes. 
         Otherwise it will return False.
         """
@@ -1417,7 +1399,6 @@ class CmisApi(XcvrApi):
     def get_transceiver_status(self):
         """
         Retrieves transceiver status of this SFP
-
         Returns:
             A dict which contains following keys/values :
         ================================================================================
@@ -1643,7 +1624,6 @@ class CmisApi(XcvrApi):
     def get_transceiver_loopback(self):
         """
         Retrieves loopback mode for this xcvr
-
         Returns:
             A dict containing the following keys/values :
         ========================================================================

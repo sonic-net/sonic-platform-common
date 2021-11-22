@@ -1,6 +1,5 @@
 """
     sfp_optoe_base.py
-
     Platform-independent class with which to interact with a SFP module
     in SONiC
 """
