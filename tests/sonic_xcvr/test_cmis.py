@@ -954,13 +954,13 @@ class TestCmis(object):
             False,
             [0x77, 0xff],
             [18, 35, (0, 7, 112, 255, 255, 16, 0, 0, 19, 136, 0, 100, 3, 232, 19, 136, 58, 152)],
-            {'status':True, 'info': 'Auto page support: True\nMax write length: 2048\nStart payload size 112\nMax block size 2048\nWrite to EPL supported\nAbort CMD102h supported True\nGet module FW upgrade features time: 0.00 s\n', 'result': (112, 2048, False, True, 2048)}
+            {'status':True, 'info': 'Auto page support: True\nMax write length: 2048\nStart payload size 112\nMax block size 2048\nWrite to EPL supported\nAbort CMD102h supported True\n', 'result': (112, 2048, False, True, 2048)}
         ),
         (
             False,
             [0x77, 0xff],
             [18, 35, (0, 7, 112, 255, 255, 1, 0, 0, 19, 136, 0, 100, 3, 232, 19, 136, 58, 152)],
-            {'status':True, 'info': 'Auto page support: True\nMax write length: 2048\nStart payload size 112\nMax block size 2048\nWrite to LPL supported\nAbort CMD102h supported True\nGet module FW upgrade features time: 0.00 s\n', 'result': (112, 2048, True, True, 2048)}
+            {'status':True, 'info': 'Auto page support: True\nMax write length: 2048\nStart payload size 112\nMax block size 2048\nWrite to LPL supported\nAbort CMD102h supported True\n', 'result': (112, 2048, True, True, 2048)}
         ),
     ])
     def test_get_module_fw_upgrade_feature(self, input_param, mock_response1, mock_response2, expected):
@@ -977,11 +977,11 @@ class TestCmis(object):
     @pytest.mark.parametrize("mock_response, expected", [
         (
             [110, 26, (3, 3, 0, 0, 0, 1, 1, 4, 3, 0, 0, 100, 3, 232, 19, 136, 58, 152, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 4, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)],
-            {'status':True, 'info': 'Get module FW info\nImage A Version: 0.0.1\nImage B Version: 0.0.0\nRunning Image: A; Committed Image: A\nGet module FW info time: 0.00 s\n', 'result': ('0.0.1', 1, 1, 0, '0.0.0', 0, 0, 0)}
+            {'status':True, 'info': 'Get module FW info\nImage A Version: 0.0.1\nImage B Version: 0.0.0\nRunning Image: A; Committed Image: A\n', 'result': ('0.0.1', 1, 1, 0, '0.0.0', 0, 0, 0)}
         ),
         (
             [110, 26, (48, 3, 0, 0, 0, 1, 1, 4, 3, 0, 0, 100, 3, 232, 19, 136, 58, 152, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 4, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)],
-            {'status':True, 'info': 'Get module FW info\nImage A Version: 0.0.1\nImage B Version: 0.0.0\nRunning Image: B; Committed Image: B\nGet module FW info time: 0.00 s\n', 'result': ('0.0.1', 0, 0, 0, '0.0.0', 1, 1, 0)}
+            {'status':True, 'info': 'Get module FW info\nImage A Version: 0.0.1\nImage B Version: 0.0.0\nRunning Image: B; Committed Image: B\n', 'result': ('0.0.1', 0, 0, 0, '0.0.0', 1, 1, 0)}
         ),
     ])
     def test_get_module_fw_info(self, mock_response, expected):
@@ -994,7 +994,7 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("input_param, mock_response, expected", [
-        (1, 1,  (True, 'Module FW run: Success\nModule FW run time: 0.00 s\n')),
+        (1, 1,  (True, 'Module FW run: Success\n')),
         (1, 64,  (False, 'Module FW run: Fail\nFW_run_status 64\n')),
     ])
     def test_module_fw_run(self, input_param, mock_response, expected):
@@ -1005,7 +1005,7 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        (1, (True, 'Module FW commit: Success\nModule FW commit time: 0.00 s\n')),
+        (1, (True, 'Module FW commit: Success\n')),
         (64, (False, 'Module FW commit: Fail\nFW_commit_status 64\n')),
     ])
     def test_module_fw_commit(self, mock_response, expected):
