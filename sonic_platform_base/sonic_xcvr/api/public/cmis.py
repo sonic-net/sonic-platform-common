@@ -58,7 +58,7 @@ class CmisApi(XcvrApi):
         '''
         This function returns the module hardware revision
         '''
-        if (self.is_flat_memory()):
+        if self.is_flat_memory():
             return '0.0'
         hw_major_rev = self.xcvr_eeprom.read(consts.HW_MAJOR_REV)
         hw_minor_rev = self.xcvr_eeprom.read(consts.HW_MAJOR_REV)
@@ -100,7 +100,7 @@ class CmisApi(XcvrApi):
         '''
         This function returns the inactive firmware version
         '''
-        if (self.is_flat_memory()):
+        if self.is_flat_memory():
             return 'N/A'
         inactive_fw_major = self.xcvr_eeprom.read(consts.INACTIVE_FW_MAJOR_REV)
         inactive_fw_minor = self.xcvr_eeprom.read(consts.INACTIVE_FW_MINOR_REV)
@@ -662,7 +662,7 @@ class CmisApi(XcvrApi):
         '''
         This function returns the media lane that the application is allowed to begin on
         '''
-        if (self.is_flat_memory()):
+        if self.is_flat_memory():
             return 'N/A'
         return self.xcvr_eeprom.read(consts.MEDIA_LANE_ASSIGNMENT_OPTION)
 
@@ -671,7 +671,7 @@ class CmisApi(XcvrApi):
         This function returns the application select code that each host lane has
         '''
         apsel_dict = {}
-        if (self.is_flat_memory()):
+        if self.is_flat_memory():
             for lane in range(1, self.NUM_CHANNELS+1):
                 apsel_dict["%s%d" % (consts.ACTIVE_APSEL_HOSTLANE, lane)] = 'N/A'
         else:
@@ -750,7 +750,7 @@ class CmisApi(XcvrApi):
             'low warn' : 'N/A'
         }
 
-        if (self.is_flat_memory()):
+        if self.is_flat_memory():
             return laser_temp_dict
 
         try:
