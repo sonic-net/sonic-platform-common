@@ -1055,7 +1055,7 @@ class CmisApi(XcvrApi):
             txt += 'Reply payload check code error\n'
             return {'status': False, 'info': txt, 'result': None}
         elapsedtime = time.time()-starttime
-        txt += 'Get module FW upgrade features time: %.2f s\n' %elapsedtime
+        logger.info('Get module FW upgrade features time: %.2f s\n' %elapsedtime)
         logger.info(txt)
         return {'status': True, 'info': txt, 'result': (startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength)}
 
@@ -1125,7 +1125,7 @@ class CmisApi(XcvrApi):
             txt += 'Reply payload check code error\n'
             return {'status': False, 'info': txt, 'result': None}
         elapsedtime = time.time()-starttime
-        txt += 'Get module FW info time: %.2f s\n' %elapsedtime
+        logger.info('Get module FW info time: %.2f s\n' %elapsedtime)
         logger.info(txt)
         return {'status': True, 'info': txt, 'result': (ImageA, ImageARunning, ImageACommitted, ImageAValid, ImageB, ImageBRunning, ImageBCommitted, ImageBValid)}
 
@@ -1168,7 +1168,7 @@ class CmisApi(XcvrApi):
             txt += 'FW_run_status %d\n' %fw_run_status
             return False, txt
         elapsedtime = time.time()-starttime
-        txt += 'Module FW run time: %.2f s\n' %elapsedtime
+        logger.info('Module FW run time: %.2f s\n' %elapsedtime)
         logger.info(txt)
         return True, txt
 
@@ -1203,7 +1203,7 @@ class CmisApi(XcvrApi):
             txt += 'FW_commit_status %d\n' %fw_commit_status
             return False, txt
         elapsedtime = time.time()-starttime
-        txt += 'Module FW commit time: %.2f s\n' %elapsedtime
+        logger.info('Module FW commit time: %.2f s\n' %elapsedtime)
         logger.info(txt)
         return True, txt
 
