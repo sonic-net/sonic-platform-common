@@ -836,6 +836,7 @@ class CmisApi(XcvrApi):
     def get_lpmode(self):
         '''
         Retrieves Low power module status
+        Returns True if module in low power else returns False.
         '''
         if self.is_flat_memory() or not self.get_lpmode_support():
             return False
@@ -863,7 +864,9 @@ class CmisApi(XcvrApi):
                 lpmode_val = lpmode_val | (1 << 4)
             else:
                 lpmode_val = lpmode_val & ~(1 << 4)
-            return self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, lpmode_val)
+            self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, lpmode_val)
+            time.sleep(0.1)
+            return self.get_lpmode()
         return False
 
     def get_loopback_capability(self):
