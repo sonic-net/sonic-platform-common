@@ -350,7 +350,7 @@ class TestCmis(object):
 
     @pytest.mark.parametrize("mock_response, expected", [
         ([True, {'TxBias1': 0}], {'TxBias1': 0}),
-        ([False, {'TxBias1': 0}], ['N/A','N/A','N/A','N/A','N/A','N/A','N/A','N/A']),
+        ([False, {'TxBias1': 0}], {'LaserBiasTx%dField' % (i) : "N/A" for i in range(1, 9)}),
         ([None, None], None)
     ])
     def test_get_tx_bias(self, mock_response, expected):
@@ -372,7 +372,7 @@ class TestCmis(object):
 
     @pytest.mark.parametrize("mock_response, expected", [
         ([True, {'TxPower1': 0}], {'TxPower1': 0}),
-        ([False, {'TxPower1': 0}], ['N/A','N/A','N/A','N/A','N/A','N/A','N/A','N/A']),
+        ([False, {'TxPower1': 0}], {'OpticalPowerTx%dField' % (i) : "N/A" for i in range(1, 9)}),
         ([None, None], None)
     ])
     def test_get_tx_power(self, mock_response, expected):
@@ -394,7 +394,7 @@ class TestCmis(object):
 
     @pytest.mark.parametrize("mock_response, expected", [
         ([True, {'RxPower1': 0}], {'RxPower1': 0}),
-        ([False, {'RxPower1': 0}], ['N/A','N/A','N/A','N/A','N/A','N/A','N/A','N/A']),
+        ([False, {'RxPower1': 0}], {'OpticalPowerRx%dField' % (i) : "N/A" for i in range(1, 9)}),
         ([None, None], None)
     ])
     def test_get_rx_power(self, mock_response, expected):
@@ -1137,9 +1137,18 @@ class TestCmis(object):
                 0,
                 50,
                 3.3,
-                [70, 70, 70, 70, 70, 70, 70, 70],
-                [0.1, 0, 0, 0, 0, 0, 0, 0],
-                [0.1, 0, 0, 0, 0, 0, 0, 0],
+                {'LaserBiasTx1Field': 70, 'LaserBiasTx2Field': 70,
+                 'LaserBiasTx3Field': 70, 'LaserBiasTx4Field': 70,
+                 'LaserBiasTx5Field': 70, 'LaserBiasTx6Field': 70,
+                 'LaserBiasTx7Field': 70, 'LaserBiasTx8Field': 70},
+                {'OpticalPowerRx1Field': 0.1, 'OpticalPowerRx2Field': 0,
+                 'OpticalPowerRx3Field': 0, 'OpticalPowerRx4Field': 0,
+                 'OpticalPowerRx5Field': 0, 'OpticalPowerRx6Field': 0,
+                 'OpticalPowerRx7Field': 0, 'OpticalPowerRx8Field': 0,},
+                {'OpticalPowerTx1Field': 0.1, 'OpticalPowerTx2Field': 0,
+                 'OpticalPowerTx3Field': 0, 'OpticalPowerTx4Field': 0,
+                 'OpticalPowerTx5Field': 0, 'OpticalPowerTx6Field': 0,
+                 'OpticalPowerTx7Field': 0, 'OpticalPowerTx8Field': 0,},
                 True, True,
                 {'monitor value': 40},
                 {

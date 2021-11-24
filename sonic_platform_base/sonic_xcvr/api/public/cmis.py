@@ -186,9 +186,9 @@ class CmisApi(XcvrApi):
         }
 
         for i in range(1, self.NUM_CHANNELS + 1):
-            bulk_status["tx%dbias" % i] = tx_bias[i-1]
-            bulk_status["rx%dpower" % i] = rx_power[i-1]
-            bulk_status["tx%dpower" % i] = tx_power[i-1]
+            bulk_status["tx%dbias" % i] = tx_bias['LaserBiasTx%dField' % i]
+            bulk_status["rx%dpower" % i] = rx_power['OpticalPowerRx%dField' %i]
+            bulk_status["tx%dpower" % i] = tx_power['OpticalPowerTx%dField' %i]
 
         laser_temp_dict = self.get_laser_temperature()
         bulk_status['laser_temperature'] = laser_temp_dict['monitor value']
@@ -458,7 +458,7 @@ class CmisApi(XcvrApi):
         if tx_bias_support is None:
             return None
         if not tx_bias_support:
-            return ["N/A" for _ in range(self.NUM_CHANNELS)]
+            return {'LaserBiasTx%dField' % i : "N/A" for i in range(1, self.NUM_CHANNELS+1)}
         tx_bias = self.xcvr_eeprom.read(consts.TX_BIAS_FIELD)
         return tx_bias
 
@@ -470,7 +470,7 @@ class CmisApi(XcvrApi):
         if tx_power_support is None:
             return None
         if not tx_power_support:
-            return ["N/A" for _ in range(self.NUM_CHANNELS)]
+            return {'OpticalPowerTx%dField' %i : "N/A" for i in range(1, self.NUM_CHANNELS+1)}
         tx_power = self.xcvr_eeprom.read(consts.TX_POWER_FIELD)
         return tx_power
 
@@ -485,7 +485,7 @@ class CmisApi(XcvrApi):
         if rx_power_support is None:
             return None
         if not rx_power_support:
-            return ["N/A" for _ in range(self.NUM_CHANNELS)]
+            return {'OpticalPowerRx%dField' %i : "N/A" for i in range(1, self.NUM_CHANNELS+1)}
         rx_power = self.xcvr_eeprom.read(consts.RX_POWER_FIELD)
         return rx_power
 
