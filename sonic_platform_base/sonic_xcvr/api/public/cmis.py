@@ -23,6 +23,8 @@ class CmisApi(XcvrApi):
 
     def __init__(self, xcvr_eeprom):
         super(CmisApi, self).__init__(xcvr_eeprom)
+        self.vdm = CmisVdmApi(xcvr_eeprom)
+        self.cdb = CmisCdbApi(xcvr_eeprom)
 
     def get_model(self):
         '''
@@ -684,13 +686,9 @@ class CmisApi(XcvrApi):
         '''
         This function returns the application select code that each host lane has
         '''
-        apsel_dict = {}
-        if self.is_flat_memory():
-            for lane in range(1, self.NUM_CHANNELS+1):
-                apsel_dict["%s%d" % (consts.ACTIVE_APSEL_HOSTLANE, lane)] = 'N/A'
-        else:
-            apsel_dict = self.xcvr_eeprom.read(consts.ACTIVE_APSEL_CODE)
-        return apsel_dict
+        if (self.is_flat_memory()):
+            return 'N/A'
+        return self.xcvr_eeprom.read(consts.ACTIVE_APSEL_CODE)
 
     def get_tx_config_power(self):
         '''
@@ -764,7 +762,7 @@ class CmisApi(XcvrApi):
             'low warn' : 'N/A'
         }
 
-        if self.is_flat_memory():
+        if (self.is_flat_memory()):
             return laser_temp_dict
 
         try:
@@ -960,23 +958,10 @@ class CmisApi(XcvrApi):
         else:
             return 'N/A'
 
-
-    def get_cdb_api(self):
-        self.cdb = CmisCdbApi(self.xcvr_eeprom)
-        return self.cdb
-
-    def get_vdm_api(self):
-        self.vdm = CmisVdmApi(self.xcvr_eeprom)
-        return self.vdm
-
     def get_vdm(self):
         '''
         This function returns all the VDM items, including real time monitor value, threholds and flags
         '''
-        try:
-            self.vdm
-        except AttributeError:
-            self.get_vdm_api()
         vdm = self.vdm.get_vdm_allpage() if not self.is_flat_memory() else {}
         return vdm
 
@@ -1070,17 +1055,13 @@ class CmisApi(XcvrApi):
                        'custom_mon_flags': custom_mon_flags}
         return module_flag
 
-    def get_module_fw_upgrade_feature(self, verbose = False):
+    def get_module_fw_mgmt_feature(self, verbose = False):
         """
         This function obtains CDB features supported by the module from CDB command 0041h,
         such as start header size, maximum block size, whether extended payload messaging
         (page 0xA0 - 0xAF) or only local payload is supported. These features are important because
         the following upgrade with depend on these parameters.
         """
-        try:
-            self.cdb
-        except AttributeError:
-            self.get_cdb_api()
         txt = ''
         # get fw upgrade features (CMD 0041h)
         starttime = time.time()
@@ -1121,7 +1102,7 @@ class CmisApi(XcvrApi):
         elapsedtime = time.time()-starttime
         logger.info('Get module FW upgrade features time: %.2f s\n' %elapsedtime)
         logger.info(txt)
-        return {'status': True, 'info': txt, 'result': (startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength)}
+        return {'status': True, 'info': txt, 'feature': (startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength)}
 
     def get_module_fw_info(self):
         """
@@ -1131,14 +1112,8 @@ class CmisApi(XcvrApi):
         Administrative Status: 1=committed, 0=uncommitted
         Validity Status: 1 = invalid, 0 = valid
         """
-        try:
-            self.cdb
-        except AttributeError:
-            self.get_cdb_api()
         txt = ''
         # get fw info (CMD 0100h)
-        starttime = time.time()
-        txt += 'Get module FW info\n'
         rpllen, rpl_chkcode, rpl = self.cdb.get_fw_info()
         # password issue
         if self.cdb.cdb_chkcode(rpl) != rpl_chkcode:
@@ -1172,6 +1147,10 @@ class CmisApi(XcvrApi):
                 ImageB = "N/A"
             txt += 'Image B Version: %s\n' %ImageB
 
+            if rpllen > 77:
+                factory_image = '%d.%d.%d' % (rpl[74], rpl[75], ((rpl[76] << 8) | rpl[77]))
+                txt += 'Factory Image Version: %s\n' %factory_image
+
             if ImageARunning == 1:
                 RunningImage = 'A'
             elif ImageBRunning == 1:
@@ -1184,14 +1163,21 @@ class CmisApi(XcvrApi):
                 CommittedImage = 'B'
             else:
                 CommittedImage = 'N/A'
-            txt += 'Running Image: %s; Committed Image: %s\n' %(RunningImage, CommittedImage)
+            txt += 'Running Image: %s\n' % (RunningImage)
+            txt += 'Committed Image: %s\n' % (CommittedImage)
+            txt += 'Active Firmware: {}\n'.format(self.get_module_active_firmware())
+            txt += 'Inactive Firmware: {}\n'.format(self.get_module_inactive_firmware())
         else:
             txt += 'Reply payload check code error\n'
             return {'status': False, 'info': txt, 'result': None}
-        elapsedtime = time.time()-starttime
-        logger.info('Get module FW info time: %.2f s\n' %elapsedtime)
-        logger.info(txt)
         return {'status': True, 'info': txt, 'result': (ImageA, ImageARunning, ImageACommitted, ImageAValid, ImageB, ImageBRunning, ImageBCommitted, ImageBValid)}
+
+    def cdb_run_firmware(self, mode = 0x01):
+        # run module FW (CMD 0109h)
+        return self.cdb.run_fw_image(mode)
+
+    def cdb_commit_firmware(self):
+        return self.cdb.commit_fw_image()
 
     def module_fw_run(self, mode = 0x01):
         """
@@ -1209,10 +1195,6 @@ class CmisApi(XcvrApi):
         This function returns True if firmware run successfully completes.
         Otherwise it will return False.
         """
-        try:
-            self.cdb
-        except AttributeError:
-            self.get_cdb_api()
         # run module FW (CMD 0109h)
         txt = ''
         starttime = time.time()
@@ -1244,10 +1226,6 @@ class CmisApi(XcvrApi):
         This function returns True if firmware commit successfully completes.
         Otherwise it will return False.
         """
-        try:
-            self.cdb
-        except AttributeError:
-            self.get_cdb_api()
         txt = ''
         # commit module FW (CMD 010Ah)
         starttime = time.time()
@@ -1271,6 +1249,22 @@ class CmisApi(XcvrApi):
         logger.info(txt)
         return True, txt
 
+    def cdb_firmware_download_complete(self):
+        # complete FW download (CMD 0107h)
+        return self.cdb.validate_fw_image()
+
+    def cdb_start_firmware_download(self, startLPLsize, startdata, imagesize):
+        return self.cdb.start_fw_download(startLPLsize, bytearray(startdata), imagesize)
+
+    def cdb_lpl_block_write(self, address, data):
+        return self.cdb.block_write_lpl(address, data)
+
+    def cdb_epl_block_write(self, address, data, autopaging_flag, writelength):
+        return self.cdb.block_write_epl(address, data, autopaging_flag, writelength)
+
+    def cdb_enter_host_password(self, password):
+        return self.cdb.module_enter_password(password)
+
     def module_fw_download(self, startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength, imagepath):
         """
         This function performs the download of a firmware image to module eeprom
@@ -1289,10 +1283,6 @@ class CmisApi(XcvrApi):
 
         This function returns True if download successfully completes. Otherwise it will return False where it fails.
         """
-        try:
-            self.cdb
-        except AttributeError:
-            self.get_cdb_api()
         txt = ''
         # start fw download (CMD 0101h)
         starttime = time.time()
@@ -1399,7 +1389,7 @@ class CmisApi(XcvrApi):
             _, _, _, _, _, _, _, _ = result['result']
         except (ValueError, TypeError):
             return result['status'], result['info']
-        result = self.get_module_fw_upgrade_feature()
+        result = self.get_module_fw_mgmt_feature()
         try:
             startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength = result['result']
         except (ValueError, TypeError):
