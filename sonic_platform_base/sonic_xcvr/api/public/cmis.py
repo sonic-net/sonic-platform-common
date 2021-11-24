@@ -1280,7 +1280,6 @@ class CmisApi(XcvrApi):
             else:
                 count = BLOCK_SIZE
             data = f.read(count)
-            progress = (imagesize - remaining) * 100.0 / imagesize
             if lplonly_flag:
                 fw_download_status = self.cdb.block_write_lpl(address, data)
             else:
@@ -1292,9 +1291,11 @@ class CmisApi(XcvrApi):
                 logger.info(txt)
                 return False, txt
             elapsedtime = time.time()-starttime
-            logger.info('Address: {:#08x}; Count: {}; Progress: {:.2f}%; Time: {:.2f}s'.format(address, count, progress, elapsedtime))
             address += count
             remaining -= count
+            progress = (imagesize - remaining) * 100.0 / imagesize
+            logger.info('Address: {:#08x}; Count: {}; Remain: {:#08x}; Progress: {:.2f}%; Time: {:.2f}s'.format(address, count, remaining, progress, elapsedtime))
+
         elapsedtime = time.time()-starttime
         logger.info('Total module FW download time: %.2f s' %elapsedtime)
 
