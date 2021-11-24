@@ -783,10 +783,10 @@ class TestCmis(object):
         self.api.reset_module(True)
 
     @pytest.mark.parametrize("mock_response, expected", [
-        False, False ])
+        True, True ])
     def test_set_low_power(self, mock_response, expected):
         self.api.xcvr_eeprom.read = MagicMock()
-        self.api.xcvr_eeprom.read.side_effect = mock_response
+        self.api.xcvr_eeprom.read.return_value = mock_response
         result = self.api.set_low_power(True)
         assert result == expected
 
