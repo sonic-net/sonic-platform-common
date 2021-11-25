@@ -257,7 +257,7 @@ class RegGroupField(XcvrField):
             offset = field.get_offset()
             deps = field.get_deps()
             if deps:
-                decoded_deps = {dep: result[dep] for dep in deps}
+                decoded_deps.update({dep: result[dep] for dep in deps if dep in result})
                 result[field.name] = field.decode(raw_data[offset - start: offset + field.get_size() - start],
                                                 **decoded_deps)
         return result
