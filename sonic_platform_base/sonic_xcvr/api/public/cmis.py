@@ -186,9 +186,9 @@ class CmisApi(XcvrApi):
         }
 
         for i in range(1, self.NUM_CHANNELS + 1):
-            bulk_status["tx%dbias" % i] = tx_bias['LaserBiasTx%dField' % i]
-            bulk_status["rx%dpower" % i] = rx_power['OpticalPowerRx%dField' %i]
-            bulk_status["tx%dpower" % i] = tx_power['OpticalPowerTx%dField' %i]
+            bulk_status["tx%dbias" % i] = tx_bias[i - 1]
+            bulk_status["rx%dpower" % i] = rx_power[i - 1]
+            bulk_status["tx%dpower" % i] = tx_power[i - 1]
 
         laser_temp_dict = self.get_laser_temperature()
         bulk_status['laser_temperature'] = laser_temp_dict['monitor value']
@@ -457,9 +457,13 @@ class CmisApi(XcvrApi):
         tx_bias_support = self.get_tx_bias_support()
         if tx_bias_support is None:
             return None
-        if not tx_bias_support:
-            return {'LaserBiasTx%dField' % i : "N/A" for i in range(1, self.NUM_CHANNELS+1)}
-        tx_bias = self.xcvr_eeprom.read(consts.TX_BIAS_FIELD)
+        tx_bias = ["N/A" for _ in range(self.NUM_CHANNELS)]
+
+        if tx_bias_support:
+            tx_bias = self.xcvr_eeprom.read(consts.TX_BIAS_FIELD)
+            if tx_bias is not None:
+                tx_bias = [tx_bias['LaserBiasTx%dField' % i] for i in range(1, self.NUM_CHANNELS+1)]
+
         return tx_bias
 
     def get_tx_power(self):
@@ -469,9 +473,14 @@ class CmisApi(XcvrApi):
         tx_power_support = self.get_tx_power_support()
         if tx_power_support is None:
             return None
-        if not tx_power_support:
-            return {'OpticalPowerTx%dField' %i : "N/A" for i in range(1, self.NUM_CHANNELS+1)}
-        tx_power = self.xcvr_eeprom.read(consts.TX_POWER_FIELD)
+
+        tx_power = ["N/A" for _ in range(self.NUM_CHANNELS)]
+
+        if tx_power_support:
+            tx_power = self.xcvr_eeprom.read(consts.TX_POWER_FIELD)
+            if tx_power is not None:
+                tx_power =  [tx_power['OpticalPowerTx%dField' %i] for i in range(1, self.NUM_CHANNELS+1)]
+
         return tx_power
 
     def get_tx_power_support(self):
@@ -484,9 +493,14 @@ class CmisApi(XcvrApi):
         rx_power_support = self.get_rx_power_support()
         if rx_power_support is None:
             return None
-        if not rx_power_support:
-            return {'OpticalPowerRx%dField' %i : "N/A" for i in range(1, self.NUM_CHANNELS+1)}
-        rx_power = self.xcvr_eeprom.read(consts.RX_POWER_FIELD)
+
+        rx_power = ["N/A" for _ in range(self.NUM_CHANNELS)]
+
+        if rx_power_support:
+            rx_power = self.xcvr_eeprom.read(consts.RX_POWER_FIELD)
+            if rx_power is None:
+                rx_power = [rx_power['OpticalPowerRx%dField' %i] for i in range(1, self.NUM_CHANNELS+1)]
+
         return rx_power
 
     def get_rx_power_support(self):
