@@ -498,7 +498,7 @@ class CmisApi(XcvrApi):
 
         if rx_power_support:
             rx_power = self.xcvr_eeprom.read(consts.RX_POWER_FIELD)
-            if rx_power is None:
+            if rx_power is not None:
                 rx_power = [rx_power['OpticalPowerRx%dField' %i] for i in range(1, self.NUM_CHANNELS+1)]
 
         return rx_power
