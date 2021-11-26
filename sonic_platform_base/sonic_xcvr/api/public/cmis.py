@@ -108,7 +108,7 @@ class CmisApi(XcvrApi):
         return '.'.join(inactive_fw)
 
     def get_transceiver_info(self):
-        admin_info = self.xcvr_eeprom.read(consts.ADMIN_INFO_FIELD0)
+        admin_info = self.xcvr_eeprom.read(consts.ADMIN_INFO_FIELD)
         if admin_info is None:
             return None
 

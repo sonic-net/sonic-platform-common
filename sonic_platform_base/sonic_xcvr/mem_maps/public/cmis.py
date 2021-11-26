@@ -28,7 +28,7 @@ class CmisMemMap(XcvrMemMap):
         )
 
         # Should contain ONLY Lower page fields
-        self.ADMIN_INFO0 = RegGroupField(consts.ADMIN_INFO_FIELD0,
+        self.ADMIN_INFO = RegGroupField(consts.ADMIN_INFO_FIELD,
             CodeRegField(consts.ID_FIELD, self.getaddr(0x0, 0), self.codes.XCVR_IDENTIFIERS),
             CodeRegField(consts.ID_ABBRV_FIELD, self.getaddr(0x0, 128), self.codes.XCVR_IDENTIFIER_ABBRV),
             StringRegField(consts.VENDOR_NAME_FIELD, self.getaddr(0x0, 129), size=16),
@@ -77,7 +77,7 @@ class CmisMemMap(XcvrMemMap):
         )
 
         # Should contain ONLY upper page fields
-        self.ADMIN_INFO1 = RegGroupField(consts.ADMIN_INFO_FIELD1,
+        self.ADVERTISING = RegGroupField(consts.ADVERTISING_FIELD,
             NumberRegField(consts.HW_MAJOR_REV, self.getaddr(0x1, 130), size=1),
             NumberRegField(consts.HW_MINOR_REV, self.getaddr(0x1, 131), size=1),
             NumberRegField(consts.MEDIA_LANE_ASSIGNMENT_OPTION, self.getaddr(0x1, 176), format="B", size=1),
