@@ -40,7 +40,7 @@ class XcvrApiFactory(object):
         # TODO: load correct classes from id_mapping file
         id = self._get_id()
         # QSFP-DD or OSFP
-        if id == 0x18 or id == 0x19:
+        if id == 0x18 or id == 0x19 or id == 0x1e:
             codes = CmisCodes
             mem_map = CmisMemMap(codes)
             xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
