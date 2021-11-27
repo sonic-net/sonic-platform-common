@@ -687,7 +687,7 @@ class CmisApi(XcvrApi):
         This function returns the application select code that each host lane has
         '''
         if (self.is_flat_memory()):
-            return 'N/A'
+            return {'{}{}'.format(consts.ACTIVE_APSEL_HOSTLANE, i) : 'N/A' for i in range(1, self.NUM_CHANNELS+1)}
         return self.xcvr_eeprom.read(consts.ACTIVE_APSEL_CODE)
 
     def get_tx_config_power(self):
@@ -762,7 +762,7 @@ class CmisApi(XcvrApi):
             'low warn' : 'N/A'
         }
 
-        if (self.is_flat_memory()):
+        if self.is_flat_memory():
             return laser_temp_dict
 
         try:
