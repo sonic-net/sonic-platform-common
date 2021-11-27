@@ -27,8 +27,9 @@ class CmisMemMap(XcvrMemMap):
             )
         )
 
+        # Should contain ONLY Lower page fields
         self.ADMIN_INFO = RegGroupField(consts.ADMIN_INFO_FIELD,
-            CodeRegField(consts.ID_FIELD, self.getaddr(0x0, 128), self.codes.XCVR_IDENTIFIERS),
+            CodeRegField(consts.ID_FIELD, self.getaddr(0x0, 0), self.codes.XCVR_IDENTIFIERS),
             CodeRegField(consts.ID_ABBRV_FIELD, self.getaddr(0x0, 128), self.codes.XCVR_IDENTIFIER_ABBRV),
             StringRegField(consts.VENDOR_NAME_FIELD, self.getaddr(0x0, 129), size=16),
             HexRegField(consts.VENDOR_OUI_FIELD, self.getaddr(0x0, 145), size=3),
@@ -57,17 +58,14 @@ class CmisMemMap(XcvrMemMap):
             CodeRegField(consts.MODULE_MEDIA_INTERFACE_PASSIVE_COPPER, self.getaddr(0x0, 87), self.codes.PASSIVE_COPPER_MEDIA_INTERFACE),
             CodeRegField(consts.MODULE_MEDIA_INTERFACE_ACTIVE_CABLE, self.getaddr(0x0, 87), self.codes.ACTIVE_CABLE_MEDIA_INTERFACE),
             CodeRegField(consts.MODULE_MEDIA_INTERFACE_BASE_T, self.getaddr(0x0, 87), self.codes.BASE_T_MEDIA_INTERFACE),
-            NumberRegField(consts.MEDIA_LANE_COUNT, self.getaddr(0x0, 88), 
+            NumberRegField(consts.MEDIA_LANE_COUNT, self.getaddr(0x0, 88),
                 *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 4))
             ),
-            NumberRegField(consts.HOST_LANE_COUNT, self.getaddr(0x0, 88), 
+            NumberRegField(consts.HOST_LANE_COUNT, self.getaddr(0x0, 88),
                 *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8))
             ),
             NumberRegField(consts.HOST_LANE_ASSIGNMENT_OPTION, self.getaddr(0x0, 89), format="B", size=1),
-            NumberRegField(consts.MEDIA_LANE_ASSIGNMENT_OPTION, self.getaddr(0x1, 176), format="B", size=1),
             CodeRegField(consts.MEDIA_INTERFACE_TECH, self.getaddr(0x0, 212), self.codes.MEDIA_INTERFACE_TECH),
-            NumberRegField(consts.HW_MAJOR_REV, self.getaddr(0x1, 130), size=1),
-            NumberRegField(consts.HW_MINOR_REV, self.getaddr(0x1, 131), size=1),
             NumberRegField(consts.CMIS_MAJOR_REVISION, self.getaddr(0x0, 1),
                 *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8))
             ),
@@ -76,6 +74,13 @@ class CmisMemMap(XcvrMemMap):
             ),
             NumberRegField(consts.ACTIVE_FW_MAJOR_REV, self.getaddr(0x0, 39), format="B", size=1),
             NumberRegField(consts.ACTIVE_FW_MINOR_REV, self.getaddr(0x0, 40), format="B", size=1),
+        )
+
+        # Should contain ONLY upper page fields
+        self.ADVERTISING = RegGroupField(consts.ADVERTISING_FIELD,
+            NumberRegField(consts.HW_MAJOR_REV, self.getaddr(0x1, 130), size=1),
+            NumberRegField(consts.HW_MINOR_REV, self.getaddr(0x1, 131), size=1),
+            NumberRegField(consts.MEDIA_LANE_ASSIGNMENT_OPTION, self.getaddr(0x1, 176), format="B", size=1),
             NumberRegField(consts.INACTIVE_FW_MAJOR_REV, self.getaddr(0x1, 128), format="B", size=1),
             NumberRegField(consts.INACTIVE_FW_MINOR_REV, self.getaddr(0x1, 129), format="B", size=1),
 
