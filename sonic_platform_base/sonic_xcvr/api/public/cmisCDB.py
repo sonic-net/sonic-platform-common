@@ -18,7 +18,7 @@ CDB_WRITE_MSG_START = 130
 PAGE_LENGTH = 128
 INIT_OFFSET = 128
 CMDLEN = 2
-MAX_WAIT = 100
+MAX_WAIT = 600
 
 
 class CmisCdbApi(XcvrApi):
@@ -333,7 +333,6 @@ class CmisCdbApi(XcvrApi):
         cmd += paddedPayload
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
         self.write_cdb(cmd)
-        time.sleep(0.2)
         status = self.cdb1_chkstatus()
         if (status != 0x1):
             if status > 127: 
@@ -386,7 +385,6 @@ class CmisCdbApi(XcvrApi):
         cmd += addr_byte
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
         self.write_cdb(cmd)
-        time.sleep(0.2)
         status = self.cdb1_chkstatus()
         if (status != 0x1):
             if status > 127: 

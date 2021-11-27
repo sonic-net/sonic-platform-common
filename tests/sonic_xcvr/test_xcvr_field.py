@@ -175,6 +175,10 @@ class TestRegBitField(object):
         assert field.decode(field.encode(True, bytearray(b'\x00')))
         assert not field.decode(field.encode(False, bytearray(b'\xFF')))
 
+        field = mem_map.get_field("NumRegBit")
+        assert field.decode(field.encode(True, bytearray(b'\x00')))
+        assert not field.decode(field.encode(False, bytearray(b'\xFF')))
+
 class TestRegField(object):
     def test_offset(self):
         field = mem_map.get_field("Field0")

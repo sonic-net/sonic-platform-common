@@ -254,7 +254,7 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ([{'TxPowerHighAlarmFlag1':0}, {'TxPowerLowAlarmFlag1':0}, {'TxPowerHighWarnFlag1':0}, {'TxPowerLowWarnFlag1':0}], 
+        ([{'TxPowerHighAlarmFlag1':0}, {'TxPowerLowAlarmFlag1':0}, {'TxPowerHighWarnFlag1':0}, {'TxPowerLowWarnFlag1':0}],
          {
             'tx_power_high_alarm':{
                 'TxPowerHighAlarmFlag1': False
@@ -382,8 +382,19 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ([True, {'TxPower1': 0}], {'TxPower1': 0}),
-        ([False, {'TxPower1': 0}], ['N/A','N/A','N/A','N/A','N/A','N/A','N/A','N/A']),
+        (
+            [
+                True,
+                {
+                    'OpticalPowerTx1Field': 0, 'OpticalPowerTx2Field': 0,
+                    'OpticalPowerTx3Field': 0, 'OpticalPowerTx4Field': 0,
+                    'OpticalPowerTx5Field': 0, 'OpticalPowerTx6Field': 0,
+                    'OpticalPowerTx7Field': 0, 'OpticalPowerTx8Field': 0
+                }
+            ], 
+            [0, 0, 0, 0, 0, 0, 0, 0]
+        ),
+        ([False, {'OpticalPowerTx1Field': 0}], ['N/A','N/A','N/A','N/A','N/A','N/A','N/A','N/A']),
         ([None, None], None)
     ])
     def test_get_tx_power(self, mock_response, expected):
@@ -406,8 +417,19 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ([True, {'RxPower1': 0}], {'RxPower1': 0}),
-        ([False, {'RxPower1': 0}], ['N/A','N/A','N/A','N/A','N/A','N/A','N/A','N/A']),
+        (
+            [
+                True,
+                {
+                    'OpticalPowerRx1Field': 0, 'OpticalPowerRx2Field': 0,
+                    'OpticalPowerRx3Field': 0, 'OpticalPowerRx4Field': 0,
+                    'OpticalPowerRx5Field': 0, 'OpticalPowerRx6Field': 0,
+                    'OpticalPowerRx7Field': 0, 'OpticalPowerRx8Field': 0
+                }
+            ], 
+            [0, 0, 0, 0, 0, 0, 0, 0]
+        ),
+        ([False, {'OpticalPowerRx1Field': 0}], ['N/A','N/A','N/A','N/A','N/A','N/A','N/A','N/A']),
         ([None, None], None)
     ])
     def test_get_rx_power(self, mock_response, expected):
@@ -1329,7 +1351,7 @@ class TestCmis(object):
         self.api.get_vdm = MagicMock()
         self.api.get_vdm.return_value = mock_response[4]
         result = self.api.get_transceiver_threshold_info()
-        assert result == expected    
+        assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected",[
         (

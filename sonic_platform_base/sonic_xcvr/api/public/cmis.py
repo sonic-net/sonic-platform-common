@@ -100,6 +100,8 @@ class CmisApi(XcvrApi):
         '''
         This function returns the inactive firmware version
         '''
+        if self.is_flat_memory():
+            return 'N/A'
         inactive_fw_major = self.xcvr_eeprom.read(consts.INACTIVE_FW_MAJOR_REV)
         inactive_fw_minor = self.xcvr_eeprom.read(consts.INACTIVE_FW_MINOR_REV)
         inactive_fw = [str(num) for num in [inactive_fw_major, inactive_fw_minor]]
@@ -141,15 +143,9 @@ class CmisApi(XcvrApi):
         xcvr_info['host_lane_assignment_option'] = self.get_host_lane_assignment_option()
         xcvr_info['media_lane_assignment_option'] = self.get_media_lane_assignment_option()
         apsel_dict = self.get_active_apsel_hostlane()
-        xcvr_info['active_apsel_hostlane1'] = apsel_dict['ActiveAppSelLane1']
-        xcvr_info['active_apsel_hostlane2'] = apsel_dict['ActiveAppSelLane2']
-        xcvr_info['active_apsel_hostlane3'] = apsel_dict['ActiveAppSelLane3']
-        xcvr_info['active_apsel_hostlane4'] = apsel_dict['ActiveAppSelLane4']
-        xcvr_info['active_apsel_hostlane5'] = apsel_dict['ActiveAppSelLane5']
-        xcvr_info['active_apsel_hostlane6'] = apsel_dict['ActiveAppSelLane6']
-        xcvr_info['active_apsel_hostlane7'] = apsel_dict['ActiveAppSelLane7']
-        xcvr_info['active_apsel_hostlane8'] = apsel_dict['ActiveAppSelLane8']
-
+        for lane in range(1, self.NUM_CHANNELS+1):
+            xcvr_info["%s%d" % ("active_apsel_hostlane", lane)] = \
+                    apsel_dict["%s%d" % (consts.ACTIVE_APSEL_HOSTLANE, lane)]
         xcvr_info['media_interface_technology'] = self.get_media_interface_technology()
         xcvr_info['vendor_rev'] = self.get_vendor_rev()
         xcvr_info['cmis_rev'] = self.get_cmis_rev()
@@ -484,9 +480,14 @@ class CmisApi(XcvrApi):
         tx_power_support = self.get_tx_power_support()
         if tx_power_support is None:
             return None
-        if not tx_power_support:
-            return ["N/A" for _ in range(self.NUM_CHANNELS)]
-        tx_power = self.xcvr_eeprom.read(consts.TX_POWER_FIELD)
+
+        tx_power = ["N/A" for _ in range(self.NUM_CHANNELS)]
+
+        if tx_power_support:
+            tx_power = self.xcvr_eeprom.read(consts.TX_POWER_FIELD)
+            if tx_power is not None:
+                tx_power =  [tx_power['OpticalPowerTx%dField' %i] for i in range(1, self.NUM_CHANNELS+1)]
+
         return tx_power
 
     def get_tx_power_support(self):
@@ -499,9 +500,14 @@ class CmisApi(XcvrApi):
         rx_power_support = self.get_rx_power_support()
         if rx_power_support is None:
             return None
-        if not rx_power_support:
-            return ["N/A" for _ in range(self.NUM_CHANNELS)]
-        rx_power = self.xcvr_eeprom.read(consts.RX_POWER_FIELD)
+
+        rx_power = ["N/A" for _ in range(self.NUM_CHANNELS)]
+
+        if rx_power_support:
+            rx_power = self.xcvr_eeprom.read(consts.RX_POWER_FIELD)
+            if rx_power is not None:
+                rx_power = [rx_power['OpticalPowerRx%dField' %i] for i in range(1, self.NUM_CHANNELS+1)]
+
         return rx_power
 
     def get_rx_power_support(self):
@@ -629,6 +635,9 @@ class CmisApi(XcvrApi):
         '''
         This function returns module media electrical interface. Table 4-6 ~ 4-10 in SFF-8024 Rev4.6
         '''
+        if self.is_flat_memory():
+            return 'N/A'
+
         media_type = self.get_module_media_type()
         if media_type == 'Multimode Fiber (MMF)':
             return self.xcvr_eeprom.read(consts.MODULE_MEDIA_INTERFACE_850NM)
@@ -656,7 +665,6 @@ class CmisApi(XcvrApi):
         '''
         return self.xcvr_eeprom.read(consts.HOST_LANE_COUNT)
 
-
     def get_media_lane_count(self):
         '''
         This function returns number of media lanes for default application
@@ -681,13 +689,21 @@ class CmisApi(XcvrApi):
         '''
         This function returns the media lane that the application is allowed to begin on
         '''
+        if self.is_flat_memory():
+            return 'N/A'
         return self.xcvr_eeprom.read(consts.MEDIA_LANE_ASSIGNMENT_OPTION)
 
     def get_active_apsel_hostlane(self):
         '''
         This function returns the application select code that each host lane has
         '''
-        return self.xcvr_eeprom.read(consts.ACTIVE_APSEL_CODE)
+        apsel_dict = {}
+        if self.is_flat_memory():
+            for lane in range(1, self.NUM_CHANNELS+1):
+                apsel_dict["%s%d" % (consts.ACTIVE_APSEL_HOSTLANE, lane)] = 'N/A'
+        else:
+            apsel_dict = self.xcvr_eeprom.read(consts.ACTIVE_APSEL_CODE)
+        return apsel_dict
 
     def get_tx_config_power(self):
         '''
@@ -964,7 +980,7 @@ class CmisApi(XcvrApi):
             self.vdm
         except AttributeError:
             self.get_vdm_api()
-        vdm = self.vdm.get_vdm_allpage()
+        vdm = self.vdm.get_vdm_allpage() if not self.is_flat_memory() else {}
         return vdm
 
     def get_module_firmware_fault_state_changed(self):
@@ -1331,7 +1347,6 @@ class CmisApi(XcvrApi):
             else:
                 count = BLOCK_SIZE
             data = f.read(count)
-            progress = (imagesize - remaining) * 100.0 / imagesize
             if lplonly_flag:
                 fw_download_status = self.cdb.block_write_lpl(address, data)
             else:
@@ -1343,9 +1358,11 @@ class CmisApi(XcvrApi):
                 logger.info(txt)
                 return False, txt
             elapsedtime = time.time()-starttime
-            logger.info('Address: {:#08x}; Count: {}; Progress: {:.2f}%; Time: {:.2f}s'.format(address, count, progress, elapsedtime))
             address += count
             remaining -= count
+            progress = (imagesize - remaining) * 100.0 / imagesize
+            logger.info('Address: {:#08x}; Count: {}; Remain: {:#08x}; Progress: {:.2f}%; Time: {:.2f}s'.format(address, count, remaining, progress, elapsedtime))
+
         elapsedtime = time.time()-starttime
         logger.info('Total module FW download time: %.2f s' %elapsedtime)
 
