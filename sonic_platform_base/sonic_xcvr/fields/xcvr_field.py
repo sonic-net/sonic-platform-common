@@ -94,15 +94,15 @@ class RegBitField(XcvrField):
         return True
 
     def decode(self, raw_data, **decoded_deps):
-        return bool((raw_data[0] >> self.bitpos) & 1)
+        return bool((raw_data[0] >> self.bitpos % 8) & 1)
 
     def encode(self, val, raw_state=None):
         assert not self.ro and raw_state is not None
         curr_state = raw_state[0]
         if val:
-            curr_state |= (1 << self.bitpos)
+            curr_state |= (1 << self.bitpos % 8)
         else:
-            curr_state &= ~(1 << self.bitpos)
+            curr_state &= ~(1 << self.bitpos % 8)
         return bytearray([curr_state])
 
 
@@ -249,7 +249,7 @@ class RegGroupField(XcvrField):
         for field in self.fields:
             offset = field.get_offset()
             if not field.get_deps():
-                result[field.name] = field.decode(raw_data[offset - start: offset + field.get_size() - start], 
+                result[field.name] = field.decode(raw_data[offset - start: offset + field.get_size() - start],
                                               **decoded_deps)
 
         # Now decode any fields that have dependant fields in the same RegGroupField scope
@@ -257,7 +257,7 @@ class RegGroupField(XcvrField):
             offset = field.get_offset()
             deps = field.get_deps()
             if deps:
-                decoded_deps = {dep: result[dep] for dep in deps}
+                decoded_deps = {dep: result[dep] for dep in deps if dep in result}
                 result[field.name] = field.decode(raw_data[offset - start: offset + field.get_size() - start],
                                                 **decoded_deps)
         return result

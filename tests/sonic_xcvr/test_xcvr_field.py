@@ -47,6 +47,10 @@ class MockXcvrMemMap(XcvrMemMap):
         self.NUM_REG = NumberRegField("NumReg", 100, format=">Q", size=8, ro=False)
         self.SCALE_NUM_REG = NumberRegField("ScaleNumReg", 120, format=">i", size=4, scale=100, ro=False)
         self.FIXED_NUM_REG = FixedNumberRegField("FixedNumReg", 130, 8, format=">f", size=4, ro=False)
+        self.NUM_REG_WITH_BIT = NumberRegField("NumRegWithBit", 140,
+            RegBitField("NumRegBit", bitpos=20, ro=False),
+            format="<I", size=4, ro=False
+        )
         self.STRING_REG = StringRegField("StringReg", 12, size=15)
         self.HEX_REG = HexRegField("HexReg", 30, size=3)
         self.REG_GROUP = RegGroupField("RegGroup",
@@ -167,6 +171,9 @@ class TestRegBitField(object):
 
         assert field.decode(field.encode(True, bytearray(b'\x00')))
         assert not field.decode(field.encode(False, bytearray(b'\x00')))
+        field = mem_map.get_field("NumRegBit")
+        assert field.decode(field.encode(True, bytearray(b'\x00')))
+        assert not field.decode(field.encode(False, bytearray(b'\xFF')))
 
 class TestRegField(object):
     def test_offset(self):

@@ -46,7 +46,7 @@ class SfpOptoeBase(SfpBase):
     def get_transceiver_pm(self):
         api = self.get_xcvr_api()
         return api.get_transceiver_pm() if api is not None else None
-    
+
     def get_module_fw_upgrade_feature(self):
         api = self.get_xcvr_api()
         return api.get_module_fw_upgrade_feature() if api is not None else None

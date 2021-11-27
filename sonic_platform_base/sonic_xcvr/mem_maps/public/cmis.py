@@ -28,7 +28,7 @@ class CmisMemMap(XcvrMemMap):
         )
 
         self.ADMIN_INFO = RegGroupField(consts.ADMIN_INFO_FIELD,
-            CodeRegField(consts.ID_FIELD, self.getaddr(0x0, 128), self.codes.XCVR_IDENTIFIERS),
+            CodeRegField(consts.ID_FIELD, self.getaddr(0x0, 0), self.codes.XCVR_IDENTIFIERS),
             CodeRegField(consts.ID_ABBRV_FIELD, self.getaddr(0x0, 128), self.codes.XCVR_IDENTIFIER_ABBRV),
             StringRegField(consts.VENDOR_NAME_FIELD, self.getaddr(0x0, 129), size=16),
             HexRegField(consts.VENDOR_OUI_FIELD, self.getaddr(0x0, 145), size=3),
@@ -57,7 +57,7 @@ class CmisMemMap(XcvrMemMap):
             CodeRegField(consts.MODULE_MEDIA_INTERFACE_PASSIVE_COPPER, self.getaddr(0x0, 87), self.codes.PASSIVE_COPPER_MEDIA_INTERFACE),
             CodeRegField(consts.MODULE_MEDIA_INTERFACE_ACTIVE_CABLE, self.getaddr(0x0, 87), self.codes.ACTIVE_CABLE_MEDIA_INTERFACE),
             CodeRegField(consts.MODULE_MEDIA_INTERFACE_BASE_T, self.getaddr(0x0, 87), self.codes.BASE_T_MEDIA_INTERFACE),
-            NumberRegField(consts.MEDIA_LANE_COUNT, self.getaddr(0x0, 88), 
+            NumberRegField(consts.MEDIA_LANE_COUNT, self.getaddr(0x0, 88),
                 *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 4))
             ),
             NumberRegField(consts.HOST_LANE_COUNT, self.getaddr(0x0, 88), 

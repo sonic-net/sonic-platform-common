@@ -32,7 +32,7 @@ class CmisApi(XcvrApi):
 
     def get_vendor_rev(self):
         '''
-        This function returns the revision level for part number provided by vendor 
+        This function returns the revision level for part number provided by vendor
         '''
         return self.xcvr_eeprom.read(consts.VENDOR_REV_FIELD)
 
@@ -58,6 +58,8 @@ class CmisApi(XcvrApi):
         '''
         This function returns the module hardware revision
         '''
+        if self.is_flat_memory():
+            return '0.0'
         hw_major_rev = self.xcvr_eeprom.read(consts.HW_MAJOR_REV)
         hw_minor_rev = self.xcvr_eeprom.read(consts.HW_MAJOR_REV)
         hw_rev = [str(num) for num in [hw_major_rev, hw_minor_rev]]
@@ -115,7 +117,7 @@ class CmisApi(XcvrApi):
         xcvr_info = {
             "type": admin_info[consts.ID_FIELD],
             "type_abbrv_name": admin_info[consts.ID_ABBRV_FIELD],
-            "hardware_rev": '.'.join([str(admin_info[consts.HW_MAJOR_REV]),str(admin_info[consts.HW_MINOR_REV])]),
+            "hardware_rev": self.get_module_hardware_revision(),
             "serial": admin_info[consts.VENDOR_SERIAL_NO_FIELD],
             "manufacturer": admin_info[consts.VENDOR_NAME_FIELD],
             "model": admin_info[consts.VENDOR_PART_NO_FIELD],
@@ -258,7 +260,7 @@ class CmisApi(XcvrApi):
             threshold_info_dict['prefecberhighalarm'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][1]
             threshold_info_dict['prefecberlowalarm'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][2]
             threshold_info_dict['prefecberhighwarning'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][3]
-            threshold_info_dict['prefecberlowwarning'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][4]     
+            threshold_info_dict['prefecberlowwarning'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][4]
             threshold_info_dict['postfecberhighalarm'] = self.vdm_dict['Errored Frames Average Media Input'][1][1]
             threshold_info_dict['postfecberlowalarm'] = self.vdm_dict['Errored Frames Average Media Input'][1][2]
             threshold_info_dict['postfecberhighwarning'] = self.vdm_dict['Errored Frames Average Media Input'][1][3]
@@ -611,12 +613,16 @@ class CmisApi(XcvrApi):
         '''
         This function returns module media type: MMF, SMF, Passive Copper Cable, Active Cable Assembly or Base-T.
         '''
+        if self.is_flat_memory():
+            return 'N/A'
         return self.xcvr_eeprom.read(consts.MEDIA_TYPE_FIELD)
 
     def get_host_electrical_interface(self):
         '''
         This function returns module host electrical interface. Table 4-5 in SFF-8024 Rev4.6
         '''
+        if self.is_flat_memory():
+            return 'N/A'
         return self.xcvr_eeprom.read(consts.HOST_ELECTRICAL_INTERFACE)
 
     def get_module_media_interface(self):
@@ -646,15 +652,17 @@ class CmisApi(XcvrApi):
 
     def get_host_lane_count(self):
         '''
-        This function returns number of host lanes
+        This function returns number of host lanes for default application
         '''
         return self.xcvr_eeprom.read(consts.HOST_LANE_COUNT)
 
 
     def get_media_lane_count(self):
         '''
-        This function returns number of media lanes
+        This function returns number of media lanes for default application
         '''
+        if self.is_flat_memory():
+            return 0
         return self.xcvr_eeprom.read(consts.MEDIA_LANE_COUNT)
 
     def get_media_interface_technology(self):
@@ -745,6 +753,17 @@ class CmisApi(XcvrApi):
         '''
         This function returns the laser temperature monitor value
         '''
+        laser_temp_dict = {
+            'monitor value' : 'N/A',
+            'high alarm' : 'N/A',
+            'low alarm' : 'N/A',
+            'high warn' : 'N/A',
+            'low warn' : 'N/A'
+        }
+
+        if self.is_flat_memory():
+            return laser_temp_dict
+
         try:
             aux1_mon_type, aux2_mon_type, aux3_mon_type = self.get_aux_mon_type()
         except TypeError:
@@ -763,7 +782,7 @@ class CmisApi(XcvrApi):
             laser_temp_high_warn = self.xcvr_eeprom.read(consts.AUX3_HIGH_WARN)/LASER_TEMP_SCALE
             laser_temp_low_warn = self.xcvr_eeprom.read(consts.AUX3_LOW_WARN)/LASER_TEMP_SCALE
         else:
-            return None
+            return laser_temp_dict
         laser_temp_dict = {'monitor value': laser_temp,
                            'high alarm': laser_temp_high_alarm,
                            'low alarm': laser_temp_low_alarm,
@@ -1132,7 +1151,7 @@ class CmisApi(XcvrApi):
             else:
                 ImageA = "N/A"
             txt += 'Image A Version: %s\n' %ImageA
-            
+
             if ImageBValid == 0:
                 # Registers 9Fh:174,175; 176.177
                 ImageB = '%d.%d.%d' %(rpl[38], rpl[39], ((rpl[40]<< 8) | rpl[41]))
@@ -1151,7 +1170,7 @@ class CmisApi(XcvrApi):
             elif ImageBCommitted == 1:
                 CommittedImage = 'B'
             else:
-                CommittedImage = 'N/A'            
+                CommittedImage = 'N/A'
             txt += 'Running Image: %s; Committed Image: %s\n' %(RunningImage, CommittedImage)
         else:
             txt += 'Reply payload check code error\n'
@@ -1174,8 +1193,8 @@ class CmisApi(XcvrApi):
         02h = Traffic affecting Reset to Running Image.
         03h = Attempt Hitless Reset to Running Image
 
-        This function returns True if firmware run successfully completes. 
-        Otherwise it will return False. 
+        This function returns True if firmware run successfully completes.
+        Otherwise it will return False.
         """
         try:
             self.cdb
@@ -1209,8 +1228,8 @@ class CmisApi(XcvrApi):
         The host uses this command to commit the running image
         so that the module will boot from it on future boots.
 
-        This function returns True if firmware commit successfully completes. 
-        Otherwise it will return False. 
+        This function returns True if firmware commit successfully completes.
+        Otherwise it will return False.
         """
         try:
             self.cdb
@@ -1362,7 +1381,7 @@ class CmisApi(XcvrApi):
         imagepath specifies where firmware image file is located.
         target_firmware is a string that specifies the firmware version to upgrade to
 
-        This function returns True if download successfully completes. 
+        This function returns True if download successfully completes.
         Otherwise it will return False.
         """
         result = self.get_module_fw_info()
@@ -1371,7 +1390,7 @@ class CmisApi(XcvrApi):
         except (ValueError, TypeError):
             return result['status'], result['info']
         result = self.get_module_fw_upgrade_feature()
-        try: 
+        try:
             startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength = result['result']
         except (ValueError, TypeError):
             return result['status'], result['info']
@@ -1386,7 +1405,7 @@ class CmisApi(XcvrApi):
     def module_fw_switch(self):
         """
         This function switch the active/inactive module firmware in the current module memory
-        This function returns True if firmware switch successfully completes. 
+        This function returns True if firmware switch successfully completes.
         Otherwise it will return False.
         If not both images are valid, it will stop firmware switch and return False
         """
@@ -1545,7 +1564,7 @@ class CmisApi(XcvrApi):
         trans_status['vcclowalarm_flag'] = module_flag['voltage_flags']['voltage_low_alarm_flag']
         trans_status['vcchighwarning_flag'] = module_flag['voltage_flags']['voltage_high_warn_flag']
         trans_status['vcclowwarning_flag'] = module_flag['voltage_flags']['voltage_low_warn_flag']
-        try: 
+        try:
             aux1_mon_type, aux2_mon_type, aux3_mon_type = self.get_aux_mon_type()
             if aux2_mon_type == 0:
                 trans_status['lasertemphighalarm_flag'] = module_flag['aux2_flags']['aux2_high_alarm_flag']

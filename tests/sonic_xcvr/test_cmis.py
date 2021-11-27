@@ -73,6 +73,8 @@ class TestCmis(object):
     def test_get_module_hardware_revision(self, mock_response, expected):
         self.api.xcvr_eeprom.read = MagicMock()
         self.api.xcvr_eeprom.read.side_effect = mock_response
+        self.api.is_flat_memory = MagicMock()
+        self.api.is_flat_memory.return_value = False
         result = self.api.get_module_hardware_revision()
         assert result == expected
 
@@ -109,6 +111,8 @@ class TestCmis(object):
     def test_get_module_active_firmware(self, mock_response, expected):
         self.api.xcvr_eeprom.read = MagicMock()
         self.api.xcvr_eeprom.read.side_effect = mock_response
+        self.api.is_flat_memory = MagicMock()
+        self.api.is_flat_memory.return_value = False
         result = self.api.get_module_active_firmware()
         assert result == expected
 
@@ -274,7 +278,7 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ([{'TxBiasHighAlarmFlag1':0}, {'TxBiasLowAlarmFlag1':0}, {'TxBiasHighWarnFlag1':0}, {'TxBiasLowWarnFlag1':0}], 
+        ([{'TxBiasHighAlarmFlag1':0}, {'TxBiasLowAlarmFlag1':0}, {'TxBiasHighWarnFlag1':0}, {'TxBiasLowWarnFlag1':0}],
          {
             'tx_bias_high_alarm':{
                 'TxBiasHighAlarmFlag1': False
@@ -298,7 +302,7 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ([{'RxPowerHighAlarmFlag1':0}, {'RxPowerLowAlarmFlag1':0}, {'RxPowerHighWarnFlag1':0}, {'RxPowerLowWarnFlag1':0}], 
+        ([{'RxPowerHighAlarmFlag1':0}, {'RxPowerLowAlarmFlag1':0}, {'RxPowerHighWarnFlag1':0}, {'RxPowerLowWarnFlag1':0}],
          {
             'rx_power_high_alarm':{
                 'RxPowerHighAlarmFlag1': False
@@ -719,10 +723,12 @@ class TestCmis(object):
         (
             [0,1,1],
             [11520, 20480, -2560, 19200, 0],
-            None
+            {'monitor value': 'N/A', 'high alarm': 'N/A', 'low alarm': 'N/A', 'high warn': 'N/A', 'low warn': 'N/A'}
         ),
     ])
     def test_get_laser_temperature(self, mock_response1, mock_response2, expected):
+        self.api.is_flat_memory = MagicMock()
+        self.api.is_flat_memory.return_value = False
         self.api.get_aux_mon_type = MagicMock()
         self.api.get_aux_mon_type.return_value = mock_response1
         self.api.xcvr_eeprom.read = MagicMock()
@@ -756,7 +762,7 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ({'ConfigStatusLane1': 'ConfigSuccess'}, 
+        ({'ConfigStatusLane1': 'ConfigSuccess'},
          {'ConfigStatusLane1': 'ConfigSuccess'})
     ])
     def test_get_config_datapath_hostlane_status(self, mock_response, expected):
@@ -766,7 +772,7 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ({'DP1State': 'DataPathActivated'}, 
+        ({'DP1State': 'DataPathActivated'},
          {'DP1State': 'DataPathActivated'})
     ])
     def test_get_datapath_state(self, mock_response, expected):
@@ -826,7 +832,7 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("input_param, mock_response",[
-        ('none',{
+        ('none', {
             'host_side_input_loopback_supported': True,
             'host_side_output_loopback_supported': True,
             'media_side_input_loopback_supported': True,
@@ -872,11 +878,11 @@ class TestCmis(object):
         self.api.get_vdm_api()
 
     @pytest.mark.parametrize("mock_response, expected",[
-        (   
+        (
             [
                 True,
                 {'Pre-FEC BER Average Media Input': {1: [0.001, 0.0125, 0, 0.01, 0, False, False, False, False]}},
-            ],            
+            ],
             {'Pre-FEC BER Average Media Input': {1: [0.001, 0.0125, 0, 0.01, 0, False, False, False, False]}}
         ),
         (
@@ -1045,7 +1051,7 @@ class TestCmis(object):
         self.api.module_fw_download = MagicMock()
         self.api.module_fw_download.return_value = mock_response[2]
         self.api.module_fw_switch = MagicMock()
-        self.api.module_fw_switch.return_value = mock_response[3]        
+        self.api.module_fw_switch.return_value = mock_response[3]
         result = self.api.module_fw_upgrade(input_param)
         assert result == expected
 
@@ -1067,7 +1073,7 @@ class TestCmis(object):
                     'ModuleMediaType': 'Single Mode Fiber (SMF)',
                     'VendorDate': '21010100',
                     'VendorOUI': 'xx-xx-xx'
-                }, 
+                },
                 '400GAUI-8 C2M (Annex 120E)',
                 '400ZR, DWDM, amplified',
                 8, 1, 1, 1,
@@ -1148,13 +1154,15 @@ class TestCmis(object):
         self.api.get_module_inactive_firmware.return_value = mock_response[12]
         self.api.get_module_media_type = MagicMock()
         self.api.get_module_media_type.return_value = mock_response[13]
+        self.api.get_module_hardware_revision = MagicMock()
+        self.api.get_module_hardware_revision.return_value = '0.0'
         result = self.api.get_transceiver_info()
         assert result == expected
 
 
     @pytest.mark.parametrize("mock_response, expected",[
         (
-            [   
+            [
                 [False, False, False, False, False, False, False, False],
                 [False, False, False, False, False, False, False, False],
                 [False, False, False, False, False, False, False, False],
@@ -1184,9 +1192,9 @@ class TestCmis(object):
                 'temperature': 50,
                 'voltage': 3.3,
                 'tx1power': -10.0, 'tx2power': -10.0, 'tx3power': -10.0, 'tx4power': -10.0,
-                'tx5power': -10.0, 'tx6power': -10.0, 'tx7power': -10.0, 'tx8power': -10.0, 
+                'tx5power': -10.0, 'tx6power': -10.0, 'tx7power': -10.0, 'tx8power': -10.0,
                 'rx1power': -10.0, 'rx2power': -10.0, 'rx3power': -10.0, 'rx4power': -10.0,
-                'rx5power': -10.0, 'rx6power': -10.0, 'rx7power': -10.0, 'rx8power': -10.0, 
+                'rx5power': -10.0, 'rx6power': -10.0, 'rx7power': -10.0, 'rx8power': -10.0,
                 'tx1bias': 70, 'tx2bias': 70, 'tx3bias': 70, 'tx4bias': 70,
                 'tx5bias': 70, 'tx6bias': 70, 'tx7bias': 70, 'tx8bias': 70,
                 'rx_los': False,
@@ -1199,13 +1207,13 @@ class TestCmis(object):
                 'postfec_ber': 0,
             }
         ),
-        (   
+        (
             [
                 ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
                 ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
                 ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
                 'N/A',
-                50, 3.3, 
+                50, 3.3,
                 ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
                 ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
                 ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
@@ -1217,9 +1225,9 @@ class TestCmis(object):
                 'temperature': 50,
                 'voltage': 3.3,
                 'tx1power': 'N/A', 'tx2power': 'N/A', 'tx3power': 'N/A', 'tx4power': 'N/A',
-                'tx5power': 'N/A', 'tx6power': 'N/A', 'tx7power': 'N/A', 'tx8power': 'N/A', 
+                'tx5power': 'N/A', 'tx6power': 'N/A', 'tx7power': 'N/A', 'tx8power': 'N/A',
                 'rx1power': 'N/A', 'rx2power': 'N/A', 'rx3power': 'N/A', 'rx4power': 'N/A',
-                'rx5power': 'N/A', 'rx6power': 'N/A', 'rx7power': 'N/A', 'rx8power': 'N/A', 
+                'rx5power': 'N/A', 'rx6power': 'N/A', 'rx7power': 'N/A', 'rx8power': 'N/A',
                 'tx1bias': 'N/A', 'tx2bias': 'N/A', 'tx3bias': 'N/A', 'tx4bias': 'N/A',
                 'tx5bias': 'N/A', 'tx6bias': 'N/A', 'tx7bias': 'N/A', 'tx8bias': 'N/A',
                 'rx_los': 'N/A',
@@ -1229,8 +1237,6 @@ class TestCmis(object):
                 'tx_disabled_channel': 'N/A',
                 'laser_temperature': 40
             }
-
-
         )
     ])
     def test_get_transceiver_bulk_status(self, mock_response, expected):
@@ -1273,7 +1279,7 @@ class TestCmis(object):
 
     @pytest.mark.parametrize("mock_response, expected",[
         (
-            [   
+            [
                 True,
                 {
                     'TempHighAlarm': 80, 'TempLowAlarm': 0, 'TempHighWarning': 75, 'TempLowWarning': 10,
@@ -1302,7 +1308,7 @@ class TestCmis(object):
         ),
         ([None, None, None, None, None], None),
         (
-            [False, None, None, None, None],             
+            [False, None, None, None, None],
             {
                 'temphighalarm': 'N/A', 'templowalarm': 'N/A', 'temphighwarning': 'N/A', 'templowwarning': 'N/A',
                 'vcchighalarm': 'N/A', 'vcclowalarm': 'N/A', 'vcchighwarning': 'N/A', 'vcclowwarning': 'N/A',
@@ -1381,7 +1387,7 @@ class TestCmis(object):
                 {
                     'ConfigStatusLane1': 'ConfigSuccess', 'ConfigStatusLane2': 'ConfigSuccess',
                     'ConfigStatusLane3': 'ConfigSuccess', 'ConfigStatusLane4': 'ConfigSuccess',
-                    'ConfigStatusLane5': 'ConfigSuccess', 'ConfigStatusLane6': 'ConfigSuccess', 
+                    'ConfigStatusLane5': 'ConfigSuccess', 'ConfigStatusLane6': 'ConfigSuccess',
                     'ConfigStatusLane7': 'ConfigSuccess', 'ConfigStatusLane8': 'ConfigSuccess'
                 },
                 {
@@ -1472,21 +1478,21 @@ class TestCmis(object):
                 'dpinit_pending_hostlane6': False,
                 'dpinit_pending_hostlane7': False,
                 'dpinit_pending_hostlane8': False,
-                'temphighalarm_flag': False, 'templowalarm_flag': False, 
+                'temphighalarm_flag': False, 'templowalarm_flag': False,
                 'temphighwarning_flag': False, 'templowwarning_flag': False,
-                'vcchighalarm_flag': False, 'vcclowalarm_flag': False, 
+                'vcchighalarm_flag': False, 'vcclowalarm_flag': False,
                 'vcchighwarning_flag': False, 'vcclowwarning_flag': False,
-                'lasertemphighalarm_flag': False, 'lasertemplowalarm_flag': False, 
+                'lasertemphighalarm_flag': False, 'lasertemplowalarm_flag': False,
                 'lasertemphighwarning_flag': False, 'lasertemplowwarning_flag': False,
-                'txpowerhighalarm_flag': False, 'txpowerlowalarm_flag': False, 
+                'txpowerhighalarm_flag': False, 'txpowerlowalarm_flag': False,
                 'txpowerhighwarning_flag': False, 'txpowerlowwarning_flag': False,
-                'rxpowerhighalarm_flag': False, 'rxpowerlowalarm_flag': False, 
+                'rxpowerhighalarm_flag': False, 'rxpowerlowalarm_flag': False,
                 'rxpowerhighwarning_flag': False, 'rxpowerlowwarning_flag': False,
-                'txbiashighalarm_flag': False, 'txbiaslowalarm_flag': False, 
+                'txbiashighalarm_flag': False, 'txbiaslowalarm_flag': False,
                 'txbiashighwarning_flag': False, 'txbiaslowwarning_flag': False,
-                'prefecberhighalarm_flag': False, 'prefecberlowalarm_flag': False, 
+                'prefecberhighalarm_flag': False, 'prefecberlowalarm_flag': False,
                 'prefecberhighwarning_flag': False, 'prefecberlowwarning_flag': False,
-                'postfecberhighalarm_flag': False, 'postfecberlowalarm_flag': False, 
+                'postfecberhighalarm_flag': False, 'postfecberlowalarm_flag': False,
                 'postfecberhighwarning_flag': False, 'postfecberlowwarning_flag': False,
             }
         ),
@@ -1545,13 +1551,13 @@ class TestCmis(object):
                 {
                     'ConfigStatusLane1': 'ConfigSuccess', 'ConfigStatusLane2': 'ConfigSuccess',
                     'ConfigStatusLane3': 'ConfigSuccess', 'ConfigStatusLane4': 'ConfigSuccess',
-                    'ConfigStatusLane5': 'ConfigSuccess', 'ConfigStatusLane6': 'ConfigSuccess', 
+                    'ConfigStatusLane5': 'ConfigSuccess', 'ConfigStatusLane6': 'ConfigSuccess',
                     'ConfigStatusLane7': 'ConfigSuccess', 'ConfigStatusLane8': 'ConfigSuccess'
                 },
                 {
                     'DPInitPending1': False, 'DPInitPending2': False,
                     'DPInitPending3': False, 'DPInitPending4': False,
-                    'DPInitPending5': False, 'DPInitPending6': False, 
+                    'DPInitPending5': False, 'DPInitPending6': False,
                     'DPInitPending7': False, 'DPInitPending8': False
                 },
 
@@ -1584,13 +1590,13 @@ class TestCmis(object):
                 'datapath_firmware_fault': False,
                 'module_firmware_fault': False,
                 'module_state_changed': True,
-                'temphighalarm_flag': False, 'templowalarm_flag': False, 
+                'temphighalarm_flag': False, 'templowalarm_flag': False,
                 'temphighwarning_flag': False, 'templowwarning_flag': False,
-                'vcchighalarm_flag': False, 'vcclowalarm_flag': False, 
+                'vcchighalarm_flag': False, 'vcclowalarm_flag': False,
                 'vcchighwarning_flag': False, 'vcclowwarning_flag': False,
-                'lasertemphighalarm_flag': False, 'lasertemplowalarm_flag': False, 
+                'lasertemphighalarm_flag': False, 'lasertemplowalarm_flag': False,
                 'lasertemphighwarning_flag': False, 'lasertemplowwarning_flag': False,
-            }            
+            }
         )
     ])
     def test_get_transceiver_status(self, mock_response, expected):
