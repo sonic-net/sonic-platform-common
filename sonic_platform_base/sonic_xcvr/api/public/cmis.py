@@ -1597,67 +1597,31 @@ class CmisApi(XcvrApi):
             pass
         if not self.is_flat_memory():
             dp_state_dict = self.get_datapath_state()
-            trans_status['DP1State'] = dp_state_dict['DP1State']
-            trans_status['DP2State'] = dp_state_dict['DP2State']
-            trans_status['DP3State'] = dp_state_dict['DP3State']
-            trans_status['DP4State'] = dp_state_dict['DP4State']
-            trans_status['DP5State'] = dp_state_dict['DP5State']
-            trans_status['DP6State'] = dp_state_dict['DP6State']
-            trans_status['DP7State'] = dp_state_dict['DP7State']
-            trans_status['DP8State'] = dp_state_dict['DP8State']
+            for lane in range(1, self.NUM_CHANNELS+1):
+                trans_status['DP%dState' % lane] = dp_state_dict['DP%dState' % lane]
             tx_output_status_dict = self.get_tx_output_status()
             trans_status['txoutput_status'] = tx_output_status_dict['TxOutputStatus1']
             rx_output_status_dict = self.get_rx_output_status()
-            trans_status['rxoutput_status_hostlane1'] = rx_output_status_dict['RxOutputStatus1']
-            trans_status['rxoutput_status_hostlane2'] = rx_output_status_dict['RxOutputStatus2']
-            trans_status['rxoutput_status_hostlane3'] = rx_output_status_dict['RxOutputStatus3']
-            trans_status['rxoutput_status_hostlane4'] = rx_output_status_dict['RxOutputStatus4']
-            trans_status['rxoutput_status_hostlane5'] = rx_output_status_dict['RxOutputStatus5']
-            trans_status['rxoutput_status_hostlane6'] = rx_output_status_dict['RxOutputStatus6']
-            trans_status['rxoutput_status_hostlane7'] = rx_output_status_dict['RxOutputStatus7']
-            trans_status['rxoutput_status_hostlane8'] = rx_output_status_dict['RxOutputStatus8']
+            for lane in range(1, self.NUM_CHANNELS+1):
+                trans_status['rxoutput_status_hostlane%d' % lane] = rx_output_status_dict['RxOutputStatus%d' % lane]
             tx_fault = self.get_tx_fault()
             trans_status['txfault'] = tx_fault[0]
             tx_los = self.get_tx_los()
-            trans_status['txlos_hostlane1'] = tx_los[0]
-            trans_status['txlos_hostlane2'] = tx_los[1]
-            trans_status['txlos_hostlane3'] = tx_los[2]
-            trans_status['txlos_hostlane4'] = tx_los[3]
-            trans_status['txlos_hostlane5'] = tx_los[4]
-            trans_status['txlos_hostlane6'] = tx_los[5]
-            trans_status['txlos_hostlane7'] = tx_los[6]
-            trans_status['txlos_hostlane8'] = tx_los[7]
+            for lane in range(1, self.NUM_CHANNELS+1):
+                trans_status['txlos_hostlane%d' % lane] = tx_los[lane - 1]
             tx_lol = self.get_tx_cdr_lol()
-            trans_status['txcdrlol_hostlane1'] = tx_lol[0]
-            trans_status['txcdrlol_hostlane2'] = tx_lol[1]
-            trans_status['txcdrlol_hostlane3'] = tx_lol[2]
-            trans_status['txcdrlol_hostlane4'] = tx_lol[3]
-            trans_status['txcdrlol_hostlane5'] = tx_lol[4]
-            trans_status['txcdrlol_hostlane6'] = tx_lol[5]
-            trans_status['txcdrlol_hostlane7'] = tx_lol[6]
-            trans_status['txcdrlol_hostlane8'] = tx_lol[7]
+            for lane in range(1, self.NUM_CHANNELS+1):
+                trans_status['txcdrlol_hostlane%d' % lane] = tx_lol[lane - 1]
             rx_los = self.get_rx_los()
             trans_status['rxlos'] = rx_los[0]
             rx_lol = self.get_rx_cdr_lol()
             trans_status['rxcdrlol'] = rx_lol[0]
             config_status_dict = self.get_config_datapath_hostlane_status()
-            trans_status['config_state_hostlane1'] = config_status_dict['ConfigStatusLane1']
-            trans_status['config_state_hostlane2'] = config_status_dict['ConfigStatusLane2']
-            trans_status['config_state_hostlane3'] = config_status_dict['ConfigStatusLane3']
-            trans_status['config_state_hostlane4'] = config_status_dict['ConfigStatusLane4']
-            trans_status['config_state_hostlane5'] = config_status_dict['ConfigStatusLane5']
-            trans_status['config_state_hostlane6'] = config_status_dict['ConfigStatusLane6']
-            trans_status['config_state_hostlane7'] = config_status_dict['ConfigStatusLane7']
-            trans_status['config_state_hostlane8'] = config_status_dict['ConfigStatusLane8']
+            for lane in range(1, self.NUM_CHANNELS+1):
+                trans_status['config_state_hostlane%d' % lane] = config_status_dict['ConfigStatusLane%d' % lane]
             dpinit_pending_dict = self.get_dpinit_pending()
-            trans_status['dpinit_pending_hostlane1'] = dpinit_pending_dict['DPInitPending1']
-            trans_status['dpinit_pending_hostlane2'] = dpinit_pending_dict['DPInitPending2']
-            trans_status['dpinit_pending_hostlane3'] = dpinit_pending_dict['DPInitPending3']
-            trans_status['dpinit_pending_hostlane4'] = dpinit_pending_dict['DPInitPending4']
-            trans_status['dpinit_pending_hostlane5'] = dpinit_pending_dict['DPInitPending5']
-            trans_status['dpinit_pending_hostlane6'] = dpinit_pending_dict['DPInitPending6']
-            trans_status['dpinit_pending_hostlane7'] = dpinit_pending_dict['DPInitPending7']
-            trans_status['dpinit_pending_hostlane8'] = dpinit_pending_dict['DPInitPending8']
+            for lane in range(1, self.NUM_CHANNELS+1):
+                trans_status['dpinit_pending_hostlane%d' % lane] = dpinit_pending_dict['DPInitPending%d' % lane]
             tx_power_flag_dict = self.get_tx_power_flag()
             trans_status['txpowerhighalarm_flag'] = tx_power_flag_dict['tx_power_high_alarm']['TxPowerHighAlarmFlag1']
             trans_status['txpowerlowalarm_flag'] = tx_power_flag_dict['tx_power_low_alarm']['TxPowerLowAlarmFlag1']
@@ -1728,22 +1692,9 @@ class CmisApi(XcvrApi):
             trans_loopback['media_side_output_loopback_supported'] = 'N/A'
             trans_loopback['media_output_loopback'] = 'N/A'
             trans_loopback['media_input_loopback'] = 'N/A'
-            trans_loopback['host_output_loopback_lane1'] = 'N/A'
-            trans_loopback['host_output_loopback_lane2'] = 'N/A'
-            trans_loopback['host_output_loopback_lane3'] = 'N/A'
-            trans_loopback['host_output_loopback_lane4'] = 'N/A'
-            trans_loopback['host_output_loopback_lane5'] = 'N/A'
-            trans_loopback['host_output_loopback_lane6'] = 'N/A'
-            trans_loopback['host_output_loopback_lane7'] = 'N/A'
-            trans_loopback['host_output_loopback_lane8'] = 'N/A'
-            trans_loopback['host_input_loopback_lane1'] = 'N/A'
-            trans_loopback['host_input_loopback_lane2'] = 'N/A'
-            trans_loopback['host_input_loopback_lane3'] = 'N/A'
-            trans_loopback['host_input_loopback_lane4'] = 'N/A'
-            trans_loopback['host_input_loopback_lane5'] = 'N/A'
-            trans_loopback['host_input_loopback_lane6'] = 'N/A'
-            trans_loopback['host_input_loopback_lane7'] = 'N/A'
-            trans_loopback['host_input_loopback_lane8'] = 'N/A'
+            for lane in range(1, self.NUM_CHANNELS+1):
+                trans_loopback['host_output_loopback_lane%d' % lane] = 'N/A'
+                trans_loopback['host_input_loopback_lane%d' % lane] = 'N/A'
             return trans_loopback
         else:
             trans_loopback['simultaneous_host_media_loopback_supported'] = loopback_capability['simultaneous_host_media_loopback_supported']
@@ -1763,41 +1714,17 @@ class CmisApi(XcvrApi):
             trans_loopback['media_input_loopback'] = 'N/A'
         if loopback_capability['host_side_output_loopback_supported']:
             host_output_loopback_status = self.get_host_output_loopback()
-            trans_loopback['host_output_loopback_lane1'] = host_output_loopback_status[0]
-            trans_loopback['host_output_loopback_lane2'] = host_output_loopback_status[1]
-            trans_loopback['host_output_loopback_lane3'] = host_output_loopback_status[2]
-            trans_loopback['host_output_loopback_lane4'] = host_output_loopback_status[3]
-            trans_loopback['host_output_loopback_lane5'] = host_output_loopback_status[4]
-            trans_loopback['host_output_loopback_lane6'] = host_output_loopback_status[5]
-            trans_loopback['host_output_loopback_lane7'] = host_output_loopback_status[6]
-            trans_loopback['host_output_loopback_lane8'] = host_output_loopback_status[7]
+            for lane in range(1, self.NUM_CHANNELS+1):
+                trans_loopback['host_output_loopback_lane%d' % lane] = host_output_loopback_status[lane - 1]
         else:
-            trans_loopback['host_output_loopback_lane1'] = 'N/A'
-            trans_loopback['host_output_loopback_lane2'] = 'N/A'
-            trans_loopback['host_output_loopback_lane3'] = 'N/A'
-            trans_loopback['host_output_loopback_lane4'] = 'N/A'
-            trans_loopback['host_output_loopback_lane5'] = 'N/A'
-            trans_loopback['host_output_loopback_lane6'] = 'N/A'
-            trans_loopback['host_output_loopback_lane7'] = 'N/A'
-            trans_loopback['host_output_loopback_lane8'] = 'N/A'
+            for lane in range(1, self.NUM_CHANNELS+1):
+                trans_loopback['host_output_loopback_lane%d' % lane] = 'N/A'
         if loopback_capability['host_side_input_loopback_supported']:
             host_input_loopback_status = self.get_host_input_loopback()
-            trans_loopback['host_input_loopback_lane1'] = host_input_loopback_status[0]
-            trans_loopback['host_input_loopback_lane2'] = host_input_loopback_status[1]
-            trans_loopback['host_input_loopback_lane3'] = host_input_loopback_status[2]
-            trans_loopback['host_input_loopback_lane4'] = host_input_loopback_status[3]
-            trans_loopback['host_input_loopback_lane5'] = host_input_loopback_status[4]
-            trans_loopback['host_input_loopback_lane6'] = host_input_loopback_status[5]
-            trans_loopback['host_input_loopback_lane7'] = host_input_loopback_status[6]
-            trans_loopback['host_input_loopback_lane8'] = host_input_loopback_status[7]
+            for lane in range(1, self.NUM_CHANNELS+1):
+                trans_loopback['host_input_loopback_lane%d' % lane] = host_input_loopback_status[lane - 1]
         else:
-            trans_loopback['host_input_loopback_lane1'] = 'N/A'
-            trans_loopback['host_input_loopback_lane2'] = 'N/A'
-            trans_loopback['host_input_loopback_lane3'] = 'N/A'
-            trans_loopback['host_input_loopback_lane4'] = 'N/A'
-            trans_loopback['host_input_loopback_lane5'] = 'N/A'
-            trans_loopback['host_input_loopback_lane6'] = 'N/A'
-            trans_loopback['host_input_loopback_lane7'] = 'N/A'
-            trans_loopback['host_input_loopback_lane8'] = 'N/A'
+            for lane in range(1, self.NUM_CHANNELS+1):
+                trans_loopback['host_input_loopback_lane%d' % lane] = 'N/A'
         return trans_loopback
     # TODO: other XcvrApi methods
