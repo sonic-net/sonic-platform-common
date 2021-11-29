@@ -97,6 +97,10 @@ class TestCCmis(object):
         (195950, (0xff, -72, 120, 191300, 196100)),
     ])
     def test_set_laser_freq(self, input_param, mock_response):
+        self.api.is_flat_memory = MagicMock()
+        self.api.is_flat_memory.return_value = False
+        self.api.get_lpmode_support = MagicMock()
+        self.api.get_lpmode_support.return_value = False
         self.api.get_supported_freq_config = MagicMock()
         self.api.get_supported_freq_config.return_value = mock_response
         self.api.set_laser_freq(input_param)

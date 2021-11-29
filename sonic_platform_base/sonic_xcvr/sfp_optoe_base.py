@@ -47,34 +47,6 @@ class SfpOptoeBase(SfpBase):
         api = self.get_xcvr_api()
         return api.get_transceiver_pm() if api is not None else None
 
-    def get_module_fw_upgrade_feature(self):
-        api = self.get_xcvr_api()
-        return api.get_module_fw_upgrade_feature() if api is not None else None
-
-    def get_module_fw_info(self):
-        api = self.get_xcvr_api()
-        return api.get_module_fw_info() if api is not None else None
-
-    def module_fw_run(self):
-        api = self.get_xcvr_api()
-        return api.module_fw_run() if api is not None else None
-
-    def module_fw_commit(self):
-        api = self.get_xcvr_api()
-        return api.module_fw_commit() if api is not None else None
-
-    def module_fw_download(self):
-        api = self.get_xcvr_api()
-        return api.module_fw_download() if api is not None else None
-
-    def module_fw_upgrade(self):
-        api = self.get_xcvr_api()
-        return api.module_fw_upgrade() if api is not None else None
-
-    def module_fw_switch(self):
-        api = self.get_xcvr_api()
-        return api.module_fw_switch() if api is not None else None
-
     def get_rx_los(self):
         api = self.get_xcvr_api()
         if api is not None:
@@ -171,6 +143,33 @@ class SfpOptoeBase(SfpBase):
 
     def get_eeprom_path(self):
         raise NotImplementedError
+
+    def get_lpmode(self):
+        """
+        This common API is applicable only for CMIS as Low Power mode can be verified
+        using EEPROM registers.For other media types like QSFP28/QSFP+ etc., platform
+        vendors has to implement accordingly.
+        """
+        api = self.get_xcvr_api()
+        return api.get_lpmode() if api is not None else None
+
+    def set_lpmode(self, lpmode):
+        """
+        This common API is applicable only for CMIS as Low Power mode can be controlled
+        via EEPROM registers.For other media types like QSFP28/QSFP+ etc., platform
+        vendors has to implement accordingly.
+        """
+        api = self.get_xcvr_api()
+        return api.set_lpmode(lpmode) if api is not None else None
+
+    def set_optoe_write_max(self, write_max):
+        sys_path = self.get_eeprom_path()
+        sys_path = sys_path.replace("eeprom", "write_max")
+        try:
+            with open(sys_path, mode='w') as f:
+                f.write(str(write_max))
+        except (OSError, IOError):
+            pass
 
     def read_eeprom(self, offset, num_bytes):
         try:

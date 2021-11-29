@@ -27,7 +27,7 @@ class CmisCdbApi(XcvrApi):
         self.cdb_instance_supported = self.xcvr_eeprom.read(consts.CDB_SUPPORT)
         self.failed_status_dict = self.xcvr_eeprom.mem_map.codes.CDB_FAIL_STATUS
         assert self.cdb_instance_supported != 0
-    
+
     def cdb1_chkflags(self):
         '''
         This function detects if there is datapath or module firmware fault.
@@ -64,14 +64,14 @@ class CmisCdbApi(XcvrApi):
             return False
         else:
             return True
-    
+
     def cdb_chkcode(self, cmd):
         '''
         This function calculates and returns the checksum of a CDB command
         '''
         checksum = 0
         for byte in cmd:
-            checksum += byte   
+            checksum += byte
         return 0xff - (checksum & 0xff)
 
     def cdb1_chkstatus(self):
@@ -140,7 +140,7 @@ class CmisCdbApi(XcvrApi):
     def read_cdb(self):
         '''
         This function reads the reply of a CDB command from page 0x9f.
-        It returns the reply message of a CDB command. 
+        It returns the reply message of a CDB command.
         rpllen is the length (number of bytes) of rpl
         rpl_chkcode is the check code of rpl and can be calculated by cdb_chkcode()
         rpl is the reply message.
@@ -162,7 +162,7 @@ class CmisCdbApi(XcvrApi):
         self.write_cdb(cmd)
         status = self.cdb1_chkstatus()
         if (status != 0x1):
-            if status > 127: 
+            if status > 127:
                 txt = 'Query CDB status: Busy'
             else:
                 status_txt = self.failed_status_dict.get(status & 0x3f, "Unknown")
@@ -186,7 +186,7 @@ class CmisCdbApi(XcvrApi):
         self.write_cdb(cmd)
         status = self.cdb1_chkstatus()
         if (status != 0x1):
-            if status > 127: 
+            if status > 127:
                 txt = 'Enter password status: Busy'
             else:
                 status_txt = self.failed_status_dict.get(status & 0x3f, "Unknown")
@@ -206,7 +206,7 @@ class CmisCdbApi(XcvrApi):
         self.write_cdb(cmd)
         status = self.cdb1_chkstatus()
         if (status != 0x1):
-            if status > 127: 
+            if status > 127:
                 txt = 'Get module feature status: Busy'
             else:
                 status_txt = self.failed_status_dict.get(status & 0x3f, "Unknown")
@@ -227,7 +227,7 @@ class CmisCdbApi(XcvrApi):
         self.write_cdb(cmd)
         status = self.cdb1_chkstatus()
         if (status != 0x1):
-            if status > 127: 
+            if status > 127:
                 txt = 'Get firmware management feature status: Busy'
             else:
                 status_txt = self.failed_status_dict.get(status & 0x3f, "Unknown")
@@ -240,17 +240,16 @@ class CmisCdbApi(XcvrApi):
     # Get FW info
     def get_fw_info(self):
         '''
-        This command returns the firmware versions and firmware default running 
+        This command returns the firmware versions and firmware default running
         images that reside in the module
         It returns the reply message of this CDB command 0100h.
         '''
-        # self.module_enter_password(0x00000000)
         cmd = bytearray(b'\x01\x00\x00\x00\x00\x00\x00\x00')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
         self.write_cdb(cmd)
         status = self.cdb1_chkstatus()
         if (status != 0x1):
-            if status > 127: 
+            if status > 127:
                 txt = 'Get firmware info status: Busy'
             else:
                 status_txt = self.failed_status_dict.get(status & 0x3f, "Unknown")
@@ -281,7 +280,7 @@ class CmisCdbApi(XcvrApi):
         time.sleep(2)
         status = self.cdb1_chkstatus()
         if (status != 0x1):
-            if status > 127: 
+            if status > 127:
                 txt = 'Start firmware download status: Busy'
             else:
                 status_txt = self.failed_status_dict.get(status & 0x3f, "Unknown")
@@ -304,7 +303,7 @@ class CmisCdbApi(XcvrApi):
         self.write_cdb(cmd)
         status = self.cdb1_chkstatus()
         if (status != 0x1):
-            if status > 127: 
+            if status > 127:
                 txt = 'Abort firmware download status: Busy'
             else:
                 status_txt = self.failed_status_dict.get(status & 0x3f, "Unknown")
@@ -320,7 +319,7 @@ class CmisCdbApi(XcvrApi):
         This command writes one block of the firmware image into the LPL
         It returns the status of CDB command 0103h
         '''
-        # lpl_len includes 136-139, four bytes, data is 116-byte long. 
+        # lpl_len includes 136-139, four bytes, data is 116-byte long.
         lpl_len = len(data) + 4
         cmd = bytearray(b'\x01\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
         cmd[132-INIT_OFFSET] = lpl_len & 0xff
@@ -335,7 +334,7 @@ class CmisCdbApi(XcvrApi):
         self.write_cdb(cmd)
         status = self.cdb1_chkstatus()
         if (status != 0x1):
-            if status > 127: 
+            if status > 127:
                 txt = 'LPL firmware download status: Busy'
             else:
                 status_txt = self.failed_status_dict.get(status & 0x3f, "Unknown")
@@ -387,7 +386,7 @@ class CmisCdbApi(XcvrApi):
         self.write_cdb(cmd)
         status = self.cdb1_chkstatus()
         if (status != 0x1):
-            if status > 127: 
+            if status > 127:
                 txt = 'EPL firmware download status: Busy'
             else:
                 status_txt = self.failed_status_dict.get(status & 0x3f, "Unknown")
@@ -409,7 +408,7 @@ class CmisCdbApi(XcvrApi):
         self.write_cdb(cmd)
         status = self.cdb1_chkstatus()
         if (status != 0x1):
-            if status > 127: 
+            if status > 127:
                 txt = 'Firmware download complete status: Busy'
             else:
                 status_txt = self.failed_status_dict.get(status & 0x3f, "Unknown")
@@ -437,7 +436,7 @@ class CmisCdbApi(XcvrApi):
         self.write_cdb(cmd)
         status = self.cdb1_chkstatus()
         if (status != 0x1):
-            if status > 127: 
+            if status > 127:
                 txt = 'Run firmware status: Busy'
             else:
                 status_txt = self.failed_status_dict.get(status & 0x3f, "Unknown")
@@ -467,7 +466,7 @@ class CmisCdbApi(XcvrApi):
         self.write_cdb(cmd)
         status = self.cdb1_chkstatus()
         if (status != 0x1):
-            if status > 127: 
+            if status > 127:
                 txt = 'Commit firmware status: Busy'
             else:
                 status_txt = self.failed_status_dict.get(status & 0x3f, "Unknown")
