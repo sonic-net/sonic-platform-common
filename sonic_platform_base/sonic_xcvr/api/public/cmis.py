@@ -871,15 +871,41 @@ class CmisApi(XcvrApi):
         else:
             return True
 
-    def set_low_power(self, AssertLowPower):
+    def get_lpmode(self):
+        '''
+        Retrieves Low power module status
+        Returns True if module in low power else returns False.
+        '''
+        if self.is_flat_memory() or not self.get_lpmode_support():
+            return False
+
+        lpmode = self.xcvr_eeprom.read(consts.TRANS_MODULE_STATUS_FIELD)
+        if lpmode is not None:
+            if lpmode.get('ModuleState') == 'ModuleLowPwr':
+                return True
+        return False
+
+    def set_lpmode(self, lpmode):
         '''
         This function sets the module to low power state.
-        AssertLowPower being 0 means "set to high power"
-        AssertLowPower being 1 means "set to low power"
+        lpmode being False means "set to high power"
+        lpmode being True means "set to low power"
         Return True if the provision succeeds, False if it fails
         '''
-        low_power_control = AssertLowPower << 6
-        return self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, low_power_control)
+
+        if self.is_flat_memory() or not self.get_lpmode_support():
+            return False
+
+        lpmode_val = self.xcvr_eeprom.read(consts.MODULE_LEVEL_CONTROL)
+        if lpmode_val is not None:
+            if lpmode is True:
+                lpmode_val = lpmode_val | (1 << 4)
+            else:
+                lpmode_val = lpmode_val & ~(1 << 4)
+            self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, lpmode_val)
+            time.sleep(0.1)
+            return self.get_lpmode()
+        return False
 
     def get_loopback_capability(self):
         '''

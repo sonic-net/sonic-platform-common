@@ -128,6 +128,24 @@ class SfpOptoeBase(SfpBase):
     def get_eeprom_path(self):
         raise NotImplementedError
 
+    def get_lpmode(self):
+        """
+        This common API is applicable only for CMIS as Low Power mode can be verified
+        using EEPROM registers.For other media types like QSFP28/QSFP+ etc., platform
+        vendors has to implement accordingly.
+        """
+        api = self.get_xcvr_api()
+        return api.get_lpmode() if api is not None else None
+
+    def set_lpmode(self, lpmode):
+        """
+        This common API is applicable only for CMIS as Low Power mode can be controlled 
+        via EEPROM registers.For other media types like QSFP28/QSFP+ etc., platform
+        vendors has to implement accordingly.
+        """
+        api = self.get_xcvr_api()
+        return api.set_lp_mode(lpmode) if api is not None else None
+
     def read_eeprom(self, offset, num_bytes):
         try:
             with open(self.get_eeprom_path(), mode='rb', buffering=0) as f:

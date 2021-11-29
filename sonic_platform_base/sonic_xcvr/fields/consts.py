@@ -260,7 +260,7 @@ WAVELENGTH_UNLOCKED = "TxWavelengthUnlocked"
 LASER_TUNING_DETAIL = "TxTuningDetail"
 
 # CONFIG
-TRANS_CONFIG_FIELD = "TransceriverConfig"
+TRANS_CONFIG_FIELD = "TransceiverConfig"
 MODULE_LEVEL_CONTROL = "ModuleControl"
 
 CTRLS_ADVT_FIELD = "Supported Controls Advertisement"
