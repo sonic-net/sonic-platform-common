@@ -782,10 +782,7 @@ class TestCmis(object):
     def test_reset_module(self):
         self.api.reset_module(True)
 
-    @pytest.mark.parametrize("mock_response, expected", [
-        (True, True)
-    ])
-    def test_set_low_power(self, mock_response, expected):
+    def test_set_low_power(self):
         self.api.is_flat_memory = MagicMock()
         self.api.is_flat_memory.return_value = False
         self.api.get_lpmode_support = MagicMock()
