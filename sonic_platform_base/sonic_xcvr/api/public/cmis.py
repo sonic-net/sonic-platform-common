@@ -900,11 +900,18 @@ class CmisApi(XcvrApi):
         if lpmode_val is not None:
             if lpmode is True:
                 lpmode_val = lpmode_val | (1 << 4)
+                self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, lpmode_val)
+                time.sleep(0.1)
+                return self.get_lpmode()
             else:
                 lpmode_val = lpmode_val & ~(1 << 4)
-            self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, lpmode_val)
-            time.sleep(0.1)
-            return self.get_lpmode()
+                self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, lpmode_val)
+                time.sleep(1)
+                lpmode = self.xcvr_eeprom.read(consts.TRANS_MODULE_STATUS_FIELD)
+                if lpmode is not None:
+                    if lpmode.get('ModuleState') == 'ModuleReady':
+                        return True
+                return False
         return False
 
     def get_loopback_capability(self):
