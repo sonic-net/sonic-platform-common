@@ -139,12 +139,21 @@ class SfpOptoeBase(SfpBase):
 
     def set_lpmode(self, lpmode):
         """
-        This common API is applicable only for CMIS as Low Power mode can be controlled 
+        This common API is applicable only for CMIS as Low Power mode can be controlled
         via EEPROM registers.For other media types like QSFP28/QSFP+ etc., platform
         vendors has to implement accordingly.
         """
         api = self.get_xcvr_api()
         return api.set_lp_mode(lpmode) if api is not None else None
+
+    def set_optoe_write_max(self, write_max):
+        sys_path = self.get_eeprom_path()
+        sys_path = sys_path.replace("eeprom", "write_max")
+        try:
+            with open(sys_path, mode='w') as f:
+                f.write(str(write_max))
+        except (OSError, IOError):
+            pass
 
     def read_eeprom(self, offset, num_bytes):
         try:
