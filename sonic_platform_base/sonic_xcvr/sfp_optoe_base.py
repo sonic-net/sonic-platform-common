@@ -144,7 +144,7 @@ class SfpOptoeBase(SfpBase):
         vendors has to implement accordingly.
         """
         api = self.get_xcvr_api()
-        return api.set_lp_mode(lpmode) if api is not None else None
+        return api.set_lpmode(lpmode) if api is not None else None
 
     def read_eeprom(self, offset, num_bytes):
         try:
