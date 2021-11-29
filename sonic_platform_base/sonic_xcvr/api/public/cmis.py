@@ -833,16 +833,6 @@ class CmisApi(XcvrApi):
         else:
             return True
 
-    def set_low_power(self, AssertLowPower):
-        '''
-        This function sets the module to low power state.
-        AssertLowPower being 0 means "set to high power"
-        AssertLowPower being 1 means "set to low power"
-        Return True if the provision succeeds, False if it fails
-        '''
-        low_power_control = AssertLowPower << 6
-        return self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, low_power_control)
-
     def get_lpmode(self):
         '''
         Retrieves Low power module status
