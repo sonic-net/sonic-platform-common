@@ -101,8 +101,6 @@ class TestCCmis(object):
         self.api.is_flat_memory.return_value = False
         self.api.get_lpmode_support = MagicMock()
         self.api.get_lpmode_support.return_value = False
-        self.api.xcvr_eeprom.read = MagicMock()
-        self.api.xcvr_eeprom.return_value = False
         self.api.get_supported_freq_config = MagicMock()
         self.api.get_supported_freq_config.return_value = mock_response
         self.api.set_laser_freq(input_param)
