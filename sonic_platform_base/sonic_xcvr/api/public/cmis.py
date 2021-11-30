@@ -130,7 +130,7 @@ class CmisApi(XcvrApi):
             "ext_identifier": "%s (%sW Max)" % (power_class, max_power),
             "ext_rateselect_compliance": "N/A", # Not supported
             "cable_type": "Length Cable Assembly(m)",
-            "cable_length": admin_info[consts.LENGTH_ASSEMBLY_FIELD],
+            "cable_length": float(admin_info[consts.LENGTH_ASSEMBLY_FIELD]),
             "nominal_bit_rate": 0, # Not supported
             "specification_compliance": admin_info[consts.MEDIA_TYPE_FIELD],
             "vendor_date": admin_info[consts.VENDOR_DATE_FIELD],
@@ -610,8 +610,6 @@ class CmisApi(XcvrApi):
         '''
         This function returns module media type: MMF, SMF, Passive Copper Cable, Active Cable Assembly or Base-T.
         '''
-        if self.is_flat_memory():
-            return 'N/A'
         return self.xcvr_eeprom.read(consts.MEDIA_TYPE_FIELD)
 
     def get_host_electrical_interface(self):
@@ -624,19 +622,16 @@ class CmisApi(XcvrApi):
         '''
         This function returns module media electrical interface. Table 4-6 ~ 4-10 in SFF-8024 Rev4.6
         '''
-        if self.is_flat_memory():
-            return 'N/A'
-
         media_type = self.get_module_media_type()
-        if media_type == 'Multimode Fiber (MMF)':
+        if media_type == 'nm_850_media_interface':
             return self.xcvr_eeprom.read(consts.MODULE_MEDIA_INTERFACE_850NM)
-        elif media_type == 'Single Mode Fiber (SMF)':
+        elif media_type == 'sm_media_interface':
             return self.xcvr_eeprom.read(consts.MODULE_MEDIA_INTERFACE_SM)
-        elif media_type == 'Passive Copper Cable':
+        elif media_type == 'passive_copper_media_interface':
             return self.xcvr_eeprom.read(consts.MODULE_MEDIA_INTERFACE_PASSIVE_COPPER)
-        elif media_type == 'Active Cable Assembly':
+        elif media_type == 'active_cable_media_interface':
             return self.xcvr_eeprom.read(consts.MODULE_MEDIA_INTERFACE_ACTIVE_CABLE)
-        elif media_type == 'BASE-T':
+        elif media_type == 'base_t_media_interface':
             return self.xcvr_eeprom.read(consts.MODULE_MEDIA_INTERFACE_BASE_T)
         else:
             return 'Unknown media interface'
