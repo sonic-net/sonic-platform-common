@@ -12,15 +12,6 @@ class CmisCodes(Sff8024):
         7: "Power Class 8"
     }
 
-    MEDIA_TYPES = {
-        0: "Undefined",
-        1: "nm_850_media_interface",
-        2: "sm_media_interface",
-        3: "passive_copper_media_interface",
-        4: "active_cable_media_interface",
-        5: "base_t_media_interface",
-    }
-
     MEDIA_INTERFACE_TECH = {
         0: '850 nm VCSEL',
         1: '1310 nm VCSEL',
