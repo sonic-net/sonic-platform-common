@@ -175,12 +175,12 @@ class Sff8024(XcvrCodes):
     }
 
     MODULE_MEDIA_TYPE = {
-        0: "Undefined",
-        1: "nm_850_media_interface",
-        2: "sm_media_interface",
-        3: "passive_copper_media_interface",
-        4: "active_cable_media_interface",
-        5: "base_t_media_interface",
+        0: 'Undefined',
+        1: 'nm_850_media_interface',
+        2: 'sm_media_interface',
+        3: 'passive_copper_media_interface',
+        4: 'active_cable_media_interface',
+        5: 'base_t_media_interface'
     }
 
     HOST_ELECTRICAL_INTERFACE = {
