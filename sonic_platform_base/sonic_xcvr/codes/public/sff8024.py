@@ -345,26 +345,26 @@ class Sff8024(XcvrCodes):
     }
 
     PASSIVE_COPPER_MEDIA_INTERFACE = {
-        '00': 'Undefined',
-        '01': 'Copper cable',
-        '02': 'Passive Loopback module'
+        0: 'Undefined',
+        1: 'Copper cable',
+        2: 'Passive Loopback module'
     }
 
     ACTIVE_CABLE_MEDIA_INTERFACE = {
-        '00': 'Undefined',
-        '01': 'Active Cable assembly with BER < 10^-12',
-        '02': 'Active Cable assembly with BER < 5x10^-5',
-        '03': 'Active Cable assembly with BER < 2.6x10^-4',
-        '04': 'Active Cable assembly with BER < 10^-6',
-        'bf': 'Active Loopback module'
+        0: 'Undefined',
+        1: 'Active Cable assembly with BER < 10^-12',
+        2: 'Active Cable assembly with BER < 5x10^-5',
+        3: 'Active Cable assembly with BER < 2.6x10^-4',
+        4: 'Active Cable assembly with BER < 10^-6',
+        191: 'Active Loopback module'
     }
 
     BASE_T_MEDIA_INTERFACE = {
-        '00': 'Undefined',
-        '01': '1000BASE-T (Clause 40)',
-        '02': '2.5GBASE-T (Clause 126)',
-        '03': '5GBASE-T (Clause 126)',
-        '04': '10GBASE-T (Clause 55)'
+        0: 'Undefined',
+        1: '1000BASE-T (Clause 40)',
+        2: '2.5GBASE-T (Clause 126)',
+        3: '5GBASE-T (Clause 126)',
+        4: '10GBASE-T (Clause 55)'
     }
 
     # TODO: Add other codes

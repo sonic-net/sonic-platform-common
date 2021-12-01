@@ -171,6 +171,9 @@ class TestRegBitField(object):
 
         assert field.decode(field.encode(True, bytearray(b'\x00')))
         assert not field.decode(field.encode(False, bytearray(b'\x00')))
+        field = mem_map.get_field("NumRegBit")
+        assert field.decode(field.encode(True, bytearray(b'\x00')))
+        assert not field.decode(field.encode(False, bytearray(b'\xFF')))
 
         field = mem_map.get_field("NumRegBit")
         assert field.decode(field.encode(True, bytearray(b'\x00')))

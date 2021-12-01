@@ -31,6 +31,22 @@ class SfpOptoeBase(SfpBase):
         api = self.get_xcvr_api()
         return api.get_transceiver_threshold_info() if api is not None else None
 
+    def get_transceiver_status(self):
+        api = self.get_xcvr_api()
+        return api.get_transceiver_status() if api is not None else None
+
+    def get_transceiver_loopback(self):
+        api = self.get_xcvr_api()
+        return api.get_transceiver_loopback() if api is not None else None
+
+    def is_coherent_module(self):
+        api = self.get_xcvr_api()
+        return api.is_coherent_module() if api is not None else None
+
+    def get_transceiver_pm(self):
+        api = self.get_xcvr_api()
+        return api.get_transceiver_pm() if api is not None else None
+
     def get_rx_los(self):
         api = self.get_xcvr_api()
         if api is not None:

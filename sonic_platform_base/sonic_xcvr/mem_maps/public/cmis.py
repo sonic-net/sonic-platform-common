@@ -108,14 +108,30 @@ class CmisMemMap(XcvrMemMap):
         )
 
         self.MODULE_CHAR_ADVT = RegGroupField(consts.MODULE_CHAR_ADVT_FIELD,
+            NumberRegField(consts.PAGE_SUPPORT_ADVT_FIELD, self.getaddr(0x1, 142),
+                RegBitField(consts.VDM_SUPPORTED, 6),
+            ),
             NumberRegField(consts.CTRLS_ADVT_FIELD, self.getaddr(0x1, 155),
                 RegBitField(consts.TX_DISABLE_SUPPORT_FIELD, 1),
                 size=2, format="<H"
             ),
-            NumberRegField(consts.FLAGS_ADVT_FIELD, self.getaddr(0x1, 157),
+            NumberRegField(consts.TX_FLAGS_ADVT_FIELD, self.getaddr(0x1, 157),
                 RegBitField(consts.TX_FAULT_SUPPORT_FIELD, 0),
-                size=2, format="<H"
-            )
+                RegBitField(consts.TX_LOS_SUPPORT_FIELD, 1),
+                RegBitField(consts.TX_CDR_LOL_SUPPORT_FIELD, 2),
+            ),
+            NumberRegField(consts.RX_FLAGS_ADVT_FIELD, self.getaddr(0x1, 158),
+                RegBitField(consts.RX_LOS_SUPPORT, 1),
+                RegBitField(consts.RX_CDR_LOL_SUPPORT_FIELD, 2),
+            ),
+            NumberRegField(consts.LANE_MON_ADVT_FIELD, self.getaddr(0x1, 160),
+                RegBitField(consts.RX_POWER_SUPPORT_FIELD, 2),
+                RegBitField(consts.TX_POWER_SUPPORT_FIELD, 1),
+                RegBitField(consts.TX_BIAS_SUPPORT_FIELD, 0),
+            ),
+            NumberRegField(consts.TX_BIAS_SCALE, self.getaddr(0x1, 160),
+                *(RegBitField("Bit%d" % (bit), bit) for bit in range (3, 5))
+            ),
         )
 
         self.THRESHOLDS = RegGroupField(consts.THRESHOLDS_FIELD,
