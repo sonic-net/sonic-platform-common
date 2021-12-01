@@ -1616,12 +1616,14 @@ class CmisApi(XcvrApi):
             for lane in range(1, self.NUM_CHANNELS+1):
                 trans_status['DP%dState' % lane] = dp_state_dict['DP%dState' % lane]
             tx_output_status_dict = self.get_tx_output_status()
-            trans_status['txoutput_status'] = tx_output_status_dict['TxOutputStatus1']
+            for lane in range(1, self.NUM_CHANNELS+1):
+                trans_status['txoutput_status%d' % lane] = tx_output_status_dict['TxOutputStatus%d' % lane]
             rx_output_status_dict = self.get_rx_output_status()
             for lane in range(1, self.NUM_CHANNELS+1):
                 trans_status['rxoutput_status_hostlane%d' % lane] = rx_output_status_dict['RxOutputStatus%d' % lane]
             tx_fault = self.get_tx_fault()
-            trans_status['txfault'] = tx_fault[0]
+            for lane in range(1, self.NUM_CHANNELS+1):
+                trans_status['txfault%d' % lane] = tx_fault[lane - 1]
             tx_los = self.get_tx_los()
             for lane in range(1, self.NUM_CHANNELS+1):
                 trans_status['txlos_hostlane%d' % lane] = tx_los[lane - 1]
@@ -1629,9 +1631,11 @@ class CmisApi(XcvrApi):
             for lane in range(1, self.NUM_CHANNELS+1):
                 trans_status['txcdrlol_hostlane%d' % lane] = tx_lol[lane - 1]
             rx_los = self.get_rx_los()
-            trans_status['rxlos'] = rx_los[0]
+            for lane in range(1, self.NUM_CHANNELS+1):
+                trans_status['rxlos%d' % lane] = rx_los[lane - 1]
             rx_lol = self.get_rx_cdr_lol()
-            trans_status['rxcdrlol'] = rx_lol[0]
+            for lane in range(1, self.NUM_CHANNELS+1):
+                trans_status['rxcdrlol%d' % lane] = rx_lol[lane - 1]
             config_status_dict = self.get_config_datapath_hostlane_status()
             for lane in range(1, self.NUM_CHANNELS+1):
                 trans_status['config_state_hostlane%d' % lane] = config_status_dict['ConfigStatusLane%d' % lane]
@@ -1639,20 +1643,23 @@ class CmisApi(XcvrApi):
             for lane in range(1, self.NUM_CHANNELS+1):
                 trans_status['dpinit_pending_hostlane%d' % lane] = dpinit_pending_dict['DPInitPending%d' % lane]
             tx_power_flag_dict = self.get_tx_power_flag()
-            trans_status['txpowerhighalarm_flag'] = tx_power_flag_dict['tx_power_high_alarm']['TxPowerHighAlarmFlag1']
-            trans_status['txpowerlowalarm_flag'] = tx_power_flag_dict['tx_power_low_alarm']['TxPowerLowAlarmFlag1']
-            trans_status['txpowerhighwarning_flag'] = tx_power_flag_dict['tx_power_high_warn']['TxPowerHighWarnFlag1']
-            trans_status['txpowerlowwarning_flag'] = tx_power_flag_dict['tx_power_low_warn']['TxPowerLowWarnFlag1']
+            for lane in range(1, self.NUM_CHANNELS+1):
+                trans_status['txpowerhighalarm_flag%d' % lane] = tx_power_flag_dict['tx_power_high_alarm']['TxPowerHighAlarmFlag%d' % lane]
+                trans_status['txpowerlowalarm_flag%d' % lane] = tx_power_flag_dict['tx_power_low_alarm']['TxPowerLowAlarmFlag%d' % lane]
+                trans_status['txpowerhighwarning_flag%d' % lane] = tx_power_flag_dict['tx_power_high_warn']['TxPowerHighWarnFlag%d' % lane]
+                trans_status['txpowerlowwarning_flag%d' % lane] = tx_power_flag_dict['tx_power_low_warn']['TxPowerLowWarnFlag%d' % lane]
             rx_power_flag_dict = self.get_rx_power_flag()
-            trans_status['rxpowerhighalarm_flag'] = rx_power_flag_dict['rx_power_high_alarm']['RxPowerHighAlarmFlag1']
-            trans_status['rxpowerlowalarm_flag'] = rx_power_flag_dict['rx_power_low_alarm']['RxPowerLowAlarmFlag1']
-            trans_status['rxpowerhighwarning_flag'] = rx_power_flag_dict['rx_power_high_warn']['RxPowerHighWarnFlag1']
-            trans_status['rxpowerlowwarning_flag'] = rx_power_flag_dict['rx_power_low_warn']['RxPowerLowWarnFlag1']
+            for lane in range(1, self.NUM_CHANNELS+1):
+                trans_status['rxpowerhighalarm_flag%d' % lane] = rx_power_flag_dict['rx_power_high_alarm']['RxPowerHighAlarmFlag%d' % lane]
+                trans_status['rxpowerlowalarm_flag%d' % lane] = rx_power_flag_dict['rx_power_low_alarm']['RxPowerLowAlarmFlag%d' % lane]
+                trans_status['rxpowerhighwarning_flag%d' % lane] = rx_power_flag_dict['rx_power_high_warn']['RxPowerHighWarnFlag%d' % lane]
+                trans_status['rxpowerlowwarning_flag%d' % lane] = rx_power_flag_dict['rx_power_low_warn']['RxPowerLowWarnFlag%d' % lane]
             tx_bias_flag_dict = self.get_tx_bias_flag()
-            trans_status['txbiashighalarm_flag'] = tx_bias_flag_dict['tx_bias_high_alarm']['TxBiasHighAlarmFlag1']
-            trans_status['txbiaslowalarm_flag'] = tx_bias_flag_dict['tx_bias_low_alarm']['TxBiasLowAlarmFlag1']
-            trans_status['txbiashighwarning_flag'] = tx_bias_flag_dict['tx_bias_high_warn']['TxBiasHighWarnFlag1']
-            trans_status['txbiaslowwarning_flag'] = tx_bias_flag_dict['tx_bias_low_warn']['TxBiasLowWarnFlag1']
+            for lane in range(1, self.NUM_CHANNELS+1):
+                trans_status['txbiashighalarm_flag%d' % lane] = tx_bias_flag_dict['tx_bias_high_alarm']['TxBiasHighAlarmFlag%d' % lane]
+                trans_status['txbiaslowalarm_flag%d' % lane] = tx_bias_flag_dict['tx_bias_low_alarm']['TxBiasLowAlarmFlag%d' % lane]
+                trans_status['txbiashighwarning_flag%d' % lane] = tx_bias_flag_dict['tx_bias_high_warn']['TxBiasHighWarnFlag%d' % lane]
+                trans_status['txbiaslowwarning_flag%d' % lane] = tx_bias_flag_dict['tx_bias_low_warn']['TxBiasLowWarnFlag%d' % lane]
             self.vdm_dict = self.get_vdm()
             try:
                 trans_status['prefecberhighalarm_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][5]
