@@ -16,6 +16,7 @@ from ...fields.xcvr_field import (
 )
 from ...fields import consts
 from ...fields.public.cmis import CableLenField
+from ...fields.public.cmis import ApplicationAdvertField
 
 class CmisMemMap(XcvrMemMap):
     def __init__(self, codes):
@@ -29,6 +30,7 @@ class CmisMemMap(XcvrMemMap):
 
         # Should contain ONLY Lower page fields
         self.ADMIN_INFO = RegGroupField(consts.ADMIN_INFO_FIELD,
+            ApplicationAdvertField(consts.APPLS_ADVT_FIELD, self.getaddr(0x0, 85), size=33),
             CodeRegField(consts.ID_FIELD, self.getaddr(0x0, 0), self.codes.XCVR_IDENTIFIERS),
             CodeRegField(consts.ID_ABBRV_FIELD, self.getaddr(0x0, 128), self.codes.XCVR_IDENTIFIER_ABBRV),
             StringRegField(consts.VENDOR_NAME_FIELD, self.getaddr(0x0, 129), size=16),
@@ -170,6 +172,7 @@ class CmisMemMap(XcvrMemMap):
         )
 
         self.LANE_DATAPATH_CTRL = RegGroupField(consts.LANE_DATAPATH_CTRL_FIELD,
+            NumberRegField(consts.DATAPATH_DEINIT_FIELD, self.getaddr(0x10, 128), ro=False),
             NumberRegField(consts.TX_DISABLE_FIELD, self.getaddr(0x10, 130), ro=False)
         )
 
@@ -365,6 +368,17 @@ class CmisMemMap(XcvrMemMap):
             NumberRegField(consts.CDB_RPL_LENGTH, self.getaddr(0x9f, 134), size=1, ro=False),
             NumberRegField(consts.CDB_RPL_CHKCODE, self.getaddr(0x9f, 135), size=1, ro=False),
         )
+
+        self.STAGED_CTRL = RegGroupField(consts.STAGED_CTRL_FIELD,
+            NumberRegField("%s_%d" % (consts.STAGED_CTRL_APPLY_DPINIT_FIELD, 0),
+                self.getaddr(0x10, 143), ro=False),
+            NumberRegField("%s_%d" % (consts.STAGED_CTRL_APPLY_IMMEDIATE_FIELD, 0),
+                self.getaddr(0x10, 144), ro=False),
+            *(NumberRegField("%s_%d_%d" % (consts.STAGED_CTRL_APSEL_FIELD, 0, lane),
+                self.getaddr(0x10, 144 + lane), ro=False)
+                for lane in range(1, 9))
+        )
+
         # TODO: add remaining fields
 
     def getaddr(self, page, offset, page_size=128):

@@ -1132,6 +1132,8 @@ class TestCmis(object):
         self.api.get_module_media_type.return_value = mock_response[13]
         self.api.get_module_hardware_revision = MagicMock()
         self.api.get_module_hardware_revision.return_value = '0.0'
+        self.api.is_flat_memory = MagicMock()
+        self.api.is_flat_memory.return_value = False
         result = self.api.get_transceiver_info()
         assert result == expected
 

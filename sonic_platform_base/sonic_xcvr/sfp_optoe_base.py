@@ -187,3 +187,117 @@ class SfpOptoeBase(SfpBase):
         except (OSError, IOError):
             return False
         return True
+
+    def get_lpmode(self):
+        api = self.get_xcvr_api()
+        return api.get_lpmode() if api is not None else False
+
+    def set_lpmode(self, lpmode):
+        api = self.get_xcvr_api()
+        return api.set_lpmode(lpmode) if api is not None else False
+
+    def get_module_state(self):
+        api = self.get_xcvr_api()
+        return api.get_module_state() if api is not None else None
+
+    def get_error_description(self):
+        api = self.get_xcvr_api()
+        return api.get_error_description() if api is not None else None
+
+    def is_flat_memory(self):
+        api = self.get_xcvr_api()
+        return api.is_flat_memory() if api is not None else True
+
+    def get_cmis_state(self):
+        """
+        Retrieve the CMIS transceiver states including ModuleState, DataPath and ConfigError
+        """
+        api = self.get_xcvr_api()
+        return api.get_cmis_state() if api is not None else None
+
+    def has_cmis_application_update(self, host_speed, host_lanes):
+        """
+        Check for CMIS application update and the new application code
+
+        Args:
+            host_speed:
+                Integer, the port speed of the host interface
+            host_lanes:
+                Integer List, a list of the 0-based lane indexes of the host interface
+
+        Returns:
+            (updated, appl_code)
+        """
+        api = self.get_xcvr_api()
+        if api is not None:
+            return api.has_cmis_application_update(host_speed, host_lanes)
+        return (False, 1)
+
+    def set_cmis_application_stop(self, host_lanes):
+        """
+        (Stage 1) Data Path Deinitialization Tx power disable
+
+        Args:
+            host_lanes:
+                Integer List, a list of the 0-based lane indexes of the host interface
+
+        Returns:
+            A boolean, True if successful, False if not
+        """
+        ret = False
+        api = self.get_xcvr_api()
+        if api is not None:
+            ret = api.set_cmis_application_stop(host_lanes)
+        return ret
+
+    def set_cmis_application_apsel(self, host_lanes, appl_code=1):
+        """
+        (Stage 2) Update the application selection
+
+        Args:
+            host_lanes:
+                Integer List, a list of the 0-based lane indexes of the host interface
+            appl_code:
+                Integer, the desired application code
+
+        Returns:
+            A boolean, True if successful, False if not
+        """
+        ret = False
+        api = self.get_xcvr_api()
+        if api is not None:
+            ret = api.set_cmis_application_apsel(host_lanes, appl_code)
+        return ret
+
+    def set_cmis_application_start(self, host_lanes):
+        """
+        (Stage 3) Initialize the new data path
+
+        Args:
+            host_lanes:
+                Integer List, a list of the 0-based lane indexes of the host interface
+
+        Returns:
+            A boolean, True if successful, False if not
+        """
+        ret = False
+        api = self.get_xcvr_api()
+        if api is not None:
+            ret = api.set_cmis_application_start(host_lanes)
+        return ret
+
+    def set_cmis_application_txon(self, host_lanes):
+        """
+        (Stage 4) Initialize the new data path
+        Args:
+            host_lanes:
+                Integer List, a list of the 0-based lane indexes of the host interface
+
+        Returns:
+            A boolean, True if successful, False if not
+        """
+        ret = False
+        api = self.get_xcvr_api()
+        if api is not None:
+            ret = api.set_cmis_application_txon(host_lanes)
+        return ret
