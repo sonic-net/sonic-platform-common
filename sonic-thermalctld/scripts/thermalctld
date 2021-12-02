@@ -206,13 +206,19 @@ class FanUpdater(logger.Logger):
         self.drawer_table = swsscommon.Table(state_db, FanUpdater.FAN_DRAWER_INFO_TABLE_NAME)
         self.phy_entity_table = swsscommon.Table(state_db, PHYSICAL_ENTITY_INFO_TABLE)
 
-    def deinit(self):
-        """
-        Deinitializer of FanUpdater
-        :return:
-        """
-        for name in self.fan_status_dict.keys():
-            self.table._del(name)
+    def __del__(self):
+        if self.table:
+            table_keys = self.table.getKeys()
+            for tk in table_keys:
+                self.table._del(tk)
+        if self.drawer_table:
+            drawer_keys = self.drawer_table.getKeys()
+            for dtk in drawer_keys:
+                self.drawer_table._del(dtk)
+        if self.phy_entity_table:
+            phy_entity_keys = self.phy_entity_table.getKeys()
+            for pek in phy_entity_keys:
+                self.phy_entity_table._del(pek)
 
     def _log_on_status_changed(self, normal_status, normal_log, abnormal_log):
         """
@@ -550,6 +556,16 @@ class TemperatureUpdater(logger.Logger):
                 except Exception as e:
                     self.chassis_table = None
 
+    def __del__(self):
+        if self.table:
+            table_keys = self.table.getKeys()
+            for tk in table_keys:
+                self.table._del(tk)
+        if self.phy_entity_table:
+            phy_entity_keys = self.phy_entity_table.getKeys()
+            for pek in phy_entity_keys:
+                self.phy_entity_table._del(pek)
+
     def deinit(self):
         """
         Deinitializer of TemperatureUpdater
@@ -778,7 +794,6 @@ class ThermalMonitor(ProcessTaskBase):
         while not self.task_stopping_event.wait(self.wait_time):
             self.main()
 
-        self.fan_updater.deinit()
         self.temperature_updater.deinit()
 
         self.logger.log_info("Stop thermal monitoring loop")

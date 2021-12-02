@@ -154,16 +154,6 @@ class TestFanUpdater(object):
     """
     Test cases to cover functionality in FanUpdater class
     """
-    def test_deinit(self):
-        fan_updater = thermalctld.FanUpdater(MockChassis(), multiprocessing.Event())
-        fan_updater.fan_status_dict = {'key1': 'value1', 'key2': 'value2'}
-        fan_updater.table._del = mock.MagicMock()
-
-        fan_updater.deinit()
-        assert fan_updater.table._del.call_count == 2
-        expected_calls = [mock.call('key1'), mock.call('key2')]
-        fan_updater.table._del.assert_has_calls(expected_calls, any_order=True)
-
     @mock.patch('thermalctld.try_get', mock.MagicMock(return_value=thermalctld.NOT_AVAILABLE))
     @mock.patch('thermalctld.update_entity_info', mock.MagicMock())
     def test_refresh_fan_drawer_status_fan_drawer_get_name_not_impl(self):
