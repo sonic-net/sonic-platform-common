@@ -877,6 +877,22 @@ class CmisApi(XcvrApi):
         else:
             return True
 
+    def reset(self):
+        """
+        Reset SFP and return all user module settings to their default srate.
+
+        Returns:
+            A boolean, True if successful, False if not
+        """
+        mask = (1 << 3)
+        byte = self.xcvr_eeprom.read(consts.MODULE_LEVEL_CONTROL)
+        if self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, mask | byte):
+            for retries in range(5):
+                time.sleep(1)
+                if self.get_module_state() != 'Unknown':
+                    return True
+        return False
+
     def get_lpmode(self):
         '''
         Retrieves Low power module status
@@ -1750,9 +1766,9 @@ class CmisApi(XcvrApi):
                 trans_loopback['host_input_loopback_lane%d' % lane] = 'N/A'
         return trans_loopback
 
-    def set_datapath_init(self, host_lanemask):
+    def set_cmis_datapath_init(self, host_lanemask):
         """
-        Put the datapath into the initialized state
+        Put the CMIS datapath into the initialized state
 
         Args:
             host_lanemask: Integer, a bitmask of the lanes on the system/host side
@@ -1772,9 +1788,9 @@ class CmisApi(XcvrApi):
                 data |= (1 << lane)
         self.xcvr_eeprom.write(consts.DATAPATH_DEINIT_FIELD, data)
 
-    def set_datapath_deinit(self, host_lanemask):
+    def set_cmis_datapath_deinit(self, host_lanemask):
         """
-        Put the datapath into the de-initialized state
+        Put the CMIS datapath into the de-initialized state
 
         Args:
             host_lanemask: Integer, a bitmask of the lanes on the system/host side
@@ -1948,27 +1964,6 @@ class CmisApi(XcvrApi):
 
         return (True, app_new)
 
-    def set_cmis_application_stop(self, host_lanemask):
-        """
-        Deinitialize the datapath and turn off Tx power to the associated line lanes
-
-        Args:
-            host_lanemask:
-                Integer, a bitmask of the lanes on the host side
-                e.g. 0x5 for lane 0 and lane 2.
-
-        Returns:
-            Boolean, true if success otherwise false
-        """
-        # D.2.2 Software Deinitialization
-        self.set_datapath_deinit(host_lanemask)
-        self.set_lpmode(True)
-
-        # D.1.3 Software Configuration and Initialization
-        self.tx_disable_channel(host_lanemask, True)
-        self.set_lpmode(False)
-        return True
-
     def set_cmis_application_apsel(self, host_lanemask, appl_code):
         """
         Update the selected application code to the specified host lanes
@@ -1993,35 +1988,6 @@ class CmisApi(XcvrApi):
 
         # Apply DataPathInit
         return self.xcvr_eeprom.write("%s_%d" % (consts.STAGED_CTRL_APPLY_DPINIT_FIELD, 0), host_lanemask)
-
-    def set_cmis_application_start(self, host_lanemask):
-        """
-        Initialize the datapath associated with the specified host lanes, while the Tx power
-        state of the line side will not be updated.
-
-        Args:
-            host_lanemask:
-                Integer, a bitmask of the lanes on the host side
-                e.g. 0x5 for lane 0 and lane 2.
-
-        Returns:
-            Boolean, true if success otherwise false
-        """
-        return self.set_datapath_init(host_lanemask)
-
-    def set_cmis_application_txon(self, host_lanemask):
-        """
-        Turn on Tx power of the lanes on the line side associated with the specified host lanes
-
-        Args:
-            host_lanemask:
-                Integer, a bitmask of the lanes on the host side
-                e.g. 0x5 for lane 0 and lane 2.
-
-        Returns:
-            Boolean, true if success otherwise false
-        """
-        self.tx_disable_channel(host_lanemask, False)
 
     def get_error_description(self):
         dp_state = self.get_datapath_state()

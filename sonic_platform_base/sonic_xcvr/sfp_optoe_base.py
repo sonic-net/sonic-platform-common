@@ -188,27 +188,27 @@ class SfpOptoeBase(SfpBase):
             return False
         return True
 
-    def get_lpmode(self):
-        api = self.get_xcvr_api()
-        return api.get_lpmode() if api is not None else False
+    def reset(self):
+        """
+        Reset SFP and return all user module settings to their default srate.
 
-    def set_lpmode(self, lpmode):
+        Returns:
+            A boolean, True if successful, False if not
+        """
         api = self.get_xcvr_api()
-        return api.set_lpmode(lpmode) if api is not None else False
+        return api.reset() if api is not None else False
 
     def get_error_description(self):
-        '''
+        """
         Retrives the error descriptions of the SFP module
-        '''
+
+        Returns:
+            String that represents the current error descriptions of vendor specific errors
+            In case there are multiple errors, they should be joined by '|',
+            like: "Bad EEPROM|Unsupported cable"
+        """
         api = self.get_xcvr_api()
         return api.get_error_description() if api is not None else None
-
-    def get_module_state(self):
-        '''
-        This function returns the module state
-        '''
-        api = self.get_xcvr_api()
-        return api.get_module_state() if api is not None else None
 
     def is_flat_memory(self):
         '''
@@ -219,10 +219,41 @@ class SfpOptoeBase(SfpBase):
 
     def get_cmis_state(self):
         """
-        Retrieve the CMIS transceiver states including ModuleState, DataPath and ConfigError
+        Get the CMIS states
+
+        Returns:
+            Dictionary, the states of module, config error and datapath
         """
         api = self.get_xcvr_api()
         return api.get_cmis_state() if api is not None else None
+
+    def set_cmis_datapath_init(self, host_lanemask):
+        """
+        Put the CMIS datapath into the initialized state
+
+        Args:
+            host_lanemask: Integer, a bitmask of the lanes on the system/host side
+                           e.g. 0x5 for lane 0 and lane 2.
+
+        Returns:
+            Boolean, true if success otherwise false
+        """
+        api = self.get_xcvr_api()
+        return api.set_cmis_datapath_init(host_lanemask) if api is not None else False
+
+    def set_cmis_datapath_deinit(self, host_lanemask):
+        """
+        Put the CMIS datapath into the de-initialized state
+
+        Args:
+            host_lanemask: Integer, a bitmask of the lanes on the system/host side
+                           e.g. 0x5 for lane 0 and lane 2.
+
+        Returns:
+            Boolean, true if success otherwise false
+        """
+        api = self.get_xcvr_api()
+        return api.set_cmis_datapath_deinit(host_lanemask) if api is not None else False
 
     def has_cmis_application_update(self, host_speed, host_lanemask):
         """
@@ -243,24 +274,6 @@ class SfpOptoeBase(SfpBase):
             return api.has_cmis_application_update(host_speed, host_lanemask)
         return (False, 1)
 
-    def set_cmis_application_stop(self, host_lanemask):
-        """
-        Deinitialize the datapath and turn off Tx power to the associated line lanes
-
-        Args:
-            host_lanemask:
-                Integer, a bitmask of the lanes on the host side
-                e.g. 0x5 for lane 0 and lane 2.
-
-        Returns:
-            Boolean, true if success otherwise false
-        """
-        ret = False
-        api = self.get_xcvr_api()
-        if api is not None:
-            ret = api.set_cmis_application_stop(host_lanemask)
-        return ret
-
     def set_cmis_application_apsel(self, host_lanemask, appl_code):
         """
         Update the selected application code to the specified host lanes
@@ -279,41 +292,4 @@ class SfpOptoeBase(SfpBase):
         api = self.get_xcvr_api()
         if api is not None:
             ret = api.set_cmis_application_apsel(host_lanemask, appl_code)
-        return ret
-
-    def set_cmis_application_start(self, host_lanemask):
-        """
-        Initialize the datapath associated with the specified host lanes, while the Tx power
-        state of the line side will not be updated.
-
-        Args:
-            host_lanemask:
-                Integer, a bitmask of the lanes on the host side
-                e.g. 0x5 for lane 0 and lane 2.
-
-        Returns:
-            Boolean, true if success otherwise false
-        """
-        ret = False
-        api = self.get_xcvr_api()
-        if api is not None:
-            ret = api.set_cmis_application_start(host_lanemask)
-        return ret
-
-    def set_cmis_application_txon(self, host_lanemask):
-        """
-        Turn on Tx power of the lanes on the line side associated with the specified host lanes
-
-        Args:
-            host_lanemask:
-                Integer, a bitmask of the lanes on the host side
-                e.g. 0x5 for lane 0 and lane 2.
-
-        Returns:
-            Boolean, true if success otherwise false
-        """
-        ret = False
-        api = self.get_xcvr_api()
-        if api is not None:
-            ret = api.set_cmis_application_txon(host_lanemask)
         return ret
