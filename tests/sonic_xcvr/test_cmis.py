@@ -574,7 +574,7 @@ class TestCmis(object):
         assert result == False
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ("Single Mode Fiber (SMF)", "Single Mode Fiber (SMF)")
+        ("sm_media_interface", "sm_media_interface")
     ])
     def test_get_module_media_type(self, mock_response, expected):
         self.api.xcvr_eeprom.read = MagicMock()
@@ -592,11 +592,11 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
-            ("Single Mode Fiber (SMF)", "400ZR", "400ZR"),
-            ("Multimode Fiber (MMF)", "100GE BiDi", "100GE BiDi"),
-            ("Passive Copper Cable", "Copper cable", "Copper cable"),
-            ("Active Cable Assembly", "Active Loopback module", "Active Loopback module"),
-            ("BASE-T", "1000BASE-T (Clause 40)", "1000BASE-T (Clause 40)"),
+            ("sm_media_interface", "400ZR", "400ZR"),
+            ("nm_850_media_interface", "100GE BiDi", "100GE BiDi"),
+            ("passive_copper_media_interface", "Copper cable", "Copper cable"),
+            ("active_cable_media_interface", "Active Loopback module", "Active Loopback module"),
+            ("base_t_media_interface", "1000BASE-T (Clause 40)", "1000BASE-T (Clause 40)"),
             ("ABCD", "ABCD", "Unknown media interface")
     ])
     def test_get_module_media_interface(self, mock_response1, mock_response2, expected):
@@ -1046,7 +1046,7 @@ class TestCmis(object):
                     'VendorPN': 'ABCD',
                     'Connector': 'LC',
                     'Length Cable Assembly': 0.0,
-                    'ModuleMediaType': 'Single Mode Fiber (SMF)',
+                    'ModuleMediaType': 'sm_media_interface',
                     'VendorDate': '21010100',
                     'VendorOUI': 'xx-xx-xx'
                 },
@@ -1060,7 +1060,7 @@ class TestCmis(object):
                 '5.0',
                 '0.1',
                 '0.0',
-                'Single Mode Fiber (SMF)'
+                'sm_media_interface'
             ],
             {   'type': 'QSFP-DD Double Density 8X Pluggable Transceiver',
                 'type_abbrv_name': 'QSFP-DD',
@@ -1071,7 +1071,7 @@ class TestCmis(object):
                 'cable_type': 'Length Cable Assembly(m)',
                 'cable_length': 0.0,
                 'nominal_bit_rate': 0,
-                'specification_compliance': 'Single Mode Fiber (SMF)',
+                'specification_compliance': 'sm_media_interface',
                 'application_advertisement': 'N/A',
                 'active_firmware': '0.1',
                 'media_lane_count': 1,

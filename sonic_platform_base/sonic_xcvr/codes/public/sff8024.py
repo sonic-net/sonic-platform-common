@@ -174,14 +174,13 @@ class Sff8024(XcvrCodes):
         129: 'Capable of 128GFC'
     }
 
-
     MODULE_MEDIA_TYPE = {
         0: 'Undefined',
-        1: 'Multimode Fiber (MMF)',
-        2: 'Single Mode Fiber (SMF)',
-        3: 'Passive Copper Cable',
-        4: 'Active Cable Assembly',
-        5: 'BASE-T'
+        1: 'nm_850_media_interface',
+        2: 'sm_media_interface',
+        3: 'passive_copper_media_interface',
+        4: 'active_cable_media_interface',
+        5: 'base_t_media_interface'
     }
 
     HOST_ELECTRICAL_INTERFACE = {
