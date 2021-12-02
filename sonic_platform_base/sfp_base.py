@@ -17,12 +17,6 @@ class SfpBase(device_base.DeviceBase):
     # Device type definition. Note, this is a constant.
     DEVICE_TYPE = "sfp"
 
-    # SFP port type. Please note this is the cage type rather than transceiver type.
-    SFP_PORT_TYPE_UNSPECIFIED = "UNSPECIFIED"
-    SFP_PORT_TYPE_SFP         = "SFP"
-    SFP_PORT_TYPE_QSFP        = "QSFP"
-    SFP_PORT_TYPE_QSFPDD      = "QSFP_DD"
-
     # Generic error types definition
     SFP_STATUS_INITIALIZING                         = 'Initializing'
     SFP_STATUS_OK                                   = 'OK'
@@ -64,14 +58,6 @@ class SfpBase(device_base.DeviceBase):
         self._thermal_list = []
         self._xcvr_api_factory = XcvrApiFactory(self.read_eeprom, self.write_eeprom)
         self._xcvr_api = None
-
-    def get_port_type(self):
-        """
-        Retrieves the port/cage type of this SFP
-        Returns:
-            A string, the port/cage type of this SFP
-        """
-        return self.SFP_PORT_TYPE_UNSPECIFIED
 
     def get_num_thermals(self):
         """

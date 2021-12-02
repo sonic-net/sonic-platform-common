@@ -196,15 +196,24 @@ class SfpOptoeBase(SfpBase):
         api = self.get_xcvr_api()
         return api.set_lpmode(lpmode) if api is not None else False
 
-    def get_module_state(self):
-        api = self.get_xcvr_api()
-        return api.get_module_state() if api is not None else None
-
     def get_error_description(self):
+        '''
+        Retrives the error descriptions of the SFP module
+        '''
         api = self.get_xcvr_api()
         return api.get_error_description() if api is not None else None
 
+    def get_module_state(self):
+        '''
+        This function returns the module state
+        '''
+        api = self.get_xcvr_api()
+        return api.get_module_state() if api is not None else None
+
     def is_flat_memory(self):
+        '''
+        This function returns the memory type
+        '''
         api = self.get_xcvr_api()
         return api.is_flat_memory() if api is not None else True
 
@@ -215,89 +224,96 @@ class SfpOptoeBase(SfpBase):
         api = self.get_xcvr_api()
         return api.get_cmis_state() if api is not None else None
 
-    def has_cmis_application_update(self, host_speed, host_lanes):
+    def has_cmis_application_update(self, host_speed, host_lanemask):
         """
-        Check for CMIS application update and the new application code
+        Check for CMIS application update and retrieve the new application code
 
         Args:
             host_speed:
                 Integer, the port speed of the host interface
-            host_lanes:
-                Integer List, a list of the 0-based lane indexes of the host interface
+            host_lanemask:
+                Integer, a bitmask of the lanes on the host side
+                e.g. 0x5 for lane 0 and lane 2.
 
         Returns:
-            (updated, appl_code)
+            (has_update, new_appl)
         """
         api = self.get_xcvr_api()
         if api is not None:
-            return api.has_cmis_application_update(host_speed, host_lanes)
+            return api.has_cmis_application_update(host_speed, host_lanemask)
         return (False, 1)
 
-    def set_cmis_application_stop(self, host_lanes):
+    def set_cmis_application_stop(self, host_lanemask):
         """
-        (Stage 1) Data Path Deinitialization Tx power disable
+        Deinitialize the datapath and turn off Tx power to the associated line lanes
 
         Args:
-            host_lanes:
-                Integer List, a list of the 0-based lane indexes of the host interface
+            host_lanemask:
+                Integer, a bitmask of the lanes on the host side
+                e.g. 0x5 for lane 0 and lane 2.
 
         Returns:
-            A boolean, True if successful, False if not
+            Boolean, true if success otherwise false
         """
         ret = False
         api = self.get_xcvr_api()
         if api is not None:
-            ret = api.set_cmis_application_stop(host_lanes)
+            ret = api.set_cmis_application_stop(host_lanemask)
         return ret
 
-    def set_cmis_application_apsel(self, host_lanes, appl_code=1):
+    def set_cmis_application_apsel(self, host_lanemask, appl_code):
         """
-        (Stage 2) Update the application selection
+        Update the selected application code to the specified host lanes
 
         Args:
-            host_lanes:
-                Integer List, a list of the 0-based lane indexes of the host interface
+            host_lanemask:
+                Integer, a bitmask of the lanes on the host side
+                e.g. 0x5 for lane 0 and lane 2.
             appl_code:
                 Integer, the desired application code
 
         Returns:
-            A boolean, True if successful, False if not
+            Boolean, true if success otherwise false
         """
         ret = False
         api = self.get_xcvr_api()
         if api is not None:
-            ret = api.set_cmis_application_apsel(host_lanes, appl_code)
+            ret = api.set_cmis_application_apsel(host_lanemask, appl_code)
         return ret
 
-    def set_cmis_application_start(self, host_lanes):
+    def set_cmis_application_start(self, host_lanemask):
         """
-        (Stage 3) Initialize the new data path
+        Initialize the datapath associated with the specified host lanes, while the Tx power
+        state of the line side will not be updated.
 
         Args:
-            host_lanes:
-                Integer List, a list of the 0-based lane indexes of the host interface
+            host_lanemask:
+                Integer, a bitmask of the lanes on the host side
+                e.g. 0x5 for lane 0 and lane 2.
 
         Returns:
-            A boolean, True if successful, False if not
+            Boolean, true if success otherwise false
         """
         ret = False
         api = self.get_xcvr_api()
         if api is not None:
-            ret = api.set_cmis_application_start(host_lanes)
+            ret = api.set_cmis_application_start(host_lanemask)
         return ret
 
-    def set_cmis_application_txon(self, host_lanes):
+    def set_cmis_application_txon(self, host_lanemask):
         """
-        (Stage 4) Initialize the new data path
+        Turn on Tx power of the lanes on the line side associated with the specified host lanes
+
         Args:
-            host_lanes:
-                Integer List, a list of the 0-based lane indexes of the host interface
+            host_lanemask:
+                Integer, a bitmask of the lanes on the host side
+                e.g. 0x5 for lane 0 and lane 2.
 
         Returns:
-            A boolean, True if successful, False if not
+            Boolean, true if success otherwise false
         """
         ret = False
         api = self.get_xcvr_api()
         if api is not None:
-            ret = api.set_cmis_application_txon(host_lanes)
+            ret = api.set_cmis_application_txon(host_lanemask)
         return ret

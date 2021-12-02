@@ -63,7 +63,6 @@ class ApplicationAdvertField(RegField):
             appl['host_lane_count'] = raw_data[pos+2] >> 4
             appl['media_lane_count'] = raw_data[pos+2] & 0xf
             appl['host_lane_assignment_options'] = raw_data[pos+3]
-            appl['media_lane_assignment_options'] = None
 
             dat[idx] = appl
             idx += 1
