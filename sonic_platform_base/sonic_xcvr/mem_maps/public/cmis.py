@@ -16,7 +16,6 @@ from ...fields.xcvr_field import (
 )
 from ...fields import consts
 from ...fields.public.cmis import CableLenField
-from ...fields.public.cmis import ApplicationAdvertField
 
 class CmisMemMap(XcvrMemMap):
     def __init__(self, codes):
@@ -30,7 +29,6 @@ class CmisMemMap(XcvrMemMap):
 
         # Should contain ONLY Lower page fields
         self.ADMIN_INFO = RegGroupField(consts.ADMIN_INFO_FIELD,
-            ApplicationAdvertField(consts.APPLS_ADVT_FIELD, self.getaddr(0x0, 85), size=33),
             CodeRegField(consts.ID_FIELD, self.getaddr(0x0, 0), self.codes.XCVR_IDENTIFIERS),
             CodeRegField(consts.ID_ABBRV_FIELD, self.getaddr(0x0, 128), self.codes.XCVR_IDENTIFIER_ABBRV),
             StringRegField(consts.VENDOR_NAME_FIELD, self.getaddr(0x0, 129), size=16),
@@ -53,6 +51,54 @@ class CmisMemMap(XcvrMemMap):
             ),
 
             CodeRegField(consts.CONNECTOR_FIELD, self.getaddr(0x0, 203), self.codes.CONNECTORS),
+
+            RegGroupField(consts.APPLS_ADVT_FIELD,
+                *(CodeRegField("%s_%d" % (consts.HOST_ELECTRICAL_INTERFACE, app), self.getaddr(0x0, 86 + 4 * (app - 1)), self.codes.HOST_ELECTRICAL_INTERFACE)
+                  for app in range(1, 9)),
+                *(CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_850NM, app), self.getaddr(0x0, 87 + 4 * (app - 1)), self.codes.NM_850_MEDIA_INTERFACE)
+                  for app in range(1, 9)),
+                *(CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_SM, app), self.getaddr(0x0, 87 + 4 * (app - 1)), self.codes.SM_MEDIA_INTERFACE)
+                  for app in range(1, 9)),
+                *(CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_PASSIVE_COPPER, app), self.getaddr(0x0, 87 + 4 * (app - 1)), self.codes.PASSIVE_COPPER_MEDIA_INTERFACE)
+                  for app in range(1, 9)),
+                *(CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_ACTIVE_CABLE, app), self.getaddr(0x0, 87 + 4 * (app - 1)), self.codes.ACTIVE_CABLE_MEDIA_INTERFACE)
+                  for app in range(1, 9)),
+                *(CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_BASE_T, app), self.getaddr(0x0, 87 + 4 * (app - 1)), self.codes.BASE_T_MEDIA_INTERFACE)
+                  for app in range(1, 9)),
+                *(NumberRegField("%s_%d" % (consts.MEDIA_LANE_COUNT, app), self.getaddr(0x0, 88 + 4 * (app - 1)),
+                      *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 4)))
+                  for app in range(1, 9)),
+                *(NumberRegField("%s_%d" % (consts.HOST_LANE_COUNT, app), self.getaddr(0x0, 88 + 4 * (app - 1)),
+                      *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8)))
+                  for app in range(1, 9)),
+                *(NumberRegField("%s_%d" % (consts.HOST_LANE_ASSIGNMENT_OPTION, app), self.getaddr(0x0, 89 + 4 * (app - 1)), format="B", size=1)
+                  for app in range(1, 9)),
+
+                *(NumberRegField("%s_%d" % (consts.MEDIA_LANE_ASSIGNMENT_OPTION, app), self.getaddr(0x1, 176 + (app - 1)), format="B", size=1)
+                  for app in range(1, 16)),
+
+                *(CodeRegField("%s_%d" % (consts.HOST_ELECTRICAL_INTERFACE, app), self.getaddr(0x1, 223 + 4 * (app - 9)), self.codes.HOST_ELECTRICAL_INTERFACE)
+                  for app in range(9, 16)),
+                *(CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_850NM, app), self.getaddr(0x1, 224 + 4 * (app - 9)), self.codes.NM_850_MEDIA_INTERFACE)
+                  for app in range(9, 16)),
+                *(CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_SM, app), self.getaddr(0x1, 224 + 4 * (app - 9)), self.codes.SM_MEDIA_INTERFACE)
+                  for app in range(9, 16)),
+                *(CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_PASSIVE_COPPER, app), self.getaddr(0x1, 224 + 4 * (app - 9)), self.codes.PASSIVE_COPPER_MEDIA_INTERFACE)
+                  for app in range(9, 16)),
+                *(CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_ACTIVE_CABLE, app), self.getaddr(0x1, 224 + 4 * (app - 9)), self.codes.ACTIVE_CABLE_MEDIA_INTERFACE)
+                  for app in range(9, 16)),
+                *(CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_BASE_T, app), self.getaddr(0x1, 224 + 4 * (app - 9)), self.codes.BASE_T_MEDIA_INTERFACE)
+                  for app in range(9, 16)),
+                *(NumberRegField("%s_%d" % (consts.MEDIA_LANE_COUNT, app), self.getaddr(0x1, 225 + 4 * (app - 9)),
+                      *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 4)))
+                  for app in range(9, 16)),
+                *(NumberRegField("%s_%d" % (consts.HOST_LANE_COUNT, app), self.getaddr(0x1, 225 + 4 * (app - 9)),
+                      *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8)))
+                  for app in range(9, 16)),
+                *(NumberRegField("%s_%d" % (consts.HOST_LANE_ASSIGNMENT_OPTION, app), self.getaddr(0x1, 226 + 4 * (app - 9)), format="B", size=1)
+                  for app in range(9, 16)),
+            ),
+
             CodeRegField(consts.HOST_ELECTRICAL_INTERFACE, self.getaddr(0x0, 86), self.codes.HOST_ELECTRICAL_INTERFACE),
             CodeRegField(consts.MEDIA_TYPE_FIELD, self.getaddr(0x0, 85), self.codes.MODULE_MEDIA_TYPE),
             CodeRegField(consts.MODULE_MEDIA_INTERFACE_850NM, self.getaddr(0x0, 87), self.codes.NM_850_MEDIA_INTERFACE),
@@ -369,7 +415,7 @@ class CmisMemMap(XcvrMemMap):
             NumberRegField(consts.CDB_RPL_CHKCODE, self.getaddr(0x9f, 135), size=1, ro=False),
         )
 
-        self.STAGED_CTRL = RegGroupField(consts.STAGED_CTRL_FIELD,
+        self.STAGED_CTRL0 = RegGroupField("%s_%d" % (consts.STAGED_CTRL_FIELD, 0),
             NumberRegField("%s_%d" % (consts.STAGED_CTRL_APPLY_DPINIT_FIELD, 0),
                 self.getaddr(0x10, 143), ro=False),
             NumberRegField("%s_%d" % (consts.STAGED_CTRL_APPLY_IMMEDIATE_FIELD, 0),

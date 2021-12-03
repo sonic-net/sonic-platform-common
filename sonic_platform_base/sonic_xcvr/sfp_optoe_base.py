@@ -190,7 +190,7 @@ class SfpOptoeBase(SfpBase):
 
     def reset(self):
         """
-        Reset SFP and return all user module settings to their default srate.
+        Reset SFP and return all user module settings to their default state.
 
         Returns:
             A boolean, True if successful, False if not
@@ -209,87 +209,3 @@ class SfpOptoeBase(SfpBase):
         """
         api = self.get_xcvr_api()
         return api.get_error_description() if api is not None else None
-
-    def is_flat_memory(self):
-        '''
-        This function returns the memory type
-        '''
-        api = self.get_xcvr_api()
-        return api.is_flat_memory() if api is not None else True
-
-    def get_cmis_state(self):
-        """
-        Get the CMIS states
-
-        Returns:
-            Dictionary, the states of module, config error and datapath
-        """
-        api = self.get_xcvr_api()
-        return api.get_cmis_state() if api is not None else None
-
-    def set_cmis_datapath_init(self, host_lanemask):
-        """
-        Put the CMIS datapath into the initialized state
-
-        Args:
-            host_lanemask: Integer, a bitmask of the lanes on the system/host side
-                           e.g. 0x5 for lane 0 and lane 2.
-
-        Returns:
-            Boolean, true if success otherwise false
-        """
-        api = self.get_xcvr_api()
-        return api.set_cmis_datapath_init(host_lanemask) if api is not None else False
-
-    def set_cmis_datapath_deinit(self, host_lanemask):
-        """
-        Put the CMIS datapath into the de-initialized state
-
-        Args:
-            host_lanemask: Integer, a bitmask of the lanes on the system/host side
-                           e.g. 0x5 for lane 0 and lane 2.
-
-        Returns:
-            Boolean, true if success otherwise false
-        """
-        api = self.get_xcvr_api()
-        return api.set_cmis_datapath_deinit(host_lanemask) if api is not None else False
-
-    def has_cmis_application_update(self, host_speed, host_lanemask):
-        """
-        Check for CMIS application update and retrieve the new application code
-
-        Args:
-            host_speed:
-                Integer, the port speed of the host interface
-            host_lanemask:
-                Integer, a bitmask of the lanes on the host side
-                e.g. 0x5 for lane 0 and lane 2.
-
-        Returns:
-            (has_update, new_appl)
-        """
-        api = self.get_xcvr_api()
-        if api is not None:
-            return api.has_cmis_application_update(host_speed, host_lanemask)
-        return (False, 1)
-
-    def set_cmis_application_apsel(self, host_lanemask, appl_code):
-        """
-        Update the selected application code to the specified host lanes
-
-        Args:
-            host_lanemask:
-                Integer, a bitmask of the lanes on the host side
-                e.g. 0x5 for lane 0 and lane 2.
-            appl_code:
-                Integer, the desired application code
-
-        Returns:
-            Boolean, true if success otherwise false
-        """
-        ret = False
-        api = self.get_xcvr_api()
-        if api is not None:
-            ret = api.set_cmis_application_apsel(host_lanemask, appl_code)
-        return ret
