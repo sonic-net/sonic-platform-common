@@ -1,5 +1,4 @@
 from ..xcvr_field import NumberRegField
-from ..xcvr_field import RegField
 from .. import consts
 
 class CableLenField(NumberRegField):
