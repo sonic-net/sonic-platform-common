@@ -925,9 +925,6 @@ class CmisApi(XcvrApi):
 
         lpmode_val = self.xcvr_eeprom.read(consts.MODULE_LEVEL_CONTROL)
         if lpmode_val is not None:
-            # Turn on software control mode
-            if self.xcvr_eeprom.read(consts.CMIS_MAJOR_REVISION) >= 4:
-                lpmode_val = lpmode_val & ~(1 << 6) # LowPwrAllowRequestHW
             if lpmode is True:
                 lpmode_val = lpmode_val | (1 << 4)
                 self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, lpmode_val)
