@@ -48,7 +48,7 @@ class Sff8436Api(XcvrApi):
         xcvr_info = {
             "type": serial_id[consts.ID_FIELD],
             "type_abbrv_name": serial_id[consts.ID_ABBRV_FIELD],
-            "hardware_rev": serial_id[consts.VENDOR_REV_FIELD],
+            "vendor_rev": serial_id[consts.VENDOR_REV_FIELD],
             "serial": serial_id[consts.VENDOR_SERIAL_NO_FIELD],
             "manufacturer": serial_id[consts.VENDOR_NAME_FIELD],
             "model": serial_id[consts.VENDOR_PART_NO_FIELD],
