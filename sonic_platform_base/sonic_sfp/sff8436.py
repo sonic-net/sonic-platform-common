@@ -1248,22 +1248,22 @@ class sff8436Dom(sffbase):
              'type': 'func',
              'decode': {'func': calc_bias}},
         'TX1Power':
-            {'offset': 0,
+            {'offset': 16,
              'size': 2,
              'type': 'func',
              'decode': {'func': calc_tx_power}},
         'TX2Power':
-            {'offset': 2,
+            {'offset': 18,
              'size': 2,
              'type': 'func',
              'decode': {'func': calc_tx_power}},
         'TX3Power':
-            {'offset': 4,
+            {'offset': 20,
              'size': 2,
              'type': 'func',
              'decode': {'func': calc_tx_power}},
         'TX4Power':
-            {'offset': 6,
+            {'offset': 22,
              'size': 2,
              'type': 'func',
              'decode': {'func': calc_tx_power}}
