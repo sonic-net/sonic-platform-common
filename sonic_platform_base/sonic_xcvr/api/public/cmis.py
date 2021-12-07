@@ -9,6 +9,8 @@ from ...fields import consts
 from ..xcvr_api import XcvrApi
 
 import logging
+from ...codes.public.cmis import CmisCodes
+from ...codes.public.sff8024 import Sff8024
 from ...fields import consts
 from ..xcvr_api import XcvrApi
 from .cmisCDB import CmisCdbApi
@@ -49,6 +51,12 @@ class CmisApi(XcvrApi):
         This function returns the SFF8024Identifier (module type / form-factor). Table 4-1 in SFF-8024 Rev4.6
         '''
         return self.xcvr_eeprom.read(consts.ID_FIELD)
+
+    def get_module_type_abbreviation(self):
+        '''
+        This function returns the SFF8024Identifier (module type / form-factor). Table 4-1 in SFF-8024 Rev4.6
+        '''
+        return self.xcvr_eeprom.read(consts.ID_ABBRV_FIELD)
 
     def get_connector_type(self):
         '''
@@ -134,10 +142,10 @@ class CmisApi(XcvrApi):
             "nominal_bit_rate": 0, # Not supported
             "specification_compliance": admin_info[consts.MEDIA_TYPE_FIELD],
             "vendor_date": admin_info[consts.VENDOR_DATE_FIELD],
-            "vendor_oui": admin_info[consts.VENDOR_OUI_FIELD],
-            # TODO
-            "application_advertisement": "N/A",
+            "vendor_oui": admin_info[consts.VENDOR_OUI_FIELD]
         }
+        appl_advt = self.get_application_advertisement()
+        xcvr_info['application_advertisement'] = str(appl_advt) if len(appl_advt) > 0 else 'N/A'
         xcvr_info['host_electrical_interface'] = self.get_host_electrical_interface()
         xcvr_info['media_interface_code'] = self.get_module_media_interface()
         xcvr_info['host_lane_count'] = self.get_host_lane_count()
@@ -875,6 +883,24 @@ class CmisApi(XcvrApi):
             return self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, reset_control)
         else:
             return True
+
+    def reset(self):
+        """
+        Reset SFP and return all user module settings to their default state.
+
+        Returns:
+            A boolean, True if successful, False if not
+        """
+        if self.reset_module(True):
+            # minimum waiting time for the TWI to be functional again
+            time.sleep(2)
+            # buffer time
+            for retries in range(5):
+                state = self.get_module_state()
+                if state in ['ModuleReady', 'ModuleLowPwr']:
+                    return True
+                time.sleep(1)
+        return False
 
     def get_lpmode(self):
         '''
@@ -1745,4 +1771,176 @@ class CmisApi(XcvrApi):
             for lane in range(1, self.NUM_CHANNELS+1):
                 trans_loopback['host_input_loopback_lane%d' % lane] = 'N/A'
         return trans_loopback
+
+    def set_datapath_init(self, channel):
+        """
+        Put the CMIS datapath into the initialized state
+
+        Args:
+            channel:
+                Integer, a bitmask of the lanes on the host side
+                e.g. 0x5 for lane 0 and lane 2.
+
+        Returns:
+            Boolean, true if success otherwise false
+        """
+        cmis_major = self.xcvr_eeprom.read(consts.CMIS_MAJOR_REVISION)
+        data = self.xcvr_eeprom.read(consts.DATAPATH_DEINIT_FIELD)
+        for lane in range(self.NUM_CHANNELS):
+            if ((1 << lane) & channel) == 0:
+                continue
+            if cmis_major >= 4: # CMIS v4 onwards
+                data &= ~(1 << lane)
+            else:               # CMIS v3
+                data |= (1 << lane)
+        self.xcvr_eeprom.write(consts.DATAPATH_DEINIT_FIELD, data)
+
+    def set_datapath_deinit(self, channel):
+        """
+        Put the CMIS datapath into the de-initialized state
+
+        Args:
+            channel:
+                Integer, a bitmask of the lanes on the host side
+                e.g. 0x5 for lane 0 and lane 2.
+
+        Returns:
+            Boolean, true if success otherwise false
+        """
+        cmis_major = self.xcvr_eeprom.read(consts.CMIS_MAJOR_REVISION)
+        data = self.xcvr_eeprom.read(consts.DATAPATH_DEINIT_FIELD)
+        for lane in range(self.NUM_CHANNELS):
+            if ((1 << lane) & channel) == 0:
+                continue
+            if cmis_major >= 4: # CMIS v4 onwards
+                data |= (1 << lane)
+            else:               # CMIS v3
+                data &= ~(1 << lane)
+        self.xcvr_eeprom.write(consts.DATAPATH_DEINIT_FIELD, data)
+
+    def get_application_advertisement(self):
+        """
+        Get the application advertisement of the CMIS transceiver
+
+        Returns:
+            Dictionary, the application advertisement
+        """
+        map = {
+            Sff8024.MODULE_MEDIA_TYPE[1]: consts.MODULE_MEDIA_INTERFACE_850NM,
+            Sff8024.MODULE_MEDIA_TYPE[2]: consts.MODULE_MEDIA_INTERFACE_SM,
+            Sff8024.MODULE_MEDIA_TYPE[3]: consts.MODULE_MEDIA_INTERFACE_PASSIVE_COPPER,
+            Sff8024.MODULE_MEDIA_TYPE[4]: consts.MODULE_MEDIA_INTERFACE_ACTIVE_CABLE,
+            Sff8024.MODULE_MEDIA_TYPE[5]: consts.MODULE_MEDIA_INTERFACE_BASE_T
+        }
+
+        ret = {}
+        dic = self.xcvr_eeprom.read(consts.APPLS_ADVT_FIELD)
+        for app in range(1, 16):
+            buf = {}
+
+            key = "{}_{}".format(consts.HOST_ELECTRICAL_INTERFACE, app)
+            val = dic.get(key)
+            if val in [None, 'Unknown', 'Undefined']:
+                break
+            buf['host_electrical_interface_id'] = val
+
+            prefix = map.get(self.xcvr_eeprom.read(consts.MEDIA_TYPE_FIELD))
+            if prefix is None:
+                break
+            key = "{}_{}".format(prefix, app)
+            val = dic.get(key)
+            if val in [None, 'Unknown', 'Undefined']:
+                break
+            buf['module_media_interface_id'] = val
+
+            key = "{}_{}".format(consts.MEDIA_LANE_COUNT, app)
+            val = dic.get(key)
+            if val is None:
+                break
+            buf['media_lane_count'] = val
+
+            key = "{}_{}".format(consts.HOST_LANE_COUNT, app)
+            val = dic.get(key)
+            if val is None:
+                break
+            buf['host_lane_count'] = val
+
+            key = "{}_{}".format(consts.HOST_LANE_ASSIGNMENT_OPTION, app)
+            val = dic.get(key)
+            if val is None:
+                break
+            buf['host_lane_assignment_options'] = val
+
+            ret[app] = buf
+        return ret
+
+    def get_application(self, lane):
+        """
+        Get the CMIS selected application code of a host lane
+
+        Args:
+            lane:
+                Integer, the zero-based lane id on the host side
+
+        Returns:
+            Integer, the transceiver-specific application code
+        """
+        appl = 0
+        if lane in range(self.NUM_CHANNELS) and not self.is_flat_memory():
+            name = "{}_{}_{}".format(consts.STAGED_CTRL_APSEL_FIELD, 0, lane + 1)
+            appl = self.xcvr_eeprom.read(name) >> 4
+
+        return (appl & 0xf)
+
+    def set_application(self, channel, appl_code):
+        """
+        Update the selected application code to the specified lanes on the host side
+
+        Args:
+            channel:
+                Integer, a bitmask of the lanes on the host side
+                e.g. 0x5 for lane 0 and lane 2.
+            appl_code:
+                Integer, the desired application code
+
+        Returns:
+            Boolean, true if success otherwise false
+        """
+        # Update the application selection
+        lane_first = -1
+        for lane in range(self.NUM_CHANNELS):
+            if ((1 << lane) & channel) == 0:
+                continue
+            if lane_first < 0:
+                lane_first = lane
+            addr = "{}_{}_{}".format(consts.STAGED_CTRL_APSEL_FIELD, 0, lane + 1)
+            data = (appl_code << 4) | (lane_first << 1)
+            self.xcvr_eeprom.write(addr, data)
+
+        # Apply DataPathInit
+        return self.xcvr_eeprom.write("%s_%d" % (consts.STAGED_CTRL_APPLY_DPINIT_FIELD, 0), channel)
+
+    def get_error_description(self):
+        dp_state = self.get_datapath_state()
+        conf_state = self.get_config_datapath_hostlane_status()
+        for lane in range(self.NUM_CHANNELS):
+            name = "{}_{}_{}".format(consts.STAGED_CTRL_APSEL_FIELD, 0, lane + 1)
+            appl = self.xcvr_eeprom.read(name)
+            if (appl is None) or ((appl >> 4) == 0):
+                continue
+
+            name = "DP{}State".format(lane + 1)
+            if dp_state[name] != CmisCodes.DATAPATH_STATE[4]:
+                return dp_state[name]
+
+            name = "ConfigStatusLane{}".format(lane + 1)
+            if conf_state[name] != CmisCodes.CONFIG_STATUS[1]:
+                return conf_state[name]
+
+        state = self.get_module_state()
+        if state != CmisCodes.MODULE_STATE[3]:
+            return state
+
+        return None
+
     # TODO: other XcvrApi methods

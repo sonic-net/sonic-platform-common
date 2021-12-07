@@ -270,6 +270,7 @@ LASER_TUNING_DETAIL = "TxTuningDetail"
 TRANS_CONFIG_FIELD = "TransceiverConfig"
 MODULE_LEVEL_CONTROL = "ModuleControl"
 
+APPLS_ADVT_FIELD = "Applications Advertisement"
 CTRLS_ADVT_FIELD = "Supported Controls Advertisement"
 FLAGS_ADVT_FIELD = "Supported Flags Advertisement"
 PAGE_SUPPORT_ADVT_FIELD = "Supported Pages Advertisement"
@@ -278,12 +279,18 @@ RX_FLAGS_ADVT_FIELD = "Supported RX Flags Advertisement"
 LANE_MON_ADVT_FIELD = "Supported Lane Monitor Advertisement"
 LANE_DATAPATH_CTRL_FIELD = "Lane Control and Data Path Control"
 LANE_DATAPATH_STATUS_FIELD = "Lane Status and Data Path Status"
+DATAPATH_DEINIT_FIELD = "Data Path Deinit"
 LEN_MULT_FIELD = "LengthMultiplier"
 MAX_POWER_FIELD = "MaxPower"
 MGMT_CHAR_FIELD = "Management Characteristics"
 MGMT_CHAR_MISC_FIELD = "Management Characteristics (Misc)"
 
 MODULE_CHAR_ADVT_FIELD = "Module Characteristics Advertising"
+
+STAGED_CTRL_FIELD = "Staged Control Set"
+STAGED_CTRL_APPLY_DPINIT_FIELD = "Staged Control Set Apply DataPathInit"
+STAGED_CTRL_APPLY_IMMEDIATE_FIELD = "Staged Control Set Apply Immediate"
+STAGED_CTRL_APSEL_FIELD = "Staged Control Set ApSel"
 
 # C-CMIS
 

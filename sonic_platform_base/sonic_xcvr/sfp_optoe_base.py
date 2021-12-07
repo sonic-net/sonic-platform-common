@@ -187,3 +187,25 @@ class SfpOptoeBase(SfpBase):
         except (OSError, IOError):
             return False
         return True
+
+    def reset(self):
+        """
+        Reset SFP and return all user module settings to their default state.
+
+        Returns:
+            A boolean, True if successful, False if not
+        """
+        api = self.get_xcvr_api()
+        return api.reset() if api is not None else False
+
+    def get_error_description(self):
+        """
+        Retrives the error descriptions of the SFP module
+
+        Returns:
+            String that represents the current error descriptions of vendor specific errors
+            In case there are multiple errors, they should be joined by '|',
+            like: "Bad EEPROM|Unsupported cable"
+        """
+        api = self.get_xcvr_api()
+        return api.get_error_description() if api is not None else None

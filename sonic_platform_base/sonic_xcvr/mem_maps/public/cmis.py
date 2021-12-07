@@ -51,6 +51,216 @@ class CmisMemMap(XcvrMemMap):
             ),
 
             CodeRegField(consts.CONNECTOR_FIELD, self.getaddr(0x0, 203), self.codes.CONNECTORS),
+
+            RegGroupField(consts.APPLS_ADVT_FIELD,
+                CodeRegField("%s_%d" % (consts.HOST_ELECTRICAL_INTERFACE, 1), self.getaddr(0x0, 86 + 4 * (1 - 1)), self.codes.HOST_ELECTRICAL_INTERFACE),
+                CodeRegField("%s_%d" % (consts.HOST_ELECTRICAL_INTERFACE, 2), self.getaddr(0x0, 86 + 4 * (2 - 1)), self.codes.HOST_ELECTRICAL_INTERFACE),
+                CodeRegField("%s_%d" % (consts.HOST_ELECTRICAL_INTERFACE, 3), self.getaddr(0x0, 86 + 4 * (3 - 1)), self.codes.HOST_ELECTRICAL_INTERFACE),
+                CodeRegField("%s_%d" % (consts.HOST_ELECTRICAL_INTERFACE, 4), self.getaddr(0x0, 86 + 4 * (4 - 1)), self.codes.HOST_ELECTRICAL_INTERFACE),
+                CodeRegField("%s_%d" % (consts.HOST_ELECTRICAL_INTERFACE, 5), self.getaddr(0x0, 86 + 4 * (5 - 1)), self.codes.HOST_ELECTRICAL_INTERFACE),
+                CodeRegField("%s_%d" % (consts.HOST_ELECTRICAL_INTERFACE, 6), self.getaddr(0x0, 86 + 4 * (6 - 1)), self.codes.HOST_ELECTRICAL_INTERFACE),
+                CodeRegField("%s_%d" % (consts.HOST_ELECTRICAL_INTERFACE, 7), self.getaddr(0x0, 86 + 4 * (7 - 1)), self.codes.HOST_ELECTRICAL_INTERFACE),
+                CodeRegField("%s_%d" % (consts.HOST_ELECTRICAL_INTERFACE, 8), self.getaddr(0x0, 86 + 4 * (8 - 1)), self.codes.HOST_ELECTRICAL_INTERFACE),
+                CodeRegField("%s_%d" % (consts.HOST_ELECTRICAL_INTERFACE, 9), self.getaddr(0x1, 223 + 4 * (9 - 9)), self.codes.HOST_ELECTRICAL_INTERFACE),
+                CodeRegField("%s_%d" % (consts.HOST_ELECTRICAL_INTERFACE, 10), self.getaddr(0x1, 223 + 4 * (10 - 9)), self.codes.HOST_ELECTRICAL_INTERFACE),
+                CodeRegField("%s_%d" % (consts.HOST_ELECTRICAL_INTERFACE, 11), self.getaddr(0x1, 223 + 4 * (11 - 9)), self.codes.HOST_ELECTRICAL_INTERFACE),
+                CodeRegField("%s_%d" % (consts.HOST_ELECTRICAL_INTERFACE, 12), self.getaddr(0x1, 223 + 4 * (12 - 9)), self.codes.HOST_ELECTRICAL_INTERFACE),
+                CodeRegField("%s_%d" % (consts.HOST_ELECTRICAL_INTERFACE, 13), self.getaddr(0x1, 223 + 4 * (13 - 9)), self.codes.HOST_ELECTRICAL_INTERFACE),
+                CodeRegField("%s_%d" % (consts.HOST_ELECTRICAL_INTERFACE, 14), self.getaddr(0x1, 223 + 4 * (14 - 9)), self.codes.HOST_ELECTRICAL_INTERFACE),
+                CodeRegField("%s_%d" % (consts.HOST_ELECTRICAL_INTERFACE, 15), self.getaddr(0x1, 223 + 4 * (15 - 9)), self.codes.HOST_ELECTRICAL_INTERFACE),
+
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_850NM, 1), self.getaddr(0x0, 87 + 4 * (1 - 1)), self.codes.NM_850_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_850NM, 2), self.getaddr(0x0, 87 + 4 * (2 - 1)), self.codes.NM_850_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_850NM, 3), self.getaddr(0x0, 87 + 4 * (3 - 1)), self.codes.NM_850_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_850NM, 4), self.getaddr(0x0, 87 + 4 * (4 - 1)), self.codes.NM_850_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_850NM, 5), self.getaddr(0x0, 87 + 4 * (5 - 1)), self.codes.NM_850_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_850NM, 6), self.getaddr(0x0, 87 + 4 * (6 - 1)), self.codes.NM_850_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_850NM, 7), self.getaddr(0x0, 87 + 4 * (7 - 1)), self.codes.NM_850_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_850NM, 8), self.getaddr(0x0, 87 + 4 * (8 - 1)), self.codes.NM_850_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_850NM, 9), self.getaddr(0x1, 224 + 4 * (9 - 9)), self.codes.NM_850_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_850NM, 10), self.getaddr(0x1, 224 + 4 * (10 - 9)), self.codes.NM_850_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_850NM, 11), self.getaddr(0x1, 224 + 4 * (11 - 9)), self.codes.NM_850_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_850NM, 12), self.getaddr(0x1, 224 + 4 * (12 - 9)), self.codes.NM_850_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_850NM, 13), self.getaddr(0x1, 224 + 4 * (13 - 9)), self.codes.NM_850_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_850NM, 14), self.getaddr(0x1, 224 + 4 * (14 - 9)), self.codes.NM_850_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_850NM, 15), self.getaddr(0x1, 224 + 4 * (15 - 9)), self.codes.NM_850_MEDIA_INTERFACE),
+
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_SM, 1), self.getaddr(0x0, 87 + 4 * (1 - 1)), self.codes.SM_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_SM, 2), self.getaddr(0x0, 87 + 4 * (2 - 1)), self.codes.SM_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_SM, 3), self.getaddr(0x0, 87 + 4 * (3 - 1)), self.codes.SM_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_SM, 4), self.getaddr(0x0, 87 + 4 * (4 - 1)), self.codes.SM_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_SM, 5), self.getaddr(0x0, 87 + 4 * (5 - 1)), self.codes.SM_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_SM, 6), self.getaddr(0x0, 87 + 4 * (6 - 1)), self.codes.SM_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_SM, 7), self.getaddr(0x0, 87 + 4 * (7 - 1)), self.codes.SM_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_SM, 8), self.getaddr(0x0, 87 + 4 * (8 - 1)), self.codes.SM_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_SM, 9), self.getaddr(0x1, 224 + 4 * (9 - 9)), self.codes.SM_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_SM, 10), self.getaddr(0x1, 224 + 4 * (10 - 9)), self.codes.SM_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_SM, 11), self.getaddr(0x1, 224 + 4 * (11 - 9)), self.codes.SM_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_SM, 12), self.getaddr(0x1, 224 + 4 * (12 - 9)), self.codes.SM_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_SM, 13), self.getaddr(0x1, 224 + 4 * (13 - 9)), self.codes.SM_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_SM, 14), self.getaddr(0x1, 224 + 4 * (14 - 9)), self.codes.SM_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_SM, 15), self.getaddr(0x1, 224 + 4 * (15 - 9)), self.codes.SM_MEDIA_INTERFACE),
+
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_PASSIVE_COPPER, 1), self.getaddr(0x0, 87 + 4 * (1 - 1)), self.codes.PASSIVE_COPPER_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_PASSIVE_COPPER, 2), self.getaddr(0x0, 87 + 4 * (2 - 1)), self.codes.PASSIVE_COPPER_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_PASSIVE_COPPER, 3), self.getaddr(0x0, 87 + 4 * (3 - 1)), self.codes.PASSIVE_COPPER_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_PASSIVE_COPPER, 4), self.getaddr(0x0, 87 + 4 * (4 - 1)), self.codes.PASSIVE_COPPER_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_PASSIVE_COPPER, 5), self.getaddr(0x0, 87 + 4 * (5 - 1)), self.codes.PASSIVE_COPPER_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_PASSIVE_COPPER, 6), self.getaddr(0x0, 87 + 4 * (6 - 1)), self.codes.PASSIVE_COPPER_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_PASSIVE_COPPER, 7), self.getaddr(0x0, 87 + 4 * (7 - 1)), self.codes.PASSIVE_COPPER_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_PASSIVE_COPPER, 8), self.getaddr(0x0, 87 + 4 * (8 - 1)), self.codes.PASSIVE_COPPER_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_PASSIVE_COPPER, 9), self.getaddr(0x1, 224 + 4 * (9 - 9)), self.codes.PASSIVE_COPPER_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_PASSIVE_COPPER, 10), self.getaddr(0x1, 224 + 4 * (10 - 9)), self.codes.PASSIVE_COPPER_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_PASSIVE_COPPER, 11), self.getaddr(0x1, 224 + 4 * (11 - 9)), self.codes.PASSIVE_COPPER_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_PASSIVE_COPPER, 12), self.getaddr(0x1, 224 + 4 * (12 - 9)), self.codes.PASSIVE_COPPER_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_PASSIVE_COPPER, 13), self.getaddr(0x1, 224 + 4 * (13 - 9)), self.codes.PASSIVE_COPPER_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_PASSIVE_COPPER, 14), self.getaddr(0x1, 224 + 4 * (14 - 9)), self.codes.PASSIVE_COPPER_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_PASSIVE_COPPER, 15), self.getaddr(0x1, 224 + 4 * (15 - 9)), self.codes.PASSIVE_COPPER_MEDIA_INTERFACE),
+
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_ACTIVE_CABLE, 1), self.getaddr(0x0, 87 + 4 * (1 - 1)), self.codes.ACTIVE_CABLE_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_ACTIVE_CABLE, 2), self.getaddr(0x0, 87 + 4 * (2 - 1)), self.codes.ACTIVE_CABLE_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_ACTIVE_CABLE, 3), self.getaddr(0x0, 87 + 4 * (3 - 1)), self.codes.ACTIVE_CABLE_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_ACTIVE_CABLE, 4), self.getaddr(0x0, 87 + 4 * (4 - 1)), self.codes.ACTIVE_CABLE_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_ACTIVE_CABLE, 5), self.getaddr(0x0, 87 + 4 * (5 - 1)), self.codes.ACTIVE_CABLE_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_ACTIVE_CABLE, 6), self.getaddr(0x0, 87 + 4 * (6 - 1)), self.codes.ACTIVE_CABLE_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_ACTIVE_CABLE, 7), self.getaddr(0x0, 87 + 4 * (7 - 1)), self.codes.ACTIVE_CABLE_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_ACTIVE_CABLE, 8), self.getaddr(0x0, 87 + 4 * (8 - 1)), self.codes.ACTIVE_CABLE_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_ACTIVE_CABLE, 9), self.getaddr(0x1, 224 + 4 * (9 - 9)), self.codes.ACTIVE_CABLE_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_ACTIVE_CABLE, 10), self.getaddr(0x1, 224 + 4 * (10 - 9)), self.codes.ACTIVE_CABLE_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_ACTIVE_CABLE, 11), self.getaddr(0x1, 224 + 4 * (11 - 9)), self.codes.ACTIVE_CABLE_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_ACTIVE_CABLE, 12), self.getaddr(0x1, 224 + 4 * (12 - 9)), self.codes.ACTIVE_CABLE_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_ACTIVE_CABLE, 13), self.getaddr(0x1, 224 + 4 * (13 - 9)), self.codes.ACTIVE_CABLE_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_ACTIVE_CABLE, 14), self.getaddr(0x1, 224 + 4 * (14 - 9)), self.codes.ACTIVE_CABLE_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_ACTIVE_CABLE, 15), self.getaddr(0x1, 224 + 4 * (15 - 9)), self.codes.ACTIVE_CABLE_MEDIA_INTERFACE),
+
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_BASE_T, 1), self.getaddr(0x0, 87 + 4 * (1 - 1)), self.codes.BASE_T_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_BASE_T, 2), self.getaddr(0x0, 87 + 4 * (2 - 1)), self.codes.BASE_T_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_BASE_T, 3), self.getaddr(0x0, 87 + 4 * (3 - 1)), self.codes.BASE_T_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_BASE_T, 4), self.getaddr(0x0, 87 + 4 * (4 - 1)), self.codes.BASE_T_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_BASE_T, 5), self.getaddr(0x0, 87 + 4 * (5 - 1)), self.codes.BASE_T_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_BASE_T, 6), self.getaddr(0x0, 87 + 4 * (6 - 1)), self.codes.BASE_T_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_BASE_T, 7), self.getaddr(0x0, 87 + 4 * (7 - 1)), self.codes.BASE_T_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_BASE_T, 8), self.getaddr(0x0, 87 + 4 * (8 - 1)), self.codes.BASE_T_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_BASE_T, 9), self.getaddr(0x1, 224 + 4 * (9 - 9)), self.codes.BASE_T_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_BASE_T, 10), self.getaddr(0x1, 224 + 4 * (10 - 9)), self.codes.BASE_T_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_BASE_T, 11), self.getaddr(0x1, 224 + 4 * (11 - 9)), self.codes.BASE_T_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_BASE_T, 12), self.getaddr(0x1, 224 + 4 * (12 - 9)), self.codes.BASE_T_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_BASE_T, 13), self.getaddr(0x1, 224 + 4 * (13 - 9)), self.codes.BASE_T_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_BASE_T, 14), self.getaddr(0x1, 224 + 4 * (14 - 9)), self.codes.BASE_T_MEDIA_INTERFACE),
+                CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_BASE_T, 15), self.getaddr(0x1, 224 + 4 * (15 - 9)), self.codes.BASE_T_MEDIA_INTERFACE),
+
+                NumberRegField("%s_%d" % (consts.MEDIA_LANE_COUNT, 1), self.getaddr(0x0, 88 + 4 * (1 - 1)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 4))
+                ),
+                NumberRegField("%s_%d" % (consts.MEDIA_LANE_COUNT, 2), self.getaddr(0x0, 88 + 4 * (2 - 1)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 4))
+                ),
+                NumberRegField("%s_%d" % (consts.MEDIA_LANE_COUNT, 3), self.getaddr(0x0, 88 + 4 * (3 - 1)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 4))
+                ),
+                NumberRegField("%s_%d" % (consts.MEDIA_LANE_COUNT, 4), self.getaddr(0x0, 88 + 4 * (4 - 1)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 4))
+                ),
+                NumberRegField("%s_%d" % (consts.MEDIA_LANE_COUNT, 5), self.getaddr(0x0, 88 + 4 * (5 - 1)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 4))
+                ),
+                NumberRegField("%s_%d" % (consts.MEDIA_LANE_COUNT, 6), self.getaddr(0x0, 88 + 4 * (6 - 1)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 4))
+                ),
+                NumberRegField("%s_%d" % (consts.MEDIA_LANE_COUNT, 7), self.getaddr(0x0, 88 + 4 * (7 - 1)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 4))
+                ),
+                NumberRegField("%s_%d" % (consts.MEDIA_LANE_COUNT, 8), self.getaddr(0x0, 88 + 4 * (8 - 1)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 4))
+                ),
+                NumberRegField("%s_%d" % (consts.MEDIA_LANE_COUNT, 9), self.getaddr(0x1, 225 + 4 * (9 - 9)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 4))
+                ),
+                NumberRegField("%s_%d" % (consts.MEDIA_LANE_COUNT, 10), self.getaddr(0x1, 225 + 4 * (10 - 9)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 4))
+                ),
+                NumberRegField("%s_%d" % (consts.MEDIA_LANE_COUNT, 11), self.getaddr(0x1, 225 + 4 * (11 - 9)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 4))
+                ),
+                NumberRegField("%s_%d" % (consts.MEDIA_LANE_COUNT, 12), self.getaddr(0x1, 225 + 4 * (12 - 9)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 4))
+                ),
+                NumberRegField("%s_%d" % (consts.MEDIA_LANE_COUNT, 13), self.getaddr(0x1, 225 + 4 * (13 - 9)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 4))
+                ),
+                NumberRegField("%s_%d" % (consts.MEDIA_LANE_COUNT, 14), self.getaddr(0x1, 225 + 4 * (14 - 9)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 4))
+                ),
+                NumberRegField("%s_%d" % (consts.MEDIA_LANE_COUNT, 15), self.getaddr(0x1, 225 + 4 * (15 - 9)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 4))
+                ),
+
+                NumberRegField("%s_%d" % (consts.HOST_LANE_COUNT, 1), self.getaddr(0x0, 88 + 4 * (1 - 1)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8))
+                ),
+                NumberRegField("%s_%d" % (consts.HOST_LANE_COUNT, 2), self.getaddr(0x0, 88 + 4 * (2 - 1)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8))
+                ),
+                NumberRegField("%s_%d" % (consts.HOST_LANE_COUNT, 3), self.getaddr(0x0, 88 + 4 * (3 - 1)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8))
+                ),
+                NumberRegField("%s_%d" % (consts.HOST_LANE_COUNT, 4), self.getaddr(0x0, 88 + 4 * (4 - 1)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8))
+                ),
+                NumberRegField("%s_%d" % (consts.HOST_LANE_COUNT, 5), self.getaddr(0x0, 88 + 4 * (5 - 1)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8))
+                ),
+                NumberRegField("%s_%d" % (consts.HOST_LANE_COUNT, 6), self.getaddr(0x0, 88 + 4 * (6 - 1)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8))
+                ),
+                NumberRegField("%s_%d" % (consts.HOST_LANE_COUNT, 7), self.getaddr(0x0, 88 + 4 * (7 - 1)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8))
+                ),
+                NumberRegField("%s_%d" % (consts.HOST_LANE_COUNT, 8), self.getaddr(0x0, 88 + 4 * (8 - 1)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8))
+                ),
+                NumberRegField("%s_%d" % (consts.HOST_LANE_COUNT, 9), self.getaddr(0x1, 225 + 4 * (9 - 9)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8))
+                ),
+                NumberRegField("%s_%d" % (consts.HOST_LANE_COUNT, 10), self.getaddr(0x1, 225 + 4 * (10 - 9)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8))
+                ),
+                NumberRegField("%s_%d" % (consts.HOST_LANE_COUNT, 11), self.getaddr(0x1, 225 + 4 * (11 - 9)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8))
+                ),
+                NumberRegField("%s_%d" % (consts.HOST_LANE_COUNT, 12), self.getaddr(0x1, 225 + 4 * (12 - 9)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8))
+                ),
+                NumberRegField("%s_%d" % (consts.HOST_LANE_COUNT, 13), self.getaddr(0x1, 225 + 4 * (13 - 9)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8))
+                ),
+                NumberRegField("%s_%d" % (consts.HOST_LANE_COUNT, 14), self.getaddr(0x1, 225 + 4 * (14 - 9)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8))
+                ),
+                NumberRegField("%s_%d" % (consts.HOST_LANE_COUNT, 15), self.getaddr(0x1, 225 + 4 * (15 - 9)),
+                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8))
+                ),
+
+                NumberRegField("%s_%d" % (consts.HOST_LANE_ASSIGNMENT_OPTION, 1), self.getaddr(0x0, 89 + 4 * (1 - 1)), format="B", size=1),
+                NumberRegField("%s_%d" % (consts.HOST_LANE_ASSIGNMENT_OPTION, 2), self.getaddr(0x0, 89 + 4 * (2 - 1)), format="B", size=1),
+                NumberRegField("%s_%d" % (consts.HOST_LANE_ASSIGNMENT_OPTION, 3), self.getaddr(0x0, 89 + 4 * (3 - 1)), format="B", size=1),
+                NumberRegField("%s_%d" % (consts.HOST_LANE_ASSIGNMENT_OPTION, 4), self.getaddr(0x0, 89 + 4 * (4 - 1)), format="B", size=1),
+                NumberRegField("%s_%d" % (consts.HOST_LANE_ASSIGNMENT_OPTION, 5), self.getaddr(0x0, 89 + 4 * (5 - 1)), format="B", size=1),
+                NumberRegField("%s_%d" % (consts.HOST_LANE_ASSIGNMENT_OPTION, 6), self.getaddr(0x0, 89 + 4 * (6 - 1)), format="B", size=1),
+                NumberRegField("%s_%d" % (consts.HOST_LANE_ASSIGNMENT_OPTION, 7), self.getaddr(0x0, 89 + 4 * (7 - 1)), format="B", size=1),
+                NumberRegField("%s_%d" % (consts.HOST_LANE_ASSIGNMENT_OPTION, 8), self.getaddr(0x0, 89 + 4 * (8 - 1)), format="B", size=1),
+                NumberRegField("%s_%d" % (consts.HOST_LANE_ASSIGNMENT_OPTION, 9), self.getaddr(0x1, 226 + 4 * (9 - 1)), format="B", size=1),
+                NumberRegField("%s_%d" % (consts.HOST_LANE_ASSIGNMENT_OPTION, 10), self.getaddr(0x1, 226 + 4 * (10 - 1)), format="B", size=1),
+                NumberRegField("%s_%d" % (consts.HOST_LANE_ASSIGNMENT_OPTION, 11), self.getaddr(0x1, 226 + 4 * (11 - 1)), format="B", size=1),
+                NumberRegField("%s_%d" % (consts.HOST_LANE_ASSIGNMENT_OPTION, 12), self.getaddr(0x1, 226 + 4 * (12 - 1)), format="B", size=1),
+                NumberRegField("%s_%d" % (consts.HOST_LANE_ASSIGNMENT_OPTION, 13), self.getaddr(0x1, 226 + 4 * (13 - 1)), format="B", size=1),
+                NumberRegField("%s_%d" % (consts.HOST_LANE_ASSIGNMENT_OPTION, 14), self.getaddr(0x1, 226 + 4 * (14 - 1)), format="B", size=1),
+                NumberRegField("%s_%d" % (consts.HOST_LANE_ASSIGNMENT_OPTION, 15), self.getaddr(0x1, 226 + 4 * (15 - 1)), format="B", size=1),
+
+                *(NumberRegField("%s_%d" % (consts.MEDIA_LANE_ASSIGNMENT_OPTION, app), self.getaddr(0x1, 176 + (app - 1)), format="B", size=1)
+                  for app in range(1, 16))
+            ),
+
             CodeRegField(consts.HOST_ELECTRICAL_INTERFACE, self.getaddr(0x0, 86), self.codes.HOST_ELECTRICAL_INTERFACE),
             CodeRegField(consts.MEDIA_TYPE_FIELD, self.getaddr(0x0, 85), self.codes.MODULE_MEDIA_TYPE),
             CodeRegField(consts.MODULE_MEDIA_INTERFACE_850NM, self.getaddr(0x0, 87), self.codes.NM_850_MEDIA_INTERFACE),
@@ -170,6 +380,7 @@ class CmisMemMap(XcvrMemMap):
         )
 
         self.LANE_DATAPATH_CTRL = RegGroupField(consts.LANE_DATAPATH_CTRL_FIELD,
+            NumberRegField(consts.DATAPATH_DEINIT_FIELD, self.getaddr(0x10, 128), ro=False),
             NumberRegField(consts.TX_DISABLE_FIELD, self.getaddr(0x10, 130), ro=False)
         )
 
@@ -365,6 +576,17 @@ class CmisMemMap(XcvrMemMap):
             NumberRegField(consts.CDB_RPL_LENGTH, self.getaddr(0x9f, 134), size=1, ro=False),
             NumberRegField(consts.CDB_RPL_CHKCODE, self.getaddr(0x9f, 135), size=1, ro=False),
         )
+
+        self.STAGED_CTRL0 = RegGroupField("%s_%d" % (consts.STAGED_CTRL_FIELD, 0),
+            NumberRegField("%s_%d" % (consts.STAGED_CTRL_APPLY_DPINIT_FIELD, 0),
+                self.getaddr(0x10, 143), ro=False),
+            NumberRegField("%s_%d" % (consts.STAGED_CTRL_APPLY_IMMEDIATE_FIELD, 0),
+                self.getaddr(0x10, 144), ro=False),
+            *(NumberRegField("%s_%d_%d" % (consts.STAGED_CTRL_APSEL_FIELD, 0, lane),
+                self.getaddr(0x10, 144 + lane), ro=False)
+                for lane in range(1, 9))
+        )
+
         # TODO: add remaining fields
 
     def getaddr(self, page, offset, page_size=128):
