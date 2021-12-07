@@ -897,7 +897,7 @@ class CmisApi(XcvrApi):
             # buffer time
             for retries in range(5):
                 state = self.get_module_state()
-                if state in ['ModuleReady']:
+                if state in ['ModuleReady', 'ModuleLowPwr']:
                     return True
                 time.sleep(1)
         return False
