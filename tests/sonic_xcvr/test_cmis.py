@@ -4,7 +4,8 @@ from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis import CmisMemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
 from sonic_platform_base.sonic_xcvr.codes.public.cmis import CmisCodes
-from sonic_platform_base.sonic_xcvr.fields.consts import LENGTH_ASSEMBLY_FIELD, LEN_MULT_FIELD
+from sonic_platform_base.sonic_xcvr.codes.public.sff8024 import Sff8024
+from sonic_platform_base.sonic_xcvr.fields import consts
 
 class TestCmis(object):
     codes = CmisCodes
@@ -824,6 +825,17 @@ class TestCmis(object):
 
     def test_reset_module(self):
         self.api.reset_module(True)
+
+    def test_reset(self):
+        self.api.xcvr_eeprom.write = MagicMock()
+        self.api.get_module_state = MagicMock()
+        self.api.get_module_state.return_value = 'ModuleReady'
+        result = self.api.reset()
+        assert result
+        assert self.api.xcvr_eeprom.write.call_count == 1
+        kall = self.api.xcvr_eeprom.write.call_args
+        assert kall is not None
+        assert kall[0] == (consts.MODULE_LEVEL_CONTROL, 0x8)
 
     def test_set_low_power(self):
         self.api.is_flat_memory = MagicMock()
@@ -1886,9 +1898,140 @@ class TestCmis(object):
         assert result == expected
 
     def test_cable_len(self):
-        cable_len_field = self.mem_map.get_field(LENGTH_ASSEMBLY_FIELD)
+        cable_len_field = self.mem_map.get_field(consts.LENGTH_ASSEMBLY_FIELD)
         data = bytearray([0xFF])
-        dep = {LEN_MULT_FIELD: 0b11}
+        dep = {consts.LEN_MULT_FIELD: 0b11}
         decoded = cable_len_field.decode(data, **dep)
         assert decoded == 6300
 
+    def test_set_datapath_init(self):
+        self.api.xcvr_eeprom.write = MagicMock()
+        self.api.xcvr_eeprom.read = MagicMock()
+
+        self.api.xcvr_eeprom.read.side_effect = [0x3, 0x00]
+        self.api.set_datapath_init(0xff)
+        kall = self.api.xcvr_eeprom.write.call_args
+        assert kall is not None
+        assert kall[0] == (consts.DATAPATH_DEINIT_FIELD, 0xff)
+
+        self.api.xcvr_eeprom.read.side_effect = [0x4, 0x00]
+        self.api.set_datapath_init(0xff)
+        kall = self.api.xcvr_eeprom.write.call_args
+        assert kall is not None
+        assert kall[0] == (consts.DATAPATH_DEINIT_FIELD, 0x00)
+
+    def test_set_datapath_deinit(self):
+        self.api.xcvr_eeprom.write = MagicMock()
+        self.api.xcvr_eeprom.read = MagicMock()
+
+        self.api.xcvr_eeprom.read.side_effect = [0x3, 0x00]
+        self.api.set_datapath_deinit(0xff)
+        kall = self.api.xcvr_eeprom.write.call_args
+        assert kall is not None
+        assert kall[0] == (consts.DATAPATH_DEINIT_FIELD, 0x00)
+
+        self.api.xcvr_eeprom.read.side_effect = [0x4, 0x00]
+        self.api.set_datapath_deinit(0xff)
+        kall = self.api.xcvr_eeprom.write.call_args
+        assert kall is not None
+        assert kall[0] == (consts.DATAPATH_DEINIT_FIELD, 0xff)
+
+    def test_get_application_advertisement(self):
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.side_effect = [
+            {
+                consts.HOST_ELECTRICAL_INTERFACE + "_1": "400GAUI-8 C2M (Annex 120E)",
+                consts.MODULE_MEDIA_INTERFACE_SM + "_1": "400GBASE-DR4 (Cl 124)",
+                consts.MEDIA_LANE_COUNT + "_1": 4,
+                consts.HOST_LANE_COUNT + "_1": 8,
+                consts.HOST_LANE_ASSIGNMENT_OPTION + "_1": 0x01
+            },
+            Sff8024.MODULE_MEDIA_TYPE[2]
+        ]
+        result = self.api.get_application_advertisement()
+
+        assert len(result) == 1
+        assert result[1]['host_electrical_interface_id'] == '400GAUI-8 C2M (Annex 120E)'
+        assert result[1]['module_media_interface_id'] == '400GBASE-DR4 (Cl 124)'
+        assert result[1]['host_lane_count'] == 8
+        assert result[1]['media_lane_count'] == 4
+        assert result[1]['host_lane_assignment_options'] == 0x01
+
+    def test_get_application(self):
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.return_value = 0x20
+
+        self.api.is_flat_memory = MagicMock()
+        self.api.is_flat_memory.return_value = False
+        appl = self.api.get_application(0)
+        assert appl == 2
+
+        appl = self.api.get_application(2)
+        assert appl == 2
+
+        appl = self.api.get_application(self.api.NUM_CHANNELS)
+        assert appl == 0
+
+        self.api.is_flat_memory.return_value = True
+        appl = self.api.get_application(0)
+        assert appl == 0
+
+        appl = self.api.get_application(2)
+        assert appl == 0
+
+        appl = self.api.get_application(self.api.NUM_CHANNELS)
+        assert appl == 0
+
+    def test_set_application(self):
+        self.api.xcvr_eeprom.write = MagicMock()
+
+        self.api.xcvr_eeprom.write.call_count = 0
+        self.api.set_application(0x00, 1)
+        assert self.api.xcvr_eeprom.write.call_count == 1
+
+        self.api.xcvr_eeprom.write.call_count = 0
+        self.api.set_application(0x01, 1)
+        assert self.api.xcvr_eeprom.write.call_count == 1 + 1
+
+        self.api.xcvr_eeprom.write.call_count = 0
+        self.api.set_application(0x0f, 1)
+        assert self.api.xcvr_eeprom.write.call_count == 4 + 1
+
+        self.api.xcvr_eeprom.write.call_count = 0
+        self.api.set_application(0xff, 1)
+        assert self.api.xcvr_eeprom.write.call_count == 8 + 1
+
+        self.api.xcvr_eeprom.write.call_count = 0
+        self.api.set_application(0x7fffffff, 1)
+        assert self.api.xcvr_eeprom.write.call_count == self.api.NUM_CHANNELS + 1
+
+    def test_get_error_description(self):
+        self.api.get_module_state = MagicMock()
+        self.api.get_module_state.return_value = 'ModuleReady'
+        self.api.get_datapath_state = MagicMock()
+        self.api.get_datapath_state.return_value = {
+            'DP1State': 'DataPathActivated',
+            'DP2State': 'DataPathActivated',
+            'DP3State': 'DataPathActivated',
+            'DP4State': 'DataPathActivated',
+            'DP5State': 'DataPathActivated',
+            'DP6State': 'DataPathActivated',
+            'DP7State': 'DataPathActivated',
+            'DP8State': 'DataPathActivated'
+        }
+        self.api.get_config_datapath_hostlane_status = MagicMock()
+        self.api.get_config_datapath_hostlane_status.return_value = {
+            'ConfigStatusLane1': 'ConfigSuccess',
+            'ConfigStatusLane2': 'ConfigSuccess',
+            'ConfigStatusLane3': 'ConfigSuccess',
+            'ConfigStatusLane4': 'ConfigSuccess',
+            'ConfigStatusLane5': 'ConfigSuccess',
+            'ConfigStatusLane6': 'ConfigSuccess',
+            'ConfigStatusLane7': 'ConfigSuccess',
+            'ConfigStatusLane8': 'ConfigSuccess'
+        }
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.return_value = 0x10
+
+        result = self.api.get_error_description()
+        assert result is None

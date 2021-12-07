@@ -892,10 +892,14 @@ class CmisApi(XcvrApi):
             A boolean, True if successful, False if not
         """
         if self.reset_module(True):
+            # minimum waiting time for the TWI to be functional again
+            time.sleep(2)
+            # buffer time
             for retries in range(5):
-                time.sleep(1)
-                if self.get_module_state() != 'Unknown':
+                state = self.get_module_state()
+                if state in ['ModuleReady']:
                     return True
+                time.sleep(1)
         return False
 
     def get_lpmode(self):
@@ -1916,15 +1920,15 @@ class CmisApi(XcvrApi):
         # Apply DataPathInit
         return self.xcvr_eeprom.write("%s_%d" % (consts.STAGED_CTRL_APPLY_DPINIT_FIELD, 0), channel)
 
-    def get_num_channels(self):
-        if self.get_module_type_abbreviation() == 'QSFP+C':
-            return 4
-        return self.NUM_CHANNELS
-
     def get_error_description(self):
         dp_state = self.get_datapath_state()
         conf_state = self.get_config_datapath_hostlane_status()
-        for lane in range(self.get_num_channels()):
+        for lane in range(self.NUM_CHANNELS):
+            name = "{}_{}_{}".format(consts.STAGED_CTRL_APSEL_FIELD, 0, lane + 1)
+            appl = self.xcvr_eeprom.read(name)
+            if (appl is None) or ((appl >> 4) == 0):
+                continue
+
             name = "DP{}State".format(lane + 1)
             if dp_state[name] != CmisCodes.DATAPATH_STATE[4]:
                 return dp_state[name]
