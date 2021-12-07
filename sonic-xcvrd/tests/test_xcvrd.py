@@ -126,7 +126,7 @@ class TestXcvrdScript(object):
     @patch('xcvrd.xcvrd._wrapper_get_presence', MagicMock(return_value=True))
     @patch('xcvrd.xcvrd._wrapper_is_replaceable', MagicMock(return_value=True))
     @patch('xcvrd.xcvrd._wrapper_get_transceiver_info', MagicMock(return_value={'type': '22.75',
-                                                                                'hardware_rev': '0.5',
+                                                                                'vendor_rev': '0.5',
                                                                                 'serial': '0.7',
                                                                                 'manufacturer': '0.7',
                                                                                 'model': '0.7',
@@ -157,7 +157,7 @@ class TestXcvrdScript(object):
     @patch('xcvrd.xcvrd._wrapper_is_replaceable', MagicMock(return_value=True))
     @patch('xcvrd.xcvrd.xcvr_table_helper', MagicMock())
     @patch('xcvrd.xcvrd._wrapper_get_transceiver_info', MagicMock(return_value={'type': '22.75',
-                                                                                'hardware_rev': '0.5',
+                                                                                'vendor_rev': '0.5',
                                                                                 'serial': '0.7',
                                                                                 'manufacturer': '0.7',
                                                                                 'model': '0.7',

@@ -301,7 +301,7 @@ def post_port_sfp_info_to_db(logical_port_name, port_mapping, table, transceiver
                 transceiver_dict[physical_port] = port_info_dict
                 fvs = swsscommon.FieldValuePairs(
                     [('type', port_info_dict['type']),
-                     ('hardware_rev', port_info_dict['hardware_rev']),
+                     ('vendor_rev', port_info_dict['vendor_rev']),
                      ('serial', port_info_dict['serial']),
                      ('manufacturer', port_info_dict['manufacturer']),
                      ('model', port_info_dict['model']),
