@@ -111,6 +111,7 @@ class SfpBase(device_base.DeviceBase):
         type                       |1*255VCHAR     |type of SFP
         type_abbrv_name            |1*255VCHAR     |type of SFP, abbreviated
         hardware_rev               |1*255VCHAR     |hardware version of SFP
+        vendor_rev                 |1*255VCHAR     |vendor revision of SFP
         serial                     |1*255VCHAR     |serial number of the SFP
         manufacturer               |1*255VCHAR     |SFP vendor name
         model                      |1*255VCHAR     |SFP model name
