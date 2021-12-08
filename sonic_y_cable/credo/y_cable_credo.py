@@ -1186,18 +1186,22 @@ class YCable(YCableBase):
                  and their corresponding values
 
         """
-        vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
-        vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
-        vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_GET_INFO
-        self.send_vsc(vsc_req_form)
-
-        data = bytearray(YCable.FIRMWARE_INFO_PAYLOAD_SIZE)
-
         if self.platform_chassis is not None:
+            self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS
+
+            vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+            vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
+            vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_GET_INFO
+            self.send_vsc(vsc_req_form)
+
+            data = bytearray(YCable.FIRMWARE_INFO_PAYLOAD_SIZE)
+
             for byte_idx in range(0, YCable.FIRMWARE_INFO_PAYLOAD_SIZE):
                 curr_offset = 0xfc * 128 + 128 + byte_idx
                 read_out = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
                 data[byte_idx] = read_out[0]
+
+            self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_NOT_INITIATED_OR_FINISHED
         else:
             self.log_error("platform_chassis is not loaded, failed to get NIC lanes active")
             return YCable.EEPROM_ERROR
@@ -1438,6 +1442,7 @@ class YCable(YCableBase):
         """
         if self.platform_chassis is not None:
             if fwfile is None:
+                self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS
                 side = 0x7
 
                 vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
@@ -1447,6 +1452,7 @@ class YCable(YCableBase):
                 status = self.send_vsc(vsc_req_form)
                 if status != YCable.MCU_EC_NO_ERROR:
                     self.log_error(YCable.MCU_ERROR_CODE_STRING[status])
+                    self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
                     return YCableBase.FIRMWARE_ACTIVATE_FAILURE
 
                 vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
@@ -1458,7 +1464,10 @@ class YCable(YCableBase):
                 time.sleep(5)
                 if status != YCable.MCU_EC_NO_ERROR:
                     self.log_error(YCable.MCU_ERROR_CODE_STRING[status])
+                    self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
                     return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+
+                self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_NOT_INITIATED_OR_FINISHED
             else:
                 inFile = open(fwfile, 'rb')
                 fwImage = bytearray(inFile.read())
@@ -1477,10 +1486,6 @@ class YCable(YCableBase):
                     return YCableBase.FIRMWARE_ACTIVATE_SUCCESS
                 elif fwVer['version_inactive'] == version_build_file:
                     return self.activate_firmware(hitless=hitless)
-                else:
-                    if self.download_firmware(fwfile) != YCableBase.FIRMWARE_DOWNLOAD_SUCCESS:
-                        return YCableBase.FIRMWARE_ACTIVATE_FAILURE
-                    return self.activate_firmware(fwfile, hitless)
         else:
             self.log_error("platform_chassis is not loaded, failed to activate firmware")
             return YCable.EEPROM_ERROR
