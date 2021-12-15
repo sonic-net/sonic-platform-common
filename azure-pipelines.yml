@@ -114,7 +114,7 @@ jobs:
         sudo pip3 install sonic_yang_models-1.0-py3-none-any.whl
         sudo pip3 install sonic_config_engine-1.0-py3-none-any.whl
         sudo pip3 install sonic_platform_common-1.0-py3-none-any.whl
-      workingDirectory: $(Pipeline.Workspace)/target/python-wheels/
+      workingDirectory: $(Pipeline.Workspace)/target/python-wheels/buster/
       displayName: 'Install Python dependencies'
 
     - script: |
