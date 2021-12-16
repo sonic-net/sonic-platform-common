@@ -14,7 +14,7 @@ try:
     from natsort import natsorted
     from portconfig import get_port_config
     from sonic_py_common import device_info
-    from sonic_py_common.interface import backplane_prefix, inband_prefix
+    from sonic_py_common.interface import backplane_prefix, inband_prefix, recirc_prefix
 
 except ImportError as e:
     raise ImportError("%s - required module not found" % str(e))
@@ -128,7 +128,7 @@ class SfpUtilHelper(object):
                 portname = line.split()[0]
 
                 # Ignore if this is an internal backplane interface and Inband interface
-                if portname.startswith(backplane_prefix()) or portname.startswith(inband_prefix()):
+                if portname.startswith((backplane_prefix(), inband_prefix(), recirc_prefix())):
                     continue
 
                 bcm_port = str(port_pos_in_file)
