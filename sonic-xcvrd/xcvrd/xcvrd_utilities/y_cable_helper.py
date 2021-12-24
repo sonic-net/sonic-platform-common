@@ -1426,7 +1426,7 @@ def post_mux_static_info_to_db(is_warm_start, port_mapping, stop_event=threading
         if asic_index is None:
             helper_logger.log_warning("Got invalid asic index for {}, ignored".format(logical_port_name))
             continue
-        post_port_mux_static_info_to_db(logical_port_name, port_mapping, mux_tbl[asic_index])
+        post_port_mux_static_info_to_db(logical_port_name, port_mapping, static_tbl[asic_index])
 
 
 def post_mux_info_to_db(is_warm_start, port_mapping, stop_event=threading.Event()):
