@@ -1946,7 +1946,6 @@ class TestCmis(object):
                 consts.HOST_LANE_COUNT + "_1": 8,
                 consts.HOST_LANE_ASSIGNMENT_OPTION + "_1": 0x01
             },
-            {},
             Sff8024.MODULE_MEDIA_TYPE[2]
         ]
         result = self.api.get_application_advertisement()
