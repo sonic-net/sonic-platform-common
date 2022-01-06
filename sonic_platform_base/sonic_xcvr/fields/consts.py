@@ -271,6 +271,7 @@ TRANS_CONFIG_FIELD = "TransceiverConfig"
 MODULE_LEVEL_CONTROL = "ModuleControl"
 
 APPLS_ADVT_FIELD = "Applications Advertisement"
+APPLS_ADVT_FIELD_PAGE01 = "Applications Advertisement Pag01"
 CTRLS_ADVT_FIELD = "Supported Controls Advertisement"
 FLAGS_ADVT_FIELD = "Supported Flags Advertisement"
 PAGE_SUPPORT_ADVT_FIELD = "Supported Pages Advertisement"

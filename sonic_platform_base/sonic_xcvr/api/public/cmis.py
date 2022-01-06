@@ -1834,7 +1834,13 @@ class CmisApi(XcvrApi):
         }
 
         ret = {}
+        # Read the application advertisment in lower memory
         dic = self.xcvr_eeprom.read(consts.APPLS_ADVT_FIELD)
+
+        if not self.is_flat_memory():
+            # Read the application advertisement in page01
+            dic.update(self.xcvr_eeprom.read(consts.APPLS_ADVT_FIELD_PAGE01))
+
         for app in range(1, 16):
             buf = {}
 

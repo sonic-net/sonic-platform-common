@@ -188,7 +188,7 @@ class StringRegField(RegField):
         self.format = kwargs.get("format", ">%ds" % self.size)
 
     def decode(self, raw_data, **decoded_deps):
-        return struct.unpack(self.format, raw_data)[0].decode(self.encoding)
+        return struct.unpack(self.format, raw_data)[0].decode(self.encoding, 'ignore')
 
 class CodeRegField(RegField):
     """

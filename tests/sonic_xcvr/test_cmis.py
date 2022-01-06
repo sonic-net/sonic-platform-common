@@ -392,7 +392,7 @@ class TestCmis(object):
                     'OpticalPowerTx5Field': 0, 'OpticalPowerTx6Field': 0,
                     'OpticalPowerTx7Field': 0, 'OpticalPowerTx8Field': 0
                 }
-            ], 
+            ],
             [0, 0, 0, 0, 0, 0, 0, 0]
         ),
         ([False, {'OpticalPowerTx1Field': 0}], ['N/A','N/A','N/A','N/A','N/A','N/A','N/A','N/A']),
@@ -427,7 +427,7 @@ class TestCmis(object):
                     'OpticalPowerRx5Field': 0, 'OpticalPowerRx6Field': 0,
                     'OpticalPowerRx7Field': 0, 'OpticalPowerRx8Field': 0
                 }
-            ], 
+            ],
             [0, 0, 0, 0, 0, 0, 0, 0]
         ),
         ([False, {'OpticalPowerRx1Field': 0}], ['N/A','N/A','N/A','N/A','N/A','N/A','N/A','N/A']),
@@ -845,7 +845,7 @@ class TestCmis(object):
         self.api.set_lpmode(True)
 
     @pytest.mark.parametrize("mock_response, expected", [
-        (   
+        (
 
             [False, 127],
             {
@@ -1382,7 +1382,7 @@ class TestCmis(object):
                 {
                     'DPInitPending1': False, 'DPInitPending2': False,
                     'DPInitPending3': False, 'DPInitPending4': False,
-                    'DPInitPending5': False, 'DPInitPending6': False, 
+                    'DPInitPending5': False, 'DPInitPending6': False,
                     'DPInitPending7': False, 'DPInitPending8': False
                 },
 
