@@ -1,5 +1,6 @@
 from sonic_py_common import daemon_base
 from sonic_py_common import multi_asic
+from sonic_py_common.interface import backplane_prefix, inband_prefix, recirc_prefix
 from swsscommon import swsscommon
 
 SELECT_TIMEOUT_MSECS = 1000
@@ -88,6 +89,11 @@ class PortMapping:
             else:
                 return None
 
+def validate_port(port):
+    if port.startswith((backplane_prefix(), inband_prefix(), recirc_prefix())):
+        return False
+    return True
+
 def subscribe_port_config_change():
     sel = swsscommon.Select()
     asic_context = {}
@@ -138,6 +144,8 @@ def handle_port_update_event(sel, asic_context, stop_event, logger, port_change_
                 (key, op, fvp) = port_tbl.pop()
                 if not key:
                     break
+                if not validate_port(key):
+                    continue
                 fvp = dict(fvp) if fvp is not None else {}
                 if 'index' not in fvp:
                     fvp['index'] = '-1'
@@ -177,6 +185,8 @@ def read_port_config_change(asic_context, port_mapping, logger, port_change_even
             (key, op, fvp) = port_tbl.pop()
             if not key:
                 break
+            if not validate_port(key):
+                continue 
             if op == swsscommon.SET_COMMAND:
                 fvp = dict(fvp)
                 if 'index' not in fvp:
@@ -218,6 +228,8 @@ def get_port_mapping():
         config_db = daemon_base.db_connect("CONFIG_DB", namespace=namespace)
         port_table = swsscommon.Table(config_db, swsscommon.CFG_PORT_TABLE_NAME)
         for key in port_table.getKeys():
+            if not validate_port(key):
+                continue
             _, port_config = port_table.get(key)
             port_config_dict = dict(port_config)
             port_change_event = PortChangeEvent(key, port_config_dict['index'], asic_id, PortChangeEvent.PORT_ADD)

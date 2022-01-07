@@ -341,8 +341,8 @@ class TestXcvrdScript(object):
     @patch('swsscommon.swsscommon.Table')
     def test_get_port_mapping(self, mock_swsscommon_table):
         mock_table = MagicMock()
-        mock_table.getKeys = MagicMock(return_value=['Ethernet0', 'Ethernet4'])
-        mock_table.get = MagicMock(side_effect=[(True, (('index', 1), )), (True, (('index', 2), ))])
+        mock_table.getKeys = MagicMock(return_value=['Ethernet0', 'Ethernet4', 'Ethernet-IB0'])
+        mock_table.get = MagicMock(side_effect=[(True, (('index', 1), )), (True, (('index', 2), )), (True, (('index', 3), ))])
         mock_swsscommon_table.return_value = mock_table
         port_mapping = get_port_mapping()
         assert port_mapping.logical_port_list.count('Ethernet0')
@@ -355,6 +355,11 @@ class TestXcvrdScript(object):
         assert port_mapping.get_physical_to_logical(2) == ['Ethernet4']
         assert port_mapping.get_logical_to_physical('Ethernet4') == [2]
 
+        assert port_mapping.logical_port_list.count('Ethernet-IB0') == 0
+        assert port_mapping.get_asic_id_for_logical_port('Ethernet-IB0') == None
+        assert port_mapping.get_physical_to_logical(3) == None
+        assert port_mapping.get_logical_to_physical('Ethernet-IB0') == None
+                                        
     @patch('swsscommon.swsscommon.Select.addSelectable', MagicMock())
     @patch('swsscommon.swsscommon.SubscriberStateTable')
     @patch('swsscommon.swsscommon.Select.select')
