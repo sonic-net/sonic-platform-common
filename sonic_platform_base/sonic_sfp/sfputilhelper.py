@@ -9,10 +9,12 @@ try:
     import os
     import re
     import sys
+    import ast
+    import json
     from collections import OrderedDict
 
     from natsort import natsorted
-    from portconfig import get_port_config
+    from portconfig import get_port_config, db_connect_configdb
     from sonic_py_common import device_info
     from sonic_py_common.interface import backplane_prefix
 
@@ -45,6 +47,22 @@ class SfpUtilHelper(object):
     def __init__(self):
         pass
 
+    def get_port_mapping(self):
+        config_db = db_connect_configdb()
+        if config_db is None:
+            return None
+
+        ports_data = config_db.get_table("PORT")
+        if not ports_data:
+            return None
+
+        ports = ast.literal_eval(json.dumps(ports_data))
+        for port in ports.keys():
+            if "index" not in ports[port]:
+                return None
+
+        return ports
+
     def read_porttab_mappings(self, porttabfile, asic_inst=0):
         logical = []
         logical_to_physical = {}
@@ -55,51 +73,55 @@ class SfpUtilHelper(object):
         port_pos_in_file = 0
         parse_fmt_port_config_ini = False
         parse_fmt_platform_json = False
+        parse_fmt_config_db = False
+
+        platform, hwsku = device_info.get_platform_and_hwsku()
+        ports = self.get_port_mapping()
 
         parse_fmt_port_config_ini = (os.path.basename(porttabfile) == PORT_CONFIG_INI)
         parse_fmt_platform_json = (os.path.basename(porttabfile) == PLATFORM_JSON)
+        parse_fmt_config_db = ports is not None
 
-        (platform, hwsku) = device_info.get_platform_and_hwsku()
-        if(parse_fmt_platform_json):
-            ports, _, _ = get_port_config(hwsku, platform)
-            if not ports:
-                print('Failed to get port config', file=sys.stderr)
-                sys.exit(1)
-            else:
-                logical_list = []
-                for intf in ports.keys():
-                    logical_list.append(intf)
+        if (parse_fmt_config_db or parse_fmt_platform_json):
+            if not parse_fmt_config_db:
+                ports, _, _ = get_port_config(hwsku, platform, porttabfile)
+                if not ports:
+                    print('Failed to get port config', file=sys.stderr)
+                    sys.exit(1)
 
-                logical = natsorted(logical_list, key=lambda y: y.lower())
-                logical_to_physical, physical_to_logical = OrderedDict(),  OrderedDict()
+            logical_list = []
+            for intf in ports.keys():
+                logical_list.append(intf)
 
-                for intf_name in logical:
-                    bcm_port = str(port_pos_in_file)
+            logical = natsorted(logical_list, key=lambda y: y.lower())
+            logical_to_physical, physical_to_logical = OrderedDict(),  OrderedDict()
 
-                    if 'index' in ports[intf_name].keys():
-                        fp_port_index = int(ports[intf_name]['index'])
-                        logical_to_physical[intf_name] = [fp_port_index]
+            for intf_name in logical:
+                bcm_port = str(port_pos_in_file)
 
-                    if physical_to_logical.get(fp_port_index) is None:
-                        physical_to_logical[fp_port_index] = [intf_name]
-                    else:
-                        physical_to_logical[fp_port_index].append(intf_name)
+                if 'index' in ports[intf_name].keys():
+                    fp_port_index = int(ports[intf_name]['index'])
+                    logical_to_physical[intf_name] = [fp_port_index]
 
-                    # Mapping of logical port names available on a system to ASIC instance
-                    self.logical_to_asic[intf_name] = asic_inst
-                    port_pos_in_file +=1
+                if physical_to_logical.get(fp_port_index) is None:
+                    physical_to_logical[fp_port_index] = [intf_name]
+                else:
+                    physical_to_logical[fp_port_index].append(intf_name)
 
-                self.logical = logical
-                self.logical_to_physical = logical_to_physical
-                self.physical_to_logical = physical_to_logical
+                # Mapping of logical port names available on a system to ASIC instance
+                self.logical_to_asic[intf_name] = asic_inst
+                port_pos_in_file +=1
 
-                """
-                print("logical: {}".format(self.logical))
-                print("logical to physical: {}".format(self.logical_to_physical))
-                print("physical to logical: {}".format( self.physical_to_logical))
-                """
-                return None
+            self.logical = logical
+            self.logical_to_physical = logical_to_physical
+            self.physical_to_logical = physical_to_logical
 
+            """
+            print("logical: {}".format(self.logical))
+            print("logical to physical: {}".format(self.logical_to_physical))
+            print("physical to logical: {}".format( self.physical_to_logical))
+            """
+            return None
 
         try:
             f = open(porttabfile)
