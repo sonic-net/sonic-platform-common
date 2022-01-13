@@ -14,8 +14,8 @@ try:
     from collections import OrderedDict
 
     from natsort import natsorted
-    from portconfig import get_port_config, db_connect_configdb
-    from sonic_py_common import device_info
+    from portconfig import get_port_config
+    from sonic_py_common import device_info, multi_asic
     from sonic_py_common.interface import backplane_prefix
 
 except ImportError as e:
@@ -47,14 +47,11 @@ class SfpUtilHelper(object):
     def __init__(self):
         pass
 
-    def get_port_mapping(self):
-        config_db = db_connect_configdb()
-        if config_db is None:
-            return None
-
-        ports_data = config_db.get_table("PORT")
-        if not ports_data:
-            return None
+    def get_port_mapping(self, asic_inst):
+        if multi_asic.is_multi_asic():
+            ports_data = multi_asic.get_port_table_for_asic("{}{}".format(multi_asic.ASIC_NAME_PREFIX, asic_inst))
+        else:
+            ports_data = multi_asic.get_port_table_for_asic(multi_asic.DEFAULT_NAMESPACE)
 
         ports = ast.literal_eval(json.dumps(ports_data))
         for port in ports.keys():
@@ -75,8 +72,7 @@ class SfpUtilHelper(object):
         parse_fmt_platform_json = False
         parse_fmt_config_db = False
 
-        platform, hwsku = device_info.get_platform_and_hwsku()
-        ports = self.get_port_mapping()
+        ports = self.get_port_mapping(asic_inst)
 
         parse_fmt_port_config_ini = (os.path.basename(porttabfile) == PORT_CONFIG_INI)
         parse_fmt_platform_json = (os.path.basename(porttabfile) == PLATFORM_JSON)
@@ -84,6 +80,7 @@ class SfpUtilHelper(object):
 
         if (parse_fmt_config_db or parse_fmt_platform_json):
             if not parse_fmt_config_db:
+                platform, hwsku = device_info.get_platform_and_hwsku()
                 ports, _, _ = get_port_config(hwsku, platform, porttabfile)
                 if not ports:
                     print('Failed to get port config', file=sys.stderr)
