@@ -48,10 +48,13 @@ class SfpUtilHelper(object):
         pass
 
     def get_port_mapping(self, asic_inst):
-        if multi_asic.is_multi_asic():
-            ports_data = multi_asic.get_port_table_for_asic("{}{}".format(multi_asic.ASIC_NAME_PREFIX, asic_inst))
-        else:
-            ports_data = multi_asic.get_port_table_for_asic(multi_asic.DEFAULT_NAMESPACE)
+        try:
+            if multi_asic.is_multi_asic():
+                ports_data = multi_asic.get_port_table_for_asic("{}{}".format(multi_asic.ASIC_NAME_PREFIX, asic_inst))
+            else:
+                ports_data = multi_asic.get_port_table_for_asic(multi_asic.DEFAULT_NAMESPACE)
+        except Exception as e:
+            return None
 
         ports = ast.literal_eval(json.dumps(ports_data))
         for port in ports.keys():
