@@ -56,6 +56,9 @@ class SfpUtilHelper(object):
         ports = ast.literal_eval(json.dumps(ports_data))
         for port in ports.keys():
             if "index" not in ports[port]:
+                print("Failed to get port config: invalid port entry {}: index field doesn't exist".format(port),
+                    file=sys.stderr
+                )
                 return None
 
         return ports
