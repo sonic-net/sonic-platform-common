@@ -33,7 +33,12 @@ class TestPsuStatus(object):
         mock_logger = mock.MagicMock()
         mock_psu = MockPsu("PSU 1", 0, True, True)
 
-        psu_status = psud.PsuStatus(mock_logger, mock_psu)
+        psu_status = psud.PsuStatus(mock_logger, mock_psu, 1)
+        assert psu_status.presence is True
+
+        # Test toggling presence to False
+        ret = psu_status.set_presence(False)
+        assert ret == True
         assert psu_status.presence == False
 
         # Test toggling presence to True
@@ -41,21 +46,26 @@ class TestPsuStatus(object):
         assert ret == True
         assert psu_status.presence == True
 
-        # Test toggling presence to False
-        ret = psu_status.set_presence(False)
-        assert ret == True
-        assert psu_status.presence == False
-
         # Test attempting to set presence to the same as the current value
-        ret = psu_status.set_presence(False)
+        ret = psu_status.set_presence(True)
         assert ret == False
-        assert psu_status.presence == False
+        assert psu_status.presence == True
 
     def test_set_power_good(self):
         mock_logger = mock.MagicMock()
         mock_psu = MockPsu("PSU 1", 0, True, True)
 
-        psu_status = psud.PsuStatus(mock_logger, mock_psu)
+        psu_status = psud.PsuStatus(mock_logger, mock_psu, 1)
+        assert psu_status.power_good is True
+
+        # Test toggling power_good to False
+        ret = psu_status.set_power_good(False)
+        assert ret == True
+        assert psu_status.power_good == False
+
+        # Test attempting to set power_good to the same as the current value (return value should be False)
+        ret = psu_status.set_power_good(False)
+        assert ret == False
         assert psu_status.power_good == False
 
         # Test toggling power_good to True
@@ -68,32 +78,13 @@ class TestPsuStatus(object):
         assert ret == False
         assert psu_status.power_good == True
 
-        # Test toggling power_good to False
-        ret = psu_status.set_power_good(False)
-        assert ret == True
-        assert psu_status.power_good == False
-
-        # Test attempting to set power_good to the same as the current value (return value should be False)
-        ret = psu_status.set_power_good(False)
-        assert ret == False
-        assert psu_status.power_good == False
 
     def test_set_voltage(self):
         mock_logger = mock.MagicMock()
         mock_psu = MockPsu("PSU 1", 0, True, True)
 
-        psu_status = psud.PsuStatus(mock_logger, mock_psu)
-        assert psu_status.voltage_good == False
-
-        # Pass in a good voltage
-        ret = psu_status.set_voltage(12.0, 12.5, 11.5)
-        assert ret == True
-        assert psu_status.voltage_good == True
-
-        # Pass in a another good voltage successively (return value should be False)
-        ret = psu_status.set_voltage(11.9, 12.5, 11.5)
-        assert ret == False
-        assert psu_status.voltage_good == True
+        psu_status = psud.PsuStatus(mock_logger, mock_psu, 1)
+        assert psu_status.voltage_good is True
 
         # Pass in a high voltage
         ret = psu_status.set_voltage(12.6, 12.5, 11.5)
@@ -108,6 +99,11 @@ class TestPsuStatus(object):
         # Pass in a good (high edge case) voltage
         ret = psu_status.set_voltage(12.5, 12.5, 11.5)
         assert ret == True
+        assert psu_status.voltage_good == True
+
+        # Pass in a another good voltage successively (return value should be False)
+        ret = psu_status.set_voltage(11.9, 12.5, 11.5)
+        assert ret == False
         assert psu_status.voltage_good == True
 
         # Pass in a low voltage
@@ -149,18 +145,8 @@ class TestPsuStatus(object):
         mock_logger = mock.MagicMock()
         mock_psu = MockPsu("PSU 1", 0, True, True)
 
-        psu_status = psud.PsuStatus(mock_logger, mock_psu)
-        assert psu_status.temperature_good == False
-
-        # Pass in a good temperature
-        ret = psu_status.set_temperature(20.123, 50.0)
-        assert ret == True
-        assert psu_status.temperature_good == True
-
-        # Pass in a another good temperature successively (return value should be False)
-        ret = psu_status.set_temperature(31.456, 50.0)
-        assert ret == False
-        assert psu_status.temperature_good == True
+        psu_status = psud.PsuStatus(mock_logger, mock_psu, 1)
+        assert psu_status.temperature_good is True
 
         # Pass in a high temperature
         ret = psu_status.set_temperature(50.001, 50.0)
@@ -175,6 +161,11 @@ class TestPsuStatus(object):
         # Pass in a good (high edge case) temperature
         ret = psu_status.set_temperature(49.999, 50.0)
         assert ret == True
+        assert psu_status.temperature_good == True
+
+        # Pass in a another good temperature successively (return value should be False)
+        ret = psu_status.set_temperature(31.456, 50.0)
+        assert ret == False
         assert psu_status.temperature_good == True
 
         # Test passing parameters as None when temperature_good == True
@@ -199,11 +190,7 @@ class TestPsuStatus(object):
         mock_logger = mock.MagicMock()
         mock_psu = MockPsu("PSU 1", 0, True, True)
 
-        psu_status = psud.PsuStatus(mock_logger, mock_psu)
-        psu_status.presence = True
-        psu_status.power_good = True
-        psu_status.voltage_good = True
-        psu_status.temperature_good = True
+        psu_status = psud.PsuStatus(mock_logger, mock_psu, 1)
         ret = psu_status.is_ok()
         assert ret == True
 

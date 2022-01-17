@@ -175,14 +175,10 @@ class TestDaemonPsud(object):
     def test_set_psu_led(self):
         mock_logger = mock.MagicMock()
         mock_psu = MockPsu("PSU 1", 0, True, True)
-        psu_status = psud.PsuStatus(mock_logger, mock_psu)
+        psu_status = psud.PsuStatus(mock_logger, mock_psu, 1)
 
         daemon_psud = psud.DaemonPsud(SYSLOG_IDENTIFIER)
 
-        psu_status.presence = True
-        psu_status.power_good = True
-        psu_status.voltage_good = True
-        psu_status.temperature_good = True
         daemon_psud._set_psu_led(mock_psu, psu_status)
         assert mock_psu.get_status_led() == mock_psu.STATUS_LED_COLOR_GREEN
 
@@ -228,7 +224,7 @@ class TestDaemonPsud(object):
     def test_update_led_color(self):
         mock_psu = MockPsu("PSU 1", 0, True, True)
         mock_logger = mock.MagicMock()
-        psu_status = psud.PsuStatus(mock_logger, mock_psu)
+        psu_status = psud.PsuStatus(mock_logger, mock_psu, 1)
 
         daemon_psud = psud.DaemonPsud(SYSLOG_IDENTIFIER)
         daemon_psud.psu_tbl = mock.MagicMock()

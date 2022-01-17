@@ -272,13 +272,13 @@ class PsuChassisInfo(logger.Logger):
 
 
 class PsuStatus(object):
-    def __init__(self, logger, psu):
-
+    def __init__(self, logger, psu, psu_index):
         self.psu = psu
-        self.presence = False
-        self.power_good = False
-        self.voltage_good = False
-        self.temperature_good = False
+        self.psu_index = psu_index
+        self.presence = True
+        self.power_good = True
+        self.voltage_good = True
+        self.temperature_good = True
         self.logger = logger
 
     def set_presence(self, presence):
@@ -308,8 +308,8 @@ class PsuStatus(object):
     def set_voltage(self, voltage, high_threshold, low_threshold):
         if voltage == NOT_AVAILABLE or high_threshold == NOT_AVAILABLE or low_threshold == NOT_AVAILABLE:
             if self.voltage_good is not True:
-                self.logger.log_warning('PSU voltage or high_threshold or low_threshold become unavailable, '
-                                        'voltage={}, high_threshold={}, low_threshold={}'.format(voltage, high_threshold, low_threshold))
+                self.logger.log_warning('PSU {} voltage or high_threshold or low_threshold become unavailable, '
+                                        'voltage={}, high_threshold={}, low_threshold={}'.format(self.psu_index, voltage, high_threshold, low_threshold))
                 self.voltage_good = True
             return False
 
@@ -323,8 +323,8 @@ class PsuStatus(object):
     def set_temperature(self, temperature, high_threshold):
         if temperature == NOT_AVAILABLE or high_threshold == NOT_AVAILABLE:
             if self.temperature_good is not True:
-                self.logger.log_warning('PSU temperature or high_threshold become unavailable, '
-                                        'temperature={}, high_threshold={}'.format(temperature, high_threshold))
+                self.logger.log_warning('PSU {} temperature or high_threshold become unavailable, '
+                                        'temperature={}, high_threshold={}'.format(self.psu_index, temperature, high_threshold))
                 self.temperature_good = True
             return False
 
@@ -465,16 +465,19 @@ class DaemonPsud(daemon_base.DaemonBase):
             power = try_get(psu.get_power, NOT_AVAILABLE)
 
         if index not in self.psu_status_dict:
-            self.psu_status_dict[index] = PsuStatus(self, psu)
+            self.psu_status_dict[index] = PsuStatus(self, psu, index)
 
         psu_status = self.psu_status_dict[index]
         set_led = self.first_run
-        if psu_status.set_presence(presence):
+        presence_changed = psu_status.set_presence(presence)
+        if presence_changed:
             set_led = True
             log_on_status_changed(self, psu_status.presence,
                                   'PSU absence warning cleared: {} is inserted back.'.format(name),
                                   'PSU absence warning: {} is not present.'.format(name)
                                   )
+
+        if presence_changed or self.first_run:
             # Have to update PSU fan data here because PSU presence status changed. If we don't
             # update PSU fan data here, there might be an inconsistent output between "show platform psustatus"
             # and "show platform fan". For example, say PSU 1 is removed, and psud query PSU status every 3 seconds,
