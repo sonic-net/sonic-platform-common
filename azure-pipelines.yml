@@ -17,12 +17,12 @@ container:
 steps:
 - task: DownloadPipelineArtifact@2
   inputs:
-    source: specific
-    project: build
-    pipeline: 1
-    artifact: sonic-buildimage.vs
+    source: 'specific'
+    project: 'build'
+    pipeline: 142
+    artifact: 'sonic-buildimage.vs'
     runVersion: 'latestFromBranch'
-    runBranch: 'refs/heads/master'
+    runBranch: 'refs/heads/202012'
   displayName: "Download artifacts from latest sonic-buildimage build"
 
 - script: |
