@@ -63,9 +63,6 @@ class SsdUtil(SsdBase):
     def _execute_shell(self, cmd):
         process = subprocess.Popen(cmd.split(), universal_newlines=True, stdout=subprocess.PIPE)
         output, error = process.communicate()
-        exit_code = process.returncode
-        if exit_code:
-            return None
         return output
 
     def _parse_re(self, pattern, buffer):
