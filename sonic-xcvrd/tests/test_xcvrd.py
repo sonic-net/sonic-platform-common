@@ -1,6 +1,5 @@
 from xcvrd.xcvrd_utilities.port_mapping import *
 from xcvrd.xcvrd_utilities.sfp_status_helper import *
-from xcvrd.xcvrd_utilities.y_cable_helper import *
 from xcvrd.xcvrd import *
 import copy
 import os
@@ -23,6 +22,7 @@ swsscommon.Table = MagicMock()
 swsscommon.ProducerStateTable = MagicMock()
 swsscommon.SubscriberStateTable = MagicMock()
 swsscommon.SonicDBConfig = MagicMock()
+#swsscommon.Select = MagicMock()
 
 test_path = os.path.dirname(os.path.abspath(__file__))
 modules_path = os.path.dirname(test_path)
@@ -39,8 +39,6 @@ global_media_settings = media_settings_with_comma_dict['GLOBAL_MEDIA_SETTINGS'].
 media_settings_with_comma_dict['GLOBAL_MEDIA_SETTINGS']['1-5,6,7-20,21-32'] = global_media_settings
 
 class TestXcvrdScript(object):
-    def test_xcvrd_helper_class_run(self):
-        Y_cable_task = YCableTableUpdateTask(None)
 
     @patch('xcvrd.xcvrd._wrapper_get_sfp_type')
     @patch('xcvrd.xcvrd_utilities.port_mapping.PortMapping.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
@@ -569,7 +567,7 @@ class TestXcvrdScript(object):
     def test_DomInfoUpdateTask_task_run_stop(self):
         port_mapping = PortMapping()
         task = DomInfoUpdateTask(port_mapping)
-        task.task_run([False])
+        task.task_run()
         task.task_stop()
         assert not task.task_thread.is_alive()
 
@@ -591,7 +589,7 @@ class TestXcvrdScript(object):
         task = DomInfoUpdateTask(port_mapping)
         task.task_stopping_event.wait = MagicMock(side_effect=[False, True])
         mock_detect_error.return_value = True
-        task.task_worker([False])
+        task.task_worker()
         assert task.port_mapping.logical_port_list.count('Ethernet0')
         assert task.port_mapping.get_asic_id_for_logical_port('Ethernet0') == 0
         assert task.port_mapping.get_physical_to_logical(1) == ['Ethernet0']
@@ -600,7 +598,7 @@ class TestXcvrdScript(object):
         assert mock_post_dom_info.call_count == 0
         mock_detect_error.return_value = False
         task.task_stopping_event.wait = MagicMock(side_effect=[False, True])
-        task.task_worker([False])
+        task.task_worker()
         assert mock_post_dom_th.call_count == 1
         assert mock_post_dom_info.call_count == 1
 
@@ -619,7 +617,7 @@ class TestXcvrdScript(object):
         port_change_event = PortChangeEvent('Ethernet0', 1, 0, PortChangeEvent.PORT_ADD)
         wait_time = 5
         while wait_time > 0:
-            task.on_port_config_change(stopping_event, [False], port_change_event)
+            task.on_port_config_change(port_change_event)
             if task.port_mapping.logical_port_list:
                 break
             wait_time -= 1
@@ -632,7 +630,7 @@ class TestXcvrdScript(object):
         port_change_event = PortChangeEvent('Ethernet0', 1, 0, PortChangeEvent.PORT_REMOVE)
         wait_time = 5
         while wait_time > 0:
-            task.on_port_config_change(stopping_event, [False], port_change_event)
+            task.on_port_config_change(port_change_event)
             if not task.port_mapping.logical_port_list:
                 break
             wait_time -= 1
@@ -647,7 +645,7 @@ class TestXcvrdScript(object):
         retry_eeprom_set = set()
         task = SfpStateUpdateTask(port_mapping, retry_eeprom_set)
         sfp_error_event = multiprocessing.Event()
-        task.task_run(sfp_error_event, [False])
+        task.task_run(sfp_error_event)
         assert wait_until(5, 1, task.task_process.is_alive)
         task.task_stop()
         assert wait_until(5, 1, lambda: task.task_process.is_alive() is False)
@@ -718,7 +716,7 @@ class TestXcvrdScript(object):
         mock_mapping_event.return_value = SYSTEM_NOT_READY
 
         # Test state machine: STATE_INIT + SYSTEM_NOT_READY event => STATE_INIT + SYSTEM_NOT_READY event ... => STATE_EXIT
-        task.task_worker(stop_event, sfp_error_event, [False])
+        task.task_worker(stop_event, sfp_error_event)
         assert mock_os_kill.call_count == 1
         assert sfp_error_event.is_set()
 
@@ -726,7 +724,7 @@ class TestXcvrdScript(object):
         mock_os_kill.reset_mock()
         sfp_error_event.clear()
         # Test state machine: STATE_INIT + SYSTEM_FAIL event => STATE_INIT + SYSTEM_FAIL event ... => STATE_EXIT
-        task.task_worker(stop_event, sfp_error_event, [False])
+        task.task_worker(stop_event, sfp_error_event)
         assert mock_os_kill.call_count == 1
         assert sfp_error_event.is_set()
 
@@ -734,7 +732,7 @@ class TestXcvrdScript(object):
         mock_os_kill.reset_mock()
         sfp_error_event.clear()
         # Test state machine: STATE_INIT + SYSTEM_BECOME_READY event => STATE_NORMAL + SYSTEM_NOT_READY event ... => STATE_EXIT
-        task.task_worker(stop_event, sfp_error_event, [False])
+        task.task_worker(stop_event, sfp_error_event)
         assert mock_os_kill.call_count == 1
         assert not sfp_error_event.is_set()
 
@@ -744,7 +742,7 @@ class TestXcvrdScript(object):
         sfp_error_event.clear()
         # Test state machine: STATE_INIT + SYSTEM_BECOME_READY event => STATE_NORMAL + SYSTEM_FAIL event ... => STATE_INIT
         # + SYSTEM_FAIL event ... => STATE_EXIT
-        task.task_worker(stop_event, sfp_error_event, [False])
+        task.task_worker(stop_event, sfp_error_event)
         assert mock_os_kill.call_count == 1
         assert sfp_error_event.is_set()
 
@@ -755,7 +753,7 @@ class TestXcvrdScript(object):
         mock_post_sfp_info.return_value = SFP_EEPROM_NOT_READY
         stop_event.is_set = MagicMock(side_effect=[False, True])
         # Test state machine: handle SFP insert event, but EEPROM read failure
-        task.task_worker(stop_event, sfp_error_event, [False])
+        task.task_worker(stop_event, sfp_error_event)
         assert mock_updata_status.call_count == 1
         assert mock_post_sfp_info.call_count == 2  # first call and retry call
         assert mock_post_dom_info.call_count == 0
@@ -769,7 +767,7 @@ class TestXcvrdScript(object):
         mock_updata_status.reset_mock()
         mock_post_sfp_info.reset_mock()
         # Test state machine: handle SFP insert event, and EEPROM read success
-        task.task_worker(stop_event, sfp_error_event, [False])
+        task.task_worker(stop_event, sfp_error_event)
         assert mock_updata_status.call_count == 1
         assert mock_post_sfp_info.call_count == 1
         assert mock_post_dom_info.call_count == 1
@@ -780,7 +778,7 @@ class TestXcvrdScript(object):
         mock_change_event.return_value = (True, {1: SFP_STATUS_REMOVED}, {})
         mock_updata_status.reset_mock()
         # Test state machine: handle SFP remove event
-        task.task_worker(stop_event, sfp_error_event, [False])
+        task.task_worker(stop_event, sfp_error_event)
         assert mock_updata_status.call_count == 1
         assert mock_del_dom.call_count == 1
 
@@ -790,7 +788,7 @@ class TestXcvrdScript(object):
         mock_updata_status.reset_mock()
         mock_del_dom.reset_mock()
         # Test state machine: handle SFP error event
-        task.task_worker(stop_event, sfp_error_event, [False])
+        task.task_worker(stop_event, sfp_error_event)
         assert mock_updata_status.call_count == 1
         assert mock_del_dom.call_count == 1
 

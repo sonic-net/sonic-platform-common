@@ -24,7 +24,6 @@ try:
     from swsscommon import swsscommon
 
     from .xcvrd_utilities import sfp_status_helper
-    from .xcvrd_utilities import y_cable_helper
     from .xcvrd_utilities import port_mapping
 except ImportError as e:
     raise ImportError(str(e) + " - required module not found")
@@ -1341,9 +1340,8 @@ class DomInfoUpdateTask(object):
         self.task_stopping_event = threading.Event()
         self.port_mapping = copy.deepcopy(port_mapping)
 
-    def task_worker(self, y_cable_presence):
+    def task_worker(self):
         helper_logger.log_info("Start DOM monitoring loop")
-        mux_tbl = {}
         dom_info_cache = {}
         dom_th_info_cache = {}
         sel, asic_context = port_mapping.subscribe_port_config_change()
@@ -1367,16 +1365,14 @@ class DomInfoUpdateTask(object):
                 if not sfp_status_helper.detect_port_in_error_status(logical_port_name, xcvr_table_helper.get_status_tbl(asic_index)):
                     post_port_dom_info_to_db(logical_port_name, self.port_mapping, xcvr_table_helper.get_dom_tbl(asic_index), self.task_stopping_event, dom_info_cache=dom_info_cache)
                     post_port_dom_threshold_info_to_db(logical_port_name, self.port_mapping, xcvr_table_helper.get_dom_tbl(asic_index), self.task_stopping_event, dom_th_info_cache=dom_th_info_cache)
-                    if y_cable_presence[0] is True:
-                        y_cable_helper.check_identifier_presence_and_update_mux_info_entry(xcvr_table_helper.get_state_db(asic_index), mux_tbl, asic_index, logical_port_name)
 
         helper_logger.log_info("Stop DOM monitoring loop")
 
-    def task_run(self, y_cable_presence):
+    def task_run(self):
         if self.task_stopping_event.is_set():
             return
 
-        self.task_thread = threading.Thread(target=self.task_worker, args=(y_cable_presence,))
+        self.task_thread = threading.Thread(target=self.task_worker)
         self.task_thread.start()
 
     def task_stop(self):
@@ -1445,7 +1441,7 @@ class SfpStateUpdateTask(object):
         helper_logger.log_debug("mapping from {} {} to {}".format(status, port_dict, event))
         return event
 
-    def task_worker(self, stopping_event, sfp_error_event, y_cable_presence):
+    def task_worker(self, stopping_event, sfp_error_event):
         helper_logger.log_info("Start SFP monitoring loop")
 
         transceiver_dict = {}
@@ -1519,7 +1515,7 @@ class SfpStateUpdateTask(object):
         timeout = RETRY_PERIOD_FOR_SYSTEM_READY_MSECS
         state = STATE_INIT
         sel, asic_context = port_mapping.subscribe_port_config_change()
-        port_change_event_handler = functools.partial(self.on_port_config_change, stopping_event, y_cable_presence)
+        port_change_event_handler = functools.partial(self.on_port_config_change, stopping_event)
         while not stopping_event.is_set():
             port_mapping.handle_port_config_change(sel, asic_context, stopping_event, self.port_mapping, helper_logger, port_change_event_handler)
 
@@ -1652,9 +1648,6 @@ class SfpStateUpdateTask(object):
                                 except (TypeError, ValueError) as e:
                                     helper_logger.log_error("Got unrecognized event {}, ignored".format(value))
 
-                    # Since ports could be connected to a mux cable, if there is a change event process the change for being on a Y cable Port
-                    y_cable_helper.change_ports_status_for_y_cable_change_event(
-                        logical_port_dict, self.port_mapping, y_cable_presence, stopping_event)
                 else:
                     next_state = STATE_EXIT
             elif event == SYSTEM_FAIL:
@@ -1693,37 +1686,24 @@ class SfpStateUpdateTask(object):
 
         helper_logger.log_info("Stop SFP monitoring loop")
 
-    def task_run(self, sfp_error_event, y_cable_presence):
+    def task_run(self, sfp_error_event):
         if self.task_stopping_event.is_set():
             return
 
         self.task_process = multiprocessing.Process(target=self.task_worker, args=(
-            self.task_stopping_event, sfp_error_event, y_cable_presence))
+            self.task_stopping_event, sfp_error_event))
         self.task_process.start()
 
     def task_stop(self):
         self.task_stopping_event.set()
         os.kill(self.task_process.pid, signal.SIGKILL)
 
-    def on_port_config_change(self, stopping_event, y_cable_presence, port_change_event):
+    def on_port_config_change(self , port_change_event):
         if port_change_event.event_type == port_mapping.PortChangeEvent.PORT_REMOVE:
             self.on_remove_logical_port(port_change_event)
-            # Update y_cable related database once a logical port is removed
-            y_cable_helper.change_ports_status_for_y_cable_change_event(
-                {port_change_event.port_name:sfp_status_helper.SFP_STATUS_REMOVED}, 
-                self.port_mapping, 
-                y_cable_presence, 
-                stopping_event)
             self.port_mapping.handle_port_change_event(port_change_event)
         elif port_change_event.event_type == port_mapping.PortChangeEvent.PORT_ADD:
             self.port_mapping.handle_port_change_event(port_change_event)
-            logical_port_event_dict = self.on_add_logical_port(port_change_event)
-            # Update y_cable related database once a logical port is added
-            y_cable_helper.change_ports_status_for_y_cable_change_event(
-                logical_port_event_dict, 
-                self.port_mapping, 
-                y_cable_presence, 
-                stopping_event)
 
     def on_remove_logical_port(self, port_change_event):
         """Called when a logical port is removed from CONFIG_DB.
@@ -1878,7 +1858,6 @@ class DaemonXcvrd(daemon_base.DaemonBase):
         super(DaemonXcvrd, self).__init__(log_identifier)
         self.stop_event = threading.Event()
         self.sfp_error_event = multiprocessing.Event()
-        self.y_cable_presence = [False]
 
     # Signal handler
     def signal_handler(self, sig, frame):
@@ -1991,10 +1970,6 @@ class DaemonXcvrd(daemon_base.DaemonBase):
         self.log_info("Init port sfp status table")
         init_port_sfp_status_tbl(port_mapping_data, self.stop_event)
 
-        # Init port y_cable status table
-        y_cable_helper.init_ports_status_for_y_cable(
-            platform_sfputil, platform_chassis, self.y_cable_presence, port_mapping_data, self.stop_event)
-        
         return port_mapping_data, retry_eeprom_set
 
     # Deinitialize daemon
@@ -2014,8 +1989,6 @@ class DaemonXcvrd(daemon_base.DaemonBase):
             del_port_sfp_dom_info_from_db(logical_port_name, port_mapping_data, xcvr_table_helper.get_intf_tbl(asic_index), xcvr_table_helper.get_dom_tbl(asic_index))
             delete_port_from_status_table(logical_port_name, xcvr_table_helper.get_status_tbl(asic_index))
 
-        if self.y_cable_presence[0] is True:
-            y_cable_helper.delete_ports_status_for_y_cable(port_mapping_data)
 
         del globals()['platform_chassis']
 
@@ -2033,17 +2006,13 @@ class DaemonXcvrd(daemon_base.DaemonBase):
 
         # Start the dom sensor info update thread
         dom_info_update = DomInfoUpdateTask(port_mapping_data)
-        dom_info_update.task_run(self.y_cable_presence)
+        dom_info_update.task_run()
 
         # Start the sfp state info update process
         sfp_state_update = SfpStateUpdateTask(port_mapping_data, retry_eeprom_set)
-        sfp_state_update.task_run(self.sfp_error_event, self.y_cable_presence)
+        sfp_state_update.task_run(self.sfp_error_event)
 
         # Start the Y-cable state info update process if Y cable presence established
-        y_cable_state_update = None
-        if self.y_cable_presence[0] is True:
-            y_cable_state_update = y_cable_helper.YCableTableUpdateTask(port_mapping_data)
-            y_cable_state_update.task_run()
 
         # Start main loop
         self.log_info("Start daemon main loop")
@@ -2058,9 +2027,6 @@ class DaemonXcvrd(daemon_base.DaemonBase):
         # Stop the sfp state info update process
         sfp_state_update.task_stop()
 
-        # Stop the Y-cable state info update process
-        if self.y_cable_presence[0] is True:
-            y_cable_state_update.task_stop()
 
         # Start daemon deinitialization sequence
         self.deinit()

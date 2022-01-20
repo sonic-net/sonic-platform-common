@@ -1,0 +1,3333 @@
+from ycable.ycable_utilities.y_cable_helper import *
+from ycable.ycable import *
+import copy
+import os
+import sys
+import time
+
+if sys.version_info >= (3, 3):
+    from unittest.mock import MagicMock, patch
+else:
+    from mock import MagicMock, patch
+
+from sonic_py_common import daemon_base
+from swsscommon import swsscommon
+from sonic_platform_base.sfp_base import SfpBase
+from .mock_swsscommon import Table
+
+
+daemon_base.db_connect = MagicMock()
+swsscommon.Table = MagicMock()
+
+sys.modules['sonic_y_cable'] = MagicMock()
+sys.modules['sonic_y_cable.y_cable'] = MagicMock()
+
+os.environ["Y_CABLE_HELPER_UNIT_TESTING"] = "1"
+
+
+class helper_logger:
+    mock_arg = MagicMock()
+
+    def log_error(self, mock_arg):
+        return True
+
+    def log_warning(self, mock_arg):
+        return True
+
+    def log_debug(self, mock_arg):
+        return True
+
+
+class TestYCableScript(object):
+    def test_xcvrd_helper_class_run(self):
+        Y_cable_task = YCableTableUpdateTask()
+
+    def test_y_cable_helper_format_mapping_identifier1(self):
+        rc = format_mapping_identifier("ABC        ")
+        assert(rc == "abc")
+
+
+    def test_y_cable_helper_format_mapping_identifier_no_instance(self):
+        rc = format_mapping_identifier(None)
+        assert(rc == None)
+
+    def test_gather_arg_from_db_and_check_for_type(self):
+        
+        arg_tbl = {"Ethernet0" : (True,{"abc":"x", "def":"y"})}
+        dic = {"key" : "value"}
+        rc = gather_arg_from_db_and_check_for_type(arg_tbl,"Ethernet0","key",dic, "abc")
+
+        assert(rc == ("x", "value", {'abc': 'x', 'def': 'y'}))
+
+    def test_gather_arg_from_db_and_check_for_none_type(self):
+        
+        arg_tbl = {"Ethernet0" : (True,{"abcd":"x", "def":"y"})}
+        dic = {"key" : "value"}
+        rc = gather_arg_from_db_and_check_for_type(arg_tbl,"Ethernet0","key",dic, "abc")
+
+        assert(rc == (None, "value"), {'abcd': 'x', 'def': 'y'})
+
+
+    def test_y_cable_wrapper_get_transceiver_info(self):
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+            patched_util.get_transceiver_info_dict.return_value = {'manufacturer': 'Microsoft',
+                                                                   'model': 'model1'}
+
+            transceiver_dict = y_cable_wrapper_get_transceiver_info(1)
+            vendor = transceiver_dict.get('manufacturer')
+            model = transceiver_dict.get('model')
+
+        assert(vendor == "Microsoft")
+        assert(model == "model1")
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_chassis')
+    def test_y_cable_wrapper_get_transceiver_info_with_platform_chassis(self, mock_chassis):
+
+        mock_object = MagicMock()
+        mock_object.get_transceiver_info.return_value = {'type': '1000_BASE_SX_SFP',
+                                                         'hardware_rev': '5',
+                                                         'serial': 'PEP3L5D',
+                                                         'manufacturer': 'FINISAR',
+                                                         'model': 'ABC',
+                                                         'connector': 'LC',
+                                                         'encoding': '8B10B',
+                                                         'ext_identifier': 'SFP',
+                                                         'ext_rateselect_compliance': 'DEF',
+                                                         'cable_length': '850',
+                                                         'nominal_bit_rate': '100',
+                                                         'specification_compliance': 'GHI',
+                                                         'vendor_date': '2021-01-01',
+                                                         'vendor_oui': '00:90:65'}
+
+        mock_chassis.get_sfp = MagicMock(return_value=mock_object)
+        received_xcvr_info = y_cable_wrapper_get_transceiver_info(1)
+
+        type = received_xcvr_info.get('type')
+        model = received_xcvr_info.get('model')
+        vendor_date = received_xcvr_info.get('vendor_date')
+
+        assert(type == "1000_BASE_SX_SFP")
+        assert(model == "ABC")
+        assert(vendor_date == "2021-01-01")
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_chassis')
+    def test_y_cable_wrapper_get_transceiver_info_with_platform_chassis_not_implemented(self, mock_chassis):
+
+        mock_object = MagicMock()
+        mock_object.get_transceiver_info.side_effect = NotImplementedError
+        mock_chassis.get_sfp = MagicMock(return_value=mock_object)
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+            patched_util.get_transceiver_info_dict.return_value = {'manufacturer': 'microsoft',
+                                                                   'model': 'simulated'}
+
+            transceiver_dict = y_cable_wrapper_get_transceiver_info(1)
+            vendor = transceiver_dict.get('manufacturer')
+            model = transceiver_dict.get('model')
+
+        assert(vendor == "microsoft")
+        assert(model == "simulated")
+
+    def test_y_cable_wrapper_get_presence(self):
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+            patched_util.get_presence.return_value = True
+
+            presence = y_cable_wrapper_get_presence(1)
+
+        assert(presence == True)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_chassis')
+    def test_y_cable_wrapper_get_presence_with_platform_chassis(self, mock_chassis):
+
+        mock_object = MagicMock()
+        mock_object.get_presence = MagicMock(return_value=True)
+        mock_chassis.get_sfp = MagicMock(return_value=mock_object)
+        presence = y_cable_wrapper_get_presence(1)
+
+        assert(presence == True)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_chassis')
+    def test_y_cable_wrapper_get_presence_with_platform_chassis_raise_exception(self, mock_chassis):
+
+        mock_object = MagicMock(spec=SfpBase)
+        mock_object.get_presence = MagicMock(side_effect=NotImplementedError)
+        mock_chassis.get_sfp = MagicMock(return_value=mock_object)
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+            patched_util.get_presence.return_value = True
+
+            assert(y_cable_wrapper_get_presence(1) == True)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_muxcable_info', MagicMock(return_value={'tor_active': 'self',
+                                                                                             'mux_direction': 'self',
+                                                                                             'manual_switch_count': '7',
+                                                                                             'auto_switch_count': '71',
+                                                                                             'link_status_self': 'up',
+                                                                                             'link_status_peer': 'up',
+                                                                                             'link_status_nic': 'up',
+                                                                                             'nic_lane1_active': 'True',
+                                                                                             'nic_lane2_active': 'True',
+                                                                                             'nic_lane3_active': 'True',
+                                                                                             'nic_lane4_active': 'True',
+                                                                                             'self_eye_height_lane1': '500',
+                                                                                             'self_eye_height_lane2': '510',
+                                                                                             'peer_eye_height_lane1': '520',
+                                                                                             'peer_eye_height_lane2': '530',
+                                                                                             'nic_eye_height_lane1': '742',
+                                                                                             'nic_eye_height_lane2': '750',
+                                                                                             'internal_temperature': '28',
+                                                                                             'internal_voltage': '3.3',
+                                                                                             'nic_temperature': '20',
+                                                                                             'nic_voltage': '2.7',
+                                                                                             'version_nic_active': '1.6MS',
+                                                                                             'version_nic_inactive': '1.7MS',
+                                                                                             'version_nic_next': '1.7MS',
+                                                                                             'version_self_active': '1.6MS',
+                                                                                             'version_self_inactive': '1.7MS',
+                                                                                             'version_self_next': '1.7MS',
+                                                                                             'version_peer_active': '1.6MS',
+                                                                                             'version_peer_inactive': '1.7MS',
+                                                                                             'version_peer_next': '1.7MS'}))
+    def test_post_port_mux_info_to_db(self):
+        logical_port_name = "Ethernet0"
+        mux_tbl = Table("STATE_DB", "Y_CABLE_INFO_TABLE")
+        rc = post_port_mux_info_to_db(logical_port_name, mux_tbl)
+        assert(rc != -1)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_muxcable_static_info', MagicMock(return_value={'read_side': 'self',
+                                                                                                    'nic_lane1_precursor1': '1',
+                                                                                                    'nic_lane1_precursor2': '-7',
+                                                                                                    'nic_lane1_maincursor': '-1',
+                                                                                                    'nic_lane1_postcursor1': '11',
+                                                                                                    'nic_lane1_postcursor2': '11',
+                                                                                                    'nic_lane2_precursor1': '12',
+                                                                                                    'nic_lane2_precursor2': '7',
+                                                                                                    'nic_lane2_maincursor': '7',
+                                                                                                    'nic_lane2_postcursor1': '7',
+                                                                                                    'nic_lane2_postcursor2': '7',
+                                                                                                    'tor_self_lane1_precursor1': '17',
+                                                                                                    'tor_self_lane1_precursor2': '17',
+                                                                                                    'tor_self_lane1_maincursor': '17',
+                                                                                                    'tor_self_lane1_postcursor1': '17',
+                                                                                                    'tor_self_lane1_postcursor2': '17',
+                                                                                                    'tor_self_lane2_precursor1': '7',
+                                                                                                    'tor_self_lane2_precursor2': '7',
+                                                                                                    'tor_self_lane2_maincursor': '7',
+                                                                                                    'tor_self_lane2_postcursor1': '7',
+                                                                                                    'tor_self_lane2_postcursor2': '7',
+                                                                                                    'tor_peer_lane1_precursor1': '7',
+                                                                                                    'tor_peer_lane1_precursor2': '7',
+                                                                                                    'tor_peer_lane1_maincursor': '17',
+                                                                                                    'tor_peer_lane1_postcursor1': '7',
+                                                                                                    'tor_peer_lane1_postcursor2': '17',
+                                                                                                    'tor_peer_lane2_precursor1': '7',
+                                                                                                    'tor_peer_lane2_precursor2': '7',
+                                                                                                    'tor_peer_lane2_maincursor': '17',
+                                                                                                    'tor_peer_lane2_postcursor1': '7',
+                                                                                                    'tor_peer_lane2_postcursor2': '17'}))
+    def test_post_port_mux_static_info_to_db(self):
+        logical_port_name = "Ethernet0"
+        mux_tbl = Table("STATE_DB", "Y_CABLE_STATIC_INFO_TABLE")
+        rc = post_port_mux_static_info_to_db(logical_port_name, mux_tbl)
+        assert(rc != -1)
+
+    def test_y_cable_helper_format_mapping_identifier1(self):
+        rc = format_mapping_identifier("ABC        ")
+        assert(rc == "abc")
+
+    def test_y_cable_helper_format_mapping_identifier_no_instance(self):
+        rc = format_mapping_identifier(None)
+        assert(rc == None)
+
+    def test_y_cable_wrapper_get_transceiver_info(self):
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+            patched_util.get_transceiver_info_dict.return_value = {'manufacturer': 'Microsoft',
+                                                                   'model': 'model1'}
+
+            transceiver_dict = y_cable_wrapper_get_transceiver_info(1)
+            vendor = transceiver_dict.get('manufacturer')
+            model = transceiver_dict.get('model')
+
+        assert(vendor == "Microsoft")
+        assert(model == "model1")
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_chassis')
+    def test_y_cable_wrapper_get_transceiver_info_with_platform_chassis(self, mock_chassis):
+
+        mock_object = MagicMock()
+        mock_object.get_transceiver_info.return_value = {'type': '1000_BASE_SX_SFP',
+                                                         'hardware_rev': '5',
+                                                         'serial': 'PEP3L5D',
+                                                         'manufacturer': 'FINISAR',
+                                                         'model': 'ABC',
+                                                         'connector': 'LC',
+                                                         'encoding': '8B10B',
+                                                         'ext_identifier': 'SFP',
+                                                         'ext_rateselect_compliance': 'DEF',
+                                                         'cable_length': '850',
+                                                         'nominal_bit_rate': '100',
+                                                         'specification_compliance': 'GHI',
+                                                         'vendor_date': '2021-01-01',
+                                                         'vendor_oui': '00:90:65'}
+
+        mock_chassis.get_sfp = MagicMock(return_value=mock_object)
+        received_xcvr_info = y_cable_wrapper_get_transceiver_info(1)
+
+        type = received_xcvr_info.get('type')
+        model = received_xcvr_info.get('model')
+        vendor_date = received_xcvr_info.get('vendor_date')
+
+        assert(type == "1000_BASE_SX_SFP")
+        assert(model == "ABC")
+        assert(vendor_date == "2021-01-01")
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_chassis')
+    def test_y_cable_wrapper_get_transceiver_info_with_platform_chassis_not_implemented(self, mock_chassis):
+
+        mock_object = MagicMock()
+        mock_object.get_transceiver_info.side_effect = NotImplementedError
+        mock_chassis.get_sfp = MagicMock(return_value=mock_object)
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+            patched_util.get_transceiver_info_dict.return_value = {'manufacturer': 'microsoft',
+                                                                   'model': 'simulated'}
+
+            transceiver_dict = y_cable_wrapper_get_transceiver_info(1)
+            vendor = transceiver_dict.get('manufacturer')
+            model = transceiver_dict.get('model')
+
+        assert(vendor == "microsoft")
+        assert(model == "simulated")
+
+    def test_y_cable_wrapper_get_presence(self):
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+            patched_util.get_presence.return_value = True
+
+            presence = y_cable_wrapper_get_presence(1)
+
+        assert(presence == True)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_chassis')
+    def test_y_cable_wrapper_get_presence_with_platform_chassis(self, mock_chassis):
+
+        mock_object = MagicMock()
+        mock_object.get_presence = MagicMock(return_value=True)
+        mock_chassis.get_sfp = MagicMock(return_value=mock_object)
+        presence = y_cable_wrapper_get_presence(1)
+
+        assert(presence == True)
+
+    def test_y_cable_toggle_mux_torA_update_status_true(self):
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+
+            mock_toggle_object = MagicMock()
+            mock_toggle_object.toggle_mux_to_tor_a.return_value = True
+            patched_util.get.return_value = mock_toggle_object
+
+            rc = y_cable_toggle_mux_torA(1)
+
+        assert(rc == 1)
+
+    def test_y_cable_toggle_mux_torA_no_port_instance(self):
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as port_instance:
+
+            port_instance.get.return_value = None
+            rc = y_cable_toggle_mux_torA(1)
+
+        assert(rc == -1)
+
+    def test_y_cable_toggle_mux_torA_update_status_exception(self):
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as port_instance:
+
+            port_instance.get.return_value = "simulated_port"
+            port_instance.toggle_mux_to_tor_a.return_value = Exception(NotImplementedError)
+
+            rc = y_cable_toggle_mux_torA(1)
+
+        assert(rc == -1)
+
+    def test_y_cable_toggle_mux_torA_update_status_true(self):
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+
+            mock_toggle_object = MagicMock()
+            mock_toggle_object.toggle_mux_to_tor_a.return_value = True
+            patched_util.get.return_value = mock_toggle_object
+
+            rc = y_cable_toggle_mux_torA(1)
+
+        assert(rc == 1)
+
+    def test_y_cable_toggle_mux_torB_no_port_instance(self):
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as port_instance:
+
+            port_instance.get.return_value = None
+            rc = y_cable_toggle_mux_torB(1)
+
+        assert(rc == -1)
+
+    def test_y_cable_toggle_mux_torB_update_status_exception(self):
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as port_instance:
+
+            port_instance.get.return_value = "simulated_port"
+            port_instance.toggle_mux_to_tor_a.return_value = Exception(NotImplementedError)
+
+            rc = y_cable_toggle_mux_torB(1)
+
+        assert(rc == -1)
+
+    def test_y_cable_toggle_mux_torB_update_status_true(self):
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+
+            mock_toggle_object = MagicMock()
+            mock_toggle_object.toggle_mux_to_tor_b.return_value = True
+            patched_util.get.return_value = mock_toggle_object
+
+            rc = y_cable_toggle_mux_torB(1)
+
+        assert(rc == 2)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    def test_update_tor_active_side_1_active(self):
+        read_side = 1
+        state = "active"
+        logical_port_name = "Ethernet0"
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+
+            mock_toggle_object = MagicMock()
+            mock_toggle_object.toggle_mux_to_tor_a.return_value = True
+            patched_util.get.return_value = mock_toggle_object
+
+            rc = update_tor_active_side(read_side, state, logical_port_name)
+
+        assert(rc == 1)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    def test_update_tor_active_side_2_active(self):
+        read_side = 2
+        state = "active"
+        logical_port_name = "Ethernet0"
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+
+            mock_toggle_object = MagicMock()
+            mock_toggle_object.toggle_mux_to_tor_b.return_value = True
+            patched_util.get.return_value = mock_toggle_object
+
+            rc = update_tor_active_side(read_side, state, logical_port_name)
+
+        assert(rc == 2)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    def test_update_tor_active_side_1_standby(self):
+        read_side = 1
+        state = "standby"
+        logical_port_name = "Ethernet0"
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+
+            mock_toggle_object = MagicMock()
+            mock_toggle_object.toggle_mux_to_tor_b.return_value = True
+            patched_util.get.return_value = mock_toggle_object
+
+            rc = update_tor_active_side(read_side, state, logical_port_name)
+
+        assert(rc == 2)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    def test_update_tor_active_side_2_standby(self):
+        read_side = 2
+        state = "standby"
+        logical_port_name = "Ethernet0"
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+
+            mock_toggle_object = MagicMock()
+            mock_toggle_object.toggle_mux_to_tor_a.return_value = True
+            patched_util.get.return_value = mock_toggle_object
+
+            rc = update_tor_active_side(read_side, state, logical_port_name)
+
+        assert(rc == 1)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=False))
+    def test_update_tor_active_side_no_cable_presence(self):
+        read_side = 1
+        state = "active"
+        logical_port_name = "Ethernet0"
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+
+            mock_toggle_object = MagicMock()
+            mock_toggle_object.toggle_mux_to_tor_a.return_value = True
+            patched_util.get.return_value = mock_toggle_object
+
+            rc = update_tor_active_side(read_side, state, logical_port_name)
+
+        assert(rc == -1)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0, 1, 2]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=False))
+    def test_update_tor_active_side_multiple_mappings(self):
+        read_side = 1
+        state = "active"
+        logical_port_name = "Ethernet0"
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+
+            mock_toggle_object = MagicMock()
+            mock_toggle_object.toggle_mux_to_tor_a.return_value = True
+            patched_util.get.return_value = mock_toggle_object
+
+            rc = update_tor_active_side(read_side, state, logical_port_name)
+
+        assert(rc == -1)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    def test_get_ycable_physical_port_from_logical_port(self):
+        instance = get_ycable_physical_port_from_logical_port("Ethernet0")
+
+        assert(instance == 0)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=False))
+    def test_get_ycable_physical_port_from_logical_port_physical_port_not_present(self):
+        instance = get_ycable_physical_port_from_logical_port("Ethernet0")
+
+        assert(instance == -1)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value={}))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=False))
+    def test_get_ycable_physical_port_from_logical_port_physical_port_list_empty(self):
+
+        instance = get_ycable_physical_port_from_logical_port("Ethernet0")
+
+        assert(instance == -1)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    def test_get_ycable_port_instance_from_logical_port(self):
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+            patched_util.get.return_value = 0
+            instance = get_ycable_port_instance_from_logical_port("Ethernet0")
+
+        assert(instance == 0)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=False))
+    def test_get_ycable_port_instance_from_logical_port_no_presence(self):
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+            patched_util.get.return_value = 0
+            instance = get_ycable_port_instance_from_logical_port("Ethernet0")
+
+        assert(instance == PORT_INSTANCE_ERROR)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    def test_get_ycable_port_instance_from_logical_port_no_port_instance(self):
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+            def mock_get():
+                pass
+
+            patched_util.get.return_value = mock_get()
+            instance = get_ycable_port_instance_from_logical_port("E")
+
+        assert(instance == PORT_INSTANCE_ERROR)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0, 1, 2]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    def test_get_ycable_port_instance_from_logical_port_multiple_mapping(self):
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+            patched_util.get.return_value = 0
+            instance = get_ycable_port_instance_from_logical_port("Ethernet0")
+
+        assert(instance == -1)
+
+    def test_update_table_mux_status_for_response_tbl(self):
+        asic_index = 0
+        appl_db = "TEST_DB"
+        logical_port_name = "Ethernet0"
+        status = "standby"
+
+        test_table = swsscommon.Table(appl_db[asic_index], "XCVRD_TEST_TABLE")
+        update_table_mux_status_for_response_tbl(test_table, status, logical_port_name)
+
+        rc = test_table.get(logical_port_name)
+
+        # Since the table class is mocked, the most we can test for is that get doesn't return None
+        assert(type(rc) != None)
+
+    def test_set_result_and_delete_port(self):
+
+        result = "result"
+        actual_result = "pass"
+        appl_db = "TEST_DB"
+        port = 0
+
+        command_table = swsscommon.Table(appl_db[0], "XCVRD_COMMAND_TABLE")
+        response_table = swsscommon.Table(appl_db[1], "XCVRD_RESPONSE_TABLE")
+
+        rc = set_result_and_delete_port(result, actual_result, command_table, response_table, port)
+        assert(rc == None)
+
+    def test_delete_port_from_y_cable_table(self):
+        logical_port_name = "Ethernet0"
+        appl_db = "TEST_DB"
+        y_cable_tbl = swsscommon.Table(appl_db[0], "XCVRD_Y_CBL_TABLE")
+
+        rc = delete_port_from_y_cable_table(logical_port_name, y_cable_tbl)
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    def test_update_appdb_port_mux_cable_response_table_port_instance_none(self):
+        asic_index = 0
+        appl_db = "TEST_DB"
+        logical_port_name = "Ethernet0"
+        read_side = 1
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+            def mock_get():
+                pass
+
+            patched_util.get.return_value = mock_get()
+
+            rc = update_appdb_port_mux_cable_response_table(
+                logical_port_name, asic_index, appl_db, read_side)
+            assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    def test_update_appdb_port_mux_cable_response_table_read_side_none(self):
+        asic_index = 0
+        appl_db = "TEST_DB"
+        logical_port_name = "Ethernet0"
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+            def mock_read_side():
+                pass
+
+            read_side = mock_read_side()
+
+            patched_util.get.return_value = 0
+
+            rc = update_appdb_port_mux_cable_response_table(
+                logical_port_name, asic_index, appl_db, read_side)
+            assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    def test_update_appdb_port_mux_cable_response_table_active_side_none(self):
+        asic_index = 0
+        appl_db = "TEST_DB"
+        logical_port_name = "Ethernet0"
+        read_side = 1
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+
+            class PortInstanceHelper():
+                def __init__(self):
+                    self.EEPROM_ERROR = -1
+
+                # Defining function without self argument creates an exception,
+                # which is what we want for this test.
+                def get_mux_direction():
+                    pass
+
+            patched_util.get.return_value = PortInstanceHelper()
+
+            rc = update_appdb_port_mux_cable_response_table(
+                logical_port_name, asic_index, appl_db, read_side)
+            assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    def test_update_appdb_port_mux_cable_response_table_active_side_is_read_side(self):
+        asic_index = 0
+        appl_db = "TEST_DB"
+        logical_port_name = "Ethernet0"
+        read_side = 1
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+
+            class PortInstanceHelper():
+                def __init__(self):
+                    self.EEPROM_ERROR = -1
+
+                def get_mux_direction(self):
+                    return 1
+
+            patched_util.get.return_value = PortInstanceHelper()
+
+            rc = update_appdb_port_mux_cable_response_table(
+                logical_port_name, asic_index, appl_db, read_side)
+            assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    def test_update_appdb_port_mux_cable_response_table_active_side_not_read_side(self):
+        asic_index = 0
+        appl_db = "TEST_DB"
+        logical_port_name = "Ethernet0"
+        read_side = 2
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+
+            class PortInstanceHelper():
+                def __init__(self):
+                    self.EEPROM_ERROR = -1
+
+                def get_mux_direction(self):
+                    return 1
+
+            patched_util.get.return_value = PortInstanceHelper()
+
+            rc = update_appdb_port_mux_cable_response_table(
+                logical_port_name, asic_index, appl_db, read_side)
+            assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    def test_update_appdb_port_mux_cable_response_table_active_side_status_unknown(self):
+        asic_index = 0
+        appl_db = "TEST_DB"
+        logical_port_name = "Ethernet0"
+        read_side = 1
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+
+            class PortInstanceHelper():
+                def __init__(self):
+                    self.EEPROM_ERROR = -1
+
+                def get_mux_direction(self):
+                    return 4
+
+            patched_util.get.return_value = PortInstanceHelper()
+
+            rc = update_appdb_port_mux_cable_response_table(
+                logical_port_name, asic_index, appl_db, read_side)
+            assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=False))
+    def test_update_appdb_port_mux_cable_response_table_no_presence_status_unknown(self):
+        asic_index = 0
+        appl_db = "TEST_DB"
+        logical_port_name = "Ethernet0"
+        read_side = 1
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+
+            class PortInstanceHelper():
+                def __init__(self):
+                    self.EEPROM_ERROR = -1
+
+                def get_mux_direction(self):
+                    return 4
+
+            patched_util.get.return_value = PortInstanceHelper()
+
+            rc = update_appdb_port_mux_cable_response_table(
+                logical_port_name, asic_index, appl_db, read_side)
+            assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0, 1, 2]))
+    def test_update_appdb_port_mux_cable_response_table_invalid_ycable_mapping(self):
+        asic_index = 0
+        appl_db = "TEST_DB"
+        logical_port_name = "Ethernet0"
+        read_side = 1
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+
+            class PortInstanceHelper():
+                def __init__(self):
+                    self.EEPROM_ERROR = -1
+
+                def get_mux_direction(self):
+                    return 4
+
+            patched_util.get.return_value = PortInstanceHelper()
+
+            rc = update_appdb_port_mux_cable_response_table(
+                logical_port_name, asic_index, appl_db, read_side)
+            assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0, 1, 2]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    def test_read_y_cable_and_update_statedb_port_tbl_invalid_ycable_mapping(self):
+
+        logical_port_name = "Ethernet0"
+        statedb_port_tbl = {}
+        asic_index = 0
+        appl_db = "TEST_DB"
+
+        statedb_port_tbl[asic_index] = swsscommon.Table(
+            appl_db[asic_index], "STATEDB_PORT_TABLE")
+
+        rc = read_y_cable_and_update_statedb_port_tbl(logical_port_name, statedb_port_tbl[asic_index])
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_read_y_cable_and_update_statedb_port_tbl_port_instance_none(self):
+
+        logical_port_name = "Ethernet0"
+        statedb_port_tbl = {}
+        asic_index = 0
+        appl_db = "TEST_DB"
+
+        statedb_port_tbl[asic_index] = swsscommon.Table(
+            appl_db[asic_index], "STATEDB_PORT_TABLE")
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+            def mock_get():
+                pass
+
+            patched_util.get.return_value = mock_get()
+            rc = read_y_cable_and_update_statedb_port_tbl(logical_port_name, statedb_port_tbl[asic_index])
+            assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=False))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_read_y_cable_and_update_statedb_port_tbl_get_presence_false(self):
+
+        logical_port_name = "Ethernet0"
+        statedb_port_tbl = {}
+        asic_index = 0
+        appl_db = "TEST_DB"
+
+        statedb_port_tbl[asic_index] = swsscommon.Table(
+            appl_db[asic_index], "STATEDB_PORT_TABLE")
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+            def mock_get():
+                pass
+
+            patched_util.get.return_value = mock_get()
+            rc = read_y_cable_and_update_statedb_port_tbl(logical_port_name, statedb_port_tbl[asic_index])
+            assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_read_y_cable_and_update_statedb_port_tbl_port_instance_get_read_side_exception(self):
+
+        logical_port_name = "Ethernet0"
+        statedb_port_tbl = {}
+        asic_index = 0
+        appl_db = "TEST_DB"
+
+        statedb_port_tbl[asic_index] = swsscommon.Table(
+            appl_db[asic_index], "STATEDB_PORT_TABLE")
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+            class PortInstanceHelper():
+                def __init__(self):
+                    self.EEPROM_ERROR = -1
+
+                # Defining function without self argument creates an exception,
+                # which is what we want for this test.
+                def get_read_side():
+                    pass
+
+            patched_util.get.return_value = PortInstanceHelper()
+            rc = read_y_cable_and_update_statedb_port_tbl(logical_port_name, statedb_port_tbl[asic_index])
+            assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_read_y_cable_and_update_statedb_port_tbl_port_instance_get_mux_dir_exception(self):
+
+        logical_port_name = "Ethernet0"
+        statedb_port_tbl = {}
+        asic_index = 0
+        appl_db = "TEST_DB"
+
+        statedb_port_tbl[asic_index] = swsscommon.Table(
+            appl_db[asic_index], "STATEDB_PORT_TABLE")
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+            class PortInstanceHelper():
+                def __init__(self):
+                    self.EEPROM_ERROR = -1
+
+                def get_read_side(self):
+                    return 1
+
+                # Defining function without self argument creates an exception,
+                # which is what we want for this test.
+                def get_mux_direction():
+                    pass
+
+            patched_util.get.return_value = PortInstanceHelper()
+            rc = read_y_cable_and_update_statedb_port_tbl(logical_port_name, statedb_port_tbl[asic_index])
+            assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_read_y_cable_and_update_statedb_port_tbl_port_instance_status_active(self):
+
+        logical_port_name = "Ethernet0"
+        statedb_port_tbl = {}
+        asic_index = 0
+        appl_db = "TEST_DB"
+
+        statedb_port_tbl[asic_index] = swsscommon.Table(
+            appl_db[asic_index], "STATEDB_PORT_TABLE")
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+            class PortInstanceHelper():
+                def __init__(self):
+                    self.EEPROM_ERROR = -1
+
+                def get_read_side(self):
+                    return 1
+
+                def get_mux_direction(self):
+                    return 1
+
+            patched_util.get.return_value = PortInstanceHelper()
+            rc = read_y_cable_and_update_statedb_port_tbl(logical_port_name, statedb_port_tbl[asic_index])
+            assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_read_y_cable_and_update_statedb_port_tbl_port_instance_status_standby(self):
+
+        logical_port_name = "Ethernet0"
+        statedb_port_tbl = {}
+        asic_index = 0
+        appl_db = "TEST_DB"
+
+        statedb_port_tbl[asic_index] = swsscommon.Table(
+            appl_db[asic_index], "STATEDB_PORT_TABLE")
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+            class PortInstanceHelper():
+                def __init__(self):
+                    self.EEPROM_ERROR = -1
+
+                def get_read_side(self):
+                    return 1
+
+                def get_mux_direction(self):
+                    return 2
+
+            patched_util.get.return_value = PortInstanceHelper()
+            rc = read_y_cable_and_update_statedb_port_tbl(logical_port_name, statedb_port_tbl[asic_index])
+            assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_read_y_cable_and_update_statedb_port_tbl_port_instance_status_unknown(self):
+
+        logical_port_name = "Ethernet0"
+        statedb_port_tbl = {}
+        asic_index = 0
+        appl_db = "TEST_DB"
+
+        statedb_port_tbl[asic_index] = swsscommon.Table(
+            appl_db[asic_index], "STATEDB_PORT_TABLE")
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+            class PortInstanceHelper():
+                def __init__(self):
+                    self.EEPROM_ERROR = -1
+
+                def get_read_side(self):
+                    return 1
+
+                def get_mux_direction(self):
+                    return 0
+
+            patched_util.get.return_value = PortInstanceHelper()
+            rc = read_y_cable_and_update_statedb_port_tbl(logical_port_name, statedb_port_tbl[asic_index])
+            assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_create_tables_and_insert_mux_unknown_entries(self):
+
+        state_db = {}
+        asic_index = 0
+        logical_port_name = "Ethernet0"
+
+        y_cable_tbl = {}
+        static_tbl = {}
+        mux_tbl = {}
+
+        rc = create_tables_and_insert_mux_unknown_entries(
+            state_db, y_cable_tbl, static_tbl, mux_tbl, asic_index, logical_port_name)
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_check_identifier_presence_and_update_mux_table_entry_status_false(self):
+
+        asic_index = 0
+        logical_port_name = "Ethernet0"
+        status = False
+        fvs = [('state', "manual")]
+        state_db = {}
+        test_db = "TEST_DB"
+        y_cable_tbl = {}
+        static_tbl = {}
+        mux_tbl = {}
+        port_tbl = {}
+        y_cable_presence = True
+
+        y_cable_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], swsscommon.STATE_HW_MUX_CABLE_TABLE_NAME)
+        static_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], MUX_CABLE_STATIC_INFO_TABLE)
+        mux_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], MUX_CABLE_INFO_TABLE)
+        port_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], "PORT_INFO_TABLE")
+        port_tbl[asic_index].get.return_value = (status, fvs)
+
+        rc = check_identifier_presence_and_update_mux_table_entry(
+            state_db, port_tbl, y_cable_tbl, static_tbl, mux_tbl, asic_index, logical_port_name, y_cable_presence)
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_check_identifier_presence_and_update_mux_table_entry_state_absent(self):
+
+        asic_index = 0
+        logical_port_name = "Ethernet0"
+        status = True
+        fvs = [('badstate', "auto")]
+        state_db = {}
+        test_db = "TEST_DB"
+        y_cable_tbl = {}
+        static_tbl = {}
+        mux_tbl = {}
+        port_tbl = {}
+        y_cable_presence = True
+
+        y_cable_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], swsscommon.STATE_HW_MUX_CABLE_TABLE_NAME)
+        static_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], MUX_CABLE_STATIC_INFO_TABLE)
+        mux_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], MUX_CABLE_INFO_TABLE)
+        port_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], "PORT_INFO_TABLE")
+        port_tbl[asic_index].get.return_value = (status, fvs)
+
+        rc = check_identifier_presence_and_update_mux_table_entry(
+            state_db, port_tbl, y_cable_tbl, static_tbl, mux_tbl, asic_index, logical_port_name, y_cable_presence)
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_check_identifier_presence_and_update_mux_table_entry_bad_state_value(self):
+
+        asic_index = 0
+        logical_port_name = "Ethernet0"
+        status = True
+        fvs = [('state', "badvalue")]
+        state_db = {}
+        test_db = "TEST_DB"
+        y_cable_tbl = {}
+        static_tbl = {}
+        mux_tbl = {}
+        port_tbl = {}
+        y_cable_presence = True
+
+        y_cable_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], swsscommon.STATE_HW_MUX_CABLE_TABLE_NAME)
+        static_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], MUX_CABLE_STATIC_INFO_TABLE)
+        mux_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], MUX_CABLE_INFO_TABLE)
+        port_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], "PORT_INFO_TABLE")
+        port_tbl[asic_index].get.return_value = (status, fvs)
+
+        rc = check_identifier_presence_and_update_mux_table_entry(
+            state_db, port_tbl, y_cable_tbl, static_tbl, mux_tbl, asic_index, logical_port_name, y_cable_presence)
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=False))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_check_identifier_presence_and_update_mux_table_entry_no_presence(self):
+
+        asic_index = 0
+        logical_port_name = "Ethernet0"
+        status = True
+        fvs = [('state', "auto"), ('read_side', 1)]
+        state_db = {}
+        test_db = "TEST_DB"
+        y_cable_tbl = {}
+        static_tbl = {}
+        mux_tbl = {}
+        port_tbl = {}
+        y_cable_presence = True
+
+        y_cable_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], swsscommon.STATE_HW_MUX_CABLE_TABLE_NAME)
+        static_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], MUX_CABLE_STATIC_INFO_TABLE)
+        mux_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], MUX_CABLE_INFO_TABLE)
+        port_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], "PORT_INFO_TABLE")
+        port_tbl[asic_index].get.return_value = (status, fvs)
+
+        rc = check_identifier_presence_and_update_mux_table_entry(
+            state_db, port_tbl, y_cable_tbl, static_tbl, mux_tbl, asic_index, logical_port_name, y_cable_presence)
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_check_identifier_presence_and_update_mux_table_entry_no_port_info(self):
+
+        asic_index = 0
+        logical_port_name = "Ethernet0"
+        status = True
+        fvs = [('state', "auto"), ('read_side', 1)]
+        state_db = {}
+        test_db = "TEST_DB"
+        y_cable_tbl = {}
+        static_tbl = {}
+        mux_tbl = {}
+        port_tbl = {}
+        y_cable_presence = True
+
+        y_cable_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], swsscommon.STATE_HW_MUX_CABLE_TABLE_NAME)
+        static_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], MUX_CABLE_STATIC_INFO_TABLE)
+        mux_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], MUX_CABLE_INFO_TABLE)
+        port_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], "PORT_INFO_TABLE")
+        port_tbl[asic_index].get.return_value = (status, fvs)
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+            patched_util.get_transceiver_info_dict.return_value = None
+
+            rc = check_identifier_presence_and_update_mux_table_entry(
+                state_db, port_tbl, y_cable_tbl, static_tbl, mux_tbl, asic_index, logical_port_name, y_cable_presence)
+            assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0, 1, 2]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_check_identifier_presence_and_update_mux_table_entry_multiple_port_instances(self):
+
+        asic_index = 0
+        logical_port_name = "Ethernet0"
+        status = True
+        fvs = [('state', "auto"), ('read_side', 1)]
+        state_db = {}
+        test_db = "TEST_DB"
+        y_cable_tbl = {}
+        static_tbl = {}
+        mux_tbl = {}
+        port_tbl = {}
+        y_cable_presence = True
+
+        y_cable_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], swsscommon.STATE_HW_MUX_CABLE_TABLE_NAME)
+        static_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], MUX_CABLE_STATIC_INFO_TABLE)
+        mux_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], MUX_CABLE_INFO_TABLE)
+        port_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], "PORT_INFO_TABLE")
+        port_tbl[asic_index].get.return_value = (status, fvs)
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+            patched_util.get_transceiver_info_dict.return_value = {'manufacturer': 'Microsoft', 'model': 'simulated'}
+
+            rc = check_identifier_presence_and_update_mux_table_entry(
+                state_db, port_tbl, y_cable_tbl, static_tbl, mux_tbl, asic_index, logical_port_name, y_cable_presence)
+            assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_check_identifier_presence_and_update_mux_table_entry_no_vendor_port_info(self):
+
+        asic_index = 0
+        logical_port_name = "Ethernet0"
+        status = True
+        fvs = [('state', "auto"), ('read_side', 1)]
+        state_db = {}
+        test_db = "TEST_DB"
+        y_cable_tbl = {}
+        static_tbl = {}
+        mux_tbl = {}
+        port_tbl = {}
+        y_cable_presence = True
+
+        y_cable_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], swsscommon.STATE_HW_MUX_CABLE_TABLE_NAME)
+        static_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], MUX_CABLE_STATIC_INFO_TABLE)
+        mux_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], MUX_CABLE_INFO_TABLE)
+        port_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], "PORT_INFO_TABLE")
+        port_tbl[asic_index].get.return_value = (status, fvs)
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+            patched_util.get_transceiver_info_dict.return_value = {
+                'bad_manufacturer': 'Microsoft', 'model': 'simulated'}
+
+            rc = check_identifier_presence_and_update_mux_table_entry(
+                state_db, port_tbl, y_cable_tbl, static_tbl, mux_tbl, asic_index, logical_port_name, y_cable_presence)
+            assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_check_identifier_presence_and_update_mux_table_entry_no_model_port_info(self):
+
+        asic_index = 0
+        logical_port_name = "Ethernet0"
+        status = True
+        fvs = [('state', "auto"), ('read_side', 1)]
+        state_db = {}
+        test_db = "TEST_DB"
+        y_cable_tbl = {}
+        static_tbl = {}
+        mux_tbl = {}
+        port_tbl = {}
+        y_cable_presence = True
+
+        y_cable_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], swsscommon.STATE_HW_MUX_CABLE_TABLE_NAME)
+        static_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], MUX_CABLE_STATIC_INFO_TABLE)
+        mux_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], MUX_CABLE_INFO_TABLE)
+        port_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], "PORT_INFO_TABLE")
+        port_tbl[asic_index].get.return_value = (status, fvs)
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+            patched_util.get_transceiver_info_dict.return_value = {
+                'manufacturer': 'Microsoft', 'bad_model': 'simulated'}
+
+            rc = check_identifier_presence_and_update_mux_table_entry(
+                state_db, port_tbl, y_cable_tbl, static_tbl, mux_tbl, asic_index, logical_port_name, y_cable_presence)
+            assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_check_identifier_presence_and_update_mux_table_entry_invalid_vendor_port_info(self):
+
+        asic_index = 0
+        logical_port_name = "Ethernet0"
+        status = True
+        fvs = [('state', "auto"), ('read_side', 1)]
+        state_db = {}
+        test_db = "TEST_DB"
+        y_cable_tbl = {}
+        static_tbl = {}
+        mux_tbl = {}
+        port_tbl = {}
+        y_cable_presence = True
+
+        y_cable_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], swsscommon.STATE_HW_MUX_CABLE_TABLE_NAME)
+        static_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], MUX_CABLE_STATIC_INFO_TABLE)
+        mux_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], MUX_CABLE_INFO_TABLE)
+        port_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], "PORT_INFO_TABLE")
+        port_tbl[asic_index].get.return_value = (status, fvs)
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+            patched_util.get_transceiver_info_dict.return_value = {
+                'manufacturer': 'not_Microsoft', 'model': 'simulated'}
+
+            rc = check_identifier_presence_and_update_mux_table_entry(
+                state_db, port_tbl, y_cable_tbl, static_tbl, mux_tbl, asic_index, logical_port_name,  y_cable_presence)
+            assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_check_identifier_presence_and_update_mux_table_entry_invalid_model_port_info(self):
+
+        asic_index = 0
+        logical_port_name = "Ethernet0"
+        status = True
+        fvs = [('state', "auto"), ('read_side', 1)]
+        
+        state_db = {}
+        test_db = "TEST_DB"
+        y_cable_tbl = {}
+        static_tbl = {}
+        mux_tbl = {}
+        port_tbl = {}
+        y_cable_presence = True
+
+        y_cable_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], swsscommon.STATE_HW_MUX_CABLE_TABLE_NAME)
+        static_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], MUX_CABLE_STATIC_INFO_TABLE)
+        mux_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], MUX_CABLE_INFO_TABLE)
+        port_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], "PORT_INFO_TABLE")
+        port_tbl[asic_index].get.return_value = (status, fvs)
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+            patched_util.get_transceiver_info_dict.return_value = {'manufacturer': 'Microsoft', 'model': 'bad_model1'}
+
+            rc = check_identifier_presence_and_update_mux_table_entry(
+                state_db, port_tbl, y_cable_tbl, static_tbl, mux_tbl, asic_index, logical_port_name,  y_cable_presence)
+            assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_check_identifier_presence_and_update_mux_table_entry_module_dir_none(self):
+
+        asic_index = 0
+        logical_port_name = "Ethernet0"
+        status = True
+        fvs = [('state', "auto"), ('read_side', 1)]
+        
+        state_db = {}
+        test_db = "TEST_DB"
+        y_cable_tbl = {}
+        static_tbl = {}
+        mux_tbl = {}
+        port_tbl = {}
+        y_cable_presence = True
+
+        y_cable_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], swsscommon.STATE_HW_MUX_CABLE_TABLE_NAME)
+        static_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], MUX_CABLE_STATIC_INFO_TABLE)
+        mux_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], MUX_CABLE_INFO_TABLE)
+        port_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], "PORT_INFO_TABLE")
+        port_tbl[asic_index].get.return_value = (status, fvs)
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+            patched_util.get_transceiver_info_dict.return_value = {
+                'manufacturer': 'not_Microsoft', 'model': 'simulated'}
+
+            with patch('sonic_y_cable.y_cable_vendor_mapping.mapping') as mock_mapping:
+                mock_mapping.get.return_value = None
+
+                rc = check_identifier_presence_and_update_mux_table_entry(
+                    state_db, port_tbl, y_cable_tbl, static_tbl, mux_tbl, asic_index, logical_port_name,  y_cable_presence)
+                assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    @patch('sonic_y_cable.y_cable_vendor_mapping.mapping.get', MagicMock(return_value={"Microsoft": {"module": "test_module"}}))
+    def test_check_identifier_presence_and_update_mux_table_entry_module_none(self):
+
+        asic_index = 0
+        logical_port_name = "Ethernet0"
+        status = True
+        fvs = [('state', "auto"), ('read_side', 1)]
+        
+        state_db = {}
+        test_db = "TEST_DB"
+        y_cable_tbl = {}
+        static_tbl = {}
+        mux_tbl = {}
+        port_tbl = {}
+        y_cable_presence = True
+
+        y_cable_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], swsscommon.STATE_HW_MUX_CABLE_TABLE_NAME)
+        static_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], MUX_CABLE_STATIC_INFO_TABLE)
+        mux_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], MUX_CABLE_INFO_TABLE)
+        port_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], "PORT_INFO_TABLE")
+        port_tbl[asic_index].get.return_value = (status, fvs)
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+            patched_util.get_transceiver_info_dict.return_value = {'manufacturer': 'not_Microsoft', 'model': 'model1'}
+
+            rc = check_identifier_presence_and_update_mux_table_entry(
+                state_db, port_tbl, y_cable_tbl, static_tbl, mux_tbl, asic_index, logical_port_name,  y_cable_presence)
+            assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    @patch('sonic_y_cable.y_cable_vendor_mapping.mapping.get', MagicMock(return_value={"simulated": "microsoft.y_cable_simulated"}))
+    def test_check_identifier_presence_and_update_mux_table_entry_module_microsoft(self):
+
+        asic_index = 0
+        logical_port_name = "Ethernet0"
+        status = True
+        fvs = [('state', "auto"), ('read_side', 1)]
+        
+        state_db = {}
+        test_db = "TEST_DB"
+        y_cable_tbl = {}
+        static_tbl = {}
+        mux_tbl = {}
+        port_tbl = {}
+        y_cable_presence = [True]
+
+        y_cable_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], swsscommon.STATE_HW_MUX_CABLE_TABLE_NAME)
+        static_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], MUX_CABLE_STATIC_INFO_TABLE)
+        mux_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], MUX_CABLE_INFO_TABLE)
+        port_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], "PORT_INFO_TABLE")
+        port_tbl[asic_index].get.return_value = (status, fvs)
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+            patched_util.get_transceiver_info_dict.return_value = {'manufacturer': 'microsoft', 'model': 'simulated'}
+
+            sys.modules['builtins.getattr'] = MagicMock()
+            rc = check_identifier_presence_and_update_mux_table_entry(
+                state_db, port_tbl, y_cable_tbl, static_tbl, mux_tbl, asic_index, logical_port_name,  y_cable_presence)
+            assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    @patch('sonic_y_cable.y_cable_vendor_mapping.mapping.get', MagicMock(return_value={"simulated": "microsoft.y_cable_simulated"}))
+    def test_check_identifier_presence_and_update_mux_table_entry_module_microsoft_y_cable_presence_false(self):
+
+        asic_index = 0
+        logical_port_name = "Ethernet0"
+        status = True
+        fvs = [('state', "auto"), ('read_side', 1)]
+        
+        state_db = {}
+        test_db = "TEST_DB"
+        y_cable_tbl = {}
+        static_tbl = {}
+        mux_tbl = {}
+        port_tbl = {}
+        y_cable_presence = [False]
+
+        port_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], "PORT_INFO_TABLE")
+        port_tbl[asic_index].get.return_value = (status, fvs)
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+            patched_util.get_transceiver_info_dict.return_value = {'manufacturer': 'microsoft', 'model': 'simulated'}
+
+            sys.modules['builtins.getattr'] = MagicMock()
+            rc = check_identifier_presence_and_update_mux_table_entry(
+                state_db, port_tbl, y_cable_tbl, static_tbl, mux_tbl, asic_index, logical_port_name,  y_cable_presence)
+            assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_check_identifier_presence_and_delete_mux_table_entry(self):
+
+        asic_index = 0
+        logical_port_name = "Ethernet0"
+        status = True
+        fvs = [('state', "auto"), ('read_side', 1)]
+        
+        state_db = {}
+        test_db = "TEST_DB"
+        y_cable_tbl = {}
+        static_tbl = {}
+        mux_tbl = {}
+        port_tbl = {}
+        y_cable_presence = [True]
+        delete_change_event = [True]
+
+        port_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], "PORT_INFO_TABLE")
+        port_tbl[asic_index].get.return_value = (status, fvs)
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as port_instance:
+            rc = check_identifier_presence_and_delete_mux_table_entry(
+                state_db, port_tbl, asic_index, logical_port_name, y_cable_presence,  delete_change_event)
+            assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_chassis')
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil')
+    @patch('swsscommon.swsscommon.Table')
+    def test_init_ports_status_for_y_cable(self, platform_chassis, platform_sfp, mock_swsscommon_table):
+
+        platform_sfp = MagicMock()
+        platform_chassis = MagicMock()
+
+        mock_logical_port_name = [""]
+
+        def mock_get_asic_id(mock_logical_port_name):
+            return 0
+
+        
+
+        y_cable_presence = [True]
+
+        mock_table = MagicMock()
+        mock_table.getKeys = MagicMock(return_value=['Ethernet0', 'Ethernet4'])
+        mock_swsscommon_table.return_value = mock_table
+
+        rc = init_ports_status_for_y_cable(platform_sfp, platform_chassis,
+                                           y_cable_presence,  stop_event=threading.Event())
+
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    @patch('swsscommon.swsscommon.Table')
+    def test_change_ports_status_for_y_cable_change_event(self, mock_swsscommon_table):
+
+        mock_logical_port_name = [""]
+
+        def mock_get_asic_id(mock_logical_port_name):
+            return 0
+
+        
+
+        y_cable_presence = [True]
+        logical_port_dict = {'Ethernet0': '1'}
+
+        mock_table = MagicMock()
+        mock_table.getKeys = MagicMock(return_value=['Ethernet0', 'Ethernet4'])
+        mock_table.get = MagicMock(side_effect=[(True, (('index', 1), )), (True, (('index', 2), ))])
+        mock_swsscommon_table.return_value = mock_table
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+
+            patched_util.get_asic_id_for_logical_port.return_value = 0
+
+            change_ports_status_for_y_cable_change_event(
+                logical_port_dict,  y_cable_presence, stop_event=threading.Event())
+
+            mock_swsscommon_table.assert_called()
+
+        @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+        @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+        @patch('swsscommon.swsscommon.Table')
+        def test_change_ports_status_for_y_cable_change_event_sfp_removed(self, mock_swsscommon_table):
+
+            mock_logical_port_name = [""]
+
+            def mock_get_asic_id(mock_logical_port_name):
+                return 0
+
+            
+
+        y_cable_presence = [True]
+        logical_port_dict = {'Ethernet0': '1'}
+
+        mock_table = MagicMock()
+        mock_table.getKeys = MagicMock(return_value=['Ethernet0', 'Ethernet4'])
+        mock_table.get = MagicMock(side_effect=[(True, (('index', 1), )), (True, (('index', 2), ))])
+        mock_swsscommon_table.return_value = mock_table
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+
+            patched_util.get_asic_id_for_logical_port.return_value = 0
+            change_ports_status_for_y_cable_change_event(
+                logical_port_dict,  y_cable_presence, stop_event=threading.Event())
+
+            mock_swsscommon_table.assert_called()
+
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    @patch('swsscommon.swsscommon.Table')
+    def test_change_ports_status_for_y_cable_change_event_sfp_unknown(self, mock_swsscommon_table):
+
+        mock_logical_port_name = [""]
+
+        def mock_get_asic_id(mock_logical_port_name):
+            return 0
+
+        
+
+        y_cable_presence = [True]
+        logical_port_dict = {'Ethernet0': '2'}
+
+        mock_table = MagicMock()
+        mock_table.getKeys = MagicMock(return_value=['Ethernet0', 'Ethernet4'])
+        mock_table.get = MagicMock(side_effect=[(True, (('index', 1), )), (True, (('index', 2), ))])
+        mock_swsscommon_table.return_value = mock_table
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+
+            patched_util.get_asic_id_for_logical_port.return_value = 0
+            change_ports_status_for_y_cable_change_event(
+                logical_port_dict,  y_cable_presence, stop_event=threading.Event())
+
+            mock_swsscommon_table.assert_called()
+
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    def test_delete_ports_status_for_y_cable(self, mock_swsscommon_table):
+
+        mock_table = MagicMock()
+        mock_table.getKeys = MagicMock(return_value=['Ethernet0', 'Ethernet4'])
+        mock_table.get = MagicMock(side_effect=[(True, (('index', 1), )), (True, (('index', 2), ))])
+        mock_swsscommon_table.return_value = mock_table
+
+        mock_logical_port_name = [""]
+
+        def mock_get_asic_id(mock_logical_port_name):
+            return 0
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+
+            patched_util.logical.return_value = ['Ethernet0', 'Ethernet4']
+            patched_util.get_asic_id_for_logical_port.return_value = 0
+        
+
+            rc = delete_ports_status_for_y_cable()
+
+            mock_swsscommon_table.assert_called()
+
+    def test_check_identifier_presence_and_update_mux_info_entry(self):
+        asic_index = 0
+        logical_port_name = "Ethernet0"
+        
+        state_db = {}
+        test_db = "TEST_DB"
+        mux_tbl = {}
+
+        mux_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], MUX_CABLE_INFO_TABLE)
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+
+            patched_util.logical.return_value = ['Ethernet0', 'Ethernet4']
+            rc = check_identifier_presence_and_update_mux_info_entry(
+                state_db, mux_tbl, asic_index, logical_port_name)
+            assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    def test_get_firmware_dict(self, port_instance):
+
+        port_instance = MagicMock()
+        port_instance.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
+        port_instance.download_firmware_status = 1
+
+        physical_port = 1
+        target = "simulated_target"
+        side = "a"
+        mux_info_dict = {}
+        logical_port_name = "Ethernet0"
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+
+            patched_util.get_asic_id_for_logical_port.return_value = 0
+
+            status = True
+            fvs = [('state', "auto"), ('read_side', 1)]
+            Table = MagicMock()
+            Table.get.return_value = (status, fvs)
+
+            rc = get_firmware_dict(physical_port, port_instance, target, side, mux_info_dict, logical_port_name)
+
+            assert(mux_info_dict['version_a_active'] == None)
+            assert(mux_info_dict['version_a_inactive'] == None)
+            assert(mux_info_dict['version_a_next'] == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    def test_get_firmware_dict_asic_error(self, port_instance):
+
+        port_instance = MagicMock()
+        port_instance.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
+        port_instance.download_firmware_status = 1
+
+        physical_port = 1
+        target = "simulated_target"
+        side = "a"
+        mux_info_dict = {}
+        logical_port_name = "Ethernet0"
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+
+            patched_util.get_asic_id_for_logical_port.return_value = 0
+
+            status = True
+            fvs = [('state', "auto"), ('read_side', 1)]
+            Table = MagicMock()
+            Table.get.return_value = (status, fvs)
+            swsscommon.Table.return_value.get.return_value = (False, {"read_side": "2"})
+
+            rc = get_firmware_dict(physical_port, port_instance, target, side, mux_info_dict, logical_port_name)
+
+            assert(mux_info_dict['version_a_active'] == "N/A")
+            assert(mux_info_dict['version_a_inactive'] == "N/A")
+            assert(mux_info_dict['version_a_next'] == "N/A")
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    def test_get_firmware_dict_download_status_failed_exception(self, port_instance):
+
+        port_instance = MagicMock()
+        port_instance.FIRMWARE_DOWNLOAD_STATUS_FAILED = -1
+        port_instance.download_firmware_status = -1
+        port_instance.get_firmware_version = MagicMock(side_effect=NotImplementedError)
+
+        physical_port = 1
+        target = "simulated_target"
+        side = "a"
+        mux_info_dict = {}
+        logical_port_name = "Ethernet0"
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+
+            patched_util.get_asic_id_for_logical_port.return_value = 0
+
+            status = True
+            fvs = [('state', "auto"), ('read_side', 1)]
+            Table = MagicMock()
+            Table.get.return_value = (status, fvs)
+
+            rc = get_firmware_dict(physical_port, port_instance, target, side, mux_info_dict, logical_port_name)
+
+            assert(mux_info_dict['version_a_active'] == "N/A")
+            assert(mux_info_dict['version_a_inactive'] == "N/A")
+            assert(mux_info_dict['version_a_next'] == "N/A")
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    def test_get_firmware_dict_download_status_failed(self, port_instance):
+
+        port_instance = MagicMock()
+        port_instance.FIRMWARE_DOWNLOAD_STATUS_FAILED = -1
+        port_instance.download_firmware_status = -1
+        port_instance.get_firmware_version = MagicMock(
+            return_value={"version_active": "2021", "version_inactive": "2020", "version_next": "2022"})
+
+        physical_port = 1
+        target = "simulated_target"
+        side = "a"
+        mux_info_dict = {}
+        logical_port_name = "Ethernet0"
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+
+            patched_util.get_asic_id_for_logical_port.return_value = 0
+
+            status = True
+            fvs = [('state', "auto"), ('read_side', 1)]
+            Table = MagicMock()
+            Table.get.return_value = (status, fvs)
+
+            rc = get_firmware_dict(physical_port, port_instance, target, side, mux_info_dict, logical_port_name)
+
+            assert(mux_info_dict['version_a_active'] == "2021")
+            assert(mux_info_dict['version_a_inactive'] == "2020")
+            assert(mux_info_dict['version_a_next'] == "2022")
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil')
+    def test_get_muxcable_info(self, platform_sfputil):
+        physical_port = 20
+        
+        logical_port_name = "Ethernet20"
+        swsscommon.Table.return_value.get.return_value = (True, {"read_side": "1"})
+        platform_sfputil.get_asic_id_for_logical_port = 0
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+
+            class PortInstanceHelper():
+                def __init__(self):
+                    self.EEPROM_ERROR = -1
+                    self.TARGET_NIC = 1
+                    self.TARGET_TOR_A = 1
+                    self.TARGET_TOR_B = 1
+                    self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
+                    self.FIRMWARE_DOWNLOAD_STATUS_FAILED = 2
+                    self.download_firmware_status = 0
+                    self.SWITCH_COUNT_MANUAL = "manual"
+                    self.SWITCH_COUNT_AUTO = "auto"
+
+                def get_active_linked_tor_side(self):
+                    return 1
+
+                def get_mux_direction(self):
+                    return 1
+
+                def get_switch_count_total(self, switch_count):
+                    return 1
+
+                def get_eye_heights(self, tgt_tor):
+                    return 500
+
+                def is_link_active(self, tgt_nic):
+                    return True
+
+                def get_local_temperature(self):
+                    return 22.75
+
+                def get_local_voltage(self):
+                    return 0.5
+
+                def get_nic_voltage(self):
+                    return 2.7
+
+                def get_nic_temperature(self):
+                    return 20
+
+            patched_util.get.return_value = PortInstanceHelper()
+
+            with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+                patched_util.get_asic_id_for_logical_port.return_value = 0
+
+                rc = get_muxcable_info(physical_port, logical_port_name)
+
+                assert(rc['tor_active'] == 'active')
+                assert(rc['mux_direction'] == 'self')
+                assert(rc['internal_voltage'] == 0.5)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil')
+    def test_get_muxcable_info_peer_side(self, platform_sfputil):
+        physical_port = 20
+        
+        logical_port_name = "Ethernet20"
+        platform_sfputil.get_asic_id_for_logical_port = 0
+        swsscommon.Table.return_value.get.return_value = (True, {"read_side": "2"})
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+
+            class PortInstanceHelper():
+                def __init__(self):
+                    self.EEPROM_ERROR = -1
+                    self.TARGET_NIC = 1
+                    self.TARGET_TOR_A = 1
+                    self.TARGET_TOR_B = 1
+                    self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
+                    self.FIRMWARE_DOWNLOAD_STATUS_FAILED = 2
+                    self.download_firmware_status = 0
+                    self.SWITCH_COUNT_MANUAL = "manual"
+                    self.SWITCH_COUNT_AUTO = "auto"
+
+                def get_active_linked_tor_side(self):
+                    return 1
+
+                def get_mux_direction(self):
+                    return 1
+
+                def get_switch_count_total(self, switch_count):
+                    return 1
+
+                def get_eye_heights(self, tgt_tor):
+                    return 500
+
+                def is_link_active(self, tgt_nic):
+                    return True
+
+                def get_local_temperature(self):
+                    return 22.75
+
+                def get_local_voltage(self):
+                    return 0.5
+
+                def get_nic_voltage(self):
+                    return 2.7
+
+                def get_nic_temperature(self):
+                    return 20
+
+            patched_util.get.return_value = PortInstanceHelper()
+
+            with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+                patched_util.get_asic_id_for_logical_port.return_value = 0
+
+                rc = get_muxcable_info(physical_port, logical_port_name)
+
+                assert(rc['tor_active'] == 'standby')
+                assert(rc['mux_direction'] == 'peer')
+                assert(rc['internal_voltage'] == 0.5)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil')
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_get_muxcable_info_exceptions(self, platform_sfputil):
+        physical_port = 20
+        
+        logical_port_name = "Ethernet20"
+        platform_sfputil.get_asic_id_for_logical_port = 0
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+
+            class PortInstanceHelper():
+                def __init__(self):
+                    self.EEPROM_ERROR = -1
+                    self.TARGET_NIC = 1
+                    self.TARGET_TOR_A = 1
+                    self.TARGET_TOR_B = 1
+                    self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
+                    self.FIRMWARE_DOWNLOAD_STATUS_FAILED = 2
+                    self.download_firmware_status = 0
+                    self.SWITCH_COUNT_MANUAL = "manual"
+                    self.SWITCH_COUNT_AUTO = "auto"
+
+                def get_active_linked_tor_side():
+                    return 1
+
+                def get_mux_direction():
+                    return 1
+
+                def get_switch_count_total(self, switch_count):
+                    return 1
+
+                def get_eye_heights(tgt_tor):
+                    return 500
+
+                def is_link_active(self, tgt_nic):
+                    return True
+
+                def get_local_temperature():
+                    return 22.75
+
+                def get_local_voltage():
+                    return 0.5
+
+                def get_nic_voltage():
+                    return 2.7
+
+                def get_nic_temperature():
+                    return 20
+
+            patched_util.get.return_value = PortInstanceHelper()
+
+            with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+                patched_util.get_asic_id_for_logical_port.return_value = 0
+
+                rc = get_muxcable_info(physical_port, logical_port_name)
+
+                assert(rc['tor_active'] == 'unknown')
+                assert(rc['mux_direction'] == 'unknown')
+                assert(rc['self_eye_height_lane1'] == 'N/A')
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil')
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_get_muxcable_info_true_exceptions_peer_side(self, platform_sfputil):
+        physical_port = 20
+        
+        logical_port_name = "Ethernet20"
+        platform_sfputil.get_asic_id_for_logical_port = 0
+        swsscommon.Table.return_value.get.return_value = (True, {"read_side": "2"})
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+
+            class PortInstanceHelper():
+                def __init__(self):
+                    self.EEPROM_ERROR = -1
+                    self.TARGET_NIC = 1
+                    self.TARGET_TOR_A = 1
+                    self.TARGET_TOR_B = 1
+                    self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
+                    self.FIRMWARE_DOWNLOAD_STATUS_FAILED = 2
+                    self.download_firmware_status = 0
+                    self.SWITCH_COUNT_MANUAL = "manual"
+                    self.SWITCH_COUNT_AUTO = "auto"
+
+                def get_active_linked_tor_side(self):
+                    raise NotImplementedError
+
+                def get_mux_direction(self):
+                    raise NotImplementedError
+
+                def get_switch_count_total(self, switch_count):
+                    raise NotImplementedError
+
+                def get_eye_heights(self, tgt_tor):
+                    raise NotImplementedError
+
+                def is_link_active(self, tgt_nic):
+                    return False
+
+                def get_local_temperature(self):
+                    raise NotImplementedError
+
+                def get_local_voltage(self):
+                    raise NotImplementedError
+
+                def get_nic_voltage(self):
+                    raise NotImplementedError
+
+                def get_nic_temperature(self):
+                    raise NotImplementedError
+
+            patched_util.get.return_value = PortInstanceHelper()
+
+            with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+                patched_util.get_asic_id_for_logical_port.return_value = 0
+
+                rc = get_muxcable_info(physical_port, logical_port_name)
+
+                assert(rc['tor_active'] == 'unknown')
+                assert(rc['mux_direction'] == 'unknown')
+                assert(rc['self_eye_height_lane1'] == 'N/A')
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil')
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_get_muxcable_info_true_exceptions(self, platform_sfputil):
+        physical_port = 20
+        
+        logical_port_name = "Ethernet20"
+        platform_sfputil.get_asic_id_for_logical_port = 0
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+
+            class PortInstanceHelper():
+                def __init__(self):
+                    self.EEPROM_ERROR = -1
+                    self.TARGET_NIC = 1
+                    self.TARGET_TOR_A = 1
+                    self.TARGET_TOR_B = 1
+                    self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
+                    self.FIRMWARE_DOWNLOAD_STATUS_FAILED = 2
+                    self.download_firmware_status = 0
+                    self.SWITCH_COUNT_MANUAL = "manual"
+                    self.SWITCH_COUNT_AUTO = "auto"
+
+                def get_active_linked_tor_side(self):
+                    raise NotImplementedError
+
+                def get_mux_direction(self):
+                    raise NotImplementedError
+
+                def get_switch_count_total(self, switch_count):
+                    raise NotImplementedError
+
+                def get_eye_heights(self, tgt_tor):
+                    raise NotImplementedError
+
+                def is_link_active(self, tgt_nic):
+                    return False
+
+                def get_local_temperature(self):
+                    raise NotImplementedError
+
+                def get_local_voltage(self):
+                    raise NotImplementedError
+
+                def get_nic_voltage(self):
+                    raise NotImplementedError
+
+                def get_nic_temperature(self):
+                    raise NotImplementedError
+
+            patched_util.get.return_value = PortInstanceHelper()
+
+            with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+                patched_util.get_asic_id_for_logical_port.return_value = 0
+
+                rc = get_muxcable_info(physical_port, logical_port_name)
+
+                assert(rc['tor_active'] == 'unknown')
+                assert(rc['mux_direction'] == 'unknown')
+                assert(rc['self_eye_height_lane1'] == 'N/A')
+
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil')
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_get_muxcable_info_exceptions_peer_side(self, platform_sfputil):
+        physical_port = 20
+        
+        logical_port_name = "Ethernet20"
+        platform_sfputil.get_asic_id_for_logical_port = 0
+        swsscommon.Table.return_value.get.return_value = (True, {"read_side": "2"})
+
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+
+            class PortInstanceHelper():
+                def __init__(self):
+                    self.EEPROM_ERROR = -1
+                    self.TARGET_NIC = 1
+                    self.TARGET_TOR_A = 1
+                    self.TARGET_TOR_B = 1
+                    self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
+                    self.FIRMWARE_DOWNLOAD_STATUS_FAILED = 2
+                    self.download_firmware_status = 0
+                    self.SWITCH_COUNT_MANUAL = "manual"
+                    self.SWITCH_COUNT_AUTO = "auto"
+
+                def get_active_linked_tor_side():
+                    return 1
+
+                def get_mux_direction():
+                    return 1
+
+                def get_switch_count_total(self, switch_count):
+                    return 1
+
+                def get_eye_heights(tgt_tor):
+                    return 500
+
+                def is_link_active(self, tgt_nic):
+                    return True
+
+                def get_local_temperature():
+                    return 22.75
+
+                def get_local_voltage():
+                    return 0.5
+
+                def get_nic_voltage():
+                    return 2.7
+
+                def get_nic_temperature():
+                    return 20
+
+            patched_util.get.return_value = PortInstanceHelper()
+
+            with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+                patched_util.get_asic_id_for_logical_port.return_value = 0
+
+                rc = get_muxcable_info(physical_port, logical_port_name)
+
+                assert(rc['tor_active'] == 'unknown')
+                assert(rc['mux_direction'] == 'unknown')
+                assert(rc['self_eye_height_lane1'] == 'N/A')
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil')
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_get_muxcable_static_info(self, platform_sfputil):
+        physical_port = 0
+        
+        logical_port_name = "Ethernet0"
+
+        platform_sfputil.get_asic_id_for_logical_port = 0
+        swsscommon.Table.return_value.get.return_value = (True, {"read_side": "1"})
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+            class PortInstanceHelper():
+                def __init__(self):
+                    self.EEPROM_ERROR = -1
+                    self.TARGET_NIC = 0
+                    self.TARGET_TOR_A = 1
+                    self.TARGET_TOR_B = 2
+                    self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
+                    self.download_firmware_status = 1
+                    self.SWITCH_COUNT_MANUAL = "manual"
+                    self.SWITCH_COUNT_AUTO = "auto"
+
+                def get_target_cursor_values(self, i, tgt):
+                    if (tgt == self.TARGET_NIC):
+                        return ([1, 7, 7, 1, 0])
+                    elif (tgt == self.TARGET_TOR_A):
+                        return ([17, 17, 17, 17, 17])
+                    elif (tgt == self.TARGET_TOR_B):
+                        return ([-17, -17, -17, -17, -17])
+
+            patched_util.get.return_value = PortInstanceHelper()
+
+            with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+                patched_util.get_asic_id_for_logical_port.return_value = 0
+                rc = get_muxcable_static_info(physical_port, logical_port_name)
+
+                assert (rc['read_side'] == 'tor1')
+                assert (rc['nic_lane1_precursor1'] == 1)
+                assert (rc['nic_lane1_precursor2'] == 7)
+                assert (rc['nic_lane1_maincursor'] == 7)
+                assert (rc['nic_lane1_postcursor1'] == 1)
+                assert (rc['nic_lane1_postcursor2'] == 0)
+
+                assert (rc['nic_lane2_precursor1'] == 1)
+                assert (rc['nic_lane2_precursor2'] == 7)
+                assert (rc['nic_lane2_maincursor'] == 7)
+                assert (rc['nic_lane2_postcursor1'] == 1)
+                assert (rc['nic_lane2_postcursor2'] == 0)
+
+                assert (rc['tor_self_lane1_precursor1'] == 17)
+                assert (rc['tor_self_lane1_precursor2'] == 17)
+                assert (rc['tor_self_lane1_maincursor'] == 17)
+                assert (rc['tor_self_lane1_postcursor1'] == 17)
+                assert (rc['tor_self_lane1_postcursor2'] == 17)
+
+                assert (rc['tor_self_lane2_precursor1'] == 17)
+                assert (rc['tor_self_lane2_precursor2'] == 17)
+                assert (rc['tor_self_lane2_maincursor'] == 17)
+                assert (rc['tor_self_lane2_postcursor1'] == 17)
+                assert (rc['tor_self_lane2_postcursor2'] == 17)
+
+                assert (rc['tor_peer_lane1_precursor1'] == -17)
+                assert (rc['tor_peer_lane1_precursor2'] == -17)
+                assert (rc['tor_peer_lane1_maincursor'] == -17)
+                assert (rc['tor_peer_lane1_postcursor1'] == -17)
+                assert (rc['tor_peer_lane1_postcursor2'] == -17)
+
+                assert (rc['tor_peer_lane2_precursor1'] == -17)
+                assert (rc['tor_peer_lane2_precursor2'] == -17)
+                assert (rc['tor_peer_lane2_maincursor'] == -17)
+                assert (rc['tor_peer_lane2_postcursor1'] == -17)
+                assert (rc['tor_peer_lane2_postcursor2'] == -17)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil')
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_get_muxcable_static_info_read_side_peer(self, platform_sfputil):
+        physical_port = 0
+        
+        logical_port_name = "Ethernet0"
+
+        #swsscommon.Table = MagicMock()
+        #this patch is already done as global instance 
+        platform_sfputil.get_asic_id_for_logical_port = 0
+        swsscommon.Table.return_value.get.return_value = (True, {"read_side": "2"})
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+            class PortInstanceHelper():
+                def __init__(self):
+                    self.EEPROM_ERROR = -1
+                    self.TARGET_NIC = 0
+                    self.TARGET_TOR_A = 1
+                    self.TARGET_TOR_B = 2
+                    self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
+                    self.download_firmware_status = 1
+                    self.SWITCH_COUNT_MANUAL = "manual"
+                    self.SWITCH_COUNT_AUTO = "auto"
+
+                def get_target_cursor_values(self, i, tgt):
+                    if (tgt == self.TARGET_NIC):
+                        return ([1, 7, 7, 1, 0])
+                    elif (tgt == self.TARGET_TOR_A):
+                        return ([-17, -17, -17, -17, -17])
+                    elif (tgt == self.TARGET_TOR_B):
+                        return ([-17, -17, -17, -17, -17])
+
+            patched_util.get.return_value = PortInstanceHelper()
+
+            with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+                patched_util.get_asic_id_for_logical_port.return_value = 0
+                rc = get_muxcable_static_info(physical_port, logical_port_name)
+
+                assert (rc['read_side'] == 'tor2')
+                assert (rc['nic_lane1_precursor1'] == 1)
+                assert (rc['nic_lane1_precursor2'] == 7)
+                assert (rc['nic_lane1_maincursor'] == 7)
+                assert (rc['nic_lane1_postcursor1'] == 1)
+                assert (rc['nic_lane1_postcursor2'] == 0)
+
+                assert (rc['nic_lane2_precursor1'] == 1)
+                assert (rc['nic_lane2_precursor2'] == 7)
+                assert (rc['nic_lane2_maincursor'] == 7)
+                assert (rc['nic_lane2_postcursor1'] == 1)
+                assert (rc['nic_lane2_postcursor2'] == 0)
+
+                assert (rc['tor_self_lane1_precursor1'] == -17)
+                assert (rc['tor_self_lane1_precursor2'] == -17)
+                assert (rc['tor_self_lane1_maincursor'] == -17)
+                assert (rc['tor_self_lane1_postcursor1'] == -17)
+                assert (rc['tor_self_lane1_postcursor2'] == -17)
+
+                assert (rc['tor_self_lane2_precursor1'] == -17)
+                assert (rc['tor_self_lane2_precursor2'] == -17)
+                assert (rc['tor_self_lane2_maincursor'] == -17)
+                assert (rc['tor_self_lane2_postcursor1'] == -17)
+                assert (rc['tor_self_lane2_postcursor2'] == -17)
+
+                assert (rc['tor_peer_lane1_precursor1'] == -17)
+                assert (rc['tor_peer_lane1_precursor2'] == -17)
+                assert (rc['tor_peer_lane1_maincursor'] == -17)
+                assert (rc['tor_peer_lane1_postcursor1'] == -17)
+                assert (rc['tor_peer_lane1_postcursor2'] == -17)
+
+                assert (rc['tor_peer_lane2_precursor1'] == -17)
+                assert (rc['tor_peer_lane2_precursor2'] == -17)
+                assert (rc['tor_peer_lane2_maincursor'] == -17)
+                assert (rc['tor_peer_lane2_postcursor1'] == -17)
+                assert (rc['tor_peer_lane2_postcursor2'] == -17)
+        
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil')
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_get_muxcable_static_info_read_side_peer_exceptions(self, platform_sfputil):
+        physical_port = 0
+        
+        logical_port_name = "Ethernet0"
+
+        #swsscommon.Table = MagicMock()
+        #this patch is already done as global instance 
+        platform_sfputil.get_asic_id_for_logical_port = 0
+        swsscommon.Table.return_value.get.return_value = (True, {"read_side": "2"})
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+            class PortInstanceHelper():
+                def __init__(self):
+                    self.EEPROM_ERROR = -1
+                    self.TARGET_NIC = 0
+                    self.TARGET_TOR_A = 1
+                    self.TARGET_TOR_B = 2
+                    self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
+                    self.download_firmware_status = 1
+                    self.SWITCH_COUNT_MANUAL = "manual"
+                    self.SWITCH_COUNT_AUTO = "auto"
+
+                def get_target_cursor_values(self, i, tgt):
+                    raise NotImplementedError
+
+            patched_util.get.return_value = PortInstanceHelper()
+
+            with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+                patched_util.get_asic_id_for_logical_port.return_value = 0
+                rc = get_muxcable_static_info(physical_port, logical_port_name)
+
+                assert (rc['read_side'] == 'tor2')
+                assert (rc['nic_lane1_precursor1'] == "N/A")
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    def test_task_download_firmware_worker(self, port_instance, mock_swsscommon_table):
+        port = "Ethernet0"
+        physical_port = 0
+        file_full_path = "/path/to/file"
+
+        def mock_download_fw(filepath):
+            return 0
+
+        port_instance.download_firmware = mock_download_fw
+
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_down_fw_rsp_tbl = mock_swsscommon_table
+        xcvrd_down_fw_cmd_sts_tbl = mock_swsscommon_table
+
+        rc = {}
+
+        task_download_firmware_worker(port, physical_port, port_instance, file_full_path,
+                                      xcvrd_down_fw_rsp_tbl, xcvrd_down_fw_cmd_sts_tbl, rc)
+
+        assert(rc[0] == 0)
+
+    def test_set_show_firmware_fields(self):
+
+        mux_info_dict = {}
+        xcvrd_show_fw_res_tbl = Table("STATE_DB", "XCVRD_SHOW_FW_RES")
+        mux_info_dict['version_self_active'] = '0.8'
+        mux_info_dict['version_self_inactive'] = '0.7'
+        mux_info_dict['version_self_next'] = '0.7'
+        mux_info_dict['version_peer_active'] = '0.8'
+        mux_info_dict['version_peer_inactive'] = '0.7'
+        mux_info_dict['version_peer_next'] = '0.7'
+        mux_info_dict['version_nic_active'] = '0.8'
+        mux_info_dict['version_nic_inactive'] = '0.7'
+        mux_info_dict['version_nic_next'] = '0.7'
+        rc = set_show_firmware_fields("Ethernet0", mux_info_dict, xcvrd_show_fw_res_tbl)
+
+        assert(rc == 0)
+
+    @patch('sonic_py_common.device_info.get_paths_to_platform_and_hwsku_dirs', MagicMock(return_value=('/tmp', None)))
+    @patch('swsscommon.swsscommon.WarmStart', MagicMock())
+    @patch('ycable.ycable.platform_sfputil', MagicMock())
+    @patch('ycable.ycable.DaemonYcable.load_platform_util', MagicMock())
+    def test_DaemonYcable_init_deinit(self):
+        ycable = DaemonYcable(SYSLOG_IDENTIFIER)
+        ycable.init()
+        ycable.deinit()
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "enable", {"mode_value":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    def test_handle_config_prbs_cmd_arg_tbl_notification_no_port(self,port_instance, mock_swsscommon_table):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_config_prbs_cmd_arg_tbl = mock_swsscommon_table
+        xcvrd_config_prbs_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_config_prbs_rsp_tbl = mock_swsscommon_table
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"config_prbs": True}
+
+        rc = handle_config_prbs_cmd_arg_tbl_notification(fvp, xcvrd_config_prbs_cmd_arg_tbl, xcvrd_config_prbs_cmd_sts_tbl, xcvrd_config_prbs_rsp_tbl, asic_index, port)
+        assert(rc == -1)
+
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "enable", {"mode_value":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    def test_handle_config_prbs_cmd_arg_tbl_notification_no_instance(self,mock_swsscommon_table):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_config_prbs_cmd_arg_tbl = mock_swsscommon_table
+        xcvrd_config_prbs_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_config_prbs_rsp_tbl = mock_swsscommon_table
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"config_prbs": True}
+
+        rc = handle_config_prbs_cmd_arg_tbl_notification(fvp, xcvrd_config_prbs_cmd_arg_tbl, xcvrd_config_prbs_cmd_sts_tbl, xcvrd_config_prbs_rsp_tbl, asic_index, port)
+        assert(rc == -1)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "enable", {"mode_value":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_config_prbs_cmd_arg_tbl_notification_with_instance_enable(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_config_prbs_cmd_arg_tbl = mock_swsscommon_table
+        xcvrd_config_prbs_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_config_prbs_rsp_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+        port_instance.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
+        port_instance.PRBS_DIRECTION_BOTH = 2
+        port_instance.enable_prbs_mode.return_value = True
+        port_instance.disable_prbs_mode.return_value = True
+        port_instance_helper = port_instance
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"config_prbs": True}
+
+        rc = handle_config_prbs_cmd_arg_tbl_notification(fvp, xcvrd_config_prbs_cmd_arg_tbl, xcvrd_config_prbs_cmd_sts_tbl, xcvrd_config_prbs_rsp_tbl, asic_index, port)
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "disable", {"mode_value":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_config_prbs_cmd_arg_tbl_notification_with_instance_disable(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_config_prbs_cmd_arg_tbl = mock_swsscommon_table
+        xcvrd_config_prbs_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_config_prbs_rsp_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+        port_instance.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
+        port_instance.PRBS_DIRECTION_BOTH = 2
+        port_instance.enable_prbs_mode.return_value = True
+        port_instance.disable_prbs_mode.return_value = True
+        port_instance_helper = port_instance
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"config_prbs": True}
+
+        rc = handle_config_prbs_cmd_arg_tbl_notification(fvp, xcvrd_config_prbs_cmd_arg_tbl, xcvrd_config_prbs_cmd_sts_tbl, xcvrd_config_prbs_rsp_tbl, asic_index, port)
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "reset", {"mode_value":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_config_prbs_cmd_arg_tbl_notification_with_instance_reset(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_config_prbs_cmd_arg_tbl = mock_swsscommon_table
+        xcvrd_config_prbs_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_config_prbs_rsp_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+        port_instance.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
+        port_instance.PRBS_DIRECTION_BOTH = 2
+        port_instance.enable_prbs_mode.return_value = True
+        port_instance.disable_prbs_mode.return_value = True
+        port_instance.reset.return_value = True
+        port_instance_helper = port_instance
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"config_prbs": True}
+
+        rc = handle_config_prbs_cmd_arg_tbl_notification(fvp, xcvrd_config_prbs_cmd_arg_tbl, xcvrd_config_prbs_cmd_sts_tbl, xcvrd_config_prbs_rsp_tbl, asic_index, port)
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "anlt", {"mode":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_config_prbs_cmd_arg_tbl_notification_with_instance_anlt_enable(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_config_prbs_cmd_arg_tbl = mock_swsscommon_table
+        xcvrd_config_prbs_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_config_prbs_rsp_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+        port_instance.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
+        port_instance.PRBS_DIRECTION_BOTH = 2
+        port_instance.enable_prbs_mode.return_value = True
+        port_instance.disable_prbs_mode.return_value = True
+        port_instance.reset.return_value = True
+        port_instance.set_anlt.return_value = True
+        port_instance_helper = port_instance
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"config_prbs": True}
+
+        rc = handle_config_prbs_cmd_arg_tbl_notification(fvp, xcvrd_config_prbs_cmd_arg_tbl, xcvrd_config_prbs_cmd_sts_tbl, xcvrd_config_prbs_rsp_tbl, asic_index, port)
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "anlt", {"modex":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_config_prbs_cmd_arg_tbl_notification_with_instance_anlt_disable(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_config_prbs_cmd_arg_tbl = mock_swsscommon_table
+        xcvrd_config_prbs_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_config_prbs_rsp_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+        port_instance.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
+        port_instance.PRBS_DIRECTION_BOTH = 2
+        port_instance.enable_prbs_mode.return_value = True
+        port_instance.disable_prbs_mode.return_value = True
+        port_instance.reset.return_value = True
+        port_instance.set_anlt.return_value = True
+        port_instance_helper = port_instance
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"config_prbs": True}
+
+        rc = handle_config_prbs_cmd_arg_tbl_notification(fvp, xcvrd_config_prbs_cmd_arg_tbl, xcvrd_config_prbs_cmd_sts_tbl, xcvrd_config_prbs_rsp_tbl, asic_index, port)
+        assert(rc == -1)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "fec", {"mode":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_config_prbs_cmd_arg_tbl_notification_with_instance_fec_enable(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_config_prbs_cmd_arg_tbl = mock_swsscommon_table
+        xcvrd_config_prbs_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_config_prbs_rsp_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+        port_instance.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
+        port_instance.PRBS_DIRECTION_BOTH = 2
+        port_instance.enable_prbs_mode.return_value = True
+        port_instance.disable_prbs_mode.return_value = True
+        port_instance.reset.return_value = True
+        port_instance.set_fec_mode.return_value = True
+        port_instance_helper = port_instance
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"config_prbs": True}
+
+        rc = handle_config_prbs_cmd_arg_tbl_notification(fvp, xcvrd_config_prbs_cmd_arg_tbl, xcvrd_config_prbs_cmd_sts_tbl, xcvrd_config_prbs_rsp_tbl, asic_index, port)
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "fec", {"modex":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_config_prbs_cmd_arg_tbl_notification_with_instance_fec_disable(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_config_prbs_cmd_arg_tbl = mock_swsscommon_table
+        xcvrd_config_prbs_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_config_prbs_rsp_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+        port_instance.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
+        port_instance.PRBS_DIRECTION_BOTH = 2
+        port_instance.enable_prbs_mode.return_value = True
+        port_instance.disable_prbs_mode.return_value = True
+        port_instance.reset.return_value = True
+        port_instance.set_fec_mode.return_value = True
+        port_instance_helper = port_instance
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"config_prbs": True}
+
+        rc = handle_config_prbs_cmd_arg_tbl_notification(fvp, xcvrd_config_prbs_cmd_arg_tbl, xcvrd_config_prbs_cmd_sts_tbl, xcvrd_config_prbs_rsp_tbl, asic_index, port)
+        assert(rc == -1)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "fec", {"modex":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_config_prbs_cmd_arg_tbl_notification_else_value(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_config_prbs_cmd_arg_tbl = mock_swsscommon_table
+        xcvrd_config_prbs_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_config_prbs_rsp_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+        port_instance.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
+        port_instance.PRBS_DIRECTION_BOTH = 2
+        port_instance.enable_prbs_mode.return_value = True
+        port_instance.disable_prbs_mode.return_value = True
+        port_instance.reset.return_value = True
+        port_instance.set_fec_mode.return_value = True
+        port_instance_helper = port_instance
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"config_abc": True}
+
+        rc = handle_config_prbs_cmd_arg_tbl_notification(fvp, xcvrd_config_prbs_cmd_arg_tbl, xcvrd_config_prbs_cmd_sts_tbl, xcvrd_config_prbs_rsp_tbl, asic_index, port)
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "fec", {"modex":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_config_loop_cmd_arg_tbl_notification_else_value(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_config_loop_cmd_arg_tbl = mock_swsscommon_table
+        xcvrd_config_loop_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_config_loop_rsp_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+        port_instance.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
+        port_instance.PRBS_DIRECTION_BOTH = 2
+        port_instance.enable_prbs_mode.return_value = True
+        port_instance.disable_prbs_mode.return_value = True
+        port_instance.reset.return_value = True
+        port_instance.set_fec_mode.return_value = True
+        port_instance_helper = port_instance
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"config_abc": True}
+
+        rc = handle_config_loop_cmd_arg_tbl_notification(fvp, xcvrd_config_loop_cmd_arg_tbl, xcvrd_config_loop_cmd_sts_tbl, xcvrd_config_loop_rsp_tbl, asic_index, port)
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "fec", {"modex":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_config_loop_cmd_arg_tbl_notification_else_value(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_config_loop_cmd_arg_tbl = mock_swsscommon_table
+        xcvrd_config_loop_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_config_loop_rsp_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+        port_instance.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
+        port_instance.PRBS_DIRECTION_BOTH = 2
+        port_instance.enable_prbs_mode.return_value = True
+        port_instance.disable_prbs_mode.return_value = True
+        port_instance.reset.return_value = True
+        port_instance.set_fec_mode.return_value = True
+        port_instance_helper = port_instance
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"config_loop": True}
+
+        rc = handle_config_loop_cmd_arg_tbl_notification(fvp, xcvrd_config_loop_cmd_arg_tbl, xcvrd_config_loop_cmd_sts_tbl, xcvrd_config_loop_rsp_tbl, asic_index, port)
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "fec", {"modex":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    def test_handle_config_loop_cmd_arg_tbl_notification_no_port(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_config_loop_cmd_arg_tbl = mock_swsscommon_table
+        xcvrd_config_loop_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_config_loop_rsp_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+        port_instance.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
+        port_instance.PRBS_DIRECTION_BOTH = 2
+        port_instance.enable_prbs_mode.return_value = True
+        port_instance.disable_prbs_mode.return_value = True
+        port_instance.reset.return_value = True
+        port_instance.set_fec_mode.return_value = True
+        port_instance_helper = port_instance
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"config_loop": True}
+
+        rc = handle_config_loop_cmd_arg_tbl_notification(fvp, xcvrd_config_loop_cmd_arg_tbl, xcvrd_config_loop_cmd_sts_tbl, xcvrd_config_loop_rsp_tbl, asic_index, port)
+        assert(rc == -1)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "fec", {"modex":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_config_loop_cmd_arg_tbl_notification_no_instance(self,port_instance, mock_swsscommon_table):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_config_loop_cmd_arg_tbl = mock_swsscommon_table
+        xcvrd_config_loop_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_config_loop_rsp_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+        port_instance.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
+        port_instance.PRBS_DIRECTION_BOTH = 2
+        port_instance.enable_prbs_mode.return_value = True
+        port_instance.disable_prbs_mode.return_value = True
+        port_instance.reset.return_value = True
+        port_instance.set_fec_mode.return_value = True
+        port_instance_helper = port_instance
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"config_loop": True}
+
+        rc = handle_config_loop_cmd_arg_tbl_notification(fvp, xcvrd_config_loop_cmd_arg_tbl, xcvrd_config_loop_cmd_sts_tbl, xcvrd_config_loop_rsp_tbl, asic_index, port)
+        assert(rc == -1)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "enable", {"enable":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "mode_value":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_config_loop_cmd_arg_tbl_notification_enable(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_config_loop_cmd_arg_tbl = mock_swsscommon_table
+        xcvrd_config_loop_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_config_loop_rsp_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+        port_instance.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
+        port_instance.PRBS_DIRECTION_BOTH = 2
+        port_instance.enable_loopback_mode.return_value = True
+        port_instance.disable_loopback_mode.return_value = True
+        port_instance.reset.return_value = True
+        port_instance.set_fec_mode.return_value = True
+        port_instance_helper = port_instance
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"config_loop": True}
+
+        rc = handle_config_loop_cmd_arg_tbl_notification(fvp, xcvrd_config_loop_cmd_arg_tbl, xcvrd_config_loop_cmd_sts_tbl, xcvrd_config_loop_rsp_tbl, asic_index, port)
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "disable", {"disable":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "mode_value":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_config_loop_cmd_arg_tbl_notification_disable(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_config_loop_cmd_arg_tbl = mock_swsscommon_table
+        xcvrd_config_loop_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_config_loop_rsp_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+        port_instance.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
+        port_instance.PRBS_DIRECTION_BOTH = 2
+        port_instance.enable_loopback_mode.return_value = True
+        port_instance.disable_loopback_mode.return_value = True
+        port_instance.reset.return_value = True
+        port_instance.set_fec_mode.return_value = True
+        port_instance_helper = port_instance
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"config_loop": True}
+
+        rc = handle_config_loop_cmd_arg_tbl_notification(fvp, xcvrd_config_loop_cmd_arg_tbl, xcvrd_config_loop_cmd_sts_tbl, xcvrd_config_loop_rsp_tbl, asic_index, port)
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "fec", {"modex":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_show_event_cmd_arg_tbl_notification_else_value(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_show_event_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_show_event_rsp_tbl = mock_swsscommon_table
+        xcvrd_show_event_res_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+        port_instance.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
+        port_instance.PRBS_DIRECTION_BOTH = 2
+        port_instance.enable_prbs_mode.return_value = True
+        port_instance.disable_prbs_mode.return_value = True
+        port_instance.reset.return_value = True
+        port_instance.set_fec_mode.return_value = True
+        port_instance_helper = port_instance
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"config_loop": True}
+
+        rc = handle_show_event_cmd_arg_tbl_notification(fvp, xcvrd_show_event_cmd_sts_tbl, xcvrd_show_event_rsp_tbl, xcvrd_show_event_res_tbl, asic_index, port)
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "fec", {"modex":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_show_event_cmd_arg_tbl_notification_get_log(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_show_event_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_show_event_rsp_tbl = mock_swsscommon_table
+        xcvrd_show_event_res_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+        port_instance.get_event_log.return_value = ["log 1", "log 2"]
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"show_event": True}
+
+        rc = handle_show_event_cmd_arg_tbl_notification(fvp, xcvrd_show_event_cmd_sts_tbl, xcvrd_show_event_rsp_tbl, xcvrd_show_event_res_tbl, asic_index, port)
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "fec", {"modex":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_show_event_cmd_arg_tbl_notification_get_actual_log(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_show_event_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_show_event_rsp_tbl = mock_swsscommon_table
+        xcvrd_show_event_res_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+        port_instance.get_event_log.return_value = ["log 1", "log 2"]
+        port_instance_helper.return_value = port_instance
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"show_event": True}
+
+        rc = handle_show_event_cmd_arg_tbl_notification(fvp, xcvrd_show_event_cmd_sts_tbl, xcvrd_show_event_rsp_tbl, xcvrd_show_event_res_tbl, asic_index, port)
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "fec", {"modex":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_show_event_cmd_arg_tbl_notification_get_no_log(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_show_event_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_show_event_rsp_tbl = mock_swsscommon_table
+        xcvrd_show_event_res_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+        port_instance.get_event_log.return_value = Exception(NotImplementedError)
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"show_event": True}
+
+        rc = handle_show_event_cmd_arg_tbl_notification(fvp, xcvrd_show_event_cmd_sts_tbl, xcvrd_show_event_rsp_tbl, xcvrd_show_event_res_tbl, asic_index, port)
+        assert(rc == None)
+
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "fec", {"modex":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_show_event_cmd_arg_tbl_notification_no_port(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_show_event_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_show_event_rsp_tbl = mock_swsscommon_table
+        xcvrd_show_event_res_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+        port_instance.get_event_log.return_value = ["log 1", "log 2"]
+        port_instance_helper = port_instance
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"show_event": True}
+
+        rc = handle_show_event_cmd_arg_tbl_notification(fvp, xcvrd_show_event_cmd_sts_tbl, xcvrd_show_event_rsp_tbl, xcvrd_show_event_res_tbl, asic_index, port)
+        assert(rc == -1)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "fec", {"modex":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    def test_handle_show_event_cmd_arg_tbl_notification_no_instance(self,port_instance, mock_swsscommon_table):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_show_event_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_show_event_rsp_tbl = mock_swsscommon_table
+        xcvrd_show_event_res_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+        port_instance.get_event_log.return_value = ["log 1", "log 2"]
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"show_event": True}
+
+        rc = handle_show_event_cmd_arg_tbl_notification(fvp, xcvrd_show_event_cmd_sts_tbl, xcvrd_show_event_rsp_tbl, xcvrd_show_event_res_tbl, asic_index, port)
+        assert(rc == -1)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "fec", {"modex":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_get_fec_cmd_arg_tbl_notification_no_status(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_show_fec_rsp_tbl = mock_swsscommon_table
+        xcvrd_show_fec_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_show_fec_res_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"show_event": True}
+
+        rc = handle_get_fec_cmd_arg_tbl_notification(fvp,xcvrd_show_fec_rsp_tbl, xcvrd_show_fec_cmd_sts_tbl, xcvrd_show_fec_res_tbl, asic_index, port)
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_get_fec_cmd_arg_tbl_notification_no_port(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_show_fec_rsp_tbl = mock_swsscommon_table
+        xcvrd_show_fec_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_show_fec_res_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"get_fec": True}
+
+        rc = handle_get_fec_cmd_arg_tbl_notification(fvp,xcvrd_show_fec_rsp_tbl, xcvrd_show_fec_cmd_sts_tbl, xcvrd_show_fec_res_tbl, asic_index, port)
+        assert(rc == -1)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_get_fec_cmd_arg_tbl_notification_no_instance(self,port_instance, mock_swsscommon_table):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_show_fec_rsp_tbl = mock_swsscommon_table
+        xcvrd_show_fec_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_show_fec_res_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+        port_instance_helper = port_instance
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"get_fec": True}
+
+        rc = handle_get_fec_cmd_arg_tbl_notification(fvp,xcvrd_show_fec_rsp_tbl, xcvrd_show_fec_cmd_sts_tbl, xcvrd_show_fec_res_tbl, asic_index, port)
+        assert(rc == -1)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_get_fec_cmd_arg_tbl_notification_get_result(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_show_fec_rsp_tbl = mock_swsscommon_table
+        xcvrd_show_fec_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_show_fec_res_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+        port_instance.get_fec_mode.return_value = 0
+        port_instance.get_anlt.return_value = 0
+        port_instance.get_speed.return_value = 0
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"get_fec": True}
+
+        rc = handle_get_fec_cmd_arg_tbl_notification(fvp,xcvrd_show_fec_rsp_tbl, xcvrd_show_fec_cmd_sts_tbl, xcvrd_show_fec_res_tbl, asic_index, port)
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "fec", {"modex":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_get_fec_cmd_arg_tbl_notification_no_status(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_show_ber_cmd_arg_tbl = mock_swsscommon_table
+        xcvrd_show_ber_rsp_tbl = mock_swsscommon_table
+        xcvrd_show_ber_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_show_ber_res_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"show_event": True}
+
+        rc = handle_show_ber_cmd_arg_tbl_notification(fvp, xcvrd_show_ber_cmd_arg_tbl, xcvrd_show_ber_rsp_tbl, xcvrd_show_ber_cmd_sts_tbl, xcvrd_show_ber_res_tbl, asic_index, port)
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "fec", {"modex":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_get_fec_cmd_arg_tbl_notification_no_port(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_show_ber_cmd_arg_tbl = mock_swsscommon_table
+        xcvrd_show_ber_rsp_tbl = mock_swsscommon_table
+        xcvrd_show_ber_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_show_ber_res_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"get_ber": True}
+
+        rc = handle_show_ber_cmd_arg_tbl_notification(fvp, xcvrd_show_ber_cmd_arg_tbl, xcvrd_show_ber_rsp_tbl, xcvrd_show_ber_cmd_sts_tbl, xcvrd_show_ber_res_tbl, asic_index, port)
+        assert(rc == -1)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "fec", {"modex":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_get_fec_cmd_arg_tbl_notification_no_instance(self,port_instance, mock_swsscommon_table):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_show_ber_cmd_arg_tbl = mock_swsscommon_table
+        xcvrd_show_ber_rsp_tbl = mock_swsscommon_table
+        xcvrd_show_ber_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_show_ber_res_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"get_ber": True}
+
+        rc = handle_show_ber_cmd_arg_tbl_notification(fvp, xcvrd_show_ber_cmd_arg_tbl, xcvrd_show_ber_rsp_tbl, xcvrd_show_ber_cmd_sts_tbl, xcvrd_show_ber_res_tbl, asic_index, port)
+        assert(rc == -1)
+
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "ber", {"modex":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_get_fec_cmd_arg_tbl_notification_get_ber(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_show_ber_cmd_arg_tbl = mock_swsscommon_table
+        xcvrd_show_ber_rsp_tbl = mock_swsscommon_table
+        xcvrd_show_ber_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_show_ber_res_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+        port_instance.get_ber_info.return_value = ["100", "200"]
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"get_ber": True}
+
+        rc = handle_show_ber_cmd_arg_tbl_notification(fvp, xcvrd_show_ber_cmd_arg_tbl, xcvrd_show_ber_rsp_tbl, xcvrd_show_ber_cmd_sts_tbl, xcvrd_show_ber_res_tbl, asic_index, port)
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "eye", {"modex":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_get_fec_cmd_arg_tbl_notification_get_eye(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_show_ber_cmd_arg_tbl = mock_swsscommon_table
+        xcvrd_show_ber_rsp_tbl = mock_swsscommon_table
+        xcvrd_show_ber_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_show_ber_res_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+        port_instance.get_eye_info.return_value = ["100", "200"]
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"get_ber": True}
+
+        rc = handle_show_ber_cmd_arg_tbl_notification(fvp, xcvrd_show_ber_cmd_arg_tbl, xcvrd_show_ber_rsp_tbl, xcvrd_show_ber_cmd_sts_tbl, xcvrd_show_ber_res_tbl, asic_index, port)
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "fec_stats", {"modex":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_get_fec_cmd_arg_tbl_notification_get_fec_stats(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_show_ber_cmd_arg_tbl = mock_swsscommon_table
+        xcvrd_show_ber_rsp_tbl = mock_swsscommon_table
+        xcvrd_show_ber_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_show_ber_res_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+        port_instance.get_fec_stats.return_value = {"100":"200"}
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"get_ber": True}
+
+        rc = handle_show_ber_cmd_arg_tbl_notification(fvp, xcvrd_show_ber_cmd_arg_tbl, xcvrd_show_ber_rsp_tbl, xcvrd_show_ber_cmd_sts_tbl, xcvrd_show_ber_res_tbl, asic_index, port)
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "pcs_stats", {"modex":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_get_fec_cmd_arg_tbl_notification_get_pcs_stats(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_show_ber_cmd_arg_tbl = mock_swsscommon_table
+        xcvrd_show_ber_rsp_tbl = mock_swsscommon_table
+        xcvrd_show_ber_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_show_ber_res_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+        port_instance.get_pcs_stats.return_value = {"100":"200"}
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"get_ber": True}
+
+        rc = handle_show_ber_cmd_arg_tbl_notification(fvp, xcvrd_show_ber_cmd_arg_tbl, xcvrd_show_ber_rsp_tbl, xcvrd_show_ber_cmd_sts_tbl, xcvrd_show_ber_res_tbl, asic_index, port)
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "cable_alive", {"modex":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_get_fec_cmd_arg_tbl_notification_get_alive_status(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_show_ber_cmd_arg_tbl = mock_swsscommon_table
+        xcvrd_show_ber_rsp_tbl = mock_swsscommon_table
+        xcvrd_show_ber_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_show_ber_res_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+        port_instance.get_alive_status.return_value = True
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"get_ber": True}
+
+        rc = handle_show_ber_cmd_arg_tbl_notification(fvp, xcvrd_show_ber_cmd_arg_tbl, xcvrd_show_ber_rsp_tbl, xcvrd_show_ber_cmd_sts_tbl, xcvrd_show_ber_res_tbl, asic_index, port)
+        assert(rc == None)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances')
+    @patch('swsscommon.swsscommon.Table')
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_port_instance_from_logical_port')
+    @patch('ycable.ycable_utilities.y_cable_helper.gather_arg_from_db_and_check_for_type',MagicMock(return_value=(0, "debug_dump", {"modex":"0",
+                                                                                                                                "lane_mask":"0",
+                                                                                                                                "direction":"0"})))
+    @patch('ycable.ycable_utilities.y_cable_helper.get_ycable_physical_port_from_logical_port',MagicMock(return_value=(0)))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_locks', MagicMock(return_value=[0]))
+    def test_handle_get_fec_cmd_arg_tbl_notification_get_debug_dump_registers(self,port_instance, mock_swsscommon_table, port_instance_helper):
+        
+        mock_table = MagicMock()
+        mock_swsscommon_table.return_value = mock_table
+
+        xcvrd_show_ber_cmd_arg_tbl = mock_swsscommon_table
+        xcvrd_show_ber_rsp_tbl = mock_swsscommon_table
+        xcvrd_show_ber_cmd_sts_tbl = mock_swsscommon_table
+        xcvrd_show_ber_res_tbl = mock_swsscommon_table
+        port_instance = MagicMock()
+        port_instance.debug_dump_registers.return_value = {"register1":"100"}
+
+        asic_index = 0
+        port = "Ethernet0"
+        fvp = {"get_ber": True}
+
+        rc = handle_show_ber_cmd_arg_tbl_notification(fvp, xcvrd_show_ber_cmd_arg_tbl, xcvrd_show_ber_rsp_tbl, xcvrd_show_ber_cmd_sts_tbl, xcvrd_show_ber_res_tbl, asic_index, port)
+        assert(rc == None)
+
