@@ -33,7 +33,7 @@ class Sff8472MemMap(XcvrMemMap):
             CodeRegField(consts.ID_ABBRV_FIELD, self.get_addr(0xA0, None, 0), self.codes.XCVR_IDENTIFIER_ABBRV),
             CodeRegField(consts.EXT_ID_FIELD, self.get_addr(0xA0, None, 1), self.codes.EXT_IDENTIFIERS),
             CodeRegField(consts.CONNECTOR_FIELD, self.get_addr(0xA0, None, 2), self.codes.CONNECTORS),
-            RegGroupField(consts.SPEC_COMPLIANCE_FIELD, 
+            RegGroupField(consts.SPEC_COMPLIANCE_FIELD,
                 CodeRegField(consts.ETHERNET_10G_COMPLIANCE_FIELD, self.get_addr(0xA0, None, 3), self.codes.ETHERNET_10G_COMPLIANCE,
                     *(RegBitField("%s_%d" % (consts.ETHERNET_10G_COMPLIANCE_FIELD, bit), bit) for bit in range(4, 8))
                 ),
@@ -84,14 +84,14 @@ class Sff8472MemMap(XcvrMemMap):
                 RegBitField(consts.INT_CAL_FIELD, 5),
                 RegBitField(consts.EXT_CAL_FIELD, 4),
             ),
-            NumberRegField(consts.ENHANCED_OPTIONS_FIELD, self.get_addr(0xA0, None, 3),
+            NumberRegField(consts.ENHANCED_OPTIONS_FIELD, self.get_addr(0xA0, None, 93),
                 RegBitField(consts.TX_DISABLE_SUPPORT_FIELD, 6),
                 RegBitField(consts.TX_FAULT_SUPPORT_FIELD, 5),
                 RegBitField(consts.RX_LOS_SUPPORT_FIELD, 4),
             ),
         )
 
-        self.STATUS_CTRL = NumberRegField(consts.STATUS_CTRL_FIELD, self.get_addr(0xA2, 0, 110), 
+        self.STATUS_CTRL = NumberRegField(consts.STATUS_CTRL_FIELD, self.get_addr(0xA2, 0, 110),
             RegBitField(consts.TX_DISABLE_FIELD, 7),
             RegBitField(consts.TX_DISABLE_SELECT_FIELD, 6, ro=False),
             RegBitField(consts.TX_FAULT_FIELD, 2),
@@ -100,12 +100,12 @@ class Sff8472MemMap(XcvrMemMap):
 
         ext_cal_deps = [consts.INT_CAL_FIELD,
                         consts.EXT_CAL_FIELD,
-                        consts.RX_PWR_4_FIELD, 
+                        consts.RX_PWR_4_FIELD,
                         consts.RX_PWR_3_FIELD,
-                        consts.RX_PWR_2_FIELD, 
-                        consts.RX_PWR_1_FIELD, 
-                        consts.RX_PWR_0_FIELD, 
-                        consts.TX_I_SLOPE_FIELD, 
+                        consts.RX_PWR_2_FIELD,
+                        consts.RX_PWR_1_FIELD,
+                        consts.RX_PWR_0_FIELD,
+                        consts.TX_I_SLOPE_FIELD,
                         consts.TX_I_OFFSET_FIELD,
                         consts.TX_PWR_SLOPE_FIELD,
                         consts.TX_PWR_OFFSET_FIELD,
@@ -161,7 +161,7 @@ class Sff8472MemMap(XcvrMemMap):
             FixedNumberRegField(consts.T_SLOPE_FIELD, self.get_addr(0xA2, 0, 84), 8, size=2, format=">H"),
             NumberRegField(consts.T_OFFSET_FIELD, self.get_addr(0xA2, 0, 86), size=2, format=">H"),
             FixedNumberRegField(consts.V_SLOPE_FIELD, self.get_addr(0xA2, 0, 88), 8, size=2, format=">H"),
-            NumberRegField(consts.V_OFFSET_FIELD, self.get_addr(0xA2, 0, 90), size=2, format=">h") 
+            NumberRegField(consts.V_OFFSET_FIELD, self.get_addr(0xA2, 0, 90), size=2, format=">h")
         )
 
     def get_addr(self, wire_addr, page, offset, page_size=128):
