@@ -32,31 +32,24 @@ parameters:
   default:
     - name: chassisd
       root_dir: sonic-chassisd
-      python2: false
       python3: true
     - name: ledd
       root_dir: sonic-ledd
-      python2: true
       python3: true
     - name: pcied
       root_dir: sonic-pcied
-      python2: true
       python3: true
     - name: psud
       root_dir: sonic-psud
-      python2: true
       python3: true
     - name: syseepromd
       root_dir: sonic-syseepromd
-      python2: true
       python3: true
     - name: thermalctld
       root_dir: sonic-thermalctld
-      python2: true
       python3: true
     - name: xcvrd
       root_dir: sonic-xcvrd
-      python2: true
       python3: true
     - name: ycabled
       root_dir: sonic-ycabled
@@ -107,10 +100,6 @@ jobs:
 
     - script: |
         set -xe
-        sudo pip2 install swsssdk-2.0.1-py2-none-any.whl
-        sudo pip2 install sonic_py_common-1.0-py2-none-any.whl
-        sudo pip2 install sonic_config_engine-1.0-py2-none-any.whl
-        sudo pip2 install sonic_platform_common-1.0-py2-none-any.whl
         sudo pip3 install swsssdk-2.0.1-py3-none-any.whl
         sudo pip3 install sonic_py_common-1.0-py3-none-any.whl
         sudo pip3 install sonic_yang_mgmt-1.0-py3-none-any.whl
@@ -130,27 +119,6 @@ jobs:
       displayName: "Install .NET CORE"
 
     - ${{ each project in parameters.project_list }}:
-      # Python 2
-      - ${{ if eq(project.python2, true) }}:
-        - script: |
-            python2 setup.py test
-          workingDirectory: ${{ project.root_dir }}
-          displayName: '${{ project.name }}(Py2) Test'
-
-        - task: PublishTestResults@2
-          inputs:
-            testResultsFiles: '$(System.DefaultWorkingDirectory)/${{ project.root_dir }}/test-results.xml'
-            testRunTitle: ${{ project.name }} (Python 2)
-            failTaskOnFailedTests: true
-          condition: succeededOrFailed()
-          displayName: '${{ project.name }}(Py2) Publish test results'
-
-        - script: |
-            set -e
-            python2 setup.py bdist_wheel
-          workingDirectory: ${{ project.root_dir }}
-          displayName: '${{ project.name }}(Py2) Build'
-
       # Python 3
       - ${{ if eq(project.python3, true) }}:
         - script: |
