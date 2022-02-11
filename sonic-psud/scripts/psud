@@ -175,6 +175,7 @@ class PsuChassisInfo(logger.Logger):
         super(PsuChassisInfo, self).__init__(log_identifier)
 
         self.chassis = chassis
+        self.first_run = True
         self.master_status_good = True
         self.total_consumed_power = 0.0
         self.total_supplied_power = 0.0
@@ -242,30 +243,30 @@ class PsuChassisInfo(logger.Logger):
         chassis_tbl.set(CHASSIS_INFO_POWER_KEY_TEMPLATE.format(1), fvs)
 
     def update_master_status(self):
-        if not self.total_supplied_power or not self.total_consumed_power:
-            if self.master_status_good is not True:
-                self.master_status_good = True
-            return False
+        set_led = self.first_run
+        master_status_good = False
 
-        master_status_good = (self.total_consumed_power < self.total_supplied_power)
-        if master_status_good == self.master_status_good:
-            return False
+        if self.total_supplied_power != 0.0 and self.total_consumed_power != 0.0:
+            master_status_good = (self.total_consumed_power < self.total_supplied_power)
+            if master_status_good != self.master_status_good:
+                set_led = True
 
-        self.master_status_good = master_status_good
+            self.master_status_good = master_status_good
 
-        # Update the PSU master status LED
-        # set_status_master_led() is a class method implemented in PsuBase
-        # so we do not need to catch NotImplementedError here
-        color = Psu.STATUS_LED_COLOR_GREEN if master_status_good else Psu.STATUS_LED_COLOR_RED
-        Psu.set_status_master_led(color)
+        if set_led:
+            # Update the PSU master status LED
+            # set_status_master_led() is a class method implemented in PsuBase
+            # so we do not need to catch NotImplementedError here
+            color = Psu.STATUS_LED_COLOR_GREEN if master_status_good else Psu.STATUS_LED_COLOR_RED
+            Psu.set_status_master_led(color)
 
-        log_on_status_changed(self, self.master_status_good,
-                              'PSU supplied power warning cleared: supplied power is back to normal.',
-                              'PSU supplied power warning: {}W supplied-power less than {}W consumed-power'.format(
-                                  self.total_supplied_power, self.total_consumed_power)
-                              )
+            log_on_status_changed(self, self.master_status_good,
+                                  'PSU supplied power warning cleared: supplied power is back to normal.',
+                                  'PSU supplied power warning: {}W supplied-power less than {}W consumed-power'.format(
+                                      self.total_supplied_power, self.total_consumed_power)
+                                  )
 
-        return True
+        return set_led
 
 # PSU status ===================================================================
 #
@@ -604,6 +605,9 @@ class DaemonPsud(daemon_base.DaemonBase):
 
         self.psu_chassis_info.run_power_budget(self.chassis_tbl)
         self.psu_chassis_info.update_master_status()
+
+        if self.first_run:
+            self.first_run = False
 
 
 #

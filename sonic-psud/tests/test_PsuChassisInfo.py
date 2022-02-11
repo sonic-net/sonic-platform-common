@@ -65,6 +65,38 @@ class TestPsuChassisInfo(object):
         chassis = MockChassis()
         chassis_info = psud.PsuChassisInfo(SYSLOG_IDENTIFIER, chassis)
 
+        # With first_run set as True
+        # Test good values while in bad state
+        chassis_info.total_supplied_power = 510.0
+        chassis_info.total_consumed_power = 350.0
+        chassis_info.master_status_good = False
+        ret = chassis_info.update_master_status()
+        assert ret == True
+        assert chassis_info.master_status_good == True
+
+        # Test good values while in good state
+        ret = chassis_info.update_master_status()
+        assert ret == True
+        assert chassis_info.master_status_good == True
+
+        # Test unknown total_supplied_power (0.0)
+        chassis_info.total_supplied_power = 0.0
+        chassis_info.master_status_good = False
+        ret = chassis_info.update_master_status()
+        assert ret == True
+        assert chassis_info.master_status_good == False
+
+        # Test bad values while in good state
+        chassis_info.total_supplied_power = 300.0
+        chassis_info.total_consumed_power = 350.0
+        chassis_info.master_status_good = True
+        ret = chassis_info.update_master_status()
+        assert ret == True
+        assert chassis_info.master_status_good == False
+
+        # With first_run set as False
+        chassis_info.first_run = False
+
         # Test good values while in bad state
         chassis_info.total_supplied_power = 510.0
         chassis_info.total_consumed_power = 350.0
@@ -80,7 +112,7 @@ class TestPsuChassisInfo(object):
 
         # Test unknown total_supplied_power (0.0)
         chassis_info.total_supplied_power = 0.0
-        chassis_info.master_status_good = False
+        chassis_info.master_status_good = True
         ret = chassis_info.update_master_status()
         assert ret == False
         assert chassis_info.master_status_good == True
@@ -91,7 +123,7 @@ class TestPsuChassisInfo(object):
         chassis_info.master_status_good = False
         ret = chassis_info.update_master_status()
         assert ret == False
-        assert chassis_info.master_status_good == True
+        assert chassis_info.master_status_good == False
 
         # Test bad values while in good state
         chassis_info.total_supplied_power = 300.0
@@ -105,6 +137,7 @@ class TestPsuChassisInfo(object):
         ret = chassis_info.update_master_status()
         assert ret == False
         assert chassis_info.master_status_good == False
+
 
     def test_supplied_power(self):
         chassis = MockChassis()
@@ -204,6 +237,7 @@ class TestPsuChassisInfo(object):
         state_db = daemon_base.db_connect("STATE_DB")
         chassis_tbl = mock_swsscommon.Table(state_db, CHASSIS_INFO_TABLE)
         chassis_info = psud.PsuChassisInfo(SYSLOG_IDENTIFIER, chassis)
+        chassis_info.first_run = False
 
         # Check case where supplied_power < consumed_power
         chassis_info.run_power_budget(chassis_tbl)
@@ -235,6 +269,24 @@ class TestPsuChassisInfo(object):
         # We cannot call get_status_master_led() on our mocked PSUs, because
         # they are not instantiated from the same Psu class loaded in psud,
         # so we must call it on the class there.
+        assert psud.Psu.get_status_master_led() == MockPsu.STATUS_LED_COLOR_GREEN
+
+    def test_first_run(self):
+        chassis = MockChassis()
+        chassis_info = psud.PsuChassisInfo(SYSLOG_IDENTIFIER, chassis)
+
+        chassis_info.total_supplied_power = 0.0
+        chassis_info.total_consumed_power = 350.0
+        chassis_info.master_status_good = False
+        ret = chassis_info.update_master_status()
+        assert ret == True
+        assert psud.Psu.get_status_master_led() == MockPsu.STATUS_LED_COLOR_RED
+
+        chassis_info.total_supplied_power = 510.0
+        chassis_info.total_consumed_power = 350.0
+        chassis_info.master_status_good = True
+        ret = chassis_info.update_master_status()
+        assert ret == True
         assert psud.Psu.get_status_master_led() == MockPsu.STATUS_LED_COLOR_GREEN
 
     def test_get_psu_key(self):
