@@ -787,15 +787,24 @@ class YCable(YCableBase):
 
         regval_read = struct.unpack(">B", result)
 
-        if (regval_read[0] & 0x01):
-            self.log_info("NIC link is up")
-            return True
-        elif ((regval_read[0] >> 2) & 0x01):
-            self.log_info("TOR A link is up")
-            return True
-        elif ((regval_read[0] >> 1) & 0x01):
-            self.log_info("TOR B link is up")
-            return True
+        if target == YCableBase.TARGET_NIC:
+            if (regval_read[0] & 0x01):
+                self.log_info("NIC link is up")
+                return True
+            else:
+                return False
+        elif target == YCableBase.TARGET_TOR_A:
+            if ((regval_read[0] >> 2) & 0x01):
+                self.log_info("TOR A link is up")
+                return True
+            else:
+                return False
+        elif target == YCableBase.TARGET_TOR_B:
+            if ((regval_read[0] >> 1) & 0x01):
+                self.log_info("TOR B link is up")
+                return True
+            else:
+                return False
         else:
             return YCableBase.TARGET_UNKNOWN
 
