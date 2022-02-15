@@ -1381,6 +1381,14 @@ class YCable(YCableBase):
             fwImage = bytearray(inFile.read())
             inFile.close()
 
+            bin_pid = struct.unpack_from('>B', fwImage[5 : 6])[0]
+            mcu_pid = self.read_mmap(0xFB, 187)
+
+            if bin_pid != mcu_pid:
+                self.log_error('Firmware binary ID Mismatched Bin[%d] MCU[%d]' % (bin_pid, mcu_pid))
+                self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
+                return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
+
             self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS
 
             '''
