@@ -64,10 +64,10 @@ class SfpUtilHelper(object):
         for intf in ports.keys():
              logical_list.append(intf)
 
-        logical = natsorted(logical_list, key=lambda y: y.lower())
         # Ignore if this is an internal backplane interface and Inband interface
         logical = [name for name in logical 
                       if not name.startswith((backplane_prefix(), inband_prefix(), recirc_prefix()))]
+        logical = natsorted(logical_list, key=lambda y: y.lower())
         logical_to_physical, physical_to_logical = OrderedDict(),  OrderedDict()
 
         for intf_name in logical:
