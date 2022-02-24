@@ -16,6 +16,7 @@ try:
     from portconfig import get_port_config
     from sonic_py_common import device_info
     from sonic_py_common.interface import backplane_prefix, inband_prefix, recirc_prefix
+    from swsscommon.swsscommon import FRONT_PANEL_PORT_REGEX
 
     from sonic_eeprom import eeprom_dts
     from .sff8472 import sff8472InterfaceId  # Dot module supports both Python 2 and Python 3 using explicit relative import methods
@@ -510,12 +511,19 @@ class SfpUtilBase(object):
                 elif "asic_port_name" not in title and len(line.split()) >= 4:
                     fp_port_index = int(line.split()[3])
                 else:
-                    fp_port_index = portname.split("Ethernet").pop()
+                    front_panel_prefix_match = re.match(FRONT_PANEL_PORT_REGEX, portname)
+                    if not front_panel_prefix_match:
+                        continue
+                    front_panel_prefix = front_panel_prefix_match.group(1)
+                    fp_port_index = portname.split(front_panel_prefix).pop()
                     fp_port_index = int(fp_port_index.split("s").pop(0))/4
             else:  # Parsing logic for older 'portmap.ini' file
                 (portname, bcm_port) = line.split("=")[1].split(",")[:2]
-
-                fp_port_index = portname.split("Ethernet").pop()
+                front_panel_prefix_match = re.match(FRONT_PANEL_PORT_REGEX, portname)
+                if not front_panel_prefix_match:
+                    continue
+                front_panel_prefix = front_panel_prefix_match.group(1)
+                fp_port_index = portname.split(front_panel_prefix).pop()
                 fp_port_index = int(fp_port_index.split("s").pop(0))/4
 
             if ((len(self.sfp_ports) > 0) and (fp_port_index not in self.sfp_ports)):
