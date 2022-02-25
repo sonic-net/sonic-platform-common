@@ -22,7 +22,7 @@ class SfpBase(device_base.DeviceBase):
 
         Returns:
             A dict which contains following keys/values :
-        ========================================================================
+        ================================================================================
         keys                       |Value Format   |Information	
         ---------------------------|---------------|----------------------------
         type                       |1*255VCHAR     |type of SFP
@@ -39,7 +39,8 @@ class SfpBase(device_base.DeviceBase):
         specification_compliance   |1*255VCHAR     |specification compliance
         vendor_date                |1*255VCHAR     |vendor date
         vendor_oui                 |1*255VCHAR     |vendor OUI
-        ========================================================================
+        application_advertisement  |1*255VCHAR     |supported applications advertisement
+        ================================================================================
         """
         raise NotImplementedError
 
