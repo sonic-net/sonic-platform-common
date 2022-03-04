@@ -38,12 +38,10 @@ pcie_no_aer_stats = \
 {'correctable': {}, 'fatal': {}, 'non_fatal': {}}
 """
 
-pcie_aer_stats_no_err = \
-"""
-{'correctable': {'field1': '0', 'field2': '0'},
+pcie_aer_stats_no_err = {'correctable': {'field1': '0', 'field2': '0'},
  'fatal': {'field3': '0', 'field4': '0'},
  'non_fatal': {'field5': '0', 'field6': '0'}}
-"""
+
 
 pcie_aer_stats_err = \
 """
@@ -207,9 +205,9 @@ class TestDaemonPcied(object):
         daemon_pcied.log_debug = mock.MagicMock()
         daemon_pcied.device_table = mock.MagicMock()
         daemon_pcied.device_name = mock.MagicMock()
-        daemon_pcied.aer_stats = mock.MagicMock()
+        daemon_pcied.aer_stats = pcie_aer_stats_no_err
 
-
+        """
         mocked_expected_fvp = pcied.swsscommon.FieldValuePairs(
             [("correctable|field1", '0'),
              ("correctable|field2", '0'),
@@ -218,9 +216,10 @@ class TestDaemonPcied(object):
              ("non_fatal|field5", '0'),
              ("non_fatal|field6", '0'),
              ])
+        """
 
         daemon_pcied.update_aer_to_statedb() 
-        assert daemon_pcied.log_debug.call_count == 1
-        assert daemon_pcied.device_table.set.call_count == 0
+        assert daemon_pcied.log_debug.call_count == 0
+        assert daemon_pcied.device_table.set.call_count == 1
 
         daemon_pcied.device_table.set.reset_mock()

@@ -5,12 +5,12 @@ from imp import load_source  # Replace with importlib once we no longer need to 
 import pytest
 
 # TODO: Clean this up once we no longer need to support Python 2
-if sys.version_info.major == 3:
-    from unittest import mock
+if sys.version_info >= (3, 3):
+    from unittest.mock import MagicMock, patch, mock_open
 else:
-    import mock
-from sonic_py_common import daemon_base, device_info
+    from mock import MagicMock, patch, mock_open
 
+from sonic_py_common import daemon_base, device_info
 from .mock_platform import MockPcieUtil
 
 tests_path = os.path.dirname(os.path.abspath(__file__))
@@ -27,17 +27,33 @@ load_source('pcied', os.path.join(scripts_path, 'pcied'))
 import pcied
 
 
-daemon_base.db_connect = mock.MagicMock()
-
+daemon_base.db_connect = MagicMock()
 
 SYSLOG_IDENTIFIER = 'pcied_test'
 NOT_AVAILABLE = 'N/A'
 
 
-@mock.patch('pcied.load_platform_pcieutil', mock.MagicMock())
-@mock.patch('pcied.DaemonPcied.run')
+@patch('pcied.load_platform_pcieutil', MagicMock())
+@patch('pcied.DaemonPcied.run')
 def test_main(mock_run):
     mock_run.return_value = False
 
     pcied.main()
     assert mock_run.call_count == 1
+
+
+@patch('pcied.os.path.exists', MagicMock(return_value=True))
+def test_read_id_file():
+
+    device_name = "test"
+
+    with patch('builtins.open', new_callable=mock_open, read_data='15') as mock_fd:
+        rc = pcied.read_id_file(device_name)
+        assert rc == "15"
+
+@patch('pcied.device_info.get_paths_to_platform_and_hwsku_dirs', MagicMock(return_value=('/tmp', None)))
+def test_load_platform_pcieutil():
+    from sonic_platform_base.sonic_pcie.pcie_common import PcieUtil
+    rc = pcied.load_platform_pcieutil()
+
+    assert isinstance(rc, PcieUtil)

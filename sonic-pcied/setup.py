@@ -21,11 +21,10 @@ setup(
         'enum34; python_version < "3.4"',
         'sonic-py-common',
     ],
-    tests_requires=[
+    tests_require=[
         'mock>=2.0.0; python_version < "3.3"',
         'pytest',
         'pytest-cov',
-        'sonic-platform-common'
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
