@@ -448,3 +448,18 @@ class XcvrApi(object):
             A Boolean, True if power override is supported, False otherwise
         """
         raise NotImplementedError
+
+    def get_module_fw_info(self):
+        """
+        Retrieves the firmware information of theis xcvr.
+
+        Returns:
+            A dict containing the following keys/values:
+        ================================================================================
+        keys                       |Value Format   |Information
+        ---------------------------|---------------|----------------------------
+        status                     |bool           |status of operation
+        info                       |string         |human readable representation of firmware information
+        result                     |tuple          |firmware information
+        """
+        raise NotImplementedError
