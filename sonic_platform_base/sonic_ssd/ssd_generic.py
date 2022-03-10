@@ -74,11 +74,17 @@ class SsdUtil(SsdBase):
 
     # Health and temperature values may be overwritten with vendor specific data
     def parse_generic_ssd_info(self):
-        self.model = self._parse_re('Device Model:\s*(.+?)\n', self.ssd_info)
+        if "nvme" in self.dev:
+            self.model = self._parse_re('Model Number:\s*(.+?)\n', self.ssd_info)
+            health_raw = self._parse_re('Percentage Used\s*(.+?)\n', self.ssd_info).split()[-1]
+            self.health = 100 - float(health_raw.strip('%'))
+            self.temperature = float(self._parse_re('Temperature\s*(.+?)\n', self.ssd_info).split()[-2])
+        else:
+            self.model = self._parse_re('Device Model:\s*(.+?)\n', self.ssd_info)
+            self.health = self._parse_re('Remaining_Lifetime_Perc\s*(.+?)\n', self.ssd_info).split()[-1]
+            self.temperature = self._parse_re('Temperature_Celsius\s*(.+?)\n', self.ssd_info).split()[-6]
         self.serial = self._parse_re('Serial Number:\s*(.+?)\n', self.ssd_info)
         self.firmware = self._parse_re('Firmware Version:\s*(.+?)\n', self.ssd_info)
-        self.health = self._parse_re('Remaining_Lifetime_Perc\s*(.+?)\n', self.ssd_info).split()[-1]
-        self.temperature = self._parse_re('Temperature_Celsius\s*(.+?)\n', self.ssd_info).split()[-6]
 
     def parse_innodisk_info(self):
         self.health = self._parse_re('Health:\s*(.+?)%', self.vendor_ssd_info)
