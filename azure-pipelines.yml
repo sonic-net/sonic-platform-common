@@ -46,9 +46,6 @@ steps:
 
 - script: |
     set -xe
-    sudo pip2 install swsssdk-2.0.1-py2-none-any.whl
-    sudo pip2 install sonic_py_common-1.0-py2-none-any.whl
-    sudo pip2 install sonic_config_engine-1.0-py2-none-any.whl
     sudo pip3 install swsssdk-2.0.1-py3-none-any.whl
     sudo pip3 install sonic_py_common-1.0-py3-none-any.whl
     sudo pip3 install sonic_yang_mgmt-1.0-py3-none-any.whl
@@ -65,31 +62,6 @@ steps:
     sudo apt-get update
     sudo apt-get install -y dotnet-sdk-5.0
   displayName: "Install .NET CORE"
-
-# Python 2
-- script: |
-    python2 setup.py test
-  displayName: 'Test Python 2'
-
-- task: PublishTestResults@2
-  inputs:
-    testResultsFiles: '$(System.DefaultWorkingDirectory)/test-results.xml'
-    testRunTitle: Python 2
-    failTaskOnFailedTests: true
-  condition: succeededOrFailed()
-  displayName: 'Publish Python 2 test results'
-
-- task: PublishCodeCoverageResults@1
-  inputs:
-    codeCoverageTool: Cobertura
-    summaryFileLocation: '$(System.DefaultWorkingDirectory)/coverage.xml'
-    reportDirectory: '$(System.DefaultWorkingDirectory)/htmlcov/'
-  displayName: 'Publish Python 2 test coverage'
-
-- script: |
-    set -e
-    python2 setup.py bdist_wheel
-  displayName: 'Build Python 2 wheel'
 
 # Python 3
 - script: |
