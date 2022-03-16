@@ -1534,6 +1534,8 @@ class YCable(YCableBase):
             self.log_error("platform_chassis is not loaded, failed to download firmware")
             return YCable.EEPROM_ERROR
 
+        self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_NOT_INITIATED_OR_FINISHED
+
         return YCableBase.FIRMWARE_DOWNLOAD_SUCCESS
 
     def activate_firmware(self, fwfile=None, hitless=False):
