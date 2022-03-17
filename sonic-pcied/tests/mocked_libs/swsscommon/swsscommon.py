@@ -52,3 +52,12 @@ class FieldValuePairs:
 
     def __str__(self):
         return repr(self.fv_dict)
+
+class ConfigDBConnector:
+    pass
+
+class SonicDBConfig:
+    pass
+
+class SonicV2Connector:
+    pass

@@ -11,20 +11,20 @@ if sys.version_info.major == 3:
 else:
     import mock
 
-from sonic_py_common import daemon_base
-
 from .mock_platform import MockPcieUtil
 
 SYSLOG_IDENTIFIER = 'pcied_test'
 NOT_AVAILABLE = 'N/A'
 
-daemon_base.db_connect = mock.MagicMock()
 
 tests_path = os.path.dirname(os.path.abspath(__file__))
 
 # Add mocked_libs path so that the file under test can load mocked modules from there
 mocked_libs_path = os.path.join(tests_path, "mocked_libs")
 sys.path.insert(0, mocked_libs_path)
+
+from sonic_py_common import daemon_base
+daemon_base.db_connect = mock.MagicMock()
 
 # Add path to the file under test so that we can load it
 modules_path = os.path.dirname(tests_path)
