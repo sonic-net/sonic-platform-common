@@ -302,6 +302,40 @@ def y_cable_toggle_mux_torB(physical_port):
         return -1
 
 
+def toggle_mux_direction(physical_port, read_side, state):
+
+    if int(read_side) == 1:
+        if state == "active":
+            return (y_cable_toggle_mux_torA(physical_port), read_side)
+        elif state == "standby":
+            return (y_cable_toggle_mux_torB(physical_port), read_side)
+    elif int(read_side) == 2:
+        if state == "active":
+            return (y_cable_toggle_mux_torB(physical_port), read_side)
+        elif state == "standby":
+            return (y_cable_toggle_mux_torA(physical_port), read_side)
+
+def toggle_mux_tor_direction_and_update_read_side(state, logical_port_name, physical_port):
+
+    port_instance = y_cable_port_instances.get(physical_port)
+    if port_instance is None:
+        helper_logger.log_error("Error: Could not get port instance for read side for while processing a toggle Y cable port {} {}".format(physical_port, threading.currentThread().getName()))
+        return (-1, -1)
+
+    read_side = port_instance.get_read_side()
+
+    if read_side is None or read_side is port_instance.EEPROM_ERROR or read_side < 0:
+        helper_logger.log_error(
+            "Error: Could not get read side for toggle command from orchagent Y cable port {}".format(logical_port_name))
+        return (-1, -1)
+    if int(read_side) == 1 or int(read_side) == 2:
+        (active_side, read_side) = toggle_mux_direction(physical_port, read_side, state)
+        return (active_side, read_side)
+    else:
+        #should not happen
+        return (-1,-1)
+
+
 def update_tor_active_side(read_side, state, logical_port_name):
     physical_port_list = logical_port_name_to_physical_port_list(
         logical_port_name)
@@ -310,26 +344,20 @@ def update_tor_active_side(read_side, state, logical_port_name):
 
         physical_port = physical_port_list[0]
         if y_cable_wrapper_get_presence(physical_port):
-            if int(read_side) == 1:
-                if state == "active":
-                    return y_cable_toggle_mux_torA(physical_port)
-                elif state == "standby":
-                    return y_cable_toggle_mux_torB(physical_port)
-            elif int(read_side) == 2:
-                if state == "active":
-                    return y_cable_toggle_mux_torB(physical_port)
-                elif state == "standby":
-                    return y_cable_toggle_mux_torA(physical_port)
+            if int(read_side) == 1 or int(read_side) == 2:
+                (active_side, read_side) = toggle_mux_direction(physical_port, read_side, state)
+                return (active_side, read_side)
             else:
                 # not a valid read side
-                return -1
+                (active_side, read_side) = toggle_mux_tor_direction_and_update_read_side(state, logical_port_name, physical_port)
+                return (active_side, read_side)
 
             # TODO: Should we confirm that the mux was indeed toggled?
 
         else:
             helper_logger.log_warning(
                 "Error: Could not establish presence for  Y cable port {} while trying to toggle the mux".format(logical_port_name))
-            return -1
+            return (-1, -1)
 
     else:
         # Y cable ports should always have
@@ -337,7 +365,7 @@ def update_tor_active_side(read_side, state, logical_port_name):
         # This should not happen
         helper_logger.log_warning(
             "Error: Retreived multiple ports for a Y cable table port {} while trying to toggle the mux".format(logical_port_name))
-        return -1
+        return (-1, -1)
 
 
 def update_appdb_port_mux_cable_response_table(logical_port_name, asic_index, appl_db, read_side):
@@ -460,11 +488,11 @@ def read_y_cable_and_update_statedb_port_tbl(logical_port_name, mux_config_tbl):
                     helper_logger.log_warning("Failed to execute the get_mux_direction for port {} due to {}".format(physical_port,repr(e)))
 
             if active_side is None or active_side not in y_cable_switch_state_values:
-                read_side = active_side = -1
+                active_side = -1
                 update_table_mux_status_for_statedb_port_tbl(
                     mux_config_tbl, "unknown", read_side, active_side, logical_port_name)
                 helper_logger.log_error(
-                    "Error: Could not establish the active side for  Y cable port {} to perform read_y_cable update state db".format(logical_port_name))
+                    "Error: Could not establish the active side for Y cable port {} to perform read_y_cable update state db".format(logical_port_name))
                 return
 
             if read_side == active_side and (active_side == 1 or active_side == 2):
@@ -693,13 +721,18 @@ def check_identifier_presence_and_delete_mux_table_entry(state_db, port_tbl, asi
                     static_tbl[asic_id] = swsscommon.Table(state_db[asic_id], MUX_CABLE_STATIC_INFO_TABLE)
                     mux_tbl[asic_id] = swsscommon.Table(state_db[asic_id], MUX_CABLE_INFO_TABLE)
                 # fill the newly found entry
-                #delete_port_from_y_cable_table(logical_port_name, y_cable_tbl[asic_index])
                 #We dont delete the values here, rather just update the values in state DB
-                read_side = active_side = -1
+                (status, fvs) = y_cable_tbl[asic_index].get(logical_port_name)
+                if status is False:
+                    helper_logger.log_warning("Could not retreive fieldvalue pairs for {}, inside state_db table {} while deleting mux entry".format(
+                        logical_port_name, y_cable_tbl[asic_index].getTableName()))
+                mux_port_dict = dict(fvs)
+                read_side = mux_port_dict.get("read_side", None)
+                active_side = -1
                 update_table_mux_status_for_statedb_port_tbl(
                     y_cable_tbl[asic_index], "unknown", read_side, active_side, logical_port_name)
-                delete_port_from_y_cable_table(logical_port_name, static_tbl[asic_index])
-                delete_port_from_y_cable_table(logical_port_name, mux_tbl[asic_index])
+                #delete_port_from_y_cable_table(logical_port_name, static_tbl[asic_index])
+                #delete_port_from_y_cable_table(logical_port_name, mux_tbl[asic_index])
                 delete_change_event[:] = [True]
                 # delete the y_cable instance
                 physical_port_list = logical_port_name_to_physical_port_list(logical_port_name)
@@ -980,6 +1013,37 @@ def get_firmware_dict(physical_port, port_instance, target, side, mux_info_dict,
         mux_info_dict[("version_{}_inactive".format(side))] = "N/A"
         mux_info_dict[("version_{}_next".format(side))] = "N/A"
 
+
+def get_muxcable_info_without_presence():
+    mux_info_dict = {}
+    mux_info_dict['tor_active'] = 'unknown'
+    mux_info_dict['mux_direction'] = 'unknown'
+    mux_info_dict['manual_switch_count'] = 'N/A'
+    mux_info_dict['auto_switch_count'] = 'N/A'
+    mux_info_dict['link_status_self'] = 'unknown'
+    mux_info_dict['link_status_peer'] = 'unknown'
+    mux_info_dict['link_status_nic'] = 'unknown'
+    mux_info_dict['self_eye_height_lane1'] = 'N/A'
+    mux_info_dict['self_eye_height_lane2'] = 'N/A'
+    mux_info_dict['peer_eye_height_lane1'] = 'N/A'
+    mux_info_dict['peer_eye_height_lane2'] = 'N/A'
+    mux_info_dict['nic_eye_height_lane1'] = 'N/A'
+    mux_info_dict['nic_eye_height_lane2'] = 'N/A'
+    mux_info_dict['internal_temperature'] = 'N/A'
+    mux_info_dict['internal_voltage'] = 'N/A'
+    mux_info_dict['nic_temperature'] = 'N/A'
+    mux_info_dict['nic_voltage'] = 'N/A'
+    mux_info_dict['version_self_active'] = 'N/A'
+    mux_info_dict['version_self_inactive'] = 'N/A'
+    mux_info_dict['version_self_next'] = 'N/A'
+    mux_info_dict['version_peer_active'] = 'N/A'
+    mux_info_dict['version_peer_inactive'] = 'N/A'
+    mux_info_dict['version_peer_next'] = 'N/A'
+    mux_info_dict['version_nic_active'] = 'N/A'
+    mux_info_dict['version_nic_inactive'] = 'N/A'
+    mux_info_dict['version_nic_next'] = 'N/A'
+
+    return mux_info_dict
 
 def get_muxcable_info(physical_port, logical_port_name):
 
@@ -1358,9 +1422,10 @@ def post_port_mux_info_to_db(logical_port_name, table):
 
         if not y_cable_wrapper_get_presence(physical_port):
             helper_logger.log_warning("Error: trying to post mux info without presence of port {}".format(logical_port_name))
-            continue
+            mux_info_dict = get_muxcable_info_without_presence()
+        else:
+            mux_info_dict = get_muxcable_info(physical_port, logical_port_name)
 
-        mux_info_dict = get_muxcable_info(physical_port, logical_port_name)
         if mux_info_dict is not None and mux_info_dict is not -1:
             #transceiver_dict[physical_port] = port_info_dict
             fvs = swsscommon.FieldValuePairs(
@@ -2456,22 +2521,22 @@ class YCableTableUpdateTask(object):
                         old_status = mux_port_dict.get("state", None)
                         read_side = mux_port_dict.get("read_side", None)
                         # Now whatever is the state requested, toggle the mux appropriately
-                        helper_logger.log_debug("Y_CABLE_DEBUG: xcvrd trying to transition port {} from {} to {}".format(port, old_status, new_status))
-                        active_side = update_tor_active_side(read_side, new_status, port)
+                        helper_logger.log_debug("Y_CABLE_DEBUG: xcvrd trying to transition port {} from {} to {} read side {}".format(port, old_status, new_status, read_side))
+                        (active_side, read_side) = update_tor_active_side(read_side, new_status, port)
                         if active_side == -1:
                             helper_logger.log_warning("ERR: Got a change event for toggle but could not toggle the mux-direction for port {} state from {} to {}, writing unknown".format(
                                 port, old_status, new_status))
                             new_status = 'unknown'
 
                         helper_logger.log_debug("Y_CABLE_DEBUG: xcvrd successful to transition port {} from {} to {} and write back to the DB {}".format(port, old_status, new_status, threading.currentThread().getName()))
-                        helper_logger.log_notice("Got a change event for toggle the mux-direction active side for port {} state requested {} from old {} to {} {}".format(port, requested_status, old_status, new_status, threading.currentThread().getName()))
+                        helper_logger.log_notice("Got a change event for toggle the mux-direction active side for port {} state requested {} from old state {} to new state {} read_side  {} thread id {}".format(port, requested_status, old_status, new_status, read_side, threading.currentThread().getName()))
                         time_end = datetime.datetime.utcnow().strftime("%Y-%b-%d %H:%M:%S.%f")
                         fvs_metrics = swsscommon.FieldValuePairs([('xcvrd_switch_{}_start'.format(new_status), str(time_start)),
                                                                   ('xcvrd_switch_{}_end'.format(new_status), str(time_end))])
                         mux_metrics_tbl[asic_index].set(port, fvs_metrics)
 
                         fvs_updated = swsscommon.FieldValuePairs([('state', new_status),
-                                                                  ('read_side', read_side),
+                                                                  ('read_side', str(read_side)),
                                                                   ('active_side', str(active_side))])
                         y_cable_tbl[asic_index].set(port, fvs_updated)
                     else:
@@ -2530,7 +2595,6 @@ class YCableTableUpdateTask(object):
 
         sel = swsscommon.Select()
 
-        helper_logger.log_error("executing the cli for prbs thread {}".format(threading.currentThread().getName()))
 
         # Get the namespaces in the platform
         namespaces = multi_asic.get_front_end_namespaces()
