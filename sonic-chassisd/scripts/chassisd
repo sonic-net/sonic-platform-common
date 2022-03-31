@@ -30,6 +30,9 @@ except ImportError as e:
 # Constants ====================================================================
 #
 
+SIGNALS_TO_NAMES_DICT = dict((getattr(signal, n), n)
+                             for n in dir(signal) if n.startswith('SIG') and '_' not in n)
+
 SYSLOG_IDENTIFIER = "chassisd"
 
 CHASSIS_CFG_TABLE = 'CHASSIS_MODULE'
@@ -74,6 +77,10 @@ INVALID_IP = '0.0.0.0'
 
 MODULE_ADMIN_DOWN = 0
 MODULE_ADMIN_UP = 1
+
+# This daemon should return non-zero exit code so that supervisord will
+# restart it automatically.
+exit_code = 0
 
 #
 # Helper functions =============================================================
@@ -366,18 +373,21 @@ class ChassisdDaemon(daemon_base.DaemonBase):
 
         self.stop = threading.Event()
 
-    # Signal handler
+    # Override signal handler from DaemonBase
     def signal_handler(self, sig, frame):
-        if sig == signal.SIGHUP:
-            self.log_info("Caught SIGHUP - ignoring...")
-        elif sig == signal.SIGINT:
-            self.log_info("Caught SIGINT - exiting...")
+        FATAL_SIGNALS = [signal.SIGINT, signal.SIGTERM]
+        NONFATAL_SIGNALS = [signal.SIGHUP]
+
+        global exit_code
+
+        if sig in FATAL_SIGNALS:
+            exit_code = 128 + sig  # Make sure we exit with a non-zero code so that supervisor will try to restart us
+            self.log_info("Caught {} signal '{}' - exiting...".format(exit_code,SIGNALS_TO_NAMES_DICT[sig]))
             self.stop.set()
-        elif sig == signal.SIGTERM:
-            self.log_info("Caught SIGTERM - exiting...")
-            self.stop.set()
+        elif sig in NONFATAL_SIGNALS:
+            self.log_info("Caught signal '{}' - ignoring...".format(SIGNALS_TO_NAMES_DICT[sig]))
         else:
-            self.log_warning("Caught unhandled signal '" + sig + "'")
+            self.log_warning("Caught unhandled signal '{}' - ignoring...".format(SIGNALS_TO_NAMES_DICT[sig]))
 
     # Run daemon
     def run(self):
@@ -421,9 +431,6 @@ class ChassisdDaemon(daemon_base.DaemonBase):
 
         self.log_info("Stop daemon main loop")
 
-        if config_manager is not None:
-            config_manager.task_stop()
-
         # Delete all the information from DB and then exit
         self.module_updater.deinit()
 
@@ -435,9 +442,11 @@ class ChassisdDaemon(daemon_base.DaemonBase):
 
 
 def main():
+    global exit_code
     chassisd = ChassisdDaemon(SYSLOG_IDENTIFIER)
     chassisd.run()
 
+    sys.exit(exit_code)
 
 if __name__ == '__main__':
     main()

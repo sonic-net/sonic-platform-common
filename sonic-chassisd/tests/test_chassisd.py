@@ -441,3 +441,58 @@ def test_asic_presence():
     assert fvs == None
     fvs = fabric_asic_table.get("asic5")
     assert fvs == None
+
+def test_signal_handler():
+    exit_code = 0
+    daemon_chassisd = ChassisdDaemon(SYSLOG_IDENTIFIER)
+    daemon_chassisd.stop.set = MagicMock()
+    daemon_chassisd.log_info = MagicMock()
+    daemon_chassisd.log_warning = MagicMock()
+
+    # Test SIGHUP
+    daemon_chassisd.signal_handler(signal.SIGHUP, None)
+    assert daemon_chassisd.log_info.call_count == 1
+    daemon_chassisd.log_info.assert_called_with("Caught signal 'SIGHUP' - ignoring...")
+    assert daemon_chassisd.log_warning.call_count == 0
+    assert daemon_chassisd.stop.set.call_count == 0
+    assert exit_code == 0
+
+    # Reset
+    daemon_chassisd.log_info.reset_mock()
+    daemon_chassisd.log_warning.reset_mock()
+    daemon_chassisd.stop.set.reset_mock()
+
+    # Test SIGINT
+    test_signal = signal.SIGINT
+    daemon_chassisd.signal_handler(test_signal, None)
+    assert daemon_chassisd.log_info.call_count == 1
+    daemon_chassisd.log_info.assert_called_with("Caught {} signal 'SIGINT' - exiting...".format(128 + test_signal))
+    assert daemon_chassisd.log_warning.call_count == 0
+    assert daemon_chassisd.stop.set.call_count == 1
+
+    # Reset
+    daemon_chassisd.log_info.reset_mock()
+    daemon_chassisd.log_warning.reset_mock()
+    daemon_chassisd.stop.set.reset_mock()
+
+    # Test SIGTERM
+    test_signal = signal.SIGTERM
+    daemon_chassisd.signal_handler(test_signal, None)
+    assert daemon_chassisd.log_info.call_count == 1
+    daemon_chassisd.log_info.assert_called_with("Caught {} signal 'SIGTERM' - exiting...".format(128 + test_signal))
+    assert daemon_chassisd.log_warning.call_count == 0
+    assert daemon_chassisd.stop.set.call_count == 1
+
+    # Reset
+    daemon_chassisd.log_info.reset_mock()
+    daemon_chassisd.log_warning.reset_mock()
+    daemon_chassisd.stop.set.reset_mock()
+    exit_code = 0
+
+    # Test an unhandled signal
+    daemon_chassisd.signal_handler(signal.SIGUSR1, None)
+    assert daemon_chassisd.log_warning.call_count == 1
+    daemon_chassisd.log_warning.assert_called_with("Caught unhandled signal 'SIGUSR1' - ignoring...")
+    assert daemon_chassisd.log_info.call_count == 0
+    assert daemon_chassisd.stop.set.call_count == 0
+    assert exit_code == 0
