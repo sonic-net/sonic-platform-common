@@ -76,18 +76,40 @@ class SsdUtil(SsdBase):
     def parse_generic_ssd_info(self):
         if "nvme" in self.dev:
             self.model = self._parse_re('Model Number:\s*(.+?)\n', self.ssd_info)
-            health_raw = self._parse_re('Percentage Used\s*(.+?)\n', self.ssd_info).split()[-1]
-            self.health = 100 - float(health_raw.strip('%'))
-            self.temperature = float(self._parse_re('Temperature\s*(.+?)\n', self.ssd_info).split()[-2])
+
+            health_raw = self._parse_re('Percentage Used\s*(.+?)\n', self.ssd_info)
+            if health_raw == NOT_AVAILABLE:
+                self.health = NOT_AVAILABLE
+            else:
+                health_raw = health_raw.split()[-1]
+                self.health = 100 - float(health_raw.strip('%'))
+
+            temp_raw = self._parse_re('Temperature\s*(.+?)\n', self.ssd_info)
+            if temp_raw == NOT_AVAILABLE:
+                self.temperature = NOT_AVAILABLE
+            else:
+                temp_raw = temp_raw.split()[-2]
+                self.temperature = float(temp_raw)
         else:
             self.model = self._parse_re('Device Model:\s*(.+?)\n', self.ssd_info)
-            self.health = self._parse_re('Remaining_Lifetime_Perc\s*(.+?)\n', self.ssd_info).split()[-1]
-            self.temperature = self._parse_re('Temperature_Celsius\s*(.+?)\n', self.ssd_info).split()[-6]
+
+            health_raw = self._parse_re('Remaining_Lifetime_Perc\s*(.+?)\n', self.ssd_info)
+            if health_raw == NOT_AVAILABLE:
+                self.health = NOT_AVAILABLE
+            else:
+                self.health = health_raw.split()[-1]
+
+            temp_raw = self._parse_re('Temperature_Celsius\s*(.+?)\n', self.ssd_info)
+            if temp_raw == NOT_AVAILABLE:
+                self.temperature = NOT_AVAILABLE
+            else:
+                self.temperature = temp_raw.split()[-6]
+
         self.serial = self._parse_re('Serial Number:\s*(.+?)\n', self.ssd_info)
         self.firmware = self._parse_re('Firmware Version:\s*(.+?)\n', self.ssd_info)
 
     def parse_innodisk_info(self):
-        self.health = self._parse_re('Health:\s*(.+?)%', self.vendor_ssd_info)
+        self.health = self._parse_re('Health:\s*(.+?)%?', self.vendor_ssd_info)
         self.temperature = self._parse_re('Temperature\s*\[\s*(.+?)\]', self.vendor_ssd_info)
 
     def parse_virtium_info(self):
