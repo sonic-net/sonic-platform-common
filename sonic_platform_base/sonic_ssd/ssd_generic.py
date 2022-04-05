@@ -77,11 +77,21 @@ class SsdUtil(SsdBase):
         self.model = self._parse_re('Device Model:\s*(.+?)\n', self.ssd_info)
         self.serial = self._parse_re('Serial Number:\s*(.+?)\n', self.ssd_info)
         self.firmware = self._parse_re('Firmware Version:\s*(.+?)\n', self.ssd_info)
-        self.health = self._parse_re('Remaining_Lifetime_Perc\s*(.+?)\n', self.ssd_info).split()[-1]
-        self.temperature = self._parse_re('Temperature_Celsius\s*(.+?)\n', self.ssd_info).split()[-6]
+
+        health_raw = self._parse_re('Remaining_Lifetime_Perc\s*(.+?)\n', self.ssd_info)
+        if health_raw == NOT_AVAILABLE:
+            self.health = NOT_AVAILABLE
+        else:
+            self.health = health_raw.split()[-1]
+
+        temp_raw = self._parse_re('Temperature_Celsius\s*(.+?)\n', self.ssd_info)
+        if temp_raw == NOT_AVAILABLE:
+            self.temperature = NOT_AVAILABLE
+        else:
+            self.temperature = temp_raw.split()[-6]
 
     def parse_innodisk_info(self):
-        self.health = self._parse_re('Health:\s*(.+?)%', self.vendor_ssd_info)
+        self.health = self._parse_re('Health:\s*(.+?)%?', self.vendor_ssd_info)
         self.temperature = self._parse_re('Temperature\s*\[\s*(.+?)\]', self.vendor_ssd_info)
 
     def parse_virtium_info(self):
