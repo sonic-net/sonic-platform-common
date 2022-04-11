@@ -24,6 +24,10 @@ class ChassisBase(device_base.DeviceBase):
     REBOOT_CAUSE_INSUFFICIENT_FAN_SPEED = "Insufficient Fan Speed"
     REBOOT_CAUSE_WATCHDOG = "Watchdog"
     REBOOT_CAUSE_HARDWARE_OTHER = "Hardware - Other"
+    REBOOT_CAUSE_HARDWARE_BIOS = "BIOS"
+    REBOOT_CAUSE_HARDWARE_CPU = "CPU"
+    REBOOT_CAUSE_HARDWARE_BUTTON = "Push button"
+    REBOOT_CAUSE_HARDWARE_RESET_FROM_ASIC = "Reset from ASIC"
     REBOOT_CAUSE_NON_HARDWARE = "Non-Hardware"
 
     def __init__(self):
