@@ -617,7 +617,7 @@ class YCable(YCableBase):
             self.log_info("Reading from NIC side")
             return YCableBase.TARGET_NIC
         else:
-            self.log_error("Error: unknown status for checking which side regval = {} ".format(result))
+            self.log_error("Error: Credo Y Cable unable to get the read side, Cable not plugged/Faulty Cable register value = {} ".format(result))
 
         return YCableBase.TARGET_UNKNOWN
 
@@ -675,7 +675,7 @@ class YCable(YCableBase):
             self.log_info("mux pointing to TOR B")
             return YCableBase.TARGET_TOR_B
 
-        self.log_error("Error: unknown status for mux direction regval = {} ".format(result))
+        self.log_error("Error: Credo Y Cable unable to check the status mux direction, cable powered off/Faulty Cable register value = {}".format(result))
         return YCableBase.TARGET_UNKNOWN
 
     def get_active_linked_tor_side(self):
@@ -736,7 +736,7 @@ class YCable(YCableBase):
             self.log_info("Nothing linked for routing")
             return YCableBase.TARGET_NIC
 
-        self.log_error("Error: unknown status for active TOR regval = {} ".format(result))
+        self.log_error("Error: Credo Y Cable unable to get active linked ToR side Cable powered off/Faulty Cable register value = {} ".format(result))
         return YCableBase.TARGET_UNKNOWN
 
     def is_link_active(self, target):
