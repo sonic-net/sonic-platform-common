@@ -20,6 +20,9 @@ VIRTIUM  = "SmartCmd -m {}"
 
 NOT_AVAILABLE = "N/A"
 
+# Set Vendor Specific IDs
+INNODISK_HEALTH_ID = 169
+INNODISK_TEMPERATURE_ID = 194
 
 class SsdUtil(SsdBase):
     """
@@ -52,7 +55,7 @@ class SsdUtil(SsdBase):
             model_short = self.model.split()[0]
             if model_short in self.vendor_ssd_utility:
                 self.fetch_vendor_ssd_info(diskdev, model_short)
-                self.parse_vendor_ssd_info(model_short)
+                self.parse_vendor_ssd_info(model_short)  
             else:
                 # No handler registered for this disk model
                 pass
@@ -109,24 +112,32 @@ class SsdUtil(SsdBase):
         self.firmware = self._parse_re('Firmware Version:\s*(.+?)\n', self.ssd_info)
 
     def parse_innodisk_info(self):
-        self.health = self._parse_re('Health:\s*(.+?)%?', self.vendor_ssd_info)
-        self.temperature = self._parse_re('Temperature\s*\[\s*(.+?)\]', self.vendor_ssd_info)
+        if self.vendor_ssd_info:
+            self.health = self._parse_re('Health:\s*(.+?)%?', self.vendor_ssd_info)
+            self.temperature = self._parse_re('Temperature\s*\[\s*(.+?)\]', self.vendor_ssd_info)
+        else:
+            if self.health == NOT_AVAILABLE:
+                health_raw = self.parse_id_number(INNODISK_HEALTH_ID)
+                self.health = health_raw.split()[-1]
+            if self.temperature == NOT_AVAILABLE:
+                temp_raw = self.parse_id_number(INNODISK_TEMPERATURE_ID)
+                self.temperature = temp_raw.split()[-6]
 
     def parse_virtium_info(self):
-        self.temperature = self._parse_re('Temperature_Celsius\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info)
-        nand_endurance = self._parse_re('NAND_Endurance\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info)
-        avg_erase_count = self._parse_re('Average_Erase_Count\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info)
-        try:
-            self.health = 100 - (float(avg_erase_count) * 100 / float(nand_endurance))
-        except ValueError:
-            pass
+        if self.vendor_ssd_info:
+            self.temperature = self._parse_re('Temperature_Celsius\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info)
+            nand_endurance = self._parse_re('NAND_Endurance\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info)
+            avg_erase_count = self._parse_re('Average_Erase_Count\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info)
+            try:
+                self.health = 100 - (float(avg_erase_count) * 100 / float(nand_endurance))
+            except ValueError:
+                pass
 
     def fetch_vendor_ssd_info(self, diskdev, model):
         self.vendor_ssd_info = self._execute_shell(self.vendor_ssd_utility[model]["utility"].format(diskdev))
 
     def parse_vendor_ssd_info(self, model):
-        if self.vendor_ssd_info:
-            self.vendor_ssd_utility[model]["parser"]()
+        self.vendor_ssd_utility[model]["parser"]()
 
     def get_health(self):
         """
@@ -183,3 +194,6 @@ class SsdUtil(SsdBase):
             A string holding some vendor specific disk information
         """
         return self.vendor_ssd_info
+
+    def parse_id_number(self, id):
+        return self._parse_re('{}\s*(.+?)\n'.format(id), self.ssd_info)
