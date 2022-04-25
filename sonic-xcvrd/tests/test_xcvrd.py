@@ -136,7 +136,30 @@ class TestXcvrdScript(object):
                                                                                 'nominal_bit_rate': '0.7',
                                                                                 'application_advertisement': '0.7',
                                                                                 'is_replaceable': '0.7',
-                                                                                'dom_capability': '0.7', }))
+                                                                                'dom_capability': '0.7',
+                                                                                'active_firmware': '1.1',
+                                                                                'inactive_firmware': '1.0',
+                                                                                'hardware_rev': '1.0',
+                                                                                'media_interface_code': '0.1',
+                                                                                'host_electrical_interface': '0.1',
+                                                                                'host_lane_count': 8,
+                                                                                'media_lane_count': 1,
+                                                                                'host_lane_assignment_option': 1,
+                                                                                'media_lane_assignment_option': 1,
+                                                                                'active_apsel_hostlane1': 1,
+                                                                                'active_apsel_hostlane2': 1,
+                                                                                'active_apsel_hostlane3': 1,
+                                                                                'active_apsel_hostlane4': 1,
+                                                                                'active_apsel_hostlane5': 1,
+                                                                                'active_apsel_hostlane6': 1,
+                                                                                'active_apsel_hostlane7': 1,
+                                                                                'active_apsel_hostlane8': 1,
+                                                                                'media_interface_technology': '1',
+                                                                                'cmis_rev': '5.0',
+                                                                                'supported_max_tx_power': 1.0,
+                                                                                'supported_min_tx_power': -15.0,
+                                                                                'supported_max_laser_freq': 196100,
+                                                                                'supported_min_laser_freq': 191300}))
     def test_post_port_sfp_info_to_db(self):
         logical_port_name = "Ethernet0"
         port_mapping = PortMapping()
