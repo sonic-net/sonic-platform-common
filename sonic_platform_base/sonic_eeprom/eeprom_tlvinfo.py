@@ -68,7 +68,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
     _TLV_CODE_QUANTA_MODEL_NAME = _TLV_CODE_UNDEFINED
 
     # TLV Value Display Switch
-    _TLV_DISPLAY_VENDOR_EXT     = False
+    _TLV_DISPLAY_VENDOR_EXT     = True
 
 
     def __init__(self, path, start, status, ro, max_len=_TLV_INFO_MAX_LEN):
