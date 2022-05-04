@@ -25,8 +25,8 @@ class CmisApi(XcvrApi):
 
     def __init__(self, xcvr_eeprom):
         super(CmisApi, self).__init__(xcvr_eeprom)
-        self.vdm = CmisVdmApi(xcvr_eeprom)
-        self.cdb = CmisCdbApi(xcvr_eeprom)
+        self.vdm = CmisVdmApi(xcvr_eeprom) if not self.is_flat_memory() else None
+        self.cdb = CmisCdbApi(xcvr_eeprom) if not self.is_flat_memory() else None
 
     def get_model(self):
         '''
@@ -1012,7 +1012,7 @@ class CmisApi(XcvrApi):
         '''
         This function returns all the VDM items, including real time monitor value, threholds and flags
         '''
-        vdm = self.vdm.get_vdm_allpage() if not self.is_flat_memory() else {}
+        vdm = self.vdm.get_vdm_allpage() if self.vdm is not None else {}
         return vdm
 
     def get_module_firmware_fault_state_changed(self):
@@ -1113,6 +1113,9 @@ class CmisApi(XcvrApi):
         the following upgrade with depend on these parameters.
         """
         txt = ''
+        if self.cdb is None:
+            return {'status': False, 'info': "CDB Not supported", 'result': None}
+
         # get fw upgrade features (CMD 0041h)
         starttime = time.time()
         autopaging = self.xcvr_eeprom.read(consts.AUTO_PAGING_SUPPORT)
@@ -1163,6 +1166,10 @@ class CmisApi(XcvrApi):
         Validity Status: 1 = invalid, 0 = valid
         """
         txt = ''
+
+        if self.cdb is None:
+            return {'status': False, 'info': "CDB Not supported", 'result': None}
+
         # get fw info (CMD 0100h)
         rpllen, rpl_chkcode, rpl = self.cdb.get_fw_info()
         # password issue
@@ -1247,6 +1254,8 @@ class CmisApi(XcvrApi):
         """
         # run module FW (CMD 0109h)
         txt = ''
+        if self.cdb is None:
+            return False, "CDB NOT supported on this module"
         starttime = time.time()
         fw_run_status = self.cdb.run_fw_image(mode)
         if fw_run_status == 1:
@@ -1277,6 +1286,8 @@ class CmisApi(XcvrApi):
         Otherwise it will return False.
         """
         txt = ''
+        if self.cdb is None:
+            return False, "CDB NOT supported on this module"
         # commit module FW (CMD 010Ah)
         starttime = time.time()
         fw_commit_status= self.cdb.commit_fw_image()
@@ -1334,6 +1345,9 @@ class CmisApi(XcvrApi):
         This function returns True if download successfully completes. Otherwise it will return False where it fails.
         """
         txt = ''
+        if self.cdb is None:
+            return False, "CDB NOT supported on this module"
+
         # start fw download (CMD 0101h)
         starttime = time.time()
         try:
