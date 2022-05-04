@@ -848,7 +848,7 @@ class TestCmis(object):
         self.api.is_flat_memory = MagicMock()
         self.api.is_flat_memory.return_value = False
         self.api.get_lpmode_support = MagicMock()
-        self.api.get_lpmode_support.return_value = False
+        self.api.get_lpmode_support.return_value = True
         self.api.get_module_state = MagicMock()
         self.api.get_module_state.return_value = "ModuleReady"
         self.api.set_lpmode(lpmode)
