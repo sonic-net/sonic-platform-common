@@ -837,16 +837,21 @@ class TestCmis(object):
         assert kall is not None
         assert kall[0] == (consts.MODULE_LEVEL_CONTROL, 0x8)
 
-    def test_set_low_power(self):
+    @pytest.mark.parametrize("lpmode", [
+        ([True], [False])
+    ])
+    def test_set_low_power(self, lpmode):
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.return_value = True
         self.api.xcvr_eeprom.write = MagicMock()
+        self.api.xcvr_eeprom.write.return_value = True
         self.api.is_flat_memory = MagicMock()
         self.api.is_flat_memory.return_value = False
         self.api.get_lpmode_support = MagicMock()
         self.api.get_lpmode_support.return_value = False
-        self.api.set_lpmode(True)
         self.api.get_module_state = MagicMock()
         self.api.get_module_state.return_value = "ModuleReady"
-        self.api.set_lpmode(False)
+        self.api.set_lpmode(lpmode)
 
     @pytest.mark.parametrize("mock_response, expected", [
         (
