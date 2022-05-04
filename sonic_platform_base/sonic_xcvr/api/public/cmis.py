@@ -22,6 +22,8 @@ logger.addHandler(logging.NullHandler())
 
 class CmisApi(XcvrApi):
     NUM_CHANNELS = 8
+    LowPwrRequestSW = 4
+    LowPwrAllowRequestHW = 6
 
     def __init__(self, xcvr_eeprom):
         super(CmisApi, self).__init__(xcvr_eeprom)
@@ -930,19 +932,20 @@ class CmisApi(XcvrApi):
         lpmode_val = self.xcvr_eeprom.read(consts.MODULE_LEVEL_CONTROL)
         if lpmode_val is not None:
             if lpmode is True:
-                lpmode_val = lpmode_val | (1 << 4)
+                # Force module transition to LowPwr under SW control
+                lpmode_val = lpmode_val | (1 << CmisApi.LowPwrRequestSW)
                 self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, lpmode_val)
                 time.sleep(0.1)
                 return self.get_lpmode()
             else:
-                lpmode_val = lpmode_val & ~(1 << 4)
+                # Force transition from LowPwr to HighPower state under SW control.
+                # This will transition LowPwrS signal to False. (see Table 6-12 CMIS v5.0)
+                lpmode_val = lpmode_val & ~(1 << CmisApi.LowPwrRequestSW)
+                lpmode_val = lpmode_val & ~(1 << CmisApi.LowPwrAllowRequestHW)
                 self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, lpmode_val)
                 time.sleep(1)
-                lpmode = self.xcvr_eeprom.read(consts.TRANS_MODULE_STATUS_FIELD)
-                if lpmode is not None:
-                    if lpmode.get('ModuleState') == 'ModuleReady':
-                        return True
-                return False
+                mstate = self.get_module_state()
+                return True if mstate == 'ModuleReady' else False
         return False
 
     def get_loopback_capability(self):
