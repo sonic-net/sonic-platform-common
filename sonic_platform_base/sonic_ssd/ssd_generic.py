@@ -55,7 +55,7 @@ class SsdUtil(SsdBase):
             model_short = self.model.split()[0]
             if model_short in self.vendor_ssd_utility:
                 self.fetch_vendor_ssd_info(diskdev, model_short)
-                self.parse_vendor_ssd_info(model_short)  
+                self.parse_vendor_ssd_info(model_short)
             else:
                 # No handler registered for this disk model
                 pass
@@ -130,7 +130,7 @@ class SsdUtil(SsdBase):
             avg_erase_count = self._parse_re('Average_Erase_Count\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info)
             try:
                 self.health = 100 - (float(avg_erase_count) * 100 / float(nand_endurance))
-            except ValueError:
+            except (ValueError, ZeroDivisionError):
                 pass
 
     def fetch_vendor_ssd_info(self, diskdev, model):
