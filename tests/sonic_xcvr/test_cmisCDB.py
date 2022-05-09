@@ -13,6 +13,15 @@ class TestCDB(object):
     eeprom = XcvrEeprom(reader, writer, mem_map)
     api = CmisCdbApi(eeprom)
 
+    def test_cdb_is_none(self):
+        self.cdb = None
+        assert False == self.api.get_module_fw_mgmt_feature()
+        assert False == self.get_module_fw_info()
+        assert False == self.module_fw_run()
+        assert False == self.module_fw_commit()
+        assert False == self.module_fw_download()
+
+
     @pytest.mark.parametrize("mock_response, expected", [
         (64, False),
         (0, True)
@@ -101,7 +110,7 @@ class TestCDB(object):
         self.api.cdb1_chkstatus = MagicMock()
         self.api.cdb1_chkstatus.return_value = mock_response[0]
         self.api.read_cdb = MagicMock()
-        self.api.read_cdb.return_value = mock_response[1]        
+        self.api.read_cdb.return_value = mock_response[1]
         result = self.api.get_fw_management_features()
         assert result == expected
 
@@ -185,7 +194,7 @@ class TestCDB(object):
         self.api.cdb1_chkstatus.return_value = mock_response
         result = self.api.run_fw_image()
         assert result == expected
-        
+
     @pytest.mark.parametrize("mock_response, expected", [
         (1, 1),
         (64, 64),
