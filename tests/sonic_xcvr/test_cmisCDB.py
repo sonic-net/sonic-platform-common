@@ -1,5 +1,6 @@
 from mock import MagicMock
 import pytest
+from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi
 from sonic_platform_base.sonic_xcvr.api.public.cmisCDB import CmisCdbApi
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis import CmisMemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
@@ -14,12 +15,13 @@ class TestCDB(object):
     api = CmisCdbApi(eeprom)
 
     def test_cdb_is_none(self):
+        api = CmisApi(self.eeprom)
         self.cdb = None
-        assert False == self.api.get_module_fw_mgmt_feature()
-        assert False == self.get_module_fw_info()
-        assert False == self.module_fw_run()
-        assert False == self.module_fw_commit()
-        assert False == self.module_fw_download()
+        assert False == api.get_module_fw_mgmt_feature()
+        assert False == api.get_module_fw_info()
+        assert False == api.module_fw_run()
+        assert False == api.module_fw_commit()
+        assert False == api.module_fw_download()
 
 
     @pytest.mark.parametrize("mock_response, expected", [
