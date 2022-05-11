@@ -202,6 +202,84 @@ Copyright (C) 2002-20, Bruce Allen, Christian Franke, www.smartmontools.org
 
   0       5275     0  0x0001  0x0004      -            0     1     -"""
 
+output_Innodisk_missing_names_ssd = """smartctl 6.6 2017-11-05 r4594 [armv7l-linux-4.19.0-12-2-armmp] (local build)
+Copyright (C) 2002-17, Bruce Allen, Christian Franke, www.smartmontools.org
+
+=== START OF INFORMATION SECTION ===
+Model Family:     Innodisk 3IE3/3ME3/3ME4 SSDs
+Device Model:     M.2 (S42) 3ME4
+Serial Number:    YCA12003110020080
+LU WWN Device Id: 5 02b2a2 01d1c1b1a
+Firmware Version: L17606
+User Capacity:    16,013,942,784 bytes [16.0 GB]
+Sector Size:      512 bytes logical/physical
+Rotation Rate:    Solid State Device
+Device is:        In smartctl database [for details use: -P show]
+ATA Version is:   ACS-3 T13/2161-D revision 4
+SATA Version is:  SATA 3.2, 6.0 Gb/s (current: 6.0 Gb/s)
+Local Time is:    Tue Apr 26 00:57:00 2022 UTC
+SMART support is: Available - device has SMART capability.
+SMART support is: Enabled
+
+=== START OF READ SMART DATA SECTION ===
+SMART overall-health self-assessment test result: PASSED
+
+General SMART Values:
+Offline data collection status:  (0x02) Offline data collection activity
+                    was completed without error.
+                    Auto Offline Data Collection: Disabled.
+Total time to complete Offline 
+data collection:        (   32) seconds.
+Offline data collection
+capabilities:            (0x00)     Offline data collection not supported.
+SMART capabilities:            (0x0002) Does not save SMART data before
+                    entering power-saving mode.
+                    Supports SMART auto save timer.
+Error logging capability:        (0x00) Error logging NOT supported.
+                    General Purpose Logging supported.
+
+SMART Attributes Data Structure revision number: 16
+Vendor Specific SMART Attributes with Thresholds:
+ID# ATTRIBUTE_NAME          FLAG     VALUE WORST THRESH TYPE      UPDATED  WHEN_FAILED RAW_VALUE
+  1 Raw_Read_Error_Rate     0x0000   000   000   000    Old_age   Offline      -       0
+  2 Throughput_Performance  0x0000   000   000   000    Old_age   Offline      -       0
+  5 Later_Bad_Block         0x0012   100   100   001    Old_age   Always       -       0
+  7 Seek_Error_Rate         0x0000   000   000   000    Old_age   Offline      -       0
+  8 Seek_Time_Performance   0x0000   000   000   000    Old_age   Offline      -       0
+  9 Power_On_Hours          0x0012   253   000   000    Old_age   Always       -       14151
+ 10 Spin_Retry_Count        0x0000   000   000   000    Old_age   Offline      -       0
+ 12 Power_Cycle_Count       0x0012   036   000   000    Old_age   Always       -       36
+163 Total_Bad_Block_Count   0x0000   000   000   000    Old_age   Offline      -       9
+168 SATA_PHY_Error_Count    0x0000   000   000   000    Old_age   Offline      -       0
+169 Unknown Attribute       0x0000   094   000   000    Old_age   Offline      -       94
+175 Bad_Cluster_Table_Count 0x0000   000   000   000    Old_age   Offline      -       0
+192 Power-Off_Retract_Count 0x0012   000   000   000    Old_age   Always       -       3
+194 Unknown Attribute       0x0002   039   100   000    Old_age   Always       -       39 (3 42 0 33 0)
+197 Current_Pending_Sector  0x0000   000   000   000    Old_age   Offline      -       0
+225 Data_Log_Write_Count    0x0000   000   000   000    Old_age   Offline      -       0
+240 Write_Head              0x0000   000   000   000    Old_age   Offline      -       0
+165 Max_Erase_Count         0x0012   223   100   000    Old_age   Always       -       223
+167 Average_Erase_Count     0x0012   000   100   000    Old_age   Always       -       187
+170 Spare_Block_Count       0x0013   100   100   010    Pre-fail  Always       -       72
+171 Program_Fail_Count      0x0012   000   100   000    Old_age   Always       -       0
+172 Erase_Fail_Count        0x0012   000   100   000    Old_age   Always       -       0
+176 RANGE_RECORD_Count      0x0000   000   000   000    Old_age   Offline      -       0
+184 End-to-End_Error        0x0012   000   000   000    Old_age   Always       -       0
+187 Reported_Uncorrect      0x0012   000   000   000    Old_age   Always       -       0
+229 Flash_ID                0x0000   100   100   000    Old_age   Offline      -       0x51769394de98
+232 Spares_Remaining_Perc   0x0013   000   000   000    Pre-fail  Always       -       0
+235 Later_Bad_Blk_Inf_R/W/E 0x0002   000   000   000    Old_age   Always       -       0 0 0
+241 Host_Writes_32MiB       0x0002   100   100   000    Old_age   Always       -       14452
+242 Host_Reads_32MiB        0x0002   100   100   000    Old_age   Always       -       42566
+
+SMART Error Log not supported
+
+SMART Self-test Log not supported
+
+Selective Self-tests/Logging not supported
+
+"""
+
 class TestSsdGeneric:
     @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell', mock.MagicMock(return_value=output_ssd))
     def test_ssd(self):
@@ -240,4 +318,13 @@ class TestSsdGeneric:
         assert(Innodisk_ssd.get_firmware() == "S140714")
         assert(Innodisk_ssd.get_temperature() == '0')
         assert(Innodisk_ssd.get_serial() == "20171126AAAA11730156")
+
+    @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell', mock.MagicMock(return_value=output_Innodisk_missing_names_ssd))
+    def test_Innodisk_missing_names_ssd(self):
+        # Test parsing Innodisk ssd info
+        Innodisk_ssd = SsdUtil('/dev/sda')
+        Innodisk_ssd.vendor_ssd_info = ''
+        Innodisk_ssd.parse_vendor_ssd_info('InnoDisk')
+        assert(Innodisk_ssd.get_health() == '94')
+        assert(Innodisk_ssd.get_temperature() == '39')
 
