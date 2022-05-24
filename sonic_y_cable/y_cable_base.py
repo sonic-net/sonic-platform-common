@@ -78,6 +78,15 @@ class YCableBase():
     FIRMWARE_DOWNLOAD_STATUS_FAILED = 2
 
 
+    # Valid status values for mux togge
+    # The mux_toggle_status variable should be assigned/used
+    # one of these predefined values inside toggle/telemetry routine
+    # as to signify what is the current status of toggle in progress
+
+    MUX_TOGGLE_STATUS_NOT_INITIATED_OR_FINISHED = 0
+    MUX_TOGGLE_STATUS_INPROGRESS = 1
+
+
     # definitions of PRBS run modes
     PRBS_DIRECTION_BOTH = 0
     PRBS_DIRECTION_GENERATOR = 1
@@ -96,6 +105,7 @@ class YCableBase():
         self.port = port
         self._logger = logger
         self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_NOT_INITIATED_OR_FINISHED
+        self.mux_toggle_status = self.MUX_TOGGLE_STATUS_NOT_INITIATED_OR_FINISHED
 
 
     def log_warning(self, msg):
