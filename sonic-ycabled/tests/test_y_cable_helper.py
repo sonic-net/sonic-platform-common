@@ -347,9 +347,20 @@ class TestYCableScript(object):
 
         with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as port_instance:
 
-            port_instance.get.return_value = "simulated_port"
-            port_instance.toggle_mux_to_tor_a.return_value = Exception(
-                NotImplementedError)
+            class PortInstanceHelper():
+                def __init__(self):
+                    self.EEPROM_ERROR = -1
+                    self.MUX_TOGGLE_STATUS_NOT_INITIATED_OR_FINISHED = 0
+
+                # Defining function without self argument creates an exception,
+                # which is what we want for this test.
+                def get_mux_direction():
+                    pass
+                def toggle_mux_to_tor_a():
+                    raise NotImplementedError
+
+            port_instance.get.return_value = PortInstanceHelper()
+
 
             rc = y_cable_toggle_mux_torA(1)
 
@@ -379,9 +390,19 @@ class TestYCableScript(object):
     def test_y_cable_toggle_mux_torB_update_status_exception(self):
         with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as port_instance:
 
-            port_instance.get.return_value = "simulated_port"
-            port_instance.toggle_mux_to_tor_a.return_value = Exception(
-                NotImplementedError)
+            class PortInstanceHelper():
+                def __init__(self):
+                    self.EEPROM_ERROR = -1
+                    self.MUX_TOGGLE_STATUS_NOT_INITIATED_OR_FINISHED = 0
+
+                # Defining function without self argument creates an exception,
+                # which is what we want for this test.
+                def get_mux_direction():
+                    pass
+                def toggle_mux_to_tor_a():
+                    raise NotImplementedError
+
+            port_instance.get.return_value = PortInstanceHelper()
 
             rc = y_cable_toggle_mux_torB(1)
 
@@ -1857,6 +1878,10 @@ class TestYCableScript(object):
                     self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
                     self.FIRMWARE_DOWNLOAD_STATUS_FAILED = 2
                     self.download_firmware_status = 0
+                    self.MUX_TOGGLE_STATUS_INPROGRESS = 1
+                    self.MUX_TOGGLE_STATUS_FAILED = 2
+                    self.MUX_TOGGLE_STATUS_NOT_INITIATED_OR_FINISHED = 2
+                    self.mux_toggle_status = 0
                     self.SWITCH_COUNT_MANUAL = "manual"
                     self.SWITCH_COUNT_AUTO = "auto"
 
@@ -1919,6 +1944,10 @@ class TestYCableScript(object):
                     self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
                     self.FIRMWARE_DOWNLOAD_STATUS_FAILED = 2
                     self.download_firmware_status = 0
+                    self.MUX_TOGGLE_STATUS_INPROGRESS = 1
+                    self.MUX_TOGGLE_STATUS_FAILED = 2
+                    self.MUX_TOGGLE_STATUS_NOT_INITIATED_OR_FINISHED = 2
+                    self.mux_toggle_status = 0
                     self.SWITCH_COUNT_MANUAL = "manual"
                     self.SWITCH_COUNT_AUTO = "auto"
 
@@ -1979,6 +2008,10 @@ class TestYCableScript(object):
                     self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
                     self.FIRMWARE_DOWNLOAD_STATUS_FAILED = 2
                     self.download_firmware_status = 0
+                    self.MUX_TOGGLE_STATUS_INPROGRESS = 1
+                    self.MUX_TOGGLE_STATUS_FAILED = 2
+                    self.MUX_TOGGLE_STATUS_NOT_INITIATED_OR_FINISHED = 2
+                    self.mux_toggle_status = 0
                     self.SWITCH_COUNT_MANUAL = "manual"
                     self.SWITCH_COUNT_AUTO = "auto"
 
@@ -2041,6 +2074,10 @@ class TestYCableScript(object):
                     self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
                     self.FIRMWARE_DOWNLOAD_STATUS_FAILED = 2
                     self.download_firmware_status = 0
+                    self.MUX_TOGGLE_STATUS_INPROGRESS = 1
+                    self.MUX_TOGGLE_STATUS_NOT_INITIATED_OR_FINISHED = 2
+                    self.MUX_TOGGLE_STATUS_FAILED = 2
+                    self.mux_toggle_status = 0
                     self.SWITCH_COUNT_MANUAL = "manual"
                     self.SWITCH_COUNT_AUTO = "auto"
 
@@ -2101,6 +2138,10 @@ class TestYCableScript(object):
                     self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
                     self.FIRMWARE_DOWNLOAD_STATUS_FAILED = 2
                     self.download_firmware_status = 0
+                    self.MUX_TOGGLE_STATUS_INPROGRESS = 1
+                    self.MUX_TOGGLE_STATUS_FAILED = 2
+                    self.MUX_TOGGLE_STATUS_NOT_INITIATED_OR_FINISHED = 2
+                    self.mux_toggle_status = 0
                     self.SWITCH_COUNT_MANUAL = "manual"
                     self.SWITCH_COUNT_AUTO = "auto"
 
@@ -2163,6 +2204,9 @@ class TestYCableScript(object):
                     self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
                     self.FIRMWARE_DOWNLOAD_STATUS_FAILED = 2
                     self.download_firmware_status = 0
+                    self.MUX_TOGGLE_STATUS_INPROGRESS = 1
+                    self.MUX_TOGGLE_STATUS_NOT_INITIATED_OR_FINISHED = 2
+                    self.mux_toggle_status = 0
                     self.SWITCH_COUNT_MANUAL = "manual"
                     self.SWITCH_COUNT_AUTO = "auto"
 
@@ -2223,6 +2267,10 @@ class TestYCableScript(object):
                     self.TARGET_TOR_B = 2
                     self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
                     self.download_firmware_status = 1
+                    self.MUX_TOGGLE_STATUS_INPROGRESS = 1
+                    self.MUX_TOGGLE_STATUS_FAILED = 2
+                    self.MUX_TOGGLE_STATUS_NOT_INITIATED_OR_FINISHED = 2
+                    self.mux_toggle_status = 0
                     self.SWITCH_COUNT_MANUAL = "manual"
                     self.SWITCH_COUNT_AUTO = "auto"
 
@@ -2298,6 +2346,10 @@ class TestYCableScript(object):
                     self.TARGET_TOR_B = 2
                     self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
                     self.download_firmware_status = 1
+                    self.MUX_TOGGLE_STATUS_INPROGRESS = 1
+                    self.MUX_TOGGLE_STATUS_FAILED = 2
+                    self.MUX_TOGGLE_STATUS_NOT_INITIATED_OR_FINISHED = 2
+                    self.mux_toggle_status = 0
                     self.SWITCH_COUNT_MANUAL = "manual"
                     self.SWITCH_COUNT_AUTO = "auto"
 
@@ -2373,6 +2425,10 @@ class TestYCableScript(object):
                     self.TARGET_TOR_B = 2
                     self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
                     self.download_firmware_status = 1
+                    self.MUX_TOGGLE_STATUS_INPROGRESS = 1
+                    self.MUX_TOGGLE_STATUS_FAILED = 2
+                    self.MUX_TOGGLE_STATUS_NOT_INITIATED_OR_FINISHED = 2
+                    self.mux_toggle_status = 0
                     self.SWITCH_COUNT_MANUAL = "manual"
                     self.SWITCH_COUNT_AUTO = "auto"
 
@@ -3887,6 +3943,10 @@ class TestYCableScript(object):
                     self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS = 1
                     self.FIRMWARE_DOWNLOAD_STATUS_FAILED = 2
                     self.download_firmware_status = 0
+                    self.MUX_TOGGLE_STATUS_INPROGRESS = 1
+                    self.MUX_TOGGLE_STATUS_FAILED = 2
+                    self.MUX_TOGGLE_STATUS_NOT_INITIATED_OR_FINISHED = 2
+                    self.mux_toggle_status = 0
                     self.SWITCH_COUNT_MANUAL = "manual"
                     self.SWITCH_COUNT_AUTO = "auto"
 
@@ -4674,3 +4734,15 @@ class TestYCableScript(object):
             rc = handle_show_hwmode_state_cmd_arg_tbl_notification(
                 fvp, xcvrd_show_hwmode_dir_cmd_sts_tbl, xcvrd_show_hwmode_dir_rsp_tbl, xcvrd_show_hwmode_dir_res_tbl, asic_index, port)
             assert(rc == None)
+
+    def test_get_mux_cable_static_info_without_presence(self):
+
+        rc = get_muxcable_static_info_without_presence()
+
+        assert(rc['read_side'] == '-1')
+        assert(rc['nic_lane1_precursor1'] == 'N/A')
+        assert(rc['nic_lane1_precursor1'] == 'N/A')
+        assert(rc['nic_lane1_postcursor1'] == 'N/A')
+        assert(rc['nic_lane1_postcursor2'] == 'N/A')
+
+
