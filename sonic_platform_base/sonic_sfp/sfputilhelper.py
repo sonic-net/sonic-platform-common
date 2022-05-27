@@ -13,7 +13,7 @@ try:
 
     from natsort import natsorted
     from portconfig import get_port_config
-    from sonic_py_common import device_info
+    from sonic_py_common import device_info, multi_asic
     from sonic_py_common.interface import backplane_prefix, inband_prefix, recirc_prefix
 
 except ImportError as e:
@@ -22,6 +22,7 @@ except ImportError as e:
 # Global Variable
 PLATFORM_JSON = 'platform.json'
 PORT_CONFIG_INI = 'port_config.ini'
+ASIC_NAME_PREFIX = 'asic'
 
 class SfpUtilHelper(object):
     # List to specify filter for sfp_ports
@@ -52,7 +53,12 @@ class SfpUtilHelper(object):
         fp_port_index = 1
 
         (platform, hwsku) = device_info.get_platform_and_hwsku()
-        ports, _, _ = get_port_config(hwsku, platform)
+
+        asic_name = None
+        if multi_asic.is_multi_asic():
+            asic_name = ASIC_NAME_PREFIX + str(asic_inst)
+
+        ports, _, _ = get_port_config(hwsku, platform, asic_name=asic_name)
 
         if not ports:
             ports, _, _ = get_port_config(hwsku, platform, porttabfile)
@@ -65,9 +71,9 @@ class SfpUtilHelper(object):
              logical_list.append(intf)
 
         # Ignore if this is an internal backplane interface and Inband interface
-        logical = [name for name in logical 
+        logical = [name for name in logical_list
                       if not name.startswith((backplane_prefix(), inband_prefix(), recirc_prefix()))]
-        logical = natsorted(logical_list, key=lambda y: y.lower())
+        logical = natsorted(logical, key=lambda y: y.lower())
         logical_to_physical, physical_to_logical = OrderedDict(),  OrderedDict()
 
         for intf_name in logical:
@@ -83,24 +89,25 @@ class SfpUtilHelper(object):
             # Mapping of logical port names available on a system to ASIC instance
             self.logical_to_asic[intf_name] = asic_inst
 
-        self.logical = logical
-        self.logical_to_physical = logical_to_physical
-        self.physical_to_logical = physical_to_logical
+        self.logical.extend(logical)
+        self.logical = list(set(self.logical))
+        self.logical_to_physical.update(logical_to_physical)
+        self.physical_to_logical.update(physical_to_logical)
 
         return None
 
 
     def read_all_porttab_mappings(self, platform_dir, num_asic_inst):
-        # In multi asic scenario, get all the port_config files for different asics
-         for inst in range(num_asic_inst):
-             port_map_dir = os.path.join(platform_dir, str(inst))
-             port_map_file = os.path.join(port_map_dir, PORT_CONFIG_INI)
-             if os.path.exists(port_map_file):
-                 self.read_porttab_mappings(port_map_file, inst)
-             else:
-                 port_json_file = os.path.join(port_map_dir, PLATFORM_JSON)
-                 if os.path.exists(port_json_file):
-                     self.read_porttab_mappings(port_json_file, inst)
+        # In multi asic scenario, get all the port_config files for different asic
+        for inst in range(num_asic_inst):
+            port_map_dir = os.path.join(platform_dir, str(inst))
+            port_map_file = os.path.join(port_map_dir, PORT_CONFIG_INI)
+            if os.path.exists(port_map_file):
+                self.read_porttab_mappings(port_map_file, inst)
+            else:
+                port_json_file = os.path.join(platform_dir, PLATFORM_JSON)
+                if os.path.exists(port_json_file):
+                    self.read_porttab_mappings(port_json_file, inst)
 
     def get_physical_to_logical(self, port_num):
         """Returns list of logical ports for the given physical port"""

@@ -227,7 +227,7 @@ class bcmshell (object):
         #
         t = self.re_oneline.sub('', t)
         t = t.split('\n')
-        if t[-1] is '':
+        if t[-1] == '':
             t.pop()
 
         # get the results into a dict (module) of lists (array) of values/fields
@@ -253,10 +253,10 @@ class bcmshell (object):
         # now optimize the return
         #
         for I in iter(d):
-            if len(d[I]) is 1:
+            if len(d[I]) == 1:
                 d[I] = d[I][0]
 
-        if len(d) is 1:
+        if len(d) == 1:
             return d.values()[0]
         else:
             return d
@@ -319,7 +319,7 @@ class bcmshell (object):
         t = self.re_table_header.sub('', t)
         t = self.re_table_trailer.sub('', t)
         t = t.split('\n')
-        if t[-1] is '':
+        if t[-1] == '':
             t.pop()
 
         # parse the contents
