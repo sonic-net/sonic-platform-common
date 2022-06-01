@@ -171,7 +171,7 @@ output_Innodisk_vendor_info = """***********************************************
 Model Name: InnoDisk Corp. - mSATA 3ME              
 FW Version: S140714 
 Serial Number: 20171126AAAA11730156
-Health: 0.00 
+Health: 82.34% 
 Capacity: 29.818199 GB
 P/E Cycle: 3000 
 Lifespan : 0 (Years : 0 Months : 0 Days : 0) 
@@ -313,7 +313,7 @@ class TestSsdGeneric:
 
         Innodisk_ssd.vendor_ssd_info = output_Innodisk_vendor_info
         Innodisk_ssd.parse_vendor_ssd_info('InnoDisk')
-        assert(Innodisk_ssd.get_health() == '0')
+        assert(Innodisk_ssd.get_health() == '82.34')
         assert(Innodisk_ssd.get_model() == 'InnoDisk Corp. - mSATA 3ME')
         assert(Innodisk_ssd.get_firmware() == "S140714")
         assert(Innodisk_ssd.get_temperature() == '0')

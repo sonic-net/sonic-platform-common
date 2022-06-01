@@ -95,7 +95,7 @@ class SsdUtil(SsdBase):
 
     def parse_innodisk_info(self):
         if self.vendor_ssd_info:
-            self.health = self._parse_re('Health:\s*(.+?)%?', self.vendor_ssd_info)
+            self.health = self._parse_re('Health:\s*(.+?)%', self.vendor_ssd_info)
             self.temperature = self._parse_re('Temperature\s*\[\s*(.+?)\]', self.vendor_ssd_info)
         else:
             if self.health == NOT_AVAILABLE:
