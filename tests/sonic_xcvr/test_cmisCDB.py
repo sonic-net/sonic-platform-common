@@ -1,5 +1,6 @@
 from mock import MagicMock
 import pytest
+from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi
 from sonic_platform_base.sonic_xcvr.api.public.cmisCDB import CmisCdbApi
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis import CmisMemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
@@ -12,6 +13,18 @@ class TestCDB(object):
     writer = MagicMock()
     eeprom = XcvrEeprom(reader, writer, mem_map)
     api = CmisCdbApi(eeprom)
+
+    def test_cdb_is_none(self):
+        api = CmisApi(self.eeprom)
+        api.cdb = None
+        print(api)
+        print(api.get_module_fw_mgmt_feature())
+        assert False == api.get_module_fw_mgmt_feature()['status']
+        assert False == api.get_module_fw_info()['status']
+        assert False == api.module_fw_run()[0]
+        assert False == api.module_fw_commit()[0]
+        assert False == api.module_fw_download(None, None, None, None, None, None)[0]
+
 
     @pytest.mark.parametrize("mock_response, expected", [
         (64, False),
@@ -101,7 +114,7 @@ class TestCDB(object):
         self.api.cdb1_chkstatus = MagicMock()
         self.api.cdb1_chkstatus.return_value = mock_response[0]
         self.api.read_cdb = MagicMock()
-        self.api.read_cdb.return_value = mock_response[1]        
+        self.api.read_cdb.return_value = mock_response[1]
         result = self.api.get_fw_management_features()
         assert result == expected
 
@@ -185,7 +198,7 @@ class TestCDB(object):
         self.api.cdb1_chkstatus.return_value = mock_response
         result = self.api.run_fw_image()
         assert result == expected
-        
+
     @pytest.mark.parametrize("mock_response, expected", [
         (1, 1),
         (64, 64),
