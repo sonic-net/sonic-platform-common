@@ -398,6 +398,41 @@ def setup_grpc_channel_for_port(port, soc_ip):
 
     return channel, stub
 
+def put_init_values_for_grpc_states(port, read_side, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, asic_index):
+
+
+    stub = grpc_port_stubs.get(port, None)
+    request = linkmgr_grpc_driver_pb2.AdminRequest(portid=[int(read_side), 1 - int(read_side)], state=[0, 0])
+    if stub is None:
+        helper_logger.log_notice("stub is None for getting admin port forwarding state RPC port {}".format(port))
+        fvs_updated = swsscommon.FieldValuePairs([('state', 'unknown'),
+                                                  ('read_side', str(read_side)),
+                                                  ('active_side', 'unknown')])
+        hw_mux_cable_tbl[asic_index].set(port, fvs_updated)
+        hw_mux_cable_tbl_peer[asic_index].set(port, fvs_updated)
+        return
+
+    ret, response = try_grpc(stub.QueryAdminForwardingPortState, QUERY_ADMIN_FORWARDING_TIMEOUT, request)
+    (self_state, peer_state) = parse_grpc_response_forwarding_state(ret, response, read_side)
+    if response is not None:
+        # Debug only, remove this section once Server side is Finalized
+        fwd_response_port_ids = response.portid
+        fwd_response_port_ids_state = response.state
+        helper_logger.log_notice(
+            "forwarding state RPC received response port ids = {} port {}".format(fwd_response_port_ids, port))
+        helper_logger.log_notice(
+            "forwarding state RPC received response state values = {} port {}".format(fwd_response_port_ids_state, port))
+    else:
+        helper_logger.log_warning("response was none while doing init config state for gRPC HW_MUX_CABLE_TABLE {} ".format(port))
+
+    fvs_updated = swsscommon.FieldValuePairs([('state', self_state),
+                                              ('read_side', str(read_side)),
+                                              ('active_side', self_state)])
+    hw_mux_cable_tbl[asic_index].set(port, fvs_updated)
+    fvs_updated = swsscommon.FieldValuePairs([('state', peer_state),
+                                              ('read_side', str(read_side)),
+                                              ('active_side', peer_state)])
+    hw_mux_cable_tbl_peer[asic_index].set(port, fvs_updated)
 
 def process_loopback_interface_and_get_read_side(loopback_keys):
 
@@ -473,12 +508,11 @@ def check_identifier_presence_and_setup_channel(logical_port_name, port_tbl, hw_
                             helper_logger.log_notice(
                                 "stub is not None, Cable-Insert or daemon init, daemon able to set up channel for gRPC SOC IP {}, port {}".format(soc_ipv4, logical_port_name))
 
-                        fvs_updated = swsscommon.FieldValuePairs([('read_side', str(read_side))])
-                        hw_mux_cable_tbl[asic_index].set(logical_port_name, fvs_updated)
-                        hw_mux_cable_tbl_peer[asic_index].set(logical_port_name, fvs_updated)
                     else:
                         helper_logger.log_warning(
                             "DAC cable not present while Channel setup Port {} for gRPC channel initiation".format(logical_port_name))
+
+                    put_init_values_for_grpc_states(logical_port_name, read_side, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, asic_index)
 
                 else:
                     helper_logger.log_warning(
@@ -3049,8 +3083,8 @@ def handle_fwd_state_command_grpc_notification(fvp_m, hw_mux_cable_tbl, fwd_stat
             helper_logger.log_debug("Y_CABLE_DEBUG:before invoking RPC fwd_state read_side = {}".format(read_side))
             # TODO state only for dummy value in this request MSG remove this
             request = linkmgr_grpc_driver_pb2.AdminRequest(portid=[int(read_side), 1 - int(read_side)], state=[0, 0])
-            helper_logger.log_warning(
-                "calling RPC for getting forwarding state read_side portid = {} Ethernet port {}".format(read_side, port))
+            helper_logger.log_notice(
+                "calling RPC for getting forwarding state port = {} portid {} peer portid {} read_side {}".format(port, read_side, 1 - int(read_side), read_side))
 
             self_state = "unknown"
             peer_state = "unknown"
@@ -3075,9 +3109,9 @@ def handle_fwd_state_command_grpc_notification(fvp_m, hw_mux_cable_tbl, fwd_stat
                 fwd_response_port_ids = response.portid
                 fwd_response_port_ids_state = response.state
                 helper_logger.log_notice(
-                    "forwarding state RPC received response port ids = {} port {}".format(fwd_response_port_ids, port))
+                    "forwarding state RPC received response port = {} portids {} read_side {}".format(port, fwd_response_port_ids,read_side))
                 helper_logger.log_notice(
-                    "forwarding state RPC received response state values = {} port {}".format(fwd_response_port_ids_state, port))
+                    "forwarding state RPC received response port = {} state values = {} read_side {}".format(port, fwd_response_port_ids_state, read_side))
             else:
                 helper_logger.log_notice("response was none handle_fwd_state_command_grpc_notification {} ".format(port))
 
@@ -3132,7 +3166,7 @@ def handle_hw_mux_cable_table_grpc_notification(fvp, hw_mux_cable_tbl, asic_inde
                 state_req = 0
 
             helper_logger.log_notice(
-                "calling RPC for hw mux_cable set state state peer = {} portid Ethernet port {}".format(peer, port))
+                "calling RPC for hw mux_cable set state ispeer = {} port {} portid {} read_side {} state requested {}".format(peer, port, curr_read_side, read_side, new_state))
 
             request = linkmgr_grpc_driver_pb2.AdminRequest(portid=[curr_read_side], state=[state_req])
 
@@ -3152,9 +3186,9 @@ def handle_hw_mux_cable_table_grpc_notification(fvp, hw_mux_cable_tbl, asic_inde
                 hw_response_port_ids = response.portid
                 hw_response_port_ids_state = response.state
                 helper_logger.log_notice(
-                    "Set admin state RPC received response port ids = {}".format(hw_response_port_ids))
+                    "Set admin state RPC received response port {} port ids = {} curr_read_side {} read_side {}".format(port, hw_response_port_ids, curr_read_side, read_side))
                 helper_logger.log_notice(
-                    "Set admin state RPC received response state values = {}".format(hw_response_port_ids_state))
+                    "Set admin state RPC received response port {} state values = {} curr_read_side {} read_side {}".format(port, hw_response_port_ids_state, curr_read_side, read_side))
             else:
                 helper_logger.log_notice("response was none hw_mux_cable_table_grpc_notification {} ".format(port))
 
@@ -3166,8 +3200,8 @@ def handle_hw_mux_cable_table_grpc_notification(fvp, hw_mux_cable_tbl, asic_inde
                 new_state = 'unknown'
 
             time_end = datetime.datetime.utcnow().strftime("%Y-%b-%d %H:%M:%S.%f")
-            fvs_metrics = swsscommon.FieldValuePairs([('grpc_switch_{}_{}_start'.format(toggle_side, new_state), str(time_start)),
-                                                      ('grpc_switch_{}_{}_end'.format(toggle_side, new_state), str(time_end))])
+            fvs_metrics = swsscommon.FieldValuePairs([('xcvrd_switch_{}_{}_start'.format(toggle_side, new_state), str(time_start)),
+                                                      ('xcvrd_switch_{}_{}_end'.format(toggle_side, new_state), str(time_end))])
             grpc_metrics_tbl[asic_index].set(port, fvs_metrics)
 
             fvs_updated = swsscommon.FieldValuePairs([('state', new_state),

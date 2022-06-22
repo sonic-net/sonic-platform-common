@@ -5271,6 +5271,31 @@ class TestYCableScript(object):
         
         rc = handle_fwd_state_command_grpc_notification(fvs_m, hw_mux_cable_tbl, fwd_state_response_tbl, asic_index, port, "TestDB")
         assert(rc == True)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.grpc_port_stubs', MagicMock(return_value={}))
+    @patch('ycable.ycable_utilities.y_cable_helper.grpc_port_channels', MagicMock(return_value={}))
+    def test_parse_grpc_response_forwarding_state_standby_standby_with_true_read_side(self):
+
+        status = True
+        asic_index = 0
+        test_db = "TEST_DB"
+        port = "Ethernet0"
+        fvs_m = [('command', "probe"), ('read_side', 1), ('cable_type','active-standby'), ('soc_ipv4','192.168.0.1')]
+        hw_mux_cable_tbl = {}
+        hw_mux_cable_tbl_peer = {}
+        fwd_state_response_tbl = {}
+        hw_mux_cable_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], "PORT_INFO_TABLE")
+        hw_mux_cable_tbl_peer[asic_index] = swsscommon.Table(
+            test_db[asic_index], "PORT_INFO_TABLE")
+        fwd_state_response_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], "PORT_INFO_TABLE")
+        hw_mux_cable_tbl[asic_index].get.return_value = (status, fvs_m)
+        
+        rc = put_init_values_for_grpc_states(port, '0', hw_mux_cable_tbl, hw_mux_cable_tbl_peer, 0)
+        assert(rc == None)
+        
+        
     def test_get_mux_cable_static_info_without_presence(self):
 
         rc = get_muxcable_static_info_without_presence()
