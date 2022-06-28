@@ -94,10 +94,9 @@ def validate_port(port):
         return False
     return True
 
-def subscribe_port_config_change():
+def subscribe_port_config_change(namespaces):
     sel = swsscommon.Select()
     asic_context = {}
-    namespaces = multi_asic.get_front_end_namespaces()
     for namespace in namespaces:
         config_db = daemon_base.db_connect("CONFIG_DB", namespace=namespace)
         asic_id = multi_asic.get_asic_index_from_namespace(namespace)
@@ -106,23 +105,20 @@ def subscribe_port_config_change():
         sel.addSelectable(port_tbl)
     return sel, asic_context
 
-def subscribe_port_update_event(db_list=['APPL_DB', 'STATE_DB']):
-    port_tbl_map = {
-        'APPL_DB': swsscommon.APP_PORT_TABLE_NAME,
-        'CONFIG_DB': swsscommon.CFG_PORT_TABLE_NAME,
-        'STATE_DB': 'TRANSCEIVER_INFO'
-    }
+def subscribe_port_update_event(namespaces):
+    port_tbl_map = [
+        {'APPL_DB': swsscommon.APP_PORT_TABLE_NAME},
+        {'STATE_DB': 'TRANSCEIVER_INFO'},
+        {'STATE_DB': 'PORT_TABLE'},
+    ]
 
     sel = swsscommon.Select()
     asic_context = {}
-    namespaces = multi_asic.get_front_end_namespaces()
-    for db_name in db_list:
-        if db_name not in port_tbl_map:
-            continue
+    for d in port_tbl_map:
         for namespace in namespaces:
-            db = daemon_base.db_connect(db_name, namespace=namespace)
+            db = daemon_base.db_connect(list(d.keys())[0], namespace=namespace)
             asic_id = multi_asic.get_asic_index_from_namespace(namespace)
-            port_tbl = swsscommon.SubscriberStateTable(db, port_tbl_map[db_name])
+            port_tbl = swsscommon.SubscriberStateTable(db, list(d.values())[0])
             asic_context[port_tbl] = asic_id
             sel.addSelectable(port_tbl)
     return sel, asic_context
@@ -186,7 +182,7 @@ def read_port_config_change(asic_context, port_mapping, logger, port_change_even
             if not key:
                 break
             if not validate_port(key):
-                continue 
+                continue
             if op == swsscommon.SET_COMMAND:
                 fvp = dict(fvp)
                 if 'index' not in fvp:
@@ -218,11 +214,10 @@ def read_port_config_change(asic_context, port_mapping, logger, port_change_even
             else:
                 logger.log_warning('Invalid DB operation: {}'.format(op))
 
-def get_port_mapping():
+def get_port_mapping(namespaces):
     """Get port mapping from CONFIG_DB
     """
     port_mapping = PortMapping()
-    namespaces = multi_asic.get_front_end_namespaces()
     for namespace in namespaces:
         asic_id = multi_asic.get_asic_index_from_namespace(namespace)
         config_db = daemon_base.db_connect("CONFIG_DB", namespace=namespace)
