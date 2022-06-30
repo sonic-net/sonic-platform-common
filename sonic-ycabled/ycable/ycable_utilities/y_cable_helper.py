@@ -30,7 +30,7 @@ else:
 SELECT_TIMEOUT = 1000
 
 #gRPC timeouts for RPC
-QUERY_ADMIN_FORWARDING_TIMEOUT = 0.1
+QUERY_ADMIN_FORWARDING_TIMEOUT = 0.5
 SET_ADMIN_FORWARDING_TIMEOUT = 0.5
 
 y_cable_platform_sfputil = None
@@ -379,17 +379,27 @@ def setup_grpc_channel_for_port(port, soc_ip):
             private_key=key,
             certificate_chain=cert_chain)
     """
-    helper_logger.log_debug("Y_CABLE_DEBUG:setting up gRPC channel for RPC's {} {}".format(port,soc_ip))
-    channel = grpc.insecure_channel("{}:{}".format(soc_ip, GRPC_PORT), options=[('grpc.keepalive_timeout_ms', 1000)])
-    stub = linkmgr_grpc_driver_pb2_grpc.DualToRActiveStub(channel)
+    helper_logger.log_notice("Setting up gRPC channel for RPC's {} {}".format(port,soc_ip))
 
-    channel_ready = grpc.channel_ready_future(channel)
+    retries = 3
+    for _ in range(retries):
+        channel = grpc.insecure_channel("{}:{}".format(soc_ip, GRPC_PORT), options=[('grpc.keepalive_timeout_ms', 2000),
+                                                                                    ('grpc.keepalive_time_ms', 1000),
+                                                                                    ('grpc.keepalive_permit_without_calls', True),
+                                                                                    ('grpc.http2.max_pings_without_data', 0),
+                                                                                    ('grpc.http2.min_time_between_pings_ms', 2000),
+                                                                                    ('grpc.http2.min_ping_interval_without_data_ms',  1000)])
+        stub = linkmgr_grpc_driver_pb2_grpc.DualToRActiveStub(channel)
 
-    try:
-        channel_ready.result(timeout=0.2)
-    except grpc.FutureTimeoutError:
-        channel = None
-        stub = None
+        channel_ready = grpc.channel_ready_future(channel)
+
+        try:
+            channel_ready.result(timeout=2)
+        except grpc.FutureTimeoutError:
+            channel = None
+            stub = None
+        else:
+            break
 
     if stub is None:
         helper_logger.log_warning("stub was not setup for gRPC soc ip {} port {}, no gRPC soc server running ?".format(soc_ip, port))
@@ -3176,11 +3186,22 @@ def handle_hw_mux_cable_table_grpc_notification(fvp, hw_mux_cable_tbl, asic_inde
                 retry_setup_grpc_channel_for_port(port, asic_index)
                 stub = grpc_port_stubs.get(port, None)
                 if stub is None:
-                    helper_logger.log_notice(
-                        "stub was None for performing hw mux RPC port {}, setting it up again did not work".format(port))
+                    helper_logger.log_warning(
+                            "gRPC channel was initially not setup for performing hw mux set state RPC port {}, trying to set gRPC channel again also did not work, posting unknown state for stateDB:HW_MUX_CABLE_TABLE".format(port))
+                    active_side = new_state = 'unknown'
+                    time_end = datetime.datetime.utcnow().strftime("%Y-%b-%d %H:%M:%S.%f")
+                    fvs_metrics = swsscommon.FieldValuePairs([('xcvrd_switch_{}_{}_start'.format(toggle_side, new_state), str(time_start)),
+                                                              ('xcvrd_switch_{}_{}_end'.format(toggle_side, new_state), str(time_end))])
+                    grpc_metrics_tbl[asic_index].set(port, fvs_metrics)
+
+                    fvs_updated = swsscommon.FieldValuePairs([('state', new_state),
+                                                              ('read_side', read_side),
+                                                              ('active_side', str(active_side))])
+                    hw_mux_cable_tbl[asic_index].set(port, fvs_updated)
                     return
 
             ret, response = try_grpc(stub.SetAdminForwardingPortState, SET_ADMIN_FORWARDING_TIMEOUT, request)
+
             if response is not None:
                 # Debug only, remove this section once Server side is Finalized
                 hw_response_port_ids = response.portid
