@@ -52,6 +52,25 @@ class SfpBase(device_base.DeviceBase):
         SFP_ERROR_BIT_BAD_CABLE:               SFP_ERROR_DESCRIPTION_BAD_CABLE
     }
 
+    # Port types that are used by the chassis API ChassisBase.get_port_or_cage_type()
+    # It's possible that multiple types are supported on one port.
+    # In that case, the result will be logical OR of all the supported types
+    # Check example in ChassisBase.get_port_or_cage_type()
+    SFP_PORT_TYPE_BIT_RJ45                = 0x00000001
+    SFP_PORT_TYPE_BIT_SFP                 = 0x00000002
+    SFP_PORT_TYPE_BIT_XFP                 = 0x00000004
+    SFP_PORT_TYPE_BIT_SFP_PLUS            = 0x00000008
+    SFP_PORT_TYPE_BIT_QSFP                = 0x00000010
+    SFP_PORT_TYPE_BIT_CFP                 = 0x00000020
+    SFP_PORT_TYPE_BIT_QSFP_PLUS           = 0x00000040
+    SFP_PORT_TYPE_BIT_QSFP28              = 0x00000080
+    SFP_PORT_TYPE_BIT_SFP28               = 0x00000100
+    SFP_PORT_TYPE_BIT_CFP2                = 0x00000200
+    SFP_PORT_TYPE_BIT_QSFP56              = 0x00000400
+    SFP_PORT_TYPE_BIT_QSFPDD              = 0x00000800
+    SFP_PORT_TYPE_BIT_OSFP                = 0x00001000
+    SFP_PORT_TYPE_BIT_SFP_DD              = 0x00002000
+
     def __init__(self):
         # List of ThermalBase-derived objects representing all thermals
         # available on the SFP
