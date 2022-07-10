@@ -188,12 +188,12 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
             new_e = new_e + bytearray([self._TLV_CODE_QUANTA_CRC]) + bytearray([2])
         else:
             print("\nFailed to formulate new eeprom\n")
-            exit
+            sys.exit(1)
         new_e += self.encode_checksum(self.calculate_checksum(new_e))
         self.decode_eeprom(new_e)
         if len(new_e) > min(self._TLV_INFO_MAX_LEN, self.eeprom_max_len):
             sys.stderr.write("\nERROR: There is not enough room in the EEPROM to save data.\n")
-            exit(1)
+            sys.exit(1)
         return new_e
 
 
@@ -599,7 +599,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
                 sys.stderr.write("Error: '" + "0x%02X" % (I[0],) + "' -- Unable to set the read-only Quanta codes.\n")
             else:
                 sys.stderr.write("Error: '" + "0x%02X" % (I[0],) + "' correct format is " + errstr + "\n")
-            exit(0)
+            sys.exit(0)
 
         return bytearray([I[0]]) + bytearray([len(value)]) + value
 
