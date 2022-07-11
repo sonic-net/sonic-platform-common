@@ -2,9 +2,11 @@ import os
 import subprocess
 from unittest import mock
 from sonic_platform_base.sonic_eeprom import eeprom_tlvinfo
-EEPROM_SYMLINK = "./vpd_info"
-EEPROM_HEX_FILE = "./syseeprom.hex"
-
+EEPROM_SYMLINK = "vpd_info"
+EEPROM_HEX_FILE = "syseeprom.hex"
+TEST_PATH = os.path.dirname(os.path.abspath(__file__))
+EEPROM_HEX_FILE_FULL_PATH = os.path.join(TEST_PATH, EEPROM_HEX_FILE)
+EEPROM_SYMLINK_FULL_PATH = os.path.join(TEST_PATH, EEPROM_SYMLINK)
 class TestEepromTlvinfo:
 
     @classmethod
@@ -31,20 +33,20 @@ class TestEepromTlvinfo:
         CRC-32               0xFE   4 0x89D74C56
 
         """
-        if not os.path.exists(os.path.dirname(EEPROM_HEX_FILE)):
-            assert(False)
-        subprocess.check_call(['/usr/bin/xxd', '-r', '-p', EEPROM_HEX_FILE, EEPROM_SYMLINK])
+        if not os.path.exists(os.path.dirname(EEPROM_HEX_FILE_FULL_PATH)):
+            assert False, "File {} is not exist".format(EEPROM_HEX_FILE_FULL_PATH)
+        subprocess.check_call(['/usr/bin/xxd', '-r', '-p', EEPROM_HEX_FILE_FULL_PATH, EEPROM_SYMLINK_FULL_PATH])
     
     @classmethod
     def teardown_class(cls):
         # Remove the mock eeprom after test
-        if os.path.exists(os.path.dirname(EEPROM_HEX_FILE)):
-            subprocess.check_call(['rm', '-f', EEPROM_SYMLINK])
+        if os.path.exists(os.path.dirname(EEPROM_HEX_FILE_FULL_PATH)):
+                subprocess.check_call(['rm', '-f', EEPROM_SYMLINK_FULL_PATH])
 
     def test_eeprom_tlvinfo_read_api(self):
         # Test using the api to fetch Base MAC, Switch Addr Range, Model,
         # Serial Number and Part Number.
-        eeprom_class = eeprom_tlvinfo.TlvInfoDecoder(EEPROM_SYMLINK, 0, '', True)
+        eeprom_class = eeprom_tlvinfo.TlvInfoDecoder(EEPROM_SYMLINK_FULL_PATH, 0, '', True)
         eeprom = eeprom_class.read_eeprom()
         eeprom_class.decode_eeprom(eeprom)
         assert(eeprom_class.base_mac_addr(eeprom).rstrip('\0') == '7C:FE:90:F5:36:40')
@@ -55,7 +57,7 @@ class TestEepromTlvinfo:
 
     def test_eeprom_tlvinfo_get_tlv_field(self):
         # Test getting fields by field code
-        eeprom_class = eeprom_tlvinfo.TlvInfoDecoder(EEPROM_SYMLINK, 0, '', True)
+        eeprom_class = eeprom_tlvinfo.TlvInfoDecoder(EEPROM_SYMLINK_FULL_PATH, 0, '', True)
         eeprom = eeprom_class.read_eeprom()
         (is_valid, t) = eeprom_class.get_tlv_field(eeprom, eeprom_class._TLV_CODE_MANUF_DATE)
         assert(is_valid and t[2].decode("ascii").rstrip('\0') == '06/10/2016 01:57:31')
@@ -73,7 +75,7 @@ class TestEepromTlvinfo:
         assert(not is_valid)
 
     def test_eeprom_tlvinfo_set_eeprom(self):
-        eeprom_class = eeprom_tlvinfo.TlvInfoDecoder(EEPROM_SYMLINK, 0, '', True)
+        eeprom_class = eeprom_tlvinfo.TlvInfoDecoder(EEPROM_SYMLINK_FULL_PATH, 0, '', True)
         eeprom = eeprom_class.read_eeprom()
 
         # Test updating existing fields
@@ -155,13 +157,13 @@ class TestEepromTlvinfo:
 
     def test_eeprom_tlvinfo_update_eeprom_db(self):
         # Test updating eeprom to DB by mocking redis hmset
-        eeprom_class = eeprom_tlvinfo.TlvInfoDecoder(EEPROM_SYMLINK, 0, '', True)
+        eeprom_class = eeprom_tlvinfo.TlvInfoDecoder(EEPROM_SYMLINK_FULL_PATH, 0, '', True)
         eeprom = eeprom_class.read_eeprom()
         eeprom_class.redis_client.hmset = mock.MagicMock(return_value = True)
         assert(0 == eeprom_class.update_eeprom_db(eeprom))
 
     def test_eeprom_tlvinfo_read_eeprom_db(self):
         # Test reading from DB by mocking redis hget
-        eeprom_class = eeprom_tlvinfo.TlvInfoDecoder(EEPROM_SYMLINK, 0, '', True)
+        eeprom_class = eeprom_tlvinfo.TlvInfoDecoder(EEPROM_SYMLINK_FULL_PATH, 0, '', True)
         eeprom_class.redis_client.hget = mock.MagicMock(return_value = b'1')
         assert(0 == eeprom_class.read_eeprom_db())
