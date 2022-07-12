@@ -463,3 +463,15 @@ class XcvrApi(object):
         result                     |tuple          |firmware information
         """
         raise NotImplementedError
+
+    def get_error_description(self):
+        """
+        Retrives the error descriptions of the SFP module
+
+        Returns:
+            String that represents the current error descriptions of vendor specific errors
+            In case there are multiple errors, they should be joined by '|',
+            like: "Bad EEPROM|Unsupported cable"
+        """
+        raise NotImplementedError
+
