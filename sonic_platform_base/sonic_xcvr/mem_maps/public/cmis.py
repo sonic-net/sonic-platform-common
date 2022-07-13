@@ -123,6 +123,9 @@ class CmisMemMap(XcvrMemMap):
             ),
 
             RegGroupField(consts.APPLS_ADVT_FIELD_PAGE01,
+                *(NumberRegField("%s_%d" % (consts.MEDIA_LANE_ASSIGNMENT_OPTION, app), self.getaddr(0x1, 176 + (app - 1)),
+                    format="B", size=1) for app in range(1, 16)),
+                
                 *(CodeRegField("%s_%d" % (consts.HOST_ELECTRICAL_INTERFACE, app), self.getaddr(0x1, 223 + 4 * (app - 9)),
                     self.codes.HOST_ELECTRICAL_INTERFACE) for app in range(9, 16)),
 
@@ -149,11 +152,8 @@ class CmisMemMap(XcvrMemMap):
                     *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8))
                     ) for lane in range(9, 16)),
 
-                *(NumberRegField("%s_%d" % (consts.HOST_LANE_ASSIGNMENT_OPTION, app), self.getaddr(0x1, 226 + 4 * (app - 1)),
-                    format="B", size=1) for app in range(9, 16)),
-
-                *(NumberRegField("%s_%d" % (consts.MEDIA_LANE_ASSIGNMENT_OPTION, app), self.getaddr(0x1, 176 + (app - 1)),
-                    format="B", size=1) for app in range(1, 16))
+                *(NumberRegField("%s_%d" % (consts.HOST_LANE_ASSIGNMENT_OPTION, app), self.getaddr(0x1, 226 + 4 * (app - 9)),
+                    format="B", size=1) for app in range(9, 16))
             )
         )
 
