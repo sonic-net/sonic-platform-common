@@ -41,7 +41,7 @@ class TestEepromTlvinfo:
     def teardown_class(cls):
         # Remove the mock eeprom after test
         if os.path.exists(os.path.dirname(EEPROM_HEX_FILE_FULL_PATH)):
-                subprocess.check_call(['rm', '-f', EEPROM_SYMLINK_FULL_PATH])
+            subprocess.check_call(['rm', '-f', EEPROM_SYMLINK_FULL_PATH])
 
     def test_eeprom_tlvinfo_read_api(self):
         # Test using the api to fetch Base MAC, Switch Addr Range, Model,
@@ -153,7 +153,7 @@ class TestEepromTlvinfo:
         assert(not is_valid)
         with mock.patch('sys.exit') as exit_mock:
             eeprom_new = eeprom_class.set_eeprom(eeprom, ['0x20 = Invalid'])
-        assert exit_mock.called
+            assert exit_mock.called
 
     def test_eeprom_tlvinfo_update_eeprom_db(self):
         # Test updating eeprom to DB by mocking redis hmset
