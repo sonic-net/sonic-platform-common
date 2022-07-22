@@ -4959,7 +4959,10 @@ class TestYCableScript(object):
     @patch('proto_out.linkmgr_grpc_driver_pb2_grpc.DualToRActiveStub', MagicMock(return_value=True))
     def test_setup_grpc_channel_for_port(self):
 
-        rc = setup_grpc_channel_for_port("Ethernet0", "192.168.0.1")
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
+
+            patched_util.get_asic_id_for_logical_port.return_value = 0
+            rc = setup_grpc_channel_for_port("Ethernet0", "192.168.0.1")
 
         assert(rc == (None, None))
 
@@ -5306,4 +5309,25 @@ class TestYCableScript(object):
         assert(rc['nic_lane1_postcursor1'] == 'N/A')
         assert(rc['nic_lane1_postcursor2'] == 'N/A')
 
+    def test_get_grpc_credentials(self):
+        
+        kvp = {}
+        type = None
 
+        rc = get_grpc_credentials(type, kvp)
+
+        assert(rc == None)
+
+
+    @patch('builtins.open')
+    def test_get_grpc_credentials_root(self, open):
+        
+        kvp = {"ca_crt": "file"}
+        type = "server" 
+
+        mock_file = MagicMock()
+        mock_file.read = MagicMock(return_value=bytes('abcdefgh', 'utf-8'))
+        open.return_value = mock_file
+        rc = get_grpc_credentials(type, kvp)
+
+        assert(rc != None)
