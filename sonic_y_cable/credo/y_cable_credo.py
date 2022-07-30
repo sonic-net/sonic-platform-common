@@ -3153,8 +3153,7 @@ class YCable(YCableBase):
         """
 
         if self.platform_chassis is not None:
-            cnt = {}
-            uartPort = {}
+            
             result = {}
 
             for option in range(2):
@@ -3168,20 +3167,27 @@ class YCable(YCableBase):
 
                 addr = 128
 
-                for idx in range(1, 3):
-                    cnt['TxPktCnt']   = (self.read_mmap(YCable.MIS_PAGE_FC, addr + 3) << 24) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 2) << 16) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 1) << 8) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 0) << 0)
-                    addr += 4
-                    cnt['RxPktCnt']   = (self.read_mmap(YCable.MIS_PAGE_FC, addr + 3) << 24) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 2) << 16) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 1) << 8) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 0) << 0)
-                    addr += 4
-                    cnt['AckCnt']     = (self.read_mmap(YCable.MIS_PAGE_FC, addr + 3) << 24) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 2) << 16) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 1) << 8) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 0) << 0)
-                    addr += 4
-                    cnt['NackCnt']    = (self.read_mmap(YCable.MIS_PAGE_FC, addr + 3) << 24) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 2) << 16) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 1) << 8) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 0) << 0)
-                    addr += 4
-                    cnt['TxRetryCnt'] = (self.read_mmap(YCable.MIS_PAGE_FC, addr + 3) << 24) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 2) << 16) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 1) << 8) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 0) << 0)
-                    addr += 4
-                    cnt['TxAbortCnt'] = (self.read_mmap(YCable.MIS_PAGE_FC, addr + 3) << 24) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 2) << 16) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 1) << 8) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 0) << 0)
-                    addr += 4
-                    uartPort['UART%d' % idx] = cnt
+                data = self.read_mmap(YCable.MIS_PAGE_FC, 128, 48)
+
+                uartPort = {}
+                cnt = {}
+                cnt['TxPktCnt']   = struct.unpack_from('<I', data[  0 :  4])[0] 
+                cnt['RxPktCnt']   = struct.unpack_from('<I', data[  4 :  8])[0] 
+                cnt['AckCnt']     = struct.unpack_from('<I', data[  8 : 12])[0] 
+                cnt['NackCnt']    = struct.unpack_from('<I', data[ 12 : 16])[0] 
+                cnt['TxRetryCnt'] = struct.unpack_from('<I', data[ 16 : 20])[0] 
+                cnt['TxAbortCnt'] = struct.unpack_from('<I', data[ 20 : 24])[0] 
+                uartPort['UART1'] = cnt
+
+                cnt = {}
+                cnt['TxPktCnt']   = struct.unpack_from('<I', data[ 24 : 28])[0] 
+                cnt['RxPktCnt']   = struct.unpack_from('<I', data[ 28 : 32])[0] 
+                cnt['AckCnt']     = struct.unpack_from('<I', data[ 32 : 36])[0] 
+                cnt['NackCnt']    = struct.unpack_from('<I', data[ 36 : 40])[0] 
+                cnt['TxRetryCnt'] = struct.unpack_from('<I', data[ 40 : 44])[0] 
+                cnt['TxAbortCnt'] = struct.unpack_from('<I', data[ 44 : 48])[0] 
+                uartPort['UART2'] = cnt
+
                 if option == 0: result['Local']  = uartPort
                 else:           result['Remote'] = uartPort
 
