@@ -999,6 +999,11 @@ class CmisManagerTask:
                 # We dont have better way to check if 'admin_status' is from APPL_DB or STATE_DB so this
                 # check is put temporarily to listen only to APPL_DB's admin_status and ignore that of STATE_DB
                 self.port_dict[lport]['admin_status'] = port_change_event.port_dict['admin_status']
+            if 'laser_freq' in port_change_event.port_dict:
+                self.port_dict[lport]['laser_freq'] = int(port_change_event.port_dict['laser_freq'])
+            if 'tx_power' in port_change_event.port_dict:
+                self.port_dict[lport]['tx_power'] = float(port_change_event.port_dict['tx_power'])
+
             self.force_cmis_reinit(lport, 0)
         else:
             self.port_dict[lport]['cmis_state'] = self.CMIS_STATE_REMOVED
@@ -1121,7 +1126,6 @@ class CmisManagerTask:
                     skip = False
                     break
             return (not skip)
-
         return True
 
     def force_cmis_reinit(self, lport, retries=0):
@@ -1203,6 +1207,32 @@ class CmisManagerTask:
 
         return done
 
+    def get_configured_laser_freq_from_db(self, lport):
+        """
+           Return the Tx power configured by user in CONFIG_DB's PORT table
+        """
+        freq = 0
+        asic_index = self.port_mapping.get_asic_id_for_logical_port(lport)
+        port_tbl = self.xcvr_table_helper.get_cfg_port_tbl(asic_index)
+
+        found, port_info = port_tbl.get(lport)
+        if found and 'laser_freq' in dict(port_info):
+            freq = dict(port_info)['laser_freq']
+        return int(freq)
+
+    def get_configured_tx_power_from_db(self, lport):
+        """
+           Return the Tx power configured by user in CONFIG_DB's PORT table
+        """
+        power = 0
+        asic_index = self.port_mapping.get_asic_id_for_logical_port(lport)
+        port_tbl = self.xcvr_table_helper.get_cfg_port_tbl(asic_index)
+
+        found, port_info = port_tbl.get(lport)
+        if found and 'tx_power' in dict(port_info):
+            power = dict(port_info)['tx_power']
+        return float(power)
+
     def get_host_tx_status(self, lport):
         host_tx_ready = 'false'
 
@@ -1226,11 +1256,31 @@ class CmisManagerTask:
             admin_status = dict(port_info)['admin_status']
         return admin_status
 
+    def configure_tx_output_power(self, api, lport, tx_power):
+        min_p, max_p = api.get_supported_power_config()
+        if tx_power < min_p:
+           self.log_error("{} configured tx power {} < minimum power {} supported".format(lport, tx_power, min_p))
+        if tx_power > max_p:
+           self.log_error("{} configured tx power {} > maximum power {} supported".format(lport, tx_power, max_p))
+        return api.set_tx_power(tx_power)
+
+    def configure_laser_frequency(self, api, lport, freq):
+        _, _,  _, lowf, highf = api.get_supported_freq_config()
+        if freq < lowf:
+            self.log_error("{} configured freq:{} GHz is lower than the supported freq:{} GHz".format(lport, freq, lowf))
+        if freq > highf:
+            self.log_error("{} configured freq:{} GHz is higher than the supported freq:{} GHz".format(lport, freq, highf))
+        chan = int(round((freq - 193100)/25))
+        if chan % 3 != 0:
+            self.log_error("{} configured freq:{} GHz is NOT in 75GHz grid".format(lport, freq))
+        if api.get_tuning_in_progress():
+            self.log_error("{} Tuning in progress, channel selection may fail!".format(lport))
+        return api.set_laser_freq(freq)
+
     def task_worker(self):
         self.xcvr_table_helper = XcvrTableHelper(self.namespaces)
 
         self.log_notice("Starting...")
-        print("Starting")
 
         # APPL_DB for CONFIG updates, and STATE_DB for insertion/removal
         sel, asic_context = port_mapping.subscribe_port_update_event(self.namespaces)
@@ -1309,6 +1359,12 @@ class CmisManagerTask:
                     if (type is None) or (type not in self.CMIS_MODULE_TYPES):
                         self.port_dict[lport]['cmis_state'] = self.CMIS_STATE_READY
                         continue
+
+                    if api.is_coherent_module():
+                       if 'tx_power' not in self.port_dict[lport]:
+                           self.port_dict[lport]['tx_power'] = self.get_configured_tx_power_from_db(lport)
+                       if 'laser_freq' not in self.port_dict[lport]:
+                           self.port_dict[lport]['laser_freq'] = self.get_configured_laser_freq_from_db(lport)
                 except AttributeError:
                     # Skip if these essential routines are not available
                     self.port_dict[lport]['cmis_state'] = self.CMIS_STATE_READY
@@ -1339,6 +1395,15 @@ class CmisManagerTask:
                            api.tx_disable_channel(host_lanes, True)
                            self.port_dict[lport]['cmis_state'] = self.CMIS_STATE_READY
                            continue
+                    # Configure the target output power if ZR module
+                        if api.is_coherent_module():
+                           tx_power = self.port_dict[lport]['tx_power']
+                           # Prevent configuring same tx power multiple times
+                           if 0 != tx_power and tx_power != api.get_tx_config_power():
+                              if 1 != self.configure_tx_output_power(api, lport, tx_power):
+                                 self.log_error("{} failed to configure Tx power = {}".format(lport, tx_power))
+                              else:
+                                 self.log_notice("{} Successfully configured Tx power = {}".format(lport, tx_power))
 
                         appl = self.get_cmis_application_desired(api, host_lanes, host_speed)
                         if appl < 1:
@@ -1346,13 +1411,22 @@ class CmisManagerTask:
                             self.port_dict[lport]['cmis_state'] = self.CMIS_STATE_FAILED
                             continue
 
-                        has_update = self.is_cmis_application_update_required(api, host_lanes, host_speed)
-                        if not has_update:
+                        need_update = self.is_cmis_application_update_required(api, host_lanes, host_speed)
+
+                        # For ZR module, Datapath needes to be re-initlialized on new channel selection
+                        if api.is_coherent_module():
+                           freq = self.port_dict[lport]['laser_freq']
+                           # If user requested frequency is NOT the same as configured on the module
+                           # force datapath re-initialization
+                           if 0 != freq and freq != api.get_laser_config_freq():
+                              need_update = True
+
+                        if not need_update:
                             # No application updates
                             self.log_notice("{}: no CMIS application update required...READY".format(lport))
                             self.port_dict[lport]['cmis_state'] = self.CMIS_STATE_READY
                             continue
-
+                        self.log_notice("{}: force Datapath reinit".format(lport))
                         self.port_dict[lport]['cmis_state'] = self.CMIS_STATE_DP_DEINIT
                     elif state == self.CMIS_STATE_DP_DEINIT:
                         # D.2.2 Software Deinitialization
@@ -1381,6 +1455,15 @@ class CmisManagerTask:
                                 self.log_notice("{}: timeout for 'DataPathDeactivated state'".format(lport))
                                 self.force_cmis_reinit(lport, retries + 1)
                             continue
+
+                        if api.is_coherent_module():
+                        # For ZR module, configure the laser frequency when Datapath is in Deactivated state
+                           freq = self.port_dict[lport]['laser_freq']
+                           if 0 != freq:
+                                if 1 != self.configure_laser_frequency(api, lport, freq):
+                                   self.log_error("{} failed to configure laser frequency {} GHz".format(lport, freq))
+                                else:
+                                   self.log_notice("{} configured laser frequency {} GHz".format(lport, freq))
 
                         # D.1.3 Software Configuration and Initialization
                         appl = self.get_cmis_application_desired(api, host_lanes, host_speed)
@@ -2080,7 +2163,7 @@ class DaemonXcvrd(daemon_base.DaemonBase):
         if multi_asic.is_multi_asic():
             # Load the namespace details first from the database_global.json file.
             swsscommon.SonicDBConfig.initializeGlobalConfig()
-        # To prevent race condition in get_all_namespaces() we cache the namespaces before 
+        # To prevent race condition in get_all_namespaces() we cache the namespaces before
         # creating any worker threads
         self.namespaces = multi_asic.get_front_end_namespaces()
 
