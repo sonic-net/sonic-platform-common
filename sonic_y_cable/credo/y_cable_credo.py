@@ -3165,9 +3165,8 @@ class YCable(YCableBase):
                     self.log_error('Dump Uart statstics error (error code:0x%04X)' % (status))
                     return result
 
-                addr = 128
-
-                data = self.read_mmap(YCable.MIS_PAGE_FC, 128, 48)
+                data = self.read_mmap(YCable.MIS_PAGE_FC, 128, 64)
+                ver  = self.read_mmap(YCable.MIS_PAGE_VSC, 130, 1)
 
                 uartPort = {}
                 cnt = {}
@@ -3176,7 +3175,11 @@ class YCable(YCableBase):
                 cnt['AckCnt']     = struct.unpack_from('<I', data[  8 : 12])[0] 
                 cnt['NackCnt']    = struct.unpack_from('<I', data[ 12 : 16])[0] 
                 cnt['TxRetryCnt'] = struct.unpack_from('<I', data[ 16 : 20])[0] 
-                cnt['TxAbortCnt'] = struct.unpack_from('<I', data[ 20 : 24])[0] 
+                cnt['TxAbortCnt'] = struct.unpack_from('<I', data[ 20 : 24])[0]
+
+                if ver == 1:
+                    cnt['RxErrorCnt'] = struct.unpack_from('<I', data[ 48 : 52])[0]
+
                 uartPort['UART1'] = cnt
 
                 cnt = {}
@@ -3186,13 +3189,17 @@ class YCable(YCableBase):
                 cnt['NackCnt']    = struct.unpack_from('<I', data[ 36 : 40])[0] 
                 cnt['TxRetryCnt'] = struct.unpack_from('<I', data[ 40 : 44])[0] 
                 cnt['TxAbortCnt'] = struct.unpack_from('<I', data[ 44 : 48])[0] 
+
+                if ver == 1:
+                    cnt['RxErrorCnt'] = struct.unpack_from('<I', data[ 52 : 56])[0]
+
                 uartPort['UART2'] = cnt
 
                 if option == 0: result['Local']  = uartPort
                 else:           result['Remote'] = uartPort
 
         else:
-            self.log_error("platform_chassis is not loaded, failed to get Uart statstics")
+            self.log_error("platform_chassis is not loaded, failed to get Uart statistics")
 
         return result
 
