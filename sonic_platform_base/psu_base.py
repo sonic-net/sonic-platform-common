@@ -223,6 +223,26 @@ class PsuBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
+    def get_psu_power_threshold(self):
+        """
+        Retrieve the warning threshold of the power on this PSU
+        The value can be volatile, so the caller should call the API each time it is used.
+
+        Returns:
+            A float number, the warning threshold of the PSU in watts.
+        """
+        raise NotImplementedError
+
+    def get_psu_power_critical_threshold(self):
+        """
+        Retrieve the critical threshold of the power on this PSU
+        The value can be volatile, so the caller should call the API each time it is used.
+
+        Returns:
+            A float number, the critical threshold of the PSU in watts.
+        """
+        raise NotImplementedError
+
     @classmethod
     def get_status_master_led(cls):
         """
