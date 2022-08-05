@@ -20,6 +20,8 @@ from .mem_maps.public.sff8436 import Sff8436MemMap
 from .codes.public.sff8636 import Sff8636Codes
 from .api.public.sff8636 import Sff8636Api
 from .mem_maps.public.sff8636 import Sff8636MemMap
+from .api.public.sff8636_edfa import Sff8636EdfaApi
+from .mem_maps.public.sff8636_edfa import Sff8636EdfaMemMap
 
 from .codes.public.sff8472 import Sff8472Codes
 from .api.public.sff8472 import Sff8472Api
@@ -36,6 +38,12 @@ class XcvrApiFactory(object):
             return None
         return id_byte_raw[0]
 
+    def _get_id1(self):
+        id_byte1_raw = self.reader(1,1)
+        if id_byte1_raw is None:
+            return None
+        return id_byte1_raw[0]
+
     def create_xcvr_api(self):
         # TODO: load correct classes from id_mapping file
         id = self._get_id()
@@ -49,19 +57,35 @@ class XcvrApiFactory(object):
                 mem_map = CCmisMemMap(codes)
                 xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
                 api = CCmisApi(xcvr_eeprom)
-
         # QSFP28
         elif id == 0x11:
             codes = Sff8636Codes
             mem_map = Sff8636MemMap(codes)
             xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
             api = Sff8636Api(xcvr_eeprom)
+        # QSFP28 EDFA
+        elif id == 0xe1:
+            codes = Sff8636Codes
+            mem_map = Sff8636EdfaMemMap(codes)
+            xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
+            api = Sff8636EdfaApi(xcvr_eeprom)
         # QSFP+
         elif id == 0x0D:
-            codes = Sff8436Codes
-            mem_map = Sff8436MemMap(codes)
-            xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
-            api = Sff8436Api(xcvr_eeprom)
+            # Check page 0 offset 1 'revision compliance' according to table 6-3 in
+            # SFF-8636 Revision2.10a
+            id1 = self._get_id1()
+            if id1 == 0x01 or id1 == 0x02:
+                codes = Sff8436Codes
+                mem_map = Sff8436MemMap(codes)
+                xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
+                api = Sff8436Api(xcvr_eeprom)
+            elif id1 >= 0x03 and id1 <= 0x08:
+                codes = Sff8636Codes
+                mem_map = Sff8636MemMap(codes)
+                xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
+                api = Sff8636Api(xcvr_eeprom)
+            else:
+                api = None
         elif id == 0x03:
             codes = Sff8472Codes
             mem_map = Sff8472MemMap(codes)
