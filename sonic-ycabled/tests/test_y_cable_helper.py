@@ -5331,3 +5331,21 @@ class TestYCableScript(object):
         rc = get_grpc_credentials(type, kvp)
 
         assert(rc != None)
+
+
+    @patch('ycable.ycable_utilities.y_cable_helper.disable_telemetry')
+    def test_handle_ycable_enable_disable_tel_notification(self, patch):
+
+        fvp_m = {"disable_telemetry": "True"}
+        rc = handle_ycable_enable_disable_tel_notification(fvp_m, "Y_CABLE")
+        assert(rc == None)
+
+    def test_handle_ycable_enable_disable_tel_notification_probe(self):
+
+        fvp_m = {"log_verbosity": "notice"}
+        rc = handle_ycable_enable_disable_tel_notification(fvp_m, "Y_CABLE")
+        assert(rc == None)
+
+        fvp_m = {"log_verbosity": "debug"}
+        rc = handle_ycable_enable_disable_tel_notification(fvp_m, "Y_CABLE")
+        assert(rc == None)
