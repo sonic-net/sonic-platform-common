@@ -3400,8 +3400,8 @@ class YCableTableUpdateTask(object):
             hw_mux_cable_tbl[asic_id] = swsscommon.Table(
                 state_db[asic_id], swsscommon.STATE_HW_MUX_CABLE_TABLE_NAME)
             # TODO add definition inside app DB
-            status_tbl_peer[asic_id] = swsscommon.SubscriberStateTable(
-                appl_db[asic_id], "HW_MUX_CABLE_TABLE_PEER")
+            status_tbl_peer[asic_id] = swsscommon.ConsumerStateTable(
+                appl_db[asic_id], "HW_FORWARDING_STATE_PEER")
             fwd_state_command_tbl[asic_id] = swsscommon.SubscriberStateTable(
                 appl_db[asic_id], "FORWARDING_STATE_COMMAND")
             fwd_state_response_tbl[asic_id] = swsscommon.Table(
