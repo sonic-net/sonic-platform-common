@@ -282,7 +282,9 @@ class MockPsu(psu_base.PsuBase):
                  temp_high_th=50.0,
                  voltage_low_th=11.0,
                  voltage_high_th=13.0,
-                 replaceable=True):
+                 replaceable=True,
+                 in_current=0.72,
+                 in_voltage=220.25):
         super(MockPsu, self).__init__()
         self._name = name
         self._presence = presence
@@ -301,6 +303,9 @@ class MockPsu(psu_base.PsuBase):
         self._voltage_low_th = voltage_low_th
         self._voltage_high_th = voltage_high_th
         self._status_led_color = self.STATUS_LED_COLOR_OFF
+        self._in_voltage = in_voltage
+        self._in_current = in_current
+        self._max_supplied_power = 'N/A'
 
     def get_voltage(self):
         return self._voltage
@@ -381,3 +386,9 @@ class MockPsu(psu_base.PsuBase):
 
     def is_replaceable(self):
         return self._replaceable
+
+    def get_input_current(self):
+        return self._in_current
+
+    def get_input_voltage(self):
+        return self._in_voltage

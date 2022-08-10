@@ -165,6 +165,9 @@ class TestDaemonPsud(object):
              (psud.PSU_INFO_CURRENT_FIELD, '8.0'),
              (psud.PSU_INFO_POWER_FIELD, '100.0'),
              (psud.PSU_INFO_FRU_FIELD, 'True'),
+             (psud.PSU_INFO_IN_VOLTAGE_FIELD, '220.25'),
+             (psud.PSU_INFO_IN_CURRENT_FIELD, '0.72'),
+             (psud.PSU_INFO_POWER_MAX_FIELD, 'N/A'),
              ])
 
         daemon_psud = psud.DaemonPsud(SYSLOG_IDENTIFIER)

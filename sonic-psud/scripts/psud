@@ -58,6 +58,9 @@ PSU_INFO_VOLTAGE_MIN_TH_FIELD = 'voltage_min_threshold'
 PSU_INFO_CURRENT_FIELD = 'current'
 PSU_INFO_POWER_FIELD = 'power'
 PSU_INFO_FRU_FIELD = 'is_replaceable'
+PSU_INFO_IN_VOLTAGE_FIELD = 'input_voltage'
+PSU_INFO_IN_CURRENT_FIELD = 'input_current'
+PSU_INFO_POWER_MAX_FIELD = 'max_power'
 
 PHYSICAL_ENTITY_INFO_TABLE = 'PHYSICAL_ENTITY_INFO'
 
@@ -455,6 +458,9 @@ class DaemonPsud(daemon_base.DaemonBase):
         current = NOT_AVAILABLE
         power = NOT_AVAILABLE
         is_replaceable = try_get(psu.is_replaceable, False)
+        in_voltage = NOT_AVAILABLE
+        in_current = NOT_AVAILABLE
+        max_power = NOT_AVAILABLE
         if presence:
             power_good = _wrapper_get_psu_status(index)
             voltage = try_get(psu.get_voltage, NOT_AVAILABLE)
@@ -464,6 +470,9 @@ class DaemonPsud(daemon_base.DaemonBase):
             temperature_threshold = try_get(psu.get_temperature_high_threshold, NOT_AVAILABLE)
             current = try_get(psu.get_current, NOT_AVAILABLE)
             power = try_get(psu.get_power, NOT_AVAILABLE)
+            in_current = try_get(psu.get_input_current, NOT_AVAILABLE)
+            in_voltage = try_get(psu.get_input_voltage, NOT_AVAILABLE)
+            max_power = try_get(psu.get_maximum_supplied_power, NOT_AVAILABLE)
 
         if index not in self.psu_status_dict:
             self.psu_status_dict[index] = PsuStatus(self, psu, index)
@@ -524,6 +533,9 @@ class DaemonPsud(daemon_base.DaemonBase):
              (PSU_INFO_CURRENT_FIELD, str(current)),
              (PSU_INFO_POWER_FIELD, str(power)),
              (PSU_INFO_FRU_FIELD, str(is_replaceable)),
+             (PSU_INFO_IN_CURRENT_FIELD, str(in_current)),
+             (PSU_INFO_IN_VOLTAGE_FIELD, str(in_voltage)),
+             (PSU_INFO_POWER_MAX_FIELD, str(max_power)),
              ])
         self.psu_tbl.set(name, fvs)
 
