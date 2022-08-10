@@ -1523,7 +1523,7 @@ def check_identifier_presence_and_update_mux_info_entry(state_db, mux_tbl, asic_
     (cable_status, cable_type) = check_mux_cable_port_type(logical_port_name, port_tbl, asic_index)
 
     if status is False:
-        helper_logger.log_warning("Could not retreive fieldvalue pairs for {}, inside config_db table {}".format(logical_port_name, port_tbl[asic_index].getTableName()))
+        helper_logger.log_info("Could not retreive fieldvalue pairs for {}, inside config_db table {}".format(logical_port_name, port_tbl[asic_index].getTableName()))
         return
 
     elif cable_status and cable_type == "active-standby":
@@ -3400,7 +3400,7 @@ class YCableTableUpdateTask(object):
             hw_mux_cable_tbl[asic_id] = swsscommon.Table(
                 state_db[asic_id], swsscommon.STATE_HW_MUX_CABLE_TABLE_NAME)
             # TODO add definition inside app DB
-            status_tbl_peer[asic_id] = swsscommon.ConsumerStateTable(
+            status_tbl_peer[asic_id] = swsscommon.SubscriberStateTable(
                 appl_db[asic_id], "HW_FORWARDING_STATE_PEER")
             fwd_state_command_tbl[asic_id] = swsscommon.SubscriberStateTable(
                 appl_db[asic_id], "FORWARDING_STATE_COMMAND")
