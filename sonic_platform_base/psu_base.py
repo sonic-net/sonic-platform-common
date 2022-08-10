@@ -244,3 +244,22 @@ class PsuBase(device_base.DeviceBase):
         """
         cls._psu_master_led_color = color
         return True
+
+    def get_input_voltage(self):
+        """
+        Retrieves current PSU voltage input
+
+        Returns:
+            A float number, the input voltage in volts,
+            e.g. 12.1
+        """
+        raise NotImplementedError
+
+    def get_input_current(self):
+        """
+        Retrieves the input current draw of the power supply
+
+        Returns:
+            A float number, the electric current in amperes, e.g 15.4
+        """
+        raise NotImplementedError
