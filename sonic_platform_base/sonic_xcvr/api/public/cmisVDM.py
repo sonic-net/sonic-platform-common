@@ -50,7 +50,9 @@ class CmisVdmApi(XcvrApi):
         if page not in [0x20, 0x21, 0x22, 0x23]:
             raise ValueError('Page not in VDM Descriptor range!')
         vdm_descriptor = self.xcvr_eeprom.read_raw(page * PAGE_SIZE + PAGE_OFFSET, PAGE_SIZE)
-        
+        if not vdm_descriptor:
+            return {}
+
         # Odd Adress VDM observable type ID, real-time monitored value in Page + 4
         vdm_typeID = vdm_descriptor[1::2]
         # Even Address
