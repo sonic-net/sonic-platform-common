@@ -1167,3 +1167,53 @@ class YCableBase():
         """
 
         raise NotImplementedError
+
+    def queue_info(self):
+        """
+        This API should dump all the meaningful data from the eeprom which can
+        help vendor debug the queue info currently relevant to the MCU
+        using this API the vendor could check how many txns are currently in the queue etc
+        for debugging purposes
+
+        Args:
+             None
+
+        Returns:
+            a Dictionary:
+                 with all the relevant key-value pairs for all the meaningful fields
+                 for the queue inside the MCU firmware
+                 which would help diagnose the cable for proper functioning
+        """
+
+        raise NotImplementedError
+
+    def reset_cause(self):
+        """
+        This API should return the reset cause for the NIC MCU.
+        This should help ascertain whether a reset was caused by soft reboot or
+        cable poweroff
+
+        Args:
+             None
+
+        Returns:
+            a string:
+                 the string should be self explnatory as to what was the cause of reset
+
+        """
+        raise NotImplementedError
+
+    def opertion_time(self):
+        """
+        This API should return the time since the cable is powered on from NIC MCU side
+        This should be helpful in debugging purposes as to if/when the cable has been powered on
+
+        Args:
+             None
+
+        Returns:
+            a float:
+                 the float should represent how much time the mux cable is alive/powered on
+        """
+
+        raise NotImplementedError
