@@ -63,6 +63,8 @@ GRPC_CLIENT_OPTIONS = [
     ('grpc.http2.max_pings_without_data', 0)
 ]
 
+DEFAULT_PORT_IDS = [0, 1]
+
 SYSLOG_IDENTIFIER = "y_cable_helper"
 
 helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
@@ -501,7 +503,7 @@ def put_init_values_for_grpc_states(port, read_side, hw_mux_cable_tbl, hw_mux_ca
 
 
     stub = grpc_port_stubs.get(port, None)
-    request = linkmgr_grpc_driver_pb2.AdminRequest(portid=[int(read_side), 1 - int(read_side)], state=[0, 0])
+    request = linkmgr_grpc_driver_pb2.AdminRequest(portid=DEFAULT_PORT_IDS, state=[0, 0])
     if stub is None:
         helper_logger.log_notice("stub is None for getting admin port forwarding state RPC port {}".format(port))
         fvs_updated = swsscommon.FieldValuePairs([('state', 'unknown'),
@@ -1212,7 +1214,7 @@ def check_identifier_presence_and_update_mux_table_entry(state_db, port_tbl, y_c
                                 read_y_cable_and_update_statedb_port_tbl(
                                     logical_port_name, y_cable_tbl[asic_index])
                                 post_port_mux_info_to_db(
-                                    logical_port_name, mux_tbl[asic_index])
+                                    logical_port_name, mux_tbl[asic_index], 'active-standby')
                                 post_port_mux_static_info_to_db(
                                     logical_port_name, static_tbl[asic_index])
                         else:
@@ -1526,7 +1528,7 @@ def check_identifier_presence_and_update_mux_info_entry(state_db, mux_tbl, asic_
         helper_logger.log_info("Could not retreive fieldvalue pairs for {}, inside config_db table {}".format(logical_port_name, port_tbl[asic_index].getTableName()))
         return
 
-    elif cable_status and cable_type == "active-standby":
+    elif cable_status is True:
         # Convert list of tuples to a dictionary
         mux_table_dict = dict(fvs)
         if "state" in mux_table_dict:
@@ -1535,7 +1537,7 @@ def check_identifier_presence_and_update_mux_info_entry(state_db, mux_tbl, asic_
 
                 if mux_tbl.get(asic_index, None) is not None:
                     # fill in the newly found entry
-                    post_port_mux_info_to_db(logical_port_name,  mux_tbl[asic_index])
+                    post_port_mux_info_to_db(logical_port_name,  mux_tbl[asic_index], cable_type)
 
                 else:
                     # first create the state db y cable table and then fill in the entry
@@ -1544,7 +1546,7 @@ def check_identifier_presence_and_update_mux_info_entry(state_db, mux_tbl, asic_
                         asic_id = multi_asic.get_asic_index_from_namespace(namespace)
                         mux_tbl[asic_id] = swsscommon.Table(state_db[asic_id], MUX_CABLE_INFO_TABLE)
                     # fill the newly found entry
-                    post_port_mux_info_to_db(logical_port_name,  mux_tbl[asic_index])
+                    post_port_mux_info_to_db(logical_port_name,  mux_tbl[asic_index], cable_type)
             else:
                 helper_logger.log_warning(
                     "Could not retreive active or auto value for state kvp for {}, inside MUX_CABLE table".format(logical_port_name))
@@ -2038,7 +2040,7 @@ def get_muxcable_static_info(physical_port, logical_port_name):
     return mux_static_info_dict
 
 
-def post_port_mux_info_to_db(logical_port_name, table):
+def post_port_mux_info_to_db(logical_port_name, table, cable_type):
 
     physical_port_list = logical_port_name_to_physical_port_list(logical_port_name)
     if physical_port_list is None:
@@ -2051,7 +2053,7 @@ def post_port_mux_info_to_db(logical_port_name, table):
 
     for physical_port in physical_port_list:
 
-        if not y_cable_wrapper_get_presence(physical_port):
+        if not y_cable_wrapper_get_presence(physical_port) or cable_type == 'active-active':
             helper_logger.log_warning("Error: trying to post mux info without presence of port {}".format(logical_port_name))
             mux_info_dict = get_muxcable_info_without_presence()
         else:
@@ -3082,7 +3084,7 @@ def handle_show_hwmode_state_cmd_arg_tbl_notification(fvp, port_tbl, xcvrd_show_
 
             helper_logger.log_debug("Y_CABLE_DEBUG:before invoking RPC fwd_state read_side = {}".format(read_side))
             # TODO state only for dummy value in this request MSG remove this
-            request = linkmgr_grpc_driver_pb2.AdminRequest(portid=[int(read_side), 1 - int(read_side)], state=[0, 0])
+            request = linkmgr_grpc_driver_pb2.AdminRequest(portid=DEFAULT_PORT_IDS, state=[0, 0])
             helper_logger.log_debug(
                 "Y_CABLE_DEBUG:calling RPC for getting cli forwarding state read_side portid = {} Ethernet port {}".format(read_side, port))
 
@@ -3187,7 +3189,7 @@ def handle_fwd_state_command_grpc_notification(fvp_m, hw_mux_cable_tbl, fwd_stat
             read_side = mux_port_dict.get("read_side")
             helper_logger.log_debug("Y_CABLE_DEBUG:before invoking RPC fwd_state read_side = {}".format(read_side))
             # TODO state only for dummy value in this request MSG remove this
-            request = linkmgr_grpc_driver_pb2.AdminRequest(portid=[int(read_side), 1 - int(read_side)], state=[0, 0])
+            request = linkmgr_grpc_driver_pb2.AdminRequest(portid=DEFAULT_PORT_IDS, state=[0, 0])
             helper_logger.log_notice(
                 "calling RPC for getting forwarding state port = {} portid {} peer portid {} read_side {}".format(port, read_side, 1 - int(read_side), read_side))
 

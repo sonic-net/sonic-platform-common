@@ -160,7 +160,7 @@ class TestYcableScript(object):
     def test_post_port_mux_info_to_db(self):
         logical_port_name = "Ethernet0"
         mux_tbl = Table("STATE_DB", y_cable_helper.MUX_CABLE_INFO_TABLE)
-        rc = post_port_mux_info_to_db(logical_port_name, mux_tbl)
+        rc = post_port_mux_info_to_db(logical_port_name, mux_tbl, 'active-standby')
         assert(rc != -1)
 
     @patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil', MagicMock(return_value=[0]))
