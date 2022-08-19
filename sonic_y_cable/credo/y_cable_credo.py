@@ -1052,11 +1052,12 @@ class YCable(YCableBase):
                     lsb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset+3, 1)
                     count = (msb_result[0] << 24 | msb_result_1[0] << 16 | msb_result_2[0] << 8 | lsb_result[0])
 
-                    buffer = bytearray([4])
-                    curr_offset = YCable.OFFSET_CLEAR_SWITCH_COUNT
-                    result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
-                    if result is False:
-                        return YCable.EEPROM_ERROR
+                    if clear_on_read:
+                        buffer = bytearray([4])
+                        curr_offset = YCable.OFFSET_CLEAR_SWITCH_COUNT
+                        result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
+                        if result is False:
+                            return YCable.EEPROM_ERROR
                 else:
                     self.log_error('acquire lock timeout, failed to get switch count (tor A)')
                     return YCableBase.EEPROM_ERROR
