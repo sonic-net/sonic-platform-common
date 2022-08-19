@@ -143,6 +143,12 @@ class YCable(YCableBase):
     EEPROM_TIMEOUT_ERROR = -1
     EEPROM_GENERIC_ERROR = -1
 
+    # side bitamp
+    SIDE_BMP_NIC   = 1
+    SIDE_BMP_TOR_A = 2
+    SIDE_BMP_TOR_B = 4
+    SIDE_BMP_ALL   = 7
+
     # MCU error code
     MCU_EC_NO_ERROR                         = 0
     MCU_EC_GET_FW_INFO_ERROR                = 11
@@ -205,7 +211,7 @@ class YCable(YCableBase):
 
     def read_mmap(self, page, byte, len=1):
         """
-        This API converts memory map page and offset to linar address, then returns eeprom values
+        This API converts memory map page and offset to linear address, then returns eeprom values
         by calling read_eeprom()
 
         Args:
@@ -219,7 +225,7 @@ class YCable(YCableBase):
                  an Integer, length of the reading
 
         Returns:
-            an Integer or bytearray, returns the value of the specified eeprom addres, returns 0xFF if it did not succeed
+            an Integer or bytearray, returns the value of the specified eeprom address, returns 0xFF if it did not succeed
         """
         if byte < 128:
             linear_addr = byte
@@ -243,7 +249,7 @@ class YCable(YCableBase):
 
     def write_mmap(self, page, byte, value, len=1):
         """
-        This API converts memory map page and offset to linar address for calling write_eeprom()
+        This API converts memory map page and offset to linear address for calling write_eeprom()
 
         Args:
              page:
@@ -1401,9 +1407,14 @@ class YCable(YCableBase):
         """
 
         if self.platform_chassis is not None:
-            inFile = open(fwfile, 'rb')
-            fwImage = bytearray(inFile.read())
-            inFile.close()
+            try:
+                inFile = open(fwfile, 'rb')
+                fwImage = bytearray(inFile.read())
+                inFile.close()
+            except Exception:
+                self.log_error('File Not Found Error: %s' % (fwfile))
+                self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
+                return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
 
             bin_pid = struct.unpack_from('>B', fwImage[5 : 6])[0]
             mcu_pid = self.read_mmap(0xFB, 187)
@@ -1425,7 +1436,7 @@ class YCable(YCableBase):
                     vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_START
                     status = self.send_vsc(vsc_req_form)
                     if status != YCable.MCU_EC_NO_ERROR:
-                        self.log_error(YCable.MCU_ERROR_CODE_STRING[status])
+                        self.log_error('Firmware binary start transfer error (error code:%04X)' % (status))
                         self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
                         return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
                 else:
@@ -1434,7 +1445,7 @@ class YCable(YCableBase):
                     return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
 
             '''
-            Transfer firmwre image to local side MCU
+            Transfer firmware image to local side MCU
             '''
             total_chunk = len(fwImage) // YCable.VSC_BUFF_SIZE
             chunk_idx = 0
@@ -1558,7 +1569,7 @@ class YCable(YCableBase):
         This routine should activate the downloaded firmware on all the
         components of the Y cable of the port for which this API is called..
         This API is meant to be used in conjunction with download_firmware API, and
-        should be called once download_firmware API is succesful.
+        should be called once download_firmware API is successful.
         This means that the firmware which has been downloaded should be
         activated (start being utilized by the cable) once this API is
         successfully executed.
@@ -1571,12 +1582,12 @@ class YCable(YCableBase):
                  choosing (binary, archive, etc.). But note that it should be one file
                  which contains firmware for all components of the Y-cable. In case the
                  vendor chooses to pass this file in activate_firmware, the API should
-                 have the logic to retreive the firmware version from this file
+                 have the logic to retrieve the firmware version from this file
                  which has to be activated on the components of the Y-Cable
                  this API has been called for.
                  If None is passed for fwfile, the cable should activate whatever
                  firmware is marked to be activated next.
-                 If provided, it should retreive the firmware version(s) from this file, ensure
+                 If provided, it should retrieve the firmware version(s) from this file, ensure
                  they are downloaded on the cable, then activate them.
 
             hitless (optional):
@@ -1595,27 +1606,27 @@ class YCable(YCableBase):
                 with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
                     if lock_status:
                         self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS
-                        side = 0x7
+                        side_bitmap = YCable.SIDE_BMP_ALL
 
                         vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
                         vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_COMMIT
                         vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
-                        vsc_req_form[YCable.VSC_BYTE_ADDR0] = side
+                        vsc_req_form[YCable.VSC_BYTE_ADDR0]  = side_bitmap
                         status = self.send_vsc(vsc_req_form)
                         if status != YCable.MCU_EC_NO_ERROR:
-                            self.log_error(YCable.MCU_ERROR_CODE_STRING[status])
+                            self.log_error('Firmware commit error (error code:%04X)' % (status))
                             self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
                             return YCableBase.FIRMWARE_ACTIVATE_FAILURE
 
                         vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
                         vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_RUN
                         vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
-                        vsc_req_form[YCable.VSC_BYTE_ADDR0] = side
-                        vsc_req_form[YCable.VSC_BYTE_ADDR1] = hitless
+                        vsc_req_form[YCable.VSC_BYTE_ADDR0]  = side_bitmap
+                        vsc_req_form[YCable.VSC_BYTE_ADDR1]  = hitless
                         status = self.send_vsc(vsc_req_form)
                         time.sleep(5)
                         if status != YCable.MCU_EC_NO_ERROR:
-                            self.log_error(YCable.MCU_ERROR_CODE_STRING[status])
+                            self.log_error('Firmware run error (error code:%04X)' % (status))
                             self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
                             return YCableBase.FIRMWARE_ACTIVATE_FAILURE
 
@@ -1625,9 +1636,13 @@ class YCable(YCableBase):
                         self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
                         return YCableBase.FIRMWARE_ACTIVATE_FAILURE
             else:
-                inFile = open(fwfile, 'rb')
-                fwImage = bytearray(inFile.read())
-                inFile.close()
+                try:
+                    inFile = open(fwfile, 'rb')
+                    fwImage = bytearray(inFile.read())
+                    inFile.close()
+                except Exception as e:
+                    self.log_error('activate_firmware, open fw bin error(%s), fwfile:%s' % (e, fwfile))
+                    return YCableBase.FIRMWARE_ACTIVATE_FAILURE
 
                 build_msb = struct.unpack_from('<B', fwImage[7:8])[0]
                 build_lsb = struct.unpack_from('<B', fwImage[8:9])[0]
@@ -1636,15 +1651,65 @@ class YCable(YCableBase):
 
                 version_build_file = str(rev_major) + '.' + str(rev_minor) + chr(build_msb) + chr(build_lsb)
 
+                side_bitmap = 0
                 fwVer = self.get_firmware_version(YCableBase.TARGET_NIC)
+                if fwVer == None:
+                    self.log_error("activate_firmware, failed to get NIC firmware version")
+                    return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+                else:                  
+                    if fwVer['version_inactive'] == version_build_file:
+                        side_bitmap |= YCable.SIDE_BMP_NIC
 
-                if fwVer['version_active'] == version_build_file:
-                    return YCableBase.FIRMWARE_ACTIVATE_SUCCESS
-                elif fwVer['version_inactive'] == version_build_file:
-                    return self.activate_firmware(hitless=hitless)
+                fwVer = self.get_firmware_version(YCableBase.TARGET_TOR_A)
+                if fwVer == None:
+                    self.log_error("activate_firmware, failed to get TOR A firmware version")
+                    return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+                else: 
+                    if fwVer['version_inactive'] == version_build_file:
+                        side_bitmap |= YCable.SIDE_BMP_TOR_A
+
+                fwVer = self.get_firmware_version(YCableBase.TARGET_TOR_B)
+                if fwVer == None:
+                    self.log_error("activate_firmware, failed to get TOR B firmware version")
+                    return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+                else: 
+                    if fwVer['version_inactive'] == version_build_file:
+                        side_bitmap |= YCable.SIDE_BMP_TOR_B
+                    
+                if side_bitmap:
+                    with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
+                        if lock_status:
+                            self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS
+                            vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                            vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_COMMIT
+                            vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
+                            vsc_req_form[YCable.VSC_BYTE_ADDR0]  = side_bitmap
+                            status = self.send_vsc(vsc_req_form)
+                            if status != YCable.MCU_EC_NO_ERROR:
+                                self.log_error('Firmware commit error (error code:%04X)' % (status))
+                                self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
+                                return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+
+                            vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                            vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_RUN
+                            vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
+                            vsc_req_form[YCable.VSC_BYTE_ADDR0]  = side_bitmap
+                            vsc_req_form[YCable.VSC_BYTE_ADDR1]  = hitless
+                            status = self.send_vsc(vsc_req_form)
+                            time.sleep(5)
+                            if status != YCable.MCU_EC_NO_ERROR:
+                                self.log_error('Firmware run error (error code:%04X)' % (status))
+                                self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
+                                return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+
+                            self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_NOT_INITIATED_OR_FINISHED
+                        else:
+                            self.log_error('acquire lock timeout, failed to activate firmware')
+                            self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
+                            return YCableBase.FIRMWARE_ACTIVATE_FAILURE
         else:
             self.log_error("platform_chassis is not loaded, failed to activate firmware")
-            return YCable.EEPROM_ERROR
+            return YCableBase.FIRMWARE_ACTIVATE_FAILURE
 
         return YCableBase.FIRMWARE_ACTIVATE_SUCCESS
 
@@ -1663,13 +1728,13 @@ class YCable(YCableBase):
                  choosing (binary, archive, etc.). But note that it should be one file
                  which contains firmware for all components of the Y-cable. In case the
                  vendor chooses to pass this file in rollback_firmware, the API should
-                 have the logic to retreive the firmware version from this file
+                 have the logic to retrieve the firmware version from this file
                  which should not be activated on the components of the Y-Cable
                  this API has been called for.
                  If None is passed for fwfile, the cable should rollback whatever
                  firmware is marked to be rollback next.
-                 If provided, it should retreive the firmware version(s) from this file, ensure
-                 that the firmware is rollbacked to a version which does not match to retreived version(s).
+                 If provided, it should retrieve the firmware version(s) from this file, ensure
+                 that the firmware is rollbacked to a version which does not match to retrieved version(s).
                  This is exactly the opposite behavior of this param to activate_firmware
         Returns:
             One of the following predefined constants:
@@ -2309,6 +2374,7 @@ class YCable(YCableBase):
                 0x0200: 'Firmware Update',
             }
 
+            read_cycle = 0
             while (True):
                 with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
                     if lock_status:
@@ -2356,6 +2422,11 @@ class YCable(YCableBase):
                                 result.append(entry)
 
                                 last_read_id = event_id
+
+                        '''break the while loop if hit maximum read cycle to avoid deadlock'''
+                        read_cycle += 1
+                        if read_cycle > 150:
+                            break
                     else:
                         self.log_error('acquire lock timeout, failed to get event log')
                         return YCable.EEPROM_ERROR
