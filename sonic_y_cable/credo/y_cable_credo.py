@@ -524,7 +524,7 @@ class YCable(YCableBase):
                     result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
                 else:
                     self.log_error('acquire lock timeout, failed to toggle mux to TOR A')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to toggle mux to TOR A")
             return YCable.EEPROM_ERROR
@@ -554,7 +554,7 @@ class YCable(YCableBase):
                     result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
                 else:
                     self.log_error('acquire lock timeout, failed to toggle mux to TOR B')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to toggle mux to TOR B")
             return YCable.EEPROM_ERROR
@@ -585,7 +585,7 @@ class YCable(YCableBase):
                     result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
                 else:
                     self.log_error('acquire lock timeout, failed to check read side')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to check read side")
             return YCable.EEPROM_ERROR
@@ -645,7 +645,7 @@ class YCable(YCableBase):
                     result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
                 else:
                     self.log_error('acquire lock timeout, failed to get mux direction')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error(
                 "platform_chassis is not loaded, failed to get mux direction")
@@ -707,7 +707,7 @@ class YCable(YCableBase):
                     result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
                 else:
                     self.log_error('acquire lock timeout, failed to check Active Linked and routing TOR side')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error(
                 "platform_chassis is not loaded, failed to check Active Linked and routing TOR side")
@@ -772,7 +772,7 @@ class YCable(YCableBase):
                     result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
                 else:
                     self.log_error('acquire lock timeout, failed to check if link is Active on target side')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error(
                 "platform_chassis is not loaded, failed to check if link is Active on target side")
@@ -874,7 +874,7 @@ class YCable(YCableBase):
                         idx += 2
                 else:
                     self.log_error('acquire lock timeout, failed to get eye height')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get eye height")
             return YCable.EEPROM_ERROR
@@ -900,7 +900,7 @@ class YCable(YCableBase):
                     result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 16)
                 else:
                     self.log_error('acquire lock timeout, failed to get vendor name')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get Vendor name")
             return YCable.EEPROM_ERROR
@@ -927,7 +927,7 @@ class YCable(YCableBase):
                     part_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 16)
                 else:
                     self.log_error('acquire lock timeout, failed to get part number')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get part number")
             return YCable.EEPROM_ERROR
@@ -954,7 +954,7 @@ class YCable(YCableBase):
                     part_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 16)
                 else:
                     self.log_error('acquire lock timeout, failed to get serial number')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get serial number")
             return YCable.EEPROM_ERROR
@@ -1000,7 +1000,7 @@ class YCable(YCableBase):
                         count = (msb_result[0] << 24 | msb_result_1[0] << 16 | msb_result_2[0] << 8 | lsb_result[0])
                     else:
                         self.log_error('acquire lock timeout, failed to get switch count')
-                        return YCableBase.EEPROM_ERROR
+                        return YCable.EEPROM_ERROR
             else:
                 self.log_error("not a valid switch_count_type, failed to get switch count")
                 return YCable.EEPROM_ERROR
@@ -1016,7 +1016,7 @@ class YCable(YCableBase):
                                 return YCable.EEPROM_ERROR
                         else:
                             self.log_error('acquire lock timeout, failed to clear switch count')
-                            return YCableBase.EEPROM_ERROR
+                            return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get switch count")
             return YCable.EEPROM_ERROR
@@ -1060,7 +1060,7 @@ class YCable(YCableBase):
                             return YCable.EEPROM_ERROR
                 else:
                     self.log_error('acquire lock timeout, failed to get switch count (tor A)')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get manual switch count")
             return YCable.EEPROM_ERROR
@@ -1104,7 +1104,7 @@ class YCable(YCableBase):
                             return YCable.EEPROM_ERROR
                 else:
                     self.log_error('acquire lock timeout, failed to get switch count (tor B)')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get manual switch count")
             return YCable.EEPROM_ERROR
@@ -1187,7 +1187,7 @@ class YCable(YCableBase):
                             return YCable.EEPROM_ERROR
                 else:
                     self.log_error('acquire lock timeout, failed to get switch count target')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get switch count target")
             return YCable.EEPROM_ERROR
@@ -1235,7 +1235,7 @@ class YCable(YCableBase):
                     result.append(c_int8(post2[0]).value)
                 else:
                     self.log_error('acquire lock timeout, failed to get target cursor values')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get target cursor values")
             return YCable.EEPROM_ERROR
@@ -1279,7 +1279,7 @@ class YCable(YCableBase):
                         idx += 1
                 else:
                     self.log_error('acquire lock timeout, failed to set target cursor values')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get target cursor values")
             return YCable.EEPROM_ERROR
@@ -1327,7 +1327,7 @@ class YCable(YCableBase):
                     return None
         else:
             self.log_error("platform_chassis is not loaded, failed to get firmware version")
-            return YCable.EEPROM_ERROR
+            return None
 
         result = {}
         NUM_MCU_SIDE = 3
@@ -1724,7 +1724,7 @@ class YCable(YCableBase):
                     result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
                 else:
                     self.log_error('acquire lock timeout, failed to set switching mode')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to set switching mode")
             return YCable.EEPROM_ERROR
@@ -1756,7 +1756,7 @@ class YCable(YCableBase):
                         return YCableBase.SWITCHING_MODE_MANUAL
                 else:
                     self.log_error('acquire lock timeout, failed to get the switch mode')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get the switch mode")
             return YCable.EEPROM_ERROR
@@ -1782,7 +1782,7 @@ class YCable(YCableBase):
                     temp = result[0]
                 else:
                     self.log_error('acquire lock timeout, failed to get NIC temp')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get NIC temp")
             return -1
@@ -1811,7 +1811,7 @@ class YCable(YCableBase):
                     temp = result[0]
                 else:
                     self.log_error('acquire lock timeout, failed to get local temp')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get local temp")
             return YCable.EEPROM_ERROR
@@ -1841,7 +1841,7 @@ class YCable(YCableBase):
                     voltage = (((msb_result[0] << 8) | lsb_result[0]) * 0.0001)
                 else:
                     self.log_error('acquire lock timeout, failed to get NIC voltage')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get NIC voltage")
             return -1
@@ -1871,7 +1871,7 @@ class YCable(YCableBase):
                     voltage = (((msb_result[0] << 8) | lsb_result[0]) * 0.0001)
                 else:
                     self.log_error('acquire lock timeout, failed to get local voltage')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get local voltage")
             return YCable.EEPROM_ERROR
@@ -1903,7 +1903,7 @@ class YCable(YCableBase):
                             return False
                 else:
                     self.log_error('acquire lock timeout, failed to get active status')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get active status")
             return YCable.EEPROM_ERROR
@@ -1955,7 +1955,7 @@ class YCable(YCableBase):
                         time.sleep(2)
                 else:
                     self.log_error('acquire lock timeout, failed to reset')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to reset")
             return YCable.EEPROM_ERROR
@@ -2028,7 +2028,7 @@ class YCable(YCableBase):
                         return result
                 else:
                     self.log_error('acquire lock timeout, failed to create port')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to create port")
             return YCable.EEPROM_ERROR
@@ -2066,7 +2066,7 @@ class YCable(YCableBase):
                         return -1
                 else:
                     self.log_error('acquire lock timeout, failed to get speed')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get speed")
             return YCable.EEPROM_ERROR
@@ -2117,7 +2117,7 @@ class YCable(YCableBase):
                         return result
                 else:
                     self.log_error('acquire lock timeout, failed to set fec mode')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to set fec mode")
             return YCable.EEPROM_ERROR
@@ -2161,7 +2161,7 @@ class YCable(YCableBase):
                         self.log_error("get fec mode: unsupported target")
                 else:
                     self.log_error('acquire lock timeout, failed to get fec mode')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get fec mode")
             return YCable.EEPROM_ERROR
@@ -2210,7 +2210,7 @@ class YCable(YCableBase):
                         return result
                 else:
                     self.log_error('acquire lock timeout, failed to set anlt')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to set anlt")
             return YCable.EEPROM_ERROR
@@ -2252,7 +2252,7 @@ class YCable(YCableBase):
                         self.log_error("get anlt: unsupported target")
                 else:
                     self.log_error('acquire lock timeout, failed to get anlt')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get anlt")
             return YCable.EEPROM_ERROR
@@ -2358,7 +2358,7 @@ class YCable(YCableBase):
                                 last_read_id = event_id
                     else:
                         self.log_error('acquire lock timeout, failed to get event log')
-                        return YCableBase.EEPROM_ERROR
+                        return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get event log")
             return YCable.EEPROM_ERROR
@@ -2414,7 +2414,7 @@ class YCable(YCableBase):
                     pcs_stats['Tx Octets OK'] = self.tcm_read(base + 4 * (Tx + 1))
                 else:
                     self.log_error('acquire lock timeout, failed to get pcs statisics')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get pcs statisics")
             return YCable.EEPROM_ERROR
@@ -2493,7 +2493,7 @@ class YCable(YCableBase):
                     fec_stats['Corrected CW (15 sym err)'] = self.tcm_read(base + (26 << 2))
                 else:
                     self.log_error('acquire lock timeout, failed to get fec statisics')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get fec statisics")
             return YCable.EEPROM_ERROR
@@ -2524,7 +2524,7 @@ class YCable(YCableBase):
                     self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
                 else:
                     self.log_error('acquire lock timeout, failed to set autoswitch hysteresis timer')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to set autoswitch hysteresis timer")
             return YCable.EEPROM_ERROR
@@ -2551,7 +2551,7 @@ class YCable(YCableBase):
                     time = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
                 else:
                     self.log_error('acquire lock timeout, failed to get autoswitch hysteresis timer')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get autoswitch hysteresis timer")
             return YCable.EEPROM_ERROR
@@ -2592,7 +2592,7 @@ class YCable(YCableBase):
                     self.fw_cmd_ext(0x7040, 0, lane)
                 else:
                     self.log_error('acquire lock timeout, failed to restart anlt')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to restart anlt")
             return YCable.EEPROM_ERROR
@@ -2641,7 +2641,7 @@ class YCable(YCableBase):
                         anlt_stat['LT_TX_lane%d' % idx] = [(lt_tx1 >> 8) & 0xFF, lt_tx1 & 0xFF, (lt_tx2 >> 8) & 0xFF, lt_tx2 & 0xFF]
                 else:
                     self.log_error('acquire lock timeout, failed to get anlt stat')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get anlt stats")
             return YCable.EEPROM_ERROR
@@ -2756,7 +2756,7 @@ class YCable(YCableBase):
                     result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
                 else:
                     self.log_error('acquire lock timeout, failed to enable the PRBS mode')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to enable the PRBS mode")
             return YCable.EEPROM_ERROR
@@ -2800,7 +2800,7 @@ class YCable(YCableBase):
                     result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
                 else:
                     self.log_error('acquire lock timeout, failed to disable the PRBS mode')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to disable the PRBS mode")
             return YCable.EEPROM_ERROR
@@ -2850,7 +2850,7 @@ class YCable(YCableBase):
                     result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
                 else:
                     self.log_error('acquire lock timeout, failed to enable the loopback mode')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to enable the loopback mode")
             return YCable.EEPROM_ERROR
@@ -2889,7 +2889,7 @@ class YCable(YCableBase):
                     result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
                 else:
                     self.log_error('acquire lock timeout, failed to disable loopback mode')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to disable loopback mode")
             return YCable.EEPROM_ERROR
@@ -2950,7 +2950,7 @@ class YCable(YCableBase):
                         return YCableBase.LOOPBACK_MODE_NEAR_END
                 else:
                     self.log_error('acquire lock timeout, failed to get loopback mode')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get loopback mode")
             return YCable.EEPROM_ERROR
@@ -3011,7 +3011,7 @@ class YCable(YCableBase):
                         idx += 2
                 else:
                     self.log_error('acquire lock timeout, failed to get ber info')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get ber info")
             return YCable.EEPROM_ERROR
@@ -3081,7 +3081,7 @@ class YCable(YCableBase):
                         result['serde_lane_%d' % ln] = serdes
                 else:
                     self.log_error('acquire lock timeout, failed to dump registers')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to dump registers")
             return YCable.EEPROM_ERROR
