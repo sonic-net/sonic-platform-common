@@ -1653,7 +1653,7 @@ class YCable(YCableBase):
 
                 side_bitmap = 0
                 fwVer = self.get_firmware_version(YCableBase.TARGET_NIC)
-                if fwVer == None:
+                if fwVer is None:
                     self.log_error("activate_firmware, failed to get NIC firmware version")
                     return YCableBase.FIRMWARE_ACTIVATE_FAILURE
                 else:                  
@@ -1661,7 +1661,7 @@ class YCable(YCableBase):
                         side_bitmap |= YCable.SIDE_BMP_NIC
 
                 fwVer = self.get_firmware_version(YCableBase.TARGET_TOR_A)
-                if fwVer == None:
+                if fwVer is None:
                     self.log_error("activate_firmware, failed to get TOR A firmware version")
                     return YCableBase.FIRMWARE_ACTIVATE_FAILURE
                 else: 
@@ -1669,7 +1669,7 @@ class YCable(YCableBase):
                         side_bitmap |= YCable.SIDE_BMP_TOR_A
 
                 fwVer = self.get_firmware_version(YCableBase.TARGET_TOR_B)
-                if fwVer == None:
+                if fwVer is None:
                     self.log_error("activate_firmware, failed to get TOR B firmware version")
                     return YCableBase.FIRMWARE_ACTIVATE_FAILURE
                 else: 
