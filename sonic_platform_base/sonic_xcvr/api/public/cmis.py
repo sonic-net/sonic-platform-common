@@ -203,9 +203,9 @@ class CmisApi(XcvrApi):
             bulk_status["tx%dpower" % i] = self.mw_to_dbm(tx_power[i - 1]) if self.get_tx_power_support() else 'N/A'
 
         laser_temp_dict = self.get_laser_temperature()
-        bulk_status['laser_temperature'] = laser_temp_dict['monitor value']
         self.vdm_dict = self.get_vdm()
         try:
+            bulk_status['laser_temperature'] = laser_temp_dict['monitor value']
             bulk_status['prefec_ber'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][0]
             bulk_status['postfec_ber'] = self.vdm_dict['Errored Frames Average Media Input'][1][0]
         except (KeyError, TypeError):
@@ -1842,7 +1842,11 @@ class CmisApi(XcvrApi):
 
         if not self.is_flat_memory():
             # Read the application advertisement in page01
-            dic.update(self.xcvr_eeprom.read(consts.APPLS_ADVT_FIELD_PAGE01))
+            try:
+                dic.update(self.xcvr_eeprom.read(consts.APPLS_ADVT_FIELD_PAGE01))
+            except TypeError as e:
+                logger.error('Failed to read APPLS_ADVT_FIELD_PAGE01: ' + str(e))
+                return ret
 
         for app in range(1, 16):
             buf = {}
