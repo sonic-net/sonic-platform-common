@@ -1203,7 +1203,7 @@ class YCableBase():
         """
         raise NotImplementedError
 
-    def opertion_time(self):
+    def operation_time(self):
         """
         This API should return the time since the cable is powered on from NIC MCU side
         This should be helpful in debugging purposes as to if/when the cable has been powered on
@@ -1214,6 +1214,23 @@ class YCableBase():
         Returns:
             a float:
                  the float should represent how much time the mux cable is alive/powered on
+        """
+
+        raise NotImplementedError
+
+    def mem_read(self):
+        """
+        This API should return the memory contents/as well as pointers/counters for DMA or hardware 
+        FIFO's which could be useful for debugging the state of the MCU
+
+        Args:
+             None
+
+        Returns:
+            a Dictionary:
+                 with all the relevant key-value pairs for all the meaningful fields
+                 for the memory inside the MCU firmware
+                 which would help diagnose the cable for proper functioning
         """
 
         raise NotImplementedError
