@@ -1234,3 +1234,48 @@ class YCableBase():
         """
 
         raise NotImplementedError
+
+    def activate_target_firmware(self, target, fwfile=None, hitless=False):
+        """
+        This routine should activate the downloaded firmware on all the target
+        of the Y cable of the port for which this API is called..
+        This API is meant to be used in conjunction with download_firmware API, and
+        should be called once download_firmware API is succesful.
+        This means that the firmware which has been downloaded should be
+        activated (start being utilized by the cable) once this API is
+        successfully executed.
+        The port on which this API is called for can be referred using self.port.
+
+        Args:
+            target:
+                One of the following predefined constants, the actual target to activate the firmware on:
+                     TARGET_NIC -> NIC,
+                     TARGET_TOR_A -> TORA,
+                     TARGET_TOR_B -> TORB
+            fwfile (optional):
+                 a string, a path to the file which contains the firmware image.
+                 Note that the firmware file can be in the format of the vendor's
+                 choosing (binary, archive, etc.). But note that it should be one file
+                 which contains firmware for all components of the Y-cable. In case the
+                 vendor chooses to pass this file in activate_firmware, the API should
+                 have the logic to retreive the firmware version from this file
+                 which has to be activated on the components of the Y-Cable
+                 this API has been called for.
+                 If None is passed for fwfile, the cable should activate whatever
+                 firmware is marked to be activated next.
+                 If provided, it should retreive the firmware version(s) from this file, ensure
+                 they are downloaded on the cable, then activate them.
+
+            hitless (optional):
+                a boolean, True, Hitless upgrade: it will backup/restore the current state
+                                 (ex. variables of link status, API attributes...etc.) before
+                                 and after firmware upgrade.
+                a boolean, False, Non-hitless upgrade: it will update the firmware regardless
+                                  the current status, a link flip can be observed during the upgrade.
+        Returns:
+            One of the following predefined constants:
+                FIRMWARE_ACTIVATE_SUCCESS
+                FIRMWARE_ACTIVATE_FAILURE
+        """
+
+        raise NotImplementedError
