@@ -1171,9 +1171,10 @@ class YCableBase():
     def queue_info(self):
         """
         This API should dump all the meaningful data from the eeprom which can
-        help vendor debug the queue info currently relevant to the MCU
-        using this API the vendor could check how many txns are currently in the queue etc
-        for debugging purposes
+        help vendor debug the queue info for the UART stats in particular
+        currently relevant to the MCU
+        using this API the vendor could check how many txns are currently waiting to be processed,proceessed
+        in the queue etc for debugging purposes
 
         Args:
              None
@@ -1220,8 +1221,8 @@ class YCableBase():
 
     def mem_read(self):
         """
-        This API should return the memory contents/as well as pointers/counters for DMA or hardware 
-        FIFO's which could be useful for debugging the state of the MCU
+        This API should return the memory contents of the cable which would be useful in debug for the
+        y-cable
 
         Args:
              None
