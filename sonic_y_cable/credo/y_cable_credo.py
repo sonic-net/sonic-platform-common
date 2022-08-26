@@ -62,6 +62,8 @@ class YCable(YCableBase):
     OFFSET_EXTEND_SWITCH_COUNT_TYPE  = 741
     OFFSET_EXTEND_SWITCH_COUNT       = 742
     OFFSET_CLEAR_SWITCH_COUNT        = 746
+    OFFSET_OPERATION_TIME            = 747
+    OFFSET_RESET_CAUSE               = 751    
     OFFSET_CONFIGURE_PRBS_TYPE       = 768
     OFFSET_ENABLE_PRBS               = 769
     OFFSET_INITIATE_BER_MEASUREMENT  = 770
@@ -119,9 +121,11 @@ class YCable(YCableBase):
     EVENTLOG_OPTION_CLEAR = 0x02
 
     # VSC opcode
+    VSC_OPCODE_QUEUE_INFO      = 0x18
     VSC_OPCODE_UART_STAT       = 0x1C
     VSC_OPCODE_SERDES_INFO     = 0x1D
     VSC_OPCODE_DSP_LOADFW_STAT = 0x1F
+    VSC_OPCODE_MEM_READ        = 0x40
     VSC_OPCODE_FWUPD           = 0x80
     VSC_OPCODE_EVENTLOG        = 0x81
     VSC_OPCODE_TCM_READ        = 0x82
@@ -3121,6 +3125,7 @@ class YCable(YCableBase):
             result['nic_voltage'] = self.get_nic_voltage()
             result['fw_init_status'] = self.get_dsp_fw_init_stat()
             result['serdes_detect'] = self.get_dsp_link_detect()
+            result['queue_info'] = self.queue_info()
 
             lanes = [0,1,2,3,12,13,14,15,20,21,22,23]
 
@@ -3150,6 +3155,135 @@ class YCable(YCableBase):
                 result['serde_lane_%d' % ln] = serdes
         else:
             self.log_error("platform_chassis is not loaded, failed to dump registers")
+            return YCable.EEPROM_ERROR
+
+        return result
+
+    def queue_info(self):
+        """
+        This API should dump all the meaningful data from the eeprom which can
+        help vendor debug the queue info for the UART stats in particular
+        currently relevant to the MCU
+        using this API the vendor could check how many txns are currently waiting to be processed,proceessed
+        in the queue etc for debugging purposes
+        Args:
+             None
+        Returns:
+            a Dictionary:
+                 with all the relevant key-value pairs for all the meaningful fields
+                 for the queue inside the MCU firmware
+                 which would help diagnose the cable for proper functioning
+        """
+
+        if self.platform_chassis is not None:
+            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
+                if lock_status:
+                    result = {}
+                    for option in range(2):
+                        vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                        vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_QUEUE_INFO
+                        vsc_req_form[YCable.VSC_BYTE_OPTION] = option
+                        status = self.send_vsc(vsc_req_form)
+                        if status != YCable.MCU_EC_NO_ERROR:
+                            self.log_error('Dump Uart statstics error (error code:0x%04X)' % (status))
+                            return result
+
+                        data = self.read_mmap(YCable.MIS_PAGE_FC, 128, 48)
+                        ver  = self.read_mmap(YCable.MIS_PAGE_VSC, 130, 1)
+
+                        queue = {}
+
+                        offset = 0
+                        cnt = {}
+                        cnt['r_ptr']       = struct.unpack_from('<H', data[offset +  0: offset +  2])[0]
+                        cnt['w_ptr']       = struct.unpack_from('<H', data[offset +  2: offset +  4])[0]
+                        cnt['total_count'] = struct.unpack_from('<H', data[offset +  4: offset +  6])[0]
+                        cnt['free_count']  = struct.unpack_from('<H', data[offset +  6: offset +  8])[0]
+                        cnt['buff_addr']   = struct.unpack_from('<I', data[offset +  8: offset + 12])[0]
+                        cnt['node_size']   = struct.unpack_from('<I', data[offset + 12: offset + 16])[0]
+                        queue['VSC'] = cnt
+
+                        offset = 16
+                        cnt = {}
+                        cnt['r_ptr']       = struct.unpack_from('<H', data[offset +  0: offset +  2])[0]
+                        cnt['w_ptr']       = struct.unpack_from('<H', data[offset +  2: offset +  4])[0]
+                        cnt['total_count'] = struct.unpack_from('<H', data[offset +  4: offset +  6])[0]
+                        cnt['free_count']  = struct.unpack_from('<H', data[offset +  6: offset +  8])[0]
+                        cnt['buff_addr']   = struct.unpack_from('<I', data[offset +  8: offset + 12])[0]
+                        cnt['node_size']   = struct.unpack_from('<I', data[offset + 12: offset + 16])[0]
+                        queue['UART1'] = cnt
+
+                        offset = 32
+                        cnt = {}
+                        cnt['r_ptr']       = struct.unpack_from('<H', data[offset +  0: offset +  2])[0]
+                        cnt['w_ptr']       = struct.unpack_from('<H', data[offset +  2: offset +  4])[0]
+                        cnt['total_count'] = struct.unpack_from('<H', data[offset +  4: offset +  6])[0]
+                        cnt['free_count']  = struct.unpack_from('<H', data[offset +  6: offset +  8])[0]
+                        cnt['buff_addr']   = struct.unpack_from('<I', data[offset +  8: offset + 12])[0]
+                        cnt['node_size']   = struct.unpack_from('<I', data[offset + 12: offset + 16])[0]
+                        queue['UART2'] = cnt
+
+                        if option == 0: result['Local']  = queue
+                        else:           result['Remote'] = queue
+                else:
+                    self.log_error('acquire lock timeout, failed to get queue info')
+                    return YCable.EEPROM_ERROR
+        else:
+            self.log_error("platform_chassis is not loaded, failed to get queue info")
+
+        return result
+
+    def reset_cause(self):
+        """
+        This API should return the reset cause for the NIC MCU.
+        This should help ascertain whether a reset was caused by soft reboot or
+        cable poweroff
+        Args:
+             None
+        Returns:
+            a string:
+                 the string should be self explnatory as to what was the cause of reset
+        """
+
+        curr_offset = YCable.OFFSET_RESET_CAUSE
+
+        if self.platform_chassis is not None:
+            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
+                if lock_status:
+                    result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+                    result = struct.unpack("<B", result)[0]
+                else:
+                    self.log_error('acquire lock timeout, failed to get operation time')
+                    return YCable.EEPROM_ERROR
+        else:
+            self.log_error("platform_chassis is not loaded, failed to get operation time")
+            return YCable.EEPROM_ERROR
+
+        return result
+
+    def operation_time(self):
+        """
+        This API should return the time since the cable is powered on from NIC MCU side
+        This should be helpful in debugging purposes as to if/when the cable has been powered on
+        Args:
+             None
+        Returns:
+            a float:
+                 the float should represent how much time the mux cable is alive/powered on
+        """
+
+        curr_offset = YCable.OFFSET_OPERATION_TIME
+
+        if self.platform_chassis is not None:
+            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
+                if lock_status:
+                    result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 4)
+                    result = struct.unpack("<I", result)[0]
+                else:
+                    self.log_error('acquire lock timeout, failed to get operation time')
+                    return YCable.EEPROM_ERROR
+        else:
+            self.log_error("platform_chassis is not loaded, failed to get operation time")
             return YCable.EEPROM_ERROR
 
         return result
