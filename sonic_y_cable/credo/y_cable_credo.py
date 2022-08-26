@@ -3113,53 +3113,48 @@ class YCable(YCableBase):
                  which would help diagnose the cable for proper functioning
         """
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    result = {}
-                    result['pn'] = self.get_part_number()
-                    result['sn'] = self.get_serial_number()
-                    result['uart_stat'] = self.get_uart_stat()
-                    result['nic_temp'] = self.get_nic_temperature()
-                    result['nic_voltage'] = self.get_nic_voltage()
-                    result['fw_init_status'] = self.get_dsp_fw_init_stat()
-                    result['serdes_detect'] = self.get_dsp_link_Dect()
+            result = {}
+            result['pn'] = self.get_part_number()
+            result['sn'] = self.get_serial_number()
+            result['uart_stat'] = self.get_uart_stat()
+            result['nic_temp'] = self.get_nic_temperature()
+            result['nic_voltage'] = self.get_nic_voltage()
+            result['fw_init_status'] = self.get_dsp_fw_init_stat()
+            result['serdes_detect'] = self.get_dsp_link_detect()
 
-                    lanes = [0,1,2,3,12,13,14,15,20,21,22,23]
+            lanes = [0,1,2,3,12,13,14,15,20,21,22,23]
 
-                    for ln in list(lanes):
-                        data = self.get_serdes_params(ln)
-                        serdes = {}
-                        serdes['ch_est']    = struct.unpack_from('<f', data[  4 :  8])[0]
-                        serdes['of']        = struct.unpack_from('<H', data[  8 : 10])[0]
-                        serdes['hf']        = struct.unpack_from('<H', data[ 10 : 12])[0]
-                        serdes['ctle1']     = struct.unpack_from('<H', data[ 14 : 16])[0]
-                        serdes['ctle2']     = struct.unpack_from('<H', data[ 16 : 18])[0]
-                        serdes['delta']     = struct.unpack_from('<h', data[ 18 : 20])[0]
-                        serdes['eye']       = struct.unpack_from('<H', data[ 30 : 32])[0]
-                        serdes['ppm']       = struct.unpack_from('<h', data[ 40 : 42])[0]
-                        serdes['adp_cnt']   = struct.unpack_from('<H', data[ 56 : 58])[0]
-                        serdes['adp_done']  = struct.unpack_from('<B', data[ 58 : 59])[0]
-                        serdes['agc_g1']    = struct.unpack_from('<H', data[ 59 : 61])[0]
-                        serdes['agc_g2']    = struct.unpack_from('<H', data[ 61 : 63])[0]
-                        serdes['exit_code'] = struct.unpack_from('<H', data[112 :114])[0]
-                        serdes['pll_tx']    = struct.unpack_from('<H', data[ 42 : 44])[0]
-                        serdes['pll_rx']    = struct.unpack_from('<H', data[ 44 : 46])[0]
-                        serdes['f1']        = struct.unpack_from('<h', data[ 46 : 48])[0]
-                        serdes['f2']        = struct.unpack_from('<h', data[ 48 : 50])[0]
-                        serdes['f3']        = struct.unpack_from('<h', data[ 50 : 52])[0]
-                        serdes['temp']      = struct.unpack_from('<b', data[111 :112])[0]
+            for ln in list(lanes):
+                data = self.get_serdes_params(ln)
+                serdes = {}
+                serdes['ch_est']    = struct.unpack_from('<f', data[  4 :  8])[0]
+                serdes['of']        = struct.unpack_from('<H', data[  8 : 10])[0]
+                serdes['hf']        = struct.unpack_from('<H', data[ 10 : 12])[0]
+                serdes['ctle1']     = struct.unpack_from('<H', data[ 14 : 16])[0]
+                serdes['ctle2']     = struct.unpack_from('<H', data[ 16 : 18])[0]
+                serdes['delta']     = struct.unpack_from('<h', data[ 18 : 20])[0]
+                serdes['eye']       = struct.unpack_from('<H', data[ 30 : 32])[0]
+                serdes['ppm']       = struct.unpack_from('<h', data[ 40 : 42])[0]
+                serdes['adp_cnt']   = struct.unpack_from('<H', data[ 56 : 58])[0]
+                serdes['adp_done']  = struct.unpack_from('<B', data[ 58 : 59])[0]
+                serdes['agc_g1']    = struct.unpack_from('<H', data[ 59 : 61])[0]
+                serdes['agc_g2']    = struct.unpack_from('<H', data[ 61 : 63])[0]
+                serdes['exit_code'] = struct.unpack_from('<H', data[112 :114])[0]
+                serdes['pll_tx']    = struct.unpack_from('<H', data[ 42 : 44])[0]
+                serdes['pll_rx']    = struct.unpack_from('<H', data[ 44 : 46])[0]
+                serdes['f1']        = struct.unpack_from('<h', data[ 46 : 48])[0]
+                serdes['f2']        = struct.unpack_from('<h', data[ 48 : 50])[0]
+                serdes['f3']        = struct.unpack_from('<h', data[ 50 : 52])[0]
+                serdes['temp']      = struct.unpack_from('<b', data[111 :112])[0]
 
-                        result['serde_lane_%d' % ln] = serdes
-                else:
-                    self.log_error('acquire lock timeout, failed to dump registers')
-                    return YCable.EEPROM_ERROR
+                result['serde_lane_%d' % ln] = serdes
         else:
             self.log_error("platform_chassis is not loaded, failed to dump registers")
             return YCable.EEPROM_ERROR
 
         return result
 
-    def get_dsp_link_Dect(self):
+    def get_dsp_link_detect(self):
         """
         This API returns rdy/sd of DSP.
         The port on which this API is called for can be referred using self.port.
@@ -3197,20 +3192,24 @@ class YCable(YCableBase):
         """
 
         if self.platform_chassis is not None:
-            result = {}
+            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
+                if lock_status:
+                    result = {}
 
-            vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
-            vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_DSP_LOADFW_STAT
-            status = self.send_vsc(vsc_req_form)
-            if status != YCable.MCU_EC_NO_ERROR:
-                self.log_error('Get DSP firmware init status error (error code:0x%04X)' % (status))
-                return result
+                    vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                    vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_DSP_LOADFW_STAT
+                    status = self.send_vsc(vsc_req_form)
+                    if status != YCable.MCU_EC_NO_ERROR:
+                        self.log_error('Get DSP firmware init status error (error code:0x%04X)' % (status))
+                        return result
 
-            result['err_code'] = self.read_mmap(YCable.MIS_PAGE_VSC, 134)
-            result['err_stat'] = self.read_mmap(YCable.MIS_PAGE_VSC, 135)
-
+                    result['err_code'] = self.read_mmap(YCable.MIS_PAGE_VSC, 134)
+                    result['err_stat'] = self.read_mmap(YCable.MIS_PAGE_VSC, 135)
+                else:
+                    self.log_error('acquire lock timeout, failed to get init status')
+                    return YCable.EEPROM_ERROR
         else:
-            self.log_error("platform_chassis is not loaded, failed to get init. status of DSP firmware")
+            self.log_error("platform_chassis is not loaded, failed to get init status")
 
         return result
 
@@ -3225,53 +3224,56 @@ class YCable(YCableBase):
         """
 
         if self.platform_chassis is not None:
-            
             result = {}
 
-            for option in range(2):
-                vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
-                vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_UART_STAT
-                vsc_req_form[YCable.VSC_BYTE_OPTION] = option
-                status = self.send_vsc(vsc_req_form)
-                if status != YCable.MCU_EC_NO_ERROR:
-                    self.log_error('Dump Uart statstics error (error code:0x%04X)' % (status))
-                    return result
+            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
+                if lock_status:
+                    for option in range(2):
+                        vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                        vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_UART_STAT
+                        vsc_req_form[YCable.VSC_BYTE_OPTION] = option
+                        status = self.send_vsc(vsc_req_form)
+                        if status != YCable.MCU_EC_NO_ERROR:
+                            self.log_error('Dump Uart statstics error (error code:0x%04X)' % (status))
+                            return result
 
-                data = self.read_mmap(YCable.MIS_PAGE_FC, 128, 64)
-                ver  = self.read_mmap(YCable.MIS_PAGE_VSC, 130, 1)
+                        data = self.read_mmap(YCable.MIS_PAGE_FC, 128, 64)
+                        ver  = self.read_mmap(YCable.MIS_PAGE_VSC, 130, 1)
 
-                uartPort = {}
-                cnt = {}
-                cnt['TxPktCnt']   = struct.unpack_from('<I', data[  0 :  4])[0] 
-                cnt['RxPktCnt']   = struct.unpack_from('<I', data[  4 :  8])[0] 
-                cnt['AckCnt']     = struct.unpack_from('<I', data[  8 : 12])[0] 
-                cnt['NackCnt']    = struct.unpack_from('<I', data[ 12 : 16])[0] 
-                cnt['TxRetryCnt'] = struct.unpack_from('<I', data[ 16 : 20])[0] 
-                cnt['TxAbortCnt'] = struct.unpack_from('<I', data[ 20 : 24])[0]
+                        uartPort = {}
+                        cnt = {}
+                        cnt['TxPktCnt']   = struct.unpack_from('<I', data[  0 :  4])[0] 
+                        cnt['RxPktCnt']   = struct.unpack_from('<I', data[  4 :  8])[0] 
+                        cnt['AckCnt']     = struct.unpack_from('<I', data[  8 : 12])[0] 
+                        cnt['NackCnt']    = struct.unpack_from('<I', data[ 12 : 16])[0] 
+                        cnt['TxRetryCnt'] = struct.unpack_from('<I', data[ 16 : 20])[0] 
+                        cnt['TxAbortCnt'] = struct.unpack_from('<I', data[ 20 : 24])[0]
 
-                if ver == 1:
-                    cnt['RxErrorCnt'] = struct.unpack_from('<I', data[ 48 : 52])[0]
+                        if ver == 1:
+                            cnt['RxErrorCnt'] = struct.unpack_from('<I', data[ 48 : 52])[0]
 
-                uartPort['UART1'] = cnt
+                        uartPort['UART1'] = cnt
 
-                cnt = {}
-                cnt['TxPktCnt']   = struct.unpack_from('<I', data[ 24 : 28])[0] 
-                cnt['RxPktCnt']   = struct.unpack_from('<I', data[ 28 : 32])[0] 
-                cnt['AckCnt']     = struct.unpack_from('<I', data[ 32 : 36])[0] 
-                cnt['NackCnt']    = struct.unpack_from('<I', data[ 36 : 40])[0] 
-                cnt['TxRetryCnt'] = struct.unpack_from('<I', data[ 40 : 44])[0] 
-                cnt['TxAbortCnt'] = struct.unpack_from('<I', data[ 44 : 48])[0] 
+                        cnt = {}
+                        cnt['TxPktCnt']   = struct.unpack_from('<I', data[ 24 : 28])[0] 
+                        cnt['RxPktCnt']   = struct.unpack_from('<I', data[ 28 : 32])[0] 
+                        cnt['AckCnt']     = struct.unpack_from('<I', data[ 32 : 36])[0] 
+                        cnt['NackCnt']    = struct.unpack_from('<I', data[ 36 : 40])[0] 
+                        cnt['TxRetryCnt'] = struct.unpack_from('<I', data[ 40 : 44])[0] 
+                        cnt['TxAbortCnt'] = struct.unpack_from('<I', data[ 44 : 48])[0] 
 
-                if ver == 1:
-                    cnt['RxErrorCnt'] = struct.unpack_from('<I', data[ 52 : 56])[0]
+                        if ver == 1:
+                            cnt['RxErrorCnt'] = struct.unpack_from('<I', data[ 52 : 56])[0]
 
-                uartPort['UART2'] = cnt
+                        uartPort['UART2'] = cnt
 
-                if option == 0: result['Local']  = uartPort
-                else:           result['Remote'] = uartPort
-
+                        if option == 0: result['Local']  = uartPort
+                        else:           result['Remote'] = uartPort
+                else:
+                    self.log_error('acquire lock timeout, failed to get uart statistics')
+                    return YCable.EEPROM_ERROR
         else:
-            self.log_error("platform_chassis is not loaded, failed to get Uart statistics")
+            self.log_error("platform_chassis is not loaded, failed to get uart statistics")
 
         return result
 
@@ -3289,20 +3291,25 @@ class YCable(YCableBase):
                raw data of serdes information
         """
         if self.platform_chassis is not None:
-            ln = lane
+            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
+                if lock_status:
+                    ln = lane
 
-            result = {}
-            vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
-            vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_SERDES_INFO
-            vsc_req_form[YCable.VSC_BYTE_OPTION] = 0
-            vsc_req_form[YCable.VSC_BYTE_ADDR0]  = ln & 0xFF
-            vsc_req_form[YCable.VSC_BYTE_DATA0]  = 1
-            status = self.send_vsc(vsc_req_form)
-            if status != YCable.MCU_EC_NO_ERROR:
-                self.log_error('Dump Serdes Info error (error code:0x%04X)' % (status))
-                return result
+                    result = {}
+                    vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                    vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_SERDES_INFO
+                    vsc_req_form[YCable.VSC_BYTE_OPTION] = 0
+                    vsc_req_form[YCable.VSC_BYTE_ADDR0]  = ln & 0xFF
+                    vsc_req_form[YCable.VSC_BYTE_DATA0]  = 1
+                    status = self.send_vsc(vsc_req_form)
+                    if status != YCable.MCU_EC_NO_ERROR:
+                        self.log_error('Dump Serdes Info error (error code:0x%04X)' % (status))
+                        return result
 
-            result = self.read_mmap(YCable.MIS_PAGE_FC, 128, 128)
+                    result = self.read_mmap(YCable.MIS_PAGE_FC, 128, 128)
+                else:
+                    self.log_error('acquire lock timeout, failed to get serdes param')
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get serdes params")
 
