@@ -1234,7 +1234,7 @@ class YCableBase():
 
         Returns:
             a Bytearray:
-                 the contenets of the memory inside the MCU firmware
+                 the contents of the memory inside the MCU firmware
                  which would help diagnose the cable for proper functioning
         """
 
