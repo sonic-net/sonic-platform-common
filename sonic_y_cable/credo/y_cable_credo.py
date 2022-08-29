@@ -3189,7 +3189,6 @@ class YCable(YCableBase):
                             return result
 
                         data = self.read_mmap(YCable.MIS_PAGE_FC, 128, 48)
-                        ver  = self.read_mmap(YCable.MIS_PAGE_VSC, 130, 1)
 
                         queue = {}
 
