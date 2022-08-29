@@ -1755,6 +1755,169 @@ class YCable(YCableBase):
 
         return YCableBase.FIRMWARE_ROLLBACK_SUCCESS
 
+    def activate_target_firmware(self, target, fwfile=None, hitless=False):
+        """
+        This routine should activate the downloaded firmware on specific target
+        of the Y cable of the port for which this API is called..
+        This API is meant to be used in conjunction with download_firmware API, and
+        should be called once download_firmware API is succesful.
+        This means that the firmware which has been downloaded should be
+        activated (start being utilized by the cable) once this API is
+        successfully executed.
+        The port on which this API is called for can be referred using self.port.
+        Args:
+            target:
+                One of the following predefined constants, the actual target to activate the firmware on:
+                     TARGET_NIC -> NIC,
+                     TARGET_TOR_A -> TORA,
+                     TARGET_TOR_B -> TORB
+            fwfile (optional):
+                 a string, a path to the file which contains the firmware image.
+                 Note that the firmware file can be in the format of the vendor's
+                 choosing (binary, archive, etc.). But note that it should be one file
+                 which contains firmware for all components of the Y-cable. In case the
+                 vendor chooses to pass this file in activate_firmware, the API should
+                 have the logic to retrieve the firmware version from this file
+                 which has to be activated on the components of the Y-Cable
+                 this API has been called for.
+                 If None is passed for fwfile, the cable should activate whatever
+                 firmware is marked to be activated next.
+                 If provided, it should retrieve the firmware version(s) from this file, ensure
+                 they are downloaded on the cable, then activate them.
+            hitless (optional):
+                a boolean, True, Hitless upgrade: it will backup/restore the current state
+                                 (ex. variables of link status, API attributes...etc.) before
+                                 and after firmware upgrade.
+                a boolean, False, Non-hitless upgrade: it will update the firmware regardless
+                                  the current status, a link flip can be observed during the upgrade.
+        Returns:
+            One of the following predefined constants:
+                FIRMWARE_ACTIVATE_SUCCESS
+                FIRMWARE_ACTIVATE_FAILURE
+        """
+        if self.platform_chassis is not None:
+
+            if target == YCableBase.TARGET_NIC:
+                act_bmp = YCable.SIDE_BMP_NIC
+            elif target == YCableBase.TARGET_TOR_A:
+                act_bmp = YCable.SIDE_BMP_TOR_A
+            elif target == YCableBase.TARGET_TOR_B:
+                act_bmp = YCable.SIDE_BMP_TOR_B
+            else:
+                act_bmp = YCable.SIDE_BMP_ALL
+
+            if fwfile is None:
+                with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
+                    if lock_status:
+                        self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS
+
+                        vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                        vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_COMMIT
+                        vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
+                        vsc_req_form[YCable.VSC_BYTE_ADDR0]  = act_bmp
+                        status = self.send_vsc(vsc_req_form)
+                        if status != YCable.MCU_EC_NO_ERROR:
+                            self.log_error('Firmware commit error (error code:%04X)' % (status))
+                            self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
+                            return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+
+                        vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                        vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_RUN
+                        vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
+                        vsc_req_form[YCable.VSC_BYTE_ADDR0]  = act_bmp
+                        vsc_req_form[YCable.VSC_BYTE_ADDR1]  = hitless
+                        status = self.send_vsc(vsc_req_form)
+                        time.sleep(5)
+                        if status != YCable.MCU_EC_NO_ERROR:
+                            self.log_error('Firmware run error (error code:%04X)' % (status))
+                            self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
+                            return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+
+                        self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_NOT_INITIATED_OR_FINISHED
+                    else:
+                        self.log_error('acquire lock timeout, failed to activate target firmware')
+                        self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
+                        return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+            else:
+                try:
+                    inFile = open(fwfile, 'rb')
+                    fwImage = bytearray(inFile.read())
+                    inFile.close()
+                except Exception as e:
+                    self.log_error('activate_target_firmware, open fw bin error(%s), fwfile:%s' % (e, fwfile))
+                    return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+
+                build_msb = struct.unpack_from('<B', fwImage[7:8])[0]
+                build_lsb = struct.unpack_from('<B', fwImage[8:9])[0]
+                rev_major = struct.unpack_from('<B', fwImage[9:10])[0]
+                rev_minor = struct.unpack_from('<B', fwImage[10:11])[0]
+
+                version_build_file = str(rev_major) + '.' + str(rev_minor) + chr(build_msb) + chr(build_lsb)
+
+                chk_bitmap = 0
+                fwVer = self.get_firmware_version(YCableBase.TARGET_NIC)
+                if fwVer is None:
+                    self.log_error("activate_target_firmware, failed to get NIC firmware version")
+                    return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+                else:                  
+                    if fwVer['version_inactive'] == version_build_file:
+                        chk_bitmap |= YCable.SIDE_BMP_NIC
+
+                fwVer = self.get_firmware_version(YCableBase.TARGET_TOR_A)
+                if fwVer is None:
+                    self.log_error("activate_target_firmware, failed to get TOR A firmware version")
+                    return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+                else: 
+                    if fwVer['version_inactive'] == version_build_file:
+                        chk_bitmap |= YCable.SIDE_BMP_TOR_A
+
+                fwVer = self.get_firmware_version(YCableBase.TARGET_TOR_B)
+                if fwVer is None:
+                    self.log_error("activate_target_firmware, failed to get TOR B firmware version")
+                    return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+                else: 
+                    if fwVer['version_inactive'] == version_build_file:
+                        chk_bitmap |= YCable.SIDE_BMP_TOR_B
+                    
+                act_bmp = act_bmp & chk_bitmap
+
+                if act_bmp:
+                    with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
+                        if lock_status:
+                            self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS
+                            vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                            vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_COMMIT
+                            vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
+                            vsc_req_form[YCable.VSC_BYTE_ADDR0]  = act_bmp
+                            status = self.send_vsc(vsc_req_form)
+                            if status != YCable.MCU_EC_NO_ERROR:
+                                self.log_error('Firmware commit error (error code:%04X)' % (status))
+                                self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
+                                return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+
+                            vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                            vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_RUN
+                            vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
+                            vsc_req_form[YCable.VSC_BYTE_ADDR0]  = act_bmp
+                            vsc_req_form[YCable.VSC_BYTE_ADDR1]  = hitless
+                            status = self.send_vsc(vsc_req_form)
+                            time.sleep(5)
+                            if status != YCable.MCU_EC_NO_ERROR:
+                                self.log_error('Firmware run error (error code:%04X)' % (status))
+                                self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
+                                return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+
+                            self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_NOT_INITIATED_OR_FINISHED
+                        else:
+                            self.log_error('acquire lock timeout, failed to activate target firmware')
+                            self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
+                            return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+        else:
+            self.log_error("platform_chassis is not loaded, failed to activate target firmware")
+            return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+
+        return YCableBase.FIRMWARE_ACTIVATE_SUCCESS
+
     def set_switching_mode(self, mode):
         """
         This API enables the auto switching or manual switching feature on the Y-Cable,
