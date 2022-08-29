@@ -1219,18 +1219,22 @@ class YCableBase():
 
         raise NotImplementedError
 
-    def mem_read(self):
+    def mem_read(self, target, addr, length):
         """
         This API should return the memory contents of the cable which would be useful in debug for the
         y-cable
 
         Args:
-             None
+             target:
+                 local (TOR) or remote (NIC) MCU
+             addr:
+                 the starting address of the MCU's memory space
+             length:
+                 length to be read, unit: byte
 
         Returns:
-            a Dictionary:
-                 with all the relevant key-value pairs for all the meaningful fields
-                 for the memory inside the MCU firmware
+            a Bytearray:
+                 the contenets of the memory inside the MCU firmware
                  which would help diagnose the cable for proper functioning
         """
 
@@ -1277,6 +1281,19 @@ class YCableBase():
             One of the following predefined constants:
                 FIRMWARE_ACTIVATE_SUCCESS
                 FIRMWARE_ACTIVATE_FAILURE
+        """
+
+        raise NotImplementedError
+
+    def health_check(self):
+        """
+        This API checks the health of the cable, where it is healthy/unhealythy for RMA purposes/diagnostics.
+        The port on which this API is called for can be referred using self.port.
+
+        Args:
+
+        Returns:
+            a Boolean, True if the cable is healthy and False if it is not healthy.
         """
 
         raise NotImplementedError
