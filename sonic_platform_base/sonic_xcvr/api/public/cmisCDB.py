@@ -121,12 +121,12 @@ class CmisCdbApi(XcvrApi):
             30h-3Fh=Custom
         '''
         status = self.xcvr_eeprom.read(consts.CDB1_STATUS)
-        is_busy = bool((status >> 7) & 0x1)
+        is_busy = bool(((0x80 if status is None else status) >> 7) & 0x1)
         cnt = 0
         while is_busy and cnt < MAX_WAIT:
             time.sleep(0.1)
             status = self.xcvr_eeprom.read(consts.CDB1_STATUS)
-            is_busy = bool((status >> 7) & 0x1)
+            is_busy = bool(((0x80 if status is None else status) >> 7) & 0x1)
             cnt += 1
         return status
 
