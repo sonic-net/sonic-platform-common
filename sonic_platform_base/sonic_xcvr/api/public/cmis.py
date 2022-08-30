@@ -27,8 +27,11 @@ class CmisApi(XcvrApi):
 
     def __init__(self, xcvr_eeprom):
         super(CmisApi, self).__init__(xcvr_eeprom)
-        self.vdm = CmisVdmApi(xcvr_eeprom) if not self.is_flat_memory() else None
-        self.cdb = CmisCdbApi(xcvr_eeprom) if not self.is_flat_memory() else None
+        self.enable_cache()
+        is_flat_mem = self.is_flat_memory()
+        self.vdm = CmisVdmApi(xcvr_eeprom) if not is_flat_mem else None
+        self.cdb = CmisCdbApi(xcvr_eeprom) if not is_flat_mem else None
+        self.disable_cache()
 
     def get_model(self):
         '''
@@ -1971,9 +1974,9 @@ class CmisApi(XcvrApi):
         return None
 
     def enable_cache(self, **kwargs):
-        self.xcvr_eeprom.enable_cache(**kwargs)
+        self.xcvr_eeprom.refresh_cache(**kwargs)
 
     def disable_cache(self, **kwargs):
-        self.xcvr_eeprom.disable_cache(**kwargs)
+        self.xcvr_eeprom.clear_cache(**kwargs)
 
     # TODO: other XcvrApi methods

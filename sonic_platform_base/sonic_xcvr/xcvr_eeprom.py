@@ -105,10 +105,10 @@ class XcvrEeprom(object):
       """
       return self.writer(offset, size, bytearray_data)
    
-   def enable_cache(self, **kwargs):
+   def refresh_cache(self, **kwargs):
       """
-      When enabled, it caches the lower and upper pages of 00h i.e offset 0 to 256
-      Any read request made strictly b/w these limits will be read from the cache until disabled
+      When invoked, it caches the lower and upper pages of 00h i.e offset 0 to 256
+      Any read request made strictly b/w these limits will be read from the cache until cleared
 
       Returns: 
          None
@@ -116,7 +116,7 @@ class XcvrEeprom(object):
       # TODO: Use a better mechanism and allow caching for higher pages and more complicated scenarios
       self.cache = self.reader(0, 256)
 
-   def disable_cache(self, **kwargs):
+   def clear_cache(self, **kwargs):
       """
       Clear the Cache
 

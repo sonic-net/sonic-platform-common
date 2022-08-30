@@ -142,7 +142,7 @@ class TestXcvrEeprom:
         codes = CmisCodes
         mem_map = CmisMemMap(codes)
         xcvr_eeprom = XcvrEeprom(reader_mock, Mock(), mem_map)
-        xcvr_eeprom.enable_cache()
+        xcvr_eeprom.refresh_cache()
         assert xcvr_eeprom.read("ModuleMediaType") == "passive_copper_media_interface"
         result = xcvr_eeprom.read("AdminInfo")
         for key, val in ADMIN_INFO_OUTPUT.items():
@@ -150,7 +150,7 @@ class TestXcvrEeprom:
             assert result[key] == val
         reader_mock.assert_called_once_with(0, 256) # only one call is made to eeprom
         assert xcvr_eeprom.cache is not None
-        xcvr_eeprom.disable_cache()
+        xcvr_eeprom.clear_cache()
         assert xcvr_eeprom.cache is None
     
     def test_xcvr_raw_read_outside_cache_range(self):
@@ -159,11 +159,11 @@ class TestXcvrEeprom:
         codes = CmisCodes
         mem_map = CmisMemMap(codes)
         xcvr_eeprom = XcvrEeprom(reader_mock, Mock(), mem_map)
-        xcvr_eeprom.enable_cache()
+        xcvr_eeprom.refresh_cache()
         assert xcvr_eeprom.read_raw(85, 1) == 3
         assert xcvr_eeprom.read_raw(256, 1) == None
         reader_mock.assert_has_calls([call(0, 256), call(256, 1)])
-        xcvr_eeprom.disable_cache()
+        xcvr_eeprom.clear_cache()
 
     def test_xcvr_read_cache_dynamic_data(self):
         reader_mock = Mock()
@@ -171,7 +171,7 @@ class TestXcvrEeprom:
         codes = CmisCodes
         mem_map = CmisMemMap(codes)
         xcvr_eeprom = XcvrEeprom(reader_mock, Mock(), mem_map)
-        xcvr_eeprom.enable_cache()
+        xcvr_eeprom.refresh_cache()
         assert xcvr_eeprom.read("ModuleMediaType") == "passive_copper_media_interface"
         assert xcvr_eeprom.cache is not None
         global EEPROM_HEX
@@ -186,7 +186,7 @@ class TestXcvrEeprom:
         assert xcvr_eeprom.read("ModuleMediaType") == "passive_copper_media_interface"
         EEPROM_HEX = copy.deepcopy(EEPROM_HEX_ORIG)
         reader_mock.assert_called_once_with(0, 256)
-        xcvr_eeprom.disable_cache()
+        xcvr_eeprom.clear_cache()
         assert xcvr_eeprom.cache is None
     
     def test_sfp_get_transciever_info(self):
