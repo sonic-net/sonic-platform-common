@@ -47,6 +47,7 @@ class YCable(YCableBase):
     OFFSET_SWITCH_MUX_DIRECTION      = 642
     OFFSET_MUX_DIRECTION             = 644
     OFFSET_ACTIVE_TOR_INDICATOR      = 645
+    OFFSET_API_VERSION               = 650
     OFFSET_ENABLE_AUTO_SWITCH        = 651
     OFFSET_AUTO_SWITCH_HYSTERESIS    = 652
     OFFSET_MANUAL_SWITCH_COUNT_TOR_A = 653
@@ -152,6 +153,9 @@ class YCable(YCableBase):
     SIDE_BMP_TOR_A = 2
     SIDE_BMP_TOR_B = 4
     SIDE_BMP_ALL   = 7
+
+    CABLE_HEALTHY   = True
+    CABLE_UNHEALTHY = False
 
     # MCU error code
     MCU_EC_NO_ERROR                         = 0
@@ -456,6 +460,84 @@ class YCable(YCableBase):
 
         return True
 
+    def tcm_read_atomic(self, addr):
+        """
+        This API sends the tcm read command to the serdes chip via VSC cmd
+
+        Args:
+             addr:
+                 an Integer, address of tcm space
+        Returns:
+            an Integer, return data of tcm address
+        """
+
+        if self.platform_chassis is not None:
+            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
+                if lock_status:
+                    vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                    vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_TCM_READ
+                    vsc_req_form[130]  = (addr >>  0) & 0xFF
+                    vsc_req_form[131]  = (addr >>  8) & 0xFF
+                    vsc_req_form[132]  = (addr >> 16) & 0xFF
+                    vsc_req_form[133]  = (addr >> 24) & 0xFF
+                    status = self.send_vsc(vsc_req_form)
+                    if status != YCable.MCU_EC_NO_ERROR:
+                        self.log_error('tcm read addr[%04X]  error[%04X]' % (addr, status))
+                        return -1
+
+                    data = (self.read_mmap(YCable.MIS_PAGE_VSC, 134) | (self.read_mmap(YCable.MIS_PAGE_VSC, 135) << 8) |
+                        (self.read_mmap(YCable.MIS_PAGE_VSC, 136) << 16) | (self.read_mmap(YCable.MIS_PAGE_VSC, 137) << 24))
+                else:
+                    self.log_error('acquire lock timeout, failed to read serdes tcm register')
+                    return YCable.EEPROM_ERROR
+        else:
+            self.log_error("platform_chassis is not loaded, failed to read serdes tcm register")
+            return YCable.EEPROM_ERROR
+
+        return data
+
+    def tcm_write_atomic(self, addr, data):
+        """
+        This API sends the tcm write command to the serdes chip via VSC cmd
+
+        Args:
+             addr:
+                 an Integer, address of tcm space
+
+             data:
+                 an Integer, value to be written to the address
+
+        Returns:
+            a boolean, True if the tcm write succeeded and False if it did not succeed.
+        """
+
+        if self.platform_chassis is not None:
+            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
+                if lock_status:
+                    vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                    vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_TCM_WRITE
+                    vsc_req_form[130]  = (addr >>  0) & 0xFF
+                    vsc_req_form[131]  = (addr >>  8) & 0xFF
+                    vsc_req_form[132]  = (addr >> 16) & 0xFF
+                    vsc_req_form[133]  = (addr >> 24) & 0xFF
+                    vsc_req_form[134]  = (data >>  0) & 0xFF
+                    vsc_req_form[135]  = (data >>  8) & 0xFF
+                    vsc_req_form[136]  = (data >> 16) & 0xFF
+                    vsc_req_form[137]  = (data >> 24) & 0xFF
+
+                    status = self.send_vsc(vsc_req_form)
+                    if status != YCable.MCU_EC_NO_ERROR:
+                        self.log_error('tcm read addr[%04X] data[%04X] error[%04X]' % (addr, data, status))
+                        return False
+                else:
+                    self.log_error('acquire lock timeout, failed to write serdes tcm register')
+                    return YCable.EEPROM_ERROR
+        else:
+            self.log_error("platform_chassis is not loaded, failed to write serdes tcm register")
+            return YCable.EEPROM_ERROR
+
+        return True
+
     def reg_read(self, addr):
         """
         This API reads the serdes register via vsc
@@ -508,6 +590,77 @@ class YCable(YCableBase):
             return False
 
         return True
+
+    def reg_read_atomic(self, addr):
+        """
+        This API reads the serdes register in atomic method
+
+        Args:
+             addr:
+                 an Integer, address of the serdes register
+        Returns:
+            an Integer, return data of the register
+        """
+
+        if self.platform_chassis is not None:
+            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
+                if lock_status:
+                    vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                    vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_REG_READ
+                    vsc_req_form[130]  = (addr >>  0) & 0xFF
+                    vsc_req_form[131]  = (addr >>  8) & 0xFF
+                    vsc_req_form[132]  = (addr >> 16) & 0xFF
+                    vsc_req_form[133]  = (addr >> 24) & 0xFF
+                    status = self.send_vsc(vsc_req_form)
+                    if status != YCable.MCU_EC_NO_ERROR:
+                        self.log_error('reg read addr[%04X]  error[%04X]' % (addr, status))
+                        return YCable.EEPROM_ERROR
+
+                    return self.read_mmap(YCable.MIS_PAGE_VSC, 134) | (self.read_mmap(YCable.MIS_PAGE_VSC, 135) << 8)
+                else:
+                    self.log_error('acquire lock timeout, failed to read serdes register')
+                    return YCable.EEPROM_ERROR
+        else:
+            self.log_error("platform_chassis is not loaded, failed to read serdes register")
+            return YCable.EEPROM_ERROR
+        
+    def reg_write_atomic(self, addr, data):
+        """
+        This API writes the serdes register in atomic method
+
+        Args:
+             addr:
+                 an Integer, address of the serdes register
+
+             data:
+                 an Integer, value to be written to the register address
+
+        Returns:
+            an Integer, 0 if the register write succeeded.
+        """
+
+        if self.platform_chassis is not None:
+            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
+                if lock_status:
+                    vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                    vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_REG_WRITE
+                    vsc_req_form[130]  = (addr >>  0) & 0xFF
+                    vsc_req_form[131]  = (addr >>  8) & 0xFF
+                    vsc_req_form[134]  = (data >>  0) & 0xFF
+                    vsc_req_form[135]  = (data >>  8) & 0xFF
+
+                    status = self.send_vsc(vsc_req_form)
+                    if status != YCable.MCU_EC_NO_ERROR:
+                        self.log_error('reg write addr[%04X] data[%04X] error[%04X]' % (addr, data, status))
+                        return YCable.EEPROM_ERROR
+                else:
+                    self.log_error('acquire lock timeout, failed to write serdes register')
+                    return YCable.EEPROM_ERROR
+        else:
+            self.log_error("platform_chassis is not loaded, failed to write serdes register")
+            return YCable.EEPROM_ERROR
+
+        return 0        
 
     def toggle_mux_to_tor_a(self):
         """
@@ -3280,7 +3433,10 @@ class YCable(YCableBase):
                  which would help diagnose the cable for proper functioning
         """
         if self.platform_chassis is not None:
+            api_ver = self.platform_chassis.get_sfp(self.port).read_eeprom(YCable.OFFSET_API_VERSION, 1)[0]
+
             result = {}
+            result['vendor'] = self.get_vendor()
             result['pn'] = self.get_part_number()
             result['sn'] = self.get_serial_number()
             result['uart_stat'] = self.get_uart_stat()
@@ -3288,7 +3444,9 @@ class YCable(YCableBase):
             result['nic_voltage'] = self.get_nic_voltage()
             result['fw_init_status'] = self.get_dsp_fw_init_stat()
             result['serdes_detect'] = self.get_dsp_link_detect()
-            result['queue_info'] = self.queue_info()
+
+            if api_ver >= 0x18:
+                result['queue_info'] = self.queue_info()
 
             lanes = [0,1,2,3,12,13,14,15,20,21,22,23]
 
@@ -3450,6 +3608,39 @@ class YCable(YCableBase):
 
         return result
 
+    def health_check(self):
+        """
+        This API checks the health of the cable, where it is healthy/unhealythy for RMA purposes/diagnostics.
+        The port on which this API is called for can be referred using self.port.
+
+        Args:
+        Returns:
+            a Boolean, True if the cable is healthy and False if it is not healthy.
+        """
+
+        if self.platform_chassis is not None:
+            api_ver = self.platform_chassis.get_sfp(self.port).read_eeprom(YCable.OFFSET_API_VERSION, 1)[0]
+
+            vendor = self.get_vendor()
+            if vendor !=  "Credo           ":
+                self.log_error("check cable health fail: unable to get correct vendor name:%s" % (vendor))
+                return YCable.CABLE_UNHEALTHY
+
+            uart_stat = self.get_uart_stat()
+            if api_ver >= 0x18 and uart_stat['Local']['UART2']['RxErrorCnt'] > 100:
+                self.log_error("check cable health fail: uart rx error count overlimit:%d" % (uart_stat['local']['UART2']['RxErrorCnt']))
+                return YCable.CABLE_UNHEALTHY
+
+            serdes_fw_tag = self.reg_read_atomic(0xB71A)
+            if serdes_fw_tag != 0x6A6A:
+                self.log_error("check cable health fail: serdes fw is not loaded correctly:%04X" % (serdes_fw_tag))
+                return YCable.CABLE_UNHEALTHY
+        else:
+            self.log_error("platform_chassis is not loaded, failed to check cable health")
+            return YCable.EEPROM_ERROR
+
+        return YCable.CABLE_HEALTHY
+
     def get_dsp_link_detect(self):
         """
         This API returns rdy/sd of DSP.
@@ -3471,7 +3662,6 @@ class YCable(YCableBase):
             result['rdyTorA'] = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 3, 1)[0]
             result['sdTorB']  = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 4, 1)[0]
             result['rdyTorB'] = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 5, 1)[0]
-
         else:
             self.log_error("platform_chassis is not loaded, failed to get init. status of DSP firmware")
 
