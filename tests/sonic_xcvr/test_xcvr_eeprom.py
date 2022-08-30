@@ -197,7 +197,3 @@ class TestXcvrEeprom:
         sfp.get_xcvr_api().xcvr_eeprom.reader = reader_mock
         sfp.get_transceiver_info()
         reader_mock.assert_called_once_with(0, 256)
-
-        
-        
-        

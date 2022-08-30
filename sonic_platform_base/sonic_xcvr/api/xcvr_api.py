@@ -494,5 +494,3 @@ class XcvrApi(object):
             None
         """
         return None
-
-
