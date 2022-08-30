@@ -1973,10 +1973,4 @@ class CmisApi(XcvrApi):
 
         return None
 
-    def enable_cache(self, **kwargs):
-        self.xcvr_eeprom.refresh_cache(**kwargs)
-
-    def disable_cache(self, **kwargs):
-        self.xcvr_eeprom.clear_cache(**kwargs)
-
     # TODO: other XcvrApi methods

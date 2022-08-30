@@ -478,19 +478,17 @@ class XcvrApi(object):
     def enable_cache(self, **kwargs):
         """
         Enables xcvr_eeprom to leverage the caching mechanism to reduce read calls to actual eeprom
-        xcvr_api implementors can choose to leverage the capability by calling enable_cache of xcvr_eeprom.
     
         Returns: 
             None
         """
-        return None
+        self.xcvr_eeprom.refresh_cache(**kwargs)
     
     def disable_cache(self, **kwargs):
         """
         Disable the caching mechanism of xcvr_eeprom
-        Can be achieved be calling disable_cache of xcvr_eeprom
         
         Returns: 
             None
         """
-        return None
+        self.xcvr_eeprom.clear_cache(**kwargs)
