@@ -11,6 +11,19 @@ class XcvrEeprom(object):
       self.reader = reader
       self.writer = writer
       self.mem_map = mem_map
+      self.cache = None # Cache for page 00h
+
+   def get_data(self, offset: int, size: int) -> bytearray :  
+      """
+      Fetch the bytearray of the eeprom data from the offset specified upto the length
+      """
+      try:
+         if offset + size < 256 and self.cache is not None:
+            return self.cache[offset:offset+size]
+      except Exception as e:
+         pass
+
+      return self.reader(offset, size)
 
    def read(self, field_name):
       """
@@ -23,7 +36,7 @@ class XcvrEeprom(object):
          The value of the field, if the read is successful and None otherwise
       """
       field = self.mem_map.get_field(field_name)
-      raw_data = self.reader(field.get_offset(), field.get_size())
+      raw_data = self.get_data(field.get_offset(), field.get_size())
       if raw_data:
          deps = field.get_deps()
          decoded_deps = {dep: self.read(dep) for dep in deps}
@@ -42,7 +55,7 @@ class XcvrEeprom(object):
       Returns:
          The value(s) of the field, if the read is successful and None otherwise
       """
-      raw_data = self.reader(offset, size)
+      raw_data = self.get_data(offset, size)
       if raw_data is None:
          return None
       if return_raw:
@@ -91,3 +104,24 @@ class XcvrEeprom(object):
          Boolean, True if the write is successful and False otherwise
       """
       return self.writer(offset, size, bytearray_data)
+   
+   def enable_cache(self, **kwargs):
+      """
+      When enabled, it caches the lower and upper pages of 00h i.e offset 0 to 256
+      Any read request made strictly b/w these limits will be read from the cache until disabled
+
+      Returns: 
+         None
+      """
+      # TODO: Use a better mechanism and allow caching for higher pages and more complicated scenarios
+      self.cache = self.reader(0, 256)
+
+   def disable_cache(self, **kwargs):
+      """
+      Clear the Cache
+
+      Returns: 
+         None
+      """
+      self.cache = None
+

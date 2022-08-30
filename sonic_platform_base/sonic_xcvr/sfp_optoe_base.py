@@ -21,15 +21,30 @@ class SfpOptoeBase(SfpBase):
 
     def get_transceiver_info(self):
         api = self.get_xcvr_api()
-        return api.get_transceiver_info() if api is not None else None
+        result = None
+        if api is not None:
+            api.enable_cache()
+            result = api.get_transceiver_info()
+            api.disable_cache()
+        return result
 
     def get_transceiver_bulk_status(self):
         api = self.get_xcvr_api()
-        return api.get_transceiver_bulk_status() if api is not None else None
+        result = None
+        if api is not None:
+            api.enable_cache()
+            result = api.get_transceiver_bulk_status()
+            api.disable_cache()
+        return result
 
     def get_transceiver_threshold_info(self):
         api = self.get_xcvr_api()
-        return api.get_transceiver_threshold_info() if api is not None else None
+        result = None
+        if api is not None:
+            api.enable_cache()
+            result = api.get_transceiver_threshold_info()
+            api.disable_cache()
+        return result
 
     def get_transceiver_status(self):
         api = self.get_xcvr_api()
