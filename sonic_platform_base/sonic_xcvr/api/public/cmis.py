@@ -164,7 +164,10 @@ class CmisApi(XcvrApi):
         xcvr_info['active_firmware'] = self.get_module_active_firmware()
         xcvr_info['inactive_firmware'] = self.get_module_inactive_firmware()
         xcvr_info['specification_compliance'] = self.get_module_media_type()
-        return xcvr_info
+        if None in xcvr_info.values():
+            return None
+        else:
+            return xcvr_info
 
     def get_transceiver_bulk_status(self):
         rx_los = self.get_rx_los()

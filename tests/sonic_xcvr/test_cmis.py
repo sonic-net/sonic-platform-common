@@ -1157,6 +1157,10 @@ class TestCmis(object):
         self.api.is_flat_memory.return_value = False
         result = self.api.get_transceiver_info()
         assert result == expected
+        # Test negative path
+        self.api.get_cmis_rev.return_value = None
+        result = self.api.get_transceiver_info()
+        assert result == None
 
 
     @pytest.mark.parametrize("mock_response, expected",[
