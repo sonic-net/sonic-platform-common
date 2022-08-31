@@ -3646,6 +3646,9 @@ class YCable(YCableBase):
                         vsc_req_form[136] = (size >> 16) & 0xFF
                         vsc_req_form[137] = (size >> 24) & 0xFF
                         status = self.send_vsc(vsc_req_form)
+                        if status != YCable.MCU_EC_NO_ERROR:
+                            self.log_error('read MCU internal memory error error (error code:0x%04X)' % (status))
+                            return YCable.EEPROM_ERROR
 
                         idx = 0
                         while idx < size:
