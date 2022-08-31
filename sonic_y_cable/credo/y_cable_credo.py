@@ -3608,6 +3608,64 @@ class YCable(YCableBase):
 
         return result
 
+    def mem_read(self, target, addr, length):
+        """
+        This API should return the memory contents of the cable which would be useful in debug for the
+        y-cable
+        Args:
+             None
+        Returns:
+            a Dictionary:
+                 with all the relevant key-value pairs for all the meaningful fields
+                 for the memory inside the MCU firmware
+                 which would help diagnose the cable for proper functioning
+        """
+
+        data = bytearray()
+
+        if self.platform_chassis is not None:
+            curr = 0
+            while curr < length:
+                if target == 0:
+                    if (length - curr) > 512: size = 512
+                    else:                     size = length - curr
+                else:
+                    size = 4
+
+                with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
+                    if lock_status:
+                        vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                        vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_MEM_READ
+                        vsc_req_form[YCable.VSC_BYTE_OPTION] = target
+                        vsc_req_form[130] = (addr >>  0) & 0xFF
+                        vsc_req_form[131] = (addr >>  8) & 0xFF
+                        vsc_req_form[132] = (addr >> 16) & 0xFF
+                        vsc_req_form[133] = (addr >> 24) & 0xFF
+                        vsc_req_form[134] = (size >>  0) & 0xFF
+                        vsc_req_form[135] = (size >>  8) & 0xFF
+                        vsc_req_form[136] = (size >> 16) & 0xFF
+                        vsc_req_form[137] = (size >> 24) & 0xFF
+                        status = self.send_vsc(vsc_req_form)
+
+                        idx = 0
+                        while idx < size:
+                            if (size - idx) > 128:
+                                data.extend(self.read_mmap(YCable.MIS_PAGE_FC + idx // 128, 128 + idx % 128, 128))
+                                idx += 128
+                            else:
+                                data.extend(self.read_mmap(YCable.MIS_PAGE_FC + idx // 128, 128 + idx % 128, size - idx))
+                                idx = size
+                    else:
+                        self.log_error('acquire lock timeout, failed to read memory')
+                        return YCable.EEPROM_ERROR
+            
+                curr += size
+                addr += size
+        else:
+            self.log_error("platform_chassis is not loaded, failed to read memory")
+
+        return data
+
     def health_check(self):
         """
         This API checks the health of the cable, where it is healthy/unhealythy for RMA purposes/diagnostics.
