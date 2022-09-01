@@ -164,6 +164,12 @@ class CmisApi(XcvrApi):
         xcvr_info['active_firmware'] = self.get_module_active_firmware()
         xcvr_info['inactive_firmware'] = self.get_module_inactive_firmware()
         xcvr_info['specification_compliance'] = self.get_module_media_type()
+
+        # In normal case will get a valid value for each of the fields. If get a 'None' value
+        # means there was a failure while reading the EEPROM, either because the EEPROM was
+        # not ready yet or experincing some other issues. It shouldn't return a dict with a
+        # wrong field value, instead should return a 'None' to indicate to XCVRD that retry is
+        # needed.
         if None in xcvr_info.values():
             return None
         else:
