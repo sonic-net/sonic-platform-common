@@ -433,6 +433,7 @@ class CmisCdbApi(XcvrApi):
         cmd[137-INIT_OFFSET] = mode
         cmd[138-INIT_OFFSET] = 2 # Delay to Reset 512 ms
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
+        delay = int.from_bytes(cmd[138-INIT_OFFSET:138+2-INIT_OFFSET], byteorder='big') + 50 # Add few ms on setting time.
         self.write_cdb(cmd)
         status = self.cdb1_chkstatus()
         if (status != 0x1):
@@ -444,6 +445,7 @@ class CmisCdbApi(XcvrApi):
         else:
             txt = 'Run firmware status: Success'
         logger.info(txt)
+        time.sleep(delay/1000) # Wait "delay time" to avoid other cmd sent before "run_fw_image" start.
         return status
 
     # Commit FW image
