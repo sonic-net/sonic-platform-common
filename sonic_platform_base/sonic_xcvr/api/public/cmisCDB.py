@@ -382,6 +382,8 @@ class CmisCdbApi(XcvrApi):
         cmd = bytearray(b'\x01\x04\x08\x00\x04\x00\x00\x00')
         addr_byte = struct.pack('>L',addr)
         cmd += addr_byte
+        cmd[130-INIT_OFFSET] = (epl_len >> 8) & 0xff
+        cmd[131-INIT_OFFSET] =  epl_len       & 0xff
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
         self.write_cdb(cmd)
         status = self.cdb1_chkstatus()
