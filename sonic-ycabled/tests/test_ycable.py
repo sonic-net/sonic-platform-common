@@ -294,6 +294,16 @@ class TestYcableScript(object):
         # TODO: fow now we only simply call ycable.init/deinit without any further check, it only makes sure that
         # ycable.init/deinit will not raise unexpected exception. In future, probably more check will be added
 
+    @patch('ycable.ycable_utilities.y_cable_helper.change_ports_status_for_y_cable_change_event', MagicMock(return_value=0))
+    def test_handle_state_update_task(self):
+        
+        port = "Ethernet0"
+        fvp_dict = {}
+        y_cable_presence = False
+        stopping_event = None
+        rc = handle_state_update_task(port, fvp_dict, y_cable_presence, stopping_event)
+        assert(rc == None)
+
 
 def wait_until(total_wait_time, interval, call_back, *args, **kwargs):
     wait_time = 0

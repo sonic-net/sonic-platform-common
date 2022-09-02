@@ -2274,6 +2274,9 @@ def handle_config_prbs_cmd_arg_tbl_notification(fvp, xcvrd_config_prbs_cmd_arg_t
                     status = -1
                     helper_logger.log_warning("Failed to execute the disable prbs API for port {} due to {}".format(physical_port,repr(e)))
         elif config_prbs_mode == "reset":
+
+            port_instance.mux_toggle_status = port_instance.MUX_TOGGLE_STATUS_NOT_INITIATED_OR_FINISHED
+            port_instance.download_firmware_status == port_instance.FIRMWARE_DOWNLOAD_STATUS_NOT_INITIATED_OR_FINISHED
             with y_cable_port_locks[physical_port]:
                 try:
                     status = port_instance.reset(target)

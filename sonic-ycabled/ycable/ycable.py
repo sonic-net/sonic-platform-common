@@ -80,6 +80,14 @@ def detect_port_in_error_status(logical_port_name, status_tbl):
     else:
         return False
 
+def handle_state_update_task(port, fvp_dict, y_cable_presence, stopping_event):
+
+    port_dict = {}
+    port_dict[port] = fvp_dict.get('status', None)
+
+    y_cable_helper.change_ports_status_for_y_cable_change_event(
+        port_dict, y_cable_presence, stopping_event)
+
 #
 # Helper classes ===============================================================
 #
@@ -149,7 +157,6 @@ class YcableStateUpdateTask(object):
 
         # Connect to STATE_DB and listen to ycable transceiver status update tables
         state_db, status_tbl= {}, {}
-        port_dict = {}
 
         sel = swsscommon.Select()
 
@@ -195,10 +202,8 @@ class YcableStateUpdateTask(object):
                 if not fvp_dict:
                     continue
 
-                port_dict[port] = fvp_dict.get('status', None)
+                handle_state_update_task(port, fvp_dict, y_cable_presence, stopping_event)
 
-                y_cable_helper.change_ports_status_for_y_cable_change_event(
-                    port_dict, y_cable_presence, stopping_event)
 
     def task_run(self, sfp_error_event, y_cable_presence):
         if self.task_stopping_event.is_set():
