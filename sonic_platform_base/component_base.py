@@ -109,7 +109,8 @@ class ComponentBase(object):
             image_path: A string, path to firmware image
 
         Returns:
-            A boolean, False only if image_path was is not valid
+            Boolean False if image_path doesn't exist instead of throwing an exception error
+            None when the update is successful
 
         Raises:
             RuntimeError: update failed
