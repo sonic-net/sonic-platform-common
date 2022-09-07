@@ -332,7 +332,6 @@ def hook_grpc_nic_simulated(target, soc_ip):
 
     return wrapper
 
-
 def retry_setup_grpc_channel_for_port(port, asic_index):
 
     global grpc_port_stubs
@@ -409,34 +408,61 @@ def get_grpc_credentials(type, kvp):
 
     return credential
 
-def create_channel(type,level, kvp, soc_ip):
+def connect_channel(channel, stub, port):
 
+    channel_ready = grpc.channel_ready_future(channel)
     retries = 3
+
     for _ in range(retries):
-
-        if type == "secure": 
-            credential = get_grpc_credentials(level, kvp)
-            target_name = kvp.get("grpc_ssl_credential", None)
-            if credential is None or target_name is None:
-                return (None, None)
-
-            GRPC_CLIENT_OPTIONS.append(('grpc.ssl_target_name_override', '{}'.format(target_name)))
-
-            channel = grpc.secure_channel("{}:{}".format(soc_ip, GRPC_PORT), credential, options=GRPC_CLIENT_OPTIONS)
-        else:
-            channel = grpc.insecure_channel("{}:{}".format(soc_ip, GRPC_PORT), options=GRPC_CLIENT_OPTIONS)
-
-        stub = linkmgr_grpc_driver_pb2_grpc.DualToRActiveStub(channel)
-
-        channel_ready = grpc.channel_ready_future(channel)
-
         try:
             channel_ready.result(timeout=2)
         except grpc.FutureTimeoutError:
-            channel = None
-            stub = None
+            helper_logger.log_warning("gRPC port {} state changed to SHUTDOWN".format(port))
         else:
             break
+
+def create_channel(type, level, kvp, soc_ip, port):
+
+
+    #Helper callback to get an channel connectivity state
+    def wait_for_state_change(channel_connectivity):
+        if channel_connectivity == grpc.ChannelConnectivity.TRANSIENT_FAILURE:
+            helper_logger.log_notice("gRPC port {} state changed to TRANSIENT_FAILURE".format(port))
+        if channel_connectivity == grpc.ChannelConnectivity.CONNECTING:
+            helper_logger.log_notice("gRPC port {} state changed to CONNECTING".format(port))
+        if channel_connectivity == grpc.ChannelConnectivity.READY:
+            helper_logger.log_notice("gRPC port {} state changed to READY".format(port))
+        if channel_connectivity == grpc.ChannelConnectivity.IDLE:
+            helper_logger.log_notice("gRPC port {} state changed to IDLE".format(port))
+        if channel_connectivity == grpc.ChannelConnectivity.SHUTDOWN:
+            helper_logger.log_notice("gRPC port {} state changed to SHUTDOWN".format(port))
+
+
+    if type == "secure": 
+        credential = get_grpc_credentials(level, kvp)
+        target_name = kvp.get("grpc_ssl_credential", None)
+        if credential is None or target_name is None:
+            return (None, None)
+
+        GRPC_CLIENT_OPTIONS.append(('grpc.ssl_target_name_override', '{}'.format(target_name)))
+
+        channel = grpc.secure_channel("{}:{}".format(soc_ip, GRPC_PORT), credential, options=GRPC_CLIENT_OPTIONS)
+    else:
+        channel = grpc.insecure_channel("{}:{}".format(soc_ip, GRPC_PORT), options=GRPC_CLIENT_OPTIONS)
+
+
+    stub = linkmgr_grpc_driver_pb2_grpc.DualToRActiveStub(channel)
+
+
+    if channel is not None:
+        channel.subscribe(wait_for_state_change)
+
+    #connect_channel(channel, stub, port)
+    """
+    Comment the connect channel call for now, since it is not required for normal gRPC I/O
+    and all use cases work without it.
+    TODO: check if this subroutine call can be ommitted for all use cases in future enhancements
+    """
 
     return channel, stub
 
@@ -490,12 +516,12 @@ def setup_grpc_channel_for_port(port, soc_ip):
         kvp = dict(fvs)
 
 
-    channel, stub = create_channel(type, level, kvp, soc_ip) 
+    channel, stub = create_channel(type, level, kvp, soc_ip, port) 
 
     if stub is None:
         helper_logger.log_warning("stub was not setup for gRPC soc ip {} port {}, no gRPC soc server running ?".format(soc_ip, port))
     if channel is None:
-        helper_logger.log_warning("channel was not setup for gRPC soc ip {} port {}, no gRPC server running ?".format(soc_ip, port))
+        helper_logger.log_warning("channel was not setup for gRPC soc ip {} port {}, no gRPC soc server running ?".format(soc_ip, port))
 
     return channel, stub
 

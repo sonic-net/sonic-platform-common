@@ -4962,10 +4962,18 @@ class TestYCableScript(object):
         with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
 
             patched_util.get_asic_id_for_logical_port.return_value = 0
-            rc = setup_grpc_channel_for_port("Ethernet0", "192.168.0.1")
+            (channel, stub) = setup_grpc_channel_for_port("Ethernet0", "192.168.0.1")
 
-        assert(rc == (None, None))
+        assert(stub == True)
+        assert(channel != None)
 
+    def test_connect_channel(self):
+
+        with patch('grpc.channel_ready_future') as patched_util:
+
+            patched_util.result.return_value = 0
+            rc = connect_channel(patched_util, None, None)
+            assert(rc == None)
 
     def test_setup_grpc_channels(self):
 
