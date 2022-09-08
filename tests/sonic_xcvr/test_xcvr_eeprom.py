@@ -202,7 +202,7 @@ class TestXcvrEeprom:
         reader_mock = Mock()
         reader_mock.side_effect = mock_eeprom_reader
         sfp.get_xcvr_api().xcvr_eeprom.reader = reader_mock
-        sfp.get_transceiver_info()
+        sfp.get_transceiver_bulk_status()
         reader_mock.assert_called_once_with(0, 256)
     
     def test_sfp_get_transciever_info_threshold(self):
@@ -211,5 +211,5 @@ class TestXcvrEeprom:
         reader_mock = Mock()
         reader_mock.side_effect = mock_eeprom_reader
         sfp.get_xcvr_api().xcvr_eeprom.reader = reader_mock
-        sfp.get_transceiver_info()
+        sfp.get_transceiver_threshold_info()
         reader_mock.assert_called_once_with(0, 256)
