@@ -70,13 +70,11 @@ def mock_eeprom_reader(offset, length):
 
 class MockSfp(SfpOptoeBase):
 
-    def __init__(self): #reader_mock):
-        # self.reader_mock = reader_mock
+    def __init__(self):
         SfpOptoeBase.__init__(self)
 
     def read_eeprom(self, offset, length):
         return mock_eeprom_reader(offset, length)
-        # return self.reader_mock(offset, length)
 
 
 class TestXcvrEeprom:
@@ -190,6 +188,24 @@ class TestXcvrEeprom:
         assert xcvr_eeprom.cache is None
     
     def test_sfp_get_transciever_info(self):
+        sfp = MockSfp()
+        # Mokey patch the xcvr_eeprom with mock reader
+        reader_mock = Mock()
+        reader_mock.side_effect = mock_eeprom_reader
+        sfp.get_xcvr_api().xcvr_eeprom.reader = reader_mock
+        sfp.get_transceiver_info()
+        reader_mock.assert_called_once_with(0, 256)
+    
+    def test_sfp_get_transciever_info_bulk_status(self):
+        sfp = MockSfp()
+        # Mokey patch the xcvr_eeprom with mock reader
+        reader_mock = Mock()
+        reader_mock.side_effect = mock_eeprom_reader
+        sfp.get_xcvr_api().xcvr_eeprom.reader = reader_mock
+        sfp.get_transceiver_info()
+        reader_mock.assert_called_once_with(0, 256)
+    
+    def test_sfp_get_transciever_info_threshold(self):
         sfp = MockSfp()
         # Mokey patch the xcvr_eeprom with mock reader
         reader_mock = Mock()
