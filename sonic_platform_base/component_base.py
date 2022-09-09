@@ -110,7 +110,7 @@ class ComponentBase(object):
 
         Returns:
             Boolean False if image_path doesn't exist instead of throwing an exception error
-            None when the update is successful
+            Nothing when the update is successful
 
         Raises:
             RuntimeError: update failed
