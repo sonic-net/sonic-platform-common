@@ -99,6 +99,10 @@ class ComponentBase(object):
         Args:
             image_path: A string, path to firmware image
 
+        Returns:
+            Boolean False if image_path doesn't exist instead of throwing an exception error
+            Nothing when the update is successful
+
         Raises:
             RuntimeError: update failed
         """
