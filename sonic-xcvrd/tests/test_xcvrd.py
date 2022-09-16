@@ -334,6 +334,24 @@ class TestXcvrdScript(object):
     @patch('swsscommon.swsscommon.Select.addSelectable', MagicMock())
     @patch('swsscommon.swsscommon.SubscriberStateTable')
     @patch('swsscommon.swsscommon.Select.select')
+    def test_handle_port_update_event(self, mock_select, mock_sub_table):
+        mock_selectable = MagicMock()
+        mock_selectable.pop = MagicMock(
+            side_effect=[('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), (None, None, None)])
+        mock_select.return_value = (swsscommon.Select.OBJECT, mock_selectable)
+        mock_sub_table.return_value = mock_selectable
+        logger = MagicMock()
+
+        sel, asic_context = subscribe_port_update_event(DEFAULT_NAMESPACE, logger)
+        port_mapping = PortMapping()
+        stop_event = threading.Event()
+        stop_event.is_set = MagicMock(return_value=False)
+        handle_port_update_event(sel, asic_context, stop_event,
+                                  logger, port_mapping.handle_port_change_event)
+
+    @patch('swsscommon.swsscommon.Select.addSelectable', MagicMock())
+    @patch('swsscommon.swsscommon.SubscriberStateTable')
+    @patch('swsscommon.swsscommon.Select.select')
     def test_handle_port_config_change(self, mock_select, mock_sub_table):
         mock_selectable = MagicMock()
         mock_selectable.pop = MagicMock(
@@ -443,7 +461,7 @@ class TestXcvrdScript(object):
         task.on_port_update_event(port_change_event)
         assert len(task.port_dict) == 1
 
-    
+
     @patch('xcvrd.xcvrd.XcvrTableHelper')
     def test_CmisManagerTask_get_configured_freq(self, mock_table_helper):
         port_mapping = PortMapping()
@@ -474,6 +492,7 @@ class TestXcvrdScript(object):
 
         port_mapping = PortMapping()
         task = CmisManagerTask(DEFAULT_NAMESPACE, port_mapping)
+        task.wait_for_port_config_done = MagicMock()
         task.task_run()
         task.task_stop()
         assert task.task_process is None
@@ -482,6 +501,7 @@ class TestXcvrdScript(object):
     @patch('xcvrd.xcvrd_utilities.port_mapping.subscribe_port_update_event', MagicMock(return_value=(None, None)))
     @patch('xcvrd.xcvrd_utilities.port_mapping.handle_port_update_event', MagicMock())
     @patch('xcvrd.xcvrd._wrapper_get_sfp_type', MagicMock(return_value='QSFP_DD'))
+    @patch('xcvrd.xcvrd.CmisManagerTask.wait_for_port_config_done', MagicMock())
     def test_CmisManagerTask_task_worker(self, mock_chassis):
         mock_xcvr_api = MagicMock()
         mock_xcvr_api.set_datapath_deinit = MagicMock(return_value=True)
@@ -553,7 +573,6 @@ class TestXcvrdScript(object):
                 'DP8State': 'DataPathActivated'
             }
         ])
-
         mock_sfp = MagicMock()
         mock_sfp.get_presence = MagicMock(return_value=True)
         mock_sfp.get_xcvr_api = MagicMock(return_value=mock_xcvr_api)
@@ -584,7 +603,6 @@ class TestXcvrdScript(object):
         task.task_stopping_event.is_set = MagicMock(side_effect=[False, False, True])
         task.task_worker()
         assert task.port_dict['Ethernet0']['cmis_state'] == 'DP_DEINIT'
-
         task.task_stopping_event.is_set = MagicMock(side_effect=[False, False, True])
         task.task_worker()
         assert mock_xcvr_api.set_datapath_deinit.call_count == 1

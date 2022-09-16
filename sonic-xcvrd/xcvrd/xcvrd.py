@@ -994,10 +994,7 @@ class CmisManagerTask:
                 self.port_dict[lport]['lanes'] = port_change_event.port_dict['lanes']
             if 'host_tx_ready' in port_change_event.port_dict:
                 self.port_dict[lport]['host_tx_ready'] = port_change_event.port_dict['host_tx_ready']
-            if 'admin_status' in port_change_event.port_dict and 'oper_status' in port_change_event.port_dict:
-                # At times 'admin_status' is NOT the same in the PORT_TABLE of APPL_DB and STATE_DB
-                # We dont have better way to check if 'admin_status' is from APPL_DB or STATE_DB so this
-                # check is put temporarily to listen only to APPL_DB's admin_status and ignore that of STATE_DB
+            if 'admin_status' in port_change_event.port_dict:
                 self.port_dict[lport]['admin_status'] = port_change_event.port_dict['admin_status']
             if 'laser_freq' in port_change_event.port_dict:
                 self.port_dict[lport]['laser_freq'] = int(port_change_event.port_dict['laser_freq'])
@@ -1277,13 +1274,36 @@ class CmisManagerTask:
             self.log_error("{} Tuning in progress, channel selection may fail!".format(lport))
         return api.set_laser_freq(freq)
 
+    def wait_for_port_config_done(self, namespace):
+        # Connect to APPL_DB and subscribe to PORT table notifications
+        appl_db = daemon_base.db_connect("APPL_DB", namespace=namespace)
+
+        sel = swsscommon.Select()
+        port_tbl = swsscommon.SubscriberStateTable(appl_db, swsscommon.APP_PORT_TABLE_NAME)
+        sel.addSelectable(port_tbl)
+
+        # Make sure this daemon started after all port configured
+        while not self.task_stopping_event.is_set():
+            (state, c) = sel.select(port_mapping.SELECT_TIMEOUT_MSECS)
+            if state == swsscommon.Select.TIMEOUT:
+                continue
+            if state != swsscommon.Select.OBJECT:
+                self.log_warning("sel.select() did not return swsscommon.Select.OBJECT")
+                continue
+
+            (key, op, fvp) = port_tbl.pop()
+            if key in ["PortConfigDone", "PortInitDone"]:
+                break
+
     def task_worker(self):
         self.xcvr_table_helper = XcvrTableHelper(self.namespaces)
 
-        self.log_notice("Starting...")
+        self.log_notice("Waiting for PortConfigDone...")
+        for namespace in self.namespaces:
+            self.wait_for_port_config_done(namespace)
 
         # APPL_DB for CONFIG updates, and STATE_DB for insertion/removal
-        sel, asic_context = port_mapping.subscribe_port_update_event(self.namespaces)
+        sel, asic_context = port_mapping.subscribe_port_update_event(self.namespaces, helper_logger)
         while not self.task_stopping_event.is_set():
             # Handle port change event from main thread
             port_mapping.handle_port_update_event(sel,
@@ -1291,9 +1311,6 @@ class CmisManagerTask:
                                                   self.task_stopping_event,
                                                   helper_logger,
                                                   self.on_port_update_event)
-
-            if not self.isPortConfigDone:
-                continue
 
             for lport, info in self.port_dict.items():
                 if self.task_stopping_event.is_set():
