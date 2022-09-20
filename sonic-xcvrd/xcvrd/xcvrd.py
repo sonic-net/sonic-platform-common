@@ -1250,7 +1250,7 @@ class CmisManagerTask:
         found, port_info = cfg_port_tbl.get(lport)
         if found:
             # Check admin_status too ...just in case
-            admin_status = dict(port_info)['admin_status']
+            admin_status = dict(port_info).get('admin_status', 'down')
         return admin_status
 
     def configure_tx_output_power(self, api, lport, tx_power):
