@@ -424,16 +424,36 @@ def connect_channel(channel, stub, port):
 def create_channel(type, level, kvp, soc_ip, port):
 
 
-    #Helper callback to get an channel connectivity state
+    appl_db = {}
+    fwd_state_response_tbl = {}
+    namespaces = multi_asic.get_front_end_namespaces()
+    for namespace in namespaces:
+        # Open a handle to the Application database, in all namespaces
+        asic_id = multi_asic.get_asic_index_from_namespace(namespace)
+        appl_db[asic_id] = daemon_base.db_connect("APPL_DB", namespace)
+        fwd_state_response_tbl[asic_id] = swsscommon.Table(
+            appl_db[asic_id], "FORWARDING_STATE_RESPONSE")
+
+    asic_index = y_cable_platform_sfputil.get_asic_id_for_logical_port(port)
+
+    # Helper callback to get an channel connectivity state
     def wait_for_state_change(channel_connectivity):
         if channel_connectivity == grpc.ChannelConnectivity.TRANSIENT_FAILURE:
             helper_logger.log_notice("gRPC port {} state changed to TRANSIENT_FAILURE".format(port))
+            # for connectivity state to FAILURE/IDLE report a failure
+            fvs_updated = swsscommon.FieldValuePairs([('response', 'failure')])
+            fwd_state_response_tbl[asic_index].set(port, fvs_updated)
+
         if channel_connectivity == grpc.ChannelConnectivity.CONNECTING:
             helper_logger.log_notice("gRPC port {} state changed to CONNECTING".format(port))
         if channel_connectivity == grpc.ChannelConnectivity.READY:
             helper_logger.log_notice("gRPC port {} state changed to READY".format(port))
         if channel_connectivity == grpc.ChannelConnectivity.IDLE:
             helper_logger.log_notice("gRPC port {} state changed to IDLE".format(port))
+            # for connectivity state to FAILURE/IDLE report a failure
+            fvs_updated = swsscommon.FieldValuePairs([('response', 'failure')])
+            fwd_state_response_tbl[asic_index].set(port, fvs_updated) 
+
         if channel_connectivity == grpc.ChannelConnectivity.SHUTDOWN:
             helper_logger.log_notice("gRPC port {} state changed to SHUTDOWN".format(port))
 
