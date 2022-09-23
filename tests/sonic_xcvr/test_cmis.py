@@ -996,6 +996,27 @@ class TestCmis(object):
         result = self.api.get_module_level_flag()
         assert result == expected
 
+    @pytest.mark.parametrize("mock_response, expected", [
+        ((128, 1, [0] * 128),  {'status': True, 'info': "", 'result': 0}),
+        ((None, 1, [0] * 128),  {'status': False, 'info': "", 'result': 0}),
+        ((128, None, [0] * 128),  {'status': False, 'info': "", 'result': 0}),
+        ((128, 0, [0] * 128),  {'status': False, 'info': "", 'result': None}),
+    ])
+    def test_get_module_fw_info(self, mock_response, expected):
+        self.api.cdb = MagicMock()
+        self.api.cdb.cdb_chkcode = MagicMock()
+        self.api.cdb.cdb_chkcode.return_value = 1
+        self.api.get_module_active_firmware = MagicMock()
+        self.api.get_module_active_firmware.return_value = "1.0"
+        self.api.get_module_inactive_firmware = MagicMock()
+        self.api.get_module_inactive_firmware.return_value = "1.1"
+        self.api.cdb.get_fw_info = MagicMock()
+        self.api.cdb.get_fw_info.return_value = mock_response
+        result = self.api.get_module_fw_info()
+        if result['status'] == False: # Check 'result' when 'status' == False for distinguishing error type.
+            assert result['result'] == expected['result']
+        assert result['status'] == expected['status']
+        
     @pytest.mark.parametrize("input_param, mock_response, expected", [
         (1, 1,  (True, 'Module FW run: Success\n')),
         (1, 64,  (False, 'Module FW run: Fail\nFW_run_status 64\n')),

@@ -121,12 +121,12 @@ class CmisCdbApi(XcvrApi):
             30h-3Fh=Custom
         '''
         status = self.xcvr_eeprom.read(consts.CDB1_STATUS)
-        is_busy = bool((status >> 7) & 0x1)
+        is_busy = bool(((0x80 if status is None else status) >> 7) & 0x1)
         cnt = 0
         while is_busy and cnt < MAX_WAIT:
             time.sleep(0.1)
             status = self.xcvr_eeprom.read(consts.CDB1_STATUS)
-            is_busy = bool((status >> 7) & 0x1)
+            is_busy = bool(((0x80 if status is None else status) >> 7) & 0x1)
             cnt += 1
         return status
 
@@ -382,6 +382,8 @@ class CmisCdbApi(XcvrApi):
         cmd = bytearray(b'\x01\x04\x08\x00\x04\x00\x00\x00')
         addr_byte = struct.pack('>L',addr)
         cmd += addr_byte
+        cmd[130-INIT_OFFSET] = (epl_len >> 8) & 0xff
+        cmd[131-INIT_OFFSET] =  epl_len       & 0xff
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
         self.write_cdb(cmd)
         status = self.cdb1_chkstatus()
@@ -433,6 +435,7 @@ class CmisCdbApi(XcvrApi):
         cmd[137-INIT_OFFSET] = mode
         cmd[138-INIT_OFFSET] = 2 # Delay to Reset 512 ms
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
+        delay = int.from_bytes(cmd[138-INIT_OFFSET:138+2-INIT_OFFSET], byteorder='big') + 50 # Add few ms on setting time.
         self.write_cdb(cmd)
         status = self.cdb1_chkstatus()
         if (status != 0x1):
@@ -444,6 +447,7 @@ class CmisCdbApi(XcvrApi):
         else:
             txt = 'Run firmware status: Success'
         logger.info(txt)
+        time.sleep(delay/1000) # Wait "delay time" to avoid other cmd sent before "run_fw_image" start.
         return status
 
     # Commit FW image
