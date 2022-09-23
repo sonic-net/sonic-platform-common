@@ -696,8 +696,6 @@ class YCable(YCableBase):
                 TARGET_UNKNOWN, if checking which side is linked and sending traffic API fails.
         """
 
-        if self.mux_toggle_status == self.MUX_TOGGLE_STATUS_INPROGRESS:
-            return YCableBase.TARGET_UNKNOWN
 
         curr_offset = YCable.OFFSET_ACTIVE_TOR_INDICATOR
 
@@ -761,8 +759,6 @@ class YCable(YCableBase):
                      , False if the link is not active
         """
 
-        if self.mux_toggle_status == self.MUX_TOGGLE_STATUS_INPROGRESS:
-            return YCableBase.TARGET_UNKNOWN
 
         curr_offset = YCable.OFFSET_CHECK_LINK_ACTIVE
 
@@ -833,8 +829,6 @@ class YCable(YCableBase):
             a list, with EYE values of lane 0 lane 1 lane 2 lane 3 with corresponding index
         """
 
-        if self.mux_toggle_status == self.MUX_TOGGLE_STATUS_INPROGRESS:
-            return None
 
         eye_result = []
 
@@ -981,8 +975,6 @@ class YCable(YCableBase):
                 an integer, the number of times the Y-cable has been switched
         """
 
-        if self.mux_toggle_status == self.MUX_TOGGLE_STATUS_INPROGRESS:
-            return 0
 
         count = 0
 
@@ -1799,8 +1791,6 @@ class YCable(YCableBase):
             an Integer, the temperature of the local MCU
         """
 
-        if self.mux_toggle_status == self.MUX_TOGGLE_STATUS_INPROGRESS:
-            return 0
 
         curr_offset = YCable.OFFSET_INTERNAL_TEMPERATURE
         if self.platform_chassis is not None:
@@ -1828,8 +1818,6 @@ class YCable(YCableBase):
             a float, the voltage of the NIC MCU
         """
 
-        if self.mux_toggle_status == self.MUX_TOGGLE_STATUS_INPROGRESS:
-            return 0
 
         if self.platform_chassis is not None:
             with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
@@ -1858,8 +1846,6 @@ class YCable(YCableBase):
             a float, the voltage of the local MCU
         """
 
-        if self.mux_toggle_status == self.MUX_TOGGLE_STATUS_INPROGRESS:
-            return 0
 
         if self.platform_chassis is not None:
             with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
