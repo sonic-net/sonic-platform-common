@@ -128,6 +128,7 @@ class TestYcableScript(object):
     @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
     @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
     @patch('ycable.ycable_utilities.y_cable_helper.get_muxcable_info', MagicMock(return_value={'tor_active': 'self',
+                                                                                               'time_post': '2022-Sep-23 00:09:16.968812',
                                                                                                'mux_direction': 'self',
                                                                                                'manual_switch_count': '7',
                                                                                                'auto_switch_count': '71',
