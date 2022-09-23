@@ -1197,6 +1197,10 @@ class CmisApi(XcvrApi):
         txt = ''
         # get fw info (CMD 0100h)
         rpllen, rpl_chkcode, rpl = self.cdb.get_fw_info()
+        # Interface NACK or timeout
+        if (rpllen is None) or (rpl_chkcode is None):
+            return {'status': False, 'info': "Interface fail", 'result': 0} # Return result 0 for distinguishing CDB is maybe in busy or failure.
+
         # password issue
         if self.cdb.cdb_chkcode(rpl) != rpl_chkcode:
             string = 'Get module FW info: Need to enter password\n'
