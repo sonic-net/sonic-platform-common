@@ -110,6 +110,12 @@ class CmisMemMap(XcvrMemMap):
 
         # Should contain ONLY upper page fields
         self.ADVERTISING = RegGroupField(consts.ADVERTISING_FIELD,
+            CodeRegField(consts.DP_PATH_INIT_DURATION, self.getaddr(0x1, 144), self.codes.DP_PATH_TIMINGS,
+                 *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 4))
+            ),
+            CodeRegField(consts.DP_PATH_DEINIT_DURATION, self.getaddr(0x1, 144), self.codes.DP_PATH_TIMINGS,
+                 *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8))
+            ),
             NumberRegField(consts.HW_MAJOR_REV, self.getaddr(0x1, 130), size=1),
             NumberRegField(consts.HW_MINOR_REV, self.getaddr(0x1, 131), size=1),
             NumberRegField(consts.MEDIA_LANE_ASSIGNMENT_OPTION, self.getaddr(0x1, 176), format="B", size=1),
