@@ -10,9 +10,9 @@ import sys
 import time
 
 if sys.version_info >= (3, 3):
-    from unittest.mock import MagicMock, patch
+    from unittest.mock import MagicMock, patch, mock_open
 else:
-    from mock import MagicMock, patch
+    from mock import MagicMock, patch, mock_open
 
 
 daemon_base.db_connect = MagicMock()
@@ -5458,6 +5458,7 @@ class TestYCableScript(object):
         assert(rc['nic_lane1_postcursor1'] == 'N/A')
         assert(rc['nic_lane1_postcursor2'] == 'N/A')
 
+    @patch('os.path.isfile', MagicMock(return_value=True))
     def test_get_grpc_credentials(self):
         
         kvp = {}
@@ -5469,6 +5470,7 @@ class TestYCableScript(object):
 
 
     @patch('builtins.open')
+    @patch('os.path.isfile', MagicMock(return_value=True))
     def test_get_grpc_credentials_root(self, open):
         
         kvp = {"ca_crt": "file"}
@@ -5498,3 +5500,17 @@ class TestYCableScript(object):
         fvp_m = {"log_verbosity": "debug"}
         rc = handle_ycable_enable_disable_tel_notification(fvp_m, "Y_CABLE")
         assert(rc == None)
+
+
+    @patch('builtins.open')
+    def test_apply_grpc_secrets_configuration(self, open):
+
+        parsed_data = {'GRPCCLIENT': {'config': {'type': 'secure', 'auth_level': 'server', 'log_level': 'info'}, 'certs': {'client_crt': 'one.crt', 'client_key': 'one.key', 'ca_crt': 'ss.crt', 'grpc_ssl_credential': 'jj.tsl'}}}
+
+        mock_file = MagicMock()
+        open.return_value = mock_file
+        #json_load.return_value = parsed_data
+        with patch('json.load') as patched_util:
+            patched_util.return_value = parsed_data
+            rc = apply_grpc_secrets_configuration(None)
+            assert(rc == None)
