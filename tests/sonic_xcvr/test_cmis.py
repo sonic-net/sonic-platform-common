@@ -618,6 +618,34 @@ class TestCmis(object):
         result = self.api.is_coherent_module()
         assert result == expected
 
+    @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
+        (True, '1', 0 ),
+        (False, None, 0),
+        (False, '5', 5.0),
+        (False, '60000', 60000.0),
+    ])
+    def test_get_datapath_init_duration(self, mock_response1, mock_response2, expected):
+        self.api.is_flat_memory = MagicMock()
+        self.api.is_flat_memory.return_value = mock_response1
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.return_value = mock_response2
+        result = self.api.get_datapath_init_duration()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
+        (True, '10', 0 ),
+        (False, None, 0),
+        (False, '50', 50.0),
+        (False, '6000000', 6000000.0),
+    ])
+    def test_get_datapath_deinit_duration(self, mock_response1, mock_response2, expected):
+        self.api.is_flat_memory = MagicMock()
+        self.api.is_flat_memory.return_value = mock_response1
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.return_value = mock_response2
+        result = self.api.get_datapath_deinit_duration()
+        assert result == expected
+
     @pytest.mark.parametrize("mock_response, expected", [
         (8, 8)
     ])
