@@ -131,9 +131,9 @@ class TestPcieCommon:
     def test_get_pcie_devices(self, subprocess_popen_mock):
 
         def subprocess_popen_side_effect(*args, **kwargs):
-            if args[0] == 'sudo lspci':
+            if args[0] == ['sudo', 'lspci']:
                 output = lspci_output.splitlines()
-            elif args[0] == 'sudo lspci -n':
+            elif args[0] == ['sudo', 'lspci', '-n']:
                 output = lspci_ID_output.splitlines()
 
             popen_mock = mock.Mock()
