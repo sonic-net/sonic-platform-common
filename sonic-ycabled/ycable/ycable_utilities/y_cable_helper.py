@@ -895,7 +895,11 @@ def toggle_mux_tor_direction_and_update_read_side(state, logical_port_name, phys
         helper_logger.log_error("Error: Could not get port instance for read side for while processing a toggle Y cable port {} {}".format(physical_port, threading.currentThread().getName()))
         return (-1, -1)
 
-    read_side = port_instance.get_read_side()
+    try:
+        read_side = port_instance.get_read_side()
+    except Exception as e:
+        read_side = None
+        helper_logger.log_warning("Failed to execute the get_read_side API for port {} due to {} from update_read_side".format(logical_port_name,repr(e)))
 
     if read_side is None or read_side is port_instance.EEPROM_ERROR or read_side < 0:
         helper_logger.log_error(
@@ -1962,7 +1966,13 @@ def get_muxcable_info(physical_port, logical_port_name):
                 mux_info_dict["link_status_peer"] = "down"
 
     with y_cable_port_locks[physical_port]:
-        if port_instance.is_link_active(port_instance.TARGET_NIC):
+        try:
+            link_state_tor_nic = port_instance.is_link_active(port_instance.TARGET_NIC)
+        except Exception as e:
+            link_state_tor_nic = False
+            helper_logger.log_warning("Failed to execute the is_link_active NIC side API for port {} due to {}".format(physical_port,repr(e)))
+
+        if link_state_tor_nic:
             mux_info_dict["link_status_nic"] = "up"
         else:
             mux_info_dict["link_status_nic"] = "down"

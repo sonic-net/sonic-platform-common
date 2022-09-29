@@ -568,6 +568,24 @@ class TestYCableScript(object):
 
         assert(rc == (-1, -1))
 
+    @patch('ycable.ycable_utilities.y_cable_helper.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
+    @patch('ycable.ycable_utilities.y_cable_helper.y_cable_wrapper_get_presence', MagicMock(return_value=True))
+    def test_update_tor_active_side_with_read_update_with_exception(self):
+        read_side = -1
+        state = "active"
+        logical_port_name = "Ethernet0"
+        with patch('ycable.ycable_utilities.y_cable_helper.y_cable_port_instances') as patched_util:
+
+            mock_toggle_object = MagicMock()
+            mock_toggle_object.toggle_mux_to_tor_b.return_value = True
+            mock_toggle_object.get_read_side =  MagicMock(
+                                side_effect=NotImplementedError)
+            patched_util.get.return_value = mock_toggle_object
+
+            rc = update_tor_active_side(read_side, state, logical_port_name)
+
+        assert(rc == (-1, -1))
+
     def test_get_mux_cable_info_without_presence(self):
 
         rc = get_muxcable_info_without_presence()
