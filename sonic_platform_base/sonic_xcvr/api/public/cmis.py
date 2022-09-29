@@ -675,6 +675,24 @@ class CmisApi(XcvrApi):
         mintf = self.get_module_media_interface()
         return False if 'ZR' not in mintf else True
 
+    def get_datapath_init_duration(self):
+        '''
+        This function returns the duration of datapath init
+        '''
+        if self.is_flat_memory():
+            return 0
+        duration = self.xcvr_eeprom.read(consts.DP_PATH_INIT_DURATION)
+        return float(duration) if duration is not None else 0
+
+    def get_datapath_deinit_duration(self):
+        '''
+        This function returns the duration of datapath deinit
+        '''
+        if self.is_flat_memory():
+            return 0
+        duration = self.xcvr_eeprom.read(consts.DP_PATH_DEINIT_DURATION)
+        return float(duration) if duration is not None else 0
+
     def get_host_lane_count(self):
         '''
         This function returns number of host lanes for default application
