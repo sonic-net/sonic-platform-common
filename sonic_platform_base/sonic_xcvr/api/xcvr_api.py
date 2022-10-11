@@ -133,6 +133,14 @@ class XcvrApi(object):
         """
         raise NotImplementedError
 
+    def get_transceiver_status(self):
+        """
+        Retrieves transceiver status of this SFP
+        Returns:
+            A dict containing the keys/values
+        """
+        raise NotImplementedError
+
     def get_rx_los(self):
         """
         Retrieves the RX LOS (loss-of-signal) status of this xcvr

@@ -818,10 +818,13 @@ class CCmisApi(CmisApi):
         trans_status['rxtotpowerlowalarm_flag'] = self.vdm_dict['Rx Total Power [dBm]'][1][6]
         trans_status['rxtotpowerhighwarning_flag'] = self.vdm_dict['Rx Total Power [dBm]'][1][7]
         trans_status['rxtotpowerlowwarning_flag'] = self.vdm_dict['Rx Total Power [dBm]'][1][8]
-        trans_status['rxsigpowerhighalarm_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][5]
-        trans_status['rxsigpowerlowalarm_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][6]
-        trans_status['rxsigpowerhighwarning_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][7]
-        trans_status['rxsigpowerlowwarning_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][8]
+        try:
+            trans_status['rxsigpowerhighalarm_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][5]
+            trans_status['rxsigpowerlowalarm_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][6]
+            trans_status['rxsigpowerhighwarning_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][7]
+            trans_status['rxsigpowerlowwarning_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][8]
+        except KeyError:
+            pass
         return trans_status
 
     def get_transceiver_pm(self):
