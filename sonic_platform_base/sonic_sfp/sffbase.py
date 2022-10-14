@@ -76,7 +76,7 @@ class sffbase(object):
 
     def mw_to_dbm(self, mW):
         if mW == 0:
-            return float("-inf")
+            return float("-40")
         elif mW < 0:
             return float("NaN")
         return 10. * log10(mW)
