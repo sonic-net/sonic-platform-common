@@ -42,10 +42,10 @@ class Sff8472Codes(Sff8024):
     }
 
     ETHERNET_10G_COMPLIANCE = {
-        16: "10GBASE-SR",
-        32: "10GBASE-LR",
-        64: "10GBASE-LRM",
-        128: "10GBASE-ER",
+        1: "10GBASE-SR",
+        2: "10GBASE-LR",
+        4: "10GBASE-LRM",
+        8: "10GBASE-ER",
     }
 
     INFINIBAND_COMPLIANCE = {
@@ -56,8 +56,8 @@ class Sff8472Codes(Sff8024):
     }
 
     ESCON_COMPLIANCE = {
-        128: "ESCON MMF, 1310nm LED",
-        64: "ESCON SMF, 1310nm Laser"
+        2: "ESCON MMF, 1310nm LED",
+        1: "ESCON SMF, 1310nm Laser"
     }
 
     SONET_COMPLIANCE = {
@@ -87,21 +87,21 @@ class Sff8472Codes(Sff8024):
     }
 
     FIBRE_CHANNEL_LINK_LENGTH = {
-        8: "Medium (M)",
-        16: "Long distance (L)",
-        32: "Intermediate distance (I)",
-        64: "Short distance (S)",
-        128: "Very long distance (V)"
+        1: "Medium (M)",
+        2: "Long distance (L)",
+        4: "Intermediate distance (I)",
+        8: "Short distance (S)",
+        16: "Very long distance (V)"
     }
 
     FIBRE_CHANNEL_TRANSMITTER_TECH = {
-        16: "Longwave Laser (LL)",
-        32: "Shortwave laser w OFC (SL)",
-        64: "Shortwave laser w/o OFC (SN)",
-        128: "Electrical intra-enclosure (EL)",
-        256: "Electrical inter-enclosure (EL)",
-        512: "Longwave laser (LC)",
-        1024: "Shortwave laser, linear RX (SA)"
+        1: "Longwave Laser (LL)",
+        2: "Shortwave laser w OFC (SL)",
+        4: "Shortwave laser w/o OFC (SN)",
+        8: "Electrical intra-enclosure (EL)",
+        16: "Electrical inter-enclosure (EL)",
+        32: "Longwave laser (LC)",
+        64: "Shortwave laser, linear RX (SA)"
     }
 
     SFP_CABLE_TECH = {
