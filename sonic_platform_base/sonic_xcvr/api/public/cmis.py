@@ -1867,7 +1867,7 @@ class CmisApi(XcvrApi):
             # Read the application advertisement in page01
             try:
                 dic.update(self.xcvr_eeprom.read(consts.APPLS_ADVT_FIELD_PAGE01))
-            except TypeError as e:
+            except (TypeError, AttributeError) as e:
                 logger.error('Failed to read APPLS_ADVT_FIELD_PAGE01: ' + str(e))
                 return ret
 
