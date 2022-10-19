@@ -221,7 +221,34 @@ class sff8436InterfaceId(sffbase):
             'd0': 'Power Class 4(3.5W max), CLEI present',
             'd4': 'Power Class 4(3.5W max), CLEI present, CDR present in Rx',
             'd8': 'Power Class 4(3.5W max), CLEI present, CDR present in Tx',
-            'dc': 'Power Class 4(3.5W max), CLEI present, CDR present in Rx Tx'
+            'dc': 'Power Class 4(3.5W max), CLEI present, CDR present in Rx Tx',
+
+            'c1': 'Power Class 5(4.0W max)',
+            'c5': 'Power Class 5(4.0W max), CDR present in Rx',
+            'c9': 'Power Class 5(4.0W max), CDR present in Tx',
+            'cd': 'Power Class 5(4.0W max), CDR present in Rx Tx',
+            'd1': 'Power Class 5(4.0W max), CLEI present',
+            'd5': 'Power Class 5(4.0W max), CLEI present, CDR present in Rx',
+            'd9': 'Power Class 5(4.0W max), CLEI present, CDR present in Tx',
+            'dd': 'Power Class 5(4.0W max), CLEI present, CDR present in Rx Tx',
+
+            'c2': 'Power Class 6(4.5W max)',
+            'c6': 'Power Class 6(4.5W max), CDR present in Rx',
+            'ca': 'Power Class 6(4.5W max), CDR present in Tx',
+            'ce': 'Power Class 6(4.5W max), CDR present in Rx Tx',
+            'd2': 'Power Class 6(4.5W max), CLEI present',
+            'd6': 'Power Class 6(4.5W max), CLEI present, CDR present in Rx',
+            'da': 'Power Class 6(4.5W max), CLEI present, CDR present in Tx',
+            'de': 'Power Class 6(4.5W max), CLEI present, CDR present in Rx Tx',
+
+            'c3': 'Power Class 7(5.0W max)',
+            'c7': 'Power Class 7(5.0W max), CDR present in Rx',
+            'cb': 'Power Class 7(5.0W max), CDR present in Tx',
+            'cf': 'Power Class 7(5.0W max), CDR present in Rx Tx',
+            'd3': 'Power Class 7(5.0W max), CLEI present',
+            'd7': 'Power Class 7(5.0W max), CLEI present, CDR present in Rx',
+            'db': 'Power Class 7(5.0W max), CLEI present, CDR present in Tx',
+            'df': 'Power Class 7(5.0W max), CLEI present, CDR present in Rx Tx',
             }
 
     connector = {
@@ -346,7 +373,7 @@ class sff8436InterfaceId(sffbase):
                  'size'  : 1,
                  'type'  : 'bitmap',
                  'decode': {}}}
-    
+
     sfp_info_bulk = {'type':
                 {'offset':0,
                  'size':1,
@@ -406,7 +433,7 @@ class sff8436InterfaceId(sffbase):
                 'size':1,
                  'type':'int'}
     }
-    
+
     vendor_name = {
         'Vendor Name':
             {'offset': 0,
@@ -441,7 +468,7 @@ class sff8436InterfaceId(sffbase):
                  'size':3,
                  'type' : 'hex'}
         }
-    
+
     vendor_date = {
         'VendorDataCode(YYYY-MM-DD Lot)':
                 {'offset':0,
@@ -1066,7 +1093,7 @@ class sff8436Dom(sffbase):
                  'size':2,
                  'type': 'func',
                  'decode': { 'func':calc_temperature}},
-            'Vcc':   
+            'Vcc':
                 {'offset':26,
                  'size':2,
                  'type': 'func',
