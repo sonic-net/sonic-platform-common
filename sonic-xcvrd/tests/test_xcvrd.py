@@ -514,6 +514,19 @@ class TestXcvrdScript(object):
         mock_xcvr_api.get_tx_config_power = MagicMock(return_value=0)
         mock_xcvr_api.get_laser_config_freq = MagicMock(return_value=0)
         mock_xcvr_api.get_module_type_abbreviation = MagicMock(return_value='QSFP-DD')
+        mock_xcvr_api.get_datapath_init_duration = MagicMock(return_value=60000.0)
+        mock_xcvr_api.get_datapath_deinit_duration = MagicMock(return_value=600000.0)
+        mock_xcvr_api.get_cmis_rev = MagicMock(return_value='5.0')
+        mock_xcvr_api.get_dpinit_pending = MagicMock(return_value={
+            'DPInitPending1': True,
+            'DPInitPending2': True,
+            'DPInitPending3': True,
+            'DPInitPending4': True,
+            'DPInitPending5': True,
+            'DPInitPending6': True,
+            'DPInitPending7': True,
+            'DPInitPending8': True
+        })
         mock_xcvr_api.get_application_advertisement = MagicMock(return_value={
             1: {
                 'host_electrical_interface_id': '400GAUI-8 C2M (Annex 120E)',
