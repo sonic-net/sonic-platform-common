@@ -249,6 +249,15 @@ class sff8436InterfaceId(sffbase):
             'd7': 'Power Class 7(5.0W max), CLEI present, CDR present in Rx',
             'db': 'Power Class 7(5.0W max), CLEI present, CDR present in Tx',
             'df': 'Power Class 7(5.0W max), CLEI present, CDR present in Rx Tx',
+
+            '20': 'Power Class 8',
+            '24': 'Power Class 8, CDR present in Rx',
+            '28': 'Power Class 8, CDR present in Tx',
+            '2c': 'Power Class 8, CDR present in Rx Tx',
+            '30': 'Power Class 8, CLEI present',
+            '34': 'Power Class 8, CLEI present, CDR present in Rx',
+            '38': 'Power Class 8, CLEI present, CDR present in Tx',
+            '3c': 'Power Class 8, CLEI present, CDR present in Rx Tx',
             }
 
     connector = {
