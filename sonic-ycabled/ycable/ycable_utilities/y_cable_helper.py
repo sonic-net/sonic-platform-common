@@ -3279,14 +3279,17 @@ def parse_grpc_response_hw_mux_cable_change_state(ret, response, portid, port):
     state = 'unknown'
     "return a list of states"
     if ret is True:
-        if response.portid[0] == portid:
-            if response.state[0] == True:
-                state = 'active'
-            # No other values expected
-            elif response.state[0] == False:
-                state = 'standby'
+        if len(response.portid) > 0 and len(response.state) > 0:
+            if response.portid[0] == portid:
+                if response.state[0] == True:
+                    state = 'active'
+                # No other values expected
+                elif response.state[0] == False:
+                    state = 'standby'
+                else:
+                    helper_logger.log_warning("recieved an error state while parsing response hw mux no response state for port".format(port))
             else:
-                helper_logger.log_warning("recieved an error state while parsing response hw mux no response state for port".format(port))
+                helper_logger.log_warning("recieved an error portid while parsing response hw mux port list size 0 for port".format(port))
         else:
             helper_logger.log_warning("recieved an error portid while parsing response hw mux no portid for port".format(port))
 
@@ -3301,27 +3304,33 @@ def parse_grpc_response_forwarding_state(ret, response, read_side):
     self_state = peer_state = 'unknown'
 
     if ret is True and response is not None:
-        if int(read_side) == 0:
-            if response.state[0] == True:
-                self_state = 'active'
-            elif response.state[0] == False:
-                self_state = 'standby'
-            # No other values expected, should we raise exception/msg
-            # TODO handle other responses
-            if response.state[1] == True:
-                peer_state = 'active'
-            elif response.state[1] == False:
-                peer_state = 'standby'
+        if len(response.portid) == 2 and len(response.state) == 2:
+            if int(read_side) == 0:
+                if response.state[0] == True:
+                    self_state = 'active'
+                elif response.state[0] == False:
+                    self_state = 'standby'
+                # No other values expected, should we raise exception/msg
+                # TODO handle other responses
+                if response.state[1] == True:
+                    peer_state = 'active'
+                elif response.state[1] == False:
+                    peer_state = 'standby'
 
-        elif int(read_side) == 1:
-            if response.state[1] == True:
-                self_state = 'active'
-            elif response.state[1] == False:
-                self_state = 'standby'
-            if response.state[0] == True:
-                peer_state = 'active'
-            elif response.state[0] == False:
-                peer_state = 'standby'
+            elif int(read_side) == 1:
+                if response.state[1] == True:
+                    self_state = 'active'
+                elif response.state[1] == False:
+                    self_state = 'standby'
+                if response.state[0] == True:
+                    peer_state = 'active'
+                elif response.state[0] == False:
+                    peer_state = 'standby'
+
+        else:
+            helper_logger.log_warning("recieved an error port list while parsing response forwarding port state list size 0 {} {}".format(len(response.portid), len(response.state)))
+            self_state = 'unknown'
+            peer_state = 'unknown'
     else:
         self_state = 'unknown'
         peer_state = 'unknown'
