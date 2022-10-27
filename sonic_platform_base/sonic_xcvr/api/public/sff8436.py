@@ -13,6 +13,7 @@ class Sff8436Api(XcvrApi):
 
     def __init__(self, xcvr_eeprom):
         super(Sff8436Api, self).__init__(xcvr_eeprom)
+        self._is_copper = None
 
     def get_model(self):
         return self.xcvr_eeprom.read(consts.VENDOR_PART_NO_FIELD)
@@ -42,7 +43,7 @@ class Sff8436Api(XcvrApi):
         cable_type = "Unknown"
         for len, type in zip([smf_len, om3_len, om2_len, om1_len, cable_assembly_len], len_types):
             if len > 0:
-                cable_len = len        
+                cable_len = len
                 cable_type = type
 
         xcvr_info = {
@@ -119,8 +120,6 @@ class Sff8436Api(XcvrApi):
                               ]
         threshold_info_dict = dict.fromkeys(threshold_info_keys, 'N/A')
         thresh_support = self.get_transceiver_thresholds_support()
-        if thresh_support is None:
-            return None
         if not thresh_support:
             return threshold_info_dict
 
@@ -198,12 +197,16 @@ class Sff8436Api(XcvrApi):
         return self.xcvr_eeprom.read(consts.TX_DISABLE_FIELD)
 
     def get_module_temperature(self):
+        if not self.get_temperature_support():
+            return 'N/A'
         temp = self.xcvr_eeprom.read(consts.TEMPERATURE_FIELD)
         if temp is None:
             return None
         return float("{:.3f}".format(temp))
 
     def get_voltage(self):
+        if not self.get_voltage_support():
+            return 'N/A'
         voltage = self.xcvr_eeprom.read(consts.VOLTAGE_FIELD)
         if voltage is None:
             return None
@@ -216,6 +219,8 @@ class Sff8436Api(XcvrApi):
         return [channel_bias for channel_bias in tx_bias.values()]
 
     def get_rx_power(self):
+        if not self.get_rx_power_support():
+            return ["N/A" for _ in range(self.NUM_CHANNELS)]
         rx_power = self.xcvr_eeprom.read(consts.RX_POWER_FIELD)
         if rx_power is None:
             return None
@@ -255,7 +260,7 @@ class Sff8436Api(XcvrApi):
         if power_override:
             ret &= self.xcvr_eeprom.write(consts.POWER_SET_FIELD, power_set)
         return ret
-    
+
     def is_flat_memory(self):
         return self.xcvr_eeprom.read(consts.FLAT_MEM_FIELD)
 
@@ -263,19 +268,22 @@ class Sff8436Api(XcvrApi):
         return False
 
     def get_rx_power_support(self):
-        return True
+        return not self.is_copper()
 
     def is_copper(self):
-        eth_compliance = self.xcvr_eeprom.read(consts.ETHERNET_10_40G_COMPLIANCE_FIELD)
-        if eth_compliance is None:
-            return None
-        return eth_compliance == "40GBASE-CR4"
+        if self._is_copper is None:
+            eth_compliance = self.xcvr_eeprom.read(consts.ETHERNET_10_40G_COMPLIANCE_FIELD)
+            if eth_compliance is None:
+                return None
+            else:
+                self._is_copper = eth_compliance == "40GBASE-CR4"
+        return self._is_copper
 
     def get_temperature_support(self):
-        return True
+        return not self.is_copper()
 
     def get_voltage_support(self):
-        return True
+        return not self.is_copper()
 
     def get_rx_los_support(self):
         return True
@@ -290,7 +298,7 @@ class Sff8436Api(XcvrApi):
         return self.xcvr_eeprom.read(consts.TX_DISABLE_SUPPORT_FIELD)
 
     def get_transceiver_thresholds_support(self):
-        return not self.is_flat_memory()
+        return not self.is_copper() and not self.is_flat_memory()
 
     def get_lpmode_support(self):
         power_class = self.xcvr_eeprom.read(consts.POWER_CLASS_FIELD)
