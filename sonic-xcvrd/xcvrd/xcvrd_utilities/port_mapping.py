@@ -134,6 +134,12 @@ def subscribe_port_update_event(namespaces, logger):
                                         port_tbl, list(d.values())[0], namespace))
     return sel, asic_context
 
+def apply_filter_to_fvp(filter, fvp):
+    if filter is not None:
+        for key in fvp.copy().keys():
+            if key not in (set(filter) | set({'index', 'key', 'asic_id', 'op'})):
+                del fvp[key]
+
 def handle_port_update_event(sel, asic_context, stop_event, logger, port_change_event_handler):
     """
     Select PORT update events, notify the observers upon a port update in CONFIG_DB
@@ -175,17 +181,14 @@ def handle_port_update_event(sel, asic_context, stop_event, logger, port_change_
             diff = {}
             filter = fvp['FILTER']
             del fvp['FILTER']
+            apply_filter_to_fvp(filter, fvp)
+
             if key in PortChangeEvent.PORT_EVENT:
                diff = dict(set(fvp.items()) - set(PortChangeEvent.PORT_EVENT[key].items()))
                # Ignore duplicate events
                if not diff:
                   PortChangeEvent.PORT_EVENT[key] = fvp
                   continue
-               # Ensure only interested field update gets through for processing
-               if filter is not None:
-                  if not (set(filter) & set(diff.keys())):
-                     PortChangeEvent.PORT_EVENT[key] = fvp
-                     continue
             PortChangeEvent.PORT_EVENT[key] = fvp
 
             if fvp['op'] == swsscommon.SET_COMMAND:
