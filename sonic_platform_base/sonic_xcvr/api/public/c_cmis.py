@@ -183,7 +183,7 @@ class CCmisApi(CmisApi):
         rx_frames_subint_pm = self.xcvr_eeprom.read(consts.RX_FRAMES_SUB_INTERVAL_PM)
         rx_frames_uncorr_err_pm = self.xcvr_eeprom.read(consts.RX_FRAMES_UNCORR_ERR_PM)
         rx_min_frames_uncorr_err_subint_pm = self.xcvr_eeprom.read(consts.RX_MIN_FRAMES_UNCORR_ERR_SUB_INTERVAL_PM)
-        rx_max_frames_uncorr_err_subint_pm = self.xcvr_eeprom.read(consts.RX_MIN_FRAMES_UNCORR_ERR_SUB_INTERVAL_PM)
+        rx_max_frames_uncorr_err_subint_pm = self.xcvr_eeprom.read(consts.RX_MAX_FRAMES_UNCORR_ERR_SUB_INTERVAL_PM)
 
         if (rx_frames_subint_pm != 0) and (rx_frames_pm != 0):
             PM_dict['preFEC_uncorr_frame_ratio_avg'] = rx_frames_uncorr_err_pm*1.0/rx_frames_subint_pm
