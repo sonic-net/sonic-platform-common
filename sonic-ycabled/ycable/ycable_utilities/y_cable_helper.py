@@ -64,6 +64,8 @@ GRPC_CLIENT_OPTIONS = [
     ('grpc.http2.max_pings_without_data', 0)
 ]
 
+CONFIG_MUX_STATES = ["active", "standby", "auto", "manual", "detach"]
+
 DEFAULT_PORT_IDS = [0, 1]
 
 SYSLOG_IDENTIFIER = "y_cable_helper"
@@ -297,7 +299,7 @@ def check_mux_cable_port_type(logical_port_name, port_tbl, asic_index):
             val = mux_table_dict.get("state", None)
             cable_type = mux_table_dict.get("cable_type", None)
 
-            if val in ["active", "standby", "auto", "manual"]:
+            if val in CONFIG_MUX_STATES:
                 if cable_type == "active-active":
                     helper_logger.log_debug("Y_CABLE_DEBUG:check_mux_cable_port_type returning True active-active port {}".format(logical_port_name))
                     return (True , "active-active")
@@ -670,7 +672,7 @@ def check_identifier_presence_and_setup_channel(logical_port_name, port_tbl, hw_
                 soc_ipv4 = soc_ipv4_full.split('/')[0]
             cable_type = mux_table_dict.get("cable_type", None)
 
-            if val in ["active", "standby", "auto", "manual"] and cable_type == "active-active":
+            if val in CONFIG_MUX_STATES and cable_type == "active-active":
 
                 # import the module and load the port instance
                 y_cable_presence[:] = [True]
@@ -1191,7 +1193,7 @@ def check_identifier_presence_and_update_mux_table_entry(state_db, port_tbl, y_c
 
             val = mux_table_dict.get("state", None)
 
-            if val in ["active", "auto", "manual", "standby"]:
+            if val in CONFIG_MUX_STATES:
 
                 # import the module and load the port instance
                 physical_port_list = logical_port_name_to_physical_port_list(
@@ -1631,7 +1633,7 @@ def check_identifier_presence_and_update_mux_info_entry(state_db, mux_tbl, asic_
         mux_table_dict = dict(fvs)
         if "state" in mux_table_dict:
             val = mux_table_dict.get("state", None)
-            if val in ["active", "auto", "manual", "standby"]:
+            if val in CONFIG_MUX_STATES:
 
                 if mux_tbl.get(asic_index, None) is not None:
                     # fill in the newly found entry
