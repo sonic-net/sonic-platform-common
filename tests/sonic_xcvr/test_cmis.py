@@ -2019,6 +2019,12 @@ class TestCmis(object):
         assert result[1]['media_lane_count'] == 4
         assert result[1]['host_lane_assignment_options'] == 0x01
 
+    def test_get_application_advertisement_non_support(self):
+        self.api.xcvr_eeprom.read = MagicMock(return_value = None)
+        self.api.is_flat_memory = MagicMock(return_value = False)
+        result = self.api.get_application_advertisement()
+        assert result == {}
+
     def test_get_application(self):
         self.api.xcvr_eeprom.read = MagicMock()
         self.api.xcvr_eeprom.read.return_value = 0x20
