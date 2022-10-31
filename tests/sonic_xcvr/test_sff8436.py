@@ -1,4 +1,4 @@
-from mock import MagicMock
+from mock import MagicMock, patch
 
 from sonic_platform_base.sonic_xcvr.api.public.sff8436 import Sff8436Api
 from sonic_platform_base.sonic_xcvr.codes.public.sff8436 import Sff8436Codes
@@ -15,7 +15,7 @@ class TestSff8436(object):
 
     def test_api(self):
         """
-        Verify all api access valid fields    
+        Verify all api access valid fields
         """
         self.api.get_model()
         self.api.get_serial()
@@ -51,3 +51,25 @@ class TestSff8436(object):
         self.api.get_transceiver_thresholds_support()
         self.api.get_lpmode_support()
         self.api.get_power_override_support()
+
+    def test_is_copper(self):
+        with patch.object(self.api, 'xcvr_eeprom') as mock_eeprom:
+            mock_eeprom.read = MagicMock()
+            mock_eeprom.read.return_value = None
+            assert self.api.is_copper() is None
+            mock_eeprom.read.return_value = '40GBASE-CR4'
+            assert self.api.is_copper()
+            self.api._is_copper = None
+            mock_eeprom.read.return_value = 'SR'
+            assert not self.api.is_copper()
+
+    def test_simulate_copper(self):
+        with patch.object(self.api, 'is_copper', return_value=True):
+            assert self.api.get_rx_power() == ['N/A'] * self.api.NUM_CHANNELS
+            assert self.api.get_module_temperature() == 'N/A'
+            assert self.api.get_voltage() == 'N/A'
+            assert not self.api.get_tx_power_support()
+            assert not self.api.get_rx_power_support()
+            assert not self.api.get_rx_power_support()
+            assert not self.api.get_temperature_support()
+            assert not self.api.get_voltage_support()
