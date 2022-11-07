@@ -616,9 +616,9 @@ def del_port_sfp_dom_info_from_db(logical_port_name, port_mapping, int_tbl, dom_
         ganged_member_num += 1
 
         try:
-            if int_tbl != None:
+            if int_tbl is not None:
                 int_tbl._del(port_name)
-            if dom_tbl != None:
+            if dom_tbl is not None:
                 dom_tbl._del(port_name)
 
         except NotImplementedError:
@@ -1923,7 +1923,10 @@ class SfpStateUpdateTask(object):
                                     # In this case EEPROM is not accessible. The DOM info will be removed since it can be out-of-date.
                                     # The interface info remains in the DB since it is static.
                                     if sfp_status_helper.is_error_block_eeprom_reading(error_bits):
-                                        del_port_sfp_dom_info_from_db(logical_port, None, self.xcvr_table_helper.get_dom_tbl(asic_index))
+                                        del_port_sfp_dom_info_from_db(logical_port,
+                                                                      self.port_mapping,
+                                                                      None,
+                                                                      self.xcvr_table_helper.get_dom_tbl(asic_index))
                                 except (TypeError, ValueError) as e:
                                     helper_logger.log_error("Got unrecognized event {}, ignored".format(value))
 
