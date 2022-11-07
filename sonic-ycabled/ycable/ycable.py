@@ -17,6 +17,7 @@ try:
     from swsscommon import swsscommon
 
     from .ycable_utilities import y_cable_helper
+    from .ycable_utilities import y_cable_table_helper
 except ImportError as e:
     raise ImportError(str(e) + " - required module not found")
 
@@ -47,13 +48,11 @@ SFP_STATUS_ERR_ENUM = Enum('SFP_STATUS_ERR_ENUM', ['SFP_STATUS_ERR_I2C_STUCK', '
 # Convert the error code to string and store them in a set for convenience
 errors_block_eeprom_reading = set(str(error_code.value) for error_code in SFP_STATUS_ERR_ENUM)
 
-TRANSCEIVER_STATUS_TABLE = 'TRANSCEIVER_STATUS'
 
 SFPUTIL_LOAD_ERROR = 1
 PORT_CONFIG_LOAD_ERROR = 2
 NOT_IMPLEMENTED_ERROR = 3
 SFP_SYSTEM_ERROR = 4
-
 
 # Global platform specific sfputil class instance
 platform_sfputil = None
@@ -99,22 +98,13 @@ class YcableInfoUpdateTask(object):
     def __init__(self):
         self.task_thread = None
         self.task_stopping_event = threading.Event()
+        self.table_helper =  y_cable_table_helper.YcableInfoUpdateTableHelper()
+
 
     def task_worker(self, y_cable_presence):
         helper_logger.log_info("Start Ycable monitoring loop")
 
         # Connect to STATE_DB and create transceiver ycable config table
-        state_db = {}
-        mux_tbl = {}
-        status_tbl = {}
-
-        # Get the namespaces in the platform
-        namespaces = multi_asic.get_front_end_namespaces()
-        for namespace in namespaces:
-            asic_id = multi_asic.get_asic_index_from_namespace(namespace)
-            state_db[asic_id] = daemon_base.db_connect("STATE_DB", namespace)
-            status_tbl[asic_id] = swsscommon.Table(state_db[asic_id], TRANSCEIVER_STATUS_TABLE)
-
         time.sleep(0.1)
         # Start loop to update ycable info in DB periodically
         while not self.task_stopping_event.wait(YCABLE_INFO_UPDATE_PERIOD_SECS):
@@ -126,9 +116,9 @@ class YcableInfoUpdateTask(object):
                     logger.log_warning("Got invalid asic index for {}, ignored".format(logical_port_name))
                     continue
 
-                if not detect_port_in_error_status(logical_port_name, status_tbl[asic_index]):
+                if not detect_port_in_error_status(logical_port_name, self.table_helper.get_status_tbl()[asic_index]):
                     if y_cable_presence[0] is True:
-                        y_cable_helper.check_identifier_presence_and_update_mux_info_entry(state_db, mux_tbl, asic_index, logical_port_name)
+                        y_cable_helper.check_identifier_presence_and_update_mux_info_entry(self.table_helper.get_state_db(), self.table_helper.get_mux_tbl(), asic_index, logical_port_name, self.table_helper.get_y_cable_tbl(), self.table_helper.get_port_tbl())
 
         helper_logger.log_info("Stop DOM monitoring loop")
 
@@ -151,12 +141,13 @@ class YcableStateUpdateTask(object):
         self.task_process = None
         self.task_stopping_event = threading.Event()
         self.sfp_insert_events = {}
+        self.table_helper =  y_cable_table_helper.YcableStateUpdateTableHelper()
+
 
     def task_worker(self, stopping_event, sfp_error_event, y_cable_presence):
         helper_logger.log_info("Start Ycable monitoring loop")
 
         # Connect to STATE_DB and listen to ycable transceiver status update tables
-        state_db, status_tbl= {}, {}
 
         sel = swsscommon.Select()
 
@@ -164,10 +155,7 @@ class YcableStateUpdateTask(object):
         namespaces = multi_asic.get_front_end_namespaces()
         for namespace in namespaces:
             asic_id = multi_asic.get_asic_index_from_namespace(namespace)
-            state_db[asic_id] = daemon_base.db_connect("STATE_DB", namespace)
-            status_tbl[asic_id] = swsscommon.SubscriberStateTable(
-                state_db[asic_id], TRANSCEIVER_STATUS_TABLE)
-            sel.addSelectable(status_tbl[asic_id])
+            sel.addSelectable(self.table_helper.get_sub_status_tbl()[asic_id])
 
         while True:
 
@@ -192,7 +180,7 @@ class YcableStateUpdateTask(object):
             asic_index = multi_asic.get_asic_index_from_namespace(namespace)
 
             while True:
-                (port, op, fvp) = status_tbl[asic_index].pop()
+                (port, op, fvp) = self.table_helper.get_sub_status_tbl()[asic_index].pop()
                 if not port:
                     break
 
@@ -231,6 +219,7 @@ class DaemonYcable(daemon_base.DaemonBase):
         self.stop_event = threading.Event()
         self.sfp_error_event = threading.Event()
         self.y_cable_presence = [False]
+        self.table_helper =  y_cable_table_helper.DaemonYcableTableHelper()
 
     # Signal handler
     def signal_handler(self, sig, frame):
@@ -251,20 +240,13 @@ class DaemonYcable(daemon_base.DaemonBase):
         global platform_chassis
 
         self.log_info("Start daemon init...")
-        config_db, metadata_tbl, metadata_dict = {}, {}, {}
         is_vs = False
 
-        namespaces = multi_asic.get_front_end_namespaces()
-        for namespace in namespaces:
-            asic_id = multi_asic.get_asic_index_from_namespace(namespace)
-            config_db[asic_id] = daemon_base.db_connect("CONFIG_DB", namespace)
-            metadata_tbl[asic_id] = swsscommon.Table(
-                config_db[asic_id], "DEVICE_METADATA")
 
-        (status, fvs) = metadata_tbl[0].get("localhost")
+        (status, fvs) = self.table_helper.get_metadata_tbl()[0].get("localhost")
 
         if status is False:
-            helper_logger.log_debug("Could not retreive fieldvalue pairs for {}, inside config_db table {}".format('localhost', metadata_tbl[0].getTableName()))
+            helper_logger.log_debug("Could not retreive fieldvalue pairs for {}, inside config_db table {}".format('localhost', self.table_helper.get_metadata_tbl()[0].getTableName()))
             return
 
         else:
@@ -319,14 +301,7 @@ class DaemonYcable(daemon_base.DaemonBase):
             self.log_error("Failed to read port info: {}".format(str(e)), True)
             sys.exit(PORT_CONFIG_LOAD_ERROR)
 
-        # Connect to STATE_DB and create ycable tables
-        state_db = {}
-
-        # Get the namespaces in the platform
-        namespaces = multi_asic.get_front_end_namespaces()
-        for namespace in namespaces:
-            asic_id = multi_asic.get_asic_index_from_namespace(namespace)
-            state_db[asic_id] = daemon_base.db_connect("STATE_DB", namespace)
+        # create ycable tables
 
         """
         # TODO need to decide if we need warm start capability in this ycabled daemon
@@ -342,7 +317,7 @@ class DaemonYcable(daemon_base.DaemonBase):
 
         # Init port y_cable status table
         y_cable_helper.init_ports_status_for_y_cable(
-            platform_sfputil, platform_chassis, self.y_cable_presence, self.stop_event, is_vs)
+            platform_sfputil, platform_chassis, self.y_cable_presence, self.table_helper.get_state_db(), self.table_helper.get_port_tbl(), self.table_helper.get_y_cable_tbl(), self.table_helper.get_static_tbl(), self.table_helper.get_mux_tbl(), self.table_helper.port_table_keys,  self.table_helper.loopback_keys , self.table_helper.get_hw_mux_cable_tbl(), self.table_helper.get_hw_mux_cable_tbl_peer(), self.stop_event, is_vs)
 
     # Deinitialize daemon
     def deinit(self):
@@ -358,7 +333,7 @@ class DaemonYcable(daemon_base.DaemonBase):
                 continue
 
         if self.y_cable_presence[0] is True:
-            y_cable_helper.delete_ports_status_for_y_cable()
+            y_cable_helper.delete_ports_status_for_y_cable(self.table_helper.get_y_cable_tbl(), self.table_helper.get_static_tbl(), self.table_helper.get_mux_tbl(), self.table_helper.get_port_tbl(), self.table_helper.get_grpc_config_tbl())
 
         global_values = globals()
         val = global_values.get('platform_chassis')

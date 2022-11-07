@@ -160,8 +160,18 @@ class TestYcableScript(object):
                                                                                                'version_peer_next': '1.7MS'}))
     def test_post_port_mux_info_to_db(self):
         logical_port_name = "Ethernet0"
-        mux_tbl = Table("STATE_DB", y_cable_helper.MUX_CABLE_INFO_TABLE)
-        rc = post_port_mux_info_to_db(logical_port_name, mux_tbl, 'active-standby')
+        asic_index = 0
+        y_cable_tbl = {}
+        mux_tbl = {}
+        test_db = "TEST_DB"
+        status = True
+        fvs = [('state', "auto"), ('read_side', 1)]
+        y_cable_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], "Y_CABLE_TABLE")
+        y_cable_tbl[asic_index].get.return_value = (status, fvs)
+        mux_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], "Y_CABLE_TABLE")
+        rc = post_port_mux_info_to_db(logical_port_name, mux_tbl,asic_index, y_cable_tbl, 'active-standby')
         assert(rc != -1)
 
     @patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil', MagicMock(return_value=[0]))
