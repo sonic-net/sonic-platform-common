@@ -141,6 +141,15 @@ class XcvrApi(object):
         """
         raise NotImplementedError
 
+    def get_transceiver_pm(self):
+        """
+        Retrieves PM for this xcvr
+
+        Returns:
+            A dict containing the keys/values
+        """
+        raise NotImplementedError
+
     def get_rx_los(self):
         """
         Retrieves the RX LOS (loss-of-signal) status of this xcvr
