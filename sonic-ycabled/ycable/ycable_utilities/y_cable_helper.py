@@ -11,6 +11,7 @@ import re
 import sys
 import threading
 import time
+import traceback
 
 from importlib import import_module
 
@@ -3441,16 +3442,15 @@ def handle_ycable_enable_disable_tel_notification(fvp_m, key):
                 disable_telemetry = False
 
 # Thread wrapper class to update y_cable status periodically
-class YCableTableUpdateTask(object):
+class YCableTableUpdateTask(threading.Thread):
     def __init__(self):
-        self.task_thread = None
-        self.task_cli_thread = None
-        self.task_download_firmware_thread = {}
+        threading.Thread.__init__(self)
+
+        self.exc = None
         self.task_stopping_event = threading.Event()
         self.hw_mux_cable_tbl_keys = {}
 
         self.table_helper =  y_cable_table_helper.YcableTableUpdateTableHelper()
-        self.cli_table_helper =  y_cable_table_helper.YcableCliUpdateTableHelper()
        
     def task_worker(self):
 
@@ -3621,6 +3621,32 @@ class YCableTableUpdateTask(object):
                 if fvp_n:
                     handle_hw_mux_cable_table_grpc_notification(
                         fvp_n, self.table_helper.get_hw_mux_cable_tbl_peer(), asic_index, self.table_helper.get_mux_metrics_tbl(), True, port_n)
+
+    def run(self):
+        if self.task_stopping_event.is_set():
+            return
+
+        try:
+            self.task_worker()
+        except Exception as e:
+            helper_logger.log_error("Exception occured at child thread YCableTableUpdateTask due to {} {}".format(repr(e), traceback.format_exc()))
+            self.exc = e
+
+
+    def join(self):
+        threading.Thread.join(self)
+
+        if self.exc:
+            raise self.exc
+
+class YCableCliUpdateTask(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self)
+
+        self.exc = None
+        self.task_download_firmware_thread = {}
+        self.task_stopping_event = threading.Event()
+        self.cli_table_helper =  y_cable_table_helper.YcableCliUpdateTableHelper()
 
 
     def task_cli_worker(self):
@@ -3825,19 +3851,25 @@ class YCableTableUpdateTask(object):
 
                     break
 
-    def task_run(self):
-        self.task_thread = threading.Thread(target=self.task_worker)
-        self.task_cli_thread = threading.Thread(target=self.task_cli_worker)
-        self.task_thread.start()
-        self.task_cli_thread.start()
+    def run(self):
+        if self.task_stopping_event.is_set():
+            return
 
-    def task_stop(self):
-
-        self.task_stopping_event.set()
-        helper_logger.log_info("stopping the cli and probing task threads xcvrd")
-        self.task_thread.join()
-        self.task_cli_thread.join()
-
+        try:
+            self.task_cli_worker()
+        except Exception as e:
+            helper_logger.log_error("Exception occured at child thread YcableCliUpdateTask due to {} {}".format(repr(e), traceback.format_exc()))
+            self.exc = e
+ 
+    def join(self):
+ 
+        threading.Thread.join(self)
+ 
         for key, value in self.task_download_firmware_thread.items():
             self.task_download_firmware_thread[key].join()
         helper_logger.log_info("stopped all thread")
+        if self.exc is not None:
+ 
+            raise self.exc
+
+
