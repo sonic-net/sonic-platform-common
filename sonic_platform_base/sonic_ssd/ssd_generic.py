@@ -52,10 +52,10 @@ class SsdUtil(SsdBase):
 
         # Known vendor part
         if self.model:
-            model_short = self.model.split()[0]
-            if model_short in self.vendor_ssd_utility:
-                self.fetch_vendor_ssd_info(diskdev, model_short)
-                self.parse_vendor_ssd_info(model_short)
+            vendor = self._parse_vendor()
+            if vendor:
+                self.fetch_vendor_ssd_info(diskdev, vendor)
+                self.parse_vendor_ssd_info(vendor)
             else:
                 # No handler registered for this disk model
                 pass
@@ -71,6 +71,15 @@ class SsdUtil(SsdBase):
     def _parse_re(self, pattern, buffer):
         res_list = re.findall(pattern, buffer)
         return res_list[0] if res_list else NOT_AVAILABLE
+
+    def _parse_vendor(self):
+        model_short = self.model.split()[0]
+        if model_short in self.vendor_ssd_utility:
+            return model_short
+        elif self.model.startswith('VSF'):
+            return 'Virtium'
+        else:
+            return None
 
     def fetch_generic_ssd_info(self, diskdev):
         self.ssd_info = self._execute_shell(self.vendor_ssd_utility["Generic"]["utility"].format(diskdev))
