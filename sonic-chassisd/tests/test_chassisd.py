@@ -59,7 +59,8 @@ def test_moduleupdater_check_valid_fields():
 
     chassis.module_list.append(module)
 
-    module_updater = ModuleUpdater(SYSLOG_IDENTIFIER, chassis)
+    module_updater = ModuleUpdater(SYSLOG_IDENTIFIER, chassis, slot,
+                                   module.supervisor_slot)
     module_updater.module_db_update()
     fvs = module_updater.module_table.get(name)
     assert desc == fvs[CHASSIS_MODULE_INFO_DESC_FIELD]
@@ -82,7 +83,8 @@ def test_moduleupdater_check_invalid_name():
 
     chassis.module_list.append(module)
 
-    module_updater = ModuleUpdater(SYSLOG_IDENTIFIER, chassis)
+    module_updater = ModuleUpdater(SYSLOG_IDENTIFIER, chassis, slot,
+                                   module.supervisor_slot)
     module_updater.module_db_update()
     fvs = module_updater.module_table.get(name)
     assert fvs == None
@@ -102,7 +104,8 @@ def test_moduleupdater_check_status_update():
     module.set_oper_status(status)
     chassis.module_list.append(module)
 
-    module_updater = ModuleUpdater(SYSLOG_IDENTIFIER, chassis)
+    module_updater = ModuleUpdater(SYSLOG_IDENTIFIER, chassis, slot,
+                                   module.supervisor_slot)
     module_updater.module_db_update()
     fvs = module_updater.module_table.get(name)
     print('Initial DB-entry {}'.format(fvs))
@@ -136,7 +139,8 @@ def test_moduleupdater_check_deinit():
     module.set_oper_status(status)
     chassis.module_list.append(module)
 
-    module_updater = ModuleUpdater(SYSLOG_IDENTIFIER, chassis)
+    module_updater = ModuleUpdater(SYSLOG_IDENTIFIER, chassis, slot,
+                                   module.supervisor_slot)
     module_updater.modules_num_update()
     module_updater.module_db_update()
     fvs = module_updater.module_table.get(name)
@@ -226,7 +230,8 @@ def test_configupdater_check_num_modules():
     module = MockModule(index, name, desc, module_type, slot)
 
     # No modules
-    module_updater = ModuleUpdater(SYSLOG_IDENTIFIER, chassis)
+    module_updater = ModuleUpdater(SYSLOG_IDENTIFIER, chassis, slot,
+                                   module.supervisor_slot)
     module_updater.modules_num_update()
     fvs = module_updater.chassis_table.get(CHASSIS_INFO_KEY_TEMPLATE.format(1))
     assert fvs == None
@@ -274,7 +279,8 @@ def test_midplane_presence_modules():
     chassis.module_list.append(fabric)
 
     #Run on supervisor
-    module_updater = ModuleUpdater(SYSLOG_IDENTIFIER, chassis)
+    module_updater = ModuleUpdater(SYSLOG_IDENTIFIER, chassis, slot,
+                                   module.supervisor_slot)
     module_updater.supervisor_slot = supervisor.get_slot()
     module_updater.my_slot = supervisor.get_slot()
     module_updater.modules_num_update()
@@ -338,7 +344,8 @@ def test_midplane_presence_supervisor():
     chassis.module_list.append(fabric)
 
     #Run on supervisor
-    module_updater = ModuleUpdater(SYSLOG_IDENTIFIER, chassis)
+    module_updater = ModuleUpdater(SYSLOG_IDENTIFIER, chassis, slot,
+                                   module.supervisor_slot)
     module_updater.supervisor_slot = supervisor.get_slot()
     module_updater.my_slot = module.get_slot()
     module_updater.modules_num_update()
@@ -403,9 +410,9 @@ def test_asic_presence():
     chassis.module_list.append(fabric)
 
     #Run on supervisor
-    module_updater = ModuleUpdater(SYSLOG_IDENTIFIER, chassis)
-    module_updater.supervisor_slot = supervisor.get_slot()
-    module_updater.my_slot = supervisor.get_slot()
+    module_updater = ModuleUpdater(SYSLOG_IDENTIFIER, chassis,
+                                   module.supervisor_slot,
+                                   module.supervisor_slot)
     module_updater.modules_num_update()
     module_updater.module_db_update()
     module_updater.check_midplane_reachability()
