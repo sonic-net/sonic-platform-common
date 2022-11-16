@@ -223,13 +223,13 @@ class PsuBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
-    def get_psu_power_warning_threshold(self):
+    def get_psu_power_warning_suppress_threshold(self):
         """
-        Retrieve the warning threshold of the power on this PSU
+        Retrieve the warning suppress threshold of the power on this PSU
         The value can be volatile, so the caller should call the API each time it is used.
 
         Returns:
-            A float number, the warning threshold of the PSU in watts.
+            A float number, the warning suppress threshold of the PSU in watts.
         """
         raise NotImplementedError
 
