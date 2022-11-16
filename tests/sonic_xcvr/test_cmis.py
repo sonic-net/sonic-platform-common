@@ -1044,7 +1044,7 @@ class TestCmis(object):
         if result['status'] == False: # Check 'result' when 'status' == False for distinguishing error type.
             assert result['result'] == expected['result']
         assert result['status'] == expected['status']
-        
+
     @pytest.mark.parametrize("input_param, mock_response, expected", [
         (1, 1,  (True, 'Module FW run: Success\n')),
         (1, 64,  (False, 'Module FW run: Fail\nFW_run_status 64\n')),
@@ -2006,7 +2006,8 @@ class TestCmis(object):
                 consts.MODULE_MEDIA_INTERFACE_SM + "_1": "400GBASE-DR4 (Cl 124)",
                 consts.MEDIA_LANE_COUNT + "_1": 4,
                 consts.HOST_LANE_COUNT + "_1": 8,
-                consts.HOST_LANE_ASSIGNMENT_OPTION + "_1": 0x01
+                consts.HOST_LANE_ASSIGNMENT_OPTION + "_1": 0x01,
+                consts.MEDIA_LANE_ASSIGNMENT_OPTION + "_1": 0x02
             },
             Sff8024.MODULE_MEDIA_TYPE[2]
         ]
@@ -2018,6 +2019,7 @@ class TestCmis(object):
         assert result[1]['host_lane_count'] == 8
         assert result[1]['media_lane_count'] == 4
         assert result[1]['host_lane_assignment_options'] == 0x01
+        assert result[1]['media_lane_assignment_options'] == 0x02
 
     def test_get_application_advertisement_non_support(self):
         self.api.xcvr_eeprom.read = MagicMock(return_value = None)
