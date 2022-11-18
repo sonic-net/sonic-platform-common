@@ -94,10 +94,10 @@ class CCmisApi(CmisApi):
 
     def get_supported_freq_config(self):
         '''
-        This function returns the supported freq grid, low and high supported channel in 75GHz grid,
+        This function returns the supported freq grid, low and high supported channel in 75/100GHz grid,
         and low and high frequency supported in GHz.
-        allowed channel number bound in 75 GHz grid
-        allowed frequency bound in 75 GHz grid
+        allowed channel number bound in 75/100 GHz grid
+        allowed frequency bound in 75/100 GHz grid
         '''
         grid_supported = self.xcvr_eeprom.read(consts.SUPPORT_GRID)
         low_ch_num = self.xcvr_eeprom.read(consts.LOW_CHANNEL)
@@ -106,20 +106,28 @@ class CCmisApi(CmisApi):
         high_freq_supported = 193100 + hi_ch_num * 25
         return grid_supported, low_ch_num, hi_ch_num, low_freq_supported, high_freq_supported
 
-    def set_laser_freq(self, freq):
+    def set_laser_freq(self, freq, grid):
         '''
         This function sets the laser frequency. Unit in GHz
         ZR application will not support fine tuning of the laser
-        SONiC will only support 75 GHz frequency grid
+        SONiC will only support 75 GHz and 100GHz frequency grids
         Return True if the provision succeeds, False if it fails
         '''
         grid_supported, low_ch_num, hi_ch_num, _, _ = self.get_supported_freq_config()
         grid_supported_75GHz = (grid_supported >> 7) & 0x1
-        assert grid_supported_75GHz
-        freq_grid = 0x70
+        grid_supported_100GHz = (grid_supported >> 5) & 0x1
+        if grid == 75:
+            assert grid_supported_75GHz
+            freq_grid = 0x70
+            channel_number = int(round((freq - 193100)/25))
+            assert channel_number % 3 == 0
+        elif grid == 100:
+            assert grid_supported_100GHz
+            freq_grid = 0x50
+            channel_number = int(round((freq - 193100)/100))
+        else:
+            return False
         self.xcvr_eeprom.write(consts.GRID_SPACING, freq_grid)
-        channel_number = int(round((freq - 193100)/25))
-        assert channel_number % 3 == 0
         if channel_number > hi_ch_num or channel_number < low_ch_num:
             raise ValueError('Provisioned frequency out of range. Max Freq: 196100; Min Freq: 191300 GHz.')
         status = self.xcvr_eeprom.write(consts.LASER_CONFIG_CHANNEL, channel_number)
