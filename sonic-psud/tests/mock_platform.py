@@ -356,6 +356,12 @@ class MockPsu(psu_base.PsuBase):
         self._status_led_color = color
         return True
 
+    def get_psu_power_critical_threshold(self):
+        raise NotImplementedError
+
+    def get_psu_power_warning_suppress_threshold(self):
+        raise NotImplementedError
+
     # Methods inherited from DeviceBase class and related setters
     def get_name(self):
         return self._name

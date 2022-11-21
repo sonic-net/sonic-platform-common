@@ -57,6 +57,9 @@ PSU_INFO_VOLTAGE_MAX_TH_FIELD = 'voltage_max_threshold'
 PSU_INFO_VOLTAGE_MIN_TH_FIELD = 'voltage_min_threshold'
 PSU_INFO_CURRENT_FIELD = 'current'
 PSU_INFO_POWER_FIELD = 'power'
+PSU_INFO_POWER_OVERLOAD = 'power_overload'
+PSU_INFO_POWER_WARNING_SUPPRESS_THRESHOLD = 'power_warning_suppress_threshold'
+PSU_INFO_POWER_CRITICAL_THRESHOLD = 'power_critical_threshold'
 PSU_INFO_FRU_FIELD = 'is_replaceable'
 PSU_INFO_IN_VOLTAGE_FIELD = 'input_voltage'
 PSU_INFO_IN_CURRENT_FIELD = 'input_current'
@@ -283,6 +286,8 @@ class PsuStatus(object):
         self.power_good = True
         self.voltage_good = True
         self.temperature_good = True
+        self.check_psu_power_threshold = False
+        self.power_exceeded_threshold = False
         self.logger = logger
 
     def set_presence(self, presence):
@@ -337,6 +342,13 @@ class PsuStatus(object):
             return False
 
         self.temperature_good = temperature_good
+        return True
+
+    def set_power_exceed_threshold(self, power_exceeded_threshold):
+        if power_exceeded_threshold == self.power_exceeded_threshold:
+            return False
+
+        self.power_exceeded_threshold = power_exceeded_threshold
         return True
 
     def is_ok(self):
@@ -486,6 +498,8 @@ class DaemonPsud(daemon_base.DaemonBase):
                                   'PSU absence warning cleared: {} is inserted back.'.format(name),
                                   'PSU absence warning: {} is not present.'.format(name)
                                   )
+            if not psu_status.presence:
+                 psu_status.check_psu_power_threshold = False
 
         if presence_changed or self.first_run:
             # Have to update PSU fan data here because PSU presence status changed. If we don't
@@ -495,12 +509,45 @@ class DaemonPsud(daemon_base.DaemonBase):
             # every 60 seconds, it may still treat PSU state to "OK" and PSU LED to "red".
             self._update_psu_fan_data(psu, index)
 
-        if presence and psu_status.set_power_good(power_good):
+        power_good_changed = psu_status.set_power_good(power_good)
+        if presence and power_good_changed:
             set_led = True
             log_on_status_changed(self, psu_status.power_good,
                                   'Power absence warning cleared: {} power is back to normal.'.format(name),
                                   'Power absence warning: {} is out of power.'.format(name)
                                   )
+
+        if presence and power_good_changed or self.first_run:
+            psu_status.check_psu_power_threshold = False
+            if psu_status.power_good:
+                # power_good has been updated and it is True, which means it was False
+                # Initialize power exceeding threshold state in this case
+                if (try_get(psu.get_psu_power_critical_threshold) and try_get(psu.get_psu_power_warning_suppress_threshold) and power != NOT_AVAILABLE):
+                    psu_status.check_psu_power_threshold = True
+
+        power_exceeded_threshold = psu_status.power_exceeded_threshold
+        power_warning_suppress_threshold = try_get(psu.get_psu_power_warning_suppress_threshold, NOT_AVAILABLE)
+        power_critical_threshold = try_get(psu.get_psu_power_critical_threshold, NOT_AVAILABLE)
+        if psu_status.check_psu_power_threshold:
+            if power_warning_suppress_threshold == NOT_AVAILABLE or power_critical_threshold == NOT_AVAILABLE:
+                self.log_error("PSU power thresholds become invalid: threshold {} critical threshold {}".format(power_warning_suppress_threshold, power_critical_threshold))
+                psu_status.check_psu_power_threshold = False
+                psu_status.power_exceeded_threshold = False
+            elif psu_status.power_exceeded_threshold:
+                # The failing threshold is the warning threshold
+                if power < power_warning_suppress_threshold:
+                    # Clear alarm
+                    power_exceeded_threshold = False
+            else:
+                # The rising threshold is the critical threshold
+                if power >= power_critical_threshold:
+                    # Raise alarm
+                    power_exceeded_threshold = True
+
+            if psu_status.set_power_exceed_threshold(power_exceeded_threshold):
+                log_on_status_changed(self, not psu_status.power_exceeded_threshold,
+                                      'PSU power warning cleared: {} power {} is back to normal.'.format(name, power),
+                                      'PSU power warning: {} power {} exceeds critical threshold {}.'.format(name, power, power_critical_threshold))
 
         if presence and psu_status.set_voltage(voltage, voltage_high_threshold, voltage_low_threshold):
             set_led = True
@@ -532,6 +579,9 @@ class DaemonPsud(daemon_base.DaemonBase):
              (PSU_INFO_VOLTAGE_MAX_TH_FIELD, str(voltage_high_threshold)),
              (PSU_INFO_CURRENT_FIELD, str(current)),
              (PSU_INFO_POWER_FIELD, str(power)),
+             (PSU_INFO_POWER_WARNING_SUPPRESS_THRESHOLD, str(power_warning_suppress_threshold)),
+             (PSU_INFO_POWER_CRITICAL_THRESHOLD, str(power_critical_threshold)),
+             (PSU_INFO_POWER_OVERLOAD, str(power_exceeded_threshold)),
              (PSU_INFO_FRU_FIELD, str(is_replaceable)),
              (PSU_INFO_IN_CURRENT_FIELD, str(in_current)),
              (PSU_INFO_IN_VOLTAGE_FIELD, str(in_voltage)),
