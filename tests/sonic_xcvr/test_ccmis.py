@@ -93,8 +93,8 @@ class TestCCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("input_param, mock_response",[
-        (193100, (0xff, -72, 120, 191300, 196100)),
-        (195950, (0xff, -72, 120, 191300, 196100)),
+        ((193100,75), (0xff, -72, 120, 191300, 196100)),
+        ((195950,100), (0xff, -72, 120, 191300, 196100)),
     ])
     def test_set_laser_freq(self, input_param, mock_response):
         self.api.is_flat_memory = MagicMock()
@@ -103,7 +103,7 @@ class TestCCmis(object):
         self.api.get_lpmode_support.return_value = False
         self.api.get_supported_freq_config = MagicMock()
         self.api.get_supported_freq_config.return_value = mock_response
-        self.api.set_laser_freq(input_param)
+        self.api.set_laser_freq(input_param[0], input_param[1])
 
     @pytest.mark.parametrize("input_param, mock_response",[
         (-10, (-14, -9)),

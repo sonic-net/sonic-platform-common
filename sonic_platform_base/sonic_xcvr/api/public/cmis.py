@@ -1932,6 +1932,11 @@ class CmisApi(XcvrApi):
                 break
             buf['host_lane_assignment_options'] = val
 
+            key = "{}_{}".format(consts.MEDIA_LANE_ASSIGNMENT_OPTION, app)
+            val = dic.get(key)
+            if val is not None:
+                buf['media_lane_assignment_options'] = val
+
             ret[app] = buf
         return ret
 
