@@ -1231,7 +1231,10 @@ class TestCmis(object):
                 {'monitor value': 40},
                 {
                     'Pre-FEC BER Average Media Input':{1:[0.001, 0.0125, 0, 0.01, 0, False, False, False, False]},
+                    'Errored Frames Minimum Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
+                    'Errored Frames Maximum Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
                     'Errored Frames Average Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
+                    'Errored Frames Current Value Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
                 }
             ],
             {
@@ -1250,7 +1253,10 @@ class TestCmis(object):
                 'tx_disabled_channel': 0,
                 'laser_temperature': 40,
                 'prefec_ber': 0.001,
-                'postfec_ber': 0,
+                'postfec_ber_min': 0,
+                'postfec_ber_max': 0,
+                'postfec_ber_avg': 0,
+                'postfec_curr_val': 0,
             }
         ),
         (

@@ -216,7 +216,10 @@ class CmisApi(XcvrApi):
         try:
             bulk_status['laser_temperature'] = laser_temp_dict['monitor value']
             bulk_status['prefec_ber'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][0]
-            bulk_status['postfec_ber'] = self.vdm_dict['Errored Frames Average Media Input'][1][0]
+            bulk_status['postfec_ber_min'] = self.vdm_dict['Errored Frames Minimum Media Input'][1][0]
+            bulk_status['postfec_ber_max'] = self.vdm_dict['Errored Frames Maximum Media Input'][1][0]
+            bulk_status['postfec_ber_avg'] = self.vdm_dict['Errored Frames Average Media Input'][1][0]
+            bulk_status['postfec_curr_val'] = self.vdm_dict['Errored Frames Current Value Media Input'][1][0]
         except (KeyError, TypeError):
             pass
         return bulk_status
