@@ -1,9 +1,11 @@
 from mock import MagicMock
+import pytest
 
 from sonic_platform_base.sonic_xcvr.api.public.sff8436 import Sff8436Api
 from sonic_platform_base.sonic_xcvr.codes.public.sff8436 import Sff8436Codes
 from sonic_platform_base.sonic_xcvr.mem_maps.public.sff8436 import Sff8436MemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
+from sonic_platform_base.sonic_xcvr.fields import consts
 
 class TestSff8436(object):
     codes = Sff8436Codes
@@ -51,3 +53,32 @@ class TestSff8436(object):
         self.api.get_transceiver_thresholds_support()
         self.api.get_lpmode_support()
         self.api.get_power_override_support()
+
+
+    @pytest.mark.parametrize("mock_response, expected", [
+        (bytearray([0x0]), "Power Class 1 Module (1.5W max. Power consumption)"),
+        (bytearray([0x40]), "Power Class 2 Module (2.0W max. Power consumption)"),
+        (bytearray([0x80]), "Power Class 3 Module (2.5W max. Power consumption)"),
+        (bytearray([0xC0]), "Power Class 4 Module (3.5W max. Power consumption)")
+    ])
+    def test_power_class(self, mock_response, expected):
+        self.api.xcvr_eeprom.reader = MagicMock()
+        self.api.xcvr_eeprom.reader.return_value = mock_response
+        result = self.api.xcvr_eeprom.read(consts.POWER_CLASS_FIELD)
+        assert result == expected
+
+
+    @pytest.mark.parametrize("mock_response, expected", [
+       (bytearray([0x02, 0x0]), "Longwave laser (LC)"),
+       (bytearray([0x01, 0x0]), "Electrical inter-enclosure (EN)"),
+       (bytearray([0x0, 0x80]), "Electrical intra-enclosure"),
+       (bytearray([0x0, 0x40]), "Shortwave laser w/o OFC (SN)"),
+       (bytearray([0x0, 0x20]), "Shortwave laser w OFC (SL)"),
+       (bytearray([0x0, 0x10]), "Longwave Laser (LL)")
+    ])
+    def test_fiber_channel_transmitter_tech(self, mock_response, expected):
+        self.api.xcvr_eeprom.reader = MagicMock()
+        self.api.xcvr_eeprom.reader.return_value = mock_response
+        result = self.api.xcvr_eeprom.read(consts.FIBRE_CHANNEL_TRANSMITTER_TECH_FIELD)
+        assert result == expected
+

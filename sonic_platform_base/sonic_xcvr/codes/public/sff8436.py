@@ -15,24 +15,24 @@ class Sff8436Codes(Sff8024):
 
     POWER_CLASSES = {
         0: "Power Class 1 Module (1.5W max. Power consumption)",
-        64: "Power Class 2 Module (2.0W max. Power consumption)",
-        128: "Power Class 3 Module (2.5W max. Power consumption)",
-        192: "Power Class 4 Module (3.5W max. Power consumption)",
+        1: "Power Class 2 Module (2.0W max. Power consumption)",
+        2: "Power Class 3 Module (2.5W max. Power consumption)",
+        3: "Power Class 4 Module (3.5W max. Power consumption)",
     }
 
     CLEI_CODE = {
         0: "No CLEI code present in Page 02h",
-        16: "CLEI code present in Page 02h"
+        1: "CLEI code present in Page 02h"
     }
 
     CDR_TX = {
         0: "No CDR in TX",
-        8: "CDR present in TX"
+        1: "CDR present in TX"
     }
 
     CDR_RX = {
         0: "No CDR in RX",
-        4: "CDR present in RX"
+        1: "CDR present in RX"
     }
 
     ETHERNET_10_40G_COMPLIANCE = {
@@ -65,20 +65,20 @@ class Sff8436Codes(Sff8024):
     }
 
     FIBRE_CHANNEL_LINK_LENGTH = {
-        8: "Medium (M)",
-        16: "Long distance (L)",
-        32: "Intermediate distance (I)",
-        64: "Short distance (S)",
-        128: "Very long distance (V)"
+        1: "Medium (M)",
+        2: "Long distance (L)",
+        4: "Intermediate distance (I)",
+        8: "Short distance (S)",
+        16: "Very long distance (V)"
     }
 
     FIBRE_CHANNEL_TRANSMITTER_TECH = {
-        16: "Longwave Laser (LL)",
-        32: "Shortwave laser w OFC (SL)",
-        64: "Shortwave laser w/o OFC (SN)",
-        128: "Electrical intra-enclosure",
-        256: "Electrical inter-enclosure (EN)",
-        512: "Longwave laser (LC)"
+        1: "Longwave Laser (LL)",
+        2: "Shortwave laser w OFC (SL)",
+        4: "Shortwave laser w/o OFC (SN)",
+        8: "Electrical intra-enclosure",
+        16: "Electrical inter-enclosure (EN)",
+        32: "Longwave laser (LC)"
     }
 
     FIBRE_CHANNEL_TRANSMISSION_MEDIA = {

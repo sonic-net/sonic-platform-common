@@ -37,7 +37,7 @@ class Sff8472Codes(Sff8024):
         192: "Power Class 4 Module (3.5W max.)",
         193: "Power Class 5 Module (4.0W max.)",
         194: "Power Class 6 Module (4.5W max.)",
-        197: "Power Class 7 Module (5.0W max.)",
+        195: "Power Class 7 Module (5.0W max.)",
         32: "Power Class 8 Module",
     }
 
