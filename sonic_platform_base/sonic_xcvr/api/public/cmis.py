@@ -208,8 +208,8 @@ class CmisApi(XcvrApi):
         for i in range(1, self.NUM_CHANNELS + 1):
             bulk_status["tx%ddisable" % i] = tx_disable[i-1] if self.get_tx_disable_support() else 'N/A'
             bulk_status["tx%dbias" % i] = tx_bias['LaserBiasTx%dField' % i] if self.get_tx_bias_support() else 'N/A'
-            bulk_status["rx%dpower" % i] = self.mw_to_dbm(rx_power[i - 1]) if self.get_rx_power_support() else 'N/A'
-            bulk_status["tx%dpower" % i] = self.mw_to_dbm(tx_power[i - 1]) if self.get_tx_power_support() else 'N/A'
+            bulk_status["rx%dpower" % i] = float("{:.3f}".format(self.mw_to_dbm(rx_power[i - 1]))) if self.get_rx_power_support() else 'N/A'
+            bulk_status["tx%dpower" % i] = float("{:.3f}".format(self.mw_to_dbm(tx_power[i - 1]))) if self.get_tx_power_support() else 'N/A'
 
         laser_temp_dict = self.get_laser_temperature()
         self.vdm_dict = self.get_vdm()
@@ -1928,6 +1928,11 @@ class CmisApi(XcvrApi):
             if val is None:
                 break
             buf['host_lane_assignment_options'] = val
+
+            key = "{}_{}".format(consts.MEDIA_LANE_ASSIGNMENT_OPTION, app)
+            val = dic.get(key)
+            if val is not None:
+                buf['media_lane_assignment_options'] = val
 
             ret[app] = buf
         return ret

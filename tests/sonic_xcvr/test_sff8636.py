@@ -1,5 +1,6 @@
-from mock import MagicMock
+from mock import MagicMock, patch
 import pytest
+
 
 from sonic_platform_base.sonic_xcvr.api.public.sff8636 import Sff8636Api
 from sonic_platform_base.sonic_xcvr.codes.public.sff8636 import Sff8636Codes
@@ -17,7 +18,7 @@ class TestSff8636(object):
 
     def test_api(self):
         """
-        Verify all api access valid fields    
+        Verify all api access valid fields
         """
         self.api.get_model()
         self.api.get_serial()
@@ -54,7 +55,6 @@ class TestSff8636(object):
         self.api.get_lpmode_support()
         self.api.get_power_override_support()
 
-
     @pytest.mark.parametrize("mock_response, expected", [
         (bytearray([0x0]), "Power Class 1 Module (1.5W max.)"),
         (bytearray([0x40]), "Power Class 2 Module (2.0W max.)"),
@@ -71,7 +71,6 @@ class TestSff8636(object):
         result = self.api.xcvr_eeprom.read(consts.POWER_CLASS_FIELD)
         assert result == expected
 
-
     @pytest.mark.parametrize("mock_response, expected", [
        (bytearray([0x02, 0x0]), "Longwave laser (LC)"),
        (bytearray([0x01, 0x0]), "Electrical inter-enclosure (EN)"),
@@ -85,4 +84,24 @@ class TestSff8636(object):
         self.api.xcvr_eeprom.reader.return_value = mock_response
         result = self.api.xcvr_eeprom.read(consts.FIBRE_CHANNEL_TRANSMITTER_TECH_FIELD)
         assert result == expected
+
+    def test_is_copper(self):
+        with patch.object(self.api, 'xcvr_eeprom') as mock_eeprom:
+            mock_eeprom.read = MagicMock()
+            mock_eeprom.read.return_value = None
+            assert self.api.is_copper() is None
+            mock_eeprom.read.return_value = '40GBASE-CR4'
+            assert self.api.is_copper()
+            self.api._is_copper = None
+            mock_eeprom.read.return_value = 'SR'
+            assert not self.api.is_copper()
+
+    def test_simulate_copper(self):
+        with patch.object(self.api, 'is_copper', return_value=True):
+            assert self.api.get_rx_power() == ['N/A'] * self.api.NUM_CHANNELS
+            assert not self.api.get_tx_power_support()
+            assert not self.api.get_rx_power_support()
+            assert not self.api.get_rx_power_support()
+            assert not self.api.get_temperature_support()
+            assert not self.api.get_voltage_support()
 
