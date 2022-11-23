@@ -3,12 +3,16 @@
 
     Implementation of XcvrApi that corresponds to C-CMIS
 """
+from sonic_py_common import logger
 from ...fields import consts
 from .cmis import CmisApi
 import time
 BYTELENGTH = 8
 VDM_FREEZE = 128
 VDM_UNFREEZE = 0
+SYSLOG_IDENTIFIER = "CCmisApi"
+
+helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
 
 class CCmisApi(CmisApi):
     def __init__(self, xcvr_eeprom):
@@ -571,8 +575,6 @@ class CCmisApi(CmisApi):
         ================================================================================
         key                          = TRANSCEIVER_STATUS|ifname        ; Error information for module on port
         ; field                      = value
-        status                       = 1*255VCHAR                       ; code of the module status (plug in, plug out)
-        error                        = 1*255VCHAR                       ; module error (N/A or a string consisting of error descriptions joined by "|", like "error1 | error2" )
         module_state                 = 1*255VCHAR                       ; current module state (ModuleLowPwr, ModulePwrUp, ModuleReady, ModulePwrDn, Fault)
         module_fault_cause           = 1*255VCHAR                       ; reason of entering the module fault state
         datapath_firmware_fault      = BOOLEAN                          ; datapath (DSP) firmware fault
@@ -824,6 +826,7 @@ class CCmisApi(CmisApi):
             trans_status['rxsigpowerhighwarning_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][7]
             trans_status['rxsigpowerlowwarning_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][8]
         except KeyError:
+            helper_logger.log_debug('Rx Signal Power [dBm] not present in VDM')
             pass
         return trans_status
 
