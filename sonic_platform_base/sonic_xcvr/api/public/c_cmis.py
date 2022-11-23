@@ -827,7 +827,6 @@ class CCmisApi(CmisApi):
             trans_status['rxsigpowerlowwarning_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][8]
         except KeyError:
             helper_logger.log_debug('Rx Signal Power [dBm] not present in VDM')
-            pass
         return trans_status
 
     def get_transceiver_pm(self):
