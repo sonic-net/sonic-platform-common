@@ -1,5 +1,6 @@
 from mock import MagicMock
 import sys
+import pytest
 
 from sonic_platform_base.sonic_xcvr.api.public.sff8472 import Sff8472Api
 from sonic_platform_base.sonic_xcvr.codes.public.sff8472 import Sff8472Codes
@@ -170,3 +171,18 @@ class TestSff8472(object):
         }
         decoded = rx_power_field.decode(data, **deps)
         assert decoded == 209.713
+
+    @pytest.mark.parametrize("mock_response, expected", [
+        (bytearray([0x04, 0x0]), "Shortwave laser, linear RX (SA)"),
+        (bytearray([0x02, 0x0]), "Longwave laser (LC)"),
+        (bytearray([0x01, 0x0]), "Electrical inter-enclosure (EL)"),
+        (bytearray([0x0, 0x80]), "Electrical intra-enclosure (EL)"),
+        (bytearray([0x0, 0x40]), "Shortwave laser w/o OFC (SN)"),
+        (bytearray([0x0, 0x20]), "Shortwave laser w OFC (SL)"),
+        (bytearray([0x0, 0x10]), "Longwave Laser (LL)")
+    ])
+    def test_fiber_channel_transmitter_tech(self, mock_response, expected):
+        self.api.xcvr_eeprom.reader = MagicMock()
+        self.api.xcvr_eeprom.reader.return_value = mock_response
+        result = self.api.xcvr_eeprom.read(consts.FIBRE_CHANNEL_TRANSMITTER_TECH_FIELD)
+        assert result == expected
