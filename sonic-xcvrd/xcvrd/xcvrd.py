@@ -1293,7 +1293,7 @@ class CmisManagerTask:
            self.log_error("{} configured tx power {} > maximum power {} supported".format(lport, tx_power, max_p))
         return api.set_tx_power(tx_power)
 
-    def configure_laser_frequency(self, api, lport, freq):
+    def configure_laser_frequency(self, api, lport, freq, grid=75):
         _, _,  _, lowf, highf = api.get_supported_freq_config()
         if freq < lowf:
             self.log_error("{} configured freq:{} GHz is lower than the supported freq:{} GHz".format(lport, freq, lowf))
@@ -1304,7 +1304,7 @@ class CmisManagerTask:
             self.log_error("{} configured freq:{} GHz is NOT in 75GHz grid".format(lport, freq))
         if api.get_tuning_in_progress():
             self.log_error("{} Tuning in progress, channel selection may fail!".format(lport))
-        return api.set_laser_freq(freq)
+        return api.set_laser_freq(freq, grid)
 
     def wait_for_port_config_done(self, namespace):
         # Connect to APPL_DB and subscribe to PORT table notifications
