@@ -3411,6 +3411,29 @@ def handle_hw_mux_cable_table_grpc_notification(fvp, hw_mux_cable_tbl, asic_inde
             helper_logger.log_info("Got a change event on port {} of table {} that does not contain state".format(
                 port, swsscommon.APP_HW_MUX_CABLE_TABLE_NAME))
 
+
+def handle_ycable_active_standby_probe_notification(cable_type, fvp_dict, appl_db, hw_mux_cable_tbl, port_m, asic_index,  y_cable_response_tbl):
+
+    if cable_type == 'active-standby' and "command" in fvp_dict:
+
+        # check if xcvrd got a probe command
+        probe_identifier = fvp_dict["command"]
+
+        if probe_identifier == "probe":
+
+            (status, fv) = hw_mux_cable_tbl[asic_index].get(port_m)
+
+            if status is False:
+                helper_logger.log_warning("Could not retreive fieldvalue pairs for {}, inside state_db table {}".format(
+                    port_m, hw_mux_cable_tbl[asic_index].getTableName()))
+                return False
+
+            mux_port_dict = dict(fv)
+            read_side = mux_port_dict.get("read_side")
+            update_appdb_port_mux_cable_response_table(port_m, asic_index, appl_db, int(read_side), y_cable_response_tbl)
+
+            return True
+
 def handle_ycable_enable_disable_tel_notification(fvp_m, key):
 
     global disable_telemetry
@@ -3576,21 +3599,8 @@ class YCableTableUpdateTask(threading.Thread):
                     (status, cable_type) = check_mux_cable_port_type(port_m, self.table_helper.get_port_tbl(), asic_index)
 
                     if status:
+                        handle_ycable_active_standby_probe_notification(cable_type, fvp_dict, self.table_helper.get_appl_db(), self.table_helper.get_hw_mux_cable_tbl(), port_m, asic_index, self.table_helper.get_y_cable_response_tbl())
 
-                        if cable_type == 'active-standby' and "command" in fvp_dict:
-
-                            # check if xcvrd got a probe command
-                            probe_identifier = fvp_dict["command"]
-
-                            if probe_identifier == "probe":
-                                (status, fv) = self.table_helper.get_hw_mux_cable_tbl()[asic_index].get(port_m)
-                                if status is False:
-                                    helper_logger.log_warning("Could not retreive fieldvalue pairs for {}, inside state_db table {}".format(
-                                        port_m, self.table_helper.get_hw_mux_cable_tbl()[asic_index].getTableName()))
-                                    continue
-                                mux_port_dict = dict(fv)
-                                read_side = mux_port_dict.get("read_side")
-                                update_appdb_port_mux_cable_response_table(port_m, asic_index, self.appl_db, int(read_side), self.table_helper.get_y_cable_response_tbl())
 
             while True:
                 (port_m, op_m, fvp_m) = self.table_helper.get_fwd_state_command_tbl()[asic_index].pop()

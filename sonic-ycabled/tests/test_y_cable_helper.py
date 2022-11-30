@@ -5798,3 +5798,25 @@ class TestYCableScript(object):
             patched_util.return_value = parsed_data
             rc = apply_grpc_secrets_configuration(None)
             assert(rc == None)
+
+
+
+    def test_handle_ycable_active_standby_probe_notification(self):
+
+        test_db = "TEST_DB"
+        status = True
+        port_m = "Ethernet0"
+        fvp_m = [('command', "probe"), ('read_side', 1), ('cable_type','active-standby'), ('soc_ipv4','192.168.0.1')]
+        fvp_dict = {"command": "probe"}
+        hw_mux_cable_tbl = {}
+        y_cable_response_tbl = {}
+        asic_index = 0
+        hw_mux_cable_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], "PORT_INFO_TABLE")
+        y_cable_response_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], "PORT_INFO_TABLE")
+        hw_mux_cable_tbl[asic_index].get.return_value = (status, fvp_m)
+
+        rc = handle_ycable_active_standby_probe_notification("active-standby", fvp_dict, test_db, hw_mux_cable_tbl, port_m, asic_index, y_cable_response_tbl)
+        assert(rc == True)
+
