@@ -8,7 +8,6 @@
 try:
     import ast
     import copy
-    import functools
     import json
     import multiprocessing
     import os
@@ -1794,9 +1793,8 @@ class SfpStateUpdateTask(object):
         timeout = RETRY_PERIOD_FOR_SYSTEM_READY_MSECS
         state = STATE_INIT
         sel, asic_context = port_mapping.subscribe_port_config_change(self.namespaces)
-        port_change_event_handler = functools.partial(self.on_port_config_change, stopping_event)
         while not stopping_event.is_set():
-            port_mapping.handle_port_config_change(sel, asic_context, stopping_event, self.port_mapping, helper_logger, port_change_event_handler)
+            port_mapping.handle_port_config_change(sel, asic_context, stopping_event, self.port_mapping, helper_logger, self.on_port_config_change)
 
             # Retry those logical ports whose EEPROM reading failed or timeout when the SFP is inserted
             self.retry_eeprom_reading()
