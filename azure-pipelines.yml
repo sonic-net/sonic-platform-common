@@ -25,6 +25,9 @@ container:
   image: sonicdev-microsoft.azurecr.io:443/sonic-slave-bullseye:latest
 
 steps:
+- script: |
+    echo "BRANCH_NAME=$(BRANCH_NAME)"
+  displayName: 'Show info'
 - task: DownloadPipelineArtifact@2
   inputs:
     source: specific
