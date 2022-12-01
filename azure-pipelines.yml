@@ -12,7 +12,7 @@ variables:
   DIFF_COVER_CHECK_THRESHOLD: 80
   DIFF_COVER_ENABLE: 'true'
   DIFF_COVER_WORKING_DIRECTORY: $(System.DefaultWorkingDirectory)
-  ${{ if ne(variables['Build.Reason'], 'PullRequest') }}:
+  ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
     BRANCH_NAME: $(System.PullRequest.TargetBranch)
   ${{ else }}:
     BRANCH_NAME: $(Build.SourceBranchName)
