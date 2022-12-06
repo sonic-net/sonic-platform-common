@@ -18,6 +18,7 @@ try:
     import datetime
     import subprocess
     import argparse
+    import re
 
     from sonic_py_common import daemon_base, device_info, logger
     from sonic_py_common import multi_asic
@@ -39,6 +40,7 @@ PLATFORM_SPECIFIC_CLASS_NAME = "SfpUtil"
 
 TRANSCEIVER_INFO_TABLE = 'TRANSCEIVER_INFO'
 TRANSCEIVER_DOM_SENSOR_TABLE = 'TRANSCEIVER_DOM_SENSOR'
+TRANSCEIVER_DOM_THRESHOLD_TABLE = 'TRANSCEIVER_DOM_THRESHOLD'
 TRANSCEIVER_STATUS_TABLE = 'TRANSCEIVER_STATUS'
 
 # Mgminit time required as per CMIS spec
@@ -245,30 +247,18 @@ def beautify_dom_info_dict(dom_info_dict, physical_port):
 
 
 def beautify_dom_threshold_info_dict(dom_info_dict):
-    dom_info_dict['temphighalarm'] = strip_unit_and_beautify(dom_info_dict['temphighalarm'], TEMP_UNIT)
-    dom_info_dict['temphighwarning'] = strip_unit_and_beautify(dom_info_dict['temphighwarning'], TEMP_UNIT)
-    dom_info_dict['templowalarm'] = strip_unit_and_beautify(dom_info_dict['templowalarm'], TEMP_UNIT)
-    dom_info_dict['templowwarning'] = strip_unit_and_beautify(dom_info_dict['templowwarning'], TEMP_UNIT)
-
-    dom_info_dict['vcchighalarm'] = strip_unit_and_beautify(dom_info_dict['vcchighalarm'], VOLT_UNIT)
-    dom_info_dict['vcchighwarning'] = strip_unit_and_beautify(dom_info_dict['vcchighwarning'], VOLT_UNIT)
-    dom_info_dict['vcclowalarm'] = strip_unit_and_beautify(dom_info_dict['vcclowalarm'], VOLT_UNIT)
-    dom_info_dict['vcclowwarning'] = strip_unit_and_beautify(dom_info_dict['vcclowwarning'], VOLT_UNIT)
-
-    dom_info_dict['txpowerhighalarm'] = strip_unit_and_beautify(dom_info_dict['txpowerhighalarm'], POWER_UNIT)
-    dom_info_dict['txpowerlowalarm'] = strip_unit_and_beautify(dom_info_dict['txpowerlowalarm'], POWER_UNIT)
-    dom_info_dict['txpowerhighwarning'] = strip_unit_and_beautify(dom_info_dict['txpowerhighwarning'], POWER_UNIT)
-    dom_info_dict['txpowerlowwarning'] = strip_unit_and_beautify(dom_info_dict['txpowerlowwarning'], POWER_UNIT)
-
-    dom_info_dict['rxpowerhighalarm'] = strip_unit_and_beautify(dom_info_dict['rxpowerhighalarm'], POWER_UNIT)
-    dom_info_dict['rxpowerlowalarm'] = strip_unit_and_beautify(dom_info_dict['rxpowerlowalarm'], POWER_UNIT)
-    dom_info_dict['rxpowerhighwarning'] = strip_unit_and_beautify(dom_info_dict['rxpowerhighwarning'], POWER_UNIT)
-    dom_info_dict['rxpowerlowwarning'] = strip_unit_and_beautify(dom_info_dict['rxpowerlowwarning'], POWER_UNIT)
-
-    dom_info_dict['txbiashighalarm'] = strip_unit_and_beautify(dom_info_dict['txbiashighalarm'], BIAS_UNIT)
-    dom_info_dict['txbiaslowalarm'] = strip_unit_and_beautify(dom_info_dict['txbiaslowalarm'], BIAS_UNIT)
-    dom_info_dict['txbiashighwarning'] = strip_unit_and_beautify(dom_info_dict['txbiashighwarning'], BIAS_UNIT)
-    dom_info_dict['txbiaslowwarning'] = strip_unit_and_beautify(dom_info_dict['txbiaslowwarning'], BIAS_UNIT)
+    for k, v in dom_info_dict.items():
+        if re.search('temp', k) is not None:
+            dom_info_dict[k] = strip_unit_and_beautify(v, TEMP_UNIT)
+        elif re.search('vcc', k) is not None:
+            dom_info_dict[k] = strip_unit_and_beautify(v, VOLT_UNIT)
+        elif re.search('power', k) is not None:
+            dom_info_dict[k] = strip_unit_and_beautify(v, POWER_UNIT)
+        elif re.search('txbias', k) is not None:
+            dom_info_dict[k] = strip_unit_and_beautify(v, BIAS_UNIT)
+        elif type(v) is not str:
+            # For all the other keys:
+            dom_info_dict[k] = str(v)
 
 # Update port sfp info in db
 
@@ -440,28 +430,7 @@ def post_port_dom_threshold_info_to_db(logical_port_name, port_mapping, table,
                     dom_th_info_cache[physical_port] = dom_info_dict
             if dom_info_dict is not None:
                 beautify_dom_threshold_info_dict(dom_info_dict)
-                fvs = swsscommon.FieldValuePairs(
-                    [('temphighalarm', dom_info_dict['temphighalarm']),
-                     ('temphighwarning', dom_info_dict['temphighwarning']),
-                     ('templowalarm', dom_info_dict['templowalarm']),
-                     ('templowwarning', dom_info_dict['templowwarning']),
-                     ('vcchighalarm', dom_info_dict['vcchighalarm']),
-                     ('vcchighwarning', dom_info_dict['vcchighwarning']),
-                     ('vcclowalarm', dom_info_dict['vcclowalarm']),
-                     ('vcclowwarning', dom_info_dict['vcclowwarning']),
-                     ('txpowerhighalarm', dom_info_dict['txpowerhighalarm']),
-                     ('txpowerlowalarm', dom_info_dict['txpowerlowalarm']),
-                     ('txpowerhighwarning', dom_info_dict['txpowerhighwarning']),
-                     ('txpowerlowwarning', dom_info_dict['txpowerlowwarning']),
-                     ('rxpowerhighalarm', dom_info_dict['rxpowerhighalarm']),
-                     ('rxpowerlowalarm', dom_info_dict['rxpowerlowalarm']),
-                     ('rxpowerhighwarning', dom_info_dict['rxpowerhighwarning']),
-                     ('rxpowerlowwarning', dom_info_dict['rxpowerlowwarning']),
-                     ('txbiashighalarm', dom_info_dict['txbiashighalarm']),
-                     ('txbiaslowalarm', dom_info_dict['txbiaslowalarm']),
-                     ('txbiashighwarning', dom_info_dict['txbiashighwarning']),
-                     ('txbiaslowwarning', dom_info_dict['txbiaslowwarning'])
-                     ])
+                fvs = swsscommon.FieldValuePairs([(k, v) for k, v in dom_info_dict.items()])
                 table.set(port_name, fvs)
             else:
                 return SFP_EEPROM_NOT_READY
@@ -584,7 +553,7 @@ def post_port_sfp_dom_info_to_db(is_warm_start, port_mapping, xcvr_table_helper,
         rc = post_port_sfp_info_to_db(logical_port_name, port_mapping, xcvr_table_helper.get_intf_tbl(asic_index), transceiver_dict, stop_event)
         if rc != SFP_EEPROM_NOT_READY:
             post_port_dom_info_to_db(logical_port_name, port_mapping, xcvr_table_helper.get_dom_tbl(asic_index), stop_event)
-            post_port_dom_threshold_info_to_db(logical_port_name, port_mapping, xcvr_table_helper.get_dom_tbl(asic_index), stop_event)
+            post_port_dom_threshold_info_to_db(logical_port_name, port_mapping, xcvr_table_helper.get_dom_threshold_tbl(asic_index), stop_event)
 
             # Do not notify media settings during warm reboot to avoid dataplane traffic impact
             if is_warm_start == False:
@@ -1639,7 +1608,7 @@ class DomInfoUpdateTask(object):
 
                 if not sfp_status_helper.detect_port_in_error_status(logical_port_name, self.xcvr_table_helper.get_status_tbl(asic_index)):
                     post_port_dom_info_to_db(logical_port_name, self.port_mapping, self.xcvr_table_helper.get_dom_tbl(asic_index), self.task_stopping_event, dom_info_cache=dom_info_cache)
-                    post_port_dom_threshold_info_to_db(logical_port_name, self.port_mapping, self.xcvr_table_helper.get_dom_tbl(asic_index), self.task_stopping_event, dom_th_info_cache=dom_th_info_cache)
+                    post_port_dom_threshold_info_to_db(logical_port_name, self.port_mapping, self.xcvr_table_helper.get_dom_threshold_tbl(asic_index), self.task_stopping_event, dom_th_info_cache=dom_th_info_cache)
 
         helper_logger.log_info("Stop DOM monitoring loop")
 
@@ -1672,6 +1641,10 @@ class DomInfoUpdateTask(object):
                                       self.port_mapping,
                                       None,
                                       self.xcvr_table_helper.get_dom_tbl(port_change_event.asic_id))
+        del_port_sfp_dom_info_from_db(port_change_event.port_name,
+                                      self.port_mapping,
+                                      None,
+                                      self.xcvr_table_helper.get_dom_threshold_tbl(port_change_event.asic_id))
 
 
 # Process wrapper class to update sfp state info periodically
@@ -1891,7 +1864,7 @@ class SfpStateUpdateTask(object):
 
                                 if rc != SFP_EEPROM_NOT_READY:
                                     post_port_dom_info_to_db(logical_port, self.port_mapping, self.xcvr_table_helper.get_dom_tbl(asic_index))
-                                    post_port_dom_threshold_info_to_db(logical_port, self.port_mapping, self.xcvr_table_helper.get_dom_tbl(asic_index))
+                                    post_port_dom_threshold_info_to_db(logical_port, self.port_mapping, self.xcvr_table_helper.get_dom_threshold_tbl(asic_index))
                                     notify_media_setting(logical_port, transceiver_dict, self.xcvr_table_helper.get_app_port_tbl(asic_index), self.port_mapping)
                                     transceiver_dict.clear()
                             elif value == sfp_status_helper.SFP_STATUS_REMOVED:
@@ -1900,6 +1873,7 @@ class SfpStateUpdateTask(object):
                                     logical_port, self.xcvr_table_helper.get_status_tbl(asic_index), sfp_status_helper.SFP_STATUS_REMOVED)
                                 helper_logger.log_info("receive plug out and pdate port sfp status table.")
                                 del_port_sfp_dom_info_from_db(logical_port, self.port_mapping, self.xcvr_table_helper.get_intf_tbl(asic_index), self.xcvr_table_helper.get_dom_tbl(asic_index))
+                                del_port_sfp_dom_info_from_db(logical_port, self.port_mapping, self.xcvr_table_helper.get_intf_tbl(asic_index), self.xcvr_table_helper.get_dom_threshold_tbl(asic_index))
                             else:
                                 try:
                                     error_bits = int(value)
@@ -1925,6 +1899,10 @@ class SfpStateUpdateTask(object):
                                                                       self.port_mapping,
                                                                       None,
                                                                       self.xcvr_table_helper.get_dom_tbl(asic_index))
+                                        del_port_sfp_dom_info_from_db(logical_port,
+                                                                      self.port_mapping,
+                                                                      None,
+                                                                      self.xcvr_table_helper.get_dom_threshold_tbl(asic_index))
                                 except (TypeError, ValueError) as e:
                                     helper_logger.log_error("Got unrecognized event {}, ignored".format(value))
 
@@ -1999,6 +1977,10 @@ class SfpStateUpdateTask(object):
                                       self.port_mapping,
                                       self.xcvr_table_helper.get_intf_tbl(port_change_event.asic_id),
                                       self.xcvr_table_helper.get_dom_tbl(port_change_event.asic_id))
+        del_port_sfp_dom_info_from_db(port_change_event.port_name,
+                                      self.port_mapping,
+                                      self.xcvr_table_helper.get_intf_tbl(port_change_event.asic_id),
+                                      self.xcvr_table_helper.get_dom_threshold_tbl(port_change_event.asic_id))
         delete_port_from_status_table(port_change_event.port_name, self.xcvr_table_helper.get_status_tbl(port_change_event.asic_id))
 
         # The logical port has been removed, no need retry EEPROM reading
@@ -2030,6 +2012,7 @@ class SfpStateUpdateTask(object):
         status_tbl = self.xcvr_table_helper.get_status_tbl(port_change_event.asic_id)
         int_tbl = self.xcvr_table_helper.get_intf_tbl(port_change_event.asic_id)
         dom_tbl = self.xcvr_table_helper.get_dom_tbl(port_change_event.asic_id)
+        dom_threshold_tbl = self.xcvr_table_helper.get_dom_threshold_tbl(port_change_event.asic_id)
         physical_port_list = self.port_mapping.logical_port_name_to_physical_port_list(port_change_event.port_name)
 
         # Try to find a logical port with same physical index in DB
@@ -2057,6 +2040,9 @@ class SfpStateUpdateTask(object):
             found, dom_info = dom_tbl.get(sibling_port)
             if found:
                 dom_tbl.set(port_change_event.port_name, dom_info)
+            found, dom_threshold_info = dom_threshold_tbl.get(sibling_port)
+            if found:
+                dom_threshold_tbl.set(port_change_event.port_name, dom_threshold_info)
         else:
             error_description = 'N/A'
             status = None
@@ -2092,7 +2078,7 @@ class SfpStateUpdateTask(object):
                     self.retry_eeprom_set.add(port_change_event.port_name)
                 else:
                     post_port_dom_info_to_db(port_change_event.port_name, self.port_mapping, dom_tbl)
-                    post_port_dom_threshold_info_to_db(port_change_event.port_name, self.port_mapping, dom_tbl)
+                    post_port_dom_threshold_info_to_db(port_change_event.port_name, self.port_mapping, dom_threshold_tbl)
                     notify_media_setting(port_change_event.port_name, transceiver_dict, self.xcvr_table_helper.get_app_port_tbl(port_change_event.asic_id), self.port_mapping)
             else:
                 status = sfp_status_helper.SFP_STATUS_REMOVED if not status else status
@@ -2121,7 +2107,7 @@ class SfpStateUpdateTask(object):
             rc = post_port_sfp_info_to_db(logical_port, self.port_mapping, self.xcvr_table_helper.get_intf_tbl(asic_index), transceiver_dict)
             if rc != SFP_EEPROM_NOT_READY:
                 post_port_dom_info_to_db(logical_port, self.port_mapping, self.xcvr_table_helper.get_dom_tbl(asic_index))
-                post_port_dom_threshold_info_to_db(logical_port, self.port_mapping, self.xcvr_table_helper.get_dom_tbl(asic_index))
+                post_port_dom_threshold_info_to_db(logical_port, self.port_mapping, self.xcvr_table_helper.get_dom_threshold_tbl(asic_index))
                 notify_media_setting(logical_port, transceiver_dict, self.xcvr_table_helper.get_app_port_tbl(asic_index), self.port_mapping)
                 transceiver_dict.clear()
                 retry_success_set.add(logical_port)
@@ -2271,6 +2257,7 @@ class DaemonXcvrd(daemon_base.DaemonBase):
                 continue
 
             del_port_sfp_dom_info_from_db(logical_port_name, port_mapping_data, self.xcvr_table_helper.get_intf_tbl(asic_index), self.xcvr_table_helper.get_dom_tbl(asic_index))
+            del_port_sfp_dom_info_from_db(logical_port_name, port_mapping_data, self.xcvr_table_helper.get_intf_tbl(asic_index), self.xcvr_table_helper.get_dom_threshold_tbl(asic_index))
             delete_port_from_status_table(logical_port_name, self.xcvr_table_helper.get_status_tbl(asic_index))
 
 
@@ -2327,8 +2314,8 @@ class DaemonXcvrd(daemon_base.DaemonBase):
 
 class XcvrTableHelper:
     def __init__(self, namespaces):
-        self.int_tbl, self.dom_tbl, self.status_tbl, self.app_port_tbl, \
-		self.cfg_port_tbl, self.state_port_tbl = {}, {}, {}, {}, {}, {}
+        self.int_tbl, self.dom_tbl, self.dom_threshold_tbl, self.status_tbl, self.app_port_tbl, \
+		self.cfg_port_tbl, self.state_port_tbl = {}, {}, {}, {}, {}, {}, {}
         self.state_db = {}
         self.cfg_db = {}
         for namespace in namespaces:
@@ -2336,6 +2323,7 @@ class XcvrTableHelper:
             self.state_db[asic_id] = daemon_base.db_connect("STATE_DB", namespace)
             self.int_tbl[asic_id] = swsscommon.Table(self.state_db[asic_id], TRANSCEIVER_INFO_TABLE)
             self.dom_tbl[asic_id] = swsscommon.Table(self.state_db[asic_id], TRANSCEIVER_DOM_SENSOR_TABLE)
+            self.dom_threshold_tbl[asic_id] = swsscommon.Table(self.state_db[asic_id], TRANSCEIVER_DOM_THRESHOLD_TABLE)
             self.status_tbl[asic_id] = swsscommon.Table(self.state_db[asic_id], TRANSCEIVER_STATUS_TABLE)
             self.state_port_tbl[asic_id] = swsscommon.Table(self.state_db[asic_id], swsscommon.STATE_PORT_TABLE_NAME)
             appl_db = daemon_base.db_connect("APPL_DB", namespace)
@@ -2348,6 +2336,9 @@ class XcvrTableHelper:
 
     def get_dom_tbl(self, asic_id):
         return self.dom_tbl[asic_id]
+
+    def get_dom_threshold_tbl(self, asic_id):
+        return self.dom_threshold_tbl[asic_id]
 
     def get_status_tbl(self, asic_id):
         return self.status_tbl[asic_id]
