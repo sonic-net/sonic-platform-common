@@ -3,12 +3,16 @@
 
     Implementation of XcvrApi that corresponds to C-CMIS
 """
+from sonic_py_common import logger
 from ...fields import consts
 from .cmis import CmisApi
 import time
 BYTELENGTH = 8
 VDM_FREEZE = 128
 VDM_UNFREEZE = 0
+SYSLOG_IDENTIFIER = "CCmisApi"
+
+helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
 
 class CCmisApi(CmisApi):
     def __init__(self, xcvr_eeprom):
@@ -183,7 +187,7 @@ class CCmisApi(CmisApi):
         rx_frames_subint_pm = self.xcvr_eeprom.read(consts.RX_FRAMES_SUB_INTERVAL_PM)
         rx_frames_uncorr_err_pm = self.xcvr_eeprom.read(consts.RX_FRAMES_UNCORR_ERR_PM)
         rx_min_frames_uncorr_err_subint_pm = self.xcvr_eeprom.read(consts.RX_MIN_FRAMES_UNCORR_ERR_SUB_INTERVAL_PM)
-        rx_max_frames_uncorr_err_subint_pm = self.xcvr_eeprom.read(consts.RX_MIN_FRAMES_UNCORR_ERR_SUB_INTERVAL_PM)
+        rx_max_frames_uncorr_err_subint_pm = self.xcvr_eeprom.read(consts.RX_MAX_FRAMES_UNCORR_ERR_SUB_INTERVAL_PM)
 
         if (rx_frames_subint_pm != 0) and (rx_frames_pm != 0):
             PM_dict['preFEC_uncorr_frame_ratio_avg'] = rx_frames_uncorr_err_pm*1.0/rx_frames_subint_pm
@@ -571,8 +575,6 @@ class CCmisApi(CmisApi):
         ================================================================================
         key                          = TRANSCEIVER_STATUS|ifname        ; Error information for module on port
         ; field                      = value
-        status                       = 1*255VCHAR                       ; code of the module status (plug in, plug out)
-        error                        = 1*255VCHAR                       ; module error (N/A or a string consisting of error descriptions joined by "|", like "error1 | error2" )
         module_state                 = 1*255VCHAR                       ; current module state (ModuleLowPwr, ModulePwrUp, ModuleReady, ModulePwrDn, Fault)
         module_fault_cause           = 1*255VCHAR                       ; reason of entering the module fault state
         datapath_firmware_fault      = BOOLEAN                          ; datapath (DSP) firmware fault
@@ -818,10 +820,13 @@ class CCmisApi(CmisApi):
         trans_status['rxtotpowerlowalarm_flag'] = self.vdm_dict['Rx Total Power [dBm]'][1][6]
         trans_status['rxtotpowerhighwarning_flag'] = self.vdm_dict['Rx Total Power [dBm]'][1][7]
         trans_status['rxtotpowerlowwarning_flag'] = self.vdm_dict['Rx Total Power [dBm]'][1][8]
-        trans_status['rxsigpowerhighalarm_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][5]
-        trans_status['rxsigpowerlowalarm_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][6]
-        trans_status['rxsigpowerhighwarning_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][7]
-        trans_status['rxsigpowerlowwarning_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][8]
+        try:
+            trans_status['rxsigpowerhighalarm_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][5]
+            trans_status['rxsigpowerlowalarm_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][6]
+            trans_status['rxsigpowerhighwarning_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][7]
+            trans_status['rxsigpowerlowwarning_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][8]
+        except KeyError:
+            helper_logger.log_debug('Rx Signal Power [dBm] not present in VDM')
         return trans_status
 
     def get_transceiver_pm(self):

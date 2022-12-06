@@ -1539,8 +1539,6 @@ class CmisApi(XcvrApi):
         ================================================================================
         key                          = TRANSCEIVER_STATUS|ifname        ; Error information for module on port
         ; field                      = value
-        status                       = 1*255VCHAR                       ; code of the module status (plug in, plug out)
-        error                        = 1*255VCHAR                       ; module error (N/A or a string consisting of error descriptions joined by "|", like "error1 | error2" )
         module_state                 = 1*255VCHAR                       ; current module state (ModuleLowPwr, ModulePwrUp, ModuleReady, ModulePwrDn, Fault)
         module_fault_cause           = 1*255VCHAR                       ; reason of entering the module fault state
         datapath_firmware_fault      = BOOLEAN                          ; datapath (DSP) firmware fault

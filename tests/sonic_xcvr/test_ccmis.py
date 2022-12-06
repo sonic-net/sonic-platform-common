@@ -561,7 +561,7 @@ class TestCCmis(object):
     ])
     @patch("sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_transceiver_status")
     def test_get_transceiver_status(self, get_transceiver_status_func, mock_response, expected):
-        get_transceiver_status_func.return_value = mock_response[0]
+        get_transceiver_status_func.return_value = dict(mock_response[0])
         self.api.get_tuning_in_progress = MagicMock()
         self.api.get_tuning_in_progress.return_value = mock_response[1]
         self.api.get_wavelength_unlocked = MagicMock()
@@ -569,6 +569,15 @@ class TestCCmis(object):
         self.api.get_laser_tuning_summary = MagicMock()
         self.api.get_laser_tuning_summary.return_value = mock_response[3]
         self.api.vdm_dict = mock_response[4]
+        result = self.api.get_transceiver_status()
+        assert result == expected
+
+        # For the case of 'Rx Signal Power [dBm]' not present:
+        get_transceiver_status_func.return_value = dict(mock_response[0])
+        del self.api.vdm_dict['Rx Signal Power [dBm]']
+        for k in ['rxsigpowerhighalarm_flag', 'rxsigpowerlowalarm_flag',
+                  'rxsigpowerhighwarning_flag', 'rxsigpowerlowwarning_flag']:
+            del expected[k]
         result = self.api.get_transceiver_status()
         assert result == expected
 
