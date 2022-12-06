@@ -1,12 +1,6 @@
 import os
-import sys
 
-# TODO: Clean this up once we no longer need to support Python 2
-if sys.version_info.major == 3:
-    from unittest import mock
-else:
-    import mock
-
+from unittest import mock
 from sonic_platform_base.sonic_thermal_control import thermal_manager_base as tmb
 from sonic_platform_base.sonic_thermal_control import thermal_info_base
 from sonic_platform_base.sonic_thermal_control import thermal_action_base
@@ -78,7 +72,7 @@ class TestThermalManagerBase:
         MockThermalCondition2.is_match = mock.MagicMock(return_value=True)
         MockThermalAction1.execute = mock.MagicMock()
         MockThermalAction2.execute = mock.MagicMock()
-        
+
         chassis = MockChassis()
         tmb.ThermalManagerBase.run_policy(chassis)
         assert MockThermalInfo.collect.call_count == 1
@@ -95,7 +89,7 @@ class TestThermalManagerBase:
         assert MockThermalInfo.collect.call_count == 0
         assert MockThermalCondition1.is_match.call_count == 0
         assert MockThermalCondition2.is_match.call_count == 0
-        
+
         tmb.ThermalManagerBase._collect_thermal_information = mock.MagicMock()
         tmb.ThermalManagerBase.run_policy(chassis)
         assert MockThermalCondition1.is_match.call_count == 0
