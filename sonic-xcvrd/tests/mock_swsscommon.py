@@ -14,6 +14,19 @@ class Table:
             self.mock_keys.remove(key)
         pass
 
+    def hdel(self, key, field):
+        if key not in self.mock_dict:
+            return
+
+        # swsscommon.FieldValuePairs
+        fvs = self.mock_dict[key]
+        for i, fv in enumerate(fvs):
+            if fv[0] == field:
+                del fvs[i]
+                break
+        if self.get_size_for_key(key) == 0:
+            self._del(key)
+
     def set(self, key, fvs):
         self.mock_dict[key] = fvs
         self.mock_keys.append(key)
@@ -21,17 +34,14 @@ class Table:
 
     def get(self, key):
         if key in self.mock_dict:
-            return self.mock_dict[key]
-        return None
+            return True, self.mock_dict[key]
+        return False, None
 
     def get_size(self):
         return (len(self.mock_dict))
-    
+
+    def get_size_for_key(self, key):
+        return len(self.mock_dict[key])
+
     def getKeys(self):
         return self.mock_keys
-
-
-class FieldValuePairs:
-    def __init__(self, fvs):
-        self.fv_dict = dict(fvs)
-        pass
