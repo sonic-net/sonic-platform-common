@@ -491,7 +491,6 @@ class TestXcvrdScript(object):
         xcvrd = DaemonXcvrd(SYSLOG_IDENTIFIER)
         xcvrd.stop_event.wait = MagicMock()
         xcvrd.run()
-        # TODO: more check
         assert mock_task_stop1.call_count == 1
         assert mock_task_stop2.call_count == 1
         assert mock_task_run1.call_count == 1
@@ -1317,8 +1316,6 @@ class TestXcvrdScript(object):
         xcvrd = DaemonXcvrd(SYSLOG_IDENTIFIER)
         xcvrd.init()
         xcvrd.deinit()
-        # TODO: fow now we only simply call xcvrd.init/deinit without any further check, it only makes sure that
-        # xcvrd.init/deinit will not raise unexpected exception. In future, probably more check will be added
 
 
 def wait_until(total_wait_time, interval, call_back, *args, **kwargs):

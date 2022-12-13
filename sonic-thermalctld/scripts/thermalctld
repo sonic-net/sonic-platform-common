@@ -360,8 +360,6 @@ class FanUpdater(logger.Logger):
                                         format(fan_name, speed_target, speed, speed_tolerance)
                                         )
 
-        # TODO: handle invalid fan direction
-
         # We don't set PSU led here, PSU led will be handled in psud
         if set_led:
             if not is_psu_fan:
@@ -401,8 +399,8 @@ class FanUpdater(logger.Logger):
             fan_drawer.set_status_led(led_color)
         except NotImplementedError as e:
             self.log_warning('Failed to set status LED for fan {}, set_status_led not implemented'.format(fan_name))
-        
-        # Set led_initialized to True even if there is NotImplementedError as it is not neccessary to 
+
+        # Set led_initialized to True even if there is NotImplementedError as it is not neccessary to
         # print the warning log again and again. But if there is other exception, we could not
         # reach this line, and it will retry setting led color in the next run.
         fan_status.led_initialized = True
@@ -613,7 +611,7 @@ class TemperatureUpdater(logger.Logger):
             available_thermals = set()
             for module_index, module in enumerate(self.chassis.get_all_modules()):
                 module_name = try_get(module.get_name, 'Module {}'.format(module_index + 1))
-                
+
                 for thermal_index, thermal in enumerate(module.get_all_thermals()):
                     if self.task_stopping_event.is_set():
                         return
@@ -639,12 +637,12 @@ class TemperatureUpdater(logger.Logger):
                         available_thermals.add((thermal, psu_name, thermal_index))
                         self._refresh_temperature_status(psu_name, thermal, thermal_index)
 
-            
+
             thermals_to_remove = self.module_thermals - available_thermals
             self.module_thermals = available_thermals
             for thermal, parent_name, thermal_index in thermals_to_remove:
                 self._remove_thermal_from_db(thermal, parent_name, thermal_index)
-                
+
         self.log_debug("End temperature updating")
 
     def _refresh_temperature_status(self, parent_name, thermal, thermal_index):
