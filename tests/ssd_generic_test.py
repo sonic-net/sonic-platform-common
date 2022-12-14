@@ -389,7 +389,7 @@ class TestSsdGeneric:
     def test_Innodisk_ssd(self):
         # Test parsing Innodisk ssd info
         Innodisk_ssd = SsdUtil('/dev/sda')
-        assert(Innodisk_ssd.get_health() == 'N/A')
+        assert(Innodisk_ssd.get_health() == '0x000000000000')
         assert(Innodisk_ssd.get_model() == 'InnoDisk Corp. - mSATA 3ME')
         assert(Innodisk_ssd.get_firmware() == "S140714")
         assert(Innodisk_ssd.get_temperature() == 'N/A')
@@ -411,4 +411,14 @@ class TestSsdGeneric:
         Innodisk_ssd.parse_vendor_ssd_info('InnoDisk')
         assert(Innodisk_ssd.get_health() == '94')
         assert(Innodisk_ssd.get_temperature() == '39')
+        
+    @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell', mock.MagicMock(return_value=output_Innodisk_missing_names_ssd))
+    def test_Innodisk_missing_names_ssd_2(self):
+        # Test parsing Innodisk ssd info
+        Innodisk_ssd = SsdUtil('/dev/sda')
+        Innodisk_ssd.vendor_ssd_info = 'ERROR message from cmd'
+        Innodisk_ssd.parse_vendor_ssd_info('InnoDisk')
+        assert(Innodisk_ssd.get_health() == '94')
+        assert(Innodisk_ssd.get_temperature() == '39')
+        
 
