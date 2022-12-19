@@ -522,6 +522,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
             value = ""
             for c in t[2:2 + t[1]]:
                 value += "0x%02X " % c
+        value = value.replace('\x00', '')
         return name, value
 
 
