@@ -1192,7 +1192,16 @@ class SfpUtilBase(object):
                 print("Error: reading sysfs file %s" % file_path)
                 return None
 
-            sfpd_obj = sff8472Dom()
+            eeprom_ifraw = self.get_eeprom_raw(port_num)
+            if eeprom_ifraw is None:
+                return None
+            sfpi_obj = sff8472InterfaceId(eeprom_ifraw)
+            if sfpi_obj is not None:
+                cal_type = sfpi_obj.get_calibration_type()
+            else:
+                return None
+
+            sfpd_obj = sff8472Dom(None, cal_type)
             if sfpd_obj is None:
                 return None
             dom_temperature_raw = self._read_eeprom_specific_bytes(sysfsfile_eeprom, (offset + SFP_TEMPE_OFFSET), SFP_TEMPE_WIDTH)
