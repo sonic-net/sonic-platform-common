@@ -790,7 +790,7 @@ class CmisApi(XcvrApi):
         '''
         This function returns the aux monitor types
         '''
-        result = self.xcvr_eeprom.read(consts.AUX_MON_TYPE)
+        result = self.xcvr_eeprom.read(consts.AUX_MON_TYPE) if not self.is_flat_memory() else None
         if result is None:
             return None
         aux1_mon_type = result & 0x1
