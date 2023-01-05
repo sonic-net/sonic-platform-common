@@ -2030,6 +2030,7 @@ class SfpStateUpdateTask(object):
             self.port_mapping.handle_port_change_event(port_change_event)
         elif port_change_event.event_type == port_mapping.PortChangeEvent.PORT_ADD:
             self.port_mapping.handle_port_change_event(port_change_event)
+            self.on_add_logical_port(port_change_event)
 
     def on_remove_logical_port(self, port_change_event):
         """Called when a logical port is removed from CONFIG_DB.
