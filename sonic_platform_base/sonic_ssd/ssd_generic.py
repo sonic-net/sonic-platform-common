@@ -57,8 +57,11 @@ class SsdUtil(SsdBase):
                 self.fetch_vendor_ssd_info(diskdev, vendor)
                 self.parse_vendor_ssd_info(vendor)
             else:
-                # No handler registered for this disk model
-                pass
+                for model in ["InnoDisk", "Virtium"]:
+                    if self.health != NOT_AVAILABLE and self.temperature != NOT_AVAILABLE:
+                        break
+                    self.fetch_vendor_ssd_info(diskdev, model)
+                    self.parse_vendor_ssd_info(model)
         else:
             # Failed to get disk model
             self.model = "Unknown"
