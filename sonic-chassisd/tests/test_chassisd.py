@@ -14,6 +14,11 @@ NOT_AVAILABLE = 'N/A'
 daemon_base.db_connect = MagicMock()
 
 test_path = os.path.dirname(os.path.abspath(__file__))
+
+# Add mocked_libs path so that the file under test can load mocked modules from there
+mocked_libs_path = os.path.join(test_path, 'mocked_libs')
+sys.path.insert(0, mocked_libs_path)
+
 modules_path = os.path.dirname(test_path)
 scripts_path = os.path.join(modules_path, "scripts")
 sys.path.insert(0, modules_path)
@@ -503,3 +508,10 @@ def test_signal_handler():
     assert daemon_chassisd.log_info.call_count == 0
     assert daemon_chassisd.stop.set.call_count == 0
     assert exit_code == 0
+
+def test_daemon_run():
+    # Test the chassisd run
+    daemon_chassisd = ChassisdDaemon(SYSLOG_IDENTIFIER)
+    daemon_chassisd.stop = MagicMock()
+    daemon_chassisd.stop.wait.return_value = True
+    daemon_chassisd.run()

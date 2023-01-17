@@ -444,6 +444,9 @@ class ChassisdDaemon(daemon_base.DaemonBase):
 
         self.log_info("Stop daemon main loop")
 
+        if config_manager is not None:
+            config_manager.task_stop()
+
         # Delete all the information from DB and then exit
         self.module_updater.deinit()
 
