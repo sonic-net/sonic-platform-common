@@ -78,7 +78,8 @@ class PortMapping:
         port_index = self.logical_to_physical.get(port_name)
         return None if port_index is None else [port_index]
 
-    def get_physical_to_logical(self, physical_port):
+    def get_physical_to_logical(self, physical_port: int):
+        assert isinstance(physical_port, int), "{} is NOT integer".format(physical_port)
         return self.physical_to_logical.get(physical_port)
 
     def logical_port_name_to_physical_port_list(self, port_name):

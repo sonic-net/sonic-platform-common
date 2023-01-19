@@ -1926,7 +1926,7 @@ class SfpStateUpdateTask(threading.Thread):
                             self.sfp_error_dict[key] = (value, error_dict)
                         else:
                             self.sfp_error_dict.pop(key, None)
-                        logical_port_list = self.port_mapping.get_physical_to_logical(key)
+                        logical_port_list = self.port_mapping.get_physical_to_logical(int(key))
                         if logical_port_list is None:
                             helper_logger.log_warning("Got unknown FP port index {}, ignored".format(key))
                             continue
@@ -1939,15 +1939,15 @@ class SfpStateUpdateTask(threading.Thread):
                                 continue
 
                             if value == sfp_status_helper.SFP_STATUS_INSERTED:
-                                helper_logger.log_info("Got SFP inserted event")
+                                helper_logger.log_notice("{}: Got SFP inserted event".format(logical_port))
                                 # A plugin event will clear the error state.
                                 update_port_transceiver_status_table_sw(
                                     logical_port, self.xcvr_table_helper.get_status_tbl(asic_index), sfp_status_helper.SFP_STATUS_INSERTED)
-                                helper_logger.log_info("receive plug in and update port sfp status table.")
+                                helper_logger.log_notice("{}: received plug in and update port sfp status table.".format(logical_port))
                                 rc = post_port_sfp_info_to_db(logical_port, self.port_mapping, self.xcvr_table_helper.get_intf_tbl(asic_index), transceiver_dict)
                                 # If we didn't get the sfp info, assuming the eeprom is not ready, give a try again.
                                 if rc == SFP_EEPROM_NOT_READY:
-                                    helper_logger.log_warning("SFP EEPROM is not ready. One more try...")
+                                    helper_logger.log_warning("{}: SFP EEPROM is not ready. One more try...".format(logical_port))
                                     time.sleep(TIME_FOR_SFP_READY_SECS)
                                     rc = post_port_sfp_info_to_db(logical_port, self.port_mapping, self.xcvr_table_helper.get_intf_tbl(asic_index), transceiver_dict)
                                     if rc == SFP_EEPROM_NOT_READY:
@@ -1962,10 +1962,10 @@ class SfpStateUpdateTask(threading.Thread):
                                     notify_media_setting(logical_port, transceiver_dict, self.xcvr_table_helper.get_app_port_tbl(asic_index), self.port_mapping)
                                     transceiver_dict.clear()
                             elif value == sfp_status_helper.SFP_STATUS_REMOVED:
-                                helper_logger.log_info("Got SFP removed event")
+                                helper_logger.log_notice("{}: Got SFP removed event".format(logical_port))
                                 update_port_transceiver_status_table_sw(
                                     logical_port, self.xcvr_table_helper.get_status_tbl(asic_index), sfp_status_helper.SFP_STATUS_REMOVED)
-                                helper_logger.log_info("receive plug out and pdate port sfp status table.")
+                                helper_logger.log_notice("{}: received plug out and update port sfp status table.".format(logical_port))
                                 del_port_sfp_dom_info_from_db(logical_port, self.port_mapping,
                                                               self.xcvr_table_helper.get_intf_tbl(asic_index),
                                                               self.xcvr_table_helper.get_dom_tbl(asic_index),
@@ -1975,7 +1975,7 @@ class SfpStateUpdateTask(threading.Thread):
                             else:
                                 try:
                                     error_bits = int(value)
-                                    helper_logger.log_info("Got SFP error event {}".format(value))
+                                    helper_logger.log_error("{}: Got SFP error event {}".format(logical_port, value))
 
                                     error_descriptions = sfp_status_helper.fetch_generic_error_description(error_bits)
 
@@ -1989,7 +1989,7 @@ class SfpStateUpdateTask(threading.Thread):
                                     # Add error info to database
                                     # Any existing error will be replaced by the new one.
                                     update_port_transceiver_status_table_sw(logical_port, self.xcvr_table_helper.get_status_tbl(asic_index), value, '|'.join(error_descriptions))
-                                    helper_logger.log_info("Receive error update port sfp status table.")
+                                    helper_logger.log_notice("{}: Receive error update port sfp status table.".format(logical_port))
                                     # In this case EEPROM is not accessible. The DOM info will be removed since it can be out-of-date.
                                     # The interface info remains in the DB since it is static.
                                     if sfp_status_helper.is_error_block_eeprom_reading(error_bits):
@@ -2001,7 +2001,7 @@ class SfpStateUpdateTask(threading.Thread):
                                                                       self.xcvr_table_helper.get_pm_tbl(asic_index))
                                         delete_port_from_status_table_hw(logical_port, self.port_mapping, self.xcvr_table_helper.get_status_tbl(asic_index))
                                 except (TypeError, ValueError) as e:
-                                    helper_logger.log_error("Got unrecognized event {}, ignored".format(value))
+                                    helper_logger.log_error("{}: Got unrecognized event {}, ignored".format(logical_port, value))
 
                 else:
                     next_state = STATE_EXIT
