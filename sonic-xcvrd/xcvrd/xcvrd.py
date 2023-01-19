@@ -9,7 +9,6 @@ try:
     import ast
     import copy
     import json
-    import multiprocessing
     import os
     import signal
     import sys
@@ -19,6 +18,8 @@ try:
     import subprocess
     import argparse
     import re
+    import traceback
+    import ctypes
 
     from sonic_py_common import daemon_base, device_info, logger
     from sonic_py_common import multi_asic
@@ -938,7 +939,7 @@ def is_fast_reboot_enabled():
 
 # Thread wrapper class for CMIS transceiver management
 
-class CmisManagerTask:
+class CmisManagerTask(threading.Thread):
 
     CMIS_MAX_RETRIES     = 3
     CMIS_DEF_EXPIRED     = 60 # seconds, default expiration time
@@ -956,9 +957,12 @@ class CmisManagerTask:
     CMIS_STATE_REMOVED   = 'REMOVED'
     CMIS_STATE_FAILED    = 'FAILED'
 
-    def __init__(self, namespaces, port_mapping, skip_cmis_mgr=False):
-        self.task_stopping_event = multiprocessing.Event()
-        self.task_process = None
+    def __init__(self, namespaces, port_mapping, main_thread_stop_event, skip_cmis_mgr=False):
+        threading.Thread.__init__(self)
+        self.name = "CmisManagerTask"
+        self.exc = None
+        self.task_stopping_event = threading.Event()
+        self.main_thread_stop_event = main_thread_stop_event
         self.port_dict = {}
         self.port_mapping = copy.deepcopy(port_mapping)
         self.xcvr_table_helper = XcvrTableHelper(namespaces)
@@ -1605,7 +1609,7 @@ class CmisManagerTask:
 
         self.log_notice("Stopped")
 
-    def task_run(self):
+    def run(self):
         if platform_chassis is None:
             self.log_notice("Platform chassis is not available, stopping...")
             return
@@ -1614,23 +1618,35 @@ class CmisManagerTask:
             self.log_notice("Skipping CMIS Task Manager")
             return
 
-        self.task_process = multiprocessing.Process(target=self.task_worker)
-        if self.task_process is not None:
-            self.task_process.start()
+        try:
+            self.task_worker()
+        except Exception as e:
+            helper_logger.log_error("Exception occured at {} thread due to {}".format(threading.current_thread().getName(), repr(e)))
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            msg = traceback.format_exception(exc_type, exc_value, exc_traceback)
+            for tb_line in msg:
+                for tb_line_split in tb_line.splitlines():
+                    helper_logger.log_error(tb_line_split)
+            self.exc = e
+            self.main_thread_stop_event.set()
 
-    def task_stop(self):
+    def join(self):
         self.task_stopping_event.set()
-        if self.task_process is not None:
-            self.task_process.join()
-            self.task_process = None
+        if not self.skip_cmis_mgr:
+            threading.Thread.join(self)
+            if self.exc:
+                raise self.exc
 
 # Thread wrapper class to update dom info periodically
 
 
-class DomInfoUpdateTask(object):
-    def __init__(self, namespaces, port_mapping):
-        self.task_thread = None
+class DomInfoUpdateTask(threading.Thread):
+    def __init__(self, namespaces, port_mapping, main_thread_stop_event):
+        threading.Thread.__init__(self)
+        self.name = "DomInfoUpdateTask"
+        self.exc = None
         self.task_stopping_event = threading.Event()
+        self.main_thread_stop_event = main_thread_stop_event
         self.port_mapping = copy.deepcopy(port_mapping)
         self.namespaces = namespaces
 
@@ -1673,16 +1689,26 @@ class DomInfoUpdateTask(object):
 
         helper_logger.log_info("Stop DOM monitoring loop")
 
-    def task_run(self):
+    def run(self):
         if self.task_stopping_event.is_set():
             return
+        try:
+            self.task_worker()
+        except Exception as e:
+            helper_logger.log_error("Exception occured at {} thread due to {}".format(threading.current_thread().getName(), repr(e)))
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            msg = traceback.format_exception(exc_type, exc_value, exc_traceback)
+            for tb_line in msg:
+                for tb_line_split in tb_line.splitlines():
+                    helper_logger.log_error(tb_line_split)
+            self.exc = e
+            self.main_thread_stop_event.set()
 
-        self.task_thread = threading.Thread(target=self.task_worker)
-        self.task_thread.start()
-
-    def task_stop(self):
+    def join(self):
         self.task_stopping_event.set()
-        self.task_thread.join()
+        threading.Thread.join(self)
+        if self.exc:
+            raise self.exc
 
     def on_port_config_change(self, port_change_event):
         if port_change_event.event_type == port_mapping.PortChangeEvent.PORT_REMOVE:
@@ -1709,14 +1735,18 @@ class DomInfoUpdateTask(object):
                                       self.xcvr_table_helper.get_status_tbl(port_change_event.asic_id))
 
 
-# Process wrapper class to update sfp state info periodically
+# Thread wrapper class to update sfp state info periodically
 
 
-class SfpStateUpdateTask(object):
+class SfpStateUpdateTask(threading.Thread):
     RETRY_EEPROM_READING_INTERVAL = 60
-    def __init__(self, namespaces, port_mapping, retry_eeprom_set):
-        self.task_process = None
-        self.task_stopping_event = multiprocessing.Event()
+    def __init__(self, namespaces, port_mapping, retry_eeprom_set, main_thread_stop_event, sfp_error_event):
+        threading.Thread.__init__(self)
+        self.name = "SfpStateUpdateTask"
+        self.exc = None
+        self.task_stopping_event = threading.Event()
+        self.main_thread_stop_event = main_thread_stop_event
+        self.sfp_error_event = sfp_error_event
         self.port_mapping = copy.deepcopy(port_mapping)
         # A set to hold those logical port name who fail to read EEPROM
         self.retry_eeprom_set = retry_eeprom_set
@@ -2011,18 +2041,37 @@ class SfpStateUpdateTask(object):
 
         helper_logger.log_info("Stop SFP monitoring loop")
 
-    def task_run(self, sfp_error_event):
+    def run(self):
+        self.thread_id = threading.current_thread().ident
         if self.task_stopping_event.is_set():
             return
+        try:
+            self.task_worker(self.task_stopping_event, self.sfp_error_event)
+        except Exception as e:
+            helper_logger.log_error("Exception occured at {} thread due to {}".format(threading.current_thread().getName(), repr(e)))
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            msg = traceback.format_exception(exc_type, exc_value, exc_traceback)
+            for tb_line in msg:
+                for tb_line_split in tb_line.splitlines():
+                    helper_logger.log_error(tb_line_split)
+            self.exc = e
+            self.main_thread_stop_event.set()
 
+    # SfpStateUpdateTask thread has a call to an API which could potentially sleep in the order of seconds and hence,
+    # could block the xcvrd daemon graceful shutdown process for a prolonged time. Raising an exception will allow us to
+    # interrupt the SfpStateUpdateTask thread while sleeping and will allow graceful shutdown of the thread
+    def raise_exception(self):
+        res = ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_ulong(self.thread_id),
+              ctypes.py_object(SystemExit))
+        if res > 1:
+            ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_ulong(self.thread_id), 0)
+            helper_logger.log_error('Exception raise failure for SfpStateUpdateTask')
 
-        self.task_process = multiprocessing.Process(target=self.task_worker, args=(
-            self.task_stopping_event, sfp_error_event))
-        self.task_process.start()
-
-    def task_stop(self):
+    def join(self):
         self.task_stopping_event.set()
-        os.kill(self.task_process.pid, signal.SIGKILL)
+        threading.Thread.join(self)
+        if self.exc:
+            raise self.exc
 
     def on_port_config_change(self , port_change_event):
         if port_change_event.event_type == port_mapping.PortChangeEvent.PORT_REMOVE:
@@ -2040,7 +2089,7 @@ class SfpStateUpdateTask(object):
         """
         # To avoid race condition, remove the entry TRANSCEIVER_DOM_INFO, TRANSCEIVER_STATUS_INFO and TRANSCEIVER_INFO table.
         # The operation to remove entry from TRANSCEIVER_DOM_INFO is duplicate with DomInfoUpdateTask.on_remove_logical_port,
-        # but it is necessary because TRANSCEIVER_DOM_INFO is also updated in this sub process when a new SFP is inserted.
+        # but it is necessary because TRANSCEIVER_DOM_INFO is also updated in this thread when a new SFP is inserted.
         del_port_sfp_dom_info_from_db(port_change_event.port_name,
                                       self.port_mapping,
                                       self.xcvr_table_helper.get_intf_tbl(port_change_event.asic_id),
@@ -2200,9 +2249,10 @@ class DaemonXcvrd(daemon_base.DaemonBase):
     def __init__(self, log_identifier, skip_cmis_mgr=False):
         super(DaemonXcvrd, self).__init__(log_identifier)
         self.stop_event = threading.Event()
-        self.sfp_error_event = multiprocessing.Event()
+        self.sfp_error_event = threading.Event()
         self.skip_cmis_mgr = skip_cmis_mgr
         self.namespaces = ['']
+        self.threads = []
 
     # Signal handler
     def signal_handler(self, sig, frame):
@@ -2352,36 +2402,57 @@ class DaemonXcvrd(daemon_base.DaemonBase):
         port_mapping_data, retry_eeprom_set = self.init()
 
         # Start the CMIS manager
-        cmis_manager = CmisManagerTask(self.namespaces, port_mapping_data, self.skip_cmis_mgr)
-        cmis_manager.task_run()
+        cmis_manager = CmisManagerTask(self.namespaces, port_mapping_data, self.stop_event, self.skip_cmis_mgr)
+        if not self.skip_cmis_mgr:
+            cmis_manager.start()
+            self.threads.append(cmis_manager)
 
         # Start the dom sensor info update thread
-        dom_info_update = DomInfoUpdateTask(self.namespaces, port_mapping_data)
-        dom_info_update.task_run()
+        dom_info_update = DomInfoUpdateTask(self.namespaces, port_mapping_data, self.stop_event)
+        dom_info_update.start()
+        self.threads.append(dom_info_update)
 
-        # Start the sfp state info update process
-        sfp_state_update = SfpStateUpdateTask(self.namespaces, port_mapping_data, retry_eeprom_set)
-        sfp_state_update.task_run(self.sfp_error_event)
-
-        # Start the Y-cable state info update process if Y cable presence established
+        # Start the sfp state info update thread
+        sfp_state_update = SfpStateUpdateTask(self.namespaces, port_mapping_data, retry_eeprom_set, self.stop_event, self.sfp_error_event)
+        sfp_state_update.start()
+        self.threads.append(sfp_state_update)
 
         # Start main loop
-        self.log_info("Start daemon main loop")
+        self.log_notice("Start daemon main loop with thread count {}".format(len(self.threads)))
+        for thread in self.threads:
+            self.log_notice("Started thread {}".format(thread.getName()))
 
         self.stop_event.wait()
 
         self.log_info("Stop daemon main loop")
 
+        generate_sigkill = False
+        # check all threads are alive
+        for thread in self.threads:
+            if thread.is_alive() is False:
+                try:
+                    thread.join()
+                except Exception as e:
+                    self.log_error("Xcvrd: exception found at child thread {} due to {}".format(thread.getName(), repr(e)))
+                    generate_sigkill = True
+
+        if generate_sigkill is True:
+            self.log_error("Exiting main loop as child thread raised exception!")
+            os.kill(os.getpid(), signal.SIGKILL)
+
         # Stop the CMIS manager
         if cmis_manager is not None:
-           cmis_manager.task_stop()
+            if cmis_manager.is_alive():
+                cmis_manager.join()
 
         # Stop the dom sensor info update thread
-        dom_info_update.task_stop()
+        if dom_info_update.is_alive():
+            dom_info_update.join()
 
-        # Stop the sfp state info update process
-        sfp_state_update.task_stop()
-
+        # Stop the sfp state info update thread
+        if sfp_state_update.is_alive():
+            sfp_state_update.raise_exception()
+            sfp_state_update.join()
 
         # Start daemon deinitialization sequence
         self.deinit()
