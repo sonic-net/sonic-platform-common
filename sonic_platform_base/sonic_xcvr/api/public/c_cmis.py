@@ -360,6 +360,7 @@ class CCmisApi(CmisApi):
             trans_dom['sopmd'] = self.vdm_dict['SOPMD [ps^2]'][1][0]
         except KeyError:
             pass
+        trans_dom['soproc'] = self.vdm_dict['SOP ROC [krad/s]'][1][0]
         trans_dom['pdl'] = self.vdm_dict['PDL [dB]'][1][0]
         trans_dom['osnr'] = self.vdm_dict['OSNR [dB]'][1][0]
         trans_dom['esnr'] = self.vdm_dict['eSNR [dB]'][1][0]
