@@ -5529,8 +5529,9 @@ class TestYCableScript(object):
 
 
         response = Response_Helper()
+        port = "Ethernet4"
         
-        rc = parse_grpc_response_forwarding_state(False, None, 0)
+        rc = parse_grpc_response_forwarding_state(False, None, 0, port)
         assert(rc == ("unknown", "unknown"))
 
 
@@ -5543,8 +5544,9 @@ class TestYCableScript(object):
 
 
         response = Response_Helper()
+        port = "Ethernet4"
         
-        rc = parse_grpc_response_forwarding_state(True, response, 0)
+        rc = parse_grpc_response_forwarding_state(True, response, 0, port)
         assert(rc == ("active", "standby"))
 
 
@@ -5557,8 +5559,9 @@ class TestYCableScript(object):
 
 
         response = Response_Helper()
+        port = "Ethernet4"
         
-        rc = parse_grpc_response_forwarding_state(True, response, 0)
+        rc = parse_grpc_response_forwarding_state(True, response, 0, port)
         assert(rc == ("active", "active"))
 
 
@@ -5571,8 +5574,9 @@ class TestYCableScript(object):
 
 
         response = Response_Helper()
+        port = "Ethernet4"
         
-        rc = parse_grpc_response_forwarding_state(True, response, 1)
+        rc = parse_grpc_response_forwarding_state(True, response, 1, port)
         assert(rc == ("standby", "active"))
 
 
@@ -5585,8 +5589,9 @@ class TestYCableScript(object):
 
 
         response = Response_Helper()
+        port = "Ethernet4"
         
-        rc = parse_grpc_response_forwarding_state(True, response, 1)
+        rc = parse_grpc_response_forwarding_state(True, response, 1, port)
         assert(rc == ("active", "active"))
 
 
@@ -5599,8 +5604,9 @@ class TestYCableScript(object):
 
 
         response = Response_Helper()
+        port = "Ethernet4"
         
-        rc = parse_grpc_response_forwarding_state(True, response, 1)
+        rc = parse_grpc_response_forwarding_state(True, response, 1, port)
         assert(rc == ("active", "active"))
 
 
@@ -5613,8 +5619,9 @@ class TestYCableScript(object):
 
 
         response = Response_Helper()
+        port = "Ethernet4"
         
-        rc = parse_grpc_response_forwarding_state(True, response, 1)
+        rc = parse_grpc_response_forwarding_state(True, response, 1, port)
         assert(rc == ("standby", "active"))
 
 
@@ -5627,8 +5634,9 @@ class TestYCableScript(object):
 
 
         response = Response_Helper()
+        port = "Ethernet4"
         
-        rc = parse_grpc_response_forwarding_state(True, response, 0)
+        rc = parse_grpc_response_forwarding_state(True, response, 0, port)
         assert(rc == ("standby", "active"))
 
 
@@ -5641,8 +5649,9 @@ class TestYCableScript(object):
 
 
         response = Response_Helper()
+        port = "Ethernet4"
         
-        rc = parse_grpc_response_forwarding_state(True, response, 1)
+        rc = parse_grpc_response_forwarding_state(True, response, 1, port)
         assert(rc == ("standby", "standby"))
 
 
@@ -5655,8 +5664,9 @@ class TestYCableScript(object):
 
 
         response = Response_Helper()
+        port = "Ethernet4"
         
-        rc = parse_grpc_response_forwarding_state(True, response, 0)
+        rc = parse_grpc_response_forwarding_state(True, response, 0, port)
         assert(rc == ("standby", "standby"))
 
 
@@ -5669,8 +5679,9 @@ class TestYCableScript(object):
 
 
         response = Response_Helper()
+        port = "Ethernet4"
         
-        rc = parse_grpc_response_forwarding_state(True, response, 0)
+        rc = parse_grpc_response_forwarding_state(True, response, 0, port)
         assert(rc == ("active", "active"))
 
 
@@ -5683,8 +5694,9 @@ class TestYCableScript(object):
 
 
         response = Response_Helper()
+        port = "Ethernet4"
         
-        rc = parse_grpc_response_forwarding_state(True, response, 1)
+        rc = parse_grpc_response_forwarding_state(True, response, 1, port)
         assert(rc == ("standby", "standby"))
 
 
@@ -5820,3 +5832,182 @@ class TestYCableScript(object):
         rc = handle_ycable_active_standby_probe_notification("active-standby", fvp_dict, test_db, hw_mux_cable_tbl, port_m, asic_index, y_cable_response_tbl)
         assert(rc == True)
 
+
+    def test_parse_grpc_response_link_and_oper_state_down_down(self):
+
+        class Response_Helper():
+            def __init__(self):
+                self.portid = [0,1]
+                self.state = [False,False]
+
+
+        response = Response_Helper()
+        
+        rc = parse_grpc_response_link_and_oper_state(True, response, 1, "oper_state", "Ethernet4")
+        assert(rc == ("down", "down"))
+
+    def test_parse_grpc_response_link_and_oper_state_up_down(self):
+
+        class Response_Helper():
+            def __init__(self):
+                self.portid = [0,1]
+                self.state = [True,False]
+
+
+        response = Response_Helper()
+        
+        rc = parse_grpc_response_link_and_oper_state(True, response, 1, "oper_state", "Ethernet4")
+        assert(rc == ("down", "up"))
+
+    def test_parse_grpc_response_link_and_oper_state_up_up(self):
+
+        class Response_Helper():
+            def __init__(self):
+                self.portid = [0,1]
+                self.state = [True, True]
+
+
+        response = Response_Helper()
+        
+        rc = parse_grpc_response_link_and_oper_state(True, response, 1, "oper_state", "Ethernet4")
+        assert(rc == ("up", "up"))
+        
+    def test_parse_grpc_response_link_and_oper_state_down_down_read_side_zero(self):
+
+        class Response_Helper():
+            def __init__(self):
+                self.portid = [0,1]
+                self.state = [False,False]
+
+
+        response = Response_Helper()
+        
+        rc = parse_grpc_response_link_and_oper_state(True, response, 0, "oper_state", "Ethernet4")
+        assert(rc == ("down", "down"))
+
+    def test_parse_grpc_response_link_and_oper_state_up_down_read_side_zero(self):
+
+        class Response_Helper():
+            def __init__(self):
+                self.portid = [0,1]
+                self.state = [True,False]
+
+
+        response = Response_Helper()
+        
+        rc = parse_grpc_response_link_and_oper_state(True, response, 0, "oper_state", "Ethernet4")
+        assert(rc == ("up", "down"))
+
+    def test_parse_grpc_response_link_and_oper_state_up_up_read_side_zero(self):
+
+        class Response_Helper():
+            def __init__(self):
+                self.portid = [0,1]
+                self.state = [True, True]
+
+
+        response = Response_Helper()
+        
+        rc = parse_grpc_response_link_and_oper_state(True, response, 0, "oper_state", "Ethernet4")
+        assert(rc == ("up", "up"))
+        
+    def test_parse_grpc_response_link_and_oper_state_down_down_read_side_zero_unknown(self):
+
+        class Response_Helper():
+            def __init__(self):
+                self.portid = [0,1]
+                self.state = [False,False]
+
+
+        response = Response_Helper()
+        
+        rc = parse_grpc_response_link_and_oper_state(False, response, 0, "oper_state", "Ethernet4")
+        assert(rc == ("unknown", "unknown"))
+
+    def test_parse_grpc_response_link_and_oper_state_up_down_read_side_zero(self):
+
+        class Response_Helper():
+            def __init__(self):
+                self.portid = [0]
+                self.state = [False]
+
+
+        response = Response_Helper()
+        
+        rc = parse_grpc_response_link_and_oper_state(True, response, 0, "oper_state", "Ethernet4")
+        assert(rc == ("unknown", "unknown"))
+
+    def test_parse_grpc_response_link_and_oper_state_up_up_read_side_zero(self):
+
+        class Response_Helper():
+            def __init__(self):
+                self.portid = [0,1]
+                self.state = [True]
+
+
+        response = Response_Helper()
+        
+        rc = parse_grpc_response_link_and_oper_state(True, response, 0, "link_state", "Ethernet4")
+        assert(rc == ("unknown", "unknown"))
+        
+    def test_parse_grpc_response_link_and_oper_state_down_down_read_side_zero_link_state(self):
+
+        class Response_Helper():
+            def __init__(self):
+                self.portid = [0,1]
+                self.state = [False,False]
+
+
+        response = Response_Helper()
+        
+        rc = parse_grpc_response_link_and_oper_state(True, response, 0, "link_state", "Ethernet4")
+        assert(rc == ("down", "down"))
+
+    def test_parse_grpc_response_link_and_oper_state_up_down_read_side_zero_link_state(self):
+
+        class Response_Helper():
+            def __init__(self):
+                self.portid = [0,1]
+                self.state = [True,False]
+
+
+        response = Response_Helper()
+        
+        rc = parse_grpc_response_link_and_oper_state(True, response, 0, "link_state", "Ethernet4")
+        assert(rc == ("up", "down"))
+
+    def test_parse_grpc_response_link_and_oper_state_up_up_read_side_zero_link_state(self):
+
+        class Response_Helper():
+            def __init__(self):
+                self.portid = [0,1]
+                self.state = [True, True]
+
+
+        response = Response_Helper()
+        
+        rc = parse_grpc_response_link_and_oper_state(True, response, 0, "link_state", "Ethernet4")
+        assert(rc == ("up", "up"))
+        
+    def test_get_muxcable_info_for_active_active(self):
+        physical_port = 20
+
+        logical_port_name = "Ethernet20"
+        swsscommon.Table.return_value.get.return_value = (
+            True, {"read_side": "1"})
+        asic_index = 0
+        y_cable_tbl = {}
+        mux_tbl = {}
+        test_db = "TEST_DB"
+        status = True
+        fvs = [('state', "auto"), ('read_side', 1)]
+        y_cable_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], "Y_CABLE_TABLE")
+        y_cable_tbl[asic_index].get.return_value = (status, fvs)
+
+        rc = get_muxcable_info_for_active_active(physical_port, logical_port_name, mux_tbl, asic_index, y_cable_tbl)
+
+        assert(rc['self_mux_direction'] == 'unknown')
+        assert(rc['peer_mux_direction'] == 'unknown')
+        assert(rc['mux_direction_probe_count'] == 'unknown')
+        assert(rc['peer_mux_direction_probe_count'] == 'unknown')

@@ -46,6 +46,10 @@ y_cable_is_platform_vs = None
 grpc_port_channels = {}
 # Global port channel stubs for gRPC RPC's
 grpc_port_stubs = {}
+# Global port channel connectivity for gRPC RPC's
+grpc_port_connectivity = {}
+# Global port statistics for gRPC RPC's
+grpc_port_stats = {}
 
 GRPC_PORT = 50075
 
@@ -490,19 +494,24 @@ def create_channel(type, level, kvp, soc_ip, port):
             # for connectivity state to FAILURE/IDLE report a failure
             fvs_updated = swsscommon.FieldValuePairs([('response', 'failure')])
             fwd_state_response_tbl[asic_index].set(port, fvs_updated)
+            grpc_port_connectivity[port] = "TRANSIENT_FAILURE"
 
         if channel_connectivity == grpc.ChannelConnectivity.CONNECTING:
             helper_logger.log_notice("gRPC port {} state changed to CONNECTING".format(port))
+            grpc_port_connectivity[port] = "CONNECTING"
         if channel_connectivity == grpc.ChannelConnectivity.READY:
             helper_logger.log_notice("gRPC port {} state changed to READY".format(port))
+            grpc_port_connectivity[port] = "READY"
         if channel_connectivity == grpc.ChannelConnectivity.IDLE:
             helper_logger.log_notice("gRPC port {} state changed to IDLE".format(port))
             # for connectivity state to FAILURE/IDLE report a failure
             fvs_updated = swsscommon.FieldValuePairs([('response', 'failure')])
             fwd_state_response_tbl[asic_index].set(port, fvs_updated) 
+            grpc_port_connectivity[port] = "IDLE"
 
         if channel_connectivity == grpc.ChannelConnectivity.SHUTDOWN:
             helper_logger.log_notice("gRPC port {} state changed to SHUTDOWN".format(port))
+            grpc_port_connectivity[port] = "SHUTDOWN"
 
 
     if type == "secure": 
@@ -607,7 +616,7 @@ def put_init_values_for_grpc_states(port, read_side, hw_mux_cable_tbl, hw_mux_ca
         return
 
     ret, response = try_grpc(stub.QueryAdminForwardingPortState, QUERY_ADMIN_FORWARDING_TIMEOUT, request)
-    (self_state, peer_state) = parse_grpc_response_forwarding_state(ret, response, read_side)
+    (self_state, peer_state) = parse_grpc_response_forwarding_state(ret, response, read_side, port)
     if response is not None:
         # Debug only, remove this section once Server side is Finalized
         fwd_response_port_ids = response.portid
@@ -1388,6 +1397,7 @@ def init_ports_status_for_y_cable(platform_sfp, platform_chassis, y_cable_presen
                 check_identifier_presence_and_update_mux_table_entry(
                     state_db, port_tbl, hw_mux_cable_tbl, static_tbl, mux_tbl, asic_index, logical_port_name, y_cable_presence)
             if status and cable_type == "active-active":
+                grpc_port_stats[logical_port_name] = {}
                 check_identifier_presence_and_setup_channel(
                     logical_port_name, port_tbl, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, asic_index, read_side, y_cable_presence)
         else:
@@ -1663,6 +1673,154 @@ def get_muxcable_static_info_without_presence():
     mux_info_static_dict['tor_peer_lane2_postcursor2'] = 'N/A'
 
     return mux_info_static_dict
+
+def parse_grpc_response_link_and_oper_state(ret, response, read_side, query_type, port):
+    self_state = peer_state = 'unknown'
+
+    if ret is True and response is not None:
+        if len(response.portid) == 2 and len(response.state) == 2:
+            if int(read_side) == 0:
+                if response.state[0] == True:
+                    self_state = 'up'
+                elif response.state[0] == False:
+                    self_state = 'down'
+                # No other values expected, should we raise exception/msg
+                # TODO handle other responses
+                if response.state[1] == True:
+                    peer_state = 'up'
+                elif response.state[1] == False:
+                    peer_state = 'down'
+
+            elif int(read_side) == 1:
+                if response.state[1] == True:
+                    self_state = 'up'
+                elif response.state[1] == False:
+                    self_state = 'down'
+                if response.state[0] == True:
+                    peer_state = 'up'
+                elif response.state[0] == False:
+                    peer_state = 'down'
+
+        else:
+            helper_logger.log_warning("recieved an error port list while parsing response {} port state list size 0 {} {}".format(query_type, len(response.portid), len(response.state)))
+            self_state = 'unknown'
+            peer_state = 'unknown'
+    else:
+        self_state = 'unknown'
+        peer_state = 'unknown'
+
+    stat = grpc_port_stats.get(port,None)
+    if stat is not None:
+
+        if query_type == "link_state":
+            grpc_port_stats[port]["link_state_probe_count"] = str(int(stat.get("link_state_probe_count", 0)) + 1 )
+            grpc_port_stats[port]["peer_link_state_probe_count"] = str(int(stat.get("peer_link_state_probe_count", 0)) + 1 )
+        elif query_type == "oper_state":
+            grpc_port_stats[port]["operation_state_probe_count"] = str(int(stat.get("operation_state_probe_count", 0)) + 1 )
+            grpc_port_stats[port]["peer_operation_state_probe_count"] = str(int(stat.get("peer_operation_state_probe_count", 0)) + 1 )
+    else:
+        grpc_port_stats[port] = {}
+        if query_type == "link_state":
+            grpc_port_stats[port]["link_state_probe_count"] = 0
+            grpc_port_stats[port]["peer_link_state_probe_count"] = 0
+        elif query_type == "oper_state":
+            grpc_port_stats[port]["operation_state_probe_count"] = 0
+            grpc_port_stats[port]["peer_operation_state_probe_count"] = 0
+
+
+    return (self_state, peer_state)
+
+
+
+def get_muxcable_info_for_active_active(physical_port, port, mux_tbl, asic_index, y_cable_tbl):
+    mux_info_dict = {}
+
+    time_post = datetime.datetime.utcnow().strftime("%Y-%b-%d %H:%M:%S.%f")
+    mux_info_dict["time_post"] = str(time_post)
+
+    (status, fvs) = y_cable_tbl[asic_index].get(port)
+    if status is False:
+        helper_logger.log_warning("Could not retreive fieldvalue pairs for {}, inside state_db table {}".format(logical_port_name, y_cable_tbl[asic_index].getTableName()))
+        return -1
+
+    mux_port_dict = dict(fvs)
+    read_side = int(mux_port_dict.get("read_side"))
+
+    stat = grpc_port_stats.get(port, None)
+    if stat is not None:
+        mux_info_dict['mux_direction_probe_count'] = grpc_port_stats[port].get("mux_direction_probe_count", "unknown")
+        mux_info_dict['peer_mux_direction_probe_count'] = grpc_port_stats[port].get("peer_mux_direction_probe_count", "unknown")
+        mux_info_dict['link_state_probe_count'] = grpc_port_stats[port].get("link_state_probe_count", "unknown")
+        mux_info_dict['peer_link_state_probe_count'] = grpc_port_stats[port].get("peer_link_state_probe_count", "unknown")
+        mux_info_dict['operation_state_probe_count'] = grpc_port_stats[port].get("operation_state_probe_count", "unknown")
+        mux_info_dict['peer_operation_state_probe_count'] = grpc_port_stats[port].get("peer_operation_state_probe_count", "unknown")
+    else:
+        mux_info_dict['mux_direction_probe_count'] = "unknown"
+        mux_info_dict['peer_mux_direction_probe_count'] = "unknown"
+        mux_info_dict['link_state_probe_count'] = "unknown"
+        mux_info_dict['peer_link_state_probe_count'] = "unknown"
+        mux_info_dict['operation_state_probe_count'] = "unknown"
+        mux_info_dict['peer_operation_state_probe_count'] = "unknown"
+
+
+
+    stub = grpc_port_stubs.get(port, None)
+    if stub is None:
+        #Can't make any RPC gRPC for this port, fill everything as unknown except cached values
+        mux_info_dict['self_link_state'] = "unknown"
+        mux_info_dict['peer_link_state'] = "unknown"
+        mux_info_dict['self_oper_state'] = "unknown"
+        mux_info_dict['peer_oper_state'] = "unknown"
+        mux_info_dict['server_version'] = "N/A"
+        mux_info_dict['self_mux_direction'] = "unknown"
+        mux_info_dict['peer_mux_direction'] = "unknown"
+        mux_info_dict['grpc_connection_status'] = "unknown"
+        return mux_info_dict
+
+
+    request = linkmgr_grpc_driver_pb2.LinkStateRequest(portid=DEFAULT_PORT_IDS)
+
+    ret, response = try_grpc(stub.QueryLinkState, QUERY_ADMIN_FORWARDING_TIMEOUT , request)
+
+    (self_link_state, peer_link_state) = parse_grpc_response_link_and_oper_state(ret, response, read_side, "link_state", port)
+
+    mux_info_dict['self_link_state'] = self_link_state
+    mux_info_dict['peer_link_state'] = peer_link_state
+
+    request = linkmgr_grpc_driver_pb2.OperationRequest(portid=DEFAULT_PORT_IDS)
+
+    ret, response = try_grpc(stub.QueryOperationPortState, QUERY_ADMIN_FORWARDING_TIMEOUT , request)
+
+    (self_oper_state, peer_oper_state) = parse_grpc_response_link_and_oper_state(ret, response, read_side, "oper_state", port)
+
+    mux_info_dict['self_oper_state'] = self_oper_state
+    mux_info_dict['peer_oper_state'] = peer_oper_state
+
+    request = linkmgr_grpc_driver_pb2.AdminRequest(portid=DEFAULT_PORT_IDS, state=[0, 0])
+
+    ret, response = try_grpc(stub.QueryAdminForwardingPortState, QUERY_ADMIN_FORWARDING_TIMEOUT , request)
+
+    (self_state, peer_state) = parse_grpc_response_forwarding_state(ret, response, read_side, port)
+
+    mux_info_dict['self_mux_direction'] = self_state
+    mux_info_dict['peer_mux_direction'] = peer_state
+
+    request = linkmgr_grpc_driver_pb2.ServerVersionRequest(version="1.0")
+
+    ret, response = try_grpc(stub.QueryServerVersion, QUERY_ADMIN_FORWARDING_TIMEOUT , request)
+
+    if ret is True:
+        version = response.version
+    else:
+        version = "N/A"
+
+    mux_info_dict['server_version'] = version
+
+    grpc_connection_status = grpc_port_connectivity.get(port, "unknown")
+
+    mux_info_dict['grpc_connection_status'] = grpc_connection_status
+
+    return mux_info_dict
 
 def get_muxcable_info_without_presence():
     mux_info_dict = {}
@@ -2074,9 +2232,33 @@ def post_port_mux_info_to_db(logical_port_name, mux_tbl, asic_index, y_cable_tbl
 
     for physical_port in physical_port_list:
 
-        if not y_cable_wrapper_get_presence(physical_port) or cable_type == 'active-active':
-            helper_logger.log_warning("Error: trying to post mux info without presence of port {}".format(logical_port_name))
+        if not y_cable_wrapper_get_presence(physical_port):
             mux_info_dict = get_muxcable_info_without_presence()
+        elif cable_type == 'active-active':
+            helper_logger.log_warning("Error: trying to post mux info without presence of port {}".format(logical_port_name))
+            mux_info_dict = get_muxcable_info_for_active_active(physical_port, logical_port_name, mux_tbl, asic_index, y_cable_tbl)
+            if mux_info_dict is not None and mux_info_dict !=  -1:
+                fvs = swsscommon.FieldValuePairs(
+                    [('self_link_state',  mux_info_dict["self_link_state"]),
+                     ('peer_link_state',  str(mux_info_dict["peer_link_state"])),
+                     ('self_oper_state', str(mux_info_dict["self_oper_state"])),
+                     ('peer_oper_state', str(mux_info_dict["peer_oper_state"])),
+                     ('server_version', str(mux_info_dict["server_version"])),
+                     ('time_post',  str(mux_info_dict["time_post"])),
+                     ('self_mux_direction',  str(mux_info_dict["self_mux_direction"])),
+                     ('peer_mux_direction',  str(mux_info_dict["peer_mux_direction"])),
+                     ('peer_mux_direction_probe_count',  str(mux_info_dict["peer_mux_direction_probe_count"])),
+                     ('mux_direction_probe_count',  str(mux_info_dict["mux_direction_probe_count"])),
+                     ('link_state_probe_count',  str(mux_info_dict["link_state_probe_count"])),
+                     ('peer_link_state_probe_count',  str(mux_info_dict["peer_link_state_probe_count"])),
+                     ('operation_state_probe_count',  str(mux_info_dict["operation_state_probe_count"])),
+                     ('peer_operation_state_probe_count',  str(mux_info_dict["peer_operation_state_probe_count"])),
+                     ('grpc_connection_status',  str(mux_info_dict["grpc_connection_status"]))
+                     ])
+                mux_tbl[asic_index].set(logical_port_name, fvs)
+                return
+            else:
+                return -1
         else:
             mux_info_dict = get_muxcable_info(physical_port, logical_port_name, mux_tbl, asic_index, y_cable_tbl)
 
@@ -3168,7 +3350,7 @@ def handle_show_hwmode_state_cmd_arg_tbl_notification(fvp, port_tbl, xcvrd_show_
 
             ret, response = try_grpc(stub.QueryAdminForwardingPortState, QUERY_ADMIN_FORWARDING_TIMEOUT , request)
 
-            (self_state, peer_state) = parse_grpc_response_forwarding_state(ret, response, read_side)
+            (self_state, peer_state) = parse_grpc_response_forwarding_state(ret, response, read_side, port)
             state = self_state
             set_result_and_delete_port('state', state, xcvrd_show_hwmode_dir_cmd_sts_tbl[asic_index], xcvrd_show_hwmode_dir_rsp_tbl[asic_index], port)
             if response is not None:
@@ -3211,7 +3393,7 @@ def parse_grpc_response_hw_mux_cable_change_state(ret, response, portid, port):
     return state
 
 
-def parse_grpc_response_forwarding_state(ret, response, read_side):
+def parse_grpc_response_forwarding_state(ret, response, read_side, port):
     self_state = peer_state = 'unknown'
 
     if ret is True and response is not None:
@@ -3245,6 +3427,17 @@ def parse_grpc_response_forwarding_state(ret, response, read_side):
     else:
         self_state = 'unknown'
         peer_state = 'unknown'
+
+    stat = grpc_port_stats.get(port,None)
+    if stat is not None:
+        grpc_port_stats[port]["mux_direction_probe_count"] = str(int(stat.get("mux_direction_probe_count", 0)) + 1 )
+        grpc_port_stats[port]["peer_mux_direction_probe_count"] = str(int(stat.get("peer_mux_direction_probe_count", 0)) + 1 )
+    else:
+        grpc_port_stats[port] = {}
+        grpc_port_stats[port]["mux_direction_probe_count"] = 0
+        grpc_port_stats[port]["peer_mux_direction_probe_count"] = 0
+
+    
 
     return (self_state, peer_state)
 
@@ -3290,7 +3483,7 @@ def handle_fwd_state_command_grpc_notification(fvp_m, hw_mux_cable_tbl, fwd_stat
 
             ret, response = try_grpc(stub.QueryAdminForwardingPortState, QUERY_ADMIN_FORWARDING_TIMEOUT, request)
 
-            (self_state, peer_state) = parse_grpc_response_forwarding_state(ret, response, read_side)
+            (self_state, peer_state) = parse_grpc_response_forwarding_state(ret, response, read_side, port)
             if response is not None:
                 # Debug only, remove this section once Server side is Finalized
                 fwd_response_port_ids = response.portid
