@@ -32,7 +32,7 @@ class Sff8472Api(XcvrApi):
 
         len_types = ["Length SMF (km)", "Length SMF (100m)", "Length OM2 (10m)", "Length OM1(10m)", "Length OM4(10m)", "Length OM3(10m)"]
         cable_len = 0
-        cable_type = None
+        cable_type = "Unknown"
         for len, type in zip([smf_km_len, smf_m_len, om2_len, om1_len, om4_len, om3_len], len_types):
             if len > 0:
                 cable_len = len
