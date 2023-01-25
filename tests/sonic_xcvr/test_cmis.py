@@ -358,9 +358,11 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ([True, 2, {'TxBias1': 2}], {'TxBias1': 8}),
-        ([True, 3, {'TxBias1': 2}], {'TxBias1': 2}),
-        ([False, 0, {'TxBias1': 0}], ['N/A','N/A','N/A','N/A','N/A','N/A','N/A','N/A']),
+        ([True, 2, {'LaserBiasTx1Field': 2, 'LaserBiasTx2Field': 2, 'LaserBiasTx3Field': 2, 'LaserBiasTx4Field': 2, 'LaserBiasTx5Field': 2, 'LaserBiasTx6Field': 2, 'LaserBiasTx7Field': 2, 'LaserBiasTx8Field': 2}],
+        [8, 8, 8, 8, 8, 8, 8, 8]),
+        ([True, 3, {'LaserBiasTx1Field': 2, 'LaserBiasTx2Field': 2, 'LaserBiasTx3Field': 2, 'LaserBiasTx4Field': 2, 'LaserBiasTx5Field': 2, 'LaserBiasTx6Field': 2, 'LaserBiasTx7Field': 2, 'LaserBiasTx8Field': 2}],
+        [2, 2, 2, 2, 2, 2, 2, 2]),
+        ([False, 0, {'LaserBiasTx1Field': 0}], ['N/A','N/A','N/A','N/A','N/A','N/A','N/A','N/A']),
         ([None, 0, None], None)
     ])
     def test_get_tx_bias(self, mock_response, expected):
@@ -1221,10 +1223,7 @@ class TestCmis(object):
                 0,
                 50,
                 3.3,
-                {'LaserBiasTx1Field': 70, 'LaserBiasTx2Field': 70,
-                 'LaserBiasTx3Field': 70, 'LaserBiasTx4Field': 70,
-                 'LaserBiasTx5Field': 70, 'LaserBiasTx6Field': 70,
-                 'LaserBiasTx7Field': 70, 'LaserBiasTx8Field': 70},
+                [70, 70, 70, 70, 70, 70, 70, 70],
                 [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
                 [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
                 True, True, True, True, True, True,
