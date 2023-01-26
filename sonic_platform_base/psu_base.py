@@ -5,6 +5,7 @@
     to interact with a power supply unit (PSU) in SONiC
 """
 
+import sys
 from . import device_base
 
 
