@@ -120,6 +120,12 @@ class CmisMemMap(XcvrMemMap):
             CodeRegField(consts.DP_PATH_DEINIT_DURATION, self.getaddr(0x1, 144), self.codes.DP_PATH_TIMINGS,
                  *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8))
             ),
+            CodeRegField(consts.MODULE_PWRUP_DURATION, self.getaddr(0x1, 167), self.codes.DP_PATH_TIMINGS,
+                 *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 4))
+            ),
+            CodeRegField(consts.MODULE_PWRDN_DURATION, self.getaddr(0x1, 167), self.codes.DP_PATH_TIMINGS,
+                 *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8))
+            ),
             NumberRegField(consts.MEDIA_LANE_ASSIGNMENT_OPTION, self.getaddr(0x1, 176), format="B", size=1),
 
             RegGroupField(consts.ACTIVE_APSEL_CODE,
