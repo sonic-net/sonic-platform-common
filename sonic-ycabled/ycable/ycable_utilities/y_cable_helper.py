@@ -2755,6 +2755,7 @@ def handle_config_firmware_down_cmd_arg_tbl_notification(fvp, xcvrd_down_fw_cmd_
 def handle_show_ber_cmd_arg_tbl_notification(fvp, xcvrd_show_ber_cmd_arg_tbl, xcvrd_show_ber_rsp_tbl, xcvrd_show_ber_cmd_sts_tbl, xcvrd_show_ber_res_tbl, asic_index, port):
     fvp_dict = dict(fvp)
     status = 'False'
+    res = None
 
     if "get_ber" in fvp_dict:
 
@@ -2847,7 +2848,7 @@ def handle_show_ber_cmd_arg_tbl_notification(fvp, xcvrd_show_ber_cmd_arg_tbl, xc
                     helper_logger.log_warning("Failed to execute cli cmd get_alive_status API for port {} due to {}".format(physical_port,repr(e)))
             if res is not None:
                 fvs_log = swsscommon.FieldValuePairs(
-                    [("cable", str(res))])
+                    [("cable_alive", str(res))])
                 xcvrd_show_ber_res_tbl[asic_index].set(port, fvs_log)
         elif mode == "health_check":
             with y_cable_port_locks[physical_port]:
@@ -2859,7 +2860,7 @@ def handle_show_ber_cmd_arg_tbl_notification(fvp, xcvrd_show_ber_cmd_arg_tbl, xc
                     helper_logger.log_warning("Failed to execute cli cmd get_health API for port {} due to {}".format(physical_port,repr(e)))
             if res is not None:
                 fvs_log = swsscommon.FieldValuePairs(
-                    [("cable", str(res))])
+                    [("health_check", str(res))])
                 xcvrd_show_ber_res_tbl[asic_index].set(port, fvs_log)
         elif mode == "reset_cause":
             with y_cable_port_locks[physical_port]:
@@ -2871,7 +2872,7 @@ def handle_show_ber_cmd_arg_tbl_notification(fvp, xcvrd_show_ber_cmd_arg_tbl, xc
                     helper_logger.log_warning("Failed to execute reset cause cmd API for port {} due to {}".format(physical_port,repr(e)))
             if res is not None:
                 fvs_log = swsscommon.FieldValuePairs(
-                    [("cable", str(res))])
+                    [("reset_cause", str(res))])
                 xcvrd_show_ber_res_tbl[asic_index].set(port, fvs_log)
         elif mode == "operation_time":
             with y_cable_port_locks[physical_port]:
@@ -2883,7 +2884,7 @@ def handle_show_ber_cmd_arg_tbl_notification(fvp, xcvrd_show_ber_cmd_arg_tbl, xc
                     helper_logger.log_warning("Failed to execute operation time cmd API for port {} due to {}".format(physical_port,repr(e)))
             if res is not None:
                 fvs_log = swsscommon.FieldValuePairs(
-                    [("cable", str(res))])
+                    [("operation_time", str(res))])
                 xcvrd_show_ber_res_tbl[asic_index].set(port, fvs_log)
         elif mode == "debug_dump":
             option = res_dir.get("option", None)
