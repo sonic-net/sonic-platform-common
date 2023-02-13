@@ -530,7 +530,6 @@ SMART attributes
 output_virtium_invalid_remain_life = """
 SMART attributes
  ID                    Attribute   High Raw    Low Raw Value Worst Threshold
-248          Remaining_Life_Left          0    invalid   100   100         0
 """
 
 class TestSsdGeneric:

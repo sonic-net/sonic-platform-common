@@ -147,7 +147,7 @@ class SsdUtil(SsdBase):
                     self.health = float(self._parse_re('Remaining_Life_Left\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info))
                 except ValueError:
                     pass
-                
+        
     def fetch_vendor_ssd_info(self, diskdev, model):
         self.vendor_ssd_info = self._execute_shell(self.vendor_ssd_utility[model]["utility"].format(diskdev))
 
