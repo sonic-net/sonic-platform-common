@@ -520,6 +520,19 @@ SMART attributes
 249  Remaining_Spare_Block_Count          0        100   100   100         0
 """
 
+output_virtium_invalid_nand_endurance = """
+SMART attributes
+ ID                    Attribute   High Raw    Low Raw Value Worst Threshold
+167          Average_Erase_Count          0        116   100   100         0
+168               NAND_Endurance          0          0   100   100         0
+"""
+
+output_virtium_invalid_remain_life = """
+SMART attributes
+ ID                    Attribute   High Raw    Low Raw Value Worst Threshold
+248          Remaining_Life_Left          0    invalid   100   100         0
+"""
+
 class TestSsdGeneric:
     @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell', mock.MagicMock(return_value=output_nvme_ssd))
     def test_nvme_ssd(self):
@@ -601,3 +614,11 @@ class TestSsdGeneric:
         mock_exec.side_effect = [output_virtium_generic, output_virtium_no_remain_life]
         virtium_ssd = SsdUtil('/dev/sda')
         assert virtium_ssd.get_health() == 99.42
+
+        mock_exec.side_effect = [output_virtium_generic, output_virtium_invalid_nand_endurance]
+        virtium_ssd = SsdUtil('/dev/sda')
+        assert virtium_ssd.get_health() == "N/A"
+
+        mock_exec.side_effect = [output_virtium_generic, output_virtium_invalid_remain_life]
+        virtium_ssd = SsdUtil('/dev/sda')
+        assert virtium_ssd.get_health() == "N/A"
