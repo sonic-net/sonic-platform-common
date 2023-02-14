@@ -3674,8 +3674,22 @@ class YCable(YCableBase):
                 return YCable.CABLE_UNHEALTHY
 
             uart_stat = self.get_uart_stat()
-            if api_ver >= 0x18 and uart_stat['Local']['UART2']['RxErrorCnt'] > 100:
-                self.log_error("check cable health fail: uart rx error count overlimit:%d" % (uart_stat['local']['UART2']['RxErrorCnt']))
+            if api_ver >= 0x18:
+                if uart_stat['Local']['UART2']['RxErrorCnt'] > 100:
+                    self.log_error("check cable health fail: uart rx error count overlimit:%d" % (uart_stat['local']['UART2']['RxErrorCnt']))
+                    return YCable.CABLE_UNHEALTHY
+
+            if ((uart_stat['Local']['UART1']['TxRetryCnt'] > 10000 and uart_stat['Local']['UART1']['TxAbortCnt'] > 5000) or 
+                (uart_stat['Local']['UART2']['TxRetryCnt'] > 10000 and uart_stat['Local']['UART2']['TxAbortCnt'] > 5000) or 
+                (uart_stat['Remote']['UART1']['TxRetryCnt'] > 10000 and uart_stat['Remote']['UART1']['TxAbortCnt'] > 5000) or 
+                (uart_stat['Remote']['UART2']['TxRetryCnt'] > 10000 and uart_stat['Remote']['UART2']['TxAbortCnt'] > 5000)):
+
+                self.log_error("check cable health fail: uart tx retry and abort count overlimit: LU1:%d %d LU2:%d %d RU1:%d %d RU2:%d %d" % 
+                                            (uart_stat['Local']['UART1']['TxRetryCnt'],  uart_stat['Local']['UART1']['TxAbortCnt'],
+                                             uart_stat['Local']['UART2']['TxRetryCnt'],  uart_stat['Local']['UART1']['TxAbortCnt'],
+                                             uart_stat['Remote']['UART1']['TxRetryCnt'], uart_stat['Local']['UART1']['TxAbortCnt'],
+                                             uart_stat['Remote']['UART2']['TxRetryCnt'], uart_stat['Local']['UART1']['TxAbortCnt']))
+
                 return YCable.CABLE_UNHEALTHY
 
             serdes_fw_tag = self.reg_read_atomic(0xB71A)
