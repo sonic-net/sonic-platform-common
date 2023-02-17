@@ -142,7 +142,6 @@ class CmisApi(XcvrApi):
             "cable_type": "Length Cable Assembly(m)",
             "cable_length": float(admin_info[consts.LENGTH_ASSEMBLY_FIELD]),
             "nominal_bit_rate": 0, # Not supported
-            "specification_compliance": admin_info[consts.MEDIA_TYPE_FIELD],
             "vendor_date": admin_info[consts.VENDOR_DATE_FIELD],
             "vendor_oui": admin_info[consts.VENDOR_OUI_FIELD]
         }
