@@ -943,7 +943,7 @@ class CmisManagerTask(threading.Thread):
 
     CMIS_MAX_RETRIES     = 3
     CMIS_DEF_EXPIRED     = 60 # seconds, default expiration time
-    CMIS_MODULE_TYPES    = ['QSFP-DD', 'QSFP_DD', 'OSFP']
+    CMIS_MODULE_TYPES    = ['QSFP-DD', 'QSFP_DD', 'OSFP', 'QSFP+C']
     CMIS_NUM_CHANNELS    = 8
 
     CMIS_STATE_UNKNOWN   = 'UNKNOWN'
