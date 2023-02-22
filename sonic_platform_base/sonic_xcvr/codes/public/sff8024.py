@@ -247,7 +247,9 @@ class Sff8024(XcvrCodes):
         61: 'FOIC2.8 (ITU-T G.709.1/Y.1331 G.Sup58)',
         62: 'FOIC2.4 (ITU-T G.709.1/Y.1331 G.Sup58)',
         63: 'FOIC4.16 (ITU-T G.709.1 G.Sup58)',
-        64: 'FOIC4.8 (ITU-T G.709.1 G.Sup58)'
+        64: 'FOIC4.8 (ITU-T G.709.1 G.Sup58)',
+        65: 'CAUI-4 C2M (Annex 83E) without FEC',
+        66: 'CAUI-4 C2M (Annex 83E) with RS(528,514) FEC'
     }
 
     NM_850_MEDIA_INTERFACE = {
