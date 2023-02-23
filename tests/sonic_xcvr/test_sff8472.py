@@ -1,6 +1,8 @@
 from mock import MagicMock
 import sys
 import pytest
+import random
+import traceback
 
 from sonic_platform_base.sonic_xcvr.api.public.sff8472 import Sff8472Api
 from sonic_platform_base.sonic_xcvr.codes.public.sff8472 import Sff8472Codes
@@ -186,3 +188,20 @@ class TestSff8472(object):
         self.api.xcvr_eeprom.reader.return_value = mock_response
         result = self.api.xcvr_eeprom.read(consts.FIBRE_CHANNEL_TRANSMITTER_TECH_FIELD)
         assert result == expected
+
+    def test_random_read_fail(self):
+        def mock_read_raw(offset, size):
+            i = random.randint(0, 1)
+            return None if i == 0 else b'0' * size
+
+        self.api.xcvr_eeprom.reader = mock_read_raw
+
+        run_num = 5
+        while run_num > 0:
+            try:
+                self.api.get_transceiver_bulk_status()
+                self.api.get_transceiver_info()
+                self.api.get_transceiver_threshold_info()
+            except:
+                assert 0, traceback.format_exc()
+            run_num -= 1

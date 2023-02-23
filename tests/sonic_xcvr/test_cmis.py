@@ -1,5 +1,7 @@
 from mock import MagicMock
 import pytest
+import traceback
+import random
 from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis import CmisMemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
@@ -2110,3 +2112,21 @@ class TestCmis(object):
 
         result = self.api.get_error_description()
         assert result is None
+
+    def test_random_read_fail(self):
+        def mock_read_raw(offset, size):
+            i = random.randint(0, 1)
+            return None if i == 0 else b'0' * size
+
+        self.api.xcvr_eeprom.reader = mock_read_raw
+
+        run_num = 5
+        while run_num > 0:
+            try:
+                self.api.get_transceiver_bulk_status()
+                self.api.get_transceiver_info()
+                self.api.get_transceiver_threshold_info()
+                self.api.get_transceiver_status()
+            except:
+                assert 0, traceback.format_exc()
+            run_num -= 1
