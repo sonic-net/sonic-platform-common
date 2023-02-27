@@ -34,16 +34,8 @@ steps:
     runVersion: 'latestFromBranch'
     runBranch: 'refs/heads/$(BRANCH_NAME)'
     patterns: |
-      **/swsssdk-2.0.1-py3-none-any.whl
-      **/sonic_py_common-1.0-py3-none-any.whl
-      **/sonic_yang_mgmt-1.0-py3-none-any.whl
-      **/sonic_yang_models-1.0-py3-none-any.whl
-      **/sonic_config_engine-1.0-py3-none-any.whl
-      **/libnl*.deb
-      **/libyang*.deb
-      **/libhiredis*.deb
-      **/libswsscommon*.deb
-      **/python3-swsscommon*.deb
+      **/*.whl
+      **/*.deb
     path: '$(Build.ArtifactStagingDirectory)'
   displayName: "Download artifacts from latest sonic-buildimage build"
 
