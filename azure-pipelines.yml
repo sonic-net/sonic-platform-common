@@ -33,11 +33,17 @@ steps:
     artifact: sonic-buildimage.vs
     runVersion: 'latestFromBranch'
     runBranch: 'refs/heads/$(BRANCH_NAME)'
+    patterns: |
+      swsssdk-2.0.1-py3-none-any.whl
+      sonic_py_common-1.0-py3-none-any.whl
+      sonic_yang_mgmt-1.0-py3-none-any.whl
+      sonic_yang_models-1.0-py3-none-any.whl
+      sonic_config_engine-1.0-py3-none-any.whl
   displayName: "Download artifacts from latest sonic-buildimage build"
 
 - script: |
     set -xe
-    sudo apt-get -y purge libhiredis-dev libnl-3-dev libnl-route-3-dev
+    sudo apt-get -y purge libhiredis-dev libnl-3-dev libnl-route-3-dev || true
     sudo dpkg -i libyang_1.0.73_amd64.deb \
                  libnl-3-200_*.deb \
                  libnl-genl-3-200_*.deb \
