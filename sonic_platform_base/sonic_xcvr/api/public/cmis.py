@@ -190,9 +190,7 @@ class CmisApi(XcvrApi):
                       tx_disabled_channel is None or \
                       temp is None or \
                       voltage is None or \
-                      tx_bias is None or \
-                      rx_power is None or \
-                      tx_power is None
+                      tx_bias is None
         if read_failed:
             return None
 
@@ -207,8 +205,8 @@ class CmisApi(XcvrApi):
         for i in range(1, self.NUM_CHANNELS + 1):
             bulk_status["tx%ddisable" % i] = tx_disable[i-1] if self.get_tx_disable_support() else 'N/A'
             bulk_status["tx%dbias" % i] = tx_bias[i - 1]
-            bulk_status["rx%dpower" % i] = float("{:.3f}".format(self.mw_to_dbm(rx_power[i - 1]))) if self.get_rx_power_support() else 'N/A'
-            bulk_status["tx%dpower" % i] = float("{:.3f}".format(self.mw_to_dbm(tx_power[i - 1]))) if self.get_tx_power_support() else 'N/A'
+            bulk_status["rx%dpower" % i] = float("{:.3f}".format(self.mw_to_dbm(rx_power[i - 1]))) if self.get_rx_power_support() and rx_power[i - 1] != 'N/A' else 'N/A'
+            bulk_status["tx%dpower" % i] = float("{:.3f}".format(self.mw_to_dbm(tx_power[i - 1]))) if self.get_tx_power_support() and tx_power[i - 1] != 'N/A' else 'N/A'
 
         laser_temp_dict = self.get_laser_temperature()
         self.vdm_dict = self.get_vdm()
