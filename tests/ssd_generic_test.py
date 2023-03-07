@@ -1,4 +1,3 @@
-
 import sys
 if sys.version_info.major == 3:
     from unittest import mock
@@ -70,6 +69,74 @@ Temperature Sensor 2:               38 Celsius
 Error Information (NVMe Log 0x01, 16 of 64 entries)
 Num   ErrCount  SQId   CmdId  Status  PELoc          LBA  NSID    VS
   0       5275     0  0x0001  0x0004      -            0     1     -"""
+
+output_SmartCmd_info = """SmartCmd -m /dev/sda
+SMART attributes
+ ID                    Attribute   High Raw    Low Raw Value Worst Threshold
+  1          Raw_Read_Error_Rate          0          0   100   100         0
+  5           Reserved_Attribute          0          0   100   100         0
+  9               Power_On_Hours          0        624   100   100         0
+ 12            Power_Cycle_Count          0        113   100   100         0
+160   Uncorrectable_Sector_Count          0          0   100   100         0
+161            Valid_Spare_Block          0         45   100   100         0
+163           Reserved_Attribute          0         23   100   100         0
+164           Reserved_Attribute          0     128531   100   100         0
+165          Maximum_Erase_Count          0        160   100   100         0
+166           Reserved_Attribute          0         60   100   100         0
+167          Average_Erase_Count          0        126   100   100         0
+168               NAND_Endurance          0       3000   100   100         0
+169          Remaining_Life_Left          0        100   100   100         0
+175           Reserved_Attribute          0          0   100   100         0
+176           Reserved_Attribute          0          0   100   100         0
+177           Reserved_Attribute          0         20   100   100        50
+178           Reserved_Attribute          0          0   100   100         0
+181           Total_Program_Fail          0          0   100   100         0
+182             Total_Erase_Fail          0          0   100   100         0
+192      Sudden_Power_Lost_Count          0         47   100   100         0
+194          Temperature_Celsius          0         37   100   100         0
+195       Hardware_ECC_Recovered          0       1063   100   100         0
+196      Reallocated_Event_Count          0          0   100   100        16
+197 Current_Pending_Sector_Count          0          0   100   100         0
+198           Reserved_Attribute          0          0   100   100         0
+199         UDMA_CRC_Error_Count          0          0   100   100        50
+232           Reserved_Attribute          0        100   100   100         0
+241           Total_LBAs_Written          0      79687   100   100         0
+242              Total_LBAs_Read          0      51039   100   100         0
+245           Reserved_Attribute          0     128531   100   100         0  """
+
+output_SmartCmd_info_2 = """SmartCmd -m /dev/sda
+SMART attributes
+ ID                    Attribute   High Raw    Low Raw Value Worst Threshold
+  1          Raw_Read_Error_Rate          0          0   100   100         0
+  5           Reserved_Attribute          0          0   100   100         0
+  9               Power_On_Hours          0        624   100   100         0
+ 12            Power_Cycle_Count          0        113   100   100         0
+160   Uncorrectable_Sector_Count          0          0   100   100         0
+161            Valid_Spare_Block          0         45   100   100         0
+163           Reserved_Attribute          0         23   100   100         0
+164           Reserved_Attribute          0     128531   100   100         0
+165          Maximum_Erase_Count          0        160   100   100         0
+166           Reserved_Attribute          0         60   100   100         0
+167          Average_Erase_Count          0        126   100   100         0
+168               NAND_Endurance          0       3000   100   100         0
+169          Remaining_Life_Left          0         95   100   100         0
+175           Reserved_Attribute          0          0   100   100         0
+176           Reserved_Attribute          0          0   100   100         0
+177           Reserved_Attribute          0         20   100   100        50
+178           Reserved_Attribute          0          0   100   100         0
+181           Total_Program_Fail          0          0   100   100         0
+182             Total_Erase_Fail          0          0   100   100         0
+192      Sudden_Power_Lost_Count          0         47   100   100         0
+194          Temperature_Celsius          0         30   100   100         0
+195       Hardware_ECC_Recovered          0       1063   100   100         0
+196      Reallocated_Event_Count          0          0   100   100        16
+197 Current_Pending_Sector_Count          0          0   100   100         0
+198           Reserved_Attribute          0          0   100   100         0
+199         UDMA_CRC_Error_Count          0          0   100   100        50
+232           Reserved_Attribute          0        100   100   100         0
+241           Total_LBAs_Written          0      79687   100   100         0
+242              Total_LBAs_Read          0      51039   100   100         0
+245           Reserved_Attribute          0     128531   100   100         0  """
 
 output_ssd = """smartctl 6.6 2017-11-05 r4594 [x86_64-linux-5.10.0-8-2-amd64] (local build)
 Copyright (C) 2002-17, Bruce Allen, Christian Franke, www.smartmontools.org
@@ -345,14 +412,14 @@ Selective Self-tests/Logging not supported
 """
 
 class TestSsdGeneric:
-    @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell', mock.MagicMock(return_value=output_nvme_ssd))
+    @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell', mock.MagicMock(side_effect=[output_nvme_ssd,output_SmartCmd_info]))
     def test_nvme_ssd(self):
         # Test parsing nvme ssd info
         nvme_ssd = SsdUtil('/dev/nvme0n1')
-        assert(nvme_ssd.get_health() == 100.0)
+        assert(nvme_ssd.get_health() == '100')
         assert(nvme_ssd.get_model() == 'SFPC020GM1EC2TO-I-5E-11P-STD')
         assert(nvme_ssd.get_firmware() == "COT6OQ")
-        assert(nvme_ssd.get_temperature() == 37)
+        assert(nvme_ssd.get_temperature() == '37')
         assert(nvme_ssd.get_serial() == "A0221030722410000027")
 
     @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell', mock.MagicMock(return_value=output_lack_info_ssd))
@@ -365,7 +432,7 @@ class TestSsdGeneric:
         assert(nvme_ssd.get_temperature() == "N/A")
         assert(nvme_ssd.get_serial() == "N/A")
 
-    @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell', mock.MagicMock(return_value=output_ssd))
+    @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell', mock.MagicMock(side_effect=[output_ssd,output_SmartCmd_info_2]))
     def test_ssd(self):
         # Test parsing a normal ssd info
         ssd = SsdUtil('/dev/sda')
@@ -411,4 +478,3 @@ class TestSsdGeneric:
         Innodisk_ssd.parse_vendor_ssd_info('InnoDisk')
         assert(Innodisk_ssd.get_health() == '94')
         assert(Innodisk_ssd.get_temperature() == '39')
-
