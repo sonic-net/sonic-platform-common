@@ -1,3 +1,4 @@
+from unittest.mock import patch
 from mock import MagicMock
 import pytest
 from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi
@@ -679,8 +680,8 @@ class TestCmis(object):
         (1, 1),
         (2, 17)
     ])
-    def test_get_host_lane_assignment_option(self, appl, expected):
-        appl_advert_dict = {
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_application_advertisement', MagicMock(return_value =
+        {
             1: {
                 'host_electrical_interface_id': '400GAUI-8 C2M (Annex 120E)',
                 'module_media_interface_id': '400GBASE-DR4 (Cl 124)',
@@ -696,8 +697,8 @@ class TestCmis(object):
                 'host_lane_assignment_options': 17
             }
         }
-        self.api.get_application_advertisement = MagicMock(return_value=appl_advert_dict)
-
+    ))
+    def test_get_host_lane_assignment_option(self, appl, expected):
         result = self.api.get_host_lane_assignment_option(appl)
         assert result == expected
 
