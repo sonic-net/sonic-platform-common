@@ -715,11 +715,15 @@ class CmisApi(XcvrApi):
         '''
         return self.xcvr_eeprom.read(consts.MEDIA_INTERFACE_TECH)
 
-    def get_host_lane_assignment_option(self):
+    def get_host_lane_assignment_option(self, app=1):
         '''
         This function returns the host lane that the application begins on
+        Args:
+            app:
+                Integer, desired application for which host_lane_assignment_options are requested
         '''
-        return self.xcvr_eeprom.read(consts.HOST_LANE_ASSIGNMENT_OPTION)
+        appl_advt = self.get_application_advertisement()
+        return appl_advt[app]['host_lane_assignment_options'] if len(appl_advt) > 0 else 0
 
     def get_media_lane_assignment_option(self):
         '''
