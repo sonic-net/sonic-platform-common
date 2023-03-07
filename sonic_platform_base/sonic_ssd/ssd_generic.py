@@ -115,12 +115,18 @@ class SsdUtil(SsdBase):
         if self.vendor_ssd_info:
             self.health = self._parse_re('Health:\s*(.+?)%', self.vendor_ssd_info)
             self.temperature = self._parse_re('Temperature\s*\[\s*(.+?)\]', self.vendor_ssd_info)
-        else:
-            if self.health == NOT_AVAILABLE:
-                health_raw = self.parse_id_number(INNODISK_HEALTH_ID)
+        
+        if self.health == NOT_AVAILABLE:
+            health_raw = self.parse_id_number(INNODISK_HEALTH_ID)
+            if health_raw == NOT_AVAILABLE:
+                self.health = NOT_AVAILABLE
+            else:
                 self.health = health_raw.split()[-1]
-            if self.temperature == NOT_AVAILABLE:
-                temp_raw = self.parse_id_number(INNODISK_TEMPERATURE_ID)
+        if self.temperature == NOT_AVAILABLE:
+            temp_raw = self.parse_id_number(INNODISK_TEMPERATURE_ID)
+            if temp_raw == NOT_AVAILABLE:
+                self.temperature = NOT_AVAILABLE
+            else:
                 self.temperature = temp_raw.split()[-6]
 
     def parse_virtium_info(self):
