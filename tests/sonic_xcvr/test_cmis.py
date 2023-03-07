@@ -675,13 +675,30 @@ class TestCmis(object):
         result = self.api.get_media_interface_technology()
         assert result == expected
 
-    @pytest.mark.parametrize("mock_response, expected", [
-        (1, 1)
+    @pytest.mark.parametrize("appl, expected", [
+        (1, 1),
+        (2, 17)
     ])
-    def test_get_host_lane_assignment_option(self, mock_response, expected):
-        self.api.xcvr_eeprom.read = MagicMock()
-        self.api.xcvr_eeprom.read.return_value = mock_response
-        result = self.api.get_host_lane_assignment_option()
+    def test_get_host_lane_assignment_option(self, appl, expected):
+        appl_advert_dict = {
+            1: {
+                'host_electrical_interface_id': '400GAUI-8 C2M (Annex 120E)',
+                'module_media_interface_id': '400GBASE-DR4 (Cl 124)',
+                'media_lane_count': 4,
+                'host_lane_count': 8,
+                'host_lane_assignment_options': 1
+            },
+            2: {
+                'host_electrical_interface_id': 'CAUI-4 C2M (Annex 83E)',
+                'module_media_interface_id': 'Active Cable assembly with BER < 5x10^-5',
+                'media_lane_count': 4,
+                'host_lane_count': 4,
+                'host_lane_assignment_options': 17
+            }
+        }
+        self.api.get_application_advertisement = MagicMock(return_value=appl_advert_dict)
+
+        result = self.api.get_host_lane_assignment_option(appl)
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
