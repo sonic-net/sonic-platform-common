@@ -170,6 +170,8 @@ ACTIVE_FW_MAJOR_REV = "ModuleActiveFirmwareMajorRevision"
 ACTIVE_FW_MINOR_REV = "ModuleActiveFirmwareMinorRevision"
 INACTIVE_FW_MAJOR_REV = "ModuleInactiveFirmwareMajorRevision"
 INACTIVE_FW_MINOR_REV = "ModuleInactiveFirmwareMinorRevision"
+DP_PATH_INIT_DURATION = "DPInitDuration"
+DP_PATH_DEINIT_DURATION = "DPDeinitDuration"
 
 # DOM
 TRANS_DOM_FIELD = "TransceiverDom"

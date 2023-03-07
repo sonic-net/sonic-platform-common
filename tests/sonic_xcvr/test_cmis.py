@@ -358,9 +358,11 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ([True, 2, {'TxBias1': 2}], {'TxBias1': 8}),
-        ([True, 3, {'TxBias1': 2}], {'TxBias1': 2}),
-        ([False, 0, {'TxBias1': 0}], ['N/A','N/A','N/A','N/A','N/A','N/A','N/A','N/A']),
+        ([True, 2, {'LaserBiasTx1Field': 2, 'LaserBiasTx2Field': 2, 'LaserBiasTx3Field': 2, 'LaserBiasTx4Field': 2, 'LaserBiasTx5Field': 2, 'LaserBiasTx6Field': 2, 'LaserBiasTx7Field': 2, 'LaserBiasTx8Field': 2}],
+        [8, 8, 8, 8, 8, 8, 8, 8]),
+        ([True, 3, {'LaserBiasTx1Field': 2, 'LaserBiasTx2Field': 2, 'LaserBiasTx3Field': 2, 'LaserBiasTx4Field': 2, 'LaserBiasTx5Field': 2, 'LaserBiasTx6Field': 2, 'LaserBiasTx7Field': 2, 'LaserBiasTx8Field': 2}],
+        [2, 2, 2, 2, 2, 2, 2, 2]),
+        ([False, 0, {'LaserBiasTx1Field': 0}], ['N/A','N/A','N/A','N/A','N/A','N/A','N/A','N/A']),
         ([None, 0, None], None)
     ])
     def test_get_tx_bias(self, mock_response, expected):
@@ -616,6 +618,34 @@ class TestCmis(object):
         self.api.get_module_media_interface = MagicMock()
         self.api.get_module_media_interface.return_value = mock_response
         result = self.api.is_coherent_module()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
+        (True, '1', 0 ),
+        (False, None, 0),
+        (False, '5', 5.0),
+        (False, '60000', 60000.0),
+    ])
+    def test_get_datapath_init_duration(self, mock_response1, mock_response2, expected):
+        self.api.is_flat_memory = MagicMock()
+        self.api.is_flat_memory.return_value = mock_response1
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.return_value = mock_response2
+        result = self.api.get_datapath_init_duration()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
+        (True, '10', 0 ),
+        (False, None, 0),
+        (False, '50', 50.0),
+        (False, '6000000', 6000000.0),
+    ])
+    def test_get_datapath_deinit_duration(self, mock_response1, mock_response2, expected):
+        self.api.is_flat_memory = MagicMock()
+        self.api.is_flat_memory.return_value = mock_response1
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.return_value = mock_response2
+        result = self.api.get_datapath_deinit_duration()
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
@@ -996,6 +1026,27 @@ class TestCmis(object):
         result = self.api.get_module_level_flag()
         assert result == expected
 
+    @pytest.mark.parametrize("mock_response, expected", [
+        ((128, 1, [0] * 128),  {'status': True, 'info': "", 'result': 0}),
+        ((None, 1, [0] * 128),  {'status': False, 'info': "", 'result': 0}),
+        ((128, None, [0] * 128),  {'status': False, 'info': "", 'result': 0}),
+        ((128, 0, [0] * 128),  {'status': False, 'info': "", 'result': None}),
+    ])
+    def test_get_module_fw_info(self, mock_response, expected):
+        self.api.cdb = MagicMock()
+        self.api.cdb.cdb_chkcode = MagicMock()
+        self.api.cdb.cdb_chkcode.return_value = 1
+        self.api.get_module_active_firmware = MagicMock()
+        self.api.get_module_active_firmware.return_value = "1.0"
+        self.api.get_module_inactive_firmware = MagicMock()
+        self.api.get_module_inactive_firmware.return_value = "1.1"
+        self.api.cdb.get_fw_info = MagicMock()
+        self.api.cdb.get_fw_info.return_value = mock_response
+        result = self.api.get_module_fw_info()
+        if result['status'] == False: # Check 'result' when 'status' == False for distinguishing error type.
+            assert result['result'] == expected['result']
+        assert result['status'] == expected['status']
+
     @pytest.mark.parametrize("input_param, mock_response, expected", [
         (1, 1,  (True, 'Module FW run: Success\n')),
         (1, 64,  (False, 'Module FW run: Fail\nFW_run_status 64\n')),
@@ -1157,6 +1208,10 @@ class TestCmis(object):
         self.api.is_flat_memory.return_value = False
         result = self.api.get_transceiver_info()
         assert result == expected
+        # Test negative path
+        self.api.get_cmis_rev.return_value = None
+        result = self.api.get_transceiver_info()
+        assert result == None
 
 
     @pytest.mark.parametrize("mock_response, expected",[
@@ -1168,17 +1223,17 @@ class TestCmis(object):
                 0,
                 50,
                 3.3,
-                {'LaserBiasTx1Field': 70, 'LaserBiasTx2Field': 70,
-                 'LaserBiasTx3Field': 70, 'LaserBiasTx4Field': 70,
-                 'LaserBiasTx5Field': 70, 'LaserBiasTx6Field': 70,
-                 'LaserBiasTx7Field': 70, 'LaserBiasTx8Field': 70},
+                [70, 70, 70, 70, 70, 70, 70, 70],
                 [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
                 [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
                 True, True, True, True, True, True,
                 {'monitor value': 40},
                 {
                     'Pre-FEC BER Average Media Input':{1:[0.001, 0.0125, 0, 0.01, 0, False, False, False, False]},
+                    'Errored Frames Minimum Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
+                    'Errored Frames Maximum Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
                     'Errored Frames Average Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
+                    'Errored Frames Current Value Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
                 }
             ],
             {
@@ -1197,7 +1252,10 @@ class TestCmis(object):
                 'tx_disabled_channel': 0,
                 'laser_temperature': 40,
                 'prefec_ber': 0.001,
-                'postfec_ber': 0,
+                'postfec_ber_min': 0,
+                'postfec_ber_max': 0,
+                'postfec_ber_avg': 0,
+                'postfec_curr_val': 0,
             }
         ),
         (
@@ -1953,7 +2011,8 @@ class TestCmis(object):
                 consts.MODULE_MEDIA_INTERFACE_SM + "_1": "400GBASE-DR4 (Cl 124)",
                 consts.MEDIA_LANE_COUNT + "_1": 4,
                 consts.HOST_LANE_COUNT + "_1": 8,
-                consts.HOST_LANE_ASSIGNMENT_OPTION + "_1": 0x01
+                consts.HOST_LANE_ASSIGNMENT_OPTION + "_1": 0x01,
+                consts.MEDIA_LANE_ASSIGNMENT_OPTION + "_1": 0x02
             },
             Sff8024.MODULE_MEDIA_TYPE[2]
         ]
@@ -1965,6 +2024,13 @@ class TestCmis(object):
         assert result[1]['host_lane_count'] == 8
         assert result[1]['media_lane_count'] == 4
         assert result[1]['host_lane_assignment_options'] == 0x01
+        assert result[1]['media_lane_assignment_options'] == 0x02
+
+    def test_get_application_advertisement_non_support(self):
+        self.api.xcvr_eeprom.read = MagicMock(return_value = None)
+        self.api.is_flat_memory = MagicMock(return_value = False)
+        result = self.api.get_application_advertisement()
+        assert result == {}
 
     def test_get_application(self):
         self.api.xcvr_eeprom.read = MagicMock()

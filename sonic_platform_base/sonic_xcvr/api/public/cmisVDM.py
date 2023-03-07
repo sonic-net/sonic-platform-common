@@ -50,7 +50,9 @@ class CmisVdmApi(XcvrApi):
         if page not in [0x20, 0x21, 0x22, 0x23]:
             raise ValueError('Page not in VDM Descriptor range!')
         vdm_descriptor = self.xcvr_eeprom.read_raw(page * PAGE_SIZE + PAGE_OFFSET, PAGE_SIZE)
-        
+        if not vdm_descriptor:
+            return {}
+
         # Odd Adress VDM observable type ID, real-time monitored value in Page + 4
         vdm_typeID = vdm_descriptor[1::2]
         # Even Address
@@ -83,6 +85,9 @@ class CmisVdmApi(XcvrApi):
                 vdm_thrsh_low_alarm_raw = self.xcvr_eeprom.read_raw(vdm_low_alarm_offset, VDM_SIZE, True)
                 vdm_thrsh_high_warn_raw = self.xcvr_eeprom.read_raw(vdm_high_warn_offset, VDM_SIZE, True)
                 vdm_thrsh_low_warn_raw = self.xcvr_eeprom.read_raw(vdm_low_warn_offset, VDM_SIZE, True)
+                if not vdm_value_raw or not vdm_thrsh_high_alarm_raw or not vdm_thrsh_low_alarm_raw \
+                   or not vdm_high_warn_offset or not vdm_thrsh_low_warn_raw:
+                    return {}
                 if vdm_format == 'S16':
                     vdm_value = struct.unpack('>h',vdm_value_raw)[0] * scale
                     vdm_thrsh_high_alarm = struct.unpack('>h', vdm_thrsh_high_alarm_raw)[0] * scale

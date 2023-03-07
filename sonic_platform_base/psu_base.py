@@ -5,6 +5,7 @@
     to interact with a power supply unit (PSU) in SONiC
 """
 
+import sys
 from . import device_base
 
 
@@ -220,6 +221,26 @@ class PsuBase(device_base.DeviceBase):
         Returns:
             A float number, the maximum power output in Watts.
             e.g. 1200.1
+        """
+        raise NotImplementedError
+
+    def get_psu_power_warning_suppress_threshold(self):
+        """
+        Retrieve the warning suppress threshold of the power on this PSU
+        The value can be volatile, so the caller should call the API each time it is used.
+
+        Returns:
+            A float number, the warning suppress threshold of the PSU in watts.
+        """
+        raise NotImplementedError
+
+    def get_psu_power_critical_threshold(self):
+        """
+        Retrieve the critical threshold of the power on this PSU
+        The value can be volatile, so the caller should call the API each time it is used.
+
+        Returns:
+            A float number, the critical threshold of the PSU in watts.
         """
         raise NotImplementedError
 

@@ -1167,3 +1167,133 @@ class YCableBase():
         """
 
         raise NotImplementedError
+
+    def queue_info(self):
+        """
+        This API should dump all the meaningful data from the eeprom which can
+        help vendor debug the queue info for the UART stats in particular
+        currently relevant to the MCU
+        using this API the vendor could check how many txns are currently waiting to be processed,proceessed
+        in the queue etc for debugging purposes
+
+        Args:
+             None
+
+        Returns:
+            a Dictionary:
+                 with all the relevant key-value pairs for all the meaningful fields
+                 for the queue inside the MCU firmware
+                 which would help diagnose the cable for proper functioning
+        """
+
+        raise NotImplementedError
+
+    def reset_cause(self):
+        """
+        This API should return the reset cause for the NIC MCU.
+        This should help ascertain whether a reset was caused by soft reboot or
+        cable poweroff
+
+        Args:
+             None
+
+        Returns:
+            a string:
+                 the string should be self explnatory as to what was the cause of reset
+
+        """
+        raise NotImplementedError
+
+    def operation_time(self):
+        """
+        This API should return the time since the cable is powered on from NIC MCU side
+        This should be helpful in debugging purposes as to if/when the cable has been powered on
+
+        Args:
+             None
+
+        Returns:
+            a float:
+                 the float should represent how much time the mux cable is alive/powered on
+        """
+
+        raise NotImplementedError
+
+    def mem_read(self, target, addr, length):
+        """
+        This API should return the memory contents of the cable which would be useful in debug for the
+        y-cable
+
+        Args:
+             target:
+                 local (TOR) or remote (NIC) MCU
+             addr:
+                 the starting address of the MCU's memory space
+             length:
+                 length to be read, unit: byte
+
+        Returns:
+            a Bytearray:
+                 the contents of the memory inside the MCU firmware
+                 which would help diagnose the cable for proper functioning
+        """
+
+        raise NotImplementedError
+
+    def activate_target_firmware(self, target, fwfile=None, hitless=False):
+        """
+        This routine should activate the downloaded firmware on all the target
+        of the Y cable of the port for which this API is called..
+        This API is meant to be used in conjunction with download_firmware API, and
+        should be called once download_firmware API is succesful.
+        This means that the firmware which has been downloaded should be
+        activated (start being utilized by the cable) once this API is
+        successfully executed.
+        The port on which this API is called for can be referred using self.port.
+
+        Args:
+            target:
+                One of the following predefined constants, the actual target to activate the firmware on:
+                     TARGET_NIC -> NIC,
+                     TARGET_TOR_A -> TORA,
+                     TARGET_TOR_B -> TORB
+            fwfile (optional):
+                 a string, a path to the file which contains the firmware image.
+                 Note that the firmware file can be in the format of the vendor's
+                 choosing (binary, archive, etc.). But note that it should be one file
+                 which contains firmware for all components of the Y-cable. In case the
+                 vendor chooses to pass this file in activate_firmware, the API should
+                 have the logic to retreive the firmware version from this file
+                 which has to be activated on the components of the Y-Cable
+                 this API has been called for.
+                 If None is passed for fwfile, the cable should activate whatever
+                 firmware is marked to be activated next.
+                 If provided, it should retreive the firmware version(s) from this file, ensure
+                 they are downloaded on the cable, then activate them.
+
+            hitless (optional):
+                a boolean, True, Hitless upgrade: it will backup/restore the current state
+                                 (ex. variables of link status, API attributes...etc.) before
+                                 and after firmware upgrade.
+                a boolean, False, Non-hitless upgrade: it will update the firmware regardless
+                                  the current status, a link flip can be observed during the upgrade.
+        Returns:
+            One of the following predefined constants:
+                FIRMWARE_ACTIVATE_SUCCESS
+                FIRMWARE_ACTIVATE_FAILURE
+        """
+
+        raise NotImplementedError
+
+    def health_check(self):
+        """
+        This API checks the health of the cable, where it is healthy/unhealythy for RMA purposes/diagnostics.
+        The port on which this API is called for can be referred using self.port.
+
+        Args:
+
+        Returns:
+            a Boolean, True if the cable is healthy and False if it is not healthy.
+        """
+
+        raise NotImplementedError

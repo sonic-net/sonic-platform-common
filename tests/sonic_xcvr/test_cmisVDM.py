@@ -64,6 +64,54 @@ class TestVDM(object):
         result = self.api.get_vdm_page(*input_param)
         assert result == expected
 
+    @pytest.mark.parametrize("input_param, mock_response, expected", [
+        (
+            [0x20, [0]*128],    # input_param
+            [                   # mock_response
+                (
+                    16, 9, 16, 11, 16, 13, 16, 15, 32, 10, 33, 10,  0,  0,  0,  0,
+                    80,128, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                    160,143,0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+                ),
+
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            ],
+            {}
+        )
+    ])
+    def test_get_vdm_page_none_vdm_value_raw(self, input_param, mock_response, expected):
+        self.api.xcvr_eeprom.read_raw = MagicMock()
+        self.api.xcvr_eeprom.read_raw.side_effect = mock_response
+        result = self.api.get_vdm_page(*input_param)
+        assert result == expected
+
+    @pytest.mark.parametrize("input_param, mock_response, expected", [
+        (
+            [0x20, [0]*128],    # input_param
+            [                   # mock_response
+                None,
+            ],
+            {}
+        )
+    ])
+    def test_get_vdm_page_none_vdm_descriptor(self, input_param, mock_response, expected):
+        self.api.xcvr_eeprom.read_raw = MagicMock()
+        self.api.xcvr_eeprom.read_raw.side_effect = mock_response
+        result = self.api.get_vdm_page(*input_param)
+        assert result == expected
+
     @pytest.mark.parametrize("mock_response, expected", [
         (
             [   # mock_response

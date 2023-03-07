@@ -48,8 +48,8 @@ class Sff8436MemMap(XcvrMemMap):
                     *(RegBitField("%s_%d" % (consts.FIBRE_CHANNEL_LINK_LENGTH_FIELD, bit), bit) for bit in range(3, 8))
                 ),
                 CodeRegField(consts.FIBRE_CHANNEL_TRANSMITTER_TECH_FIELD, self.get_addr(0, 135), self.codes.FIBRE_CHANNEL_TRANSMITTER_TECH,
-                    *(RegBitField("%s_%d" % (consts.FIBRE_CHANNEL_TRANSMITTER_TECH_FIELD, bit), bit) for bit in list(range(0,3)) + list(range(8, 16))),
-                    size=2, format="<H"
+                    *(RegBitField("%s_%d" % (consts.FIBRE_CHANNEL_TRANSMITTER_TECH_FIELD, bit), bit) for bit in range(4, 11)),
+                    size=2, format=">H"
                 ),
                 CodeRegField(consts.FIBRE_CHANNEL_TRANSMISSION_MEDIA_FIELD, self.get_addr(0, 137), self.codes.FIBRE_CHANNEL_TRANSMISSION_MEDIA),
                 CodeRegField(consts.FIBRE_CHANNEL_SPEED_FIELD, self.get_addr(0, 138), self.codes.FIBRE_CHANNEL_SPEED),

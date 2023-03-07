@@ -3,12 +3,16 @@
 
     Implementation of XcvrApi that corresponds to C-CMIS
 """
+from sonic_py_common import logger
 from ...fields import consts
 from .cmis import CmisApi
 import time
 BYTELENGTH = 8
 VDM_FREEZE = 128
 VDM_UNFREEZE = 0
+SYSLOG_IDENTIFIER = "CCmisApi"
+
+helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
 
 class CCmisApi(CmisApi):
     def __init__(self, xcvr_eeprom):
@@ -94,10 +98,10 @@ class CCmisApi(CmisApi):
 
     def get_supported_freq_config(self):
         '''
-        This function returns the supported freq grid, low and high supported channel in 75GHz grid,
+        This function returns the supported freq grid, low and high supported channel in 75/100GHz grid,
         and low and high frequency supported in GHz.
-        allowed channel number bound in 75 GHz grid
-        allowed frequency bound in 75 GHz grid
+        allowed channel number bound in 75/100 GHz grid
+        allowed frequency bound in 75/100 GHz grid
         '''
         grid_supported = self.xcvr_eeprom.read(consts.SUPPORT_GRID)
         low_ch_num = self.xcvr_eeprom.read(consts.LOW_CHANNEL)
@@ -106,20 +110,28 @@ class CCmisApi(CmisApi):
         high_freq_supported = 193100 + hi_ch_num * 25
         return grid_supported, low_ch_num, hi_ch_num, low_freq_supported, high_freq_supported
 
-    def set_laser_freq(self, freq):
+    def set_laser_freq(self, freq, grid):
         '''
         This function sets the laser frequency. Unit in GHz
         ZR application will not support fine tuning of the laser
-        SONiC will only support 75 GHz frequency grid
+        SONiC will only support 75 GHz and 100GHz frequency grids
         Return True if the provision succeeds, False if it fails
         '''
         grid_supported, low_ch_num, hi_ch_num, _, _ = self.get_supported_freq_config()
         grid_supported_75GHz = (grid_supported >> 7) & 0x1
-        assert grid_supported_75GHz
-        freq_grid = 0x70
+        grid_supported_100GHz = (grid_supported >> 5) & 0x1
+        if grid == 75:
+            assert grid_supported_75GHz
+            freq_grid = 0x70
+            channel_number = int(round((freq - 193100)/25))
+            assert channel_number % 3 == 0
+        elif grid == 100:
+            assert grid_supported_100GHz
+            freq_grid = 0x50
+            channel_number = int(round((freq - 193100)/100))
+        else:
+            return False
         self.xcvr_eeprom.write(consts.GRID_SPACING, freq_grid)
-        channel_number = int(round((freq - 193100)/25))
-        assert channel_number % 3 == 0
         if channel_number > hi_ch_num or channel_number < low_ch_num:
             raise ValueError('Provisioned frequency out of range. Max Freq: 196100; Min Freq: 191300 GHz.')
         status = self.xcvr_eeprom.write(consts.LASER_CONFIG_CHANNEL, channel_number)
@@ -183,7 +195,7 @@ class CCmisApi(CmisApi):
         rx_frames_subint_pm = self.xcvr_eeprom.read(consts.RX_FRAMES_SUB_INTERVAL_PM)
         rx_frames_uncorr_err_pm = self.xcvr_eeprom.read(consts.RX_FRAMES_UNCORR_ERR_PM)
         rx_min_frames_uncorr_err_subint_pm = self.xcvr_eeprom.read(consts.RX_MIN_FRAMES_UNCORR_ERR_SUB_INTERVAL_PM)
-        rx_max_frames_uncorr_err_subint_pm = self.xcvr_eeprom.read(consts.RX_MIN_FRAMES_UNCORR_ERR_SUB_INTERVAL_PM)
+        rx_max_frames_uncorr_err_subint_pm = self.xcvr_eeprom.read(consts.RX_MAX_FRAMES_UNCORR_ERR_SUB_INTERVAL_PM)
 
         if (rx_frames_subint_pm != 0) and (rx_frames_pm != 0):
             PM_dict['preFEC_uncorr_frame_ratio_avg'] = rx_frames_uncorr_err_pm*1.0/rx_frames_subint_pm
@@ -356,6 +368,7 @@ class CCmisApi(CmisApi):
             trans_dom['sopmd'] = self.vdm_dict['SOPMD [ps^2]'][1][0]
         except KeyError:
             pass
+        trans_dom['soproc'] = self.vdm_dict['SOP ROC [krad/s]'][1][0]
         trans_dom['pdl'] = self.vdm_dict['PDL [dB]'][1][0]
         trans_dom['osnr'] = self.vdm_dict['OSNR [dB]'][1][0]
         trans_dom['esnr'] = self.vdm_dict['eSNR [dB]'][1][0]
@@ -571,8 +584,6 @@ class CCmisApi(CmisApi):
         ================================================================================
         key                          = TRANSCEIVER_STATUS|ifname        ; Error information for module on port
         ; field                      = value
-        status                       = 1*255VCHAR                       ; code of the module status (plug in, plug out)
-        error                        = 1*255VCHAR                       ; module error (N/A or a string consisting of error descriptions joined by "|", like "error1 | error2" )
         module_state                 = 1*255VCHAR                       ; current module state (ModuleLowPwr, ModulePwrUp, ModuleReady, ModulePwrDn, Fault)
         module_fault_cause           = 1*255VCHAR                       ; reason of entering the module fault state
         datapath_firmware_fault      = BOOLEAN                          ; datapath (DSP) firmware fault
@@ -818,10 +829,13 @@ class CCmisApi(CmisApi):
         trans_status['rxtotpowerlowalarm_flag'] = self.vdm_dict['Rx Total Power [dBm]'][1][6]
         trans_status['rxtotpowerhighwarning_flag'] = self.vdm_dict['Rx Total Power [dBm]'][1][7]
         trans_status['rxtotpowerlowwarning_flag'] = self.vdm_dict['Rx Total Power [dBm]'][1][8]
-        trans_status['rxsigpowerhighalarm_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][5]
-        trans_status['rxsigpowerlowalarm_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][6]
-        trans_status['rxsigpowerhighwarning_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][7]
-        trans_status['rxsigpowerlowwarning_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][8]
+        try:
+            trans_status['rxsigpowerhighalarm_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][5]
+            trans_status['rxsigpowerlowalarm_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][6]
+            trans_status['rxsigpowerhighwarning_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][7]
+            trans_status['rxsigpowerlowwarning_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][8]
+        except KeyError:
+            helper_logger.log_debug('Rx Signal Power [dBm] not present in VDM')
         return trans_status
 
     def get_transceiver_pm(self):
@@ -903,6 +917,9 @@ class CCmisApi(CmisApi):
         trans_pm['cfo_avg'] = PM_dict['rx_cfo_avg']
         trans_pm['cfo_min'] = PM_dict['rx_cfo_min']
         trans_pm['cfo_max'] = PM_dict['rx_cfo_max']
+        trans_pm['evm_avg'] = PM_dict['rx_evm_avg']
+        trans_pm['evm_min'] = PM_dict['rx_evm_min']
+        trans_pm['evm_max'] = PM_dict['rx_evm_max']
         trans_pm['soproc_avg'] = PM_dict['rx_soproc_avg']
         trans_pm['soproc_min'] = PM_dict['rx_soproc_min']
         trans_pm['soproc_max'] = PM_dict['rx_soproc_max']

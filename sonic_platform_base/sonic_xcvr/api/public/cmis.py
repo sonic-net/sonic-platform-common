@@ -142,7 +142,6 @@ class CmisApi(XcvrApi):
             "cable_type": "Length Cable Assembly(m)",
             "cable_length": float(admin_info[consts.LENGTH_ASSEMBLY_FIELD]),
             "nominal_bit_rate": 0, # Not supported
-            "specification_compliance": admin_info[consts.MEDIA_TYPE_FIELD],
             "vendor_date": admin_info[consts.VENDOR_DATE_FIELD],
             "vendor_oui": admin_info[consts.VENDOR_OUI_FIELD]
         }
@@ -164,7 +163,16 @@ class CmisApi(XcvrApi):
         xcvr_info['active_firmware'] = self.get_module_active_firmware()
         xcvr_info['inactive_firmware'] = self.get_module_inactive_firmware()
         xcvr_info['specification_compliance'] = self.get_module_media_type()
-        return xcvr_info
+
+        # In normal case will get a valid value for each of the fields. If get a 'None' value
+        # means there was a failure while reading the EEPROM, either because the EEPROM was
+        # not ready yet or experincing some other issues. It shouldn't return a dict with a
+        # wrong field value, instead should return a 'None' to indicate to XCVRD that retry is
+        # needed.
+        if None in xcvr_info.values():
+            return None
+        else:
+            return xcvr_info
 
     def get_transceiver_bulk_status(self):
         rx_los = self.get_rx_los()
@@ -198,16 +206,19 @@ class CmisApi(XcvrApi):
 
         for i in range(1, self.NUM_CHANNELS + 1):
             bulk_status["tx%ddisable" % i] = tx_disable[i-1] if self.get_tx_disable_support() else 'N/A'
-            bulk_status["tx%dbias" % i] = tx_bias['LaserBiasTx%dField' % i] if self.get_tx_bias_support() else 'N/A'
-            bulk_status["rx%dpower" % i] = self.mw_to_dbm(rx_power[i - 1]) if self.get_rx_power_support() else 'N/A'
-            bulk_status["tx%dpower" % i] = self.mw_to_dbm(tx_power[i - 1]) if self.get_tx_power_support() else 'N/A'
+            bulk_status["tx%dbias" % i] = tx_bias[i - 1]
+            bulk_status["rx%dpower" % i] = float("{:.3f}".format(self.mw_to_dbm(rx_power[i - 1]))) if self.get_rx_power_support() else 'N/A'
+            bulk_status["tx%dpower" % i] = float("{:.3f}".format(self.mw_to_dbm(tx_power[i - 1]))) if self.get_tx_power_support() else 'N/A'
 
         laser_temp_dict = self.get_laser_temperature()
-        bulk_status['laser_temperature'] = laser_temp_dict['monitor value']
         self.vdm_dict = self.get_vdm()
         try:
+            bulk_status['laser_temperature'] = laser_temp_dict['monitor value']
             bulk_status['prefec_ber'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][0]
-            bulk_status['postfec_ber'] = self.vdm_dict['Errored Frames Average Media Input'][1][0]
+            bulk_status['postfec_ber_min'] = self.vdm_dict['Errored Frames Minimum Media Input'][1][0]
+            bulk_status['postfec_ber_max'] = self.vdm_dict['Errored Frames Maximum Media Input'][1][0]
+            bulk_status['postfec_ber_avg'] = self.vdm_dict['Errored Frames Average Media Input'][1][0]
+            bulk_status['postfec_curr_val'] = self.vdm_dict['Errored Frames Current Value Media Input'][1][0]
         except (KeyError, TypeError):
             pass
         return bulk_status
@@ -483,7 +494,7 @@ class CmisApi(XcvrApi):
         tx_bias = self.xcvr_eeprom.read(consts.TX_BIAS_FIELD)
         for key, value in tx_bias.items():
             tx_bias[key] *= scale
-        return tx_bias
+        return [tx_bias['LaserBiasTx%dField' % i] for i in range(1, self.NUM_CHANNELS + 1)]
 
     def get_tx_power(self):
         '''
@@ -666,6 +677,24 @@ class CmisApi(XcvrApi):
         mintf = self.get_module_media_interface()
         return False if 'ZR' not in mintf else True
 
+    def get_datapath_init_duration(self):
+        '''
+        This function returns the duration of datapath init
+        '''
+        if self.is_flat_memory():
+            return 0
+        duration = self.xcvr_eeprom.read(consts.DP_PATH_INIT_DURATION)
+        return float(duration) if duration is not None else 0
+
+    def get_datapath_deinit_duration(self):
+        '''
+        This function returns the duration of datapath deinit
+        '''
+        if self.is_flat_memory():
+            return 0
+        duration = self.xcvr_eeprom.read(consts.DP_PATH_DEINIT_DURATION)
+        return float(duration) if duration is not None else 0
+
     def get_host_lane_count(self):
         '''
         This function returns number of host lanes for default application
@@ -760,7 +789,7 @@ class CmisApi(XcvrApi):
         '''
         This function returns the aux monitor types
         '''
-        result = self.xcvr_eeprom.read(consts.AUX_MON_TYPE)
+        result = self.xcvr_eeprom.read(consts.AUX_MON_TYPE) if not self.is_flat_memory() else None
         if result is None:
             return None
         aux1_mon_type = result & 0x1
@@ -1175,6 +1204,10 @@ class CmisApi(XcvrApi):
 
         # get fw info (CMD 0100h)
         rpllen, rpl_chkcode, rpl = self.cdb.get_fw_info()
+        # Interface NACK or timeout
+        if (rpllen is None) or (rpl_chkcode is None):
+            return {'status': False, 'info': "Interface fail", 'result': 0} # Return result 0 for distinguishing CDB is maybe in busy or failure.
+
         # password issue
         if self.cdb.cdb_chkcode(rpl) != rpl_chkcode:
             string = 'Get module FW info: Need to enter password\n'
@@ -1523,8 +1556,6 @@ class CmisApi(XcvrApi):
         ================================================================================
         key                          = TRANSCEIVER_STATUS|ifname        ; Error information for module on port
         ; field                      = value
-        status                       = 1*255VCHAR                       ; code of the module status (plug in, plug out)
-        error                        = 1*255VCHAR                       ; module error (N/A or a string consisting of error descriptions joined by "|", like "error1 | error2" )
         module_state                 = 1*255VCHAR                       ; current module state (ModuleLowPwr, ModulePwrUp, ModuleReady, ModulePwrDn, Fault)
         module_fault_cause           = 1*255VCHAR                       ; reason of entering the module fault state
         datapath_firmware_fault      = BOOLEAN                          ; datapath (DSP) firmware fault
@@ -1856,7 +1887,11 @@ class CmisApi(XcvrApi):
 
         if not self.is_flat_memory():
             # Read the application advertisement in page01
-            dic.update(self.xcvr_eeprom.read(consts.APPLS_ADVT_FIELD_PAGE01))
+            try:
+                dic.update(self.xcvr_eeprom.read(consts.APPLS_ADVT_FIELD_PAGE01))
+            except (TypeError, AttributeError) as e:
+                logger.error('Failed to read APPLS_ADVT_FIELD_PAGE01: ' + str(e))
+                return ret
 
         for app in range(1, 16):
             buf = {}
@@ -1893,6 +1928,11 @@ class CmisApi(XcvrApi):
             if val is None:
                 break
             buf['host_lane_assignment_options'] = val
+
+            key = "{}_{}".format(consts.MEDIA_LANE_ASSIGNMENT_OPTION, app)
+            val = dic.get(key)
+            if val is not None:
+                buf['media_lane_assignment_options'] = val
 
             ret[app] = buf
         return ret

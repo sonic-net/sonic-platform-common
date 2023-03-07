@@ -52,10 +52,10 @@ class SsdUtil(SsdBase):
 
         # Known vendor part
         if self.model:
-            model_short = self.model.split()[0]
-            if model_short in self.vendor_ssd_utility:
-                self.fetch_vendor_ssd_info(diskdev, model_short)
-                self.parse_vendor_ssd_info(model_short)
+            vendor = self._parse_vendor()
+            if vendor:
+                self.fetch_vendor_ssd_info(diskdev, vendor)
+                self.parse_vendor_ssd_info(vendor)
             else:
                 # unknown model name , use Virtium to get information
                 self.vendor_ssd_info =self._execute_shell(self.vendor_ssd_utility["Virtium"]["utility"].format(diskdev))
@@ -72,6 +72,15 @@ class SsdUtil(SsdBase):
     def _parse_re(self, pattern, buffer):
         res_list = re.findall(pattern, buffer)
         return res_list[0] if res_list else NOT_AVAILABLE
+
+    def _parse_vendor(self):
+        model_short = self.model.split()[0]
+        if model_short in self.vendor_ssd_utility:
+            return model_short
+        elif self.model.startswith('VSF'):
+            return 'Virtium'
+        else:
+            return None
 
     def fetch_generic_ssd_info(self, diskdev):
         self.ssd_info = self._execute_shell(self.vendor_ssd_utility["Generic"]["utility"].format(diskdev))
@@ -130,11 +139,17 @@ class SsdUtil(SsdBase):
         if self.health == NOT_AVAILABLE:
             nand_endurance = self._parse_re('NAND_Endurance\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info)
             avg_erase_count = self._parse_re('Average_Erase_Count\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info)
-            try:
-                self.health = 100 - (float(avg_erase_count) * 100 / float(nand_endurance))
-            except ValueError:
-                pass
-
+            if nand_endurance != NOT_AVAILABLE and avg_erase_count != NOT_AVAILABLE:
+                try:
+                    self.health = 100 - (float(avg_erase_count) * 100 / float(nand_endurance))
+                except (ValueError, ZeroDivisionError):
+                    pass
+            else:
+                try:
+                    self.health = float(self._parse_re('Remaining_Life_Left\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info))
+                except ValueError:
+                    pass
+                    
     def fetch_vendor_ssd_info(self, diskdev, model):
         self.vendor_ssd_info = self._execute_shell(self.vendor_ssd_utility[model]["utility"].format(diskdev))
 
