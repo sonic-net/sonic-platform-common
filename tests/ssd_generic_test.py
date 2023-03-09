@@ -671,7 +671,7 @@ class TestSsdGeneric:
     def test_virtium_ssd(self, mock_exec):
         mock_exec.side_effect = [output_virtium_generic, output_virtium_vendor]
         virtium_ssd = SsdUtil('/dev/sda')
-        assert virtium_ssd.get_health() == 1
+        assert virtium_ssd.get_health() == '1'
         assert virtium_ssd.get_model() == 'VSFDM8XC240G-V11-T'
         assert virtium_ssd.get_firmware() == "0913-000"
         assert virtium_ssd.get_temperature() == '34'
@@ -679,7 +679,7 @@ class TestSsdGeneric:
 
         mock_exec.side_effect = [output_virtium_generic, output_virtium_no_remain_life]
         virtium_ssd = SsdUtil('/dev/sda')
-        assert virtium_ssd.get_health() == 99.42
+        assert virtium_ssd.get_health() == '100'
 
         mock_exec.side_effect = [output_virtium_generic, output_virtium_invalid_nand_endurance]
         virtium_ssd = SsdUtil('/dev/sda')
@@ -688,4 +688,5 @@ class TestSsdGeneric:
         mock_exec.side_effect = [output_virtium_generic, output_virtium_invalid_remain_life]
         virtium_ssd = SsdUtil('/dev/sda')
         assert virtium_ssd.get_health() == "N/A"
+
 
