@@ -677,8 +677,10 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("appl, expected", [
+        (0, 0),
         (1, 1),
-        (2, 17)
+        (2, 17),
+        (3, 0)
     ])
     @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_application_advertisement', MagicMock(return_value =
         {
