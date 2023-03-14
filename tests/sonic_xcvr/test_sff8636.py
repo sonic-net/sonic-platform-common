@@ -54,6 +54,8 @@ class TestSff8636(object):
         self.api.get_transceiver_thresholds_support()
         self.api.get_lpmode_support()
         self.api.get_power_override_support()
+        self.api.set_lpmode(True)
+        self.api.get_lpmode()
 
     @pytest.mark.parametrize("mock_response, expected", [
         (bytearray([0x0]), "Power Class 1 Module (1.5W max.)"),
@@ -104,4 +106,34 @@ class TestSff8636(object):
             assert not self.api.get_rx_power_support()
             assert not self.api.get_temperature_support()
             assert not self.api.get_voltage_support()
+
+    def test_get_lpmode(self):
+        self.api.get_lpmode_support = MagicMock()
+        self.api.get_lpmode_support.return_value = True
+        self.api.get_power_override_support = MagicMock()
+        self.api.get_power_override_support.return_value = True
+        self.api.get_power_set = MagicMock()
+        self.api.get_power_set.return_value = True
+        self.api.get_power_override = MagicMock()
+        self.api.get_power_override.return_value = True
+        assert self.api.get_lpmode()
+        self.api.get_power_set.return_value = False
+        self.api.get_power_override.return_value = True
+        assert not self.api.get_lpmode()
+        self.api.get_lpmode_support.return_value = False
+        self.api.get_power_override_support.return_value = False
+        assert not self.api.get_lpmode()
+
+    def test_set_lpmode(self):
+        self.api.get_lpmode_support = MagicMock()
+        self.api.get_lpmode_support.return_value = True
+        self.api.get_power_override_support = MagicMock()
+        self.api.get_power_override_support.return_value = True
+        self.api.set_power_override = MagicMock()
+        self.api.set_power_override.return_value = True
+        assert self.api.set_lpmode(True)
+        assert self.api.set_lpmode(False)
+        self.api.get_lpmode_support.return_value = False
+        self.api.get_power_override_support.return_value = False
+        assert not self.api.set_lpmode(True)
 
