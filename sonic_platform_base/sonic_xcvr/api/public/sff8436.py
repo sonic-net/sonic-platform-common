@@ -340,6 +340,6 @@ class Sff8436Api(XcvrApi):
         power_set = self.get_power_set()
         power_override = self.get_power_override()
 
-        # Since optics come up by default set to high power, in this case,
+        # Since typically optics come up by default set to high power, in this case,
         # power_override not being set, function will return high power mode.
         return power_set and power_override
