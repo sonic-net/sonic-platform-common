@@ -322,10 +322,7 @@ class Sff8436Api(XcvrApi):
         if not self.get_lpmode_support() or not self.get_power_override_support():
             return False
 
-        if lpmode:
-            return self.set_power_override(True, True)
-        else:
-            return self.set_power_override(True, False)
+        return self.set_power_override(True, lpmode)
 
     def get_lpmode(self):
         '''
