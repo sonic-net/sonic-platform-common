@@ -510,8 +510,6 @@ class CmisApi(XcvrApi):
             tx_power = self.xcvr_eeprom.read(consts.TX_POWER_FIELD)
             if tx_power is not None:
                 tx_power =  [tx_power['OpticalPowerTx%dField' %i] for i in range(1, self.NUM_CHANNELS+1)]
-            else:
-                return None
 
         return tx_power
 
@@ -532,8 +530,6 @@ class CmisApi(XcvrApi):
             rx_power = self.xcvr_eeprom.read(consts.RX_POWER_FIELD)
             if rx_power is not None:
                 rx_power = [rx_power['OpticalPowerRx%dField' %i] for i in range(1, self.NUM_CHANNELS+1)]
-            else:
-                return None
 
         return rx_power
 
