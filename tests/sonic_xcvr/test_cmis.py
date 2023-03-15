@@ -398,7 +398,7 @@ class TestCmis(object):
             [0, 0, 0, 0, 0, 0, 0, 0]
         ),
         ([False, {'OpticalPowerTx1Field': 0}], ['N/A','N/A','N/A','N/A','N/A','N/A','N/A','N/A']),
-        ([None, None], None)
+        ([True, None], None)
     ])
     def test_get_tx_power(self, mock_response, expected):
         self.api.get_tx_power_support = MagicMock()
@@ -433,7 +433,7 @@ class TestCmis(object):
             [0, 0, 0, 0, 0, 0, 0, 0]
         ),
         ([False, {'OpticalPowerRx1Field': 0}], ['N/A','N/A','N/A','N/A','N/A','N/A','N/A','N/A']),
-        ([None, None], None)
+        ([True, None], None)
     ])
     def test_get_rx_power(self, mock_response, expected):
         self.api.get_rx_power_support = MagicMock()
