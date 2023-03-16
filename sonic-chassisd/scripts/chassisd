@@ -208,9 +208,10 @@ class ModuleUpdater(logger.Logger):
             self.chassis_table._del(CHASSIS_INFO_KEY_TEMPLATE.format(1))
 
         if self.asic_table is not None:
-            asics = list(self.asic_table.getKeys())
-            for asic in asics:
-                self.asic_table._del(asic)
+            if not self._is_supervisor():
+                asics = list(self.asic_table.getKeys())
+                for asic in asics:
+                    self.asic_table._del(asic)
 
     def modules_num_update(self):
         # Check if module list is populated

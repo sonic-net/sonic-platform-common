@@ -449,10 +449,8 @@ def test_asic_presence():
     midplane_table = module_updater.midplane_table
     fvs = midplane_table.get(name)
     assert fvs == None
-    fvs = fabric_asic_table.get("asic4")
-    assert fvs == None
-    fvs = fabric_asic_table.get("asic5")
-    assert fvs == None
+    verify_fabric_asic("asic4", "0000:04:00.0", name, "0")
+    verify_fabric_asic("asic5", "0000:05:00.0", name, "1")
 
 def test_signal_handler():
     exit_code = 0
