@@ -363,7 +363,7 @@ class Sff8636Api(XcvrApi):
 
     def set_lpmode(self, lpmode):
         '''
-        This function sets the module to low power state.
+        This function sets LPMode for the module.
 
         Args:
             lpmode (bool): False means "set to high power", True means "set to low power"
@@ -378,7 +378,7 @@ class Sff8636Api(XcvrApi):
 
     def get_lpmode(self):
         '''
-        Retrieves low power module status
+        Retrieves low power mode status
 
         Returns:
             bool: True if module in low power else returns False.
