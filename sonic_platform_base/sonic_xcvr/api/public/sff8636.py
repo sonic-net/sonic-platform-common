@@ -366,7 +366,7 @@ class Sff8636Api(XcvrApi):
         This function sets LPMode for the module.
 
         Args:
-            lpmode (bool): False means "set to high power", True means "set to low power"
+            lpmode (bool): False means LPMode Off, True means LPMode On
 
         Returns:
             bool: True if the provision succeeds, False if it fails
