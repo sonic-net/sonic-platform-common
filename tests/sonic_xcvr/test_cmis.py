@@ -1,3 +1,4 @@
+from unittest.mock import patch
 from mock import MagicMock
 import pytest
 from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi
@@ -675,13 +676,32 @@ class TestCmis(object):
         result = self.api.get_media_interface_technology()
         assert result == expected
 
-    @pytest.mark.parametrize("mock_response, expected", [
-        (1, 1)
+    @pytest.mark.parametrize("appl, expected", [
+        (0, 0),
+        (1, 1),
+        (2, 17),
+        (3, 0)
     ])
-    def test_get_host_lane_assignment_option(self, mock_response, expected):
-        self.api.xcvr_eeprom.read = MagicMock()
-        self.api.xcvr_eeprom.read.return_value = mock_response
-        result = self.api.get_host_lane_assignment_option()
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_application_advertisement', MagicMock(return_value =
+        {
+            1: {
+                'host_electrical_interface_id': '400GAUI-8 C2M (Annex 120E)',
+                'module_media_interface_id': '400GBASE-DR4 (Cl 124)',
+                'media_lane_count': 4,
+                'host_lane_count': 8,
+                'host_lane_assignment_options': 1
+            },
+            2: {
+                'host_electrical_interface_id': 'CAUI-4 C2M (Annex 83E)',
+                'module_media_interface_id': 'Active Cable assembly with BER < 5x10^-5',
+                'media_lane_count': 4,
+                'host_lane_count': 4,
+                'host_lane_assignment_options': 17
+            }
+        }
+    ))
+    def test_get_host_lane_assignment_option(self, appl, expected):
+        result = self.api.get_host_lane_assignment_option(appl)
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
