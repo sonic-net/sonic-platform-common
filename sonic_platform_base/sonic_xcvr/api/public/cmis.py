@@ -208,8 +208,8 @@ class CmisApi(XcvrApi):
         for i in range(1, self.NUM_CHANNELS + 1):
             bulk_status["tx%ddisable" % i] = tx_disable[i-1] if self.get_tx_disable_support() else 'N/A'
             bulk_status["tx%dbias" % i] = tx_bias[i - 1]
-            bulk_status["rx%dpower" % i] = float("{:.3f}".format(self.mw_to_dbm(rx_power[i - 1]))) if self.get_rx_power_support() else 'N/A'
-            bulk_status["tx%dpower" % i] = float("{:.3f}".format(self.mw_to_dbm(tx_power[i - 1]))) if self.get_tx_power_support() else 'N/A'
+            bulk_status["rx%dpower" % i] = float("{:.3f}".format(self.mw_to_dbm(rx_power[i - 1]))) if rx_power[i - 1] != 'N/A' else 'N/A'
+            bulk_status["tx%dpower" % i] = float("{:.3f}".format(self.mw_to_dbm(tx_power[i - 1]))) if tx_power[i - 1] != 'N/A' else 'N/A'
 
         laser_temp_dict = self.get_laser_temperature()
         self.vdm_dict = self.get_vdm()
@@ -511,11 +511,11 @@ class CmisApi(XcvrApi):
         '''
         This function returns TX output power in mW on each media lane
         '''
-        tx_power_support = self.get_tx_power_support()
-        if tx_power_support is None:
-            return None
-
         tx_power = ["N/A" for _ in range(self.NUM_CHANNELS)]
+
+        tx_power_support = self.get_tx_power_support()
+        if not tx_power_support:
+            return tx_power
 
         if tx_power_support:
             tx_power = self.xcvr_eeprom.read(consts.TX_POWER_FIELD)
@@ -531,11 +531,11 @@ class CmisApi(XcvrApi):
         '''
         This function returns RX input power in mW on each media lane
         '''
-        rx_power_support = self.get_rx_power_support()
-        if rx_power_support is None:
-            return None
-
         rx_power = ["N/A" for _ in range(self.NUM_CHANNELS)]
+
+        rx_power_support = self.get_rx_power_support()
+        if not rx_power_support:
+            return rx_power
 
         if rx_power_support:
             rx_power = self.xcvr_eeprom.read(consts.RX_POWER_FIELD)
@@ -706,6 +706,24 @@ class CmisApi(XcvrApi):
         duration = self.xcvr_eeprom.read(consts.DP_PATH_DEINIT_DURATION)
         return float(duration) if duration is not None else 0
 
+    def get_module_pwr_up_duration(self):
+        '''
+        This function returns the duration of module power up
+        '''
+        if self.is_flat_memory():
+            return 0
+        duration = self.xcvr_eeprom.read(consts.MODULE_PWRUP_DURATION)
+        return float(duration) if duration is not None else 0
+
+    def get_module_pwr_down_duration(self):
+        '''
+        This function returns the duration of module power down
+        '''
+        if self.is_flat_memory():
+            return 0
+        duration = self.xcvr_eeprom.read(consts.MODULE_PWRDN_DURATION)
+        return float(duration) if duration is not None else 0
+
     def get_host_lane_count(self):
         '''
         This function returns number of host lanes for default application
@@ -726,11 +744,18 @@ class CmisApi(XcvrApi):
         '''
         return self.xcvr_eeprom.read(consts.MEDIA_INTERFACE_TECH)
 
-    def get_host_lane_assignment_option(self):
+    def get_host_lane_assignment_option(self, appl=1):
         '''
         This function returns the host lane that the application begins on
+        Args:
+            app:
+                Integer, desired application for which host_lane_assignment_options are requested
         '''
-        return self.xcvr_eeprom.read(consts.HOST_LANE_ASSIGNMENT_OPTION)
+        if (appl <= 0):
+            return 0
+
+        appl_advt = self.get_application_advertisement()
+        return appl_advt[appl]['host_lane_assignment_options'] if len(appl_advt) >= appl else 0
 
     def get_media_lane_assignment_option(self):
         '''

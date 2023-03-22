@@ -1,3 +1,4 @@
+from unittest.mock import patch
 from mock import MagicMock
 import pytest
 import traceback
@@ -401,7 +402,7 @@ class TestCmis(object):
             [0, 0, 0, 0, 0, 0, 0, 0]
         ),
         ([False, {'OpticalPowerTx1Field': 0}], ['N/A','N/A','N/A','N/A','N/A','N/A','N/A','N/A']),
-        ([None, None], None)
+        ([True, None], None)
     ])
     def test_get_tx_power(self, mock_response, expected):
         self.api.get_tx_power_support = MagicMock()
@@ -436,7 +437,7 @@ class TestCmis(object):
             [0, 0, 0, 0, 0, 0, 0, 0]
         ),
         ([False, {'OpticalPowerRx1Field': 0}], ['N/A','N/A','N/A','N/A','N/A','N/A','N/A','N/A']),
-        ([None, None], None)
+        ([True, None], None)
     ])
     def test_get_rx_power(self, mock_response, expected):
         self.api.get_rx_power_support = MagicMock()
@@ -651,6 +652,34 @@ class TestCmis(object):
         result = self.api.get_datapath_deinit_duration()
         assert result == expected
 
+    @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
+        (True, '10', 0 ),
+        (False, None, 0),
+        (False, '8', 8.0),
+        (False, '5000000', 5000000.0),
+    ])
+    def test_get_module_pwr_up_duration(self, mock_response1, mock_response2, expected):
+        self.api.is_flat_memory = MagicMock()
+        self.api.is_flat_memory.return_value = mock_response1
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.return_value = mock_response2
+        result = self.api.get_module_pwr_up_duration()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
+        (True, '1', 0 ),
+        (False, None, 0),
+        (False, '6', 6.0),
+        (False, '80000', 80000.0),
+    ])
+    def test_get_module_pwr_down_duration(self, mock_response1, mock_response2, expected):
+        self.api.is_flat_memory = MagicMock()
+        self.api.is_flat_memory.return_value = mock_response1
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.return_value = mock_response2
+        result = self.api.get_module_pwr_down_duration()
+        assert result == expected
+
     @pytest.mark.parametrize("mock_response, expected", [
         (8, 8)
     ])
@@ -678,13 +707,32 @@ class TestCmis(object):
         result = self.api.get_media_interface_technology()
         assert result == expected
 
-    @pytest.mark.parametrize("mock_response, expected", [
-        (1, 1)
+    @pytest.mark.parametrize("appl, expected", [
+        (0, 0),
+        (1, 1),
+        (2, 17),
+        (3, 0)
     ])
-    def test_get_host_lane_assignment_option(self, mock_response, expected):
-        self.api.xcvr_eeprom.read = MagicMock()
-        self.api.xcvr_eeprom.read.return_value = mock_response
-        result = self.api.get_host_lane_assignment_option()
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_application_advertisement', MagicMock(return_value =
+        {
+            1: {
+                'host_electrical_interface_id': '400GAUI-8 C2M (Annex 120E)',
+                'module_media_interface_id': '400GBASE-DR4 (Cl 124)',
+                'media_lane_count': 4,
+                'host_lane_count': 8,
+                'host_lane_assignment_options': 1
+            },
+            2: {
+                'host_electrical_interface_id': 'CAUI-4 C2M (Annex 83E)',
+                'module_media_interface_id': 'Active Cable assembly with BER < 5x10^-5',
+                'media_lane_count': 4,
+                'host_lane_count': 4,
+                'host_lane_assignment_options': 17
+            }
+        }
+    ))
+    def test_get_host_lane_assignment_option(self, appl, expected):
+        result = self.api.get_host_lane_assignment_option(appl)
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
@@ -1269,9 +1317,25 @@ class TestCmis(object):
                 'N/A',
                 50, 3.3,
                 ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
-                ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
-                ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
+                None,
+                None,
                 False, False, False, False, False, False,
+                {'monitor value': 40},
+                None,
+            ],
+            None
+        ),
+        (
+            [
+                ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
+                ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
+                ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
+                'N/A',
+                50, 3.3,
+                ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
+                ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
+                ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
+                False, False, False, False, True, True,
                 {'monitor value': 40},
                 None,
             ],
