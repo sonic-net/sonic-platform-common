@@ -706,6 +706,24 @@ class CmisApi(XcvrApi):
         duration = self.xcvr_eeprom.read(consts.DP_PATH_DEINIT_DURATION)
         return float(duration) if duration is not None else 0
 
+    def get_module_pwr_up_duration(self):
+        '''
+        This function returns the duration of module power up
+        '''
+        if self.is_flat_memory():
+            return 0
+        duration = self.xcvr_eeprom.read(consts.MODULE_PWRUP_DURATION)
+        return float(duration) if duration is not None else 0
+
+    def get_module_pwr_down_duration(self):
+        '''
+        This function returns the duration of module power down
+        '''
+        if self.is_flat_memory():
+            return 0
+        duration = self.xcvr_eeprom.read(consts.MODULE_PWRDN_DURATION)
+        return float(duration) if duration is not None else 0
+
     def get_host_lane_count(self):
         '''
         This function returns number of host lanes for default application
