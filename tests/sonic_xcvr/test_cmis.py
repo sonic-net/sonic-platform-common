@@ -649,6 +649,34 @@ class TestCmis(object):
         result = self.api.get_datapath_deinit_duration()
         assert result == expected
 
+    @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
+        (True, '10', 0 ),
+        (False, None, 0),
+        (False, '8', 8.0),
+        (False, '5000000', 5000000.0),
+    ])
+    def test_get_module_pwr_up_duration(self, mock_response1, mock_response2, expected):
+        self.api.is_flat_memory = MagicMock()
+        self.api.is_flat_memory.return_value = mock_response1
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.return_value = mock_response2
+        result = self.api.get_module_pwr_up_duration()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
+        (True, '1', 0 ),
+        (False, None, 0),
+        (False, '6', 6.0),
+        (False, '80000', 80000.0),
+    ])
+    def test_get_module_pwr_down_duration(self, mock_response1, mock_response2, expected):
+        self.api.is_flat_memory = MagicMock()
+        self.api.is_flat_memory.return_value = mock_response1
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.return_value = mock_response2
+        result = self.api.get_module_pwr_down_duration()
+        assert result == expected
+
     @pytest.mark.parametrize("mock_response, expected", [
         (8, 8)
     ])
