@@ -30,3 +30,18 @@ class FieldValuePairs:
     def __init__(self, fvs):
         self.fv_dict = dict(fvs)
         pass
+
+class Select:
+    TIMEOUT = 1
+
+    def addSelectable(self, selectable):
+        pass
+
+    def removeSelectable(self, selectable):
+        pass
+
+    def select(self, timeout=-1, interrupt_on_signal=False):
+        return self.TIMEOUT, None
+
+class SubscriberStateTable(Table):
+    pass

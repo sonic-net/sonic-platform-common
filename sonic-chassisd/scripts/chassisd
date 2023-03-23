@@ -435,6 +435,8 @@ class ChassisdDaemon(daemon_base.DaemonBase):
         if self.module_updater.supervisor_slot == self.module_updater.my_slot:
             config_manager = ConfigManagerTask()
             config_manager.task_run()
+        else:
+            config_manager = None
 
         # Start main loop
         self.log_info("Start daemon main loop")

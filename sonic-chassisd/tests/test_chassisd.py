@@ -507,9 +507,20 @@ def test_signal_handler():
     assert daemon_chassisd.stop.set.call_count == 0
     assert exit_code == 0
 
-def test_daemon_run():
+def test_daemon_run_supervisor():
     # Test the chassisd run
     daemon_chassisd = ChassisdDaemon(SYSLOG_IDENTIFIER)
     daemon_chassisd.stop = MagicMock()
     daemon_chassisd.stop.wait.return_value = True
     daemon_chassisd.run()
+
+def test_daemon_run_linecard():
+    # Test the chassisd run
+    daemon_chassisd = ChassisdDaemon(SYSLOG_IDENTIFIER)
+    daemon_chassisd.stop = MagicMock()
+    daemon_chassisd.stop.wait.return_value = True
+
+    import sonic_platform.platform
+    with patch.object(sonic_platform.platform.Chassis, 'get_my_slot') as mock:
+       mock.return_value = sonic_platform.platform.Platform().get_chassis().get_supervisor_slot() + 1
+       daemon_chassisd.run()
