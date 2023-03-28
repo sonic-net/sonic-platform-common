@@ -1,9 +1,12 @@
 from mock import MagicMock, patch
+import traceback
+import random
 
 from sonic_platform_base.sonic_xcvr.api.public.sff8436 import Sff8436Api
 from sonic_platform_base.sonic_xcvr.codes.public.sff8436 import Sff8436Codes
 from sonic_platform_base.sonic_xcvr.mem_maps.public.sff8436 import Sff8436MemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
+
 
 class TestSff8436(object):
     codes = Sff8436Codes
@@ -73,3 +76,20 @@ class TestSff8436(object):
             assert not self.api.get_rx_power_support()
             assert not self.api.get_temperature_support()
             assert not self.api.get_voltage_support()
+
+    def test_random_read_fail(self):
+        def mock_read_raw(offset, size):
+            i = random.randint(0, 1)
+            return None if i == 0 else b'0' * size
+
+        self.api.xcvr_eeprom.reader = mock_read_raw
+
+        run_num = 5
+        while run_num > 0:
+            try:
+                self.api.get_transceiver_bulk_status()
+                self.api.get_transceiver_info()
+                self.api.get_transceiver_threshold_info()
+            except:
+                assert 0, traceback.format_exc()
+            run_num -= 1
