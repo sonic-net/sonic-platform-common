@@ -2115,99 +2115,60 @@ class SfpStateUpdateTask(threading.Thread):
             dict: key is logical port name, value is SFP status
         """
         # A logical port is created. There could be 3 cases:
-        #  1. SFP information is already in DB, which means that a logical port with the same physical index is in DB before.
-        #     Need copy the data from existing logical port and insert it into TRANSCEIVER_DOM_INFO, TRANSCEIVER_STATUS_INFO
-        #     and TRANSCEIVER_INFO table.
-        #  2. SFP information is not in DB and SFP is present with no SFP error. Need query the SFP status by platform API and
+        #  1. SFP is present with no SFP error. Need query the SFP status by platform API and
         #     insert the data to DB.
-        #  3. SFP information is not in DB and SFP is present with SFP error. If the SFP error does not block EEPROM reading,
+        #  2. SFP is present with SFP error. If the SFP error does not block EEPROM reading,
         #     just query transceiver information and DOM sensor information via platform API and update the data to DB; otherwise,
         #     just update TRANSCEIVER_STATUS table with the error.
-        #  4. SFP information is not in DB and SFP is not present. Only update TRANSCEIVER_STATUS_INFO table.
-        logical_port_event_dict = {}
-        sfp_status = None
-        sibling_port = None
+        #  3. SFP is not present. Only update TRANSCEIVER_STATUS_INFO table.
         status_tbl = self.xcvr_table_helper.get_status_tbl(port_change_event.asic_id)
         int_tbl = self.xcvr_table_helper.get_intf_tbl(port_change_event.asic_id)
         dom_tbl = self.xcvr_table_helper.get_dom_tbl(port_change_event.asic_id)
         dom_threshold_tbl = self.xcvr_table_helper.get_dom_threshold_tbl(port_change_event.asic_id)
         pm_tbl = self.xcvr_table_helper.get_pm_tbl(port_change_event.asic_id)
-        physical_port_list = self.port_mapping.logical_port_name_to_physical_port_list(port_change_event.port_name)
 
-        # Try to find a logical port with same physical index in DB
-        for physical_port in physical_port_list:
-            logical_port_list = self.port_mapping.get_physical_to_logical(physical_port)
-            if not logical_port_list:
-                continue
+        error_description = 'N/A'
+        status = None
+        read_eeprom = True
+        if port_change_event.port_index in self.sfp_error_dict:
+            value, error_dict = self.sfp_error_dict[port_change_event.port_index]
+            status = value
+            error_bits = int(value)
+            helper_logger.log_info("Got SFP error event {}".format(value))
 
-            for logical_port in logical_port_list:
-                found, sfp_status = status_tbl.get(logical_port)
-                if found:
-                    sibling_port = logical_port
-                    break
+            error_descriptions = sfp_status_helper.fetch_generic_error_description(error_bits)
 
-            if sfp_status:
-                break
-
-        if sfp_status:
-            # SFP information is in DB
-            status_tbl.set(port_change_event.port_name, sfp_status)
-            logical_port_event_dict[port_change_event.port_name] = dict(sfp_status)['status']
-            found, sfp_info = int_tbl.get(sibling_port)
-            if found:
-                int_tbl.set(port_change_event.port_name, sfp_info)
-            found, dom_info = dom_tbl.get(sibling_port)
-            if found:
-                dom_tbl.set(port_change_event.port_name, dom_info)
-            found, dom_threshold_info = dom_threshold_tbl.get(sibling_port)
-            if found:
-                dom_threshold_tbl.set(port_change_event.port_name, dom_threshold_info)
-        else:
-            error_description = 'N/A'
-            status = None
-            read_eeprom = True
-            if port_change_event.port_index in self.sfp_error_dict:
-                value, error_dict = self.sfp_error_dict[port_change_event.port_index]
-                status = value
-                error_bits = int(value)
-                helper_logger.log_info("Got SFP error event {}".format(value))
-
-                error_descriptions = sfp_status_helper.fetch_generic_error_description(error_bits)
-
-                if sfp_status_helper.has_vendor_specific_error(error_bits):
-                    if error_dict:
-                        vendor_specific_error_description = error_dict.get(port_change_event.port_index)
-                    else:
-                        vendor_specific_error_description = _wrapper_get_sfp_error_description(port_change_event.port_index)
-                    error_descriptions.append(vendor_specific_error_description)
-
-                error_description = '|'.join(error_descriptions)
-                helper_logger.log_info("Receive error update port sfp status table.")
-                if sfp_status_helper.is_error_block_eeprom_reading(error_bits):
-                    read_eeprom = False
-
-            # SFP information not in DB
-            if _wrapper_get_presence(port_change_event.port_index) and read_eeprom:
-                logical_port_event_dict[port_change_event.port_name] = sfp_status_helper.SFP_STATUS_INSERTED
-                transceiver_dict = {}
-                status = sfp_status_helper.SFP_STATUS_INSERTED if not status else status
-                rc = post_port_sfp_info_to_db(port_change_event.port_name, self.port_mapping, int_tbl, transceiver_dict)
-                if rc == SFP_EEPROM_NOT_READY:
-                    # Failed to read EEPROM, put it to retry set
-                    self.retry_eeprom_set.add(port_change_event.port_name)
+            if sfp_status_helper.has_vendor_specific_error(error_bits):
+                if error_dict:
+                    vendor_specific_error_description = error_dict.get(port_change_event.port_index)
                 else:
-                    post_port_dom_info_to_db(port_change_event.port_name, self.port_mapping, dom_tbl)
-                    post_port_dom_threshold_info_to_db(port_change_event.port_name, self.port_mapping, dom_threshold_tbl)
-                    update_port_transceiver_status_table_hw(port_change_event.port_name,
-                                                            self.port_mapping,
-                                                            status_tbl)
-                    post_port_pm_info_to_db(port_change_event.port_name, self.port_mapping, pm_tbl)
-                    notify_media_setting(port_change_event.port_name, transceiver_dict, self.xcvr_table_helper.get_app_port_tbl(port_change_event.asic_id), self.port_mapping)
+                    vendor_specific_error_description = _wrapper_get_sfp_error_description(port_change_event.port_index)
+                error_descriptions.append(vendor_specific_error_description)
+
+            error_description = '|'.join(error_descriptions)
+            helper_logger.log_info("Receive error update port sfp status table.")
+            if sfp_status_helper.is_error_block_eeprom_reading(error_bits):
+                read_eeprom = False
+
+        # SFP information not in DB
+        if _wrapper_get_presence(port_change_event.port_index) and read_eeprom:
+            transceiver_dict = {}
+            status = sfp_status_helper.SFP_STATUS_INSERTED if not status else status
+            rc = post_port_sfp_info_to_db(port_change_event.port_name, self.port_mapping, int_tbl, transceiver_dict)
+            if rc == SFP_EEPROM_NOT_READY:
+                # Failed to read EEPROM, put it to retry set
+                self.retry_eeprom_set.add(port_change_event.port_name)
             else:
-                status = sfp_status_helper.SFP_STATUS_REMOVED if not status else status
-            logical_port_event_dict[port_change_event.port_name] = status
-            update_port_transceiver_status_table_sw(port_change_event.port_name, status_tbl, status, error_description)
-        return logical_port_event_dict
+                post_port_dom_info_to_db(port_change_event.port_name, self.port_mapping, dom_tbl)
+                post_port_dom_threshold_info_to_db(port_change_event.port_name, self.port_mapping, dom_threshold_tbl)
+                update_port_transceiver_status_table_hw(port_change_event.port_name,
+                                                        self.port_mapping,
+                                                        status_tbl)
+                post_port_pm_info_to_db(port_change_event.port_name, self.port_mapping, pm_tbl)
+                notify_media_setting(port_change_event.port_name, transceiver_dict, self.xcvr_table_helper.get_app_port_tbl(port_change_event.asic_id), self.port_mapping)
+        else:
+            status = sfp_status_helper.SFP_STATUS_REMOVED if not status else status
+        update_port_transceiver_status_table_sw(port_change_event.port_name, status_tbl, status, error_description)
 
     def retry_eeprom_reading(self):
         """Retry EEPROM reading, if retry succeed, remove the logical port from the retry set
