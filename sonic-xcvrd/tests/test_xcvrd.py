@@ -2,6 +2,7 @@
 from xcvrd.xcvrd_utilities.port_mapping import *
 from xcvrd.xcvrd_utilities.sfp_status_helper import *
 from xcvrd.xcvrd import *
+import pytest
 import copy
 import os
 import sys
@@ -652,6 +653,111 @@ class TestXcvrdScript(object):
         cmis_manager.start()
         cmis_manager.join()
         assert not cmis_manager.is_alive()
+
+    DEFAULT_DP_STATE = {
+        'DP1State': 'DataPathActivated',
+        'DP2State': 'DataPathActivated',
+        'DP3State': 'DataPathActivated',
+        'DP4State': 'DataPathActivated',
+        'DP5State': 'DataPathActivated',
+        'DP6State': 'DataPathActivated',
+        'DP7State': 'DataPathActivated',
+        'DP8State': 'DataPathActivated'
+    }
+    DEFAULT_CONFIG_STATUS = {
+        'ConfigStatusLane1': 'ConfigSuccess',
+        'ConfigStatusLane2': 'ConfigSuccess',
+        'ConfigStatusLane3': 'ConfigSuccess',
+        'ConfigStatusLane4': 'ConfigSuccess',
+        'ConfigStatusLane5': 'ConfigSuccess',
+        'ConfigStatusLane6': 'ConfigSuccess',
+        'ConfigStatusLane7': 'ConfigSuccess',
+        'ConfigStatusLane8': 'ConfigSuccess'
+    }
+    CONFIG_LANE_8_UNDEFINED = {
+        'ConfigStatusLane1': 'ConfigSuccess',
+        'ConfigStatusLane2': 'ConfigSuccess',
+        'ConfigStatusLane3': 'ConfigSuccess',
+        'ConfigStatusLane4': 'ConfigSuccess',
+        'ConfigStatusLane5': 'ConfigSuccess',
+        'ConfigStatusLane6': 'ConfigSuccess',
+        'ConfigStatusLane7': 'ConfigSuccess',
+        'ConfigStatusLane8': 'ConfigUndefined'
+    }
+    @pytest.mark.parametrize("app_new, host_lanes_mask, lane_appl_code, default_dp_state, default_config_status, expected", [
+        (1, 0x0F, {0 : 1, 1 : 1, 2 : 1, 3 : 1}, DEFAULT_DP_STATE, DEFAULT_CONFIG_STATUS, False),
+        (1, 0x0F, {0 : 1, 1 : 1, 2 : 1, 3 : 0}, DEFAULT_DP_STATE, DEFAULT_CONFIG_STATUS, True),
+        (1, 0xF0, {4 : 1, 5 : 1, 6 : 1, 7 : 1}, DEFAULT_DP_STATE, DEFAULT_CONFIG_STATUS, False),
+        (1, 0xF0, {4 : 1, 5 : 1, 6 : 1, 7 : 1}, DEFAULT_DP_STATE, CONFIG_LANE_8_UNDEFINED, True),
+        (1, 0xF0, {4 : 1, 5 : 7, 6 : 1, 7 : 1}, DEFAULT_DP_STATE, DEFAULT_CONFIG_STATUS, True),
+        (4, 0xF0, {4 : 1, 5 : 7, 6 : 1, 7 : 1}, DEFAULT_DP_STATE, DEFAULT_CONFIG_STATUS, True),
+        (3, 0xC0, {7 : 3, 8 : 3}, DEFAULT_DP_STATE, DEFAULT_CONFIG_STATUS, False),
+        (1, 0x0F, {}, DEFAULT_DP_STATE, DEFAULT_CONFIG_STATUS, True),
+        (-1, 0x0F, {}, DEFAULT_DP_STATE, DEFAULT_CONFIG_STATUS, False)
+    ])
+    def test_CmisManagerTask_is_cmis_application_update_required(self, app_new, host_lanes_mask, lane_appl_code, default_dp_state, default_config_status, expected):
+
+        mock_xcvr_api = MagicMock()
+        mock_xcvr_api.is_flat_memory = MagicMock(return_value=False)
+
+        def get_application(lane):
+            return lane_appl_code.get(lane, 0)
+        mock_xcvr_api.get_application = MagicMock(side_effect=get_application)
+
+        mock_xcvr_api.get_datapath_state = MagicMock(return_value=default_dp_state)
+        mock_xcvr_api.get_config_datapath_hostlane_status = MagicMock(return_value=default_config_status)
+
+        port_mapping = PortMapping()
+        stop_event = threading.Event()
+        task = CmisManagerTask(DEFAULT_NAMESPACE, port_mapping, stop_event)
+
+        assert task.is_cmis_application_update_required(mock_xcvr_api, app_new, host_lanes_mask) == expected
+
+    @pytest.mark.parametrize("host_lane_count, speed, subport, expected", [
+        (8, 400000, 0, 0xFF),
+        (4, 100000, 1, 0xF),
+        (4, 100000, 2, 0xF0),
+        (4, 100000, 0, 0xF),
+        (4, 100000, 9, 0x0),
+        (1, 50000, 2, 0x2),
+        (1, 200000, 2, 0x0)
+    ])
+    def test_CmisManagerTask_get_cmis_host_lanes_mask(self, host_lane_count, speed, subport, expected):
+        appl_advert_dict = {
+            1: {
+                'host_electrical_interface_id': '400GAUI-8 C2M (Annex 120E)',
+                'module_media_interface_id': '400GBASE-DR4 (Cl 124)',
+                'media_lane_count': 4,
+                'host_lane_count': 8,
+                'host_lane_assignment_options': 1
+            },
+            2: {
+                'host_electrical_interface_id': 'CAUI-4 C2M (Annex 83E)',
+                'module_media_interface_id': 'Active Cable assembly with BER < 5x10^-5',
+                'media_lane_count': 4,
+                'host_lane_count': 4,
+                'host_lane_assignment_options': 17
+            },
+            3: {
+                'host_electrical_interface_id': '50GAUI-1 C2M',
+                'module_media_interface_id': '50GBASE-SR',
+                'media_lane_count': 1,
+                'host_lane_count': 1,
+                'host_lane_assignment_options': 255
+            }
+        }
+        mock_xcvr_api = MagicMock()
+        mock_xcvr_api.get_application_advertisement = MagicMock(return_value=appl_advert_dict)
+
+        def get_host_lane_assignment_option_side_effect(app):
+            return appl_advert_dict[app]['host_lane_assignment_options']
+        mock_xcvr_api.get_host_lane_assignment_option = MagicMock(side_effect=get_host_lane_assignment_option_side_effect)
+        port_mapping = PortMapping()
+        stop_event = threading.Event()
+        task = CmisManagerTask(DEFAULT_NAMESPACE, port_mapping, stop_event)
+
+        appl = task.get_cmis_application_desired(mock_xcvr_api, host_lane_count, speed)
+        assert task.get_cmis_host_lanes_mask(mock_xcvr_api, appl, host_lane_count, subport) == expected
 
     @patch('xcvrd.xcvrd.platform_chassis')
     @patch('xcvrd.xcvrd_utilities.port_mapping.subscribe_port_update_event', MagicMock(return_value=(None, None)))
