@@ -81,9 +81,6 @@ class XcvrApi(object):
         ---------------------------|---------------|----------------------------
         rx_los                     |bool           |RX loss-of-signal status, True if has RX los, False if not.
         tx_fault                   |bool           |TX fault status, True if has TX fault, False if not.
-        tx_disable                 |bool           |TX disable status, True TX disabled, False if not.
-        tx_disabled_channel        |int            |disabled TX channels in hex, bits 0 to 3 represent channel 0
-                                   |               |to channel 3 (for example).
         temperature                |float          |module temperature in Celsius
         voltage                    |float          |supply voltage in mV
         tx<n>bias                  |float          |TX Bias Current in mA, n is the channel number,

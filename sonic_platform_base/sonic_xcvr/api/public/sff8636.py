@@ -78,8 +78,6 @@ class Sff8636Api(XcvrApi):
     def get_transceiver_bulk_status(self):
         rx_los = self.get_rx_los()
         tx_fault = self.get_tx_fault()
-        tx_disable = self.get_tx_disable()
-        tx_disabled_channel = self.get_tx_disable_channel()
         temp = self.get_module_temperature()
         voltage = self.get_voltage()
         tx_bias = self.get_tx_bias()
@@ -87,8 +85,6 @@ class Sff8636Api(XcvrApi):
         tx_power = self.get_tx_power()
         read_failed = rx_los is None or \
                       tx_fault is None or \
-                      tx_disable is None or \
-                      tx_disabled_channel is None or \
                       temp is None or \
                       voltage is None or \
                       tx_bias is None or \
@@ -100,8 +96,6 @@ class Sff8636Api(XcvrApi):
         bulk_status = {
             "rx_los": all(rx_los) if self.get_rx_los_support() else 'N/A',
             "tx_fault": all(tx_fault) if self.get_tx_fault_support() else 'N/A',
-            "tx_disable": all(tx_disable),
-            "tx_disabled_channel": tx_disabled_channel,
             "temperature": temp,
             "voltage": voltage
         }
