@@ -1620,6 +1620,8 @@ class CmisApi(XcvrApi):
         rxoutput_status_hostlane6    = BOOLEAN                          ; rx output status on host lane 6
         rxoutput_status_hostlane7    = BOOLEAN                          ; rx output status on host lane 7
         rxoutput_status_hostlane8    = BOOLEAN                          ; rx output status on host lane 8
+        tx_disable                   = BOOLEAN                          ; tx disable status
+        tx_disabled_channel          = INTEGER                          ; disabled TX channels
         txfault                      = BOOLEAN                          ; tx fault flag on media lane
         txlos_hostlane1              = BOOLEAN                          ; tx loss of signal flag on host lane 1
         txlos_hostlane2              = BOOLEAN                          ; tx loss of signal flag on host lane 2
@@ -1738,6 +1740,11 @@ class CmisApi(XcvrApi):
             if rx_output_status_dict:
                 for lane in range(1, self.NUM_CHANNELS+1):
                     trans_status['rxoutput_status_hostlane%d' % lane] = rx_output_status_dict.get('RxOutputStatus%d' % lane)
+            if self.get_tx_disable_support():
+                trans_status['tx_disabled_channel'] = self.get_tx_disable_channel()
+                tx_disable = self.get_tx_disable()
+                for lane in range(1, self.NUM_CHANNELS+1):
+                    trans_status['tx%ddisable' % lane] = tx_disable[lane - 1]
             tx_fault = self.get_tx_fault()
             if tx_fault:
                 for lane in range(1, self.NUM_CHANNELS+1):

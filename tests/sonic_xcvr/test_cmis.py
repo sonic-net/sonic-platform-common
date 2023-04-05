@@ -1601,7 +1601,8 @@ class TestCmis(object):
                 {
                     'Pre-FEC BER Average Media Input':{1:[0.001, 0.0125, 0, 0.01, 0, False, False, False, False]},
                     'Errored Frames Average Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
-                }
+                },
+                True, 0, [False, False, False, False, False, False, False, False]
             ],
             {
                 'module_state': 'ModuleReady',
@@ -1633,6 +1634,15 @@ class TestCmis(object):
                 'rxoutput_status_hostlane6': True,
                 'rxoutput_status_hostlane7': True,
                 'rxoutput_status_hostlane8': True,
+                "tx_disabled_channel": 0,
+                "tx1disable": False,
+                "tx2disable": False,
+                "tx3disable": False,
+                "tx4disable": False,
+                "tx5disable": False,
+                "tx6disable": False,
+                "tx7disable": False,
+                "tx8disable": False,
                 'txfault1': False,
                 'txfault2': False,
                 'txfault3': False,
@@ -1835,7 +1845,8 @@ class TestCmis(object):
                 {
                     'Pre-FEC BER Average Media Input':{1:[0.001, 0.0125, 0, 0.01, 0, False, False, False, False]},
                     'Errored Frames Average Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
-                }
+                },
+                False, 0, [False, False, False, False, False, False, False, False]
             ],
             {
                 'module_state': 'ModuleReady',
@@ -1894,6 +1905,12 @@ class TestCmis(object):
         self.api.get_tx_bias_flag.return_value = mock_response[18]
         self.api.get_vdm = MagicMock()
         self.api.get_vdm.return_value = mock_response[19]
+        self.api.get_tx_disable_support = MagicMock()
+        self.api.get_tx_disable_support.return_value = mock_response[20]
+        self.api.get_tx_disable_channel = MagicMock()
+        self.api.get_tx_disable_channel.return_value = mock_response[21]
+        self.api.get_tx_disable = MagicMock()
+        self.api.get_tx_disable.return_value = mock_response[22]
         result = self.api.get_transceiver_status()
         assert result == expected
 
