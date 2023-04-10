@@ -74,7 +74,7 @@ class CmisApi(XcvrApi):
         if self.is_flat_memory():
             return '0.0'
         hw_major_rev = self.xcvr_eeprom.read(consts.HW_MAJOR_REV)
-        hw_minor_rev = self.xcvr_eeprom.read(consts.HW_MAJOR_REV)
+        hw_minor_rev = self.xcvr_eeprom.read(consts.HW_MINOR_REV)
         hw_rev = [str(num) for num in [hw_major_rev, hw_minor_rev]]
         return '.'.join(hw_rev)
 
