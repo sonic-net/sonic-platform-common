@@ -308,3 +308,35 @@ class Sff8436Api(XcvrApi):
 
     def get_power_override_support(self):
         return not self.is_copper()
+
+    def set_lpmode(self, lpmode):
+        '''
+        This function sets LPMode for the module.
+
+        Args:
+            lpmode (bool): False means LPMode Off, True means LPMode On
+
+        Returns:
+            bool: True if the provision succeeds, False if it fails
+        '''
+        if not self.get_lpmode_support() or not self.get_power_override_support():
+            return False
+
+        return self.set_power_override(True, lpmode)
+
+    def get_lpmode(self):
+        '''
+        Retrieves low power mode status
+
+        Returns:
+            bool: True if module in low power else returns False.
+        '''
+        if not self.get_lpmode_support() or not self.get_power_override_support():
+            return False
+
+        power_set = self.get_power_set()
+        power_override = self.get_power_override()
+
+        # Since typically optics come up by default set to high power, in this case,
+        # power_override not being set, function will return high power mode.
+        return power_set and power_override
