@@ -1518,10 +1518,13 @@ class TestXcvrdScript(object):
     @patch('sonic_py_common.device_info.get_paths_to_platform_and_hwsku_dirs', MagicMock(return_value=('/tmp', None)))
     @patch('swsscommon.swsscommon.WarmStart', MagicMock())
     @patch('xcvrd.xcvrd.DaemonXcvrd.wait_for_port_config_done', MagicMock())
-    def test_DaemonXcvrd_init_deinit(self):
+    def test_DaemonXcvrd_init_deinit_fastboot_enabled(self):
         xcvrd = DaemonXcvrd(SYSLOG_IDENTIFIER)
-        xcvrd.init()
-        xcvrd.deinit()
+        with patch("subprocess.check_output") as mock_run:
+            mock_run.return_value = "true"
+
+            xcvrd.init()
+            xcvrd.deinit()
 
 
 def wait_until(total_wait_time, interval, call_back, *args, **kwargs):

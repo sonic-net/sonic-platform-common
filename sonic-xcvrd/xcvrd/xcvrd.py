@@ -921,17 +921,8 @@ def init_port_sfp_status_tbl(port_mapping, xcvr_table_helper, stop_event=threadi
                 update_port_transceiver_status_table_sw(logical_port_name, xcvr_table_helper.get_status_tbl(asic_index), sfp_status_helper.SFP_STATUS_INSERTED)
 
 def is_fast_reboot_enabled():
-    fastboot_enabled = False
-    state_db_host =  daemon_base.db_connect("STATE_DB")
-    fastboot_tbl = swsscommon.Table(state_db_host, 'FAST_REBOOT')
-    keys = fastboot_tbl.getKeys()
-
-    if "system" in keys:
-        output = subprocess.check_output(['sonic-db-cli', 'STATE_DB', 'get', "FAST_REBOOT|system"], universal_newlines=True)
-        if "1" in output:
-            fastboot_enabled = True
-
-    return fastboot_enabled
+    fastboot_enabled = subprocess.check_output('sonic-db-cli STATE_DB hget "FAST_RESTART_ENABLE_TABLE|system" enable', shell=True, universal_newlines=True)
+    return "true" in fastboot_enabled
 
 #
 # Helper classes ===============================================================
