@@ -1953,7 +1953,7 @@ class CmisApi(XcvrApi):
                 break
             key = "{}_{}".format(prefix, app)
             val = dic.get(key)
-            if val in [None, 'Unknown', 'Undefined']:
+            if val in [None, 'Unknown']:
                 break
             buf['module_media_interface_id'] = val
 
