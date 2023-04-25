@@ -40,8 +40,8 @@ class TestSff8472(object):
         self.api.get_rx_power()
         self.reader.return_value = bytearray([0xFF])
         self.api.tx_disable(True)
-        self.reader.return_value = None
         self.api.tx_disable_channel(0x5, True)
+        self.reader.return_value = None
         self.api.is_flat_memory()
         self.api.get_temperature_support()
         self.api.get_voltage_support()
