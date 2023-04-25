@@ -247,20 +247,7 @@ class Sff8472Api(XcvrApi):
         return self.xcvr_eeprom.write(consts.TX_DISABLE_SELECT_FIELD, tx_disable)
 
     def tx_disable_channel(self, channel, disable):
-        channel_state = self.get_tx_disable_channel()
-        if channel_state is None or channel_state == "N/A":
-            return False
-
-        for i in range(self.NUM_CHANNELS):
-            mask = (1 << i)
-            if not (channel & mask):
-                continue
-            if disable:
-                channel_state |= mask
-            else:
-                channel_state &= ~mask
-
-        return self.xcvr_eeprom.write(consts.TX_DISABLE_FIELD, channel_state)
+        return self.tx_disable(disable) if channel != 0 else True
 
     def is_flat_memory(self):
         return not self.xcvr_eeprom.read(consts.PAGING_SUPPORT_FIELD)
