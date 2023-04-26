@@ -1088,6 +1088,12 @@ class CmisManagerTask(threading.Thread):
     def get_cmis_dp_deinit_duration_secs(self, api):
         return api.get_datapath_deinit_duration()/1000
 
+    def get_cmis_module_power_up_duration_secs(self, api):
+        return api.get_module_pwr_up_duration()/1000
+
+    def get_cmis_module_power_down_duration_secs(self, api):
+        return api.get_module_pwr_down_duration()/1000
+
     def get_cmis_host_lanes_mask(self, api, appl, host_lane_count, subport):
         """
         Retrieves mask of active host lanes based on appl, host lane count and subport
@@ -1559,8 +1565,10 @@ class CmisManagerTask(threading.Thread):
                         api.set_lpmode(False)
                         self.port_dict[lport]['cmis_state'] = self.CMIS_STATE_AP_CONF
                         dpDeinitDuration = self.get_cmis_dp_deinit_duration_secs(api)
-                        self.log_notice("{}: DpDeinit duration {} secs".format(lport, dpDeinitDuration))
-                        self.port_dict[lport]['cmis_expired'] = now + datetime.timedelta(seconds=dpDeinitDuration)
+                        modulePwrUpDuration = self.get_cmis_module_power_up_duration_secs(api)
+                        self.log_notice("{}: DpDeinit duration {} secs, modulePwrUp duration {} secs".format(lport, dpDeinitDuration, modulePwrUpDuration))
+                        self.port_dict[lport]['cmis_expired'] = now + datetime.timedelta(seconds = max(modulePwrUpDuration, dpDeinitDuration))
+
                     elif state == self.CMIS_STATE_AP_CONF:
                         # TODO: Use fine grained time when the CMIS memory map is available
                         if not self.check_module_state(api, ['ModuleReady']):
