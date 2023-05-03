@@ -1092,6 +1092,8 @@ class TestCmis(object):
         ((None, 1, [0] * 128),  {'status': False, 'info': "", 'result': 0}),
         ((128, None, [0] * 128),  {'status': False, 'info': "", 'result': 0}),
         ((128, 0, [0] * 128),  {'status': False, 'info': "", 'result': None}),
+        ((110, 1, [3, 3, 2, 2, 3, 183] + [0] * 104),  {'status': True, 'info': "", 'result': None}),
+        ((110, 1, [48, 3, 2, 2, 3, 183] + [0] * 104),  {'status': True, 'info': "", 'result': None}),
     ])
     def test_get_module_fw_info(self, mock_response, expected):
         self.api.cdb = MagicMock()
