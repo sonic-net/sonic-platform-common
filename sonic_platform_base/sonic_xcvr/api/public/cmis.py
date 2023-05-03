@@ -1286,10 +1286,16 @@ class CmisApi(XcvrApi):
                 factory_image = '%d.%d.%d' % (rpl[74], rpl[75], ((rpl[76] << 8) | rpl[77]))
                 txt += 'Factory Image Version: %s\n' %factory_image
 
+            ActiveFirmware = 'N/A'
+            InactiveFirmware = 'N/A'
             if ImageARunning == 1:
                 RunningImage = 'A'
+                ActiveFirmware = ImageA
+                InactiveFirmware = ImageB
             elif ImageBRunning == 1:
                 RunningImage = 'B'
+                ActiveFirmware = ImageB
+                InactiveFirmware = ImageA
             else:
                 RunningImage = 'N/A'
             if ImageACommitted == 1:
@@ -1300,8 +1306,8 @@ class CmisApi(XcvrApi):
                 CommittedImage = 'N/A'
             txt += 'Running Image: %s\n' % (RunningImage)
             txt += 'Committed Image: %s\n' % (CommittedImage)
-            txt += 'Active Firmware: {}\n'.format(self.get_module_active_firmware())
-            txt += 'Inactive Firmware: {}\n'.format(self.get_module_inactive_firmware())
+            txt += 'Active Firmware: {}\n'.format(ActiveFirmware)
+            txt += 'Inactive Firmware: {}\n'.format(InactiveFirmware)
         else:
             txt += 'Reply payload check code error\n'
             return {'status': False, 'info': txt, 'result': None}
