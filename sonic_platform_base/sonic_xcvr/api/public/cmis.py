@@ -730,13 +730,18 @@ class CmisApi(XcvrApi):
         '''
         return self.xcvr_eeprom.read(consts.HOST_LANE_COUNT)
 
-    def get_media_lane_count(self):
+    def get_media_lane_count(self, appl=1):
         '''
         This function returns number of media lanes for default application
         '''
         if self.is_flat_memory():
             return 0
-        return self.xcvr_eeprom.read(consts.MEDIA_LANE_COUNT)
+        
+        if (appl <= 0):
+            return 0
+        
+        appl_advt = self.get_application_advertisement()
+        return appl_advt[appl]['media_lane_count'] if len(appl_advt) >= appl else 0
 
     def get_media_interface_technology(self):
         '''
@@ -757,13 +762,18 @@ class CmisApi(XcvrApi):
         appl_advt = self.get_application_advertisement()
         return appl_advt[appl]['host_lane_assignment_options'] if len(appl_advt) >= appl else 0
 
-    def get_media_lane_assignment_option(self):
+    def get_media_lane_assignment_option(self, appl=1):
         '''
         This function returns the media lane that the application is allowed to begin on
         '''
         if self.is_flat_memory():
             return 'N/A'
-        return self.xcvr_eeprom.read(consts.MEDIA_LANE_ASSIGNMENT_OPTION)
+        
+        if (appl <= 0):
+            return 0
+        
+        appl_advt = self.get_application_advertisement()
+        return appl_advt[appl]['media_lane_assignment_options'] if len(appl_advt) >= appl else 0
 
     def get_active_apsel_hostlane(self):
         '''
