@@ -203,15 +203,19 @@ class PsuChassisInfo(logger.Logger):
         fvs = swsscommon.FieldValuePairs(dict_len)
 
         for index, psu in enumerate(self.chassis.get_all_psus()):
+            name = try_get(psu.get_name, 'PSU {}'.format(index + 1))
             presence = try_get(psu.get_presence)
             if not presence:
+                chassis_tbl.hdel(CHASSIS_INFO_POWER_KEY_TEMPLATE.format(1), CHASSIS_INFO_POWER_SUPPLIER_FIELD.format(name))
                 continue
 
             power_good = try_get(psu.get_powergood_status)
             if not power_good:
+                supplied_power = 0.0
+                fvs[dict_index] = (CHASSIS_INFO_POWER_SUPPLIER_FIELD.format(name), str(supplied_power))
+                dict_index += 1
                 continue
 
-            name = try_get(psu.get_name, 'PSU {}'.format(index + 1))
             supplied_power = try_get(psu.get_maximum_supplied_power, 0.0)
             total_supplied_power = total_supplied_power + supplied_power
             fvs[dict_index] = (CHASSIS_INFO_POWER_SUPPLIER_FIELD.format(name), str(supplied_power))
@@ -219,10 +223,11 @@ class PsuChassisInfo(logger.Logger):
 
         for index, power_consumer in enumerate(self.chassis.get_all_fan_drawers()):
             presence = try_get(power_consumer.get_presence)
+            name = try_get(power_consumer.get_name, 'FAN-DRAWER {}'.format(index))
             if not presence:
+                chassis_tbl.hdel(CHASSIS_INFO_POWER_KEY_TEMPLATE.format(1), CHASSIS_INFO_POWER_CONSUMER_FIELD.format(name))
                 continue
 
-            name = try_get(power_consumer.get_name, 'FAN-DRAWER {}'.format(index))
             fan_drawer_power = try_get(power_consumer.get_maximum_consumed_power, 0.0)
             total_fan_consumed_power = total_fan_consumed_power + fan_drawer_power
             fvs[dict_index] = (CHASSIS_INFO_POWER_CONSUMER_FIELD.format(name), str(fan_drawer_power))
@@ -230,10 +235,11 @@ class PsuChassisInfo(logger.Logger):
 
         for index, power_consumer in enumerate(self.chassis.get_all_modules()):
             presence = try_get(power_consumer.get_presence)
+            name = try_get(power_consumer.get_name, 'MODULE {}'.format(index))
             if not presence:
+                chassis_tbl.hdel(CHASSIS_INFO_POWER_KEY_TEMPLATE.format(1), CHASSIS_INFO_POWER_CONSUMER_FIELD.format(name))
                 continue
 
-            name = try_get(power_consumer.get_name, 'MODULE {}'.format(index))
             module_power = try_get(power_consumer.get_maximum_consumed_power, 0.0)
             total_module_consumed_power = total_module_consumed_power + module_power
             fvs[dict_index] = (CHASSIS_INFO_POWER_CONSUMER_FIELD.format(name), str(module_power))

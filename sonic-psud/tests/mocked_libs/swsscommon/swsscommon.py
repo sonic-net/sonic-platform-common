@@ -16,6 +16,10 @@ class Table:
         del self.mock_dict[key]
         pass
 
+    def hdel(self, key, value):
+        del self.mock_dict[key]
+        pass
+
     def set(self, key, fvs):
         self.mock_dict[key] = fvs.fv_dict
         pass
