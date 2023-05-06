@@ -702,7 +702,7 @@ class TestCmis(object):
                 'module_media_interface_id': '400GBASE-DR4 (Cl 124)',
                 'media_lane_count': 4,
                 'host_lane_count': 8,
-                'host_lane_assignment_options': 1
+                'host_lane_assignment_options': 1,
                 'media_lane_assignment_options': 1
             },
             2: {
@@ -710,7 +710,7 @@ class TestCmis(object):
                 'module_media_interface_id': '100G-LR/100GBASE-LR1 (Cl 140)',
                 'media_lane_count': 1,
                 'host_lane_count': 2,
-                'host_lane_assignment_options': 85
+                'host_lane_assignment_options': 85,
                 'media_lane_assignment_options': 15
             }
         }
