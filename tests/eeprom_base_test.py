@@ -151,7 +151,7 @@ class TestEepromTlvinfo:
         # Test adding invalid field
         (is_valid, t) = eeprom_class.get_tlv_field(eeprom_new, 0x20)
         assert(not is_valid)
-        with mock.patch('builtins.exit') as exit_mock:
+        with mock.patch('sys.exit') as exit_mock:
             eeprom_new = eeprom_class.set_eeprom(eeprom, ['0x20 = Invalid'])
             assert exit_mock.called
 
