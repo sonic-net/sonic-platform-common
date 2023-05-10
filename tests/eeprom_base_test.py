@@ -1,7 +1,9 @@
 import os
+import pytest
 import subprocess
 from unittest import mock
-from sonic_platform_base.sonic_eeprom import eeprom_tlvinfo
+from unittest.mock import patch, MagicMock
+from sonic_platform_base.sonic_eeprom import eeprom_base, eeprom_tlvinfo
 EEPROM_SYMLINK = "vpd_info"
 EEPROM_HEX_FILE = "syseeprom.hex"
 TEST_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -167,3 +169,37 @@ class TestEepromTlvinfo:
         eeprom_class = eeprom_tlvinfo.TlvInfoDecoder(EEPROM_SYMLINK_FULL_PATH, 0, '', True)
         eeprom_class.redis_client.hget = mock.MagicMock(return_value = b'1')
         assert(0 == eeprom_class.read_eeprom_db())
+
+class TestEepromDecoder(object):
+    def setup(self):
+        print("SETUP")
+
+    @patch('builtins.print')
+    @patch('sonic_platform_base.sonic_eeprom.eeprom_base.EepromDecoder.checksum_field_size', MagicMock(return_value=10))
+    def test_encode_checksum_not_supported(self, mock_print):
+        with pytest.raises(SystemExit) as e:
+            eeprom = eeprom_base.EepromDecoder('path', 'format', 'start', 'status', 'readonly')
+            eeprom.encode_checksum('crc')
+        mock_print.assert_called_with('checksum type not yet supported')
+        assert e.value.code == 1
+
+    @patch('builtins.print')
+    @patch('sonic_platform_base.sonic_eeprom.eeprom_base.EepromDecoder.checksum_type', MagicMock(return_value='dell-crc32'))
+    def test_calculate_checksum_not_supported(self, mock_print):
+        with pytest.raises(SystemExit) as e:
+            eeprom = eeprom_base.EepromDecoder('path', 'format', 'start', 'status', 'readonly')
+            eeprom.calculate_checksum('crc')
+        mock_print.assert_called_with('checksum type not yet supported')
+        assert e.value.code == 1
+
+    @patch('builtins.print')
+    def test_set_eeprom_invalid_field(self, mock_print):
+        with pytest.raises(SystemExit) as e:
+            eeprom = eeprom_base.EepromDecoder('path', ['format'], 'start', 'status', 'readonly')
+            eeprom.set_eeprom('eeprom', ['0x20 = Invalid'])
+        mock_print.assert_called_with("Error: invalid field '0x20'")
+        assert e.value.code == 1
+
+    def teardown(self):
+        print("TEAR DOWN")
+
