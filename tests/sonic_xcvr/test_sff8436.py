@@ -27,6 +27,7 @@ class TestSff8436(object):
         self.api.get_transceiver_info()
         self.api.get_transceiver_bulk_status()
         self.api.get_transceiver_threshold_info()
+        self.api.get_transceiver_status()
         self.api.get_rx_los()
         self.api.get_tx_fault()
         self.api.get_tx_disable()

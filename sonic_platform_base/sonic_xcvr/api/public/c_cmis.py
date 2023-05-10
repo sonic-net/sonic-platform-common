@@ -644,7 +644,7 @@ class CCmisApi(CmisApi):
         tuning_in_progress           = BOOLEAN                          ; tuning in progress status
         wavelength_unlock_status     = BOOLEAN                          ; laser unlocked status
         target_output_power_oor      = BOOLEAN                          ; target output power out of range flag
-        fine_tuning_oor              = BOOLEAN                          ; fine tuning  out of range flag
+        fine_tuning_oor              = BOOLEAN                          ; fine tuning out of range flag
         tuning_not_accepted          = BOOLEAN                          ; tuning not accepted flag
         invalid_channel_num          = BOOLEAN                          ; invalid channel number flag
         tuning_complete              = BOOLEAN                          ; tuning complete flag

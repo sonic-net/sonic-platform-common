@@ -79,8 +79,6 @@ class XcvrApi(object):
         ========================================================================
         keys                       |Value Format   |Information
         ---------------------------|---------------|----------------------------
-        rx_los                     |bool           |RX loss-of-signal status, True if has RX los, False if not.
-        tx_fault                   |bool           |TX fault status, True if has TX fault, False if not.
         temperature                |float          |module temperature in Celsius
         voltage                    |float          |supply voltage in mV
         tx<n>bias                  |float          |TX Bias Current in mA, n is the channel number,
@@ -132,7 +130,7 @@ class XcvrApi(object):
 
     def get_transceiver_status(self):
         """
-        Retrieves transceiver status of this SFP (applicable for CMIS/C-CMIS)
+        Retrieves transceiver status of this SFP
 
         Returns:
             A dict which may contain following keys/values (there could be more for C-CMIS) :
