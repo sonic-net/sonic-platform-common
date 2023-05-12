@@ -501,8 +501,12 @@ class CmisApi(XcvrApi):
         if not tx_bias_support:
             return ["N/A" for _ in range(self.NUM_CHANNELS)]
         scale_raw = self.xcvr_eeprom.read(consts.TX_BIAS_SCALE)
+        if scale_raw is None:
+            return ["N/A" for _ in range(self.NUM_CHANNELS)]
         scale = 2**scale_raw if scale_raw < 3 else 1
         tx_bias = self.xcvr_eeprom.read(consts.TX_BIAS_FIELD)
+        if tx_bias is None:
+            return ["N/A" for _ in range(self.NUM_CHANNELS)]
         for key, value in tx_bias.items():
             tx_bias[key] *= scale
         return [tx_bias['LaserBiasTx%dField' % i] for i in range(1, self.NUM_CHANNELS + 1)]
@@ -849,7 +853,7 @@ class CmisApi(XcvrApi):
                            'high warn': laser_temp_high_warn,
                            'low warn': laser_temp_low_warn}
         return laser_temp_dict
-    
+
     def _get_laser_temp_threshold(self, field):
         LASER_TEMP_SCALE = 256.0
         value = self.xcvr_eeprom.read(field)
