@@ -377,6 +377,16 @@ class TestCmis(object):
         result = self.api.get_tx_bias()
         assert result == expected
 
+    def test_get_tx_bias_neg(self):
+        self.api.get_tx_bias_support = MagicMock(return_value=True)
+        self.api.xcvr_eeprom.read = MagicMock()
+        # scale_raw is None, verify no crash
+        self.api.xcvr_eeprom.read.return_value = None
+        self.api.get_tx_bias()
+        # scale_raw is 1, tx_bias is None, verify no crash
+        self.api.xcvr_eeprom.read.side_effect = [1, None]
+        self.api.get_tx_bias()
+
     @pytest.mark.parametrize("mock_response, expected", [
         ([False, True], True)
     ])
