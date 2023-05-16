@@ -1134,6 +1134,8 @@ class TestCmis(object):
         ((None, 1, [0] * 128),  {'status': False, 'info': "", 'result': 0}),
         ((128, None, [0] * 128),  {'status': False, 'info': "", 'result': 0}),
         ((128, 0, [0] * 128),  {'status': False, 'info': "", 'result': None}),
+        ((128, 1, [67, 3, 2, 2, 3, 183] + [0] * 104),  {'status': True, 'info': "", 'result': None}),
+        ((128, 1, [52, 3, 2, 2, 3, 183] + [0] * 104),  {'status': True, 'info': "", 'result': None}),
         ((110, 1, [3, 3, 2, 2, 3, 183] + [0] * 104),  {'status': True, 'info': "", 'result': None}),
         ((110, 1, [48, 3, 2, 2, 3, 183] + [0] * 104),  {'status': True, 'info': "", 'result': None}),
     ])
@@ -2249,3 +2251,14 @@ class TestCmis(object):
             except:
                 assert 0, traceback.format_exc()
             run_num -= 1
+
+    def test_get_transceiver_info_firmware_versions_negative_tests(self):
+        self.api.get_module_fw_info = MagicMock()
+        self.api.get_module_fw_info.return_value = None
+        result = self.api.get_transceiver_info_firmware_versions()
+        assert result == ["N/A", "N/A"]
+
+        self.api.get_module_fw_info = MagicMock()
+        self.api.get_module_fw_info.side_effect = {'result': TypeError}
+        result = self.api.get_transceiver_info_firmware_versions()
+        assert result == ["N/A", "N/A"]
