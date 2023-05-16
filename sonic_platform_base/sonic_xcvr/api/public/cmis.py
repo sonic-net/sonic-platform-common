@@ -512,8 +512,12 @@ class CmisApi(XcvrApi):
         if not tx_bias_support:
             return ["N/A" for _ in range(self.NUM_CHANNELS)]
         scale_raw = self.xcvr_eeprom.read(consts.TX_BIAS_SCALE)
+        if scale_raw is None:
+            return ["N/A" for _ in range(self.NUM_CHANNELS)]
         scale = 2**scale_raw if scale_raw < 3 else 1
         tx_bias = self.xcvr_eeprom.read(consts.TX_BIAS_FIELD)
+        if tx_bias is None:
+            return ["N/A" for _ in range(self.NUM_CHANNELS)]
         for key, value in tx_bias.items():
             tx_bias[key] *= scale
         return [tx_bias['LaserBiasTx%dField' % i] for i in range(1, self.NUM_CHANNELS + 1)]
@@ -741,13 +745,18 @@ class CmisApi(XcvrApi):
         '''
         return self.xcvr_eeprom.read(consts.HOST_LANE_COUNT)
 
-    def get_media_lane_count(self):
+    def get_media_lane_count(self, appl=1):
         '''
         This function returns number of media lanes for default application
         '''
         if self.is_flat_memory():
             return 0
-        return self.xcvr_eeprom.read(consts.MEDIA_LANE_COUNT)
+        
+        if (appl <= 0):
+            return 0
+        
+        appl_advt = self.get_application_advertisement()
+        return appl_advt[appl]['media_lane_count'] if len(appl_advt) >= appl else 0
 
     def get_media_interface_technology(self):
         '''
@@ -768,13 +777,18 @@ class CmisApi(XcvrApi):
         appl_advt = self.get_application_advertisement()
         return appl_advt[appl]['host_lane_assignment_options'] if len(appl_advt) >= appl else 0
 
-    def get_media_lane_assignment_option(self):
+    def get_media_lane_assignment_option(self, appl=1):
         '''
         This function returns the media lane that the application is allowed to begin on
         '''
         if self.is_flat_memory():
             return 'N/A'
-        return self.xcvr_eeprom.read(consts.MEDIA_LANE_ASSIGNMENT_OPTION)
+        
+        if (appl <= 0):
+            return 0
+        
+        appl_advt = self.get_application_advertisement()
+        return appl_advt[appl]['media_lane_assignment_options'] if len(appl_advt) >= appl else 0
 
     def get_active_apsel_hostlane(self):
         '''
@@ -885,7 +899,7 @@ class CmisApi(XcvrApi):
                            'high warn': laser_temp_high_warn,
                            'low warn': laser_temp_low_warn}
         return laser_temp_dict
-    
+
     def _get_laser_temp_threshold(self, field):
         LASER_TEMP_SCALE = 256.0
         value = self.xcvr_eeprom.read(field)

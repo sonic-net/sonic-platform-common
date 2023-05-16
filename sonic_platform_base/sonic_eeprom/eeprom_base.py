@@ -14,6 +14,7 @@ try:
     import binascii
     import os
     import io
+    import sys
     import struct
     import fcntl
 except ImportError as e:
@@ -83,7 +84,7 @@ class EepromDecoder(object):
         elif self.checksum_field_size() == 1:
             return struct.pack('>B', crc)
         print('checksum type not yet supported')
-        exit(1)
+        sys.exit(1)
 
     def compute_2s_complement(self, e, size):
         crc = 0
@@ -122,7 +123,7 @@ class EepromDecoder(object):
         if self.checksum_type() == 'dell-crc':
             return self.compute_dell_crc(e)
         print('checksum type not yet supported')
-        exit(1)
+        sys.exit(1)
 
     def is_checksum_valid(self, e):
         offset = 0 - self.checksum_field_size()
@@ -169,7 +170,7 @@ class EepromDecoder(object):
                 v = v.strip()
                 if k not in fields:
                     print("Error: invalid field '%s'" %(k))
-                    exit(1)
+                    sys.exit(1)
                 ndict[k] = v
 
         for I in self.f:

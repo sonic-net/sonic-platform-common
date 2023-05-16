@@ -377,6 +377,16 @@ class TestCmis(object):
         result = self.api.get_tx_bias()
         assert result == expected
 
+    def test_get_tx_bias_neg(self):
+        self.api.get_tx_bias_support = MagicMock(return_value=True)
+        self.api.xcvr_eeprom.read = MagicMock()
+        # scale_raw is None, verify no crash
+        self.api.xcvr_eeprom.read.return_value = None
+        self.api.get_tx_bias()
+        # scale_raw is 1, tx_bias is None, verify no crash
+        self.api.xcvr_eeprom.read.side_effect = [1, None]
+        self.api.get_tx_bias()
+
     @pytest.mark.parametrize("mock_response, expected", [
         ([False, True], True)
     ])
@@ -689,13 +699,34 @@ class TestCmis(object):
         result = self.api.get_host_lane_count()
         assert result == expected
 
-    @pytest.mark.parametrize("mock_response, expected", [
-        (1, 1)
+    @pytest.mark.parametrize("appl, expected", [
+        (0, 0),
+        (1, 4),
+        (2, 1),
+        (3, 0)
     ])
-    def test_get_media_lane_count(self, mock_response, expected):
-        self.api.xcvr_eeprom.read = MagicMock()
-        self.api.xcvr_eeprom.read.return_value = mock_response
-        result = self.api.get_media_lane_count()
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_application_advertisement', MagicMock(return_value =
+        {
+            1: {
+                'host_electrical_interface_id': '400GAUI-8 C2M (Annex 120E)',
+                'module_media_interface_id': '400GBASE-DR4 (Cl 124)',
+                'media_lane_count': 4,
+                'host_lane_count': 8,
+                'host_lane_assignment_options': 1,
+                'media_lane_assignment_options': 1
+            },
+            2: {
+                'host_electrical_interface_id': '100GAUI-2 C2M (Annex 135G)',
+                'module_media_interface_id': '100G-LR/100GBASE-LR1 (Cl 140)',
+                'media_lane_count': 1,
+                'host_lane_count': 2,
+                'host_lane_assignment_options': 85,
+                'media_lane_assignment_options': 15
+            }
+        }
+    ))
+    def test_get_media_lane_count(self, appl, expected):
+        result = self.api.get_media_lane_count(appl)
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
@@ -735,13 +766,34 @@ class TestCmis(object):
         result = self.api.get_host_lane_assignment_option(appl)
         assert result == expected
 
-    @pytest.mark.parametrize("mock_response, expected", [
-        (1, 1)
+    @pytest.mark.parametrize("appl, expected", [
+        (0, 0),
+        (1, 1),
+        (2, 15),
+        (3, 0)
     ])
-    def test_get_media_lane_assignment_option(self, mock_response, expected):
-        self.api.xcvr_eeprom.read = MagicMock()
-        self.api.xcvr_eeprom.read.return_value = mock_response
-        result = self.api.get_media_lane_assignment_option()
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_application_advertisement', MagicMock(return_value =
+        {
+            1: {
+                'host_electrical_interface_id': '400GAUI-8 C2M (Annex 120E)',
+                'module_media_interface_id': '400GBASE-DR4 (Cl 124)',
+                'media_lane_count': 4,
+                'host_lane_count': 8,
+                'host_lane_assignment_options': 1,
+                'media_lane_assignment_options': 1
+            },
+            2: {
+                'host_electrical_interface_id': '100GAUI-2 C2M (Annex 135G)',
+                'module_media_interface_id': '100G-LR/100GBASE-LR1 (Cl 140)',
+                'media_lane_count': 1,
+                'host_lane_count': 2,
+                'host_lane_assignment_options': 85,
+                'media_lane_assignment_options': 15
+            }
+        }
+    ))
+    def test_get_media_lane_assignment_option(self, appl, expected):
+        result = self.api.get_media_lane_assignment_option(appl)
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [

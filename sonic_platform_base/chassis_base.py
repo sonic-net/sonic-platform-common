@@ -547,6 +547,33 @@ class ChassisBase(device_base.DeviceBase):
         raise NotImplementedError
 
     ##############################################
+    # System LED methods
+    ##############################################
+
+    def set_uid_led(self, color):
+        """
+        Sets the state of the system UID LED
+
+        Args:
+            color: A string representing the color with which to set the
+                   system UID LED
+
+        Returns:
+            bool: True if system LED state is set successfully, False if not
+        """
+        raise NotImplementedError
+
+    def get_uid_led(self):
+        """
+        Gets the state of the system UID LED
+
+        Returns:
+            A string, one of the valid LED color strings which could be vendor
+            specified.
+        """
+        raise NotImplementedError
+
+    ##############################################
     # Other methods
     ##############################################
 
