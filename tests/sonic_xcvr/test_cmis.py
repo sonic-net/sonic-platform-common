@@ -1134,6 +1134,8 @@ class TestCmis(object):
         ((None, 1, [0] * 128),  {'status': False, 'info': "", 'result': 0}),
         ((128, None, [0] * 128),  {'status': False, 'info': "", 'result': 0}),
         ((128, 0, [0] * 128),  {'status': False, 'info': "", 'result': None}),
+        ((128, 1, [67, 3, 2, 2, 3, 183] + [0] * 104),  {'status': True, 'info': "", 'result': None}),
+        ((128, 1, [52, 3, 2, 2, 3, 183] + [0] * 104),  {'status': True, 'info': "", 'result': None}),
         ((110, 1, [3, 3, 2, 2, 3, 183] + [0] * 104),  {'status': True, 'info': "", 'result': None}),
         ((110, 1, [48, 3, 2, 2, 3, 183] + [0] * 104),  {'status': True, 'info': "", 'result': None}),
     ])
@@ -1177,7 +1179,7 @@ class TestCmis(object):
     @pytest.mark.parametrize("input_param, mock_response, expected", [
         (
             'abc',
-            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0)}, {'status': True, 'info': '', 'result': (112, 2048, True, True, 2048)}, (True, ''), (True, '')],
+            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0, 'a', 'b')}, {'status': True, 'info': '', 'result': (112, 2048, True, True, 2048)}, (True, ''), (True, '')],
             (True, '')
         ),
         (
@@ -1187,12 +1189,12 @@ class TestCmis(object):
         ),
         (
             'abc',
-            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0)}, {'status': False, 'info': '', 'result': None}, (True, ''), (True, '')],
+            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0, 'a', 'b')}, {'status': False, 'info': '', 'result': None}, (True, ''), (True, '')],
             (False, '')
         ),
         (
             'abc',
-            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0)}, {'status': True, 'info': '', 'result': (112, 2048, True, True, 2048)}, (False, ''), (True, '')],
+            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0, 'a', 'b')}, {'status': True, 'info': '', 'result': (112, 2048, True, True, 2048)}, (False, ''), (True, '')],
             (False, '')
         ),
     ])
@@ -1209,7 +1211,7 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected",[
-        ([None, None, None, None, None, None, None, None, None, None, None, None, None, None], None),
+        ([None, None, None, None, None, None, None, None, None, None, None, None, None, None, None], None),
         (
             [
                 {
@@ -1237,7 +1239,8 @@ class TestCmis(object):
                 '5.0',
                 '0.1',
                 '0.0',
-                'sm_media_interface'
+                'sm_media_interface',
+                {'status': True,  'result': ("0.3.0", 1, 1, 0, "0.2.0", 0, 0, 0, "0.3.0", "0.2.0")}
             ],
             {   'type': 'QSFP-DD Double Density 8X Pluggable Transceiver',
                 'type_abbrv_name': 'QSFP-DD',
@@ -1250,9 +1253,9 @@ class TestCmis(object):
                 'nominal_bit_rate': 0,
                 'specification_compliance': 'sm_media_interface',
                 'application_advertisement': 'N/A',
-                'active_firmware': '0.1',
+                'active_firmware': '0.3.0',
                 'media_lane_count': 1,
-                'inactive_firmware': '0.0',
+                'inactive_firmware': '0.2.0',
                 'vendor_rev': '0.0',
                 'host_electrical_interface': '400GAUI-8 C2M (Annex 120E)',
                 'vendor_oui': 'xx-xx-xx',
@@ -1301,14 +1304,12 @@ class TestCmis(object):
         self.api.get_vendor_rev.return_value = mock_response[9]
         self.api.get_cmis_rev = MagicMock()
         self.api.get_cmis_rev.return_value = mock_response[10]
-        self.api.get_module_active_firmware = MagicMock()
-        self.api.get_module_active_firmware.return_value = mock_response[11]
-        self.api.get_module_inactive_firmware = MagicMock()
-        self.api.get_module_inactive_firmware.return_value = mock_response[12]
+        self.api.get_module_fw_info = MagicMock()
         self.api.get_module_media_type = MagicMock()
         self.api.get_module_media_type.return_value = mock_response[13]
         self.api.get_module_hardware_revision = MagicMock()
         self.api.get_module_hardware_revision.return_value = '0.0'
+        self.api.get_module_fw_info.return_value = mock_response[14]
         self.api.is_flat_memory = MagicMock()
         self.api.is_flat_memory.return_value = False
         result = self.api.get_transceiver_info()
@@ -2250,3 +2251,14 @@ class TestCmis(object):
             except:
                 assert 0, traceback.format_exc()
             run_num -= 1
+
+    def test_get_transceiver_info_firmware_versions_negative_tests(self):
+        self.api.get_module_fw_info = MagicMock()
+        self.api.get_module_fw_info.return_value = None
+        result = self.api.get_transceiver_info_firmware_versions()
+        assert result == ["N/A", "N/A"]
+
+        self.api.get_module_fw_info = MagicMock()
+        self.api.get_module_fw_info.side_effect = {'result': TypeError}
+        result = self.api.get_transceiver_info_firmware_versions()
+        assert result == ["N/A", "N/A"]

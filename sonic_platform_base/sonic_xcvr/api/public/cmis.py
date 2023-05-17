@@ -161,9 +161,9 @@ class CmisApi(XcvrApi):
         xcvr_info['media_interface_technology'] = self.get_media_interface_technology()
         xcvr_info['vendor_rev'] = self.get_vendor_rev()
         xcvr_info['cmis_rev'] = self.get_cmis_rev()
-        xcvr_info['active_firmware'] = self.get_module_active_firmware()
-        xcvr_info['inactive_firmware'] = self.get_module_inactive_firmware()
         xcvr_info['specification_compliance'] = self.get_module_media_type()
+
+        xcvr_info['active_firmware'], xcvr_info['inactive_firmware'] = self.get_transceiver_info_firmware_versions()
 
         # In normal case will get a valid value for each of the fields. If get a 'None' value
         # means there was a failure while reading the EEPROM, either because the EEPROM was
@@ -174,6 +174,17 @@ class CmisApi(XcvrApi):
             return None
         else:
             return xcvr_info
+
+    def get_transceiver_info_firmware_versions(self):
+        result = self.get_module_fw_info()
+        if result is None:
+            return ["N/A", "N/A"]
+        try:
+            ( _, _, _, _, _, _, _, _, ActiveFirmware, InactiveFirmware) = result['result']
+        except (ValueError, TypeError):
+            return ["N/A", "N/A"]
+
+        return [ActiveFirmware, InactiveFirmware]
 
     def get_transceiver_bulk_status(self):
         rx_los = self.get_rx_los()
@@ -1305,11 +1316,19 @@ class CmisApi(XcvrApi):
             if ImageARunning == 1:
                 RunningImage = 'A'
                 ActiveFirmware = ImageA
-                InactiveFirmware = ImageB
+                if ImageBValid == 0:
+                    InactiveFirmware = ImageB
+                else:
+                    #In case of single bank module, inactive firmware version can be read from EEPROM
+                    InactiveFirmware = self.get_module_inactive_firmware() + ".0"
             elif ImageBRunning == 1:
                 RunningImage = 'B'
                 ActiveFirmware = ImageB
-                InactiveFirmware = ImageA
+                if ImageAValid == 0:
+                    InactiveFirmware = ImageA
+                else:
+                    #In case of single bank module, inactive firmware version can be read from EEPROM
+                    InactiveFirmware = self.get_module_inactive_firmware() + ".0"
             else:
                 RunningImage = 'N/A'
             if ImageACommitted == 1:
@@ -1325,7 +1344,7 @@ class CmisApi(XcvrApi):
         else:
             txt += 'Reply payload check code error\n'
             return {'status': False, 'info': txt, 'result': None}
-        return {'status': True, 'info': txt, 'result': (ImageA, ImageARunning, ImageACommitted, ImageAValid, ImageB, ImageBRunning, ImageBCommitted, ImageBValid)}
+        return {'status': True, 'info': txt, 'result': (ImageA, ImageARunning, ImageACommitted, ImageAValid, ImageB, ImageBRunning, ImageBCommitted, ImageBValid, ActiveFirmware, InactiveFirmware)}
 
     def cdb_run_firmware(self, mode = 0x01):
         # run module FW (CMD 0109h)
@@ -1552,7 +1571,7 @@ class CmisApi(XcvrApi):
         """
         result = self.get_module_fw_info()
         try:
-            _, _, _, _, _, _, _, _ = result['result']
+            _, _, _, _, _, _, _, _, _, _ = result['result']
         except (ValueError, TypeError):
             return result['status'], result['info']
         result = self.get_module_fw_mgmt_feature()
@@ -1579,7 +1598,7 @@ class CmisApi(XcvrApi):
         result = self.get_module_fw_info()
         try:
             (ImageA_init, ImageARunning_init, ImageACommitted_init, ImageAValid_init,
-             ImageB_init, ImageBRunning_init, ImageBCommitted_init, ImageBValid_init) = result['result']
+             ImageB_init, ImageBRunning_init, ImageBCommitted_init, ImageBValid_init, _, _) = result['result']
         except (ValueError, TypeError):
             return result['status'], result['info']
         if ImageAValid_init == 0 and ImageBValid_init == 0:
@@ -1587,7 +1606,7 @@ class CmisApi(XcvrApi):
             time.sleep(60)
             self.module_fw_commit()
             (ImageA, ImageARunning, ImageACommitted, ImageAValid,
-             ImageB, ImageBRunning, ImageBCommitted, ImageBValid) = self.get_module_fw_info()['result']
+             ImageB, ImageBRunning, ImageBCommitted, ImageBValid, _, _) = self.get_module_fw_info()['result']
             # detect if image switch happened
             txt += 'Before switch Image A: %s; Run: %d Commit: %d, Valid: %d\n' %(
                 ImageA_init, ImageARunning_init, ImageACommitted_init, ImageAValid_init
