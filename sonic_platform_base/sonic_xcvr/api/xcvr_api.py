@@ -70,6 +70,16 @@ class XcvrApi(object):
         """
         raise NotImplementedError
 
+    def get_transceiver_info_firmware_versions(self):
+        """
+        Retrieves active and inactive firmware versions of the xcvr
+
+        Returns:
+            A list with active and inactive firmware versions of the xcvr
+            [active_firmware, inactive_firmware]
+        """
+        raise NotImplementedError
+
     def get_transceiver_bulk_status(self):
         """
         Retrieves bulk status info for this xcvr
