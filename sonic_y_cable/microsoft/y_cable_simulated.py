@@ -99,14 +99,14 @@ class YCable(YCableBase):
                     with urllib.request.urlopen(req, timeout=self.URLOPEN_TIMEOUT) as resp:
                         return json.loads(resp.read().decode('utf-8'))
                 except urllib.error.HTTPError as e:
-                    self.log_error('attempt={}, GET {} for physical_port {} failed with {}, detail: {}'.format(
+                    self.log_warning('attempt={}, GET {} for physical_port {} failed with {}, detail: {}'.format(
                         attempt,
                         get_url,
                         self.port,
                         repr(e),
                         e.read()))
             except (urllib.error.URLError, json.decoder.JSONDecodeError, Exception) as e:
-                self.log_error('attempt={}, GET {} for physical_port {} failed with {}'.format(
+                self.log_warning('attempt={}, GET {} for physical_port {} failed with {}'.format(
                     attempt,
                     get_url,
                     self.port,
@@ -114,7 +114,7 @@ class YCable(YCableBase):
 
             # Retry in case of exception, to workaround 'no route to host' issue after pmon restart
             if (time.time() - start_time) > self.POLL_TIMEOUT:
-                self.log_error('Retry GET {} for physical port {} timeout after {} seconds, attempted={}'.format(
+                self.log_warning('Retry GET {} for physical port {} timeout after {} seconds, attempted={}'.format(
                     get_url,
                     self.port,
                     self.POLL_TIMEOUT,
@@ -156,7 +156,7 @@ class YCable(YCableBase):
                     with urllib.request.urlopen(req, timeout=self.URLOPEN_TIMEOUT) as resp:
                         return json.loads(resp.read().decode('utf-8'))
                 except urllib.error.HTTPError as e:
-                    self.log_error('attempt={}, POST {} with data {} for physical_port {} failed with {}, detail: {}'.format(
+                    self.log_warning('attempt={}, POST {} with data {} for physical_port {} failed with {}, detail: {}'.format(
                         attempt,
                         post_url,
                         post_data,
@@ -165,7 +165,7 @@ class YCable(YCableBase):
                         e.read()
                     ))
             except (urllib.error.URLError, json.decoder.JSONDecodeError, Exception) as e:
-                self.log_error('attempt={}, POST {} with data {} for physical_port {} failed with {}'.format(
+                self.log_warning('attempt={}, POST {} with data {} for physical_port {} failed with {}'.format(
                         attempt,
                         post_url,
                         post_data,
@@ -175,7 +175,7 @@ class YCable(YCableBase):
 
             # Retry in case of exception, to workaround 'no route to host' issue after pmon restart
             if time.time() - start_time > self.POLL_TIMEOUT:
-                self.log_error('Retry POST {} with data{} for physical port {} timeout after {} seconds, attempted={}'.format(
+                self.log_warning('Retry POST {} with data{} for physical port {} timeout after {} seconds, attempted={}'.format(
                     post_url,
                     post_data,
                     self.port,
