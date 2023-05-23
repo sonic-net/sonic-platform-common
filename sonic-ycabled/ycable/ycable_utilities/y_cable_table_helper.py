@@ -58,20 +58,90 @@ class YcableStateUpdateTableHelper(object):
     def __init__(self):
 
         self.state_db = {}
+        self.appl_db = {}
         self.sub_status_tbl = {}
+        self.config_db = {}
+        self.port_tbl = {}
+        self.y_cable_tbl = {}
+        self.static_tbl = {}
+        self.mux_tbl = {}
+        self.port_table_keys = {}
+        self.loopback_tbl= {}
+        self.loopback_keys = {}
+        self.hw_mux_cable_tbl = {}
+        self.hw_mux_cable_tbl_peer = {}
+        self.grpc_config_tbl = {}
+        self.fwd_state_response_tbl = {}
 
         # Get the namespaces in the platform
         namespaces = multi_asic.get_front_end_namespaces()
         for namespace in namespaces:
             asic_id = multi_asic.get_asic_index_from_namespace(namespace)
             self.state_db[asic_id] = daemon_base.db_connect("STATE_DB", namespace)
+            self.appl_db[asic_id] = daemon_base.db_connect("APPL_DB", namespace)
             self.sub_status_tbl[asic_id] = swsscommon.SubscriberStateTable(
                 self.state_db[asic_id], TRANSCEIVER_STATUS_TABLE)
-
-
+            self.config_db[asic_id] = daemon_base.db_connect("CONFIG_DB", namespace)
+            self.port_tbl[asic_id] = swsscommon.Table(self.config_db[asic_id], "MUX_CABLE")
+            self.port_table_keys[asic_id] = self.port_tbl[asic_id].getKeys()
+            self.loopback_tbl[asic_id] = swsscommon.Table(
+                self.config_db[asic_id], "LOOPBACK_INTERFACE")
+            self.loopback_keys[asic_id] = self.loopback_tbl[asic_id].getKeys()
+            self.state_db[asic_id] = daemon_base.db_connect("STATE_DB", namespace)
+            self.hw_mux_cable_tbl[asic_id] = swsscommon.Table(
+                self.state_db[asic_id], swsscommon.STATE_HW_MUX_CABLE_TABLE_NAME)
+            self.hw_mux_cable_tbl_peer[asic_id] = swsscommon.Table(
+                self.state_db[asic_id], "HW_MUX_CABLE_TABLE_PEER")
+            self.y_cable_tbl[asic_id] = swsscommon.Table(
+                self.state_db[asic_id], swsscommon.STATE_HW_MUX_CABLE_TABLE_NAME)
+            self.static_tbl[asic_id] = swsscommon.Table(
+                self.state_db[asic_id], MUX_CABLE_STATIC_INFO_TABLE)
+            self.mux_tbl[asic_id] = swsscommon.Table(
+                self.state_db[asic_id], MUX_CABLE_INFO_TABLE)
+            self.grpc_config_tbl[asic_id] = swsscommon.Table(self.config_db[asic_id], "GRPCCLIENT")
+            self.fwd_state_response_tbl[asic_id] = swsscommon.Table(
+                self.appl_db[asic_id], "FORWARDING_STATE_RESPONSE")
+            self.static_tbl[asic_id] = swsscommon.Table(
+                self.state_db[asic_id], MUX_CABLE_STATIC_INFO_TABLE)
 
     def get_sub_status_tbl(self):
         return self.sub_status_tbl
+
+    def get_state_db(self):
+        return self.state_db
+
+    def get_config_db(self):
+        return self.config_db
+
+    def get_appl_db(self):
+        return self.appl_db
+
+    def get_port_tbl(self):
+        return self.port_tbl
+
+    def get_mux_tbl(self):
+        return self.mux_tbl
+
+    def get_loopback_tbl(self):
+        return self.loopback_tbl
+
+    def get_hw_mux_cable_tbl(self):
+        return self.hw_mux_cable_tbl
+
+    def get_hw_mux_cable_tbl_peer(self):
+        return self.hw_mux_cable_tbl_peer
+
+    def get_grpc_config_tbl(self):
+        return self.grpc_config_tbl
+
+    def get_y_cable_tbl(self):
+        return self.y_cable_tbl
+
+    def get_static_tbl(self):
+        return self.static_tbl
+
+    def get_fwd_state_response_tbl(self):
+        return self.fwd_state_response_tbl
 
 
 
@@ -79,6 +149,7 @@ class DaemonYcableTableHelper(object):
     def __init__(self):
 
         self.state_db = {}
+        self.appl_db = {}
         self.config_db = {}
         self.port_tbl = {}
         self.y_cable_tbl = {} 
@@ -91,12 +162,14 @@ class DaemonYcableTableHelper(object):
         self.hw_mux_cable_tbl = {}
         self.hw_mux_cable_tbl_peer = {}
         self.grpc_config_tbl = {}
+        self.fwd_state_response_tbl = {}
 
         # Get the namespaces in the platform
         fvs_updated = swsscommon.FieldValuePairs([('log_verbosity', 'notice')])
         namespaces = multi_asic.get_front_end_namespaces()
         for namespace in namespaces:
             asic_id = multi_asic.get_asic_index_from_namespace(namespace)
+            self.appl_db[asic_id] = daemon_base.db_connect("APPL_DB", namespace)
             self.state_db[asic_id] = daemon_base.db_connect("STATE_DB", namespace)
             self.config_db[asic_id] = daemon_base.db_connect("CONFIG_DB", namespace)
             self.port_tbl[asic_id] = swsscommon.Table(self.config_db[asic_id], "MUX_CABLE")
@@ -119,6 +192,8 @@ class DaemonYcableTableHelper(object):
             self.static_tbl[asic_id] = swsscommon.Table(
                 self.state_db[asic_id], MUX_CABLE_STATIC_INFO_TABLE)
             self.grpc_config_tbl[asic_id] = swsscommon.Table(self.config_db[asic_id], "GRPCCLIENT")
+            self.fwd_state_response_tbl[asic_id] = swsscommon.Table(
+                self.appl_db[asic_id], "FORWARDING_STATE_RESPONSE")
 
 
     def get_state_db(self):
@@ -157,6 +232,8 @@ class DaemonYcableTableHelper(object):
     def get_grpc_config_tbl(self):
         return self.grpc_config_tbl
 
+    def get_fwd_state_response_tbl(self):
+        return self.fwd_state_response_tbl
 
 class YcableTableUpdateTableHelper(object):
     def __init__(self):
@@ -167,6 +244,7 @@ class YcableTableUpdateTableHelper(object):
         self.port_tbl, self.port_table_keys = {}, {}
         self.fwd_state_command_tbl, self.fwd_state_response_tbl, self.mux_cable_command_tbl = {}, {}, {}
         self.mux_metrics_tbl = {}
+        self.grpc_config_tbl = {}
         self.y_cable_response_tbl = {}
 
 
@@ -202,6 +280,7 @@ class YcableTableUpdateTableHelper(object):
                 self.appl_db[asic_id], "MUX_CABLE_RESPONSE_TABLE")
             self.port_tbl[asic_id] = swsscommon.Table(self.config_db[asic_id], "MUX_CABLE")
             self.port_table_keys[asic_id] = self.port_tbl[asic_id].getKeys()
+            self.grpc_config_tbl[asic_id] = swsscommon.Table(self.config_db[asic_id], "GRPCCLIENT")
 
     def get_state_db(self):
         return self.state_db
@@ -241,6 +320,9 @@ class YcableTableUpdateTableHelper(object):
 
     def get_port_tbl(self):
         return self.port_tbl
+
+    def get_grpc_config_tbl(self):
+        return self.grpc_config_tbl
 
 class YcableCliUpdateTableHelper(object):
     def __init__(self):

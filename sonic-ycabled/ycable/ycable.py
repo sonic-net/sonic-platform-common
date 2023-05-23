@@ -81,13 +81,13 @@ def detect_port_in_error_status(logical_port_name, status_tbl):
     else:
         return False
 
-def handle_state_update_task(port, fvp_dict, y_cable_presence, stopping_event):
+def handle_state_update_task(port, fvp_dict, y_cable_presence, port_tbl, port_tbl_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, fwd_state_response_tbl, stopping_event):
 
     port_dict = {}
     port_dict[port] = fvp_dict.get('status', None)
 
     y_cable_helper.change_ports_status_for_y_cable_change_event(
-        port_dict, y_cable_presence, stopping_event)
+        port_dict, y_cable_presence, port_tbl, port_tbl_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, fwd_state_response_tbl, stopping_event)
 
 #
 # Helper classes ===============================================================
@@ -207,7 +207,8 @@ class YcableStateUpdateTask(threading.Thread):
                 if not fvp_dict:
                     continue
 
-                handle_state_update_task(port, fvp_dict, y_cable_presence, stopping_event)
+                # Check if all tables are created in table_helper
+                handle_state_update_task(port, fvp_dict, y_cable_presence, self.table_helper.get_port_tbl(), self.table_helper.port_table_keys, self.table_helper.get_loopback_tbl(), self.table_helper.loopback_keys, self.table_helper.get_hw_mux_cable_tbl(), self.table_helper.get_hw_mux_cable_tbl_peer(), self.table_helper.get_y_cable_tbl(), self.table_helper.get_static_tbl(), self.table_helper.get_mux_tbl(), self.table_helper.get_grpc_config_tbl(), self.table_helper.get_fwd_state_response_tbl(), stopping_event)
 
     def run(self):
         if self.task_stopping_event.is_set():
@@ -338,7 +339,7 @@ class DaemonYcable(daemon_base.DaemonBase):
 
         # Init port y_cable status table
         y_cable_helper.init_ports_status_for_y_cable(
-            platform_sfputil, platform_chassis, self.y_cable_presence, self.table_helper.get_state_db(), self.table_helper.get_port_tbl(), self.table_helper.get_y_cable_tbl(), self.table_helper.get_static_tbl(), self.table_helper.get_mux_tbl(), self.table_helper.port_table_keys,  self.table_helper.loopback_keys , self.table_helper.get_hw_mux_cable_tbl(), self.table_helper.get_hw_mux_cable_tbl_peer(), self.stop_event, is_vs)
+            platform_sfputil, platform_chassis, self.y_cable_presence, self.table_helper.get_state_db(), self.table_helper.get_port_tbl(), self.table_helper.get_y_cable_tbl(), self.table_helper.get_static_tbl(), self.table_helper.get_mux_tbl(), self.table_helper.port_table_keys,  self.table_helper.loopback_keys , self.table_helper.get_hw_mux_cable_tbl(), self.table_helper.get_hw_mux_cable_tbl_peer(), self.table_helper.get_grpc_config_tbl(), self.table_helper.get_fwd_state_response_tbl(), self.stop_event, is_vs)
 
     # Deinitialize daemon
     def deinit(self):

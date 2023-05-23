@@ -163,7 +163,7 @@ class TestYcableScript(object):
         mux_tbl = {}
         test_db = "TEST_DB"
         status = True
-        fvs = [('state', "auto"), ('read_side', 1)]
+        fvs = [('state', "auto"), ('read_side', 1), ('soc_ipv4', '192.168.0.1/32')]
         y_cable_tbl[asic_index] = swsscommon.Table(
             test_db[asic_index], "Y_CABLE_TABLE")
         y_cable_tbl[asic_index].get.return_value = (status, fvs)
@@ -209,7 +209,8 @@ class TestYcableScript(object):
     def test_post_port_mux_static_info_to_db(self):
         logical_port_name = "Ethernet0"
         mux_tbl = Table("STATE_DB", y_cable_helper.MUX_CABLE_STATIC_INFO_TABLE)
-        rc = post_port_mux_static_info_to_db(logical_port_name, mux_tbl)
+        y_cable_tbl = Table("STATE_DB", "Y_CABLE_STATIC_INFO_TABLE")
+        rc = post_port_mux_static_info_to_db(logical_port_name, mux_tbl, y_cable_tbl)
         assert(rc != -1)
 
     def test_y_cable_helper_format_mapping_identifier1(self):
@@ -308,7 +309,8 @@ class TestYcableScript(object):
         fvp_dict = {}
         y_cable_presence = False
         stopping_event = None
-        rc = handle_state_update_task(port, fvp_dict, y_cable_presence, stopping_event)
+        port_tbl, port_tbl_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, fwd_state_response_tbl = {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}
+        rc = handle_state_update_task(port, fvp_dict, y_cable_presence, port_tbl, port_tbl_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, fwd_state_response_tbl, stopping_event)
         assert(rc == None)
 
 
@@ -364,4 +366,5 @@ class TestYcableScriptException(object):
         assert("NotImplementedError" in str(trace) and "effect" in str(trace))
         assert("sonic-ycabled/ycable/ycable_utilities/y_cable_helper.py" in str(trace))
         assert("swsscommon.Select" in str(trace))
+
 
