@@ -66,6 +66,44 @@ class FanBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
+    def is_under_speed(self):
+        """
+        Calculates if the fan speed is under the tolerated low speed threshold
+
+        Returns:
+            A boolean, True if fan speed is under the low threshold, False if not
+        """
+        speed = self.get_speed()
+        target_speed = self.get_target_speed()
+        tolerance = self.get_speed_tolerance()
+
+        for param, value in (('speed', speed), ('target speed', target_speed), ('speed tolerance', tolerance)):
+            if not isinstance(value, int):
+                raise TypeError('Fan {0} is not an integer value: {0}={1}'.format(param, value))
+            if value < 0 or value > 100:
+                raise ValueError('Fan {0} is not a valid percentage value: {0}={1}'.format(param, value))
+
+        return speed < target_speed * (1 - float(tolerance) / 100)
+
+    def is_over_speed(self):
+        """
+        Calculates if the fan speed is over the tolerated high speed threshold
+
+        Returns:
+            A boolean, True if fan speed is over the high threshold, False if not
+        """
+        speed = self.get_speed()
+        target_speed = self.get_target_speed()
+        tolerance = self.get_speed_tolerance()
+
+        for param, value in (('speed', speed), ('target speed', target_speed), ('speed tolerance', tolerance)):
+            if not isinstance(value, int):
+                raise TypeError('Fan {0} is not an integer value: {0}={1}'.format(param, value))
+            if value < 0 or value > 100:
+                raise ValueError('Fan {0} is not a valid percentage value: {0}={1}'.format(param, value))
+
+        return speed > target_speed * (1 + float(tolerance) / 100)
+
     def set_speed(self, speed):
         """
         Sets the fan speed
