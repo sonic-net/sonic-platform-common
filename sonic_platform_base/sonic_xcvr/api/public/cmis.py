@@ -1728,9 +1728,11 @@ class CmisApi(XcvrApi):
             if rx_output_status_dict:
                 for lane in range(1, self.NUM_CHANNELS+1):
                     trans_status['rxoutput_status_hostlane%d' % lane] = rx_output_status_dict.get('RxOutputStatus%d' % lane)
-            if self.get_tx_disable_support():
-                trans_status['tx_disabled_channel'] = self.get_tx_disable_channel()
-                tx_disable = self.get_tx_disable()
+            tx_disabled_channel = self.get_tx_disable_channel()
+            if tx_disabled_channel is not None:
+                trans_status['tx_disabled_channel'] = tx_disabled_channel
+            tx_disable = self.get_tx_disable()
+            if tx_disable is not None:
                 for lane in range(1, self.NUM_CHANNELS+1):
                     trans_status['tx%ddisable' % lane] = tx_disable[lane - 1]
             tx_fault = self.get_tx_fault()

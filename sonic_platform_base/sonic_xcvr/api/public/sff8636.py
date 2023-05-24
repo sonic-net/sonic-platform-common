@@ -87,12 +87,14 @@ class Sff8636Api(XcvrApi):
         if read_failed:
             return None
 
-        trans_status = {
-            "rx_los": all(rx_los) if self.get_rx_los_support() else 'N/A',
-            "tx_fault": all(tx_fault) if self.get_tx_fault_support() else 'N/A',
-            "tx_disable": all(tx_disable),
-            "tx_disabled_channel": tx_disabled_channel
-        }
+        trans_status = dict()
+        for lane in range(1, len(rx_los) + 1):
+            trans_status['rxlos%d' % lane] = rx_los[lane - 1]
+        for lane in range(1, len(tx_fault) + 1):
+            trans_status['txfault%d' % lane] = tx_fault[lane - 1]
+        for lane in range(1, len(tx_disable) + 1):
+            trans_status['tx%ddisable' % lane] = tx_disable[lane - 1]
+        trans_status['tx_disabled_channel'] = tx_disabled_channel
 
         return trans_status
 
