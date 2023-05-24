@@ -710,7 +710,10 @@ class CmisApi(XcvrApi):
         if self.is_flat_memory():
             return 0
         duration = self.xcvr_eeprom.read(consts.DP_PATH_INIT_DURATION)
-        return float(duration) if duration is not None else 0
+        if duration is not None:
+            if duration is not(0xe or 0xf):
+                return float(duration)
+        return 0
 
     def get_datapath_deinit_duration(self):
         '''
@@ -719,7 +722,10 @@ class CmisApi(XcvrApi):
         if self.is_flat_memory():
             return 0
         duration = self.xcvr_eeprom.read(consts.DP_PATH_DEINIT_DURATION)
-        return float(duration) if duration is not None else 0
+        if duration is not None:
+            if duration is not(0xe or 0xf):
+                return float(duration)
+        return 0
 
     def get_module_pwr_up_duration(self):
         '''
@@ -728,7 +734,10 @@ class CmisApi(XcvrApi):
         if self.is_flat_memory():
             return 0
         duration = self.xcvr_eeprom.read(consts.MODULE_PWRUP_DURATION)
-        return float(duration) if duration is not None else 0
+        if duration is not None:
+            if duration is not(0xe or 0xf):
+                return float(duration)
+        return 0
 
     def get_module_pwr_down_duration(self):
         '''
@@ -737,7 +746,10 @@ class CmisApi(XcvrApi):
         if self.is_flat_memory():
             return 0
         duration = self.xcvr_eeprom.read(consts.MODULE_PWRDN_DURATION)
-        return float(duration) if duration is not None else 0
+        if duration is not None:
+            if duration is not(0xe or 0xf):
+                return float(duration)
+        return 0
 
     def get_host_lane_count(self):
         '''
