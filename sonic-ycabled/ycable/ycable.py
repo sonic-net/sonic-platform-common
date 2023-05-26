@@ -389,6 +389,9 @@ class DaemonYcable(daemon_base.DaemonBase):
             y_cable_cli_worker_update = y_cable_helper.YCableCliUpdateTask()
             y_cable_cli_worker_update.start()
             self.threads.append(y_cable_cli_worker_update)
+            y_cable_async_noti_worker = y_cable_helper.YCableAsyncNotificationTask()
+            y_cable_async_noti_worker.start()
+            self.threads.append(y_cable_async_noti_worker)
 
         # Start main loop
         self.log_info("Start daemon main loop")

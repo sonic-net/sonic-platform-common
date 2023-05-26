@@ -471,3 +471,61 @@ class YcableCliUpdateTableHelper(object):
         return self.appl_db
 
 
+class YcableAsyncNotificationTableHelper(object):
+    def __init__(self):
+
+        self.state_db = {}
+        self.config_db = {}
+        self.appl_db = {}
+        self.port_tbl = {}
+        self.status_tbl = {}
+        self.y_cable_tbl = {} 
+        self.mux_tbl = {}
+        self.grpc_config_tbl = {}
+        self.fwd_state_response_tbl = {}
+        self.loopback_tbl= {}
+        self.loopback_keys = {}
+
+        # Get the namespaces in the platform
+        namespaces = multi_asic.get_front_end_namespaces()
+        for namespace in namespaces:
+            asic_id = multi_asic.get_asic_index_from_namespace(namespace)
+            self.state_db[asic_id] = daemon_base.db_connect("STATE_DB", namespace)
+            self.appl_db[asic_id] = daemon_base.db_connect("APPL_DB", namespace)
+            self.config_db[asic_id] = daemon_base.db_connect("CONFIG_DB", namespace)
+            self.port_tbl[asic_id] = swsscommon.Table(self.config_db[asic_id], "MUX_CABLE")
+            self.status_tbl[asic_id] = swsscommon.Table(self.state_db[asic_id], TRANSCEIVER_STATUS_TABLE)
+            self.y_cable_tbl[asic_id] = swsscommon.Table(
+                self.state_db[asic_id], swsscommon.STATE_HW_MUX_CABLE_TABLE_NAME)
+            self.mux_tbl[asic_id] = swsscommon.Table(
+                self.state_db[asic_id], MUX_CABLE_INFO_TABLE)
+            self.grpc_config_tbl[asic_id] = swsscommon.Table(self.config_db[asic_id], "GRPCCLIENT")
+            self.fwd_state_response_tbl[asic_id] = swsscommon.Table(
+                self.appl_db[asic_id], "FORWARDING_STATE_RESPONSE")
+            self.loopback_tbl[asic_id] = swsscommon.Table(
+                self.config_db[asic_id], "LOOPBACK_INTERFACE")
+            self.loopback_keys[asic_id] = self.loopback_tbl[asic_id].getKeys()
+
+    def get_state_db(self):
+        return self.state_db
+
+    def get_config_db(self):
+        return self.config_db
+
+    def get_port_tbl(self):
+        return self.port_tbl
+
+    def get_status_tbl(self):
+        return self.status_tbl
+
+    def get_y_cable_tbl(self):
+        return self.y_cable_tbl
+
+    def get_mux_tbl(self):
+        return self.mux_tbl
+
+    def get_grpc_config_tbl(self):
+        return self.grpc_config_tbl
+
+    def get_fwd_state_response_tbl(self):
+        return self.fwd_state_response_tbl

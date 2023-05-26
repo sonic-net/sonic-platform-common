@@ -4013,3 +4013,120 @@ class YCableCliUpdateTask(threading.Thread):
  
             raise self.exc
 
+class GracefulRestartClient:
+    def __init__(self, port, channel: grpc.aio.secure_channel, read_side):
+        self.port = port
+        self.stub = linkmgr_grpc_driver_pb2_grpc.GracefulRestartStub(channel)
+        self.request_queue = asyncio.Queue()
+        self.response_queue = asyncio.Queue()
+        self.read_side = read_side
+
+    async def send_request_and_get_response(self):
+        while True:
+            tor = await self.request_queue.get()
+            request = linkmgr_grpc_driver_pb2.GracefulAdminRequest(tor=tor)
+            response = None 
+            try:
+                response_stream = self.stub.NotifyGracefulRestartStart(request)
+                index = 0
+                async for response in response_stream:
+                    helper_logger.log_notice("Async client received from direct read period port = {}: period = {} index = {} guid = {} notifytype {} msgtype = {}".format(self.port, response.period, index, response.guid, response.notifytype, response.msgtype))
+                    helper_logger.log_debug("Async Debug only :{} {}".format(dir(response_stream), dir(response)))
+                    index = index+1
+                    if response == grpc.aio.EOF:
+                        break
+                helper_logger.log_notice("Async client finished loop from direct read period port:{} ".format(self.port))
+                index = index+1
+            except grpc.RpcError as e:
+                helper_logger.log_notice("Async client port = {} exception occured because of {} ".format(self.port, e.code()))
+
+            await self.response_queue.put(response)
+
+    async def process_response(self):
+        while True:
+            response = await self.response_queue.get()
+            helper_logger.log_debug("Async recieved a response from {} {}".format(self.port, response))
+            # do something with response
+            if response is not None:
+                await asyncio.sleep(response.period)
+            else:
+                await asyncio.sleep(20)
+
+            if self.read_side == 0:
+                tor_side = linkmgr_grpc_driver_pb2.ToRSide.UPPER_TOR
+            else:
+                tor_side = linkmgr_grpc_driver_pb2.ToRSide.LOWER_TOR
+            await self.request_queue.put(tor_side)
+
+    async def notify_graceful_restart_start(self, tor: linkmgr_grpc_driver_pb2.ToRSide):
+        await self.request_queue.put(tor)
+
+
+class YCableAsyncNotificationTask(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self)
+
+        self.exc = None
+        self.task_stopping_event = threading.Event()
+        self.table_helper =  y_cable_table_helper.YcableAsyncNotificationTableHelper()
+        self.read_side = process_loopback_interface_and_get_read_side(self.table_helper.loopback_keys)
+
+    async def task_worker(self):
+
+        # Create tasks for all ports  
+        logical_port_list = y_cable_platform_sfputil.logical
+        tasks = []
+        for logical_port_name in logical_port_list:
+            if self.task_stopping_event.is_set():
+                break
+
+            # Get the asic to which this port belongs
+            asic_index = y_cable_platform_sfputil.get_asic_id_for_logical_port(logical_port_name)
+            (status, fvs) = self.table_helper.get_port_tbl()[asic_index].get(logical_port_name)
+            if status is False:
+                helper_logger.log_warning(
+                    "Could not retreive fieldvalue pairs for {}, inside config_db table {}".format(logical_port_name, self.table_helper.get_port_tbl()[asic_index].getTableName()))
+                continue
+
+            else:
+                # Convert list of tuples to a dictionary
+                mux_table_dict = dict(fvs)
+                if "state" in mux_table_dict and "soc_ipv4" in mux_table_dict:
+
+                    soc_ipv4_full = mux_table_dict.get("soc_ipv4", None)
+                    if soc_ipv4_full is not None:
+                        soc_ipv4 = soc_ipv4_full.split('/')[0]
+
+                        channel, stub = setup_grpc_channel_for_port(logical_port_name, soc_ipv4, asic_index, self.table_helper.get_grpc_config_tbl(), self.table_helper.get_fwd_state_response_tbl(), True)
+
+                        client = GracefulRestartClient(logical_port_name, channel, read_side)
+                        tasks.append(asyncio.create_task(client.send_request_and_get_response()))
+                        tasks.append(asyncio.create_task(client.process_response()))
+
+                        if self.read_side == 0:
+                            tor_side = linkmgr_grpc_driver_pb2.ToRSide.UPPER_TOR
+                        else:
+                            tor_side = linkmgr_grpc_driver_pb2.ToRSide.LOWER_TOR
+
+                        tasks.append(asyncio.create_task(client.notify_graceful_restart_start(tor_side)))
+
+        await asyncio.gather(*tasks) 
+
+    def run(self):
+        if self.task_stopping_event.is_set():
+            return
+
+        try:
+            asyncio.run(self.task_worker())
+        except Exception as e:
+            helper_logger.log_error("Exception occured at child thread YcableCliUpdateTask due to {} {}".format(repr(e), traceback.format_exc()))
+            self.exc = e
+ 
+    def join(self):
+ 
+        threading.Thread.join(self)
+ 
+        helper_logger.log_info("stopped all thread")
+        if self.exc is not None:
+ 
+            raise self.exc
