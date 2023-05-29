@@ -1461,11 +1461,14 @@ class YCable(YCableBase):
 
         """
         if self.platform_chassis is not None:
+            read_side = self.get_read_side()
+
+            if read_side == YCable.EEPROM_ERROR:
+                self.log_error('Fail to get read side in get_firmware_version()')
+                return None
+            
             with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
                 if lock_status:
-                    curr_offset = YCable.OFFSET_DETERMINE_CABLE_READ_SIDE
-                    read_side = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
-
                     vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
                     vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
                     vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_GET_INFO
@@ -1473,7 +1476,7 @@ class YCable(YCableBase):
 
                     if status != YCable.MCU_EC_NO_ERROR:
                         ''' should at least return local side fw version if nic is offline'''
-                        if status == 0x1A and ((read_side[0] == 4 and target == 1) or (read_side[0] == 2 and target == 2)):
+                        if status == 0x1A and (read_side == target):
                             pass
                         else:
                             self.log_error('Get firmware version error (error code:0x%04X)' % (status))
