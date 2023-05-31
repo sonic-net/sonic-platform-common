@@ -161,9 +161,6 @@ class SfpBase(device_base.DeviceBase):
         tx_fault                   |BOOLEAN        |TX fault status, True if has TX fault, False if not.
         reset_status               |BOOLEAN        |reset status, True if SFP in reset, False if not.
         lp_mode                    |BOOLEAN        |low power mode status, True in lp mode, False if not.
-        tx_disable                 |BOOLEAN        |TX disable status, True TX disabled, False if not.
-        tx_disabled_channel        |HEX            |disabled TX channels in hex, bits 0 to 3 represent channel 0
-                                   |               |to channel 3.
         temperature                |INT            |module temperature in Celsius
         voltage                    |INT            |supply voltage in mV
         tx<n>bias                  |INT            |TX Bias Current in mA, n is the channel number,
