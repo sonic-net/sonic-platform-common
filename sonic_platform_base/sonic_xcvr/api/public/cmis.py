@@ -721,6 +721,24 @@ class CmisApi(XcvrApi):
         duration = self.xcvr_eeprom.read(consts.DP_PATH_DEINIT_DURATION)
         return float(duration) if duration is not None else 0
 
+    def get_datapath_tx_turnon_duration(self):
+        '''
+        This function returns the duration of datapath tx turnon
+        '''
+        if self.is_flat_memory():
+            return 0
+        duration = self.xcvr_eeprom.read(consts.DP_TX_TURNON_DURATION)
+        return float(duration) if duration is not None else 0
+
+    def get_datapath_tx_turnoff_duration(self):
+        '''
+        This function returns the duration of datapath tx turnoff
+        '''
+        if self.is_flat_memory():
+            return 0
+        duration = self.xcvr_eeprom.read(consts.DP_TX_TURNOFF_DURATION)
+        return float(duration) if duration is not None else 0
+
     def get_module_pwr_up_duration(self):
         '''
         This function returns the duration of module power up
