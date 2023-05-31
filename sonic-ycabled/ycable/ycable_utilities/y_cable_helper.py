@@ -503,7 +503,7 @@ def create_channel(type, level, kvp, soc_ip, port, asic_index, fwd_state_respons
 
     else:
         if is_async:
-            channel = grpc.aio.insecure_channel("{}:{}".format(soc_ip, GRPC_PORT), credential, options=GRPC_CLIENT_OPTIONS)
+            channel = grpc.aio.insecure_channel("{}:{}".format(soc_ip, GRPC_PORT), options=GRPC_CLIENT_OPTIONS)
         else:
             channel = grpc.insecure_channel("{}:{}".format(soc_ip, GRPC_PORT), options=GRPC_CLIENT_OPTIONS)
 
@@ -3872,7 +3872,7 @@ class YCableCliUpdateTask(threading.Thread):
                     break
 
                 if fvp:
-                    handle_config_hwmode_state_cmd_arg_tbl_notification(fvp, self.cli_table_helper.xcvrd_config_hwmode_state_cmd_sts_tbl,  self.cli_table_helper.xcvrd_config_hwmode_state_rsp_tbl, asic_index, port)
+                    handle_config_hwmode_state_cmd_arg_tbl_notification(fvp, self.cli_table_helper.xcvrd_config_hwmode_state_cmd_sts_tbl,  self.cli_table_helper.xcvrd_config_hwmode_state_rsp_tbl, self.cli_table_helper.hw_mux_cable_tbl, asic_index, port)
                     break
 
 

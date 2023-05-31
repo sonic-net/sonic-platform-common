@@ -328,6 +328,7 @@ class YcableCliUpdateTableHelper(object):
     def __init__(self):
 
         self.appl_db, self.state_db, self.config_db = {}, {}, {}
+        self.hw_mux_cable_tbl = {}
         self.xcvrd_log_tbl = {}
         self.port_tbl = {}
         self.mux_tbl = {}
@@ -460,6 +461,8 @@ class YcableCliUpdateTableHelper(object):
             self.port_tbl[asic_id] = swsscommon.Table(self.config_db[asic_id], "MUX_CABLE")
             self.mux_tbl[asic_id] = swsscommon.Table(
                 self.state_db[asic_id], MUX_CABLE_INFO_TABLE)
+            self.hw_mux_cable_tbl[asic_id] = swsscommon.Table(
+                self.state_db[asic_id], swsscommon.STATE_HW_MUX_CABLE_TABLE_NAME)
 
     def get_state_db(self):
         return self.state_db
