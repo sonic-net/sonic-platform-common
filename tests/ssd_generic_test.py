@@ -98,7 +98,7 @@ General SMART Values:
 Offline data collection status:  (0x00) Offline data collection activity
                                         was never started.
                                         Auto Offline Data Collection: Disabled.
-Total time to complete Offline 
+Total time to complete Offline
 data collection:                (   32) seconds.
 Offline data collection
 capabilities:                    (0x00)         Offline data collection not supported.
@@ -178,7 +178,7 @@ General SMART Values:
 Offline data collection status:  (0x00) Offline data collection activity
                                         was never started.
                                         Auto Offline Data Collection: Disabled.
-Total time to complete Offline 
+Total time to complete Offline
 data collection:                (   32) seconds.
 Offline data collection
 capabilities:                    (0x00)         Offline data collection not supported.
@@ -232,29 +232,29 @@ Selective Self-tests/Logging not supported
 output_Innodisk_vendor_info = """********************************************************************************************
 * Innodisk iSMART V3.9.41                                                       2018/05/25 *
 ********************************************************************************************
-Model Name: InnoDisk Corp. - mSATA 3ME              
-FW Version: S140714 
+Model Name: InnoDisk Corp. - mSATA 3ME
+FW Version: S140714
 Serial Number: 20171126AAAA11730156
-Health: 82.34% 
+Health: 82.34%
 Capacity: 29.818199 GB
-P/E Cycle: 3000 
-Lifespan : 0 (Years : 0 Months : 0 Days : 0) 
-Write Protect: Disable 
-InnoRobust: Enable 
+P/E Cycle: 3000
+Lifespan : 0 (Years : 0 Months : 0 Days : 0)
+Write Protect: Disable
+InnoRobust: Enable
 --------------------------------------------------------------------------------------------
-ID    SMART Attributes                            Value           Raw Value 
+ID    SMART Attributes                            Value           Raw Value
 --------------------------------------------------------------------------------------------
-[09]  Power On Hours                              [32474]         [0902006464DA7E0000000000] 
-[0C]  Power Cycle Count                           [  297]         [0C0200646429010000000000] 
-[AA]  Total Bad Block Count                       [   47]         [AA0300646400002F00000000] 
-[AD]  Erase Count Max.                            [ 7280]         [AD02006464181C701C000000] 
-[AD]  Erase Count Avg.                            [ 7192]         [AD02006464181C701C000000] 
-[C2]  Temperature                                 [    0]         [000000000000000000000000] 
-[EB]  Later Bad Block                             [    0]         [EB0200640000000000000000] 
-[EB]  Read Block                                  [    0]         [EB0200640000000000000000] 
-[EB]  Write Block                                 [    0]         [EB0200640000000000000000] 
-[EB]  Erase Block                                 [    0]         [EB0200640000000000000000] 
-[EC]  Unstable Power Count                        [    0]         [EC0200646400000000000000] 
+[09]  Power On Hours                              [32474]         [0902006464DA7E0000000000]
+[0C]  Power Cycle Count                           [  297]         [0C0200646429010000000000]
+[AA]  Total Bad Block Count                       [   47]         [AA0300646400002F00000000]
+[AD]  Erase Count Max.                            [ 7280]         [AD02006464181C701C000000]
+[AD]  Erase Count Avg.                            [ 7192]         [AD02006464181C701C000000]
+[C2]  Temperature                                 [    0]         [000000000000000000000000]
+[EB]  Later Bad Block                             [    0]         [EB0200640000000000000000]
+[EB]  Read Block                                  [    0]         [EB0200640000000000000000]
+[EB]  Write Block                                 [    0]         [EB0200640000000000000000]
+[EB]  Erase Block                                 [    0]         [EB0200640000000000000000]
+[EC]  Unstable Power Count                        [    0]         [EC0200646400000000000000]
 """
 
 output_lack_info_ssd = """smartctl 7.2 2020-12-30 r5155 [x86_64-linux-5.10.0-8-2-amd64] (local build)
@@ -292,7 +292,7 @@ General SMART Values:
 Offline data collection status:  (0x02) Offline data collection activity
                     was completed without error.
                     Auto Offline Data Collection: Disabled.
-Total time to complete Offline 
+Total time to complete Offline
 data collection:        (   32) seconds.
 Offline data collection
 capabilities:            (0x00)     Offline data collection not supported.
@@ -372,9 +372,9 @@ Offline data collection status:  (0x00) Offline data collection activity
                                         was never started.
                                         Auto Offline Data Collection: Disabled.
 Self-test execution status:      (   0) The previous self-test routine completed
-                                        without error or no self-test has ever 
+                                        without error or no self-test has ever
                                         been run.
-Total time to complete Offline 
+Total time to complete Offline
 data collection:                (    0) seconds.
 Offline data collection
 capabilities:                    (0x73) SMART execute Offline immediate.
@@ -390,7 +390,7 @@ SMART capabilities:            (0x0003) Saves SMART data before entering
                                         Supports SMART auto save timer.
 Error logging capability:        (0x01) Error logging supported.
                                         General Purpose Logging supported.
-Short self-test routine 
+Short self-test routine
 recommended polling time:        (   2) minutes.
 Extended self-test routine
 recommended polling time:        (  15) minutes.
@@ -484,7 +484,7 @@ SMART attributes
 241           Total_LBAs_Written          0  302116658   100   100         0
 242              Total_LBAs_Read          0   45608497   100   100         0
 247           Reserved_Attribute          0  347463680   100   100         0
-248          Remaining_Life_Left          0          1   100   100         0
+248          Remaining_Life_Left          0          0     1   100         0
 """
 
 output_virtium_no_remain_life = """
@@ -599,7 +599,7 @@ class TestSsdGeneric:
         Innodisk_ssd.parse_vendor_ssd_info('InnoDisk')
         assert(Innodisk_ssd.get_health() == '94')
         assert(Innodisk_ssd.get_temperature() == '39')
-        
+
     @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell', mock.MagicMock(return_value=output_Innodisk_missing_names_ssd))
     def test_Innodisk_missing_names_ssd_2(self):
         # Test parsing Innodisk ssd info
@@ -608,7 +608,7 @@ class TestSsdGeneric:
         Innodisk_ssd.parse_vendor_ssd_info('InnoDisk')
         assert(Innodisk_ssd.get_health() == '94')
         assert(Innodisk_ssd.get_temperature() == '39')
-        
+
 
     @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell')
     def test_virtium_ssd(self, mock_exec):
