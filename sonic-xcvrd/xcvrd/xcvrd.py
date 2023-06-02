@@ -649,6 +649,8 @@ def get_media_settings_value(physical_port, key):
             # fetch those values
             if key[0] in media_dict:
                 return media_dict[key[0]]
+            elif key[0].split('-')[0] in media_dict:
+                return media_dict[key[0].split('-')[0]]
             elif key[1] in media_dict:
                 return media_dict[key[1]]
             elif DEFAULT_KEY in media_dict:
@@ -671,6 +673,8 @@ def get_media_settings_value(physical_port, key):
 
         if key[0] in media_dict:
             return media_dict[key[0]]
+        elif key[0].split('-')[0] in media_dict:
+            return media_dict[key[0].split('-')[0]]
         elif key[1] in media_dict:
             return media_dict[key[1]]
         elif DEFAULT_KEY in media_dict:
