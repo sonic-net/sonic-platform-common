@@ -3861,7 +3861,7 @@ class YCableCliUpdateTask(threading.Thread):
                     break
 
                 if fvp:
-                    handle_show_hwmode_state_cmd_arg_tbl_notification(fvp, self.cli_table_helper.port_tbl, self.cli_table_helper.xcvrd_show_hwmode_dir_cmd_sts_tbl, self.cli_table_helper.xcvrd_show_hwmode_dir_rsp_tbl, self.cli_table_helper.xcvrd_show_hwmode_dir_res_tbl, asic_index, port)
+                    handle_show_hwmode_state_cmd_arg_tbl_notification(fvp, self.cli_table_helper.port_tbl, self.cli_table_helper.xcvrd_show_hwmode_dir_cmd_sts_tbl, self.cli_table_helper.xcvrd_show_hwmode_dir_rsp_tbl, self.cli_table_helper.xcvrd_show_hwmode_dir_res_tbl, self.cli_table_helper.hw_mux_cable_tbl, asic_index, port)
                     break
 
             while True:
