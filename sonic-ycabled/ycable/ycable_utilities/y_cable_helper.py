@@ -3094,7 +3094,7 @@ def handle_show_hwmode_swmode_cmd_arg_tbl_notification(fvp, xcvrd_show_hwmode_sw
         helper_logger.log_error("Error: Incorrect input param for cli cmd show mux hwmode switchmode logical port {}".format(port))
         set_result_and_delete_port('state', 'unknown', xcvrd_show_hwmode_swmode_cmd_sts_tbl[asic_index], xcvrd_show_hwmode_swmode_rsp_tbl[asic_index], port)
 
-def handle_config_hwmode_state_cmd_arg_tbl_notification(fvp, xcvrd_config_hwmode_state_cmd_sts_tbl,  xcvrd_config_hwmode_state_rsp_tbl, asic_index, port):
+def handle_config_hwmode_state_cmd_arg_tbl_notification(fvp, xcvrd_config_hwmode_state_cmd_sts_tbl,  xcvrd_config_hwmode_state_rsp_tbl, hw_mux_cable_tbl, asic_index, port):
 
     fvp_dict = dict(fvp)
 
