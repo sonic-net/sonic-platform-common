@@ -49,6 +49,7 @@ CHASSIS_MODULE_INFO_SLOT_FIELD = 'slot'
 CHASSIS_MODULE_INFO_OPERSTATUS_FIELD = 'oper_status'
 CHASSIS_MODULE_INFO_NUM_ASICS_FIELD = 'num_asics'
 CHASSIS_MODULE_INFO_ASICS = 'asics'
+CHASSIS_MODULE_INFO_SERIAL_FIELD = 'serial'
 
 CHASSIS_ASIC_INFO_TABLE = 'CHASSIS_ASIC_TABLE'
 CHASSIS_FABRIC_ASIC_INFO_TABLE = 'CHASSIS_FABRIC_ASIC_TABLE'
@@ -178,6 +179,7 @@ class ModuleUpdater(logger.Logger):
         self.info_dict_keys = [CHASSIS_MODULE_INFO_NAME_FIELD,
                                CHASSIS_MODULE_INFO_DESC_FIELD,
                                CHASSIS_MODULE_INFO_SLOT_FIELD,
+                               CHASSIS_MODULE_INFO_SERIAL_FIELD,
                                CHASSIS_MODULE_INFO_OPERSTATUS_FIELD]
 
         self.chassis_state_db = daemon_base.db_connect("CHASSIS_STATE_DB")
@@ -245,7 +247,8 @@ class ModuleUpdater(logger.Logger):
                                                   (CHASSIS_MODULE_INFO_SLOT_FIELD,
                                                    module_info_dict[CHASSIS_MODULE_INFO_SLOT_FIELD]),
                                                   (CHASSIS_MODULE_INFO_OPERSTATUS_FIELD, module_info_dict[CHASSIS_MODULE_INFO_OPERSTATUS_FIELD]),
-                                                  (CHASSIS_MODULE_INFO_NUM_ASICS_FIELD, str(len(module_info_dict[CHASSIS_MODULE_INFO_ASICS])))])
+                                                  (CHASSIS_MODULE_INFO_NUM_ASICS_FIELD, str(len(module_info_dict[CHASSIS_MODULE_INFO_ASICS]))),
+                                                  (CHASSIS_MODULE_INFO_SERIAL_FIELD, module_info_dict[CHASSIS_MODULE_INFO_SERIAL_FIELD])])
                 self.module_table.set(key, fvs)
 
                 if module_info_dict[CHASSIS_MODULE_INFO_OPERSTATUS_FIELD] != str(ModuleBase.MODULE_STATUS_ONLINE):
@@ -285,12 +288,14 @@ class ModuleUpdater(logger.Logger):
                          default=ModuleBase.MODULE_STATUS_OFFLINE)
         asics = try_get(self.chassis.get_module(module_index).get_all_asics,
                         default=[])
+        serial = try_get(self.chassis.get_module(module_index).get_serial)
 
         module_info_dict[CHASSIS_MODULE_INFO_NAME_FIELD] = name
         module_info_dict[CHASSIS_MODULE_INFO_DESC_FIELD] = str(desc)
         module_info_dict[CHASSIS_MODULE_INFO_SLOT_FIELD] = str(slot)
         module_info_dict[CHASSIS_MODULE_INFO_OPERSTATUS_FIELD] = str(status)
         module_info_dict[CHASSIS_MODULE_INFO_ASICS] = asics
+        module_info_dict[CHASSIS_MODULE_INFO_SERIAL_FIELD] = str(serial)
 
         return module_info_dict
 

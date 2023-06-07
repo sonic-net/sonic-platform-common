@@ -32,6 +32,7 @@ CHASSIS_MODULE_INFO_NAME_FIELD = 'name'
 CHASSIS_MODULE_INFO_DESC_FIELD = 'desc'
 CHASSIS_MODULE_INFO_SLOT_FIELD = 'slot'
 CHASSIS_MODULE_INFO_OPERSTATUS_FIELD = 'oper_status'
+CHASSIS_MODULE_INFO_SERIAL_FIELD = 'serial'
 
 CHASSIS_INFO_KEY_TEMPLATE = 'CHASSIS {}'
 CHASSIS_INFO_CARD_NUM_FIELD = 'module_num'
@@ -55,8 +56,9 @@ def test_moduleupdater_check_valid_fields():
     name = "FABRIC-CARD0"
     desc = "Switch Fabric Module"
     slot = 10
+    serial = "FC1000101"
     module_type = ModuleBase.MODULE_TYPE_FABRIC
-    module = MockModule(index, name, desc, module_type, slot)
+    module = MockModule(index, name, desc, module_type, slot, serial)
 
     # Set initial state
     status = ModuleBase.MODULE_STATUS_ONLINE
@@ -71,6 +73,7 @@ def test_moduleupdater_check_valid_fields():
     assert desc == fvs[CHASSIS_MODULE_INFO_DESC_FIELD]
     assert slot == int(fvs[CHASSIS_MODULE_INFO_SLOT_FIELD])
     assert status == fvs[CHASSIS_MODULE_INFO_OPERSTATUS_FIELD]
+    assert serial == fvs[CHASSIS_MODULE_INFO_SERIAL_FIELD]
 
 
 def test_moduleupdater_check_invalid_name():
@@ -79,8 +82,9 @@ def test_moduleupdater_check_invalid_name():
     name = "TEST-CARD0"
     desc = "36 port 400G card"
     slot = 2
+    serial = "TS1000101"
     module_type = ModuleBase.MODULE_TYPE_LINE
-    module = MockModule(index, name, desc, module_type, slot)
+    module = MockModule(index, name, desc, module_type, slot, serial)
 
     # Set initial state
     status = ModuleBase.MODULE_STATUS_PRESENT
@@ -101,8 +105,9 @@ def test_moduleupdater_check_status_update():
     name = "LINE-CARD0"
     desc = "36 port 400G card"
     slot = 1
+    serial = "LC1000101"
     module_type = ModuleBase.MODULE_TYPE_LINE
-    module = MockModule(index, name, desc, module_type, slot)
+    module = MockModule(index, name, desc, module_type, slot, serial)
 
     # Set initial state
     status = ModuleBase.MODULE_STATUS_ONLINE
@@ -136,8 +141,9 @@ def test_moduleupdater_check_deinit():
     name = "LINE-CARD0"
     desc = "36 port 400G card"
     slot = 1
+    serial = "LC1000101"
     module_type = ModuleBase.MODULE_TYPE_LINE
-    module = MockModule(index, name, desc, module_type, slot)
+    module = MockModule(index, name, desc, module_type, slot, serial)
 
     # Set initial state
     status = ModuleBase.MODULE_STATUS_ONLINE
@@ -163,8 +169,9 @@ def test_configupdater_check_valid_names():
     name = "TEST-CARD0"
     desc = "36 port 400G card"
     slot = 1
+    serial = "TC1000101"
     module_type = ModuleBase.MODULE_TYPE_LINE
-    module = MockModule(index, name, desc, module_type, slot)
+    module = MockModule(index, name, desc, module_type, slot, serial)
 
     # Set initial state
     status = ModuleBase.MODULE_STATUS_ONLINE
@@ -185,8 +192,9 @@ def test_configupdater_check_valid_index():
     name = "LINE-CARD0"
     desc = "36 port 400G card"
     slot = 1
+    serial = "LC1000101"
     module_type = ModuleBase.MODULE_TYPE_LINE
-    module = MockModule(index, name, desc, module_type, slot)
+    module = MockModule(index, name, desc, module_type, slot, serial)
 
     # Set initial state
     status = ModuleBase.MODULE_STATUS_ONLINE
@@ -207,8 +215,9 @@ def test_configupdater_check_admin_state():
     name = "LINE-CARD0"
     desc = "36 port 400G card"
     slot = 1
+    serial = "LC1000101"
     module_type = ModuleBase.MODULE_TYPE_LINE
-    module = MockModule(index, name, desc, module_type, slot)
+    module = MockModule(index, name, desc, module_type, slot, serial)
 
     # Set initial state
     status = ModuleBase.MODULE_STATUS_ONLINE
@@ -231,8 +240,9 @@ def test_configupdater_check_num_modules():
     name = "LINE-CARD0"
     desc = "36 port 400G card"
     slot = 1
+    serial = "LC1000101"
     module_type = ModuleBase.MODULE_TYPE_LINE
-    module = MockModule(index, name, desc, module_type, slot)
+    module = MockModule(index, name, desc, module_type, slot, serial)
 
     # No modules
     module_updater = ModuleUpdater(SYSLOG_IDENTIFIER, chassis, slot,
@@ -259,8 +269,9 @@ def test_midplane_presence_modules():
     name = "SUPERVISOR0"
     desc = "Supervisor card"
     slot = 16
+    serial = "RP1000101"
     module_type = ModuleBase.MODULE_TYPE_SUPERVISOR
-    supervisor = MockModule(index, name, desc, module_type, slot)
+    supervisor = MockModule(index, name, desc, module_type, slot, serial)
     supervisor.set_midplane_ip()
     chassis.module_list.append(supervisor)
 
@@ -269,8 +280,9 @@ def test_midplane_presence_modules():
     name = "LINE-CARD0"
     desc = "36 port 400G card"
     slot = 1
+    serial = "LC1000101"
     module_type = ModuleBase.MODULE_TYPE_LINE
-    module = MockModule(index, name, desc, module_type, slot)
+    module = MockModule(index, name, desc, module_type, slot, serial)
     module.set_midplane_ip()
     chassis.module_list.append(module)
 
@@ -279,8 +291,9 @@ def test_midplane_presence_modules():
     name = "FABRIC-CARD0"
     desc = "Switch fabric card"
     slot = 17
+    serial = "FC1000101"
     module_type = ModuleBase.MODULE_TYPE_FABRIC
-    fabric = MockModule(index, name, desc, module_type, slot)
+    fabric = MockModule(index, name, desc, module_type, slot, serial)
     chassis.module_list.append(fabric)
 
     #Run on supervisor
@@ -324,8 +337,9 @@ def test_midplane_presence_supervisor():
     name = "SUPERVISOR0"
     desc = "Supervisor card"
     slot = 16
+    serial = "RP1000101"
     module_type = ModuleBase.MODULE_TYPE_SUPERVISOR
-    supervisor = MockModule(index, name, desc, module_type, slot)
+    supervisor = MockModule(index, name, desc, module_type, slot, serial)
     supervisor.set_midplane_ip()
     chassis.module_list.append(supervisor)
 
@@ -334,8 +348,9 @@ def test_midplane_presence_supervisor():
     name = "LINE-CARD0"
     desc = "36 port 400G card"
     slot = 1
+    serial = "LC1000101"
     module_type = ModuleBase.MODULE_TYPE_LINE
-    module = MockModule(index, name, desc, module_type, slot)
+    module = MockModule(index, name, desc, module_type, slot, serial)
     module.set_midplane_ip()
     chassis.module_list.append(module)
 
@@ -344,8 +359,9 @@ def test_midplane_presence_supervisor():
     name = "FABRIC-CARD0"
     desc = "Switch fabric card"
     slot = 17
+    serial = "FC1000101"
     module_type = ModuleBase.MODULE_TYPE_FABRIC
-    fabric = MockModule(index, name, desc, module_type, slot)
+    fabric = MockModule(index, name, desc, module_type, slot, serial)
     chassis.module_list.append(fabric)
 
     #Run on supervisor
@@ -389,8 +405,9 @@ def test_asic_presence():
     name = "SUPERVISOR0"
     desc = "Supervisor card"
     slot = 16
+    serial = "RP1000101"
     module_type = ModuleBase.MODULE_TYPE_SUPERVISOR
-    supervisor = MockModule(index, name, desc, module_type, slot)
+    supervisor = MockModule(index, name, desc, module_type, slot, serial)
     supervisor.set_midplane_ip()
     chassis.module_list.append(supervisor)
 
@@ -399,8 +416,9 @@ def test_asic_presence():
     name = "LINE-CARD0"
     desc = "36 port 400G card"
     slot = 1
+    serial = "LC1000101"
     module_type = ModuleBase.MODULE_TYPE_LINE
-    module = MockModule(index, name, desc, module_type, slot)
+    module = MockModule(index, name, desc, module_type, slot, serial)
     module.set_midplane_ip()
     chassis.module_list.append(module)
 
@@ -409,9 +427,10 @@ def test_asic_presence():
     name = "FABRIC-CARD0"
     desc = "Switch fabric card"
     slot = 17
+    serial = "FC1000101"
     module_type = ModuleBase.MODULE_TYPE_FABRIC
     fabric_asic_list = [("4", "0000:04:00.0"), ("5", "0000:05:00.0")]
-    fabric = MockModule(index, name, desc, module_type, slot, fabric_asic_list)
+    fabric = MockModule(index, name, desc, module_type, slot, serial, fabric_asic_list)
     chassis.module_list.append(fabric)
 
     #Run on supervisor

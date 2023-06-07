@@ -20,7 +20,7 @@ class MockDevice:
 
 class MockModule(MockDevice):
     def __init__(self, module_index, module_name, module_desc, module_type, module_slot,
-                 asic_list=[]):
+                 module_serial, asic_list=[]):
         self.module_index = module_index
         self.module_name = module_name
         self.module_desc = module_desc
@@ -31,6 +31,7 @@ class MockModule(MockDevice):
         self.supervisor_slot = 16
         self.midplane_access = False
         self.asic_list = asic_list
+        self.module_serial = module_serial
  
     def get_name(self):
         return self.module_name
@@ -73,6 +74,9 @@ class MockModule(MockDevice):
 
     def get_all_asics(self):
         return self.asic_list
+
+    def get_serial(self):
+        return self.module_serial
 
 class MockChassis:
     def __init__(self):
