@@ -187,20 +187,12 @@ class CmisApi(XcvrApi):
         return [ActiveFirmware, InactiveFirmware]
 
     def get_transceiver_bulk_status(self):
-        rx_los = self.get_rx_los()
-        tx_fault = self.get_tx_fault()
-        tx_disable = self.get_tx_disable()
-        tx_disabled_channel = self.get_tx_disable_channel()
         temp = self.get_module_temperature()
         voltage = self.get_voltage()
         tx_bias = self.get_tx_bias()
         rx_power = self.get_rx_power()
         tx_power = self.get_tx_power()
-        read_failed = rx_los is None or \
-                      tx_fault is None or \
-                      tx_disable is None or \
-                      tx_disabled_channel is None or \
-                      temp is None or \
+        read_failed = temp is None or \
                       voltage is None or \
                       tx_bias is None or \
                       rx_power is None or \
@@ -209,15 +201,11 @@ class CmisApi(XcvrApi):
             return None
 
         bulk_status = {
-            "rx_los": all(rx_los) if self.get_rx_los_support() else 'N/A',
-            "tx_fault": all(tx_fault) if self.get_tx_fault_support() else 'N/A',
-            "tx_disabled_channel": tx_disabled_channel,
             "temperature": temp,
             "voltage": voltage
         }
 
         for i in range(1, self.NUM_CHANNELS + 1):
-            bulk_status["tx%ddisable" % i] = tx_disable[i-1] if self.get_tx_disable_support() else 'N/A'
             bulk_status["tx%dbias" % i] = tx_bias[i - 1]
             bulk_status["rx%dpower" % i] = float("{:.3f}".format(self.mw_to_dbm(rx_power[i - 1]))) if rx_power[i - 1] != 'N/A' else 'N/A'
             bulk_status["tx%dpower" % i] = float("{:.3f}".format(self.mw_to_dbm(tx_power[i - 1]))) if tx_power[i - 1] != 'N/A' else 'N/A'
@@ -719,6 +707,24 @@ class CmisApi(XcvrApi):
         if self.is_flat_memory():
             return 0
         duration = self.xcvr_eeprom.read(consts.DP_PATH_DEINIT_DURATION)
+        return float(duration) if duration is not None else 0
+
+    def get_datapath_tx_turnon_duration(self):
+        '''
+        This function returns the duration of datapath tx turnon
+        '''
+        if self.is_flat_memory():
+            return 0
+        duration = self.xcvr_eeprom.read(consts.DP_TX_TURNON_DURATION)
+        return float(duration) if duration is not None else 0
+
+    def get_datapath_tx_turnoff_duration(self):
+        '''
+        This function returns the duration of datapath tx turnoff
+        '''
+        if self.is_flat_memory():
+            return 0
+        duration = self.xcvr_eeprom.read(consts.DP_TX_TURNOFF_DURATION)
         return float(duration) if duration is not None else 0
 
     def get_module_pwr_up_duration(self):
@@ -1659,6 +1665,8 @@ class CmisApi(XcvrApi):
         rxoutput_status_hostlane6    = BOOLEAN                          ; rx output status on host lane 6
         rxoutput_status_hostlane7    = BOOLEAN                          ; rx output status on host lane 7
         rxoutput_status_hostlane8    = BOOLEAN                          ; rx output status on host lane 8
+        tx_disable                   = BOOLEAN                          ; tx disable status
+        tx_disabled_channel          = INTEGER                          ; disabled TX channels
         txfault                      = BOOLEAN                          ; tx fault flag on media lane
         txlos_hostlane1              = BOOLEAN                          ; tx loss of signal flag on host lane 1
         txlos_hostlane2              = BOOLEAN                          ; tx loss of signal flag on host lane 2
@@ -1777,6 +1785,13 @@ class CmisApi(XcvrApi):
             if rx_output_status_dict:
                 for lane in range(1, self.NUM_CHANNELS+1):
                     trans_status['rxoutput_status_hostlane%d' % lane] = rx_output_status_dict.get('RxOutputStatus%d' % lane)
+            tx_disabled_channel = self.get_tx_disable_channel()
+            if tx_disabled_channel is not None:
+                trans_status['tx_disabled_channel'] = tx_disabled_channel
+            tx_disable = self.get_tx_disable()
+            if tx_disable is not None:
+                for lane in range(1, self.NUM_CHANNELS+1):
+                    trans_status['tx%ddisable' % lane] = tx_disable[lane - 1]
             tx_fault = self.get_tx_fault()
             if tx_fault:
                 for lane in range(1, self.NUM_CHANNELS+1):
