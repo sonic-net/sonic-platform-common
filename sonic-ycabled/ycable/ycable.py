@@ -409,7 +409,7 @@ class DaemonYcable(daemon_base.DaemonBase):
                     os.kill(os.getpid(), signal.SIGKILL)
 
 
-        self.log_error("Stop daemon main loop")
+        self.log_notice("Stop daemon main loop")
 
         # Stop the ycable periodic info info update thread
         if ycable_info_update.is_alive():
