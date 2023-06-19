@@ -124,7 +124,7 @@ class SsdUtil(SsdBase):
         if self.vendor_ssd_info:
             self.health = self._parse_re('Health:\s*(.+?)%', self.vendor_ssd_info)
             self.temperature = self._parse_re('Temperature\s*\[\s*(.+?)\]', self.vendor_ssd_info)
-        
+
         if self.health == NOT_AVAILABLE:
             health_raw = self.parse_id_number(INNODISK_HEALTH_ID)
             if health_raw == NOT_AVAILABLE:
@@ -150,10 +150,10 @@ class SsdUtil(SsdBase):
                     pass
             else:
                 try:
-                    self.health = float(self._parse_re('Remaining_Life_Left\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info))
+                    self.health = float(self._parse_re('Remaining_Life_Left\s*\d*\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info))
                 except ValueError:
                     pass
-        
+
     def fetch_vendor_ssd_info(self, diskdev, model):
         self.vendor_ssd_info = self._execute_shell(self.vendor_ssd_utility[model]["utility"].format(diskdev))
 
