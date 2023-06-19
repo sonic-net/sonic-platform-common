@@ -54,6 +54,7 @@ class ChassisBase(device_base.DeviceBase):
         # List of ThermalBase-derived objects representing all thermals
         # available on the chassis
         self._thermal_list = []
+        self._vsensor_list = []
 
         # List of SfpBase-derived objects representing all sfps
         # available on the chassis
@@ -450,6 +451,50 @@ class ChassisBase(device_base.DeviceBase):
         specified thermal manager. ThermalManagerBase is returned as default
         """
         raise NotImplementedError
+
+    ##############################################
+    # Voltage Sensor Methods
+    ##############################################
+
+    def get_num_vsensors(self):
+        """
+        Retrieves the number of voltage sensors available on this chassis
+
+        Returns:
+            An integer, the number of voltage sensors available on this chassis
+        """
+        return len(self._vsensor_list)
+
+    def get_all_vsensors(self):
+        """
+        Retrieves all voltage sensors available on this chassis
+
+        Returns:
+            A list of objects derived from VsensorBase representing all voltage 
+            sensors available on this chassis
+        """
+        return self._vsensor_list
+
+    def get_vsensor(self, index):
+        """
+        Retrieves voltage sensors unit represented by (0-based) index <index>
+
+        Args:
+            index: An integer, the index (0-based) of the voltage sensor to
+            retrieve
+
+        Returns:
+            An object dervied from VsensorBase representing the specified voltage sensor
+        """
+        vsensor = None
+
+        try:
+            vsensor = self._vsensor_list[index]
+        except IndexError:
+            sys.stderr.write("Voltage sensor index {} out of range (0-{})\n".format(
+                             index, len(self._vsensor_list)-1))
+
+        return vsensor
 
     ##############################################
     # SFP methods

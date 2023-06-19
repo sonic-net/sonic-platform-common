@@ -66,6 +66,7 @@ class ModuleBase(device_base.DeviceBase):
         # List of ThermalBase-derived objects representing all thermals
         # available on the module
         self._thermal_list = []
+        self._vsensor_list = []
 
         # List of SfpBase-derived objects representing all sfps
         # available on the module
@@ -372,6 +373,49 @@ class ModuleBase(device_base.DeviceBase):
 
         return thermal
 
+    ##############################################
+    # Voltage sensor methods
+    ##############################################
+
+    def get_num_vsensors(self):
+        """
+        Retrieves the number of voltage sensors available on this module
+
+        Returns:
+            An integer, the number of voltage sensors available on this module
+        """
+        return len(self._vsensor_list)
+
+    def get_all_vsensors(self):
+        """
+        Retrieves all voltage sensors available on this module
+
+        Returns:
+            A list of objects derived from VsensorBase representing all voltage sensors
+            available on this module
+        """
+        return self._vsensor_list
+
+    def get_vsensor(self, index):
+        """
+        Retrieves voltage sensor unit represented by (0-based) index <index>
+
+        Args:
+            index: An integer, the index (0-based) of the vsensor to
+            retrieve
+
+        Returns:
+            An object dervied from VsensorBase representing the specified vsensor
+        """
+        vsensor = None
+
+        try:
+            vsensor = self._vsensor_list[index]
+        except IndexError:
+            sys.stderr.write("Voltage sensor index {} out of range (0-{})\n".format(
+                             index, len(self._vsensor_list)-1))
+
+        return vsensor
     ##############################################
     # SFP methods
     ##############################################

@@ -8,4 +8,5 @@ from . import platform_base
 from . import psu_base
 from . import sfp_base
 from . import thermal_base
+from . import vsensor_base
 from . import watchdog_base
