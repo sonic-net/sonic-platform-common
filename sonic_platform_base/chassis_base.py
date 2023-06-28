@@ -55,6 +55,7 @@ class ChassisBase(device_base.DeviceBase):
         # available on the chassis
         self._thermal_list = []
         self._vsensor_list = []
+        self._isensor_list = []
 
         # List of SfpBase-derived objects representing all sfps
         # available on the chassis
@@ -495,6 +496,50 @@ class ChassisBase(device_base.DeviceBase):
                              index, len(self._vsensor_list)-1))
 
         return vsensor
+
+    ##############################################
+    # Current Sensor Methods
+    ##############################################
+
+    def get_num_isensors(self):
+        """
+        Retrieves the number of current sensors available on this chassis
+
+        Returns:
+            An integer, the number of current sensors available on this chassis
+        """
+        return len(self._isensor_list)
+
+    def get_all_isensors(self):
+        """
+        Retrieves all isensors available on this chassis
+
+        Returns:
+            A list of objects derived from ThermalBase representing all isensors
+            available on this chassis
+        """
+        return self._isensor_list
+
+    def get_isensor(self, index):
+        """
+        Retrieves isensor unit represented by (0-based) index <index>
+
+        Args:
+            index: An integer, the index (0-based) of the isensor to
+            retrieve
+
+        Returns:
+            An object dervied from ThermalBase representing the specified isensor
+        """
+        isensor = None
+
+        try:
+            isensor = self._isensor_list[index]
+        except IndexError:
+            sys.stderr.write("isensor index {} out of range (0-{})\n".format(
+                             index, len(self._isensor_list)-1))
+
+        return isensor
 
     ##############################################
     # SFP methods
