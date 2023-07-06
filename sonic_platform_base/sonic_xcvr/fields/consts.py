@@ -299,6 +299,41 @@ STAGED_CTRL_APPLY_DPINIT_FIELD = "Staged Control Set Apply DataPathInit"
 STAGED_CTRL_APPLY_IMMEDIATE_FIELD = "Staged Control Set Apply Immediate"
 STAGED_CTRL_APSEL_FIELD = "Staged Control Set ApSel"
 
+STAGED_CTRL0_TX_CTRL_FIELD = "Staged Control TX Control"
+
+TX_INPUT_EQ_MAX = "TXInputEqMax"
+RX_OUTPUT_LEVEL_SUPPORT = "RX Output Level Supported"
+RX_OUTPUT_LEVEL_0_SUPPORTED = "RXOutputLevel0Supported"
+RX_OUTPUT_LEVEL_1_SUPPORTED = "RXOutputLevel1Supported"
+RX_OUTPUT_LEVEL_2_SUPPORTED = "RXOutputLevel2Supported"
+RX_OUTPUT_LEVEL_3_SUPPORTED = "RXOutputLevel3Supported"
+RX_OUTPUT_EQ_PRE_CURSOR_MAX = "RXOutputEqPreCursorMax"
+RX_OUTPUT_EQ_POST_CURSOR_MAX = "RXOutputEqPostCursorMax"
+
+SIGNAL_INTEGRITY_CTRL_ADVT_FIELD = "Signal Integrity Control Advertisement"
+TX_SI_CTRL_ADVT = "TX SI Control Advertisement"
+TX_CDR_SUPPORT_FIELD = "TXCDRSupported"
+TX_CDR_BYPASS_CTRL_FIELD = "TXCDRBypassSupported"
+TX_INPUT_EQ_FIXED_MANUAL_CTRL_SUPPORT_FIELD = "TXInputEqFixedManualSupported"
+TX_INPUT_ADAPTIVE_EQ_SUPPORT_FIELD = "TXInputAdaptiveEqSupported"
+TX_INPUT_EQ_FREEZE_SUPPORT_FIELD = "TXInputEqFreezeSupported"
+TX_INPUT_EQ_RECALL_BUF_SUPPORT_FIELD = "TXInputEqRecallBufSupported"
+RX_SI_CTRL_ADVT = "RX SI Control Advertisement"
+RX_CDR_SUPPORT_FIELD = "RxCDRSupported"
+RX_CDR_BYPASS_CTRL_FIELD = "RXCDRBypassSupported"
+RX_OUTPUT_AMP_CTRL_SUPPORT_FIELD = "RXOutputAmpSupported"
+RX_OUTPUT_EQ_CTRL_SUPPORT_FIELD = "RXOutputEQSupported"
+
+ACTIVE_CTRL_FIELD = "Active Control Set"
+ADAPTIVE_INPUT_EQ_ENABLE_TX = "AdaptiveInputEqEnableTx"
+ADAPTIVE_INPUT_EQ_RECALLED_TX = "AdaptiveInputEqRecalledTx"
+FIXED_INPUT_EQ_TARGET_TX = "FixedInputEqTargetTx"
+CDR_ENABLE_TX = "CDREnableTx"
+CDR_ENABLE_RX = "CDREnableRx"
+OUTPUT_EQ_PRE_CURSOR_TARGET_RX = "OutputEqPreCursorTargetRx"
+OUTPUT_EQ_POST_CURSOR_TARGET_RX = "OutputEqPostCursorTargetRx"
+OUTPUT_AMPLITUDE_TARGET_RX = "OutputAmplitudeTargetRx"
+
 # C-CMIS
 
 # Module configuration support fields
