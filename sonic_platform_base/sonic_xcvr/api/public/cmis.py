@@ -2097,6 +2097,116 @@ class CmisApi(XcvrApi):
         # Apply DataPathInit
         return self.xcvr_eeprom.write("%s_%d" % (consts.STAGED_CTRL_APPLY_DPINIT_FIELD, 0), channel)
 
+    def set_module_si_settings(self, host_lanes_mask, appl, optics_si_dict):
+        # Read and cache the existing SCS0 TX CTRL data
+        si_settings = self.xcvr_eeprom.read(consts.STAGED_CTRL0_TX_CTRL_FIELD)
+        if si_settings is None:
+            return None
+
+        # Replace the new values with cached SI values
+        for si_keys in optics_si_dict:
+            if si_keys in si_settings:
+                si_settings[si_keys] = optics_si_dict[si_keys]
+
+        # Read and cache all the SI CTRL Advertisement
+        bit_0 = 0b00000001
+        bit_1 = 0b00000010
+        bit_2 = 0b00000100
+        bit_3 = 0b00001000
+        bit_4 = 0b00010000
+        bit_5 = 0b00100000
+        bit_6 = 0b01000000
+        bit_7 = 0b10000000
+
+        # Module TX/RX Characteristic Advertisement Support Values
+        tx_input_eq_max_val = self.xcvr_eeprom.read(consts.TX_INPUT_EQ_MAX)
+        rx_output_amp_supported_val = self.xcvr_eeprom.read(consts.RX_OUTPUT_LEVEL_SUPPORT)
+        rx_output_eq_pre_max_val = self.xcvr_eeprom.read(consts.RX_OUTPUT_EQ_PRE_CURSOR_MAX)
+        rx_output_eq_post_max_val = self.xcvr_eeprom.read(consts.RX_OUTPUT_EQ_POST_CURSOR_MAX)
+
+        # TX/RX Control Advertisement Support
+        tx_si_ctrl_advt = self.xcvr_eeprom.read(consts.TX_SI_CTRL_ADVT)
+        rx_si_ctrl_advt = self.xcvr_eeprom.read(consts.RX_SI_CTRL_ADVT)
+
+        tx_cdr_supported = tx_si_ctrl_advt & bit_0
+        tx_input_eq_fixed_supported = (tx_si_ctrl_advt & bit_2) >> 2
+        tx_input_adaptive_eq_supported = (tx_si_ctrl_advt & bit_3) >> 3
+        tx_input_recall_buf1_supported = (tx_si_ctrl_advt & bit_5) >> 5
+        tx_input_recall_buf2_supported = (tx_si_ctrl_advt & bit_6) >> 6
+
+        rx_cdr_supported = rx_si_ctrl_advt & bit_0
+        rx_ouput_amp_ctrl_supported = (rx_si_ctrl_advt & bit_2) >> 2
+        rx_output_eq_pre_ctrl_supported = (rx_si_ctrl_advt & bit_3) >> 3
+        rx_output_eq_post_ctrl_supported = (rx_si_ctrl_advt & bit_4) >> 4
+
+        # Apply the SI settings if supported
+        for si_keys in si_settings:
+            if ((si_keys == consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX and rx_output_eq_pre_ctrl_supported) or
+                (si_keys == consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX and rx_output_eq_post_ctrl_supported) or
+                (si_keys == consts.OUTPUT_AMPLITUDE_TARGET_RX and rx_ouput_amp_ctrl_supported) or
+                (si_keys == consts.FIXED_INPUT_EQ_TARGET_TX and tx_input_eq_fixed_supported)):
+                for lane in range(self.NUM_CHANNELS):
+                    if ((1 << lane) & host_lanes_mask) == 0:
+                        continue
+                    lane = lane+1
+                    si_key_lane = "{}{}".format(si_keys, lane)
+                    val = si_settings[si_keys][si_key_lane]
+                    if ((si_keys == consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX and val <= rx_output_eq_pre_max_val) or
+                        (si_keys == consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX and val <= rx_output_eq_post_max_val) or
+                        (si_keys == consts.OUTPUT_AMPLITUDE_TARGET_RX and val <= rx_output_amp_supported_val) or
+                        (si_keys == consts.FIXED_INPUT_EQ_TARGET_TX and val <= tx_input_eq_max_val)) :
+                        if (lane%2) == 0:
+                            pre_si_key_lane = "{}{}".format(si_keys, lane-1)
+                            pre_val = self.xcvr_eeprom.read(pre_si_key_lane)
+                            val = (val << 4) | pre_val
+                        self.xcvr_eeprom.write(si_key_lane, val)
+            elif (si_keys == consts.ADAPTIVE_INPUT_EQ_RECALLED_TX and tx_input_recall_buf_supported):
+                val = 0
+                for lane in range(self.NUM_CHANNELS):
+                    if ((1 << lane) & host_lanes_mask) == 0:
+                        continue
+                    si_key_lane = "{}{}".format(si_keys, lane+1)
+                    si_val = si_settings[si_keys][si_key_lane]
+                    lane %= (self.NUM_CHANNELS//2)
+                    mask = ~(val << (lane*2))
+                    l_data = si_val << (lane*2)
+                    val = (val & mask) | l_data
+                    self.xcvr_eeprom.write(si_key_lane, val)
+            elif ((si_keys == consts.ADAPTIVE_INPUT_EQ_ENABLE_TX and tx_input_adaptive_eq_supported) or
+                  (si_keys == consts.CDR_ENABLE_TX and tx_cdr_supported) or
+                  (si_keys == consts.CDR_ENABLE_RX and rx_cdr_supported)) :
+                val = 0
+                # Read 1 byte data
+                for lane in range(self.NUM_CHANNELS):
+                    si_key_lane = "{}{}".format(si_keys, lane+1)
+                    data  = self.xcvr_eeprom.read(si_key_lane)
+                    val |= (data << lane)
+                # Write only applicable field
+                for lane in range(self.NUM_CHANNELS):
+                    if ((1 << lane) & host_lanes_mask) == 0:
+                        continue
+                    si_key_lane = "{}{}".format(si_keys, lane+1)
+                    si_val = si_settings[si_keys][si_key_lane]
+                    val &= ~(1 << lane)
+                    val |= (si_val << lane)
+                    self.xcvr_eeprom.write(si_key_lane, val)
+
+        # Apply ApSel with EC = 1
+        lane_first = -1
+        for lane in range(self.NUM_CHANNELS):
+            if ((1 << lane) & host_lanes_mask) == 0:
+                continue
+            if lane_first < 0:
+                lane_first = lane
+            addr = "{}_{}_{}".format(consts.STAGED_CTRL_APSEL_FIELD, 0, lane + 1)
+            data = (appl_code << 4) | (lane_first << 1)
+            # set EC = 1
+            data |= 0x1
+            self.xcvr_eeprom.write(addr, data)
+
+        # Apply DataPathInit
+        return self.xcvr_eeprom.write("%s_%d" % (consts.STAGED_CTRL_APPLY_DPINIT_FIELD, 0), host_lanes_mask)
+
     def get_error_description(self):
         dp_state = self.get_datapath_state()
         conf_state = self.get_config_datapath_hostlane_status()
