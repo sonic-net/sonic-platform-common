@@ -195,6 +195,21 @@ class CmisMemMap(XcvrMemMap):
             NumberRegField(consts.PAGE_SUPPORT_ADVT_FIELD, self.getaddr(0x1, 142),
                 RegBitField(consts.VDM_SUPPORTED, 6),
             ),
+            NumberRegField(consts.TX_INPUT_EQ_MAX, self.getaddr(0x1, 153),
+                *(RegBitField("Bit%d" % (bit), bit) for bit in range (0 , 4))
+            ),
+            NumberRegField(consts.RX_OUTPUT_LEVEL_SUPPORT, self.getaddr(0x1, 153),
+                RegBitField(consts.RX_OUTPUT_LEVEL_0_SUPPORTED, 4),
+                RegBitField(consts.RX_OUTPUT_LEVEL_1_SUPPORTED, 5),
+                RegBitField(consts.RX_OUTPUT_LEVEL_2_SUPPORTED, 6),
+                RegBitField(consts.RX_OUTPUT_LEVEL_3_SUPPORTED, 7),
+            ),
+            NumberRegField(consts.RX_OUTPUT_EQ_PRE_CURSOR_MAX, self.getaddr(0x1, 154),
+                *(RegBitField("Bit%d" % (bit), bit) for bit in range (0 , 4))
+            ),
+            NumberRegField(consts.RX_OUTPUT_EQ_POST_CURSOR_MAX, self.getaddr(0x1, 154),
+                *(RegBitField("Bit%d" % (bit), bit) for bit in range (4 , 8))
+            ),
             NumberRegField(consts.CTRLS_ADVT_FIELD, self.getaddr(0x1, 155),
                 RegBitField(consts.TX_DISABLE_SUPPORT_FIELD, 1),
                 size=2, format="<H"
@@ -459,6 +474,80 @@ class CmisMemMap(XcvrMemMap):
             *(NumberRegField("%s_%d_%d" % (consts.STAGED_CTRL_APSEL_FIELD, 0, lane),
                 self.getaddr(0x10, 144 + lane), ro=False)
                 for lane in range(1, 9))
+        )
+
+        self.SIGNAL_INTEGRITY_CTRL_ADVT = RegGroupField(consts.SIGNAL_INTEGRITY_CTRL_ADVT_FIELD,
+            NumberRegField(consts.TX_SI_CTRL_ADVT, self.getaddr(0x1, 161),
+                RegBitField(consts.TX_CDR_SUPPORT_FIELD, 0),
+                RegBitField(consts.TX_CDR_BYPASS_CTRL_FIELD, 1),
+                RegBitField(consts.TX_INPUT_EQ_FIXED_MANUAL_CTRL_SUPPORT_FIELD, 2),
+                RegBitField(consts.TX_INPUT_ADAPTIVE_EQ_SUPPORT_FIELD, 3),
+                RegBitField(consts.TX_INPUT_EQ_FREEZE_SUPPORT_FIELD, 4),
+                RegBitField(consts.TX_INPUT_EQ_RECALL_BUF_SUPPORT_FIELD, 5),
+                RegBitField(consts.TX_INPUT_EQ_RECALL_BUF_SUPPORT_FIELD, 6),
+            ),
+            NumberRegField(consts.TX_INPUT_EQ_RECALL_BUF_SUPPORT_FIELD, self.getaddr(0x1, 161),
+                *(RegBitField("Bit%d" % (bit), bit) for bit in range (5 , 7))
+            ),
+
+            NumberRegField(consts.RX_SI_CTRL_ADVT, self.getaddr(0x1, 162),
+                RegBitField(consts.RX_CDR_SUPPORT_FIELD, 0),
+                RegBitField(consts.RX_CDR_BYPASS_CTRL_FIELD, 1),
+                RegBitField(consts.RX_OUTPUT_AMP_CTRL_SUPPORT_FIELD, 2),
+                RegBitField(consts.RX_OUTPUT_EQ_CTRL_SUPPORT_FIELD, 3),
+                RegBitField(consts.RX_OUTPUT_EQ_CTRL_SUPPORT_FIELD, 4),
+            ),
+            NumberRegField(consts.RX_OUTPUT_EQ_CTRL_SUPPORT_FIELD, self.getaddr(0x1, 162),
+                *(RegBitField("Bit%d" % (bit), bit) for bit in range (3 , 5))
+            ),
+
+        )
+
+        self.STAGED_CTRL0_TX_CTRL = RegGroupField(consts.STAGED_CTRL0_TX_CTRL_FIELD,
+            RegGroupField(consts.ADAPTIVE_INPUT_EQ_ENABLE_TX,
+                *(NumberRegField("%s%d" % (consts.ADAPTIVE_INPUT_EQ_ENABLE_TX, lane) , self.getaddr(0x10, 153),
+                    RegBitField("Bit%d" % (lane-1), (lane-1)), ro=False
+                  )
+                  for lane in range(1, 9))
+            ),
+            RegGroupField(consts.ADAPTIVE_INPUT_EQ_RECALLED_TX,
+                *(NumberRegField("%s%d" % (consts.ADAPTIVE_INPUT_EQ_RECALLED_TX, lane) , self.getaddr(0x10, 154 + int((lane-1)/4)), ro=False,
+                    *(RegBitField("Bit%d" % bit, bit) for bit in [range(6, 8), range(4, 6), range(2, 4), range(0, 2)][lane%4]))
+                 for lane in range(1, 9))
+            ),
+            RegGroupField(consts.FIXED_INPUT_EQ_TARGET_TX,
+                *(NumberRegField("%s%d" % (consts.FIXED_INPUT_EQ_TARGET_TX, lane) , self.getaddr(0x10, 156 + int((lane-1)/2)), ro=False,
+                    *(RegBitField("Bit%d" % bit, bit) for bit in [range(4, 8), range(0, 4)][lane%2]))
+                for lane in range(1, 9))
+            ),
+            RegGroupField(consts.CDR_ENABLE_TX,
+                *(NumberRegField("%s%d" % (consts.CDR_ENABLE_TX, lane), self.getaddr(0x10, 160),
+                    RegBitField("Bit%d" % (lane-1), (lane-1)), ro=False
+                 )
+                 for lane in range(1, 9))
+            ),
+            RegGroupField(consts.CDR_ENABLE_RX,
+                *(NumberRegField("%s%d" % (consts.CDR_ENABLE_RX, lane), self.getaddr(0x10, 161),
+                    RegBitField("Bit%d" % (lane-1), (lane-1)), ro=False
+                 )
+                 for lane in range(1, 9))
+            ),
+            RegGroupField(consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX,
+                *(NumberRegField("%s%d" % (consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX, lane) , self.getaddr(0x10, 162 + int((lane-1)/2)), ro=False,
+                    *(RegBitField("Bit%d" % bit, bit) for bit in [range(4, 8), range(0, 4)][lane%2]))
+                for lane in range(1, 9))
+            ),
+            RegGroupField(consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX,
+                *(NumberRegField("%s%d" % (consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX, lane) , self.getaddr(0x10, 166 + int((lane-1)/2)), ro=False,
+                    *(RegBitField("Bit%d" % bit, bit) for bit in [range(4, 8), range(0, 4)][lane%2]))
+                for lane in range(1, 9))
+            ),
+
+            RegGroupField(consts.OUTPUT_AMPLITUDE_TARGET_RX,
+                *(NumberRegField("%s%d" % (consts.OUTPUT_AMPLITUDE_TARGET_RX, lane) , self.getaddr(0x10, 170 + int((lane-1)/2)), ro=False,
+                    *(RegBitField("Bit%d" % bit, bit) for bit in [range(4, 8), range(0, 4)][lane%2]))
+                for lane in range(1, 9))
+            ),
         )
 
         # TODO: add remaining fields
