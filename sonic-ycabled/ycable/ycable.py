@@ -70,6 +70,26 @@ helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
 # Helper functions =============================================================
 #
 
+
+def check_presence_for_active_active_cable_type(port_tbl):
+
+
+    logical_port_list = platform_sfputil.logical
+    for logical_port_name in logical_port_list:
+        # Get the asic to which this port belongs
+        asic_index = platform_sfputil.get_asic_id_for_logical_port(logical_port_name)
+        if asic_index is None:
+            continue
+
+        (status, cable_type) = y_cable_helper.check_mux_cable_port_type(logical_port_name, port_tbl, asic_index)
+
+        if status and cable_type == "active-active":
+            return True
+
+    return False
+
+
+
 def detect_port_in_error_status(logical_port_name, status_tbl):
     rec, fvp = status_tbl.get(logical_port_name)
     if rec:
@@ -81,13 +101,13 @@ def detect_port_in_error_status(logical_port_name, status_tbl):
     else:
         return False
 
-def handle_state_update_task(port, fvp_dict, y_cable_presence, port_tbl, port_tbl_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, fwd_state_response_tbl, stopping_event):
+def handle_state_update_task(port, fvp_dict, y_cable_presence, port_tbl, port_tbl_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, fwd_state_response_tbl, state_db, stopping_event):
 
     port_dict = {}
     port_dict[port] = fvp_dict.get('status', None)
 
     y_cable_helper.change_ports_status_for_y_cable_change_event(
-        port_dict, y_cable_presence, port_tbl, port_tbl_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, fwd_state_response_tbl, stopping_event)
+        port_dict, y_cable_presence, port_tbl, port_tbl_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, fwd_state_response_tbl, state_db, stopping_event)
 
 #
 # Helper classes ===============================================================
@@ -105,6 +125,7 @@ class YcableInfoUpdateTask(threading.Thread):
         self.task_stopping_event = threading.Event()
         self.y_cable_presence = y_cable_presence
         self.table_helper =  y_cable_table_helper.YcableInfoUpdateTableHelper()
+        self.name = "YcableInfoUpdateTask"
 
 
     def task_worker(self, y_cable_presence):
@@ -159,6 +180,7 @@ class YcableStateUpdateTask(threading.Thread):
         self.sfp_error_event = sfp_error_event
         self.y_cable_presence = y_cable_presence
         self.table_helper =  y_cable_table_helper.YcableStateUpdateTableHelper()
+        self.name = "YcableStateUpdateTask"
 
 
     def task_worker(self, stopping_event, sfp_error_event, y_cable_presence):
@@ -208,7 +230,7 @@ class YcableStateUpdateTask(threading.Thread):
                     continue
 
                 # Check if all tables are created in table_helper
-                handle_state_update_task(port, fvp_dict, y_cable_presence, self.table_helper.get_port_tbl(), self.table_helper.port_table_keys, self.table_helper.get_loopback_tbl(), self.table_helper.loopback_keys, self.table_helper.get_hw_mux_cable_tbl(), self.table_helper.get_hw_mux_cable_tbl_peer(), self.table_helper.get_y_cable_tbl(), self.table_helper.get_static_tbl(), self.table_helper.get_mux_tbl(), self.table_helper.get_grpc_config_tbl(), self.table_helper.get_fwd_state_response_tbl(), stopping_event)
+                handle_state_update_task(port, fvp_dict, y_cable_presence, self.table_helper.get_port_tbl(), self.table_helper.port_table_keys, self.table_helper.get_loopback_tbl(), self.table_helper.loopback_keys, self.table_helper.get_hw_mux_cable_tbl(), self.table_helper.get_hw_mux_cable_tbl_peer(), self.table_helper.get_y_cable_tbl(), self.table_helper.get_static_tbl(), self.table_helper.get_mux_tbl(), self.table_helper.get_grpc_config_tbl(), self.table_helper.get_fwd_state_response_tbl(), self.table_helper.state_db, stopping_event)
 
     def run(self):
         if self.task_stopping_event.is_set():
@@ -242,6 +264,7 @@ class DaemonYcable(daemon_base.DaemonBase):
         self.y_cable_presence = [False]
         self.table_helper =  y_cable_table_helper.DaemonYcableTableHelper()
         self.threads = []
+        self.name = "DaemonYcable"
 
     # Signal handler
     def signal_handler(self, sig, frame):
@@ -389,9 +412,12 @@ class DaemonYcable(daemon_base.DaemonBase):
             y_cable_cli_worker_update = y_cable_helper.YCableCliUpdateTask()
             y_cable_cli_worker_update.start()
             self.threads.append(y_cable_cli_worker_update)
-            y_cable_async_noti_worker = y_cable_helper.YCableAsyncNotificationTask()
-            y_cable_async_noti_worker.start()
-            self.threads.append(y_cable_async_noti_worker)
+            # enable async client only if there are active-active cables
+            active_active_cable_presence = check_presence_for_active_active_cable_type(self.table_helper.get_port_tbl())
+            if active_active_cable_presence is True:
+                y_cable_async_noti_worker = y_cable_helper.YCableAsyncNotificationTask()
+                y_cable_async_noti_worker.start()
+                self.threads.append(y_cable_async_noti_worker)
 
         # Start main loop
         self.log_info("Start daemon main loop")

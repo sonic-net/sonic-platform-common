@@ -1730,6 +1730,7 @@ class TestYCableScript(object):
         def mock_get_asic_id(mock_logical_port_name):
             return 0
 
+        state_db = {}
         y_cable_presence = [True]
         logical_port_dict = {'Ethernet0': '1'}
 
@@ -1745,7 +1746,7 @@ class TestYCableScript(object):
             patched_util.get_asic_id_for_logical_port.return_value = 0
 
             rc = change_ports_status_for_y_cable_change_event(
-                logical_port_dict,  y_cable_presence, port_tbl, port_table_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, fwd_state_response_tbl, stop_event=threading.Event())
+                logical_port_dict,  y_cable_presence, port_tbl, port_table_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, fwd_state_response_tbl, state_db, stop_event=threading.Event())
 
             assert(rc == None)
 
@@ -1764,6 +1765,7 @@ class TestYCableScript(object):
 
         y_cable_presence = [True]
         logical_port_dict = {'Ethernet0': '1'}
+        state_db = {}
 
         mock_table = MagicMock()
         mock_table.getKeys = MagicMock(return_value=['Ethernet0', 'Ethernet4'])
@@ -1777,7 +1779,7 @@ class TestYCableScript(object):
 
             patched_util.get_asic_id_for_logical_port.return_value = 0
             rc = change_ports_status_for_y_cable_change_event(
-                logical_port_dict,  y_cable_presence,  port_tbl, port_table_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, fwd_state_response_tbl,stop_event=threading.Event())
+                logical_port_dict,  y_cable_presence,  port_tbl, port_table_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, fwd_state_response_tbl, state_db, stop_event=threading.Event())
 
             assert(rc == None)
 
@@ -1794,6 +1796,7 @@ class TestYCableScript(object):
 
         y_cable_presence = [True]
         logical_port_dict = {'Ethernet0': '2'}
+        state_db = {}
 
         mock_table = MagicMock()
         mock_table.getKeys = MagicMock(return_value=['Ethernet0', 'Ethernet4'])
@@ -1806,7 +1809,7 @@ class TestYCableScript(object):
 
             patched_util.get_asic_id_for_logical_port.return_value = 0
             rc = change_ports_status_for_y_cable_change_event(
-                logical_port_dict,  y_cable_presence,port_tbl, port_table_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, fwd_state_response_tbl, stop_event=threading.Event())
+                logical_port_dict,  y_cable_presence,port_tbl, port_table_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, fwd_state_response_tbl, state_db, stop_event=threading.Event())
 
             assert(rc == None)
 
@@ -7140,4 +7143,318 @@ class TestYCableScript(object):
 
         read_side = 1
         Y_cable_restart_client = GracefulRestartClient("Ethernet48", None, read_side)
+
+
+class TestYcableScriptExecution(object):
+
+    @patch('swsscommon.swsscommon.Select.addSelectable', MagicMock())
+    @patch('swsscommon.swsscommon.Select.TIMEOUT', MagicMock(return_value=None))
+    @patch('swsscommon.swsscommon.CastSelectableToRedisSelectObj', MagicMock())
+    #@patch('swsscommon.swsscommon.CastSelectableToRedisSelectObj.getDbConnector', MagicMock())
+    @patch('swsscommon.swsscommon.SubscriberStateTable')
+    @patch('swsscommon.swsscommon.Select.select')
+    def test_ycable_helper_cli_worker(self, mock_select, mock_sub_table):
+
+        mock_selectable = MagicMock()
+        mock_selectable.pop = MagicMock(
+            side_effect=[('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False)])
+        mock_select.return_value = (swsscommon.Select.OBJECT, mock_selectable)
+        mock_sub_table.return_value = mock_selectable
+
+        stop_event = threading.Event()
+        
+        asic_index = 0
+        Y_cable_cli_task = YCableCliUpdateTask()
+        Y_cable_cli_task.task_stopping_event.is_set = MagicMock(side_effect=[False, True])
+
+        #Y_cable_cli_task.task_stopping_event.is_set = MagicMock(side_effect=False)
+
+        expected_exception_start = None
+        expected_exception_join = None
+            #Y_cable_cli_task.start()
+        Y_cable_cli_task.task_cli_worker()
+        Y_cable_cli_task.task_stopping_event.clear()
+       
+        assert swsscommon.Select.select.call_count == 1
+        #y_cable_helper.handle_show_hwmode_state_cmd_arg_tbl_notification.assert_called() 
+        Y_cable_cli_task_n = YCableCliUpdateTask()
+        Y_cable_cli_task_n.task_stopping_event.is_set = MagicMock(side_effect=[False, True])
+
+        mock_selectable.pop = MagicMock(
+            side_effect=[('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False)])
+        mock_select.return_value = (swsscommon.Select.OBJECT, mock_selectable)
+
+        Y_cable_cli_task_n.task_cli_worker()
+        assert swsscommon.Select.select.call_count == 2
+
+
+
+    @patch('swsscommon.swsscommon.Select.addSelectable', MagicMock())
+    @patch('swsscommon.swsscommon.Select.TIMEOUT', MagicMock(return_value=None))
+    @patch('swsscommon.swsscommon.CastSelectableToRedisSelectObj', MagicMock())
+    #@patch('swsscommon.swsscommon.CastSelectableToRedisSelectObj.getDbConnector', MagicMock())
+    @patch('swsscommon.swsscommon.SubscriberStateTable')
+    @patch('swsscommon.swsscommon.Select.select')
+    def test_ycable_helper_cli_worker_execution(self, mock_select, mock_sub_table):
+
+        mock_selectable = MagicMock()
+        mock_selectable.pop = MagicMock(
+            side_effect=[(False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False) ,('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), (None, None, None), (None, None, None)])
+        mock_select.return_value = (swsscommon.Select.OBJECT, mock_selectable)
+        mock_sub_table.return_value = mock_selectable
+
+        stop_event = threading.Event()
+        
+        asic_index = 0
+        Y_cable_cli_task = YCableCliUpdateTask()
+        Y_cable_cli_task.task_stopping_event.is_set = MagicMock(side_effect=[False, True])
+        Y_cable_cli_task.cli_table_helper.xcvrd_show_hwmode_dir_cmd_tbl[asic_index].return_value = mock_selectable
+
+        #Y_cable_cli_task.task_stopping_event.is_set = MagicMock(side_effect=False)
+
+        expected_exception_start = None
+        expected_exception_join = None
+        trace = None
+        """
+        try:
+            #Y_cable_cli_task.start()
+            Y_cable_cli_task.task_cli_worker()
+            time.sleep(5)
+            Y_cable_cli_task.task_stopping_event.clear()
+        except Exception as e1:
+            expected_exception_start  = e1
+            trace = traceback.format_exc()
+        """
+
+
+    @patch('swsscommon.swsscommon.Select.addSelectable', MagicMock())
+    @patch('swsscommon.swsscommon.Select.TIMEOUT', MagicMock(return_value=None))
+    @patch('swsscommon.swsscommon.CastSelectableToRedisSelectObj', MagicMock())
+    #@patch('swsscommon.swsscommon.CastSelectableToRedisSelectObj.getDbConnector', MagicMock())
+    @patch('swsscommon.swsscommon.SubscriberStateTable')
+    @patch('swsscommon.swsscommon.Select.select')
+    #@patch('swsscommon.swsscommon.Table')
+    def test_ycable_helper_table_worker(self, mock_select, mock_sub_table):
+
+        mock_selectable = MagicMock()
+        mock_selectable.pop = MagicMock(
+            side_effect=[('Ethernet0', swsscommon.SET_COMMAND, (('state', 'active'), )), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False)])
+        mock_select.return_value = (swsscommon.Select.OBJECT, mock_selectable)
+        mock_sub_table.return_value = mock_selectable
+
+
+        Y_cable_task = YCableTableUpdateTask()
+        Y_cable_task.task_stopping_event.is_set = MagicMock(side_effect=[False, True])
+        mock_table = MagicMock()
+        """mock_table.getKeys = MagicMock(return_value=['Ethernet0', 'Ethernet4'])
+        mock_table.get = MagicMock(
+            side_effect=[(True, (('index', 1), )), (True, (('index', 2), ))])
+        mock_swsscommon_table.return_value = mock_table
+        """
+        Y_cable_task.hw_mux_cable_tbl_keys = MagicMock(side_effect={0:["Ethernet0", "Ethernet4"]})
+        Y_cable_task.task_worker()
+        assert swsscommon.Select.select.call_count == 1
+
+
+    @patch('swsscommon.swsscommon.Select.addSelectable', MagicMock())
+    @patch('swsscommon.swsscommon.Select.TIMEOUT', MagicMock(return_value=None))
+    @patch('swsscommon.swsscommon.CastSelectableToRedisSelectObj', MagicMock())
+    #@patch('swsscommon.swsscommon.CastSelectableToRedisSelectObj.getDbConnector', MagicMock())
+    @patch('swsscommon.swsscommon.SubscriberStateTable')
+    @patch('swsscommon.swsscommon.Select.select')
+    @patch('ycable.ycable_utilities.y_cable_helper.check_mux_cable_port_type', MagicMock(return_value=(True,"active-active")))
+    def test_ycable_helper_table_worker_active_active(self, mock_select, mock_sub_table):
+
+        mock_selectable = MagicMock()
+        mock_selectable.pop = MagicMock(
+            side_effect=[('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), ('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False)])
+        mock_select.return_value = (swsscommon.Select.OBJECT, mock_selectable)
+        mock_sub_table.return_value = mock_selectable
+
+
+        Y_cable_task = YCableTableUpdateTask()
+        Y_cable_task.task_stopping_event.is_set = MagicMock(side_effect=[False, True])
+        Y_cable_task.task_worker()
+        assert swsscommon.Select.select.call_count == 1
+
+
+
+    @patch('ycable.ycable_utilities.y_cable_helper.check_mux_cable_port_type', MagicMock(return_value=(True,"active-active")))
+    @patch('swsscommon.swsscommon.Select.addSelectable', MagicMock())
+    @patch('swsscommon.swsscommon.Select.TIMEOUT', MagicMock(return_value=None))
+    @patch('swsscommon.swsscommon.CastSelectableToRedisSelectObj', MagicMock())
+    @patch('ycable.ycable_utilities.y_cable_helper.grpc_port_stubs', MagicMock(return_value={}))
+    @patch('ycable.ycable_utilities.y_cable_helper.grpc_port_channels', MagicMock(return_value={}))
+    #@patch('swsscommon.swsscommon.CastSelectableToRedisSelectObj.getDbConnector', MagicMock())
+    @patch('swsscommon.swsscommon.FieldValuePairs', MagicMock())
+    @patch('swsscommon.swsscommon.SubscriberStateTable')
+    @patch('swsscommon.swsscommon.Select.select')
+    #@patch('swsscommon.swsscommon.Table')
+    def test_ycable_helper_table_worker_probe_active_active(self, mock_select, mock_sub_table):
+
+        mock_selectable = MagicMock()
+        mock_selectable.pop = MagicMock(
+            side_effect=[(False, False, False), (False, False, False), (False, False, False), ('Ethernet0', swsscommon.SET_COMMAND, (('state', 'active'), )), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False)])
+        mock_select.return_value = (swsscommon.Select.OBJECT, mock_selectable)
+        mock_sub_table.return_value = mock_selectable
+
+
+        Y_cable_task = YCableTableUpdateTask()
+        Y_cable_task.task_stopping_event.is_set = MagicMock(side_effect=[False, True])
+        """
+        mock_table = MagicMock()
+        mock_table.getKeys = MagicMock(return_value=['Ethernet0', 'Ethernet4'])
+        mock_table.get = MagicMock(
+            side_effect=[(True, (('index', 1), )), (True, (('index', 2), ))])
+        mock_swsscommon_table.return_value = mock_table
+        """
+        
+        Y_cable_task.hw_mux_cable_tbl_keys = MagicMock(side_effect={0:["Ethernet0", "Ethernet4"]})
+        Y_cable_task.task_worker()
+        assert swsscommon.Select.select.call_count == 1
+
+
+
+
+
+
+
+    @patch('ycable.ycable_utilities.y_cable_helper.check_mux_cable_port_type', MagicMock(return_value=(True,"active-active")))
+    @patch('swsscommon.swsscommon.Select.addSelectable', MagicMock())
+    @patch('swsscommon.swsscommon.Select.TIMEOUT', MagicMock(return_value=None))
+    @patch('swsscommon.swsscommon.CastSelectableToRedisSelectObj', MagicMock())
+    @patch('ycable.ycable_utilities.y_cable_helper.grpc_port_stubs', MagicMock(return_value={}))
+    @patch('ycable.ycable_utilities.y_cable_helper.grpc_port_channels', MagicMock(return_value={}))
+    @patch('swsscommon.swsscommon.FieldValuePairs', MagicMock())
+    #@patch('swsscommon.swsscommon.CastSelectableToRedisSelectObj.getDbConnector', MagicMock())
+    @patch('swsscommon.swsscommon.SubscriberStateTable')
+    @patch('swsscommon.swsscommon.Select.select')
+    #@patch('swsscommon.swsscommon.Table')
+    def test_ycable_helper_table_worker_probe_active(self, mock_select, mock_sub_table):
+
+        mock_selectable = MagicMock()
+        mock_selectable.pop = MagicMock(
+            side_effect=[(False, False, False), (False, False, False), ('Ethernet0', swsscommon.SET_COMMAND, (('state', 'active'), ('command', 'probe'),)), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False)])
+        mock_select.return_value = (swsscommon.Select.OBJECT, mock_selectable)
+        mock_sub_table.return_value = mock_selectable
+
+
+        Y_cable_task = YCableTableUpdateTask()
+        Y_cable_task.task_stopping_event.is_set = MagicMock(side_effect=[False, True])
+        """
+        mock_table = MagicMock()
+        mock_table.getKeys = MagicMock(return_value=['Ethernet0', 'Ethernet4'])
+        mock_table.get = MagicMock(
+            side_effect=[(True, (('index', 1), )), (True, (('index', 2), ))])
+        mock_swsscommon_table.return_value = mock_table
+        """
+        
+        Y_cable_task.hw_mux_cable_tbl_keys = MagicMock(side_effect={0:["Ethernet0", "Ethernet4"]})
+        Y_cable_task.task_worker()
+        assert swsscommon.Select.select.call_count == 1
+
+
+
+
+
+
+    @patch('swsscommon.swsscommon.Select.addSelectable', MagicMock())
+    @patch('swsscommon.swsscommon.Select.TIMEOUT', MagicMock(return_value=None))
+    @patch('swsscommon.swsscommon.CastSelectableToRedisSelectObj', MagicMock())
+    #@patch('swsscommon.swsscommon.CastSelectableToRedisSelectObj.getDbConnector', MagicMock())
+    @patch('swsscommon.swsscommon.SubscriberStateTable')
+    @patch('swsscommon.swsscommon.Select.select')
+    #@patch('swsscommon.swsscommon.Table')
+    def test_ycable_helper_table_worker_probe(self, mock_select, mock_sub_table):
+
+        mock_selectable = MagicMock()
+        mock_selectable.pop = MagicMock(
+            side_effect=[(False, False, False), ('Ethernet0', swsscommon.SET_COMMAND, (('state', 'active'), )), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False)])
+        mock_select.return_value = (swsscommon.Select.OBJECT, mock_selectable)
+        mock_sub_table.return_value = mock_selectable
+
+
+        Y_cable_task = YCableTableUpdateTask()
+        Y_cable_task.task_stopping_event.is_set = MagicMock(side_effect=[False, True])
+        #mock_table = MagicMock()
+        #mock_table.getKeys = MagicMock(return_value=['Ethernet0', 'Ethernet4'])
+        swsscommon.Table.return_value.get.return_value = (
+                True, {"read_side": "1", "state":"active"})
+        #mock_table.get = MagicMock(
+        #    side_effect=[(True, (('index', 1), )), (True, (('index', 2), ))])
+        swsscommon.Table.return_value.getKeys.return_value = (
+            ['Ethernet0', 'Ethernet4'])
+        #mock_swsscommon_table.return_value = mock_table
+        
+        Y_cable_task.task_worker()
+        assert swsscommon.Select.select.call_count == 1
+
+
+    @patch('swsscommon.swsscommon.Select.addSelectable', MagicMock())
+    @patch('swsscommon.swsscommon.Select.TIMEOUT', MagicMock(return_value=None))
+    @patch('swsscommon.swsscommon.CastSelectableToRedisSelectObj', MagicMock())
+    #@patch('swsscommon.swsscommon.CastSelectableToRedisSelectObj.getDbConnector', MagicMock())
+    @patch('swsscommon.swsscommon.SubscriberStateTable')
+    @patch('swsscommon.swsscommon.Select.select')
+    #@patch('swsscommon.swsscommon.Table')
+    def test_ycable_helper_table_worker_toggle(self, mock_select, mock_sub_table):
+
+        mock_selectable = MagicMock()
+        mock_selectable.pop = MagicMock(
+            side_effect=[('Ethernet0', swsscommon.SET_COMMAND, (('state', 'active'), )), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False)])
+        mock_select.return_value = (swsscommon.Select.OBJECT, mock_selectable)
+        mock_sub_table.return_value = mock_selectable
+
+
+        Y_cable_task = YCableTableUpdateTask()
+        Y_cable_task.task_stopping_event.is_set = MagicMock(side_effect=[False, True])
+        #mock_table = MagicMock()
+        #mock_table.getKeys = MagicMock(return_value=['Ethernet0', 'Ethernet4'])
+        swsscommon.Table.return_value.get.return_value = (
+                True, {"read_side": "1", "state":"active"})
+        #mock_table.get = MagicMock(
+        #    side_effect=[(True, (('index', 1), )), (True, (('index', 2), ))])
+        swsscommon.Table.return_value.getKeys.return_value = (
+            ['Ethernet0', 'Ethernet4'])
+        #mock_swsscommon_table.return_value = mock_table
+        
+        Y_cable_task.task_worker()
+        assert swsscommon.Select.select.call_count == 1
+
+
+    @patch('ycable.ycable_utilities.y_cable_helper.check_mux_cable_port_type', MagicMock(return_value=(True,"active-active")))
+    @patch('swsscommon.swsscommon.Select.addSelectable', MagicMock())
+    @patch('swsscommon.swsscommon.Select.TIMEOUT', MagicMock(return_value=None))
+    @patch('swsscommon.swsscommon.CastSelectableToRedisSelectObj', MagicMock())
+    @patch('ycable.ycable_utilities.y_cable_helper.grpc_port_stubs', MagicMock(return_value={}))
+    @patch('ycable.ycable_utilities.y_cable_helper.grpc_port_channels', MagicMock(return_value={}))
+    @patch('swsscommon.swsscommon.FieldValuePairs', MagicMock())
+    #@patch('swsscommon.swsscommon.CastSelectableToRedisSelectObj.getDbConnector', MagicMock())
+    @patch('swsscommon.swsscommon.SubscriberStateTable')
+    @patch('swsscommon.swsscommon.Select.select')
+    #@patch('swsscommon.swsscommon.Table')
+    def test_ycable_helper_table_worker_toggle_active_active(self, mock_select, mock_sub_table):
+
+        mock_selectable = MagicMock()
+        mock_selectable.pop = MagicMock(
+            side_effect=[('Ethernet0', swsscommon.SET_COMMAND, (('state', 'active'), ("command", "probe"),)), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False), (False, False, False)])
+        mock_select.return_value = (swsscommon.Select.OBJECT, mock_selectable)
+        mock_sub_table.return_value = mock_selectable
+
+
+        Y_cable_task = YCableTableUpdateTask()
+        Y_cable_task.task_stopping_event.is_set = MagicMock(side_effect=[False, True])
+        #mock_table = MagicMock()
+        #mock_table.getKeys = MagicMock(return_value=['Ethernet0', 'Ethernet4'])
+        swsscommon.Table.return_value.get.return_value = (
+                True, {"read_side": "1", "state":"active"})
+        #mock_table.get = MagicMock(
+        #    side_effect=[(True, (('index', 1), )), (True, (('index', 2), ))])
+        swsscommon.Table.return_value.getKeys.return_value = (
+            ['Ethernet0', 'Ethernet4'])
+        #mock_swsscommon_table.return_value = mock_table
+        
+        Y_cable_task.task_worker()
+        assert swsscommon.Select.select.call_count == 1
+
 

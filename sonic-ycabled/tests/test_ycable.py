@@ -83,6 +83,7 @@ class TestYcableScript(object):
         Y_cable_cli_task.start()
         Y_cable_cli_task.join()
 
+
     @patch("swsscommon.swsscommon.Select", MagicMock())
     @patch("swsscommon.swsscommon.Select.addSelectable", MagicMock())
     def test_ycable_helper_class_run(self):
@@ -307,11 +308,13 @@ class TestYcableScript(object):
         
         port = "Ethernet0"
         fvp_dict = {}
+        state_db = {}
         y_cable_presence = False
         stopping_event = None
         port_tbl, port_tbl_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, fwd_state_response_tbl = {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}
-        rc = handle_state_update_task(port, fvp_dict, y_cable_presence, port_tbl, port_tbl_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, fwd_state_response_tbl, stopping_event)
+        rc = handle_state_update_task(port, fvp_dict, y_cable_presence, port_tbl, port_tbl_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, fwd_state_response_tbl, state_db, stopping_event)
         assert(rc == None)
+
 
 
 def wait_until(total_wait_time, interval, call_back, *args, **kwargs):
@@ -353,19 +356,12 @@ class TestYcableScriptException(object):
         except Exception as e2:
             expected_exception_join = e2
 
-        """
-        #Handy debug Helpers or else use import logging
-        #f = open("newfile", "w")
-        #f.write(format(e2))
-        #f.write(format(m1))
-        #f.write(trace)
-        """
-
         assert(type(expected_exception_start) == type(expected_exception_join))
         assert(expected_exception_start.args == expected_exception_join.args)
         assert("NotImplementedError" in str(trace) and "effect" in str(trace))
         assert("sonic-ycabled/ycable/ycable_utilities/y_cable_helper.py" in str(trace))
         assert("swsscommon.Select" in str(trace))
+
 
 class TestYcableAsyncScript(object):
 
@@ -399,4 +395,50 @@ class TestYcableAsyncScript(object):
         assert("NotImplementedError" in str(trace) and "effect" in str(trace))
         assert("sonic-ycabled/ycable/ycable_utilities/y_cable_helper.py" in str(trace))
         assert("setup_grpc_channel_for_port" in str(trace))
+
+
+class TestYcableActiveActiveHelper(object):
+
+    @patch("ycable.ycable.platform_sfputil")
+    def test_check_presence_for_active_active_cable_type(self, sfputil):
+
+
+        y_cable_tbl = {}
+        test_db = "TEST_DB"
+        status = True
+        asic_index = 0
+        fvs = [('state', "auto"), ('read_side', 1), ('soc_ipv4', '192.168.0.1/32')]
+        y_cable_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], "Y_CABLE_TABLE")
+        y_cable_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], "Y_CABLE_TABLE")
+        y_cable_tbl[asic_index].get.return_value = (status, fvs)
+
+        sfputil.logical = ["Ethernet0", "Ethernet4"]
+        sfputil.get_asic_id_for_logical_port = MagicMock(return_value=0)
+        rc = check_presence_for_active_active_cable_type(y_cable_tbl)
+
+        assert(rc == False)
+
+    @patch('ycable.ycable_utilities.y_cable_helper.check_mux_cable_port_type', MagicMock(return_value=(True,"active-active")))
+    @patch("ycable.ycable.platform_sfputil")
+    def test_check_presence_for_active_active_cable_type(self, sfputil):
+
+
+        y_cable_tbl = {}
+        test_db = "TEST_DB"
+        status = True
+        asic_index = 0
+        fvs = [('state', "auto"), ('read_side', 1), ('soc_ipv4', '192.168.0.1/32')]
+        y_cable_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], "Y_CABLE_TABLE")
+        y_cable_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], "Y_CABLE_TABLE")
+        y_cable_tbl[asic_index].get.return_value = (status, fvs)
+
+        sfputil.logical = ["Ethernet0", "Ethernet4"]
+        sfputil.get_asic_id_for_logical_port = MagicMock(return_value=0)
+        rc = check_presence_for_active_active_cable_type(y_cable_tbl)
+
+        assert(rc == True)
 
