@@ -380,6 +380,7 @@ class DaemonPsud(daemon_base.DaemonBase):
         self.psu_tbl = None
         self.psu_chassis_info = None
         self.first_run = True
+        self.psu_threshold_exceeded_logged = False
 
         global platform_psuutil
         global platform_chassis
@@ -458,6 +459,7 @@ class DaemonPsud(daemon_base.DaemonBase):
         if not platform_chassis:
             return
 
+        self.psu_threshold_exceeded_logged = False
         for index, psu in enumerate(platform_chassis.get_all_psus()):
             try:
                 self._update_single_psu_data(index + 1, psu)
@@ -535,25 +537,37 @@ class DaemonPsud(daemon_base.DaemonBase):
         power_warning_suppress_threshold = try_get(psu.get_psu_power_warning_suppress_threshold, NOT_AVAILABLE)
         power_critical_threshold = try_get(psu.get_psu_power_critical_threshold, NOT_AVAILABLE)
         if psu_status.check_psu_power_threshold:
+            # Calculate total power
+            system_power = float(power)
+            for _, other_psu in enumerate(platform_chassis.get_all_psus()):
+                if other_psu is psu:
+                    # Skip the current PSU
+                    continue
+                power_str = try_get(other_psu.get_power, NOT_AVAILABLE)
+                if power_str != NOT_AVAILABLE:
+                    system_power += float(power_str)
+
             if power_warning_suppress_threshold == NOT_AVAILABLE or power_critical_threshold == NOT_AVAILABLE:
                 self.log_error("PSU power thresholds become invalid: threshold {} critical threshold {}".format(power_warning_suppress_threshold, power_critical_threshold))
                 psu_status.check_psu_power_threshold = False
                 psu_status.power_exceeded_threshold = False
             elif psu_status.power_exceeded_threshold:
                 # The failing threshold is the warning threshold
-                if power < power_warning_suppress_threshold:
+                if system_power < power_warning_suppress_threshold:
                     # Clear alarm
                     power_exceeded_threshold = False
             else:
                 # The rising threshold is the critical threshold
-                if power >= power_critical_threshold:
+                if system_power >= power_critical_threshold:
                     # Raise alarm
                     power_exceeded_threshold = True
 
-            if psu_status.set_power_exceed_threshold(power_exceeded_threshold):
+            if psu_status.set_power_exceed_threshold(power_exceeded_threshold) and not self.psu_threshold_exceeded_logged:
+                # Since this is a system level PSU power exceeding check, we do not need to log it for each PSU
                 log_on_status_changed(self, not psu_status.power_exceeded_threshold,
-                                      'PSU power warning cleared: {} power {} is back to normal.'.format(name, power),
-                                      'PSU power warning: {} power {} exceeds critical threshold {}.'.format(name, power, power_critical_threshold))
+                                      'PSU power warning cleared: system power {} is back to normal, below the warning suppress threshold {}.'.format(system_power, power_warning_suppress_threshold),
+                                      'PSU power warning: system power {} exceeds the critical threshold {}.'.format(system_power, power_critical_threshold))
+                self.psu_threshold_exceeded_logged = True
 
         if presence and psu_status.set_voltage(voltage, voltage_high_threshold, voltage_low_threshold):
             set_led = True

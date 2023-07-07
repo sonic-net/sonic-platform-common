@@ -188,19 +188,22 @@ class TestDaemonPsud(object):
         psu = MockPsu('PSU 1', 0, True, 'Fake Model', '12345678', '1234')
         psud.platform_chassis = MockChassis()
         psud.platform_chassis._psu_list.append(psu)
+        another_psu = MockPsu('PSU 2', 0, True, 'Fake Model', '12345678', '1234')
+        another_psu.set_power(10.0)
+        psud.platform_chassis._psu_list.append(another_psu)
 
         daemon_psud = psud.DaemonPsud(SYSLOG_IDENTIFIER)
 
         daemon_psud.psu_tbl = mock.MagicMock()
-        psu.get_psu_power_critical_threshold = mock.MagicMock(return_value=120.0)
-        psu.get_psu_power_warning_suppress_threshold = mock.MagicMock(return_value=110.0)
+        psu.get_psu_power_critical_threshold = mock.MagicMock(return_value=130.0)
+        psu.get_psu_power_warning_suppress_threshold = mock.MagicMock(return_value=120.0)
 
         # Normal start. All good and all thresholds are supported
         # Power is in normal range (below warning threshold)
         daemon_psud._update_single_psu_data(1, psu)
         assert daemon_psud.psu_status_dict[1].check_psu_power_threshold
         assert not daemon_psud.psu_status_dict[1].power_exceeded_threshold
-        expected_fvp = self._construct_expected_fvp(100.0, 110.0, 120.0, False)
+        expected_fvp = self._construct_expected_fvp(100.0, 120.0, 130.0, False)
         daemon_psud.psu_tbl.set.assert_called_with(psud.PSU_INFO_KEY_TEMPLATE.format(1), expected_fvp)
         daemon_psud._update_led_color()
         assert psu.STATUS_LED_COLOR_GREEN == psu.get_status_led()
@@ -213,7 +216,7 @@ class TestDaemonPsud(object):
         daemon_psud._update_single_psu_data(1, psu)
         assert daemon_psud.psu_status_dict[1].check_psu_power_threshold
         assert not daemon_psud.psu_status_dict[1].power_exceeded_threshold
-        expected_fvp = self._construct_expected_fvp(115.0, 110.0, 120.0, False)
+        expected_fvp = self._construct_expected_fvp(115.0, 120.0, 130.0, False)
         daemon_psud.psu_tbl.set.assert_called_with(psud.PSU_INFO_KEY_TEMPLATE.format(1), expected_fvp)
         daemon_psud._update_led_color()
         assert psu.STATUS_LED_COLOR_GREEN == psu.get_status_led()
@@ -224,7 +227,7 @@ class TestDaemonPsud(object):
         daemon_psud._update_single_psu_data(1, psu)
         assert daemon_psud.psu_status_dict[1].check_psu_power_threshold
         assert daemon_psud.psu_status_dict[1].power_exceeded_threshold
-        expected_fvp = self._construct_expected_fvp(125.0, 110.0, 120.0, True)
+        expected_fvp = self._construct_expected_fvp(125.0, 120.0, 130.0, True)
         daemon_psud.psu_tbl.set.assert_called_with(psud.PSU_INFO_KEY_TEMPLATE.format(1), expected_fvp)
         daemon_psud._update_led_color()
         assert psu.STATUS_LED_COLOR_GREEN == psu.get_status_led()
@@ -235,7 +238,7 @@ class TestDaemonPsud(object):
         daemon_psud._update_single_psu_data(1, psu)
         assert daemon_psud.psu_status_dict[1].check_psu_power_threshold
         assert daemon_psud.psu_status_dict[1].power_exceeded_threshold
-        expected_fvp = self._construct_expected_fvp(115.0, 110.0, 120.0, True)
+        expected_fvp = self._construct_expected_fvp(115.0, 120.0, 130.0, True)
         daemon_psud.psu_tbl.set.assert_called_with(psud.PSU_INFO_KEY_TEMPLATE.format(1), expected_fvp)
         daemon_psud._update_led_color()
         assert psu.STATUS_LED_COLOR_GREEN == psu.get_status_led()
@@ -246,7 +249,7 @@ class TestDaemonPsud(object):
         daemon_psud._update_single_psu_data(1, psu)
         assert daemon_psud.psu_status_dict[1].check_psu_power_threshold
         assert not daemon_psud.psu_status_dict[1].power_exceeded_threshold
-        expected_fvp = self._construct_expected_fvp(105.0, 110.0, 120.0, False)
+        expected_fvp = self._construct_expected_fvp(105.0, 120.0, 130.0, False)
         daemon_psud.psu_tbl.set.assert_called_with(psud.PSU_INFO_KEY_TEMPLATE.format(1), expected_fvp)
         assert psu.STATUS_LED_COLOR_GREEN == psu.get_status_led()
         daemon_psud._update_led_color()
@@ -257,7 +260,7 @@ class TestDaemonPsud(object):
         daemon_psud._update_single_psu_data(1, psu)
         assert daemon_psud.psu_status_dict[1].check_psu_power_threshold
         assert daemon_psud.psu_status_dict[1].power_exceeded_threshold
-        expected_fvp = self._construct_expected_fvp(125.0, 110.0, 120.0, True)
+        expected_fvp = self._construct_expected_fvp(125.0, 120.0, 130.0, True)
         daemon_psud.psu_tbl.set.assert_called_with(psud.PSU_INFO_KEY_TEMPLATE.format(1), expected_fvp)
         daemon_psud._update_led_color()
         assert psu.STATUS_LED_COLOR_GREEN == psu.get_status_led()
@@ -268,7 +271,7 @@ class TestDaemonPsud(object):
         daemon_psud._update_single_psu_data(1, psu)
         assert daemon_psud.psu_status_dict[1].check_psu_power_threshold
         assert not daemon_psud.psu_status_dict[1].power_exceeded_threshold
-        expected_fvp = self._construct_expected_fvp(105.0, 110.0, 120.0, False)
+        expected_fvp = self._construct_expected_fvp(105.0, 120.0, 130.0, False)
         daemon_psud.psu_tbl.set.assert_called_with(psud.PSU_INFO_KEY_TEMPLATE.format(1), expected_fvp)
         daemon_psud._update_led_color()
         assert psu.STATUS_LED_COLOR_GREEN == psu.get_status_led()
