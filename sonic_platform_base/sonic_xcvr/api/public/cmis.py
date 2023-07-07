@@ -2097,7 +2097,7 @@ class CmisApi(XcvrApi):
         # Apply DataPathInit
         return self.xcvr_eeprom.write("%s_%d" % (consts.STAGED_CTRL_APPLY_DPINIT_FIELD, 0), channel)
 
-    def set_module_si_settings(self, host_lanes_mask, appl, optics_si_dict):
+    def set_module_si_settings(self, host_lanes_mask, appl_code, optics_si_dict):
         # Read and cache the existing SCS0 TX CTRL data
         si_settings = self.xcvr_eeprom.read(consts.STAGED_CTRL0_TX_CTRL_FIELD)
         if si_settings is None:
@@ -2160,7 +2160,8 @@ class CmisApi(XcvrApi):
                             pre_val = self.xcvr_eeprom.read(pre_si_key_lane)
                             val = (val << 4) | pre_val
                         self.xcvr_eeprom.write(si_key_lane, val)
-            elif (si_keys == consts.ADAPTIVE_INPUT_EQ_RECALLED_TX and tx_input_recall_buf_supported):
+            elif (si_keys == consts.ADAPTIVE_INPUT_EQ_RECALLED_TX and 
+                 (tx_input_recall_buf1_supported or tx_input_recall_buf2_supported)):
                 val = 0
                 for lane in range(self.NUM_CHANNELS):
                     if ((1 << lane) & host_lanes_mask) == 0:
