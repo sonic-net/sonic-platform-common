@@ -764,6 +764,89 @@ class TestXcvrdScript(object):
         appl = task.get_cmis_application_desired(mock_xcvr_api, host_lane_count, speed)
         assert task.get_cmis_host_lanes_mask(mock_xcvr_api, appl, host_lane_count, subport) == expected
 
+    def test_CmisManagerTask_post_port_active_apsel_to_db(self):
+        mock_xcvr_api = MagicMock()
+        mock_xcvr_api.get_active_apsel_hostlane = MagicMock(side_effect=[
+            {
+             'ActiveAppSelLane1': 1,
+             'ActiveAppSelLane2': 1,
+             'ActiveAppSelLane3': 1,
+             'ActiveAppSelLane4': 1,
+             'ActiveAppSelLane5': 1,
+             'ActiveAppSelLane6': 1,
+             'ActiveAppSelLane7': 1,
+             'ActiveAppSelLane8': 1
+            },
+            {
+             'ActiveAppSelLane1': 2,
+             'ActiveAppSelLane2': 2,
+             'ActiveAppSelLane3': 2,
+             'ActiveAppSelLane4': 2,
+             'ActiveAppSelLane5': 2,
+             'ActiveAppSelLane6': 2,
+             'ActiveAppSelLane7': 2,
+             'ActiveAppSelLane8': 2
+            },
+            NotImplementedError
+        ])
+        mock_xcvr_api.get_application_advertisement = MagicMock(side_effect=[
+            {
+                1: {
+                    'media_lane_count': 4,
+                    'host_lane_count': 8
+                }
+            },
+            {
+                2: {
+                    'media_lane_count': 1,
+                    'host_lane_count': 2
+                }
+            }
+        ])
+
+        int_tbl = Table("STATE_DB", TRANSCEIVER_INFO_TABLE)
+
+        port_mapping = PortMapping()
+        stop_event = threading.Event()
+        task = CmisManagerTask(DEFAULT_NAMESPACE, port_mapping, stop_event)
+        task.xcvr_table_helper.get_intf_tbl = MagicMock(return_value=int_tbl)
+
+        # case: partial lanes update
+        lport = "Ethernet0"
+        host_lanes_mask = 0xc
+        ret = task.post_port_active_apsel_to_db(mock_xcvr_api, lport, host_lanes_mask)
+        assert int_tbl.getKeys() == ["Ethernet0"]
+        assert dict(int_tbl.mock_dict["Ethernet0"]) == {'active_apsel_hostlane3': '1',
+                                                        'active_apsel_hostlane4': '1',
+                                                        'host_lane_count': '8',
+                                                        'media_lane_count': '4'}
+        # case: full lanes update
+        lport = "Ethernet8"
+        host_lanes_mask = 0xff
+        task.post_port_active_apsel_to_db(mock_xcvr_api, lport, host_lanes_mask)
+        assert int_tbl.getKeys() == ["Ethernet0", "Ethernet8"]
+        assert dict(int_tbl.mock_dict["Ethernet0"]) == {'active_apsel_hostlane3': '1',
+                                                        'active_apsel_hostlane4': '1',
+                                                        'host_lane_count': '8',
+                                                        'media_lane_count': '4'}
+        assert dict(int_tbl.mock_dict["Ethernet8"]) == {'active_apsel_hostlane1': '2',
+                                                        'active_apsel_hostlane2': '2',
+                                                        'active_apsel_hostlane3': '2',
+                                                        'active_apsel_hostlane4': '2',
+                                                        'active_apsel_hostlane5': '2',
+                                                        'active_apsel_hostlane6': '2',
+                                                        'active_apsel_hostlane7': '2',
+                                                        'active_apsel_hostlane8': '2',
+                                                        'host_lane_count': '2',
+                                                        'media_lane_count': '1'}
+
+        # case: NotImplementedError
+        int_tbl = Table("STATE_DB", TRANSCEIVER_INFO_TABLE)     # a new empty table
+        lport = "Ethernet0"
+        host_lanes_mask = 0xf
+        ret = task.post_port_active_apsel_to_db(mock_xcvr_api, lport, host_lanes_mask)
+        assert int_tbl.getKeys() == []
+
     @patch('xcvrd.xcvrd.platform_chassis')
     @patch('xcvrd.xcvrd_utilities.port_mapping.subscribe_port_update_event', MagicMock(return_value=(None, None)))
     @patch('xcvrd.xcvrd_utilities.port_mapping.handle_port_update_event', MagicMock())

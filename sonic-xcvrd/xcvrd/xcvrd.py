@@ -1335,6 +1335,36 @@ class CmisManagerTask(threading.Thread):
             self.log_error("{} Tuning in progress, subport selection may fail!".format(lport))
         return api.set_laser_freq(freq, grid)
 
+    def post_port_active_apsel_to_db(self, api, lport, host_lanes_mask):
+        try:
+            act_apsel = api.get_active_apsel_hostlane()
+            appl_advt = api.get_application_advertisement()
+        except NotImplementedError:
+            helper_logger.log_error("Required feature is not implemented")
+            return
+
+        tuple_list = []
+        for lane in range(self.CMIS_MAX_HOST_LANES):
+            if ((1 << lane) & host_lanes_mask) == 0:
+                continue
+            act_apsel_lane = act_apsel.get('ActiveAppSelLane{}'.format(lane + 1), 'N/A')
+            tuple_list.append(('active_apsel_hostlane{}'.format(lane + 1),
+                               str(act_apsel_lane)))
+
+        # also update host_lane_count and media_lane_count
+        if len(tuple_list) > 0:
+            appl_advt_act = appl_advt.get(act_apsel_lane)
+            host_lane_count = appl_advt_act.get('host_lane_count', 'N/A') if appl_advt_act else 'N/A'
+            tuple_list.append(('host_lane_count', str(host_lane_count)))
+            media_lane_count = appl_advt_act.get('media_lane_count', 'N/A') if appl_advt_act else 'N/A'
+            tuple_list.append(('media_lane_count', str(media_lane_count)))
+
+        asic_index = self.port_mapping.get_asic_id_for_logical_port(lport)
+        intf_tbl = self.xcvr_table_helper.get_intf_tbl(asic_index)
+        fvs = swsscommon.FieldValuePairs(tuple_list)
+        intf_tbl.set(lport, fvs)
+        self.log_notice("{}: updated TRANSCEIVER_INFO_TABLE {}".format(lport, tuple_list))
+
     def wait_for_port_config_done(self, namespace):
         # Connect to APPL_DB and subscribe to PORT table notifications
         appl_db = daemon_base.db_connect("APPL_DB", namespace=namespace)
@@ -1641,6 +1671,7 @@ class CmisManagerTask(threading.Thread):
 
                         self.log_notice("{}: READY".format(lport))
                         self.port_dict[lport]['cmis_state'] = self.CMIS_STATE_READY
+                        self.post_port_active_apsel_to_db(api, lport, host_lanes_mask)
 
                 except (NotImplementedError, AttributeError) as e:
                     self.log_error("{}: internal errors due to {}".format(lport, e))
