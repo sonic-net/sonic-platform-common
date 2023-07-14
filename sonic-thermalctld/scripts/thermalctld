@@ -119,57 +119,35 @@ class FanStatus(logger.Logger):
         self.status = status
         return True
 
-    def _check_speed_value_available(self, speed, target_speed, tolerance, current_status):
-        if speed == NOT_AVAILABLE or target_speed == NOT_AVAILABLE or tolerance == NOT_AVAILABLE:
-            if isinstance(tolerance, int) and (tolerance > 100 or tolerance < 0):
-                self.log_warning('Invalid tolerance value: {}'.format(tolerance))
-                return False
-
-            if current_status is True:
-                self.log_warning('Fan speed or target_speed or tolerance became unavailable, '
-                                 'speed={}, target_speed={}, tolerance={}'.format(speed, target_speed, tolerance))
-            return False
-        return True
-
-    def set_under_speed(self, speed, target_speed, tolerance):
+    def set_under_speed(self, is_under_speed):
         """
         Set and cache Fan under speed status
-        :param speed: Fan speed
-        :param target_speed: Fan target speed
-        :param tolerance: Threshold between Fan speed and target speed
+        :param is_under_speed: Fan under speed threshold status
         :return: True if status changed else False
         """
-        if not self._check_speed_value_available(speed, target_speed, tolerance, self.under_speed):
-            old_status = self.under_speed
-            self.under_speed = False
-            return old_status != self.under_speed
+        if is_under_speed == NOT_AVAILABLE:
+            if self.under_speed:
+                self.log_warning('Fan under speed threshold check became unavailable')
+            is_under_speed = False
 
-        status = speed < target_speed * (1 - float(tolerance) / 100)
-        if status == self.under_speed:
-            return False
+        old_status = self.under_speed
+        self.under_speed = is_under_speed
+        return old_status != self.under_speed
 
-        self.under_speed = status
-        return True
-
-    def set_over_speed(self, speed, target_speed, tolerance):
+    def set_over_speed(self, is_over_speed):
         """
         Set and cache Fan over speed status
-        :param speed: Fan speed
-        :param target_speed: Fan target speed
-        :param tolerance: Threshold between Fan speed and target speed
+        :param is_over_speed: Fan over speed threshold status
         :return: True if status changed else False
         """
-        if not self._check_speed_value_available(speed, target_speed, tolerance, self.over_speed):
-            old_status = self.over_speed
-            self.over_speed = False
-            return old_status != self.over_speed
+        if is_over_speed == NOT_AVAILABLE:
+            if self.over_speed:
+                self.log_warning('Fan over speed threshold check became unavailable')
+            is_over_speed = False
 
-        status = speed > target_speed * (1 + float(tolerance) / 100)
-        if status == self.over_speed:
-            return False
-
-        self.over_speed = status
-        return True
+        old_status = self.over_speed
+        self.over_speed = is_over_speed
+        return old_status != self.over_speed
 
     def is_ok(self):
         """
@@ -315,16 +293,18 @@ class FanUpdater(logger.Logger):
         fan_status = self.fan_status_dict[fan_name]
 
         speed = NOT_AVAILABLE
-        speed_tolerance = NOT_AVAILABLE
         speed_target = NOT_AVAILABLE
+        is_under_speed = NOT_AVAILABLE
+        is_over_speed = NOT_AVAILABLE
         fan_fault_status = NOT_AVAILABLE
         fan_direction = NOT_AVAILABLE
         is_replaceable = try_get(fan.is_replaceable, False)
         presence = try_get(fan.get_presence, False)
         if presence:
             speed = try_get(fan.get_speed)
-            speed_tolerance = try_get(fan.get_speed_tolerance)
             speed_target = try_get(fan.get_target_speed)
+            is_under_speed = try_get(fan.is_under_speed)
+            is_over_speed = try_get(fan.is_over_speed)
             fan_fault_status = try_get(fan.get_status, False)
             fan_direction = try_get(fan.get_direction)
 
@@ -344,20 +324,20 @@ class FanUpdater(logger.Logger):
                                         'Fan fault warning: {} is broken'.format(fan_name)
                                         )
 
-        if presence and fan_status.set_under_speed(speed, speed_target, speed_tolerance):
+        if presence and fan_status.set_under_speed(is_under_speed):
             set_led = True
             self._log_on_status_changed(not fan_status.under_speed,
                                         'Fan low speed warning cleared: {} speed is back to normal'.format(fan_name),
-                                        'Fan low speed warning: {} current speed={}, target speed={}, tolerance={}'.
-                                        format(fan_name, speed, speed_target, speed_tolerance)
+                                        'Fan low speed warning: {} current speed={}, target speed={}'.
+                                        format(fan_name, speed, speed_target)
                                         )
 
-        if presence and fan_status.set_over_speed(speed, speed_target, speed_tolerance):
+        if presence and fan_status.set_over_speed(is_over_speed):
             set_led = True
             self._log_on_status_changed(not fan_status.over_speed,
                                         'Fan high speed warning cleared: {} speed is back to normal'.format(fan_name),
-                                        'Fan high speed warning: {} target speed={}, current speed={}, tolerance={}'.
-                                        format(fan_name, speed_target, speed, speed_tolerance)
+                                        'Fan high speed warning: {} current speed={}, target speed={}'.
+                                        format(fan_name, speed, speed_target)
                                         )
 
         # We don't set PSU led here, PSU led will be handled in psud
@@ -376,8 +356,9 @@ class FanUpdater(logger.Logger):
              ('status', str(fan_fault_status)),
              ('direction', str(fan_direction)),
              ('speed', str(speed)),
-             ('speed_tolerance', str(speed_tolerance)),
              ('speed_target', str(speed_target)),
+             ('is_under_speed', str(is_under_speed)),
+             ('is_over_speed', str(is_over_speed)),
              ('is_replaceable', str(is_replaceable)),
              ('timestamp', datetime.now().strftime('%Y%m%d %H:%M:%S'))
              ])

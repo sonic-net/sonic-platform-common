@@ -68,30 +68,6 @@ class TestFanStatus(object):
     """
     Test cases to cover functionality in FanStatus class
     """
-    def test_check_speed_value_available(self):
-        fan_status = thermalctld.FanStatus()
-
-        ret = fan_status._check_speed_value_available(30, 32, 5, True)
-        assert ret == True
-        assert fan_status.log_warning.call_count == 0
-
-        ret = fan_status._check_speed_value_available(thermalctld.NOT_AVAILABLE, 32, 105, True)
-        assert ret == False
-        assert fan_status.log_warning.call_count == 1
-        fan_status.log_warning.assert_called_with('Invalid tolerance value: 105')
-
-        # Reset
-        fan_status.log_warning.reset_mock()
-
-        ret = fan_status._check_speed_value_available(thermalctld.NOT_AVAILABLE, 32, 5, False)
-        assert ret == False
-        assert fan_status.log_warning.call_count == 0
-
-        ret = fan_status._check_speed_value_available(thermalctld.NOT_AVAILABLE, 32, 5, True)
-        assert ret == False
-        assert fan_status.log_warning.call_count == 1
-        fan_status.log_warning.assert_called_with('Fan speed or target_speed or tolerance became unavailable, speed=N/A, target_speed=32, tolerance=5')
-
     def test_set_presence(self):
         fan_status = thermalctld.FanStatus()
         ret = fan_status.set_presence(True)
@@ -104,51 +80,47 @@ class TestFanStatus(object):
 
     def test_set_under_speed(self):
         fan_status = thermalctld.FanStatus()
-        ret = fan_status.set_under_speed(thermalctld.NOT_AVAILABLE, thermalctld.NOT_AVAILABLE, thermalctld.NOT_AVAILABLE)
+
+        ret = fan_status.set_under_speed(False)
         assert not ret
 
-        ret = fan_status.set_under_speed(thermalctld.NOT_AVAILABLE, thermalctld.NOT_AVAILABLE, 0)
-        assert not ret
-
-        ret = fan_status.set_under_speed(thermalctld.NOT_AVAILABLE, 0, 0)
-        assert not ret
-
-        ret = fan_status.set_under_speed(0, 0, 0)
-        assert not ret
-
-        ret = fan_status.set_under_speed(80, 100, 19)
+        ret = fan_status.set_under_speed(True)
         assert ret
         assert fan_status.under_speed
         assert not fan_status.is_ok()
 
-        ret = fan_status.set_under_speed(81, 100, 19)
+        ret = fan_status.set_under_speed(True)
+        assert not ret
+
+        ret = fan_status.set_under_speed(False)
         assert ret
         assert not fan_status.under_speed
         assert fan_status.is_ok()
 
+        ret = fan_status.set_under_speed(False)
+        assert not ret
+
     def test_set_over_speed(self):
         fan_status = thermalctld.FanStatus()
-        ret = fan_status.set_over_speed(thermalctld.NOT_AVAILABLE, thermalctld.NOT_AVAILABLE, thermalctld.NOT_AVAILABLE)
+
+        ret = fan_status.set_over_speed(False)
         assert not ret
 
-        ret = fan_status.set_over_speed(thermalctld.NOT_AVAILABLE, thermalctld.NOT_AVAILABLE, 0)
-        assert not ret
-
-        ret = fan_status.set_over_speed(thermalctld.NOT_AVAILABLE, 0, 0)
-        assert not ret
-
-        ret = fan_status.set_over_speed(0, 0, 0)
-        assert not ret
-
-        ret = fan_status.set_over_speed(120, 100, 19)
+        ret = fan_status.set_over_speed(True)
         assert ret
         assert fan_status.over_speed
         assert not fan_status.is_ok()
 
-        ret = fan_status.set_over_speed(120, 100, 21)
+        ret = fan_status.set_over_speed(True)
+        assert not ret
+
+        ret = fan_status.set_over_speed(False)
         assert ret
         assert not fan_status.over_speed
         assert fan_status.is_ok()
+
+        ret = fan_status.set_over_speed(False)
+        assert not ret
 
 
 class TestFanUpdater(object):
@@ -251,7 +223,7 @@ class TestFanUpdater(object):
         fan_list = chassis.get_all_fans()
         assert fan_list[0].get_status_led() == MockFan.STATUS_LED_COLOR_RED
         assert fan_updater.log_warning.call_count == 1
-        fan_updater.log_warning.assert_called_with('Fan low speed warning: FanDrawer 0 fan 1 current speed=1, target speed=2, tolerance=0')
+        fan_updater.log_warning.assert_called_with('Fan low speed warning: FanDrawer 0 fan 1 current speed=1, target speed=2')
 
         fan_list[0].make_normal_speed()
         fan_updater.update()
@@ -267,7 +239,7 @@ class TestFanUpdater(object):
         fan_list = chassis.get_all_fans()
         assert fan_list[0].get_status_led() == MockFan.STATUS_LED_COLOR_RED
         assert fan_updater.log_warning.call_count == 1
-        fan_updater.log_warning.assert_called_with('Fan high speed warning: FanDrawer 0 fan 1 target speed=1, current speed=2, tolerance=0')
+        fan_updater.log_warning.assert_called_with('Fan high speed warning: FanDrawer 0 fan 1 current speed=2, target speed=1')
 
         fan_list[0].make_normal_speed()
         fan_updater.update()
