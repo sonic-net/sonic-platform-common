@@ -2215,6 +2215,55 @@ class TestCmis(object):
         self.api.set_application(0x7fffffff, 1)
         assert self.api.xcvr_eeprom.write.call_count == self.api.NUM_CHANNELS + 1
 
+    def test_set_module_si_eq_pre_settings(self):
+        optics_si_eq_pre_dict =  { "OutputEqPreCursorTargetRx":{
+                                     "OutputEqPreCursorTargetRx1":3, "OutputEqPreCursorTargetRx2":3, "OutputEqPreCursorTargetRx3":3, "OutputEqPreCursorTargetRx4":3,
+                                     "OutputEqPreCursorTargetRx5":3, "OutputEqPreCursorTargetRx6":3, "OutputEqPreCursorTargetRx7":3, "OutputEqPreCursorTargetRx8":3 }
+                                 }
+        optics_si_dict = { "OutputEqPreCursorTargetRx":{
+                             "OutputEqPreCursorTargetRx1":2, "OutputEqPreCursorTargetRx2":2, "OutputEqPreCursorTargetRx3":2, "OutputEqPreCursorTargetRx4":2,
+                             "OutputEqPreCursorTargetRx5":2, "OutputEqPreCursorTargetRx6":2, "OutputEqPreCursorTargetRx7":2, "OutputEqPreCursorTargetRx8":2 }
+                         }
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.write = MagicMock()
+        mock_resp = [optics_si_eq_pre_dict, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
+        self.api.xcvr_eeprom.read.side_effect = mock_resp
+        self.api.set_module_si_settings(0x01 , 1, optics_si_dict)
+        assert self.api.xcvr_eeprom.write.call_count == 1 + 1 + 1
+
+    def test_set_module_si_eq_en_settings(self):
+        optics_si_eq_en_dict =  { "AdaptiveInputEqEnableTx":{
+                                    "AdaptiveInputEqEnableTx1":0, "AdaptiveInputEqEnableTx2":0, "AdaptiveInputEqEnableTx3":0, "AdaptiveInputEqEnableTx4":0,
+                                    "AdaptiveInputEqEnableTx5":0, "AdaptiveInputEqEnableTx6":0, "AdaptiveInputEqEnableTx7":0, "AdaptiveInputEqEnableTx8":0 }
+                                }
+        optics_si_dict = { "AdaptiveInputEqEnableTx":{
+                             "AdaptiveInputEqEnableTx1":1, "AdaptiveInputEqEnableTx2":1, "AdaptiveInputEqEnableTx3":1, "AdaptiveInputEqEnableTx4":1,
+                             "AdaptiveInputEqEnableTx5":1, "AdaptiveInputEqEnableTx6":1, "AdaptiveInputEqEnableTx7":1, "AdaptiveInputEqEnableTx8":1 }
+                         }
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.write = MagicMock()
+        mock_resp = [optics_si_eq_en_dict, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
+        self.api.xcvr_eeprom.read.side_effect = mock_resp
+        self.api.set_module_si_settings(0xff , 1, optics_si_dict)
+        assert self.api.xcvr_eeprom.write.call_count == 8 + 8 + 1
+
+    def test_set_module_si_eq_recall_settings(self):
+        optics_si_eq_recall_dict = { "AdaptiveInputEqRecalledTx":{
+                                       "AdaptiveInputEqRecalledTx1":0, "AdaptiveInputEqRecalledTx2":0, "AdaptiveInputEqRecalledTx3":0, "AdaptiveInputEqRecalledTx4":0,
+                                       "AdaptiveInputEqRecalledTx5":0, "AdaptiveInputEqRecalledTx6":0, "AdaptiveInputEqRecalledTx7":0, "AdaptiveInputEqRecalledTx8":0 }
+                                   }
+        optics_si_dict = { "AdaptiveInputEqRecalledTx":{
+                             "AdaptiveInputEqRecalledTx1":1, "AdaptiveInputEqRecalledTx2":1, "AdaptiveInputEqRecalledTx3":1, "AdaptiveInputEqRecalledTx4":1,
+                             "AdaptiveInputEqRecalledTx5":1, "AdaptiveInputEqRecalledTx6":1, "AdaptiveInputEqRecalledTx7":1, "AdaptiveInputEqRecalledTx8":1 }
+                         }
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.write = MagicMock()
+        mock_resp = [optics_si_eq_recall_dict, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
+        self.api.xcvr_eeprom.read.side_effect = mock_resp
+        self.api.set_module_si_settings(0x0f , 1, optics_si_dict)
+        assert self.api.xcvr_eeprom.write.call_count == 4 + 4 + 1
+
     def test_get_error_description(self):
         self.api.get_module_state = MagicMock()
         self.api.get_module_state.return_value = 'ModuleReady'
