@@ -483,8 +483,8 @@ class CmisMemMap(XcvrMemMap):
                 RegBitField(consts.TX_INPUT_EQ_FIXED_MANUAL_CTRL_SUPPORT_FIELD, 2),
                 RegBitField(consts.TX_INPUT_ADAPTIVE_EQ_SUPPORT_FIELD, 3),
                 RegBitField(consts.TX_INPUT_EQ_FREEZE_SUPPORT_FIELD, 4),
-                RegBitField(consts.TX_INPUT_EQ_RECALL_BUF_SUPPORT_FIELD, 5),
-                RegBitField(consts.TX_INPUT_EQ_RECALL_BUF_SUPPORT_FIELD, 6),
+                RegBitField(consts.TX_INPUT_EQ_RECALL_BUF1_SUPPORT_FIELD, 5),
+                RegBitField(consts.TX_INPUT_EQ_RECALL_BUF2_SUPPORT_FIELD, 6),
             ),
             NumberRegField(consts.TX_INPUT_EQ_RECALL_BUF_SUPPORT_FIELD, self.getaddr(0x1, 161),
                 *(RegBitField("Bit%d" % (bit), bit) for bit in range (5 , 7))
@@ -494,8 +494,8 @@ class CmisMemMap(XcvrMemMap):
                 RegBitField(consts.RX_CDR_SUPPORT_FIELD, 0),
                 RegBitField(consts.RX_CDR_BYPASS_CTRL_FIELD, 1),
                 RegBitField(consts.RX_OUTPUT_AMP_CTRL_SUPPORT_FIELD, 2),
-                RegBitField(consts.RX_OUTPUT_EQ_CTRL_SUPPORT_FIELD, 3),
-                RegBitField(consts.RX_OUTPUT_EQ_CTRL_SUPPORT_FIELD, 4),
+                RegBitField(consts.RX_OUTPUT_EQ_PRE_CTRL_SUPPORT_FIELD, 3),
+                RegBitField(consts.RX_OUTPUT_EQ_POST_CTRL_SUPPORT_FIELD, 4),
             ),
             NumberRegField(consts.RX_OUTPUT_EQ_CTRL_SUPPORT_FIELD, self.getaddr(0x1, 162),
                 *(RegBitField("Bit%d" % (bit), bit) for bit in range (3 , 5))
