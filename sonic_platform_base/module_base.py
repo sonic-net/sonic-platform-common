@@ -375,89 +375,90 @@ class ModuleBase(device_base.DeviceBase):
         return thermal
 
     ##############################################
-    # Vsensor methods
+    # Voltage Sensor methods
     ##############################################
 
     def get_num_vsensors(self):
         """
-        Retrieves the number of vsensors available on this module
+        Retrieves the number of voltage sensors available on this module
 
         Returns:
-            An integer, the number of vsensors available on this module
+            An integer, the number of voltage sensors available on this module
         """
         return len(self._vsensor_list)
 
     def get_all_vsensors(self):
         """
-        Retrieves all vsensors available on this module
+        Retrieves all voltage sensors available on this module
 
         Returns:
-            A list of objects derived from ThermalBase representing all vsensors
-            available on this module
+            A list of objects derived from VsensorBase representing all voltage
+            sensors available on this module
         """
         return self._vsensor_list
 
     def get_vsensor(self, index):
         """
-        Retrieves vsensor unit represented by (0-based) index <index>
+        Retrieves voltage sensor unit represented by (0-based) index <index>
 
         Args:
-            index: An integer, the index (0-based) of the vsensor to
+            index: An integer, the index (0-based) of the voltage sensor to
             retrieve
 
         Returns:
-            An object dervied from ThermalBase representing the specified vsensor
+            An object dervied from VsensorBase representing the specified voltage
+            sensor
         """
         vsensor = None
 
         try:
             vsensor = self._vsensor_list[index]
         except IndexError:
-            sys.stderr.write("VSENSOR index {} out of range (0-{})\n".format(
+            sys.stderr.write("Voltage sensor index {} out of range (0-{})\n".format(
                              index, len(self._vsensor_list)-1))
 
         return vsensor
 
     ##############################################
-    # Isensor methods
+    # Current sensor methods
     ##############################################
 
     def get_num_Isensors(self):
         """
-        Retrieves the number of Isensors available on this module
+        Retrieves the number of Current sensors available on this module
 
         Returns:
-            An integer, the number of Isensors available on this module
+            An integer, the number of Current sensors available on this module
         """
         return len(self._Isensor_list)
 
     def get_all_isensors(self):
         """
-        Retrieves all isensors available on this module
+        Retrieves all current sensors available on this module
 
         Returns:
-            A list of objects derived from ThermalBase representing all isensors
-            available on this module
+            A list of objects derived from IsensorBase representing all current
+            sensors available on this module
         """
         return self._isensor_list
 
     def get_isensor(self, index):
         """
-        Retrieves isensor unit represented by (0-based) index <index>
+        Retrieves Current sensor object represented by (0-based) index <index>
 
         Args:
-            index: An integer, the index (0-based) of the isensor to
+            index: An integer, the index (0-based) of the current sensor to
             retrieve
 
         Returns:
-            An object dervied from ThermalBase representing the specified isensor
+            An object dervied from IsensorBase representing the specified isensor
         """
         isensor = None
 
         try:
             isensor = self._isensor_list[index]
         except IndexError:
-            sys.stderr.write("ISENSOR index {} out of range (0-{})\n".format(
+            sys.stderr.write("Current sensor index {} out of range (0-{})\n".format(
                              index, len(self._isensor_list)-1))
 
         return isensor

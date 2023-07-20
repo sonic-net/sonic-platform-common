@@ -478,7 +478,7 @@ class ChassisBase(device_base.DeviceBase):
 
     def get_vsensor(self, index):
         """
-        Retrieves voltage sensors unit represented by (0-based) index <index>
+        Retrieves voltage sensor unit represented by (0-based) index <index>
 
         Args:
             index: An integer, the index (0-based) of the voltage sensor to
@@ -512,31 +512,32 @@ class ChassisBase(device_base.DeviceBase):
 
     def get_all_isensors(self):
         """
-        Retrieves all isensors available on this chassis
+        Retrieves all Current sensors available on this chassis
 
         Returns:
-            A list of objects derived from ThermalBase representing all isensors
-            available on this chassis
+            A list of objects derived from IsensorBase representing all current
+            sensors available on this chassis
         """
         return self._isensor_list
 
     def get_isensor(self, index):
         """
-        Retrieves isensor unit represented by (0-based) index <index>
+        Retrieves current sensor object represented by (0-based) index <index>
 
         Args:
-            index: An integer, the index (0-based) of the isensor to
+            index: An integer, the index (0-based) of the current sensor to
             retrieve
 
         Returns:
-            An object dervied from ThermalBase representing the specified isensor
+            An object dervied from IsensorBase representing the specified Current 
+            sensor
         """
         isensor = None
 
         try:
             isensor = self._isensor_list[index]
         except IndexError:
-            sys.stderr.write("isensor index {} out of range (0-{})\n".format(
+            sys.stderr.write("Current sensor index {} out of range (0-{})\n".format(
                              index, len(self._isensor_list)-1))
 
         return isensor
