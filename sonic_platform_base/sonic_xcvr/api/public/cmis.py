@@ -2254,8 +2254,8 @@ class CmisApi(XcvrApi):
         for lane in range(self.NUM_CHANNELS):
             if ((1 << lane) & host_lanes_mask) == 0:
                 continue
-            si_key_lane = "{}{}".format(si_keys, lane+1)
-            si_val = si_settings[si_keys][si_key_lane]
+            si_key_lane = "{}{}".format(consts.ADAPTIVE_INPUT_EQ_ENABLE_TX, lane+1)
+            si_val = si_settings[consts.ADAPTIVE_INPUT_EQ_ENABLE_TX][si_key_lane]
             lane %= (self.NUM_CHANNELS//2)
             mask = ~(val << (lane*2))
             l_data = si_val << (lane*2)
