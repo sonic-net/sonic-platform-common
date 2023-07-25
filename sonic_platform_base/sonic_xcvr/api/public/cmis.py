@@ -2312,8 +2312,8 @@ class CmisApi(XcvrApi):
         for si_keys in si_settings:
             if si_keys == consts.FIXED_INPUT_EQ_TARGET_TX and self.get_tx_input_eq_fixed_supported():
                 self.stage_fixed_input_target_tx(host_lanes_mask, si_settings)
-            elif si_keys == consts.ADAPTIVE_INPUT_EQ_RECALLED_TX and
-                 (self.get_tx_input_recall_buf1_supported() or self.get_tx_input_recall_buf2_supported()):
+            elif (si_keys == consts.ADAPTIVE_INPUT_EQ_RECALLED_TX and
+                 (self.get_tx_input_recall_buf1_supported() or self.get_tx_input_recall_buf2_supported())):
                 self.stage_adaptive_input_recall_tx(host_lanes_mask, si_settings)
             elif si_keys == consts.ADAPTIVE_INPUT_EQ_ENABLE_TX and self.get_tx_input_adaptive_eq_supported():
                 self.stage_adaptive_input_eq_enable_tx(host_lanes_mask, si_settings)
