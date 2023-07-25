@@ -31,6 +31,12 @@ class CmisApi(XcvrApi):
         self.vdm = CmisVdmApi(xcvr_eeprom) if not self.is_flat_memory() else None
         self.cdb = CmisCdbApi(xcvr_eeprom) if not self.is_flat_memory() else None
 
+    def get_manufacturer(self):
+        '''
+        This function returns the manufacturer of the module
+        '''
+        return self.xcvr_eeprom.read(consts.VENDOR_NAME_FIELD)
+
     def get_model(self):
         '''
         This function returns the part number of the module
