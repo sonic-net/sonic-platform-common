@@ -2340,7 +2340,7 @@ class CmisApi(XcvrApi):
             elif si_keys == consts.CDR_ENABLE_TX and self.get_tx_cdr_supported():
                 if not self.stage_cdr_rx(host_lanes_mask, si_settings):
                     return False
-         return True
+        return True
 
     def stage_custom_si_settings(self, host_lanes_mask, optics_si_dict):
         # Read and cache the existing SCS0 TX CTRL data
