@@ -2358,7 +2358,7 @@ class CmisApi(XcvrApi):
             return False
 
         #stage TX si settings
-        if not self.stage_tx_si_settings(host_lanes_mask, si_settings)
+        if not self.stage_tx_si_settings(host_lanes_mask, si_settings):
             return False
 
         return True
