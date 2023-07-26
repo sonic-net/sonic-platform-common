@@ -2321,7 +2321,7 @@ class CmisApi(XcvrApi):
                 if not self.stage_output_amp_target_rx(host_lanes_mask, si_settings):
                     return False
             elif si_keys == consts.CDR_ENABLE_RX and self.get_rx_cdr_supported():
-                if not self.stage_cdr_tx(host_lanes_mask, si_settings):
+                if not self.stage_cdr_rx(host_lanes_mask, si_settings):
                     return False
         return True
 
@@ -2338,7 +2338,7 @@ class CmisApi(XcvrApi):
                 if not self.stage_adaptive_input_eq_enable_tx(host_lanes_mask, si_settings):
                     return False
             elif si_keys == consts.CDR_ENABLE_TX and self.get_tx_cdr_supported():
-                if not self.stage_cdr_rx(host_lanes_mask, si_settings):
+                if not self.stage_cdr_tx(host_lanes_mask, si_settings):
                     return False
         return True
 
