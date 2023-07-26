@@ -2173,7 +2173,7 @@ class CmisApi(XcvrApi):
         This function returns the supported RX output amp control field
         '''
         return self.xcvr_eeprom.read(consts.RX_OUTPUT_AMP_CTRL_SUPPORT_FIELD)
-        
+
     def get_rx_output_eq_pre_ctrl_supported(self):
         '''
         This function returns the supported RX output eq pre control field
@@ -2228,7 +2228,7 @@ class CmisApi(XcvrApi):
             if val <= self.get_rx_output_eq_post_max_val():
                 if not self.nibble_read_modify_write(val, consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX, lane):
                     return False
-        return True            
+        return True
 
     def stage_output_amp_target_rx(self, host_lanes_mask, si_settings):
         '''
@@ -2267,8 +2267,8 @@ class CmisApi(XcvrApi):
     def stage_adaptive_input_recall_tx(self, host_lanes_mask, si_settings):
         '''
         This function applies adaptive TX input recall si settings.
-        In this function, we set 2 bits at a time for each lane. 
-        We mask the lane bits (ex: bit 0 and 1 for lane 1; bit 2 and 3 for lane 2 .. etc), 
+        In this function, we set 2 bits at a time for each lane.
+        We mask the lane bits (ex: bit 0 and 1 for lane 1; bit 2 and 3 for lane 2 .. etc),
         previous lane values will be written each time we write 1 byte data with new lane values
         '''
         val = 0
