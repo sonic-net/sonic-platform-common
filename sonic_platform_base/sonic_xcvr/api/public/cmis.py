@@ -2122,7 +2122,7 @@ class CmisApi(XcvrApi):
 
     def get_rx_output_eq_post_max_val(self):
         '''
-        This function returns the supported RX output eq post sursor val
+        This function returns the supported RX output eq post cursor val
         '''
         return self.xcvr_eeprom.read(consts.RX_OUTPUT_EQ_POST_CURSOR_MAX)
 
@@ -2204,7 +2204,7 @@ class CmisApi(XcvrApi):
             lane = lane+1
             si_key_lane = "{}{}".format(consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX, lane)
             val = si_settings[consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX][si_key_lane]
-            if val <= get_rx_output_eq_pre_max_val():
+            if val <= self.get_rx_output_eq_pre_max_val():
                 self.nibble_read_modify_write(val, consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX, lane)
 
     def stage_output_eq_post_cursor_target_rx(self, host_lanes_mask, si_settings):
@@ -2217,7 +2217,7 @@ class CmisApi(XcvrApi):
             lane = lane+1
             si_key_lane = "{}{}".format(consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX, lane)
             val = si_settings[consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX][si_key_lane]
-            if val <= get_rx_output_eq_post_max_val():
+            if val <= self.get_rx_output_eq_post_max_val():
                 self.nibble_read_modify_write(val, consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX, lane)
 
     def stage_output_amp_target_rx(self, host_lanes_mask, si_settings):
@@ -2230,7 +2230,7 @@ class CmisApi(XcvrApi):
             lane = lane+1
             si_key_lane = "{}{}".format(consts.OUTPUT_AMPLITUDE_TARGET_RX, lane)
             val = si_settings[consts.OUTPUT_AMPLITUDE_TARGET_RX][si_key_lane]
-            if val <= get_rx_output_eq_post_max_val():
+            if val <= self.get_rx_output_amp_supported_val():
                 self.nibble_read_modify_write(val, consts.OUTPUT_AMPLITUDE_TARGET_RX, lane)
 
     def stage_fixed_input_target_tx(self, host_lanes_mask, si_settings):
@@ -2243,7 +2243,7 @@ class CmisApi(XcvrApi):
             lane = lane+1
             si_key_lane = "{}{}".format(consts.FIXED_INPUT_EQ_TARGET_TX, lane)
             val = si_settings[consts.FIXED_INPUT_EQ_TARGET_TX][si_key_lane]
-            if val <= get_rx_output_eq_post_max_val():
+            if val <= self.get_tx_input_eq_max_val():
                 self.nibble_read_modify_write(val, consts.FIXED_INPUT_EQ_TARGET_TX, lane)
 
     def stage_adaptive_input_recall_tx(self, host_lanes_mask, si_settings):
@@ -2254,8 +2254,8 @@ class CmisApi(XcvrApi):
         for lane in range(self.NUM_CHANNELS):
             if ((1 << lane) & host_lanes_mask) == 0:
                 continue
-            si_key_lane = "{}{}".format(consts.ADAPTIVE_INPUT_EQ_ENABLE_TX, lane+1)
-            si_val = si_settings[consts.ADAPTIVE_INPUT_EQ_ENABLE_TX][si_key_lane]
+            si_key_lane = "{}{}".format(consts.ADAPTIVE_INPUT_EQ_RECALLED_TX, lane+1)
+            si_val = si_settings[consts.ADAPTIVE_INPUT_EQ_RECALLED_TX][si_key_lane]
             lane %= (self.NUM_CHANNELS//2)
             mask = ~(val << (lane*2))
             l_data = si_val << (lane*2)
@@ -2307,6 +2307,7 @@ class CmisApi(XcvrApi):
                 self.stage_output_amp_target_rx(host_lanes_mask, si_settings)
             elif si_keys == consts.CDR_ENABLE_RX and self.get_rx_cdr_supported():
                 self.stage_cdr_tx(host_lanes_mask, si_settings)
+        return True
 
     def stage_tx_si_settings(self, host_lanes_mask, si_settings):
         for si_keys in si_settings:
@@ -2319,12 +2320,13 @@ class CmisApi(XcvrApi):
                 self.stage_adaptive_input_eq_enable_tx(host_lanes_mask, si_settings)
             elif si_keys == consts.CDR_ENABLE_TX and self.get_tx_cdr_supported():
                 self.stage_cdr_rx(host_lanes_mask, si_settings)
+         return True
 
     def stage_custom_si_settings(self, host_lanes_mask, optics_si_dict):
         # Read and cache the existing SCS0 TX CTRL data
         si_settings = self.xcvr_eeprom.read(consts.STAGED_CTRL0_TX_CTRL_FIELD)
         if si_settings is None:
-            return None
+            return False
 
         # Replace the new values with cached SI values
         for si_keys in optics_si_dict:
@@ -2332,10 +2334,12 @@ class CmisApi(XcvrApi):
                 si_settings[si_keys] = optics_si_dict[si_keys]
 
         # stage RX si settings
-        self.stage_rx_si_settings(host_lanes_mask, si_settings)
+        if not self.stage_rx_si_settings(host_lanes_mask, si_settings):
+            return False
 
         #stage TX si settings
-        self.stage_tx_si_settings(host_lanes_mask, si_settings)
+        if not self.stage_tx_si_settings(host_lanes_mask, si_settings)
+            return False
 
         return True
 
