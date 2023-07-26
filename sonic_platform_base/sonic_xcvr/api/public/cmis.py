@@ -2075,7 +2075,7 @@ class CmisApi(XcvrApi):
 
         return (appl & 0xf)
 
-    def set_application(self, channel, appl_code, ec):
+    def set_application(self, channel, appl_code, ec=0):
         """
         Update the selected application code to the specified lanes on the host side
 
