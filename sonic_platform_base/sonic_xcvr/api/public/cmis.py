@@ -2190,6 +2190,8 @@ class CmisApi(XcvrApi):
         if (lane%2) == 0:
             pre_si_key_lane = "{}{}".format(si_param, lane-1)
             pre_val = self.xcvr_eeprom.read(pre_si_key_lane)
+            if pre_val is None:
+                return False
             val = (val << 4) | pre_val
         si_key_lane = "{}{}".format(si_param, lane)
         return self.xcvr_eeprom.write(si_key_lane, val)
@@ -2204,6 +2206,8 @@ class CmisApi(XcvrApi):
             lane = lane+1
             si_key_lane = "{}{}".format(consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX, lane)
             val = si_settings[consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX][si_key_lane]
+            if val is None:
+                return False
             if val <= self.get_rx_output_eq_pre_max_val():
                 if not self.nibble_read_modify_write(val, consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX, lane):
                     return False
@@ -2219,6 +2223,8 @@ class CmisApi(XcvrApi):
             lane = lane+1
             si_key_lane = "{}{}".format(consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX, lane)
             val = si_settings[consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX][si_key_lane]
+            if val is None:
+                return False
             if val <= self.get_rx_output_eq_post_max_val():
                 if not self.nibble_read_modify_write(val, consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX, lane):
                     return False
@@ -2234,6 +2240,8 @@ class CmisApi(XcvrApi):
             lane = lane+1
             si_key_lane = "{}{}".format(consts.OUTPUT_AMPLITUDE_TARGET_RX, lane)
             val = si_settings[consts.OUTPUT_AMPLITUDE_TARGET_RX][si_key_lane]
+            if val is None:
+                return False
             if val <= self.get_rx_output_amp_supported_val():
                 if not self.nibble_read_modify_write(val, consts.OUTPUT_AMPLITUDE_TARGET_RX, lane):
                     return False
@@ -2249,6 +2257,8 @@ class CmisApi(XcvrApi):
             lane = lane+1
             si_key_lane = "{}{}".format(consts.FIXED_INPUT_EQ_TARGET_TX, lane)
             val = si_settings[consts.FIXED_INPUT_EQ_TARGET_TX][si_key_lane]
+            if val is None:
+                return False
             if val <= self.get_tx_input_eq_max_val():
                 if not self.nibble_read_modify_write(val, consts.FIXED_INPUT_EQ_TARGET_TX, lane):
                     return False
@@ -2256,7 +2266,10 @@ class CmisApi(XcvrApi):
 
     def stage_adaptive_input_recall_tx(self, host_lanes_mask, si_settings):
         '''
-        This function applies adaptive TX input recall si settings
+        This function applies adaptive TX input recall si settings.
+        In this function, we set 2 bits at a time for each lane. 
+        We mask the lane bits (ex: bit 0 and 1 for lane 1; bit 2 and 3 for lane 2 .. etc), 
+        previous lane values will be written each time we write 1 byte data with new lane values
         '''
         val = 0
         for lane in range(self.NUM_CHANNELS):
@@ -2278,6 +2291,8 @@ class CmisApi(XcvrApi):
         for lane in range(self.NUM_CHANNELS):
             si_key_lane = "{}{}".format(si_keys, lane+1)
             data  = self.xcvr_eeprom.read(si_key_lane)
+            if data is None:
+                return False
             val |= (data << lane)
         # Write only applicable field
         for lane in range(self.NUM_CHANNELS):
