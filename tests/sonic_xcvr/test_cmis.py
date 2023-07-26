@@ -2196,24 +2196,24 @@ class TestCmis(object):
         self.api.xcvr_eeprom.write = MagicMock()
 
         self.api.xcvr_eeprom.write.call_count = 0
-        self.api.set_application(0x00, 1)
+        self.api.set_application(0x00, 1, 0)
+        assert self.api.xcvr_eeprom.write.call_count == 0
+
+        self.api.xcvr_eeprom.write.call_count = 0
+        self.api.set_application(0x01, 1, 1)
         assert self.api.xcvr_eeprom.write.call_count == 1
 
         self.api.xcvr_eeprom.write.call_count = 0
-        self.api.set_application(0x01, 1)
-        assert self.api.xcvr_eeprom.write.call_count == 1 + 1
+        self.api.set_application(0x0f, 1, 1)
+        assert self.api.xcvr_eeprom.write.call_count == 4
 
         self.api.xcvr_eeprom.write.call_count = 0
-        self.api.set_application(0x0f, 1)
-        assert self.api.xcvr_eeprom.write.call_count == 4 + 1
+        self.api.set_application(0xff, 1, 1)
+        assert self.api.xcvr_eeprom.write.call_count == 8
 
         self.api.xcvr_eeprom.write.call_count = 0
-        self.api.set_application(0xff, 1)
-        assert self.api.xcvr_eeprom.write.call_count == 8 + 1
-
-        self.api.xcvr_eeprom.write.call_count = 0
-        self.api.set_application(0x7fffffff, 1)
-        assert self.api.xcvr_eeprom.write.call_count == self.api.NUM_CHANNELS + 1
+        self.api.set_application(0x7fffffff, 1, 1)
+        assert self.api.xcvr_eeprom.write.call_count == self.api.NUM_CHANNELS
 
     def test_set_module_si_eq_pre_settings(self):
         optics_si_eq_pre_dict =  { "OutputEqPreCursorTargetRx":{
@@ -2226,10 +2226,10 @@ class TestCmis(object):
                          }
         self.api.xcvr_eeprom.read = MagicMock()
         self.api.xcvr_eeprom.write = MagicMock()
-        mock_resp = [optics_si_eq_pre_dict, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
+        mock_resp = [optics_si_eq_pre_dict, 0xff, 0xff]
         self.api.xcvr_eeprom.read.side_effect = mock_resp
-        self.api.set_module_si_settings(0x01 , 1, optics_si_dict)
-        assert self.api.xcvr_eeprom.write.call_count == 1 + 1 + 1
+        self.api.stage_custom_si_settings(0x01, optics_si_dict)
+        assert self.api.xcvr_eeprom.write.call_count == 1
 
     def test_set_module_si_eq_en_settings(self):
         optics_si_eq_en_dict =  { "AdaptiveInputEqEnableTx":{
@@ -2242,11 +2242,11 @@ class TestCmis(object):
                          }
         self.api.xcvr_eeprom.read = MagicMock()
         self.api.xcvr_eeprom.write = MagicMock()
-        mock_resp = [optics_si_eq_en_dict, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-                         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
+        mock_resp = [optics_si_eq_en_dict, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                                           0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
         self.api.xcvr_eeprom.read.side_effect = mock_resp
-        self.api.set_module_si_settings(0xff , 1, optics_si_dict)
-        assert self.api.xcvr_eeprom.write.call_count == 8 + 8 + 1
+        self.api.stage_custom_si_settings(0xff, optics_si_dict)
+        assert self.api.xcvr_eeprom.write.call_count == 8
 
     def test_set_module_si_eq_recall_settings(self):
         optics_si_eq_recall_dict = { "AdaptiveInputEqRecalledTx":{
@@ -2259,10 +2259,94 @@ class TestCmis(object):
                          }
         self.api.xcvr_eeprom.read = MagicMock()
         self.api.xcvr_eeprom.write = MagicMock()
-        mock_resp = [optics_si_eq_recall_dict, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
+        mock_resp = [optics_si_eq_recall_dict, 0xff, 0xff]
         self.api.xcvr_eeprom.read.side_effect = mock_resp
-        self.api.set_module_si_settings(0x0f , 1, optics_si_dict)
-        assert self.api.xcvr_eeprom.write.call_count == 4 + 4 + 1
+        self.api.stage_custom_si_settings(0x0f, optics_si_dict)
+        assert self.api.xcvr_eeprom.write.call_count == 4
+
+    def test_set_module_si_eq_post_settings(self):
+        optics_si_eq_pre_dict =  { "OutputEqPostCursorTargetRx":{
+                                     "OutputEqPostCursorTargetRx1":3, "OutputEqPostCursorTargetRx2":3, "OutputEqPostCursorTargetRx3":3, "OutputEqPostCursorTargetRx4":3,
+                                     "OutputEqPosteCursorTargetRx5":3, "OutputEqPostCursorTargetRx6":3, "OutputEqPostCursorTargetRx7":3, "OutputEqPostCursorTargetRx8":3 }
+                                 }
+        optics_si_dict = { "OutputEqPostCursorTargetRx":{
+                             "OutputEqPostCursorTargetRx1":2, "OutputEqPostCursorTargetRx2":2, "OutputEqPostCursorTargetRx3":2, "OutputEqPostCursorTargetRx4":2,
+                             "OutputEqPostCursorTargetRx5":2, "OutputEqPostCursorTargetRx6":2, "OutputEqPostCursorTargetRx7":2, "OutputEqPostCursorTargetRx8":2 }
+                         }
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.write = MagicMock()
+        mock_resp = [optics_si_eq_pre_dict, 0xff, 0xff]
+        self.api.xcvr_eeprom.read.side_effect = mock_resp
+        self.api.stage_custom_si_settings(0x01, optics_si_dict)
+        assert self.api.xcvr_eeprom.write.call_count == 1
+
+    def test_set_module_si_fixed_en_settings(self):
+        optics_si_eq_en_dict =  { "FixedInputEqTargetTx":{
+                                    "FixedInputEqTargetTx1":0, "FixedInputEqTargetTx2":0, "FixedInputEqTargetTx3":0, "FixedInputEqTargetTx4":0,
+                                    "FixedInputEqTargetTx5":0, "FixedInputEqTargetTx6":0, "FixedInputEqTargetTx7":0, "FixedInputEqTargetTx8":0 }
+                                }
+        optics_si_dict = { "FixedInputEqTargetTx":{
+                             "FixedInputEqTargetTx1":1, "FixedInputEqTargetTx2":1, "FixedInputEqTargetTx3":1, "FixedInputEqTargetTx4":1,
+                             "FixedInputEqTargetTx5":1, "FixedInputEqTargetTx6":1, "FixedInputEqTargetTx7":1, "FixedInputEqTargetTx8":1 }
+                         }
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.write = MagicMock()
+        mock_resp = [optics_si_eq_en_dict, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                                           0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
+        self.api.xcvr_eeprom.read.side_effect = mock_resp
+        self.api.stage_custom_si_settings(0xff, optics_si_dict)
+        assert self.api.xcvr_eeprom.write.call_count == 8
+
+    def test_set_module_cdr_enable_tx_settings(self):
+        optics_si_eq_recall_dict = { "CDREnableTx":{
+                                       "CDREnableTx1":0, "CDREnableTx2":0, "CDREnableTx3":0, "CDREnableTx4":0,
+                                       "CDREnableTx5":0, "CDREnableTx6":0, "CDREnableTx7":0, "CDREnableTx8":0 }
+                                   }
+        optics_si_dict = { "CDREnableTx":{
+                             "CDREnableTx1":1, "CDREnableTx2":1, "CDREnableTx3":1, "CDREnableTx4":1,
+                             "CDREnableTx5":1, "CDREnableTx6":1, "CDREnableTx7":1, "CDREnableTx8":1 }
+                         }
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.write = MagicMock()
+        mock_resp = [optics_si_eq_recall_dict, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                                               0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
+        self.api.xcvr_eeprom.read.side_effect = mock_resp
+        self.api.stage_custom_si_settings(0x0f, optics_si_dict)
+        assert self.api.xcvr_eeprom.write.call_count == 4
+
+    def test_set_module_cdr_enable_rx_settings(self):
+        optics_si_eq_pre_dict =  { "CDREnableRx":{
+                                     "CDREnableRx1":3, "CDREnableRx2":3, "CDREnableRx":3, "CDREnableRx4":3,
+                                     "CDREnableRx5":3, "CDREnableRx6":3, "CDREnableRx7":3, "CDREnableRx8":3 }
+                                 }
+        optics_si_dict = { "CDREnableRx":{
+                             "CDREnableRx1":2, "CDREnableRx2":2, "CDREnableRx3":2, "CDREnableRx4":2,
+                             "CDREnableRx5":2, "CDREnableRx6":2, "CDREnableRx7":2, "CDREnableRx8":2 }
+                         }
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.write = MagicMock()
+        mock_resp = [optics_si_eq_pre_dict, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                                            0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
+        self.api.xcvr_eeprom.read.side_effect = mock_resp
+        self.api.stage_custom_si_settings(0x01, optics_si_dict)
+        assert self.api.xcvr_eeprom.write.call_count == 1
+
+    def test_set_module_OutputAmplitudeTargetRx_settings(self):
+        optics_si_eq_recall_dict = { "OutputAmplitudeTargetRx":{
+                                       "OutputAmplitudeTargetRx1":0, "OutputAmplitudeTargetRx2":0, "OutputAmplitudeTargetRx3":0, "OutputAmplitudeTargetRx4":0,
+                                       "OutputAmplitudeTargetRx5":0, "OutputAmplitudeTargetRx6":0, "OutputAmplitudeTargetRx7":0, "OutputAmplitudeTargetRx8":0 }
+                                   }
+        optics_si_dict = { "OutputAmplitudeTargetRx":{
+                             "OutputAmplitudeTargetRx1":1, "OutputAmplitudeTargetRx2":1, "OutputAmplitudeTargetRx3":1, "OutputAmplitudeTargetRx4":1,
+                             "OutputAmplitudeTargetRx5":1, "OutputAmplitudeTargetRx6":1, "OutputAmplitudeTargetRx7":1, "OutputAmplitudeTargetRx8":1 }
+                         }
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.write = MagicMock()
+        mock_resp = [optics_si_eq_recall_dict, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                                               0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
+        self.api.xcvr_eeprom.read.side_effect = mock_resp
+        self.api.stage_custom_si_settings(0x0f, optics_si_dict)
+        assert self.api.xcvr_eeprom.write.call_count == 4
 
     def test_get_error_description(self):
         self.api.get_module_state = MagicMock()
