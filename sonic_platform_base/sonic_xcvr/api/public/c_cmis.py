@@ -143,10 +143,6 @@ class CCmisApi(CmisApi):
         Return True if the provision succeeds, False if it fails
         '''
         min_prog_tx_output_power, max_prog_tx_output_power = self.get_supported_power_config()
-        #Comment out validation for now.
-        #if tx_power > max_prog_tx_output_power or tx_power < min_prog_tx_output_power:
-        #    raise ValueError('Provisioned TX power out of range. Max: %.1f; Min: %.1f dBm.' 
-        #                     %(max_prog_tx_output_power, min_prog_tx_output_power))
         status = self.xcvr_eeprom.write(consts.TX_CONFIG_POWER, tx_power)
         time.sleep(1)
         return status
