@@ -2108,88 +2108,133 @@ class CmisApi(XcvrApi):
         '''
         return self.xcvr_eeprom.write("%s_%d" % (consts.STAGED_CTRL_APPLY_DPINIT_FIELD, 0), channel)
 
-    def get_rx_output_amp_supported_val(self):
+    def get_rx_output_amp_max_val(self):
         '''
         This function returns the supported RX output amp val
         '''
-        return self.xcvr_eeprom.read(consts.RX_OUTPUT_LEVEL_SUPPORT)
+        rx_amp_max_val = self.xcvr_eeprom.read(consts.RX_OUTPUT_LEVEL_SUPPORT)
+        if rx_amp_max_val is None:
+            return None
+        return rx_amp_max_val
 
     def get_rx_output_eq_pre_max_val(self):
         '''
         This function returns the supported RX output eq pre cursor val
         '''
-        return self.xcvr_eeprom.read(consts.RX_OUTPUT_EQ_PRE_CURSOR_MAX)
+        rx_pre_max_val = self.xcvr_eeprom.read(consts.RX_OUTPUT_EQ_PRE_CURSOR_MAX)
+        if rx_pre_max_val is None:
+            return None
+        return rx_pre_max_val
 
     def get_rx_output_eq_post_max_val(self):
         '''
         This function returns the supported RX output eq post cursor val
         '''
-        return self.xcvr_eeprom.read(consts.RX_OUTPUT_EQ_POST_CURSOR_MAX)
+        rx_post_max_val = self.xcvr_eeprom.read(consts.RX_OUTPUT_EQ_POST_CURSOR_MAX)
+        if rx_post_max_val is None:
+            return None
+        return rx_post_max_val
 
     def get_tx_input_eq_max_val(self):
         '''
         This function returns the supported TX input eq val
         '''
-        return self.xcvr_eeprom.read(consts.TX_INPUT_EQ_MAX)
+        tx_input_max_val = self.xcvr_eeprom.read(consts.TX_INPUT_EQ_MAX)
+        if tx_input_max_val is None:
+            return None
+        return tx_input_max_val
 
     def get_tx_cdr_supported(self):
         '''
         This function returns the supported TX CDR field
         '''
-        return self.xcvr_eeprom.read(consts.TX_CDR_SUPPORT_FIELD)
+        tx_cdr_support = self.xcvr_eeprom.read(consts.TX_CDR_SUPPORT_FIELD)
+        if not tx_cdr_support or tx_cdr_support is None:
+            return False
+        return tx_cdr_support
 
     def get_rx_cdr_supported(self):
         '''
         This function returns the supported RX CDR field
         '''
-        return self.xcvr_eeprom.read(consts.RX_CDR_SUPPORT_FIELD)
+        rx_cdr_support = self.xcvr_eeprom.read(consts.RX_CDR_SUPPORT_FIELD)
+        if not rx_cdr_support or rx_cdr_support is None:
+            return False
+        return rx_cdr_support
 
     def get_tx_input_eq_fixed_supported(self):
         '''
         This function returns the supported TX input eq field
         '''
-        return self.xcvr_eeprom.read(consts.TX_INPUT_EQ_FIXED_MANUAL_CTRL_SUPPORT_FIELD)
+        tx_fixed_support = self.xcvr_eeprom.read(consts.TX_INPUT_EQ_FIXED_MANUAL_CTRL_SUPPORT_FIELD)
+        if not tx_fixed_support or tx_fixed_support is None:
+            return False
+        return tx_fixed_support
 
     def get_tx_input_adaptive_eq_supported(self):
         '''
         This function returns the supported TX input adaptive eq field
         '''
-        return self.xcvr_eeprom.read(consts.TX_INPUT_ADAPTIVE_EQ_SUPPORT_FIELD)
+        tx_adaptive_support = self.xcvr_eeprom.read(consts.TX_INPUT_ADAPTIVE_EQ_SUPPORT_FIELD)
+        if not tx_adaptive_support or tx_adaptive_support is None:
+            return False
+        return tx_adaptive_support
 
     def get_tx_input_recall_buf1_supported(self):
         '''
         This function returns the supported TX input recall buf1 field
         '''
-        return self.xcvr_eeprom.read(consts.TX_INPUT_EQ_RECALL_BUF1_SUPPORT_FIELD)
+        tx_recall_buf1_support = self.xcvr_eeprom.read(consts.TX_INPUT_EQ_RECALL_BUF1_SUPPORT_FIELD)
+        if not tx_recall_buf1_support or tx_recall_buf1_support is None:
+            return False
+        return tx_recall_buf1_support
 
     def get_tx_input_recall_buf2_supported(self):
         '''
         This function returns the supported TX input recall buf2 field
         '''
-        return self.xcvr_eeprom.read(consts.TX_INPUT_EQ_RECALL_BUF2_SUPPORT_FIELD)
+        tx_recall_buf2_support = self.xcvr_eeprom.read(consts.TX_INPUT_EQ_RECALL_BUF2_SUPPORT_FIELD)
+        if not tx_recall_buf2_support or tx_recall_buf2_support is None:
+            return False
+        return tx_recall_buf2_support
 
-    def get_rx_ouput_amp_ctrl_supported(self):
+     def get_rx_ouput_amp_ctrl_supported(self):
         '''
         This function returns the supported RX output amp control field
         '''
-        return self.xcvr_eeprom.read(consts.RX_OUTPUT_AMP_CTRL_SUPPORT_FIELD)
+        rx_amp_support = self.xcvr_eeprom.read(consts.RX_OUTPUT_AMP_CTRL_SUPPORT_FIELD)
+        if not rx_amp_support or rx_amp_support is None:
+            return False
+        return rx_amp_support
 
     def get_rx_output_eq_pre_ctrl_supported(self):
         '''
         This function returns the supported RX output eq pre control field
         '''
-        return self.xcvr_eeprom.read(consts.RX_OUTPUT_EQ_PRE_CTRL_SUPPORT_FIELD)
+        rx_pre_support = self.xcvr_eeprom.read(consts.RX_OUTPUT_EQ_PRE_CTRL_SUPPORT_FIELD)
+        if not rx_pre_support or rx_pre_support is None:
+            return False
+        return rx_pre_support
 
     def get_rx_output_eq_post_ctrl_supported(self):
         '''
         This function returns the supported RX output eq post control field
         '''
-        return self.xcvr_eeprom.read(consts.RX_OUTPUT_EQ_POST_CTRL_SUPPORT_FIELD)
+        rx_post_support = self.xcvr_eeprom.read(consts.RX_OUTPUT_EQ_POST_CTRL_SUPPORT_FIELD)
+        if not rx_post_support or rx_post_support is None:
+            return False
+        return rx_post_support
 
-    def nibble_read_modify_write(self, val, si_param, lane):
+    def scs_nibble_read(self, si_param, lane):
+        si_key_lane = "{}{}".format(si_param, lane)
+        val = self.xcvr_eeprom.read(si_key_lane)
+        if val is None:
+            return None
+        return val
+
+    def scs_nibble_write(self, val, si_param, lane):
         if (lane%2) == 0:
-            pre_si_key_lane = "{}{}".format(si_param, lane-1)
-            pre_val = self.xcvr_eeprom.read(pre_si_key_lane)
+            pre_val = self.scs_nibble_read(si_param, lane-1)
             if pre_val is None:
                 return False
             val = (val << 4) | pre_val
@@ -2208,14 +2253,16 @@ class CmisApi(XcvrApi):
             val = si_settings[consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX][si_key_lane]
             if val is None:
                 return False
-            if val <= self.get_rx_output_eq_pre_max_val():
-                if not self.nibble_read_modify_write(val, consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX, lane):
-                    return False
+            rx_pre_max_val = self.get_rx_output_eq_pre_max_val()
+            if rx_pre_max_val is None or val > rx_pre_max_val:
+                return False
+            if not self.scs_nibble_write(val, consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX, lane):
+                return False
         return True
 
     def stage_output_eq_post_cursor_target_rx(self, host_lanes_mask, si_settings):
         '''
-        This function applies RX output eq pre cursor settings
+        This function applies RX output eq post cursor settings
         '''
         for lane in range(self.NUM_CHANNELS):
             if ((1 << lane) & host_lanes_mask) == 0:
@@ -2225,9 +2272,11 @@ class CmisApi(XcvrApi):
             val = si_settings[consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX][si_key_lane]
             if val is None:
                 return False
-            if val <= self.get_rx_output_eq_post_max_val():
-                if not self.nibble_read_modify_write(val, consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX, lane):
-                    return False
+            rx_post_max_val = self.get_rx_output_eq_post_max_val()
+            if rx_post_max_val is None or val > rx_post_max_val:
+                return False
+            if not self.scs_nibble_write(val, consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX, lane):
+                return False
         return True
 
     def stage_output_amp_target_rx(self, host_lanes_mask, si_settings):
@@ -2242,9 +2291,11 @@ class CmisApi(XcvrApi):
             val = si_settings[consts.OUTPUT_AMPLITUDE_TARGET_RX][si_key_lane]
             if val is None:
                 return False
-            if val <= self.get_rx_output_amp_supported_val():
-                if not self.nibble_read_modify_write(val, consts.OUTPUT_AMPLITUDE_TARGET_RX, lane):
-                    return False
+            rx_amp_max_val = self.get_rx_output_amp_max_val()
+            if rx_amp_max_val is None or val > rx_amp_max_val:
+                return False
+            if not self.scs_nibble_write(val, consts.OUTPUT_AMPLITUDE_TARGET_RX, lane):
+                return False
         return True
 
     def stage_fixed_input_target_tx(self, host_lanes_mask, si_settings):
@@ -2259,9 +2310,11 @@ class CmisApi(XcvrApi):
             val = si_settings[consts.FIXED_INPUT_EQ_TARGET_TX][si_key_lane]
             if val is None:
                 return False
-            if val <= self.get_tx_input_eq_max_val():
-                if not self.nibble_read_modify_write(val, consts.FIXED_INPUT_EQ_TARGET_TX, lane):
-                    return False
+            tx_fixed_input = self.get_tx_input_eq_max_val()
+            if tx_fixed_input is None or val > tx_fixed_input:
+                return False
+            if not self.scs_nibble_write(val, consts.FIXED_INPUT_EQ_TARGET_TX, lane):
+                return False
         return True
 
     def stage_adaptive_input_recall_tx(self, host_lanes_mask, si_settings):
@@ -2269,7 +2322,7 @@ class CmisApi(XcvrApi):
         This function applies adaptive TX input recall si settings.
         In this function, we set 2 bits at a time for each lane.
         We mask the lane bits (ex: bit 0 and 1 for lane 1; bit 2 and 3 for lane 2 .. etc),
-        previous lane values will be written each time we write 1 byte data with new lane values
+        and 1 byte data is written
         '''
         val = 0
         for lane in range(self.NUM_CHANNELS):
@@ -2281,48 +2334,49 @@ class CmisApi(XcvrApi):
             mask = ~(val << (lane*2))
             l_data = si_val << (lane*2)
             val = (val & mask) | l_data
-            if not self.xcvr_eeprom.write(si_key_lane, val):
-                return False
-        return True
+        return self.xcvr_eeprom.write(si_key_lane, val)
 
-    def byte_read_modify_write(self, si_keys, host_lanes_mask, si_settings):
-        val = 0
-        # Read 1 byte data
+    def scs_byte_read(self, si_keys):
+         si_byte_read = self.xcvr_eeprom.read(si_keys)
+         if si_byte_read is None:
+             return None
+         return si_byte_read
+
+    def scs_byte_write(self, si_key, host_lanes_mask, si_settings):
+        val = self.scs_byte_read(si_key)
+        if val is None:
+            return False
+        si_val = si_settings[si_key]
+        if si_val is None:
+            return False
+        nibble_val = si_val & host_lanes_mask
         for lane in range(self.NUM_CHANNELS):
-            si_key_lane = "{}{}".format(si_keys, lane+1)
-            data  = self.xcvr_eeprom.read(si_key_lane)
-            if data is None:
-                return False
-            val |= (data << lane)
-        # Write only applicable field
-        for lane in range(self.NUM_CHANNELS):
-            if ((1 << lane) & host_lanes_mask) == 0:
+            mask = (1 << lane)
+            if (mask & host_lanes_mask) == 0:
                 continue
-            si_key_lane = "{}{}".format(si_keys, lane+1)
-            si_val = si_settings[si_keys][si_key_lane]
-            val &= ~(1 << lane)
-            val |= (si_val << lane)
-            if not self.xcvr_eeprom.write(si_key_lane, val):
-                return False
-        return True
+            if nibble_val:
+                val |= mask
+            else:
+                val &= ~mask
+        return self.xcvr_eeprom.write(si_key, val)
 
     def stage_adaptive_input_eq_enable_tx(self, host_lanes_mask, si_settings):
         '''
         This function applies adaptive TX input enable si settings
         '''
-        return self.byte_read_modify_write(consts.ADAPTIVE_INPUT_EQ_ENABLE_TX, host_lanes_mask, si_settings)
+        return self.scs_byte_write(consts.ADAPTIVE_INPUT_EQ_ENABLE_TX, host_lanes_mask, si_settings)
 
     def stage_cdr_tx(self, host_lanes_mask, si_settings):
         '''
         This function applies TX CDR si settings
         '''
-        return self.byte_read_modify_write(consts.CDR_ENABLE_TX, host_lanes_mask, si_settings)
+        return self.scs_byte_write(consts.CDR_ENABLE_TX, host_lanes_mask, si_settings)
 
     def stage_cdr_rx(self, host_lanes_mask, si_settings):
         '''
         This function applies RX CDR si settings
         '''
-        return self.byte_read_modify_write(consts.CDR_ENABLE_RX, host_lanes_mask, si_settings)
+        return self.scs_byte_write(consts.CDR_ENABLE_RX, host_lanes_mask, si_settings)
 
     def stage_rx_si_settings(self, host_lanes_mask, si_settings):
         for si_keys in si_settings:
@@ -2362,7 +2416,6 @@ class CmisApi(XcvrApi):
         si_settings = self.xcvr_eeprom.read(consts.STAGED_CTRL0_TX_CTRL_FIELD)
         if si_settings is None:
             return False
-
         # Replace the new values with cached SI values
         for si_keys in optics_si_dict:
             if si_keys in si_settings:
@@ -2375,7 +2428,6 @@ class CmisApi(XcvrApi):
         #stage TX si settings
         if not self.stage_tx_si_settings(host_lanes_mask, si_settings):
             return False
-
         return True
 
     def get_error_description(self):
