@@ -504,12 +504,7 @@ class CmisMemMap(XcvrMemMap):
         )
 
         self.STAGED_CTRL0_TX_CTRL = RegGroupField(consts.STAGED_CTRL0_TX_CTRL_FIELD,
-            RegGroupField(consts.ADAPTIVE_INPUT_EQ_ENABLE_TX,
-                *(NumberRegField("%s%d" % (consts.ADAPTIVE_INPUT_EQ_ENABLE_TX, lane) , self.getaddr(0x10, 153),
-                    RegBitField("Bit%d" % (lane-1), (lane-1)), ro=False
-                  )
-                  for lane in range(1, 9))
-            ),
+            NumberRegField(consts.ADAPTIVE_INPUT_EQ_ENABLE_TX, self.getaddr(0x10, 153), ro=False),
             RegGroupField(consts.ADAPTIVE_INPUT_EQ_RECALLED_TX,
                 *(NumberRegField("%s%d" % (consts.ADAPTIVE_INPUT_EQ_RECALLED_TX, lane) , self.getaddr(0x10, 154 + int((lane-1)/4)), ro=False,
                     *(RegBitField("Bit%d" % bit, bit) for bit in [range(6, 8), range(4, 6), range(2, 4), range(0, 2)][lane%4]))
@@ -520,18 +515,8 @@ class CmisMemMap(XcvrMemMap):
                     *(RegBitField("Bit%d" % bit, bit) for bit in [range(4, 8), range(0, 4)][lane%2]))
                 for lane in range(1, 9))
             ),
-            RegGroupField(consts.CDR_ENABLE_TX,
-                *(NumberRegField("%s%d" % (consts.CDR_ENABLE_TX, lane), self.getaddr(0x10, 160),
-                    RegBitField("Bit%d" % (lane-1), (lane-1)), ro=False
-                 )
-                 for lane in range(1, 9))
-            ),
-            RegGroupField(consts.CDR_ENABLE_RX,
-                *(NumberRegField("%s%d" % (consts.CDR_ENABLE_RX, lane), self.getaddr(0x10, 161),
-                    RegBitField("Bit%d" % (lane-1), (lane-1)), ro=False
-                 )
-                 for lane in range(1, 9))
-            ),
+            NumberRegField(consts.CDR_ENABLE_TX, self.getaddr(0x10, 160), ro=False),
+            NumberRegField(consts.CDR_ENABLE_RX, self.getaddr(0x10, 161), ro=False),
             RegGroupField(consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX,
                 *(NumberRegField("%s%d" % (consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX, lane) , self.getaddr(0x10, 162 + int((lane-1)/2)), ro=False,
                     *(RegBitField("Bit%d" % bit, bit) for bit in [range(4, 8), range(0, 4)][lane%2]))
