@@ -2198,7 +2198,7 @@ class CmisApi(XcvrApi):
             return False
         return tx_recall_buf2_support
 
-     def get_rx_ouput_amp_ctrl_supported(self):
+    def get_rx_ouput_amp_ctrl_supported(self):
         '''
         This function returns the supported RX output amp control field
         '''
