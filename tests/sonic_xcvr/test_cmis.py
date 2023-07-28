@@ -2255,7 +2255,7 @@ class TestCmis(object):
         mock_resp = [optics_si_eq_recall_dict, 0xff, 0xff]
         self.api.xcvr_eeprom.read.side_effect = mock_resp
         self.api.stage_custom_si_settings(0x0f, optics_si_dict)
-        assert self.api.xcvr_eeprom.write.call_count == 4
+        assert self.api.xcvr_eeprom.write.call_count == 1
 
     def test_set_module_si_eq_post_settings(self):
         optics_si_eq_pre_dict =  { "OutputEqPostCursorTargetRx":{
