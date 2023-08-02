@@ -2329,23 +2329,14 @@ class CmisApi(XcvrApi):
             if ((1 << lane) & host_lanes_mask) == 0:
                 continue
             si_key_lane = "{}{}".format(consts.ADAPTIVE_INPUT_EQ_RECALLED_TX, lane+1)
-            si_val = si_settings[consts.ADAPTIVE_INPUT_EQ_RECALLED_TX][si_key_lane]
+            si_val = 0x3 & si_settings[consts.ADAPTIVE_INPUT_EQ_RECALLED_TX][si_key_lane]
             lane %= (self.NUM_CHANNELS//2)
             mask = ~(val << (lane*2))
             l_data = si_val << (lane*2)
             val = (val & mask) | l_data
         return self.xcvr_eeprom.write(si_key_lane, val)
 
-    def scs_byte_read(self, si_keys):
-         si_byte_read = self.xcvr_eeprom.read(si_keys)
-         if si_byte_read is None:
-             return None
-         return si_byte_read
-
-    def scs_byte_write(self, si_key, host_lanes_mask, si_settings):
-        val = self.scs_byte_read(si_key)
-        if val is None:
-            return False
+    def scs_byte_write(self, si_key, host_lanes_mask, si_settings, val):
         si_val = si_settings[si_key]
         if si_val is None:
             return False
@@ -2364,19 +2355,28 @@ class CmisApi(XcvrApi):
         '''
         This function applies adaptive TX input enable si settings
         '''
-        return self.scs_byte_write(consts.ADAPTIVE_INPUT_EQ_ENABLE_TX, host_lanes_mask, si_settings)
+        val = self.xcvr_eeprom.read(consts.ADAPTIVE_INPUT_EQ_ENABLE_TX)
+        if val is None:
+            return False
+        return self.scs_byte_write(consts.ADAPTIVE_INPUT_EQ_ENABLE_TX, host_lanes_mask, si_settings, val)
 
     def stage_cdr_tx(self, host_lanes_mask, si_settings):
         '''
         This function applies TX CDR si settings
         '''
-        return self.scs_byte_write(consts.CDR_ENABLE_TX, host_lanes_mask, si_settings)
+        val = self.xcvr_eeprom.read(consts.CDR_ENABLE_TX)
+        if val is None:
+            return False
+        return self.scs_byte_write(consts.CDR_ENABLE_TX, host_lanes_mask, si_settings, val)
 
     def stage_cdr_rx(self, host_lanes_mask, si_settings):
         '''
         This function applies RX CDR si settings
         '''
-        return self.scs_byte_write(consts.CDR_ENABLE_RX, host_lanes_mask, si_settings)
+        val = self.xcvr_eeprom.read(consts.CDR_ENABLE_RX)
+        if val is None:
+            return False
+        return self.scs_byte_write(consts.CDR_ENABLE_RX, host_lanes_mask, si_settings, val)
 
     def stage_rx_si_settings(self, host_lanes_mask, si_settings):
         for si_keys in si_settings:
