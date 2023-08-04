@@ -2228,7 +2228,7 @@ class CmisApi(XcvrApi):
     def scs_nibble_write(self, val, si_param, lane):
         '''
         This function sets nibble data in byte data
-        ''
+        '''
         if (lane%2) == 0:
             val = (val << 4) | pre_val
         si_key_lane = "{}{}".format(si_param, lane)
