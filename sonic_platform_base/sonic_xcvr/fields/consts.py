@@ -299,7 +299,7 @@ STAGED_CTRL_APPLY_DPINIT_FIELD = "Staged Control Set Apply DataPathInit"
 STAGED_CTRL_APPLY_IMMEDIATE_FIELD = "Staged Control Set Apply Immediate"
 STAGED_CTRL_APSEL_FIELD = "Staged Control Set ApSel"
 
-STAGED_CTRL0_TX_CTRL_FIELD = "Staged Control TX Control"
+STAGED_CTRL0_TX_RX_CTRL_FIELD = "Staged Control TX RX Control"
 
 TX_INPUT_EQ_MAX = "TXInputEqMax"
 RX_OUTPUT_LEVEL_SUPPORT = "RX Output Level Supported"
@@ -330,7 +330,8 @@ RX_OUTPUT_EQ_CTRL_SUPPORT_FIELD = "RXOutputEQSupported"
 
 ACTIVE_CTRL_FIELD = "Active Control Set"
 ADAPTIVE_INPUT_EQ_ENABLE_TX = "AdaptiveInputEqEnableTx"
-ADAPTIVE_INPUT_EQ_RECALLED_TX = "AdaptiveInputEqRecalledTx"
+ADAPTIVE_INPUT_EQ_RECALLED_TX1_4 = "AdaptiveInputEqRecalled_1_4_Tx"
+ADAPTIVE_INPUT_EQ_RECALLED_TX5_8 = "AdaptiveInputEqRecalled_5_8_Tx"
 FIXED_INPUT_EQ_TARGET_TX = "FixedInputEqTargetTx"
 CDR_ENABLE_TX = "CDREnableTx"
 CDR_ENABLE_RX = "CDREnableRx"
