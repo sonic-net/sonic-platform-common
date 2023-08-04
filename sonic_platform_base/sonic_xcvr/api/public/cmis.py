@@ -2225,7 +2225,7 @@ class CmisApi(XcvrApi):
             return False
         return rx_post_support
 
-    def scs_nibble_write(self, val, si_param, lane):
+    def scs_nibble_write(self, val, pre_val, si_param, lane):
         '''
         This function sets nibble data in byte data
         '''
