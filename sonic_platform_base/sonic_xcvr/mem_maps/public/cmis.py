@@ -503,13 +503,10 @@ class CmisMemMap(XcvrMemMap):
 
         )
 
-        self.STAGED_CTRL0_TX_CTRL = RegGroupField(consts.STAGED_CTRL0_TX_CTRL_FIELD,
+        self.STAGED_CTRL0_TX_RX_CTRL = RegGroupField(consts.STAGED_CTRL0_TX_RX_CTRL_FIELD,
             NumberRegField(consts.ADAPTIVE_INPUT_EQ_ENABLE_TX, self.getaddr(0x10, 153), ro=False),
-            RegGroupField(consts.ADAPTIVE_INPUT_EQ_RECALLED_TX,
-                *(NumberRegField("%s%d" % (consts.ADAPTIVE_INPUT_EQ_RECALLED_TX, lane) , self.getaddr(0x10, 154 + int((lane-1)/4)), ro=False,
-                    *(RegBitField("Bit%d" % bit, bit) for bit in [range(6, 8), range(4, 6), range(2, 4), range(0, 2)][lane%4]))
-                 for lane in range(1, 9))
-            ),
+            NumberRegField(consts.ADAPTIVE_INPUT_EQ_RECALLED_TX1_4, self.getaddr(0x10, 154), ro=False),
+            NumberRegField(consts.ADAPTIVE_INPUT_EQ_RECALLED_TX5_8, self.getaddr(0x10, 155), ro=False),
             RegGroupField(consts.FIXED_INPUT_EQ_TARGET_TX,
                 *(NumberRegField("%s%d" % (consts.FIXED_INPUT_EQ_TARGET_TX, lane) , self.getaddr(0x10, 156 + int((lane-1)/2)), ro=False,
                     *(RegBitField("Bit%d" % bit, bit) for bit in [range(4, 8), range(0, 4)][lane%2]))
