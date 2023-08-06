@@ -2244,16 +2244,16 @@ class CmisApi(XcvrApi):
         '''
         This function applies RX output eq pre cursor settings
         '''
+        rx_pre_max_val = self.get_rx_output_eq_pre_max_val()
+        if rx_pre_max_val is None:
+            return False
         for lane in range(self.NUM_CHANNELS):
             if ((1 << lane) & host_lanes_mask) == 0:
                 continue
             lane = lane+1
             si_key_lane = "{}{}".format(consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX, lane)
             val = si_settings[si_key_lane]
-            if val is None:
-                return False
-            rx_pre_max_val = self.get_rx_output_eq_pre_max_val()
-            if rx_pre_max_val is None or val > rx_pre_max_val:
+            if val is None or val > rx_pre_max_val:
                 return False
             pre_val = 0
             if (lane%2) == 0:
@@ -2274,16 +2274,16 @@ class CmisApi(XcvrApi):
         '''
         This function applies RX output eq post cursor settings
         '''
+        rx_post_max_val = self.get_rx_output_eq_post_max_val()
+        if rx_post_max_val is None:
+            return False
         for lane in range(self.NUM_CHANNELS):
             if ((1 << lane) & host_lanes_mask) == 0:
                 continue
             lane = lane+1
             si_key_lane = "{}{}".format(consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX, lane)
             val = si_settings[si_key_lane]
-            if val is None:
-                return False
-            rx_post_max_val = self.get_rx_output_eq_post_max_val()
-            if rx_post_max_val is None or val > rx_post_max_val:
+            if val is None or val > rx_post_max_val:
                 return False
             pre_val = 0
             if (lane%2) == 0:
@@ -2304,16 +2304,16 @@ class CmisApi(XcvrApi):
         '''
         This function applies RX output amp settings
         '''
+        rx_amp_max_val = self.get_rx_output_amp_max_val()
+        if rx_amp_max_val is None:
+            return False
         for lane in range(self.NUM_CHANNELS):
             if ((1 << lane) & host_lanes_mask) == 0:
                 continue
             lane = lane+1
             si_key_lane = "{}{}".format(consts.OUTPUT_AMPLITUDE_TARGET_RX, lane)
             val = si_settings[si_key_lane]
-            if val is None:
-                return False
-            rx_amp_max_val = self.get_rx_output_amp_max_val()
-            if rx_amp_max_val is None or val > rx_amp_max_val:
+            if val is None or val > rx_amp_max_val:
                 return False
             pre_val = 0
             if (lane%2) == 0:
@@ -2334,16 +2334,16 @@ class CmisApi(XcvrApi):
         '''
         This function applies fixed TX input si settings
         '''
+        tx_fixed_input = self.get_tx_input_eq_max_val()
+        if tx_fixed_input is None:
+            return False
         for lane in range(self.NUM_CHANNELS):
             if ((1 << lane) & host_lanes_mask) == 0:
                 continue
             lane = lane+1
             si_key_lane = "{}{}".format(consts.FIXED_INPUT_EQ_TARGET_TX, lane)
             val = si_settings[si_key_lane]
-            if val is None:
-                return False
-            tx_fixed_input = self.get_tx_input_eq_max_val()
-            if tx_fixed_input is None or val > tx_fixed_input:
+            if val is None or val > tx_fixed_input:
                 return False
             pre_val = 0
             if (lane%2) == 0:
