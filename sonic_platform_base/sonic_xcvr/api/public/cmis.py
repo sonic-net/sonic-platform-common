@@ -2230,7 +2230,13 @@ class CmisApi(XcvrApi):
         This function sets nibble data in byte data
         '''
         if (lane%2) == 0:
-            val = (val << 4) | pre_val
+            pos = 4
+        else:
+            pos = 0
+        mask = 0b1111
+        val &= mask
+        mask <<= pos
+        val = (pre_val & ~mask) | (val << pos)
         si_key_lane = "{}{}".format(si_param, lane)
         return self.xcvr_eeprom.write(si_key_lane, val)
 
@@ -2252,9 +2258,14 @@ class CmisApi(XcvrApi):
             pre_val = 0
             if (lane%2) == 0:
                 pre_si_key_lane = "{}{}".format(consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX, lane-1)
-                pre_val = self.xcvr_eeprom.read(pre_si_key_lane)
-                if pre_val is None:
-                    return False
+                pre_pos = 0
+            else:
+                pre_si_key_lane = "{}{}".format(consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX, lane+1)
+                pre_pos = 4
+            pre_val = self.xcvr_eeprom.read(pre_si_key_lane)
+            if pre_val is None:
+                return False
+            pre_val <<= pre_pos
             if not self.scs_nibble_write(val, pre_val, consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX, lane):
                 return False
         return True
@@ -2277,9 +2288,14 @@ class CmisApi(XcvrApi):
             pre_val = 0
             if (lane%2) == 0:
                 pre_si_key_lane = "{}{}".format(consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX, lane-1)
-                pre_val = self.xcvr_eeprom.read(pre_si_key_lane)
-                if pre_val is None:
-                    return False
+                pre_pos = 0
+            else:
+                pre_si_key_lane = "{}{}".format(consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX, lane+1)
+                pre_pos = 4
+            pre_val = self.xcvr_eeprom.read(pre_si_key_lane)
+            if pre_val is None:
+                return False
+            pre_val <<= pre_pos
             if not self.scs_nibble_write(val, pre_val, consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX, lane):
                 return False
         return True
@@ -2302,9 +2318,14 @@ class CmisApi(XcvrApi):
             pre_val = 0
             if (lane%2) == 0:
                 pre_si_key_lane = "{}{}".format(consts.OUTPUT_AMPLITUDE_TARGET_RX, lane-1)
-                pre_val = self.xcvr_eeprom.read(pre_si_key_lane)
-                if pre_val is None:
-                    return False
+                pre_pos = 0
+            else:
+                pre_si_key_lane = "{}{}".format(consts.OUTPUT_AMPLITUDE_TARGET_RX, lane+1)
+                pre_pos = 4
+            pre_val = self.xcvr_eeprom.read(pre_si_key_lane)
+            if pre_val is None:
+                return False
+            pre_val <<= pre_pos
             if not self.scs_nibble_write(val, pre_val, consts.OUTPUT_AMPLITUDE_TARGET_RX, lane):
                 return False
         return True
@@ -2327,9 +2348,14 @@ class CmisApi(XcvrApi):
             pre_val = 0
             if (lane%2) == 0:
                 pre_si_key_lane = "{}{}".format(consts.FIXED_INPUT_EQ_TARGET_TX, lane-1)
-                pre_val = self.xcvr_eeprom.read(pre_si_key_lane)
-                if pre_val is None:
-                    return False
+                pre_pos = 0
+            else:
+                pre_si_key_lane = "{}{}".format(consts.FIXED_INPUT_EQ_TARGET_TX, lane+1)
+                pre_pos = 4
+            pre_val = self.xcvr_eeprom.read(pre_si_key_lane)
+            if pre_val is None:
+                return False
+            pre_val <<= pre_pos
             if not self.scs_nibble_write(val, pre_val, consts.FIXED_INPUT_EQ_TARGET_TX, lane):
                 return False
         return True
