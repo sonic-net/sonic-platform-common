@@ -2273,7 +2273,7 @@ class TestCmis(object):
                          }
         self.api.xcvr_eeprom.read = MagicMock()
         self.api.xcvr_eeprom.write = MagicMock()
-        mock_resp = [optics_si_eq_pre_dict, 0xff, 0xff]
+        mock_resp = [optics_si_eq_pre_dict, 0xff, 0xff, 0xff]
         self.api.xcvr_eeprom.read.side_effect = mock_resp
         self.api.stage_custom_si_settings(0x01, optics_si_dict)
         assert self.api.xcvr_eeprom.write.call_count == 1
