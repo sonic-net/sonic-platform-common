@@ -9,8 +9,6 @@ import os
 import signal
 import sys
 import threading
-import subprocess
-import yaml
 
 from sonic_py_common import daemon_base, device_info, logger
 from swsscommon import swsscommon
@@ -34,7 +32,6 @@ PCIED_MAIN_THREAD_SLEEP_SECS = 60
 
 PCIEUTIL_CONF_FILE_ERROR = 1
 PCIEUTIL_LOAD_ERROR = 2
-PLATFORM_PCIE_YAML_FILE = "/usr/share/sonic/platform/pcie.yaml"
 
 platform_pcieutil = None
 
@@ -160,56 +157,6 @@ class DaemonPcied(daemon_base.DaemonBase):
         err = 0
         if self.resultInfo is None:
             return
-
-        # This block reads the PCIE YAML file, iterates through each device and 
-        # for each device runs a transaction check to verify that the device ID
-        # matches the one on file. In the event of an invalid device ID such as
-        # '0xffff', it marks the device as missing as that is the only scenario
-        # in which such a value is returned.
-
-        # Default, invalid BDF values to begin
-        bus = None
-        device = None
-        func = None
-
-        try:
-            stream = open(PLATFORM_PCIE_YAML_FILE, 'r')
-
-            # Load contents of the PCIe YAML file into a dictionary object
-            dictionary = yaml.safe_load(stream)
-            
-            # Iterate through each element in dict; extract the BDF information and device ID for that element
-            for elem in dictionary:
-                bus = int(elem.get('bus'), 16)
-                device = int(elem.get('dev'), 16)
-                func = int(elem.get('fn'), 16)
-                pcieDeviceID = elem.get('id')
-
-                # Form the PCI device address from the BDF information above
-                pcie_device = ("{:02x}:{:02x}.{:01d}".format(bus, device, func))
-                
-                # Form and run the command to read the device ID from the PCI device
-                cmd = ["setpci", "-s", pcie_device, "2.w"]
-                output = subprocess.check_output(cmd)
-                pcieDeviceQueryResult = output.decode('utf8').rstrip()
-
-                # verify that the queried device ID matches what we have on file for the current PCI device
-                # If not, take appropriate action based on the queried value
-                if pcieDeviceQueryResult is None or "No devices selected" in pcieDeviceQueryResult:
-                    self.log_error("Invalid PCIe Peripheral {:02x}:{:02x}.{:01d} - {}".format(bus, device, func, pcieDeviceQueryResult))
-                elif pcieDeviceQueryResult != pcieDeviceID:
-                    if pcieDeviceQueryResult == 'ffff':
-                        self.log_error("PCIe device {:02x}:{:02x}.{:01d} missing.".format(bus, device, func))
-                    else:
-                        self.log_error("PCIe device {:02x}:{:02x}.{:01d} ID mismatch. Expected {}, received {}".format(bus, device, func, pcieDeviceID, pcieDeviceQueryResult))
-
-        except Exception as ex:
-            # Verify that none of the BDF objects are None. If condition evals to False, do not mention BDF information in error log
-            if not [i for i in (bus, device, func) if i is None]:
-                self.log_error("PCIe Exception occurred for PCIe device {:02x}:{:02x}.{:01d}: {}".format(bus, device, func, ex))
-            else:
-                self.log_error("PCIe Exception occurred: {}".format(ex))
-            pass
 
         for result in self.resultInfo:
             if result["result"] == "Failed":

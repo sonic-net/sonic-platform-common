@@ -59,23 +59,18 @@ pcie_device_list = \
 
 pcie_check_result_no = []
 
-pcie_check_result_pass = [{'bus': '00', 'dev': '01', 'fn': '0', 'id': '1f10', 'name': 'PCI A', 'result': 'Passed'},
+pcie_check_result_pass = \
+"""
+[{'bus': '00', 'dev': '01', 'fn': '0', 'id': '1f10', 'name': 'PCI A', 'result': 'Passed'},
  {'bus': '00', 'dev': '02', 'fn': '0', 'id': '1f11', 'name': 'PCI B', 'result': 'Passed'},
  {'bus': '00', 'dev': '03', 'fn': '0', 'id': '1f12', 'name': 'PCI C', 'result': 'Passed'}]
+"""
 
-
-pcie_check_result_fail = [{'bus': '00', 'dev': '01', 'fn': '0', 'id': '1f10', 'name': 'PCI A', 'result': 'Passed'},
+pcie_check_result_fail = \
+"""
+[{'bus': '00', 'dev': '01', 'fn': '0', 'id': '1f10', 'name': 'PCI A', 'result': 'Passed'},
  {'bus': '00', 'dev': '02', 'fn': '0', 'id': '1f11', 'name': 'PCI B', 'result': 'Passed'},
  {'bus': '00', 'dev': '03', 'fn': '0', 'id': '1f12', 'name': 'PCI C', 'result': 'Failed'}]
-
-
-TEST_PLATFORM_PCIE_YAML_FILE = \
-"""
-- bus: '00'
-  dev: '01'
-  fn: '0'
-  id: '9170'
-  name: 'PCI A'
 """
 
 class TestDaemonPcied(object):
@@ -147,125 +142,6 @@ class TestDaemonPcied(object):
 
         daemon_pcied.run()
         assert daemon_pcied.check_pcie_devices.call_count == 1
-
-    @mock.patch('pcied.load_platform_pcieutil', mock.MagicMock())
-    def test_check_pcie_devices_yaml_file_open_error(self):
-        daemon_pcied = pcied.DaemonPcied(SYSLOG_IDENTIFIER)
-        pcied.platform_pcieutil.get_pcie_check = mock.MagicMock()
-
-        daemon_pcied.check_pcie_devices()
-
-        assert pcied.platform_pcieutil.get_pcie_check.called
-
-
-    @mock.patch('pcied.load_platform_pcieutil', mock.MagicMock())
-    def test_check_pcie_devices_result_fail(self):
-        daemon_pcied = pcied.DaemonPcied(SYSLOG_IDENTIFIER)
-        pcied.platform_pcieutil.get_pcie_check = mock.MagicMock(return_value=pcie_check_result_fail)
-
-        daemon_pcied.check_pcie_devices()
-
-        assert pcied.platform_pcieutil.get_pcie_check.called
-
-    @mock.patch('pcied.load_platform_pcieutil', mock.MagicMock())
-    def test_check_pcie_devices_result_pass(self):
-        daemon_pcied = pcied.DaemonPcied(SYSLOG_IDENTIFIER)
-        pcied.platform_pcieutil.get_pcie_check = mock.MagicMock(return_value=pcie_check_result_pass)
-
-        daemon_pcied.check_pcie_devices()
-
-        assert pcied.platform_pcieutil.get_pcie_check.called
-
-    @mock.patch('pcied.load_platform_pcieutil', mock.MagicMock())
-    def test_check_pcie_devices_result_none(self):
-        daemon_pcied = pcied.DaemonPcied(SYSLOG_IDENTIFIER)
-        pcied.platform_pcieutil.get_pcie_check = mock.MagicMock(return_value=None)
-
-        daemon_pcied.check_pcie_devices()
-
-        assert pcied.platform_pcieutil.get_pcie_check.called
-
-    @mock.patch('pcied.load_platform_pcieutil', mock.MagicMock())
-    def test_check_pcie_devices_load_yaml_happy(self):
-        daemon_pcied = pcied.DaemonPcied(SYSLOG_IDENTIFIER)
-
-        with mock.patch('builtins.open', new_callable=mock.mock_open, read_data=TEST_PLATFORM_PCIE_YAML_FILE) as mock_fd:
-
-            class MockOutput:
-                def decode(self, encodingType):
-                    return self
-                def rstrip(self):
-                    return "9170"
-
-            mock_output = MockOutput()
-            with mock.patch('subprocess.check_output', mock.MagicMock()) as mock_check_output:
-                mock_check_output.return_value = mock_output
-
-                daemon_pcied.check_pcie_devices()
-
-                assert mock_check_output.called
-    
-    @mock.patch('pcied.load_platform_pcieutil', mock.MagicMock())
-    def test_check_pcie_devices_load_yaml_mismatch(self):
-        daemon_pcied = pcied.DaemonPcied(SYSLOG_IDENTIFIER)
-
-        with mock.patch('builtins.open', new_callable=mock.mock_open, read_data=TEST_PLATFORM_PCIE_YAML_FILE) as mock_fd:
-
-            class MockOutput:
-                def decode(self, encodingType):
-                    return self
-                def rstrip(self):
-                    return "0123"
-
-            mock_output = MockOutput()
-            with mock.patch('subprocess.check_output', mock.MagicMock()) as mock_check_output:
-                mock_check_output.return_value = mock_output
-
-                daemon_pcied.check_pcie_devices()
-
-                assert mock_check_output.called
-
-    @mock.patch('pcied.load_platform_pcieutil', mock.MagicMock())
-    def test_check_pcie_devices_load_yaml_missing_device(self):
-        daemon_pcied = pcied.DaemonPcied(SYSLOG_IDENTIFIER)
-
-        with mock.patch('builtins.open', new_callable=mock.mock_open, read_data=TEST_PLATFORM_PCIE_YAML_FILE) as mock_fd:
-
-            class MockOutput:
-                def decode(self, encodingType):
-                    return self
-                def rstrip(self):
-                    return "ffff"
-
-            mock_output = MockOutput()
-            with mock.patch('subprocess.check_output', mock.MagicMock()) as mock_check_output:
-                mock_check_output.return_value = mock_output
-
-                daemon_pcied.check_pcie_devices()
-
-                assert mock_check_output.called
-
-    @mock.patch('pcied.load_platform_pcieutil', mock.MagicMock())
-    def test_check_pcie_devices_load_yaml_invalid_device(self):
-        daemon_pcied = pcied.DaemonPcied(SYSLOG_IDENTIFIER)
-
-        with mock.patch('builtins.open', new_callable=mock.mock_open, read_data=TEST_PLATFORM_PCIE_YAML_FILE) as mock_fd:
-
-            class MockOutput:
-                def decode(self, encodingType):
-                    return self
-                def rstrip(self):
-                    return "No devices selected"
-
-            mock_output = MockOutput()
-            with mock.patch('subprocess.check_output', mock.MagicMock()) as mock_check_output:
-                mock_check_output.return_value = mock_output
-
-                daemon_pcied.check_pcie_devices()
-
-                assert mock_check_output.called
-
-
 
     @mock.patch('pcied.load_platform_pcieutil', mock.MagicMock())
     def test_check_pcie_devices(self):
