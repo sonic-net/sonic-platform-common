@@ -142,6 +142,52 @@ class TestSff8636(object):
             [
                 [False, False, False, False],
                 [False, False, False, False],
+                0,
+                [False, False, False, False]
+            ],
+            {
+                "tx_disabled_channel": 0,
+                "tx1disable": False,
+                "tx2disable": False,
+                "tx3disable": False,
+                "tx4disable": False,
+                'txfault1': False,
+                'txfault2': False,
+                'txfault3': False,
+                'txfault4': False,
+                'rxlos1': False,
+                'rxlos2': False,
+                'rxlos3': False,
+                'rxlos4': False,
+            }
+        ),
+        (
+            [
+                None,
+                None,
+                None,
+                None
+            ],
+            None
+        )
+    ])
+    def test_get_transceiver_status(self, mock_response, expected):
+        self.api.get_rx_los = MagicMock()
+        self.api.get_rx_los.return_value = mock_response[0]
+        self.api.get_tx_fault = MagicMock()
+        self.api.get_tx_fault.return_value = mock_response[1]
+        self.api.get_tx_disable_channel = MagicMock()
+        self.api.get_tx_disable_channel.return_value = mock_response[2]
+        self.api.get_tx_disable = MagicMock()
+        self.api.get_tx_disable.return_value = mock_response[3]
+        result = self.api.get_transceiver_status()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response, expected",[
+        (
+            [
+                [False, False, False, False],
+                [False, False, False, False],
                 [False, False, False, False],
                 0,
                 50,
