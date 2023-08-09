@@ -174,6 +174,8 @@ DP_PATH_INIT_DURATION = "DPInitDuration"
 DP_PATH_DEINIT_DURATION = "DPDeinitDuration"
 MODULE_PWRUP_DURATION = "ModulePowerUpDuration"
 MODULE_PWRDN_DURATION = "ModulePowerDownDuration"
+DP_TX_TURNON_DURATION = "DPTxTurnOnDuration"
+DP_TX_TURNOFF_DURATION = "DPTxTurnOffDuration"
 
 # DOM
 TRANS_DOM_FIELD = "TransceiverDom"

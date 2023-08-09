@@ -16,3 +16,21 @@ class TestChassisBase:
         assert(chassis.REBOOT_CAUSE_HARDWARE_BUTTON == "Push button")
         assert(chassis.REBOOT_CAUSE_HARDWARE_RESET_FROM_ASIC == "Reset from ASIC")
         assert(chassis.REBOOT_CAUSE_NON_HARDWARE == "Non-Hardware")
+
+    def test_chassis_base(self):
+        chassis = ChassisBase()
+        not_implemented_methods = [
+                [chassis.get_uid_led],
+                [chassis.set_uid_led, "COLOR"],
+            ]
+
+        for method in not_implemented_methods:
+            exception_raised = False
+            try:
+                func = method[0]
+                args = method[1:]
+                func(*args)
+            except NotImplementedError:
+                exception_raised = True
+
+            assert exception_raised

@@ -16,6 +16,7 @@ from ..xcvr_api import XcvrApi
 from .cmisCDB import CmisCdbApi
 from .cmisVDM import CmisVdmApi
 import time
+from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -73,7 +74,7 @@ class CmisApi(XcvrApi):
         if self.is_flat_memory():
             return '0.0'
         hw_major_rev = self.xcvr_eeprom.read(consts.HW_MAJOR_REV)
-        hw_minor_rev = self.xcvr_eeprom.read(consts.HW_MAJOR_REV)
+        hw_minor_rev = self.xcvr_eeprom.read(consts.HW_MINOR_REV)
         hw_rev = [str(num) for num in [hw_major_rev, hw_minor_rev]]
         return '.'.join(hw_rev)
 
@@ -160,9 +161,9 @@ class CmisApi(XcvrApi):
         xcvr_info['media_interface_technology'] = self.get_media_interface_technology()
         xcvr_info['vendor_rev'] = self.get_vendor_rev()
         xcvr_info['cmis_rev'] = self.get_cmis_rev()
-        xcvr_info['active_firmware'] = self.get_module_active_firmware()
-        xcvr_info['inactive_firmware'] = self.get_module_inactive_firmware()
         xcvr_info['specification_compliance'] = self.get_module_media_type()
+
+        xcvr_info['active_firmware'], xcvr_info['inactive_firmware'] = self.get_transceiver_info_firmware_versions()
 
         # In normal case will get a valid value for each of the fields. If get a 'None' value
         # means there was a failure while reading the EEPROM, either because the EEPROM was
@@ -174,21 +175,24 @@ class CmisApi(XcvrApi):
         else:
             return xcvr_info
 
+    def get_transceiver_info_firmware_versions(self):
+        result = self.get_module_fw_info()
+        if result is None:
+            return ["N/A", "N/A"]
+        try:
+            ( _, _, _, _, _, _, _, _, ActiveFirmware, InactiveFirmware) = result['result']
+        except (ValueError, TypeError):
+            return ["N/A", "N/A"]
+
+        return [ActiveFirmware, InactiveFirmware]
+
     def get_transceiver_bulk_status(self):
-        rx_los = self.get_rx_los()
-        tx_fault = self.get_tx_fault()
-        tx_disable = self.get_tx_disable()
-        tx_disabled_channel = self.get_tx_disable_channel()
         temp = self.get_module_temperature()
         voltage = self.get_voltage()
         tx_bias = self.get_tx_bias()
         rx_power = self.get_rx_power()
         tx_power = self.get_tx_power()
-        read_failed = rx_los is None or \
-                      tx_fault is None or \
-                      tx_disable is None or \
-                      tx_disabled_channel is None or \
-                      temp is None or \
+        read_failed = temp is None or \
                       voltage is None or \
                       tx_bias is None or \
                       rx_power is None or \
@@ -197,15 +201,11 @@ class CmisApi(XcvrApi):
             return None
 
         bulk_status = {
-            "rx_los": all(rx_los) if self.get_rx_los_support() else 'N/A',
-            "tx_fault": all(tx_fault) if self.get_tx_fault_support() else 'N/A',
-            "tx_disabled_channel": tx_disabled_channel,
             "temperature": temp,
             "voltage": voltage
         }
 
         for i in range(1, self.NUM_CHANNELS + 1):
-            bulk_status["tx%ddisable" % i] = tx_disable[i-1] if self.get_tx_disable_support() else 'N/A'
             bulk_status["tx%dbias" % i] = tx_bias[i - 1]
             bulk_status["rx%dpower" % i] = float("{:.3f}".format(self.mw_to_dbm(rx_power[i - 1]))) if rx_power[i - 1] != 'N/A' else 'N/A'
             bulk_status["tx%dpower" % i] = float("{:.3f}".format(self.mw_to_dbm(tx_power[i - 1]))) if tx_power[i - 1] != 'N/A' else 'N/A'
@@ -246,7 +246,10 @@ class CmisApi(XcvrApi):
         if thresh is None:
             return None
         tx_bias_scale_raw = self.xcvr_eeprom.read(consts.TX_BIAS_SCALE)
-        tx_bias_scale = 2**tx_bias_scale_raw if tx_bias_scale_raw < 3 else 1
+        if tx_bias_scale_raw is not None:
+            tx_bias_scale = 2**tx_bias_scale_raw if tx_bias_scale_raw < 3 else 1
+        else:
+            tx_bias_scale = None
         threshold_info_dict =  {
             "temphighalarm": float("{:.3f}".format(thresh[consts.TEMP_HIGH_ALARM_FIELD])),
             "templowalarm": float("{:.3f}".format(thresh[consts.TEMP_LOW_ALARM_FIELD])),
@@ -264,16 +267,23 @@ class CmisApi(XcvrApi):
             "txpowerlowalarm": float("{:.3f}".format(self.mw_to_dbm(thresh[consts.TX_POWER_LOW_ALARM_FIELD]))),
             "txpowerhighwarning": float("{:.3f}".format(self.mw_to_dbm(thresh[consts.TX_POWER_HIGH_WARNING_FIELD]))),
             "txpowerlowwarning": float("{:.3f}".format(self.mw_to_dbm(thresh[consts.TX_POWER_LOW_WARNING_FIELD]))),
-            "txbiashighalarm": float("{:.3f}".format(thresh[consts.TX_BIAS_HIGH_ALARM_FIELD]*tx_bias_scale)),
-            "txbiaslowalarm": float("{:.3f}".format(thresh[consts.TX_BIAS_LOW_ALARM_FIELD]*tx_bias_scale)),
-            "txbiashighwarning": float("{:.3f}".format(thresh[consts.TX_BIAS_HIGH_WARNING_FIELD]*tx_bias_scale)),
+            "txbiashighalarm": float("{:.3f}".format(thresh[consts.TX_BIAS_HIGH_ALARM_FIELD]*tx_bias_scale))
+            if tx_bias_scale is not None else 'N/A',
+            "txbiaslowalarm": float("{:.3f}".format(thresh[consts.TX_BIAS_LOW_ALARM_FIELD]*tx_bias_scale))
+            if tx_bias_scale is not None else 'N/A',
+            "txbiashighwarning": float("{:.3f}".format(thresh[consts.TX_BIAS_HIGH_WARNING_FIELD]*tx_bias_scale))
+            if tx_bias_scale is not None else 'N/A',
             "txbiaslowwarning": float("{:.3f}".format(thresh[consts.TX_BIAS_LOW_WARNING_FIELD]*tx_bias_scale))
+            if tx_bias_scale is not None else 'N/A'
         }
         laser_temp_dict = self.get_laser_temperature()
-        threshold_info_dict['lasertemphighalarm'] = laser_temp_dict['high alarm']
-        threshold_info_dict['lasertemplowalarm'] = laser_temp_dict['low alarm']
-        threshold_info_dict['lasertemphighwarning'] = laser_temp_dict['high warn']
-        threshold_info_dict['lasertemplowwarning'] = laser_temp_dict['low warn']
+        try:
+            threshold_info_dict['lasertemphighalarm'] = laser_temp_dict['high alarm']
+            threshold_info_dict['lasertemplowalarm'] = laser_temp_dict['low alarm']
+            threshold_info_dict['lasertemphighwarning'] = laser_temp_dict['high warn']
+            threshold_info_dict['lasertemplowwarning'] = laser_temp_dict['low warn']
+        except (KeyError, TypeError):
+            pass
         self.vdm_dict = self.get_vdm()
         try:
             threshold_info_dict['prefecberhighalarm'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][1]
@@ -490,8 +500,12 @@ class CmisApi(XcvrApi):
         if not tx_bias_support:
             return ["N/A" for _ in range(self.NUM_CHANNELS)]
         scale_raw = self.xcvr_eeprom.read(consts.TX_BIAS_SCALE)
+        if scale_raw is None:
+            return ["N/A" for _ in range(self.NUM_CHANNELS)]
         scale = 2**scale_raw if scale_raw < 3 else 1
         tx_bias = self.xcvr_eeprom.read(consts.TX_BIAS_FIELD)
+        if tx_bias is None:
+            return ["N/A" for _ in range(self.NUM_CHANNELS)]
         for key, value in tx_bias.items():
             tx_bias[key] *= scale
         return [tx_bias['LaserBiasTx%dField' % i] for i in range(1, self.NUM_CHANNELS + 1)]
@@ -695,6 +709,24 @@ class CmisApi(XcvrApi):
         duration = self.xcvr_eeprom.read(consts.DP_PATH_DEINIT_DURATION)
         return float(duration) if duration is not None else 0
 
+    def get_datapath_tx_turnon_duration(self):
+        '''
+        This function returns the duration of datapath tx turnon
+        '''
+        if self.is_flat_memory():
+            return 0
+        duration = self.xcvr_eeprom.read(consts.DP_TX_TURNON_DURATION)
+        return float(duration) if duration is not None else 0
+
+    def get_datapath_tx_turnoff_duration(self):
+        '''
+        This function returns the duration of datapath tx turnoff
+        '''
+        if self.is_flat_memory():
+            return 0
+        duration = self.xcvr_eeprom.read(consts.DP_TX_TURNOFF_DURATION)
+        return float(duration) if duration is not None else 0
+
     def get_module_pwr_up_duration(self):
         '''
         This function returns the duration of module power up
@@ -719,13 +751,18 @@ class CmisApi(XcvrApi):
         '''
         return self.xcvr_eeprom.read(consts.HOST_LANE_COUNT)
 
-    def get_media_lane_count(self):
+    def get_media_lane_count(self, appl=1):
         '''
         This function returns number of media lanes for default application
         '''
         if self.is_flat_memory():
             return 0
-        return self.xcvr_eeprom.read(consts.MEDIA_LANE_COUNT)
+        
+        if (appl <= 0):
+            return 0
+        
+        appl_advt = self.get_application_advertisement()
+        return appl_advt[appl]['media_lane_count'] if len(appl_advt) >= appl else 0
 
     def get_media_interface_technology(self):
         '''
@@ -746,21 +783,28 @@ class CmisApi(XcvrApi):
         appl_advt = self.get_application_advertisement()
         return appl_advt[appl]['host_lane_assignment_options'] if len(appl_advt) >= appl else 0
 
-    def get_media_lane_assignment_option(self):
+    def get_media_lane_assignment_option(self, appl=1):
         '''
         This function returns the media lane that the application is allowed to begin on
         '''
         if self.is_flat_memory():
             return 'N/A'
-        return self.xcvr_eeprom.read(consts.MEDIA_LANE_ASSIGNMENT_OPTION)
+        
+        if (appl <= 0):
+            return 0
+        
+        appl_advt = self.get_application_advertisement()
+        return appl_advt[appl]['media_lane_assignment_options'] if len(appl_advt) >= appl else 0
 
     def get_active_apsel_hostlane(self):
         '''
         This function returns the application select code that each host lane has
         '''
         if (self.is_flat_memory()):
-            return {'{}{}'.format(consts.ACTIVE_APSEL_HOSTLANE, i) : 'N/A' for i in range(1, self.NUM_CHANNELS+1)}
-        return self.xcvr_eeprom.read(consts.ACTIVE_APSEL_CODE)
+            return defaultdict(lambda: 'N/A')
+
+        active_apsel_code = self.xcvr_eeprom.read(consts.ACTIVE_APSEL_CODE)
+        return defaultdict(lambda: 'N/A') if not active_apsel_code else active_apsel_code
 
     def get_tx_config_power(self):
         '''
@@ -840,20 +884,19 @@ class CmisApi(XcvrApi):
         try:
             aux1_mon_type, aux2_mon_type, aux3_mon_type = self.get_aux_mon_type()
         except TypeError:
-            return None
-        LASER_TEMP_SCALE = 256.0
+            return laser_temp_dict
         if aux2_mon_type == 0:
-            laser_temp = self.xcvr_eeprom.read(consts.AUX2_MON)/LASER_TEMP_SCALE
-            laser_temp_high_alarm = self.xcvr_eeprom.read(consts.AUX2_HIGH_ALARM)/LASER_TEMP_SCALE
-            laser_temp_low_alarm = self.xcvr_eeprom.read(consts.AUX2_LOW_ALARM)/LASER_TEMP_SCALE
-            laser_temp_high_warn = self.xcvr_eeprom.read(consts.AUX2_HIGH_WARN)/LASER_TEMP_SCALE
-            laser_temp_low_warn = self.xcvr_eeprom.read(consts.AUX2_LOW_WARN)/LASER_TEMP_SCALE
+            laser_temp = self._get_laser_temp_threshold(consts.AUX2_MON)
+            laser_temp_high_alarm = self._get_laser_temp_threshold(consts.AUX2_HIGH_ALARM)
+            laser_temp_low_alarm = self._get_laser_temp_threshold(consts.AUX2_LOW_ALARM)
+            laser_temp_high_warn = self._get_laser_temp_threshold(consts.AUX2_HIGH_WARN)
+            laser_temp_low_warn = self._get_laser_temp_threshold(consts.AUX2_LOW_WARN)
         elif aux2_mon_type == 1 and aux3_mon_type == 0:
-            laser_temp = self.xcvr_eeprom.read(consts.AUX3_MON)/LASER_TEMP_SCALE
-            laser_temp_high_alarm = self.xcvr_eeprom.read(consts.AUX3_HIGH_ALARM)/LASER_TEMP_SCALE
-            laser_temp_low_alarm = self.xcvr_eeprom.read(consts.AUX3_LOW_ALARM)/LASER_TEMP_SCALE
-            laser_temp_high_warn = self.xcvr_eeprom.read(consts.AUX3_HIGH_WARN)/LASER_TEMP_SCALE
-            laser_temp_low_warn = self.xcvr_eeprom.read(consts.AUX3_LOW_WARN)/LASER_TEMP_SCALE
+            laser_temp = self._get_laser_temp_threshold(consts.AUX3_MON)
+            laser_temp_high_alarm = self._get_laser_temp_threshold(consts.AUX3_HIGH_ALARM)
+            laser_temp_low_alarm = self._get_laser_temp_threshold(consts.AUX3_LOW_ALARM)
+            laser_temp_high_warn = self._get_laser_temp_threshold(consts.AUX3_HIGH_WARN)
+            laser_temp_low_warn = self._get_laser_temp_threshold(consts.AUX3_LOW_WARN)
         else:
             return laser_temp_dict
         laser_temp_dict = {'monitor value': laser_temp,
@@ -862,6 +905,11 @@ class CmisApi(XcvrApi):
                            'high warn': laser_temp_high_warn,
                            'low warn': laser_temp_low_warn}
         return laser_temp_dict
+
+    def _get_laser_temp_threshold(self, field):
+        LASER_TEMP_SCALE = 256.0
+        value = self.xcvr_eeprom.read(field)
+        return value/LASER_TEMP_SCALE if value is not None else 'N/A'
 
     def get_laser_TEC_current(self):
         '''
@@ -1269,10 +1317,24 @@ class CmisApi(XcvrApi):
                 factory_image = '%d.%d.%d' % (rpl[74], rpl[75], ((rpl[76] << 8) | rpl[77]))
                 txt += 'Factory Image Version: %s\n' %factory_image
 
+            ActiveFirmware = 'N/A'
+            InactiveFirmware = 'N/A'
             if ImageARunning == 1:
                 RunningImage = 'A'
+                ActiveFirmware = ImageA
+                if ImageBValid == 0:
+                    InactiveFirmware = ImageB
+                else:
+                    #In case of single bank module, inactive firmware version can be read from EEPROM
+                    InactiveFirmware = self.get_module_inactive_firmware() + ".0"
             elif ImageBRunning == 1:
                 RunningImage = 'B'
+                ActiveFirmware = ImageB
+                if ImageAValid == 0:
+                    InactiveFirmware = ImageA
+                else:
+                    #In case of single bank module, inactive firmware version can be read from EEPROM
+                    InactiveFirmware = self.get_module_inactive_firmware() + ".0"
             else:
                 RunningImage = 'N/A'
             if ImageACommitted == 1:
@@ -1283,12 +1345,12 @@ class CmisApi(XcvrApi):
                 CommittedImage = 'N/A'
             txt += 'Running Image: %s\n' % (RunningImage)
             txt += 'Committed Image: %s\n' % (CommittedImage)
-            txt += 'Active Firmware: {}\n'.format(self.get_module_active_firmware())
-            txt += 'Inactive Firmware: {}\n'.format(self.get_module_inactive_firmware())
+            txt += 'Active Firmware: {}\n'.format(ActiveFirmware)
+            txt += 'Inactive Firmware: {}\n'.format(InactiveFirmware)
         else:
             txt += 'Reply payload check code error\n'
             return {'status': False, 'info': txt, 'result': None}
-        return {'status': True, 'info': txt, 'result': (ImageA, ImageARunning, ImageACommitted, ImageAValid, ImageB, ImageBRunning, ImageBCommitted, ImageBValid)}
+        return {'status': True, 'info': txt, 'result': (ImageA, ImageARunning, ImageACommitted, ImageAValid, ImageB, ImageBRunning, ImageBCommitted, ImageBValid, ActiveFirmware, InactiveFirmware)}
 
     def cdb_run_firmware(self, mode = 0x01):
         # run module FW (CMD 0109h)
@@ -1515,7 +1577,7 @@ class CmisApi(XcvrApi):
         """
         result = self.get_module_fw_info()
         try:
-            _, _, _, _, _, _, _, _ = result['result']
+            _, _, _, _, _, _, _, _, _, _ = result['result']
         except (ValueError, TypeError):
             return result['status'], result['info']
         result = self.get_module_fw_mgmt_feature()
@@ -1542,7 +1604,7 @@ class CmisApi(XcvrApi):
         result = self.get_module_fw_info()
         try:
             (ImageA_init, ImageARunning_init, ImageACommitted_init, ImageAValid_init,
-             ImageB_init, ImageBRunning_init, ImageBCommitted_init, ImageBValid_init) = result['result']
+             ImageB_init, ImageBRunning_init, ImageBCommitted_init, ImageBValid_init, _, _) = result['result']
         except (ValueError, TypeError):
             return result['status'], result['info']
         if ImageAValid_init == 0 and ImageBValid_init == 0:
@@ -1550,7 +1612,7 @@ class CmisApi(XcvrApi):
             time.sleep(60)
             self.module_fw_commit()
             (ImageA, ImageARunning, ImageACommitted, ImageAValid,
-             ImageB, ImageBRunning, ImageBCommitted, ImageBValid) = self.get_module_fw_info()['result']
+             ImageB, ImageBRunning, ImageBCommitted, ImageBValid, _, _) = self.get_module_fw_info()['result']
             # detect if image switch happened
             txt += 'Before switch Image A: %s; Run: %d Commit: %d, Valid: %d\n' %(
                 ImageA_init, ImageARunning_init, ImageACommitted_init, ImageAValid_init
@@ -1603,6 +1665,8 @@ class CmisApi(XcvrApi):
         rxoutput_status_hostlane6    = BOOLEAN                          ; rx output status on host lane 6
         rxoutput_status_hostlane7    = BOOLEAN                          ; rx output status on host lane 7
         rxoutput_status_hostlane8    = BOOLEAN                          ; rx output status on host lane 8
+        tx_disable                   = BOOLEAN                          ; tx disable status
+        tx_disabled_channel          = INTEGER                          ; disabled TX channels
         txfault                      = BOOLEAN                          ; tx fault flag on media lane
         txlos_hostlane1              = BOOLEAN                          ; tx loss of signal flag on host lane 1
         txlos_hostlane2              = BOOLEAN                          ; tx loss of signal flag on host lane 2
@@ -1683,14 +1747,17 @@ class CmisApi(XcvrApi):
         except TypeError:
             pass
         module_flag = self.get_module_level_flag()
-        trans_status['temphighalarm_flag'] = module_flag['case_temp_flags']['case_temp_high_alarm_flag']
-        trans_status['templowalarm_flag'] = module_flag['case_temp_flags']['case_temp_low_alarm_flag']
-        trans_status['temphighwarning_flag'] = module_flag['case_temp_flags']['case_temp_high_warn_flag']
-        trans_status['templowwarning_flag'] = module_flag['case_temp_flags']['case_temp_low_warn_flag']
-        trans_status['vcchighalarm_flag'] = module_flag['voltage_flags']['voltage_high_alarm_flag']
-        trans_status['vcclowalarm_flag'] = module_flag['voltage_flags']['voltage_low_alarm_flag']
-        trans_status['vcchighwarning_flag'] = module_flag['voltage_flags']['voltage_high_warn_flag']
-        trans_status['vcclowwarning_flag'] = module_flag['voltage_flags']['voltage_low_warn_flag']
+        try:
+            trans_status['temphighalarm_flag'] = module_flag['case_temp_flags']['case_temp_high_alarm_flag']
+            trans_status['templowalarm_flag'] = module_flag['case_temp_flags']['case_temp_low_alarm_flag']
+            trans_status['temphighwarning_flag'] = module_flag['case_temp_flags']['case_temp_high_warn_flag']
+            trans_status['templowwarning_flag'] = module_flag['case_temp_flags']['case_temp_low_warn_flag']
+            trans_status['vcchighalarm_flag'] = module_flag['voltage_flags']['voltage_high_alarm_flag']
+            trans_status['vcclowalarm_flag'] = module_flag['voltage_flags']['voltage_low_alarm_flag']
+            trans_status['vcchighwarning_flag'] = module_flag['voltage_flags']['voltage_high_warn_flag']
+            trans_status['vcclowwarning_flag'] = module_flag['voltage_flags']['voltage_low_warn_flag']
+        except TypeError:
+            pass
         try:
             aux1_mon_type, aux2_mon_type, aux3_mon_type = self.get_aux_mon_type()
             if aux2_mon_type == 0:
@@ -1707,53 +1774,73 @@ class CmisApi(XcvrApi):
             pass
         if not self.is_flat_memory():
             dp_state_dict = self.get_datapath_state()
-            for lane in range(1, self.NUM_CHANNELS+1):
-                trans_status['DP%dState' % lane] = dp_state_dict['DP%dState' % lane]
+            if dp_state_dict:
+                for lane in range(1, self.NUM_CHANNELS+1):
+                    trans_status['DP%dState' % lane] = dp_state_dict.get('DP%dState' % lane)
             tx_output_status_dict = self.get_tx_output_status()
-            for lane in range(1, self.NUM_CHANNELS+1):
-                trans_status['txoutput_status%d' % lane] = tx_output_status_dict['TxOutputStatus%d' % lane]
+            if tx_output_status_dict:
+                for lane in range(1, self.NUM_CHANNELS+1):
+                    trans_status['txoutput_status%d' % lane] = tx_output_status_dict.get('TxOutputStatus%d' % lane)
             rx_output_status_dict = self.get_rx_output_status()
-            for lane in range(1, self.NUM_CHANNELS+1):
-                trans_status['rxoutput_status_hostlane%d' % lane] = rx_output_status_dict['RxOutputStatus%d' % lane]
+            if rx_output_status_dict:
+                for lane in range(1, self.NUM_CHANNELS+1):
+                    trans_status['rxoutput_status_hostlane%d' % lane] = rx_output_status_dict.get('RxOutputStatus%d' % lane)
+            tx_disabled_channel = self.get_tx_disable_channel()
+            if tx_disabled_channel is not None:
+                trans_status['tx_disabled_channel'] = tx_disabled_channel
+            tx_disable = self.get_tx_disable()
+            if tx_disable is not None:
+                for lane in range(1, self.NUM_CHANNELS+1):
+                    trans_status['tx%ddisable' % lane] = tx_disable[lane - 1]
             tx_fault = self.get_tx_fault()
-            for lane in range(1, self.NUM_CHANNELS+1):
-                trans_status['txfault%d' % lane] = tx_fault[lane - 1]
+            if tx_fault:
+                for lane in range(1, self.NUM_CHANNELS+1):
+                    trans_status['txfault%d' % lane] = tx_fault[lane - 1]
             tx_los = self.get_tx_los()
-            for lane in range(1, self.NUM_CHANNELS+1):
-                trans_status['txlos_hostlane%d' % lane] = tx_los[lane - 1]
+            if tx_los:
+                for lane in range(1, self.NUM_CHANNELS+1):
+                    trans_status['txlos_hostlane%d' % lane] = tx_los[lane - 1]
             tx_lol = self.get_tx_cdr_lol()
-            for lane in range(1, self.NUM_CHANNELS+1):
-                trans_status['txcdrlol_hostlane%d' % lane] = tx_lol[lane - 1]
+            if tx_lol:
+                for lane in range(1, self.NUM_CHANNELS+1):
+                    trans_status['txcdrlol_hostlane%d' % lane] = tx_lol[lane - 1]
             rx_los = self.get_rx_los()
-            for lane in range(1, self.NUM_CHANNELS+1):
-                trans_status['rxlos%d' % lane] = rx_los[lane - 1]
+            if rx_los:
+                for lane in range(1, self.NUM_CHANNELS+1):
+                    trans_status['rxlos%d' % lane] = rx_los[lane - 1]
             rx_lol = self.get_rx_cdr_lol()
-            for lane in range(1, self.NUM_CHANNELS+1):
-                trans_status['rxcdrlol%d' % lane] = rx_lol[lane - 1]
+            if rx_lol:
+                for lane in range(1, self.NUM_CHANNELS+1):
+                    trans_status['rxcdrlol%d' % lane] = rx_lol[lane - 1]
             config_status_dict = self.get_config_datapath_hostlane_status()
-            for lane in range(1, self.NUM_CHANNELS+1):
-                trans_status['config_state_hostlane%d' % lane] = config_status_dict['ConfigStatusLane%d' % lane]
+            if config_status_dict:
+                for lane in range(1, self.NUM_CHANNELS+1):
+                    trans_status['config_state_hostlane%d' % lane] = config_status_dict.get('ConfigStatusLane%d' % lane)
             dpinit_pending_dict = self.get_dpinit_pending()
-            for lane in range(1, self.NUM_CHANNELS+1):
-                trans_status['dpinit_pending_hostlane%d' % lane] = dpinit_pending_dict['DPInitPending%d' % lane]
+            if dpinit_pending_dict:
+                for lane in range(1, self.NUM_CHANNELS+1):
+                    trans_status['dpinit_pending_hostlane%d' % lane] = dpinit_pending_dict.get('DPInitPending%d' % lane)
             tx_power_flag_dict = self.get_tx_power_flag()
-            for lane in range(1, self.NUM_CHANNELS+1):
-                trans_status['txpowerhighalarm_flag%d' % lane] = tx_power_flag_dict['tx_power_high_alarm']['TxPowerHighAlarmFlag%d' % lane]
-                trans_status['txpowerlowalarm_flag%d' % lane] = tx_power_flag_dict['tx_power_low_alarm']['TxPowerLowAlarmFlag%d' % lane]
-                trans_status['txpowerhighwarning_flag%d' % lane] = tx_power_flag_dict['tx_power_high_warn']['TxPowerHighWarnFlag%d' % lane]
-                trans_status['txpowerlowwarning_flag%d' % lane] = tx_power_flag_dict['tx_power_low_warn']['TxPowerLowWarnFlag%d' % lane]
+            if tx_power_flag_dict:
+                for lane in range(1, self.NUM_CHANNELS+1):
+                    trans_status['txpowerhighalarm_flag%d' % lane] = tx_power_flag_dict['tx_power_high_alarm']['TxPowerHighAlarmFlag%d' % lane]
+                    trans_status['txpowerlowalarm_flag%d' % lane] = tx_power_flag_dict['tx_power_low_alarm']['TxPowerLowAlarmFlag%d' % lane]
+                    trans_status['txpowerhighwarning_flag%d' % lane] = tx_power_flag_dict['tx_power_high_warn']['TxPowerHighWarnFlag%d' % lane]
+                    trans_status['txpowerlowwarning_flag%d' % lane] = tx_power_flag_dict['tx_power_low_warn']['TxPowerLowWarnFlag%d' % lane]
             rx_power_flag_dict = self.get_rx_power_flag()
-            for lane in range(1, self.NUM_CHANNELS+1):
-                trans_status['rxpowerhighalarm_flag%d' % lane] = rx_power_flag_dict['rx_power_high_alarm']['RxPowerHighAlarmFlag%d' % lane]
-                trans_status['rxpowerlowalarm_flag%d' % lane] = rx_power_flag_dict['rx_power_low_alarm']['RxPowerLowAlarmFlag%d' % lane]
-                trans_status['rxpowerhighwarning_flag%d' % lane] = rx_power_flag_dict['rx_power_high_warn']['RxPowerHighWarnFlag%d' % lane]
-                trans_status['rxpowerlowwarning_flag%d' % lane] = rx_power_flag_dict['rx_power_low_warn']['RxPowerLowWarnFlag%d' % lane]
+            if rx_power_flag_dict:
+                for lane in range(1, self.NUM_CHANNELS+1):
+                    trans_status['rxpowerhighalarm_flag%d' % lane] = rx_power_flag_dict['rx_power_high_alarm']['RxPowerHighAlarmFlag%d' % lane]
+                    trans_status['rxpowerlowalarm_flag%d' % lane] = rx_power_flag_dict['rx_power_low_alarm']['RxPowerLowAlarmFlag%d' % lane]
+                    trans_status['rxpowerhighwarning_flag%d' % lane] = rx_power_flag_dict['rx_power_high_warn']['RxPowerHighWarnFlag%d' % lane]
+                    trans_status['rxpowerlowwarning_flag%d' % lane] = rx_power_flag_dict['rx_power_low_warn']['RxPowerLowWarnFlag%d' % lane]
             tx_bias_flag_dict = self.get_tx_bias_flag()
-            for lane in range(1, self.NUM_CHANNELS+1):
-                trans_status['txbiashighalarm_flag%d' % lane] = tx_bias_flag_dict['tx_bias_high_alarm']['TxBiasHighAlarmFlag%d' % lane]
-                trans_status['txbiaslowalarm_flag%d' % lane] = tx_bias_flag_dict['tx_bias_low_alarm']['TxBiasLowAlarmFlag%d' % lane]
-                trans_status['txbiashighwarning_flag%d' % lane] = tx_bias_flag_dict['tx_bias_high_warn']['TxBiasHighWarnFlag%d' % lane]
-                trans_status['txbiaslowwarning_flag%d' % lane] = tx_bias_flag_dict['tx_bias_low_warn']['TxBiasLowWarnFlag%d' % lane]
+            if tx_bias_flag_dict:
+                for lane in range(1, self.NUM_CHANNELS+1):
+                    trans_status['txbiashighalarm_flag%d' % lane] = tx_bias_flag_dict['tx_bias_high_alarm']['TxBiasHighAlarmFlag%d' % lane]
+                    trans_status['txbiaslowalarm_flag%d' % lane] = tx_bias_flag_dict['tx_bias_low_alarm']['TxBiasLowAlarmFlag%d' % lane]
+                    trans_status['txbiashighwarning_flag%d' % lane] = tx_bias_flag_dict['tx_bias_high_warn']['TxBiasHighWarnFlag%d' % lane]
+                    trans_status['txbiaslowwarning_flag%d' % lane] = tx_bias_flag_dict['tx_bias_low_warn']['TxBiasLowWarnFlag%d' % lane]
             self.vdm_dict = self.get_vdm()
             try:
                 trans_status['prefecberhighalarm_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][5]
@@ -1909,6 +1996,8 @@ class CmisApi(XcvrApi):
         ret = {}
         # Read the application advertisment in lower memory
         dic = self.xcvr_eeprom.read(consts.APPLS_ADVT_FIELD)
+        if not dic:
+            return ret
 
         if not self.is_flat_memory():
             # Read the application advertisement in page01
@@ -1932,7 +2021,7 @@ class CmisApi(XcvrApi):
                 break
             key = "{}_{}".format(prefix, app)
             val = dic.get(key)
-            if val in [None, 'Unknown', 'Undefined']:
+            if val in [None, 'Unknown']:
                 break
             buf['module_media_interface_id'] = val
 

@@ -1,6 +1,7 @@
 from mock import MagicMock, patch
 import pytest
-
+import random
+import traceback
 
 from sonic_platform_base.sonic_xcvr.api.public.sff8636 import Sff8636Api
 from sonic_platform_base.sonic_xcvr.codes.public.sff8636 import Sff8636Codes
@@ -25,6 +26,7 @@ class TestSff8636(object):
         self.api.get_transceiver_info()
         self.api.get_transceiver_bulk_status()
         self.api.get_transceiver_threshold_info()
+        self.api.get_transceiver_status()
         self.api.get_rx_los()
         self.api.get_tx_fault()
         self.api.get_tx_disable()
@@ -106,6 +108,23 @@ class TestSff8636(object):
             assert not self.api.get_rx_power_support()
             assert not self.api.get_temperature_support()
             assert not self.api.get_voltage_support()
+
+    def test_random_read_fail(self):
+        def mock_read_raw(offset, size):
+            i = random.randint(0, 1)
+            return None if i == 0 else b'0' * size
+
+        self.api.xcvr_eeprom.reader = mock_read_raw
+
+        run_num = 5
+        while run_num > 0:
+            try:
+                self.api.get_transceiver_bulk_status()
+                self.api.get_transceiver_info()
+                self.api.get_transceiver_threshold_info()
+            except:
+                assert 0, traceback.format_exc()
+            run_num -= 1
 
     def test_get_lpmode(self):
         self.api.get_lpmode_support = MagicMock()
