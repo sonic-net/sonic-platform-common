@@ -166,7 +166,7 @@ class SsdUtil(SsdBase):
                 self.health = NOT_AVAILABLE
             else:
                 self.health = health_raw.split()[-1]
-            temp_raw = self.parse_id_number(INNODISK_TEMPERATURE_ID)
+            temp_raw = self.parse_id_number(SWISSBIT_TEMPERATURE_ID)
             if temp_raw == NOT_AVAILABLE:
                 self.temperature = NOT_AVAILABLE
             else:
