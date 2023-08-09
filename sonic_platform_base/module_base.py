@@ -66,8 +66,8 @@ class ModuleBase(device_base.DeviceBase):
         # List of ThermalBase-derived objects representing all thermals
         # available on the module
         self._thermal_list = []
-        self._vsensor_list = []
-        self._isensor_list = []
+        self._voltage_sensor_list = []
+        self._current_sensor_list = []
 
         # List of SfpBase-derived objects representing all sfps
         # available on the module
@@ -378,26 +378,26 @@ class ModuleBase(device_base.DeviceBase):
     # Voltage Sensor methods
     ##############################################
 
-    def get_num_vsensors(self):
+    def get_num_voltage_sensors(self):
         """
         Retrieves the number of voltage sensors available on this module
 
         Returns:
             An integer, the number of voltage sensors available on this module
         """
-        return len(self._vsensor_list)
+        return len(self._voltage_sensor_list)
 
-    def get_all_vsensors(self):
+    def get_all_voltage_sensors(self):
         """
         Retrieves all voltage sensors available on this module
 
         Returns:
-            A list of objects derived from VsensorBase representing all voltage
+            A list of objects derived from VoltageSensorBase representing all voltage
             sensors available on this module
         """
-        return self._vsensor_list
+        return self._voltage_sensor_list
 
-    def get_vsensor(self, index):
+    def get_voltage_sensor(self, index):
         """
         Retrieves voltage sensor unit represented by (0-based) index <index>
 
@@ -406,62 +406,62 @@ class ModuleBase(device_base.DeviceBase):
             retrieve
 
         Returns:
-            An object dervied from VsensorBase representing the specified voltage
+            An object derived from VoltageSensorBase representing the specified voltage
             sensor
         """
-        vsensor = None
+        voltage_sensor = None
 
         try:
-            vsensor = self._vsensor_list[index]
+            voltage_sensor = self._voltage_sensor_list[index]
         except IndexError:
             sys.stderr.write("Voltage sensor index {} out of range (0-{})\n".format(
-                             index, len(self._vsensor_list)-1))
+                             index, len(self._voltage_sensor_list)-1))
 
-        return vsensor
+        return voltage_sensor
 
     ##############################################
     # Current sensor methods
     ##############################################
 
-    def get_num_Isensors(self):
+    def get_num_CurrentSensors(self):
         """
-        Retrieves the number of Current sensors available on this module
+        Retrieves the number of current sensors available on this module
 
         Returns:
-            An integer, the number of Current sensors available on this module
+            An integer, the number of current sensors available on this module
         """
-        return len(self._Isensor_list)
+        return len(self._current_sensor_list)
 
-    def get_all_isensors(self):
+    def get_all_current_sensors(self):
         """
         Retrieves all current sensors available on this module
 
         Returns:
-            A list of objects derived from IsensorBase representing all current
+            A list of objects derived from CurrentSensorBase representing all current
             sensors available on this module
         """
-        return self._isensor_list
+        return self._current_sensor_list
 
-    def get_isensor(self, index):
+    def get_current_sensor(self, index):
         """
-        Retrieves Current sensor object represented by (0-based) index <index>
+        Retrieves current sensor object represented by (0-based) index <index>
 
         Args:
             index: An integer, the index (0-based) of the current sensor to
             retrieve
 
         Returns:
-            An object dervied from IsensorBase representing the specified isensor
+            An object derived from CurrentSensorBase representing the specified current_sensor
         """
-        isensor = None
+        current_sensor = None
 
         try:
-            isensor = self._isensor_list[index]
+            current_sensor = self._current_sensor_list[index]
         except IndexError:
             sys.stderr.write("Current sensor index {} out of range (0-{})\n".format(
-                             index, len(self._isensor_list)-1))
+                             index, len(self._current_sensor_list)-1))
 
-        return isensor
+        return current_sensor
 
     ##############################################
     # SFP methods

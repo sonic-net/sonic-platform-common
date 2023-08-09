@@ -64,7 +64,7 @@ class SensorBase(device_base.DeviceBase):
         """
         Sets the high threshold value of sensor
 
-        Args :
+        Args:
             value: High threshold value to set
 
         Returns:
@@ -76,7 +76,7 @@ class SensorBase(device_base.DeviceBase):
         """
         Sets the low threshold value of sensor
 
-        Args :
+        Args:
             value: Value 
 
         Returns:
@@ -106,7 +106,7 @@ class SensorBase(device_base.DeviceBase):
         """
         Sets the critical high threshold value of sensor
 
-        Args :
+        Args:
             value: Critical high threshold Value 
 
         Returns:
@@ -118,7 +118,7 @@ class SensorBase(device_base.DeviceBase):
         """
         Sets the critical low threshold value of sensor
 
-        Args :
+        Args:
             value: Critial low threshold Value 
 
         Returns:
@@ -146,7 +146,7 @@ class SensorBase(device_base.DeviceBase):
 
 
 
-class VsensorBase(SensorBase):
+class VoltageSensorBase(SensorBase):
     """
     Abstract base class for interfacing with a voltage sensor module
     """
@@ -159,7 +159,7 @@ class VsensorBase(SensorBase):
         return MILLI_VOLTS
 
 
-class IsensorBase(SensorBase):
+class CurrentSensorBase(SensorBase):
     """
     Abstract base class for interfacing with a current sensor module
     """
