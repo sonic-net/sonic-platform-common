@@ -205,10 +205,6 @@ class TestSff8436(object):
     @pytest.mark.parametrize("mock_response, expected",[
         (
             [
-                [False, False, False, False],
-                [False, False, False, False],
-                [False, False, False, False],
-                0,
                 50,
                 3.3,
                 [70, 70, 70, 70],
@@ -222,44 +218,32 @@ class TestSff8436(object):
                 'tx1power': -10.0, 'tx2power': -10.0, 'tx3power': -10.0, 'tx4power': -10.0,
                 'rx1power': -10.0, 'rx2power': -10.0, 'rx3power': -10.0, 'rx4power': -10.0,
                 'tx1bias': 70, 'tx2bias': 70, 'tx3bias': 70, 'tx4bias': 70,
-                'rx_los': False,
-                'tx_fault': False,
-                'tx_disable': False,
-                'tx_disabled_channel': 0,
             }
         )
     ])
     def test_get_transceiver_bulk_status(self, mock_response, expected):
-        self.api.get_rx_los = MagicMock()
-        self.api.get_rx_los.return_value = mock_response[0]
-        self.api.get_tx_fault = MagicMock()
-        self.api.get_tx_fault.return_value = mock_response[1]
-        self.api.get_tx_disable = MagicMock()
-        self.api.get_tx_disable.return_value = mock_response[2]
-        self.api.get_tx_disable_channel = MagicMock()
-        self.api.get_tx_disable_channel.return_value = mock_response[3]
         self.api.get_module_temperature = MagicMock()
-        self.api.get_module_temperature.return_value = mock_response[4]
+        self.api.get_module_temperature.return_value = mock_response[0]
         self.api.get_voltage = MagicMock()
-        self.api.get_voltage.return_value = mock_response[5]
+        self.api.get_voltage.return_value = mock_response[1]
         self.api.get_tx_bias = MagicMock()
-        self.api.get_tx_bias.return_value = mock_response[6]
+        self.api.get_tx_bias.return_value = mock_response[2]
         self.api.get_rx_power = MagicMock()
-        self.api.get_rx_power.return_value = mock_response[7]
+        self.api.get_rx_power.return_value = mock_response[3]
         self.api.get_tx_power = MagicMock()
-        self.api.get_tx_power.return_value = mock_response[8]
+        self.api.get_tx_power.return_value = mock_response[4]
         self.api.get_rx_los_support = MagicMock()
-        self.api.get_rx_los_support.return_value = mock_response[9]
+        self.api.get_rx_los_support.return_value = mock_response[5]
         self.api.get_tx_fault_support = MagicMock()
-        self.api.get_tx_fault_support.return_value = mock_response[10]
+        self.api.get_tx_fault_support.return_value = mock_response[6]
         self.api.get_tx_disable_support = MagicMock()
-        self.api.get_tx_disable_support.return_value = mock_response[11]
+        self.api.get_tx_disable_support.return_value = mock_response[7]
         self.api.get_tx_bias_support = MagicMock()
-        self.api.get_tx_bias_support.return_value = mock_response[12]
+        self.api.get_tx_bias_support.return_value = mock_response[8]
         self.api.get_tx_power_support = MagicMock()
-        self.api.get_tx_power_support.return_value = mock_response[13]
+        self.api.get_tx_power_support.return_value = mock_response[9]
         self.api.get_rx_power_support = MagicMock()
-        self.api.get_rx_power_support.return_value = mock_response[14]
+        self.api.get_rx_power_support.return_value = mock_response[10]
         result = self.api.get_transceiver_bulk_status()
         assert result == expected
 
