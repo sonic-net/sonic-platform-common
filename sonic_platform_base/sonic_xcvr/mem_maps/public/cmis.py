@@ -11,6 +11,7 @@ from ...fields.xcvr_field import (
     HexRegField,
     NumberRegField,
     RegBitField,
+    RegBitsField,
     RegGroupField,
     StringRegField,
 )
@@ -504,31 +505,93 @@ class CmisMemMap(XcvrMemMap):
         )
 
         self.STAGED_CTRL0_TX_RX_CTRL = RegGroupField(consts.STAGED_CTRL0_TX_RX_CTRL_FIELD,
-            NumberRegField(consts.ADAPTIVE_INPUT_EQ_ENABLE_TX, self.getaddr(0x10, 153), ro=False),
-            NumberRegField(consts.ADAPTIVE_INPUT_EQ_RECALLED_TX1_4, self.getaddr(0x10, 154), ro=False),
-            NumberRegField(consts.ADAPTIVE_INPUT_EQ_RECALLED_TX5_8, self.getaddr(0x10, 155), ro=False),
-            RegGroupField(consts.FIXED_INPUT_EQ_TARGET_TX,
-                *(NumberRegField("%s%d" % (consts.FIXED_INPUT_EQ_TARGET_TX, lane) , self.getaddr(0x10, 156 + int((lane-1)/2)), ro=False,
-                    *(RegBitField("Bit%d" % bit, bit) for bit in [range(4, 8), range(0, 4)][lane%2]))
+            NumberRegField(consts.ADAPTIVE_INPUT_EQ_ENABLE_TX, self.getaddr(0x10, 153),
+                *(RegBitsField(consts.ADAPTIVE_INPUT_EQ_ENABLE_TX + str(lane), bitpos=(lane-1), ro=False, size=1)
                 for lane in range(1, 9))
             ),
-            NumberRegField(consts.CDR_ENABLE_TX, self.getaddr(0x10, 160), ro=False),
-            NumberRegField(consts.CDR_ENABLE_RX, self.getaddr(0x10, 161), ro=False),
-            RegGroupField(consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX,
-                *(NumberRegField("%s%d" % (consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX, lane) , self.getaddr(0x10, 162 + int((lane-1)/2)), ro=False,
-                    *(RegBitField("Bit%d" % bit, bit) for bit in [range(4, 8), range(0, 4)][lane%2]))
+            NumberRegField(consts.ADAPTIVE_INPUT_EQ_RECALLED_TX1_4, self.getaddr(0x10, 154),
+                RegBitsField(consts.ADAPTIVE_INPUT_EQ_RECALLED_TX1, bitpos=0, ro=False, size=2),
+                RegBitsField(consts.ADAPTIVE_INPUT_EQ_RECALLED_TX2, bitpos=2, ro=False, size=2),
+                RegBitsField(consts.ADAPTIVE_INPUT_EQ_RECALLED_TX3, bitpos=4, ro=False, size=2),
+                RegBitsField(consts.ADAPTIVE_INPUT_EQ_RECALLED_TX4, bitpos=6, ro=False, size=2),
+            ),
+            NumberRegField(consts.ADAPTIVE_INPUT_EQ_RECALLED_TX5_8, self.getaddr(0x10, 155),
+                RegBitsField(consts.ADAPTIVE_INPUT_EQ_RECALLED_TX5, bitpos=0, ro=False, size=2),
+                RegBitsField(consts.ADAPTIVE_INPUT_EQ_RECALLED_TX6, bitpos=2, ro=False, size=2),
+                RegBitsField(consts.ADAPTIVE_INPUT_EQ_RECALLED_TX7, bitpos=4, ro=False, size=2),
+                RegBitsField(consts.ADAPTIVE_INPUT_EQ_RECALLED_TX8, bitpos=6, ro=False, size=2),
+            ),
+            NumberRegField(consts.FIXED_INPUT_EQ_TARGET_TX1_2, self.getaddr(0x10, 156),
+                RegBitsField(consts.FIXED_INPUT_EQ_TARGET_TX1, bitpos=0, ro=False, size=4),
+                RegBitsField(consts.FIXED_INPUT_EQ_TARGET_TX2, bitpos=4, ro=False, size=4)
+            ),
+            NumberRegField(consts.FIXED_INPUT_EQ_TARGET_TX3_4, self.getaddr(0x10, 157),
+                RegBitsField(consts.FIXED_INPUT_EQ_TARGET_TX3, bitpos=0, ro=False, size=4),
+                RegBitsField(consts.FIXED_INPUT_EQ_TARGET_TX4, bitpos=4, ro=False, size=4)
+            ),
+            NumberRegField(consts.FIXED_INPUT_EQ_TARGET_TX5_6, self.getaddr(0x10, 158),
+                RegBitsField(consts.FIXED_INPUT_EQ_TARGET_TX5, bitpos=0, ro=False, size=4),
+                RegBitsField(consts.FIXED_INPUT_EQ_TARGET_TX6, bitpos=4, ro=False, size=4)
+            ),
+            NumberRegField(consts.FIXED_INPUT_EQ_TARGET_TX7_8, self.getaddr(0x10, 159),
+                RegBitsField(consts.FIXED_INPUT_EQ_TARGET_TX7, bitpos=0, ro=False, size=4),
+                RegBitsField(consts.FIXED_INPUT_EQ_TARGET_TX8, bitpos=4, ro=False, size=4)
+            ),
+            NumberRegField(consts.CDR_ENABLE_TX, self.getaddr(0x10, 160),
+                *(RegBitsField(consts.CDR_ENABLE_TX + str(lane), bitpos=(lane-1), ro=False, size=1)
                 for lane in range(1, 9))
             ),
-            RegGroupField(consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX,
-                *(NumberRegField("%s%d" % (consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX, lane) , self.getaddr(0x10, 166 + int((lane-1)/2)), ro=False,
-                    *(RegBitField("Bit%d" % bit, bit) for bit in [range(4, 8), range(0, 4)][lane%2]))
+            NumberRegField(consts.CDR_ENABLE_RX, self.getaddr(0x10, 161),
+                *(RegBitsField(consts.CDR_ENABLE_RX + str(lane), bitpos=(lane-1), ro=False, size=1)
                 for lane in range(1, 9))
             ),
-
-            RegGroupField(consts.OUTPUT_AMPLITUDE_TARGET_RX,
-                *(NumberRegField("%s%d" % (consts.OUTPUT_AMPLITUDE_TARGET_RX, lane) , self.getaddr(0x10, 170 + int((lane-1)/2)), ro=False,
-                    *(RegBitField("Bit%d" % bit, bit) for bit in [range(4, 8), range(0, 4)][lane%2]))
-                for lane in range(1, 9))
+            NumberRegField(consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX1_2, self.getaddr(0x10, 162),
+                RegBitsField(consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX1, bitpos=0, ro=False, size=4),
+                RegBitsField(consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX2, bitpos=4, ro=False, size=4)
+            ),
+            NumberRegField(consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX3_4, self.getaddr(0x10, 163),
+                RegBitsField(consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX3, bitpos=0, ro=False, size=4),
+                RegBitsField(consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX4, bitpos=4, ro=False, size=4)
+            ),
+            NumberRegField(consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX5_6, self.getaddr(0x10, 164),
+                RegBitsField(consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX5, bitpos=0, ro=False, size=4),
+                RegBitsField(consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX6, bitpos=4, ro=False, size=4)
+            ),
+            NumberRegField(consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX7_8, self.getaddr(0x10, 165),
+                RegBitsField(consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX7, bitpos=0, ro=False, size=4),
+                RegBitsField(consts.OUTPUT_EQ_PRE_CURSOR_TARGET_RX8, bitpos=4, ro=False, size=4)
+            ),
+            NumberRegField(consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX1_2, self.getaddr(0x10, 166),
+                RegBitsField(consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX1, bitpos=0, ro=False, size=4),
+                RegBitsField(consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX2, bitpos=4, ro=False, size=4)
+            ),
+            NumberRegField(consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX3_4, self.getaddr(0x10, 167),
+                RegBitsField(consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX3, bitpos=0, ro=False, size=4),
+                RegBitsField(consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX4, bitpos=4, ro=False, size=4)
+            ),
+            NumberRegField(consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX5_6, self.getaddr(0x10, 168),
+                RegBitsField(consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX5, bitpos=0, ro=False, size=4),
+                RegBitsField(consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX6, bitpos=4, ro=False, size=4)
+            ),
+            NumberRegField(consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX7_8, self.getaddr(0x10, 169),
+                RegBitsField(consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX7, bitpos=0, ro=False, size=4),
+                RegBitsField(consts.OUTPUT_EQ_POST_CURSOR_TARGET_RX8, bitpos=4, ro=False, size=4)
+            ),
+            NumberRegField(consts.OUTPUT_AMPLITUDE_TARGET_RX1_2, self.getaddr(0x10, 170),
+                RegBitsField(consts.OUTPUT_AMPLITUDE_TARGET_RX1, bitpos=0, ro=False, size=4),
+                RegBitsField(consts.OUTPUT_AMPLITUDE_TARGET_RX2, bitpos=4, ro=False, size=4)
+            ),
+            NumberRegField(consts.OUTPUT_AMPLITUDE_TARGET_RX3_4, self.getaddr(0x10, 171),
+                RegBitsField(consts.OUTPUT_AMPLITUDE_TARGET_RX3, bitpos=0, ro=False, size=4),
+                RegBitsField(consts.OUTPUT_AMPLITUDE_TARGET_RX4, bitpos=4, ro=False, size=4)
+            ),
+            NumberRegField(consts.OUTPUT_AMPLITUDE_TARGET_RX5_6, self.getaddr(0x10, 172),
+                RegBitsField(consts.OUTPUT_AMPLITUDE_TARGET_RX5, bitpos=0, ro=False, size=4),
+                RegBitsField(consts.OUTPUT_AMPLITUDE_TARGET_RX6, bitpos=4, ro=False, size=4)
+            ),
+            NumberRegField(consts.OUTPUT_AMPLITUDE_TARGET_RX7_8, self.getaddr(0x10, 173),
+                RegBitsField(consts.OUTPUT_AMPLITUDE_TARGET_RX7, bitpos=0, ro=False, size=4),
+                RegBitsField(consts.OUTPUT_AMPLITUDE_TARGET_RX8, bitpos=4, ro=False, size=4)
             ),
         )
 
