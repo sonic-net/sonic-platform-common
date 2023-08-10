@@ -23,6 +23,8 @@ NOT_AVAILABLE = "N/A"
 # Set Vendor Specific IDs
 INNODISK_HEALTH_ID = 169
 INNODISK_TEMPERATURE_ID = 194
+SWISSBIT_HEALTH_ID = 248
+SWISSBIT_TEMPERATURE_ID = 194
 
 class SsdUtil(SsdBase):
     """
@@ -42,7 +44,8 @@ class SsdUtil(SsdBase):
             "InnoDisk" : { "utility" : INNODISK, "parser" : self.parse_innodisk_info },
             "M.2"      : { "utility" : INNODISK, "parser" : self.parse_innodisk_info },
             "StorFly"  : { "utility" : VIRTIUM,  "parser" : self.parse_virtium_info },
-            "Virtium"  : { "utility" : VIRTIUM,  "parser" : self.parse_virtium_info }
+            "Virtium"  : { "utility" : VIRTIUM,  "parser" : self.parse_virtium_info },
+            "Swissbit" : { "utility" : SMARTCTL, "parser" : self.parse_swissbit_info },
         }
 
         self.dev = diskdev
@@ -78,6 +81,8 @@ class SsdUtil(SsdBase):
             return model_short
         elif self.model.startswith('VSF'):
             return 'Virtium'
+        elif self.model.startswith('SFS'):
+            return 'Swissbit'
         else:
             return None
 
@@ -124,7 +129,7 @@ class SsdUtil(SsdBase):
         if self.vendor_ssd_info:
             self.health = self._parse_re('Health:\s*(.+?)%', self.vendor_ssd_info)
             self.temperature = self._parse_re('Temperature\s*\[\s*(.+?)\]', self.vendor_ssd_info)
-        
+
         if self.health == NOT_AVAILABLE:
             health_raw = self.parse_id_number(INNODISK_HEALTH_ID)
             if health_raw == NOT_AVAILABLE:
@@ -153,7 +158,20 @@ class SsdUtil(SsdBase):
                     self.health = float(self._parse_re('Remaining_Life_Left\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info))
                 except ValueError:
                     pass
-        
+
+    def parse_swissbit_info(self):
+        if self.ssd_info:
+            health_raw = self.parse_id_number(SWISSBIT_HEALTH_ID)
+            if health_raw == NOT_AVAILABLE:
+                self.health = NOT_AVAILABLE
+            else:
+                self.health = health_raw.split()[-1]
+            temp_raw = self.parse_id_number(SWISSBIT_TEMPERATURE_ID)
+            if temp_raw == NOT_AVAILABLE:
+                self.temperature = NOT_AVAILABLE
+            else:
+                self.temperature = temp_raw.split()[-3]
+
     def fetch_vendor_ssd_info(self, diskdev, model):
         self.vendor_ssd_info = self._execute_shell(self.vendor_ssd_utility[model]["utility"].format(diskdev))
 
