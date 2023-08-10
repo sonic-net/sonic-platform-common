@@ -2310,7 +2310,7 @@ class CmisApi(XcvrApi):
                 continue
             lane = lane+1
             si_param_lane = "{}{}".format(consts.FIXED_INPUT_EQ_TARGET_TX, lane)
-            si_param_lane_val = si_settings[si_param_lane]
+            si_param_lane_val = si_settings_dict[si_param_lane]
             if si_param_lane_val is None or si_param_lane_val > tx_fixed_input:
                 return False
             if not self.xcvr_eeprom.write(si_param_lane, si_param_lane_val):
