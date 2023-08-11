@@ -2102,7 +2102,7 @@ class CmisApi(XcvrApi):
             data|= ec
             self.xcvr_eeprom.write(addr, data)
 
-    def stage_datapath_init(self, channel):
+    def scs_apply_datapath_init(self, channel):
         '''
         This function applies DataPathInit
         '''
@@ -2317,7 +2317,7 @@ class CmisApi(XcvrApi):
                 return False
         return True
 
-    def stage_adaptive_input_recall_tx(self, host_lanes_mask, si_settings_dict):
+    def stage_adaptive_input_eq_recall_tx(self, host_lanes_mask, si_settings_dict):
         '''
         This function applies adaptive TX input recall si settings.
         '''
@@ -2380,7 +2380,7 @@ class CmisApi(XcvrApi):
                         return False
             elif si_param == consts.ADAPTIVE_INPUT_EQ_RECALLED_TX:
                 if self.get_tx_input_recall_buf1_supported() or self.get_tx_input_recall_buf2_supported():
-                    if not self.stage_adaptive_input_recall_tx(host_lanes_mask, si_settings_dict[si_param]):
+                    if not self.stage_adaptive_input_eq_recall_tx(host_lanes_mask, si_settings_dict[si_param]):
                         return False
             elif si_param == consts.ADAPTIVE_INPUT_EQ_ENABLE_TX:
                 if self.get_tx_input_adaptive_eq_supported():
