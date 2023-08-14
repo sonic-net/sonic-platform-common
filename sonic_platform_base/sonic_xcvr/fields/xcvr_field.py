@@ -20,6 +20,7 @@ class XcvrField(object):
         self.offset = offset
         self.ro = kwargs.get("ro", True)
         self.deps = kwargs.get("deps", [])
+        self.bitmask = None
 
     def get_fields(self):
         """
@@ -86,6 +87,7 @@ class RegBitField(XcvrField):
         super(RegBitField, self).__init__(name, offset, **kwargs)
         assert bitpos < 64
         self.bitpos = bitpos
+        self.bitmask = 1 << self.bitpos
 
     def get_size(self):
         return 1
@@ -115,7 +117,7 @@ class RegBitsField(XcvrField):
     def __init__(self, name, bitpos, offset=None, **kwargs):
         super(RegBitsField, self).__init__(name, offset, **kwargs)
         self.size = self.size = kwargs.get("size", 1) #No of bits
-        assert (bitpos >= 0 and (bitpos+self.size-1 < 8), "bitpos must be within one byte")
+        assert bitpos >= 0 and bitpos+self.size <= 8, "bitpos must be within one byte"
         self.bitpos = bitpos
         self.bitmask = (((1 << self.size) - 1) << self.bitpos) & 0xff
 
@@ -159,7 +161,7 @@ class RegField(XcvrField):
             return None
         mask = 0
         for field in self.fields:
-            mask |= 1 << field.bitpos
+            mask |= field.bitmask
         return mask
 
     def get_size(self):
