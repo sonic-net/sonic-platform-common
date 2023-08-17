@@ -104,8 +104,8 @@ class Sff8472Api(XcvrApi):
 
         for i in range(1, self.NUM_CHANNELS + 1):
             bulk_status["tx%dbias" % i] = tx_bias[i - 1]
-            bulk_status["rx%dpower" % i] = rx_power[i - 1]
-            bulk_status["tx%dpower" % i] = tx_power[i - 1]
+            bulk_status["rx%dpower" % i] = self.mw_to_dbm(rx_power[i - 1]) if rx_power[i - 1] != 'N/A' else 'N/A'
+            bulk_status["tx%dpower" % i] = self.mw_to_dbm(tx_power[i - 1]) if tx_power[i - 1] != 'N/A' else 'N/A'
 
         # Added to avoid failing xcvrd. Ideally xcvrd should be fixed so that this is not necessary
         for i in range(2, 5):
