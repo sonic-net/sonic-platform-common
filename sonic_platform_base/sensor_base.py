@@ -7,17 +7,15 @@
 
 from . import device_base
 
-SENSOR_TYPE_VOLTAGE = 1
-SENSOR_TYPE_CURRENT = 2
-
 class SensorBase(device_base.DeviceBase):
     """
     Abstract base class for interfacing with a sensor module
     """
 
-    def get_type(self):
+    @classmethod
+    def get_type(cls):
         """
-        Specifies the type of the sensor.
+        Specifies the type of the sensor such as current/voltage etc.
 
         Returns:
             Sensor type
@@ -33,7 +31,8 @@ class SensorBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
-    def get_unit(self):
+    @classmethod
+    def get_unit(cls):
         """
         Retrieves unit of measurement reported by sensor
 
@@ -150,23 +149,25 @@ class VoltageSensorBase(SensorBase):
     """
     Abstract base class for interfacing with a voltage sensor module
     """
-    MILLI_VOLTS = "mV"
 
-    def get_type(self):
-        return SENSOR_TYPE_VOLTAGE
+    @classmethod
+    def get_type(cls):
+        return "SENSOR_TYPE_VOLTAGE"
 
-    def get_unit(self):
-        return MILLI_VOLTS
+    @classmethod
+    def get_unit(cls):
+        return "mV"
 
 
 class CurrentSensorBase(SensorBase):
     """
     Abstract base class for interfacing with a current sensor module
     """
-    MILLI_AMPS = "mA"
 
-    def get_type(self):
-        return SENSOR_TYPE_CURRENT
+    @classmethod
+    def get_type(cls):
+        return "SENSOR_TYPE_CURRENT"
 
-    def get_unit(self):
-        return MILLI_AMPS
+    @classmethod
+    def get_unit(cls):
+        return "mA"

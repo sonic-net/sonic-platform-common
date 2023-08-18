@@ -423,7 +423,7 @@ class ModuleBase(device_base.DeviceBase):
     # Current sensor methods
     ##############################################
 
-    def get_num_CurrentSensors(self):
+    def get_num_current_sensors(self):
         """
         Retrieves the number of current sensors available on this module
 
