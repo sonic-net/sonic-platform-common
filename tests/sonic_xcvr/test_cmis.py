@@ -1323,10 +1323,6 @@ class TestCmis(object):
     @pytest.mark.parametrize("mock_response, expected",[
         (
             [
-                [False, False, False, False, False, False, False, False],
-                [False, False, False, False, False, False, False, False],
-                [False, False, False, False, False, False, False, False],
-                0,
                 50,
                 3.3,
                 [70, 70, 70, 70, 70, 70, 70, 70],
@@ -1351,11 +1347,6 @@ class TestCmis(object):
                 'rx5power': -10.0, 'rx6power': -10.0, 'rx7power': -10.0, 'rx8power': -10.0,
                 'tx1bias': 70, 'tx2bias': 70, 'tx3bias': 70, 'tx4bias': 70,
                 'tx5bias': 70, 'tx6bias': 70, 'tx7bias': 70, 'tx8bias': 70,
-                'rx_los': False,
-                'tx_fault': False,
-                'tx1disable': False, 'tx2disable': False, 'tx3disable': False, 'tx4disable': False,
-                'tx5disable': False, 'tx6disable': False, 'tx7disable': False, 'tx8disable': False,
-                'tx_disabled_channel': 0,
                 'laser_temperature': 40,
                 'prefec_ber': 0.001,
                 'postfec_ber_min': 0,
@@ -1366,10 +1357,6 @@ class TestCmis(object):
         ),
         (
             [
-                ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
-                ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
-                ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
-                'N/A',
                 50, 3.3,
                 ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
                 None,
@@ -1382,10 +1369,6 @@ class TestCmis(object):
         ),
         (
             [
-                ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
-                ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
-                ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
-                'N/A',
                 50, 3.3,
                 ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
                 ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
@@ -1403,50 +1386,37 @@ class TestCmis(object):
                 'rx5power': 'N/A', 'rx6power': 'N/A', 'rx7power': 'N/A', 'rx8power': 'N/A',
                 'tx1bias': 'N/A', 'tx2bias': 'N/A', 'tx3bias': 'N/A', 'tx4bias': 'N/A',
                 'tx5bias': 'N/A', 'tx6bias': 'N/A', 'tx7bias': 'N/A', 'tx8bias': 'N/A',
-                'rx_los': 'N/A',
-                'tx_fault': 'N/A',
-                'tx1disable': 'N/A', 'tx2disable': 'N/A', 'tx3disable': 'N/A', 'tx4disable': 'N/A',
-                'tx5disable': 'N/A', 'tx6disable': 'N/A', 'tx7disable': 'N/A', 'tx8disable': 'N/A',
-                'tx_disabled_channel': 'N/A',
                 'laser_temperature': 40
             }
         )
     ])
     def test_get_transceiver_bulk_status(self, mock_response, expected):
-        self.api.get_rx_los = MagicMock()
-        self.api.get_rx_los.return_value = mock_response[0]
-        self.api.get_tx_fault = MagicMock()
-        self.api.get_tx_fault.return_value = mock_response[1]
-        self.api.get_tx_disable = MagicMock()
-        self.api.get_tx_disable.return_value = mock_response[2]
-        self.api.get_tx_disable_channel = MagicMock()
-        self.api.get_tx_disable_channel.return_value = mock_response[3]
         self.api.get_module_temperature = MagicMock()
-        self.api.get_module_temperature.return_value = mock_response[4]
+        self.api.get_module_temperature.return_value = mock_response[0]
         self.api.get_voltage = MagicMock()
-        self.api.get_voltage.return_value = mock_response[5]
+        self.api.get_voltage.return_value = mock_response[1]
         self.api.get_tx_bias = MagicMock()
-        self.api.get_tx_bias.return_value = mock_response[6]
+        self.api.get_tx_bias.return_value = mock_response[2]
         self.api.get_rx_power = MagicMock()
-        self.api.get_rx_power.return_value = mock_response[7]
+        self.api.get_rx_power.return_value = mock_response[3]
         self.api.get_tx_power = MagicMock()
-        self.api.get_tx_power.return_value = mock_response[8]
+        self.api.get_tx_power.return_value = mock_response[4]
         self.api.get_rx_los_support = MagicMock()
-        self.api.get_rx_los_support.return_value = mock_response[9]
+        self.api.get_rx_los_support.return_value = mock_response[5]
         self.api.get_tx_fault_support = MagicMock()
-        self.api.get_tx_fault_support.return_value = mock_response[10]
+        self.api.get_tx_fault_support.return_value = mock_response[6]
         self.api.get_tx_disable_support = MagicMock()
-        self.api.get_tx_disable_support.return_value = mock_response[11]
+        self.api.get_tx_disable_support.return_value = mock_response[7]
         self.api.get_tx_bias_support = MagicMock()
-        self.api.get_tx_bias_support.return_value = mock_response[12]
+        self.api.get_tx_bias_support.return_value = mock_response[8]
         self.api.get_tx_power_support = MagicMock()
-        self.api.get_tx_power_support.return_value = mock_response[13]
+        self.api.get_tx_power_support.return_value = mock_response[9]
         self.api.get_rx_power_support = MagicMock()
-        self.api.get_rx_power_support.return_value = mock_response[14]
+        self.api.get_rx_power_support.return_value = mock_response[10]
         self.api.get_laser_temperature = MagicMock()
-        self.api.get_laser_temperature.return_value = mock_response[15]
+        self.api.get_laser_temperature.return_value = mock_response[11]
         self.api.get_vdm = MagicMock()
-        self.api.get_vdm.return_value = mock_response[16]
+        self.api.get_vdm.return_value = mock_response[12]
         result = self.api.get_transceiver_bulk_status()
         assert result == expected
 
@@ -1656,7 +1626,8 @@ class TestCmis(object):
                 {
                     'Pre-FEC BER Average Media Input':{1:[0.001, 0.0125, 0, 0.01, 0, False, False, False, False]},
                     'Errored Frames Average Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
-                }
+                },
+                0, [False, False, False, False, False, False, False, False]
             ],
             {
                 'module_state': 'ModuleReady',
@@ -1688,6 +1659,15 @@ class TestCmis(object):
                 'rxoutput_status_hostlane6': True,
                 'rxoutput_status_hostlane7': True,
                 'rxoutput_status_hostlane8': True,
+                "tx_disabled_channel": 0,
+                "tx1disable": False,
+                "tx2disable": False,
+                "tx3disable": False,
+                "tx4disable": False,
+                "tx5disable": False,
+                "tx6disable": False,
+                "tx7disable": False,
+                "tx8disable": False,
                 'txfault1': False,
                 'txfault2': False,
                 'txfault3': False,
@@ -1890,7 +1870,8 @@ class TestCmis(object):
                 {
                     'Pre-FEC BER Average Media Input':{1:[0.001, 0.0125, 0, 0.01, 0, False, False, False, False]},
                     'Errored Frames Average Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
-                }
+                },
+                None, None
             ],
             {
                 'module_state': 'ModuleReady',
@@ -1949,6 +1930,10 @@ class TestCmis(object):
         self.api.get_tx_bias_flag.return_value = mock_response[18]
         self.api.get_vdm = MagicMock()
         self.api.get_vdm.return_value = mock_response[19]
+        self.api.get_tx_disable_channel = MagicMock()
+        self.api.get_tx_disable_channel.return_value = mock_response[20]
+        self.api.get_tx_disable = MagicMock()
+        self.api.get_tx_disable.return_value = mock_response[21]
         result = self.api.get_transceiver_status()
         assert result == expected
 
