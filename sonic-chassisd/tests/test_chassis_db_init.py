@@ -33,6 +33,8 @@ def test_provision_db():
     chassis_table = provision_db(chassis, log)
 
     fvs = chassis_table.get(CHASSIS_INFO_KEY_TEMPLATE.format(1))
+    if isinstance(fvs, list):
+        fvs = dict(fvs[-1])
     assert serial == fvs[CHASSIS_INFO_SERIAL_FIELD]
     assert model == fvs[CHASSIS_INFO_MODEL_FIELD]
     assert revision == fvs[CHASSIS_INFO_REV_FIELD]

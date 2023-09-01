@@ -9,11 +9,14 @@
 
 try:
     import os
+    import re
     import signal
+    import subprocess
     import sys
     import threading
+    import time
 
-    from sonic_py_common import daemon_base, logger
+    from sonic_py_common import daemon_base, logger, device_info
     from sonic_py_common.task_base import ProcessTaskBase
 
     # If unit testing is occurring, mock swsscommon and module_base
@@ -63,7 +66,11 @@ CHASSIS_MIDPLANE_INFO_NAME_FIELD = 'name'
 CHASSIS_MIDPLANE_INFO_IP_FIELD = 'ip_address'
 CHASSIS_MIDPLANE_INFO_ACCESS_FIELD = 'access'
 
+CHASSIS_MODULE_HOSTNAME_TABLE = 'CHASSIS_MODULE_TABLE'
+CHASSIS_MODULE_INFO_HOSTNAME_FIELD = 'hostname'
+
 CHASSIS_INFO_UPDATE_PERIOD_SECS = 10
+CHASSIS_DB_CLEANUP_MODULE_DOWN_PERIOD = 30 # Minutes
 
 CHASSIS_LOAD_ERROR = 1
 CHASSIS_NOT_SUPPORTED = 2
@@ -189,7 +196,11 @@ class ModuleUpdater(logger.Logger):
         else:
             self.asic_table = swsscommon.Table(self.chassis_state_db, 
                                             CHASSIS_ASIC_INFO_TABLE)
-#
+
+        self.hostname_table = swsscommon.Table(self.chassis_state_db, CHASSIS_MODULE_HOSTNAME_TABLE)
+        self.down_modules = {}
+        self.chassis_app_db_clean_sha = None
+
         self.midplane_initialized = try_get(chassis.init_midplane_switch, default=False)
         if not self.midplane_initialized:
             self.log_error("Chassisd midplane intialization failed")
@@ -251,9 +262,33 @@ class ModuleUpdater(logger.Logger):
                                                   (CHASSIS_MODULE_INFO_SERIAL_FIELD, module_info_dict[CHASSIS_MODULE_INFO_SERIAL_FIELD])])
                 self.module_table.set(key, fvs)
 
+                # Construct key for down_modules dict. Example down_modules key format: LINE-CARD0|<hostname>
+                fvs = self.hostname_table.get(key)
+                if isinstance(fvs, list) and fvs[0] is True:
+                    fvs = dict(fvs[-1])
+                    hostname = fvs[CHASSIS_MODULE_INFO_HOSTNAME_FIELD]
+                    down_module_key = key+'|'+hostname
+                else:
+                    down_module_key = key+'|'
+
                 if module_info_dict[CHASSIS_MODULE_INFO_OPERSTATUS_FIELD] != str(ModuleBase.MODULE_STATUS_ONLINE):
                     notOnlineModules.append(key)
+                    # Record the time when the module down was detected to track the
+                    # module down time. Used for chassis db cleanup for all asics of the module if the module is down for a 
+                    # long time like 30 mins.
+                    # All down modules including supervisor are added to the down modules dictionary. This is to help
+                    # identifying module operational status change. But the clean up will not be attempted for supervisor
+                    if down_module_key not in self.down_modules:
+                        self.log_warning("Module {} went off-line!".format(key))
+                        self.down_modules[down_module_key] = {}
+                        self.down_modules[down_module_key]['down_time'] = time.time()
+                        self.down_modules[down_module_key]['cleaned'] = False
                     continue
+                else:
+                    # Module is operational. Remove it from down time tracking.
+                    if down_module_key in self.down_modules:
+                        self.log_notice("Module {} recovered on-line!".format(key))
+                        del self.down_modules[down_module_key]
 
                 for asic_id, asic in enumerate(module_info_dict[CHASSIS_MODULE_INFO_ASICS]):
                     asic_global_id, asic_pci_addr = asic
@@ -265,6 +300,16 @@ class ModuleUpdater(logger.Logger):
                                                             (CHASSIS_MODULE_INFO_NAME_FIELD, key),
                                                             (CHASSIS_ASIC_ID_IN_MODULE_FIELD, str(asic_id))])
                     self.asic_table.set(asic_key, asic_fvs)
+
+        # In line card push the hostname of the module and num_asics to the chassis state db.
+        # The hostname is used as key to access chassis app db entries 
+        if not self._is_supervisor():
+           hostname_key = "{}{}".format(ModuleBase.MODULE_TYPE_LINE, int(self.my_slot) - 1)
+           hostname = try_get(device_info.get_hostname, default="None")
+           hostname_fvs = swsscommon.FieldValuePairs([(CHASSIS_MODULE_INFO_SLOT_FIELD, self.my_slot), 
+                                                        (CHASSIS_MODULE_INFO_HOSTNAME_FIELD, hostname),
+                                                        (CHASSIS_MODULE_INFO_NUM_ASICS_FIELD, str(len(module_info_dict[CHASSIS_MODULE_INFO_ASICS])))])
+           self.hostname_table.set(hostname_key, hostname_fvs)
 
         # Asics that are on the "not online" modules need to be cleaned up
         asics = list(self.asic_table.getKeys())
@@ -329,10 +374,112 @@ class ModuleUpdater(logger.Logger):
             midplane_ip = try_get(module.get_midplane_ip, default=INVALID_IP)
             midplane_access = try_get(module.is_midplane_reachable, default=False)
 
+            # Generate syslog for the loss of midplane connectivity when midplane connectivity
+            # loss is detected for the first time
+            current_midplane_state = 'False'
+            fvs = self.midplane_table.get(module_key)
+            if isinstance(fvs, list) and fvs[0] is True:
+                fvs = dict(fvs[-1])
+                current_midplane_state = fvs[CHASSIS_MIDPLANE_INFO_ACCESS_FIELD]
+
+            if midplane_access is False and current_midplane_state == 'True':
+                self.log_warning("Module {} lost midplane connectivity".format(module_key))
+            elif midplane_access is True and current_midplane_state == 'False':
+                self.log_notice("Module {} midplane connectivity is up".format(module_key))
+
             # Update db with midplane information
             fvs = swsscommon.FieldValuePairs([(CHASSIS_MIDPLANE_INFO_IP_FIELD, midplane_ip),
                                               (CHASSIS_MIDPLANE_INFO_ACCESS_FIELD, str(midplane_access))])
             self.midplane_table.set(module_key, fvs)
+
+    def _cleanup_chassis_app_db(self, module_host):
+
+        if self.chassis_app_db_clean_sha is None:
+            self.chassis_app_db = daemon_base.db_connect("CHASSIS_APP_DB")
+            self.chassis_app_db_pipe = swsscommon.RedisPipeline(self.chassis_app_db)
+
+            # Lua script for chassis db cleanup for a specific asic
+            # The clean up operation is required to delete only those entries created by
+            # the asic that lost connection. Entries from the following tables are deleted
+            #   (1) SYSTEM_NEIGH
+            #   (2) SYSTEM_INTERFACE
+            #   (3) SYSTEM_LAG_MEMBER_TABLE
+            #   (4) SYSTEM_LAG_TABLE
+            #   (5) The corresponding LAG IDs of the entries from SYSTEM_LAG_TABLE
+            #       SYSTEM_LAG_ID_TABLE and SYSTEM_LAG_ID_SET are adjusted appropriately
+
+            script = "local host = string.gsub(ARGV[1], '%-', '%%-')\n\
+        local dev = ARGV[2]\n\
+        local tables = {'SYSTEM_NEIGH*', 'SYSTEM_INTERFACE*', 'SYSTEM_LAG_MEMBER_TABLE*'}\n\
+        for i = 1, table.getn(tables) do\n\
+            local ps = tables[i] .. '|' .. host .. '|' .. dev\n\
+            local keylist = redis.call('KEYS', tables[i])\n\
+            for j,key in ipairs(keylist) do\n\
+                if string.match(key, ps) ~= nil then\n\
+                    redis.call('DEL', key)\n\
+                end\n\
+            end\n\
+        end\n\
+        local ps = 'SYSTEM_LAG_TABLE*|' .. '(' .. host .. '|' .. dev ..'.*' .. ')'\n\
+        local keylist = redis.call('KEYS', 'SYSTEM_LAG_TABLE*')\n\
+        for j,key in ipairs(keylist) do\n\
+            local lagname = string.match(key, ps)\n\
+            if lagname ~= nil then\n\
+                redis.call('DEL', key)\n\
+                local lagid = redis.call('HGET', 'SYSTEM_LAG_ID_TABLE', lagname)\n\
+                redis.call('SREM', 'SYSTEM_LAG_ID_SET', lagid)\n\
+                redis.call('HDEL', 'SYSTEM_LAG_ID_TABLE', lagname)\n\
+            end\n\
+        end\n\
+        return"
+            self.chassis_app_db_clean_sha = self.chassis_app_db_pipe.loadRedisScript(script)
+
+        # Chassis app db cleanup of all asics of the module
+
+        # Get the module key and host name from down_modules key
+        module, lc = re.split('\|', module_host)
+
+        if lc == '':
+            # Host name is not available for this module. No clean up is needed
+            self.log_notice("Host name is not available for Module {}. Chassis db clean up not done!".format(module))
+            return
+
+        # Get number of asics in the module
+        fvs = self.hostname_table.get(module)
+        if isinstance(fvs, list) and fvs[0] is True:
+            fvs = dict(fvs[-1])
+            num_asics = int(fvs[CHASSIS_MODULE_INFO_NUM_ASICS_FIELD])
+        else:
+            num_asics = 0
+
+        for asic_id in range(0, num_asics):
+            asic = CHASSIS_ASIC+str(asic_id)
+
+            # Cleanup the chassis app db entries using lua script
+            redis_cmd = 'redis-cli -h redis_chassis.server -p 6380 -n 12 EVALSHA ' + self.chassis_app_db_clean_sha + ' 0 ' + lc + ' ' + asic
+            try:
+                subp = subprocess.Popen(redis_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+                subp.communicate()
+                self.log_notice("Cleaned up chassis app db entries for {}({})/{}".format(module, lc, asic))
+            except Exception:
+                self.log_error("Failed to clean up chassis app db entries for {}({})/{}".format(module, lc, asic))
+
+
+    def module_down_chassis_db_cleanup(self):
+        if self._is_supervisor() == False:
+            return
+        time_now = time.time()
+        for module in self.down_modules:
+            if self.down_modules[module]['cleaned'] == False:
+                down_time = self.down_modules[module]['down_time']
+                delta = (time_now - down_time) / 60
+                if delta >= CHASSIS_DB_CLEANUP_MODULE_DOWN_PERIOD:
+                    if module.startswith(ModuleBase.MODULE_TYPE_LINE):
+                        # Module is down for more than 30 minutes. Do the chassis clean up
+                        self.log_notice("Module {} is down for long time. Initiating chassis app db clean up".format(module))
+                        self._cleanup_chassis_app_db(module)
+                    self.down_modules[module]['cleaned'] = True
+
 
 #
 # Config Manager task ========================================================
@@ -449,6 +596,7 @@ class ChassisdDaemon(daemon_base.DaemonBase):
         while not self.stop.wait(CHASSIS_INFO_UPDATE_PERIOD_SECS):
             self.module_updater.module_db_update()
             self.module_updater.check_midplane_reachability()
+            self.module_updater.module_down_chassis_db_cleanup()
 
         self.log_info("Stop daemon main loop")
 
