@@ -54,6 +54,8 @@ class ChassisBase(device_base.DeviceBase):
         # List of ThermalBase-derived objects representing all thermals
         # available on the chassis
         self._thermal_list = []
+        self._voltage_sensor_list = []
+        self._current_sensor_list = []
 
         # List of SfpBase-derived objects representing all sfps
         # available on the chassis
@@ -450,6 +452,95 @@ class ChassisBase(device_base.DeviceBase):
         specified thermal manager. ThermalManagerBase is returned as default
         """
         raise NotImplementedError
+
+    ##############################################
+    # Voltage Sensor Methods
+    ##############################################
+
+    def get_num_voltage_sensors(self):
+        """
+        Retrieves the number of voltage sensors available on this chassis
+
+        Returns:
+            An integer, the number of voltage sensors available on this chassis
+        """
+        return len(self._voltage_sensor_list)
+
+    def get_all_voltage_sensors(self):
+        """
+        Retrieves all voltage sensors available on this chassis
+
+        Returns:
+            A list of objects derived from VoltageSensorBase representing all voltage 
+            sensors available on this chassis
+        """
+        return self._voltage_sensor_list
+
+    def get_voltage_sensor(self, index):
+        """
+        Retrieves voltage sensor unit represented by (0-based) index <index>
+
+        Args:
+            index: An integer, the index (0-based) of the voltage sensor to
+            retrieve
+
+        Returns:
+            An object derived from VoltageSensorBase representing the specified voltage sensor
+        """
+        voltage_sensor = None
+
+        try:
+            voltage_sensor = self._voltage_sensor_list[index]
+        except IndexError:
+            sys.stderr.write("Voltage sensor index {} out of range (0-{})\n".format(
+                             index, len(self._voltage_sensor_list)-1))
+
+        return voltage_sensor
+
+    ##############################################
+    # Current Sensor Methods
+    ##############################################
+
+    def get_num_current_sensors(self):
+        """
+        Retrieves the number of current sensors available on this chassis
+
+        Returns:
+            An integer, the number of current sensors available on this chassis
+        """
+        return len(self._current_sensor_list)
+
+    def get_all_current_sensors(self):
+        """
+        Retrieves all current sensors available on this chassis
+
+        Returns:
+            A list of objects derived from CurrentSensorBase representing all current
+            sensors available on this chassis
+        """
+        return self._current_sensor_list
+
+    def get_current_sensor(self, index):
+        """
+        Retrieves current sensor object represented by (0-based) index <index>
+
+        Args:
+            index: An integer, the index (0-based) of the current sensor to
+            retrieve
+
+        Returns:
+            An object derived from CurrentSensorBase representing the specified current 
+            sensor
+        """
+        current_sensor = None
+
+        try:
+            current_sensor = self._current_sensor_list[index]
+        except IndexError:
+            sys.stderr.write("Current sensor index {} out of range (0-{})\n".format(
+                             index, len(self._current_sensor_list)-1))
+
+        return current_sensor
 
     ##############################################
     # SFP methods
