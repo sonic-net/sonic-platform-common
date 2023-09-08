@@ -403,3 +403,6 @@ class Sff8636Api(XcvrApi):
         # Since typically optics come up by default set to high power, in this case,
         # power_override not being set, function will return high power mode.
         return power_set and power_override
+
+    def _get_valid_eeprom_pages(self):
+        return (0, 1, 2, 3) if not self.is_flat_memory() else (0,)

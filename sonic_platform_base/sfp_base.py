@@ -451,6 +451,18 @@ class SfpBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
+    def dump_eeprom(self, page=None):
+        """
+        Dump all EEPROM data for this SFP
+
+        Args:
+            page: EEPROM page number, dump all pages if page is None
+
+        Returns:
+            A string contains the hex format EEPROM data
+        """
+        raise NotImplementedError
+
     def refresh_xcvr_api(self):
         """
         Updates the XcvrApi associated with this SFP

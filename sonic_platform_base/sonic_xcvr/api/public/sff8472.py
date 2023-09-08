@@ -37,7 +37,7 @@ class Sff8472Api(XcvrApi):
             if len > 0:
                 cable_len = len
                 cable_type = type
- 
+
         xcvr_info = {
             "type": serial_id[consts.ID_FIELD],
             "type_abbrv_name": serial_id[consts.ID_ABBRV_FIELD],
@@ -295,3 +295,25 @@ class Sff8472Api(XcvrApi):
 
     def get_power_override_support(self):
         return False
+
+    def is_active_cable(self):
+        return self.xcvr_eeprom.read(consts.SFP_CABLE_TECH_FIELD) == 'Active Cable'
+
+    def _get_valid_eeprom_pages(self):
+        return (0, 1) if self.is_active_cable() else (0,)
+
+    def _dump_eeprom_pages(self, pages):
+        indent = ' ' * 8
+        lines = []
+        for page in pages:
+            if page == 0:
+                if self.is_active_cable():
+                    lines.append(f'{indent}A0h dump')
+                    lines.append(self._dump_eeprom(0, 256, 0, indent))
+                else:
+                    lines.append(f'{indent}A0h dump')
+                    lines.append(self._dump_eeprom(0, 128, 0, indent))
+            elif page == 1:
+                lines.append(f'\n{indent}A2h dump (lower 128 bytes)')
+                lines.append(self._dump_eeprom(256, 128, 0, indent))
+        return '\n'.join(lines)

@@ -637,3 +637,70 @@ class XcvrApi(object):
         """
         raise NotImplementedError
 
+    def convert_byte_to_valid_ascii_char(self, byte):
+        if byte < 32 or 126 < byte:
+            return '.'
+        else:
+            return chr(byte)
+
+    def hexdump(self, indent, data, mem_address):
+        size = len(data)
+        offset = 0
+        lines = []
+        while size > 0:
+            offset_str = "{}{:08x}".format(indent, mem_address)
+            if size >= 16:
+                first_half = ' '.join("{:02x}".format(x) for x in data[offset:offset + 8])
+                second_half = ' '.join("{:02x}".format(x) for x in data[offset + 8:offset + 16])
+                ascii_str = ''.join(self.convert_byte_to_valid_ascii_char(x) for x in data[offset:offset + 16])
+                lines.append(f'{offset_str} {first_half}  {second_half} |{ascii_str}|')
+            elif size > 8:
+                first_half = ' '.join("{:02x}".format(x) for x in data[offset:offset + 8])
+                second_half = ' '.join("{:02x}".format(x) for x in data[offset + 8:offset + size])
+                padding = '   ' * (16 - size)
+                ascii_str = ''.join(self.convert_byte_to_valid_ascii_char(x) for x in data[offset:offset + size])
+                lines.append(f'{offset_str} {first_half}  {second_half}{padding} |{ascii_str}|')
+                break
+            else:
+                hex_part = ' '.join("{:02x}".format(x) for x in data[offset:offset + size])
+                padding = '   ' * (16 - size)
+                ascii_str = ''.join(self.convert_byte_to_valid_ascii_char(x) for x in data[offset:offset + size])
+                lines.append(f'{offset_str} {hex_part} {padding} |{ascii_str}|')
+                break
+            size -= 16
+            offset += 16
+            mem_address += 16
+        return '\n'.join(lines)
+
+    def dump_eeprom(self, page):
+        pages = self._get_valid_eeprom_pages()
+        if page is not None:
+            if page not in pages:
+                raise ValueError(f"Invalid page {page}")
+            pages = (page,)
+        return self._dump_eeprom_pages(pages)
+
+    def _dump_eeprom_pages(self, pages):
+        indent = ' ' * 8
+        lines = []
+        for page in pages:
+            if page == 0:
+                lines.append(f'{indent}Lower page 0h')
+                lines.append(self._dump_eeprom(0, 128, 0, indent))
+                lines.append(f'\n{indent}Upper page 0h')
+                lines.append(self._dump_eeprom(128, 128, 128, indent))
+            else:
+                lines.append(f'\n{indent}Page {page}h')
+                lines.append(self._dump_eeprom(256 + (page - 1) * 128, 128, 128, indent))
+        return '\n'.join(lines)
+
+    def _get_valid_eeprom_pages(self):
+        raise NotImplementedError
+
+    def _dump_eeprom(self, overall_offset, size, page_offset, indent):
+        page_dump = self.xcvr_eeprom.read_raw(overall_offset, size, return_raw=True)
+        if page_dump is None:
+            return f'{indent}N/A'
+
+        output = self.hexdump(indent, page_dump, page_offset)
+        return output

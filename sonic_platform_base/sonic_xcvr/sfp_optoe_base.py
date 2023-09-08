@@ -213,3 +213,16 @@ class SfpOptoeBase(SfpBase):
         """
         api = self.get_xcvr_api()
         return api.get_error_description() if api is not None else None
+
+    def dump_eeprom(self, page=None):
+        """
+        Dump all EEPROM data for this SFP
+
+        Args:
+            page: EEPROM page number, dump all pages if page is None
+
+        Returns:
+            A string contains the hex format EEPROM data
+        """
+        api = self.get_xcvr_api()
+        return api.dump_eeprom(page) if api is not None else None
