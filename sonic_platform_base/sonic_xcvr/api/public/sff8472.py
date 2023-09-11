@@ -37,7 +37,7 @@ class Sff8472Api(XcvrApi):
             if len > 0:
                 cable_len = len
                 cable_type = type
- 
+
         xcvr_info = {
             "type": serial_id[consts.ID_FIELD],
             "type_abbrv_name": serial_id[consts.ID_ABBRV_FIELD],
@@ -298,3 +298,31 @@ class Sff8472Api(XcvrApi):
 
     def is_copper(self):
         return self.xcvr_eeprom.read(consts.SFP_CABLE_TECH_FIELD) == 'Passive Cable'
+
+    def get_overall_offset(self, page, offset, size, wire_addr=None, flat=False):
+        if not wire_addr:
+            raise ValueError("Invalid wire address for sff8472, must a0h or a2h")
+
+        is_active_cable = not self.is_copper()
+        valid_wire_address = ('a0h', 'a2h') if is_active_cable else ('a0h',)
+        wire_addr = wire_addr.lower()
+        if wire_addr not in valid_wire_address:
+            raise ValueError(f"Invalid wire address {wire_addr} for sff8472, must be {' or '.join(valid_wire_address)}")
+
+        if wire_addr == 'a0h':
+            if page != 0:
+                raise ValueError(f'Invalid page number {page} for wire address {wire_addr}, only page 0 is supported')
+            max_offset = 255 if is_active_cable else 127
+            if offset < 0 or offset > max_offset:
+                raise ValueError(f'Invalid offset {offset} for wire address {wire_addr}, valid range: [0, {max_offset}]')
+            if size <= 0 or size + offset - 1 > max_offset:
+                raise ValueError(f'Invalid size {size} for wire address {wire_addr}, valid range: [1, {max_offset - offset + 1}]')
+            return offset
+        else:
+            if page < 0 or page > 255:
+                raise ValueError(f'Invalid page number {page} for wire address {wire_addr}, valid range: [0, 255]')
+            if offset < 0 or offset > 255:
+                raise ValueError(f'Invalid offset {offset} for wire address {wire_addr}, valid range: [0, 255]')
+            if size <= 0 or size + offset - 1 > 255:
+                raise ValueError(f'Invalid size {size} for wire address {wire_addr}, valid range: [1, {255 - offset + 1}]')
+            return page * 128 + offset + 256

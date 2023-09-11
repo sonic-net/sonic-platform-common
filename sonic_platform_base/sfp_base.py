@@ -422,9 +422,25 @@ class SfpBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
+    def read_eeprom_by_page(self, page, offset, size, wire_addr=None, flat=False):
+        """
+        Read EEPROM by page
+
+        Args:
+            page: EEPROM page number. Raise ValueError for invalid page.
+            offset: EEPROM page offset. Raise ValueError for invalid offset.
+            size: Read size. Raise ValueError for invalid size.
+            wire_addr: Wire address. Only valid for sff8472. Raise ValueError for invalid wire address.
+            flat: Read mode.
+
+        Returns:
+            A string contains the hex format EEPROM data.
+        """
+        raise NotImplementedError
+
     def write_eeprom(self, offset, num_bytes, write_buffer):
         """
-        write eeprom specfic bytes beginning from a random offset with size as num_bytes
+        write eeprom specific bytes beginning from a random offset with size as num_bytes
         and write_buffer as the required bytes
 
         Args:
@@ -437,6 +453,22 @@ class SfpBase(device_base.DeviceBase):
 
         Returns:
             a Boolean, true if the write succeeded and false if it did not succeed.
+        """
+        raise NotImplementedError
+
+    def write_eeprom_by_page(self, page, offset, data, wire_addr=None, flat=False):
+        """
+        Write EEPROM by page
+
+        Args:
+            page: EEPROM page number. Raise ValueError for invalid page.
+            offset: EEPROM page offset. Raise ValueError for invalid offset.
+            data: bytearray EEPROM data.
+            wire_addr: Wire address. Only valid for sff8472. Raise ValueError for invalid wire address.
+            flat: Write mode.
+
+        Returns:
+            True if write successfully else False
         """
         raise NotImplementedError
 

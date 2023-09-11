@@ -183,6 +183,13 @@ class SfpOptoeBase(SfpBase):
         except (OSError, IOError):
             return None
 
+    def read_eeprom_by_page(self, page, offset, size, wire_addr=None, flat=False):
+        api = self.get_xcvr_api()
+        overall_offset = api.get_overall_offset(page, offset, size, wire_addr, flat) if api is not None else None
+        if overall_offset is None:
+            return None
+        return self.read_eeprom(overall_offset, size)
+
     def write_eeprom(self, offset, num_bytes, write_buffer):
         try:
             with open(self.get_eeprom_path(), mode='r+b', buffering=0) as f:
@@ -191,6 +198,13 @@ class SfpOptoeBase(SfpBase):
         except (OSError, IOError):
             return False
         return True
+
+    def write_eeprom_by_page(self, page, offset, data, wire_addr=None, flat=False):
+        api = self.get_xcvr_api()
+        overall_offset = api.get_overall_offset(page, offset, len(data), wire_addr, flat) if api is not None else None
+        if overall_offset is None:
+            return False
+        return self.write_eeprom(overall_offset, len(data), data)
 
     def reset(self):
         """

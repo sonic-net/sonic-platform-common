@@ -2371,3 +2371,32 @@ class TestCmis(object):
         self.api.get_module_fw_info.side_effect = {'result': TypeError}
         result = self.api.get_transceiver_info_firmware_versions()
         assert result == ["N/A", "N/A"]
+
+    def test_get_overall_offset(self):
+        self.api.is_flat_memory = MagicMock(return_value=False)
+
+        with pytest.raises(ValueError):
+            self.api.get_overall_offset(-1, 0, 1)
+
+        with pytest.raises(ValueError):
+            self.api.get_overall_offset(256, 0, 1)
+
+        with pytest.raises(ValueError):
+            self.api.get_overall_offset(0, -1, 1)
+
+        with pytest.raises(ValueError):
+            self.api.get_overall_offset(0, 256, 1)
+
+        with pytest.raises(ValueError):
+            self.api.get_overall_offset(1, 127, 1)
+
+        with pytest.raises(ValueError):
+            self.api.get_overall_offset(1, 256, 1)
+
+        with pytest.raises(ValueError):
+            self.api.get_overall_offset(0, 0, 0)
+
+        with pytest.raises(ValueError):
+            self.api.get_overall_offset(0, 0, 257)
+
+        assert self.api.get_overall_offset(0, 1, 1) == 1

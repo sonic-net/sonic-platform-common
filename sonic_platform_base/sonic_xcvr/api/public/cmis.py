@@ -763,10 +763,10 @@ class CmisApi(XcvrApi):
         '''
         if self.is_flat_memory():
             return 0
-        
+
         if (appl <= 0):
             return 0
-        
+
         appl_advt = self.get_application_advertisement()
         return appl_advt[appl]['media_lane_count'] if len(appl_advt) >= appl else 0
 
@@ -795,10 +795,10 @@ class CmisApi(XcvrApi):
         '''
         if self.is_flat_memory():
             return 'N/A'
-        
+
         if (appl <= 0):
             return 0
-        
+
         appl_advt = self.get_application_advertisement()
         return appl_advt[appl]['media_lane_assignment_options'] if len(appl_advt) >= appl else 0
 

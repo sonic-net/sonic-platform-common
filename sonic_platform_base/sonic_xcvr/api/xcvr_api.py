@@ -637,3 +637,35 @@ class XcvrApi(object):
         """
         raise NotImplementedError
 
+    def get_overall_offset(self, page, offset, size, wire_addr=None, flat=False):
+        """
+        Retrieves the overall offset of the given page, offset and size
+
+        Args:
+            page: The page number
+            offset: The offset within the page
+            size: The size of the data
+            wire_addr: Wire address. Only valid for sff8472. Raise ValueError for invalid wire address.
+            flat: A boolean, True if flat mode
+
+        Returns:
+            The overall offset
+        """
+        max_page = 0 if self.is_flat_memory() else 255
+        if max_page == 0 and page != 0:
+            raise ValueError(f'Invalid page number {page}, only page 0 is supported')
+
+        if page < 0 or page > max_page:
+            raise ValueError(f'Invalid page number {page}, valid range: [0, {max_page}]')
+
+        if page == 0:
+            if offset < 0 or offset > 255:
+                raise ValueError(f'Invalid offset {offset} for page 0, valid range: [0, 255]')
+        else:
+            if offset < 128 or offset > 255:
+                raise ValueError(f'Invalid offset {offset} for page {page}, valid range: [128, 255]')
+
+        if size <= 0 or size + offset - 1 > 255:
+            raise ValueError(f'Invalid size {size}, valid range: [1, {255 - offset + 1}]')
+
+        return page * 128 + offset
