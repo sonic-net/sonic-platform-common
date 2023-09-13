@@ -41,13 +41,12 @@ steps:
 
 - script: |
     set -xe
-    sudo apt-get -y purge libhiredis-dev libnl-3-dev libnl-route-3-dev || true
+    sudo apt-get -y purge libnl-3-dev libnl-route-3-dev || true
     sudo dpkg -i libyang_1.0.73_amd64.deb \
                  libnl-3-200_*.deb \
                  libnl-genl-3-200_*.deb \
                  libnl-route-3-200_*.deb \
                  libnl-nf-3-200_*.deb \
-                 libhiredis0.14_*.deb \
                  libswsscommon_1.0.0_amd64.deb \
                  python3-swsscommon_1.0.0_amd64.deb
   workingDirectory: $(Build.ArtifactStagingDirectory)/target/debs/bullseye/
