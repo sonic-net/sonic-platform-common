@@ -88,12 +88,11 @@ jobs:
 
     - script: |
         set -xe
-        sudo apt-get -y purge libhiredis-dev libnl-3-dev libnl-route-3-dev || true
+        sudo apt-get -y purge libnl-3-dev libnl-route-3-dev || true
         sudo dpkg -i libnl-3-200_*.deb
         sudo dpkg -i libnl-genl-3-200_*.deb
         sudo dpkg -i libnl-route-3-200_*.deb
         sudo dpkg -i libnl-nf-3-200_*.deb
-        sudo dpkg -i libhiredis0.14_*.deb
         sudo dpkg -i libyang_1.0.73_amd64.deb
         sudo dpkg -i libswsscommon_1.0.0_amd64.deb
         sudo dpkg -i python3-swsscommon_1.0.0_amd64.deb
