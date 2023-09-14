@@ -306,7 +306,7 @@ class ModuleUpdater(logger.Logger):
         if not self._is_supervisor():
            hostname_key = "{}{}".format(ModuleBase.MODULE_TYPE_LINE, int(self.my_slot) - 1)
            hostname = try_get(device_info.get_hostname, default="None")
-           hostname_fvs = swsscommon.FieldValuePairs([(CHASSIS_MODULE_INFO_SLOT_FIELD, self.my_slot), 
+           hostname_fvs = swsscommon.FieldValuePairs([(CHASSIS_MODULE_INFO_SLOT_FIELD, str(self.my_slot)), 
                                                         (CHASSIS_MODULE_INFO_HOSTNAME_FIELD, hostname),
                                                         (CHASSIS_MODULE_INFO_NUM_ASICS_FIELD, str(len(module_info_dict[CHASSIS_MODULE_INFO_ASICS])))])
            self.hostname_table.set(hostname_key, hostname_fvs)
