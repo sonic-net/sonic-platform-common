@@ -1476,7 +1476,7 @@ class YCable(YCableBase):
 
                     if status != YCable.MCU_EC_NO_ERROR:
                         ''' should at least return local side fw version if nic is offline'''
-                        if status == 0x1A and (read_side == target):
+                        if status == YCable.MCU_EC_FWUPD_UART_TIMEOUT and (read_side == target):
                             pass
                         else:
                             self.log_error('Get firmware version error (error code:0x%04X)' % (status))
