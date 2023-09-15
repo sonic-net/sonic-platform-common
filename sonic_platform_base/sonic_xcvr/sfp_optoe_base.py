@@ -167,7 +167,10 @@ class SfpOptoeBase(SfpBase):
         return api.set_lpmode(lpmode) if api is not None else None
 
     def set_optoe_write_max(self, write_max):
-        sys_path = self.get_eeprom_path()
+        try:
+            sys_path = self.get_eeprom_path()
+        except NotImplementedError:
+            return
         sys_path = sys_path.replace("eeprom", "write_max")
         try:
             with open(sys_path, mode='w') as f:
