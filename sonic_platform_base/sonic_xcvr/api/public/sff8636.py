@@ -75,21 +75,36 @@ class Sff8636Api(XcvrApi):
 
         return xcvr_info
 
-    def get_transceiver_bulk_status(self):
+    def get_transceiver_status(self):
         rx_los = self.get_rx_los()
         tx_fault = self.get_tx_fault()
         tx_disable = self.get_tx_disable()
         tx_disabled_channel = self.get_tx_disable_channel()
+        read_failed = rx_los is None or \
+                      tx_fault is None or \
+                      tx_disable is None or \
+                      tx_disabled_channel is None
+        if read_failed:
+            return None
+
+        trans_status = dict()
+        for lane in range(1, len(rx_los) + 1):
+            trans_status['rxlos%d' % lane] = rx_los[lane - 1]
+        for lane in range(1, len(tx_fault) + 1):
+            trans_status['txfault%d' % lane] = tx_fault[lane - 1]
+        for lane in range(1, len(tx_disable) + 1):
+            trans_status['tx%ddisable' % lane] = tx_disable[lane - 1]
+        trans_status['tx_disabled_channel'] = tx_disabled_channel
+
+        return trans_status
+
+    def get_transceiver_bulk_status(self):
         temp = self.get_module_temperature()
         voltage = self.get_voltage()
         tx_bias = self.get_tx_bias()
         rx_power = self.get_rx_power()
         tx_power = self.get_tx_power()
-        read_failed = rx_los is None or \
-                      tx_fault is None or \
-                      tx_disable is None or \
-                      tx_disabled_channel is None or \
-                      temp is None or \
+        read_failed = temp is None or \
                       voltage is None or \
                       tx_bias is None or \
                       rx_power is None or \
@@ -98,18 +113,14 @@ class Sff8636Api(XcvrApi):
             return None
 
         bulk_status = {
-            "rx_los": all(rx_los) if self.get_rx_los_support() else 'N/A',
-            "tx_fault": all(tx_fault) if self.get_tx_fault_support() else 'N/A',
-            "tx_disable": all(tx_disable),
-            "tx_disabled_channel": tx_disabled_channel,
             "temperature": temp,
             "voltage": voltage
         }
 
         for i in range(1, self.NUM_CHANNELS + 1):
             bulk_status["tx%dbias" % i] = tx_bias[i - 1]
-            bulk_status["rx%dpower" % i] = rx_power[i - 1]
-            bulk_status["tx%dpower" % i] = tx_power[i - 1]
+            bulk_status["rx%dpower" % i] = self.mw_to_dbm(rx_power[i - 1]) if rx_power[i - 1] != 'N/A' else 'N/A'
+            bulk_status["tx%dpower" % i] = self.mw_to_dbm(tx_power[i - 1]) if tx_power[i - 1] != 'N/A' else 'N/A'
 
         return bulk_status
 

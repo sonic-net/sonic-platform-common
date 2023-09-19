@@ -29,6 +29,7 @@ class TestSff8472(object):
         self.api.get_transceiver_info()
         self.api.get_transceiver_bulk_status()
         self.api.get_transceiver_threshold_info()
+        self.api.get_transceiver_status()
         self.api.get_rx_los()
         self.api.get_tx_fault()
         self.api.get_tx_disable()
@@ -40,8 +41,8 @@ class TestSff8472(object):
         self.api.get_rx_power()
         self.reader.return_value = bytearray([0xFF])
         self.api.tx_disable(True)
-        self.reader.return_value = None
         self.api.tx_disable_channel(0x5, True)
+        self.reader.return_value = None
         self.api.is_flat_memory()
         self.api.get_temperature_support()
         self.api.get_voltage_support()
@@ -205,3 +206,86 @@ class TestSff8472(object):
             except:
                 assert 0, traceback.format_exc()
             run_num -= 1
+
+    @pytest.mark.parametrize("mock_response, expected",[
+        (
+            [
+                [False],
+                [False],
+                0,
+                [False]
+            ],
+            {
+                "tx_disabled_channel": 0,
+                "tx1disable": False,
+                'txfault1': False,
+                'rxlos1': False,
+            }
+        ),
+        (
+            [
+                None,
+                None,
+                None,
+                None
+            ],
+            None
+        )
+    ])
+    def test_get_transceiver_status(self, mock_response, expected):
+        self.api.get_rx_los = MagicMock()
+        self.api.get_rx_los.return_value = mock_response[0]
+        self.api.get_tx_fault = MagicMock()
+        self.api.get_tx_fault.return_value = mock_response[1]
+        self.api.get_tx_disable_channel = MagicMock()
+        self.api.get_tx_disable_channel.return_value = mock_response[2]
+        self.api.get_tx_disable = MagicMock()
+        self.api.get_tx_disable.return_value = mock_response[3]
+        result = self.api.get_transceiver_status()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response, expected",[
+        (
+            [
+                50,
+                3.3,
+                [70],
+                [0.1],
+                [0.1],
+                True, True, True, True, True, True
+            ],
+            {
+                'temperature': 50,
+                'voltage': 3.3,
+                'tx1power': -10.0, 'tx2power': 'N/A', 'tx3power': 'N/A', 'tx4power': 'N/A',
+                'rx1power': -10.0, 'rx2power': 'N/A', 'rx3power': 'N/A', 'rx4power': 'N/A',
+                'tx1bias': 70, 'tx2bias': 'N/A', 'tx3bias': 'N/A', 'tx4bias': 'N/A',
+            }
+        )
+    ])
+    def test_get_transceiver_bulk_status(self, mock_response, expected):
+        self.api.get_module_temperature = MagicMock()
+        self.api.get_module_temperature.return_value = mock_response[0]
+        self.api.get_voltage = MagicMock()
+        self.api.get_voltage.return_value = mock_response[1]
+        self.api.get_tx_bias = MagicMock()
+        self.api.get_tx_bias.return_value = mock_response[2]
+        self.api.get_rx_power = MagicMock()
+        self.api.get_rx_power.return_value = mock_response[3]
+        self.api.get_tx_power = MagicMock()
+        self.api.get_tx_power.return_value = mock_response[4]
+        self.api.get_rx_los_support = MagicMock()
+        self.api.get_rx_los_support.return_value = mock_response[5]
+        self.api.get_tx_fault_support = MagicMock()
+        self.api.get_tx_fault_support.return_value = mock_response[6]
+        self.api.get_tx_disable_support = MagicMock()
+        self.api.get_tx_disable_support.return_value = mock_response[7]
+        self.api.get_tx_bias_support = MagicMock()
+        self.api.get_tx_bias_support.return_value = mock_response[8]
+        self.api.get_tx_power_support = MagicMock()
+        self.api.get_tx_power_support.return_value = mock_response[9]
+        self.api.get_rx_power_support = MagicMock()
+        self.api.get_rx_power_support.return_value = mock_response[10]
+        result = self.api.get_transceiver_bulk_status()
+        assert result == expected
+

@@ -20,6 +20,7 @@ class XcvrField(object):
         self.offset = offset
         self.ro = kwargs.get("ro", True)
         self.deps = kwargs.get("deps", [])
+        self.bitmask = None
 
     def get_fields(self):
         """
@@ -86,6 +87,7 @@ class RegBitField(XcvrField):
         super(RegBitField, self).__init__(name, offset, **kwargs)
         assert bitpos < 64
         self.bitpos = bitpos
+        self.bitmask = 1 << self.bitpos
 
     def get_size(self):
         return 1
@@ -105,7 +107,38 @@ class RegBitField(XcvrField):
             curr_state &= ~(1 << self.bitpos % 8)
         return bytearray([curr_state])
 
+class RegBitsField(XcvrField):
+    """
+    Multi-bit register field. Must be defined under a parent RegField
 
+    Args:
+        bitpos: the bit position of this field relative to its parent's offset
+    """
+    def __init__(self, name, bitpos, offset=None, **kwargs):
+        super(RegBitsField, self).__init__(name, offset, **kwargs)
+        self.size = self.size = kwargs.get("size", 1) #No of bits
+        assert bitpos >= 0 and bitpos+self.size <= 8, "bitpos must be within one byte"
+        self.bitpos = bitpos
+        self.bitmask = (((1 << self.size) - 1) << self.bitpos) & 0xff
+
+    def get_size(self):
+        return 1 # 1-Byte
+
+    def read_before_write(self):
+        return True
+
+    def decode(self, raw_data, **decoded_deps):
+        val = (raw_data[0] & self.bitmask) >> self.bitpos
+        return val
+
+    def encode(self, val, raw_value=None):
+        assert not self.ro and raw_value is not None
+        val = val & ((1 << self.size) - 1)
+        byte = raw_value[0]
+        byte &= ~self.bitmask
+        byte |= (val << self.bitpos)
+        return bytearray([byte])
+ 
 class RegField(XcvrField):
     """
     Field denoting one or more bytes, but logically interpreted as one unit (e.g. a 4-byte integer)
@@ -128,7 +161,7 @@ class RegField(XcvrField):
             return None
         mask = 0
         for field in self.fields:
-            mask |= 1 << field.bitpos
+            mask |= field.bitmask
         return mask
 
     def get_size(self):

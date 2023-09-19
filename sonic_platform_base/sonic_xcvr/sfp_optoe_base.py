@@ -23,6 +23,10 @@ class SfpOptoeBase(SfpBase):
         api = self.get_xcvr_api()
         return api.get_transceiver_info() if api is not None else None
 
+    def get_transceiver_info_firmware_versions(self):
+        api = self.get_xcvr_api()
+        return api.get_transceiver_info_firmware_versions() if api is not None else None
+
     def get_transceiver_bulk_status(self):
         api = self.get_xcvr_api()
         return api.get_transceiver_bulk_status() if api is not None else None

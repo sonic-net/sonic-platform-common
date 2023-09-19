@@ -377,6 +377,16 @@ class TestCmis(object):
         result = self.api.get_tx_bias()
         assert result == expected
 
+    def test_get_tx_bias_neg(self):
+        self.api.get_tx_bias_support = MagicMock(return_value=True)
+        self.api.xcvr_eeprom.read = MagicMock()
+        # scale_raw is None, verify no crash
+        self.api.xcvr_eeprom.read.return_value = None
+        self.api.get_tx_bias()
+        # scale_raw is 1, tx_bias is None, verify no crash
+        self.api.xcvr_eeprom.read.side_effect = [1, None]
+        self.api.get_tx_bias()
+
     @pytest.mark.parametrize("mock_response, expected", [
         ([False, True], True)
     ])
@@ -658,6 +668,34 @@ class TestCmis(object):
         (False, '8', 8.0),
         (False, '5000000', 5000000.0),
     ])
+    def test_get_datapath_tx_turnon_duration(self, mock_response1, mock_response2, expected):
+        self.api.is_flat_memory = MagicMock()
+        self.api.is_flat_memory.return_value = mock_response1
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.return_value = mock_response2
+        result = self.api.get_datapath_tx_turnon_duration()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
+        (True, '1', 0 ),
+        (False, None, 0),
+        (False, '6', 6.0),
+        (False, '80000', 80000.0),
+    ])
+    def test_get_datapath_tx_turnoff_duration(self, mock_response1, mock_response2, expected):
+        self.api.is_flat_memory = MagicMock()
+        self.api.is_flat_memory.return_value = mock_response1
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.return_value = mock_response2
+        result = self.api.get_datapath_tx_turnoff_duration()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
+        (True, '10', 0 ),
+        (False, None, 0),
+        (False, '8', 8.0),
+        (False, '5000000', 5000000.0),
+    ])
     def test_get_module_pwr_up_duration(self, mock_response1, mock_response2, expected):
         self.api.is_flat_memory = MagicMock()
         self.api.is_flat_memory.return_value = mock_response1
@@ -689,13 +727,34 @@ class TestCmis(object):
         result = self.api.get_host_lane_count()
         assert result == expected
 
-    @pytest.mark.parametrize("mock_response, expected", [
-        (1, 1)
+    @pytest.mark.parametrize("appl, expected", [
+        (0, 0),
+        (1, 4),
+        (2, 1),
+        (3, 0)
     ])
-    def test_get_media_lane_count(self, mock_response, expected):
-        self.api.xcvr_eeprom.read = MagicMock()
-        self.api.xcvr_eeprom.read.return_value = mock_response
-        result = self.api.get_media_lane_count()
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_application_advertisement', MagicMock(return_value =
+        {
+            1: {
+                'host_electrical_interface_id': '400GAUI-8 C2M (Annex 120E)',
+                'module_media_interface_id': '400GBASE-DR4 (Cl 124)',
+                'media_lane_count': 4,
+                'host_lane_count': 8,
+                'host_lane_assignment_options': 1,
+                'media_lane_assignment_options': 1
+            },
+            2: {
+                'host_electrical_interface_id': '100GAUI-2 C2M (Annex 135G)',
+                'module_media_interface_id': '100G-LR/100GBASE-LR1 (Cl 140)',
+                'media_lane_count': 1,
+                'host_lane_count': 2,
+                'host_lane_assignment_options': 85,
+                'media_lane_assignment_options': 15
+            }
+        }
+    ))
+    def test_get_media_lane_count(self, appl, expected):
+        result = self.api.get_media_lane_count(appl)
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
@@ -735,13 +794,34 @@ class TestCmis(object):
         result = self.api.get_host_lane_assignment_option(appl)
         assert result == expected
 
-    @pytest.mark.parametrize("mock_response, expected", [
-        (1, 1)
+    @pytest.mark.parametrize("appl, expected", [
+        (0, 0),
+        (1, 1),
+        (2, 15),
+        (3, 0)
     ])
-    def test_get_media_lane_assignment_option(self, mock_response, expected):
-        self.api.xcvr_eeprom.read = MagicMock()
-        self.api.xcvr_eeprom.read.return_value = mock_response
-        result = self.api.get_media_lane_assignment_option()
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_application_advertisement', MagicMock(return_value =
+        {
+            1: {
+                'host_electrical_interface_id': '400GAUI-8 C2M (Annex 120E)',
+                'module_media_interface_id': '400GBASE-DR4 (Cl 124)',
+                'media_lane_count': 4,
+                'host_lane_count': 8,
+                'host_lane_assignment_options': 1,
+                'media_lane_assignment_options': 1
+            },
+            2: {
+                'host_electrical_interface_id': '100GAUI-2 C2M (Annex 135G)',
+                'module_media_interface_id': '100G-LR/100GBASE-LR1 (Cl 140)',
+                'media_lane_count': 1,
+                'host_lane_count': 2,
+                'host_lane_assignment_options': 85,
+                'media_lane_assignment_options': 15
+            }
+        }
+    ))
+    def test_get_media_lane_assignment_option(self, appl, expected):
+        result = self.api.get_media_lane_assignment_option(appl)
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
@@ -1082,6 +1162,10 @@ class TestCmis(object):
         ((None, 1, [0] * 128),  {'status': False, 'info': "", 'result': 0}),
         ((128, None, [0] * 128),  {'status': False, 'info': "", 'result': 0}),
         ((128, 0, [0] * 128),  {'status': False, 'info': "", 'result': None}),
+        ((128, 1, [67, 3, 2, 2, 3, 183] + [0] * 104),  {'status': True, 'info': "", 'result': None}),
+        ((128, 1, [52, 3, 2, 2, 3, 183] + [0] * 104),  {'status': True, 'info': "", 'result': None}),
+        ((110, 1, [3, 3, 2, 2, 3, 183] + [0] * 104),  {'status': True, 'info': "", 'result': None}),
+        ((110, 1, [48, 3, 2, 2, 3, 183] + [0] * 104),  {'status': True, 'info': "", 'result': None}),
     ])
     def test_get_module_fw_info(self, mock_response, expected):
         self.api.cdb = MagicMock()
@@ -1123,7 +1207,7 @@ class TestCmis(object):
     @pytest.mark.parametrize("input_param, mock_response, expected", [
         (
             'abc',
-            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0)}, {'status': True, 'info': '', 'result': (112, 2048, True, True, 2048)}, (True, ''), (True, '')],
+            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0, 'a', 'b')}, {'status': True, 'info': '', 'result': (112, 2048, True, True, 2048)}, (True, ''), (True, '')],
             (True, '')
         ),
         (
@@ -1133,12 +1217,12 @@ class TestCmis(object):
         ),
         (
             'abc',
-            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0)}, {'status': False, 'info': '', 'result': None}, (True, ''), (True, '')],
+            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0, 'a', 'b')}, {'status': False, 'info': '', 'result': None}, (True, ''), (True, '')],
             (False, '')
         ),
         (
             'abc',
-            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0)}, {'status': True, 'info': '', 'result': (112, 2048, True, True, 2048)}, (False, ''), (True, '')],
+            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0, 'a', 'b')}, {'status': True, 'info': '', 'result': (112, 2048, True, True, 2048)}, (False, ''), (True, '')],
             (False, '')
         ),
     ])
@@ -1155,7 +1239,7 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected",[
-        ([None, None, None, None, None, None, None, None, None, None, None, None, None, None], None),
+        ([None, None, None, None, None, None, None, None, None, None, None, None, None, None, None], None),
         (
             [
                 {
@@ -1183,7 +1267,8 @@ class TestCmis(object):
                 '5.0',
                 '0.1',
                 '0.0',
-                'sm_media_interface'
+                'sm_media_interface',
+                {'status': True,  'result': ("0.3.0", 1, 1, 0, "0.2.0", 0, 0, 0, "0.3.0", "0.2.0")}
             ],
             {   'type': 'QSFP-DD Double Density 8X Pluggable Transceiver',
                 'type_abbrv_name': 'QSFP-DD',
@@ -1196,9 +1281,9 @@ class TestCmis(object):
                 'nominal_bit_rate': 0,
                 'specification_compliance': 'sm_media_interface',
                 'application_advertisement': 'N/A',
-                'active_firmware': '0.1',
+                'active_firmware': '0.3.0',
                 'media_lane_count': 1,
-                'inactive_firmware': '0.0',
+                'inactive_firmware': '0.2.0',
                 'vendor_rev': '0.0',
                 'host_electrical_interface': '400GAUI-8 C2M (Annex 120E)',
                 'vendor_oui': 'xx-xx-xx',
@@ -1247,14 +1332,12 @@ class TestCmis(object):
         self.api.get_vendor_rev.return_value = mock_response[9]
         self.api.get_cmis_rev = MagicMock()
         self.api.get_cmis_rev.return_value = mock_response[10]
-        self.api.get_module_active_firmware = MagicMock()
-        self.api.get_module_active_firmware.return_value = mock_response[11]
-        self.api.get_module_inactive_firmware = MagicMock()
-        self.api.get_module_inactive_firmware.return_value = mock_response[12]
+        self.api.get_module_fw_info = MagicMock()
         self.api.get_module_media_type = MagicMock()
         self.api.get_module_media_type.return_value = mock_response[13]
         self.api.get_module_hardware_revision = MagicMock()
         self.api.get_module_hardware_revision.return_value = '0.0'
+        self.api.get_module_fw_info.return_value = mock_response[14]
         self.api.is_flat_memory = MagicMock()
         self.api.is_flat_memory.return_value = False
         result = self.api.get_transceiver_info()
@@ -1268,10 +1351,6 @@ class TestCmis(object):
     @pytest.mark.parametrize("mock_response, expected",[
         (
             [
-                [False, False, False, False, False, False, False, False],
-                [False, False, False, False, False, False, False, False],
-                [False, False, False, False, False, False, False, False],
-                0,
                 50,
                 3.3,
                 [70, 70, 70, 70, 70, 70, 70, 70],
@@ -1296,11 +1375,6 @@ class TestCmis(object):
                 'rx5power': -10.0, 'rx6power': -10.0, 'rx7power': -10.0, 'rx8power': -10.0,
                 'tx1bias': 70, 'tx2bias': 70, 'tx3bias': 70, 'tx4bias': 70,
                 'tx5bias': 70, 'tx6bias': 70, 'tx7bias': 70, 'tx8bias': 70,
-                'rx_los': False,
-                'tx_fault': False,
-                'tx1disable': False, 'tx2disable': False, 'tx3disable': False, 'tx4disable': False,
-                'tx5disable': False, 'tx6disable': False, 'tx7disable': False, 'tx8disable': False,
-                'tx_disabled_channel': 0,
                 'laser_temperature': 40,
                 'prefec_ber': 0.001,
                 'postfec_ber_min': 0,
@@ -1311,10 +1385,6 @@ class TestCmis(object):
         ),
         (
             [
-                ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
-                ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
-                ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
-                'N/A',
                 50, 3.3,
                 ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
                 None,
@@ -1327,10 +1397,6 @@ class TestCmis(object):
         ),
         (
             [
-                ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
-                ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
-                ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
-                'N/A',
                 50, 3.3,
                 ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
                 ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A'],
@@ -1348,50 +1414,37 @@ class TestCmis(object):
                 'rx5power': 'N/A', 'rx6power': 'N/A', 'rx7power': 'N/A', 'rx8power': 'N/A',
                 'tx1bias': 'N/A', 'tx2bias': 'N/A', 'tx3bias': 'N/A', 'tx4bias': 'N/A',
                 'tx5bias': 'N/A', 'tx6bias': 'N/A', 'tx7bias': 'N/A', 'tx8bias': 'N/A',
-                'rx_los': 'N/A',
-                'tx_fault': 'N/A',
-                'tx1disable': 'N/A', 'tx2disable': 'N/A', 'tx3disable': 'N/A', 'tx4disable': 'N/A',
-                'tx5disable': 'N/A', 'tx6disable': 'N/A', 'tx7disable': 'N/A', 'tx8disable': 'N/A',
-                'tx_disabled_channel': 'N/A',
                 'laser_temperature': 40
             }
         )
     ])
     def test_get_transceiver_bulk_status(self, mock_response, expected):
-        self.api.get_rx_los = MagicMock()
-        self.api.get_rx_los.return_value = mock_response[0]
-        self.api.get_tx_fault = MagicMock()
-        self.api.get_tx_fault.return_value = mock_response[1]
-        self.api.get_tx_disable = MagicMock()
-        self.api.get_tx_disable.return_value = mock_response[2]
-        self.api.get_tx_disable_channel = MagicMock()
-        self.api.get_tx_disable_channel.return_value = mock_response[3]
         self.api.get_module_temperature = MagicMock()
-        self.api.get_module_temperature.return_value = mock_response[4]
+        self.api.get_module_temperature.return_value = mock_response[0]
         self.api.get_voltage = MagicMock()
-        self.api.get_voltage.return_value = mock_response[5]
+        self.api.get_voltage.return_value = mock_response[1]
         self.api.get_tx_bias = MagicMock()
-        self.api.get_tx_bias.return_value = mock_response[6]
+        self.api.get_tx_bias.return_value = mock_response[2]
         self.api.get_rx_power = MagicMock()
-        self.api.get_rx_power.return_value = mock_response[7]
+        self.api.get_rx_power.return_value = mock_response[3]
         self.api.get_tx_power = MagicMock()
-        self.api.get_tx_power.return_value = mock_response[8]
+        self.api.get_tx_power.return_value = mock_response[4]
         self.api.get_rx_los_support = MagicMock()
-        self.api.get_rx_los_support.return_value = mock_response[9]
+        self.api.get_rx_los_support.return_value = mock_response[5]
         self.api.get_tx_fault_support = MagicMock()
-        self.api.get_tx_fault_support.return_value = mock_response[10]
+        self.api.get_tx_fault_support.return_value = mock_response[6]
         self.api.get_tx_disable_support = MagicMock()
-        self.api.get_tx_disable_support.return_value = mock_response[11]
+        self.api.get_tx_disable_support.return_value = mock_response[7]
         self.api.get_tx_bias_support = MagicMock()
-        self.api.get_tx_bias_support.return_value = mock_response[12]
+        self.api.get_tx_bias_support.return_value = mock_response[8]
         self.api.get_tx_power_support = MagicMock()
-        self.api.get_tx_power_support.return_value = mock_response[13]
+        self.api.get_tx_power_support.return_value = mock_response[9]
         self.api.get_rx_power_support = MagicMock()
-        self.api.get_rx_power_support.return_value = mock_response[14]
+        self.api.get_rx_power_support.return_value = mock_response[10]
         self.api.get_laser_temperature = MagicMock()
-        self.api.get_laser_temperature.return_value = mock_response[15]
+        self.api.get_laser_temperature.return_value = mock_response[11]
         self.api.get_vdm = MagicMock()
-        self.api.get_vdm.return_value = mock_response[16]
+        self.api.get_vdm.return_value = mock_response[12]
         result = self.api.get_transceiver_bulk_status()
         assert result == expected
 
@@ -1601,7 +1654,8 @@ class TestCmis(object):
                 {
                     'Pre-FEC BER Average Media Input':{1:[0.001, 0.0125, 0, 0.01, 0, False, False, False, False]},
                     'Errored Frames Average Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
-                }
+                },
+                0, [False, False, False, False, False, False, False, False]
             ],
             {
                 'module_state': 'ModuleReady',
@@ -1633,6 +1687,15 @@ class TestCmis(object):
                 'rxoutput_status_hostlane6': True,
                 'rxoutput_status_hostlane7': True,
                 'rxoutput_status_hostlane8': True,
+                "tx_disabled_channel": 0,
+                "tx1disable": False,
+                "tx2disable": False,
+                "tx3disable": False,
+                "tx4disable": False,
+                "tx5disable": False,
+                "tx6disable": False,
+                "tx7disable": False,
+                "tx8disable": False,
                 'txfault1': False,
                 'txfault2': False,
                 'txfault3': False,
@@ -1835,7 +1898,8 @@ class TestCmis(object):
                 {
                     'Pre-FEC BER Average Media Input':{1:[0.001, 0.0125, 0, 0.01, 0, False, False, False, False]},
                     'Errored Frames Average Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
-                }
+                },
+                None, None
             ],
             {
                 'module_state': 'ModuleReady',
@@ -1894,6 +1958,10 @@ class TestCmis(object):
         self.api.get_tx_bias_flag.return_value = mock_response[18]
         self.api.get_vdm = MagicMock()
         self.api.get_vdm.return_value = mock_response[19]
+        self.api.get_tx_disable_channel = MagicMock()
+        self.api.get_tx_disable_channel.return_value = mock_response[20]
+        self.api.get_tx_disable = MagicMock()
+        self.api.get_tx_disable.return_value = mock_response[21]
         result = self.api.get_transceiver_status()
         assert result == expected
 
@@ -2128,24 +2196,120 @@ class TestCmis(object):
         self.api.xcvr_eeprom.write = MagicMock()
 
         self.api.xcvr_eeprom.write.call_count = 0
-        self.api.set_application(0x00, 1)
+        self.api.set_application(0x00, 1, 0)
+        assert self.api.xcvr_eeprom.write.call_count == 0
+
+        self.api.xcvr_eeprom.write.call_count = 0
+        self.api.set_application(0x01, 1, 1)
         assert self.api.xcvr_eeprom.write.call_count == 1
 
         self.api.xcvr_eeprom.write.call_count = 0
-        self.api.set_application(0x01, 1)
-        assert self.api.xcvr_eeprom.write.call_count == 1 + 1
+        self.api.set_application(0x0f, 1, 1)
+        assert self.api.xcvr_eeprom.write.call_count == 4
 
         self.api.xcvr_eeprom.write.call_count = 0
-        self.api.set_application(0x0f, 1)
-        assert self.api.xcvr_eeprom.write.call_count == 4 + 1
+        self.api.set_application(0xff, 1, 1)
+        assert self.api.xcvr_eeprom.write.call_count == 8
 
         self.api.xcvr_eeprom.write.call_count = 0
-        self.api.set_application(0xff, 1)
-        assert self.api.xcvr_eeprom.write.call_count == 8 + 1
+        self.api.set_application(0x7fffffff, 1, 1)
+        assert self.api.xcvr_eeprom.write.call_count == self.api.NUM_CHANNELS
 
-        self.api.xcvr_eeprom.write.call_count = 0
-        self.api.set_application(0x7fffffff, 1)
-        assert self.api.xcvr_eeprom.write.call_count == self.api.NUM_CHANNELS + 1
+    def test_set_module_si_eq_pre_settings(self):
+        optics_si_dict = { "OutputEqPreCursorTargetRx":{
+                             "OutputEqPreCursorTargetRx1":2, "OutputEqPreCursorTargetRx2":2, "OutputEqPreCursorTargetRx3":2, "OutputEqPreCursorTargetRx4":2,
+                             "OutputEqPreCursorTargetRx5":2, "OutputEqPreCursorTargetRx6":2, "OutputEqPreCursorTargetRx7":2, "OutputEqPreCursorTargetRx8":2 }
+                         }
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.write = MagicMock()
+        mock_resp = [0x1, 0x7]
+        self.api.xcvr_eeprom.read.side_effect = mock_resp
+        self.api.stage_custom_si_settings(0x01, optics_si_dict)
+        assert self.api.xcvr_eeprom.write.call_count == 1
+
+    def test_set_module_si_eq_en_settings(self):
+        optics_si_dict = { "AdaptiveInputEqEnableTx":{
+                             "AdaptiveInputEqEnableTx1": 2, "AdaptiveInputEqEnableTx2": 2, "AdaptiveInputEqEnableTx3": 2, "AdaptiveInputEqEnableTx4": 2,
+                             "AdaptiveInputEqEnableTx5": 2, "AdaptiveInputEqEnableTx6": 2, "AdaptiveInputEqEnableTx7": 2, "AdaptiveInputEqEnableTx8": 2,}
+                         }
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.write = MagicMock()
+        mock_resp = [0x1, 0x3]
+        self.api.xcvr_eeprom.read.side_effect = mock_resp
+        self.api.stage_custom_si_settings(0xff, optics_si_dict)
+        assert self.api.xcvr_eeprom.write.call_count == 8
+
+    def test_set_module_si_eq_recall_settings(self):
+        optics_si_dict = { "AdaptiveInputEqRecalledTx":{
+                             "AdaptiveInputEqRecalledTx1":1, "AdaptiveInputEqRecalledTx2":1, "AdaptiveInputEqRecalledTx3":1, "AdaptiveInputEqRecalledTx4":1,
+                             "AdaptiveInputEqRecalledTx5":1, "AdaptiveInputEqRecalledTx6":1, "AdaptiveInputEqRecalledTx7":1, "AdaptiveInputEqRecalledTx8":1 }
+                         }
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.write = MagicMock()
+        mock_resp = [0x1]
+        self.api.xcvr_eeprom.read.side_effect = mock_resp
+        self.api.stage_custom_si_settings(0x0f, optics_si_dict)
+        assert self.api.xcvr_eeprom.write.call_count == 4
+
+    def test_set_module_si_eq_post_settings(self):
+        optics_si_dict = { "OutputEqPostCursorTargetRx":{
+                             "OutputEqPostCursorTargetRx1":2, "OutputEqPostCursorTargetRx2":2, "OutputEqPostCursorTargetRx3":2, "OutputEqPostCursorTargetRx4":2,
+                             "OutputEqPostCursorTargetRx5":2, "OutputEqPostCursorTargetRx6":2, "OutputEqPostCursorTargetRx7":2, "OutputEqPostCursorTargetRx8":2 }
+                         }
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.write = MagicMock()
+        mock_resp = [0x1, 0x7]
+        self.api.xcvr_eeprom.read.side_effect = mock_resp
+        self.api.stage_custom_si_settings(0x01, optics_si_dict)
+        assert self.api.xcvr_eeprom.write.call_count == 1
+
+    def test_set_module_si_fixed_en_settings(self):
+        optics_si_dict = { "FixedInputEqTargetTx":{
+                             "FixedInputEqTargetTx1":1, "FixedInputEqTargetTx2":1, "FixedInputEqTargetTx3":1, "FixedInputEqTargetTx4":1,
+                             "FixedInputEqTargetTx5":1, "FixedInputEqTargetTx6":1, "FixedInputEqTargetTx7":1, "FixedInputEqTargetTx8":1 }
+                         }
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.write = MagicMock()
+        mock_resp = [0x1, 0x1]
+        self.api.xcvr_eeprom.read.side_effect = mock_resp
+        self.api.stage_custom_si_settings(0xff, optics_si_dict)
+        assert self.api.xcvr_eeprom.write.call_count == 8
+
+    def test_set_module_cdr_enable_tx_settings(self):
+        optics_si_dict = { "CDREnableTx":{
+                              "CDREnableTx1":1, "CDREnableTx2":1, "CDREnableTx3":1, "CDREnableTx4":1,
+                              "CDREnableTx5":0, "CDREnableTx6":0, "CDREnableTx7":0, "CDREnableTx8":0 }
+                        }
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.write = MagicMock()
+        mock_resp = [0x1]
+        self.api.xcvr_eeprom.read.side_effect = mock_resp
+        self.api.stage_custom_si_settings(0x0f, optics_si_dict)
+        assert self.api.xcvr_eeprom.write.call_count == 4
+
+    def test_set_module_cdr_enable_rx_settings(self):
+        optics_si_dict = { "CDREnableRx":{
+                              "CDREnableRx1":1, "CDREnableRx2":1, "CDREnableRx3":1, "CDREnableRx4":1,
+                              "CDREnableRx5":0, "CDREnableRx6":0, "CDREnableRx7":0, "CDREnableRx8":0 }
+                        }
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.write = MagicMock()
+        mock_resp = [0x1]
+        self.api.xcvr_eeprom.read.side_effect = mock_resp
+        self.api.stage_custom_si_settings(0xff, optics_si_dict)
+        assert self.api.xcvr_eeprom.write.call_count == 8
+
+    def test_set_module_OutputAmplitudeTargetRx_settings(self):
+        optics_si_dict = { "OutputAmplitudeTargetRx":{
+                             "OutputAmplitudeTargetRx1":1, "OutputAmplitudeTargetRx2":1, "OutputAmplitudeTargetRx3":1, "OutputAmplitudeTargetRx4":1,
+                             "OutputAmplitudeTargetRx5":1, "OutputAmplitudeTargetRx6":1, "OutputAmplitudeTargetRx7":1, "OutputAmplitudeTargetRx8":1 }
+                         }
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.write = MagicMock()
+        mock_resp = [0x1, 0x7]
+        self.api.xcvr_eeprom.read.side_effect = mock_resp
+        self.api.stage_custom_si_settings(0x0f, optics_si_dict)
+        assert self.api.xcvr_eeprom.write.call_count == 4
 
     def test_get_error_description(self):
         self.api.get_module_state = MagicMock()
@@ -2196,3 +2360,14 @@ class TestCmis(object):
             except:
                 assert 0, traceback.format_exc()
             run_num -= 1
+
+    def test_get_transceiver_info_firmware_versions_negative_tests(self):
+        self.api.get_module_fw_info = MagicMock()
+        self.api.get_module_fw_info.return_value = None
+        result = self.api.get_transceiver_info_firmware_versions()
+        assert result == ["N/A", "N/A"]
+
+        self.api.get_module_fw_info = MagicMock()
+        self.api.get_module_fw_info.side_effect = {'result': TypeError}
+        result = self.api.get_transceiver_info_firmware_versions()
+        assert result == ["N/A", "N/A"]
