@@ -5,6 +5,7 @@ from sonic_platform_base.sonic_xcvr.fields.xcvr_field import (
     HexRegField,
     NumberRegField,
     RegBitField,
+    RegBitsField,
     RegGroupField,
     StringRegField,
 )
@@ -50,6 +51,16 @@ class MockXcvrMemMap(XcvrMemMap):
         self.NUM_REG_WITH_BIT = NumberRegField("NumRegWithBit", 140,
             RegBitField("NumRegBit", bitpos=20, ro=False),
             format="<I", size=4, ro=False
+        )
+        self.NUM_REG_2BITS = NumberRegField("MultiBitsReg1", 154,
+            RegBitsField("Bits0to1", bitpos=0, ro=False, size=2),
+            RegBitsField("Bits2to3", bitpos=2, ro=False, size=2),
+            RegBitsField("Bits4to5", bitpos=4, ro=False, size=2),
+            RegBitsField("Bits6to7", bitpos=6, ro=False, size=2)
+        )
+        self.NUM_REG_4BITS = NumberRegField("MultiBitsReg2", 162, 
+            RegBitsField("Bits0to3", bitpos=0, ro=False, size=4),
+            RegBitsField("Bits4to7", bitpos=4, ro=False, size=4)
         )
         self.STRING_REG = StringRegField("StringReg", 12, size=15)
         self.HEX_REG = HexRegField("HexReg", 30, size=3)
@@ -141,6 +152,49 @@ class TestXcvrField(object):
             "NestedField2": mem_map.get_field("NestedField2")
         }
 
+class TestRegBitsField(object):
+    def test_encode_decode(self):
+        field = mem_map.get_field("Bits0to1")
+        encoded_data = field.encode(0x3, bytearray(b'\xfc'))
+        assert encoded_data == bytearray(b'\xff')
+        decoded_data = field.decode(bytearray(b'\xf2'))
+        assert decoded_data == 0x2
+
+        field = mem_map.get_field("Bits2to3")
+        encoded_data = field.encode(0x0, bytearray(b'\xff'))
+        assert encoded_data == bytearray(b'\xf3')
+        decoded_data = field.decode(bytearray(b'\xf4'))
+        assert decoded_data == 0x1
+
+        field = mem_map.get_field("Bits4to5")
+        encoded_data = field.encode(0x2, bytearray(b'\xff'))
+        assert encoded_data == bytearray(b'\xef')
+        decoded_data = field.decode(bytearray(b'\xef'))
+        assert decoded_data == 0x2
+
+        field = mem_map.get_field("Bits6to7")
+        encoded_data = field.encode(0x2, bytearray(b'\xff'))
+        assert encoded_data == bytearray(b'\xbf')
+        decoded_data = field.decode(bytearray(b'\xbf'))
+        assert decoded_data == 0x2
+
+        field = mem_map.get_field("Bits6to7")
+        encoded_data = field.encode(0x1, bytearray(b'\xff'))
+        assert encoded_data == bytearray(b'\x7f')
+        decoded_data = field.decode(bytearray(b'\x7f'))
+        assert decoded_data == 0x1
+
+        field = mem_map.get_field("Bits0to3")
+        encoded_data = field.encode(0x3, bytearray(b'\xff'))
+        assert encoded_data == bytearray(b'\xf3')
+        decoded_data = field.decode(bytearray(b'\xf3'))
+        assert decoded_data == 3
+        field = mem_map.get_field("Bits4to7")
+        encoded_data = field.encode(0x3, bytearray(b'\xff'))
+        assert encoded_data == bytearray(b'\x3f')
+        decoded_data = field.decode(bytearray(b'\xf3'))
+        assert decoded_data == 0xf
+    
 class TestRegBitField(object):
     def test_offset(self):
         field = mem_map.get_field("BitField0")

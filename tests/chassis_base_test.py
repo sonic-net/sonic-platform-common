@@ -34,3 +34,18 @@ class TestChassisBase:
                 exception_raised = True
 
             assert exception_raised
+
+    def test_sensors(self):
+        chassis = ChassisBase()
+        assert(chassis.get_num_voltage_sensors() == 0)
+        assert(chassis.get_all_voltage_sensors() == [])
+        assert(chassis.get_voltage_sensor(0) == None)
+        chassis._voltage_sensor_list = ["s1"]
+        assert(chassis.get_all_voltage_sensors() == ["s1"])
+        assert(chassis.get_voltage_sensor(0) == "s1")
+        assert(chassis.get_num_current_sensors() == 0)
+        assert(chassis.get_all_current_sensors() == [])
+        assert(chassis.get_current_sensor(0) == None)
+        chassis._current_sensor_list = ["s1"]
+        assert(chassis.get_all_current_sensors() == ["s1"])
+        assert(chassis.get_current_sensor(0) == "s1")
