@@ -2376,6 +2376,7 @@ class TestCmis(object):
         with pytest.raises(ValueError):
             self.api.dump_eeprom(-1)
 
+        self.api.is_flat_memory = MagicMock(return_value=False)
         self.api.xcvr_eeprom.read_raw = MagicMock()
         self.api.xcvr_eeprom.read_raw.side_effect = [bytearray([x for x in range(128)]), bytearray([x for x in range(128, 256)])]
         output = self.api.dump_eeprom(0)
