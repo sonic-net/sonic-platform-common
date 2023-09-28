@@ -13,6 +13,10 @@ from .api.public.c_cmis import CCmisApi
 from .mem_maps.public.cmis import CmisMemMap
 from .mem_maps.public.c_cmis import CCmisMemMap
 
+from .codes.credo.aec_800g import CmisAec800gCodes
+from .api.credo.aec_800g import CmisAec800gApi
+from .mem_maps.credo.aec_800g import CmisAec800gMemMap
+
 from .codes.public.sff8436 import Sff8436Codes
 from .api.public.sff8436 import Sff8436Api
 from .mem_maps.public.sff8436 import Sff8436MemMap
@@ -36,15 +40,38 @@ class XcvrApiFactory(object):
             return None
         return id_byte_raw[0]
 
+    def _get_vendor_name(self):
+       name_data = self.reader(129, 16)
+       if name_data is None:
+           return None
+       vendor_name = str(name_data, 'UTF-8')
+       return vendor_name.strip()
+
+    def _get_vendor_part_num(self):
+       part_num = self.reader(148, 16)
+       if part_num is None:
+           return None
+       vendor_pn = str(part_num, 'UTF-8')
+       return vendor_pn.strip()
+        
     def create_xcvr_api(self):
         # TODO: load correct classes from id_mapping file
         id = self._get_id()
+        vendor_name = self._get_vendor_name()
+        vendor_pn = self._get_vendor_part_num()
         # QSFP-DD or OSFP
         if id == 0x18 or id == 0x19 or id == 0x1e:
-            codes = CmisCodes
-            mem_map = CmisMemMap(codes)
-            xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
-            api = CmisApi(xcvr_eeprom)
+            if vendor_name == 'Credo' and vendor_pn == 'CAC81X321M2MC1MS':
+                codes = CmisAec800gCodes
+                mem_map = CmisAec800gMemMap(CmisAec800gCodes)
+                xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
+                api = CmisAec800gApi(xcvr_eeprom)
+            else:
+                codes = CmisCodes
+                mem_map = CmisMemMap(codes)
+                xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
+                api = CmisApi(xcvr_eeprom)
+
             if api.is_coherent_module():
                 mem_map = CCmisMemMap(codes)
                 xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
