@@ -449,6 +449,10 @@ class CmisMemMap(XcvrMemMap):
                 *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 2))
             ),
             NumberRegField(consts.VDM_CONTROL, self.getaddr(0x2f, 144), size=1, ro=False),
+            NumberRegField(consts.VDM_STATUS, self.getaddr(0x2f, 145),
+                RegBitField(consts.VDM_UNFREEZE_DONE, 6),
+                RegBitField(consts.VDM_FREEZE_DONE, 7),
+            ),
         )
 
         self.TRANS_CONFIG = RegGroupField(consts.TRANS_CONFIG_FIELD,

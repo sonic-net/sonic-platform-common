@@ -624,3 +624,44 @@ class TestCCmis(object):
         self.api.get_pm_all.return_value = mock_response
         result = self.api.get_transceiver_pm()
         assert result == expected
+
+    @pytest.mark.parametrize("mock_response, expected", [
+        (0, 0),
+        (1, 1),
+    ])
+    def test_get_freeze_vdm_stats(self, mock_response, expected):
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.return_value = mock_response
+        result = self.api.get_freeze_vdm_stats()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response, expected", [
+        (0, 0),
+        (1, 1),
+    ])
+    def test_get_unfreeze_vdm_stats(self, mock_response, expected):
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.return_value = mock_response
+        result = self.api.get_unfreeze_vdm_stats()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response, expected", [
+        (0, 0),
+        (1, 1),
+    ])
+    def test_freeze_vdm_stats(self, mock_response, expected):
+        self.api.xcvr_eeprom.write = MagicMock()
+        self.api.xcvr_eeprom.write.return_value = mock_response
+        result = self.api.freeze_vdm_stats()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response, expected", [
+        (0, 0),
+        (1, 1),
+    ])
+    def test_unfreeze_vdm_stats(self, mock_response, expected):
+        self.api.xcvr_eeprom.write = MagicMock()
+        self.api.xcvr_eeprom.write.return_value = mock_response
+        result = self.api.unfreeze_vdm_stats()
+        assert result == expected
+

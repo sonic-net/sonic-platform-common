@@ -147,6 +147,43 @@ class CCmisApi(CmisApi):
         time.sleep(1)
         return status
 
+    def freeze_vdm_stats(self):
+        '''
+        This function freeze all the vdm statistics reporting registers.
+        When raised by the host, causes the module to freeze and hold all 
+        reported statistics reporting registers (minimum, maximum and 
+        average values)in Pages 24h-27h.
+
+        Returns True if the provision succeeds and False incase of failure.
+        '''
+        return self.xcvr_eeprom.write(consts.VDM_CONTROL, VDM_FREEZE)
+
+    def get_freeze_vdm_stats(self):
+        '''
+        This function reads and returns the vdm Freeze done status.
+
+        Returns True if the vdm stats freeze is successful and False if not freeze.
+        '''
+        return self.xcvr_eeprom.read(consts.VDM_FREEZE_DONE)
+
+    def unfreeze_vdm_stats(self):
+        '''
+        This function unfreeze all the vdm statistics reporting registers.
+        When freeze is ceased by the host, releases the freeze request, allowing the 
+        reported minimum, maximum and average values to update again.
+        
+        Returns True if the provision succeeds and False incase of failure.
+        '''
+        return self.xcvr_eeprom.write(consts.VDM_CONTROL, VDM_UNFREEZE)
+
+    def get_unfreeze_vdm_stats(self):
+        '''
+        This function reads and returns the vdm unfreeze status.
+
+        Returns True if the vdm stats unfreeze is successful and False if not unfreeze.
+        '''
+        return self.xcvr_eeprom.read(consts.VDM_UNFREEZE_DONE)
+
     def get_pm_all(self):
         '''
         This function returns the PMs reported in Page 34h and 35h in OIF C-CMIS document
@@ -163,14 +200,6 @@ class CCmisApi(CmisApi):
         SOPROC: unit in krad/s
         MER:    unit in dB
         '''
-        # When raised by the host, causes the module to freeze and hold all 
-        # reported statistics reporting registers (minimum, maximum and 
-        # average values)in Pages 24h-27h.
-        # When ceased by the host, releases the freeze request, allowing the 
-        # reported minimum, maximum and average values to update again.
-        self.xcvr_eeprom.write(consts.VDM_CONTROL, VDM_FREEZE)
-        time.sleep(1)
-        self.xcvr_eeprom.write(consts.VDM_CONTROL, VDM_UNFREEZE)
         PM_dict = dict()
 
         rx_bits_pm = self.xcvr_eeprom.read(consts.RX_BITS_PM)
@@ -255,7 +284,6 @@ class CCmisApi(CmisApi):
         PM_dict['rx_mer_min'] = self.xcvr_eeprom.read(consts.RX_MIN_MER_PM)
         PM_dict['rx_mer_max'] = self.xcvr_eeprom.read(consts.RX_MAX_MER_PM)
         return PM_dict
-
 
     def get_transceiver_info(self):
         """
