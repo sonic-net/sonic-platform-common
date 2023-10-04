@@ -29,6 +29,11 @@ from .codes.public.sff8472 import Sff8472Codes
 from .api.public.sff8472 import Sff8472Api
 from .mem_maps.public.sff8472 import Sff8472MemMap
 
+VENDOR_NAME_OFFSET = 129
+VENDOR_PART_NUM_OFFSET = 148
+VENDOR_NAME_LENGTH = 16
+VENDOR_PART_NUM_LENGTH = 16
+
 class XcvrApiFactory(object):
     def __init__(self, reader, writer):
         self.reader = reader
@@ -41,14 +46,14 @@ class XcvrApiFactory(object):
         return id_byte_raw[0]
 
     def _get_vendor_name(self):
-       name_data = self.reader(129, 16)
+       name_data = self.reader(VENDOR_NAME_OFFSET, VENDOR_NAME_LENGTH)
        if name_data is None:
            return None
        vendor_name = str(name_data, 'UTF-8')
        return vendor_name.strip()
 
     def _get_vendor_part_num(self):
-       part_num = self.reader(148, 16)
+       part_num = self.reader(VENDOR_PART_NUM_OFFSET, VENDOR_PART_NUM_LENGTH)
        if part_num is None:
            return None
        vendor_pn = str(part_num, 'UTF-8')
