@@ -1,7 +1,7 @@
 """
     aec_800g.py
 
-    Implementation of Vendor specific XcvrMemMap for CMIS Rev 5.0
+    Implementation of Credo AEC cable specific XcvrMemMap for CMIS Rev 5.0
 """
 
 from ..public.cmis import CmisMemMap
