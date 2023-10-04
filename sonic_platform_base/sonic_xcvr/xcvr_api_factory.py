@@ -56,8 +56,8 @@ class XcvrApiFactory(object):
             mem_map = Sff8636MemMap(codes)
             xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
             api = Sff8636Api(xcvr_eeprom)
-        # QSFP+
-        elif id == 0x0D:
+        # QSFP+ or QSFP
+        elif id == 0x0D or id == 0x0C:
             codes = Sff8436Codes
             mem_map = Sff8436MemMap(codes)
             xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
