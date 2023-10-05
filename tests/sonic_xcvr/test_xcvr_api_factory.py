@@ -1,17 +1,12 @@
 from unittest.mock import patch
 from mock import MagicMock
-from io import BytesIO
 import pytest
-import traceback
-import random
-from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi
+
+
 from sonic_platform_base.sonic_xcvr.api.credo.aec_800g import CmisAec800gApi
-from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis import CmisMemMap
 from sonic_platform_base.sonic_xcvr.mem_maps.credo.aec_800g import CmisAec800gMemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
-from sonic_platform_base.sonic_xcvr.codes.public.cmis import CmisCodes
 from sonic_platform_base.sonic_xcvr.codes.credo.aec_800g import CmisAec800gCodes
-from sonic_platform_base.sonic_xcvr.codes.public.sff8024 import Sff8024
 from sonic_platform_base.sonic_xcvr.fields import consts
 from sonic_platform_base.sonic_xcvr.xcvr_api_factory import XcvrApiFactory
 
