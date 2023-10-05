@@ -33,15 +33,16 @@ class TestXcvrApiFactory(object):
             result = self.api._get_vendor_part_num()
         assert result == 'CAC81X321M2MC1MS'.strip()
 
-    def test_create_xcvrd_api(self):
-        self._get_id = MagicMock()
-        self._get_id.side_effect = 0x18
-        self._get_vendor_name= MagicMock()
-        self._get_vendor_name.side_effect = 'Credo'
-        self._get_vendor_part_num = MagicMock()
-        self._get_vendor_part_num.side_effect = 'CAC81X321M2MC1MS'
+    def mock_reader(self, start, length):
+        return bytes([0x18])
+
+    @patch('sonic_platform_base.sonic_xcvr.xcvr_api_factory.XcvrApiFactory._get_vendor_name', MagicMock(return_value='Credo'))
+    @patch('sonic_platform_base.sonic_xcvr.xcvr_api_factory.XcvrApiFactory._get_vendor_part_num', MagicMock(return_value='CAC81X321M2MC1MS'))
+    def test_create_xcvr_api(self):
+        self.api.reader = self.mock_reader
         CmisAec800gCodes = MagicMock()
         CmisAec800gMemMap = MagicMock()
         XcvrEeprom = MagicMock()
         CmisAec800gApi = MagicMock()
         self.api.create_xcvr_api()
+
