@@ -2,7 +2,6 @@ from unittest.mock import patch
 from mock import MagicMock
 import pytest
 
-
 from sonic_platform_base.sonic_xcvr.api.credo.aec_800g import CmisAec800gApi
 from sonic_platform_base.sonic_xcvr.mem_maps.credo.aec_800g import CmisAec800gMemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
