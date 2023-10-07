@@ -477,4 +477,6 @@ CDB_LPL = "CdbLocalPayload"
 CDB_CMD = "CdbCommand"
 CDB_WRITE_MSG = "CdbWriteMessage"
 
-
+#VENDOR SPECIFIC
+VENDOR_CUSTOM = "VendorCustom"
+TARGET_MODE = "TargetMode"
