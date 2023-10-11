@@ -62,10 +62,10 @@ class XcvrApiFactory(object):
     def create_xcvr_api(self):
         # TODO: load correct classes from id_mapping file
         id = self._get_id()
-        vendor_name = self._get_vendor_name()
-        vendor_pn = self._get_vendor_part_num()
         # QSFP-DD or OSFP
         if id == 0x18 or id == 0x19 or id == 0x1e:
+            vendor_name = self._get_vendor_name()
+            vendor_pn = self._get_vendor_part_num()
             if vendor_name == 'Credo' and vendor_pn == 'CAC81X321M2MC1MS':
                 codes = CmisAec800gCodes
                 mem_map = CmisAec800gMemMap(CmisAec800gCodes)
