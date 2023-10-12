@@ -24,6 +24,9 @@ NOT_AVAILABLE = "N/A"
 # Set Vendor Specific IDs
 INNODISK_HEALTH_ID = 169
 INNODISK_TEMPERATURE_ID = 194
+INNODISK_IO_WRITES_ID = 241
+INNODISK_IO_READS_ID = 242
+INNODISK_RESERVED_BLOCKS_ID = 170
 SWISSBIT_HEALTH_ID = 248
 SWISSBIT_TEMPERATURE_ID = 194
 TRANSCEND_HEALTH_ID = 169
@@ -40,6 +43,9 @@ class SsdUtil(SsdBase):
     health = NOT_AVAILABLE
     ssd_info = NOT_AVAILABLE
     vendor_ssd_info = NOT_AVAILABLE
+    io_reads = NOT_AVAILABLE
+    io_writes = NOT_AVAILABLE
+    reserved_blocks = NOT_AVAILABLE
 
     def __init__(self, diskdev):
         self.vendor_ssd_utility = {
@@ -148,6 +154,24 @@ class SsdUtil(SsdBase):
                 self.temperature = NOT_AVAILABLE
             else:
                 self.temperature = temp_raw.split()[-6]
+        if self.io_reads == NOT_AVAILABLE:
+            io_reads_raw = self.parse_id_number(INNODISK_IO_READS_ID)
+            if io_reads_raw == NOT_AVAILABLE:
+                self.io_reads == NOT_AVAILABLE
+            else:
+                self.io_reads = io_reads_raw.split()[-1]
+        if self.io_writes == NOT_AVAILABLE:
+            io_writes_raw = self.parse_id_number(INNODISK_IO_WRITES_ID)
+            if io_writes_raw == NOT_AVAILABLE:
+                self.io_writes == NOT_AVAILABLE
+            else:
+                self.io_writes = io_writes_raw.split()[-1]
+        if self.io_reads == NOT_AVAILABLE:
+            rbc_raw = self.parse_id_number(INNODISK_RESERVED_BLOCKS_ID)
+            if rbc_raw == NOT_AVAILABLE:
+                self.reserved_blocks == NOT_AVAILABLE
+            else:
+                self.reserved_blocks = rbc_raw.split()[-1]
 
     def parse_virtium_info(self):
         if self.vendor_ssd_info:
@@ -253,6 +277,33 @@ class SsdUtil(SsdBase):
             A string holding disk serial number as provided by the manufacturer
         """
         return self.serial
+
+    def get_io_reads(self):
+        """
+        Retrieves the total number of Input/Output (I/O) reads done on an SSD
+
+        Returns:
+            An integer value of the total number of I/O reads
+        """
+        return self.io_reads
+
+    def get_io_writes(self):
+        """
+        Retrieves the total number of Input/Output (I/O) writes done on an SSD
+
+        Returns:
+            An integer value of the total number of I/O writes
+        """
+        return self.io_writes
+
+    def get_reserved_blocks(self):
+        """
+        Retrieves the total number of reserved blocks in an SSD
+
+        Returns:
+            An integer value of the total number of reserved blocks
+        """
+        return self.reserved_blocks
 
     def get_vendor_output(self):
         """
