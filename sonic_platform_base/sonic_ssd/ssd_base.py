@@ -73,3 +73,30 @@ class SsdBase(object):
             A string holding some vendor specific disk information
         """
         raise NotImplementedError
+
+    def get_io_reads(self):
+        """
+        Retrieves the total number of Input/Output (I/O) reads done on an SSD
+
+        Returns:
+            An integer value of the total number of I/O reads
+        """
+        raise NotImplementedError
+
+    def get_io_writes(self):
+        """
+        Retrieves the total number of Input/Output (I/O) writes done on an SSD
+
+        Returns:
+            An integer value of the total number of I/O writes
+        """
+        raise NotImplementedError
+
+    def get_reserved_blocks(self):
+        """
+        Retrieves the total number of reserved blocks in an SSD
+
+        Returns:
+            An integer value of the total number of reserved blocks
+        """
+        raise NotImplementedError
