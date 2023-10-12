@@ -26,7 +26,7 @@ INNODISK_HEALTH_ID = 169
 INNODISK_TEMPERATURE_ID = 194
 INNODISK_IO_WRITES_ID = 241
 INNODISK_IO_READS_ID = 242
-INNODISK_RESERVED_BLOCKS_ID = 170
+INNODISK_RESERVED_BLOCKS_ID = 232
 SWISSBIT_HEALTH_ID = 248
 SWISSBIT_TEMPERATURE_ID = 194
 TRANSCEND_HEALTH_ID = 169
@@ -166,7 +166,7 @@ class SsdUtil(SsdBase):
                 self.io_writes == NOT_AVAILABLE
             else:
                 self.io_writes = io_writes_raw.split()[-1]
-        if self.io_reads == NOT_AVAILABLE:
+        if self.reserved_blocks == NOT_AVAILABLE:
             rbc_raw = self.parse_id_number(INNODISK_RESERVED_BLOCKS_ID)
             if rbc_raw == NOT_AVAILABLE:
                 self.reserved_blocks == NOT_AVAILABLE
