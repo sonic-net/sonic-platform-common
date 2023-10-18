@@ -345,7 +345,6 @@ Selective Self-tests/Logging not supported
 """
 
 output_virtium_generic = """
-admin@r-panther-13:~$ sudo smartctl /dev/sda -a
 smartctl 7.2 2020-12-30 r5155 [x86_64-linux-5.10.0-18-2-amd64] (local build)
 Copyright (C) 2002-20, Bruce Allen, Christian Franke, www.smartmontools.org
 
