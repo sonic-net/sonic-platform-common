@@ -5,6 +5,14 @@
     xcvrs in SONiC
 """
 from math import log10
+
+MAX_PAGE = 255
+MAX_OFFSET = 255
+MIN_OFFSET_FOR_PAGE0 = 0
+MIN_OFFSET_FOR_OTHER_PAGE = 128
+PAGE_SIZE = 128
+
+
 class XcvrApi(object):
     def __init__(self, xcvr_eeprom):
         self.xcvr_eeprom = xcvr_eeprom
@@ -651,7 +659,7 @@ class XcvrApi(object):
         Returns:
             The overall offset
         """
-        max_page = 0 if self.is_flat_memory() else 255
+        max_page = 0 if self.is_flat_memory() else MAX_PAGE
         if max_page == 0 and page != 0:
             raise ValueError(f'Invalid page number {page}, only page 0 is supported')
 
@@ -659,13 +667,13 @@ class XcvrApi(object):
             raise ValueError(f'Invalid page number {page}, valid range: [0, {max_page}]')
 
         if page == 0:
-            if offset < 0 or offset > 255:
+            if offset < MIN_OFFSET_FOR_PAGE0 or offset > MAX_OFFSET:
                 raise ValueError(f'Invalid offset {offset} for page 0, valid range: [0, 255]')
         else:
-            if offset < 128 or offset > 255:
+            if offset < MIN_OFFSET_FOR_OTHER_PAGE or offset > MAX_OFFSET:
                 raise ValueError(f'Invalid offset {offset} for page {page}, valid range: [128, 255]')
 
-        if size <= 0 or size + offset - 1 > 255:
+        if size <= 0 or size + offset - 1 > MAX_OFFSET:
             raise ValueError(f'Invalid size {size}, valid range: [1, {255 - offset + 1}]')
 
-        return page * 128 + offset
+        return page * PAGE_SIZE + offset

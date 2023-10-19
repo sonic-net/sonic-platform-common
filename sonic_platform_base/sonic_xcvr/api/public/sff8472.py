@@ -7,6 +7,13 @@
 from ...fields import consts
 from ..xcvr_api import XcvrApi
 
+MAX_OFFSET_FOR_A0H_UPPER_PAGE = 255
+MAX_OFFSET_FOR_A0H_LOWER_PAGE = 127
+MAX_PAGE = 255
+MAX_OFFSET_FOR_A2H = 255
+PAGE_SIZE = 128
+
+
 class Sff8472Api(XcvrApi):
     NUM_CHANNELS = 1
 
@@ -312,17 +319,17 @@ class Sff8472Api(XcvrApi):
         if wire_addr == 'a0h':
             if page != 0:
                 raise ValueError(f'Invalid page number {page} for wire address {wire_addr}, only page 0 is supported')
-            max_offset = 255 if is_active_cable else 127
+            max_offset = MAX_OFFSET_FOR_A0H_UPPER_PAGE if is_active_cable else MAX_OFFSET_FOR_A0H_LOWER_PAGE
             if offset < 0 or offset > max_offset:
                 raise ValueError(f'Invalid offset {offset} for wire address {wire_addr}, valid range: [0, {max_offset}]')
             if size <= 0 or size + offset - 1 > max_offset:
                 raise ValueError(f'Invalid size {size} for wire address {wire_addr}, valid range: [1, {max_offset - offset + 1}]')
             return offset
         else:
-            if page < 0 or page > 255:
+            if page < 0 or page > MAX_PAGE:
                 raise ValueError(f'Invalid page number {page} for wire address {wire_addr}, valid range: [0, 255]')
-            if offset < 0 or offset > 255:
+            if offset < 0 or offset > MAX_OFFSET_FOR_A2H:
                 raise ValueError(f'Invalid offset {offset} for wire address {wire_addr}, valid range: [0, 255]')
-            if size <= 0 or size + offset - 1 > 255:
+            if size <= 0 or size + offset - 1 > MAX_OFFSET_FOR_A2H:
                 raise ValueError(f'Invalid size {size} for wire address {wire_addr}, valid range: [1, {255 - offset + 1}]')
-            return page * 128 + offset + 256
+            return page * PAGE_SIZE + offset + MAX_OFFSET_FOR_A0H_UPPER_PAGE
