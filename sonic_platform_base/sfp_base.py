@@ -429,7 +429,7 @@ class SfpBase(device_base.DeviceBase):
         Args:
             page: EEPROM page number. Raise ValueError for invalid page.
             offset: EEPROM page offset. Raise ValueError for invalid offset.
-            size: Nubmer of bytes to be read. Raise ValueError for invalid size.
+            size: Number of bytes to be read. Raise ValueError for invalid size.
             wire_addr: Wire address. Only valid for sff8472. Raise ValueError for invalid wire address.
             flat: Read mode.
 
