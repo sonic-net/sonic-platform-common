@@ -12,6 +12,7 @@ MAX_OFFSET_FOR_A0H_LOWER_PAGE = 127
 MAX_PAGE = 255
 MAX_OFFSET_FOR_A2H = 255
 PAGE_SIZE = 128
+PAGE_SIZE_FOR_A0H = 256
 
 
 class Sff8472Api(XcvrApi):
@@ -332,4 +333,4 @@ class Sff8472Api(XcvrApi):
                 raise ValueError(f'Invalid offset {offset} for wire address {wire_addr}, valid range: [0, 255]')
             if size <= 0 or size + offset - 1 > MAX_OFFSET_FOR_A2H:
                 raise ValueError(f'Invalid size {size} for wire address {wire_addr}, valid range: [1, {255 - offset + 1}]')
-            return page * PAGE_SIZE + offset + MAX_OFFSET_FOR_A0H_UPPER_PAGE
+            return page * PAGE_SIZE + offset + PAGE_SIZE_FOR_A0H
