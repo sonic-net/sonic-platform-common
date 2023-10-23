@@ -345,6 +345,109 @@ Selective Self-tests/Logging not supported
 """
 
 output_virtium_generic = """
+smartctl 7.2 2020-12-30 r5155 [x86_64-linux-5.10.0-18-2-amd64] (local build)
+Copyright (C) 2002-20, Bruce Allen, Christian Franke, www.smartmontools.org
+
+=== START OF INFORMATION SECTION ===
+Device Model:     StorFly VSF302XC016G-MLX1
+Serial Number:    52586-0705
+Firmware Version: 0202-001
+User Capacity:    15,804,137,472 bytes [15.8 GB]
+Sector Size:      512 bytes logical/physical
+Rotation Rate:    Solid State Device
+TRIM Command:     Available, deterministic, zeroed
+Device is:        Not in smartctl database [for details use: -P showall]
+ATA Version is:   ACS-2 (minor revision not indicated)
+SATA Version is:  SATA 3.1, 6.0 Gb/s (current: 6.0 Gb/s)
+Local Time is:    Wed Oct 18 09:58:57 2023 IDT
+SMART support is: Available - device has SMART capability.
+SMART support is: Enabled
+
+=== START OF READ SMART DATA SECTION ===
+SMART overall-health self-assessment test result: PASSED
+
+General SMART Values:
+Offline data collection status:  (0x00) Offline data collection activity
+                                        was never started.
+                                        Auto Offline Data Collection: Disabled.
+Self-test execution status:      (   0) The previous self-test routine completed
+                                        without error or no self-test has ever 
+                                        been run.
+Total time to complete Offline 
+data collection:                (    0) seconds.
+Offline data collection
+capabilities:                    (0x71) SMART execute Offline immediate.
+                                        No Auto Offline data collection support.
+                                        Suspend Offline collection upon new
+                                        command.
+                                        No Offline surface scan supported.
+                                        Self-test supported.
+                                        Conveyance Self-test supported.
+                                        Selective Self-test supported.
+SMART capabilities:            (0x0002) Does not save SMART data before
+                                        entering power-saving mode.
+                                        Supports SMART auto save timer.
+Error logging capability:        (0x01) Error logging supported.
+                                        General Purpose Logging supported.
+Short self-test routine 
+recommended polling time:        (   1) minutes.
+Extended self-test routine
+recommended polling time:        (   1) minutes.
+Conveyance self-test routine
+recommended polling time:        (   1) minutes.
+
+SMART Attributes Data Structure revision number: 1
+Vendor Specific SMART Attributes with Thresholds:
+ID# ATTRIBUTE_NAME          FLAG     VALUE WORST THRESH TYPE      UPDATED  WHEN_FAILED RAW_VALUE
+  1 Raw_Read_Error_Rate     0x0000   100   100   070    Old_age   Offline      -       0
+  5 Reallocated_Sector_Ct   0x0000   100   100   000    Old_age   Offline      -       0
+  9 Power_On_Hours          0x0000   100   100   000    Old_age   Offline      -       1223
+ 12 Power_Cycle_Count       0x0000   100   100   000    Old_age   Offline      -       17413
+160 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       0
+161 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       180
+163 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       9
+164 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       5105664
+165 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       2524
+166 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       2393
+167 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       2444
+168 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       20000
+177 Wear_Leveling_Count     0x0000   100   100   050    Old_age   Offline      -       22301
+178 Used_Rsvd_Blk_Cnt_Chip  0x0000   100   100   000    Old_age   Offline      -       0
+181 Program_Fail_Cnt_Total  0x0000   100   100   000    Old_age   Offline      -       0
+182 Erase_Fail_Count_Total  0x0000   100   100   000    Old_age   Offline      -       0
+187 Reported_Uncorrect      0x0000   100   100   000    Old_age   Offline      -       0
+192 Power-Off_Retract_Count 0x0000   100   100   000    Old_age   Offline      -       12514
+194 Temperature_Celsius     0x0000   100   100   000    Old_age   Offline      -       19
+195 Hardware_ECC_Recovered  0x0000   100   100   000    Old_age   Offline      -       0
+196 Reallocated_Event_Count 0x0000   100   100   016    Old_age   Offline      -       0
+198 Offline_Uncorrectable   0x0000   100   100   000    Old_age   Offline      -       0
+199 UDMA_CRC_Error_Count    0x0000   100   100   050    Old_age   Offline      -       0
+232 Available_Reservd_Space 0x0000   100   100   000    Old_age   Offline      -       100
+241 Total_LBAs_Written      0x0000   100   100   000    Old_age   Offline      -       629509
+242 Total_LBAs_Read         0x0000   100   100   000    Old_age   Offline      -       1482095
+248 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       88
+249 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       100
+
+SMART Error Log Version: 1
+No Errors Logged
+
+SMART Self-test log structure revision number 1
+No self-tests have been logged.  [To run self-tests, use: smartctl -t]
+
+SMART Selective self-test log data structure revision number 1
+ SPAN  MIN_LBA  MAX_LBA  CURRENT_TEST_STATUS
+    1        0        0  Not_testing
+    2        0        0  Not_testing
+    3        0        0  Not_testing
+    4        0        0  Not_testing
+    5        0        0  Not_testing
+    6        0    65535  Read_scanning was never started
+Selective self-test flags (0x0):
+  After scanning selected spans, do NOT read-scan remainder of disk.
+If Selective self-test is pending on power-up, resume after 0 minute delay.
+"""
+
+output_virtium_generic_vsfdm8xc240g_v11_t = """
 smartctl 7.2 2020-12-30 r5155 [x86_64-linux-5.10.0-12-2-amd64] (local build)
 Copyright (C) 2002-20, Bruce Allen, Christian Franke, www.smartmontools.org
 
@@ -452,7 +555,40 @@ Selective self-test flags (0x0):
 If Selective self-test is pending on power-up, resume after 0 minute delay.
 """
 
-output_virtium_vendor = """
+output_virtium_vendor ="""
+SMART attributes 
+ ID                    Attribute   High Raw    Low Raw Value Worst Threshold 
+  1          Raw_Read_Error_Rate          0          0   100   100        70 
+  5           Reserved_Attribute          0          0   100   100         0 
+  9               Power_On_Hours          0       1223   100   100         0 
+ 12            Power_Cycle_Count          0      17413   100   100         0 
+160   Uncorrectable_Sector_Count          0          0   100   100         0 
+161            Valid_Spare_Block          0        180   100   100         0 
+163           Reserved_Attribute          0          9   100   100         0 
+164           Reserved_Attribute          0    5105665   100   100         0 
+165          Maximum_Erase_Count          0       2524   100   100         0 
+166           Reserved_Attribute          0       2393   100   100         0 
+167          Average_Erase_Count          0       2444   100   100         0 
+168               NAND_Endurance          0      20000   100   100         0 
+177           Reserved_Attribute          0      22301   100   100        50 
+178           Reserved_Attribute          0          0   100   100         0 
+181           Total_Program_Fail          0          0   100   100         0 
+182             Total_Erase_Fail          0          0   100   100         0 
+187    Uncorrectable_Error_Count          0          0   100   100         0 
+192      Sudden_Power_Lost_Count          0      12514   100   100         0 
+194          Temperature_Celsius          0         17   100   100         0 
+195       Hardware_ECC_Recovered          0          0   100   100         0 
+196      Reallocated_Event_Count          0          0   100   100        16 
+198           Reserved_Attribute          0          0   100   100         0 
+199         UDMA_CRC_Error_Count          0          0   100   100        50 
+232           Reserved_Attribute          0        100   100   100         0 
+241           Total_LBAs_Written          0     629509   100   100         0 
+242              Total_LBAs_Read          0    1482095   100   100         0 
+248          Remaining_Life_Left          0         88   100   100         0 
+249  Remaining_Spare_Block_Count          0        100   100   100         0 
+"""
+
+output_virtium_vendor_vsfdm8xc240g_v11_t = """
 SMART attributes
  ID                    Attribute   High Raw    Low Raw Value Worst Threshold
   1          Raw_Read_Error_Rate          0          0   100   100         0
@@ -477,7 +613,7 @@ SMART attributes
 198           Reserved_Attribute          0          0   100   100         0
 199         UDMA_CRC_Error_Count          0          0   100   100         0
 202                   TRIM_Count          0          0     0     0         0
-231           Reserved_Attribute          0        100   100   100         0
+231           Reserved_Attribute          0         98   100   100         0
 232           Reserved_Attribute          0          0   100   100         0
 234           Reserved_Attribute          0  131296768   100   100         0
 235           Reserved_Attribute          0  347463680   100   100         0
@@ -718,13 +854,21 @@ class TestSsdGeneric:
 
     @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell')
     def test_virtium_ssd(self, mock_exec):
-        mock_exec.side_effect = [output_virtium_generic, output_virtium_vendor]
+        mock_exec.side_effect = [output_virtium_generic_vsfdm8xc240g_v11_t, output_virtium_vendor_vsfdm8xc240g_v11_t]
         virtium_ssd = SsdUtil('/dev/sda')
-        assert virtium_ssd.get_health() == 1
+        assert virtium_ssd.get_health() == 98
         assert virtium_ssd.get_model() == 'VSFDM8XC240G-V11-T'
         assert virtium_ssd.get_firmware() == "0913-000"
         assert virtium_ssd.get_temperature() == '34'
         assert virtium_ssd.get_serial() == "60237-0037"
+
+        mock_exec.side_effect = [output_virtium_generic, output_virtium_vendor]
+        virtium_ssd = SsdUtil('/dev/sda')
+        assert virtium_ssd.get_health() == 87.78
+        assert virtium_ssd.get_model() == 'StorFly VSF302XC016G-MLX1'
+        assert virtium_ssd.get_firmware() == "0202-001"
+        assert virtium_ssd.get_temperature() == '17'
+        assert virtium_ssd.get_serial() == "52586-0705"
 
         mock_exec.side_effect = [output_virtium_generic, output_virtium_no_remain_life]
         virtium_ssd = SsdUtil('/dev/sda')
