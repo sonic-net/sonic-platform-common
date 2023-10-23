@@ -154,8 +154,15 @@ class SsdUtil(SsdBase):
                 except (ValueError, ZeroDivisionError):
                     pass
             else:
+                if self.model == 'VSFDM8XC240G-V11-T':
+                    # The ID of "Remaining Life Left" attribute on 'VSFDM8XC240G-V11-T' device is 231
+                    # However, it is not recognized by SmartCmd nor smartctl so far
+                    # We need to parse it using the ID number
+                    pattern = '231\s*Reserved_Attribute\s*\d*\s*(\d+?)\s+'
+                else:
+                    pattern = 'Remaining_Life_Left\s*\d*\s*(\d+?)\s+'
                 try:
-                    self.health = float(self._parse_re('Remaining_Life_Left\s*\d*\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info))
+                    self.health = float(self._parse_re(pattern, self.vendor_ssd_info))
                 except ValueError:
                     pass
 
