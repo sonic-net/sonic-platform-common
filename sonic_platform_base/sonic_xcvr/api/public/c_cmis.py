@@ -6,17 +6,19 @@
 from sonic_py_common import logger
 from ...fields import consts
 from .cmis import CmisApi
+import logging
 import time
+
+
 BYTELENGTH = 8
 VDM_FREEZE = 128
 VDM_UNFREEZE = 0
-SYSLOG_IDENTIFIER = "CCmisApi"
 
-helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
 
 class CCmisApi(CmisApi):
     def __init__(self, xcvr_eeprom):
         super(CCmisApi, self).__init__(xcvr_eeprom)
+        logging.basicConfig(level=logging.DEBUG)
 
     def get_freq_grid(self):
         '''
@@ -814,7 +816,7 @@ class CCmisApi(CmisApi):
             trans_status['rxsigpowerhighwarning_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][7]
             trans_status['rxsigpowerlowwarning_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][8]
         except KeyError:
-            helper_logger.log_debug('fields not present in VDM')
+            logging.debug('fields not present in VDM')
         return trans_status
 
     def get_transceiver_pm(self):
