@@ -3,7 +3,6 @@
 
     Implementation of XcvrApi that corresponds to C-CMIS
 """
-from sonic_py_common import logger
 from ...fields import consts
 from .cmis import CmisApi
 import logging
