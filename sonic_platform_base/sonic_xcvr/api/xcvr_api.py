@@ -645,7 +645,7 @@ class XcvrApi(object):
         """
         raise NotImplementedError
 
-    def get_overall_offset(self, page, offset, size, wire_addr=None, flat=False):
+    def get_overall_offset(self, page, offset, size, wire_addr=None):
         """
         Retrieves the overall offset of the given page, offset and size
 
@@ -654,7 +654,6 @@ class XcvrApi(object):
             offset: The offset within the page
             size: The size of the data
             wire_addr: Wire address. Only valid for sff8472. Raise ValueError for invalid wire address.
-            flat: A boolean, True if flat mode
 
         Returns:
             The overall offset

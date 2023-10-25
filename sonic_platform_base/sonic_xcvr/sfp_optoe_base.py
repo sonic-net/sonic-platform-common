@@ -183,9 +183,9 @@ class SfpOptoeBase(SfpBase):
         except (OSError, IOError):
             return None
 
-    def read_eeprom_by_page(self, page, offset, size, wire_addr=None, flat=False):
+    def read_eeprom_by_page(self, page, offset, size, wire_addr=None):
         api = self.get_xcvr_api()
-        overall_offset = api.get_overall_offset(page, offset, size, wire_addr, flat) if api is not None else None
+        overall_offset = api.get_overall_offset(page, offset, size, wire_addr) if api is not None else None
         if overall_offset is None:
             return None
         return self.read_eeprom(overall_offset, size)
@@ -199,9 +199,9 @@ class SfpOptoeBase(SfpBase):
             return False
         return True
 
-    def write_eeprom_by_page(self, page, offset, data, wire_addr=None, flat=False):
+    def write_eeprom_by_page(self, page, offset, data, wire_addr=None):
         api = self.get_xcvr_api()
-        overall_offset = api.get_overall_offset(page, offset, len(data), wire_addr, flat) if api is not None else None
+        overall_offset = api.get_overall_offset(page, offset, len(data), wire_addr) if api is not None else None
         if overall_offset is None:
             return False
         return self.write_eeprom(overall_offset, len(data), data)

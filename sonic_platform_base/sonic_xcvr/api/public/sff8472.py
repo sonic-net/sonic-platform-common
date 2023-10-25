@@ -307,7 +307,7 @@ class Sff8472Api(XcvrApi):
     def is_copper(self):
         return self.xcvr_eeprom.read(consts.SFP_CABLE_TECH_FIELD) == 'Passive Cable'
 
-    def get_overall_offset(self, page, offset, size, wire_addr=None, flat=False):
+    def get_overall_offset(self, page, offset, size, wire_addr=None):
         if not wire_addr:
             raise ValueError("Invalid wire address for sff8472, must a0h or a2h")
 
