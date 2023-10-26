@@ -158,7 +158,7 @@ class CCmisApi(CmisApi):
         '''
         return self.xcvr_eeprom.write(consts.VDM_CONTROL, VDM_FREEZE)
 
-    def get_freeze_vdm_stats(self):
+    def get_vdm_freeze_status(self):
         '''
         This function reads and returns the vdm Freeze done status.
 
@@ -176,7 +176,7 @@ class CCmisApi(CmisApi):
         '''
         return self.xcvr_eeprom.write(consts.VDM_CONTROL, VDM_UNFREEZE)
 
-    def get_unfreeze_vdm_stats(self):
+    def get_vdm_unfreeze_status(self):
         '''
         This function reads and returns the vdm unfreeze status.
 

@@ -61,7 +61,10 @@ class SfpOptoeBase(SfpBase):
         Returns True if the provision succeeds and False incase of failure.
         '''
         api = self.get_xcvr_api()
-        return api.freeze_vdm_stats() if api is not None else None
+        try:
+            return api.freeze_vdm_stats() if api is not None else False
+        except (NotImplementedError, AttributeError):
+            return False
 
     def unfreeze_vdm_stats(self):
         '''
@@ -72,25 +75,36 @@ class SfpOptoeBase(SfpBase):
         Returns True if the provision succeeds and False incase of failure.
         '''
         api = self.get_xcvr_api()
-        return api.unfreeze_vdm_stats() if api is not None else None
+        try:
+            return api.unfreeze_vdm_stats() if api is not None else False
+        except (NotImplementedError, AttributeError):
+            return False
 
-    def get_freeze_vdm_stats(self):
+
+    def get_vdm_freeze_status(self):
         '''
         This function reads and returns the vdm Freeze done status.
 
         Returns True if the vdm stats freeze is successful and False if not freeze.
         '''
         api = self.get_xcvr_api()
-        return api.get_freeze_vdm_stats() if api is not None else None
+        try:
+            return api.get_vdm_freeze_status() if api is not None else False
+        except (NotImplementedError, AttributeError):
+            return False
 
-    def get_unfreeze_vdm_stats(self):
+    def get_vdm_unfreeze_status(self):
         '''
         This function reads and returns the vdm unfreeze status.
 
         Returns True if the vdm stats unfreeze is successful and False if not unfreeze.
         '''
         api = self.get_xcvr_api()
-        return api.get_unfreeze_vdm_stats() if api is not None else None
+        try:
+            return api.get_vdm_unfreeze_status() if api is not None else False
+        except (NotImplementedError, AttributeError):
+            return False
+
 
     def get_rx_los(self):
         api = self.get_xcvr_api()
