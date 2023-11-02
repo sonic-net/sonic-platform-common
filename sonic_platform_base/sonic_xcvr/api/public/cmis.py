@@ -43,6 +43,18 @@ class CmisApi(XcvrApi):
         '''
         return self.xcvr_eeprom.read(consts.VENDOR_PART_NO_FIELD)
 
+    def get_cable_type(self):
+        '''
+        This function returns the cable type of the module
+        '''
+        return "Length Cable Assembly(m)"
+
+    def get_cable_length(self):
+        '''
+        This function returns the cable length of the module
+        '''
+        return self.xcvr_eeprom.read(consts.LENGTH_ASSEMBLY_FIELD)
+
     def get_vendor_rev(self):
         '''
         This function returns the revision level for part number provided by vendor
@@ -146,7 +158,6 @@ class CmisApi(XcvrApi):
             "encoding": "N/A", # Not supported
             "ext_identifier": "%s (%sW Max)" % (power_class, max_power),
             "ext_rateselect_compliance": "N/A", # Not supported
-            "cable_type": "Length Cable Assembly(m)",
             "cable_length": float(admin_info[consts.LENGTH_ASSEMBLY_FIELD]),
             "nominal_bit_rate": 0, # Not supported
             "vendor_date": admin_info[consts.VENDOR_DATE_FIELD],
@@ -160,6 +171,7 @@ class CmisApi(XcvrApi):
         xcvr_info['media_lane_count'] = self.get_media_lane_count()
         xcvr_info['host_lane_assignment_option'] = self.get_host_lane_assignment_option()
         xcvr_info['media_lane_assignment_option'] = self.get_media_lane_assignment_option()
+        xcvr_info['cable_type'] = self.get_cable_type()
         apsel_dict = self.get_active_apsel_hostlane()
         for lane in range(1, self.NUM_CHANNELS+1):
             xcvr_info["%s%d" % ("active_apsel_hostlane", lane)] = \
