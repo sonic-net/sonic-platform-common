@@ -45,6 +45,12 @@ class XcvrApiFactory(object):
             return None
         return id_byte_raw[0]
 
+    def _get_revision_compliance(self):
+        id_byte_raw = self.reader(1, 1)
+        if id_byte_raw is None:
+            return None
+        return id_byte_raw[0]
+
     def _get_vendor_name(self):
        name_data = self.reader(VENDOR_NAME_OFFSET, VENDOR_NAME_LENGTH)
        if name_data is None:
@@ -90,10 +96,17 @@ class XcvrApiFactory(object):
             api = Sff8636Api(xcvr_eeprom)
         # QSFP+
         elif id == 0x0D:
-            codes = Sff8436Codes
-            mem_map = Sff8436MemMap(codes)
-            xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
-            api = Sff8436Api(xcvr_eeprom)
+            revision_compliance = self._get_revision_compliance()
+            if revision_compliance >= 3:
+                codes = Sff8636Codes
+                mem_map = Sff8636MemMap(codes)
+                xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
+                api = Sff8636Api(xcvr_eeprom)
+            else:
+                codes = Sff8436Codes
+                mem_map = Sff8436MemMap(codes)
+                xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
+                api = Sff8436Api(xcvr_eeprom)
         elif id == 0x03:
             codes = Sff8472Codes
             mem_map = Sff8472MemMap(codes)
