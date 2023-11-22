@@ -50,7 +50,9 @@ class Sff8636MemMap(XcvrMemMap):
             ),
             CodeRegField(consts.CONNECTOR_FIELD, self.get_addr(0, 130), self.codes.CONNECTORS),
             RegGroupField(consts.SPEC_COMPLIANCE_FIELD, 
-                CodeRegField(consts.ETHERNET_10_40G_COMPLIANCE_FIELD, self.get_addr(0, 131), self.codes.ETHERNET_10_40G_COMPLIANCE),
+                CodeRegField(consts.ETHERNET_10_40G_COMPLIANCE_FIELD, self.get_addr(0, 131), self.codes.ETHERNET_10_40G_COMPLIANCE,
+                    *(RegBitField("%s_%d" % (consts.ETHERNET_10_40G_COMPLIANCE_FIELD, bit), bit) for bit in range(0, 7))
+                ),
                 CodeRegField(consts.SONET_COMPLIANCE_FIELD, self.get_addr(0, 132), self.codes.SONET_COMPLIANCE),
                 CodeRegField(consts.SAS_SATA_COMPLIANCE_FIELD, self.get_addr(0, 133), self.codes.SAS_SATA_COMPLIANCE),
                 CodeRegField(consts.GIGABIT_ETHERNET_COMPLIANCE_FIELD, self.get_addr(0, 134), self.codes.GIGABIT_ETHERNET_COMPLIANCE),
