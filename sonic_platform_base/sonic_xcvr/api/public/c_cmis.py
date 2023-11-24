@@ -3,16 +3,23 @@
 
     Implementation of XcvrApi that corresponds to C-CMIS
 """
-from sonic_py_common import logger
 from ...fields import consts
 from .cmis import CmisApi
+import syslog
 import time
+
+
 BYTELENGTH = 8
 VDM_FREEZE = 128
 VDM_UNFREEZE = 0
 SYSLOG_IDENTIFIER = "CCmisApi"
 
-helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
+
+def log_error(msg):
+    syslog.openlog(SYSLOG_IDENTIFIER)
+    syslog.syslog(syslog.LOG_ERR, msg)
+    syslog.closelog()
+
 
 class CCmisApi(CmisApi):
     def __init__(self, xcvr_eeprom):
@@ -163,10 +170,10 @@ class CCmisApi(CmisApi):
         SOPROC: unit in krad/s
         MER:    unit in dB
         '''
-        # When raised by the host, causes the module to freeze and hold all 
-        # reported statistics reporting registers (minimum, maximum and 
+        # When raised by the host, causes the module to freeze and hold all
+        # reported statistics reporting registers (minimum, maximum and
         # average values)in Pages 24h-27h.
-        # When ceased by the host, releases the freeze request, allowing the 
+        # When ceased by the host, releases the freeze request, allowing the
         # reported minimum, maximum and average values to update again.
         self.xcvr_eeprom.write(consts.VDM_CONTROL, VDM_FREEZE)
         time.sleep(1)
@@ -282,8 +289,8 @@ class CCmisApi(CmisApi):
         active_apsel_hostlane7       = INTEGER                  ; active application selected code assigned to host lane 7
         active_apsel_hostlane8       = INTEGER                  ; active application selected code assigned to host lane 8
         media_interface_technology   = 1*255VCHAR               ; media interface technology
-        hardwarerev                  = 1*255VCHAR               ; module hardware revision 
-        serialnum                    = 1*255VCHAR               ; module serial number 
+        hardwarerev                  = 1*255VCHAR               ; module hardware revision
+        serialnum                    = 1*255VCHAR               ; module serial number
         manufacturename              = 1*255VCHAR               ; module venndor name
         modelname                    = 1*255VCHAR               ; module model name
         vendor_rev                   = 1*255VCHAR               ; module vendor revision
@@ -618,7 +625,7 @@ class CCmisApi(CmisApi):
         config_state_hostlane6       = 1*255VCHAR                       ; configuration status for the data path of host line 6
         config_state_hostlane7       = 1*255VCHAR                       ; configuration status for the data path of host line 7
         config_state_hostlane8       = 1*255VCHAR                       ; configuration status for the data path of host line 8
-        dpinit_pending_hostlane1     = BOOLEAN                          ; data path configuration updated on host lane 1 
+        dpinit_pending_hostlane1     = BOOLEAN                          ; data path configuration updated on host lane 1
         dpinit_pending_hostlane2     = BOOLEAN                          ; data path configuration updated on host lane 2
         dpinit_pending_hostlane3     = BOOLEAN                          ; data path configuration updated on host lane 3
         dpinit_pending_hostlane4     = BOOLEAN                          ; data path configuration updated on host lane 4
@@ -633,7 +640,7 @@ class CCmisApi(CmisApi):
         tuning_not_accepted          = BOOLEAN                          ; tuning not accepted flag
         invalid_channel_num          = BOOLEAN                          ; invalid channel number flag
         tuning_complete              = BOOLEAN                          ; tuning complete flag
-        temphighalarm_flag           = BOOLEAN                          ; temperature high alarm flag 
+        temphighalarm_flag           = BOOLEAN                          ; temperature high alarm flag
         temphighwarning_flag         = BOOLEAN                          ; temperature high warning flag
         templowalarm_flag            = BOOLEAN                          ; temperature low alarm flag
         templowwarning_flag          = BOOLEAN                          ; temperature low warning flag
@@ -814,7 +821,7 @@ class CCmisApi(CmisApi):
             trans_status['rxsigpowerhighwarning_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][7]
             trans_status['rxsigpowerlowwarning_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][8]
         except KeyError:
-            helper_logger.log_debug('fields not present in VDM')
+            log_error('fields not present in VDM')
         return trans_status
 
     def get_transceiver_pm(self):
@@ -825,7 +832,7 @@ class CCmisApi(CmisApi):
             A dict containing the following keys/values :
         ========================================================================
         key                          = TRANSCEIVER_PM|ifname            ; information of PM on port
-        ; field                      = value 
+        ; field                      = value
         prefec_ber_avg               = FLOAT                            ; prefec ber avg
         prefec_ber_min               = FLOAT                            ; prefec ber min
         prefec_ber_max               = FLOAT                            ; prefec ber max
