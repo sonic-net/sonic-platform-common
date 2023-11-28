@@ -642,7 +642,7 @@ class TestCCmis(object):
     def test_get_vdm_unfreeze_status(self, mock_response, expected):
         self.api.xcvr_eeprom.read = MagicMock()
         self.api.xcvr_eeprom.read.return_value = mock_response
-        result = self.api.get_vdm_unfreeze_stats()
+        result = self.api.get_vdm_unfreeze_status()
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [

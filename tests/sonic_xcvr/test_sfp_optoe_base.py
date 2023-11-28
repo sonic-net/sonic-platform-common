@@ -33,7 +33,7 @@ class TestSfpOptoeBase(object):
     @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
         (0, ccmis_api, 0),
         (1, ccmis_api, 1),
-        (None, None, None),
+        (None, None, False),
     ])
     def test_unfreeze_vdm_stats(self, mock_response1, mock_response2, expected):
         self.sfp_optoe_api.get_xcvr_api = MagicMock()
@@ -47,7 +47,7 @@ class TestSfpOptoeBase(object):
     @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
         (0, ccmis_api, 0),
         (1, ccmis_api, 1),
-        (None, None, None),
+        (None, None, False),
     ])
     def test_get_vdm_freeze_status(self, mock_response1, mock_response2, expected):
         self.sfp_optoe_api.get_xcvr_api = MagicMock()
@@ -61,7 +61,7 @@ class TestSfpOptoeBase(object):
     @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
         (0, ccmis_api, 0),
         (1, ccmis_api, 1), 
-        (None, None, None),
+        (None, None, False),
     ])
     def test_get_vdm_unfreeze_status(self, mock_response1, mock_response2, expected):
         self.sfp_optoe_api.get_xcvr_api = MagicMock()
