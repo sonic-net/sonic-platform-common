@@ -2,11 +2,12 @@ from mock import MagicMock
 from mock import patch 
 import pytest 
 from sonic_platform_base.sonic_xcvr.sfp_optoe_base import SfpOptoeBase 
-from sonic_platform_base.sonic_xcvr.api.public.c_cmis import CCmisApi 
+from sonic_platform_base.sonic_xcvr.api.public.c_cmis import CCmisApi
+from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi
 from sonic_platform_base.sonic_xcvr.mem_maps.public.c_cmis import CCmisMemMap 
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom 
 from sonic_platform_base.sonic_xcvr.codes.public.cmis import CmisCodes 
- 
+
 class TestSfpOptoeBase(object): 
  
     codes = CmisCodes 
@@ -16,10 +17,13 @@ class TestSfpOptoeBase(object):
     eeprom = XcvrEeprom(reader, writer, mem_map) 
     sfp_optoe_api = SfpOptoeBase() 
     ccmis_api = CCmisApi(eeprom) 
+    cmis_api = CmisApi(eeprom) 
  
     @pytest.mark.parametrize("mock_response1, mock_response2, expected", [ 
         (0, ccmis_api, 0), 
-        (1, ccmis_api, 1), 
+        (1, ccmis_api, 1),
+        (None, None, False),
+        (None, cmis_api, False),
     ]) 
     def test_freeze_vdm_stats(self, mock_response1, mock_response2, expected): 
         self.sfp_optoe_api.get_xcvr_api = MagicMock() 
@@ -34,6 +38,7 @@ class TestSfpOptoeBase(object):
         (0, ccmis_api, 0),
         (1, ccmis_api, 1),
         (None, None, False),
+        (None, cmis_api, False),
     ])
     def test_unfreeze_vdm_stats(self, mock_response1, mock_response2, expected):
         self.sfp_optoe_api.get_xcvr_api = MagicMock()
@@ -48,6 +53,7 @@ class TestSfpOptoeBase(object):
         (0, ccmis_api, 0),
         (1, ccmis_api, 1),
         (None, None, False),
+        (None, cmis_api, False),
     ])
     def test_get_vdm_freeze_status(self, mock_response1, mock_response2, expected):
         self.sfp_optoe_api.get_xcvr_api = MagicMock()
@@ -62,6 +68,7 @@ class TestSfpOptoeBase(object):
         (0, ccmis_api, 0),
         (1, ccmis_api, 1), 
         (None, None, False),
+        (None, cmis_api, False),
     ])
     def test_get_vdm_unfreeze_status(self, mock_response1, mock_response2, expected):
         self.sfp_optoe_api.get_xcvr_api = MagicMock()
