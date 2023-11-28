@@ -501,11 +501,11 @@ class TestTemperatureUpdater(object):
         chassis.set_modular_chassis(True)
         temperature_updater = thermalctld.TemperatureUpdater(chassis, multiprocessing.Event())
         temperature_updater.update()
-        assert len(temperature_updater.module_thermals) == 3
-        
+        assert len(temperature_updater.all_thermals) == 3
+
         chassis._module_list = []
         temperature_updater.update()
-        assert len(temperature_updater.module_thermals) == 0
+        assert len(temperature_updater.all_thermals) == 0
 
 
 # Modular chassis-related tests

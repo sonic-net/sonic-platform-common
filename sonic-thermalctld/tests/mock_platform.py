@@ -175,6 +175,9 @@ class MockPsu(psu_base.PsuBase):
 
     def get_status(self):
         return self._status
+    
+    def get_powergood_status(self):
+        return self._status
 
     def set_status(self, status):
         self._status = status

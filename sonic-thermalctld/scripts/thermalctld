@@ -520,10 +520,10 @@ class TemperatureUpdater(logger.Logger):
         self.table = swsscommon.Table(state_db, TemperatureUpdater.TEMPER_INFO_TABLE_NAME)
         self.phy_entity_table = swsscommon.Table(state_db, PHYSICAL_ENTITY_INFO_TABLE)
         self.chassis_table = None
+        self.all_thermals = set()
 
         self.is_chassis_system = chassis.is_modular_chassis()
         if self.is_chassis_system:
-            self.module_thermals = set()
             my_slot = try_get(chassis.get_my_slot, INVALID_SLOT)
             if my_slot != INVALID_SLOT:
                 try:
@@ -566,19 +566,23 @@ class TemperatureUpdater(logger.Logger):
         :return:
         """
         self.log_debug("Start temperature updating")
+        available_thermals = set()
         for index, thermal in enumerate(self.chassis.get_all_thermals()):
             if self.task_stopping_event.is_set():
                 return
 
+            available_thermals.add((thermal, CHASSIS_INFO_KEY, index))
             self._refresh_temperature_status(CHASSIS_INFO_KEY, thermal, index)
 
         for psu_index, psu in enumerate(self.chassis.get_all_psus()):
             parent_name = 'PSU {}'.format(psu_index + 1)
-            for thermal_index, thermal in enumerate(psu.get_all_thermals()):
-                if self.task_stopping_event.is_set():
-                    return
+            if psu.get_presence():
+                for thermal_index, thermal in enumerate(psu.get_all_thermals()):
+                    if self.task_stopping_event.is_set():
+                        return
 
-                self._refresh_temperature_status(parent_name, thermal, thermal_index)
+                    available_thermals.add((thermal, parent_name, thermal_index))
+                    self._refresh_temperature_status(parent_name, thermal, thermal_index)
 
         for sfp_index, sfp in enumerate(self.chassis.get_all_sfps()):
             parent_name = 'SFP {}'.format(sfp_index + 1)
@@ -586,10 +590,10 @@ class TemperatureUpdater(logger.Logger):
                 if self.task_stopping_event.is_set():
                     return
 
+                available_thermals.add((thermal, parent_name, thermal_index))
                 self._refresh_temperature_status(parent_name, thermal, thermal_index)
 
         if self.is_chassis_system:
-            available_thermals = set()
             for module_index, module in enumerate(self.chassis.get_all_modules()):
                 module_name = try_get(module.get_name, 'Module {}'.format(module_index + 1))
 
@@ -610,19 +614,18 @@ class TemperatureUpdater(logger.Logger):
                         self._refresh_temperature_status(sfp_name, thermal, thermal_index)
 
                 for psu_index, psu in enumerate(module.get_all_psus()):
-                    psu_name = '{} PSU {}'.format(module_name, psu_index + 1)
-                    for thermal_index, thermal in enumerate(psu.get_all_thermals()):
-                        if self.task_stopping_event.is_set():
-                            return
+                    if psu.get_presence():
+                        psu_name = '{} PSU {}'.format(module_name, psu_index + 1)
+                        for thermal_index, thermal in enumerate(psu.get_all_thermals()):
+                            if self.task_stopping_event.is_set():
+                                return
+                            available_thermals.add((thermal, psu_name, thermal_index))
+                            self._refresh_temperature_status(psu_name, thermal, thermal_index)
 
-                        available_thermals.add((thermal, psu_name, thermal_index))
-                        self._refresh_temperature_status(psu_name, thermal, thermal_index)
-
-
-            thermals_to_remove = self.module_thermals - available_thermals
-            self.module_thermals = available_thermals
-            for thermal, parent_name, thermal_index in thermals_to_remove:
-                self._remove_thermal_from_db(thermal, parent_name, thermal_index)
+        thermals_to_remove = self.all_thermals - available_thermals
+        self.all_thermals = available_thermals
+        for thermal, parent_name, thermal_index in thermals_to_remove:
+            self._remove_thermal_from_db(thermal, parent_name, thermal_index)
 
         self.log_debug("End temperature updating")
 
