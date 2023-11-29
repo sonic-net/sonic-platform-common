@@ -43,7 +43,7 @@ class CmisApi(XcvrApi):
         '''
         return self.xcvr_eeprom.read(consts.VENDOR_PART_NO_FIELD)
 
-    def get_cable_type(self):
+    def get_cable_length_type(self):
         '''
         This function returns the cable type of the module
         '''
@@ -171,7 +171,7 @@ class CmisApi(XcvrApi):
         xcvr_info['media_lane_count'] = self.get_media_lane_count()
         xcvr_info['host_lane_assignment_option'] = self.get_host_lane_assignment_option()
         xcvr_info['media_lane_assignment_option'] = self.get_media_lane_assignment_option()
-        xcvr_info['cable_type'] = self.get_cable_type()
+        xcvr_info['cable_type'] = self.get_cable_length_type()
         apsel_dict = self.get_active_apsel_hostlane()
         for lane in range(1, self.NUM_CHANNELS+1):
             xcvr_info["%s%d" % ("active_apsel_hostlane", lane)] = \

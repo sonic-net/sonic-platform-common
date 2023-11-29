@@ -32,8 +32,8 @@ class TestCmis(object):
         result = self.api.get_model()
         assert result == expected
 
-    def test_get_cable_type(self):
-        assert self.api.get_cable_type() == "Length Cable Assembly(m)"
+    def test_get_cable_length_type(self):
+        assert self.api.get_cable_length_type() == "Length Cable Assembly(m)"
 
     @pytest.mark.parametrize("mock_response, expected", [
         ("0.0", "0.0"),
