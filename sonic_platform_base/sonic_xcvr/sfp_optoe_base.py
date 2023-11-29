@@ -51,6 +51,61 @@ class SfpOptoeBase(SfpBase):
         api = self.get_xcvr_api()
         return api.get_transceiver_pm() if api is not None else None
 
+    def freeze_vdm_stats(self):
+        '''
+        This function freeze all the vdm statistics reporting registers.
+        When raised by the host, causes the module to freeze and hold all 
+        reported statistics reporting registers (minimum, maximum and 
+        average values)in Pages 24h-27h.
+
+        Returns True if the provision succeeds and False incase of failure.
+        '''
+        api = self.get_xcvr_api()
+        try:
+            return api.freeze_vdm_stats() if api is not None else False
+        except (NotImplementedError, AttributeError):
+            return False
+
+    def unfreeze_vdm_stats(self):
+        '''
+        This function unfreeze all the vdm statistics reporting registers.
+        When freeze is ceased by the host, releases the freeze request, allowing the 
+        reported minimum, maximum and average values to update again.
+
+        Returns True if the provision succeeds and False incase of failure.
+        '''
+        api = self.get_xcvr_api()
+        try:
+            return api.unfreeze_vdm_stats() if api is not None else False
+        except (NotImplementedError, AttributeError):
+            return False
+
+
+    def get_vdm_freeze_status(self):
+        '''
+        This function reads and returns the vdm Freeze done status.
+
+        Returns True if the vdm stats freeze is successful and False if not freeze.
+        '''
+        api = self.get_xcvr_api()
+        try:
+            return api.get_vdm_freeze_status() if api is not None else False
+        except (NotImplementedError, AttributeError):
+            return False
+
+    def get_vdm_unfreeze_status(self):
+        '''
+        This function reads and returns the vdm unfreeze status.
+
+        Returns True if the vdm stats unfreeze is successful and False if not unfreeze.
+        '''
+        api = self.get_xcvr_api()
+        try:
+            return api.get_vdm_unfreeze_status() if api is not None else False
+        except (NotImplementedError, AttributeError):
+            return False
+
+
     def get_rx_los(self):
         api = self.get_xcvr_api()
         if api is not None:
