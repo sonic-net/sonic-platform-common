@@ -5,6 +5,7 @@
     to interact with a fan drawer module in SONiC
 """
 
+import sys
 from . import device_base
 
 

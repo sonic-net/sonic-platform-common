@@ -9,39 +9,47 @@ trigger:
       - '*'
 
 variables:
-  DIFF_COVER_CHECK_THRESHOLD: 50
+  DIFF_COVER_CHECK_THRESHOLD: 80
   DIFF_COVER_ENABLE: 'true'
   DIFF_COVER_WORKING_DIRECTORY: $(System.DefaultWorkingDirectory)
+  ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
+    BRANCH_NAME: $(System.PullRequest.TargetBranch)
+  ${{ else }}:
+    BRANCH_NAME: $(Build.SourceBranchName)
+
 
 pool:
   vmImage: 'ubuntu-20.04'
 
 container:
-  image: sonicdev-microsoft.azurecr.io:443/sonic-slave-buster:latest
+  image: sonicdev-microsoft.azurecr.io:443/sonic-slave-bullseye:latest
 
 steps:
 - task: DownloadPipelineArtifact@2
   inputs:
     source: specific
     project: build
-    pipeline: 1
+    pipeline: 142
     artifact: sonic-buildimage.vs
     runVersion: 'latestFromBranch'
-    runBranch: 'refs/heads/master'
+    runBranch: 'refs/heads/$(BRANCH_NAME)'
+    patterns: |
+      **/*.whl
+      **/*.deb
+    path: '$(Build.ArtifactStagingDirectory)'
   displayName: "Download artifacts from latest sonic-buildimage build"
 
 - script: |
     set -xe
-    sudo apt-get -y purge libhiredis-dev libnl-3-dev libnl-route-3-dev
-    sudo dpkg -i libnl-3-200_*.deb
-    sudo dpkg -i libnl-genl-3-200_*.deb
-    sudo dpkg -i libnl-route-3-200_*.deb
-    sudo dpkg -i libnl-nf-3-200_*.deb
-    sudo dpkg -i libhiredis0.14_*.deb
-    sudo dpkg -i libswsscommon_1.0.0_amd64.deb
-    sudo dpkg -i python-swsscommon_1.0.0_amd64.deb
-    sudo dpkg -i python3-swsscommon_1.0.0_amd64.deb
-  workingDirectory: $(Pipeline.Workspace)/target/debs/buster/
+    sudo apt-get -y purge libnl-3-dev libnl-route-3-dev || true
+    sudo dpkg -i libyang_1.0.73_amd64.deb \
+                 libnl-3-200_*.deb \
+                 libnl-genl-3-200_*.deb \
+                 libnl-route-3-200_*.deb \
+                 libnl-nf-3-200_*.deb \
+                 libswsscommon_1.0.0_amd64.deb \
+                 python3-swsscommon_1.0.0_amd64.deb
+  workingDirectory: $(Build.ArtifactStagingDirectory)/target/debs/bullseye/
   displayName: 'Install Debian dependencies'
 
 - script: |
@@ -51,14 +59,15 @@ steps:
     sudo pip3 install sonic_yang_mgmt-1.0-py3-none-any.whl
     sudo pip3 install sonic_yang_models-1.0-py3-none-any.whl
     sudo pip3 install sonic_config_engine-1.0-py3-none-any.whl
-  workingDirectory: $(Pipeline.Workspace)/target/python-wheels/buster/
+  workingDirectory: $(Build.ArtifactStagingDirectory)/target/python-wheels/bullseye/
   displayName: 'Install Python dependencies'
 
 - script: |
     set -ex
     # Install .NET CORE
     curl -sSL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
-    sudo apt-add-repository https://packages.microsoft.com/debian/10/prod
+    . /etc/os-release
+    sudo apt-add-repository https://packages.microsoft.com/debian/$VERSION_ID/prod
     sudo apt-get update
     sudo apt-get install -y dotnet-sdk-5.0
   displayName: "Install .NET CORE"

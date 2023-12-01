@@ -3,12 +3,16 @@
 
     Implementation of XcvrApi that corresponds to C-CMIS
 """
+from sonic_py_common import logger
 from ...fields import consts
 from .cmis import CmisApi
 import time
 BYTELENGTH = 8
 VDM_FREEZE = 128
 VDM_UNFREEZE = 0
+SYSLOG_IDENTIFIER = "CCmisApi"
+
+helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
 
 class CCmisApi(CmisApi):
     def __init__(self, xcvr_eeprom):
@@ -94,10 +98,10 @@ class CCmisApi(CmisApi):
 
     def get_supported_freq_config(self):
         '''
-        This function returns the supported freq grid, low and high supported channel in 75GHz grid,
+        This function returns the supported freq grid, low and high supported channel in 75/100GHz grid,
         and low and high frequency supported in GHz.
-        allowed channel number bound in 75 GHz grid
-        allowed frequency bound in 75 GHz grid
+        allowed channel number bound in 75/100 GHz grid
+        allowed frequency bound in 75/100 GHz grid
         '''
         grid_supported = self.xcvr_eeprom.read(consts.SUPPORT_GRID)
         low_ch_num = self.xcvr_eeprom.read(consts.LOW_CHANNEL)
@@ -106,28 +110,31 @@ class CCmisApi(CmisApi):
         high_freq_supported = 193100 + hi_ch_num * 25
         return grid_supported, low_ch_num, hi_ch_num, low_freq_supported, high_freq_supported
 
-    def set_laser_freq(self, freq):
+    def set_laser_freq(self, freq, grid):
         '''
         This function sets the laser frequency. Unit in GHz
         ZR application will not support fine tuning of the laser
-        SONiC will only support 75 GHz frequency grid
+        SONiC will only support 75 GHz and 100GHz frequency grids
         Return True if the provision succeeds, False if it fails
         '''
         grid_supported, low_ch_num, hi_ch_num, _, _ = self.get_supported_freq_config()
         grid_supported_75GHz = (grid_supported >> 7) & 0x1
-        assert grid_supported_75GHz
-        freq_grid = 0x70
+        grid_supported_100GHz = (grid_supported >> 5) & 0x1
+        if grid == 75:
+            assert grid_supported_75GHz
+            freq_grid = 0x70
+            channel_number = int(round((freq - 193100)/25))
+            assert channel_number % 3 == 0
+        elif grid == 100:
+            assert grid_supported_100GHz
+            freq_grid = 0x50
+            channel_number = int(round((freq - 193100)/100))
+        else:
+            return False
         self.xcvr_eeprom.write(consts.GRID_SPACING, freq_grid)
-        channel_number = int(round((freq - 193100)/25))
-        assert channel_number % 3 == 0
         if channel_number > hi_ch_num or channel_number < low_ch_num:
             raise ValueError('Provisioned frequency out of range. Max Freq: 196100; Min Freq: 191300 GHz.')
-        self.set_lpmode(True)
-        time.sleep(5)
         status = self.xcvr_eeprom.write(consts.LASER_CONFIG_CHANNEL, channel_number)
-        time.sleep(1)
-        self.set_lpmode(False)
-        time.sleep(1)
         return status
 
     def set_tx_power(self, tx_power):
@@ -136,12 +143,46 @@ class CCmisApi(CmisApi):
         Return True if the provision succeeds, False if it fails
         '''
         min_prog_tx_output_power, max_prog_tx_output_power = self.get_supported_power_config()
-        if tx_power > max_prog_tx_output_power or tx_power < min_prog_tx_output_power:
-            raise ValueError('Provisioned TX power out of range. Max: %.1f; Min: %.1f dBm.' 
-                             %(max_prog_tx_output_power, min_prog_tx_output_power))
         status = self.xcvr_eeprom.write(consts.TX_CONFIG_POWER, tx_power)
         time.sleep(1)
         return status
+
+    def freeze_vdm_stats(self):
+        '''
+        This function freeze all the vdm statistics reporting registers.
+        When raised by the host, causes the module to freeze and hold all 
+        reported statistics reporting registers (minimum, maximum and 
+        average values)in Pages 24h-27h.
+
+        Returns True if the provision succeeds and False incase of failure.
+        '''
+        return self.xcvr_eeprom.write(consts.VDM_CONTROL, VDM_FREEZE)
+
+    def get_vdm_freeze_status(self):
+        '''
+        This function reads and returns the vdm Freeze done status.
+
+        Returns True if the vdm stats freeze is successful and False if not freeze.
+        '''
+        return self.xcvr_eeprom.read(consts.VDM_FREEZE_DONE)
+
+    def unfreeze_vdm_stats(self):
+        '''
+        This function unfreeze all the vdm statistics reporting registers.
+        When freeze is ceased by the host, releases the freeze request, allowing the 
+        reported minimum, maximum and average values to update again.
+        
+        Returns True if the provision succeeds and False incase of failure.
+        '''
+        return self.xcvr_eeprom.write(consts.VDM_CONTROL, VDM_UNFREEZE)
+
+    def get_vdm_unfreeze_status(self):
+        '''
+        This function reads and returns the vdm unfreeze status.
+
+        Returns True if the vdm stats unfreeze is successful and False if not unfreeze.
+        '''
+        return self.xcvr_eeprom.read(consts.VDM_UNFREEZE_DONE)
 
     def get_pm_all(self):
         '''
@@ -159,14 +200,6 @@ class CCmisApi(CmisApi):
         SOPROC: unit in krad/s
         MER:    unit in dB
         '''
-        # When raised by the host, causes the module to freeze and hold all 
-        # reported statistics reporting registers (minimum, maximum and 
-        # average values)in Pages 24h-27h.
-        # When ceased by the host, releases the freeze request, allowing the 
-        # reported minimum, maximum and average values to update again.
-        self.xcvr_eeprom.write(consts.VDM_CONTROL, VDM_FREEZE)
-        time.sleep(1)
-        self.xcvr_eeprom.write(consts.VDM_CONTROL, VDM_UNFREEZE)
         PM_dict = dict()
 
         rx_bits_pm = self.xcvr_eeprom.read(consts.RX_BITS_PM)
@@ -188,7 +221,7 @@ class CCmisApi(CmisApi):
         rx_frames_subint_pm = self.xcvr_eeprom.read(consts.RX_FRAMES_SUB_INTERVAL_PM)
         rx_frames_uncorr_err_pm = self.xcvr_eeprom.read(consts.RX_FRAMES_UNCORR_ERR_PM)
         rx_min_frames_uncorr_err_subint_pm = self.xcvr_eeprom.read(consts.RX_MIN_FRAMES_UNCORR_ERR_SUB_INTERVAL_PM)
-        rx_max_frames_uncorr_err_subint_pm = self.xcvr_eeprom.read(consts.RX_MIN_FRAMES_UNCORR_ERR_SUB_INTERVAL_PM)
+        rx_max_frames_uncorr_err_subint_pm = self.xcvr_eeprom.read(consts.RX_MAX_FRAMES_UNCORR_ERR_SUB_INTERVAL_PM)
 
         if (rx_frames_subint_pm != 0) and (rx_frames_pm != 0):
             PM_dict['preFEC_uncorr_frame_ratio_avg'] = rx_frames_uncorr_err_pm*1.0/rx_frames_subint_pm
@@ -251,7 +284,6 @@ class CCmisApi(CmisApi):
         PM_dict['rx_mer_min'] = self.xcvr_eeprom.read(consts.RX_MIN_MER_PM)
         PM_dict['rx_mer_max'] = self.xcvr_eeprom.read(consts.RX_MAX_MER_PM)
         return PM_dict
-
 
     def get_transceiver_info(self):
         """
@@ -345,29 +377,24 @@ class CCmisApi(CmisApi):
         ========================================================================
         """
         trans_dom = super(CCmisApi,self).get_transceiver_bulk_status()
-        trans_dom['bias_xi'] = self.vdm_dict['Modulator Bias X/I [%]'][1][0]
-        trans_dom['bias_xq'] = self.vdm_dict['Modulator Bias X/Q [%]'][1][0]
-        trans_dom['bias_xp'] = self.vdm_dict['Modulator Bias X_Phase [%]'][1][0]
-        trans_dom['bias_yi'] = self.vdm_dict['Modulator Bias Y/I [%]'][1][0]
-        trans_dom['bias_yq'] = self.vdm_dict['Modulator Bias Y/Q [%]'][1][0]
-        trans_dom['bias_yp'] = self.vdm_dict['Modulator Bias Y_Phase [%]'][1][0]
-        trans_dom['cd_shortlink'] = self.vdm_dict['CD high granularity, short link [ps/nm]'][1][0]
         try:
+            trans_dom['bias_xi'] = self.vdm_dict['Modulator Bias X/I [%]'][1][0]
+            trans_dom['bias_xq'] = self.vdm_dict['Modulator Bias X/Q [%]'][1][0]
+            trans_dom['bias_xp'] = self.vdm_dict['Modulator Bias X_Phase [%]'][1][0]
+            trans_dom['bias_yi'] = self.vdm_dict['Modulator Bias Y/I [%]'][1][0]
+            trans_dom['bias_yq'] = self.vdm_dict['Modulator Bias Y/Q [%]'][1][0]
+            trans_dom['bias_yp'] = self.vdm_dict['Modulator Bias Y_Phase [%]'][1][0]
+            trans_dom['cd_shortlink'] = self.vdm_dict['CD high granularity, short link [ps/nm]'][1][0]
             trans_dom['cd_longlink'] = self.vdm_dict['CD low granularity, long link [ps/nm]'][1][0]
-        except KeyError:
-            pass
-        trans_dom['dgd'] = self.vdm_dict['DGD [ps]'][1][0]
-        try:
+            trans_dom['dgd'] = self.vdm_dict['DGD [ps]'][1][0]
             trans_dom['sopmd'] = self.vdm_dict['SOPMD [ps^2]'][1][0]
-        except KeyError:
-            pass
-        trans_dom['pdl'] = self.vdm_dict['PDL [dB]'][1][0]
-        trans_dom['osnr'] = self.vdm_dict['OSNR [dB]'][1][0]
-        trans_dom['esnr'] = self.vdm_dict['eSNR [dB]'][1][0]
-        trans_dom['cfo'] = self.vdm_dict['CFO [MHz]'][1][0]
-        trans_dom['tx_curr_power'] = self.vdm_dict['Tx Power [dBm]'][1][0]
-        trans_dom['rx_tot_power'] = self.vdm_dict['Rx Total Power [dBm]'][1][0]
-        try:
+            trans_dom['soproc'] = self.vdm_dict['SOP ROC [krad/s]'][1][0]
+            trans_dom['pdl'] = self.vdm_dict['PDL [dB]'][1][0]
+            trans_dom['osnr'] = self.vdm_dict['OSNR [dB]'][1][0]
+            trans_dom['esnr'] = self.vdm_dict['eSNR [dB]'][1][0]
+            trans_dom['cfo'] = self.vdm_dict['CFO [MHz]'][1][0]
+            trans_dom['tx_curr_power'] = self.vdm_dict['Tx Power [dBm]'][1][0]
+            trans_dom['rx_tot_power'] = self.vdm_dict['Rx Total Power [dBm]'][1][0]
             trans_dom['rx_sig_power'] = self.vdm_dict['Rx Signal Power [dBm]'][1][0]
         except KeyError:
             pass
@@ -488,77 +515,71 @@ class CCmisApi(CmisApi):
         ========================================================================
         """
         trans_dom_th = super(CCmisApi,self).get_transceiver_threshold_info()
-        trans_dom_th['biasxihighalarm'] = self.vdm_dict['Modulator Bias X/I [%]'][1][1]
-        trans_dom_th['biasxilowalarm'] = self.vdm_dict['Modulator Bias X/I [%]'][1][2]
-        trans_dom_th['biasxihighwarning'] = self.vdm_dict['Modulator Bias X/I [%]'][1][3]
-        trans_dom_th['biasxilowwarning'] = self.vdm_dict['Modulator Bias X/I [%]'][1][4]
-        trans_dom_th['biasxqhighalarm'] = self.vdm_dict['Modulator Bias X/Q [%]'][1][1]
-        trans_dom_th['biasxqlowalarm'] = self.vdm_dict['Modulator Bias X/Q [%]'][1][2]
-        trans_dom_th['biasxqhighwarning'] = self.vdm_dict['Modulator Bias X/Q [%]'][1][3]
-        trans_dom_th['biasxqlowwarning'] = self.vdm_dict['Modulator Bias X/Q [%]'][1][4]
-        trans_dom_th['biasxphighalarm'] = self.vdm_dict['Modulator Bias X_Phase [%]'][1][1]
-        trans_dom_th['biasxplowalarm'] = self.vdm_dict['Modulator Bias X_Phase [%]'][1][2]
-        trans_dom_th['biasxphighwarning'] = self.vdm_dict['Modulator Bias X_Phase [%]'][1][3]
-        trans_dom_th['biasxplowwarning'] = self.vdm_dict['Modulator Bias X_Phase [%]'][1][4]
-        trans_dom_th['biasyihighalarm'] = self.vdm_dict['Modulator Bias Y/I [%]'][1][1]
-        trans_dom_th['biasyilowalarm'] = self.vdm_dict['Modulator Bias Y/I [%]'][1][2]
-        trans_dom_th['biasyihighwarning'] = self.vdm_dict['Modulator Bias Y/I [%]'][1][3]
-        trans_dom_th['biasyilowwarning'] = self.vdm_dict['Modulator Bias Y/I [%]'][1][4]
-        trans_dom_th['biasyqhighalarm'] = self.vdm_dict['Modulator Bias Y/Q [%]'][1][1]
-        trans_dom_th['biasyqlowalarm'] = self.vdm_dict['Modulator Bias Y/Q [%]'][1][2]
-        trans_dom_th['biasyqhighwarning'] = self.vdm_dict['Modulator Bias Y/Q [%]'][1][3]
-        trans_dom_th['biasyqlowwarning'] = self.vdm_dict['Modulator Bias Y/Q [%]'][1][4]
-        trans_dom_th['biasyphighalarm'] = self.vdm_dict['Modulator Bias Y_Phase [%]'][1][1]
-        trans_dom_th['biasyplowalarm'] = self.vdm_dict['Modulator Bias Y_Phase [%]'][1][2]
-        trans_dom_th['biasyphighwarning'] = self.vdm_dict['Modulator Bias Y_Phase [%]'][1][3]
-        trans_dom_th['biasyplowwarning'] = self.vdm_dict['Modulator Bias Y_Phase [%]'][1][4]
-        trans_dom_th['cdshorthighalarm'] = self.vdm_dict['CD high granularity, short link [ps/nm]'][1][1]
-        trans_dom_th['cdshortlowalarm'] = self.vdm_dict['CD high granularity, short link [ps/nm]'][1][2]
-        trans_dom_th['cdshorthighwarning'] = self.vdm_dict['CD high granularity, short link [ps/nm]'][1][3]
-        trans_dom_th['cdshortlowwarning'] = self.vdm_dict['CD high granularity, short link [ps/nm]'][1][4]
         try:
+            trans_dom_th['biasxihighalarm'] = self.vdm_dict['Modulator Bias X/I [%]'][1][1]
+            trans_dom_th['biasxilowalarm'] = self.vdm_dict['Modulator Bias X/I [%]'][1][2]
+            trans_dom_th['biasxihighwarning'] = self.vdm_dict['Modulator Bias X/I [%]'][1][3]
+            trans_dom_th['biasxilowwarning'] = self.vdm_dict['Modulator Bias X/I [%]'][1][4]
+            trans_dom_th['biasxqhighalarm'] = self.vdm_dict['Modulator Bias X/Q [%]'][1][1]
+            trans_dom_th['biasxqlowalarm'] = self.vdm_dict['Modulator Bias X/Q [%]'][1][2]
+            trans_dom_th['biasxqhighwarning'] = self.vdm_dict['Modulator Bias X/Q [%]'][1][3]
+            trans_dom_th['biasxqlowwarning'] = self.vdm_dict['Modulator Bias X/Q [%]'][1][4]
+            trans_dom_th['biasxphighalarm'] = self.vdm_dict['Modulator Bias X_Phase [%]'][1][1]
+            trans_dom_th['biasxplowalarm'] = self.vdm_dict['Modulator Bias X_Phase [%]'][1][2]
+            trans_dom_th['biasxphighwarning'] = self.vdm_dict['Modulator Bias X_Phase [%]'][1][3]
+            trans_dom_th['biasxplowwarning'] = self.vdm_dict['Modulator Bias X_Phase [%]'][1][4]
+            trans_dom_th['biasyihighalarm'] = self.vdm_dict['Modulator Bias Y/I [%]'][1][1]
+            trans_dom_th['biasyilowalarm'] = self.vdm_dict['Modulator Bias Y/I [%]'][1][2]
+            trans_dom_th['biasyihighwarning'] = self.vdm_dict['Modulator Bias Y/I [%]'][1][3]
+            trans_dom_th['biasyilowwarning'] = self.vdm_dict['Modulator Bias Y/I [%]'][1][4]
+            trans_dom_th['biasyqhighalarm'] = self.vdm_dict['Modulator Bias Y/Q [%]'][1][1]
+            trans_dom_th['biasyqlowalarm'] = self.vdm_dict['Modulator Bias Y/Q [%]'][1][2]
+            trans_dom_th['biasyqhighwarning'] = self.vdm_dict['Modulator Bias Y/Q [%]'][1][3]
+            trans_dom_th['biasyqlowwarning'] = self.vdm_dict['Modulator Bias Y/Q [%]'][1][4]
+            trans_dom_th['biasyphighalarm'] = self.vdm_dict['Modulator Bias Y_Phase [%]'][1][1]
+            trans_dom_th['biasyplowalarm'] = self.vdm_dict['Modulator Bias Y_Phase [%]'][1][2]
+            trans_dom_th['biasyphighwarning'] = self.vdm_dict['Modulator Bias Y_Phase [%]'][1][3]
+            trans_dom_th['biasyplowwarning'] = self.vdm_dict['Modulator Bias Y_Phase [%]'][1][4]
+            trans_dom_th['cdshorthighalarm'] = self.vdm_dict['CD high granularity, short link [ps/nm]'][1][1]
+            trans_dom_th['cdshortlowalarm'] = self.vdm_dict['CD high granularity, short link [ps/nm]'][1][2]
+            trans_dom_th['cdshorthighwarning'] = self.vdm_dict['CD high granularity, short link [ps/nm]'][1][3]
+            trans_dom_th['cdshortlowwarning'] = self.vdm_dict['CD high granularity, short link [ps/nm]'][1][4]
             trans_dom_th['cdlonghighalarm'] = self.vdm_dict['CD low granularity, long link [ps/nm]'][1][1]
             trans_dom_th['cdlonglowalarm'] = self.vdm_dict['CD low granularity, long link [ps/nm]'][1][2]
             trans_dom_th['cdlonghighwarning'] = self.vdm_dict['CD low granularity, long link [ps/nm]'][1][3]
             trans_dom_th['cdlonglowwarning'] = self.vdm_dict['CD low granularity, long link [ps/nm]'][1][4]
-        except KeyError:
-            pass
-        trans_dom_th['dgdhighalarm'] = self.vdm_dict['DGD [ps]'][1][1]
-        trans_dom_th['dgdlowalarm'] = self.vdm_dict['DGD [ps]'][1][2]
-        trans_dom_th['dgdhighwarning'] = self.vdm_dict['DGD [ps]'][1][3]
-        trans_dom_th['dgdlowwarning'] = self.vdm_dict['DGD [ps]'][1][4]
-        try:
+            trans_dom_th['dgdhighalarm'] = self.vdm_dict['DGD [ps]'][1][1]
+            trans_dom_th['dgdlowalarm'] = self.vdm_dict['DGD [ps]'][1][2]
+            trans_dom_th['dgdhighwarning'] = self.vdm_dict['DGD [ps]'][1][3]
+            trans_dom_th['dgdlowwarning'] = self.vdm_dict['DGD [ps]'][1][4]
             trans_dom_th['sopmdhighalarm'] = self.vdm_dict['SOPMD [ps^2]'][1][1]
             trans_dom_th['sopmdlowalarm'] = self.vdm_dict['SOPMD [ps^2]'][1][2]
             trans_dom_th['sopmdhighwarning'] = self.vdm_dict['SOPMD [ps^2]'][1][3]
             trans_dom_th['sopmdlowwarning'] = self.vdm_dict['SOPMD [ps^2]'][1][4]
-        except KeyError:
-            pass
-        trans_dom_th['pdlhighalarm'] = self.vdm_dict['PDL [dB]'][1][1]
-        trans_dom_th['pdllowalarm'] = self.vdm_dict['PDL [dB]'][1][2]
-        trans_dom_th['pdlhighwarning'] = self.vdm_dict['PDL [dB]'][1][3]
-        trans_dom_th['pdllowwarning'] = self.vdm_dict['PDL [dB]'][1][4]
-        trans_dom_th['osnrhighalarm'] = self.vdm_dict['OSNR [dB]'][1][1]
-        trans_dom_th['osnrlowalarm'] = self.vdm_dict['OSNR [dB]'][1][2]
-        trans_dom_th['osnrhighwarning'] = self.vdm_dict['OSNR [dB]'][1][3]
-        trans_dom_th['osnrlowwarning'] = self.vdm_dict['OSNR [dB]'][1][4]
-        trans_dom_th['esnrhighalarm'] = self.vdm_dict['eSNR [dB]'][1][1]
-        trans_dom_th['esnrlowalarm'] = self.vdm_dict['eSNR [dB]'][1][2]
-        trans_dom_th['esnrhighwarning'] = self.vdm_dict['eSNR [dB]'][1][3]
-        trans_dom_th['esnrlowwarning'] = self.vdm_dict['eSNR [dB]'][1][4]
-        trans_dom_th['cfohighalarm'] = self.vdm_dict['CFO [MHz]'][1][1]
-        trans_dom_th['cfolowalarm'] = self.vdm_dict['CFO [MHz]'][1][2]
-        trans_dom_th['cfohighwarning'] = self.vdm_dict['CFO [MHz]'][1][3]
-        trans_dom_th['cfolowwarning'] = self.vdm_dict['CFO [MHz]'][1][4]
-        trans_dom_th['txcurrpowerhighalarm'] = self.vdm_dict['Tx Power [dBm]'][1][1]
-        trans_dom_th['txcurrpowerlowalarm'] = self.vdm_dict['Tx Power [dBm]'][1][2]
-        trans_dom_th['txcurrpowerhighwarning'] = self.vdm_dict['Tx Power [dBm]'][1][3]
-        trans_dom_th['txcurrpowerlowwarning'] = self.vdm_dict['Tx Power [dBm]'][1][4]
-        trans_dom_th['rxtotpowerhighalarm'] = self.vdm_dict['Rx Total Power [dBm]'][1][1]
-        trans_dom_th['rxtotpowerlowalarm'] = self.vdm_dict['Rx Total Power [dBm]'][1][2]
-        trans_dom_th['rxtotpowerhighwarning'] = self.vdm_dict['Rx Total Power [dBm]'][1][3]
-        trans_dom_th['rxtotpowerlowwarning'] = self.vdm_dict['Rx Total Power [dBm]'][1][4]
-        try:
+            trans_dom_th['pdlhighalarm'] = self.vdm_dict['PDL [dB]'][1][1]
+            trans_dom_th['pdllowalarm'] = self.vdm_dict['PDL [dB]'][1][2]
+            trans_dom_th['pdlhighwarning'] = self.vdm_dict['PDL [dB]'][1][3]
+            trans_dom_th['pdllowwarning'] = self.vdm_dict['PDL [dB]'][1][4]
+            trans_dom_th['osnrhighalarm'] = self.vdm_dict['OSNR [dB]'][1][1]
+            trans_dom_th['osnrlowalarm'] = self.vdm_dict['OSNR [dB]'][1][2]
+            trans_dom_th['osnrhighwarning'] = self.vdm_dict['OSNR [dB]'][1][3]
+            trans_dom_th['osnrlowwarning'] = self.vdm_dict['OSNR [dB]'][1][4]
+            trans_dom_th['esnrhighalarm'] = self.vdm_dict['eSNR [dB]'][1][1]
+            trans_dom_th['esnrlowalarm'] = self.vdm_dict['eSNR [dB]'][1][2]
+            trans_dom_th['esnrhighwarning'] = self.vdm_dict['eSNR [dB]'][1][3]
+            trans_dom_th['esnrlowwarning'] = self.vdm_dict['eSNR [dB]'][1][4]
+            trans_dom_th['cfohighalarm'] = self.vdm_dict['CFO [MHz]'][1][1]
+            trans_dom_th['cfolowalarm'] = self.vdm_dict['CFO [MHz]'][1][2]
+            trans_dom_th['cfohighwarning'] = self.vdm_dict['CFO [MHz]'][1][3]
+            trans_dom_th['cfolowwarning'] = self.vdm_dict['CFO [MHz]'][1][4]
+            trans_dom_th['txcurrpowerhighalarm'] = self.vdm_dict['Tx Power [dBm]'][1][1]
+            trans_dom_th['txcurrpowerlowalarm'] = self.vdm_dict['Tx Power [dBm]'][1][2]
+            trans_dom_th['txcurrpowerhighwarning'] = self.vdm_dict['Tx Power [dBm]'][1][3]
+            trans_dom_th['txcurrpowerlowwarning'] = self.vdm_dict['Tx Power [dBm]'][1][4]
+            trans_dom_th['rxtotpowerhighalarm'] = self.vdm_dict['Rx Total Power [dBm]'][1][1]
+            trans_dom_th['rxtotpowerlowalarm'] = self.vdm_dict['Rx Total Power [dBm]'][1][2]
+            trans_dom_th['rxtotpowerhighwarning'] = self.vdm_dict['Rx Total Power [dBm]'][1][3]
+            trans_dom_th['rxtotpowerlowwarning'] = self.vdm_dict['Rx Total Power [dBm]'][1][4]
             trans_dom_th['rxsigpowerhighalarm'] = self.vdm_dict['Rx Signal Power [dBm]'][1][1]
             trans_dom_th['rxsigpowerlowalarm'] = self.vdm_dict['Rx Signal Power [dBm]'][1][2]
             trans_dom_th['rxsigpowerhighwarning'] = self.vdm_dict['Rx Signal Power [dBm]'][1][3]
@@ -576,8 +597,6 @@ class CCmisApi(CmisApi):
         ================================================================================
         key                          = TRANSCEIVER_STATUS|ifname        ; Error information for module on port
         ; field                      = value
-        status                       = 1*255VCHAR                       ; code of the module status (plug in, plug out)
-        error                        = 1*255VCHAR                       ; module error (N/A or a string consisting of error descriptions joined by "|", like "error1 | error2" )
         module_state                 = 1*255VCHAR                       ; current module state (ModuleLowPwr, ModulePwrUp, ModuleReady, ModulePwrDn, Fault)
         module_fault_cause           = 1*255VCHAR                       ; reason of entering the module fault state
         datapath_firmware_fault      = BOOLEAN                          ; datapath (DSP) firmware fault
@@ -638,7 +657,7 @@ class CCmisApi(CmisApi):
         tuning_in_progress           = BOOLEAN                          ; tuning in progress status
         wavelength_unlock_status     = BOOLEAN                          ; laser unlocked status
         target_output_power_oor      = BOOLEAN                          ; target output power out of range flag
-        fine_tuning_oor              = BOOLEAN                          ; fine tuning  out of range flag
+        fine_tuning_oor              = BOOLEAN                          ; fine tuning out of range flag
         tuning_not_accepted          = BOOLEAN                          ; tuning not accepted flag
         invalid_channel_num          = BOOLEAN                          ; invalid channel number flag
         tuning_complete              = BOOLEAN                          ; tuning complete flag
@@ -753,80 +772,77 @@ class CCmisApi(CmisApi):
         trans_status['tuning_not_accepted'] = 'TuningNotAccepted' in laser_tuning_summary
         trans_status['invalid_channel_num'] = 'InvalidChannel' in laser_tuning_summary
         trans_status['tuning_complete'] = 'TuningComplete' in laser_tuning_summary
-        trans_status['biasxihighalarm_flag'] = self.vdm_dict['Modulator Bias X/I [%]'][1][5]
-        trans_status['biasxilowalarm_flag'] = self.vdm_dict['Modulator Bias X/I [%]'][1][6]
-        trans_status['biasxihighwarning_flag'] = self.vdm_dict['Modulator Bias X/I [%]'][1][7]
-        trans_status['biasxilowwarning_flag'] = self.vdm_dict['Modulator Bias X/I [%]'][1][8]
-        trans_status['biasxqhighalarm_flag'] = self.vdm_dict['Modulator Bias X/Q [%]'][1][5]
-        trans_status['biasxqlowalarm_flag'] = self.vdm_dict['Modulator Bias X/Q [%]'][1][6]
-        trans_status['biasxqhighwarning_flag'] = self.vdm_dict['Modulator Bias X/Q [%]'][1][7]
-        trans_status['biasxqlowwarning_flag'] = self.vdm_dict['Modulator Bias X/Q [%]'][1][8]        
-        trans_status['biasxphighalarm_flag'] = self.vdm_dict['Modulator Bias X_Phase [%]'][1][5]
-        trans_status['biasxplowalarm_flag'] = self.vdm_dict['Modulator Bias X_Phase [%]'][1][6]
-        trans_status['biasxphighwarning_flag'] = self.vdm_dict['Modulator Bias X_Phase [%]'][1][7]
-        trans_status['biasxplowwarning_flag'] = self.vdm_dict['Modulator Bias X_Phase [%]'][1][8]
-        trans_status['biasyihighalarm_flag'] = self.vdm_dict['Modulator Bias Y/I [%]'][1][5]
-        trans_status['biasyilowalarm_flag'] = self.vdm_dict['Modulator Bias Y/I [%]'][1][6]
-        trans_status['biasyihighwarning_flag'] = self.vdm_dict['Modulator Bias Y/I [%]'][1][7]
-        trans_status['biasyilowwarning_flag'] = self.vdm_dict['Modulator Bias Y/I [%]'][1][8]
-        trans_status['biasyqhighalarm_flag'] = self.vdm_dict['Modulator Bias Y/Q [%]'][1][5]
-        trans_status['biasyqlowalarm_flag'] = self.vdm_dict['Modulator Bias Y/Q [%]'][1][6]
-        trans_status['biasyqhighwarning_flag'] = self.vdm_dict['Modulator Bias Y/Q [%]'][1][7]
-        trans_status['biasyqlowwarning_flag'] = self.vdm_dict['Modulator Bias Y/Q [%]'][1][8]        
-        trans_status['biasyphighalarm_flag'] = self.vdm_dict['Modulator Bias Y_Phase [%]'][1][5]
-        trans_status['biasyplowalarm_flag'] = self.vdm_dict['Modulator Bias Y_Phase [%]'][1][6]
-        trans_status['biasyphighwarning_flag'] = self.vdm_dict['Modulator Bias Y_Phase [%]'][1][7]
-        trans_status['biasyplowwarning_flag'] = self.vdm_dict['Modulator Bias Y_Phase [%]'][1][8]
-        trans_status['cdshorthighalarm_flag'] = self.vdm_dict['CD high granularity, short link [ps/nm]'][1][5]
-        trans_status['cdshortlowalarm_flag'] = self.vdm_dict['CD high granularity, short link [ps/nm]'][1][6]
-        trans_status['cdshorthighwarning_flag'] = self.vdm_dict['CD high granularity, short link [ps/nm]'][1][7]
-        trans_status['cdshortlowwarning_flag'] = self.vdm_dict['CD high granularity, short link [ps/nm]'][1][8]
         try:
+            trans_status['biasxihighalarm_flag'] = self.vdm_dict['Modulator Bias X/I [%]'][1][5]
+            trans_status['biasxilowalarm_flag'] = self.vdm_dict['Modulator Bias X/I [%]'][1][6]
+            trans_status['biasxihighwarning_flag'] = self.vdm_dict['Modulator Bias X/I [%]'][1][7]
+            trans_status['biasxilowwarning_flag'] = self.vdm_dict['Modulator Bias X/I [%]'][1][8]
+            trans_status['biasxqhighalarm_flag'] = self.vdm_dict['Modulator Bias X/Q [%]'][1][5]
+            trans_status['biasxqlowalarm_flag'] = self.vdm_dict['Modulator Bias X/Q [%]'][1][6]
+            trans_status['biasxqhighwarning_flag'] = self.vdm_dict['Modulator Bias X/Q [%]'][1][7]
+            trans_status['biasxqlowwarning_flag'] = self.vdm_dict['Modulator Bias X/Q [%]'][1][8]
+            trans_status['biasxphighalarm_flag'] = self.vdm_dict['Modulator Bias X_Phase [%]'][1][5]
+            trans_status['biasxplowalarm_flag'] = self.vdm_dict['Modulator Bias X_Phase [%]'][1][6]
+            trans_status['biasxphighwarning_flag'] = self.vdm_dict['Modulator Bias X_Phase [%]'][1][7]
+            trans_status['biasxplowwarning_flag'] = self.vdm_dict['Modulator Bias X_Phase [%]'][1][8]
+            trans_status['biasyihighalarm_flag'] = self.vdm_dict['Modulator Bias Y/I [%]'][1][5]
+            trans_status['biasyilowalarm_flag'] = self.vdm_dict['Modulator Bias Y/I [%]'][1][6]
+            trans_status['biasyihighwarning_flag'] = self.vdm_dict['Modulator Bias Y/I [%]'][1][7]
+            trans_status['biasyilowwarning_flag'] = self.vdm_dict['Modulator Bias Y/I [%]'][1][8]
+            trans_status['biasyqhighalarm_flag'] = self.vdm_dict['Modulator Bias Y/Q [%]'][1][5]
+            trans_status['biasyqlowalarm_flag'] = self.vdm_dict['Modulator Bias Y/Q [%]'][1][6]
+            trans_status['biasyqhighwarning_flag'] = self.vdm_dict['Modulator Bias Y/Q [%]'][1][7]
+            trans_status['biasyqlowwarning_flag'] = self.vdm_dict['Modulator Bias Y/Q [%]'][1][8]
+            trans_status['biasyphighalarm_flag'] = self.vdm_dict['Modulator Bias Y_Phase [%]'][1][5]
+            trans_status['biasyplowalarm_flag'] = self.vdm_dict['Modulator Bias Y_Phase [%]'][1][6]
+            trans_status['biasyphighwarning_flag'] = self.vdm_dict['Modulator Bias Y_Phase [%]'][1][7]
+            trans_status['biasyplowwarning_flag'] = self.vdm_dict['Modulator Bias Y_Phase [%]'][1][8]
+            trans_status['cdshorthighalarm_flag'] = self.vdm_dict['CD high granularity, short link [ps/nm]'][1][5]
+            trans_status['cdshortlowalarm_flag'] = self.vdm_dict['CD high granularity, short link [ps/nm]'][1][6]
+            trans_status['cdshorthighwarning_flag'] = self.vdm_dict['CD high granularity, short link [ps/nm]'][1][7]
+            trans_status['cdshortlowwarning_flag'] = self.vdm_dict['CD high granularity, short link [ps/nm]'][1][8]
             trans_status['cdlonghighalarm_flag'] = self.vdm_dict['CD low granularity, long link [ps/nm]'][1][5]
             trans_status['cdlonglowalarm_flag'] = self.vdm_dict['CD low granularity, long link [ps/nm]'][1][6]
             trans_status['cdlonghighwarning_flag'] = self.vdm_dict['CD low granularity, long link [ps/nm]'][1][7]
             trans_status['cdlonglowwarning_flag'] = self.vdm_dict['CD low granularity, long link [ps/nm]'][1][8]
-        except KeyError:
-            pass
-        trans_status['dgdhighalarm_flag'] = self.vdm_dict['DGD [ps]'][1][5]
-        trans_status['dgdlowalarm_flag'] = self.vdm_dict['DGD [ps]'][1][6]
-        trans_status['dgdhighwarning_flag'] = self.vdm_dict['DGD [ps]'][1][7]
-        trans_status['dgdlowwarning_flag'] = self.vdm_dict['DGD [ps]'][1][8]
-        try:
+            trans_status['dgdhighalarm_flag'] = self.vdm_dict['DGD [ps]'][1][5]
+            trans_status['dgdlowalarm_flag'] = self.vdm_dict['DGD [ps]'][1][6]
+            trans_status['dgdhighwarning_flag'] = self.vdm_dict['DGD [ps]'][1][7]
+            trans_status['dgdlowwarning_flag'] = self.vdm_dict['DGD [ps]'][1][8]
             trans_status['sopmdhighalarm_flag'] = self.vdm_dict['SOPMD [ps^2]'][1][5]
             trans_status['sopmdlowalarm_flag'] = self.vdm_dict['SOPMD [ps^2]'][1][6]
             trans_status['sopmdhighwarning_flag'] = self.vdm_dict['SOPMD [ps^2]'][1][7]
             trans_status['sopmdlowwarning_flag'] = self.vdm_dict['SOPMD [ps^2]'][1][8]
+            trans_status['pdlhighalarm_flag'] = self.vdm_dict['PDL [dB]'][1][5]
+            trans_status['pdllowalarm_flag'] = self.vdm_dict['PDL [dB]'][1][6]
+            trans_status['pdlhighwarning_flag'] = self.vdm_dict['PDL [dB]'][1][7]
+            trans_status['pdllowwarning_flag'] = self.vdm_dict['PDL [dB]'][1][8]
+            trans_status['osnrhighalarm_flag'] = self.vdm_dict['OSNR [dB]'][1][5]
+            trans_status['osnrlowalarm_flag'] = self.vdm_dict['OSNR [dB]'][1][6]
+            trans_status['osnrhighwarning_flag'] = self.vdm_dict['OSNR [dB]'][1][7]
+            trans_status['osnrlowwarning_flag'] = self.vdm_dict['OSNR [dB]'][1][8]
+            trans_status['esnrhighalarm_flag'] = self.vdm_dict['eSNR [dB]'][1][5]
+            trans_status['esnrlowalarm_flag'] = self.vdm_dict['eSNR [dB]'][1][6]
+            trans_status['esnrhighwarning_flag'] = self.vdm_dict['eSNR [dB]'][1][7]
+            trans_status['esnrlowwarning_flag'] = self.vdm_dict['eSNR [dB]'][1][8]
+            trans_status['cfohighalarm_flag'] = self.vdm_dict['CFO [MHz]'][1][5]
+            trans_status['cfolowalarm_flag'] = self.vdm_dict['CFO [MHz]'][1][6]
+            trans_status['cfohighwarning_flag'] = self.vdm_dict['CFO [MHz]'][1][7]
+            trans_status['cfolowwarning_flag'] = self.vdm_dict['CFO [MHz]'][1][8]
+            trans_status['txcurrpowerhighalarm_flag'] = self.vdm_dict['Tx Power [dBm]'][1][5]
+            trans_status['txcurrpowerlowalarm_flag'] = self.vdm_dict['Tx Power [dBm]'][1][6]
+            trans_status['txcurrpowerhighwarning_flag'] = self.vdm_dict['Tx Power [dBm]'][1][7]
+            trans_status['txcurrpowerlowwarning_flag'] = self.vdm_dict['Tx Power [dBm]'][1][8]
+            trans_status['rxtotpowerhighalarm_flag'] = self.vdm_dict['Rx Total Power [dBm]'][1][5]
+            trans_status['rxtotpowerlowalarm_flag'] = self.vdm_dict['Rx Total Power [dBm]'][1][6]
+            trans_status['rxtotpowerhighwarning_flag'] = self.vdm_dict['Rx Total Power [dBm]'][1][7]
+            trans_status['rxtotpowerlowwarning_flag'] = self.vdm_dict['Rx Total Power [dBm]'][1][8]
+            trans_status['rxsigpowerhighalarm_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][5]
+            trans_status['rxsigpowerlowalarm_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][6]
+            trans_status['rxsigpowerhighwarning_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][7]
+            trans_status['rxsigpowerlowwarning_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][8]
         except KeyError:
-            pass
-        trans_status['pdlhighalarm_flag'] = self.vdm_dict['PDL [dB]'][1][5]
-        trans_status['pdllowalarm_flag'] = self.vdm_dict['PDL [dB]'][1][6]
-        trans_status['pdlhighwarning_flag'] = self.vdm_dict['PDL [dB]'][1][7]
-        trans_status['pdllowwarning_flag'] = self.vdm_dict['PDL [dB]'][1][8]
-        trans_status['osnrhighalarm_flag'] = self.vdm_dict['OSNR [dB]'][1][5]
-        trans_status['osnrlowalarm_flag'] = self.vdm_dict['OSNR [dB]'][1][6]
-        trans_status['osnrhighwarning_flag'] = self.vdm_dict['OSNR [dB]'][1][7]
-        trans_status['osnrlowwarning_flag'] = self.vdm_dict['OSNR [dB]'][1][8]
-        trans_status['esnrhighalarm_flag'] = self.vdm_dict['eSNR [dB]'][1][5]
-        trans_status['esnrlowalarm_flag'] = self.vdm_dict['eSNR [dB]'][1][6]
-        trans_status['esnrhighwarning_flag'] = self.vdm_dict['eSNR [dB]'][1][7]
-        trans_status['esnrlowwarning_flag'] = self.vdm_dict['eSNR [dB]'][1][8]
-        trans_status['cfohighalarm_flag'] = self.vdm_dict['CFO [MHz]'][1][5]
-        trans_status['cfolowalarm_flag'] = self.vdm_dict['CFO [MHz]'][1][6]
-        trans_status['cfohighwarning_flag'] = self.vdm_dict['CFO [MHz]'][1][7]
-        trans_status['cfolowwarning_flag'] = self.vdm_dict['CFO [MHz]'][1][8]
-        trans_status['txcurrpowerhighalarm_flag'] = self.vdm_dict['Tx Power [dBm]'][1][5]
-        trans_status['txcurrpowerlowalarm_flag'] = self.vdm_dict['Tx Power [dBm]'][1][6]
-        trans_status['txcurrpowerhighwarning_flag'] = self.vdm_dict['Tx Power [dBm]'][1][7]
-        trans_status['txcurrpowerlowwarning_flag'] = self.vdm_dict['Tx Power [dBm]'][1][8]
-        trans_status['rxtotpowerhighalarm_flag'] = self.vdm_dict['Rx Total Power [dBm]'][1][5]
-        trans_status['rxtotpowerlowalarm_flag'] = self.vdm_dict['Rx Total Power [dBm]'][1][6]
-        trans_status['rxtotpowerhighwarning_flag'] = self.vdm_dict['Rx Total Power [dBm]'][1][7]
-        trans_status['rxtotpowerlowwarning_flag'] = self.vdm_dict['Rx Total Power [dBm]'][1][8]
-        trans_status['rxsigpowerhighalarm_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][5]
-        trans_status['rxsigpowerlowalarm_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][6]
-        trans_status['rxsigpowerhighwarning_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][7]
-        trans_status['rxsigpowerlowwarning_flag'] = self.vdm_dict['Rx Signal Power [dBm]'][1][8]
+            helper_logger.log_debug('fields not present in VDM')
         return trans_status
 
     def get_transceiver_pm(self):
@@ -908,6 +924,9 @@ class CCmisApi(CmisApi):
         trans_pm['cfo_avg'] = PM_dict['rx_cfo_avg']
         trans_pm['cfo_min'] = PM_dict['rx_cfo_min']
         trans_pm['cfo_max'] = PM_dict['rx_cfo_max']
+        trans_pm['evm_avg'] = PM_dict['rx_evm_avg']
+        trans_pm['evm_min'] = PM_dict['rx_evm_min']
+        trans_pm['evm_max'] = PM_dict['rx_evm_max']
         trans_pm['soproc_avg'] = PM_dict['rx_soproc_avg']
         trans_pm['soproc_min'] = PM_dict['rx_soproc_min']
         trans_pm['soproc_max'] = PM_dict['rx_soproc_max']

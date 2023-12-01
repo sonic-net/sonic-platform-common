@@ -93,8 +93,8 @@ class TestCCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("input_param, mock_response",[
-        (193100, (0xff, -72, 120, 191300, 196100)),
-        (195950, (0xff, -72, 120, 191300, 196100)),
+        ((193100,75), (0xff, -72, 120, 191300, 196100)),
+        ((195950,100), (0xff, -72, 120, 191300, 196100)),
     ])
     def test_set_laser_freq(self, input_param, mock_response):
         self.api.is_flat_memory = MagicMock()
@@ -103,7 +103,7 @@ class TestCCmis(object):
         self.api.get_lpmode_support.return_value = False
         self.api.get_supported_freq_config = MagicMock()
         self.api.get_supported_freq_config.return_value = mock_response
-        self.api.set_laser_freq(input_param)
+        self.api.set_laser_freq(input_param[0], input_param[1])
 
     @pytest.mark.parametrize("input_param, mock_response",[
         (-10, (-14, -9)),
@@ -213,6 +213,7 @@ class TestCCmis(object):
                     'CD low granularity, long link [ps/nm]':{1:[1000, 2000, 0, 1800, 0, False, False, False, False]},
                     'DGD [ps]':{1:[5, 30, 0, 25, 0, False, False, False, False]},
                     'SOPMD [ps^2]':{1:[5, 100, 0, 80, 0, False, False, False, False]},
+                    'SOP ROC [krad/s]':{1: [0, 65535, 0, 65535, 0, False, False, False, False]},
                     'PDL [dB]':{1:[0.5, 3, 0, 2.5, 0, False, False, False, False]},
                     'OSNR [dB]':{1:[30, 100, 26, 80, 27, False, False, False, False]},
                     'eSNR [dB]':{1:[16, 100, 13, 80, 14, False, False, False, False]},
@@ -242,6 +243,7 @@ class TestCCmis(object):
                 'cd_longlink': 1000,
                 'dgd': 5,
                 'sopmd': 5,
+                'soproc': 0,
                 'pdl': 0.5,
                 'osnr': 30,
                 'esnr': 16,
@@ -561,7 +563,7 @@ class TestCCmis(object):
     ])
     @patch("sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_transceiver_status")
     def test_get_transceiver_status(self, get_transceiver_status_func, mock_response, expected):
-        get_transceiver_status_func.return_value = mock_response[0]
+        get_transceiver_status_func.return_value = dict(mock_response[0])
         self.api.get_tuning_in_progress = MagicMock()
         self.api.get_tuning_in_progress.return_value = mock_response[1]
         self.api.get_wavelength_unlocked = MagicMock()
@@ -569,6 +571,15 @@ class TestCCmis(object):
         self.api.get_laser_tuning_summary = MagicMock()
         self.api.get_laser_tuning_summary.return_value = mock_response[3]
         self.api.vdm_dict = mock_response[4]
+        result = self.api.get_transceiver_status()
+        assert result == expected
+
+        # For the case of 'Rx Signal Power [dBm]' not present:
+        get_transceiver_status_func.return_value = dict(mock_response[0])
+        del self.api.vdm_dict['Rx Signal Power [dBm]']
+        for k in ['rxsigpowerhighalarm_flag', 'rxsigpowerlowalarm_flag',
+                  'rxsigpowerhighwarning_flag', 'rxsigpowerlowwarning_flag']:
+            del expected[k]
         result = self.api.get_transceiver_status()
         assert result == expected
 
@@ -584,6 +595,7 @@ class TestCCmis(object):
                 'rx_osnr_avg': 28, 'rx_osnr_min': 26, 'rx_osnr_max': 30,
                 'rx_esnr_avg': 17, 'rx_esnr_min': 15, 'rx_esnr_max': 18,
                 'rx_cfo_avg': 200, 'rx_cfo_min': 150, 'rx_cfo_max': 250,
+                'rx_evm_avg': 15, 'rx_evm_min': 13, 'rx_evm_max': 18,
                 'tx_power_avg': -10, 'tx_power_min': -9.5, 'tx_power_max': -10.5,
                 'rx_power_avg': -8, 'rx_power_min': -7, 'rx_power_max': -9,
                 'rx_sigpwr_avg': -8, 'rx_sigpwr_min': -7, 'rx_sigpwr_max': -9,
@@ -599,6 +611,7 @@ class TestCCmis(object):
                 'osnr_avg': 28, 'osnr_min': 26, 'osnr_max': 30,
                 'esnr_avg': 17, 'esnr_min': 15, 'esnr_max': 18,
                 'cfo_avg': 200, 'cfo_min': 150, 'cfo_max': 250,
+                'evm_avg': 15, 'evm_min': 13, 'evm_max': 18,
                 'tx_power_avg': -10, 'tx_power_min': -9.5, 'tx_power_max': -10.5,
                 'rx_tot_power_avg': -8, 'rx_tot_power_min': -7, 'rx_tot_power_max': -9,
                 'rx_sig_power_avg': -8, 'rx_sig_power_min': -7, 'rx_sig_power_max': -9,
@@ -611,3 +624,44 @@ class TestCCmis(object):
         self.api.get_pm_all.return_value = mock_response
         result = self.api.get_transceiver_pm()
         assert result == expected
+
+    @pytest.mark.parametrize("mock_response, expected", [
+        (0, 0),
+        (1, 1),
+    ])
+    def test_get_vdm_freeze_status(self, mock_response, expected):
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.return_value = mock_response
+        result = self.api.get_vdm_freeze_status()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response, expected", [
+        (0, 0),
+        (1, 1),
+    ])
+    def test_get_vdm_unfreeze_status(self, mock_response, expected):
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.return_value = mock_response
+        result = self.api.get_vdm_unfreeze_status()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response, expected", [
+        (0, 0),
+        (1, 1),
+    ])
+    def test_freeze_vdm_stats(self, mock_response, expected):
+        self.api.xcvr_eeprom.write = MagicMock()
+        self.api.xcvr_eeprom.write.return_value = mock_response
+        result = self.api.freeze_vdm_stats()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response, expected", [
+        (0, 0),
+        (1, 1),
+    ])
+    def test_unfreeze_vdm_stats(self, mock_response, expected):
+        self.api.xcvr_eeprom.write = MagicMock()
+        self.api.xcvr_eeprom.write.return_value = mock_response
+        result = self.api.unfreeze_vdm_stats()
+        assert result == expected
+

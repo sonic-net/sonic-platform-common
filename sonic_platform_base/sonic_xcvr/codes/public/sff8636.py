@@ -32,7 +32,7 @@ class Sff8636Codes(Sff8024):
         192: "Power Class 4 Module (3.5W max.)",
         193: "Power Class 5 Module (4.0W max.)",
         194: "Power Class 6 Module (4.5W max.)",
-        197: "Power Class 7 Module (5.0W max.)",
+        195: "Power Class 7 Module (5.0W max.)",
         32: "Power Class 8 Module",
     }
 
@@ -91,12 +91,12 @@ class Sff8636Codes(Sff8024):
     }
 
     FIBRE_CHANNEL_TRANSMITTER_TECH = {
-        16: "Longwave Laser (LL)",
-        32: "Shortwave laser w OFC (SL)",
-        64: "Shortwave laser w/o OFC (SN)",
-        128: "Electrical intra-enclosure",
-        256: "Electrical inter-enclosure (EN)",
-        512: "Longwave laser (LC)"
+        1: "Longwave Laser (LL)",
+        2: "Shortwave laser w OFC (SL)",
+        4: "Shortwave laser w/o OFC (SN)",
+        8: "Electrical intra-enclosure",
+        16: "Electrical inter-enclosure (EN)",
+        32: "Longwave laser (LC)"
     }
 
     FIBRE_CHANNEL_TRANSMISSION_MEDIA = {

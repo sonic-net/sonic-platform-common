@@ -47,6 +47,7 @@ class YCable(YCableBase):
     OFFSET_SWITCH_MUX_DIRECTION      = 642
     OFFSET_MUX_DIRECTION             = 644
     OFFSET_ACTIVE_TOR_INDICATOR      = 645
+    OFFSET_API_VERSION               = 650
     OFFSET_ENABLE_AUTO_SWITCH        = 651
     OFFSET_AUTO_SWITCH_HYSTERESIS    = 652
     OFFSET_MANUAL_SWITCH_COUNT_TOR_A = 653
@@ -62,6 +63,8 @@ class YCable(YCableBase):
     OFFSET_EXTEND_SWITCH_COUNT_TYPE  = 741
     OFFSET_EXTEND_SWITCH_COUNT       = 742
     OFFSET_CLEAR_SWITCH_COUNT        = 746
+    OFFSET_OPERATION_TIME            = 747
+    OFFSET_RESET_CAUSE               = 751    
     OFFSET_CONFIGURE_PRBS_TYPE       = 768
     OFFSET_ENABLE_PRBS               = 769
     OFFSET_INITIATE_BER_MEASUREMENT  = 770
@@ -119,9 +122,11 @@ class YCable(YCableBase):
     EVENTLOG_OPTION_CLEAR = 0x02
 
     # VSC opcode
+    VSC_OPCODE_QUEUE_INFO      = 0x18
     VSC_OPCODE_UART_STAT       = 0x1C
     VSC_OPCODE_SERDES_INFO     = 0x1D
     VSC_OPCODE_DSP_LOADFW_STAT = 0x1F
+    VSC_OPCODE_MEM_READ        = 0x40
     VSC_OPCODE_FWUPD           = 0x80
     VSC_OPCODE_EVENTLOG        = 0x81
     VSC_OPCODE_TCM_READ        = 0x82
@@ -142,6 +147,15 @@ class YCable(YCableBase):
     EEPROM_ERROR = -1
     EEPROM_TIMEOUT_ERROR = -1
     EEPROM_GENERIC_ERROR = -1
+
+    # side bitamp
+    SIDE_BMP_NIC   = 1
+    SIDE_BMP_TOR_A = 2
+    SIDE_BMP_TOR_B = 4
+    SIDE_BMP_ALL   = 7
+
+    CABLE_HEALTHY   = True
+    CABLE_UNHEALTHY = False
 
     # MCU error code
     MCU_EC_NO_ERROR                         = 0
@@ -205,7 +219,7 @@ class YCable(YCableBase):
 
     def read_mmap(self, page, byte, len=1):
         """
-        This API converts memory map page and offset to linar address, then returns eeprom values
+        This API converts memory map page and offset to linear address, then returns eeprom values
         by calling read_eeprom()
 
         Args:
@@ -219,7 +233,7 @@ class YCable(YCableBase):
                  an Integer, length of the reading
 
         Returns:
-            an Integer or bytearray, returns the value of the specified eeprom addres, returns 0xFF if it did not succeed
+            an Integer or bytearray, returns the value of the specified eeprom address, returns 0xFF if it did not succeed
         """
         if byte < 128:
             linear_addr = byte
@@ -243,7 +257,7 @@ class YCable(YCableBase):
 
     def write_mmap(self, page, byte, value, len=1):
         """
-        This API converts memory map page and offset to linar address for calling write_eeprom()
+        This API converts memory map page and offset to linear address for calling write_eeprom()
 
         Args:
              page:
@@ -446,6 +460,84 @@ class YCable(YCableBase):
 
         return True
 
+    def tcm_read_atomic(self, addr):
+        """
+        This API sends the tcm read command to the serdes chip via VSC cmd
+
+        Args:
+             addr:
+                 an Integer, address of tcm space
+        Returns:
+            an Integer, return data of tcm address
+        """
+
+        if self.platform_chassis is not None:
+            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
+                if lock_status:
+                    vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                    vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_TCM_READ
+                    vsc_req_form[130]  = (addr >>  0) & 0xFF
+                    vsc_req_form[131]  = (addr >>  8) & 0xFF
+                    vsc_req_form[132]  = (addr >> 16) & 0xFF
+                    vsc_req_form[133]  = (addr >> 24) & 0xFF
+                    status = self.send_vsc(vsc_req_form)
+                    if status != YCable.MCU_EC_NO_ERROR:
+                        self.log_error('tcm read addr[%04X]  error[%04X]' % (addr, status))
+                        return -1
+
+                    data = (self.read_mmap(YCable.MIS_PAGE_VSC, 134) | (self.read_mmap(YCable.MIS_PAGE_VSC, 135) << 8) |
+                        (self.read_mmap(YCable.MIS_PAGE_VSC, 136) << 16) | (self.read_mmap(YCable.MIS_PAGE_VSC, 137) << 24))
+                else:
+                    self.log_error('acquire lock timeout, failed to read serdes tcm register')
+                    return YCable.EEPROM_ERROR
+        else:
+            self.log_error("platform_chassis is not loaded, failed to read serdes tcm register")
+            return YCable.EEPROM_ERROR
+
+        return data
+
+    def tcm_write_atomic(self, addr, data):
+        """
+        This API sends the tcm write command to the serdes chip via VSC cmd
+
+        Args:
+             addr:
+                 an Integer, address of tcm space
+
+             data:
+                 an Integer, value to be written to the address
+
+        Returns:
+            a boolean, True if the tcm write succeeded and False if it did not succeed.
+        """
+
+        if self.platform_chassis is not None:
+            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
+                if lock_status:
+                    vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                    vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_TCM_WRITE
+                    vsc_req_form[130]  = (addr >>  0) & 0xFF
+                    vsc_req_form[131]  = (addr >>  8) & 0xFF
+                    vsc_req_form[132]  = (addr >> 16) & 0xFF
+                    vsc_req_form[133]  = (addr >> 24) & 0xFF
+                    vsc_req_form[134]  = (data >>  0) & 0xFF
+                    vsc_req_form[135]  = (data >>  8) & 0xFF
+                    vsc_req_form[136]  = (data >> 16) & 0xFF
+                    vsc_req_form[137]  = (data >> 24) & 0xFF
+
+                    status = self.send_vsc(vsc_req_form)
+                    if status != YCable.MCU_EC_NO_ERROR:
+                        self.log_error('tcm read addr[%04X] data[%04X] error[%04X]' % (addr, data, status))
+                        return False
+                else:
+                    self.log_error('acquire lock timeout, failed to write serdes tcm register')
+                    return YCable.EEPROM_ERROR
+        else:
+            self.log_error("platform_chassis is not loaded, failed to write serdes tcm register")
+            return YCable.EEPROM_ERROR
+
+        return True
+
     def reg_read(self, addr):
         """
         This API reads the serdes register via vsc
@@ -499,6 +591,77 @@ class YCable(YCableBase):
 
         return True
 
+    def reg_read_atomic(self, addr):
+        """
+        This API reads the serdes register in atomic method
+
+        Args:
+             addr:
+                 an Integer, address of the serdes register
+        Returns:
+            an Integer, return data of the register
+        """
+
+        if self.platform_chassis is not None:
+            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
+                if lock_status:
+                    vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                    vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_REG_READ
+                    vsc_req_form[130]  = (addr >>  0) & 0xFF
+                    vsc_req_form[131]  = (addr >>  8) & 0xFF
+                    vsc_req_form[132]  = (addr >> 16) & 0xFF
+                    vsc_req_form[133]  = (addr >> 24) & 0xFF
+                    status = self.send_vsc(vsc_req_form)
+                    if status != YCable.MCU_EC_NO_ERROR:
+                        self.log_error('reg read addr[%04X]  error[%04X]' % (addr, status))
+                        return YCable.EEPROM_ERROR
+
+                    return self.read_mmap(YCable.MIS_PAGE_VSC, 134) | (self.read_mmap(YCable.MIS_PAGE_VSC, 135) << 8)
+                else:
+                    self.log_error('acquire lock timeout, failed to read serdes register')
+                    return YCable.EEPROM_ERROR
+        else:
+            self.log_error("platform_chassis is not loaded, failed to read serdes register")
+            return YCable.EEPROM_ERROR
+        
+    def reg_write_atomic(self, addr, data):
+        """
+        This API writes the serdes register in atomic method
+
+        Args:
+             addr:
+                 an Integer, address of the serdes register
+
+             data:
+                 an Integer, value to be written to the register address
+
+        Returns:
+            an Integer, 0 if the register write succeeded.
+        """
+
+        if self.platform_chassis is not None:
+            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
+                if lock_status:
+                    vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                    vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_REG_WRITE
+                    vsc_req_form[130]  = (addr >>  0) & 0xFF
+                    vsc_req_form[131]  = (addr >>  8) & 0xFF
+                    vsc_req_form[134]  = (data >>  0) & 0xFF
+                    vsc_req_form[135]  = (data >>  8) & 0xFF
+
+                    status = self.send_vsc(vsc_req_form)
+                    if status != YCable.MCU_EC_NO_ERROR:
+                        self.log_error('reg write addr[%04X] data[%04X] error[%04X]' % (addr, data, status))
+                        return YCable.EEPROM_ERROR
+                else:
+                    self.log_error('acquire lock timeout, failed to write serdes register')
+                    return YCable.EEPROM_ERROR
+        else:
+            self.log_error("platform_chassis is not loaded, failed to write serdes register")
+            return YCable.EEPROM_ERROR
+
+        return 0        
+
     def toggle_mux_to_tor_a(self):
         """
         This API does a hard switch toggle of the Y cable's MUX regardless of link state to
@@ -519,12 +682,7 @@ class YCable(YCableBase):
         curr_offset = YCable.OFFSET_SWITCH_MUX_DIRECTION
 
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
-                else:
-                    self.log_error('acquire lock timeout, failed to toggle mux to TOR A')
-                    return YCableBase.EEPROM_ERROR
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
         else:
             self.log_error("platform_chassis is not loaded, failed to toggle mux to TOR A")
             return YCable.EEPROM_ERROR
@@ -549,12 +707,7 @@ class YCable(YCableBase):
         curr_offset = YCable.OFFSET_SWITCH_MUX_DIRECTION
 
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
-                else:
-                    self.log_error('acquire lock timeout, failed to toggle mux to TOR B')
-                    return YCableBase.EEPROM_ERROR
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
         else:
             self.log_error("platform_chassis is not loaded, failed to toggle mux to TOR B")
             return YCable.EEPROM_ERROR
@@ -580,12 +733,7 @@ class YCable(YCableBase):
         curr_offset = YCable.OFFSET_DETERMINE_CABLE_READ_SIDE
 
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
-                else:
-                    self.log_error('acquire lock timeout, failed to check read side')
-                    return YCableBase.EEPROM_ERROR
+            result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
         else:
             self.log_error("platform_chassis is not loaded, failed to check read side")
             return YCable.EEPROM_ERROR
@@ -640,12 +788,7 @@ class YCable(YCableBase):
         curr_offset = YCable.OFFSET_MUX_DIRECTION
 
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
-                else:
-                    self.log_error('acquire lock timeout, failed to get mux direction')
-                    return YCableBase.EEPROM_ERROR
+            result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
         else:
             self.log_error(
                 "platform_chassis is not loaded, failed to get mux direction")
@@ -696,18 +839,11 @@ class YCable(YCableBase):
                 TARGET_UNKNOWN, if checking which side is linked and sending traffic API fails.
         """
 
-        if self.mux_toggle_status == self.MUX_TOGGLE_STATUS_INPROGRESS:
-            return YCableBase.TARGET_UNKNOWN
 
         curr_offset = YCable.OFFSET_ACTIVE_TOR_INDICATOR
 
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
-                else:
-                    self.log_error('acquire lock timeout, failed to check Active Linked and routing TOR side')
-                    return YCableBase.EEPROM_ERROR
+            result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
         else:
             self.log_error(
                 "platform_chassis is not loaded, failed to check Active Linked and routing TOR side")
@@ -761,18 +897,11 @@ class YCable(YCableBase):
                      , False if the link is not active
         """
 
-        if self.mux_toggle_status == self.MUX_TOGGLE_STATUS_INPROGRESS:
-            return YCableBase.TARGET_UNKNOWN
 
         curr_offset = YCable.OFFSET_CHECK_LINK_ACTIVE
 
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
-                else:
-                    self.log_error('acquire lock timeout, failed to check if link is Active on target side')
-                    return YCableBase.EEPROM_ERROR
+            result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
         else:
             self.log_error(
                 "platform_chassis is not loaded, failed to check if link is Active on target side")
@@ -833,8 +962,6 @@ class YCable(YCableBase):
             a list, with EYE values of lane 0 lane 1 lane 2 lane 3 with corresponding index
         """
 
-        if self.mux_toggle_status == self.MUX_TOGGLE_STATUS_INPROGRESS:
-            return None
 
         eye_result = []
 
@@ -874,7 +1001,7 @@ class YCable(YCableBase):
                         idx += 2
                 else:
                     self.log_error('acquire lock timeout, failed to get eye height')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get eye height")
             return YCable.EEPROM_ERROR
@@ -895,12 +1022,7 @@ class YCable(YCableBase):
         curr_offset = YCable.OFFSET_VENDOR_NAME
 
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 16)
-                else:
-                    self.log_error('acquire lock timeout, failed to get vendor name')
-                    return YCableBase.EEPROM_ERROR
+            result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 16)
         else:
             self.log_error("platform_chassis is not loaded, failed to get Vendor name")
             return YCable.EEPROM_ERROR
@@ -922,12 +1044,7 @@ class YCable(YCableBase):
         curr_offset = YCable.OFFSET_PART_NUMBER
 
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    part_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 16)
-                else:
-                    self.log_error('acquire lock timeout, failed to get part number')
-                    return YCableBase.EEPROM_ERROR
+            part_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 16)
         else:
             self.log_error("platform_chassis is not loaded, failed to get part number")
             return YCable.EEPROM_ERROR
@@ -949,12 +1066,7 @@ class YCable(YCableBase):
         curr_offset = YCable.OFFSET_SERIAL_NUMBER
 
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    part_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 16)
-                else:
-                    self.log_error('acquire lock timeout, failed to get serial number')
-                    return YCableBase.EEPROM_ERROR
+            part_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 16)
         else:
             self.log_error("platform_chassis is not loaded, failed to get serial number")
             return YCable.EEPROM_ERROR
@@ -981,8 +1093,6 @@ class YCable(YCableBase):
                 an integer, the number of times the Y-cable has been switched
         """
 
-        if self.mux_toggle_status == self.MUX_TOGGLE_STATUS_INPROGRESS:
-            return 0
 
         count = 0
 
@@ -991,32 +1101,22 @@ class YCable(YCableBase):
                 count = self.get_switch_count_tor_a(clear_on_read) + self.get_switch_count_tor_b(clear_on_read)
             elif switch_count_type == YCableBase.SWITCH_COUNT_AUTO:
                 curr_offset = YCable.OFFSET_AUTO_SWITCH_COUNT
-                with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                    if lock_status:
-                        msb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
-                        msb_result_1 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 1, 1)
-                        msb_result_2 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 2, 1)
-                        lsb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 3, 1)
-                        count = (msb_result[0] << 24 | msb_result_1[0] << 16 | msb_result_2[0] << 8 | lsb_result[0])
-                    else:
-                        self.log_error('acquire lock timeout, failed to get switch count')
-                        return YCableBase.EEPROM_ERROR
+                msb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+                msb_result_1 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 1, 1)
+                msb_result_2 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 2, 1)
+                lsb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 3, 1)
+                count = (msb_result[0] << 24 | msb_result_1[0] << 16 | msb_result_2[0] << 8 | lsb_result[0])
             else:
                 self.log_error("not a valid switch_count_type, failed to get switch count")
                 return YCable.EEPROM_ERROR
 
             if clear_on_read:
                 if switch_count_type == YCableBase.SWITCH_COUNT_AUTO:
-                    with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                        if lock_status:
-                            curr_offset = YCable.OFFSET_AUTO_SWITCH_COUNT
-                            buffer = bytearray([6])
-                            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
-                            if result is False:
-                                return YCable.EEPROM_ERROR
-                        else:
-                            self.log_error('acquire lock timeout, failed to clear switch count')
-                            return YCableBase.EEPROM_ERROR
+                    curr_offset = YCable.OFFSET_AUTO_SWITCH_COUNT
+                    buffer = bytearray([6])
+                    result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
+                    if result is False:
+                        return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get switch count")
             return YCable.EEPROM_ERROR
@@ -1044,22 +1144,18 @@ class YCable(YCableBase):
         count = 0
 
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    msb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
-                    msb_result_1 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 1, 1)
-                    msb_result_2 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 2, 1)
-                    lsb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset+3, 1)
-                    count = (msb_result[0] << 24 | msb_result_1[0] << 16 | msb_result_2[0] << 8 | lsb_result[0])
+            msb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+            msb_result_1 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 1, 1)
+            msb_result_2 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 2, 1)
+            lsb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset+3, 1)
+            count = (msb_result[0] << 24 | msb_result_1[0] << 16 | msb_result_2[0] << 8 | lsb_result[0])
 
-                    buffer = bytearray([4])
-                    curr_offset = YCable.OFFSET_CLEAR_SWITCH_COUNT
-                    result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
-                    if result is False:
-                        return YCable.EEPROM_ERROR
-                else:
-                    self.log_error('acquire lock timeout, failed to get switch count (tor A)')
-                    return YCableBase.EEPROM_ERROR
+            if clear_on_read:
+                buffer = bytearray([4])
+                curr_offset = YCable.OFFSET_CLEAR_SWITCH_COUNT
+                result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
+                if result is False:
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get manual switch count")
             return YCable.EEPROM_ERROR
@@ -1087,23 +1183,18 @@ class YCable(YCableBase):
         count = 0
 
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    msb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
-                    msb_result_1 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 1, 1)
-                    msb_result_2 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 2, 1)
-                    lsb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset+3, 1)
-                    count = (msb_result[0] << 24 | msb_result_1[0] << 16 | msb_result_2[0] << 8 | lsb_result[0])
+            msb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+            msb_result_1 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 1, 1)
+            msb_result_2 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 2, 1)
+            lsb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset+3, 1)
+            count = (msb_result[0] << 24 | msb_result_1[0] << 16 | msb_result_2[0] << 8 | lsb_result[0])
 
-                    if clear_on_read:
-                        buffer = bytearray([5])
-                        curr_offset = YCable.OFFSET_CLEAR_SWITCH_COUNT
-                        result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
-                        if result is False:
-                            return YCable.EEPROM_ERROR
-                else:
-                    self.log_error('acquire lock timeout, failed to get switch count (tor B)')
-                    return YCableBase.EEPROM_ERROR
+            if clear_on_read:
+                buffer = bytearray([5])
+                curr_offset = YCable.OFFSET_CLEAR_SWITCH_COUNT
+                result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
+                if result is False:
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get manual switch count")
             return YCable.EEPROM_ERROR
@@ -1157,36 +1248,31 @@ class YCable(YCableBase):
             return YCable.EEPROM_ERROR
 
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
-                    if result is False:
-                        return YCable.EEPROM_ERROR
-                    time_start = time.time()
-                    while(True):
-                        done = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
-                        time_now = time.time()
-                        time_diff = time_now - time_start
-                        if done[0] & 0x80:
-                            break
-                        elif time_diff >= YCable.EXTEND_SWITCH_CNT_TIMEOUT_SECS:
-                            return YCable.EEPROM_TIMEOUT_ERROR
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
+            if result is False:
+                return YCable.EEPROM_ERROR
+            time_start = time.time()
+            while(True):
+                done = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+                time_now = time.time()
+                time_diff = time_now - time_start
+                if done[0] & 0x80:
+                    break
+                elif time_diff >= YCable.EXTEND_SWITCH_CNT_TIMEOUT_SECS:
+                    return YCable.EEPROM_TIMEOUT_ERROR
 
-                    curr_offset = YCable.OFFSET_EXTEND_SWITCH_COUNT
-                    msb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 3, 1)
-                    msb_result_1 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 2, 1)
-                    msb_result_2 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 1, 1)
-                    lsb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
-                    count = (msb_result[0] << 24 | msb_result_1[0] << 16 | msb_result_2[0] << 8 | lsb_result[0])
+            curr_offset = YCable.OFFSET_EXTEND_SWITCH_COUNT
+            msb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 3, 1)
+            msb_result_1 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 2, 1)
+            msb_result_2 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 1, 1)
+            lsb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+            count = (msb_result[0] << 24 | msb_result_1[0] << 16 | msb_result_2[0] << 8 | lsb_result[0])
 
-                    if clear_on_read:
-                        curr_offset = YCable.OFFSET_CLEAR_SWITCH_COUNT
-                        result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
-                        if result is False:
-                            return YCable.EEPROM_ERROR
-                else:
-                    self.log_error('acquire lock timeout, failed to get switch count target')
-                    return YCableBase.EEPROM_ERROR
+            if clear_on_read:
+                curr_offset = YCable.OFFSET_CLEAR_SWITCH_COUNT
+                result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
+                if result is False:
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get switch count target")
             return YCable.EEPROM_ERROR
@@ -1220,21 +1306,16 @@ class YCable(YCableBase):
         result = []
 
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    pre1 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + (target)*20 + (lane-1)*5, 1)
-                    result.append(c_int8(pre1[0]).value)
-                    pre2 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + (target)*20 + (lane-1)*5 + 1, 1)
-                    result.append(c_int8(pre2[0]).value)
-                    main = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + (target)*20 + (lane-1)*5 + 2, 1)
-                    result.append(c_int8(main[0]).value)
-                    post1 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + (target)*20 + (lane-1)*5 + 3, 1)
-                    result.append(c_int8(post1[0]).value)
-                    post2 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + (target)*20 + (lane-1)*5 + 4, 1)
-                    result.append(c_int8(post2[0]).value)
-                else:
-                    self.log_error('acquire lock timeout, failed to get target cursor values')
-                    return YCableBase.EEPROM_ERROR
+            pre1 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + (target)*20 + (lane-1)*5, 1)
+            result.append(c_int8(pre1[0]).value)
+            pre2 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + (target)*20 + (lane-1)*5 + 1, 1)
+            result.append(c_int8(pre2[0]).value)
+            main = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + (target)*20 + (lane-1)*5 + 2, 1)
+            result.append(c_int8(main[0]).value)
+            post1 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + (target)*20 + (lane-1)*5 + 3, 1)
+            result.append(c_int8(post1[0]).value)
+            post2 = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + (target)*20 + (lane-1)*5 + 4, 1)
+            result.append(c_int8(post2[0]).value)
         else:
             self.log_error("platform_chassis is not loaded, failed to get target cursor values")
             return YCable.EEPROM_ERROR
@@ -1268,17 +1349,12 @@ class YCable(YCableBase):
         curr_offset = YCable.OFFSET_NIC_CURSOR_VALUES
         idx = 0
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    for data in cursor_values:
-                        data = data & 0xFF
-                        buffer = bytearray([data])
-                        self.platform_chassis.get_sfp(self.port).write_eeprom(
-                            curr_offset + (target)*20 + (lane-1)*5 + idx, 1, buffer)
-                        idx += 1
-                else:
-                    self.log_error('acquire lock timeout, failed to set target cursor values')
-                    return YCableBase.EEPROM_ERROR
+            for data in cursor_values:
+                data = data & 0xFF
+                buffer = bytearray([data])
+                self.platform_chassis.get_sfp(self.port).write_eeprom(
+                    curr_offset + (target)*20 + (lane-1)*5 + idx, 1, buffer)
+                idx += 1
         else:
             self.log_error("platform_chassis is not loaded, failed to get target cursor values")
             return YCable.EEPROM_ERROR
@@ -1305,6 +1381,12 @@ class YCable(YCableBase):
 
         """
         if self.platform_chassis is not None:
+            read_side = self.get_read_side()
+
+            if read_side == YCable.EEPROM_ERROR:
+                self.log_error('Fail to get read side in get_firmware_version()')
+                return None
+            
             with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
                 if lock_status:
                     vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
@@ -1313,8 +1395,12 @@ class YCable(YCableBase):
                     status = self.send_vsc(vsc_req_form)
 
                     if status != YCable.MCU_EC_NO_ERROR:
-                        self.log_error('Get firmware version error (error code:0x%04X)' % (status))
-                        return None
+                        ''' should at least return local side fw version if nic is offline'''
+                        if status == YCable.MCU_EC_FWUPD_UART_TIMEOUT and (read_side == target):
+                            pass
+                        else:
+                            self.log_error('Get firmware version error (error code:0x%04X)' % (status))
+                            return None
 
                     data = bytearray(YCable.FIRMWARE_INFO_PAYLOAD_SIZE)
                     for byte_idx in range(0, YCable.FIRMWARE_INFO_PAYLOAD_SIZE):
@@ -1326,7 +1412,7 @@ class YCable(YCableBase):
                     return None
         else:
             self.log_error("platform_chassis is not loaded, failed to get firmware version")
-            return YCable.EEPROM_ERROR
+            return None
 
         result = {}
         NUM_MCU_SIDE = 3
@@ -1400,9 +1486,14 @@ class YCable(YCableBase):
         """
 
         if self.platform_chassis is not None:
-            inFile = open(fwfile, 'rb')
-            fwImage = bytearray(inFile.read())
-            inFile.close()
+            try:
+                inFile = open(fwfile, 'rb')
+                fwImage = bytearray(inFile.read())
+                inFile.close()
+            except Exception:
+                self.log_error('File Not Found Error: %s' % (fwfile))
+                self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
+                return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
 
             bin_pid = struct.unpack_from('>B', fwImage[5 : 6])[0]
             mcu_pid = self.read_mmap(0xFB, 187)
@@ -1424,7 +1515,7 @@ class YCable(YCableBase):
                     vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_START
                     status = self.send_vsc(vsc_req_form)
                     if status != YCable.MCU_EC_NO_ERROR:
-                        self.log_error(YCable.MCU_ERROR_CODE_STRING[status])
+                        self.log_error('Firmware binary start transfer error (error code:%04X)' % (status))
                         self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
                         return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
                 else:
@@ -1433,7 +1524,7 @@ class YCable(YCableBase):
                     return YCableBase.FIRMWARE_DOWNLOAD_FAILURE
 
             '''
-            Transfer firmwre image to local side MCU
+            Transfer firmware image to local side MCU
             '''
             total_chunk = len(fwImage) // YCable.VSC_BUFF_SIZE
             chunk_idx = 0
@@ -1557,7 +1648,7 @@ class YCable(YCableBase):
         This routine should activate the downloaded firmware on all the
         components of the Y cable of the port for which this API is called..
         This API is meant to be used in conjunction with download_firmware API, and
-        should be called once download_firmware API is succesful.
+        should be called once download_firmware API is successful.
         This means that the firmware which has been downloaded should be
         activated (start being utilized by the cable) once this API is
         successfully executed.
@@ -1570,12 +1661,12 @@ class YCable(YCableBase):
                  choosing (binary, archive, etc.). But note that it should be one file
                  which contains firmware for all components of the Y-cable. In case the
                  vendor chooses to pass this file in activate_firmware, the API should
-                 have the logic to retreive the firmware version from this file
+                 have the logic to retrieve the firmware version from this file
                  which has to be activated on the components of the Y-Cable
                  this API has been called for.
                  If None is passed for fwfile, the cable should activate whatever
                  firmware is marked to be activated next.
-                 If provided, it should retreive the firmware version(s) from this file, ensure
+                 If provided, it should retrieve the firmware version(s) from this file, ensure
                  they are downloaded on the cable, then activate them.
 
             hitless (optional):
@@ -1594,27 +1685,27 @@ class YCable(YCableBase):
                 with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
                     if lock_status:
                         self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS
-                        side = 0x7
+                        side_bitmap = YCable.SIDE_BMP_ALL
 
                         vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
                         vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_COMMIT
                         vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
-                        vsc_req_form[YCable.VSC_BYTE_ADDR0] = side
+                        vsc_req_form[YCable.VSC_BYTE_ADDR0]  = side_bitmap
                         status = self.send_vsc(vsc_req_form)
                         if status != YCable.MCU_EC_NO_ERROR:
-                            self.log_error(YCable.MCU_ERROR_CODE_STRING[status])
+                            self.log_error('Firmware commit error (error code:%04X)' % (status))
                             self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
                             return YCableBase.FIRMWARE_ACTIVATE_FAILURE
 
                         vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
                         vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_RUN
                         vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
-                        vsc_req_form[YCable.VSC_BYTE_ADDR0] = side
-                        vsc_req_form[YCable.VSC_BYTE_ADDR1] = hitless
+                        vsc_req_form[YCable.VSC_BYTE_ADDR0]  = side_bitmap
+                        vsc_req_form[YCable.VSC_BYTE_ADDR1]  = hitless
                         status = self.send_vsc(vsc_req_form)
                         time.sleep(5)
                         if status != YCable.MCU_EC_NO_ERROR:
-                            self.log_error(YCable.MCU_ERROR_CODE_STRING[status])
+                            self.log_error('Firmware run error (error code:%04X)' % (status))
                             self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
                             return YCableBase.FIRMWARE_ACTIVATE_FAILURE
 
@@ -1624,9 +1715,13 @@ class YCable(YCableBase):
                         self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
                         return YCableBase.FIRMWARE_ACTIVATE_FAILURE
             else:
-                inFile = open(fwfile, 'rb')
-                fwImage = bytearray(inFile.read())
-                inFile.close()
+                try:
+                    inFile = open(fwfile, 'rb')
+                    fwImage = bytearray(inFile.read())
+                    inFile.close()
+                except Exception as e:
+                    self.log_error('activate_firmware, open fw bin error(%s), fwfile:%s' % (e, fwfile))
+                    return YCableBase.FIRMWARE_ACTIVATE_FAILURE
 
                 build_msb = struct.unpack_from('<B', fwImage[7:8])[0]
                 build_lsb = struct.unpack_from('<B', fwImage[8:9])[0]
@@ -1635,15 +1730,65 @@ class YCable(YCableBase):
 
                 version_build_file = str(rev_major) + '.' + str(rev_minor) + chr(build_msb) + chr(build_lsb)
 
+                side_bitmap = 0
                 fwVer = self.get_firmware_version(YCableBase.TARGET_NIC)
+                if fwVer is None:
+                    self.log_error("activate_firmware, failed to get NIC firmware version")
+                    return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+                else:                  
+                    if fwVer['version_inactive'] == version_build_file:
+                        side_bitmap |= YCable.SIDE_BMP_NIC
 
-                if fwVer['version_active'] == version_build_file:
-                    return YCableBase.FIRMWARE_ACTIVATE_SUCCESS
-                elif fwVer['version_inactive'] == version_build_file:
-                    return self.activate_firmware(hitless=hitless)
+                fwVer = self.get_firmware_version(YCableBase.TARGET_TOR_A)
+                if fwVer is None:
+                    self.log_error("activate_firmware, failed to get TOR A firmware version")
+                    return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+                else: 
+                    if fwVer['version_inactive'] == version_build_file:
+                        side_bitmap |= YCable.SIDE_BMP_TOR_A
+
+                fwVer = self.get_firmware_version(YCableBase.TARGET_TOR_B)
+                if fwVer is None:
+                    self.log_error("activate_firmware, failed to get TOR B firmware version")
+                    return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+                else: 
+                    if fwVer['version_inactive'] == version_build_file:
+                        side_bitmap |= YCable.SIDE_BMP_TOR_B
+                    
+                if side_bitmap:
+                    with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
+                        if lock_status:
+                            self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS
+                            vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                            vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_COMMIT
+                            vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
+                            vsc_req_form[YCable.VSC_BYTE_ADDR0]  = side_bitmap
+                            status = self.send_vsc(vsc_req_form)
+                            if status != YCable.MCU_EC_NO_ERROR:
+                                self.log_error('Firmware commit error (error code:%04X)' % (status))
+                                self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
+                                return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+
+                            vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                            vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_RUN
+                            vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
+                            vsc_req_form[YCable.VSC_BYTE_ADDR0]  = side_bitmap
+                            vsc_req_form[YCable.VSC_BYTE_ADDR1]  = hitless
+                            status = self.send_vsc(vsc_req_form)
+                            time.sleep(5)
+                            if status != YCable.MCU_EC_NO_ERROR:
+                                self.log_error('Firmware run error (error code:%04X)' % (status))
+                                self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
+                                return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+
+                            self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_NOT_INITIATED_OR_FINISHED
+                        else:
+                            self.log_error('acquire lock timeout, failed to activate firmware')
+                            self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
+                            return YCableBase.FIRMWARE_ACTIVATE_FAILURE
         else:
             self.log_error("platform_chassis is not loaded, failed to activate firmware")
-            return YCable.EEPROM_ERROR
+            return YCableBase.FIRMWARE_ACTIVATE_FAILURE
 
         return YCableBase.FIRMWARE_ACTIVATE_SUCCESS
 
@@ -1662,13 +1807,13 @@ class YCable(YCableBase):
                  choosing (binary, archive, etc.). But note that it should be one file
                  which contains firmware for all components of the Y-cable. In case the
                  vendor chooses to pass this file in rollback_firmware, the API should
-                 have the logic to retreive the firmware version from this file
+                 have the logic to retrieve the firmware version from this file
                  which should not be activated on the components of the Y-Cable
                  this API has been called for.
                  If None is passed for fwfile, the cable should rollback whatever
                  firmware is marked to be rollback next.
-                 If provided, it should retreive the firmware version(s) from this file, ensure
-                 that the firmware is rollbacked to a version which does not match to retreived version(s).
+                 If provided, it should retrieve the firmware version(s) from this file, ensure
+                 that the firmware is rollbacked to a version which does not match to retrieved version(s).
                  This is exactly the opposite behavior of this param to activate_firmware
         Returns:
             One of the following predefined constants:
@@ -1684,6 +1829,169 @@ class YCable(YCableBase):
             return YCable.EEPROM_ERROR
 
         return YCableBase.FIRMWARE_ROLLBACK_SUCCESS
+
+    def activate_target_firmware(self, target, fwfile=None, hitless=False):
+        """
+        This routine should activate the downloaded firmware on specific target
+        of the Y cable of the port for which this API is called..
+        This API is meant to be used in conjunction with download_firmware API, and
+        should be called once download_firmware API is succesful.
+        This means that the firmware which has been downloaded should be
+        activated (start being utilized by the cable) once this API is
+        successfully executed.
+        The port on which this API is called for can be referred using self.port.
+        Args:
+            target:
+                One of the following predefined constants, the actual target to activate the firmware on:
+                     TARGET_NIC -> NIC,
+                     TARGET_TOR_A -> TORA,
+                     TARGET_TOR_B -> TORB
+            fwfile (optional):
+                 a string, a path to the file which contains the firmware image.
+                 Note that the firmware file can be in the format of the vendor's
+                 choosing (binary, archive, etc.). But note that it should be one file
+                 which contains firmware for all components of the Y-cable. In case the
+                 vendor chooses to pass this file in activate_firmware, the API should
+                 have the logic to retrieve the firmware version from this file
+                 which has to be activated on the components of the Y-Cable
+                 this API has been called for.
+                 If None is passed for fwfile, the cable should activate whatever
+                 firmware is marked to be activated next.
+                 If provided, it should retrieve the firmware version(s) from this file, ensure
+                 they are downloaded on the cable, then activate them.
+            hitless (optional):
+                a boolean, True, Hitless upgrade: it will backup/restore the current state
+                                 (ex. variables of link status, API attributes...etc.) before
+                                 and after firmware upgrade.
+                a boolean, False, Non-hitless upgrade: it will update the firmware regardless
+                                  the current status, a link flip can be observed during the upgrade.
+        Returns:
+            One of the following predefined constants:
+                FIRMWARE_ACTIVATE_SUCCESS
+                FIRMWARE_ACTIVATE_FAILURE
+        """
+        if self.platform_chassis is not None:
+
+            if target == YCableBase.TARGET_NIC:
+                act_bmp = YCable.SIDE_BMP_NIC
+            elif target == YCableBase.TARGET_TOR_A:
+                act_bmp = YCable.SIDE_BMP_TOR_A
+            elif target == YCableBase.TARGET_TOR_B:
+                act_bmp = YCable.SIDE_BMP_TOR_B
+            else:
+                act_bmp = YCable.SIDE_BMP_ALL
+
+            if fwfile is None:
+                with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
+                    if lock_status:
+                        self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS
+
+                        vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                        vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_COMMIT
+                        vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
+                        vsc_req_form[YCable.VSC_BYTE_ADDR0]  = act_bmp
+                        status = self.send_vsc(vsc_req_form)
+                        if status != YCable.MCU_EC_NO_ERROR:
+                            self.log_error('Firmware commit error (error code:%04X)' % (status))
+                            self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
+                            return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+
+                        vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                        vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_RUN
+                        vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
+                        vsc_req_form[YCable.VSC_BYTE_ADDR0]  = act_bmp
+                        vsc_req_form[YCable.VSC_BYTE_ADDR1]  = hitless
+                        status = self.send_vsc(vsc_req_form)
+                        time.sleep(5)
+                        if status != YCable.MCU_EC_NO_ERROR:
+                            self.log_error('Firmware run error (error code:%04X)' % (status))
+                            self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
+                            return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+
+                        self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_NOT_INITIATED_OR_FINISHED
+                    else:
+                        self.log_error('acquire lock timeout, failed to activate target firmware')
+                        self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
+                        return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+            else:
+                try:
+                    inFile = open(fwfile, 'rb')
+                    fwImage = bytearray(inFile.read())
+                    inFile.close()
+                except Exception as e:
+                    self.log_error('activate_target_firmware, open fw bin error(%s), fwfile:%s' % (e, fwfile))
+                    return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+
+                build_msb = struct.unpack_from('<B', fwImage[7:8])[0]
+                build_lsb = struct.unpack_from('<B', fwImage[8:9])[0]
+                rev_major = struct.unpack_from('<B', fwImage[9:10])[0]
+                rev_minor = struct.unpack_from('<B', fwImage[10:11])[0]
+
+                version_build_file = str(rev_major) + '.' + str(rev_minor) + chr(build_msb) + chr(build_lsb)
+
+                chk_bitmap = 0
+                fwVer = self.get_firmware_version(YCableBase.TARGET_NIC)
+                if fwVer is None:
+                    self.log_error("activate_target_firmware, failed to get NIC firmware version")
+                    return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+                else:                  
+                    if fwVer['version_inactive'] == version_build_file:
+                        chk_bitmap |= YCable.SIDE_BMP_NIC
+
+                fwVer = self.get_firmware_version(YCableBase.TARGET_TOR_A)
+                if fwVer is None:
+                    self.log_error("activate_target_firmware, failed to get TOR A firmware version")
+                    return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+                else: 
+                    if fwVer['version_inactive'] == version_build_file:
+                        chk_bitmap |= YCable.SIDE_BMP_TOR_A
+
+                fwVer = self.get_firmware_version(YCableBase.TARGET_TOR_B)
+                if fwVer is None:
+                    self.log_error("activate_target_firmware, failed to get TOR B firmware version")
+                    return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+                else: 
+                    if fwVer['version_inactive'] == version_build_file:
+                        chk_bitmap |= YCable.SIDE_BMP_TOR_B
+                    
+                act_bmp = act_bmp & chk_bitmap
+
+                if act_bmp:
+                    with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
+                        if lock_status:
+                            self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_INPROGRESS
+                            vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                            vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_COMMIT
+                            vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
+                            vsc_req_form[YCable.VSC_BYTE_ADDR0]  = act_bmp
+                            status = self.send_vsc(vsc_req_form)
+                            if status != YCable.MCU_EC_NO_ERROR:
+                                self.log_error('Firmware commit error (error code:%04X)' % (status))
+                                self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
+                                return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+
+                            vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                            vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_RUN
+                            vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
+                            vsc_req_form[YCable.VSC_BYTE_ADDR0]  = act_bmp
+                            vsc_req_form[YCable.VSC_BYTE_ADDR1]  = hitless
+                            status = self.send_vsc(vsc_req_form)
+                            time.sleep(5)
+                            if status != YCable.MCU_EC_NO_ERROR:
+                                self.log_error('Firmware run error (error code:%04X)' % (status))
+                                self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
+                                return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+
+                            self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_NOT_INITIATED_OR_FINISHED
+                        else:
+                            self.log_error('acquire lock timeout, failed to activate target firmware')
+                            self.download_firmware_status = self.FIRMWARE_DOWNLOAD_STATUS_FAILED
+                            return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+        else:
+            self.log_error("platform_chassis is not loaded, failed to activate target firmware")
+            return YCableBase.FIRMWARE_ACTIVATE_FAILURE
+
+        return YCableBase.FIRMWARE_ACTIVATE_SUCCESS
 
     def set_switching_mode(self, mode):
         """
@@ -1718,12 +2026,7 @@ class YCable(YCableBase):
         curr_offset = YCable.OFFSET_ENABLE_AUTO_SWITCH
 
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
-                else:
-                    self.log_error('acquire lock timeout, failed to set switching mode')
-                    return YCableBase.EEPROM_ERROR
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
         else:
             self.log_error("platform_chassis is not loaded, failed to set switching mode")
             return YCable.EEPROM_ERROR
@@ -1745,22 +2048,15 @@ class YCable(YCableBase):
         curr_offset = YCable.OFFSET_ENABLE_AUTO_SWITCH
 
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+            result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
 
-                    if result[0] == 1:
-                        return YCableBase.SWITCHING_MODE_AUTO
-                    else:
-                        return YCableBase.SWITCHING_MODE_MANUAL
-                else:
-                    self.log_error('acquire lock timeout, failed to get the switch mode')
-                    return YCableBase.EEPROM_ERROR
+            if result[0] == 1:
+                return YCableBase.SWITCHING_MODE_AUTO
+            else:
+                return YCableBase.SWITCHING_MODE_MANUAL
         else:
             self.log_error("platform_chassis is not loaded, failed to get the switch mode")
             return YCable.EEPROM_ERROR
-
-
 
     def get_nic_temperature(self):
         """
@@ -1775,13 +2071,8 @@ class YCable(YCableBase):
 
         curr_offset = YCable.OFFSET_NIC_TEMPERATURE
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
-                    temp = result[0]
-                else:
-                    self.log_error('acquire lock timeout, failed to get NIC temp')
-                    return YCableBase.EEPROM_ERROR
+            result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+            temp = result[0]
         else:
             self.log_error("platform_chassis is not loaded, failed to get NIC temp")
             return -1
@@ -1799,18 +2090,10 @@ class YCable(YCableBase):
             an Integer, the temperature of the local MCU
         """
 
-        if self.mux_toggle_status == self.MUX_TOGGLE_STATUS_INPROGRESS:
-            return 0
-
         curr_offset = YCable.OFFSET_INTERNAL_TEMPERATURE
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
-                    temp = result[0]
-                else:
-                    self.log_error('acquire lock timeout, failed to get local temp')
-                    return YCableBase.EEPROM_ERROR
+            result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+            temp = result[0]
         else:
             self.log_error("platform_chassis is not loaded, failed to get local temp")
             return YCable.EEPROM_ERROR
@@ -1828,19 +2111,11 @@ class YCable(YCableBase):
             a float, the voltage of the NIC MCU
         """
 
-        if self.mux_toggle_status == self.MUX_TOGGLE_STATUS_INPROGRESS:
-            return 0
-
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    curr_offset = YCable.OFFSET_NIC_VOLTAGE
-                    msb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
-                    lsb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset+1, 1)
-                    voltage = (((msb_result[0] << 8) | lsb_result[0]) * 0.0001)
-                else:
-                    self.log_error('acquire lock timeout, failed to get NIC voltage')
-                    return YCableBase.EEPROM_ERROR
+            curr_offset = YCable.OFFSET_NIC_VOLTAGE
+            msb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+            lsb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset+1, 1)
+            voltage = (((msb_result[0] << 8) | lsb_result[0]) * 0.0001)
         else:
             self.log_error("platform_chassis is not loaded, failed to get NIC voltage")
             return -1
@@ -1858,19 +2133,11 @@ class YCable(YCableBase):
             a float, the voltage of the local MCU
         """
 
-        if self.mux_toggle_status == self.MUX_TOGGLE_STATUS_INPROGRESS:
-            return 0
-
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    curr_offset = YCable.OFFSET_INTERNAL_VOLTAGE
-                    msb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
-                    lsb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset+1, 1)
-                    voltage = (((msb_result[0] << 8) | lsb_result[0]) * 0.0001)
-                else:
-                    self.log_error('acquire lock timeout, failed to get local voltage')
-                    return YCableBase.EEPROM_ERROR
+            curr_offset = YCable.OFFSET_INTERNAL_VOLTAGE
+            msb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+            lsb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset+1, 1)
+            voltage = (((msb_result[0] << 8) | lsb_result[0]) * 0.0001)
         else:
             self.log_error("platform_chassis is not loaded, failed to get local voltage")
             return YCable.EEPROM_ERROR
@@ -1890,19 +2157,14 @@ class YCable(YCableBase):
         """
 
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    curr_offset = YCable.OFFSET_NIC_SIGNAL_DETECTION
-                    result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 6)
-                    if result is False:
-                        return result
+            curr_offset = YCable.OFFSET_NIC_SIGNAL_DETECTION
+            result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 6)
+            if result is False:
+                return result
 
-                    for idx in range(6):
-                        if result[idx] == 0:
-                            return False
-                else:
-                    self.log_error('acquire lock timeout, failed to get active status')
-                    return YCableBase.EEPROM_ERROR
+            for idx in range(6):
+                if result[idx] == 0:
+                    return False
         else:
             self.log_error("platform_chassis is not loaded, failed to get active status")
             return YCable.EEPROM_ERROR
@@ -1954,7 +2216,7 @@ class YCable(YCableBase):
                         time.sleep(2)
                 else:
                     self.log_error('acquire lock timeout, failed to reset')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to reset")
             return YCable.EEPROM_ERROR
@@ -2004,30 +2266,25 @@ class YCable(YCableBase):
         """
 
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    mode = 0
-                    if speed == 50000:
-                        mode |= (0 << 6)
-                    elif speed == 100000:
-                        mode |= (1 << 6)
-                    else:
-                        self.log_error("create port: unsupported speed:%d" % (speed))
-                        return False
+            mode = 0
+            if speed == 50000:
+                mode |= (0 << 6)
+            elif speed == 100000:
+                mode |= (1 << 6)
+            else:
+                self.log_error("create port: unsupported speed:%d" % (speed))
+                return False
 
-                    mode |= (1 << 0) if anlt_nic else (0 << 0)
-                    mode |= (1 << 1) if anlt_tor else (0 << 1)
-                    mode |= (1 << 3) if fec_mode_nic == YCableBase.FEC_MODE_RS else (0 << 3)
-                    mode |= (1 << 4) if fec_mode_tor == YCableBase.FEC_MODE_RS else (0 << 4)
+            mode |= (1 << 0) if anlt_nic else (0 << 0)
+            mode |= (1 << 1) if anlt_tor else (0 << 1)
+            mode |= (1 << 3) if fec_mode_nic == YCableBase.FEC_MODE_RS else (0 << 3)
+            mode |= (1 << 4) if fec_mode_tor == YCableBase.FEC_MODE_RS else (0 << 4)
 
-                    curr_offset = YCable.OFFSET_NIC_MODE_CONFIGURATION
-                    buffer = bytearray([mode])
-                    result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
-                    if result is False:
-                        return result
-                else:
-                    self.log_error('acquire lock timeout, failed to create port')
-                    return YCableBase.EEPROM_ERROR
+            curr_offset = YCable.OFFSET_NIC_MODE_CONFIGURATION
+            buffer = bytearray([mode])
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
+            if result is False:
+                return result
         else:
             self.log_error("platform_chassis is not loaded, failed to create port")
             return YCable.EEPROM_ERROR
@@ -2051,21 +2308,16 @@ class YCable(YCableBase):
 
         speed = 0
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    curr_offset = YCable.OFFSET_NIC_MODE_CONFIGURATION
-                    mode = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+            curr_offset = YCable.OFFSET_NIC_MODE_CONFIGURATION
+            mode = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
 
-                    if (mode[0] >> 6) == 0:
-                        speed = 50000
-                    elif (mode[0] >> 6) == 1:
-                        speed = 100000
-                    else:
-                        self.log_error("unsupported speed")
-                        return -1
-                else:
-                    self.log_error('acquire lock timeout, failed to get speed')
-                    return YCableBase.EEPROM_ERROR
+            if (mode[0] >> 6) == 0:
+                speed = 50000
+            elif (mode[0] >> 6) == 1:
+                speed = 100000
+            else:
+                self.log_error("unsupported speed")
+                return -1
         else:
             self.log_error("platform_chassis is not loaded, failed to get speed")
             return YCable.EEPROM_ERROR
@@ -2096,27 +2348,22 @@ class YCable(YCableBase):
         """
 
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    curr_offset = YCable.OFFSET_NIC_MODE_CONFIGURATION
-                    mode = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+            curr_offset = YCable.OFFSET_NIC_MODE_CONFIGURATION
+            mode = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
 
-                    if target == YCableBase.TARGET_NIC:
-                        mode[0] &= ~(1 << 3)
-                        mode[0] |= (1 << 3) if fec_mode == YCableBase.FEC_MODE_RS else (0 << 3)
-                    elif target == YCableBase.TARGET_TOR_A or target == YCableBase.TARGET_TOR_B:
-                        mode[0] &= ~(1 << 4)
-                        mode[0] |= (1 << 4) if fec_mode == YCableBase.FEC_MODE_RS else (0 << 4)
-                    else:
-                        self.log_error("set fec mode: unsupported target")
-                        return False
+            if target == YCableBase.TARGET_NIC:
+                mode[0] &= ~(1 << 3)
+                mode[0] |= (1 << 3) if fec_mode == YCableBase.FEC_MODE_RS else (0 << 3)
+            elif target == YCableBase.TARGET_TOR_A or target == YCableBase.TARGET_TOR_B:
+                mode[0] &= ~(1 << 4)
+                mode[0] |= (1 << 4) if fec_mode == YCableBase.FEC_MODE_RS else (0 << 4)
+            else:
+                self.log_error("set fec mode: unsupported target")
+                return False
 
-                    result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, mode)
-                    if result is False:
-                        return result
-                else:
-                    self.log_error('acquire lock timeout, failed to set fec mode')
-                    return YCableBase.EEPROM_ERROR
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, mode)
+            if result is False:
+                return result
         else:
             self.log_error("platform_chassis is not loaded, failed to set fec mode")
             return YCable.EEPROM_ERROR
@@ -2145,22 +2392,17 @@ class YCable(YCableBase):
 
         fec_mode = YCableBase.FEC_MODE_NONE
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    curr_offset = YCable.OFFSET_NIC_MODE_CONFIGURATION
-                    mode = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+            curr_offset = YCable.OFFSET_NIC_MODE_CONFIGURATION
+            mode = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
 
-                    if target == YCableBase.TARGET_NIC:
-                        if mode[0] & (1 << 3):
-                            fec_mode = YCableBase.FEC_MODE_RS
-                    elif target == YCableBase.TARGET_TOR_A or target == YCableBase.TARGET_TOR_B:
-                        if mode[0] & (1 << 4):
-                            fec_mode = YCableBase.FEC_MODE_RS
-                    else:
-                        self.log_error("get fec mode: unsupported target")
-                else:
-                    self.log_error('acquire lock timeout, failed to get fec mode')
-                    return YCableBase.EEPROM_ERROR
+            if target == YCableBase.TARGET_NIC:
+                if mode[0] & (1 << 3):
+                    fec_mode = YCableBase.FEC_MODE_RS
+            elif target == YCableBase.TARGET_TOR_A or target == YCableBase.TARGET_TOR_B:
+                if mode[0] & (1 << 4):
+                    fec_mode = YCableBase.FEC_MODE_RS
+            else:
+                self.log_error("get fec mode: unsupported target")
         else:
             self.log_error("platform_chassis is not loaded, failed to get fec mode")
             return YCable.EEPROM_ERROR
@@ -2189,27 +2431,22 @@ class YCable(YCableBase):
         """
 
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    curr_offset = YCable.OFFSET_NIC_MODE_CONFIGURATION
-                    mode = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+            curr_offset = YCable.OFFSET_NIC_MODE_CONFIGURATION
+            mode = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
 
-                    if target == YCableBase.TARGET_NIC:
-                        mode[0] &= ~(1 << 0)
-                        mode[0] |= (1 << 0) if enable else (0 << 0)
-                    elif target == YCableBase.TARGET_TOR_A or target == YCableBase.TARGET_TOR_B:
-                        mode[0] &= ~(1 << 1)
-                        mode[0] |= (1 << 1) if enable else (0 << 1)
-                    else:
-                        self.log_error("set anlt: unsupported target")
-                        return False
+            if target == YCableBase.TARGET_NIC:
+                mode[0] &= ~(1 << 0)
+                mode[0] |= (1 << 0) if enable else (0 << 0)
+            elif target == YCableBase.TARGET_TOR_A or target == YCableBase.TARGET_TOR_B:
+                mode[0] &= ~(1 << 1)
+                mode[0] |= (1 << 1) if enable else (0 << 1)
+            else:
+                self.log_error("set anlt: unsupported target")
+                return False
 
-                    result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, mode)
-                    if result is False:
-                        return result
-                else:
-                    self.log_error('acquire lock timeout, failed to set anlt')
-                    return YCableBase.EEPROM_ERROR
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, mode)
+            if result is False:
+                return result
         else:
             self.log_error("platform_chassis is not loaded, failed to set anlt")
             return YCable.EEPROM_ERROR
@@ -2235,23 +2472,18 @@ class YCable(YCableBase):
 
         anlt_mode = False
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    curr_offset = YCable.OFFSET_NIC_MODE_CONFIGURATION
-                    mode = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+            curr_offset = YCable.OFFSET_NIC_MODE_CONFIGURATION
+            mode = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
 
-                    if target == YCableBase.TARGET_NIC:
-                        if mode[0] & (1 << 0):
-                            anlt_mode = True
+            if target == YCableBase.TARGET_NIC:
+                if mode[0] & (1 << 0):
+                    anlt_mode = True
 
-                    elif target == YCableBase.TARGET_TOR_A or target == YCableBase.TARGET_TOR_B:
-                        if mode[0] & (1 << 1):
-                            anlt_mode = True
-                    else:
-                        self.log_error("get anlt: unsupported target")
-                else:
-                    self.log_error('acquire lock timeout, failed to get anlt')
-                    return YCableBase.EEPROM_ERROR
+            elif target == YCableBase.TARGET_TOR_A or target == YCableBase.TARGET_TOR_B:
+                if mode[0] & (1 << 1):
+                    anlt_mode = True
+            else:
+                self.log_error("get anlt: unsupported target")
         else:
             self.log_error("platform_chassis is not loaded, failed to get anlt")
             return YCable.EEPROM_ERROR
@@ -2308,6 +2540,7 @@ class YCable(YCableBase):
                 0x0200: 'Firmware Update',
             }
 
+            read_cycle = 0
             while (True):
                 with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
                     if lock_status:
@@ -2355,9 +2588,14 @@ class YCable(YCableBase):
                                 result.append(entry)
 
                                 last_read_id = event_id
+
+                        '''break the while loop if hit maximum read cycle to avoid deadlock'''
+                        read_cycle += 1
+                        if read_cycle > 150:
+                            break
                     else:
                         self.log_error('acquire lock timeout, failed to get event log')
-                        return YCableBase.EEPROM_ERROR
+                        return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get event log")
             return YCable.EEPROM_ERROR
@@ -2413,7 +2651,7 @@ class YCable(YCableBase):
                     pcs_stats['Tx Octets OK'] = self.tcm_read(base + 4 * (Tx + 1))
                 else:
                     self.log_error('acquire lock timeout, failed to get pcs statisics')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get pcs statisics")
             return YCable.EEPROM_ERROR
@@ -2492,7 +2730,7 @@ class YCable(YCableBase):
                     fec_stats['Corrected CW (15 sym err)'] = self.tcm_read(base + (26 << 2))
                 else:
                     self.log_error('acquire lock timeout, failed to get fec statisics')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get fec statisics")
             return YCable.EEPROM_ERROR
@@ -2518,12 +2756,7 @@ class YCable(YCableBase):
         buffer = bytearray([time])
 
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
-                else:
-                    self.log_error('acquire lock timeout, failed to set autoswitch hysteresis timer')
-                    return YCableBase.EEPROM_ERROR
+            self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
         else:
             self.log_error("platform_chassis is not loaded, failed to set autoswitch hysteresis timer")
             return YCable.EEPROM_ERROR
@@ -2545,12 +2778,7 @@ class YCable(YCableBase):
         curr_offset = YCable.OFFSET_AUTO_SWITCH_HYSTERESIS
 
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    time = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
-                else:
-                    self.log_error('acquire lock timeout, failed to get autoswitch hysteresis timer')
-                    return YCableBase.EEPROM_ERROR
+            time = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
         else:
             self.log_error("platform_chassis is not loaded, failed to get autoswitch hysteresis timer")
             return YCable.EEPROM_ERROR
@@ -2591,7 +2819,7 @@ class YCable(YCableBase):
                     self.fw_cmd_ext(0x7040, 0, lane)
                 else:
                     self.log_error('acquire lock timeout, failed to restart anlt')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to restart anlt")
             return YCable.EEPROM_ERROR
@@ -2640,7 +2868,7 @@ class YCable(YCableBase):
                         anlt_stat['LT_TX_lane%d' % idx] = [(lt_tx1 >> 8) & 0xFF, lt_tx1 & 0xFF, (lt_tx2 >> 8) & 0xFF, lt_tx2 & 0xFF]
                 else:
                     self.log_error('acquire lock timeout, failed to get anlt stat')
-                    return YCableBase.EEPROM_ERROR
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get anlt stats")
             return YCable.EEPROM_ERROR
@@ -2732,30 +2960,25 @@ class YCable(YCableBase):
         curr_offset = YCable.OFFSET_TARGET
 
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
-                    if result is False:
-                        return result
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
+            if result is False:
+                return result
 
-                    buffer = bytearray([0])
-                    curr_offset = YCable.OFFSET_ENABLE_PRBS
-                    result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
-                    if result is False:
-                        return result
+            buffer = bytearray([0])
+            curr_offset = YCable.OFFSET_ENABLE_PRBS
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
+            if result is False:
+                return result
 
-                    buffer = bytearray([mode_value])
-                    curr_offset = YCable.OFFSET_CONFIGURE_PRBS_TYPE
-                    result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
-                    if result is False:
-                        return result
+            buffer = bytearray([mode_value])
+            curr_offset = YCable.OFFSET_CONFIGURE_PRBS_TYPE
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
+            if result is False:
+                return result
 
-                    buffer = bytearray([lane_mask])
-                    curr_offset = YCable.OFFSET_ENABLE_PRBS
-                    result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
-                else:
-                    self.log_error('acquire lock timeout, failed to enable the PRBS mode')
-                    return YCableBase.EEPROM_ERROR
+            buffer = bytearray([lane_mask])
+            curr_offset = YCable.OFFSET_ENABLE_PRBS
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
         else:
             self.log_error("platform_chassis is not loaded, failed to enable the PRBS mode")
             return YCable.EEPROM_ERROR
@@ -2789,17 +3012,12 @@ class YCable(YCableBase):
         curr_offset = YCable.OFFSET_TARGET
 
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
-                    if result is False:
-                        return result
-                    buffer = bytearray([0])
-                    curr_offset = YCable.OFFSET_ENABLE_PRBS
-                    result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
-                else:
-                    self.log_error('acquire lock timeout, failed to disable the PRBS mode')
-                    return YCableBase.EEPROM_ERROR
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
+            if result is False:
+                return result
+            buffer = bytearray([0])
+            curr_offset = YCable.OFFSET_ENABLE_PRBS
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
         else:
             self.log_error("platform_chassis is not loaded, failed to disable the PRBS mode")
             return YCable.EEPROM_ERROR
@@ -2839,17 +3057,12 @@ class YCable(YCableBase):
         curr_offset = YCable.OFFSET_TARGET
 
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
-                    if result is False:
-                        return result
-                    buffer = bytearray([lane_mask])
-                    curr_offset = YCable.OFFSET_ENABLE_LOOPBACK
-                    result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
-                else:
-                    self.log_error('acquire lock timeout, failed to enable the loopback mode')
-                    return YCableBase.EEPROM_ERROR
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
+            if result is False:
+                return result
+            buffer = bytearray([lane_mask])
+            curr_offset = YCable.OFFSET_ENABLE_LOOPBACK
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
         else:
             self.log_error("platform_chassis is not loaded, failed to enable the loopback mode")
             return YCable.EEPROM_ERROR
@@ -2878,17 +3091,12 @@ class YCable(YCableBase):
         curr_offset = YCable.OFFSET_TARGET
 
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
-                    if result is False:
-                        return result
-                    buffer = bytearray([0])
-                    curr_offset = YCable.OFFSET_ENABLE_LOOPBACK
-                    result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
-                else:
-                    self.log_error('acquire lock timeout, failed to disable loopback mode')
-                    return YCableBase.EEPROM_ERROR
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
+            if result is False:
+                return result
+            buffer = bytearray([0])
+            curr_offset = YCable.OFFSET_ENABLE_LOOPBACK
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
         else:
             self.log_error("platform_chassis is not loaded, failed to disable loopback mode")
             return YCable.EEPROM_ERROR
@@ -2918,38 +3126,33 @@ class YCable(YCableBase):
         """
 
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    buffer = bytearray([target])
-                    curr_offset = YCable.OFFSET_TARGET
+            buffer = bytearray([target])
+            curr_offset = YCable.OFFSET_TARGET
 
-                    result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
-                    if result is False:
-                        return -1
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
+            if result is False:
+                return -1
 
-                    buffer = bytearray([0])
-                    curr_offset = YCable.OFFSET_SYNC_DEBUG_MODE
-                    result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
-                    if result is False:
-                        return -1
-                    time_start = time.time()
-                    while(True):
-                        done = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
-                        time_now = time.time()
-                        time_diff = time_now - time_start
-                        if done[0] == 1:
-                            break
-                        elif time_diff >= YCable.GET_DEBUG_MODE_TIMEOUT_SECS:
-                            return YCable.EEPROM_TIMEOUT_ERROR
+            buffer = bytearray([0])
+            curr_offset = YCable.OFFSET_SYNC_DEBUG_MODE
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
+            if result is False:
+                return -1
+            time_start = time.time()
+            while(True):
+                done = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+                time_now = time.time()
+                time_diff = time_now - time_start
+                if done[0] == 1:
+                    break
+                elif time_diff >= YCable.GET_DEBUG_MODE_TIMEOUT_SECS:
+                    return YCable.EEPROM_TIMEOUT_ERROR
 
-                    curr_offset = YCable.OFFSET_ENABLE_LOOPBACK
-                    result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+            curr_offset = YCable.OFFSET_ENABLE_LOOPBACK
+            result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
 
-                    if result[0]:
-                        return YCableBase.LOOPBACK_MODE_NEAR_END
-                else:
-                    self.log_error('acquire lock timeout, failed to get loopback mode')
-                    return YCableBase.EEPROM_ERROR
+            if result[0]:
+                return YCableBase.LOOPBACK_MODE_NEAR_END
         else:
             self.log_error("platform_chassis is not loaded, failed to get loopback mode")
             return YCable.EEPROM_ERROR
@@ -2979,38 +3182,33 @@ class YCable(YCableBase):
         ber_result = []
 
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
-                    if result is False:
-                        return result
-                    buffer = bytearray([0])
-                    curr_offset = YCable.OFFSET_INITIATE_BER_MEASUREMENT
-                    result = self.platform_chassis.get_sfp(
-                        self.port).write_eeprom(curr_offset, 1, buffer)
-                    if result is False:
-                        return result
-                    time_start = time.time()
-                    while(True):
-                        done = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
-                        time_now = time.time()
-                        time_diff = time_now - time_start
-                        if done[0] == 1:
-                            break
-                        elif time_diff >= YCable.BER_TIMEOUT_SECS:
-                            return YCable.EEPROM_TIMEOUT_ERROR
+            result = self.platform_chassis.get_sfp(self.port).write_eeprom(curr_offset, 1, buffer)
+            if result is False:
+                return result
+            buffer = bytearray([0])
+            curr_offset = YCable.OFFSET_INITIATE_BER_MEASUREMENT
+            result = self.platform_chassis.get_sfp(
+                self.port).write_eeprom(curr_offset, 1, buffer)
+            if result is False:
+                return result
+            time_start = time.time()
+            while(True):
+                done = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+                time_now = time.time()
+                time_diff = time_now - time_start
+                if done[0] == 1:
+                    break
+                elif time_diff >= YCable.BER_TIMEOUT_SECS:
+                    return YCable.EEPROM_TIMEOUT_ERROR
 
-                    idx = 0
-                    curr_offset = YCable.OFFSET_LANE_1_BER_RESULT
-                    for lane in range(YCable.MAX_NUM_LANES):
-                        msb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset+idx, 1)
-                        lsb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset+1+idx, 1)
-                        lane_result = msb_result[0] * math.pow(10, (lsb_result[0]-24))
-                        ber_result.append(lane_result)
-                        idx += 2
-                else:
-                    self.log_error('acquire lock timeout, failed to get ber info')
-                    return YCableBase.EEPROM_ERROR
+            idx = 0
+            curr_offset = YCable.OFFSET_LANE_1_BER_RESULT
+            for lane in range(YCable.MAX_NUM_LANES):
+                msb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset+idx, 1)
+                lsb_result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset+1+idx, 1)
+                lane_result = msb_result[0] * math.pow(10, (lsb_result[0]-24))
+                ber_result.append(lane_result)
+                idx += 2
         else:
             self.log_error("platform_chassis is not loaded, failed to get ber info")
             return YCable.EEPROM_ERROR
@@ -3041,53 +3239,266 @@ class YCable(YCableBase):
                  which would help diagnose the cable for proper functioning
         """
         if self.platform_chassis is not None:
-            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
-                if lock_status:
-                    result = {}
-                    result['pn'] = self.get_part_number()
-                    result['sn'] = self.get_serial_number()
-                    result['uart_stat'] = self.get_uart_stat()
-                    result['nic_temp'] = self.get_nic_temperature()
-                    result['nic_voltage'] = self.get_nic_voltage()
-                    result['fw_init_status'] = self.get_dsp_fw_init_stat()
-                    result['serdes_detect'] = self.get_dsp_link_Dect()
+            api_ver = self.platform_chassis.get_sfp(self.port).read_eeprom(YCable.OFFSET_API_VERSION, 1)[0]
 
-                    lanes = [0,1,2,3,12,13,14,15,20,21,22,23]
+            result = {}
+            result['vendor'] = self.get_vendor()
+            result['pn'] = self.get_part_number()
+            result['sn'] = self.get_serial_number()
+            result['uart_stat'] = self.get_uart_stat()
+            result['nic_temp'] = self.get_nic_temperature()
+            result['nic_voltage'] = self.get_nic_voltage()
+            result['fw_init_status'] = self.get_dsp_fw_init_stat()
+            result['serdes_detect'] = self.get_dsp_link_detect()
 
-                    for ln in list(lanes):
-                        data = self.get_serdes_params(ln)
-                        serdes = {}
-                        serdes['ch_est']    = struct.unpack_from('<f', data[  4 :  8])[0]
-                        serdes['of']        = struct.unpack_from('<H', data[  8 : 10])[0]
-                        serdes['hf']        = struct.unpack_from('<H', data[ 10 : 12])[0]
-                        serdes['ctle1']     = struct.unpack_from('<H', data[ 14 : 16])[0]
-                        serdes['ctle2']     = struct.unpack_from('<H', data[ 16 : 18])[0]
-                        serdes['delta']     = struct.unpack_from('<h', data[ 18 : 20])[0]
-                        serdes['eye']       = struct.unpack_from('<H', data[ 30 : 32])[0]
-                        serdes['ppm']       = struct.unpack_from('<h', data[ 40 : 42])[0]
-                        serdes['adp_cnt']   = struct.unpack_from('<H', data[ 56 : 58])[0]
-                        serdes['adp_done']  = struct.unpack_from('<B', data[ 58 : 59])[0]
-                        serdes['agc_g1']    = struct.unpack_from('<H', data[ 59 : 61])[0]
-                        serdes['agc_g2']    = struct.unpack_from('<H', data[ 61 : 63])[0]
-                        serdes['exit_code'] = struct.unpack_from('<H', data[112 :114])[0]
-                        serdes['pll_tx']    = struct.unpack_from('<H', data[ 42 : 44])[0]
-                        serdes['pll_rx']    = struct.unpack_from('<H', data[ 44 : 46])[0]
-                        serdes['f1']        = struct.unpack_from('<h', data[ 46 : 48])[0]
-                        serdes['f2']        = struct.unpack_from('<h', data[ 48 : 50])[0]
-                        serdes['f3']        = struct.unpack_from('<h', data[ 50 : 52])[0]
-                        serdes['temp']      = struct.unpack_from('<b', data[111 :112])[0]
+            if api_ver >= 0x18:
+                result['queue_info'] = self.queue_info()
 
-                        result['serde_lane_%d' % ln] = serdes
-                else:
-                    self.log_error('acquire lock timeout, failed to dump registers')
-                    return YCableBase.EEPROM_ERROR
+            lanes = [0,1,2,3,12,13,14,15,20,21,22,23]
+
+            for ln in list(lanes):
+                data = self.get_serdes_params(ln)
+                serdes = {}
+                serdes['ch_est']    = struct.unpack_from('<f', data[  4 :  8])[0]
+                serdes['of']        = struct.unpack_from('<H', data[  8 : 10])[0]
+                serdes['hf']        = struct.unpack_from('<H', data[ 10 : 12])[0]
+                serdes['ctle1']     = struct.unpack_from('<H', data[ 14 : 16])[0]
+                serdes['ctle2']     = struct.unpack_from('<H', data[ 16 : 18])[0]
+                serdes['delta']     = struct.unpack_from('<h', data[ 18 : 20])[0]
+                serdes['eye']       = struct.unpack_from('<H', data[ 30 : 32])[0]
+                serdes['ppm']       = struct.unpack_from('<h', data[ 40 : 42])[0]
+                serdes['adp_cnt']   = struct.unpack_from('<H', data[ 56 : 58])[0]
+                serdes['adp_done']  = struct.unpack_from('<B', data[ 58 : 59])[0]
+                serdes['agc_g1']    = struct.unpack_from('<H', data[ 59 : 61])[0]
+                serdes['agc_g2']    = struct.unpack_from('<H', data[ 61 : 63])[0]
+                serdes['exit_code'] = struct.unpack_from('<H', data[112 :114])[0]
+                serdes['pll_tx']    = struct.unpack_from('<H', data[ 42 : 44])[0]
+                serdes['pll_rx']    = struct.unpack_from('<H', data[ 44 : 46])[0]
+                serdes['f1']        = struct.unpack_from('<h', data[ 46 : 48])[0]
+                serdes['f2']        = struct.unpack_from('<h', data[ 48 : 50])[0]
+                serdes['f3']        = struct.unpack_from('<h', data[ 50 : 52])[0]
+                serdes['temp']      = struct.unpack_from('<b', data[111 :112])[0]
+
+                result['serde_lane_%d' % ln] = serdes
         else:
             self.log_error("platform_chassis is not loaded, failed to dump registers")
             return YCable.EEPROM_ERROR
 
         return result
 
-    def get_dsp_link_Dect(self):
+    def queue_info(self):
+        """
+        This API should dump all the meaningful data from the eeprom which can
+        help vendor debug the queue info for the UART stats in particular
+        currently relevant to the MCU
+        using this API the vendor could check how many txns are currently waiting to be processed,proceessed
+        in the queue etc for debugging purposes
+        Args:
+             None
+        Returns:
+            a Dictionary:
+                 with all the relevant key-value pairs for all the meaningful fields
+                 for the queue inside the MCU firmware
+                 which would help diagnose the cable for proper functioning
+        """
+
+        if self.platform_chassis is not None:
+            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
+                if lock_status:
+                    result = {}
+                    for option in range(2):
+                        vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                        vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_QUEUE_INFO
+                        vsc_req_form[YCable.VSC_BYTE_OPTION] = option
+                        status = self.send_vsc(vsc_req_form)
+                        if status != YCable.MCU_EC_NO_ERROR:
+                            self.log_error('Dump Uart statstics error (error code:0x%04X)' % (status))
+                            return result
+
+                        data = self.read_mmap(YCable.MIS_PAGE_FC, 128, 48)
+
+                        queue = {}
+
+                        offset = 0
+                        cnt = {}
+                        cnt['r_ptr']       = struct.unpack_from('<H', data[offset +  0: offset +  2])[0]
+                        cnt['w_ptr']       = struct.unpack_from('<H', data[offset +  2: offset +  4])[0]
+                        cnt['total_count'] = struct.unpack_from('<H', data[offset +  4: offset +  6])[0]
+                        cnt['free_count']  = struct.unpack_from('<H', data[offset +  6: offset +  8])[0]
+                        cnt['buff_addr']   = struct.unpack_from('<I', data[offset +  8: offset + 12])[0]
+                        cnt['node_size']   = struct.unpack_from('<I', data[offset + 12: offset + 16])[0]
+                        queue['VSC'] = cnt
+
+                        offset = 16
+                        cnt = {}
+                        cnt['r_ptr']       = struct.unpack_from('<H', data[offset +  0: offset +  2])[0]
+                        cnt['w_ptr']       = struct.unpack_from('<H', data[offset +  2: offset +  4])[0]
+                        cnt['total_count'] = struct.unpack_from('<H', data[offset +  4: offset +  6])[0]
+                        cnt['free_count']  = struct.unpack_from('<H', data[offset +  6: offset +  8])[0]
+                        cnt['buff_addr']   = struct.unpack_from('<I', data[offset +  8: offset + 12])[0]
+                        cnt['node_size']   = struct.unpack_from('<I', data[offset + 12: offset + 16])[0]
+                        queue['UART1'] = cnt
+
+                        offset = 32
+                        cnt = {}
+                        cnt['r_ptr']       = struct.unpack_from('<H', data[offset +  0: offset +  2])[0]
+                        cnt['w_ptr']       = struct.unpack_from('<H', data[offset +  2: offset +  4])[0]
+                        cnt['total_count'] = struct.unpack_from('<H', data[offset +  4: offset +  6])[0]
+                        cnt['free_count']  = struct.unpack_from('<H', data[offset +  6: offset +  8])[0]
+                        cnt['buff_addr']   = struct.unpack_from('<I', data[offset +  8: offset + 12])[0]
+                        cnt['node_size']   = struct.unpack_from('<I', data[offset + 12: offset + 16])[0]
+                        queue['UART2'] = cnt
+
+                        if option == 0: result['Local']  = queue
+                        else:           result['Remote'] = queue
+                else:
+                    self.log_error('acquire lock timeout, failed to get queue info')
+                    return YCable.EEPROM_ERROR
+        else:
+            self.log_error("platform_chassis is not loaded, failed to get queue info")
+
+        return result
+
+    def reset_cause(self):
+        """
+        This API should return the reset cause for the NIC MCU.
+        This should help ascertain whether a reset was caused by soft reboot or
+        cable poweroff
+        Args:
+             None
+        Returns:
+            a string:
+                 the string should be self explnatory as to what was the cause of reset
+        """
+
+        curr_offset = YCable.OFFSET_RESET_CAUSE
+
+        if self.platform_chassis is not None:
+            result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 1)
+            result = struct.unpack("<B", result)[0]
+        else:
+            self.log_error("platform_chassis is not loaded, failed to get operation time")
+            return YCable.EEPROM_ERROR
+
+        return result
+
+    def operation_time(self):
+        """
+        This API should return the time since the cable is powered on from NIC MCU side
+        This should be helpful in debugging purposes as to if/when the cable has been powered on
+        Args:
+             None
+        Returns:
+            a float:
+                 the float should represent how much time the mux cable is alive/powered on
+        """
+
+        curr_offset = YCable.OFFSET_OPERATION_TIME
+
+        if self.platform_chassis is not None:
+            result = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset, 4)
+            result = struct.unpack("<I", result)[0]
+        else:
+            self.log_error("platform_chassis is not loaded, failed to get operation time")
+            return YCable.EEPROM_ERROR
+
+        return result
+
+    def mem_read(self, target, addr, length):
+        """
+        This API should return the memory contents of the cable which would be useful in debug for the
+        y-cable
+        Args:
+             None
+        Returns:
+            a Dictionary:
+                 with all the relevant key-value pairs for all the meaningful fields
+                 for the memory inside the MCU firmware
+                 which would help diagnose the cable for proper functioning
+        """
+
+        data = bytearray()
+
+        if self.platform_chassis is not None:
+            curr = 0
+            while curr < length:
+                if target == 0:
+                    if (length - curr) > 512: size = 512
+                    else:                     size = length - curr
+                else:
+                    size = 4
+
+                with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
+                    if lock_status:
+                        vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                        vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_MEM_READ
+                        vsc_req_form[YCable.VSC_BYTE_OPTION] = target
+                        vsc_req_form[130] = (addr >>  0) & 0xFF
+                        vsc_req_form[131] = (addr >>  8) & 0xFF
+                        vsc_req_form[132] = (addr >> 16) & 0xFF
+                        vsc_req_form[133] = (addr >> 24) & 0xFF
+                        vsc_req_form[134] = (size >>  0) & 0xFF
+                        vsc_req_form[135] = (size >>  8) & 0xFF
+                        vsc_req_form[136] = (size >> 16) & 0xFF
+                        vsc_req_form[137] = (size >> 24) & 0xFF
+                        status = self.send_vsc(vsc_req_form)
+                        if status != YCable.MCU_EC_NO_ERROR:
+                            self.log_error('read MCU internal memory error error (error code:0x%04X)' % (status))
+                            return YCable.EEPROM_ERROR
+
+                        idx = 0
+                        while idx < size:
+                            if (size - idx) > 128:
+                                data.extend(self.read_mmap(YCable.MIS_PAGE_FC + idx // 128, 128 + idx % 128, 128))
+                                idx += 128
+                            else:
+                                data.extend(self.read_mmap(YCable.MIS_PAGE_FC + idx // 128, 128 + idx % 128, size - idx))
+                                idx = size
+                    else:
+                        self.log_error('acquire lock timeout, failed to read memory')
+                        return YCable.EEPROM_ERROR
+            
+                curr += size
+                addr += size
+        else:
+            self.log_error("platform_chassis is not loaded, failed to read memory")
+
+        return data
+
+    def health_check(self):
+        """
+        This API checks the health of the cable, where it is healthy/unhealythy for RMA purposes/diagnostics.
+        The port on which this API is called for can be referred using self.port.
+
+        Args:
+        Returns:
+            a Boolean, True if the cable is healthy and False if it is not healthy.
+        """
+
+        if self.platform_chassis is not None:
+            api_ver = self.platform_chassis.get_sfp(self.port).read_eeprom(YCable.OFFSET_API_VERSION, 1)[0]
+
+            vendor = self.get_vendor()
+            if vendor !=  "Credo           ":
+                self.log_error("check cable health fail: unable to get correct vendor name:%s" % (vendor))
+                return YCable.CABLE_UNHEALTHY
+
+            uart_stat = self.get_uart_stat()
+            if api_ver >= 0x18 and uart_stat['Local']['UART2']['RxErrorCnt'] > 100:
+                self.log_error("check cable health fail: uart rx error count overlimit:%d" % (uart_stat['local']['UART2']['RxErrorCnt']))
+                return YCable.CABLE_UNHEALTHY
+
+            serdes_fw_tag = self.reg_read_atomic(0xB71A)
+            if serdes_fw_tag != 0x6A6A:
+                self.log_error("check cable health fail: serdes fw is not loaded correctly:%04X" % (serdes_fw_tag))
+                return YCable.CABLE_UNHEALTHY
+        else:
+            self.log_error("platform_chassis is not loaded, failed to check cable health")
+            return YCable.EEPROM_ERROR
+
+        return YCable.CABLE_HEALTHY
+
+    def get_dsp_link_detect(self):
         """
         This API returns rdy/sd of DSP.
         The port on which this API is called for can be referred using self.port.
@@ -3108,7 +3519,6 @@ class YCable(YCableBase):
             result['rdyTorA'] = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 3, 1)[0]
             result['sdTorB']  = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 4, 1)[0]
             result['rdyTorB'] = self.platform_chassis.get_sfp(self.port).read_eeprom(curr_offset + 5, 1)[0]
-
         else:
             self.log_error("platform_chassis is not loaded, failed to get init. status of DSP firmware")
 
@@ -3125,20 +3535,24 @@ class YCable(YCableBase):
         """
 
         if self.platform_chassis is not None:
-            result = {}
+            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
+                if lock_status:
+                    result = {}
 
-            vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
-            vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_DSP_LOADFW_STAT
-            status = self.send_vsc(vsc_req_form)
-            if status != YCable.MCU_EC_NO_ERROR:
-                self.log_error('Get DSP firmware init status error (error code:0x%04X)' % (status))
-                return result
+                    vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                    vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_DSP_LOADFW_STAT
+                    status = self.send_vsc(vsc_req_form)
+                    if status != YCable.MCU_EC_NO_ERROR:
+                        self.log_error('Get DSP firmware init status error (error code:0x%04X)' % (status))
+                        return result
 
-            result['err_code'] = self.read_mmap(YCable.MIS_PAGE_VSC, 134)
-            result['err_stat'] = self.read_mmap(YCable.MIS_PAGE_VSC, 135)
-
+                    result['err_code'] = self.read_mmap(YCable.MIS_PAGE_VSC, 134)
+                    result['err_stat'] = self.read_mmap(YCable.MIS_PAGE_VSC, 135)
+                else:
+                    self.log_error('acquire lock timeout, failed to get init status')
+                    return YCable.EEPROM_ERROR
         else:
-            self.log_error("platform_chassis is not loaded, failed to get init. status of DSP firmware")
+            self.log_error("platform_chassis is not loaded, failed to get init status")
 
         return result
 
@@ -3153,40 +3567,56 @@ class YCable(YCableBase):
         """
 
         if self.platform_chassis is not None:
-            cnt = {}
-            uartPort = {}
             result = {}
 
-            for option in range(2):
-                vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
-                vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_UART_STAT
-                vsc_req_form[YCable.VSC_BYTE_OPTION] = option
-                status = self.send_vsc(vsc_req_form)
-                if status != YCable.MCU_EC_NO_ERROR:
-                    self.log_error('Dump Uart statstics error (error code:0x%04X)' % (status))
-                    return result
+            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
+                if lock_status:
+                    for option in range(2):
+                        vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                        vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_UART_STAT
+                        vsc_req_form[YCable.VSC_BYTE_OPTION] = option
+                        status = self.send_vsc(vsc_req_form)
+                        if status != YCable.MCU_EC_NO_ERROR:
+                            self.log_error('Dump Uart statstics error (error code:0x%04X)' % (status))
+                            return result
 
-                addr = 128
+                        data = self.read_mmap(YCable.MIS_PAGE_FC, 128, 64)
+                        ver  = self.read_mmap(YCable.MIS_PAGE_VSC, 130, 1)
 
-                for idx in range(1, 3):
-                    cnt['TxPktCnt']   = (self.read_mmap(YCable.MIS_PAGE_FC, addr + 3) << 24) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 2) << 16) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 1) << 8) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 0) << 0)
-                    addr += 4
-                    cnt['RxPktCnt']   = (self.read_mmap(YCable.MIS_PAGE_FC, addr + 3) << 24) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 2) << 16) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 1) << 8) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 0) << 0)
-                    addr += 4
-                    cnt['AckCnt']     = (self.read_mmap(YCable.MIS_PAGE_FC, addr + 3) << 24) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 2) << 16) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 1) << 8) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 0) << 0)
-                    addr += 4
-                    cnt['NackCnt']    = (self.read_mmap(YCable.MIS_PAGE_FC, addr + 3) << 24) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 2) << 16) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 1) << 8) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 0) << 0)
-                    addr += 4
-                    cnt['TxRetryCnt'] = (self.read_mmap(YCable.MIS_PAGE_FC, addr + 3) << 24) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 2) << 16) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 1) << 8) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 0) << 0)
-                    addr += 4
-                    cnt['TxAbortCnt'] = (self.read_mmap(YCable.MIS_PAGE_FC, addr + 3) << 24) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 2) << 16) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 1) << 8) | (self.read_mmap(YCable.MIS_PAGE_FC, addr + 0) << 0)
-                    addr += 4
-                    uartPort['UART%d' % idx] = cnt
-                if option == 0: result['Local']  = uartPort
-                else:           result['Remote'] = uartPort
+                        uartPort = {}
+                        cnt = {}
+                        cnt['TxPktCnt']   = struct.unpack_from('<I', data[  0 :  4])[0] 
+                        cnt['RxPktCnt']   = struct.unpack_from('<I', data[  4 :  8])[0] 
+                        cnt['AckCnt']     = struct.unpack_from('<I', data[  8 : 12])[0] 
+                        cnt['NackCnt']    = struct.unpack_from('<I', data[ 12 : 16])[0] 
+                        cnt['TxRetryCnt'] = struct.unpack_from('<I', data[ 16 : 20])[0] 
+                        cnt['TxAbortCnt'] = struct.unpack_from('<I', data[ 20 : 24])[0]
 
+                        if ver == 1:
+                            cnt['RxErrorCnt'] = struct.unpack_from('<I', data[ 48 : 52])[0]
+
+                        uartPort['UART1'] = cnt
+
+                        cnt = {}
+                        cnt['TxPktCnt']   = struct.unpack_from('<I', data[ 24 : 28])[0] 
+                        cnt['RxPktCnt']   = struct.unpack_from('<I', data[ 28 : 32])[0] 
+                        cnt['AckCnt']     = struct.unpack_from('<I', data[ 32 : 36])[0] 
+                        cnt['NackCnt']    = struct.unpack_from('<I', data[ 36 : 40])[0] 
+                        cnt['TxRetryCnt'] = struct.unpack_from('<I', data[ 40 : 44])[0] 
+                        cnt['TxAbortCnt'] = struct.unpack_from('<I', data[ 44 : 48])[0] 
+
+                        if ver == 1:
+                            cnt['RxErrorCnt'] = struct.unpack_from('<I', data[ 52 : 56])[0]
+
+                        uartPort['UART2'] = cnt
+
+                        if option == 0: result['Local']  = uartPort
+                        else:           result['Remote'] = uartPort
+                else:
+                    self.log_error('acquire lock timeout, failed to get uart statistics')
+                    return YCable.EEPROM_ERROR
         else:
-            self.log_error("platform_chassis is not loaded, failed to get Uart statstics")
+            self.log_error("platform_chassis is not loaded, failed to get uart statistics")
 
         return result
 
@@ -3204,20 +3634,25 @@ class YCable(YCableBase):
                raw data of serdes information
         """
         if self.platform_chassis is not None:
-            ln = lane
+            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
+                if lock_status:
+                    ln = lane
 
-            result = {}
-            vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
-            vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_SERDES_INFO
-            vsc_req_form[YCable.VSC_BYTE_OPTION] = 0
-            vsc_req_form[YCable.VSC_BYTE_ADDR0]  = ln & 0xFF
-            vsc_req_form[YCable.VSC_BYTE_DATA0]  = 1
-            status = self.send_vsc(vsc_req_form)
-            if status != YCable.MCU_EC_NO_ERROR:
-                self.log_error('Dump Serdes Info error (error code:0x%04X)' % (status))
-                return result
+                    result = {}
+                    vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                    vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_SERDES_INFO
+                    vsc_req_form[YCable.VSC_BYTE_OPTION] = 0
+                    vsc_req_form[YCable.VSC_BYTE_ADDR0]  = ln & 0xFF
+                    vsc_req_form[YCable.VSC_BYTE_DATA0]  = 1
+                    status = self.send_vsc(vsc_req_form)
+                    if status != YCable.MCU_EC_NO_ERROR:
+                        self.log_error('Dump Serdes Info error (error code:0x%04X)' % (status))
+                        return result
 
-            result = self.read_mmap(YCable.MIS_PAGE_FC, 128, 128)
+                    result = self.read_mmap(YCable.MIS_PAGE_FC, 128, 128)
+                else:
+                    self.log_error('acquire lock timeout, failed to get serdes param')
+                    return YCable.EEPROM_ERROR
         else:
             self.log_error("platform_chassis is not loaded, failed to get serdes params")
 

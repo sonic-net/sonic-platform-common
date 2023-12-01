@@ -129,4 +129,23 @@ class CmisCodes(Sff8024):
         7: 'Command not compatible with operating status'
     }
 
+    DP_PATH_TIMINGS = {
+        0: '1',
+        1: '5',
+        2: '10',
+        3: '50',
+        4: '100',
+        5: '500',
+        6: '1000',
+        7: '5000',
+        8: '10000',
+        9: '60000',
+        10: '300000',
+        11: '600000',
+        12: '3000000',
+        13: '6000000',
+        14: '0',
+        15: '0'
+    }
+
     # TODO: Add other codes

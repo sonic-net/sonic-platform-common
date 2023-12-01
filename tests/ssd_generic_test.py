@@ -98,7 +98,7 @@ General SMART Values:
 Offline data collection status:  (0x00) Offline data collection activity
                                         was never started.
                                         Auto Offline Data Collection: Disabled.
-Total time to complete Offline 
+Total time to complete Offline
 data collection:                (   32) seconds.
 Offline data collection
 capabilities:                    (0x00)         Offline data collection not supported.
@@ -178,7 +178,7 @@ General SMART Values:
 Offline data collection status:  (0x00) Offline data collection activity
                                         was never started.
                                         Auto Offline Data Collection: Disabled.
-Total time to complete Offline 
+Total time to complete Offline
 data collection:                (   32) seconds.
 Offline data collection
 capabilities:                    (0x00)         Offline data collection not supported.
@@ -232,29 +232,29 @@ Selective Self-tests/Logging not supported
 output_Innodisk_vendor_info = """********************************************************************************************
 * Innodisk iSMART V3.9.41                                                       2018/05/25 *
 ********************************************************************************************
-Model Name: InnoDisk Corp. - mSATA 3ME              
-FW Version: S140714 
+Model Name: InnoDisk Corp. - mSATA 3ME
+FW Version: S140714
 Serial Number: 20171126AAAA11730156
-Health: 82.34% 
+Health: 82.34%
 Capacity: 29.818199 GB
-P/E Cycle: 3000 
-Lifespan : 0 (Years : 0 Months : 0 Days : 0) 
-Write Protect: Disable 
-InnoRobust: Enable 
+P/E Cycle: 3000
+Lifespan : 0 (Years : 0 Months : 0 Days : 0)
+Write Protect: Disable
+InnoRobust: Enable
 --------------------------------------------------------------------------------------------
-ID    SMART Attributes                            Value           Raw Value 
+ID    SMART Attributes                            Value           Raw Value
 --------------------------------------------------------------------------------------------
-[09]  Power On Hours                              [32474]         [0902006464DA7E0000000000] 
-[0C]  Power Cycle Count                           [  297]         [0C0200646429010000000000] 
-[AA]  Total Bad Block Count                       [   47]         [AA0300646400002F00000000] 
-[AD]  Erase Count Max.                            [ 7280]         [AD02006464181C701C000000] 
-[AD]  Erase Count Avg.                            [ 7192]         [AD02006464181C701C000000] 
-[C2]  Temperature                                 [    0]         [000000000000000000000000] 
-[EB]  Later Bad Block                             [    0]         [EB0200640000000000000000] 
-[EB]  Read Block                                  [    0]         [EB0200640000000000000000] 
-[EB]  Write Block                                 [    0]         [EB0200640000000000000000] 
-[EB]  Erase Block                                 [    0]         [EB0200640000000000000000] 
-[EC]  Unstable Power Count                        [    0]         [EC0200646400000000000000] 
+[09]  Power On Hours                              [32474]         [0902006464DA7E0000000000]
+[0C]  Power Cycle Count                           [  297]         [0C0200646429010000000000]
+[AA]  Total Bad Block Count                       [   47]         [AA0300646400002F00000000]
+[AD]  Erase Count Max.                            [ 7280]         [AD02006464181C701C000000]
+[AD]  Erase Count Avg.                            [ 7192]         [AD02006464181C701C000000]
+[C2]  Temperature                                 [    0]         [000000000000000000000000]
+[EB]  Later Bad Block                             [    0]         [EB0200640000000000000000]
+[EB]  Read Block                                  [    0]         [EB0200640000000000000000]
+[EB]  Write Block                                 [    0]         [EB0200640000000000000000]
+[EB]  Erase Block                                 [    0]         [EB0200640000000000000000]
+[EC]  Unstable Power Count                        [    0]         [EC0200646400000000000000]
 """
 
 output_lack_info_ssd = """smartctl 7.2 2020-12-30 r5155 [x86_64-linux-5.10.0-8-2-amd64] (local build)
@@ -292,7 +292,7 @@ General SMART Values:
 Offline data collection status:  (0x02) Offline data collection activity
                     was completed without error.
                     Auto Offline Data Collection: Disabled.
-Total time to complete Offline 
+Total time to complete Offline
 data collection:        (   32) seconds.
 Offline data collection
 capabilities:            (0x00)     Offline data collection not supported.
@@ -344,6 +344,436 @@ Selective Self-tests/Logging not supported
 
 """
 
+output_virtium_generic = """
+smartctl 7.2 2020-12-30 r5155 [x86_64-linux-5.10.0-18-2-amd64] (local build)
+Copyright (C) 2002-20, Bruce Allen, Christian Franke, www.smartmontools.org
+
+=== START OF INFORMATION SECTION ===
+Device Model:     StorFly VSF302XC016G-MLX1
+Serial Number:    52586-0705
+Firmware Version: 0202-001
+User Capacity:    15,804,137,472 bytes [15.8 GB]
+Sector Size:      512 bytes logical/physical
+Rotation Rate:    Solid State Device
+TRIM Command:     Available, deterministic, zeroed
+Device is:        Not in smartctl database [for details use: -P showall]
+ATA Version is:   ACS-2 (minor revision not indicated)
+SATA Version is:  SATA 3.1, 6.0 Gb/s (current: 6.0 Gb/s)
+Local Time is:    Wed Oct 18 09:58:57 2023 IDT
+SMART support is: Available - device has SMART capability.
+SMART support is: Enabled
+
+=== START OF READ SMART DATA SECTION ===
+SMART overall-health self-assessment test result: PASSED
+
+General SMART Values:
+Offline data collection status:  (0x00) Offline data collection activity
+                                        was never started.
+                                        Auto Offline Data Collection: Disabled.
+Self-test execution status:      (   0) The previous self-test routine completed
+                                        without error or no self-test has ever 
+                                        been run.
+Total time to complete Offline 
+data collection:                (    0) seconds.
+Offline data collection
+capabilities:                    (0x71) SMART execute Offline immediate.
+                                        No Auto Offline data collection support.
+                                        Suspend Offline collection upon new
+                                        command.
+                                        No Offline surface scan supported.
+                                        Self-test supported.
+                                        Conveyance Self-test supported.
+                                        Selective Self-test supported.
+SMART capabilities:            (0x0002) Does not save SMART data before
+                                        entering power-saving mode.
+                                        Supports SMART auto save timer.
+Error logging capability:        (0x01) Error logging supported.
+                                        General Purpose Logging supported.
+Short self-test routine 
+recommended polling time:        (   1) minutes.
+Extended self-test routine
+recommended polling time:        (   1) minutes.
+Conveyance self-test routine
+recommended polling time:        (   1) minutes.
+
+SMART Attributes Data Structure revision number: 1
+Vendor Specific SMART Attributes with Thresholds:
+ID# ATTRIBUTE_NAME          FLAG     VALUE WORST THRESH TYPE      UPDATED  WHEN_FAILED RAW_VALUE
+  1 Raw_Read_Error_Rate     0x0000   100   100   070    Old_age   Offline      -       0
+  5 Reallocated_Sector_Ct   0x0000   100   100   000    Old_age   Offline      -       0
+  9 Power_On_Hours          0x0000   100   100   000    Old_age   Offline      -       1223
+ 12 Power_Cycle_Count       0x0000   100   100   000    Old_age   Offline      -       17413
+160 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       0
+161 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       180
+163 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       9
+164 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       5105664
+165 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       2524
+166 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       2393
+167 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       2444
+168 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       20000
+177 Wear_Leveling_Count     0x0000   100   100   050    Old_age   Offline      -       22301
+178 Used_Rsvd_Blk_Cnt_Chip  0x0000   100   100   000    Old_age   Offline      -       0
+181 Program_Fail_Cnt_Total  0x0000   100   100   000    Old_age   Offline      -       0
+182 Erase_Fail_Count_Total  0x0000   100   100   000    Old_age   Offline      -       0
+187 Reported_Uncorrect      0x0000   100   100   000    Old_age   Offline      -       0
+192 Power-Off_Retract_Count 0x0000   100   100   000    Old_age   Offline      -       12514
+194 Temperature_Celsius     0x0000   100   100   000    Old_age   Offline      -       19
+195 Hardware_ECC_Recovered  0x0000   100   100   000    Old_age   Offline      -       0
+196 Reallocated_Event_Count 0x0000   100   100   016    Old_age   Offline      -       0
+198 Offline_Uncorrectable   0x0000   100   100   000    Old_age   Offline      -       0
+199 UDMA_CRC_Error_Count    0x0000   100   100   050    Old_age   Offline      -       0
+232 Available_Reservd_Space 0x0000   100   100   000    Old_age   Offline      -       100
+241 Total_LBAs_Written      0x0000   100   100   000    Old_age   Offline      -       629509
+242 Total_LBAs_Read         0x0000   100   100   000    Old_age   Offline      -       1482095
+248 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       88
+249 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       100
+
+SMART Error Log Version: 1
+No Errors Logged
+
+SMART Self-test log structure revision number 1
+No self-tests have been logged.  [To run self-tests, use: smartctl -t]
+
+SMART Selective self-test log data structure revision number 1
+ SPAN  MIN_LBA  MAX_LBA  CURRENT_TEST_STATUS
+    1        0        0  Not_testing
+    2        0        0  Not_testing
+    3        0        0  Not_testing
+    4        0        0  Not_testing
+    5        0        0  Not_testing
+    6        0    65535  Read_scanning was never started
+Selective self-test flags (0x0):
+  After scanning selected spans, do NOT read-scan remainder of disk.
+If Selective self-test is pending on power-up, resume after 0 minute delay.
+"""
+
+output_virtium_generic_vsfdm8xc240g_v11_t = """
+smartctl 7.2 2020-12-30 r5155 [x86_64-linux-5.10.0-12-2-amd64] (local build)
+Copyright (C) 2002-20, Bruce Allen, Christian Franke, www.smartmontools.org
+
+=== START OF INFORMATION SECTION ===
+Device Model:     VSFDM8XC240G-V11-T
+Serial Number:    60237-0037
+Firmware Version: 0913-000
+User Capacity:    240,057,409,536 bytes [240 GB]
+Sector Size:      512 bytes logical/physical
+Rotation Rate:    Solid State Device
+Form Factor:      2.5 inches
+TRIM Command:     Available, deterministic, zeroed
+Device is:        Not in smartctl database [for details use: -P showall]
+ATA Version is:   ACS-3 (minor revision not indicated)
+SATA Version is:  SATA 3.2, 6.0 Gb/s (current: 6.0 Gb/s)
+Local Time is:    Wed Feb  8 02:11:48 2023 UTC
+SMART support is: Available - device has SMART capability.
+SMART support is: Enabled
+
+=== START OF READ SMART DATA SECTION ===
+SMART overall-health self-assessment test result: PASSED
+
+General SMART Values:
+Offline data collection status:  (0x00) Offline data collection activity
+                                        was never started.
+                                        Auto Offline Data Collection: Disabled.
+Self-test execution status:      (   0) The previous self-test routine completed
+                                        without error or no self-test has ever
+                                        been run.
+Total time to complete Offline
+data collection:                (    0) seconds.
+Offline data collection
+capabilities:                    (0x73) SMART execute Offline immediate.
+                                        Auto Offline data collection on/off support.
+                                        Suspend Offline collection upon new
+                                        command.
+                                        No Offline surface scan supported.
+                                        Self-test supported.
+                                        Conveyance Self-test supported.
+                                        Selective Self-test supported.
+SMART capabilities:            (0x0003) Saves SMART data before entering
+                                        power-saving mode.
+                                        Supports SMART auto save timer.
+Error logging capability:        (0x01) Error logging supported.
+                                        General Purpose Logging supported.
+Short self-test routine
+recommended polling time:        (   2) minutes.
+Extended self-test routine
+recommended polling time:        (  15) minutes.
+Conveyance self-test routine
+recommended polling time:        (   0) minutes.
+SCT capabilities:              (0x0031) SCT Status supported.
+                                        SCT Feature Control supported.
+                                        SCT Data Table supported.
+
+SMART Attributes Data Structure revision number: 1
+Vendor Specific SMART Attributes with Thresholds:
+ID# ATTRIBUTE_NAME          FLAG     VALUE WORST THRESH TYPE      UPDATED  WHEN_FAILED RAW_VALUE
+  1 Raw_Read_Error_Rate     0x000b   100   100   000    Pre-fail  Always       -       0
+  5 Reallocated_Sector_Ct   0x0013   100   100   000    Pre-fail  Always       -       0
+  9 Power_On_Hours          0x0012   100   100   000    Old_age   Always       -       221
+ 12 Power_Cycle_Count       0x0012   100   100   000    Old_age   Always       -       156
+ 14 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       469427376
+ 15 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       468862128
+ 16 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       1436
+ 17 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       1436
+100 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       6823
+168 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       0
+170 Unknown_Attribute       0x0003   100   100   000    Pre-fail  Always       -       0
+172 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       0
+173 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       12
+174 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       155
+175 Program_Fail_Count_Chip 0x0012   100   100   000    Old_age   Always       -       1
+181 Program_Fail_Cnt_Total  0x0012   100   100   000    Old_age   Always       -       0
+187 Reported_Uncorrect      0x0012   100   100   000    Old_age   Always       -       0
+194 Temperature_Celsius     0x0023   066   048   000    Pre-fail  Always       -       34 (Min/Max 27/52)
+197 Current_Pending_Sector  0x0032   100   100   000    Old_age   Always       -       0
+198 Offline_Uncorrectable   0x0012   100   100   000    Old_age   Always       -       0
+199 UDMA_CRC_Error_Count    0x000b   100   100   000    Pre-fail  Always       -       0
+202 Unknown_SSD_Attribute   0x0012   000   000   000    Old_age   Always       -       0
+231 Unknown_SSD_Attribute   0x0013   100   100   000    Pre-fail  Always       -       100
+232 Available_Reservd_Space 0x0013   100   100   000    Pre-fail  Always       -       0
+234 Unknown_Attribute       0x000b   100   100   000    Pre-fail  Always       -       131292480
+235 Unknown_Attribute       0x000b   100   100   000    Pre-fail  Always       -       347463360
+241 Total_LBAs_Written      0x0012   100   100   000    Old_age   Always       -       302116658
+242 Total_LBAs_Read         0x0012   100   100   000    Old_age   Always       -       45606297
+247 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       347463360
+248 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       1
+
+SMART Error Log Version: 1
+No Errors Logged
+
+SMART Self-test log structure revision number 1
+No self-tests have been logged.  [To run self-tests, use: smartctl -t]
+
+SMART Selective self-test log data structure revision number 1
+ SPAN  MIN_LBA  MAX_LBA  CURRENT_TEST_STATUS
+    1        0        0  Not_testing
+    2        0        0  Not_testing
+    3        0        0  Not_testing
+    4        0        0  Not_testing
+    5        0        0  Not_testing
+Selective self-test flags (0x0):
+  After scanning selected spans, do NOT read-scan remainder of disk.
+If Selective self-test is pending on power-up, resume after 0 minute delay.
+"""
+
+output_virtium_vendor ="""
+SMART attributes 
+ ID                    Attribute   High Raw    Low Raw Value Worst Threshold 
+  1          Raw_Read_Error_Rate          0          0   100   100        70 
+  5           Reserved_Attribute          0          0   100   100         0 
+  9               Power_On_Hours          0       1223   100   100         0 
+ 12            Power_Cycle_Count          0      17413   100   100         0 
+160   Uncorrectable_Sector_Count          0          0   100   100         0 
+161            Valid_Spare_Block          0        180   100   100         0 
+163           Reserved_Attribute          0          9   100   100         0 
+164           Reserved_Attribute          0    5105665   100   100         0 
+165          Maximum_Erase_Count          0       2524   100   100         0 
+166           Reserved_Attribute          0       2393   100   100         0 
+167          Average_Erase_Count          0       2444   100   100         0 
+168               NAND_Endurance          0      20000   100   100         0 
+177           Reserved_Attribute          0      22301   100   100        50 
+178           Reserved_Attribute          0          0   100   100         0 
+181           Total_Program_Fail          0          0   100   100         0 
+182             Total_Erase_Fail          0          0   100   100         0 
+187    Uncorrectable_Error_Count          0          0   100   100         0 
+192      Sudden_Power_Lost_Count          0      12514   100   100         0 
+194          Temperature_Celsius          0         17   100   100         0 
+195       Hardware_ECC_Recovered          0          0   100   100         0 
+196      Reallocated_Event_Count          0          0   100   100        16 
+198           Reserved_Attribute          0          0   100   100         0 
+199         UDMA_CRC_Error_Count          0          0   100   100        50 
+232           Reserved_Attribute          0        100   100   100         0 
+241           Total_LBAs_Written          0     629509   100   100         0 
+242              Total_LBAs_Read          0    1482095   100   100         0 
+248          Remaining_Life_Left          0         88   100   100         0 
+249  Remaining_Spare_Block_Count          0        100   100   100         0 
+"""
+
+output_virtium_vendor_vsfdm8xc240g_v11_t = """
+SMART attributes
+ ID                    Attribute   High Raw    Low Raw Value Worst Threshold
+  1          Raw_Read_Error_Rate          0          0   100   100         0
+  5           Reserved_Attribute          0          0   100   100         0
+  9               Power_On_Hours          0        221   100   100         0
+ 12            Power_Cycle_Count          0        156   100   100         0
+ 14           Reserved_Attribute          0  469427376   100   100         0
+ 15           Reserved_Attribute          0  468862128   100   100         0
+ 16           Reserved_Attribute          0       1436   100   100         0
+ 17           Reserved_Attribute          0       1436   100   100         0
+100           Reserved_Attribute          0       6823   100   100         0
+168               NAND_Endurance          0          0   100   100         0
+170           Reserved_Attribute          0          0   100   100         0
+172           Reserved_Attribute          0          0   100   100         0
+173           Reserved_Attribute          0         12   100   100         0
+174           Reserved_Attribute          0        155   100   100         0
+175           Reserved_Attribute          0          1   100   100         0
+181           Total_Program_Fail          0          0   100   100         0
+187    Uncorrectable_Error_Count          0          0   100   100         0
+194          Temperature_Celsius         52         34    66    48         0
+197 Current_Pending_Sector_Count          0          0   100   100         0
+198           Reserved_Attribute          0          0   100   100         0
+199         UDMA_CRC_Error_Count          0          0   100   100         0
+202                   TRIM_Count          0          0     0     0         0
+231           Reserved_Attribute          0         98   100   100         0
+232           Reserved_Attribute          0          0   100   100         0
+234           Reserved_Attribute          0  131296768   100   100         0
+235           Reserved_Attribute          0  347463680   100   100         0
+241           Total_LBAs_Written          0  302116658   100   100         0
+242              Total_LBAs_Read          0   45608497   100   100         0
+247           Reserved_Attribute          0  347463680   100   100         0
+248          Remaining_Life_Left          0          0     1   100         0
+"""
+
+output_virtium_no_remain_life = """
+SMART attributes
+ ID                    Attribute   High Raw    Low Raw Value Worst Threshold
+  1          Raw_Read_Error_Rate          0          0   100   100        70
+  5           Reserved_Attribute          0          0   100   100         0
+  9               Power_On_Hours          0       1288   100   100         0
+ 12            Power_Cycle_Count          0        106   100   100         0
+160   Uncorrectable_Sector_Count          0          0   100   100         0
+161            Valid_Spare_Block          0        267   100   100         0
+163           Reserved_Attribute          0         16   100   100         0
+164           Reserved_Attribute          0     243145   100   100         0
+165          Maximum_Erase_Count          0        194   100   100         0
+166           Reserved_Attribute          0         89   100   100         0
+167          Average_Erase_Count          0        116   100   100         0
+168               NAND_Endurance          0      20000   100   100         0
+177           Reserved_Attribute          0        775   100   100        50
+178           Reserved_Attribute          0          0   100   100         0
+181           Total_Program_Fail          0          0   100   100         0
+182             Total_Erase_Fail          0          0   100   100         0
+187    Uncorrectable_Error_Count          0          0   100   100         0
+192      Sudden_Power_Lost_Count          0         44   100   100         0
+194          Temperature_Celsius          0         35   100   100         0
+195       Hardware_ECC_Recovered          0          0   100   100         0
+196      Reallocated_Event_Count          0          0   100   100        16
+198           Reserved_Attribute          0          0   100   100         0
+199         UDMA_CRC_Error_Count          0          1   100   100        50
+232           Reserved_Attribute          0        100   100   100         0
+241           Total_LBAs_Written          0      63134   100   100         0
+242              Total_LBAs_Read          0    8235204   100   100         0
+248          Remaining_Life_Left          0        100   100   100         0
+249  Remaining_Spare_Block_Count          0        100   100   100         0
+"""
+
+output_virtium_invalid_nand_endurance = """
+SMART attributes
+ ID                    Attribute   High Raw    Low Raw Value Worst Threshold
+167          Average_Erase_Count          0        116   100   100         0
+168               NAND_Endurance          0          0   100   100         0
+"""
+
+output_virtium_invalid_remain_life = """
+SMART attributes
+ ID                    Attribute   High Raw    Low Raw Value Worst Threshold
+"""
+
+output_swissbit_vendor = """
+smartctl 7.2 2020-12-30 r5155 [x86_64-linux-5.10.0-23-2-amd64] (local build)
+Copyright (C) 2002-20, Bruce Allen, Christian Franke, www.smartmontools.org
+
+=== START OF INFORMATION SECTION ===
+Device Model:     SFSA160GM2AK2TO-I-8C-22K-STD
+Serial Number:    00006022750795000010
+Firmware Version: SBR15004
+User Capacity:    160,041,885,696 bytes [160 GB]
+Sector Size:      512 bytes logical/physical
+Rotation Rate:    Solid State Device
+Form Factor:      2.5 inches
+TRIM Command:     Available, deterministic, zeroed
+Device is:        Not in smartctl database [for details use: -P showall]
+ATA Version is:   ACS-3 (minor revision not indicated)
+SATA Version is:  SATA 3.2, 6.0 Gb/s (current: 6.0 Gb/s)
+Local Time is:    Wed Aug  2 08:24:31 2023 UTC
+SMART support is: Available - device has SMART capability.
+SMART support is: Enabled
+
+=== START OF READ SMART DATA SECTION ===
+SMART overall-health self-assessment test result: PASSED
+
+General SMART Values:
+Offline data collection status:  (0x00) Offline data collection activity
+                                        was never started.
+                                        Auto Offline Data Collection: Disabled.
+Self-test execution status:      (   0) The previous self-test routine completed
+                                        without error or no self-test has ever
+                                        been run.
+Total time to complete Offline
+data collection:                (    0) seconds.
+Offline data collection
+capabilities:                    (0x53) SMART execute Offline immediate.
+                                        Auto Offline data collection on/off support.
+                                        Suspend Offline collection upon new
+                                        command.
+                                        No Offline surface scan supported.
+                                        Self-test supported.
+                                        No Conveyance Self-test supported.
+                                        Selective Self-test supported.
+SMART capabilities:            (0x0003) Saves SMART data before entering
+                                        power-saving mode.
+                                        Supports SMART auto save timer.
+Error logging capability:        (0x01) Error logging supported.
+                                        General Purpose Logging supported.
+Short self-test routine
+recommended polling time:        (   2) minutes.
+Extended self-test routine
+recommended polling time:        (  15) minutes.
+SCT capabilities:              (0x0031) SCT Status supported.
+                                        SCT Feature Control supported.
+                                        SCT Data Table supported.
+
+SMART Attributes Data Structure revision number: 1
+Vendor Specific SMART Attributes with Thresholds:
+ID# ATTRIBUTE_NAME          FLAG     VALUE WORST THRESH TYPE      UPDATED  WHEN_FAILED RAW_VALUE
+  1 Raw_Read_Error_Rate     0x000b   100   100   000    Pre-fail  Always       -       0
+  5 Reallocated_Sector_Ct   0x0013   100   100   000    Pre-fail  Always       -       0
+  9 Power_On_Hours          0x0012   100   100   000    Old_age   Always       -       825
+ 12 Power_Cycle_Count       0x0012   100   100   000    Old_age   Always       -       447
+ 16 Unknown_Attribute       0x0112   100   100   001    Old_age   Always       -       4
+ 17 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       30000
+160 Unknown_Attribute       0x0002   100   100   000    Old_age   Always       -       0
+161 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       15401195
+163 Unknown_Attribute       0x0003   100   100   000    Pre-fail  Always       -       33
+164 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       6506
+165 Unknown_Attribute       0x0002   100   100   000    Old_age   Always       -       38
+166 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       1
+167 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       4
+168 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       30000
+169 Unknown_Attribute       0x0003   100   100   000    Pre-fail  Always       -       421
+193 Unknown_SSD_Attribute   0x0012   100   100   000    Old_age   Always       -       0
+194 Temperature_Celsius     0x0023   100   100   000    Pre-fail  Always       -       25 (Min/Max 22/45)
+195 Hardware_ECC_Recovered  0x0012   100   100   000    Old_age   Always       -       0
+196 Reallocated_Event_Count 0x0012   000   000   000    Old_age   Always       -       0
+198 Offline_Uncorrectable   0x0012   100   100   000    Old_age   Always       -       0
+199 UDMA_CRC_Error_Count    0x000b   100   100   000    Pre-fail  Always       -       0
+215 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       4275
+231 Unknown_SSD_Attribute   0x1913   100   100   025    Pre-fail  Always       -       100
+235 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       1302467136
+237 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       0
+241 Total_LBAs_Written      0x0012   100   100   000    Old_age   Always       -       1186450104
+242 Total_LBAs_Read         0x0012   100   100   000    Old_age   Always       -       2257141451
+243 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       0
+244 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       0
+248 Unknown_Attribute       0x0112   100   100   001    Old_age   Always       -       100
+
+SMART Error Log Version: 1
+No Errors Logged
+
+SMART Self-test log structure revision number 1
+No self-tests have been logged.  [To run self-tests, use: smartctl -t]
+
+SMART Selective self-test log data structure revision number 1
+ SPAN  MIN_LBA  MAX_LBA  CURRENT_TEST_STATUS
+    1        0        0  Not_testing
+    2        0        0  Not_testing
+    3        0        0  Not_testing
+    4        0        0  Not_testing
+    5        0        0  Not_testing
+Selective self-test flags (0x0):
+  After scanning selected spans, do NOT read-scan remainder of disk.
+If Selective self-test is pending on power-up, resume after 0 minute delay.
+"""
+
 class TestSsdGeneric:
     @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell', mock.MagicMock(return_value=output_nvme_ssd))
     def test_nvme_ssd(self):
@@ -389,7 +819,7 @@ class TestSsdGeneric:
     def test_Innodisk_ssd(self):
         # Test parsing Innodisk ssd info
         Innodisk_ssd = SsdUtil('/dev/sda')
-        assert(Innodisk_ssd.get_health() == 'N/A')
+        assert(Innodisk_ssd.get_health() == '0x000000000000')
         assert(Innodisk_ssd.get_model() == 'InnoDisk Corp. - mSATA 3ME')
         assert(Innodisk_ssd.get_firmware() == "S140714")
         assert(Innodisk_ssd.get_temperature() == 'N/A')
@@ -412,3 +842,52 @@ class TestSsdGeneric:
         assert(Innodisk_ssd.get_health() == '94')
         assert(Innodisk_ssd.get_temperature() == '39')
 
+    @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell', mock.MagicMock(return_value=output_Innodisk_missing_names_ssd))
+    def test_Innodisk_missing_names_ssd_2(self):
+        # Test parsing Innodisk ssd info
+        Innodisk_ssd = SsdUtil('/dev/sda')
+        Innodisk_ssd.vendor_ssd_info = 'ERROR message from cmd'
+        Innodisk_ssd.parse_vendor_ssd_info('InnoDisk')
+        assert(Innodisk_ssd.get_health() == '94')
+        assert(Innodisk_ssd.get_temperature() == '39')
+
+
+    @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell')
+    def test_virtium_ssd(self, mock_exec):
+        mock_exec.side_effect = [output_virtium_generic_vsfdm8xc240g_v11_t, output_virtium_vendor_vsfdm8xc240g_v11_t]
+        virtium_ssd = SsdUtil('/dev/sda')
+        assert virtium_ssd.get_health() == 98
+        assert virtium_ssd.get_model() == 'VSFDM8XC240G-V11-T'
+        assert virtium_ssd.get_firmware() == "0913-000"
+        assert virtium_ssd.get_temperature() == '34'
+        assert virtium_ssd.get_serial() == "60237-0037"
+
+        mock_exec.side_effect = [output_virtium_generic, output_virtium_vendor]
+        virtium_ssd = SsdUtil('/dev/sda')
+        assert virtium_ssd.get_health() == 87.78
+        assert virtium_ssd.get_model() == 'StorFly VSF302XC016G-MLX1'
+        assert virtium_ssd.get_firmware() == "0202-001"
+        assert virtium_ssd.get_temperature() == '17'
+        assert virtium_ssd.get_serial() == "52586-0705"
+
+        mock_exec.side_effect = [output_virtium_generic, output_virtium_no_remain_life]
+        virtium_ssd = SsdUtil('/dev/sda')
+        assert virtium_ssd.get_health() == 99.42
+
+        mock_exec.side_effect = [output_virtium_generic, output_virtium_invalid_nand_endurance]
+        virtium_ssd = SsdUtil('/dev/sda')
+        assert virtium_ssd.get_health() == "N/A"
+
+        mock_exec.side_effect = [output_virtium_generic, output_virtium_invalid_remain_life]
+        virtium_ssd = SsdUtil('/dev/sda')
+        assert virtium_ssd.get_health() == "N/A"
+
+    @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell')
+    def test_swissbit_ssd(self, mock_exec):
+        mock_exec.return_value = output_swissbit_vendor
+        swissbit_ssd = SsdUtil('/dev/sda')
+        assert swissbit_ssd.get_health() == '100'
+        assert swissbit_ssd.get_model() == 'SFSA160GM2AK2TO-I-8C-22K-STD'
+        assert swissbit_ssd.get_firmware() == "SBR15004"
+        assert swissbit_ssd.get_temperature() == '25'
+        assert swissbit_ssd.get_serial() == "00006022750795000010"

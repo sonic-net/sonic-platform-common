@@ -23,6 +23,8 @@ NOT_AVAILABLE = "N/A"
 # Set Vendor Specific IDs
 INNODISK_HEALTH_ID = 169
 INNODISK_TEMPERATURE_ID = 194
+SWISSBIT_HEALTH_ID = 248
+SWISSBIT_TEMPERATURE_ID = 194
 
 class SsdUtil(SsdBase):
     """
@@ -43,7 +45,8 @@ class SsdUtil(SsdBase):
             "M.2"      : { "utility" : INNODISK, "parser" : self.parse_innodisk_info },
             "StorFly"  : { "utility" : VIRTIUM,  "parser" : self.parse_virtium_info },
             "Virtium"  : { "utility" : VIRTIUM,  "parser" : self.parse_virtium_info },
-            "WDC"      : { "utility" : SMARTCTL, "parser" : self.parse_wdc_ssd_info }
+            "WDC"      : { "utility" : SMARTCTL, "parser" : self.parse_wdc_ssd_info },
+            "Swissbit" : { "utility" : SMARTCTL, "parser" : self.parse_swissbit_info }
         }
 
         self.dev = diskdev
@@ -53,10 +56,10 @@ class SsdUtil(SsdBase):
 
         # Known vendor part
         if self.model:
-            model_short = self.model.split()[0]
-            if model_short in self.vendor_ssd_utility:
-                self.fetch_vendor_ssd_info(diskdev, model_short)
-                self.parse_vendor_ssd_info(model_short)
+            vendor = self._parse_vendor()
+            if vendor:
+                self.fetch_vendor_ssd_info(diskdev, vendor)
+                self.parse_vendor_ssd_info(vendor)
             else:
                 # No handler registered for this disk model
                 pass
@@ -72,6 +75,17 @@ class SsdUtil(SsdBase):
     def _parse_re(self, pattern, buffer):
         res_list = re.findall(pattern, buffer)
         return res_list[0] if res_list else NOT_AVAILABLE
+
+    def _parse_vendor(self):
+        model_short = self.model.split()[0]
+        if model_short in self.vendor_ssd_utility:
+            return model_short
+        elif self.model.startswith('VSF'):
+            return 'Virtium'
+        elif self.model.startswith('SFS'):
+            return 'Swissbit'
+        else:
+            return None
 
     def fetch_generic_ssd_info(self, diskdev):
         self.ssd_info = self._execute_shell(self.vendor_ssd_utility["Generic"]["utility"].format(diskdev))
@@ -131,12 +145,18 @@ class SsdUtil(SsdBase):
         if self.vendor_ssd_info:
             self.health = self._parse_re('Health:\s*(.+?)%', self.vendor_ssd_info)
             self.temperature = self._parse_re('Temperature\s*\[\s*(.+?)\]', self.vendor_ssd_info)
-        else:
-            if self.health == NOT_AVAILABLE:
-                health_raw = self.parse_id_number(INNODISK_HEALTH_ID)
+
+        if self.health == NOT_AVAILABLE:
+            health_raw = self.parse_id_number(INNODISK_HEALTH_ID)
+            if health_raw == NOT_AVAILABLE:
+                self.health = NOT_AVAILABLE
+            else:
                 self.health = health_raw.split()[-1]
-            if self.temperature == NOT_AVAILABLE:
-                temp_raw = self.parse_id_number(INNODISK_TEMPERATURE_ID)
+        if self.temperature == NOT_AVAILABLE:
+            temp_raw = self.parse_id_number(INNODISK_TEMPERATURE_ID)
+            if temp_raw == NOT_AVAILABLE:
+                self.temperature = NOT_AVAILABLE
+            else:
                 self.temperature = temp_raw.split()[-6]
 
     def parse_virtium_info(self):
@@ -144,10 +164,36 @@ class SsdUtil(SsdBase):
             self.temperature = self._parse_re('Temperature_Celsius\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info)
             nand_endurance = self._parse_re('NAND_Endurance\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info)
             avg_erase_count = self._parse_re('Average_Erase_Count\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info)
-            try:
-                self.health = 100 - (float(avg_erase_count) * 100 / float(nand_endurance))
-            except (ValueError, ZeroDivisionError):
-                pass
+            if nand_endurance != NOT_AVAILABLE and avg_erase_count != NOT_AVAILABLE:
+                try:
+                    self.health = 100 - (float(avg_erase_count) * 100 / float(nand_endurance))
+                except (ValueError, ZeroDivisionError):
+                    pass
+            else:
+                if self.model == 'VSFDM8XC240G-V11-T':
+                    # The ID of "Remaining Life Left" attribute on 'VSFDM8XC240G-V11-T' device is 231
+                    # However, it is not recognized by SmartCmd nor smartctl so far
+                    # We need to parse it using the ID number
+                    pattern = '231\s*Reserved_Attribute\s*\d*\s*(\d+?)\s+'
+                else:
+                    pattern = 'Remaining_Life_Left\s*\d*\s*(\d+?)\s+'
+                try:
+                    self.health = float(self._parse_re(pattern, self.vendor_ssd_info))
+                except ValueError:
+                    pass
+
+    def parse_swissbit_info(self):
+        if self.ssd_info:
+            health_raw = self.parse_id_number(SWISSBIT_HEALTH_ID)
+            if health_raw == NOT_AVAILABLE:
+                self.health = NOT_AVAILABLE
+            else:
+                self.health = health_raw.split()[-1]
+            temp_raw = self.parse_id_number(SWISSBIT_TEMPERATURE_ID)
+            if temp_raw == NOT_AVAILABLE:
+                self.temperature = NOT_AVAILABLE
+            else:
+                self.temperature = temp_raw.split()[-3]
 
     def fetch_vendor_ssd_info(self, diskdev, model):
         self.vendor_ssd_info = self._execute_shell(self.vendor_ssd_utility[model]["utility"].format(diskdev))
