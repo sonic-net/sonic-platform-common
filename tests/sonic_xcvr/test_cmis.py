@@ -32,6 +32,19 @@ class TestCmis(object):
         result = self.api.get_model()
         assert result == expected
 
+    def test_get_cable_length_type(self):
+        assert self.api.get_cable_length_type() == "Length Cable Assembly(m)"
+
+    @pytest.mark.parametrize("mock_response, expected", [
+        ("0.0", "0.0"),
+        ("1.2", "1.2")
+    ])
+    def test_get_cable_length(self, mock_response, expected):
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.return_value = mock_response
+        result = self.api.get_cable_length()
+        assert result == expected
+
     @pytest.mark.parametrize("mock_response, expected", [
         ("0.0", "0.0"),
         ("1.2", "1.2")
