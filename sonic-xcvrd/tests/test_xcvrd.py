@@ -205,6 +205,20 @@ class TestXcvrdThreadException(object):
 
 class TestXcvrdScript(object):
 
+    from sonic_platform_base.sonic_xcvr.api.public.c_cmis import CCmisApi
+    from sonic_platform_base.sonic_xcvr.api.public.sff8636 import Sff8636Api
+    from sonic_platform_base.sonic_xcvr.api.public.sff8436 import Sff8436Api
+    @pytest.mark.parametrize("mock_class, expected_return_value", [
+        (CmisApi, True),
+        (CCmisApi, True),
+        (Sff8636Api, False),
+        (Sff8436Api, False)
+    ])
+    def test_is_cmis_api(self, mock_class, expected_return_value):
+        mock_xcvr_api = MagicMock()
+        mock_xcvr_api.__class__ = mock_class
+        assert is_cmis_api(mock_xcvr_api) == expected_return_value
+
     @patch('xcvrd.xcvrd._wrapper_get_sfp_type')
     @patch('xcvrd.xcvrd_utilities.port_mapping.PortMapping.logical_port_name_to_physical_port_list', MagicMock(return_value=[0]))
     @patch('xcvrd.xcvrd._wrapper_get_presence', MagicMock(return_value=True))

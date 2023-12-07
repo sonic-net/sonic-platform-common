@@ -109,7 +109,7 @@ helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
 
 
 def is_cmis_api(api):
-   return type(api) == CmisApi
+   return isinstance(api, CmisApi)
 
 
 def get_cmis_application_desired(api, host_lane_count, speed):
