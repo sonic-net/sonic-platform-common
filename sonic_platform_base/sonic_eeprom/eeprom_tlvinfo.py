@@ -20,6 +20,30 @@ except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
 
 STATE_DB_INDEX = 6
+USERNAME = 'admin'
+
+
+def read_from_file(file_path, target_type=str):
+    """
+    Read content from file and convert to target type
+    :param file_path: File path
+    :param target_type: target type
+    :return: content of the file according the target type.
+    """
+    try:
+        with open(file_path, 'r') as f:
+            value = f.read()
+            if value is None:
+                # None return value is not allowed in any case, so we log error here for further debug.
+                syslog.syslog(syslog.LOG_ERR, 'Failed to read from {}, value is None, errno is {}'.format(file_path, ctypes.get_errno()))
+                # Raise ValueError for the except statement to handle this as a normal exception
+                raise ValueError('File content of {} is None'.format(file_path))
+            else:
+                value = target_type(value.strip())
+    except (ValueError, IOError) as e:
+        syslog.syslog(syslog.LOG_ERR, 'Failed to read from {}, errno is {}'.format(file_path, str(e)))
+
+    return value
 
 #
 # TlvInfo Format - This eeprom format was defined by Cumulus Networks
@@ -625,7 +649,9 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
             A redis client instance
         """
         if not self._redis_client:
-            self._redis_client = redis.Redis(db=STATE_DB_INDEX)
+            password = read_from_file('/etc/shadow_redis_dir/shadow_redis_admin')
+            redis_shadow_tls_ca="/etc/shadow_redis_dir/certs_redis/ca.crt"
+            self._redis_client = redis.Redis(port=6379, db=STATE_DB_INDEX, username=USERNAME, password=password, ssl=True, ssl_cert_reqs=None, ssl_ca_certs=redis_shadow_tls_ca)
         return self._redis_client
 
     def _redis_hget(self, key, field):
