@@ -90,7 +90,7 @@ class SfpUtilHelper(object):
             self.logical_to_asic[intf_name] = asic_inst
 
         self.logical.extend(logical)
-        self.logical = list(set(self.logical))
+        self.logical = list(OrderedDict.fromkeys(self.logical).keys())
         self.logical_to_physical.update(logical_to_physical)
         self.physical_to_logical.update(physical_to_logical)
 
