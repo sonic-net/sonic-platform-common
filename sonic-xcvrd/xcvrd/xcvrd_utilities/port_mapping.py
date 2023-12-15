@@ -92,7 +92,7 @@ class PortMapping:
                 return None
 
 def validate_port(port):
-    if port.startswith((backplane_prefix(), inband_prefix(), recirc_prefix())):
+    if port.startswith((backplane_prefix(), inband_prefix(), recirc_prefix())) or '.' in port:
         return False
     return True
 
