@@ -78,10 +78,11 @@ class TestSfpUtilHelper(object):
         sfputil_helper.read_porttab_mappings(self.port_config_file, 0)
 
         logical_port_list = sfputil_helper.logical
+
         assert len(logical_port_list) == len(PORT_LIST)
 
-        for logical_port_name in logical_port_list:
-            assert logical_port_name in PORT_LIST
+        for logical_port, port in zip(logical_port_list, PORT_LIST):
+            assert logical_port == port
 
 
     @mock.patch('portconfig.get_hwsku_file_name', mock.MagicMock(return_value=hwsku_json_file))
@@ -90,13 +91,15 @@ class TestSfpUtilHelper(object):
         sfputil_helper = sfputilhelper.SfpUtilHelper()
         sfputil_helper.logical = []
         sfputil_helper.logical_to_physical = {}
-        sfputil_helper.physical_to_logica = {}
+        sfputil_helper.physical_to_logical = {}
         sfputil_helper.read_all_porttab_mappings(self.platform_dir, 2)
         logical_port_list = sfputil_helper.logical
 
         assert len(logical_port_list) == len(PORT_LIST)
-        for logical_port_name in logical_port_list:
-            assert logical_port_name in PORT_LIST
+
+        for logical_port, port in zip(logical_port_list, PORT_LIST):
+            assert logical_port == port
+
         assert sfputil_helper.logical_to_physical == LOGICAL_TO_PHYSICAL
         assert sfputil_helper.physical_to_logical == PHYSICAL_TO_LOGICAL
 
@@ -104,14 +107,14 @@ class TestSfpUtilHelper(object):
 
         sfputil_helper.logical = []
         sfputil_helper.logical_to_physical = {}
-        sfputil_helper.physical_to_logica = {}
+        sfputil_helper.physical_to_logical = {}
         sfputil_helper.read_all_porttab_mappings(self.platform_json_dir, 2)
         logical_port_list = sfputil_helper.logical
 
         assert len(logical_port_list) == len(PORT_LIST)
 
-        for logical_port_name in logical_port_list:
-            assert logical_port_name in PORT_LIST
+        for logical_port, port in zip(logical_port_list, PORT_LIST):
+            assert logical_port == port
 
         assert sfputil_helper.logical_to_physical == LOGICAL_TO_PHYSICAL
         assert sfputil_helper.physical_to_logical == PHYSICAL_TO_LOGICAL
