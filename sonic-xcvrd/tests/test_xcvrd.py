@@ -987,6 +987,7 @@ class TestXcvrdScript(object):
         assert task.is_cmis_application_update_required(mock_xcvr_api, app_new, host_lanes_mask) == expected
 
     @pytest.mark.parametrize("ifname, expected", [
+        ('800G L C2M', 800000),
         ('400G CR8', 400000),
         ('200GBASE-CR4 (Clause 136)', 200000),
         ('100GBASE-CR2 (Clause 136)', 100000),
