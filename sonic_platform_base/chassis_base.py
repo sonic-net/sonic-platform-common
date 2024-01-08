@@ -6,8 +6,10 @@
 """
 
 import sys
+import yaml
 from . import device_base
 from . import sfp_base
+from . import sensor_fs
 
 class ChassisBase(device_base.DeviceBase):
     """
@@ -29,6 +31,8 @@ class ChassisBase(device_base.DeviceBase):
     REBOOT_CAUSE_HARDWARE_BUTTON = "Push button"
     REBOOT_CAUSE_HARDWARE_RESET_FROM_ASIC = "Reset from ASIC"
     REBOOT_CAUSE_NON_HARDWARE = "Non-Hardware"
+
+    SENSORS_YAML_FILE = "/usr/local/etc/sensors.yaml"
 
     def __init__(self):
         # List of ComponentBase-derived objects representing all components
@@ -54,8 +58,14 @@ class ChassisBase(device_base.DeviceBase):
         # List of ThermalBase-derived objects representing all thermals
         # available on the chassis
         self._thermal_list = []
-        self._voltage_sensor_list = []
-        self._current_sensor_list = []
+
+        # Initialize voltage and current sensors lists from data file
+        with open(self.SENSORS_YAML_FILE, 'r') as f:
+            sensors_data = yaml.safe_load(f)
+
+        self._voltage_sensor_list = sensor_fs.VoltageSensorFs.factory(sensors_data['voltage_sensors'])
+        self._current_sensor_list = sensor_fs.CurrentSensorFs.factory(sensors_data['current_sensors'])
+
 
         # List of SfpBase-derived objects representing all sfps
         # available on the chassis
