@@ -59,14 +59,21 @@ class ChassisBase(device_base.DeviceBase):
         # available on the chassis
         self._thermal_list = []
 
-        # Initialize voltage and current sensors lists from data file
-        with open(self.SENSORS_YAML_FILE, 'r') as f:
-            sensors_data = yaml.safe_load(f)
+        self._voltage_sensor_list = []
+        self._current_sensor_list = []
 
-        self._voltage_sensor_list = sensor_fs.VoltageSensorFs.factory(sensors_data['voltage_sensors'])
-        self._current_sensor_list = sensor_fs.CurrentSensorFs.factory(sensors_data['current_sensors'])
-
-
+        # Initialize voltage and current sensors lists from data file if available
+        try:
+            with open(self.SENSORS_YAML_FILE, 'r') as f:
+                sensors_data = yaml.safe_load(f)
+                if 'voltage_sensors' in sensors_data:
+                    self._voltage_sensor_list = sensor_fs.VoltageSensorFs.factory(sensors_data['voltage_sensors'])
+                if 'current_sensors' in sensors_data:
+                    self._current_sensor_list = sensor_fs.CurrentSensorFs.factory(sensors_data['current_sensors'])
+        except FileNotFoundError:
+            # Sensors yaml file is not provided
+            pass
+            
         # List of SfpBase-derived objects representing all sfps
         # available on the chassis
         self._sfp_list = []
