@@ -57,14 +57,14 @@ class SensorFs(SensorBase):
         """Returns the sensor low threshold value"""
         return self.low_thresholds[1]
 
-    def set_high_threshold(self, voltage):
+    def set_high_threshold(self, value):
         """Sets the sensor high threshold value"""
-        self.high_thresholds[1] = voltage
+        self.high_thresholds[1] = value
         return True
 
-    def set_low_threshold(self, voltage):
+    def set_low_threshold(self, value):
         """Sets the sensor low threshold value"""
-        self.low_thresholds[1] = voltage
+        self.low_thresholds[1] = value
         return True
 
     def get_high_critical_threshold(self):
@@ -75,12 +75,22 @@ class SensorFs(SensorBase):
         """Returns the sensor critical low threshold value"""
         return self.low_thresholds[2]
 
+    def set_high_critical_threshold(self, value):
+        """Sets the sensor critical high threshold value"""
+        self.high_thresholds[2] = value
+        return True
+
+    def set_low_critical_threshold(self, value):
+        """Sets the sensor critical low threshold value"""
+        self.low_thresholds[2] = value
+        return True
+
     def get_minimum_recorded(self):
         """Retrieves the minimum recorded sensor measurement"""
         tmp = self.get_value()
         if tmp is None:
             return None
-        if tmp < self.minimum_sensor:
+        if self.minimum_sensor is None or tmp < self.minimum_sensor:
             self.minimum_sensor = tmp
         return self.minimum_sensor
 
@@ -89,7 +99,7 @@ class SensorFs(SensorBase):
         tmp = self.get_value()
         if tmp is None:
             return None
-        if tmp > self.maximum_sensor:
+        if  self.maximum_sensor is None or tmp > self.maximum_sensor:
             self.maximum_sensor = tmp
         return self.maximum_sensor
 
