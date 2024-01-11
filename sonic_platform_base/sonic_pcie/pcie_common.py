@@ -96,10 +96,10 @@ class PcieUtil(PcieBase):
                 hexstring = binascii.hexlify(data).decode('ascii')
                 procfs_id = str(hexstring[-2:] + hexstring[:2])
                 if id == procfs_id: return True
-                else: log.log_info("PCIe device ID mismatch for {}:{}.{} - expected {}, got {}".format(bs, device, fn, id, procfs_id))
+                else: log.log_info("PCIe device ID mismatch for {}:{}.{} - expected {}, got {}".format(bus, device, fn, id, procfs_id))
                 return False
         except OSError as osex:
-            log.log_info("Ecountered {} while trying to open {}".format(str(osex), current_file))
+            log.log_warning("Ecountered {} while trying to open {}".format(str(osex), current_file))
             return False
 
 
