@@ -60,6 +60,7 @@ class Sff8636Codes(Sff8024):
         32: "10GBASE-LR",
         64: "10GBASE-LRM",
         128: "Extended",
+        136: "40GBASE-CR4,Extended"
     }
 
     SONET_COMPLIANCE = {
