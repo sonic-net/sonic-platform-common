@@ -295,3 +295,6 @@ class Sff8472Api(XcvrApi):
 
     def get_power_override_support(self):
         return False
+
+    def is_copper(self):
+        return self.xcvr_eeprom.read(consts.SFP_CABLE_TECH_FIELD) == 'Passive Cable'

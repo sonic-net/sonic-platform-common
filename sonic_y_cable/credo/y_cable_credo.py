@@ -3254,7 +3254,10 @@ class YCable(YCableBase):
             if api_ver >= 0x18:
                 result['queue_info'] = self.queue_info()
 
-            lanes = [0,1,2,3,12,13,14,15,20,21,22,23]
+            if '1MS' in result['pn']:
+                lanes = [0,1,12,13,16,17]
+            else:
+                lanes = [0,1,2,3,12,13,14,15,20,21,22,23]
 
             for ln in list(lanes):
                 data = self.get_serdes_params(ln)

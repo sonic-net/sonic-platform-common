@@ -200,18 +200,12 @@ class CmisVdmApi(XcvrApi):
             return None
         VDM_START_PAGE = 0x20
         vdm = dict()
-        # When raised by the host, causes the module to freeze and hold all 
-        # reported statistics reporting registers (minimum, maximum and 
-        # average values)in Pages 24h-27h.
-        # When ceased by the host, releases the freeze request, allowing the 
-        # reported minimum, maximum and average values to update again.
-        self.xcvr_eeprom.write(consts.VDM_CONTROL, VDM_FREEZE)
-        time.sleep(1)
-        self.xcvr_eeprom.write(consts.VDM_CONTROL, VDM_UNFREEZE)
+
         if field_option & self.VDM_FLAG:
             vdm_flag_page = self.xcvr_eeprom.read_raw(VDM_FLAG_PAGE * PAGE_SIZE + PAGE_OFFSET, PAGE_SIZE)
         else:
             vdm_flag_page = None
+
         for page in range(VDM_START_PAGE, VDM_START_PAGE + vdm_page_supported_raw + 1):
             vdm_current_page = self.get_vdm_page(page, vdm_flag_page, field_option)
             vdm.update(vdm_current_page)

@@ -55,6 +55,7 @@ class TestSff8472(object):
         self.api.get_transceiver_thresholds_support()
         self.api.get_lpmode_support()
         self.api.get_power_override_support()
+        self.api.is_copper()
 
     def test_temp(self):
         temp_field = self.mem_map.get_field(consts.TEMPERATURE_FIELD)
