@@ -159,6 +159,7 @@ class TestPcieCommon:
         os_path_exists_mock.side_effect = os_path_exists_side_effect
         pcieutil = PcieUtil(tests_dir)
         sample_pcie_config = yaml.dump(pcie_device_list)
+        check_pcie_deviceid = mock.MagicMock()
 
         open_mock = mock.mock_open(read_data=sample_pcie_config)
         with mock.patch('{}.open'.format(BUILTINS), open_mock):
