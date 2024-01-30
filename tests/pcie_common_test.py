@@ -150,6 +150,28 @@ class TestPcieCommon:
         result = pcieutil.get_pcie_device()
         assert result == pcie_device_list
 
+    def test_check_pcie_deviceid(self):
+        bus = "00"
+        dev = "01"
+        fn  = "1"
+        id  = "0001"
+        test_binary_file = b'\x01\x00\x00\x00'
+        pcieutil = PcieUtil(tests_dir)
+        with mock.patch('builtins.open', new_callable=mock.mock_open, read_data=test_binary_file) as mock_fd:
+            result = pcieutil.check_pcie_deviceid(bus, dev, fn, id)
+            assert result == True
+
+    def test_check_pcie_deviceid_mismatch(self):
+        bus = "00"
+        dev = "01"
+        fn  = "1"
+        id  = "0001"
+        test_binary_file = b'\x02\x03\x00\x00'
+        pcieutil = PcieUtil(tests_dir)
+        with mock.patch('builtins.open', new_callable=mock.mock_open, read_data=test_binary_file) as mock_fd:
+            result = pcieutil.check_pcie_deviceid(bus, dev, fn, id)
+            assert result == False
+
     @mock.patch('os.path.exists')
     def test_get_pcie_check(self, os_path_exists_mock):
 
@@ -159,7 +181,7 @@ class TestPcieCommon:
         os_path_exists_mock.side_effect = os_path_exists_side_effect
         pcieutil = PcieUtil(tests_dir)
         sample_pcie_config = yaml.dump(pcie_device_list)
-        check_pcie_deviceid = mock.MagicMock()
+        pcieutil.check_pcie_deviceid = mock.MagicMock()
 
         open_mock = mock.mock_open(read_data=sample_pcie_config)
         with mock.patch('{}.open'.format(BUILTINS), open_mock):
