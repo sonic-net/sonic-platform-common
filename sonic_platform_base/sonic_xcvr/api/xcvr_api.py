@@ -15,7 +15,7 @@ class XcvrApi(object):
             return float("-inf")
         elif mW < 0:
             return float("NaN")
-        return 10. * log10(mW)
+        return round(10. * log10(mW), 3)
 
     def get_model(self):
         """
