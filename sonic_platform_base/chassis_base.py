@@ -32,8 +32,6 @@ class ChassisBase(device_base.DeviceBase):
     REBOOT_CAUSE_HARDWARE_RESET_FROM_ASIC = "Reset from ASIC"
     REBOOT_CAUSE_NON_HARDWARE = "Non-Hardware"
 
-    SENSORS_YAML_FILE = "/usr/local/etc/sensors.yaml"
-
     def __init__(self):
         # List of ComponentBase-derived objects representing all components
         # available on the chassis
@@ -64,7 +62,10 @@ class ChassisBase(device_base.DeviceBase):
 
         # Initialize voltage and current sensors lists from data file if available
         try:
-            with open(self.SENSORS_YAML_FILE, 'r') as f:
+            (platform_path, _) = device_info.get_paths_to_platform_and_hwsku_dirs()
+            self.sensors_yaml_file = platform_path + "/sensors.yaml"
+
+            with open(self.sensors_yaml_file, 'r') as f:
                 sensors_data = yaml.safe_load(f)
                 if 'voltage_sensors' in sensors_data:
                     self._voltage_sensor_list = sensor_fs.VoltageSensorFs.factory(sensors_data['voltage_sensors'])
@@ -73,7 +74,7 @@ class ChassisBase(device_base.DeviceBase):
         except FileNotFoundError:
             # Sensors yaml file is not provided
             pass
-            
+
         # List of SfpBase-derived objects representing all sfps
         # available on the chassis
         self._sfp_list = []
