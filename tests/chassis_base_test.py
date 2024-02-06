@@ -1,7 +1,9 @@
 from sonic_platform_base.chassis_base import ChassisBase
+from unittest.mock import MagicMock, patch
 
 class TestChassisBase:
 
+    @patch('sonic_py_common.device_info.get_paths_to_platform_and_hwsku_dirs', MagicMock(return_value=('/tmp', None)))
     def test_reboot_cause(self):
         chassis = ChassisBase()
         assert(chassis.REBOOT_CAUSE_POWER_LOSS == "Power Loss")
@@ -17,6 +19,7 @@ class TestChassisBase:
         assert(chassis.REBOOT_CAUSE_HARDWARE_RESET_FROM_ASIC == "Reset from ASIC")
         assert(chassis.REBOOT_CAUSE_NON_HARDWARE == "Non-Hardware")
 
+    @patch('sonic_py_common.device_info.get_paths_to_platform_and_hwsku_dirs', MagicMock(return_value=('/tmp', None)))
     def test_chassis_base(self):
         chassis = ChassisBase()
         not_implemented_methods = [
@@ -35,6 +38,7 @@ class TestChassisBase:
 
             assert exception_raised
 
+    @patch('sonic_py_common.device_info.get_paths_to_platform_and_hwsku_dirs', MagicMock(return_value=('/tmp', None)))
     def test_sensors(self):
         chassis = ChassisBase()
         assert(chassis.get_num_voltage_sensors() == 0)
