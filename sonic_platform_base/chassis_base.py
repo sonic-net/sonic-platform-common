@@ -10,6 +10,7 @@ import yaml
 from . import device_base
 from . import sfp_base
 from . import sensor_fs
+from sonic_py_common import device_info
 
 class ChassisBase(device_base.DeviceBase):
     """
