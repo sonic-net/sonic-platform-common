@@ -72,8 +72,8 @@ class ChassisBase(device_base.DeviceBase):
                     self._voltage_sensor_list = sensor_fs.VoltageSensorFs.factory(sensors_data['voltage_sensors'])
                 if 'current_sensors' in sensors_data:
                     self._current_sensor_list = sensor_fs.CurrentSensorFs.factory(sensors_data['current_sensors'])
-        except FileNotFoundError:
-            # Sensors yaml file is not provided
+        except:
+            # Sensors yaml file is not available
             pass
 
         # List of SfpBase-derived objects representing all sfps
