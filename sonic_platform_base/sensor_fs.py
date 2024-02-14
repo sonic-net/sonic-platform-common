@@ -16,8 +16,8 @@ class SensorFs(SensorBase):
     __defaults = {
         'name': '',
         'sensor': '',
-        'high_thresholds': ['N/A', 'N/A', 'N/A'],
-        'low_thresholds': ['N/A', 'N/A', 'N/A'],
+        'high_thresholds': ['N/A', 'N/A', 'N/A'], #minor, major, critical
+        'low_thresholds': ['N/A', 'N/A', 'N/A'],  #minor, major, critical
         'position': -1,
     }
 
@@ -107,6 +107,23 @@ class SensorFs(SensorBase):
         """Retrieves 1-based relative physical position in parent device"""
         return self.position
 
+    @staticmethod
+    def factory(sensor_cls, sensors_data):
+        """Factory method for retrieving a list of Sensor objects"""
+        logging.basicConfig()
+        logger = logging.getLogger()
+
+        result = []
+
+        for idx, sensor in enumerate(sensors_data):
+            sensor['position'] = idx + 1
+            try:
+                result.append(sensor_cls(**sensor))
+            except Exception as e:
+                logger.warning('Sensor.factory: {}'.format(e))
+
+        return result
+
 
 class VoltageSensorFs(SensorFs, VoltageSensorBase):
     """File system based voltage sensor class"""
@@ -116,22 +133,6 @@ class VoltageSensorFs(SensorFs, VoltageSensorBase):
     def __init__(self, **kw):
         super(VoltageSensorFs, self).__init__(self.DEVICE_TYPE, **kw)
 
-    @staticmethod
-    def factory(sensors_data):
-        """Factory method for retrieving a list of VoltageSensor objects"""
-        logging.basicConfig()
-        logger = logging.getLogger()
-
-        result = []
-
-        for idx, vsensor in enumerate(sensors_data):
-            vsensor['position'] = idx + 1
-            try:
-                result.append(VoltageSensorFs(**vsensor))
-            except Exception as e:
-                logger.warning('Sensor.factory: {}'.format(e))
-
-        return result
 
 class CurrentSensorFs(SensorFs, CurrentSensorBase):
     """File systems based Current sensor class"""
@@ -140,20 +141,3 @@ class CurrentSensorFs(SensorFs, CurrentSensorBase):
 
     def __init__(self, **kw):
         super(CurrentSensorFs, self).__init__(self.DEVICE_TYPE, **kw)
-
-    @staticmethod
-    def factory(sensors_data):
-        """Factory method for retrieving a list of CurrentSensor objects"""
-        logging.basicConfig()
-        logger = logging.getLogger()
-
-        result = []
-
-        for idx, csensor in enumerate(sensors_data):
-            csensor['position'] = idx + 1
-            try:
-                result.append(CurrentSensorFs(**csensor))
-            except Exception as e:
-                logger.warning('Sensor.factory: {}'.format(e))
-
-        return result

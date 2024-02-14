@@ -9,7 +9,7 @@ import sys
 import yaml
 from . import device_base
 from . import sfp_base
-from . import sensor_fs
+from .sensor_fs import VoltageSensorFs, CurrentSensorFs
 from sonic_py_common import device_info
 
 class ChassisBase(device_base.DeviceBase):
@@ -69,9 +69,9 @@ class ChassisBase(device_base.DeviceBase):
             with open(self.sensors_yaml_file, 'r') as f:
                 sensors_data = yaml.safe_load(f)
                 if 'voltage_sensors' in sensors_data:
-                    self._voltage_sensor_list = sensor_fs.VoltageSensorFs.factory(sensors_data['voltage_sensors'])
+                    self._voltage_sensor_list = VoltageSensorFs.factory(VoltageSensorFs, sensors_data['voltage_sensors'])
                 if 'current_sensors' in sensors_data:
-                    self._current_sensor_list = sensor_fs.CurrentSensorFs.factory(sensors_data['current_sensors'])
+                    self._current_sensor_list = CurrentSensorFs.factory(CurrentSensorFs, sensors_data['current_sensors'])
         except:
             # Sensors yaml file is not available
             pass
