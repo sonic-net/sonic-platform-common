@@ -42,8 +42,8 @@ class TestSensorFs:
         '''
         sensors_data = yaml.safe_load(yaml_data)
 
-        vsensors = VoltageSensorFs.factory(sensors_data['voltage_sensors'])
-        csensors = CurrentSensorFs.factory(sensors_data['current_sensors'])
+        vsensors = VoltageSensorFs.factory(VoltageSensorFs, sensors_data['voltage_sensors'])
+        csensors = CurrentSensorFs.factory(CurrentSensorFs, sensors_data['current_sensors'])
 
         assert(vsensors[0].get_name() == 'VSENSOR1')
         assert(vsensors[0].get_position_in_parent() == 1)
