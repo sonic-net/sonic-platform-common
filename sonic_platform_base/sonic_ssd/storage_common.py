@@ -52,9 +52,18 @@ class StorageCommon(object):
             for mt in mounts:
                 if '/host' in mt and diskdev in mt:
                     return os.path.basename(mt.split()[0])
-                return None
+            return None
 
     def get_fs_io_reads(self):
+        """
+        Function to get the total number of reads on the 'SONiC' partition by parsing the /proc/diskstats file
+
+        Returns:
+            The total number of FS reads OR disk reads if storage device does not host the SONiC OS
+        
+        Args:
+            N/A
+        """
 
         searchterm = self.partition
         if searchterm == None: searchterm = self.diskdev
@@ -70,6 +79,15 @@ class StorageCommon(object):
                 return 'N/A'
 
     def get_fs_io_writes(self):
+        """
+        Function to get the total number of writes on the 'SONiC' partition by parsing the /proc/diskstats file
+
+        Returns:
+            The total number of FS writes OR disk writes if storage device does not host the SONiC OS
+        
+        Args:
+            N/A
+        """
 
         searchterm = self.partition
         if searchterm == None: searchterm = self.diskdev
