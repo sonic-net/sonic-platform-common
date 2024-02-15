@@ -20,6 +20,7 @@ swsscommon.Table = MagicMock()
 
 sys.modules['sonic_y_cable'] = MagicMock()
 sys.modules['sonic_y_cable.y_cable'] = MagicMock()
+sys.modules['sonic_y_cable.y_cable_vendor_mapping'] = MagicMock()
 
 os.environ["Y_CABLE_HELPER_UNIT_TESTING"] = "1"
 
