@@ -10,7 +10,8 @@
 try:
     import re
     import subprocess
-    from .ssd_base import SsdBase
+    from .storage_base import StorageBase
+    from .storage_common import StorageCommon
 except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
 
@@ -51,7 +52,7 @@ INTEL_MEDIA_WEAROUT_INDICATOR_ID = 233
 TRANSCEND_HEALTH_ID = 169
 TRANSCEND_TEMPERATURE_ID = 194
 
-class SsdUtil(SsdBase):
+class SsdUtil(StorageBase, StorageCommon):
     """
     Generic implementation of the SSD health API
     """
@@ -62,8 +63,10 @@ class SsdUtil(SsdBase):
     health = NOT_AVAILABLE
     ssd_info = NOT_AVAILABLE
     vendor_ssd_info = NOT_AVAILABLE
-    io_reads = NOT_AVAILABLE
-    io_writes = NOT_AVAILABLE
+    fs_io_reads = NOT_AVAILABLE
+    fs_io_writes = NOT_AVAILABLE
+    disk_io_reads = NOT_AVAILABLE
+    disk_io_writes = NOT_AVAILABLE
     reserved_blocks = NOT_AVAILABLE
 
     def __init__(self, diskdev):
@@ -97,6 +100,8 @@ class SsdUtil(SsdBase):
         else:
             # Failed to get disk model
             self.model = "Unknown"
+
+        StorageCommon.__init__(self, diskdev)
 
     def _execute_shell(self, cmd):
         process = subprocess.Popen(cmd.split(), universal_newlines=True, stdout=subprocess.PIPE)
@@ -164,12 +169,12 @@ class SsdUtil(SsdBase):
         self.firmware = self._parse_re('Firmware Version:\s*(.+?)\n', self.ssd_info)
 
         io_reads_raw = self.parse_id_number(GENERIC_IO_READS_ID)
-        if io_reads_raw == NOT_AVAILABLE: self.io_reads = NOT_AVAILABLE
-        else: self.io_reads = io_reads_raw.split()[-1]
+        if io_reads_raw == NOT_AVAILABLE: self.disk_io_reads = NOT_AVAILABLE
+        else: self.disk_io_reads = io_reads_raw.split()[-1]
 
         io_writes_raw = self.parse_id_number(GENERIC_IO_WRITES_ID)
-        if io_writes_raw == NOT_AVAILABLE: self.io_writes = NOT_AVAILABLE
-        else: self.io_writes = io_writes_raw.split()[-1]
+        if io_writes_raw == NOT_AVAILABLE: self.disk_io_writes = NOT_AVAILABLE
+        else: self.disk_io_writes = io_writes_raw.split()[-1]
 
         for ID in GENERIC_RESERVED_BLOCKS_ID:
             rbc_raw = self.parse_id_number(ID)
@@ -195,18 +200,18 @@ class SsdUtil(SsdBase):
                 self.temperature = NOT_AVAILABLE
             else:
                 self.temperature = temp_raw.split()[-6]
-        if self.io_reads == NOT_AVAILABLE:
+        if self.disk_io_reads == NOT_AVAILABLE:
             io_reads_raw = self.parse_id_number(INNODISK_IO_READS_ID)
             if io_reads_raw == NOT_AVAILABLE:
-                self.io_reads == NOT_AVAILABLE
+                self.disk_io_reads == NOT_AVAILABLE
             else:
-                self.io_reads = io_reads_raw.split()[-1]
-        if self.io_writes == NOT_AVAILABLE:
+                self.disk_io_reads = io_reads_raw.split()[-1]
+        if self.disk_io_writes == NOT_AVAILABLE:
             io_writes_raw = self.parse_id_number(INNODISK_IO_WRITES_ID)
             if io_writes_raw == NOT_AVAILABLE:
-                self.io_writes == NOT_AVAILABLE
+                self.disk_io_writes == NOT_AVAILABLE
             else:
-                self.io_writes = io_writes_raw.split()[-1]
+                self.disk_io_writes = io_writes_raw.split()[-1]
         if self.reserved_blocks == NOT_AVAILABLE:
             rbc_raw = self.parse_id_number(INNODISK_RESERVED_BLOCKS_ID)
             if rbc_raw == NOT_AVAILABLE:
@@ -237,19 +242,19 @@ class SsdUtil(SsdBase):
                 except ValueError:
                     pass
 
-            if self.io_reads == NOT_AVAILABLE:
+            if self.disk_io_reads == NOT_AVAILABLE:
                 io_reads_raw = self.parse_id_number(VIRTIUM_IO_READS_ID)
                 if io_reads_raw == NOT_AVAILABLE:
-                    self.io_reads == NOT_AVAILABLE
+                    self.disk_io_reads == NOT_AVAILABLE
                 else:
-                    self.io_reads = io_reads_raw.split()[-1]
+                    self.disk_io_reads = io_reads_raw.split()[-1]
 
-            if self.io_writes == NOT_AVAILABLE:
+            if self.disk_io_writes == NOT_AVAILABLE:
                 io_writes_raw = self.parse_id_number(VIRTIUM_IO_WRITES_ID)
                 if io_writes_raw == NOT_AVAILABLE:
-                    self.io_writes == NOT_AVAILABLE
+                    self.disk_io_writes == NOT_AVAILABLE
                 else:
-                    self.io_writes = io_writes_raw.split()[-1]
+                    self.disk_io_writes = io_writes_raw.split()[-1]
 
             if self.reserved_blocks == NOT_AVAILABLE:
                 rbc_raw = self.parse_id_number(VIRTIUM_RESERVED_BLOCKS_ID)
@@ -287,8 +292,8 @@ class SsdUtil(SsdBase):
                             pass
 
             io_writes_raw = self.parse_id_number(MICRON_IO_WRITES_ID)
-            if io_writes_raw == NOT_AVAILABLE: self.io_writes = NOT_AVAILABLE
-            else: self.io_writes = io_writes_raw.split()[-1]
+            if io_writes_raw == NOT_AVAILABLE: self.disk_io_writes = NOT_AVAILABLE
+            else: self.disk_io_writes = io_writes_raw.split()[-1]
 
             rbc_raw = self.parse_id_number(MICRON_RESERVED_BLOCKS_ID)
             if rbc_raw == NOT_AVAILABLE: self.reserved_blocks = NOT_AVAILABLE
@@ -369,23 +374,23 @@ class SsdUtil(SsdBase):
         """
         return self.serial
 
-    def get_io_reads(self):
+    def get_disk_io_reads(self):
         """
         Retrieves the total number of Input/Output (I/O) reads done on an SSD
 
         Returns:
             An integer value of the total number of I/O reads
         """
-        return self.io_reads
+        return self.disk_io_reads
 
-    def get_io_writes(self):
+    def get_disk_io_writes(self):
         """
         Retrieves the total number of Input/Output (I/O) writes done on an SSD
 
         Returns:
             An integer value of the total number of I/O writes
         """
-        return self.io_writes
+        return self.disk_io_writes
 
     def get_reserved_blocks(self):
         """
