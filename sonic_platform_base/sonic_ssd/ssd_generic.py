@@ -49,8 +49,8 @@ class SsdUtil(SsdBase):
             "StorFly"  : { "utility" : VIRTIUM,  "parser" : self.parse_virtium_info },
             "Virtium"  : { "utility" : VIRTIUM,  "parser" : self.parse_virtium_info },
             "Swissbit" : { "utility" : SMARTCTL, "parser" : self.parse_swissbit_info },
+            "Transcend" : { "utility" : TRANSCEND, "parser" : self.parse_transcend_info },
             "WDC"      : { "utility" : SMARTCTL, "parser" : self.parse_wdc_ssd_info },
-            "Transcend" : { "utility" : TRANSCEND, "parser" : self.parse_transcend_info }
         }
 
         self.dev = diskdev
