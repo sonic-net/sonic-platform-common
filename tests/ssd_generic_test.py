@@ -819,6 +819,96 @@ F5 Flash Write Sector Count     924312
 Health Percentage: 71%
 """
 
+output_wdc_vendor = """
+smartctl 7.2 2020-12-30 r5155 [x86_64-linux-5.10.0-18-2-amd64] (local build)
+Copyright (C) 2002-20, Bruce Allen, Christian Franke, www.smartmontools.org
+
+=== START OF INFORMATION SECTION ===
+Device Model:     WDC PC SA530 SDASN8Y1T00
+Serial Number:    2122FF441406
+LU WWN Device Id: 5 001b44 4a7dc5677
+Firmware Version: 40103000
+User Capacity:    1,024,209,543,168 bytes [1.02 TB]
+Sector Size:      512 bytes logical/physical
+Rotation Rate:    Solid State Device
+Form Factor:      M.2
+TRIM Command:     Available, deterministic, zeroed
+Device is:        Not in smartctl database [for details use: -P showall]
+ATA Version is:   ACS-4 T13/BSR INCITS 529 revision 5
+SATA Version is:  SATA 3.3, 6.0 Gb/s (current: 6.0 Gb/s)
+Local Time is:    Thu Feb 15 14:12:34 2024 UTC
+SMART support is: Available - device has SMART capability.
+SMART support is: Enabled
+
+=== START OF READ SMART DATA SECTION ===
+SMART overall-health self-assessment test result: PASSED
+
+General SMART Values:
+Offline data collection status:  (0x00)	Offline data collection activity
+					was never started.
+					Auto Offline Data Collection: Disabled.
+Self-test execution status:      (   0)	The previous self-test routine completed
+					without error or no self-test has ever 
+					been run.
+Total time to complete Offline 
+data collection: 		(    0) seconds.
+Offline data collection
+capabilities: 			 (0x11) SMART execute Offline immediate.
+					No Auto Offline data collection support.
+					Suspend Offline collection upon new
+					command.
+					No Offline surface scan supported.
+					Self-test supported.
+					No Conveyance Self-test supported.
+					No Selective Self-test supported.
+SMART capabilities:            (0x0003)	Saves SMART data before entering
+					power-saving mode.
+					Supports SMART auto save timer.
+Error logging capability:        (0x01)	Error logging supported.
+					General Purpose Logging supported.
+Short self-test routine 
+recommended polling time: 	 (   2) minutes.
+Extended self-test routine
+recommended polling time: 	 (  10) minutes.
+
+SMART Attributes Data Structure revision number: 4
+Vendor Specific SMART Attributes with Thresholds:
+ID# ATTRIBUTE_NAME          FLAG     VALUE WORST THRESH TYPE      UPDATED  WHEN_FAILED RAW_VALUE
+  5 Reallocated_Sector_Ct   0x0032   100   100   ---    Old_age   Always       -       0
+  9 Power_On_Hours          0x0032   100   100   ---    Old_age   Always       -       18904
+ 12 Power_Cycle_Count       0x0032   100   100   ---    Old_age   Always       -       169
+165 Unknown_Attribute       0x0032   100   100   ---    Old_age   Always       -       28311878
+166 Unknown_Attribute       0x0032   100   100   ---    Old_age   Always       -       1
+167 Unknown_Attribute       0x0032   100   100   ---    Old_age   Always       -       54
+168 Unknown_Attribute       0x0032   100   100   ---    Old_age   Always       -       10
+169 Unknown_Attribute       0x0032   100   100   ---    Old_age   Always       -       361
+170 Unknown_Attribute       0x0032   100   100   ---    Old_age   Always       -       0
+171 Unknown_Attribute       0x0032   100   100   ---    Old_age   Always       -       0
+172 Unknown_Attribute       0x0032   100   100   ---    Old_age   Always       -       0
+173 Unknown_Attribute       0x0032   100   100   ---    Old_age   Always       -       5
+174 Unknown_Attribute       0x0032   100   100   ---    Old_age   Always       -       61
+184 End-to-End_Error        0x0032   100   100   ---    Old_age   Always       -       0
+187 Reported_Uncorrect      0x0032   100   100   ---    Old_age   Always       -       0
+188 Command_Timeout         0x0032   100   100   ---    Old_age   Always       -       0
+194 Temperature_Celsius     0x0022   077   059   ---    Old_age   Always       -       23 (Min/Max 16/59)
+199 UDMA_CRC_Error_Count    0x0032   100   100   ---    Old_age   Always       -       0
+230 Unknown_SSD_Attribute   0x0032   001   001   ---    Old_age   Always       -       279176151105
+232 Available_Reservd_Space 0x0033   100   100   004    Pre-fail  Always       -       100
+233 Media_Wearout_Indicator 0x0032   100   100   ---    Old_age   Always       -       5374
+234 Unknown_Attribute       0x0032   100   100   ---    Old_age   Always       -       7530
+241 Total_LBAs_Written      0x0030   253   253   ---    Old_age   Offline      -       6756
+242 Total_LBAs_Read         0x0030   253   253   ---    Old_age   Offline      -       963
+244 Unknown_Attribute       0x0032   000   100   ---    Old_age   Always       -       0
+
+SMART Error Log Version: 1
+No Errors Logged
+
+SMART Self-test log structure revision number 1
+No self-tests have been logged.  [To run self-tests, use: smartctl -t]
+
+Selective Self-tests/Logging not supported
+"""
+
 class TestSsdGeneric:
     @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell', mock.MagicMock(return_value=output_nvme_ssd))
     def test_nvme_ssd(self):
@@ -948,3 +1038,13 @@ class TestSsdGeneric:
         assert transcend_ssd.get_firmware() == "O0918B"
         assert transcend_ssd.get_temperature() == '40'
         assert transcend_ssd.get_serial() == "F318410080"
+
+    @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell')
+    def test_wdc_ssd(self, mock_exec):
+        mock_exec.return_value = output_wdc_vendor
+        swissbit_ssd = SsdUtil('/dev/sda')
+        assert swissbit_ssd.get_health() == '100'
+        assert swissbit_ssd.get_model() == 'WDC PC SA530 SDASN8Y1T00'
+        assert swissbit_ssd.get_firmware() == "40103000"
+        assert swissbit_ssd.get_temperature() == '23'
+        assert swissbit_ssd.get_serial() == "2122FF441406"
