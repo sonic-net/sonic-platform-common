@@ -1,11 +1,11 @@
 #
-# ssd_base.py
+# storage_base.py
 #
 # Base class for implementing common SSD health features
 #
 
 
-class SsdBase(object):
+class StorageBase(object):
     """
     Base class for interfacing with a SSD
     """
@@ -74,18 +74,18 @@ class SsdBase(object):
         """
         raise NotImplementedError
 
-    def get_io_reads(self):
+    def get_disk_io_reads(self):
         """
-        Retrieves the total number of Input/Output (I/O) reads done on an SSD
+        Retrieves the total number of Input/Output (I/O) reads done on a storage disk
 
         Returns:
             An integer value of the total number of I/O reads
         """
         raise NotImplementedError
 
-    def get_io_writes(self):
+    def get_disk_io_writes(self):
         """
-        Retrieves the total number of Input/Output (I/O) writes done on an SSD
+        Retrieves the total number of Input/Output (I/O) writes done on a sorage disk
 
         Returns:
             An integer value of the total number of I/O writes
