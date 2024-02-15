@@ -1042,9 +1042,9 @@ class TestSsdGeneric:
     @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell')
     def test_wdc_ssd(self, mock_exec):
         mock_exec.return_value = output_wdc_vendor
-        swissbit_ssd = SsdUtil('/dev/sda')
-        assert swissbit_ssd.get_health() == '100'
-        assert swissbit_ssd.get_model() == 'WDC PC SA530 SDASN8Y1T00'
-        assert swissbit_ssd.get_firmware() == "40103000"
-        assert swissbit_ssd.get_temperature() == '23'
-        assert swissbit_ssd.get_serial() == "2122FF441406"
+        wdc_ssd = SsdUtil('/dev/sda')
+        assert wdc_ssd.get_health() == '98'
+        assert wdc_ssd.get_model() == 'WDC PC SA530 SDASN8Y1T00'
+        assert wdc_ssd.get_firmware() == "40103000"
+        assert wdc_ssd.get_temperature() == '23'
+        assert wdc_ssd.get_serial() == "2122FF441406"
