@@ -1043,7 +1043,7 @@ class TestSsdGeneric:
     def test_wdc_ssd(self, mock_exec):
         mock_exec.return_value = output_wdc_vendor
         wdc_ssd = SsdUtil('/dev/sda')
-        assert wdc_ssd.get_health() == '98'
+        assert wdc_ssd.get_health() == 98
         assert wdc_ssd.get_model() == 'WDC PC SA530 SDASN8Y1T00'
         assert wdc_ssd.get_firmware() == "40103000"
         assert wdc_ssd.get_temperature() == '23'
