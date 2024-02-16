@@ -45,6 +45,7 @@ PLATFORM_SPECIFIC_MODULE_NAME = "sfputil"
 PLATFORM_SPECIFIC_CLASS_NAME = "SfpUtil"
 
 TRANSCEIVER_INFO_TABLE = 'TRANSCEIVER_INFO'
+TRANSCEIVER_FIRMWARE_INFO_TABLE = 'TRANSCEIVER_FIRMWARE_INFO'
 TRANSCEIVER_DOM_SENSOR_TABLE = 'TRANSCEIVER_DOM_SENSOR'
 TRANSCEIVER_DOM_THRESHOLD_TABLE = 'TRANSCEIVER_DOM_THRESHOLD'
 TRANSCEIVER_STATUS_TABLE = 'TRANSCEIVER_STATUS'
@@ -250,6 +251,13 @@ def _wrapper_get_transceiver_info(physical_port):
             pass
     return platform_sfputil.get_transceiver_info_dict(physical_port)
 
+def _wrapper_get_transceiver_firmware_info(physical_port):
+    if platform_chassis is not None:
+        try:
+            return platform_chassis.get_sfp(physical_port).get_transceiver_info_firmware_versions()
+        except NotImplementedError:
+            pass
+    return {}
 
 def _wrapper_get_transceiver_dom_info(physical_port):
     if platform_chassis is not None:
@@ -436,10 +444,6 @@ def post_port_sfp_info_to_db(logical_port_name, port_mapping, table, transceiver
                         ('dom_capability', port_info_dict['dom_capability']
                         if 'dom_capability' in port_info_dict else 'N/A'),
                         ('cmis_rev', port_info_dict['cmis_rev'] if 'cmis_rev' in port_info_dict else 'N/A'),
-                        ('active_firmware', port_info_dict['active_firmware']
-                        if 'active_firmware' in port_info_dict else 'N/A'),
-                        ('inactive_firmware', port_info_dict['inactive_firmware']
-                        if 'inactive_firmware' in port_info_dict else 'N/A'),
                         ('hardware_rev', port_info_dict['hardware_rev']
                         if 'hardware_rev' in port_info_dict else 'N/A'),
                         ('media_interface_code', port_info_dict['media_interface_code']
@@ -511,6 +515,29 @@ def post_port_sfp_info_to_db(logical_port_name, port_mapping, table, transceiver
 
         except NotImplementedError:
             helper_logger.log_error("This functionality is currently not implemented for this platform")
+            sys.exit(NOT_IMPLEMENTED_ERROR)
+
+# Update port sfp firmware info in db
+
+def post_port_sfp_firmware_info_to_db(logical_port_name, port_mapping, table,
+                             stop_event=threading.Event()):
+    for physical_port, physical_port_name in get_physical_port_name_dict(logical_port_name, port_mapping).items():
+        if stop_event.is_set():
+            break
+
+        if not _wrapper_get_presence(physical_port):
+            continue
+
+        try:
+            transceiver_firmware_info_dict = _wrapper_get_transceiver_firmware_info(physical_port)
+            if transceiver_firmware_info_dict is not None:
+                fvs = swsscommon.FieldValuePairs([(k, v) for k, v in transceiver_firmware_info_dict.items()])
+                table.set(physical_port_name, fvs)
+            else:
+                return SFP_EEPROM_NOT_READY
+
+        except NotImplementedError:
+            helper_logger.log_error("Transceiver firmware info functionality is currently not implemented for this platform")
             sys.exit(NOT_IMPLEMENTED_ERROR)
 
 # Update port dom threshold info in db
@@ -623,7 +650,7 @@ def post_port_pm_info_to_db(logical_port_name, port_mapping, table, stop_event=t
 # Delete port dom/sfp info from db
 
 
-def del_port_sfp_dom_info_from_db(logical_port_name, port_mapping, int_tbl, dom_tbl, dom_threshold_tbl, pm_tbl):
+def del_port_sfp_dom_info_from_db(logical_port_name, port_mapping, int_tbl, dom_tbl, dom_threshold_tbl, pm_tbl, firmware_info_tbl):
     for physical_port_name in get_physical_port_name_dict(logical_port_name, port_mapping).values():
         try:
             if int_tbl:
@@ -634,6 +661,8 @@ def del_port_sfp_dom_info_from_db(logical_port_name, port_mapping, int_tbl, dom_
                 dom_threshold_tbl._del(physical_port_name)
             if pm_tbl:
                 pm_tbl._del(physical_port_name)
+            if firmware_info_tbl:
+                firmware_info_tbl._del(physical_port_name)
 
         except NotImplementedError:
             helper_logger.log_error("This functionality is currently not implemented for this platform")
@@ -1638,13 +1667,14 @@ class DomInfoUpdateTask(threading.Thread):
         """
         # To avoid race condition, remove the entry TRANSCEIVER_DOM_SENSOR, TRANSCEIVER_PM and HW section of TRANSCEIVER_STATUS table.
         # This thread only updates TRANSCEIVER_DOM_SENSOR, TRANSCEIVER_PM and HW section of TRANSCEIVER_STATUS table,
-        # so we don't have to remove entries from TRANSCEIVER_INFO and TRANSCEIVER_DOM_THRESHOLD
+        # so we don't have to remove entries from TRANSCEIVER_INFO, TRANSCEIVER_FIRMWARE_INFO and TRANSCEIVER_DOM_THRESHOLD
         del_port_sfp_dom_info_from_db(port_change_event.port_name,
                                       self.port_mapping,
                                       None,
                                       self.xcvr_table_helper.get_dom_tbl(port_change_event.asic_id),
                                       None,
-                                      self.xcvr_table_helper.get_pm_tbl(port_change_event.asic_id))
+                                      self.xcvr_table_helper.get_pm_tbl(port_change_event.asic_id),
+                                      None)
         delete_port_from_status_table_hw(port_change_event.port_name,
                                       self.port_mapping,
                                       self.xcvr_table_helper.get_status_tbl(port_change_event.asic_id))
@@ -1722,6 +1752,7 @@ class SfpStateUpdateTask(threading.Thread):
             rc = post_port_sfp_info_to_db(logical_port_name, port_mapping, xcvr_table_helper.get_intf_tbl(asic_index), transceiver_dict, stop_event)
             if rc != SFP_EEPROM_NOT_READY:
                 post_port_dom_threshold_info_to_db(logical_port_name, port_mapping, xcvr_table_helper.get_dom_threshold_tbl(asic_index), stop_event)
+                post_port_sfp_firmware_info_to_db(logical_port_name, port_mapping, xcvr_table_helper.get_firmware_info_tbl(asic_index), stop_event)
 
                 # Do not notify media settings during warm reboot to avoid dataplane traffic impact
                 if is_warm_start == False:
@@ -1947,6 +1978,7 @@ class SfpStateUpdateTask(threading.Thread):
 
                                 if rc != SFP_EEPROM_NOT_READY:
                                     post_port_dom_threshold_info_to_db(logical_port, self.port_mapping, self.xcvr_table_helper.get_dom_threshold_tbl(asic_index))
+                                    post_port_sfp_firmware_info_to_db(logical_port, self.port_mapping, self.xcvr_table_helper.get_firmware_info_tbl(asic_index))
                                     media_settings_parser.notify_media_setting(logical_port, transceiver_dict, self.xcvr_table_helper.get_app_port_tbl(asic_index), self.xcvr_table_helper.get_cfg_port_tbl(asic_index), self.port_mapping)
                                     transceiver_dict.clear()
                             elif value == sfp_status_helper.SFP_STATUS_REMOVED:
@@ -1958,7 +1990,8 @@ class SfpStateUpdateTask(threading.Thread):
                                                               self.xcvr_table_helper.get_intf_tbl(asic_index),
                                                               self.xcvr_table_helper.get_dom_tbl(asic_index),
                                                               self.xcvr_table_helper.get_dom_threshold_tbl(asic_index),
-                                                              self.xcvr_table_helper.get_pm_tbl(asic_index))
+                                                              self.xcvr_table_helper.get_pm_tbl(asic_index),
+                                                              self.xcvr_table_helper.get_firmware_info_tbl(asic_index))
                                 delete_port_from_status_table_hw(logical_port, self.port_mapping, self.xcvr_table_helper.get_status_tbl(asic_index))
                             else:
                                 try:
@@ -1986,7 +2019,8 @@ class SfpStateUpdateTask(threading.Thread):
                                                                       None,
                                                                       self.xcvr_table_helper.get_dom_tbl(asic_index),
                                                                       self.xcvr_table_helper.get_dom_threshold_tbl(asic_index),
-                                                                      self.xcvr_table_helper.get_pm_tbl(asic_index))
+                                                                      self.xcvr_table_helper.get_pm_tbl(asic_index),
+                                                                      self.xcvr_table_helper.get_firmware_info_tbl(asic_index))
                                         delete_port_from_status_table_hw(logical_port, self.port_mapping, self.xcvr_table_helper.get_status_tbl(asic_index))
                                 except (TypeError, ValueError) as e:
                                     helper_logger.log_error("{}: Got unrecognized event {}, ignored".format(logical_port, value))
@@ -2083,7 +2117,8 @@ class SfpStateUpdateTask(threading.Thread):
                                       self.xcvr_table_helper.get_intf_tbl(port_change_event.asic_id),
                                       self.xcvr_table_helper.get_dom_tbl(port_change_event.asic_id),
                                       self.xcvr_table_helper.get_dom_threshold_tbl(port_change_event.asic_id),
-                                      self.xcvr_table_helper.get_pm_tbl(port_change_event.asic_id))
+                                      self.xcvr_table_helper.get_pm_tbl(port_change_event.asic_id),
+                                      self.xcvr_table_helper.get_firmware_info_tbl(port_change_event.asic_id))
         delete_port_from_status_table_sw(port_change_event.port_name, self.xcvr_table_helper.get_status_tbl(port_change_event.asic_id))
         delete_port_from_status_table_hw(port_change_event.port_name,
                                          self.port_mapping,
@@ -2112,6 +2147,7 @@ class SfpStateUpdateTask(threading.Thread):
         status_tbl = self.xcvr_table_helper.get_status_tbl(port_change_event.asic_id)
         int_tbl = self.xcvr_table_helper.get_intf_tbl(port_change_event.asic_id)
         dom_threshold_tbl = self.xcvr_table_helper.get_dom_threshold_tbl(port_change_event.asic_id)
+        firmware_info_tbl = self.xcvr_table_helper.get_firmware_info_tbl(port_change_event.asic_id)
 
         error_description = 'N/A'
         status = None
@@ -2146,6 +2182,7 @@ class SfpStateUpdateTask(threading.Thread):
                 self.retry_eeprom_set.add(port_change_event.port_name)
             else:
                 post_port_dom_threshold_info_to_db(port_change_event.port_name, self.port_mapping, dom_threshold_tbl)
+                post_port_sfp_firmware_info_to_db(port_change_event.port_name, self.port_mapping, firmware_info_tbl)
                 media_settings_parser.notify_media_setting(port_change_event.port_name, transceiver_dict, self.xcvr_table_helper.get_app_port_tbl(port_change_event.asic_id), self.xcvr_table_helper.get_cfg_port_tbl(port_change_event.asic_id), self.port_mapping)
         else:
             status = sfp_status_helper.SFP_STATUS_REMOVED if not status else status
@@ -2172,6 +2209,7 @@ class SfpStateUpdateTask(threading.Thread):
             rc = post_port_sfp_info_to_db(logical_port, self.port_mapping, self.xcvr_table_helper.get_intf_tbl(asic_index), transceiver_dict)
             if rc != SFP_EEPROM_NOT_READY:
                 post_port_dom_threshold_info_to_db(logical_port, self.port_mapping, self.xcvr_table_helper.get_dom_threshold_tbl(asic_index))
+                post_port_sfp_firmware_info_to_db(logical_port, self.port_mapping, self.xcvr_table_helper.get_firmware_info_tbl(asic_index))
                 media_settings_parser.notify_media_setting(logical_port, transceiver_dict, self.xcvr_table_helper.get_app_port_tbl(asic_index), self.xcvr_table_helper.get_cfg_port_tbl(asic_index), self.port_mapping)
                 transceiver_dict.clear()
                 retry_success_set.add(logical_port)
@@ -2301,7 +2339,8 @@ class DaemonXcvrd(daemon_base.DaemonBase):
                                           self.xcvr_table_helper.get_intf_tbl(asic_index),
                                           self.xcvr_table_helper.get_dom_tbl(asic_index),
                                           self.xcvr_table_helper.get_dom_threshold_tbl(asic_index),
-                                          self.xcvr_table_helper.get_pm_tbl(asic_index))
+                                          self.xcvr_table_helper.get_pm_tbl(asic_index),
+                                          self.xcvr_table_helper.get_firmware_info_tbl(asic_index))
             delete_port_from_status_table_sw(logical_port_name, self.xcvr_table_helper.get_status_tbl(asic_index))
             delete_port_from_status_table_hw(logical_port_name, port_mapping_data, self.xcvr_table_helper.get_status_tbl(asic_index))
 
@@ -2381,7 +2420,7 @@ class DaemonXcvrd(daemon_base.DaemonBase):
 class XcvrTableHelper:
     def __init__(self, namespaces):
         self.int_tbl, self.dom_tbl, self.dom_threshold_tbl, self.status_tbl, self.app_port_tbl, \
-		self.cfg_port_tbl, self.state_port_tbl, self.pm_tbl = {}, {}, {}, {}, {}, {}, {}, {}
+		self.cfg_port_tbl, self.state_port_tbl, self.pm_tbl, self.firmware_info_tbl = {}, {}, {}, {}, {}, {}, {}, {}, {}
         self.state_db = {}
         self.cfg_db = {}
         for namespace in namespaces:
@@ -2392,6 +2431,7 @@ class XcvrTableHelper:
             self.dom_threshold_tbl[asic_id] = swsscommon.Table(self.state_db[asic_id], TRANSCEIVER_DOM_THRESHOLD_TABLE)
             self.status_tbl[asic_id] = swsscommon.Table(self.state_db[asic_id], TRANSCEIVER_STATUS_TABLE)
             self.pm_tbl[asic_id] = swsscommon.Table(self.state_db[asic_id], TRANSCEIVER_PM_TABLE)
+            self.firmware_info_tbl[asic_id] = swsscommon.Table(self.state_db[asic_id], TRANSCEIVER_FIRMWARE_INFO_TABLE)
             self.state_port_tbl[asic_id] = swsscommon.Table(self.state_db[asic_id], swsscommon.STATE_PORT_TABLE_NAME)
             appl_db = daemon_base.db_connect("APPL_DB", namespace)
             self.app_port_tbl[asic_id] = swsscommon.ProducerStateTable(appl_db, swsscommon.APP_PORT_TABLE_NAME)
@@ -2412,6 +2452,9 @@ class XcvrTableHelper:
 
     def get_pm_tbl(self, asic_id):
         return self.pm_tbl[asic_id]
+
+    def get_firmware_info_tbl(self, asic_id):
+        return self.firmware_info_tbl[asic_id]
 
     def get_app_port_tbl(self, asic_id):
         return self.app_port_tbl[asic_id]
