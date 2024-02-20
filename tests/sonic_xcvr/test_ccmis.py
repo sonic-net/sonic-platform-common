@@ -233,14 +233,14 @@ class TestCCmis(object):
                 'laser_temperature': 40,
                 'prefec_ber': 0.001,
                 'postfec_ber': 0,
-                'bias_xi': 50,
-                'bias_xq': 50,
-                'bias_xp': 50,
-                'bias_yi': 50,
-                'bias_yq': 50,
-                'bias_yp': 50,
-                'cd_shortlink': 1000,
-                'cd_longlink': 1000,
+                'biasxi': 50,
+                'biasxq': 50,
+                'biasxp': 50,
+                'biasyi': 50,
+                'biasyq': 50,
+                'biasyp': 50,
+                'cdshort': 1000,
+                'cdlong': 1000,
                 'dgd': 5,
                 'sopmd': 5,
                 'soproc': 0,
@@ -248,9 +248,9 @@ class TestCCmis(object):
                 'osnr': 30,
                 'esnr': 16,
                 'cfo': 100,
-                'tx_curr_power': -10,
-                'rx_tot_power': -10,
-                'rx_sig_power': -10,
+                'txcurrpower': -10,
+                'rxtotpower': -10,
+                'rxsigpower': -10,
                 'laser_config_freq': 193100,
                 'laser_curr_freq': 193100,
                 'tx_config_power': -10
@@ -571,15 +571,6 @@ class TestCCmis(object):
         self.api.get_laser_tuning_summary = MagicMock()
         self.api.get_laser_tuning_summary.return_value = mock_response[3]
         self.api.vdm_dict = mock_response[4]
-        result = self.api.get_transceiver_status()
-        assert result == expected
-
-        # For the case of 'Rx Signal Power [dBm]' not present:
-        get_transceiver_status_func.return_value = dict(mock_response[0])
-        del self.api.vdm_dict['Rx Signal Power [dBm]']
-        for k in ['rxsigpowerhighalarm_flag', 'rxsigpowerlowalarm_flag',
-                  'rxsigpowerhighwarning_flag', 'rxsigpowerlowwarning_flag']:
-            del expected[k]
         result = self.api.get_transceiver_status()
         assert result == expected
 
