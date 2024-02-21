@@ -6,11 +6,8 @@
 """
 
 import sys
-import yaml
 from . import device_base
 from . import sfp_base
-from .sensor_fs import VoltageSensorFs, CurrentSensorFs
-from sonic_py_common import device_info
 
 class ChassisBase(device_base.DeviceBase):
     """
@@ -60,21 +57,6 @@ class ChassisBase(device_base.DeviceBase):
 
         self._voltage_sensor_list = []
         self._current_sensor_list = []
-
-        # Initialize voltage and current sensors lists from data file if available
-        try:
-            (platform_path, _) = device_info.get_paths_to_platform_and_hwsku_dirs()
-            self.sensors_yaml_file = platform_path + "/sensors.yaml"
-
-            with open(self.sensors_yaml_file, 'r') as f:
-                sensors_data = yaml.safe_load(f)
-                if 'voltage_sensors' in sensors_data:
-                    self._voltage_sensor_list = VoltageSensorFs.factory(VoltageSensorFs, sensors_data['voltage_sensors'])
-                if 'current_sensors' in sensors_data:
-                    self._current_sensor_list = CurrentSensorFs.factory(CurrentSensorFs, sensors_data['current_sensors'])
-        except:
-            # Sensors yaml file is not available
-            pass
 
         # List of SfpBase-derived objects representing all sfps
         # available on the chassis
