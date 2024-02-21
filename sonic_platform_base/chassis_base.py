@@ -54,7 +54,6 @@ class ChassisBase(device_base.DeviceBase):
         # List of ThermalBase-derived objects representing all thermals
         # available on the chassis
         self._thermal_list = []
-
         self._voltage_sensor_list = []
         self._current_sensor_list = []
 
