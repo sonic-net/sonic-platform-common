@@ -23,6 +23,7 @@ VDM_KEY_TO_DB_KEY_PREFIX_MAP = {
     'CD low granularity, long link [ps/nm]' : 'cdlong',
     'DGD [ps]' : 'dgd',
     'SOPMD [ps^2]' : 'sopmd',
+    'SOP ROC [krad/s]' : 'soproc',
     'PDL [dB]' : 'pdl',
     'OSNR [dB]' : 'osnr',
     'eSNR [dB]' : 'esnr',
@@ -73,7 +74,7 @@ class CCmisApi(CmisApi):
         try:
             dict_to_be_updated[new_key] = self.vdm_dict[vdm_dict_key][lane][vdm_subtype_index]
         except KeyError:
-            dict_to_be_updated[new_key] = 'NA'
+            dict_to_be_updated[new_key] = 'N/A'
             helper_logger.log_debug('key {} not present in VDM'.format(new_key))
             return False
 
@@ -442,7 +443,6 @@ class CCmisApi(CmisApi):
         for vdm_key, trans_dom_key in VDM_KEY_TO_DB_KEY_PREFIX_MAP.items():
             self._update_dict_if_vdm_key_exists(trans_dom, trans_dom_key, vdm_key, 0)
 
-        self._update_dict_if_vdm_key_exists(trans_dom, 'soproc', 'SOP ROC [krad/s]', 0)
         trans_dom['laser_config_freq'] = self.get_laser_config_freq()
         trans_dom['laser_curr_freq'] = self.get_current_laser_freq()
         trans_dom['tx_config_power'] = self.get_tx_config_power()

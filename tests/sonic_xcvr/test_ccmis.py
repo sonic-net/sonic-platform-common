@@ -282,6 +282,7 @@ class TestCCmis(object):
                     'lasertemphighalarm': 80, 'lasertemplowalarm': 10, 'lasertemphighwarning': 75, 'lasertemplowwarning': 20,
                     'prefecberhighalarm': 0.0125, 'prefecberlowalarm': 0, 'prefecberhighwarning': 0.01, 'prefecberlowwarning': 0,
                     'postfecberhighalarm': 1, 'postfecberlowalarm': 0, 'postfecberhighwarning': 1, 'postfecberlowwarning': 0,
+                    'soprochighalarm' : 65535, 'soproclowalarm' : 0, 'soprochighwarning' : 65535, 'soproclowwarning' : 0,
                 },
                 {
                     'Pre-FEC BER Average Media Input':{1:[0.001, 0.0125, 0, 0.01, 0, False, False, False, False]},
@@ -296,13 +297,13 @@ class TestCCmis(object):
                     'CD low granularity, long link [ps/nm]':{1:[1000, 2000, 0, 1800, 0, False, False, False, False]},
                     'DGD [ps]':{1:[5, 30, 0, 25, 0, False, False, False, False]},
                     'SOPMD [ps^2]':{1:[5, 100, 0, 80, 0, False, False, False, False]},
+                    'SOP ROC [krad/s]':{1: [0, 65535, 0, 65535, 0, False, False, False, False]},
                     'PDL [dB]':{1:[0.5, 3, 0, 2.5, 0, False, False, False, False]},
                     'OSNR [dB]':{1:[30, 100, 26, 80, 27, False, False, False, False]},
                     'eSNR [dB]':{1:[16, 100, 13, 80, 14, False, False, False, False]},
                     'CFO [MHz]':{1:[100, 5000, -5000, 4000, -4000, False, False, False, False]},
                     'Tx Power [dBm]':{1:[-10, 0, -18, -2, -16, False, False, False, False]},
                     'Rx Total Power [dBm]':{1:[-10, 3, -18, 0, -15, False, False, False, False]},
-                    'Rx Signal Power [dBm]':{1:[-10, 3, -18, 0, -15, False, False, False, False]}
                 }
             ],
             {
@@ -330,7 +331,8 @@ class TestCCmis(object):
                 'cfohighalarm': 5000, 'cfolowalarm': -5000, 'cfohighwarning': 4000, 'cfolowwarning': -4000,
                 'txcurrpowerhighalarm': 0, 'txcurrpowerlowalarm': -18, 'txcurrpowerhighwarning': -2, 'txcurrpowerlowwarning': -16,
                 'rxtotpowerhighalarm': 3, 'rxtotpowerlowalarm': -18, 'rxtotpowerhighwarning': 0, 'rxtotpowerlowwarning': -15,
-                'rxsigpowerhighalarm': 3, 'rxsigpowerlowalarm': -18, 'rxsigpowerhighwarning': 0, 'rxsigpowerlowwarning': -15
+                'rxsigpowerhighalarm': 'N/A', 'rxsigpowerlowalarm': 'N/A', 'rxsigpowerhighwarning': 'N/A', 'rxsigpowerlowwarning': 'N/A',
+                'soprochighalarm': 65535, 'soproclowalarm': 0, 'soprochighwarning': 65535, 'soproclowwarning': 0
             }
         )
     ])
@@ -418,6 +420,8 @@ class TestCCmis(object):
                     'prefecberhighwarning_flag': False, 'prefecberlowwarning_flag': False,
                     'postfecberhighalarm_flag': False, 'postfecberlowalarm_flag': False, 
                     'postfecberhighwarning_flag': False, 'postfecberlowwarning_flag': False,
+                    'soprochighalarm_flag' : False, 'soproclowalarm_flag' : False,
+                    'soprochighwarning_flag' : False, 'soproclowwarning_flag' : False,
                 },
                 False, False, ['TuningComplete'],
                 {
@@ -433,6 +437,7 @@ class TestCCmis(object):
                     'CD low granularity, long link [ps/nm]':{1:[1000, 2000, 0, 1800, 0, False, False, False, False]},
                     'DGD [ps]':{1:[5, 30, 0, 25, 0, False, False, False, False]},
                     'SOPMD [ps^2]':{1:[5, 100, 0, 80, 0, False, False, False, False]},
+                    'SOP ROC [krad/s]':{1: [0, 65535, 0, 65535, 0, False, False, False, False]},
                     'PDL [dB]':{1:[0.5, 3, 0, 2.5, 0, False, False, False, False]},
                     'OSNR [dB]':{1:[30, 100, 26, 80, 27, False, False, False, False]},
                     'eSNR [dB]':{1:[16, 100, 13, 80, 14, False, False, False, False]},
@@ -557,7 +562,8 @@ class TestCCmis(object):
                 'rxtotpowerhighwarning_flag': False, 'rxtotpowerlowwarning_flag': False,
                 'rxsigpowerhighalarm_flag': False, 'rxsigpowerlowalarm_flag': False, 
                 'rxsigpowerhighwarning_flag': False, 'rxsigpowerlowwarning_flag': False,
-                
+                'soprochighalarm_flag' : False, 'soproclowalarm_flag' : False,
+                'soprochighwarning_flag' : False, 'soproclowwarning_flag' : False
             }
         )
     ])
