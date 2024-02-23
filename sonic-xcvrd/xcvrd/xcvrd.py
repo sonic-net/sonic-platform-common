@@ -26,7 +26,8 @@ try:
     from swsscommon import swsscommon
 
     from .xcvrd_utilities import sfp_status_helper
-    from .xcvrd_utilities import port_mapping
+    from .xcvrd_utilities import port_event_helper
+    from .xcvrd_utilities.port_event_helper import PortChangeObserver
     from .xcvrd_utilities import media_settings_parser
     from .xcvrd_utilities import optics_si_parser
     
@@ -1206,7 +1207,7 @@ class CmisManagerTask(threading.Thread):
 
         # Make sure this daemon started after all port configured
         while not self.task_stopping_event.is_set():
-            (state, c) = sel.select(port_mapping.SELECT_TIMEOUT_MSECS)
+            (state, c) = sel.select(port_event_helper.SELECT_TIMEOUT_MSECS)
             if state == swsscommon.Select.TIMEOUT:
                 continue
             if state != swsscommon.Select.OBJECT:
@@ -1225,14 +1226,13 @@ class CmisManagerTask(threading.Thread):
             self.wait_for_port_config_done(namespace)
 
         # APPL_DB for CONFIG updates, and STATE_DB for insertion/removal
-        sel, asic_context = port_mapping.subscribe_port_update_event(self.namespaces, helper_logger)
+        port_change_observer = PortChangeObserver(self.namespaces, helper_logger,
+                                                  self.task_stopping_event,
+                                                  self.on_port_update_event)
+
         while not self.task_stopping_event.is_set():
             # Handle port change event from main thread
-            port_mapping.handle_port_update_event(sel,
-                                                  asic_context,
-                                                  self.task_stopping_event,
-                                                  helper_logger,
-                                                  self.on_port_update_event)
+            port_change_observer.handle_port_update_event()
 
             for lport, info in self.port_dict.items():
                 if self.task_stopping_event.is_set():
@@ -1587,7 +1587,7 @@ class DomInfoUpdateTask(threading.Thread):
         dom_th_info_cache = {}
         transceiver_status_cache = {}
         pm_info_cache = {}
-        sel, asic_context = port_mapping.subscribe_port_config_change(self.namespaces)
+        sel, asic_context = port_event_helper.subscribe_port_config_change(self.namespaces)
 
         # Start loop to update dom info in DB periodically
         while not self.task_stopping_event.wait(DOM_INFO_UPDATE_PERIOD_SECS):
@@ -1598,7 +1598,7 @@ class DomInfoUpdateTask(threading.Thread):
             pm_info_cache.clear()
 
             # Handle port change event from main thread
-            port_mapping.handle_port_config_change(sel, asic_context, self.task_stopping_event, self.port_mapping, helper_logger, self.on_port_config_change)
+            port_event_helper.handle_port_config_change(sel, asic_context, self.task_stopping_event, self.port_mapping, helper_logger, self.on_port_config_change)
             logical_port_list = self.port_mapping.logical_port_list
             for logical_port_name in logical_port_list:
                 # Get the asic to which this port belongs
@@ -1655,7 +1655,7 @@ class DomInfoUpdateTask(threading.Thread):
             raise self.exc
 
     def on_port_config_change(self, port_change_event):
-        if port_change_event.event_type == port_mapping.PortChangeEvent.PORT_REMOVE:
+        if port_change_event.event_type == port_event_helper.PortChangeEvent.PORT_REMOVE:
             self.on_remove_logical_port(port_change_event)
         self.port_mapping.handle_port_change_event(port_change_event)
 
@@ -1792,7 +1792,7 @@ class SfpStateUpdateTask(threading.Thread):
                     update_port_transceiver_status_table_sw(logical_port_name, xcvr_table_helper.get_status_tbl(asic_index), sfp_status_helper.SFP_STATUS_INSERTED)
 
     def init(self):
-        port_mapping_data = port_mapping.get_port_mapping(self.namespaces)
+        port_mapping_data = port_event_helper.get_port_mapping(self.namespaces)
 
         # Post all the current interface sfp/dom threshold info to STATE_DB
         self.retry_eeprom_set = self._post_port_sfp_info_and_dom_thr_to_db_once(port_mapping_data, self.xcvr_table_helper, self.main_thread_stop_event)
@@ -1879,9 +1879,9 @@ class SfpStateUpdateTask(threading.Thread):
         state = STATE_INIT
         self.init()
 
-        sel, asic_context = port_mapping.subscribe_port_config_change(self.namespaces)
+        sel, asic_context = port_event_helper.subscribe_port_config_change(self.namespaces)
         while not stopping_event.is_set():
-            port_mapping.handle_port_config_change(sel, asic_context, stopping_event, self.port_mapping, helper_logger, self.on_port_config_change)
+            port_event_helper.handle_port_config_change(sel, asic_context, stopping_event, self.port_mapping, helper_logger, self.on_port_config_change)
 
             # Retry those logical ports whose EEPROM reading failed or timeout when the SFP is inserted
             self.retry_eeprom_reading()
@@ -2096,10 +2096,10 @@ class SfpStateUpdateTask(threading.Thread):
             raise self.exc
 
     def on_port_config_change(self , port_change_event):
-        if port_change_event.event_type == port_mapping.PortChangeEvent.PORT_REMOVE:
+        if port_change_event.event_type == port_event_helper.PortChangeEvent.PORT_REMOVE:
             self.on_remove_logical_port(port_change_event)
             self.port_mapping.handle_port_change_event(port_change_event)
-        elif port_change_event.event_type == port_mapping.PortChangeEvent.PORT_ADD:
+        elif port_change_event.event_type == port_event_helper.PortChangeEvent.PORT_ADD:
             self.port_mapping.handle_port_change_event(port_change_event)
             self.on_add_logical_port(port_change_event)
 
@@ -2255,7 +2255,7 @@ class DaemonXcvrd(daemon_base.DaemonBase):
 
         # Make sure this daemon started after all port configured
         while not self.stop_event.is_set():
-            (state, c) = sel.select(port_mapping.SELECT_TIMEOUT_MSECS)
+            (state, c) = sel.select(port_event_helper.SELECT_TIMEOUT_MSECS)
             if state == swsscommon.Select.TIMEOUT:
                 continue
             if state != swsscommon.Select.OBJECT:
@@ -2319,14 +2319,14 @@ class DaemonXcvrd(daemon_base.DaemonBase):
             self.wait_for_port_config_done(namespace)
 
         self.log_notice("XCVRD INIT: After port config is done")
-        return port_mapping.get_port_mapping(self.namespaces)
+        return port_event_helper.get_port_mapping(self.namespaces)
 
     # Deinitialize daemon
     def deinit(self):
         self.log_info("Start daemon deinit...")
 
         # Delete all the information from DB and then exit
-        port_mapping_data = port_mapping.get_port_mapping(self.namespaces)
+        port_mapping_data = port_event_helper.get_port_mapping(self.namespaces)
         logical_port_list = port_mapping_data.logical_port_list
         for logical_port_name in logical_port_list:
             # Get the asic to which this port belongs
