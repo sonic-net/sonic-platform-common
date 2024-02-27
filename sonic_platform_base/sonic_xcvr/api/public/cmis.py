@@ -181,8 +181,6 @@ class CmisApi(XcvrApi):
         xcvr_info['cmis_rev'] = self.get_cmis_rev()
         xcvr_info['specification_compliance'] = self.get_module_media_type()
 
-        xcvr_info['active_firmware'], xcvr_info['inactive_firmware'] = self.get_transceiver_info_firmware_versions()
-
         # In normal case will get a valid value for each of the fields. If get a 'None' value
         # means there was a failure while reading the EEPROM, either because the EEPROM was
         # not ready yet or experincing some other issues. It shouldn't return a dict with a
@@ -194,15 +192,18 @@ class CmisApi(XcvrApi):
             return xcvr_info
 
     def get_transceiver_info_firmware_versions(self):
+        return_dict = {"active_firmware" : "N/A", "inactive_firmware" : "N/A"}
         result = self.get_module_fw_info()
         if result is None:
-            return ["N/A", "N/A"]
+            return return_dict
         try:
             ( _, _, _, _, _, _, _, _, ActiveFirmware, InactiveFirmware) = result['result']
         except (ValueError, TypeError):
-            return ["N/A", "N/A"]
-
-        return [ActiveFirmware, InactiveFirmware]
+            return return_dict
+        
+        return_dict["active_firmware"] = ActiveFirmware
+        return_dict["inactive_firmware"] = InactiveFirmware
+        return return_dict
 
     def get_transceiver_bulk_status(self):
         temp = self.get_module_temperature()
