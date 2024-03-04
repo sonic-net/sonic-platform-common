@@ -158,6 +158,8 @@ class TestEepromTlvinfo:
             assert exit_mock.called
 
     def test_eeprom_tlvinfo_update_eeprom_db(self):
+        # mock read file of Redis ACL
+        eeprom_tlvinfo.read_from_file = mock.MagicMock(return_value = None)
         # Test updating eeprom to DB by mocking redis hmset
         eeprom_class = eeprom_tlvinfo.TlvInfoDecoder(EEPROM_SYMLINK_FULL_PATH, 0, '', True)
         eeprom = eeprom_class.read_eeprom()
@@ -165,6 +167,8 @@ class TestEepromTlvinfo:
         assert(0 == eeprom_class.update_eeprom_db(eeprom))
 
     def test_eeprom_tlvinfo_read_eeprom_db(self):
+        # mock read file of Redis ACL
+        eeprom_tlvinfo.read_from_file = mock.MagicMock(return_value = None)
         # Test reading from DB by mocking redis hget
         eeprom_class = eeprom_tlvinfo.TlvInfoDecoder(EEPROM_SYMLINK_FULL_PATH, 0, '', True)
         eeprom_class.redis_client.hget = mock.MagicMock(return_value = b'1')
