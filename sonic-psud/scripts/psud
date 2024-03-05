@@ -125,15 +125,6 @@ def get_psu_key(psu_index):
     return PSU_INFO_KEY_TEMPLATE.format(psu_index)
 
 
-def psu_db_update(psu_tbl, psu_num):
-    for psu_index in range(1, psu_num + 1):
-        fvs = swsscommon.FieldValuePairs([(PSU_INFO_PRESENCE_FIELD,
-                                           'true' if _wrapper_get_psu_presence(psu_index) else 'false'),
-                                          (PSU_INFO_STATUS_FIELD,
-                                           'true' if _wrapper_get_psu_status(psu_index) else 'false')])
-        psu_tbl.set(get_psu_key(psu_index), fvs)
-
-
 # try get information from platform API and return a default value if we catch NotImplementedError
 def try_get(callback, default=None):
     """
@@ -443,7 +434,6 @@ class DaemonPsud(daemon_base.DaemonBase):
             return False
 
         self._update_psu_entity_info()
-        psu_db_update(self.psu_tbl, self.num_psus)
         self.update_psu_data()
         self._update_led_color()
 
@@ -606,6 +596,8 @@ class DaemonPsud(daemon_base.DaemonBase):
              (PSU_INFO_IN_CURRENT_FIELD, str(in_current)),
              (PSU_INFO_IN_VOLTAGE_FIELD, str(in_voltage)),
              (PSU_INFO_POWER_MAX_FIELD, str(max_power)),
+             (PSU_INFO_PRESENCE_FIELD, 'true' if _wrapper_get_psu_presence(index) else 'false'),
+             (PSU_INFO_STATUS_FIELD, 'true' if _wrapper_get_psu_status(index) else 'false'),
              ])
         self.psu_tbl.set(name, fvs)
 

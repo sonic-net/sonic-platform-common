@@ -162,6 +162,8 @@ class TestDaemonPsud(object):
              (psud.PSU_INFO_IN_VOLTAGE_FIELD, '220.25'),
              (psud.PSU_INFO_IN_CURRENT_FIELD, '0.72'),
              (psud.PSU_INFO_POWER_MAX_FIELD, 'N/A'),
+             (psud.PSU_INFO_PRESENCE_FIELD, 'true'),
+             (psud.PSU_INFO_STATUS_FIELD, 'true'),
              ])
         return expected_fvp
 
