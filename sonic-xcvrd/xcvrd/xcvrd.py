@@ -21,6 +21,7 @@ try:
     import traceback
     import ctypes
 
+    from natsort import natsorted
     from sonic_py_common import daemon_base, device_info, logger
     from sonic_py_common import multi_asic
     from swsscommon import swsscommon
@@ -521,7 +522,7 @@ def post_port_sfp_info_to_db(logical_port_name, port_mapping, table, transceiver
 # Update port sfp firmware info in db
 
 def post_port_sfp_firmware_info_to_db(logical_port_name, port_mapping, table,
-                             stop_event=threading.Event()):
+                             stop_event=threading.Event(), firmware_info_cache=None):
     for physical_port, physical_port_name in get_physical_port_name_dict(logical_port_name, port_mapping).items():
         if stop_event.is_set():
             break
@@ -530,8 +531,15 @@ def post_port_sfp_firmware_info_to_db(logical_port_name, port_mapping, table,
             continue
 
         try:
-            transceiver_firmware_info_dict = _wrapper_get_transceiver_firmware_info(physical_port)
-            if transceiver_firmware_info_dict is not None:
+            if firmware_info_cache is not None and physical_port in firmware_info_cache:
+                # If cache is enabled and firmware information is in cache, just read from cache, no need read from EEPROM
+                transceiver_firmware_info_dict = firmware_info_cache[physical_port]
+            else:
+                transceiver_firmware_info_dict = _wrapper_get_transceiver_firmware_info(physical_port)
+                if firmware_info_cache is not None:
+                    # If cache is enabled, put firmware information to cache
+                    firmware_info_cache[physical_port] = transceiver_firmware_info_dict
+            if transceiver_firmware_info_dict:
                 fvs = swsscommon.FieldValuePairs([(k, v) for k, v in transceiver_firmware_info_dict.items()])
                 table.set(physical_port_name, fvs)
             else:
@@ -1580,11 +1588,50 @@ class DomInfoUpdateTask(threading.Thread):
         self.port_mapping = copy.deepcopy(port_mapping)
         self.namespaces = namespaces
 
+    def get_dom_polling_from_config_db(self, lport):
+        """
+            Returns the value of dom_polling field from PORT table in CONFIG_DB
+            For non-breakout ports, this function will get dom_polling field from PORT table of lport (subport = 0)
+            For breakout ports, this function will get dom_polling field from PORT table of the first subport
+            of lport's correpsonding breakout group (subport = 1)
+
+            Returns:
+                'disabled' if dom_polling is set to 'disabled', otherwise 'enabled'
+        """
+        dom_polling = 'enabled'
+
+        pport_list = self.port_mapping.get_logical_to_physical(lport)
+        if not pport_list:
+            helper_logger.log_warning("Get dom disabled: Got unknown physical port list {} for lport {}".format(pport_list, lport))
+            return dom_polling
+        pport = pport_list[0]
+
+        logical_port_list = self.port_mapping.get_physical_to_logical(pport)
+        if logical_port_list is None:
+            helper_logger.log_warning("Get dom disabled: Got unknown FP port index {}".format(pport))
+            return dom_polling
+
+        # Sort the logical port list to make sure we always get the first subport
+        logical_port_list = natsorted(logical_port_list, key=lambda y: y.lower())
+        first_logical_port = logical_port_list[0]
+
+        asic_index = self.port_mapping.get_asic_id_for_logical_port(first_logical_port)
+        port_tbl = self.xcvr_table_helper.get_cfg_port_tbl(asic_index)
+
+        found, port_info = port_tbl.get(first_logical_port)
+        if found and 'dom_polling' in dict(port_info):
+            dom_polling = dict(port_info)['dom_polling']
+
+        return dom_polling
+
+    def is_port_dom_monitoring_disabled(self, logical_port_name):
+        return self.get_dom_polling_from_config_db(logical_port_name) == 'disabled'
+
     def task_worker(self):
         self.xcvr_table_helper = XcvrTableHelper(self.namespaces)
         helper_logger.log_info("Start DOM monitoring loop")
+        firmware_info_cache = {}
         dom_info_cache = {}
-        dom_th_info_cache = {}
         transceiver_status_cache = {}
         pm_info_cache = {}
         sel, asic_context = port_event_helper.subscribe_port_config_change(self.namespaces)
@@ -1592,8 +1639,8 @@ class DomInfoUpdateTask(threading.Thread):
         # Start loop to update dom info in DB periodically
         while not self.task_stopping_event.wait(DOM_INFO_UPDATE_PERIOD_SECS):
             # Clear the cache at the begin of the loop to make sure it will be clear each time
+            firmware_info_cache.clear()
             dom_info_cache.clear()
-            dom_th_info_cache.clear()
             transceiver_status_cache.clear()
             pm_info_cache.clear()
 
@@ -1601,6 +1648,9 @@ class DomInfoUpdateTask(threading.Thread):
             port_event_helper.handle_port_config_change(sel, asic_context, self.task_stopping_event, self.port_mapping, helper_logger, self.on_port_config_change)
             logical_port_list = self.port_mapping.logical_port_list
             for logical_port_name in logical_port_list:
+                if self.is_port_dom_monitoring_disabled(logical_port_name):
+                    continue
+
                 # Get the asic to which this port belongs
                 asic_index = self.port_mapping.get_asic_id_for_logical_port(logical_port_name)
                 if asic_index is None:
@@ -1608,6 +1658,12 @@ class DomInfoUpdateTask(threading.Thread):
                     continue
 
                 if not sfp_status_helper.detect_port_in_error_status(logical_port_name, self.xcvr_table_helper.get_status_tbl(asic_index)):
+                    try:
+                        post_port_sfp_firmware_info_to_db(logical_port_name, self.port_mapping, self.xcvr_table_helper.get_firmware_info_tbl(asic_index), self.task_stopping_event, firmware_info_cache=firmware_info_cache)
+                    except (KeyError, TypeError) as e:
+                        #continue to process next port since execption could be raised due to port reset, transceiver removal
+                        helper_logger.log_warning("Got exception {} while processing firmware info for port {}, ignored".format(repr(e), logical_port_name))
+                        continue
                     try:
                         post_port_dom_info_to_db(logical_port_name, self.port_mapping, self.xcvr_table_helper.get_dom_tbl(asic_index), self.task_stopping_event, dom_info_cache=dom_info_cache)
                     except (KeyError, TypeError) as e:
@@ -1665,16 +1721,16 @@ class DomInfoUpdateTask(threading.Thread):
         Args:
             port_change_event (object): port change event
         """
-        # To avoid race condition, remove the entry TRANSCEIVER_DOM_SENSOR, TRANSCEIVER_PM and HW section of TRANSCEIVER_STATUS table.
-        # This thread only updates TRANSCEIVER_DOM_SENSOR, TRANSCEIVER_PM and HW section of TRANSCEIVER_STATUS table,
-        # so we don't have to remove entries from TRANSCEIVER_INFO, TRANSCEIVER_FIRMWARE_INFO and TRANSCEIVER_DOM_THRESHOLD
+        # To avoid race condition, remove the entry TRANSCEIVER_FIRMWARE_INFO, TRANSCEIVER_DOM_SENSOR, TRANSCEIVER_PM and HW section of TRANSCEIVER_STATUS table.
+        # This thread only updates TRANSCEIVER_FIRMWARE_INFO, TRANSCEIVER_DOM_SENSOR, TRANSCEIVER_PM and HW section of TRANSCEIVER_STATUS table,
+        # so we don't have to remove entries from TRANSCEIVER_INFO and TRANSCEIVER_DOM_THRESHOLD
         del_port_sfp_dom_info_from_db(port_change_event.port_name,
                                       self.port_mapping,
                                       None,
                                       self.xcvr_table_helper.get_dom_tbl(port_change_event.asic_id),
                                       None,
                                       self.xcvr_table_helper.get_pm_tbl(port_change_event.asic_id),
-                                      None)
+                                      self.xcvr_table_helper.get_firmware_info_tbl(port_change_event.asic_id))
         delete_port_from_status_table_hw(port_change_event.port_name,
                                       self.port_mapping,
                                       self.xcvr_table_helper.get_status_tbl(port_change_event.asic_id))
@@ -1752,7 +1808,6 @@ class SfpStateUpdateTask(threading.Thread):
             rc = post_port_sfp_info_to_db(logical_port_name, port_mapping, xcvr_table_helper.get_intf_tbl(asic_index), transceiver_dict, stop_event)
             if rc != SFP_EEPROM_NOT_READY:
                 post_port_dom_threshold_info_to_db(logical_port_name, port_mapping, xcvr_table_helper.get_dom_threshold_tbl(asic_index), stop_event)
-                post_port_sfp_firmware_info_to_db(logical_port_name, port_mapping, xcvr_table_helper.get_firmware_info_tbl(asic_index), stop_event)
 
                 # Do not notify media settings during warm reboot to avoid dataplane traffic impact
                 if is_warm_start == False:
@@ -1978,7 +2033,6 @@ class SfpStateUpdateTask(threading.Thread):
 
                                 if rc != SFP_EEPROM_NOT_READY:
                                     post_port_dom_threshold_info_to_db(logical_port, self.port_mapping, self.xcvr_table_helper.get_dom_threshold_tbl(asic_index))
-                                    post_port_sfp_firmware_info_to_db(logical_port, self.port_mapping, self.xcvr_table_helper.get_firmware_info_tbl(asic_index))
                                     media_settings_parser.notify_media_setting(logical_port, transceiver_dict, self.xcvr_table_helper.get_app_port_tbl(asic_index), self.xcvr_table_helper.get_cfg_port_tbl(asic_index), self.port_mapping)
                                     transceiver_dict.clear()
                             elif value == sfp_status_helper.SFP_STATUS_REMOVED:
@@ -2147,7 +2201,6 @@ class SfpStateUpdateTask(threading.Thread):
         status_tbl = self.xcvr_table_helper.get_status_tbl(port_change_event.asic_id)
         int_tbl = self.xcvr_table_helper.get_intf_tbl(port_change_event.asic_id)
         dom_threshold_tbl = self.xcvr_table_helper.get_dom_threshold_tbl(port_change_event.asic_id)
-        firmware_info_tbl = self.xcvr_table_helper.get_firmware_info_tbl(port_change_event.asic_id)
 
         error_description = 'N/A'
         status = None
@@ -2182,7 +2235,6 @@ class SfpStateUpdateTask(threading.Thread):
                 self.retry_eeprom_set.add(port_change_event.port_name)
             else:
                 post_port_dom_threshold_info_to_db(port_change_event.port_name, self.port_mapping, dom_threshold_tbl)
-                post_port_sfp_firmware_info_to_db(port_change_event.port_name, self.port_mapping, firmware_info_tbl)
                 media_settings_parser.notify_media_setting(port_change_event.port_name, transceiver_dict, self.xcvr_table_helper.get_app_port_tbl(port_change_event.asic_id), self.xcvr_table_helper.get_cfg_port_tbl(port_change_event.asic_id), self.port_mapping)
         else:
             status = sfp_status_helper.SFP_STATUS_REMOVED if not status else status
@@ -2209,7 +2261,6 @@ class SfpStateUpdateTask(threading.Thread):
             rc = post_port_sfp_info_to_db(logical_port, self.port_mapping, self.xcvr_table_helper.get_intf_tbl(asic_index), transceiver_dict)
             if rc != SFP_EEPROM_NOT_READY:
                 post_port_dom_threshold_info_to_db(logical_port, self.port_mapping, self.xcvr_table_helper.get_dom_threshold_tbl(asic_index))
-                post_port_sfp_firmware_info_to_db(logical_port, self.port_mapping, self.xcvr_table_helper.get_firmware_info_tbl(asic_index))
                 media_settings_parser.notify_media_setting(logical_port, transceiver_dict, self.xcvr_table_helper.get_app_port_tbl(asic_index), self.xcvr_table_helper.get_cfg_port_tbl(asic_index), self.port_mapping)
                 transceiver_dict.clear()
                 retry_success_set.add(logical_port)

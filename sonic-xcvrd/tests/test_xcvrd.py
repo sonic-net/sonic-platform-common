@@ -1461,6 +1461,39 @@ class TestXcvrdScript(object):
         assert mock_xcvr_api.tx_disable_channel.call_count == 2
         assert task.port_dict['Ethernet0']['cmis_state'] == 'DP_ACTIVATION'
 
+    @pytest.mark.parametrize("lport, expected_dom_polling", [
+        ('Ethernet0', 'disabled'),
+        ('Ethernet4', 'disabled'),
+        ('Ethernet8', 'disabled'),
+        ('Ethernet12', 'disabled'),
+        ('Ethernet16', 'enabled'),
+        ('Ethernet20', 'enabled')
+    ])
+    def test_DomInfoUpdateTask_get_dom_polling_from_config_db(self, lport, expected_dom_polling):
+        # Define the mock_get function inside the test function
+        def mock_get(key):
+            if key in ['Ethernet4', 'Ethernet8', 'Ethernet12', 'Ethernet16']:
+                return (True, [('dom_polling', 'enabled')])
+            elif key == 'Ethernet0':
+                return (True, [('dom_polling', 'disabled')])
+            else:
+                return None
+
+        port_mapping = PortMapping()
+        stop_event = threading.Event()
+        task = DomInfoUpdateTask(DEFAULT_NAMESPACE, port_mapping, stop_event)
+        task.xcvr_table_helper = XcvrTableHelper(DEFAULT_NAMESPACE)
+        task.port_mapping.handle_port_change_event(PortChangeEvent('Ethernet4', 1, 0, PortChangeEvent.PORT_ADD))
+        task.port_mapping.handle_port_change_event(PortChangeEvent('Ethernet12', 1, 0, PortChangeEvent.PORT_ADD))
+        task.port_mapping.handle_port_change_event(PortChangeEvent('Ethernet8', 1, 0, PortChangeEvent.PORT_ADD))
+        task.port_mapping.handle_port_change_event(PortChangeEvent('Ethernet0', 1, 0, PortChangeEvent.PORT_ADD))
+        task.port_mapping.handle_port_change_event(PortChangeEvent('Ethernet16', 2, 0, PortChangeEvent.PORT_ADD))
+        cfg_port_tbl = MagicMock()
+        cfg_port_tbl.get = MagicMock(side_effect=mock_get)
+        task.xcvr_table_helper.get_cfg_port_tbl = MagicMock(return_value=cfg_port_tbl)
+
+        assert task.get_dom_polling_from_config_db(lport) == expected_dom_polling
+
     @patch('xcvrd.xcvrd.XcvrTableHelper', MagicMock())
     @patch('xcvrd.xcvrd.delete_port_from_status_table_hw')
     def test_DomInfoUpdateTask_handle_port_change_event(self, mock_del_status_tbl_hw):
@@ -1496,6 +1529,7 @@ class TestXcvrdScript(object):
 
     @patch('xcvrd.xcvrd.XcvrTableHelper', MagicMock())
     @patch('xcvrd.xcvrd_utilities.sfp_status_helper.detect_port_in_error_status')
+    @patch('xcvrd.xcvrd.post_port_sfp_firmware_info_to_db')
     @patch('xcvrd.xcvrd.post_port_dom_info_to_db')
     @patch('swsscommon.swsscommon.Select.addSelectable', MagicMock())
     @patch('swsscommon.swsscommon.SubscriberStateTable')
@@ -1504,10 +1538,10 @@ class TestXcvrdScript(object):
     @patch('xcvrd.xcvrd.post_port_pm_info_to_db')
     def test_DomInfoUpdateTask_task_worker(self, mock_post_pm_info, mock_update_status_hw,
                                            mock_select, mock_sub_table,
-                                           mock_post_dom_info, mock_detect_error):
+                                           mock_post_dom_info, mock_post_firmware_info, mock_detect_error):
         mock_selectable = MagicMock()
         mock_selectable.pop = MagicMock(
-            side_effect=[('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), (None, None, None), (None, None, None)])
+            side_effect=[('Ethernet0', swsscommon.SET_COMMAND, (('index', '1'), )), (None, None, None), (None, None, None), (None, None, None)])
         mock_select.return_value = (swsscommon.Select.OBJECT, mock_selectable)
         mock_sub_table.return_value = mock_selectable
 
@@ -1516,18 +1550,22 @@ class TestXcvrdScript(object):
         task = DomInfoUpdateTask(DEFAULT_NAMESPACE, port_mapping, stop_event)
         task.xcvr_table_helper = XcvrTableHelper(DEFAULT_NAMESPACE)
         task.task_stopping_event.wait = MagicMock(side_effect=[False, True])
+        task.get_dom_polling_from_config_db = MagicMock(return_value='enabled')
         mock_detect_error.return_value = True
         task.task_worker()
         assert task.port_mapping.logical_port_list.count('Ethernet0')
         assert task.port_mapping.get_asic_id_for_logical_port('Ethernet0') == 0
         assert task.port_mapping.get_physical_to_logical(1) == ['Ethernet0']
         assert task.port_mapping.get_logical_to_physical('Ethernet0') == [1]
+        assert mock_post_firmware_info.call_count == 0
         assert mock_post_dom_info.call_count == 0
         assert mock_update_status_hw.call_count == 0
         assert mock_post_pm_info.call_count == 0
         mock_detect_error.return_value = False
-        task.task_stopping_event.wait = MagicMock(side_effect=[False, True])
+        task.task_stopping_event.wait = MagicMock(side_effect=[False, False, True])
+        task.get_dom_polling_from_config_db = MagicMock(side_effect=('disabled', 'enabled'))
         task.task_worker()
+        assert mock_post_firmware_info.call_count == 1
         assert mock_post_dom_info.call_count == 1
         assert mock_update_status_hw.call_count == 1
         assert mock_post_pm_info.call_count == 1
@@ -1727,7 +1765,7 @@ class TestXcvrdScript(object):
         assert mock_update_status.call_count == 1
         assert mock_post_sfp_info.call_count == 1
         assert mock_post_dom_th.call_count == 1
-        assert mock_post_firmware_info.call_count == 1
+        assert mock_post_firmware_info.call_count == 0
         assert mock_update_media_setting.call_count == 1
 
         stop_event.is_set = MagicMock(side_effect=[False, True])
