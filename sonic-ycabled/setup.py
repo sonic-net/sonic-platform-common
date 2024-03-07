@@ -1,6 +1,8 @@
 from setuptools import setup, find_packages
-from distutils.command.build_ext import build_ext as _build_ext
+from setuptools.command.build_py import build_py as _build_py
 import distutils.command
+import os.path
+import sys
 
 class GrpcTool(distutils.cmd.Command):
     def initialize_options(self):
@@ -20,10 +22,26 @@ class GrpcTool(distutils.cmd.Command):
             'proto/proto_out/linkmgr_grpc_driver.proto'
         ])
 
-class BuildExtCommand (_build_ext, object):
-    def run(self):
-        self.run_command('GrpcTool')
-        super(BuildExtCommand, self).run()
+class BuildPyCommand(_build_py, object):
+
+    # When 'python3 -m build -n' is executed, by default 'sdist' command
+    # is executed and it copies .py and other default files to separate
+    # dir and generates a sdist of it, from which a wheel is created.
+    # Hence, generate the required python files in initialization of
+    # 'build_py' itself to make it available for other commands.
+    def initialize_options(self):
+        # .proto files are not copied by 'sdist' command.
+        # So, execute GrpcTool only if the proto dir is present.
+        if os.path.exists('proto'):
+            self.run_command('GrpcTool')
+
+        proto_py_files = ['proto_out/linkmgr_grpc_driver_pb2.py', 'proto_out/linkmgr_grpc_driver_pb2_grpc.py']
+        for py_file in proto_py_files:
+            if not os.path.exists(py_file):
+                print('Required file not present: {0}'.format(py_file))
+                sys.exit(1)
+
+        super(BuildPyCommand, self).initialize_options()
 
 setup(
     name='sonic-ycabled',
@@ -41,8 +59,10 @@ setup(
             'ycabled = ycable.ycable:main',
         ]
     },
-    cmdclass={'build_ext': BuildExtCommand,
-              'GrpcTool': GrpcTool},
+    cmdclass={
+        'build_py': BuildPyCommand,
+        'GrpcTool': GrpcTool
+    },
     install_requires=[
         # NOTE: This package also requires swsscommon, but it is not currently installed as a wheel
         'enum34; python_version < "3.4"',
