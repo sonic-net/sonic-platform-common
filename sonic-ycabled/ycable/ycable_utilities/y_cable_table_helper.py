@@ -10,7 +10,7 @@ from swsscommon import swsscommon
 
 MUX_CABLE_STATIC_INFO_TABLE = "MUX_CABLE_STATIC_INFO"
 MUX_CABLE_INFO_TABLE = "MUX_CABLE_INFO"
-TRANSCEIVER_STATUS_TABLE = 'TRANSCEIVER_STATUS'
+TRANSCEIVER_INFO_TABLE = 'TRANSCEIVER_INFO'
 
 class YcableInfoUpdateTableHelper(object):
     def __init__(self):
@@ -29,7 +29,7 @@ class YcableInfoUpdateTableHelper(object):
             self.state_db[asic_id] = daemon_base.db_connect("STATE_DB", namespace)
             self.config_db[asic_id] = daemon_base.db_connect("CONFIG_DB", namespace)
             self.port_tbl[asic_id] = swsscommon.Table(self.config_db[asic_id], "MUX_CABLE")
-            self.status_tbl[asic_id] = swsscommon.Table(self.state_db[asic_id], TRANSCEIVER_STATUS_TABLE)
+            self.status_tbl[asic_id] = swsscommon.Table(self.state_db[asic_id], TRANSCEIVER_INFO_TABLE)
             self.y_cable_tbl[asic_id] = swsscommon.Table(
                 self.state_db[asic_id], swsscommon.STATE_HW_MUX_CABLE_TABLE_NAME)
             self.mux_tbl[asic_id] = swsscommon.Table(
@@ -80,7 +80,7 @@ class YcableStateUpdateTableHelper(object):
             self.state_db[asic_id] = daemon_base.db_connect("STATE_DB", namespace)
             self.appl_db[asic_id] = daemon_base.db_connect("APPL_DB", namespace)
             self.sub_status_tbl[asic_id] = swsscommon.SubscriberStateTable(
-                self.state_db[asic_id], TRANSCEIVER_STATUS_TABLE)
+                self.state_db[asic_id], TRANSCEIVER_INFO_TABLE)
             self.config_db[asic_id] = daemon_base.db_connect("CONFIG_DB", namespace)
             self.port_tbl[asic_id] = swsscommon.Table(self.config_db[asic_id], "MUX_CABLE")
             self.port_table_keys[asic_id] = self.port_tbl[asic_id].getKeys()
@@ -497,7 +497,7 @@ class YcableAsyncNotificationTableHelper(object):
             self.appl_db[asic_id] = daemon_base.db_connect("APPL_DB", namespace)
             self.config_db[asic_id] = daemon_base.db_connect("CONFIG_DB", namespace)
             self.port_tbl[asic_id] = swsscommon.Table(self.config_db[asic_id], "MUX_CABLE")
-            self.status_tbl[asic_id] = swsscommon.Table(self.state_db[asic_id], TRANSCEIVER_STATUS_TABLE)
+            self.status_tbl[asic_id] = swsscommon.Table(self.state_db[asic_id], TRANSCEIVER_INFO_TABLE)
             self.y_cable_tbl[asic_id] = swsscommon.Table(
                 self.state_db[asic_id], swsscommon.STATE_HW_MUX_CABLE_TABLE_NAME)
             self.mux_tbl[asic_id] = swsscommon.Table(

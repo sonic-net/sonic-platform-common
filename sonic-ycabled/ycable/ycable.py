@@ -56,6 +56,9 @@ PORT_CONFIG_LOAD_ERROR = 2
 NOT_IMPLEMENTED_ERROR = 3
 SFP_SYSTEM_ERROR = 4
 
+SFP_STATUS_REMOVED = "0"
+SFP_STATUS_INSERTED = "1"
+
 # Global platform specific sfputil class instance
 platform_sfputil = None
 # Global chassis object based on new platform api
@@ -94,17 +97,20 @@ def detect_port_in_error_status(logical_port_name, status_tbl):
     rec, fvp = status_tbl.get(logical_port_name)
     if rec:
         status_dict = dict(fvp)
-        if status_dict['status'] in errors_block_eeprom_reading:
+        if status_dict.get('status', None) in errors_block_eeprom_reading:
             return True
         else:
             return False
     else:
         return False
 
-def handle_state_update_task(port, fvp_dict, y_cable_presence, port_tbl, port_tbl_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, fwd_state_response_tbl, state_db, stopping_event):
+def handle_state_update_task(op, port, fvp_dict, y_cable_presence, port_tbl, port_tbl_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, fwd_state_response_tbl, state_db, stopping_event):
 
     port_dict = {}
-    port_dict[port] = fvp_dict.get('status', None)
+    if op == swsscommon.SET_COMMAND:
+        port_dict[port] = SFP_STATUS_INSERTED
+    elif op == swsscommon.DEL_COMMAND:
+        port_dict[port] = SFP_STATUS_REMOVED
 
     y_cable_helper.change_ports_status_for_y_cable_change_event(
         port_dict, y_cable_presence, port_tbl, port_tbl_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, fwd_state_response_tbl, state_db, stopping_event)
@@ -143,9 +149,8 @@ class YcableInfoUpdateTask(threading.Thread):
                     logger.log_warning("Got invalid asic index for {}, ignored".format(logical_port_name))
                     continue
 
-                if not detect_port_in_error_status(logical_port_name, self.table_helper.get_status_tbl()[asic_index]):
-                    if y_cable_presence[0] is True:
-                        y_cable_helper.check_identifier_presence_and_update_mux_info_entry(self.table_helper.get_state_db(), self.table_helper.get_mux_tbl(), asic_index, logical_port_name, self.table_helper.get_y_cable_tbl(), self.table_helper.get_port_tbl())
+                if y_cable_presence[0] is True:
+                    y_cable_helper.check_identifier_presence_and_update_mux_info_entry(self.table_helper.get_state_db(), self.table_helper.get_mux_tbl(), asic_index, logical_port_name, self.table_helper.get_y_cable_tbl(), self.table_helper.get_port_tbl())
 
         helper_logger.log_info("Stop DOM monitoring loop")
 
@@ -230,7 +235,7 @@ class YcableStateUpdateTask(threading.Thread):
                     continue
 
                 # Check if all tables are created in table_helper
-                handle_state_update_task(port, fvp_dict, y_cable_presence, self.table_helper.get_port_tbl(), self.table_helper.port_table_keys, self.table_helper.get_loopback_tbl(), self.table_helper.loopback_keys, self.table_helper.get_hw_mux_cable_tbl(), self.table_helper.get_hw_mux_cable_tbl_peer(), self.table_helper.get_y_cable_tbl(), self.table_helper.get_static_tbl(), self.table_helper.get_mux_tbl(), self.table_helper.get_grpc_config_tbl(), self.table_helper.get_fwd_state_response_tbl(), self.table_helper.state_db, stopping_event)
+                handle_state_update_task(op, port, fvp_dict, y_cable_presence, self.table_helper.get_port_tbl(), self.table_helper.port_table_keys, self.table_helper.get_loopback_tbl(), self.table_helper.loopback_keys, self.table_helper.get_hw_mux_cable_tbl(), self.table_helper.get_hw_mux_cable_tbl_peer(), self.table_helper.get_y_cable_tbl(), self.table_helper.get_static_tbl(), self.table_helper.get_mux_tbl(), self.table_helper.get_grpc_config_tbl(), self.table_helper.get_fwd_state_response_tbl(), self.table_helper.state_db, stopping_event)
 
     def run(self):
         if self.task_stopping_event.is_set():
