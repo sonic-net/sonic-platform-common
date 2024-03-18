@@ -250,13 +250,27 @@ class Sff8024(XcvrCodes):
         64: 'FOIC4.8 (ITU-T G.709.1 G.Sup58)',
         65: 'CAUI-4 C2M (Annex 83E) without FEC',
         66: 'CAUI-4 C2M (Annex 83E) with RS(528,514) FEC',
+        67: '50GBASE-CR2 (Ethernet Technology Consortium) with RS(528,514) (Clause 91) FEC',
+        68: '50GBASE-CR2 (Ethernet Technology Consortium) with BASE-R (Clause 74), Fire code FEC',
+        69: '50GBASE-CR2 (Ethernet Technology Consortium) with no FEC',
+        70: '100GBASE-CR1 (Clause 162)',
+        71: '200GBASE-CR2 (Clause 162)',
+        72: '400GBASE-CR4 (Clause 162)',
+        73: '800GBASE-CR8 (placeholder)',
+        74: '128GFC (FC-PI-8)',
         75: '100GAUI-1-S C2M (Annex 120G)',
         76: '100GAUI-1-L C2M (Annex 120G)',
+        77: '200GAUI-2-S C2M (Annex 120G)',
+        78: '200GAUI-2-L C2M (Annex 120G)',
         79: '400GAUI-4-S C2M (Annex 120G)',
         80: '400GAUI-4-L C2M (Annex 120G)',
         81: '800G S C2M (placeholder)',
-        82: '800G L C2M (placeholder)'
+        82: '800G L C2M (placeholder)',
+       255: 'End'
     }
+
+    for i in range(192,255):
+        HOST_ELECTRICAL_INTERFACE[i] = 'Vendor specific: {}'.format(i)
 
     NM_850_MEDIA_INTERFACE = {
         0: 'Undefined',
@@ -278,15 +292,23 @@ class Sff8024(XcvrCodes):
         16: '400GBASE-SR8 (Clause 138)',
         17: '400G-SR4 (Placeholder)',
         18: '800G-SR8 (Placeholder)',
-        26: '400GBASE-SR4.2 (Clause 150) (400GE BiDi)',
         19: '8GFC-MM (FC-PI-4)',
         20: '10GFC-MM (10GFC)',
         21: '16GFC-MM (FC-PI-5)',
         22: '32GFC-MM (FC-PI-6)',
         23: '64GFC-MM (FC-PI 7)',
         24: '128GFC-MM4 (FC-PI-6P)',
-        25: '256GFC-MM4 (FC-PI-7P)'
+        25: '256GFC-MM4 (FC-PI-7P)',
+        26: '400GBASE-SR4.2 (Clause 150) (400GE BiDi)',
+        27: '200GBASE-SR2 (Clause 167)',
+        28: '128GFC-MM (FC-PI-8)',
+        29: '100GBASE-VR (Clause 167)',
+        30: '200GBASE-VR2 (Clause 167)',
+        31: '400GBASE-VR4 (Clause 167)'
     }
+
+    for i in range(192,256):
+        NM_850_MEDIA_INTERFACE[i] = 'Vendor specific: {}'.format(i)
 
     SM_MEDIA_INTERFACE = {
         0: 'Undefined',
@@ -337,6 +359,7 @@ class Sff8024(XcvrCodes):
         49: '4I1-4D1F (G.959.1)',
         50: '8R1-4D1F (G.959.1)',
         51: '8I1-4D1F (G.959.1)',
+        52: '100G CWDM4-OCP',
         56: '10G-SR',
         57: '10G-LR',
         58: '25G-SR',
@@ -345,17 +368,37 @@ class Sff8024(XcvrCodes):
         61: '25G-LR-BiDi',
         62: '400ZR, DWDM, amplified',
         63: '400ZR, Single Wavelength, Unamplified',
+        64: '50GBASE-ER (Clause 139)',
+        65: '200GBASE-ER4 (Clause 122)',
+        66: '400GBASE-ER8 (Clause 122)',
+        67: '400GBASE-LR4-6 (Clause 151)',
+        68: '100GBASE-ZR (Clause 154)',
+        69: '128GFC-SM (FC-PI-8)',
         70: 'ZR400-OFEC-16QAM',
         71: 'ZR300-OFEC-8QAM',
         72: 'ZR200-OFEC-QPSK',
-        73: 'ZR100-OFEC-QPSK'
+        73: 'ZR100-OFEC-QPSK',
+        74: '100G-LR1-20 MSA Spec',
+        75: '100G-ER1-30 MSA Spec',
+        76: '100G-ER1-40 MSA Spec',
+        77: '400GBASE-ZR (Clause 156)',
+        78: '10GBASE-BR (Clause 158)',
+        79: '25GBASE-BR (Clause 159)',
+        80: '50GBASE-BR (Clause 160)'
     }
+
+    for i in range(192,256):
+        SM_MEDIA_INTERFACE[i] = 'Vendor specific: {}'.format(i)
 
     PASSIVE_COPPER_MEDIA_INTERFACE = {
         0: 'Undefined',
         1: 'Copper cable',
-        2: 'Passive Loopback module'
+        2: 'Passive Loopback module',
+      191: 'Passive Loopback module'
     }
+
+    for i in range(192,256):
+        PASSIVE_COPPER_MEDIA_INTERFACE[i] = 'Vendor specific: {}'.format(i)
 
     ACTIVE_CABLE_MEDIA_INTERFACE = {
         0: 'Undefined',
@@ -366,12 +409,21 @@ class Sff8024(XcvrCodes):
         191: 'Active Loopback module'
     }
 
+    for i in range(192,256):
+        ACTIVE_CABLE_MEDIA_INTERFACE[i] = 'Vendor specific: {}'.format(i)
+
     BASE_T_MEDIA_INTERFACE = {
         0: 'Undefined',
         1: '1000BASE-T (Clause 40)',
         2: '2.5GBASE-T (Clause 126)',
         3: '5GBASE-T (Clause 126)',
-        4: '10GBASE-T (Clause 55)'
+        4: '10GBASE-T (Clause 55)',
+        5: '25GBASE-T (Clause 113)',
+        6: '40GBASE-T (Clause 113)',
+        7: '50GBASE-T (Placeholder)'
     }
+
+    for i in range(192,256):
+        BASE_T_MEDIA_INTERFACE[i] = 'Vendor specific: {}'.format(i)
 
     # TODO: Add other codes
