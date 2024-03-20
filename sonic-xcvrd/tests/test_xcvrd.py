@@ -182,7 +182,8 @@ class TestXcvrdThreadException(object):
     def test_DomInfoUpdateTask_task_run_with_exception(self):
         port_mapping = PortMapping()
         stop_event = threading.Event()
-        dom_info_update = DomInfoUpdateTask(DEFAULT_NAMESPACE, port_mapping, stop_event)
+        mock_cmis_manager = MagicMock()
+        dom_info_update = DomInfoUpdateTask(DEFAULT_NAMESPACE, port_mapping, stop_event, mock_cmis_manager)
         exception_received = None
         trace = None
         try:
@@ -355,6 +356,16 @@ class TestXcvrdScript(object):
         pm_tbl = Table("STATE_DB", TRANSCEIVER_PM_TABLE)
         firmware_info_tbl = Table("STATE_DB", TRANSCEIVER_FIRMWARE_INFO_TABLE)
         del_port_sfp_dom_info_from_db(logical_port_name, port_mapping, init_tbl, dom_tbl, dom_threshold_tbl, pm_tbl, firmware_info_tbl)
+
+    @pytest.mark.parametrize("mock_found, mock_status_dict, expected_cmis_state", [
+        (True, {'cmis_state': CMIS_STATE_INSERTED}, CMIS_STATE_INSERTED),
+        (False, {}, CMIS_STATE_UNKNOWN),
+        (True, {'other_key': 'some_value'}, CMIS_STATE_UNKNOWN)
+    ])
+    def test_get_cmis_state_from_state_db(self, mock_found, mock_status_dict, expected_cmis_state):
+        status_tbl = MagicMock()
+        status_tbl.get.return_value = (mock_found, mock_status_dict)
+        assert get_cmis_state_from_state_db("Ethernet0", status_tbl) == expected_cmis_state
 
     @patch('xcvrd.xcvrd.get_physical_port_name_dict', MagicMock(return_value={0: 'Ethernet0'}))
     @patch('xcvrd.xcvrd._wrapper_get_presence', MagicMock(return_value=True))
@@ -1308,6 +1319,22 @@ class TestXcvrdScript(object):
         assert mock_xcvr_api.tx_disable_channel.call_count == 2
         mock_sfp.get_presence = MagicMock(return_value=True)
 
+    def test_CmisManagerTask_update_port_transceiver_status_table_sw_cmis_state(self):
+        port_mapping = PortMapping()
+        stop_event = threading.Event()
+        task = CmisManagerTask(DEFAULT_NAMESPACE, port_mapping, stop_event)
+        port_change_event = PortChangeEvent('Ethernet0', 1, 0, PortChangeEvent.PORT_SET)
+        task.on_port_update_event(port_change_event)
+
+        task.xcvr_table_helper.get_status_tbl = MagicMock(return_value=None)
+        task.update_port_transceiver_status_table_sw_cmis_state("Ethernet0", CMIS_STATE_INSERTED)
+
+        mock_get_status_tbl = MagicMock()
+        mock_get_status_tbl.set = MagicMock()
+        task.xcvr_table_helper.get_status_tbl.return_value = mock_get_status_tbl
+        task.update_port_transceiver_status_table_sw_cmis_state("Ethernet0", CMIS_STATE_INSERTED)
+        assert mock_get_status_tbl.set.call_count == 1
+
     @patch('xcvrd.xcvrd._wrapper_get_sfp_type', MagicMock(return_value='QSFP_DD'))
     def test_CmisManagerTask_handle_port_change_event(self):
         port_mapping = PortMapping()
@@ -1585,12 +1612,14 @@ class TestXcvrdScript(object):
         assert int_tbl.getKeys() == []
 
 
+    @patch('xcvrd.xcvrd.XcvrTableHelper.get_status_tbl')
     @patch('xcvrd.xcvrd.platform_chassis')
     @patch('xcvrd.xcvrd.PortChangeObserver', MagicMock(handle_port_update_event=MagicMock()))
     @patch('xcvrd.xcvrd._wrapper_get_sfp_type', MagicMock(return_value='QSFP_DD'))
     @patch('xcvrd.xcvrd.CmisManagerTask.wait_for_port_config_done', MagicMock())
     @patch('xcvrd.xcvrd.is_cmis_api', MagicMock(return_value=True))
-    def test_CmisManagerTask_task_worker(self, mock_chassis):
+    def test_CmisManagerTask_task_worker(self, mock_chassis, mock_get_status_tbl):
+        mock_get_status_tbl = Table("STATE_DB", TRANSCEIVER_STATUS_TABLE)
         mock_xcvr_api = MagicMock()
         mock_xcvr_api.set_datapath_deinit = MagicMock(return_value=True)
         mock_xcvr_api.set_datapath_init = MagicMock(return_value=True)
@@ -1687,7 +1716,13 @@ class TestXcvrdScript(object):
         port_mapping = PortMapping()
         stop_event = threading.Event()
         task = CmisManagerTask(DEFAULT_NAMESPACE, port_mapping, stop_event)
+        task.port_mapping.logical_port_list = ['Ethernet0']
+        task.xcvr_table_helper.get_status_tbl.return_value = mock_get_status_tbl
+        task.task_stopping_event.is_set = MagicMock(side_effect=[False, False, True])
+        task.task_worker()
+        assert get_cmis_state_from_state_db('Ethernet0', task.xcvr_table_helper.get_status_tbl(task.port_mapping.get_asic_id_for_logical_port('Ethernet0'))) == CMIS_STATE_UNKNOWN
 
+        task.port_mapping.logical_port_list = MagicMock()
         port_change_event = PortChangeEvent('PortConfigDone', -1, 0, PortChangeEvent.PORT_SET)
         task.on_port_update_event(port_change_event)
         assert task.isPortConfigDone
@@ -1696,6 +1731,7 @@ class TestXcvrdScript(object):
                                             {'speed':'400000', 'lanes':'1,2,3,4,5,6,7,8'})
         task.on_port_update_event(port_change_event)
         assert len(task.port_dict) == 1
+        assert get_cmis_state_from_state_db('Ethernet0', task.xcvr_table_helper.get_status_tbl(task.port_mapping.get_asic_id_for_logical_port('Ethernet0'))) == CMIS_STATE_INSERTED
 
         task.get_host_tx_status = MagicMock(return_value='true')
         task.get_port_admin_status = MagicMock(return_value='up')
@@ -1707,31 +1743,38 @@ class TestXcvrdScript(object):
         # Case 1: Module Inserted --> DP_DEINIT
         task.task_stopping_event.is_set = MagicMock(side_effect=[False, False, True])
         task.task_worker()
-        assert task.port_dict['Ethernet0']['cmis_state'] == 'DP_DEINIT'
+        assert get_cmis_state_from_state_db('Ethernet0', task.xcvr_table_helper.get_status_tbl(task.port_mapping.get_asic_id_for_logical_port('Ethernet0'))) == CMIS_STATE_DP_DEINIT
         task.task_stopping_event.is_set = MagicMock(side_effect=[False, False, True])
         task.task_worker()
         assert mock_xcvr_api.set_datapath_deinit.call_count == 1
         assert mock_xcvr_api.tx_disable_channel.call_count == 1
         assert mock_xcvr_api.set_lpmode.call_count == 1
-        assert task.port_dict['Ethernet0']['cmis_state'] == 'AP_CONFIGURED'
+        assert get_cmis_state_from_state_db('Ethernet0', task.xcvr_table_helper.get_status_tbl(task.port_mapping.get_asic_id_for_logical_port('Ethernet0'))) == CMIS_STATE_AP_CONF
 
         # Case 2: DP_DEINIT --> AP Configured
         task.task_stopping_event.is_set = MagicMock(side_effect=[False, False, True])
         task.task_worker()
         assert mock_xcvr_api.set_application.call_count == 1
-        assert task.port_dict['Ethernet0']['cmis_state'] == 'DP_INIT'
+        assert get_cmis_state_from_state_db('Ethernet0', task.xcvr_table_helper.get_status_tbl(task.port_mapping.get_asic_id_for_logical_port('Ethernet0'))) == CMIS_STATE_DP_INIT
 
         # Case 3: AP Configured --> DP_INIT
         task.task_stopping_event.is_set = MagicMock(side_effect=[False, False, True])
         task.task_worker()
         assert mock_xcvr_api.set_datapath_init.call_count == 1
-        assert task.port_dict['Ethernet0']['cmis_state'] == 'DP_TXON'
+        assert get_cmis_state_from_state_db('Ethernet0', task.xcvr_table_helper.get_status_tbl(task.port_mapping.get_asic_id_for_logical_port('Ethernet0'))) == CMIS_STATE_DP_TXON
 
         # Case 4: DP_INIT --> DP_TXON
         task.task_stopping_event.is_set = MagicMock(side_effect=[False, False, True])
         task.task_worker()
         assert mock_xcvr_api.tx_disable_channel.call_count == 2
-        assert task.port_dict['Ethernet0']['cmis_state'] == 'DP_ACTIVATION'
+        assert get_cmis_state_from_state_db('Ethernet0', task.xcvr_table_helper.get_status_tbl(task.port_mapping.get_asic_id_for_logical_port('Ethernet0'))) == CMIS_STATE_DP_ACTIVATE
+
+        # Case 5: DP_TXON --> DP_ACTIVATION
+        task.task_stopping_event.is_set = MagicMock(side_effect=[False, False, True])
+        task.post_port_active_apsel_to_db = MagicMock()
+        task.task_worker()
+        assert task.post_port_active_apsel_to_db.call_count == 1
+        assert get_cmis_state_from_state_db('Ethernet0', task.xcvr_table_helper.get_status_tbl(task.port_mapping.get_asic_id_for_logical_port('Ethernet0'))) == CMIS_STATE_READY
 
     @pytest.mark.parametrize("lport, expected_dom_polling", [
         ('Ethernet0', 'disabled'),
@@ -1753,7 +1796,8 @@ class TestXcvrdScript(object):
 
         port_mapping = PortMapping()
         stop_event = threading.Event()
-        task = DomInfoUpdateTask(DEFAULT_NAMESPACE, port_mapping, stop_event)
+        mock_cmis_manager = MagicMock()
+        task = DomInfoUpdateTask(DEFAULT_NAMESPACE, port_mapping, stop_event, mock_cmis_manager)
         task.xcvr_table_helper = XcvrTableHelper(DEFAULT_NAMESPACE)
         task.port_mapping.handle_port_change_event(PortChangeEvent('Ethernet4', 1, 0, PortChangeEvent.PORT_ADD))
         task.port_mapping.handle_port_change_event(PortChangeEvent('Ethernet12', 1, 0, PortChangeEvent.PORT_ADD))
@@ -1766,12 +1810,34 @@ class TestXcvrdScript(object):
 
         assert task.get_dom_polling_from_config_db(lport) == expected_dom_polling
 
+    @pytest.mark.parametrize("skip_cmis_manager, is_asic_index_none, mock_cmis_state, expected_result", [
+        (True, False, None, False),
+        (False, False, CMIS_STATE_INSERTED, True),
+        (False, False, CMIS_STATE_READY, False),
+        (False, False, CMIS_STATE_UNKNOWN, True),
+        (False, True, None, False),
+    ])
+    @patch('xcvrd.xcvrd.get_cmis_state_from_state_db')
+    def test_DomInfoUpdateTask_is_port_in_cmis_initialization_process(self, mock_get_cmis_state_from_state_db, skip_cmis_manager, is_asic_index_none, mock_cmis_state, expected_result):
+        port_mapping = PortMapping()
+        lport = 'Ethernet0'
+        port_change_event = PortChangeEvent(lport, 1, 0, PortChangeEvent.PORT_ADD)
+        stop_event = threading.Event()
+        task = DomInfoUpdateTask(DEFAULT_NAMESPACE, port_mapping, stop_event, skip_cmis_manager)
+        task.xcvr_table_helper = XcvrTableHelper(DEFAULT_NAMESPACE)
+        task.on_port_config_change(port_change_event)
+        mock_get_cmis_state_from_state_db.return_value = mock_cmis_state
+        if is_asic_index_none:
+            lport='INVALID_PORT'
+        assert task.is_port_in_cmis_initialization_process(lport) == expected_result
+
     @patch('xcvrd.xcvrd.XcvrTableHelper', MagicMock())
     @patch('xcvrd.xcvrd.delete_port_from_status_table_hw')
     def test_DomInfoUpdateTask_handle_port_change_event(self, mock_del_status_tbl_hw):
         port_mapping = PortMapping()
         stop_event = threading.Event()
-        task = DomInfoUpdateTask(DEFAULT_NAMESPACE, port_mapping, stop_event)
+        mock_cmis_manager = MagicMock()
+        task = DomInfoUpdateTask(DEFAULT_NAMESPACE, port_mapping, stop_event, mock_cmis_manager)
         task.xcvr_table_helper = XcvrTableHelper(DEFAULT_NAMESPACE)
         port_change_event = PortChangeEvent('Ethernet0', 1, 0, PortChangeEvent.PORT_ADD)
         task.on_port_config_change(port_change_event)
@@ -1794,7 +1860,8 @@ class TestXcvrdScript(object):
     def test_DomInfoUpdateTask_task_run_stop(self):
         port_mapping = PortMapping()
         stop_event = threading.Event()
-        task = DomInfoUpdateTask(DEFAULT_NAMESPACE, port_mapping, stop_event)
+        mock_cmis_manager = MagicMock()
+        task = DomInfoUpdateTask(DEFAULT_NAMESPACE, port_mapping, stop_event, mock_cmis_manager)
         task.start()
         task.join()
         assert not task.is_alive()
@@ -1819,10 +1886,12 @@ class TestXcvrdScript(object):
 
         port_mapping = PortMapping()
         stop_event = threading.Event()
-        task = DomInfoUpdateTask(DEFAULT_NAMESPACE, port_mapping, stop_event)
+        mock_cmis_manager = MagicMock()
+        task = DomInfoUpdateTask(DEFAULT_NAMESPACE, port_mapping, stop_event, mock_cmis_manager)
         task.xcvr_table_helper = XcvrTableHelper(DEFAULT_NAMESPACE)
         task.task_stopping_event.wait = MagicMock(side_effect=[False, True])
         task.get_dom_polling_from_config_db = MagicMock(return_value='enabled')
+        task.is_port_in_cmis_terminal_state = MagicMock(return_value=False)
         mock_detect_error.return_value = True
         task.task_worker()
         assert task.port_mapping.logical_port_list.count('Ethernet0')
