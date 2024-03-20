@@ -10,7 +10,8 @@
 try:
     import re
     import subprocess
-    from .ssd_base import SsdBase
+    from .storage_base import StorageBase
+    from .storage_common import StorageCommon
 except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
 
@@ -21,15 +22,37 @@ TRANSCEND = "scopepro -all {}"
 
 NOT_AVAILABLE = "N/A"
 
+# Generic IDs
+
+GENERIC_IO_READS_ID = 242
+GENERIC_IO_WRITES_ID = 241
+GENERIC_RESERVED_BLOCKS_ID = [170, 232]
+
 # Set Vendor Specific IDs
 INNODISK_HEALTH_ID = 169
 INNODISK_TEMPERATURE_ID = 194
+INNODISK_IO_WRITES_ID = 241
+INNODISK_IO_READS_ID = 242
+INNODISK_RESERVED_BLOCKS_ID = 232
+
 SWISSBIT_HEALTH_ID = 248
 SWISSBIT_TEMPERATURE_ID = 194
+
+VIRTIUM_IO_WRITES_ID = 241
+VIRTIUM_IO_READS_ID = 242
+VIRTIUM_RESERVED_BLOCKS_ID = 232
+
+MICRON_RESERVED_BLOCKS_ID = 170
+MICRON_IO_WRITES_ID = 246
+MICRON_ERASE_FAIL_COUNT_ID = 172
+MICRON_AVG_ERASE_COUNT_ID = 173
+MICRON_PERC_LIFETIME_REMAIN_ID = 202
+
+INTEL_MEDIA_WEAROUT_INDICATOR_ID = 233
 TRANSCEND_HEALTH_ID = 169
 TRANSCEND_TEMPERATURE_ID = 194
 
-class SsdUtil(SsdBase):
+class SsdUtil(StorageBase, StorageCommon):
     """
     Generic implementation of the SSD health API
     """
@@ -40,6 +63,11 @@ class SsdUtil(SsdBase):
     health = NOT_AVAILABLE
     ssd_info = NOT_AVAILABLE
     vendor_ssd_info = NOT_AVAILABLE
+    fs_io_reads = NOT_AVAILABLE
+    fs_io_writes = NOT_AVAILABLE
+    disk_io_reads = NOT_AVAILABLE
+    disk_io_writes = NOT_AVAILABLE
+    reserved_blocks = NOT_AVAILABLE
 
     def __init__(self, diskdev):
         self.vendor_ssd_utility = {
@@ -49,6 +77,8 @@ class SsdUtil(SsdBase):
             "StorFly"  : { "utility" : VIRTIUM,  "parser" : self.parse_virtium_info },
             "Virtium"  : { "utility" : VIRTIUM,  "parser" : self.parse_virtium_info },
             "Swissbit" : { "utility" : SMARTCTL, "parser" : self.parse_swissbit_info },
+            "Micron"   : { "utility" : SMARTCTL, "parser" : self.parse_micron_info },
+            "Intel"    : { "utility" : SMARTCTL, "parser" : self.parse_intel_info },
             "Transcend" : { "utility" : TRANSCEND, "parser" : self.parse_transcend_info },
         }
 
@@ -61,6 +91,7 @@ class SsdUtil(SsdBase):
         if self.model:
             vendor = self._parse_vendor()
             if vendor:
+
                 self.fetch_vendor_ssd_info(diskdev, vendor)
                 self.parse_vendor_ssd_info(vendor)
             else:
@@ -69,6 +100,8 @@ class SsdUtil(SsdBase):
         else:
             # Failed to get disk model
             self.model = "Unknown"
+
+        StorageCommon.__init__(self, diskdev)
 
     def _execute_shell(self, cmd):
         process = subprocess.Popen(cmd.split(), universal_newlines=True, stdout=subprocess.PIPE)
@@ -87,6 +120,10 @@ class SsdUtil(SsdBase):
             return 'Virtium'
         elif self.model.startswith('SFS'):
             return 'Swissbit'
+        elif re.search(r'\bmicron\b', self.model.split('_')[0], re.I):
+            return 'Micron'
+        elif re.search(r'\bintel\b', self.model, re.I):
+            return 'Intel'
         elif self.model.startswith('TS'):
             return 'Transcend'
         else:
@@ -126,10 +163,25 @@ class SsdUtil(SsdBase):
             if temp_raw == NOT_AVAILABLE:
                 self.temperature = NOT_AVAILABLE
             else:
-                self.temperature = temp_raw.split()[-6]
+                self.temperature = temp_raw.split()[7].split()[0]
 
         self.serial = self._parse_re('Serial Number:\s*(.+?)\n', self.ssd_info)
         self.firmware = self._parse_re('Firmware Version:\s*(.+?)\n', self.ssd_info)
+
+        io_reads_raw = self.parse_id_number(GENERIC_IO_READS_ID)
+        if io_reads_raw == NOT_AVAILABLE: self.disk_io_reads = NOT_AVAILABLE
+        else: self.disk_io_reads = io_reads_raw.split()[-1]
+
+        io_writes_raw = self.parse_id_number(GENERIC_IO_WRITES_ID)
+        if io_writes_raw == NOT_AVAILABLE: self.disk_io_writes = NOT_AVAILABLE
+        else: self.disk_io_writes = io_writes_raw.split()[-1]
+
+        for ID in GENERIC_RESERVED_BLOCKS_ID:
+            rbc_raw = self.parse_id_number(ID)
+            if rbc_raw == NOT_AVAILABLE: self.reserved_blocks = NOT_AVAILABLE
+            else:
+                self.reserved_blocks = rbc_raw.split()[-1]
+                break
 
     def parse_innodisk_info(self):
         if self.vendor_ssd_info:
@@ -148,6 +200,24 @@ class SsdUtil(SsdBase):
                 self.temperature = NOT_AVAILABLE
             else:
                 self.temperature = temp_raw.split()[-6]
+        if self.disk_io_reads == NOT_AVAILABLE:
+            io_reads_raw = self.parse_id_number(INNODISK_IO_READS_ID)
+            if io_reads_raw == NOT_AVAILABLE:
+                self.disk_io_reads == NOT_AVAILABLE
+            else:
+                self.disk_io_reads = io_reads_raw.split()[-1]
+        if self.disk_io_writes == NOT_AVAILABLE:
+            io_writes_raw = self.parse_id_number(INNODISK_IO_WRITES_ID)
+            if io_writes_raw == NOT_AVAILABLE:
+                self.disk_io_writes == NOT_AVAILABLE
+            else:
+                self.disk_io_writes = io_writes_raw.split()[-1]
+        if self.reserved_blocks == NOT_AVAILABLE:
+            rbc_raw = self.parse_id_number(INNODISK_RESERVED_BLOCKS_ID)
+            if rbc_raw == NOT_AVAILABLE:
+                self.reserved_blocks == NOT_AVAILABLE
+            else:
+                self.reserved_blocks = rbc_raw.split()[-1]
 
     def parse_virtium_info(self):
         if self.vendor_ssd_info:
@@ -172,6 +242,27 @@ class SsdUtil(SsdBase):
                 except ValueError:
                     pass
 
+            if self.disk_io_reads == NOT_AVAILABLE:
+                io_reads_raw = self.parse_id_number(VIRTIUM_IO_READS_ID)
+                if io_reads_raw == NOT_AVAILABLE:
+                    self.disk_io_reads == NOT_AVAILABLE
+                else:
+                    self.disk_io_reads = io_reads_raw.split()[-1]
+
+            if self.disk_io_writes == NOT_AVAILABLE:
+                io_writes_raw = self.parse_id_number(VIRTIUM_IO_WRITES_ID)
+                if io_writes_raw == NOT_AVAILABLE:
+                    self.disk_io_writes == NOT_AVAILABLE
+                else:
+                    self.disk_io_writes = io_writes_raw.split()[-1]
+
+            if self.reserved_blocks == NOT_AVAILABLE:
+                rbc_raw = self.parse_id_number(VIRTIUM_RESERVED_BLOCKS_ID)
+                if rbc_raw == NOT_AVAILABLE:
+                    self.reserved_blocks == NOT_AVAILABLE
+                else:
+                    self.reserved_blocks = rbc_raw.split()[-1]
+
     def parse_swissbit_info(self):
         if self.ssd_info:
             health_raw = self.parse_id_number(SWISSBIT_HEALTH_ID)
@@ -184,6 +275,35 @@ class SsdUtil(SsdBase):
                 self.temperature = NOT_AVAILABLE
             else:
                 self.temperature = temp_raw.split()[-3]
+
+    def parse_micron_info(self):
+        if self.vendor_ssd_info:
+            health_raw = self._parse_re('Percent_Lifetime_Remain\s*(.+?)\n', self.vendor_ssd_info)
+            if health_raw != NOT_AVAILABLE:
+                self.health = health_raw.split()[-1]
+            else:
+                average_erase_count = self.parse_id_number(MICRON_AVG_ERASE_COUNT_ID)
+                erase_fail_count = self.parse_id_number(MICRON_ERASE_FAIL_COUNT_ID)
+
+                if average_erase_count != NOT_AVAILABLE and erase_fail_count != NOT_AVAILABLE:
+                    try:
+                        self.health = 100 - (float(avg_erase_count) * 100 / float(nand_endurance))
+                    except (ValueError, ZeroDivisionError):
+                            pass
+
+            io_writes_raw = self.parse_id_number(MICRON_IO_WRITES_ID)
+            if io_writes_raw == NOT_AVAILABLE: self.disk_io_writes = NOT_AVAILABLE
+            else: self.disk_io_writes = io_writes_raw.split()[-1]
+
+            rbc_raw = self.parse_id_number(MICRON_RESERVED_BLOCKS_ID)
+            if rbc_raw == NOT_AVAILABLE: self.reserved_blocks = NOT_AVAILABLE
+            else: self.reserved_blocks = rbc_raw.split()[-1]
+
+    def parse_intel_info(self):
+        if self.vendor_ssd_info:
+            health_raw = self.parse_id_number(INTEL_MEDIA_WEAROUT_INDICATOR_ID)
+            if health_raw == NOT_AVAILABLE: self.health = NOT_AVAILABLE
+            else: self.health = str(100 - float(health_raw.split()[-1]))
 
     def parse_transcend_info(self):
         if self.vendor_ssd_info:
@@ -253,6 +373,33 @@ class SsdUtil(SsdBase):
             A string holding disk serial number as provided by the manufacturer
         """
         return self.serial
+
+    def get_disk_io_reads(self):
+        """
+        Retrieves the total number of Input/Output (I/O) reads done on an SSD
+
+        Returns:
+            An integer value of the total number of I/O reads
+        """
+        return self.disk_io_reads
+
+    def get_disk_io_writes(self):
+        """
+        Retrieves the total number of Input/Output (I/O) writes done on an SSD
+
+        Returns:
+            An integer value of the total number of I/O writes
+        """
+        return self.disk_io_writes
+
+    def get_reserved_blocks(self):
+        """
+        Retrieves the total number of reserved blocks in an SSD
+
+        Returns:
+            An integer value of the total number of reserved blocks
+        """
+        return self.reserved_blocks
 
     def get_vendor_output(self):
         """

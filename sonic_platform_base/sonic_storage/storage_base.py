@@ -1,11 +1,11 @@
 #
-# ssd_base.py
+# storage_base.py
 #
 # Base class for implementing common SSD health features
 #
 
 
-class SsdBase(object):
+class StorageBase(object):
     """
     Base class for interfacing with a SSD
     """
@@ -71,5 +71,32 @@ class SsdBase(object):
 
         Returns:
             A string holding some vendor specific disk information
+        """
+        raise NotImplementedError
+
+    def get_disk_io_reads(self):
+        """
+        Retrieves the total number of Input/Output (I/O) reads done on a storage disk
+
+        Returns:
+            An integer value of the total number of I/O reads
+        """
+        raise NotImplementedError
+
+    def get_disk_io_writes(self):
+        """
+        Retrieves the total number of Input/Output (I/O) writes done on a sorage disk
+
+        Returns:
+            An integer value of the total number of I/O writes
+        """
+        raise NotImplementedError
+
+    def get_reserved_blocks(self):
+        """
+        Retrieves the total number of reserved blocks in an SSD
+
+        Returns:
+            An integer value of the total number of reserved blocks
         """
         raise NotImplementedError

@@ -11,7 +11,8 @@ mocked_files = {
     '/sys/block/emmctest/device/life_time': '0x02 0x02',
     '/sys/block/emmctest/device/name': 'Test eMMC device',
     '/sys/block/emmctest/device/fwrev': '0xAA00000000000000',
-    '/sys/block/emmctest/device/serial': '0xabcdefef'
+    '/sys/block/emmctest/device/serial': '0xabcdefef',
+    '/proc/mounts' : '/dev/emmctestp1 /host ext4 rw,relatime 0 0'
 }
 
 
