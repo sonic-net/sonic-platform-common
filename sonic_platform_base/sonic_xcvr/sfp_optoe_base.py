@@ -175,6 +175,15 @@ class SfpOptoeBase(SfpBase):
         except (OSError, IOError):
             pass
 
+    def set_optoe_write_timeout(self, write_timeout):
+        sys_path = self.get_eeprom_path()
+        sys_path = sys_path.replace("eeprom", "write_timeout")
+        try:
+            with open(sys_path, mode='w') as f:
+                f.write(str(write_timeout))
+        except (OSError, IOError):
+            pass
+
     def read_eeprom(self, offset, num_bytes):
         try:
             with open(self.get_eeprom_path(), mode='rb', buffering=0) as f:
