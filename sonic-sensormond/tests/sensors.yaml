@@ -1,0 +1,18 @@
+voltage_sensors:
+  - name : VSENSOR1
+    sensor: 'sensor_data/VSENSOR1'
+    high_thresholds: [ 1000, 1050, 1080 ]
+    low_thresholds: [ 800, 850, 890 ]
+  - name : VSENSOR2
+    sensor: 'sensor_data/VSENSOR2'
+    high_thresholds: [ 800, 850, 870 ]
+    low_thresholds: [ 600, 620, 750 ]
+current_sensors:
+  - name : CSENSOR1
+    sensor: 'sensor_data/CSENSOR1'
+    high_thresholds: [ 1000, 1050, 1080 ]
+    low_thresholds: [ 800, 850, 890 ]
+  - name : CSENSOR2
+    sensor: 'sensor_data/CSENSOR2'
+    high_thresholds: [ 800, 850, 870 ]
+    low_thresholds: [ 600, 620, 750 ]

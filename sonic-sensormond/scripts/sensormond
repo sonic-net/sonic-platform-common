@@ -9,10 +9,12 @@ import signal
 import sys
 import threading
 import time
+import yaml
 
 import sonic_platform
-from sonic_py_common import daemon_base, logger
+from sonic_py_common import daemon_base, logger, device_info
 from swsscommon import swsscommon
+from sonic_platform_base.sensor_fs import VoltageSensorFs, CurrentSensorFs
 
 
 SYSLOG_IDENTIFIER = 'sensormond'
@@ -175,7 +177,7 @@ class VoltageUpdater(SensorUpdater):
     # Voltage information table name in database
     VOLTAGE_INFO_TABLE_NAME = 'VOLTAGE_INFO'
 
-    def __init__(self, chassis):
+    def __init__(self, chassis, fs_sensors):
         '''
         Initializer of VoltageUpdater
         :param chassis: Object representing a platform chassis
@@ -187,14 +189,18 @@ class VoltageUpdater(SensorUpdater):
         if self.is_chassis_system:
             self.module_voltage_sensors = set()
 
+        self.fs_sensors = fs_sensors
+
     def update(self):
         '''
         Update all voltage information to database
         :return:
         '''
         self.log_debug("Start voltage update")
-        for index, voltage_sensor in enumerate(self.chassis.get_all_voltage_sensors()):
 
+        sensor_list = self.fs_sensors + self.chassis.get_all_voltage_sensors()
+
+        for index, voltage_sensor in enumerate(sensor_list):
             self._refresh_voltage_status(CHASSIS_INFO_KEY, voltage_sensor, index)
 
         if self.is_chassis_system:
@@ -303,7 +309,7 @@ class CurrentUpdater(SensorUpdater):
     # Current information table name in database
     CURRENT_INFO_TABLE_NAME = 'CURRENT_INFO'
 
-    def __init__(self, chassis):
+    def __init__(self, chassis, fs_sensors):
         '''
         Initializer of CurrentUpdater
         :param chassis: Object representing a platform chassis
@@ -314,14 +320,18 @@ class CurrentUpdater(SensorUpdater):
         if self.is_chassis_system:
             self.module_current_sensors = set()
 
+        self.fs_sensors = fs_sensors
+
     def update(self):
         '''
         Update all current information to database
         :return:
         '''
         self.log_debug("Start current updating")
-        for index, current_sensor in enumerate(self.chassis.get_all_current_sensors()):
 
+        sensor_list = self.fs_sensors + self.chassis.get_all_current_sensors()
+
+        for index, current_sensor in enumerate(sensor_list):
             self._refresh_current_status(CHASSIS_INFO_KEY, current_sensor, index)
 
         if self.is_chassis_system:
@@ -450,14 +460,32 @@ class SensorMonitorDaemon(daemon_base.DaemonBase):
 
         self.interval  = self.UPDATE_INTERVAL
 
+        self._voltage_sensor_fs = []
+        self._current_sensor_fs = []
+
         try:
             self.chassis = sonic_platform.platform.Platform().get_chassis()
         except Exception as e:
             self.log_error("Failed to get chassis info, err: {}".format(repr(e)))
 
-        self.voltage_updater = VoltageUpdater(self.chassis)
+        # Initialize voltage and current sensors lists from data file if available
+        try:
+            (platform_path, _) = device_info.get_paths_to_platform_and_hwsku_dirs()
+            self.sensors_yaml_file = platform_path + "/sensors.yaml"
 
-        self.current_updater = CurrentUpdater(self.chassis)
+            with open(self.sensors_yaml_file, 'r') as f:
+                sensors_data = yaml.safe_load(f)
+                if 'voltage_sensors' in sensors_data:
+                    self._voltage_sensor_fs = VoltageSensorFs.factory(VoltageSensorFs, sensors_data['voltage_sensors'])
+                if 'current_sensors' in sensors_data:
+                    self._current_sensor_fs = CurrentSensorFs.factory(CurrentSensorFs, sensors_data['current_sensors'])
+        except:
+            # Sensors yaml file is not available
+            pass
+
+        self.voltage_updater = VoltageUpdater(self.chassis, self._voltage_sensor_fs)
+
+        self.current_updater = CurrentUpdater(self.chassis, self._current_sensor_fs)
 
 
     # Override signal handler from DaemonBase
@@ -504,7 +532,7 @@ class SensorMonitorDaemon(daemon_base.DaemonBase):
             self.wait_time = self.INITIAL_INTERVAL
 
         if elapsed > self.UPDATE_ELAPSED_THRESHOLD:
-            self.logger.log_warning('Sensors update took a long time : '
+            self.log_warning('Sensors update took a long time : '
                                     '{} seconds'.format(elapsed))
 
         return True

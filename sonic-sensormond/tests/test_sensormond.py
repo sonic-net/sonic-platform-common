@@ -1,5 +1,6 @@
 import os
 import sys
+import yaml
 import multiprocessing
 from imp import load_source
 from unittest import mock
@@ -106,7 +107,7 @@ class TestVoltageUpdater(object):
     """
     def test_deinit(self):
         chassis = MockChassis()
-        voltage_updater = sensormond.VoltageUpdater(chassis)
+        voltage_updater = sensormond.VoltageUpdater(chassis, [])
         voltage_updater.voltage_status_dict = {'key1': 'value1', 'key2': 'value2'}
         voltage_updater.table = Table("STATE_DB", "xtable")
         voltage_updater.table._del = mock.MagicMock()
@@ -127,7 +128,7 @@ class TestVoltageUpdater(object):
     def test_over_voltage(self):
         chassis = MockChassis()
         chassis.make_over_threshold_voltage_sensor()
-        voltage_updater = sensormond.VoltageUpdater(chassis)
+        voltage_updater = sensormond.VoltageUpdater(chassis, [])
         voltage_updater.update()
         voltage_sensor_list = chassis.get_all_voltage_sensors()
         assert voltage_updater.log_warning.call_count == 1
@@ -141,7 +142,7 @@ class TestVoltageUpdater(object):
     def test_under_voltage(self):
         chassis = MockChassis()
         chassis.make_under_threshold_voltage_sensor()
-        voltage_updater = sensormond.VoltageUpdater(chassis)
+        voltage_updater = sensormond.VoltageUpdater(chassis, [])
         voltage_updater.update()
         voltage_sensor_list = chassis.get_all_voltage_sensors()
         assert voltage_updater.log_warning.call_count == 1
@@ -159,7 +160,7 @@ class TestVoltageUpdater(object):
         voltage_sensor.make_over_threshold()
         chassis.get_all_voltage_sensors().append(voltage_sensor)
 
-        voltage_updater = sensormond.VoltageUpdater(chassis)
+        voltage_updater = sensormond.VoltageUpdater(chassis, [])
         voltage_updater.update()
         assert voltage_updater.log_warning.call_count == 2
 
@@ -179,7 +180,7 @@ class TestVoltageUpdater(object):
         chassis = MockChassis()
         chassis.make_module_voltage_sensor()
         chassis.set_modular_chassis(True)
-        voltage_updater = sensormond.VoltageUpdater(chassis)
+        voltage_updater = sensormond.VoltageUpdater(chassis, [])
         voltage_updater.update()
         assert len(voltage_updater.module_voltage_sensors) == 1
         
@@ -194,7 +195,7 @@ class TestCurrentUpdater(object):
     """
     def test_deinit(self):
         chassis = MockChassis()
-        current_updater = sensormond.CurrentUpdater(chassis)
+        current_updater = sensormond.CurrentUpdater(chassis, [])
         current_updater.current_status_dict = {'key1': 'value1', 'key2': 'value2'}
         current_updater.table = Table("STATE_DB", "xtable")
         current_updater.table._del = mock.MagicMock()
@@ -215,7 +216,7 @@ class TestCurrentUpdater(object):
     def test_over_current(self):
         chassis = MockChassis()
         chassis.make_over_threshold_current_sensor()
-        current_updater = sensormond.CurrentUpdater(chassis)
+        current_updater = sensormond.CurrentUpdater(chassis, [])
         current_updater.update()
         current_sensor_list = chassis.get_all_current_sensors()
         assert current_updater.log_warning.call_count == 1
@@ -229,7 +230,7 @@ class TestCurrentUpdater(object):
     def test_under_current(self):
         chassis = MockChassis()
         chassis.make_under_threshold_current_sensor()
-        current_updater = sensormond.CurrentUpdater(chassis)
+        current_updater = sensormond.CurrentUpdater(chassis, [])
         current_updater.update()
         current_sensor_list = chassis.get_all_current_sensors()
         assert current_updater.log_warning.call_count == 1
@@ -247,7 +248,7 @@ class TestCurrentUpdater(object):
         current_sensor.make_over_threshold()
         chassis.get_all_current_sensors().append(current_sensor)
 
-        current_updater = sensormond.CurrentUpdater(chassis)
+        current_updater = sensormond.CurrentUpdater(chassis, [])
         current_updater.update()
         assert current_updater.log_warning.call_count == 2
 
@@ -267,7 +268,7 @@ class TestCurrentUpdater(object):
         chassis = MockChassis()
         chassis.make_module_current_sensor()
         chassis.set_modular_chassis(True)
-        current_updater = sensormond.CurrentUpdater(chassis)
+        current_updater = sensormond.CurrentUpdater(chassis, [])
         current_updater.update()
         assert len(current_updater.module_current_sensors) == 1
         
@@ -282,17 +283,17 @@ def test_updater_voltage_sensor_check_modular_chassis():
     chassis = MockChassis()
     assert chassis.is_modular_chassis() == False
 
-    voltage_updater = sensormond.VoltageUpdater(chassis)
+    voltage_updater = sensormond.VoltageUpdater(chassis, [])
     assert voltage_updater.chassis_table == None
 
     chassis.set_modular_chassis(True)
     chassis.set_my_slot(-1)
-    voltage_updater = sensormond.VoltageUpdater(chassis)
+    voltage_updater = sensormond.VoltageUpdater(chassis, [])
     assert voltage_updater.chassis_table == None
 
     my_slot = 1
     chassis.set_my_slot(my_slot)
-    voltage_updater = sensormond.VoltageUpdater(chassis)
+    voltage_updater = sensormond.VoltageUpdater(chassis, [])
     assert voltage_updater.chassis_table != None
     assert voltage_updater.chassis_table.table_name == '{}_{}'.format(VOLTAGE_INFO_TABLE_NAME, str(my_slot))
 
@@ -305,7 +306,7 @@ def test_updater_voltage_sensor_check_chassis_table():
 
     chassis.set_modular_chassis(True)
     chassis.set_my_slot(1)
-    voltage_updater = sensormond.VoltageUpdater(chassis)
+    voltage_updater = sensormond.VoltageUpdater(chassis, [])
 
     voltage_updater.update()
     assert voltage_updater.chassis_table.get_size() == chassis.get_num_voltage_sensors()
@@ -323,7 +324,7 @@ def test_updater_voltage_sensor_check_min_max():
 
     chassis.set_modular_chassis(True)
     chassis.set_my_slot(1)
-    voltage_updater = sensormond.VoltageUpdater(chassis)
+    voltage_updater = sensormond.VoltageUpdater(chassis, [])
 
     voltage_updater.update()
     slot_dict = voltage_updater.chassis_table.get(voltage_sensor.get_name())
@@ -335,17 +336,17 @@ def test_updater_current_sensor_check_modular_chassis():
     chassis = MockChassis()
     assert chassis.is_modular_chassis() == False
 
-    current_updater = sensormond.CurrentUpdater(chassis)
+    current_updater = sensormond.CurrentUpdater(chassis, [])
     assert current_updater.chassis_table == None
 
     chassis.set_modular_chassis(True)
     chassis.set_my_slot(-1)
-    current_updater = sensormond.CurrentUpdater(chassis)
+    current_updater = sensormond.CurrentUpdater(chassis, [])
     assert current_updater.chassis_table == None
 
     my_slot = 1
     chassis.set_my_slot(my_slot)
-    current_updater = sensormond.CurrentUpdater(chassis)
+    current_updater = sensormond.CurrentUpdater(chassis, [])
     assert current_updater.chassis_table != None
     assert current_updater.chassis_table.table_name == '{}_{}'.format(CURRENT_INFO_TABLE_NAME, str(my_slot))
 
@@ -358,7 +359,7 @@ def test_updater_current_sensor_check_chassis_table():
 
     chassis.set_modular_chassis(True)
     chassis.set_my_slot(1)
-    current_updater = sensormond.CurrentUpdater(chassis)
+    current_updater = sensormond.CurrentUpdater(chassis, [])
 
     current_updater.update()
     assert current_updater.chassis_table.get_size() == chassis.get_num_current_sensors()
@@ -377,7 +378,7 @@ def test_updater_current_sensor_check_min_max():
 
     chassis.set_modular_chassis(True)
     chassis.set_my_slot(1)
-    current_updater = sensormond.CurrentUpdater(chassis)
+    current_updater = sensormond.CurrentUpdater(chassis, [])
 
     current_updater.update()
     slot_dict = current_updater.chassis_table.get(current_sensor.get_name())
@@ -437,7 +438,7 @@ def test_signal_handler():
     assert daemon_sensormond.stop_event.set.call_count == 0
     assert sensormond.exit_code == 1
 
-
+@mock.patch('sonic_py_common.device_info.get_paths_to_platform_and_hwsku_dirs', mock.MagicMock(return_value=(tests_path, '')))
 def test_daemon_run():
 
     import sonic_platform.platform
