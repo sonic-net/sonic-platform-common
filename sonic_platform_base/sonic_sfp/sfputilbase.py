@@ -14,8 +14,7 @@ try:
 
     from natsort import natsorted
     from portconfig import get_port_config
-    from sonic_py_common import device_info
-    from sonic_py_common.interface import backplane_prefix, inband_prefix, recirc_prefix
+    from sonic_py_common import device_info, multi_asic
 
     from sonic_eeprom import eeprom_dts
     from .sff8472 import sff8472InterfaceId  # Dot module supports both Python 2 and Python 3 using explicit relative import methods
@@ -434,11 +433,12 @@ class SfpUtilBase(object):
                 print('Failed to get port config', file=sys.stderr)
                 sys.exit(1)
             else:
-                logical_list = []
                 for intf in ports.keys():
-                    logical_list.append(intf)
+                    # Ignore if this is a non front panel interface
+                    if multi_asic.is_front_panel_port(intf, ports[intf].get(multi_asic.PORT_ROLE, None)):
+                        logical.append(intf)
 
-                logical = natsorted(logical_list, key=lambda y: y.lower())
+                logical = natsorted(logical, key=lambda y: y.lower())
                 logical_to_bcm, logical_to_physical, physical_to_logical = OrderedDict(),  OrderedDict(),  OrderedDict()
 
                 for intf_name in logical:
@@ -499,7 +499,7 @@ class SfpUtilBase(object):
                 portname = line.split()[0]
 
                 # Ignore if this is an internal backplane interface and Inband interface
-                if portname.startswith((backplane_prefix(), inband_prefix(), recirc_prefix())):
+                if not multi_asic.is_front_panel_port(portname):
                     continue
 
                 bcm_port = str(port_pos_in_file)

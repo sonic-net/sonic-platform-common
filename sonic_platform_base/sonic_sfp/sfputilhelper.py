@@ -14,7 +14,6 @@ try:
     from natsort import natsorted
     from portconfig import get_port_config
     from sonic_py_common import device_info, multi_asic
-    from sonic_py_common.interface import backplane_prefix, inband_prefix, recirc_prefix
 
 except ImportError as e:
     raise ImportError("%s - required module not found" % str(e))
@@ -66,13 +65,11 @@ class SfpUtilHelper(object):
                 print('Failed to get port config', file=sys.stderr)
                 sys.exit(1)
 
-        logical_list = []
         for intf in ports.keys():
-             logical_list.append(intf)
+            # Ignore if this is a non front panel interface
+            if multi_asic.is_front_panel_port(intf, ports[intf].get(multi_asic.PORT_ROLE, None)):
+                logical.append(intf)
 
-        # Ignore if this is an internal backplane interface and Inband interface
-        logical = [name for name in logical_list
-                      if not name.startswith((backplane_prefix(), inband_prefix(), recirc_prefix()))]
         logical = natsorted(logical, key=lambda y: y.lower())
         logical_to_physical, physical_to_logical = OrderedDict(),  OrderedDict()
 
