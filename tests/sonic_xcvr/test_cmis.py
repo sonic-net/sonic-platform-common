@@ -1095,22 +1095,24 @@ class TestCmis(object):
     @pytest.mark.parametrize("mock_response, expected",[
         (
             [
-                True,
+                False,
                 {'Pre-FEC BER Average Media Input': {1: [0.001, 0.0125, 0, 0.01, 0, False, False, False, False]}},
             ],
             {'Pre-FEC BER Average Media Input': {1: [0.001, 0.0125, 0, 0.01, 0, False, False, False, False]}}
         ),
         (
-            [False, {}], {}
+            [True, {}], {}
         )
     ])
     def test_get_vdm(self, mock_response, expected):
-        self.api.get_vdm_support = MagicMock()
-        self.api.get_vdm_support.return_value = mock_response[0]
-        self.api.vdm = MagicMock()
-        self.api.vdm.get_vdm_allpage = MagicMock()
-        self.api.vdm.get_vdm_allpage.return_value = mock_response[1]
-        result = self.api.get_vdm()
+        eeprom = MagicMock()
+        eeprom.read = MagicMock()
+        eeprom.read.return_value = mock_response[0]
+        api = CmisApi(eeprom)
+        if api.vdm:
+            api.vdm.get_vdm_allpage = MagicMock()
+            api.vdm.get_vdm_allpage.return_value = mock_response[1]
+        result = api.get_vdm()
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
