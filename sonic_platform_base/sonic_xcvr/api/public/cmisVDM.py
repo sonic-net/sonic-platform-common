@@ -17,12 +17,12 @@ VDM_FLAG_PAGE = 0x2c
 VDM_FREEZE = 128
 VDM_UNFREEZE = 0
 
-class CmisVdmApi(XcvrApi):
+VDM_REAL_VALUE = 0x1
+VDM_THRESHOLD = 0x2
+VDM_FLAG = 0x4
+ALL_FIELD = 0xff
 
-    VDM_REAL_VALUE = 0x1
-    VDM_THRESHOLD = 0x2
-    VDM_FLAG = 0x4
-    ALL_FIELD = 0xff
+class CmisVdmApi(XcvrApi):
 
     def __init__(self, xcvr_eeprom):
         super(CmisVdmApi, self).__init__(xcvr_eeprom)
@@ -86,7 +86,7 @@ class CmisVdmApi(XcvrApi):
             vdm_high_warn_offset = vdm_high_alarm_offset + 4
             vdm_low_warn_offset = vdm_high_alarm_offset + 6
 
-            if field_option & self.VDM_REAL_VALUE:
+            if field_option & VDM_REAL_VALUE:
                 vdm_value_raw = self.xcvr_eeprom.read_raw(vdm_value_offset, VDM_SIZE, True)
                 if not vdm_value_raw:
                     continue
@@ -102,7 +102,7 @@ class CmisVdmApi(XcvrApi):
             else:
                 vdm_value = None
 
-            if field_option & self.VDM_THRESHOLD:
+            if field_option & VDM_THRESHOLD:
                 vdm_thrsh_raw = self.xcvr_eeprom.read_raw(vdm_high_alarm_offset, VDM_SIZE*4, True)
                 if not vdm_thrsh_raw:
                     continue
@@ -201,7 +201,7 @@ class CmisVdmApi(XcvrApi):
         VDM_START_PAGE = 0x20
         vdm = dict()
 
-        if field_option & self.VDM_FLAG:
+        if field_option & VDM_FLAG:
             vdm_flag_page = self.xcvr_eeprom.read_raw(VDM_FLAG_PAGE * PAGE_SIZE + PAGE_OFFSET, PAGE_SIZE)
         else:
             vdm_flag_page = None

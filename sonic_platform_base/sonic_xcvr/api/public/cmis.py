@@ -14,7 +14,7 @@ from ...codes.public.sff8024 import Sff8024
 from ...fields import consts
 from ..xcvr_api import XcvrApi
 from .cmisCDB import CmisCdbApi
-from .cmisVDM import CmisVdmApi
+from .cmisVDM import CmisVdmApi, VDM_REAL_VALUE, VDM_THRESHOLD, VDM_FLAG, ALL_FIELD
 import time
 from collections import defaultdict
 
@@ -230,7 +230,7 @@ class CmisApi(XcvrApi):
             bulk_status["tx%dpower" % i] = float("{:.3f}".format(self.mw_to_dbm(tx_power[i - 1]))) if tx_power[i - 1] != 'N/A' else 'N/A'
 
         laser_temp_dict = self.get_laser_temperature()
-        self.vdm_dict = self.get_vdm(self.vdm.VDM_REAL_VALUE)
+        self.vdm_dict = self.get_vdm(VDM_REAL_VALUE)
         try:
             bulk_status['laser_temperature'] = laser_temp_dict['monitor value']
             bulk_status['prefec_ber'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][0]
@@ -303,7 +303,7 @@ class CmisApi(XcvrApi):
             threshold_info_dict['lasertemplowwarning'] = laser_temp_dict['low warn']
         except (KeyError, TypeError):
             pass
-        self.vdm_dict = self.get_vdm(self.vdm.VDM_THRESHOLD)
+        self.vdm_dict = self.get_vdm(VDM_THRESHOLD)
         try:
             threshold_info_dict['prefecberhighalarm'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][1]
             threshold_info_dict['prefecberlowalarm'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][2]
@@ -1137,7 +1137,7 @@ class CmisApi(XcvrApi):
         This function returns all the VDM items, including real time monitor value, threholds and flags
         '''
         if field_option is None:
-            field_option = self.vdm.ALL_FIELD
+            field_option = ALL_FIELD
         vdm = self.vdm.get_vdm_allpage(field_option) if self.vdm is not None else {}
         return vdm
 
@@ -1862,7 +1862,7 @@ class CmisApi(XcvrApi):
                     trans_status['txbiaslowalarm_flag%d' % lane] = tx_bias_flag_dict['tx_bias_low_alarm']['TxBiasLowAlarmFlag%d' % lane]
                     trans_status['txbiashighwarning_flag%d' % lane] = tx_bias_flag_dict['tx_bias_high_warn']['TxBiasHighWarnFlag%d' % lane]
                     trans_status['txbiaslowwarning_flag%d' % lane] = tx_bias_flag_dict['tx_bias_low_warn']['TxBiasLowWarnFlag%d' % lane]
-            self.vdm_dict = self.get_vdm(self.vdm.VDM_FLAG)
+            self.vdm_dict = self.get_vdm(VDM_FLAG)
             try:
                 trans_status['prefecberhighalarm_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][5]
                 trans_status['prefecberlowalarm_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][6]
