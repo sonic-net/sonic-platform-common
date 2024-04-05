@@ -2434,7 +2434,13 @@ class TestXcvrdScript(object):
         media_str = get_media_val_str(num_logical_ports, lane_dict, logical_idx)
         assert media_str == '3,4'
 
+    class MockPortMapping:
+        logical_port_list = [0, 1, 2]
+        logical_port_name_to_physical_port_list = MagicMock()
+        get_asic_id_for_logical_port = MagicMock()
+
     @patch('xcvrd.xcvrd.DaemonXcvrd.load_platform_util', MagicMock())
+    @patch('xcvrd.xcvrd_utilities.port_event_helper.get_port_mapping', MagicMock(return_value=MockPortMapping))
     @patch('sonic_py_common.device_info.get_paths_to_platform_and_hwsku_dirs', MagicMock(return_value=('/tmp', None)))
     @patch('swsscommon.swsscommon.WarmStart', MagicMock())
     @patch('xcvrd.xcvrd.DaemonXcvrd.wait_for_port_config_done', MagicMock())
@@ -2444,7 +2450,45 @@ class TestXcvrdScript(object):
             mock_run.return_value = "true"
 
             xcvrd.init()
+
+            status_tbl = MagicMock()
+            xcvrd.xcvr_table_helper.get_status_tbl = MagicMock(return_value=status_tbl)
+            xcvrd.xcvr_table_helper.get_dom_tbl = MagicMock(return_value=MagicMock)
+            xcvrd.xcvr_table_helper.get_dom_threshold_tbl = MagicMock(return_value=MagicMock)
+            xcvrd.xcvr_table_helper.get_pm_tbl = MagicMock(return_value=MagicMock)
+            xcvrd.xcvr_table_helper.get_firmware_info_tbl = MagicMock(return_value=MagicMock)
+
             xcvrd.deinit()
+
+            status_tbl.hdel.assert_not_called()
+
+    @patch('xcvrd.xcvrd.DaemonXcvrd.load_platform_util', MagicMock())
+    @patch('xcvrd.xcvrd_utilities.port_event_helper.get_port_mapping', MagicMock(return_value=MockPortMapping))
+    @patch('sonic_py_common.device_info.get_paths_to_platform_and_hwsku_dirs', MagicMock(return_value=('/tmp', None)))
+    @patch('xcvrd.xcvrd.is_warm_reboot_enabled', MagicMock(return_value=False))
+    @patch('xcvrd.xcvrd.DaemonXcvrd.wait_for_port_config_done', MagicMock())
+    @patch('subprocess.check_output', MagicMock(return_value='false'))
+    def test_DaemonXcvrd_init_deinit_cold(self):
+        xcvrd.platform_chassis = MagicMock()
+
+        xcvrdaemon = DaemonXcvrd(SYSLOG_IDENTIFIER)
+        with patch("subprocess.check_output") as mock_run:
+            mock_run.return_value = "false"
+
+            xcvrdaemon.init()
+
+            status_tbl = MagicMock()
+            xcvrdaemon.xcvr_table_helper.get_status_tbl = MagicMock(return_value=status_tbl)
+            xcvrdaemon.xcvr_table_helper.get_dom_tbl = MagicMock(return_value=MagicMock)
+            xcvrdaemon.xcvr_table_helper.get_dom_threshold_tbl = MagicMock(return_value=MagicMock)
+            xcvrdaemon.xcvr_table_helper.get_pm_tbl = MagicMock(return_value=MagicMock)
+            xcvrdaemon.xcvr_table_helper.get_firmware_info_tbl = MagicMock(return_value=MagicMock)
+            xcvrdaemon.xcvr_table_helper.get_intf_tbl = MagicMock(return_value=MagicMock)
+
+            xcvrdaemon.deinit()
+
+            status_tbl.hdel.assert_called()
+
 
 def wait_until(total_wait_time, interval, call_back, *args, **kwargs):
     wait_time = 0
