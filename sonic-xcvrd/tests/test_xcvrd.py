@@ -1957,17 +1957,24 @@ class TestXcvrdScript(object):
         assert not task.port_mapping.logical_to_asic
         assert mock_update_status_hw.call_count == 1
 
-    @patch('xcvrd.xcvrd_utilities.port_event_helper.subscribe_port_config_change', MagicMock(return_value=(None, None)))
     def test_SfpStateUpdateTask_task_run_stop(self):
-        port_mapping = PortMapping()
-        stop_event = threading.Event()
-        sfp_error_event = threading.Event()
-        task = SfpStateUpdateTask(DEFAULT_NAMESPACE, port_mapping, stop_event, sfp_error_event)
-        task.start()
-        assert wait_until(5, 1, task.is_alive)
-        task.raise_exception()
-        task.join()
-        assert wait_until(5, 1, lambda: task.is_alive() is False)
+        def poll_forever(*args, **kwargs):
+            while True:
+                time.sleep(1)
+        # Redefine the XcvrTableHelper function to poll forever so that the task can be stopped by
+        # raising an exception in between. Also, XcvrTableHelper is the first function to be called after
+        # starting the task, so having the patch here will avoid the task crashing unexpectedly
+        # at a different location.
+        with patch('xcvrd.xcvrd.XcvrTableHelper', new=poll_forever):
+            port_mapping = PortMapping()
+            stop_event = threading.Event()
+            sfp_error_event = threading.Event()
+            task = SfpStateUpdateTask(DEFAULT_NAMESPACE, port_mapping, stop_event, sfp_error_event)
+            task.start()
+            assert wait_until(5, 1, task.is_alive)
+            task.raise_exception()
+            task.join()
+            assert wait_until(5, 1, lambda: task.is_alive() is False)
 
     @patch('xcvrd.xcvrd.XcvrTableHelper', MagicMock())
     @patch('xcvrd.xcvrd.post_port_sfp_info_to_db')
