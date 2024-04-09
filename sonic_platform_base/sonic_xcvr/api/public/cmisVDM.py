@@ -18,6 +18,12 @@ VDM_FREEZE = 128
 VDM_UNFREEZE = 0
 
 class CmisVdmApi(XcvrApi):
+
+    VDM_REAL_VALUE = 0x1
+    VDM_THRESHOLD = 0x2
+    VDM_FLAG = 0x4
+    ALL_FIELD = 0xff
+
     def __init__(self, xcvr_eeprom):
         super(CmisVdmApi, self).__init__(xcvr_eeprom)
     
@@ -30,7 +36,7 @@ class CmisVdmApi(XcvrApi):
         result = mantissa*10**(scale_exponent-24)
         return result
 
-    def get_vdm_page(self, page, VDM_flag_page):
+    def get_vdm_page(self, page, VDM_flag_page, field_option=ALL_FIELD):
         '''
         This function returns VDM items from a specific VDM page.
         Output format is a dictionary. Key is observable type; value is a dictionary.
@@ -67,42 +73,55 @@ class CmisVdmApi(XcvrApi):
         for index, typeID in enumerate(vdm_typeID):
             if typeID not in VDM_TYPE_DICT:
                 continue
-            else:
-                vdm_info_dict = VDM_TYPE_DICT[typeID]
-                thrshID = VDM_thresholdID[index]
-                vdm_type = vdm_info_dict[0]
-                vdm_format = vdm_info_dict[1]
-                scale = vdm_info_dict[2]
 
-                vdm_value_offset = vdm_valuePage * PAGE_SIZE + PAGE_OFFSET + VDM_SIZE * index
-                vdm_high_alarm_offset = vdm_thrshPage * PAGE_SIZE + PAGE_OFFSET + THRSH_SPACING * thrshID
-                vdm_low_alarm_offset = vdm_high_alarm_offset + 2
-                vdm_high_warn_offset = vdm_high_alarm_offset + 4
-                vdm_low_warn_offset = vdm_high_alarm_offset + 6
+            vdm_info_dict = VDM_TYPE_DICT[typeID]
+            thrshID = VDM_thresholdID[index]
+            vdm_type = vdm_info_dict[0]
+            vdm_format = vdm_info_dict[1]
+            scale = vdm_info_dict[2]
 
+            vdm_value_offset = vdm_valuePage * PAGE_SIZE + PAGE_OFFSET + VDM_SIZE * index
+            vdm_high_alarm_offset = vdm_thrshPage * PAGE_SIZE + PAGE_OFFSET + THRSH_SPACING * thrshID
+            vdm_low_alarm_offset = vdm_high_alarm_offset + 2
+            vdm_high_warn_offset = vdm_high_alarm_offset + 4
+            vdm_low_warn_offset = vdm_high_alarm_offset + 6
+
+            if field_option & self.VDM_REAL_VALUE:
                 vdm_value_raw = self.xcvr_eeprom.read_raw(vdm_value_offset, VDM_SIZE, True)
-                vdm_thrsh_high_alarm_raw = self.xcvr_eeprom.read_raw(vdm_high_alarm_offset, VDM_SIZE, True)
-                vdm_thrsh_low_alarm_raw = self.xcvr_eeprom.read_raw(vdm_low_alarm_offset, VDM_SIZE, True)
-                vdm_thrsh_high_warn_raw = self.xcvr_eeprom.read_raw(vdm_high_warn_offset, VDM_SIZE, True)
-                vdm_thrsh_low_warn_raw = self.xcvr_eeprom.read_raw(vdm_low_warn_offset, VDM_SIZE, True)
-                if not vdm_value_raw or not vdm_thrsh_high_alarm_raw or not vdm_thrsh_low_alarm_raw \
-                   or not vdm_high_warn_offset or not vdm_thrsh_low_warn_raw:
-                    return {}
+                if not vdm_value_raw:
+                    continue
                 if vdm_format == 'S16':
                     vdm_value = struct.unpack('>h',vdm_value_raw)[0] * scale
+                elif vdm_format == 'U16':
+                    vdm_value = struct.unpack('>H',vdm_value_raw)[0] * scale
+                elif vdm_format == 'F16':
+                    vdm_value_int = struct.unpack('>H',vdm_value_raw)[0]
+                    vdm_value = self.get_F16(vdm_value_int)
+                else:
+                    continue
+            else:
+                vdm_value = None
+
+            if field_option & self.VDM_THRESHOLD:
+                vdm_thrsh_raw = self.xcvr_eeprom.read_raw(vdm_high_alarm_offset, VDM_SIZE*4, True)
+                if not vdm_thrsh_raw:
+                    continue
+                vdm_thrsh_high_alarm_raw = vdm_thrsh_raw[0:2]
+                vdm_thrsh_low_alarm_raw = vdm_thrsh_raw[2:4]
+                vdm_thrsh_high_warn_raw = vdm_thrsh_raw[4:6]
+                vdm_thrsh_low_warn_raw = vdm_thrsh_raw[6:8]
+
+                if vdm_format == 'S16':
                     vdm_thrsh_high_alarm = struct.unpack('>h', vdm_thrsh_high_alarm_raw)[0] * scale
                     vdm_thrsh_low_alarm = struct.unpack('>h', vdm_thrsh_low_alarm_raw)[0] * scale
                     vdm_thrsh_high_warn = struct.unpack('>h', vdm_thrsh_high_warn_raw)[0] * scale
                     vdm_thrsh_low_warn = struct.unpack('>h', vdm_thrsh_low_warn_raw)[0] * scale
                 elif vdm_format == 'U16':
-                    vdm_value = struct.unpack('>H',vdm_value_raw)[0] * scale
                     vdm_thrsh_high_alarm = struct.unpack('>H', vdm_thrsh_high_alarm_raw)[0] * scale
                     vdm_thrsh_low_alarm = struct.unpack('>H', vdm_thrsh_low_alarm_raw)[0] * scale
                     vdm_thrsh_high_warn = struct.unpack('>H', vdm_thrsh_high_warn_raw)[0] * scale
                     vdm_thrsh_low_warn = struct.unpack('>H', vdm_thrsh_low_warn_raw)[0] * scale
                 elif vdm_format == 'F16':
-                    vdm_value_int = struct.unpack('>H',vdm_value_raw)[0]
-                    vdm_value = self.get_F16(vdm_value_int)
                     vdm_thrsh_high_alarm_int = struct.unpack('>H', vdm_thrsh_high_alarm_raw)[0]
                     vdm_thrsh_low_alarm_int = struct.unpack('>H', vdm_thrsh_low_alarm_raw)[0]
                     vdm_thrsh_high_warn_int = struct.unpack('>H', vdm_thrsh_high_warn_raw)[0]
@@ -113,13 +132,24 @@ class CmisVdmApi(XcvrApi):
                     vdm_thrsh_low_warn = self.get_F16(vdm_thrsh_low_warn_int)
                 else:
                     continue
+            else:
+                vdm_thrsh_high_alarm = None
+                vdm_thrsh_low_alarm = None
+                vdm_thrsh_high_warn = None
+                vdm_thrsh_low_warn = None
 
-            vdm_flag_offset = 32 * (page - 0x20) + index//2
-            bit_offset = 4*(index%2)
-            vdm_high_alarm_flag = bool((VDM_flag_page[vdm_flag_offset] >> (bit_offset)) & 0x1)
-            vdm_low_alarm_flag = bool((VDM_flag_page[vdm_flag_offset] >> (bit_offset+1)) & 0x1)
-            vdm_high_warn_flag = bool((VDM_flag_page[vdm_flag_offset] >> (bit_offset+2)) & 0x1)
-            vdm_low_warn_flag = bool((VDM_flag_page[vdm_flag_offset] >> (bit_offset+3)) & 0x1)
+            if VDM_flag_page:
+                vdm_flag_offset = 32 * (page - 0x20) + index//2
+                bit_offset = 4*(index%2)
+                vdm_high_alarm_flag = bool((VDM_flag_page[vdm_flag_offset] >> (bit_offset)) & 0x1)
+                vdm_low_alarm_flag = bool((VDM_flag_page[vdm_flag_offset] >> (bit_offset+1)) & 0x1)
+                vdm_high_warn_flag = bool((VDM_flag_page[vdm_flag_offset] >> (bit_offset+2)) & 0x1)
+                vdm_low_warn_flag = bool((VDM_flag_page[vdm_flag_offset] >> (bit_offset+3)) & 0x1)
+            else:
+                vdm_high_alarm_flag = None
+                vdm_low_alarm_flag = None
+                vdm_high_warn_flag = None
+                vdm_low_warn_flag = None
 
             if vdm_type not in vdm_Page_data:
                 vdm_Page_data[vdm_type] = {
@@ -148,7 +178,7 @@ class CmisVdmApi(XcvrApi):
                     vdm_low_warn_flag]
         return vdm_Page_data
 
-    def get_vdm_allpage(self):
+    def get_vdm_allpage(self, field_option=ALL_FIELD ):
         '''
         This function returns VDM items from all advertised VDM pages.
         Output format is a dictionary. Key is observable type; value is a dictionary.
@@ -170,8 +200,13 @@ class CmisVdmApi(XcvrApi):
             return None
         VDM_START_PAGE = 0x20
         vdm = dict()
-        vdm_flag_page = self.xcvr_eeprom.read_raw(VDM_FLAG_PAGE * PAGE_SIZE + PAGE_OFFSET, PAGE_SIZE)
+
+        if field_option & self.VDM_FLAG:
+            vdm_flag_page = self.xcvr_eeprom.read_raw(VDM_FLAG_PAGE * PAGE_SIZE + PAGE_OFFSET, PAGE_SIZE)
+        else:
+            vdm_flag_page = None
+
         for page in range(VDM_START_PAGE, VDM_START_PAGE + vdm_page_supported_raw + 1):
-            vdm_current_page = self.get_vdm_page(page, vdm_flag_page)
+            vdm_current_page = self.get_vdm_page(page, vdm_flag_page, field_option)
             vdm.update(vdm_current_page)
         return vdm
