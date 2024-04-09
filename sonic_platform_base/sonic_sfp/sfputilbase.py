@@ -1427,3 +1427,4 @@ class SfpUtilBase(object):
          like {'-1':'system_not_ready'}.
         """
         return
+
