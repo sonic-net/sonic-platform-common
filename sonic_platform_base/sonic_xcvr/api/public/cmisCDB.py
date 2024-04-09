@@ -363,7 +363,7 @@ class CmisCdbApi(XcvrApi):
                     datachunk = data[PAGE_LENGTH*pageoffset : PAGE_LENGTH*(pageoffset + 1)]
                     self.xcvr_eeprom.write_raw(next_page*PAGE_LENGTH+INIT_OFFSET, PAGE_LENGTH, datachunk)
                 else:
-                    datachunk = data[INIT_OFFSET*pageoffset : ]
+                    datachunk = data[PAGE_LENGTH*pageoffset : ]
                     self.xcvr_eeprom.write_raw(next_page*PAGE_LENGTH+INIT_OFFSET, len(datachunk), datachunk)
         else:
             sections = epl_len // writelength
