@@ -183,6 +183,7 @@ class Sff8024(XcvrCodes):
         5: 'base_t_media_interface'
     }
 
+    # Host Electrical Interface IDs
     HOST_ELECTRICAL_INTERFACE = {
         0: 'Undefined',
         1: '1000BASE -CX(Clause 39)',
@@ -250,14 +251,26 @@ class Sff8024(XcvrCodes):
         64: 'FOIC4.8 (ITU-T G.709.1 G.Sup58)',
         65: 'CAUI-4 C2M (Annex 83E) without FEC',
         66: 'CAUI-4 C2M (Annex 83E) with RS(528,514) FEC',
+        67: '50GBASE-CR2 (Ethernet Technology Consortium) with RS(528,514) (Clause 91) FEC',
+        68: '50GBASE-CR2 (Ethernet Technology Consortium) with BASE-R (Clause 74), Fire code FEC',
+        69: '50GBASE-CR2 (Ethernet Technology Consortium) with no FEC',
+        70: '100GBASE-CR1 (Clause 162)',
+        71: '200GBASE-CR2 (Clause 162)',
+        72: '400GBASE-CR4 (Clause 162)',
+        73: '800G-ETC-CR8',
+        74: '128GFC (FC-PI-8)',
         75: '100GAUI-1-S C2M (Annex 120G)',
         76: '100GAUI-1-L C2M (Annex 120G)',
+        77: '200GAUI-2-S C2M (Annex 120G)',
+        78: '200GAUI-2-L C2M (Annex 120G)',
         79: '400GAUI-4-S C2M (Annex 120G)',
         80: '400GAUI-4-L C2M (Annex 120G)',
         81: '800G S C2M (placeholder)',
-        82: '800G L C2M (placeholder)'
+        82: '800G L C2M (placeholder)',
+        83: 'OTL4.2'
     }
 
+    # MMF media interface IDs
     NM_850_MEDIA_INTERFACE = {
         0: 'Undefined',
         1: '10GBASE-SW (Clause 52)',
@@ -278,16 +291,23 @@ class Sff8024(XcvrCodes):
         16: '400GBASE-SR8 (Clause 138)',
         17: '400G-SR4 (Placeholder)',
         18: '800G-SR8 (Placeholder)',
-        26: '400GBASE-SR4.2 (Clause 150) (400GE BiDi)',
         19: '8GFC-MM (FC-PI-4)',
         20: '10GFC-MM (10GFC)',
         21: '16GFC-MM (FC-PI-5)',
         22: '32GFC-MM (FC-PI-6)',
         23: '64GFC-MM (FC-PI 7)',
         24: '128GFC-MM4 (FC-PI-6P)',
-        25: '256GFC-MM4 (FC-PI-7P)'
+        25: '256GFC-MM4 (FC-PI-7P)',
+        26: '400GBASE-SR4.2 (Clause 150) (400GE BiDi)',
+        27: '200G-SR2 (Clause 167)',
+        28: '128GFC-MM (FC-PI-8)',
+        29: '100G-VR1 (Clause 167)',
+        30: '200G-VR2 (Clause 167)',
+        31: '400G-VR4 (Clause 167)',
+        32: '800G-VR8 (Placeholder)'
     }
 
+    # SMF media interface IDs
     SM_MEDIA_INTERFACE = {
         0: 'Undefined',
         1: '10GBASE-LW (Cl 52)',
@@ -326,9 +346,7 @@ class Sff8024(XcvrCodes):
         34: '32GFC-SM (FC-PI-6)',
         35: '64GFC-SM (FC-PI-7)',
         36: '128GFC-PSM4 (FC-PI-6P)',
-        37: '256GFC-PSM4 (FC-PI-7P)',
         38: '128GFC-CWDM4 (FC-PI-6P)',
-        39: '256GFC-CWDM4 (FC-PI-7P)',
         44: '4I1-9D1F (G.959.1)',
         45: '4L1-9C1F (G.959.1)',
         46: '4L1-9D1F (G.959.1)',
@@ -337,6 +355,7 @@ class Sff8024(XcvrCodes):
         49: '4I1-4D1F (G.959.1)',
         50: '8R1-4D1F (G.959.1)',
         51: '8I1-4D1F (G.959.1)',
+        52: '100G CWDM4-OCP',
         56: '10G-SR',
         57: '10G-LR',
         58: '25G-SR',
@@ -345,18 +364,40 @@ class Sff8024(XcvrCodes):
         61: '25G-LR-BiDi',
         62: '400ZR, DWDM, amplified',
         63: '400ZR, Single Wavelength, Unamplified',
+        64: '50GBASE-ER (Cl 139)',
+        65: '200GBASE-ER4 (Cl 122)',
+        66: '400GBASE-ER8 (Cl 122)',
+        67: '400GBASE-LR4-6 (Cl 151)',
+        68: '100GBASE-ZR (Cl 154)',
+        69: '128GFC-SM (FC-PI-8)',
         70: 'ZR400-OFEC-16QAM',
         71: 'ZR300-OFEC-8QAM',
         72: 'ZR200-OFEC-QPSK',
-        73: 'ZR100-OFEC-QPSK'
+        73: 'ZR100-OFEC-QPSK',
+        74: '100G-LR1-20',
+        75: '100G-ER1-30',
+        76: '100G-ER1-40',
+        77: '400GBASE-ZR (Cl 156)',
+        78: '10GBASE-BR (Cl 158)',
+        79: '25GBASE-BR (Cl 159)',
+        80: '50GBASE-BR (Cl 160)',
+        81: 'FOIC1.4-DO (G.709.3/Y.1331.3)',
+        82: 'FOIC2.8-DO (G.709.3/Y.1331.3)',
+        83: 'FOIC4.8-DO (G.709.3/Y.1331.3)',
+        84: 'FOIC2.4-DO (G.709.3/Y.1331.3)',
+        85: '400GBASE-DR4-2 (placeholder)',
+        86: '800GBASE-DR8 (placeholder)',
+        87: '800GBASE-DR8-2 (placeholder)'
     }
 
+    # Passive and Linear Active Copper Cable and Passive Loopback media interface codes
     PASSIVE_COPPER_MEDIA_INTERFACE = {
         0: 'Undefined',
         1: 'Copper cable',
-        2: 'Passive Loopback module'
+        191: 'Passive Loopback module'
     }
 
+    # Limiting and Retimed Active Cable assembly and Active Loopback media interface codes
     ACTIVE_CABLE_MEDIA_INTERFACE = {
         0: 'Undefined',
         1: 'Active Cable assembly with BER < 10^-12',
@@ -366,12 +407,16 @@ class Sff8024(XcvrCodes):
         191: 'Active Loopback module'
     }
 
+    # BASE-T media interface codes
     BASE_T_MEDIA_INTERFACE = {
         0: 'Undefined',
         1: '1000BASE-T (Clause 40)',
         2: '2.5GBASE-T (Clause 126)',
         3: '5GBASE-T (Clause 126)',
-        4: '10GBASE-T (Clause 55)'
+        4: '10GBASE-T (Clause 55)',
+        5: '25GBASE-T (Clause 113)',
+        6: '40GBASE-T (Clause 113)',
+        7: '50GBASE-T (Placeholder)'
     }
 
     # TODO: Add other codes
