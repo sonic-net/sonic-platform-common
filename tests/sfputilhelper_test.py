@@ -22,6 +22,20 @@ PORT_LIST = [
     "Ethernet48"
 ]
 
+PORT_FILTERED_LIST = [
+    "Ethernet0",
+    "Ethernet4",
+    "Ethernet8",
+    "Ethernet12",
+    "Ethernet16",
+    "Ethernet20",
+    "Ethernet24",
+    "Ethernet28",
+    "Ethernet32",
+    "Ethernet36",
+    "Ethernet40",
+]
+
 LOGICAL_TO_PHYSICAL ={
     'Ethernet0': [1],
     'Ethernet4': [2],
@@ -56,6 +70,7 @@ PHYSICAL_TO_LOGICAL = {
 
 test_dir = os.path.dirname(os.path.realpath(__file__))
 hwsku_json_file = os.path.join(test_dir, 'platform_json', 'hwsku.json')
+hwsku_role_json_file = os.path.join(test_dir, 'platform_json', 'hwsku_role.json')
 
 @pytest.fixture(scope="class")
 def setup_class(request):
@@ -118,3 +133,14 @@ class TestSfpUtilHelper(object):
 
         assert sfputil_helper.logical_to_physical == LOGICAL_TO_PHYSICAL
         assert sfputil_helper.physical_to_logical == PHYSICAL_TO_LOGICAL
+
+    @mock.patch('portconfig.get_hwsku_file_name', mock.MagicMock(return_value=hwsku_role_json_file))
+    def test_read_all_port_mappings_role(self):
+        sfputil_helper = sfputilhelper.SfpUtilHelper()
+        sfputil_helper.logical = []
+        sfputil_helper.logical_to_physical = {}
+        sfputil_helper.physical_to_logical = {}
+        sfputil_helper.read_all_porttab_mappings(self.platform_json_dir, 2)
+        logical_port_list = sfputil_helper.logical
+
+        assert len(logical_port_list) == len(PORT_FILTERED_LIST)

@@ -4,9 +4,8 @@
     Implementation of Credo AEC cable specific in addition to the CMIS specification.
 """
 
-from ...fields import consts
-from ..public.cmis import CmisApi
+from ..public.cmisTargetFWUpgrade import CmisTargetFWUpgradeAPI
 
-class CmisAec800gApi(CmisApi):
-    def set_firmware_download_target_end(self, target):
-        return self.xcvr_eeprom.write(consts.TARGET_MODE, target)
+class CmisAec800gApi(CmisTargetFWUpgradeAPI):
+    # Vendor specific implementation to be added here
+    pass
