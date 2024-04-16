@@ -9,7 +9,11 @@ from ..public.cmis import CmisApi
 
 class CmisFr8800gApi(CmisApi):
     def get_transceiver_info_firmware_versions(self):
-        InactiveFirmware = self.get_module_inactive_firmware() + ".0"
-        ActiveFirmware = self.get_module_active_firmware() + ".0"
+        return_dict = {"active_firmware" : "N/A", "inactive_firmware" : "N/A"}
+        
+        InactiveFirmware = self.get_module_inactive_firmware()
+        ActiveFirmware = self.get_module_active_firmware()
 
-        return [ActiveFirmware, InactiveFirmware]
+        return_dict["active_firmware"] = ActiveFirmware + ".0"
+        return_dict["inactive_firmware"] = InactiveFirmware + ".0"
+        return return_dict
