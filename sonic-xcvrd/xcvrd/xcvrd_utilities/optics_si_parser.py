@@ -120,10 +120,17 @@ def fetch_optics_si_setting(physical_port, lane_speed, sfp):
 
 def load_optics_si_settings():
     global g_optics_si_dict
-    (platform_path, _) = device_info.get_paths_to_platform_and_hwsku_dirs()
+    (platform_path, hwsku_path) = device_info.get_paths_to_platform_and_hwsku_dirs()
 
-    optics_si_settings_file_path = os.path.join(platform_path, "optics_si_settings.json")
-    if not os.path.isfile(optics_si_settings_file_path):
+    # Support to fetch optics_si_settings.json both from platform folder and HWSKU folder
+    optics_si_settings_file_path_platform = os.path.join(platform_path, "optics_si_settings.json")
+    optics_si_settings_file_path_hwsku = os.path.join(hwsku_path, "optics_si_settings.json")
+
+    if os.path.isfile(optics_si_settings_file_path_hwsku):
+        optics_si_settings_file_path = optics_si_settings_file_path_hwsku
+    elif os.path.isfile(optics_si_settings_file_path_platform):
+        optics_si_settings_file_path = optics_si_settings_file_path_platform
+    else:
         helper_logger.log_info("No optics SI file exists")
         return {}
 

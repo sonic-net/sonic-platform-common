@@ -22,10 +22,17 @@ helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
 
 def load_media_settings():
     global g_dict
-    (platform_path, _) = device_info.get_paths_to_platform_and_hwsku_dirs()
+    (platform_path, hwsku_path) = device_info.get_paths_to_platform_and_hwsku_dirs()
 
-    media_settings_file_path = os.path.join(platform_path, "media_settings.json")
-    if not os.path.isfile(media_settings_file_path):
+    # Support to fetch media_settings.json both from platform folder and HWSKU folder
+    media_settings_file_path_platform = os.path.join(platform_path, "media_settings.json")
+    media_settings_file_path_hwsku = os.path.join(hwsku_path, "media_settings.json")
+
+    if os.path.isfile(media_settings_file_path_hwsku):
+        media_settings_file_path = media_settings_file_path_hwsku
+    elif os.path.isfile(media_settings_file_path_platform):
+        media_settings_file_path = media_settings_file_path_platform
+    else:
         helper_logger.log_info("xcvrd: No media file exists")
         return {}
 
