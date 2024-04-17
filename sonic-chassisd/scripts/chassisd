@@ -237,6 +237,13 @@ class ModuleUpdater(logger.Logger):
         fvs = swsscommon.FieldValuePairs([(CHASSIS_INFO_CARD_NUM_FIELD, str(num_modules))])
         self.chassis_table.set(CHASSIS_INFO_KEY_TEMPLATE.format(1), fvs)
 
+    def get_module_current_status(self, key):
+        fvs = self.module_table.get(key)
+        if isinstance(fvs, list) and fvs[0] is True:
+            fvs = dict(fvs[-1])
+            return fvs[CHASSIS_MODULE_INFO_OPERSTATUS_FIELD]
+        return ModuleBase.MODULE_STATUS_EMPTY        
+            
     def module_db_update(self):
         notOnlineModules = []
 
@@ -260,6 +267,7 @@ class ModuleUpdater(logger.Logger):
                                                   (CHASSIS_MODULE_INFO_OPERSTATUS_FIELD, module_info_dict[CHASSIS_MODULE_INFO_OPERSTATUS_FIELD]),
                                                   (CHASSIS_MODULE_INFO_NUM_ASICS_FIELD, str(len(module_info_dict[CHASSIS_MODULE_INFO_ASICS]))),
                                                   (CHASSIS_MODULE_INFO_SERIAL_FIELD, module_info_dict[CHASSIS_MODULE_INFO_SERIAL_FIELD])])
+                prev_status = self.get_module_current_status(key)
                 self.module_table.set(key, fvs)
 
                 # Construct key for down_modules dict. Example down_modules key format: LINE-CARD0|<hostname>
@@ -272,23 +280,27 @@ class ModuleUpdater(logger.Logger):
                     down_module_key = key+'|'
 
                 if module_info_dict[CHASSIS_MODULE_INFO_OPERSTATUS_FIELD] != str(ModuleBase.MODULE_STATUS_ONLINE):
-                    notOnlineModules.append(key)
-                    # Record the time when the module down was detected to track the
-                    # module down time. Used for chassis db cleanup for all asics of the module if the module is down for a 
-                    # long time like 30 mins.
-                    # All down modules including supervisor are added to the down modules dictionary. This is to help
-                    # identifying module operational status change. But the clean up will not be attempted for supervisor
-                    if down_module_key not in self.down_modules:
-                        self.log_warning("Module {} went off-line!".format(key))
-                        self.down_modules[down_module_key] = {}
-                        self.down_modules[down_module_key]['down_time'] = time.time()
-                        self.down_modules[down_module_key]['cleaned'] = False
+                    if prev_status == ModuleBase.MODULE_STATUS_ONLINE:
+                        notOnlineModules.append(key)
+                        # Record the time when the module down was detected to track the
+                        # module down time. Used for chassis db cleanup for all asics of the module if the module is down for a 
+                        # long time like 30 mins.
+                        # All down modules including supervisor are added to the down modules dictionary. This is to help
+                        # identifying module operational status change. But the clean up will not be attempted for supervisor
+
+                        if down_module_key not in self.down_modules:
+                            self.log_warning("Module {} went off-line!".format(key))
+                            self.down_modules[down_module_key] = {}
+                            self.down_modules[down_module_key]['down_time'] = time.time()
+                            self.down_modules[down_module_key]['cleaned'] = False
                     continue
                 else:
                     # Module is operational. Remove it from down time tracking.
                     if down_module_key in self.down_modules:
                         self.log_notice("Module {} recovered on-line!".format(key))
                         del self.down_modules[down_module_key]
+                    elif prev_status != ModuleBase.MODULE_STATUS_ONLINE:
+                        self.log_notice("Module {} is on-line!".format(key))
 
                 for asic_id, asic in enumerate(module_info_dict[CHASSIS_MODULE_INFO_ASICS]):
                     asic_global_id, asic_pci_addr = asic

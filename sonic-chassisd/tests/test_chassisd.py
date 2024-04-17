@@ -652,8 +652,83 @@ def test_chassis_db_cleanup():
 
     # Mock >= CHASSIS_DB_CLEANUP_MODULE_DOWN_PERIOD module down period for LINE-CARD1
     down_module_key = lc2_name+"|"
-    module_down_time = sup_module_updater.down_modules[down_module_key]["down_time"]
-    sup_module_updater.down_modules[down_module_key]["down_time"] = module_down_time - ((CHASSIS_DB_CLEANUP_MODULE_DOWN_PERIOD+10)*60)
-
-    # Run module database update from supervisor to run chassis db cleanup
+    assert  down_module_key not in sup_module_updater.down_modules.keys()
+    
     sup_module_updater.module_down_chassis_db_cleanup()
+
+def test_chassis_db_bootup_with_empty_slot():
+    chassis = MockChassis()
+
+    #Supervisor
+    index = 0
+    sup_name = "SUPERVISOR0"
+    desc = "Supervisor card"
+    sup_slot = 16
+    serial = "RP1000101"
+    module_type = ModuleBase.MODULE_TYPE_SUPERVISOR
+    supervisor = MockModule(index, sup_name, desc, module_type, sup_slot, serial)
+    supervisor.set_midplane_ip()
+    chassis.module_list.append(supervisor)
+
+    #Linecard 0. Host name will be pushed for this to make clean up happen
+    index = 1
+    lc_name = "LINE-CARD0"
+    desc = "36 port 400G card"
+    lc_slot = 1
+    serial = "LC1000101"
+    module_type = ModuleBase.MODULE_TYPE_LINE
+    module = MockModule(index, lc_name, desc, module_type, lc_slot, serial)
+    module.set_midplane_ip()
+    status = ModuleBase.MODULE_STATUS_ONLINE
+    module.set_oper_status(status)
+    chassis.module_list.append(module)
+
+    #Linecard 1. Host name will not be pushed for this so that clean up will not happen
+    index = 2
+    lc2_name = u"LINE-CARD1"
+    desc = "Unavailable'"
+    lc2_slot = 2
+    serial = "N/A"
+    module_type = ModuleBase.MODULE_TYPE_LINE
+    module2 = MockModule(index, lc2_name, desc, module_type, lc2_slot, serial)
+    module2.set_midplane_ip()
+    status = ModuleBase.MODULE_STATUS_EMPTY
+    module2.set_oper_status(status)
+    chassis.module_list.append(module2)
+
+    # Supervisor ModuleUpdater
+    sup_module_updater = ModuleUpdater(SYSLOG_IDENTIFIER, chassis, sup_slot, sup_slot)
+    sup_module_updater.modules_num_update()
+    
+    sup_module_updater.module_db_update()
+
+    # check LC1 STATUS ONLINE in module table
+    fvs = sup_module_updater.module_table.get(lc_name)
+    if isinstance(fvs, list):
+        fvs = dict(fvs[-1])
+    assert ModuleBase.MODULE_STATUS_ONLINE == fvs[CHASSIS_MODULE_INFO_OPERSTATUS_FIELD]
+
+    # check LC2 STATUS EMPTY in module table 
+    fvs = sup_module_updater.module_table.get(lc2_name)
+    if isinstance(fvs, list):
+        fvs = dict(fvs[-1])
+    assert ModuleBase.MODULE_STATUS_EMPTY == fvs[CHASSIS_MODULE_INFO_OPERSTATUS_FIELD]
+
+    # Both should no tbe in down_module keys.
+    
+    down_module_lc1_key = lc_name+"|"
+    assert  down_module_lc1_key not in sup_module_updater.down_modules.keys()
+    down_module_lc2_key = lc_name+"|"
+    assert  down_module_lc2_key not in sup_module_updater.down_modules.keys()
+
+    # Change linecard module1 status to OFFLINE
+    status = ModuleBase.MODULE_STATUS_OFFLINE
+    module.set_oper_status(status)
+    sup_module_updater.module_db_update()
+
+    fvs = sup_module_updater.module_table.get(lc_name)
+    if isinstance(fvs, list):
+        fvs = dict(fvs[-1])
+    assert status == fvs[CHASSIS_MODULE_INFO_OPERSTATUS_FIELD]
+    assert down_module_lc1_key in sup_module_updater.down_modules.keys()
+    
