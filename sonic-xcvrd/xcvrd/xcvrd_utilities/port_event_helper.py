@@ -1,6 +1,5 @@
 from sonic_py_common import daemon_base
 from sonic_py_common import multi_asic
-from sonic_py_common.interface import backplane_prefix, inband_prefix, recirc_prefix
 from swsscommon import swsscommon
 
 SELECT_TIMEOUT_MSECS = 1000
@@ -9,7 +8,6 @@ DEFAULT_PORT_TBL_MAP = [
     {'STATE_DB': 'TRANSCEIVER_INFO'},
     {'STATE_DB': 'PORT_TABLE', 'FILTER': ['host_tx_ready']},
 ]
-
 
 class PortChangeEvent:
     PORT_ADD = 0
@@ -66,6 +64,8 @@ class PortChangeObserver:
         self.stop_event = stop_event
         self.port_change_event_handler = port_change_event_handler
         self.port_tbl_map = port_tbl_map
+        self.port_role_map = {}
+        self.refresh_role_map()
         self.subscribe_port_update_event()
 
     def apply_filter_to_fvp(self, filter, fvp):
@@ -73,6 +73,16 @@ class PortChangeObserver:
             for key in fvp.copy().keys():
                 if key not in (set(filter) | set({'index', 'port_name', 'asic_id', 'op'})):
                     del fvp[key]
+
+    def refresh_role_map(self):
+        for ns in self.namespaces:
+            cfg_db = daemon_base.db_connect("CONFIG_DB", namespace=ns)
+            port_table = swsscommon.Table(cfg_db, swsscommon.CFG_PORT_TABLE_NAME)
+            for key in port_table.getKeys():
+                _, port_config = port_table.get(key)
+                port_config_dict = dict(port_config)
+                if port_config_dict.get(multi_asic.PORT_ROLE, None):
+                    self.port_role_map[key] =  port_config_dict[multi_asic.PORT_ROLE]
 
     def subscribe_port_update_event(self):
         """
@@ -119,9 +129,21 @@ class PortChangeObserver:
                     (port_name, op, fvp) = port_tbl.pop()
                     if not port_name:
                         break
-                    if not validate_port(port_name):
-                        continue
+ 
                     fvp = dict(fvp) if fvp is not None else {}
+                    role = fvp.get(multi_asic.PORT_ROLE, None)
+                    if role:
+                        # If an internal port is broken out on the fly using DPB,
+                        # the assumption here is that we would recieve CONFIG_DB or APPL_DB notification before STATE_DB
+                        self.port_role_map[port_name] = role
+                    else:
+                        # role attribute might not be present for state DB
+                        # notifs and thus need to maintain a cache
+                        role = self.port_role_map.get(port_name, None)
+
+                    if not multi_asic.is_front_panel_port(port_name, role):
+                        continue
+
                     self.logger.log_warning("$$$ {} handle_port_update_event() : op={} DB:{} Table:{} fvp {}".format(
                                                             port_name, op, port_tbl.db_name, port_tbl.table_name, fvp))
                     if 'index' not in fvp:
@@ -239,11 +261,6 @@ class PortMapping:
             else:
                 return None
 
-def validate_port(port):
-    if port.startswith((backplane_prefix(), inband_prefix(), recirc_prefix())) or '.' in port:
-        return False
-    return True
-
 def subscribe_port_config_change(namespaces):
     sel = swsscommon.Select()
     asic_context = {}
@@ -274,10 +291,10 @@ def read_port_config_change(asic_context, port_mapping, logger, port_change_even
             (key, op, fvp) = port_tbl.pop()
             if not key:
                 break
-            if not validate_port(key):
+            fvp = dict(fvp)
+            if not multi_asic.is_front_panel_port(key, fvp.get(multi_asic.PORT_ROLE, None)):
                 continue
             if op == swsscommon.SET_COMMAND:
-                fvp = dict(fvp)
                 if 'index' not in fvp:
                     continue
 
@@ -316,10 +333,10 @@ def get_port_mapping(namespaces):
         config_db = daemon_base.db_connect("CONFIG_DB", namespace=namespace)
         port_table = swsscommon.Table(config_db, swsscommon.CFG_PORT_TABLE_NAME)
         for key in port_table.getKeys():
-            if not validate_port(key):
-                continue
             _, port_config = port_table.get(key)
             port_config_dict = dict(port_config)
+            if not multi_asic.is_front_panel_port(key, port_config_dict.get(multi_asic.PORT_ROLE, None)):
+                continue
             port_change_event = PortChangeEvent(key, port_config_dict['index'], asic_id, PortChangeEvent.PORT_ADD)
             port_mapping.handle_port_change_event(port_change_event)
     return port_mapping
