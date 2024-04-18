@@ -250,6 +250,16 @@ class HexRegField(RegField):
     def decode(self, raw_data, **decoded_deps):
         return '-'.join([ "%02x" % byte for byte in raw_data])
 
+class BytesRegField(RegField):
+    """
+    Returns the raw byte(s)
+    """
+    def __init__(self, name, offset, *fields, **kwargs):
+        super(BytesRegField, self).__init__(name, offset, *fields, **kwargs)
+
+    def decode(self, raw_data, **decoded_deps):
+        return raw_data
+
 class RegGroupField(XcvrField):
     """
     Field denoting one or more bytes, logically interpreted as one or more RegFields

@@ -3,6 +3,7 @@ from sonic_platform_base.sonic_xcvr.fields.xcvr_field import (
     DateField,
     FixedNumberRegField,
     HexRegField,
+    BytesRegField,
     NumberRegField,
     RegBitField,
     RegBitsField,
@@ -64,6 +65,7 @@ class MockXcvrMemMap(XcvrMemMap):
         )
         self.STRING_REG = StringRegField("StringReg", 12, size=15)
         self.HEX_REG = HexRegField("HexReg", 30, size=3)
+        self.BYTES_REG = BytesRegField("BytesReg", 10, size=4)
         self.REG_GROUP = RegGroupField("RegGroup",
             NumberRegField("Field0", 6, ro=False),
             NumberRegField("Field1", 7,
@@ -297,6 +299,12 @@ class TestHexRegField(object):
         field = mem_map.get_field("HexReg")
         data = bytearray([0xAA, 0xBB, 0xCC])
         assert field.decode(data) == "aa-bb-cc"
+
+class TestBytesRegField(object):
+    def test_decode(self):
+        field = mem_map.get_field("BytesReg")
+        data = bytearray([0xAA, 0xBB, 0xDD, 0xEE])
+        assert field.decode(data) == bytearray([0xAA, 0xBB, 0xDD, 0xEE])
 
 class TestRegGroupField(object):
     def test_offset(self):
