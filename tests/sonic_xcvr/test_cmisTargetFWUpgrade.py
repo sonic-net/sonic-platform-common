@@ -1,7 +1,7 @@
 from unittest.mock import patch
 from mock import MagicMock
 import pytest
-from sonic_platform_base.sonic_xcvr.api.public.cmisTargetFWUpgrade import CmisTargetFWUpgradeAPI
+from sonic_platform_base.sonic_xcvr.api.public.cmisTargetFWUpgrade import TARGET_E0_VALUE, TARGET_LIST, CmisTargetFWUpgradeAPI
 from sonic_platform_base.sonic_xcvr.codes.public.cmisTargetFWUpgrade import CmisTargetFWUpgradeCodes
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmisTargetFWUpgrade import CmisTargetFWUpgradeMemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
@@ -14,22 +14,39 @@ class TestCmis(object):
     eeprom = XcvrEeprom(reader, writer, mem_map)
     api = CmisTargetFWUpgradeAPI(eeprom)
 
-    @pytest.mark.parametrize("set_firmware_result, module_type", [
-        (False, 'QSFP+ or later with CMIS'),
-        (True, 'Unknown'),
-        (True, 'QSFP+ or later with CMIS')
+    @pytest.mark.parametrize("set_firmware_result, module_type, exception_raised", [
+        (False, 'QSFP+ or later with CMIS', False),
+        (True, 'Unknown', False),
+        (True, 'QSFP+ or later with CMIS', True)
     ])
-    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_transceiver_info_firmware_versions', MagicMock(side_effect=Exception('error')))
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_transceiver_info_firmware_versions', MagicMock(side_effect=({}, Exception('error'), {})))
     @patch('sonic_platform_base.sonic_xcvr.api.public.cmisTargetFWUpgrade.CmisTargetFWUpgradeAPI._get_server_firmware_version', MagicMock())
-    def test_get_transceiver_info_firmware_versions_failure(self, set_firmware_result, module_type):
-        expected_output = {'active_firmware': 'N/A', 'inactive_firmware': 'N/A', 'e1_active_firmware': 'N/A', 'e1_inactive_firmware': 'N/A', 'e2_active_firmware': 'N/A', 'e2_inactive_firmware': 'N/A', 'e1_server_firmware': 'N/A', 'e2_server_firmware': 'N/A'}
+    @patch('traceback.format_exception')
+    def test_get_transceiver_info_firmware_versions_failure(self, mock_format_exception, set_firmware_result, module_type, exception_raised):
+        expected_output = {'active_firmware': 'N/A', 'inactive_firmware': 'N/A', 'e1_active_firmware': 'N/A',\
+                            'e1_inactive_firmware': 'N/A', 'e2_active_firmware': 'N/A', 'e2_inactive_firmware': 'N/A',\
+                            'e1_server_firmware': 'N/A', 'e2_server_firmware': 'N/A'}
         self.api.set_firmware_download_target_end = MagicMock(return_value=set_firmware_result)
         self.api.get_module_type = MagicMock(return_value=module_type)
 
         result = self.api.get_transceiver_info_firmware_versions()
         assert result == expected_output
-        assert self.api.set_firmware_download_target_end.call_count == 4
-        self.api._get_server_firmware_version.assert_not_called()
+
+        assert self.api.set_firmware_download_target_end.call_count == len(TARGET_LIST) + 1
+        # Ensure that FW version is read for all targets
+        for index, call in enumerate(self.api.set_firmware_download_target_end.call_args_list):
+            args, _ = call
+            # Ensure target is restore to E0 after reading FW version from all targets
+            if index == len(TARGET_LIST):
+                assert args[0] == TARGET_E0_VALUE
+            else:
+                assert args[0] == TARGET_LIST[index]
+
+        if exception_raised:
+            assert mock_format_exception.call_count == 1
+            assert self.api._get_server_firmware_version.call_count == 1
+        else:
+            self.api._get_server_firmware_version.assert_not_called()
 
     @pytest.mark.parametrize("fw_info_dict, server_fw_info_dict, expected_output", [
         (({'active_firmware': '1.1.1', 'inactive_firmware': '1.0.0'}, {'active_firmware': '1.1.1', 'inactive_firmware': '1.0.0'}, {'active_firmware': '1.1.1', 'inactive_firmware': '1.0.0'}), ({'server_firmware': '1.5.0.1421'}, {'server_firmware': '1.5.0.1421'}),\
@@ -45,7 +62,7 @@ class TestCmis(object):
 
                 result = self.api.get_transceiver_info_firmware_versions()
                 assert result == expected_output
-                assert self.api.set_firmware_download_target_end.call_count == 4
+                assert self.api.set_firmware_download_target_end.call_count == len(TARGET_LIST) + 1
 
     @pytest.mark.parametrize("magic_byte, checksum, server_fw_version_byte_array, expected", [
         (0, 0, [], {'server_firmware': 'N/A'}),
