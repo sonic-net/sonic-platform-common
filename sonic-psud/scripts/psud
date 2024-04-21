@@ -403,6 +403,9 @@ class DaemonPsud(daemon_base.DaemonBase):
         fvs = swsscommon.FieldValuePairs([(CHASSIS_INFO_PSU_NUM_FIELD, str(self.num_psus))])
         self.chassis_tbl.set(CHASSIS_INFO_KEY, fvs)
 
+        # Update predefined position_in_parent and parent_name for PSU
+        self._update_psu_entity_info()
+
     def __del__(self):
         # Delete all the information from DB and then exit
         for psu_index in range(1, self.num_psus + 1):
@@ -433,7 +436,6 @@ class DaemonPsud(daemon_base.DaemonBase):
             # We received a fatal signal
             return False
 
-        self._update_psu_entity_info()
         self.update_psu_data()
         self._update_led_color()
 
