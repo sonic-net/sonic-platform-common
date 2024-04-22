@@ -308,6 +308,15 @@ def _wrapper_get_transceiver_pm(physical_port):
             pass
     return {}
 
+def _wrapper_is_flat_memory(physical_port):
+    if platform_chassis is not None:
+        try:
+            sfp = platform_chassis.get_sfp(physical_port)
+            api = sfp.get_xcvr_api()
+            return api.is_flat_memory()
+        except NotImplementedError:
+            pass
+    return None
 
 # Soak SFP insert event until management init completes
 def _wrapper_soak_sfp_insert_event(sfp_insert_events, port_dict):
@@ -584,6 +593,9 @@ def post_port_dom_threshold_info_to_db(logical_port_name, port_mapping, table,
         if not _wrapper_get_presence(physical_port):
             continue
 
+        if _wrapper_is_flat_memory(physical_port) == True:
+            continue
+
         port_name = get_physical_port_name(logical_port_name,
                                            ganged_member_num, ganged_port)
         ganged_member_num += 1
@@ -619,6 +631,9 @@ def post_port_dom_info_to_db(logical_port_name, port_mapping, table, stop_event=
         if not _wrapper_get_presence(physical_port):
             continue
 
+        if _wrapper_is_flat_memory(physical_port) == True:
+            continue
+
         try:
             if dom_info_cache is not None and physical_port in dom_info_cache:
                 # If cache is enabled and dom information is in cache, just read from cache, no need read from EEPROM
@@ -648,6 +663,9 @@ def post_port_pm_info_to_db(logical_port_name, port_mapping, table, stop_event=t
             break
 
         if not _wrapper_get_presence(physical_port):
+            continue
+
+        if _wrapper_is_flat_memory(physical_port) == True:
             continue
 
         if pm_info_cache is not None and physical_port in pm_info_cache:

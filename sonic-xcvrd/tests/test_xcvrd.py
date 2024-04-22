@@ -2475,6 +2475,20 @@ class TestXcvrdScript(object):
         mock_chassis.get_sfp = MagicMock(side_effect=NotImplementedError)
         assert not _wrapper_get_sfp_error_description(1)
 
+    @patch('xcvrd.xcvrd.platform_chassis')
+    def test_wrapper_is_flat_memory(self, mock_chassis):
+        mock_api = MagicMock()
+        mock_api.is_flat_memory = MagicMock(return_value=True)
+        mock_object = MagicMock()
+        mock_object.get_xcvr_api = MagicMock(return_value=mock_api)
+        mock_chassis.get_sfp = MagicMock(return_value=mock_object)
+
+        from xcvrd.xcvrd import _wrapper_is_flat_memory
+        assert _wrapper_is_flat_memory(1) == True
+
+        mock_chassis.get_sfp = MagicMock(side_effect=NotImplementedError)
+        assert not _wrapper_is_flat_memory(1)
+
     def test_check_port_in_range(self):
         range_str = '1 - 32'
         physical_port = 1
