@@ -9,7 +9,7 @@ from .cmis import CmisMemMap
 from ...fields.xcvr_field import (
     NumberRegField,
     RegGroupField,
-    BytesRegField
+    ServerFWVersionRegField
 )
 from ...fields import consts
 
@@ -21,4 +21,4 @@ class CmisTargetFWUpgradeMemMap(CmisMemMap):
         self.CMIS_TARGET_SERVER_INFO = RegGroupField(consts.CMIS_TARGET_SERVER_INFO,
             NumberRegField(consts.SERVER_FW_MAGIC_BYTE, self.getaddr(0x3, 128), format="B", size=1),
             NumberRegField(consts.SERVER_FW_CHECKSUM, self.getaddr(0x3, 129), format="B", size=1),
-            BytesRegField(consts.SERVER_FW_VERSION, self.getaddr(0x3, 130), size=16))
+            ServerFWVersionRegField(consts.SERVER_FW_VERSION, self.getaddr(0x3, 130), size=16))

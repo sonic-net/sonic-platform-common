@@ -25,21 +25,21 @@ SERVER_FW_VERSION_NUMBER_SIZE = 4
 
 TARGET_LIST = [TARGET_E0_VALUE, TARGET_E1_VALUE, TARGET_E2_VALUE]
 
-AEC_E1_FIRMWARE_INFO_MAP = {
+CABLE_E1_FIRMWARE_INFO_MAP = {
     'active_firmware': 'e1_active_firmware',
     'inactive_firmware': 'e1_inactive_firmware',
     'server_firmware': 'e1_server_firmware'
 }
 
-AEC_E2_FIRMWARE_INFO_MAP = {
+CABLE_E2_FIRMWARE_INFO_MAP = {
     'active_firmware': 'e2_active_firmware',
     'inactive_firmware': 'e2_inactive_firmware',
     'server_firmware': 'e2_server_firmware'
 }
 
 REMOTE_TARGET_FIRMWARE_INFO_MAP = {
-    TARGET_E1_VALUE: AEC_E1_FIRMWARE_INFO_MAP,
-    TARGET_E2_VALUE: AEC_E2_FIRMWARE_INFO_MAP,
+    TARGET_E1_VALUE: CABLE_E1_FIRMWARE_INFO_MAP,
+    TARGET_E2_VALUE: CABLE_E2_FIRMWARE_INFO_MAP,
 }
 
 class CmisTargetFWUpgradeAPI(CmisApi):
@@ -124,20 +124,13 @@ class CmisTargetFWUpgradeAPI(CmisApi):
         magic_byte = self.xcvr_eeprom.read(consts.SERVER_FW_MAGIC_BYTE)
         if magic_byte != 0:
             checksum = self.xcvr_eeprom.read(consts.SERVER_FW_CHECKSUM)
-            server_fw_version_byte_array = self.xcvr_eeprom.read(consts.SERVER_FW_VERSION)
+            server_fw_version_byte_array, server_fw_version_str = self.xcvr_eeprom.read(consts.SERVER_FW_VERSION)
 
             calculated_checksum = 0
             for byte in server_fw_version_byte_array:
                 calculated_checksum += byte
 
             if calculated_checksum & 0xFF == checksum:
-                server_fw_version_str = ''
-                for i in range(0, SERVER_FW_VERSION_SIZE, SERVER_FW_VERSION_NUMBER_SIZE):
-                    server_fw_version_number = bytes(server_fw_version_byte_array[i:i+SERVER_FW_VERSION_NUMBER_SIZE])
-                    # Each number of the server firmware version is 4 bytes and is stored in big endian format.
-                    # Convert the 4 bytes to a number and then convert the number to a string.
-                    server_fw_version_str += str(struct.unpack('>I', server_fw_version_number)[0]) + '.'
-                server_fw_version_str = server_fw_version_str[:-1]
                 return_dict['server_firmware'] = server_fw_version_str
 
         return return_dict
