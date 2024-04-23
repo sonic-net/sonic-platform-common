@@ -177,7 +177,7 @@ class SsdUtil(SsdBase):
             if temp_raw == NOT_AVAILABLE:
                 self.temperature = NOT_AVAILABLE
             else:
-                self.temperature = temp_raw.split()[-3]
+                self.temperature = temp_raw.split()[8]
 
     def fetch_vendor_ssd_info(self, diskdev, model):
         self.vendor_ssd_info = self._execute_shell(self.vendor_ssd_utility[model]["utility"].format(diskdev))
