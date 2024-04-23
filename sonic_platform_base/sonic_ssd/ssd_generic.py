@@ -183,7 +183,7 @@ class SsdUtil(SsdBase):
             if temp_raw == NOT_AVAILABLE:
                 self.temperature = NOT_AVAILABLE
             else:
-                self.temperature = temp_raw.split()[-3]
+                self.temperature = temp_raw.split()[8]
 
     def parse_transcend_info(self):
         if self.vendor_ssd_info:
