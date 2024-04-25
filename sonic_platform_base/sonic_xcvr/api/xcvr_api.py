@@ -75,8 +75,8 @@ class XcvrApi(object):
         Retrieves active and inactive firmware versions of the xcvr
 
         Returns:
-            A list with active and inactive firmware versions of the xcvr
-            [active_firmware, inactive_firmware]
+            A dictionary containing the active and inactive firmware versions of the transceiver
+            {'active_firmware' : 'A.B.C', 'inactive_firmware' : 'X.Y.Z'}
         """
         raise NotImplementedError
 
