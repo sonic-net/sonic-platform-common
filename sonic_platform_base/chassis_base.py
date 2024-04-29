@@ -299,7 +299,7 @@ class ChassisBase(device_base.DeviceBase):
         Returns:
             Returns:True for SmartSwitch and False for other platforms
         """
-        raise NotImplementedError
+        return False 
 
     def get_module_dpu_data_port(self, index):
         """
