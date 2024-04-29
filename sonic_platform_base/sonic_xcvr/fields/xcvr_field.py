@@ -250,6 +250,26 @@ class HexRegField(RegField):
     def decode(self, raw_data, **decoded_deps):
         return '-'.join([ "%02x" % byte for byte in raw_data])
 
+class ServerFWVersionRegField(RegField):
+    """
+    Returns the raw byte(s)
+    """
+    def __init__(self, name, offset, *fields, **kwargs):
+        super(ServerFWVersionRegField, self).__init__(name, offset, *fields, **kwargs)
+
+    def decode(self, raw_data, **decoded_deps):
+        server_fw_version_str = ''
+        server_fw_version_size = 16
+        server_fw_version_number_size = 4
+
+        # Use a list comprehension to convert each 4-byte number to a string
+        server_fw_version_str = '.'.join(
+            str(struct.unpack('>I', raw_data[i:i+server_fw_version_number_size])[0])
+            for i in range(0, server_fw_version_size, server_fw_version_number_size)
+        )
+
+        return raw_data, server_fw_version_str
+
 class RegGroupField(XcvrField):
     """
     Field denoting one or more bytes, logically interpreted as one or more RegFields

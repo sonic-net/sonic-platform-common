@@ -6,7 +6,19 @@
 """
 
 from .cmis import CmisMemMap
+from ...fields.xcvr_field import (
+    NumberRegField,
+    RegGroupField,
+    ServerFWVersionRegField
+)
+from ...fields import consts
 
 class CmisTargetFWUpgradeMemMap(CmisMemMap):
     # Vendor agnostic implementation to be added here
-    pass
+    def __init__(self, codes):
+        super().__init__(codes)
+
+        self.CMIS_TARGET_SERVER_INFO = RegGroupField(consts.CMIS_TARGET_SERVER_INFO,
+            NumberRegField(consts.SERVER_FW_MAGIC_BYTE, self.getaddr(0x3, 128), format="B", size=1),
+            NumberRegField(consts.SERVER_FW_CHECKSUM, self.getaddr(0x3, 129), format="B", size=1),
+            ServerFWVersionRegField(consts.SERVER_FW_VERSION, self.getaddr(0x3, 130), size=16))
