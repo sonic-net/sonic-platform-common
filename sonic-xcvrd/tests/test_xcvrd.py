@@ -1699,6 +1699,7 @@ class TestXcvrdScript(object):
         mock_xcvr_api.get_module_pwr_up_duration = MagicMock(return_value=70000.0)
         mock_xcvr_api.get_datapath_deinit_duration = MagicMock(return_value=600000.0)
         mock_xcvr_api.get_cmis_rev = MagicMock(return_value='5.0')
+        mock_xcvr_api.get_supported_freq_config = MagicMock(return_value=(0xA0,0,0,191300,196100))
         mock_xcvr_api.get_dpinit_pending = MagicMock(return_value={
             'DPInitPending1': True,
             'DPInitPending2': True,
@@ -2573,7 +2574,7 @@ class TestXcvrdScript(object):
             xcvrdaemon.deinit()
 
             status_tbl.hdel.assert_called()
-
+            
     @patch('sonic_py_common.device_info.get_paths_to_platform_and_hwsku_dirs', MagicMock(return_value=(test_path, '/invalid/path')))
     def test_load_optical_si_file_from_platform_folder(self):
         assert optics_si_parser.load_optics_si_settings() != {}
@@ -2589,6 +2590,25 @@ class TestXcvrdScript(object):
     @patch('sonic_py_common.device_info.get_paths_to_platform_and_hwsku_dirs', MagicMock(return_value=('/invalid/path', test_path)))
     def test_load_media_settings_file_from_hwsku_folder(self):
         assert media_settings_parser.load_media_settings() != {}
+        
+    @pytest.mark.parametrize("lport, freq, grid, expected", [
+         (1, 193100, 75, True),
+         (1, 193100, 100, False),
+         (1, 193125, 75, False),
+         (1, 193100, 25, False),
+         (1, 191295, 75, False),
+         (1, 196105, 75, False)
+    ])
+    def test_CmisManagerTask_validate_frequency_and_grid(self, lport, freq, grid, expected):
+        mock_xcvr_api = MagicMock()
+        mock_xcvr_api.get_supported_freq_config = MagicMock()
+        mock_xcvr_api.get_supported_freq_config.return_value = (0x80, 0, 0, 191300, 196100)
+        port_mapping = PortMapping()
+        stop_event = threading.Event()
+        task = CmisManagerTask(DEFAULT_NAMESPACE, port_mapping, stop_event)
+        result = task.validate_frequency_and_grid(mock_xcvr_api, lport, freq, grid)
+        assert result == expected
+
 
 def wait_until(total_wait_time, interval, call_back, *args, **kwargs):
     wait_time = 0
