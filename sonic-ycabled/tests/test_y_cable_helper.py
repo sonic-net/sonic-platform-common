@@ -1136,6 +1136,8 @@ class TestYCableScript(object):
         static_tbl[asic_index] = swsscommon.Table(
             test_db[asic_index], "STATIC_TABLE")
         static_tbl[asic_index].get.return_value = (status, fvs)
+        mux_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], "STATIC_TABLE")
 
         rc = create_tables_and_insert_mux_unknown_entries(
             state_db, y_cable_tbl, static_tbl, mux_tbl, asic_index, logical_port_name)
@@ -1611,6 +1613,8 @@ class TestYCableScript(object):
             test_db[asic_index], swsscommon.STATE_HW_MUX_CABLE_TABLE_NAME)
         static_tbl[asic_index] = swsscommon.Table(
             test_db[asic_index], MUX_CABLE_STATIC_INFO_TABLE)
+        mux_tbl[asic_index] = swsscommon.Table(
+            test_db[asic_index], "MUX_CABLE_INFO")
 
         port_tbl[asic_index] = swsscommon.Table(
             test_db[asic_index], "PORT_INFO_TABLE")

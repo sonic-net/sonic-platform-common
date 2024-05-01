@@ -1151,6 +1151,7 @@ def create_tables_and_insert_mux_unknown_entries(state_db, y_cable_tbl, static_t
     # fill the newly found entry
     read_y_cable_and_update_statedb_port_tbl(
         logical_port_name, y_cable_tbl[asic_index])
+    post_port_mux_info_to_db(logical_port_name,  mux_tbl, asic_index, y_cable_tbl, 'pseudo-cable')
     post_port_mux_static_info_to_db(
         logical_port_name, static_tbl[asic_index], y_cable_tbl)
 
