@@ -113,7 +113,7 @@ def fetch_optics_si_setting(physical_port, lane_speed, sfp):
         return optics_si
     vendor_key, vendor_name = get_module_vendor_key(physical_port, sfp)
     if vendor_key is None or vendor_name is None:
-        helper_logger.log_error("Error: No Vendor Key found for port '{}'".format(logical_port_name))
+        helper_logger.log_error("Error: No Vendor Key found for Module {}".format(physical_port))
         return optics_si
     optics_si = get_optics_si_settings_value(physical_port, lane_speed, vendor_key, vendor_name)
     return optics_si

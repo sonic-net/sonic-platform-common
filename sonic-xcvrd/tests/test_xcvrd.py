@@ -854,6 +854,15 @@ class TestXcvrdScript(object):
     def test_fetch_optics_si_setting_with_port(self):
        self._check_fetch_optics_si_setting(1)
 
+    @patch('xcvrd.xcvrd_utilities.optics_si_parser.g_optics_si_dict', port_optics_si_settings)
+    @patch('xcvrd.xcvrd_utilities.optics_si_parser.get_module_vendor_key', MagicMock(return_value=(None, None)))
+    @patch('xcvrd.xcvrd._wrapper_get_presence', MagicMock(return_value=True))
+    def test_fetch_optics_si_setting_negative(self):
+        port = 1
+        lane_speed = 100
+        mock_sfp = MagicMock()
+        assert not optics_si_parser.fetch_optics_si_setting(port, lane_speed, mock_sfp)
+
     @patch('xcvrd.xcvrd._wrapper_get_presence', MagicMock(return_value=True))
     @patch('xcvrd.xcvrd_utilities.optics_si_parser.get_module_vendor_key', MagicMock(return_value=('CREDO-CAC82X321M','CREDO')))
     def _check_fetch_optics_si_setting(self, index):
