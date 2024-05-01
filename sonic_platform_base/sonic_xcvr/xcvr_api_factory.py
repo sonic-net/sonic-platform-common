@@ -17,6 +17,8 @@ from .codes.credo.aec_800g import CmisAec800gCodes
 from .api.credo.aec_800g import CmisAec800gApi
 from .mem_maps.credo.aec_800g import CmisAec800gMemMap
 
+from .api.innolight.fr_800g import CmisFr800gApi
+
 from .codes.public.sff8436 import Sff8436Codes
 from .api.public.sff8436 import Sff8436Api
 from .mem_maps.public.sff8436 import Sff8436MemMap
@@ -79,6 +81,11 @@ class XcvrApiFactory(object):
                 mem_map = CmisAec800gMemMap(CmisAec800gCodes)
                 xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
                 api = CmisAec800gApi(xcvr_eeprom)
+            elif vendor_name == 'CISCO-INNOLIGHT' and vendor_pn == 'T-DH8CNT-NCI':
+                codes = CmisCodes
+                mem_map = CmisMemMap(codes)
+                xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
+                api = CmisFr800gApi(xcvr_eeprom)
             else:
                 codes = CmisCodes
                 mem_map = CmisMemMap(codes)
