@@ -6,6 +6,7 @@ from sonic_platform_base.sonic_xcvr.api.credo.aec_800g import CmisAec800gApi
 from sonic_platform_base.sonic_xcvr.mem_maps.credo.aec_800g import CmisAec800gMemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
 from sonic_platform_base.sonic_xcvr.codes.credo.aec_800g import CmisAec800gCodes
+from sonic_platform_base.sonic_xcvr.api.innolight.fr_800g import CmisFr800gApi
 from sonic_platform_base.sonic_xcvr.fields import consts
 from sonic_platform_base.sonic_xcvr.xcvr_api_factory import XcvrApiFactory
 from sonic_platform_base.sonic_xcvr.api.public.sff8636 import Sff8636Api
@@ -51,6 +52,16 @@ class TestXcvrApiFactory(object):
         CmisAec800gMemMap = MagicMock()
         XcvrEeprom = MagicMock()
         CmisAec800gApi = MagicMock()
+        self.api.create_xcvr_api()
+
+    @patch('sonic_platform_base.sonic_xcvr.xcvr_api_factory.XcvrApiFactory._get_vendor_name', MagicMock(return_value='CISCO-INNOLIGHT'))
+    @patch('sonic_platform_base.sonic_xcvr.xcvr_api_factory.XcvrApiFactory._get_vendor_part_num', MagicMock(return_value='T-DH8CNT-NCI'))
+    def test_create_xcvr_api(self):
+        self.api.reader = self.mock_reader
+        CmisCodes = MagicMock()
+        CmisMemMap = MagicMock()
+        XcvrEeprom = MagicMock()
+        CmisFr800gApi = MagicMock()
         self.api.create_xcvr_api()
 
     @pytest.mark.parametrize("reader, expected_api", [
