@@ -121,7 +121,12 @@ helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
 #
 # Helper functions =============================================================
 #
-
+def log_exception_traceback():
+    exc_type, exc_value, exc_traceback = sys.exc_info()
+    msg = traceback.format_exception(exc_type, exc_value, exc_traceback)
+    for tb_line in msg:
+        for tb_line_split in tb_line.splitlines():
+            helper_logger.log_error(tb_line_split)
 
 def is_cmis_api(api):
    return isinstance(api, CmisApi)
@@ -1376,6 +1381,11 @@ class CmisManagerTask(threading.Thread):
                     # Skip if these essential routines are not available
                     self.update_port_transceiver_status_table_sw_cmis_state(lport, CMIS_STATE_READY)
                     continue
+                except Exception as e:
+                    self.log_error("{}: Exception in xcvr api: {}".format(lport, e))
+                    log_exception_traceback()
+                    self.update_port_transceiver_status_table_sw_cmis_state(lport, CMIS_STATE_FAILED)
+                    continue
 
                 # CMIS expiration and retries
                 #
@@ -1608,8 +1618,9 @@ class CmisManagerTask(threading.Thread):
                         self.update_port_transceiver_status_table_sw_cmis_state(lport, CMIS_STATE_READY)
                         self.post_port_active_apsel_to_db(api, lport, host_lanes_mask)
 
-                except (NotImplementedError, AttributeError) as e:
+                except Exception as e:
                     self.log_error("{}: internal errors due to {}".format(lport, e))
+                    log_exception_traceback()
                     self.update_port_transceiver_status_table_sw_cmis_state(lport, CMIS_STATE_FAILED)
 
         self.log_notice("Stopped")
@@ -1627,11 +1638,7 @@ class CmisManagerTask(threading.Thread):
             self.task_worker()
         except Exception as e:
             helper_logger.log_error("Exception occured at {} thread due to {}".format(threading.current_thread().getName(), repr(e)))
-            exc_type, exc_value, exc_traceback = sys.exc_info()
-            msg = traceback.format_exception(exc_type, exc_value, exc_traceback)
-            for tb_line in msg:
-                for tb_line_split in tb_line.splitlines():
-                    helper_logger.log_error(tb_line_split)
+            log_exception_traceback()
             self.exc = e
             self.main_thread_stop_event.set()
 
@@ -1791,11 +1798,7 @@ class DomInfoUpdateTask(threading.Thread):
             self.task_worker()
         except Exception as e:
             helper_logger.log_error("Exception occured at {} thread due to {}".format(threading.current_thread().getName(), repr(e)))
-            exc_type, exc_value, exc_traceback = sys.exc_info()
-            msg = traceback.format_exception(exc_type, exc_value, exc_traceback)
-            for tb_line in msg:
-                for tb_line_split in tb_line.splitlines():
-                    helper_logger.log_error(tb_line_split)
+            log_exception_traceback()
             self.exc = e
             self.main_thread_stop_event.set()
 
@@ -2216,11 +2219,7 @@ class SfpStateUpdateTask(threading.Thread):
             self.task_worker(self.task_stopping_event, self.sfp_error_event)
         except Exception as e:
             helper_logger.log_error("Exception occured at {} thread due to {}".format(threading.current_thread().getName(), repr(e)))
-            exc_type, exc_value, exc_traceback = sys.exc_info()
-            msg = traceback.format_exception(exc_type, exc_value, exc_traceback)
-            for tb_line in msg:
-                for tb_line_split in tb_line.splitlines():
-                    helper_logger.log_error(tb_line_split)
+            log_exception_traceback()
             self.exc = e
             self.main_thread_stop_event.set()
 

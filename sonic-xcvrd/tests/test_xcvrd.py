@@ -178,6 +178,56 @@ class TestXcvrdThreadException(object):
         assert("sonic-xcvrd/xcvrd/xcvrd.py" in str(trace))
         assert("wait_for_port_config_done" in str(trace))
 
+    @patch('xcvrd.xcvrd.PortChangeObserver', MagicMock(handle_port_update_event=MagicMock()))
+    @patch('xcvrd.xcvrd.CmisManagerTask.wait_for_port_config_done', MagicMock())
+    @patch('xcvrd.xcvrd.get_cmis_application_desired', MagicMock(side_effect=KeyError))
+    @patch('xcvrd.xcvrd.log_exception_traceback')
+    @patch('xcvrd.xcvrd.XcvrTableHelper.get_status_tbl')
+    @patch('xcvrd.xcvrd.platform_chassis')
+    def test_CmisManagerTask_get_xcvr_api_exception(self, mock_platform_chassis, mock_get_status_tbl, mock_log_exception_traceback):
+        mock_get_status_tbl = Table("STATE_DB", TRANSCEIVER_STATUS_TABLE)
+        mock_sfp = MagicMock()
+        mock_sfp.get_presence.return_value = True
+        mock_platform_chassis.get_sfp = MagicMock(return_value=mock_sfp)
+        port_mapping = PortMapping()
+        stop_event = threading.Event()
+        task = CmisManagerTask(DEFAULT_NAMESPACE, port_mapping, stop_event)
+        task.task_stopping_event.is_set = MagicMock(side_effect=[False, False, True])
+        task.get_host_tx_status = MagicMock(return_value='true')
+        task.get_port_admin_status = MagicMock(return_value='up')
+        task.get_cfg_port_tbl = MagicMock()
+        task.xcvr_table_helper.get_status_tbl.return_value = mock_get_status_tbl
+        port_change_event = PortChangeEvent('Ethernet0', 1, 0, PortChangeEvent.PORT_SET,
+                                            {'speed':'400000', 'lanes':'1,2,3,4,5,6,7,8'})
+
+        # Case 1: get_xcvr_api() raises an exception
+        task.on_port_update_event(port_change_event)
+        mock_sfp.get_xcvr_api = MagicMock(side_effect=NotImplementedError)
+        task.task_worker()
+        assert mock_log_exception_traceback.call_count == 1
+        assert get_cmis_state_from_state_db('Ethernet0', task.xcvr_table_helper.get_status_tbl(task.port_mapping.get_asic_id_for_logical_port('Ethernet0'))) == CMIS_STATE_FAILED
+
+        # Case 2: is_flat_memory() raises AttributeError. In this case, CMIS SM should transition to READY state
+        mock_xcvr_api = MagicMock()
+        mock_sfp.get_xcvr_api = MagicMock(return_value=mock_xcvr_api)
+        mock_xcvr_api.is_flat_memory = MagicMock(side_effect=AttributeError)
+        task.task_stopping_event.is_set = MagicMock(side_effect=[False, False, True])
+        task.on_port_update_event(port_change_event)
+        task.task_worker()
+        assert get_cmis_state_from_state_db('Ethernet0', task.xcvr_table_helper.get_status_tbl(task.port_mapping.get_asic_id_for_logical_port('Ethernet0'))) == CMIS_STATE_READY
+
+        # Case 3: get_cmis_application_desired() raises an exception
+        mock_xcvr_api.is_flat_memory = MagicMock(return_value=False)
+        mock_xcvr_api.is_coherent_module = MagicMock(return_value=False)
+        mock_xcvr_api.get_module_type_abbreviation = MagicMock(return_value='QSFP-DD')
+        task.task_stopping_event.is_set = MagicMock(side_effect=[False, False, True])
+        task.on_port_update_event(port_change_event)
+        task.get_cmis_host_lanes_mask = MagicMock()
+        task.task_worker()
+        assert mock_log_exception_traceback.call_count == 2
+        assert get_cmis_state_from_state_db('Ethernet0', task.xcvr_table_helper.get_status_tbl(task.port_mapping.get_asic_id_for_logical_port('Ethernet0'))) == CMIS_STATE_FAILED
+        assert task.get_cmis_host_lanes_mask.call_count == 0
+
     @patch('xcvrd.xcvrd_utilities.port_event_helper.subscribe_port_config_change', MagicMock(side_effect = NotImplementedError))
     def test_DomInfoUpdateTask_task_run_with_exception(self):
         port_mapping = PortMapping()
