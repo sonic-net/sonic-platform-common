@@ -5,7 +5,6 @@
     upgrade of remote target from the local target itself.
 """
 
-import struct
 import sys
 import traceback
 from ...fields import consts
@@ -44,7 +43,38 @@ REMOTE_TARGET_FIRMWARE_INFO_MAP = {
 
 class CmisTargetFWUpgradeAPI(CmisApi):
     def set_firmware_download_target_end(self, target):
-        return self.xcvr_eeprom.write(consts.TARGET_MODE, target)
+        """
+        Sets the target mode to the specified target.
+        If the target mode is set to a remote target, then the page select byte is set to 0.
+        Also, the remote target is then checked to ensure that its accessible.
+        In case of any error, the target mode is restored to E0.
+        Returns:
+            True if the target mode is set successfully, False otherwise.
+        """
+        try:
+            if not self.xcvr_eeprom.write(consts.TARGET_MODE, target):
+                return self._handle_error_and_restore_target_to_E0(
+                            "Failed to set target mode to {}".format(target))
+            if target != TARGET_E0_VALUE:
+                if not self.xcvr_eeprom.write(consts.PAGE_SELECT_BYTE, 0):
+                    return self._handle_error_and_restore_target_to_E0(
+                                "Failed to set page select byte to {}".format(target))
+                if not self._is_remote_target_accessible():
+                    return self._handle_error_and_restore_target_to_E0(
+                            "Remote target {} not accessible.".format(target))
+        except Exception as e:
+            return self._handle_error_and_restore_target_to_E0(
+                    "Exception occurred while setting target mode to {}: {}".format(target, repr(e)))
+
+        return True
+
+    def get_firmware_download_target_end(self):
+        """
+        Reads the target mode and returns the target mode.
+        Returns:
+            The target mode.
+        """
+        return self.xcvr_eeprom.read(consts.TARGET_MODE)
 
     """
     Reads the active, inactive and server firmware version from all targets
@@ -70,13 +100,6 @@ class CmisTargetFWUpgradeAPI(CmisApi):
                     logging.error("Target mode change failed. Target: {}".format(target))
                     continue
 
-                # Any register apart from the TARGET_MODE register will have the value 0xff
-                # if the remote target is not accessible from the local target.
-                module_type = self.get_module_type()
-                if 'Unknown' in module_type:
-                    logging.info("Remote target {} not accessible. Skipping.".format(target))
-                    continue
-
                 firmware_versions = super().get_transceiver_info_firmware_versions()
                 if target in REMOTE_TARGET_FIRMWARE_INFO_MAP:
                     # Add server firmware version to the firmware_versions dictionary
@@ -96,6 +119,31 @@ class CmisTargetFWUpgradeAPI(CmisApi):
 
         self.set_firmware_download_target_end(TARGET_E0_VALUE)
         return return_dict
+
+    def _is_remote_target_accessible(self):
+        """
+        Once the target is changed to remote, any register apart from the TARGET_MODE register
+        will have the value 0xff if the remote target is powered down.
+        Assumption:
+            The target mode has already been set to the desired remote target.
+        Returns:
+            True if the remote target is accessible from the local target, False otherwise.
+        """
+        module_type = self.get_module_type()
+        if 'Unknown' in module_type:
+            return False
+
+        return True
+
+    def _handle_error_and_restore_target_to_E0(self, error_message):
+        """
+        Logs the error message and restores the target mode to E0.
+        Returns:
+            False always.
+        """
+        logging.error(error_message)
+        self.xcvr_eeprom.write(consts.TARGET_MODE, TARGET_E0_VALUE)
+        return False
 
     def _convert_firmware_info_to_target_firmware_info(self, firmware_info, firmware_info_map):
         return_dict = {}

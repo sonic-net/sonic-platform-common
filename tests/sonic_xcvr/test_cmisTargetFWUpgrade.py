@@ -14,20 +14,43 @@ class TestCmis(object):
     eeprom = XcvrEeprom(reader, writer, mem_map)
     api = CmisTargetFWUpgradeAPI(eeprom)
 
-    @pytest.mark.parametrize("set_firmware_result, module_type, exception_raised", [
-        (False, 'QSFP+ or later with CMIS', False),
-        (True, 'Unknown', False),
-        (True, 'QSFP+ or later with CMIS', True)
+    @pytest.mark.parametrize("target,write_results,accessible,exception,expected_result", [
+        (1, [False, True, True, True], True, None, False),  # Failed to set target mode
+        (1, [True, False, True, True], True, None, False),  # Failed to set page select byte
+        (1, [True, True, True, True], False, None, False),  # Remote target not accessible
+        (1, [True, True, True, True], True, Exception("Simulated exception"), False),  # Exception occurred
+        (1, [True, True, True, True], True, None, True),    # All operations successful
+        (0, [True, True, True, True], True, None, True),    # Target is E0, all operations successful
+    ])
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cmisTargetFWUpgrade.CmisTargetFWUpgradeAPI._handle_error_and_restore_target_to_E0', MagicMock(return_value=False))
+    def test_set_firmware_download_target_end(self, target, write_results, accessible, exception, expected_result):
+        self.api.xcvr_eeprom.write = MagicMock()
+        self.api.xcvr_eeprom.write.side_effect = write_results
+        with patch('sonic_platform_base.sonic_xcvr.api.public.cmisTargetFWUpgrade.CmisTargetFWUpgradeAPI._is_remote_target_accessible', return_value=accessible):
+            with patch('sonic_platform_base.sonic_xcvr.api.public.cmisTargetFWUpgrade.CmisTargetFWUpgradeAPI._handle_error_and_restore_target_to_E0', return_value=False):
+                if exception is not None:
+                    self.api.xcvr_eeprom.write.side_effect = exception
+
+                result = self.api.set_firmware_download_target_end(target)
+                assert result == expected_result
+                if result:
+                    expected_call_count = 0
+                else:
+                    expected_call_count = 1
+                assert self.api._handle_error_and_restore_target_to_E0.call_count == expected_call_count
+
+    @pytest.mark.parametrize("set_firmware_result, exception_raised", [
+        (False, False),
+        (True, True)
     ])
     @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_transceiver_info_firmware_versions', MagicMock(side_effect=({}, Exception('error'), {})))
     @patch('sonic_platform_base.sonic_xcvr.api.public.cmisTargetFWUpgrade.CmisTargetFWUpgradeAPI._get_server_firmware_version', MagicMock())
     @patch('traceback.format_exception')
-    def test_get_transceiver_info_firmware_versions_failure(self, mock_format_exception, set_firmware_result, module_type, exception_raised):
+    def test_get_transceiver_info_firmware_versions_failure(self, mock_format_exception, set_firmware_result, exception_raised):
         expected_output = {'active_firmware': 'N/A', 'inactive_firmware': 'N/A', 'e1_active_firmware': 'N/A',\
                             'e1_inactive_firmware': 'N/A', 'e2_active_firmware': 'N/A', 'e2_inactive_firmware': 'N/A',\
                             'e1_server_firmware': 'N/A', 'e2_server_firmware': 'N/A'}
         self.api.set_firmware_download_target_end = MagicMock(return_value=set_firmware_result)
-        self.api.get_module_type = MagicMock(return_value=module_type)
 
         result = self.api.get_transceiver_info_firmware_versions()
         assert result == expected_output
@@ -58,11 +81,32 @@ class TestCmis(object):
         with patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_transceiver_info_firmware_versions', side_effect=fw_info_dict):
             with patch('sonic_platform_base.sonic_xcvr.api.public.cmisTargetFWUpgrade.CmisTargetFWUpgradeAPI._get_server_firmware_version', side_effect=server_fw_info_dict):
                 self.api.set_firmware_download_target_end = MagicMock(return_value=True)
-                self.api.get_module_type = MagicMock(return_value='QSFP+ or later with CMIS')
 
                 result = self.api.get_transceiver_info_firmware_versions()
                 assert result == expected_output
                 assert self.api.set_firmware_download_target_end.call_count == len(TARGET_LIST) + 1
+
+    @pytest.mark.parametrize("module_type, expected_result", [
+        ('Unknown', False),
+        ('QSFP+ or later with CMIS', True)
+    ])
+    def test_is_remote_target_accessible(self, module_type, expected_result):
+        # Mock the get_module_type method to return the parameterized module_type
+        self.api.get_module_type = MagicMock(return_value=module_type)
+
+        # Call the method and check the result
+        result = self.api._is_remote_target_accessible()
+        assert result == expected_result
+
+    @patch('logging.error')
+    def test_handle_error_and_restore_target_to_E0(self, mock_error):
+        self.api.xcvr_eeprom.write = MagicMock()
+        error_message = "Test error message"
+        assert self.api._handle_error_and_restore_target_to_E0(error_message) == False
+        mock_error.assert_called_once_with(error_message)
+        # Check that the target mode was restored to E0
+        self.api.xcvr_eeprom.write.assert_called_once()
+
 
     @pytest.mark.parametrize("magic_byte, checksum, server_fw_version_byte_array, expected", [
         (0, 0, (), {'server_firmware': 'N/A'}),
