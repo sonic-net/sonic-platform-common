@@ -22,12 +22,11 @@ class TestCmis(object):
         (1, [True, True, True, True], True, None, True),    # All operations successful
         (0, [True, True, True, True], True, None, True),    # Target is E0, all operations successful
     ])
-    @patch('sonic_platform_base.sonic_xcvr.api.public.cmisTargetFWUpgrade.CmisTargetFWUpgradeAPI._handle_error_and_restore_target_to_E0', MagicMock(return_value=False))
     def test_set_firmware_download_target_end(self, target, write_results, accessible, exception, expected_result):
         self.api.xcvr_eeprom.write = MagicMock()
         self.api.xcvr_eeprom.write.side_effect = write_results
         with patch('sonic_platform_base.sonic_xcvr.api.public.cmisTargetFWUpgrade.CmisTargetFWUpgradeAPI._is_remote_target_accessible', return_value=accessible):
-            with patch('sonic_platform_base.sonic_xcvr.api.public.cmisTargetFWUpgrade.CmisTargetFWUpgradeAPI._handle_error_and_restore_target_to_E0', return_value=False):
+            with patch('sonic_platform_base.sonic_xcvr.api.public.cmisTargetFWUpgrade.CmisTargetFWUpgradeAPI._restore_target_to_E0', return_value=False):
                 if exception is not None:
                     self.api.xcvr_eeprom.write.side_effect = exception
 
@@ -37,7 +36,7 @@ class TestCmis(object):
                     expected_call_count = 0
                 else:
                     expected_call_count = 1
-                assert self.api._handle_error_and_restore_target_to_E0.call_count == expected_call_count
+                assert self.api._restore_target_to_E0.call_count == expected_call_count
 
     @pytest.mark.parametrize("set_firmware_result, exception_raised", [
         (False, False),
@@ -98,13 +97,9 @@ class TestCmis(object):
         result = self.api._is_remote_target_accessible()
         assert result == expected_result
 
-    @patch('logging.error')
-    def test_handle_error_and_restore_target_to_E0(self, mock_error):
+    def test_restore_target_to_E0(self):
         self.api.xcvr_eeprom.write = MagicMock()
-        error_message = "Test error message"
-        assert self.api._handle_error_and_restore_target_to_E0(error_message) == False
-        mock_error.assert_called_once_with(error_message)
-        # Check that the target mode was restored to E0
+        assert self.api._restore_target_to_E0() == False
         self.api.xcvr_eeprom.write.assert_called_once()
 
 

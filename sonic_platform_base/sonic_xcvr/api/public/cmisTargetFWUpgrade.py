@@ -53,22 +53,22 @@ class CmisTargetFWUpgradeAPI(CmisApi):
         """
         try:
             if not self.xcvr_eeprom.write(consts.TARGET_MODE, target):
-                return self._handle_error_and_restore_target_to_E0(
-                            "Failed to set target mode to {}".format(target))
+                logger.error("Failed to set target mode to {}".format(target))
+                return self._restore_target_to_E0()
             if target != TARGET_E0_VALUE:
                 if not self.xcvr_eeprom.write(consts.PAGE_SELECT_BYTE, 0):
-                    return self._handle_error_and_restore_target_to_E0(
-                                "Failed to set page select byte to {}".format(target))
+                    logger.error("Failed to set page select byte to {}".format(target))
+                    return self._restore_target_to_E0()
                 if not self._is_remote_target_accessible():
-                    return self._handle_error_and_restore_target_to_E0(
-                            "Remote target {} not accessible.".format(target))
+                    logger.error("Remote target {} not accessible.".format(target))
+                    return self._restore_target_to_E0()
         except Exception as e:
-            return self._handle_error_and_restore_target_to_E0(
-                    "Exception occurred while setting target mode to {}: {}".format(target, repr(e)))
+            logger.error("Exception occurred while setting target mode to {}: {}".format(target, repr(e)))
+            return self._restore_target_to_E0()
 
         return True
 
-    def get_firmware_download_target_end(self):
+    def get_current_target_end(self):
         """
         Reads the target mode and returns the target mode.
         Returns:
@@ -97,7 +97,7 @@ class CmisTargetFWUpgradeAPI(CmisApi):
         for target in TARGET_LIST:
             try:
                 if not self.set_firmware_download_target_end(target):
-                    logging.error("Target mode change failed. Target: {}".format(target))
+                    logger.error("Target mode change failed. Target: {}".format(target))
                     continue
 
                 firmware_versions = super().get_transceiver_info_firmware_versions()
@@ -109,12 +109,12 @@ class CmisTargetFWUpgradeAPI(CmisApi):
                 else:
                     return_dict.update(firmware_versions)
             except Exception as e:
-                logging.error("Exception occurred while handling target {} firmware version: {}".format(target, repr(e)))
+                logger.error("Exception occurred while handling target {} firmware version: {}".format(target, repr(e)))
                 exc_type, exc_value, exc_traceback = sys.exc_info()
                 msg = traceback.format_exception(exc_type, exc_value, exc_traceback)
                 for tb_line in msg:
                     for tb_line_split in tb_line.splitlines():
-                        logging.error(tb_line_split)
+                        logger.error(tb_line_split)
                 continue
 
         self.set_firmware_download_target_end(TARGET_E0_VALUE)
@@ -135,13 +135,12 @@ class CmisTargetFWUpgradeAPI(CmisApi):
 
         return True
 
-    def _handle_error_and_restore_target_to_E0(self, error_message):
+    def _restore_target_to_E0(self):
         """
         Logs the error message and restores the target mode to E0.
         Returns:
             False always.
         """
-        logging.error(error_message)
         self.xcvr_eeprom.write(consts.TARGET_MODE, TARGET_E0_VALUE)
         return False
 
