@@ -19,6 +19,7 @@ class CmisTargetFWUpgradeMemMap(CmisMemMap):
         super().__init__(codes)
 
         self.CMIS_TARGET_SERVER_INFO = RegGroupField(consts.CMIS_TARGET_SERVER_INFO,
+            NumberRegField(consts.PAGE_SELECT_BYTE, self.getaddr(0, 127), format="B", size=1, ro=False),
             NumberRegField(consts.SERVER_FW_MAGIC_BYTE, self.getaddr(0x3, 128), format="B", size=1),
             NumberRegField(consts.SERVER_FW_CHECKSUM, self.getaddr(0x3, 129), format="B", size=1),
             ServerFWVersionRegField(consts.SERVER_FW_VERSION, self.getaddr(0x3, 130), size=16))
