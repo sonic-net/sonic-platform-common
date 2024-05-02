@@ -5,7 +5,6 @@
     upgrade of remote target from the local target itself.
 """
 
-import struct
 import sys
 import traceback
 from ...fields import consts
@@ -44,7 +43,38 @@ REMOTE_TARGET_FIRMWARE_INFO_MAP = {
 
 class CmisTargetFWUpgradeAPI(CmisApi):
     def set_firmware_download_target_end(self, target):
-        return self.xcvr_eeprom.write(consts.TARGET_MODE, target)
+        """
+        Sets the target mode to the specified target.
+        If the target mode is set to a remote target, then the page select byte is set to 0.
+        Also, the remote target is then checked to ensure that its accessible.
+        In case of any error, the target mode is restored to E0.
+        Returns:
+            True if the target mode is set successfully, False otherwise.
+        """
+        try:
+            if not self.xcvr_eeprom.write(consts.TARGET_MODE, target):
+                logger.error("Failed to set target mode to {}".format(target))
+                return self._restore_target_to_E0()
+            if target != TARGET_E0_VALUE:
+                if not self.xcvr_eeprom.write(consts.PAGE_SELECT_BYTE, 0):
+                    logger.error("Failed to set page select byte to {}".format(target))
+                    return self._restore_target_to_E0()
+                if not self._is_remote_target_accessible():
+                    logger.error("Remote target {} not accessible.".format(target))
+                    return self._restore_target_to_E0()
+        except Exception as e:
+            logger.error("Exception occurred while setting target mode to {}: {}".format(target, repr(e)))
+            return self._restore_target_to_E0()
+
+        return True
+
+    def get_current_target_end(self):
+        """
+        Reads the target mode and returns the target mode.
+        Returns:
+            The target mode.
+        """
+        return self.xcvr_eeprom.read(consts.TARGET_MODE)
 
     """
     Reads the active, inactive and server firmware version from all targets
@@ -67,14 +97,7 @@ class CmisTargetFWUpgradeAPI(CmisApi):
         for target in TARGET_LIST:
             try:
                 if not self.set_firmware_download_target_end(target):
-                    logging.error("Target mode change failed. Target: {}".format(target))
-                    continue
-
-                # Any register apart from the TARGET_MODE register will have the value 0xff
-                # if the remote target is not accessible from the local target.
-                module_type = self.get_module_type()
-                if 'Unknown' in module_type:
-                    logging.info("Remote target {} not accessible. Skipping.".format(target))
+                    logger.error("Target mode change failed. Target: {}".format(target))
                     continue
 
                 firmware_versions = super().get_transceiver_info_firmware_versions()
@@ -86,16 +109,40 @@ class CmisTargetFWUpgradeAPI(CmisApi):
                 else:
                     return_dict.update(firmware_versions)
             except Exception as e:
-                logging.error("Exception occurred while handling target {} firmware version: {}".format(target, repr(e)))
+                logger.error("Exception occurred while handling target {} firmware version: {}".format(target, repr(e)))
                 exc_type, exc_value, exc_traceback = sys.exc_info()
                 msg = traceback.format_exception(exc_type, exc_value, exc_traceback)
                 for tb_line in msg:
                     for tb_line_split in tb_line.splitlines():
-                        logging.error(tb_line_split)
+                        logger.error(tb_line_split)
                 continue
 
         self.set_firmware_download_target_end(TARGET_E0_VALUE)
         return return_dict
+
+    def _is_remote_target_accessible(self):
+        """
+        Once the target is changed to remote, any register apart from the TARGET_MODE register
+        will have the value 0xff if the remote target is powered down.
+        Assumption:
+            The target mode has already been set to the desired remote target.
+        Returns:
+            True if the remote target is accessible from the local target, False otherwise.
+        """
+        module_type = self.get_module_type()
+        if 'Unknown' in module_type:
+            return False
+
+        return True
+
+    def _restore_target_to_E0(self):
+        """
+        Logs the error message and restores the target mode to E0.
+        Returns:
+            False always.
+        """
+        self.xcvr_eeprom.write(consts.TARGET_MODE, TARGET_E0_VALUE)
+        return False
 
     def _convert_firmware_info_to_target_firmware_info(self, firmware_info, firmware_info_map):
         return_dict = {}
