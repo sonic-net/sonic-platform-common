@@ -1294,9 +1294,7 @@ class TestCmis(object):
                 'nominal_bit_rate': 0,
                 'specification_compliance': 'sm_media_interface',
                 'application_advertisement': 'N/A',
-                'active_firmware': '0.3.0',
                 'media_lane_count': 1,
-                'inactive_firmware': '0.2.0',
                 'vendor_rev': '0.0',
                 'host_electrical_interface': '400GAUI-8 C2M (Annex 120E)',
                 'vendor_oui': 'xx-xx-xx',
@@ -2374,13 +2372,19 @@ class TestCmis(object):
                 assert 0, traceback.format_exc()
             run_num -= 1
 
-    def test_get_transceiver_info_firmware_versions_negative_tests(self):
+    def test_get_transceiver_info_firmware_versions(self):
         self.api.get_module_fw_info = MagicMock()
         self.api.get_module_fw_info.return_value = None
+        expected_result = {"active_firmware" : "N/A", "inactive_firmware" : "N/A"}
         result = self.api.get_transceiver_info_firmware_versions()
-        assert result == ["N/A", "N/A"]
+        assert result == expected_result
 
         self.api.get_module_fw_info = MagicMock()
         self.api.get_module_fw_info.side_effect = {'result': TypeError}
         result = self.api.get_transceiver_info_firmware_versions()
-        assert result == ["N/A", "N/A"]
+        assert result == expected_result
+
+        expected_result = {"active_firmware" : "2.0.0", "inactive_firmware" : "1.0.0"}
+        self.api.get_module_fw_info.side_effect = [{'result': ( '', '', '', '', '', '', '', '','2.0.0', '1.0.0')}]
+        result = self.api.get_transceiver_info_firmware_versions()
+        assert result == expected_result
