@@ -143,7 +143,7 @@ class SsdUtil(SsdBase):
                 total_lbas_written = int(self._parse_re('\s{7}\d*', parsed_total_lbas_written).split(' ')[7])
                 self.health = int(100.0 - (total_lbas_written * 100) / self.nand_endurance)
                 celsius_str = self._parse_re('Temperature_Celsius\s*.*', self.vendor_ssd_info)
-                self.temperature = self._parse_re('\d*\s\(Min.*', celsius_str)
+                self.temperature = self._parse_re('(\d*)\s\(Min.*', celsius_str)
         except (ValueError, IndexError):
             pass
 

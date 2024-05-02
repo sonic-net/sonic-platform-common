@@ -1046,5 +1046,5 @@ class TestSsdGeneric:
         assert wdc_ssd.get_health() == 98
         assert wdc_ssd.get_model() == 'WDC PC SA530 SDASN8Y1T00'
         assert wdc_ssd.get_firmware() == "40103000"
-        assert wdc_ssd.get_temperature() == '23 (Min/Max 16/59)'
+        assert wdc_ssd.get_temperature() == '23'
         assert wdc_ssd.get_serial() == "2122FF441406"
