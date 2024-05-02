@@ -478,6 +478,7 @@ CDB_CMD = "CdbCommand"
 CDB_WRITE_MSG = "CdbWriteMessage"
 
 #CMISTargetFWUpgrade
+PAGE_SELECT_BYTE = "PageSelectByte"
 CMIS_TARGET_SERVER_INFO = "CmisTargetServerInfo"
 SERVER_FW_MAGIC_BYTE = "ServerFirmwareMagicByte"
 SERVER_FW_CHECKSUM = "ServerFirmwareChecksum"
