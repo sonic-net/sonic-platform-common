@@ -2032,34 +2032,34 @@ class CmisApi(XcvrApi):
             key = "{}_{}".format(consts.HOST_ELECTRICAL_INTERFACE, app)
             val = dic.get(key)
             if val in [None, 'Unknown', 'Undefined']:
-                break
+                continue
             buf['host_electrical_interface_id'] = val
 
             prefix = map.get(self.xcvr_eeprom.read(consts.MEDIA_TYPE_FIELD))
             if prefix is None:
-                break
+                continue
             key = "{}_{}".format(prefix, app)
             val = dic.get(key)
             if val in [None, 'Unknown']:
-                break
+                continue
             buf['module_media_interface_id'] = val
 
             key = "{}_{}".format(consts.MEDIA_LANE_COUNT, app)
             val = dic.get(key)
             if val is None:
-                break
+                continue
             buf['media_lane_count'] = val
 
             key = "{}_{}".format(consts.HOST_LANE_COUNT, app)
             val = dic.get(key)
             if val is None:
-                break
+                continue
             buf['host_lane_count'] = val
 
             key = "{}_{}".format(consts.HOST_LANE_ASSIGNMENT_OPTION, app)
             val = dic.get(key)
             if val is None:
-                break
+                continue
             buf['host_lane_assignment_options'] = val
 
             key = "{}_{}".format(consts.MEDIA_LANE_ASSIGNMENT_OPTION, app)
