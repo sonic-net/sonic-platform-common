@@ -52,6 +52,7 @@ setup(
         'sonic_platform_base.sonic_xcvr.api.credo',
         'sonic_platform_base.sonic_xcvr.mem_maps.credo',
         'sonic_platform_base.sonic_xcvr.codes.credo',
+        'sonic_platform_base.sonic_xcvr.api.innolight',
         'sonic_psu',
         'sonic_sfp',
         'sonic_thermal',
