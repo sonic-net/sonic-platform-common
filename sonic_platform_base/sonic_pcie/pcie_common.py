@@ -89,18 +89,33 @@ class PcieUtil(PcieBase):
     # Check device ID from procfs file check for each PCI device
     def check_pcie_deviceid(self, bus="", device="", fn="", id=""):
         current_file = os.path.join(self.procfs_path, bus, "{}.{}".format(device, fn))
+        pcie_device = ("{}:{}.{}".format(bus, device, fn))
+        transaction_check = ['setpci', '-s', pcie_device, '2.w']
         try:
             with open(current_file, 'rb') as f:
                 f.seek(2)
                 data = f.read(2)
                 hexstring = binascii.hexlify(data).decode('ascii')
                 procfs_id = str(hexstring[-2:] + hexstring[:2])
-                if id == procfs_id: return True
-                else: log.log_info("PCIe device ID mismatch for {}:{}.{} - expected {}, got {}".format(bus, device, fn, id, procfs_id))
+                if id == procfs_id:
+
+                    proc = subprocess.check_output(transaction_check)
+                    output = subprocess.check_output(transaction_check)
+                    transaction_check_result = output.decode('utf8').strip()
+
+                    if procfs_id == transaction_check_result:
+                        log.log_info("procfs_id = {} , transaction_check output = {}".format(procfs_id, transaction_check_result))
+                        return True
+                    else:
+                        log.log_warning("PCIe transaction check device ID mismatch for {}:{}.{} - expected {}, got {}".format(bus, device, fn, procfs_id, transaction_check_result))
+
+                else:
+                    log.log_warning("PCIe device ID mismatch for {}:{}.{} - expected {}, got {}".format(bus, device, fn, id, procfs_id))
                 return False
         except OSError as osex:
             log.log_warning("Ecountered {} while trying to open {}".format(str(osex), current_file))
             return False
+
 
 
     # check the sysfs tree for each PCIe device
