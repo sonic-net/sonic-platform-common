@@ -97,20 +97,18 @@ class PcieUtil(PcieBase):
                 data = f.read(2)
                 hexstring = binascii.hexlify(data).decode('ascii')
                 procfs_id = str(hexstring[-2:] + hexstring[:2])
-                if id == procfs_id:
+                if id != procfs_id:
+                    log.log_notice("PCIe YAML file device ID mismatch for {}:{}.{} - expected {}, got {}".format(bus, device, fn, id, procfs_id))
 
-                    proc = subprocess.check_output(transaction_check)
-                    output = subprocess.check_output(transaction_check)
-                    transaction_check_result = output.decode('utf8').strip()
+                proc = subprocess.check_output(transaction_check)
+                output = subprocess.check_output(transaction_check)
+                transaction_check_result = output.decode('utf8').strip()
 
-                    if procfs_id == transaction_check_result:
-                        log.log_info("procfs_id = {} , transaction_check output = {}".format(procfs_id, transaction_check_result))
-                        return True
-                    else:
-                        log.log_warning("PCIe transaction check device ID mismatch for {}:{}.{} - expected {}, got {}".format(bus, device, fn, procfs_id, transaction_check_result))
-
+                if procfs_id == transaction_check_result:
+                    return True
                 else:
-                    log.log_warning("PCIe device ID mismatch for {}:{}.{} - expected {}, got {}".format(bus, device, fn, id, procfs_id))
+                    log.log_warning("PCIe transaction check device ID mismatch for {}:{}.{} - expected {}, got {}".format(bus, device, fn, procfs_id, transaction_check_result))
+
                 return False
         except OSError as osex:
             log.log_warning("Ecountered {} while trying to open {}".format(str(osex), current_file))
