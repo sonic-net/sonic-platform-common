@@ -150,12 +150,19 @@ class TestPcieCommon:
         result = pcieutil.get_pcie_device()
         assert result == pcie_device_list
 
-    def test_check_pcie_deviceid(self):
+    @mock.patch('subprocess.check_output')
+    def test_check_pcie_deviceid(self, subprocess_check_output_mock):
         bus = "00"
         dev = "01"
         fn  = "1"
         id  = "0001"
         test_binary_file = b'\x01\x00\x00\x00'
+
+        def subprocess_check_output_side_effect(*args, **kwargs):
+            return ("0001".encode("utf-8"))
+
+        subprocess_check_output_mock.side_effect = subprocess_check_output_side_effect
+
         pcieutil = PcieUtil(tests_dir)
         with mock.patch('builtins.open', new_callable=mock.mock_open, read_data=test_binary_file) as mock_fd:
             result = pcieutil.check_pcie_deviceid(bus, dev, fn, id)

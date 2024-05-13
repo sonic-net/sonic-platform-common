@@ -100,7 +100,6 @@ class PcieUtil(PcieBase):
                 if id != procfs_id:
                     log.log_notice("PCIe YAML file device ID mismatch for {}:{}.{} - expected {}, got {}".format(bus, device, fn, id, procfs_id))
 
-                proc = subprocess.check_output(transaction_check)
                 output = subprocess.check_output(transaction_check)
                 transaction_check_result = output.decode('utf8').strip()
 
