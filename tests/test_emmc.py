@@ -1,10 +1,15 @@
 import sys
 if sys.version_info.major == 3:
-    from unittest.mock import mock_open, patch
+    from unittest import mock
 else:
-    from mock import mock_open, patch
+    import mock
 
-from sonic_platform_base.sonic_ssd.ssd_emmc import EmmcUtil
+import pdb; pdb.set_trace()
+
+from sonic_platform_base.sonic_storage.emmc import EmmcUtil
+
+sys.modules['sonic_py_common'] = mock.MagicMockMock()
+sys.modules['sonic_platform_base.sonic_storage.storage_devices'] = mock.Mock()
 
 mocked_files = {
     '/sys/block/emmctest/device/enhanced_area_offset': '0',
@@ -17,7 +22,7 @@ mocked_files = {
 
 
 def build_mocked_sys_fs_open(files):
-    mocks = dict([(fname, mock_open(read_data=cnt).return_value)
+    mocks = dict([(fname, mock.mock_open(read_data=cnt).return_value)
                  for fname, cnt in files.items()])
 
     def mopen(fname):
@@ -28,9 +33,11 @@ def build_mocked_sys_fs_open(files):
     return mopen
 
 
-class TestSsdEMMC:
+class TestEMMC:
 
-    @patch('builtins.open', new=build_mocked_sys_fs_open(mocked_files))
+    @mock.patch('builtins.open', new=build_mocked_sys_fs_open(mocked_files))
+    @mock.patch('sonic_py_common', mock.MagicMock())
+
     def test_check(self, *args):
         util = EmmcUtil('emmctest')
 

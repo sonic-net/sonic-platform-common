@@ -5,7 +5,7 @@ if sys.version_info.major == 3:
 else:
     import mock
 
-from sonic_platform_base.sonic_ssd.ssd_generic import SsdUtil
+from sonic_platform_base.sonic_storage.ssd import SsdUtil
 
 output_nvme_ssd = """smartctl 7.2 2020-12-30 r5155 [x86_64-linux-5.10.0-8-2-amd64] (local build)
 Copyright (C) 2002-20, Bruce Allen, Christian Franke, www.smartmontools.org
