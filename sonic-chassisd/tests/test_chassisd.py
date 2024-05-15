@@ -1,5 +1,6 @@
 import os
 import sys
+import mock
 from imp import load_source
 
 from mock import Mock, MagicMock, patch
@@ -39,6 +40,10 @@ CHASSIS_INFO_CARD_NUM_FIELD = 'module_num'
 
 CHASSIS_ASIC_PCI_ADDRESS_FIELD = 'asic_pci_address'
 CHASSIS_ASIC_ID_IN_MODULE_FIELD = 'asic_id_in_module'
+
+CHASSIS_MODULE_REBOOT_TIMESTAMP_FIELD = 'timestamp'
+CHASSIS_MODULE_REBOOT_REBOOT_FIELD = 'reboot'
+PLATFORM_ENV_CONF_FILE = "/usr/share/sonic/platform/platform_env.conf"
 
 def setup_function():
     ModuleUpdater.log_notice = MagicMock()
@@ -357,6 +362,125 @@ def test_midplane_presence_modules():
     fvs = midplane_table.get(name)
     assert fvs == None
 
+builtin_open = open  # save the unpatched version
+def mock_open(*args, **kwargs):
+    if args[0] == PLATFORM_ENV_CONF_FILE:
+        return mock.mock_open(read_data="dummy=1\nlinecard_reboot_timeout=240\n")(*args, **kwargs)
+    # unpatched version for every other path
+    return builtin_open(*args, **kwargs)
+
+@patch("builtins.open", mock_open)
+@patch('os.path.isfile', MagicMock(return_value=True))
+def test_midplane_presence_modules_linecard_reboot():
+    chassis = MockChassis()
+        
+    #Supervisor
+    index = 0
+    name = "SUPERVISOR0"
+    desc = "Supervisor card"
+    slot = 16
+    serial = "RP1000101"
+    module_type = ModuleBase.MODULE_TYPE_SUPERVISOR
+    supervisor = MockModule(index, name, desc, module_type, slot, serial)
+    supervisor.set_midplane_ip()
+    chassis.module_list.append(supervisor)
+
+    #Linecard
+    index = 1
+    name = "LINE-CARD0"
+    desc = "36 port 400G card"
+    slot = 1
+    serial = "LC1000101"
+    module_type = ModuleBase.MODULE_TYPE_LINE
+    module = MockModule(index, name, desc, module_type, slot, serial)
+    module.set_midplane_ip()
+    chassis.module_list.append(module)
+
+    #Fabric-card
+    index = 1
+    name = "FABRIC-CARD0"
+    desc = "Switch fabric card"
+    slot = 17
+    serial = "FC1000101"
+    module_type = ModuleBase.MODULE_TYPE_FABRIC
+    fabric = MockModule(index, name, desc, module_type, slot, serial)
+    chassis.module_list.append(fabric)
+
+    #Run on supervisor
+    module_updater = ModuleUpdater(SYSLOG_IDENTIFIER, chassis, slot,
+                                   module.supervisor_slot)
+    module_updater.supervisor_slot = supervisor.get_slot()
+    module_updater.my_slot = supervisor.get_slot()
+    module_updater.modules_num_update()
+    module_updater.module_db_update()
+    module_updater.check_midplane_reachability()
+
+    midplane_table = module_updater.midplane_table
+    #Check only one entry in database
+    assert 1 == midplane_table.size()
+
+    #Check fields in database
+    name = "LINE-CARD0"
+    fvs = midplane_table.get(name)
+    assert fvs != None
+    if isinstance(fvs, list):
+        fvs = dict(fvs[-1])
+    assert module.get_midplane_ip() == fvs[CHASSIS_MIDPLANE_INFO_IP_FIELD]
+    assert str(module.is_midplane_reachable()) == fvs[CHASSIS_MIDPLANE_INFO_ACCESS_FIELD]
+
+    #Set access of line-card to Up (midplane connectivity is down initially)
+    module.set_midplane_reachable(True)
+    module_updater.check_midplane_reachability()
+    fvs = midplane_table.get(name)
+    assert fvs != None
+    if isinstance(fvs, list):
+        fvs = dict(fvs[-1])
+    assert module.get_midplane_ip() == fvs[CHASSIS_MIDPLANE_INFO_IP_FIELD]
+    assert str(module.is_midplane_reachable()) == fvs[CHASSIS_MIDPLANE_INFO_ACCESS_FIELD]
+
+    
+    #Set access of line-card to Down (to mock midplane connectivity state change)
+    module.set_midplane_reachable(False)
+    # set expected reboot of linecard
+    module_reboot_table = module_updater.module_reboot_table
+    linecard_fvs = swsscommon.FieldValuePairs([("reboot", "expected")])
+    module_reboot_table.set(name,linecard_fvs)
+    module_updater.check_midplane_reachability()
+    fvs = midplane_table.get(name)
+    assert fvs != None
+    if isinstance(fvs, list):
+        fvs = dict(fvs[-1])
+    assert module.get_midplane_ip() == fvs[CHASSIS_MIDPLANE_INFO_IP_FIELD]
+    assert str(module.is_midplane_reachable()) == fvs[CHASSIS_MIDPLANE_INFO_ACCESS_FIELD]
+
+    #Set access of line-card to up on time (to mock midplane connectivity state change)
+    module.set_midplane_reachable(True)
+    module_updater.check_midplane_reachability()
+    fvs = midplane_table.get(name)
+    assert fvs != None
+    if isinstance(fvs, list):
+        fvs = dict(fvs[-1])
+    assert module.get_midplane_ip() == fvs[CHASSIS_MIDPLANE_INFO_IP_FIELD]
+    assert str(module.is_midplane_reachable()) == fvs[CHASSIS_MIDPLANE_INFO_ACCESS_FIELD]
+
+    # test linecard reboot midplane connectivity restored timeout
+    # Set access of line-card to Down (to mock midplane connectivity state change)
+    module.set_midplane_reachable(False)
+    linecard_fvs = swsscommon.FieldValuePairs([("reboot", "expected")])
+    module_reboot_table.set(name,linecard_fvs)
+    module_updater.check_midplane_reachability()
+    time_now= time.time() - module_updater.linecard_reboot_timeout
+    linecard_fvs = swsscommon.FieldValuePairs([(CHASSIS_MODULE_REBOOT_TIMESTAMP_FIELD, str(time_now))])
+    module_reboot_table.set(name,linecard_fvs)
+    module_updater.check_midplane_reachability()
+    fvs = midplane_table.get(name)
+    assert fvs != None
+    if isinstance(fvs, list):
+        fvs = dict(fvs[-1])
+    assert module.get_midplane_ip() == fvs[CHASSIS_MIDPLANE_INFO_IP_FIELD]
+    assert str(module.is_midplane_reachable()) == fvs[CHASSIS_MIDPLANE_INFO_ACCESS_FIELD]   
+    assert module_updater.linecard_reboot_timeout == 240    
+    
 def test_midplane_presence_supervisor():
     chassis = MockChassis()
 
