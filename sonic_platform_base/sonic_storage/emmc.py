@@ -1,5 +1,5 @@
 #
-# ssd_emmc.py
+# emmc.py
 #
 # Implementation of SSD Utility API for eMMC.
 # It reads eMMC health, model, firmware, and serial from /sys/block/*.

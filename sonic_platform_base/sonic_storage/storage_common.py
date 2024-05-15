@@ -9,13 +9,9 @@ try:
     import os
     import sys
     import json
-except ImportError as e:
-    raise ImportError (str(e) + "- required module not found")
-
-try:
     import psutil
 except ImportError as e:
-    pass
+    raise ImportError (str(e) + "- required module not found")
 
 
 class StorageCommon(object):
@@ -27,7 +23,7 @@ class StorageCommon(object):
             Block device path for which we need to get information
         """
         self.DISKSTATS_FILE = "/proc/diskstats"
-        self.diskdev = os.path.basename(diskdev)
+        self.storage_disk = os.path.basename(diskdev)
         self.fsstats_reads = 0
         self.fsstats_writes = 0
 
@@ -42,15 +38,7 @@ class StorageCommon(object):
             N/A
         """
 
-        if 'psutil' in sys.modules:
-            self.fsstats_reads = int(psutil.disk_io_counters(perdisk=True, nowrap=True)[self.diskdev].read_count)
-        else:
-            with open(self.DISKSTATS_FILE) as f:
-                statsfile = f.readlines()
-                for line in statsfile:
-                    if self.diskdev == line.split()[2]:
-                        self.fsstats_reads = int(line.split()[3])
-                        break
+        self.fsstats_reads = int(psutil.disk_io_counters(perdisk=True, nowrap=True)[self.storage_disk].read_count)
 
         return self.fsstats_reads
 
@@ -65,14 +53,6 @@ class StorageCommon(object):
             N/A
         """
 
-        if 'psutil' in sys.modules:
-            self.fsstats_writes = psutil.disk_io_counters(perdisk=True, nowrap=True)[self.diskdev].write_count
-        else:
-            with open(self.DISKSTATS_FILE) as f:
-                statsfile = f.readlines()
-                for line in statsfile:
-                    if self.diskdev == line.split()[2]:
-                        self.fsstats_writes = int(line.split()[7])
-                        break
+        self.fsstats_writes = psutil.disk_io_counters(perdisk=True, nowrap=True)[self.storage_disk].write_count
 
         return self.fsstats_writes
