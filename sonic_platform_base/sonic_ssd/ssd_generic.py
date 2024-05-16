@@ -50,6 +50,7 @@ class SsdUtil(SsdBase):
             "Virtium"  : { "utility" : VIRTIUM,  "parser" : self.parse_virtium_info },
             "Swissbit" : { "utility" : SMARTCTL, "parser" : self.parse_swissbit_info },
             "Transcend" : { "utility" : TRANSCEND, "parser" : self.parse_transcend_info },
+            "WDC"      : { "utility" : SMARTCTL, "parser" : self.parse_wdc_ssd_info },
         }
 
         self.dev = diskdev
@@ -130,6 +131,21 @@ class SsdUtil(SsdBase):
 
         self.serial = self._parse_re('Serial Number:\s*(.+?)\n', self.ssd_info)
         self.firmware = self._parse_re('Firmware Version:\s*(.+?)\n', self.ssd_info)
+
+    def parse_wdc_ssd_info(self):
+        self.model = self._parse_re('Device Model:\s*(.+?)\n', self.ssd_info)
+        self.serial = self._parse_re('Serial Number:\s*(.+?)\n', self.ssd_info)
+        self.firmware = self._parse_re('Firmware Version:\s*(.+?)\n', self.ssd_info)
+        try:
+            if ("SDASN8Y1T00" == self.model.split(' ')[3]):
+                self.nand_endurance = 400 * 1000
+                parsed_total_lbas_written = self._parse_re('Total_LBAs_Written\s*.*Offline\s*-\s*\d*', self.vendor_ssd_info)
+                total_lbas_written = int(self._parse_re('\s{7}\d*', parsed_total_lbas_written).split(' ')[7])
+                self.health = int(100.0 - (total_lbas_written * 100) / self.nand_endurance)
+                celsius_str = self._parse_re('Temperature_Celsius\s*.*', self.vendor_ssd_info)
+                self.temperature = self._parse_re('(\d*)\s\(Min.*', celsius_str)
+        except (ValueError, IndexError):
+            pass
 
     def parse_innodisk_info(self):
         if self.vendor_ssd_info:
