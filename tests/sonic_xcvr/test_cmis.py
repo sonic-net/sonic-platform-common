@@ -2311,6 +2311,39 @@ class TestCmis(object):
         self.api.set_application(0x7fffffff, 1, 1)
         assert self.api.xcvr_eeprom.write.call_count == self.api.NUM_CHANNELS
 
+    @pytest.mark.parametrize("datapath_state,config_state", [
+        ( {
+            'DP1State': 'DataPathDeactivated',
+            'DP2State': 'DataPathDeactivated',
+            'DP3State': 'DataPathDeactivated',
+            'DP4State': 'DataPathDeactivated',
+            'DP5State': 'DataPathDeactivated',
+            'DP6State': 'DataPathDeactivated',
+            'DP7State': 'DataPathDeactivated',
+            'DP8State': 'DataPathDeactivated',
+          },
+          {
+            'ConfigStatusLane1': 'ConfigSuccess',
+            'ConfigStatusLane2': 'ConfigSuccess',
+            'ConfigStatusLane3': 'ConfigSuccess',
+            'ConfigStatusLane4': 'ConfigSuccess',
+            'ConfigStatusLane5': 'ConfigSuccess',
+            'ConfigStatusLane6': 'ConfigSuccess',
+            'ConfigStatusLane7': 'ConfigSuccess',
+            'ConfigStatusLane8': 'ConfigSuccess' 
+          } )
+    ])
+    def test_decommission_all_datapaths(self, datapath_state, config_state):
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.write = MagicMock()
+        self.api.set_datapath_deinit = MagicMock(return_value = True)
+
+        self.api.get_datapath_state = MagicMock()
+        self.api.get_datapath_state.return_value = datapath_state
+        self.api.get_config_datapath_hostlane_status = MagicMock()
+        self.api.get_config_datapath_hostlane_status.return_value = config_state
+        assert True == self.api.decommission_all_datapaths()
+
     def test_set_module_si_eq_pre_settings(self):
         optics_si_dict = { "OutputEqPreCursorTargetRx":{
                              "OutputEqPreCursorTargetRx1":2, "OutputEqPreCursorTargetRx2":2, "OutputEqPreCursorTargetRx3":2, "OutputEqPreCursorTargetRx4":2,
