@@ -1523,6 +1523,21 @@ class TestXcvrdScript(object):
         cmis_manager.join()
         assert not cmis_manager.is_alive()
 
+    @pytest.mark.parametrize("app_new, lane_appl_code, expected", [
+        (2, {0 : 1, 1 : 1, 2 : 1, 3 : 1, 4 : 2, 5 : 2, 6 : 2, 7 : 2}, True),
+        (0, {0 : 1, 1 : 1, 2 : 1, 3 : 1}, True),
+        (1, {0 : 0, 1 : 0, 2 : 0, 3 : 0, 4 : 0, 5 : 0, 6 : 0, 7 : 0}, False)
+     ])
+    def test_CmisManagerTask_is_appl_reconfigure_required(self, app_new, lane_appl_code, expected):
+        mock_xcvr_api = MagicMock()
+        def get_application(lane):
+            return lane_appl_code.get(lane, 0)
+        mock_xcvr_api.get_application = MagicMock(side_effect=get_application)
+        port_mapping = PortMapping()
+        stop_event = threading.Event()
+        task = CmisManagerTask(DEFAULT_NAMESPACE, port_mapping, stop_event)
+        assert task.is_appl_reconfigure_required(mock_xcvr_api, app_new) == expected
+
     DEFAULT_DP_STATE = {
         'DP1State': 'DataPathActivated',
         'DP2State': 'DataPathActivated',
@@ -1865,6 +1880,8 @@ class TestXcvrdScript(object):
         task.configure_laser_frequency = MagicMock(return_value=1)
 
         # Case 1: Module Inserted --> DP_DEINIT
+        task.is_appl_reconfigure_required = MagicMock(return_value=True)
+        mock_xcvr_api.decommission_all_datapaths = MagicMock(return_value=True)
         task.task_stopping_event.is_set = MagicMock(side_effect=[False, False, True])
         task.task_worker()
         assert get_cmis_state_from_state_db('Ethernet0', task.xcvr_table_helper.get_status_tbl(task.port_mapping.get_asic_id_for_logical_port('Ethernet0'))) == CMIS_STATE_DP_DEINIT
@@ -1899,6 +1916,40 @@ class TestXcvrdScript(object):
         task.task_worker()
         assert task.post_port_active_apsel_to_db.call_count == 1
         assert get_cmis_state_from_state_db('Ethernet0', task.xcvr_table_helper.get_status_tbl(task.port_mapping.get_asic_id_for_logical_port('Ethernet0'))) == CMIS_STATE_READY
+
+        # Fail test coverage - Module Inserted state failing to reach DP_DEINIT
+        port_mapping = PortMapping()
+        stop_event = threading.Event()
+        task = CmisManagerTask(DEFAULT_NAMESPACE, port_mapping, stop_event)
+        task.port_mapping.logical_port_list = ['Ethernet1']
+        task.xcvr_table_helper.get_status_tbl.return_value = mock_get_status_tbl
+        task.task_stopping_event.is_set = MagicMock(side_effect=[False, False, True])
+        task.task_worker()
+        assert get_cmis_state_from_state_db('Ethernei1', task.xcvr_table_helper.get_status_tbl(task.port_mapping.get_asic_id_for_logical_port('Ethernet1'))) == CMIS_STATE_UNKNOWN
+
+        task.port_mapping.logical_port_list = MagicMock()
+        port_change_event = PortChangeEvent('PortConfigDone', -1, 0, PortChangeEvent.PORT_SET)
+        task.on_port_update_event(port_change_event)
+        assert task.isPortConfigDone
+
+        port_change_event = PortChangeEvent('Ethernet1', 1, 0, PortChangeEvent.PORT_SET,
+                                            {'speed':'400000', 'lanes':'1,2,3,4,5,6,7,8'})
+        task.on_port_update_event(port_change_event)
+        assert len(task.port_dict) == 1
+        assert get_cmis_state_from_state_db('Ethernet1', task.xcvr_table_helper.get_status_tbl(task.port_mapping.get_asic_id_for_logical_port('Ethernet1'))) == CMIS_STATE_INSERTED
+
+        task.get_host_tx_status = MagicMock(return_value='true')
+        task.get_port_admin_status = MagicMock(return_value='up')
+        task.get_configured_tx_power_from_db = MagicMock(return_value=-13)
+        task.get_configured_laser_freq_from_db = MagicMock(return_value=193100)
+        task.configure_tx_output_power = MagicMock(return_value=1)
+        task.configure_laser_frequency = MagicMock(return_value=1)
+
+        task.is_appl_reconfigure_required = MagicMock(return_value=True)
+        mock_xcvr_api.decommission_all_datapaths = MagicMock(return_value=False)
+        task.task_stopping_event.is_set = MagicMock(side_effect=[False, False, True])
+        task.task_worker()
+        assert get_cmis_state_from_state_db('Ethernet1', task.xcvr_table_helper.get_status_tbl(task.port_mapping.get_asic_id_for_logical_port('Ethernet1'))) == CMIS_STATE_FAILED
 
     @pytest.mark.parametrize("lport, expected_dom_polling", [
         ('Ethernet0', 'disabled'),
