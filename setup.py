@@ -37,7 +37,7 @@ setup(
         'sonic_platform_base',
         'sonic_platform_base.sonic_eeprom',
         'sonic_platform_base.sonic_sfp',
-        'sonic_platform_base.sonic_ssd',
+        'sonic_platform_base.sonic_storage',
         'sonic_platform_base.sonic_pcie',
         'sonic_platform_base.sonic_thermal_control',
         'sonic_platform_base.sonic_xcvr',

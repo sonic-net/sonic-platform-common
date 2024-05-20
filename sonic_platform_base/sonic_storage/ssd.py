@@ -42,7 +42,7 @@ VIRTIUM_IO_WRITES_ID = 241
 VIRTIUM_IO_READS_ID = 242
 VIRTIUM_RESERVED_BLOCKS_ID = 232
 
-MICRON_RESERVED_BLOCKS_ID = 170
+MICRON_RESERVED_BLOCKS_ID = [170, 180]
 MICRON_IO_WRITES_ID = 246
 MICRON_ERASE_FAIL_COUNT_ID = 172
 MICRON_AVG_ERASE_COUNT_ID = 173
@@ -278,16 +278,25 @@ class SsdUtil(StorageBase, StorageCommon):
 
     def parse_micron_info(self):
         if self.vendor_ssd_info:
-            health_raw = self._parse_re('Percent_Lifetime_Remain\s*(.+?)\n', self.vendor_ssd_info)
+            health_attributes = ["Percent_Lifetime_Used", "Percent_Lifetime_Remain"]
+            for idx, field in enumerate(health_attributes):
+                health_raw = self._parse_re('{}\s*(.+?)\n'.format(field), self.vendor_ssd_info)
+                if health_raw != NOT_AVAILABLE:
+                    break;
+
             if health_raw != NOT_AVAILABLE:
-                self.health = health_raw.split()[-1]
+                if idx == 1:
+                    self.health = health_raw.split()[-1]
+                elif idx == 0:
+                    self.health = str(100 - int(health_raw.split()[-1]))
+
             else:
                 average_erase_count = self.parse_id_number(MICRON_AVG_ERASE_COUNT_ID)
                 erase_fail_count = self.parse_id_number(MICRON_ERASE_FAIL_COUNT_ID)
 
                 if average_erase_count != NOT_AVAILABLE and erase_fail_count != NOT_AVAILABLE:
                     try:
-                        self.health = 100 - (float(avg_erase_count) * 100 / float(nand_endurance))
+                        self.health = 100 - (float(average_erase_count) * 100 / float(nand_endurance))
                     except (ValueError, ZeroDivisionError):
                             pass
 
@@ -295,7 +304,8 @@ class SsdUtil(StorageBase, StorageCommon):
             if io_writes_raw == NOT_AVAILABLE: self.disk_io_writes = NOT_AVAILABLE
             else: self.disk_io_writes = io_writes_raw.split()[-1]
 
-            rbc_raw = self.parse_id_number(MICRON_RESERVED_BLOCKS_ID)
+            for ID in MICRON_RESERVED_BLOCKS_ID:
+                rbc_raw = self.parse_id_number(ID)
             if rbc_raw == NOT_AVAILABLE: self.reserved_blocks = NOT_AVAILABLE
             else: self.reserved_blocks = rbc_raw.split()[-1]
 
