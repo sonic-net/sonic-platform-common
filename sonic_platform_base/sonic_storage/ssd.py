@@ -282,7 +282,7 @@ class SsdUtil(StorageBase, StorageCommon):
             for idx, field in enumerate(health_attributes):
                 health_raw = self._parse_re('{}\s*(.+?)\n'.format(field), self.vendor_ssd_info)
                 if health_raw != NOT_AVAILABLE:
-                    break;
+                    break
 
             if health_raw != NOT_AVAILABLE:
                 if idx == 1:
