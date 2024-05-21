@@ -8,7 +8,6 @@
 try:
     import os
     import sys
-    import json
     import psutil
 except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
@@ -22,7 +21,7 @@ class StorageCommon(object):
         Args:
             Block device path for which we need to get information
         """
-        self.DISKSTATS_FILE = "/proc/diskstats"
+
         self.storage_disk = os.path.basename(diskdev)
         self.fsstats_reads = 0
         self.fsstats_writes = 0
@@ -38,7 +37,10 @@ class StorageCommon(object):
             N/A
         """
 
-        self.fsstats_reads = int(psutil.disk_io_counters(perdisk=True, nowrap=True)[self.storage_disk].read_count)
+        try:
+            self.fsstats_reads = int(psutil.disk_io_counters(perdisk=True, nowrap=True)[self.storage_disk].read_count)
+        except Exception as ex:
+            pass
 
         return self.fsstats_reads
 
@@ -53,6 +55,9 @@ class StorageCommon(object):
             N/A
         """
 
-        self.fsstats_writes = psutil.disk_io_counters(perdisk=True, nowrap=True)[self.storage_disk].write_count
+        try:
+            self.fsstats_writes = psutil.disk_io_counters(perdisk=True, nowrap=True)[self.storage_disk].write_count
+        except Exception as ex:
+            pass
 
         return self.fsstats_writes

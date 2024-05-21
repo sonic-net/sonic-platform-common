@@ -3,8 +3,6 @@ import mock
 
 from sonic_platform_base.sonic_storage.emmc import EmmcUtil
 
-sys.modules['psutil'] = mock.MagicMock()
-
 mocked_files = {
     '/sys/block/emmctest/device/enhanced_area_offset': '0',
     '/sys/block/emmctest/device/life_time': '0x02 0x02',
