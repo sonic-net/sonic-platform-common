@@ -37,3 +37,7 @@ class TestEMMC:
         assert (util.get_model() == 'Test eMMC device')
         assert (util.get_firmware() == '0xAA00000000000000')
         assert (util.get_serial() == '0xabcdefef')
+        assert (util.get_disk_io_reads() == 'N/A')
+        assert (util.get_disk_io_writes() == 'N/A')
+        assert (util.get_reserved_blocks() == 'N/A')
+

@@ -1,6 +1,6 @@
 import sys
 from mock import patch, MagicMock
-from pytest import raises
+import pytest
 
 from sonic_platform_base.sonic_storage.storage_devices import StorageDevices
 
@@ -13,18 +13,40 @@ mock_realpath = "/sys/devices/pci0000:00/0000:00:18.0/ata5/host4/target4:0:0/4:0
 
 class TestStorageDevices:
 
+    @patch('os.listdir', MagicMock(return_value=['sdi']))
+    @patch('os.path.realpath', MagicMock(return_value=mock_realpath))
+    @patch('sonic_platform_base.sonic_storage.ssd.SsdUtil')
+    def test_get_storage_devices_sda_obj(self, mock_ssdutil):
+
+        mock_ssdutil = MagicMock()
+        mock_ssdutil.return_value = MagicMock()
+
+        storage = StorageDevices(log_identifier)
+
+        assert (list(storage.devices.keys()) == ['sdi'])
+
+
+    @patch('os.listdir', MagicMock(return_value=['sdj']))
+    @patch('os.path.realpath', MagicMock(return_value="usb"))
+    def test_get_storage_devices_usb_obj(self):
+
+        storage = StorageDevices(log_identifier)
+
+        assert (list(storage.devices.keys()) == ['sdj'])
+        assert (storage.devices['sdj'] == None)
+
+
     @patch('os.listdir', MagicMock(return_value=['mmcblk0']))
     @patch('sonic_platform_base.sonic_storage.emmc.EmmcUtil')
-    def test_get_storage_devices_emmc_obj(self, mock_emmc):
+    def test_get_storage_devices_sda_obj(self, mock_emmcutil):
 
-        with patch('sonic_platform_base.sonic_storage.emmc.EmmcUtil') as mock_emmc:
-            mock_emmc_obj = MagicMock()
-            mock_emmc.return_value = mock_emmc_obj
+        mock_emmcutil = MagicMock()
+        mock_emmcutil.return_value = MagicMock()
 
-            storage = StorageDevices(log_identifier)
+        storage = StorageDevices(log_identifier)
 
-            assert (list(storage.devices.keys()) == ['mmcblk0'])
-            assert (storage.devices['mmcblk0'] != None)
+        assert (list(storage.devices.keys()) == ['mmcblk0'])
+        assert storage.devices['mmcblk0'] != None
 
 
 

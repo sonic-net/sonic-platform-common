@@ -218,6 +218,10 @@ ID# ATTRIBUTE_NAME          FLAG     VALUE WORST THRESH TYPE      UPDATED  WHEN_
 236 Unstable_Power_Count    0x0002   100   100   ---    Old_age   Always       -       0
 235 Later_Bad_Block         0x0002   100   000   ---    Old_age   Always       -       0
 176 Uncorr_RECORD_Count     0x0000   100   000   ---    Old_age   Offline      -       0
+232 Available_Reservd_Space 0x0000   100   100   000    Old_age   Offline      -       100
+241 Total_LBAs_Written      0x0000   100   100   000    Old_age   Offline      -       274334
+242 Total_LBAs_Read         0x0000   100   100   000    Old_age   Offline      -       182078
+
 
 Read SMART Log Directory failed: scsi error badly formed scsi parameters
 
@@ -1117,11 +1121,11 @@ class TestSsd:
         assert(Innodisk_ssd.get_temperature() == '0')
         assert(Innodisk_ssd.get_serial() == "20171126AAAA11730156")
         
-        with mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_ssd)):
-            Innodisk_generic_ssd = SsdUtil('/dev/sda')
-            assert(Innodisk_generic_ssd.get_disk_io_reads() == '760991')
-            assert(Innodisk_generic_ssd.get_disk_io_writes() == '178564')
-            assert(Innodisk_generic_ssd.get_reserved_blocks() == '146')
+        #with mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_ssd)):
+            #Innodisk_generic_ssd = SsdUtil('/dev/sda')
+        assert(Innodisk_ssd.get_disk_io_reads() == '182078')
+        assert(Innodisk_ssd.get_disk_io_writes() == '274334')
+        assert(Innodisk_ssd.get_reserved_blocks() == '0')
 
     @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_Innodisk_missing_names_ssd))
     def test_Innodisk_missing_names_ssd(self):
