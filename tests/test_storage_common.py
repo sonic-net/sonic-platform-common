@@ -30,9 +30,6 @@ class TestStorageCommon:
         common_object = StorageCommon('/dev/sda')
 
         assert common_object.storage_disk == 'sda'
-        assert common_object.fsstats_reads == 0
-        assert common_object.fsstats_writes == 0
-
 
 
     def test_get_reads_writes_bad_disk(self):

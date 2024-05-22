@@ -85,7 +85,7 @@ class StorageBase(object):
 
     def get_disk_io_writes(self):
         """
-        Retrieves the total number of Input/Output (I/O) writes done on a sorage disk
+        Retrieves the total number of Input/Output (I/O) writes done on a storage disk
 
         Returns:
             An integer value of the total number of I/O writes
@@ -94,7 +94,7 @@ class StorageBase(object):
 
     def get_reserved_blocks(self):
         """
-        Retrieves the total number of reserved blocks in an SSD
+        Retrieves the total number of reserved blocks in an storage disk
 
         Returns:
             An integer value of the total number of reserved blocks

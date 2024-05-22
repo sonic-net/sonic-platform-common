@@ -24,19 +24,16 @@ except ImportError as e:
 log_identifier = "StorageDevices"
 log = logger.Logger(log_identifier)
 
-class StorageDevices():
-    def __init__(self, log_identifier):
+BASE_PATH = "/sys/block"
+BLKDEV_BASE_PATH = "/dev"
+
+class StorageDevices:
+    def __init__(self):
         self.devices = {}
-        self.BASE_PATH = "/sys/block"
-        self.BLKDEV_BASE_PATH = "/dev"
 
         # Populate the self.devices dictionary with as many key-values pairs as storage disks,
         # where key is the name of the storage disk and temporary value is None.
         self._get_storage_devices()
-
-        # Populate value for each key in dictionary with corresponding storage class object
-        for key in self.devices:
-            self.devices[key] = self._storage_device_object_factory(key)
 
     def _get_storage_devices(self):
         """
@@ -47,12 +44,13 @@ class StorageDevices():
         Returns: N/A
 
         """
-        fdlist = os.listdir(self.BASE_PATH)
+        fdlist = os.listdir(BASE_PATH)
         for fd in fdlist:
             if 'boot' in fd or 'loop' in fd:
                 continue
             else:
-                self.devices[fd] = None
+                # Populate value for each key in dictionary with corresponding storage class object
+                self.devices[fd] = self._storage_device_object_factory(fd)
 
     def _storage_device_object_factory(self, key):
         """
@@ -65,8 +63,8 @@ class StorageDevices():
 
         """
 
-        blkdev = os.path.join(self.BLKDEV_BASE_PATH, key)
-        diskdev = os.path.join(self.BASE_PATH, key)
+        blkdev = os.path.join(BLKDEV_BASE_PATH, key)
+        diskdev = os.path.join(BASE_PATH, key)
 
         if key.startswith('sd'):
             path = os.path.join(diskdev, "device")
@@ -75,18 +73,17 @@ class StorageDevices():
                     return SsdUtil(blkdev)
                 except Exception as e:
                     log.log_warning("Failed to instantiate SsdUtil object. Error: {}".format(str(e)), True)
-                    pass
+
             elif "usb" in os.path.realpath(path):
                 try:
                     return UsbUtil(blkdev)
                 except Exception as e:
                     log.log_warning("Failed to instantiate UsbUtil object. Error: {}".format(str(e)), True)
-                    pass
+
         elif "mmcblk" in key:
             try:
                 return EmmcUtil(key)
             except Exception as e:
                 log.log_warning("Failed to instantiate EmmcUtil object. Error: {}".format(str(e)), True)
-                pass
 
         return None

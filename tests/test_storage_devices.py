@@ -21,7 +21,7 @@ class TestStorageDevices:
         mock_ssdutil = MagicMock()
         mock_ssdutil.return_value = MagicMock()
 
-        storage = StorageDevices(log_identifier)
+        storage = StorageDevices()
 
         assert (list(storage.devices.keys()) == ['sdi'])
 
@@ -30,7 +30,7 @@ class TestStorageDevices:
     @patch('os.path.realpath', MagicMock(return_value="usb"))
     def test_get_storage_devices_usb_obj(self):
 
-        storage = StorageDevices(log_identifier)
+        storage = StorageDevices()
 
         assert (list(storage.devices.keys()) == ['sdj'])
         assert (storage.devices['sdj'] == None)
@@ -43,7 +43,7 @@ class TestStorageDevices:
         mock_emmcutil = MagicMock()
         mock_emmcutil.return_value = MagicMock()
 
-        storage = StorageDevices(log_identifier)
+        storage = StorageDevices()
 
         assert (list(storage.devices.keys()) == ['mmcblk0'])
         assert storage.devices['mmcblk0'] != None
@@ -57,7 +57,7 @@ class TestStorageDevices:
             return None
         
         with patch.object(StorageDevices, '_storage_device_object_factory', new=mock_factory):
-            storage = StorageDevices(log_identifier)
+            storage = StorageDevices()
             assert storage.devices == mocked_devices
 
 

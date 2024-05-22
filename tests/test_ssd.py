@@ -1120,12 +1120,24 @@ class TestSsd:
         assert(Innodisk_ssd.get_firmware() == "S140714")
         assert(Innodisk_ssd.get_temperature() == '0')
         assert(Innodisk_ssd.get_serial() == "20171126AAAA11730156")
-        
-        #with mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_ssd)):
-            #Innodisk_generic_ssd = SsdUtil('/dev/sda')
+
         assert(Innodisk_ssd.get_disk_io_reads() == '182078')
         assert(Innodisk_ssd.get_disk_io_writes() == '274334')
         assert(Innodisk_ssd.get_reserved_blocks() == '0')
+    
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_lack_info_ssd))
+    def test_Innodisk_no_info_ssd(self):
+        # Test parsing Innodisk ssd info
+        Innodisk_ssd = SsdUtil('/dev/sda')
+        assert(Innodisk_ssd.get_health() == 'N/A')
+        assert(Innodisk_ssd.get_model() == 'N/A')
+        assert(Innodisk_ssd.get_firmware() == "N/A")
+        assert(Innodisk_ssd.get_temperature() == "N/A")
+        assert(Innodisk_ssd.get_serial() == "N/A")
+        assert(Innodisk_ssd.get_disk_io_reads() == "N/A")
+        assert(Innodisk_ssd.get_disk_io_writes() == "N/A")
+        assert(Innodisk_ssd.get_reserved_blocks() == "N/A")
+
 
     @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_Innodisk_missing_names_ssd))
     def test_Innodisk_missing_names_ssd(self):

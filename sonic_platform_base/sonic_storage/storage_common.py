@@ -9,11 +9,15 @@ try:
     import os
     import sys
     import psutil
+    from sonic_py_common import logger
+    from .storage_base import StorageBase
 except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
 
+log_identifier = "StorageCommon"
+log = logger.Logger(log_identifier)
 
-class StorageCommon(object):
+class StorageCommon(StorageBase, object):
     def __init__(self, diskdev):
         """
         Constructor
@@ -23,8 +27,6 @@ class StorageCommon(object):
         """
 
         self.storage_disk = os.path.basename(diskdev)
-        self.fsstats_reads = 0
-        self.fsstats_writes = 0
 
     def get_fs_io_reads(self):
         """
@@ -37,12 +39,14 @@ class StorageCommon(object):
             N/A
         """
 
+        fsstats_reads = 0
         try:
-            self.fsstats_reads = int(psutil.disk_io_counters(perdisk=True, nowrap=True)[self.storage_disk].read_count)
+            fsstats_reads = int(psutil.disk_io_counters(perdisk=True, nowrap=True)[self.storage_disk].read_count)
         except Exception as ex:
+            log.log_warning("get_fs_io_reads exception: {}".format(ex))
             pass
 
-        return self.fsstats_reads
+        return fsstats_reads
 
     def get_fs_io_writes(self):
         """
@@ -55,9 +59,11 @@ class StorageCommon(object):
             N/A
         """
 
+        fsstats_writes = 0
         try:
-            self.fsstats_writes = psutil.disk_io_counters(perdisk=True, nowrap=True)[self.storage_disk].write_count
+            fsstats_writes = psutil.disk_io_counters(perdisk=True, nowrap=True)[self.storage_disk].write_count
         except Exception as ex:
+            log.log_warning("get_fs_io_writes exception: {}".format(ex))
             pass
 
-        return self.fsstats_writes
+        return fsstats_writes

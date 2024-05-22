@@ -7,13 +7,12 @@
 
 try:
     import os
-    from .storage_base import StorageBase
     from .storage_common import StorageCommon
 except ImportError as e:
     raise ImportError(str(e) + "- required module not found")
 
 
-class EmmcUtil(StorageBase, StorageCommon):
+class EmmcUtil(StorageCommon):
     def __init__(self, diskdev):
         self.diskdev = diskdev
         self.path = os.path.join('/sys/block', os.path.basename(diskdev))

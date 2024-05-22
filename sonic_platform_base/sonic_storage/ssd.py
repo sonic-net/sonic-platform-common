@@ -10,10 +10,14 @@
 try:
     import re
     import subprocess
-    from .storage_base import StorageBase
+
     from .storage_common import StorageCommon
+    from sonic_py_common import logger
 except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
+
+log_identifier = "SsdUtil"
+log = logger.Logger(log_identifier)
 
 SMARTCTL = "smartctl {} -a"
 INNODISK = "iSmart -d {}"
@@ -52,7 +56,7 @@ INTEL_MEDIA_WEAROUT_INDICATOR_ID = 233
 TRANSCEND_HEALTH_ID = 169
 TRANSCEND_TEMPERATURE_ID = 194
 
-class SsdUtil(StorageBase, StorageCommon):
+class SsdUtil(StorageCommon):
     """
     Generic implementation of the SSD health API
     """
@@ -83,6 +87,12 @@ class SsdUtil(StorageBase, StorageCommon):
         }
 
         self.dev = diskdev
+        self._fetch_parse_info(diskdev)
+
+        StorageCommon.__init__(self, diskdev)
+
+    def _fetch_parse_info(self, diskdev):
+
         # Generic part
         self.fetch_generic_ssd_info(diskdev)
         self.parse_generic_ssd_info()
@@ -100,8 +110,6 @@ class SsdUtil(StorageBase, StorageCommon):
         else:
             # Failed to get disk model
             self.model = "Unknown"
-
-        StorageCommon.__init__(self, diskdev)
 
     def _execute_shell(self, cmd):
         process = subprocess.Popen(cmd.split(), universal_newlines=True, stdout=subprocess.PIPE)
@@ -169,12 +177,10 @@ class SsdUtil(StorageBase, StorageCommon):
         self.firmware = self._parse_re('Firmware Version:\s*(.+?)\n', self.ssd_info)
 
         io_reads_raw = self.parse_id_number(GENERIC_IO_READS_ID)
-        if io_reads_raw == NOT_AVAILABLE: self.disk_io_reads = NOT_AVAILABLE
-        else: self.disk_io_reads = io_reads_raw.split()[-1]
+        self.disk_io_reads = NOT_AVAILABLE if io_reads_raw == NOT_AVAILABLE else io_reads_raw.split()[-1]
 
         io_writes_raw = self.parse_id_number(GENERIC_IO_WRITES_ID)
-        if io_writes_raw == NOT_AVAILABLE: self.disk_io_writes = NOT_AVAILABLE
-        else: self.disk_io_writes = io_writes_raw.split()[-1]
+        self.disk_io_writes = NOT_AVAILABLE if io_writes_raw == NOT_AVAILABLE else io_writes_raw.split()[-1]
 
         for ID in GENERIC_RESERVED_BLOCKS_ID:
             rbc_raw = self.parse_id_number(ID)
@@ -227,7 +233,8 @@ class SsdUtil(StorageBase, StorageCommon):
             if nand_endurance != NOT_AVAILABLE and avg_erase_count != NOT_AVAILABLE:
                 try:
                     self.health = 100 - (float(avg_erase_count) * 100 / float(nand_endurance))
-                except (ValueError, ZeroDivisionError):
+                except (ValueError, ZeroDivisionError) as ex:
+                    log.log_info("SsdUtil parse_virtium_info exception: {}".format(ex))
                     pass
             else:
                 if self.model == 'VSFDM8XC240G-V11-T':
@@ -239,7 +246,8 @@ class SsdUtil(StorageBase, StorageCommon):
                     pattern = 'Remaining_Life_Left\s*\d*\s*(\d+?)\s+'
                 try:
                     self.health = float(self._parse_re(pattern, self.vendor_ssd_info))
-                except ValueError:
+                except ValueError as ex:
+                    log.log_info("SsdUtil parse_virtium_info exception: {}".format(ex))
                     pass
 
             if self.disk_io_reads == NOT_AVAILABLE:
@@ -278,42 +286,39 @@ class SsdUtil(StorageBase, StorageCommon):
 
     def parse_micron_info(self):
         if self.vendor_ssd_info:
-            health_attributes = ["Percent_Lifetime_Used", "Percent_Lifetime_Remain"]
-            for idx, field in enumerate(health_attributes):
-                health_raw = self._parse_re('{}\s*(.+?)\n'.format(field), self.vendor_ssd_info)
-                if health_raw != NOT_AVAILABLE:
-                    break
-
-            if health_raw != NOT_AVAILABLE:
-                if idx == 1:
-                    self.health = health_raw.split()[-1]
-                elif idx == 0:
-                    self.health = str(100 - int(health_raw.split()[-1]))
-
+            health_raw = self._parse_re('{}\s*(.+?)\n'.format('Percent_Lifetime_Used'), self.vendor_ssd_info)
+            if health_raw == NOT_AVAILABLE:
+                health_raw = self._parse_re('{}\s*(.+?)\n'.format('Percent_Lifetime_Remain'), self.vendor_ssd_info)
+                self.health = health_raw.split()[-1]
             else:
+                self.health = str(100 - int(health_raw.split()[-1]))
+
+            if health_raw == NOT_AVAILABLE:
                 average_erase_count = self.parse_id_number(MICRON_AVG_ERASE_COUNT_ID)
                 erase_fail_count = self.parse_id_number(MICRON_ERASE_FAIL_COUNT_ID)
 
                 if average_erase_count != NOT_AVAILABLE and erase_fail_count != NOT_AVAILABLE:
                     try:
                         self.health = 100 - (float(average_erase_count) * 100 / float(nand_endurance))
-                    except (ValueError, ZeroDivisionError):
-                            pass
+                    except (ValueError, ZeroDivisionError) as ex:
+                        log.log_info("SsdUtil parse_micron_info exception: {}".format(ex))
+                        pass
 
             io_writes_raw = self.parse_id_number(MICRON_IO_WRITES_ID)
-            if io_writes_raw == NOT_AVAILABLE: self.disk_io_writes = NOT_AVAILABLE
-            else: self.disk_io_writes = io_writes_raw.split()[-1]
+            self.disk_io_writes = NOT_AVAILABLE if io_writes_raw == NOT_AVAILABLE else io_writes_raw.split()[-1]
 
             for ID in MICRON_RESERVED_BLOCKS_ID:
                 rbc_raw = self.parse_id_number(ID)
-            if rbc_raw == NOT_AVAILABLE: self.reserved_blocks = NOT_AVAILABLE
-            else: self.reserved_blocks = rbc_raw.split()[-1]
+
+                if rbc_raw == NOT_AVAILABLE: self.reserved_blocks = NOT_AVAILABLE
+                else: 
+                    self.reserved_blocks = rbc_raw.split()[-1]
+                    break
 
     def parse_intel_info(self):
         if self.vendor_ssd_info:
             health_raw = self.parse_id_number(INTEL_MEDIA_WEAROUT_INDICATOR_ID)
-            if health_raw == NOT_AVAILABLE: self.health = NOT_AVAILABLE
-            else: self.health = str(100 - float(health_raw.split()[-1]))
+            self.health = NOT_AVAILABLE if health_raw == NOT_AVAILABLE else str(100 - float(health_raw.split()[-1]))
 
     def parse_transcend_info(self):
         if self.vendor_ssd_info:
