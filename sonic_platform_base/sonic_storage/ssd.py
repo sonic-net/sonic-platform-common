@@ -193,6 +193,8 @@ class SsdUtil(StorageCommon):
         if self.vendor_ssd_info:
             self.health = self._parse_re('Health:\s*(.+?)%', self.vendor_ssd_info)
             self.temperature = self._parse_re('Temperature\s*\[\s*(.+?)\]', self.vendor_ssd_info)
+            self.firmware = (self._parse_re('.*FW.*', self.vendor_ssd_info)).split()[-1]
+            self.serial = (self._parse_re('.*Serial.*', self.vendor_ssd_info)).split()[-1]
 
         if self.health == NOT_AVAILABLE:
             health_raw = self.parse_id_number(INNODISK_HEALTH_ID)
@@ -201,29 +203,29 @@ class SsdUtil(StorageCommon):
             else:
                 self.health = health_raw.split()[-1]
         if self.temperature == NOT_AVAILABLE:
-            temp_raw = self.parse_id_number(INNODISK_TEMPERATURE_ID)
+            temp_raw = self.parse_id_number(format(INNODISK_TEMPERATURE_ID, 'x').upper())
             if temp_raw == NOT_AVAILABLE:
                 self.temperature = NOT_AVAILABLE
             else:
                 self.temperature = temp_raw.split()[-6]
         if self.disk_io_reads == NOT_AVAILABLE:
-            io_reads_raw = self.parse_id_number(INNODISK_IO_READS_ID)
+            io_reads_raw = self.parse_id_number(format(INNODISK_IO_READS_ID, 'x').upper())
             if io_reads_raw == NOT_AVAILABLE:
                 self.disk_io_reads == NOT_AVAILABLE
             else:
-                self.disk_io_reads = io_reads_raw.split()[-1]
+                self.disk_io_reads = io_reads_raw.split()[-2].strip("[]")
         if self.disk_io_writes == NOT_AVAILABLE:
-            io_writes_raw = self.parse_id_number(INNODISK_IO_WRITES_ID)
+            io_writes_raw = self.parse_id_number(format(INNODISK_IO_WRITES_ID, 'x').upper())
             if io_writes_raw == NOT_AVAILABLE:
                 self.disk_io_writes == NOT_AVAILABLE
             else:
-                self.disk_io_writes = io_writes_raw.split()[-1]
+                self.disk_io_writes = io_writes_raw.split()[-2].strip("[]")
         if self.reserved_blocks == NOT_AVAILABLE:
-            rbc_raw = self.parse_id_number(INNODISK_RESERVED_BLOCKS_ID)
+            rbc_raw = self.parse_id_number(format(INNODISK_RESERVED_BLOCKS_ID, 'x').upper())
             if rbc_raw == NOT_AVAILABLE:
                 self.reserved_blocks == NOT_AVAILABLE
             else:
-                self.reserved_blocks = rbc_raw.split()[-1]
+                self.reserved_blocks = rbc_raw.split()[-2].strip("[]")
 
     def parse_virtium_info(self):
         if self.vendor_ssd_info:

@@ -38,7 +38,7 @@ class TestStorageDevices:
 
     @patch('os.listdir', MagicMock(return_value=['mmcblk0']))
     @patch('sonic_platform_base.sonic_storage.emmc.EmmcUtil')
-    def test_get_storage_devices_sda_obj(self, mock_emmcutil):
+    def test_get_storage_devices_emmc_obj(self, mock_emmcutil):
 
         mock_emmcutil = MagicMock()
         mock_emmcutil.return_value = MagicMock()

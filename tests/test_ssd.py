@@ -254,11 +254,14 @@ ID    SMART Attributes                            Value           Raw Value
 [AD]  Erase Count Max.                            [ 7280]         [AD02006464181C701C000000]
 [AD]  Erase Count Avg.                            [ 7192]         [AD02006464181C701C000000]
 [C2]  Temperature                                 [    0]         [000000000000000000000000]
+[E8]  Percentage os spare remaining               [    0]         [E80300640100000000000000]
 [EB]  Later Bad Block                             [    0]         [EB0200640000000000000000]
 [EB]  Read Block                                  [    0]         [EB0200640000000000000000]
 [EB]  Write Block                                 [    0]         [EB0200640000000000000000]
 [EB]  Erase Block                                 [    0]         [EB0200640000000000000000]
 [EC]  Unstable Power Count                        [    0]         [EC0200646400000000000000]
+[F1]  Total LBAs Written                          [187849]         [F102006401C9DD0200000000]
+[F2]  Total LBAs Read                             [161652]         [F20200640174770200000000]
 """
 
 output_lack_info_ssd = """smartctl 7.2 2020-12-30 r5155 [x86_64-linux-5.10.0-8-2-amd64] (local build)
@@ -1109,7 +1112,6 @@ class TestSsd:
         Innodisk_ssd = SsdUtil('/dev/sda')
         assert(Innodisk_ssd.get_health() == '0x000000000000')
         assert(Innodisk_ssd.get_model() == 'InnoDisk Corp. - mSATA 3ME')
-        assert(Innodisk_ssd.get_firmware() == "S140714")
         assert(Innodisk_ssd.get_temperature() == 'N/A')
         assert(Innodisk_ssd.get_serial() == "20171126AAAA11730156")
 
@@ -1124,19 +1126,26 @@ class TestSsd:
         assert(Innodisk_ssd.get_disk_io_reads() == '182078')
         assert(Innodisk_ssd.get_disk_io_writes() == '274334')
         assert(Innodisk_ssd.get_reserved_blocks() == '0')
-    
-    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_lack_info_ssd))
+
+
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_Innodisk_vendor_info))
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil.model', "InnoDisk")
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil.disk_io_reads', "N/A")
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil.disk_io_writes', "N/A")
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil.reserved_blocks', "N/A")
     def test_Innodisk_no_info_ssd(self):
+
         # Test parsing Innodisk ssd info
-        Innodisk_ssd = SsdUtil('/dev/sda')
-        assert(Innodisk_ssd.get_health() == 'N/A')
-        assert(Innodisk_ssd.get_model() == 'N/A')
-        assert(Innodisk_ssd.get_firmware() == "N/A")
-        assert(Innodisk_ssd.get_temperature() == "N/A")
-        assert(Innodisk_ssd.get_serial() == "N/A")
-        assert(Innodisk_ssd.get_disk_io_reads() == "N/A")
-        assert(Innodisk_ssd.get_disk_io_writes() == "N/A")
-        assert(Innodisk_ssd.get_reserved_blocks() == "N/A")
+        with mock.patch.object(SsdUtil, 'parse_generic_ssd_info', new=mock.MagicMock(return_value=None)):
+            Innodisk_ssd = SsdUtil('/dev/sda')
+            assert(Innodisk_ssd.get_health() == '82.34')
+            assert(Innodisk_ssd.get_model() == 'InnoDisk')
+            assert(Innodisk_ssd.get_firmware() == "S140714")
+            assert(Innodisk_ssd.get_temperature() == '0')
+            assert(Innodisk_ssd.get_serial() == "20171126AAAA11730156")
+            assert(Innodisk_ssd.get_disk_io_reads() == '161652')
+            assert(Innodisk_ssd.get_disk_io_writes() == '187849')
+            assert(Innodisk_ssd.get_reserved_blocks() == '0')
 
 
     @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_Innodisk_missing_names_ssd))
@@ -1146,7 +1155,7 @@ class TestSsd:
         Innodisk_ssd.vendor_ssd_info = ''
         Innodisk_ssd.parse_vendor_ssd_info('InnoDisk')
         assert(Innodisk_ssd.get_health() == '94')
-        assert(Innodisk_ssd.get_temperature() == '39')
+        assert(Innodisk_ssd.get_temperature() == 'N/A')
 
     @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_Innodisk_missing_names_ssd))
     def test_Innodisk_missing_names_ssd_2(self):
@@ -1155,7 +1164,7 @@ class TestSsd:
         Innodisk_ssd.vendor_ssd_info = 'ERROR message from cmd'
         Innodisk_ssd.parse_vendor_ssd_info('InnoDisk')
         assert(Innodisk_ssd.get_health() == '94')
-        assert(Innodisk_ssd.get_temperature() == '39')
+        assert(Innodisk_ssd.get_temperature() == 'N/A')
 
 
     @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell')
