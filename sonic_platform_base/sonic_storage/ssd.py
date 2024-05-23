@@ -28,6 +28,7 @@ NOT_AVAILABLE = "N/A"
 
 # Generic IDs
 
+GENERIC_HEALTH_ID = 169
 GENERIC_IO_READS_ID = 242
 GENERIC_IO_WRITES_ID = 241
 GENERIC_RESERVED_BLOCKS_ID = [170, 232]
@@ -42,9 +43,10 @@ INNODISK_RESERVED_BLOCKS_ID = 232
 SWISSBIT_HEALTH_ID = 248
 SWISSBIT_TEMPERATURE_ID = 194
 
+VIRTIUM_HEALTH_ID = 231
+VIRTIUM_RESERVED_BLOCKS_ID = 232
 VIRTIUM_IO_WRITES_ID = 241
 VIRTIUM_IO_READS_ID = 242
-VIRTIUM_RESERVED_BLOCKS_ID = 232
 
 MICRON_RESERVED_BLOCKS_ID = [170, 180]
 MICRON_IO_WRITES_ID = 246
@@ -163,7 +165,10 @@ class SsdUtil(StorageCommon):
 
             health_raw = self._parse_re('Remaining_Lifetime_Perc\s*(.+?)\n', self.ssd_info)
             if health_raw == NOT_AVAILABLE:
-                self.health = NOT_AVAILABLE
+                health_raw = self.parse_id_number(GENERIC_HEALTH_ID, self.ssd_info)
+                if health_raw == NOT_AVAILABLE:
+                    self.health = NOT_AVAILABLE
+                else: self.health = health_raw.split()[-1]
             else:
                 self.health = health_raw.split()[-1]
 
@@ -176,14 +181,14 @@ class SsdUtil(StorageCommon):
         self.serial = self._parse_re('Serial Number:\s*(.+?)\n', self.ssd_info)
         self.firmware = self._parse_re('Firmware Version:\s*(.+?)\n', self.ssd_info)
 
-        io_reads_raw = self.parse_id_number(GENERIC_IO_READS_ID)
+        io_reads_raw = self.parse_id_number(GENERIC_IO_READS_ID, self.ssd_info)
         self.disk_io_reads = NOT_AVAILABLE if io_reads_raw == NOT_AVAILABLE else io_reads_raw.split()[-1]
 
-        io_writes_raw = self.parse_id_number(GENERIC_IO_WRITES_ID)
+        io_writes_raw = self.parse_id_number(GENERIC_IO_WRITES_ID, self.ssd_info)
         self.disk_io_writes = NOT_AVAILABLE if io_writes_raw == NOT_AVAILABLE else io_writes_raw.split()[-1]
 
         for ID in GENERIC_RESERVED_BLOCKS_ID:
-            rbc_raw = self.parse_id_number(ID)
+            rbc_raw = self.parse_id_number(ID, self.ssd_info)
             if rbc_raw == NOT_AVAILABLE: self.reserved_blocks = NOT_AVAILABLE
             else:
                 self.reserved_blocks = rbc_raw.split()[-1]
@@ -191,37 +196,37 @@ class SsdUtil(StorageCommon):
 
     def parse_innodisk_info(self):
         if self.vendor_ssd_info:
-            self.health = self._parse_re('Health:\s*(.+?)%', self.vendor_ssd_info)
-            self.temperature = self._parse_re('Temperature\s*\[\s*(.+?)\]', self.vendor_ssd_info)
-            self.firmware = (self._parse_re('.*FW.*', self.vendor_ssd_info)).split()[-1]
-            self.serial = (self._parse_re('.*Serial.*', self.vendor_ssd_info)).split()[-1]
+            if self.health == NOT_AVAILABLE: self.health = self._parse_re('Health:\s*(.+?)%', self.vendor_ssd_info)
+            if self.temperature == NOT_AVAILABLE: self.temperature = self._parse_re('Temperature\s*\[\s*(.+?)\]', self.vendor_ssd_info)
+            if self.firmware == NOT_AVAILABLE: self.firmware = (self._parse_re('.*FW.*', self.vendor_ssd_info)).split()[-1]
+            if self.serial == NOT_AVAILABLE: self.serial = (self._parse_re('.*Serial.*', self.vendor_ssd_info)).split()[-1]
 
         if self.health == NOT_AVAILABLE:
-            health_raw = self.parse_id_number(INNODISK_HEALTH_ID)
+            health_raw = self.parse_id_number("[{}]".format(hex(INNODISK_HEALTH_ID)[2:]).upper(), self.vendor_ssd_info)
             if health_raw == NOT_AVAILABLE:
                 self.health = NOT_AVAILABLE
             else:
-                self.health = health_raw.split()[-1]
+                self.health = health_raw.split()[-2].strip("[]")
         if self.temperature == NOT_AVAILABLE:
-            temp_raw = self.parse_id_number(format(INNODISK_TEMPERATURE_ID, 'x').upper())
+            temp_raw = self.parse_id_number("[{}]".format(hex(INNODISK_TEMPERATURE_ID)[2:]).upper(), self.vendor_ssd_info)
             if temp_raw == NOT_AVAILABLE:
                 self.temperature = NOT_AVAILABLE
             else:
                 self.temperature = temp_raw.split()[-6]
         if self.disk_io_reads == NOT_AVAILABLE:
-            io_reads_raw = self.parse_id_number(format(INNODISK_IO_READS_ID, 'x').upper())
+            io_reads_raw = self.parse_id_number("[{}]".format(hex(INNODISK_IO_READS_ID)[2:]).upper(), self.vendor_ssd_info)
             if io_reads_raw == NOT_AVAILABLE:
                 self.disk_io_reads == NOT_AVAILABLE
             else:
                 self.disk_io_reads = io_reads_raw.split()[-2].strip("[]")
         if self.disk_io_writes == NOT_AVAILABLE:
-            io_writes_raw = self.parse_id_number(format(INNODISK_IO_WRITES_ID, 'x').upper())
+            io_writes_raw = self.parse_id_number("[{}]".format(hex(INNODISK_IO_WRITES_ID)[2:]).upper(), self.vendor_ssd_info)
             if io_writes_raw == NOT_AVAILABLE:
                 self.disk_io_writes == NOT_AVAILABLE
             else:
                 self.disk_io_writes = io_writes_raw.split()[-2].strip("[]")
         if self.reserved_blocks == NOT_AVAILABLE:
-            rbc_raw = self.parse_id_number(format(INNODISK_RESERVED_BLOCKS_ID, 'x').upper())
+            rbc_raw = self.parse_id_number("[{}]".format(hex(INNODISK_RESERVED_BLOCKS_ID)[2:]).upper(), self.vendor_ssd_info)
             if rbc_raw == NOT_AVAILABLE:
                 self.reserved_blocks == NOT_AVAILABLE
             else:
@@ -239,35 +244,38 @@ class SsdUtil(StorageCommon):
                     log.log_info("SsdUtil parse_virtium_info exception: {}".format(ex))
                     pass
             else:
-                if self.model == 'VSFDM8XC240G-V11-T':
-                    # The ID of "Remaining Life Left" attribute on 'VSFDM8XC240G-V11-T' device is 231
-                    # However, it is not recognized by SmartCmd nor smartctl so far
-                    # We need to parse it using the ID number
-                    pattern = '231\s*Reserved_Attribute\s*\d*\s*(\d+?)\s+'
-                else:
-                    pattern = 'Remaining_Life_Left\s*\d*\s*(\d+?)\s+'
+                health_raw = NOT_AVAILABLE
                 try:
-                    self.health = float(self._parse_re(pattern, self.vendor_ssd_info))
+                    if self.model == 'VSFDM8XC240G-V11-T':
+                        # The ID of "Remaining Life Left" attribute on 'VSFDM8XC240G-V11-T' device is 231
+                        # However, it is not recognized by SmartCmd nor smartctl so far
+                        # We need to parse it using the ID number
+                        health_raw = self.parse_id_number(VIRTIUM_HEALTH_ID, self.vendor_ssd_info)
+                        self.health = float(health_raw.split()[2]) if health_raw != NOT_AVAILABLE else NOT_AVAILABLE
+                    else:
+                        pattern = 'Remaining_Life_Left\s*\d*\s*(\d+?)\s+'
+                        health_raw = self._parse_re(pattern, self.vendor_ssd_info)
+                        self.health = float(health_raw.split()[-1]) if health_raw != NOT_AVAILABLE else NOT_AVAILABLE
                 except ValueError as ex:
                     log.log_info("SsdUtil parse_virtium_info exception: {}".format(ex))
                     pass
 
             if self.disk_io_reads == NOT_AVAILABLE:
-                io_reads_raw = self.parse_id_number(VIRTIUM_IO_READS_ID)
+                io_reads_raw = self.parse_id_number(VIRTIUM_IO_READS_ID, self.vendor_ssd_info)
                 if io_reads_raw == NOT_AVAILABLE:
                     self.disk_io_reads == NOT_AVAILABLE
                 else:
                     self.disk_io_reads = io_reads_raw.split()[-1]
 
             if self.disk_io_writes == NOT_AVAILABLE:
-                io_writes_raw = self.parse_id_number(VIRTIUM_IO_WRITES_ID)
+                io_writes_raw = self.parse_id_number(VIRTIUM_IO_WRITES_ID, self.vendor_ssd_info)
                 if io_writes_raw == NOT_AVAILABLE:
                     self.disk_io_writes == NOT_AVAILABLE
                 else:
                     self.disk_io_writes = io_writes_raw.split()[-1]
 
             if self.reserved_blocks == NOT_AVAILABLE:
-                rbc_raw = self.parse_id_number(VIRTIUM_RESERVED_BLOCKS_ID)
+                rbc_raw = self.parse_id_number(VIRTIUM_RESERVED_BLOCKS_ID, self.vendor_ssd_info)
                 if rbc_raw == NOT_AVAILABLE:
                     self.reserved_blocks == NOT_AVAILABLE
                 else:
@@ -275,12 +283,12 @@ class SsdUtil(StorageCommon):
 
     def parse_swissbit_info(self):
         if self.ssd_info:
-            health_raw = self.parse_id_number(SWISSBIT_HEALTH_ID)
+            health_raw = self.parse_id_number(SWISSBIT_HEALTH_ID, self.ssd_info)
             if health_raw == NOT_AVAILABLE:
                 self.health = NOT_AVAILABLE
             else:
                 self.health = health_raw.split()[-1]
-            temp_raw = self.parse_id_number(SWISSBIT_TEMPERATURE_ID)
+            temp_raw = self.parse_id_number(SWISSBIT_TEMPERATURE_ID, self.ssd_info)
             if temp_raw == NOT_AVAILABLE:
                 self.temperature = NOT_AVAILABLE
             else:
@@ -296,8 +304,8 @@ class SsdUtil(StorageCommon):
                 self.health = str(100 - int(health_raw.split()[-1]))
 
             if health_raw == NOT_AVAILABLE:
-                average_erase_count = self.parse_id_number(MICRON_AVG_ERASE_COUNT_ID)
-                erase_fail_count = self.parse_id_number(MICRON_ERASE_FAIL_COUNT_ID)
+                average_erase_count = self.parse_id_number(MICRON_AVG_ERASE_COUNT_ID, self.vendor_ssd_info)
+                erase_fail_count = self.parse_id_number(MICRON_ERASE_FAIL_COUNT_ID, self.vendor_ssd_info)
 
                 if average_erase_count != NOT_AVAILABLE and erase_fail_count != NOT_AVAILABLE:
                     try:
@@ -306,11 +314,11 @@ class SsdUtil(StorageCommon):
                         log.log_info("SsdUtil parse_micron_info exception: {}".format(ex))
                         pass
 
-            io_writes_raw = self.parse_id_number(MICRON_IO_WRITES_ID)
+            io_writes_raw = self.parse_id_number(MICRON_IO_WRITES_ID, self.vendor_ssd_info)
             self.disk_io_writes = NOT_AVAILABLE if io_writes_raw == NOT_AVAILABLE else io_writes_raw.split()[-1]
 
             for ID in MICRON_RESERVED_BLOCKS_ID:
-                rbc_raw = self.parse_id_number(ID)
+                rbc_raw = self.parse_id_number(ID, self.vendor_ssd_info)
 
                 if rbc_raw == NOT_AVAILABLE: self.reserved_blocks = NOT_AVAILABLE
                 else: 
@@ -319,7 +327,7 @@ class SsdUtil(StorageCommon):
 
     def parse_intel_info(self):
         if self.vendor_ssd_info:
-            health_raw = self.parse_id_number(INTEL_MEDIA_WEAROUT_INDICATOR_ID)
+            health_raw = self.parse_id_number(INTEL_MEDIA_WEAROUT_INDICATOR_ID, self.vendor_ssd_info)
             self.health = NOT_AVAILABLE if health_raw == NOT_AVAILABLE else str(100 - float(health_raw.split()[-1]))
 
     def parse_transcend_info(self):
@@ -427,5 +435,11 @@ class SsdUtil(StorageCommon):
         """
         return self.vendor_ssd_info
 
-    def parse_id_number(self, id):
-        return self._parse_re('{}\s*(.+?)\n'.format(id), self.ssd_info)
+    def parse_id_number(self, id, buffer):
+        if buffer:
+            buffer_lines = buffer.split('\n')
+            for line in buffer_lines:
+                if line.startswith(str(id)):
+                    return line[len(str(id)):]
+
+        return NOT_AVAILABLE
