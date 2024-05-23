@@ -87,11 +87,11 @@ class SsdUtil(StorageCommon):
         }
 
         self.dev = diskdev
-        self._fetch_parse_info(diskdev)
+        self.fetch_parse_info(diskdev)
 
         StorageCommon.__init__(self, diskdev)
 
-    def _fetch_parse_info(self, diskdev):
+    def fetch_parse_info(self, diskdev):
 
         # Generic part
         self.fetch_generic_ssd_info(diskdev)
