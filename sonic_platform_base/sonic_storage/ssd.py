@@ -439,7 +439,7 @@ class SsdUtil(StorageCommon):
         if buffer:
             buffer_lines = buffer.split('\n')
             for line in buffer_lines:
-                if line.startswith(str(id)):
+                if line.strip().startswith(str(id)):
                     return line[len(str(id)):]
 
         return NOT_AVAILABLE

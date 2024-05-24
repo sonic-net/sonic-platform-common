@@ -152,6 +152,11 @@ SMART Self-test Log not supported
 
 Selective Self-tests/Logging not supported"""
 
+output_ssd_leading_trailing_spaces = """
+  241 Host_Writes_32MiB       0x0002   100   001   000    Old_age   Always       -       178564  
+  242 Host_Reads_32MiB        0x0002   100   001   000    Old_age   Always       -       760991  
+"""
+
 output_Innodisk_ssd = """smartctl 7.2 2020-12-30 r5155 [x86_64-linux-5.10.0-23-2-amd64] (local build)
 Copyright (C) 2002-20, Bruce Allen, Christian Franke, www.smartmontools.org
 
@@ -1161,6 +1166,13 @@ class TestSsd:
         assert(ssd.get_disk_io_writes() == '178564')
         assert(ssd.get_reserved_blocks() == '146')
 
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_ssd_leading_trailing_spaces))
+    def test_ssd_leading_trailing_spaces(self):
+        # Test parsing a normal ssd info
+        ssd = SsdUtil('/dev/sda')
+
+        assert(ssd.get_disk_io_writes() == '178564')
+        assert(ssd.get_disk_io_reads() == '760991')
 
     @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_lack_info_ssd))
     def test_ssd_with_na_path(self):
