@@ -23,7 +23,7 @@ class StorageBase(object):
         Retrieves current disk health in percentages
 
         Returns:
-            A float number of current ssd health
+            A float number of current disk health
             e.g. 83.5
         """
         raise NotImplementedError
@@ -100,3 +100,12 @@ class StorageBase(object):
             An integer value of the total number of reserved blocks
         """
         raise NotImplementedError
+
+    def fetch_parse_info(self):
+        """
+        Base class implementation - child-class implementations vary.
+
+        Returns:
+            N/A
+        """
+        return
