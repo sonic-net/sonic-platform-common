@@ -7,7 +7,7 @@
 
 class StorageBase(object):
     """
-    Base class for interfacing with a SSD
+    Base class for interfacing with a storage disk
     """
     def __init__(self, diskdev):
         """
