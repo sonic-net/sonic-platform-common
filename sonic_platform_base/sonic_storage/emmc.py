@@ -59,3 +59,6 @@ class EmmcUtil(StorageCommon):
 
     def get_reserved_blocks(self):
         return 'N/A'
+
+    def fetch_parse_info(self, diskdev=None):
+        return

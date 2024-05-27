@@ -100,12 +100,3 @@ class StorageBase(object):
             An integer value of the total number of reserved blocks
         """
         raise NotImplementedError
-
-    def fetch_parse_info(self):
-        """
-        Base class implementation - child-class implementations vary.
-
-        Returns:
-            N/A
-        """
-        return

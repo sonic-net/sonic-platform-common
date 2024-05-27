@@ -40,4 +40,5 @@ class TestEMMC:
         assert (util.get_disk_io_reads() == 'N/A')
         assert (util.get_disk_io_writes() == 'N/A')
         assert (util.get_reserved_blocks() == 'N/A')
+        assert (util.fetch_parse_info() == None)
 
