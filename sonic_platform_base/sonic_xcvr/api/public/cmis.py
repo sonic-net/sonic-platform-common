@@ -200,7 +200,7 @@ class CmisApi(XcvrApi):
             ( _, _, _, _, _, _, _, _, ActiveFirmware, InactiveFirmware) = result['result']
         except (ValueError, TypeError):
             return return_dict
-        
+
         return_dict["active_firmware"] = ActiveFirmware
         return_dict["inactive_firmware"] = InactiveFirmware
         return return_dict
@@ -776,10 +776,10 @@ class CmisApi(XcvrApi):
         '''
         if self.is_flat_memory():
             return 0
-        
+
         if (appl <= 0):
             return 0
-        
+
         appl_advt = self.get_application_advertisement()
         return appl_advt[appl]['media_lane_count'] if len(appl_advt) >= appl else 0
 
@@ -808,10 +808,10 @@ class CmisApi(XcvrApi):
         '''
         if self.is_flat_memory():
             return 'N/A'
-        
+
         if (appl <= 0):
             return 0
-        
+
         appl_advt = self.get_application_advertisement()
         return appl_advt[appl]['media_lane_assignment_options'] if len(appl_advt) >= appl else 0
 
@@ -2141,7 +2141,7 @@ class CmisApi(XcvrApi):
             name = "DP{}State".format(lane + 1)
             if dp_state[name] != 'DataPathDeactivated':
                 return False
-            
+
             name = "ConfigStatusLane{}".format(lane + 1)
             if config_state[name] != 'ConfigSuccess':
                 return False
@@ -2477,5 +2477,14 @@ class CmisApi(XcvrApi):
             return state
 
         return None
+
+    def apply_app0_configuration(self):
+        '''
+        This function applies App0 configuration - in case some lanes are de-activated
+        '''
+        for lane in range(self.NUM_CHANNELS):
+            addr = "{}_{}_{}".format(consts.STAGED_CTRL_APSEL_FIELD, 0, lane + 1)
+            data = 0
+            return self.xcvr_eeprom.write(addr, data)
 
     # TODO: other XcvrApi methods
