@@ -105,7 +105,11 @@ class SsdUtil(StorageCommon):
             if vendor:
 
                 self.fetch_vendor_ssd_info(diskdev, vendor)
-                self.parse_vendor_ssd_info(vendor)
+                try:
+                    self.parse_vendor_ssd_info(vendor)
+                except Exception as ex:
+                    log.log_error("{}".format(str(ex)))
+
             else:
                 # No handler registered for this disk model
                 pass
