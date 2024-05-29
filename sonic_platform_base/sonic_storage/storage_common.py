@@ -9,13 +9,13 @@ try:
     import os
     import sys
     import psutil
-    from sonic_py_common import logger
+    from sonic_py_common import syslogger
     from .storage_base import StorageBase
 except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
 
 log_identifier = "StorageCommon"
-log = logger.Logger(log_identifier)
+log = syslogger.SysLogger(log_identifier)
 
 class StorageCommon(StorageBase, object):
     def __init__(self, diskdev):

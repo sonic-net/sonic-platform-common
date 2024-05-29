@@ -12,12 +12,12 @@ try:
     import subprocess
 
     from .storage_common import StorageCommon
-    from sonic_py_common import logger
+    from sonic_py_common import syslogger
 except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
 
 log_identifier = "SsdUtil"
-log = logger.Logger(log_identifier)
+log = syslogger.SysLogger(log_identifier)
 
 SMARTCTL = "smartctl {} -a"
 INNODISK = "iSmart -d {}"

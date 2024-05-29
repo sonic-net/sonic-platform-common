@@ -9,7 +9,7 @@
 try:
     import os
     import sys
-    from sonic_py_common import logger
+    from sonic_py_common import syslogger
     from sonic_platform_base.sonic_storage.ssd import SsdUtil
     from sonic_platform_base.sonic_storage.emmc import EmmcUtil
 except ImportError as e:
@@ -22,7 +22,7 @@ except ImportError as e:
     pass
 
 log_identifier = "StorageDevices"
-log = logger.Logger(log_identifier)
+log = syslogger.SysLogger(log_identifier)
 
 BASE_PATH = "/sys/block"
 BLKDEV_BASE_PATH = "/dev"
