@@ -4,8 +4,6 @@ import pytest
 
 from sonic_platform_base.sonic_storage.storage_devices import StorageDevices
 
-log_identifier = "test_storage_devices"
-
 mocked_basepath = ['loop1', 'mmcblk0', 'loop6', 'mmcblk0boot0', 'loop4', 'loop2', 'loop0', 'loop7', 'mmcblk0boot1', 'sda', 'loop5', 'loop3']
 mocked_devices = { 'mmcblk0' : None, 'sda' : None}
 mock_realpath = "/sys/devices/pci0000:00/0000:00:18.0/ata5/host4/target4:0:0/4:0:0:0"

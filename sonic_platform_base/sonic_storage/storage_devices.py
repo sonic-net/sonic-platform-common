@@ -21,14 +21,13 @@ try:
 except ImportError as e:
     pass
 
-log_identifier = "StorageDevices"
-log = syslogger.SysLogger(log_identifier)
-
 BASE_PATH = "/sys/block"
 BLKDEV_BASE_PATH = "/dev"
 
 class StorageDevices:
     def __init__(self):
+        self.log_identifier = "StorageDevices"
+        self.log = syslogger.SysLogger(self.log_identifier)
         self.devices = {}
 
         # Populate the self.devices dictionary with as many key-values pairs as storage disks,
@@ -72,18 +71,18 @@ class StorageDevices:
                 try:
                     return SsdUtil(blkdev)
                 except Exception as e:
-                    log.log_warning("Failed to instantiate SsdUtil object. Error: {}".format(str(e)), True)
+                    self.log.log_warning("Failed to instantiate SsdUtil object. Error: {}".format(str(e)), True)
 
             elif "usb" in os.path.realpath(path):
                 try:
                     return UsbUtil(blkdev)
                 except Exception as e:
-                    log.log_warning("Failed to instantiate UsbUtil object. Error: {}".format(str(e)), True)
+                    self.log.log_warning("Failed to instantiate UsbUtil object. Error: {}".format(str(e)), True)
 
         elif "mmcblk" in key:
             try:
                 return EmmcUtil(key)
             except Exception as e:
-                log.log_warning("Failed to instantiate EmmcUtil object. Error: {}".format(str(e)), True)
+                self.log.log_warning("Failed to instantiate EmmcUtil object. Error: {}".format(str(e)), True)
 
         return None

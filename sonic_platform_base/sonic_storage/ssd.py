@@ -16,8 +16,6 @@ try:
 except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
 
-log_identifier = "SsdUtil"
-log = syslogger.SysLogger(log_identifier)
 
 SMARTCTL = "smartctl {} -a"
 INNODISK = "iSmart -d {}"
@@ -76,6 +74,10 @@ class SsdUtil(StorageCommon):
     reserved_blocks = NOT_AVAILABLE
 
     def __init__(self, diskdev):
+
+        self.log_identifier = "SsdUtil"
+        self.log = syslogger.SysLogger(self.log_identifier)
+
         self.vendor_ssd_utility = {
             "Generic"  : { "utility" : SMARTCTL, "parser" : self.parse_generic_ssd_info },
             "InnoDisk" : { "utility" : INNODISK, "parser" : self.parse_innodisk_info },
@@ -108,7 +110,7 @@ class SsdUtil(StorageCommon):
                 try:
                     self.parse_vendor_ssd_info(vendor)
                 except Exception as ex:
-                    log.log_error("{}".format(str(ex)))
+                    self.log.log_error("{}".format(str(ex)))
 
             else:
                 # No handler registered for this disk model
@@ -245,7 +247,7 @@ class SsdUtil(StorageCommon):
                 try:
                     self.health = 100 - (float(avg_erase_count) * 100 / float(nand_endurance))
                 except (ValueError, ZeroDivisionError) as ex:
-                    log.log_info("SsdUtil parse_virtium_info exception: {}".format(ex))
+                    self.log.log_info("SsdUtil parse_virtium_info exception: {}".format(ex))
                     pass
             else:
                 health_raw = NOT_AVAILABLE
@@ -261,7 +263,7 @@ class SsdUtil(StorageCommon):
                         health_raw = self._parse_re(pattern, self.vendor_ssd_info)
                         self.health = float(health_raw.split()[-1]) if health_raw != NOT_AVAILABLE else NOT_AVAILABLE
                 except ValueError as ex:
-                    log.log_info("SsdUtil parse_virtium_info exception: {}".format(ex))
+                    self.log.log_info("SsdUtil parse_virtium_info exception: {}".format(ex))
                     pass
 
             if self.disk_io_reads == NOT_AVAILABLE:
@@ -315,7 +317,7 @@ class SsdUtil(StorageCommon):
                     try:
                         self.health = 100 - (float(average_erase_count) * 100 / float(nand_endurance))
                     except (ValueError, ZeroDivisionError) as ex:
-                        log.log_info("SsdUtil parse_micron_info exception: {}".format(ex))
+                        self.log.log_info("SsdUtil parse_micron_info exception: {}".format(ex))
                         pass
 
             io_writes_raw = self.parse_id_number(MICRON_IO_WRITES_ID, self.vendor_ssd_info)

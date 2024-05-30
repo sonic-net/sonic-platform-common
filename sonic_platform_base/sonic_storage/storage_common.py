@@ -14,9 +14,6 @@ try:
 except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
 
-log_identifier = "StorageCommon"
-log = syslogger.SysLogger(log_identifier)
-
 class StorageCommon(StorageBase, object):
     def __init__(self, diskdev):
         """
@@ -25,6 +22,8 @@ class StorageCommon(StorageBase, object):
         Args:
             Block device path for which we need to get information
         """
+        self.log_identifier = "StorageCommon"
+        self.log = syslogger.SysLogger(self.log_identifier)
 
         self.storage_disk = os.path.basename(diskdev)
 
@@ -43,7 +42,7 @@ class StorageCommon(StorageBase, object):
         try:
             fsstats_reads = int(psutil.disk_io_counters(perdisk=True, nowrap=True)[self.storage_disk].read_count)
         except Exception as ex:
-            log.log_warning("get_fs_io_reads exception: {}".format(ex))
+            self.log.log_warning("get_fs_io_reads exception: {}".format(ex))
             pass
 
         return fsstats_reads
@@ -63,7 +62,7 @@ class StorageCommon(StorageBase, object):
         try:
             fsstats_writes = psutil.disk_io_counters(perdisk=True, nowrap=True)[self.storage_disk].write_count
         except Exception as ex:
-            log.log_warning("get_fs_io_writes exception: {}".format(ex))
+            self.log.log_warning("get_fs_io_writes exception: {}".format(ex))
             pass
 
         return fsstats_writes
