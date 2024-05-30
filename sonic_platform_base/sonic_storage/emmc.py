@@ -1,5 +1,5 @@
 #
-# ssd_emmc.py
+# emmc.py
 #
 # Implementation of SSD Utility API for eMMC.
 # It reads eMMC health, model, firmware, and serial from /sys/block/*.
@@ -7,15 +7,16 @@
 
 try:
     import os
-    from .ssd_base import SsdBase
+    from .storage_common import StorageCommon
 except ImportError as e:
     raise ImportError(str(e) + "- required module not found")
 
 
-class EmmcUtil(SsdBase):
+class EmmcUtil(StorageCommon):
     def __init__(self, diskdev):
         self.diskdev = diskdev
         self.path = os.path.join('/sys/block', os.path.basename(diskdev))
+        StorageCommon.__init__(self, diskdev)
 
     def _read_device_entry(self, entry, default=None):
         path = os.path.join(self.path, 'device', entry)
@@ -49,3 +50,15 @@ class EmmcUtil(SsdBase):
 
     def get_vendor_output(self):
         return ''
+
+    def get_disk_io_reads(self):
+        return 'N/A'
+
+    def get_disk_io_writes(self):
+        return 'N/A'
+
+    def get_reserved_blocks(self):
+        return 'N/A'
+
+    def fetch_parse_info(self, diskdev=None):
+        return

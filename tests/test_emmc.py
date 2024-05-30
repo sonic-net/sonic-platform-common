@@ -1,22 +1,20 @@
 import sys
-if sys.version_info.major == 3:
-    from unittest.mock import mock_open, patch
-else:
-    from mock import mock_open, patch
+import mock
 
-from sonic_platform_base.sonic_ssd.ssd_emmc import EmmcUtil
+from sonic_platform_base.sonic_storage.emmc import EmmcUtil
 
 mocked_files = {
     '/sys/block/emmctest/device/enhanced_area_offset': '0',
     '/sys/block/emmctest/device/life_time': '0x02 0x02',
     '/sys/block/emmctest/device/name': 'Test eMMC device',
     '/sys/block/emmctest/device/fwrev': '0xAA00000000000000',
-    '/sys/block/emmctest/device/serial': '0xabcdefef'
+    '/sys/block/emmctest/device/serial': '0xabcdefef',
+    '/proc/mounts' : '/dev/emmctestp1 /host ext4 rw,relatime 0 0'
 }
 
 
 def build_mocked_sys_fs_open(files):
-    mocks = dict([(fname, mock_open(read_data=cnt).return_value)
+    mocks = dict([(fname, mock.mock_open(read_data=cnt).return_value)
                  for fname, cnt in files.items()])
 
     def mopen(fname):
@@ -27,9 +25,10 @@ def build_mocked_sys_fs_open(files):
     return mopen
 
 
-class TestSsdEMMC:
+class TestEMMC:
 
-    @patch('builtins.open', new=build_mocked_sys_fs_open(mocked_files))
+    @mock.patch('builtins.open', new=build_mocked_sys_fs_open(mocked_files))
+
     def test_check(self, *args):
         util = EmmcUtil('emmctest')
 
@@ -38,3 +37,8 @@ class TestSsdEMMC:
         assert (util.get_model() == 'Test eMMC device')
         assert (util.get_firmware() == '0xAA00000000000000')
         assert (util.get_serial() == '0xabcdefef')
+        assert (util.get_disk_io_reads() == 'N/A')
+        assert (util.get_disk_io_writes() == 'N/A')
+        assert (util.get_reserved_blocks() == 'N/A')
+        assert (util.fetch_parse_info() == None)
+

@@ -5,7 +5,7 @@ if sys.version_info.major == 3:
 else:
     import mock
 
-from sonic_platform_base.sonic_ssd.ssd_generic import SsdUtil
+from sonic_platform_base.sonic_storage.ssd import SsdUtil
 
 output_nvme_ssd = """smartctl 7.2 2020-12-30 r5155 [x86_64-linux-5.10.0-8-2-amd64] (local build)
 Copyright (C) 2002-20, Bruce Allen, Christian Franke, www.smartmontools.org
@@ -152,22 +152,29 @@ SMART Self-test Log not supported
 
 Selective Self-tests/Logging not supported"""
 
-output_Innodisk_ssd = """smartctl 6.6 2017-11-05 r4594 [x86_64-linux-4.19.0-12-2-amd64] (local build)
-Copyright (C) 2002-17, Bruce Allen, Christian Franke, www.smartmontools.org
+output_ssd_leading_trailing_spaces = """
+  241 Host_Writes_32MiB       0x0002   100   001   000    Old_age   Always       -       178564  
+  242 Host_Reads_32MiB        0x0002   100   001   000    Old_age   Always       -       760991  
+"""
+
+output_Innodisk_ssd = """smartctl 7.2 2020-12-30 r5155 [x86_64-linux-5.10.0-23-2-amd64] (local build)
+Copyright (C) 2002-20, Bruce Allen, Christian Franke, www.smartmontools.org
 
 === START OF INFORMATION SECTION ===
-Model Family:     Innodisk 1ME3/3ME/3SE SSDs
-Device Model:     InnoDisk Corp. - mSATA 3ME
-Serial Number:    20171126AAAA11730156
-Firmware Version: S140714
-User Capacity:    32,017,047,552 bytes [32.0 GB]
+Model Family:     Innodisk 3IE3/3ME3/3ME4 SSDs
+Device Model:     InnoDisk Corp. - mSATA 3IE3
+Serial Number:    BCA11802090990501
+LU WWN Device Id: 5 24693f 2ca22d959
+Firmware Version: S16425cG
+User Capacity:    16,013,942,784 bytes [16.0 GB]
 Sector Size:      512 bytes logical/physical
 Rotation Rate:    Solid State Device
 Form Factor:      2.5 inches
+TRIM Command:     Available
 Device is:        In smartctl database [for details use: -P show]
-ATA Version is:   ACS-2 (minor revision not indicated)
+ATA Version is:   ATA8-ACS (minor revision not indicated)
 SATA Version is:  SATA 3.0, 6.0 Gb/s (current: 6.0 Gb/s)
-Local Time is:    Thu Mar 31 08:24:17 2022 UTC
+Local Time is:    Thu May 23 08:13:07 2024 UTC
 SMART support is: Available - device has SMART capability.
 SMART support is: Enabled
 
@@ -186,7 +193,7 @@ SMART capabilities:            (0x0003) Saves SMART data before entering
                                         power-saving mode.
                                         Supports SMART auto save timer.
 Error logging capability:        (0x00) Error logging NOT supported.
-                                        General Purpose Logging supported.
+                                        No General Purpose Logging support.
 SCT capabilities:              (0x0039) SCT Status supported.
                                         SCT Error Recovery Control supported.
                                         SCT Feature Control supported.
@@ -198,28 +205,33 @@ ID# ATTRIBUTE_NAME          FLAG     VALUE WORST THRESH TYPE      UPDATED  WHEN_
   1 Raw_Read_Error_Rate     0x0000   000   000   000    Old_age   Offline      -       0
   2 Throughput_Performance  0x0000   000   000   000    Old_age   Offline      -       0
   3 Spin_Up_Time            0x0000   000   000   000    Old_age   Offline      -       0
-  5 Reallocated_Sector_Ct   0x0002   100   100   000    Old_age   Always       -       0
+  5 Later_Bad_Block         0x0013   100   100   001    Pre-fail  Always       -       0
   7 Seek_Error_Rate         0x0000   000   000   000    Old_age   Offline      -       0
   8 Seek_Time_Performance   0x0000   000   000   000    Old_age   Offline      -       0
-  9 Power_On_Hours          0x0002   100   100   000    Old_age   Always       -       32474
+  9 Power_On_Hours          0x0002   140   000   000    Old_age   Always       -       49036
  10 Spin_Retry_Count        0x0000   000   000   000    Old_age   Offline      -       0
- 12 Power_Cycle_Count       0x0002   100   100   000    Old_age   Always       -       297
+ 12 Power_Cycle_Count       0x0002   012   000   000    Old_age   Always       -       2828
+163 Total_Bad_Block_Count   0x0000   000   000   000    Old_age   Offline      -       19
 168 SATA_PHY_Error_Count    0x0000   000   000   000    Old_age   Offline      -       0
-169 Unknown_Innodisk_Attr   0x0000   000   000   000    Old_age   Offline      -       0x000000000000
+169 Remaining_Lifetime_Perc 0x0000   092   000   000    Old_age   Offline      -       92
 175 Bad_Cluster_Table_Count 0x0000   000   000   000    Old_age   Offline      -       0
 192 Power-Off_Retract_Count 0x0000   000   000   000    Old_age   Offline      -       0
-  1 Raw_Read_Error_Rate     0x0000   000   000   000    Old_age   Offline      -       2199023255552
-197 Current_Pending_Sector  0x0000   000   000   000    Old_age   Offline      -       0
+194 Temperature_Celsius     0x0000   030   100   000    Old_age   Offline      -       30 (2 100 0 0 0)
+197 Current_Pending_Sector  0x0012   000   100   000    Old_age   Always       -       0
+225 Data_Log_Write_Count    0x0000   000   074   000    Old_age   Offline      -       38494758
 240 Write_Head              0x0000   000   000   000    Old_age   Offline      -       0
-225 Unknown_Innodisk_Attr   0x0000   000   000   000    Old_age   Offline      -       0
-170 Bad_Block_Count         0x0003   100   100   ---    Pre-fail  Always       -       0 47 0
-173 Erase_Count             0x0002   100   100   ---    Old_age   Always       -       0 7280 7192
-229 Flash_ID                0x0002   100   100   ---    Old_age   Always       -       0x50769394de98
-236 Unstable_Power_Count    0x0002   100   100   ---    Old_age   Always       -       0
-235 Later_Bad_Block         0x0002   100   000   ---    Old_age   Always       -       0
-176 Uncorr_RECORD_Count     0x0000   100   000   ---    Old_age   Offline      -       0
-
-Read SMART Log Directory failed: scsi error badly formed scsi parameters
+165 Max_Erase_Count         0x0002   183   001   000    Old_age   Always       -       1463
+167 Average_Erase_Count     0x0002   175   001   000    Old_age   Always       -       1455
+170 Spare_Block_Count       0x0003   100   001   000    Pre-fail  Always       -       59
+171 Program_Fail_Count      0x0002   000   001   000    Old_age   Always       -       0
+172 Erase_Fail_Count        0x0002   000   001   000    Old_age   Always       -       0
+174 Unknown_Attribute       0x0003   100   001   000    Pre-fail  Always       -       76
+177 Wear_Leveling_Count     0x0002   100   001   000    Old_age   Always       -       2811
+229 Flash_ID                0x0002   100   001   000    Old_age   Always       -       0x51769394de98
+232 Spares_Remaining_Perc   0x0003   100   001   000    Pre-fail  Always       -       0
+235 Later_Bad_Blk_Inf_R/W/E 0x0002   000   000   000    Old_age   Always       -       0 0 0
+241 Host_Writes_32MiB       0x0002   100   001   000    Old_age   Always       -       150370
+242 Host_Reads_32MiB        0x0002   100   001   000    Old_age   Always       -       73954
 
 SMART Error Log not supported
 
@@ -232,29 +244,81 @@ Selective Self-tests/Logging not supported
 output_Innodisk_vendor_info = """********************************************************************************************
 * Innodisk iSMART V3.9.41                                                       2018/05/25 *
 ********************************************************************************************
-Model Name: InnoDisk Corp. - mSATA 3ME
-FW Version: S140714
-Serial Number: 20171126AAAA11730156
-Health: 82.34%
-Capacity: 29.818199 GB
-P/E Cycle: 3000
-Lifespan : 0 (Years : 0 Months : 0 Days : 0)
+Model Name: InnoDisk Corp. - mSATA 3IE3
+FW Version: S16425cG
+Serial Number: BCA11802090990501
+Health: 92.725%
+Capacity: 14.914146 GB
+P/E Cycle: 20000
+Lifespan : 25000 (Years : 68 Months : 6 Days : 0)
+iAnalyzer: Disable
 Write Protect: Disable
 InnoRobust: Enable
 --------------------------------------------------------------------------------------------
 ID    SMART Attributes                            Value           Raw Value
 --------------------------------------------------------------------------------------------
-[09]  Power On Hours                              [32474]         [0902006464DA7E0000000000]
-[0C]  Power Cycle Count                           [  297]         [0C0200646429010000000000]
-[AA]  Total Bad Block Count                       [   47]         [AA0300646400002F00000000]
-[AD]  Erase Count Max.                            [ 7280]         [AD02006464181C701C000000]
-[AD]  Erase Count Avg.                            [ 7192]         [AD02006464181C701C000000]
-[C2]  Temperature                                 [    0]         [000000000000000000000000]
-[EB]  Later Bad Block                             [    0]         [EB0200640000000000000000]
-[EB]  Read Block                                  [    0]         [EB0200640000000000000000]
-[EB]  Write Block                                 [    0]         [EB0200640000000000000000]
-[EB]  Erase Block                                 [    0]         [EB0200640000000000000000]
-[EC]  Unstable Power Count                        [    0]         [EC0200646400000000000000]
+[09]  Power On Hours                              [49036]         [0902008C008CBF0000000000]
+[0C]  Power Cycle Count                           [ 2828]         [0C02000C000C0B0000000000]
+[A5]  Maximum Erase Count                         [ 1463]         [A50200B701B7050000000000]
+[A7]  Average Erase Count                         [ 1455]         [A70200AF01AF050000000000]
+[AB]  Program fail count                          [    0]         [AB0200000100000000000000]
+[AC]  Erase fail count                            [    0]         [AC0200000100000000000000]
+[AD]  Erase Count                                 [    0]         [000000000000000000000000]
+[BB]  Reported Uncorrect count                    [    0]         [000000000000000000000000]
+[C2]  Temperature                                 [   30]         [C200001E641E00000064021E]
+[E8]  Percentage os spare remaining               [    0]         [E80300640100000000000000]
+[EB]  Later Bad Block                             [    0]         [EB0200000000000000000000]
+[EB]  Read Block                                  [    0]         [EB0200000000000000000000]
+[EB]  Write Block                                 [    0]         [EB0200000000000000000000]
+[EB]  Erase Block                                 [    0]         [EB0200000000000000000000]
+[F1]  Total LBAs Written                          [150370]         [F102006401624B0200000000]
+[F2]  Total LBAs Read                             [73954]         [F202006401E2200100000000]
+--------------------------------------------------------------------------------------------
+  Read & Write
+--------------------------------------------------------------------------------------------
+Sequential Read  = 1%    (0)
+Random Read      = 0%    (0)
+Sequential Write = 0%    (0)
+Random Write     = 0%    (0)
+--------------------------------------------------------------------------------------------
+Sequential Read
+--------------------------------------------------------------------------------------------
+Size     Percentage      Count
+8M       0%              (0)
+4M       0%              (0)
+1M       0%              (0)
+128K     0%              (0)
+64K      0%              (0)
+32K      0%              (0)
+--------------------------------------------------------------------------------------------
+Sequential Write
+--------------------------------------------------------------------------------------------
+Size     Percentage      Count
+8M       0%              (0)
+4M       0%              (0)
+1M       0%              (0)
+128K     0%              (0)
+64K      0%              (0)
+32K      0%              (0)
+--------------------------------------------------------------------------------------------
+Random Read
+--------------------------------------------------------------------------------------------
+Size     Percentage      Count
+64K      0%              (0)
+32K      0%              (0)
+16K      0%              (0)
+8K       0%              (0)
+4K       0%              (0)
+--------------------------------------------------------------------------------------------
+Random Write
+--------------------------------------------------------------------------------------------
+Size     Percentage      Count
+64K      0%              (0)
+32K      0%              (0)
+16K      0%              (0)
+8K       0%              (0)
+4K       0%              (0)
+
 """
 
 output_lack_info_ssd = """smartctl 7.2 2020-12-30 r5155 [x86_64-linux-5.10.0-8-2-amd64] (local build)
@@ -668,6 +732,23 @@ SMART attributes
  ID                    Attribute   High Raw    Low Raw Value Worst Threshold
 """
 
+output_virtium_generic_trick_number = """
+smartctl 7.4 2023-08-01 r5530 [x86_64-linux-6.1.0-11-2-amd64] (local build)
+Copyright (C) 2002-23, Bruce Allen, Christian Franke, www.smartmontools.org
+
+ID# ATTRIBUTE_NAME          FLAG     VALUE WORST THRESH TYPE      UPDATED WHEN_FAILED RAW_VALUE
+
+194 Temperature_Celsius     0x0023   058  241   000    Pre-fail Always       -       42 (Min/Max 29/115)
+241 Total_LBAs_Written      0x0012   100  100   000    Old_age  Always       -       18782480803
+"""
+
+output_virtium_vendor_trick_number = """
+SMART attributes
+ ID                    Attribute   High Raw     Low Raw Value Worst Threshold
+194          Temperature_Celsius        241          42   100   100         0
+241           Total_LBAs_Written          0 18782480803   100   100         0
+"""
+
 output_swissbit_vendor = """
 smartctl 7.2 2020-12-30 r5155 [x86_64-linux-5.10.0-23-2-amd64] (local build)
 Copyright (C) 2002-20, Bruce Allen, Christian Franke, www.smartmontools.org
@@ -819,8 +900,237 @@ F5 Flash Write Sector Count     924312
 Health Percentage: 71%
 """
 
-class TestSsdGeneric:
-    @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell', mock.MagicMock(return_value=output_nvme_ssd))
+output_micron_ssd="""smartctl 6.6 2017-11-05 r4594 [x86_64-linux-4.9.0-14-2-amd64] (local build)
+Copyright (C) 2002-17, Bruce Allen, Christian Franke, www.smartmontools.org
+
+=== START OF INFORMATION SECTION ===
+Model Family:     Crucial/Micron MX1/2/300, M5/600, 1100 Client SSDs
+Device Model:     Micron_M550_MTFDDAT064MAY
+Serial Number:    MSA1827061P
+LU WWN Device Id: 5 00a075 10d9c54a7
+Firmware Version: MU01
+User Capacity:    64,023,257,088 bytes [64.0 GB]
+Sector Sizes:     512 bytes logical, 4096 bytes physical
+Rotation Rate:    Solid State Device
+Form Factor:      < 1.8 inches
+Device is:        In smartctl database [for details use: -P show]
+ATA Version is:   ACS-2, ATA8-ACS T13/1699-D revision 6
+SATA Version is:  SATA 3.1, 6.0 Gb/s (current: 3.0 Gb/s)
+Local Time is:    Mon May 20 18:31:29 2024 UTC
+SMART support is: Available - device has SMART capability.
+SMART support is: Enabled
+
+=== START OF READ SMART DATA SECTION ===
+SMART overall-health self-assessment test result: PASSED
+
+General SMART Values:
+Offline data collection status:  (0x80) Offline data collection activity
+                                        was never started.
+                                        Auto Offline Data Collection: Enabled.
+Self-test execution status:      (   0) The previous self-test routine completed
+                                        without error or no self-test has ever
+                                        been run.
+Total time to complete Offline
+data collection:                (  295) seconds.
+Offline data collection
+capabilities:                    (0x7b) SMART execute Offline immediate.
+                                        Auto Offline data collection on/off support.
+                                        Suspend Offline collection upon new
+                                        command.
+                                        Offline surface scan supported.
+                                        Self-test supported.
+                                        Conveyance Self-test supported.
+                                        Selective Self-test supported.
+SMART capabilities:            (0x0003) Saves SMART data before entering
+                                        power-saving mode.
+                                        Supports SMART auto save timer.
+Error logging capability:        (0x01) Error logging supported.
+                                        General Purpose Logging supported.
+Short self-test routine
+recommended polling time:        (   2) minutes.
+Extended self-test routine
+recommended polling time:        (   3) minutes.
+Conveyance self-test routine
+recommended polling time:        (   3) minutes.
+SCT capabilities:              (0x0035) SCT Status supported.
+                                        SCT Feature Control supported.
+                                        SCT Data Table supported.
+
+SMART Attributes Data Structure revision number: 16
+Vendor Specific SMART Attributes with Thresholds:
+ID# ATTRIBUTE_NAME          FLAG     VALUE WORST THRESH TYPE      UPDATED  WHEN_FAILED RAW_VALUE
+  1 Raw_Read_Error_Rate     0x002f   100   100   000    Pre-fail  Always       -       0
+  5 Reallocate_NAND_Blk_Cnt 0x0033   100   100   000    Pre-fail  Always       -       0
+  9 Power_On_Hours          0x0032   100   100   000    Old_age   Always       -       74245
+ 12 Power_Cycle_Count       0x0032   100   100   000    Old_age   Always       -       344
+171 Program_Fail_Count      0x0032   100   100   000    Old_age   Always       -       0
+172 Erase_Fail_Count        0x0032   100   100   000    Old_age   Always       -       0
+173 Ave_Block-Erase_Count   0x0032   075   075   000    Old_age   Always       -       757
+174 Unexpect_Power_Loss_Ct  0x0032   100   100   000    Old_age   Always       -       334
+180 Unused_Reserve_NAND_Blk 0x0033   000   000   000    Pre-fail  Always       -       475
+183 SATA_Interfac_Downshift 0x0032   100   100   000    Old_age   Always       -       0
+184 Error_Correction_Count  0x0032   100   100   000    Old_age   Always       -       0
+187 Reported_Uncorrect      0x0032   100   100   000    Old_age   Always       -       0
+194 Temperature_Celsius     0x0022   068   048   000    Old_age   Always       -       32 (Min/Max 4/52)
+196 Reallocated_Event_Count 0x0032   100   100   000    Old_age   Always       -       16
+197 Current_Pending_Sector  0x0032   100   100   000    Old_age   Always       -       0
+198 Offline_Uncorrectable   0x0030   100   100   000    Old_age   Offline      -       0
+199 UDMA_CRC_Error_Count    0x0032   100   100   000    Old_age   Always       -       0
+202 Percent_Lifetime_Used   0x0031   075   075   000    Pre-fail  Offline      -       25
+206 Write_Error_Rate        0x000e   100   100   000    Old_age   Always       -       0
+210 Success_RAIN_Recov_Cnt  0x0032   100   100   000    Old_age   Always       -       0
+246 Total_Host_Sector_Write 0x0032   100   100   000    Old_age   Always       -       9607694422
+247 Host_Program_Page_Count 0x0032   100   100   000    Old_age   Always       -       340097266
+248 Bckgnd_Program_Page_Cnt 0x0032   100   100   000    Old_age   Always       -       2861592324
+
+SMART Error Log Version: 1
+No Errors Logged
+
+SMART Self-test log structure revision number 1
+Num  Test_Description    Status                  Remaining  LifeTime(hours)  LBA_of_first_error
+# 1  Vendor (0xff)       Completed without error       00%      4927         -
+# 2  Vendor (0xff)       Completed without error       00%      4899         -
+# 3  Vendor (0xff)       Completed without error       00%      4879         -
+# 4  Vendor (0xff)       Completed without error       00%      4850         -
+# 5  Vendor (0xff)       Completed without error       00%      4830         -
+# 6  Vendor (0xff)       Completed without error       00%      4804         -
+# 7  Vendor (0xff)       Completed without error       00%      4792         -
+# 8  Vendor (0xff)       Completed without error       00%      4772         -
+# 9  Vendor (0xff)       Completed without error       00%      4752         -
+#10  Vendor (0xff)       Completed without error       00%      4731         -
+#11  Vendor (0xff)       Completed without error       00%      4711         -
+#12  Vendor (0xff)       Completed without error       00%      4691         -
+#13  Vendor (0xff)       Completed without error       00%      4671         -
+#14  Vendor (0xff)       Completed without error       00%      4635         -
+#15  Vendor (0xff)       Completed without error       00%      4614         -
+#16  Vendor (0xff)       Completed without error       00%      4594         -
+#17  Vendor (0xff)       Completed without error       00%      4574         -
+#18  Vendor (0xff)       Completed without error       00%      4554         -
+#19  Vendor (0xff)       Completed without error       00%      4534         -
+#20  Vendor (0xff)       Completed without error       00%      4513         -
+#21  Vendor (0xff)       Completed without error       00%      4493         -
+
+SMART Selective self-test log data structure revision number 1
+ SPAN  MIN_LBA  MAX_LBA  CURRENT_TEST_STATUS
+    1        0        0  Not_testing
+    2        0        0  Not_testing
+    3        0        0  Not_testing
+    4        0        0  Not_testing
+    5        0        0  Not_testing
+Selective self-test flags (0x0):
+  After scanning selected spans, do NOT read-scan remainder of disk.
+If Selective self-test is pending on power-up, resume after 0 minute delay."""
+
+
+output_intel_ssd="""=== START OF INFORMATION SECTION ===
+Model Family:     Intel S4510/S4610/S4500/S4600 Series SSDs
+Device Model:     INTEL SSDSCKKB240G8
+Serial Number:    BTYH12260KTW240J
+LU WWN Device Id: 5 5cd2e4 154717dbe
+Firmware Version: XC311132
+User Capacity:    128,000,000,000 bytes [128 GB]
+Sector Sizes:     512 bytes logical, 4096 bytes physical
+Rotation Rate:    Solid State Device
+Form Factor:      M.2
+TRIM Command:     Available, deterministic, zeroed
+Device is:        In smartctl database [for details use: -P show]
+ATA Version is:   ACS-3 T13/2161-D revision 5
+SATA Version is:  SATA 3.2, 6.0 Gb/s (current: 6.0 Gb/s)
+Local Time is:    Mon May 20 19:26:53 2024 UTC
+SMART support is: Available - device has SMART capability.
+SMART support is: Enabled
+
+=== START OF READ SMART DATA SECTION ===
+SMART overall-health self-assessment test result: PASSED
+
+General SMART Values:
+Offline data collection status:  (0x02) Offline data collection activity
+                                        was completed without error.
+                                        Auto Offline Data Collection: Disabled.
+Self-test execution status:      (   0) The previous self-test routine completed
+                                        without error or no self-test has ever
+                                        been run.
+Total time to complete Offline
+data collection:                (   20) seconds.
+Offline data collection
+capabilities:                    (0x79) SMART execute Offline immediate.
+                                        No Auto Offline data collection support.
+                                        Suspend Offline collection upon new
+                                        command.
+                                        Offline surface scan supported.
+                                        Self-test supported.
+                                        Conveyance Self-test supported.
+                                        Selective Self-test supported.
+SMART capabilities:            (0x0003) Saves SMART data before entering
+                                        power-saving mode.
+                                        Supports SMART auto save timer.
+Error logging capability:        (0x01) Error logging supported.
+                                        General Purpose Logging supported.
+Short self-test routine
+recommended polling time:        (   1) minutes.
+Extended self-test routine
+recommended polling time:        (   2) minutes.
+Conveyance self-test routine
+recommended polling time:        (   2) minutes.
+SCT capabilities:              (0x003d) SCT Status supported.
+                                        SCT Error Recovery Control supported.
+                                        SCT Feature Control supported.
+                                        SCT Data Table supported.
+
+SMART Attributes Data Structure revision number: 1
+Vendor Specific SMART Attributes with Thresholds:
+ID# ATTRIBUTE_NAME          FLAG     VALUE WORST THRESH TYPE      UPDATED  WHEN_FAILED RAW_VALUE
+  5 Reallocated_Sector_Ct   0x0032   100   100   000    Old_age   Always       -       0
+  9 Power_On_Hours          0x0032   100   100   000    Old_age   Always       -       9201
+ 12 Power_Cycle_Count       0x0032   100   100   000    Old_age   Always       -       638
+170 Available_Reservd_Space 0x0033   100   100   010    Pre-fail  Always       -       0
+171 Program_Fail_Count      0x0032   100   100   000    Old_age   Always       -       0
+172 Erase_Fail_Count        0x0032   100   100   000    Old_age   Always       -       0
+174 Unsafe_Shutdown_Count   0x0032   100   100   000    Old_age   Always       -       589
+175 Power_Loss_Cap_Test     0x0033   100   100   010    Pre-fail  Always       -       2207 (638 65535)
+183 SATA_Downshift_Count    0x0032   100   100   000    Old_age   Always       -       0
+184 End-to-End_Error_Count  0x0033   100   100   090    Pre-fail  Always       -       0
+187 Uncorrectable_Error_Cnt 0x0032   100   100   000    Old_age   Always       -       0
+190 Drive_Temperature       0x0022   066   060   000    Old_age   Always       -       34 (Min/Max 23/40)
+192 Unsafe_Shutdown_Count   0x0032   100   100   000    Old_age   Always       -       589
+194 Temperature_Celsius     0x0022   100   100   000    Old_age   Always       -       34
+197 Pending_Sector_Count    0x0012   100   100   000    Old_age   Always       -       0
+199 CRC_Error_Count         0x003e   100   100   000    Old_age   Always       -       0
+225 Host_Writes_32MiB       0x0032   100   100   000    Old_age   Always       -       44554
+226 Workld_Media_Wear_Indic 0x0032   100   100   000    Old_age   Always       -       92
+227 Workld_Host_Reads_Perc  0x0032   100   100   000    Old_age   Always       -       26
+228 Workload_Minutes        0x0032   100   100   000    Old_age   Always       -       543324
+232 Available_Reservd_Space 0x0033   100   100   010    Pre-fail  Always       -       0
+233 Media_Wearout_Indicator 0x0032   100   100   000    Old_age   Always       -       0
+234 Thermal_Throttle_Status 0x0032   100   100   000    Old_age   Always       -       0/0
+235 Power_Loss_Cap_Test     0x0033   100   100   010    Pre-fail  Always       -       2207 (638 65535)
+241 Host_Writes_32MiB       0x0032   100   100   000    Old_age   Always       -       44554
+242 Host_Reads_32MiB        0x0032   100   100   000    Old_age   Always       -       18922
+243 NAND_Writes_32MiB       0x0032   100   100   000    Old_age   Always       -       90287
+
+SMART Error Log Version: 1
+No Errors Logged
+
+SMART Self-test log structure revision number 1
+Num  Test_Description    Status                  Remaining  LifeTime(hours)  LBA_of_first_error
+# 1  Extended offline    Completed without error       00%        16         -
+# 2  Extended offline    Completed without error       00%        10         -
+# 3  Extended offline    Completed without error       00%         3         -
+
+SMART Selective self-test log data structure revision number 1
+ SPAN  MIN_LBA  MAX_LBA  CURRENT_TEST_STATUS
+    1        0        0  Not_testing
+    2        0        0  Not_testing
+    3        0        0  Not_testing
+    4        0        0  Not_testing
+    5        0        0  Not_testing
+Selective self-test flags (0x0):
+  After scanning selected spans, do NOT read-scan remainder of disk.
+If Selective self-test is pending on power-up, resume after 0 minute delay.
+"""
+
+class TestSsd:
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_nvme_ssd))
     def test_nvme_ssd(self):
         # Test parsing nvme ssd info
         nvme_ssd = SsdUtil('/dev/nvme0n1')
@@ -830,7 +1140,7 @@ class TestSsdGeneric:
         assert(nvme_ssd.get_temperature() == 37)
         assert(nvme_ssd.get_serial() == "A0221030722410000027")
 
-    @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell', mock.MagicMock(return_value=output_lack_info_ssd))
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_lack_info_ssd))
     def test_nvme_ssd_with_na_path(self):
         # Test parsing nvme ssd info which lack of expected sections
         nvme_ssd = SsdUtil('/dev/nvme0n1')
@@ -839,8 +1149,11 @@ class TestSsdGeneric:
         assert(nvme_ssd.get_firmware() == "N/A")
         assert(nvme_ssd.get_temperature() == "N/A")
         assert(nvme_ssd.get_serial() == "N/A")
+        assert(nvme_ssd.get_disk_io_reads() == "N/A")
+        assert(nvme_ssd.get_disk_io_writes() == "N/A")
+        assert(nvme_ssd.get_reserved_blocks() == "N/A")
 
-    @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell', mock.MagicMock(return_value=output_ssd))
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_ssd))
     def test_ssd(self):
         # Test parsing a normal ssd info
         ssd = SsdUtil('/dev/sda')
@@ -849,8 +1162,19 @@ class TestSsdGeneric:
         assert(ssd.get_firmware() == 'S16425i')
         assert(ssd.get_temperature() == '30')
         assert(ssd.get_serial() == 'BCA11712280210689')
+        assert(ssd.get_disk_io_reads() == '760991')
+        assert(ssd.get_disk_io_writes() == '178564')
+        assert(ssd.get_reserved_blocks() == '146')
 
-    @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell', mock.MagicMock(return_value=output_lack_info_ssd))
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_ssd_leading_trailing_spaces))
+    def test_ssd_leading_trailing_spaces(self):
+        # Test parsing a normal ssd info
+        ssd = SsdUtil('/dev/sda')
+
+        assert(ssd.get_disk_io_writes() == '178564')
+        assert(ssd.get_disk_io_reads() == '760991')
+
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_lack_info_ssd))
     def test_ssd_with_na_path(self):
         # Test parsing normal ssd info which lack of expected sections
         ssd = SsdUtil('/dev/sda')
@@ -859,45 +1183,72 @@ class TestSsdGeneric:
         assert(ssd.get_firmware() == "N/A")
         assert(ssd.get_temperature() == "N/A")
         assert(ssd.get_serial() == "N/A")
+        assert(ssd.get_disk_io_reads() == "N/A")
+        assert(ssd.get_disk_io_writes() == "N/A")
+        assert(ssd.get_reserved_blocks() == "N/A")
 
-    @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell', mock.MagicMock(return_value=output_Innodisk_ssd))
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_Innodisk_ssd))
     def test_Innodisk_ssd(self):
         # Test parsing Innodisk ssd info
         Innodisk_ssd = SsdUtil('/dev/sda')
-        assert(Innodisk_ssd.get_health() == '0x000000000000')
-        assert(Innodisk_ssd.get_model() == 'InnoDisk Corp. - mSATA 3ME')
-        assert(Innodisk_ssd.get_firmware() == "S140714")
-        assert(Innodisk_ssd.get_temperature() == 'N/A')
-        assert(Innodisk_ssd.get_serial() == "20171126AAAA11730156")
+        assert(Innodisk_ssd.get_health() == '92')
+        assert(Innodisk_ssd.get_model() == 'InnoDisk Corp. - mSATA 3IE3')
+        assert(Innodisk_ssd.get_temperature() == '30')
+        assert(Innodisk_ssd.get_serial() == "BCA11802090990501")
 
         Innodisk_ssd.vendor_ssd_info = output_Innodisk_vendor_info
         Innodisk_ssd.parse_vendor_ssd_info('InnoDisk')
-        assert(Innodisk_ssd.get_health() == '82.34')
-        assert(Innodisk_ssd.get_model() == 'InnoDisk Corp. - mSATA 3ME')
-        assert(Innodisk_ssd.get_firmware() == "S140714")
-        assert(Innodisk_ssd.get_temperature() == '0')
-        assert(Innodisk_ssd.get_serial() == "20171126AAAA11730156")
+        assert(Innodisk_ssd.get_health() == '92')
+        assert(Innodisk_ssd.get_model() == 'InnoDisk Corp. - mSATA 3IE3')
+        assert(Innodisk_ssd.get_firmware() == "S16425cG")
+        assert(Innodisk_ssd.get_temperature() == '30')
+        assert(Innodisk_ssd.get_serial() == "BCA11802090990501")
 
-    @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell', mock.MagicMock(return_value=output_Innodisk_missing_names_ssd))
+        assert(Innodisk_ssd.get_disk_io_reads() == '73954')
+        assert(Innodisk_ssd.get_disk_io_writes() == '150370')
+        assert(Innodisk_ssd.get_reserved_blocks() == '59')
+
+
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_Innodisk_vendor_info))
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil.model', "InnoDisk")
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil.disk_io_reads', "N/A")
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil.disk_io_writes', "N/A")
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil.reserved_blocks', "N/A")
+    def test_Innodisk_no_info_ssd(self):
+
+        # Test parsing Innodisk ssd info
+        with mock.patch.object(SsdUtil, 'parse_generic_ssd_info', new=mock.MagicMock(return_value=None)):
+            Innodisk_ssd = SsdUtil('/dev/sda')
+            assert(Innodisk_ssd.get_health() == '92.725')
+            assert(Innodisk_ssd.get_model() == 'InnoDisk')
+            assert(Innodisk_ssd.get_firmware() == "S16425cG")
+            assert(Innodisk_ssd.get_temperature() == '30')
+            assert(Innodisk_ssd.get_serial() == "BCA11802090990501")
+            assert(Innodisk_ssd.get_disk_io_reads() == '73954')
+            assert(Innodisk_ssd.get_disk_io_writes() == '150370')
+            assert(Innodisk_ssd.get_reserved_blocks() == '0')
+
+
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_Innodisk_missing_names_ssd))
     def test_Innodisk_missing_names_ssd(self):
         # Test parsing Innodisk ssd info
         Innodisk_ssd = SsdUtil('/dev/sda')
         Innodisk_ssd.vendor_ssd_info = ''
         Innodisk_ssd.parse_vendor_ssd_info('InnoDisk')
         assert(Innodisk_ssd.get_health() == '94')
-        assert(Innodisk_ssd.get_temperature() == '39')
+        assert(Innodisk_ssd.get_temperature() == 'N/A')
 
-    @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell', mock.MagicMock(return_value=output_Innodisk_missing_names_ssd))
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_Innodisk_missing_names_ssd))
     def test_Innodisk_missing_names_ssd_2(self):
         # Test parsing Innodisk ssd info
         Innodisk_ssd = SsdUtil('/dev/sda')
         Innodisk_ssd.vendor_ssd_info = 'ERROR message from cmd'
         Innodisk_ssd.parse_vendor_ssd_info('InnoDisk')
         assert(Innodisk_ssd.get_health() == '94')
-        assert(Innodisk_ssd.get_temperature() == '39')
+        assert(Innodisk_ssd.get_temperature() == 'N/A')
 
 
-    @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell')
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell')
     def test_virtium_ssd(self, mock_exec):
         mock_exec.side_effect = [output_virtium_generic_vsfdm8xc240g_v11_t, output_virtium_vendor_vsfdm8xc240g_v11_t]
         virtium_ssd = SsdUtil('/dev/sda')
@@ -906,6 +1257,9 @@ class TestSsdGeneric:
         assert virtium_ssd.get_firmware() == "0913-000"
         assert virtium_ssd.get_temperature() == '34'
         assert virtium_ssd.get_serial() == "60237-0037"
+        assert virtium_ssd.get_disk_io_reads() == "45606297"
+        assert virtium_ssd.get_disk_io_writes() == "302116658"
+        assert virtium_ssd.get_reserved_blocks() == "0"
 
         mock_exec.side_effect = [output_virtium_generic, output_virtium_vendor]
         virtium_ssd = SsdUtil('/dev/sda')
@@ -914,6 +1268,9 @@ class TestSsdGeneric:
         assert virtium_ssd.get_firmware() == "0202-001"
         assert virtium_ssd.get_temperature() == '17'
         assert virtium_ssd.get_serial() == "52586-0705"
+        assert virtium_ssd.get_disk_io_reads() == "1482095"
+        assert virtium_ssd.get_disk_io_writes() == "629509"
+        assert virtium_ssd.get_reserved_blocks() == "100"
 
         mock_exec.side_effect = [output_virtium_generic, output_virtium_no_remain_life]
         virtium_ssd = SsdUtil('/dev/sda')
@@ -927,7 +1284,13 @@ class TestSsdGeneric:
         virtium_ssd = SsdUtil('/dev/sda')
         assert virtium_ssd.get_health() == "N/A"
 
-    @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell')
+        mock_exec.side_effect = [output_virtium_generic_trick_number, output_virtium_vendor_trick_number]
+        virtium_ssd = SsdUtil('/dev/sda')
+        assert virtium_ssd.get_disk_io_writes() == "18782480803"
+        assert virtium_ssd.get_temperature() == "42"
+
+
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell')
     def test_swissbit_ssd(self, mock_exec):
         mock_exec.return_value = output_swissbit_vendor
         swissbit_ssd = SsdUtil('/dev/sda')
@@ -937,7 +1300,7 @@ class TestSsdGeneric:
         assert swissbit_ssd.get_temperature() == '25'
         assert swissbit_ssd.get_serial() == "00006022750795000010"
 
-    @mock.patch('sonic_platform_base.sonic_ssd.ssd_generic.SsdUtil._execute_shell')
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell')
     def test_transcend_ssd(self, mock_exec):
         mock_exec.return_value = output_transcend_vendor
         transcend_ssd = SsdUtil('/dev/sda')
@@ -948,3 +1311,30 @@ class TestSsdGeneric:
         assert transcend_ssd.get_firmware() == "O0918B"
         assert transcend_ssd.get_temperature() == '40'
         assert transcend_ssd.get_serial() == "F318410080"
+
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_micron_ssd))
+    def test_micron_ssd(self):
+        # Test parsing a normal ssd info
+        micron_ssd = SsdUtil('/dev/sda')
+        assert(micron_ssd.get_health() == '75')
+        assert(micron_ssd.get_model() == 'Micron_M550_MTFDDAT064MAY')
+        assert(micron_ssd.get_firmware() == 'MU01')
+        assert(micron_ssd.get_temperature() == '32')
+        assert(micron_ssd.get_serial() == 'MSA1827061P')
+        assert(micron_ssd.get_disk_io_reads() == 'N/A')
+        assert(micron_ssd.get_disk_io_writes() == '9607694422')
+        assert(micron_ssd.get_reserved_blocks() == '475')
+
+
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_intel_ssd))
+    def test_intel_ssd(self):
+        # Test parsing a normal ssd info
+        intel_ssd = SsdUtil('/dev/sda')
+        assert(intel_ssd.get_health() == '100.0')
+        assert(intel_ssd.get_model() == 'INTEL SSDSCKKB240G8')
+        assert(intel_ssd.get_firmware() == 'XC311132')
+        assert(intel_ssd.get_temperature() == '34')
+        assert(intel_ssd.get_serial() == 'BTYH12260KTW240J')
+        assert(intel_ssd.get_disk_io_reads() == '18922')
+        assert(intel_ssd.get_disk_io_writes() == '44554')
+        assert(intel_ssd.get_reserved_blocks() == '0')
