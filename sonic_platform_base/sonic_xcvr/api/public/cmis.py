@@ -2034,34 +2034,34 @@ class CmisApi(XcvrApi):
             key = "{}_{}".format(consts.HOST_ELECTRICAL_INTERFACE, app)
             val = dic.get(key)
             if val in [None, 'Unknown', 'Undefined']:
-                break
+                continue
             buf['host_electrical_interface_id'] = val
 
             prefix = map.get(self.xcvr_eeprom.read(consts.MEDIA_TYPE_FIELD))
             if prefix is None:
-                break
+                continue
             key = "{}_{}".format(prefix, app)
             val = dic.get(key)
             if val in [None, 'Unknown']:
-                break
+                continue
             buf['module_media_interface_id'] = val
 
             key = "{}_{}".format(consts.MEDIA_LANE_COUNT, app)
             val = dic.get(key)
             if val is None:
-                break
+                continue
             buf['media_lane_count'] = val
 
             key = "{}_{}".format(consts.HOST_LANE_COUNT, app)
             val = dic.get(key)
             if val is None:
-                break
+                continue
             buf['host_lane_count'] = val
 
             key = "{}_{}".format(consts.HOST_LANE_ASSIGNMENT_OPTION, app)
             val = dic.get(key)
             if val is None:
-                break
+                continue
             buf['host_lane_assignment_options'] = val
 
             key = "{}_{}".format(consts.MEDIA_LANE_ASSIGNMENT_OPTION, app)
@@ -2122,6 +2122,31 @@ class CmisApi(XcvrApi):
         This function applies DataPathInit
         '''
         return self.xcvr_eeprom.write("%s_%d" % (consts.STAGED_CTRL_APPLY_DPINIT_FIELD, 0), channel)
+
+    def decommission_all_datapaths(self):
+        '''
+            Return True if all datapaths are successfully de-commissioned, False otherwise
+        '''
+        # De-init all datpaths
+        self.set_datapath_deinit((1 << self.NUM_CHANNELS) - 1)
+        # Decommision all lanes by apply AppSel=0
+        self.set_application(((1 << self.NUM_CHANNELS) - 1), 0, 0)
+        # Start with AppSel=0 i.e undo any default AppSel
+        self.scs_apply_datapath_init((1 << self.NUM_CHANNELS) - 1)
+
+        dp_state = self.get_datapath_state()
+        config_state = self.get_config_datapath_hostlane_status()
+
+        for lane in range(self.NUM_CHANNELS):
+            name = "DP{}State".format(lane + 1)
+            if dp_state[name] != 'DataPathDeactivated':
+                return False
+            
+            name = "ConfigStatusLane{}".format(lane + 1)
+            if config_state[name] != 'ConfigSuccess':
+                return False
+
+        return True
 
     def get_rx_output_amp_max_val(self):
         '''
