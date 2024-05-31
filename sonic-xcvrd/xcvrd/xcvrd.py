@@ -1479,7 +1479,7 @@ class CmisManagerTask(threading.Thread):
                         if True == self.is_appl_reconfigure_required(api, appl):
                             self.log_notice("{}: Decommissioning all lanes/datapaths to default AppSel=0".format(lport))
                             if True != api.decommission_all_datapaths():
-                                self.log_notifce("{}: Failed to default to AppSel=0".format(lport))
+                                self.log_notice("{}: Failed to default to AppSel=0".format(lport))
                                 self.force_cmis_reinit(lport, retries + 1)
                                 continue
 
