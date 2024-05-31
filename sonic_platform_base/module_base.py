@@ -17,6 +17,20 @@ class ModuleBase(device_base.DeviceBase):
     # Device type definition. Note, this is a constant.
     DEVICE_TYPE = "module"
 
+    # Possible reboot causes
+    REBOOT_CAUSE_POWER_LOSS = "Power Loss"
+    REBOOT_CAUSE_THERMAL_OVERLOAD_CPU = "Thermal Overload: CPU"
+    REBOOT_CAUSE_THERMAL_OVERLOAD_ASIC = "Thermal Overload: ASIC"
+    REBOOT_CAUSE_THERMAL_OVERLOAD_OTHER = "Thermal Overload: Other"
+    REBOOT_CAUSE_INSUFFICIENT_FAN_SPEED = "Insufficient Fan Speed"
+    REBOOT_CAUSE_WATCHDOG = "Watchdog"
+    REBOOT_CAUSE_HARDWARE_OTHER = "Hardware - Other"
+    REBOOT_CAUSE_HARDWARE_BIOS = "BIOS"
+    REBOOT_CAUSE_HARDWARE_CPU = "CPU"
+    REBOOT_CAUSE_HARDWARE_BUTTON = "Push button"
+    REBOOT_CAUSE_HARDWARE_RESET_FROM_ASIC = "Reset from ASIC"
+    REBOOT_CAUSE_NON_HARDWARE = "Non-Hardware"
+
     # Possible card types for modular chassis
     MODULE_TYPE_SUPERVISOR = "SUPERVISOR"
     MODULE_TYPE_LINE    = "LINE-CARD"
@@ -210,7 +224,7 @@ class ModuleBase(device_base.DeviceBase):
     # SmartSwitch methods
     ##############################################
 
-    def get_reboot_cause(self):
+    def get_dpu_id(self):
         """
         Retrieves the DPU ID. Returns None for non-smartswitch chassis.
 
@@ -231,11 +245,6 @@ class ModuleBase(device_base.DeviceBase):
             string is "REBOOT_CAUSE_HARDWARE_OTHER", the second string can be
             used to pass a description of the reboot cause.
 
-            Some more causes are appended to the existing list to handle other
-            modules such as DPUs.
-            Ex: REBOOT_CAUSE_POWER_LOSS, REBOOT_CAUSE_HOST_RESET_DPU,
-            REBOOT_CAUSE_HOST_POWERCYCLED_DPU, REBOOT_CAUSE_SW_THERMAL,
-            REBOOT_CAUSE_DPU_SELF_REBOOT
         """
         raise NotImplementedError
 
@@ -256,9 +265,7 @@ class ModuleBase(device_base.DeviceBase):
         Fetched from the DPUs.
 
         Returns:
-            An object instance of the dpu health. Should consist of two lists
-            "summary and monitorlist" See system_health.py for usage
-            Returns None on switch module
+            An object instance of the dpu health.
         """
         raise NotImplementedError
 
