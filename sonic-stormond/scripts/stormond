@@ -1,0 +1,401 @@
+#!/usr/bin/env python3
+
+"""
+    stormond
+    Storage device Monitoring daemon for SONiC
+"""
+
+import os
+import signal
+import sys
+import threading
+import subprocess
+import shutil
+import json
+import time
+
+from sonic_py_common import daemon_base, device_info, syslogger
+from swsscommon import swsscommon
+from sonic_platform_base.sonic_storage.storage_devices import StorageDevices, BLKDEV_BASE_PATH
+
+#
+# Constants ====================================================================
+#
+
+SYSLOG_IDENTIFIER = "stormond"
+
+STORAGE_DEVICE_TABLE = "STORAGE_INFO"
+FSSTATS_SYNC_TIME_KEY = "FSSTATS_SYNC"
+
+# This directory binds to /host/pmon/stormond/ on the host
+FSIO_RW_JSON_FILE = "/usr/share/stormond/fsio-rw-stats.json"
+
+STORMOND_PERIODIC_STATEDB_SYNC_SECS = 3600 #one hour
+STORMOND_SYNC_TO_DISK_SECS = 86400 #one day
+
+STORAGEUTIL_LOAD_ERROR = 127
+
+exit_code = 0
+
+#
+# Daemon =======================================================================
+#
+
+
+class DaemonStorage(daemon_base.DaemonBase):
+
+    def __init__(self, log_identifier):
+
+        self.log = syslogger.SysLogger(SYSLOG_IDENTIFIER)
+        super(DaemonStorage, self).__init__(log_identifier)
+
+        self.timeout = STORMOND_PERIODIC_STATEDB_SYNC_SECS
+        self.fsstats_sync_interval = STORMOND_SYNC_TO_DISK_SECS
+        self.stop_event = threading.Event()
+        self.state_db = None
+        self.config_db = None
+        self.device_table = None
+        self.storage = StorageDevices()
+
+        # These booleans are for FSIO RW information reconciliation
+        self.fsio_json_file_loaded = False
+        self.statedb_storage_info_loaded = False
+
+        self.use_fsio_json_baseline = False
+        self.use_statedb_baseline = False
+
+        # These dicts are to load info from disk/database into memory, respectively
+        self.fsio_rw_json = {disk:{} for disk in self.storage.devices}
+        self.fsio_rw_statedb = {disk:{} for disk in self.storage.devices}
+
+        # This time is set at init and then subsequently after each FSIO JSON file sync
+        self.fsio_sync_time = time.time()
+        
+        # These are the various static and dynamic fields that are posted to state_db
+        self.static_fields = ["device_model", "serial"]
+        self.dynamic_fields = ["firmware", \
+                               "health", \
+                               "temperature", \
+                               "latest_fsio_reads", \
+                               "latest_fsio_writes", \
+                               "total_fsio_reads", \
+                               "total_fsio_writes", \
+                               "disk_io_reads", \
+                               "disk_io_writes", \
+                               "reserved_blocks"]
+
+        # These are the fields that we are interested in saving to disk to protect against
+        # reboots or crashes
+        self.statedb_json_sync_fields = self.dynamic_fields[3:7]
+
+        # Connect to STATE_DB and create Storage device table
+        self.state_db = daemon_base.db_connect("STATE_DB")
+        self.device_table = swsscommon.Table(self.state_db, STORAGE_DEVICE_TABLE)
+        
+        # Load the FSIO RW values from state_db and JSON file and reconcile latest information
+        self._load_fsio_rw_statedb()
+        self._load_fsio_rw_json()
+        self._determine_sot()
+
+    def get_configdb_intervals(self):
+        self.config_db = daemon_base.db_connect("CONFIG_DB")
+        config_info = dict(self.config_db.hgetall('STORMOND_CONFIG|INTERVALS'))
+        self.timeout = int(config_info.get('daemon_polling_interval', STORMOND_PERIODIC_STATEDB_SYNC_SECS))
+        self.fsstats_sync_interval = int(config_info.get('fsstats_sync_interval', STORMOND_SYNC_TO_DISK_SECS))
+
+        self.log_info("Polling Interval set to {} seconds".format(self.timeout))
+        self.log_info("FSIO JSON file Interval set to {} seconds".format(self.fsstats_sync_interval))
+        
+
+    # Get the total and latest FSIO reads and writes from JSON file
+    def _load_fsio_rw_json(self):
+        try:
+            if not os.path.exists(FSIO_RW_JSON_FILE):
+                self.log_info("{} not present.".format(FSIO_RW_JSON_FILE))
+                return
+
+            # Load JSON file
+            with open(FSIO_RW_JSON_FILE, 'r') as f:
+                self.fsio_rw_json = json.load(f)
+
+            # Verify that none of the values in the JSON file are None
+            for storage_device in self.storage.devices:
+                for field in self.statedb_json_sync_fields:
+
+                    if self.fsio_rw_json[storage_device][field] == None:
+                        self.log_warning("{}:{} value = None in JSON file".format(storage_device, field))
+                        return
+
+            self.fsio_json_file_loaded = True
+
+        except Exception as e:
+            self.log_error("JSON file could not be loaded: {}".format(str(e)))
+
+        return
+
+
+    # Sync the total and latest procfs reads and writes from STATE_DB to JSON file on disk
+    def sync_fsio_rw_json(self):
+
+        self.log_info("Syncing total and latest procfs reads and writes from STATE_DB to JSON file")
+
+        json_file_dict = {disk:{} for disk in self.storage.devices}
+        try:
+            for device in self.storage.devices:
+                for field in self.statedb_json_sync_fields:
+                    json_file_dict[device][field] = self.state_db.hget('STORAGE_INFO|{}'.format(device), field)
+            
+            self.fsio_sync_time = time.time()
+            json_file_dict["successful_sync_time"] = str(self.fsio_sync_time)
+
+            with open(FSIO_RW_JSON_FILE, 'w+') as f:
+                json.dump(json_file_dict, f)
+
+            return True
+
+        except Exception as ex:
+            self.log_error("Unable to sync state_db to disk: {}".format(str(ex)))
+            return False
+
+
+    # Update the successful sync time to STATE_DB 
+    def write_sync_time_statedb(self):
+        self.state_db.hset("{}|{}".format(STORAGE_DEVICE_TABLE,FSSTATS_SYNC_TIME_KEY), "successful_sync_time", str(self.fsio_sync_time))
+
+    # Run a sanity check on the state_db. If successful, get total, latest 
+    # FSIO reads and writes for each storage device from STATE_DB
+    def _load_fsio_rw_statedb(self):
+
+        # Sanity Check:
+        
+        # If the number of STORAGE_INFO|* keys does not equal the 
+        # number of storage disks on the device + FSSTATS_SYNC field,
+        # there has been a corruption to the database. In this case we 
+        # pivot to the JSON file being the Source of Truth.
+        try:
+            if (len(self.state_db.keys("STORAGE_INFO|*")) != (len(self.storage.devices) + 1)):
+                return
+
+            # For each storage device on the switch,
+            for storage_device in self.storage.devices:
+
+                # Get the total and latest procfs reads and writes from STATE_DB
+                for field in self.statedb_json_sync_fields:
+                    value = self.state_db.hget('STORAGE_INFO|{}'.format(storage_device), field)
+                    self.fsio_rw_statedb[storage_device][field] = "0" if value is None else value
+
+                    if value is None: 
+                        self.log_warning("{}:{} value = None in StateDB".format(storage_device, field))
+                        return
+            
+            self.statedb_storage_info_loaded = True
+        except Exception as e:
+            self.log_error("Reading STATE_DB failed with: {}".format(str(e)))
+
+
+    def _determine_sot(self):
+
+        # This daemon considers the storage information values held in the STATE_DB to be its
+        # Source of Truth.
+
+        # If stormond is coming back up after a daemon crash, storage information would be saved in the 
+        # STATE_DB. In that scenario, we use the STATE_DB information as the SoT to reconcile the FSIO
+        # reads and writes values.
+        if self.statedb_storage_info_loaded == True:
+                self.use_fsio_json_baseline = False
+                self.use_statedb_baseline = True
+
+        # If the state_db information did not load successfully but the JSON file did, 
+        # we consider the JSON file to be the SoT.
+
+        elif self.statedb_storage_info_loaded == False and self.fsio_json_file_loaded == True:
+            self.use_fsio_json_baseline = True
+            self.use_statedb_baseline = False
+
+        # If neither the STATE_DB nor the JSON file information was loaded, we consider 
+        # that akin to an INIT state. 
+
+
+    def _reconcile_fsio_rw_values(self, fsio_dict, device):
+
+        # If stormond is coming up for the first time, neither STATE_DB info nor JSON file would be present.
+        # In that case, neither resource would have any prior information stored. The baseline is 0 for every field.
+        if self.use_statedb_baseline == False and self.use_fsio_json_baseline == False:
+                fsio_dict["total_fsio_reads"] = fsio_dict["latest_fsio_reads"]
+                fsio_dict["total_fsio_writes"] = fsio_dict["latest_fsio_writes"]
+
+        # If the daemon is re-init-ing after a planned reboot or powercycle, there would be no storage info 
+        # in the STATE_DB. Therefore, we would need to parse the total and hitherto latest procfs reads 
+        # and writes from the FSIO JSON file and use those reads/writes values as a baseline.
+        elif self.use_statedb_baseline == False and self.use_fsio_json_baseline == True:
+            fsio_dict["total_fsio_reads"] = str(int(self.fsio_rw_json[device]["total_fsio_reads"]) + int(fsio_dict["latest_fsio_reads"]))
+            fsio_dict["total_fsio_writes"] = str(int(self.fsio_rw_json[device]["total_fsio_writes"]) + int(fsio_dict["latest_fsio_writes"]))
+
+        # The only scenario where there would be storage info present in the STATE_DB is when the daemon is 
+        # coming back up after a crash.
+
+        # In this scenario, we use the STATE_DB values as the SoT. We use the 'latest_fsio_reads/writes'
+        # values from STATE_DB, which is the values from the last invocation of get_fs_io_reads/writes 
+        # on the storage disk that was posted to STATE_DB, and the values obtained from the most recent
+        # invocation of get_fs_io_reads/writes (prior to this function being called) to determine the 
+        # additional procfs reads and writes that have happened on the FS while the daemon was down. 
+        
+        # We then add these additional values to the previous values of total_fsio_reads/writes to 
+        # determine the new total procfs reads/writes.
+
+        elif self.use_statedb_baseline == True:
+            additional_procfs_reads = int(fsio_dict["latest_fsio_reads"]) - int(self.fsio_rw_statedb[device]["latest_fsio_reads"])
+            additional_procfs_writes = int(fsio_dict["latest_fsio_writes"]) - int(self.fsio_rw_statedb[device]["latest_fsio_writes"])
+
+            fsio_dict["total_fsio_reads"] = str(int(self.fsio_rw_statedb[device]["total_fsio_reads"]) + additional_procfs_reads)
+            fsio_dict["total_fsio_writes"] = str(int(self.fsio_rw_statedb[device]["total_fsio_writes"]) + additional_procfs_writes)
+        
+        return fsio_dict["total_fsio_reads"], fsio_dict["total_fsio_writes"]
+
+
+
+    # Update the Storage device info to State DB
+    def update_storage_info_status_db(self, disk_device, kvp_dict):
+
+        fvp = swsscommon.FieldValuePairs([(field, str(value)) for field, value in kvp_dict.items()])
+        self.device_table.set(disk_device, fvp)
+
+
+    # Get Static attributes and update the State DB, once
+    def get_static_fields_update_state_db(self):
+
+        # Get relevant information about each Storage Device on the switch
+        for storage_device, storage_object in self.storage.devices.items():
+            try:
+                # Unlikely scenario
+                if storage_object is None:
+                    self.log_info("{} does not have an instantiated object. Static Information cannot be gathered.".format(storage_device))
+                    continue
+
+                static_kvp_dict = {}
+
+                static_kvp_dict["device_model"] = storage_object.get_model()
+                static_kvp_dict["serial"] = storage_object.get_serial()
+
+                self.log_info("Storage Device: {}, Device Model: {}, Serial: {}".format(storage_device, static_kvp_dict["device_model"], static_kvp_dict["serial"]))
+
+                # update Storage Device Status to DB
+                self.update_storage_info_status_db(storage_device, static_kvp_dict)
+
+            except Exception as ex:
+                self.log_error("get_static_fields_update_state_db() failed with: {}".format(str(ex)))
+
+    # Get Dynamic attributes and update the State DB
+    def get_dynamic_fields_update_state_db(self):
+
+        # Get relevant information about each storage disk on the device
+        for storage_device, storage_object in self.storage.devices.items():
+            try:
+                if storage_object is None:
+                    self.log_info("Storage device '{}' does not have an instantiated object. Dynamic Information cannot be gathered.".format(storage_device))
+                    continue
+
+                # Fetch the latest dynamic info
+                blkdevice = os.path.join(BLKDEV_BASE_PATH, storage_device)
+                storage_object.fetch_parse_info(blkdevice)
+
+                dynamic_kvp_dict = {}
+
+                dynamic_kvp_dict["firmware"] = storage_object.get_firmware()
+                dynamic_kvp_dict["health"] = storage_object.get_health()
+                dynamic_kvp_dict["temperature"] = storage_object.get_temperature()
+                dynamic_kvp_dict["latest_fsio_reads"] = storage_object.get_fs_io_reads()
+                dynamic_kvp_dict["latest_fsio_writes"] = storage_object.get_fs_io_writes()
+                dynamic_kvp_dict["disk_io_reads"] = storage_object.get_disk_io_reads()
+                dynamic_kvp_dict["disk_io_writes"] = storage_object.get_disk_io_writes()
+                dynamic_kvp_dict["reserved_blocks"] = storage_object.get_reserved_blocks()
+
+                dynamic_kvp_dict["total_fsio_reads"], dynamic_kvp_dict["total_fsio_writes"] = self._reconcile_fsio_rw_values(dynamic_kvp_dict, storage_device)
+
+                self.log_info("Storage Device: {}, Firmware: {}, health: {}%, Temp: {}C, FS IO Reads: {}, FS IO Writes: {}".format(\
+                storage_device, dynamic_kvp_dict["firmware"], dynamic_kvp_dict["health"], dynamic_kvp_dict["temperature"], dynamic_kvp_dict["total_fsio_reads"],dynamic_kvp_dict["total_fsio_writes"]))
+                self.log_info("Latest FSIO Reads: {}, Latest FSIO Writes: {}".format(dynamic_kvp_dict["latest_fsio_reads"], dynamic_kvp_dict["latest_fsio_writes"]))
+                self.log_info("Disk IO Reads: {}, Disk IO Writes: {}, Reserved Blocks: {}".format(dynamic_kvp_dict["disk_io_reads"], dynamic_kvp_dict["disk_io_writes"], \
+                dynamic_kvp_dict["reserved_blocks"]))
+
+                # Update storage device statistics to STATE_DB
+                self.update_storage_info_status_db(storage_device, dynamic_kvp_dict)
+
+            except Exception as ex:
+                self.log_info("get_dynamic_fields_update_state_db() failed with: {}".format(str(ex)))
+
+    
+   # Override signal handler from DaemonBase
+    def signal_handler(self, sig, frame):
+        FATAL_SIGNALS = [signal.SIGINT, signal.SIGTERM]
+        NONFATAL_SIGNALS = [signal.SIGHUP]
+
+        global exit_code
+
+        if sig in FATAL_SIGNALS:
+            self.log_info("Caught signal '{}'".format(signal.Signals(sig).name))
+
+            if self.sync_fsio_rw_json():
+                self.write_sync_time_statedb()
+            else:
+                self.log_warning("Unable to sync latest and total procfs RW to disk")
+
+            self.log_info("Exiting with {}".format(signal.Signals(sig).name))
+
+            # Make sure we exit with a non-zero code so that supervisor will try to restart us
+            exit_code = 128 + sig  
+            self.stop_event.set()
+        elif sig in NONFATAL_SIGNALS:
+            self.log_info("Caught signal '{}' - ignoring...".format(signal.Signals(sig).name))
+        else:
+            self.log_warning("Caught unhandled signal '{}' - ignoring...".format(signal.Signals(sig).name))
+
+    # Main daemon logic
+    def run(self):
+
+        # Connect to CONFIG_DB and get polling and sync intervals --
+        # this is to be able to dynamically configure the polling and sync times.
+        self.get_configdb_intervals()
+
+        # Repeatedly read and update Dynamic Fields to the StateDB
+        self.get_dynamic_fields_update_state_db()
+
+        if self.stop_event.wait(self.timeout):
+            # We received a fatal signal
+            return False
+
+        # Check if time elapsed since init is > fsstats_sync_interval OR
+        # If sync interval has elapsed or if difference in elapsed_time and sync interval is less than polling interval
+
+        # If so, sync the appropriate fields to FSIO JSON file
+        
+        elapsed_time = time.time() - self.fsio_sync_time
+        if (elapsed_time > self.fsstats_sync_interval) or ((self.fsstats_sync_interval - elapsed_time) < self.timeout):
+            if self.sync_fsio_rw_json():
+                self.write_sync_time_statedb()
+            else:
+                self.log_warning("Unable to sync latest and total procfs RW to disk")
+
+        return True
+#
+# Main =========================================================================
+#
+
+
+def main():
+    stormon = DaemonStorage(SYSLOG_IDENTIFIER)
+
+    stormon.log_info("Starting Storage Monitoring Daemon")
+
+    # Read and update Static Fields to the StateDB once
+    stormon.get_static_fields_update_state_db()
+
+    while stormon.run():
+        pass
+
+    stormon.log_info("Shutting down Storage Monitoring Daemon")
+
+    return exit_code
+
+if __name__ == '__main__':
+    sys.exit(main())

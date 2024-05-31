@@ -56,6 +56,9 @@ parameters:
     - name: sensormond
       root_dir: sonic-sensormond
       python3: true
+    - name: stormond
+      root_dir: sonic-stormond
+      python3: true
 - name: artifactBranch
   type: string
   default: 'refs/heads/master'
