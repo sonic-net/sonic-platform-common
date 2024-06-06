@@ -2483,7 +2483,7 @@ class CmisApi(XcvrApi):
         This function applies App0 configuration - in case some lanes are de-activated
         '''
         for lane in range(self.NUM_CHANNELS):
-            addr = "{}_{}_{}".format(consts.STAGED_CTRL_APSEL_FIELD, 0, lane + 1)
+            addr = f"{consts.STAGED_CTRL_APSEL_FIELD}_0_{lane+1}"
             data = 0
             return self.xcvr_eeprom.write(addr, data)
 
