@@ -36,7 +36,6 @@ class ModuleBase(device_base.DeviceBase):
     MODULE_TYPE_LINE    = "LINE-CARD"
     MODULE_TYPE_FABRIC  = "FABRIC-CARD"
     MODULE_TYPE_DPU  = "DPU"
-    MODULE_TYPE_SWITCH  = "SWITCH"
 
     # Possible card status for modular chassis
     # Module state is Empty if no module is inserted in the slot
@@ -120,18 +119,17 @@ class ModuleBase(device_base.DeviceBase):
     def get_name(self):
         """
         Retrieves the name of the module prefixed by SUPERVISOR, LINE-CARD,
-        FABRIC-CARD, SWITCH, DPU0, DPUX
+        FABRIC-CARD, DPU0, DPUX
 
         Returns:
             A string, the module name prefixed by one of MODULE_TYPE_SUPERVISOR,
-            MODULE_TYPE_LINE or MODULE_TYPE_FABRIC or MODULE_TYPE_DPU or
-            MODULE_TYPE_SWITCH and followed by a 0-based index.
+            MODULE_TYPE_LINE or MODULE_TYPE_FABRIC or MODULE_TYPE_DPU and followed
+            by a 0-based index.
 
             Ex. A Chassis having 1 supervisor, 4 line-cards and 6 fabric-cards
             can provide names SUPERVISOR0, LINE-CARD0 to LINE-CARD3,
             FABRIC-CARD0 to FABRIC-CARD5.
-            A SmartSwitch having 4 DPUs and 1 Switch can provide names DPU0 to
-            DPU3 and SWITCH
+            A SmartSwitch having 4 DPUs names DPU0 to DPU3
         """
         raise NotImplementedError
 
@@ -160,7 +158,7 @@ class ModuleBase(device_base.DeviceBase):
         Returns:
             A string, the module-type from one of the predefined types:
             MODULE_TYPE_SUPERVISOR, MODULE_TYPE_LINE or MODULE_TYPE_FABRIC
-            or MODULE_TYPE_DPU or MODULE_TYPE_SWITCH
+            or MODULE_TYPE_DPU
         """
         raise NotImplementedError
 
@@ -175,7 +173,8 @@ class ModuleBase(device_base.DeviceBase):
             The SmartSwitch platforms will have these additional status
             MODULE_STATUS_MIDPLANE_OFFLINE, MODULE_STATUS_MIDPLANE_ONLINE,
             MODULE_STATUS_CONTROLPLANE_OFFLINE, MODULE_STATUS_CONTROLPLANE_ONLINE,
-            MODULE_STATUS_DATAPLANE_OFFLINE, MODULE_STATUS_DATAPLANE_ONLINE
+            MODULE_STATUS_CONTROLPLANE_PARTIAL_ONLINE, MODULE_STATUS_DATAPLANE_OFFLINE,
+            MODULE_STATUS_DATAPLANE_ONLINE, MODULE_STATUS_DATAPLANE_PARTIAL_ONLINE
         """
         raise NotImplementedError
 
@@ -230,7 +229,6 @@ class ModuleBase(device_base.DeviceBase):
 
         Returns:
             An integer, indicating the DPU ID. DPU0 returns 1, DPUX returns X+1
-            Returns '0' on switch module
         """
         raise NotImplementedError
 

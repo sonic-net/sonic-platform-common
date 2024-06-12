@@ -242,7 +242,7 @@ class ChassisBase(device_base.DeviceBase):
     def get_module(self, index):
         """
         Retrieves module represented by (0-based) index <index>
-        On a SmartSwitch index:0 will fetch switch, index:1 will fetch
+        On a SmartSwitch index:0 is not used, index:1 will fetch
         DPU0 and so on
 
         Args:
@@ -250,7 +250,7 @@ class ChassisBase(device_base.DeviceBase):
             retrieve
 
         Returns:
-            An object dervied from ModuleBase representing the specified
+            An object derived from ModuleBase representing the specified
             module
         """
         module = None
@@ -270,7 +270,7 @@ class ChassisBase(device_base.DeviceBase):
         Args:
             module_name: A string, prefixed by SUPERVISOR, LINE-CARD or FABRIC-CARD
             Ex. SUPERVISOR0, LINE-CARD1, FABRIC-CARD5
-            SmartSwitch Example: SWITCH, DPU1, DPU2 ... DPUX
+            SmartSwitch Example: DPU0, DPU1, DPU2 ... DPUX
 
         Returns:
             An integer, the index of the ModuleBase object in the module_list
@@ -313,7 +313,7 @@ class ChassisBase(device_base.DeviceBase):
         Returns:
             A string giving the NPU-DPU port association:
             Ex: For index: 1 will return the dup0 port association which is
-            "Ethernet-BP0: Ethernet0" where the string left of ":" (Ethernet-BP0)
+            "Ethernet192: Ethernet0" where the string left of ":" (Ethernet192)
             is the NPU port and the string right of ":" (Ethernet0) is the DPU port
         """
         raise NotImplementedError
