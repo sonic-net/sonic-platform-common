@@ -240,7 +240,9 @@ class SsdUtil(StorageCommon):
 
     def parse_virtium_info(self):
         if self.vendor_ssd_info:
-            self.temperature = self._parse_re('Temperature_Celsius\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info)
+            vendor_temp = self._parse_re('Temperature_Celsius\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info)
+            if vendor_temp != NOT_AVAILABLE:
+                self.temperature = vendor_temp
             nand_endurance = self._parse_re('NAND_Endurance\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info)
             avg_erase_count = self._parse_re('Average_Erase_Count\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info)
             if nand_endurance != NOT_AVAILABLE and avg_erase_count != NOT_AVAILABLE:

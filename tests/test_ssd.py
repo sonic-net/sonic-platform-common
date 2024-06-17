@@ -1129,6 +1129,65 @@ Selective self-test flags (0x0):
 If Selective self-test is pending on power-up, resume after 0 minute delay.
 """
 
+output_vitrium_nvme_generic = """
+smartctl 7.4 2023-08-01 r5530 [x86_64-linux-6.1.0-11-2-amd64] (local build)
+Copyright (C) 2002-23, Bruce Allen, Christian Franke, www.smartmontools.org
+=== START OF INFORMATION SECTION ===
+Model Number:                       Virtium VTPM24CEXI080-BM110006
+Serial Number:                      64008-0094
+Firmware Version:                   CE00A400
+PCI Vendor/Subsystem ID:            0x1f9f
+IEEE OUI Identifier:                0x00e04c
+Controller ID:                      1
+NVMe Version:                       1.4
+Number of Namespaces:               1
+Namespace 1 Size/Capacity:          80,026,361,856 [80.0 GB]
+Namespace 1 Formatted LBA Size:     512
+Namespace 1 IEEE EUI-64:            00e04c 00a6105150
+Local Time is:                      Fri May 31 09:42:45 2024 IDT
+Firmware Updates (0x02):            1 Slot
+Optional Admin Commands (0x0017):   Security Format Frmw_DL Self_Test
+Optional NVM Commands (0x005e):     Wr_Unc DS_Mngmt Wr_Zero Sav/Sel_Feat Timestmp
+Log Page Attributes (0x02):         Cmd_Eff_Lg
+Maximum Data Transfer Size:         32 Pages
+Warning  Comp. Temp. Threshold:     100 Celsius
+Critical Comp. Temp. Threshold:     110 Celsius
+Supported Power States
+St Op     Max   Active     Idle   RL RT WL WT  Ent_Lat  Ex_Lat
+ 0 +     8.00W       -        -    0  0  0  0   230000   50000
+ 1 +     4.00W       -        -    1  1  1  1     4000   50000
+ 2 +     3.00W       -        -    2  2  2  2     4000  250000
+ 3 -   0.0300W       -        -    3  3  3  3     5000   10000
+ 4 -   0.0050W       -        -    4  4  4  4    20000   45000
+Supported LBA Sizes (NSID 0x1)
+Id Fmt  Data  Metadt  Rel_Perf
+ 0 +     512       0         0
+=== START OF SMART DATA SECTION ===
+SMART overall-health self-assessment test result: PASSED
+SMART/Health Information (NVMe Log 0x02)
+Critical Warning:                   0x00
+Temperature:                        53 Celsius
+Available Spare:                    100%
+Available Spare Threshold:          32%
+Percentage Used:                    0%
+Data Units Read:                    253,310 [129 GB]
+Data Units Written:                 598,492 [306 GB]
+Host Read Commands:                 3,015,892
+Host Write Commands:                5,589,998
+Controller Busy Time:               0
+Power Cycles:                       79
+Power On Hours:                     265
+Unsafe Shutdowns:                   77
+Media and Data Integrity Errors:    0
+Error Information Log Entries:      0
+Warning  Comp. Temperature Time:    0
+Critical Comp. Temperature Time:    0
+"""
+
+output_smartcmd_vitrium_error = """
+[Error] Cannot read SMART information on device /dev/nvme0n1
+"""
+
 class TestSsd:
     @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_nvme_ssd))
     def test_nvme_ssd(self):
@@ -1338,3 +1397,9 @@ class TestSsd:
         assert(intel_ssd.get_disk_io_reads() == '18922')
         assert(intel_ssd.get_disk_io_writes() == '44554')
         assert(intel_ssd.get_reserved_blocks() == '0')
+
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell')
+    def test_temperature_virtrium_nvme(self, mock_exec):
+        mock_exec.side_effect = [output_vitrium_nvme_generic, output_smartcmd_vitrium_error]
+        vitrium_ssd = SsdUtil('/dev/nvme0n1')
+        assert vitrium_ssd.get_temperature() == 53.0
