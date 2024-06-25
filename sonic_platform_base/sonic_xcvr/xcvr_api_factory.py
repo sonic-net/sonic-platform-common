@@ -37,6 +37,8 @@ VENDOR_NAME_LENGTH = 16
 VENDOR_PART_NUM_LENGTH = 16
 
 CREDO_800G_AEC_VENDOR_PN_LIST = ["CAC81X321M2MC1MS", "CAC815321M2MC1MS", "CAC82X321M2MC1MS"]
+INL_800G_VENDOR_PN_LIST = ["T-DL8CNT-NCI", "T-DH8CNT-NCI", "T-DH8CNT-N00", "T-DP4CNH-NCI"]
+EOP_800G_VENDOR_PN_LIST = ["EOLD-168HG-02-41", "EOLD-138HG-02-41"]
 
 class XcvrApiFactory(object):
     def __init__(self, reader, writer):
@@ -81,7 +83,8 @@ class XcvrApiFactory(object):
                 mem_map = CmisAec800gMemMap(CmisAec800gCodes)
                 xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
                 api = CmisAec800gApi(xcvr_eeprom)
-            elif vendor_name == 'CISCO-INNOLIGHT' and vendor_pn == 'T-DH8CNT-NCI':
+            elif ('INNOLIGHT' in vendor_name and vendor_pn in INL_800G_VENDOR_PN_LIST) or \
+                 ('EOPTOLINK' in vendor_name and vendor_pn in EOP_800G_VENDOR_PN_LIST):
                 codes = CmisCodes
                 mem_map = CmisMemMap(codes)
                 xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
