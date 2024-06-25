@@ -17,10 +17,25 @@ class ModuleBase(device_base.DeviceBase):
     # Device type definition. Note, this is a constant.
     DEVICE_TYPE = "module"
 
+    # Possible reboot causes
+    REBOOT_CAUSE_POWER_LOSS = "Power Loss"
+    REBOOT_CAUSE_THERMAL_OVERLOAD_CPU = "Thermal Overload: CPU"
+    REBOOT_CAUSE_THERMAL_OVERLOAD_ASIC = "Thermal Overload: ASIC"
+    REBOOT_CAUSE_THERMAL_OVERLOAD_OTHER = "Thermal Overload: Other"
+    REBOOT_CAUSE_INSUFFICIENT_FAN_SPEED = "Insufficient Fan Speed"
+    REBOOT_CAUSE_WATCHDOG = "Watchdog"
+    REBOOT_CAUSE_HARDWARE_OTHER = "Hardware - Other"
+    REBOOT_CAUSE_HARDWARE_BIOS = "BIOS"
+    REBOOT_CAUSE_HARDWARE_CPU = "CPU"
+    REBOOT_CAUSE_HARDWARE_BUTTON = "Push button"
+    REBOOT_CAUSE_HARDWARE_RESET_FROM_ASIC = "Reset from ASIC"
+    REBOOT_CAUSE_NON_HARDWARE = "Non-Hardware"
+
     # Possible card types for modular chassis
     MODULE_TYPE_SUPERVISOR = "SUPERVISOR"
     MODULE_TYPE_LINE    = "LINE-CARD"
     MODULE_TYPE_FABRIC  = "FABRIC-CARD"
+    MODULE_TYPE_DPU  = "DPU"
 
     # Possible card status for modular chassis
     # Module state is Empty if no module is inserted in the slot
@@ -104,15 +119,17 @@ class ModuleBase(device_base.DeviceBase):
     def get_name(self):
         """
         Retrieves the name of the module prefixed by SUPERVISOR, LINE-CARD,
-        FABRIC-CARD
+        FABRIC-CARD, DPU0, DPUX
 
         Returns:
             A string, the module name prefixed by one of MODULE_TYPE_SUPERVISOR,
-            MODULE_TYPE_LINE or MODULE_TYPE_FABRIC and followed by a 0-based index
+            MODULE_TYPE_LINE or MODULE_TYPE_FABRIC or MODULE_TYPE_DPU and followed
+            by a 0-based index.
 
             Ex. A Chassis having 1 supervisor, 4 line-cards and 6 fabric-cards
             can provide names SUPERVISOR0, LINE-CARD0 to LINE-CARD3,
-            FABRIC-CARD0 to FABRIC-CARD5
+            FABRIC-CARD0 to FABRIC-CARD5.
+            A SmartSwitch having 4 DPUs names DPU0 to DPU3
         """
         raise NotImplementedError
 
@@ -141,6 +158,7 @@ class ModuleBase(device_base.DeviceBase):
         Returns:
             A string, the module-type from one of the predefined types:
             MODULE_TYPE_SUPERVISOR, MODULE_TYPE_LINE or MODULE_TYPE_FABRIC
+            or MODULE_TYPE_DPU
         """
         raise NotImplementedError
 
@@ -152,6 +170,11 @@ class ModuleBase(device_base.DeviceBase):
             A string, the operational status of the module from one of the
             predefined status values: MODULE_STATUS_EMPTY, MODULE_STATUS_OFFLINE,
             MODULE_STATUS_FAULT, MODULE_STATUS_PRESENT or MODULE_STATUS_ONLINE
+            The SmartSwitch platforms will have these additional status
+            MODULE_STATUS_MIDPLANE_OFFLINE, MODULE_STATUS_MIDPLANE_ONLINE,
+            MODULE_STATUS_CONTROLPLANE_OFFLINE, MODULE_STATUS_CONTROLPLANE_ONLINE,
+            MODULE_STATUS_CONTROLPLANE_PARTIAL_ONLINE, MODULE_STATUS_DATAPLANE_OFFLINE,
+            MODULE_STATUS_DATAPLANE_ONLINE, MODULE_STATUS_DATAPLANE_PARTIAL_ONLINE
         """
         raise NotImplementedError
 
@@ -175,7 +198,7 @@ class ModuleBase(device_base.DeviceBase):
         The down state will power down the module and the status should show
         MODULE_STATUS_OFFLINE.
         The up state will take the module to MODULE_STATUS_FAULT or
-        MODULE_STAUS_ONLINE states.
+        MODULE_STATUS_ONLINE states.
 
         Args:
             up: A boolean, True to set the admin-state to UP. False to set the
@@ -193,6 +216,54 @@ class ModuleBase(device_base.DeviceBase):
         Returns:
             A float, with value of the maximum consumable power of the
             module.
+        """
+        raise NotImplementedError
+
+    ##############################################
+    # SmartSwitch methods
+    ##############################################
+
+    def get_dpu_id(self):
+        """
+        Retrieves the DPU ID. Returns None for non-smartswitch chassis.
+
+        Returns:
+            An integer, indicating the DPU ID. DPU0 returns 1, DPUX returns X+1
+        """
+        raise NotImplementedError
+
+    def get_reboot_cause(self):
+        """
+        Retrieves the cause of the previous reboot of the DPU module
+
+        Returns:
+            A tuple (string, string) where the first element is a string
+            containing the cause of the previous reboot. This string must
+            be one of the predefined strings in this class. If the first
+            string is "REBOOT_CAUSE_HARDWARE_OTHER", the second string can be
+            used to pass a description of the reboot cause.
+
+        """
+        raise NotImplementedError
+
+    def get_state_info(self):
+        """
+        Retrieves the dpu state object having the detailed dpu state progression.
+        Fetched from ChassisStateDB.
+
+        Returns:
+            An object instance of the DPU_STATE (see DB schema)
+            Returns None on switch module
+        """
+        raise NotImplementedError
+
+    def get_health_info(self):
+        """
+        Retrieves the dpu health object having the detailed dpu health.
+        Fetched from the DPUs.
+
+        Returns:
+            An object instance of the dpu health.
         """
         raise NotImplementedError
 
@@ -541,6 +612,8 @@ class ModuleBase(device_base.DeviceBase):
         line-card and return the midplane IP-address of the line-card.
         When called from the line-card, the module will represent the
         Supervisor and return its midplane IP-address.
+        When called from the DPU, returns the midplane IP-address of the dpu-card.
+        When called from the Switch returns the midplane IP-address of Switch.
 
         Returns:
             A string, the IP-address of the module reachable over the midplane
