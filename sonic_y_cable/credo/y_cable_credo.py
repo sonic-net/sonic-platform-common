@@ -102,6 +102,7 @@ class YCable(YCableBase):
     FWUPD_OPTION_COMMIT              = 0x08
     FWUPD_OPTION_SYNC                = 0x09
     FWUPD_OPTION_SYNC_STATUS         = 0x0A
+    FWUPD_OPTION_VERIFY_CRC          = 0x0C
 
     # upper page 0xFA VSC command attribute length
     VSC_CMD_ATTRIBUTE_LENGTH = 141
@@ -1092,7 +1093,6 @@ class YCable(YCableBase):
             Returns:
                 an integer, the number of times the Y-cable has been switched
         """
-
 
         count = 0
 
@@ -3487,9 +3487,29 @@ class YCable(YCableBase):
                 return YCable.CABLE_UNHEALTHY
 
             uart_stat = self.get_uart_stat()
-            if api_ver >= 0x18 and uart_stat['Local']['UART2']['RxErrorCnt'] > 100:
-                self.log_error("check cable health fail: uart rx error count overlimit:%d" % (uart_stat['local']['UART2']['RxErrorCnt']))
+            if api_ver >= 0x18:
+                if uart_stat['Local']['UART2']['RxErrorCnt'] > 100:
+                    self.log_error("check cable health fail: uart rx error count overlimit:%d" % (uart_stat['local']['UART2']['RxErrorCnt']))
+                    return YCable.CABLE_UNHEALTHY
+
+            if ((uart_stat['Local']['UART1']['TxRetryCnt'] > 10000 and uart_stat['Local']['UART1']['TxAbortCnt'] > 5000) or 
+                (uart_stat['Local']['UART2']['TxRetryCnt'] > 10000 and uart_stat['Local']['UART2']['TxAbortCnt'] > 5000) or 
+                (uart_stat['Remote']['UART1']['TxRetryCnt'] > 10000 and uart_stat['Remote']['UART1']['TxAbortCnt'] > 5000) or 
+                (uart_stat['Remote']['UART2']['TxRetryCnt'] > 10000 and uart_stat['Remote']['UART2']['TxAbortCnt'] > 5000)):
+
+                self.log_error("check cable health fail: uart tx retry and abort count overlimit: LU1:%d %d LU2:%d %d RU1:%d %d RU2:%d %d" % 
+                                            (uart_stat['Local']['UART1']['TxRetryCnt'],  uart_stat['Local']['UART1']['TxAbortCnt'],
+                                             uart_stat['Local']['UART2']['TxRetryCnt'],  uart_stat['Local']['UART1']['TxAbortCnt'],
+                                             uart_stat['Remote']['UART1']['TxRetryCnt'], uart_stat['Local']['UART1']['TxAbortCnt'],
+                                             uart_stat['Remote']['UART2']['TxRetryCnt'], uart_stat['Local']['UART1']['TxAbortCnt']))
+
                 return YCable.CABLE_UNHEALTHY
+            
+            if api_ver >= 0x19:
+                status = self.get_fw_crc_status()
+                if status[0] or status[1]:
+                    self.log_error("check fw crc status error:%d %d" % (status[0], status[1]))
+                    return YCable.CABLE_UNHEALTHY
 
             serdes_fw_tag = self.reg_read_atomic(0xB71A)
             if serdes_fw_tag != 0x6A6A:
@@ -3660,3 +3680,41 @@ class YCable(YCableBase):
             self.log_error("platform_chassis is not loaded, failed to get serdes params")
 
         return result
+    
+    def get_fw_crc_status(self):
+        """
+        This API verifies all fw images's crc and return the result.
+        The port on which this API is called for can be referred using self.port.
+
+        Returns:
+           a integer: return 0 if succeed, otherwise return non-zero value
+        """
+
+        result = {}
+
+        if self.platform_chassis is not None:
+            with self.rlock.acquire_timeout(RLocker.ACQUIRE_LOCK_TIMEOUT) as lock_status:
+                if lock_status:                    
+                    vsc_req_form = [None] * (YCable.VSC_CMD_ATTRIBUTE_LENGTH)
+                    vsc_req_form[YCable.VSC_BYTE_OPCODE] = YCable.VSC_OPCODE_FWUPD
+                    vsc_req_form[YCable.VSC_BYTE_OPTION] = YCable.FWUPD_OPTION_VERIFY_CRC
+                    status = self.send_vsc(vsc_req_form)
+                    if status != YCable.MCU_EC_NO_ERROR:
+                        self.log_error('Get fw crc status error (error code:0x%04X)' % (status))
+                        return status
+                    
+                    for idx in range(2):
+                        base_addr = 128 + idx * 5
+                        ret = self.read_mmap(YCable.MIS_PAGE_FC, base_addr, 5) 
+                        result[idx] = ret[0]
+                else:
+                    self.log_error('acquire lock timeout, failed to get fw crc status')
+                    return YCable.EEPROM_ERROR
+        else:
+            self.log_error("platform_chassis is not loaded, failed to get fw crc status")
+            return YCable.EEPROM_ERROR
+
+        return result
+             
+
+        
