@@ -74,6 +74,10 @@ class sffbase(object):
         except Exception:
             return 0
 
+    def float_from_bytes(b):
+        """Convert IEEE 754 single precision float from bytes."""
+        return struct.unpack('!f', b)[0]
+
     def mw_to_dbm(self, mW):
         if mW == 0:
             return float("-inf")
