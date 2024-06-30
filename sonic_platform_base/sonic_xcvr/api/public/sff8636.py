@@ -52,6 +52,7 @@ class Sff8636Api(XcvrApi):
             if len > 0:
                 cable_len = len
                 cable_type = type
+                break
 
         xcvr_info = {
             "type": serial_id[consts.ID_FIELD],
