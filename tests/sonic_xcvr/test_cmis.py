@@ -638,6 +638,20 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
+            ("sm_media_interface", False),
+            ("nm_850_media_interface", False),
+            ("passive_copper_media_interface", True),
+            ("active_cable_media_interface", True),
+            ("base_t_media_interface", True),
+            ("ABCD", None)
+    ])
+    def test_is_copper(self, mock_response, expected):
+        self.api.get_module_media_type = MagicMock()
+        self.api.get_module_media_type.return_value = mock_response
+        result = self.api.is_copper()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response, expected", [
         ('Copper cable', False),
         ('400ZR', True),
     ])
