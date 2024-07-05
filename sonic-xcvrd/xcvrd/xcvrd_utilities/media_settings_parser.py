@@ -5,6 +5,7 @@ This parser is responsible for parsing the ASIC side SerDes custom SI settings.
 import json
 import os
 import ast
+import re
 
 from sonic_py_common import device_info, logger
 from swsscommon import swsscommon
@@ -175,6 +176,20 @@ def get_media_settings_value(physical_port, key):
     media_dict = {}
     default_dict = {}
 
+    def get_media_settings(key, media_dict):
+        for dict_key in media_dict.keys():
+            if (re.match(dict_key, key[VENDOR_KEY]) or \
+                re.match(dict_key, key[VENDOR_KEY].split('-')[0]) # e.g: 'AMPHENOL-1234'
+                or re.match(dict_key, key[MEDIA_KEY]) ): # e.g: 'QSFP28-40GBASE-CR4-1M'
+                if is_si_per_speed_supported(media_dict[dict_key]):
+                    if key[LANE_SPEED_KEY] is not None and key[LANE_SPEED_KEY] in media_dict[dict_key]: # e.g: 'speed:400GAUI-8'
+                        return media_dict[dict_key][key[LANE_SPEED_KEY]]
+                    else:
+                        return {}
+                else:
+                    return media_dict[dict_key]
+        return None
+
     # Keys under global media settings can be a list or range or list of ranges
     # of physical port numbers. Below are some examples
     # 1-32
@@ -200,30 +215,10 @@ def get_media_settings_value(physical_port, key):
 
             # If there is a match in the global profile for a media type,
             # fetch those values
-            if key[VENDOR_KEY] in media_dict: # e.g: 'AMPHENOL-1234'
-                if is_si_per_speed_supported(media_dict[key[VENDOR_KEY]]):
-                    if key[LANE_SPEED_KEY] is not None and key[LANE_SPEED_KEY] in media_dict[key[VENDOR_KEY]]: # e.g: 'speed:400GAUI-8'
-                        return media_dict[key[VENDOR_KEY]][key[LANE_SPEED_KEY]]
-                    else:
-                        return {}
-                else:
-                    return media_dict[key[VENDOR_KEY]]
-            elif key[VENDOR_KEY].split('-')[0] in media_dict:
-                if is_si_per_speed_supported(media_dict[key[VENDOR_KEY].split('-')[0]]):
-                    if key[LANE_SPEED_KEY] is not None and key[LANE_SPEED_KEY] in media_dict[key[VENDOR_KEY].split('-')[0]]:
-                        return media_dict[key[VENDOR_KEY].split('-')[0]][key[LANE_SPEED_KEY]]
-                    else:
-                        return {}
-                else:
-                    return media_dict[key[VENDOR_KEY].split('-')[0]]
-            elif key[MEDIA_KEY] in media_dict: # e.g: 'QSFP28-40GBASE-CR4-1M'
-                if is_si_per_speed_supported(media_dict[key[MEDIA_KEY]]):
-                    if key[LANE_SPEED_KEY] is not None and key[LANE_SPEED_KEY] in media_dict[key[MEDIA_KEY]]:
-                        return media_dict[key[MEDIA_KEY]][key[LANE_SPEED_KEY]]
-                    else:
-                        return {}
-                else:
-                    return media_dict[key[MEDIA_KEY]]
+            media_settings = get_media_settings(key, media_dict)
+            if media_settings is not None:
+                return media_settings
+            # Try to match 'default' key if it does not match any keys
             elif DEFAULT_KEY in media_dict:
                 default_dict = media_dict[DEFAULT_KEY]
 
@@ -242,30 +237,10 @@ def get_media_settings_value(physical_port, key):
                 helper_logger.log_error("Error: No values for physical port '{}'".format(physical_port))
             return {}
 
-        if key[VENDOR_KEY] in media_dict:
-            if is_si_per_speed_supported(media_dict[key[VENDOR_KEY]]):
-                if key[LANE_SPEED_KEY] is not None and key[LANE_SPEED_KEY] in media_dict[key[VENDOR_KEY]]:
-                    return media_dict[key[VENDOR_KEY]][key[LANE_SPEED_KEY]]
-                else:
-                    return {}
-            else:
-                return media_dict[key[VENDOR_KEY]]
-        if key[VENDOR_KEY].split('-')[0] in media_dict:
-            if is_si_per_speed_supported(media_dict[key[VENDOR_KEY].split('-')[0]]):
-                if key[LANE_SPEED_KEY] is not None and key[LANE_SPEED_KEY] in media_dict[key[VENDOR_KEY].split('-')[0]]:
-                    return media_dict[key[VENDOR_KEY].split('-')[0]][key[LANE_SPEED_KEY]]
-                else:
-                    return {}
-            else:
-                return media_dict[key[VENDOR_KEY].split('-')[0]]
-        elif key[MEDIA_KEY] in media_dict:
-            if is_si_per_speed_supported(media_dict[key[MEDIA_KEY]]):
-                if key[LANE_SPEED_KEY] is not None and key[LANE_SPEED_KEY] in media_dict[key[MEDIA_KEY]]:
-                    return media_dict[key[MEDIA_KEY]][key[LANE_SPEED_KEY]]
-                else:
-                    return {}
-            else:
-                return media_dict[key[MEDIA_KEY]]
+        media_settings = get_media_settings(key, media_dict)
+        if media_settings is not None:
+            return media_settings
+        # Try to match 'default' key if it does not match any keys
         elif DEFAULT_KEY in media_dict:
             return media_dict[DEFAULT_KEY]
         elif len(default_dict) != 0:

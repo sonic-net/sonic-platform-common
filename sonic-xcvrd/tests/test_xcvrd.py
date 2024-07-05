@@ -45,6 +45,13 @@ media_settings_with_comma_dict = copy.deepcopy(media_settings_dict)
 global_media_settings = media_settings_with_comma_dict['GLOBAL_MEDIA_SETTINGS'].pop('1-32')
 media_settings_with_comma_dict['GLOBAL_MEDIA_SETTINGS']['1-5,6,7-20,21-32'] = global_media_settings
 
+media_settings_with_regular_expression_dict = copy.deepcopy(media_settings_dict)
+media_settings_with_regular_expression_dict['GLOBAL_MEDIA_SETTINGS']['1-32'] = {}
+# Generate regular expression patterns for QSFP28-40GBASE-CR4-xxM and QSFP+-40GBASE-CR4-xxM that have the same pre-emphasis value
+media_settings_with_regular_expression_dict['GLOBAL_MEDIA_SETTINGS']['1-32']['QSFP(\\+|28)-40GBASE-CR4-1M'] = global_media_settings['QSFP28-40GBASE-CR4-1M']
+media_settings_with_regular_expression_dict['GLOBAL_MEDIA_SETTINGS']['1-32']['QSFP(\\+|28)-40GBASE-CR4-2M'] = global_media_settings['QSFP28-40GBASE-CR4-2M']
+media_settings_with_regular_expression_dict['GLOBAL_MEDIA_SETTINGS']['1-32']['QSFP(\\+|28)-40GBASE-CR4-(3|4|5|7|10)M'] = global_media_settings['QSFP28-40GBASE-CR4-3M']
+
 with open(os.path.join(test_path, 'optics_si_settings.json'), 'r') as fn:
     optics_si_settings_dict = json.load(fn)
 port_optics_si_settings = {}
@@ -791,7 +798,10 @@ class TestXcvrdScript(object):
     (media_settings_port_default_media_key_lane_speed_si, 7, {'vendor_key': 'MISSING', 'media_key': 'MISSING', 'lane_speed_key': 'MISSING'}, {'speed:400GAUI-8': {'idriver': {'lane0': '0x0000000d', 'lane1': '0x0000000d', 'lane2': '0x0000000d', 'lane3': '0x0000000d'}, 'pre1': {'lane0': '0x0000000d', 'lane1': '0x0000000d', 'lane2': '0x0000000d', 'lane3': '0x0000000d'}, 'ob_m2lp': {'lane0': '0x0000000d', 'lane1': '0x0000000d', 'lane2': '0x0000000d', 'lane3': '0x0000000d'}}}),
     (media_settings_global_default_port_media_key_lane_speed_si, 7, {'vendor_key': 'MISSING', 'media_key': 'MISSING', 'lane_speed_key': 'MISSING'}, {'speed:400GAUI-8': {'idriver': {'lane0': '0x0000000d', 'lane1': '0x0000000d', 'lane2': '0x0000000d', 'lane3': '0x0000000d'}, 'pre1': {'lane0': '0x0000000d', 'lane1': '0x0000000d', 'lane2': '0x0000000d', 'lane3': '0x0000000d'}, 'ob_m2lp': {'lane0': '0x0000000d', 'lane1': '0x0000000d', 'lane2': '0x0000000d', 'lane3': '0x0000000d'}}}),
     (media_settings_global_list_of_ranges_media_key_lane_speed_si_with_default_section, 7, {'vendor_key': 'MISSING', 'media_key': 'MISSING', 'lane_speed_key': 'MISSING'}, {'speed:400GAUI-8': {'idriver': {'lane0': '0x0000000d', 'lane1': '0x0000000d', 'lane2': '0x0000000d', 'lane3': '0x0000000d'}, 'pre1': {'lane0': '0x0000000d', 'lane1': '0x0000000d', 'lane2': '0x0000000d', 'lane3': '0x0000000d'}, 'ob_m2lp': {'lane0': '0x0000000d', 'lane1': '0x0000000d', 'lane2': '0x0000000d', 'lane3': '0x0000000d'}}}),
-    (media_settings_empty, 7, {'vendor_key': 'AMPHANOL-5678', 'media_key': 'QSFP-DD-active_cable_media_interface', 'lane_speed_key': 'speed:100GAUI-2'}, {})
+    (media_settings_empty, 7, {'vendor_key': 'AMPHANOL-5678', 'media_key': 'QSFP-DD-active_cable_media_interface', 'lane_speed_key': 'speed:100GAUI-2'}, {}),
+    (media_settings_with_regular_expression_dict, 7, {'vendor_key': 'UNKOWN', 'media_key': 'QSFP28-40GBASE-CR4-1M', 'lane_speed_key': 'UNKOWN'}, {'preemphasis': {'lane0': '0x16440A', 'lane1': '0x16440A', 'lane2': '0x16440A', 'lane3': '0x16440A'}}),
+    (media_settings_with_regular_expression_dict, 7, {'vendor_key': 'UNKOWN', 'media_key': 'QSFP+-40GBASE-CR4-2M', 'lane_speed_key': 'UNKOWN'}, {'preemphasis': {'lane0': '0x18420A', 'lane1': '0x18420A', 'lane2': '0x18420A', 'lane3': '0x18420A'}}),
+    (media_settings_with_regular_expression_dict, 7, {'vendor_key': 'UNKOWN', 'media_key': 'QSFP+-40GBASE-CR4-10M', 'lane_speed_key': 'UNKOWN'}, {'preemphasis': {'lane0': '0x1A400A', 'lane1': '0x1A400A', 'lane2': '0x1A400A', 'lane3': '0x1A400A'}})
     ])
     def test_get_media_settings_value(self, media_settings_dict, port, key, expected):
         with patch('xcvrd.xcvrd_utilities.media_settings_parser.g_dict', media_settings_dict):
