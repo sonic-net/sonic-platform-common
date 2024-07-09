@@ -242,4 +242,4 @@ class SsdUtil(SsdBase):
         return self.vendor_ssd_info
 
     def parse_id_number(self, id):
-        return self._parse_re('{}\s*(.+?)\n'.format(id), self.ssd_info)
+        return self._parse_re('\n{}\s*(.+?)\n'.format(id), self.ssd_info)
