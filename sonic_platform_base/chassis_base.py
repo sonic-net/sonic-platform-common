@@ -221,21 +221,23 @@ class ChassisBase(device_base.DeviceBase):
     def get_num_modules(self):
         """
         Retrieves the number of modules available on this chassis
-        On a SmarSwitch chassis this includes the number of DPUs.
+        On a SmarSwitch chassis this will be the number of DPUs.
 
         Returns:
-            An integer, the number of modules available on this chassis
+            An integer, the number of modules available on this chassis.
+            On a SmartSwitch this will be the number of DPUs
         """
         return len(self._module_list)
 
     def get_all_modules(self):
         """
         Retrieves all modules available on this chassis. On a SmartSwitch
-        chassis this includes the DPUs.
+        chassis this will return all the DPUs.
 
         Returns:
             A list of objects derived from ModuleBase representing all
-            modules available on this chassis
+            modules available on this chassis. On a SmartSwitch this 
+            will be a list of DPU objects.
         """
         return self._module_list
 
@@ -312,7 +314,7 @@ class ChassisBase(device_base.DeviceBase):
 
         Returns:
             A string giving the NPU-DPU port association:
-            Ex: For index: 1 will return the dup0 port association which is
+            Ex: For index: 1 will return the dpu0 port association which is
             "Ethernet192: Ethernet0" where the string left of ":" (Ethernet192)
             is the NPU port and the string right of ":" (Ethernet0) is the DPU port
         """
