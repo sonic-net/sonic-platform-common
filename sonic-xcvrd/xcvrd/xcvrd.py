@@ -478,30 +478,20 @@ def post_port_sfp_info_to_db(logical_port_name, port_mapping, table, transceiver
                         if 'media_interface_code' in port_info_dict else 'N/A'),
                         ('host_electrical_interface', port_info_dict['host_electrical_interface']
                         if 'host_electrical_interface' in port_info_dict else 'N/A'),
-                        ('host_lane_count', str(port_info_dict['host_lane_count'])
-                        if 'host_lane_count' in port_info_dict else 'N/A'),
-                        ('media_lane_count', str(port_info_dict['media_lane_count'])
-                        if 'media_lane_count' in port_info_dict else 'N/A'),
+                        ('host_lane_count', 'N/A'),
+                        ('media_lane_count', 'N/A'),
                         ('host_lane_assignment_option', str(port_info_dict['host_lane_assignment_option'])
                         if 'host_lane_assignment_option' in port_info_dict else 'N/A'),
                         ('media_lane_assignment_option', str(port_info_dict['media_lane_assignment_option'])
                         if 'media_lane_assignment_option' in port_info_dict else 'N/A'),
-                        ('active_apsel_hostlane1', str(port_info_dict['active_apsel_hostlane1'])
-                        if 'active_apsel_hostlane1' in port_info_dict else 'N/A'),
-                        ('active_apsel_hostlane2', str(port_info_dict['active_apsel_hostlane2'])
-                        if 'active_apsel_hostlane2' in port_info_dict else 'N/A'),
-                        ('active_apsel_hostlane3', str(port_info_dict['active_apsel_hostlane3'])
-                        if 'active_apsel_hostlane3' in port_info_dict else 'N/A'),
-                        ('active_apsel_hostlane4', str(port_info_dict['active_apsel_hostlane4'])
-                        if 'active_apsel_hostlane4' in port_info_dict else 'N/A'),
-                        ('active_apsel_hostlane5', str(port_info_dict['active_apsel_hostlane5'])
-                        if 'active_apsel_hostlane5' in port_info_dict else 'N/A'),
-                        ('active_apsel_hostlane6', str(port_info_dict['active_apsel_hostlane6'])
-                        if 'active_apsel_hostlane6' in port_info_dict else 'N/A'),
-                        ('active_apsel_hostlane7', str(port_info_dict['active_apsel_hostlane7'])
-                        if 'active_apsel_hostlane7' in port_info_dict else 'N/A'),
-                        ('active_apsel_hostlane8', str(port_info_dict['active_apsel_hostlane8'])
-                        if 'active_apsel_hostlane8' in port_info_dict else 'N/A'),
+                        ('active_apsel_hostlane1', 'N/A'),
+                        ('active_apsel_hostlane2', 'N/A'),
+                        ('active_apsel_hostlane3', 'N/A'),
+                        ('active_apsel_hostlane4', 'N/A'),
+                        ('active_apsel_hostlane5', 'N/A'),
+                        ('active_apsel_hostlane6', 'N/A'),
+                        ('active_apsel_hostlane7', 'N/A'),
+                        ('active_apsel_hostlane8', 'N/A'),
                         ('media_interface_technology', port_info_dict['media_interface_technology']
                         if 'media_interface_technology' in port_info_dict else 'N/A'),
                         ('supported_max_tx_power', str(port_info_dict['supported_max_tx_power'])
@@ -1278,6 +1268,13 @@ class CmisManagerTask(threading.Thread):
 
         asic_index = self.port_mapping.get_asic_id_for_logical_port(lport)
         intf_tbl = self.xcvr_table_helper.get_intf_tbl(asic_index)
+        if not intf_tbl:
+            helper_logger.log_warning("Active ApSel db update: TRANSCEIVER_INFO table not found for {}".format(lport))
+            return
+        found, _ = intf_tbl.get(lport)
+        if not found:
+            helper_logger.log_warning("Active ApSel db update: {} not found in INTF_TABLE".format(lport))
+            return
         fvs = swsscommon.FieldValuePairs(tuple_list)
         intf_tbl.set(lport, fvs)
         self.log_notice("{}: updated TRANSCEIVER_INFO_TABLE {}".format(lport, tuple_list))
@@ -1504,6 +1501,12 @@ class CmisManagerTask(threading.Thread):
 
                         if not need_update:
                             # No application updates
+                            # As part of xcvrd restart, the TRANSCEIVER_INFO table is deleted and
+                            # created with default value of 'N/A' for all the active apsel fields.
+                            # The below (post_port_active_apsel_to_db) will ensure that the
+                            # active apsel fields are updated correctly in the DB since
+                            # the CMIS state remains unchanged during xcvrd restart
+                            self.post_port_active_apsel_to_db(api, lport, host_lanes_mask)
                             self.log_notice("{}: no CMIS application update required...READY".format(lport))
                             self.update_port_transceiver_status_table_sw_cmis_state(lport, CMIS_STATE_READY)
                             continue
