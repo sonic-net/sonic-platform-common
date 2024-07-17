@@ -1754,7 +1754,7 @@ class TestYCableScript(object):
             patched_util.get_asic_id_for_logical_port.return_value = 0
 
             rc = change_ports_status_for_y_cable_change_event(
-                logical_port_dict,  y_cable_presence, port_tbl, port_table_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, fwd_state_response_tbl, state_db, stop_event=threading.Event())
+                logical_port_dict,  y_cable_presence, port_tbl, port_table_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, state_db, stop_event=threading.Event())
 
             assert(rc == None)
 
@@ -1787,7 +1787,7 @@ class TestYCableScript(object):
 
             patched_util.get_asic_id_for_logical_port.return_value = 0
             rc = change_ports_status_for_y_cable_change_event(
-                logical_port_dict,  y_cable_presence,  port_tbl, port_table_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, fwd_state_response_tbl, state_db, stop_event=threading.Event())
+                logical_port_dict,  y_cable_presence,  port_tbl, port_table_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, state_db, stop_event=threading.Event())
 
             assert(rc == None)
 
@@ -1831,7 +1831,7 @@ class TestYCableScript(object):
 
             patched_util.get_asic_id_for_logical_port.return_value = 0
             rc = change_ports_status_for_y_cable_change_event(
-                logical_port_dict,  y_cable_presence,  port_tbl, port_table_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, fwd_state_response_tbl, state_db, stop_event=threading.Event())
+                logical_port_dict,  y_cable_presence,  port_tbl, port_table_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, state_db, stop_event=threading.Event())
 
             assert(rc == None)
 
@@ -1878,7 +1878,7 @@ class TestYCableScript(object):
 
             patched_util.get_asic_id_for_logical_port.return_value = 0
             rc = change_ports_status_for_y_cable_change_event(
-                logical_port_dict,  y_cable_presence,  port_tbl, port_table_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, fwd_state_response_tbl, state_db, stop_event=threading.Event())
+                logical_port_dict,  y_cable_presence,  port_tbl, port_table_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, state_db, stop_event=threading.Event())
 
             assert(rc == None)
 
@@ -1918,7 +1918,7 @@ class TestYCableScript(object):
 
             patched_util.get_asic_id_for_logical_port.return_value = 0
             rc = change_ports_status_for_y_cable_change_event(
-                logical_port_dict,  y_cable_presence,port_tbl, port_table_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, fwd_state_response_tbl, state_db, stop_event=threading.Event())
+                logical_port_dict,  y_cable_presence,port_tbl, port_table_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, state_db, stop_event=threading.Event())
 
             assert(rc == None)
 
@@ -6496,7 +6496,7 @@ class TestYCableScript(object):
         port_tbl[asic_index] = swsscommon.Table(
             test_db[asic_index], "PORT_INFO_TABLE")
         grpc_client , fwd_state_response_tbl = {}, {}
-        rc = retry_setup_grpc_channel_for_port("Ethernet0", 0, port_tbl, grpc_client, fwd_state_response_tbl)
+        rc = retry_setup_grpc_channel_for_port("Ethernet0", 0, port_tbl, grpc_client)
         assert(rc == False)
 
     @patch('ycable.ycable_utilities.y_cable_helper.setup_grpc_channel_for_port', MagicMock(return_value=(None,None)))
@@ -6514,7 +6514,7 @@ class TestYCableScript(object):
         port_tbl[asic_index] = swsscommon.Table(
             test_db[asic_index], "PORT_INFO_TABLE")
         grpc_client , fwd_state_response_tbl = {}, {}
-        rc = retry_setup_grpc_channel_for_port("Ethernet0", 0, port_tbl, grpc_client, fwd_state_response_tbl)
+        rc = retry_setup_grpc_channel_for_port("Ethernet0", 0, port_tbl, grpc_client)
         assert(rc == False)
 
     def test_process_loopback_interface_and_get_read_side_rc(self):
@@ -6532,7 +6532,7 @@ class TestYCableScript(object):
         port_tbl[asic_index] = swsscommon.Table(
             test_db[asic_index], "PORT_INFO_TABLE")
         grpc_client , fwd_state_response_tbl = {}, {}
-        rc = retry_setup_grpc_channel_for_port("Ethernet0", 0 , port_tbl, grpc_client, fwd_state_response_tbl )
+        rc = retry_setup_grpc_channel_for_port("Ethernet0", 0 , port_tbl, grpc_client)
         assert(rc == False)
 
     @patch('ycable.ycable_utilities.y_cable_helper.setup_grpc_channel_for_port', MagicMock(return_value=(True,True)))
@@ -6550,7 +6550,7 @@ class TestYCableScript(object):
         port_tbl[asic_index] = swsscommon.Table(
             test_db[asic_index], "PORT_INFO_TABLE")
         grpc_client , fwd_state_response_tbl = {}, {}
-        rc = retry_setup_grpc_channel_for_port("Ethernet0", 0, port_tbl, grpc_client, fwd_state_response_tbl)
+        rc = retry_setup_grpc_channel_for_port("Ethernet0", 0, port_tbl, grpc_client)
         assert(rc == True)
 
     @patch('ycable.ycable_utilities.y_cable_helper.setup_grpc_channel_for_port', MagicMock(return_value=(None,None)))
@@ -6568,7 +6568,7 @@ class TestYCableScript(object):
         port_tbl[asic_index] = swsscommon.Table(
             test_db[asic_index], "PORT_INFO_TABLE")
         grpc_client , fwd_state_response_tbl = {}, {}
-        rc = retry_setup_grpc_channel_for_port("Ethernet0", 0, port_tbl, grpc_client, fwd_state_response_tbl)
+        rc = retry_setup_grpc_channel_for_port("Ethernet0", 0, port_tbl, grpc_client)
         assert(rc == False)
 
     def test_process_loopback_interface_and_get_read_side_rc(self):
@@ -6619,7 +6619,7 @@ class TestYCableScript(object):
         mux_tbl[asic_index] = swsscommon.Table(
             test_db[asic_index], "MUX_INFO_TABLE")
 
-        rc = check_identifier_presence_and_setup_channel("Ethernet0", port_tbl, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, asic_index, read_side, mux_tbl, y_cable_presence, grpc_client, fwd_state_response_tbl)
+        rc = check_identifier_presence_and_setup_channel("Ethernet0", port_tbl, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, asic_index, read_side, mux_tbl, y_cable_presence, grpc_client)
 
         assert(rc == None)
 
@@ -6655,7 +6655,7 @@ class TestYCableScript(object):
         mux_tbl[asic_index] = swsscommon.Table(
             test_db[asic_index], "MUX_INFO_TABLE")
 
-        rc = check_identifier_presence_and_setup_channel("Ethernet0", port_tbl, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, asic_index, read_side, mux_tbl, y_cable_presence, grpc_client, fwd_state_response_tbl)
+        rc = check_identifier_presence_and_setup_channel("Ethernet0", port_tbl, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, asic_index, read_side, mux_tbl, y_cable_presence, grpc_client)
 
         assert(rc == None)
 
@@ -6692,7 +6692,7 @@ class TestYCableScript(object):
         mux_tbl[asic_index] = swsscommon.Table(
             test_db[asic_index], "MUX_INFO_TABLE")
 
-        rc = check_identifier_presence_and_setup_channel("Ethernet0", port_tbl, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, asic_index, read_side, mux_tbl, y_cable_presence, grpc_client, fwd_state_response_tbl)
+        rc = check_identifier_presence_and_setup_channel("Ethernet0", port_tbl, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, asic_index, read_side, mux_tbl, y_cable_presence, grpc_client)
         assert(rc == None)
 
 
@@ -6730,7 +6730,7 @@ class TestYCableScript(object):
         mux_tbl[asic_index] = swsscommon.Table(
             test_db[asic_index], "MUX_INFO_TABLE")
 
-        rc = check_identifier_presence_and_setup_channel("Ethernet0", port_tbl, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, asic_index, read_side, mux_tbl, y_cable_presence, grpc_client, fwd_state_response_tbl)
+        rc = check_identifier_presence_and_setup_channel("Ethernet0", port_tbl, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, asic_index, read_side, mux_tbl, y_cable_presence, grpc_client)
 
         assert(rc == None)
 
@@ -6754,7 +6754,7 @@ class TestYCableScript(object):
         with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
 
             patched_util.get_asic_id_for_logical_port.return_value = 0
-            (channel, stub) = setup_grpc_channel_for_port("Ethernet0", "192.168.0.1", asic_index, grpc_client, fwd_state_response_tbl, False)
+            (channel, stub) = setup_grpc_channel_for_port("Ethernet0", "192.168.0.1", asic_index, grpc_client, False)
 
         assert(stub == True)
         assert(channel != None)
@@ -6779,7 +6779,7 @@ class TestYCableScript(object):
         with patch('ycable.ycable_utilities.y_cable_helper.y_cable_platform_sfputil') as patched_util:
 
             patched_util.get_asic_id_for_logical_port.return_value = 0
-            (channel, stub) = setup_grpc_channel_for_port("Ethernet0", "192.168.0.1", asic_index, grpc_client, fwd_state_response_tbl, False)
+            (channel, stub) = setup_grpc_channel_for_port("Ethernet0", "192.168.0.1", asic_index, grpc_client, False)
 
         assert(stub == True)
         assert(channel != None)
@@ -6803,7 +6803,7 @@ class TestYCableScript(object):
             patched_util.logical.return_value = ['Ethernet0', 'Ethernet4']
             patched_util.get_asic_id_for_logical_port.return_value = 0
             loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, port_tbl, loopback_tbl, port_table_keys, grpc_client, fwd_state_response_tbl = {}, {}, {}, {}, {}, {}, {}, {}
-            rc = setup_grpc_channels(stop_event, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, port_tbl, loopback_tbl, port_table_keys, grpc_client, fwd_state_response_tbl)
+            rc = setup_grpc_channels(stop_event, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, port_tbl, loopback_tbl, port_table_keys, grpc_client)
 
             assert(rc == None)
 
@@ -7764,3 +7764,25 @@ class TestYcableScriptExecution(object):
         assert swsscommon.Select.select.call_count == 1
 
 
+    def test_ycable_wait_for_state_change(self):
+
+        channel_conn = grpc.ChannelConnectivity.TRANSIENT_FAILURE
+        port = 'Ethernet0'
+        rc = wait_for_state_change(channel_conn, port)
+
+        assert (rc == None)
+
+        channel_conn = grpc.ChannelConnectivity.CONNECTING
+        rc = wait_for_state_change(channel_conn, port)
+
+        assert (rc == None)
+
+        channel_conn = grpc.ChannelConnectivity.READY
+        rc = wait_for_state_change(channel_conn, port)
+
+        assert (rc == None)
+
+        channel_conn = grpc.ChannelConnectivity.SHUTDOWN
+        rc = wait_for_state_change(channel_conn, port)
+
+        assert (rc == None)

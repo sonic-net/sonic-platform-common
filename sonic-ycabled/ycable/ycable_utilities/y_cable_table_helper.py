@@ -3,10 +3,15 @@
     helper utlities configuring y_cable tables for ycabled daemon
 """
 
-
-from sonic_py_common import daemon_base
+import threading
+from sonic_py_common import daemon_base, logger
 from sonic_py_common import multi_asic
 from swsscommon import swsscommon
+
+
+SYSLOG_IDENTIFIER = "y_cable_table_helper"
+
+helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
 
 MUX_CABLE_STATIC_INFO_TABLE = "MUX_CABLE_STATIC_INFO"
 MUX_CABLE_INFO_TABLE = "MUX_CABLE_INFO"
@@ -529,6 +534,24 @@ class YcableAsyncNotificationTableHelper(object):
 
     def get_grpc_config_tbl(self):
         return self.grpc_config_tbl
+
+    def get_fwd_state_response_tbl(self):
+        return self.fwd_state_response_tbl
+
+class YcableChannelStateTableHelper(object):
+    def __init__(self):
+
+        self.appl_db = {}
+        self.fwd_state_response_tbl = {}
+
+        # Get the namespaces in the platform
+        namespaces = multi_asic.get_front_end_namespaces()
+        for namespace in namespaces:
+            asic_id = multi_asic.get_asic_index_from_namespace(namespace)
+            self.appl_db[asic_id] = daemon_base.db_connect("APPL_DB", namespace)
+            self.fwd_state_response_tbl[asic_id] = swsscommon.Table(
+                self.appl_db[asic_id], "FORWARDING_STATE_RESPONSE")
+        helper_logger.log_notice('created table instance from tid {}'.format(threading.currentThread().getName()))
 
     def get_fwd_state_response_tbl(self):
         return self.fwd_state_response_tbl

@@ -113,7 +113,7 @@ def handle_state_update_task(op, port, fvp_dict, y_cable_presence, port_tbl, por
         port_dict[port] = SFP_STATUS_REMOVED
 
     y_cable_helper.change_ports_status_for_y_cable_change_event(
-        port_dict, y_cable_presence, port_tbl, port_tbl_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, fwd_state_response_tbl, state_db, stopping_event)
+        port_dict, y_cable_presence, port_tbl, port_tbl_keys, loopback_tbl, loopback_keys, hw_mux_cable_tbl, hw_mux_cable_tbl_peer, y_cable_tbl, static_tbl, mux_tbl, grpc_client, state_db, stopping_event)
 
 #
 # Helper classes ===============================================================
