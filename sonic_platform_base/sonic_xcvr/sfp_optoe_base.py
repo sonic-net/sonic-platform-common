@@ -221,6 +221,9 @@ class SfpOptoeBase(SfpBase):
         api = self.get_xcvr_api()
         return api.set_lpmode(lpmode) if api is not None else None
 
+    def set_power(self, mode):
+        raise NotImplementedError
+
     def set_optoe_write_max(self, write_max):
         sys_path = self.get_eeprom_path()
         sys_path = sys_path.replace("eeprom", "write_max")
