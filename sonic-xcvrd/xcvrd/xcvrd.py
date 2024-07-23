@@ -318,6 +318,8 @@ def _wrapper_is_flat_memory(physical_port):
         try:
             sfp = platform_chassis.get_sfp(physical_port)
             api = sfp.get_xcvr_api()
+            if not api:
+                return True
             return api.is_flat_memory()
         except NotImplementedError:
             pass
