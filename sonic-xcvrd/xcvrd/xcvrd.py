@@ -821,7 +821,6 @@ class CmisManagerTask(threading.Thread):
         self.main_thread_stop_event = main_thread_stop_event
         self.port_dict = {}
         self.port_mapping = copy.deepcopy(port_mapping)
-        self.xcvr_table_helper = XcvrTableHelper(namespaces)
         self.isPortInitDone = False
         self.isPortConfigDone = False
         self.skip_cmis_mgr = skip_cmis_mgr

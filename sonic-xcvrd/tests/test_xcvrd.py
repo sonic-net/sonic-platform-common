@@ -204,6 +204,7 @@ class TestXcvrdThreadException(object):
         task.get_host_tx_status = MagicMock(return_value='true')
         task.get_port_admin_status = MagicMock(return_value='up')
         task.get_cfg_port_tbl = MagicMock()
+        task.xcvr_table_helper = XcvrTableHelper(DEFAULT_NAMESPACE)
         task.xcvr_table_helper.get_status_tbl.return_value = mock_get_status_tbl
         port_change_event = PortChangeEvent('Ethernet0', 1, 0, PortChangeEvent.PORT_SET,
                                             {'speed':'400000', 'lanes':'1,2,3,4,5,6,7,8'})
@@ -1460,6 +1461,7 @@ class TestXcvrdScript(object):
         port_change_event = PortChangeEvent('Ethernet0', 1, 0, PortChangeEvent.PORT_SET)
         task.on_port_update_event(port_change_event)
 
+        task.xcvr_table_helper = XcvrTableHelper(DEFAULT_NAMESPACE)
         task.xcvr_table_helper.get_status_tbl = MagicMock(return_value=None)
         task.update_port_transceiver_status_table_sw_cmis_state("Ethernet0", CMIS_STATE_INSERTED)
 
@@ -1505,6 +1507,7 @@ class TestXcvrdScript(object):
         cfg_port_tbl = MagicMock()
         cfg_port_tbl.get = MagicMock(return_value=(True, (('laser_freq', 193100),)))
         mock_table_helper.get_cfg_port_tbl = MagicMock(return_value=cfg_port_tbl)
+        task.xcvr_table_helper = XcvrTableHelper(DEFAULT_NAMESPACE)
         task.xcvr_table_helper.get_cfg_port_tbl = mock_table_helper.get_cfg_port_tbl
         assert task.get_configured_laser_freq_from_db('Ethernet0') == 193100
 
@@ -1516,6 +1519,7 @@ class TestXcvrdScript(object):
         cfg_port_tbl = MagicMock()
         cfg_port_tbl.get = MagicMock(return_value=(True, (('tx_power', -10),)))
         mock_table_helper.get_cfg_port_tbl = MagicMock(return_value=cfg_port_tbl)
+        task.xcvr_table_helper = XcvrTableHelper(DEFAULT_NAMESPACE)
         task.xcvr_table_helper.get_cfg_port_tbl = mock_table_helper.get_cfg_port_tbl
         assert task.get_configured_tx_power_from_db('Ethernet0') == -10
 
@@ -1690,6 +1694,7 @@ class TestXcvrdScript(object):
         host_lanes_mask = 0xff
 
         # Case: table does not exist
+        task.xcvr_table_helper = XcvrTableHelper(DEFAULT_NAMESPACE)
         task.xcvr_table_helper.get_intf_tbl = MagicMock(return_value=None)
         task.post_port_active_apsel_to_db(mock_xcvr_api, lport, host_lanes_mask)
         assert mock_field_value_pairs.call_count == 0
@@ -1747,6 +1752,7 @@ class TestXcvrdScript(object):
         port_mapping = PortMapping()
         stop_event = threading.Event()
         task = CmisManagerTask(DEFAULT_NAMESPACE, port_mapping, stop_event)
+        task.xcvr_table_helper = XcvrTableHelper(DEFAULT_NAMESPACE)
         task.xcvr_table_helper.get_intf_tbl = MagicMock(return_value=int_tbl)
 
         # case: partial lanes update
@@ -1893,6 +1899,7 @@ class TestXcvrdScript(object):
         stop_event = threading.Event()
         task = CmisManagerTask(DEFAULT_NAMESPACE, port_mapping, stop_event)
         task.port_mapping.logical_port_list = ['Ethernet0']
+        task.xcvr_table_helper = XcvrTableHelper(DEFAULT_NAMESPACE)
         task.xcvr_table_helper.get_status_tbl.return_value = mock_get_status_tbl
         task.task_stopping_event.is_set = MagicMock(side_effect=[False, False, True])
         task.task_worker()
@@ -1959,6 +1966,7 @@ class TestXcvrdScript(object):
         stop_event = threading.Event()
         task = CmisManagerTask(DEFAULT_NAMESPACE, port_mapping, stop_event)
         task.port_mapping.logical_port_list = ['Ethernet1']
+        task.xcvr_table_helper = XcvrTableHelper(DEFAULT_NAMESPACE)
         task.xcvr_table_helper.get_status_tbl.return_value = mock_get_status_tbl
         task.task_stopping_event.is_set = MagicMock(side_effect=[False, False, True])
         task.task_worker()
@@ -2095,6 +2103,7 @@ class TestXcvrdScript(object):
         stop_event = threading.Event()
         task = CmisManagerTask(DEFAULT_NAMESPACE, port_mapping, stop_event)
         task.port_mapping.logical_port_list = ['Ethernet0']
+        task.xcvr_table_helper = XcvrTableHelper(DEFAULT_NAMESPACE)
         task.xcvr_table_helper.get_status_tbl.return_value = mock_get_status_tbl
         task.task_stopping_event.is_set = MagicMock(side_effect=[False, False, True])
         task.task_worker()
@@ -2230,6 +2239,7 @@ class TestXcvrdScript(object):
         stop_event = threading.Event()
         task = CmisManagerTask(DEFAULT_NAMESPACE, port_mapping, stop_event)
         task.port_mapping.logical_port_list = ['Ethernet0']
+        task.xcvr_table_helper = XcvrTableHelper(DEFAULT_NAMESPACE)
         task.xcvr_table_helper.get_status_tbl.return_value = mock_get_status_tbl
         task.task_stopping_event.is_set = MagicMock(side_effect=[False, False, True])
         task.task_worker()
