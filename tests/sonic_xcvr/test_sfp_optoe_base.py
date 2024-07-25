@@ -113,3 +113,9 @@ class TestSfpOptoeBase(object):
         self.sfp_optoe_api.set_optoe_write_timeout(expected_timeout)
 
         mock_open.assert_called()
+
+    def test_set_power(self):
+        result = self.sfp_optoe_api.set_power()
+        assert result.exit_code == ERROR_NOT_IMPLEMENTED
+ 
+        
