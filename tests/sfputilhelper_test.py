@@ -147,9 +147,10 @@ class TestSfpUtilHelper(object):
         assert len(logical_port_list) == len(PORT_FILTERED_LIST)
 
     def test_set_power(self):
+        sfpbase = SfpBase()
         mode = 1
         try:
-            SfpBase.set_power(mode)
+            sfpbase.set_power(mode)
         except NotImplementedError:
             exception_raised = True
         assert exception_raised
