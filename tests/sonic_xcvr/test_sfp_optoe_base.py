@@ -115,7 +115,7 @@ class TestSfpOptoeBase(object):
         mock_open.assert_called()
 
     def test_set_power(self):
-        result = self.sfp_optoe_api.set_power()
+        mode = 1
+        result = self.sfp_optoe_api.set_power(mode)
         assert result.exit_code == ERROR_NOT_IMPLEMENTED
  
-        
