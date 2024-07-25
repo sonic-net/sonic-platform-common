@@ -116,6 +116,9 @@ class TestSfpOptoeBase(object):
 
     def test_set_power(self):
         mode = 1
-        result = self.sfp_optoe_api.set_power(mode)
-        assert result.exit_code == ERROR_NOT_IMPLEMENTED
+        try:
+            self.sfp_optoe_api.set_power(mode)
+        except NotImplementedError:
+            exception_raised = True
+        assert exception_raised
  
