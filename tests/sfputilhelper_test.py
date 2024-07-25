@@ -4,6 +4,7 @@ import sys
 import pytest
 
 from sonic_platform_base.sonic_sfp import sfputilhelper
+from sonic_platform_base.sfp_base import SfpBase
 from unittest import mock
 
 PORT_LIST = [
@@ -144,3 +145,12 @@ class TestSfpUtilHelper(object):
         logical_port_list = sfputil_helper.logical
 
         assert len(logical_port_list) == len(PORT_FILTERED_LIST)
+
+    def test_set_power(self):
+        sfpbase = SfpBase()
+        mode = 1
+        try:
+            sfpbase.set_power(mode)
+        except NotImplementedError:
+            exception_raised = True
+        assert exception_raised
