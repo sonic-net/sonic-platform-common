@@ -387,7 +387,7 @@ class SfpBase(device_base.DeviceBase):
 
     def set_power(self, mode):
         """
-        Sets the power of QSFP
+        Enables or Disables the power of QSFP
 
         Args:
             mode: A Boolean, True to enable power, False to disable it
