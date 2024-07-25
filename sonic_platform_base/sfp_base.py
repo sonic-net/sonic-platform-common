@@ -385,6 +385,18 @@ class SfpBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
+    def set_power(self, mode):
+        """
+        Enables or Disables the power of QSFP
+
+        Args:
+            mode: A Boolean, True to enable power, False to disable it
+
+        Returns:
+            A boolean, True if power is enabled or disbaled successfully, False if not
+        """
+        raise NotImplementedError
+
     def set_power_override(self, power_override, power_set):
         """
         Sets SFP power level using power_override and power_set
