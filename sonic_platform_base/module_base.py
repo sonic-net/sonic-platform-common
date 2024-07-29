@@ -170,11 +170,6 @@ class ModuleBase(device_base.DeviceBase):
             A string, the operational status of the module from one of the
             predefined status values: MODULE_STATUS_EMPTY, MODULE_STATUS_OFFLINE,
             MODULE_STATUS_FAULT, MODULE_STATUS_PRESENT or MODULE_STATUS_ONLINE
-            The SmartSwitch platforms will have these additional status
-            MODULE_STATUS_MIDPLANE_OFFLINE, MODULE_STATUS_MIDPLANE_ONLINE,
-            MODULE_STATUS_CONTROLPLANE_OFFLINE, MODULE_STATUS_CONTROLPLANE_ONLINE,
-            MODULE_STATUS_CONTROLPLANE_PARTIAL_ONLINE, MODULE_STATUS_DATAPLANE_OFFLINE,
-            MODULE_STATUS_DATAPLANE_ONLINE, MODULE_STATUS_DATAPLANE_PARTIAL_ONLINE
         """
         raise NotImplementedError
 
@@ -254,6 +249,19 @@ class ModuleBase(device_base.DeviceBase):
         Returns:
             An object instance of the DPU_STATE (see DB schema)
             Returns None on switch module
+
+        Sample Output: {
+            'dpu_control_plane_reason': 'All containers are up and running, host-ethlink-status: Uplink1/1 is UP',
+            'dpu_control_plane_state': 'UP',
+            'dpu_control_plane_time': '20240626 21:13:25',
+            'dpu_data_plane_reason': 'DPU container named polaris is running, pdsagent running : OK, pciemgrd running : OK',
+            'dpu_data_plane_state': 'UP',
+            'dpu_data_plane_time': '20240626 21:10:07',
+            'dpu_midplane_link_reason': 'INTERNAL-MGMT : admin state - UP, oper_state - UP, status - OK, HOST-MGMT : admin state - UP, oper_state - UP, status - OK',
+            'dpu_midplane_link_state': 'UP',
+            'dpu_midplane_link_time': '20240626 21:13:25',
+            'id': '0'
+            }
         """
         raise NotImplementedError
 
