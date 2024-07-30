@@ -313,10 +313,13 @@ class ChassisBase(device_base.DeviceBase):
         index: An integer, the index of the module to retrieve
 
         Returns:
-            A string giving the NPU-DPU port association:
-            Ex: For index: 1 will return the dpu0 port association which is
-            "Ethernet192: Ethernet0" where the string left of ":" (Ethernet192)
-            is the NPU port and the string right of ":" (Ethernet0) is the DPU port
+            A dictionary giving the NPU-DPU port association:
+            Ex: When queried for DPU0 it will return
+            {
+                "interface": {"Ethernet224": "Ethernet0"}
+            }
+            where "Ethernet192: is the NPU port and the string
+            right of ":" (Ethernet0) is the DPU port
         """
         raise NotImplementedError
 
