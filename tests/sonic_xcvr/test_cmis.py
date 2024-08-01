@@ -1375,6 +1375,7 @@ class TestCmis(object):
                     'Errored Frames Maximum Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
                     'Errored Frames Average Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
                     'Errored Frames Current Value Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
+                    'Pre-FEC BER Current Value Host Input':{1: [2.66e-09, 1e-05, 0.0, 1e-06, 0.0, False, False, False, False], 2: [1.0, 1e-05, 0.0, 1e-06, 0.0, False, False, False, False], 3: [1.0, 1e-05, 0.0, 1e-06, 0.0, False, False, False, False], 4: [1.0, 1e-05, 0.0, 1e-06, 0.0, False, False, False, False]},
                 }
             ],
             {
@@ -1387,11 +1388,15 @@ class TestCmis(object):
                 'tx1bias': 70, 'tx2bias': 70, 'tx3bias': 70, 'tx4bias': 70,
                 'tx5bias': 70, 'tx6bias': 70, 'tx7bias': 70, 'tx8bias': 70,
                 'laser_temperature': 40,
-                'prefec_ber': 0.001,
-                'postfec_ber_min': 0,
-                'postfec_ber_max': 0,
-                'postfec_ber_avg': 0,
-                'postfec_curr_val': 0,
+                'prefec_ber_avg_media_input1': 0.001,
+                'errored_frames_min_media_input1': 0,
+                'errored_frames_max_media_input1': 0,
+                'errored_frames_avg_media_input1': 0,
+                'errored_frames_curr_media_input1': 0,
+                'prefec_ber_curr_host_input1': 2.66e-09,
+                'prefec_ber_curr_host_input2': 1.0,
+                'prefec_ber_curr_host_input3': 1.0,
+                'prefec_ber_curr_host_input4': 1.0
             }
         ),
         (
