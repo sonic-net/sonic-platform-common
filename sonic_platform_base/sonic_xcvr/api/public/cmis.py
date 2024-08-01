@@ -1115,15 +1115,18 @@ class CmisApi(XcvrApi):
         loopback_capability['media_side_output_loopback_supported'] = bool((allowed_loopback_result >> 0) & 0x1)
         return loopback_capability
 
-    def set_loopback_mode(self, loopback_mode):
+    def set_loopback_mode(self, loopback_mode, lane_mask = 0xff):
         '''
         This function sets the module loopback mode.
-        Loopback mode has to be one of the five:
+        loopback_mode: Loopback mode has to be one of the five:
         1. "none" (default)
         2. "host-side-input"
         3. "host-side-output"
         4. "media-side-input"
         5. "media-side-output"
+        lane_mask: A bitmask representing which lanes to apply the loopback mode to.
+        The default value of 0xFF indicates that the mode should be applied to all lanes.
+
         The function will look at 13h:128 to check advertized loopback capabilities.
         Return True if the provision succeeds, False if it fails
         '''
@@ -1138,22 +1141,22 @@ class CmisApi(XcvrApi):
             return all([status_host_input, status_host_output, status_media_input, status_media_output])
         elif loopback_mode == 'host-side-input':
             if loopback_capability['host_side_input_loopback_supported']:
-                return self.xcvr_eeprom.write(consts.HOST_INPUT_LOOPBACK, 0xff)
+                return self.xcvr_eeprom.write(consts.HOST_INPUT_LOOPBACK, lane_mask)
             else:
                 return False
         elif loopback_mode == 'host-side-output':
             if loopback_capability['host_side_output_loopback_supported']:
-                return self.xcvr_eeprom.write(consts.HOST_OUTPUT_LOOPBACK, 0xff)
+                return self.xcvr_eeprom.write(consts.HOST_OUTPUT_LOOPBACK, lane_mask)
             else:
                 return False
         elif loopback_mode == 'media-side-input':
             if loopback_capability['media_side_input_loopback_supported']:
-                return self.xcvr_eeprom.write(consts.MEDIA_INPUT_LOOPBACK, 0xff)
+                return self.xcvr_eeprom.write(consts.MEDIA_INPUT_LOOPBACK, lane_mask)
             else:
                 return False
         elif loopback_mode == 'media-side-output':
             if loopback_capability['media_side_output_loopback_supported']:
-                return self.xcvr_eeprom.write(consts.MEDIA_OUTPUT_LOOPBACK, 0xff)
+                return self.xcvr_eeprom.write(consts.MEDIA_OUTPUT_LOOPBACK, lane_mask)
             else:
                 return False
         else:
