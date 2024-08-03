@@ -1240,7 +1240,7 @@ class CmisApi(XcvrApi):
         """
         txt = ''
         if self.cdb is None:
-            return {'status': False, 'info': "CDB Not supported", 'result': None}
+            return {'status': False, 'info': "CDB Not supported", 'feature': None}
 
         # get fw upgrade features (CMD 0041h)
         starttime = time.time()
@@ -1252,8 +1252,11 @@ class CmisApi(XcvrApi):
         writelength = (writelength_raw + 1) * 8
         txt += 'Auto page support: %s\n' %autopaging_flag
         txt += 'Max write length: %d\n' %writelength
-        rpllen, rpl_chkcode, rpl = self.cdb.get_fw_management_features()
-        if self.cdb.cdb_chkcode(rpl) == rpl_chkcode:
+        result = self.cdb.get_fw_management_features()
+        status = result['status']
+        _, rpl_chkcode, rpl = result['rpl']
+
+        if status == 1 and self.cdb.cdb_chkcode(rpl) == rpl_chkcode:
             startLPLsize = rpl[2]
             txt += 'Start payload size %d\n' % startLPLsize
             maxblocksize = (rpl[4] + 1) * 8
@@ -1277,7 +1280,7 @@ class CmisApi(XcvrApi):
 
         else:
             txt += 'Reply payload check code error\n'
-            return {'status': False, 'info': txt, 'result': None}
+            return {'status': False, 'info': txt, 'feature': None}
         elapsedtime = time.time()-starttime
         logger.info('Get module FW upgrade features time: %.2f s\n' %elapsedtime)
         logger.info(txt)
@@ -1297,20 +1300,25 @@ class CmisApi(XcvrApi):
             return {'status': False, 'info': "CDB Not supported", 'result': None}
 
         # get fw info (CMD 0100h)
-        rpllen, rpl_chkcode, rpl = self.cdb.get_fw_info()
+        result = self.cdb.get_fw_info()
+        status = result['status']
+        rpllen, rpl_chkcode, rpl = result['rpl']
+
         # Interface NACK or timeout
         if (rpllen is None) or (rpl_chkcode is None):
             return {'status': False, 'info': "Interface fail", 'result': 0} # Return result 0 for distinguishing CDB is maybe in busy or failure.
 
         # password issue
-        if self.cdb.cdb_chkcode(rpl) != rpl_chkcode:
+        if status == 0x46:
             string = 'Get module FW info: Need to enter password\n'
             logger.info(string)
             # Reset password for module using CMIS 4.0
             self.cdb.module_enter_password(0)
-            rpllen, rpl_chkcode, rpl = self.cdb.get_fw_info()
+            result = self.cdb.get_fw_info()
+            status = result['status']
+            rpllen, rpl_chkcode, rpl = result['rpl']
 
-        if self.cdb.cdb_chkcode(rpl) == rpl_chkcode:
+        if status == 1 and self.cdb.cdb_chkcode(rpl) == rpl_chkcode:
             # Regiter 9Fh:136
             fwStatus = rpl[0]
             ImageARunning = (fwStatus & 0x01) # bit 0 - image A is running
@@ -1603,7 +1611,7 @@ class CmisApi(XcvrApi):
             return result['status'], result['info']
         result = self.get_module_fw_mgmt_feature()
         try:
-            startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength = result['result']
+            startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength = result['feature']
         except (ValueError, TypeError):
             return result['status'], result['info']
         download_status, txt = self.module_fw_download(startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength, imagepath)

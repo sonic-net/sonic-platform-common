@@ -1171,14 +1171,15 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ((128, 1, [0] * 128),  {'status': True, 'info': "", 'result': 0}),
-        ((None, 1, [0] * 128),  {'status': False, 'info': "", 'result': 0}),
-        ((128, None, [0] * 128),  {'status': False, 'info': "", 'result': 0}),
-        ((128, 0, [0] * 128),  {'status': False, 'info': "", 'result': None}),
-        ((128, 1, [67, 3, 2, 2, 3, 183] + [0] * 104),  {'status': True, 'info': "", 'result': None}),
-        ((128, 1, [52, 3, 2, 2, 3, 183] + [0] * 104),  {'status': True, 'info': "", 'result': None}),
-        ((110, 1, [3, 3, 2, 2, 3, 183] + [0] * 104),  {'status': True, 'info': "", 'result': None}),
-        ((110, 1, [48, 3, 2, 2, 3, 183] + [0] * 104),  {'status': True, 'info': "", 'result': None}),
+        ({'status':1, 'rpl':(128, 1, [0] * 128)}, {'status': True, 'info': "", 'result': 0}),
+        ({'status':1, 'rpl':(None, 1, [0] * 128)}, {'status': False, 'info': "", 'result': 0}),
+        ({'status':1, 'rpl':(128, None, [0] * 128)}, {'status': False, 'info': "", 'result': 0}),
+        ({'status':1, 'rpl':(128, 0, [0] * 128)}, {'status': False, 'info': "", 'result': None}),
+        ({'status':1, 'rpl':(128, 1, [67, 3, 2, 2, 3, 183] + [0] * 104)}, {'status': True, 'info': "", 'result': None}),
+        ({'status':1, 'rpl':(128, 1, [52, 3, 2, 2, 3, 183] + [0] * 104)}, {'status': True, 'info': "", 'result': None}),
+        ({'status':1, 'rpl':(110, 1, [3, 3, 2, 2, 3, 183] + [0] * 104)}, {'status': True, 'info': "", 'result': None}),
+        ({'status':1, 'rpl':(110, 1, [48, 3, 2, 2, 3, 183] + [0] * 104)}, {'status': True, 'info': "", 'result': None}),
+        ({'status':0x46, 'rpl':(128, 0, [0] * 128)}, {'status': False, 'info': "", 'result': None}),
     ])
     def test_get_module_fw_info(self, mock_response, expected):
         self.api.cdb = MagicMock()
@@ -1194,6 +1195,21 @@ class TestCmis(object):
         if result['status'] == False: # Check 'result' when 'status' == False for distinguishing error type.
             assert result['result'] == expected['result']
         assert result['status'] == expected['status']
+
+    @pytest.mark.parametrize("mock_response, expected", [
+        ({'status':0, 'rpl':(18, 0, [0] * 18)}, {'status': False, 'info': "", 'feature': None}),
+        ({'status':1, 'rpl':(18, 1, [0] * 18)}, {'status': True,  'info': "", 'feature': (0, 8, False, True, 16)})
+    ])
+    def test_get_module_fw_mgmt_feature(self, mock_response, expected):
+        self.api.cdb = MagicMock()
+        self.api.cdb.cdb_chkcode = MagicMock()
+        self.api.cdb.cdb_chkcode.return_value = 1
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.side_effect = [1, 1]
+        self.api.cdb.get_fw_management_features = MagicMock()
+        self.api.cdb.get_fw_management_features.return_value = mock_response
+        result = self.api.get_module_fw_mgmt_feature()
+        assert result['feature'] == expected['feature']
 
     @pytest.mark.parametrize("input_param, mock_response, expected", [
         (1, 1,  (True, 'Module FW run: Success\n')),
@@ -1220,22 +1236,22 @@ class TestCmis(object):
     @pytest.mark.parametrize("input_param, mock_response, expected", [
         (
             'abc',
-            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0, 'a', 'b')}, {'status': True, 'info': '', 'result': (112, 2048, True, True, 2048)}, (True, ''), (True, '')],
+            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0, 'a', 'b')}, {'status': True, 'info': '', 'feature': (112, 2048, True, True, 2048)}, (True, ''), (True, '')],
             (True, '')
         ),
         (
             'abc',
-            [{'status': False, 'info': '', 'result': None}, {'status': True, 'info': '', 'result': (112, 2048, True, True, 2048)}, (True, ''), (True, '')],
+            [{'status': False, 'info': '', 'result': None}, {'status': True, 'info': '', 'feature': (112, 2048, True, True, 2048)}, (True, ''), (True, '')],
             (False, '')
         ),
         (
             'abc',
-            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0, 'a', 'b')}, {'status': False, 'info': '', 'result': None}, (True, ''), (True, '')],
+            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0, 'a', 'b')}, {'status': False, 'info': '', 'feature': None}, (True, ''), (True, '')],
             (False, '')
         ),
         (
             'abc',
-            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0, 'a', 'b')}, {'status': True, 'info': '', 'result': (112, 2048, True, True, 2048)}, (False, ''), (True, '')],
+            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0, 'a', 'b')}, {'status': True, 'info': '', 'feature': (112, 2048, True, True, 2048)}, (False, ''), (True, '')],
             (False, '')
         ),
     ])
