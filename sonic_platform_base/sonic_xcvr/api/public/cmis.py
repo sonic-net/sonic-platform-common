@@ -1279,7 +1279,9 @@ class CmisApi(XcvrApi):
                 txt += 'Read to LPL/EPL {:#x}\n'.format(rpl[6])
 
         else:
-            txt += 'Reply payload check code error\n'
+            txt += 'Status or reply payload check code error\n'
+            logger.info(txt)
+            logger.info('Fail to get fw mgnt feature, cdb status: 0x{}\n'.format(status))
             return {'status': False, 'info': txt, 'feature': None}
         elapsedtime = time.time()-starttime
         logger.info('Get module FW upgrade features time: %.2f s\n' %elapsedtime)
