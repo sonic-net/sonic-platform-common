@@ -289,8 +289,8 @@ class ChassisBase(device_base.DeviceBase):
         Returns None for non-smartswitch chassis.
 
         Returns:
-            An integer, indicating the DPU ID Ex: name:DPU0 return value 1,
-            name:DPU1 return value 2, name:DPUX return value X+1
+            An integer, indicating the DPU ID Ex: name:DPU0 return value 0,
+            name:DPU1 return value 1, name:DPUX return value X
         """
         raise NotImplementedError
 

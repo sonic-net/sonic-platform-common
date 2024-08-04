@@ -223,7 +223,7 @@ class ModuleBase(device_base.DeviceBase):
         Retrieves the DPU ID. Returns None for non-smartswitch chassis.
 
         Returns:
-            An integer, indicating the DPU ID. DPU0 returns 1, DPUX returns X+1
+            An integer, indicating the DPU ID. DPU0 returns 0, DPUX returns X
         """
         raise NotImplementedError
 
