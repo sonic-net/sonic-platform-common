@@ -8,7 +8,6 @@ class TestModuleBase:
                 [module.get_dpu_id],
                 [module.get_reboot_cause],
                 [module.get_state_info],
-                [module.get_health_info],
             ]
 
         for method in not_implemented_methods:
