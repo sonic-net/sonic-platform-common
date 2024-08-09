@@ -224,6 +224,7 @@ class ModuleBase(device_base.DeviceBase):
 
         Returns:
             An integer, indicating the DPU ID. DPU0 returns 0, DPUX returns X
+            DPU ID can be greater than or equal to 0.
         """
         raise NotImplementedError
 
@@ -302,7 +303,7 @@ class ModuleBase(device_base.DeviceBase):
             index: An integer, the index (0-based) of the component to retrieve
 
         Returns:
-            An object dervied from ComponentBase representing the specified component
+            An object derived from ComponentBase representing the specified component
         """
         component = None
 
@@ -616,8 +617,9 @@ class ModuleBase(device_base.DeviceBase):
         line-card and return the midplane IP-address of the line-card.
         When called from the line-card, the module will represent the
         Supervisor and return its midplane IP-address.
-        When called from the DPU, returns the midplane IP-address of the dpu-card.
-        When called from the Switch returns the midplane IP-address of Switch.
+
+        When called from the SmartSwitch returns the midplane IP-address of
+        the DPU module.
 
         Returns:
             A string, the IP-address of the module reachable over the midplane

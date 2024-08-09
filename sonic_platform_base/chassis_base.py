@@ -244,8 +244,7 @@ class ChassisBase(device_base.DeviceBase):
     def get_module(self, index):
         """
         Retrieves module represented by (0-based) index <index>
-        On a SmartSwitch index:0 is not used, index:1 will fetch
-        DPU0 and so on
+        On a SmartSwitch index:0 will fetch DPU0 and so on
 
         Args:
             index: An integer, the index (0-based) of the module to
@@ -306,7 +305,7 @@ class ChassisBase(device_base.DeviceBase):
     def get_module_dpu_data_port(self, index):
         """
         Retrieves the DPU data port NPU-DPU association represented for
-        the DPU index. Platforms that need to overwrite the platform.json
+        the DPU index. Platforms that need to overwrite the hwsku.json
         file will use this API. This is valid only on the Switch and not on DPUs
 
         Args:
@@ -318,7 +317,7 @@ class ChassisBase(device_base.DeviceBase):
             {
                 "interface": {"Ethernet224": "Ethernet0"}
             }
-            where "Ethernet192: is the NPU port and the string
+            where "Ethernet224: is the NPU port and the string
             right of ":" (Ethernet0) is the DPU port
         """
         raise NotImplementedError
