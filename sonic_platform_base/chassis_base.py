@@ -151,9 +151,7 @@ class ChassisBase(device_base.DeviceBase):
             A bool value, should return False by default or for fixed-platforms.
             Should return True for supervisor-cards, line-cards etc running as part
             of modular-chassis.
-            For SmartSwitch platforms this should return True even if they are
-            fixed-platforms, as they are treated like a modular chassis as the
-            DPU cards are treated like line-cards of a modular-chassis.
+            For SmartSwitch this should return False.
         """
         return False
 
