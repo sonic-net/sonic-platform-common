@@ -1280,8 +1280,8 @@ class CmisApi(XcvrApi):
 
         else:
             txt += 'Status or reply payload check code error\n'
-            logger.info(txt)
-            logger.info('Fail to get fw mgmt feature, cdb status: {:#x}, cdb_chkcode: {:#x}, rpl_chkcode: {:#x}\n'.format(status, self.cdb.cdb_chkcode(rpl), rpl_chkcode))
+            logger.error(txt)
+            logger.error('Fail to get fw mgmt feature, cdb status: {:#x}, cdb_chkcode: {:#x}, rpl_chkcode: {:#x}\n'.format(status, self.cdb.cdb_chkcode(rpl), rpl_chkcode))
             return {'status': False, 'info': txt, 'feature': None}
         elapsedtime = time.time()-starttime
         logger.info('Get module FW upgrade features time: %.2f s\n' %elapsedtime)
