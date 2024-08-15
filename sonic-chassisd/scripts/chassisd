@@ -315,18 +315,19 @@ class ModuleUpdater(logger.Logger):
                         # identifying module operational status change. But the clean up will not be attempted for supervisor
 
                         if down_module_key not in self.down_modules:
-                            self.log_warning("Module {} went off-line!".format(key))
+                            self.log_warning("Module {} (Slot {}) went off-line!".format(key, module_info_dict[CHASSIS_MODULE_INFO_SLOT_FIELD]))
                             self.down_modules[down_module_key] = {}
                             self.down_modules[down_module_key]['down_time'] = time.time()
                             self.down_modules[down_module_key]['cleaned'] = False
+                            self.down_modules[down_module_key]['slot'] = module_info_dict[CHASSIS_MODULE_INFO_SLOT_FIELD]
                     continue
                 else:
                     # Module is operational. Remove it from down time tracking.
                     if down_module_key in self.down_modules:
-                        self.log_notice("Module {} recovered on-line!".format(key))
+                        self.log_notice("Module {} (Slot {}) recovered on-line!".format(key, module_info_dict[CHASSIS_MODULE_INFO_SLOT_FIELD]))
                         del self.down_modules[down_module_key]
                     elif prev_status != ModuleBase.MODULE_STATUS_ONLINE:
-                        self.log_notice("Module {} is on-line!".format(key))
+                        self.log_notice("Module {} (Slot {}) is on-line!".format(key, module_info_dict[CHASSIS_MODULE_INFO_SLOT_FIELD] ))
 
                     module_cfg_status = self.get_module_admin_status(key)
 
@@ -452,17 +453,17 @@ class ModuleUpdater(logger.Logger):
             if midplane_access is False and current_midplane_state == 'True':
                 if self.is_module_reboot_expected(module_key):
                     self.module_reboot_set_time(module_key)
-                    self.log_warning("Expected: Module {} lost midplane connectivity".format(module_key))
+                    self.log_warning("Expected: Module {} (Slot {}) lost midplane connectivity".format(module_key, module.get_slot()))
                 else:
-                    self.log_warning("Unexpected: Module {} lost midplane connectivity".format(module_key))
+                    self.log_warning("Unexpected: Module {} (Slot {}) lost midplane connectivity".format(module_key, module.get_slot()))
             elif midplane_access is True and current_midplane_state == 'False':
-                self.log_notice("Module {} midplane connectivity is up".format(module_key))
+                self.log_notice("Module {} (Slot {}) midplane connectivity is up".format(module_key, module.get_slot()))
                 # clean up the reboot_info_table
                 if self.module_reboot_table.get(module_key) is not None:
                     self.module_reboot_table._del(module_key)
             elif midplane_access is False and current_midplane_state == 'False':
                 if self.is_module_reboot_system_up_expired(module_key):
-                    self.log_warning("Unexpected: Module {} midplane connectivity is not restored in {} seconds".format(module_key, self.linecard_reboot_timeout))
+                    self.log_warning("Unexpected: Module {} (Slot {}) midplane connectivity is not restored in {} seconds".format(module_key, module.get_slot(), self.linecard_reboot_timeout))
                     
             # Update db with midplane information
             fvs = swsscommon.FieldValuePairs([(CHASSIS_MIDPLANE_INFO_IP_FIELD, midplane_ip),
@@ -549,11 +550,12 @@ class ModuleUpdater(logger.Logger):
         for module in self.down_modules:
             if self.down_modules[module]['cleaned'] == False:
                 down_time = self.down_modules[module]['down_time']
+                slot = self.down_modules[module]['slot']
                 delta = (time_now - down_time) / 60
                 if delta >= CHASSIS_DB_CLEANUP_MODULE_DOWN_PERIOD:
                     if module.startswith(ModuleBase.MODULE_TYPE_LINE):
                         # Module is down for more than 30 minutes. Do the chassis clean up
-                        self.log_notice("Module {} is down for long time. Initiating chassis app db clean up".format(module))
+                        self.log_notice("Module {} (Slot {}) is down for long time. Initiating chassis app db clean up".format(module, slot))
                         self._cleanup_chassis_app_db(module)
                     self.down_modules[module]['cleaned'] = True
 
