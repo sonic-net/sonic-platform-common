@@ -23,7 +23,6 @@ class TestChassisBase:
                 [chassis.get_uid_led],
                 [chassis.set_uid_led, "COLOR"],
                 [chassis.get_dpu_id, "DPU0"],
-                [chassis.get_module_dpu_data_port, 0],
             ]
 
         for method in not_implemented_methods:
