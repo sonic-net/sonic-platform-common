@@ -21,6 +21,7 @@ class ModuleBase(device_base.DeviceBase):
     MODULE_TYPE_SUPERVISOR = "SUPERVISOR"
     MODULE_TYPE_LINE    = "LINE-CARD"
     MODULE_TYPE_FABRIC  = "FABRIC-CARD"
+    MODULE_TYPE_DPU  = "DPU"
 
     # Possible card status for modular chassis
     # Module state is Empty if no module is inserted in the slot
@@ -104,15 +105,17 @@ class ModuleBase(device_base.DeviceBase):
     def get_name(self):
         """
         Retrieves the name of the module prefixed by SUPERVISOR, LINE-CARD,
-        FABRIC-CARD
+        FABRIC-CARD, DPU0, DPUX
 
         Returns:
             A string, the module name prefixed by one of MODULE_TYPE_SUPERVISOR,
-            MODULE_TYPE_LINE or MODULE_TYPE_FABRIC and followed by a 0-based index
+            MODULE_TYPE_LINE or MODULE_TYPE_FABRIC or MODULE_TYPE_DPU and followed
+            by a 0-based index.
 
             Ex. A Chassis having 1 supervisor, 4 line-cards and 6 fabric-cards
             can provide names SUPERVISOR0, LINE-CARD0 to LINE-CARD3,
-            FABRIC-CARD0 to FABRIC-CARD5
+            FABRIC-CARD0 to FABRIC-CARD5.
+            A SmartSwitch having 4 DPUs names DPU0 to DPU3
         """
         raise NotImplementedError
 
@@ -141,6 +144,7 @@ class ModuleBase(device_base.DeviceBase):
         Returns:
             A string, the module-type from one of the predefined types:
             MODULE_TYPE_SUPERVISOR, MODULE_TYPE_LINE or MODULE_TYPE_FABRIC
+            or MODULE_TYPE_DPU
         """
         raise NotImplementedError
 
@@ -175,7 +179,7 @@ class ModuleBase(device_base.DeviceBase):
         The down state will power down the module and the status should show
         MODULE_STATUS_OFFLINE.
         The up state will take the module to MODULE_STATUS_FAULT or
-        MODULE_STAUS_ONLINE states.
+        MODULE_STATUS_ONLINE states.
 
         Args:
             up: A boolean, True to set the admin-state to UP. False to set the
@@ -193,6 +197,64 @@ class ModuleBase(device_base.DeviceBase):
         Returns:
             A float, with value of the maximum consumable power of the
             module.
+        """
+        raise NotImplementedError
+
+    ##############################################
+    # SmartSwitch methods
+    ##############################################
+
+    def get_dpu_id(self):
+        """
+        Retrieves the DPU ID. Returns None for non-smartswitch chassis.
+
+        Returns:
+            An integer, indicating the DPU ID. DPU0 returns 0, DPUX returns X
+            DPU ID can be greater than or equal to 0.
+        """
+        raise NotImplementedError
+
+    def get_reboot_cause(self):
+        """
+        Retrieves the cause of the previous reboot of the DPU module
+
+        Returns:
+            A tuple (string, string) where the first element is a string
+            containing the cause of the previous reboot. This string must
+            be one of the predefined strings in this class. If the first
+            string is "REBOOT_CAUSE_HARDWARE_OTHER", the second string can be
+            used to pass a description of the reboot cause.
+
+        """
+        raise NotImplementedError
+
+    def get_state_info(self):
+        """
+        Retrieves the dpu state object having the detailed dpu state progression.
+        Fetched from ChassisStateDB.
+
+        Returns:
+            An object instance of the DPU_STATE (see DB schema)
+            Returns None on switch module
+
+        Sample Output:
+        {
+            'dpu_control_plane': {
+                'state': 'UP',
+                'time': '20240626 21:13:25',
+                'reason': 'All containers are up and running, host-ethlink-status: Uplink1/1 is UP'
+            },
+            'dpu_data_plane': {
+                'state': 'UP',
+                'time': '20240626 21:13:25',
+                'reason': 'DPU container named polaris is running, pciemgrd running : OK'
+            },
+            'dpu_midplane_link': {
+                'state': 'UP',
+                'time': '20240626 21:13:25',
+                'reason': 'INTERNAL-MGMT : admin state - UP, oper_state - UP, status - OK'
+            }
+        }
         """
         raise NotImplementedError
 
@@ -227,7 +289,7 @@ class ModuleBase(device_base.DeviceBase):
             index: An integer, the index (0-based) of the component to retrieve
 
         Returns:
-            An object dervied from ComponentBase representing the specified component
+            An object derived from ComponentBase representing the specified component
         """
         component = None
 
@@ -541,6 +603,9 @@ class ModuleBase(device_base.DeviceBase):
         line-card and return the midplane IP-address of the line-card.
         When called from the line-card, the module will represent the
         Supervisor and return its midplane IP-address.
+
+        When called from the SmartSwitch returns the midplane IP-address of
+        the DPU module.
 
         Returns:
             A string, the IP-address of the module reachable over the midplane

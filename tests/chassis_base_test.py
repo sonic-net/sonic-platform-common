@@ -22,6 +22,7 @@ class TestChassisBase:
         not_implemented_methods = [
                 [chassis.get_uid_led],
                 [chassis.set_uid_led, "COLOR"],
+                [chassis.get_dpu_id, "DPU0"],
             ]
 
         for method in not_implemented_methods:
@@ -34,6 +35,10 @@ class TestChassisBase:
                 exception_raised = True
 
             assert exception_raised
+
+    def test_smartswitch(self):
+        chassis = ChassisBase()
+        assert(chassis.is_smartswitch() == False)
 
     def test_sensors(self):
         chassis = ChassisBase()

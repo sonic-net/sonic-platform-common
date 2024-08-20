@@ -151,6 +151,7 @@ class ChassisBase(device_base.DeviceBase):
             A bool value, should return False by default or for fixed-platforms.
             Should return True for supervisor-cards, line-cards etc running as part
             of modular-chassis.
+            For SmartSwitch this should return False.
         """
         return False
 
@@ -218,32 +219,37 @@ class ChassisBase(device_base.DeviceBase):
     def get_num_modules(self):
         """
         Retrieves the number of modules available on this chassis
+        On a SmarSwitch chassis this will be the number of DPUs.
 
         Returns:
-            An integer, the number of modules available on this chassis
+            An integer, the number of modules available on this chassis.
+            On a SmartSwitch this will be the number of DPUs
         """
         return len(self._module_list)
 
     def get_all_modules(self):
         """
-        Retrieves all modules available on this chassis
+        Retrieves all modules available on this chassis. On a SmartSwitch
+        chassis this will return all the DPUs.
 
         Returns:
             A list of objects derived from ModuleBase representing all
-            modules available on this chassis
+            modules available on this chassis. On a SmartSwitch this 
+            will be a list of DPU objects.
         """
         return self._module_list
 
     def get_module(self, index):
         """
         Retrieves module represented by (0-based) index <index>
+        On a SmartSwitch index:0 will fetch DPU0 and so on
 
         Args:
             index: An integer, the index (0-based) of the module to
             retrieve
 
         Returns:
-            An object dervied from ModuleBase representing the specified
+            An object derived from ModuleBase representing the specified
             module
         """
         module = None
@@ -263,11 +269,36 @@ class ChassisBase(device_base.DeviceBase):
         Args:
             module_name: A string, prefixed by SUPERVISOR, LINE-CARD or FABRIC-CARD
             Ex. SUPERVISOR0, LINE-CARD1, FABRIC-CARD5
+            SmartSwitch Example: DPU0, DPU1, DPU2 ... DPUX
 
         Returns:
             An integer, the index of the ModuleBase object in the module_list
         """
         raise NotImplementedError
+
+    ##############################################
+    # SmartSwitch methods
+    ##############################################
+
+    def get_dpu_id(self, name):
+        """
+        Retrieves the DPU ID for the given dpu-module name.
+        Returns None for non-smartswitch chassis.
+
+        Returns:
+            An integer, indicating the DPU ID Ex: name:DPU0 return value 0,
+            name:DPU1 return value 1, name:DPUX return value X
+        """
+        raise NotImplementedError
+
+    def is_smartswitch(self):
+        """
+        Retrieves whether the sonic instance is part of smartswitch
+
+        Returns:
+            Returns:True for SmartSwitch and False for other platforms
+        """
+        return False
 
     ##############################################
     # Fan methods
