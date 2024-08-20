@@ -298,27 +298,7 @@ class ChassisBase(device_base.DeviceBase):
         Returns:
             Returns:True for SmartSwitch and False for other platforms
         """
-        return False 
-
-    def get_module_dpu_data_port(self, index):
-        """
-        Retrieves the DPU data port NPU-DPU association represented for
-        the DPU index. Platforms that need to overwrite the hwsku.json
-        file will use this API. This is valid only on the Switch and not on DPUs
-
-        Args:
-        index: An integer, the index of the module to retrieve
-
-        Returns:
-            A dictionary giving the NPU-DPU port association:
-            Ex: When queried for DPU0 it will return
-            {
-                "interface": {"Ethernet224": "Ethernet0"}
-            }
-            where "Ethernet224: is the NPU port and the string
-            right of ":" (Ethernet0) is the DPU port
-        """
-        raise NotImplementedError
+        return False
 
     ##############################################
     # Fan methods
