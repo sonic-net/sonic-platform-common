@@ -1052,45 +1052,79 @@ class TestCmis(object):
         result = self.api.get_loopback_capability()
         assert result == expected
 
-    @pytest.mark.parametrize("input_param, mock_response",[
-        ('none', {
+    @pytest.mark.parametrize("input_param, mock_response, expected",[
+        (['none',0x0f], {
             'host_side_input_loopback_supported': True,
             'host_side_output_loopback_supported': True,
             'media_side_input_loopback_supported': True,
-            'media_side_output_loopback_supported': True
-        }),
-        ('host-side-input', {
+            'media_side_output_loopback_supported': True,
+            'simultaneous_host_media_loopback_supported': True,
+            'per_lane_host_loopback_supported': True,
+            'per_lane_media_loopback_supported': True
+        }, True),
+        (['host-side-input', 0x0f], {
             'host_side_input_loopback_supported': True,
             'host_side_output_loopback_supported': True,
             'media_side_input_loopback_supported': True,
-            'media_side_output_loopback_supported': True
-        }),
-        ('host-side-output', {
+            'media_side_output_loopback_supported': True,
+            'simultaneous_host_media_loopback_supported': True,
+            'per_lane_host_loopback_supported': True,
+            'per_lane_media_loopback_supported': True
+        }, True),
+        (['host-side-output', 0x0f], {
             'host_side_input_loopback_supported': True,
             'host_side_output_loopback_supported': True,
             'media_side_input_loopback_supported': True,
-            'media_side_output_loopback_supported': True
-        }),
-        ('media-side-input', {
+            'media_side_output_loopback_supported': True,
+            'simultaneous_host_media_loopback_supported': False,
+            'per_lane_host_loopback_supported': True,
+            'per_lane_media_loopback_supported': True
+        }, False),
+        (['host-side-output', 0x0f], {
             'host_side_input_loopback_supported': True,
             'host_side_output_loopback_supported': True,
             'media_side_input_loopback_supported': True,
-            'media_side_output_loopback_supported': True
-        }),
-        ('media-side-output', {
+            'media_side_output_loopback_supported': True,
+            'simultaneous_host_media_loopback_supported': True,
+            'per_lane_host_loopback_supported': False,
+            'per_lane_media_loopback_supported': True
+        }, False),
+        (['media-side-input', 0x0f], {
             'host_side_input_loopback_supported': True,
             'host_side_output_loopback_supported': True,
             'media_side_input_loopback_supported': True,
-            'media_side_output_loopback_supported': True
-        }),
-        (
-            'none', None
-        )
+            'media_side_output_loopback_supported': True,
+            'simultaneous_host_media_loopback_supported': True,
+            'per_lane_host_loopback_supported': True,
+            'per_lane_media_loopback_supported': True
+        }, True),
+        (['media-side-output', 0x0f], {
+            'host_side_input_loopback_supported': True,
+            'host_side_output_loopback_supported': True,
+            'media_side_input_loopback_supported': True,
+            'media_side_output_loopback_supported': True,
+            'simultaneous_host_media_loopback_supported': False,
+            'per_lane_host_loopback_supported': False,
+            'per_lane_media_loopback_supported': False
+        }, False),
+        (['media-side-output', 0x0f], {
+            'host_side_input_loopback_supported': False,
+            'host_side_output_loopback_supported': False,
+            'media_side_input_loopback_supported': False,
+            'media_side_output_loopback_supported': False,
+            'simultaneous_host_media_loopback_supported': True,
+            'per_lane_host_loopback_supported': True,
+            'per_lane_media_loopback_supported': True
+        }, False),
+        (['none', 0x0F], None, False)
     ])
-    def test_set_loopback_mode(self, input_param, mock_response):
+    def test_set_loopback_mode(self, input_param, mock_response, expected):
         self.api.get_loopback_capability = MagicMock()
         self.api.get_loopback_capability.return_value = mock_response
-        self.api.set_loopback_mode(input_param)
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.side_effect = [0xf0,0,0xf0,0]
+        result = self.api.set_loopback_mode(input_param[0], input_param[1])
+        assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected",[
         (

@@ -1147,6 +1147,11 @@ class CmisApi(XcvrApi):
         media_input_support = loopback_capability['media_side_input_loopback_supported']
         media_output_support = loopback_capability['media_side_output_loopback_supported']
 
+        if lane_mask != 0xff:
+            if any([loopback_capability['per_lane_host_loopback_supported'] is False and 'host' in loopback_mode,
+                    loopback_capability['per_lane_media_loopback_supported'] is False and 'media' in loopback_mode]):
+                return False
+
         if 'none' in loopback_mode:
             if loopback_mode == 'none':
                 status_host_input = self.xcvr_eeprom.write(consts.HOST_INPUT_LOOPBACK, 0)
@@ -1167,6 +1172,11 @@ class CmisApi(XcvrApi):
             if loopback_mode == 'media-side-output-none':
                 return self.xcvr_eeprom.write(consts.MEDIA_OUTPUT_LOOPBACK, media_output_val & ~lane_mask)
         else:
+            if loopback_capability['simultaneous_host_media_loopback_supported'] is False:
+                if any(['host' in loopback_mode and (media_input_val or media_output_val),
+                        'media' in loopback_mode and (host_input_val or host_output_val)]):
+                    return False
+
             if loopback_mode == 'host-side-input' and host_input_support:
                 return self.xcvr_eeprom.write(consts.HOST_INPUT_LOOPBACK, host_input_val | lane_mask)
 
