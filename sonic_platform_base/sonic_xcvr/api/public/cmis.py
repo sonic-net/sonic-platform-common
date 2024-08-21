@@ -1136,6 +1136,7 @@ class CmisApi(XcvrApi):
         '''
         loopback_capability = self.get_loopback_capability()
         if loopback_capability is None:
+            logger.info('Failed to get loopback capabilities')
             return False
 
         host_input_val = self.xcvr_eeprom.read(consts.HOST_INPUT_LOOPBACK)
@@ -1150,6 +1151,8 @@ class CmisApi(XcvrApi):
         if lane_mask != 0xff:
             if any([loopback_capability['per_lane_host_loopback_supported'] is False and 'host' in loopback_mode,
                     loopback_capability['per_lane_media_loopback_supported'] is False and 'media' in loopback_mode]):
+                txt = f'Per-lane {loopback_mode} loopback is not supported, lane_mask:{lane_mask:02x}\n'
+                logger.error(txt)
                 return False
 
         if 'none' in loopback_mode:
@@ -1175,6 +1178,10 @@ class CmisApi(XcvrApi):
             if loopback_capability['simultaneous_host_media_loopback_supported'] is False:
                 if any(['host' in loopback_mode and (media_input_val or media_output_val),
                         'media' in loopback_mode and (host_input_val or host_output_val)]):
+                    txt = 'Simultaneous host media loopback is not supported\n'
+                    txt += f'host_input_val:{host_input_val:02x}, host_output_val:{host_output_val:02x}, '
+                    txt += f'media_input_val:{media_input_val:02x}, media_output_val:{media_output_val:02x}\n'
+                    logger.error(txt)
                     return False
 
             if loopback_mode == 'host-side-input' and host_input_support:
@@ -1189,6 +1196,12 @@ class CmisApi(XcvrApi):
             if loopback_mode == 'media-side-output' and media_output_support:
                 return self.xcvr_eeprom.write(consts.MEDIA_OUTPUT_LOOPBACK, media_output_val | lane_mask)
 
+        txt = f'Failed to set {loopback_mode} loopback, lane_mask:{lane_mask:02x}\n'
+        txt += f'host_input_support:{host_input_support}, host_output_support:{host_output_support}, '
+        txt += f'media_input_support:{media_input_support}, media_output_support:{media_output_support}\n'
+        txt += f'host_input_val:{host_input_val:02x}, host_output_val:{host_output_val:02x}, '
+        txt += f'media_input_val:{media_input_val:02x}, media_output_val:{media_output_val:02x}\n'
+        logger.error(txt)
         return False
 
     def get_vdm(self, field_option=None):
