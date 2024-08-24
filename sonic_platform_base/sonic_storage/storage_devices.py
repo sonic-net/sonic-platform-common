@@ -23,6 +23,8 @@ except ImportError as e:
 
 BASE_PATH = "/sys/block"
 BLKDEV_BASE_PATH = "/dev"
+ssdutil_compatible_keys = ('sd', 'nvme')
+ssdutil_compatible_paths_strings = ('ata', 'nvme')
 
 class StorageDevices:
     def __init__(self):
@@ -65,9 +67,9 @@ class StorageDevices:
         blkdev = os.path.join(BLKDEV_BASE_PATH, key)
         diskdev = os.path.join(BASE_PATH, key)
 
-        if key.startswith('sd'):
+        if key.startswith(ssdutil_compatible_keys):
             path = os.path.join(diskdev, "device")
-            if "ata" in os.path.realpath(path):
+            if any(substring in os.path.realpath(path) for substring in ssdutil_compatible_paths_strings):
                 try:
                     return SsdUtil(blkdev)
                 except Exception as e:
