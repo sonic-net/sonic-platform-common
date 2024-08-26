@@ -65,7 +65,7 @@ setup(
     # This dependency should be eliminated by moving portconfig.py
     # functionality into sonic-py-common
     install_requires=[
-        'natsort==6.2.1', # 6.2.1 is the last version which supports Python 2
+        'natsort',
         'PyYAML',
         'redis',
     ] + sonic_dependencies,
