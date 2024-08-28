@@ -12,6 +12,8 @@ try:
     from sonic_py_common import syslogger
     from sonic_platform_base.sonic_storage.ssd import SsdUtil
     from sonic_platform_base.sonic_storage.emmc import EmmcUtil
+    from sonic_platform_base.sonic_storage.usb import UsbUtil
+
 except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
 

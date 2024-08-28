@@ -1,12 +1,21 @@
+import os
 import sys
 from mock import patch, MagicMock
 import pytest
 
-from sonic_platform_base.sonic_storage.storage_devices import StorageDevices
-
 mocked_basepath = ['loop1', 'mmcblk0', 'loop6', 'mmcblk0boot0', 'loop4', 'loop2', 'loop0', 'loop7', 'mmcblk0boot1', 'sda', 'loop5', 'loop3']
 mocked_devices = { 'mmcblk0' : None, 'sda' : None}
 mock_realpath = "/sys/devices/pci0000:00/0000:00:18.0/ata5/host4/target4:0:0/4:0:0:0"
+
+tests_path = os.path.dirname(os.path.abspath(__file__))
+# Add mocked_libs path so that the file under test
+# can load mocked modules from there
+mocked_libs_path = os.path.join(tests_path, "mocked_libs")  # noqa: E402,F401
+sys.path.insert(0, mocked_libs_path)
+
+from .mocked_libs.blkinfo import BlkDiskInfo  # noqa: E402,F401
+
+from sonic_platform_base.sonic_storage.storage_devices import StorageDevices
 
 
 class TestStorageDevices:
@@ -26,12 +35,13 @@ class TestStorageDevices:
 
     @patch('os.listdir', MagicMock(return_value=['sdj']))
     @patch('os.path.realpath', MagicMock(return_value="usb"))
+    @patch('sonic_platform_base.sonic_storage.usb.UsbUtil', MagicMock())
     def test_get_storage_devices_usb_obj(self):
 
         storage = StorageDevices()
 
         assert (list(storage.devices.keys()) == ['sdj'])
-        assert (storage.devices['sdj'] == None)
+        assert ("UsbUtil" in str(type(storage.devices['sdj'])))
 
 
     @patch('os.listdir', MagicMock(return_value=['mmcblk0']))
