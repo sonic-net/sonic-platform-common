@@ -261,7 +261,7 @@ class Sff8472Api(XcvrApi):
         return self.tx_disable(disable) if channel != 0 else True
 
     def is_flat_memory(self):
-        return not self.xcvr_eeprom.read(consts.PAGING_SUPPORT_FIELD)
+        return not self.xcvr_eeprom.read(consts.PAGING_SUPPORT_FIELD) is not False
 
     def get_temperature_support(self):
         return self.xcvr_eeprom.read(consts.DDM_SUPPORT_FIELD)

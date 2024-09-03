@@ -368,7 +368,7 @@ class CmisApi(XcvrApi):
         return float("{:.3f}".format(voltage))
 
     def is_flat_memory(self):
-        return self.xcvr_eeprom.read(consts.FLAT_MEM_FIELD)
+        return self.xcvr_eeprom.read(consts.FLAT_MEM_FIELD) is not False
 
     def get_temperature_support(self):
         return not self.is_flat_memory()
