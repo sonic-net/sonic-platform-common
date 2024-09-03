@@ -493,7 +493,7 @@ class XcvrApi(object):
         Returns:
             A Boolean, True if flat memory, False if paging is implemented
 
-            If there is an issue with reading the xcvr, None should be returned.
+            If there is an issue with reading the xcvr, True should be returned.
         """
         raise NotImplementedError
 

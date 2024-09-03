@@ -273,7 +273,7 @@ class Sff8436Api(XcvrApi):
         return ret
 
     def is_flat_memory(self):
-        return self.xcvr_eeprom.read(consts.FLAT_MEM_FIELD)
+        return self.xcvr_eeprom.read(consts.FLAT_MEM_FIELD) is not False
 
     def get_tx_power_support(self):
         return False
