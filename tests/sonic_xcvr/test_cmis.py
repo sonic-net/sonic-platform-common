@@ -1206,15 +1206,15 @@ class TestCmis(object):
 
     @pytest.mark.parametrize("input_param, mock_response, expected",[
         (['none', 0], True, True),
-        (['host-side-input', 0x0F], True, True),
-        (['host-side-output', 0x0F], True, True),
-        (['media-side-input', 0x0F], True, True),
-        (['media-side-output', 0x0F], True, True),
-        (['host-side-input-none', 0xF0], True, True),
-        (['host-side-output-none', 0xF0], True, True),
-        (['media-side-input-none', 0xF0], True, True),
-        (['media-side-output-none', 0xF0], True, True),
-        (['', 0xF0], True, False),
+        (['host-side-input', 0x0F, True], True, True),
+        (['host-side-output', 0x0F, True], True, True),
+        (['media-side-input', 0x0F, True], True, True),
+        (['media-side-output', 0x0F, True], True, True),
+        (['host-side-input', 0xF0, False], True, True),
+        (['host-side-output', 0xF0, False], True, True),
+        (['media-side-input', 0xF0, False], True, True),
+        (['media-side-output', 0xF0, False], True, True),
+        (['', 0xF0, False], True, False),
 
     ])
     def test_set_loopback_mode(self, input_param, mock_response, expected):

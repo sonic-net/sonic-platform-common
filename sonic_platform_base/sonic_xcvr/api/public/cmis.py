@@ -1279,35 +1279,28 @@ class CmisApi(XcvrApi):
         else:
             return self.xcvr_eeprom.write(consts.MEDIA_OUTPUT_LOOPBACK, media_output_val & ~lane_mask)
 
-    def set_loopback_mode(self, loopback_mode, lane_mask = 0xff):
+    def set_loopback_mode(self, loopback_mode, lane_mask = 0xff, enable = False):
         '''
         This function sets the module loopback mode.
 
         Args:
         - loopback_mode (str): Specifies the loopback mode. It must be one of the following:
             1. "none"
-            2. "host-side-input-none"
-            3. "host-side-output-none"
-            4. "media-side-input-none"
-            5. "media-side-output-none"
-            6. "host-side-input"
-            7. "host-side-output"
-            8. "media-side-input"
-            9. "media-side-output"
+            2. "host-side-input"
+            3. "host-side-output"
+            4. "media-side-input"
+            5. "media-side-output"
         - lane_mask (int): A bitmask representing the lanes to which the loopback mode should
                            be applied. Default 0xFF applies to all lanes.
+        - enable (bool): Whether to enable or disable the loopback mode. Default False.
         Returns:
         - bool: True if the operation succeeds, False otherwise.
         '''
         loopback_functions = {
-            'host-side-input-none': (self.set_host_input_loopback, False),
-            'host-side-output-none': (self.set_host_output_loopback, False),
-            'media-side-input-none': (self.set_media_input_loopback, False),
-            'media-side-output-none': (self.set_media_output_loopback, False),
-            'host-side-input': (self.set_host_input_loopback, True),
-            'host-side-output': (self.set_host_output_loopback, True),
-            'media-side-input': (self.set_media_input_loopback, True),
-            'media-side-output': (self.set_media_output_loopback, True)
+            'host-side-input': self.set_host_input_loopback,
+            'host-side-output': self.set_host_output_loopback,
+            'media-side-input': self.set_media_input_loopback,
+            'media-side-output': self.set_media_output_loopback,
         }
 
         if loopback_mode == 'none':
@@ -1318,8 +1311,8 @@ class CmisApi(XcvrApi):
                 self.set_media_output_loopback(0xff, False)
             ])
 
-        if loopback_mode in loopback_functions:
-            func, enable = loopback_functions[loopback_mode]
+        func = loopback_functions.get(loopback_mode)
+        if func:
             return func(lane_mask, enable)
 
         logger.error('Invalid loopback mode:%s, lane_mask:%#x', loopback_mode, lane_mask)
