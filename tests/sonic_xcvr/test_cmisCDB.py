@@ -78,7 +78,7 @@ class TestCDB(object):
         self.api.cdb1_chkstatus.return_value = mock_response[0]
         self.api.read_cdb = MagicMock()
         self.api.read_cdb.return_value = mock_response[1]
-        result = self.api.query_cdb_status()
+        result = self.api.query_cdb_status()['rpl']
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
@@ -102,7 +102,7 @@ class TestCDB(object):
         self.api.cdb1_chkstatus.return_value = mock_response[0]
         self.api.read_cdb = MagicMock()
         self.api.read_cdb.return_value = mock_response[1]
-        result = self.api.get_module_feature()
+        result = self.api.get_module_feature()['rpl']
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
@@ -115,7 +115,7 @@ class TestCDB(object):
         self.api.cdb1_chkstatus.return_value = mock_response[0]
         self.api.read_cdb = MagicMock()
         self.api.read_cdb.return_value = mock_response[1]
-        result = self.api.get_fw_management_features()
+        result = self.api.get_fw_management_features()['rpl']
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
@@ -128,7 +128,7 @@ class TestCDB(object):
         self.api.cdb1_chkstatus.return_value = mock_response[0]
         self.api.read_cdb = MagicMock()
         self.api.read_cdb.return_value = mock_response[1]
-        result = self.api.get_fw_info()
+        result = self.api.get_fw_info()['rpl']
         assert result == expected
 
     @pytest.mark.parametrize("input_param, mock_response, expected", [
