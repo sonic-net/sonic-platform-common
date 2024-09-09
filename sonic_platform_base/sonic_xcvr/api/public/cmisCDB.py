@@ -155,13 +155,13 @@ class CmisCdbApi(XcvrApi):
         '''
         This QUERY Status command may be used to retrieve the password acceptance
         status and to perform a test of the CDB interface.
-        It returns the reply message of this CDB command 0000h.
+        It returns the status and reply message of this CDB command 0000h.
         '''
         cmd = bytearray(b'\x00\x00\x00\x00\x02\x00\x00\x00\x00\x10')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
         self.write_cdb(cmd)
         status = self.cdb1_chkstatus()
-        if (status != 0x1):
+        if status != 0x1:
             if status > 127:
                 txt = 'Query CDB status: Busy'
             else:
@@ -170,7 +170,8 @@ class CmisCdbApi(XcvrApi):
         else:
             txt = 'Query CDB status: Success'
         logger.info(txt)
-        return self.read_cdb()
+        rpl = self.read_cdb()
+        return {'status': status, 'rpl': rpl}
 
     # Enter password
     def module_enter_password(self, psw = 0x00001011):
@@ -199,7 +200,7 @@ class CmisCdbApi(XcvrApi):
     def get_module_feature(self):
         '''
         This command is used to query which CDB commands are supported.
-        It returns the reply message of this CDB command 0040h.
+        It returns the status and reply message of this CDB command 0040h.
         '''
         cmd = bytearray(b'\x00\x40\x00\x00\x00\x00\x00\x00')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
@@ -214,13 +215,15 @@ class CmisCdbApi(XcvrApi):
         else:
             txt = 'Get module feature status: Success'
         logger.info(txt)
-        return self.read_cdb()
+
+        rpl = self.read_cdb()
+        return {'status': status, 'rpl': rpl}
 
     # Firmware Update Features Supported
     def get_fw_management_features(self):
         '''
         This command is used to query supported firmware update features
-        It returns the reply message of this CDB command 0041h.
+        It returns the status and reply message of this CDB command 0041h.
         '''
         cmd = bytearray(b'\x00\x41\x00\x00\x00\x00\x00\x00')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
@@ -235,14 +238,16 @@ class CmisCdbApi(XcvrApi):
         else:
             txt = 'Get firmware management feature status: Success'
         logger.info(txt)
-        return self.read_cdb()
+
+        rpl = self.read_cdb()
+        return {'status': status, 'rpl': rpl}
 
     # Get FW info
     def get_fw_info(self):
         '''
         This command returns the firmware versions and firmware default running
         images that reside in the module
-        It returns the reply message of this CDB command 0100h.
+        It returns the status and reply message of this CDB command 0100h.
         '''
         cmd = bytearray(b'\x01\x00\x00\x00\x00\x00\x00\x00')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
@@ -257,7 +262,9 @@ class CmisCdbApi(XcvrApi):
         else:
             txt = 'Get firmware info status: Success'
         logger.info(txt)
-        return self.read_cdb()
+
+        rpl = self.read_cdb()
+        return {'status': status, 'rpl': rpl}
 
     # Start FW download
     def start_fw_download(self, startLPLsize, header, imagesize):
