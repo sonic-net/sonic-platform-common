@@ -1052,45 +1052,182 @@ class TestCmis(object):
         result = self.api.get_loopback_capability()
         assert result == expected
 
-    @pytest.mark.parametrize("input_param, mock_response",[
-        ('none', {
+    @pytest.mark.parametrize("input_param, mock_response, expected",[
+        ([0xf, True], None, False),
+        ([0xf, True], {
+            'host_side_input_loopback_supported': False,
+            'simultaneous_host_media_loopback_supported': True,
+            'per_lane_host_loopback_supported': True,
+        }, False),
+        ([0xf, True], {
             'host_side_input_loopback_supported': True,
-            'host_side_output_loopback_supported': True,
-            'media_side_input_loopback_supported': True,
-            'media_side_output_loopback_supported': True
-        }),
-        ('host-side-input', {
+            'simultaneous_host_media_loopback_supported': True,
+            'per_lane_host_loopback_supported': False,
+        }, False),
+        ([0xf, True], {
             'host_side_input_loopback_supported': True,
-            'host_side_output_loopback_supported': True,
-            'media_side_input_loopback_supported': True,
-            'media_side_output_loopback_supported': True
-        }),
-        ('host-side-output', {
+            'simultaneous_host_media_loopback_supported': False,
+            'per_lane_host_loopback_supported': True,
+        }, False),
+        ([0xf, True], {
             'host_side_input_loopback_supported': True,
-            'host_side_output_loopback_supported': True,
-            'media_side_input_loopback_supported': True,
-            'media_side_output_loopback_supported': True
-        }),
-        ('media-side-input', {
+            'simultaneous_host_media_loopback_supported': True,
+            'per_lane_host_loopback_supported': True,
+        }, True),
+        ([0xf, False], {
             'host_side_input_loopback_supported': True,
-            'host_side_output_loopback_supported': True,
-            'media_side_input_loopback_supported': True,
-            'media_side_output_loopback_supported': True
-        }),
-        ('media-side-output', {
-            'host_side_input_loopback_supported': True,
-            'host_side_output_loopback_supported': True,
-            'media_side_input_loopback_supported': True,
-            'media_side_output_loopback_supported': True
-        }),
-        (
-            'none', None
-        )
+            'simultaneous_host_media_loopback_supported': True,
+            'per_lane_host_loopback_supported': True,
+        }, True),
     ])
-    def test_set_loopback_mode(self, input_param, mock_response):
+    def test_set_host_input_loopback(self, input_param, mock_response, expected):
         self.api.get_loopback_capability = MagicMock()
         self.api.get_loopback_capability.return_value = mock_response
-        self.api.set_loopback_mode(input_param)
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.side_effect = [0x0f,0x0f]
+        self.api.xcvr_eeprom.write = MagicMock()
+        self.api.xcvr_eeprom.write.return_value = True
+        result = self.api.set_host_input_loopback(input_param[0], input_param[1])
+        assert result == expected
+
+    @pytest.mark.parametrize("input_param, mock_response, expected",[
+        ([0xf, True], None, False),
+        ([0xf, True], {
+            'host_side_output_loopback_supported': False,
+            'simultaneous_host_media_loopback_supported': True,
+            'per_lane_host_loopback_supported': True,
+        }, False),
+        ([0xf, True], {
+            'host_side_output_loopback_supported': True,
+            'simultaneous_host_media_loopback_supported': True,
+            'per_lane_host_loopback_supported': False,
+        }, False),
+        ([0xf, True], {
+            'host_side_output_loopback_supported': True,
+            'simultaneous_host_media_loopback_supported': False,
+            'per_lane_host_loopback_supported': True,
+        }, False),
+        ([0xf, True], {
+            'host_side_output_loopback_supported': True,
+            'simultaneous_host_media_loopback_supported': True,
+            'per_lane_host_loopback_supported': True,
+        }, True),
+        ([0xf, False], {
+            'host_side_output_loopback_supported': True,
+            'simultaneous_host_media_loopback_supported': True,
+            'per_lane_host_loopback_supported': True,
+        }, True),
+    ])
+    def test_set_host_output_loopback(self, input_param, mock_response, expected):
+        self.api.get_loopback_capability = MagicMock()
+        self.api.get_loopback_capability.return_value = mock_response
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.side_effect = [0x0f,0x0f]
+        self.api.xcvr_eeprom.write = MagicMock()
+        self.api.xcvr_eeprom.write.return_value = True
+        result = self.api.set_host_output_loopback(input_param[0], input_param[1])
+        assert result == expected
+
+    @pytest.mark.parametrize("input_param, mock_response, expected",[
+        ([0xf, True], None, False),
+        ([0xf, True], {
+            'media_side_input_loopback_supported': False,
+            'simultaneous_host_media_loopback_supported': True,
+            'per_lane_media_loopback_supported': True,
+        }, False),
+        ([0xf, True], {
+            'media_side_input_loopback_supported': True,
+            'simultaneous_host_media_loopback_supported': True,
+            'per_lane_media_loopback_supported': False,
+        }, False),
+        ([0xf, True], {
+            'media_side_input_loopback_supported': True,
+            'simultaneous_host_media_loopback_supported': False,
+            'per_lane_media_loopback_supported': True,
+        }, False),
+        ([0xf, True], {
+            'media_side_input_loopback_supported': True,
+            'simultaneous_host_media_loopback_supported': True,
+            'per_lane_media_loopback_supported': True,
+        }, True),
+        ([0xf, False], {
+            'media_side_input_loopback_supported': True,
+            'simultaneous_host_media_loopback_supported': True,
+            'per_lane_media_loopback_supported': True,
+        }, True),
+    ])
+    def test_set_media_input_loopback(self, input_param, mock_response, expected):
+        self.api.get_loopback_capability = MagicMock()
+        self.api.get_loopback_capability.return_value = mock_response
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.side_effect = [0x0f,0x0f]
+        self.api.xcvr_eeprom.write = MagicMock()
+        self.api.xcvr_eeprom.write.return_value = True
+        result = self.api.set_media_input_loopback(input_param[0], input_param[1])
+        assert result == expected
+
+    @pytest.mark.parametrize("input_param, mock_response, expected",[
+        ([0xf, True], None, False),
+        ([0xf, True], {
+            'media_side_output_loopback_supported': False,
+            'simultaneous_host_media_loopback_supported': True,
+            'per_lane_media_loopback_supported': True,
+        }, False),
+        ([0xf, True], {
+            'media_side_output_loopback_supported': True,
+            'simultaneous_host_media_loopback_supported': True,
+            'per_lane_media_loopback_supported': False,
+        }, False),
+        ([0xf, True], {
+            'media_side_output_loopback_supported': True,
+            'simultaneous_host_media_loopback_supported': False,
+            'per_lane_media_loopback_supported': True,
+        }, False),
+        ([0xf, True], {
+            'media_side_output_loopback_supported': True,
+            'simultaneous_host_media_loopback_supported': True,
+            'per_lane_media_loopback_supported': True,
+        }, True),
+        ([0xf, False], {
+            'media_side_output_loopback_supported': True,
+            'simultaneous_host_media_loopback_supported': True,
+            'per_lane_media_loopback_supported': True,
+        }, True),
+    ])
+    def test_set_media_output_loopback(self, input_param, mock_response, expected):
+        self.api.get_loopback_capability = MagicMock()
+        self.api.get_loopback_capability.return_value = mock_response
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.side_effect = [0x0f,0x0f]
+        self.api.xcvr_eeprom.write = MagicMock()
+        self.api.xcvr_eeprom.write.return_value = True
+        result = self.api.set_media_output_loopback(input_param[0], input_param[1])
+        assert result == expected
+
+    @pytest.mark.parametrize("input_param, mock_response, expected",[
+        (['none', 0], True, True),
+        (['host-side-input', 0x0F, True], True, True),
+        (['host-side-output', 0x0F, True], True, True),
+        (['media-side-input', 0x0F, True], True, True),
+        (['media-side-output', 0x0F, True], True, True),
+        (['host-side-input', 0xF0, False], True, True),
+        (['host-side-output', 0xF0, False], True, True),
+        (['media-side-input', 0xF0, False], True, True),
+        (['media-side-output', 0xF0, False], True, True),
+        (['', 0xF0, False], True, False),
+
+    ])
+    def test_set_loopback_mode(self, input_param, mock_response, expected):
+        self.api.set_host_input_loopback = MagicMock()
+        self.api.set_host_input_loopback.return_value = mock_response
+        self.api.set_host_output_loopback = MagicMock()
+        self.api.set_host_output_loopback.return_value = mock_response
+        self.api.set_media_input_loopback = MagicMock()
+        self.api.set_media_input_loopback.return_value = mock_response
+        self.api.set_media_output_loopback = MagicMock()
+        self.api.set_media_output_loopback.return_value = mock_response
+        result = self.api.set_loopback_mode(input_param[0], input_param[1])
+        assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected",[
         (
