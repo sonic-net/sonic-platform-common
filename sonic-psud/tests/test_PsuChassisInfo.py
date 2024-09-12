@@ -76,14 +76,14 @@ class TestPsuChassisInfo(object):
 
         # Test good values while in good state
         ret = chassis_info.update_master_status()
-        assert ret == True
+        assert ret == False
         assert chassis_info.master_status_good == True
 
         # Test unknown total_supplied_power (0.0)
         chassis_info.total_supplied_power = 0.0
         chassis_info.master_status_good = False
         ret = chassis_info.update_master_status()
-        assert ret == True
+        assert ret == False
         assert chassis_info.master_status_good == False
 
         # Test bad values while in good state
@@ -282,6 +282,15 @@ class TestPsuChassisInfo(object):
         assert ret == True
         assert psud.Psu.get_status_master_led() == MockPsu.STATUS_LED_COLOR_RED
 
+        # first time with good power usage
+        chassis_info = psud.PsuChassisInfo(SYSLOG_IDENTIFIER, chassis)
+        chassis_info.total_supplied_power = 510.0
+        chassis_info.total_consumed_power = 350.0
+        ret = chassis_info.update_master_status()
+        assert ret == True
+        assert psud.Psu.get_status_master_led() == MockPsu.STATUS_LED_COLOR_GREEN
+
+        chassis_info = psud.PsuChassisInfo(SYSLOG_IDENTIFIER, chassis)
         chassis_info.total_supplied_power = 510.0
         chassis_info.total_consumed_power = 350.0
         chassis_info.master_status_good = True
