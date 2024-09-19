@@ -440,6 +440,7 @@ def post_port_sfp_info_to_db(logical_port_name, port_mapping, table, transceiver
             break
 
         if not _wrapper_get_presence(physical_port):
+            helper_logger.log_notice("Transceiver not present in port {}".format(logical_port_name))
             continue
 
         port_name = get_physical_port_name(logical_port_name, ganged_member_num, ganged_port)
@@ -1379,6 +1380,7 @@ class CmisManagerTask(threading.Thread):
                     # Skip if it's not a CMIS module
                     type = api.get_module_type_abbreviation()
                     if (type is None) or (type not in self.CMIS_MODULE_TYPES):
+                        self.log_notice("{}: skipping CMIS state machine for non-CMIS module with type {}".format(lport, type))
                         self.update_port_transceiver_status_table_sw_cmis_state(lport, CMIS_STATE_READY)
                         continue
 
@@ -1413,9 +1415,9 @@ class CmisManagerTask(threading.Thread):
                     self.update_port_transceiver_status_table_sw_cmis_state(lport, CMIS_STATE_FAILED)
                     continue
 
-                self.log_notice("{}: {}G, lanemask=0x{:x}, state={}, appl {} host_lane_count {} "
-                                "retries={}".format(lport, int(speed/1000), host_lanes_mask,
-                                state, appl, host_lane_count, retries))
+                self.log_notice("{}: {}G, lanemask=0x{:x}, CMIS state={}, Module state={}, DP state={}, appl {} host_lane_count {} "
+                                "retries={}".format(lport, int(speed/1000), host_lanes_mask, state,
+                                api.get_module_state(), api.get_datapath_state(), appl, host_lane_count, retries))
                 if retries > self.CMIS_MAX_RETRIES:
                     self.log_error("{}: FAILED".format(lport))
                     self.update_port_transceiver_status_table_sw_cmis_state(lport, CMIS_STATE_FAILED)
