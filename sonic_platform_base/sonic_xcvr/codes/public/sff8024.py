@@ -267,8 +267,12 @@ class Sff8024(XcvrCodes):
         80: '400GAUI-4-L C2M (Annex 120G)',
         81: '800G S C2M (placeholder)',
         82: '800G L C2M (placeholder)',
-        83: 'OTL4.2'
+        83: 'OTL4.2',
+        255: 'End'
     }
+
+    for i in range(192,255):
+        HOST_ELECTRICAL_INTERFACE[i] = 'Vendor specific: {}'.format(i)
 
     # MMF media interface IDs
     NM_850_MEDIA_INTERFACE = {
@@ -306,6 +310,9 @@ class Sff8024(XcvrCodes):
         31: '400G-VR4 (Clause 167)',
         32: '800G-VR8 (Placeholder)'
     }
+
+    for i in range(192,256):
+        NM_850_MEDIA_INTERFACE[i] = 'Vendor specific: {}'.format(i)
 
     # SMF media interface IDs
     SM_MEDIA_INTERFACE = {
@@ -390,12 +397,19 @@ class Sff8024(XcvrCodes):
         87: '800GBASE-DR8-2 (placeholder)'
     }
 
+    for i in range(192,256):
+        SM_MEDIA_INTERFACE[i] = 'Vendor specific: {}'.format(i)
+
     # Passive and Linear Active Copper Cable and Passive Loopback media interface codes
     PASSIVE_COPPER_MEDIA_INTERFACE = {
         0: 'Undefined',
         1: 'Copper cable',
+        2: 'Passive Loopback module',
         191: 'Passive Loopback module'
     }
+
+    for i in range(192,256):
+        PASSIVE_COPPER_MEDIA_INTERFACE[i] = 'Vendor specific: {}'.format(i)
 
     # Limiting and Retimed Active Cable assembly and Active Loopback media interface codes
     ACTIVE_CABLE_MEDIA_INTERFACE = {
@@ -406,6 +420,9 @@ class Sff8024(XcvrCodes):
         4: 'Active Cable assembly with BER < 10^-6',
         191: 'Active Loopback module'
     }
+
+    for i in range(192,256):
+        ACTIVE_CABLE_MEDIA_INTERFACE[i] = 'Vendor specific: {}'.format(i)
 
     # BASE-T media interface codes
     BASE_T_MEDIA_INTERFACE = {
@@ -418,5 +435,8 @@ class Sff8024(XcvrCodes):
         6: '40GBASE-T (Clause 113)',
         7: '50GBASE-T (Placeholder)'
     }
+
+    for i in range(192,256):
+        BASE_T_MEDIA_INTERFACE[i] = 'Vendor specific: {}'.format(i)
 
     # TODO: Add other codes

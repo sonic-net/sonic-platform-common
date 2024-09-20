@@ -2229,7 +2229,7 @@ class CmisApi(XcvrApi):
 
             key = "{}_{}".format(consts.HOST_ELECTRICAL_INTERFACE, app)
             val = dic.get(key)
-            if val in [None, 'Unknown', 'Undefined']:
+            if val in [None, 'End', 'Undefined']:
                 continue
             buf['host_electrical_interface_id'] = val
 
@@ -2238,7 +2238,7 @@ class CmisApi(XcvrApi):
                 continue
             key = "{}_{}".format(prefix, app)
             val = dic.get(key)
-            if val in [None, 'Unknown']:
+            if val in [None]:
                 continue
             buf['module_media_interface_id'] = val
 
