@@ -10,9 +10,14 @@ import sys
 from copy import deepcopy
 try:
     from .pcie_base import PcieBase
+    import binascii
+    from sonic_py_common import logger
 except ImportError as e:
     raise ImportError(str(e) + "- required module not found")
 
+# Enable logging by classes and helper functions
+SYSLOG_IDENTIFIER = "PcieUtil"
+log = logger.Logger(SYSLOG_IDENTIFIER)
 
 class PcieUtil(PcieBase):
     """Platform-specific PCIEutil class"""
@@ -20,6 +25,7 @@ class PcieUtil(PcieBase):
     def __init__(self, path):
         self.config_path = path
         self._conf_rev = None
+        self.procfs_path = "/proc/bus/pci/"
 
     # load the config file
     def load_config_file(self):
@@ -29,8 +35,8 @@ class PcieUtil(PcieBase):
             with open(config_file) as conf_file:
                 self.confInfo = yaml.safe_load(conf_file)
         except IOError as e:
-            print("Error: {}".format(str(e)))
-            print("Not found config file, please add a config file manually, or generate it by running [pcieutil pcie_generate]")
+            log.log_error("Error: {}".format(str(e)))
+            log.log_error("Not found config file, please add a config file manually, or generate it by running [pcieutil pcie_generate]")
             sys.exit()
 
     # load current PCIe device
@@ -77,8 +83,37 @@ class PcieUtil(PcieBase):
                     pciList.append(pciDict)
                     pciDict = deepcopy(pciDict)
                 else:
-                    print("CAN NOT MATCH PCIe DEVICE")
+                    log.log_warning("CAN NOT MATCH PCIe DEVICE")
         return pciList
+
+    # Check device ID from procfs file check for each PCI device
+    def check_pcie_deviceid(self, bus="", device="", fn="", id=""):
+        current_file = os.path.join(self.procfs_path, bus, "{}.{}".format(device, fn))
+        pcie_device = ("{}:{}.{}".format(bus, device, fn))
+        transaction_check = ['setpci', '-s', pcie_device, '2.w']
+        try:
+            with open(current_file, 'rb') as f:
+                f.seek(2)
+                data = f.read(2)
+                hexstring = binascii.hexlify(data).decode('ascii')
+                procfs_id = str(hexstring[-2:] + hexstring[:2])
+                if id != procfs_id:
+                    log.log_notice("PCIe YAML file device ID mismatch for {}:{}.{} - expected {}, got {}".format(bus, device, fn, id, procfs_id))
+
+                output = subprocess.check_output(transaction_check)
+                transaction_check_result = output.decode('utf8').strip()
+
+                if procfs_id == transaction_check_result:
+                    return True
+                else:
+                    log.log_warning("PCIe transaction check device ID mismatch for {}:{}.{} - expected {}, got {}".format(bus, device, fn, procfs_id, transaction_check_result))
+
+                return False
+        except OSError as osex:
+            log.log_warning("Ecountered {} while trying to open {}".format(str(osex), current_file))
+            return False
+
+
 
     # check the sysfs tree for each PCIe device
     def check_pcie_sysfs(self, domain=0, bus=0, device=0, func=0):
@@ -93,8 +128,13 @@ class PcieUtil(PcieBase):
         for item_conf in self.confInfo:
             bus_conf = item_conf["bus"]
             dev_conf = item_conf["dev"]
-            fn_conf = item_conf["fn"]
-            if self.check_pcie_sysfs(bus=int(bus_conf, base=16), device=int(dev_conf, base=16), func=int(fn_conf, base=16)):
+            fn_conf  = item_conf["fn"]
+            id_conf  = item_conf["id"]
+
+            sysfs_check = self.check_pcie_sysfs(bus=int(bus_conf, base=16), device=int(dev_conf, base=16), func=int(fn_conf, base=16))
+            deviceid_check = self.check_pcie_deviceid(bus_conf, dev_conf, fn_conf, id_conf)
+
+            if sysfs_check and deviceid_check:
                 item_conf["result"] = "Passed"
             else:
                 item_conf["result"] = "Failed"
