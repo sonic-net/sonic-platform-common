@@ -50,6 +50,8 @@ class ModuleBase(device_base.DeviceBase):
     MODULE_REBOOT_CPU_COMPLEX = "CPU"
     # Module reboot type to reboot FPGA complex
     MODULE_REBOOT_FPGA_COMPLEX = "FPGA"
+    # Module reboot type to reboot DPU
+    MODULE_REBOOT_DPU = "DPU"
 
     def __init__(self):
         # List of ComponentBase-derived objects representing all components
@@ -166,7 +168,9 @@ class ModuleBase(device_base.DeviceBase):
         Args:
             reboot_type: A string, the type of reboot requested from one of the
             predefined reboot types: MODULE_REBOOT_DEFAULT, MODULE_REBOOT_CPU_COMPLEX,
-            or MODULE_REBOOT_FPGA_COMPLEX
+            MODULE_REBOOT_FPGA_COMPLEX or MODULE_REBOOT_DPU
+
+            MODULE_REBOOT_DPU is only applicable for smartswitch chassis.
 
         Returns:
             bool: True if the request has been issued successfully, False if not
@@ -255,6 +259,31 @@ class ModuleBase(device_base.DeviceBase):
                 'reason': 'INTERNAL-MGMT : admin state - UP, oper_state - UP, status - OK'
             }
         }
+        """
+        raise NotImplementedError
+
+    def get_bus_info(self, module_name):
+        """
+        Retrieves the bus information for the specified by "module_name" on a SmartSwitch.
+
+        Returns:
+            Returns the PCI bus information in BDF format like "[DDDD:]BB:SS:F"
+        """
+        raise NotImplementedError
+
+    def pci_detach(self, module_name):
+        """
+        Detaches the DPU PCI device specified by "module_name" on a SmartSwitch.
+
+        Returns: True once the PCI is successfully detached.
+        """
+        raise NotImplementedError
+
+    def pci_reattach(self, module_name):
+        """
+        Rescans and reconnects the DPU PCI device specified by "module_name" on a SmartSwitch.
+
+        Returns: True once the PCI is successfully reconnected.
         """
         raise NotImplementedError
 
