@@ -1077,13 +1077,13 @@ class CmisApi(XcvrApi):
         if self.is_flat_memory() or not self.get_lpmode_support():
             return False
 
+        DELAY_RETRY = 0.1
         lpmode_val = self.xcvr_eeprom.read(consts.MODULE_LEVEL_CONTROL)
         if lpmode_val is not None:
             if lpmode is True:
                 # Force module transition to LowPwr under SW control
                 lpmode_val = lpmode_val | (1 << CmisApi.LowPwrRequestSW)
                 self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, lpmode_val)
-                time.sleep(0.1)
                 start_time = time.time()
                 pwroff_duration = self.get_module_pwr_down_duration()/1000
                 # Loop until the power-off duration has elapsed
@@ -1091,7 +1091,7 @@ class CmisApi(XcvrApi):
                     if self.get_lpmode():
                         return self.get_lpmode()
                     # Sleep for a short interval before the next check
-                    time.sleep(0.1)
+                    time.sleep(DELAY_RETRY)
                 return self.get_lpmode()
             else:
                 # Force transition from LowPwr to HighPower state under SW control.
@@ -1099,7 +1099,6 @@ class CmisApi(XcvrApi):
                 lpmode_val = lpmode_val & ~(1 << CmisApi.LowPwrRequestSW)
                 lpmode_val = lpmode_val & ~(1 << CmisApi.LowPwrAllowRequestHW)
                 self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, lpmode_val)
-                time.sleep(1)
                 start_time = time.time()
                 # Loop until the power-on duration has elapsed
                 pwron_duration = self.get_module_pwr_up_duration()/1000
@@ -1108,7 +1107,7 @@ class CmisApi(XcvrApi):
                     if mstate == 'ModuleReady':
                         return True
                     # Sleep for a short interval before the next check
-                    time.sleep(0.1)
+                    time.sleep(DELAY_RETRY)
         return False
 
     def get_loopback_capability(self):
