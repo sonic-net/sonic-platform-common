@@ -1083,7 +1083,11 @@ class CmisApi(XcvrApi):
                 # Force module transition to LowPwr under SW control
                 lpmode_val = lpmode_val | (1 << CmisApi.LowPwrRequestSW)
                 self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, lpmode_val)
-                time.sleep(0.1)
+                for retries in range(50):
+                    if self.get_lpmode():
+                        break
+                    time.sleep(0.1)
+            
                 return self.get_lpmode()
             else:
                 # Force transition from LowPwr to HighPower state under SW control.
@@ -1093,7 +1097,8 @@ class CmisApi(XcvrApi):
                 self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, lpmode_val)
                 time.sleep(1)
                 mstate = self.get_module_state()
-                return True if mstate == 'ModuleReady' else False
+                return True if mstate == 'ModuleReady' or mstate=='ModulePwrUp' else False
+
         return False
 
     def get_loopback_capability(self):
