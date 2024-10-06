@@ -8,7 +8,6 @@
 try:
     import os
     from .storage_common import StorageCommon
-    from sonic_py_common import syslogger
     from blkinfo import BlkDiskInfo
 except ImportError as e:
     raise ImportError(str(e) + "- required module not found")
@@ -35,9 +34,6 @@ class UsbUtil(StorageCommon):
         self.diskdev = diskdev
         self.path = os.path.join('/sys/block', os.path.basename(diskdev))
         StorageCommon.__init__(self, diskdev)
-
-        self.log_identifier = "UsbUtil"
-        self.log = syslogger.SysLogger(self.log_identifier)
 
         self.fetch_parse_info()
 
