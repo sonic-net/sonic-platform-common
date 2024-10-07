@@ -1066,7 +1066,7 @@ class CmisApi(XcvrApi):
                 return True
         return False
 
-     def wait_time_condition(self, condition_func, expected_state, duration_ms, delay_retry):
+    def wait_time_condition(self, condition_func, expected_state, duration_ms, delay_retry):
         '''
         This function will wait and retry based on
         condition function state and delay provided
