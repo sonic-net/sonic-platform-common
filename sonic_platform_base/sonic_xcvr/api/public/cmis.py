@@ -1066,6 +1066,21 @@ class CmisApi(XcvrApi):
                 return True
         return False
 
+     def wait_time_condition(self, condition_func, expected_state, duration_ms, delay_retry):
+        '''
+        This function will wait and retry based on
+        condition function state and delay provided
+        '''
+        start_time = time.time()
+        duration = duration_ms / 1000
+        # Loop until the duration has elapsed
+        while (time.time() - start_time) < duration:
+            if condition_func() == expected_state:
+                return True
+            # Sleep for a delay_retry interval before the next check
+            time.sleep(delay_retry)
+        return condition_func() == expected_state
+
     def set_lpmode(self, lpmode):
         '''
         This function sets the module to low power state.
@@ -1084,30 +1099,14 @@ class CmisApi(XcvrApi):
                 # Force module transition to LowPwr under SW control
                 lpmode_val = lpmode_val | (1 << CmisApi.LowPwrRequestSW)
                 self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, lpmode_val)
-                start_time = time.time()
-                pwroff_duration = self.get_module_pwr_down_duration()/1000
-                # Loop until the power-off duration has elapsed
-                while (time.time() - start_time) < pwroff_duration:
-                    if self.get_lpmode():
-                        return self.get_lpmode()
-                    # Sleep for a short interval before the next check
-                    time.sleep(DELAY_RETRY)
-                return self.get_lpmode()
+                return self.wait_time_condition(self.get_lpmode, True, self.get_module_pwr_down_duration(), DELAY_RETRY)
             else:
                 # Force transition from LowPwr to HighPower state under SW control.
                 # This will transition LowPwrS signal to False. (see Table 6-12 CMIS v5.0)
                 lpmode_val = lpmode_val & ~(1 << CmisApi.LowPwrRequestSW)
                 lpmode_val = lpmode_val & ~(1 << CmisApi.LowPwrAllowRequestHW)
                 self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, lpmode_val)
-                start_time = time.time()
-                # Loop until the power-on duration has elapsed
-                pwron_duration = self.get_module_pwr_up_duration()/1000
-                while (time.time() - start_time) < pwron_duration:
-                    mstate = self.get_module_state()
-                    if mstate == 'ModuleReady':
-                        return True
-                    # Sleep for a short interval before the next check
-                    time.sleep(DELAY_RETRY)
+                return self.wait_time_condition(self.get_module_state, 'ModuleReady', self.get_module_pwr_up_duration(), DELAY_RETRY)
         return False
 
     def get_loopback_capability(self):
