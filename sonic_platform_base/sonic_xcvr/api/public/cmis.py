@@ -730,6 +730,18 @@ class CmisApi(XcvrApi):
         else:
             return 'Unknown media interface'
 
+    def is_copper(self):
+        '''
+        Returns True if xcvr is copper, False if xcvr is optical
+        '''
+        media_type = self.get_module_media_type()
+        if media_type == 'passive_copper_media_interface' or media_type == 'base_t_media_interface' or media_type == 'active_cable_media_interface':
+            return True
+        elif  media_type == 'nm_850_media_interface' or media_type == 'sm_media_interface' :
+            return False
+        else:
+            return None
+
     def is_coherent_module(self):
         '''
         Returns True if the module follow C-CMIS spec, False otherwise
