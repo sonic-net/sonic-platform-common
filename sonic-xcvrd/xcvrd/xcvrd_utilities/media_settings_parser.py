@@ -11,6 +11,7 @@ from natsort import natsorted
 from sonic_py_common import device_info, logger
 from swsscommon import swsscommon
 from xcvrd import xcvrd
+from .xcvr_table_helper import *
 
 g_dict = {}
 
@@ -24,6 +25,7 @@ LANE_SPEED_DEFAULT_KEY = LANE_SPEED_KEY_PREFIX + DEFAULT_KEY
 SYSLOG_IDENTIFIER = "xcvrd"
 helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
 
+PHYSICAL_PORT_NOT_EXIST = -1
 
 def load_media_settings():
     global g_dict
@@ -303,12 +305,24 @@ def get_speed_lane_count_and_subport(port, cfg_port_tbl):
 
 
 def notify_media_setting(logical_port_name, transceiver_dict,
-                         app_port_tbl, cfg_port_tbl, port_mapping):
+                         xcvr_table_helper, port_mapping):
 
     if not media_settings_present():
         return
 
-    port_speed, lane_count, subport_num = get_speed_lane_count_and_subport(logical_port_name, cfg_port_tbl)
+    if not xcvr_table_helper:
+        helper_logger.log_error("Notify media setting: xcvr_table_helper "
+                                "not initialized for lport {}".format(logical_port_name))
+        return
+
+    if not xcvr_table_helper.is_npu_si_settings_update_required(logical_port_name, port_mapping):
+        helper_logger.log_notice("Notify media setting: Media settings already "
+                                 "notified for lport {}".format(logical_port_name))
+        return
+
+    asic_index = port_mapping.get_asic_id_for_logical_port(logical_port_name)
+
+    port_speed, lane_count, subport_num = get_speed_lane_count_and_subport(logical_port_name, xcvr_table_helper.get_cfg_port_tbl(asic_index))
 
     ganged_port = False
     ganged_member_num = 1
@@ -354,4 +368,7 @@ def notify_media_setting(logical_port_name, transceiver_dict,
             fvs[index] = (str(media_key), str(val_str))
             index += 1
 
-        app_port_tbl.set(port_name, fvs)
+        xcvr_table_helper.get_app_port_tbl(asic_index).set(port_name, fvs)
+        xcvr_table_helper.get_state_port_tbl(asic_index).set(logical_port_name, [(NPU_SI_SETTINGS_SYNC_STATUS_KEY, NPU_SI_SETTINGS_NOTIFIED_VALUE)])
+        helper_logger.log_notice("Notify media setting: Published ASIC-side SI setting "
+                                 "for lport {} in APP_DB".format(logical_port_name))
