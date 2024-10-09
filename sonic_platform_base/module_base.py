@@ -262,28 +262,22 @@ class ModuleBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
-    def get_bus_info(self, module_name):
+    def get_bus_info(self):
         """
-        Retrieves the bus information for the specified by "module_name" on a SmartSwitch.
+        Retrieves the bus information. Returns None for non-smartswitch chassis.
 
         Returns:
             Returns the PCI bus information in BDF format like "[DDDD:]BB:SS:F"
         """
         raise NotImplementedError
 
-    def pci_detach(self, module_name):
+    def pci_detach(self):
         """
         Detaches the DPU PCI device specified by "module_name" on a SmartSwitch.
+        Returns False for non-smartswitch chassis.
 
         Returns: True once the PCI is successfully detached.
-        """
-        raise NotImplementedError
-
-    def pci_reattach(self, module_name):
-        """
-        Rescans and reconnects the DPU PCI device specified by "module_name" on a SmartSwitch.
-
-        Returns: True once the PCI is successfully reconnected.
+        Returns False if PCI detachment fails or specified 'module_name' is not found.
         """
         raise NotImplementedError
 
