@@ -148,24 +148,41 @@ class SsdUtil(StorageCommon):
     def fetch_generic_ssd_info(self, diskdev):
         self.ssd_info = self._execute_shell(self.vendor_ssd_utility["Generic"]["utility"].format(diskdev))
 
+    def parse_nvme_ssd_info(self):
+        self.model = self._parse_re('Model Number:\s*(.+?)\n', self.ssd_info)
+
+        health_raw = self._parse_re('Percentage Used\s*(.+?)\n', self.ssd_info)
+        if health_raw == NOT_AVAILABLE:
+            self.health = NOT_AVAILABLE
+        else:
+            health_raw = health_raw.split()[-1]
+            self.health = 100 - float(health_raw.strip('%'))
+
+        temp_raw = self._parse_re('Temperature\s*(.+?)\n', self.ssd_info)
+        if temp_raw == NOT_AVAILABLE:
+            self.temperature = NOT_AVAILABLE
+        else:
+            temp_raw = temp_raw.split()[-2]
+            self.temperature = float(temp_raw)
+
+        spare_blocks_raw = self._parse_re('Available Spare\s*(.+?)\n', self.ssd_info)
+        if spare_blocks_raw != NOT_AVAILABLE:
+            spare_blocks_raw = spare_blocks_raw.split()[-1]
+            self.reserved_blocks = float(spare_blocks_raw.strip('%'))
+
+        disk_io_reads_raw = self._parse_re('Data Units Read\s*(.+?)\n', self.ssd_info)
+        if disk_io_reads_raw != NOT_AVAILABLE:
+            self.disk_io_reads = disk_io_reads_raw.split(':')[-1].strip()
+
+        disk_io_writes_raw = self._parse_re('Data Units Written\s*(.+?)\n', self.ssd_info)
+        if disk_io_writes_raw != NOT_AVAILABLE:
+            self.disk_io_writes = disk_io_writes_raw.split(':')[-1].strip()
+
     # Health and temperature values may be overwritten with vendor specific data
     def parse_generic_ssd_info(self):
+
         if "nvme" in self.dev:
-            self.model = self._parse_re('Model Number:\s*(.+?)\n', self.ssd_info)
-
-            health_raw = self._parse_re('Percentage Used\s*(.+?)\n', self.ssd_info)
-            if health_raw == NOT_AVAILABLE:
-                self.health = NOT_AVAILABLE
-            else:
-                health_raw = health_raw.split()[-1]
-                self.health = 100 - float(health_raw.strip('%'))
-
-            temp_raw = self._parse_re('Temperature\s*(.+?)\n', self.ssd_info)
-            if temp_raw == NOT_AVAILABLE:
-                self.temperature = NOT_AVAILABLE
-            else:
-                temp_raw = temp_raw.split()[-2]
-                self.temperature = float(temp_raw)
+            self.parse_nvme_ssd_info()
         else:
             self.model = self._parse_re('Device Model:\s*(.+?)\n', self.ssd_info)
 
@@ -184,21 +201,21 @@ class SsdUtil(StorageCommon):
             else:
                 self.temperature = temp_raw.split()[7].split()[0]
 
+            io_reads_raw = self.parse_id_number(GENERIC_IO_READS_ID, self.ssd_info)
+            self.disk_io_reads = NOT_AVAILABLE if io_reads_raw == NOT_AVAILABLE else io_reads_raw.split()[-1]
+
+            io_writes_raw = self.parse_id_number(GENERIC_IO_WRITES_ID, self.ssd_info)
+            self.disk_io_writes = NOT_AVAILABLE if io_writes_raw == NOT_AVAILABLE else io_writes_raw.split()[-1]
+
+            for ID in GENERIC_RESERVED_BLOCKS_ID:
+                rbc_raw = self.parse_id_number(ID, self.ssd_info)
+                if rbc_raw == NOT_AVAILABLE: self.reserved_blocks = NOT_AVAILABLE
+                else:
+                    self.reserved_blocks = rbc_raw.split()[-1]
+                    break
+
         self.serial = self._parse_re('Serial Number:\s*(.+?)\n', self.ssd_info)
         self.firmware = self._parse_re('Firmware Version:\s*(.+?)\n', self.ssd_info)
-
-        io_reads_raw = self.parse_id_number(GENERIC_IO_READS_ID, self.ssd_info)
-        self.disk_io_reads = NOT_AVAILABLE if io_reads_raw == NOT_AVAILABLE else io_reads_raw.split()[-1]
-
-        io_writes_raw = self.parse_id_number(GENERIC_IO_WRITES_ID, self.ssd_info)
-        self.disk_io_writes = NOT_AVAILABLE if io_writes_raw == NOT_AVAILABLE else io_writes_raw.split()[-1]
-
-        for ID in GENERIC_RESERVED_BLOCKS_ID:
-            rbc_raw = self.parse_id_number(ID, self.ssd_info)
-            if rbc_raw == NOT_AVAILABLE: self.reserved_blocks = NOT_AVAILABLE
-            else:
-                self.reserved_blocks = rbc_raw.split()[-1]
-                break
 
     def parse_innodisk_info(self):
         if self.vendor_ssd_info:
