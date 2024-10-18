@@ -479,3 +479,22 @@ class SfpBase(device_base.DeviceBase):
         if self._xcvr_api is None:
             self.refresh_xcvr_api()
         return self._xcvr_api
+
+    def get_platform_media_key(self, transceiver_dict, port_speed, lane_count):
+        """
+        Retrieves the media key constructed in a platform specific way,
+        to be used for parsing the media settings
+
+        Args:
+             transceiver_dict :
+                     SFP transceived EEPROM dictionary
+             port_speed:
+                     Configured port speed
+             lane_count:
+                     Number of lanes assigned for that port
+
+        Returns:
+            a dictionary with string values defined for keys,
+            {'vendor_key':'', 'media_key':'', 'lane_speed_key':'')
+        """
+        raise NotImplementedError
