@@ -110,3 +110,20 @@ class MockChassis:
 
     def get_revision(self):
         return "Rev C"
+
+    def get_dataplane_state(self):
+        raise NotImplementedError
+
+    def get_controlplane_state(self):
+        raise NotImplementedError
+
+class MockDpuChassis:
+
+    def get_dpu_id(self):
+        return 0
+
+    def get_dataplane_state(self):
+        raise NotImplementedError
+
+    def get_controlplane_state(self):
+        raise NotImplementedError
