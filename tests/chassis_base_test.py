@@ -20,17 +20,20 @@ class TestChassisBase:
     def test_chassis_base(self):
         chassis = ChassisBase()
         not_implemented_methods = [
-                [chassis.get_uid_led],
-                [chassis.set_uid_led, "COLOR"],
-                [chassis.get_dpu_id, "DPU0"],
+                [chassis.get_uid_led, [], {}],
+                [chassis.set_uid_led, ["COLOR"], {}],
+                [chassis.get_dpu_id, [], {"name": "DPU0"}],
+                [chassis.get_dataplane_state, [], {}],
+                [chassis.get_controlplane_state, [], {}],
             ]
 
         for method in not_implemented_methods:
             exception_raised = False
             try:
                 func = method[0]
-                args = method[1:]
-                func(*args)
+                args = method[1]
+                kwargs = method[2]
+                func(*args, **kwargs)
             except NotImplementedError:
                 exception_raised = True
 
@@ -39,6 +42,7 @@ class TestChassisBase:
     def test_smartswitch(self):
         chassis = ChassisBase()
         assert(chassis.is_smartswitch() == False)
+        assert(chassis.is_dpu() == False)
 
     def test_sensors(self):
         chassis = ChassisBase()
