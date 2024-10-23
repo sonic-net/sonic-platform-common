@@ -619,6 +619,114 @@ Selective self-test flags (0x0):
 If Selective self-test is pending on power-up, resume after 0 minute delay.
 """
 
+output_virtium_generic_vtsm24abxi160_bm110006 = """
+smartctl 7.4 2023-08-01 r5530 [x86_64-linux-6.1.0-11-2-amd64] (local build)
+Copyright (C) 2002-23, Bruce Allen, Christian Franke, www.smartmontools.org
+
+=== START OF INFORMATION SECTION ===
+Device Model:     Virtium VTSM24ABXI160-BM110006
+Serial Number:    62996-0010
+Firmware Version: AB00A000
+User Capacity:    160,041,885,696 bytes [160 GB]
+Sector Size:      512 bytes logical/physical
+Rotation Rate:    Solid State Device
+Form Factor:      M.2
+TRIM Command:     Available, deterministic, zeroed
+Device is:        Not in smartctl database 7.3/5528
+ATA Version is:   ACS-3 (minor revision not indicated)
+SATA Version is:  SATA 3.2, 6.0 Gb/s (current: 6.0 Gb/s)
+Local Time is:    Mon Sep  9 04:25:18 2024 UTC
+SMART support is: Available - device has SMART capability.
+SMART support is: Enabled
+
+=== START OF READ SMART DATA SECTION ===
+SMART overall-health self-assessment test result: PASSED
+
+General SMART Values:
+Offline data collection status:  (0x00) Offline data collection activity
+                                        was never started.
+                                        Auto Offline Data Collection: Disabled.
+Self-test execution status:      (   0) The previous self-test routine completed
+                                        without error or no self-test has ever
+                                        been run.
+Total time to complete Offline
+data collection:                (    0) seconds.
+Offline data collection
+capabilities:                    (0x73) SMART execute Offline immediate.
+                                        Auto Offline data collection on/off support.
+                                        Suspend Offline collection upon new
+                                        command.
+                                        No Offline surface scan supported.
+                                        Self-test supported.
+                                        Conveyance Self-test supported.
+                                        Selective Self-test supported.
+SMART capabilities:            (0x0003) Saves SMART data before entering
+                                        power-saving mode.
+                                        Supports SMART auto save timer.
+Error logging capability:        (0x01) Error logging supported.
+                                        General Purpose Logging supported.
+Short self-test routine
+recommended polling time:        (   2) minutes.
+Extended self-test routine
+recommended polling time:        (  15) minutes.
+Conveyance self-test routine
+recommended polling time:        (   0) minutes.
+SCT capabilities:              (0x0031) SCT Status supported.
+                                        SCT Feature Control supported.
+                                        SCT Data Table supported.
+
+SMART Attributes Data Structure revision number: 1
+Vendor Specific SMART Attributes with Thresholds:
+ID# ATTRIBUTE_NAME          FLAG     VALUE WORST THRESH TYPE      UPDATED  WHEN_FAILED RAW_VALUE
+  1 Raw_Read_Error_Rate     0x000b   100   100   000    Pre-fail  Always       -       0
+  5 Reallocated_Sector_Ct   0x0013   100   100   000    Pre-fail  Always       -       0
+  9 Power_On_Hours          0x0012   100   100   000    Old_age   Always       -       496
+ 12 Power_Cycle_Count       0x0012   100   100   000    Old_age   Always       -       56
+ 14 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       313147056
+ 15 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       312581808
+ 16 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       263
+ 17 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       263
+100 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       59950
+168 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       0
+170 Unknown_Attribute       0x0003   100   100   000    Pre-fail  Always       -       0
+172 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       0
+173 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       57
+174 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       53
+175 Program_Fail_Count_Chip 0x0012   100   100   000    Old_age   Always       -       36
+181 Program_Fail_Cnt_Total  0x0012   100   100   000    Old_age   Always       -       0
+187 Reported_Uncorrect      0x0012   100   100   000    Old_age   Always       -       0
+194 Temperature_Celsius     0x0023   050   036   000    Pre-fail  Always       -       50 (Min/Max 30/64)
+197 Current_Pending_Sector  0x0032   100   100   010    Old_age   Always       -       0
+198 Offline_Uncorrectable   0x0012   100   100   000    Old_age   Always       -       0
+199 UDMA_CRC_Error_Count    0x000b   100   100   000    Pre-fail  Always       -       0
+202 Unknown_SSD_Attribute   0x0012   000   000   000    Old_age   Always       -       0
+231 Unknown_SSD_Attribute   0x0013   100   100   000    Pre-fail  Always       -       100
+232 Available_Reservd_Space 0x0013   100   100   000    Pre-fail  Always       -       0
+234 Unknown_Attribute       0x000b   100   100   000    Pre-fail  Always       -       2250475904
+235 Unknown_Attribute       0x000b   100   100   000    Pre-fail  Always       -       9104724352
+241 Total_LBAs_Written      0x0012   100   100   000    Old_age   Always       -       8770891932
+242 Total_LBAs_Read         0x0012   100   100   000    Old_age   Always       -       1411138737
+247 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       9104724352
+248 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       36
+
+SMART Error Log Version: 1
+No Errors Logged
+
+SMART Self-test log structure revision number 1
+No self-tests have been logged.  [To run self-tests, use: smartctl -t]
+
+SMART Selective self-test log data structure revision number 1
+ SPAN  MIN_LBA  MAX_LBA  CURRENT_TEST_STATUS
+    1        0        0  Not_testing
+    2        0        0  Not_testing
+    3        0        0  Not_testing
+    4        0        0  Not_testing
+    5        0        0  Not_testing
+Selective self-test flags (0x0):
+  After scanning selected spans, do NOT read-scan remainder of disk.
+If Selective self-test is pending on power-up, resume after 0 minute delay.
+"""
+
 output_virtium_vendor ="""
 SMART attributes 
  ID                    Attribute   High Raw    Low Raw Value Worst Threshold 
@@ -685,6 +793,41 @@ SMART attributes
 242              Total_LBAs_Read          0   45608497   100   100         0
 247           Reserved_Attribute          0  347463680   100   100         0
 248          Remaining_Life_Left          0          0     1   100         0
+"""
+
+output_virtium_vendor_vtsm24abxi160_bm110006 = """
+SMART attributes
+ ID                    Attribute   High Raw    Low Raw Value Worst Threshold
+  1          Raw_Read_Error_Rate          0          0   100   100         0
+  5           Reserved_Attribute          0          0   100   100         0
+  9               Power_On_Hours          0        496   100   100         0
+ 12            Power_Cycle_Count          0         56   100   100         0
+ 14           Reserved_Attribute          0  313147056   100   100         0
+ 15           Reserved_Attribute          0  312581808   100   100         0
+ 16           Reserved_Attribute          0        263   100   100         0
+ 17           Reserved_Attribute          0        263   100   100         0
+100           Reserved_Attribute          0      59951   100   100         0
+168               NAND_Endurance          0          0   100   100         0
+170           Reserved_Attribute          0          0   100   100         0
+172           Reserved_Attribute          0          0   100   100         0
+173           Reserved_Attribute          0         57   100   100         0
+174           Reserved_Attribute          0         53   100   100         0
+175           Reserved_Attribute          0         36   100   100         0
+181           Total_Program_Fail          0          0   100   100         0
+187    Uncorrectable_Error_Count          0          0   100   100         0
+194          Temperature_Celsius         64         50    50    36         0
+197 Current_Pending_Sector_Count          0          0   100   100        10
+198           Reserved_Attribute          0          0   100   100         0
+199         UDMA_CRC_Error_Count          0          0   100   100         0
+202                   TRIM_Count          0          0     0     0         0
+231           Reserved_Attribute          0        100   100   100         0
+232           Reserved_Attribute          0          0   100   100         0
+234           Reserved_Attribute          0 2250576000   100   100         0
+235           Reserved_Attribute          2  515071040   100   100         0
+241           Total_LBAs_Written          2  181101356   100   100         0
+242              Total_LBAs_Read          0 1411174937   100   100         0
+247           Reserved_Attribute          2  515071040   100   100         0
+248          Remaining_Life_Left          0         36   100   100         0
 """
 
 output_virtium_no_remain_life = """
@@ -1318,6 +1461,17 @@ class TestSsd:
         assert virtium_ssd.get_serial() == "60237-0037"
         assert virtium_ssd.get_disk_io_reads() == "45606297"
         assert virtium_ssd.get_disk_io_writes() == "302116658"
+        assert virtium_ssd.get_reserved_blocks() == "0"
+
+        mock_exec.side_effect = [output_virtium_generic_vtsm24abxi160_bm110006, output_virtium_vendor_vtsm24abxi160_bm110006]
+        virtium_ssd = SsdUtil('/dev/sda')
+        assert virtium_ssd.get_health() == 100
+        assert virtium_ssd.get_model() == 'Virtium VTSM24ABXI160-BM110006'
+        assert virtium_ssd.get_firmware() == "AB00A000"
+        assert virtium_ssd.get_temperature() == '50'
+        assert virtium_ssd.get_serial() == "62996-0010"
+        assert virtium_ssd.get_disk_io_reads() == "1411138737"
+        assert virtium_ssd.get_disk_io_writes() == "8770891932"
         assert virtium_ssd.get_reserved_blocks() == "0"
 
         mock_exec.side_effect = [output_virtium_generic, output_virtium_vendor]
