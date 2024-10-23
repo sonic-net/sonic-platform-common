@@ -243,30 +243,33 @@ class SsdUtil(StorageCommon):
             vendor_temp = self._parse_re('Temperature_Celsius\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info)
             if vendor_temp != NOT_AVAILABLE:
                 self.temperature = vendor_temp
-            nand_endurance = self._parse_re('NAND_Endurance\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info)
-            avg_erase_count = self._parse_re('Average_Erase_Count\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info)
-            if nand_endurance != NOT_AVAILABLE and avg_erase_count != NOT_AVAILABLE:
-                try:
-                    self.health = 100 - (float(avg_erase_count) * 100 / float(nand_endurance))
-                except (ValueError, ZeroDivisionError) as ex:
-                    self.log.log_info("SsdUtil parse_virtium_info exception: {}".format(ex))
-                    pass
-            else:
-                health_raw = NOT_AVAILABLE
-                try:
-                    if self.model == 'VSFDM8XC240G-V11-T':
-                        # The ID of "Remaining Life Left" attribute on 'VSFDM8XC240G-V11-T' device is 231
-                        # However, it is not recognized by SmartCmd nor smartctl so far
-                        # We need to parse it using the ID number
-                        health_raw = self.parse_id_number(VIRTIUM_HEALTH_ID, self.vendor_ssd_info)
-                        self.health = float(health_raw.split()[2]) if health_raw != NOT_AVAILABLE else NOT_AVAILABLE
-                    else:
+
+            # The ID of "Remaining Life Left" attribute on 'VSFDM8XC240G-V11-T'
+            # and 'Virtium VTSM24ABXI160-BM110006' device is 231
+            # However, it is not recognized by SmartCmd nor smartctl so far
+            # We need to parse them using the ID number
+            special_ssd = ['VSFDM8XC240G-V11-T', 'Virtium VTSM24ABXI160-BM110006']
+            if self.model in special_ssd:
+                health_raw = self.parse_id_number(VIRTIUM_HEALTH_ID, self.vendor_ssd_info)
+                self.health = float(health_raw.split()[2]) if health_raw != NOT_AVAILABLE else NOT_AVAILABLE
+            else :
+                nand_endurance = self._parse_re('NAND_Endurance\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info)
+                avg_erase_count = self._parse_re('Average_Erase_Count\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info)
+                if nand_endurance != NOT_AVAILABLE and avg_erase_count != NOT_AVAILABLE:
+                    try:
+                        self.health = 100 - (float(avg_erase_count) * 100 / float(nand_endurance))
+                    except (ValueError, ZeroDivisionError) as ex:
+                        self.log.log_info("SsdUtil parse_virtium_info exception: {}".format(ex))
+                        pass
+                else:
+                    health_raw = NOT_AVAILABLE
+                    try:
                         pattern = 'Remaining_Life_Left\s*\d*\s*(\d+?)\s+'
                         health_raw = self._parse_re(pattern, self.vendor_ssd_info)
                         self.health = float(health_raw.split()[-1]) if health_raw != NOT_AVAILABLE else NOT_AVAILABLE
-                except ValueError as ex:
-                    self.log.log_info("SsdUtil parse_virtium_info exception: {}".format(ex))
-                    pass
+                    except ValueError as ex:
+                        self.log.log_info("SsdUtil parse_virtium_info exception: {}".format(ex))
+                        pass
 
             if self.disk_io_reads == NOT_AVAILABLE:
                 io_reads_raw = self.parse_id_number(VIRTIUM_IO_READS_ID, self.vendor_ssd_info)
