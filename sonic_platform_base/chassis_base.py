@@ -280,25 +280,59 @@ class ChassisBase(device_base.DeviceBase):
     # SmartSwitch methods
     ##############################################
 
-    def get_dpu_id(self, name):
+    def get_dpu_id(self, **kwargs):
         """
-        Retrieves the DPU ID for the given dpu-module name.
-        Returns None for non-smartswitch chassis.
+        Retrieves the DPU ID for the specified DPU module on a Smart Switch chassis.
+
+        When run on the Smart Switch chassis, it fetches the ID corresponding to provided DPU module name.
+        When run on the Smart Switch DPU chassis, returns the ID of the DPU.
+        This method is relevant only for Smart Switch chassis.
+
+        Args:
+            name (str, optional): The name of the DPU module (e.g., "DPU0", "DPU1").
 
         Returns:
-            An integer, indicating the DPU ID Ex: name:DPU0 return value 0,
-            name:DPU1 return value 1, name:DPUX return value X
+            int: The DPU ID associated with the given module name.
+            For example, for name "DPU0", returns 0; for "DPU1", returns 1, and so on.
         """
         raise NotImplementedError
 
     def is_smartswitch(self):
         """
-        Retrieves whether the sonic instance is part of smartswitch
+        Checks whether the current SONiC instance is part of a Smart Switch platform.
 
         Returns:
-            Returns:True for SmartSwitch and False for other platforms
+            bool: True if the instance is part of a Smart Switch, False otherwise.
         """
         return False
+
+    def is_dpu(self):
+        """
+        Checks whether the current SONiC instance is running on a DPU.
+
+        Returns:
+            bool: True if the instance is running on a DPU, False otherwise.
+        """
+        return False
+
+    def get_dataplane_state(self):
+        """
+        Retrieves the status of the dataplane.
+
+        Returns:
+            bool: True if the dataplane is UP, False if it is down.
+        """
+        raise NotImplementedError
+
+    def get_controlplane_state(self):
+        """
+        Retrieves the status of the DPU control plane.
+
+        Returns:
+            bool: True if the control plane is UP, False if it is down.
+        """
+        raise NotImplementedError
+
 
     ##############################################
     # Fan methods
