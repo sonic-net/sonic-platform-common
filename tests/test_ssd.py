@@ -1341,6 +1341,9 @@ class TestSsd:
         assert(nvme_ssd.get_firmware() == "COT6OQ")
         assert(nvme_ssd.get_temperature() == 37)
         assert(nvme_ssd.get_serial() == "A0221030722410000027")
+        assert(nvme_ssd.get_disk_io_reads() == "1,546,369 [791 GB]")
+        assert(nvme_ssd.get_disk_io_writes() == "7,118,163 [3.64 TB]")
+        assert(nvme_ssd.get_reserved_blocks() == 100.0)
 
     @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_lack_info_ssd))
     def test_nvme_ssd_with_na_path(self):
