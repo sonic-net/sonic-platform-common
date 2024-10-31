@@ -1826,7 +1826,9 @@ class TestCmis(object):
                     'Pre-FEC BER Average Media Input':{1:[0.001, 0.0125, 0, 0.01, 0, False, False, False, False]},
                     'Errored Frames Average Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
                 },
-                0, [False, False, False, False, False, False, False, False]
+                0, [False, False, False, False, False, False, False, False],
+                [False, True, False, False, False, False, False, False],
+                [False, False, False, False, False, False, False, False]
             ],
             {
                 'module_state': 'ModuleReady',
@@ -1907,6 +1909,14 @@ class TestCmis(object):
                 'rxcdrlol6': False,
                 'rxcdrlol7': False,
                 'rxcdrlol8': False,
+                'tx_eq_fault1': False,
+                'tx_eq_fault2': False,
+                'tx_eq_fault3': False,
+                'tx_eq_fault4': False,
+                'tx_eq_fault5': False,
+                'tx_eq_fault6': False,
+                'tx_eq_fault7': False,
+                'tx_eq_fault8': False,
                 'config_state_hostlane1': 'ConfigSuccess',
                 'config_state_hostlane2': 'ConfigSuccess',
                 'config_state_hostlane3': 'ConfigSuccess',
@@ -1915,6 +1925,14 @@ class TestCmis(object):
                 'config_state_hostlane6': 'ConfigSuccess',
                 'config_state_hostlane7': 'ConfigSuccess',
                 'config_state_hostlane8': 'ConfigSuccess',
+                'dpdeinit_hostlane1' : False,
+                'dpdeinit_hostlane2' : True,
+                'dpdeinit_hostlane3' : False,
+                'dpdeinit_hostlane4' : False,
+                'dpdeinit_hostlane5' : False,
+                'dpdeinit_hostlane6' : False,
+                'dpdeinit_hostlane7' : False,
+                'dpdeinit_hostlane8' : False,
                 'dpinit_pending_hostlane1': False,
                 'dpinit_pending_hostlane2': False,
                 'dpinit_pending_hostlane3': False,
@@ -2070,7 +2088,7 @@ class TestCmis(object):
                     'Pre-FEC BER Average Media Input':{1:[0.001, 0.0125, 0, 0.01, 0, False, False, False, False]},
                     'Errored Frames Average Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
                 },
-                None, None
+                None, None, None, None
             ],
             {
                 'module_state': 'ModuleReady',
@@ -2133,8 +2151,13 @@ class TestCmis(object):
         self.api.get_tx_disable_channel.return_value = mock_response[20]
         self.api.get_tx_disable = MagicMock()
         self.api.get_tx_disable.return_value = mock_response[21]
-        result = self.api.get_transceiver_status()
-        assert result == expected
+        with patch.object(self.api, 'get_datapath_deinit', return_value=mock_response[22]), \
+             patch.object(self.api, 'get_tx_adaptive_eq_fail_flag', return_value=mock_response[23]):
+            self.api.vdm = MagicMock()
+            self.api.vdm.return_value.VDM_FLAG = 'mocked_value'
+
+            result = self.api.get_transceiver_status()
+            assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected",[
         (
@@ -2308,6 +2331,18 @@ class TestCmis(object):
         kall = self.api.xcvr_eeprom.write.call_args
         assert kall is not None
         assert kall[0] == (consts.DATAPATH_DEINIT_FIELD, 0xff)
+
+    @pytest.mark.parametrize("mock_response, expected", [
+        (None, None),
+        (0x00, [False for _ in range(8)]),
+        (0xff, [True for _ in range(8)]),
+        (0x0f, [True, True, True, True, False, False, False, False]),
+    ])
+    def test_get_datapath_deinit(self, mock_response, expected):
+        self.api.xcvr_eeprom = MagicMock()
+        self.api.xcvr_eeprom.read.return_value = mock_response
+
+        assert self.api.get_datapath_deinit() == expected
 
     def test_get_application_advertisement(self):
         self.api.xcvr_eeprom.read = MagicMock()
@@ -2666,3 +2701,30 @@ class TestCmis(object):
         self.api.get_module_fw_info.side_effect = [{'result': ( '', '', '', '', '', '', '', '','2.0.0', '1.0.0')}]
         result = self.api.get_transceiver_info_firmware_versions()
         assert result == expected_result
+
+
+    @pytest.mark.parametrize("mock_flat_memory, mock_response, expected", [
+        (False, True, True),
+        (False, False, False),
+        (False, None, None),
+        (True, True, False),
+    ])
+    def test_get_tx_adaptive_eq_fail_flag_supported(self, mock_flat_memory, mock_response, expected):
+        with patch.object(self.api, 'is_flat_memory', return_value=mock_flat_memory):
+            self.api.xcvr_eeprom.read = MagicMock(return_value=mock_response)
+            result = self.api.get_tx_adaptive_eq_fail_flag_supported()
+            assert result == expected
+
+    @pytest.mark.parametrize("mock_response, expected", [
+        ([True, {'TxAdaptiveEqFailFlag1': 1, 'TxAdaptiveEqFailFlag2': 0}], [True, False]),
+        ([False, {'TxAdaptiveEqFailFlag1': 1, 'TxAdaptiveEqFailFlag2': 0}], ['N/A' for _ in range(8)]),
+        ([None, None], None),
+        ([True, None], None)
+    ])
+    def test_get_tx_adaptive_eq_fail_flag(self, mock_response, expected):
+        self.api.get_tx_adaptive_eq_fail_flag_supported = MagicMock()
+        self.api.get_tx_adaptive_eq_fail_flag_supported.return_value = mock_response[0]
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.return_value = mock_response[1]
+        result = self.api.get_tx_adaptive_eq_fail_flag()
+        assert result == expected
