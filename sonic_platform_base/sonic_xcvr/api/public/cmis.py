@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP = {
+    "Laser Temperature [C]" : "laser_temperature_media",
     "eSNR Media Input [dB]" : "esnr_media_input",
     "PAM4 Level Transition Parameter Media Input [dB]" : "pam4_level_transition_media_input",
     "Pre-FEC BER Minimum Media Input" : "prefec_ber_min_media_input",
@@ -2042,10 +2043,18 @@ class CmisApi(XcvrApi):
             if rx_lol:
                 for lane in range(1, self.NUM_CHANNELS+1):
                     trans_status['rxcdrlol%d' % lane] = rx_lol[lane - 1]
+            tx_adaptive_eq_fail_flag_val = self.get_tx_adaptive_eq_fail_flag()
+            if tx_adaptive_eq_fail_flag_val:
+                for lane in range(1, self.NUM_CHANNELS+1):
+                    trans_status['tx_eq_fault%d' % lane] = tx_adaptive_eq_fail_flag_val[lane - 1]
             config_status_dict = self.get_config_datapath_hostlane_status()
             if config_status_dict:
                 for lane in range(1, self.NUM_CHANNELS+1):
                     trans_status['config_state_hostlane%d' % lane] = config_status_dict.get('ConfigStatusLane%d' % lane)
+            dedeint_hostlane = self.get_datapath_deinit()
+            if dedeint_hostlane is not None:
+                for lane in range(1, self.NUM_CHANNELS+1):
+                    trans_status['dpdeinit_hostlane%d' % lane] = dedeint_hostlane[lane - 1]
             dpinit_pending_dict = self.get_dpinit_pending()
             if dpinit_pending_dict:
                 for lane in range(1, self.NUM_CHANNELS+1):
@@ -2207,6 +2216,12 @@ class CmisApi(XcvrApi):
             else:               # CMIS v3
                 data &= ~(1 << lane)
         self.xcvr_eeprom.write(consts.DATAPATH_DEINIT_FIELD, data)
+
+    def get_datapath_deinit(self):
+        datapath_deinit = self.xcvr_eeprom.read(consts.DATAPATH_DEINIT_FIELD)
+        if datapath_deinit is None:
+            return None
+        return [bool(datapath_deinit & (1 << lane)) for lane in range(self.NUM_CHANNELS)]
 
     def get_application_advertisement(self):
         """
@@ -2392,6 +2407,30 @@ class CmisApi(XcvrApi):
         if tx_input_max_val is None:
             return None
         return tx_input_max_val
+
+    def get_tx_adaptive_eq_fail_flag_supported(self):
+        """
+        Returns whether the TX Adaptive Input EQ Fail Flag field is supported.
+        """
+        return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.TX_ADAPTIVE_INPUT_EQ_FAIL_FLAG_SUPPORTED)
+
+    def get_tx_adaptive_eq_fail_flag(self):
+        """
+        Returns the TX Adaptive Input EQ Fail Flag field on all lanes.
+        """
+        tx_adaptive_eq_fail_flag_supported = self.get_tx_adaptive_eq_fail_flag_supported()
+        if tx_adaptive_eq_fail_flag_supported is None:
+            return None
+        if not tx_adaptive_eq_fail_flag_supported:
+            return ["N/A" for _ in range(self.NUM_CHANNELS)]
+        tx_adaptive_eq_fail_flag_val = self.xcvr_eeprom.read(consts.TX_ADAPTIVE_INPUT_EQ_FAIL_FLAG)
+        if tx_adaptive_eq_fail_flag_val is None:
+            return None
+        keys = sorted(tx_adaptive_eq_fail_flag_val.keys())
+        tx_adaptive_eq_fail_flag_val_final = []
+        for key in keys:
+            tx_adaptive_eq_fail_flag_val_final.append(bool(tx_adaptive_eq_fail_flag_val[key]))
+        return tx_adaptive_eq_fail_flag_val_final
 
     def get_tx_cdr_supported(self):
         '''
