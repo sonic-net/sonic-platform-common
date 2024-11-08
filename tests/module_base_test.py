@@ -10,7 +10,7 @@ class TestModuleBase:
                 [module.get_state_info],
                 [module.get_pci_bus_info],
                 [module.pci_detach],
-                [module.pci_rescan],
+                [module.pci_reattach],
             ]
 
         for method in not_implemented_methods:
