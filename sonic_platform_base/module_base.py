@@ -284,7 +284,7 @@ class ModuleBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
-    def pci_rescan(self):
+    def pci_reattach(self):
         """
         Rescans and reconnects the PCI device.
 
