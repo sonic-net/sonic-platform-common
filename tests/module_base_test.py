@@ -8,9 +8,9 @@ class TestModuleBase:
                 [module.get_dpu_id],
                 [module.get_reboot_cause],
                 [module.get_state_info],
-                [module.get_bus_info],
+                [module.get_pci_bus_info],
                 [module.pci_detach],
-                [module.pci_reattach],
+                [module.pci_rescan],
             ]
 
         for method in not_implemented_methods:

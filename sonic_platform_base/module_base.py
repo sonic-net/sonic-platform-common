@@ -266,7 +266,7 @@ class ModuleBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
-    def get_bus_info(self):
+    def get_pci_bus_info(self):
         """
         Retrieves the bus information.
 
@@ -284,7 +284,7 @@ class ModuleBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
-    def pci_reattach(self):
+    def pci_rescan(self):
         """
         Rescans and reconnects the PCI device.
 
