@@ -52,6 +52,8 @@ class ModuleBase(device_base.DeviceBase):
     MODULE_REBOOT_FPGA_COMPLEX = "FPGA"
     # Module reboot type to reboot DPU
     MODULE_REBOOT_DPU = "DPU"
+    # Module reboot type to reboot SMART SWITCH
+    MODULE_REBOOT_SMARTSWITCH = "SMARTSWITCH"
 
     def __init__(self):
         # List of ComponentBase-derived objects representing all components
@@ -168,9 +170,11 @@ class ModuleBase(device_base.DeviceBase):
         Args:
             reboot_type: A string, the type of reboot requested from one of the
             predefined reboot types: MODULE_REBOOT_DEFAULT, MODULE_REBOOT_CPU_COMPLEX,
-            MODULE_REBOOT_FPGA_COMPLEX or MODULE_REBOOT_DPU
+            MODULE_REBOOT_FPGA_COMPLEX, MODULE_REBOOT_DPU or MODULE_REBOOT_SMARTSWITCH
 
             MODULE_REBOOT_DPU is only applicable for smartswitch chassis.
+
+            MODULE_REBOOT_SMARTSWITCH is only applicable for smartswitch chassis.
 
         Returns:
             bool: True if the request has been issued successfully, False if not
@@ -262,28 +266,30 @@ class ModuleBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
-    def get_bus_info(self, module_name):
+    def get_pci_bus_info(self):
         """
-        Retrieves the bus information for the specified by "module_name" on a SmartSwitch.
+        Retrieves the bus information.
 
         Returns:
             Returns the PCI bus information in BDF format like "[DDDD:]BB:SS:F"
         """
         raise NotImplementedError
 
-    def pci_detach(self, module_name):
+    def pci_detach(self):
         """
-        Detaches the DPU PCI device specified by "module_name" on a SmartSwitch.
+        Detaches the PCI device.
 
         Returns: True once the PCI is successfully detached.
+        Returns False, if PCI detachment fails or specified device is not found.
         """
         raise NotImplementedError
 
-    def pci_reattach(self, module_name):
+    def pci_reattach(self):
         """
-        Rescans and reconnects the DPU PCI device specified by "module_name" on a SmartSwitch.
+        Rescans and reconnects the PCI device.
 
         Returns: True once the PCI is successfully reconnected.
+        Returns False, if PCI rescan fails or specified device is not found.
         """
         raise NotImplementedError
 
