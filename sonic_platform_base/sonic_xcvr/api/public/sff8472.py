@@ -37,7 +37,7 @@ class Sff8472Api(XcvrApi):
             if len > 0:
                 cable_len = len
                 cable_type = type
- 
+
         xcvr_info = {
             "type": serial_id[consts.ID_FIELD],
             "type_abbrv_name": serial_id[consts.ID_ABBRV_FIELD],
@@ -294,6 +294,27 @@ class Sff8472Api(XcvrApi):
         return False
 
     def get_power_override_support(self):
+        return False
+
+    def get_lpmode(self):
+        '''
+        Retrieves low power mode status
+
+        Returns:
+            bool: True if module in low power else returns False.
+        '''
+        return False
+
+    def set_lpmode(self, lpmode):
+        '''
+        This function sets LPMode for the module.
+
+        Args:
+            lpmode (bool): False means LPMode Off, True means LPMode On
+
+        Returns:
+            bool: True if the provision succeeds, False if it fails
+        '''
         return False
 
     def is_copper(self):
