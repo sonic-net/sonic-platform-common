@@ -290,3 +290,9 @@ class TestSff8472(object):
         result = self.api.get_transceiver_bulk_status()
         assert result == expected
 
+    def test_get_lpmode(self):
+        assert not self.api.get_lpmode()
+
+    def test_set_lpmode(self):
+        assert not self.api.set_lpmode(True)
+        assert not self.api.set_lpmode(False)
