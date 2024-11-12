@@ -128,6 +128,8 @@ class Sff8636MemMap(XcvrMemMap):
         self.POWER_CTRL = NumberRegField(consts.POWER_CTRL_FIELD, self.get_addr(0, 93),
             RegBitField(consts.POWER_OVERRIDE_FIELD, 0, ro=False),
             RegBitField(consts.POWER_SET_FIELD, 1, ro=False),
+            RegBitField(consts.HIGH_POWER_CLASS_ENABLE_CLASS_5_TO_7, 2, ro=False),
+            RegBitField(consts.HIGH_POWER_CLASS_ENABLE_CLASS_8, 3, ro=False),
             ro=False
         )
 

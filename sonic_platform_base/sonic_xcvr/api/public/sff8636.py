@@ -12,6 +12,7 @@ from ...codes.public.sff8636 import Sff8636Codes
 
 class Sff8636Api(XcvrApi):
     NUM_CHANNELS = 4
+    POWER_CLASS_PREFIX = "Power Class "
 
     def __init__(self, xcvr_eeprom):
         super(Sff8636Api, self).__init__(xcvr_eeprom)
@@ -403,3 +404,45 @@ class Sff8636Api(XcvrApi):
         # Since typically optics come up by default set to high power, in this case,
         # power_override not being set, function will return high power mode.
         return power_set and power_override
+
+    def get_power_class(self):
+        '''
+        Retrieves power class of the module.
+
+        Returns:
+            int: Power class of the module, -1 if it fails
+        '''
+        power_class_str = self.xcvr_eeprom.read(consts.POWER_CLASS_FIELD)
+        power_class = -1
+
+        if power_class_str is None:
+            return power_class
+        if not power_class_str.startswith(self.POWER_CLASS_PREFIX):
+            return power_class
+
+        prefix_len = len(self.POWER_CLASS_PREFIX)
+        power_class = int(power_class_str[prefix_len:prefix_len + 1])
+
+        return power_class
+
+    def handle_high_power_class(self):
+        '''
+        This function enables high power class for the module if needed.
+        It is only applicable for power class >= 5.
+
+        Returns:
+            bool: True if the provision succeeds, False if it fails
+        '''
+        power_class = self.get_power_class()
+        ret = True
+
+        if power_class < 5:
+            return ret
+        if power_class >= 8:
+            if not self.xcvr_eeprom.read(consts.HIGH_POWER_CLASS_ENABLE_CLASS_8):
+                ret = self.xcvr_eeprom.write(consts.HIGH_POWER_CLASS_ENABLE_CLASS_8, 0x1)
+        # Power class 5, 6, 7
+        if not self.xcvr_eeprom.read(consts.HIGH_POWER_CLASS_ENABLE_CLASS_5_TO_7):
+            ret = self.xcvr_eeprom.write(consts.HIGH_POWER_CLASS_ENABLE_CLASS_5_TO_7, 0x1)
+
+        return ret
