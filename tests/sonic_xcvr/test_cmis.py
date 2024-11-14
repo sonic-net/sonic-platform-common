@@ -3,7 +3,7 @@ from mock import MagicMock
 import pytest
 import traceback
 import random
-from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi
+from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi, CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP, THRESHOLD_TYPE_STR_MAP, FLAG_TYPE_STR_MAP
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis import CmisMemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
 from sonic_platform_base.sonic_xcvr.codes.public.cmis import CmisCodes
@@ -573,6 +573,17 @@ class TestCmis(object):
         self.api.get_tx_disable_channel = MagicMock()
         self.api.get_tx_disable_channel.return_value = mock_response
         self.api.tx_disable_channel(*input_param)
+
+    @pytest.mark.parametrize("mock_response, expected", [
+        (1, ['TuningComplete']),
+        (62, ['TargetOutputPowerOOR', 'FineTuningOutOfRange', 'TuningNotAccepted',
+              'InvalidChannel', 'WavelengthUnlocked']),
+    ])
+    def test_get_laser_tuning_summary(self, mock_response, expected):
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.return_value = mock_response
+        result = self.api.get_laser_tuning_summary()
+        assert result == expected
 
     def test_get_power_override(self):
         self.api.get_power_override()
@@ -1619,6 +1630,179 @@ class TestCmis(object):
         result = self.api.get_transceiver_bulk_status()
         assert result == expected
 
+    @pytest.mark.parametrize(
+        "module_flag, tx_power_flag_dict, rx_power_flag_dict, tx_bias_flag_dict, aux_mon_types, expected_result",
+        [
+            # Test case 1: All flags present
+            (
+                {
+                    'case_temp_flags': {
+                        'case_temp_high_alarm_flag': True,
+                        'case_temp_low_alarm_flag': False,
+                        'case_temp_high_warn_flag': True,
+                        'case_temp_low_warn_flag': False
+                    },
+                    'voltage_flags': {
+                        'voltage_high_alarm_flag': True,
+                        'voltage_low_alarm_flag': False,
+                        'voltage_high_warn_flag': True,
+                        'voltage_low_warn_flag': False
+                    },
+                    'aux2_flags': {
+                        'aux2_high_alarm_flag': True,
+                        'aux2_low_alarm_flag': False,
+                        'aux2_high_warn_flag': True,
+                        'aux2_low_warn_flag': False
+                    },
+                    'aux3_flags': {
+                        'aux3_high_alarm_flag': True,
+                        'aux3_low_alarm_flag': False,
+                        'aux3_high_warn_flag': True,
+                        'aux3_low_warn_flag': False
+                    }
+                },
+                {
+                    'tx_power_high_alarm': {f'TxPowerHighAlarmFlag{i}': i % 2 == 1 for i in range(1, 9)},
+                    'tx_power_low_alarm': {f'TxPowerLowAlarmFlag{i}': i % 2 == 0 for i in range(1, 9)},
+                    'tx_power_high_warn': {f'TxPowerHighWarnFlag{i}': i % 2 == 1 for i in range(1, 9)},
+                    'tx_power_low_warn': {f'TxPowerLowWarnFlag{i}': i % 2 == 0 for i in range(1, 9)}
+                },
+                {
+                    'rx_power_high_alarm': {f'RxPowerHighAlarmFlag{i}': i % 2 == 1 for i in range(1, 9)},
+                    'rx_power_low_alarm': {f'RxPowerLowAlarmFlag{i}': i % 2 == 0 for i in range(1, 9)},
+                    'rx_power_high_warn': {f'RxPowerHighWarnFlag{i}': i % 2 == 1 for i in range(1, 9)},
+                    'rx_power_low_warn': {f'RxPowerLowWarnFlag{i}': i % 2 == 0 for i in range(1, 9)}
+                },
+                {
+                    'tx_bias_high_alarm': {f'TxBiasHighAlarmFlag{i}': i % 2 == 1 for i in range(1, 9)},
+                    'tx_bias_low_alarm': {f'TxBiasLowAlarmFlag{i}': i % 2 == 0 for i in range(1, 9)},
+                    'tx_bias_high_warn': {f'TxBiasHighWarnFlag{i}': i % 2 == 1 for i in range(1, 9)},
+                    'tx_bias_low_warn': {f'TxBiasLowWarnFlag{i}': i % 2 == 0 for i in range(1, 9)}
+                },
+                (0, 1, 0),
+                {
+                    'temphighalarm_flag': True,
+                    'templowalarm_flag': False,
+                    'temphighwarning_flag': True,
+                    'templowwarning_flag': False,
+                    'vcchighalarm_flag': True,
+                    'vcclowalarm_flag': False,
+                    'vcchighwarning_flag': True,
+                    'vcclowwarning_flag': False,
+                    'txpowerhighalarm_flag1': True,
+                    'txpowerlowalarm_flag1': False,
+                    'txpowerhighwarning_flag1': True,
+                    'txpowerlowwarning_flag1': False,
+                    'txpowerhighalarm_flag2': False,
+                    'txpowerlowalarm_flag2': True,
+                    'txpowerhighwarning_flag2': False,
+                    'txpowerlowwarning_flag2': True,
+                    'txpowerhighalarm_flag3': True,
+                    'txpowerlowalarm_flag3': False,
+                    'txpowerhighwarning_flag3': True,
+                    'txpowerlowwarning_flag3': False,
+                    'txpowerhighalarm_flag4': False,
+                    'txpowerlowalarm_flag4': True,
+                    'txpowerhighwarning_flag4': False,
+                    'txpowerlowwarning_flag4': True,
+                    'txpowerhighalarm_flag5': True,
+                    'txpowerlowalarm_flag5': False,
+                    'txpowerhighwarning_flag5': True,
+                    'txpowerlowwarning_flag5': False,
+                    'txpowerhighalarm_flag6': False,
+                    'txpowerlowalarm_flag6': True,
+                    'txpowerhighwarning_flag6': False,
+                    'txpowerlowwarning_flag6': True,
+                    'txpowerhighalarm_flag7': True,
+                    'txpowerlowalarm_flag7': False,
+                    'txpowerhighwarning_flag7': True,
+                    'txpowerlowwarning_flag7': False,
+                    'txpowerhighalarm_flag8': False,
+                    'txpowerlowalarm_flag8': True,
+                    'txpowerhighwarning_flag8': False,
+                    'txpowerlowwarning_flag8': True,
+                    'rxpowerhighalarm_flag1': True,
+                    'rxpowerlowalarm_flag1': False,
+                    'rxpowerhighwarning_flag1': True,
+                    'rxpowerlowwarning_flag1': False,
+                    'rxpowerhighalarm_flag2': False,
+                    'rxpowerlowalarm_flag2': True,
+                    'rxpowerhighwarning_flag2': False,
+                    'rxpowerlowwarning_flag2': True,
+                    'rxpowerhighalarm_flag3': True,
+                    'rxpowerlowalarm_flag3': False,
+                    'rxpowerhighwarning_flag3': True,
+                    'rxpowerlowwarning_flag3': False,
+                    'rxpowerhighalarm_flag4': False,
+                    'rxpowerlowalarm_flag4': True,
+                    'rxpowerhighwarning_flag4': False,
+                    'rxpowerlowwarning_flag4': True,
+                    'rxpowerhighalarm_flag5': True,
+                    'rxpowerlowalarm_flag5': False,
+                    'rxpowerhighwarning_flag5': True,
+                    'rxpowerlowwarning_flag5': False,
+                    'rxpowerhighalarm_flag6': False,
+                    'rxpowerlowalarm_flag6': True,
+                    'rxpowerhighwarning_flag6': False,
+                    'rxpowerlowwarning_flag6': True,
+                    'rxpowerhighalarm_flag7': True,
+                    'rxpowerlowalarm_flag7': False,
+                    'rxpowerhighwarning_flag7': True,
+                    'rxpowerlowwarning_flag7': False,
+                    'rxpowerhighalarm_flag8': False,
+                    'rxpowerlowalarm_flag8': True,
+                    'rxpowerhighwarning_flag8': False,
+                    'rxpowerlowwarning_flag8': True,
+                    'txbiashighalarm_flag1': True,
+                    'txbiaslowalarm_flag1': False,
+                    'txbiashighwarning_flag1': True,
+                    'txbiaslowwarning_flag1': False,
+                    'txbiashighalarm_flag2': False,
+                    'txbiaslowalarm_flag2': True,
+                    'txbiashighwarning_flag2': False,
+                    'txbiaslowwarning_flag2': True,
+                    'txbiashighalarm_flag3': True,
+                    'txbiaslowalarm_flag3': False,
+                    'txbiashighwarning_flag3': True,
+                    'txbiaslowwarning_flag3': False,
+                    'txbiashighalarm_flag4': False,
+                    'txbiaslowalarm_flag4': True,
+                    'txbiashighwarning_flag4': False,
+                    'txbiaslowwarning_flag4': True,
+                    'txbiashighalarm_flag5': True,
+                    'txbiaslowalarm_flag5': False,
+                    'txbiashighwarning_flag5': True,
+                    'txbiaslowwarning_flag5': False,
+                    'txbiashighalarm_flag6': False,
+                    'txbiaslowalarm_flag6': True,
+                    'txbiashighwarning_flag6': False,
+                    'txbiaslowwarning_flag6': True,
+                    'txbiashighalarm_flag7': True,
+                    'txbiaslowalarm_flag7': False,
+                    'txbiashighwarning_flag7': True,
+                    'txbiaslowwarning_flag7': False,
+                    'txbiashighalarm_flag8': False,
+                    'txbiaslowalarm_flag8': True,
+                    'txbiashighwarning_flag8': False,
+                    'txbiaslowwarning_flag8': True,
+                    'lasertemphighalarm_flag': True,
+                    'lasertemplowalarm_flag': False,
+                    'lasertemphighwarning_flag': True,
+                    'lasertemplowwarning_flag': False
+                }
+            ),
+        ]
+    )
+    def test_get_transceiver_dom_flags(self, module_flag, tx_power_flag_dict, rx_power_flag_dict, tx_bias_flag_dict, aux_mon_types, expected_result):
+        self.api.get_module_level_flag = MagicMock(return_value=module_flag)
+        self.api.get_tx_power_flag = MagicMock(return_value=tx_power_flag_dict)
+        self.api.get_rx_power_flag = MagicMock(return_value=rx_power_flag_dict)
+        self.api.get_tx_bias_flag = MagicMock(return_value=tx_bias_flag_dict)
+        self.api.get_aux_mon_type = MagicMock(return_value=aux_mon_types)
+
+        result = self.api.get_transceiver_dom_flags()
+        assert result == expected_result
+
     @pytest.mark.parametrize("mock_response, expected",[
         (
             [
@@ -2159,6 +2343,92 @@ class TestCmis(object):
             result = self.api.get_transceiver_status()
             assert result == expected
 
+    @pytest.mark.parametrize(
+        "module_faults, tx_fault, tx_los, tx_cdr_lol, tx_eq_fault, rx_los, rx_cdr_lol, laser_tuning_summary, expected_result",
+        [
+            # Test case 1: All flags present for lanes 1 to 8
+            (
+                (True, False, True),
+                [True, False, True, False, True, False, True, False],
+                [False, True, False, True, False, True, False, True],
+                [True, False, True, False, True, False, True, False],
+                [False, True, False, True, False, True, False, True],
+                [True, False, True, False, True, False, True, False],
+                [False, True, False, True, False, True, False, True],
+                ['TargetOutputPowerOOR', 'FineTuningOutOfRange', 'TuningNotAccepted', 'InvalidChannel', 'TuningComplete'],
+                {
+                    'datapath_firmware_fault': True,
+                    'module_firmware_fault': False,
+                    'module_state_changed': True,
+                    'txfault1': True,
+                    'txfault2': False,
+                    'txfault3': True,
+                    'txfault4': False,
+                    'txfault5': True,
+                    'txfault6': False,
+                    'txfault7': True,
+                    'txfault8': False,
+                    'txlos_hostlane1': False,
+                    'txlos_hostlane2': True,
+                    'txlos_hostlane3': False,
+                    'txlos_hostlane4': True,
+                    'txlos_hostlane5': False,
+                    'txlos_hostlane6': True,
+                    'txlos_hostlane7': False,
+                    'txlos_hostlane8': True,
+                    'txcdrlol_hostlane1': True,
+                    'txcdrlol_hostlane2': False,
+                    'txcdrlol_hostlane3': True,
+                    'txcdrlol_hostlane4': False,
+                    'txcdrlol_hostlane5': True,
+                    'txcdrlol_hostlane6': False,
+                    'txcdrlol_hostlane7': True,
+                    'txcdrlol_hostlane8': False,
+                    'tx_eq_fault1': False,
+                    'tx_eq_fault2': True,
+                    'tx_eq_fault3': False,
+                    'tx_eq_fault4': True,
+                    'tx_eq_fault5': False,
+                    'tx_eq_fault6': True,
+                    'tx_eq_fault7': False,
+                    'tx_eq_fault8': True,
+                    'rxlos1': True,
+                    'rxlos2': False,
+                    'rxlos3': True,
+                    'rxlos4': False,
+                    'rxlos5': True,
+                    'rxlos6': False,
+                    'rxlos7': True,
+                    'rxlos8': False,
+                    'rxcdrlol1': False,
+                    'rxcdrlol2': True,
+                    'rxcdrlol3': False,
+                    'rxcdrlol4': True,
+                    'rxcdrlol5': False,
+                    'rxcdrlol6': True,
+                    'rxcdrlol7': False,
+                    'rxcdrlol8': True,
+                    'target_output_power_oor': True,
+                    'fine_tuning_oor': True,
+                    'tuning_not_accepted': True,
+                    'invalid_channel_num': True,
+                    'tuning_complete': True
+                }
+            ),
+        ]
+    )
+    def test_get_transceiver_status_flags(self, module_faults, tx_fault, tx_los, tx_cdr_lol, tx_eq_fault, rx_los, rx_cdr_lol, laser_tuning_summary, expected_result):
+        self.api.get_module_firmware_fault_state_changed = MagicMock(return_value=module_faults)
+        self.api.get_tx_fault = MagicMock(return_value=tx_fault)
+        self.api.get_tx_los = MagicMock(return_value=tx_los)
+        self.api.get_tx_cdr_lol = MagicMock(return_value=tx_cdr_lol)
+        self.api.get_rx_los = MagicMock(return_value=rx_los)
+        self.api.get_rx_cdr_lol = MagicMock(return_value=rx_cdr_lol)
+        self.api.get_laser_tuning_summary = MagicMock(return_value=laser_tuning_summary)
+        with patch.object(self.api, 'get_tx_adaptive_eq_fail_flag', return_value=tx_eq_fault):
+            result = self.api.get_transceiver_status_flags()
+            assert result == expected_result
+
     @pytest.mark.parametrize("mock_response, expected",[
         (
             [
@@ -2292,6 +2562,138 @@ class TestCmis(object):
         self.api.get_host_input_loopback.return_value = mock_response[4]
         result = self.api.get_transceiver_loopback()
         assert result == expected
+
+    def generate_vdm_real_value_expected_dict(base_dict):
+        default_dict = dict()
+        for _, db_prefix_key_map in CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP.items():
+                default_dict.update({f'{db_prefix_key_map}{i}': 'N/A' for i in range(1, 9)})
+
+        default_dict.update(base_dict)
+        return default_dict
+    @pytest.mark.parametrize(
+        "vdm_raw_dict, expected_result",
+        [
+            # Test case 1: VDM descriptor partially advertised
+            (
+                {
+                    'Laser Temperature [C]' : {
+                        1: [10.0, None, None, None, None, None, None, None, None],
+                        2: [20.0, None, None, None, None, None, None, None, None],
+                        3: [30.0, None, None, None, None, None, None, None, None],
+                        4: [40.0, None, None, None, None, None, None, None, None],
+                        5: [50.0, None, None, None, None, None, None, None, None],
+                        6: [60.0, None, None, None, None, None, None, None, None],
+                        7: [70.0, None, None, None, None, None, None, None, None],
+                        8: [80.0, None, None, None, None, None, None, None, None]},
+                    'eSNR Media Input [dB]' : {1: [22.94921875, None, None, None, None, None, None, None, None]}
+                },
+                generate_vdm_real_value_expected_dict(
+                    {
+                        'laser_temperature_media1': 10.0,
+                        'laser_temperature_media2': 20.0,
+                        'laser_temperature_media3': 30.0,
+                        'laser_temperature_media4': 40.0,
+                        'laser_temperature_media5': 50.0,
+                        'laser_temperature_media6': 60.0,
+                        'laser_temperature_media7': 70.0,
+                        'laser_temperature_media8': 80.0,
+                        'esnr_media_input1' : 22.94921875,
+                    }
+                )
+            ),
+        ]
+    )
+    def test_get_transceiver_vdm_real_value(self, vdm_raw_dict, expected_result):
+        self.api.vdm = MagicMock()
+        self.api.vdm.VDM_REAL_VALUE = MagicMock()
+        self.api.get_vdm = MagicMock(return_value=vdm_raw_dict)
+
+        result = self.api.get_transceiver_vdm_real_value()
+        assert result == expected_result
+
+    def generate_vdm_thrsholds_expected_dict(base_dict):
+        default_dict = dict()
+        for _, db_prefix_key_map in CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP.items():
+                for _, thrshold_type_str in THRESHOLD_TYPE_STR_MAP.items():
+                    default_dict.update({f'{db_prefix_key_map}_{thrshold_type_str}{i}': 'N/A' for i in range(1, 9)})
+
+        default_dict.update(base_dict)
+        return default_dict
+
+    @pytest.mark.parametrize(
+        "vdm_raw_dict, expected_result",
+        [
+            # Test case 1: VDM descriptor partially advertised
+            (
+                    { #Laser temperature media 1 is halarm
+                    'Laser Temperature [C]': {
+                        1: [None, 90.0, -5.0, 85.0, 0.0, None, None, None, None],
+                        2: [None, 90.0, -5.0, 85.0, 0.0, None, None, None, None],
+                        3: [None, 90.0, -5.0, 85.0, 0.0, None, None, None, None],
+                        4: [None, 90.0, -5.0, 85.0, 0.0, None, None, None, None],
+                        5: [None, 90.0, -5.0, 85.0, 0.0, None, None, None, None],
+                        6: [None, 90.0, -5.0, 85.0, 0.0, None, None, None, None],
+                        7: [None, 90.0, -5.0, 85.0, 0.0, None, None, None, None],
+                        8: [None, 90.0, -5.0, 85.0, 0.0, None, None, None, None],
+                    },
+                },
+                generate_vdm_thrsholds_expected_dict(
+                    {
+                        **{f'laser_temperature_media_{alarm_type}{lane}': value for lane in range(1, 9) for alarm_type, value in zip(['halarm', 'hwarn', 'lwarn', 'lalarm'], [90.0, 85.0, 0.0, -5.0])}
+                    }
+                )
+            ),
+        ]
+    )
+    def test_get_transceiver_vdm_thresholds(self, vdm_raw_dict, expected_result):
+        self.api.vdm = MagicMock()
+        self.api.vdm.VDM_THRESHOLD = MagicMock()
+        self.api.get_vdm = MagicMock(return_value=vdm_raw_dict)
+
+        result = self.api.get_transceiver_vdm_thresholds()
+        assert result == expected_result
+
+    def generate_vdm_flags_expected_dict(base_dict):
+        default_dict = dict()
+        for _, db_prefix_key_map in CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP.items():
+                for _, flag_type_str in FLAG_TYPE_STR_MAP.items():
+                    default_dict.update({f'{db_prefix_key_map}_{flag_type_str}{i}': 'N/A' for i in range(1, 9) for flag_type in ['halarm', 'hwarn', 'lwarn', 'lalarm']})
+
+        default_dict.update(base_dict)
+        return default_dict
+    @pytest.mark.parametrize(
+        "vdm_raw_dict, expected_result",
+        [
+            # Test case 1: VDM descriptor partially advertised
+            (
+                    { #Laser temperature media 1 is halarm
+                    'Laser Temperature [C]': {
+                        1: [None, None, None, None, None, True, False, False, False],
+                        2: [None, None, None, None, None, False, False, False, False],
+                        3: [None, None, None, None, None, False, False, False, False],
+                        4: [None, None, None, None, None, False, False, False, False],
+                        5: [None, None, None, None, None, False, False, False, False],
+                        6: [None, None, None, None, None, False, False, False, False],
+                        7: [None, None, None, None, None, False, False, False, False],
+                        8: [None, None, None, None, None, False, False, False, False],
+                    },
+                },
+                generate_vdm_flags_expected_dict(
+                    {
+                        **{f'laser_temperature_media_{alarm_type}{lane}': False for lane in range(1, 9) for alarm_type in ['halarm', 'hwarn', 'lwarn', 'lalarm']},
+                        'laser_temperature_media_halarm1': True
+                    }
+                )
+            ),
+        ]
+    )
+    def test_get_transceiver_vdm_flags(self, vdm_raw_dict, expected_result):
+        self.api.vdm = MagicMock()
+        self.api.vdm.VDM_FLAG = MagicMock()
+        self.api.get_vdm = MagicMock(return_value=vdm_raw_dict)
+
+        result = self.api.get_transceiver_vdm_flags()
+        assert result == expected_result
 
     def test_cable_len(self):
         cable_len_field = self.mem_map.get_field(consts.LENGTH_ASSEMBLY_FIELD)

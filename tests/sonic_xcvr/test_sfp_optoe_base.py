@@ -21,61 +21,61 @@ class TestSfpOptoeBase(object):
     cmis_api = CmisApi(eeprom) 
  
     @pytest.mark.parametrize("mock_response1, mock_response2, expected", [ 
-        (0, ccmis_api, 0), 
-        (1, ccmis_api, 1),
+        (0, cmis_api, 0), 
+        (1, cmis_api, 1),
         (None, None, False),
-        (None, cmis_api, False),
+        (False, cmis_api, False),
     ]) 
     def test_freeze_vdm_stats(self, mock_response1, mock_response2, expected): 
         self.sfp_optoe_api.get_xcvr_api = MagicMock() 
         self.sfp_optoe_api.get_xcvr_api.return_value = mock_response2  
-        self.ccmis_api.freeze_vdm_stats = MagicMock() 
-        self.ccmis_api.freeze_vdm_stats.return_value = mock_response1 
+        self.cmis_api.freeze_vdm_stats = MagicMock() 
+        self.cmis_api.freeze_vdm_stats.return_value = mock_response1 
          
         result = self.sfp_optoe_api.freeze_vdm_stats() 
         assert result == expected
 
     @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
-        (0, ccmis_api, 0),
-        (1, ccmis_api, 1),
+        (0, cmis_api, 0),
+        (1, cmis_api, 1),
         (None, None, False),
-        (None, cmis_api, False),
+        (False, cmis_api, False),
     ])
     def test_unfreeze_vdm_stats(self, mock_response1, mock_response2, expected):
         self.sfp_optoe_api.get_xcvr_api = MagicMock()
         self.sfp_optoe_api.get_xcvr_api.return_value = mock_response2
-        self.ccmis_api.unfreeze_vdm_stats = MagicMock()
-        self.ccmis_api.unfreeze_vdm_stats.return_value = mock_response1
+        self.cmis_api.unfreeze_vdm_stats = MagicMock()
+        self.cmis_api.unfreeze_vdm_stats.return_value = mock_response1
 
         result = self.sfp_optoe_api.unfreeze_vdm_stats()
         assert result == expected
 
     @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
-        (0, ccmis_api, 0),
-        (1, ccmis_api, 1),
+        (0, cmis_api, 0),
+        (1, cmis_api, 1),
         (None, None, False),
-        (None, cmis_api, False),
+        (False, cmis_api, False),
     ])
     def test_get_vdm_freeze_status(self, mock_response1, mock_response2, expected):
         self.sfp_optoe_api.get_xcvr_api = MagicMock()
         self.sfp_optoe_api.get_xcvr_api.return_value = mock_response2
-        self.ccmis_api.get_vdm_freeze_status = MagicMock()
-        self.ccmis_api.get_vdm_freeze_status.return_value = mock_response1
+        self.cmis_api.get_vdm_freeze_status = MagicMock()
+        self.cmis_api.get_vdm_freeze_status.return_value = mock_response1
 
         result = self.sfp_optoe_api.get_vdm_freeze_status()
         assert result == expected
 
     @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
-        (0, ccmis_api, 0),
-        (1, ccmis_api, 1), 
+        (0, cmis_api, 0),
+        (1, cmis_api, 1), 
         (None, None, False),
-        (None, cmis_api, False),
+        (False, cmis_api, False),
     ])
     def test_get_vdm_unfreeze_status(self, mock_response1, mock_response2, expected):
         self.sfp_optoe_api.get_xcvr_api = MagicMock()
         self.sfp_optoe_api.get_xcvr_api.return_value = mock_response2
-        self.ccmis_api.get_vdm_unfreeze_status = MagicMock()
-        self.ccmis_api.get_vdm_unfreeze_status.return_value = mock_response1
+        self.cmis_api.get_vdm_unfreeze_status = MagicMock()
+        self.cmis_api.get_vdm_unfreeze_status.return_value = mock_response1
         
         result = self.sfp_optoe_api.get_vdm_unfreeze_status()
         assert result == expected

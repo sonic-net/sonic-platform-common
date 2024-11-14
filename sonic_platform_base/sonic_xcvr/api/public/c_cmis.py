@@ -5,14 +5,12 @@
 """
 from sonic_py_common import logger
 from ...fields import consts
-from .cmis import CmisApi
+from .cmis import CmisApi, CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP
 import time
 BYTELENGTH = 8
-VDM_FREEZE = 128
-VDM_UNFREEZE = 0
 SYSLOG_IDENTIFIER = "CCmisApi"
 
-VDM_KEY_TO_DB_KEY_PREFIX_MAP = {
+C_CMIS_DELTA_VDM_KEY_TO_DB_PREFIX_KEY_MAP = {
     'Modulator Bias X/I [%]' : 'biasxi',
     'Modulator Bias X/Q [%]' : 'biasxq',
     'Modulator Bias X_Phase [%]' : 'biasxp',
@@ -50,6 +48,10 @@ helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
 class CCmisApi(CmisApi):
     def __init__(self, xcvr_eeprom):
         super(CCmisApi, self).__init__(xcvr_eeprom)
+
+    def _get_vdm_key_to_db_prefix_map(self):
+        combined_map = {**CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP, **C_CMIS_DELTA_VDM_KEY_TO_DB_PREFIX_KEY_MAP}
+        return combined_map
 
     def _update_dict_if_vdm_key_exists(self, dict_to_be_updated, new_key, vdm_dict_key, vdm_subtype_index, lane=1):
         '''
@@ -208,43 +210,6 @@ class CCmisApi(CmisApi):
         status = self.xcvr_eeprom.write(consts.TX_CONFIG_POWER, tx_power)
         time.sleep(1)
         return status
-
-    def freeze_vdm_stats(self):
-        '''
-        This function freeze all the vdm statistics reporting registers.
-        When raised by the host, causes the module to freeze and hold all 
-        reported statistics reporting registers (minimum, maximum and 
-        average values)in Pages 24h-27h.
-
-        Returns True if the provision succeeds and False incase of failure.
-        '''
-        return self.xcvr_eeprom.write(consts.VDM_CONTROL, VDM_FREEZE)
-
-    def get_vdm_freeze_status(self):
-        '''
-        This function reads and returns the vdm Freeze done status.
-
-        Returns True if the vdm stats freeze is successful and False if not freeze.
-        '''
-        return self.xcvr_eeprom.read(consts.VDM_FREEZE_DONE)
-
-    def unfreeze_vdm_stats(self):
-        '''
-        This function unfreeze all the vdm statistics reporting registers.
-        When freeze is ceased by the host, releases the freeze request, allowing the 
-        reported minimum, maximum and average values to update again.
-        
-        Returns True if the provision succeeds and False incase of failure.
-        '''
-        return self.xcvr_eeprom.write(consts.VDM_CONTROL, VDM_UNFREEZE)
-
-    def get_vdm_unfreeze_status(self):
-        '''
-        This function reads and returns the vdm unfreeze status.
-
-        Returns True if the vdm stats unfreeze is successful and False if not unfreeze.
-        '''
-        return self.xcvr_eeprom.read(consts.VDM_UNFREEZE_DONE)
 
     def get_pm_all(self):
         '''
@@ -440,7 +405,7 @@ class CCmisApi(CmisApi):
         """
         trans_dom = super(CCmisApi,self).get_transceiver_bulk_status()
 
-        for vdm_key, trans_dom_key in VDM_KEY_TO_DB_KEY_PREFIX_MAP.items():
+        for vdm_key, trans_dom_key in C_CMIS_DELTA_VDM_KEY_TO_DB_PREFIX_KEY_MAP.items():
             self._update_dict_if_vdm_key_exists(trans_dom, trans_dom_key, vdm_key, 0)
 
         trans_dom['laser_config_freq'] = self.get_laser_config_freq()
@@ -561,7 +526,7 @@ class CCmisApi(CmisApi):
         """
         trans_dom_th = super(CCmisApi,self).get_transceiver_threshold_info()
 
-        for vdm_key, trans_dom_th_key_prefix in VDM_KEY_TO_DB_KEY_PREFIX_MAP.items():
+        for vdm_key, trans_dom_th_key_prefix in C_CMIS_DELTA_VDM_KEY_TO_DB_PREFIX_KEY_MAP.items():
             for i in range(1, 5):
                 trans_dom_th_key = trans_dom_th_key_prefix + VDM_SUBTYPE_IDX_MAP[i]
                 self._update_dict_if_vdm_key_exists(trans_dom_th, trans_dom_th_key, vdm_key, i)
@@ -753,7 +718,7 @@ class CCmisApi(CmisApi):
         trans_status['invalid_channel_num'] = 'InvalidChannel' in laser_tuning_summary
         trans_status['tuning_complete'] = 'TuningComplete' in laser_tuning_summary
 
-        for vdm_key, trans_status_key_prefix in VDM_KEY_TO_DB_KEY_PREFIX_MAP.items():
+        for vdm_key, trans_status_key_prefix in C_CMIS_DELTA_VDM_KEY_TO_DB_PREFIX_KEY_MAP.items():
             for i in range(5, 9):
                 trans_status_key = trans_status_key_prefix + VDM_SUBTYPE_IDX_MAP[i]
                 self._update_dict_if_vdm_key_exists(trans_status, trans_status_key, vdm_key, i)

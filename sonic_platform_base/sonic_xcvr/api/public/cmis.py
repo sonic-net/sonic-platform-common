@@ -5,6 +5,7 @@
     Implementation of XcvrApi that corresponds to the CMIS specification.
 """
 
+from enum import Enum
 from ...fields import consts
 from ..xcvr_api import XcvrApi
 
@@ -20,6 +21,34 @@ from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
+
+VDM_FREEZE = 128
+VDM_UNFREEZE = 0
+
+class VdmSubtypeIndex(Enum):
+    VDM_SUBTYPE_REAL_VALUE = 0
+    VDM_SUBTYPE_HALARM_THRESHOLD = 1
+    VDM_SUBTYPE_LALARM_THRESHOLD = 2
+    VDM_SUBTYPE_HWARN_THRESHOLD = 3
+    VDM_SUBTYPE_LWARN_THRESHOLD = 4
+    VDM_SUBTYPE_HALARM_FLAG = 5
+    VDM_SUBTYPE_LALARM_FLAG = 6
+    VDM_SUBTYPE_HWARN_FLAG = 7
+    VDM_SUBTYPE_LWARN_FLAG = 8
+
+THRESHOLD_TYPE_STR_MAP = {
+    VdmSubtypeIndex.VDM_SUBTYPE_HALARM_THRESHOLD: "halarm",
+    VdmSubtypeIndex.VDM_SUBTYPE_LALARM_THRESHOLD: "lalarm",
+    VdmSubtypeIndex.VDM_SUBTYPE_HWARN_THRESHOLD: "hwarn",
+    VdmSubtypeIndex.VDM_SUBTYPE_LWARN_THRESHOLD: "lwarn"
+}
+
+FLAG_TYPE_STR_MAP = {
+    VdmSubtypeIndex.VDM_SUBTYPE_HALARM_FLAG: "halarm",
+    VdmSubtypeIndex.VDM_SUBTYPE_LALARM_FLAG: "lalarm",
+    VdmSubtypeIndex.VDM_SUBTYPE_HWARN_FLAG: "hwarn",
+    VdmSubtypeIndex.VDM_SUBTYPE_LWARN_FLAG: "lwarn"
+}
 
 CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP = {
     "Laser Temperature [C]" : "laser_temperature_media",
@@ -54,6 +83,71 @@ class CmisApi(XcvrApi):
         super(CmisApi, self).__init__(xcvr_eeprom)
         self.vdm = CmisVdmApi(xcvr_eeprom) if not self.is_flat_memory() else None
         self.cdb = CmisCdbApi(xcvr_eeprom) if not self.is_flat_memory() else None
+
+    def _get_vdm_key_to_db_prefix_map(self):
+        return CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP
+
+    def _update_vdm_dict(self, dict_to_update, new_key, vdm_raw_dict, vdm_observable_type, vdm_subtype_index, lane):
+        """
+        Updates the dictionary with the VDM value if the vdm_observable_type exists.
+        If the key does not exist, it will update the dictionary with 'N/A'.
+
+        Args:
+            dict_to_update (dict): The dictionary to be updated.
+            new_key (str): The key to be added in dict_to_update.
+            vdm_raw_dict (dict): The raw VDM dictionary to be parsed.
+            vdm_observable_type (str): Lookup key in the VDM dictionary.
+            vdm_subtype_index (VdmSubtypeIndex): The index of the VDM subtype in the VDM page.
+            lane (int): The lane number to be looked up in the VDM dictionary.
+
+        Returns:
+            bool: True if the key exists in the VDM dictionary, False if not.
+        """
+        try:
+            dict_to_update[new_key] = vdm_raw_dict[vdm_observable_type][lane][vdm_subtype_index.value]
+        except (KeyError, TypeError):
+            dict_to_update[new_key] = 'N/A'
+            logger.debug('key {} not present in VDM'.format(new_key))
+            return False
+
+        return True
+
+    def freeze_vdm_stats(self):
+        '''
+        This function freeze all the vdm statistics reporting registers.
+        When raised by the host, causes the module to freeze and hold all 
+        reported statistics reporting registers (minimum, maximum and 
+        average values)in Pages 24h-27h.
+
+        Returns True if the provision succeeds and False incase of failure.
+        '''
+        return self.xcvr_eeprom.write(consts.VDM_CONTROL, VDM_FREEZE)
+
+    def get_vdm_freeze_status(self):
+        '''
+        This function reads and returns the vdm Freeze done status.
+
+        Returns True if the vdm stats freeze is successful and False if not freeze.
+        '''
+        return self.xcvr_eeprom.read(consts.VDM_FREEZE_DONE)
+
+    def unfreeze_vdm_stats(self):
+        '''
+        This function unfreeze all the vdm statistics reporting registers.
+        When freeze is ceased by the host, releases the freeze request, allowing the 
+        reported minimum, maximum and average values to update again.
+        
+        Returns True if the provision succeeds and False incase of failure.
+        '''
+        return self.xcvr_eeprom.write(consts.VDM_CONTROL, VDM_UNFREEZE)
+
+    def get_vdm_unfreeze_status(self):
+        '''
+        This function reads and returns the vdm unfreeze status.
+
+        Returns True if the vdm stats unfreeze is successful and False if not unfreeze.
+        '''
+        return self.xcvr_eeprom.read(consts.VDM_UNFREEZE_DONE)
 
     def get_manufacturer(self):
         '''
@@ -269,6 +363,65 @@ class CmisApi(XcvrApi):
                     pass
 
         return bulk_status
+
+    def get_transceiver_dom_flags(self):
+        dom_flag_dict = dict()
+        module_flag = self.get_module_level_flag()
+
+        try:
+            case_temp_flags = module_flag['case_temp_flags']
+            voltage_flags = module_flag['voltage_flags']
+            dom_flag_dict.update({
+                'temphighalarm_flag': case_temp_flags['case_temp_high_alarm_flag'],
+                'templowalarm_flag': case_temp_flags['case_temp_low_alarm_flag'],
+                'temphighwarning_flag': case_temp_flags['case_temp_high_warn_flag'],
+                'templowwarning_flag': case_temp_flags['case_temp_low_warn_flag'],
+                'vcchighalarm_flag': voltage_flags['voltage_high_alarm_flag'],
+                'vcclowalarm_flag': voltage_flags['voltage_low_alarm_flag'],
+                'vcchighwarning_flag': voltage_flags['voltage_high_warn_flag'],
+                'vcclowwarning_flag': voltage_flags['voltage_low_warn_flag']
+            })
+        except TypeError:
+            pass
+
+        tx_power_flag_dict = self.get_tx_power_flag()
+        if tx_power_flag_dict:
+            for lane in range(1, self.NUM_CHANNELS+1):
+                dom_flag_dict['txpowerhighalarm_flag%d' % lane] = tx_power_flag_dict['tx_power_high_alarm']['TxPowerHighAlarmFlag%d' % lane]
+                dom_flag_dict['txpowerlowalarm_flag%d' % lane] = tx_power_flag_dict['tx_power_low_alarm']['TxPowerLowAlarmFlag%d' % lane]
+                dom_flag_dict['txpowerhighwarning_flag%d' % lane] = tx_power_flag_dict['tx_power_high_warn']['TxPowerHighWarnFlag%d' % lane]
+                dom_flag_dict['txpowerlowwarning_flag%d' % lane] = tx_power_flag_dict['tx_power_low_warn']['TxPowerLowWarnFlag%d' % lane]
+        rx_power_flag_dict = self.get_rx_power_flag()
+        if rx_power_flag_dict:
+            for lane in range(1, self.NUM_CHANNELS+1):
+                dom_flag_dict['rxpowerhighalarm_flag%d' % lane] = rx_power_flag_dict['rx_power_high_alarm']['RxPowerHighAlarmFlag%d' % lane]
+                dom_flag_dict['rxpowerlowalarm_flag%d' % lane] = rx_power_flag_dict['rx_power_low_alarm']['RxPowerLowAlarmFlag%d' % lane]
+                dom_flag_dict['rxpowerhighwarning_flag%d' % lane] = rx_power_flag_dict['rx_power_high_warn']['RxPowerHighWarnFlag%d' % lane]
+                dom_flag_dict['rxpowerlowwarning_flag%d' % lane] = rx_power_flag_dict['rx_power_low_warn']['RxPowerLowWarnFlag%d' % lane]
+        tx_bias_flag_dict = self.get_tx_bias_flag()
+        if tx_bias_flag_dict:
+            for lane in range(1, self.NUM_CHANNELS+1):
+                dom_flag_dict['txbiashighalarm_flag%d' % lane] = tx_bias_flag_dict['tx_bias_high_alarm']['TxBiasHighAlarmFlag%d' % lane]
+                dom_flag_dict['txbiaslowalarm_flag%d' % lane] = tx_bias_flag_dict['tx_bias_low_alarm']['TxBiasLowAlarmFlag%d' % lane]
+                dom_flag_dict['txbiashighwarning_flag%d' % lane] = tx_bias_flag_dict['tx_bias_high_warn']['TxBiasHighWarnFlag%d' % lane]
+                dom_flag_dict['txbiaslowwarning_flag%d' % lane] = tx_bias_flag_dict['tx_bias_low_warn']['TxBiasLowWarnFlag%d' % lane]
+
+        try:
+            _, aux2_mon_type, aux3_mon_type = self.get_aux_mon_type()
+            if aux2_mon_type == 0:
+                dom_flag_dict['lasertemphighalarm_flag'] = module_flag['aux2_flags']['aux2_high_alarm_flag']
+                dom_flag_dict['lasertemplowalarm_flag'] = module_flag['aux2_flags']['aux2_low_alarm_flag']
+                dom_flag_dict['lasertemphighwarning_flag'] = module_flag['aux2_flags']['aux2_high_warn_flag']
+                dom_flag_dict['lasertemplowwarning_flag'] = module_flag['aux2_flags']['aux2_low_warn_flag']
+            elif aux2_mon_type == 1 and aux3_mon_type == 0:
+                dom_flag_dict['lasertemphighalarm_flag'] = module_flag['aux3_flags']['aux3_high_alarm_flag']
+                dom_flag_dict['lasertemplowalarm_flag'] = module_flag['aux3_flags']['aux3_low_alarm_flag']
+                dom_flag_dict['lasertemphighwarning_flag'] = module_flag['aux3_flags']['aux3_high_warn_flag']
+                dom_flag_dict['lasertemplowwarning_flag'] = module_flag['aux3_flags']['aux3_low_warn_flag']
+        except TypeError:
+            pass
+
+        return dom_flag_dict
 
     def get_transceiver_threshold_info(self):
         threshold_info_keys = ['temphighalarm',    'temphighwarning',
@@ -680,6 +833,26 @@ class CmisApi(XcvrApi):
                 channel_state &= ~mask
 
         return self.xcvr_eeprom.write(consts.TX_DISABLE_FIELD, channel_state)
+
+    def get_laser_tuning_summary(self):
+        '''
+        This function returns laser tuning status summary on media lane
+        '''
+        result = self.xcvr_eeprom.read(consts.LASER_TUNING_DETAIL)
+        laser_tuning_summary = []
+        if (result >> 5) & 0x1:
+            laser_tuning_summary.append("TargetOutputPowerOOR")
+        if (result >> 4) & 0x1:
+            laser_tuning_summary.append("FineTuningOutOfRange")
+        if (result >> 3) & 0x1:
+            laser_tuning_summary.append("TuningNotAccepted")
+        if (result >> 2) & 0x1:
+            laser_tuning_summary.append("InvalidChannel")
+        if (result >> 1) & 0x1:
+            laser_tuning_summary.append("WavelengthUnlocked")
+        if (result >> 0) & 0x1:
+            laser_tuning_summary.append("TuningComplete")
+        return laser_tuning_summary
 
     def get_power_override(self):
         return None
@@ -2094,6 +2267,66 @@ class CmisApi(XcvrApi):
                 pass
         return trans_status
 
+    def get_transceiver_status_flags(self):
+        """
+        Retrieves transceiver status flags of this SFP
+
+        Returns:
+            A dict which contains following keys/values :
+        ================================================================================
+        ; Defines Transceiver Status info for a port
+        key                                     = TRANSCEIVER_STATUS_FLAG|ifname        ; Flag information for module on port
+        ; field                                 = value
+        datapath_firmware_fault                 = BOOLEAN           ; datapath (DSP) firmware fault
+        module_firmware_fault                   = BOOLEAN           ; module firmware fault
+        module_state_changed                    = BOOLEAN           ; module state changed
+        txfault{lane_num}                       = BOOLEAN           ; tx fault flag on media lane {lane_num}
+        txlos_hostlane{lane_num}                = BOOLEAN           ; tx loss of signal flag on host lane {lane_num}
+        txcdrlol_hostlane{lane_num}             = BOOLEAN           ; tx clock and data recovery loss of lock flag on host lane {lane_num}
+        tx_eq_fault{lane_num}                   = BOOLEAN           ; tx equalization fault flag on host lane {lane_num}
+        rxlos{lane_num}                         = BOOLEAN           ; rx loss of signal flag on media lane {lane_num}
+        rxcdrlol{lane_num}                      = BOOLEAN           ; rx clock and data recovery loss of lock flag on media lane {lane_num}
+        target_output_power_oor                 = BOOLEAN           ; target output power out of range flag
+        fine_tuning_oor                         = BOOLEAN           ; fine tuning  out of range flag
+        tuning_not_accepted                     = BOOLEAN           ; tuning not accepted flag
+        invalid_channel_num                     = BOOLEAN           ; invalid channel number flag
+        tuning_complete                         = BOOLEAN           ; tuning complete flag
+        ================================================================================
+        """
+        status_flags_dict = dict()
+        try:
+            dp_fw_fault, module_fw_fault, module_state_changed = self.get_module_firmware_fault_state_changed()
+            status_flags_dict.update({
+                'datapath_firmware_fault': dp_fw_fault,
+                'module_firmware_fault': module_fw_fault,
+                'module_state_changed': module_state_changed
+            })
+        except TypeError:
+            pass
+
+        fault_types = {
+            'txfault': self.get_tx_fault(),
+            'txlos_hostlane': self.get_tx_los(),
+            'txcdrlol_hostlane': self.get_tx_cdr_lol(),
+            'tx_eq_fault': self.get_tx_adaptive_eq_fail_flag(),
+            'rxlos': self.get_rx_los(),
+            'rxcdrlol': self.get_rx_cdr_lol()
+        }
+
+        for fault_type, fault_values in fault_types.items():
+            for lane in range(1, self.NUM_CHANNELS + 1):
+                key = f'{fault_type}{lane}'
+                status_flags_dict[key] = fault_values[lane - 1] if fault_values else "N/A"
+
+        laser_tuning_summary = self.get_laser_tuning_summary()
+        status_flags_dict['target_output_power_oor'] = 'TargetOutputPowerOOR' in laser_tuning_summary
+        status_flags_dict['fine_tuning_oor'] = 'FineTuningOutOfRange' in laser_tuning_summary
+        status_flags_dict['tuning_not_accepted'] = 'TuningNotAccepted' in laser_tuning_summary
+        status_flags_dict['invalid_channel_num'] = 'InvalidChannel' in laser_tuning_summary
+        status_flags_dict['tuning_complete'] = 'TuningComplete' in laser_tuning_summary
+
+        return status_flags_dict
+
     def get_transceiver_loopback(self):
         """
         Retrieves loopback mode for this xcvr
@@ -2170,6 +2403,201 @@ class CmisApi(XcvrApi):
             for lane in range(1, self.NUM_CHANNELS+1):
                 trans_loopback['host_input_loopback_lane%d' % lane] = 'N/A'
         return trans_loopback
+
+    def get_transceiver_vdm_real_value(self):
+        """
+        Retrieves VDM real value for this xcvr
+
+        Returns:
+            A dict containing the following keys/values :
+        ========================================================================
+        key                                            = TRANSCEIVER_VDM_REAL_VALUE|ifname    ; information module VDM sample on port
+        ; field                                        = value
+        laser_temperature_media{lane_num}              = FLOAT                  ; laser temperature value in Celsius for media input
+        esnr_media_input{lane_num}                     = FLOAT                  ; eSNR value in dB for media input
+        esnr_host_input{lane_num}                      = FLOAT                  ; eSNR value in dB for host input
+        pam4_level_transition_media_input{lane_num}    = FLOAT                  ; PAM4 level transition parameter in dB for media input
+        pam4_level_transition_host_input{lane_num}     = FLOAT                  ; PAM4 level transition parameter in dB for host input
+        prefec_ber_min_media_input{lane_num}           = FLOAT                  ; Pre-FEC BER minimum value for media input
+        prefec_ber_max_media_input{lane_num}           = FLOAT                  ; Pre-FEC BER maximum value for media input
+        prefec_ber_avg_media_input{lane_num}           = FLOAT                  ; Pre-FEC BER average value for media input
+        prefec_ber_curr_media_input{lane_num}          = FLOAT                  ; Pre-FEC BER current value for media input
+        prefec_ber_min_host_input{lane_num}            = FLOAT                  ; Pre-FEC BER minimum value for host input
+        prefec_ber_max_host_input{lane_num}            = FLOAT                  ; Pre-FEC BER maximum value for host input
+        prefec_ber_avg_host_input{lane_num}            = FLOAT                  ; Pre-FEC BER average value for host input
+        prefec_ber_curr_host_input{lane_num}           = FLOAT                  ; Pre-FEC BER current value for host input
+        errored_frames_min_media_input{lane_num}       = FLOAT                  ; Errored frames minimum value for media input
+        errored_frames_max_media_input{lane_num}       = FLOAT                  ; Errored frames maximum value for media input
+        errored_frames_avg_media_input{lane_num}       = FLOAT                  ; Errored frames average value for media input
+        errored_frames_curr_media_input{lane_num}      = FLOAT                  ; Errored frames current value for media input
+        errored_frames_min_host_input{lane_num}        = FLOAT                  ; Errored frames minimum value for host input
+        errored_frames_max_host_input{lane_num}        = FLOAT                  ; Errored frames maximum value for host input
+        errored_frames_avg_host_input{lane_num}        = FLOAT                  ; Errored frames average value for host input
+        errored_frames_curr_host_input{lane_num}       = FLOAT                  ; Errored frames current value for host input
+
+        ;C-CMIS specific fields
+        biasxi{lane_num}                               = FLOAT                  ; modulator bias xi in percentage
+        biasxq{lane_num}                               = FLOAT                  ; modulator bias xq in percentage
+        biasxp{lane_num}                               = FLOAT                  ; modulator bias xp in percentage
+        biasyi{lane_num}                               = FLOAT                  ; modulator bias yi in percentage
+        biasyq{lane_num}                               = FLOAT                  ; modulator bias yq in percentage
+        biasyp{lane_num}                               = FLOAT                  ; modulator bias yq in percentage
+        cdshort{lane_num}                              = FLOAT                  ; chromatic dispersion, high granularity, short link in ps/nm
+        cdlong{lane_num}                               = FLOAT                  ; chromatic dispersion, high granularity, long link in ps/nm  
+        dgd{lane_num}                                  = FLOAT                  ; differential group delay in ps
+        sopmd{lane_num}                                = FLOAT                  ; second order polarization mode dispersion in ps^2
+        soproc{lane_num}                               = FLOAT                  ; state of polarization rate of change in krad/s
+        pdl{lane_num}                                  = FLOAT                  ; polarization dependent loss in db
+        osnr{lane_num}                                 = FLOAT                  ; optical signal to noise ratio in db
+        esnr{lane_num}                                 = FLOAT                  ; electrical signal to noise ratio in db
+        cfo{lane_num}                                  = FLOAT                  ; carrier frequency offset in Hz
+        txcurrpower{lane_num}                          = FLOAT                  ; tx current output power in dbm
+        rxtotpower{lane_num}                           = FLOAT                  ; rx total power in  dbm
+        rxsigpower{lane_num}                           = FLOAT                  ; rx signal power in dbm
+        ========================================================================
+        """
+        vdm_real_value_dict = dict()
+        vdm_raw_dict = self.get_vdm(self.vdm.VDM_REAL_VALUE)
+        for vdm_observable_type, db_key_name_prefix in self._get_vdm_key_to_db_prefix_map().items():
+            for lane in range(1, self.NUM_CHANNELS + 1):
+                db_key_name = f"{db_key_name_prefix}{lane}"
+                self._update_vdm_dict(vdm_real_value_dict, db_key_name, vdm_raw_dict, vdm_observable_type,
+                                                    VdmSubtypeIndex.VDM_SUBTYPE_REAL_VALUE, lane)
+        return vdm_real_value_dict
+
+    def get_transceiver_vdm_thresholds(self):
+        """
+        Retrieves VDM thresholds for this xcvr
+
+        Returns:
+            A dict containing the following keys/values :
+        ========================================================================
+        xxx refers to HALARM/LALARM/HWARN/LWARN threshold 
+        ;Defines Transceiver VDM high/low alarm/warning threshold for a port
+        key                                            = TRANSCEIVER_VDM_XXX_THRESHOLD|ifname    ; information module VDM high/low alarm/warning threshold on port
+        ; field                                        = value
+        laser_temperature_media_xxx{lane_num}             = FLOAT          ; laser temperature high/low alarm/warning value in Celsius for media input
+        esnr_media_input_xxx{lane_num}                    = FLOAT          ; eSNR high/low alarm/warning value in dB for media input
+        esnr_host_input_xxx{lane_num}                     = FLOAT          ; eSNR high/low alarm/warning value in dB for host input
+        pam4_level_transition_media_input_xxx{lane_num}   = FLOAT          ; PAM4 level transition high/low alarm/warning value in dB for media input
+        pam4_level_transition_host_input_xxx{lane_num}    = FLOAT          ; PAM4 level transition high/low alarm/warning value in dB for host input
+        prefec_ber_min_media_input_xxx{lane_num}          = FLOAT          ; Pre-FEC BER minimum high/low alarm/warning value for media input
+        prefec_ber_max_media_input_xxx{lane_num}          = FLOAT          ; Pre-FEC BER maximum high/low alarm/warning value for media input
+        prefec_ber_avg_media_input_xxx{lane_num}          = FLOAT          ; Pre-FEC BER average high/low alarm/warning value for media input
+        prefec_ber_curr_media_input_xxx{lane_num}         = FLOAT          ; Pre-FEC BER current high/low alarm/warning value for media input
+        prefec_ber_min_host_input_xxx{lane_num}           = FLOAT          ; Pre-FEC BER minimum high/low alarm/warning value for host input
+        prefec_ber_max_host_input_xxx{lane_num}           = FLOAT          ; Pre-FEC BER maximum high/low alarm/warning value for host input
+        prefec_ber_avg_host_input_xxx{lane_num}           = FLOAT          ; Pre-FEC BER average high/low alarm/warning value for host input
+        prefec_ber_curr_host_input_xxx{lane_num}          = FLOAT          ; Pre-FEC BER current high/low alarm/warning value for host input
+        errored_frames_min_media_input_xxx{lane_num}      = FLOAT          ; Errored frames minimum high/low alarm/warning value for media input
+        errored_frames_max_media_input_xxx{lane_num}      = FLOAT          ; Errored frames maximum high/low alarm/warning value for media input
+        errored_frames_avg_media_input_xxx{lane_num}      = FLOAT          ; Errored frames average high/low alarm/warning value for media input
+        errored_frames_curr_media_input_xxx{lane_num}     = FLOAT          ; Errored frames current high/low alarm/warning value for media input
+        errored_frames_min_host_input_xxx{lane_num}       = FLOAT          ; Errored frames minimum high/low alarm/warning value for host input
+        errored_frames_max_host_input_xxx{lane_num}       = FLOAT          ; Errored frames maximum high/low alarm/warning value for host input
+        errored_frames_avg_host_input_xxx{lane_num}       = FLOAT          ; Errored frames average high/low alarm/warning value for host input
+        errored_frames_curr_host_input_xxx{lane_num}      = FLOAT          ; Errored frames current high/low alarm/warning value for host input
+
+        ;C-CMIS specific fields
+        biasxi_xxx{lane_num}                             = FLOAT         ; modulator bias xi in percentage (high/low alarm/warning)
+        biasxq_xxx{lane_num}                             = FLOAT         ; modulator bias xq in percentage (high/low alarm/warning)
+        biasxp_xxx{lane_num}                             = FLOAT         ; modulator bias xp in percentage (high/low alarm/warning)
+        biasyi_xxx{lane_num}                             = FLOAT         ; modulator bias yi in percentage (high/low alarm/warning)
+        biasyq_xxx{lane_num}                             = FLOAT         ; modulator bias yq in percentage (high/low alarm/warning)
+        biasyp_xxx{lane_num}                             = FLOAT         ; modulator bias yq in percentage (high/low alarm/warning)
+        cdshort_xxx{lane_num}                            = FLOAT         ; chromatic dispersion, high granularity, short link in ps/nm (high/low alarm/warning)
+        cdlong_xxx{lane_num}                             = FLOAT         ; chromatic dispersion, high granularity, long link in ps/nm (high/low alarm/warning)
+        dgd_xxx{lane_num}                                = FLOAT         ; differential group delay in ps (high/low alarm/warning)
+        sopmd_xxx{lane_num}                              = FLOAT         ; second order polarization mode dispersion in ps^2 (high/low alarm/warning)
+        soproc_xxx{lane_num}                             = FLOAT         ; state of polarization rate of change in krad/s (high/low alarm/warning)
+        pdl_xxx{lane_num}                                = FLOAT         ; polarization dependent loss in db (high/low alarm/warning)
+        osnr_xxx{lane_num}                               = FLOAT         ; optical signal to noise ratio in db (high/low alarm/warning)
+        esnr_xxx{lane_num}                               = FLOAT         ; electrical signal to noise ratio in db (high/low alarm/warning)
+        cfo_xxx{lane_num}                                = FLOAT         ; carrier frequency offset in Hz (high/low alarm/warning)
+        txcurrpower_xxx{lane_num}                        = FLOAT         ; tx current output power in dbm (high/low alarm/warning)
+        rxtotpower_xxx{lane_num}                         = FLOAT         ; rx total power in  dbm (high/low alarm/warning)
+        rxsigpower_xxx{lane_num}                         = FLOAT         ; rx signal power in dbm (high/low alarm/warning)        ========================================================================
+        """
+        vdm_thresholds_dict = dict()
+        vdm_raw_dict = self.get_vdm(self.vdm.VDM_THRESHOLD)
+        for vdm_observable_type, db_key_name_prefix in self._get_vdm_key_to_db_prefix_map().items():
+            for lane in range(1, self.NUM_CHANNELS + 1):
+                for vdm_threshold_type in range(VdmSubtypeIndex.VDM_SUBTYPE_HALARM_THRESHOLD.value, VdmSubtypeIndex.VDM_SUBTYPE_LWARN_THRESHOLD.value + 1):
+                    vdm_threshold_enum = VdmSubtypeIndex(vdm_threshold_type)
+                    threshold_type_str = THRESHOLD_TYPE_STR_MAP.get(vdm_threshold_enum)
+                    if threshold_type_str:
+                        db_key_name = f"{db_key_name_prefix}_{threshold_type_str}{lane}"
+                        self._update_vdm_dict(vdm_thresholds_dict, db_key_name, vdm_raw_dict,
+                                                            vdm_observable_type, vdm_threshold_enum, lane)
+
+        return vdm_thresholds_dict
+
+    def get_transceiver_vdm_flags(self):
+        """
+        Retrieves VDM flags for this xcvr
+
+        Returns:
+            A dict containing the following keys/values :
+        ========================================================================
+        xxx refers to HALARM/LALARM/HWARN/LWARN
+        ;Defines Transceiver VDM high/low alarm/warning flag for a port
+        key                                            = TRANSCEIVER_VDM_XXX_FLAG|ifname    ; information module VDM high/low alarm/warning flag on port
+        ; field                                        = value
+        laser_temperature_media_xxx{lane_num}             = FLOAT          ; laser temperature high/low alarm/warning flag in Celsius for media input
+        esnr_media_input_xxx{lane_num}                    = FLOAT          ; eSNR high/low alarm/warning flag in dB for media input
+        esnr_host_input_xxx{lane_num}                     = FLOAT          ; eSNR high/low alarm/warning flag in dB for host input
+        pam4_level_transition_media_input_xxx{lane_num}   = FLOAT          ; PAM4 level transition high/low alarm/warning flag in dB for media input
+        pam4_level_transition_host_input_xxx{lane_num}    = FLOAT          ; PAM4 level transition high/low alarm/warning flag in dB for host input
+        prefec_ber_min_media_input_xxx{lane_num}          = FLOAT          ; Pre-FEC BER minimum high/low alarm/warning flag for media input
+        prefec_ber_max_media_input_xxx{lane_num}          = FLOAT          ; Pre-FEC BER maximum high/low alarm/warning flag for media input
+        prefec_ber_avg_media_input_xxx{lane_num}          = FLOAT          ; Pre-FEC BER average high/low alarm/warning flag for media input
+        prefec_ber_curr_media_input_xxx{lane_num}         = FLOAT          ; Pre-FEC BER current high/low alarm/warning flag for media input
+        prefec_ber_min_host_input_xxx{lane_num}           = FLOAT          ; Pre-FEC BER minimum high/low alarm/warning flag for host input
+        prefec_ber_max_host_input_xxx{lane_num}           = FLOAT          ; Pre-FEC BER maximum high/low alarm/warning flag for host input
+        prefec_ber_avg_host_input_xxx{lane_num}           = FLOAT          ; Pre-FEC BER average high/low alarm/warning flag for host input
+        prefec_ber_curr_host_input_xxx{lane_num}          = FLOAT          ; Pre-FEC BER current high/low alarm/warning flag for host input
+        errored_frames_min_media_input_xxx{lane_num}      = FLOAT          ; Errored frames minimum high/low alarm/warning flag for media input
+        errored_frames_max_media_input_xxx{lane_num}      = FLOAT          ; Errored frames maximum high/low alarm/warning flag for media input
+        errored_frames_avg_media_input_xxx{lane_num}      = FLOAT          ; Errored frames average high/low alarm/warning flag for media input
+        errored_frames_curr_media_input_xxx{lane_num}     = FLOAT          ; Errored frames current high/low alarm/warning flag for media input
+        errored_frames_min_host_input_xxx{lane_num}       = FLOAT          ; Errored frames minimum high/low alarm/warning flag for host input
+        errored_frames_max_host_input_xxx{lane_num}       = FLOAT          ; Errored frames maximum high/low alarm/warning flag for host input
+        errored_frames_avg_host_input_xxx{lane_num}       = FLOAT          ; Errored frames average high/low alarm/warning flag for host input
+        errored_frames_curr_host_input_xxx{lane_num}      = FLOAT          ; Errored frames current high/low alarm/warning flag for host input
+
+        ;C-CMIS specific fields
+        biasxi_xxx{lane_num}                             = FLOAT         ; modulator bias xi in percentage (high/low alarm/warning flag)
+        biasxq_xxx{lane_num}                             = FLOAT         ; modulator bias xq in percentage (high/low alarm/warning flag)
+        biasxp_xxx{lane_num}                             = FLOAT         ; modulator bias xp in percentage (high/low alarm/warning flag)
+        biasyi_xxx{lane_num}                             = FLOAT         ; modulator bias yi in percentage (high/low alarm/warning flag)
+        biasyq_xxx{lane_num}                             = FLOAT         ; modulator bias yq in percentage (high/low alarm/warning flag)
+        biasyp_xxx{lane_num}                             = FLOAT         ; modulator bias yq in percentage (high/low alarm/warning flag)
+        cdshort_xxx{lane_num}                            = FLOAT         ; chromatic dispersion, high granularity, short link in ps/nm (high/low alarm/warning flag)
+        cdlong_xxx{lane_num}                             = FLOAT         ; chromatic dispersion, high granularity, long link in ps/nm (high/low alarm/warning flag)
+        dgd_xxx{lane_num}                                = FLOAT         ; differential group delay in ps (high/low alarm/warning flag)
+        sopmd_xxx{lane_num}                              = FLOAT         ; second order polarization mode dispersion in ps^2 (high/low alarm/warning flag)
+        soproc_xxx{lane_num}                             = FLOAT         ; state of polarization rate of change in krad/s (high/low alarm/warning flag)
+        pdl_xxx{lane_num}                                = FLOAT         ; polarization dependent loss in db (high/low alarm/warning flag)
+        osnr_xxx{lane_num}                               = FLOAT         ; optical signal to noise ratio in db (high/low alarm/warning flag)
+        esnr_xxx{lane_num}                               = FLOAT         ; electrical signal to noise ratio in db (high/low alarm/warning flag)
+        cfo_xxx{lane_num}                                = FLOAT         ; carrier frequency offset in Hz (high/low alarm/warning flag)
+        txcurrpower_xxx{lane_num}                        = FLOAT         ; tx current output power in dbm (high/low alarm/warning flag)
+        rxtotpower_xxx{lane_num}                         = FLOAT         ; rx total power in  dbm (high/low alarm/warning flag)
+        rxsigpower_xxx{lane_num}                         = FLOAT         ; rx signal power in dbm (high/low alarm/warning flag)
+        """
+        vdm_flags_dict = dict()
+        vdm_raw_dict = self.get_vdm(self.vdm.VDM_FLAG)
+        for vdm_observable_type, db_key_name_prefix in self._get_vdm_key_to_db_prefix_map().items():
+            for lane in range(1, self.NUM_CHANNELS + 1):
+                for vdm_flag_type in range(VdmSubtypeIndex.VDM_SUBTYPE_HALARM_FLAG.value, VdmSubtypeIndex.VDM_SUBTYPE_LWARN_FLAG.value + 1):
+                    vdm_flag_enum = VdmSubtypeIndex(vdm_flag_type)
+                    flag_type_str = FLAG_TYPE_STR_MAP.get(vdm_flag_enum)
+                    if flag_type_str:
+                        db_key_name = f"{db_key_name_prefix}_{flag_type_str}{lane}"
+                        self._update_vdm_dict(vdm_flags_dict, db_key_name, vdm_raw_dict,
+                                                            vdm_observable_type, vdm_flag_enum, lane)
+
+        return vdm_flags_dict
 
     def set_datapath_init(self, channel):
         """
