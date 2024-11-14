@@ -372,14 +372,14 @@ class CmisApi(XcvrApi):
             case_temp_flags = module_flag['case_temp_flags']
             voltage_flags = module_flag['voltage_flags']
             dom_flag_dict.update({
-                'temphighalarm_flag': case_temp_flags['case_temp_high_alarm_flag'],
-                'templowalarm_flag': case_temp_flags['case_temp_low_alarm_flag'],
-                'temphighwarning_flag': case_temp_flags['case_temp_high_warn_flag'],
-                'templowwarning_flag': case_temp_flags['case_temp_low_warn_flag'],
-                'vcchighalarm_flag': voltage_flags['voltage_high_alarm_flag'],
-                'vcclowalarm_flag': voltage_flags['voltage_low_alarm_flag'],
-                'vcchighwarning_flag': voltage_flags['voltage_high_warn_flag'],
-                'vcclowwarning_flag': voltage_flags['voltage_low_warn_flag']
+                'temphighalarm': case_temp_flags['case_temp_high_alarm_flag'],
+                'templowalarm': case_temp_flags['case_temp_low_alarm_flag'],
+                'temphighwarning': case_temp_flags['case_temp_high_warn_flag'],
+                'templowwarning': case_temp_flags['case_temp_low_warn_flag'],
+                'vcchighalarm': voltage_flags['voltage_high_alarm_flag'],
+                'vcclowalarm': voltage_flags['voltage_low_alarm_flag'],
+                'vcchighwarning': voltage_flags['voltage_high_warn_flag'],
+                'vcclowwarning': voltage_flags['voltage_low_warn_flag']
             })
         except TypeError:
             pass
@@ -387,37 +387,37 @@ class CmisApi(XcvrApi):
         tx_power_flag_dict = self.get_tx_power_flag()
         if tx_power_flag_dict:
             for lane in range(1, self.NUM_CHANNELS+1):
-                dom_flag_dict['txpowerhighalarm_flag%d' % lane] = tx_power_flag_dict['tx_power_high_alarm']['TxPowerHighAlarmFlag%d' % lane]
-                dom_flag_dict['txpowerlowalarm_flag%d' % lane] = tx_power_flag_dict['tx_power_low_alarm']['TxPowerLowAlarmFlag%d' % lane]
-                dom_flag_dict['txpowerhighwarning_flag%d' % lane] = tx_power_flag_dict['tx_power_high_warn']['TxPowerHighWarnFlag%d' % lane]
-                dom_flag_dict['txpowerlowwarning_flag%d' % lane] = tx_power_flag_dict['tx_power_low_warn']['TxPowerLowWarnFlag%d' % lane]
+                dom_flag_dict['txpowerhighalarm%d' % lane] = tx_power_flag_dict['tx_power_high_alarm']['TxPowerHighAlarmFlag%d' % lane]
+                dom_flag_dict['txpowerlowalarm%d' % lane] = tx_power_flag_dict['tx_power_low_alarm']['TxPowerLowAlarmFlag%d' % lane]
+                dom_flag_dict['txpowerhighwarning%d' % lane] = tx_power_flag_dict['tx_power_high_warn']['TxPowerHighWarnFlag%d' % lane]
+                dom_flag_dict['txpowerlowwarning%d' % lane] = tx_power_flag_dict['tx_power_low_warn']['TxPowerLowWarnFlag%d' % lane]
         rx_power_flag_dict = self.get_rx_power_flag()
         if rx_power_flag_dict:
             for lane in range(1, self.NUM_CHANNELS+1):
-                dom_flag_dict['rxpowerhighalarm_flag%d' % lane] = rx_power_flag_dict['rx_power_high_alarm']['RxPowerHighAlarmFlag%d' % lane]
-                dom_flag_dict['rxpowerlowalarm_flag%d' % lane] = rx_power_flag_dict['rx_power_low_alarm']['RxPowerLowAlarmFlag%d' % lane]
-                dom_flag_dict['rxpowerhighwarning_flag%d' % lane] = rx_power_flag_dict['rx_power_high_warn']['RxPowerHighWarnFlag%d' % lane]
-                dom_flag_dict['rxpowerlowwarning_flag%d' % lane] = rx_power_flag_dict['rx_power_low_warn']['RxPowerLowWarnFlag%d' % lane]
+                dom_flag_dict['rxpowerhighalarm%d' % lane] = rx_power_flag_dict['rx_power_high_alarm']['RxPowerHighAlarmFlag%d' % lane]
+                dom_flag_dict['rxpowerlowalarm%d' % lane] = rx_power_flag_dict['rx_power_low_alarm']['RxPowerLowAlarmFlag%d' % lane]
+                dom_flag_dict['rxpowerhighwarning%d' % lane] = rx_power_flag_dict['rx_power_high_warn']['RxPowerHighWarnFlag%d' % lane]
+                dom_flag_dict['rxpowerlowwarning%d' % lane] = rx_power_flag_dict['rx_power_low_warn']['RxPowerLowWarnFlag%d' % lane]
         tx_bias_flag_dict = self.get_tx_bias_flag()
         if tx_bias_flag_dict:
             for lane in range(1, self.NUM_CHANNELS+1):
-                dom_flag_dict['txbiashighalarm_flag%d' % lane] = tx_bias_flag_dict['tx_bias_high_alarm']['TxBiasHighAlarmFlag%d' % lane]
-                dom_flag_dict['txbiaslowalarm_flag%d' % lane] = tx_bias_flag_dict['tx_bias_low_alarm']['TxBiasLowAlarmFlag%d' % lane]
-                dom_flag_dict['txbiashighwarning_flag%d' % lane] = tx_bias_flag_dict['tx_bias_high_warn']['TxBiasHighWarnFlag%d' % lane]
-                dom_flag_dict['txbiaslowwarning_flag%d' % lane] = tx_bias_flag_dict['tx_bias_low_warn']['TxBiasLowWarnFlag%d' % lane]
+                dom_flag_dict['txbiashighalarm%d' % lane] = tx_bias_flag_dict['tx_bias_high_alarm']['TxBiasHighAlarmFlag%d' % lane]
+                dom_flag_dict['txbiaslowalarm%d' % lane] = tx_bias_flag_dict['tx_bias_low_alarm']['TxBiasLowAlarmFlag%d' % lane]
+                dom_flag_dict['txbiashighwarning%d' % lane] = tx_bias_flag_dict['tx_bias_high_warn']['TxBiasHighWarnFlag%d' % lane]
+                dom_flag_dict['txbiaslowwarning%d' % lane] = tx_bias_flag_dict['tx_bias_low_warn']['TxBiasLowWarnFlag%d' % lane]
 
         try:
             _, aux2_mon_type, aux3_mon_type = self.get_aux_mon_type()
             if aux2_mon_type == 0:
-                dom_flag_dict['lasertemphighalarm_flag'] = module_flag['aux2_flags']['aux2_high_alarm_flag']
-                dom_flag_dict['lasertemplowalarm_flag'] = module_flag['aux2_flags']['aux2_low_alarm_flag']
-                dom_flag_dict['lasertemphighwarning_flag'] = module_flag['aux2_flags']['aux2_high_warn_flag']
-                dom_flag_dict['lasertemplowwarning_flag'] = module_flag['aux2_flags']['aux2_low_warn_flag']
+                dom_flag_dict['lasertemphighalarm'] = module_flag['aux2_flags']['aux2_high_alarm_flag']
+                dom_flag_dict['lasertemplowalarm'] = module_flag['aux2_flags']['aux2_low_alarm_flag']
+                dom_flag_dict['lasertemphighwarning'] = module_flag['aux2_flags']['aux2_high_warn_flag']
+                dom_flag_dict['lasertemplowwarning'] = module_flag['aux2_flags']['aux2_low_warn_flag']
             elif aux2_mon_type == 1 and aux3_mon_type == 0:
-                dom_flag_dict['lasertemphighalarm_flag'] = module_flag['aux3_flags']['aux3_high_alarm_flag']
-                dom_flag_dict['lasertemplowalarm_flag'] = module_flag['aux3_flags']['aux3_low_alarm_flag']
-                dom_flag_dict['lasertemphighwarning_flag'] = module_flag['aux3_flags']['aux3_high_warn_flag']
-                dom_flag_dict['lasertemplowwarning_flag'] = module_flag['aux3_flags']['aux3_low_warn_flag']
+                dom_flag_dict['lasertemphighalarm'] = module_flag['aux3_flags']['aux3_high_alarm_flag']
+                dom_flag_dict['lasertemplowalarm'] = module_flag['aux3_flags']['aux3_low_alarm_flag']
+                dom_flag_dict['lasertemphighwarning'] = module_flag['aux3_flags']['aux3_high_warn_flag']
+                dom_flag_dict['lasertemplowwarning'] = module_flag['aux3_flags']['aux3_low_warn_flag']
         except TypeError:
             pass
 
