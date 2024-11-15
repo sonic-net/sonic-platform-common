@@ -31,6 +31,10 @@ class SfpOptoeBase(SfpBase):
         api = self.get_xcvr_api()
         return api.get_transceiver_bulk_status() if api is not None else None
 
+    def get_transceiver_dom_flags(self):
+        api = self.get_xcvr_api()
+        return api.get_transceiver_dom_flags() if api is not None else None
+
     def get_transceiver_threshold_info(self):
         api = self.get_xcvr_api()
         return api.get_transceiver_threshold_info() if api is not None else None
@@ -39,6 +43,10 @@ class SfpOptoeBase(SfpBase):
         api = self.get_xcvr_api()
         return api.get_transceiver_status() if api is not None else None
 
+    def get_transceiver_status_flags(self):
+        api = self.get_xcvr_api()
+        return api.get_transceiver_status_flags() if api is not None else None
+
     def get_transceiver_loopback(self):
         api = self.get_xcvr_api()
         return api.get_transceiver_loopback() if api is not None else None
@@ -46,6 +54,22 @@ class SfpOptoeBase(SfpBase):
     def is_coherent_module(self):
         api = self.get_xcvr_api()
         return api.is_coherent_module() if api is not None else None
+
+    def get_transceiver_vdm_real_value(self):
+        """
+        Retrieves VDM real (sample) values for this xcvr (applicable for CMIS and C-CMIS)
+        Specifically, it retrieves sample data from pages 24h to 27h
+        """
+        api = self.get_xcvr_api()
+        return api.get_transceiver_vdm_real_value() if api is not None else None
+
+    def get_transceiver_vdm_thresholds(self):
+        api = self.get_xcvr_api()
+        return api.get_transceiver_vdm_thresholds() if api is not None else None
+
+    def get_transceiver_vdm_flags(self):
+        api = self.get_xcvr_api()
+        return api.get_transceiver_vdm_flags() if api is not None else None
 
     def get_transceiver_pm(self):
         api = self.get_xcvr_api()

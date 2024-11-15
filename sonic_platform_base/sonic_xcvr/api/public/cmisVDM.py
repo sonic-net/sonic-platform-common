@@ -195,8 +195,11 @@ class CmisVdmApi(XcvrApi):
             vdm_low_warn_flag
         ]
         '''
-        vdm_page_supported_raw = self.xcvr_eeprom.read(consts.VDM_SUPPORTED_PAGE)
-        if vdm_page_supported_raw is None:
+        vdm_pages_supported = self.xcvr_eeprom.read(consts.VDM_SUPPORTED)
+        if not vdm_pages_supported:
+            return None
+        vdm_groups_supported_raw = self.xcvr_eeprom.read(consts.VDM_SUPPORTED_PAGE)
+        if vdm_groups_supported_raw is None:
             return None
         VDM_START_PAGE = 0x20
         vdm = dict()
@@ -206,7 +209,7 @@ class CmisVdmApi(XcvrApi):
         else:
             vdm_flag_page = None
 
-        for page in range(VDM_START_PAGE, VDM_START_PAGE + vdm_page_supported_raw + 1):
+        for page in range(VDM_START_PAGE, VDM_START_PAGE + vdm_groups_supported_raw + 1):
             vdm_current_page = self.get_vdm_page(page, vdm_flag_page, field_option)
             vdm.update(vdm_current_page)
         return vdm

@@ -115,7 +115,8 @@ class TestVDM(object):
     @pytest.mark.parametrize("mock_response, expected", [
         (
             [   # mock_response
-                0,  # vdm_page_supported_raw
+                1,  # vdm_pages_supported
+                0,  # vdm_groups_supported_raw
                 (   # VDM_flag_page
                     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
                     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
@@ -140,15 +141,22 @@ class TestVDM(object):
                 'Pre-FEC BER Current Value Media Input': {1: [0, 0, 0, 0, 0, False, False, False, False]},
             }
 
-        )
+        ),
+        ([
+            0,
+            None,
+            None,
+            None
+        ],
+        None)
     ])
     def test_get_vdm_allpage(self, mock_response, expected):
         self.api.xcvr_eeprom.read = MagicMock()
-        self.api.xcvr_eeprom.read.return_value = mock_response[0]
+        self.api.xcvr_eeprom.read.side_effect = (mock_response[0], mock_response[1])
         self.api.xcvr_eeprom.read_raw = MagicMock()
-        self.api.xcvr_eeprom.read_raw.return_value = mock_response[1]
+        self.api.xcvr_eeprom.read_raw.return_value = mock_response[2]
         # input_param = [0x20, mock_response[1]]
         self.api.get_vdm_page = MagicMock()
-        self.api.get_vdm_page.side_effect = mock_response[2:]
+        self.api.get_vdm_page.side_effect = mock_response[3:]
         result = self.api.get_vdm_allpage()
         assert result == expected

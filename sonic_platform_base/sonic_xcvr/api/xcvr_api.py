@@ -103,6 +103,15 @@ class XcvrApi(object):
         """
         raise NotImplementedError
 
+    def get_transceiver_dom_flags(self):
+        """
+        Retrieves the DOM flags for this xcvr
+
+        Returns:
+            A dict containing dom flags for this xcvr
+        """
+        raise NotImplementedError
+
     def get_transceiver_threshold_info(self):
         """
         Retrieves threshold info for this xcvr
@@ -239,6 +248,31 @@ class XcvrApi(object):
         ================================================================================
 
         If there is an issue with reading the xcvr, None should be returned.
+        """
+        raise NotImplementedError
+
+    def get_transceiver_status_flags(self):
+        """
+        Retrieves status flags of this xcvr
+        """
+        raise NotImplementedError
+
+    def get_transceiver_vdm_real_value(self):
+        """
+        Retrieves VDM real (sample) values for this xcvr (applicable for CMIS and C-CMIS)
+        Specifically, it retrieves sample data from pages 24h to 27h
+        """
+        raise NotImplementedError
+
+    def get_transceiver_vdm_thresholds(self):
+        """
+        Retrieves VDM thresholds for this xcvr (applicable for CMIS and C-CMIS)
+        """
+        raise NotImplementedError
+
+    def get_transceiver_vdm_flags(self):
+        """
+        Retrieves VDM flags for this xcvr (applicable for CMIS and C-CMIS)
         """
         raise NotImplementedError
 
