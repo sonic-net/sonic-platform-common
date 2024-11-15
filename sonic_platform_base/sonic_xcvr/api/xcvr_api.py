@@ -259,7 +259,8 @@ class XcvrApi(object):
 
     def get_transceiver_vdm_real_value(self):
         """
-        Retrieves VDM real value for this xcvr (applicable for CMIS and C-CMIS)
+        Retrieves VDM real (sample) values for this xcvr (applicable for CMIS and C-CMIS)
+        Specifically, it retrieves sample data from pages 24h to 27h
         """
         raise NotImplementedError
 
