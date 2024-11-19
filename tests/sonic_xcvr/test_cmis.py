@@ -3066,7 +3066,7 @@ class TestCmis(object):
         self.api.xcvr_eeprom.read.return_value = 0x10
 
         result = self.api.get_error_description()
-        assert result is None
+        assert result is 'OK'
 
     def test_random_read_fail(self):
         def mock_read_raw(offset, size):
