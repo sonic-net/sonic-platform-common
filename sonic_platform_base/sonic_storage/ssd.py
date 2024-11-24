@@ -379,6 +379,7 @@ class SsdUtil(StorageCommon):
             self.vendor_ssd_info = self._execute_shell(self.vendor_ssd_utility[model]["utility"].format(diskdev))
         except:
             self.log.log_info("Error fetching vendor info. Falling back to generic info.")
+
     def parse_vendor_ssd_info(self, model):
         self.vendor_ssd_utility[model]["parser"]()
 
