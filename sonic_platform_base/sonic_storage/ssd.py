@@ -105,9 +105,8 @@ class SsdUtil(StorageCommon):
         if self.model:
             vendor = self._parse_vendor()
             if vendor:
-
-                self.fetch_vendor_ssd_info(diskdev, vendor)
                 try:
+                    self.fetch_vendor_ssd_info(diskdev, vendor)
                     self.parse_vendor_ssd_info(vendor)
                 except Exception as ex:
                     self.log.log_error("{}".format(str(ex)))
@@ -375,10 +374,7 @@ class SsdUtil(StorageCommon):
                 self.temperature = temp_raw.split()[-1]
 
     def fetch_vendor_ssd_info(self, diskdev, model):
-        try:
-            self.vendor_ssd_info = self._execute_shell(self.vendor_ssd_utility[model]["utility"].format(diskdev))
-        except:
-            self.log.log_info("Error fetching vendor info. Falling back to generic info.")
+        self.vendor_ssd_info = self._execute_shell(self.vendor_ssd_utility[model]["utility"].format(diskdev))
 
     def parse_vendor_ssd_info(self, model):
         self.vendor_ssd_utility[model]["parser"]()
