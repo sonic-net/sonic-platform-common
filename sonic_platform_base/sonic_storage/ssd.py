@@ -105,9 +105,8 @@ class SsdUtil(StorageCommon):
         if self.model:
             vendor = self._parse_vendor()
             if vendor:
-
-                self.fetch_vendor_ssd_info(diskdev, vendor)
                 try:
+                    self.fetch_vendor_ssd_info(diskdev, vendor)
                     self.parse_vendor_ssd_info(vendor)
                 except Exception as ex:
                     self.log.log_error("{}".format(str(ex)))
