@@ -284,7 +284,7 @@ class CmisCdbApi(XcvrApi):
         cmd += header
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
         self.write_cdb(cmd)
-        time.sleep(2)
+        time.sleep(4)
         status = self.cdb1_chkstatus()
         if (status != 0x1):
             if status > 127:
@@ -415,6 +415,7 @@ class CmisCdbApi(XcvrApi):
         cmd = bytearray(b'\x01\x07\x00\x00\x00\x00\x00\x00')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
         self.write_cdb(cmd)
+        time.sleep(2)
         status = self.cdb1_chkstatus()
         if (status != 0x1):
             if status > 127:
