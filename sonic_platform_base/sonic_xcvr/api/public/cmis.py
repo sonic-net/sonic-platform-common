@@ -2724,6 +2724,6 @@ class CmisApi(XcvrApi):
         if state != CmisCodes.MODULE_STATE[3]:
             return state
 
-        return None
+        return 'OK'
 
     # TODO: other XcvrApi methods
