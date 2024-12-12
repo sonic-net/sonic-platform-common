@@ -79,15 +79,16 @@ class SsdUtil(StorageCommon):
         self.log = syslogger.SysLogger(self.log_identifier)
 
         self.vendor_ssd_utility = {
-            "Generic"  : { "utility" : SMARTCTL, "parser" : self.parse_generic_ssd_info },
-            "InnoDisk" : { "utility" : INNODISK, "parser" : self.parse_innodisk_info },
-            "M.2"      : { "utility" : INNODISK, "parser" : self.parse_innodisk_info },
-            "StorFly"  : { "utility" : VIRTIUM,  "parser" : self.parse_virtium_info },
-            "Virtium"  : { "utility" : VIRTIUM,  "parser" : self.parse_virtium_info },
-            "Swissbit" : { "utility" : SMARTCTL, "parser" : self.parse_swissbit_info },
-            "Micron"   : { "utility" : SMARTCTL, "parser" : self.parse_micron_info },
-            "Intel"    : { "utility" : SMARTCTL, "parser" : self.parse_intel_info },
-            "Transcend" : { "utility" : TRANSCEND, "parser" : self.parse_transcend_info },
+            "Generic"           : { "utility" : SMARTCTL, "parser" : self.parse_generic_ssd_info },
+            "InnoDisk"          : { "utility" : INNODISK, "parser" : self.parse_innodisk_info },
+            "M.2"               : { "utility" : INNODISK, "parser" : self.parse_innodisk_info },
+            "StorFly"           : { "utility" : VIRTIUM,  "parser" : self.parse_virtium_info },
+            "Virtium"           : { "utility" : VIRTIUM,  "parser" : self.parse_virtium_info },
+            "SpecialVirtium"    : { "utility" : SMARTCTL,  "parser" : self.parse_generic_ssd_info },
+            "Swissbit"          : { "utility" : SMARTCTL, "parser" : self.parse_swissbit_info },
+            "Micron"            : { "utility" : SMARTCTL, "parser" : self.parse_micron_info },
+            "Intel"             : { "utility" : SMARTCTL, "parser" : self.parse_intel_info },
+            "Transcend"         : { "utility" : TRANSCEND, "parser" : self.parse_transcend_info },
         }
 
         self.dev = diskdev
@@ -103,7 +104,10 @@ class SsdUtil(StorageCommon):
 
         # Known vendor part
         if self.model:
-            vendor = self._parse_vendor()
+            if self.model in ['Virtium VTPM24CEXI080-BM110006']:
+                vendor = 'SpecialVirtium'
+            else:
+                vendor = self._parse_vendor()
             if vendor:
                 try:
                     self.fetch_vendor_ssd_info(diskdev, vendor)
