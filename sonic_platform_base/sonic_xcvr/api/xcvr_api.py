@@ -637,3 +637,14 @@ class XcvrApi(object):
         """
         raise NotImplementedError
 
+    def set_high_power_class(self, enable):
+        """
+        This function sets high power class for the module if needed.
+
+        Args:
+            enable (bool): True to enable high power class, False to disable
+
+        Returns:
+            bool: True if the provision succeeds, False if it fails
+        """
+        raise NotImplementedError

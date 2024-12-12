@@ -425,10 +425,13 @@ class Sff8636Api(XcvrApi):
 
         return power_class
 
-    def handle_high_power_class(self):
+    def set_high_power_class(self, enable):
         '''
-        This function enables high power class for the module if needed.
+        This function sets high power class for the module if needed.
         It is only applicable for power class >= 5.
+
+        Args:
+            enable (bool): True to enable high power class, False to disable
 
         Returns:
             bool: True if the provision succeeds, False if it fails
@@ -438,11 +441,9 @@ class Sff8636Api(XcvrApi):
 
         if power_class < 5:
             return ret
-        if power_class >= 8:
-            if not self.xcvr_eeprom.read(consts.HIGH_POWER_CLASS_ENABLE_CLASS_8):
-                ret = self.xcvr_eeprom.write(consts.HIGH_POWER_CLASS_ENABLE_CLASS_8, 0x1)
-        # Power class 5, 6, 7
-        if not self.xcvr_eeprom.read(consts.HIGH_POWER_CLASS_ENABLE_CLASS_5_TO_7):
-            ret = self.xcvr_eeprom.write(consts.HIGH_POWER_CLASS_ENABLE_CLASS_5_TO_7, 0x1)
+        elif power_class >= 8:
+            ret = self.xcvr_eeprom.write(consts.HIGH_POWER_CLASS_ENABLE_CLASS_8, enable)
+        else:  # Power class 5, 6, 7
+            ret = self.xcvr_eeprom.write(consts.HIGH_POWER_CLASS_ENABLE_CLASS_5_TO_7, enable)
 
         return ret
