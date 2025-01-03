@@ -20,6 +20,13 @@ class TestSfpOptoeBase(object):
     ccmis_api = CCmisApi(eeprom) 
     cmis_api = CmisApi(eeprom) 
  
+    def test_is_transceiver_vdm_supported_non_cmis(self):
+        try:
+            self.sfp_optoe_api.is_transceiver_vdm_supported()
+        except NotImplementedError:
+            exception_raised = True
+        assert exception_raised
+
     @pytest.mark.parametrize("mock_response1, mock_response2, expected", [ 
         (0, cmis_api, 0), 
         (1, cmis_api, 1),
