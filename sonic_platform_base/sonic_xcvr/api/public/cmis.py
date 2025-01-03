@@ -1505,6 +1505,12 @@ class CmisApi(XcvrApi):
         logger.error('Invalid loopback mode:%s, lane_mask:%#x', loopback_mode, lane_mask)
         return False
 
+    def is_transceiver_vdm_supported(self):
+        '''
+        This function returns whether VDM is supported
+        '''
+        return self.vdm is not None and self.xcvr_eeprom.read(consts.VDM_SUPPORTED)
+
     def get_vdm(self, field_option=None):
         '''
         This function returns all the VDM items, including real time monitor value, threholds and flags

@@ -1242,6 +1242,20 @@ class TestCmis(object):
         result = self.api.set_loopback_mode(input_param[0], input_param[1])
         assert result == expected
 
+    def test_is_transceiver_vdm_supported_no_vdm(self):
+        self.api.vdm = None
+        assert self.api.is_transceiver_vdm_supported() == False
+
+    def test_is_transceiver_vdm_supported_true(self):
+        self.api.vdm = MagicMock()
+        self.api.xcvr_eeprom.read = MagicMock(return_value=1)
+        assert self.api.is_transceiver_vdm_supported() == True
+
+    def test_is_transceiver_vdm_supported_false(self):
+        self.api.vdm = MagicMock()
+        self.api.xcvr_eeprom.read = MagicMock(return_value=0)
+        assert self.api.is_transceiver_vdm_supported() == False
+
     @pytest.mark.parametrize("mock_response, expected",[
         (
             [
