@@ -78,5 +78,6 @@ async def test_get_model(emu_response, expected):
     )
     api = CmisApi(eeprom)
     result = api.get_model()
+    result = result.rstrip("\x00")
     await eeprom.xcvr.plugout()
     assert result == expected
