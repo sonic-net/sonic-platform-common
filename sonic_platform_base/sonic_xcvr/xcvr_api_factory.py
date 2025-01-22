@@ -75,7 +75,7 @@ class XcvrApiFactory(object):
         # TODO: load correct classes from id_mapping file
         id = self._get_id()
         # QSFP-DD or OSFP
-        if id == 0x18 or id == 0x19 or id == 0x1e:
+        if id == 0x18 or id == 0x19 or id == 0x1e or id == 0x1b:
             vendor_name = self._get_vendor_name()
             vendor_pn = self._get_vendor_part_num()
             if vendor_name == 'Credo' and vendor_pn in CREDO_800G_AEC_VENDOR_PN_LIST:
