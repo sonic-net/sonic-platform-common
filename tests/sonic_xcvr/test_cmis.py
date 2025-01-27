@@ -661,7 +661,9 @@ class TestCmis(object):
     @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
         (True, '1', 0 ),
         (False, None, 0),
-        (False, '5', 5.0),
+        (False, '500', 5000.0),
+        (False, '1000', 10000.0),
+        (False, '5000', 5000.0),
         (False, '60000', 60000.0),
     ])
     def test_get_datapath_init_duration(self, mock_response1, mock_response2, expected):

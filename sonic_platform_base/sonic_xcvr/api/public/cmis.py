@@ -25,6 +25,9 @@ logger.addHandler(logging.NullHandler())
 VDM_FREEZE = 128
 VDM_UNFREEZE = 0
 
+DATAPATH_INIT_DURATION_MULTIPLIER = 10
+DATAPATH_INIT_DURATION_OVERRIDE_THRESHOLD = 1000
+
 class VdmSubtypeIndex(Enum):
     VDM_SUBTYPE_REAL_VALUE = 0
     VDM_SUBTYPE_HALARM_THRESHOLD = 1
@@ -918,7 +921,10 @@ class CmisApi(XcvrApi):
         if self.is_flat_memory():
             return 0
         duration = self.xcvr_eeprom.read(consts.DP_PATH_INIT_DURATION)
-        return float(duration) if duration is not None else 0
+        if duration is None:
+            return 0
+        value = float(duration)
+        return value * DATAPATH_INIT_DURATION_MULTIPLIER if value <= DATAPATH_INIT_DURATION_OVERRIDE_THRESHOLD else value
 
     def get_datapath_deinit_duration(self):
         '''
