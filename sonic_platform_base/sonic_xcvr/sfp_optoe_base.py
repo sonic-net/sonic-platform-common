@@ -55,6 +55,10 @@ class SfpOptoeBase(SfpBase):
         api = self.get_xcvr_api()
         return api.is_coherent_module() if api is not None else None
 
+    def is_transceiver_vdm_supported(self):
+        api = self.get_xcvr_api()
+        return api.is_transceiver_vdm_supported() if api is not None else None
+
     def get_transceiver_vdm_real_value(self):
         """
         Retrieves VDM real (sample) values for this xcvr (applicable for CMIS and C-CMIS)
