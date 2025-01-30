@@ -156,6 +156,43 @@ class TestSff8636(object):
         self.api.get_power_override_support.return_value = False
         assert not self.api.set_lpmode(True)
 
+    def test_set_high_power_class(self):
+        with patch.object(self.api, 'get_power_class', new=MagicMock()) as mock_get_power_class, \
+                patch.object(self.api, 'xcvr_eeprom', new=MagicMock()) as mock_eeprom:
+
+            # Mock read method
+            mock_eeprom.read = MagicMock()
+            mock_get_power_class.return_value = 4
+
+            # Test low power class
+            mock_eeprom.read.return_value = 1
+            assert self.api.set_high_power_class(True)
+
+            # Test high power class 5-7
+            mock_get_power_class.return_value = 5
+            assert self.api.set_high_power_class(True)
+
+            # Test high power class 8
+            mock_get_power_class.return_value = 8
+            assert self.api.set_high_power_class(True)
+
+            # Test high power class disable
+            mock_get_power_class.return_value = 8
+            assert self.api.set_high_power_class(False)
+
+    def test_get_power_class(self):
+        with patch.object(self.api, 'xcvr_eeprom') as mock_eeprom:
+            mock_eeprom.read = MagicMock()
+
+            mock_eeprom.read.return_value = "Power Class 1 Module (1.5W max.)"
+            assert self.api.get_power_class() == 1
+
+            mock_eeprom.read.return_value = "XYZ"
+            assert self.api.get_power_class() == -1
+
+            mock_eeprom.read.return_value = None
+            assert self.api.get_power_class() == -1
+
     @pytest.mark.parametrize("mock_response, expected",[
         (
             [
