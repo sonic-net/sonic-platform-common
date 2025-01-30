@@ -21,6 +21,9 @@ from collections import defaultdict
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
+DATAPATH_INIT_DURATION_MULTIPLIER = 10
+DATAPATH_INIT_DURATION_OVERRIDE_THRESHOLD = 1000
+
 CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP = {
     "eSNR Media Input [dB]" : "esnr_media_input",
     "PAM4 Level Transition Parameter Media Input [dB]" : "pam4_level_transition_media_input",
@@ -744,7 +747,10 @@ class CmisApi(XcvrApi):
         if self.is_flat_memory():
             return 0
         duration = self.xcvr_eeprom.read(consts.DP_PATH_INIT_DURATION)
-        return float(duration) if duration is not None else 0
+        if duration is None:
+            return 0
+        value = float(duration)
+        return value * DATAPATH_INIT_DURATION_MULTIPLIER if value <= DATAPATH_INIT_DURATION_OVERRIDE_THRESHOLD else value
 
     def get_datapath_deinit_duration(self):
         '''
