@@ -8,6 +8,7 @@ from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi
 from sonic_platform_base.sonic_xcvr.mem_maps.public.c_cmis import CCmisMemMap 
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom 
 from sonic_platform_base.sonic_xcvr.codes.public.cmis import CmisCodes 
+from sonic_platform_base.sonic_xcvr.api.public.sff8472 import Sff8472Api
 
 class TestSfpOptoeBase(object): 
  
@@ -19,7 +20,16 @@ class TestSfpOptoeBase(object):
     sfp_optoe_api = SfpOptoeBase() 
     ccmis_api = CCmisApi(eeprom) 
     cmis_api = CmisApi(eeprom) 
+    sff8472_api = Sff8472Api(eeprom)
  
+    def test_is_transceiver_vdm_supported_non_cmis(self):
+        self.sfp_optoe_api.get_xcvr_api = MagicMock(return_value=self.sff8472_api)
+        try:
+            self.sfp_optoe_api.is_transceiver_vdm_supported()
+        except NotImplementedError:
+            exception_raised = True
+        assert exception_raised
+
     @pytest.mark.parametrize("mock_response1, mock_response2, expected", [ 
         (0, cmis_api, 0), 
         (1, cmis_api, 1),

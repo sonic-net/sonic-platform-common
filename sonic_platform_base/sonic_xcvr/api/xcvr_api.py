@@ -257,6 +257,12 @@ class XcvrApi(object):
         """
         raise NotImplementedError
 
+    def is_transceiver_vdm_supported(self):
+        """
+        Retrieves VDM support status for this xcvr (applicable for CMIS and C-CMIS)
+        """
+        raise NotImplementedError
+
     def get_transceiver_vdm_real_value(self):
         """
         Retrieves VDM real (sample) values for this xcvr (applicable for CMIS and C-CMIS)
