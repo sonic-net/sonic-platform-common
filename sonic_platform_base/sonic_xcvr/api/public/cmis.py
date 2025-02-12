@@ -2710,21 +2710,22 @@ class CmisApi(XcvrApi):
         return True
 
     def get_error_description(self):
-        dp_state = self.get_datapath_state()
-        conf_state = self.get_config_datapath_hostlane_status()
-        for lane in range(self.NUM_CHANNELS):
-            name = "{}_{}_{}".format(consts.STAGED_CTRL_APSEL_FIELD, 0, lane + 1)
-            appl = self.xcvr_eeprom.read(name)
-            if (appl is None) or ((appl >> 4) == 0):
-                continue
+        if not self.is_flat_memory():
+            dp_state = self.get_datapath_state()
+            conf_state = self.get_config_datapath_hostlane_status()
+            for lane in range(self.NUM_CHANNELS):
+                name = "{}_{}_{}".format(consts.STAGED_CTRL_APSEL_FIELD, 0, lane + 1)
+                appl = self.xcvr_eeprom.read(name)
+                if (appl is None) or ((appl >> 4) == 0):
+                    continue
 
-            name = "DP{}State".format(lane + 1)
-            if dp_state[name] != CmisCodes.DATAPATH_STATE[4]:
-                return dp_state[name]
+                name = "DP{}State".format(lane + 1)
+                if dp_state[name] != CmisCodes.DATAPATH_STATE[4]:
+                    return dp_state[name]
 
-            name = "ConfigStatusLane{}".format(lane + 1)
-            if conf_state[name] != CmisCodes.CONFIG_STATUS[1]:
-                return conf_state[name]
+                name = "ConfigStatusLane{}".format(lane + 1)
+                if conf_state[name] != CmisCodes.CONFIG_STATUS[1]:
+                    return conf_state[name]
 
         state = self.get_module_state()
         if state != CmisCodes.MODULE_STATE[3]:
