@@ -2949,7 +2949,7 @@ class TestCmis(object):
             'ConfigStatusLane5': 'ConfigSuccess',
             'ConfigStatusLane6': 'ConfigSuccess',
             'ConfigStatusLane7': 'ConfigSuccess',
-            'ConfigStatusLane8': 'ConfigSuccess'
+            'ConfigStatusLane8': 'ConfigSuccess' 
           } )
     ])
     def test_decommission_all_datapaths(self, datapath_state, config_state):
@@ -3091,7 +3091,7 @@ class TestCmis(object):
 
             result = self.api.get_error_description()
             assert result is 'OK'
-
+            
             self.api.get_config_datapath_hostlane_status.return_value = {
                 'ConfigStatusLane1': 'ConfigRejected',
                 'ConfigStatusLane2': 'ConfigRejected',
@@ -3104,7 +3104,7 @@ class TestCmis(object):
             }
             result = self.api.get_error_description()
             assert result is 'ConfigRejected'
-
+            
             self.api.get_datapath_state.return_value = {
                 'DP1State': 'DataPathDeactivated',
                 'DP2State': 'DataPathActivated',
