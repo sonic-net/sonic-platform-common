@@ -282,7 +282,21 @@ class CmisApi(XcvrApi):
             "cable_length": float(admin_info[consts.LENGTH_ASSEMBLY_FIELD]),
             "nominal_bit_rate": 0, # Not supported
             "vendor_date": admin_info[consts.VENDOR_DATE_FIELD],
-            "vendor_oui": admin_info[consts.VENDOR_OUI_FIELD]
+            "vendor_oui": admin_info[consts.VENDOR_OUI_FIELD],
+            "is_replaceable": "N/A", # Not supported
+            "dom_capability": "N/A", # Not supported
+            "active_apsel_hostlane1": "N/A", # Not supported
+            "active_apsel_hostlane2": "N/A", # Not supported
+            "active_apsel_hostlane3": "N/A", # Not supported
+            "active_apsel_hostlane4": "N/A", # Not supported
+            "active_apsel_hostlane5": "N/A", # Not supported
+            "active_apsel_hostlane6": "N/A", # Not supported
+            "active_apsel_hostlane7": "N/A", # Not supported
+            "active_apsel_hostlane8": "N/A", # Not supported
+            "supported_max_tx_power": "N/A", # Not supported
+            "supported_min_tx_power": "N/A", # Not supported
+            "supported_max_laser_freq": "N/A", # Not supported
+            "supported_min_laser_freq": "N/A" # Not supported
         }
         appl_advt = self.get_application_advertisement()
         xcvr_info['application_advertisement'] = str(appl_advt) if len(appl_advt) > 0 else 'N/A'
