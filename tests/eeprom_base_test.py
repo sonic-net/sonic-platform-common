@@ -2,7 +2,7 @@ import os
 import pytest
 import subprocess
 from unittest import mock
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, mock_open
 from sonic_platform_base.sonic_eeprom import eeprom_base, eeprom_tlvinfo
 EEPROM_SYMLINK = "vpd_info"
 EEPROM_HEX_FILE = "syseeprom.hex"
@@ -199,6 +199,40 @@ class TestEepromDecoder(object):
             eeprom.set_eeprom('eeprom', ['0x20 = Invalid'])
         mock_print.assert_called_with("Error: invalid field '0x20'")
         assert e.value.code == 1
+
+    @mock.patch("builtins.open", new_callable=mock.mock_open)
+    @mock.patch("os.makedirs")
+    @mock.patch("os.path.exists", return_value=False)
+    @mock.patch("os.chmod")
+    def test_write_cache(self, mock_chmod, mock_exists, mock_makedirs, mock_open):
+        # Create an instance of TlvInfoDecoder with a mock cache_name
+        eeprom_decoder = eeprom_tlvinfo.TlvInfoDecoder("/dev/null", 0, "", True)
+        eeprom_decoder.cache_name = "/tmp/mock_cache"
+
+        # Mock EEPROM data to write
+        mock_eeprom_data = b"mock_eeprom_data"
+
+        # Call the write_cache method
+        eeprom_decoder.write_cache(mock_eeprom_data)
+
+        # Verify that os.makedirs was called with the correct directory
+        mock_makedirs.assert_called_once_with("/tmp")
+
+        # Verify that os.chmod was called to set directory permissions
+        mock_chmod.assert_any_call("/tmp", 0o755)
+
+        # Verify that the file was opened in write-binary mode
+        mock_open.assert_called_once_with("/tmp/mock_cache", "wb")
+
+        # Verify that the file's seek method was called with the correct offset
+        mock_open().seek.assert_called_once_with(eeprom_decoder.s)
+
+        # Verify that the file's write method was called with the EEPROM data
+        mock_open().write.assert_called_once_with(mock_eeprom_data)
+
+        # Verify that os.chmod was called to set file permissions
+        mock_chmod.assert_any_call("/tmp/mock_cache", 0o755)
+
 
     def teardown(self):
         print("TEAR DOWN")
