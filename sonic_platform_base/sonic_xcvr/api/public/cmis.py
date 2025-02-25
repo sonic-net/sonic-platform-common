@@ -310,7 +310,6 @@ class CmisApi(XcvrApi):
         ext_id = admin_info[consts.EXT_ID_FIELD]
         power_class = ext_id[consts.POWER_CLASS_FIELD]
         max_power = ext_id[consts.MAX_POWER_FIELD]
-
         self.cmis_xcvr_info_dict.update({
             "type": admin_info[consts.ID_FIELD],
             "type_abbrv_name": admin_info[consts.ID_ABBRV_FIELD],
@@ -322,25 +321,24 @@ class CmisApi(XcvrApi):
             "ext_identifier": "%s (%sW Max)" % (power_class, max_power),
             "cable_length": float(admin_info[consts.LENGTH_ASSEMBLY_FIELD]),
             "vendor_date": admin_info[consts.VENDOR_DATE_FIELD],
-            "vendor_oui": admin_info[consts.VENDOR_OUI_FIELD]
+            "vendor_oui": admin_info[consts.VENDOR_OUI_FIELD],
+            "application_advertisement": str(self.get_application_advertisement()) if len(self.get_application_advertisement()) > 0 else 'N/A',
+            "host_electrical_interface": self.get_host_electrical_interface(),
+            "media_interface_code": self.get_module_media_interface(),
+            "host_lane_count": self.get_host_lane_count(),
+            "media_lane_count": self.get_media_lane_count(),
+            "host_lane_assignment_option": self.get_host_lane_assignment_option(),
+            "media_lane_assignment_option": self.get_media_lane_assignment_option(),
+            "cable_type": self.get_cable_length_type(),
+            "media_interface_technology": self.get_media_interface_technology(),
+            "vendor_rev": self.get_vendor_rev(),
+            "cmis_rev": self.get_cmis_rev(),
+            "specification_compliance": self.get_module_media_type()
         })
-        appl_advt = self.get_application_advertisement()
-        self.cmis_xcvr_info_dict['application_advertisement'] = str(appl_advt) if len(appl_advt) > 0 else 'N/A'
-        self.cmis_xcvr_info_dict['host_electrical_interface'] = self.get_host_electrical_interface()
-        self.cmis_xcvr_info_dict['media_interface_code'] = self.get_module_media_interface()
-        self.cmis_xcvr_info_dict['host_lane_count'] = self.get_host_lane_count()
-        self.cmis_xcvr_info_dict['media_lane_count'] = self.get_media_lane_count()
-        self.cmis_xcvr_info_dict['host_lane_assignment_option'] = self.get_host_lane_assignment_option()
-        self.cmis_xcvr_info_dict['media_lane_assignment_option'] = self.get_media_lane_assignment_option()
-        self.cmis_xcvr_info_dict['cable_type'] = self.get_cable_length_type()
         apsel_dict = self.get_active_apsel_hostlane()
-        for lane in range(1, self.NUM_CHANNELS+1):
+        for lane in range(1, self.NUM_CHANNELS + 1):
             self.cmis_xcvr_info_dict["%s%d" % ("active_apsel_hostlane", lane)] = \
-                    apsel_dict["%s%d" % (consts.ACTIVE_APSEL_HOSTLANE, lane)]
-        self.cmis_xcvr_info_dict['media_interface_technology'] = self.get_media_interface_technology()
-        self.cmis_xcvr_info_dict['vendor_rev'] = self.get_vendor_rev()
-        self.cmis_xcvr_info_dict['cmis_rev'] = self.get_cmis_rev()
-        self.cmis_xcvr_info_dict['specification_compliance'] = self.get_module_media_type()
+            apsel_dict["%s%d" % (consts.ACTIVE_APSEL_HOSTLANE, lane)]
 
         # In normal case will get a valid value for each of the fields. If get a 'None' value
         # means there was a failure while reading the EEPROM, either because the EEPROM was
