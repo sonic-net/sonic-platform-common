@@ -160,29 +160,32 @@ class TestCCmis(object):
 
     @pytest.mark.parametrize("mock_response, expected",[
         (
-            [   {   
+            (
+                {   
                     'type': 'QSFP-DD Double Density 8X Pluggable Transceiver'
                 },
                 (-20, 0),
                 (0xff, -72, 120, 191300, 196100)
-            ],
+            ),
             {
                 'type': 'QSFP-DD Double Density 8X Pluggable Transceiver',
                 'supported_min_laser_freq': 191300,
                 'supported_max_laser_freq': 196100,
                 'supported_max_tx_power': 0,
                 'supported_min_tx_power': -20,
-                
             }
         )
     ])
     @patch("sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_transceiver_info")
     def test_get_transceiver_info(self, get_transceiver_info_func, mock_response, expected):
+        # Mock the base class method to return initial transceiver data
         get_transceiver_info_func.return_value = mock_response[0]
-        self.api.get_supported_power_config = MagicMock()
-        self.api.get_supported_power_config.return_value = mock_response[1]
-        self.api.get_supported_freq_config = MagicMock()
-        self.api.get_supported_freq_config.return_value = mock_response[2]
+
+        # Mock the power and frequency configurations
+        self.api.get_supported_power_config = MagicMock(return_value = mock_response[1])
+        self.api.get_supported_freq_config = MagicMock(return_value = mock_response[2])
+
+        # Call function under test
         result = self.api.get_transceiver_info()
         assert result == expected
 

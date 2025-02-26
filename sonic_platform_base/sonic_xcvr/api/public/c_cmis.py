@@ -354,14 +354,16 @@ class CCmisApi(CmisApi):
         supported_min_laser_freq     = FLOAT                    ; support minimum laser frequency
         ================================================================================
         """
-        trans_info = super(CCmisApi,self).get_transceiver_info()
+        self.cmis_xcvr_info_dict = super(CCmisApi, self).get_transceiver_info()
         min_power, max_power = self.get_supported_power_config()
-        trans_info['supported_max_tx_power'] = max_power
-        trans_info['supported_min_tx_power'] = min_power
         _, _, _, low_freq_supported, high_freq_supported = self.get_supported_freq_config()
-        trans_info['supported_max_laser_freq'] = high_freq_supported
-        trans_info['supported_min_laser_freq'] = low_freq_supported
-        return trans_info
+        self.cmis_xcvr_info_dict.update({
+            'supported_max_tx_power': max_power,
+            'supported_min_tx_power': min_power,
+            'supported_max_laser_freq': high_freq_supported,
+            'supported_min_laser_freq': low_freq_supported
+        })
+        return self.cmis_xcvr_info_dict
 
     def get_transceiver_bulk_status(self):
         """
