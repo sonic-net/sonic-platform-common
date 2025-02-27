@@ -1473,7 +1473,7 @@ class TestCmis(object):
                 'ext_rateselect_compliance': 'N/A',
                 'cable_type': 'Length Cable Assembly(m)',
                 'cable_length': 0.0,
-                'nominal_bit_rate': 0,
+                'nominal_bit_rate': 'N/A',
                 'specification_compliance': 'sm_media_interface',
                 'application_advertisement': 'N/A',
                 'media_lane_count': 1,
@@ -1498,7 +1498,11 @@ class TestCmis(object):
                 'media_lane_assignment_option': 1,
                 'connector': 'LC',
                 'host_lane_assignment_option': 1,
-                'vendor_date': '21010100'
+                'vendor_date': '21010100',
+                'supported_max_laser_freq': 'N/A',
+                'supported_max_tx_power': 'N/A',
+                'supported_min_laser_freq': 'N/A',
+                'supported_min_tx_power': 'N/A'
             }
         )
     ])
@@ -1526,11 +1530,11 @@ class TestCmis(object):
         self.api.get_cmis_rev = MagicMock()
         self.api.get_cmis_rev.return_value = mock_response[10]
         self.api.get_module_fw_info = MagicMock()
+        self.api.get_module_fw_info.return_value = mock_response[14]
         self.api.get_module_media_type = MagicMock()
         self.api.get_module_media_type.return_value = mock_response[13]
         self.api.get_module_hardware_revision = MagicMock()
         self.api.get_module_hardware_revision.return_value = '0.0'
-        self.api.get_module_fw_info.return_value = mock_response[14]
         self.api.is_flat_memory = MagicMock()
         self.api.is_flat_memory.return_value = False
         result = self.api.get_transceiver_info()
@@ -3082,7 +3086,7 @@ class TestCmis(object):
             }
             self.api.xcvr_eeprom.read = MagicMock()
             self.api.xcvr_eeprom.read.return_value = 0x10
-    
+
             result = self.api.get_error_description()
             assert result is 'OK'
             
