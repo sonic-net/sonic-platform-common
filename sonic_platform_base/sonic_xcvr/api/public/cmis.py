@@ -98,18 +98,7 @@ class CmisApi(XcvrApi):
         "nominal_bit_rate": "N/A",
         "vendor_date": "N/A",
         "vendor_oui": "N/A",
-        "active_apsel_hostlane1": "N/A",
-        "active_apsel_hostlane2": "N/A",
-        "active_apsel_hostlane3": "N/A",
-        "active_apsel_hostlane4": "N/A",
-        "active_apsel_hostlane5": "N/A",
-        "active_apsel_hostlane6": "N/A",
-        "active_apsel_hostlane7": "N/A",
-        "active_apsel_hostlane8": "N/A",
-        "supported_max_tx_power": "N/A",
-        "supported_min_tx_power": "N/A",
-        "supported_max_laser_freq": "N/A",
-        "supported_min_laser_freq": "N/A",
+        **{f"active_apsel_hostlane{i}": "N/A" for i in range(1, 9)},
         "application_advertisement": "N/A",
         "host_electrical_interface": "N/A",
         "media_interface_code": "N/A",
@@ -121,8 +110,9 @@ class CmisApi(XcvrApi):
         "media_interface_technology": "N/A",
         "vendor_rev": "N/A",
         "cmis_rev": "N/A",
-        "specification_compliance": "N/A"
-    }
+        "specification_compliance": "N/A",
+        "vdm_supported": "N/A"
+        }
 
     def __init__(self, xcvr_eeprom):
         super(CmisApi, self).__init__(xcvr_eeprom)
@@ -333,7 +323,8 @@ class CmisApi(XcvrApi):
             "media_interface_technology": self.get_media_interface_technology(),
             "vendor_rev": self.get_vendor_rev(),
             "cmis_rev": self.get_cmis_rev(),
-            "specification_compliance": self.get_module_media_type()
+            "specification_compliance": self.get_module_media_type(),
+            "vdm_supported": self.is_transceiver_vdm_supported()
         })
         apsel_dict = self.get_active_apsel_hostlane()
         for lane in range(1, self.NUM_CHANNELS + 1):
