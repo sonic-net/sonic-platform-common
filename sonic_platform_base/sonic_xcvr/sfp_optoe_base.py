@@ -7,7 +7,9 @@
 
 from ..sfp_base import SfpBase
 
-SFP_OPTOE_PAGE_OFFSET = 127
+SFP_OPTOE_PAGE_SELECT_OFFSET = 127
+SFP_OPTOE_UPPER_PAGE0_OFFSET = 128
+SFP_OPTOE_PAGE_SIZE = 128
 
 class SfpOptoeBase(SfpBase):
     def __init__(self):
@@ -264,10 +266,10 @@ class SfpOptoeBase(SfpBase):
             pass
 
     def get_optoe_current_page(self):
-        return self.read_eeprom(SFP_OPTOE_PAGE_OFFSET, 1)
+        return self.read_eeprom(SFP_OPTOE_PAGE_SELECT_OFFSET, 1)[0]
 
     def set_page0(self):
-        self.write_eeprom(SFP_OPTOE_PAGE_OFFSET, 1, bytearray([0x00]))
+        self.write_eeprom(SFP_OPTOE_PAGE_SELECT_OFFSET, 1, bytearray([0x00]))
 
     def set_optoe_write_timeout(self, write_timeout):
         sys_path = self.get_eeprom_path()
@@ -281,7 +283,9 @@ class SfpOptoeBase(SfpBase):
     def read_eeprom(self, offset, num_bytes):
         try:
             with open(self.get_eeprom_path(), mode='rb', buffering=0) as f:
-                if offset > 127 and offset < 256 and self.get_optoe_current_page() != 0:
+                if offset >= SFP_OPTOE_UPPER_PAGE0_OFFSET  and \
+                    offset < (SFP_OPTOE_UPPER_PAGE0_OFFSET+SFP_OPTOE_PAGE_SIZE) and \
+                        self.get_optoe_current_page() != 0:
                 # Restoring the page to 0 helps in cases where the optoe driver failed to restore
                 # the page when say the module was busy with CDB command processing
                    self.set_page0()
