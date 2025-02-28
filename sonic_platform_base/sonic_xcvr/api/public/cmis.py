@@ -17,6 +17,7 @@ from ..xcvr_api import XcvrApi
 from .cmisCDB import CmisCdbApi
 from .cmisVDM import CmisVdmApi
 import time
+import copy
 from collections import defaultdict
 
 logger = logging.getLogger(__name__)
@@ -308,7 +309,8 @@ class CmisApi(XcvrApi):
         ext_id = admin_info[consts.EXT_ID_FIELD]
         power_class = ext_id[consts.POWER_CLASS_FIELD]
         max_power = ext_id[consts.MAX_POWER_FIELD]
-        self.cmis_xcvr_info_dict.update({
+        self.xcvr_info =  copy.deepcopy(CmisApi.cmis_xcvr_info_dict)
+        self.xcvr_info.update({
             "type": admin_info[consts.ID_FIELD],
             "type_abbrv_name": admin_info[consts.ID_ABBRV_FIELD],
             "hardware_rev": self.get_module_hardware_revision(),
@@ -335,7 +337,7 @@ class CmisApi(XcvrApi):
         })
         apsel_dict = self.get_active_apsel_hostlane()
         for lane in range(1, self.NUM_CHANNELS + 1):
-            self.cmis_xcvr_info_dict["%s%d" % ("active_apsel_hostlane", lane)] = \
+            self.xcvr_info["%s%d" % ("active_apsel_hostlane", lane)] = \
             apsel_dict["%s%d" % (consts.ACTIVE_APSEL_HOSTLANE, lane)]
 
         # In normal case will get a valid value for each of the fields. If get a 'None' value
@@ -343,10 +345,10 @@ class CmisApi(XcvrApi):
         # not ready yet or experincing some other issues. It shouldn't return a dict with a
         # wrong field value, instead should return a 'None' to indicate to XCVRD that retry is
         # needed.
-        if None in self.cmis_xcvr_info_dict.values():
+        if None in self.xcvr_info.values():
             return None
         else:
-            return self.cmis_xcvr_info_dict
+            return self.xcvr_info
 
     def get_transceiver_info_firmware_versions(self):
         return_dict = {"active_firmware" : "N/A", "inactive_firmware" : "N/A"}

@@ -7,6 +7,7 @@ from sonic_py_common import logger
 from ...fields import consts
 from .cmis import CmisApi, CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP
 import time
+import copy
 BYTELENGTH = 8
 SYSLOG_IDENTIFIER = "CCmisApi"
 
@@ -354,16 +355,17 @@ class CCmisApi(CmisApi):
         supported_min_laser_freq     = FLOAT                    ; support minimum laser frequency
         ================================================================================
         """
-        self.cmis_xcvr_info_dict = super(CCmisApi, self).get_transceiver_info()
+        self.xcvr_info =  copy.deepcopy(CmisApi.cmis_xcvr_info_dict)
+        self.xcvr_info = super(CCmisApi, self).get_transceiver_info()
         min_power, max_power = self.get_supported_power_config()
         _, _, _, low_freq_supported, high_freq_supported = self.get_supported_freq_config()
-        self.cmis_xcvr_info_dict.update({
+        self.xcvr_info.update({
             'supported_max_tx_power': max_power,
             'supported_min_tx_power': min_power,
             'supported_max_laser_freq': high_freq_supported,
             'supported_min_laser_freq': low_freq_supported
         })
-        return self.cmis_xcvr_info_dict
+        return self.xcvr_info
 
     def get_transceiver_bulk_status(self):
         """
