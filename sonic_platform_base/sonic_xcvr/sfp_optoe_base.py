@@ -286,8 +286,8 @@ class SfpOptoeBase(SfpBase):
                 if offset >= SFP_OPTOE_UPPER_PAGE0_OFFSET  and \
                     offset < (SFP_OPTOE_UPPER_PAGE0_OFFSET+SFP_OPTOE_PAGE_SIZE) and \
                         self.get_optoe_current_page() != 0:
-                # Restoring the page to 0 helps in cases where the optoe driver failed to restore
-                # the page when say the module was busy with CDB command processing
+                    # Restoring the page to 0 helps in cases where the optoe driver failed to restore
+                    # the page when say the module was busy with CDB command processing
                    self.set_page0()
                 f.seek(offset)
                 return bytearray(f.read(num_bytes))
