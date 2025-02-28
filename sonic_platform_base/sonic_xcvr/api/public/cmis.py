@@ -78,12 +78,7 @@ CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP = {
     "Errored Frames Current Value Host Input" : "errored_frames_curr_host_input"
 }
 
-class CmisApi(XcvrApi):
-    NUM_CHANNELS = 8
-    LowPwrRequestSW = 4
-    LowPwrAllowRequestHW = 6
-
-    cmis_xcvr_info_dict = {
+CMIS_XCVR_INFO_DEFAULT_DICT = {
         "type": "N/A",
         "type_abbrv_name": "N/A",
         "hardware_rev": "N/A",
@@ -113,6 +108,11 @@ class CmisApi(XcvrApi):
         "specification_compliance": "N/A",
         "vdm_supported": "N/A"
         }
+
+class CmisApi(XcvrApi):
+    NUM_CHANNELS = 8
+    LowPwrRequestSW = 4
+    LowPwrAllowRequestHW = 6
 
     def __init__(self, xcvr_eeprom):
         super(CmisApi, self).__init__(xcvr_eeprom)
@@ -291,6 +291,9 @@ class CmisApi(XcvrApi):
         inactive_fw = [str(num) for num in [inactive_fw_major, inactive_fw_minor]]
         return '.'.join(inactive_fw)
 
+    def _get_xcvr_info_default_dict(self):
+        return CMIS_XCVR_INFO_DEFAULT_DICT
+
     def get_transceiver_info(self):
         admin_info = self.xcvr_eeprom.read(consts.ADMIN_INFO_FIELD)
         if admin_info is None:
@@ -299,8 +302,8 @@ class CmisApi(XcvrApi):
         ext_id = admin_info[consts.EXT_ID_FIELD]
         power_class = ext_id[consts.POWER_CLASS_FIELD]
         max_power = ext_id[consts.MAX_POWER_FIELD]
-        self.xcvr_info =  copy.deepcopy(CmisApi.cmis_xcvr_info_dict)
-        self.xcvr_info.update({
+        xcvr_info = copy.deepcopy(self._get_xcvr_info_default_dict())
+        xcvr_info.update({
             "type": admin_info[consts.ID_FIELD],
             "type_abbrv_name": admin_info[consts.ID_ABBRV_FIELD],
             "hardware_rev": self.get_module_hardware_revision(),
@@ -328,18 +331,18 @@ class CmisApi(XcvrApi):
         })
         apsel_dict = self.get_active_apsel_hostlane()
         for lane in range(1, self.NUM_CHANNELS + 1):
-            self.xcvr_info["%s%d" % ("active_apsel_hostlane", lane)] = \
+            xcvr_info["%s%d" % ("active_apsel_hostlane", lane)] = \
             apsel_dict["%s%d" % (consts.ACTIVE_APSEL_HOSTLANE, lane)]
 
         # In normal case will get a valid value for each of the fields. If get a 'None' value
         # means there was a failure while reading the EEPROM, either because the EEPROM was
-        # not ready yet or experincing some other issues. It shouldn't return a dict with a
+        # not ready yet or experiencing some other issues. It shouldn't return a dict with a
         # wrong field value, instead should return a 'None' to indicate to XCVRD that retry is
         # needed.
-        if None in self.xcvr_info.values():
+        if None in xcvr_info.values():
             return None
         else:
-            return self.xcvr_info
+            return xcvr_info
 
     def get_transceiver_info_firmware_versions(self):
         return_dict = {"active_firmware" : "N/A", "inactive_firmware" : "N/A"}

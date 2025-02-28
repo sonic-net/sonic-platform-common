@@ -3,7 +3,8 @@ from mock import MagicMock
 import pytest
 import traceback
 import random
-from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi, CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP, THRESHOLD_TYPE_STR_MAP, FLAG_TYPE_STR_MAP
+from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi, CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP, THRESHOLD_TYPE_STR_MAP
+from sonic_platform_base.sonic_xcvr.api.public.cmis import FLAG_TYPE_STR_MAP, CMIS_XCVR_INFO_DEFAULT_DICT
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis import CmisMemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
 from sonic_platform_base.sonic_xcvr.codes.public.cmis import CmisCodes
@@ -1521,6 +1522,10 @@ class TestCmis(object):
         # Run test and validate output
         result = self.api.get_transceiver_info()
         assert result == expected
+
+        if result is not None:
+            # Test result is same as default dictionary length
+            assert len(CMIS_XCVR_INFO_DEFAULT_DICT) == len(result)
 
         # Test negative path
         self.api.get_cmis_rev.return_value = None
