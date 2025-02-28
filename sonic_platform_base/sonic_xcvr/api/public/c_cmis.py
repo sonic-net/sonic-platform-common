@@ -47,8 +47,8 @@ VDM_SUBTYPE_IDX_MAP= {
 helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
 
 class CCmisApi(CmisApi):
-    c_cmis_xcvr_info_dict = copy.deepcopy(CmisApi.cmis_xcvr_info_dict)
-    c_cmis_xcvr_info_dict.update({
+    C_CMIS_XCVR_INFO_DEFAULT_DICT = copy.deepcopy(CmisApi.cmis_xcvr_info_dict)
+    C_CMIS_XCVR_INFO_DEFAULT_DICT.update({
         "supported_max_tx_power": "N/A",
         "supported_min_tx_power": "N/A",
         "supported_max_laser_freq": "N/A",
@@ -364,7 +364,7 @@ class CCmisApi(CmisApi):
         supported_min_laser_freq     = FLOAT                    ; support minimum laser frequency
         ================================================================================
         """
-        self.xcvr_info =  copy.deepcopy(self.c_cmis_xcvr_info_dict)
+        self.xcvr_info =  copy.deepcopy(self.C_CMIS_XCVR_INFO_DEFAULT_DICT)
         self.xcvr_info = super(CCmisApi, self).get_transceiver_info()
         min_power, max_power = self.get_supported_power_config()
         _, _, _, low_freq_supported, high_freq_supported = self.get_supported_freq_config()
