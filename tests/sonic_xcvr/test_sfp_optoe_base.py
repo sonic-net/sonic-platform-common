@@ -2,7 +2,7 @@ from unittest.mock import mock_open
 from mock import MagicMock 
 from mock import patch 
 import pytest 
-from sonic_platform_base.sonic_xcvr.sfp_optoe_base import SfpOptoeBase 
+from sonic_platform_base.sonic_xcvr.sfp_optoe_base import SfpOptoeBase, SFP_OPTOE_UPPER_PAGE0_OFFSET, SFP_OPTOE_PAGE_SELECT_OFFSET
 from sonic_platform_base.sonic_xcvr.api.public.c_cmis import CCmisApi
 from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi
 from sonic_platform_base.sonic_xcvr.mem_maps.public.c_cmis import CCmisMemMap 
@@ -132,3 +132,13 @@ class TestSfpOptoeBase(object):
             exception_raised = True
         assert exception_raised
  
+    def test_default_page(self):
+        with patch("builtins.open", mock_open(read_data=b'\x01')) as mocked_file:
+            self.sfp_optoe_api.write_eeprom =  MagicMock(return_value=True)
+            self.sfp_optoe_api.get_optoe_current_page = MagicMock(return_value=0x10)
+            self.sfp_optoe_api.get_eeprom_path = MagicMock(return_value='/sys/class/eeprom')
+            data = self.sfp_optoe_api.read_eeprom(SFP_OPTOE_UPPER_PAGE0_OFFSET, 1)
+            mocked_file.assert_called_once_with("/sys/class/eeprom", mode='rb', buffering=0)
+            assert data == b'\x01'
+            self.sfp_optoe_api.write_eeprom.assert_called_once_with(SFP_OPTOE_PAGE_SELECT_OFFSET, 1, b'\x00')
+            self.sfp_optoe_api.get_optoe_current_page.assert_called_once()
