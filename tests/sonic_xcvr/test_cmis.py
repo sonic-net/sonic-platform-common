@@ -3,7 +3,8 @@ from mock import MagicMock
 import pytest
 import traceback
 import random
-from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi, CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP, THRESHOLD_TYPE_STR_MAP, FLAG_TYPE_STR_MAP
+from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi, CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP, THRESHOLD_TYPE_STR_MAP
+from sonic_platform_base.sonic_xcvr.api.public.cmis import FLAG_TYPE_STR_MAP, CMIS_XCVR_INFO_DEFAULT_DICT
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis import CmisMemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
 from sonic_platform_base.sonic_xcvr.codes.public.cmis import CmisCodes
@@ -1433,11 +1434,14 @@ class TestCmis(object):
         result = self.api.module_fw_upgrade(input_param)
         assert result == expected
 
-    @pytest.mark.parametrize("mock_response, expected",[
-        ([None, None, None, None, None, None, None, None, None, None, None, None, None, None, None], None),
+    @pytest.mark.parametrize("mock_response, expected", [
+        # Case: No transceiver data
+        ([None] * 15, None),
+
+        # Case: Valid transceiver data
         (
             [
-                {
+                {   # EEPROM mocked Data
                     'Extended Identifier': {'Power Class': 'Power Class 8', 'MaxPower': 20.0},
                     'Identifier': 'QSFP-DD Double Density 8X Pluggable Transceiver',
                     'Identifier Abbreviation': 'QSFP-DD',
@@ -1450,22 +1454,23 @@ class TestCmis(object):
                     'Length Cable Assembly': 0.0,
                     'ModuleMediaType': 'sm_media_interface',
                     'VendorDate': '21010100',
-                    'VendorOUI': 'xx-xx-xx'
+                    'VendorOUI': 'xx-xx-xx',
+                    'vdm_supported': True,
                 },
                 '400GAUI-8 C2M (Annex 120E)',
                 '400ZR, DWDM, amplified',
                 8, 1, 1, 1,
-                {'ActiveAppSelLane1': 1, 'ActiveAppSelLane2': 1, 'ActiveAppSelLane3': 1, 'ActiveAppSelLane4': 1,
-                 'ActiveAppSelLane5': 1, 'ActiveAppSelLane6': 1, 'ActiveAppSelLane7': 1, 'ActiveAppSelLane8': 1},
+                {f'ActiveAppSelLane{i}': 1 for i in range(1, 9)},
                 '1550 nm DFB',
                 '0.0',
                 '5.0',
                 '0.1',
                 '0.0',
                 'sm_media_interface',
-                {'status': True,  'result': ("0.3.0", 1, 1, 0, "0.2.0", 0, 0, 0, "0.3.0", "0.2.0")}
+                {'status': True, 'result': ("0.3.0", 1, 1, 0, "0.2.0", 0, 0, 0, "0.3.0", "0.2.0")}
             ],
-            {   'type': 'QSFP-DD Double Density 8X Pluggable Transceiver',
+            {   # Expected result
+                'type': 'QSFP-DD Double Density 8X Pluggable Transceiver',
                 'type_abbrv_name': 'QSFP-DD',
                 'model': 'ABCD',
                 'encoding': 'N/A',
@@ -1473,7 +1478,7 @@ class TestCmis(object):
                 'ext_rateselect_compliance': 'N/A',
                 'cable_type': 'Length Cable Assembly(m)',
                 'cable_length': 0.0,
-                'nominal_bit_rate': 0,
+                'nominal_bit_rate': 'N/A',
                 'specification_compliance': 'sm_media_interface',
                 'application_advertisement': 'N/A',
                 'media_lane_count': 1,
@@ -1485,56 +1490,43 @@ class TestCmis(object):
                 'media_interface_code': '400ZR, DWDM, amplified',
                 'serial': '00000000',
                 'host_lane_count': 8,
-                'active_apsel_hostlane1': 1,
-                'active_apsel_hostlane3': 1,
-                'active_apsel_hostlane2': 1,
-                'active_apsel_hostlane5': 1,
-                'active_apsel_hostlane4': 1,
-                'active_apsel_hostlane7': 1,
-                'active_apsel_hostlane6': 1,
-                'active_apsel_hostlane8': 1,
+                **{f'active_apsel_hostlane{i}': 1 for i in range(1, 9)},
                 'hardware_rev': '0.0',
                 'cmis_rev': '5.0',
                 'media_lane_assignment_option': 1,
                 'connector': 'LC',
                 'host_lane_assignment_option': 1,
-                'vendor_date': '21010100'
+                'vendor_date': '21010100',
+                'vdm_supported': True,
             }
         )
     ])
     def test_get_transceiver_info(self, mock_response, expected):
-        self.api.xcvr_eeprom.read = MagicMock()
-        self.api.xcvr_eeprom.read.return_value = mock_response[0]
-        self.api.get_host_electrical_interface = MagicMock()
-        self.api.get_host_electrical_interface.return_value = mock_response[1]
-        self.api.get_module_media_interface = MagicMock()
-        self.api.get_module_media_interface.return_value = mock_response[2]
-        self.api.get_host_lane_count = MagicMock()
-        self.api.get_host_lane_count.return_value = mock_response[3]
-        self.api.get_media_lane_count = MagicMock()
-        self.api.get_media_lane_count.return_value = mock_response[4]
-        self.api.get_host_lane_assignment_option = MagicMock()
-        self.api.get_host_lane_assignment_option.return_value = mock_response[5]
-        self.api.get_media_lane_assignment_option = MagicMock()
-        self.api.get_media_lane_assignment_option.return_value = mock_response[6]
-        self.api.get_active_apsel_hostlane = MagicMock()
-        self.api.get_active_apsel_hostlane.return_value = mock_response[7]
-        self.api.get_media_interface_technology = MagicMock()
-        self.api.get_media_interface_technology.return_value = mock_response[8]
-        self.api.get_vendor_rev = MagicMock()
-        self.api.get_vendor_rev.return_value = mock_response[9]
-        self.api.get_cmis_rev = MagicMock()
-        self.api.get_cmis_rev.return_value = mock_response[10]
-        self.api.get_module_fw_info = MagicMock()
-        self.api.get_module_media_type = MagicMock()
-        self.api.get_module_media_type.return_value = mock_response[13]
-        self.api.get_module_hardware_revision = MagicMock()
-        self.api.get_module_hardware_revision.return_value = '0.0'
-        self.api.get_module_fw_info.return_value = mock_response[14]
-        self.api.is_flat_memory = MagicMock()
-        self.api.is_flat_memory.return_value = False
+        self.api.xcvr_eeprom.read = MagicMock(return_value = mock_response[0])
+        self.api.get_host_electrical_interface = MagicMock(return_value = mock_response[1])
+        self.api.get_module_media_interface = MagicMock(return_value = mock_response[2])
+        self.api.get_host_lane_count = MagicMock(return_value = mock_response[3])
+        self.api.get_media_lane_count = MagicMock(return_value = mock_response[4])
+        self.api.get_host_lane_assignment_option = MagicMock(return_value = mock_response[5])
+        self.api.get_media_lane_assignment_option = MagicMock(return_value = mock_response[6])
+        self.api.get_active_apsel_hostlane = MagicMock(return_value = mock_response[7])
+        self.api.get_media_interface_technology = MagicMock(return_value = mock_response[8])
+        self.api.get_vendor_rev = MagicMock(return_value = mock_response[9])
+        self.api.get_cmis_rev = MagicMock(return_value = mock_response[10])
+        self.api.get_module_fw_info = MagicMock(return_value = mock_response[14])
+        self.api.get_module_media_type = MagicMock(return_value = mock_response[13])
+        self.api.get_module_hardware_revision = MagicMock(return_value="0.0")
+        self.api.is_flat_memory = MagicMock(return_value=False)
+        self.api.is_transceiver_vdm_supported = MagicMock(return_value=True)
+
+        # Run test and validate output
         result = self.api.get_transceiver_info()
         assert result == expected
+
+        if result is not None:
+            # Test result is same as default dictionary length
+            assert len(CMIS_XCVR_INFO_DEFAULT_DICT) == len(result)
+
         # Test negative path
         self.api.get_cmis_rev.return_value = None
         result = self.api.get_transceiver_info()
@@ -3082,7 +3074,7 @@ class TestCmis(object):
             }
             self.api.xcvr_eeprom.read = MagicMock()
             self.api.xcvr_eeprom.read.return_value = 0x10
-    
+
             result = self.api.get_error_description()
             assert result is 'OK'
             

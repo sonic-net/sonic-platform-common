@@ -1,7 +1,7 @@
 from mock import MagicMock
 from mock import patch
 import pytest
-from sonic_platform_base.sonic_xcvr.api.public.c_cmis import CCmisApi
+from sonic_platform_base.sonic_xcvr.api.public.c_cmis import CCmisApi, C_CMIS_XCVR_INFO_DEFAULT_DICT
 from sonic_platform_base.sonic_xcvr.mem_maps.public.c_cmis import CCmisMemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
 from sonic_platform_base.sonic_xcvr.codes.public.cmis import CmisCodes
@@ -160,31 +160,91 @@ class TestCCmis(object):
 
     @pytest.mark.parametrize("mock_response, expected",[
         (
-            [   {   
-                    'type': 'QSFP-DD Double Density 8X Pluggable Transceiver'
+            (
+                {   # EEPROM DATA
+                    'type': 'QSFP-DD Double Density 8X Pluggable Transceiver',
+                    'type_abbrv_name': 'QSFP-DD',
+                    'model': 'ABCD',
+                    'encoding': 'N/A',
+                    'ext_identifier': 'Power Class 8 (20.0W Max)',
+                    'ext_rateselect_compliance': 'N/A',
+                    'cable_type': 'Length Cable Assembly(m)',
+                    'cable_length': 0.0,
+                    'nominal_bit_rate': 'N/A',
+                    'specification_compliance': 'sm_media_interface',
+                    'application_advertisement': 'N/A',
+                    'media_lane_count': 1,
+                    'vendor_rev': '0.0',
+                    'host_electrical_interface': '400GAUI-8 C2M (Annex 120E)',
+                    'vendor_oui': 'xx-xx-xx',
+                    'manufacturer': 'VENDOR_NAME',
+                    'media_interface_technology': '1550 nm DFB',
+                    'media_interface_code': '400ZR, DWDM, amplified',
+                    'serial': '00000000',
+                    'host_lane_count': 8,
+                    **{f'active_apsel_hostlane{i}': 1 for i in range(1, 9)},
+                    'hardware_rev': '0.0',
+                    'cmis_rev': '5.0',
+                    'media_lane_assignment_option': 1,
+                    'connector': 'LC',
+                    'host_lane_assignment_option': 1,
+                    'vendor_date': '21010100',
+                    'vdm_supported': True,
                 },
                 (-20, 0),
                 (0xff, -72, 120, 191300, 196100)
-            ],
-            {
+            ),
+            {   # Expected Result
                 'type': 'QSFP-DD Double Density 8X Pluggable Transceiver',
+                'type_abbrv_name': 'QSFP-DD',
+                'model': 'ABCD',
+                'encoding': 'N/A',
+                'ext_identifier': 'Power Class 8 (20.0W Max)',
+                'ext_rateselect_compliance': 'N/A',
+                'cable_type': 'Length Cable Assembly(m)',
+                'cable_length': 0.0,
+                'nominal_bit_rate': 'N/A',
+                'specification_compliance': 'sm_media_interface',
+                'application_advertisement': 'N/A',
+                'media_lane_count': 1,
+                'vendor_rev': '0.0',
+                'host_electrical_interface': '400GAUI-8 C2M (Annex 120E)',
+                'vendor_oui': 'xx-xx-xx',
+                'manufacturer': 'VENDOR_NAME',
+                'media_interface_technology': '1550 nm DFB',
+                'media_interface_code': '400ZR, DWDM, amplified',
+                'serial': '00000000',
+                'host_lane_count': 8,
+                **{f'active_apsel_hostlane{i}': 1 for i in range(1, 9)},
+                'hardware_rev': '0.0',
+                'cmis_rev': '5.0',
+                'media_lane_assignment_option': 1,
+                'connector': 'LC',
+                'host_lane_assignment_option': 1,
+                'vendor_date': '21010100',
+                'vdm_supported': True,
                 'supported_min_laser_freq': 191300,
                 'supported_max_laser_freq': 196100,
                 'supported_max_tx_power': 0,
                 'supported_min_tx_power': -20,
-                
             }
         )
     ])
     @patch("sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_transceiver_info")
     def test_get_transceiver_info(self, get_transceiver_info_func, mock_response, expected):
+        # Mock the base class method to return initial transceiver data
         get_transceiver_info_func.return_value = mock_response[0]
-        self.api.get_supported_power_config = MagicMock()
-        self.api.get_supported_power_config.return_value = mock_response[1]
-        self.api.get_supported_freq_config = MagicMock()
-        self.api.get_supported_freq_config.return_value = mock_response[2]
+
+        # Mock the power and frequency configurations
+        self.api.get_supported_power_config = MagicMock(return_value = mock_response[1])
+        self.api.get_supported_freq_config = MagicMock(return_value = mock_response[2])
+
+        # Call function under test
         result = self.api.get_transceiver_info()
         assert result == expected
+
+        # Test result is same as default dictionary length
+        assert len(C_CMIS_XCVR_INFO_DEFAULT_DICT) == len(result)
 
 
     @pytest.mark.parametrize("mock_response, expected",[

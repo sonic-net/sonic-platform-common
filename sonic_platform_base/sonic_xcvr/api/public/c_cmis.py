@@ -5,8 +5,9 @@
 """
 from sonic_py_common import logger
 from ...fields import consts
-from .cmis import CmisApi, CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP
+from .cmis import CmisApi, CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP, CMIS_XCVR_INFO_DEFAULT_DICT
 import time
+import copy
 BYTELENGTH = 8
 SYSLOG_IDENTIFIER = "CCmisApi"
 
@@ -44,6 +45,14 @@ VDM_SUBTYPE_IDX_MAP= {
 
 
 helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
+
+C_CMIS_XCVR_INFO_DEFAULT_DICT = copy.deepcopy(CMIS_XCVR_INFO_DEFAULT_DICT)
+C_CMIS_XCVR_INFO_DEFAULT_DICT.update({
+    "supported_max_tx_power": "N/A",
+    "supported_min_tx_power": "N/A",
+    "supported_max_laser_freq": "N/A",
+    "supported_min_laser_freq": "N/A"
+})
 
 class CCmisApi(CmisApi):
     def __init__(self, xcvr_eeprom):
@@ -312,6 +321,9 @@ class CCmisApi(CmisApi):
         PM_dict['rx_mer_max'] = self.xcvr_eeprom.read(consts.RX_MAX_MER_PM)
         return PM_dict
 
+    def _get_xcvr_info_default_dict(self):
+        return C_CMIS_XCVR_INFO_DEFAULT_DICT
+
     def get_transceiver_info(self):
         """
         Retrieves transceiver info of this SFP
@@ -354,14 +366,22 @@ class CCmisApi(CmisApi):
         supported_min_laser_freq     = FLOAT                    ; support minimum laser frequency
         ================================================================================
         """
-        trans_info = super(CCmisApi,self).get_transceiver_info()
+        xcvr_info = super(CCmisApi, self).get_transceiver_info()
+
+        # Return None if CmisApi class returns None, this indicates to XCVRD that retry is
+        # needed.
+        if xcvr_info is None:
+            return None
+
         min_power, max_power = self.get_supported_power_config()
-        trans_info['supported_max_tx_power'] = max_power
-        trans_info['supported_min_tx_power'] = min_power
         _, _, _, low_freq_supported, high_freq_supported = self.get_supported_freq_config()
-        trans_info['supported_max_laser_freq'] = high_freq_supported
-        trans_info['supported_min_laser_freq'] = low_freq_supported
-        return trans_info
+        xcvr_info.update({
+            'supported_max_tx_power': max_power,
+            'supported_min_tx_power': min_power,
+            'supported_max_laser_freq': high_freq_supported,
+            'supported_min_laser_freq': low_freq_supported
+        })
+        return xcvr_info
 
     def get_transceiver_bulk_status(self):
         """
