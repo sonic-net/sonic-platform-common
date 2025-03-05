@@ -170,6 +170,19 @@ class TestCmis(object):
         result = self.api.get_voltage()
         assert result == expected
 
+    def test_is_copper(self):
+      with patch.object(self.api, 'xcvr_eeprom') as mock_eeprom:
+         mock_eeprom.read = MagicMock()
+         mock_eeprom.read.return_value = None
+         assert self.api.is_copper() is None
+         self.api.get_module_media_type = MagicMock()
+         self.api.get_module_media_type.return_value = "passive_copper_media_interface"
+         assert self.api.is_copper()
+         self.api.get_module_media_type.return_value = "active_cable_media_interface"
+         assert not self.api.is_copper()
+         self.api.get_module_media_type.return_value = "sm_media_interface"
+         assert not self.api.is_copper()
+
     @pytest.mark.parametrize("mock_response, expected", [
         (False, False)
     ])
