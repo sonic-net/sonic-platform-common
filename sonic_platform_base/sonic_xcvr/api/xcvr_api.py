@@ -488,6 +488,34 @@ class XcvrApi(object):
         """
         raise NotImplementedError
 
+    def rx_disable(self, rx_disable):
+	"""
+	Disable xcvr RX for all channels
+
+	Args:
+	    rx_disable : A Boolean, True to enable rx_disable mode, False to disable
+			 rx_disable mode.
+
+	Returns:
+	    A boolean, True if rx_disable is set successfully, False if not
+	"""
+	raise NotImplementedError
+
+    def rx_disable_channel(self, channel, disable):
+	"""
+	Sets the rx_disable for specified xcvr channels
+
+	Args:
+	    channel : A hex of 4 bits (bit 0 to bit 3) which represent channel 0 to 3,
+		      e.g. 0x5 for channel 0 and channel 2.
+	    disable : A boolean, True to disable RX channels specified in channel,
+		      False to enable
+
+	Returns:
+	    A boolean, True if successful, False if not
+	"""
+	raise NotImplementedError
+
     def get_power_override(self):
         """
         Retrieves the power-override status of this xcvr

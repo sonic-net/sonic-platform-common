@@ -160,6 +160,14 @@ class SfpOptoeBase(SfpBase):
         api = self.get_xcvr_api()
         return api.get_tx_disable_channel() if api is not None else None
 
+    def get_rx_disable(self):
+	api = self.get_xcvr_api()
+	return api.get_rx_disable() if api is not None else None
+
+    def get_rx_disable_channel(self):
+	api = self.get_xcvr_api()
+	return api.get_rx_disable_channel() if api is not None else None
+
     def get_temperature(self):
         api = self.get_xcvr_api()
         if api is not None:
