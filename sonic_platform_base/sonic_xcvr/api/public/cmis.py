@@ -125,10 +125,14 @@ class CmisApi(XcvrApi):
         """
         cls.cache_enabled = bool(enabled)
 
-    def __init__(self, xcvr_eeprom):
+    def __init__(self, xcvr_eeprom, cdb_hdlr=None):
         super(CmisApi, self).__init__(xcvr_eeprom)
         self.vdm = CmisVdmApi(xcvr_eeprom) if not self.is_flat_memory() else None
         self.cdb = CmisCdbApi(xcvr_eeprom) if not self.is_flat_memory() else None
+        self.cdb_hdlr = cdb_hdlr
+
+    def get_cdb_handler(self):
+        return self.cdb_hdlr
 
     def _get_vdm_key_to_db_prefix_map(self):
         return CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP
@@ -165,8 +169,8 @@ class CmisApi(XcvrApi):
     def freeze_vdm_stats(self):
         '''
         This function freeze all the vdm statistics reporting registers.
-        When raised by the host, causes the module to freeze and hold all 
-        reported statistics reporting registers (minimum, maximum and 
+        When raised by the host, causes the module to freeze and hold all
+        reported statistics reporting registers (minimum, maximum and
         average values)in Pages 24h-27h.
 
         Returns True if the provision succeeds and False incase of failure.
@@ -184,9 +188,9 @@ class CmisApi(XcvrApi):
     def unfreeze_vdm_stats(self):
         '''
         This function unfreeze all the vdm statistics reporting registers.
-        When freeze is ceased by the host, releases the freeze request, allowing the 
+        When freeze is ceased by the host, releases the freeze request, allowing the
         reported minimum, maximum and average values to update again.
-        
+
         Returns True if the provision succeeds and False incase of failure.
         '''
         return self.xcvr_eeprom.write(consts.VDM_CONTROL, VDM_UNFREEZE)
@@ -378,7 +382,7 @@ class CmisApi(XcvrApi):
             ( _, _, _, _, _, _, _, _, ActiveFirmware, InactiveFirmware) = result['result']
         except (ValueError, TypeError):
             return return_dict
-        
+
         return_dict["active_firmware"] = ActiveFirmware
         return_dict["inactive_firmware"] = InactiveFirmware
         return return_dict
@@ -1075,10 +1079,10 @@ class CmisApi(XcvrApi):
         '''
         if self.is_flat_memory():
             return 0
-        
+
         if (appl <= 0):
             return 0
-        
+
         appl_advt = self.get_application_advertisement()
         return appl_advt[appl]['media_lane_count'] if len(appl_advt) >= appl else 0
 
@@ -1111,10 +1115,10 @@ class CmisApi(XcvrApi):
         '''
         if self.is_flat_memory():
             return 'N/A'
-        
+
         if (appl <= 0):
             return 0
-        
+
         appl_advt = self.get_application_advertisement()
         return appl_advt[appl]['media_lane_assignment_options'] if len(appl_advt) >= appl else 0
 
@@ -2354,7 +2358,7 @@ class CmisApi(XcvrApi):
         biasyq{lane_num}                               = FLOAT                  ; modulator bias yq in percentage
         biasyp{lane_num}                               = FLOAT                  ; modulator bias yq in percentage
         cdshort{lane_num}                              = FLOAT                  ; chromatic dispersion, high granularity, short link in ps/nm
-        cdlong{lane_num}                               = FLOAT                  ; chromatic dispersion, high granularity, long link in ps/nm  
+        cdlong{lane_num}                               = FLOAT                  ; chromatic dispersion, high granularity, long link in ps/nm
         dgd{lane_num}                                  = FLOAT                  ; differential group delay in ps
         sopmd{lane_num}                                = FLOAT                  ; second order polarization mode dispersion in ps^2
         soproc{lane_num}                               = FLOAT                  ; state of polarization rate of change in krad/s
@@ -2383,7 +2387,7 @@ class CmisApi(XcvrApi):
         Returns:
             A dict containing the following keys/values :
         ========================================================================
-        xxx refers to HALARM/LALARM/HWARN/LWARN threshold 
+        xxx refers to HALARM/LALARM/HWARN/LWARN threshold
         ;Defines Transceiver VDM high/low alarm/warning threshold for a port
         key                                            = TRANSCEIVER_VDM_XXX_THRESHOLD|ifname    ; information module VDM high/low alarm/warning threshold on port
         ; field                                        = value
@@ -2706,7 +2710,7 @@ class CmisApi(XcvrApi):
             name = "DP{}State".format(lane + 1)
             if dp_state[name] != 'DataPathDeactivated':
                 return False
-            
+
             name = "ConfigStatusLane{}".format(lane + 1)
             if config_state[name] != 'ConfigSuccess':
                 return False
