@@ -211,7 +211,11 @@ class CmisMemMap(XcvrMemMap):
             NumberRegField(consts.RX_OUTPUT_EQ_POST_CURSOR_MAX, self.getaddr(0x1, 154),
                 *(RegBitField("Bit%d" % (bit), bit) for bit in range (4 , 8))
             ),
-            NumberRegField(consts.CTRLS_ADVT_FIELD, self.getaddr(0x1, 155),
+            NumberRegField(consts.CTRLS_ADVT_FIELD, self.getaddr(0x1, 138),
+                RegBitField(consts.RX_DISABLE_SUPPORT_FIELD, 1),
+                size=2, format="<H"
+            ),
+	    NumberRegField(consts.CTRLS_ADVT_FIELD, self.getaddr(0x1, 156),
                 RegBitField(consts.TX_DISABLE_SUPPORT_FIELD, 1),
                 size=2, format="<H"
             ),
