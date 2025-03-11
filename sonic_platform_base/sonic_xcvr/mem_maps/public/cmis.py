@@ -226,6 +226,7 @@ class CmisMemMap(XcvrMemMap):
                 RegBitField(consts.TX_ADAPTIVE_INPUT_EQ_FAIL_FLAG_SUPPORTED, 3),
             ),
             NumberRegField(consts.RX_FLAGS_ADVT_FIELD, self.getaddr(0x1, 158),
+                RegBitField(consts.RX_FAULT_SUPPORT_FIELD, 0),
                 RegBitField(consts.RX_LOS_SUPPORT, 1),
                 RegBitField(consts.RX_CDR_LOL_SUPPORT_FIELD, 2),
             ),
@@ -277,6 +278,7 @@ class CmisMemMap(XcvrMemMap):
         self.LANE_DATAPATH_CTRL = RegGroupField(consts.LANE_DATAPATH_CTRL_FIELD,
             NumberRegField(consts.DATAPATH_DEINIT_FIELD, self.getaddr(0x10, 128), ro=False),
             NumberRegField(consts.TX_DISABLE_FIELD, self.getaddr(0x10, 130), ro=False)
+            NumberRegField(consts.RX_DISABLE_FIELD, self.getaddr(0x10, 138), ro=False)
         )
 
         self.LANE_DATAPATH_STATUS = RegGroupField(consts.LANE_DATAPATH_STATUS_FIELD,
