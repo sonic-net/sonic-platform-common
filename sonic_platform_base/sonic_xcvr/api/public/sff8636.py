@@ -440,11 +440,9 @@ class Sff8636Api(XcvrApi):
         '''
         ret = True
 
-        if power_class < 5:
-            return ret
-        elif power_class >= 8:
+        if power_class >= 8:
             ret = self.xcvr_eeprom.write(consts.HIGH_POWER_CLASS_ENABLE_CLASS_8, enable)
-        else:  # Power class 5, 6, 7
+        elif power_class >= 5:
             ret = self.xcvr_eeprom.write(consts.HIGH_POWER_CLASS_ENABLE_CLASS_5_TO_7, enable)
 
         return ret
