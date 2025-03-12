@@ -220,7 +220,6 @@ class CmisMemMap(XcvrMemMap):
                 size=2, format="<H"
             ),
             NumberRegField(consts.TX_FLAGS_ADVT_FIELD, self.getaddr(0x1, 157),
-            NumberRegField(consts.TX_FLAGS_ADVT_FIELD, self.getaddr(0x1, 157),
                 RegBitField(consts.TX_FAULT_SUPPORT_FIELD, 0),
                 RegBitField(consts.TX_LOS_SUPPORT_FIELD, 1),
                 RegBitField(consts.TX_CDR_LOL_SUPPORT_FIELD, 2),
