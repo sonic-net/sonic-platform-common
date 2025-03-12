@@ -877,7 +877,7 @@ class CmisApi(XcvrApi):
 	    else:
 		channel_state &= ~mask
 
-    return self.xcvr_eeprom.write(consts.RX_DISABLE_FIELD, channel_state)
+        return self.xcvr_eeprom.write(consts.RX_DISABLE_FIELD, channel_state)
 
     def get_laser_tuning_summary(self):
         '''
