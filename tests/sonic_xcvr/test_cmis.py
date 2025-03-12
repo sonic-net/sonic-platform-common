@@ -575,72 +575,74 @@ class TestCmis(object):
         self.api.tx_disable_channel(*input_param)
 
     @pytest.mark.parametrize("mock_response, expected", [
-	([True, {'RxLOS1': 0}], [False]),
-	([False, {'RxLOS1': 0}], ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']),
-	([None, None], None),
-	([True, None], None)
+        ([True, {'RxLOS1': 0}], [False]),
+        ([False, {'RxLOS1': 0}], ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']),
+        ([None, None], None),
+        ([True, None], None)
     ])
     def test_get_rx_los(self, mock_response, expected):
-	self.api.get_rx_los_support = MagicMock()
-	self.api.get_rx_los_support.return_value = mock_response[0]
-	self.api.xcvr_eeprom.read = MagicMock()
-	self.api.xcvr_eeprom.read.return_value = mock_response[1]
-	result = self.api.get_rx_los()
-	assert result == expected
+        self.api.get_rx_los_support = MagicMock()
+        self.api.get_rx_los_support.return_value = mock_response[0]
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.return_value = mock_response[1]
+        result = self.api.get_rx_los()
+        assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-	([False, True], True)
+        ([False, True], True)
     ])
     def test_get_rx_disable_support(self, mock_response, expected):
-	self.api.is_flat_memory = MagicMock()
-	self.api.is_flat_memory.return_value = mock_response[0]
-	self.api.xcvr_eeprom.read = MagicMock()
-	self.api.xcvr_eeprom.read.return_value = mock_response[1]
-	result = self.api.get_rx_disable_support()
-	assert result == expected
+        self.api.is_flat_memory = MagicMock()
+        self.api.is_flat_memory.return_value = mock_response[0]
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.return_value = mock_response[1]
+        result = self.api.get_rx_disable_support()
+        assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-	([True, 0x00], [False, False, False, False, False, False, False, False]),
-	([False, 0x00], ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']),
-	([None, None], None),
-	([True, None], None)
+        ([True, 0x00], [False, False, False, False, False, False, False, False]),
+        ([False, 0x00], ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']),
+        ([None, None], None),
+        ([True, None], None)
     ])
     def test_get_rx_disable(self, mock_response, expected):
-	self.api.get_rx_disable_support = MagicMock()
-	self.api.get_rx_disable_support.return_value = mock_response[0]
-	self.api.xcvr_eeprom.read = MagicMock()
-	self.api.xcvr_eeprom.read.return_value = mock_response[1]
-	result = self.api.get_rx_disable()
-	assert result == expected
+        self.api.get_rx_disable_support = MagicMock()
+        self.api.get_rx_disable_support.return_value = mock_response[0]
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.return_value = mock_response[1]
+        result = self.api.get_rx_disable()
+        assert result == expected
 
     @pytest.mark.parametrize("input_param", [
-	(True), (False)
+        (True), (False)
     ])
     def test_rx_disable(self, input_param):
-	self.api.rx_disable(input_param)
+        rc = self.api.rx_disable(input_param)
+        assert(rc == None)
 
     @pytest.mark.parametrize("mock_response, expected", [
-	([True, 0x00], 0),
-	([False, 0x00], 'N/A'),
-	([None, None], None)
+        ([True, 0x00], 0),
+        ([False, 0x00], 'N/A'),
+        ([None, None], None)
     ])
     def test_get_rx_disable_channel(self, mock_response, expected):
-	self.api.get_rx_disable_support = MagicMock()
-	self.api.get_rx_disable_support.return_value = mock_response[0]
-	self.api.xcvr_eeprom.read = MagicMock()
-	self.api.xcvr_eeprom.read.return_value = mock_response[1]
-	result = self.api.get_rx_disable_channel()
-	assert result == expected
+        self.api.get_rx_disable_support = MagicMock()
+        self.api.get_rx_disable_support.return_value = mock_response[0]
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.return_value = mock_response[1]
+        result = self.api.get_rx_disable_channel()
+        assert result == expected
 
     @pytest.mark.parametrize("mock_response, input_param", [
-	(0, (0xff, True)),
-	(0, (0, True)),
-	(None, (0, False))
+        (0, (0xff, True)),
+        (0, (0, True)),
+        (None, (0, False))
     ])
     def test_rx_disable_channel(self, mock_response, input_param):
-	self.api.get_rx_disable_channel = MagicMock()
-	self.api.get_rx_disable_channel.return_value = mock_response
-	self.api.rx_disable_channel(*input_param)
+        self.api.get_rx_disable_channel = MagicMock()
+        self.api.get_rx_disable_channel.return_value = mock_response
+        rc = self.api.rx_disable_channel(*input_param)
+        assert(rc == None)
 
     @pytest.mark.parametrize("mock_response, expected", [
         (1, ['TuningComplete']),
