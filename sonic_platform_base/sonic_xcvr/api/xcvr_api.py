@@ -29,35 +29,35 @@ class XcvrApi(object):
         raise NotImplementedError
 
     def get_rx_disable(self):
-	"""
-	Retrieves the rx_disable status of this xcvr.
+        """
+        Retrieves the rx_disable status of this xcvr.
 
-	Returns:
-	    A list of boolean values, representing the RX disable status
-	    of each available channel. The value is True if the xcvr channel
-	    is RX disabled, False if not.
+        Returns:
+            A list of boolean values, representing the RX disable status
+            of each available channel. The value is True if the xcvr channel
+            is RX disabled, False if not.
 
-	    E.g., for a transceiver with four channels: [False, False, True, False]
+            E.g., for a transceiver with four channels: [False, False, True, False]
 
-	    If RX disable status is unsupported on the xcvr, each list element should be "N/A" instead.
+            If RX disable status is unsupported on the xcvr, each list element should be "N/A" instead.
 
-	    If there is an issue with reading the xcvr, None should be returned.
-	"""
-	raise NotImplementedError
+            If there is an issue with reading the xcvr, None should be returned.
+        """
+        raise NotImplementedError
 
     def get_rx_disable_channel(self):
-	"""
-	Retrieves the RX disabled channels in this xcvr.
+        """
+        Retrieves the RX disabled channels in this xcvr.
 
-	Returns:
-	    A hex of 4 bits (bit 0 to bit 3 as channel 0 to channel 3) to represent
-	    RX channels which have been disabled in this xcvr.
-	    As an example, a returned value of 0x5 indicates that channel 0
-	    and channel 2 have been disabled.
+        Returns:
+            A hex of 4 bits (bit 0 to bit 3 as channel 0 to channel 3) to represent
+            RX channels which have been disabled in this xcvr.
+            As an example, a returned value of 0x5 indicates that channel 0
+            and channel 2 have been disabled.
 
-	    If there is an issue with reading the xcvr, None should be returned.
-	"""
-	raise NotImplementedError
+            If there is an issue with reading the xcvr, None should be returned.
+        """
+        raise NotImplementedError
 
 
     def get_serial(self):
