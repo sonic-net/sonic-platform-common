@@ -7,7 +7,14 @@
 
 import sys
 from . import device_base
+import swsscommon
+import json
+import threading
 
+# PCI state database constants
+PCIE_DETACH_INFO_TABLE = "PCIE_DETACH_INFO"
+PCIE_OPERATION_DETACHING = "detaching"
+PCIE_OPERATION_ATTACHING = "attaching"
 
 class ModuleBase(device_base.DeviceBase):
     """
@@ -16,6 +23,8 @@ class ModuleBase(device_base.DeviceBase):
     """
     # Device type definition. Note, this is a constant.
     DEVICE_TYPE = "module"
+
+    _pci_operation_lock = threading.Lock()
 
     # Possible card types for modular chassis
     MODULE_TYPE_SUPERVISOR = "SUPERVISOR"
@@ -73,6 +82,8 @@ class ModuleBase(device_base.DeviceBase):
         self._thermal_list = []
         self._voltage_sensor_list = []
         self._current_sensor_list = []
+        self.state_db_connector = None
+        self.pci_bus_info = None
 
         # List of SfpBase-derived objects representing all sfps
         # available on the module
@@ -81,6 +92,22 @@ class ModuleBase(device_base.DeviceBase):
         # List of ASIC-derived objects representing all ASICs
         # visibile in PCI domain on the module
         self._asic_list = []
+    
+    def __del__(self):
+        """
+        Destructor - ensures any PCI state DB entries are cleaned up when the module is deleted
+        """
+        try:
+            bus_info_list = self.get_pci_bus_info()
+            for bus in bus_info_list:
+                self.pci_entry_state_db(bus, PCIE_OPERATION_ATTACHING)
+        except NotImplementedError:
+            pci_bus = self.get_pci_bus_from_platform_json()
+            if pci_bus:
+                self.pci_entry_state_db(pci_bus, PCIE_OPERATION_ATTACHING)
+        except Exception:
+            pass
+
 
     def get_base_mac(self):
         """
@@ -271,9 +298,122 @@ class ModuleBase(device_base.DeviceBase):
         Retrieves the bus information.
 
         Returns:
-            Returns the PCI bus information in BDF format like "[DDDD:]BB:SS:F"
+            Returns the PCI bus information in list of BDF format like "[DDDD:]BB:SS:F"
         """
         raise NotImplementedError
+
+    def get_pci_bus_from_platform_json(self):
+        """
+        Retrieves the PCI bus information from platform.json file.
+
+        Returns:
+            str: PCI bus information if found in platform.json
+            None: If module is not found in platform.json or any error occurs
+        """
+        if self.pci_bus_info:
+            return self.pci_bus_info
+        try:
+            with open("/usr/share/sonic/platform/platform.json", 'r') as f:
+                platform_data = json.load(f)
+            module_name = self.get_name()
+            if module_name in platform_data["DPUS"]:
+                self.pci_bus_info = platform_data["DPUS"][module_name]["bus_info"]
+                return self.pci_bus_info
+            return None
+        except Exception:
+            return None
+    
+    def pci_removal_from_platform_json(self):
+        """
+        Generic function to handle PCI device removal.
+
+        Returns:
+            bool: True if operation was successful, False otherwise
+        """
+        pci_bus = self.get_pci_bus_from_platform_json()
+        if pci_bus:
+            with self._pci_operation_lock:
+                self.pci_entry_state_db(pci_bus, PCIE_OPERATION_DETACHING)
+                with open(f"/sys/bus/pci/devices/{pci_bus}/remove", 'w') as f:
+                    f.write("1")
+            return True
+        return False
+
+    def handle_pci_removal(self):
+        """
+        Handles PCI device removal by updating state database and detaching device.
+        If pci_detach is not implemented, falls back to platform.json based removal.
+
+        Returns:
+            bool: True if operation was successful, False otherwise
+        """
+        try:
+            bus_info_list = self.get_pci_bus_info()
+            with self._pci_operation_lock:
+                for bus in bus_info_list:
+                    self.pci_entry_state_db(bus, PCIE_OPERATION_DETACHING)
+                return self.pci_detach()
+        except NotImplementedError:
+            return self.pci_removal_from_platform_json()
+        except Exception:
+            return False
+
+    def pci_entry_state_db(self, pcie_string, operation):
+        """
+        Adds the STATE DB entry for pcied so that it can ignore warnings
+        due to expected PCIE removal.
+
+        Args:
+            pcie_string (str): The PCI device identifier in BDF format
+            operation (str): The operation being performed ("detaching" or "attaching")
+
+        Raises:
+            RuntimeError: If state database connection fails
+        """
+        try:
+            if not self.state_db_connector:
+                self.state_db_connector = swsscommon.DBConnector("STATE_DB", 0)
+            if operation == PCIE_OPERATION_ATTACHING:
+                self.state_db_connector.hdel(PCIE_DETACH_INFO_TABLE, pcie_string)
+                return
+            self.state_db_connector.hset(PCIE_DETACH_INFO_TABLE, pcie_string, operation)
+        except Exception as e:
+            sys.stderr.write("Failed to write pcie bus infoto state database: {}\n".format(str(e)))
+
+    def pci_reattach_from_platform_json(self):
+        """
+        Generic function to handle PCI device rescan.
+
+        Returns:
+            bool: True if operation was successful, False otherwise
+        """
+        pci_bus = self.get_pci_bus_from_platform_json()
+        if pci_bus:
+            with self._pci_operation_lock:
+                self.pci_entry_state_db(pci_bus, PCIE_OPERATION_ATTACHING)
+                with open("/sys/bus/pci/rescan", 'w') as f:
+                    f.write("1")
+                return True
+        return False
+
+    def handle_pci_rescan(self):
+        """
+        Handles PCI device rescan by updating state database and reattaching device.
+        If pci_reattach is not implemented, falls back to platform.json based rescan.
+
+        Returns:
+            bool: True if operation was successful, False otherwise
+        """
+        try:
+            bus_info_list = self.get_pci_bus_info()
+            with self._pci_operation_lock:
+                for bus in bus_info_list:
+                    self.pci_entry_state_db(bus, PCIE_OPERATION_ATTACHING)
+                return self.pci_reattach()
+        except NotImplementedError:
+            return self.pci_reattach_from_platform_json()
+        except Exception:
+            return False
 
     def pci_detach(self):
         """
