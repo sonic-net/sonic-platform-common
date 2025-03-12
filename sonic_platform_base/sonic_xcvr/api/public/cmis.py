@@ -838,44 +838,44 @@ class CmisApi(XcvrApi):
         return self.xcvr_eeprom.write(consts.TX_DISABLE_FIELD, channel_state)
 
     def get_rx_disable_support(self):
-	return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.RX_DISABLE_SUPPORT_FIELD)
+        return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.RX_DISABLE_SUPPORT_FIELD)
 
     def get_rx_disable(self):
-	rx_disable_support = self.get_rx_disable_support()
-	if rx_disable_support is None:
-	    return None
-	if not rx_disable_support:
-	    return ["N/A" for _ in range(self.NUM_CHANNELS)]
-	rx_disable = self.xcvr_eeprom.read(consts.RX_DISABLE_FIELD)
-	if rx_disable is None:
-	    return None
-	return [bool(rx_disable & (1 << i)) for i in range(self.NUM_CHANNELS)]
+        rx_disable_support = self.get_rx_disable_support()
+        if rx_disable_support is None:
+            return None
+        if not rx_disable_support:
+            return ["N/A" for _ in range(self.NUM_CHANNELS)]
+        rx_disable = self.xcvr_eeprom.read(consts.RX_DISABLE_FIELD)
+        if rx_disable is None:
+            return None
+        return [bool(rx_disable & (1 << i)) for i in range(self.NUM_CHANNELS)]
 
     def rx_disable(self, rx_disable):
-	val = 0xFF if rx_disable else 0x0
-	return self.xcvr_eeprom.write(consts.RX_DISABLE_FIELD, val)
+        val = 0xFF if rx_disable else 0x0
+        return self.xcvr_eeprom.write(consts.RX_DISABLE_FIELD, val)
 
     def get_rx_disable_channel(self):
-	rx_disable_support = self.get_rx_disable_support()
-	if rx_disable_support is None:
-	    return None
-	if not rx_disable_support:
-	    return 'N/A'
-	return self.xcvr_eeprom.read(consts.RX_DISABLE_FIELD)
+        rx_disable_support = self.get_rx_disable_support()
+        if rx_disable_support is None:
+            return None
+        if not rx_disable_support:
+            return 'N/A'
+        return self.xcvr_eeprom.read(consts.RX_DISABLE_FIELD)
 
     def rx_disable_channel(self, channel, disable):
-	channel_state = self.get_rx_disable_channel()
-	if channel_state is None or channel_state == 'N/A':
-	    return False
+        channel_state = self.get_rx_disable_channel()
+        if channel_state is None or channel_state == 'N/A':
+            return False
 
-	for i in range(self.NUM_CHANNELS):
-	    mask = (1 << i)
-	    if not (channel & mask):
-		continue
-	    if disable:
-		channel_state |= mask
-	    else:
-		channel_state &= ~mask
+        for i in range(self.NUM_CHANNELS):
+            mask = (1 << i)
+            if not (channel & mask):
+                continue
+            if disable:
+                channel_state |= mask
+            else:
+                channel_state &= ~mask
 
         return self.xcvr_eeprom.write(consts.RX_DISABLE_FIELD, channel_state)
 
