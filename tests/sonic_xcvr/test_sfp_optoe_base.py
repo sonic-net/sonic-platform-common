@@ -60,7 +60,7 @@ class TestSfpOptoeBase(object):
         self.sfp_optoe_api.get_xcvr_api = MagicMock()
         self.sfp_optoe_api.get_xcvr_api.return_value = mock_response2
         self.cmis_api.get_rx_disable_channel = MagicMock()
-        self.cmis_api.get_rx_disable_channelreturn_value = mock_response1
+        self.cmis_api.get_rx_disable_channel.return_value = mock_response1
 
         result = self.sfp_optoe_api.get_rx_disable_channel()
         assert result == expected
