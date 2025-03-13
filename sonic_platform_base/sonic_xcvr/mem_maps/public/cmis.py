@@ -226,7 +226,6 @@ class CmisMemMap(XcvrMemMap):
                 RegBitField(consts.TX_ADAPTIVE_INPUT_EQ_FAIL_FLAG_SUPPORTED, 3),
             ),
             NumberRegField(consts.RX_FLAGS_ADVT_FIELD, self.getaddr(0x1, 158),
-                RegBitField(consts.RX_FAULT_SUPPORT_FIELD, 0),
                 RegBitField(consts.RX_LOS_SUPPORT, 1),
                 RegBitField(consts.RX_CDR_LOL_SUPPORT_FIELD, 2),
             ),

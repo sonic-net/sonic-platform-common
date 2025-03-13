@@ -32,7 +32,6 @@ RX_POWER_LOW_ALARM_FIELD = "RxPowerLowAlarm"
 RX_POWER_HIGH_WARNING_FIELD = "RxPowerHighWarning"
 RX_POWER_LOW_WARNING_FIELD = "RxPowerLowWarning"
 
-RX_FAULT_SUPPORT_FIELD = "RxFaultSupported"
 RX_DISABLE_FIELD = "RxDisable"
 RX_DISABLE_SUPPORT_FIELD = "RxDisableSupported"
 
