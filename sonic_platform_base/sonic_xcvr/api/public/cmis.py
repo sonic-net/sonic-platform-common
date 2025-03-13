@@ -864,24 +864,24 @@ class CmisApi(XcvrApi):
         return self.xcvr_eeprom.read(consts.RX_DISABLE_FIELD)
 
     def rx_disable_channel(self, channel, disable):
-	# Check if channel state is available
-	channel_state = self.get_rx_disable_channel()
-	if channel_state is None or channel_state == 'N/A':
-	    return False
+        # Check if channel state is available
+        channel_state = self.get_rx_disable_channel()
+        if channel_state is None or channel_state == 'N/A':
+            return False
 
-	# Disable or enable the specific channel based on the input
-	if 1 <= channel <= self.NUM_CHANNELS:
-	    # The channel is represented by individual RegBitField entries
-	    field_name = f"{consts.RX_DISABLE_FIELD}_{channel}"
+        # Disable or enable the specific channel based on the input
+        if 1 <= channel <= self.NUM_CHANNELS:
+            # The channel is represented by individual RegBitField entries
+            field_name = f"{consts.RX_DISABLE_FIELD}_{channel}"
 
-	    if disable:
-		# Disable the channel (set the bit to 1)
-		return self.xcvr_eeprom.write(field_name, 1)
-	    else:
-		# Enable the channel (set the bit to 0)
-		return self.xcvr_eeprom.write(field_name, 0)
+            if disable:
+                # Disable the channel (set the bit to 1)
+                return self.xcvr_eeprom.write(field_name, 1)
+            else:
+                # Enable the channel (set the bit to 0)
+                return self.xcvr_eeprom.write(field_name, 0)
 
-	return False
+        return False
 
     def get_laser_tuning_summary(self):
         '''
