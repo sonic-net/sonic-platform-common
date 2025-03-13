@@ -636,6 +636,7 @@ class TestCmis(object):
     @pytest.mark.parametrize("mock_response, input_param", [
         (0, (0xff, True)),
         (0, (0, True)),
+        (0, (0, False)),
         (None, (0, False))
     ])
     def test_rx_disable_channel(self, mock_response, input_param):
