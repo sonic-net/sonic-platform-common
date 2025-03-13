@@ -53,7 +53,7 @@ class TestSfpOptoeBase(object):
     @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
         (0, cmis_api, 0),
         (1, cmis_api, 1),
-        (None, None, False),
+        (None, None, None),
         (False, cmis_api, False),
     ])
     def test_get_rx_disable_channel(self, mock_response1, mock_response2, expected):
