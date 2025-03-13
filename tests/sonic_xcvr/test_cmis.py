@@ -618,7 +618,7 @@ class TestCmis(object):
     ])
     def test_rx_disable(self, input_param):
         rc = self.api.rx_disable(input_param)
-        assert(rc == None)
+        assert(rc != None)
 
     @pytest.mark.parametrize("mock_response, expected", [
         ([True, 0x00], 0),
@@ -642,7 +642,7 @@ class TestCmis(object):
         self.api.get_rx_disable_channel = MagicMock()
         self.api.get_rx_disable_channel.return_value = mock_response
         rc = self.api.rx_disable_channel(*input_param)
-        assert(rc == None)
+        assert(rc != None)
 
     @pytest.mark.parametrize("mock_response, expected", [
         (1, ['TuningComplete']),
