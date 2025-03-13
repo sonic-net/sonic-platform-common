@@ -6,10 +6,13 @@
 """
 
 import sys
+import os
+import fcntl
 from . import device_base
 import swsscommon
 import json
 import threading
+import contextlib
 
 # PCI state database constants
 PCIE_DETACH_INFO_TABLE = "PCIE_DETACH_INFO"
@@ -23,8 +26,7 @@ class ModuleBase(device_base.DeviceBase):
     """
     # Device type definition. Note, this is a constant.
     DEVICE_TYPE = "module"
-
-    _pci_operation_lock = threading.Lock()
+    PCI_OPERATION_LOCK_FILE_PATH = "/tmp/{}_pci.lock"
 
     # Possible card types for modular chassis
     MODULE_TYPE_SUPERVISOR = "SUPERVISOR"
@@ -108,6 +110,16 @@ class ModuleBase(device_base.DeviceBase):
         except Exception:
             pass
 
+    @contextlib.contextmanager
+    def _pci_operation_lock(self):
+        """File-based lock for PCI operations using flock"""
+        lock_file_path = self.PCI_OPERATION_LOCK_FILE_PATH.format(self.get_name())
+        with open(lock_file_path, 'w') as f:
+            try:
+                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+                yield
+            finally:
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
     def get_base_mac(self):
         """
@@ -332,7 +344,7 @@ class ModuleBase(device_base.DeviceBase):
         """
         pci_bus = self.get_pci_bus_from_platform_json()
         if pci_bus:
-            with self._pci_operation_lock:
+            with self._pci_operation_lock():
                 self.pci_entry_state_db(pci_bus, PCIE_OPERATION_DETACHING)
                 with open(f"/sys/bus/pci/devices/{pci_bus}/remove", 'w') as f:
                     f.write("1")
@@ -349,7 +361,7 @@ class ModuleBase(device_base.DeviceBase):
         """
         try:
             bus_info_list = self.get_pci_bus_info()
-            with self._pci_operation_lock:
+            with self._pci_operation_lock():
                 for bus in bus_info_list:
                     self.pci_entry_state_db(bus, PCIE_OPERATION_DETACHING)
                 return self.pci_detach()
@@ -389,7 +401,7 @@ class ModuleBase(device_base.DeviceBase):
         """
         pci_bus = self.get_pci_bus_from_platform_json()
         if pci_bus:
-            with self._pci_operation_lock:
+            with self._pci_operation_lock():
                 self.pci_entry_state_db(pci_bus, PCIE_OPERATION_ATTACHING)
                 with open("/sys/bus/pci/rescan", 'w') as f:
                     f.write("1")
@@ -406,7 +418,7 @@ class ModuleBase(device_base.DeviceBase):
         """
         try:
             bus_info_list = self.get_pci_bus_info()
-            with self._pci_operation_lock:
+            with self._pci_operation_lock():
                 for bus in bus_info_list:
                     self.pci_entry_state_db(bus, PCIE_OPERATION_ATTACHING)
                 return self.pci_reattach()

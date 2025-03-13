@@ -2,7 +2,8 @@ from sonic_platform_base.module_base import ModuleBase
 import pytest
 import json
 import os
-from unittest.mock import patch, mock_open, MagicMock
+import fcntl
+from unittest.mock import patch, mock_open, MagicMock, call
 
 class TestModuleBase:
 
@@ -83,6 +84,24 @@ class TestModuleBase:
         mock_connector.hset.side_effect = Exception("DB Error")
         module.pci_entry_state_db("0000:00:00.0", "detaching")
 
+    def test_pci_operation_lock(self):
+        module = ModuleBase()
+        mock_file = MagicMock()
+        mock_open_obj = mock_open()
+        mock_open_obj.reset_mock()
+        with patch('builtins.open', mock_open_obj) as mock_file_open, \
+             patch('fcntl.flock') as mock_flock, \
+             patch.object(module, 'get_name', return_value="DPU0"), \
+             patch('os.makedirs') as mock_makedirs:
+
+            with module._pci_operation_lock():
+                mock_flock.assert_called_with(mock_file_open().fileno(), fcntl.LOCK_EX)
+
+            mock_flock.assert_has_calls([
+                call(mock_file_open().fileno(), fcntl.LOCK_EX),
+                call(mock_file_open().fileno(), fcntl.LOCK_UN)
+            ])
+
     @patch('builtins.open')
     def test_pci_removal_from_platform_json(self, mock_open):
         module = ModuleBase()
@@ -90,12 +109,14 @@ class TestModuleBase:
         mock_open.return_value.__enter__.return_value = mock_file
 
         with patch.object(module, 'get_pci_bus_from_platform_json', return_value="0000:00:00.0"), \
-             patch.object(module, 'pci_entry_state_db') as mock_db:
+             patch.object(module, 'pci_entry_state_db') as mock_db, \
+             patch.object(module, '_pci_operation_lock') as mock_lock, \
+             patch.object(module, 'get_name', return_value="DPU0"):
             assert module.pci_removal_from_platform_json() is True
             mock_db.assert_called_with("0000:00:00.0", "detaching")
             mock_file.write.assert_called_with("1")
-            mock_open.assert_called_once_with("/sys/bus/pci/devices/0000:00:00.0/remove", 'w')
-
+            mock_open.assert_called_with("/sys/bus/pci/devices/0000:00:00.0/remove", 'w')
+            mock_lock.assert_called_once()
         mock_open.reset_mock()
         with patch.object(module, 'get_pci_bus_from_platform_json', return_value=None):
             assert module.pci_removal_from_platform_json() is False
@@ -108,26 +129,32 @@ class TestModuleBase:
         mock_open.return_value.__enter__.return_value = mock_file
 
         with patch.object(module, 'get_pci_bus_from_platform_json', return_value="0000:00:00.0"), \
-             patch.object(module, 'pci_entry_state_db') as mock_db:
+             patch.object(module, 'pci_entry_state_db') as mock_db, \
+             patch.object(module, '_pci_operation_lock') as mock_lock, \
+             patch.object(module, 'get_name', return_value="DPU0"):
             assert module.pci_reattach_from_platform_json() is True
             mock_db.assert_called_with("0000:00:00.0", "attaching")
             mock_file.write.assert_called_with("1")
-            mock_open.assert_called_once_with("/sys/bus/pci/rescan", 'w')
-
+            mock_open.assert_called_with("/sys/bus/pci/rescan", 'w')
+            mock_lock.assert_called_once()
 
         mock_open.reset_mock()
         with patch.object(module, 'get_pci_bus_from_platform_json', return_value=None):
             assert module.pci_reattach_from_platform_json() is False
             mock_open.assert_not_called()
+        mock_open.reset_mock()
 
     def test_handle_pci_removal(self):
         module = ModuleBase()
 
         with patch.object(module, 'get_pci_bus_info', return_value=["0000:00:00.0"]), \
              patch.object(module, 'pci_entry_state_db') as mock_db, \
-             patch.object(module, 'pci_detach', return_value=True):
+             patch.object(module, 'pci_detach', return_value=True), \
+             patch.object(module, '_pci_operation_lock') as mock_lock, \
+             patch.object(module, 'get_name', return_value="DPU0"):
             assert module.handle_pci_removal() is True
             mock_db.assert_called_with("0000:00:00.0", "detaching")
+            mock_lock.assert_called_once()
 
         with patch.object(module, 'get_pci_bus_info', side_effect=NotImplementedError()), \
              patch.object(module, 'pci_removal_from_platform_json', return_value=True):
@@ -141,9 +168,12 @@ class TestModuleBase:
 
         with patch.object(module, 'get_pci_bus_info', return_value=["0000:00:00.0"]), \
              patch.object(module, 'pci_entry_state_db') as mock_db, \
-             patch.object(module, 'pci_reattach', return_value=True):
+             patch.object(module, 'pci_reattach', return_value=True), \
+             patch.object(module, '_pci_operation_lock') as mock_lock, \
+             patch.object(module, 'get_name', return_value="DPU0"):
             assert module.handle_pci_rescan() is True
             mock_db.assert_called_with("0000:00:00.0", "attaching")
+            mock_lock.assert_called_once()
 
         with patch.object(module, 'get_pci_bus_info', side_effect=NotImplementedError()), \
              patch.object(module, 'pci_reattach_from_platform_json', return_value=True):
