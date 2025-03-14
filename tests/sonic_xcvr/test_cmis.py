@@ -643,6 +643,8 @@ class TestCmis(object):
     def test_rx_disable_channel(self, mock_response, input_param):
         self.api.get_rx_disable_channel = MagicMock()
         self.api.get_rx_disable_channel.return_value = mock_response
+        self.api.xcvr_eeprom.write = MagicMock()
+        self.api.xcvr_eeprom.write.return_value = mock_response
         rc = self.api.rx_disable_channel(*input_param)
         assert(rc != None)
 
