@@ -341,3 +341,27 @@ class SfpOptoeBase(SfpBase):
         """
         api = self.get_xcvr_api()
         return api.get_error_description() if api is not None else None
+
+    def get_power_class(self):
+        """
+        Get the power class of the module
+
+        Returns:
+            Integer that represents the power class of the module, None if it fails
+        """
+        api = self.get_xcvr_api()
+        return api.get_power_class() if api is not None else None
+
+    def set_high_power_class(self, power_class, enable):
+        """
+        Set the high power class of the module
+
+        Args:
+            power_class: Integer that represents the power class to enable or disable
+            enable: Boolean that represents whether to enable or disable the high power class
+
+        Returns:
+            Boolean, True if successful, False if not
+        """
+        api = self.get_xcvr_api()
+        return api.set_high_power_class(power_class, enable) if api is not None else False
