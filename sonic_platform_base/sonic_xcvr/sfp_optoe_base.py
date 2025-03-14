@@ -160,6 +160,14 @@ class SfpOptoeBase(SfpBase):
             return tx_fault
         return None
 
+    def get_rx_disable(self):
+        api = self.get_xcvr_api()
+        return api.get_rx_disable() if api is not None else None
+
+    def get_rx_disable_channel(self):
+        api = self.get_xcvr_api()
+        return api.get_rx_disable_channel() if api is not None else None
+
     def get_tx_disable(self):
         api = self.get_xcvr_api()
         return api.get_tx_disable() if api is not None else None
@@ -223,6 +231,15 @@ class SfpOptoeBase(SfpBase):
     def tx_disable_channel(self, channel, disable):
         api = self.get_xcvr_api()
         return api.tx_disable_channel(channel, disable) if api is not None else None
+
+    def rx_disable(self, rx_disable):
+        api = self.get_xcvr_api()
+        return api.rx_disable(rx_disable) if api is not None else None
+
+    def rx_disable_channel(self, channel, disable):
+        api = self.get_xcvr_api()
+        return api.rx_disable_channel(channel, disable) if api is not None else None
+
 
     def get_power_override(self):
         api = self.get_xcvr_api()

@@ -63,6 +63,22 @@ class TestSfpOptoeBase(object):
     @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
         (0, cmis_api, 0),
         (1, cmis_api, 1),
+        (None, None, None),
+        (False, cmis_api, False),
+    ])
+    def test_get_rx_disable_channel(self, mock_response1, mock_response2, expected):
+        self.sfp_optoe_api.get_xcvr_api = MagicMock()
+        self.sfp_optoe_api.get_xcvr_api.return_value = mock_response2
+        self.cmis_api.get_rx_disable_channel = MagicMock()
+        self.cmis_api.get_rx_disable_channel.return_value = mock_response1
+
+        result = self.sfp_optoe_api.get_rx_disable_channel()
+        assert result == expected
+
+
+    @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
+        (0, cmis_api, 0),
+        (1, cmis_api, 1),
         (None, None, False),
         (False, cmis_api, False),
     ])

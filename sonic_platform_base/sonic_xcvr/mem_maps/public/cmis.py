@@ -215,6 +215,10 @@ class CmisMemMap(XcvrMemMap):
                 RegBitField(consts.TX_DISABLE_SUPPORT_FIELD, 1),
                 size=2, format="<H"
             ),
+            NumberRegField(consts.CTRLS_ADVT_FIELD, self.getaddr(0x1, 156),
+                RegBitField(consts.RX_DISABLE_SUPPORT_FIELD, 1),
+                size=2, format="<H"
+            ),
             NumberRegField(consts.TX_FLAGS_ADVT_FIELD, self.getaddr(0x1, 157),
                 RegBitField(consts.TX_FAULT_SUPPORT_FIELD, 0),
                 RegBitField(consts.TX_LOS_SUPPORT_FIELD, 1),
@@ -272,7 +276,11 @@ class CmisMemMap(XcvrMemMap):
 
         self.LANE_DATAPATH_CTRL = RegGroupField(consts.LANE_DATAPATH_CTRL_FIELD,
             NumberRegField(consts.DATAPATH_DEINIT_FIELD, self.getaddr(0x10, 128), ro=False),
-            NumberRegField(consts.TX_DISABLE_FIELD, self.getaddr(0x10, 130), ro=False)
+            NumberRegField(consts.TX_DISABLE_FIELD, self.getaddr(0x10, 130), ro=False),
+            NumberRegField(consts.RX_DISABLE_FIELD, self.getaddr(0x10, 138), ro=False,
+                *(RegBitField("%s_%d" % (consts.RX_DISABLE_FIELD, channel), bitpos, ro=False) 
+                  for channel, bitpos in zip(range(1, 9), range(0, 8)))  # 8 channels
+            )
         )
 
         self.LANE_DATAPATH_STATUS = RegGroupField(consts.LANE_DATAPATH_STATUS_FIELD,

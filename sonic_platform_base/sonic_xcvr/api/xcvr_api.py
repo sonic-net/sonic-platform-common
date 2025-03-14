@@ -28,6 +28,38 @@ class XcvrApi(object):
         """
         raise NotImplementedError
 
+    def get_rx_disable(self):
+        """
+        Retrieves the rx_disable status of this xcvr.
+
+        Returns:
+            A list of boolean values, representing the RX disable status
+            of each available channel. The value is True if the xcvr channel
+            is RX disabled, False if not.
+
+            E.g., for a transceiver with four channels: [False, False, True, False]
+
+            If RX disable status is unsupported on the xcvr, each list element should be "N/A" instead.
+
+            If there is an issue with reading the xcvr, None should be returned.
+        """
+        raise NotImplementedError
+
+    def get_rx_disable_channel(self):
+        """
+        Retrieves the RX disabled channels in this xcvr.
+
+        Returns:
+            A hex of 4 bits (bit 0 to bit 3 as channel 0 to channel 3) to represent
+            RX channels which have been disabled in this xcvr.
+            As an example, a returned value of 0x5 indicates that channel 0
+            and channel 2 have been disabled.
+
+            If there is an issue with reading the xcvr, None should be returned.
+        """
+        raise NotImplementedError
+
+
     def get_serial(self):
         """
         Retrieves the serial number of the xcvr
@@ -394,6 +426,34 @@ class XcvrApi(object):
             and channel 2 have been disabled.
 
             If there is an issue with reading the xcvr, None should be returned.
+        """
+        raise NotImplementedError
+
+    def rx_disable(self, rx_disable):
+        """
+        Disable xcvr RX for all channels
+
+        Args:
+            rx_disable : A Boolean, True to enable rx_disable mode, False to disable
+                         rx_disable mode.
+
+        Returns:
+            A boolean, True if rx_disable is set successfully, False if not
+        """
+        raise NotImplementedError
+
+    def rx_disable_channel(self, channel, disable):
+        """
+        Sets the rx_disable for specified xcvr channels
+
+        Args:
+            channel : A hex of 4 bits (bit 0 to bit 3) which represent channel 0 to 3,
+                      e.g. 0x5 for channel 0 and channel 2.
+            disable : A boolean, True to disable RX channels specified in channel,
+                      False to enable
+
+        Returns:
+            A boolean, True if successful, False if not
         """
         raise NotImplementedError
 

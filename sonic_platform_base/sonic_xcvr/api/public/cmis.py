@@ -876,6 +876,52 @@ class CmisApi(XcvrApi):
 
         return self.xcvr_eeprom.write(consts.TX_DISABLE_FIELD, channel_state)
 
+    def get_rx_disable_support(self):
+        return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.RX_DISABLE_SUPPORT_FIELD)
+
+    def get_rx_disable(self):
+        rx_disable_support = self.get_rx_disable_support()
+        if rx_disable_support is None:
+            return None
+        if not rx_disable_support:
+            return ["N/A" for _ in range(self.NUM_CHANNELS)]
+        rx_disable = self.xcvr_eeprom.read(consts.RX_DISABLE_FIELD)
+        if rx_disable is None:
+            return None
+        return [bool(rx_disable & (1 << i)) for i in range(self.NUM_CHANNELS)]
+
+    def rx_disable(self, rx_disable):
+        val = 0xFF if rx_disable else 0x0
+        return self.xcvr_eeprom.write(consts.RX_DISABLE_FIELD, val)
+
+    def get_rx_disable_channel(self):
+        rx_disable_support = self.get_rx_disable_support()
+        if rx_disable_support is None:
+            return None
+        if not rx_disable_support:
+            return 'N/A'
+        return self.xcvr_eeprom.read(consts.RX_DISABLE_FIELD)
+
+    def rx_disable_channel(self, channel, disable):
+        # Check if channel state is available
+        channel_state = self.get_rx_disable_channel()
+        if channel_state is None or channel_state == 'N/A':
+            return False
+
+        # Disable or enable the specific channel based on the input
+        if 1 <= channel <= self.NUM_CHANNELS:
+            # The channel is represented by individual RegBitField entries
+            field_name = f"{consts.RX_DISABLE_FIELD}_{channel}"
+
+            if disable:
+                # Disable the channel (set the bit to 1)
+                return self.xcvr_eeprom.write(field_name, 1)
+            else:
+                # Enable the channel (set the bit to 0)
+                return self.xcvr_eeprom.write(field_name, 0)
+
+        return False
+
     def get_laser_tuning_summary(self):
         '''
         This function returns laser tuning status summary on media lane
