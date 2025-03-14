@@ -277,7 +277,7 @@ class CmisMemMap(XcvrMemMap):
         self.LANE_DATAPATH_CTRL = RegGroupField(consts.LANE_DATAPATH_CTRL_FIELD,
             NumberRegField(consts.DATAPATH_DEINIT_FIELD, self.getaddr(0x10, 128), ro=False),
             NumberRegField(consts.TX_DISABLE_FIELD, self.getaddr(0x10, 130), ro=False),
-            NumberRegField(consts.RX_DISABLE_FIELD, self.get_addr(0x10, 138), ro=False,
+            NumberRegField(consts.RX_DISABLE_FIELD, self.getaddr(0x10, 138), ro=False,
                 *(RegBitField("%s_%d" % (consts.RX_DISABLE_FIELD, channel), bitpos) 
                   for channel, bitpos in zip(range(1, 9), range(0, 8)))  # 8 channels
             )
