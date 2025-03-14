@@ -638,6 +638,7 @@ class TestCmis(object):
         (0, (0, True)),
         (0, (0, False)),
         (0, (1, False)),
+        (0, (1, True)),
         (None, (0, False))
     ])
     def test_rx_disable_channel(self, mock_response, input_param):
