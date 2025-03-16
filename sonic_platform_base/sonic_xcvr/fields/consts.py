@@ -107,6 +107,8 @@ OPTIONS_FIELD = "Options"
 POWER_CTRL_FIELD = "Power Control"
 POWER_OVERRIDE_FIELD = "Power Override"
 POWER_SET_FIELD = "Power Set"
+HIGH_POWER_CLASS_ENABLE_CLASS_5_TO_7 = "High Power Class Enable (Class 5-7)"
+HIGH_POWER_CLASS_ENABLE_CLASS_8 = "High Power Class Enable (Class 8)"
 
 # SFF-8636
 

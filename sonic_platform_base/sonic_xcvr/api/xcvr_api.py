@@ -737,3 +737,24 @@ class XcvrApi(object):
         """
         raise NotImplementedError
 
+    def get_power_class(self):
+        """
+        Retrieves the power class of the module
+
+        Returns:
+            int: Power class of the module, None if it fails
+        """
+        raise NotImplementedError
+
+    def set_high_power_class(self, power_class, enable):
+        """
+        This function sets high power class for the module.
+
+        Args:
+            power_class (int): Power class to enable/disable
+            enable (bool): True to enable high power class, False to disable
+
+        Returns:
+            bool: True if the provision succeeds, False if it fails
+        """
+        raise NotImplementedError
