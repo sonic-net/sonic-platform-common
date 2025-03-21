@@ -20,7 +20,6 @@ except ImportError as e:
 SMARTCTL = "smartctl {} -a"
 INNODISK = "iSmart -d {}"
 VIRTIUM  = "SmartCmd -m {}"
-TRANSCEND = "scopepro -all {}"
 
 NOT_AVAILABLE = "N/A"
 
@@ -53,8 +52,6 @@ MICRON_AVG_ERASE_COUNT_ID = 173
 MICRON_PERC_LIFETIME_REMAIN_ID = 202
 
 INTEL_MEDIA_WEAROUT_INDICATOR_ID = 233
-TRANSCEND_HEALTH_ID = 169
-TRANSCEND_TEMPERATURE_ID = 194
 
 class SsdUtil(StorageCommon):
     """
@@ -87,7 +84,7 @@ class SsdUtil(StorageCommon):
             "Swissbit"          : { "utility" : SMARTCTL, "parser" : self.parse_swissbit_info },
             "Micron"            : { "utility" : SMARTCTL, "parser" : self.parse_micron_info },
             "Intel"             : { "utility" : SMARTCTL, "parser" : self.parse_intel_info },
-            "Transcend"         : { "utility" : TRANSCEND, "parser" : self.parse_transcend_info },
+            "Transcend"         : { "utility" : SMARTCTL, "parser" : self.parse_generic_ssd_info },
         }
 
         self.dev = diskdev
@@ -361,22 +358,6 @@ class SsdUtil(StorageCommon):
         if self.vendor_ssd_info:
             health_raw = self.parse_id_number(INTEL_MEDIA_WEAROUT_INDICATOR_ID, self.vendor_ssd_info)
             self.health = NOT_AVAILABLE if health_raw == NOT_AVAILABLE else str(100 - float(health_raw.split()[-1]))
-
-    def parse_transcend_info(self):
-        if self.vendor_ssd_info:
-            self.model = self._parse_re('Model\s*:(.+?)\s*\n', self.vendor_ssd_info)
-            self.serial = self._parse_re('Serial No\s*:(.+?)\s*\n', self.vendor_ssd_info)
-            self.firmware = self._parse_re('FW Version\s*:(.+?)\s*\n', self.vendor_ssd_info)
-            health_raw = self._parse_re('{}\s*(.+?)\n'.format(hex(TRANSCEND_HEALTH_ID).upper()[2:]), self.vendor_ssd_info) #169 -> A9
-            if health_raw == NOT_AVAILABLE:
-                self.health = NOT_AVAILABLE
-            else:
-                self.health = health_raw.split()[-1]
-            temp_raw = self._parse_re('{}\s*(.+?)\n'.format(hex(TRANSCEND_TEMPERATURE_ID).upper()[2:]), self.vendor_ssd_info) #194 -> C2
-            if temp_raw == NOT_AVAILABLE:
-                self.temperature = NOT_AVAILABLE
-            else:
-                self.temperature = temp_raw.split()[-1]
 
     def fetch_vendor_ssd_info(self, diskdev, model):
         self.vendor_ssd_info = self._execute_shell(self.vendor_ssd_utility[model]["utility"].format(diskdev))
