@@ -26,7 +26,7 @@ class ModuleBase(device_base.DeviceBase):
     """
     # Device type definition. Note, this is a constant.
     DEVICE_TYPE = "module"
-    PCI_OPERATION_LOCK_FILE_PATH = "/tmp/{}_pci.lock"
+    PCI_OPERATION_LOCK_FILE_PATH = "/var/lock/{}_pci.lock"
 
     # Possible card types for modular chassis
     MODULE_TYPE_SUPERVISOR = "SUPERVISOR"
