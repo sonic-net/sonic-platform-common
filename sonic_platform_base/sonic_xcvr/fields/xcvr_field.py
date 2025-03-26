@@ -238,7 +238,7 @@ class CodeRegField(RegField):
         if mask is not None:
             code &= mask
             code >>= self.start_bitpos
-        return self.code_dict.get(code, "Unknown")
+        return self.code_dict.get(code, "Unknown: {}".format(code))
 
 class HexRegField(RegField):
     """
