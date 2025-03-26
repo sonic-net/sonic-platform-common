@@ -61,14 +61,14 @@ class XcvrApiFactory(object):
        name_data = self.reader(VENDOR_NAME_OFFSET, VENDOR_NAME_LENGTH)
        if name_data is None:
            return None
-       vendor_name = name_data.decode()
+       vendor_name = name_data.decode("ascii", errors="ignore")
        return vendor_name.strip()
 
     def _get_vendor_part_num(self):
        part_num = self.reader(VENDOR_PART_NUM_OFFSET, VENDOR_PART_NUM_LENGTH)
        if part_num is None:
            return None
-       vendor_pn = part_num.decode()
+       vendor_pn = part_num.decode("ascii", errors="ignore")
        return vendor_pn.strip()
         
     def create_xcvr_api(self):
