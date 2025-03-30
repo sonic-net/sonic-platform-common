@@ -498,3 +498,4 @@ SERVER_FW_VERSION = "ServerFirmwareVersion"
 #VENDOR SPECIFIC
 VENDOR_CUSTOM = "VendorCustom"
 TARGET_MODE = "TargetMode"
+CARTRDIGE_SLOT_ID = "CartridgeSlotID"

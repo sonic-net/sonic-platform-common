@@ -19,6 +19,10 @@ from .mem_maps.credo.aec_800g import CmisAec800gMemMap
 
 from .api.innolight.fr_800g import CmisFr800gApi
 
+from .api.amphenol.backplane import AmphBackplaneImpl
+from .mem_maps.amphenol.backplane import AmphBackplaneMemMap
+from .codes.amphenol.backplane import AmphBackplaneCodes
+
 from .codes.public.sff8436 import Sff8436Codes
 from .api.public.sff8436 import Sff8436Api
 from .mem_maps.public.sff8436 import Sff8436MemMap
@@ -70,60 +74,58 @@ class XcvrApiFactory(object):
            return None
        vendor_pn = part_num.decode()
        return vendor_pn.strip()
-        
-    def create_xcvr_api(self):
-        # TODO: load correct classes from id_mapping file
-        id = self._get_id()
-        # QSFP-DD or OSFP
-        if id == 0x18 or id == 0x19 or id == 0x1e or id == 0x1b:
-            vendor_name = self._get_vendor_name()
-            vendor_pn = self._get_vendor_part_num()
-            if vendor_name == 'Credo' and vendor_pn in CREDO_800G_AEC_VENDOR_PN_LIST:
-                codes = CmisAec800gCodes
-                mem_map = CmisAec800gMemMap(CmisAec800gCodes)
-                xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
-                api = CmisAec800gApi(xcvr_eeprom)
-            elif ('INNOLIGHT' in vendor_name and vendor_pn in INL_800G_VENDOR_PN_LIST) or \
-                 ('EOPTOLINK' in vendor_name and vendor_pn in EOP_800G_VENDOR_PN_LIST):
-                codes = CmisCodes
-                mem_map = CmisMemMap(codes)
-                xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
-                api = CmisFr800gApi(xcvr_eeprom)
-            else:
-                codes = CmisCodes
-                mem_map = CmisMemMap(codes)
-                xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
-                api = CmisApi(xcvr_eeprom)
 
-            if api.is_coherent_module():
-                mem_map = CCmisMemMap(codes)
-                xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
-                api = CCmisApi(xcvr_eeprom)
+    def _create_cmis_api(self, vendor_name, vendor_pn):
+        api = None
+        if vendor_name == 'Credo' and vendor_pn in CREDO_800G_AEC_VENDOR_PN_LIST:
+            api = self._create_api(CmisAec800gCodes, CmisAec800gMemMap, CmisAec800gApi)
+        elif ('INNOLIGHT' in vendor_name and vendor_pn in INL_800G_VENDOR_PN_LIST) or \
+             ('EOPTOLINK' in vendor_name and vendor_pn in EOP_800G_VENDOR_PN_LIST):
+            api = self._create_api(CmisCodes, CmisMemMap, CmisFr800gApi)
 
-        # QSFP28
-        elif id == 0x11:
-            codes = Sff8636Codes
-            mem_map = Sff8636MemMap(codes)
-            xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
-            api = Sff8636Api(xcvr_eeprom)
-        # QSFP+
-        elif id == 0x0D:
-            revision_compliance = self._get_revision_compliance()
-            if revision_compliance >= 3:
-                codes = Sff8636Codes
-                mem_map = Sff8636MemMap(codes)
-                xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
-                api = Sff8636Api(xcvr_eeprom)
-            else:
-                codes = Sff8436Codes
-                mem_map = Sff8436MemMap(codes)
-                xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
-                api = Sff8436Api(xcvr_eeprom)
-        elif id == 0x03:
-            codes = Sff8472Codes
-            mem_map = Sff8472MemMap(codes)
-            xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
-            api = Sff8472Api(xcvr_eeprom)
         else:
-            api = None
+            api = self._create_api(CmisCodes, CmisMemMap, CmisApi)
+            if api.is_coherent_module():
+                api = self._create_api(CmisCodes, CCmisMemMap, CCmisApi)
         return api
+
+    def _create_qsfp_api(self):
+        """
+        QSFP/QSFP+/QSFP28 API implementation
+        """
+        revision_compliance = self._get_revision_compliance()
+        if revision_compliance >= 3:
+            return self._create_api(Sff8636Codes, Sff8636MemMap, Sff8636Api)
+        else:
+            return self._create_api(Sff8436Codes, Sff8436MemMap, Sff8436Api)
+
+    def _create_api(self, codes_class, mem_map_class, api_class):
+        codes = codes_class
+        mem_map = mem_map_class(codes)
+        xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
+        return api_class(xcvr_eeprom) 
+
+    def create_xcvr_api(self):
+        id = self._get_id()
+        vendor_name = self._get_vendor_name()
+        vendor_pn = self._get_vendor_part_num()
+
+        # Mapping of IDs to their corresponding configurations
+        id_mapping = {
+            0x03: (self._create_api, (Sff8472Codes, Sff8472MemMap, Sff8472Api)),
+            0x0D: (self._create_qsfp_api, ()),
+            0x11: (self._create_api, (Sff8636Codes, Sff8636MemMap, Sff8636Api)),
+            0x18: (self._create_cmis_api, (vendor_name, vendor_pn)),
+            0x19: (self._create_cmis_api, (vendor_name, vendor_pn)),
+            0x1b: (self._create_cmis_api, (vendor_name, vendor_pn)),
+            0x1e: (self._create_cmis_api, (vendor_name, vendor_pn)),
+            0x7e: (self._create_api, (AmphBackplaneCodes,
+                                     AmphBackplaneMemMap, AmphBackplaneImpl)),
+        }
+
+        # Check if the ID exists in the mapping
+        if id in id_mapping:
+            func, args = id_mapping[id]
+            if isinstance(args, tuple):
+                return func(*args)
+        return None
