@@ -383,19 +383,10 @@ class CmisApi(XcvrApi):
             bulk_status["tx%dpower" % i] = float("{:.3f}".format(self.mw_to_dbm(tx_power[i - 1]))) if tx_power[i - 1] != 'N/A' else 'N/A'
 
         laser_temp_dict = self.get_laser_temperature()
-        self.vdm_dict = self.get_vdm(self.vdm.VDM_REAL_VALUE)
         try:
             bulk_status['laser_temperature'] = laser_temp_dict['monitor value']
         except (KeyError, TypeError):
             pass
-
-        for vdm_key, db_key in CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP.items():
-            for lane in range(1, self.NUM_CHANNELS + 1):
-                try:
-                    bulk_status_key = "%s%d" % (db_key, lane)
-                    bulk_status[bulk_status_key] = self.vdm_dict[vdm_key][lane][0]
-                except (KeyError, TypeError):
-                    pass
 
         return bulk_status
 
@@ -407,54 +398,54 @@ class CmisApi(XcvrApi):
             case_temp_flags = module_flag['case_temp_flags']
             voltage_flags = module_flag['voltage_flags']
             dom_flag_dict.update({
-                'temphighalarm': case_temp_flags['case_temp_high_alarm_flag'],
-                'templowalarm': case_temp_flags['case_temp_low_alarm_flag'],
-                'temphighwarning': case_temp_flags['case_temp_high_warn_flag'],
-                'templowwarning': case_temp_flags['case_temp_low_warn_flag'],
-                'vcchighalarm': voltage_flags['voltage_high_alarm_flag'],
-                'vcclowalarm': voltage_flags['voltage_low_alarm_flag'],
-                'vcchighwarning': voltage_flags['voltage_high_warn_flag'],
-                'vcclowwarning': voltage_flags['voltage_low_warn_flag']
+                'tempHAlarm': case_temp_flags['case_temp_high_alarm_flag'],
+                'tempLAlarm': case_temp_flags['case_temp_low_alarm_flag'],
+                'tempHWarn': case_temp_flags['case_temp_high_warn_flag'],
+                'tempLWarn': case_temp_flags['case_temp_low_warn_flag'],
+                'vccHAlarm': voltage_flags['voltage_high_alarm_flag'],
+                'vccLAlarm': voltage_flags['voltage_low_alarm_flag'],
+                'vccHWarn': voltage_flags['voltage_high_warn_flag'],
+                'vccLWarn': voltage_flags['voltage_low_warn_flag']
             })
         except TypeError:
             pass
-
-        tx_power_flag_dict = self.get_tx_power_flag()
-        if tx_power_flag_dict:
-            for lane in range(1, self.NUM_CHANNELS+1):
-                dom_flag_dict['txpowerhighalarm%d' % lane] = tx_power_flag_dict['tx_power_high_alarm']['TxPowerHighAlarmFlag%d' % lane]
-                dom_flag_dict['txpowerlowalarm%d' % lane] = tx_power_flag_dict['tx_power_low_alarm']['TxPowerLowAlarmFlag%d' % lane]
-                dom_flag_dict['txpowerhighwarning%d' % lane] = tx_power_flag_dict['tx_power_high_warn']['TxPowerHighWarnFlag%d' % lane]
-                dom_flag_dict['txpowerlowwarning%d' % lane] = tx_power_flag_dict['tx_power_low_warn']['TxPowerLowWarnFlag%d' % lane]
-        rx_power_flag_dict = self.get_rx_power_flag()
-        if rx_power_flag_dict:
-            for lane in range(1, self.NUM_CHANNELS+1):
-                dom_flag_dict['rxpowerhighalarm%d' % lane] = rx_power_flag_dict['rx_power_high_alarm']['RxPowerHighAlarmFlag%d' % lane]
-                dom_flag_dict['rxpowerlowalarm%d' % lane] = rx_power_flag_dict['rx_power_low_alarm']['RxPowerLowAlarmFlag%d' % lane]
-                dom_flag_dict['rxpowerhighwarning%d' % lane] = rx_power_flag_dict['rx_power_high_warn']['RxPowerHighWarnFlag%d' % lane]
-                dom_flag_dict['rxpowerlowwarning%d' % lane] = rx_power_flag_dict['rx_power_low_warn']['RxPowerLowWarnFlag%d' % lane]
-        tx_bias_flag_dict = self.get_tx_bias_flag()
-        if tx_bias_flag_dict:
-            for lane in range(1, self.NUM_CHANNELS+1):
-                dom_flag_dict['txbiashighalarm%d' % lane] = tx_bias_flag_dict['tx_bias_high_alarm']['TxBiasHighAlarmFlag%d' % lane]
-                dom_flag_dict['txbiaslowalarm%d' % lane] = tx_bias_flag_dict['tx_bias_low_alarm']['TxBiasLowAlarmFlag%d' % lane]
-                dom_flag_dict['txbiashighwarning%d' % lane] = tx_bias_flag_dict['tx_bias_high_warn']['TxBiasHighWarnFlag%d' % lane]
-                dom_flag_dict['txbiaslowwarning%d' % lane] = tx_bias_flag_dict['tx_bias_low_warn']['TxBiasLowWarnFlag%d' % lane]
-
         try:
             _, aux2_mon_type, aux3_mon_type = self.get_aux_mon_type()
             if aux2_mon_type == 0:
-                dom_flag_dict['lasertemphighalarm'] = module_flag['aux2_flags']['aux2_high_alarm_flag']
-                dom_flag_dict['lasertemplowalarm'] = module_flag['aux2_flags']['aux2_low_alarm_flag']
-                dom_flag_dict['lasertemphighwarning'] = module_flag['aux2_flags']['aux2_high_warn_flag']
-                dom_flag_dict['lasertemplowwarning'] = module_flag['aux2_flags']['aux2_low_warn_flag']
+                dom_flag_dict['lasertempHAlarm'] = module_flag['aux2_flags']['aux2_high_alarm_flag']
+                dom_flag_dict['lasertempLAlarm'] = module_flag['aux2_flags']['aux2_low_alarm_flag']
+                dom_flag_dict['lasertempHWarn'] = module_flag['aux2_flags']['aux2_high_warn_flag']
+                dom_flag_dict['lasertempLWarn'] = module_flag['aux2_flags']['aux2_low_warn_flag']
             elif aux2_mon_type == 1 and aux3_mon_type == 0:
-                dom_flag_dict['lasertemphighalarm'] = module_flag['aux3_flags']['aux3_high_alarm_flag']
-                dom_flag_dict['lasertemplowalarm'] = module_flag['aux3_flags']['aux3_low_alarm_flag']
-                dom_flag_dict['lasertemphighwarning'] = module_flag['aux3_flags']['aux3_high_warn_flag']
-                dom_flag_dict['lasertemplowwarning'] = module_flag['aux3_flags']['aux3_low_warn_flag']
+                dom_flag_dict['lasertempHAlarm'] = module_flag['aux3_flags']['aux3_high_alarm_flag']
+                dom_flag_dict['lasertempLAlarm'] = module_flag['aux3_flags']['aux3_low_alarm_flag']
+                dom_flag_dict['lasertempHWarn'] = module_flag['aux3_flags']['aux3_high_warn_flag']
+                dom_flag_dict['lasertempLWarn'] = module_flag['aux3_flags']['aux3_low_warn_flag']
         except TypeError:
             pass
+
+        if not self.is_flat_memory():
+            tx_power_flag_dict = self.get_tx_power_flag()
+            if tx_power_flag_dict:
+                for lane in range(1, self.NUM_CHANNELS+1):
+                    dom_flag_dict['tx%dpowerHAlarm' % lane] = tx_power_flag_dict['tx_power_high_alarm']['TxPowerHighAlarmFlag%d' % lane]
+                    dom_flag_dict['tx%dpowerLAlarm' % lane] = tx_power_flag_dict['tx_power_low_alarm']['TxPowerLowAlarmFlag%d' % lane]
+                    dom_flag_dict['tx%dpowerHWarn' % lane] = tx_power_flag_dict['tx_power_high_warn']['TxPowerHighWarnFlag%d' % lane]
+                    dom_flag_dict['tx%dpowerLWarn' % lane] = tx_power_flag_dict['tx_power_low_warn']['TxPowerLowWarnFlag%d' % lane]
+            rx_power_flag_dict = self.get_rx_power_flag()
+            if rx_power_flag_dict:
+                for lane in range(1, self.NUM_CHANNELS+1):
+                    dom_flag_dict['rx%dpowerHAlarm' % lane] = rx_power_flag_dict['rx_power_high_alarm']['RxPowerHighAlarmFlag%d' % lane]
+                    dom_flag_dict['rx%dpowerLAlarm' % lane] = rx_power_flag_dict['rx_power_low_alarm']['RxPowerLowAlarmFlag%d' % lane]
+                    dom_flag_dict['rx%dpowerHWarn' % lane] = rx_power_flag_dict['rx_power_high_warn']['RxPowerHighWarnFlag%d' % lane]
+                    dom_flag_dict['rx%dpowerLWarn' % lane] = rx_power_flag_dict['rx_power_low_warn']['RxPowerLowWarnFlag%d' % lane]
+            tx_bias_flag_dict = self.get_tx_bias_flag()
+            if tx_bias_flag_dict:
+                for lane in range(1, self.NUM_CHANNELS+1):
+                    dom_flag_dict['tx%dbiasHAlarm' % lane] = tx_bias_flag_dict['tx_bias_high_alarm']['TxBiasHighAlarmFlag%d' % lane]
+                    dom_flag_dict['tx%dbiasLAlarm' % lane] = tx_bias_flag_dict['tx_bias_low_alarm']['TxBiasLowAlarmFlag%d' % lane]
+                    dom_flag_dict['tx%dbiasHWarn' % lane] = tx_bias_flag_dict['tx_bias_high_warn']['TxBiasHighWarnFlag%d' % lane]
+                    dom_flag_dict['tx%dbiasLWarn' % lane] = tx_bias_flag_dict['tx_bias_low_warn']['TxBiasLowWarnFlag%d' % lane]
 
         return dom_flag_dict
 
@@ -519,18 +510,7 @@ class CmisApi(XcvrApi):
             threshold_info_dict['lasertemplowwarning'] = laser_temp_dict['low warn']
         except (KeyError, TypeError):
             pass
-        self.vdm_dict = self.get_vdm(self.vdm.VDM_THRESHOLD)
-        try:
-            threshold_info_dict['prefecberhighalarm'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][1]
-            threshold_info_dict['prefecberlowalarm'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][2]
-            threshold_info_dict['prefecberhighwarning'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][3]
-            threshold_info_dict['prefecberlowwarning'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][4]
-            threshold_info_dict['postfecberhighalarm'] = self.vdm_dict['Errored Frames Average Media Input'][1][1]
-            threshold_info_dict['postfecberlowalarm'] = self.vdm_dict['Errored Frames Average Media Input'][1][2]
-            threshold_info_dict['postfecberhighwarning'] = self.vdm_dict['Errored Frames Average Media Input'][1][3]
-            threshold_info_dict['postfecberlowwarning'] = self.vdm_dict['Errored Frames Average Media Input'][1][4]
-        except (KeyError, TypeError):
-            pass
+
         return threshold_info_dict
 
     def get_module_temperature(self):
@@ -2136,139 +2116,11 @@ class CmisApi(XcvrApi):
         Retrieves transceiver status of this SFP
 
         Returns:
-            A dict which contains following keys/values :
-        ================================================================================
-        key                          = TRANSCEIVER_STATUS|ifname        ; Error information for module on port
-        ; field                      = value
-        module_state                 = 1*255VCHAR                       ; current module state (ModuleLowPwr, ModulePwrUp, ModuleReady, ModulePwrDn, Fault)
-        module_fault_cause           = 1*255VCHAR                       ; reason of entering the module fault state
-        datapath_firmware_fault      = BOOLEAN                          ; datapath (DSP) firmware fault
-        module_firmware_fault        = BOOLEAN                          ; module firmware fault
-        module_state_changed         = BOOLEAN                          ; module state changed
-        datapath_hostlane1           = 1*255VCHAR                       ; data path state indicator on host lane 1
-        datapath_hostlane2           = 1*255VCHAR                       ; data path state indicator on host lane 2
-        datapath_hostlane3           = 1*255VCHAR                       ; data path state indicator on host lane 3
-        datapath_hostlane4           = 1*255VCHAR                       ; data path state indicator on host lane 4
-        datapath_hostlane5           = 1*255VCHAR                       ; data path state indicator on host lane 5
-        datapath_hostlane6           = 1*255VCHAR                       ; data path state indicator on host lane 6
-        datapath_hostlane7           = 1*255VCHAR                       ; data path state indicator on host lane 7
-        datapath_hostlane8           = 1*255VCHAR                       ; data path state indicator on host lane 8
-        txoutput_status              = BOOLEAN                          ; tx output status on media lane
-        rxoutput_status_hostlane1    = BOOLEAN                          ; rx output status on host lane 1
-        rxoutput_status_hostlane2    = BOOLEAN                          ; rx output status on host lane 2
-        rxoutput_status_hostlane3    = BOOLEAN                          ; rx output status on host lane 3
-        rxoutput_status_hostlane4    = BOOLEAN                          ; rx output status on host lane 4
-        rxoutput_status_hostlane5    = BOOLEAN                          ; rx output status on host lane 5
-        rxoutput_status_hostlane6    = BOOLEAN                          ; rx output status on host lane 6
-        rxoutput_status_hostlane7    = BOOLEAN                          ; rx output status on host lane 7
-        rxoutput_status_hostlane8    = BOOLEAN                          ; rx output status on host lane 8
-        tx_disable                   = BOOLEAN                          ; tx disable status
-        tx_disabled_channel          = INTEGER                          ; disabled TX channels
-        txfault                      = BOOLEAN                          ; tx fault flag on media lane
-        txlos_hostlane1              = BOOLEAN                          ; tx loss of signal flag on host lane 1
-        txlos_hostlane2              = BOOLEAN                          ; tx loss of signal flag on host lane 2
-        txlos_hostlane3              = BOOLEAN                          ; tx loss of signal flag on host lane 3
-        txlos_hostlane4              = BOOLEAN                          ; tx loss of signal flag on host lane 4
-        txlos_hostlane5              = BOOLEAN                          ; tx loss of signal flag on host lane 5
-        txlos_hostlane6              = BOOLEAN                          ; tx loss of signal flag on host lane 6
-        txlos_hostlane7              = BOOLEAN                          ; tx loss of signal flag on host lane 7
-        txlos_hostlane8              = BOOLEAN                          ; tx loss of signal flag on host lane 8
-        txcdrlol_hostlane1           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 1
-        txcdrlol_hostlane2           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 2
-        txcdrlol_hostlane3           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 3
-        txcdrlol_hostlane4           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 4
-        txcdrlol_hostlane5           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 5
-        txcdrlol_hostlane6           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 6
-        txcdrlol_hostlane7           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 7
-        txcdrlol_hostlane8           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 8
-        rxlos                        = BOOLEAN                          ; rx loss of signal flag on media lane
-        rxcdrlol                     = BOOLEAN                          ; rx clock and data recovery loss of lock on media lane
-        config_state_hostlane1       = 1*255VCHAR                       ; configuration status for the data path of host line 1
-        config_state_hostlane2       = 1*255VCHAR                       ; configuration status for the data path of host line 2
-        config_state_hostlane3       = 1*255VCHAR                       ; configuration status for the data path of host line 3
-        config_state_hostlane4       = 1*255VCHAR                       ; configuration status for the data path of host line 4
-        config_state_hostlane5       = 1*255VCHAR                       ; configuration status for the data path of host line 5
-        config_state_hostlane6       = 1*255VCHAR                       ; configuration status for the data path of host line 6
-        config_state_hostlane7       = 1*255VCHAR                       ; configuration status for the data path of host line 7
-        config_state_hostlane8       = 1*255VCHAR                       ; configuration status for the data path of host line 8
-        dpinit_pending_hostlane1     = BOOLEAN                          ; data path configuration updated on host lane 1
-        dpinit_pending_hostlane2     = BOOLEAN                          ; data path configuration updated on host lane 2
-        dpinit_pending_hostlane3     = BOOLEAN                          ; data path configuration updated on host lane 3
-        dpinit_pending_hostlane4     = BOOLEAN                          ; data path configuration updated on host lane 4
-        dpinit_pending_hostlane5     = BOOLEAN                          ; data path configuration updated on host lane 5
-        dpinit_pending_hostlane6     = BOOLEAN                          ; data path configuration updated on host lane 6
-        dpinit_pending_hostlane7     = BOOLEAN                          ; data path configuration updated on host lane 7
-        dpinit_pending_hostlane8     = BOOLEAN                          ; data path configuration updated on host lane 8
-        temphighalarm_flag           = BOOLEAN                          ; temperature high alarm flag
-        temphighwarning_flag         = BOOLEAN                          ; temperature high warning flag
-        templowalarm_flag            = BOOLEAN                          ; temperature low alarm flag
-        templowwarning_flag          = BOOLEAN                          ; temperature low warning flag
-        vcchighalarm_flag            = BOOLEAN                          ; vcc high alarm flag
-        vcchighwarning_flag          = BOOLEAN                          ; vcc high warning flag
-        vcclowalarm_flag             = BOOLEAN                          ; vcc low alarm flag
-        vcclowwarning_flag           = BOOLEAN                          ; vcc low warning flag
-        txpowerhighalarm_flag        = BOOLEAN                          ; tx power high alarm flag
-        txpowerlowalarm_flag         = BOOLEAN                          ; tx power low alarm flag
-        txpowerhighwarning_flag      = BOOLEAN                          ; tx power high warning flag
-        txpowerlowwarning_flag       = BOOLEAN                          ; tx power low alarm flag
-        rxpowerhighalarm_flag        = BOOLEAN                          ; rx power high alarm flag
-        rxpowerlowalarm_flag         = BOOLEAN                          ; rx power low alarm flag
-        rxpowerhighwarning_flag      = BOOLEAN                          ; rx power high warning flag
-        rxpowerlowwarning_flag       = BOOLEAN                          ; rx power low warning flag
-        txbiashighalarm_flag         = BOOLEAN                          ; tx bias high alarm flag
-        txbiaslowalarm_flag          = BOOLEAN                          ; tx bias low alarm flag
-        txbiashighwarning_flag       = BOOLEAN                          ; tx bias high warning flag
-        txbiaslowwarning_flag        = BOOLEAN                          ; tx bias low warning flag
-        lasertemphighalarm_flag      = BOOLEAN                          ; laser temperature high alarm flag
-        lasertemplowalarm_flag       = BOOLEAN                          ; laser temperature low alarm flag
-        lasertemphighwarning_flag    = BOOLEAN                          ; laser temperature high warning flag
-        lasertemplowwarning_flag     = BOOLEAN                          ; laser temperature low warning flag
-        prefecberhighalarm_flag      = BOOLEAN                          ; prefec ber high alarm flag
-        prefecberlowalarm_flag       = BOOLEAN                          ; prefec ber low alarm flag
-        prefecberhighwarning_flag    = BOOLEAN                          ; prefec ber high warning flag
-        prefecberlowwarning_flag     = BOOLEAN                          ; prefec ber low warning flag
-        postfecberhighalarm_flag     = BOOLEAN                          ; postfec ber high alarm flag
-        postfecberlowalarm_flag      = BOOLEAN                          ; postfec ber low alarm flag
-        postfecberhighwarning_flag   = BOOLEAN                          ; postfec ber high warning flag
-        postfecberlowwarning_flag    = BOOLEAN                          ; postfec ber low warning flag
-        ================================================================================
+            Dictionary
         """
         trans_status = dict()
         trans_status['module_state'] = self.get_module_state()
         trans_status['module_fault_cause'] = self.get_module_fault_cause()
-        try:
-            dp_fw_fault, module_fw_fault, module_state_changed = self.get_module_firmware_fault_state_changed()
-            trans_status['datapath_firmware_fault'] = dp_fw_fault
-            trans_status['module_firmware_fault'] = module_fw_fault
-            trans_status['module_state_changed'] = module_state_changed
-        except TypeError:
-            pass
-        module_flag = self.get_module_level_flag()
-        try:
-            trans_status['temphighalarm_flag'] = module_flag['case_temp_flags']['case_temp_high_alarm_flag']
-            trans_status['templowalarm_flag'] = module_flag['case_temp_flags']['case_temp_low_alarm_flag']
-            trans_status['temphighwarning_flag'] = module_flag['case_temp_flags']['case_temp_high_warn_flag']
-            trans_status['templowwarning_flag'] = module_flag['case_temp_flags']['case_temp_low_warn_flag']
-            trans_status['vcchighalarm_flag'] = module_flag['voltage_flags']['voltage_high_alarm_flag']
-            trans_status['vcclowalarm_flag'] = module_flag['voltage_flags']['voltage_low_alarm_flag']
-            trans_status['vcchighwarning_flag'] = module_flag['voltage_flags']['voltage_high_warn_flag']
-            trans_status['vcclowwarning_flag'] = module_flag['voltage_flags']['voltage_low_warn_flag']
-        except TypeError:
-            pass
-        try:
-            aux1_mon_type, aux2_mon_type, aux3_mon_type = self.get_aux_mon_type()
-            if aux2_mon_type == 0:
-                trans_status['lasertemphighalarm_flag'] = module_flag['aux2_flags']['aux2_high_alarm_flag']
-                trans_status['lasertemplowalarm_flag'] = module_flag['aux2_flags']['aux2_low_alarm_flag']
-                trans_status['lasertemphighwarning_flag'] = module_flag['aux2_flags']['aux2_high_warn_flag']
-                trans_status['lasertemplowwarning_flag'] = module_flag['aux2_flags']['aux2_low_warn_flag']
-            elif aux2_mon_type == 1 and aux3_mon_type == 0:
-                trans_status['lasertemphighalarm_flag'] = module_flag['aux3_flags']['aux3_high_alarm_flag']
-                trans_status['lasertemplowalarm_flag'] = module_flag['aux3_flags']['aux3_low_alarm_flag']
-                trans_status['lasertemphighwarning_flag'] = module_flag['aux3_flags']['aux3_high_warn_flag']
-                trans_status['lasertemplowwarning_flag'] = module_flag['aux3_flags']['aux3_low_warn_flag']
-        except TypeError:
-            pass
         if not self.is_flat_memory():
             dp_state_dict = self.get_datapath_state()
             if dp_state_dict:
@@ -2277,11 +2129,11 @@ class CmisApi(XcvrApi):
             tx_output_status_dict = self.get_tx_output_status()
             if tx_output_status_dict:
                 for lane in range(1, self.NUM_CHANNELS+1):
-                    trans_status['txoutput_status%d' % lane] = tx_output_status_dict.get('TxOutputStatus%d' % lane)
+                    trans_status['tx%dOutputStatus' % lane] = tx_output_status_dict.get('TxOutputStatus%d' % lane)
             rx_output_status_dict = self.get_rx_output_status()
             if rx_output_status_dict:
                 for lane in range(1, self.NUM_CHANNELS+1):
-                    trans_status['rxoutput_status_hostlane%d' % lane] = rx_output_status_dict.get('RxOutputStatus%d' % lane)
+                    trans_status['rx%dOutputStatusHostlane' % lane] = rx_output_status_dict.get('RxOutputStatus%d' % lane)
             tx_disabled_channel = self.get_tx_disable_channel()
             if tx_disabled_channel is not None:
                 trans_status['tx_disabled_channel'] = tx_disabled_channel
@@ -2289,30 +2141,6 @@ class CmisApi(XcvrApi):
             if tx_disable is not None:
                 for lane in range(1, self.NUM_CHANNELS+1):
                     trans_status['tx%ddisable' % lane] = tx_disable[lane - 1]
-            tx_fault = self.get_tx_fault()
-            if tx_fault:
-                for lane in range(1, self.NUM_CHANNELS+1):
-                    trans_status['txfault%d' % lane] = tx_fault[lane - 1]
-            tx_los = self.get_tx_los()
-            if tx_los:
-                for lane in range(1, self.NUM_CHANNELS+1):
-                    trans_status['txlos_hostlane%d' % lane] = tx_los[lane - 1]
-            tx_lol = self.get_tx_cdr_lol()
-            if tx_lol:
-                for lane in range(1, self.NUM_CHANNELS+1):
-                    trans_status['txcdrlol_hostlane%d' % lane] = tx_lol[lane - 1]
-            rx_los = self.get_rx_los()
-            if rx_los:
-                for lane in range(1, self.NUM_CHANNELS+1):
-                    trans_status['rxlos%d' % lane] = rx_los[lane - 1]
-            rx_lol = self.get_rx_cdr_lol()
-            if rx_lol:
-                for lane in range(1, self.NUM_CHANNELS+1):
-                    trans_status['rxcdrlol%d' % lane] = rx_lol[lane - 1]
-            tx_adaptive_eq_fail_flag_val = self.get_tx_adaptive_eq_fail_flag()
-            if tx_adaptive_eq_fail_flag_val:
-                for lane in range(1, self.NUM_CHANNELS+1):
-                    trans_status['tx_eq_fault%d' % lane] = tx_adaptive_eq_fail_flag_val[lane - 1]
             config_status_dict = self.get_config_datapath_hostlane_status()
             if config_status_dict:
                 for lane in range(1, self.NUM_CHANNELS+1):
@@ -2325,39 +2153,6 @@ class CmisApi(XcvrApi):
             if dpinit_pending_dict:
                 for lane in range(1, self.NUM_CHANNELS+1):
                     trans_status['dpinit_pending_hostlane%d' % lane] = dpinit_pending_dict.get('DPInitPending%d' % lane)
-            tx_power_flag_dict = self.get_tx_power_flag()
-            if tx_power_flag_dict:
-                for lane in range(1, self.NUM_CHANNELS+1):
-                    trans_status['txpowerhighalarm_flag%d' % lane] = tx_power_flag_dict['tx_power_high_alarm']['TxPowerHighAlarmFlag%d' % lane]
-                    trans_status['txpowerlowalarm_flag%d' % lane] = tx_power_flag_dict['tx_power_low_alarm']['TxPowerLowAlarmFlag%d' % lane]
-                    trans_status['txpowerhighwarning_flag%d' % lane] = tx_power_flag_dict['tx_power_high_warn']['TxPowerHighWarnFlag%d' % lane]
-                    trans_status['txpowerlowwarning_flag%d' % lane] = tx_power_flag_dict['tx_power_low_warn']['TxPowerLowWarnFlag%d' % lane]
-            rx_power_flag_dict = self.get_rx_power_flag()
-            if rx_power_flag_dict:
-                for lane in range(1, self.NUM_CHANNELS+1):
-                    trans_status['rxpowerhighalarm_flag%d' % lane] = rx_power_flag_dict['rx_power_high_alarm']['RxPowerHighAlarmFlag%d' % lane]
-                    trans_status['rxpowerlowalarm_flag%d' % lane] = rx_power_flag_dict['rx_power_low_alarm']['RxPowerLowAlarmFlag%d' % lane]
-                    trans_status['rxpowerhighwarning_flag%d' % lane] = rx_power_flag_dict['rx_power_high_warn']['RxPowerHighWarnFlag%d' % lane]
-                    trans_status['rxpowerlowwarning_flag%d' % lane] = rx_power_flag_dict['rx_power_low_warn']['RxPowerLowWarnFlag%d' % lane]
-            tx_bias_flag_dict = self.get_tx_bias_flag()
-            if tx_bias_flag_dict:
-                for lane in range(1, self.NUM_CHANNELS+1):
-                    trans_status['txbiashighalarm_flag%d' % lane] = tx_bias_flag_dict['tx_bias_high_alarm']['TxBiasHighAlarmFlag%d' % lane]
-                    trans_status['txbiaslowalarm_flag%d' % lane] = tx_bias_flag_dict['tx_bias_low_alarm']['TxBiasLowAlarmFlag%d' % lane]
-                    trans_status['txbiashighwarning_flag%d' % lane] = tx_bias_flag_dict['tx_bias_high_warn']['TxBiasHighWarnFlag%d' % lane]
-                    trans_status['txbiaslowwarning_flag%d' % lane] = tx_bias_flag_dict['tx_bias_low_warn']['TxBiasLowWarnFlag%d' % lane]
-            self.vdm_dict = self.get_vdm(self.vdm.VDM_FLAG)
-            try:
-                trans_status['prefecberhighalarm_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][5]
-                trans_status['prefecberlowalarm_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][6]
-                trans_status['prefecberhighwarning_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][7]
-                trans_status['prefecberlowwarning_flag'] = self.vdm_dict['Pre-FEC BER Average Media Input'][1][8]
-                trans_status['postfecberhighalarm_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][5]
-                trans_status['postfecberlowalarm_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][6]
-                trans_status['postfecberhighwarning_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][7]
-                trans_status['postfecberlowwarning_flag'] = self.vdm_dict['Errored Frames Average Media Input'][1][8]
-            except (KeyError, TypeError):
-                pass
         return trans_status
 
     def get_transceiver_status_flags(self):
@@ -2365,26 +2160,7 @@ class CmisApi(XcvrApi):
         Retrieves transceiver status flags of this SFP
 
         Returns:
-            A dict which contains following keys/values :
-        ================================================================================
-        ; Defines Transceiver Status info for a port
-        key                                     = TRANSCEIVER_STATUS_FLAG|ifname        ; Flag information for module on port
-        ; field                                 = value
-        datapath_firmware_fault                 = BOOLEAN           ; datapath (DSP) firmware fault
-        module_firmware_fault                   = BOOLEAN           ; module firmware fault
-        module_state_changed                    = BOOLEAN           ; module state changed
-        txfault{lane_num}                       = BOOLEAN           ; tx fault flag on media lane {lane_num}
-        txlos_hostlane{lane_num}                = BOOLEAN           ; tx loss of signal flag on host lane {lane_num}
-        txcdrlol_hostlane{lane_num}             = BOOLEAN           ; tx clock and data recovery loss of lock flag on host lane {lane_num}
-        tx_eq_fault{lane_num}                   = BOOLEAN           ; tx equalization fault flag on host lane {lane_num}
-        rxlos{lane_num}                         = BOOLEAN           ; rx loss of signal flag on media lane {lane_num}
-        rxcdrlol{lane_num}                      = BOOLEAN           ; rx clock and data recovery loss of lock flag on media lane {lane_num}
-        target_output_power_oor                 = BOOLEAN           ; target output power out of range flag
-        fine_tuning_oor                         = BOOLEAN           ; fine tuning  out of range flag
-        tuning_not_accepted                     = BOOLEAN           ; tuning not accepted flag
-        invalid_channel_num                     = BOOLEAN           ; invalid channel number flag
-        tuning_complete                         = BOOLEAN           ; tuning complete flag
-        ================================================================================
+            Dictionary
         """
         status_flags_dict = dict()
         try:
@@ -2397,26 +2173,20 @@ class CmisApi(XcvrApi):
         except TypeError:
             pass
 
-        fault_types = {
-            'txfault': self.get_tx_fault(),
-            'txlos_hostlane': self.get_tx_los(),
-            'txcdrlol_hostlane': self.get_tx_cdr_lol(),
-            'tx_eq_fault': self.get_tx_adaptive_eq_fail_flag(),
-            'rxlos': self.get_rx_los(),
-            'rxcdrlol': self.get_rx_cdr_lol()
-        }
+        if not self.is_flat_memory():
+            fault_types = {
+                'tx{lane_num}fault': self.get_tx_fault(),
+                'rx{lane_num}los': self.get_rx_los(),
+                'tx{lane_num}los_hostlane': self.get_tx_los(),
+                'tx{lane_num}cdrlol_hostlane': self.get_tx_cdr_lol(),
+                'tx{lane_num}_eq_fault': self.get_tx_adaptive_eq_fail_flag(),
+                'rx{lane_num}cdrlol': self.get_rx_cdr_lol()
+            }
 
-        for fault_type, fault_values in fault_types.items():
-            for lane in range(1, self.NUM_CHANNELS + 1):
-                key = f'{fault_type}{lane}'
-                status_flags_dict[key] = fault_values[lane - 1] if fault_values else "N/A"
-
-        laser_tuning_summary = self.get_laser_tuning_summary()
-        status_flags_dict['target_output_power_oor'] = 'TargetOutputPowerOOR' in laser_tuning_summary
-        status_flags_dict['fine_tuning_oor'] = 'FineTuningOutOfRange' in laser_tuning_summary
-        status_flags_dict['tuning_not_accepted'] = 'TuningNotAccepted' in laser_tuning_summary
-        status_flags_dict['invalid_channel_num'] = 'InvalidChannel' in laser_tuning_summary
-        status_flags_dict['tuning_complete'] = 'TuningComplete' in laser_tuning_summary
+            for fault_type_template, fault_values in fault_types.items():
+                for lane in range(1, self.NUM_CHANNELS + 1):
+                    key = fault_type_template.format(lane_num=lane)
+                    status_flags_dict[key] = fault_values[lane - 1] if fault_values else "N/A"
 
         return status_flags_dict
 
