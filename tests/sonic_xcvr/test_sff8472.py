@@ -211,14 +211,37 @@ class TestSff8472(object):
     @pytest.mark.parametrize("mock_response, expected",[
         (
             [
-                [False],
-                [False],
                 0,
                 [False]
             ],
             {
                 "tx_disabled_channel": 0,
                 "tx1disable": False,
+            }
+        ),
+        (
+            [
+                None,
+                None
+            ],
+            None
+        )
+    ])
+    def test_get_transceiver_status(self, mock_response, expected):
+        self.api.get_tx_disable_channel = MagicMock()
+        self.api.get_tx_disable_channel.return_value = mock_response[0]
+        self.api.get_tx_disable = MagicMock()
+        self.api.get_tx_disable.return_value = mock_response[1]
+        result = self.api.get_transceiver_status()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response, expected",[
+        (
+            [
+                [False],
+                [False],
+            ],
+            {
                 'txfault1': False,
                 'rxlos1': False,
             }
@@ -227,22 +250,16 @@ class TestSff8472(object):
             [
                 None,
                 None,
-                None,
-                None
             ],
             None
         )
     ])
-    def test_get_transceiver_status(self, mock_response, expected):
+    def test_get_transceiver_status_flags(self, mock_response, expected):
         self.api.get_rx_los = MagicMock()
         self.api.get_rx_los.return_value = mock_response[0]
         self.api.get_tx_fault = MagicMock()
         self.api.get_tx_fault.return_value = mock_response[1]
-        self.api.get_tx_disable_channel = MagicMock()
-        self.api.get_tx_disable_channel.return_value = mock_response[2]
-        self.api.get_tx_disable = MagicMock()
-        self.api.get_tx_disable.return_value = mock_response[3]
-        result = self.api.get_transceiver_status()
+        result = self.api.get_transceiver_status_flags()
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected",[

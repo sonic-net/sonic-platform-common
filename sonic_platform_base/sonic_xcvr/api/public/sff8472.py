@@ -61,27 +61,35 @@ class Sff8472Api(XcvrApi):
         return xcvr_info
 
     def get_transceiver_status(self):
-        rx_los = self.get_rx_los()
-        tx_fault = self.get_tx_fault()
         tx_disable = self.get_tx_disable()
         tx_disabled_channel = self.get_tx_disable_channel()
-        read_failed = rx_los is None or \
-                      tx_fault is None or \
-                      tx_disable is None or \
+        read_failed = tx_disable is None or \
                       tx_disabled_channel is None
         if read_failed:
             return None
 
         trans_status = dict()
-        for lane in range(1, len(rx_los) + 1):
-            trans_status['rxlos%d' % lane] = rx_los[lane - 1]
-        for lane in range(1, len(tx_fault) + 1):
-            trans_status['txfault%d' % lane] = tx_fault[lane - 1]
         for lane in range(1, len(tx_disable) + 1):
             trans_status['tx%ddisable' % lane] = tx_disable[lane - 1]
         trans_status['tx_disabled_channel'] = tx_disabled_channel
 
         return trans_status
+
+    def get_transceiver_status_flags(self):
+        rx_los = self.get_rx_los()
+        tx_fault = self.get_tx_fault()
+        read_failed = rx_los is None or \
+                      tx_fault is None
+        if read_failed:
+            return None
+
+        trans_status_flags = dict()
+        for lane in range(1, len(rx_los) + 1):
+            trans_status_flags['rxlos%d' % lane] = rx_los[lane - 1]
+        for lane in range(1, len(tx_fault) + 1):
+            trans_status_flags['txfault%d' % lane] = tx_fault[lane - 1]
+
+        return trans_status_flags
 
     def get_transceiver_bulk_status(self):
         temp = self.get_module_temperature()
