@@ -69,6 +69,13 @@ class Sff8436Api(XcvrApi):
         return xcvr_info
 
     def get_transceiver_status(self):
+        """
+        Get the transceiver status for all channels
+        All registers accessed in this function are non-latched
+
+        Returns:
+            Dictionary
+        """
         tx_disable = self.get_tx_disable()
         tx_disabled_channel = self.get_tx_disable_channel()
         read_failed = tx_disable is None or \
@@ -84,6 +91,13 @@ class Sff8436Api(XcvrApi):
         return trans_status
 
     def get_transceiver_status_flags(self):
+        """
+        Get the transceiver status flags for all channels
+        All registers accessed in this function are non-latched
+
+        Returns:
+            Dictionary
+        """
         rx_los = self.get_rx_los()
         tx_fault = self.get_tx_fault()
         read_failed = rx_los is None or \

@@ -2113,10 +2113,13 @@ class CmisApi(XcvrApi):
 
     def get_transceiver_status(self):
         """
-        Retrieves transceiver status of this SFP
+        Retrieves the current status of the transceiver module.
+        This method accesses various non-latched registers to gather
+        information about the current state of the transceiver,
+        including both module-level and datapath-level states.
 
         Returns:
-            Dictionary
+           Dictionary
         """
         trans_status = dict()
         trans_status['module_state'] = self.get_module_state()
@@ -2157,7 +2160,10 @@ class CmisApi(XcvrApi):
 
     def get_transceiver_status_flags(self):
         """
-        Retrieves transceiver status flags of this SFP
+        Retrieves transceiver status flags for this SFP module.
+        This method accesses latched registers to gather information
+        about the current state of the transceiver,
+        including both module-level and datapath-level states.
 
         Returns:
             Dictionary
