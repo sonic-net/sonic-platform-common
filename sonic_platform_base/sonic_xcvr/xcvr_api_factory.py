@@ -75,8 +75,11 @@ class XcvrApiFactory(object):
        vendor_pn = part_num.decode()
        return vendor_pn.strip()
 
-    def _create_cmis_api(self, vendor_name, vendor_pn):
+    def _create_cmis_api(self):
         api = None
+        vendor_name = self._get_vendor_name()
+        vendor_pn = self._get_vendor_part_num()
+
         if vendor_name == 'Credo' and vendor_pn in CREDO_800G_AEC_VENDOR_PN_LIST:
             api = self._create_api(CmisAec800gCodes, CmisAec800gMemMap, CmisAec800gApi)
         elif ('INNOLIGHT' in vendor_name and vendor_pn in INL_800G_VENDOR_PN_LIST) or \
@@ -91,7 +94,7 @@ class XcvrApiFactory(object):
 
     def _create_qsfp_api(self):
         """
-        QSFP/QSFP+/QSFP28 API implementation
+        QSFP/QSFP+ API implementation
         """
         revision_compliance = self._get_revision_compliance()
         if revision_compliance >= 3:
@@ -107,18 +110,16 @@ class XcvrApiFactory(object):
 
     def create_xcvr_api(self):
         id = self._get_id()
-        vendor_name = self._get_vendor_name()
-        vendor_pn = self._get_vendor_part_num()
 
         # Instantiate various Optics implementation based upon their respective ID as per SFF8024
         id_mapping = {
             0x03: (self._create_api, (Sff8472Codes, Sff8472MemMap, Sff8472Api)),
             0x0D: (self._create_qsfp_api, ()),
             0x11: (self._create_api, (Sff8636Codes, Sff8636MemMap, Sff8636Api)),
-            0x18: (self._create_cmis_api, (vendor_name, vendor_pn)),
-            0x19: (self._create_cmis_api, (vendor_name, vendor_pn)),
-            0x1b: (self._create_cmis_api, (vendor_name, vendor_pn)),
-            0x1e: (self._create_cmis_api, (vendor_name, vendor_pn)),
+            0x18: (self._create_cmis_api, ()),
+            0x19: (self._create_cmis_api, ()),
+            0x1b: (self._create_cmis_api, ()),
+            0x1e: (self._create_cmis_api, ()),
             0x7e: (self._create_api, (AmphBackplaneCodes,
                                      AmphBackplaneMemMap, AmphBackplaneImpl)),
         }
