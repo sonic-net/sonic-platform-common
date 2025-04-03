@@ -110,7 +110,7 @@ class XcvrApiFactory(object):
         vendor_name = self._get_vendor_name()
         vendor_pn = self._get_vendor_part_num()
 
-        # Mapping of IDs to their corresponding configurations
+        # Instantiate various Optics implementation based upon their respective ID as per SFF8024
         id_mapping = {
             0x03: (self._create_api, (Sff8472Codes, Sff8472MemMap, Sff8472Api)),
             0x0D: (self._create_qsfp_api, ()),
