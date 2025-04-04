@@ -112,6 +112,9 @@ class CmisFlatMemMap(XcvrMemMap):
             NumberRegField(consts.ACTIVE_FW_MINOR_REV, self.getaddr(0x0, 40), format="B", size=1),
         )
 
+    def getaddr(self, page, offset, page_size=128):
+        return page * page_size + offset
+
 class CmisMemMap(CmisFlatMemMap):
     def __init__(self, codes):
         super(CmisMemMap, self).__init__(codes)

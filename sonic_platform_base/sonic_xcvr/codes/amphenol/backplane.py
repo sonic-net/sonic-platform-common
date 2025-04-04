@@ -1,6 +1,6 @@
-from ..public.sff8024 import Sff8024
+from ..public.cmis import CmisCodes
 
-class AmphBackplaneCodes(Sff8024):
+class AmphBackplaneCodes(CmisCodes):
     CARTRDIGE_SLOT_ID = {
         0x1 : "1",
         0x2 : "2",

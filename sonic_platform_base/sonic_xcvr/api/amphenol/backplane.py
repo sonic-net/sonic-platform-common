@@ -16,18 +16,14 @@ AMPH_BACKPLANE_INFO_DICT = {
         "vendor_date": "N/A",
         "vendor_oui": "N/A",
         "vendor_rev": "N/A",
-        **{f"active_apsel_hostlane{i}": "N/A" for i in range(1, 9)},
         "application_advertisement": "N/A",
         "host_electrical_interface": "N/A",
-        "media_interface_code": "N/A",
         "host_lane_count": "N/A",
-        "media_lane_count": "N/A",
-        "host_lane_assignment_option": "N/A",
-        "media_lane_assignment_option": "N/A",
         "cable_type": "N/A",
         "media_interface_technology": "N/A",
         "cmis_rev": "N/A",
         "specification_compliance": "N/A",
+        "slot_id": "unknown"
         }
 
 class AmphBackplaneImpl(CmisApi):
@@ -51,7 +47,7 @@ class AmphBackplaneImpl(CmisApi):
         if admin_info is None:
             return None
 
-        xcvr_info = copy.deepcopy(self._get_xcvr_info_default_dict())
+        xcvr_info = copy.deepcopy(AMPH_BACKPLANE_INFO_DICT)
         xcvr_info.update({
             "type": admin_info[consts.ID_FIELD],
             "type_abbrv_name": admin_info[consts.ID_ABBRV_FIELD],
@@ -60,13 +56,9 @@ class AmphBackplaneImpl(CmisApi):
             "application_advertisement": str(self.get_application_advertisement()) \
                         if len(self.get_application_advertisement()) > 0 else 'N/A',
             "host_electrical_interface": self.get_host_electrical_interface(),
-            "media_interface_code": self.get_module_media_interface(),
             "host_lane_count": self.get_host_lane_count(),
-            "media_lane_count": self.get_media_lane_count(),
             "host_lane_assignment_option": self.get_host_lane_assignment_option(),
-            "media_lane_assignment_option": self.get_media_lane_assignment_option(),
             "cable_type": self.get_cable_length_type(),
-            "media_interface_technology": self.get_media_interface_technology(),
             "cmis_rev": self.get_cmis_rev(),
             "specification_compliance": self.get_module_media_type(),
             "vdm_supported": self.is_transceiver_vdm_supported()
@@ -86,4 +78,5 @@ class AmphBackplaneImpl(CmisApi):
             "vendor_rev": self.get_vendor_rev(),
             "slot_id": self.get_slot_id(),
         })
+        return xcvr_info
 
