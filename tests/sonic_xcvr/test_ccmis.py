@@ -271,16 +271,16 @@ class TestCCmis(object):
             }
         )
     ])
-    @patch("sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_transceiver_bulk_status")
-    def test_get_transceiver_bulk_status(self, get_transceiver_bulk_status_func, mock_response, expected):
-        get_transceiver_bulk_status_func.return_value = mock_response[0]
+    @patch("sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_transceiver_dom_real_value")
+    def test_get_transceiver_dom_real_value(self, get_transceiver_dom_real_value_func, mock_response, expected):
+        get_transceiver_dom_real_value_func.return_value = mock_response[0]
         self.api.get_laser_config_freq = MagicMock()
         self.api.get_laser_config_freq.return_value = mock_response[1]
         self.api.get_current_laser_freq = MagicMock()
         self.api.get_current_laser_freq.return_value = mock_response[2]
         self.api.get_tx_config_power = MagicMock()
         self.api.get_tx_config_power.return_value = mock_response[3]
-        result = self.api.get_transceiver_bulk_status()
+        result = self.api.get_transceiver_dom_real_value()
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected",[

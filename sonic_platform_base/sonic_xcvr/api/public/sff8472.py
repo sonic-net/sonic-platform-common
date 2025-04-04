@@ -61,6 +61,15 @@ class Sff8472Api(XcvrApi):
         return xcvr_info
 
     def get_transceiver_status(self):
+        """
+        Retrieves the current status of the transceiver module.
+
+        Accesses non-latched registers to gather information about the TX statuses.
+
+        Returns:
+            dict: A dictionary containing boolean values for various status fields, as defined in
+                the TRANSCEIVER_STATUS table in STATE_DB.
+        """
         tx_disable = self.get_tx_disable()
         tx_disabled_channel = self.get_tx_disable_channel()
         read_failed = tx_disable is None or \
@@ -76,6 +85,16 @@ class Sff8472Api(XcvrApi):
         return trans_status
 
     def get_transceiver_status_flags(self):
+        """
+        Retrieves the current flag status of the transceiver module.
+
+        Accesses non-latched registers to gather TX and RX-related flags. Unlike other
+        module types, SFF-8472 does not support latched registers for these flags.
+
+        Returns:
+            dict: A dictionary containing boolean values for various flags, as defined in
+                the TRANSCEIVER_STATUS_FLAGS table in STATE_DB.
+        """
         rx_los = self.get_rx_los()
         tx_fault = self.get_tx_fault()
         read_failed = rx_los is None or \
@@ -91,7 +110,16 @@ class Sff8472Api(XcvrApi):
 
         return trans_status_flags
 
-    def get_transceiver_bulk_status(self):
+    def get_transceiver_dom_real_value(self):
+        """
+        Retrieves DOM sensor values for this transceiver
+
+        The returned dictionary contains floating-point values corresponding to various
+        DOM sensor readings, as defined in the TRANSCEIVER_DOM_SENSOR table in STATE_DB.
+
+        Returns:
+            Dictionary
+        """
         temp = self.get_module_temperature()
         voltage = self.get_voltage()
         tx_bias = self.get_tx_bias()
@@ -124,6 +152,15 @@ class Sff8472Api(XcvrApi):
         return bulk_status
 
     def get_transceiver_threshold_info(self):
+        """
+        Retrieves threshold info for this xcvr
+
+        The returned dictionary contains floating-point values corresponding to various
+        DOM sensor threshold readings, as defined in the TRANSCEIVER_DOM_THRESHOLD table in STATE_DB.
+
+        Returns:
+            Dictionary
+        """
         threshold_info_keys = ['temphighalarm',    'temphighwarning',
                                'templowalarm',     'templowwarning',
                                'vcchighalarm',     'vcchighwarning',

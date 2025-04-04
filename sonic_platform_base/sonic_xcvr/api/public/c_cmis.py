@@ -383,14 +383,17 @@ class CCmisApi(CmisApi):
         })
         return xcvr_info
 
-    def get_transceiver_bulk_status(self):
+    def get_transceiver_dom_real_value(self):
         """
-        Retrieves bulk status info for this xcvr
+        Retrieves DOM sensor values for this transceiver
+
+        The returned dictionary contains floating-point values corresponding to various
+        DOM sensor readings, as defined in the TRANSCEIVER_DOM_SENSOR table in STATE_DB.
 
         Returns:
             Dictionary
         """
-        trans_dom = super(CCmisApi,self).get_transceiver_bulk_status()
+        trans_dom = super(CCmisApi,self).get_transceiver_dom_real_value()
 
         trans_dom['laser_config_freq'] = self.get_laser_config_freq()
         trans_dom['laser_curr_freq'] = self.get_current_laser_freq()
@@ -400,12 +403,14 @@ class CCmisApi(CmisApi):
     def get_transceiver_status(self):
         """
         Retrieves the current status of the transceiver module.
-        This method accesses various non-latched registers to gather
-        information about the current state of the transceiver,
-        including both module-level and datapath-level states.
+
+        Accesses non-latched registers to gather information about the module's state,
+        fault causes, and datapath-level statuses, including TX and RX statuses.
 
         Returns:
-           Dictionary
+            dict: A dictionary containing boolean values for various status fields, as defined in
+                the TRANSCEIVER_STATUS table in STATE_DB.
+        If there is an issue with reading the xcvr, None should be returned.
         """
         trans_status = super(CCmisApi,self).get_transceiver_status()
         trans_status['tuning_in_progress'] = self.get_tuning_in_progress()
@@ -415,13 +420,14 @@ class CCmisApi(CmisApi):
 
     def get_transceiver_status_flags(self):
         """
-        Retrieves transceiver status flags for this SFP module.
-        This method accesses latched registers to gather information
-        about the current state of the transceiver,
-        including both module-level and datapath-level states.
+        Retrieves the current flag status of the transceiver module.
+
+        Accesses latched registers to gather information about both
+        module-level and datapath-level states (including TX/RX related flags).
 
         Returns:
-            Dictionary
+            dict: A dictionary containing boolean values for various flags, as defined in
+                the TRANSCEIVER_STATUS_FLAGS table in STATE_DB.
         """
         status_flags_dict = super().get_transceiver_status_flags()
 

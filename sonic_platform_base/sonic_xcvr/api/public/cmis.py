@@ -358,7 +358,16 @@ class CmisApi(XcvrApi):
         return_dict["inactive_firmware"] = InactiveFirmware
         return return_dict
 
-    def get_transceiver_bulk_status(self):
+    def get_transceiver_dom_real_value(self):
+        """
+        Retrieves DOM sensor values for this transceiver
+
+        The returned dictionary contains floating-point values corresponding to various
+        DOM sensor readings, as defined in the TRANSCEIVER_DOM_SENSOR table in STATE_DB.
+
+        Returns:
+            Dictionary
+        """
         temp = self.get_module_temperature()
         voltage = self.get_voltage()
         tx_bias = self.get_tx_bias()
@@ -391,6 +400,16 @@ class CmisApi(XcvrApi):
         return bulk_status
 
     def get_transceiver_dom_flags(self):
+        """
+        Retrieves the DOM flags for this xcvr
+
+        The returned dictionary contains boolean values representing various DOM flags.
+        All registers accessed by this function are latched and correspond to the
+        TRANSCEIVER_DOM_FLAG table in the STATE_DB.
+
+        Returns:
+            Dictionary
+        """
         dom_flag_dict = dict()
         module_flag = self.get_module_level_flag()
 
@@ -450,6 +469,15 @@ class CmisApi(XcvrApi):
         return dom_flag_dict
 
     def get_transceiver_threshold_info(self):
+        """
+        Retrieves threshold info for this xcvr
+
+        The returned dictionary contains floating-point values corresponding to various
+        DOM sensor threshold readings, as defined in the TRANSCEIVER_DOM_THRESHOLD table in STATE_DB.
+
+        Returns:
+            Dictionary
+        """
         threshold_info_keys = ['temphighalarm',    'temphighwarning',
                                'templowalarm',     'templowwarning',
                                'vcchighalarm',     'vcchighwarning',
@@ -2114,12 +2142,13 @@ class CmisApi(XcvrApi):
     def get_transceiver_status(self):
         """
         Retrieves the current status of the transceiver module.
-        This method accesses various non-latched registers to gather
-        information about the current state of the transceiver,
-        including both module-level and datapath-level states.
+
+        Accesses non-latched registers to gather information about the module's state,
+        fault causes, and datapath-level statuses, including TX and RX statuses.
 
         Returns:
-           Dictionary
+            dict: A dictionary containing boolean values for various status fields, as defined in
+                the TRANSCEIVER_STATUS table in STATE_DB.
         """
         trans_status = dict()
         trans_status['module_state'] = self.get_module_state()
@@ -2160,13 +2189,14 @@ class CmisApi(XcvrApi):
 
     def get_transceiver_status_flags(self):
         """
-        Retrieves transceiver status flags for this SFP module.
-        This method accesses latched registers to gather information
-        about the current state of the transceiver,
-        including both module-level and datapath-level states.
+        Retrieves the current flag status of the transceiver module.
+
+        Accesses latched registers to gather information about both
+        module-level and datapath-level states (including TX/RX related flags).
 
         Returns:
-            Dictionary
+            dict: A dictionary containing boolean values for various flags, as defined in
+                the TRANSCEIVER_STATUS_FLAGS table in STATE_DB.
         """
         status_flags_dict = dict()
         try:
