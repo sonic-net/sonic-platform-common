@@ -102,7 +102,7 @@ class Sff8636Api(XcvrApi):
     def get_transceiver_status_flags(self):
         """
         Get the transceiver status flags for all channels
-        All registers accessed in this function are non-latched
+        All registers accessed in this function are latched
 
         Returns:
             Dictionary
