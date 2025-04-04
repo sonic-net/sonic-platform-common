@@ -112,9 +112,12 @@ class XcvrApi(object):
         """
         raise NotImplementedError
 
-    def get_transceiver_bulk_status(self):
+    def get_transceiver_dom_real_value(self):
         """
-        Retrieves bulk status info for this xcvr
+        Retrieves DOM sensor values for this transceiver
+
+        The returned dictionary contains floating-point values corresponding to various
+        DOM sensor readings, as defined in the TRANSCEIVER_DOM_SENSOR table in STATE_DB.
 
         Returns:
             A dict containing the following keys/values :
@@ -139,14 +142,21 @@ class XcvrApi(object):
         """
         Retrieves the DOM flags for this xcvr
 
+        The returned dictionary contains boolean values representing various DOM flags.
+        All registers accessed by this function are latched and correspond to the
+        TRANSCEIVER_DOM_FLAG table in the STATE_DB.
+
         Returns:
-            A dict containing dom flags for this xcvr
+            Dictionary
         """
         raise NotImplementedError
 
     def get_transceiver_threshold_info(self):
         """
         Retrieves threshold info for this xcvr
+
+        The returned dictionary contains floating-point values corresponding to various
+        DOM sensor threshold readings, as defined in the TRANSCEIVER_DOM_THRESHOLD table in STATE_DB.
 
         Returns:
             A dict containing the following keys/values :
@@ -181,111 +191,28 @@ class XcvrApi(object):
 
     def get_transceiver_status(self):
         """
-        Retrieves transceiver status of this SFP
+        Retrieves the current status of the transceiver module.
+
+        Accesses non-latched registers to gather information about the module's state,
+        fault causes, and datapath-level statuses, including TX and RX statuses.
 
         Returns:
-            A dict which may contain following keys/values (there could be more for C-CMIS) :
-        ================================================================================
-        key                          = TRANSCEIVER_STATUS|ifname        ; Error information for module on port
-        ; field                      = value
-        module_state                 = 1*255VCHAR                       ; current module state (ModuleLowPwr, ModulePwrUp, ModuleReady, ModulePwrDn, Fault)
-        module_fault_cause           = 1*255VCHAR                       ; reason of entering the module fault state
-        datapath_firmware_fault      = BOOLEAN                          ; datapath (DSP) firmware fault
-        module_firmware_fault        = BOOLEAN                          ; module firmware fault
-        module_state_changed         = BOOLEAN                          ; module state changed
-        datapath_hostlane1           = 1*255VCHAR                       ; data path state indicator on host lane 1
-        datapath_hostlane2           = 1*255VCHAR                       ; data path state indicator on host lane 2
-        datapath_hostlane3           = 1*255VCHAR                       ; data path state indicator on host lane 3
-        datapath_hostlane4           = 1*255VCHAR                       ; data path state indicator on host lane 4
-        datapath_hostlane5           = 1*255VCHAR                       ; data path state indicator on host lane 5
-        datapath_hostlane6           = 1*255VCHAR                       ; data path state indicator on host lane 6
-        datapath_hostlane7           = 1*255VCHAR                       ; data path state indicator on host lane 7
-        datapath_hostlane8           = 1*255VCHAR                       ; data path state indicator on host lane 8
-        txoutput_status              = BOOLEAN                          ; tx output status on media lane
-        rxoutput_status_hostlane1    = BOOLEAN                          ; rx output status on host lane 1
-        rxoutput_status_hostlane2    = BOOLEAN                          ; rx output status on host lane 2
-        rxoutput_status_hostlane3    = BOOLEAN                          ; rx output status on host lane 3
-        rxoutput_status_hostlane4    = BOOLEAN                          ; rx output status on host lane 4
-        rxoutput_status_hostlane5    = BOOLEAN                          ; rx output status on host lane 5
-        rxoutput_status_hostlane6    = BOOLEAN                          ; rx output status on host lane 6
-        rxoutput_status_hostlane7    = BOOLEAN                          ; rx output status on host lane 7
-        rxoutput_status_hostlane8    = BOOLEAN                          ; rx output status on host lane 8
-        txfault                      = BOOLEAN                          ; tx fault flag on media lane
-        txlos_hostlane1              = BOOLEAN                          ; tx loss of signal flag on host lane 1
-        txlos_hostlane2              = BOOLEAN                          ; tx loss of signal flag on host lane 2
-        txlos_hostlane3              = BOOLEAN                          ; tx loss of signal flag on host lane 3
-        txlos_hostlane4              = BOOLEAN                          ; tx loss of signal flag on host lane 4
-        txlos_hostlane5              = BOOLEAN                          ; tx loss of signal flag on host lane 5
-        txlos_hostlane6              = BOOLEAN                          ; tx loss of signal flag on host lane 6
-        txlos_hostlane7              = BOOLEAN                          ; tx loss of signal flag on host lane 7
-        txlos_hostlane8              = BOOLEAN                          ; tx loss of signal flag on host lane 8
-        txcdrlol_hostlane1           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 1
-        txcdrlol_hostlane2           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 2
-        txcdrlol_hostlane3           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 3
-        txcdrlol_hostlane4           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 4
-        txcdrlol_hostlane5           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 5
-        txcdrlol_hostlane6           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 6
-        txcdrlol_hostlane7           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 7
-        txcdrlol_hostlane8           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 8
-        rxlos                        = BOOLEAN                          ; rx loss of signal flag on media lane
-        rxcdrlol                     = BOOLEAN                          ; rx clock and data recovery loss of lock on media lane
-        config_state_hostlane1       = 1*255VCHAR                       ; configuration status for the data path of host line 1
-        config_state_hostlane2       = 1*255VCHAR                       ; configuration status for the data path of host line 2
-        config_state_hostlane3       = 1*255VCHAR                       ; configuration status for the data path of host line 3
-        config_state_hostlane4       = 1*255VCHAR                       ; configuration status for the data path of host line 4
-        config_state_hostlane5       = 1*255VCHAR                       ; configuration status for the data path of host line 5
-        config_state_hostlane6       = 1*255VCHAR                       ; configuration status for the data path of host line 6
-        config_state_hostlane7       = 1*255VCHAR                       ; configuration status for the data path of host line 7
-        config_state_hostlane8       = 1*255VCHAR                       ; configuration status for the data path of host line 8
-        dpinit_pending_hostlane1     = BOOLEAN                          ; data path configuration updated on host lane 1
-        dpinit_pending_hostlane2     = BOOLEAN                          ; data path configuration updated on host lane 2
-        dpinit_pending_hostlane3     = BOOLEAN                          ; data path configuration updated on host lane 3
-        dpinit_pending_hostlane4     = BOOLEAN                          ; data path configuration updated on host lane 4
-        dpinit_pending_hostlane5     = BOOLEAN                          ; data path configuration updated on host lane 5
-        dpinit_pending_hostlane6     = BOOLEAN                          ; data path configuration updated on host lane 6
-        dpinit_pending_hostlane7     = BOOLEAN                          ; data path configuration updated on host lane 7
-        dpinit_pending_hostlane8     = BOOLEAN                          ; data path configuration updated on host lane 8
-        temphighalarm_flag           = BOOLEAN                          ; temperature high alarm flag
-        temphighwarning_flag         = BOOLEAN                          ; temperature high warning flag
-        templowalarm_flag            = BOOLEAN                          ; temperature low alarm flag
-        templowwarning_flag          = BOOLEAN                          ; temperature low warning flag
-        vcchighalarm_flag            = BOOLEAN                          ; vcc high alarm flag
-        vcchighwarning_flag          = BOOLEAN                          ; vcc high warning flag
-        vcclowalarm_flag             = BOOLEAN                          ; vcc low alarm flag
-        vcclowwarning_flag           = BOOLEAN                          ; vcc low warning flag
-        txpowerhighalarm_flag        = BOOLEAN                          ; tx power high alarm flag
-        txpowerlowalarm_flag         = BOOLEAN                          ; tx power low alarm flag
-        txpowerhighwarning_flag      = BOOLEAN                          ; tx power high warning flag
-        txpowerlowwarning_flag       = BOOLEAN                          ; tx power low alarm flag
-        rxpowerhighalarm_flag        = BOOLEAN                          ; rx power high alarm flag
-        rxpowerlowalarm_flag         = BOOLEAN                          ; rx power low alarm flag
-        rxpowerhighwarning_flag      = BOOLEAN                          ; rx power high warning flag
-        rxpowerlowwarning_flag       = BOOLEAN                          ; rx power low warning flag
-        txbiashighalarm_flag         = BOOLEAN                          ; tx bias high alarm flag
-        txbiaslowalarm_flag          = BOOLEAN                          ; tx bias low alarm flag
-        txbiashighwarning_flag       = BOOLEAN                          ; tx bias high warning flag
-        txbiaslowwarning_flag        = BOOLEAN                          ; tx bias low warning flag
-        lasertemphighalarm_flag      = BOOLEAN                          ; laser temperature high alarm flag
-        lasertemplowalarm_flag       = BOOLEAN                          ; laser temperature low alarm flag
-        lasertemphighwarning_flag    = BOOLEAN                          ; laser temperature high warning flag
-        lasertemplowwarning_flag     = BOOLEAN                          ; laser temperature low warning flag
-        prefecberhighalarm_flag      = BOOLEAN                          ; prefec ber high alarm flag
-        prefecberlowalarm_flag       = BOOLEAN                          ; prefec ber low alarm flag
-        prefecberhighwarning_flag    = BOOLEAN                          ; prefec ber high warning flag
-        prefecberlowwarning_flag     = BOOLEAN                          ; prefec ber low warning flag
-        postfecberhighalarm_flag     = BOOLEAN                          ; postfec ber high alarm flag
-        postfecberlowalarm_flag      = BOOLEAN                          ; postfec ber low alarm flag
-        postfecberhighwarning_flag   = BOOLEAN                          ; postfec ber high warning flag
-        postfecberlowwarning_flag    = BOOLEAN                          ; postfec ber low warning flag
-        ================================================================================
-
+            dict: A dictionary containing boolean values for various status fields, as defined in
+                the TRANSCEIVER_STATUS table in STATE_DB.
         If there is an issue with reading the xcvr, None should be returned.
         """
         raise NotImplementedError
 
     def get_transceiver_status_flags(self):
         """
-        Retrieves status flags of this xcvr
+        Retrieves the current flag status of the transceiver module.
+
+        Accesses latched registers to gather information about both
+        module-level and datapath-level states (including TX/RX related flags).
+
+        Returns:
+            dict: A dictionary containing boolean values for various flags, as defined in
+                the TRANSCEIVER_STATUS_FLAGS table in STATE_DB.
         """
         raise NotImplementedError
 

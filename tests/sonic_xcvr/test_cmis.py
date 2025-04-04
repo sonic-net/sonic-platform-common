@@ -1630,15 +1630,7 @@ class TestCmis(object):
                 [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
                 [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
                 True, True, True, True, True, True,
-                {'monitor value': 40},
-                {
-                    'Pre-FEC BER Average Media Input':{1:[0.001, 0.0125, 0, 0.01, 0, False, False, False, False]},
-                    'Errored Frames Minimum Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
-                    'Errored Frames Maximum Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
-                    'Errored Frames Average Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
-                    'Errored Frames Current Value Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
-                    'Pre-FEC BER Current Value Host Input':{1: [2.66e-09, 1e-05, 0.0, 1e-06, 0.0, False, False, False, False], 2: [1.0, 1e-05, 0.0, 1e-06, 0.0, False, False, False, False], 3: [1.0, 1e-05, 0.0, 1e-06, 0.0, False, False, False, False], 4: [1.0, 1e-05, 0.0, 1e-06, 0.0, False, False, False, False]},
-                }
+                {'monitor value': 40}
             ],
             {
                 'temperature': 50,
@@ -1649,16 +1641,7 @@ class TestCmis(object):
                 'rx5power': -10.0, 'rx6power': -10.0, 'rx7power': -10.0, 'rx8power': -10.0,
                 'tx1bias': 70, 'tx2bias': 70, 'tx3bias': 70, 'tx4bias': 70,
                 'tx5bias': 70, 'tx6bias': 70, 'tx7bias': 70, 'tx8bias': 70,
-                'laser_temperature': 40,
-                'prefec_ber_avg_media_input1': 0.001,
-                'errored_frames_min_media_input1': 0,
-                'errored_frames_max_media_input1': 0,
-                'errored_frames_avg_media_input1': 0,
-                'errored_frames_curr_media_input1': 0,
-                'prefec_ber_curr_host_input1': 2.66e-09,
-                'prefec_ber_curr_host_input2': 1.0,
-                'prefec_ber_curr_host_input3': 1.0,
-                'prefec_ber_curr_host_input4': 1.0
+                'laser_temperature': 40
             }
         ),
         (
@@ -1696,7 +1679,7 @@ class TestCmis(object):
             }
         )
     ])
-    def test_get_transceiver_bulk_status(self, mock_response, expected):
+    def test_get_transceiver_dom_real_value(self, mock_response, expected):
         self.api.get_module_temperature = MagicMock()
         self.api.get_module_temperature.return_value = mock_response[0]
         self.api.get_voltage = MagicMock()
@@ -1721,9 +1704,7 @@ class TestCmis(object):
         self.api.get_rx_power_support.return_value = mock_response[10]
         self.api.get_laser_temperature = MagicMock()
         self.api.get_laser_temperature.return_value = mock_response[11]
-        self.api.get_vdm = MagicMock()
-        self.api.get_vdm.return_value = mock_response[12]
-        result = self.api.get_transceiver_bulk_status()
+        result = self.api.get_transceiver_dom_real_value()
         assert result == expected
 
     @pytest.mark.parametrize(
@@ -1777,114 +1758,114 @@ class TestCmis(object):
                 },
                 (0, 1, 0),
                 {
-                    'temphighalarm': True,
-                    'templowalarm': False,
-                    'temphighwarning': True,
-                    'templowwarning': False,
-                    'vcchighalarm': True,
-                    'vcclowalarm': False,
-                    'vcchighwarning': True,
-                    'vcclowwarning': False,
-                    'txpowerhighalarm1': True,
-                    'txpowerlowalarm1': False,
-                    'txpowerhighwarning1': True,
-                    'txpowerlowwarning1': False,
-                    'txpowerhighalarm2': False,
-                    'txpowerlowalarm2': True,
-                    'txpowerhighwarning2': False,
-                    'txpowerlowwarning2': True,
-                    'txpowerhighalarm3': True,
-                    'txpowerlowalarm3': False,
-                    'txpowerhighwarning3': True,
-                    'txpowerlowwarning3': False,
-                    'txpowerhighalarm4': False,
-                    'txpowerlowalarm4': True,
-                    'txpowerhighwarning4': False,
-                    'txpowerlowwarning4': True,
-                    'txpowerhighalarm5': True,
-                    'txpowerlowalarm5': False,
-                    'txpowerhighwarning5': True,
-                    'txpowerlowwarning5': False,
-                    'txpowerhighalarm6': False,
-                    'txpowerlowalarm6': True,
-                    'txpowerhighwarning6': False,
-                    'txpowerlowwarning6': True,
-                    'txpowerhighalarm7': True,
-                    'txpowerlowalarm7': False,
-                    'txpowerhighwarning7': True,
-                    'txpowerlowwarning7': False,
-                    'txpowerhighalarm8': False,
-                    'txpowerlowalarm8': True,
-                    'txpowerhighwarning8': False,
-                    'txpowerlowwarning8': True,
-                    'rxpowerhighalarm1': True,
-                    'rxpowerlowalarm1': False,
-                    'rxpowerhighwarning1': True,
-                    'rxpowerlowwarning1': False,
-                    'rxpowerhighalarm2': False,
-                    'rxpowerlowalarm2': True,
-                    'rxpowerhighwarning2': False,
-                    'rxpowerlowwarning2': True,
-                    'rxpowerhighalarm3': True,
-                    'rxpowerlowalarm3': False,
-                    'rxpowerhighwarning3': True,
-                    'rxpowerlowwarning3': False,
-                    'rxpowerhighalarm4': False,
-                    'rxpowerlowalarm4': True,
-                    'rxpowerhighwarning4': False,
-                    'rxpowerlowwarning4': True,
-                    'rxpowerhighalarm5': True,
-                    'rxpowerlowalarm5': False,
-                    'rxpowerhighwarning5': True,
-                    'rxpowerlowwarning5': False,
-                    'rxpowerhighalarm6': False,
-                    'rxpowerlowalarm6': True,
-                    'rxpowerhighwarning6': False,
-                    'rxpowerlowwarning6': True,
-                    'rxpowerhighalarm7': True,
-                    'rxpowerlowalarm7': False,
-                    'rxpowerhighwarning7': True,
-                    'rxpowerlowwarning7': False,
-                    'rxpowerhighalarm8': False,
-                    'rxpowerlowalarm8': True,
-                    'rxpowerhighwarning8': False,
-                    'rxpowerlowwarning8': True,
-                    'txbiashighalarm1': True,
-                    'txbiaslowalarm1': False,
-                    'txbiashighwarning1': True,
-                    'txbiaslowwarning1': False,
-                    'txbiashighalarm2': False,
-                    'txbiaslowalarm2': True,
-                    'txbiashighwarning2': False,
-                    'txbiaslowwarning2': True,
-                    'txbiashighalarm3': True,
-                    'txbiaslowalarm3': False,
-                    'txbiashighwarning3': True,
-                    'txbiaslowwarning3': False,
-                    'txbiashighalarm4': False,
-                    'txbiaslowalarm4': True,
-                    'txbiashighwarning4': False,
-                    'txbiaslowwarning4': True,
-                    'txbiashighalarm5': True,
-                    'txbiaslowalarm5': False,
-                    'txbiashighwarning5': True,
-                    'txbiaslowwarning5': False,
-                    'txbiashighalarm6': False,
-                    'txbiaslowalarm6': True,
-                    'txbiashighwarning6': False,
-                    'txbiaslowwarning6': True,
-                    'txbiashighalarm7': True,
-                    'txbiaslowalarm7': False,
-                    'txbiashighwarning7': True,
-                    'txbiaslowwarning7': False,
-                    'txbiashighalarm8': False,
-                    'txbiaslowalarm8': True,
-                    'txbiashighwarning8': False,
-                    'txbiaslowwarning8': True,
-                    'lasertemphighalarm': True,
-                    'lasertemplowalarm': False,
-                    'lasertemphighwarning': True,
-                    'lasertemplowwarning': False
+                    'tempHAlarm': True,
+                    'tempLAlarm': False,
+                    'tempHWarn': True,
+                    'tempLWarn': False,
+                    'vccHAlarm': True,
+                    'vccLAlarm': False,
+                    'vccHWarn': True,
+                    'vccLWarn': False,
+                    'tx1powerHAlarm': True,
+                    'tx1powerLAlarm': False,
+                    'tx1powerHWarn': True,
+                    'tx1powerLWarn': False,
+                    'tx2powerHAlarm': False,
+                    'tx2powerLAlarm': True,
+                    'tx2powerHWarn': False,
+                    'tx2powerLWarn': True,
+                    'tx3powerHAlarm': True,
+                    'tx3powerLAlarm': False,
+                    'tx3powerHWarn': True,
+                    'tx3powerLWarn': False,
+                    'tx4powerHAlarm': False,
+                    'tx4powerLAlarm': True,
+                    'tx4powerHWarn': False,
+                    'tx4powerLWarn': True,
+                    'tx5powerHAlarm': True,
+                    'tx5powerLAlarm': False,
+                    'tx5powerHWarn': True,
+                    'tx5powerLWarn': False,
+                    'tx6powerHAlarm': False,
+                    'tx6powerLAlarm': True,
+                    'tx6powerHWarn': False,
+                    'tx6powerLWarn': True,
+                    'tx7powerHAlarm': True,
+                    'tx7powerLAlarm': False,
+                    'tx7powerHWarn': True,
+                    'tx7powerLWarn': False,
+                    'tx8powerHAlarm': False,
+                    'tx8powerLAlarm': True,
+                    'tx8powerHWarn': False,
+                    'tx8powerLWarn': True,
+                    'rx1powerHAlarm': True,
+                    'rx1powerLAlarm': False,
+                    'rx1powerHWarn': True,
+                    'rx1powerLWarn': False,
+                    'rx2powerHAlarm': False,
+                    'rx2powerLAlarm': True,
+                    'rx2powerHWarn': False,
+                    'rx2powerLWarn': True,
+                    'rx3powerHAlarm': True,
+                    'rx3powerLAlarm': False,
+                    'rx3powerHWarn': True,
+                    'rx3powerLWarn': False,
+                    'rx4powerHAlarm': False,
+                    'rx4powerLAlarm': True,
+                    'rx4powerHWarn': False,
+                    'rx4powerLWarn': True,
+                    'rx5powerHAlarm': True,
+                    'rx5powerLAlarm': False,
+                    'rx5powerHWarn': True,
+                    'rx5powerLWarn': False,
+                    'rx6powerHAlarm': False,
+                    'rx6powerLAlarm': True,
+                    'rx6powerHWarn': False,
+                    'rx6powerLWarn': True,
+                    'rx7powerHAlarm': True,
+                    'rx7powerLAlarm': False,
+                    'rx7powerHWarn': True,
+                    'rx7powerLWarn': False,
+                    'rx8powerHAlarm': False,
+                    'rx8powerLAlarm': True,
+                    'rx8powerHWarn': False,
+                    'rx8powerLWarn': True,
+                    'tx1biasHAlarm': True,
+                    'tx1biasLAlarm': False,
+                    'tx1biasHWarn': True,
+                    'tx1biasLWarn': False,
+                    'tx2biasHAlarm': False,
+                    'tx2biasLAlarm': True,
+                    'tx2biasHWarn': False,
+                    'tx2biasLWarn': True,
+                    'tx3biasHAlarm': True,
+                    'tx3biasLAlarm': False,
+                    'tx3biasHWarn': True,
+                    'tx3biasLWarn': False,
+                    'tx4biasHAlarm': False,
+                    'tx4biasLAlarm': True,
+                    'tx4biasHWarn': False,
+                    'tx4biasLWarn': True,
+                    'tx5biasHAlarm': True,
+                    'tx5biasLAlarm': False,
+                    'tx5biasHWarn': True,
+                    'tx5biasLWarn': False,
+                    'tx6biasHAlarm': False,
+                    'tx6biasLAlarm': True,
+                    'tx6biasHWarn': False,
+                    'tx6biasLWarn': True,
+                    'tx7biasHAlarm': True,
+                    'tx7biasLAlarm': False,
+                    'tx7biasHWarn': True,
+                    'tx7biasLWarn': False,
+                    'tx8biasHAlarm': False,
+                    'tx8biasLAlarm': True,
+                    'tx8biasHWarn': False,
+                    'tx8biasLWarn': True,
+                    'lasertempHAlarm': True,
+                    'lasertempLAlarm': False,
+                    'lasertempHWarn': True,
+                    'lasertempLWarn': False
                 }
             ),
         ]
@@ -1895,6 +1876,7 @@ class TestCmis(object):
         self.api.get_rx_power_flag = MagicMock(return_value=rx_power_flag_dict)
         self.api.get_tx_bias_flag = MagicMock(return_value=tx_bias_flag_dict)
         self.api.get_aux_mon_type = MagicMock(return_value=aux_mon_types)
+        self.api.is_flat_memory = MagicMock(return_value=False)
 
         result = self.api.get_transceiver_dom_flags()
         assert result == expected_result
@@ -1912,10 +1894,6 @@ class TestCmis(object):
                 },
                 1,
                 {'high alarm': 80, 'low alarm': 10, 'high warn': 75, 'low warn': 20},
-                {
-                    'Pre-FEC BER Average Media Input':{1:[0.001, 0.0125, 0, 0.01, 0, False, False, False, False]},
-                    'Errored Frames Average Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
-                }
             ],
             {
                 'temphighalarm': 80, 'templowalarm': 0, 'temphighwarning': 75, 'templowwarning': 10,
@@ -1924,8 +1902,6 @@ class TestCmis(object):
                 'rxpowerhighalarm': 0.0, 'rxpowerlowalarm': -20.0, 'rxpowerhighwarning': 0.0, 'rxpowerlowwarning': -20.0,
                 'txbiashighalarm': 180, 'txbiaslowalarm': 20, 'txbiashighwarning': 160, 'txbiaslowwarning': 40,
                 'lasertemphighalarm': 80, 'lasertemplowalarm': 10, 'lasertemphighwarning': 75, 'lasertemplowwarning': 20,
-                'prefecberhighalarm': 0.0125, 'prefecberlowalarm': 0, 'prefecberhighwarning': 0.01, 'prefecberlowwarning': 0,
-                'postfecberhighalarm': 1, 'postfecberlowalarm': 0, 'postfecberhighwarning': 1, 'postfecberlowwarning': 0,
             }
         ),
         ([None, None, None, None, None], None),
@@ -1948,48 +1924,14 @@ class TestCmis(object):
         self.api.xcvr_eeprom.read.side_effect = mock_response[1:3]
         self.api.get_laser_temperature = MagicMock()
         self.api.get_laser_temperature.return_value = mock_response[3]
-        self.api.get_vdm = MagicMock()
-        self.api.get_vdm.return_value = mock_response[4]
         result = self.api.get_transceiver_threshold_info()
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected",[
         (
             [
-                'ModuleReady', 'No Fault detected', (False, False, True),
-                {
-                    'case_temp_flags': {
-                        'case_temp_high_alarm_flag': False,
-                        'case_temp_low_alarm_flag': False,
-                        'case_temp_high_warn_flag': False,
-                        'case_temp_low_warn_flag': False,
-                    },
-                    'voltage_flags': {
-                        'voltage_high_alarm_flag': False,
-                        'voltage_low_alarm_flag': False,
-                        'voltage_high_warn_flag': False,
-                        'voltage_low_warn_flag': False,
-                    },
-                    'aux1_flags': {
-                        'aux1_high_alarm_flag': False,
-                        'aux1_low_alarm_flag': False,
-                        'aux1_high_warn_flag': False,
-                        'aux1_low_warn_flag': False,
-                    },
-                    'aux2_flags': {
-                        'aux2_high_alarm_flag': False,
-                        'aux2_low_alarm_flag': False,
-                        'aux2_high_warn_flag': False,
-                        'aux2_low_warn_flag': False,
-                    },
-                    'aux3_flags': {
-                        'aux3_high_alarm_flag': False,
-                        'aux3_low_alarm_flag': False,
-                        'aux3_high_warn_flag': False,
-                        'aux3_low_warn_flag': False,
-                    }
-                },
-                (0, 0, 0), False,
+                'ModuleReady', 'No Fault detected',
+                False,
                 {'DP1State': 'DataPathActivated', 'DP2State': 'DataPathActivated',
                  'DP3State': 'DataPathActivated', 'DP4State': 'DataPathActivated',
                  'DP5State': 'DataPathActivated', 'DP6State': 'DataPathActivated',
@@ -2006,11 +1948,6 @@ class TestCmis(object):
                     'RxOutputStatus5': True, 'RxOutputStatus6': True,
                     'RxOutputStatus7': True, 'RxOutputStatus8': True
                 },
-                [False, False, False, False, False, False, False, False],
-                [False, False, False, False, False, False, False, False],
-                [False, False, False, False, False, False, False, False],
-                [False, False, False, False, False, False, False, False],
-                [False, False, False, False, False, False, False, False],
                 {
                     'ConfigStatusLane1': 'ConfigSuccess', 'ConfigStatusLane2': 'ConfigSuccess',
                     'ConfigStatusLane3': 'ConfigSuccess', 'ConfigStatusLane4': 'ConfigSuccess',
@@ -2023,99 +1960,12 @@ class TestCmis(object):
                     'DPInitPending5': False, 'DPInitPending6': False,
                     'DPInitPending7': False, 'DPInitPending8': False
                 },
-
-                {
-                    'tx_power_high_alarm': {
-                        'TxPowerHighAlarmFlag1': False, 'TxPowerHighAlarmFlag2': False,
-                        'TxPowerHighAlarmFlag3': False, 'TxPowerHighAlarmFlag4': False,
-                        'TxPowerHighAlarmFlag5': False, 'TxPowerHighAlarmFlag6': False,
-                        'TxPowerHighAlarmFlag7': False, 'TxPowerHighAlarmFlag8': False,
-                    },
-                    'tx_power_low_alarm': {
-                        'TxPowerLowAlarmFlag1': False, 'TxPowerLowAlarmFlag2': False,
-                        'TxPowerLowAlarmFlag3': False, 'TxPowerLowAlarmFlag4': False,
-                        'TxPowerLowAlarmFlag5': False, 'TxPowerLowAlarmFlag6': False,
-                        'TxPowerLowAlarmFlag7': False, 'TxPowerLowAlarmFlag8': False,
-                    },
-                    'tx_power_high_warn': {
-                        'TxPowerHighWarnFlag1': False, 'TxPowerHighWarnFlag2': False,
-                        'TxPowerHighWarnFlag3': False, 'TxPowerHighWarnFlag4': False,
-                        'TxPowerHighWarnFlag5': False, 'TxPowerHighWarnFlag6': False,
-                        'TxPowerHighWarnFlag7': False, 'TxPowerHighWarnFlag8': False,
-                    },
-                    'tx_power_low_warn': {
-                        'TxPowerLowWarnFlag1': False, 'TxPowerLowWarnFlag2': False,
-                        'TxPowerLowWarnFlag3': False, 'TxPowerLowWarnFlag4': False,
-                        'TxPowerLowWarnFlag5': False, 'TxPowerLowWarnFlag6': False,
-                        'TxPowerLowWarnFlag7': False, 'TxPowerLowWarnFlag8': False,
-                    },
-                },
-                {
-                    'rx_power_high_alarm': {
-                        'RxPowerHighAlarmFlag1': False, 'RxPowerHighAlarmFlag2': False,
-                        'RxPowerHighAlarmFlag3': False, 'RxPowerHighAlarmFlag4': False,
-                        'RxPowerHighAlarmFlag5': False, 'RxPowerHighAlarmFlag6': False,
-                        'RxPowerHighAlarmFlag7': False, 'RxPowerHighAlarmFlag8': False,
-                    },
-                    'rx_power_low_alarm': {
-                        'RxPowerLowAlarmFlag1': False, 'RxPowerLowAlarmFlag2': False,
-                        'RxPowerLowAlarmFlag3': False, 'RxPowerLowAlarmFlag4': False,
-                        'RxPowerLowAlarmFlag5': False, 'RxPowerLowAlarmFlag6': False,
-                        'RxPowerLowAlarmFlag7': False, 'RxPowerLowAlarmFlag8': False,
-                    },
-                    'rx_power_high_warn': {
-                        'RxPowerHighWarnFlag1': False, 'RxPowerHighWarnFlag2': False,
-                        'RxPowerHighWarnFlag3': False, 'RxPowerHighWarnFlag4': False,
-                        'RxPowerHighWarnFlag5': False, 'RxPowerHighWarnFlag6': False,
-                        'RxPowerHighWarnFlag7': False, 'RxPowerHighWarnFlag8': False,
-                    },
-                    'rx_power_low_warn': {
-                        'RxPowerLowWarnFlag1': False, 'RxPowerLowWarnFlag2': False,
-                        'RxPowerLowWarnFlag3': False, 'RxPowerLowWarnFlag4': False,
-                        'RxPowerLowWarnFlag5': False, 'RxPowerLowWarnFlag6': False,
-                        'RxPowerLowWarnFlag7': False, 'RxPowerLowWarnFlag8': False,
-                    },
-                },
-                {
-                    'tx_bias_high_alarm': {
-                        'TxBiasHighAlarmFlag1': False, 'TxBiasHighAlarmFlag2': False,
-                        'TxBiasHighAlarmFlag3': False, 'TxBiasHighAlarmFlag4': False,
-                        'TxBiasHighAlarmFlag5': False, 'TxBiasHighAlarmFlag6': False,
-                        'TxBiasHighAlarmFlag7': False, 'TxBiasHighAlarmFlag8': False,
-                    },
-                    'tx_bias_low_alarm': {
-                        'TxBiasLowAlarmFlag1': False, 'TxBiasLowAlarmFlag2': False,
-                        'TxBiasLowAlarmFlag3': False, 'TxBiasLowAlarmFlag4': False,
-                        'TxBiasLowAlarmFlag5': False, 'TxBiasLowAlarmFlag6': False,
-                        'TxBiasLowAlarmFlag7': False, 'TxBiasLowAlarmFlag8': False,
-                    },
-                    'tx_bias_high_warn': {
-                        'TxBiasHighWarnFlag1': False, 'TxBiasHighWarnFlag2': False,
-                        'TxBiasHighWarnFlag3': False, 'TxBiasHighWarnFlag4': False,
-                        'TxBiasHighWarnFlag5': False, 'TxBiasHighWarnFlag6': False,
-                        'TxBiasHighWarnFlag7': False, 'TxBiasHighWarnFlag8': False,
-                    },
-                    'tx_bias_low_warn': {
-                        'TxBiasLowWarnFlag1': False, 'TxBiasLowWarnFlag2': False,
-                        'TxBiasLowWarnFlag3': False, 'TxBiasLowWarnFlag4': False,
-                        'TxBiasLowWarnFlag5': False, 'TxBiasLowWarnFlag6': False,
-                        'TxBiasLowWarnFlag7': False, 'TxBiasLowWarnFlag8': False,
-                    },
-                },
-                {
-                    'Pre-FEC BER Average Media Input':{1:[0.001, 0.0125, 0, 0.01, 0, False, False, False, False]},
-                    'Errored Frames Average Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
-                },
                 0, [False, False, False, False, False, False, False, False],
                 [False, True, False, False, False, False, False, False],
-                [False, False, False, False, False, False, False, False]
             ],
             {
                 'module_state': 'ModuleReady',
                 'module_fault_cause': 'No Fault detected',
-                'datapath_firmware_fault': False,
-                'module_firmware_fault': False,
-                'module_state_changed': True,
                 'DP1State': 'DataPathActivated',
                 'DP2State': 'DataPathActivated',
                 'DP3State': 'DataPathActivated',
@@ -2124,22 +1974,22 @@ class TestCmis(object):
                 'DP6State': 'DataPathActivated',
                 'DP7State': 'DataPathActivated',
                 'DP8State': 'DataPathActivated',
-                'txoutput_status1': True,
-                'txoutput_status2': True,
-                'txoutput_status3': True,
-                'txoutput_status4': True,
-                'txoutput_status5': True,
-                'txoutput_status6': True,
-                'txoutput_status7': True,
-                'txoutput_status8': True,
-                'rxoutput_status_hostlane1': True,
-                'rxoutput_status_hostlane2': True,
-                'rxoutput_status_hostlane3': True,
-                'rxoutput_status_hostlane4': True,
-                'rxoutput_status_hostlane5': True,
-                'rxoutput_status_hostlane6': True,
-                'rxoutput_status_hostlane7': True,
-                'rxoutput_status_hostlane8': True,
+                'tx1OutputStatus': True,
+                'tx2OutputStatus': True,
+                'tx3OutputStatus': True,
+                'tx4OutputStatus': True,
+                'tx5OutputStatus': True,
+                'tx6OutputStatus': True,
+                'tx7OutputStatus': True,
+                'tx8OutputStatus': True,
+                'rx1OutputStatusHostlane': True,
+                'rx2OutputStatusHostlane': True,
+                'rx3OutputStatusHostlane': True,
+                'rx4OutputStatusHostlane': True,
+                'rx5OutputStatusHostlane': True,
+                'rx6OutputStatusHostlane': True,
+                'rx7OutputStatusHostlane': True,
+                'rx8OutputStatusHostlane': True,
                 "tx_disabled_channel": 0,
                 "tx1disable": False,
                 "tx2disable": False,
@@ -2149,54 +1999,6 @@ class TestCmis(object):
                 "tx6disable": False,
                 "tx7disable": False,
                 "tx8disable": False,
-                'txfault1': False,
-                'txfault2': False,
-                'txfault3': False,
-                'txfault4': False,
-                'txfault5': False,
-                'txfault6': False,
-                'txfault7': False,
-                'txfault8': False,
-                'txlos_hostlane1': False,
-                'txlos_hostlane2': False,
-                'txlos_hostlane3': False,
-                'txlos_hostlane4': False,
-                'txlos_hostlane5': False,
-                'txlos_hostlane6': False,
-                'txlos_hostlane7': False,
-                'txlos_hostlane8': False,
-                'txcdrlol_hostlane1': False,
-                'txcdrlol_hostlane2': False,
-                'txcdrlol_hostlane3': False,
-                'txcdrlol_hostlane4': False,
-                'txcdrlol_hostlane5': False,
-                'txcdrlol_hostlane6': False,
-                'txcdrlol_hostlane7': False,
-                'txcdrlol_hostlane8': False,
-                'rxlos1': False,
-                'rxlos2': False,
-                'rxlos3': False,
-                'rxlos4': False,
-                'rxlos5': False,
-                'rxlos6': False,
-                'rxlos7': False,
-                'rxlos8': False,
-                'rxcdrlol1': False,
-                'rxcdrlol2': False,
-                'rxcdrlol3': False,
-                'rxcdrlol4': False,
-                'rxcdrlol5': False,
-                'rxcdrlol6': False,
-                'rxcdrlol7': False,
-                'rxcdrlol8': False,
-                'tx_eq_fault1': False,
-                'tx_eq_fault2': False,
-                'tx_eq_fault3': False,
-                'tx_eq_fault4': False,
-                'tx_eq_fault5': False,
-                'tx_eq_fault6': False,
-                'tx_eq_fault7': False,
-                'tx_eq_fault8': False,
                 'config_state_hostlane1': 'ConfigSuccess',
                 'config_state_hostlane2': 'ConfigSuccess',
                 'config_state_hostlane3': 'ConfigSuccess',
@@ -2221,102 +2023,12 @@ class TestCmis(object):
                 'dpinit_pending_hostlane6': False,
                 'dpinit_pending_hostlane7': False,
                 'dpinit_pending_hostlane8': False,
-                'temphighalarm_flag': False, 'templowalarm_flag': False,
-                'temphighwarning_flag': False, 'templowwarning_flag': False,
-                'vcchighalarm_flag': False, 'vcclowalarm_flag': False,
-                'vcchighwarning_flag': False, 'vcclowwarning_flag': False,
-                'lasertemphighalarm_flag': False, 'lasertemplowalarm_flag': False,
-                'lasertemphighwarning_flag': False, 'lasertemplowwarning_flag': False,
-                'txpowerhighalarm_flag1': False, 'txpowerlowalarm_flag1': False,
-                'txpowerhighwarning_flag1': False, 'txpowerlowwarning_flag1': False,
-                'txpowerhighalarm_flag2': False, 'txpowerlowalarm_flag2': False,
-                'txpowerhighwarning_flag2': False, 'txpowerlowwarning_flag2': False,
-                'txpowerhighalarm_flag3': False, 'txpowerlowalarm_flag3': False,
-                'txpowerhighwarning_flag3': False, 'txpowerlowwarning_flag3': False,
-                'txpowerhighalarm_flag4': False, 'txpowerlowalarm_flag4': False,
-                'txpowerhighwarning_flag4': False, 'txpowerlowwarning_flag4': False,
-                'txpowerhighalarm_flag5': False, 'txpowerlowalarm_flag5': False,
-                'txpowerhighwarning_flag5': False, 'txpowerlowwarning_flag5': False,
-                'txpowerhighalarm_flag6': False, 'txpowerlowalarm_flag6': False,
-                'txpowerhighwarning_flag6': False, 'txpowerlowwarning_flag6': False,
-                'txpowerhighalarm_flag7': False, 'txpowerlowalarm_flag7': False,
-                'txpowerhighwarning_flag7': False, 'txpowerlowwarning_flag7': False,
-                'txpowerhighalarm_flag8': False, 'txpowerlowalarm_flag8': False,
-                'txpowerhighwarning_flag8': False, 'txpowerlowwarning_flag8': False,
-                'rxpowerhighalarm_flag1': False, 'rxpowerlowalarm_flag1': False,
-                'rxpowerhighwarning_flag1': False, 'rxpowerlowwarning_flag1': False,
-                'rxpowerhighalarm_flag2': False, 'rxpowerlowalarm_flag2': False,
-                'rxpowerhighwarning_flag2': False, 'rxpowerlowwarning_flag2': False,
-                'rxpowerhighalarm_flag3': False, 'rxpowerlowalarm_flag3': False,
-                'rxpowerhighwarning_flag3': False, 'rxpowerlowwarning_flag3': False,
-                'rxpowerhighalarm_flag4': False, 'rxpowerlowalarm_flag4': False,
-                'rxpowerhighwarning_flag4': False, 'rxpowerlowwarning_flag4': False,
-                'rxpowerhighalarm_flag5': False, 'rxpowerlowalarm_flag5': False,
-                'rxpowerhighwarning_flag5': False, 'rxpowerlowwarning_flag5': False,
-                'rxpowerhighalarm_flag6': False, 'rxpowerlowalarm_flag6': False,
-                'rxpowerhighwarning_flag6': False, 'rxpowerlowwarning_flag6': False,
-                'rxpowerhighalarm_flag7': False, 'rxpowerlowalarm_flag7': False,
-                'rxpowerhighwarning_flag7': False, 'rxpowerlowwarning_flag7': False,
-                'rxpowerhighalarm_flag8': False, 'rxpowerlowalarm_flag8': False,
-                'rxpowerhighwarning_flag8': False, 'rxpowerlowwarning_flag8': False,
-                'txbiashighalarm_flag1': False, 'txbiaslowalarm_flag1': False,
-                'txbiashighwarning_flag1': False, 'txbiaslowwarning_flag1': False,
-                'txbiashighalarm_flag2': False, 'txbiaslowalarm_flag2': False,
-                'txbiashighwarning_flag2': False, 'txbiaslowwarning_flag2': False,
-                'txbiashighalarm_flag3': False, 'txbiaslowalarm_flag3': False,
-                'txbiashighwarning_flag3': False, 'txbiaslowwarning_flag3': False,
-                'txbiashighalarm_flag4': False, 'txbiaslowalarm_flag4': False,
-                'txbiashighwarning_flag4': False, 'txbiaslowwarning_flag4': False,
-                'txbiashighalarm_flag5': False, 'txbiaslowalarm_flag5': False,
-                'txbiashighwarning_flag5': False, 'txbiaslowwarning_flag5': False,
-                'txbiashighalarm_flag6': False, 'txbiaslowalarm_flag6': False,
-                'txbiashighwarning_flag6': False, 'txbiaslowwarning_flag6': False,
-                'txbiashighalarm_flag7': False, 'txbiaslowalarm_flag7': False,
-                'txbiashighwarning_flag7': False, 'txbiaslowwarning_flag7': False,
-                'txbiashighalarm_flag8': False, 'txbiaslowalarm_flag8': False,
-                'txbiashighwarning_flag8': False, 'txbiaslowwarning_flag8': False,
-                'prefecberhighalarm_flag': False, 'prefecberlowalarm_flag': False,
-                'prefecberhighwarning_flag': False, 'prefecberlowwarning_flag': False,
-                'postfecberhighalarm_flag': False, 'postfecberlowalarm_flag': False,
-                'postfecberhighwarning_flag': False, 'postfecberlowwarning_flag': False,
             }
         ),
         (
             [
-                'ModuleReady', 'No Fault detected', (False, False, True),
-                {
-                    'case_temp_flags': {
-                        'case_temp_high_alarm_flag': False,
-                        'case_temp_low_alarm_flag': False,
-                        'case_temp_high_warn_flag': False,
-                        'case_temp_low_warn_flag': False,
-                    },
-                    'voltage_flags': {
-                        'voltage_high_alarm_flag': False,
-                        'voltage_low_alarm_flag': False,
-                        'voltage_high_warn_flag': False,
-                        'voltage_low_warn_flag': False,
-                    },
-                    'aux1_flags': {
-                        'aux1_high_alarm_flag': False,
-                        'aux1_low_alarm_flag': False,
-                        'aux1_high_warn_flag': False,
-                        'aux1_low_warn_flag': False,
-                    },
-                    'aux2_flags': {
-                        'aux2_high_alarm_flag': False,
-                        'aux2_low_alarm_flag': False,
-                        'aux2_high_warn_flag': False,
-                        'aux2_low_warn_flag': False,
-                    },
-                    'aux3_flags': {
-                        'aux3_high_alarm_flag': False,
-                        'aux3_low_alarm_flag': False,
-                        'aux3_high_warn_flag': False,
-                        'aux3_low_warn_flag': False,
-                    }
-                },
-                (0, 0, 0), True,
+                'ModuleReady', 'No Fault detected',
+                True,
                 {'DP1State': 'DataPathActivated', 'DP2State': 'DataPathActivated',
                  'DP3State': 'DataPathActivated', 'DP4State': 'DataPathActivated',
                  'DP5State': 'DataPathActivated', 'DP6State': 'DataPathActivated',
@@ -2328,11 +2040,6 @@ class TestCmis(object):
                     'RxOutputStatus5': True, 'RxOutputStatus6': True,
                     'RxOutputStatus7': True, 'RxOutputStatus8': True
                 },
-                [False],
-                [False, False, False, False, False, False, False, False],
-                [False, False, False, False, False, False, False, False],
-                [False],
-                [False],
                 {
                     'ConfigStatusLane1': 'ConfigSuccess', 'ConfigStatusLane2': 'ConfigSuccess',
                     'ConfigStatusLane3': 'ConfigSuccess', 'ConfigStatusLane4': 'ConfigSuccess',
@@ -2346,42 +2053,11 @@ class TestCmis(object):
                     'DPInitPending7': False, 'DPInitPending8': False
                 },
 
-                {
-                    'tx_power_high_alarm': {'TxPowerHighAlarmFlag1': False},
-                    'tx_power_low_alarm': {'TxPowerLowAlarmFlag1': False},
-                    'tx_power_high_warn': {'TxPowerHighWarnFlag1': False},
-                    'tx_power_low_warn': {'TxPowerLowWarnFlag1': False},
-                },
-                {
-                    'rx_power_high_alarm': {'RxPowerHighAlarmFlag1': False},
-                    'rx_power_low_alarm': {'RxPowerLowAlarmFlag1': False},
-                    'rx_power_high_warn': {'RxPowerHighWarnFlag1': False},
-                    'rx_power_low_warn': {'RxPowerLowWarnFlag1': False},
-                },
-                {
-                    'tx_bias_high_alarm': {'TxBiasHighAlarmFlag1': False},
-                    'tx_bias_low_alarm': {'TxBiasLowAlarmFlag1': False},
-                    'tx_bias_high_warn': {'TxBiasHighWarnFlag1': False},
-                    'tx_bias_low_warn': {'TxBiasLowWarnFlag1': False},
-                },
-                {
-                    'Pre-FEC BER Average Media Input':{1:[0.001, 0.0125, 0, 0.01, 0, False, False, False, False]},
-                    'Errored Frames Average Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
-                },
-                None, None, None, None
+                None, None, None
             ],
             {
                 'module_state': 'ModuleReady',
                 'module_fault_cause': 'No Fault detected',
-                'datapath_firmware_fault': False,
-                'module_firmware_fault': False,
-                'module_state_changed': True,
-                'temphighalarm_flag': False, 'templowalarm_flag': False,
-                'temphighwarning_flag': False, 'templowwarning_flag': False,
-                'vcchighalarm_flag': False, 'vcclowalarm_flag': False,
-                'vcchighwarning_flag': False, 'vcclowwarning_flag': False,
-                'lasertemphighalarm_flag': False, 'lasertemplowalarm_flag': False,
-                'lasertemphighwarning_flag': False, 'lasertemplowwarning_flag': False,
             }
         )
     ])
@@ -2390,57 +2066,29 @@ class TestCmis(object):
         self.api.get_module_state.return_value = mock_response[0]
         self.api.get_module_fault_cause = MagicMock()
         self.api.get_module_fault_cause.return_value = mock_response[1]
-        self.api.get_module_firmware_fault_state_changed = MagicMock()
-        self.api.get_module_firmware_fault_state_changed.return_value = mock_response[2]
-        self.api.get_module_level_flag = MagicMock()
-        self.api.get_module_level_flag.return_value = mock_response[3]
-        self.api.get_aux_mon_type = MagicMock()
-        self.api.get_aux_mon_type.return_value = mock_response[4]
         self.api.is_flat_memory = MagicMock()
-        self.api.is_flat_memory.return_value = mock_response[5]
+        self.api.is_flat_memory.return_value = mock_response[2]
         self.api.get_datapath_state = MagicMock()
-        self.api.get_datapath_state.return_value = mock_response[6]
+        self.api.get_datapath_state.return_value = mock_response[3]
         self.api.get_tx_output_status = MagicMock()
-        self.api.get_tx_output_status.return_value = mock_response[7]
+        self.api.get_tx_output_status.return_value = mock_response[4]
         self.api.get_rx_output_status = MagicMock()
-        self.api.get_rx_output_status.return_value = mock_response[8]
-        self.api.get_tx_fault = MagicMock()
-        self.api.get_tx_fault.return_value = mock_response[9]
-        self.api.get_tx_los = MagicMock()
-        self.api.get_tx_los.return_value = mock_response[10]
-        self.api.get_tx_cdr_lol = MagicMock()
-        self.api.get_tx_cdr_lol.return_value = mock_response[11]
-        self.api.get_rx_los = MagicMock()
-        self.api.get_rx_los.return_value = mock_response[12]
-        self.api.get_rx_cdr_lol = MagicMock()
-        self.api.get_rx_cdr_lol.return_value = mock_response[13]
+        self.api.get_rx_output_status.return_value = mock_response[5]
         self.api.get_config_datapath_hostlane_status = MagicMock()
-        self.api.get_config_datapath_hostlane_status.return_value = mock_response[14]
+        self.api.get_config_datapath_hostlane_status.return_value = mock_response[6]
         self.api.get_dpinit_pending = MagicMock()
-        self.api.get_dpinit_pending.return_value = mock_response[15]
+        self.api.get_dpinit_pending.return_value = mock_response[7]
 
-        self.api.get_tx_power_flag = MagicMock()
-        self.api.get_tx_power_flag.return_value = mock_response[16]
-        self.api.get_rx_power_flag = MagicMock()
-        self.api.get_rx_power_flag.return_value = mock_response[17]
-        self.api.get_tx_bias_flag = MagicMock()
-        self.api.get_tx_bias_flag.return_value = mock_response[18]
-        self.api.get_vdm = MagicMock()
-        self.api.get_vdm.return_value = mock_response[19]
         self.api.get_tx_disable_channel = MagicMock()
-        self.api.get_tx_disable_channel.return_value = mock_response[20]
+        self.api.get_tx_disable_channel.return_value = mock_response[8]
         self.api.get_tx_disable = MagicMock()
-        self.api.get_tx_disable.return_value = mock_response[21]
-        with patch.object(self.api, 'get_datapath_deinit', return_value=mock_response[22]), \
-             patch.object(self.api, 'get_tx_adaptive_eq_fail_flag', return_value=mock_response[23]):
-            self.api.vdm = MagicMock()
-            self.api.vdm.return_value.VDM_FLAG = 'mocked_value'
-
+        self.api.get_tx_disable.return_value = mock_response[9]
+        with patch.object(self.api, 'get_datapath_deinit', return_value=mock_response[10]):
             result = self.api.get_transceiver_status()
             assert result == expected
 
     @pytest.mark.parametrize(
-        "module_faults, tx_fault, tx_los, tx_cdr_lol, tx_eq_fault, rx_los, rx_cdr_lol, laser_tuning_summary, expected_result",
+        "module_faults, tx_fault, tx_los, tx_cdr_lol, tx_eq_fault, rx_los, rx_cdr_lol, expected_result",
         [
             # Test case 1: All flags present for lanes 1 to 8
             (
@@ -2451,77 +2099,71 @@ class TestCmis(object):
                 [False, True, False, True, False, True, False, True],
                 [True, False, True, False, True, False, True, False],
                 [False, True, False, True, False, True, False, True],
-                ['TargetOutputPowerOOR', 'FineTuningOutOfRange', 'TuningNotAccepted', 'InvalidChannel', 'TuningComplete'],
                 {
                     'datapath_firmware_fault': True,
                     'module_firmware_fault': False,
                     'module_state_changed': True,
-                    'txfault1': True,
-                    'txfault2': False,
-                    'txfault3': True,
-                    'txfault4': False,
-                    'txfault5': True,
-                    'txfault6': False,
-                    'txfault7': True,
-                    'txfault8': False,
-                    'txlos_hostlane1': False,
-                    'txlos_hostlane2': True,
-                    'txlos_hostlane3': False,
-                    'txlos_hostlane4': True,
-                    'txlos_hostlane5': False,
-                    'txlos_hostlane6': True,
-                    'txlos_hostlane7': False,
-                    'txlos_hostlane8': True,
-                    'txcdrlol_hostlane1': True,
-                    'txcdrlol_hostlane2': False,
-                    'txcdrlol_hostlane3': True,
-                    'txcdrlol_hostlane4': False,
-                    'txcdrlol_hostlane5': True,
-                    'txcdrlol_hostlane6': False,
-                    'txcdrlol_hostlane7': True,
-                    'txcdrlol_hostlane8': False,
-                    'tx_eq_fault1': False,
-                    'tx_eq_fault2': True,
-                    'tx_eq_fault3': False,
-                    'tx_eq_fault4': True,
-                    'tx_eq_fault5': False,
-                    'tx_eq_fault6': True,
-                    'tx_eq_fault7': False,
-                    'tx_eq_fault8': True,
-                    'rxlos1': True,
-                    'rxlos2': False,
-                    'rxlos3': True,
-                    'rxlos4': False,
-                    'rxlos5': True,
-                    'rxlos6': False,
-                    'rxlos7': True,
-                    'rxlos8': False,
-                    'rxcdrlol1': False,
-                    'rxcdrlol2': True,
-                    'rxcdrlol3': False,
-                    'rxcdrlol4': True,
-                    'rxcdrlol5': False,
-                    'rxcdrlol6': True,
-                    'rxcdrlol7': False,
-                    'rxcdrlol8': True,
-                    'target_output_power_oor': True,
-                    'fine_tuning_oor': True,
-                    'tuning_not_accepted': True,
-                    'invalid_channel_num': True,
-                    'tuning_complete': True
+                    'tx1fault': True,
+                    'tx2fault': False,
+                    'tx3fault': True,
+                    'tx4fault': False,
+                    'tx5fault': True,
+                    'tx6fault': False,
+                    'tx7fault': True,
+                    'tx8fault': False,
+                    'rx1los': True,
+                    'rx2los': False,
+                    'rx3los': True,
+                    'rx4los': False,
+                    'rx5los': True,
+                    'rx6los': False,
+                    'rx7los': True,
+                    'rx8los': False,
+                    'tx1los_hostlane': False,
+                    'tx2los_hostlane': True,
+                    'tx3los_hostlane': False,
+                    'tx4los_hostlane': True,
+                    'tx5los_hostlane': False,
+                    'tx6los_hostlane': True,
+                    'tx7los_hostlane': False,
+                    'tx8los_hostlane': True,
+                    'tx1cdrlol_hostlane': True,
+                    'tx2cdrlol_hostlane': False,
+                    'tx3cdrlol_hostlane': True,
+                    'tx4cdrlol_hostlane': False,
+                    'tx5cdrlol_hostlane': True,
+                    'tx6cdrlol_hostlane': False,
+                    'tx7cdrlol_hostlane': True,
+                    'tx8cdrlol_hostlane': False,
+                    'tx1_eq_fault': False,
+                    'tx2_eq_fault': True,
+                    'tx3_eq_fault': False,
+                    'tx4_eq_fault': True,
+                    'tx5_eq_fault': False,
+                    'tx6_eq_fault': True,
+                    'tx7_eq_fault': False,
+                    'tx8_eq_fault': True,
+                    'rx1cdrlol': False,
+                    'rx2cdrlol': True,
+                    'rx3cdrlol': False,
+                    'rx4cdrlol': True,
+                    'rx5cdrlol': False,
+                    'rx6cdrlol': True,
+                    'rx7cdrlol': False,
+                    'rx8cdrlol': True
                 }
             ),
         ]
     )
-    def test_get_transceiver_status_flags(self, module_faults, tx_fault, tx_los, tx_cdr_lol, tx_eq_fault, rx_los, rx_cdr_lol, laser_tuning_summary, expected_result):
+    def test_get_transceiver_status_flags(self, module_faults, tx_fault, tx_los, tx_cdr_lol, tx_eq_fault, rx_los, rx_cdr_lol, expected_result):
         self.api.get_module_firmware_fault_state_changed = MagicMock(return_value=module_faults)
         self.api.get_tx_fault = MagicMock(return_value=tx_fault)
         self.api.get_tx_los = MagicMock(return_value=tx_los)
         self.api.get_tx_cdr_lol = MagicMock(return_value=tx_cdr_lol)
         self.api.get_rx_los = MagicMock(return_value=rx_los)
         self.api.get_rx_cdr_lol = MagicMock(return_value=rx_cdr_lol)
-        self.api.get_laser_tuning_summary = MagicMock(return_value=laser_tuning_summary)
-        with patch.object(self.api, 'get_tx_adaptive_eq_fail_flag', return_value=tx_eq_fault):
+        with patch.object(self.api, 'get_tx_adaptive_eq_fail_flag', return_value=tx_eq_fault), \
+             patch.object(self.api, 'is_flat_memory', return_value=False):
             result = self.api.get_transceiver_status_flags()
             assert result == expected_result
 
@@ -3203,7 +2845,7 @@ class TestCmis(object):
         run_num = 5
         while run_num > 0:
             try:
-                self.api.get_transceiver_bulk_status()
+                self.api.get_transceiver_dom_real_value()
                 self.api.get_transceiver_info()
                 self.api.get_transceiver_threshold_info()
                 self.api.get_transceiver_status()
