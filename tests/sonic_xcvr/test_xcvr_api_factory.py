@@ -118,73 +118,70 @@ class TestAmphBackplaneImpl:
         # Verify the read method was called with the correct constant
         amph_backplane.xcvr_eeprom.read.assert_called_with(consts.CARTRDIGE_SLOT_ID)
 
-    def test_get_transceiver_info(self, amph_backplane):
+    def test_get_transceiver_info(self, amph_backplane, monkeypatch):
         """
         Test the get_transceiver_info method.
         """
-        # Create a mock return value for get_transceiver_info
-        expected_info = {
+        # Mock the admin_info returned by xcvr_eeprom.read
+        admin_info = {
+            consts.VENDOR_SERIAL_NO_FIELD: "SN12345",
+            consts.VENDOR_NAME_FIELD: "Amphenol",
+            consts.VENDOR_PART_NO_FIELD: "ModelX",
+            consts.VENDOR_DATE_FIELD: "2025-03-31", 
+            consts.VENDOR_OUI_FIELD: "00:11:22",
+            consts.VENDOR_REV_FIELD: "RevA",
             "type": "Type1",
             "type_abbrv_name": "T1",
+            "specification_compliance": "passive_copper_media_interface",
+            "Identifier": "Backplane Catridge",
+            "Identifier Abbreviation" : "BPC",
+            "Length Cable Assembly" : "2.0",
+        }
+
+        amph_backplane.xcvr_eeprom.read = MagicMock()
+        amph_backplane.xcvr_eeprom.read.side_effect = lambda field: admin_info if field == consts.ADMIN_INFO_FIELD else "1" if field == consts.CARTRDIGE_SLOT_ID else None
+
+        # Mock all the required functions
+        monkeypatch.setattr(amph_backplane, "get_module_hardware_revision", MagicMock(return_value="Rev1"))
+        monkeypatch.setattr(amph_backplane, "get_application_advertisement", MagicMock(return_value="['App1', 'App2']"))
+        monkeypatch.setattr(amph_backplane, "get_host_electrical_interface", MagicMock(return_value="400GBASE-CR4 (Clause 162)"))
+        monkeypatch.setattr(amph_backplane, "get_host_lane_count", MagicMock(return_value=4))
+        monkeypatch.setattr(amph_backplane, "get_cable_length", MagicMock(return_value=2.0))
+        monkeypatch.setattr(amph_backplane, "get_cmis_rev", MagicMock(return_value="CMIS5.0"))
+        monkeypatch.setattr(amph_backplane, "is_transceiver_vdm_supported", MagicMock(return_value=False))
+        monkeypatch.setattr(amph_backplane, "get_host_lane_assignment_option", MagicMock(return_value=1))
+        monkeypatch.setattr(amph_backplane, "get_vendor_rev", MagicMock(return_value="RevA"))
+        monkeypatch.setattr(amph_backplane, "get_module_media_type", MagicMock(return_value='passive_copper_media_interface'))
+
+        # Call the method under test
+        result = amph_backplane.get_transceiver_info()
+
+        # Expected result based on mocked values and admin_info
+        expected_info = {
+            "type": "Backplane Catridge",
+            "type_abbrv_name": "BPC",
             "hardware_rev": "Rev1",
-            "cable_length": 10.0,
+            "cable_length": 2.0,
             "application_advertisement": "['App1', 'App2']",
-            "host_electrical_interface": "HostInterface",
-            "media_interface_code": "MediaInterface",
+            "host_electrical_interface": "400GBASE-CR4 (Clause 162)",
             "host_lane_count": 4,
-            "media_lane_count": 4,
-            "host_lane_assignment_option": "Option1",
-            "media_lane_assignment_option": "Option2",
-            "cable_type": "Copper",
-            "media_interface_technology": "Tech1",
-            "cmis_rev": "CMIS4.0",
-            "specification_compliance": "TypeA",
-            "vdm_supported": True,
+            "cable_type": "Length Cable Assembly(m)",
+            "cmis_rev": "CMIS5.0",
+            "specification_compliance": "passive_copper_media_interface",
+            "vdm_supported": False,
             "serial": "SN12345",
             "manufacturer": "Amphenol",
             "model": "ModelX",
             "vendor_date": "2025-03-31",
             "vendor_oui": "00:11:22",
             "vendor_rev": "RevA",
-            "slot_id": "1"
+            "slot_id": "1",
+            "host_lane_assignment_option": 1,
         }
 
-        # Mock the get_transceiver_info method directly
-        original_method = amph_backplane.get_transceiver_info
-        amph_backplane.get_transceiver_info = MagicMock(return_value=expected_info)
-        
-        # Call the method
-        transceiver_info = amph_backplane.get_transceiver_info()
-        print("$$$ INFO {}".format(transceiver_info))
-
-        # Verify the returned dictionary
-        assert transceiver_info["type"] == "Type1"
-        assert transceiver_info["type_abbrv_name"] == "T1"
-        assert transceiver_info["hardware_rev"] == "Rev1"
-        assert transceiver_info["cable_length"] == 10.0
-        assert transceiver_info["application_advertisement"] == "['App1', 'App2']"
-        assert transceiver_info["host_electrical_interface"] == "HostInterface"
-        assert transceiver_info["media_interface_code"] == "MediaInterface"
-        assert transceiver_info["host_lane_count"] == 4
-        assert transceiver_info["media_lane_count"] == 4
-        assert transceiver_info["host_lane_assignment_option"] == "Option1"
-        assert transceiver_info["media_lane_assignment_option"] == "Option2"
-        assert transceiver_info["cable_type"] == "Copper"
-        assert transceiver_info["media_interface_technology"] == "Tech1"
-        assert transceiver_info["cmis_rev"] == "CMIS4.0"
-        assert transceiver_info["specification_compliance"] == "TypeA"
-        assert transceiver_info["vdm_supported"] is True
-        assert transceiver_info["serial"] == "SN12345"
-        assert transceiver_info["manufacturer"] == "Amphenol"
-        assert transceiver_info["model"] == "ModelX"
-        assert transceiver_info["vendor_date"] == "2025-03-31"
-        assert transceiver_info["vendor_oui"] == "00:11:22"
-        assert transceiver_info["vendor_rev"] == "RevA"
-        assert transceiver_info["slot_id"] == "1"
-
-        # Verify the method was called
-        amph_backplane.get_transceiver_info.assert_called_once() 
-
+        # Verify the result
+        assert result == expected_info
+    
     def test_get_transceiver_info_none(self, amph_backplane):
         """Test get_transceiver_info when admin_info is None"""
         # Override the mock to return None for admin_info

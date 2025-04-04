@@ -20,7 +20,6 @@ AMPH_BACKPLANE_INFO_DICT = {
         "host_electrical_interface": "N/A",
         "host_lane_count": "N/A",
         "cable_type": "N/A",
-        "media_interface_technology": "N/A",
         "cmis_rev": "N/A",
         "specification_compliance": "N/A",
         "slot_id": "unknown"
