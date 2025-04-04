@@ -242,8 +242,8 @@ class TestSff8472(object):
                 [False],
             ],
             {
-                'txfault1': False,
-                'rxlos1': False,
+                'tx1fault': False,
+                'rx1los': False,
             }
         ),
         (

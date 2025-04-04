@@ -228,14 +228,14 @@ class TestSff8636(object):
                 [False, False, False, False],
             ],
             {
-                'txfault1': False,
-                'txfault2': False,
-                'txfault3': False,
-                'txfault4': False,
-                'rxlos1': False,
-                'rxlos2': False,
-                'rxlos3': False,
-                'rxlos4': False,
+                'tx1fault': False,
+                'tx2fault': False,
+                'tx3fault': False,
+                'tx4fault': False,
+                'rx1los': False,
+                'rx2los': False,
+                'rx3los': False,
+                'rx4los': False,
             }
         ),
         (

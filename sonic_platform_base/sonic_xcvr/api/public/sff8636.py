@@ -120,9 +120,9 @@ class Sff8636Api(XcvrApi):
 
         trans_status_flags = dict()
         for lane in range(1, len(rx_los) + 1):
-            trans_status_flags['rxlos%d' % lane] = rx_los[lane - 1]
+            trans_status_flags['rx%dlos' % lane] = rx_los[lane - 1]
         for lane in range(1, len(tx_fault) + 1):
-            trans_status_flags['txfault%d' % lane] = tx_fault[lane - 1]
+            trans_status_flags['tx%dfault' % lane] = tx_fault[lane - 1]
 
         return trans_status_flags
 
