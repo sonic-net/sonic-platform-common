@@ -18,9 +18,12 @@ from ...fields.xcvr_field import (
 from ...fields import consts
 from ...fields.public.cmis import CableLenField
 
-class CmisMemMap(XcvrMemMap):
+class CmisFlatMemMap(XcvrMemMap):
+    """
+    Memory map for CMIS flat memory (Lower page and Upper page 0h ONLY)
+    """
     def __init__(self, codes):
-        super(CmisMemMap, self).__init__(codes)
+        super(CmisFlatMemMap, self).__init__(codes)
 
         self.MGMT_CHARACTERISTICS = RegGroupField(consts.MGMT_CHAR_FIELD,
             NumberRegField(consts.MGMT_CHAR_MISC_FIELD, self.getaddr(0x0, 2),
@@ -28,7 +31,7 @@ class CmisMemMap(XcvrMemMap):
             )
         )
 
-        # Should contain ONLY Lower page fields
+        # This memmap should contain ONLY Lower page 00h and upper page 00h fields
         self.ADMIN_INFO = RegGroupField(consts.ADMIN_INFO_FIELD,
             CodeRegField(consts.ID_FIELD, self.getaddr(0x0, 0), self.codes.XCVR_IDENTIFIERS),
             CodeRegField(consts.ID_ABBRV_FIELD, self.getaddr(0x0, 128), self.codes.XCVR_IDENTIFIER_ABBRV),
@@ -109,7 +112,14 @@ class CmisMemMap(XcvrMemMap):
             NumberRegField(consts.ACTIVE_FW_MINOR_REV, self.getaddr(0x0, 40), format="B", size=1),
         )
 
-        # Should contain ONLY upper page fields
+    def getaddr(self, page, offset, page_size=128):
+        return page * page_size + offset
+
+class CmisMemMap(CmisFlatMemMap):
+    def __init__(self, codes):
+        super(CmisMemMap, self).__init__(codes)
+
+        # This memmap should contain ONLY upper page >= 01h fields
         self.ADVERTISING = RegGroupField(consts.ADVERTISING_FIELD,
             NumberRegField(consts.INACTIVE_FW_MAJOR_REV, self.getaddr(0x1, 128), format="B", size=1),
             NumberRegField(consts.INACTIVE_FW_MINOR_REV, self.getaddr(0x1, 129), format="B", size=1),

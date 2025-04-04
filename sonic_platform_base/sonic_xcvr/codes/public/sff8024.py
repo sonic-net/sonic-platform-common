@@ -38,7 +38,8 @@ class Sff8024(XcvrCodes):
         27: 'DSFP Dual Small Form Factor Pluggable Transceiver',
         28: 'x4 MiniLink/OcuLink',
         29: 'x8 MiniLink',
-        30: 'QSFP+ or later with CMIS'
+        30: 'QSFP+ or later with CMIS',
+       126: 'Backplane Cartridge',
     }
 
     XCVR_IDENTIFIER_ABBRV = {
