@@ -1,4 +1,4 @@
-FROM ghcr.io/ishidawataru/xcvr-emu:main
+FROM ghcr.io/ishidawataru/xcvr-emu:latest
 
 WORKDIR /sonic_platform_base
 

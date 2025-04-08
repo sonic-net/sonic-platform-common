@@ -10,4 +10,4 @@ test_sonic_xcvr_with_emu:
 	-v `pwd`/docker/tests:/sonic_platform_base/tests \
 	-w /sonic_platform_base \
 	$(SONIC_XCVR_IMAGE) \
-	python -m pytest -v .
+	python -m pytest -v --log-cli-level=INFO .
