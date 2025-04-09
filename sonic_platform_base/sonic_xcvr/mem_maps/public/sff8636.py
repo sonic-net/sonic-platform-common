@@ -28,7 +28,7 @@ class Sff8636MemMap(XcvrMemMap):
         )
 
         self.SERIAL_ID = RegGroupField(consts.SERIAL_ID_FIELD,
-            CodeRegField(consts.ID_FIELD, self.get_addr(0, 128), self.codes.XCVR_IDENTIFIERS),
+            CodeRegField(consts.ID_FIELD, self.get_addr(0, 0), self.codes.XCVR_IDENTIFIERS),
             CodeRegField(consts.ID_ABBRV_FIELD, self.get_addr(0, 0), self.codes.XCVR_IDENTIFIER_ABBRV),
             RegGroupField(consts.EXT_ID_FIELD, 
                 CodeRegField(consts.POWER_CLASS_FIELD, self.get_addr(0, 129), self.codes.POWER_CLASSES,
