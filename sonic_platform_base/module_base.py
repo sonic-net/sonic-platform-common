@@ -372,23 +372,24 @@ class ModuleBase(device_base.DeviceBase):
 
     def pci_entry_state_db(self, pcie_string, operation):
         """
-        Adds the STATE DB entry for pcied so that it can ignore warnings
-        due to expected PCIE removal.
+        Generic function to handle PCI device state database entry.
 
         Args:
-            pcie_string (str): The PCI device identifier in BDF format
+            pcie_string (str): The PCI bus string to be written to state database
             operation (str): The operation being performed ("detaching" or "attaching")
 
         Raises:
             RuntimeError: If state database connection fails
         """
         try:
+            PCIE_DETACH_INFO_TABLE_KEY = PCIE_DETACH_INFO_TABLE+"|"+pcie_string
             if not self.state_db_connector:
-                self.state_db_connector = swsscommon.DBConnector("STATE_DB", 0)
+                self.state_db_connector = swsscommon.swsscommon.DBConnector("STATE_DB", 0)
             if operation == PCIE_OPERATION_ATTACHING:
-                self.state_db_connector.hdel(PCIE_DETACH_INFO_TABLE, pcie_string)
+                self.state_db_connector.delete(PCIE_DETACH_INFO_TABLE_KEY)
                 return
-            self.state_db_connector.hset(PCIE_DETACH_INFO_TABLE, pcie_string, operation)
+            self.state_db_connector.hset(PCIE_DETACH_INFO_TABLE_KEY, "bus_info", pcie_string)
+            self.state_db_connector.hset(PCIE_DETACH_INFO_TABLE_KEY, "dpu_state", operation)
         except Exception as e:
             sys.stderr.write("Failed to write pcie bus infoto state database: {}\n".format(str(e)))
 
