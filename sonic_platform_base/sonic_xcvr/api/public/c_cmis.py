@@ -383,367 +383,64 @@ class CCmisApi(CmisApi):
         })
         return xcvr_info
 
-    def get_transceiver_bulk_status(self):
+    def get_transceiver_dom_real_value(self):
         """
-        Retrieves bulk status info for this xcvr
+        Retrieves DOM sensor values for this transceiver
+
+        The returned dictionary contains floating-point values corresponding to various
+        DOM sensor readings, as defined in the TRANSCEIVER_DOM_SENSOR table in STATE_DB.
 
         Returns:
-            A dict containing the following keys/values :
-        ========================================================================
-        key                          = TRANSCEIVER_DOM_SENSOR|ifname    ; information module DOM sensors on port
-        ; field                      = value
-        temperature                  = FLOAT                            ; temperature value in Celsius
-        voltage                      = FLOAT                            ; voltage value
-        txpower                      = FLOAT                            ; tx power in mW
-        rxpower                      = FLOAT                            ; rx power in mW
-        txbias                       = FLOAT                            ; tx bias in mA
-        laser_temperature	         = FLOAT                            ; laser temperature value in Celsius
-        prefec_ber                   = FLOAT                            ; prefec ber
-        postfec_ber                  = FLOAT                            ; postfec ber
-        cd_shortlink                 = FLOAT                            ; chromatic dispersion, high granularity, short link in ps/nm
-        cd_longlink                  = FLOAT                            ; chromatic dispersion, low granularity, long link in ps/nm
-        dgd                          = FLOAT                            ; differential group delay in ps
-        sopmd                        = FLOAT                            ; second order polarization mode dispersion in ps^2
-        pdl                          = FLOAT                            ; polarization dependent loss in db
-        osnr                         = FLOAT                            ; optical signal to noise ratio in db
-        esnr                         = FLOAT                            ; electrical signal to noise ratio in db
-        cfo                          = FLOAT                            ; carrier frequency offset in MHz
-        soproc                       = FLOAT                            ; state of polarization rate of change in krad/s
-        laser_config_freq            = FLOAT                            ; laser configured frequency in MHz
-        laser_curr_freq              = FLOAT                            ; laser current frequency in MHz
-        tx_config_power              = FLOAT                            ; configured tx output power in dbm
-        tx_curr_power                = FLOAT                            ; tx current output power in dbm
-        rx_tot_power                 = FLOAT                            ; rx total power in  dbm
-        rx_sig_power                 = FLOAT                            ; rx signal power in dbm
-        bias_xi                      = FLOAT                            ; modulator bias xi
-        bias_xq                      = FLOAT                            ; modulator bias xq
-        bias_xp                      = FLOAT                            ; modulator bias xp
-        bias_yi                      = FLOAT                            ; modulator bias yi
-        bias_yq                      = FLOAT                            ; modulator bias yq
-        bias_yp                      = FLOAT                            ; modulator bias yp
-        ========================================================================
+            Dictionary
         """
-        trans_dom = super(CCmisApi,self).get_transceiver_bulk_status()
-
-        for vdm_key, trans_dom_key in C_CMIS_DELTA_VDM_KEY_TO_DB_PREFIX_KEY_MAP.items():
-            self._update_dict_if_vdm_key_exists(trans_dom, trans_dom_key, vdm_key, 0)
+        trans_dom = super(CCmisApi,self).get_transceiver_dom_real_value()
 
         trans_dom['laser_config_freq'] = self.get_laser_config_freq()
         trans_dom['laser_curr_freq'] = self.get_current_laser_freq()
         trans_dom['tx_config_power'] = self.get_tx_config_power()
         return trans_dom
 
-    def get_transceiver_threshold_info(self):
-        """
-        Retrieves threshold info for this xcvr
-
-        Returns:
-            A dict containing the following keys/values :
-        ========================================================================
-        key                          = TRANSCEIVER_STATUS|ifname        ; DOM threshold information for module on port
-        ; field                      = value
-        temphighalarm                = FLOAT                            ; temperature high alarm threshold in Celsius
-        temphighwarning              = FLOAT                            ; temperature high warning threshold in Celsius
-        templowalarm                 = FLOAT                            ; temperature low alarm threshold in Celsius
-        templowwarning               = FLOAT                            ; temperature low warning threshold in Celsius
-        vcchighalarm                 = FLOAT                            ; vcc high alarm threshold in V
-        vcchighwarning               = FLOAT                            ; vcc high warning threshold in V
-        vcclowalarm                  = FLOAT                            ; vcc low alarm threshold in V
-        vcclowwarning                = FLOAT                            ; vcc low warning threshold in V
-        txpowerhighalarm             = FLOAT                            ; tx power high alarm threshold in mW
-        txpowerlowalarm              = FLOAT                            ; tx power low alarm threshold in mW
-        txpowerhighwarning           = FLOAT                            ; tx power high warning threshold in mW
-        txpowerlowwarning            = FLOAT                            ; tx power low alarm threshold in mW
-        rxpowerhighalarm             = FLOAT                            ; rx power high alarm threshold in mW
-        rxpowerlowalarm              = FLOAT                            ; rx power low alarm threshold in mW
-        rxpowerhighwarning           = FLOAT                            ; rx power high warning threshold in mW
-        rxpowerlowwarning            = FLOAT                            ; rx power low warning threshold in mW
-        txbiashighalarm              = FLOAT                            ; tx bias high alarm threshold in mA
-        txbiaslowalarm               = FLOAT                            ; tx bias low alarm threshold in mA
-        txbiashighwarning            = FLOAT                            ; tx bias high warning threshold in mA
-        txbiaslowwarning             = FLOAT                            ; tx bias low warning threshold in mA
-        lasertemphighalarm           = FLOAT                            ; laser temperature high alarm threshold in Celsius
-        lasertemplowalarm            = FLOAT                            ; laser temperature low alarm threshold in Celsius
-        lasertemphighwarning         = FLOAT                            ; laser temperature high warning threshold in Celsius
-        lasertemplowwarning          = FLOAT                            ; laser temperature low warning threshold in Celsius
-        prefecberhighalarm           = FLOAT                            ; prefec ber high alarm threshold
-        prefecberlowalarm            = FLOAT                            ; prefec ber low alarm threshold
-        prefecberhighwarning         = FLOAT                            ; prefec ber high warning threshold
-        prefecberlowwarning          = FLOAT                            ; prefec ber low warning threshold
-        postfecberhighalarm          = FLOAT                            ; postfec ber high alarm threshold
-        postfecberlowalarm           = FLOAT                            ; postfec ber low alarm threshold
-        postfecberhighwarning        = FLOAT                            ; postfec ber high warning threshold
-        postfecberlowwarning         = FLOAT                            ; postfec ber low warning threshold
-        biasxihighalarm              = FLOAT                            ; bias xi high alarm threshold in percent
-        biasxilowalarm               = FLOAT                            ; bias xi low alarm threshold in percent
-        biasxihighwarning            = FLOAT                            ; bias xi high warning threshold in percent
-        biasxilowwarning             = FLOAT                            ; bias xi low warning threshold in percent
-        biasxqhighalarm              = FLOAT                            ; bias xq high alarm threshold in percent
-        biasxqlowalarm               = FLOAT                            ; bias xq low alarm threshold in percent
-        biasxqhighwarning            = FLOAT                            ; bias xq high warning threshold in percent
-        biasxqlowwarning             = FLOAT                            ; bias xq low warning threshold in percent
-        biasxphighalarm              = FLOAT                            ; bias xp high alarm threshold in percent
-        biasxplowalarm               = FLOAT                            ; bias xp low alarm threshold in percent
-        biasxphighwarning            = FLOAT                            ; bias xp high warning threshold in percent
-        biasxplowwarning             = FLOAT                            ; bias xp low warning threshold in percent
-        biasyihighalarm              = FLOAT                            ; bias yi high alarm threshold in percent
-        biasyilowalarm               = FLOAT                            ; bias yi low alarm threshold in percent
-        biasyihighwarning            = FLOAT                            ; bias yi high warning threshold in percent
-        biasyilowwarning             = FLOAT                            ; bias yi low warning threshold in percent
-        biasyqhighalarm              = FLOAT                            ; bias yq high alarm threshold in percent
-        biasyqlowalarm               = FLOAT                            ; bias yq low alarm threshold in percent
-        biasyqhighwarning            = FLOAT                            ; bias yq high warning threshold in percent
-        biasyqlowwarning             = FLOAT                            ; bias yq low warning threshold in percent
-        biasyphighalarm              = FLOAT                            ; bias yp high alarm threshold in percent
-        biasyplowalarm               = FLOAT                            ; bias yp low alarm threshold in percent
-        biasyphighwarning            = FLOAT                            ; bias yp high warning threshold in percent
-        biasyplowwarning             = FLOAT                            ; bias yp low warning threshold in percent
-        cdshorthighalarm             = FLOAT                            ; cd short high alarm threshold in ps/nm
-        cdshortlowalarm              = FLOAT                            ; cd short low alarm threshold in ps/nm
-        cdshorthighwarning           = FLOAT                            ; cd short high warning threshold in ps/nm
-        cdshortlowwarning            = FLOAT                            ; cd short low warning threshold in ps/nm
-        cdlonghighalarm              = FLOAT                            ; cd long high alarm threshold in ps/nm
-        cdlonglowalarm               = FLOAT                            ; cd long low alarm threshold in ps/nm
-        cdlonghighwarning            = FLOAT                            ; cd long high warning threshold in ps/nm
-        cdlonglowwarning             = FLOAT                            ; cd long low warning threshold in ps/nm
-        dgdhighalarm                 = FLOAT                            ; dgd high alarm threshold in ps
-        dgdlowalarm                  = FLOAT                            ; dgd low alarm threshold in ps
-        dgdhighwarning               = FLOAT                            ; dgd high warning threshold in ps
-        dgdlowwarning                = FLOAT                            ; dgd low warning threshold in ps
-        sopmdhighalarm               = FLOAT                            ; sopmd high alarm threshold in ps^2
-        sopmdlowalarm                = FLOAT                            ; sopmd low alarm threshold in ps^2
-        sopmdhighwarning             = FLOAT                            ; sopmd high warning threshold in ps^2
-        sopmdlowwarning              = FLOAT                            ; sopmd low warning threshold in ps^2
-        pdlhighalarm                 = FLOAT                            ; pdl high alarm threshold in db
-        pdllowalarm                  = FLOAT                            ; pdl low alarm threshold in db
-        pdlhighwarning               = FLOAT                            ; pdl high warning threshold in db
-        pdllowwarning                = FLOAT                            ; pdl low warning threshold in db
-        osnrhighalarm                = FLOAT                            ; osnr high alarm threshold in db
-        osnrlowalarm                 = FLOAT                            ; osnr low alarm threshold in db
-        osnrhighwarning              = FLOAT                            ; osnr high warning threshold in db
-        osnrlowwarning               = FLOAT                            ; osnr low warning threshold in db
-        esnrhighalarm                = FLOAT                            ; esnr high alarm threshold in db
-        esnrlowalarm                 = FLOAT                            ; esnr low alarm threshold in db
-        esnrhighwarning              = FLOAT                            ; esnr high warning threshold in db
-        esnrlowwarning               = FLOAT                            ; esnr low warning threshold in db
-        cfohighalarm                 = FLOAT                            ; cfo high alarm threshold in MHz
-        cfolowalarm                  = FLOAT                            ; cfo low alarm threshold in MHz
-        cfohighwarning               = FLOAT                            ; cfo high warning threshold in MHz
-        cfolowwarning                = FLOAT                            ; cfo low warning threshold in MHz
-        txcurrpowerhighalarm         = FLOAT                            ; txcurrpower high alarm threshold in dbm
-        txcurrpowerlowalarm          = FLOAT                            ; txcurrpower low alarm threshold in dbm
-        txcurrpowerhighwarning       = FLOAT                            ; txcurrpower high warning threshold in dbm
-        txcurrpowerlowwarning        = FLOAT                            ; txcurrpower low warning threshold in dbm
-        rxtotpowerhighalarm          = FLOAT                            ; rxtotpower high alarm threshold in dbm
-        rxtotpowerlowalarm           = FLOAT                            ; rxtotpower low alarm threshold in dbm
-        rxtotpowerhighwarning        = FLOAT                            ; rxtotpower high warning threshold in dbm
-        rxtotpowerlowwarning         = FLOAT                            ; rxtotpower low warning threshold in dbm
-        rxsigpowerhighalarm          = FLOAT                            ; rxsigpower high alarm threshold in dbm
-        rxsigpowerlowalarm           = FLOAT                            ; rxsigpower low alarm threshold in dbm
-        rxsigpowerhighwarning        = FLOAT                            ; rxsigpower high warning threshold in dbm
-        rxsigpowerlowwarning         = FLOAT                            ; rxsigpower low warning threshold in dbm
-        ========================================================================
-        """
-        trans_dom_th = super(CCmisApi,self).get_transceiver_threshold_info()
-
-        for vdm_key, trans_dom_th_key_prefix in C_CMIS_DELTA_VDM_KEY_TO_DB_PREFIX_KEY_MAP.items():
-            for i in range(1, 5):
-                trans_dom_th_key = trans_dom_th_key_prefix + VDM_SUBTYPE_IDX_MAP[i]
-                self._update_dict_if_vdm_key_exists(trans_dom_th, trans_dom_th_key, vdm_key, i)
-
-        return trans_dom_th
-
     def get_transceiver_status(self):
         """
-        Retrieves transceiver status of this SFP
+        Retrieves the current status of the transceiver module.
+
+        Accesses non-latched registers to gather information about the module's state,
+        fault causes, and datapath-level statuses, including TX and RX statuses.
 
         Returns:
-            A dict which contains following keys/values :
-        ================================================================================
-        key                          = TRANSCEIVER_STATUS|ifname        ; Error information for module on port
-        ; field                      = value
-        module_state                 = 1*255VCHAR                       ; current module state (ModuleLowPwr, ModulePwrUp, ModuleReady, ModulePwrDn, Fault)
-        module_fault_cause           = 1*255VCHAR                       ; reason of entering the module fault state
-        datapath_firmware_fault      = BOOLEAN                          ; datapath (DSP) firmware fault
-        module_firmware_fault        = BOOLEAN                          ; module firmware fault
-        module_state_changed         = BOOLEAN                          ; module state changed
-        datapath_hostlane1           = 1*255VCHAR                       ; data path state indicator on host lane 1
-        datapath_hostlane2           = 1*255VCHAR                       ; data path state indicator on host lane 2
-        datapath_hostlane3           = 1*255VCHAR                       ; data path state indicator on host lane 3
-        datapath_hostlane4           = 1*255VCHAR                       ; data path state indicator on host lane 4
-        datapath_hostlane5           = 1*255VCHAR                       ; data path state indicator on host lane 5
-        datapath_hostlane6           = 1*255VCHAR                       ; data path state indicator on host lane 6
-        datapath_hostlane7           = 1*255VCHAR                       ; data path state indicator on host lane 7
-        datapath_hostlane8           = 1*255VCHAR                       ; data path state indicator on host lane 8
-        txoutput_status              = BOOLEAN                          ; tx output status on media lane
-        rxoutput_status_hostlane1    = BOOLEAN                          ; rx output status on host lane 1
-        rxoutput_status_hostlane2    = BOOLEAN                          ; rx output status on host lane 2
-        rxoutput_status_hostlane3    = BOOLEAN                          ; rx output status on host lane 3
-        rxoutput_status_hostlane4    = BOOLEAN                          ; rx output status on host lane 4
-        rxoutput_status_hostlane5    = BOOLEAN                          ; rx output status on host lane 5
-        rxoutput_status_hostlane6    = BOOLEAN                          ; rx output status on host lane 6
-        rxoutput_status_hostlane7    = BOOLEAN                          ; rx output status on host lane 7
-        rxoutput_status_hostlane8    = BOOLEAN                          ; rx output status on host lane 8
-        txfault                      = BOOLEAN                          ; tx fault flag on media lane
-        txlos_hostlane1              = BOOLEAN                          ; tx loss of signal flag on host lane 1
-        txlos_hostlane2              = BOOLEAN                          ; tx loss of signal flag on host lane 2
-        txlos_hostlane3              = BOOLEAN                          ; tx loss of signal flag on host lane 3
-        txlos_hostlane4              = BOOLEAN                          ; tx loss of signal flag on host lane 4
-        txlos_hostlane5              = BOOLEAN                          ; tx loss of signal flag on host lane 5
-        txlos_hostlane6              = BOOLEAN                          ; tx loss of signal flag on host lane 6
-        txlos_hostlane7              = BOOLEAN                          ; tx loss of signal flag on host lane 7
-        txlos_hostlane8              = BOOLEAN                          ; tx loss of signal flag on host lane 8
-        txcdrlol_hostlane1           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 1
-        txcdrlol_hostlane2           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 2
-        txcdrlol_hostlane3           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 3
-        txcdrlol_hostlane4           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 4
-        txcdrlol_hostlane5           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 5
-        txcdrlol_hostlane6           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 6
-        txcdrlol_hostlane7           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 7
-        txcdrlol_hostlane8           = BOOLEAN                          ; tx clock and data recovery loss of lock on host lane 8
-        rxlos                        = BOOLEAN                          ; rx loss of signal flag on media lane
-        rxcdrlol                     = BOOLEAN                          ; rx clock and data recovery loss of lock on media lane
-        config_state_hostlane1       = 1*255VCHAR                       ; configuration status for the data path of host line 1
-        config_state_hostlane2       = 1*255VCHAR                       ; configuration status for the data path of host line 2
-        config_state_hostlane3       = 1*255VCHAR                       ; configuration status for the data path of host line 3
-        config_state_hostlane4       = 1*255VCHAR                       ; configuration status for the data path of host line 4
-        config_state_hostlane5       = 1*255VCHAR                       ; configuration status for the data path of host line 5
-        config_state_hostlane6       = 1*255VCHAR                       ; configuration status for the data path of host line 6
-        config_state_hostlane7       = 1*255VCHAR                       ; configuration status for the data path of host line 7
-        config_state_hostlane8       = 1*255VCHAR                       ; configuration status for the data path of host line 8
-        dpinit_pending_hostlane1     = BOOLEAN                          ; data path configuration updated on host lane 1 
-        dpinit_pending_hostlane2     = BOOLEAN                          ; data path configuration updated on host lane 2
-        dpinit_pending_hostlane3     = BOOLEAN                          ; data path configuration updated on host lane 3
-        dpinit_pending_hostlane4     = BOOLEAN                          ; data path configuration updated on host lane 4
-        dpinit_pending_hostlane5     = BOOLEAN                          ; data path configuration updated on host lane 5
-        dpinit_pending_hostlane6     = BOOLEAN                          ; data path configuration updated on host lane 6
-        dpinit_pending_hostlane7     = BOOLEAN                          ; data path configuration updated on host lane 7
-        dpinit_pending_hostlane8     = BOOLEAN                          ; data path configuration updated on host lane 8
-        tuning_in_progress           = BOOLEAN                          ; tuning in progress status
-        wavelength_unlock_status     = BOOLEAN                          ; laser unlocked status
-        target_output_power_oor      = BOOLEAN                          ; target output power out of range flag
-        fine_tuning_oor              = BOOLEAN                          ; fine tuning out of range flag
-        tuning_not_accepted          = BOOLEAN                          ; tuning not accepted flag
-        invalid_channel_num          = BOOLEAN                          ; invalid channel number flag
-        tuning_complete              = BOOLEAN                          ; tuning complete flag
-        temphighalarm_flag           = BOOLEAN                          ; temperature high alarm flag 
-        temphighwarning_flag         = BOOLEAN                          ; temperature high warning flag
-        templowalarm_flag            = BOOLEAN                          ; temperature low alarm flag
-        templowwarning_flag          = BOOLEAN                          ; temperature low warning flag
-        vcchighalarm_flag            = BOOLEAN                          ; vcc high alarm flag
-        vcchighwarning_flag          = BOOLEAN                          ; vcc high warning flag
-        vcclowalarm_flag             = BOOLEAN                          ; vcc low alarm flag
-        vcclowwarning_flag           = BOOLEAN                          ; vcc low warning flag
-        txpowerhighalarm_flag        = BOOLEAN                          ; tx power high alarm flag
-        txpowerlowalarm_flag         = BOOLEAN                          ; tx power low alarm flag
-        txpowerhighwarning_flag      = BOOLEAN                          ; tx power high warning flag
-        txpowerlowwarning_flag       = BOOLEAN                          ; tx power low alarm flag
-        rxpowerhighalarm_flag        = BOOLEAN                          ; rx power high alarm flag
-        rxpowerlowalarm_flag         = BOOLEAN                          ; rx power low alarm flag
-        rxpowerhighwarning_flag      = BOOLEAN                          ; rx power high warning flag
-        rxpowerlowwarning_flag       = BOOLEAN                          ; rx power low warning flag
-        txbiashighalarm_flag         = BOOLEAN                          ; tx bias high alarm flag
-        txbiaslowalarm_flag          = BOOLEAN                          ; tx bias low alarm flag
-        txbiashighwarning_flag       = BOOLEAN                          ; tx bias high warning flag
-        txbiaslowwarning_flag        = BOOLEAN                          ; tx bias low warning flag
-        lasertemphighalarm_flag      = BOOLEAN                          ; laser temperature high alarm flag
-        lasertemplowalarm_flag       = BOOLEAN                          ; laser temperature low alarm flag
-        lasertemphighwarning_flag    = BOOLEAN                          ; laser temperature high warning flag
-        lasertemplowwarning_flag     = BOOLEAN                          ; laser temperature low warning flag
-        prefecberhighalarm_flag      = BOOLEAN                          ; prefec ber high alarm flag
-        prefecberlowalarm_flag       = BOOLEAN                          ; prefec ber low alarm flag
-        prefecberhighwarning_flag    = BOOLEAN                          ; prefec ber high warning flag
-        prefecberlowwarning_flag     = BOOLEAN                          ; prefec ber low warning flag
-        postfecberhighalarm_flag     = BOOLEAN                          ; postfec ber high alarm flag
-        postfecberlowalarm_flag      = BOOLEAN                          ; postfec ber low alarm flag
-        postfecberhighwarning_flag   = BOOLEAN                          ; postfec ber high warning flag
-        postfecberlowwarning_flag    = BOOLEAN                          ; postfec ber low warning flag
-        biasxihighalarm_flag         = BOOLEAN                          ; bias xi high alarm flag
-        biasxilowalarm_flag          = BOOLEAN                          ; bias xi low alarm flag
-        biasxihighwarning_flag       = BOOLEAN                          ; bias xi high warning flag
-        biasxilowwarning_flag        = BOOLEAN                          ; bias xi low warning flag
-        biasxqhighalarm_flag         = BOOLEAN                          ; bias xq high alarm flag
-        biasxqlowalarm_flag          = BOOLEAN                          ; bias xq low alarm flag
-        biasxqhighwarning_flag       = BOOLEAN                          ; bias xq high warning flag
-        biasxqlowwarning_flag        = BOOLEAN                          ; bias xq low warning flag
-        biasxphighalarm_flag         = BOOLEAN                          ; bias xp high alarm flag
-        biasxplowalarm_flag          = BOOLEAN                          ; bias xp low alarm flag
-        biasxphighwarning_flag       = BOOLEAN                          ; bias xp high warning flag
-        biasxplowwarning_flag        = BOOLEAN                          ; bias xp low warning flag
-        biasyihighalarm_flag         = BOOLEAN                          ; bias yi high alarm flag
-        biasyilowalarm_flag          = BOOLEAN                          ; bias yi low alarm flag
-        biasyihighwarning_flag       = BOOLEAN                          ; bias yi high warning flag
-        biasyilowwarning_flag        = BOOLEAN                          ; bias yi low warning flag
-        biasyqhighalarm_flag         = BOOLEAN                          ; bias yq high alarm flag
-        biasyqlowalarm_flag          = BOOLEAN                          ; bias yq low alarm flag
-        biasyqhighwarning_flag       = BOOLEAN                          ; bias yq high warning flag
-        biasyqlowwarning_flag        = BOOLEAN                          ; bias yq low warning flag
-        biasyphighalarm_flag         = BOOLEAN                          ; bias yp high alarm flag
-        biasyplowalarm_flag          = BOOLEAN                          ; bias yp low alarm flag
-        biasyphighwarning_flag       = BOOLEAN                          ; bias yp high warning flag
-        biasyplowwarning_flag        = BOOLEAN                          ; bias yp low warning flag
-        cdshorthighalarm_flag        = BOOLEAN                          ; cd short high alarm flag
-        cdshortlowalarm_flag         = BOOLEAN                          ; cd short low alarm flag
-        cdshorthighwarning_flag      = BOOLEAN                          ; cd short high warning flag
-        cdshortlowwarning_flag       = BOOLEAN                          ; cd short low warning flag
-        cdlonghighalarm_flag         = BOOLEAN                          ; cd long high alarm flag
-        cdlonglowalarm_flag          = BOOLEAN                          ; cd long low alarm flag
-        cdlonghighwarning_flag       = BOOLEAN                          ; cd long high warning flag
-        cdlonglowwarning_flag        = BOOLEAN                          ; cd long low warning flag
-        dgdhighalarm_flag            = BOOLEAN                          ; dgd high alarm flag
-        dgdlowalarm_flag             = BOOLEAN                          ; dgd low alarm flag
-        dgdhighwarning_flag          = BOOLEAN                          ; dgd high warning flag
-        dgdlowwarning_flag           = BOOLEAN                          ; dgd low warning flag
-        sopmdhighalarm_flag          = BOOLEAN                          ; sopmd high alarm flag
-        sopmdlowalarm_flag           = BOOLEAN                          ; sopmd low alarm flag
-        sopmdhighwarning_flag        = BOOLEAN                          ; sopmd high warning flag
-        sopmdlowwarning_flag         = BOOLEAN                          ; sopmd low warning flag
-        pdlhighalarm_flag            = BOOLEAN                          ; pdl high alarm flag
-        pdllowalarm_flag             = BOOLEAN                          ; pdl low alarm flag
-        pdlhighwarning_flag          = BOOLEAN                          ; pdl high warning flag
-        pdllowwarning_flag           = BOOLEAN                          ; pdl low warning flag
-        osnrhighalarm_flag           = BOOLEAN                          ; osnr high alarm flag
-        osnrlowalarm_flag            = BOOLEAN                          ; osnr low alarm flag
-        osnrhighwarning_flag         = BOOLEAN                          ; osnr high warning flag
-        osnrlowwarning_flag          = BOOLEAN                          ; osnr low warning flag
-        esnrhighalarm_flag           = BOOLEAN                          ; esnr high alarm flag
-        esnrlowalarm_flag            = BOOLEAN                          ; esnr low alarm flag
-        esnrhighwarning_flag         = BOOLEAN                          ; esnr high warning flag
-        esnrlowwarning_flag          = BOOLEAN                          ; esnr low warning flag
-        cfohighalarm_flag            = BOOLEAN                          ; cfo high alarm flag
-        cfolowalarm_flag             = BOOLEAN                          ; cfo low alarm flag
-        cfohighwarning_flag          = BOOLEAN                          ; cfo high warning flag
-        cfolowwarning_flag           = BOOLEAN                          ; cfo low warning flag
-        txcurrpowerhighalarm_flag    = BOOLEAN                          ; txcurrpower high alarm flag
-        txcurrpowerlowalarm_flag     = BOOLEAN                          ; txcurrpower low alarm flag
-        txcurrpowerhighwarning_flag  = BOOLEAN                          ; txcurrpower high warning flag
-        txcurrpowerlowwarning_flag   = BOOLEAN                          ; txcurrpower low warning flag
-        rxtotpowerhighalarm_flag     = BOOLEAN                          ; rxtotpower high alarm flag
-        rxtotpowerlowalarm_flag      = BOOLEAN                          ; rxtotpower low alarm flag
-        rxtotpowerhighwarning_flag   = BOOLEAN                          ; rxtotpower high warning flag
-        rxtotpowerlowwarning_flag    = BOOLEAN                          ; rxtotpower low warning flag
-        rxsigpowerhighalarm_flag     = BOOLEAN                          ; rxsigpower high alarm flag
-        rxsigpowerlowalarm_flag      = BOOLEAN                          ; rxsigpower low alarm flag
-        rxsigpowerhighwarning_flag   = BOOLEAN                          ; rxsigpower high warning flag
-        rxsigpowerlowwarning_flag    = BOOLEAN                          ; rxsigpower low warning flag
-        ================================================================================
+            dict: A dictionary containing boolean values for various status fields, as defined in
+                the TRANSCEIVER_STATUS table in STATE_DB.
+        If there is an issue with reading the xcvr, None should be returned.
         """
         trans_status = super(CCmisApi,self).get_transceiver_status()
         trans_status['tuning_in_progress'] = self.get_tuning_in_progress()
         trans_status['wavelength_unlock_status'] = self.get_wavelength_unlocked()
-        laser_tuning_summary = self.get_laser_tuning_summary()
-        trans_status['target_output_power_oor'] = 'TargetOutputPowerOOR' in laser_tuning_summary
-        trans_status['fine_tuning_oor'] = 'FineTuningOutOfRange' in laser_tuning_summary
-        trans_status['tuning_not_accepted'] = 'TuningNotAccepted' in laser_tuning_summary
-        trans_status['invalid_channel_num'] = 'InvalidChannel' in laser_tuning_summary
-        trans_status['tuning_complete'] = 'TuningComplete' in laser_tuning_summary
-
-        for vdm_key, trans_status_key_prefix in C_CMIS_DELTA_VDM_KEY_TO_DB_PREFIX_KEY_MAP.items():
-            for i in range(5, 9):
-                trans_status_key = trans_status_key_prefix + VDM_SUBTYPE_IDX_MAP[i]
-                self._update_dict_if_vdm_key_exists(trans_status, trans_status_key, vdm_key, i)
 
         return trans_status
+
+    def get_transceiver_status_flags(self):
+        """
+        Retrieves the current flag status of the transceiver module.
+
+        Accesses latched registers to gather information about both
+        module-level and datapath-level states (including TX/RX related flags).
+
+        Returns:
+            dict: A dictionary containing boolean values for various flags, as defined in
+                the TRANSCEIVER_STATUS_FLAGS table in STATE_DB.
+        """
+        status_flags_dict = super().get_transceiver_status_flags()
+
+        laser_tuning_summary = self.get_laser_tuning_summary()
+        status_flags_dict.update({
+            'target_output_power_oor': 'TargetOutputPowerOOR' in laser_tuning_summary,
+            'fine_tuning_oor': 'FineTuningOutOfRange' in laser_tuning_summary,
+            'tuning_not_accepted': 'TuningNotAccepted' in laser_tuning_summary,
+            'invalid_channel_num': 'InvalidChannel' in laser_tuning_summary,
+            'tuning_complete': 'TuningComplete' in laser_tuning_summary
+        })
+
+        return status_flags_dict
 
     def get_transceiver_pm(self):
         """

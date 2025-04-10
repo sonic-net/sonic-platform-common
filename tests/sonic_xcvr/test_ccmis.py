@@ -256,31 +256,6 @@ class TestCCmis(object):
                     'txpower': 0.1,
                     'rxpower': 0.09,
                     'txbias': 70,
-                    'laser_temperature': 40,
-                    'prefec_ber': 0.001,
-                    'postfec_ber': 0,
-                },
-                {
-                    'Pre-FEC BER Average Media Input':{1:[0.001, 0.0125, 0, 0.01, 0, False, False, False, False]},
-                    'Errored Frames Average Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
-                    'Modulator Bias X/I [%]':{1:[50, 90, 10, 85, 15, False, False, False, False]},
-                    'Modulator Bias X/Q [%]':{1:[50, 90, 10, 85, 15, False, False, False, False]},
-                    'Modulator Bias X_Phase [%]':{1:[50, 90, 10, 85, 15, False, False, False, False]},
-                    'Modulator Bias Y/I [%]':{1:[50, 90, 10, 85, 15, False, False, False, False]},
-                    'Modulator Bias Y/Q [%]':{1:[50, 90, 10, 85, 15, False, False, False, False]},
-                    'Modulator Bias Y_Phase [%]':{1:[50, 90, 10, 85, 15, False, False, False, False]},
-                    'CD high granularity, short link [ps/nm]':{1:[1000, 2000, 0, 1800, 0, False, False, False, False]},
-                    'CD low granularity, long link [ps/nm]':{1:[1000, 2000, 0, 1800, 0, False, False, False, False]},
-                    'DGD [ps]':{1:[5, 30, 0, 25, 0, False, False, False, False]},
-                    'SOPMD [ps^2]':{1:[5, 100, 0, 80, 0, False, False, False, False]},
-                    'SOP ROC [krad/s]':{1: [0, 65535, 0, 65535, 0, False, False, False, False]},
-                    'PDL [dB]':{1:[0.5, 3, 0, 2.5, 0, False, False, False, False]},
-                    'OSNR [dB]':{1:[30, 100, 26, 80, 27, False, False, False, False]},
-                    'eSNR [dB]':{1:[16, 100, 13, 80, 14, False, False, False, False]},
-                    'CFO [MHz]':{1:[100, 5000, -5000, 4000, -4000, False, False, False, False]},
-                    'Tx Power [dBm]':{1:[-10, 0, -18, -2, -16, False, False, False, False]},
-                    'Rx Total Power [dBm]':{1:[-10, 3, -18, 0, -15, False, False, False, False]},
-                    'Rx Signal Power [dBm]':{1:[-10, 3, -18, 0, -15, False, False, False, False]}
                 },
                 193100, 193100, -10
             ],
@@ -290,44 +265,22 @@ class TestCCmis(object):
                 'txpower': 0.1,
                 'rxpower': 0.09,
                 'txbias': 70,
-                'laser_temperature': 40,
-                'prefec_ber': 0.001,
-                'postfec_ber': 0,
-                'biasxi': 50,
-                'biasxq': 50,
-                'biasxp': 50,
-                'biasyi': 50,
-                'biasyq': 50,
-                'biasyp': 50,
-                'cdshort': 1000,
-                'cdlong': 1000,
-                'dgd': 5,
-                'sopmd': 5,
-                'soproc': 0,
-                'pdl': 0.5,
-                'osnr': 30,
-                'esnr': 16,
-                'cfo': 100,
-                'txcurrpower': -10,
-                'rxtotpower': -10,
-                'rxsigpower': -10,
                 'laser_config_freq': 193100,
                 'laser_curr_freq': 193100,
                 'tx_config_power': -10
             }
         )
     ])
-    @patch("sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_transceiver_bulk_status")
-    def test_get_transceiver_bulk_status(self, get_transceiver_bulk_status_func, mock_response, expected):
-        get_transceiver_bulk_status_func.return_value = mock_response[0]
-        self.api.vdm_dict = mock_response[1]
+    @patch("sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_transceiver_dom_real_value")
+    def test_get_transceiver_dom_real_value(self, get_transceiver_dom_real_value_func, mock_response, expected):
+        get_transceiver_dom_real_value_func.return_value = mock_response[0]
         self.api.get_laser_config_freq = MagicMock()
-        self.api.get_laser_config_freq.return_value = mock_response[2]
+        self.api.get_laser_config_freq.return_value = mock_response[1]
         self.api.get_current_laser_freq = MagicMock()
-        self.api.get_current_laser_freq.return_value = mock_response[3]
+        self.api.get_current_laser_freq.return_value = mock_response[2]
         self.api.get_tx_config_power = MagicMock()
-        self.api.get_tx_config_power.return_value = mock_response[4]
-        result = self.api.get_transceiver_bulk_status()
+        self.api.get_tx_config_power.return_value = mock_response[3]
+        result = self.api.get_transceiver_dom_real_value()
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected",[
@@ -338,33 +291,8 @@ class TestCCmis(object):
                     'vcchighalarm': 3.5, 'vcclowalarm': 3.1, 'vcchighwarning': 3.45, 'vcclowwarning': 3.15,
                     'txpowerhighalarm': 1.0, 'txpowerlowalarm': 0.01, 'txpowerhighwarning': 0.7, 'txpowerlowwarning': 0.02,
                     'rxpowerhighalarm': 2.0, 'rxpowerlowalarm': 0.01, 'rxpowerhighwarning': 1.0, 'rxpowerlowwarning': 0.02,
-                    'txbiashighalarm': 90, 'txbiaslowalarm': 10, 'txbiashighwarning': 80, 'txbiaslowwarning': 20,
-                    'lasertemphighalarm': 80, 'lasertemplowalarm': 10, 'lasertemphighwarning': 75, 'lasertemplowwarning': 20,
-                    'prefecberhighalarm': 0.0125, 'prefecberlowalarm': 0, 'prefecberhighwarning': 0.01, 'prefecberlowwarning': 0,
-                    'postfecberhighalarm': 1, 'postfecberlowalarm': 0, 'postfecberhighwarning': 1, 'postfecberlowwarning': 0,
-                    'soprochighalarm' : 65535, 'soproclowalarm' : 0, 'soprochighwarning' : 65535, 'soproclowwarning' : 0,
+                    'txbiashighalarm': 90, 'txbiaslowalarm': 10, 'txbiashighwarning': 80, 'txbiaslowwarning': 20
                 },
-                {
-                    'Pre-FEC BER Average Media Input':{1:[0.001, 0.0125, 0, 0.01, 0, False, False, False, False]},
-                    'Errored Frames Average Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
-                    'Modulator Bias X/I [%]':{1:[50, 90, 10, 85, 15, False, False, False, False]},
-                    'Modulator Bias X/Q [%]':{1:[50, 90, 10, 85, 15, False, False, False, False]},
-                    'Modulator Bias X_Phase [%]':{1:[50, 90, 10, 85, 15, False, False, False, False]},
-                    'Modulator Bias Y/I [%]':{1:[50, 90, 10, 85, 15, False, False, False, False]},
-                    'Modulator Bias Y/Q [%]':{1:[50, 90, 10, 85, 15, False, False, False, False]},
-                    'Modulator Bias Y_Phase [%]':{1:[50, 90, 10, 85, 15, False, False, False, False]},
-                    'CD high granularity, short link [ps/nm]':{1:[1000, 2000, 0, 1800, 0, False, False, False, False]},
-                    'CD low granularity, long link [ps/nm]':{1:[1000, 2000, 0, 1800, 0, False, False, False, False]},
-                    'DGD [ps]':{1:[5, 30, 0, 25, 0, False, False, False, False]},
-                    'SOPMD [ps^2]':{1:[5, 100, 0, 80, 0, False, False, False, False]},
-                    'SOP ROC [krad/s]':{1: [0, 65535, 0, 65535, 0, False, False, False, False]},
-                    'PDL [dB]':{1:[0.5, 3, 0, 2.5, 0, False, False, False, False]},
-                    'OSNR [dB]':{1:[30, 100, 26, 80, 27, False, False, False, False]},
-                    'eSNR [dB]':{1:[16, 100, 13, 80, 14, False, False, False, False]},
-                    'CFO [MHz]':{1:[100, 5000, -5000, 4000, -4000, False, False, False, False]},
-                    'Tx Power [dBm]':{1:[-10, 0, -18, -2, -16, False, False, False, False]},
-                    'Rx Total Power [dBm]':{1:[-10, 3, -18, 0, -15, False, False, False, False]},
-                }
             ],
             {
                 'temphighalarm': 80, 'templowalarm': 0, 'temphighwarning': 75, 'templowwarning': 10,
@@ -372,34 +300,12 @@ class TestCCmis(object):
                 'txpowerhighalarm': 1.0, 'txpowerlowalarm': 0.01, 'txpowerhighwarning': 0.7, 'txpowerlowwarning': 0.02,
                 'rxpowerhighalarm': 2.0, 'rxpowerlowalarm': 0.01, 'rxpowerhighwarning': 1.0, 'rxpowerlowwarning': 0.02,
                 'txbiashighalarm': 90, 'txbiaslowalarm': 10, 'txbiashighwarning': 80, 'txbiaslowwarning': 20,
-                'lasertemphighalarm': 80, 'lasertemplowalarm': 10, 'lasertemphighwarning': 75, 'lasertemplowwarning': 20,
-                'prefecberhighalarm': 0.0125, 'prefecberlowalarm': 0, 'prefecberhighwarning': 0.01, 'prefecberlowwarning': 0,
-                'postfecberhighalarm': 1, 'postfecberlowalarm': 0, 'postfecberhighwarning': 1, 'postfecberlowwarning': 0,
-                'biasxihighalarm': 90, 'biasxilowalarm': 10, 'biasxihighwarning': 85, 'biasxilowwarning': 15,
-                'biasxqhighalarm': 90, 'biasxqlowalarm': 10, 'biasxqhighwarning': 85, 'biasxqlowwarning': 15,
-                'biasxphighalarm': 90, 'biasxplowalarm': 10, 'biasxphighwarning': 85, 'biasxplowwarning': 15,
-                'biasyihighalarm': 90, 'biasyilowalarm': 10, 'biasyihighwarning': 85, 'biasyilowwarning': 15,
-                'biasyqhighalarm': 90, 'biasyqlowalarm': 10, 'biasyqhighwarning': 85, 'biasyqlowwarning': 15,
-                'biasyphighalarm': 90, 'biasyplowalarm': 10, 'biasyphighwarning': 85, 'biasyplowwarning': 15,
-                'cdshorthighalarm': 2000, 'cdshortlowalarm': 0, 'cdshorthighwarning': 1800, 'cdshortlowwarning': 0,
-                'cdlonghighalarm': 2000, 'cdlonglowalarm': 0, 'cdlonghighwarning': 1800, 'cdlonglowwarning': 0,
-                'dgdhighalarm': 30, 'dgdlowalarm': 0, 'dgdhighwarning': 25, 'dgdlowwarning': 0,
-                'sopmdhighalarm': 100, 'sopmdlowalarm': 0, 'sopmdhighwarning': 80, 'sopmdlowwarning': 0,
-                'pdlhighalarm': 3, 'pdllowalarm': 0, 'pdlhighwarning': 2.5, 'pdllowwarning': 0,
-                'osnrhighalarm': 100, 'osnrlowalarm': 26, 'osnrhighwarning': 80, 'osnrlowwarning': 27,
-                'esnrhighalarm': 100, 'esnrlowalarm': 13, 'esnrhighwarning': 80, 'esnrlowwarning': 14,
-                'cfohighalarm': 5000, 'cfolowalarm': -5000, 'cfohighwarning': 4000, 'cfolowwarning': -4000,
-                'txcurrpowerhighalarm': 0, 'txcurrpowerlowalarm': -18, 'txcurrpowerhighwarning': -2, 'txcurrpowerlowwarning': -16,
-                'rxtotpowerhighalarm': 3, 'rxtotpowerlowalarm': -18, 'rxtotpowerhighwarning': 0, 'rxtotpowerlowwarning': -15,
-                'rxsigpowerhighalarm': 'N/A', 'rxsigpowerlowalarm': 'N/A', 'rxsigpowerhighwarning': 'N/A', 'rxsigpowerlowwarning': 'N/A',
-                'soprochighalarm': 65535, 'soproclowalarm': 0, 'soprochighwarning': 65535, 'soproclowwarning': 0
             }
         )
     ])
     @patch("sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_transceiver_threshold_info")
     def test_get_transceiver_threshold_info(self, get_transceiver_threshold_info_func, mock_response, expected):
         get_transceiver_threshold_info_func.return_value = mock_response[0]
-        self.api.vdm_dict = mock_response[1]
         result = self.api.get_transceiver_threshold_info()
         assert result == expected
 
@@ -429,25 +335,6 @@ class TestCCmis(object):
                     'rxoutput_status_hostlane6': True,
                     'rxoutput_status_hostlane7': True,
                     'rxoutput_status_hostlane8': True,
-                    'txfault': False,
-                    'txlos_hostlane1': False,
-                    'txlos_hostlane2': False,
-                    'txlos_hostlane3': False,
-                    'txlos_hostlane4': False,
-                    'txlos_hostlane5': False,
-                    'txlos_hostlane6': False,
-                    'txlos_hostlane7': False,
-                    'txlos_hostlane8': False,
-                    'txcdrlol_hostlane1': False,
-                    'txcdrlol_hostlane2': False,
-                    'txcdrlol_hostlane3': False,
-                    'txcdrlol_hostlane4': False,
-                    'txcdrlol_hostlane5': False,
-                    'txcdrlol_hostlane6': False,
-                    'txcdrlol_hostlane7': False,
-                    'txcdrlol_hostlane8': False,
-                    'rxlos': False,
-                    'rxcdrlol': False,
                     'config_state_hostlane1': 'ConfigSuccess',
                     'config_state_hostlane2': 'ConfigSuccess',
                     'config_state_hostlane3': 'ConfigSuccess',
@@ -464,48 +351,8 @@ class TestCCmis(object):
                     'dpinit_pending_hostlane6': False,
                     'dpinit_pending_hostlane7': False,
                     'dpinit_pending_hostlane8': False,
-                    'temphighalarm_flag': False, 'templowalarm_flag': False, 
-                    'temphighwarning_flag': False, 'templowwarning_flag': False,
-                    'vcchighalarm_flag': False, 'vcclowalarm_flag': False, 
-                    'vcchighwarning_flag': False, 'vcclowwarning_flag': False,
-                    'lasertemphighalarm_flag': False, 'lasertemplowalarm_flag': False, 
-                    'lasertemphighwarning_flag': False, 'lasertemplowwarning_flag': False,
-                    'txpowerhighalarm_flag': False, 'txpowerlowalarm_flag': False, 
-                    'txpowerhighwarning_flag': False, 'txpowerlowwarning_flag': False,
-                    'rxpowerhighalarm_flag': False, 'rxpowerlowalarm_flag': False, 
-                    'rxpowerhighwarning_flag': False, 'rxpowerlowwarning_flag': False,
-                    'txbiashighalarm_flag': False, 'txbiaslowalarm_flag': False, 
-                    'txbiashighwarning_flag': False, 'txbiaslowwarning_flag': False,
-                    'prefecberhighalarm_flag': False, 'prefecberlowalarm_flag': False, 
-                    'prefecberhighwarning_flag': False, 'prefecberlowwarning_flag': False,
-                    'postfecberhighalarm_flag': False, 'postfecberlowalarm_flag': False, 
-                    'postfecberhighwarning_flag': False, 'postfecberlowwarning_flag': False,
-                    'soprochighalarm_flag' : False, 'soproclowalarm_flag' : False,
-                    'soprochighwarning_flag' : False, 'soproclowwarning_flag' : False,
                 },
-                False, False, ['TuningComplete'],
-                {
-                    'Pre-FEC BER Average Media Input':{1:[0.001, 0.0125, 0, 0.01, 0, False, False, False, False]},
-                    'Errored Frames Average Media Input':{1:[0, 1, 0, 1, 0, False, False, False, False]},
-                    'Modulator Bias X/I [%]':{1:[50, 90, 10, 85, 15, False, False, False, False]},
-                    'Modulator Bias X/Q [%]':{1:[50, 90, 10, 85, 15, False, False, False, False]},
-                    'Modulator Bias X_Phase [%]':{1:[50, 90, 10, 85, 15, False, False, False, False]},
-                    'Modulator Bias Y/I [%]':{1:[50, 90, 10, 85, 15, False, False, False, False]},
-                    'Modulator Bias Y/Q [%]':{1:[50, 90, 10, 85, 15, False, False, False, False]},
-                    'Modulator Bias Y_Phase [%]':{1:[50, 90, 10, 85, 15, False, False, False, False]},
-                    'CD high granularity, short link [ps/nm]':{1:[1000, 2000, 0, 1800, 0, False, False, False, False]},
-                    'CD low granularity, long link [ps/nm]':{1:[1000, 2000, 0, 1800, 0, False, False, False, False]},
-                    'DGD [ps]':{1:[5, 30, 0, 25, 0, False, False, False, False]},
-                    'SOPMD [ps^2]':{1:[5, 100, 0, 80, 0, False, False, False, False]},
-                    'SOP ROC [krad/s]':{1: [0, 65535, 0, 65535, 0, False, False, False, False]},
-                    'PDL [dB]':{1:[0.5, 3, 0, 2.5, 0, False, False, False, False]},
-                    'OSNR [dB]':{1:[30, 100, 26, 80, 27, False, False, False, False]},
-                    'eSNR [dB]':{1:[16, 100, 13, 80, 14, False, False, False, False]},
-                    'CFO [MHz]':{1:[100, 5000, -5000, 4000, -4000, False, False, False, False]},
-                    'Tx Power [dBm]':{1:[-10, 0, -18, -2, -16, False, False, False, False]},
-                    'Rx Total Power [dBm]':{1:[-10, 3, -18, 0, -15, False, False, False, False]},
-                    'Rx Signal Power [dBm]':{1:[-10, 3, -18, 0, -15, False, False, False, False]}
-                }
+                False, False,
             ],
             {
                 'module_state': 'ModuleReady',
@@ -530,25 +377,6 @@ class TestCCmis(object):
                 'rxoutput_status_hostlane6': True,
                 'rxoutput_status_hostlane7': True,
                 'rxoutput_status_hostlane8': True,
-                'txfault': False,
-                'txlos_hostlane1': False,
-                'txlos_hostlane2': False,
-                'txlos_hostlane3': False,
-                'txlos_hostlane4': False,
-                'txlos_hostlane5': False,
-                'txlos_hostlane6': False,
-                'txlos_hostlane7': False,
-                'txlos_hostlane8': False,
-                'txcdrlol_hostlane1': False,
-                'txcdrlol_hostlane2': False,
-                'txcdrlol_hostlane3': False,
-                'txcdrlol_hostlane4': False,
-                'txcdrlol_hostlane5': False,
-                'txcdrlol_hostlane6': False,
-                'txcdrlol_hostlane7': False,
-                'txcdrlol_hostlane8': False,
-                'rxlos': False,
-                'rxcdrlol': False,
                 'config_state_hostlane1': 'ConfigSuccess',
                 'config_state_hostlane2': 'ConfigSuccess',
                 'config_state_hostlane3': 'ConfigSuccess',
@@ -567,63 +395,6 @@ class TestCCmis(object):
                 'dpinit_pending_hostlane8': False,
                 'tuning_in_progress': False,
                 'wavelength_unlock_status': False,
-                'target_output_power_oor': False,
-                'fine_tuning_oor': False,
-                'tuning_not_accepted': False,
-                'invalid_channel_num': False,
-                'tuning_complete': True,
-                'temphighalarm_flag': False, 'templowalarm_flag': False, 
-                'temphighwarning_flag': False, 'templowwarning_flag': False,
-                'vcchighalarm_flag': False, 'vcclowalarm_flag': False, 
-                'vcchighwarning_flag': False, 'vcclowwarning_flag': False,
-                'lasertemphighalarm_flag': False, 'lasertemplowalarm_flag': False, 
-                'lasertemphighwarning_flag': False, 'lasertemplowwarning_flag': False,
-                'txpowerhighalarm_flag': False, 'txpowerlowalarm_flag': False, 
-                'txpowerhighwarning_flag': False, 'txpowerlowwarning_flag': False,
-                'rxpowerhighalarm_flag': False, 'rxpowerlowalarm_flag': False, 
-                'rxpowerhighwarning_flag': False, 'rxpowerlowwarning_flag': False,
-                'txbiashighalarm_flag': False, 'txbiaslowalarm_flag': False, 
-                'txbiashighwarning_flag': False, 'txbiaslowwarning_flag': False,
-                'prefecberhighalarm_flag': False, 'prefecberlowalarm_flag': False, 
-                'prefecberhighwarning_flag': False, 'prefecberlowwarning_flag': False,
-                'postfecberhighalarm_flag': False, 'postfecberlowalarm_flag': False, 
-                'postfecberhighwarning_flag': False, 'postfecberlowwarning_flag': False,
-                'biasxihighalarm_flag': False, 'biasxilowalarm_flag': False, 
-                'biasxihighwarning_flag': False, 'biasxilowwarning_flag': False,
-                'biasxqhighalarm_flag': False, 'biasxqlowalarm_flag': False, 
-                'biasxqhighwarning_flag': False, 'biasxqlowwarning_flag': False,
-                'biasxphighalarm_flag': False, 'biasxplowalarm_flag': False, 
-                'biasxphighwarning_flag': False, 'biasxplowwarning_flag': False,
-                'biasyihighalarm_flag': False, 'biasyilowalarm_flag': False, 
-                'biasyihighwarning_flag': False, 'biasyilowwarning_flag': False,
-                'biasyqhighalarm_flag': False, 'biasyqlowalarm_flag': False, 
-                'biasyqhighwarning_flag': False, 'biasyqlowwarning_flag': False,
-                'biasyphighalarm_flag': False, 'biasyplowalarm_flag': False, 
-                'biasyphighwarning_flag': False, 'biasyplowwarning_flag': False,
-                'cdshorthighalarm_flag': False, 'cdshortlowalarm_flag': False, 
-                'cdshorthighwarning_flag': False, 'cdshortlowwarning_flag': False,
-                'cdlonghighalarm_flag': False, 'cdlonglowalarm_flag': False, 
-                'cdlonghighwarning_flag': False, 'cdlonglowwarning_flag': False,
-                'dgdhighalarm_flag': False, 'dgdlowalarm_flag': False, 
-                'dgdhighwarning_flag': False, 'dgdlowwarning_flag': False,
-                'sopmdhighalarm_flag': False, 'sopmdlowalarm_flag': False, 
-                'sopmdhighwarning_flag': False, 'sopmdlowwarning_flag': False,
-                'pdlhighalarm_flag': False, 'pdllowalarm_flag': False, 
-                'pdlhighwarning_flag': False, 'pdllowwarning_flag': False,
-                'osnrhighalarm_flag': False, 'osnrlowalarm_flag': False, 
-                'osnrhighwarning_flag': False, 'osnrlowwarning_flag': False,
-                'esnrhighalarm_flag': False, 'esnrlowalarm_flag': False, 
-                'esnrhighwarning_flag': False, 'esnrlowwarning_flag': False,
-                'cfohighalarm_flag': False, 'cfolowalarm_flag': False, 
-                'cfohighwarning_flag': False, 'cfolowwarning_flag': False,
-                'txcurrpowerhighalarm_flag': False, 'txcurrpowerlowalarm_flag': False, 
-                'txcurrpowerhighwarning_flag': False, 'txcurrpowerlowwarning_flag': False,
-                'rxtotpowerhighalarm_flag': False, 'rxtotpowerlowalarm_flag': False, 
-                'rxtotpowerhighwarning_flag': False, 'rxtotpowerlowwarning_flag': False,
-                'rxsigpowerhighalarm_flag': False, 'rxsigpowerlowalarm_flag': False, 
-                'rxsigpowerhighwarning_flag': False, 'rxsigpowerlowwarning_flag': False,
-                'soprochighalarm_flag' : False, 'soproclowalarm_flag' : False,
-                'soprochighwarning_flag' : False, 'soproclowwarning_flag' : False
             }
         )
     ])
@@ -634,11 +405,95 @@ class TestCCmis(object):
         self.api.get_tuning_in_progress.return_value = mock_response[1]
         self.api.get_wavelength_unlocked = MagicMock()
         self.api.get_wavelength_unlocked.return_value = mock_response[2]
-        self.api.get_laser_tuning_summary = MagicMock()
-        self.api.get_laser_tuning_summary.return_value = mock_response[3]
-        self.api.vdm_dict = mock_response[4]
         result = self.api.get_transceiver_status()
         assert result == expected
+
+    @pytest.mark.parametrize(
+        "module_faults, tx_fault, tx_los, tx_cdr_lol, tx_eq_fault, rx_los, rx_cdr_lol, laser_tuning_summary, expected_result",
+        [
+            # Test case 1: All flags present for lanes 1 to 8
+            (
+                (True, False, True),
+                [True, False, True, False, True, False, True, False],
+                [False, True, False, True, False, True, False, True],
+                [True, False, True, False, True, False, True, False],
+                [False, True, False, True, False, True, False, True],
+                [True, False, True, False, True, False, True, False],
+                [False, True, False, True, False, True, False, True],
+                ['TargetOutputPowerOOR', 'FineTuningOutOfRange', 'TuningNotAccepted', 'InvalidChannel', 'TuningComplete'],
+                {
+                    'datapath_firmware_fault': True,
+                    'module_firmware_fault': False,
+                    'module_state_changed': True,
+                    'tx1fault': True,
+                    'tx2fault': False,
+                    'tx3fault': True,
+                    'tx4fault': False,
+                    'tx5fault': True,
+                    'tx6fault': False,
+                    'tx7fault': True,
+                    'tx8fault': False,
+                    'rx1los': True,
+                    'rx2los': False,
+                    'rx3los': True,
+                    'rx4los': False,
+                    'rx5los': True,
+                    'rx6los': False,
+                    'rx7los': True,
+                    'rx8los': False,
+                    'tx1los_hostlane': False,
+                    'tx2los_hostlane': True,
+                    'tx3los_hostlane': False,
+                    'tx4los_hostlane': True,
+                    'tx5los_hostlane': False,
+                    'tx6los_hostlane': True,
+                    'tx7los_hostlane': False,
+                    'tx8los_hostlane': True,
+                    'tx1cdrlol_hostlane': True,
+                    'tx2cdrlol_hostlane': False,
+                    'tx3cdrlol_hostlane': True,
+                    'tx4cdrlol_hostlane': False,
+                    'tx5cdrlol_hostlane': True,
+                    'tx6cdrlol_hostlane': False,
+                    'tx7cdrlol_hostlane': True,
+                    'tx8cdrlol_hostlane': False,
+                    'tx1_eq_fault': False,
+                    'tx2_eq_fault': True,
+                    'tx3_eq_fault': False,
+                    'tx4_eq_fault': True,
+                    'tx5_eq_fault': False,
+                    'tx6_eq_fault': True,
+                    'tx7_eq_fault': False,
+                    'tx8_eq_fault': True,
+                    'rx1cdrlol': False,
+                    'rx2cdrlol': True,
+                    'rx3cdrlol': False,
+                    'rx4cdrlol': True,
+                    'rx5cdrlol': False,
+                    'rx6cdrlol': True,
+                    'rx7cdrlol': False,
+                    'rx8cdrlol': True,
+                    'target_output_power_oor': True,
+                    'fine_tuning_oor': True,
+                    'tuning_not_accepted': True,
+                    'invalid_channel_num': True,
+                    'tuning_complete': True,
+                }
+            ),
+        ]
+    )
+    def test_get_transceiver_status_flags(self, module_faults, tx_fault, tx_los, tx_cdr_lol, tx_eq_fault, rx_los, rx_cdr_lol, laser_tuning_summary, expected_result):
+        self.api.get_module_firmware_fault_state_changed = MagicMock(return_value=module_faults)
+        self.api.get_tx_fault = MagicMock(return_value=tx_fault)
+        self.api.get_tx_los = MagicMock(return_value=tx_los)
+        self.api.get_tx_cdr_lol = MagicMock(return_value=tx_cdr_lol)
+        self.api.get_rx_los = MagicMock(return_value=rx_los)
+        self.api.get_rx_cdr_lol = MagicMock(return_value=rx_cdr_lol)
+        self.api.get_laser_tuning_summary = MagicMock(return_value=laser_tuning_summary)
+        with patch.object(self.api, 'get_tx_adaptive_eq_fail_flag', return_value=tx_eq_fault), \
+             patch.object(self.api, 'is_flat_memory', return_value=False):
+            result = self.api.get_transceiver_status_flags()
+            assert result == expected_result
 
     @pytest.mark.parametrize("mock_response, expected", [
         (
