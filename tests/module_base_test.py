@@ -203,22 +203,3 @@ class TestModuleBase:
 
         with patch.object(module, 'get_pci_bus_info', side_effect=Exception()):
             assert module.handle_pci_rescan() is False
-
-    def test_module_cleanup(self):
-        module = ModuleBase()
-
-        with patch.object(module, 'get_pci_bus_info', return_value=["0000:00:00.0"]), \
-             patch.object(module, 'pci_entry_state_db') as mock_db:
-            module.__del__()
-            mock_db.assert_called_with("0000:00:00.0", "attaching")
-
-        with patch.object(module, 'get_pci_bus_info', side_effect=NotImplementedError()), \
-             patch.object(module, 'get_pci_bus_from_platform_json', return_value="0000:01:00.0"), \
-             patch.object(module, 'pci_entry_state_db') as mock_db:
-            module.__del__()
-            mock_db.assert_called_with("0000:01:00.0", "attaching")
-
-        with patch.object(module, 'get_pci_bus_info', side_effect=Exception()), \
-             patch.object(module, 'get_pci_bus_from_platform_json', return_value=None):
-            module.__del__()
-

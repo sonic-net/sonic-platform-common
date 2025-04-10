@@ -9,7 +9,6 @@ import sys
 import os
 import fcntl
 from . import device_base
-import swsscommon
 import json
 import threading
 import contextlib
@@ -95,21 +94,6 @@ class ModuleBase(device_base.DeviceBase):
         # visibile in PCI domain on the module
         self._asic_list = []
     
-    def __del__(self):
-        """
-        Destructor - ensures any PCI state DB entries are cleaned up when the module is deleted
-        """
-        try:
-            bus_info_list = self.get_pci_bus_info()
-            for bus in bus_info_list:
-                self.pci_entry_state_db(bus, PCIE_OPERATION_ATTACHING)
-        except NotImplementedError:
-            pci_bus = self.get_pci_bus_from_platform_json()
-            if pci_bus:
-                self.pci_entry_state_db(pci_bus, PCIE_OPERATION_ATTACHING)
-        except Exception:
-            pass
-
     @contextlib.contextmanager
     def _pci_operation_lock(self):
         """File-based lock for PCI operations using flock"""
@@ -382,6 +366,8 @@ class ModuleBase(device_base.DeviceBase):
             RuntimeError: If state database connection fails
         """
         try:
+            # Do not use import if swsscommon is not needed
+            import swsscommon
             PCIE_DETACH_INFO_TABLE_KEY = PCIE_DETACH_INFO_TABLE+"|"+pcie_string
             if not self.state_db_connector:
                 self.state_db_connector = swsscommon.swsscommon.DBConnector("STATE_DB", 0)
