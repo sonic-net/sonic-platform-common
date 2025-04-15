@@ -1578,7 +1578,7 @@ class TestCmis(object):
                 'media_interface_code': '400ZR, DWDM, amplified',
                 'serial': '00000000',
                 'host_lane_count': 8,
-                **{f'active_apsel_hostlane{i}': 1 for i in range(1, 9)},
+                **{f'active_apsel_hostlane{i}': "N/A" for i in range(1, 9)},
                 'hardware_rev': '0.0',
                 'cmis_rev': '5.0',
                 'media_lane_assignment_option': 1,

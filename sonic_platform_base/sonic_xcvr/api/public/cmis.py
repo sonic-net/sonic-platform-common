@@ -329,10 +329,6 @@ class CmisApi(XcvrApi):
             "specification_compliance": self.get_module_media_type(),
             "vdm_supported": self.is_transceiver_vdm_supported()
         })
-        apsel_dict = self.get_active_apsel_hostlane()
-        for lane in range(1, self.NUM_CHANNELS + 1):
-            xcvr_info["%s%d" % ("active_apsel_hostlane", lane)] = \
-            apsel_dict["%s%d" % (consts.ACTIVE_APSEL_HOSTLANE, lane)]
 
         # In normal case will get a valid value for each of the fields. If get a 'None' value
         # means there was a failure while reading the EEPROM, either because the EEPROM was
