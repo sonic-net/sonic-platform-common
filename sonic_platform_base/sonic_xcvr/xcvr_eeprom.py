@@ -54,7 +54,6 @@ class XcvrEeprom(object):
             data = struct.unpack("%dB" %size, raw_data)
       return data
 
-
    def write(self, field_name, value):
       """
       Write a value to a field in EEPROM
