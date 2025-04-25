@@ -999,48 +999,102 @@ If Selective self-test is pending on power-up, resume after 0 minute delay.
 """
 
 output_transcend_vendor = """
-scopepro-cli 1.21 2023/11/24
-Copyright (c) 2021-24, Transcend information, Inc. All rights reserved.
+smartctl 7.4 2023-08-01 r5530 [x86_64-linux-6.1.0-22-2-amd64] (local build)
+Copyright (C) 2002-23, Bruce Allen, Christian Franke, www.smartmontools.org
 
-[/dev/sda]
----------- Disk Information ----------
-Model                   :TS32XBTMM1600
-FW Version              :O0918B
-Serial No               :F318410080
-Support Interface       :SATA
----------------- S.M.A.R.T Information ----------------
-01 Read Error Rate      0
-05 Reallocated Sectors Count    0
-09 Power-On Hour Count  2295
-0C Power Cycle Count    2580
-A0 Uncorrectable sectors count when read/write  0
-A1 Number of Valid Spare Blocks 56
-A3 Number of Initial Invalid Blocks     12
-A4 Total Erase Count    924312
-A5 Maximum Erase Count  931
-A6 Minimum Erase Count  831
-A7 Average Erase Count  898
-A8 Max Erase Count of Spec      3000
-A9 Remain Life (percentage)     71
-AF Program fail count in worst die      0
-B0 Erase fail count in worst die        0
-B1 Total Wear Level Count       481
-B2 Runtime Invalid Block Count  0
-B5 Total Program Fail Count     0
-B6 Total Erase Fail Count       0
-C0 Power-Off Retract Count      59
-C2 Controlled Temperature       40
-C3 Hardware ECC Recovered       1668
-C4 Reallocation Event Count     0
-C5 Current Pending Sector Count 0
-C6 Uncorrectable Error Count Off-Line   0
-C7 Ultra DMA CRC Error Count    0
-E8 Available Reserved Space     100
-F1 Total LBA Written (each write unit=32MB)     671696
-F2 Total LBA Read (each read unit=32MB) 393162
-F5 Flash Write Sector Count     924312
----------------- Health Information ----------------
-Health Percentage: 71%
+=== START OF INFORMATION SECTION ===
+Model Family:     Silicon Motion based SSDs
+Device Model:     TS120GMTS420S
+Serial Number:    I074710927
+LU WWN Device Id: 5 7c3548 21ce5198f
+Firmware Version: R0522A0
+User Capacity:    120,034,123,776 bytes [120 GB]
+Sector Size:      512 bytes logical/physical
+Rotation Rate:    Solid State Device
+Form Factor:      M.2
+TRIM Command:     Available, deterministic
+Device is:        In smartctl database 7.3/5528
+ATA Version is:   ACS-2 T13/2015-D revision 3
+SATA Version is:  SATA 3.2, 6.0 Gb/s (current: 6.0 Gb/s)
+Local Time is:    Fri Mar 21 08:22:45 2025 UTC
+SMART support is: Available - device has SMART capability.
+SMART support is: Enabled
+
+=== START OF READ SMART DATA SECTION ===
+SMART overall-health self-assessment test result: PASSED
+
+General SMART Values:
+Offline data collection status:  (0x00)	Offline data collection activity
+					was never started.
+					Auto Offline Data Collection: Disabled.
+Self-test execution status:      (   0)	The previous self-test routine completed
+					without error or no self-test has ever 
+					been run.
+Total time to complete Offline 
+data collection: 		(  120) seconds.
+Offline data collection
+capabilities: 			 (0x11) SMART execute Offline immediate.
+					No Auto Offline data collection support.
+					Suspend Offline collection upon new
+					command.
+					No Offline surface scan supported.
+					Self-test supported.
+					No Conveyance Self-test supported.
+					No Selective Self-test supported.
+SMART capabilities:            (0x0002)	Does not save SMART data before
+					entering power-saving mode.
+					Supports SMART auto save timer.
+Error logging capability:        (0x01)	Error logging supported.
+					General Purpose Logging supported.
+Short self-test routine 
+recommended polling time: 	 (   2) minutes.
+Extended self-test routine
+recommended polling time: 	 (  10) minutes.
+
+SMART Attributes Data Structure revision number: 1
+Vendor Specific SMART Attributes with Thresholds:
+ID# ATTRIBUTE_NAME          FLAG     VALUE WORST THRESH TYPE      UPDATED  WHEN_FAILED RAW_VALUE
+  1 Raw_Read_Error_Rate     0x0032   100   100   050    Old_age   Always       -       0
+  5 Reallocated_Sector_Ct   0x0032   100   100   050    Old_age   Always       -       0
+  9 Power_On_Hours          0x0032   100   100   050    Old_age   Always       -       1221
+ 12 Power_Cycle_Count       0x0032   100   100   050    Old_age   Always       -       53
+160 Uncorrectable_Error_Cnt 0x0032   100   100   050    Old_age   Always       -       0
+161 Valid_Spare_Block_Cnt   0x0033   100   100   050    Pre-fail  Always       -       100
+163 Initial_Bad_Block_Count 0x0032   100   100   050    Old_age   Always       -       14
+164 Total_Erase_Count       0x0032   100   100   050    Old_age   Always       -       2185
+165 Max_Erase_Count         0x0032   100   100   050    Old_age   Always       -       6
+166 Min_Erase_Count         0x0032   100   100   050    Old_age   Always       -       1
+167 Average_Erase_Count     0x0032   100   100   050    Old_age   Always       -       4
+168 Max_Erase_Count_of_Spec 0x0032   100   100   050    Old_age   Always       -       1500
+169 Remaining_Lifetime_Perc 0x0032   100   100   050    Old_age   Always       -       100
+175 Program_Fail_Count_Chip 0x0032   100   100   050    Old_age   Always       -       0
+176 Erase_Fail_Count_Chip   0x0032   100   100   050    Old_age   Always       -       0
+177 Wear_Leveling_Count     0x0032   100   100   050    Old_age   Always       -       0
+178 Runtime_Invalid_Blk_Cnt 0x0032   100   100   050    Old_age   Always       -       0
+181 Program_Fail_Cnt_Total  0x0032   100   100   050    Old_age   Always       -       0
+182 Erase_Fail_Count_Total  0x0032   100   100   050    Old_age   Always       -       0
+192 Power-Off_Retract_Count 0x0032   100   100   050    Old_age   Always       -       51
+194 Temperature_Celsius     0x0022   100   100   050    Old_age   Always       -       33
+195 Hardware_ECC_Recovered  0x0032   100   100   050    Old_age   Always       -       0
+196 Reallocated_Event_Count 0x0032   100   100   050    Old_age   Always       -       0
+197 Current_Pending_Sector  0x0032   100   100   050    Old_age   Always       -       0
+198 Offline_Uncorrectable   0x0032   100   100   050    Old_age   Always       -       0
+199 UDMA_CRC_Error_Count    0x0032   100   100   050    Old_age   Always       -       0
+232 Available_Reservd_Space 0x0032   100   100   050    Old_age   Always       -       100
+241 Host_Writes_32MiB       0x0030   100   100   050    Old_age   Offline      -       5068
+242 Host_Reads_32MiB        0x0030   100   100   050    Old_age   Offline      -       16734
+245 TLC_Writes_32MiB        0x0032   100   100   050    Old_age   Always       -       1035
+
+SMART Error Log Version: 1
+No Errors Logged
+
+SMART Self-test log structure revision number 1
+No self-tests have been logged.  [To run self-tests, use: smartctl -t]
+
+Selective Self-tests/Logging not supported
+
+The above only provides legacy SMART information - try 'smartctl -x' for more
+
 """
 
 output_micron_ssd="""smartctl 6.6 2017-11-05 r4594 [x86_64-linux-4.9.0-14-2-amd64] (local build)
@@ -1522,11 +1576,11 @@ class TestSsd:
         transcend_ssd = SsdUtil('/dev/sda')
         transcend_ssd.vendor_ssd_info = mock_exec.return_value
         transcend_ssd.parse_vendor_ssd_info('Transcend')
-        assert transcend_ssd.get_health() == '71'
-        assert transcend_ssd.get_model() == 'TS32XBTMM1600'
-        assert transcend_ssd.get_firmware() == "O0918B"
-        assert transcend_ssd.get_temperature() == '40'
-        assert transcend_ssd.get_serial() == "F318410080"
+        assert transcend_ssd.get_health() == '100'
+        assert transcend_ssd.get_model() == 'TS120GMTS420S'
+        assert transcend_ssd.get_firmware() == "R0522A0"
+        assert transcend_ssd.get_temperature() == '33'
+        assert transcend_ssd.get_serial() == "I074710927"
 
     @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_micron_ssd))
     def test_micron_ssd(self):
