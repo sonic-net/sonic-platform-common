@@ -5,6 +5,7 @@ import os
 import fcntl
 from unittest.mock import patch, MagicMock, call
 from io import StringIO
+import shutil
 
 class MockFile:
     def __init__(self, data=None):
@@ -160,3 +161,52 @@ class TestModuleBase:
 
         with patch.object(module, 'get_pci_bus_info', side_effect=Exception()):
             assert module.handle_pci_rescan() is False
+
+    def test_handle_sensor_removal(self):
+        module = ModuleBase()
+
+        with patch.object(module, 'get_name', return_value="DPU0"), \
+             patch('os.path.exists', return_value=True), \
+             patch('shutil.copy2') as mock_copy, \
+             patch('os.system') as mock_system:
+            assert module.handle_sensor_removal() is True
+            mock_copy.assert_called_once_with("/usr/share/sonic/platform/dpu_ignore_conf/ignore_DPU0.conf",
+                                             "/etc/sensors.d/ignore_DPU0.conf")
+            mock_system.assert_called_once_with("service sensord restart")
+
+        with patch.object(module, 'get_name', return_value="DPU0"), \
+             patch('os.path.exists', return_value=False), \
+             patch('shutil.copy2') as mock_copy, \
+             patch('os.system') as mock_system:
+            assert module.handle_sensor_removal() is True
+            mock_copy.assert_not_called()
+            mock_system.assert_not_called()
+
+        with patch.object(module, 'get_name', return_value="DPU0"), \
+             patch('os.path.exists', return_value=True), \
+             patch('shutil.copy2', side_effect=Exception("Copy failed")):
+            assert module.handle_sensor_removal() is False
+
+    def test_handle_sensor_addition(self):
+        module = ModuleBase()
+
+        with patch.object(module, 'get_name', return_value="DPU0"), \
+             patch('os.path.exists', return_value=True), \
+             patch('os.remove') as mock_remove, \
+             patch('os.system') as mock_system:
+            assert module.handle_sensor_addition() is True
+            mock_remove.assert_called_once_with("/etc/sensors.d/ignore_DPU0.conf")
+            mock_system.assert_called_once_with("service sensord restart")
+
+        with patch.object(module, 'get_name', return_value="DPU0"), \
+             patch('os.path.exists', return_value=False), \
+             patch('os.remove') as mock_remove, \
+             patch('os.system') as mock_system:
+            assert module.handle_sensor_addition() is True
+            mock_remove.assert_not_called()
+            mock_system.assert_not_called()
+
+        with patch.object(module, 'get_name', return_value="DPU0"), \
+             patch('os.path.exists', return_value=True), \
+             patch('os.remove', side_effect=Exception("Remove failed")):
+            assert module.handle_sensor_addition() is False

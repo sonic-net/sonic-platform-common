@@ -790,3 +790,57 @@ class ModuleBase(device_base.DeviceBase):
                And '0000:05:00.0' is its PCI address.
         """
         return self._asic_list
+
+    def handle_sensor_removal(self):
+        """
+        Handles sensor removal by copying ignore configuration file from platform folder
+        to sensors.d directory and restarting sensord if the file exists.
+
+        Returns:
+            bool: True if operation was successful, False otherwise
+        """
+        try:
+            module_name = self.get_name()
+            source_file = f"/usr/share/sonic/platform/dpu_ignore_conf/ignore_{module_name}.conf"
+            target_file = f"/etc/sensors.d/ignore_{module_name}.conf"
+
+            # If source file does not exist, we dont need to copy it and restart sensord
+            if not os.path.exists(source_file):
+                return True
+
+            # Copy the file
+            import shutil
+            shutil.copy2(source_file, target_file)
+
+            # Restart sensord
+            os.system("service sensord restart")
+
+            return True
+        except Exception as e:
+            return False
+
+    def handle_sensor_addition(self):
+        """
+        Handles sensor addition by removing the ignore configuration file from
+        sensors.d directory and restarting sensord.
+
+        Returns:
+            bool: True if operation was successful, False otherwise
+        """
+        try:
+            module_name = self.get_name()
+            target_file = f"/etc/sensors.d/ignore_{module_name}.conf"
+
+            # If target file does not exist, we dont need to remove it and restart sensord
+            if not os.path.exists(target_file):
+                return True
+
+            # Remove the file
+            os.remove(target_file)
+
+            # Restart sensord
+            os.system("service sensord restart")
+
+            return True
+        except Exception as e:
+            return False
