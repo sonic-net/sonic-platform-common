@@ -12,6 +12,7 @@ from . import device_base
 import json
 import threading
 import contextlib
+import shutil
 
 # PCI state database constants
 PCIE_DETACH_INFO_TABLE = "PCIE_DETACH_INFO"
@@ -801,15 +802,13 @@ class ModuleBase(device_base.DeviceBase):
         """
         try:
             module_name = self.get_name()
-            source_file = f"/usr/share/sonic/platform/dpu_ignore_conf/ignore_{module_name}.conf"
+            source_file = f"/usr/share/sonic/platform/module_sensors_ignore_conf/ignore_sensors_{module_name}.conf"
             target_file = f"/etc/sensors.d/ignore_{module_name}.conf"
 
             # If source file does not exist, we dont need to copy it and restart sensord
             if not os.path.exists(source_file):
                 return True
 
-            # Copy the file
-            import shutil
             shutil.copy2(source_file, target_file)
 
             # Restart sensord
@@ -829,7 +828,7 @@ class ModuleBase(device_base.DeviceBase):
         """
         try:
             module_name = self.get_name()
-            target_file = f"/etc/sensors.d/ignore_{module_name}.conf"
+            target_file = f"/etc/sensors.d/ignore_sensors_{module_name}.conf"
 
             # If target file does not exist, we dont need to remove it and restart sensord
             if not os.path.exists(target_file):

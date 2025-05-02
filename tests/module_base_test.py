@@ -170,8 +170,8 @@ class TestModuleBase:
              patch('shutil.copy2') as mock_copy, \
              patch('os.system') as mock_system:
             assert module.handle_sensor_removal() is True
-            mock_copy.assert_called_once_with("/usr/share/sonic/platform/dpu_ignore_conf/ignore_DPU0.conf",
-                                             "/etc/sensors.d/ignore_DPU0.conf")
+            mock_copy.assert_called_once_with("/usr/share/sonic/platform/module_sensors_ignore_conf/ignore_sensors_DPU0.conf",
+                                             "/etc/sensors.d/ignore_sensors_DPU0.conf")
             mock_system.assert_called_once_with("service sensord restart")
 
         with patch.object(module, 'get_name', return_value="DPU0"), \
@@ -195,7 +195,7 @@ class TestModuleBase:
              patch('os.remove') as mock_remove, \
              patch('os.system') as mock_system:
             assert module.handle_sensor_addition() is True
-            mock_remove.assert_called_once_with("/etc/sensors.d/ignore_DPU0.conf")
+            mock_remove.assert_called_once_with("/etc/sensors.d/ignore_sensors_DPU0.conf")
             mock_system.assert_called_once_with("service sensord restart")
 
         with patch.object(module, 'get_name', return_value="DPU0"), \
