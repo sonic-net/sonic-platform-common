@@ -24,7 +24,7 @@ class TestSff8636(object):
         self.api.get_model()
         self.api.get_serial()
         self.api.get_transceiver_info()
-        self.api.get_transceiver_bulk_status()
+        self.api.get_transceiver_dom_real_value()
         self.api.get_transceiver_threshold_info()
         self.api.get_transceiver_status()
         self.api.get_rx_los()
@@ -119,7 +119,7 @@ class TestSff8636(object):
         run_num = 5
         while run_num > 0:
             try:
-                self.api.get_transceiver_bulk_status()
+                self.api.get_transceiver_dom_real_value()
                 self.api.get_transceiver_info()
                 self.api.get_transceiver_threshold_info()
             except:
@@ -159,8 +159,6 @@ class TestSff8636(object):
     @pytest.mark.parametrize("mock_response, expected",[
         (
             [
-                [False, False, False, False],
-                [False, False, False, False],
                 0,
                 [False, False, False, False]
             ],
@@ -170,20 +168,10 @@ class TestSff8636(object):
                 "tx2disable": False,
                 "tx3disable": False,
                 "tx4disable": False,
-                'txfault1': False,
-                'txfault2': False,
-                'txfault3': False,
-                'txfault4': False,
-                'rxlos1': False,
-                'rxlos2': False,
-                'rxlos3': False,
-                'rxlos4': False,
             }
         ),
         (
             [
-                None,
-                None,
                 None,
                 None
             ],
@@ -191,15 +179,44 @@ class TestSff8636(object):
         )
     ])
     def test_get_transceiver_status(self, mock_response, expected):
+        self.api.get_tx_disable_channel = MagicMock()
+        self.api.get_tx_disable_channel.return_value = mock_response[0]
+        self.api.get_tx_disable = MagicMock()
+        self.api.get_tx_disable.return_value = mock_response[1]
+        result = self.api.get_transceiver_status()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response, expected",[
+        (
+            [
+                [False, False, False, False],
+                [False, False, False, False],
+            ],
+            {
+                'tx1fault': False,
+                'tx2fault': False,
+                'tx3fault': False,
+                'tx4fault': False,
+                'rx1los': False,
+                'rx2los': False,
+                'rx3los': False,
+                'rx4los': False,
+            }
+        ),
+        (
+            [
+                None,
+                None
+            ],
+            None
+        )
+    ])
+    def test_get_transceiver_status_flags(self, mock_response, expected):
         self.api.get_rx_los = MagicMock()
         self.api.get_rx_los.return_value = mock_response[0]
         self.api.get_tx_fault = MagicMock()
         self.api.get_tx_fault.return_value = mock_response[1]
-        self.api.get_tx_disable_channel = MagicMock()
-        self.api.get_tx_disable_channel.return_value = mock_response[2]
-        self.api.get_tx_disable = MagicMock()
-        self.api.get_tx_disable.return_value = mock_response[3]
-        result = self.api.get_transceiver_status()
+        result = self.api.get_transceiver_status_flags()
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected",[
@@ -221,7 +238,7 @@ class TestSff8636(object):
             }
         )
     ])
-    def test_get_transceiver_bulk_status(self, mock_response, expected):
+    def test_get_transceiver_dom_real_value(self, mock_response, expected):
         self.api.get_module_temperature = MagicMock()
         self.api.get_module_temperature.return_value = mock_response[0]
         self.api.get_voltage = MagicMock()
@@ -244,6 +261,6 @@ class TestSff8636(object):
         self.api.get_tx_power_support.return_value = mock_response[9]
         self.api.get_rx_power_support = MagicMock()
         self.api.get_rx_power_support.return_value = mock_response[10]
-        result = self.api.get_transceiver_bulk_status()
+        result = self.api.get_transceiver_dom_real_value()
         assert result == expected
 
