@@ -131,41 +131,6 @@ class TestModuleBase:
             ])
             assert mock_file.fileno_called
 
-    def test_pci_removal_from_platform_json(self):
-        module = ModuleBase()
-        mock_file = MockFile()
-        with patch('builtins.open', return_value=mock_file) as mock_open, \
-             patch.object(module, 'get_pci_bus_from_platform_json', return_value="0000:00:00.0"), \
-             patch.object(module, 'pci_entry_state_db') as mock_db, \
-             patch.object(module, '_pci_operation_lock') as mock_lock, \
-             patch.object(module, 'get_name', return_value="DPU0"):
-            assert module.pci_removal_from_platform_json() is True
-            mock_db.assert_called_with("0000:00:00.0", "detaching")
-            assert mock_file.written_data == "1"
-            mock_open.assert_called_with("/sys/bus/pci/devices/0000:00:00.0/remove", 'w')
-            mock_lock.assert_called_once()
-
-        with patch.object(module, 'get_pci_bus_from_platform_json', return_value=None):
-            assert module.pci_removal_from_platform_json() is False
-
-    def test_pci_reattach_from_platform_json(self):
-        module = ModuleBase()
-        mock_file = MockFile()
-
-        with patch('builtins.open', return_value=mock_file) as mock_open, \
-             patch.object(module, 'get_pci_bus_from_platform_json', return_value="0000:00:00.0"), \
-             patch.object(module, 'pci_entry_state_db') as mock_db, \
-             patch.object(module, '_pci_operation_lock') as mock_lock, \
-             patch.object(module, 'get_name', return_value="DPU0"):
-            assert module.pci_reattach_from_platform_json() is True
-            mock_db.assert_called_with("0000:00:00.0", "attaching")
-            assert mock_file.written_data == "1"
-            mock_open.assert_called_with("/sys/bus/pci/rescan", 'w')
-            mock_lock.assert_called_once()
-
-        with patch.object(module, 'get_pci_bus_from_platform_json', return_value=None):
-            assert module.pci_reattach_from_platform_json() is False
-
     def test_handle_pci_removal(self):
         module = ModuleBase()
 

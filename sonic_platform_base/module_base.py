@@ -318,22 +318,6 @@ class ModuleBase(device_base.DeviceBase):
             return None
         except Exception:
             return None
-    
-    def pci_removal_from_platform_json(self):
-        """
-        Generic function to handle PCI device removal.
-
-        Returns:
-            bool: True if operation was successful, False otherwise
-        """
-        pci_bus = self.get_pci_bus_from_platform_json()
-        if pci_bus:
-            with self._pci_operation_lock():
-                self.pci_entry_state_db(pci_bus, PCIE_OPERATION_DETACHING)
-                with open(f"/sys/bus/pci/devices/{pci_bus}/remove", 'w') as f:
-                    f.write("1")
-            return True
-        return False
 
     def handle_pci_removal(self):
         """
@@ -349,8 +333,6 @@ class ModuleBase(device_base.DeviceBase):
                 for bus in bus_info_list:
                     self.pci_entry_state_db(bus, PCIE_OPERATION_DETACHING)
                 return self.pci_detach()
-        except NotImplementedError:
-            return self.pci_removal_from_platform_json()
         except Exception:
             return False
 
@@ -379,22 +361,6 @@ class ModuleBase(device_base.DeviceBase):
         except Exception as e:
             sys.stderr.write("Failed to write pcie bus infoto state database: {}\n".format(str(e)))
 
-    def pci_reattach_from_platform_json(self):
-        """
-        Generic function to handle PCI device rescan.
-
-        Returns:
-            bool: True if operation was successful, False otherwise
-        """
-        pci_bus = self.get_pci_bus_from_platform_json()
-        if pci_bus:
-            with self._pci_operation_lock():
-                self.pci_entry_state_db(pci_bus, PCIE_OPERATION_ATTACHING)
-                with open("/sys/bus/pci/rescan", 'w') as f:
-                    f.write("1")
-                return True
-        return False
-
     def handle_pci_rescan(self):
         """
         Handles PCI device rescan by updating state database and reattaching device.
@@ -409,8 +375,6 @@ class ModuleBase(device_base.DeviceBase):
                 for bus in bus_info_list:
                     self.pci_entry_state_db(bus, PCIE_OPERATION_ATTACHING)
                 return self.pci_reattach()
-        except NotImplementedError:
-            return self.pci_reattach_from_platform_json()
         except Exception:
             return False
 
