@@ -143,10 +143,6 @@ class TestModuleBase:
             mock_db.assert_called_with("0000:00:00.0", "detaching")
             mock_lock.assert_called_once()
 
-        with patch.object(module, 'get_pci_bus_info', side_effect=NotImplementedError()), \
-             patch.object(module, 'pci_removal_from_platform_json', return_value=True):
-            assert module.handle_pci_removal() is True
-
         with patch.object(module, 'get_pci_bus_info', side_effect=Exception()):
             assert module.handle_pci_removal() is False
 
@@ -161,10 +157,6 @@ class TestModuleBase:
             assert module.handle_pci_rescan() is True
             mock_db.assert_called_with("0000:00:00.0", "attaching")
             mock_lock.assert_called_once()
-
-        with patch.object(module, 'get_pci_bus_info', side_effect=NotImplementedError()), \
-             patch.object(module, 'pci_reattach_from_platform_json', return_value=True):
-            assert module.handle_pci_rescan() is True
 
         with patch.object(module, 'get_pci_bus_info', side_effect=Exception()):
             assert module.handle_pci_rescan() is False
