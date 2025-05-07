@@ -359,7 +359,7 @@ class ModuleBase(device_base.DeviceBase):
             self.state_db_connector.hset(PCIE_DETACH_INFO_TABLE_KEY, "bus_info", pcie_string)
             self.state_db_connector.hset(PCIE_DETACH_INFO_TABLE_KEY, "dpu_state", operation)
         except Exception as e:
-            sys.stderr.write("Failed to write pcie bus infoto state database: {}\n".format(str(e)))
+            sys.stderr.write("Failed to write pcie bus info to state database: {}\n".format(str(e)))
 
     def handle_pci_rescan(self):
         """
