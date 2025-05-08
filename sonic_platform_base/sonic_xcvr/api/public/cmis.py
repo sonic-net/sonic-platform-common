@@ -145,6 +145,21 @@ class CmisApi(XcvrApi):
         self.vdm = CmisVdmApi(xcvr_eeprom) if not self.is_flat_memory() else None
         self.cdb = CmisCdbApi(xcvr_eeprom) if not self.is_flat_memory() else None
 
+    def clear_cache(self, method_name=None):
+        """
+        Clear cached values for methods decorated with caching decorators.
+        If method_name is provided, only clear that method's cache; otherwise clear all caches.
+        """
+        if method_name:
+            cache_name = f'_{method_name}_cache'
+            if hasattr(self, cache_name):
+                delattr(self, cache_name)
+        else:
+            # Remove all cache attributes
+            for attr in list(self.__dict__.keys()):
+                if attr.startswith('_') and attr.endswith('_cache'):
+                    delattr(self, attr)
+
     def _get_vdm_key_to_db_prefix_map(self):
         return CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP
 

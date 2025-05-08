@@ -31,6 +31,38 @@ class TestReadOnlyCacheDecorator:
         # Only the first two reads (major and minor) should occur
         assert self.api.xcvr_eeprom.read.call_count == 2
 
+    def test_clear_cache_for_get_model(self):
+        # Ensure clear_cache('get_model') clears the cache so read() is re-called
+        self.api.xcvr_eeprom.read.return_value = 'val1'
+        _ = self.api.get_model()
+        _ = self.api.get_model()
+        assert self.api.xcvr_eeprom.read.call_count == 1
+        # Clear only get_model cache
+        self.api.clear_cache('get_model')
+        self.api.xcvr_eeprom.read.return_value = 'val2'
+        _ = self.api.get_model()
+        assert self.api.xcvr_eeprom.read.call_count == 2
+        assert self.api.get_model() == 'val2'
+
+    def test_clear_all_caches(self):
+        # Ensure clear_cache() clears all cached methods
+        # Setup: get_model and get_cmis_rev use side effects
+        self.api.xcvr_eeprom.read.side_effect = ['m1', 1, 2]
+        _ = self.api.get_model()
+        _ = self.api.get_cmis_rev()
+        assert self.api.xcvr_eeprom.read.call_count == 3
+        # Clear all caches
+        self.api.clear_cache()
+        # Reset read mock and provide new side effects
+        self.api.xcvr_eeprom.read.reset_mock()
+        self.api.xcvr_eeprom.read.side_effect = ['m2', 3, 4]
+        m2 = self.api.get_model()
+        rev = self.api.get_cmis_rev()
+        assert m2 == 'm2'
+        assert rev == '3.4'
+        # Both methods should re-read their values
+        assert self.api.xcvr_eeprom.read.call_count == 3
+
 class TestReadOnlyCacheDictAndListDecorator:
     def setup_method(self):
         # Initialize CmisApi with a mock EEPROM and clear initial reads
@@ -85,3 +117,31 @@ class TestReadOnlyCacheDictAndListDecorator:
         assert second == expected
         # Should have read APPLS_ADVT_FIELD and MEDIA_TYPE_FIELD once each
         assert self.api.xcvr_eeprom.read.call_count == 2
+
+    def test_clear_cache_for_get_application_advertisement(self):
+        # Non-empty dict is cached, clear_cache should force re-read
+        media_type = Sff8024.MODULE_MEDIA_TYPE[1]
+        prefix = consts.MODULE_MEDIA_INTERFACE_850NM
+        raw = {
+            f"{consts.HOST_ELECTRICAL_INTERFACE}_1": 'iface1',
+            f"{prefix}_1": 'mod_iface1',
+            f"{consts.MEDIA_LANE_COUNT}_1": 2,
+            f"{consts.HOST_LANE_COUNT}_1": 1,
+            f"{consts.HOST_LANE_ASSIGNMENT_OPTION}_1": 3,
+            f"{consts.MEDIA_LANE_ASSIGNMENT_OPTION}_1": 4,
+        }
+        def read_side_effect(field_name):
+            if field_name == consts.APPLS_ADVT_FIELD:
+                return raw
+            if field_name == consts.MEDIA_TYPE_FIELD:
+                return media_type
+            return None
+        self.api.xcvr_eeprom.read.side_effect = read_side_effect
+        first = self.api.get_application_advertisement()
+        second = self.api.get_application_advertisement()
+        assert self.api.xcvr_eeprom.read.call_count == 2
+        # Clear the specific cache and read again
+        self.api.clear_cache('get_application_advertisement')
+        third = self.api.get_application_advertisement()
+        assert third == first
+        assert self.api.xcvr_eeprom.read.call_count == 4

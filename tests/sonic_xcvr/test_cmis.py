@@ -20,6 +20,10 @@ class TestCmis(object):
     old_read_func = eeprom.read
     api = CmisApi(eeprom)
 
+    def setup_method(self, method):
+        """Clear cached values before each test case."""
+        self.api.clear_cache()
+
     @pytest.mark.parametrize("mock_response, expected", [
         ("1234567890", "1234567890"),
         ("ABCD", "ABCD")
