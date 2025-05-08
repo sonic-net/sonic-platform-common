@@ -843,3 +843,27 @@ class ModuleBase(device_base.DeviceBase):
             return True
         except Exception as e:
             return False
+
+    def module_pre_shutdown(self):
+        """
+        Handles module pre-shutdown operations by detaching PCI devices and handling sensor removal.
+        This function should be called before shutting down a module.
+
+        Returns:
+            bool: True if all operations were successful, False otherwise
+        """
+        sensor_result = self.handle_sensor_removal()
+        pci_result = self.handle_pci_removal()
+        return pci_result and sensor_result
+
+    def module_post_startup(self):
+        """
+        Handles module post-startup operations by reattaching PCI devices and handling sensor addition.
+        This function should be called after a module has started up.
+
+        Returns:
+            bool: True if all operations were successful, False otherwise
+        """
+        pci_result = self.handle_pci_rescan()
+        sensor_result = self.handle_sensor_addition()
+        return pci_result and sensor_result

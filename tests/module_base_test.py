@@ -210,3 +210,39 @@ class TestModuleBase:
              patch('os.path.exists', return_value=True), \
              patch('os.remove', side_effect=Exception("Remove failed")):
             assert module.handle_sensor_addition() is False
+
+    def test_module_pre_shutdown(self):
+        module = ModuleBase()
+
+        # Test successful case
+        with patch.object(module, 'handle_pci_removal', return_value=True), \
+             patch.object(module, 'handle_sensor_removal', return_value=True):
+            assert module.module_pre_shutdown() is True
+
+        # Test PCI removal failure
+        with patch.object(module, 'handle_pci_removal', return_value=False), \
+             patch.object(module, 'handle_sensor_removal', return_value=True):
+            assert module.module_pre_shutdown() is False
+
+        # Test sensor removal failure
+        with patch.object(module, 'handle_pci_removal', return_value=True), \
+             patch.object(module, 'handle_sensor_removal', return_value=False):
+            assert module.module_pre_shutdown() is False
+
+    def test_module_post_startup(self):
+        module = ModuleBase()
+
+        # Test successful case
+        with patch.object(module, 'handle_pci_rescan', return_value=True), \
+             patch.object(module, 'handle_sensor_addition', return_value=True):
+            assert module.module_post_startup() is True
+
+        # Test PCI rescan failure
+        with patch.object(module, 'handle_pci_rescan', return_value=False), \
+             patch.object(module, 'handle_sensor_addition', return_value=True):
+            assert module.module_post_startup() is False
+
+        # Test sensor addition failure
+        with patch.object(module, 'handle_pci_rescan', return_value=True), \
+             patch.object(module, 'handle_sensor_addition', return_value=False):
+            assert module.module_post_startup() is False
