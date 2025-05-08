@@ -224,7 +224,6 @@ class CmisApi(XcvrApi):
         '''
         return self.xcvr_eeprom.read(consts.VENDOR_PART_NO_FIELD)
 
-    @read_only_cache_none_dict_and_list
     def get_cable_length_type(self):
         '''
         This function returns the cable type of the module
