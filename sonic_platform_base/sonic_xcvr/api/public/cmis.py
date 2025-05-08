@@ -109,6 +109,32 @@ CMIS_XCVR_INFO_DEFAULT_DICT = {
         "vdm_supported": "N/A"
         }
 
+def read_only_cache_none_dict_and_list(func):
+    cache_name = f'_{func.__name__}_cache'
+    def wrapper(self):
+        if not hasattr(self, cache_name):
+            cache_value = func(self)
+            setattr(self, cache_name, cache_value)
+        else:
+            cache_value = getattr(self, cache_name)
+            if cache_value is None:
+                cache_value = func(self)
+                setattr(self, cache_name, cache_value)
+        return cache_value
+    return wrapper
+
+# Decorator that caches return values of dict/list methods only when non-empty collections are returned
+def read_only_cache_dict_and_list(func):
+    cache_name = f'_{func.__name__}_cache'
+    def wrapper(self):
+        if not hasattr(self, cache_name):
+            value = func(self)
+            if value is not None and isinstance(value, (dict, list)) and len(value) > 0:
+                setattr(self, cache_name, value)
+            return value
+        return getattr(self, cache_name)
+    return wrapper
+
 class CmisApi(XcvrApi):
     NUM_CHANNELS = 8
     LowPwrRequestSW = 4
@@ -184,60 +210,70 @@ class CmisApi(XcvrApi):
         '''
         return self.xcvr_eeprom.read(consts.VDM_UNFREEZE_DONE)
 
+    @read_only_cache_none_dict_and_list
     def get_manufacturer(self):
         '''
         This function returns the manufacturer of the module
         '''
         return self.xcvr_eeprom.read(consts.VENDOR_NAME_FIELD)
 
+    @read_only_cache_none_dict_and_list
     def get_model(self):
         '''
         This function returns the part number of the module
         '''
         return self.xcvr_eeprom.read(consts.VENDOR_PART_NO_FIELD)
 
+    @read_only_cache_none_dict_and_list
     def get_cable_length_type(self):
         '''
         This function returns the cable type of the module
         '''
         return "Length Cable Assembly(m)"
 
+    @read_only_cache_none_dict_and_list
     def get_cable_length(self):
         '''
         This function returns the cable length of the module
         '''
         return self.xcvr_eeprom.read(consts.LENGTH_ASSEMBLY_FIELD)
 
+    @read_only_cache_none_dict_and_list
     def get_vendor_rev(self):
         '''
         This function returns the revision level for part number provided by vendor
         '''
         return self.xcvr_eeprom.read(consts.VENDOR_REV_FIELD)
 
+    @read_only_cache_none_dict_and_list
     def get_serial(self):
         '''
         This function returns the serial number of the module
         '''
         return self.xcvr_eeprom.read(consts.VENDOR_SERIAL_NO_FIELD)
 
+    @read_only_cache_none_dict_and_list
     def get_module_type(self):
         '''
         This function returns the SFF8024Identifier (module type / form-factor). Table 4-1 in SFF-8024 Rev4.6
         '''
         return self.xcvr_eeprom.read(consts.ID_FIELD)
 
+    @read_only_cache_none_dict_and_list
     def get_module_type_abbreviation(self):
         '''
         This function returns the SFF8024Identifier (module type / form-factor). Table 4-1 in SFF-8024 Rev4.6
         '''
         return self.xcvr_eeprom.read(consts.ID_ABBRV_FIELD)
 
+    @read_only_cache_none_dict_and_list
     def get_connector_type(self):
         '''
         This function returns module connector. Table 4-3 in SFF-8024 Rev4.6
         '''
         return self.xcvr_eeprom.read(consts.CONNECTOR_FIELD)
 
+    @read_only_cache_none_dict_and_list
     def get_module_hardware_revision(self):
         '''
         This function returns the module hardware revision
@@ -249,6 +285,7 @@ class CmisApi(XcvrApi):
         hw_rev = [str(num) for num in [hw_major_rev, hw_minor_rev]]
         return '.'.join(hw_rev)
 
+    @read_only_cache_none_dict_and_list
     def get_cmis_rev(self):
         '''
         This function returns the CMIS version the module complies to
@@ -563,6 +600,7 @@ class CmisApi(XcvrApi):
         media_intf = self.get_module_media_type()
         return media_intf == "passive_copper_media_interface" if media_intf else None
 
+    @read_only_cache_none_dict_and_list
     def is_flat_memory(self):
         return self.xcvr_eeprom.read(consts.FLAT_MEM_FIELD) is not False
 
@@ -834,6 +872,7 @@ class CmisApi(XcvrApi):
             tx_los_final.append(bool(tx_los[key]))
         return tx_los_final
 
+    @read_only_cache_none_dict_and_list
     def get_tx_disable_support(self):
         return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.TX_DISABLE_SUPPORT_FIELD)
 
@@ -947,6 +986,7 @@ class CmisApi(XcvrApi):
     def get_transceiver_thresholds_support(self):
         return not self.is_flat_memory()
 
+    @read_only_cache_none_dict_and_list
     def get_lpmode_support(self):
         power_class = self.xcvr_eeprom.read(consts.POWER_CLASS_FIELD)
         if power_class is None:
@@ -988,6 +1028,7 @@ class CmisApi(XcvrApi):
         else:
             return 'Unknown media interface'
 
+    @read_only_cache_none_dict_and_list
     def is_coherent_module(self):
         '''
         Returns True if the module follow C-CMIS spec, False otherwise
@@ -995,6 +1036,7 @@ class CmisApi(XcvrApi):
         mintf = self.get_module_media_interface()
         return False if 'ZR' not in mintf else True
 
+    @read_only_cache_none_dict_and_list
     def get_datapath_init_duration(self):
         '''
         This function returns the duration of datapath init
@@ -1007,6 +1049,7 @@ class CmisApi(XcvrApi):
         value = float(duration)
         return value * DATAPATH_INIT_DURATION_MULTIPLIER if value <= DATAPATH_INIT_DURATION_OVERRIDE_THRESHOLD else value
 
+    @read_only_cache_none_dict_and_list
     def get_datapath_deinit_duration(self):
         '''
         This function returns the duration of datapath deinit
@@ -1016,6 +1059,7 @@ class CmisApi(XcvrApi):
         duration = self.xcvr_eeprom.read(consts.DP_PATH_DEINIT_DURATION)
         return float(duration) if duration is not None else 0
 
+    @read_only_cache_none_dict_and_list
     def get_datapath_tx_turnon_duration(self):
         '''
         This function returns the duration of datapath tx turnon
@@ -1025,6 +1069,7 @@ class CmisApi(XcvrApi):
         duration = self.xcvr_eeprom.read(consts.DP_TX_TURNON_DURATION)
         return float(duration) if duration is not None else 0
 
+    @read_only_cache_none_dict_and_list
     def get_datapath_tx_turnoff_duration(self):
         '''
         This function returns the duration of datapath tx turnoff
@@ -1034,6 +1079,7 @@ class CmisApi(XcvrApi):
         duration = self.xcvr_eeprom.read(consts.DP_TX_TURNOFF_DURATION)
         return float(duration) if duration is not None else 0
 
+    @read_only_cache_none_dict_and_list
     def get_module_pwr_up_duration(self):
         '''
         This function returns the duration of module power up
@@ -1043,6 +1089,7 @@ class CmisApi(XcvrApi):
         duration = self.xcvr_eeprom.read(consts.MODULE_PWRUP_DURATION)
         return float(duration) if duration is not None else 0
 
+    @read_only_cache_none_dict_and_list
     def get_module_pwr_down_duration(self):
         '''
         This function returns the duration of module power down
@@ -2738,12 +2785,14 @@ class CmisApi(XcvrApi):
                 data &= ~(1 << lane)
         self.xcvr_eeprom.write(consts.DATAPATH_DEINIT_FIELD, data)
 
+    @read_only_cache_dict_and_list
     def get_datapath_deinit(self):
         datapath_deinit = self.xcvr_eeprom.read(consts.DATAPATH_DEINIT_FIELD)
         if datapath_deinit is None:
             return None
         return [bool(datapath_deinit & (1 << lane)) for lane in range(self.NUM_CHANNELS)]
 
+    @read_only_cache_dict_and_list
     def get_application_advertisement(self):
         """
         Get the application advertisement of the CMIS transceiver
