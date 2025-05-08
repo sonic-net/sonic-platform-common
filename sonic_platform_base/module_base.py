@@ -803,7 +803,7 @@ class ModuleBase(device_base.DeviceBase):
         try:
             module_name = self.get_name()
             source_file = f"/usr/share/sonic/platform/module_sensors_ignore_conf/ignore_sensors_{module_name}.conf"
-            target_file = f"/etc/sensors.d/ignore_{module_name}.conf"
+            target_file = f"/etc/sensors.d/ignore_sensors_{module_name}.conf"
 
             # If source file does not exist, we dont need to copy it and restart sensord
             if not os.path.exists(source_file):
