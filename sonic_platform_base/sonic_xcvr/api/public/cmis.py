@@ -128,10 +128,10 @@ def read_only_cache_dict_and_list(func):
     cache_name = f'_{func.__name__}_cache'
     def wrapper(self):
         if not hasattr(self, cache_name):
-            value = func(self)
-            if value is not None and isinstance(value, (dict, list)) and len(value) > 0:
-                setattr(self, cache_name, value)
-            return value
+            cache_value = func(self)
+            if cache_value is not None and isinstance(cache_value, (dict, list)) and len(cache_value) > 0:
+                setattr(self, cache_name, cache_value)
+            return cache_value
         return getattr(self, cache_name)
     return wrapper
 
@@ -2785,7 +2785,6 @@ class CmisApi(XcvrApi):
                 data &= ~(1 << lane)
         self.xcvr_eeprom.write(consts.DATAPATH_DEINIT_FIELD, data)
 
-    @read_only_cache_dict_and_list
     def get_datapath_deinit(self):
         datapath_deinit = self.xcvr_eeprom.read(consts.DATAPATH_DEINIT_FIELD)
         if datapath_deinit is None:
