@@ -1130,6 +1130,7 @@ class TestCmis(object):
         self.api.get_lpmode.return_value = True
         self.api.get_module_state.return_value = "ModuleReady"
         self.api.set_lpmode(lpmode)
+        self.api.set_lpmode(lpmode, wait_state_change = False)
 
     @pytest.mark.parametrize("mock_response, expected", [
         (
