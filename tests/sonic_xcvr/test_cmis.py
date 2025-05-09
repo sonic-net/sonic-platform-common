@@ -286,74 +286,71 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ([{'TxPowerHighAlarmFlag1':0}, {'TxPowerLowAlarmFlag1':0}, {'TxPowerHighWarnFlag1':0}, {'TxPowerLowWarnFlag1':0}],
-         {
-            'tx_power_high_alarm':{
-                'TxPowerHighAlarmFlag1': False
+        (
+            {
+                consts.TX_POWER_HIGH_ALARM_FLAG: {'TxPowerHighAlarmFlag1': 0},
+                consts.TX_POWER_LOW_ALARM_FLAG: {'TxPowerLowAlarmFlag1': 0},
+                consts.TX_POWER_HIGH_WARN_FLAG: {'TxPowerHighWarnFlag1': 0},
+                consts.TX_POWER_LOW_WARN_FLAG: {'TxPowerLowWarnFlag1': 0}
             },
-            'tx_power_low_alarm':{
-                'TxPowerLowAlarmFlag1': False
-            },
-            'tx_power_high_warn':{
-                'TxPowerHighWarnFlag1': False,
-            },
-            'tx_power_low_warn':{
-                'TxPowerLowWarnFlag1': False
+            {
+                'tx_power_high_alarm': {'TxPowerHighAlarmFlag1': False},
+                'tx_power_low_alarm': {'TxPowerLowAlarmFlag1': False},
+                'tx_power_high_warn': {'TxPowerHighWarnFlag1': False},
+                'tx_power_low_warn': {'TxPowerLowWarnFlag1': False}
             }
-         }),
-         ([None, None, None, None], None)
+        ),
+        (None, None)
     ])
     def test_get_tx_power_flag(self, mock_response, expected):
         self.api.xcvr_eeprom.read = MagicMock()
-        self.api.xcvr_eeprom.read.side_effect = mock_response
+        self.api.xcvr_eeprom.read.return_value = mock_response
         result = self.api.get_tx_power_flag()
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ([{'TxBiasHighAlarmFlag1':0}, {'TxBiasLowAlarmFlag1':0}, {'TxBiasHighWarnFlag1':0}, {'TxBiasLowWarnFlag1':0}],
-         {
-            'tx_bias_high_alarm':{
-                'TxBiasHighAlarmFlag1': False
+        (
+            {
+                consts.TX_BIAS_HIGH_ALARM_FLAG: {'TxBiasHighAlarmFlag1': 0},
+                consts.TX_BIAS_LOW_ALARM_FLAG: {'TxBiasLowAlarmFlag1': 0},
+                consts.TX_BIAS_HIGH_WARN_FLAG: {'TxBiasHighWarnFlag1': 0},
+                consts.TX_BIAS_LOW_WARN_FLAG: {'TxBiasLowWarnFlag1': 0}
             },
-            'tx_bias_low_alarm':{
-                'TxBiasLowAlarmFlag1': False
-            },
-            'tx_bias_high_warn':{
-                'TxBiasHighWarnFlag1': False,
-            },
-            'tx_bias_low_warn':{
-                'TxBiasLowWarnFlag1': False
+            {
+                'tx_bias_high_alarm': {'TxBiasHighAlarmFlag1': False},
+                'tx_bias_low_alarm': {'TxBiasLowAlarmFlag1': False},
+                'tx_bias_high_warn': {'TxBiasHighWarnFlag1': False},
+                'tx_bias_low_warn': {'TxBiasLowWarnFlag1': False}
             }
-         }),
-         ([None, None, None, None], None)
+        ),
+        (None, None)
     ])
     def test_get_tx_bias_flag(self, mock_response, expected):
         self.api.xcvr_eeprom.read = MagicMock()
-        self.api.xcvr_eeprom.read.side_effect = mock_response
+        self.api.xcvr_eeprom.read.return_value = mock_response
         result = self.api.get_tx_bias_flag()
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ([{'RxPowerHighAlarmFlag1':0}, {'RxPowerLowAlarmFlag1':0}, {'RxPowerHighWarnFlag1':0}, {'RxPowerLowWarnFlag1':0}],
-         {
-            'rx_power_high_alarm':{
-                'RxPowerHighAlarmFlag1': False
+        (
+            {
+                consts.RX_POWER_HIGH_ALARM_FLAG: {'RxPowerHighAlarmFlag1': 0},
+                consts.RX_POWER_LOW_ALARM_FLAG: {'RxPowerLowAlarmFlag1': 0},
+                consts.RX_POWER_HIGH_WARN_FLAG: {'RxPowerHighWarnFlag1': 0},
+                consts.RX_POWER_LOW_WARN_FLAG: {'RxPowerLowWarnFlag1': 0}
             },
-            'rx_power_low_alarm':{
-                'RxPowerLowAlarmFlag1': False
-            },
-            'rx_power_high_warn':{
-                'RxPowerHighWarnFlag1': False,
-            },
-            'rx_power_low_warn':{
-                'RxPowerLowWarnFlag1': False
+            {
+                'rx_power_high_alarm': {'RxPowerHighAlarmFlag1': False},
+                'rx_power_low_alarm': {'RxPowerLowAlarmFlag1': False},
+                'rx_power_high_warn': {'RxPowerHighWarnFlag1': False},
+                'rx_power_low_warn': {'RxPowerLowWarnFlag1': False}
             }
-         }),
-         ([None, None, None, None], None)
+        ),
+        (None, None)
     ])
     def test_get_rx_power_flag(self, mock_response, expected):
         self.api.xcvr_eeprom.read = MagicMock()
-        self.api.xcvr_eeprom.read.side_effect = mock_response
+        self.api.xcvr_eeprom.read.return_value = mock_response
         result = self.api.get_rx_power_flag()
         assert result == expected
 
