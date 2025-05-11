@@ -1350,7 +1350,7 @@ class CmisApi(XcvrApi):
             time.sleep(delay_retry)
         return condition_func() == expected_state
 
-    def set_lpmode(self, lpmode):
+    def set_lpmode(self, lpmode, wait_state_change = True):
         '''
         This function sets the module to low power state.
         lpmode being False means "set to high power"
@@ -1368,14 +1368,20 @@ class CmisApi(XcvrApi):
                 # Force module transition to LowPwr under SW control
                 lpmode_val = lpmode_val | (1 << CmisApi.LowPwrRequestSW)
                 self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, lpmode_val)
-                return self.wait_time_condition(self.get_lpmode, True, self.get_module_pwr_down_duration(), DELAY_RETRY)
+                if wait_state_change:
+                    return self.wait_time_condition(self.get_lpmode, True, self.get_module_pwr_down_duration(), DELAY_RETRY)
+                else:
+                    return True
             else:
                 # Force transition from LowPwr to HighPower state under SW control.
                 # This will transition LowPwrS signal to False. (see Table 6-12 CMIS v5.0)
                 lpmode_val = lpmode_val & ~(1 << CmisApi.LowPwrRequestSW)
                 lpmode_val = lpmode_val & ~(1 << CmisApi.LowPwrAllowRequestHW)
                 self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, lpmode_val)
-                return self.wait_time_condition(self.get_module_state, 'ModuleReady', self.get_module_pwr_up_duration(), DELAY_RETRY)
+                if wait_state_change:
+                    return self.wait_time_condition(self.get_module_state, 'ModuleReady', self.get_module_pwr_up_duration(), DELAY_RETRY)
+                else:
+                    return True
         return False
 
     def get_loopback_capability(self):
