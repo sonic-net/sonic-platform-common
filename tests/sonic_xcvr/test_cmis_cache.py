@@ -31,19 +31,6 @@ class TestReadOnlyCacheDecorator:
         # Only the first two reads (major and minor) should occur
         assert self.api.xcvr_eeprom.read.call_count == 2
 
-    def clear_cache(self, method_name=None):
-        """
-        Clear cached API return values for methods decorated with read_only_cached_api_return.
-        """
-        if method_name:
-            cache_name = f'_{method_name}_cache'
-            if hasattr(self.api, cache_name):
-                delattr(self.api, cache_name)
-        else:
-            for attr in list(self.api.__dict__.keys()):
-                if attr.startswith('_') and attr.endswith('_cache'):
-                    delattr(self.api, attr)
-
     def test_clear_cache_for_get_model(self):
         # Ensure clear_cache('get_model') clears the cache so read() is re-called
         self.api.xcvr_eeprom.read.return_value = 'val1'
@@ -51,7 +38,7 @@ class TestReadOnlyCacheDecorator:
         _ = self.api.get_model()
         assert self.api.xcvr_eeprom.read.call_count == 1
         # Clear only get_model cache
-        self.clear_cache('get_model')
+        self.api.clear_cache('get_model')
         self.api.xcvr_eeprom.read.return_value = 'val2'
         _ = self.api.get_model()
         assert self.api.xcvr_eeprom.read.call_count == 2
@@ -65,7 +52,7 @@ class TestReadOnlyCacheDecorator:
         _ = self.api.get_cmis_rev()
         assert self.api.xcvr_eeprom.read.call_count == 3
         # Clear all caches
-        self.clear_cache()
+        self.api.clear_cache()
         # Reset read mock and provide new side effects
         self.api.xcvr_eeprom.read.reset_mock()
         self.api.xcvr_eeprom.read.side_effect = ['m2', 3, 4]
@@ -82,19 +69,6 @@ class TestReadOnlyCacheDictAndListDecorator:
         eeprom = MagicMock()
         self.api = CmisApi(eeprom)
         self.api.xcvr_eeprom.read.reset_mock()
-
-    def clear_cache(self, method_name=None):
-        """
-        Clear cached API return values for methods decorated with read_only_cached_api_return.
-        """
-        if method_name:
-            cache_name = f'_{method_name}_cache'
-            if hasattr(self.api, cache_name):
-                delattr(self.api, cache_name)
-        else:
-            for attr in list(self.api.__dict__.keys()):
-                if attr.startswith('_') and attr.endswith('_cache'):
-                    delattr(self.api, attr)
 
     def test_get_application_advertisement_no_cache_if_empty(self):
         # Empty dict should not be cached and read() should be called each time
@@ -167,7 +141,7 @@ class TestReadOnlyCacheDictAndListDecorator:
         second = self.api.get_application_advertisement()
         assert self.api.xcvr_eeprom.read.call_count == 2
         # Clear the specific cache and read again
-        self.clear_cache('get_application_advertisement')
+        self.api.clear_cache('get_application_advertisement')
         third = self.api.get_application_advertisement()
         assert third == first
         assert self.api.xcvr_eeprom.read.call_count == 4

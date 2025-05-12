@@ -1310,6 +1310,8 @@ class CmisApi(XcvrApi):
         Return True if no action.
         '''
         if reset:
+            # Clear cached values when module is reset (module removal event)
+            self.clear_cache()
             reset_control = reset << 3
             return self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, reset_control)
         else:

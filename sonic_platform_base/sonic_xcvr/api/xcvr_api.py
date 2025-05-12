@@ -758,3 +758,17 @@ class XcvrApi(object):
             bool: True if the provision succeeds, False if it fails
         """
         raise NotImplementedError
+
+    def clear_cache(self, method_name=None):
+        """
+        Clear cached API return values for methods decorated with read_only_cached_api_return.
+        If method_name is provided, clear only that cache; otherwise clear all caches.
+        """
+        if method_name:
+            cache_name = f'_{method_name}_cache'
+            if hasattr(self, cache_name):
+                delattr(self, cache_name)
+        else:
+            for attr in list(self.__dict__.keys()):
+                if attr.startswith('_') and attr.endswith('_cache'):
+                    delattr(self, attr)
