@@ -2680,30 +2680,18 @@ class CmisApi(XcvrApi):
         '''
         return self.xcvr_eeprom.write("%s_%d" % (consts.STAGED_CTRL_APPLY_DPINIT_FIELD, 0), channel)
 
-    def decommission_all_datapaths(self):
+    def decommission_all_datapaths(self, dp_init):
         '''
-            Return True if all datapaths are successfully de-commissioned, False otherwise
+        Return True if all datapaths are successfully de-commissioned, False otherwise
         '''
-        # De-init all datpaths
-        self.set_datapath_deinit((1 << self.NUM_CHANNELS) - 1)
-        # Decommision all lanes by apply AppSel=0
-        self.set_application(((1 << self.NUM_CHANNELS) - 1), 0, 0)
-        # Start with AppSel=0 i.e undo any default AppSel
-        self.scs_apply_datapath_init((1 << self.NUM_CHANNELS) - 1)
-
-        dp_state = self.get_datapath_state()
-        config_state = self.get_config_datapath_hostlane_status()
-
-        for lane in range(self.NUM_CHANNELS):
-            name = "DP{}State".format(lane + 1)
-            if dp_state[name] != 'DataPathDeactivated':
-                return False
-            
-            name = "ConfigStatusLane{}".format(lane + 1)
-            if config_state[name] != 'ConfigSuccess':
-                return False
-
-        return True
+        if dp_init:
+            #DP-init all datapaths
+            self.scs_apply_datapath_init((1 << self.NUM_CHANNELS) - 1)
+        else:
+            # De-init all datapaths
+            self.set_datapath_deinit((1 << self.NUM_CHANNELS) - 1)
+            # Decommision all lanes by apply AppSel=0
+            self.set_application(((1 << self.NUM_CHANNELS) - 1), 0, 0)
 
     def get_rx_output_amp_max_val(self):
         '''
