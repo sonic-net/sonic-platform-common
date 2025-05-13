@@ -293,6 +293,78 @@ class CmisMemMap(CmisFlatMemMap):
             )
         )
 
+        # Group for TX power alarm and warning flags
+        self.TX_POWER_ALARM_FLAGS = RegGroupField(consts.TX_POWER_ALARM_FLAGS_FIELD,
+            RegGroupField(consts.TX_POWER_HIGH_ALARM_FLAG,
+                *(NumberRegField("%s%d" % (consts.TX_POWER_HIGH_ALARM_FLAG, lane), self.getaddr(0x11, 139),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                ) for lane in range(1, 9))
+            ),
+            RegGroupField(consts.TX_POWER_LOW_ALARM_FLAG,
+                *(NumberRegField("%s%d" % (consts.TX_POWER_LOW_ALARM_FLAG, lane), self.getaddr(0x11, 140),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                ) for lane in range(1, 9))
+            ),
+            RegGroupField(consts.TX_POWER_HIGH_WARN_FLAG,
+                *(NumberRegField("%s%d" % (consts.TX_POWER_HIGH_WARN_FLAG, lane), self.getaddr(0x11, 141),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                ) for lane in range(1, 9))
+            ),
+            RegGroupField(consts.TX_POWER_LOW_WARN_FLAG,
+                *(NumberRegField("%s%d" % (consts.TX_POWER_LOW_WARN_FLAG, lane), self.getaddr(0x11, 142),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                ) for lane in range(1, 9))
+            )
+        )
+
+        # Group for TX bias alarm and warning flags
+        self.TX_BIAS_ALARM_FLAGS = RegGroupField(consts.TX_BIAS_ALARM_FLAGS_FIELD,
+            RegGroupField(consts.TX_BIAS_HIGH_ALARM_FLAG,
+                *(NumberRegField("%s%d" % (consts.TX_BIAS_HIGH_ALARM_FLAG, lane), self.getaddr(0x11, 143),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                ) for lane in range(1, 9))
+            ),
+            RegGroupField(consts.TX_BIAS_LOW_ALARM_FLAG,
+                *(NumberRegField("%s%d" % (consts.TX_BIAS_LOW_ALARM_FLAG, lane), self.getaddr(0x11, 144),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                ) for lane in range(1, 9))
+            ),
+            RegGroupField(consts.TX_BIAS_HIGH_WARN_FLAG,
+                *(NumberRegField("%s%d" % (consts.TX_BIAS_HIGH_WARN_FLAG, lane), self.getaddr(0x11, 145),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                ) for lane in range(1, 9))
+            ),
+            RegGroupField(consts.TX_BIAS_LOW_WARN_FLAG,
+                *(NumberRegField("%s%d" % (consts.TX_BIAS_LOW_WARN_FLAG, lane), self.getaddr(0x11, 146),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                ) for lane in range(1, 9))
+            )
+        )
+
+        # Group for RX power alarm and warning flags
+        self.RX_POWER_ALARM_FLAGS = RegGroupField(consts.RX_POWER_ALARM_FLAGS_FIELD,
+            RegGroupField(consts.RX_POWER_HIGH_ALARM_FLAG,
+                *(NumberRegField("%s%d" % (consts.RX_POWER_HIGH_ALARM_FLAG, lane), self.getaddr(0x11, 149),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                ) for lane in range(1, 9))
+            ),
+            RegGroupField(consts.RX_POWER_LOW_ALARM_FLAG,
+                *(NumberRegField("%s%d" % (consts.RX_POWER_LOW_ALARM_FLAG, lane), self.getaddr(0x11, 150),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                ) for lane in range(1, 9))
+            ),
+            RegGroupField(consts.RX_POWER_HIGH_WARN_FLAG,
+                *(NumberRegField("%s%d" % (consts.RX_POWER_HIGH_WARN_FLAG, lane), self.getaddr(0x11, 151),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                ) for lane in range(1, 9))
+            ),
+            RegGroupField(consts.RX_POWER_LOW_WARN_FLAG,
+                *(NumberRegField("%s%d" % (consts.RX_POWER_LOW_WARN_FLAG, lane), self.getaddr(0x11, 152),
+                    RegBitField("Bit%d" % (lane-1), (lane-1))
+                ) for lane in range(1, 9))
+            )
+        )
+
         self.LANE_DATAPATH_STATUS = RegGroupField(consts.LANE_DATAPATH_STATUS_FIELD,
             RegGroupField(consts.TX_FAULT_FIELD,
                 *(NumberRegField("%s%d" % (consts.TX_FAULT_FIELD, lane), self.getaddr(0x11, 135),

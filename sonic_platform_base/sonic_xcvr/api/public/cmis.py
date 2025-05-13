@@ -643,77 +643,45 @@ class CmisApi(XcvrApi):
             rx_cdr_lol_final.append(bool(rx_cdr_lol[key]))
         return rx_cdr_lol_final
 
+    def get_alarm_flags(self, alarm_flag):
+        '''Generic helper to return alarm and warning flags for given type: TX_POWER, TX_BIAS, RX_POWER.'''
+        flags = self.xcvr_eeprom.read(getattr(consts, f"{alarm_flag}_ALARM_FLAGS_FIELD"))
+        if flags is None:
+            return None
+        high_alarm = flags.get(getattr(consts, f"{alarm_flag}_HIGH_ALARM_FLAG"))
+        low_alarm = flags.get(getattr(consts, f"{alarm_flag}_LOW_ALARM_FLAG"))
+        high_warn = flags.get(getattr(consts, f"{alarm_flag}_HIGH_WARN_FLAG"))
+        low_warn = flags.get(getattr(consts, f"{alarm_flag}_LOW_WARN_FLAG"))
+        if high_alarm is None or low_alarm is None or high_warn is None or low_warn is None:
+            return None
+        for d in (high_alarm, low_alarm, high_warn, low_warn):
+            for key, value in d.items():
+                d[key] = bool(value)
+        prefix = alarm_flag.lower()
+        return {
+            f"{prefix}_high_alarm": high_alarm,
+            f"{prefix}_low_alarm": low_alarm,
+            f"{prefix}_high_warn": high_warn,
+            f"{prefix}_low_warn": low_warn,
+        }
+
     def get_tx_power_flag(self):
         '''
         This function returns TX power out of range flag on TX media lane
         '''
-        tx_power_high_alarm_dict = self.xcvr_eeprom.read(consts.TX_POWER_HIGH_ALARM_FLAG)
-        tx_power_low_alarm_dict = self.xcvr_eeprom.read(consts.TX_POWER_LOW_ALARM_FLAG)
-        tx_power_high_warn_dict = self.xcvr_eeprom.read(consts.TX_POWER_HIGH_WARN_FLAG)
-        tx_power_low_warn_dict = self.xcvr_eeprom.read(consts.TX_POWER_LOW_WARN_FLAG)
-        if tx_power_high_alarm_dict is None or tx_power_low_alarm_dict is None or tx_power_high_warn_dict is None or tx_power_low_warn_dict is None:
-            return None
-        for key, value in tx_power_high_alarm_dict.items():
-            tx_power_high_alarm_dict[key] = bool(value)
-        for key, value in tx_power_low_alarm_dict.items():
-            tx_power_low_alarm_dict[key] = bool(value)
-        for key, value in tx_power_high_warn_dict.items():
-            tx_power_high_warn_dict[key] = bool(value)
-        for key, value in tx_power_low_warn_dict.items():
-            tx_power_low_warn_dict[key] = bool(value)
-        tx_power_flag_dict = {'tx_power_high_alarm': tx_power_high_alarm_dict,
-                              'tx_power_low_alarm': tx_power_low_alarm_dict,
-                              'tx_power_high_warn': tx_power_high_warn_dict,
-                              'tx_power_low_warn': tx_power_low_warn_dict,}
-        return tx_power_flag_dict
+        return self.get_alarm_flags("TX_POWER")
 
     def get_tx_bias_flag(self):
         '''
         This function returns TX bias out of range flag on TX media lane
         '''
-        tx_bias_high_alarm_dict = self.xcvr_eeprom.read(consts.TX_BIAS_HIGH_ALARM_FLAG)
-        tx_bias_low_alarm_dict = self.xcvr_eeprom.read(consts.TX_BIAS_LOW_ALARM_FLAG)
-        tx_bias_high_warn_dict = self.xcvr_eeprom.read(consts.TX_BIAS_HIGH_WARN_FLAG)
-        tx_bias_low_warn_dict = self.xcvr_eeprom.read(consts.TX_BIAS_LOW_WARN_FLAG)
-        if tx_bias_high_alarm_dict is None or tx_bias_low_alarm_dict is None or tx_bias_high_warn_dict is None or tx_bias_low_warn_dict is None:
-            return None
-        for key, value in tx_bias_high_alarm_dict.items():
-            tx_bias_high_alarm_dict[key] = bool(value)
-        for key, value in tx_bias_low_alarm_dict.items():
-            tx_bias_low_alarm_dict[key] = bool(value)
-        for key, value in tx_bias_high_warn_dict.items():
-            tx_bias_high_warn_dict[key] = bool(value)
-        for key, value in tx_bias_low_warn_dict.items():
-            tx_bias_low_warn_dict[key] = bool(value)
-        tx_bias_flag_dict = {'tx_bias_high_alarm': tx_bias_high_alarm_dict,
-                              'tx_bias_low_alarm': tx_bias_low_alarm_dict,
-                              'tx_bias_high_warn': tx_bias_high_warn_dict,
-                              'tx_bias_low_warn': tx_bias_low_warn_dict,}
-        return tx_bias_flag_dict
+        return self.get_alarm_flags("TX_BIAS")
 
     def get_rx_power_flag(self):
         '''
         This function returns RX power out of range flag on RX media lane
         '''
-        rx_power_high_alarm_dict = self.xcvr_eeprom.read(consts.RX_POWER_HIGH_ALARM_FLAG)
-        rx_power_low_alarm_dict = self.xcvr_eeprom.read(consts.RX_POWER_LOW_ALARM_FLAG)
-        rx_power_high_warn_dict = self.xcvr_eeprom.read(consts.RX_POWER_HIGH_WARN_FLAG)
-        rx_power_low_warn_dict = self.xcvr_eeprom.read(consts.RX_POWER_LOW_WARN_FLAG)
-        if rx_power_high_alarm_dict is None or rx_power_low_alarm_dict is None or rx_power_high_warn_dict is None or rx_power_low_warn_dict is None:
-            return None
-        for key, value in rx_power_high_alarm_dict.items():
-            rx_power_high_alarm_dict[key] = bool(value)
-        for key, value in rx_power_low_alarm_dict.items():
-            rx_power_low_alarm_dict[key] = bool(value)
-        for key, value in rx_power_high_warn_dict.items():
-            rx_power_high_warn_dict[key] = bool(value)
-        for key, value in rx_power_low_warn_dict.items():
-            rx_power_low_warn_dict[key] = bool(value)
-        rx_power_flag_dict = {'rx_power_high_alarm': rx_power_high_alarm_dict,
-                              'rx_power_low_alarm': rx_power_low_alarm_dict,
-                              'rx_power_high_warn': rx_power_high_warn_dict,
-                              'rx_power_low_warn': rx_power_low_warn_dict,}
-        return rx_power_flag_dict
+        return self.get_alarm_flags("RX_POWER")
 
     def get_tx_output_status(self):
         '''
