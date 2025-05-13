@@ -9,6 +9,7 @@ class TestReadOnlyCacheDecorator:
         # Initialize CmisApi with a mock EEPROM and clear initial reads
         eeprom = MagicMock()
         self.api = CmisApi(eeprom)
+        self.api.set_cache_enabled(True)
         self.api.xcvr_eeprom.read.reset_mock()
 
     def test_get_model_caching(self):
@@ -62,12 +63,12 @@ class TestReadOnlyCacheDecorator:
         assert rev == '3.4'
         # Both methods should re-read their values
         assert self.api.xcvr_eeprom.read.call_count == 3
-
 class TestReadOnlyCacheDictAndListDecorator:
     def setup_method(self):
         # Initialize CmisApi with a mock EEPROM and clear initial reads
         eeprom = MagicMock()
         self.api = CmisApi(eeprom)
+        self.api.set_cache_enabled(True)
         self.api.xcvr_eeprom.read.reset_mock()
 
     def test_get_application_advertisement_no_cache_if_empty(self):
@@ -145,3 +146,30 @@ class TestReadOnlyCacheDictAndListDecorator:
         third = self.api.get_application_advertisement()
         assert third == first
         assert self.api.xcvr_eeprom.read.call_count == 4
+
+class TestCacheDisabled:
+    def setup_method(self):
+        # Initialize CmisApi with caching disabled
+        eeprom = MagicMock()
+        self.api = CmisApi(eeprom)
+        self.api.set_cache_enabled(False)
+        # Clear initial EEPROM reads from __init__ (is_flat_memory calls)
+        self.api.xcvr_eeprom.read.reset_mock()
+
+    def test_get_model_not_cached(self):
+        # get_model should not cache; read() called each time
+        self.api.xcvr_eeprom.read.return_value = 'model_val'
+        first = self.api.get_model()
+        second = self.api.get_model()
+        assert first == 'model_val'
+        assert second == 'model_val'
+        assert self.api.xcvr_eeprom.read.call_count == 2
+
+    def test_get_application_advertisement_not_cached(self):
+        # get_application_advertisement should not cache when disabled
+        self.api.xcvr_eeprom.read.return_value = {}
+        first = self.api.get_application_advertisement()
+        second = self.api.get_application_advertisement()
+        assert first == {}
+        assert second == {}
+        assert self.api.xcvr_eeprom.read.call_count == 2

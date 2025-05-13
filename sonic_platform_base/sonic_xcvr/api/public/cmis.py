@@ -114,6 +114,16 @@ class CmisApi(XcvrApi):
     LowPwrRequestSW = 4
     LowPwrAllowRequestHW = 6
 
+    # Default caching disabled; control via classmethod
+    cache_enabled = False
+
+    @classmethod
+    def set_cache_enabled(cls, enabled: bool):
+        """
+        Set the cache_enabled flag to control read_only_cached_api_return behavior.
+        """
+        cls.cache_enabled = bool(enabled)
+
     def __init__(self, xcvr_eeprom):
         super(CmisApi, self).__init__(xcvr_eeprom)
         self.vdm = CmisVdmApi(xcvr_eeprom) if not self.is_flat_memory() else None
@@ -1683,7 +1693,6 @@ class CmisApi(XcvrApi):
                       'aux2_low_alarm_flag': aux2_low_alarm_flag,
                       'aux2_high_warn_flag': aux2_high_warn_flag,
                       'aux2_low_warn_flag': aux2_low_warn_flag}
-
         aux1_high_alarm_flag = bool((module_flag_byte2 >> 0) & 0x1)
         aux1_low_alarm_flag = bool((module_flag_byte2 >> 1) & 0x1)
         aux1_high_warn_flag = bool((module_flag_byte2 >> 2) & 0x1)
@@ -3272,3 +3281,4 @@ class CmisApi(XcvrApi):
         return 'OK'
 
     # TODO: other XcvrApi methods
+
