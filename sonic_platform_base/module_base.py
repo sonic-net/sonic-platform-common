@@ -5,7 +5,12 @@
     to interact with a module (as used in a modular chassis) SONiC.
 """
 
+import os
+import json
+import time
+import errno
 import sys
+import select
 from . import device_base
 
 
@@ -54,6 +59,11 @@ class ModuleBase(device_base.DeviceBase):
     MODULE_REBOOT_DPU = "DPU"
     # Module reboot type to reboot SMART SWITCH
     MODULE_REBOOT_SMARTSWITCH = "SMARTSWITCH"
+    # gnoi reboot pipe related
+    GNOI_REBOOT_PIPE_PATH = "/host/gnoi_reboot.pipe"
+    GNOI_REBOOT_RESPONSE_PIPE_PATH = "/host/gnoi_reboot_response.pipe"
+    GNOI_PORT = 50052
+    GNOI_RESPONSE_TIMEOUT = 60  # seconds
 
     def __init__(self):
         # List of ComponentBase-derived objects representing all components
@@ -162,6 +172,64 @@ class ModuleBase(device_base.DeviceBase):
             MODULE_STATUS_FAULT, MODULE_STATUS_PRESENT or MODULE_STATUS_ONLINE
         """
         raise NotImplementedError
+
+    def pre_shutdown_hook(self):
+        """
+        Initiates a gNOI reboot request for the DPU and waits for a response.
+
+        This method performs the following steps:
+        1. Sends a JSON-formatted reboot request to the gNOI reboot daemon via a named pipe.
+        2. Waits for a response on a designated response pipe, with a timeout of 60 seconds.
+        3. Parses the response and returns it.
+
+        Returns:
+            dict: A dictionary containing the status and message of the reboot operation.
+                Possible statuses include 'success', 'error', and 'timeout'.
+        """
+        dpu_ip = self.get_midplane_ip()
+        msg = {
+            "dpu_name": self.name,
+            "dpu_ip": dpu_ip,
+            "port": GNOI_PORT
+        }
+
+        # Send reboot request
+        try:
+            with open(GNOI_REBOOT_PIPE_PATH, "w") as pipe:
+                pipe.write(json.dumps(msg) + "\n")
+        except Exception as e:
+            sys.stderr.write(f"Failed to send gNOI reboot for {self.name}: {str(e)}\n")
+            return {"status": "error", "message": str(e)}
+
+        # Wait for reboot response
+        start_time = time.time()
+        try:
+            # Open the response pipe in non-blocking mode
+            fd = os.open(GNOI_REBOOT_RESPONSE_PIPE_PATH, os.O_RDONLY | os.O_NONBLOCK)
+            with os.fdopen(fd) as pipe:
+                while True:
+                    # Check if timeout has been reached
+                    if time.time() - start_time > GNOI_RESPONSE_TIMEOUT:
+                        sys.stderr.write(f"Timeout waiting for reboot response for {self.name}\n")
+                        return {"status": "timeout", "message": "No response received within timeout period"}
+
+                    # Use select to wait for data with a timeout
+                    rlist, _, _ = select.select([pipe], [], [], 1)
+                    if pipe in rlist:
+                        line = pipe.readline()
+                        if line:
+                            try:
+                                response = json.loads(line.strip())
+                                if response.get("dpu_name") == self.name:
+                                    return response
+                            except json.JSONDecodeError as e:
+                                sys.stderr.write(f"JSON decode error: {str(e)}\n")
+                        else:
+                            # No data read; wait a bit before retrying
+                            time.sleep(1)
+        except Exception as e:
+            sys.stderr.write(f"Error reading reboot response for {self.name}: {str(e)}\n")
+            return {"status": "error", "message": str(e)}
 
     def reboot(self, reboot_type):
         """
