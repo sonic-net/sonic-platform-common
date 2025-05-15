@@ -20,9 +20,23 @@ class TestCmis(object):
     old_read_func = eeprom.read
     api = CmisApi(eeprom)
 
+    def clear_cache(self, method_name=None):
+        """
+        Clear cached API return values for methods decorated with read_only_cached_api_return.
+        If method_name is provided, clear only that cache; otherwise clear all caches.
+        """
+        if method_name:
+            cache_name = f'_{method_name}_cache'
+            if hasattr(self.api, cache_name):
+                delattr(self.api, cache_name)
+        else:
+            for attr in list(self.api.__dict__.keys()):
+                if attr.startswith('_') and attr.endswith('_cache'):
+                    delattr(self.api, attr)
+
     def setup_method(self, method):
         """Clear cached values before each test case."""
-        self.api.clear_cache()
+        self.clear_cache()
 
     @pytest.mark.parametrize("mock_response, expected", [
         ("1234567890", "1234567890"),
