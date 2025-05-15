@@ -388,7 +388,11 @@ class Sff8024(XcvrCodes):
         84: 'FOIC2.4-DO (G.709.3/Y.1331.3)',
         85: '400GBASE-DR4-2 (placeholder)',
         86: '800GBASE-DR8 (placeholder)',
-        87: '800GBASE-DR8-2 (placeholder)'
+        87: '800GBASE-DR8-2 (placeholder)',
+        151: "100G-DR1-LPO",
+        152: "200G-DR2-LPO",
+        153: "400G-DR4-LPO",
+        154: "800G-DR8-LPO",
     }
 
     # Passive and Linear Active Copper Cable and Passive Loopback media interface codes
