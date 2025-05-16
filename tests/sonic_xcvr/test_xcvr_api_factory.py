@@ -73,6 +73,15 @@ class TestXcvrApiFactory(object):
         self.api.reader = reader
         api = self.api.create_xcvr_api()
         assert isinstance(api, expected_api)
+        
+    @patch('sonic_platform_base.sonic_xcvr.xcvr_api_factory.XcvrApiFactory._create_api', MagicMock(side_effect=Exception('')))
+    def test_create_xcvr_api_with_exception(self):
+        self.api.reader = self.mock_reader
+        CmisCodes = MagicMock()
+        CmisMemMap = MagicMock()
+        XcvrEeprom = MagicMock()
+        CmisFr800gApi = MagicMock()
+        assert self.api.create_xcvr_api() is None
 
 class TestAmphBackplaneImpl:
     @pytest.fixture

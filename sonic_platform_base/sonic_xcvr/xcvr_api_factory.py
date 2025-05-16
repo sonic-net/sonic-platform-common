@@ -128,5 +128,9 @@ class XcvrApiFactory(object):
         if id in id_mapping:
             func, args = id_mapping[id]
             if isinstance(args, tuple):
-                return func(*args)
+                try:
+                    return func(*args)
+                except Exception as e:
+                    print(f"Error creating API: {e}")
+                    return None
         return None
