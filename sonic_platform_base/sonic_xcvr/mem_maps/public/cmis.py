@@ -147,7 +147,7 @@ class CmisMemMap(CmisFlatMemMap):
 
             RegGroupField(consts.ACTIVE_APSEL_CODE,
                 *(NumberRegField("%s%d" % (consts.ACTIVE_APSEL_HOSTLANE, lane) , self.getaddr(0x11, offset),
-                    *(RegBitField("Bit%d" % bit, bit) for bit in range(4, 7)))
+                    *(RegBitField("Bit%d" % bit, bit) for bit in range(4, 8)))
                  for lane, offset in zip(range(1, 9), range(206, 214)))
             ),
 
