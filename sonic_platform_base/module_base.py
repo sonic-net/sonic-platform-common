@@ -12,7 +12,8 @@ import errno
 import sys
 import select
 from swsssdk import SonicV2Connector
-
+from utilities_common.chassis import is_dpu
+from sonic_py_common import device_info
 
 class ModuleBase(device_base.DeviceBase):
     """
@@ -245,20 +246,20 @@ class ModuleBase(device_base.DeviceBase):
 
     def set_admin_state(self, up):
         """
-        Request to keep the card in administratively up/down state.
-        The down state will power down the module and the status should show
-        MODULE_STATUS_OFFLINE.
-        The up state will take the module to MODULE_STATUS_FAULT or
-        MODULE_STATUS_ONLINE states.
+        Request to set the module's administrative state.
 
         Args:
-            up: A boolean, True to set the admin-state to UP. False to set the
-            admin-state to DOWN.
+            up (bool): True to set the admin-state to UP; False to set it to DOWN.
 
         Returns:
-            bool: True if the request has been issued successfully, False if not
+            bool: True if the request has been issued successfully; False otherwise.
         """
-        raise NotImplementedError
+        if not up:
+            subtype = device_info.get_device_subtype()
+            if subtype == "SmartSwitch" and not is_dpu():
+                self.graceful_shutdown_handler()
+        # Proceed to set the admin state using the platform-specific implementation
+        return super().set_admin_state(up)
 
     def get_maximum_consumed_power(self):
         """
