@@ -11,7 +11,7 @@ import time
 import errno
 import sys
 import select
-from . import device_base
+from swsssdk import SonicV2Connector
 
 
 class ModuleBase(device_base.DeviceBase):
@@ -173,63 +173,62 @@ class ModuleBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
-    def pre_shutdown_hook(self):
-        """
-        Initiates a gNOI reboot request for the DPU and waits for a response.
+    def get_reboot_timeout(self):
+        db = SonicV2Connector()
+        db.connect(db.CONFIG_DB)
 
-        This method performs the following steps:
-        1. Sends a JSON-formatted reboot request to the gNOI reboot daemon via a named pipe.
-        2. Waits for a response on a designated response pipe, with a timeout of 60 seconds.
-        3. Parses the response and returns it.
+        # Retrieve the platform value from CONFIG_DB
+        platform = db.get_entry('DEVICE_METADATA', 'localhost').get('platform')
+        if not platform:
+            raise ValueError("Platform information not found in CONFIG_DB.")
 
-        Returns:
-            dict: A dictionary containing the status and message of the reboot operation.
-                Possible statuses include 'success', 'error', and 'timeout'.
-        """
-        dpu_ip = self.get_midplane_ip()
-        msg = {
-            "dpu_name": self.name,
-            "dpu_ip": dpu_ip,
-            "port": GNOI_PORT
+        # Construct the path to platform.json
+        platform_json_path = f"/usr/share/sonic/device/{platform}/platform.json"
+
+        # Read the timeout value from platform.json
+        try:
+            with open(platform_json_path, "r") as f:
+                data = json.load(f)
+                timeout = data.get("dpu_halt_services_timeout")
+                if timeout is None:
+                    return 60  # Default timeout
+                return int(timeout)
+        except Exception:
+            return 60  # Default timeout
+
+    def graceful_shutdown_handler(self):
+        db = SonicV2Connector()
+        db.connect(db.STATE_DB)
+        dpu_name = self.name  # Assuming self.name is 'DPU0', 'DPU1', etc.
+
+        # Step 1: Set reboot request
+        request_entry = {
+            "start": "true",
+            "method": "3",
+            "message": "Pre-shutdown reboot",
+            "timestamp": str(int(time.time()))
         }
+        db.set_entry("GNOI_REBOOT_REQUEST", dpu_name, request_entry)
 
-        # Send reboot request
-        try:
-            with open(GNOI_REBOOT_PIPE_PATH, "w") as pipe:
-                pipe.write(json.dumps(msg) + "\n")
-        except Exception as e:
-            sys.stderr.write(f"Failed to send gNOI reboot for {self.name}: {str(e)}\n")
-            return {"status": "error", "message": str(e)}
+        # Step 2: Wait for reboot result
+        timeout = self.get_reboot_timeout()
+        interval = 5
+        elapsed = 0
+        while elapsed < timeout:
+            result = db.get_all(db.STATE_DB, f"GNOI_REBOOT_RESULT|{dpu_name}")
+            if result and result.get("start") == "true":
+                status = result.get("status")
+                if status == "success":
+                    break
+                else:
+                    raise Exception(f"Reboot failed for {dpu_name}: {result.get('message')}")
+            time.sleep(interval)
+            elapsed += interval
+        else:
+            raise TimeoutError(f"Reboot result not received for {dpu_name} within timeout period.")
 
-        # Wait for reboot response
-        start_time = time.time()
-        try:
-            # Open the response pipe in non-blocking mode
-            fd = os.open(GNOI_REBOOT_RESPONSE_PIPE_PATH, os.O_RDONLY | os.O_NONBLOCK)
-            with os.fdopen(fd) as pipe:
-                while True:
-                    # Check if timeout has been reached
-                    if time.time() - start_time > GNOI_RESPONSE_TIMEOUT:
-                        sys.stderr.write(f"Timeout waiting for reboot response for {self.name}\n")
-                        return {"status": "timeout", "message": "No response received within timeout period"}
-
-                    # Use select to wait for data with a timeout
-                    rlist, _, _ = select.select([pipe], [], [], 1)
-                    if pipe in rlist:
-                        line = pipe.readline()
-                        if line:
-                            try:
-                                response = json.loads(line.strip())
-                                if response.get("dpu_name") == self.name:
-                                    return response
-                            except json.JSONDecodeError as e:
-                                sys.stderr.write(f"JSON decode error: {str(e)}\n")
-                        else:
-                            # No data read; wait a bit before retrying
-                            time.sleep(1)
-        except Exception as e:
-            sys.stderr.write(f"Error reading reboot response for {self.name}: {str(e)}\n")
-            return {"status": "error", "message": str(e)}
+        # Reset the start field in the result table
+        db.set_entry("GNOI_REBOOT_RESULT", dpu_name, {"start": "false"})
 
     def reboot(self, reboot_type):
         """
