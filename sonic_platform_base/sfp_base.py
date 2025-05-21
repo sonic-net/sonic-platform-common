@@ -479,3 +479,9 @@ class SfpBase(device_base.DeviceBase):
         if self._xcvr_api is None:
             self.refresh_xcvr_api()
         return self._xcvr_api
+
+    def remove_xcvr_api(self):
+        """
+        Removes the cached XcvrApi so that the next get_xcvr_api() call will refresh it.
+        """
+        self._xcvr_api = None
