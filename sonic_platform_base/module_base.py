@@ -59,11 +59,6 @@ class ModuleBase(device_base.DeviceBase):
     MODULE_REBOOT_DPU = "DPU"
     # Module reboot type to reboot SMART SWITCH
     MODULE_REBOOT_SMARTSWITCH = "SMARTSWITCH"
-    # gnoi reboot pipe related
-    GNOI_REBOOT_PIPE_PATH = "/host/gnoi_reboot.pipe"
-    GNOI_REBOOT_RESPONSE_PIPE_PATH = "/host/gnoi_reboot_response.pipe"
-    GNOI_PORT = 50052
-    GNOI_RESPONSE_TIMEOUT = 60  # seconds
 
     def __init__(self):
         # List of ComponentBase-derived objects representing all components
