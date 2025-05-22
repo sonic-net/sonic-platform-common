@@ -1064,7 +1064,11 @@ class CmisApi(XcvrApi):
             return 0
 
         appl_advt = self.get_application_advertisement()
-        return appl_advt[appl]['host_lane_assignment_options'] if len(appl_advt) >= appl else 0
+        if appl not in appl_advt:
+            logger.error('Application {} not found in application advertisement'.format(appl))
+            return 0
+
+        return appl_advt[appl].get('host_lane_assignment_options', 0)
 
     def get_media_lane_assignment_option(self, appl=1):
         '''
