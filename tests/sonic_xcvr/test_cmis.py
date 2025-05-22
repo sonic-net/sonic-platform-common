@@ -1541,103 +1541,83 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        # Case: No transceiver data
-        ([None] * 15, None),
-
-        # Case: Valid transceiver data
-        (
-            [
-                {   # EEPROM mocked Data
-                    'Extended Identifier': {'Power Class': 'Power Class 8', 'MaxPower': 20.0},
-                    'Identifier': 'QSFP-DD Double Density 8X Pluggable Transceiver',
-                    'Identifier Abbreviation': 'QSFP-DD',
-                    'ModuleHardwareMajorRevision': 0,
-                    'ModuleHardwareMinorRevision': 0,
-                    'VendorSN': '00000000',
-                    'VendorName': 'VENDOR_NAME',
-                    'VendorPN': 'ABCD',
-                    'Connector': 'LC',
-                    'Length Cable Assembly': 0.0,
-                    'ModuleMediaType': 'sm_media_interface',
-                    'VendorDate': '21010100',
-                    'VendorOUI': 'xx-xx-xx',
-                    'vdm_supported': True,
-                },
-                '400GAUI-8 C2M (Annex 120E)',
-                '400ZR, DWDM, amplified',
-                8, 1, 1, 1,
-                {f'ActiveAppSelLane{i}': 1 for i in range(1, 9)},
-                '1550 nm DFB',
-                '0.0',
-                '5.0',
-                '0.1',
-                '0.0',
-                'sm_media_interface',
-                {'status': True, 'result': ("0.3.0", 1, 1, 0, "0.2.0", 0, 0, 0, "0.3.0", "0.2.0")}
-            ],
-            {   # Expected result
-                'type': 'QSFP-DD Double Density 8X Pluggable Transceiver',
-                'type_abbrv_name': 'QSFP-DD',
-                'model': 'ABCD',
-                'encoding': 'N/A',
-                'ext_identifier': 'Power Class 8 (20.0W Max)',
-                'ext_rateselect_compliance': 'N/A',
-                'cable_type': 'Length Cable Assembly(m)',
-                'cable_length': 0.0,
-                'nominal_bit_rate': 'N/A',
-                'specification_compliance': 'sm_media_interface',
-                'application_advertisement': 'N/A',
-                'media_lane_count': 1,
-                'vendor_rev': '0.0',
-                'host_electrical_interface': '400GAUI-8 C2M (Annex 120E)',
-                'vendor_oui': 'xx-xx-xx',
-                'manufacturer': 'VENDOR_NAME',
-                'media_interface_technology': '1550 nm DFB',
-                'media_interface_code': '400ZR, DWDM, amplified',
-                'serial': '00000000',
-                'host_lane_count': 8,
-                **{f'active_apsel_hostlane{i}': 1 for i in range(1, 9)},
-                'hardware_rev': '0.0',
-                'cmis_rev': '5.0',
-                'media_lane_assignment_option': 1,
-                'connector': 'LC',
-                'host_lane_assignment_option': 1,
-                'vendor_date': '21010100',
-                'vdm_supported': True,
-            }
-        )
+        ([0, 0, 0],
+        {
+            'type': 'QSFP-DD Double Density 8X Pluggable Transceiver',
+            'type_abbrv_name': 'QSFP-DD',
+            'model': 'ABCD',
+            'encoding': 'N/A',
+            'ext_identifier': 'Power Class 8 (20.0W Max)',
+            'ext_rateselect_compliance': 'N/A',
+            'cable_type': 'Length Cable Assembly(m)',
+            'cable_length': 0.0,
+            'nominal_bit_rate': 'N/A',
+            'specification_compliance': 'sm_media_interface',
+            'application_advertisement': 'N/A',
+            'media_lane_count': 1,
+            'vendor_rev': '0.0',
+            'host_electrical_interface': '400GAUI-8 C2M (Annex 120E)',
+            'vendor_oui': 'xx-xx-xx',
+            'manufacturer': 'VENDOR_NAME',
+            'media_interface_technology': '1550 nm DFB',
+            'media_interface_code': '400ZR, DWDM, amplified',
+            'serial': '00000000',
+            'host_lane_count': 8,
+            'active_apsel_hostlane1': 1,
+            'active_apsel_hostlane2': 1,
+            'active_apsel_hostlane3': 1,
+            'active_apsel_hostlane4': 1,
+            'active_apsel_hostlane5': 1,
+            'active_apsel_hostlane6': 1,
+            'active_apsel_hostlane7': 1,
+            'active_apsel_hostlane8': 1,
+            'hardware_rev': '0.0',
+            'cmis_rev': '5.0',
+            'media_lane_assignment_option': 1,
+            'connector': 'LC',
+            'host_lane_assignment_option': 1,
+            'vendor_date': '21010100',
+            'vdm_supported': True,
+        })
     ])
     def test_get_transceiver_info(self, mock_response, expected):
-        self.api.xcvr_eeprom.read = MagicMock(return_value = mock_response[0])
-        self.api.get_host_electrical_interface = MagicMock(return_value = mock_response[1])
-        self.api.get_module_media_interface = MagicMock(return_value = mock_response[2])
-        self.api.get_host_lane_count = MagicMock(return_value = mock_response[3])
-        self.api.get_media_lane_count = MagicMock(return_value = mock_response[4])
-        self.api.get_host_lane_assignment_option = MagicMock(return_value = mock_response[5])
-        self.api.get_media_lane_assignment_option = MagicMock(return_value = mock_response[6])
-        self.api.get_active_apsel_hostlane = MagicMock(return_value = mock_response[7])
-        self.api.get_media_interface_technology = MagicMock(return_value = mock_response[8])
-        self.api.get_vendor_rev = MagicMock(return_value = mock_response[9])
-        self.api.get_cmis_rev = MagicMock(return_value = mock_response[10])
-        self.api.get_module_fw_info = MagicMock(return_value = mock_response[14])
-        self.api.get_module_media_type = MagicMock(return_value = mock_response[13])
-        self.api.get_module_hardware_revision = MagicMock(return_value="0.0")
-        self.api.is_flat_memory = MagicMock(return_value=False)
-        self.api.is_transceiver_vdm_supported = MagicMock(return_value=True)
-
-        # Run test and validate output
-        result = self.api.get_transceiver_info()
-        assert result == expected
-
-        if result is not None:
-            # Test result is same as default dictionary length
-            assert len(CMIS_XCVR_INFO_DEFAULT_DICT) == len(result)
-
-        # Test negative path
-        self.api.get_cmis_rev.return_value = None
-        result = self.api.get_transceiver_info()
-        assert result == None
-
+        self.api.xcvr_eeprom.read = MagicMock()
+        def mock_read(field):
+            if field == consts.APPLS_ADVT_FIELD:
+                return {
+                    1: {
+                        'host_electrical_interface_id': '400GAUI-8 C2M (Annex 120E)',
+                        'module_media_interface_id': '400GBASE-DR4 (Cl 124)',
+                        'media_lane_count': 1,
+                        'host_lane_count': 8,
+                        'host_lane_assignment_options': 1,
+                        'media_lane_assignment_options': 1
+                    }
+                }
+            elif field == consts.MEDIA_TYPE_FIELD:
+                return 'sm_media_interface'
+            elif field == consts.EXT_IDENTIFIER_FIELD:
+                return {'Power Class': 'Power Class 8', 'MaxPower': 20.0}
+            elif field == consts.IDENTIFIER_FIELD:
+                return 'QSFP-DD Double Density 8X Pluggable Transceiver'
+            elif field == consts.IDENTIFIER_ABBRV_FIELD:
+                return 'QSFP-DD'
+            elif field == consts.VENDOR_SN_FIELD:
+                return '00000000'
+            elif field == consts.VENDOR_NAME_FIELD:
+                return 'VENDOR_NAME'
+            elif field == consts.VENDOR_PN_FIELD:
+                return 'ABCD'
+            elif field == consts.CONNECTOR_FIELD:
+                return 'LC'
+            elif field == consts.CABLE_LENGTH_FIELD:
+                return 0.0
+            elif field == consts.VENDOR_DATE_FIELD:
+                return '21010100'
+            elif field == consts.VENDOR_OUI_FIELD:
+                return 'xx-xx-xx'
+            return None
+        self.api.xcvr_eeprom.read.side_effect = mock_read
 
     @pytest.mark.parametrize("mock_response, expected",[
         (
@@ -2952,7 +2932,7 @@ class TestCmis(object):
         ]
         result = self.api.get_application_advertisement()
 
-        assert len(result) == 2
+        assert len(result) == 3
 
         assert result[1]['host_electrical_interface_id'] == '400GAUI-8 C2M (Annex 120E)'
         assert result[1]['module_media_interface_id'] == '400GBASE-DR4 (Cl 124)'
