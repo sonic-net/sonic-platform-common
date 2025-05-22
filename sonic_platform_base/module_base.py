@@ -299,27 +299,6 @@ class ModuleBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
-    def get_pci_bus_from_platform_json(self):
-        """
-        Retrieves the PCI bus information from platform.json file.
-
-        Returns:
-            str: PCI bus information if found in platform.json
-            None: If module is not found in platform.json or any error occurs
-        """
-        if self.pci_bus_info:
-            return self.pci_bus_info
-        try:
-            with open("/usr/share/sonic/platform/platform.json", 'r') as f:
-                platform_data = json.load(f)
-            module_name = self.get_name()
-            if module_name in platform_data["DPUS"]:
-                self.pci_bus_info = platform_data["DPUS"][module_name]["bus_info"]
-                return self.pci_bus_info
-            return None
-        except Exception:
-            return None
-
     def handle_pci_removal(self):
         """
         Handles PCI device removal by updating state database and detaching device.
@@ -373,9 +352,10 @@ class ModuleBase(device_base.DeviceBase):
         try:
             bus_info_list = self.get_pci_bus_info()
             with self._pci_operation_lock():
+                return_value = self.pci_reattach()
                 for bus in bus_info_list:
                     self.pci_entry_state_db(bus, PCIE_OPERATION_ATTACHING)
-                return self.pci_reattach()
+                return return_value
         except Exception:
             return False
 

@@ -70,33 +70,6 @@ class TestModuleBase:
         assert(module.get_all_current_sensors() == ["s1"])
         assert(module.get_current_sensor(0) == "s1")
 
-    def test_get_pci_bus_from_platform_json(self):
-        module = ModuleBase()
-        module.pci_bus_info = "0000:00:00.0"
-        assert module.get_pci_bus_from_platform_json() == "0000:00:00.0"
-        mock_json_data = {
-            "DPUS": {
-                "DPU0": {"bus_info": "0000:01:00.0"}
-            }
-        }
-        module.pci_bus_info = None
-        platform_json_path = "/usr/share/sonic/platform/platform.json"
-
-        with patch('builtins.open', return_value=MockFile(json.dumps(mock_json_data))) as mock_open_call, \
-             patch.object(module, 'get_name', return_value="DPU0"):
-            assert module.get_pci_bus_from_platform_json() == "0000:01:00.0"
-            mock_open_call.assert_called_once_with(platform_json_path, 'r')
-            assert module.pci_bus_info == "0000:01:00.0"
-
-        module.pci_bus_info = None
-        with patch('builtins.open', return_value=MockFile(json.dumps(mock_json_data))) as mock_open_call, \
-             patch.object(module, 'get_name', return_value="ABC"):
-            assert module.get_pci_bus_from_platform_json() is None
-            mock_open_call.assert_called_once_with(platform_json_path, 'r')
-
-        with patch('builtins.open', side_effect=Exception()):
-            assert module.get_pci_bus_from_platform_json() is None
-
     def test_pci_entry_state_db(self):
         module = ModuleBase()
         mock_connector = MagicMock()
