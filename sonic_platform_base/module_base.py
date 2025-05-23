@@ -5,9 +5,15 @@
     to interact with a module (as used in a modular chassis) SONiC.
 """
 
+import os
+import json
+import time
+import errno
 import sys
-from . import device_base
-
+import select
+from swsssdk import SonicV2Connector
+from utilities_common.chassis import is_dpu
+from sonic_py_common import device_info
 
 class ModuleBase(device_base.DeviceBase):
     """
@@ -163,6 +169,63 @@ class ModuleBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
+    def get_reboot_timeout(self):
+        db = SonicV2Connector()
+        db.connect(db.CONFIG_DB)
+
+        # Retrieve the platform value from CONFIG_DB
+        platform = db.get_entry('DEVICE_METADATA', 'localhost').get('platform')
+        if not platform:
+            raise ValueError("Platform information not found in CONFIG_DB.")
+
+        # Construct the path to platform.json
+        platform_json_path = f"/usr/share/sonic/device/{platform}/platform.json"
+
+        # Read the timeout value from platform.json
+        try:
+            with open(platform_json_path, "r") as f:
+                data = json.load(f)
+                timeout = data.get("dpu_halt_services_timeout")
+                if timeout is None:
+                    return 60  # Default timeout
+                return int(timeout)
+        except Exception:
+            return 60  # Default timeout
+
+    def graceful_shutdown_handler(self):
+        db = SonicV2Connector()
+        db.connect(db.STATE_DB)
+        dpu_name = self.name  # Assuming self.name is 'DPU0', 'DPU1', etc.
+
+        # Step 1: Set reboot request
+        request_entry = {
+            "start": "true",
+            "method": "3",
+            "message": "Pre-shutdown reboot",
+            "timestamp": str(int(time.time()))
+        }
+        db.set_entry("GNOI_REBOOT_REQUEST", dpu_name, request_entry)
+
+        # Step 2: Wait for reboot result
+        timeout = self.get_reboot_timeout()
+        interval = 5
+        elapsed = 0
+        while elapsed < timeout:
+            result = db.get_all(db.STATE_DB, f"GNOI_REBOOT_RESULT|{dpu_name}")
+            if result and result.get("start") == "true":
+                status = result.get("status")
+                if status == "success":
+                    break
+                else:
+                    raise Exception(f"Reboot failed for {dpu_name}: {result.get('message')}")
+            time.sleep(interval)
+            elapsed += interval
+        else:
+            raise TimeoutError(f"Reboot result not received for {dpu_name} within timeout period.")
+
+        # Reset the start field in the result table
+        db.set_entry("GNOI_REBOOT_RESULT", dpu_name, {"start": "false"})
+
     def reboot(self, reboot_type):
         """
         Request to reboot the module
@@ -183,20 +246,20 @@ class ModuleBase(device_base.DeviceBase):
 
     def set_admin_state(self, up):
         """
-        Request to keep the card in administratively up/down state.
-        The down state will power down the module and the status should show
-        MODULE_STATUS_OFFLINE.
-        The up state will take the module to MODULE_STATUS_FAULT or
-        MODULE_STATUS_ONLINE states.
+        Request to set the module's administrative state.
 
         Args:
-            up: A boolean, True to set the admin-state to UP. False to set the
-            admin-state to DOWN.
+            up (bool): True to set the admin-state to UP; False to set it to DOWN.
 
         Returns:
-            bool: True if the request has been issued successfully, False if not
+            bool: True if the request has been issued successfully; False otherwise.
         """
-        raise NotImplementedError
+        if not up:
+            subtype = device_info.get_device_subtype()
+            if subtype == "SmartSwitch" and not is_dpu():
+                self.graceful_shutdown_handler()
+        # Proceed to set the admin state using the platform-specific implementation
+        return super().set_admin_state(up)
 
     def get_maximum_consumed_power(self):
         """
