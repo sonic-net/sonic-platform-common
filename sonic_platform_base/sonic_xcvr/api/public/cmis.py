@@ -114,8 +114,8 @@ class CmisApi(XcvrApi):
     LowPwrRequestSW = 4
     LowPwrAllowRequestHW = 6
 
-    # Default caching disabled; control via classmethod
-    cache_enabled = False
+    # Default caching enabled; control via classmethod
+    cache_enabled = True
 
     @classmethod
     def set_cache_enabled(cls, enabled: bool):
