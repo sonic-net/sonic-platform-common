@@ -313,7 +313,8 @@ class ModuleBase(device_base.DeviceBase):
                 for bus in bus_info_list:
                     self.pci_entry_state_db(bus, PCIE_OPERATION_DETACHING)
                 return self.pci_detach()
-        except Exception:
+        except Exception as e:
+            sys.stderr.write("Failed to handle PCI removal: {}\n".format(str(e)))
             return False
 
     def pci_entry_state_db(self, pcie_string, operation):
@@ -356,7 +357,8 @@ class ModuleBase(device_base.DeviceBase):
                 for bus in bus_info_list:
                     self.pci_entry_state_db(bus, PCIE_OPERATION_ATTACHING)
                 return return_value
-        except Exception:
+        except Exception as e:
+            sys.stderr.write("Failed to handle PCI rescan: {}\n".format(str(e)))
             return False
 
     def pci_detach(self):
@@ -796,6 +798,7 @@ class ModuleBase(device_base.DeviceBase):
 
             return True
         except Exception as e:
+            sys.stderr.write("Failed to handle sensor removal: {}\n".format(str(e)))
             return False
 
     def handle_sensor_addition(self):
@@ -822,6 +825,7 @@ class ModuleBase(device_base.DeviceBase):
 
             return True
         except Exception as e:
+            sys.stderr.write("Failed to handle sensor addition: {}\n".format(str(e)))
             return False
 
     def module_pre_shutdown(self):
