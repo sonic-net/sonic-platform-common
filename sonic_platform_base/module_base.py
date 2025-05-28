@@ -302,7 +302,6 @@ class ModuleBase(device_base.DeviceBase):
     def handle_pci_removal(self):
         """
         Handles PCI device removal by updating state database and detaching device.
-        If pci_detach is not implemented, falls back to platform.json based removal.
 
         Returns:
             bool: True if operation was successful, False otherwise
@@ -345,7 +344,6 @@ class ModuleBase(device_base.DeviceBase):
     def handle_pci_rescan(self):
         """
         Handles PCI device rescan by updating state database and reattaching device.
-        If pci_reattach is not implemented, falls back to platform.json based rescan.
 
         Returns:
             bool: True if operation was successful, False otherwise
