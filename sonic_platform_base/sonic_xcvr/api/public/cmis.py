@@ -133,6 +133,10 @@ class CmisApi(XcvrApi):
     def _get_vdm_key_to_db_prefix_map(self):
         return CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP
 
+    @staticmethod
+    def _strip_str(val):
+        return val.rstrip() if isinstance(val, str) else val
+
     def _update_vdm_dict(self, dict_to_update, new_key, vdm_raw_dict, vdm_observable_type, vdm_subtype_index, lane):
         """
         Updates the dictionary with the VDM value if the vdm_observable_type exists.
@@ -200,14 +204,14 @@ class CmisApi(XcvrApi):
         '''
         This function returns the manufacturer of the module
         '''
-        return self.xcvr_eeprom.read(consts.VENDOR_NAME_FIELD)
+        return self._strip_str(self.xcvr_eeprom.read(consts.VENDOR_NAME_FIELD))
 
     @read_only_cached_api_return
     def get_model(self):
         '''
         This function returns the part number of the module
         '''
-        return self.xcvr_eeprom.read(consts.VENDOR_PART_NO_FIELD)
+        return self._strip_str(self.xcvr_eeprom.read(consts.VENDOR_PART_NO_FIELD))
 
     def get_cable_length_type(self):
         '''
@@ -227,14 +231,14 @@ class CmisApi(XcvrApi):
         '''
         This function returns the revision level for part number provided by vendor
         '''
-        return self.xcvr_eeprom.read(consts.VENDOR_REV_FIELD)
+        return self._strip_str(self.xcvr_eeprom.read(consts.VENDOR_REV_FIELD))
 
     @read_only_cached_api_return
     def get_serial(self):
         '''
         This function returns the serial number of the module
         '''
-        return self.xcvr_eeprom.read(consts.VENDOR_SERIAL_NO_FIELD)
+        return self._strip_str(self.xcvr_eeprom.read(consts.VENDOR_SERIAL_NO_FIELD))
 
     @read_only_cached_api_return
     def get_module_type(self):
@@ -328,13 +332,13 @@ class CmisApi(XcvrApi):
             "type": admin_info[consts.ID_FIELD],
             "type_abbrv_name": admin_info[consts.ID_ABBRV_FIELD],
             "hardware_rev": self.get_module_hardware_revision(),
-            "serial": admin_info[consts.VENDOR_SERIAL_NO_FIELD],
-            "manufacturer": admin_info[consts.VENDOR_NAME_FIELD],
-            "model": admin_info[consts.VENDOR_PART_NO_FIELD],
+            "serial": self._strip_str(admin_info[consts.VENDOR_SERIAL_NO_FIELD]),
+            "manufacturer": self._strip_str(admin_info[consts.VENDOR_NAME_FIELD]),
+            "model": self._strip_str(admin_info[consts.VENDOR_PART_NO_FIELD]),
             "connector": admin_info[consts.CONNECTOR_FIELD],
             "ext_identifier": "%s (%sW Max)" % (power_class, max_power),
             "cable_length": float(admin_info[consts.LENGTH_ASSEMBLY_FIELD]),
-            "vendor_date": admin_info[consts.VENDOR_DATE_FIELD],
+            "vendor_date": self._strip_str(admin_info[consts.VENDOR_DATE_FIELD]),
             "vendor_oui": admin_info[consts.VENDOR_OUI_FIELD],
             "application_advertisement": str(self.get_application_advertisement()) if len(self.get_application_advertisement()) > 0 else 'N/A',
             "host_electrical_interface": self.get_host_electrical_interface(),
@@ -345,7 +349,7 @@ class CmisApi(XcvrApi):
             "media_lane_assignment_option": self.get_media_lane_assignment_option(),
             "cable_type": self.get_cable_length_type(),
             "media_interface_technology": self.get_media_interface_technology(),
-            "vendor_rev": self.get_vendor_rev(),
+            "vendor_rev": self._strip_str(self.get_vendor_rev()),
             "cmis_rev": self.get_cmis_rev(),
             "specification_compliance": self.get_module_media_type(),
             "vdm_supported": self.is_transceiver_vdm_supported()
