@@ -19,6 +19,7 @@ PAGE_LENGTH = 128
 INIT_OFFSET = 128
 CMDLEN = 2
 MAX_WAIT = 600
+MAX_CDB_CMD_FOREGROUND_PROCESSING_TIME_tCDBF = 5  # seconds, as per tCDBF in CMIS spec
 
 
 class CmisCdbApi(XcvrApi):
@@ -284,7 +285,7 @@ class CmisCdbApi(XcvrApi):
         cmd += header
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
         self.write_cdb(cmd)
-        time.sleep(2)
+        time.sleep(MAX_CDB_CMD_FOREGROUND_PROCESSING_TIME_tCDBF)
         status = self.cdb1_chkstatus()
         if (status != 0x1):
             if status > 127:
@@ -415,6 +416,7 @@ class CmisCdbApi(XcvrApi):
         cmd = bytearray(b'\x01\x07\x00\x00\x00\x00\x00\x00')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
         self.write_cdb(cmd)
+        time.sleep(MAX_CDB_CMD_FOREGROUND_PROCESSING_TIME_tCDBF)
         status = self.cdb1_chkstatus()
         if (status != 0x1):
             if status > 127:
