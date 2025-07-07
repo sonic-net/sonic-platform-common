@@ -193,38 +193,52 @@ class ModuleBase(device_base.DeviceBase):
             return 60  # Default timeout
 
     def graceful_shutdown_handler(self):
+        """
+        Graceful shutdown handler for SmartSwitch DPU modules.
+
+        Waits for either:
+        1. CHASSIS_MODULE_INFO_TABLE's state_transition_in_progress to become "False", or
+        2. get_oper_status() returns "Offline"
+
+        The first condition that occurs is accepted as completion of graceful shutdown.
+        """
+        dpu_name = self.name
         db = SonicV2Connector()
         db.connect(db.STATE_DB)
-        dpu_name = self.name  # Assuming self.name is 'DPU0', 'DPU1', etc.
 
-        # Step 1: Set reboot request
-        request_entry = {
-            "start": "true",
-            "method": "3",
-            "message": "Pre-shutdown reboot",
-            "timestamp": str(int(time.time()))
+        key = f"CHASSIS_MODULE_INFO_TABLE|{dpu_name}"
+
+        # Step 1: Set transition flag
+        transition_info = {
+            "state_transition_in_progress": "True",
+            "transition_type": "shutdown",
+            "transition_start_time": str(int(time.time()))
         }
-        db.set_entry("GNOI_REBOOT_REQUEST", dpu_name, request_entry)
+        db.set_entry("CHASSIS_MODULE_INFO_TABLE", dpu_name, transition_info)
 
-        # Step 2: Wait for reboot result
+        # Step 2: Wait for either completion event
         timeout = self.get_reboot_timeout()
-        interval = 5
+        interval = 2  # check every 2 seconds
         elapsed = 0
+
         while elapsed < timeout:
-            result = db.get_all(db.STATE_DB, f"GNOI_REBOOT_RESULT|{dpu_name}")
-            if result and result.get("start") == "true":
-                status = result.get("status")
-                if status == "success":
-                    break
-                else:
-                    raise Exception(f"Reboot failed for {dpu_name}: {result.get('message')}")
+            result = db.get_all(db.STATE_DB, key)
+            if result and result.get("state_transition_in_progress") == "False":
+                break
+
+            op_state = self.get_oper_status()
+            if op_state and op_state.lower() == "offline":
+                # Mark transition complete
+                db.set_entry("CHASSIS_MODULE_INFO_TABLE", dpu_name, {
+                    "state_transition_in_progress": "False",
+                    "transition_type": "shutdown"
+                })
+                break
+
             time.sleep(interval)
             elapsed += interval
         else:
-            raise TimeoutError(f"Reboot result not received for {dpu_name} within timeout period.")
-
-        # Reset the start field in the result table
-        db.set_entry("GNOI_REBOOT_RESULT", dpu_name, {"start": "false"})
+            raise TimeoutError(f"Graceful shutdown timeout for {dpu_name}")
 
     def reboot(self, reboot_type):
         """
