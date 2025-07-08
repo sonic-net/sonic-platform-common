@@ -10,3 +10,4 @@ from . import sfp_base
 from . import thermal_base
 from . import sensor_base
 from . import watchdog_base
+from . import bmc_base

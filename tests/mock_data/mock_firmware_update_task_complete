@@ -1,0 +1,11 @@
+{
+    "PercentComplete": 100,
+    "TaskStatus": "OK",
+    "Messages": [
+        {
+            "MessageId": "ResourceEvent.1.0.UpdateSuccessful",
+            "MessageArgs": ["BMC_FW_0", "Update successful"]
+        }
+    ]
+}
+HTTP Status Code: 200
