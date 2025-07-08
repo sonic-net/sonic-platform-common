@@ -533,6 +533,13 @@ class CmisApi(XcvrApi):
             return None
         return float("{:.3f}".format(voltage))
 
+    def is_copper(self):
+        '''
+        Returns True if the module is copper, False otherwise
+        '''
+        media_intf = self.get_module_media_type()
+        return media_intf == "passive_copper_media_interface" if media_intf else None
+
     def is_flat_memory(self):
         return self.xcvr_eeprom.read(consts.FLAT_MEM_FIELD) is not False
 
