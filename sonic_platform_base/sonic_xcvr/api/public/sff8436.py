@@ -269,6 +269,8 @@ class Sff8436Api(XcvrApi):
         return float("{:.3f}".format(voltage))
 
     def get_tx_bias(self):
+        if not self.get_tx_bias_support():
+            return ["N/A" for _ in range(self.NUM_CHANNELS)]
         tx_bias = self.xcvr_eeprom.read(consts.TX_BIAS_FIELD)
         if tx_bias is None:
             return None
