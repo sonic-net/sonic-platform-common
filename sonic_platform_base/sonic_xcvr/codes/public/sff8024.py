@@ -215,12 +215,10 @@ class Sff8024(XcvrCodes):
         27: '100GBASE-CR2 (Clause 136)',
         28: '200GBASE-CR4 (Clause 136)',
         29: '400G CR8',
-        30: '1000BASE-T (Clause 40)',
-        31: '2.5GBASE-T (Clause 126)',
-        32: '5GBASE-T (Clause 126)',
-        33: '10GBASE-T (Clause 55)',
-        34: '25GBASE-T (Clause 113)',
-        35: '40GBASE-T (Clause 113)',
+        32: 'LEI-100G-PAM4-1',
+        33: 'LEI-200G-PAM4-2',
+        34: 'LEI-400G-PAM4-4',
+        35: 'LEI-800G-PAM4-8',
         36: '50GBASE-T (Placeholder)',
         37: '8GFC (FC-PI-4)',
         38: '10GFC (10GFC)',
@@ -388,7 +386,11 @@ class Sff8024(XcvrCodes):
         84: 'FOIC2.4-DO (G.709.3/Y.1331.3)',
         85: '400GBASE-DR4-2 (placeholder)',
         86: '800GBASE-DR8 (placeholder)',
-        87: '800GBASE-DR8-2 (placeholder)'
+        87: '800GBASE-DR8-2 (placeholder)',
+        151: "100G-DR1-LPO",
+        152: "200G-DR2-LPO",
+        153: "400G-DR4-LPO",
+        154: "800G-DR8-LPO",
     }
 
     # Passive and Linear Active Copper Cable and Passive Loopback media interface codes

@@ -14,6 +14,16 @@ import select
 from swsssdk import SonicV2Connector
 from utilities_common.chassis import is_dpu
 from sonic_py_common import device_info
+import fcntl
+from . import device_base
+import threading
+import contextlib
+import shutil
+
+# PCI state database constants
+PCIE_DETACH_INFO_TABLE = "PCIE_DETACH_INFO"
+PCIE_OPERATION_DETACHING = "detaching"
+PCIE_OPERATION_ATTACHING = "attaching"
 
 class ModuleBase(device_base.DeviceBase):
     """
@@ -22,6 +32,7 @@ class ModuleBase(device_base.DeviceBase):
     """
     # Device type definition. Note, this is a constant.
     DEVICE_TYPE = "module"
+    PCI_OPERATION_LOCK_FILE_PATH = "/var/lock/{}_pci.lock"
 
     # Possible card types for modular chassis
     MODULE_TYPE_SUPERVISOR = "SUPERVISOR"
@@ -79,6 +90,8 @@ class ModuleBase(device_base.DeviceBase):
         self._thermal_list = []
         self._voltage_sensor_list = []
         self._current_sensor_list = []
+        self.state_db_connector = None
+        self.pci_bus_info = None
 
         # List of SfpBase-derived objects representing all sfps
         # available on the module
@@ -87,6 +100,17 @@ class ModuleBase(device_base.DeviceBase):
         # List of ASIC-derived objects representing all ASICs
         # visibile in PCI domain on the module
         self._asic_list = []
+    
+    @contextlib.contextmanager
+    def _pci_operation_lock(self):
+        """File-based lock for PCI operations using flock"""
+        lock_file_path = self.PCI_OPERATION_LOCK_FILE_PATH.format(self.get_name())
+        with open(lock_file_path, 'w') as f:
+            try:
+                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+                yield
+            finally:
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
     def get_base_mac(self):
         """
@@ -348,9 +372,69 @@ class ModuleBase(device_base.DeviceBase):
         Retrieves the bus information.
 
         Returns:
-            Returns the PCI bus information in BDF format like "[DDDD:]BB:SS:F"
+            Returns the PCI bus information in list of BDF format like "[DDDD:]BB:SS:F"
         """
         raise NotImplementedError
+
+    def handle_pci_removal(self):
+        """
+        Handles PCI device removal by updating state database and detaching device.
+
+        Returns:
+            bool: True if operation was successful, False otherwise
+        """
+        try:
+            bus_info_list = self.get_pci_bus_info()
+            with self._pci_operation_lock():
+                for bus in bus_info_list:
+                    self.pci_entry_state_db(bus, PCIE_OPERATION_DETACHING)
+                return self.pci_detach()
+        except Exception as e:
+            sys.stderr.write("Failed to handle PCI removal: {}\n".format(str(e)))
+            return False
+
+    def pci_entry_state_db(self, pcie_string, operation):
+        """
+        Generic function to handle PCI device state database entry.
+
+        Args:
+            pcie_string (str): The PCI bus string to be written to state database
+            operation (str): The operation being performed ("detaching" or "attaching")
+
+        Raises:
+            RuntimeError: If state database connection fails
+        """
+        try:
+            # Do not use import if swsscommon is not needed
+            import swsscommon
+            PCIE_DETACH_INFO_TABLE_KEY = PCIE_DETACH_INFO_TABLE+"|"+pcie_string
+            if not self.state_db_connector:
+                self.state_db_connector = swsscommon.swsscommon.DBConnector("STATE_DB", 0)
+            if operation == PCIE_OPERATION_ATTACHING:
+                self.state_db_connector.delete(PCIE_DETACH_INFO_TABLE_KEY)
+                return
+            self.state_db_connector.hset(PCIE_DETACH_INFO_TABLE_KEY, "bus_info", pcie_string)
+            self.state_db_connector.hset(PCIE_DETACH_INFO_TABLE_KEY, "dpu_state", operation)
+        except Exception as e:
+            sys.stderr.write("Failed to write pcie bus info to state database: {}\n".format(str(e)))
+
+    def handle_pci_rescan(self):
+        """
+        Handles PCI device rescan by updating state database and reattaching device.
+
+        Returns:
+            bool: True if operation was successful, False otherwise
+        """
+        try:
+            bus_info_list = self.get_pci_bus_info()
+            with self._pci_operation_lock():
+                return_value = self.pci_reattach()
+                for bus in bus_info_list:
+                    self.pci_entry_state_db(bus, PCIE_OPERATION_ATTACHING)
+                return return_value
+        except Exception as e:
+            sys.stderr.write("Failed to handle PCI rescan: {}\n".format(str(e)))
+            return False
 
     def pci_detach(self):
         """
@@ -764,3 +848,81 @@ class ModuleBase(device_base.DeviceBase):
                And '0000:05:00.0' is its PCI address.
         """
         return self._asic_list
+
+    def handle_sensor_removal(self):
+        """
+        Handles sensor removal by copying ignore configuration file from platform folder
+        to sensors.d directory and restarting sensord if the file exists.
+
+        Returns:
+            bool: True if operation was successful, False otherwise
+        """
+        try:
+            module_name = self.get_name()
+            source_file = f"/usr/share/sonic/platform/module_sensors_ignore_conf/ignore_sensors_{module_name}.conf"
+            target_file = f"/etc/sensors.d/ignore_sensors_{module_name}.conf"
+
+            # If source file does not exist, we dont need to copy it and restart sensord
+            if not os.path.exists(source_file):
+                return True
+
+            shutil.copy2(source_file, target_file)
+
+            # Restart sensord
+            os.system("service sensord restart")
+
+            return True
+        except Exception as e:
+            sys.stderr.write("Failed to handle sensor removal: {}\n".format(str(e)))
+            return False
+
+    def handle_sensor_addition(self):
+        """
+        Handles sensor addition by removing the ignore configuration file from
+        sensors.d directory and restarting sensord.
+
+        Returns:
+            bool: True if operation was successful, False otherwise
+        """
+        try:
+            module_name = self.get_name()
+            target_file = f"/etc/sensors.d/ignore_sensors_{module_name}.conf"
+
+            # If target file does not exist, we dont need to remove it and restart sensord
+            if not os.path.exists(target_file):
+                return True
+
+            # Remove the file
+            os.remove(target_file)
+
+            # Restart sensord
+            os.system("service sensord restart")
+
+            return True
+        except Exception as e:
+            sys.stderr.write("Failed to handle sensor addition: {}\n".format(str(e)))
+            return False
+
+    def module_pre_shutdown(self):
+        """
+        Handles module pre-shutdown operations by detaching PCI devices and handling sensor removal.
+        This function should be called before shutting down a module.
+
+        Returns:
+            bool: True if all operations were successful, False otherwise
+        """
+        sensor_result = self.handle_sensor_removal()
+        pci_result = self.handle_pci_removal()
+        return pci_result and sensor_result
+
+    def module_post_startup(self):
+        """
+        Handles module post-startup operations by reattaching PCI devices and handling sensor addition.
+        This function should be called after a module has started up.
+
+        Returns:
+            bool: True if all operations were successful, False otherwise
+        """
+        pci_result = self.handle_pci_rescan()
+        sensor_result = self.handle_sensor_addition()
+        return pci_result and sensor_result
