@@ -347,7 +347,7 @@ class Sff8436Api(XcvrApi):
         return True
 
     def get_tx_bias_support(self):
-        return True
+        return not self.is_copper()
 
     def get_tx_fault_support(self):
         return self.xcvr_eeprom.read(consts.TX_FAULT_SUPPORT_FIELD)
