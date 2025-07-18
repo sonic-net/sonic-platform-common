@@ -271,6 +271,23 @@ class TestSff8636(object):
                 'rx1power': -10.0, 'rx2power': -10.0, 'rx3power': -10.0, 'rx4power': -10.0,
                 'tx1bias': 70, 'tx2bias': 70, 'tx3bias': 70, 'tx4bias': 70,
             }
+        ),
+        (
+            [
+                50,
+                3.3,
+                [70, 70, 70, 70],
+                [0.1, 0.1, 0.1, 0.1],
+                [0.1, 0.1, 0.1, 0.1],
+                True, True, True, False, True, True
+            ],
+            {
+                'temperature': 50,
+                'voltage': 3.3,
+                'tx1power': -10.0, 'tx2power': -10.0, 'tx3power': -10.0, 'tx4power': -10.0,
+                'rx1power': -10.0, 'rx2power': -10.0, 'rx3power': -10.0, 'rx4power': -10.0,
+                'tx1bias': 'N/A', 'tx2bias': 'N/A', 'tx3bias': 'N/A', 'tx4bias': 'N/A',
+            }
         )
     ])
     def test_get_transceiver_dom_real_value(self, mock_response, expected):
@@ -300,9 +317,9 @@ class TestSff8636(object):
         assert result == expected
 
         # Test when tx_bias_support is False
-        self.api.get_tx_bias_support.return_value = False
-        result = self.api.get_transceiver_dom_real_value()
-        assert result['tx1bias'] == 'N/A'
-        assert result['tx2bias'] == 'N/A'
-        assert result['tx3bias'] == 'N/A'
-        assert result['tx4bias'] == 'N/A'
+        # self.api.get_tx_bias_support.return_value = False
+        # result = self.api.get_transceiver_dom_real_value()
+        # assert result['tx1bias'] == 'N/A'
+        # assert result['tx2bias'] == 'N/A'
+        # assert result['tx3bias'] == 'N/A'
+        # assert result['tx4bias'] == 'N/A'
