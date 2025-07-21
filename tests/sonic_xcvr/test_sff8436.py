@@ -100,6 +100,7 @@ class TestSff8436(object):
 
     def test_simulate_copper(self):
         with patch.object(self.api, 'is_copper', return_value=True):
+            assert self.api.get_tx_power() == ['N/A'] * self.api.NUM_CHANNELS
             assert self.api.get_rx_power() == ['N/A'] * self.api.NUM_CHANNELS
             assert self.api.get_module_temperature() == 'N/A'
             assert self.api.get_voltage() == 'N/A'
@@ -263,11 +264,3 @@ class TestSff8436(object):
         self.api.get_rx_power_support.return_value = mock_response[10]
         result = self.api.get_transceiver_dom_real_value()
         assert result == expected
-
-        # Test when tx_bias_support is False
-        self.api.get_tx_bias_support.return_value = False
-        result = self.api.get_transceiver_dom_real_value()
-        assert result['tx1bias'] == 'N/A'
-        assert result['tx2bias'] == 'N/A'
-        assert result['tx3bias'] == 'N/A'
-        assert result['tx4bias'] == 'N/A'

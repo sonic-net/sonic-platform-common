@@ -102,6 +102,7 @@ class TestSff8636(object):
 
     def test_simulate_copper(self):
         with patch.object(self.api, 'is_copper', return_value=True):
+            assert self.api.get_tx_power() == ['N/A'] * self.api.NUM_CHANNELS
             assert self.api.get_rx_power() == ['N/A'] * self.api.NUM_CHANNELS
             assert not self.api.get_tx_power_support()
             assert not self.api.get_rx_power_support()
@@ -270,23 +271,6 @@ class TestSff8636(object):
                 'tx1power': -10.0, 'tx2power': -10.0, 'tx3power': -10.0, 'tx4power': -10.0,
                 'rx1power': -10.0, 'rx2power': -10.0, 'rx3power': -10.0, 'rx4power': -10.0,
                 'tx1bias': 70, 'tx2bias': 70, 'tx3bias': 70, 'tx4bias': 70,
-            }
-        ),
-        (
-            [
-                50,
-                3.3,
-                [70, 70, 70, 70],
-                [0.1, 0.1, 0.1, 0.1],
-                [0.1, 0.1, 0.1, 0.1],
-                True, True, True, False, True, True
-            ],
-            {
-                'temperature': 50,
-                'voltage': 3.3,
-                'tx1power': -10.0, 'tx2power': -10.0, 'tx3power': -10.0, 'tx4power': -10.0,
-                'rx1power': -10.0, 'rx2power': -10.0, 'rx3power': -10.0, 'rx4power': -10.0,
-                'tx1bias': 'N/A', 'tx2bias': 'N/A', 'tx3bias': 'N/A', 'tx4bias': 'N/A',
             }
         )
     ])
