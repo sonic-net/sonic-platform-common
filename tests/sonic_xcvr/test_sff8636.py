@@ -299,11 +299,3 @@ class TestSff8636(object):
         self.api.get_rx_power_support.return_value = mock_response[10]
         result = self.api.get_transceiver_dom_real_value()
         assert result == expected
-
-        # Test when tx_bias_support is False
-        # self.api.get_tx_bias_support.return_value = False
-        # result = self.api.get_transceiver_dom_real_value()
-        # assert result['tx1bias'] == 'N/A'
-        # assert result['tx2bias'] == 'N/A'
-        # assert result['tx3bias'] == 'N/A'
-        # assert result['tx4bias'] == 'N/A'
