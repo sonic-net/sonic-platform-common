@@ -264,3 +264,4 @@ class TestSff8436(object):
         self.api.get_rx_power_support.return_value = mock_response[10]
         result = self.api.get_transceiver_dom_real_value()
         assert result == expected
+
