@@ -314,8 +314,6 @@ class Sff8024(XcvrCodes):
         32: '800G-VR8 (Placeholder)',
         33: '800G-VR4.2',
         34: '800G-SR4.2',
-        35: '1.6T-VR8.2 ',
-        36: '1.6T-SR8.2',
     }
 
     # SMF media interface IDs
