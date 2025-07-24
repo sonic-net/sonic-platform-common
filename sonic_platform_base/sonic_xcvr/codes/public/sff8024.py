@@ -215,6 +215,8 @@ class Sff8024(XcvrCodes):
         27: '100GBASE-CR2 (Clause 136)',
         28: '200GBASE-CR4 (Clause 136)',
         29: '400G CR8',
+        30: '200GBASE-CR1 (Clause179)',
+        31: '400GBASE-CR2 (Clause179)',
         32: 'LEI-100G-PAM4-1',
         33: 'LEI-200G-PAM4-2',
         34: 'LEI-400G-PAM4-4',
@@ -266,7 +268,13 @@ class Sff8024(XcvrCodes):
         80: '400GAUI-4-L C2M (Annex 120G)',
         81: '800G S C2M (placeholder)',
         82: '800G L C2M (placeholder)',
-        83: 'OTL4.2'
+        83: 'OTL4.2',
+        87: '800GBASE-CR4 (Clause179)',
+        88: '1.6TBASE-CR8 (Clause179)',
+        128: '200GAUI-1 (Annex176E)',
+        129: '400GAUI-2 (Annex176E)',
+        130: '800GAUI-4 (Annex176E)',
+        131: '1.6TAUI-8 (Annex176E)'
     }
 
     # MMF media interface IDs
@@ -303,7 +311,11 @@ class Sff8024(XcvrCodes):
         29: '100G-VR1 (Clause 167)',
         30: '200G-VR2 (Clause 167)',
         31: '400G-VR4 (Clause 167)',
-        32: '800G-VR8 (Placeholder)'
+        32: '800G-VR8 (Placeholder)',
+        33: '800G-VR4.2',
+        34: '800G-SR4.2',
+        35: '1.6T-VR8.2 ',
+        36: '1.6T-SR8.2',
     }
 
     # SMF media interface IDs
@@ -387,6 +399,17 @@ class Sff8024(XcvrCodes):
         85: '400GBASE-DR4-2 (placeholder)',
         86: '800GBASE-DR8 (placeholder)',
         87: '800GBASE-DR8-2 (placeholder)',
+        115: '200GBASE-DR1 (Clause 180)',
+        116: '200GBASE-DR1-2 (Clause 181)',
+        117: '400GBASE-DR2 (Clause 180)',
+        118: '400GBASE-DR2-2 (Clause 181)',
+        119: '800GBASE-DR4 (Clause 180)',
+        120: '800GBASE-DR4-2 (Clause 181)',
+        121: '800GBASE-FR4-500 (Clause 183)',
+        122: '800GBASE-FR4 (Clause 183)',
+        123: '800GBASE-LR4 (Clause 183)',
+        127: '1.6TBASE-DR8 (Clause 180)',
+        128: '1.6TBASE-DR8-2 (Clause 181)',
         151: "100G-DR1-LPO",
         152: "200G-DR2-LPO",
         153: "400G-DR4-LPO",
