@@ -267,3 +267,4 @@ class TestSff8436(object):
         result = self.api.get_transceiver_dom_real_value()
         assert result == expected
 
+
