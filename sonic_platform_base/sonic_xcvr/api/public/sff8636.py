@@ -235,6 +235,8 @@ class Sff8636Api(XcvrApi):
         }
 
     def get_rx_los(self):
+        if not self.get_rx_los_support():
+            return ["N/A" for _ in range(self.NUM_CHANNELS)]
         rx_los = self.xcvr_eeprom.read(consts.RX_LOS_FIELD)
         if rx_los is None:
             return None
@@ -397,7 +399,7 @@ class Sff8636Api(XcvrApi):
         return self._voltage_support
 
     def get_rx_los_support(self):
-        return True
+        return not self.is_copper()
 
     def get_tx_bias_support(self):
         return not self.is_copper()
