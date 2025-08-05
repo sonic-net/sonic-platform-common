@@ -73,7 +73,8 @@ class Sff8024(XcvrCodes):
         27: 'DSFP',
         28: 'Link-x4',
         29: 'Link-x8',
-        30: 'QSFP+C'
+        30: 'QSFP+C',
+        126: 'BP',  # Backplane Cartridge
     }
 
     CONNECTORS = {
