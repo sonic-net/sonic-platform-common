@@ -26,7 +26,7 @@ class CdbStatusField(NumberRegField):
         return codes[status] if status in codes else "Unknown"
 
     def decode(self, raw_data, **decoded_deps):
-        is_busy = decoded_deps.get(cdb_consts.CDB1_CMD_STATUS_FIELD)
+        is_busy = decoded_deps.get(cdb_consts.CDB1_IS_BUSY)
         failed = decoded_deps.get(cdb_consts.CDB1_HAS_FAILED)
         cmd_status = decoded_deps.get(cdb_consts.CDB1_STATUS)
        

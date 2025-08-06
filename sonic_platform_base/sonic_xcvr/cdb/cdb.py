@@ -127,9 +127,9 @@ class CdbCmdHandler(XcvrEeprom):
             "blkdata" : blkdata
         }
         # Send the CDB write firmware LPL command
-        self.write_cmd(cdb_consts.CDB_WRITE_FIRMWARE_LPL_CMD, payload)
-        status = self.get_status()
-        print(f"Write LPL block status: {status}")
+        if True != self.write_cmd(cdb_consts.CDB_WRITE_FIRMWARE_LPL_CMD, payload):
+            status = self.get_last_cmd_status()
+            print(f"Write LPL block status: {status}")
 
     def write_epl_pages(self, blkdata):
         """

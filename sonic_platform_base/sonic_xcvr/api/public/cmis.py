@@ -125,14 +125,14 @@ class CmisApi(XcvrApi):
         """
         cls.cache_enabled = bool(enabled)
 
-    def __init__(self, xcvr_eeprom, cdb_hdlr=None):
+    def __init__(self, xcvr_eeprom, cdb_fw_hdlr=None):
         super(CmisApi, self).__init__(xcvr_eeprom)
         self.vdm = CmisVdmApi(xcvr_eeprom) if not self.is_flat_memory() else None
-        self.cdb = CmisCdbApi(xcvr_eeprom) if not self.is_flat_memory() else None
-        self.cdb_hdlr = cdb_hdlr
+        self.cdb = CmisCdbApi(xcvr_eeprom) if self.is_cdb_supported() else None
+        self.cdb_fw_hdlr = cdb_fw_hdlr if self.is_cdb_supported() else None
 
     def get_cdb_handler(self):
-        return self.cdb_hdlr
+        return self.cdb_fw_hdlr
 
     def _get_vdm_key_to_db_prefix_map(self):
         return CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP
@@ -1615,6 +1615,22 @@ class CmisApi(XcvrApi):
             return func(lane_mask, enable)
 
         logger.error('Invalid loopback mode:%s, lane_mask:%#x', loopback_mode, lane_mask)
+        return False
+
+    def is_cdb_supported(self):
+        '''
+        This function returns whether CDB is supported
+        '''
+        if self.is_flat_memory():
+            return False
+
+        cdb_inst = self.xcvr_eeprom.read(consts.CDB_SUPPORT)
+        if cdb_inst is None:
+            return False
+
+        if cdb_inst == 1 or cdb_inst == 2:
+            return True
+
         return False
 
     def is_transceiver_vdm_supported(self):
