@@ -5,11 +5,17 @@
     to interact with a module (as used in a modular chassis) SONiC.
 """
 
-import sys
 import os
+import json
+import time
+import errno
+import sys
+import select
+from swsssdk import SonicV2Connector
+from utilities_common.chassis import is_dpu
+from sonic_py_common import device_info
 import fcntl
 from . import device_base
-import json
 import threading
 import contextlib
 import shutil
@@ -187,6 +193,77 @@ class ModuleBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
+    def get_reboot_timeout(self):
+        db = SonicV2Connector()
+        db.connect(db.CONFIG_DB)
+
+        # Retrieve the platform value from CONFIG_DB
+        platform = db.get_entry('DEVICE_METADATA', 'localhost').get('platform')
+        if not platform:
+            raise ValueError("Platform information not found in CONFIG_DB.")
+
+        # Construct the path to platform.json
+        platform_json_path = f"/usr/share/sonic/device/{platform}/platform.json"
+
+        # Read the timeout value from platform.json
+        try:
+            with open(platform_json_path, "r") as f:
+                data = json.load(f)
+                timeout = data.get("dpu_halt_services_timeout")
+                if timeout is None:
+                    return 60  # Default timeout
+                return int(timeout)
+        except Exception:
+            return 60  # Default timeout
+
+    def graceful_shutdown_handler(self):
+        """
+        Graceful shutdown handler for SmartSwitch DPU modules.
+
+        Waits for either:
+        1. CHASSIS_MODULE_INFO_TABLE's state_transition_in_progress to become "False", or
+        2. get_oper_status() returns "Offline"
+
+        The first condition that occurs is accepted as completion of graceful shutdown.
+        """
+        dpu_name = self.name
+        db = SonicV2Connector()
+        db.connect(db.STATE_DB)
+
+        key = f"CHASSIS_MODULE_INFO_TABLE|{dpu_name}"
+
+        # Step 1: Set transition flag
+        transition_info = {
+            "state_transition_in_progress": "True",
+            "transition_type": "shutdown",
+            "transition_start_time": str(int(time.time()))
+        }
+        db.set_entry("CHASSIS_MODULE_INFO_TABLE", dpu_name, transition_info)
+
+        # Step 2: Wait for either completion event
+        timeout = self.get_reboot_timeout()
+        interval = 2  # check every 2 seconds
+        elapsed = 0
+
+        while elapsed < timeout:
+            result = db.get_all(db.STATE_DB, key)
+            if result and result.get("state_transition_in_progress") == "False":
+                break
+
+            op_state = self.get_oper_status()
+            if op_state and op_state.lower() == "offline":
+                # Mark transition complete
+                db.set_entry("CHASSIS_MODULE_INFO_TABLE", dpu_name, {
+                    "state_transition_in_progress": "False",
+                    "transition_type": "shutdown"
+                })
+                break
+
+            time.sleep(interval)
+            elapsed += interval
+        else:
+            raise TimeoutError(f"Graceful shutdown timeout for {dpu_name}")
+
     def reboot(self, reboot_type):
         """
         Request to reboot the module
@@ -207,20 +284,20 @@ class ModuleBase(device_base.DeviceBase):
 
     def set_admin_state(self, up):
         """
-        Request to keep the card in administratively up/down state.
-        The down state will power down the module and the status should show
-        MODULE_STATUS_OFFLINE.
-        The up state will take the module to MODULE_STATUS_FAULT or
-        MODULE_STATUS_ONLINE states.
+        Request to set the module's administrative state.
 
         Args:
-            up: A boolean, True to set the admin-state to UP. False to set the
-            admin-state to DOWN.
+            up (bool): True to set the admin-state to UP; False to set it to DOWN.
 
         Returns:
-            bool: True if the request has been issued successfully, False if not
+            bool: True if the request has been issued successfully; False otherwise.
         """
-        raise NotImplementedError
+        if not up:
+            subtype = device_info.get_device_subtype()
+            if subtype == "SmartSwitch" and not is_dpu():
+                self.graceful_shutdown_handler()
+        # Proceed to set the admin state using the platform-specific implementation
+        return super().set_admin_state(up)
 
     def get_maximum_consumed_power(self):
         """
