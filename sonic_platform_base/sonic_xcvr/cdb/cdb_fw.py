@@ -66,7 +66,7 @@ class CdbFwHandler(CdbCmdHandler):
             if self.start_payload_size > 0:
                 header_data = fw_file.read(self.start_payload_size)
                 if len(header_data) < self.start_payload_size:
-                    raise ValueError(f"Firmware image file is too small < {self.start_payload_size} bytes for header")%
+                    raise ValueError(f"Firmware image file is too small < {self.start_payload_size} bytes for header")
 
         # Verify the header with the module
         payload = {
