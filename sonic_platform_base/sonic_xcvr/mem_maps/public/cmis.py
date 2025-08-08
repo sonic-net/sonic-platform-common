@@ -112,7 +112,7 @@ class CmisFlatMemMap(XcvrMemMap):
             NumberRegField(consts.ACTIVE_FW_MINOR_REV, self.getaddr(0x0, 40), format="B", size=1),
         )
 
-        self.PAGE0_MODULE_LEVEL_MONITORS = RegGroupField(consts.MODULE_MONITORS_FIELD,
+        self.PAGE0_MODULE_LEVEL_MONITORS = RegGroupField(consts.MODULE_MONITORS_PAGE0_FIELD,
             NumberRegField(consts.TEMPERATURE_FIELD, self.getaddr(0x0, 14), size=2, format=">h", scale=256.0),
             NumberRegField(consts.VOLTAGE_FIELD, self.getaddr(0x0, 16), size=2, format=">H", scale=10000.0),
             NumberRegField(consts.AUX1_MON, self.getaddr(0x0, 18), format=">h", size=2),
