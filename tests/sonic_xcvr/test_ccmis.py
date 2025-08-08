@@ -3,8 +3,14 @@ from mock import patch
 import pytest
 from sonic_platform_base.sonic_xcvr.api.public.c_cmis import CCmisApi, C_CMIS_XCVR_INFO_DEFAULT_DICT
 from sonic_platform_base.sonic_xcvr.mem_maps.public.c_cmis import CCmisMemMap
+from sonic_platform_base.sonic_xcvr.mem_maps.public.cdb import CdbMemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
 from sonic_platform_base.sonic_xcvr.codes.public.cmis import CmisCodes
+from sonic_platform_base.sonic_xcvr.codes.public.cdb import CdbCodes
+from sonic_platform_base.sonic_xcvr.cdb.cdb_fw import CdbFwHandler as CdbFw
+
+
+CdbFw.initFwHandler = MagicMock(return_value=True)
 
 class TestCCmis(object):
     codes = CmisCodes
@@ -12,7 +18,9 @@ class TestCCmis(object):
     reader = MagicMock(return_value=None)
     writer = MagicMock()
     eeprom = XcvrEeprom(reader, writer, mem_map)
-    api = CCmisApi(eeprom)
+
+    cdb = CdbFw(reader, writer, CdbMemMap(CdbCodes))
+    api = CCmisApi(eeprom, cdb)
 
     @pytest.mark.parametrize("mock_response, expected", [
         (7, 75),
