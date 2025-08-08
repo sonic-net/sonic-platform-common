@@ -112,16 +112,9 @@ class CmisFlatMemMap(XcvrMemMap):
             NumberRegField(consts.ACTIVE_FW_MINOR_REV, self.getaddr(0x0, 40), format="B", size=1),
         )
 
-        self.MODULE_LEVEL_MONITORS = RegGroupField(consts.MODULE_MONITORS_FIELD,
+        self.PAGE0_MODULE_LEVEL_MONITORS = RegGroupField(consts.MODULE_MONITORS_FIELD,
             NumberRegField(consts.TEMPERATURE_FIELD, self.getaddr(0x0, 14), size=2, format=">h", scale=256.0),
             NumberRegField(consts.VOLTAGE_FIELD, self.getaddr(0x0, 16), size=2, format=">H", scale=10000.0),
-            NumberRegField(consts.GRID_SPACING, self.getaddr(0x12, 128),
-                *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8)), ro = False
-            ),
-            NumberRegField(consts.LASER_CONFIG_CHANNEL, self.getaddr(0x12, 136), format=">h", size=2, ro=False),
-            NumberRegField(consts.LASER_CURRENT_FREQ, self.getaddr(0x12, 168), format=">L", size=4, scale = 1000.0),
-            NumberRegField(consts.TX_CONFIG_POWER, self.getaddr(0x12, 200), format=">h", size=2, scale=100.0, ro=False),
-            NumberRegField(consts.AUX_MON_TYPE, self.getaddr(0x1, 145), size=1),
             NumberRegField(consts.AUX1_MON, self.getaddr(0x0, 18), format=">h", size=2),
             NumberRegField(consts.AUX2_MON, self.getaddr(0x0, 20), format=">h", size=2),
             NumberRegField(consts.AUX3_MON, self.getaddr(0x0, 22), format=">h", size=2),
@@ -216,6 +209,16 @@ class CmisMemMap(CmisFlatMemMap):
                 *(NumberRegField("%s_%d" % (consts.HOST_LANE_ASSIGNMENT_OPTION, app), self.getaddr(0x1, 226 + 4 * (app - 9)),
                     format="B", size=1) for app in range(9, 16))
             )
+        )
+
+        self.MODULE_LEVEL_MONITORS = RegGroupField(consts.MODULE_MONITORS_FIELD,
+            NumberRegField(consts.GRID_SPACING, self.getaddr(0x12, 128),
+                *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8)), ro = False
+            ),
+            NumberRegField(consts.LASER_CONFIG_CHANNEL, self.getaddr(0x12, 136), format=">h", size=2, ro=False),
+            NumberRegField(consts.LASER_CURRENT_FREQ, self.getaddr(0x12, 168), format=">L", size=4, scale = 1000.0),
+            NumberRegField(consts.TX_CONFIG_POWER, self.getaddr(0x12, 200), format=">h", size=2, scale=100.0, ro=False),
+            NumberRegField(consts.AUX_MON_TYPE, self.getaddr(0x1, 145), size=1),
         )
 
         self.MODULE_CHAR_ADVT = RegGroupField(consts.MODULE_CHAR_ADVT_FIELD,
