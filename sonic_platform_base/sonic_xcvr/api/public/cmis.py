@@ -131,7 +131,7 @@ class CmisApi(XcvrApi):
         self.cdb = CmisCdbApi(xcvr_eeprom) if self.is_cdb_supported() else None
         self.cdb_fw_hdlr = cdb_fw_hdlr if self.is_cdb_supported() else None
 
-    def get_cdb_handler(self):
+    def get_cdb_fw_handler(self):
         return self.cdb_fw_hdlr
 
     def _get_vdm_key_to_db_prefix_map(self):

@@ -77,34 +77,6 @@ class CdbFwHandler(CdbCmdHandler):
         # Send the CDB start firmware download command
         return self.send_cmd(cdb_consts.CDB_START_FIRMWARE_DOWNLOAD_CMD, payload)
 
-    def run_fw_image(self, runmode=0x0, resetdelay=2):
-        """
-        Run the firmware image(default is non-hitless reset)
-        :param runmode: 0x0: run the image, 0x1:
-        reset the module, 0x2: run and reset
-        """
-        payload = {
-            "runmode" : runmode,
-            "delay" : resetdelay
-        }
-
-        # Send the CDB run firmware image command
-        return self.send_cmd(cdb_consts.CDB_RUN_FIRMWARE_IMAGE_CMD, payload,
-                             timeout=cdb_consts.CDB_RUN_FIRMWARE_CMD_TIMEOUT)
-
-    def complete_fw_download(self):
-        """
-        Complete the firmware download
-        """
-        # Send the CDB complete firmware download command
-        return self.send_cmd(cdb_consts.CDB_COMPLETE_FIRMWARE_DOWNLOAD_CMD)
-
-    def commit_fw_image(self):
-        return self.send_cmd(cdb_consts.CDB_COMMIT_FIRMWARE_IMAGE_CMD)
-
-    def abort_fw_download(self):
-        return self.send_cmd(cdb_consts.CDB_ABORT_FIRMWARE_DOWNLOAD_CMD)
-
     def download_fw_image(self, imgpath):
         """
         Download firmware image using the CDB command(LPL or EPL)
@@ -157,3 +129,32 @@ class CdbFwHandler(CdbCmdHandler):
             print(f"Error downloading firmware image: {str(e)}")
             self.abort_fw_download()  # Abort on error
         return False, 0
+
+    def run_fw_image(self, runmode=0x0, resetdelay=2):
+            """
+            Run the firmware image(default is non-hitless reset)
+            :param runmode: 0x0: run the image, 0x1:
+            reset the module, 0x2: run and reset
+            """
+            payload = {
+                "runmode" : runmode,
+                "delay" : resetdelay
+            }
+
+            # Send the CDB run firmware image command
+            return self.send_cmd(cdb_consts.CDB_RUN_FIRMWARE_IMAGE_CMD, payload,
+                                timeout=cdb_consts.CDB_RUN_FIRMWARE_CMD_TIMEOUT)
+
+    def complete_fw_download(self):
+        """
+        Complete the firmware download
+        """
+        # Send the CDB complete firmware download command
+        return self.send_cmd(cdb_consts.CDB_COMPLETE_FIRMWARE_DOWNLOAD_CMD)
+
+    def commit_fw_image(self):
+        return self.send_cmd(cdb_consts.CDB_COMMIT_FIRMWARE_IMAGE_CMD)
+
+    def abort_fw_download(self):
+        return self.send_cmd(cdb_consts.CDB_ABORT_FIRMWARE_DOWNLOAD_CMD)
+
