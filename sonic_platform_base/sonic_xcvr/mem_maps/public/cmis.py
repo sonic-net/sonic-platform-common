@@ -16,6 +16,7 @@ from ...fields.xcvr_field import (
     StringRegField,
 )
 from ...fields import consts
+from ...fields.consts import *
 from ...fields.public.cmis import CableLenField
 
 class CmisFlatMemMap(XcvrMemMap):
