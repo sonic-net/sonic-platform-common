@@ -3,8 +3,14 @@ from mock import patch
 import pytest
 from sonic_platform_base.sonic_xcvr.api.public.c_cmis import CCmisApi, C_CMIS_XCVR_INFO_DEFAULT_DICT
 from sonic_platform_base.sonic_xcvr.mem_maps.public.c_cmis import CCmisMemMap
+from sonic_platform_base.sonic_xcvr.mem_maps.public.cdb import CdbMemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
 from sonic_platform_base.sonic_xcvr.codes.public.cmis import CmisCodes
+from sonic_platform_base.sonic_xcvr.codes.public.cdb import CdbCodes
+from sonic_platform_base.sonic_xcvr.cdb.cdb_fw import CdbFwHandler as CdbFw
+
+
+CdbFw.initFwHandler = MagicMock(return_value=True)
 
 class TestCCmis(object):
     codes = CmisCodes
@@ -12,7 +18,9 @@ class TestCCmis(object):
     reader = MagicMock(return_value=None)
     writer = MagicMock()
     eeprom = XcvrEeprom(reader, writer, mem_map)
-    api = CCmisApi(eeprom)
+
+    cdb = CdbFw(reader, writer, CdbMemMap(CdbCodes))
+    api = CCmisApi(eeprom, cdb)
 
     @pytest.mark.parametrize("mock_response, expected", [
         (7, 75),
@@ -175,19 +183,15 @@ class TestCCmis(object):
                     'application_advertisement': 'N/A',
                     'media_lane_count': 1,
                     'vendor_rev': '0.0',
-                    'host_electrical_interface': '400GAUI-8 C2M (Annex 120E)',
                     'vendor_oui': 'xx-xx-xx',
                     'manufacturer': 'VENDOR_NAME',
                     'media_interface_technology': '1550 nm DFB',
-                    'media_interface_code': '400ZR, DWDM, amplified',
                     'serial': '00000000',
                     'host_lane_count': 8,
                     **{f'active_apsel_hostlane{i}': 1 for i in range(1, 9)},
                     'hardware_rev': '0.0',
                     'cmis_rev': '5.0',
-                    'media_lane_assignment_option': 1,
                     'connector': 'LC',
-                    'host_lane_assignment_option': 1,
                     'vendor_date': '21010100',
                     'vdm_supported': True,
                 },
@@ -208,19 +212,15 @@ class TestCCmis(object):
                 'application_advertisement': 'N/A',
                 'media_lane_count': 1,
                 'vendor_rev': '0.0',
-                'host_electrical_interface': '400GAUI-8 C2M (Annex 120E)',
                 'vendor_oui': 'xx-xx-xx',
                 'manufacturer': 'VENDOR_NAME',
                 'media_interface_technology': '1550 nm DFB',
-                'media_interface_code': '400ZR, DWDM, amplified',
                 'serial': '00000000',
                 'host_lane_count': 8,
                 **{f'active_apsel_hostlane{i}': 1 for i in range(1, 9)},
                 'hardware_rev': '0.0',
                 'cmis_rev': '5.0',
-                'media_lane_assignment_option': 1,
                 'connector': 'LC',
-                'host_lane_assignment_option': 1,
                 'vendor_date': '21010100',
                 'vdm_supported': True,
                 'supported_min_laser_freq': 191300,

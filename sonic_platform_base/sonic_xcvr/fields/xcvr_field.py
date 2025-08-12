@@ -178,15 +178,21 @@ class NumberRegField(RegField):
         super(NumberRegField, self).__init__(name, offset, *fields, **kwargs)
         self.scale = kwargs.get("scale")
         self.format = kwargs.get("format", "B")
+        self.bitdecode = kwargs.get("bitdecode", False)
 
     def decode(self, raw_data, **decoded_deps):
-        decoded = struct.unpack(self.format, raw_data)[0]
-        mask = self.get_bitmask()
-        if mask is not None:
-            decoded &= mask
-            decoded >>= self.start_bitpos
-        if self.scale is not None:
-            return decoded / self.scale
+        if self.bitdecode:
+            decoded = {}
+            for field in self.fields:
+                decoded[field.name] = field.decode(raw_data, **decoded_deps)
+        else:
+            decoded = struct.unpack(self.format, raw_data)[0]
+            mask = self.get_bitmask()
+            if mask is not None:
+                decoded &= mask
+                decoded >>= self.start_bitpos
+            if self.scale is not None:
+                return decoded / self.scale
         return decoded
 
     def encode(self, val, raw_state=None):

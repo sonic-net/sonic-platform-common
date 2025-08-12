@@ -103,9 +103,12 @@ class TestSff8636(object):
     def test_simulate_copper(self):
         with patch.object(self.api, 'is_copper', return_value=True):
             assert self.api.get_rx_power() == ['N/A'] * self.api.NUM_CHANNELS
+            assert self.api.get_tx_bias() == ['N/A'] * self.api.NUM_CHANNELS
+            assert self.api.get_rx_los() == ['N/A'] * self.api.NUM_CHANNELS
             assert not self.api.get_tx_power_support()
             assert not self.api.get_rx_power_support()
-            assert not self.api.get_rx_power_support()
+            assert not self.api.get_tx_bias_support()
+            assert not self.api.get_rx_los_support()
             assert not self.api.get_temperature_support()
             assert not self.api.get_voltage_support()
 

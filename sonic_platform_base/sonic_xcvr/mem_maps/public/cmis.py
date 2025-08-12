@@ -16,6 +16,7 @@ from ...fields.xcvr_field import (
     StringRegField,
 )
 from ...fields import consts
+from ...fields.consts import *
 from ...fields.public.cmis import CableLenField
 
 class CmisFlatMemMap(XcvrMemMap):
@@ -112,6 +113,31 @@ class CmisFlatMemMap(XcvrMemMap):
             NumberRegField(consts.ACTIVE_FW_MINOR_REV, self.getaddr(0x0, 40), format="B", size=1),
         )
 
+        self.PAGE0_MODULE_LEVEL_MONITORS = RegGroupField(consts.MODULE_MONITORS_PAGE0_FIELD,
+            NumberRegField(consts.TEMPERATURE_FIELD, self.getaddr(0x0, 14), size=2, format=">h", scale=256.0),
+            NumberRegField(consts.VOLTAGE_FIELD, self.getaddr(0x0, 16), size=2, format=">H", scale=10000.0),
+            NumberRegField(consts.AUX1_MON, self.getaddr(0x0, 18), format=">h", size=2),
+            NumberRegField(consts.AUX2_MON, self.getaddr(0x0, 20), format=">h", size=2),
+            NumberRegField(consts.AUX3_MON, self.getaddr(0x0, 22), format=">h", size=2),
+            NumberRegField(consts.CUSTOM_MON, self.getaddr(0x0, 24), format=">H", size=2),
+        )
+
+        self.TRANS_MODULE_STATUS = RegGroupField(consts.TRANS_MODULE_STATUS_FIELD,
+            CodeRegField(consts.MODULE_STATE, self.getaddr(0x0, 3), self.codes.MODULE_STATE,
+                 *(RegBitField("Bit%d" % (bit), bit) for bit in range (1, 4))
+            ),
+            NumberRegField(consts.MODULE_FIRMWARE_FAULT_INFO, self.getaddr(0x0, 8), size=1),
+            NumberRegField(consts.MODULE_FLAG_BYTE1, self.getaddr(0x0, 9), size=1),
+            NumberRegField(consts.MODULE_FLAG_BYTE2, self.getaddr(0x0, 10), size=1),
+            NumberRegField(consts.MODULE_FLAG_BYTE3, self.getaddr(0x0, 11), size=1),
+            NumberRegField(consts.CDB1_STATUS, self.getaddr(0x0, 37), size=1),
+            CodeRegField(consts.MODULE_FAULT_CAUSE, self.getaddr(0x0, 41), self.codes.MODULE_FAULT_CAUSE),
+        )
+
+        self.TRANS_CONFIG = RegGroupField(consts.TRANS_CONFIG_FIELD,
+            NumberRegField(consts.MODULE_LEVEL_CONTROL, self.getaddr(0x0, 26), size=1, ro=False),
+        )
+
     def getaddr(self, page, offset, page_size=128):
         return page * page_size + offset
 
@@ -187,8 +213,6 @@ class CmisMemMap(CmisFlatMemMap):
         )
 
         self.MODULE_LEVEL_MONITORS = RegGroupField(consts.MODULE_MONITORS_FIELD,
-            NumberRegField(consts.TEMPERATURE_FIELD, self.getaddr(0x0, 14), size=2, format=">h", scale=256.0),
-            NumberRegField(consts.VOLTAGE_FIELD, self.getaddr(0x0, 16), size=2, format=">H", scale=10000.0),
             NumberRegField(consts.GRID_SPACING, self.getaddr(0x12, 128),
                 *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8)), ro = False
             ),
@@ -196,10 +220,6 @@ class CmisMemMap(CmisFlatMemMap):
             NumberRegField(consts.LASER_CURRENT_FREQ, self.getaddr(0x12, 168), format=">L", size=4, scale = 1000.0),
             NumberRegField(consts.TX_CONFIG_POWER, self.getaddr(0x12, 200), format=">h", size=2, scale=100.0, ro=False),
             NumberRegField(consts.AUX_MON_TYPE, self.getaddr(0x1, 145), size=1),
-            NumberRegField(consts.AUX1_MON, self.getaddr(0x0, 18), format=">h", size=2),
-            NumberRegField(consts.AUX2_MON, self.getaddr(0x0, 20), format=">h", size=2),
-            NumberRegField(consts.AUX3_MON, self.getaddr(0x0, 22), format=">h", size=2),
-            NumberRegField(consts.CUSTOM_MON, self.getaddr(0x0, 24), format=">H", size=2),
         )
 
         self.MODULE_CHAR_ADVT = RegGroupField(consts.MODULE_CHAR_ADVT_FIELD,
@@ -529,18 +549,6 @@ class CmisMemMap(CmisFlatMemMap):
             NumberRegField(consts.HOST_INPUT_LOOPBACK, self.getaddr(0x13, 183), size=1, ro=False),
         )
 
-        self.TRANS_MODULE_STATUS = RegGroupField(consts.TRANS_MODULE_STATUS_FIELD,
-            CodeRegField(consts.MODULE_STATE, self.getaddr(0x0, 3), self.codes.MODULE_STATE,
-                 *(RegBitField("Bit%d" % (bit), bit) for bit in range (1, 4))
-            ),
-            NumberRegField(consts.MODULE_FIRMWARE_FAULT_INFO, self.getaddr(0x0, 8), size=1),
-            NumberRegField(consts.MODULE_FLAG_BYTE1, self.getaddr(0x0, 9), size=1),
-            NumberRegField(consts.MODULE_FLAG_BYTE2, self.getaddr(0x0, 10), size=1),
-            NumberRegField(consts.MODULE_FLAG_BYTE3, self.getaddr(0x0, 11), size=1),
-            NumberRegField(consts.CDB1_STATUS, self.getaddr(0x0, 37), size=1),
-            CodeRegField(consts.MODULE_FAULT_CAUSE, self.getaddr(0x0, 41), self.codes.MODULE_FAULT_CAUSE),
-        )
-
         self.TRANS_PM = RegGroupField(consts.TRANS_PM_FIELD,
             NumberRegField(consts.VDM_SUPPORTED_PAGE, self.getaddr(0x2f, 128),
                 *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 2))
@@ -550,10 +558,6 @@ class CmisMemMap(CmisFlatMemMap):
                 RegBitField(consts.VDM_UNFREEZE_DONE, 6),
                 RegBitField(consts.VDM_FREEZE_DONE, 7),
             ),
-        )
-
-        self.TRANS_CONFIG = RegGroupField(consts.TRANS_CONFIG_FIELD,
-            NumberRegField(consts.MODULE_LEVEL_CONTROL, self.getaddr(0x0, 26), size=1, ro=False),
         )
 
         self.TRANS_CDB = RegGroupField(consts.TRANS_CDB_FIELD,
