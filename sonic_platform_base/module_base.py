@@ -13,6 +13,13 @@ import json
 import threading
 import contextlib
 import shutil
+# Support both connectors: swsssdk and swsscommon
+try:
+    from swsssdk import SonicV2Connector
+except ImportError:
+    from swsscommon.swsscommon import SonicV2Connector
+
+_v2 = None
 
 # PCI state database constants
 PCIE_DETACH_INFO_TABLE = "PCIE_DETACH_INFO"
@@ -207,18 +214,19 @@ class ModuleBase(device_base.DeviceBase):
 
     def set_admin_state(self, up):
         """
-        Request to keep the card in administratively up/down state.
-        The down state will power down the module and the status should show
-        MODULE_STATUS_OFFLINE.
-        The up state will take the module to MODULE_STATUS_FAULT or
-        MODULE_STATUS_ONLINE states.
+        Request to set the module's administrative state.
+
+        Abstract:
+          Platform-specific code must implement this to handle admin up/down.
+          For SmartSwitch NPU platforms (device_subtype == "SmartSwitch" and not is_dpu()),
+          the derived function should call graceful_shutdown_handler() before setting DOWN
+          to trigger the gNOI shutdown sequence as described in the graceful shutdown HLD.
 
         Args:
-            up: A boolean, True to set the admin-state to UP. False to set the
-            admin-state to DOWN.
+            up (bool): True for admin UP, False for admin DOWN.
 
         Returns:
-            bool: True if the request has been issued successfully, False if not
+            bool: True if the request was successful, False otherwise.
         """
         raise NotImplementedError
 
@@ -376,6 +384,109 @@ class ModuleBase(device_base.DeviceBase):
         Returns False, if PCI rescan fails or specified device is not found.
         """
         raise NotImplementedError
+
+    # STATE_DB / CONFIG_DB compatibility helpers
+    def _state_hgetall(db, key: str) -> dict:
+        """STATE_DB HGETALL as dict across both connector types."""
+        try:
+            return db.get_all(db.STATE_DB, key) or {}
+        except Exception:
+            client = db.get_redis_client(db.STATE_DB)
+            raw = client.hgetall(key)
+            return {k.decode(): v.decode() for k, v in raw.items()}
+
+    def _state_hset(db, key: str, mapping: dict):
+        """STATE_DB HSET mapping across both connector types."""
+        try:
+            return db.set(db.STATE_DB, key, mapping)
+        except Exception:
+            client = db.get_redis_client(db.STATE_DB)
+            client.hset(key, mapping={k: str(v) for k, v in mapping.items()})
+
+    def _cfg_get_entry(table, key):
+        """Read CONFIG_DB row via unix-socket V2 API and normalize to str."""
+        global _v2
+        if _v2 is None:
+            from swsscommon import swsscommon
+            _v2 = swsscommon.SonicV2Connector(use_unix_socket_path=True)
+            _v2.connect(_v2.CONFIG_DB)
+
+        raw = _v2.get_all(_v2.CONFIG_DB, f"{table}|{key}") or {}
+        def _s(x): return x.decode("utf-8", "ignore") if isinstance(x, (bytes, bytearray)) else x
+        return { _s(k): _s(v) for k, v in raw.items() }
+
+    def get_reboot_timeout(self):
+        """
+        Returns the DPU halt-services timeout (seconds) from platform.json
+        (/usr/share/sonic/device/<platform>/platform.json:dpu_halt_services_timeout).
+        Falls back to 60s if missing or any error occurs.
+        """
+        plat = _cfg_get_entry("DEVICE_METADATA", "localhost").get("platform")
+        if not plat:
+            return 60
+        path = f"/usr/share/sonic/device/{plat}/platform.json"
+        try:
+            with open(path, "r") as f:
+                data = json.load(f)
+            val = data.get("dpu_halt_services_timeout")
+            return int(val) if val else 60
+        except Exception:
+            return 60
+
+    def graceful_shutdown_handler(self):
+        """
+        SmartSwitch graceful shutdown gate for a DPU module:
+        - Set STATE_DB: CHASSIS_MODULE_INFO_TABLE|<DPUX> to in-progress (shutdown)
+        - Wait until either:
+            (a) another agent clears in-progress to False, OR
+            (b) the module's oper status becomes Offline
+          Whichever happens first, we stop waiting.
+        - On (b), clear in-progress ourselves to unblock any waiters.
+        - Timeout based on get_reboot_timeout().
+        """
+        dpu_name = getattr(self, "name", None) or "UNKNOWN"
+        db = SonicV2Connector()
+        db.connect(db.STATE_DB)
+        key = f"CHASSIS_MODULE_INFO_TABLE|{dpu_name}"
+
+        # Mark transition start
+        _state_hset(db, key, {
+            "state_transition_in_progress": "True",
+            "transition_type": "shutdown",
+            "transition_start_time": str(int(time.time()))
+        })
+
+        timeout = self.get_reboot_timeout()
+        interval = 2
+        elapsed = 0
+
+        while elapsed < timeout:
+            entry = _state_hgetall(db, key)
+            if entry.get("state_transition_in_progress") == "False":
+                # Another agent (daemon) completed the graceful phase
+                return
+
+            # Platform reported oper_state Offline — consider graceful phase done
+            try:
+                oper = self.get_oper_status()
+                if oper and str(oper).lower() == "offline":
+                    _state_hset(db, key, {
+                        "state_transition_in_progress": "False",
+                        "transition_type": "shutdown"
+                    })
+                    return
+            except Exception:
+                # don't fail the graceful gate if platform call glitches once
+                pass
+
+            time.sleep(interval)
+            elapsed += interval
+
+        # Timeout: best-effort clear
+        _state_hset(db, key, {
+            "state_transition_in_progress": "False",
+            "transition_type": "shutdown"
+        })
 
     ##############################################
     # Component methods
