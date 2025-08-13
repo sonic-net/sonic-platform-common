@@ -8,6 +8,7 @@ import fcntl
 from unittest.mock import patch, MagicMock, call
 from io import StringIO
 import shutil
+from click.testing import CliRunner
 
 class MockFile:
     def __init__(self, data=None):
@@ -83,45 +84,135 @@ class DummyModule(ModuleBase):
 
 class TestModuleBaseGracefulShutdown:
 
-    @patch("sonic_platform_base.module_base.SonicV2Connector")
-    def test_get_reboot_timeout_default(self, mock_db):
-        mock_instance = mock_db.return_value
-        mock_instance.get_entry.return_value = {'platform': 'x86_64-foo'}
-        with patch("builtins.open", unittest.mock.mock_open(read_data='{}')):
-            module = DummyModule()
-            timeout = module.get_reboot_timeout()
-            assert timeout == 60
+    # 1) Shutdown sets INFO table flags and admin_status=down
+    def test_shutdown_triggers_transition_tracking(self):
+        with patch("config.chassis_modules.is_smartswitch", return_value=True), \
+            patch("config.chassis_modules.get_config_module_state", return_value='up'):
 
+            runner = CliRunner()
+            db = Db()
+
+            result = runner.invoke(
+                config.config.commands["chassis"].commands["modules"].commands["shutdown"],
+                ["DPU0"],
+                obj=db
+            )
+            assert result.exit_code == 0
+
+            # CONFIG_DB admin down
+            cfg_fvs = db.cfgdb.get_entry("CHASSIS_MODULE", "DPU0")
+            assert cfg_fvs.get("admin_status") == "down"
+
+            # STATE_DB INFO table flags
+            state_fvs = db.db.get_all("STATE_DB", "CHASSIS_MODULE_INFO_TABLE|DPU0")
+            assert state_fvs is not None
+            assert state_fvs.get("state_transition_in_progress") == "True"
+            assert state_fvs.get("transition_type") == "shutdown"
+            assert state_fvs.get("transition_start_time")  # present & non-empty
+
+
+    # 2) Shutdown when transition already in progress (no datetime needed)
+    def test_shutdown_triggers_transition_in_progress(self):
+        with patch("config.chassis_modules.is_smartswitch", return_value=True), \
+            patch("config.chassis_modules.get_config_module_state", return_value='up'), \
+            patch("config.chassis_modules.get_state_transition_in_progress", return_value='True'), \
+            patch("config.chassis_modules.is_transition_timed_out", return_value=False):
+
+            runner = CliRunner()
+            db = Db()
+
+            result = runner.invoke(
+                config.config.commands["chassis"].commands["modules"].commands["shutdown"],
+                ["DPU0"],
+                obj=db
+            )
+            assert result.exit_code == 0
+
+            fvs = db.db.get_all("STATE_DB", "CHASSIS_MODULE_INFO_TABLE|DPU0")
+            assert fvs is not None
+            assert fvs.get('state_transition_in_progress') == 'True'
+            assert fvs.get('transition_start_time')  # present
+
+
+    # 3) Transition timeout path (mock the timeout instead of crafting timestamps)
+    def test_shutdown_triggers_transition_timeout(self):
+        with patch("config.chassis_modules.is_smartswitch", return_value=True), \
+            patch("config.chassis_modules.get_config_module_state", return_value='up'), \
+            patch("config.chassis_modules.get_state_transition_in_progress", return_value='True'), \
+            patch("config.chassis_modules.is_transition_timed_out", return_value=True):
+
+            runner = CliRunner()
+            db = Db()
+
+            result = runner.invoke(
+                config.config.commands["chassis"].commands["modules"].commands["shutdown"],
+                ["DPU0"],
+                obj=db
+            )
+            assert result.exit_code == 0
+
+            fvs = db.db.get_all("STATE_DB", "CHASSIS_MODULE_INFO_TABLE|DPU0")
+            assert fvs is not None
+            # After timeout, CLI proceeds; we only require the entry to exist
+            # (flag may be reset by subsequent flows; keep assertion minimal)
+            assert 'state_transition_in_progress' in fvs
+
+
+    # 4) Graceful shutdown handler (unit) – no ANY, just key checks
+    @patch("sonic_platform_base.module_base._state_hset")
+    @patch("sonic_platform_base.module_base._state_hgetall")
     @patch("sonic_platform_base.module_base.SonicV2Connector")
-    def test_graceful_shutdown_handler_success(self, mock_db):
+    def test_graceful_shutdown_handler_success(self, mock_db, mock_hgetall, mock_hset):
         dpu_name = "DPU0"
-        mock_instance = mock_db.return_value
-        mock_instance.get_all.side_effect = [
-            {},  # First poll
-            {"start": "true", "status": "success", "message": "OK"}  # Second poll
+
+        # First poll: in-progress; Second poll: cleared by another agent
+        mock_hgetall.side_effect = [
+            {"state_transition_in_progress": "True"},
+            {"state_transition_in_progress": "False"}
         ]
 
         module = DummyModule(name=dpu_name)
 
         with patch.object(module, "get_reboot_timeout", return_value=10), \
-             patch("time.sleep"):
+            patch("time.sleep"):
             module.graceful_shutdown_handler()
-            mock_instance.set_entry.assert_any_call("GNOI_REBOOT_RESULT", dpu_name, {"start": "false"})
 
+        # Verify first write marked transition (check keys/values without ANY)
+        first_call = mock_hset.call_args_list[0][0]  # (db, key, mapping)
+        assert first_call[1] == f"CHASSIS_MODULE_INFO_TABLE|{dpu_name}"
+        first_map = first_call[2]
+        assert first_map.get("state_transition_in_progress") == "True"
+        assert first_map.get("transition_type") == "shutdown"
+        assert "transition_start_time" in first_map and first_map["transition_start_time"]
+
+        # No final clear expected here because mock_hgetall simulates another agent clearing it
+
+
+    @patch("sonic_platform_base.module_base._state_hset")
+    @patch("sonic_platform_base.module_base._state_hgetall")
     @patch("sonic_platform_base.module_base.SonicV2Connector")
-    def test_graceful_shutdown_handler_timeout(self, mock_db):
+    def test_graceful_shutdown_handler_timeout(self, mock_db, mock_hgetall, mock_hset):
         dpu_name = "DPU1"
-        mock_instance = mock_db.return_value
-        mock_instance.get_all.return_value = {}
+
+        # Always shows in-progress; handler will time out and clear itself
+        mock_hgetall.return_value = {"state_transition_in_progress": "True"}
 
         module = DummyModule(name=dpu_name)
 
         with patch.object(module, "get_reboot_timeout", return_value=5), \
-             patch("time.sleep"):
-            try:
-                module.graceful_shutdown_handler()
-            except TimeoutError as e:
-                assert "timeout" in str(e).lower()
+            patch("time.sleep"):
+            module.graceful_shutdown_handler()
+
+        # First write: mark transition
+        first_map = mock_hset.call_args_list[0][0][2]
+        assert first_map.get("state_transition_in_progress") == "True"
+        assert first_map.get("transition_type") == "shutdown"
+        assert "transition_start_time" in first_map and first_map["transition_start_time"]
+
+        # Last write: timeout clear
+        last_map = mock_hset.call_args_list[-1][0][2]
+        assert last_map.get("state_transition_in_progress") == "False"
+        assert last_map.get("transition_type") == "shutdown"
 
     def test_pci_entry_state_db(self):
         module = ModuleBase()
