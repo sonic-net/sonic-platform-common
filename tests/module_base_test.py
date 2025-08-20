@@ -10,6 +10,13 @@ from io import StringIO
 import shutil
 from click.testing import CliRunner
 
+try:
+    import config.chassis_modules  # noqa: F401
+    _HAS_SONIC_UTILS = True
+except Exception:
+    _HAS_SONIC_UTILS = False
+
+
 class MockFile:
     def __init__(self, data=None):
         self.data = data
@@ -85,9 +92,13 @@ class DummyModule(ModuleBase):
 class TestModuleBaseGracefulShutdown:
 
     # 1) Shutdown sets INFO table flags and admin_status=down
+    @unittest.skipUnless(_HAS_SONIC_UTILS, "sonic-utilities (config.chassis_modules) not available")
     def test_shutdown_triggers_transition_tracking(self):
         with patch("config.chassis_modules.is_smartswitch", return_value=True), \
             patch("config.chassis_modules.get_config_module_state", return_value='up'):
+
+            from utilities_common.db import Db  # imported only when available
+            import config
 
             runner = CliRunner()
             db = Db()
@@ -112,11 +123,15 @@ class TestModuleBaseGracefulShutdown:
 
 
     # 2) Shutdown when transition already in progress (no datetime needed)
+    @unittest.skipUnless(_HAS_SONIC_UTILS, "sonic-utilities (config.chassis_modules) not available")
     def test_shutdown_triggers_transition_in_progress(self):
         with patch("config.chassis_modules.is_smartswitch", return_value=True), \
             patch("config.chassis_modules.get_config_module_state", return_value='up'), \
             patch("config.chassis_modules.get_state_transition_in_progress", return_value='True'), \
             patch("config.chassis_modules.is_transition_timed_out", return_value=False):
+
+            from utilities_common.db import Db  # imported only when available
+            import config
 
             runner = CliRunner()
             db = Db()
@@ -135,11 +150,15 @@ class TestModuleBaseGracefulShutdown:
 
 
     # 3) Transition timeout path (mock the timeout instead of crafting timestamps)
+    @unittest.skipUnless(_HAS_SONIC_UTILS, "sonic-utilities (config.chassis_modules) not available")
     def test_shutdown_triggers_transition_timeout(self):
         with patch("config.chassis_modules.is_smartswitch", return_value=True), \
             patch("config.chassis_modules.get_config_module_state", return_value='up'), \
             patch("config.chassis_modules.get_state_transition_in_progress", return_value='True'), \
             patch("config.chassis_modules.is_transition_timed_out", return_value=True):
+
+            from utilities_common.db import Db  # imported only when available
+            import config
 
             runner = CliRunner()
             db = Db()
@@ -158,9 +177,9 @@ class TestModuleBaseGracefulShutdown:
             assert 'state_transition_in_progress' in fvs
 
 
-    # 4) Graceful shutdown handler (unit) – no ANY, just key checks
-    @patch("sonic_platform_base.module_base._state_hset")
-    @patch("sonic_platform_base.module_base._state_hgetall")
+    # 4) Graceful shutdown handler (unit) – patch class methods and adjust arg indexing
+    @patch("sonic_platform_base.module_base.ModuleBase._state_hset")
+    @patch("sonic_platform_base.module_base.ModuleBase._state_hgetall")
     @patch("sonic_platform_base.module_base.SonicV2Connector")
     def test_graceful_shutdown_handler_success(self, mock_db, mock_hgetall, mock_hset):
         dpu_name = "DPU0"
@@ -177,19 +196,19 @@ class TestModuleBaseGracefulShutdown:
             patch("time.sleep"):
             module.graceful_shutdown_handler()
 
-        # Verify first write marked transition (check keys/values without ANY)
-        first_call = mock_hset.call_args_list[0][0]  # (db, key, mapping)
-        assert first_call[1] == f"CHASSIS_MODULE_INFO_TABLE|{dpu_name}"
-        first_map = first_call[2]
-        assert first_map.get("state_transition_in_progress") == "True"
-        assert first_map.get("transition_type") == "shutdown"
-        assert "transition_start_time" in first_map and first_map["transition_start_time"]
+        # Verify first write marked transition (bound method call: args = (self, db, key, mapping))
+        first_call = mock_hset.call_args_list[0]
+        _, db_arg, key_arg, map_arg = first_call[0]
+        assert key_arg == f"CHASSIS_MODULE_INFO_TABLE|{dpu_name}"
+        assert map_arg.get("state_transition_in_progress") == "True"
+        assert map_arg.get("transition_type") == "shutdown"
+        assert "transition_start_time" in map_arg and map_arg["transition_start_time"]
 
         # No final clear expected here because mock_hgetall simulates another agent clearing it
 
 
-    @patch("sonic_platform_base.module_base._state_hset")
-    @patch("sonic_platform_base.module_base._state_hgetall")
+    @patch("sonic_platform_base.module_base.ModuleBase._state_hset")
+    @patch("sonic_platform_base.module_base.ModuleBase._state_hgetall")
     @patch("sonic_platform_base.module_base.SonicV2Connector")
     def test_graceful_shutdown_handler_timeout(self, mock_db, mock_hgetall, mock_hset):
         dpu_name = "DPU1"
@@ -203,14 +222,14 @@ class TestModuleBaseGracefulShutdown:
             patch("time.sleep"):
             module.graceful_shutdown_handler()
 
-        # First write: mark transition
-        first_map = mock_hset.call_args_list[0][0][2]
+        # First write: mark transition (args = (self, db, key, mapping))
+        first_map = mock_hset.call_args_list[0][0][3]
         assert first_map.get("state_transition_in_progress") == "True"
         assert first_map.get("transition_type") == "shutdown"
         assert "transition_start_time" in first_map and first_map["transition_start_time"]
 
         # Last write: timeout clear
-        last_map = mock_hset.call_args_list[-1][0][2]
+        last_map = mock_hset.call_args_list[-1][0][3]
         assert last_map.get("state_transition_in_progress") == "False"
         assert last_map.get("transition_type") == "shutdown"
 
