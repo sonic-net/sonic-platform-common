@@ -457,7 +457,13 @@ class TestModuleBaseGracefulShutdown:
 
         class FakeV2:
             CONFIG_DB = object()
-            def connect(self, *_): pass
+
+            def __init__(self, *args, **kwargs):
+                pass  # must accept use_unix_socket_path=True
+
+            def connect(self, *_): 
+                pass
+
             def get_all(self, *_):
                 return {b"platform": b"x86_64-foo", b"other": b"bar"}
 

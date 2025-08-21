@@ -13,6 +13,7 @@ import json
 import threading
 import contextlib
 import shutil
+import time
 # Support both connectors: swsssdk and swsscommon
 try:
     from swsssdk import SonicV2Connector
@@ -960,3 +961,15 @@ class ModuleBase(device_base.DeviceBase):
         pci_result = self.handle_pci_rescan()
         sensor_result = self.handle_sensor_addition()
         return pci_result and sensor_result
+
+# Expose helper functions at module scope if only on the class
+# This allows tests (and get_reboot_timeout) to access the expected free names.
+try:
+    if hasattr(ModuleBase, "_state_hgetall") and "_state_hgetall" not in globals():
+        _state_hgetall = ModuleBase._state_hgetall
+    if hasattr(ModuleBase, "_state_hset") and "_state_hset" not in globals():
+        _state_hset = ModuleBase._state_hset
+    if hasattr(ModuleBase, "_cfg_get_entry") and "_cfg_get_entry" not in globals():
+        _cfg_get_entry = ModuleBase._cfg_get_entry
+except NameError:
+    pass
