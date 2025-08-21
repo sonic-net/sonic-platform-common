@@ -11,6 +11,8 @@ from unittest.mock import patch, MagicMock, call
 from io import StringIO
 import shutil
 from click.testing import CliRunner
+import sys
+from types import ModuleType
 
 try:
     import config.chassis_modules  # noqa: F401
@@ -409,7 +411,7 @@ class TestModuleBaseGracefulShutdown:
 
     @staticmethod
     def test__state_hgetall_fallback_decodes_bytes():
-        """Cover ModuleBase._state_hgetall client fallback + byte decode."""
+        """Cover module-level _state_hgetall client fallback + byte decode."""
         from sonic_platform_base import module_base as mb
 
         class FakeClient:
@@ -423,12 +425,12 @@ class TestModuleBaseGracefulShutdown:
             def get_redis_client(self, *_):
                 return FakeClient()
 
-        out = mb.ModuleBase._state_hgetall(FakeDB(), "ANY|KEY")
+        out = mb._state_hgetall(FakeDB(), "ANY|KEY")
         assert out == {"foo": "bar", "x": "1"}
 
     @staticmethod
     def test__state_hset_fallback_to_client_hset():
-        """Cover ModuleBase._state_hset branch when db.set raises -> client.hset."""
+        """Cover module-level _state_hset branch when db.set raises -> client.hset."""
         from sonic_platform_base import module_base as mb
         recorded = {}
 
@@ -444,9 +446,9 @@ class TestModuleBaseGracefulShutdown:
             def get_redis_client(self, *_):
                 return FakeClient()
 
-        mb.ModuleBase._state_hset(FakeDB(), "CHASSIS_MODULE_INFO_TABLE|DPU0", {"a": 1, "b": "x"})
+        mb._state_hset(FakeDB(), "CHASSIS_MODULE_INFO_TABLE|DPU0", {"a": 1, "b": "x"})
         assert recorded["key"] == "CHASSIS_MODULE_INFO_TABLE|DPU0"
-        assert recorded["mapping"] == {"a": "1", "b": "x"}  # values coerced to str
+        assert recorded["mapping"] == {"a": "1", "b": "x"}  # coerced to str
 
     @staticmethod
     def test__cfg_get_entry_initializes_v2_and_decodes():
@@ -459,27 +461,37 @@ class TestModuleBaseGracefulShutdown:
             def get_all(self, *_):
                 return {b"platform": b"x86_64-foo", b"other": b"bar"}
 
-        # Ensure fresh init path
+        # Provide a fake package layout: swsscommon + swsscommon.swsscommon
+        pkg = ModuleType("swsscommon")
+        sub = ModuleType("swsscommon.swsscommon")
+        sub.SonicV2Connector = FakeV2
+        sys.modules["swsscommon"] = pkg
+        sys.modules["swsscommon.swsscommon"] = sub
+
+        # Force fresh init path
         mb._v2 = None
 
-        # _cfg_get_entry does: from swsscommon import swsscommon; swsscommon.SonicV2Connector(...)
-        with patch("sonic_platform_base.module_base.swsscommon.SonicV2Connector", FakeV2):
-            # Support both placements: class method or module-level function
-            if hasattr(mb.ModuleBase, "_cfg_get_entry"):
-                out = mb.ModuleBase._cfg_get_entry("DEVICE_METADATA", "localhost")
-            else:
-                out = mb._cfg_get_entry("DEVICE_METADATA", "localhost")
-            assert out == {"platform": "x86_64-foo", "other": "bar"}
+        # Call whichever version exists
+        if hasattr(mb, "_cfg_get_entry"):
+            out = mb._cfg_get_entry("DEVICE_METADATA", "localhost")
+        else:
+            out = mb.ModuleBase._cfg_get_entry("DEVICE_METADATA", "localhost")
+
+        assert out == {"platform": "x86_64-foo", "other": "bar"}
 
     @staticmethod
     def test_get_reboot_timeout_platform_missing():
-        """Cover get_reboot_timeout when platform key is missing -> 60."""
+        """Cover get_reboot_timeout when platform is missing -> 60."""
         from sonic_platform_base import module_base as mb
         class Dummy(mb.ModuleBase): pass
 
-        # get_reboot_timeout references `_cfg_get_entry` as a free name, so patch the module attr
-        with patch("sonic_platform_base.module_base._cfg_get_entry", return_value={}):
-            assert Dummy().get_reboot_timeout() == 60
+        try:
+            ctx = patch("sonic_platform_base.module_base._cfg_get_entry", return_value={})
+            with ctx:
+                assert Dummy().get_reboot_timeout() == 60
+        except AttributeError:
+            with patch("sonic_platform_base.module_base.ModuleBase._cfg_get_entry", return_value={}):
+                assert Dummy().get_reboot_timeout() == 60
 
     @staticmethod
     def test_get_reboot_timeout_reads_value(tmp_path):
@@ -488,10 +500,16 @@ class TestModuleBaseGracefulShutdown:
         from unittest import mock
         class Dummy(mb.ModuleBase): pass
 
-        with patch("sonic_platform_base.module_base._cfg_get_entry", return_value={"platform": "plat"}), \
-             patch("builtins.open", new_callable=mock.mock_open,
-                   read_data='{"dpu_halt_services_timeout": 42}'):
-            assert Dummy().get_reboot_timeout() == 42
+        try:
+            ctx = patch("sonic_platform_base.module_base._cfg_get_entry", return_value={"platform": "plat"})
+            with ctx, patch("builtins.open", new_callable=mock.mock_open,
+                            read_data='{"dpu_halt_services_timeout": 42}'):
+                assert Dummy().get_reboot_timeout() == 42
+        except AttributeError:
+            with patch("sonic_platform_base.module_base.ModuleBase._cfg_get_entry", return_value={"platform": "plat"}), \
+                 patch("builtins.open", new_callable=mock.mock_open,
+                       read_data='{"dpu_halt_services_timeout": 42}'):
+                assert Dummy().get_reboot_timeout() == 42
 
     @staticmethod
     def test_get_reboot_timeout_open_raises():
@@ -499,9 +517,14 @@ class TestModuleBaseGracefulShutdown:
         from sonic_platform_base import module_base as mb
         class Dummy(mb.ModuleBase): pass
 
-        with patch("sonic_platform_base.module_base._cfg_get_entry", return_value={"platform": "plat"}), \
-             patch("builtins.open", side_effect=FileNotFoundError):
-            assert Dummy().get_reboot_timeout() == 60
+        try:
+            ctx = patch("sonic_platform_base.module_base._cfg_get_entry", return_value={"platform": "plat"})
+            with ctx, patch("builtins.open", side_effect=FileNotFoundError):
+                assert Dummy().get_reboot_timeout() == 60
+        except AttributeError:
+            with patch("sonic_platform_base.module_base.ModuleBase._cfg_get_entry", return_value={"platform": "plat"}), \
+                 patch("builtins.open", side_effect=FileNotFoundError):
+                assert Dummy().get_reboot_timeout() == 60
 
     # Keep the four patch decorators; make it static to avoid `self`
     @staticmethod
@@ -516,7 +539,6 @@ class TestModuleBaseGracefulShutdown:
         mock_hgetall.return_value = {"state_transition_in_progress": "True"}
 
         # Reuse your DummyModule defined earlier in this file
-        from tests.module_base_test import DummyModule
         module = DummyModule(name="DPUX")
 
         with patch.object(module, "get_oper_status", return_value="Offline"), \
