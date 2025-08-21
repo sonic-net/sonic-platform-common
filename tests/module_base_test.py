@@ -392,8 +392,9 @@ class TestModuleBaseGracefulShutdown:
             assert module.module_post_startup() is False
 
 
-    # 1) Import fallback: use patch instead of pytest monkeypatch
+    @staticmethod
     def test_import_fallback_to_swsscommon():
+        """Cover swsssdk -> swsscommon fallback by reloading module_base."""
         orig_import = builtins.__import__
 
         def fake_import(name, *args, **kwargs):
@@ -402,21 +403,17 @@ class TestModuleBaseGracefulShutdown:
             return orig_import(name, *args, **kwargs)
 
         with patch("builtins.__import__", side_effect=fake_import):
-            # Reload to re-execute the import logic in module_base
             mb = importlib.import_module("sonic_platform_base.module_base")
             importlib.reload(mb)
-            # swsscommon fallback should be available as SonicV2Connector
             assert hasattr(mb, "SonicV2Connector")
 
-    # 2) _state_hgetall fallback path: make it a module-level test (no self),
-    #    and call through ModuleBase._state_hgetall because the helper is defined
-    #    inside the class body.
+    @staticmethod
     def test__state_hgetall_fallback_decodes_bytes():
+        """Cover ModuleBase._state_hgetall client fallback + byte decode."""
         from sonic_platform_base import module_base as mb
 
         class FakeClient:
             def hgetall(self, key):
-                # Simulate Redis returning bytes
                 return {b"foo": b"bar", b"x": b"1"}
 
         class FakeDB:
@@ -429,8 +426,9 @@ class TestModuleBaseGracefulShutdown:
         out = mb.ModuleBase._state_hgetall(FakeDB(), "ANY|KEY")
         assert out == {"foo": "bar", "x": "1"}
 
-    # 3) _state_hset fallback: use ModuleBase._state_hset
+    @staticmethod
     def test__state_hset_fallback_to_client_hset():
+        """Cover ModuleBase._state_hset branch when db.set raises -> client.hset."""
         from sonic_platform_base import module_base as mb
         recorded = {}
 
@@ -448,10 +446,11 @@ class TestModuleBaseGracefulShutdown:
 
         mb.ModuleBase._state_hset(FakeDB(), "CHASSIS_MODULE_INFO_TABLE|DPU0", {"a": 1, "b": "x"})
         assert recorded["key"] == "CHASSIS_MODULE_INFO_TABLE|DPU0"
-        assert recorded["mapping"] == {"a": "1", "b": "x"}  # coerced to str
+        assert recorded["mapping"] == {"a": "1", "b": "x"}  # values coerced to str
 
-    # 4) _cfg_get_entry: initialize _v2 and ensure byte decoding; avoid pytest monkeypatch
+    @staticmethod
     def test__cfg_get_entry_initializes_v2_and_decodes():
+        """Cover _cfg_get_entry with _v2 initialization and byte decoding."""
         from sonic_platform_base import module_base as mb
 
         class FakeV2:
@@ -460,63 +459,70 @@ class TestModuleBaseGracefulShutdown:
             def get_all(self, *_):
                 return {b"platform": b"x86_64-foo", b"other": b"bar"}
 
-        # Fresh init path
+        # Ensure fresh init path
         mb._v2 = None
 
         # _cfg_get_entry does: from swsscommon import swsscommon; swsscommon.SonicV2Connector(...)
         with patch("sonic_platform_base.module_base.swsscommon.SonicV2Connector", FakeV2):
-            out = mb.ModuleBase._cfg_get_entry("DEVICE_METADATA", "localhost")
+            # Support both placements: class method or module-level function
+            if hasattr(mb.ModuleBase, "_cfg_get_entry"):
+                out = mb.ModuleBase._cfg_get_entry("DEVICE_METADATA", "localhost")
+            else:
+                out = mb._cfg_get_entry("DEVICE_METADATA", "localhost")
             assert out == {"platform": "x86_64-foo", "other": "bar"}
 
-    # 5) get_reboot_timeout platform missing -> 60
+    @staticmethod
     def test_get_reboot_timeout_platform_missing():
+        """Cover get_reboot_timeout when platform key is missing -> 60."""
         from sonic_platform_base import module_base as mb
         class Dummy(mb.ModuleBase): pass
 
-        with patch.object(mb.ModuleBase, "_cfg_get_entry", return_value={}):
+        # get_reboot_timeout references `_cfg_get_entry` as a free name, so patch the module attr
+        with patch("sonic_platform_base.module_base._cfg_get_entry", return_value={}):
             assert Dummy().get_reboot_timeout() == 60
 
-    # 6) get_reboot_timeout reads value from platform.json
+    @staticmethod
     def test_get_reboot_timeout_reads_value(tmp_path):
+        """Cover get_reboot_timeout success path with value in platform.json."""
         from sonic_platform_base import module_base as mb
+        from unittest import mock
         class Dummy(mb.ModuleBase): pass
 
-        # Pretend platform is "plat" and file exists with timeout 42
-        with patch.object(mb.ModuleBase, "_cfg_get_entry", return_value={"platform": "plat"}), \
-            patch("builtins.open", new_callable=__import__("unittest").mock.mock_open,
-                read_data='{"dpu_halt_services_timeout": 42}'):
+        with patch("sonic_platform_base.module_base._cfg_get_entry", return_value={"platform": "plat"}), \
+             patch("builtins.open", new_callable=mock.mock_open,
+                   read_data='{"dpu_halt_services_timeout": 42}'):
             assert Dummy().get_reboot_timeout() == 42
 
-    # 7) get_reboot_timeout open raises -> 60
+    @staticmethod
     def test_get_reboot_timeout_open_raises():
+        """Cover get_reboot_timeout exception -> 60."""
         from sonic_platform_base import module_base as mb
         class Dummy(mb.ModuleBase): pass
 
-        with patch.object(mb.ModuleBase, "_cfg_get_entry", return_value={"platform": "plat"}), \
-            patch("builtins.open", side_effect=FileNotFoundError):
+        with patch("sonic_platform_base.module_base._cfg_get_entry", return_value={"platform": "plat"}), \
+             patch("builtins.open", side_effect=FileNotFoundError):
             assert Dummy().get_reboot_timeout() == 60
 
-    # 8) Fix signature/order for offline-clear test (align with number/order of patches)
+    # Keep the four patch decorators; make it static to avoid `self`
+    @staticmethod
     @patch("sonic_platform_base.module_base.SonicV2Connector")
     @patch("sonic_platform_base.module_base._state_hset", create=True)
     @patch("sonic_platform_base.module_base._state_hgetall", create=True)
     @patch("sonic_platform_base.module_base.time", create=True)
     def test_graceful_shutdown_handler_offline_clear(mock_time, mock_hgetall, mock_hset, mock_db):
-        # Simulate time progression if needed
+        """If platform oper_status becomes Offline, handler clears in_progress."""
+        # Deterministic timestamp
         mock_time.time.return_value = 123456789
-
-        # First reads show still in-progress; platform then reports Offline and we clear
         mock_hgetall.return_value = {"state_transition_in_progress": "True"}
 
-        from tests.module_base_test import DummyModule  # reuse your DummyModule
+        # Reuse your DummyModule defined earlier in this file
+        from tests.module_base_test import DummyModule
         module = DummyModule(name="DPUX")
 
-        # Make get_oper_status() report Offline so handler clears the flag
         with patch.object(module, "get_oper_status", return_value="Offline"), \
-            patch.object(module, "get_reboot_timeout", return_value=5):
+             patch.object(module, "get_reboot_timeout", return_value=5):
             module.graceful_shutdown_handler()
 
-        # Last write clears in_progress
         last_map = mock_hset.call_args_list[-1][0][2]
         assert last_map.get("state_transition_in_progress") == "False"
         assert last_map.get("transition_type") == "shutdown"
