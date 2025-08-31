@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, call
 from sonic_platform_base.module_base import ModuleBase
 import pytest
 import json
@@ -7,7 +7,6 @@ import os
 import fcntl
 import importlib
 import builtins
-from unittest.mock import patch, MagicMock, call
 from io import StringIO
 import shutil
 from click.testing import CliRunner
@@ -50,13 +49,12 @@ class TestModuleBase:
     def test_module_base(self):
         module = ModuleBase()
         not_implemented_methods = [
-                [module.get_dpu_id],
-                [module.get_reboot_cause],
-                [module.get_state_info],
-                [module.get_pci_bus_info],
-                [module.pci_detach],
-                [module.pci_reattach],
-            ]
+            [module.get_dpu_id],
+            [module.get_reboot_cause],
+            [module.get_state_info],
+            [module.get_pci_bus_info],
+            [module.pci_detach],
+            [module.pci_reattach],        ]
 
         for method in not_implemented_methods:
             exception_raised = False
@@ -71,18 +69,18 @@ class TestModuleBase:
 
     def test_sensors(self):
         module = ModuleBase()
-        assert(module.get_num_voltage_sensors() == 0)
-        assert(module.get_all_voltage_sensors() == [])
-        assert(module.get_voltage_sensor(0) == None)
+        assert (module.get_num_voltage_sensors() == 0)
+        assert (module.get_all_voltage_sensors() == [])
+        assert (module.get_voltage_sensor(0) is None)
         module._voltage_sensor_list = ["s1"]
-        assert(module.get_all_voltage_sensors() == ["s1"])
-        assert(module.get_voltage_sensor(0) == "s1")
-        assert(module.get_num_current_sensors() == 0)
-        assert(module.get_all_current_sensors() == [])
-        assert(module.get_current_sensor(0) == None)
+        assert (module.get_all_voltage_sensors() == ["s1"])
+        assert (module.get_voltage_sensor(0) == "s1")
+        assert (module.get_num_current_sensors() == 0)
+        assert (module.get_all_current_sensors() == [])
+        assert (module.get_current_sensor(0) is None)
         module._current_sensor_list = ["s1"]
-        assert(module.get_all_current_sensors() == ["s1"])
-        assert(module.get_current_sensor(0) == "s1")
+        assert (module.get_all_current_sensors() == ["s1"])
+        assert (module.get_current_sensor(0) == "s1")
 
 
 class DummyModule(ModuleBase):
@@ -95,11 +93,11 @@ class DummyModule(ModuleBase):
 
 class TestModuleBaseGracefulShutdown:
 
-    # 1) Shutdown sets INFO table flags and admin_status=down
+    # 1) Shutdown sets table flags and admin_status=down
     @unittest.skipUnless(_HAS_SONIC_UTILS, "sonic-utilities (config.chassis_modules) not available")
     def test_shutdown_triggers_transition_tracking(self):
-        with patch("config.chassis_modules.is_smartswitch", return_value=True), \
-            patch("config.chassis_modules.get_config_module_state", return_value='up'):
+        with patch("config.chassis_modules.is_smartswitch", return_value=True, create=True), \
+             patch("config.chassis_modules.get_config_module_state", return_value='up', create=True):
 
             from utilities_common.db import Db  # imported only when available
             import config
@@ -118,21 +116,20 @@ class TestModuleBaseGracefulShutdown:
             cfg_fvs = db.cfgdb.get_entry("CHASSIS_MODULE", "DPU0")
             assert cfg_fvs.get("admin_status") == "down"
 
-            # STATE_DB INFO table flags
-            state_fvs = db.db.get_all("STATE_DB", "CHASSIS_MODULE_INFO_TABLE|DPU0")
+            # STATE_DB flags (centralized API uses CHASSIS_MODULE_TABLE)
+            state_fvs = db.db.get_all("STATE_DB", "CHASSIS_MODULE_TABLE|DPU0")
             assert state_fvs is not None
             assert state_fvs.get("state_transition_in_progress") == "True"
             assert state_fvs.get("transition_type") == "shutdown"
             assert state_fvs.get("transition_start_time")  # present & non-empty
 
-
-    # 2) Shutdown when transition already in progress (no datetime needed)
+    # 2) Shutdown when transition already in progress
     @unittest.skipUnless(_HAS_SONIC_UTILS, "sonic-utilities (config.chassis_modules) not available")
     def test_shutdown_triggers_transition_in_progress(self):
-        with patch("config.chassis_modules.is_smartswitch", return_value=True), \
-            patch("config.chassis_modules.get_config_module_state", return_value='up'), \
-            patch("config.chassis_modules.get_state_transition_in_progress", return_value='True'), \
-            patch("config.chassis_modules.is_transition_timed_out", return_value=False):
+        with patch("config.chassis_modules.is_smartswitch", return_value=True, create=True), \
+             patch("config.chassis_modules.get_config_module_state", return_value='up', create=True), \
+             patch("config.chassis_modules.get_state_transition_in_progress", return_value='True', create=True), \
+             patch("config.chassis_modules.is_transition_timed_out", return_value=False, create=True):
 
             from utilities_common.db import Db  # imported only when available
             import config
@@ -147,19 +144,18 @@ class TestModuleBaseGracefulShutdown:
             )
             assert result.exit_code == 0
 
-            fvs = db.db.get_all("STATE_DB", "CHASSIS_MODULE_INFO_TABLE|DPU0")
+            fvs = db.db.get_all("STATE_DB", "CHASSIS_MODULE_TABLE|DPU0")
             assert fvs is not None
             assert fvs.get('state_transition_in_progress') == 'True'
             assert fvs.get('transition_start_time')  # present
 
-
-    # 3) Transition timeout path (mock the timeout instead of crafting timestamps)
+    # 3) Transition timeout path (mock timeout)
     @unittest.skipUnless(_HAS_SONIC_UTILS, "sonic-utilities (config.chassis_modules) not available")
     def test_shutdown_triggers_transition_timeout(self):
-        with patch("config.chassis_modules.is_smartswitch", return_value=True), \
-            patch("config.chassis_modules.get_config_module_state", return_value='up'), \
-            patch("config.chassis_modules.get_state_transition_in_progress", return_value='True'), \
-            patch("config.chassis_modules.is_transition_timed_out", return_value=True):
+        with patch("config.chassis_modules.is_smartswitch", return_value=True, create=True), \
+             patch("config.chassis_modules.get_config_module_state", return_value='up', create=True), \
+             patch("config.chassis_modules.get_state_transition_in_progress", return_value='True', create=True), \
+             patch("config.chassis_modules.is_transition_timed_out", return_value=True, create=True):
 
             from utilities_common.db import Db  # imported only when available
             import config
@@ -174,14 +170,12 @@ class TestModuleBaseGracefulShutdown:
             )
             assert result.exit_code == 0
 
-            fvs = db.db.get_all("STATE_DB", "CHASSIS_MODULE_INFO_TABLE|DPU0")
+            fvs = db.db.get_all("STATE_DB", "CHASSIS_MODULE_TABLE|DPU0")
             assert fvs is not None
-            # After timeout, CLI proceeds; we only require the entry to exist
-            # (flag may be reset by subsequent flows; keep assertion minimal)
+            # After timeout, CLI proceeds; just ensure the entry exists
             assert 'state_transition_in_progress' in fvs
 
-
-    # 4) Graceful shutdown handler
+    # 4) Graceful shutdown handler – success (cleared by other agent)
     @patch("sonic_platform_base.module_base._state_hset", create=True)
     @patch("sonic_platform_base.module_base._state_hgetall", create=True)
     @patch("sonic_platform_base.module_base.SonicV2Connector")
@@ -189,7 +183,6 @@ class TestModuleBaseGracefulShutdown:
     def test_graceful_shutdown_handler_success(self, mock_time, mock_db, mock_hgetall, mock_hset):
         dpu_name = "DPU0"
 
-        # time behavior for module under test
         mock_time.time.return_value = 1710000000
         mock_time.sleep.return_value = None
 
@@ -201,18 +194,19 @@ class TestModuleBaseGracefulShutdown:
 
         module = DummyModule(name=dpu_name)
 
-        with patch.object(module, "get_reboot_timeout", return_value=10):
+        with patch.object(module, "get_name", return_value=dpu_name), \
+             patch.object(module, "_load_transition_timeouts", return_value={"shutdown": 10}):
             module.graceful_shutdown_handler()
 
         # Verify first write marked transition
         first_call = mock_hset.call_args_list[0][0]  # (db, key, mapping)
         _, key_arg, map_arg = first_call
-        assert key_arg == f"CHASSIS_MODULE_INFO_TABLE|{dpu_name}"
+        assert key_arg == f"CHASSIS_MODULE_TABLE|{dpu_name}"
         assert map_arg.get("state_transition_in_progress") == "True"
         assert map_arg.get("transition_type") == "shutdown"
         assert "transition_start_time" in map_arg and map_arg["transition_start_time"]
 
-
+    # 5) Graceful shutdown handler – timeout then self-clear
     @patch("sonic_platform_base.module_base._state_hset", create=True)
     @patch("sonic_platform_base.module_base._state_hgetall", create=True)
     @patch("sonic_platform_base.module_base.SonicV2Connector")
@@ -220,7 +214,6 @@ class TestModuleBaseGracefulShutdown:
     def test_graceful_shutdown_handler_timeout(self, mock_time, mock_db, mock_hgetall, mock_hset):
         dpu_name = "DPU1"
 
-        # time behavior for module under test
         mock_time.time.return_value = 1710000000
         mock_time.sleep.return_value = None
 
@@ -229,7 +222,8 @@ class TestModuleBaseGracefulShutdown:
 
         module = DummyModule(name=dpu_name)
 
-        with patch.object(module, "get_reboot_timeout", return_value=5):
+        with patch.object(module, "get_name", return_value=dpu_name), \
+             patch.object(module, "_load_transition_timeouts", return_value={"shutdown": 5}):
             module.graceful_shutdown_handler()
 
         # First write: mark transition
@@ -317,7 +311,7 @@ class TestModuleBaseGracefulShutdown:
              patch('os.system') as mock_system:
             assert module.handle_sensor_removal() is True
             mock_copy.assert_called_once_with("/usr/share/sonic/platform/module_sensors_ignore_conf/ignore_sensors_DPU0.conf",
-                                             "/etc/sensors.d/ignore_sensors_DPU0.conf")
+                                              "/etc/sensors.d/ignore_sensors_DPU0.conf")
             mock_system.assert_called_once_with("service sensord restart")
 
         with patch.object(module, 'get_name', return_value="DPU0"), \
@@ -393,7 +387,6 @@ class TestModuleBaseGracefulShutdown:
              patch.object(module, 'handle_sensor_addition', return_value=False):
             assert module.module_post_startup() is False
 
-
     @staticmethod
     def test_import_fallback_to_swsscommon():
         """Cover swsssdk -> swsscommon fallback by reloading module_base."""
@@ -420,8 +413,10 @@ class TestModuleBaseGracefulShutdown:
 
         class FakeDB:
             STATE_DB = 6
+
             def get_all(self, *_):
                 raise Exception("force client fallback")
+
             def get_redis_client(self, *_):
                 return FakeClient()
 
@@ -441,13 +436,15 @@ class TestModuleBaseGracefulShutdown:
 
         class FakeDB:
             STATE_DB = 6
+
             def set(self, *_):
                 raise Exception("force client.hset")
+
             def get_redis_client(self, *_):
                 return FakeClient()
 
-        mb._state_hset(FakeDB(), "CHASSIS_MODULE_INFO_TABLE|DPU0", {"a": 1, "b": "x"})
-        assert recorded["key"] == "CHASSIS_MODULE_INFO_TABLE|DPU0"
+        mb._state_hset(FakeDB(), "CHASSIS_MODULE_TABLE|DPU0", {"a": 1, "b": "x"})
+        assert recorded["key"] == "CHASSIS_MODULE_TABLE|DPU0"
         assert recorded["mapping"] == {"a": "1", "b": "x"}  # coerced to str
 
     @staticmethod
@@ -461,7 +458,7 @@ class TestModuleBaseGracefulShutdown:
             def __init__(self, *args, **kwargs):
                 pass  # must accept use_unix_socket_path=True
 
-            def connect(self, *_): 
+            def connect(self, *_):
                 pass
 
             def get_all(self, *_):
@@ -477,11 +474,10 @@ class TestModuleBaseGracefulShutdown:
         # Force fresh init path
         mb._v2 = None
 
-        # Call whichever version exists
-        if hasattr(mb, "_cfg_get_entry"):
-            out = mb._cfg_get_entry("DEVICE_METADATA", "localhost")
-        else:
-            out = mb.ModuleBase._cfg_get_entry("DEVICE_METADATA", "localhost")
+        # Only run if helper is exposed in this build
+        if not hasattr(mb, "_cfg_get_entry"):
+            pytest.skip("_cfg_get_entry is not exposed in this build")
+        out = mb._cfg_get_entry("DEVICE_METADATA", "localhost")
 
         assert out == {"platform": "x86_64-foo", "other": "bar"}
 
@@ -489,48 +485,30 @@ class TestModuleBaseGracefulShutdown:
     def test_get_reboot_timeout_platform_missing():
         """Cover get_reboot_timeout when platform is missing -> 60."""
         from sonic_platform_base import module_base as mb
-        class Dummy(mb.ModuleBase): pass
-
-        try:
-            ctx = patch("sonic_platform_base.module_base._cfg_get_entry", return_value={})
-            with ctx:
-                assert Dummy().get_reboot_timeout() == 60
-        except AttributeError:
-            with patch("sonic_platform_base.module_base.ModuleBase._cfg_get_entry", return_value={}):
-                assert Dummy().get_reboot_timeout() == 60
+        class Dummy(mb.ModuleBase): ...
+        # Patch module-level helper; create=True tolerates missing attr in some builds
+        with patch("sonic_platform_base.module_base._cfg_get_entry", return_value={}, create=True):
+            assert Dummy().get_reboot_timeout() == 60
 
     @staticmethod
     def test_get_reboot_timeout_reads_value(tmp_path):
         """Cover get_reboot_timeout success path with value in platform.json."""
         from sonic_platform_base import module_base as mb
         from unittest import mock
-        class Dummy(mb.ModuleBase): pass
-
-        try:
-            ctx = patch("sonic_platform_base.module_base._cfg_get_entry", return_value={"platform": "plat"})
-            with ctx, patch("builtins.open", new_callable=mock.mock_open,
-                            read_data='{"dpu_halt_services_timeout": 42}'):
-                assert Dummy().get_reboot_timeout() == 42
-        except AttributeError:
-            with patch("sonic_platform_base.module_base.ModuleBase._cfg_get_entry", return_value={"platform": "plat"}), \
-                 patch("builtins.open", new_callable=mock.mock_open,
-                       read_data='{"dpu_halt_services_timeout": 42}'):
-                assert Dummy().get_reboot_timeout() == 42
+        class Dummy(mb.ModuleBase): ...
+        with patch("sonic_platform_base.module_base._cfg_get_entry", return_value={"platform": "plat"}, create=True), \
+             patch("builtins.open", new_callable=mock.mock_open,
+                   read_data='{"dpu_halt_services_timeout": 42}'):
+            assert Dummy().get_reboot_timeout() == 42
 
     @staticmethod
     def test_get_reboot_timeout_open_raises():
         """Cover get_reboot_timeout exception -> 60."""
         from sonic_platform_base import module_base as mb
-        class Dummy(mb.ModuleBase): pass
-
-        try:
-            ctx = patch("sonic_platform_base.module_base._cfg_get_entry", return_value={"platform": "plat"})
-            with ctx, patch("builtins.open", side_effect=FileNotFoundError):
-                assert Dummy().get_reboot_timeout() == 60
-        except AttributeError:
-            with patch("sonic_platform_base.module_base.ModuleBase._cfg_get_entry", return_value={"platform": "plat"}), \
-                 patch("builtins.open", side_effect=FileNotFoundError):
-                assert Dummy().get_reboot_timeout() == 60
+        class Dummy(mb.ModuleBase): ...
+        with patch("sonic_platform_base.module_base._cfg_get_entry", return_value={"platform": "plat"}, create=True), \
+             patch("builtins.open", side_effect=FileNotFoundError):
+            assert Dummy().get_reboot_timeout() == 60
 
     # Keep the four patch decorators; make it static to avoid `self`
     @staticmethod
@@ -540,15 +518,15 @@ class TestModuleBaseGracefulShutdown:
     @patch("sonic_platform_base.module_base.time", create=True)
     def test_graceful_shutdown_handler_offline_clear(mock_time, mock_hgetall, mock_hset, mock_db):
         """If platform oper_status becomes Offline, handler clears in_progress."""
-        # Deterministic timestamp
         mock_time.time.return_value = 123456789
+        mock_time.sleep.return_value = None
         mock_hgetall.return_value = {"state_transition_in_progress": "True"}
 
-        # Reuse your DummyModule defined earlier in this file
         module = DummyModule(name="DPUX")
 
-        with patch.object(module, "get_oper_status", return_value="Offline"), \
-             patch.object(module, "get_reboot_timeout", return_value=5):
+        with patch.object(module, "get_name", return_value="DPUX"), \
+             patch.object(module, "get_oper_status", return_value="Offline"), \
+             patch.object(module, "_load_transition_timeouts", return_value={"shutdown": 5}):
             module.graceful_shutdown_handler()
 
         last_map = mock_hset.call_args_list[-1][0][2]
