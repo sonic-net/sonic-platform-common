@@ -700,7 +700,7 @@ class TestModuleBasePCIAndSensors:
 class TestImportFallback:
     @staticmethod
     def test_import_fallback_to_swsscommon():
-        """Cover swsssdk -> swsscommon fallback by reloading module_base."""
+        """Ensure module_base falls back to swsscommon.swsscommon.SonicV2Connector when swsssdk is missing."""
         orig_import = builtins.__import__
 
         def fake_import(name, *args, **kwargs):
@@ -708,7 +708,25 @@ class TestImportFallback:
                 raise ImportError("simulate missing swsssdk")
             return orig_import(name, *args, **kwargs)
 
-        with patch("builtins.__import__", side_effect=fake_import):
-            mb = importlib.import_module("sonic_platform_base.module_base")
-            importlib.reload(mb)
-            assert hasattr(mb, "SonicV2Connector")
+        # Build a fake package tree: swsscommon (package) -> swsscommon.swsscommon (module)
+        pkg = ModuleType("swsscommon")
+        pkg.__path__ = []  # mark as a package
+        sub = ModuleType("swsscommon.swsscommon")
+
+        class FakeV2:  # what module_base should import in the fallback
+            pass
+
+        sub.SonicV2Connector = FakeV2
+
+        with patch.dict(sys.modules, {
+            "swsscommon": pkg,
+            "swsscommon.swsscommon": sub
+        }, clear=False):
+            with patch("builtins.__import__", side_effect=fake_import):
+                # Import and reload under the patched import machinery
+                mb = importlib.import_module("sonic_platform_base.module_base")
+                importlib.reload(mb)
+
+                # Verify fallback wired up our fake connector
+                assert hasattr(mb, "SonicV2Connector")
+                assert mb.SonicV2Connector is FakeV2
