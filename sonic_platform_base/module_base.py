@@ -487,6 +487,18 @@ class ModuleBase(device_base.DeviceBase):
             # Re-raise so callers can see the root cause if *everything* failed
             raise e
 
+    def _state_hdel(db, key: str, *fields: str):
+        """STATE_DB HDEL fields across connector types. No-op on failure."""
+        # Prefer raw redis client
+        try:
+            client = db.get_redis_client(db.STATE_DB)
+            if fields:
+                client.hdel(key, *fields)
+            return
+        except Exception:
+            pass
+        # As a conservative fallback, do nothing (Table lacks field-level delete).
+
     def _transition_key(self) -> str:
         """Return the STATE_DB key for this module's transition state."""
         # Use get_name() to avoid relying on an attribute that may not exist.
@@ -535,8 +547,10 @@ class ModuleBase(device_base.DeviceBase):
         db = SonicV2Connector()
         db.connect(db.STATE_DB)
 
+        module_name = self.get_name()
+
         # Mark transition start
-        self.set_module_transition("shutdown")
+        self.set_module_state_transition(db, module_name, "shutdown")
 
         # Determine shutdown timeout (do NOT use get_reboot_timeout())
         timeouts = self._load_transition_timeouts()
@@ -557,7 +571,7 @@ class ModuleBase(device_base.DeviceBase):
             try:
                 oper = self.get_oper_status()
                 if oper and str(oper).lower() == "offline":
-                    self.clear_module_transition()
+                    self.clear_module_state_transition(db, module_name)
                     return
             except Exception:
                 # Don't fail the graceful gate on a transient platform call error
@@ -567,7 +581,7 @@ class ModuleBase(device_base.DeviceBase):
             waited += interval
 
         # Timed out — best-effort clear to unblock any waiters
-        self.clear_module_transition()
+        self.clear_module_state_transition(db, module_name)
 
     # ############################################################
     # Centralized APIs for CHASSIS_MODULE_TABLE transition flags
@@ -592,14 +606,17 @@ class ModuleBase(device_base.DeviceBase):
     def clear_module_state_transition(self, db, module_name: str):
         """
         Clear transition flags for the given module after a transition completes.
+        Field-scoped update to avoid clobbering concurrent writers.
         """
         key = f"CHASSIS_MODULE_TABLE|{module_name}"
-        entry = _state_hgetall(db, key)
-        if not entry:
-            return
-        entry["state_transition_in_progress"] = "False"
-        entry.pop("transition_start_time", None)
-        _state_hset(db, key, entry)
+        # Mark not in-progress
+        _state_hset(db, key, {"state_transition_in_progress": "False"})
+        # Remove the start timestamp (avoid stale value lingering)
+        try:
+            ModuleBase._state_hdel(db, key, "transition_start_time")
+        except Exception:
+            # Best-effort; if HDEL isn't available we simply leave it.
+            pass
 
     def get_module_state_transition(self, db, module_name: str) -> dict:
         """

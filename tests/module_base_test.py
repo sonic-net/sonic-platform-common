@@ -5,7 +5,6 @@ import fcntl
 import importlib
 import builtins
 from io import StringIO
-from click.testing import CliRunner
 import sys
 from types import ModuleType
 
@@ -137,7 +136,7 @@ class TestModuleBaseGracefulShutdown:
         sys.modules["swsscommon"] = fake_pkg
         sys.modules["swsscommon.swsscommon"] = fake_sub
 
-    # ==== graceful shutdown tests (match new timeouts + wrapper methods) ====
+    # ==== graceful shutdown tests (match timeouts + centralized helpers) ====
 
     @patch("sonic_platform_base.module_base._state_hset", create=True)
     @patch("sonic_platform_base.module_base._state_hgetall", create=True)
@@ -210,10 +209,9 @@ class TestModuleBaseGracefulShutdown:
         assert first_map.get("transition_type") == "shutdown"
         assert first_map.get("transition_start_time")
 
-        # Last write: timeout clear
+        # Last write: timeout clear (we keep transition_type in mapping)
         last_map = mock_hset.call_args_list[-1][0][2]
         assert last_map.get("state_transition_in_progress") == "False"
-        # 'transition_type' is preserved in our fake entry
         assert last_map.get("transition_type") == "shutdown"
 
     @staticmethod
@@ -265,7 +263,7 @@ class TestModuleBaseGracefulShutdown:
 
     @staticmethod
     def test_transition_timeouts_reads_value():
-        """platform.json dpu_reboot_timeout is honored."""
+        """platform.json dpu_reboot_timeout and dpu_shutdown_timeout are honored."""
         from sonic_platform_base import module_base as mb
         from unittest import mock
         class Dummy(mb.ModuleBase): ...
@@ -524,6 +522,7 @@ class TestModuleBaseGracefulShutdown:
         m = written["mapping"]
         assert m["state_transition_in_progress"] == "False"
         assert "transition_start_time" not in m
+        # transition_type is preserved by module_base.py
         assert m["transition_type"] == "shutdown"
 
     def test_get_module_state_transition_passthrough(self, monkeypatch):
