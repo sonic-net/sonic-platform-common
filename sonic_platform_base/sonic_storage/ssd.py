@@ -103,12 +103,12 @@ class SsdUtil(StorageCommon):
 
         # Known vendor part
         if self.model:
-            # For some Virtium SSDs, parse_generic_ssd_info should be called.
-            # Since it was called above, no need to parse a specific vendor SSD info.
-            if self.model in ['Virtium VTPM24CEXI080-BM110006']:
+            vendor = self._parse_vendor()
+            # For Virtium, ATP NVMe SSD, parse_generic_ssd_info should be called.
+            # Skip here, otherwise data will be overwritten by N/A.
+            if vendor in ['Virtium', 'ATP'] and "nvme" in self.dev:
                 return
 
-            vendor = self._parse_vendor()
             if vendor:
                 try:
                     self.fetch_vendor_ssd_info(diskdev, vendor)

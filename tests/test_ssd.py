@@ -1621,6 +1621,78 @@ If Selective self-test is pending on power-up, resume after 0 minute delay.
 The above only provides legacy SMART information - try 'smartctl -x' for more
 """
 
+output_atp_nvme_ssd = """
+smartctl 7.4 2023-08-01 r5530 [x86_64-linux-6.1.0-29-2-amd64] (local build)
+Copyright (C) 2002-23, Bruce Allen, Christian Franke, www.smartmontools.org
+
+=== START OF INFORMATION SECTION ===
+Model Number:                       ATP AF240GSTJA-AW1
+Serial Number:                      23090214-000325
+Firmware Version:                   42A4SB6G
+PCI Vendor/Subsystem ID:            0x1db2
+IEEE OUI Identifier:                0x141357
+Controller ID:                      1
+NVMe Version:                       1.3
+Number of Namespaces:               1
+Namespace 1 Size/Capacity:          240,057,409,536 [240 GB]
+Namespace 1 Utilization:            11,922,399,232 [11.9 GB]
+Namespace 1 Formatted LBA Size:     512
+Namespace 1 IEEE EUI-64:            141357 716000f164
+Local Time is:                      Mon Sep 15 21:00:38 2025 UTC
+Firmware Updates (0x14):            2 Slots, no Reset required
+Optional Admin Commands (0x0017):   Security Format Frmw_DL Self_Test
+Optional NVM Commands (0x005f):     Comp Wr_Unc DS_Mngmt Wr_Zero Sav/Sel_Feat Timestmp
+Log Page Attributes (0x0b):         S/H_per_NS Cmd_Eff_Lg Telmtry_Lg
+Maximum Data Transfer Size:         64 Pages
+Warning  Comp. Temp. Threshold:     75 Celsius
+Critical Comp. Temp. Threshold:     80 Celsius
+
+Supported Power States
+St Op     Max   Active     Idle   RL RT WL WT  Ent_Lat  Ex_Lat
+ 0 +     9.00W       -        -    0  0  0  0        0       0
+ 1 +     4.60W       -        -    1  1  1  1        0       0
+ 2 +     3.80W       -        -    2  2  2  2        0       0
+ 3 -   0.0450W       -        -    3  3  3  3     2000    2000
+ 4 -   0.0040W       -        -    4  4  4  4    15000   15000
+
+Supported LBA Sizes (NSID 0x1)
+Id Fmt  Data  Metadt  Rel_Perf
+ 0 +     512       0         0
+
+=== START OF SMART DATA SECTION ===
+SMART overall-health self-assessment test result: PASSED
+
+SMART/Health Information (NVMe Log 0x02)
+Critical Warning:                   0x00
+Temperature:                        47 Celsius
+Available Spare:                    100%
+Available Spare Threshold:          10%
+Percentage Used:                    6%
+Data Units Read:                    44,586,180 [22.8 TB]
+Data Units Written:                 18,202,849 [9.31 TB]
+Host Read Commands:                 472,652,730
+Host Write Commands:                320,556,174
+Controller Busy Time:               1,491
+Power Cycles:                       1,816
+Power On Hours:                     2,725
+Unsafe Shutdowns:                   1,330
+Media and Data Integrity Errors:    0
+Error Information Log Entries:      0
+Warning  Comp. Temperature Time:    0
+Critical Comp. Temperature Time:    0
+Temperature Sensor 1:               50 Celsius
+Temperature Sensor 2:               47 Celsius
+Temperature Sensor 3:               53 Celsius
+Temperature Sensor 4:               47 Celsius
+Temperature Sensor 5:               47 Celsius
+Temperature Sensor 6:               38 Celsius
+
+Error Information (NVMe Log 0x01, 16 of 256 entries)
+No Errors Logged
+
+Read Self-test Log failed: Invalid Field in Command (0x002)
+"""
+
 class TestSsd:
     @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_nvme_ssd))
     def test_nvme_ssd(self):
@@ -1876,3 +1948,16 @@ class TestSsd:
         assert(atp_ssd.get_disk_io_reads() == '75560121447')
         assert(atp_ssd.get_disk_io_writes() == '77937125888')
         assert(atp_ssd.get_reserved_blocks() == 'N/A')
+
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_atp_nvme_ssd))
+    def test_atp_nvme_ssd(self):
+        # Test parsing a normal SSD info
+        atp_nvme_ssd = SsdUtil('/dev/nvme0n1')
+        assert(atp_nvme_ssd.get_health() == 94.0)
+        assert(atp_nvme_ssd.get_model() == 'ATP AF240GSTJA-AW1')
+        assert(atp_nvme_ssd.get_firmware() == '42A4SB6G')
+        assert(atp_nvme_ssd.get_temperature() == 47)
+        assert(atp_nvme_ssd.get_serial() == '23090214-000325')
+        assert(atp_nvme_ssd.get_disk_io_reads() == '44,586,180 [22.8 TB]')
+        assert(atp_nvme_ssd.get_disk_io_writes() == '18,202,849 [9.31 TB]')
+        assert(atp_nvme_ssd.get_reserved_blocks() == 100.0)
