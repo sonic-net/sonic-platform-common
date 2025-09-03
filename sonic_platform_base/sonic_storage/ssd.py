@@ -25,7 +25,7 @@ NOT_AVAILABLE = "N/A"
 
 # Generic IDs
 
-GENERIC_HEALTH_ID = 169
+GENERIC_HEALTH_ID = [169, 231]
 GENERIC_IO_READS_ID = 242
 GENERIC_IO_WRITES_ID = 241
 GENERIC_RESERVED_BLOCKS_ID = [170, 232]
@@ -52,6 +52,8 @@ MICRON_AVG_ERASE_COUNT_ID = 173
 MICRON_PERC_LIFETIME_REMAIN_ID = 202
 
 INTEL_MEDIA_WEAROUT_INDICATOR_ID = 233
+
+ATP_HEALTH_ID = 248
 
 class SsdUtil(StorageCommon):
     """
@@ -85,6 +87,7 @@ class SsdUtil(StorageCommon):
             "Micron"            : { "utility" : SMARTCTL, "parser" : self.parse_micron_info },
             "Intel"             : { "utility" : SMARTCTL, "parser" : self.parse_intel_info },
             "Transcend"         : { "utility" : SMARTCTL, "parser" : self.parse_generic_ssd_info },
+            "ATP"               : { "utility" : SMARTCTL, "parser" : self.parse_atp_info },
         }
 
         self.dev = diskdev
@@ -189,10 +192,11 @@ class SsdUtil(StorageCommon):
 
             health_raw = self._parse_re('Remaining_Lifetime_Perc\s*(.+?)\n', self.ssd_info)
             if health_raw == NOT_AVAILABLE:
-                health_raw = self.parse_id_number(GENERIC_HEALTH_ID, self.ssd_info)
-                if health_raw == NOT_AVAILABLE:
-                    self.health = NOT_AVAILABLE
-                else: self.health = health_raw.split()[-1]
+                for health_id in GENERIC_HEALTH_ID:
+                    health_raw = self.parse_id_number(health_id, self.ssd_info)
+                    if health_raw != NOT_AVAILABLE:
+                        break
+                self.health = NOT_AVAILABLE if health_raw == NOT_AVAILABLE else health_raw.split()[-1]
             else:
                 self.health = health_raw.split()[-1]
 
@@ -358,6 +362,11 @@ class SsdUtil(StorageCommon):
         if self.vendor_ssd_info:
             health_raw = self.parse_id_number(INTEL_MEDIA_WEAROUT_INDICATOR_ID, self.vendor_ssd_info)
             self.health = NOT_AVAILABLE if health_raw == NOT_AVAILABLE else str(100 - float(health_raw.split()[-1]))
+
+    def parse_atp_info(self):
+        if self.vendor_ssd_info:
+            health_raw = self.parse_id_number(ATP_HEALTH_ID, self.vendor_ssd_info)
+            self.health = NOT_AVAILABLE if health_raw == NOT_AVAILABLE else health_raw.split()[-1]
 
     def fetch_vendor_ssd_info(self, diskdev, model):
         self.vendor_ssd_info = self._execute_shell(self.vendor_ssd_utility[model]["utility"].format(diskdev))
