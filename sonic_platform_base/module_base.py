@@ -564,7 +564,7 @@ class ModuleBase(device_base.DeviceBase):
             entry = ModuleBase._state_hgetall(db, key)
 
             # (a) Someone else completed the graceful phase
-            if entry.get("state_transition_in_progress") == "False":
+            if entry.get("state_transition_in_progress", "False") == "False":
                 return
 
             # (b) Platform reports oper Offline — complete & clear transition
