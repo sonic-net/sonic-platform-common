@@ -87,6 +87,23 @@ class TestModuleBase:
         mock_connector.hset.side_effect = Exception("DB Error")
         module.pci_entry_state_db("0000:00:00.0", "detaching")
 
+    def test_file_operation_lock(self):
+        module = ModuleBase()
+        mock_file = MockFile()
+
+        with patch('builtins.open', return_value=mock_file) as mock_file_open, \
+             patch('fcntl.flock') as mock_flock, \
+             patch('os.makedirs') as mock_makedirs:
+
+            with module._file_operation_lock("/var/lock/test.lock"):
+                mock_flock.assert_called_with(123, fcntl.LOCK_EX)
+
+            mock_flock.assert_has_calls([
+                call(123, fcntl.LOCK_EX),
+                call(123, fcntl.LOCK_UN)
+            ])
+            assert mock_file.fileno_called
+
     def test_pci_operation_lock(self):
         module = ModuleBase()
         mock_file = MockFile()
@@ -97,6 +114,24 @@ class TestModuleBase:
              patch('os.makedirs') as mock_makedirs:
 
             with module._pci_operation_lock():
+                mock_flock.assert_called_with(123, fcntl.LOCK_EX)
+
+            mock_flock.assert_has_calls([
+                call(123, fcntl.LOCK_EX),
+                call(123, fcntl.LOCK_UN)
+            ])
+            assert mock_file.fileno_called
+
+    def test_sensord_operation_lock(self):
+        module = ModuleBase()
+        mock_file = MockFile()
+
+        with patch('builtins.open', return_value=mock_file) as mock_file_open, \
+             patch('fcntl.flock') as mock_flock, \
+             patch.object(module, 'get_name', return_value="DPU0"), \
+             patch('os.makedirs') as mock_makedirs:
+
+            with module._sensord_operation_lock():
                 mock_flock.assert_called_with(123, fcntl.LOCK_EX)
 
             mock_flock.assert_has_calls([
@@ -141,19 +176,23 @@ class TestModuleBase:
         with patch.object(module, 'get_name', return_value="DPU0"), \
              patch('os.path.exists', return_value=True), \
              patch('shutil.copy2') as mock_copy, \
-             patch('os.system') as mock_system:
+             patch('os.system') as mock_system, \
+             patch.object(module, '_sensord_operation_lock') as mock_lock:
             assert module.handle_sensor_removal() is True
             mock_copy.assert_called_once_with("/usr/share/sonic/platform/module_sensors_ignore_conf/ignore_sensors_DPU0.conf",
                                              "/etc/sensors.d/ignore_sensors_DPU0.conf")
             mock_system.assert_called_once_with("service sensord restart")
+            mock_lock.assert_called_once()
 
         with patch.object(module, 'get_name', return_value="DPU0"), \
              patch('os.path.exists', return_value=False), \
              patch('shutil.copy2') as mock_copy, \
-             patch('os.system') as mock_system:
+             patch('os.system') as mock_system, \
+             patch.object(module, '_sensord_operation_lock') as mock_lock:
             assert module.handle_sensor_removal() is True
             mock_copy.assert_not_called()
             mock_system.assert_not_called()
+            mock_lock.assert_not_called()
 
         with patch.object(module, 'get_name', return_value="DPU0"), \
              patch('os.path.exists', return_value=True), \
@@ -166,18 +205,22 @@ class TestModuleBase:
         with patch.object(module, 'get_name', return_value="DPU0"), \
              patch('os.path.exists', return_value=True), \
              patch('os.remove') as mock_remove, \
-             patch('os.system') as mock_system:
+             patch('os.system') as mock_system, \
+             patch.object(module, '_sensord_operation_lock') as mock_lock:
             assert module.handle_sensor_addition() is True
             mock_remove.assert_called_once_with("/etc/sensors.d/ignore_sensors_DPU0.conf")
             mock_system.assert_called_once_with("service sensord restart")
+            mock_lock.assert_called_once()
 
         with patch.object(module, 'get_name', return_value="DPU0"), \
              patch('os.path.exists', return_value=False), \
              patch('os.remove') as mock_remove, \
-             patch('os.system') as mock_system:
+             patch('os.system') as mock_system, \
+             patch.object(module, '_sensord_operation_lock') as mock_lock:
             assert module.handle_sensor_addition() is True
             mock_remove.assert_not_called()
             mock_system.assert_not_called()
+            mock_lock.assert_not_called()
 
         with patch.object(module, 'get_name', return_value="DPU0"), \
              patch('os.path.exists', return_value=True), \
