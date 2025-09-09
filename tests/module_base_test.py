@@ -184,7 +184,7 @@ class TestModuleBaseGracefulShutdown:
         dpu_name = "DPU1"
         mock_time.time.return_value = 1710000000
         mock_time.sleep.return_value = None
-        # Always in-progress with type + start_time so the loop times out
+        # Force perpetual in-progress so the loop times out and tries to clear
         mock_hgetall.return_value = {
             "state_transition_in_progress": "True",
             "transition_type": "shutdown",
@@ -193,25 +193,20 @@ class TestModuleBaseGracefulShutdown:
 
         module = DummyModule(name=dpu_name)
 
-        # We still route "mark transition" through the centralized helper to
-        # verify the first write contents; for clear we just assert it's called.
         with patch.object(module, "get_name", return_value=dpu_name), \
              patch.object(module, "_load_transition_timeouts", return_value={"shutdown": 5}), \
-             patch.object(module, "set_module_transition",
-                          side_effect=lambda t: ModuleBase().set_module_state_transition(mock_db.return_value, dpu_name, t),
-                          create=True), \
-             patch.object(module, "clear_module_transition", autospec=True) as mock_clear:
+             patch("sonic_platform_base.module_base.ModuleBase.clear_module_state_transition") as mock_clear:
             module.graceful_shutdown_handler()
 
-        # First write: mark transition
+        # Verify the *first* write marked the transition
         assert mock_hset.call_args_list, "Expected at least one _state_hset call"
         first_map = mock_hset.call_args_list[0][0][2]
         assert first_map.get("state_transition_in_progress") == "True"
         assert first_map.get("transition_type") == "shutdown"
         assert first_map.get("transition_start_time")
 
-        # Timeout path must attempt to clear the transition (implementation detail of clear is not asserted here)
-        assert mock_clear.called, "clear_module_transition() should be called on timeout"
+        # And verify we attempted to clear via the centralized helper
+        assert mock_clear.called, "Expected clear_module_state_transition() to be called on timeout"
 
     @staticmethod
     @patch("sonic_platform_base.module_base.SonicV2Connector")
@@ -234,14 +229,11 @@ class TestModuleBaseGracefulShutdown:
         with patch.object(module, "get_name", return_value="DPUX"), \
              patch.object(module, "get_oper_status", return_value="Offline"), \
              patch.object(module, "_load_transition_timeouts", return_value={"shutdown": 5}), \
-             patch.object(module, "set_module_transition",
-                          side_effect=lambda t: ModuleBase().set_module_state_transition(mock_db.return_value, "DPUX", t),
-                          create=True), \
-            patch.object(module, "clear_module_transition", autospec=True) as mock_clear:
+             patch("sonic_platform_base.module_base.ModuleBase.clear_module_state_transition") as mock_clear:
             module.graceful_shutdown_handler()
 
-        # We don’t require a specific final mapping; just ensure clear() was triggered
-        assert mock_clear.called, "clear_module_transition() should be called when oper_status is Offline"
+        # On Offline, the handler must attempt to clear via centralized helper
+        assert mock_clear.called, "Expected clear_module_state_transition() to be called when oper_status is Offline"
 
     @staticmethod
     def test_transition_timeouts_platform_missing():
