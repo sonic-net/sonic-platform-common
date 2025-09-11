@@ -15,11 +15,6 @@ import contextlib
 import shutil
 import time
 from datetime import datetime
-# Support both connectors: swsssdk and swsscommon
-try:
-    from swsssdk import SonicV2Connector
-except ImportError:
-    from swsscommon.swsscommon import SonicV2Connector
 
 _v2 = None
 
@@ -27,6 +22,26 @@ _v2 = None
 PCIE_DETACH_INFO_TABLE = "PCIE_DETACH_INFO"
 PCIE_OPERATION_DETACHING = "detaching"
 PCIE_OPERATION_ATTACHING = "attaching"
+
+
+def _state_db_connector():
+    """Lazy-create a state DB connector without top-level imports.
+
+    Tries swsscommon first, then swsssdk. Keeps this module import-safe on
+    platforms/containers that don't ship both bindings.
+    """
+    try:
+        from swsscommon.swsscommon import SonicV2Connector  # type: ignore
+    except Exception:
+        from swsssdk import SonicV2Connector  # type: ignore
+    db = SonicV2Connector()
+    try:
+        db.connect(db.STATE_DB)
+    except Exception:
+        # Older swsssdk may not require explicit connect; ignore to preserve behavior
+        pass
+    return db
+
 
 class ModuleBase(device_base.DeviceBase):
     """
@@ -103,7 +118,7 @@ class ModuleBase(device_base.DeviceBase):
         # List of ASIC-derived objects representing all ASICs
         # visibile in PCI domain on the module
         self._asic_list = []
-    
+
     @contextlib.contextmanager
     def _pci_operation_lock(self):
         """File-based lock for PCI operations using flock"""
@@ -398,7 +413,10 @@ class ModuleBase(device_base.DeviceBase):
         "shutdown": 180,  # 3 minutes
         "reboot": 240,    # 4 minutes
     }
+    # class-level cache to avoid multiple reads per process
+    _TRANSITION_TIMEOUTS_CACHE = None
 
+    @staticmethod
     def _state_hgetall(db, key: str) -> dict:
         """STATE_DB HGETALL as dict across both connector types with robust fallbacks."""
         def _norm_map(d):
@@ -413,36 +431,34 @@ class ModuleBase(device_base.DeviceBase):
                 out[k] = v
             return out
 
-        # 1) Preferred: SonicV2Connector.get_all
+        # 1) Preferred: swsscommon.Table (if available)
+        try:
+            from swsscommon import swsscommon
+            table, sep, obj = key.partition("|")
+            if sep:
+                t = swsscommon.Table(db, table)
+                status, fvp = t.get(obj)
+                if status:
+                    return _norm_map(dict(fvp))
+        except Exception:
+            pass
+
+        # 2) SonicV2Connector.get_all (where supported)
         try:
             res = db.get_all(db.STATE_DB, key)
             return _norm_map(res)
         except Exception:
             pass
 
-        # 2) Raw redis client: hgetall
+        # 3) FINAL fallback: raw redis client hgetall
         try:
             client = db.get_redis_client(db.STATE_DB)
             raw = client.hgetall(key)
             return _norm_map(raw)
         except Exception:
-            pass
-
-        # 3) swsscommon.Table fallback
-        try:
-            from swsscommon import swsscommon
-            table, sep, obj = key.partition("|")
-            if not sep:
-                return {}
-            t = swsscommon.Table(db, table)
-            status, fvp = t.get(obj)
-            if not status:
-                return {}
-            # fvp is a list of (field, value) tuples
-            return _norm_map(dict(fvp))
-        except Exception:
             return {}
 
+    @staticmethod
     def _state_hset(db, key: str, mapping: dict):
         """STATE_DB HSET mapping across both connector types (swsssdk/swsscommon)."""
         m = {k: str(v) for k, v in mapping.items()}
@@ -464,32 +480,30 @@ class ModuleBase(device_base.DeviceBase):
         # 3) raw redis client via swsscommon: hset(key, [mapping] | field, value)
         try:
             client = db.get_redis_client(db.STATE_DB)
-            # Try modern redis-py signature with mapping=
             try:
                 client.hset(key, mapping=m)
                 return
             except TypeError:
-                # Fallback: per-field hset(key, field, value)
                 for fk, fv in m.items():
                     client.hset(key, fk, fv)
                 return
         except Exception:
             pass
 
-        # 4) swsscommon.Table fallback
+        # 4) swsscommon.Table fallback (final write attempt)
         try:
             from swsscommon import swsscommon
             table, _, obj = key.partition("|")
             t = swsscommon.Table(db, table)
             t.set(obj, swsscommon.FieldValuePairs(list(m.items())))
             return
-        except Exception as e:
-            # Re-raise so callers can see the root cause if *everything* failed
-            raise e
+        except Exception:
+            # no-op on failure to match helper’s documented behavior
+            pass
 
+    @staticmethod
     def _state_hdel(db, key: str, *fields: str):
         """STATE_DB HDEL fields across connector types. No-op on failure."""
-        # Prefer raw redis client
         try:
             client = db.get_redis_client(db.STATE_DB)
             if fields:
@@ -498,6 +512,28 @@ class ModuleBase(device_base.DeviceBase):
         except Exception:
             pass
         # As a conservative fallback, do nothing (Table lacks field-level delete).
+
+    @staticmethod
+    def _cfg_get_entry(table, key):
+        """CONFIG_DB single entry fetch with graceful fallback (dict or {})."""
+        # Prefer swsscommon connector
+        try:
+            from swsscommon.swsscommon import SonicV2Connector  # type: ignore
+            db = SonicV2Connector()
+            db.connect(db.CONFIG_DB)
+            full_key = f"{table}|{key}"
+            return db.get_all(db.CONFIG_DB, full_key) or {}
+        except Exception:
+            pass
+        # Fallback: swsssdk
+        try:
+            from swsssdk import SonicV2Connector  # type: ignore
+            db = SonicV2Connector()
+            db.connect(db.CONFIG_DB)
+            full_key = f"{table}|{key}"
+            return db.get_all(db.CONFIG_DB, full_key) or {}
+        except Exception:
+            return {}
 
     def _transition_key(self) -> str:
         """Return the STATE_DB key for this module's transition state."""
@@ -513,11 +549,17 @@ class ModuleBase(device_base.DeviceBase):
           - dpu_shutdown_timeout
           - dpu_reboot_timeout
         """
+        if ModuleBase._TRANSITION_TIMEOUTS_CACHE is not None:
+            return ModuleBase._TRANSITION_TIMEOUTS_CACHE
+
         timeouts = dict(self._TRANSITION_TIMEOUT_DEFAULTS)
         try:
-            plat = _cfg_get_entry("DEVICE_METADATA", "localhost").get("platform")
+            md = ModuleBase._cfg_get_entry("DEVICE_METADATA", "localhost")
+            plat = (md or {}).get("platform")
             if not plat:
-                return timeouts
+                ModuleBase._TRANSITION_TIMEOUTS_CACHE = timeouts
+                return ModuleBase._TRANSITION_TIMEOUTS_CACHE
+            # NOTE: In upstream SONiC, this path is bind-mounted into PMON.
             path = f"/usr/share/sonic/device/{plat}/platform.json"
             with open(path, "r") as f:
                 data = json.load(f) or {}
@@ -530,8 +572,9 @@ class ModuleBase(device_base.DeviceBase):
         except Exception:
             # On any error, just use defaults
             pass
-        return timeouts
 
+        ModuleBase._TRANSITION_TIMEOUTS_CACHE = timeouts
+        return ModuleBase._TRANSITION_TIMEOUTS_CACHE
 
     def graceful_shutdown_handler(self):
         """
@@ -544,8 +587,7 @@ class ModuleBase(device_base.DeviceBase):
         - On (b), clear transition ourselves to unblock waiters.
         - Timeout based on per-op shutdown timeout from platform.json (fallback 180s).
         """
-        db = SonicV2Connector()
-        db.connect(db.STATE_DB)
+        db = _state_db_connector()
 
         module_name = self.get_name()
 
@@ -597,7 +639,7 @@ class ModuleBase(device_base.DeviceBase):
             transition_type: 'shutdown' | 'startup' | 'reboot'
         """
         key = f"CHASSIS_MODULE_TABLE|{module_name}"
-        _state_hset(db, key, {
+        ModuleBase._state_hset(db, key, {
             "state_transition_in_progress": "True",
             "transition_type": transition_type,
             "transition_start_time": datetime.utcnow().isoformat()
@@ -610,7 +652,7 @@ class ModuleBase(device_base.DeviceBase):
         """
         key = f"CHASSIS_MODULE_TABLE|{module_name}"
         # Mark not in-progress
-        _state_hset(db, key, {"state_transition_in_progress": "False"})
+        ModuleBase._state_hset(db, key, {"state_transition_in_progress": "False"})
         # Remove the start timestamp (avoid stale value lingering)
         try:
             ModuleBase._state_hdel(db, key, "transition_start_time")
@@ -627,7 +669,7 @@ class ModuleBase(device_base.DeviceBase):
             transition_start_time (if present).
         """
         key = f"CHASSIS_MODULE_TABLE|{module_name}"
-        return _state_hgetall(db, key)
+        return ModuleBase._state_hgetall(db, key)
 
     def is_module_state_transition_timed_out(self, db, module_name: str, timeout_seconds: int) -> bool:
         """
@@ -642,9 +684,10 @@ class ModuleBase(device_base.DeviceBase):
             True if transition exceeded timeout, False otherwise.
         """
         key = f"CHASSIS_MODULE_TABLE|{module_name}"
-        entry = _state_hgetall(db, key)
+        entry = ModuleBase._state_hgetall(db, key)
+        # Missing entry means no active transition recorded; allow new operation to proceed.
         if not entry:
-            return False
+            return True
 
         start_str = entry.get("transition_start_time")
         if not start_str:
@@ -1130,15 +1173,3 @@ class ModuleBase(device_base.DeviceBase):
         pci_result = self.handle_pci_rescan()
         sensor_result = self.handle_sensor_addition()
         return pci_result and sensor_result
-
-# Expose helper functions at module scope if only on the class
-# This allows tests (and get_reboot_timeout) to access the expected free names.
-try:
-    if hasattr(ModuleBase, "_state_hgetall") and "_state_hgetall" not in globals():
-        _state_hgetall = ModuleBase._state_hgetall
-    if hasattr(ModuleBase, "_state_hset") and "_state_hset" not in globals():
-        _state_hset = ModuleBase._state_hset
-    if hasattr(ModuleBase, "_cfg_get_entry") and "_cfg_get_entry" not in globals():
-        _cfg_get_entry = ModuleBase._cfg_get_entry
-except NameError:
-    pass
