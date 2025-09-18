@@ -157,6 +157,114 @@ output_ssd_leading_trailing_spaces = """
   242 Host_Reads_32MiB        0x0002   100   001   000    Old_age   Always       -       760991  
 """
 
+output_ssd2 = """
+smartctl 7.4 2023-08-01 r5530 [x86_64-linux-6.1.0-29-2-amd64] (local build)
+Copyright (C) 2002-23, Bruce Allen, Christian Franke, www.smartmontools.org
+
+=== START OF INFORMATION SECTION ===
+Device Model:     SATA SSD
+Serial Number:    SPG210902J8
+Firmware Version: FW1241
+User Capacity:    32,017,047,552 bytes [32.0 GB]
+Sector Size:      512 bytes logical/physical
+Rotation Rate:    Solid State Device
+Form Factor:      < 1.8 inches
+TRIM Command:     Available
+Device is:        Not in smartctl database 7.3/5528
+ATA Version is:   ACS-3 (minor revision not indicated)
+SATA Version is:  SATA 3.1, 6.0 Gb/s (current: 6.0 Gb/s)
+Local Time is:    Thu Aug 28 22:58:11 2025 UTC
+SMART support is: Available - device has SMART capability.
+SMART support is: Enabled
+
+=== START OF READ SMART DATA SECTION ===
+SMART overall-health self-assessment test result: PASSED
+
+General SMART Values:
+Offline data collection status:  (0x00)	Offline data collection activity
+					was never started.
+					Auto Offline Data Collection: Disabled.
+Self-test execution status:      (   0)	The previous self-test routine completed
+					without error or no self-test has ever
+					been run.
+Total time to complete Offline
+data collection: 		(   30) seconds.
+Offline data collection
+capabilities: 			 (0x7b) SMART execute Offline immediate.
+					Auto Offline data collection on/off support.
+					Suspend Offline collection upon new
+					command.
+					Offline surface scan supported.
+					Self-test supported.
+					Conveyance Self-test supported.
+					Selective Self-test supported.
+SMART capabilities:            (0x0003)	Saves SMART data before entering
+					power-saving mode.
+					Supports SMART auto save timer.
+Error logging capability:        (0x01)	Error logging supported.
+					General Purpose Logging supported.
+Short self-test routine
+recommended polling time: 	 (   1) minutes.
+Extended self-test routine
+recommended polling time: 	 (   2) minutes.
+Conveyance self-test routine
+recommended polling time: 	 (   2) minutes.
+
+SMART Attributes Data Structure revision number: 16
+Vendor Specific SMART Attributes with Thresholds:
+ID# ATTRIBUTE_NAME          FLAG     VALUE WORST THRESH TYPE      UPDATED  WHEN_FAILED RAW_VALUE
+  1 Raw_Read_Error_Rate     0x000b   100   100   050    Pre-fail  Always       -       0
+  5 Reallocated_Sector_Ct   0x0013   100   100   050    Pre-fail  Always       -       0
+  9 Power_On_Hours          0x0012   100   100   000    Old_age   Always       -       27508
+ 12 Power_Cycle_Count       0x0012   100   100   000    Old_age   Always       -       36442
+ 14 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       69009408
+ 15 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       62533296
+ 16 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       85
+ 17 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       85
+100 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       15957694
+168 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       0
+170 Unknown_Attribute       0x0003   100   100   010    Pre-fail  Always       -       29
+172 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       0
+173 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       65535
+174 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       6763
+175 Program_Fail_Count_Chip 0x0012   100   100   000    Old_age   Always       -       3788
+181 Program_Fail_Cnt_Total  0x0012   100   100   000    Old_age   Always       -       0
+187 Reported_Uncorrect      0x0012   100   100   000    Old_age   Always       -       0
+194 Temperature_Celsius     0x0023   070   070   000    Pre-fail  Always       -       30
+197 Current_Pending_Sector  0x0032   100   100   000    Old_age   Always       -       0
+198 Offline_Uncorrectable   0x0012   100   100   000    Old_age   Always       -       0
+199 UDMA_CRC_Error_Count    0x000b   100   100   050    Pre-fail  Always       -       13
+202 Unknown_SSD_Attribute   0x0012   100   100   000    Old_age   Always       -       100
+231 Unknown_SSD_Attribute   0x0013   100   100   000    Pre-fail  Always       -       0
+232 Available_Reservd_Space 0x0013   100   100   000    Pre-fail  Always       -       0
+234 Unknown_Attribute       0x000b   100   100   000    Pre-fail  Always       -       37584067165
+235 Unknown_Attribute       0x000b   100   100   000    Pre-fail  Always       -       187190999136
+241 Total_LBAs_Written      0x0012   100   100   000    Old_age   Always       -       196534949930
+242 Total_LBAs_Read         0x0012   100   100   000    Old_age   Always       -       37584067165
+247 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       1
+248 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       0
+
+SMART Error Log Version: 1
+No Errors Logged
+
+SMART Self-test log structure revision number 1
+No self-tests have been logged.  [To run self-tests, use: smartctl -t]
+
+SMART Selective self-test log data structure revision number 0
+Note: revision number not 1 implies that no selective self-test has ever been run
+ SPAN  MIN_LBA  MAX_LBA  CURRENT_TEST_STATUS
+    1        0        0  Not_testing
+    2        0        0  Not_testing
+    3        0        0  Not_testing
+    4        0        0  Not_testing
+    5        0        0  Not_testing
+Selective self-test flags (0x0):
+  After scanning selected spans, do NOT read-scan remainder of disk.
+If Selective self-test is pending on power-up, resume after 0 minute delay.
+
+The above only provides legacy SMART information - try 'smartctl -x' for more
+"""
+
 output_Innodisk_ssd = """smartctl 7.2 2020-12-30 r5155 [x86_64-linux-5.10.0-23-2-amd64] (local build)
 Copyright (C) 2002-20, Bruce Allen, Christian Franke, www.smartmontools.org
 
@@ -1385,6 +1493,206 @@ output_smartcmd_vitrium_error = """
 [Error] Cannot read SMART information on device /dev/nvme0n1
 """
 
+output_atp_ssd="""smartctl 7.4 2023-08-01 r5530 [x86_64-linux-6.1.0-29-2-amd64] (local build)
+Copyright (C) 2002-23, Bruce Allen, Christian Franke, www.smartmontools.org
+
+=== START OF INFORMATION SECTION ===
+Device Model:     ATP AF32GSAIA-AW1
+Serial Number:    22110247-000144
+LU WWN Device Id: 5 141357 01002bd8a
+Firmware Version: V1ST0100
+User Capacity:    32,017,047,552 bytes [32.0 GB]
+Sector Size:      512 bytes logical/physical
+Rotation Rate:    Solid State Device
+Form Factor:      2.5 inches
+TRIM Command:     Available, deterministic, zeroed
+Device is:        Not in smartctl database 7.3/5528
+ATA Version is:   ACS-3 T13/2161-D revision 5
+SATA Version is:  SATA 3.3, 6.0 Gb/s (current: 6.0 Gb/s)
+Local Time is:    Wed Sep 10 20:56:58 2025 UTC
+SMART support is: Available - device has SMART capability.
+SMART support is: Enabled
+
+=== START OF READ SMART DATA SECTION ===
+SMART overall-health self-assessment test result: PASSED
+
+General SMART Values:
+Offline data collection status:  (0x00)	Offline data collection activity
+					was never started.
+					Auto Offline Data Collection: Disabled.
+Self-test execution status:      (   0)	The previous self-test routine completed
+					without error or no self-test has ever
+					been run.
+Total time to complete Offline
+data collection: 		(    0) seconds.
+Offline data collection
+capabilities: 			 (0x71) SMART execute Offline immediate.
+					No Auto Offline data collection support.
+					Suspend Offline collection upon new
+					command.
+					No Offline surface scan supported.
+					Self-test supported.
+					Conveyance Self-test supported.
+					Selective Self-test supported.
+SMART capabilities:            (0x0002)	Does not save SMART data before
+					entering power-saving mode.
+					Supports SMART auto save timer.
+Error logging capability:        (0x01)	Error logging supported.
+					General Purpose Logging supported.
+Short self-test routine
+recommended polling time: 	 (   2) minutes.
+Extended self-test routine
+recommended polling time: 	 (  30) minutes.
+Conveyance self-test routine
+recommended polling time: 	 (   2) minutes.
+SCT capabilities: 	       (0x003d)	SCT Status supported.
+					SCT Error Recovery Control supported.
+					SCT Feature Control supported.
+					SCT Data Table supported.
+
+SMART Attributes Data Structure revision number: 1
+Vendor Specific SMART Attributes with Thresholds:
+ID# ATTRIBUTE_NAME          FLAG     VALUE WORST THRESH TYPE      UPDATED  WHEN_FAILED RAW_VALUE
+  1 Raw_Read_Error_Rate     0x0000   100   100   000    Old_age   Offline      -       0
+  5 Reallocated_Sector_Ct   0x0000   100   100   000    Old_age   Offline      -       0
+  9 Power_On_Hours          0x0000   100   100   000    Old_age   Offline      -       17981
+ 12 Power_Cycle_Count       0x0000   100   100   000    Old_age   Offline      -       17072
+ 14 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       99090432
+ 15 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       62533296
+ 16 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       366
+ 17 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       366
+100 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       525732
+160 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       0
+172 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       204
+173 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       1134
+174 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       14105
+175 Program_Fail_Count_Chip 0x0000   100   100   000    Old_age   Offline      -       1113
+181 Program_Fail_Cnt_Total  0x0000   100   100   000    Old_age   Offline      -       0
+187 Reported_Uncorrect      0x0000   100   100   000    Old_age   Offline      -       0
+194 Temperature_Celsius     0x0000   033   068   000    Old_age   Offline      -       33
+195 Hardware_ECC_Recovered  0x0003   100   100   000    Pre-fail  Always       -       0
+197 Current_Pending_Sector  0x0000   100   100   000    Old_age   Offline      -       0
+198 Offline_Uncorrectable   0x0000   100   100   000    Old_age   Offline      -       0
+199 UDMA_CRC_Error_Count    0x0000   100   100   000    Old_age   Offline      -       4
+202 Unknown_SSD_Attribute   0x0000   100   100   000    Old_age   Offline      -       2
+205 Thermal_Asperity_Rate   0x0000   100   100   000    Old_age   Offline      -       0
+231 Unknown_SSD_Attribute   0x0000   044   091   000    Old_age   Offline      -       44
+234 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       94690034624
+235 Unknown_Attribute       0x0000   100   100   000    Old_age   Offline      -       76600511194
+241 Total_LBAs_Written      0x0000   100   100   000    Old_age   Offline      -       77937125888
+242 Total_LBAs_Read         0x0000   100   100   000    Old_age   Offline      -       75560121447
+248 Unknown_Attribute       0x0000   100   100   005    Old_age   Offline      -       98
+249 Unknown_Attribute       0x0000   100   100   020    Old_age   Offline      -       100
+
+SMART Error Log Version: 1
+Invalid Error Log index = 0x0e (valid range is from 1 to 5)
+ATA Error Count: 0 (possibly also invalid)
+
+SMART Self-test log structure revision number 0
+Warning: ATA Specification requires self-test log structure revision number = 1
+Num  Test_Description    Status                  Remaining  LifeTime(hours)  LBA_of_first_error
+# 1  Offline             Completed without error       00%       120         -
+# 2  Offline             Completed without error       00%       120         -
+# 3  Offline             Completed without error       00%       179         -
+# 4  Offline             Completed without error       00%       179         -
+# 5  Offline             Completed without error       00%       249         -
+# 6  Offline             Completed without error       00%       249         -
+# 7  Offline             Completed without error       00%       105         -
+# 8  Offline             Completed without error       00%       105         -
+# 9  Offline             Completed without error       00%       201         -
+#10  Offline             Completed without error       00%       201         -
+#11  Offline             Completed without error       00%        17         -
+#12  Offline             Completed without error       00%        17         -
+#13  Offline             Completed without error       00%       219         -
+#14  Offline             Completed without error       00%       219         -
+
+SMART Selective self-test log data structure revision number 1
+ SPAN  MIN_LBA  MAX_LBA  CURRENT_TEST_STATUS
+    1        0        0  Not_testing
+    2        0        0  Not_testing
+    3        0        0  Not_testing
+    4        0        0  Not_testing
+    5        0        0  Not_testing
+    6        0    65535  Read_scanning was never started
+Selective self-test flags (0x0):
+  After scanning selected spans, do NOT read-scan remainder of disk.
+If Selective self-test is pending on power-up, resume after 0 minute delay.
+
+The above only provides legacy SMART information - try 'smartctl -x' for more
+"""
+
+output_atp_nvme_ssd = """
+smartctl 7.4 2023-08-01 r5530 [x86_64-linux-6.1.0-29-2-amd64] (local build)
+Copyright (C) 2002-23, Bruce Allen, Christian Franke, www.smartmontools.org
+
+=== START OF INFORMATION SECTION ===
+Model Number:                       ATP AF240GSTJA-AW1
+Serial Number:                      23090214-000325
+Firmware Version:                   42A4SB6G
+PCI Vendor/Subsystem ID:            0x1db2
+IEEE OUI Identifier:                0x141357
+Controller ID:                      1
+NVMe Version:                       1.3
+Number of Namespaces:               1
+Namespace 1 Size/Capacity:          240,057,409,536 [240 GB]
+Namespace 1 Utilization:            11,922,399,232 [11.9 GB]
+Namespace 1 Formatted LBA Size:     512
+Namespace 1 IEEE EUI-64:            141357 716000f164
+Local Time is:                      Mon Sep 15 21:00:38 2025 UTC
+Firmware Updates (0x14):            2 Slots, no Reset required
+Optional Admin Commands (0x0017):   Security Format Frmw_DL Self_Test
+Optional NVM Commands (0x005f):     Comp Wr_Unc DS_Mngmt Wr_Zero Sav/Sel_Feat Timestmp
+Log Page Attributes (0x0b):         S/H_per_NS Cmd_Eff_Lg Telmtry_Lg
+Maximum Data Transfer Size:         64 Pages
+Warning  Comp. Temp. Threshold:     75 Celsius
+Critical Comp. Temp. Threshold:     80 Celsius
+
+Supported Power States
+St Op     Max   Active     Idle   RL RT WL WT  Ent_Lat  Ex_Lat
+ 0 +     9.00W       -        -    0  0  0  0        0       0
+ 1 +     4.60W       -        -    1  1  1  1        0       0
+ 2 +     3.80W       -        -    2  2  2  2        0       0
+ 3 -   0.0450W       -        -    3  3  3  3     2000    2000
+ 4 -   0.0040W       -        -    4  4  4  4    15000   15000
+
+Supported LBA Sizes (NSID 0x1)
+Id Fmt  Data  Metadt  Rel_Perf
+ 0 +     512       0         0
+
+=== START OF SMART DATA SECTION ===
+SMART overall-health self-assessment test result: PASSED
+
+SMART/Health Information (NVMe Log 0x02)
+Critical Warning:                   0x00
+Temperature:                        47 Celsius
+Available Spare:                    100%
+Available Spare Threshold:          10%
+Percentage Used:                    6%
+Data Units Read:                    44,586,180 [22.8 TB]
+Data Units Written:                 18,202,849 [9.31 TB]
+Host Read Commands:                 472,652,730
+Host Write Commands:                320,556,174
+Controller Busy Time:               1,491
+Power Cycles:                       1,816
+Power On Hours:                     2,725
+Unsafe Shutdowns:                   1,330
+Media and Data Integrity Errors:    0
+Error Information Log Entries:      0
+Warning  Comp. Temperature Time:    0
+Critical Comp. Temperature Time:    0
+Temperature Sensor 1:               50 Celsius
+Temperature Sensor 2:               47 Celsius
+Temperature Sensor 3:               53 Celsius
+Temperature Sensor 4:               47 Celsius
+Temperature Sensor 5:               47 Celsius
+Temperature Sensor 6:               38 Celsius
+
+Error Information (NVMe Log 0x01, 16 of 256 entries)
+No Errors Logged
+
+Read Self-test Log failed: Invalid Field in Command (0x002)
+"""
+
 class TestSsd:
     @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_nvme_ssd))
     def test_nvme_ssd(self):
@@ -1432,6 +1740,19 @@ class TestSsd:
 
         assert(ssd.get_disk_io_writes() == '178564')
         assert(ssd.get_disk_io_reads() == '760991')
+
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_ssd2))
+    def test_ssd2(self):
+        # Test parsing a normal ssd info
+        ssd = SsdUtil('/dev/sda')
+        assert(ssd.get_health() == '0')
+        assert(ssd.get_model() == 'SATA SSD')
+        assert(ssd.get_firmware() == 'FW1241')
+        assert(ssd.get_temperature() == '30')
+        assert(ssd.get_serial() == 'SPG210902J8')
+        assert(ssd.get_disk_io_reads() == '37584067165')
+        assert(ssd.get_disk_io_writes() == '196534949930')
+        assert(ssd.get_reserved_blocks() == '29')
 
     @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_lack_info_ssd))
     def test_ssd_with_na_path(self):
@@ -1614,3 +1935,29 @@ class TestSsd:
         mock_exec.side_effect = [output_vitrium_nvme_generic, output_smartcmd_vitrium_error]
         vitrium_ssd = SsdUtil('/dev/nvme0n1')
         assert vitrium_ssd.get_temperature() == 53.0
+
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_atp_ssd))
+    def test_atp_ssd(self):
+        # Test parsing a normal SSD info
+        atp_ssd = SsdUtil('/dev/sda')
+        assert(atp_ssd.get_health() == '98')
+        assert(atp_ssd.get_model() == 'ATP AF32GSAIA-AW1')
+        assert(atp_ssd.get_firmware() == 'V1ST0100')
+        assert(atp_ssd.get_temperature() == '33')
+        assert(atp_ssd.get_serial() == '22110247-000144')
+        assert(atp_ssd.get_disk_io_reads() == '75560121447')
+        assert(atp_ssd.get_disk_io_writes() == '77937125888')
+        assert(atp_ssd.get_reserved_blocks() == 'N/A')
+
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_atp_nvme_ssd))
+    def test_atp_nvme_ssd(self):
+        # Test parsing a normal SSD info
+        atp_nvme_ssd = SsdUtil('/dev/nvme0n1')
+        assert(atp_nvme_ssd.get_health() == 94.0)
+        assert(atp_nvme_ssd.get_model() == 'ATP AF240GSTJA-AW1')
+        assert(atp_nvme_ssd.get_firmware() == '42A4SB6G')
+        assert(atp_nvme_ssd.get_temperature() == 47)
+        assert(atp_nvme_ssd.get_serial() == '23090214-000325')
+        assert(atp_nvme_ssd.get_disk_io_reads() == '44,586,180 [22.8 TB]')
+        assert(atp_nvme_ssd.get_disk_io_writes() == '18,202,849 [9.31 TB]')
+        assert(atp_nvme_ssd.get_reserved_blocks() == 100.0)
