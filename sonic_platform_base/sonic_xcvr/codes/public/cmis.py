@@ -46,6 +46,9 @@ class CmisCodes(Sff8024):
         1: 'TEC runawawy',
         2: 'Data memory corrupted',
         3: 'Program memory corrupted',
+        4: "Transmitter fault",
+        5: "Receiver fault",
+        6: "Temperature related fault",
     }
 
     DATAPATH_STATE = {
