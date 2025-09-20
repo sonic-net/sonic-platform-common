@@ -637,7 +637,7 @@ class TestModuleBasePCIAndSensors:
         with patch.object(module, 'get_pci_bus_info', side_effect=Exception()):
             assert module.handle_pci_rescan() is False
 
-     def test_handle_sensor_removal(self):
+    def test_handle_sensor_removal(self):
         module = ModuleBase()
 
         with patch.object(module, 'get_name', return_value="DPU0"), \
