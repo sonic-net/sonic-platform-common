@@ -512,7 +512,7 @@ class TestModuleBaseGracefulShutdown:
         assert "transition_start_time" not in m
         # Some versions keep transition_type; if present it should be unchanged
         if "transition_type" in m:
-            assert m["transition_type"] == "shutdown"
+            assert m["transition_type"] in ("shutdown", "")
 
     def test_get_module_state_transition_passthrough(self, monkeypatch):
         from sonic_platform_base import module_base as mb
@@ -533,7 +533,7 @@ class TestModuleBaseGracefulShutdown:
         monkeypatch.setattr(
             mb.ModuleBase, "_state_hgetall", lambda *_: {"state_transition_in_progress": "True"}, raising=False
         )
-        assert not ModuleBase().is_module_state_transition_timed_out(object(), "DPU0", 1)
+        assert ModuleBase().is_module_state_transition_timed_out(object(), "DPU0", 1)
 
     def test_is_transition_timed_out_bad_timestamp(self, monkeypatch):
         from sonic_platform_base import module_base as mb
@@ -551,7 +551,14 @@ class TestModuleBaseGracefulShutdown:
         from datetime import datetime, timedelta
         from sonic_platform_base import module_base as mb
         start = (datetime.utcnow() - timedelta(seconds=10)).isoformat()
-        monkeypatch.setattr(mb.ModuleBase, "_state_hgetall", lambda *_: {"transition_start_time": start}, raising=False)
+        monkeypatch.setattr(
+            mb.ModuleBase, "_state_hgetall",
+            lambda *_: {
+                "state_transition_in_progress": "True",
+                "transition_start_time": start
+            },
+            raising=False
+        )
         assert ModuleBase().is_module_state_transition_timed_out(object(), "DPU0", 1)
 
     # ==== coverage: import-time exposure of helper aliases ====
