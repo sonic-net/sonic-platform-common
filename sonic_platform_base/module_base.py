@@ -13,11 +13,35 @@ import json
 import threading
 import contextlib
 import shutil
+import time
+from datetime import datetime, timezone
+
+_v2 = None
 
 # PCI state database constants
 PCIE_DETACH_INFO_TABLE = "PCIE_DETACH_INFO"
 PCIE_OPERATION_DETACHING = "detaching"
 PCIE_OPERATION_ATTACHING = "attaching"
+
+
+def _state_db_connector():
+    """Lazy-create a state DB connector without top-level imports.
+
+    Tries swsscommon first, then swsssdk. Keeps this module import-safe on
+    platforms/containers that don't ship both bindings.
+    """
+    try:
+        from swsscommon.swsscommon import SonicV2Connector  # type: ignore
+    except Exception:
+        from swsssdk import SonicV2Connector  # type: ignore
+    db = SonicV2Connector()
+    try:
+        db.connect(db.STATE_DB)
+    except Exception:
+        # Older swsssdk may not require explicit connect; ignore to preserve behavior
+        pass
+    return db
+
 
 class ModuleBase(device_base.DeviceBase):
     """
@@ -95,7 +119,7 @@ class ModuleBase(device_base.DeviceBase):
         # List of ASIC-derived objects representing all ASICs
         # visibile in PCI domain on the module
         self._asic_list = []
-    
+
     @contextlib.contextmanager
     def _file_operation_lock(self, lock_file_path):
         """Common file-based lock for operations using flock"""
@@ -221,18 +245,19 @@ class ModuleBase(device_base.DeviceBase):
 
     def set_admin_state(self, up):
         """
-        Request to keep the card in administratively up/down state.
-        The down state will power down the module and the status should show
-        MODULE_STATUS_OFFLINE.
-        The up state will take the module to MODULE_STATUS_FAULT or
-        MODULE_STATUS_ONLINE states.
+        Request to set the module's administrative state.
+
+        Abstract:
+          Platform-specific code must implement this to handle admin up/down.
+          For SmartSwitch NPU platforms (device_subtype == "SmartSwitch" and not is_dpu()),
+          the derived function should call graceful_shutdown_handler() before setting DOWN
+          to trigger the gNOI shutdown sequence as described in the graceful shutdown HLD.
 
         Args:
-            up: A boolean, True to set the admin-state to UP. False to set the
-            admin-state to DOWN.
+            up (bool): True for admin UP, False for admin DOWN.
 
         Returns:
-            bool: True if the request has been issued successfully, False if not
+            bool: True if the request was successful, False otherwise.
         """
         raise NotImplementedError
 
@@ -390,6 +415,322 @@ class ModuleBase(device_base.DeviceBase):
         Returns False, if PCI rescan fails or specified device is not found.
         """
         raise NotImplementedError
+
+    # ###########################################
+    # Smartswitch DPU graceful shutdown helpers
+    # Transition timeout defaults (seconds)
+    # These are used unless overridden by /usr/share/sonic/platform/platform.json
+    # with optional keys: dpu_startup_timeout, dpu_shutdown_timeout, dpu_reboot_timeout
+    # ###########################################
+    _TRANSITION_TIMEOUT_DEFAULTS = {
+        "startup": 300,   # 5 minutes
+        "shutdown": 180,  # 3 minutes
+        "reboot": 240,    # 4 minutes
+    }
+    # class-level cache to avoid multiple reads per process
+    _TRANSITION_TIMEOUTS_CACHE = None
+
+    @staticmethod
+    def _state_hgetall(db, key: str) -> dict:
+        """STATE_DB HGETALL as dict across both connector types with robust fallbacks."""
+        def _norm_map(d):
+            if not d:
+                return {}
+            out = {}
+            for k, v in d.items():
+                if isinstance(k, (bytes, bytearray)):
+                    k = k.decode("utf-8", "ignore")
+                if isinstance(v, (bytes, bytearray)):
+                    v = v.decode("utf-8", "ignore")
+                out[k] = v
+            return out
+
+        # 1) Preferred: swsscommon.Table (if available)
+        try:
+            from swsscommon import swsscommon
+            table, sep, obj = key.partition("|")
+            if sep:
+                t = swsscommon.Table(db, table)
+                status, fvp = t.get(obj)
+                if status:
+                    return _norm_map(dict(fvp))
+        except Exception:
+            pass
+
+        # 2) SonicV2Connector.get_all (where supported)
+        try:
+            res = db.get_all(db.STATE_DB, key)
+            return _norm_map(res)
+        except Exception:
+            pass
+
+        # 3) FINAL fallback: raw redis client hgetall
+        try:
+            client = db.get_redis_client(db.STATE_DB)
+            raw = client.hgetall(key)
+            return _norm_map(raw)
+        except Exception:
+            return {}
+
+    @staticmethod
+    def _state_hset(db, key: str, mapping: dict):
+        """STATE_DB HSET mapping across both connector types (swsssdk/swsscommon)."""
+        m = {k: str(v) for k, v in mapping.items()}
+
+        # 1) swsssdk: hmset(table, key, dict)
+        try:
+            db.hmset(db.STATE_DB, key, m)
+            return
+        except Exception:
+            pass
+
+        # 2) some environments support set(table, key, dict)
+        try:
+            db.set(db.STATE_DB, key, m)
+            return
+        except Exception:
+            pass
+
+        # 3) raw redis client via swsscommon: hset(key, [mapping] | field, value)
+        try:
+            client = db.get_redis_client(db.STATE_DB)
+            try:
+                client.hset(key, mapping=m)
+                return
+            except TypeError:
+                for fk, fv in m.items():
+                    client.hset(key, fk, fv)
+                return
+        except Exception:
+            pass
+
+        # 4) swsscommon.Table fallback (final write attempt)
+        try:
+            from swsscommon import swsscommon
+            table, _, obj = key.partition("|")
+            t = swsscommon.Table(db, table)
+            t.set(obj, swsscommon.FieldValuePairs(list(m.items())))
+            return
+        except Exception:
+            # no-op on failure to match helper’s documented behavior
+            pass
+
+    @staticmethod
+    def _state_hdel(db, key: str, *fields: str):
+        """STATE_DB HDEL fields across connector types. No-op on failure."""
+        try:
+            client = db.get_redis_client(db.STATE_DB)
+            if fields:
+                client.hdel(key, *fields)
+            return
+        except Exception:
+            pass
+        # As a conservative fallback, do nothing (Table lacks field-level delete).
+
+    @staticmethod
+    def _cfg_get_entry(table, key):
+        """CONFIG_DB single entry fetch with graceful fallback (dict or {})."""
+        # Prefer swsscommon connector
+        try:
+            from swsscommon.swsscommon import SonicV2Connector  # type: ignore
+            db = SonicV2Connector()
+            db.connect(db.CONFIG_DB)
+            full_key = f"{table}|{key}"
+            return db.get_all(db.CONFIG_DB, full_key) or {}
+        except Exception:
+            pass
+        # Fallback: swsssdk
+        try:
+            from swsssdk import SonicV2Connector  # type: ignore
+            db = SonicV2Connector()
+            db.connect(db.CONFIG_DB)
+            full_key = f"{table}|{key}"
+            return db.get_all(db.CONFIG_DB, full_key) or {}
+        except Exception:
+            return {}
+
+    def _transition_key(self) -> str:
+        """Return the STATE_DB key for this module's transition state."""
+        # Use get_name() to avoid relying on an attribute that may not exist.
+        return f"CHASSIS_MODULE_TABLE|{self.get_name()}"
+
+    def _load_transition_timeouts(self) -> dict:
+        """
+        Load per-operation timeouts from platform.json if present, otherwise
+        fall back to _TRANSITION_TIMEOUT_DEFAULTS.
+        Recognized keys:
+          - dpu_startup_timeout
+          - dpu_shutdown_timeout
+          - dpu_reboot_timeout
+        """
+        if ModuleBase._TRANSITION_TIMEOUTS_CACHE is not None:
+            return ModuleBase._TRANSITION_TIMEOUTS_CACHE
+
+        timeouts = dict(self._TRANSITION_TIMEOUT_DEFAULTS)
+        try:
+            md = ModuleBase._cfg_get_entry("DEVICE_METADATA", "localhost")
+            plat = (md or {}).get("platform")
+            if not plat:
+                ModuleBase._TRANSITION_TIMEOUTS_CACHE = timeouts
+                return ModuleBase._TRANSITION_TIMEOUTS_CACHE
+            # NOTE: In upstream SONiC, this path is bind-mounted into PMON.
+            path = f"/usr/share/sonic/device/{plat}/platform.json"
+            with open(path, "r") as f:
+                data = json.load(f) or {}
+            if "dpu_startup_timeout" in data:
+                timeouts["startup"] = int(data["dpu_startup_timeout"])
+            if "dpu_shutdown_timeout" in data:
+                timeouts["shutdown"] = int(data["dpu_shutdown_timeout"])
+            if "dpu_reboot_timeout" in data:
+                timeouts["reboot"] = int(data["dpu_reboot_timeout"])
+        except Exception:
+            # On any error, just use defaults
+            pass
+
+        ModuleBase._TRANSITION_TIMEOUTS_CACHE = timeouts
+        return ModuleBase._TRANSITION_TIMEOUTS_CACHE
+
+    def graceful_shutdown_handler(self):
+        """
+        SmartSwitch graceful shutdown gate for a DPU module:
+        - Write CHASSIS_MODULE_TABLE|<DPUX> transition = in-progress ("shutdown")
+        - Wait until either:
+            (a) another agent clears in-progress to "False", OR
+            (b) this module's oper status becomes Offline
+          Whichever happens first, we stop waiting.
+        - On (b), clear transition ourselves to unblock waiters.
+        - Timeout based on per-op shutdown timeout from platform.json (fallback 180s).
+        """
+        db = _state_db_connector()
+
+        module_name = self.get_name()
+
+        # Mark transition start
+        self.set_module_state_transition(db, module_name, "shutdown")
+
+        # Determine shutdown timeout (do NOT use get_reboot_timeout())
+        timeouts = self._load_transition_timeouts()
+        shutdown_timeout = int(timeouts.get("shutdown", self._TRANSITION_TIMEOUT_DEFAULTS["shutdown"]))
+
+        interval = 2
+        waited = 0
+
+        key = self._transition_key()
+        while waited < shutdown_timeout:
+            entry = ModuleBase._state_hgetall(db, key)
+
+            # (a) Someone else completed the graceful phase
+            if entry.get("state_transition_in_progress", "False") == "False":
+                return
+
+            # (b) Platform reports oper Offline — complete & clear transition
+            try:
+                oper = self.get_oper_status()
+                if oper and str(oper).lower() == "offline":
+                    self.clear_module_state_transition(db, module_name)
+                    return
+            except Exception:
+                # Don't fail the graceful gate on a transient platform call error
+                pass
+
+            time.sleep(interval)
+            waited += interval
+
+        # Timed out — best-effort clear to unblock any waiters
+        self.clear_module_state_transition(db, module_name)
+
+    # ############################################################
+    # Centralized APIs for CHASSIS_MODULE_TABLE transition flags
+    # ############################################################
+
+    def set_module_state_transition(self, db, module_name: str, transition_type: str):
+        """
+        Mark the given module as being in a state transition.
+
+        Args:
+            db: Connected SonicV2Connector
+            module_name: e.g., 'DPU0'
+            transition_type: 'shutdown' | 'startup' | 'reboot'
+        """
+        key = f"CHASSIS_MODULE_TABLE|{module_name}"
+        # Always write tz-aware UTC and Z-suffixed to avoid tz-naive parsing issues
+        ModuleBase._state_hset(db, key, {
+            "state_transition_in_progress": "True",
+            "transition_type": transition_type,
+            "transition_start_time": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        })
+
+    def clear_module_state_transition(self, db, module_name: str):
+        """
+        Clear transition flags for the given module after a transition completes.
+        Field-scoped update to avoid clobbering concurrent writers.
+        """
+        key = f"CHASSIS_MODULE_TABLE|{module_name}"
+        # Mark not in-progress and clear type (prevents stale 'startup' blocks)
+        ModuleBase._state_hset(db, key, {
+            "state_transition_in_progress": "False",
+            "transition_type": ""
+        })
+        # Remove the start timestamp (avoid stale value lingering)
+        try:
+            ModuleBase._state_hdel(db, key, "transition_start_time")
+        except Exception:
+            # Best-effort; if HDEL isn't available we simply leave it.
+            pass
+
+    def get_module_state_transition(self, db, module_name: str) -> dict:
+        """
+        Return the transition entry for a given module from STATE_DB.
+
+        Returns:
+            dict with keys: state_transition_in_progress, transition_type,
+            transition_start_time (if present).
+        """
+        key = f"CHASSIS_MODULE_TABLE|{module_name}"
+        return ModuleBase._state_hgetall(db, key)
+
+    def is_module_state_transition_timed_out(self, db, module_name: str, timeout_seconds: int) -> bool:
+        """
+        Check whether the state transition for the given module has exceeded timeout.
+
+        Args:
+            db: Connected SonicV2Connector
+            module_name: e.g., 'DPU0'
+            timeout_seconds: max allowed seconds for the transition
+
+        Returns:
+            True if transition exceeded timeout, False otherwise.
+        """
+        key = f"CHASSIS_MODULE_TABLE|{module_name}"
+        entry = ModuleBase._state_hgetall(db, key)
+
+        # Missing entry means no active transition recorded; allow new operation to proceed.
+        if not entry:
+            return True
+
+        # Only consider timeout if a transition is actually in progress
+        inprog = str(entry.get("state_transition_in_progress", "")).lower() in ("1", "true", "yes", "on")
+        if not inprog:
+            return False
+
+        start_str = entry.get("transition_start_time")
+        if not start_str:
+            # In-progress with no timestamp → fail-safe to timed out so we never get stuck
+            return True
+
+        # Robust parsing: accept 'Z' suffix; tolerate tz-naive and make it UTC
+        s = start_str.replace("Z", "+00:00") if start_str.endswith("Z") else start_str
+        try:
+            t0 = datetime.fromisoformat(s)
+        except Exception:
+            # Bad format → fail-safe to timed out
+            return True
+
+        if t0.tzinfo is None:
+            t0 = t0.replace(tzinfo=timezone.utc)
+
+        age = (datetime.now(timezone.utc) - t0).total_seconds()
+        return age > timeout_seconds
 
     ##############################################
     # Component methods
