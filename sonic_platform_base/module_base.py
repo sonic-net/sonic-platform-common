@@ -14,7 +14,7 @@ import threading
 import contextlib
 import shutil
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 _v2 = None
 
@@ -639,10 +639,11 @@ class ModuleBase(device_base.DeviceBase):
             transition_type: 'shutdown' | 'startup' | 'reboot'
         """
         key = f"CHASSIS_MODULE_TABLE|{module_name}"
+        # Always write tz-aware UTC and Z-suffixed to avoid tz-naive parsing issues
         ModuleBase._state_hset(db, key, {
             "state_transition_in_progress": "True",
             "transition_type": transition_type,
-            "transition_start_time": datetime.utcnow().isoformat()
+            "transition_start_time": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         })
 
     def clear_module_state_transition(self, db, module_name: str):
@@ -651,8 +652,11 @@ class ModuleBase(device_base.DeviceBase):
         Field-scoped update to avoid clobbering concurrent writers.
         """
         key = f"CHASSIS_MODULE_TABLE|{module_name}"
-        # Mark not in-progress
-        ModuleBase._state_hset(db, key, {"state_transition_in_progress": "False"})
+        # Mark not in-progress and clear type (prevents stale 'startup' blocks)
+        ModuleBase._state_hset(db, key, {
+            "state_transition_in_progress": "False",
+            "transition_type": ""
+        })
         # Remove the start timestamp (avoid stale value lingering)
         try:
             ModuleBase._state_hdel(db, key, "transition_start_time")
@@ -685,21 +689,34 @@ class ModuleBase(device_base.DeviceBase):
         """
         key = f"CHASSIS_MODULE_TABLE|{module_name}"
         entry = ModuleBase._state_hgetall(db, key)
+
         # Missing entry means no active transition recorded; allow new operation to proceed.
         if not entry:
             return True
 
+        # Only consider timeout if a transition is actually in progress
+        inprog = str(entry.get("state_transition_in_progress", "")).lower() in ("1", "true", "yes", "on")
+        if not inprog:
+            return False
+
         start_str = entry.get("transition_start_time")
         if not start_str:
-            return False
+            # In-progress with no timestamp → fail-safe to timed out so we never get stuck
+            return True
 
+        # Robust parsing: accept 'Z' suffix; tolerate tz-naive and make it UTC
+        s = start_str.replace("Z", "+00:00") if start_str.endswith("Z") else start_str
         try:
-            start = datetime.fromisoformat(start_str)
-        except ValueError:
-            return False
+            t0 = datetime.fromisoformat(s)
+        except Exception:
+            # Bad format → fail-safe to timed out
+            return True
 
-        elapsed = (datetime.utcnow() - start).total_seconds()
-        return elapsed > timeout_seconds
+        if t0.tzinfo is None:
+            t0 = t0.replace(tzinfo=timezone.utc)
+
+        age = (datetime.now(timezone.utc) - t0).total_seconds()
+        return age > timeout_seconds
 
     ##############################################
     # Component methods
