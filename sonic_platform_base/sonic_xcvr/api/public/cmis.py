@@ -111,6 +111,20 @@ class CmisApi(XcvrApi):
     LowPwrRequestSW = 4
     LowPwrAllowRequestHW = 6
 
+    LPO_HOST_ELECTRICAL_INTERFACE_IDS = [
+        Sff8024.HOST_ELECTRICAL_INTERFACE[32],
+        Sff8024.HOST_ELECTRICAL_INTERFACE[33],
+        Sff8024.HOST_ELECTRICAL_INTERFACE[34],
+        Sff8024.HOST_ELECTRICAL_INTERFACE[35]
+    ]
+
+    LPO_SM_MEDIA_INTERFACE_IDS = [
+        Sff8024.SM_MEDIA_INTERFACE[151],
+        Sff8024.SM_MEDIA_INTERFACE[152],
+        Sff8024.SM_MEDIA_INTERFACE[153],
+        Sff8024.SM_MEDIA_INTERFACE[154]
+    ]
+
     # Default caching enabled; control via classmethod
     cache_enabled = True
 
@@ -591,6 +605,25 @@ class CmisApi(XcvrApi):
         '''
         media_intf = self.get_module_media_type()
         return media_intf == "passive_copper_media_interface" if media_intf else None
+
+    def is_lpo(self):
+        '''
+        Returns True if the module is LPO, False otherwise
+        '''
+        appl_advt = self.get_application_advertisement()
+        if not appl_advt:
+            return False
+
+        for appl_dict in appl_advt.values():
+            host_intf = appl_dict.get('host_electrical_interface_id')
+            media_intf = appl_dict.get('module_media_interface_id')
+            if (
+                host_intf in self.LPO_HOST_ELECTRICAL_INTERFACE_IDS or
+                media_intf in self.LPO_SM_MEDIA_INTERFACE_IDS
+            ):
+                return True
+
+        return False
 
     @read_only_cached_api_return
     def is_flat_memory(self):
