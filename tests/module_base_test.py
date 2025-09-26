@@ -345,14 +345,14 @@ class TestModuleBaseGracefulShutdown:
     # ==== coverage: _state_hset branches ====
 
     @staticmethod
-    def test__state_hset_uses_hmset_first():
+    def test__state_hset_uses_db_set_first(self):
         from sonic_platform_base import module_base as mb
         recorded = {}
 
         class FakeDB:
             STATE_DB = 6
 
-            def hmset(self, _db, key, mapping):
+            def set(self, _db, key, mapping):
                 recorded["key"] = key
                 recorded["mapping"] = mapping
 
