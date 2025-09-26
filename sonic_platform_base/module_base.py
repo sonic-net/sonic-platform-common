@@ -16,7 +16,6 @@ import shutil
 import time
 from datetime import datetime, timezone
 
-_v2 = None
 
 # PCI state database constants
 PCIE_DETACH_INFO_TABLE = "PCIE_DETACH_INFO"
@@ -25,20 +24,13 @@ PCIE_OPERATION_ATTACHING = "attaching"
 
 
 def _state_db_connector():
-    """Lazy-create a state DB connector without top-level imports.
-
-    Tries swsscommon first, then swsssdk. Keeps this module import-safe on
-    platforms/containers that don't ship both bindings.
-    """
-    try:
-        from swsscommon.swsscommon import SonicV2Connector  # type: ignore
-    except Exception:
-        from swsssdk import SonicV2Connector  # type: ignore
+    """Lazy-create a STATE_DB connector using swsscommon only."""
+    from swsscommon.swsscommon import SonicV2Connector  # type: ignore
     db = SonicV2Connector()
     try:
         db.connect(db.STATE_DB)
     except Exception:
-        # Older swsssdk may not require explicit connect; ignore to preserve behavior
+        # Some environments autoconnect; preserve tolerant behavior
         pass
     return db
 
@@ -460,24 +452,17 @@ class ModuleBase(device_base.DeviceBase):
 
     @staticmethod
     def _state_hset(db, key: str, mapping: dict):
-        """STATE_DB HSET mapping across both connector types (swsssdk/swsscommon)."""
+        """STATE_DB HSET mapping using swsscommon-compatible paths only."""
         m = {k: str(v) for k, v in mapping.items()}
 
-        # 1) swsssdk: hmset(table, key, dict)
-        try:
-            db.hmset(db.STATE_DB, key, m)
-            return
-        except Exception:
-            pass
-
-        # 2) some environments support set(table, key, dict)
+        # 1) Some environments expose db.set(STATE_DB, key, dict)
         try:
             db.set(db.STATE_DB, key, m)
             return
         except Exception:
             pass
 
-        # 3) raw redis client via swsscommon: hset(key, [mapping] | field, value)
+        # 2) Raw redis client: hset(key, mapping=...)
         try:
             client = db.get_redis_client(db.STATE_DB)
             try:
@@ -490,7 +475,7 @@ class ModuleBase(device_base.DeviceBase):
         except Exception:
             pass
 
-        # 4) swsscommon.Table fallback (final write attempt)
+        # 3) swsscommon.Table
         try:
             from swsscommon import swsscommon
             table, _, obj = key.partition("|")
@@ -515,25 +500,12 @@ class ModuleBase(device_base.DeviceBase):
 
     @staticmethod
     def _cfg_get_entry(table, key):
-        """CONFIG_DB single entry fetch with graceful fallback (dict or {})."""
-        # Prefer swsscommon connector
-        try:
-            from swsscommon.swsscommon import SonicV2Connector  # type: ignore
-            db = SonicV2Connector()
-            db.connect(db.CONFIG_DB)
-            full_key = f"{table}|{key}"
-            return db.get_all(db.CONFIG_DB, full_key) or {}
-        except Exception:
-            pass
-        # Fallback: swsssdk
-        try:
-            from swsssdk import SonicV2Connector  # type: ignore
-            db = SonicV2Connector()
-            db.connect(db.CONFIG_DB)
-            full_key = f"{table}|{key}"
-            return db.get_all(db.CONFIG_DB, full_key) or {}
-        except Exception:
-            return {}
+        """CONFIG_DB single entry fetch (swsscommon only)."""
+        from swsscommon.swsscommon import SonicV2Connector  # type: ignore
+        db = SonicV2Connector()
+        db.connect(db.CONFIG_DB)
+        full_key = f"{table}|{key}"
+        return db.get_all(db.CONFIG_DB, full_key) or {}
 
     def _transition_key(self) -> str:
         """Return the STATE_DB key for this module's transition state."""
@@ -560,7 +532,7 @@ class ModuleBase(device_base.DeviceBase):
                 ModuleBase._TRANSITION_TIMEOUTS_CACHE = timeouts
                 return ModuleBase._TRANSITION_TIMEOUTS_CACHE
             # NOTE: In upstream SONiC, this path is bind-mounted into PMON.
-            path = f"/usr/share/sonic/device/{plat}/platform.json"
+            path = f"/usr/share/sonic/platform/platform.json"
             with open(path, "r") as f:
                 data = json.load(f) or {}
             if "dpu_startup_timeout" in data:

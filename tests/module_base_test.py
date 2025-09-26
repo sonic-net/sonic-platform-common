@@ -731,20 +731,16 @@ class TestModuleBasePCIAndSensors:
             assert module.module_post_startup() is False
 
 
-class TestImportFallback:
-    @staticmethod
-    def test_import_fallback_to_swsscommon():
-        """Ensure _state_db_connector prefers swsscommon.swsscommon.SonicV2Connector when swsssdk is missing."""
-        orig_import = builtins.__import__
+class TestStateDbConnectorSwsscommonOnly:
+    def test_state_db_connector_uses_swsscommon_only(self):
+        import importlib
+        import sys
+        from types import ModuleType
+        from unittest.mock import patch
 
-        def fake_import(name, *args, **kwargs):
-            if name == "swsssdk":
-                raise ImportError("simulate missing swsssdk")
-            return orig_import(name, *args, **kwargs)
-
-        # Build a fake package tree: swsscommon (package) -> swsscommon.swsscommon (module)
+        # Fake swsscommon package + swsscommon.swsscommon module
         pkg = ModuleType("swsscommon")
-        pkg.__path__ = []  # mark as a package
+        pkg.__path__ = []  # mark as package
         sub = ModuleType("swsscommon.swsscommon")
 
         class FakeV2:
@@ -757,11 +753,7 @@ class TestImportFallback:
             "swsscommon": pkg,
             "swsscommon.swsscommon": sub
         }, clear=False):
-            with patch("builtins.__import__", side_effect=fake_import):
-                # Import and reload under the patched import machinery
-                mb = importlib.import_module("sonic_platform_base.module_base")
-                importlib.reload(mb)
-
-                # Verify the lazy factory returns our FakeV2 path
-                db = mb._state_db_connector()
-                assert isinstance(db, FakeV2)
+            mb = importlib.import_module("sonic_platform_base.module_base")
+            importlib.reload(mb)
+            db = mb._state_db_connector()
+            assert isinstance(db, FakeV2)
