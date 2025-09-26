@@ -344,7 +344,6 @@ class TestModuleBaseGracefulShutdown:
 
     # ==== coverage: _state_hset branches ====
 
-    @staticmethod
     def test__state_hset_uses_db_set_first(self):
         from sonic_platform_base import module_base as mb
         recorded = {}
