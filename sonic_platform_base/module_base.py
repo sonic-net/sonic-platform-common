@@ -514,27 +514,24 @@ class ModuleBase(device_base.DeviceBase):
 
     def _load_transition_timeouts(self) -> dict:
         """
-        Load per-operation timeouts from platform.json if present, otherwise
-        fall back to _TRANSITION_TIMEOUT_DEFAULTS.
-        Recognized keys:
-          - dpu_startup_timeout
-          - dpu_shutdown_timeout
-          - dpu_reboot_timeout
+        Load per-operation timeouts from /usr/share/sonic/platform/platform.json if present,
+        otherwise fall back to _TRANSITION_TIMEOUT_DEFAULTS.
+
+        Recognized keys in platform.json:
+        - dpu_startup_timeout
+        - dpu_shutdown_timeout
+        - dpu_reboot_timeout
         """
         if ModuleBase._TRANSITION_TIMEOUTS_CACHE is not None:
             return ModuleBase._TRANSITION_TIMEOUTS_CACHE
 
         timeouts = dict(self._TRANSITION_TIMEOUT_DEFAULTS)
         try:
-            md = ModuleBase._cfg_get_entry("DEVICE_METADATA", "localhost")
-            plat = (md or {}).get("platform")
-            if not plat:
-                ModuleBase._TRANSITION_TIMEOUTS_CACHE = timeouts
-                return ModuleBase._TRANSITION_TIMEOUTS_CACHE
-            # NOTE: In upstream SONiC, this path is bind-mounted into PMON.
-            path = f"/usr/share/sonic/platform/platform.json"
+            # NOTE: On PMON/containers this path is bind-mounted; use it directly.
+            path = "/usr/share/sonic/platform/platform.json"
             with open(path, "r") as f:
                 data = json.load(f) or {}
+
             if "dpu_startup_timeout" in data:
                 timeouts["startup"] = int(data["dpu_startup_timeout"])
             if "dpu_shutdown_timeout" in data:
