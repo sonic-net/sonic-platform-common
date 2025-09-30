@@ -232,11 +232,18 @@ class TestModuleBaseGracefulShutdown:
              patch.object(module, "is_module_state_transition_timed_out", return_value=False):
             module.graceful_shutdown_handler()
 
-        # For an offline DPU, the handler should clear any stale shutdown state.
-        # Verify that the transition state is cleared.
+        # For an offline DPU, the handler should clear any stale shutdown state instead of starting a new one.
         assert mock_hset.call_args_list, "Expected at least one _state_hset call"
-        clear_map = mock_hset.call_args_list[0][0][2]
-        assert clear_map.get("state_transition_in_progress") == "False"
+        # Ensure every call that touches state_transition_in_progress sets it to "False"
+        saw_false = False
+        for call_args in mock_hset.call_args_list:
+            _, _, mapping = call_args[0]
+            if "state_transition_in_progress" in mapping:
+                assert mapping["state_transition_in_progress"] == "False", (
+                    "Expected offline handler to clear transition; saw mapping=" + str(mapping)
+                )
+                saw_false = True
+        assert saw_false, "Did not observe a cleared transition state write (state_transition_in_progress=False)"
 
     @staticmethod
     def test_transition_timeouts_platform_missing():
