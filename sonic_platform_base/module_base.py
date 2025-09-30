@@ -100,7 +100,6 @@ class ModuleBase(device_base.DeviceBase):
         self._thermal_list = []
         self._voltage_sensor_list = []
         self._current_sensor_list = []
-        self.state_db_connector = None
         self.pci_bus_info = None
 
         # List of SfpBase-derived objects representing all sfps
@@ -340,21 +339,21 @@ class ModuleBase(device_base.DeviceBase):
         Args:
             pcie_string (str): The PCI bus string to be written to state database
             operation (str): The operation being performed ("detaching" or "attaching")
-
-        Raises:
-            RuntimeError: If state database connection fails
         """
         try:
-            # Do not use import if swsscommon is not needed
-            import swsscommon
-            PCIE_DETACH_INFO_TABLE_KEY = PCIE_DETACH_INFO_TABLE+"|"+pcie_string
-            if not self.state_db_connector:
-                self.state_db_connector = swsscommon.swsscommon.DBConnector("STATE_DB", 0)
+            db = _state_db_connector()
+            PCIE_DETACH_INFO_TABLE_KEY = PCIE_DETACH_INFO_TABLE + "|" + pcie_string
+            
             if operation == PCIE_OPERATION_ATTACHING:
-                self.state_db_connector.delete(PCIE_DETACH_INFO_TABLE_KEY)
+                # Delete the entire entry for attaching operation
+                ModuleBase._state_hdel(db, PCIE_DETACH_INFO_TABLE_KEY, "bus_info", "dpu_state")
                 return
-            self.state_db_connector.hset(PCIE_DETACH_INFO_TABLE_KEY, "bus_info", pcie_string)
-            self.state_db_connector.hset(PCIE_DETACH_INFO_TABLE_KEY, "dpu_state", operation)
+                
+            # Set the PCI detach info for detaching operation
+            ModuleBase._state_hset(db, PCIE_DETACH_INFO_TABLE_KEY, {
+                "bus_info": pcie_string,
+                "dpu_state": operation
+            })
         except Exception as e:
             sys.stderr.write("Failed to write pcie bus info to state database: {}\n".format(str(e)))
 
@@ -410,102 +409,48 @@ class ModuleBase(device_base.DeviceBase):
 
     @staticmethod
     def _state_hgetall(db, key: str) -> dict:
-        """STATE_DB HGETALL as dict across both connector types with robust fallbacks."""
-        def _norm_map(d):
-            if not d:
+        """STATE_DB HGETALL using swsscommon only."""
+        try:
+            result = db.get_all(db.STATE_DB, key)
+            if not result:
                 return {}
-            out = {}
-            for k, v in d.items():
+            # Normalize byte strings to regular strings
+            normalized = {}
+            for k, v in result.items():
                 if isinstance(k, (bytes, bytearray)):
                     k = k.decode("utf-8", "ignore")
                 if isinstance(v, (bytes, bytearray)):
                     v = v.decode("utf-8", "ignore")
-                out[k] = v
-            return out
-
-        # 1) Preferred: swsscommon.Table (if available)
-        try:
-            from swsscommon import swsscommon
-            table, sep, obj = key.partition("|")
-            if sep:
-                t = swsscommon.Table(db, table)
-                status, fvp = t.get(obj)
-                if status:
-                    return _norm_map(dict(fvp))
-        except Exception:
-            pass
-
-        # 2) SonicV2Connector.get_all (where supported)
-        try:
-            res = db.get_all(db.STATE_DB, key)
-            return _norm_map(res)
-        except Exception:
-            pass
-
-        # 3) FINAL fallback: raw redis client hgetall
-        try:
-            client = db.get_redis_client(db.STATE_DB)
-            raw = client.hgetall(key)
-            return _norm_map(raw)
+                normalized[k] = v
+            return normalized
         except Exception:
             return {}
 
     @staticmethod
     def _state_hset(db, key: str, mapping: dict):
-        """STATE_DB HSET mapping using swsscommon-compatible paths only."""
-        m = {k: str(v) for k, v in mapping.items()}
-
-        # 1) Some environments expose db.set(STATE_DB, key, dict)
+        """STATE_DB HSET using swsscommon only."""
         try:
-            db.set(db.STATE_DB, key, m)
-            return
+            # Convert all values to strings
+            normalized_mapping = {k: str(v) for k, v in mapping.items()}
+            db.set(db.STATE_DB, key, normalized_mapping)
         except Exception:
-            pass
-
-        # 2) Raw redis client: hset(key, mapping=...)
-        try:
-            client = db.get_redis_client(db.STATE_DB)
-            try:
-                client.hset(key, mapping=m)
-                return
-            except TypeError:
-                for fk, fv in m.items():
-                    client.hset(key, fk, fv)
-                return
-        except Exception:
-            pass
-
-        # 3) swsscommon.Table
-        try:
-            from swsscommon import swsscommon
-            table, _, obj = key.partition("|")
-            t = swsscommon.Table(db, table)
-            t.set(obj, swsscommon.FieldValuePairs(list(m.items())))
-            return
-        except Exception:
-            # no-op on failure to match helper’s documented behavior
+            # Best-effort; no-op on failure
             pass
 
     @staticmethod
     def _state_hdel(db, key: str, *fields: str):
-        """STATE_DB HDEL fields across connector types. No-op on failure."""
+        """STATE_DB HDEL using swsscommon only. No-op on failure."""
         try:
-            client = db.get_redis_client(db.STATE_DB)
-            if fields:
-                client.hdel(key, *fields)
-            return
+            # Get current entry, remove specified fields, and set back
+            current_data = ModuleBase._state_hgetall(db, key)
+            if current_data and fields:
+                for field in fields:
+                    current_data.pop(field, None)
+                # Set the modified data back (this effectively deletes the fields)
+                ModuleBase._state_hset(db, key, current_data)
         except Exception:
+            # Best-effort; no-op on failure
             pass
-        # As a conservative fallback, do nothing (Table lacks field-level delete).
-
-    @staticmethod
-    def _cfg_get_entry(table, key):
-        """CONFIG_DB single entry fetch (swsscommon only)."""
-        from swsscommon.swsscommon import SonicV2Connector  # type: ignore
-        db = SonicV2Connector()
-        db.connect(db.CONFIG_DB)
-        full_key = f"{table}|{key}"
-        return db.get_all(db.CONFIG_DB, full_key) or {}
 
     def _transition_key(self) -> str:
         """Return the STATE_DB key for this module's transition state."""
@@ -656,8 +601,7 @@ class ModuleBase(device_base.DeviceBase):
         Returns:
             True if transition exceeded timeout, False otherwise.
         """
-        key = f"CHASSIS_MODULE_TABLE|{module_name}"
-        entry = ModuleBase._state_hgetall(db, key)
+        entry = self.get_module_state_transition(db, module_name)
 
         # Missing entry means no active transition recorded; allow new operation to proceed.
         if not entry:
