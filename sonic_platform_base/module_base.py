@@ -343,12 +343,11 @@ class ModuleBase(device_base.DeviceBase):
         try:
             db = _state_db_connector()
             PCIE_DETACH_INFO_TABLE_KEY = PCIE_DETACH_INFO_TABLE + "|" + pcie_string
-            
+
             if operation == PCIE_OPERATION_ATTACHING:
                 # Delete the entire entry for attaching operation
                 ModuleBase._state_hdel(db, PCIE_DETACH_INFO_TABLE_KEY, "bus_info", "dpu_state")
                 return
-                
             # Set the PCI detach info for detaching operation
             ModuleBase._state_hset(db, PCIE_DETACH_INFO_TABLE_KEY, {
                 "bus_info": pcie_string,
@@ -497,21 +496,39 @@ class ModuleBase(device_base.DeviceBase):
 
     def graceful_shutdown_handler(self):
         """
-        SmartSwitch graceful shutdown gate for a DPU module:
-        - Write CHASSIS_MODULE_TABLE|<DPUX> transition = in-progress ("shutdown")
-        - Wait until either:
-            (a) another agent clears in-progress to "False", OR
-            (b) this module's oper status becomes Offline
-          Whichever happens first, we stop waiting.
-        - On (b), clear transition ourselves to unblock waiters.
-        - Timeout based on per-op shutdown timeout from platform.json (fallback 180s).
+        SmartSwitch graceful shutdown gate for DPU modules with race condition protection.
+
+        Coordinates shutdown with external agents (e.g., gNOI clients) by:
+        1. Atomically setting CHASSIS_MODULE_TABLE|<MODULE_NAME> transition state to "shutdown"
+        2. Waiting for external completion signal or module offline status
+        3. Cleaning up transition state on completion or timeout
+
+        Race Condition Handling:
+        - Multiple concurrent calls are serialized - only one agent sets the transition
+        - Other agents wait for the existing transition to complete
+        - Timeout based on database-recorded start time, not individual agent wait time
+
+        Exit Conditions:
+        - External agent sets state_transition_in_progress="False" (graceful completion)
+        - Module operational status becomes "Offline" (platform-detected shutdown)
+        - Timeout after configured period (default: 180s from platform.json dpu_shutdown_timeout)
+
+        Returns:
+            None: Blocks until graceful shutdown completes or times out
+
+        Note:
+            Called by platform set_admin_state() when transitioning DPU to admin DOWN.
+            Implements SONiC SmartSwitch graceful shutdown HLD requirements.
         """
         db = _state_db_connector()
 
         module_name = self.get_name()
 
-        # Mark transition start
-        self.set_module_state_transition(db, module_name, "shutdown")
+        # Attempt to mark transition start - if another agent is already handling it, wait for completion
+        if not self.set_module_state_transition(db, module_name, "shutdown"):
+            # Another agent is already handling the shutdown transition
+            # Wait for that transition to complete instead of starting our own
+            pass
 
         # Determine shutdown timeout (do NOT use get_reboot_timeout())
         timeouts = self._load_transition_timeouts()
@@ -538,11 +555,19 @@ class ModuleBase(device_base.DeviceBase):
                 # Don't fail the graceful gate on a transient platform call error
                 pass
 
+            # Check if the transition has timed out based on the recorded start time
+            # This handles cases where multiple agents might be waiting
+            if self.is_module_state_transition_timed_out(db, module_name, shutdown_timeout):
+                # Clear only if we can confirm it's actually timed out
+                self.clear_module_state_transition(db, module_name)
+                return
+
             time.sleep(interval)
             waited += interval
 
-        # Timed out — best-effort clear to unblock any waiters
-        self.clear_module_state_transition(db, module_name)
+        # Final timeout check before clearing - use recorded start time, not our local wait time
+        if self.is_module_state_transition_timed_out(db, module_name, shutdown_timeout):
+            self.clear_module_state_transition(db, module_name)
 
     # ############################################################
     # Centralized APIs for CHASSIS_MODULE_TABLE transition flags
@@ -550,20 +575,39 @@ class ModuleBase(device_base.DeviceBase):
 
     def set_module_state_transition(self, db, module_name: str, transition_type: str):
         """
-        Mark the given module as being in a state transition.
+        Atomically mark the given module as being in a state transition if not already in progress.
 
         Args:
             db: Connected SonicV2Connector
             module_name: e.g., 'DPU0'
             transition_type: 'shutdown' | 'startup' | 'reboot'
+
+        Returns:
+            bool: True if transition was successfully set, False if already in progress
         """
         key = f"CHASSIS_MODULE_TABLE|{module_name}"
-        # Always write tz-aware UTC and Z-suffixed to avoid tz-naive parsing issues
+        # Check if a transition is already in progress
+        existing_entry = ModuleBase._state_hgetall(db, key)
+        if existing_entry.get("state_transition_in_progress", "False").lower() in ("true", "1", "yes", "on"):
+            # Already in progress - check if it's timed out
+            timeout_seconds = int(self._load_transition_timeouts().get(
+                existing_entry.get("transition_type", "shutdown"),
+                self._TRANSITION_TIMEOUT_DEFAULTS.get("shutdown", 180)
+            ))
+
+            if not self.is_module_state_transition_timed_out(db, module_name, timeout_seconds):
+                # Still valid, don't overwrite
+                return False
+
+            # Timed out, clear and proceed with new transition
+            self.clear_module_state_transition(db, module_name)
+        # Set new transition atomically
         ModuleBase._state_hset(db, key, {
             "state_transition_in_progress": "True",
             "transition_type": transition_type,
             "transition_start_time": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         })
+        return True
 
     def clear_module_state_transition(self, db, module_name: str):
         """

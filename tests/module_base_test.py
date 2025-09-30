@@ -155,15 +155,10 @@ class TestModuleBaseGracefulShutdown:
 
         module = DummyModule(name=dpu_name)
 
-        # Wire missing wrappers to centralized APIs
+        # Mock the race condition protection to allow the transition to be set
         with patch.object(module, "get_name", return_value=dpu_name), \
              patch.object(module, "_load_transition_timeouts", return_value={"shutdown": 10}), \
-             patch.object(module, "set_module_transition",
-                          side_effect=lambda t: ModuleBase().set_module_state_transition(mock_db_factory.return_value, dpu_name, t),
-                          create=True), \
-             patch.object(module, "clear_module_transition",
-                          side_effect=lambda: ModuleBase().clear_module_state_transition(mock_db_factory.return_value, dpu_name),
-                          create=True):
+             patch.object(module, "is_module_state_transition_timed_out", return_value=False):
             module.graceful_shutdown_handler()
 
         # Verify first write marked transition on CHASSIS_MODULE_TABLE
@@ -194,7 +189,8 @@ class TestModuleBaseGracefulShutdown:
         module = DummyModule(name=dpu_name)
 
         with patch.object(module, "get_name", return_value=dpu_name), \
-             patch.object(module, "_load_transition_timeouts", return_value={"shutdown": 5}):
+             patch.object(module, "_load_transition_timeouts", return_value={"shutdown": 5}), \
+             patch.object(module, "is_module_state_transition_timed_out", return_value=True):
             module.graceful_shutdown_handler()
 
         # Verify the *first* write marked the transition correctly
@@ -224,7 +220,8 @@ class TestModuleBaseGracefulShutdown:
 
         with patch.object(module, "get_name", return_value="DPUX"), \
              patch.object(module, "get_oper_status", return_value="Offline"), \
-             patch.object(module, "_load_transition_timeouts", return_value={"shutdown": 5}):
+             patch.object(module, "_load_transition_timeouts", return_value={"shutdown": 5}), \
+             patch.object(module, "is_module_state_transition_timed_out", return_value=False):
             module.graceful_shutdown_handler()
 
         # Still just verify the initial “mark transition” write; no clear assertion
@@ -483,12 +480,43 @@ class TestModuleBaseGracefulShutdown:
             captured["key"] = key
             captured["mapping"] = mapping
 
+        def fake_hgetall(db, key):
+            # Return no existing entry so the transition can be set
+            return {}
+
         monkeypatch.setattr(mb.ModuleBase, "_state_hset", fake_hset, raising=False)
-        ModuleBase().set_module_state_transition(object(), "DPU9", "startup")
+        monkeypatch.setattr(mb.ModuleBase, "_state_hgetall", fake_hgetall, raising=False)
+
+        result = ModuleBase().set_module_state_transition(object(), "DPU9", "startup")
+
+        assert result == True  # Should successfully set the transition
         assert captured["key"] == "CHASSIS_MODULE_TABLE|DPU9"
         assert captured["mapping"]["state_transition_in_progress"] == "True"
         assert captured["mapping"]["transition_type"] == "startup"
         assert "transition_start_time" in captured["mapping"]
+
+    def test_set_module_state_transition_race_condition_protection(self, monkeypatch):
+        from sonic_platform_base import module_base as mb
+
+        def fake_hgetall(db, key):
+            # Return an existing active transition
+            return {
+                "state_transition_in_progress": "True",
+                "transition_type": "shutdown",
+                "transition_start_time": "2024-01-01T00:00:00Z"
+            }
+
+        def fake_is_timed_out(db, module_name, timeout_seconds):
+            # Simulate that the existing transition is not timed out
+            return False
+
+        monkeypatch.setattr(mb.ModuleBase, "_state_hgetall", fake_hgetall, raising=False)
+        monkeypatch.setattr(mb.ModuleBase, "is_module_state_transition_timed_out", fake_is_timed_out, raising=False)
+
+        module = ModuleBase()
+        result = module.set_module_state_transition(object(), "DPU9", "startup")
+
+        assert result == False  # Should fail to set due to existing active transition
 
     def test_clear_module_state_transition_no_entry(self, monkeypatch):
         from sonic_platform_base import module_base as mb
