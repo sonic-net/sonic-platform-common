@@ -516,8 +516,13 @@ class TestModuleBaseGracefulShutdown:
             written["key"] = key
             written["mapping"] = mapping
 
+        def fake_hdel(db, key, *fields):
+            # Mock _state_hdel to do nothing (just like successful field deletion)
+            pass
+
         monkeypatch.setattr(mb.ModuleBase, "_state_hgetall", fake_hgetall, raising=False)
         monkeypatch.setattr(mb.ModuleBase, "_state_hset", fake_hset, raising=False)
+        monkeypatch.setattr(mb.ModuleBase, "_state_hdel", fake_hdel, raising=False)
         ModuleBase().clear_module_state_transition(object(), "DPU8")
         assert written["key"] == "CHASSIS_MODULE_TABLE|DPU8"
         m = written["mapping"]
