@@ -6,23 +6,10 @@ import importlib
 import builtins
 from io import StringIO
 import sys
-from types import ModuleTyp        with patch.object(module, "get_name", return_value="DPUX"), \
-             patch.object(module, "get_oper_status", return_value="Offline"), \
-             patch.object(module, "_load_transition_timeouts", return_value={"shutdown": 5}), \
-             patch.object(module, "set_module_state_transition", return_value=True), \
-             patch.object(module, "is_module_state_transition_timed_out", return_value=False):
-            module.graceful_shutdown_handler()
+from types import ModuleType
 
-        # Since get_oper_status returns "Offline", the handler should call clear_module_state_transition
-        assert mock_hset.call_args_list, "Expected at least one _state_hset call"
-        # Look for the clear call
-        clear_call = None
-        for call_args in mock_hset.call_args_list:
-            _, _, mapping = call_args[0]
-            if mapping.get("state_transition_in_progress") == "False":
-                clear_call = mapping
-                break
-        assert clear_call is not None, "Expected a call to clear the transition when module goes offline"ckFile:
+
+class MockFile:
     def __init__(self, data=None):
         self.data = data
         self.written_data = None
