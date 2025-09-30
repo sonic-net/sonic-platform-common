@@ -320,6 +320,67 @@ class TestModuleBaseGracefulShutdown:
 
         assert mb.ModuleBase._state_hgetall(FakeDB(), "FAIL_KEY") == {}
 
+    # coverage: _state_hdel
+
+    @staticmethod
+    def test__state_hdel_uses_db_delete_when_available():
+        """Test that _state_hdel uses db.delete() when available."""
+        from sonic_platform_base import module_base as mb
+        delete_calls = []
+
+        class FakeDB:
+            STATE_DB = 6
+
+            def delete(self, db, key, field):
+                delete_calls.append((db, key, field))
+
+        mb.ModuleBase._state_hdel(FakeDB(), "CHASSIS_MODULE_TABLE|DPU0", "field1", "field2")
+        assert len(delete_calls) == 2
+        assert (6, "CHASSIS_MODULE_TABLE|DPU0", "field1") in delete_calls
+        assert (6, "CHASSIS_MODULE_TABLE|DPU0", "field2") in delete_calls
+
+    @staticmethod
+    def test__state_hdel_fallback_when_delete_unavailable():
+        """Test that _state_hdel falls back to get/modify/set when delete() is not available."""
+        from sonic_platform_base import module_base as mb
+
+        class FakeDB:
+            STATE_DB = 6
+            # No delete method - should trigger fallback
+
+            def get_all(self, db, key):
+                return {"field1": "value1", "field2": "value2", "keep_field": "keep_value"}
+
+        set_calls = []
+        original_hset = mb.ModuleBase._state_hset
+
+        def mock_hset(db, key, mapping):
+            set_calls.append((key, mapping))
+
+        mb.ModuleBase._state_hset = mock_hset
+        try:
+            mb.ModuleBase._state_hdel(FakeDB(), "CHASSIS_MODULE_TABLE|DPU0", "field1", "field2")
+            assert len(set_calls) == 1
+            key, mapping = set_calls[0]
+            assert key == "CHASSIS_MODULE_TABLE|DPU0"
+            assert mapping == {"keep_field": "keep_value"}  # field1 and field2 removed
+        finally:
+            mb.ModuleBase._state_hset = original_hset
+
+    @staticmethod
+    def test__state_hdel_exception_handling():
+        """Test that _state_hdel handles exceptions gracefully."""
+        from sonic_platform_base import module_base as mb
+
+        class FakeDB:
+            STATE_DB = 6
+
+            def delete(self, db, key, field):
+                raise Exception("Database error")
+
+        # Should not raise an exception, just silently fail
+        mb.ModuleBase._state_hdel(FakeDB(), "CHASSIS_MODULE_TABLE|DPU0", "field1")
+
     # ==== coverage: _state_hset branches ====
 
     def test__state_hset_uses_db_set_first(self):
@@ -357,80 +418,55 @@ class TestModuleBaseGracefulShutdown:
         assert recorded["mapping"] == {"a": "10"}
 
     @staticmethod
-    def test__state_hset_client_hset_mapping_kw():
-        """Use client.hset(key, mapping=...) success path."""
+    def test__state_hset_uses_db_set():
+        """Test that _state_hset uses db.set() with normalized values."""
         from sonic_platform_base import module_base as mb
         recorded = {}
 
-        class FakeClient:
-            def hset(self, key, mapping=None, **_):
+        class FakeDB:
+            STATE_DB = 6
+
+            def set(self, db, key, mapping):
+                recorded["db"] = db
                 recorded["key"] = key
                 recorded["mapping"] = mapping
 
-        class FakeDB:
-            STATE_DB = 6
-
-            def hmset(self, *_):
-                raise Exception("skip hmset")
-
-            def set(self, *_):
-                raise Exception("skip set")
-
-            def get_redis_client(self, *_):
-                return FakeClient()
-
         mb.ModuleBase._state_hset(FakeDB(), "CHASSIS_MODULE_TABLE|DPU2", {"k1": 1, "k2": "v"})
+        assert recorded["db"] == 6  # STATE_DB
         assert recorded["key"] == "CHASSIS_MODULE_TABLE|DPU2"
-        assert recorded["mapping"] == {"k1": "1", "k2": "v"}
+        assert recorded["mapping"] == {"k1": "1", "k2": "v"}  # Values converted to strings
 
     @staticmethod
-    def test__state_hset_client_hset_per_field_fallback():
-        """Cause TypeError on mapping= and fall back to per-field hset."""
+    def test__state_hset_exception_handling():
+        """Test that _state_hset handles exceptions gracefully."""
         from sonic_platform_base import module_base as mb
-        calls = []
-
-        class FakeClient:
-            # signature without **kwargs -> mapping=... raises TypeError
-            def hset(self, key, field, value):
-                calls.append(("field", key, field, value))
 
         class FakeDB:
             STATE_DB = 6
 
-            def hmset(self, *_):
-                raise Exception("skip hmset")
+            def set(self, db, key, mapping):
+                raise Exception("Database error")
 
-            def set(self, *_):
-                raise Exception("skip set")
-
-            def get_redis_client(self, *_):
-                return FakeClient()
-
+        # Should not raise an exception, just silently fail
         mb.ModuleBase._state_hset(FakeDB(), "CHASSIS_MODULE_TABLE|DPU3", {"k1": 1, "k2": "v"})
-        assert ("field", "CHASSIS_MODULE_TABLE|DPU3", "k1", "1") in calls
-        assert ("field", "CHASSIS_MODULE_TABLE|DPU3", "k2", "v") in calls
 
     @staticmethod
-    def test__state_hset_swsscommon_table_fallback():
+    def test__state_hset_value_normalization():
+        """Test that _state_hset converts all values to strings."""
         from sonic_platform_base import module_base as mb
         recorded = {}
-        TestModuleBaseGracefulShutdown._install_fake_swsscommon_table_set(recorded)
 
         class FakeDB:
             STATE_DB = 6
 
-            def hmset(self, *_):
-                raise Exception()
+            def set(self, db, key, mapping):
+                recorded["mapping"] = mapping
 
-            def set(self, *_):
-                raise Exception()
-
-            def get_redis_client(self, *_):
-                raise Exception()
-
-        mb.ModuleBase._state_hset(FakeDB(), "CHASSIS_MODULE_TABLE|DPU4", {"p": 7, "q": "x"})
-        assert recorded["obj"] == "DPU4"
-        assert sorted(recorded["items"]) == sorted([("p", "7"), ("q", "x")])
+        mb.ModuleBase._state_hset(FakeDB(), "CHASSIS_MODULE_TABLE|DPU4", {"p": 7, "q": "x", "r": True, "s": None})
+        assert recorded["mapping"]["p"] == "7"  # int converted to str
+        assert recorded["mapping"]["q"] == "x"  # str remains str
+        assert recorded["mapping"]["r"] == "True"  # bool converted to str
+        assert recorded["mapping"]["s"] == "None"  # None converted to str
 
     # ==== coverage: centralized transition helpers ====
 
@@ -550,21 +586,37 @@ class TestModuleBaseGracefulShutdown:
 
 class TestModuleBasePCIAndSensors:
     def test_pci_entry_state_db(self):
+        from sonic_platform_base import module_base as mb
         module = ModuleBase()
-        mock_connector = MagicMock()
-        module.state_db_connector = mock_connector
 
-        module.pci_entry_state_db("0000:00:00.0", "detaching")
-        mock_connector.hset.assert_has_calls([
-            call("PCIE_DETACH_INFO|0000:00:00.0", "bus_info", "0000:00:00.0"),
-            call("PCIE_DETACH_INFO|0000:00:00.0", "dpu_state", "detaching")
-        ])
+        # Track what _state_hset and _state_hdel are called with
+        hset_calls = []
+        hdel_calls = []
 
-        module.pci_entry_state_db("0000:00:00.0", "attaching")
-        mock_connector.delete.assert_called_with("PCIE_DETACH_INFO|0000:00:00.0")
+        def mock_hset(db, key, mapping):
+            hset_calls.append((key, mapping))
 
-        mock_connector.hset.side_effect = Exception("DB Error")
-        module.pci_entry_state_db("0000:00:00.0", "detaching")
+        def mock_hdel(db, key, *fields):
+            hdel_calls.append((key, fields))
+
+        with patch.object(mb.ModuleBase, '_state_hset', mock_hset), \
+             patch.object(mb.ModuleBase, '_state_hdel', mock_hdel):
+
+            # Test detaching operation
+            module.pci_entry_state_db("0000:00:00.0", "detaching")
+            assert len(hset_calls) == 1
+            key, mapping = hset_calls[0]
+            assert key == "PCIE_DETACH_INFO|0000:00:00.0"
+            assert mapping == {"bus_info": "0000:00:00.0", "dpu_state": "detaching"}
+
+            # Test attaching operation
+            hset_calls.clear()
+            hdel_calls.clear()
+            module.pci_entry_state_db("0000:00:00.0", "attaching")
+            assert len(hdel_calls) == 1
+            key, fields = hdel_calls[0]
+            assert key == "PCIE_DETACH_INFO|0000:00:00.0"
+            assert set(fields) == {"bus_info", "dpu_state"}
 
     def test_pci_operation_lock(self):
         module = ModuleBase()

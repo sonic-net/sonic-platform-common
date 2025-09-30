@@ -441,13 +441,18 @@ class ModuleBase(device_base.DeviceBase):
     def _state_hdel(db, key: str, *fields: str):
         """STATE_DB HDEL using swsscommon only. No-op on failure."""
         try:
-            # Get current entry, remove specified fields, and set back
-            current_data = ModuleBase._state_hgetall(db, key)
-            if current_data and fields:
+            # Try direct field deletion first (if available)
+            if hasattr(db, 'delete') and callable(getattr(db, 'delete')):
                 for field in fields:
-                    current_data.pop(field, None)
-                # Set the modified data back (this effectively deletes the fields)
-                ModuleBase._state_hset(db, key, current_data)
+                    db.delete(db.STATE_DB, key, field)
+            else:
+                # Fallback: get current entry, remove specified fields, and set back
+                current_data = ModuleBase._state_hgetall(db, key)
+                if current_data and fields:
+                    for field in fields:
+                        current_data.pop(field, None)
+                    # Set the modified data back (this effectively deletes the fields)
+                    ModuleBase._state_hset(db, key, current_data)
         except Exception:
             # Best-effort; no-op on failure
             pass
