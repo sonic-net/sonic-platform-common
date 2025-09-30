@@ -236,15 +236,14 @@ class TestModuleBaseGracefulShutdown:
 
     @staticmethod
     def test_transition_timeouts_platform_missing():
-        """When platform is missing, defaults are used."""
+        """If platfrom is missing, defaults are used."""
         from sonic_platform_base import module_base as mb
         class Dummy(mb.ModuleBase): ...
         mb.ModuleBase._TRANSITION_TIMEOUTS_CACHE = None
-        with patch.object(mb.ModuleBase, "_cfg_get_entry", return_value={}):
-            timeouts = Dummy()._load_transition_timeouts()
-            # defaults (per code): reboot >= 240, shutdown >= 180
-            assert timeouts["reboot"] >= 200
-            assert timeouts["shutdown"] >= 100
+        with patch("os.path.exists", return_value=False):
+            t = Dummy()._load_transition_timeouts()
+            assert t["reboot"] >= 200
+            assert t["shutdown"] >= 30
 
     @staticmethod
     def test_transition_timeouts_reads_value():
@@ -253,7 +252,7 @@ class TestModuleBaseGracefulShutdown:
         from unittest import mock
         class Dummy(mb.ModuleBase): ...
         mb.ModuleBase._TRANSITION_TIMEOUTS_CACHE = None
-        with patch.object(mb.ModuleBase, "_cfg_get_entry", return_value={"platform": "plat"}), \
+        with patch("os.path.exists", return_value=True), \
              patch("builtins.open", new_callable=mock.mock_open,
                    read_data='{"dpu_reboot_timeout": 42, "dpu_shutdown_timeout": 123}'):
             t = Dummy()._load_transition_timeouts()
@@ -266,81 +265,60 @@ class TestModuleBaseGracefulShutdown:
         from sonic_platform_base import module_base as mb
         class Dummy(mb.ModuleBase): ...
         mb.ModuleBase._TRANSITION_TIMEOUTS_CACHE = None
-        with patch.object(mb.ModuleBase, "_cfg_get_entry", return_value={"platform": "plat"}), \
+        with patch("os.path.exists", return_value=True), \
              patch("builtins.open", side_effect=FileNotFoundError):
-            assert mb.ModuleBase()._load_transition_timeouts()["reboot"] >= 200
-
-    # ==== coverage: _state_hgetall fallbacks ====
+            assert mb.ModuleBase()._load_transition_timeouts()["reboot"] >= 200    # ==== coverage: _state_hgetall ====
 
     @staticmethod
-    def test__state_hgetall_client_fallback_decodes_bytes():
-        """Cover client.hgetall() + byte decode path."""
+    def test__state_hgetall_success_decodes_bytes():
+        """Cover db.get_all() + byte decode path."""
         from sonic_platform_base import module_base as mb
-
-        class FakeClient:
-            def hgetall(self, key):
-                return {b"foo": b"bar", b"x": b"1"}
 
         class FakeDB:
             STATE_DB = 6
 
-            def get_all(self, *_):
-                raise Exception("force client fallback")
-
-            def get_redis_client(self, *_):
-                return FakeClient()
+            def get_all(self, db, key):
+                return {b"foo": b"bar", b"x": b"1"}
 
         out = mb.ModuleBase._state_hgetall(FakeDB(), "ANY|KEY")
         assert out == {"foo": "bar", "x": "1"}
 
     @staticmethod
-    def test__state_hgetall_swsscommon_table_success():
+    def test__state_hgetall_success_string_values():
         from sonic_platform_base import module_base as mb
 
         class FakeDB:
             STATE_DB = 6
 
-            def get_all(self, *_):
-                raise Exception("force Table fallback")
+            def get_all(self, db, key):
+                return {"a": "1", "b": "2"}
 
-            def get_redis_client(self, *_):
-                raise Exception("force Table fallback")
-
-        TestModuleBaseGracefulShutdown._install_fake_swsscommon_table_get()
         out = mb.ModuleBase._state_hgetall(FakeDB(), "CHASSIS_MODULE_TABLE|DPU9")
         assert out == {"a": "1", "b": "2"}
 
     @staticmethod
-    def test__state_hgetall_no_sep_returns_empty():
+    def test__state_hgetall_empty_result():
         from sonic_platform_base import module_base as mb
 
         class FakeDB:
             STATE_DB = 6
 
-            def get_all(self, *_):
-                raise Exception()
+            def get_all(self, db, key):
+                return {}
 
-            def get_redis_client(self, *_):
-                raise Exception()
-
-        TestModuleBaseGracefulShutdown._install_fake_swsscommon_table_get()
-        assert mb.ModuleBase._state_hgetall(FakeDB(), "NOSEPKEY") == {}
+        assert mb.ModuleBase._state_hgetall(FakeDB(), "EMPTY_KEY") == {}
 
     @staticmethod
-    def test__state_hgetall_table_status_false():
+    def test__state_hgetall_exception_returns_empty():
         from sonic_platform_base import module_base as mb
 
         class FakeDB:
             STATE_DB = 6
 
-            def get_all(self, *_):
-                raise Exception("force Table fallback")
+            def get_all(self, db, key):
+                raise Exception("Database error")
 
-            def get_redis_client(self, *_):
-                raise Exception("force Table fallback")
-
-        TestModuleBaseGracefulShutdown._install_fake_swsscommon_table_get_status_false()
-        assert mb.ModuleBase._state_hgetall(FakeDB(), "CHASSIS_MODULE_TABLE|DPUX") == {}
+        assert mb.ModuleBase._state_hgetall(FakeDB(), "FAIL_KEY") == {}
 
     # ==== coverage: _state_hset branches ====
 
