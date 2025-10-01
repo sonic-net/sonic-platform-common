@@ -23,6 +23,7 @@ class TestCCmis(object):
     api = CCmisApi(eeprom, cdb)
 
     @pytest.mark.parametrize("mock_response, expected", [
+        (8, 150),
         (7, 75),
         (6, 33),
         (5, 100),

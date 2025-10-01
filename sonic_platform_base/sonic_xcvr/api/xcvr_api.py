@@ -685,3 +685,12 @@ class XcvrApi(object):
             bool: True if the provision succeeds, False if it fails
         """
         raise NotImplementedError
+
+    def is_lpo(self):
+        """
+        Check if the module is Linear Pluggable Optics (LPO)
+
+        Returns:
+            A Boolean, True if the module is LPO, False otherwise
+        """
+        raise NotImplementedError

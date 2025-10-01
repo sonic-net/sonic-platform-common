@@ -96,7 +96,9 @@ class CCmisApi(CmisApi):
         This function returns the configured frequency grid. Unit in GHz
         '''
         freq_grid = self.xcvr_eeprom.read(consts.GRID_SPACING)
-        if freq_grid == 7:
+        if freq_grid == 8:
+            return 150
+        elif freq_grid == 7:
             return 75
         elif freq_grid == 6:
             return 33
