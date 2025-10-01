@@ -202,6 +202,111 @@ class TestCmis(object):
          assert not self.api.is_copper()
 
     @pytest.mark.parametrize("mock_response, expected", [
+        # Test case 1: No application advertisement
+        (None, False),
+        # Test case 2: Empty application advertisement
+        ({}, False),
+        # Test case 3: Non-LPO host electrical interface
+        ({
+            1: {
+                'host_electrical_interface_id': '400GAUI-8 C2M (Annex 120E)',  # ID 17, not LPO
+                'module_media_interface_id': '400GBASE-DR4 (Cl 124)'
+            }
+        }, False),
+        # Test case 4: LPO host electrical interface LEI-100G-PAM4-1 (ID 32)
+        ({
+            1: {
+                'host_electrical_interface_id': 'LEI-100G-PAM4-1',  # LPO
+                'module_media_interface_id': '100GBASE-DR (Cl 140)'
+            }
+        }, True),
+        # Test case 5: LPO host electrical interface LEI-200G-PAM4-2 (ID 33)
+        ({
+            1: {
+                'host_electrical_interface_id': 'LEI-200G-PAM4-2',  # LPO
+                'module_media_interface_id': '200GBASE-DR2 (Clause 138)'
+            }
+        }, True),
+        # Test case 6: LPO host electrical interface LEI-400G-PAM4-4 (ID 34)
+        ({
+            1: {
+                'host_electrical_interface_id': 'LEI-400G-PAM4-4',  # LPO
+                'module_media_interface_id': '400GBASE-DR4 (Cl 124)'
+            }
+        }, True),
+        # Test case 7: LPO host electrical interface LEI-800G-PAM4-8 (ID 35)
+        ({
+            1: {
+                'host_electrical_interface_id': 'LEI-800G-PAM4-8',  # LPO
+                'module_media_interface_id': '800GBASE-DR8 (placeholder)'
+            }
+        }, True),
+        # Test case 8: LPO SM media interface 100G-DR1-LPO (ID 151)
+        ({
+            1: {
+                'host_electrical_interface_id': '100GAUI-2 C2M (Annex 135G)',
+                'module_media_interface_id': '100G-DR1-LPO'  # LPO
+            }
+        }, True),
+        # Test case 9: LPO SM media interface 200G-DR2-LPO (ID 152)
+        ({
+            1: {
+                'host_electrical_interface_id': '200GAUI-4 C2M (Annex 120E)',
+                'module_media_interface_id': '200G-DR2-LPO'  # LPO
+            }
+        }, True),
+        # Test case 10: LPO SM media interface 400G-DR4-LPO (ID 153)
+        ({
+            1: {
+                'host_electrical_interface_id': '400GAUI-8 C2M (Annex 120E)',
+                'module_media_interface_id': '400G-DR4-LPO'  # LPO
+            }
+        }, True),
+        # Test case 11: LPO SM media interface 800G-DR8-LPO (ID 154)
+        ({
+            1: {
+                'host_electrical_interface_id': '800GAUI-16 C2M (Annex 120C)',
+                'module_media_interface_id': '800G-DR8-LPO'  # LPO
+            }
+        }, True),
+        # Test case 12: Multiple applications, one with LPO
+        ({
+            1: {
+                'host_electrical_interface_id': '400GAUI-8 C2M (Annex 120E)',  # Non-LPO
+                'module_media_interface_id': '400GBASE-DR4 (Cl 124)'
+            },
+            2: {
+                'host_electrical_interface_id': 'LEI-200G-PAM4-2',  # LPO
+                'module_media_interface_id': '200GBASE-DR2 (Clause 138)'
+            }
+        }, True),
+        # Test case 13: Both host and media interfaces match LPO
+        ({
+            1: {
+                'host_electrical_interface_id': 'LEI-400G-PAM4-4',  # LPO
+                'module_media_interface_id': '400G-DR4-LPO'  # LPO
+            }
+        }, True),
+        # Test case 14: Application with missing keys
+        ({
+            1: {
+                'host_electrical_interface_id': '100GAUI-2 C2M (Annex 135G)',
+                # Missing module_media_interface_id
+            },
+            2: {
+                # Missing host_electrical_interface_id
+                'module_media_interface_id': '100GBASE-DR (Cl 140)'
+            }
+        }, False),
+    ])
+    def test_is_lpo(self, mock_response, expected):
+        """Test is_lpo() method with various application advertisement scenarios"""
+        with patch.object(self.api, 'get_application_advertisement') as mock_get_app_adv:
+            mock_get_app_adv.return_value = mock_response
+            result = self.api.is_lpo()
+            assert result == expected
+
+    @pytest.mark.parametrize("mock_response, expected", [
         (False, False)
     ])
     def test_is_flat_memory(self, mock_response, expected):
