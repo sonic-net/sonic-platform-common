@@ -31,6 +31,7 @@ class ModuleBase(device_base.DeviceBase):
     # Device type definition. Note, this is a constant.
     DEVICE_TYPE = "module"
     PCI_OPERATION_LOCK_FILE_PATH = "/var/lock/{}_pci.lock"
+    TRANSITION_OPERATION_LOCK_FILE_PATH = "/var/lock/{}_transition.lock"
 
     # Possible card types for modular chassis
     MODULE_TYPE_SUPERVISOR = "SUPERVISOR"
@@ -116,6 +117,17 @@ class ModuleBase(device_base.DeviceBase):
     def _pci_operation_lock(self):
         """File-based lock for PCI operations using flock"""
         lock_file_path = self.PCI_OPERATION_LOCK_FILE_PATH.format(self.get_name())
+        with open(lock_file_path, 'w') as f:
+            try:
+                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+                yield
+            finally:
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+
+    @contextlib.contextmanager
+    def _transition_operation_lock(self):
+        """File-based lock for module state transition operations using flock"""
+        lock_file_path = self.TRANSITION_OPERATION_LOCK_FILE_PATH.format(self.get_name())
         with open(lock_file_path, 'w') as f:
             try:
                 fcntl.flock(f.fileno(), fcntl.LOCK_EX)
@@ -226,13 +238,9 @@ class ModuleBase(device_base.DeviceBase):
         """
         Request to set the module's administrative state.
 
-        Abstract:
-          Platform-specific code must implement this to handle admin up/down.
-          For SmartSwitch NPU platforms (device_subtype == "SmartSwitch" and not is_dpu()),
-          the derived function should call graceful_shutdown_handler() before setting DOWN
-          to trigger the gNOI shutdown sequence as described in the graceful shutdown HLD.
-          The return value of graceful_shutdown_handler() must be checked. If it returns
-          False, the admin-down transition should be aborted.
+        This is the base platform API for module admin state changes.
+        For SmartSwitch platforms requiring graceful shutdown coordination,
+        use set_admin_state_using_graceful_handler() instead.
 
         Args:
             up (bool): True for admin UP, False for admin DOWN.
@@ -244,9 +252,14 @@ class ModuleBase(device_base.DeviceBase):
 
     def set_admin_state_using_graceful_handler(self, up):
         """
-        Request to set the module's administrative state using graceful_shutdown_handler.
-        This function is intended to be called by chassisd for SmartSwitch platforms
-        to ensure graceful shutdown is handled before setting admin state to DOWN.
+        Request to set the module's administrative state with graceful shutdown coordination.
+
+        This function is specifically designed for SmartSwitch platforms and should be
+        called by chassisd to ensure proper graceful shutdown coordination with external
+        agents (e.g., gNOI clients) before setting admin state to DOWN.
+
+        For non-SmartSwitch platforms or direct platform API usage, use set_admin_state()
+        instead.
 
         Args:
             up (bool): True for admin UP, False for admin DOWN.
@@ -258,12 +271,26 @@ class ModuleBase(device_base.DeviceBase):
             return self.set_admin_state(True)
 
         # Admin DOWN: Perform graceful shutdown first
-        if not self.graceful_shutdown_handler():
-            module_name = self.get_name()
+        module_name = self.get_name()
+        graceful_success = self.graceful_shutdown_handler()
+
+        # Abort if graceful shutdown failed
+        if not graceful_success:
+            # Clear transition state on graceful shutdown failure
+            if not self.clear_module_state_transition(self._state_db_connector, module_name):
+                sys.stderr.write(f"Failed to clear transition state for module {module_name} after graceful shutdown failure.\n")
             sys.stderr.write(f"Aborting admin-down for module {module_name} due to graceful shutdown failure.\n")
             return False
 
-        return self.set_admin_state(False)
+        # Proceed with admin state change
+        admin_state_success = self.set_admin_state(False)
+
+        # Always clear transition state after admin state operation completes
+        if not self.clear_module_state_transition(self._state_db_connector, module_name):
+            context = "after successful admin state change" if admin_state_success else "after failed admin state change"
+            sys.stderr.write(f"Failed to clear transition state for module {module_name} {context}.\n")
+
+        return admin_state_success
 
     def get_maximum_consumed_power(self):
         """
@@ -531,8 +558,9 @@ class ModuleBase(device_base.DeviceBase):
         3. Cleaning up transition state on completion or timeout
 
         Race Condition Handling:
-        - Multiple concurrent calls are serialized - only one agent sets the transition
-        - Other agents wait for the existing transition to complete
+        - File-based locking ensures only one agent can modify transition state at a time
+        - Multiple concurrent calls are serialized through set_module_state_transition()
+        - Timed-out transitions are automatically cleared and new ones can proceed
         - Timeout based on database-recorded start time, not individual agent wait time
 
         Exit Conditions:
@@ -541,8 +569,7 @@ class ModuleBase(device_base.DeviceBase):
         - Timeout after configured period (default: 180s from platform.json dpu_shutdown_timeout)
 
         Returns:
-            bool: True if graceful shutdown completes, False on timeout or if another agent
-                  is already handling the shutdown.
+            bool: True if graceful shutdown completes, False on timeout.
 
         Note:
             Called by platform set_admin_state() when transitioning DPU to admin DOWN.
@@ -552,11 +579,10 @@ class ModuleBase(device_base.DeviceBase):
 
         module_name = self.get_name()
 
-        # Attempt to mark transition start - if another agent is already handling it, wait for completion
-        if not self.set_module_state_transition(db, module_name, "shutdown"):
-            # Another agent is already handling the shutdown transition
-            sys.stderr.write("Graceful shutdown for module {} is already in progress.\n".format(module_name))
-            return False
+        # Atomically set transition state (handles race conditions with locking)
+        # Note: This is safe to call even if caller already set transition state,
+        # as the function is idempotent and will not overwrite existing valid transitions
+        self.set_module_state_transition(db, module_name, "shutdown")
 
         # Determine shutdown timeout (do NOT use get_reboot_timeout())
         timeouts = self._load_transition_timeouts()
@@ -614,6 +640,10 @@ class ModuleBase(device_base.DeviceBase):
         """
         Atomically mark the given module as being in a state transition if not already in progress.
 
+        This function is thread-safe and prevents race conditions when multiple agents
+        (chassis_modules.py, chassisd, reboot) attempt to set module state transitions
+        simultaneously by using a file-based lock.
+
         Args:
             db: Connected SonicV2Connector
             module_name: e.g., 'DPU0'
@@ -622,36 +652,40 @@ class ModuleBase(device_base.DeviceBase):
         Returns:
             bool: True if transition was successfully set, False if already in progress
         """
-        key = f"CHASSIS_MODULE_TABLE|{module_name}"
-        # Check if a transition is already in progress
-        existing_entry = ModuleBase._state_hgetall(db, key)
-        if existing_entry.get("state_transition_in_progress", "False").lower() in ("true", "1", "yes", "on"):
-            # Already in progress - check if it's timed out
-            timeout_seconds = int(self._load_transition_timeouts().get(
-                existing_entry.get("transition_type", "shutdown"),
-                self._TRANSITION_TIMEOUT_DEFAULTS.get("shutdown", 180)
-            ))
+        with self._transition_operation_lock():
+            key = f"CHASSIS_MODULE_TABLE|{module_name}"
+            # Check if a transition is already in progress
+            existing_entry = ModuleBase._state_hgetall(db, key)
+            if existing_entry.get("state_transition_in_progress", "False").lower() in ("true", "1", "yes", "on"):
+                # Already in progress - check if it's timed out
+                timeout_seconds = int(self._load_transition_timeouts().get(
+                    existing_entry.get("transition_type", "shutdown"),
+                    self._TRANSITION_TIMEOUT_DEFAULTS.get("shutdown", 180)
+                ))
 
-            if not self.is_module_state_transition_timed_out(db, module_name, timeout_seconds):
-                # Still valid, don't overwrite
-                return False
+                if not self.is_module_state_transition_timed_out(db, module_name, timeout_seconds):
+                    # Still valid, don't overwrite
+                    return False
 
-            # Timed out, clear and proceed with new transition
-            if not self.clear_module_state_transition(db, module_name):
-                sys.stderr.write(f"Failed to clear timed-out transition for module {module_name} before setting new one.\n")
-                return False
-        # Set new transition atomically
-        ModuleBase._state_hset(db, key, {
-            "state_transition_in_progress": "True",
-            "transition_type": transition_type,
-            "transition_start_time": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-        })
-        return True
+                # Timed out, clear and proceed with new transition
+                if not self.clear_module_state_transition(db, module_name):
+                    sys.stderr.write(f"Failed to clear timed-out transition for module {module_name} before setting new one.\n")
+                    return False
+            # Set new transition atomically
+            ModuleBase._state_hset(db, key, {
+                "state_transition_in_progress": "True",
+                "transition_type": transition_type,
+                "transition_start_time": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            })
+            return True
 
     def clear_module_state_transition(self, db, module_name: str):
         """
         Clear transition flags for the given module after a transition completes.
         Field-scoped update to avoid clobbering concurrent writers.
+
+        This function is thread-safe and uses the same lock as set_module_state_transition
+        to prevent race conditions.
 
         Args:
             db: Connected SonicV2Connector.
@@ -660,24 +694,27 @@ class ModuleBase(device_base.DeviceBase):
         Returns:
             bool: True if the transition state was cleared successfully, False otherwise.
         """
-        key = f"CHASSIS_MODULE_TABLE|{module_name}"
-        try:
-            # Mark not in-progress and clear type (prevents stale 'startup' blocks)
-            ModuleBase._state_hset(db, key, {
-                "state_transition_in_progress": "False",
-                "transition_type": ""
-            })
-            # Remove the start timestamp (avoid stale value lingering)
-            ModuleBase._state_hdel(db, key, "transition_start_time")
-            return True
-        except Exception as e:
-            # Best-effort; if HDEL isn't available we simply leave it.
-            sys.stderr.write(f"Failed to clear module state transition for {module_name}: {e}\n")
-            return False
+        with self._transition_operation_lock():
+            key = f"CHASSIS_MODULE_TABLE|{module_name}"
+            try:
+                # Mark not in-progress and clear type (prevents stale 'startup' blocks)
+                ModuleBase._state_hset(db, key, {
+                    "state_transition_in_progress": "False",
+                    "transition_type": ""
+                })
+                # Remove the start timestamp (avoid stale value lingering)
+                ModuleBase._state_hdel(db, key, "transition_start_time")
+                return True
+            except Exception as e:
+                # Best-effort; if HDEL isn't available we simply leave it.
+                sys.stderr.write(f"Failed to clear module state transition for {module_name}: {e}\n")
+                return False
 
     def get_module_state_transition(self, db, module_name: str) -> dict:
         """
         Return the transition entry for a given module from STATE_DB.
+
+        Note: This is a read-only operation and doesn't require locking.
 
         Returns:
             dict with keys: state_transition_in_progress, transition_type,
@@ -689,6 +726,8 @@ class ModuleBase(device_base.DeviceBase):
     def is_module_state_transition_timed_out(self, db, module_name: str, timeout_seconds: int) -> bool:
         """
         Check whether the state transition for the given module has exceeded timeout.
+
+        Note: This is a read-only operation and doesn't require locking.
 
         Args:
             db: Connected SonicV2Connector

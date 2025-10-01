@@ -6,6 +6,9 @@ import importlib
 import builtins
 from io import StringIO
 import sys
+import os
+import shutil
+import contextlib
 from types import ModuleType
 
 
@@ -504,7 +507,9 @@ class TestModuleBaseGracefulShutdown:
         monkeypatch.setattr(mb.ModuleBase, "_state_hset", fake_hset, raising=False)
         monkeypatch.setattr(mb.ModuleBase, "_state_hgetall", fake_hgetall, raising=False)
 
-        result = ModuleBase().set_module_state_transition(object(), "DPU9", "startup")
+        module = ModuleBase()
+        with patch.object(module, '_transition_operation_lock', side_effect=contextlib.nullcontext):
+            result = module.set_module_state_transition(object(), "DPU9", "startup")
 
         assert result == True  # Should successfully set the transition
         assert captured["key"] == "CHASSIS_MODULE_TABLE|DPU9"
@@ -533,7 +538,8 @@ class TestModuleBaseGracefulShutdown:
         module = ModuleBase()
         # Mock _load_transition_timeouts to avoid file access
         monkeypatch.setattr(module, "_load_transition_timeouts", lambda: {"shutdown": 180})
-        result = module.set_module_state_transition(object(), "DPU9", "startup")
+        with patch.object(module, '_transition_operation_lock', side_effect=contextlib.nullcontext):
+            result = module.set_module_state_transition(object(), "DPU9", "startup")
 
         assert result == False  # Should fail to set due to existing active transition
 
@@ -551,7 +557,9 @@ class TestModuleBaseGracefulShutdown:
         monkeypatch.setattr(mb.ModuleBase, "_state_hset", mock_hset)
         monkeypatch.setattr(mb.ModuleBase, "_state_hdel", mock_hdel)
 
-        result = ModuleBase().clear_module_state_transition(object(), "DPU7")
+        module = ModuleBase()
+        with patch.object(module, '_transition_operation_lock', side_effect=contextlib.nullcontext):
+            result = module.clear_module_state_transition(object(), "DPU7")
 
         assert result is True
         assert len(hset_calls) == 1
@@ -566,8 +574,10 @@ class TestModuleBaseGracefulShutdown:
 
         monkeypatch.setattr(mb.ModuleBase, "_state_hset", mock_hset)
 
-        with patch('sys.stderr', new_callable=StringIO) as mock_stderr:
-            result = ModuleBase().clear_module_state_transition(object(), "DPU7")
+        module = ModuleBase()
+        with patch.object(module, '_transition_operation_lock', side_effect=contextlib.nullcontext), \
+             patch('sys.stderr', new_callable=StringIO) as mock_stderr:
+            result = module.clear_module_state_transition(object(), "DPU7")
             assert result is False
             assert "Failed to clear module state transition" in mock_stderr.getvalue()
 
@@ -593,7 +603,10 @@ class TestModuleBaseGracefulShutdown:
         monkeypatch.setattr(mb.ModuleBase, "_state_hgetall", fake_hgetall, raising=False)
         monkeypatch.setattr(mb.ModuleBase, "_state_hset", fake_hset, raising=False)
         monkeypatch.setattr(mb.ModuleBase, "_state_hdel", fake_hdel, raising=False)
-        result = ModuleBase().clear_module_state_transition(object(), "DPU8")
+
+        module = ModuleBase()
+        with patch.object(module, '_transition_operation_lock', side_effect=contextlib.nullcontext):
+            result = module.clear_module_state_transition(object(), "DPU8")
         assert result is True
         assert written["key"] == "CHASSIS_MODULE_TABLE|DPU8"
         m = written["mapping"]
@@ -739,6 +752,23 @@ class TestModuleBasePCIAndSensors:
             ])
             assert mock_file.fileno_called
 
+    def test_transition_operation_lock(self):
+        module = ModuleBase()
+        mock_file = MockFile()
+
+        with patch('builtins.open', return_value=mock_file) as mock_file_open, \
+             patch('fcntl.flock') as mock_flock, \
+             patch.object(module, 'get_name', return_value="DPU0"):
+
+            with module._transition_operation_lock():
+                mock_flock.assert_called_with(123, fcntl.LOCK_EX)
+
+            mock_flock.assert_has_calls([
+                call(123, fcntl.LOCK_EX),
+                call(123, fcntl.LOCK_UN)
+            ])
+            assert mock_file.fileno_called
+
     def test_handle_pci_removal(self):
         module = ModuleBase()
 
@@ -775,23 +805,19 @@ class TestModuleBasePCIAndSensors:
         with patch.object(module, 'get_name', return_value="DPU0"), \
              patch('os.path.exists', return_value=True), \
              patch('shutil.copy2') as mock_copy, \
-             patch('os.system') as mock_system, \
-             patch.object(module, '_sensord_operation_lock') as mock_lock:
+             patch('os.system') as mock_system:
             assert module.handle_sensor_removal() is True
             mock_copy.assert_called_once_with("/usr/share/sonic/platform/module_sensors_ignore_conf/ignore_sensors_DPU0.conf",
                                              "/etc/sensors.d/ignore_sensors_DPU0.conf")
             mock_system.assert_called_once_with("service sensord restart")
-            mock_lock.assert_called_once()
 
         with patch.object(module, 'get_name', return_value="DPU0"), \
              patch('os.path.exists', return_value=False), \
              patch('shutil.copy2') as mock_copy, \
-             patch('os.system') as mock_system, \
-             patch.object(module, '_sensord_operation_lock') as mock_lock:
+             patch('os.system') as mock_system:
             assert module.handle_sensor_removal() is True
             mock_copy.assert_not_called()
             mock_system.assert_not_called()
-            mock_lock.assert_not_called()
 
         with patch.object(module, 'get_name', return_value="DPU0"), \
              patch('os.path.exists', return_value=True), \
@@ -804,22 +830,18 @@ class TestModuleBasePCIAndSensors:
         with patch.object(module, 'get_name', return_value="DPU0"), \
              patch('os.path.exists', return_value=True), \
              patch('os.remove') as mock_remove, \
-             patch('os.system') as mock_system, \
-             patch.object(module, '_sensord_operation_lock') as mock_lock:
+             patch('os.system') as mock_system:
             assert module.handle_sensor_addition() is True
             mock_remove.assert_called_once_with("/etc/sensors.d/ignore_sensors_DPU0.conf")
             mock_system.assert_called_once_with("service sensord restart")
-            mock_lock.assert_called_once()
 
         with patch.object(module, 'get_name', return_value="DPU0"), \
              patch('os.path.exists', return_value=False), \
              patch('os.remove') as mock_remove, \
-             patch('os.system') as mock_system, \
-             patch.object(module, '_sensord_operation_lock') as mock_lock:
+             patch('os.system') as mock_system:
             assert module.handle_sensor_addition() is True
             mock_remove.assert_not_called()
             mock_system.assert_not_called()
-            mock_lock.assert_not_called()
 
         with patch.object(module, 'get_name', return_value="DPU0"), \
              patch('os.path.exists', return_value=True), \
