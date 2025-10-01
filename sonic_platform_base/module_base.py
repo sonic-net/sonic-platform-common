@@ -32,6 +32,7 @@ class ModuleBase(device_base.DeviceBase):
     DEVICE_TYPE = "module"
     PCI_OPERATION_LOCK_FILE_PATH = "/var/lock/{}_pci.lock"
     TRANSITION_OPERATION_LOCK_FILE_PATH = "/var/lock/{}_transition.lock"
+    SENSORD_OPERATION_LOCK_FILE_PATH = "/var/lock/sensord.lock"
 
     # Possible card types for modular chassis
     MODULE_TYPE_SUPERVISOR = "SUPERVISOR"
@@ -114,9 +115,8 @@ class ModuleBase(device_base.DeviceBase):
         return db
 
     @contextlib.contextmanager
-    def _pci_operation_lock(self):
-        """File-based lock for PCI operations using flock"""
-        lock_file_path = self.PCI_OPERATION_LOCK_FILE_PATH.format(self.get_name())
+    def _file_operation_lock(self, lock_file_path):
+        """Common file-based lock for operations using flock"""
         with open(lock_file_path, 'w') as f:
             try:
                 fcntl.flock(f.fileno(), fcntl.LOCK_EX)
@@ -134,6 +134,21 @@ class ModuleBase(device_base.DeviceBase):
                 yield
             finally:
                 fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+
+    @contextlib.contextmanager
+    def _pci_operation_lock(self):
+        """File-based lock for PCI operations using flock"""
+        lock_file_path = self.PCI_OPERATION_LOCK_FILE_PATH.format(self.get_name())
+        with self._file_operation_lock(lock_file_path):
+            yield
+
+    @contextlib.contextmanager
+    def _sensord_operation_lock(self):
+        """File-based lock for sensord operations using flock"""
+        lock_file_path = self.SENSORD_OPERATION_LOCK_FILE_PATH
+        with self._file_operation_lock(lock_file_path):
+            yield
+
 
     def get_base_mac(self):
         """
@@ -1181,8 +1196,9 @@ class ModuleBase(device_base.DeviceBase):
 
             shutil.copy2(source_file, target_file)
 
-            # Restart sensord
-            os.system("service sensord restart")
+            # Restart sensord with lock
+            with self._sensord_operation_lock():
+                os.system("service sensord restart")
 
             return True
         except Exception as e:
@@ -1208,8 +1224,9 @@ class ModuleBase(device_base.DeviceBase):
             # Remove the file
             os.remove(target_file)
 
-            # Restart sensord
-            os.system("service sensord restart")
+            # Restart sensord with lock
+            with self._sensord_operation_lock():
+                os.system("service sensord restart")
 
             return True
         except Exception as e:
