@@ -231,7 +231,8 @@ class TestModuleBaseGracefulShutdown:
         with patch.object(module, "get_name", return_value="DPUX"), \
              patch.object(module, "get_oper_status", return_value="Offline"), \
              patch.object(module, "_load_transition_timeouts", return_value={"shutdown": 5}), \
-             patch.object(module, "is_module_state_transition_timed_out", return_value=False):
+             patch.object(module, "is_module_state_transition_timed_out", return_value=False), \
+             patch.object(module, "set_module_state_transition", return_value=True):
             module.graceful_shutdown_handler()
 
         # For an offline DPU, the handler should clear any stale shutdown state instead of starting a new one.
