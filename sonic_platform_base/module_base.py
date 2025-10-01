@@ -23,18 +23,6 @@ PCIE_OPERATION_DETACHING = "detaching"
 PCIE_OPERATION_ATTACHING = "attaching"
 
 
-def _state_db_connector():
-    """Lazy-create a STATE_DB connector using swsscommon only."""
-    from swsscommon.swsscommon import SonicV2Connector  # type: ignore
-    db = SonicV2Connector()
-    try:
-        db.connect(db.STATE_DB)
-    except Exception:
-        # Some environments autoconnect; preserve tolerant behavior
-        pass
-    return db
-
-
 class ModuleBase(device_base.DeviceBase):
     """
     Base class for interfacing with a module (supervisor module, line card
@@ -109,6 +97,20 @@ class ModuleBase(device_base.DeviceBase):
         # List of ASIC-derived objects representing all ASICs
         # visibile in PCI domain on the module
         self._asic_list = []
+
+        # Initialize state database connector
+        self._state_db_connector = self._initialize_state_db_connector()
+
+    def _initialize_state_db_connector(self):
+        """Initialize a STATE_DB connector using swsscommon only."""
+        from swsscommon.swsscommon import SonicV2Connector  # type: ignore
+        db = SonicV2Connector()
+        try:
+            db.connect(db.STATE_DB)
+        except Exception as e:
+            # Some environments autoconnect; preserve tolerant behavior
+            sys.stderr.write(f"Failed to connect to STATE_DB, continuing: {e}\n")
+        return db
 
     @contextlib.contextmanager
     def _pci_operation_lock(self):
@@ -229,6 +231,8 @@ class ModuleBase(device_base.DeviceBase):
           For SmartSwitch NPU platforms (device_subtype == "SmartSwitch" and not is_dpu()),
           the derived function should call graceful_shutdown_handler() before setting DOWN
           to trigger the gNOI shutdown sequence as described in the graceful shutdown HLD.
+          The return value of graceful_shutdown_handler() must be checked. If it returns
+          False, the admin-down transition should be aborted.
 
         Args:
             up (bool): True for admin UP, False for admin DOWN.
@@ -237,6 +241,29 @@ class ModuleBase(device_base.DeviceBase):
             bool: True if the request was successful, False otherwise.
         """
         raise NotImplementedError
+
+    def set_admin_state_using_graceful_handler(self, up):
+        """
+        Request to set the module's administrative state using graceful_shutdown_handler.
+        This function is intended to be called by chassisd for SmartSwitch platforms
+        to ensure graceful shutdown is handled before setting admin state to DOWN.
+
+        Args:
+            up (bool): True for admin UP, False for admin DOWN.
+
+        Returns:
+            bool: True if the request was successful, False otherwise.
+        """
+        if up:
+            return self.set_admin_state(True)
+
+        # Admin DOWN: Perform graceful shutdown first
+        if not self.graceful_shutdown_handler():
+            module_name = self.get_name()
+            sys.stderr.write(f"Aborting admin-down for module {module_name} due to graceful shutdown failure.\n")
+            return False
+
+        return self.set_admin_state(False)
 
     def get_maximum_consumed_power(self):
         """
@@ -341,7 +368,7 @@ class ModuleBase(device_base.DeviceBase):
             operation (str): The operation being performed ("detaching" or "attaching")
         """
         try:
-            db = _state_db_connector()
+            db = self._state_db_connector
             PCIE_DETACH_INFO_TABLE_KEY = PCIE_DETACH_INFO_TABLE + "|" + pcie_string
 
             if operation == PCIE_OPERATION_ATTACHING:
@@ -432,9 +459,9 @@ class ModuleBase(device_base.DeviceBase):
             # Convert all values to strings
             normalized_mapping = {k: str(v) for k, v in mapping.items()}
             db.set(db.STATE_DB, key, normalized_mapping)
-        except Exception:
+        except Exception as e:
             # Best-effort; no-op on failure
-            pass
+            sys.stderr.write(f"Failed to HSET key {key} in STATE_DB: {e}\n")
 
     @staticmethod
     def _state_hdel(db, key: str, *fields: str):
@@ -452,9 +479,9 @@ class ModuleBase(device_base.DeviceBase):
                         current_data.pop(field, None)
                     # Set the modified data back (this effectively deletes the fields)
                     ModuleBase._state_hset(db, key, current_data)
-        except Exception:
+        except Exception as e:
             # Best-effort; no-op on failure
-            pass
+            sys.stderr.write(f"Failed to HDEL fields from key {key} in STATE_DB: {e}\n")
 
     def _transition_key(self) -> str:
         """Return the STATE_DB key for this module's transition state."""
@@ -487,9 +514,9 @@ class ModuleBase(device_base.DeviceBase):
                 timeouts["shutdown"] = int(data["dpu_shutdown_timeout"])
             if "dpu_reboot_timeout" in data:
                 timeouts["reboot"] = int(data["dpu_reboot_timeout"])
-        except Exception:
+        except Exception as e:
             # On any error, just use defaults
-            pass
+            sys.stderr.write(f"Failed to load transition timeouts from platform.json, using defaults: {e}\n")
 
         ModuleBase._TRANSITION_TIMEOUTS_CACHE = timeouts
         return ModuleBase._TRANSITION_TIMEOUTS_CACHE
@@ -514,21 +541,22 @@ class ModuleBase(device_base.DeviceBase):
         - Timeout after configured period (default: 180s from platform.json dpu_shutdown_timeout)
 
         Returns:
-            None: Blocks until graceful shutdown completes or times out
+            bool: True if graceful shutdown completes, False on timeout or if another agent
+                  is already handling the shutdown.
 
         Note:
             Called by platform set_admin_state() when transitioning DPU to admin DOWN.
             Implements SONiC SmartSwitch graceful shutdown HLD requirements.
         """
-        db = _state_db_connector()
+        db = self._state_db_connector
 
         module_name = self.get_name()
 
         # Attempt to mark transition start - if another agent is already handling it, wait for completion
         if not self.set_module_state_transition(db, module_name, "shutdown"):
             # Another agent is already handling the shutdown transition
-            # Wait for that transition to complete instead of starting our own
-            pass
+            sys.stderr.write("Graceful shutdown for module {} is already in progress.\n".format(module_name))
+            return False
 
         # Determine shutdown timeout (do NOT use get_reboot_timeout())
         timeouts = self._load_transition_timeouts()
@@ -543,31 +571,40 @@ class ModuleBase(device_base.DeviceBase):
 
             # (a) Someone else completed the graceful phase
             if entry.get("state_transition_in_progress", "False") == "False":
-                return
+                return True
 
             # (b) Platform reports oper Offline — complete & clear transition
             try:
                 oper = self.get_oper_status()
                 if oper and str(oper).lower() == "offline":
-                    self.clear_module_state_transition(db, module_name)
-                    return
-            except Exception:
+                    if not self.clear_module_state_transition(db, module_name):
+                        sys.stderr.write(f"Graceful shutdown for module {module_name} failed to clear transition state.\n")
+                    return True
+            except Exception as e:
                 # Don't fail the graceful gate on a transient platform call error
-                pass
+                sys.stderr.write("Graceful shutdown for module {} failed to get oper status: {}\n".format(module_name, str(e)))
 
             # Check if the transition has timed out based on the recorded start time
             # This handles cases where multiple agents might be waiting
             if self.is_module_state_transition_timed_out(db, module_name, shutdown_timeout):
                 # Clear only if we can confirm it's actually timed out
-                self.clear_module_state_transition(db, module_name)
-                return
+                if not self.clear_module_state_transition(db, module_name):
+                    sys.stderr.write(f"Graceful shutdown for module {module_name} timed out and failed to clear transition state.\n")
+                else:
+                    sys.stderr.write("Graceful shutdown for module {} timed out.\n".format(module_name))
+                return False
 
             time.sleep(interval)
             waited += interval
 
         # Final timeout check before clearing - use recorded start time, not our local wait time
         if self.is_module_state_transition_timed_out(db, module_name, shutdown_timeout):
-            self.clear_module_state_transition(db, module_name)
+            if not self.clear_module_state_transition(db, module_name):
+                sys.stderr.write(f"Graceful shutdown for module {module_name} timed out and failed to clear transition state.\n")
+            else:
+                sys.stderr.write("Graceful shutdown for module {} timed out.\n".format(module_name))
+
+        return False
 
     # ############################################################
     # Centralized APIs for CHASSIS_MODULE_TABLE transition flags
@@ -600,7 +637,9 @@ class ModuleBase(device_base.DeviceBase):
                 return False
 
             # Timed out, clear and proceed with new transition
-            self.clear_module_state_transition(db, module_name)
+            if not self.clear_module_state_transition(db, module_name):
+                sys.stderr.write(f"Failed to clear timed-out transition for module {module_name} before setting new one.\n")
+                return False
         # Set new transition atomically
         ModuleBase._state_hset(db, key, {
             "state_transition_in_progress": "True",
@@ -613,19 +652,28 @@ class ModuleBase(device_base.DeviceBase):
         """
         Clear transition flags for the given module after a transition completes.
         Field-scoped update to avoid clobbering concurrent writers.
+
+        Args:
+            db: Connected SonicV2Connector.
+            module_name: The name of the module (e.g., 'DPU0').
+
+        Returns:
+            bool: True if the transition state was cleared successfully, False otherwise.
         """
         key = f"CHASSIS_MODULE_TABLE|{module_name}"
-        # Mark not in-progress and clear type (prevents stale 'startup' blocks)
-        ModuleBase._state_hset(db, key, {
-            "state_transition_in_progress": "False",
-            "transition_type": ""
-        })
-        # Remove the start timestamp (avoid stale value lingering)
         try:
+            # Mark not in-progress and clear type (prevents stale 'startup' blocks)
+            ModuleBase._state_hset(db, key, {
+                "state_transition_in_progress": "False",
+                "transition_type": ""
+            })
+            # Remove the start timestamp (avoid stale value lingering)
             ModuleBase._state_hdel(db, key, "transition_start_time")
-        except Exception:
+            return True
+        except Exception as e:
             # Best-effort; if HDEL isn't available we simply leave it.
-            pass
+            sys.stderr.write(f"Failed to clear module state transition for {module_name}: {e}\n")
+            return False
 
     def get_module_state_transition(self, db, module_name: str) -> dict:
         """
@@ -663,8 +711,8 @@ class ModuleBase(device_base.DeviceBase):
 
         start_str = entry.get("transition_start_time")
         if not start_str:
-            # In-progress with no timestamp → fail-safe to timed out so we never get stuck
-            return True
+            # If no start time, assume it's not timed out to be safe
+            return False
 
         # Robust parsing: accept 'Z' suffix; tolerate tz-naive and make it UTC
         s = start_str.replace("Z", "+00:00") if start_str.endswith("Z") else start_str

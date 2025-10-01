@@ -528,20 +528,45 @@ class TestModuleBaseGracefulShutdown:
         monkeypatch.setattr(mb.ModuleBase, "is_module_state_transition_timed_out", fake_is_timed_out, raising=False)
 
         module = ModuleBase()
+        # Mock _load_transition_timeouts to avoid file access
+        monkeypatch.setattr(module, "_load_transition_timeouts", lambda: {"shutdown": 180})
         result = module.set_module_state_transition(object(), "DPU9", "startup")
 
         assert result == False  # Should fail to set due to existing active transition
 
-    def test_clear_module_state_transition_no_entry(self, monkeypatch):
+    def test_clear_module_state_transition_success(self, monkeypatch):
         from sonic_platform_base import module_base as mb
-        calls = {"hset": 0}
-        monkeypatch.setattr(mb.ModuleBase, "_state_hgetall", lambda *_: {}, raising=False)
-        monkeypatch.setattr(
-            mb.ModuleBase, "_state_hset", lambda *_: calls.__setitem__("hset", calls["hset"] + 1), raising=False
-        )
-        ModuleBase().clear_module_state_transition(object(), "DPU7")
-        # Some implementations may still write a minimal clear; accept either 0 or 1
-        assert calls["hset"] in (0, 1)
+        hset_calls = []
+        hdel_calls = []
+
+        def mock_hset(db, key, mapping):
+            hset_calls.append((key, mapping))
+
+        def mock_hdel(db, key, *fields):
+            hdel_calls.append((key, fields))
+
+        monkeypatch.setattr(mb.ModuleBase, "_state_hset", mock_hset)
+        monkeypatch.setattr(mb.ModuleBase, "_state_hdel", mock_hdel)
+
+        result = ModuleBase().clear_module_state_transition(object(), "DPU7")
+
+        assert result is True
+        assert len(hset_calls) == 1
+        assert len(hdel_calls) == 1
+        assert hset_calls[0][1] == {"state_transition_in_progress": "False", "transition_type": ""}
+
+    def test_clear_module_state_transition_failure(self, monkeypatch):
+        from sonic_platform_base import module_base as mb
+
+        def mock_hset(db, key, mapping):
+            raise Exception("DB error")
+
+        monkeypatch.setattr(mb.ModuleBase, "_state_hset", mock_hset)
+
+        with patch('sys.stderr', new_callable=StringIO) as mock_stderr:
+            result = ModuleBase().clear_module_state_transition(object(), "DPU7")
+            assert result is False
+            assert "Failed to clear module state transition" in mock_stderr.getvalue()
 
     def test_clear_module_state_transition_updates_and_pops(self, monkeypatch):
         from sonic_platform_base import module_base as mb
@@ -565,7 +590,8 @@ class TestModuleBaseGracefulShutdown:
         monkeypatch.setattr(mb.ModuleBase, "_state_hgetall", fake_hgetall, raising=False)
         monkeypatch.setattr(mb.ModuleBase, "_state_hset", fake_hset, raising=False)
         monkeypatch.setattr(mb.ModuleBase, "_state_hdel", fake_hdel, raising=False)
-        ModuleBase().clear_module_state_transition(object(), "DPU8")
+        result = ModuleBase().clear_module_state_transition(object(), "DPU8")
+        assert result is True
         assert written["key"] == "CHASSIS_MODULE_TABLE|DPU8"
         m = written["mapping"]
         assert m["state_transition_in_progress"] == "False"
@@ -597,20 +623,34 @@ class TestModuleBaseGracefulShutdown:
 
     def test_is_transition_timed_out_bad_timestamp(self, monkeypatch):
         from sonic_platform_base import module_base as mb
-        monkeypatch.setattr(mb.ModuleBase, "_state_hgetall", lambda *_: {"transition_start_time": "bad"}, raising=False)
-        assert not ModuleBase().is_module_state_transition_timed_out(object(), "DPU0", 1)
+        monkeypatch.setattr(
+            mb.ModuleBase, "_state_hgetall",
+            lambda *_: {
+                "state_transition_in_progress": "True",
+                "transition_start_time": "bad"
+            },
+            raising=False
+        )
+        assert ModuleBase().is_module_state_transition_timed_out(object(), "DPU0", 1)
 
     def test_is_transition_timed_out_false(self, monkeypatch):
-        from datetime import datetime, timedelta
+        from datetime import datetime, timezone, timedelta
         from sonic_platform_base import module_base as mb
-        start = (datetime.utcnow() - timedelta(seconds=1)).isoformat()
-        monkeypatch.setattr(mb.ModuleBase, "_state_hgetall", lambda *_: {"transition_start_time": start}, raising=False)
+        start = (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
+        monkeypatch.setattr(
+            mb.ModuleBase, "_state_hgetall",
+            lambda *_: {
+                "state_transition_in_progress": "True",
+                "transition_start_time": start
+            },
+            raising=False
+        )
         assert not ModuleBase().is_module_state_transition_timed_out(object(), "DPU0", 9999)
 
     def test_is_transition_timed_out_true(self, monkeypatch):
-        from datetime import datetime, timedelta
+        from datetime import datetime, timezone, timedelta
         from sonic_platform_base import module_base as mb
-        start = (datetime.utcnow() - timedelta(seconds=10)).isoformat()
+        start = (datetime.now(timezone.utc) - timedelta(seconds=10)).isoformat()
         monkeypatch.setattr(
             mb.ModuleBase, "_state_hgetall",
             lambda *_: {
@@ -664,6 +704,18 @@ class TestModuleBasePCIAndSensors:
             key, fields = hdel_calls[0]
             assert key == "PCIE_DETACH_INFO|0000:00:00.0"
             assert set(fields) == {"bus_info", "dpu_state"}
+
+    def test_pci_entry_state_db_exception(self):
+        from sonic_platform_base import module_base as mb
+        module = ModuleBase()
+
+        def mock_hset(db, key, mapping):
+            raise Exception("DB error")
+
+        with patch.object(mb.ModuleBase, '_state_hset', mock_hset), \
+             patch('sys.stderr', new_callable=StringIO) as mock_stderr:
+            module.pci_entry_state_db("0000:00:00.0", "detaching")
+            assert "Failed to write pcie bus info to state database" in mock_stderr.getvalue()
 
     def test_pci_operation_lock(self):
         module = ModuleBase()
@@ -808,6 +860,27 @@ class TestModuleBasePCIAndSensors:
 
 
 class TestStateDbConnectorSwsscommonOnly:
+    @patch('swsscommon.swsscommon.SonicV2Connector')
+    def test_initialize_state_db_connector_success(self, mock_connector):
+        from sonic_platform_base.module_base import ModuleBase
+        mock_db = MagicMock()
+        mock_connector.return_value = mock_db
+        module = ModuleBase()
+        assert module._state_db_connector == mock_db
+        mock_db.connect.assert_called_once_with(mock_db.STATE_DB)
+
+    @patch('swsscommon.swsscommon.SonicV2Connector')
+    def test_initialize_state_db_connector_exception(self, mock_connector):
+        from sonic_platform_base.module_base import ModuleBase
+        mock_db = MagicMock()
+        mock_db.connect.side_effect = Exception("Connection failed")
+        mock_connector.return_value = mock_db
+
+        with patch('sys.stderr', new_callable=StringIO) as mock_stderr:
+            module = ModuleBase()
+            assert module._state_db_connector == mock_db
+            assert "Failed to connect to STATE_DB" in mock_stderr.getvalue()
+
     def test_state_db_connector_uses_swsscommon_only(self):
         import importlib
         import sys
@@ -831,5 +904,8 @@ class TestStateDbConnectorSwsscommonOnly:
         }, clear=False):
             mb = importlib.import_module("sonic_platform_base.module_base")
             importlib.reload(mb)
-            db = mb._state_db_connector()
-            assert isinstance(db, FakeV2)
+            # Since __init__ calls it, we need to patch before creating an instance
+            with patch.object(mb.ModuleBase, '_initialize_state_db_connector') as mock_init_db:
+                mock_init_db.return_value = FakeV2()
+                instance = mb.ModuleBase()
+                assert isinstance(instance._state_db_connector, FakeV2)
