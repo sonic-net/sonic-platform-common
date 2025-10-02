@@ -22,7 +22,6 @@ PCIE_DETACH_INFO_TABLE = "PCIE_DETACH_INFO"
 PCIE_OPERATION_DETACHING = "detaching"
 PCIE_OPERATION_ATTACHING = "attaching"
 
-
 class ModuleBase(device_base.DeviceBase):
     """
     Base class for interfacing with a module (supervisor module, line card
@@ -112,6 +111,7 @@ class ModuleBase(device_base.DeviceBase):
         except Exception as e:
             # Some environments autoconnect; preserve tolerant behavior
             sys.stderr.write(f"Failed to connect to STATE_DB, continuing: {e}\n")
+            return None
         return db
 
     @contextlib.contextmanager
@@ -148,7 +148,6 @@ class ModuleBase(device_base.DeviceBase):
         lock_file_path = self.SENSORD_OPERATION_LOCK_FILE_PATH
         with self._file_operation_lock(lock_file_path):
             yield
-
 
     def get_base_mac(self):
         """
@@ -289,13 +288,11 @@ class ModuleBase(device_base.DeviceBase):
         module_name = self.get_name()
         graceful_success = self.graceful_shutdown_handler()
 
-        # Abort if graceful shutdown failed
         if not graceful_success:
             # Clear transition state on graceful shutdown failure
             if not self.clear_module_state_transition(self._state_db_connector, module_name):
                 sys.stderr.write(f"Failed to clear transition state for module {module_name} after graceful shutdown failure.\n")
             sys.stderr.write(f"Aborting admin-down for module {module_name} due to graceful shutdown failure.\n")
-            return False
 
         # Proceed with admin state change
         admin_state_success = self.set_admin_state(False)
