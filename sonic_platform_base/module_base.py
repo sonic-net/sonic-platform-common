@@ -502,7 +502,6 @@ class ModuleBase(device_base.DeviceBase):
             normalized_mapping = {k: str(v) for k, v in mapping.items()}
             db.set(db.STATE_DB, key, normalized_mapping)
         except Exception as e:
-            # Best-effort; no-op on failure
             sys.stderr.write(f"Failed to HSET key {key} in STATE_DB: {e}\n")
 
     @staticmethod
@@ -522,7 +521,6 @@ class ModuleBase(device_base.DeviceBase):
                     # Set the modified data back (this effectively deletes the fields)
                     ModuleBase._state_hset(db, key, current_data)
         except Exception as e:
-            # Best-effort; no-op on failure
             sys.stderr.write(f"Failed to HDEL fields from key {key} in STATE_DB: {e}\n")
 
     def _transition_key(self) -> str:
@@ -721,7 +719,6 @@ class ModuleBase(device_base.DeviceBase):
                 ModuleBase._state_hdel(db, key, "transition_start_time")
                 return True
             except Exception as e:
-                # Best-effort; if HDEL isn't available we simply leave it.
                 sys.stderr.write(f"Failed to clear module state transition for {module_name}: {e}\n")
                 return False
 
