@@ -930,7 +930,7 @@ class TestStateDbConnectorSwsscommonOnly:
 
         with patch('sys.stderr', new_callable=StringIO) as mock_stderr:
             module = ModuleBase()
-            assert module._state_db_connector == mock_db
+            assert module._state_db_connector is None
             assert "Failed to connect to STATE_DB" in mock_stderr.getvalue()
 
     def test_state_db_connector_uses_swsscommon_only(self):
