@@ -13,6 +13,7 @@ import json
 import threading
 import contextlib
 import shutil
+import subprocess
 
 # PCI state database constants
 PCIE_DETACH_INFO_TABLE = "PCIE_DETACH_INFO"
@@ -95,6 +96,9 @@ class ModuleBase(device_base.DeviceBase):
         # List of ASIC-derived objects representing all ASICs
         # visibile in PCI domain on the module
         self._asic_list = []
+
+        # Flag to indicate if the module is running on the host/container
+        self._is_container = not self.__is_host()
     
     @contextlib.contextmanager
     def _file_operation_lock(self, lock_file_path):
@@ -614,6 +618,9 @@ class ModuleBase(device_base.DeviceBase):
 
         return voltage_sensor
 
+    def __is_host(self):
+        return subprocess.call(["docker"]) == 0
+
     ##############################################
     # Current sensor methods
     ##############################################
@@ -798,16 +805,26 @@ class ModuleBase(device_base.DeviceBase):
             module_name = self.get_name()
             source_file = f"/usr/share/sonic/platform/module_sensors_ignore_conf/ignore_sensors_{module_name}.conf"
             target_file = f"/etc/sensors.d/ignore_sensors_{module_name}.conf"
+            file_exists_command = ['test', '-f', source_file]
+            copy_command = ['cp', source_file, target_file]
+            container_command = ['docker', 'exec', 'pmon']
+            restart_command = ['service', 'sensord', 'restart']
+
+
+            if self._is_container:
+                file_exists_command = container_command + file_exists_command
+                copy_command = container_command + copy_command
+                restart_command = container_command + restart_command
 
             # If source file does not exist, we dont need to copy it and restart sensord
-            if not os.path.exists(source_file):
+            if subprocess.call(file_exists_command) != 0:
                 return True
 
-            shutil.copy2(source_file, target_file)
+            subprocess.call(copy_command)
 
             # Restart sensord with lock
             with self._sensord_operation_lock():
-                os.system("service sensord restart")
+                subprocess.call(restart_command)
 
             return True
         except Exception as e:
@@ -825,17 +842,26 @@ class ModuleBase(device_base.DeviceBase):
         try:
             module_name = self.get_name()
             target_file = f"/etc/sensors.d/ignore_sensors_{module_name}.conf"
+            remove_command = ['rm', target_file]
+            restart_command = ['service', 'sensord', 'restart']
+            container_command = ['docker', 'exec', 'pmon']
+            file_exists_command = ['test', '-f', target_file]
+
+            if self._is_container:
+                file_exists_command = container_command + file_exists_command
+                remove_command = container_command + remove_command
+                restart_command = container_command + restart_command
 
             # If target file does not exist, we dont need to remove it and restart sensord
-            if not os.path.exists(target_file):
+            if subprocess.call(file_exists_command) != 0:
                 return True
 
             # Remove the file
-            os.remove(target_file)
+            subprocess.call(remove_command)
 
             # Restart sensord with lock
             with self._sensord_operation_lock():
-                os.system("service sensord restart")
+                subprocess.call(restart_command)
 
             return True
         except Exception as e:
