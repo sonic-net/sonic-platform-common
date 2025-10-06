@@ -55,16 +55,16 @@ class TestModuleBase:
 
             assert exception_raised
 
-    def test_is_container_detection(self):
-        # Test when docker command succeeds (return code 0) - running on host
-        with patch('subprocess.call', return_value=0):
+    def test_is_host_detection(self):
+        # Test when /.dockerenv does not exist - running on host
+        with patch('os.path.exists', return_value=False):
             module = ModuleBase()
-            assert module._is_container is False
+            assert module.is_host is True
 
-        # Test when docker command fails (return code != 0) - running in container
-        with patch('subprocess.call', return_value=1):
+        # Test when /.dockerenv exists - running in container
+        with patch('os.path.exists', return_value=True):
             module = ModuleBase()
-            assert module._is_container is True
+            assert module.is_host is False
 
     def test_sensors(self):
         module = ModuleBase()
@@ -188,54 +188,61 @@ class TestModuleBase:
         with patch.object(module, 'get_name', return_value="DPU0"), \
              patch('subprocess.call') as mock_call, \
              patch.object(module, '_sensord_operation_lock') as mock_lock:
-            module._is_container = False
+            module.is_host = True
             # First call to test -f (file exists) returns 0, second call is cp, third is service restart
             mock_call.side_effect = [0, 0, 0]
             assert module.handle_sensor_removal() is True
             assert mock_call.call_count == 3
-            # Verify file existence check
-            mock_call.assert_any_call(['test', '-f', '/usr/share/sonic/platform/module_sensors_ignore_conf/ignore_sensors_DPU0.conf'])
-            # Verify copy command
+            # Verify file existence check with stdout suppression
+            mock_call.assert_any_call(['test', '-f', '/usr/share/sonic/platform/module_sensors_ignore_conf/ignore_sensors_DPU0.conf'], 
+                                      stdout=subprocess.DEVNULL)
+            # Verify copy command with stdout suppression
             mock_call.assert_any_call(['cp', '/usr/share/sonic/platform/module_sensors_ignore_conf/ignore_sensors_DPU0.conf',
-                                      '/etc/sensors.d/ignore_sensors_DPU0.conf'])
-            # Verify restart command
-            mock_call.assert_any_call(['service', 'sensord', 'restart'])
+                                      '/etc/sensors.d/ignore_sensors_DPU0.conf'], 
+                                      stdout=subprocess.DEVNULL)
+            # Verify restart command with stdout suppression
+            mock_call.assert_any_call(['service', 'sensord', 'restart'], 
+                                      stdout=subprocess.DEVNULL)
             mock_lock.assert_called_once()
 
         # Test successful case in container - commands should be prefixed with docker exec
         with patch.object(module, 'get_name', return_value="DPU0"), \
              patch('subprocess.call') as mock_call, \
              patch.object(module, '_sensord_operation_lock') as mock_lock:
-            module._is_container = True
+            module.is_host = False
             # First call to test -f (file exists) returns 0, second call is cp, third is service restart
             mock_call.side_effect = [0, 0, 0]
             assert module.handle_sensor_removal() is True
             assert mock_call.call_count == 3
-            # Verify file existence check with docker exec prefix
-            mock_call.assert_any_call(['docker', 'exec', 'pmon', 'test', '-f', '/usr/share/sonic/platform/module_sensors_ignore_conf/ignore_sensors_DPU0.conf'])
-            # Verify copy command with docker exec prefix
+            # Verify file existence check with docker exec prefix and stdout suppression
+            mock_call.assert_any_call(['docker', 'exec', 'pmon', 'test', '-f', '/usr/share/sonic/platform/module_sensors_ignore_conf/ignore_sensors_DPU0.conf'], 
+                                      stdout=subprocess.DEVNULL)
+            # Verify copy command with docker exec prefix and stdout suppression
             mock_call.assert_any_call(['docker', 'exec', 'pmon', 'cp', '/usr/share/sonic/platform/module_sensors_ignore_conf/ignore_sensors_DPU0.conf',
-                                      '/etc/sensors.d/ignore_sensors_DPU0.conf'])
-            # Verify restart command with docker exec prefix
-            mock_call.assert_any_call(['docker', 'exec', 'pmon', 'service', 'sensord', 'restart'])
+                                      '/etc/sensors.d/ignore_sensors_DPU0.conf'], 
+                                      stdout=subprocess.DEVNULL)
+            # Verify restart command with docker exec prefix and stdout suppression
+            mock_call.assert_any_call(['docker', 'exec', 'pmon', 'service', 'sensord', 'restart'], 
+                                      stdout=subprocess.DEVNULL)
             mock_lock.assert_called_once()
 
         # Test file does not exist - should return True but not call copy or restart
         with patch.object(module, 'get_name', return_value="DPU0"), \
              patch('subprocess.call') as mock_call, \
              patch.object(module, '_sensord_operation_lock') as mock_lock:
-            module._is_container = False
+            module.is_host = True
             # Return 1 to indicate file doesn't exist
             mock_call.return_value = 1
             assert module.handle_sensor_removal() is True
-            # Only the file existence check should be called
-            mock_call.assert_called_once_with(['test', '-f', '/usr/share/sonic/platform/module_sensors_ignore_conf/ignore_sensors_DPU0.conf'])
+            # Only the file existence check should be called with stdout suppression
+            mock_call.assert_called_once_with(['test', '-f', '/usr/share/sonic/platform/module_sensors_ignore_conf/ignore_sensors_DPU0.conf'], 
+                                             stdout=subprocess.DEVNULL)
             mock_lock.assert_not_called()
 
         # Test exception handling
         with patch.object(module, 'get_name', return_value="DPU0"), \
              patch('subprocess.call', side_effect=Exception("Copy failed")):
-            module._is_container = False
+            module.is_host = True
             assert module.handle_sensor_removal() is False
 
     def test_handle_sensor_addition(self):
@@ -245,52 +252,59 @@ class TestModuleBase:
         with patch.object(module, 'get_name', return_value="DPU0"), \
              patch('subprocess.call') as mock_call, \
              patch.object(module, '_sensord_operation_lock') as mock_lock:
-            module._is_container = False
+            module.is_host = True
             # First call to test -f (file exists) returns 0, second call is rm, third is service restart
             mock_call.side_effect = [0, 0, 0]
             assert module.handle_sensor_addition() is True
             assert mock_call.call_count == 3
-            # Verify file existence check
-            mock_call.assert_any_call(['test', '-f', '/etc/sensors.d/ignore_sensors_DPU0.conf'])
-            # Verify remove command
-            mock_call.assert_any_call(['rm', '/etc/sensors.d/ignore_sensors_DPU0.conf'])
-            # Verify restart command
-            mock_call.assert_any_call(['service', 'sensord', 'restart'])
+            # Verify file existence check with stdout suppression
+            mock_call.assert_any_call(['test', '-f', '/etc/sensors.d/ignore_sensors_DPU0.conf'], 
+                                      stdout=subprocess.DEVNULL)
+            # Verify remove command with stdout suppression
+            mock_call.assert_any_call(['rm', '/etc/sensors.d/ignore_sensors_DPU0.conf'], 
+                                      stdout=subprocess.DEVNULL)
+            # Verify restart command with stdout suppression
+            mock_call.assert_any_call(['service', 'sensord', 'restart'], 
+                                      stdout=subprocess.DEVNULL)
             mock_lock.assert_called_once()
 
         # Test successful case in container - commands should be prefixed with docker exec
         with patch.object(module, 'get_name', return_value="DPU0"), \
              patch('subprocess.call') as mock_call, \
              patch.object(module, '_sensord_operation_lock') as mock_lock:
-            module._is_container = True
+            module.is_host = False
             # First call to test -f (file exists) returns 0, second call is rm, third is service restart
             mock_call.side_effect = [0, 0, 0]
             assert module.handle_sensor_addition() is True
             assert mock_call.call_count == 3
-            # Verify file existence check with docker exec prefix
-            mock_call.assert_any_call(['docker', 'exec', 'pmon', 'test', '-f', '/etc/sensors.d/ignore_sensors_DPU0.conf'])
-            # Verify remove command with docker exec prefix
-            mock_call.assert_any_call(['docker', 'exec', 'pmon', 'rm', '/etc/sensors.d/ignore_sensors_DPU0.conf'])
-            # Verify restart command with docker exec prefix
-            mock_call.assert_any_call(['docker', 'exec', 'pmon', 'service', 'sensord', 'restart'])
+            # Verify file existence check with docker exec prefix and stdout suppression
+            mock_call.assert_any_call(['docker', 'exec', 'pmon', 'test', '-f', '/etc/sensors.d/ignore_sensors_DPU0.conf'], 
+                                      stdout=subprocess.DEVNULL)
+            # Verify remove command with docker exec prefix and stdout suppression
+            mock_call.assert_any_call(['docker', 'exec', 'pmon', 'rm', '/etc/sensors.d/ignore_sensors_DPU0.conf'], 
+                                      stdout=subprocess.DEVNULL)
+            # Verify restart command with docker exec prefix and stdout suppression
+            mock_call.assert_any_call(['docker', 'exec', 'pmon', 'service', 'sensord', 'restart'], 
+                                      stdout=subprocess.DEVNULL)
             mock_lock.assert_called_once()
 
         # Test file does not exist - should return True but not call remove or restart
         with patch.object(module, 'get_name', return_value="DPU0"), \
              patch('subprocess.call') as mock_call, \
              patch.object(module, '_sensord_operation_lock') as mock_lock:
-            module._is_container = False
+            module.is_host = True
             # Return 1 to indicate file doesn't exist
             mock_call.return_value = 1
             assert module.handle_sensor_addition() is True
-            # Only the file existence check should be called
-            mock_call.assert_called_once_with(['test', '-f', '/etc/sensors.d/ignore_sensors_DPU0.conf'])
+            # Only the file existence check should be called with stdout suppression
+            mock_call.assert_called_once_with(['test', '-f', '/etc/sensors.d/ignore_sensors_DPU0.conf'], 
+                                             stdout=subprocess.DEVNULL)
             mock_lock.assert_not_called()
 
         # Test exception handling
         with patch.object(module, 'get_name', return_value="DPU0"), \
              patch('subprocess.call', side_effect=Exception("Remove failed")):
-            module._is_container = False
+            module.is_host = True
             assert module.handle_sensor_addition() is False
 
     def test_module_pre_shutdown(self):
