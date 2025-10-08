@@ -128,12 +128,8 @@ class ModuleBase(device_base.DeviceBase):
     def _transition_operation_lock(self):
         """File-based lock for module state transition operations using flock"""
         lock_file_path = self.TRANSITION_OPERATION_LOCK_FILE_PATH.format(self.get_name())
-        with open(lock_file_path, 'w') as f:
-            try:
-                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-                yield
-            finally:
-                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+        with self._file_operation_lock(lock_file_path):
+            yield
 
     @contextlib.contextmanager
     def _pci_operation_lock(self):
@@ -250,17 +246,18 @@ class ModuleBase(device_base.DeviceBase):
 
     def set_admin_state(self, up):
         """
-        Request to set the module's administrative state.
-
-        This is the base platform API for module admin state changes.
-        For SmartSwitch platforms requiring graceful shutdown coordination,
-        use set_admin_state_using_graceful_handler() instead.
+        Request to keep the card in administratively up/down state.
+        The down state will power down the module and the status should show
+        MODULE_STATUS_OFFLINE.
+        The up state will take the module to MODULE_STATUS_FAULT or
+        MODULE_STATUS_ONLINE states.
 
         Args:
-            up (bool): True for admin UP, False for admin DOWN.
+            up: A boolean, True to set the admin-state to UP. False to set the
+            admin-state to DOWN.
 
         Returns:
-            bool: True if the request was successful, False otherwise.
+            bool: True if the request has been issued successfully, False if not
         """
         raise NotImplementedError
 
