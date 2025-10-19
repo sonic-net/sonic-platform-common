@@ -105,10 +105,10 @@ class ModuleBase(device_base.DeviceBase):
     def _initialize_state_db_connector(self):
         """Initialize a STATE_DB connector using swsscommon only."""
         from swsscommon.swsscommon import SonicV2Connector  # type: ignore
-        db = SonicV2Connector()
+        db = SonicV2Connector(use_string_keys=True)
         try:
             db.connect(db.STATE_DB)
-        except Exception as e:
+        except RuntimeError as e:
             # Some environments autoconnect; preserve tolerant behavior
             sys.stderr.write(f"Failed to connect to STATE_DB, continuing: {e}\n")
             return None
@@ -566,10 +566,7 @@ class ModuleBase(device_base.DeviceBase):
         key = self._transition_key()
         while waited < shutdown_timeout:
             # Get current transition state
-            result = db.get_all(db.STATE_DB, key) or {}
-            entry = {k.decode('utf-8') if isinstance(k, bytes) else k:
-                    v.decode('utf-8') if isinstance(v, bytes) else v
-                    for k, v in result.items()}
+            entry = db.get_all(db.STATE_DB, key) or {}
 
             # (a) Someone else completed the graceful phase
             if entry.get("state_transition_in_progress", "False") == "False":
@@ -631,10 +628,7 @@ class ModuleBase(device_base.DeviceBase):
         with self._transition_operation_lock():
             key = f"CHASSIS_MODULE_TABLE|{module_name}"
             # Check if a transition is already in progress
-            result = db.get_all(db.STATE_DB, key) or {}
-            existing_entry = {k.decode('utf-8') if isinstance(k, bytes) else k:
-                            v.decode('utf-8') if isinstance(v, bytes) else v
-                            for k, v in result.items()}
+            existing_entry = db.get_all(db.STATE_DB, key) or {}
             if existing_entry.get("state_transition_in_progress", "False").lower() in ("true", "1", "yes", "on"):
                 # Already in progress - check if it's timed out
                 timeout_seconds = int(self._load_transition_timeouts().get(
@@ -700,10 +694,7 @@ class ModuleBase(device_base.DeviceBase):
             transition_start_time (if present).
         """
         key = f"CHASSIS_MODULE_TABLE|{module_name}"
-        result = db.get_all(db.STATE_DB, key) or {}
-        return {k.decode('utf-8') if isinstance(k, bytes) else k:
-               v.decode('utf-8') if isinstance(v, bytes) else v
-               for k, v in result.items()}
+        return db.get_all(db.STATE_DB, key) or {}
 
     def is_module_state_transition_timed_out(self, db, module_name: str, timeout_seconds: int) -> bool:
         """
