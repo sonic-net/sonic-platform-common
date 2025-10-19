@@ -375,7 +375,7 @@ class TestModuleBaseGracefulShutdown:
 
         set_calls = []
         module = DummyModule()
-        
+
         def mock_hset(db, key, mapping):
             set_calls.append((key, mapping))
 

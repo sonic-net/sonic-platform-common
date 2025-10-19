@@ -282,12 +282,12 @@ class ModuleBase(device_base.DeviceBase):
             # Admin UP: Clear any transition state and proceed with admin state change
             module_name = self.get_name()
             admin_state_success = self.set_admin_state(True)
-            
+
             # Clear transition state after admin state operation completes
             if not self.clear_module_state_transition(self._state_db_connector, module_name):
                 context = "after successful admin state change" if admin_state_success else "after failed admin state change"
                 sys.stderr.write(f"Failed to clear transition state for module {module_name} {context}.\n")
-            
+
             return admin_state_success
 
         # Admin DOWN: Perform graceful shutdown first
@@ -567,8 +567,8 @@ class ModuleBase(device_base.DeviceBase):
         while waited < shutdown_timeout:
             # Get current transition state
             result = db.get_all(db.STATE_DB, key) or {}
-            entry = {k.decode('utf-8') if isinstance(k, bytes) else k: 
-                    v.decode('utf-8') if isinstance(v, bytes) else v 
+            entry = {k.decode('utf-8') if isinstance(k, bytes) else k:
+                    v.decode('utf-8') if isinstance(v, bytes) else v
                     for k, v in result.items()}
 
             # (a) Someone else completed the graceful phase
@@ -632,8 +632,8 @@ class ModuleBase(device_base.DeviceBase):
             key = f"CHASSIS_MODULE_TABLE|{module_name}"
             # Check if a transition is already in progress
             result = db.get_all(db.STATE_DB, key) or {}
-            existing_entry = {k.decode('utf-8') if isinstance(k, bytes) else k: 
-                            v.decode('utf-8') if isinstance(v, bytes) else v 
+            existing_entry = {k.decode('utf-8') if isinstance(k, bytes) else k:
+                            v.decode('utf-8') if isinstance(v, bytes) else v
                             for k, v in result.items()}
             if existing_entry.get("state_transition_in_progress", "False").lower() in ("true", "1", "yes", "on"):
                 # Already in progress - check if it's timed out
@@ -701,8 +701,8 @@ class ModuleBase(device_base.DeviceBase):
         """
         key = f"CHASSIS_MODULE_TABLE|{module_name}"
         result = db.get_all(db.STATE_DB, key) or {}
-        return {k.decode('utf-8') if isinstance(k, bytes) else k: 
-               v.decode('utf-8') if isinstance(v, bytes) else v 
+        return {k.decode('utf-8') if isinstance(k, bytes) else k:
+               v.decode('utf-8') if isinstance(v, bytes) else v
                for k, v in result.items()}
 
     def is_module_state_transition_timed_out(self, db, module_name: str, timeout_seconds: int) -> bool:
