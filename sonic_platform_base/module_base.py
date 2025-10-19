@@ -279,7 +279,16 @@ class ModuleBase(device_base.DeviceBase):
             bool: True if the request was successful, False otherwise.
         """
         if up:
-            return self.set_admin_state(True)
+            # Admin UP: Clear any transition state and proceed with admin state change
+            module_name = self.get_name()
+            admin_state_success = self.set_admin_state(True)
+            
+            # Clear transition state after admin state operation completes
+            if not self.clear_module_state_transition(self._state_db_connector, module_name):
+                context = "after successful admin state change" if admin_state_success else "after failed admin state change"
+                sys.stderr.write(f"Failed to clear transition state for module {module_name} {context}.\n")
+            
+            return admin_state_success
 
         # Admin DOWN: Perform graceful shutdown first
         module_name = self.get_name()
@@ -409,10 +418,12 @@ class ModuleBase(device_base.DeviceBase):
 
             if operation == PCIE_OPERATION_ATTACHING:
                 # Delete the entire entry for attaching operation
-                ModuleBase._state_hdel(db, PCIE_DETACH_INFO_TABLE_KEY, "bus_info", "dpu_state")
+                if hasattr(db, 'delete'):
+                    db.delete(db.STATE_DB, PCIE_DETACH_INFO_TABLE_KEY, "bus_info")
+                    db.delete(db.STATE_DB, PCIE_DETACH_INFO_TABLE_KEY, "dpu_state")
                 return
             # Set the PCI detach info for detaching operation
-            ModuleBase._state_hset(db, PCIE_DETACH_INFO_TABLE_KEY, {
+            db.set(db.STATE_DB, PCIE_DETACH_INFO_TABLE_KEY, {
                 "bus_info": pcie_string,
                 "dpu_state": operation
             })
@@ -469,53 +480,7 @@ class ModuleBase(device_base.DeviceBase):
     # class-level cache to avoid multiple reads per process
     _TRANSITION_TIMEOUTS_CACHE = None
 
-    @staticmethod
-    def _state_hgetall(db, key: str) -> dict:
-        """STATE_DB HGETALL using swsscommon only."""
-        try:
-            result = db.get_all(db.STATE_DB, key)
-            if not result:
-                return {}
-            # Normalize byte strings to regular strings
-            normalized = {}
-            for k, v in result.items():
-                if isinstance(k, (bytes, bytearray)):
-                    k = k.decode("utf-8", "ignore")
-                if isinstance(v, (bytes, bytearray)):
-                    v = v.decode("utf-8", "ignore")
-                normalized[k] = v
-            return normalized
-        except Exception:
-            return {}
 
-    @staticmethod
-    def _state_hset(db, key: str, mapping: dict):
-        """STATE_DB HSET using swsscommon only."""
-        try:
-            # Convert all values to strings
-            normalized_mapping = {k: str(v) for k, v in mapping.items()}
-            db.set(db.STATE_DB, key, normalized_mapping)
-        except Exception as e:
-            sys.stderr.write(f"Failed to HSET key {key} in STATE_DB: {e}\n")
-
-    @staticmethod
-    def _state_hdel(db, key: str, *fields: str):
-        """STATE_DB HDEL using swsscommon only. No-op on failure."""
-        try:
-            # Try direct field deletion first (if available)
-            if hasattr(db, 'delete') and callable(getattr(db, 'delete')):
-                for field in fields:
-                    db.delete(db.STATE_DB, key, field)
-            else:
-                # Fallback: get current entry, remove specified fields, and set back
-                current_data = ModuleBase._state_hgetall(db, key)
-                if current_data and fields:
-                    for field in fields:
-                        current_data.pop(field, None)
-                    # Set the modified data back (this effectively deletes the fields)
-                    ModuleBase._state_hset(db, key, current_data)
-        except Exception as e:
-            sys.stderr.write(f"Failed to HDEL fields from key {key} in STATE_DB: {e}\n")
 
     def _transition_key(self) -> str:
         """Return the STATE_DB key for this module's transition state."""
@@ -600,7 +565,11 @@ class ModuleBase(device_base.DeviceBase):
 
         key = self._transition_key()
         while waited < shutdown_timeout:
-            entry = ModuleBase._state_hgetall(db, key)
+            # Get current transition state
+            result = db.get_all(db.STATE_DB, key) or {}
+            entry = {k.decode('utf-8') if isinstance(k, bytes) else k: 
+                    v.decode('utf-8') if isinstance(v, bytes) else v 
+                    for k, v in result.items()}
 
             # (a) Someone else completed the graceful phase
             if entry.get("state_transition_in_progress", "False") == "False":
@@ -662,7 +631,10 @@ class ModuleBase(device_base.DeviceBase):
         with self._transition_operation_lock():
             key = f"CHASSIS_MODULE_TABLE|{module_name}"
             # Check if a transition is already in progress
-            existing_entry = ModuleBase._state_hgetall(db, key)
+            result = db.get_all(db.STATE_DB, key) or {}
+            existing_entry = {k.decode('utf-8') if isinstance(k, bytes) else k: 
+                            v.decode('utf-8') if isinstance(v, bytes) else v 
+                            for k, v in result.items()}
             if existing_entry.get("state_transition_in_progress", "False").lower() in ("true", "1", "yes", "on"):
                 # Already in progress - check if it's timed out
                 timeout_seconds = int(self._load_transition_timeouts().get(
@@ -679,10 +651,10 @@ class ModuleBase(device_base.DeviceBase):
                     sys.stderr.write(f"Failed to clear timed-out transition for module {module_name} before setting new one.\n")
                     return False
             # Set new transition atomically
-            ModuleBase._state_hset(db, key, {
+            db.set(db.STATE_DB, key, {
                 "state_transition_in_progress": "True",
                 "transition_type": transition_type,
-                "transition_start_time": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                "transition_start_time": datetime.now(timezone.utc).isoformat(),
             })
             return True
 
@@ -705,12 +677,13 @@ class ModuleBase(device_base.DeviceBase):
             key = f"CHASSIS_MODULE_TABLE|{module_name}"
             try:
                 # Mark not in-progress and clear type (prevents stale 'startup' blocks)
-                ModuleBase._state_hset(db, key, {
+                db.set(db.STATE_DB, key, {
                     "state_transition_in_progress": "False",
                     "transition_type": ""
                 })
                 # Remove the start timestamp (avoid stale value lingering)
-                ModuleBase._state_hdel(db, key, "transition_start_time")
+                if hasattr(db, 'delete'):
+                    db.delete(db.STATE_DB, key, "transition_start_time")
                 return True
             except Exception as e:
                 sys.stderr.write(f"Failed to clear module state transition for {module_name}: {e}\n")
@@ -727,7 +700,10 @@ class ModuleBase(device_base.DeviceBase):
             transition_start_time (if present).
         """
         key = f"CHASSIS_MODULE_TABLE|{module_name}"
-        return ModuleBase._state_hgetall(db, key)
+        result = db.get_all(db.STATE_DB, key) or {}
+        return {k.decode('utf-8') if isinstance(k, bytes) else k: 
+               v.decode('utf-8') if isinstance(v, bytes) else v 
+               for k, v in result.items()}
 
     def is_module_state_transition_timed_out(self, db, module_name: str, timeout_seconds: int) -> bool:
         """
@@ -752,22 +728,22 @@ class ModuleBase(device_base.DeviceBase):
         # Only consider timeout if a transition is actually in progress
         inprog = str(entry.get("state_transition_in_progress", "")).lower() in ("1", "true", "yes", "on")
         if not inprog:
-            return False
+            return True
 
         start_str = entry.get("transition_start_time")
         if not start_str:
             # If no start time, assume it's not timed out to be safe
             return False
 
-        # Robust parsing: accept 'Z' suffix; tolerate tz-naive and make it UTC
-        s = start_str.replace("Z", "+00:00") if start_str.endswith("Z") else start_str
+        # Parse ISO format datetime with timezone
         try:
-            t0 = datetime.fromisoformat(s)
+            t0 = datetime.fromisoformat(start_str)
         except Exception:
             # Bad format → fail-safe to timed out
             return True
 
         if t0.tzinfo is None:
+            # If timezone-naive, assume UTC
             t0 = t0.replace(tzinfo=timezone.utc)
 
         age = (datetime.now(timezone.utc) - t0).total_seconds()

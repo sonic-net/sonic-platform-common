@@ -297,7 +297,8 @@ class TestModuleBaseGracefulShutdown:
             def get_all(self, db, key):
                 return {b"foo": b"bar", b"x": b"1"}
 
-        out = mb.ModuleBase._state_hgetall(FakeDB(), "ANY|KEY")
+        module = DummyModule()
+        out = module._state_hgetall(FakeDB(), "ANY|KEY")
         assert out == {"foo": "bar", "x": "1"}
 
     @staticmethod
@@ -310,7 +311,8 @@ class TestModuleBaseGracefulShutdown:
             def get_all(self, db, key):
                 return {"a": "1", "b": "2"}
 
-        out = mb.ModuleBase._state_hgetall(FakeDB(), "CHASSIS_MODULE_TABLE|DPU9")
+        module = DummyModule()
+        out = module._state_hgetall(FakeDB(), "CHASSIS_MODULE_TABLE|DPU9")
         assert out == {"a": "1", "b": "2"}
 
     @staticmethod
@@ -323,7 +325,8 @@ class TestModuleBaseGracefulShutdown:
             def get_all(self, db, key):
                 return {}
 
-        assert mb.ModuleBase._state_hgetall(FakeDB(), "EMPTY_KEY") == {}
+        module = DummyModule()
+        assert module._state_hgetall(FakeDB(), "EMPTY_KEY") == {}
 
     @staticmethod
     def test__state_hgetall_exception_returns_empty():
@@ -335,7 +338,8 @@ class TestModuleBaseGracefulShutdown:
             def get_all(self, db, key):
                 raise Exception("Database error")
 
-        assert mb.ModuleBase._state_hgetall(FakeDB(), "FAIL_KEY") == {}
+        module = DummyModule()
+        assert module._state_hgetall(FakeDB(), "FAIL_KEY") == {}
 
     # coverage: _state_hdel
 
@@ -351,7 +355,8 @@ class TestModuleBaseGracefulShutdown:
             def delete(self, db, key, field):
                 delete_calls.append((db, key, field))
 
-        mb.ModuleBase._state_hdel(FakeDB(), "CHASSIS_MODULE_TABLE|DPU0", "field1", "field2")
+        module = DummyModule()
+        module._state_hdel(FakeDB(), "CHASSIS_MODULE_TABLE|DPU0", "field1", "field2")
         assert len(delete_calls) == 2
         assert (6, "CHASSIS_MODULE_TABLE|DPU0", "field1") in delete_calls
         assert (6, "CHASSIS_MODULE_TABLE|DPU0", "field2") in delete_calls
@@ -369,20 +374,21 @@ class TestModuleBaseGracefulShutdown:
                 return {"field1": "value1", "field2": "value2", "keep_field": "keep_value"}
 
         set_calls = []
-        original_hset = mb.ModuleBase._state_hset
-
+        module = DummyModule()
+        
         def mock_hset(db, key, mapping):
             set_calls.append((key, mapping))
 
-        mb.ModuleBase._state_hset = mock_hset
+        original_hset = module._state_hset
+        module._state_hset = mock_hset
         try:
-            mb.ModuleBase._state_hdel(FakeDB(), "CHASSIS_MODULE_TABLE|DPU0", "field1", "field2")
+            module._state_hdel(FakeDB(), "CHASSIS_MODULE_TABLE|DPU0", "field1", "field2")
             assert len(set_calls) == 1
             key, mapping = set_calls[0]
             assert key == "CHASSIS_MODULE_TABLE|DPU0"
             assert mapping == {"keep_field": "keep_value"}  # field1 and field2 removed
         finally:
-            mb.ModuleBase._state_hset = original_hset
+            module._state_hset = original_hset
 
     @staticmethod
     def test__state_hdel_exception_handling():
@@ -396,7 +402,8 @@ class TestModuleBaseGracefulShutdown:
                 raise Exception("Database error")
 
         # Should not raise an exception, just silently fail
-        mb.ModuleBase._state_hdel(FakeDB(), "CHASSIS_MODULE_TABLE|DPU0", "field1")
+        module = DummyModule()
+        module._state_hdel(FakeDB(), "CHASSIS_MODULE_TABLE|DPU0", "field1")
 
     # ==== coverage: _state_hset branches ====
 
@@ -411,7 +418,8 @@ class TestModuleBaseGracefulShutdown:
                 recorded["key"] = key
                 recorded["mapping"] = mapping
 
-        mb.ModuleBase._state_hset(FakeDB(), "CHASSIS_MODULE_TABLE|DPU0", {"x": 1, "y": "z"})
+        module = DummyModule()
+        module._state_hset(FakeDB(), "CHASSIS_MODULE_TABLE|DPU0", {"x": 1, "y": "z"})
         assert recorded["key"] == "CHASSIS_MODULE_TABLE|DPU0"
         assert recorded["mapping"] == {"x": "1", "y": "z"}
 
@@ -430,7 +438,8 @@ class TestModuleBaseGracefulShutdown:
                 recorded["key"] = key
                 recorded["mapping"] = mapping
 
-        mb.ModuleBase._state_hset(FakeDB(), "CHASSIS_MODULE_TABLE|DPU1", {"a": 10})
+        module = DummyModule()
+        module._state_hset(FakeDB(), "CHASSIS_MODULE_TABLE|DPU1", {"a": 10})
         assert recorded["key"] == "CHASSIS_MODULE_TABLE|DPU1"
         assert recorded["mapping"] == {"a": "10"}
 
@@ -448,7 +457,8 @@ class TestModuleBaseGracefulShutdown:
                 recorded["key"] = key
                 recorded["mapping"] = mapping
 
-        mb.ModuleBase._state_hset(FakeDB(), "CHASSIS_MODULE_TABLE|DPU2", {"k1": 1, "k2": "v"})
+        module = DummyModule()
+        module._state_hset(FakeDB(), "CHASSIS_MODULE_TABLE|DPU2", {"k1": 1, "k2": "v"})
         assert recorded["db"] == 6  # STATE_DB
         assert recorded["key"] == "CHASSIS_MODULE_TABLE|DPU2"
         assert recorded["mapping"] == {"k1": "1", "k2": "v"}  # Values converted to strings
@@ -465,7 +475,8 @@ class TestModuleBaseGracefulShutdown:
                 raise Exception("Database error")
 
         # Should not raise an exception, just silently fail
-        mb.ModuleBase._state_hset(FakeDB(), "CHASSIS_MODULE_TABLE|DPU3", {"k1": 1, "k2": "v"})
+        module = DummyModule()
+        module._state_hset(FakeDB(), "CHASSIS_MODULE_TABLE|DPU3", {"k1": 1, "k2": "v"})
 
     @staticmethod
     def test__state_hset_value_normalization():
@@ -479,7 +490,8 @@ class TestModuleBaseGracefulShutdown:
             def set(self, db, key, mapping):
                 recorded["mapping"] = mapping
 
-        mb.ModuleBase._state_hset(FakeDB(), "CHASSIS_MODULE_TABLE|DPU4", {"p": 7, "q": "x", "r": True, "s": None})
+        module = DummyModule()
+        module._state_hset(FakeDB(), "CHASSIS_MODULE_TABLE|DPU4", {"p": 7, "q": "x", "r": True, "s": None})
         assert recorded["mapping"]["p"] == "7"  # int converted to str
         assert recorded["mapping"]["q"] == "x"  # str remains str
         assert recorded["mapping"]["r"] == "True"  # bool converted to str
@@ -504,10 +516,10 @@ class TestModuleBaseGracefulShutdown:
             # Return no existing entry so the transition can be set
             return {}
 
-        monkeypatch.setattr(mb.ModuleBase, "_state_hset", fake_hset, raising=False)
-        monkeypatch.setattr(mb.ModuleBase, "_state_hgetall", fake_hgetall, raising=False)
-
         module = ModuleBase()
+        monkeypatch.setattr(module, "_state_hset", fake_hset, raising=False)
+        monkeypatch.setattr(module, "_state_hgetall", fake_hgetall, raising=False)
+
         with patch.object(module, '_transition_operation_lock', side_effect=contextlib.nullcontext):
             result = module.set_module_state_transition(object(), "DPU9", "startup")
 
@@ -532,10 +544,10 @@ class TestModuleBaseGracefulShutdown:
             # Simulate that the existing transition is not timed out
             return False
 
-        monkeypatch.setattr(mb.ModuleBase, "_state_hgetall", fake_hgetall, raising=False)
-        monkeypatch.setattr(mb.ModuleBase, "is_module_state_transition_timed_out", fake_is_timed_out, raising=False)
-
         module = ModuleBase()
+        monkeypatch.setattr(module, "_state_hgetall", fake_hgetall, raising=False)
+        monkeypatch.setattr(module, "is_module_state_transition_timed_out", fake_is_timed_out, raising=False)
+
         # Mock _load_transition_timeouts to avoid file access
         monkeypatch.setattr(module, "_load_transition_timeouts", lambda: {"shutdown": 180})
         with patch.object(module, '_transition_operation_lock', side_effect=contextlib.nullcontext):
@@ -554,10 +566,10 @@ class TestModuleBaseGracefulShutdown:
         def mock_hdel(db, key, *fields):
             hdel_calls.append((key, fields))
 
-        monkeypatch.setattr(mb.ModuleBase, "_state_hset", mock_hset)
-        monkeypatch.setattr(mb.ModuleBase, "_state_hdel", mock_hdel)
-
         module = ModuleBase()
+        monkeypatch.setattr(module, "_state_hset", mock_hset)
+        monkeypatch.setattr(module, "_state_hdel", mock_hdel)
+
         with patch.object(module, '_transition_operation_lock', side_effect=contextlib.nullcontext):
             result = module.clear_module_state_transition(object(), "DPU7")
 
@@ -572,9 +584,9 @@ class TestModuleBaseGracefulShutdown:
         def mock_hset(db, key, mapping):
             raise Exception("DB error")
 
-        monkeypatch.setattr(mb.ModuleBase, "_state_hset", mock_hset)
-
         module = ModuleBase()
+        monkeypatch.setattr(module, "_state_hset", mock_hset)
+
         with patch.object(module, '_transition_operation_lock', side_effect=contextlib.nullcontext), \
              patch('sys.stderr', new_callable=StringIO) as mock_stderr:
             result = module.clear_module_state_transition(object(), "DPU7")
@@ -600,11 +612,11 @@ class TestModuleBaseGracefulShutdown:
             # Mock _state_hdel to do nothing (just like successful field deletion)
             pass
 
-        monkeypatch.setattr(mb.ModuleBase, "_state_hgetall", fake_hgetall, raising=False)
-        monkeypatch.setattr(mb.ModuleBase, "_state_hset", fake_hset, raising=False)
-        monkeypatch.setattr(mb.ModuleBase, "_state_hdel", fake_hdel, raising=False)
-
         module = ModuleBase()
+        monkeypatch.setattr(module, "_state_hgetall", fake_hgetall, raising=False)
+        monkeypatch.setattr(module, "_state_hset", fake_hset, raising=False)
+        monkeypatch.setattr(module, "_state_hdel", fake_hdel, raising=False)
+
         with patch.object(module, '_transition_operation_lock', side_effect=contextlib.nullcontext):
             result = module.clear_module_state_transition(object(), "DPU8")
         assert result is True
@@ -619,64 +631,70 @@ class TestModuleBaseGracefulShutdown:
     def test_get_module_state_transition_passthrough(self, monkeypatch):
         from sonic_platform_base import module_base as mb
         expect = {"state_transition_in_progress": "True", "transition_type": "reboot"}
-        monkeypatch.setattr(mb.ModuleBase, "_state_hgetall", lambda *_: expect, raising=False)
-        got = ModuleBase().get_module_state_transition(object(), "DPU5")
+        module = ModuleBase()
+        monkeypatch.setattr(module, "_state_hgetall", lambda *_: expect, raising=False)
+        got = module.get_module_state_transition(object(), "DPU5")
         assert got is expect
 
     # ==== coverage: is_module_state_transition_timed_out variants ====
 
     def test_is_transition_timed_out_no_entry(self, monkeypatch):
         from sonic_platform_base import module_base as mb
-        monkeypatch.setattr(mb.ModuleBase, "_state_hgetall", lambda *_: {}, raising=False)
-        assert ModuleBase().is_module_state_transition_timed_out(object(), "DPU0", 1)
+        module = ModuleBase()
+        monkeypatch.setattr(module, "_state_hgetall", lambda *_: {}, raising=False)
+        assert module.is_module_state_transition_timed_out(object(), "DPU0", 1)
 
     def test_is_transition_timed_out_no_start_time(self, monkeypatch):
         from sonic_platform_base import module_base as mb
+        module = ModuleBase()
         monkeypatch.setattr(
-            mb.ModuleBase, "_state_hgetall", lambda *_: {"state_transition_in_progress": "True"}, raising=False
+            module, "_state_hgetall", lambda *_: {"state_transition_in_progress": "True"}, raising=False
         )
         # Current implementation returns False when no start time is present (to be safe)
-        assert not ModuleBase().is_module_state_transition_timed_out(object(), "DPU0", 1)
+        assert not module.is_module_state_transition_timed_out(object(), "DPU0", 1)
 
     def test_is_transition_timed_out_bad_timestamp(self, monkeypatch):
         from sonic_platform_base import module_base as mb
+        module = ModuleBase()
         monkeypatch.setattr(
-            mb.ModuleBase, "_state_hgetall",
+            module, "_state_hgetall",
             lambda *_: {
                 "state_transition_in_progress": "True",
                 "transition_start_time": "bad"
             },
             raising=False
         )
-        assert ModuleBase().is_module_state_transition_timed_out(object(), "DPU0", 1)
+        assert module.is_module_state_transition_timed_out(object(), "DPU0", 1)
 
     def test_is_transition_timed_out_false(self, monkeypatch):
         from datetime import datetime, timezone, timedelta
         from sonic_platform_base import module_base as mb
         start = (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
+        module = ModuleBase()
         monkeypatch.setattr(
-            mb.ModuleBase, "_state_hgetall",
+            module, "_state_hgetall",
             lambda *_: {
                 "state_transition_in_progress": "True",
                 "transition_start_time": start
             },
             raising=False
         )
-        assert not ModuleBase().is_module_state_transition_timed_out(object(), "DPU0", 9999)
+        assert not module.is_module_state_transition_timed_out(object(), "DPU0", 9999)
 
     def test_is_transition_timed_out_true(self, monkeypatch):
         from datetime import datetime, timezone, timedelta
         from sonic_platform_base import module_base as mb
         start = (datetime.now(timezone.utc) - timedelta(seconds=10)).isoformat()
+        module = ModuleBase()
         monkeypatch.setattr(
-            mb.ModuleBase, "_state_hgetall",
+            module, "_state_hgetall",
             lambda *_: {
                 "state_transition_in_progress": "True",
                 "transition_start_time": start
             },
             raising=False
         )
-        assert ModuleBase().is_module_state_transition_timed_out(object(), "DPU0", 1)
+        assert module.is_module_state_transition_timed_out(object(), "DPU0", 1)
 
     # ==== coverage: import-time exposure of helper aliases ====
     @staticmethod
@@ -703,8 +721,8 @@ class TestModuleBasePCIAndSensors:
         def mock_hdel(db, key, *fields):
             hdel_calls.append((key, fields))
 
-        with patch.object(mb.ModuleBase, '_state_hset', mock_hset), \
-             patch.object(mb.ModuleBase, '_state_hdel', mock_hdel):
+        with patch.object(module, '_state_hset', mock_hset), \
+             patch.object(module, '_state_hdel', mock_hdel):
 
             # Test detaching operation
             module.pci_entry_state_db("0000:00:00.0", "detaching")
@@ -729,7 +747,7 @@ class TestModuleBasePCIAndSensors:
         def mock_hset(db, key, mapping):
             raise Exception("DB error")
 
-        with patch.object(mb.ModuleBase, '_state_hset', mock_hset), \
+        with patch.object(module, '_state_hset', mock_hset), \
              patch('sys.stderr', new_callable=StringIO) as mock_stderr:
             module.pci_entry_state_db("0000:00:00.0", "detaching")
             assert "Failed to write pcie bus info to state database" in mock_stderr.getvalue()
