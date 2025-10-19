@@ -579,7 +579,7 @@ class TestStateDbConnectorSwsscommonOnly:
     def test_initialize_state_db_connector_exception(self, mock_connector):
         from sonic_platform_base.module_base import ModuleBase
         mock_db = MagicMock()
-    mock_db.connect.side_effect = RuntimeError("Connection failed")
+        mock_db.connect.side_effect = RuntimeError("Connection failed")
         mock_connector.return_value = mock_db
 
         with patch('sys.stderr', new_callable=StringIO) as mock_stderr:
