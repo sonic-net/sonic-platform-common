@@ -579,7 +579,7 @@ class TestStateDbConnectorSwsscommonOnly:
     def test_initialize_state_db_connector_exception(self, mock_connector):
         from sonic_platform_base.module_base import ModuleBase
         mock_db = MagicMock()
-        mock_db.connect.side_effect = Exception("Connection failed")
+    mock_db.connect.side_effect = RuntimeError("Connection failed")
         mock_connector.return_value = mock_db
 
         with patch('sys.stderr', new_callable=StringIO) as mock_stderr:
@@ -881,20 +881,28 @@ class TestModuleBasePCIAndSensors:
     def test_pci_entry_state_db(self):
         module = DummyModule()
 
-        # Test "detaching"
+        # Test "detaching" — implementation writes a dict with bus_info and dpu_state
         module.pci_entry_state_db("0000:01:00.0", "detaching")
         module._state_db_connector.set.assert_called_with(
             module._state_db_connector.STATE_DB,
             "PCIE_DETACH_INFO|0000:01:00.0",
-            "operation",
-            "detaching"
+            {
+                "bus_info": "0000:01:00.0",
+                "dpu_state": "detaching"
+            }
         )
 
-        # Test "attaching"
+        # Test "attaching" — implementation deletes specific fields on attach
         module.pci_entry_state_db("0000:02:00.0", "attaching")
-        module._state_db_connector.delete.assert_called_with(
+        module._state_db_connector.delete.assert_any_call(
             module._state_db_connector.STATE_DB,
-            "PCIE_DETACH_INFO|0000:02:00.0"
+            "PCIE_DETACH_INFO|0000:02:00.0",
+            "bus_info"
+        )
+        module._state_db_connector.delete.assert_any_call(
+            module._state_db_connector.STATE_DB,
+            "PCIE_DETACH_INFO|0000:02:00.0",
+            "dpu_state"
         )
 
     def test_pci_entry_state_db_exception(self):
@@ -903,7 +911,8 @@ class TestModuleBasePCIAndSensors:
 
         with patch('sys.stderr', new_callable=StringIO) as mock_stderr:
             module.pci_entry_state_db("0000:01:00.0", "detaching")
-            assert "Failed to write pcie info to state db" in mock_stderr.getvalue()
+            # Implementation writes a more specific message
+            assert "Failed to write pcie bus info to state database" in mock_stderr.getvalue()
 
     def test_file_operation_lock(self):
         module = ModuleBase()
@@ -1096,7 +1105,7 @@ class TestStateDbConnectorSwsscommonOnly:
     def test_initialize_state_db_connector_exception(self, mock_connector):
         from sonic_platform_base.module_base import ModuleBase
         mock_db = MagicMock()
-        mock_db.connect.side_effect = Exception("Connection failed")
+    mock_db.connect.side_effect = RuntimeError("Connection failed")
         mock_connector.return_value = mock_db
 
         with patch('sys.stderr', new_callable=StringIO) as mock_stderr:
@@ -1615,7 +1624,7 @@ class TestStateDbConnectorSwsscommonOnly:
     def test_initialize_state_db_connector_exception(self, mock_connector):
         from sonic_platform_base.module_base import ModuleBase
         mock_db = MagicMock()
-        mock_db.connect.side_effect = Exception("Connection failed")
+    mock_db.connect.side_effect = RuntimeError("Connection failed")
         mock_connector.return_value = mock_db
 
         with patch('sys.stderr', new_callable=StringIO) as mock_stderr:
