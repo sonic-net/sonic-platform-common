@@ -37,6 +37,7 @@ class MockFile:
 
 
 class TestModuleBase:
+
     def test_module_base(self):
         module = ModuleBase()
         not_implemented_methods = [
