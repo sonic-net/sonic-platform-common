@@ -1209,7 +1209,7 @@ class TestStateDbConnectorSwsscommonOnly:
 
     @staticmethod
     def test_transition_timeouts_platform_missing():
-        """If platfrom is missing, defaults are used."""
+        """If platform is missing, defaults are used."""
         from sonic_platform_base import module_base as mb
         class Dummy(mb.ModuleBase): ...
         mb.ModuleBase._TRANSITION_TIMEOUTS_CACHE = None
