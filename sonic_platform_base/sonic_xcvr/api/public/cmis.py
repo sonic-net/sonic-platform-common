@@ -119,10 +119,10 @@ class CmisApi(XcvrApi):
     ]
 
     LPO_SM_MEDIA_INTERFACE_IDS = [
-        Sff8024.SM_MEDIA_INTERFACE[143],
-        Sff8024.SM_MEDIA_INTERFACE[144],
-        Sff8024.SM_MEDIA_INTERFACE[145],
-        Sff8024.SM_MEDIA_INTERFACE[146]
+        Sff8024.SM_MEDIA_INTERFACE[151],
+        Sff8024.SM_MEDIA_INTERFACE[152],
+        Sff8024.SM_MEDIA_INTERFACE[153],
+        Sff8024.SM_MEDIA_INTERFACE[154]
     ]
 
     # Default caching enabled; control via classmethod
