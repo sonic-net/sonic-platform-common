@@ -812,7 +812,6 @@ class ModuleBase(device_base.DeviceBase):
             container_command = ['docker', 'exec', 'pmon']
             restart_command = ['service', 'sensord', 'restart']
 
-
             if self.is_host:
                 file_exists_command = container_command + file_exists_command
                 copy_command = container_command + copy_command
