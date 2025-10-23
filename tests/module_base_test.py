@@ -568,7 +568,7 @@ class TestModuleBasePCIAndSensors:
 
 
 class TestStateDbConnectorSwsscommonOnly:
-    @patch('swsscommon.swsscommon.SonicV2Connector')
+    @patch('sonic_platform_base.module_base.SonicV2Connector')
     def test_initialize_state_db_connector_success(self, mock_connector):
         from sonic_platform_base.module_base import ModuleBase
         mock_db = MagicMock()
@@ -577,7 +577,7 @@ class TestStateDbConnectorSwsscommonOnly:
         assert module._state_db_connector == mock_db
         mock_db.connect.assert_called_once_with(mock_db.STATE_DB)
 
-    @patch('swsscommon.swsscommon.SonicV2Connector')
+    @patch('sonic_platform_base.module_base.SonicV2Connector')
     def test_initialize_state_db_connector_exception(self, mock_connector):
         from sonic_platform_base.module_base import ModuleBase
         mock_db = MagicMock()
