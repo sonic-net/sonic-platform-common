@@ -162,7 +162,7 @@ class TestModuleBaseGracefulShutdown:
         mb.ModuleBase._TRANSITION_TIMEOUTS_CACHE = None
         with patch("os.path.exists", return_value=False):
             d = Dummy()
-            assert d._load_transition_timeouts()["reboot"] == 240
+            assert d._load_transition_timeouts()["reboot"] == mb.ModuleBase._TRANSITION_TIMEOUT_DEFAULTS["reboot"]
 
     @staticmethod
     def test_transition_timeouts_reads_value():
@@ -187,7 +187,7 @@ class TestModuleBaseGracefulShutdown:
         with patch("os.path.exists", return_value=True), \
              patch("builtins.open", side_effect=FileNotFoundError):
             d = Dummy()
-            assert d._load_transition_timeouts()["reboot"] == 240
+            assert d._load_transition_timeouts()["reboot"] == mb.ModuleBase._TRANSITION_TIMEOUT_DEFAULTS["reboot"]
 
     # ==== coverage: centralized transition helpers ====
 
