@@ -300,6 +300,7 @@ class ModuleBase(device_base.DeviceBase):
             if not self.clear_module_state_transition(self._state_db_connector, module_name):
                 sys.stderr.write(f"Failed to clear transition state for module {module_name} after graceful shutdown failure.\n")
             sys.stderr.write(f"Aborting admin-down for module {module_name} due to graceful shutdown failure.\n")
+            return False
 
         # Proceed with admin state change
         admin_state_success = self.set_admin_state(False)
