@@ -498,13 +498,19 @@ class ModuleBase(device_base.DeviceBase):
         - dpu_startup_timeout
         - dpu_shutdown_timeout
         - dpu_reboot_timeout
+
+        Note:
+        The path used is /usr/share/sonic/platform/platform.json, which may differ from the typical
+        SONiC platform file location (/usr/share/sonic/device/{plat}/platform.json). This path is
+        bind-mounted in PMON/containers and is used directly here.
         """
         if ModuleBase._TRANSITION_TIMEOUTS_CACHE is not None:
             return ModuleBase._TRANSITION_TIMEOUTS_CACHE
 
         timeouts = dict(self._TRANSITION_TIMEOUT_DEFAULTS)
         try:
-            # NOTE: On PMON/containers this path is bind-mounted; use it directly.
+            # The platform.json file is expected at /usr/share/sonic/platform/platform.json.
+            # This may differ from the typical SONiC device path.
             path = "/usr/share/sonic/platform/platform.json"
             with open(path, "r") as f:
                 data = json.load(f) or {}
