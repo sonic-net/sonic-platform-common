@@ -629,7 +629,7 @@ class ModuleBase(device_base.DeviceBase):
         allowed = {"shutdown", "startup", "reboot"}
         ttype = (transition_type or "").strip().lower()
         if ttype not in allowed:
-            sys.stderr.write(f"Invalid transition_type='{transition_type}' for module {module_name}")
+            sys.stderr.write(f"Invalid transition_type='{transition_type}' for module {module_name}\n")
             return False
 
         module = module_name.strip().upper()
