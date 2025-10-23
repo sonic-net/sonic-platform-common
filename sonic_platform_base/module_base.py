@@ -15,6 +15,7 @@ import contextlib
 import shutil
 import time
 from datetime import datetime, timezone
+from swsscommon.swsscommon import SonicV2Connector  # type: ignore
 
 
 # PCI state database constants
@@ -104,7 +105,6 @@ class ModuleBase(device_base.DeviceBase):
 
     def _initialize_state_db_connector(self):
         """Initialize a STATE_DB connector using swsscommon only."""
-        from swsscommon.swsscommon import SonicV2Connector  # type: ignore
         db = SonicV2Connector(use_string_keys=True)
         try:
             db.connect(db.STATE_DB)
@@ -279,8 +279,9 @@ class ModuleBase(device_base.DeviceBase):
             bool: True if the request was successful, False otherwise.
         """
         if up:
-            # Admin UP: Clear any transition state and proceed with admin state change
+            # Admin UP: Set transition state to 'startup' before admin state change
             module_name = self.get_name()
+            self.set_module_state_transition(self._state_db_connector, module_name, "startup")
             admin_state_success = self.set_admin_state(True)
 
             # Clear transition state after admin state operation completes
@@ -625,8 +626,15 @@ class ModuleBase(device_base.DeviceBase):
         Returns:
             bool: True if transition was successfully set, False if already in progress
         """
+        allowed = {"shutdown", "startup", "reboot"}
+        ttype = (transition_type or "").strip().lower()
+        if ttype not in allowed:
+            sys.stderr.write(f"Invalid transition_type='{transition_type}' for module {module_name}")
+            return False
+
+        module = module_name.strip().upper()
+        key = f"CHASSIS_MODULE_TABLE|{module}"
         with self._transition_operation_lock():
-            key = f"CHASSIS_MODULE_TABLE|{module_name}"
             # Check if a transition is already in progress
             existing_entry = db.get_all(db.STATE_DB, key) or {}
             if existing_entry.get("state_transition_in_progress", "False").lower() in ("true", "1", "yes", "on"):
@@ -645,11 +653,9 @@ class ModuleBase(device_base.DeviceBase):
                     sys.stderr.write(f"Failed to clear timed-out transition for module {module_name} before setting new one.\n")
                     return False
             # Set new transition atomically
-            db.set(db.STATE_DB, key, {
-                "state_transition_in_progress": "True",
-                "transition_type": transition_type,
-                "transition_start_time": datetime.now(timezone.utc).isoformat(),
-            })
+            db.hset(db.STATE_DB, key, "state_transition_in_progress", "True")
+            db.hset(db.STATE_DB, key, "transition_type", ttype)
+            db.hset(db.STATE_DB, key, "transition_start_time", datetime.now(timezone.utc).isoformat())
             return True
 
     def clear_module_state_transition(self, db, module_name: str):
@@ -671,13 +677,9 @@ class ModuleBase(device_base.DeviceBase):
             key = f"CHASSIS_MODULE_TABLE|{module_name}"
             try:
                 # Mark not in-progress and clear type (prevents stale 'startup' blocks)
-                db.set(db.STATE_DB, key, {
-                    "state_transition_in_progress": "False",
-                    "transition_type": ""
-                })
-                # Remove the start timestamp (avoid stale value lingering)
-                if hasattr(db, 'delete'):
-                    db.delete(db.STATE_DB, key, "transition_start_time")
+                db.hset(db.STATE_DB, key, "state_transition_in_progress", "False")
+                db.hset(db.STATE_DB, key, "transition_type", "")
+                db.hset(db.STATE_DB, key, "transition_start_time", "")
                 return True
             except Exception as e:
                 sys.stderr.write(f"Failed to clear module state transition for {module_name}: {e}\n")

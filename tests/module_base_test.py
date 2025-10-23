@@ -205,16 +205,23 @@ class TestModuleBaseGracefulShutdown:
 
         assert result is True  # Should successfully set the transition
 
-        # Check that 'set' was called with the correct arguments
-        module._state_db_connector.set.assert_called_with(
-            module._state_db_connector.STATE_DB,
-            "CHASSIS_MODULE_TABLE|DPU9",
-            {
-                "state_transition_in_progress": "True",
-                "transition_type": "startup",
-                "transition_start_time": unittest.mock.ANY,
-            },
-        )
+        # Check that 'hset' was called with the correct arguments
+        expected_calls = [
+            call(module._state_db_connector.STATE_DB, "CHASSIS_MODULE_TABLE|DPU9", "state_transition_in_progress", "True"),
+            call(module._state_db_connector.STATE_DB, "CHASSIS_MODULE_TABLE|DPU9", "transition_type", "startup"),
+            call(module._state_db_connector.STATE_DB, "CHASSIS_MODULE_TABLE|DPU9", "transition_start_time", unittest.mock.ANY),
+        ]
+        module._state_db_connector.hset.assert_has_calls(expected_calls, any_order=True)
+
+    def test_set_module_state_transition_invalid_type(self):
+        module = DummyModule()
+        module._state_db_connector.get_all.return_value = {}
+
+        with patch('sys.stderr', new_callable=StringIO) as mock_stderr:
+            result = module.set_module_state_transition(module._state_db_connector, "DPU9", "invalid_type")
+            assert result is False
+            assert "Invalid transition_type" in mock_stderr.getvalue()
+        module._state_db_connector.hset.assert_not_called()
 
     def test_set_module_state_transition_race_condition_protection(self, monkeypatch):
         module = DummyModule()
@@ -245,21 +252,17 @@ class TestModuleBaseGracefulShutdown:
 
         assert result is True
 
-        # Check that 'set' was called to clear the flags
-        module._state_db_connector.set.assert_called_with(
-            module._state_db_connector.STATE_DB,
-            "CHASSIS_MODULE_TABLE|DPU9",
-            {"state_transition_in_progress": "False", "transition_type": ""},
-        )
-
-        # Check that 'delete' was called to remove the start time
-        module._state_db_connector.delete.assert_called_with(
-            module._state_db_connector.STATE_DB, "CHASSIS_MODULE_TABLE|DPU9", "transition_start_time"
-        )
+        # Check that 'hset' was called to clear the flags
+        expected_calls = [
+            call(module._state_db_connector.STATE_DB, "CHASSIS_MODULE_TABLE|DPU9", "state_transition_in_progress", "False"),
+            call(module._state_db_connector.STATE_DB, "CHASSIS_MODULE_TABLE|DPU9", "transition_type", ""),
+            call(module._state_db_connector.STATE_DB, "CHASSIS_MODULE_TABLE|DPU9", "transition_start_time", ""),
+        ]
+        module._state_db_connector.hset.assert_has_calls(expected_calls, any_order=True)
 
     def test_clear_module_state_transition_failure(self, monkeypatch):
         module = DummyModule()
-        module._state_db_connector.set.side_effect = Exception("DB error")
+        module._state_db_connector.hset.side_effect = Exception("DB error")
 
         with patch.object(module, '_transition_operation_lock', side_effect=contextlib.nullcontext), \
              patch('sys.stderr', new_callable=StringIO) as mock_stderr:
@@ -618,6 +621,27 @@ class TestStateDbConnectorSwsscommonOnly:
 
 # New test cases for set_admin_state_using_graceful_handler logic
 class TestModuleBaseAdminState:
+    def test_set_admin_state_up_sets_startup_transition(self):
+        module = DummyModule()
+        # Create a manager to check call order
+        manager = MagicMock()
+        module.set_module_state_transition = manager.set_module_state_transition
+        module.set_admin_state = manager.set_admin_state
+        module.clear_module_state_transition = manager.clear_module_state_transition
+        manager.set_admin_state.return_value = True
+        manager.clear_module_state_transition.return_value = True
+
+        result = module.set_admin_state_using_graceful_handler(True)
+
+        assert result is True
+        # Verify that set_module_state_transition is called before set_admin_state
+        expected_calls = [
+            call.set_module_state_transition(module._state_db_connector, "DPU0", "startup"),
+            call.set_admin_state(True),
+            call.clear_module_state_transition(module._state_db_connector, "DPU0"),
+        ]
+        manager.assert_has_calls(expected_calls)
+
     def test_set_admin_state_up_clears_transition(self):
         module = DummyModule()
         module.set_admin_state = MagicMock(return_value=True)
