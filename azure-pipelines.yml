@@ -96,6 +96,41 @@ steps:
   displayName: 'Publish Python 3 test coverage'
 
 - script: |
+    set -xe
+    # Check for directories missing __init__.py under sonic_xcvr
+    echo "Checking for directories missing __init__.py in sonic_xcvr..."
+    missing_init_dirs=$(find sonic_platform_base/sonic_xcvr -type d -print | while read d; do \
+      [ "$d" = "sonic_platform_base/sonic_xcvr" ] && continue; \
+      [ ! -f "$d/__init__.py" ] && echo "$d"; \
+    done)
+    if [ -n "$missing_init_dirs" ]; then
+      echo "Error: The following directories are missing __init__.py files:";
+      echo "$missing_init_dirs";
+      exit 1;
+    fi
+
+    # Check if all directories with __init__.py are declared in setup.py
+    echo "Checking if all sonic_xcvr packages are declared in setup.py..."
+    undeclared_packages=""
+    for dir in $(find sonic_platform_base/sonic_xcvr -type f -name __init__.py -exec dirname {} \; | sort -u); do
+      pkg_name=$(echo $dir | sed 's/\//./g')
+      if ! grep -q "'$pkg_name'" setup.py; then
+        echo "Error: Package '$pkg_name' has __init__.py but is not declared in setup.py"
+        undeclared_packages="$undeclared_packages $pkg_name"
+      fi
+    done
+    
+    if [ -n "$undeclared_packages" ]; then
+      echo ""
+      echo "ERROR: The following packages need to be added to setup.py:"
+      echo "$undeclared_packages"
+      exit 1
+    fi
+    
+    echo "All sonic_xcvr packages are properly validated"
+  displayName: 'Validate sonic_xcvr package structure'
+
+- script: |
     python3 -m build -n
   displayName: 'Build Python 3 wheel'
 
