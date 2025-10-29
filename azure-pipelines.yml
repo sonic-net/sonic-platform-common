@@ -119,14 +119,14 @@ steps:
         undeclared_packages="$undeclared_packages $pkg_name"
       fi
     done
-    
+
     if [ -n "$undeclared_packages" ]; then
       echo ""
       echo "ERROR: The following packages need to be added to setup.py:"
       echo "$undeclared_packages"
       exit 1
     fi
-    
+
     echo "All sonic_xcvr packages are properly validated"
   displayName: 'Validate sonic_xcvr package structure'
 
