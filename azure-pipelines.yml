@@ -113,7 +113,7 @@ steps:
     echo "Checking if all sonic_xcvr packages are declared in setup.py..."
     undeclared_packages=""
     for dir in $(find sonic_platform_base/sonic_xcvr -type f -name __init__.py -exec dirname {} \; | sort -u); do
-      pkg_name=$(echo $dir | sed 's/\//./g')
+      pkg_name=$(echo "$dir" | sed 's/\//./g')
       if ! grep -q "'$pkg_name'" setup.py; then
         echo "Error: Package '$pkg_name' has __init__.py but is not declared in setup.py"
         undeclared_packages="$undeclared_packages $pkg_name"
