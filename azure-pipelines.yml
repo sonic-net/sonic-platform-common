@@ -72,37 +72,13 @@ steps:
     sudo apt-get install -y dotnet-sdk-8.0
   displayName: "Install .NET CORE"
 
-# Python 3
-- script: |
-    set -ex
-    pip3 install ".[testing]"
-    pip3 uninstall --yes sonic-platform-common
-    pytest
-  displayName: 'Test Python 3'
-
-- task: PublishTestResults@2
-  inputs:
-    testResultsFiles: '$(System.DefaultWorkingDirectory)/test-results.xml'
-    testRunTitle: Python 3
-    failTaskOnFailedTests: true
-  condition: succeededOrFailed()
-  displayName: 'Publish Python 3 test results'
-
-- task: PublishCodeCoverageResults@1
-  inputs:
-    codeCoverageTool: Cobertura
-    summaryFileLocation: '$(System.DefaultWorkingDirectory)/coverage.xml'
-    reportDirectory: '$(System.DefaultWorkingDirectory)/htmlcov/'
-  displayName: 'Publish Python 3 test coverage'
-
 - script: |
     set -xe
     # Check for directories missing __init__.py under sonic_xcvr
     echo "Checking for directories missing __init__.py in sonic_xcvr..."
     missing_init_dirs=$(find sonic_platform_base/sonic_xcvr -type d -print | while read d; do \
-      [ "$d" = "sonic_platform_base/sonic_xcvr" ] && continue; \
-      case "$d" in *"__pycache__"*) continue;; esac; \
-      [ ! -f "$d/__init__.py" ] && echo "$d"; \
+      if [ "$d" = "sonic_platform_base/sonic_xcvr" ]; then continue; fi; \
+      if [ ! -f "$d/__init__.py" ]; then echo "$d"; fi; \
     done)
     if [ -n "$missing_init_dirs" ]; then
       echo "Error: The following directories are missing __init__.py files:";
@@ -130,6 +106,29 @@ steps:
 
     echo "All sonic_xcvr packages are properly validated"
   displayName: 'Validate sonic_xcvr package structure'
+
+# Python 3
+- script: |
+    set -ex
+    pip3 install ".[testing]"
+    pip3 uninstall --yes sonic-platform-common
+    pytest
+  displayName: 'Test Python 3'
+
+- task: PublishTestResults@2
+  inputs:
+    testResultsFiles: '$(System.DefaultWorkingDirectory)/test-results.xml'
+    testRunTitle: Python 3
+    failTaskOnFailedTests: true
+  condition: succeededOrFailed()
+  displayName: 'Publish Python 3 test results'
+
+- task: PublishCodeCoverageResults@1
+  inputs:
+    codeCoverageTool: Cobertura
+    summaryFileLocation: '$(System.DefaultWorkingDirectory)/coverage.xml'
+    reportDirectory: '$(System.DefaultWorkingDirectory)/htmlcov/'
+  displayName: 'Publish Python 3 test coverage'
 
 - script: |
     python3 -m build -n
