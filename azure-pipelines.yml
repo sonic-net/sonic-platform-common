@@ -101,6 +101,7 @@ steps:
     echo "Checking for directories missing __init__.py in sonic_xcvr..."
     missing_init_dirs=$(find sonic_platform_base/sonic_xcvr -type d -print | while read d; do \
       [ "$d" = "sonic_platform_base/sonic_xcvr" ] && continue; \
+      case "$d" in *"__pycache__"*) continue;; esac; \
       [ ! -f "$d/__init__.py" ] && echo "$d"; \
     done)
     if [ -n "$missing_init_dirs" ]; then
