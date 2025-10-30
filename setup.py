@@ -57,6 +57,7 @@ setup(
         'sonic_platform_base.sonic_xcvr.api.amphenol',
         'sonic_platform_base.sonic_xcvr.codes.amphenol',
         'sonic_platform_base.sonic_xcvr.mem_maps.amphenol',
+        'sonic_platform_base.sonic_xcvr.cdb',
         'sonic_psu',
         'sonic_sfp',
         'sonic_thermal',
