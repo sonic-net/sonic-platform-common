@@ -248,6 +248,75 @@ class TestModuleBase:
             assert self.module.set_admin_state_gracefully(False) is True
         assert "module_pre_shutdown() failed" in capsys.readouterr().err
 
+    def test_set_admin_state_gracefully_clear_transition_fail_up(self, capsys):
+        """Test clear_module_state_transition failure for admin UP path (lines 442-443)"""
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "set_module_state_transition", return_value=True), \
+             patch.object(self.module, "clear_module_state_transition", return_value=False), \
+             patch.object(self.module, "set_admin_state", return_value=True), \
+             patch.object(self.module, "module_post_startup", return_value=True):
+            assert self.module.set_admin_state_gracefully(True) is True
+        assert "Failed to clear module state transition for admin state UP" in capsys.readouterr().err
+
+    def test_set_admin_state_gracefully_clear_transition_fail_down(self, capsys):
+        """Test clear_module_state_transition failure for admin DOWN path (lines 463-464)"""
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "set_module_state_transition", return_value=True), \
+             patch.object(self.module, "clear_module_state_transition", return_value=False), \
+             patch.object(self.module, "set_admin_state", return_value=True), \
+             patch.object(self.module, "module_pre_shutdown", return_value=True), \
+             patch.object(self.module, "_graceful_shutdown_handler", return_value=True):
+            assert self.module.set_admin_state_gracefully(False) is True
+        assert "Failed to clear module state transition for admin state DOWN" in capsys.readouterr().err
+
+    def test_set_admin_state_gracefully_set_transition_fail_down(self, capsys):
+        """Test set_module_state_transition failure for admin DOWN path (lines 448-450)"""
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "set_module_state_transition", return_value=False):
+            assert self.module.set_admin_state_gracefully(False) is False
+        assert "Failed to set module state transition for admin state DOWN" in capsys.readouterr().err
+
+    def test_set_admin_state_gracefully_graceful_shutdown_fail(self, capsys):
+        """Test graceful shutdown handler failure/timeout (lines 456-458)"""
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "set_module_state_transition", return_value=True), \
+             patch.object(self.module, "clear_module_state_transition", return_value=True), \
+             patch.object(self.module, "set_admin_state", return_value=True), \
+             patch.object(self.module, "module_pre_shutdown", return_value=True), \
+             patch.object(self.module, "_graceful_shutdown_handler", return_value=False):
+            assert self.module.set_admin_state_gracefully(False) is True
+        assert "Graceful shutdown handler failed or timed out for module: DPU0" in capsys.readouterr().err
+
+    def test_set_admin_state_gracefully_all_failures_up_path(self, capsys):
+        """Test multiple failure scenarios in the UP path for maximum coverage"""
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "set_module_state_transition", return_value=True), \
+             patch.object(self.module, "clear_module_state_transition", return_value=False), \
+             patch.object(self.module, "set_admin_state", return_value=True), \
+             patch.object(self.module, "module_post_startup", return_value=False):
+            result = self.module.set_admin_state_gracefully(True)
+            assert result is True  # Method continues despite failures
+
+        captured = capsys.readouterr().err
+        assert "module_post_startup() failed" in captured
+        assert "Failed to clear module state transition for admin state UP" in captured
+
+    def test_set_admin_state_gracefully_all_failures_down_path(self, capsys):
+        """Test multiple failure scenarios in the DOWN path for maximum coverage"""
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "set_module_state_transition", return_value=True), \
+             patch.object(self.module, "clear_module_state_transition", return_value=False), \
+             patch.object(self.module, "set_admin_state", return_value=True), \
+             patch.object(self.module, "module_pre_shutdown", return_value=False), \
+             patch.object(self.module, "_graceful_shutdown_handler", return_value=False):
+            result = self.module.set_admin_state_gracefully(False)
+            assert result is True  # Method continues despite failures
+
+        captured = capsys.readouterr().err
+        assert "module_pre_shutdown() failed" in captured
+        assert "Graceful shutdown handler failed or timed out for module: DPU0" in captured
+        assert "Failed to clear module state transition for admin state DOWN" in captured
+
     # ----------------------------------------------------- Timeouts loading ----
     def test_load_transition_timeouts_defaults(self):
         ModuleBase._TRANSITION_TIMEOUTS_CACHE = None
