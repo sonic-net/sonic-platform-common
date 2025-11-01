@@ -87,7 +87,7 @@ class ModuleBase(device_base.DeviceBase):
         self._thermal_list = []
         self._voltage_sensor_list = []
         self._current_sensor_list = []
-        self.state_db = self.initialize_state_db()
+        self.state_db = None
         self.pci_bus_info = None
 
         # List of SfpBase-derived objects representing all sfps
@@ -97,6 +97,8 @@ class ModuleBase(device_base.DeviceBase):
         # List of ASIC-derived objects representing all ASICs
         # visibile in PCI domain on the module
         self._asic_list = []
+
+        self.state_db = self.initialize_state_db()
     
     def initialize_state_db(self):
         """
