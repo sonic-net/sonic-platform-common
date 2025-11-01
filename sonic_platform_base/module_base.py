@@ -541,7 +541,7 @@ class ModuleBase(device_base.DeviceBase):
     # ############################################################
     def set_module_state_transition(self, module_name, transition_type):
         """
-        Sets the module state transition flag 'state_transition_in_progress ' in the CHASSIS_MODULE_TABLE.
+        Sets the module state transition flag 'state_transition_in_progress' in the CHASSIS_MODULE_TABLE.
 
         Args:
             db: The database connector.
@@ -597,7 +597,7 @@ class ModuleBase(device_base.DeviceBase):
 
     def clear_module_state_transition(self, module_name):
         """
-        Clears the module state transition flag 'state_transition_in_progress ' in the CHASSIS_MODULE_TABLE.
+        Clears the module state transition flag 'state_transition_in_progress' in the CHASSIS_MODULE_TABLE.
 
         Args:
             db: The database connector.
@@ -620,7 +620,7 @@ class ModuleBase(device_base.DeviceBase):
 
     def get_module_state_transition(self, module_name):
         """
-        Retrieves the module state transition flag 'state_transition_in_progress ' from the CHASSIS_MODULE_TABLE.
+        Retrieves the module state transition flag 'state_transition_in_progress' from the CHASSIS_MODULE_TABLE.
 
         Args:
             db: The database connector.
