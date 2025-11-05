@@ -436,26 +436,51 @@ class TestModuleBase:
     def test_load_transition_timeouts_defaults(self):
         ModuleBase._TRANSITION_TIMEOUTS_CACHE = None
         with patch("os.path.exists", return_value=False):
-            assert self.module._load_transition_timeouts() == {"startup": 300, "shutdown": 180, "reboot": 240}
+            assert self.module._load_transition_timeouts() == {
+                "startup": 300,
+                "shutdown": 180,
+                "reboot": 240,
+                "halt_services": 60
+            }
 
     def test_load_transition_timeouts_custom(self):
         ModuleBase._TRANSITION_TIMEOUTS_CACHE = None
-        data = {"dpu_startup_timeout": 600, "dpu_shutdown_timeout": 360, "dpu_reboot_timeout": 480}
+        data = {
+            "dpu_startup_timeout": 600,
+            "dpu_shutdown_timeout": 360,
+            "dpu_reboot_timeout": 480,
+            "dpu_halt_services_timeout": 120
+        }
         mf = MockFile(json.dumps(data))
         with patch("os.path.exists", return_value=True), patch("builtins.open", return_value=mf):
-            assert self.module._load_transition_timeouts() == {"startup": 600, "shutdown": 360, "reboot": 480}
+            assert self.module._load_transition_timeouts() == {
+                "startup": 600,
+                "shutdown": 360,
+                "reboot": 480,
+                "halt_services": 120
+            }
 
     def test_load_transition_timeouts_partial(self):
         ModuleBase._TRANSITION_TIMEOUTS_CACHE = None
         mf = MockFile(json.dumps({"dpu_startup_timeout": 500}))
         with patch("os.path.exists", return_value=True), patch("builtins.open", return_value=mf):
-            assert self.module._load_transition_timeouts() == {"startup": 500, "shutdown": 180, "reboot": 240}
+            assert self.module._load_transition_timeouts() == {
+                "startup": 500,
+                "shutdown": 180,
+                "reboot": 240,
+                "halt_services": 60
+            }
 
     def test_load_transition_timeouts_error(self):
         ModuleBase._TRANSITION_TIMEOUTS_CACHE = None
         with patch("os.path.exists", return_value=True), \
              patch("builtins.open", side_effect=Exception("read error")):
-            assert self.module._load_transition_timeouts() == {"startup": 300, "shutdown": 180, "reboot": 240}
+            assert self.module._load_transition_timeouts() == {
+                "startup": 300,
+                "shutdown": 180,
+                "reboot": 240,
+                "halt_services": 60
+            }
 
     def test_load_transition_timeouts_cache(self):
         ModuleBase._TRANSITION_TIMEOUTS_CACHE = None
@@ -468,30 +493,174 @@ class TestModuleBase:
 
     # -------------------------------------- Graceful shutdown wait-loop --------
     def test_graceful_shutdown_handler_external_completion(self):
+        """Test graceful shutdown when external process clears gnoi_halt_in_progress flag"""
+        db = MagicMock()
+        self.module.state_db = db
+        # First call: flag is set, second call: flag is cleared
+        db.hget.side_effect = ["True", None]
+
         with patch.object(self.module, "get_name", return_value="DPU0"), \
-             patch.object(self.module, "_load_transition_timeouts", return_value={"shutdown": 180}), \
-             patch.object(self.module, "get_module_state_transition", side_effect=[True, False]), \
+             patch.object(self.module, "_load_transition_timeouts", return_value={"halt_services": 60}), \
              patch("time.sleep") as ms, \
              patch("time.time", side_effect=[1000, 1000, 1005, 1005]):
             assert self.module._graceful_shutdown_handler() is True
             ms.assert_called_once_with(5)
+            # Verify we checked the flag twice
+            assert db.hget.call_count == 2
 
     def test_graceful_shutdown_handler_timeout(self, capsys):
+        """Test graceful shutdown when timeout is reached"""
+        db = MagicMock()
+        self.module.state_db = db
+        # Flag remains set throughout
+        db.hget.return_value = "True"
+
         with patch.object(self.module, "get_name", return_value="DPU0"), \
-             patch.object(self.module, "_load_transition_timeouts", return_value={"shutdown": 10}), \
-             patch.object(self.module, "get_module_state_transition", return_value=True), \
+             patch.object(self.module, "_load_transition_timeouts", return_value={"halt_services": 10}), \
              patch("time.sleep") as ms, \
-             patch("time.time", side_effect=[1000, 1005, 1005, 1010, 1010]):
+             patch("time.time", side_effect=[1000, 1000, 1005, 1005, 1010, 1010, 1015]):
             assert self.module._graceful_shutdown_handler() is True
+            # Verify sleep was called
             ms.assert_called_with(5)
-        assert "Shutdown timeout reached for module: DPU0" in capsys.readouterr().err
+            # Verify flag was cleared after timeout
+            db.hdel.assert_called_once_with("CHASSIS_MODULE_TABLE|DPU0", "gnoi_halt_in_progress")
+
+        assert "Shutdown timeout reached for module: DPU0. Proceeding with shutdown." in capsys.readouterr().err
 
     def test_graceful_shutdown_handler_immediate_past_end(self):
+        """Test when current time is already past end time"""
+        db = MagicMock()
+        self.module.state_db = db
+        db.hget.return_value = "True"
+
         with patch.object(self.module, "get_name", return_value="DPU0"), \
-             patch.object(self.module, "_load_transition_timeouts", return_value={"shutdown": 10}), \
-             patch("time.sleep"), \
+             patch.object(self.module, "_load_transition_timeouts", return_value={"halt_services": 10}), \
+             patch("time.sleep") as ms, \
              patch("time.time", side_effect=[1000, 1020, 1020]):
+            # Loop condition fails immediately, returns False
             assert self.module._graceful_shutdown_handler() is False
+            ms.assert_not_called()
+
+    def test_graceful_shutdown_handler_custom_timeout(self):
+        """Test graceful shutdown with custom halt_services timeout"""
+        db = MagicMock()
+        self.module.state_db = db
+        db.hget.side_effect = ["True", None]
+
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_load_transition_timeouts", return_value={"halt_services": 120}), \
+             patch("time.sleep"), \
+             patch("time.time", side_effect=[1000, 1000, 1005, 1005]):
+            assert self.module._graceful_shutdown_handler() is True
+
+    # ---------------------------------- GNOI halt flag operations --------------
+    def test_get_module_gnoi_halt_in_progress_true(self):
+        """Test getting gnoi_halt_in_progress flag when it's set to True"""
+        db = MagicMock()
+        self.module.state_db = db
+        db.hget.return_value = "True"
+
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_transition_operation_lock"):
+            assert self.module._get_module_gnoi_halt_in_progress() is True
+            db.hget.assert_called_once_with("CHASSIS_MODULE_TABLE|DPU0", "gnoi_halt_in_progress")
+
+    def test_get_module_gnoi_halt_in_progress_false(self):
+        """Test getting gnoi_halt_in_progress flag when it's not set or False"""
+        db = MagicMock()
+        self.module.state_db = db
+
+        for value in [None, "False", "false", "", "0"]:
+            db.hget.return_value = value
+            with patch.object(self.module, "get_name", return_value="DPU0"), \
+                 patch.object(self.module, "_transition_operation_lock"):
+                assert self.module._get_module_gnoi_halt_in_progress() is False
+
+    def test_get_module_gnoi_halt_in_progress_db_error(self):
+        """Test getting gnoi_halt_in_progress flag when database error occurs"""
+        db = MagicMock()
+        self.module.state_db = db
+        db.hget.side_effect = Exception("DB Error")
+
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_transition_operation_lock"):
+            assert self.module._get_module_gnoi_halt_in_progress() is False
+
+    def test_clear_module_gnoi_halt_in_progress_success(self):
+        """Test clearing gnoi_halt_in_progress flag successfully"""
+        db = MagicMock()
+        self.module.state_db = db
+
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_transition_operation_lock"):
+            assert self.module._clear_module_gnoi_halt_in_progress() is True
+            db.hdel.assert_called_once_with("CHASSIS_MODULE_TABLE|DPU0", "gnoi_halt_in_progress")
+
+    def test_clear_module_gnoi_halt_in_progress_db_error(self):
+        """Test clearing gnoi_halt_in_progress flag when database error occurs"""
+        db = MagicMock()
+        self.module.state_db = db
+        db.hdel.side_effect = Exception("DB Error")
+
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_transition_operation_lock"):
+            assert self.module._clear_module_gnoi_halt_in_progress() is False
+
+    @pytest.mark.parametrize("module_name", ["DPU0", "DPU1", "LINE-CARD0", "SUPERVISOR0"])
+    def test_get_module_gnoi_halt_in_progress_various_modules(self, module_name):
+        """Test getting gnoi_halt_in_progress flag for various module types"""
+        db = MagicMock()
+        self.module.state_db = db
+        db.hget.return_value = "True"
+
+        with patch.object(self.module, "get_name", return_value=module_name), \
+             patch.object(self.module, "_transition_operation_lock"):
+            assert self.module._get_module_gnoi_halt_in_progress() is True
+            db.hget.assert_called_with(f"CHASSIS_MODULE_TABLE|{module_name}", "gnoi_halt_in_progress")
+
+    @pytest.mark.parametrize("module_name", ["DPU0", "DPU1", "LINE-CARD0", "SUPERVISOR0"])
+    def test_clear_module_gnoi_halt_in_progress_various_modules(self, module_name):
+        """Test clearing gnoi_halt_in_progress flag for various module types"""
+        db = MagicMock()
+        self.module.state_db = db
+
+        with patch.object(self.module, "get_name", return_value=module_name), \
+             patch.object(self.module, "_transition_operation_lock"):
+            assert self.module._clear_module_gnoi_halt_in_progress() is True
+            db.hdel.assert_called_with(f"CHASSIS_MODULE_TABLE|{module_name}", "gnoi_halt_in_progress")
+
+    def test_graceful_shutdown_handler_multiple_checks_before_clear(self):
+        """Test graceful shutdown checks flag multiple times before clearing on timeout"""
+        db = MagicMock()
+        self.module.state_db = db
+        # Flag remains set for 3 checks, then timeout
+        db.hget.return_value = "True"
+
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_load_transition_timeouts", return_value={"halt_services": 15}), \
+             patch("time.sleep"), \
+             patch("time.time", side_effect=[1000, 1000, 1005, 1005, 1010, 1010, 1015, 1015, 1020]):
+            assert self.module._graceful_shutdown_handler() is True
+            # Should check flag at least 3 times before timeout
+            assert db.hget.call_count >= 3
+            db.hdel.assert_called_once()
+
+    def test_graceful_shutdown_handler_flag_cleared_mid_loop(self):
+        """Test graceful shutdown when flag is cleared after several iterations"""
+        db = MagicMock()
+        self.module.state_db = db
+        # Flag set for first 2 checks, then cleared
+        db.hget.side_effect = ["True", "True", None]
+
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_load_transition_timeouts", return_value={"halt_services": 60}), \
+             patch("time.sleep") as ms, \
+             patch("time.time", side_effect=[1000, 1000, 1005, 1005, 1010, 1010, 1015]):
+            assert self.module._graceful_shutdown_handler() is True
+            # Should have slept twice before flag was cleared
+            assert ms.call_count == 2
+            # Should not clear flag when external process cleared it
+            db.hdel.assert_not_called()
 
     # -------------------------------- set/get/clear transition flags -----------
     def _key(self, mod="DPU0"):
@@ -506,7 +675,7 @@ class TestModuleBase:
              patch("time.time", return_value=1000):
             assert self.module.set_module_state_transition("dpu0", "startup") is True
         db.hset.assert_has_calls([
-            call(self._key("DPU0"), "state_transition_in_progress", "True"),
+            call(self._key("DPU0"), "transition_in_progress", "True"),
             call(self._key("DPU0"), "transition_type", "startup"),
             call(self._key("DPU0"), "transition_start_time", "1000"),
         ])
@@ -588,7 +757,7 @@ class TestModuleBase:
              patch.object(self.module, "get_name", return_value="DPU0"):
             assert self.module.clear_module_state_transition("dpu0") is True
         db.hdel.assert_has_calls([
-            call(self._key("DPU0"), "state_transition_in_progress"),
+            call(self._key("DPU0"), "transition_in_progress"),
             call(self._key("DPU0"), "transition_type"),
             call(self._key("DPU0"), "transition_start_time"),
         ])
@@ -609,29 +778,32 @@ class TestModuleBase:
         with patch.object(self.module, "_transition_operation_lock"), \
              patch.object(self.module, "get_name", return_value="DPU0"):
             assert self.module.clear_module_state_transition(mod.lower()) is True
-        db.hdel.assert_any_call(self._key(mod), "state_transition_in_progress")
+        db.hdel.assert_any_call(self._key(mod), "transition_in_progress")
 
     @pytest.mark.parametrize("ret,expected", [("True", True), (None, False), ("False", False), ("weird", False)])
     def test_get_module_state_transition(self, ret, expected):
         db = MagicMock()
         self.module.state_db = db
         db.hget.return_value = ret
-        assert self.module.get_module_state_transition("dpu0") is expected
-        db.hget.assert_called_with(self._key("DPU0"), "state_transition_in_progress")
+        with patch.object(self.module, "get_name", return_value="DPU0"):
+            assert self.module.get_module_state_transition("dpu0") is expected
+        db.hget.assert_called_with(self._key("DPU0"), "transition_in_progress")
 
     def test_get_module_state_transition_db_error(self, capsys):
         db = MagicMock()
         self.module.state_db = db
         db.hget.side_effect = Exception("DB Error")
-        assert self.module.get_module_state_transition("dpu0") is False
+        with patch.object(self.module, "get_name", return_value="DPU0"):
+            assert self.module.get_module_state_transition("dpu0") is False
 
     @pytest.mark.parametrize("mod", ["DPU0", "LINE-CARD1", "SUPERVISOR0", "FABRIC-CARD0"])
     def test_get_module_state_transition_various_modules(self, mod):
         db = MagicMock()
         self.module.state_db = db
         db.hget.return_value = "True"
-        assert self.module.get_module_state_transition(mod.lower()) is True
-        db.hget.assert_called_with(self._key(mod), "state_transition_in_progress")
+        with patch.object(self.module, "get_name", return_value=mod):
+            assert self.module.get_module_state_transition(mod.lower()) is True
+        db.hget.assert_called_with(self._key(mod), "transition_in_progress")
 
     # ---------------------------------- Edge timeout semantics coverage --------
     @pytest.mark.parametrize(

@@ -468,12 +468,13 @@ class ModuleBase(device_base.DeviceBase):
             return admin_status
 
     ##############################################
-    # Smartswitch module helpers
+    # Smartswitch module helpers (Referenced only in module_base.py)
     ##############################################
     _TRANSITION_TIMEOUT_DEFAULTS = {
-        "startup": 300,     # 5 mins
-        "shutdown": 180,    # 3 mins
-        "reboot": 240,      # 4 mins
+        "startup": 300,      # 5 mins
+        "shutdown": 180,     # 3 mins
+        "reboot": 240,       # 4 mins
+        "halt_services": 60  # 1 min
     }
 
     _TRANSITION_TIMEOUTS_CACHE = None
@@ -487,6 +488,7 @@ class ModuleBase(device_base.DeviceBase):
             - dpu_startup_timeout
             - dpu_shutdown_timeout
             - dpu_reboot_timeout
+            - dpu_halt_services_timeout
         Returns:
             dict: A dictionary with transition types as keys and their corresponding timeouts
              in seconds as values.
@@ -504,11 +506,47 @@ class ModuleBase(device_base.DeviceBase):
                     timeouts["startup"] = int(platform_data.get("dpu_startup_timeout", timeouts["startup"]))
                     timeouts["shutdown"] = int(platform_data.get("dpu_shutdown_timeout", timeouts["shutdown"]))
                     timeouts["reboot"] = int(platform_data.get("dpu_reboot_timeout", timeouts["reboot"]))
+                    timeouts["halt_services"] = int(platform_data.get("dpu_halt_services_timeout",
+                                                                      timeouts["halt_services"]))
         except Exception as e:
             sys.stderr.write("Error loading transition timeouts from {}: {}\n".format(platform_json_path, str(e)))
 
         ModuleBase._TRANSITION_TIMEOUTS_CACHE = timeouts
         return timeouts
+
+    def _get_module_gnoi_halt_in_progress(self):
+        """
+        Checks if the GNOI halt operation is in progress for the module.
+
+        Returns:
+            bool: True if the GNOI halt operation is in progress, False otherwise.
+        """
+        module_name = self.get_name()
+        module_key = "CHASSIS_MODULE_TABLE|" + module_name
+
+        with self._transition_operation_lock():
+            try:
+                gnoi_halt_flag = self.state_db.hget(module_key, "gnoi_halt_in_progress")
+                return gnoi_halt_flag == "True"
+            except Exception as e:
+                return False
+
+    def _clear_module_gnoi_halt_in_progress(self):
+        """
+        Clears the GNOI halt operation flag for the module.
+
+        Returns:
+            bool: True if the flag is successfully cleared, False otherwise.
+        """
+        module_name = self.get_name()
+        module_key = "CHASSIS_MODULE_TABLE|" + module_name
+
+        with self._transition_operation_lock():
+            try:
+                self.state_db.hdel(module_key, "gnoi_halt_in_progress")
+                return True
+            except Exception as e:
+                return False
 
     def _graceful_shutdown_handler(self):
         """
@@ -519,20 +557,20 @@ class ModuleBase(device_base.DeviceBase):
         """
         module_name = self.get_name()
 
-        shutdown_timeout = self._load_transition_timeouts().get("shutdown", 180)
-        end_time = time.time() + shutdown_timeout
+        halt_timeout = self._load_transition_timeouts().get("halt_services", 60)
+        end_time = time.time() + halt_timeout
         interval = 5  # seconds
 
         while time.time() <= end_time:
-            # (a) External completion: transition flag cleared by external process
-            if not self.get_module_state_transition(module_name):
+            # (a) External completion: gnoi_halt_in_progress flag cleared by external process
+            if not self._get_module_gnoi_halt_in_progress():
                 return True
 
             time.sleep(interval)
 
-            # (b) Timeout completion: proceed with shutdown after timeout
+            # (b) Timeout completion: proceed with shutdown after halt_services timeout
             if time.time() >= end_time:
-                self.clear_module_state_transition(module_name)
+                self._clear_module_gnoi_halt_in_progress()
                 sys.stderr.write("Shutdown timeout reached for module: {}. Proceeding with shutdown.\n".format(module_name))
                 return True
 
@@ -543,10 +581,9 @@ class ModuleBase(device_base.DeviceBase):
     # ############################################################
     def set_module_state_transition(self, module_name, transition_type):
         """
-        Sets the module state transition flag 'state_transition_in_progress' in the CHASSIS_MODULE_TABLE.
+        Sets the module state transition flag 'transition_in_progress' and corresponding fields in the CHASSIS_MODULE_TABLE.
 
         Args:
-            db: The database connector.
             module_name: The name of the module.
             transition_type: The type of transition (e.g., "startup", "shutdown", "reset").
         Returns:
@@ -566,11 +603,14 @@ class ModuleBase(device_base.DeviceBase):
 
         with self._transition_operation_lock():
             try:
-                current_flag = db.hget(module_key, "state_transition_in_progress")
+                current_flag = db.hget(module_key, "transition_in_progress")
                 if current_flag is None:
                     # Flag not set, set it now
-                    db.hset(module_key, "state_transition_in_progress", "True")
+                    db.hset(module_key, "transition_in_progress", "True")
                     db.hset(module_key, "transition_type", transition_type)
+                    # If transition_type is 'shutdown', set the gnoi_halt_in_progress flag
+                    if transition_type == "shutdown":
+                        db.hset(module_key, "gnoi_halt_in_progress", "True")
                     db.hset(module_key, "transition_start_time", str(int(time.time())))
                     return True
                 else:
@@ -585,7 +625,7 @@ class ModuleBase(device_base.DeviceBase):
                     timeout = self._load_transition_timeouts().get(transition_type, 0)
                     if current_time - start_time > timeout:
                         # Timeout occurred, reset the flag
-                        db.hset(module_key, "state_transition_in_progress", "True")
+                        db.hset(module_key, "transition_in_progress", "True")
                         db.hset(module_key, "transition_type", transition_type)
                         db.hset(module_key, "transition_start_time", str(current_time))
                         return True
@@ -599,10 +639,9 @@ class ModuleBase(device_base.DeviceBase):
 
     def clear_module_state_transition(self, module_name):
         """
-        Clears the module state transition flag 'state_transition_in_progress' in the CHASSIS_MODULE_TABLE.
+        Clears the module state transition flag 'transition_in_progress' and corresponding fields in the CHASSIS_MODULE_TABLE.
 
         Args:
-            db: The database connector.
             module_name: The name of the module.
         Returns:
             bool: Returns True if the flag is successfully cleared, False otherwise.
@@ -612,7 +651,7 @@ class ModuleBase(device_base.DeviceBase):
 
         with self._transition_operation_lock():
             try:
-                self.state_db.hdel(module_key, "state_transition_in_progress")
+                self.state_db.hdel(module_key, "transition_in_progress")
                 self.state_db.hdel(module_key, "transition_type")
                 self.state_db.hdel(module_key, "transition_start_time")
                 return True
@@ -622,10 +661,9 @@ class ModuleBase(device_base.DeviceBase):
 
     def get_module_state_transition(self, module_name):
         """
-        Retrieves the module state transition flag 'state_transition_in_progress' from the CHASSIS_MODULE_TABLE.
+        Retrieves the module state transition flag 'transition_in_progress' from the CHASSIS_MODULE_TABLE.
 
         Args:
-            db: The database connector.
             module_name: The name of the module.
         Returns:
             bool: Returns True if the flag is set, False otherwise.
@@ -633,11 +671,12 @@ class ModuleBase(device_base.DeviceBase):
         module_name = module_name.upper()
         module_key = "CHASSIS_MODULE_TABLE|" + module_name
 
-        try:
-            current_flag = self.state_db.hget(module_key, "state_transition_in_progress")
-            return current_flag == "True"
-        except Exception as e:
-            return False
+        with self._transition_operation_lock():
+            try:
+                current_flag = self.state_db.hget(module_key, "transition_in_progress")
+                return current_flag == "True"
+            except Exception as e:
+                return False
 
     ##############################################
     # Component methods
