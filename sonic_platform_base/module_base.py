@@ -531,9 +531,26 @@ class ModuleBase(device_base.DeviceBase):
             except Exception as e:
                 return False
 
+    def _set_module_gnoi_halt_in_progress(self):
+        """
+        Sets the GNOI halt operation in progress flag for the module.
+        Once this flag is set, gnoi_shutdown daemon starts shutting down the services gracefully.
+        Returns:
+            bool: True if the flag is successfully set, False otherwise.
+        """
+        module_name = self.get_name()
+        module_key = "CHASSIS_MODULE_TABLE|" + module_name
+
+        with self._transition_operation_lock():
+            try:
+                self.state_db.hset(module_key, "gnoi_halt_in_progress", "True")
+                return True
+            except Exception as e:
+                return False
+
     def _clear_module_gnoi_halt_in_progress(self):
         """
-        Clears the GNOI halt operation flag for the module.
+        Clears the GNOI halt operation in progress flag for the module.
 
         Returns:
             bool: True if the flag is successfully cleared, False otherwise.
@@ -560,6 +577,11 @@ class ModuleBase(device_base.DeviceBase):
         halt_timeout = self._load_transition_timeouts().get("halt_services", 60)
         end_time = time.time() + halt_timeout
         interval = 5  # seconds
+
+        # Set the gnoi_halt_in_progress flag to notify gnoi_shutdown daemon
+        if not self._set_module_gnoi_halt_in_progress():
+            sys.stderr.write("Failed to set gnoi_halt_in_progress flag for module: {}\n".format(module_name))
+            return False
 
         while time.time() <= end_time:
             # (a) External completion: gnoi_halt_in_progress flag cleared by external process
@@ -608,9 +630,6 @@ class ModuleBase(device_base.DeviceBase):
                     # Flag not set, set it now
                     db.hset(module_key, "transition_in_progress", "True")
                     db.hset(module_key, "transition_type", transition_type)
-                    # If transition_type is 'shutdown', set the gnoi_halt_in_progress flag
-                    if transition_type == "shutdown":
-                        db.hset(module_key, "gnoi_halt_in_progress", "True")
                     db.hset(module_key, "transition_start_time", str(int(time.time())))
                     return True
                 else:

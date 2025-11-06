@@ -629,6 +629,49 @@ class TestModuleBase:
             assert self.module._clear_module_gnoi_halt_in_progress() is True
             db.hdel.assert_called_with(f"CHASSIS_MODULE_TABLE|{module_name}", "gnoi_halt_in_progress")
 
+    def test_set_module_gnoi_halt_in_progress_success(self):
+        """Test setting gnoi_halt_in_progress flag successfully"""
+        db = MagicMock()
+        self.module.state_db = db
+
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_transition_operation_lock"):
+            assert self.module._set_module_gnoi_halt_in_progress() is True
+            db.hset.assert_called_once_with("CHASSIS_MODULE_TABLE|DPU0", "gnoi_halt_in_progress", "True")
+
+    def test_set_module_gnoi_halt_in_progress_db_error(self):
+        """Test setting gnoi_halt_in_progress flag when database error occurs"""
+        db = MagicMock()
+        self.module.state_db = db
+        db.hset.side_effect = Exception("DB Error")
+
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_transition_operation_lock"):
+            assert self.module._set_module_gnoi_halt_in_progress() is False
+
+    @pytest.mark.parametrize("module_name", ["DPU0", "DPU1", "LINE-CARD0", "SUPERVISOR0"])
+    def test_set_module_gnoi_halt_in_progress_various_modules(self, module_name):
+        """Test setting gnoi_halt_in_progress flag for various module types"""
+        db = MagicMock()
+        self.module.state_db = db
+
+        with patch.object(self.module, "get_name", return_value=module_name), \
+             patch.object(self.module, "_transition_operation_lock"):
+            assert self.module._set_module_gnoi_halt_in_progress() is True
+            db.hset.assert_called_with(f"CHASSIS_MODULE_TABLE|{module_name}", "gnoi_halt_in_progress", "True")
+
+    def test_set_module_gnoi_halt_in_progress_uses_lock(self):
+        """Test that _set_module_gnoi_halt_in_progress uses transition lock"""
+        db = MagicMock()
+        self.module.state_db = db
+        
+        mock_lock = MagicMock()
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_transition_operation_lock", return_value=mock_lock):
+            self.module._set_module_gnoi_halt_in_progress()
+            mock_lock.__enter__.assert_called_once()
+            mock_lock.__exit__.assert_called_once()
+
     def test_graceful_shutdown_handler_multiple_checks_before_clear(self):
         """Test graceful shutdown checks flag multiple times before clearing on timeout"""
         db = MagicMock()
