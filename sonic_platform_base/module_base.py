@@ -548,7 +548,7 @@ class ModuleBase(device_base.DeviceBase):
             except Exception as e:
                 return False
 
-    def _clear_module_gnoi_halt_in_progress(self):
+    def clear_module_gnoi_halt_in_progress(self):
         """
         Clears the GNOI halt operation in progress flag for the module.
 
@@ -576,7 +576,7 @@ class ModuleBase(device_base.DeviceBase):
 
         halt_timeout = self._load_transition_timeouts().get("halt_services", 60)
         end_time = time.time() + halt_timeout
-        interval = 5  # seconds
+        interval = 0.5  # seconds
 
         # Set the gnoi_halt_in_progress flag to notify gnoi_shutdown daemon
         if not self._set_module_gnoi_halt_in_progress():
@@ -592,7 +592,7 @@ class ModuleBase(device_base.DeviceBase):
 
             # (b) Timeout completion: proceed with shutdown after halt_services timeout
             if time.time() >= end_time:
-                self._clear_module_gnoi_halt_in_progress()
+                self.clear_module_gnoi_halt_in_progress()
                 sys.stderr.write("Shutdown timeout reached for module: {}. Proceeding with shutdown.\n".format(module_name))
                 return True
 
