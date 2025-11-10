@@ -1,0 +1,8 @@
+{
+  "@odata.id": "/redfish/v1/TaskService/Tasks/0",
+  "@odata.type": "#Task.v1_4_3.Task",
+  "Id": "0",
+  "TaskState": "Running",
+  "TaskStatus": "OK"
+}
+HTTP Status Code: 200

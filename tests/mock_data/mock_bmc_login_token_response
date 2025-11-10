@@ -1,0 +1,24 @@
+HTTP/1.1 201 Created
+Allow: GET, HEAD, POST
+OData-Version: 4.0
+X-Auth-Token: TVZI0pf8VCGbYAhw9cIF
+Location: /redfish/v1/SessionService/Sessions/abc123xyz
+Strict-Transport-Security: max-age=31536000; includeSubdomains
+Pragma: no-cache
+Cache-Control: no-store, max-age=0
+X-Content-Type-Options: nosniff
+Content-Type: application/json
+Date: Tue, 02 Apr 2024 10:14:08 GMT
+Content-Length: 289
+
+{
+  "@odata.id": "/redfish/v1/SessionService/Sessions/abc123xyz",
+  "@odata.type": "#Session.v1_7_0.Session",
+  "ClientOriginIPAddress": "169.254.0.2",
+  "Description": "Manager User Session",
+  "Id": "abc123xyz",
+  "Name": "User Session",
+  "Roles": [ "" ],
+  "UserName": "testuser"
+}
+HTTP Status Code: 201

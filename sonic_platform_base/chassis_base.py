@@ -70,6 +70,9 @@ class ChassisBase(device_base.DeviceBase):
         # System status LED
         self._status_led = None
 
+        # BMC
+        self._bmc = None
+
 
     def get_base_mac(self):
         """
@@ -786,3 +789,13 @@ class ChassisBase(device_base.DeviceBase):
                       status='6' Bad cable.
         """
         raise NotImplementedError
+    
+    def get_bmc(self):
+        """
+        Get bmc device on this chassis
+
+        Returns:
+            An object derived from BMCBase representing the BMC device
+        """
+        return self._bmc
+

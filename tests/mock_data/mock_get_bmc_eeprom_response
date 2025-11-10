@@ -1,0 +1,71 @@
+{
+  "@odata.id": "/redfish/v1/Chassis/BMC_eeprom",
+  "@odata.type": "#Chassis.v1_22_0.Chassis",
+  "Assembly": {
+    "@odata.id": "/redfish/v1/Chassis/BMC_eeprom/Assembly"
+  },
+  "ChassisType": "Module",
+  "Controls": {
+    "@odata.id": "/redfish/v1/Chassis/BMC_eeprom/Controls"
+  },
+  "EnvironmentMetrics": {
+    "@odata.id": "/redfish/v1/Chassis/BMC_eeprom/EnvironmentMetrics"
+  },
+  "Id": "BMC_eeprom",
+  "Links": {
+    "ComputerSystems": [
+      {
+        "@odata.id": "/redfish/v1/Systems/System_0"
+      }
+    ],
+    "ManagedBy": [
+      {
+        "@odata.id": "/redfish/v1/Managers/BMC_0"
+      }
+    ]
+  },
+  "Location": {
+    "PartLocation": {
+      "LocationType": "Embedded"
+    }
+  },
+  "LogServices": {
+    "@odata.id": "/redfish/v1/Chassis/BMC_eeprom/LogServices"
+  },
+  "Manufacturer": "TestVendor",
+  "Model": "BMC1000",
+  "Name": "BMC_eeprom",
+  "Oem": {
+    "TestVendor": {
+      "@odata.type": "#GenericChassis.v1_1_0.GenericChassis"
+    }
+  },
+  "PCIeDevices": {
+    "@odata.id": "/redfish/v1/Chassis/BMC_eeprom/PCIeDevices"
+  },
+  "PCIeSlots": {
+    "@odata.id": "/redfish/v1/Chassis/BMC_eeprom/PCIeSlots"
+  },
+  "PartNumber": "BMC-PN-12345-001",
+  "PowerState": "On",
+  "PowerSubsystem": {
+    "@odata.id": "/redfish/v1/Chassis/BMC_eeprom/PowerSubsystem"
+  },
+  "Sensors": {
+    "@odata.id": "/redfish/v1/Chassis/BMC_eeprom/Sensors"
+  },
+  "SerialNumber": "BMC-SN-987654321",
+  "Status": {
+    "Conditions": [],
+    "Health": "OK",
+    "HealthRollup": "OK",
+    "State": "Enabled"
+  },
+  "ThermalSubsystem": {
+    "@odata.id": "/redfish/v1/Chassis/BMC_eeprom/ThermalSubsystem"
+  },
+  "TrustedComponents": {
+    "@odata.id": "/redfish/v1/Chassis/BMC_eeprom/TrustedComponents"
+  }
+}
+HTTP Status Code: 200
