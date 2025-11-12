@@ -3,13 +3,12 @@
 
     Implementation of XcvrApi that corresponds to C-CMIS
 """
-from sonic_py_common import logger
 from ...fields import consts
 from .cmis import CmisApi, CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP, CMIS_XCVR_INFO_DEFAULT_DICT
 import time
 import copy
+import logging
 BYTELENGTH = 8
-SYSLOG_IDENTIFIER = "CCmisApi"
 
 C_CMIS_DELTA_VDM_KEY_TO_DB_PREFIX_KEY_MAP = {
     'Modulator Bias X/I [%]' : 'biasxi',
@@ -44,7 +43,8 @@ VDM_SUBTYPE_IDX_MAP= {
 }
 
 
-helper_logger = logger.Logger(SYSLOG_IDENTIFIER)
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 C_CMIS_XCVR_INFO_DEFAULT_DICT = copy.deepcopy(CMIS_XCVR_INFO_DEFAULT_DICT)
 C_CMIS_XCVR_INFO_DEFAULT_DICT.update({
@@ -86,7 +86,7 @@ class CCmisApi(CmisApi):
             dict_to_be_updated[new_key] = self.vdm_dict[vdm_dict_key][lane][vdm_subtype_index]
         except KeyError:
             dict_to_be_updated[new_key] = 'N/A'
-            helper_logger.log_debug('key {} not present in VDM'.format(new_key))
+            logger.debug('key {} not present in VDM'.format(new_key))
             return False
 
         return True
