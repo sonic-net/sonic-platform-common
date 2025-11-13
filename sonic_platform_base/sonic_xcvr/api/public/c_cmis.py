@@ -7,8 +7,6 @@ from ...fields import consts
 from .cmis import CmisApi, CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP, CMIS_XCVR_INFO_DEFAULT_DICT
 import time
 import copy
-import logging
-BYTELENGTH = 8
 
 C_CMIS_DELTA_VDM_KEY_TO_DB_PREFIX_KEY_MAP = {
     'Modulator Bias X/I [%]' : 'biasxi',
@@ -42,10 +40,6 @@ VDM_SUBTYPE_IDX_MAP= {
     8: 'lowwarning_flag'
 }
 
-
-logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
-
 C_CMIS_XCVR_INFO_DEFAULT_DICT = copy.deepcopy(CMIS_XCVR_INFO_DEFAULT_DICT)
 C_CMIS_XCVR_INFO_DEFAULT_DICT.update({
     "supported_max_tx_power": "N/A",
@@ -61,35 +55,6 @@ class CCmisApi(CmisApi):
     def _get_vdm_key_to_db_prefix_map(self):
         combined_map = {**CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP, **C_CMIS_DELTA_VDM_KEY_TO_DB_PREFIX_KEY_MAP}
         return combined_map
-
-    def _update_dict_if_vdm_key_exists(self, dict_to_be_updated, new_key, vdm_dict_key, vdm_subtype_index, lane=1):
-        '''
-        This function updates the dictionary with the VDM value if the vdm_dict_key exists.
-        @param dict_to_be_updated: the dictionary to be updated.
-        @param new_key: the key to be added in dict_to_be_updated.
-        @param vdm_dict_key: lookup key in the VDM dictionary.
-        @param vdm_subtype_index: the index of the VDM subtype in the VDM page.
-            0 refers to the real time value
-            1 refers to the high alarm threshold
-            2 refers to the low alarm threshold
-            3 refers to the high warning threshold
-            4 refers to the low warning threshold
-            5 refers to the high alarm flag
-            6 refers to the low alarm flag
-            7 refers to the high warning flag
-            8 refers to the low warning flag
-        @param lane: the lane number. Default is 1.
-
-        @return: True if the key exists in the VDM dictionary, False if not.
-        '''
-        try:
-            dict_to_be_updated[new_key] = self.vdm_dict[vdm_dict_key][lane][vdm_subtype_index]
-        except KeyError:
-            dict_to_be_updated[new_key] = 'N/A'
-            logger.debug('key {} not present in VDM'.format(new_key))
-            return False
-
-        return True
 
     def get_freq_grid(self):
         '''
