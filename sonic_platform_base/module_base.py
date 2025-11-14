@@ -506,8 +506,9 @@ class ModuleBase(device_base.DeviceBase):
                     timeouts["startup"] = int(platform_data.get("dpu_startup_timeout", timeouts["startup"]))
                     timeouts["shutdown"] = int(platform_data.get("dpu_shutdown_timeout", timeouts["shutdown"]))
                     timeouts["reboot"] = int(platform_data.get("dpu_reboot_timeout", timeouts["reboot"]))
+                    # Add 10 seconds buffer to halt_services timeout, as this is used by GNOI daemon as well
                     timeouts["halt_services"] = int(platform_data.get("dpu_halt_services_timeout",
-                                                                      timeouts["halt_services"]))
+                                                                      timeouts["halt_services"])) + 10
         except Exception as e:
             sys.stderr.write("Error loading transition timeouts from {}: {}\n".format(platform_json_path, str(e)))
 
@@ -590,11 +591,11 @@ class ModuleBase(device_base.DeviceBase):
 
             time.sleep(interval)
 
-            # (b) Timeout completion: proceed with shutdown after halt_services timeout
-            if time.time() >= end_time:
-                self.clear_module_gnoi_halt_in_progress()
-                sys.stderr.write("Shutdown timeout reached for module: {}. Proceeding with shutdown.\n".format(module_name))
-                return True
+        # (b) Timeout completion: proceed with shutdown after halt_services timeout
+        if time.time() >= end_time:
+            self.clear_module_gnoi_halt_in_progress()
+            sys.stderr.write("Shutdown timeout reached for module: {}. Proceeding with shutdown.\n".format(module_name))
+            return True
 
         return False
 

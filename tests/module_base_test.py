@@ -457,7 +457,7 @@ class TestModuleBase:
                 "startup": 600,
                 "shutdown": 360,
                 "reboot": 480,
-                "halt_services": 120
+                "halt_services": 130
             }
 
     def test_load_transition_timeouts_partial(self):
@@ -468,7 +468,7 @@ class TestModuleBase:
                 "startup": 500,
                 "shutdown": 180,
                 "reboot": 240,
-                "halt_services": 60
+                "halt_services": 70
             }
 
     def test_load_transition_timeouts_error(self):
@@ -521,7 +521,7 @@ class TestModuleBase:
         with patch.object(self.module, "get_name", return_value="DPU0"), \
              patch.object(self.module, "_load_transition_timeouts", return_value={"halt_services": 10}), \
              patch("time.sleep") as ms, \
-             patch("time.time", side_effect=[1000, 1000, 1000.5, 1000.5, 1001, 1001, 1010, 1010, 1010]):
+             patch("time.time", side_effect=[1000, 1000, 1000.5, 1001, 1005, 1010, 1010.5, 1010.5]):
             assert self.module._graceful_shutdown_handler() is True
             # Verify sleep was called with interval 0.5
             ms.assert_called_with(0.5)
@@ -541,9 +541,11 @@ class TestModuleBase:
              patch.object(self.module, "_load_transition_timeouts", return_value={"halt_services": 10}), \
              patch("time.sleep") as ms, \
              patch("time.time", side_effect=[1000, 1020, 1020]):
-            # Loop condition fails immediately, returns False
-            assert self.module._graceful_shutdown_handler() is False
+            # When already past deadline, function clears flag and returns True (timeout path)
+            assert self.module._graceful_shutdown_handler() is True
             ms.assert_not_called()
+            # Should clear the flag when timeout is reached
+            db.hdel.assert_called_once_with("CHASSIS_MODULE_TABLE|DPU0", "gnoi_halt_in_progress")
 
     def test_graceful_shutdown_handler_custom_timeout(self):
         """Test graceful shutdown with custom halt_services timeout"""
@@ -699,7 +701,7 @@ class TestModuleBase:
         with patch.object(self.module, "get_name", return_value="DPU0"), \
              patch.object(self.module, "_load_transition_timeouts", return_value={"halt_services": 15}), \
              patch("time.sleep"), \
-             patch("time.time", side_effect=[1000, 1000, 1005, 1005, 1010, 1010, 1015, 1015, 1020]):
+             patch("time.time", side_effect=[1000, 1000, 1005, 1010, 1015, 1015.5, 1015.5]):
             assert self.module._graceful_shutdown_handler() is True
             # Should check flag at least 3 times before timeout
             assert db.hget.call_count >= 3
