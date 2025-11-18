@@ -12,9 +12,6 @@ from .api.public.cmis import CmisApi
 from .api.public.c_cmis import CCmisApi
 from .mem_maps.public.cmis import CmisMemMap
 from .mem_maps.public.c_cmis import CCmisMemMap
-from .mem_maps.public.cdb import CdbMemMap
-from .cdb.cdb_fw import CdbFwHandler as CdbFw
-from .codes.public.cdb import CdbCodes
 
 from .codes.credo.aec_800g import CmisAec800gCodes
 from .api.credo.aec_800g import CmisAec800gApi
@@ -89,13 +86,11 @@ class XcvrApiFactory(object):
              ('EOPTOLINK' in vendor_name and vendor_pn in EOP_800G_VENDOR_PN_LIST):
             api = self._create_api(CmisCodes, CmisMemMap, CmisFr800gApi)
         else:
-            cdb_mem_map = CdbMemMap(CdbCodes)
-            cdb_fw = CdbFw(self.reader, self.writer, cdb_mem_map)
             xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CmisMemMap(CmisCodes))
-            api = CmisApi(xcvr_eeprom, cdb_fw)
+            api = CmisApi(xcvr_eeprom, init_cdb=True)
             if api.is_coherent_module():
                 xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CCmisMemMap(CmisCodes))
-                api = CCmisApi(xcvr_eeprom, cdb_fw)
+                api = CCmisApi(xcvr_eeprom, init_cdb=True)
         return api
 
     def _create_qsfp_api(self):

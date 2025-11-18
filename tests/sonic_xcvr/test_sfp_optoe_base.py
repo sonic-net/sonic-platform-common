@@ -9,11 +9,8 @@ from sonic_platform_base.sonic_xcvr.mem_maps.public.c_cmis import CCmisMemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom 
 from sonic_platform_base.sonic_xcvr.codes.public.cmis import CmisCodes 
 from sonic_platform_base.sonic_xcvr.api.public.sff8472 import Sff8472Api
-from sonic_platform_base.sonic_xcvr.mem_maps.public.cdb import CdbMemMap
-from sonic_platform_base.sonic_xcvr.codes.public.cdb import CdbCodes
-from sonic_platform_base.sonic_xcvr.cdb.cdb_fw import CdbFwHandler as CdbFw
 
-CdbFw.initFwHandler = MagicMock(return_value=True)
+
 class TestSfpOptoeBase(object): 
  
     codes = CmisCodes 
@@ -22,9 +19,8 @@ class TestSfpOptoeBase(object):
     writer = MagicMock() 
     eeprom = XcvrEeprom(reader, writer, mem_map) 
     sfp_optoe_api = SfpOptoeBase() 
-    cdb = CdbFw(reader, writer, CdbMemMap(CdbCodes))
-    ccmis_api = CCmisApi(eeprom, cdb) 
-    cmis_api = CmisApi(eeprom, cdb) 
+    ccmis_api = CCmisApi(eeprom, init_cdb=False) 
+    cmis_api = CmisApi(eeprom, init_cdb=False) 
     sff8472_api = Sff8472Api(eeprom)
  
     def test_is_transceiver_vdm_supported_non_cmis(self):

@@ -11,8 +11,11 @@ from ..xcvr_api import XcvrApi
 
 import logging
 from ...codes.public.cmis import CmisCodes
+from ...codes.public.cdb import CdbCodes
 from ...codes.public.sff8024 import Sff8024
 from ...fields import consts
+from ...mem_maps.public.cdb import CdbMemMap
+from ...cdb.cdb_fw import CdbFwHandler as CdbFw
 from ..xcvr_api import XcvrApi
 from .cmisCDB import CmisCdbApi
 from .cmisVDM import CmisVdmApi
@@ -135,11 +138,17 @@ class CmisApi(XcvrApi):
         """
         cls.cache_enabled = bool(enabled)
 
-    def __init__(self, xcvr_eeprom, cdb_fw_hdlr=None):
+    def __init__(self, xcvr_eeprom, init_cdb=False):
         super(CmisApi, self).__init__(xcvr_eeprom)
         self.vdm = CmisVdmApi(xcvr_eeprom) if not self.is_flat_memory() else None
         self.cdb = CmisCdbApi(xcvr_eeprom) if self.is_cdb_supported() else None
-        self.cdb_fw_hdlr = cdb_fw_hdlr if self.is_cdb_supported() else None
+        self.cdb_fw_hdlr = self._create_cdb_fw_handler() if init_cdb else None
+
+    def _create_cdb_fw_handler(self):
+        if not self.is_cdb_supported():
+            return None
+        cdb_mem_map = CdbMemMap(CdbCodes)
+        return CdbFw(self.xcvr_eeprom.reader, self.xcvr_eeprom.writer, cdb_mem_map)
 
     def get_cdb_fw_handler(self):
         return self.cdb_fw_hdlr
