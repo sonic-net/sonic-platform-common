@@ -451,14 +451,14 @@ class ModuleBase(device_base.DeviceBase):
                 sys.stderr.write("Failed to set module state transition for admin state DOWN\n")
                 return False
 
+            if not self._graceful_shutdown_handler():
+                sys.stderr.write("Graceful shutdown handler failed or timed out for module: {}\n".format(module_name))
+                # Proceeding with admin down even if graceful shutdown fails.
+
             # This is only valid on platforms which have pci_detach and sensord changes required. If it is not implemented,
             # there are no actions taken during this function execution.
             if not self.module_pre_shutdown():
                 sys.stderr.write("module_pre_shutdown() failed\n")
-
-            if not self._graceful_shutdown_handler():
-                sys.stderr.write("Graceful shutdown handler failed or timed out for module: {}\n".format(module_name))
-                # Proceeding with admin down even if graceful shutdown fails.
 
             admin_status = self.set_admin_state(False)
 
