@@ -433,8 +433,23 @@ class TestModuleBase:
         assert "Failed to clear module state transition for admin state DOWN" in captured
 
     # ----------------------------------------------------- Timeouts loading ----
-    def test_load_transition_timeouts_defaults(self):
+    def test_load_transition_timeouts_defaults_host(self):
+        """Test loading defaults when platform.json doesn't exist on host"""
         ModuleBase._TRANSITION_TIMEOUTS_CACHE = None
+        self.module.is_host = True
+        with patch("sonic_py_common.device_info.get_platform", return_value="test_platform"), \
+             patch("os.path.exists", return_value=False):
+            assert self.module._load_transition_timeouts() == {
+                "startup": 300,
+                "shutdown": 180,
+                "reboot": 240,
+                "halt_services": 60
+            }
+
+    def test_load_transition_timeouts_defaults_container(self):
+        """Test loading defaults when platform.json doesn't exist in container"""
+        ModuleBase._TRANSITION_TIMEOUTS_CACHE = None
+        self.module.is_host = False
         with patch("os.path.exists", return_value=False):
             assert self.module._load_transition_timeouts() == {
                 "startup": 300,
@@ -443,8 +458,10 @@ class TestModuleBase:
                 "halt_services": 60
             }
 
-    def test_load_transition_timeouts_custom(self):
+    def test_load_transition_timeouts_custom_host(self):
+        """Test loading custom timeouts from platform.json on host"""
         ModuleBase._TRANSITION_TIMEOUTS_CACHE = None
+        self.module.is_host = True
         data = {
             "dpu_startup_timeout": 600,
             "dpu_shutdown_timeout": 360,
@@ -452,27 +469,69 @@ class TestModuleBase:
             "dpu_halt_services_timeout": 120
         }
         mf = MockFile(json.dumps(data))
-        with patch("os.path.exists", return_value=True), patch("builtins.open", return_value=mf):
+        with patch("sonic_py_common.device_info.get_platform", return_value="test_platform"), \
+             patch("os.path.exists", return_value=True), \
+             patch("builtins.open", return_value=mf):
             assert self.module._load_transition_timeouts() == {
                 "startup": 600,
                 "shutdown": 360,
                 "reboot": 480,
-                "halt_services": 130
+                "halt_services": 130  # 120 + 10 buffer
+            }
+
+    def test_load_transition_timeouts_custom_container(self):
+        """Test loading custom timeouts from platform.json in container"""
+        ModuleBase._TRANSITION_TIMEOUTS_CACHE = None
+        self.module.is_host = False
+        data = {
+            "dpu_startup_timeout": 600,
+            "dpu_shutdown_timeout": 360,
+            "dpu_reboot_timeout": 480,
+            "dpu_halt_services_timeout": 120
+        }
+        mf = MockFile(json.dumps(data))
+        with patch("os.path.exists", return_value=True), \
+             patch("builtins.open", return_value=mf):
+            assert self.module._load_transition_timeouts() == {
+                "startup": 600,
+                "shutdown": 360,
+                "reboot": 480,
+                "halt_services": 130  # 120 + 10 buffer
             }
 
     def test_load_transition_timeouts_partial(self):
+        """Test loading partial timeouts (some keys missing)"""
         ModuleBase._TRANSITION_TIMEOUTS_CACHE = None
+        self.module.is_host = False
         mf = MockFile(json.dumps({"dpu_startup_timeout": 500}))
-        with patch("os.path.exists", return_value=True), patch("builtins.open", return_value=mf):
+        with patch("os.path.exists", return_value=True), \
+             patch("builtins.open", return_value=mf):
             assert self.module._load_transition_timeouts() == {
                 "startup": 500,
                 "shutdown": 180,
                 "reboot": 240,
-                "halt_services": 70
+                "halt_services": 70  # 60 + 10 buffer
             }
 
-    def test_load_transition_timeouts_error(self):
+    def test_load_transition_timeouts_error_host(self, capsys):
+        """Test error handling when loading timeouts fails on host"""
         ModuleBase._TRANSITION_TIMEOUTS_CACHE = None
+        self.module.is_host = True
+        with patch("sonic_py_common.device_info.get_platform", return_value="test_platform"), \
+             patch("os.path.exists", return_value=True), \
+             patch("builtins.open", side_effect=Exception("read error")):
+            assert self.module._load_transition_timeouts() == {
+                "startup": 300,
+                "shutdown": 180,
+                "reboot": 240,
+                "halt_services": 60
+            }
+            assert "Error loading transition timeouts" in capsys.readouterr().err
+
+    def test_load_transition_timeouts_error_container(self, capsys):
+        """Test error handling when loading timeouts fails in container"""
+        ModuleBase._TRANSITION_TIMEOUTS_CACHE = None
+        self.module.is_host = False
         with patch("os.path.exists", return_value=True), \
              patch("builtins.open", side_effect=Exception("read error")):
             assert self.module._load_transition_timeouts() == {
@@ -481,14 +540,38 @@ class TestModuleBase:
                 "reboot": 240,
                 "halt_services": 60
             }
+            assert "Error loading transition timeouts" in capsys.readouterr().err
 
     def test_load_transition_timeouts_cache(self):
+        """Test that timeouts are cached after first load"""
         ModuleBase._TRANSITION_TIMEOUTS_CACHE = None
+        self.module.is_host = False
         with patch("os.path.exists", return_value=False) as pexists:
             t1 = self.module._load_transition_timeouts()
             t2 = self.module._load_transition_timeouts()
             assert t1 == t2
             pexists.assert_called_once()
+        ModuleBase._TRANSITION_TIMEOUTS_CACHE = None
+
+    def test_load_transition_timeouts_platform_path_host(self):
+        """Test correct platform.json path construction on host"""
+        ModuleBase._TRANSITION_TIMEOUTS_CACHE = None
+        self.module.is_host = True
+        with patch("sonic_py_common.device_info.get_platform", return_value="x86_64-dellemc_z9332f_d1508-r0"), \
+             patch("os.path.exists", return_value=True) as pexists, \
+             patch("builtins.open", return_value=MockFile("{}")):
+            self.module._load_transition_timeouts()
+            pexists.assert_called_with("/usr/share/sonic/x86_64-dellemc_z9332f_d1508-r0/platform.json")
+        ModuleBase._TRANSITION_TIMEOUTS_CACHE = None
+
+    def test_load_transition_timeouts_platform_path_container(self):
+        """Test correct platform.json path construction in container"""
+        ModuleBase._TRANSITION_TIMEOUTS_CACHE = None
+        self.module.is_host = False
+        with patch("os.path.exists", return_value=True) as pexists, \
+             patch("builtins.open", return_value=MockFile("{}")):
+            self.module._load_transition_timeouts()
+            pexists.assert_called_with("/usr/share/sonic/platform/platform.json")
         ModuleBase._TRANSITION_TIMEOUTS_CACHE = None
 
     # -------------------------------------- Graceful shutdown wait-loop --------
@@ -846,26 +929,104 @@ class TestModuleBase:
     def test_get_module_state_transition(self, ret, expected):
         db = MagicMock()
         self.module.state_db = db
-        db.hget.return_value = ret
-        with patch.object(self.module, "get_name", return_value="DPU0"):
+        db.hget.side_effect = [ret, None, None] if ret == "True" else [ret]
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_transition_operation_lock"):
             assert self.module.get_module_state_transition("dpu0") is expected
-        db.hget.assert_called_with(self._key("DPU0"), "transition_in_progress")
+        db.hget.assert_any_call(self._key("DPU0"), "transition_in_progress")
 
     def test_get_module_state_transition_db_error(self, capsys):
         db = MagicMock()
         self.module.state_db = db
         db.hget.side_effect = Exception("DB Error")
-        with patch.object(self.module, "get_name", return_value="DPU0"):
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_transition_operation_lock"):
             assert self.module.get_module_state_transition("dpu0") is False
 
     @pytest.mark.parametrize("mod", ["DPU0", "LINE-CARD1", "SUPERVISOR0", "FABRIC-CARD0"])
     def test_get_module_state_transition_various_modules(self, mod):
         db = MagicMock()
         self.module.state_db = db
-        db.hget.return_value = "True"
-        with patch.object(self.module, "get_name", return_value=mod):
+        db.hget.side_effect = ["True", None, None]
+        with patch.object(self.module, "get_name", return_value=mod), \
+             patch.object(self.module, "_transition_operation_lock"):
             assert self.module.get_module_state_transition(mod.lower()) is True
-        db.hget.assert_called_with(self._key(mod), "transition_in_progress")
+        db.hget.assert_any_call(self._key(mod), "transition_in_progress")
+
+    def test_get_module_state_transition_timeout_clears_flag(self):
+        """Test that get_module_state_transition clears the flag when timeout is exceeded"""
+        db = MagicMock()
+        self.module.state_db = db
+        # Flag is set, start_time and transition_type are available, timeout exceeded
+        db.hget.side_effect = ["True", "900", "startup"]
+        
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_transition_operation_lock"), \
+             patch.object(self.module, "_load_transition_timeouts", return_value={"startup": 300}), \
+             patch.object(self.module, "clear_module_state_transition") as mock_clear, \
+             patch("time.time", return_value=1500):
+            # Timeout: 1500 - 900 = 600 > 300
+            assert self.module.get_module_state_transition("dpu0") is False
+            mock_clear.assert_called_once_with("DPU0")
+
+    def test_get_module_state_transition_within_timeout_returns_true(self):
+        """Test that get_module_state_transition returns True when within timeout period"""
+        db = MagicMock()
+        self.module.state_db = db
+        # Flag is set, start_time and transition_type are available, within timeout
+        db.hget.side_effect = ["True", "1400", "startup"]
+        
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_transition_operation_lock"), \
+             patch.object(self.module, "_load_transition_timeouts", return_value={"startup": 300}), \
+             patch.object(self.module, "clear_module_state_transition") as mock_clear, \
+             patch("time.time", return_value=1500):
+            # Within timeout: 1500 - 1400 = 100 < 300
+            assert self.module.get_module_state_transition("dpu0") is True
+            mock_clear.assert_not_called()
+
+    def test_get_module_state_transition_missing_start_time(self):
+        """Test that get_module_state_transition returns True when start_time is missing"""
+        db = MagicMock()
+        self.module.state_db = db
+        # Flag is set but start_time is None
+        db.hget.side_effect = ["True", None, "startup"]
+        
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_transition_operation_lock"), \
+             patch.object(self.module, "clear_module_state_transition") as mock_clear:
+            assert self.module.get_module_state_transition("dpu0") is True
+            mock_clear.assert_not_called()
+
+    def test_get_module_state_transition_missing_transition_type(self):
+        """Test that get_module_state_transition returns True when transition_type is missing"""
+        db = MagicMock()
+        self.module.state_db = db
+        # Flag is set, start_time exists but transition_type is None
+        db.hget.side_effect = ["True", "1000", None]
+        
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_transition_operation_lock"), \
+             patch.object(self.module, "clear_module_state_transition") as mock_clear:
+            assert self.module.get_module_state_transition("dpu0") is True
+            mock_clear.assert_not_called()
+
+    @pytest.mark.parametrize("transition_type", ["startup", "shutdown", "reboot"])
+    def test_get_module_state_transition_timeout_for_different_types(self, transition_type):
+        """Test timeout clearing for different transition types"""
+        db = MagicMock()
+        self.module.state_db = db
+        db.hget.side_effect = ["True", "900", transition_type]
+        
+        timeout_value = 300
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_transition_operation_lock"), \
+             patch.object(self.module, "_load_transition_timeouts", return_value={transition_type: timeout_value}), \
+             patch.object(self.module, "clear_module_state_transition") as mock_clear, \
+             patch("time.time", return_value=1500):
+            # Timeout: 1500 - 900 = 600 > 300
+            assert self.module.get_module_state_transition("dpu0") is False
+            mock_clear.assert_called_once_with("DPU0")
 
     # ---------------------------------- Edge timeout semantics coverage --------
     @pytest.mark.parametrize(

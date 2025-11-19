@@ -481,7 +481,7 @@ class ModuleBase(device_base.DeviceBase):
 
     def _load_transition_timeouts(self) -> dict:
         """
-        Loads module state transition timeouts from /usr/share/sonic/platform/platform.json if present,
+        Loads module state transition timeouts from platform.json if present,
         otherwise fall back to _TRANSITION_TIMEOUT_DEFAULTS.
 
         Reads the following keys from the JSON file:
@@ -497,7 +497,12 @@ class ModuleBase(device_base.DeviceBase):
             return ModuleBase._TRANSITION_TIMEOUTS_CACHE
 
         timeouts = self._TRANSITION_TIMEOUT_DEFAULTS.copy()
-        platform_json_path = "/usr/share/sonic/platform/platform.json"
+        if self.is_host:
+            from sonic_py_common import device_info
+            platform = device_info.get_platform()
+            platform_json_path = f"/usr/share/sonic/{platform}/platform.json"
+        else:
+            platform_json_path = "/usr/share/sonic/platform/platform.json"
 
         try:
             if os.path.exists(platform_json_path):
@@ -694,6 +699,21 @@ class ModuleBase(device_base.DeviceBase):
         with self._transition_operation_lock():
             try:
                 current_flag = self.state_db.hget(module_key, "transition_in_progress")
+
+                # Clear the flag if it's set but has exceeded the timeout period
+                if current_flag == "True":
+                    db = self.state_db
+                    start_time_str = db.hget(module_key, "transition_start_time")
+                    transition_type = db.hget(module_key, "transition_type")
+                    if start_time_str is not None and transition_type is not None:
+                        start_time = int(start_time_str)
+                        current_time = int(time.time())
+                        timeout = self._load_transition_timeouts().get(transition_type, 0)
+                        if current_time - start_time > timeout:
+                            # Timeout occurred, clear the flag
+                            self.clear_module_state_transition(module_name)
+                            return False
+
                 return current_flag == "True"
             except Exception as e:
                 return False
