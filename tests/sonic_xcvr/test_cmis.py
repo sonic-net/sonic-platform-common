@@ -2997,3 +2997,11 @@ class TestCmis(object):
         self.api.xcvr_eeprom.read.return_value = mock_response[1]
         result = self.api.get_tx_adaptive_eq_fail_flag()
         assert result == expected
+
+    @patch('sonic_platform_base.sonic_xcvr.cdb.cdb_fw.CdbFwHandler.initFwHandler', MagicMock(return_value=True))
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.is_cdb_supported')
+    def test_create_cdb_fw_handler(self, mock_cdb_support):
+        mock_cdb_support.return_value = False
+        assert self.api._create_cdb_fw_handler() is None
+        mock_cdb_support.return_value = True
+        assert self.api._create_cdb_fw_handler()
