@@ -14,7 +14,7 @@ class TestCCmis(object):
     writer = MagicMock()
     eeprom = XcvrEeprom(reader, writer, mem_map)
 
-    api = CCmisApi(eeprom, init_cdb=False)
+    api = CCmisApi(eeprom, init_cdb_fw_handler=False)
 
     @pytest.mark.parametrize("mock_response, expected", [
         (8, 150),

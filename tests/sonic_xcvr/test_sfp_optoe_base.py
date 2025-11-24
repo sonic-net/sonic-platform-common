@@ -19,8 +19,8 @@ class TestSfpOptoeBase(object):
     writer = MagicMock() 
     eeprom = XcvrEeprom(reader, writer, mem_map) 
     sfp_optoe_api = SfpOptoeBase() 
-    ccmis_api = CCmisApi(eeprom, init_cdb=False) 
-    cmis_api = CmisApi(eeprom, init_cdb=False) 
+    ccmis_api = CCmisApi(eeprom, init_cdb_fw_handler=False) 
+    cmis_api = CmisApi(eeprom, init_cdb_fw_handler=False) 
     sff8472_api = Sff8472Api(eeprom)
  
     def test_is_transceiver_vdm_supported_non_cmis(self):
