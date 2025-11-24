@@ -87,10 +87,10 @@ class XcvrApiFactory(object):
             api = self._create_api(CmisCodes, CmisMemMap, CmisFr800gApi)
         else:
             xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CmisMemMap(CmisCodes))
-            api = CmisApi(xcvr_eeprom, init_cdb=True)
+            api = CmisApi(xcvr_eeprom, init_cdb_fw_handler=True)
             if api.is_coherent_module():
                 xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CCmisMemMap(CmisCodes))
-                api = CCmisApi(xcvr_eeprom, init_cdb=True)
+                api = CCmisApi(xcvr_eeprom, init_cdb_fw_handler=True)
         return api
 
     def _create_qsfp_api(self):

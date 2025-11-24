@@ -3005,3 +3005,8 @@ class TestCmis(object):
         assert self.api._create_cdb_fw_handler() is None
         mock_cdb_support.return_value = True
         assert self.api._create_cdb_fw_handler()
+        
+        with patch.object(self.api, '_init_cdb_fw_handler', new=False):
+            assert self.api.cdb_fw_hdlr is None
+        with patch.object(self.api, '_init_cdb_fw_handler', new=True):
+            assert self.api.cdb_fw_hdlr is not None
