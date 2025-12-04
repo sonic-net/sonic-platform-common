@@ -86,7 +86,6 @@ class ModuleBase(device_base.DeviceBase):
         self._thermal_list = []
         self._voltage_sensor_list = []
         self._current_sensor_list = []
-        self.state_db = None
         self.pci_bus_info = None
 
         # List of SfpBase-derived objects representing all sfps
@@ -100,9 +99,9 @@ class ModuleBase(device_base.DeviceBase):
         # Flag to indicate if the module is running on the host/container
         self.is_host = self._is_host()
 
-        self.state_db = self.initialize_state_db()
+        self.state_db = None
     
-    def initialize_state_db(self):
+    def get_state_db(self):
         """
         Initializes and returns the state database connector.
 
@@ -367,12 +366,13 @@ class ModuleBase(device_base.DeviceBase):
             RuntimeError: If state database connection fails
         """
         try:
+            state_db = self.get_state_db()
             PCIE_DETACH_INFO_TABLE_KEY = PCIE_DETACH_INFO_TABLE+"|"+pcie_string
             if operation == PCIE_OPERATION_ATTACHING:
-                self.state_db.delete(PCIE_DETACH_INFO_TABLE_KEY)
+                state_db.delete(PCIE_DETACH_INFO_TABLE_KEY)
                 return
-            self.state_db.hset(PCIE_DETACH_INFO_TABLE_KEY, "bus_info", pcie_string)
-            self.state_db.hset(PCIE_DETACH_INFO_TABLE_KEY, "dpu_state", operation)
+            state_db.hset(PCIE_DETACH_INFO_TABLE_KEY, "bus_info", pcie_string)
+            state_db.hset(PCIE_DETACH_INFO_TABLE_KEY, "dpu_state", operation)
         except Exception as e:
             sys.stderr.write("Failed to write pcie bus info to state database: {}\n".format(str(e)))
 
@@ -529,10 +529,10 @@ class ModuleBase(device_base.DeviceBase):
         """
         module_name = self.get_name()
         module_key = "CHASSIS_MODULE_TABLE|" + module_name
-
+        state_db = self.get_state_db()
         with self._transition_operation_lock():
             try:
-                gnoi_halt_flag = self.state_db.hget(module_key, "gnoi_halt_in_progress")
+                gnoi_halt_flag = state_db.hget(module_key, "gnoi_halt_in_progress")
                 return gnoi_halt_flag == "True"
             except Exception as e:
                 return False
@@ -546,10 +546,10 @@ class ModuleBase(device_base.DeviceBase):
         """
         module_name = self.get_name()
         module_key = "CHASSIS_MODULE_TABLE|" + module_name
-
+        state_db = self.get_state_db()
         with self._transition_operation_lock():
             try:
-                self.state_db.hset(module_key, "gnoi_halt_in_progress", "True")
+                state_db.hset(module_key, "gnoi_halt_in_progress", "True")
                 return True
             except Exception as e:
                 return False
@@ -563,10 +563,10 @@ class ModuleBase(device_base.DeviceBase):
         """
         module_name = self.get_name()
         module_key = "CHASSIS_MODULE_TABLE|" + module_name
-
+        state_db = self.get_state_db()
         with self._transition_operation_lock():
             try:
-                self.state_db.hdel(module_key, "gnoi_halt_in_progress")
+                state_db.hdel(module_key, "gnoi_halt_in_progress")
                 return True
             except Exception as e:
                 return False
@@ -627,7 +627,7 @@ class ModuleBase(device_base.DeviceBase):
 
         module_name = module_name.upper()
         module_key = "CHASSIS_MODULE_TABLE|" + module_name
-        db = self.state_db
+        db = self.get_state_db()
 
         with self._transition_operation_lock():
             try:
@@ -673,12 +673,12 @@ class ModuleBase(device_base.DeviceBase):
         """
         module_name = module_name.upper()
         module_key = "CHASSIS_MODULE_TABLE|" + module_name
-
+        state_db = self.get_state_db()
         with self._transition_operation_lock():
             try:
-                self.state_db.hdel(module_key, "transition_in_progress")
-                self.state_db.hdel(module_key, "transition_type")
-                self.state_db.hdel(module_key, "transition_start_time")
+                state_db.hdel(module_key, "transition_in_progress")
+                state_db.hdel(module_key, "transition_type")
+                state_db.hdel(module_key, "transition_start_time")
                 return True
             except Exception as e:
                 sys.stderr.write("Error clearing transition flag for module {}: {}\n".format(module_name, str(e)))
@@ -695,16 +695,15 @@ class ModuleBase(device_base.DeviceBase):
         """
         module_name = module_name.upper()
         module_key = "CHASSIS_MODULE_TABLE|" + module_name
-
+        state_db = self.get_state_db()
         with self._transition_operation_lock():
             try:
-                current_flag = self.state_db.hget(module_key, "transition_in_progress")
+                current_flag = state_db.hget(module_key, "transition_in_progress")
 
                 # Clear the flag if it's set but has exceeded the timeout period
                 if current_flag == "True":
-                    db = self.state_db
-                    start_time_str = db.hget(module_key, "transition_start_time")
-                    transition_type = db.hget(module_key, "transition_type")
+                    start_time_str = state_db.hget(module_key, "transition_start_time")
+                    transition_type = state_db.hget(module_key, "transition_type")
                     if start_time_str is not None and transition_type is not None:
                         start_time = int(start_time_str)
                         current_time = int(time.time())
