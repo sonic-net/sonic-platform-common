@@ -1,0 +1,12 @@
+{
+    "Members": [
+        {
+            "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/BMC_FW_0"
+        },
+        {
+            "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/BIOS_FW_0"
+        }
+    ],
+    "Members@odata.count": 2
+}
+HTTP Status Code: 200

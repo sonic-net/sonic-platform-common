@@ -1,0 +1,12 @@
+{
+    "Members": [
+        {
+            "@odata.id": "/redfish/v1/Chassis/BMC_eeprom"
+        },
+        {
+            "@odata.id": "/redfish/v1/Chassis/system_eeprom"
+        }
+    ],
+    "Members@odata.count": 2
+}
+HTTP Status Code: 200

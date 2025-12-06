@@ -58,3 +58,10 @@ class TestChassisBase:
         chassis._current_sensor_list = ["s1"]
         assert(chassis.get_all_current_sensors() == ["s1"])
         assert(chassis.get_current_sensor(0) == "s1")
+
+    def test_get_bmc(self):
+        chassis = ChassisBase()
+        assert(chassis.get_bmc() == None)
+        mock_bmc = "mock_bmc_instance"
+        chassis._bmc = mock_bmc
+        assert(chassis.get_bmc() == mock_bmc)

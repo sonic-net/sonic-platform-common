@@ -1,0 +1,14 @@
+{
+	"ChassisType": "Module",
+	"Health": "OK",
+	"HealthRollup": "OK",
+	"Id": "BMC_eeprom",
+	"Location": "{'PartLocation': {'LocationType': 'Embedded'}}",
+	"Manufacturer": "TestVendor",
+	"Model": "BMC1000",
+	"Name": "BMC_eeprom",
+	"PartNumber": "BMC-PN-12345-001",
+	"PowerState": "On",
+	"SerialNumber": "BMC-SN-987654321",
+	"State": "Enabled"
+}

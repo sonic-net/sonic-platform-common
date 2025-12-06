@@ -1,0 +1,25 @@
+{
+  "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/TEST_FW_BMC_0",
+  "@odata.type": "#SoftwareInventory.v1_4_0.SoftwareInventory",
+  "Description": "BMC image",
+  "Id": "TEST_FW_BMC_0",
+  "Manufacturer": "TestVendor",
+  "Name": "Software Inventory",
+  "RelatedItem": [
+    {
+      "@odata.id": "/redfish/v1/Chassis/TEST_BMC_0"
+    }
+  ],
+  "RelatedItem@odata.count": 1,
+  "SoftwareId": "0x001B",
+  "Status": {
+    "Conditions": [],
+    "Health": "OK",
+    "HealthRollup": "OK",
+    "State": "Enabled"
+  },
+  "Updateable": true,
+  "Version": "V.88.0002.0500-04",
+  "WriteProtected": false
+}
+HTTP Status Code: 200
