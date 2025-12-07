@@ -55,8 +55,8 @@ C_CMIS_XCVR_INFO_DEFAULT_DICT.update({
 })
 
 class CCmisApi(CmisApi):
-    def __init__(self, xcvr_eeprom, cdb):
-        super(CCmisApi, self).__init__(xcvr_eeprom, cdb)
+    def __init__(self, xcvr_eeprom, init_cdb_fw_handler=False):
+        super(CCmisApi, self).__init__(xcvr_eeprom, init_cdb_fw_handler)
 
     def _get_vdm_key_to_db_prefix_map(self):
         combined_map = {**CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP, **C_CMIS_DELTA_VDM_KEY_TO_DB_PREFIX_KEY_MAP}
