@@ -1,0 +1,120 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+
+py_library(
+    name = "device_base",
+    srcs = ["device_base.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "component_base",
+    srcs = ["component_base.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "watchdog_base",
+    srcs = ["watchdog_base.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "thermal_base",
+    srcs = ["thermal_base.py"],
+    deps = [":device_base"],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "sensor_base",
+    srcs = ["sensor_base.py"],
+    deps = [":device_base"],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "sensor_fs",
+    srcs = ["sensor_fs.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "fan_base",
+    srcs = ["fan_base.py"],
+    deps = [":device_base"],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "fan_drawer_base",
+    srcs = ["fan_drawer_base.py"],
+    deps = [":device_base"],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "psu_base",
+    srcs = ["psu_base.py"],
+    deps = [":device_base"],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "module_base",
+    srcs = ["module_base.py"],
+    deps = [":device_base"],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "liquid_cooling_base",
+    srcs = ["liquid_cooling_base.py"],
+    deps = [":device_base"],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "sfp_base",
+    srcs = ["sfp_base.py"],
+    deps = [
+        ":device_base",
+        "//sonic_platform_base/sonic_xcvr",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "chassis_base",
+    srcs = ["chassis_base.py"],
+    deps = [
+        ":device_base",
+        ":sfp_base",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "platform_base",
+    srcs = ["platform_base.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "sonic_platform_base",
+    srcs = ["__init__.py"],
+    deps = [
+        ":chassis_base",
+        ":component_base",
+        ":device_base",
+        ":fan_base",
+        ":fan_drawer_base",
+        ":module_base",
+        ":platform_base",
+        ":psu_base",
+        ":sensor_base",
+        ":sfp_base",
+        ":thermal_base",
+        ":watchdog_base",
+    ],
+    visibility = ["//visibility:public"],
+)
