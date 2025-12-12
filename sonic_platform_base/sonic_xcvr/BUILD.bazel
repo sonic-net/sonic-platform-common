@@ -1,0 +1,7 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+
+py_library(
+    name = "sonic_xcvr",
+    srcs = glob(["**/*.py"]),
+    visibility = ["//visibility:public"],
+)
