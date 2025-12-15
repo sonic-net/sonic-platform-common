@@ -25,6 +25,8 @@ class TestChassisBase:
                 [chassis.get_dpu_id, [], {"name": "DPU0"}],
                 [chassis.get_dataplane_state, [], {}],
                 [chassis.get_controlplane_state, [], {}],
+                [chassis.change_sed_password, ["new_password"], {}],
+                [chassis.reset_sed_password, [], {}],
             ]
 
         for method in not_implemented_methods:
