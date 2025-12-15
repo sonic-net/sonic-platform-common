@@ -40,11 +40,11 @@ class TestCdbFwHandler:
         # Manually call initFwHandler
         assert handler.initFwHandler() == True
     
-    def test_init_failure_assertion(self):
-        """Test initialization failure raises assertion"""
+    def test_init_failure_graceful(self):
+        """Test initialization failure is handled gracefully"""
         with patch.object(CdbFwHandler, 'initFwHandler', return_value=False):
-            with pytest.raises(AssertionError, match="Failed to initialize firmware handler"):
-                CdbFwHandler(self.reader, self.writer, self.mem_map)
+            handler = CdbFwHandler(self.reader, self.writer, self.mem_map)
+            assert handler is not None
     
     def test_initFwHandler_send_cmd_failure(self):
         """Test initFwHandler when send_cmd fails"""
@@ -54,12 +54,12 @@ class TestCdbFwHandler:
         handler.start_payload_size = 0
         handler.is_lpl_only = False
         handler.rw_length_ext = 0
-        
+
         handler.send_cmd = MagicMock(return_value=False)
-        
+
         result = handler.initFwHandler()
-        
-        assert result == True
+
+        assert result is False
 
     def test_initFwHandler_read_reply_none(self):
         """Test initFwHandler when read_reply returns None"""
@@ -69,13 +69,13 @@ class TestCdbFwHandler:
         handler.start_payload_size = 0
         handler.is_lpl_only = False
         handler.rw_length_ext = 0
-        
+
         handler.send_cmd = MagicMock(return_value=True)
         handler.read_reply = MagicMock(return_value=None)
-        
+
         result = handler.initFwHandler()
 
-        assert result == True
+        assert result is False
 
     def test_initFwHandler_lpl_only(self):
         """Test initFwHandler with LPL only mechanism"""
