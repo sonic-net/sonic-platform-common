@@ -1,5 +1,11 @@
 load("@aspect_rules_py//py:defs.bzl", "py_library")
 
+filegroup(
+    name = "files",
+    srcs = glob(["*.py"]) + glob(["*.json"], allow_empty = True),
+    visibility = ["//visibility:public"],
+)
+
 py_library(
     name = "device_base",
     srcs = ["device_base.py"],
@@ -100,18 +106,37 @@ py_library(
 )
 
 py_library(
+    name = "redfish_client",
+    srcs = ["redfish_client.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "bmc_base",
+    srcs = ["bmc_base.py"],
+    deps = [
+        ":device_base",
+        ":redfish_client",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
     name = "sonic_platform_base",
     srcs = ["__init__.py"],
     deps = [
+        ":bmc_base",
         ":chassis_base",
         ":component_base",
         ":device_base",
         ":fan_base",
         ":fan_drawer_base",
+        ":liquid_cooling_base",
         ":module_base",
         ":platform_base",
         ":psu_base",
         ":sensor_base",
+        ":sensor_fs",
         ":sfp_base",
         ":thermal_base",
         ":watchdog_base",
