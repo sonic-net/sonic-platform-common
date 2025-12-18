@@ -32,7 +32,7 @@ class TestBMCBase:
             [bmc._get_login_user_callback, [], {}],
             [bmc._get_login_password_callback, [], {}],
             [bmc._get_default_root_password, [], {}],
-            [bmc._get_firmware_id, [], {}],
+            [bmc.get_firmware_id, [], {}],
             [bmc._get_eeprom_id, [], {}],
         ]
 
@@ -186,7 +186,7 @@ class ConcreteBMC(BMCBase):
     def _get_default_root_password(self):
         return 'rootpass'
     
-    def _get_firmware_id(self):
+    def get_firmware_id(self):
         return 'BMC_FW_0'
     
     def _get_eeprom_id(self):
@@ -389,13 +389,14 @@ class TestBMCBaseWithConcrete:
         mock_has_login.return_value = False
         mock_login.return_value = RedfishClient.ERR_CODE_OK
         mock_logout.return_value = RedfishClient.ERR_CODE_OK
-        mock_update_fw.return_value = (RedfishClient.ERR_CODE_OK, 'Update successful')
+        mock_update_fw.return_value = (RedfishClient.ERR_CODE_OK, 'Update successful', ['BMC_FW_0'])
         
         bmc = ConcreteBMC('169.254.0.1')
-        ret, msg = bmc.update_firmware('test_image.bin')
+        ret, (msg, updated_components) = bmc.update_firmware('test_image.bin')
         
         assert ret == RedfishClient.ERR_CODE_OK
         assert msg == 'Update successful'
+        assert updated_components == ['BMC_FW_0']
         mock_update_fw.assert_called_once_with('test_image.bin', fw_ids=['BMC_FW_0'])
 
     @mock.patch.object(RedfishClient, 'redfish_api_trigger_bmc_debug_log_dump')
