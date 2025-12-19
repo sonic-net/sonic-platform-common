@@ -14,7 +14,12 @@ class CdbFwHandler(CdbCmdHandler):
         self.start_payload_size = 0
         self.is_lpl_only = False
         self.rw_length_ext = 0
-        assert True == self.initFwHandler(), "Failed to initialize firmware handler"
+
+        if not self.initFwHandler():
+            # Don’t kill the whole xcvr API if FW mgmt isn’t supported
+            print("Warning: CDB firmware handler init failed; disabling FW mgmt for this module")
+            # Leave defaults; FW-mgmt calls can just return failure later.
+            return
 
     def initFwHandler(self):
         """
