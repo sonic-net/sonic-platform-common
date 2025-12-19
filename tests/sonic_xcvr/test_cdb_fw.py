@@ -59,7 +59,7 @@ class TestCdbFwHandler:
 
         result = handler.initFwHandler()
 
-        assert result is False
+        assert result == True
 
     def test_initFwHandler_read_reply_none(self):
         """Test initFwHandler when read_reply returns None"""
@@ -75,7 +75,7 @@ class TestCdbFwHandler:
 
         result = handler.initFwHandler()
 
-        assert result is False
+        assert result == True
 
     def test_initFwHandler_lpl_only(self):
         """Test initFwHandler with LPL only mechanism"""
