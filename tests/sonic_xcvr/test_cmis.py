@@ -3003,6 +3003,7 @@ class TestCmis(object):
     def test_create_cdb_fw_handler(self, mock_cdb_support):
         mock_cdb_support.return_value = False
         assert self.api._create_cdb_fw_handler() is None
+        assert self.api._init_cdb_fw_handler is False
         mock_cdb_support.return_value = True
         assert self.api._create_cdb_fw_handler()
         
@@ -3010,3 +3011,15 @@ class TestCmis(object):
             assert self.api.cdb_fw_hdlr is None
         with patch.object(self.api, '_init_cdb_fw_handler', new=True):
             assert self.api.cdb_fw_hdlr is not None
+
+    @patch('sonic_platform_base.sonic_xcvr.cdb.cdb_fw.CdbFwHandler.initFwHandler', MagicMock(return_value=True))
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.is_cdb_supported', MagicMock(return_value=True))
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi._create_cdb_fw_handler')  
+    def test_lazy_create_cdb_fw_handler(self, mock_create_handler):
+        mock_create_handler.return_value = MagicMock()
+        self.api._cdb_fw_hdlr = None
+        with patch.object(self.api, '_init_cdb_fw_handler', new=True):
+            first_handle = self.api.cdb_fw_hdlr
+            second_handle =self.api.cdb_fw_hdlr
+            assert first_handle is second_handle
+            assert mock_create_handler.call_count == 1
