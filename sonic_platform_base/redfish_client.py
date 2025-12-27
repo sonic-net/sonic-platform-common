@@ -716,6 +716,11 @@ class RedfishClient:
         valid, err_msg = self.__validate_message_args(event_msg)
         if not valid:
             return (RedfishClient.ERR_CODE_INVALID_JSON_FORMAT, err_msg)
+        comp_id = event_msg['MessageArgs'][0]
+        if 'updated_components' in context:
+            context['updated_components'].append(comp_id)
+        else:
+            context['updated_components'] = [comp_id]
         return (RedfishClient.ERR_CODE_OK, '')
 
     '''
@@ -1123,7 +1128,7 @@ class RedfishClient:
         progress_callback: A callback function to report progress
 
     Returns:
-        A tuple of (ret, error_msg)
+        A tuple of (ret, error_msg, updated_components)
     '''
     def redfish_api_update_firmware(self, fw_image, fw_ids = None, \
             force_update=True, timeout=1800, progress_callback=None):
@@ -1166,7 +1171,7 @@ class RedfishClient:
         lower_version = result.get('lower_version', False)
         identical_version = result.get('identical_version', False)
         err_detected = result.get('err_detected', False)
-
+        updated_components = result.get('updated_components', [])
         if lower_version:
            result['ret_code'] = RedfishClient.ERR_CODE_LOWER_VERSION
         elif identical_version and not err_detected:
@@ -1177,7 +1182,7 @@ class RedfishClient:
         ret = result['ret_code']
         error_msg = result['ret_msg']
 
-        return (ret, error_msg)
+        return (ret, error_msg, updated_components)
 
     '''
     Trigger BMC debug log dump file

@@ -434,7 +434,7 @@ class TestRedfishClient:
         ret = rf.login()
         assert ret == RedfishClient.ERR_CODE_OK
         
-        ret, msg = rf.redfish_api_update_firmware('/tmp/test.bin', fw_ids=['BMC_FW_0'], force_update=True)
+        ret, msg, updated_components = rf.redfish_api_update_firmware('/tmp/test.bin', fw_ids=['BMC_FW_0'], force_update=True)
         assert ret == RedfishClient.ERR_CODE_OK
 
     @mock.patch('subprocess.Popen')
@@ -468,7 +468,7 @@ class TestRedfishClient:
         ret = rf.login()
         assert ret == RedfishClient.ERR_CODE_OK
         
-        ret, msg = rf.redfish_api_update_firmware('/tmp/test.bin', fw_ids=None, force_update=False)
+        ret, msg, updated_components = rf.redfish_api_update_firmware('/tmp/test.bin', fw_ids=None, force_update=False)
         assert ret == RedfishClient.ERR_CODE_OK
 
     @mock.patch('subprocess.Popen')
