@@ -12,7 +12,7 @@ def main():
         import sonic_platform
         from sonic_py_common.logger import Logger
 
-        logger = Logger('bmc-fw-update')
+        logger = Logger('bmc_fw_update')
 
         if len(sys.argv) != 2:
             logger.log_error("Missing firmware image path argument")
