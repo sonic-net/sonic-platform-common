@@ -417,4 +417,8 @@ class BMCBase(device_base.DeviceBase):
                 ret: An integer return code indicating success (0) or failure
                 msg: A string containing success message or error description
         """
-        return self._change_login_password(self._get_default_root_password(), BMCBase.ROOT_ACCOUNT)
+        default_root_password = self._get_default_root_password()
+        if not default_root_password:
+            logger.log_error("BMC root account default password not found")
+            return (RedfishClient.ERR_CODE_GENERIC_ERROR, "BMC root account default password not found")
+        return self._change_login_password(default_root_password, BMCBase.ROOT_ACCOUNT)
