@@ -22,7 +22,7 @@ pool:
   vmImage: 'ubuntu-24.04'
 
 container:
-  image: sonicdev-microsoft.azurecr.io:443/sonic-slave-bookworm:latest
+  image: sonicdev-microsoft.azurecr.io:443/sonic-slave-bookworm-amd64:$(BRANCH_NAME)
 
 steps:
 - task: DownloadPipelineArtifact@2
