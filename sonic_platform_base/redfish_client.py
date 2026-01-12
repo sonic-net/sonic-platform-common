@@ -1139,13 +1139,13 @@ class RedfishClient:
                                                    force_update=force_update)
         ret, _, response, error_msg = self.exec_curl_cmd(cmd)
         if (ret != RedfishClient.ERR_CODE_OK):
-            return (ret, f'Error: {error_msg}')
+            return (ret, f'Error: {error_msg}', [])
 
         try:
             json_response = json.loads(response)
         except Exception as e:
             msg = 'Error: Invalid JSON format'
-            return (RedfishClient.ERR_CODE_INVALID_JSON_FORMAT, msg)
+            return (RedfishClient.ERR_CODE_INVALID_JSON_FORMAT, msg, [])
 
         # Retrieve task id from response
         task_id = ''
@@ -1157,14 +1157,14 @@ class RedfishClient:
             else:
                 ret = RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
                 err_msg = "Missing 'message' field"
-            return (ret, f'Error: {err_msg}')
+            return (ret, f'Error: {err_msg}', [])
         elif 'TaskStatus' in json_response:
             status = json_response['TaskStatus']
             if status == 'OK':
                 task_id = json_response['Id']
             else:
                 ret = RedfishClient.ERR_CODE_GENERIC_ERROR
-                return (ret, f'Error: Return status is {status}')
+                return (ret, f'Error: Return status is {status}', [])
 
         # Wait for completion
         result = self.__wait_task_completion(task_id, timeout, progress_callback)
