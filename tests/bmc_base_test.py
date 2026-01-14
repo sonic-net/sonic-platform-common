@@ -451,26 +451,43 @@ class TestBMCBaseWithConcrete:
         assert ret == RedfishClient.ERR_CODE_OK
         mock_reset.assert_called_once_with(RedfishClient.REDFISH_BMC_GRACEFUL_RESTART)
 
+    @mock.patch.object(RedfishClient, 'redfish_api_set_min_password_length')
     @mock.patch.object(RedfishClient, 'redfish_api_change_login_password')
+    @mock.patch.object(RedfishClient, 'redfish_api_get_min_password_length')
     @mock.patch.object(RedfishClient, 'login')
     @mock.patch.object(RedfishClient, 'logout')
     @mock.patch.object(RedfishClient, 'has_login')
-    def test_reset_root_password(self, mock_has_login, mock_logout, mock_login, mock_change_pw):
-        """Test reset_root_password"""
+    def test_bmc_reset_root_password_success(self, mock_has_login, mock_logout, mock_login, 
+                                           mock_get_min_length, mock_change_pw, mock_set_min_length):
+        """Test reset_root_password successful flow"""
         mock_has_login.return_value = False
         mock_login.return_value = RedfishClient.ERR_CODE_OK
         mock_logout.return_value = RedfishClient.ERR_CODE_OK
-        mock_change_pw.return_value = (RedfishClient.ERR_CODE_OK, 'Password changed')
+        mock_get_min_length.return_value = (RedfishClient.ERR_CODE_OK, 12)
+        mock_change_pw.return_value = (RedfishClient.ERR_CODE_OK, '')
+        mock_set_min_length.return_value = (RedfishClient.ERR_CODE_OK, '')
         
         bmc = ConcreteBMC('169.254.0.1')
         ret, msg = bmc.reset_root_password()
         
         assert ret == RedfishClient.ERR_CODE_OK
-        assert msg == 'Password changed'
+        assert msg == ''
+        mock_get_min_length.assert_called_once()
+        mock_set_min_length.assert_any_call(8)
+        mock_set_min_length.assert_any_call(12)
         mock_change_pw.assert_called_once_with('rootpass', BMCBase.ROOT_ACCOUNT)
 
-    def test_reset_root_password_no_default_password(self):
+    @mock.patch.object(RedfishClient, 'redfish_api_get_min_password_length')
+    @mock.patch.object(RedfishClient, 'login')
+    @mock.patch.object(RedfishClient, 'logout')
+    @mock.patch.object(RedfishClient, 'has_login')
+    def test_reset_root_password_no_default_password(self, mock_has_login, mock_logout, mock_login, mock_get_min_length):
         """Test reset_root_password when _get_default_root_password returns None"""
+        mock_has_login.return_value = False
+        mock_login.return_value = RedfishClient.ERR_CODE_OK
+        mock_logout.return_value = RedfishClient.ERR_CODE_OK
+        mock_get_min_length.return_value = (RedfishClient.ERR_CODE_OK, 12)
+        
         bmc = ConcreteBMC('169.254.0.1')
         with mock.patch.object(bmc, '_get_default_root_password', return_value=None):
             with mock.patch.object(bmc, '_change_login_password') as mock_change_pw:
@@ -479,3 +496,99 @@ class TestBMCBaseWithConcrete:
         assert msg == "BMC root account default password not found"
         mock_change_pw.assert_not_called()
 
+    @mock.patch.object(RedfishClient, 'redfish_api_get_min_password_length')
+    @mock.patch.object(RedfishClient, 'login')
+    @mock.patch.object(RedfishClient, 'logout')
+    @mock.patch.object(RedfishClient, 'has_login')
+    def test_bmc_reset_root_password_get_min_length_fail(self, mock_has_login, mock_logout, 
+                                                       mock_login, mock_get_min_length):
+        """Test reset_root_password failure at get min length step"""
+        mock_has_login.return_value = False
+        mock_login.return_value = RedfishClient.ERR_CODE_OK
+        mock_logout.return_value = RedfishClient.ERR_CODE_OK
+        mock_get_min_length.return_value = (RedfishClient.ERR_CODE_GENERIC_ERROR, 'Get failed')
+        
+        bmc = ConcreteBMC('169.254.0.1')
+        ret, msg = bmc.reset_root_password()
+        
+        assert ret == RedfishClient.ERR_CODE_GENERIC_ERROR
+        assert 'Failed to get current min password length: Get failed' in msg
+        mock_get_min_length.assert_called_once()
+
+    @mock.patch.object(RedfishClient, 'redfish_api_set_min_password_length')
+    @mock.patch.object(RedfishClient, 'redfish_api_get_min_password_length')
+    @mock.patch.object(RedfishClient, 'login')
+    @mock.patch.object(RedfishClient, 'logout')
+    @mock.patch.object(RedfishClient, 'has_login')
+    def test_bmc_reset_root_password_set_min_length_fail(self, mock_has_login, mock_logout, 
+                                                       mock_login, mock_get_min_length, mock_set_min_length):
+        """Test reset_root_password failure at set min length step"""
+        mock_has_login.return_value = False
+        mock_login.return_value = RedfishClient.ERR_CODE_OK
+        mock_logout.return_value = RedfishClient.ERR_CODE_OK
+        mock_get_min_length.return_value = (RedfishClient.ERR_CODE_OK, 12)
+        mock_set_min_length.return_value = (RedfishClient.ERR_CODE_GENERIC_ERROR, 'Set failed')
+        
+        bmc = ConcreteBMC('169.254.0.1')
+        ret, msg = bmc.reset_root_password()
+        
+        assert ret == RedfishClient.ERR_CODE_GENERIC_ERROR
+        assert 'Failed to set min password length to 8: Set failed' in msg
+        mock_get_min_length.assert_called_once()
+        mock_set_min_length.assert_called_once_with(8)
+
+    @mock.patch.object(RedfishClient, 'redfish_api_set_min_password_length')
+    @mock.patch.object(RedfishClient, 'redfish_api_change_login_password')
+    @mock.patch.object(RedfishClient, 'redfish_api_get_min_password_length')
+    @mock.patch.object(RedfishClient, 'login')
+    @mock.patch.object(RedfishClient, 'logout')
+    @mock.patch.object(RedfishClient, 'has_login')
+    def test_bmc_reset_root_password_change_password_fail(self, mock_has_login, mock_logout, mock_login,
+                                                        mock_get_min_length, mock_change_pw, mock_set_min_length):
+        """Test reset_root_password failure at change password step"""
+        mock_has_login.return_value = False
+        mock_login.return_value = RedfishClient.ERR_CODE_OK
+        mock_logout.return_value = RedfishClient.ERR_CODE_OK
+        mock_get_min_length.return_value = (RedfishClient.ERR_CODE_OK, 12)
+        mock_set_min_length.return_value = (RedfishClient.ERR_CODE_OK, '')
+        mock_change_pw.return_value = (RedfishClient.ERR_CODE_GENERIC_ERROR, 'Change failed')
+        
+        bmc = ConcreteBMC('169.254.0.1')
+        ret, msg = bmc.reset_root_password()
+        
+        assert ret == RedfishClient.ERR_CODE_GENERIC_ERROR
+        assert 'Failed to change root password: Change failed' in msg
+        mock_get_min_length.assert_called_once()
+        assert mock_set_min_length.call_count == 2
+        mock_change_pw.assert_called_once_with('rootpass', BMCBase.ROOT_ACCOUNT)
+
+    @mock.patch.object(RedfishClient, 'open_session')
+    def test_open_session_success(self, mock_open_session):
+        """Test open_session with successful session creation"""
+        mock_open_session.return_value = (RedfishClient.ERR_CODE_OK, ('Login successful', ('session_123', 'token_abc')))
+        
+        bmc = ConcreteBMC('169.254.0.1')
+        ret, (msg, credentials) = bmc.open_session()
+        
+        assert ret == RedfishClient.ERR_CODE_OK
+        assert msg == 'Login successful'
+        assert credentials == ('session_123', 'token_abc')
+        mock_open_session.assert_called_once()
+
+    @mock.patch.object(RedfishClient, 'close_session')
+    @mock.patch.object(RedfishClient, 'login')
+    @mock.patch.object(RedfishClient, 'logout')
+    @mock.patch.object(RedfishClient, 'has_login')
+    def test_close_session_success(self, mock_has_login, mock_logout, mock_login, mock_close_session):
+        """Test close_session with successful session closure"""
+        mock_has_login.return_value = False
+        mock_login.return_value = RedfishClient.ERR_CODE_OK
+        mock_logout.return_value = RedfishClient.ERR_CODE_OK
+        mock_close_session.return_value = (RedfishClient.ERR_CODE_OK, 'Session closed successfully')
+        
+        bmc = ConcreteBMC('169.254.0.1')
+        ret, msg = bmc.close_session('session_123')
+        
+        assert ret == RedfishClient.ERR_CODE_OK
+        assert msg == 'Session closed successfully'
+        mock_close_session.assert_called_once_with('session_123')

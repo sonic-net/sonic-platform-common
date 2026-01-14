@@ -1,2 +1,10 @@
 
+{
+  "@odata.id": "/redfish/v1/AccountService",
+  "@odata.type": "#AccountService.v1_15_0.AccountService",
+  "Description": "Account Service",
+  "Id": "AccountService",
+  "Name": "Account Service",
+  "ServiceEnabled": true
+}
 HTTP Status Code: 200

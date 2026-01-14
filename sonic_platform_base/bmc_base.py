@@ -59,7 +59,7 @@ class BMCBase(device_base.DeviceBase):
     CURL_PATH = '/usr/bin/curl'
     BMC_NAME = 'BMC'
     ROOT_ACCOUNT = 'root'
-    
+
     def __init__(self, addr):
         """
         Initialize BMC base class.
@@ -73,7 +73,7 @@ class BMCBase(device_base.DeviceBase):
                                         addr,
                                         self._get_login_user_callback,
                                         self._get_login_password_callback)
-    
+
     def _get_login_user_callback(self):
         """
         Get BMC username/account for login before Redfish commands from NOS.
@@ -83,7 +83,7 @@ class BMCBase(device_base.DeviceBase):
             A string containing the BMC login user name
         """
         raise NotImplementedError
-    
+
     def _get_login_password_callback(self):
         """
         Get BMC password of the account for login before Redfish commands from NOS.
@@ -93,7 +93,7 @@ class BMCBase(device_base.DeviceBase):
             A string containing the BMC login password
         """
         raise NotImplementedError
-    
+
     def _get_default_root_password(self):
         """
         Get the default root password for BMC. Will be used in reset_root_password().
@@ -103,7 +103,7 @@ class BMCBase(device_base.DeviceBase):
             A string containing the default root password
         """
         raise NotImplementedError
-    
+
     def get_firmware_id(self):
         """
         Get the BMC firmware ID.
@@ -113,7 +113,7 @@ class BMCBase(device_base.DeviceBase):
             A string containing the BMC firmware ID
         """
         raise NotImplementedError
-    
+
     def _get_eeprom_id(self):
         """
         Get the BMC EEPROM ID.
@@ -123,7 +123,7 @@ class BMCBase(device_base.DeviceBase):
             A string containing the BMC EEPROM ID
         """
         raise NotImplementedError
-    
+
     def _get_ip_addr(self):
         """
         Get BMC IP address
@@ -132,11 +132,12 @@ class BMCBase(device_base.DeviceBase):
             A string containing the BMC IP address
         """
         return self.addr
-    
+
     def _login(self):
         """
         Generic BMC login, should be called before any Redfish command.
         Vendor-specific BMC class may override this method for custom login behavior.
+        This method is used internally and it initializes the session_id and token in RedfishClient.
 
         Returns:
             An integer RedfishClient return code indicating success (0) or failure
@@ -144,10 +145,11 @@ class BMCBase(device_base.DeviceBase):
         if self.rf_client.has_login():
             return RedfishClient.ERR_CODE_OK
         return self.rf_client.login()
-    
+
     def _logout(self):
         """
         Generic BMC logout, should be called after any Redfish command.
+        This method is used internally and it clears the session_id and token in RedfishClient.
 
         Returns:
             An integer RedfishClient return code indicating success (0) or failure
@@ -155,8 +157,37 @@ class BMCBase(device_base.DeviceBase):
         if self.rf_client.has_login():
             return self.rf_client.logout()
         return RedfishClient.ERR_CODE_OK
-    
+
+    def open_session(self):
+        """
+        Open a session with the BMC via the NOS BMC account credentials.
+        This method is used by relevant CLI for opening a session and return the session ID and token.
+        It gives the user an option to directly interact with the BMC using Auth-Token.
+
+        Returns: (ret, (msg, credentials)) where:
+            ret: An integer return code indicating success (0) or failure
+            msg: A string containing success message or error description
+            credentials: None or a tuple (session_id, token)
+
+        """
+        return self.rf_client.open_session()
+
     @with_session_management
+    def close_session(self, session_id):
+        """
+        Close a session with the BMC.
+        This method is used by relevant CLI for closing a session that was opened before.
+
+        Args:
+            session_id: A string containing the session ID
+
+        Returns:
+            A tuple (ret, msg) where:
+                ret: An integer return code indicating success (0) or failure
+                msg: A string containing success message or error description
+        """
+        return self.rf_client.close_session(session_id)
+
     def _change_login_password(self, password, user=None):
         """
         Generic login password change.
@@ -172,7 +203,7 @@ class BMCBase(device_base.DeviceBase):
                 msg: A string containing success message or error description
         """
         return self.rf_client.redfish_api_change_login_password(password, user)
-    
+
     @with_session_management
     def _get_firmware_version(self, fw_id):
         """
@@ -202,7 +233,7 @@ class BMCBase(device_base.DeviceBase):
                 eeprom_info: A dictionary containing the EEPROM information
         """
         return self.rf_client.redfish_api_get_eeprom_info(eeprom_id)
-    
+
     def _is_bmc_eeprom_content_valid(self, eeprom_info):
         """
         Check if the BMC EEPROM content is valid
@@ -228,7 +259,7 @@ class BMCBase(device_base.DeviceBase):
             A string containing the name of the BMC device
         """
         return BMCBase.BMC_NAME
-    
+
     def get_presence(self):
         """
         Check if the BMC device is present
@@ -241,7 +272,7 @@ class BMCBase(device_base.DeviceBase):
         if bmc_data and bmc_data.get('bmc_addr'):
             return True
         return False
-    
+
     def get_model(self):
         """
         Get the model of the BMC device
@@ -253,7 +284,7 @@ class BMCBase(device_base.DeviceBase):
         if not self._is_bmc_eeprom_content_valid(eeprom_info):
             return None
         return eeprom_info.get('Model')
-    
+
     def get_serial(self):
         """
         Get the serial number of the BMC device
@@ -274,7 +305,7 @@ class BMCBase(device_base.DeviceBase):
             A string containing the revision of the BMC device
         """
         return 'N/A'
-    
+
     def get_status(self):
         """
         Get the status of the BMC device
@@ -290,7 +321,7 @@ class BMCBase(device_base.DeviceBase):
             return True
         except subprocess.CalledProcessError:
             return False
-    
+
     def is_replaceable(self):
         """
         Check if the BMC device is field replaceable
@@ -299,7 +330,7 @@ class BMCBase(device_base.DeviceBase):
             A boolean indicating whether the BMC device is replaceable
         """
         return False
-    
+
     def get_eeprom(self):
         """
         Retrieves the BMC EEPROM information
@@ -351,7 +382,7 @@ class BMCBase(device_base.DeviceBase):
                         None if successful
         """
         return self.rf_client.redfish_api_trigger_bmc_debug_log_dump()
-    
+
     @with_session_management
     def get_bmc_debug_log_dump(self, task_id, filename, path, timeout = 120):
         """
@@ -408,17 +439,53 @@ class BMCBase(device_base.DeviceBase):
         bmc_reset_type = RedfishClient.REDFISH_BMC_GRACEFUL_RESTART if graceful else RedfishClient.REDFISH_BMC_FORCE_RESTART
         return self.rf_client.redfish_api_request_bmc_reset(bmc_reset_type)
 
+    @with_session_management
     def reset_root_password(self):
         """
         Resets the BMC root password to default
+
+        1. Saves the current BMC password minimum length
+        2. Sets the new BMC password minimum length
+        3. Changes the BMC root password to default
+        4. Restores the saved BMC password minimum length
 
         Returns:
             A tuple (ret, msg) where:
                 ret: An integer return code indicating success (0) or failure
                 msg: A string containing success message or error description
         """
+        ret, saved_min_length = self.rf_client.redfish_api_get_min_password_length()
+        if ret != RedfishClient.ERR_CODE_OK:
+            msg = f'Failed to get current min password length: {saved_min_length}'
+            logger.log_error(msg)
+            return (ret, msg)
+
         default_root_password = self._get_default_root_password()
         if not default_root_password:
             logger.log_error("BMC root account default password not found")
             return (RedfishClient.ERR_CODE_GENERIC_ERROR, "BMC root account default password not found")
-        return self._change_login_password(default_root_password, BMCBase.ROOT_ACCOUNT)
+
+        new_min_length = len(default_root_password)
+        ret, err_msg = self.rf_client.redfish_api_set_min_password_length(new_min_length)
+        if ret != RedfishClient.ERR_CODE_OK:
+            msg = f'Failed to set min password length to {new_min_length}: {err_msg}'
+            logger.log_error(msg)
+            return (ret, msg)
+        logger.log_notice(f'Set min password length to {new_min_length}')
+
+        ret, err_msg = self._change_login_password(default_root_password, BMCBase.ROOT_ACCOUNT)
+        if ret != RedfishClient.ERR_CODE_OK:
+            msg = f'Failed to change root password: {err_msg}'
+            logger.log_error(msg)
+            self.rf_client.redfish_api_set_min_password_length(saved_min_length)
+            return (ret, msg)
+        logger.log_notice(f'Changed BMC root password to default: {default_root_password}')
+
+        ret, err_msg = self.rf_client.redfish_api_set_min_password_length(saved_min_length)
+        if ret != RedfishClient.ERR_CODE_OK:
+            msg = f'Failed to restore min password length to {saved_min_length}: {err_msg}'
+            logger.log_error(msg)
+            return (ret, msg)
+        logger.log_notice(f'Restored min password length to {saved_min_length}')
+
+        return (RedfishClient.ERR_CODE_OK, '')

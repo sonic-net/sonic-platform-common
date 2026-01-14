@@ -1,0 +1,13 @@
+{
+  "@odata.id": "/redfish/v1/SessionService/Sessions",
+  "@odata.type": "#SessionCollection.SessionCollection",
+  "Description": "Session Collection",
+  "Members": [
+    {
+      "@odata.id": "/redfish/v1/SessionService/Sessions/abc123xyz"
+    }
+  ],
+  "Members@odata.count": 1,
+  "Name": "Session Collection"
+}
+HTTP Status Code: 200
