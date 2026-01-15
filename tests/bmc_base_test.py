@@ -469,3 +469,13 @@ class TestBMCBaseWithConcrete:
         assert msg == 'Password changed'
         mock_change_pw.assert_called_once_with('rootpass', BMCBase.ROOT_ACCOUNT)
 
+    def test_reset_root_password_no_default_password(self):
+        """Test reset_root_password when _get_default_root_password returns None"""
+        bmc = ConcreteBMC('169.254.0.1')
+        with mock.patch.object(bmc, '_get_default_root_password', return_value=None):
+            with mock.patch.object(bmc, '_change_login_password') as mock_change_pw:
+                ret, msg = bmc.reset_root_password()
+        assert ret == RedfishClient.ERR_CODE_GENERIC_ERROR
+        assert msg == "BMC root account default password not found"
+        mock_change_pw.assert_not_called()
+
