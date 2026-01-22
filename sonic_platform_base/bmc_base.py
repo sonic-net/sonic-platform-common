@@ -104,7 +104,7 @@ class BMCBase(device_base.DeviceBase):
         """
         raise NotImplementedError
     
-    def _get_firmware_id(self):
+    def get_firmware_id(self):
         """
         Get the BMC firmware ID.
         Should be implemented by vendor-specific BMC class.
@@ -123,7 +123,7 @@ class BMCBase(device_base.DeviceBase):
             A string containing the BMC EEPROM ID
         """
         raise NotImplementedError
-
+    
     def _get_ip_addr(self):
         """
         Get BMC IP address
@@ -328,7 +328,7 @@ class BMCBase(device_base.DeviceBase):
         """
         ret = 0
         try:
-            ret, version = self._get_firmware_version(self._get_firmware_id())
+            ret, version = self._get_firmware_version(self.get_firmware_id())
             if ret != RedfishClient.ERR_CODE_OK:
                 logger.log_error(f'Failed to get BMC firmware version: {ret}')
                 return 'N/A'
@@ -380,17 +380,18 @@ class BMCBase(device_base.DeviceBase):
             fw_image: A string containing the path to the firmware image file
 
         Returns:
-            A tuple (ret, msg) where:
+            A tuple (ret, (msg, updated_components)) where:
                 ret: An integer return code indicating success (0) or failure
                 msg: A string containing status message about the firmware update
+                updated_components: A list of component IDs that were updated
         """
         logger.log_notice(f'Installing BMC firmware image {fw_image}')
-        ret, msg = self.rf_client.redfish_api_update_firmware(fw_image, fw_ids=[self._get_firmware_id()])
+        ret, msg, updated_components = self.rf_client.redfish_api_update_firmware(fw_image, fw_ids=[self.get_firmware_id()])
         logger.log_notice(f'Firmware update result: {ret}')
         if msg:
             logger.log_notice(f'{msg}')
-        return (ret, msg)
-    
+        return (ret, (msg, updated_components))
+
     @with_session_management
     def request_bmc_reset(self, graceful=True):
         """
@@ -416,4 +417,8 @@ class BMCBase(device_base.DeviceBase):
                 ret: An integer return code indicating success (0) or failure
                 msg: A string containing success message or error description
         """
-        return self._change_login_password(self._get_default_root_password(), BMCBase.ROOT_ACCOUNT)
+        default_root_password = self._get_default_root_password()
+        if not default_root_password:
+            logger.log_error("BMC root account default password not found")
+            return (RedfishClient.ERR_CODE_GENERIC_ERROR, "BMC root account default password not found")
+        return self._change_login_password(default_root_password, BMCBase.ROOT_ACCOUNT)
