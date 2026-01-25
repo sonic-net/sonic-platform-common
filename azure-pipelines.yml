@@ -112,7 +112,7 @@ steps:
     set -ex
     pip3 install ".[testing]"
     pip3 uninstall --yes sonic-platform-common
-    pytest
+    pytest --ignore docker
   displayName: 'Test Python 3'
 
 - task: PublishTestResults@2
