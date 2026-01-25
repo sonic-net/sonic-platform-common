@@ -799,3 +799,23 @@ class ChassisBase(device_base.DeviceBase):
         """
         return self._bmc
 
+    def change_sed_password(self, new_password):
+        """
+        Change the SED (Self-Encrypting Drive) password for the platform.
+
+        Args:
+            new_password (str): The new password to set for the SED
+
+        Returns:
+            bool: True if the password change process completed successfully, False otherwise
+        """
+        raise NotImplementedError
+
+    def reset_sed_password(self):
+        """
+        Reset the SED (Self-Encrypting Drive) password to default for the platform.
+
+        Returns:
+            bool: True if the password reset process completed successfully, False otherwise
+        """
+        raise NotImplementedError
