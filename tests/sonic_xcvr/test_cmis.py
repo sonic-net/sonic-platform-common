@@ -1253,9 +1253,19 @@ class TestCmis(object):
         self.api.set_lpmode(lpmode, wait_state_change = False)
 
     @pytest.mark.parametrize("mock_response, expected", [
-        (
+        (False, False),
+        (True, True),
+        (None, False)
+    ])
+    def test_get_diag_page_support(self, mock_response, expected):
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.return_value = mock_response
+        result = self.api.get_diag_page_support()
+        assert result == expected
 
-            [False, 127],
+    @pytest.mark.parametrize("mock_response, expected", [
+        (
+            [False, 127, True],
             {
                 'simultaneous_host_media_loopback_supported': True,
                 'per_lane_media_loopback_supported': True,
@@ -1266,14 +1276,17 @@ class TestCmis(object):
                 'media_side_output_loopback_supported': True
             }
         ),
-        ([True, 0], None),
-        ([False, None], None)
+        ([False, 127, False], None),
+        ([True, 0, True], None),
+        ([False, None, True], None)
     ])
     def test_get_loopback_capability(self, mock_response, expected):
         self.api.is_flat_memory = MagicMock()
         self.api.is_flat_memory.return_value = mock_response[0]
         self.api.xcvr_eeprom.read = MagicMock()
         self.api.xcvr_eeprom.read.return_value = mock_response[1]
+        self.api.get_diag_page_support = MagicMock()
+        self.api.get_diag_page_support.return_value = mock_response[2]
         result = self.api.get_loopback_capability()
         assert result == expected
 

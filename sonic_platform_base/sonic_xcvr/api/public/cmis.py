@@ -1440,11 +1440,20 @@ class CmisApi(XcvrApi):
                     return True
         return False
 
+    def get_diag_page_support(self):
+        '''
+        This function returns whether the module supports diagnostic pages
+        '''
+        diag_page_support = self.xcvr_eeprom.read(consts.DIAG_PAGE_SUPPORT_ADVT_FIELD)
+        return diag_page_support if diag_page_support is not None else False
+
     def get_loopback_capability(self):
         '''
         This function returns the module loopback capability as advertised
         '''
         if self.is_flat_memory():
+            return None
+        if not self.get_diag_page_support():
             return None
         allowed_loopback_result = self.xcvr_eeprom.read(consts.LOOPBACK_CAPABILITY)
         if allowed_loopback_result is None:

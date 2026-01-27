@@ -225,6 +225,7 @@ class CmisMemMap(CmisFlatMemMap):
         self.MODULE_CHAR_ADVT = RegGroupField(consts.MODULE_CHAR_ADVT_FIELD,
             NumberRegField(consts.PAGE_SUPPORT_ADVT_FIELD, self.getaddr(0x1, 142),
                 RegBitField(consts.VDM_SUPPORTED, 6),
+                RegBitField(consts.DIAG_PAGE_SUPPORT_ADVT_FIELD, 5),
             ),
             NumberRegField(consts.TX_INPUT_EQ_MAX, self.getaddr(0x1, 153),
                 *(RegBitField("Bit%d" % (bit), bit) for bit in range (0 , 4))
