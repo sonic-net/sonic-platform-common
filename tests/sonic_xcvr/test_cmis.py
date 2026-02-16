@@ -2463,6 +2463,88 @@ class TestCmis(object):
         result = self.api.get_transceiver_vdm_real_value()
         assert result == expected_result
 
+    @pytest.mark.parametrize(
+        "vdm_raw_dict, expected_basic",
+        [
+            # Test case 1: Only basic observables (IDs 1-8, 15-16, 23-24)
+            (
+                {
+                    'Laser Temperature [C]': {
+                        1: [10.0, None, None, None, None, None, None, None, None],
+                        2: [20.0, None, None, None, None, None, None, None, None]},
+                    'Pre-FEC BER Current Value Media Input': {1: [0.001, None, None, None, None, None, None, None, None]},
+                    'eSNR Media Input [dB]': {1: [22.5, None, None, None, None, None, None, None, None]},
+                    'Pre-FEC BER Average Media Input': {1: [0.002, 0.0125, 0, 0.01, 0, False, False, False, False]}  # Statistic - should be filtered out
+                },
+                {
+                    'laser_temperature_media1': 10.0,
+                    'laser_temperature_media2': 20.0,
+                    'prefec_ber_curr_media_input1': 0.001,
+                    'esnr_media_input1': 22.5,
+                    # Note: Pre-FEC BER Average should NOT be included (it's statistic)
+                }
+            ),
+        ]
+    )
+    def test_get_transceiver_vdm_real_value_basic(self, vdm_raw_dict, expected_basic):
+        self.api.vdm = MagicMock()
+        self.api.get_vdm = MagicMock(return_value=vdm_raw_dict)
+
+        result = self.api.get_transceiver_vdm_real_value_basic()
+        # Check that all expected basic keys are present
+        for key, value in expected_basic.items():
+            assert key in result
+            assert result[key] == value
+        # Check that no statistic keys (like prefec_ber_avg, prefec_ber_min, prefec_ber_max) are present
+        assert 'prefec_ber_avg_media_input1' not in result
+        assert 'prefec_ber_min_media_input1' not in result
+        assert 'prefec_ber_max_media_input1' not in result
+
+    @pytest.mark.parametrize(
+        "vdm_raw_dict, expected_statistic",
+        [
+            # Test case 1: Only statistic observables (IDs 9-14, 17-22)
+            (
+                {
+                    'Laser Temperature [C]': {1: [10.0, None, None, None, None, None, None, None, None]},  # Basic - should be filtered out
+                    'Pre-FEC BER Average Media Input': {1: [0.002, 0.015, 0.001, 0.01, 0.005, False, False, False, False]},
+                    'Pre-FEC BER Minimum Media Input': {1: [0.001, 0.012, 0, 0.008, 0.003, False, False, False, False]},
+                    'Pre-FEC BER Maximum Media Input': {1: [0.003, 0.018, 0.002, 0.012, 0.007, False, False, False, False]},
+                },
+                {
+                    'prefec_ber_avg_media_input1': 0.002,
+                    'prefec_ber_min_media_input1': 0.001,
+                    'prefec_ber_max_media_input1': 0.003,
+                    # Note: Laser Temperature should NOT be included (it's basic)
+                }
+            ),
+        ]
+    )
+    def test_get_transceiver_vdm_real_value_statistic(self, vdm_raw_dict, expected_statistic):
+        self.api.vdm = MagicMock()
+        self.api.get_vdm = MagicMock(return_value=vdm_raw_dict)
+
+        result = self.api.get_transceiver_vdm_real_value_statistic()
+        # Check that all expected statistic keys are present
+        for key, value in expected_statistic.items():
+            assert key in result
+            assert result[key] == value
+        # Check that no basic keys (like laser_temperature) are present
+        assert 'laser_temperature_media1' not in result
+        assert 'esnr_media_input1' not in result
+
+    @pytest.mark.parametrize("mock_response, expected", [
+        ([0x00, 0x01], True),  # Bit 0 of byte 235 set - at least one statistic observable advertised
+        ([0x00, 0x00], False),  # No statistic observables advertised
+        ([0xFF, 0xFF], True),   # All observables advertised including statistics
+    ])
+    def test_is_vdm_statistic_supported(self, mock_response, expected):
+        self.api.vdm = MagicMock()
+        self.api.vdm.is_vdm_statistic_supported = MagicMock(return_value=expected)
+        
+        result = self.api.is_vdm_statistic_supported()
+        assert result == expected
+
     def generate_vdm_thrsholds_expected_dict(base_dict):
         default_dict = dict()
         for _, db_prefix_key_map in CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP.items():
