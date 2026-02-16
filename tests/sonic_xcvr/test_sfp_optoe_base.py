@@ -31,6 +31,30 @@ class TestSfpOptoeBase(object):
             exception_raised = True
         assert exception_raised
 
+    def test_is_vdm_statistic_supported_non_cmis(self):
+        self.sfp_optoe_api.get_xcvr_api = MagicMock(return_value=self.sff8472_api)
+        try:
+            self.sfp_optoe_api.is_vdm_statistic_supported()
+        except NotImplementedError:
+            exception_raised = True
+        assert exception_raised
+
+    def test_get_transceiver_vdm_real_value_basic_non_cmis(self):
+        self.sfp_optoe_api.get_xcvr_api = MagicMock(return_value=self.sff8472_api)
+        try:
+            self.sfp_optoe_api.get_transceiver_vdm_real_value_basic()
+        except NotImplementedError:
+            exception_raised = True
+        assert exception_raised
+
+    def test_get_transceiver_vdm_real_value_statistic_non_cmis(self):
+        self.sfp_optoe_api.get_xcvr_api = MagicMock(return_value=self.sff8472_api)
+        try:
+            self.sfp_optoe_api.get_transceiver_vdm_real_value_statistic()
+        except NotImplementedError:
+            exception_raised = True
+        assert exception_raised
+
     @pytest.mark.parametrize("mock_response1, mock_response2, expected", [ 
         (0, cmis_api, 0), 
         (1, cmis_api, 1),
@@ -105,6 +129,48 @@ class TestSfpOptoeBase(object):
         self.cmis_api.get_vdm_unfreeze_status.return_value = mock_response1
         
         result = self.sfp_optoe_api.get_vdm_unfreeze_status()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
+        (True, cmis_api, True),
+        (False, cmis_api, False),
+        (None, None, None),
+    ])
+    def test_is_vdm_statistic_supported(self, mock_response1, mock_response2, expected):
+        self.sfp_optoe_api.get_xcvr_api = MagicMock()
+        self.sfp_optoe_api.get_xcvr_api.return_value = mock_response2
+        self.cmis_api.is_vdm_statistic_supported = MagicMock()
+        self.cmis_api.is_vdm_statistic_supported.return_value = mock_response1
+
+        result = self.sfp_optoe_api.is_vdm_statistic_supported()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
+        ({'key1': 1.0}, cmis_api, {'key1': 1.0}),
+        (None, cmis_api, None),
+        (None, None, None),
+    ])
+    def test_get_transceiver_vdm_real_value_basic(self, mock_response1, mock_response2, expected):
+        self.sfp_optoe_api.get_xcvr_api = MagicMock()
+        self.sfp_optoe_api.get_xcvr_api.return_value = mock_response2
+        self.cmis_api.get_transceiver_vdm_real_value_basic = MagicMock()
+        self.cmis_api.get_transceiver_vdm_real_value_basic.return_value = mock_response1
+
+        result = self.sfp_optoe_api.get_transceiver_vdm_real_value_basic()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
+        ({'key1': 1.0}, cmis_api, {'key1': 1.0}),
+        (None, cmis_api, None),
+        (None, None, None),
+    ])
+    def test_get_transceiver_vdm_real_value_statistic(self, mock_response1, mock_response2, expected):
+        self.sfp_optoe_api.get_xcvr_api = MagicMock()
+        self.sfp_optoe_api.get_xcvr_api.return_value = mock_response2
+        self.cmis_api.get_transceiver_vdm_real_value_statistic = MagicMock()
+        self.cmis_api.get_transceiver_vdm_real_value_statistic.return_value = mock_response1
+
+        result = self.sfp_optoe_api.get_transceiver_vdm_real_value_statistic()
         assert result == expected
 
     @patch("builtins.open", new_callable=mock_open)

@@ -2545,6 +2545,11 @@ class TestCmis(object):
         result = self.api.is_vdm_statistic_supported()
         assert result == expected
 
+    def test_is_vdm_statistic_supported_vdm_none(self):
+        self.api.vdm = None
+        result = self.api.is_vdm_statistic_supported()
+        assert result == False
+
     def generate_vdm_thrsholds_expected_dict(base_dict):
         default_dict = dict()
         for _, db_prefix_key_map in CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP.items():

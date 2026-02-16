@@ -75,7 +75,7 @@ class CmisCodes(Sff8024):
 
     VDM_TYPE = {
         # VDM_ID: [VDM_NAME, DATA_TYPE, SCALE, OBSERVABLE_TYPE]
-        # OBSERVABLE_TYPE: 'B' = Basic (instantaneous), 'S' = Statistic (min/max/avg/current)
+        # OBSERVABLE_TYPE: 'B' = Basic (instantaneous), 'S' = Statistic (min/max/avg)
         1: ['Laser Age [%]', 'U16', 1, 'B'],
         2: ['TEC Current [%]', 'S16', 100.0/32767, 'B'],
         3: ['Laser Frequency Error [MHz]', 'S16', 10, 'B'],

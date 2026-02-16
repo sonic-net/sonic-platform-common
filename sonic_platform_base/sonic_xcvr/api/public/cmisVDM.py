@@ -64,7 +64,7 @@ class CmisVdmApi(XcvrApi):
             field_option: Bitmask to select real value, threshold, and/or flag fields
             observable_type: Bitmask to filter by observable type.
                 VDM_OBSERVABLE_BASIC (0x1) for basic (instantaneous) types,
-                VDM_OBSERVABLE_STATISTIC (0x2) for statistic (min/max/avg/current) types,
+                VDM_OBSERVABLE_STATISTIC (0x2) for statistic (min/max/avg) types,
                 VDM_OBSERVABLE_ALL (0x3) for both.
         '''
         if page not in [0x20, 0x21, 0x22, 0x23]:

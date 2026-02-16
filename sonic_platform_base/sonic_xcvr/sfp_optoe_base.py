@@ -68,7 +68,7 @@ class SfpOptoeBase(SfpBase):
         Returns whether the optic advertises any VDM statistic observable types
         """
         api = self.get_xcvr_api()
-        return api.is_vdm_statistic_supported() if api is not None else False
+        return api.is_vdm_statistic_supported() if api is not None else None
 
     def get_transceiver_vdm_real_value(self):
         """

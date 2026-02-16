@@ -1740,12 +1740,13 @@ class CmisApi(XcvrApi):
                 VDM_OBSERVABLE_STATISTIC (0x2) for statistic (min/max/avg) types,
                 VDM_OBSERVABLE_ALL (0x3) for both. Defaults to VDM_OBSERVABLE_ALL.
         '''
+        if self.vdm is None:
+            return {}
         if field_option is None:
             field_option = self.vdm.ALL_FIELD
         if observable_type is None:
             observable_type = self.vdm.VDM_OBSERVABLE_ALL
-        vdm = self.vdm.get_vdm_allpage(field_option, observable_type) if self.vdm is not None else {}
-        return vdm
+        return self.vdm.get_vdm_allpage(field_option, observable_type)
 
     def get_module_firmware_fault_state_changed(self):
         '''
