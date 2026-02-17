@@ -1746,7 +1746,7 @@ class CmisApi(XcvrApi):
             field_option = self.vdm.ALL_FIELD
         if observable_type is None:
             observable_type = self.vdm.VDM_OBSERVABLE_ALL
-        return self.vdm.get_vdm_allpage(field_option, observable_type)
+        return self.vdm.get_vdm_allpage(field_option, observable_type) or {}
 
     def get_module_firmware_fault_state_changed(self):
         '''
