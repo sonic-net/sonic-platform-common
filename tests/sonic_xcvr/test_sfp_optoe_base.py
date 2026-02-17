@@ -25,35 +25,23 @@ class TestSfpOptoeBase(object):
  
     def test_is_transceiver_vdm_supported_non_cmis(self):
         self.sfp_optoe_api.get_xcvr_api = MagicMock(return_value=self.sff8472_api)
-        try:
+        with pytest.raises(NotImplementedError):
             self.sfp_optoe_api.is_transceiver_vdm_supported()
-        except NotImplementedError:
-            exception_raised = True
-        assert exception_raised
 
     def test_is_vdm_statistic_supported_non_cmis(self):
         self.sfp_optoe_api.get_xcvr_api = MagicMock(return_value=self.sff8472_api)
-        try:
+        with pytest.raises(NotImplementedError):
             self.sfp_optoe_api.is_vdm_statistic_supported()
-        except NotImplementedError:
-            exception_raised = True
-        assert exception_raised
 
     def test_get_transceiver_vdm_real_value_basic_non_cmis(self):
         self.sfp_optoe_api.get_xcvr_api = MagicMock(return_value=self.sff8472_api)
-        try:
+        with pytest.raises(NotImplementedError):
             self.sfp_optoe_api.get_transceiver_vdm_real_value_basic()
-        except NotImplementedError:
-            exception_raised = True
-        assert exception_raised
 
     def test_get_transceiver_vdm_real_value_statistic_non_cmis(self):
         self.sfp_optoe_api.get_xcvr_api = MagicMock(return_value=self.sff8472_api)
-        try:
+        with pytest.raises(NotImplementedError):
             self.sfp_optoe_api.get_transceiver_vdm_real_value_statistic()
-        except NotImplementedError:
-            exception_raised = True
-        assert exception_raised
 
     @pytest.mark.parametrize("mock_response1, mock_response2, expected", [ 
         (0, cmis_api, 0), 
@@ -209,11 +197,8 @@ class TestSfpOptoeBase(object):
 
     def test_set_power(self):
         mode = 1
-        try:
+        with pytest.raises(NotImplementedError):
             self.sfp_optoe_api.set_power(mode)
-        except NotImplementedError:
-            exception_raised = True
-        assert exception_raised
  
     def test_default_page(self):
         with patch("builtins.open", mock_open(read_data=b'\x01')) as mocked_file:
