@@ -2533,14 +2533,13 @@ class TestCmis(object):
         assert 'laser_temperature_media1' not in result
         assert 'esnr_media_input1' not in result
 
-    @pytest.mark.parametrize("mock_response, expected", [
-        ([0x00, 0x01], True),  # Bit 0 of byte 235 set - at least one statistic observable advertised
-        ([0x00, 0x00], False),  # No statistic observables advertised
-        ([0xFF, 0xFF], True),   # All observables advertised including statistics
+    @pytest.mark.parametrize("vdm_return, expected", [
+        (True, True),
+        (False, False),
     ])
-    def test_is_vdm_statistic_supported(self, mock_response, expected):
+    def test_is_vdm_statistic_supported(self, vdm_return, expected):
         self.api.vdm = MagicMock()
-        self.api.vdm.is_vdm_statistic_supported = MagicMock(return_value=expected)
+        self.api.vdm.is_vdm_statistic_supported = MagicMock(return_value=vdm_return)
         
         result = self.api.is_vdm_statistic_supported()
         assert result == expected
