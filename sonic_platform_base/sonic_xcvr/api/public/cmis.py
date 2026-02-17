@@ -1730,7 +1730,7 @@ class CmisApi(XcvrApi):
 
     def get_vdm(self, field_option=None, observable_type=None):
         '''
-        This function returns all the VDM items, including real time monitor value, threholds and flags
+        This function returns all the VDM items, including real time monitor value, thresholds and flags
 
         Args:
             field_option: Bitmask to select real value, threshold, and/or flag fields.
