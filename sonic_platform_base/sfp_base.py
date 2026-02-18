@@ -75,6 +75,8 @@ class SfpBase(device_base.DeviceBase):
         # List of ThermalBase-derived objects representing all thermals
         # available on the SFP
         self._thermal_list = []
+        # List of all LEDs associated with SFP port
+        self._led_list = []
         self._bank = bank
         self._xcvr_api_factory = XcvrApiFactory(self.read_eeprom, self.write_eeprom)
         self._xcvr_api = None
@@ -123,6 +125,54 @@ class SfpBase(device_base.DeviceBase):
                              index, len(self._thermal_list)-1))
 
         return thermal
+
+    def get_num_leds(self):
+        """
+        Retrieves the number of LEDs available for this SFP port
+
+        Returns:
+            An integer, the number of LEDs available on this SFP port
+            Returns 0 if no controllable LEDs are available
+        """
+        return len(self._led_list)
+
+    def get_all_leds(self):
+        """
+        Retrieves all LEDs available for this SFP port
+
+        Returns:
+            A list of objects derived from LedBase representing all LEDs
+            available on this SFP port cage. The list is ordered with index 0
+            being the leftmost LED (for horizontal orientation) or topmost LED
+            (for vertical orientation).
+            Returns empty list [] if no controllable LEDs are available
+
+        Platforms are responsible for implementing this method if they want the
+        front-panel LED control daemon (ledd) to use platform LED policy V2.
+        """
+        raise NotImplementedError
+
+    def get_led(self, index):
+        """
+        Retrieves LED represented by (0-based) index
+
+        Args:
+            index: An integer, the index (0-based) of the LED to retrieve.
+                   Index 0 represents the leftmost LED (horizontal) or
+                   topmost LED (vertical orientation)
+
+        Returns:
+            An object derived from LedBase representing the specified LED
+        """
+        led = None
+
+        try:
+            led = self._led_list[index]
+        except IndexError:
+            sys.stderr.write("LED index {} out of range (0-{})\n".format(
+                             index, len(self._led_list)-1))
+
+        return led
 
     def get_transceiver_info(self):
         """
