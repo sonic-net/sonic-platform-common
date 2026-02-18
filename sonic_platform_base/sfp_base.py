@@ -71,12 +71,18 @@ class SfpBase(device_base.DeviceBase):
     SFP_PORT_TYPE_BIT_OSFP                = 0x00001000
     SFP_PORT_TYPE_BIT_SFP_DD              = 0x00002000
 
-    def __init__(self):
+    def __init__(self, bank=0):
         # List of ThermalBase-derived objects representing all thermals
         # available on the SFP
         self._thermal_list = []
+        self._bank = bank
         self._xcvr_api_factory = XcvrApiFactory(self.read_eeprom, self.write_eeprom)
         self._xcvr_api = None
+
+    @property
+    def bank(self):
+        """Returns the bank number for this SFP."""
+        return self._bank
 
     def get_num_thermals(self):
         """

@@ -12,8 +12,8 @@ SFP_OPTOE_UPPER_PAGE0_OFFSET = 128
 SFP_OPTOE_PAGE_SIZE = 128
 
 class SfpOptoeBase(SfpBase):
-    def __init__(self):
-        SfpBase.__init__(self)
+    def __init__(self, bank=0):
+        SfpBase.__init__(self, bank=bank)
 
     def get_model(self):
         api = self.get_xcvr_api()
