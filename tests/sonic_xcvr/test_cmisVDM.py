@@ -112,6 +112,92 @@ class TestVDM(object):
         result = self.api.get_vdm_page(*input_param)
         assert result == expected
 
+    def test_get_vdm_page_observable_type_basic_only(self):
+        """Test get_vdm_page with VDM_OBSERVABLE_BASIC filters out statistic observables"""
+        # Descriptor: typeIDs at odd positions: 9(S), 11(S), 13(S), 15(B), 10(S), 10(S), 0, 0
+        # Only typeID 15 is basic ('B')
+        descriptor = (
+            16, 9, 16, 11, 16, 13, 16, 15, 32, 10, 33, 10,  0,  0,  0,  0,
+            80,128, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+            160,143,0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+            0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+            0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+            0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+            0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+            0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+        )
+        mock_responses = [
+            descriptor,
+            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
+            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
+            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
+            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
+            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
+            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
+            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
+            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
+        ]
+        self.api.xcvr_eeprom.read_raw = MagicMock(side_effect=mock_responses)
+        result = self.api.get_vdm_page(0x20, [0]*128, observable_type=CmisVdmApi.VDM_OBSERVABLE_BASIC)
+        # Only basic observable (ID 15: Pre-FEC BER Current Value Media Input) should be present
+        assert 'Pre-FEC BER Current Value Media Input' in result
+        # Statistic observables should be filtered out
+        assert 'Pre-FEC BER Minimum Media Input' not in result
+        assert 'Pre-FEC BER Maximum Media Input' not in result
+        assert 'Pre-FEC BER Average Media Input' not in result
+        assert 'Pre-FEC BER Minimum Host Input' not in result
+
+    def test_get_vdm_page_observable_type_statistic_only(self):
+        """Test get_vdm_page with VDM_OBSERVABLE_STATISTIC filters out basic observables"""
+        descriptor = (
+            16, 9, 16, 11, 16, 13, 16, 15, 32, 10, 33, 10,  0,  0,  0,  0,
+            80,128, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+            160,143,0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+            0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+            0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+            0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+            0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+            0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+        )
+        mock_responses = [
+            descriptor,
+            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
+            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
+            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
+            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
+            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
+            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
+            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
+            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
+        ]
+        self.api.xcvr_eeprom.read_raw = MagicMock(side_effect=mock_responses)
+        result = self.api.get_vdm_page(0x20, [0]*128, observable_type=CmisVdmApi.VDM_OBSERVABLE_STATISTIC)
+        # Statistic observables should be present
+        assert 'Pre-FEC BER Minimum Media Input' in result
+        assert 'Pre-FEC BER Maximum Media Input' in result
+        assert 'Pre-FEC BER Average Media Input' in result
+        assert 'Pre-FEC BER Minimum Host Input' in result
+        # Basic observable (ID 15) should be filtered out
+        assert 'Pre-FEC BER Current Value Media Input' not in result
+
+    @pytest.mark.parametrize("vdm_supported, groups_raw, descriptor, expected", [
+        # Case 1: VDM not supported
+        (0, None, None, False),
+        # Case 2: VDM supported but groups_raw is None
+        (1, None, None, False),
+        # Case 3: VDM supported, descriptor has only basic types (ID 15=B)
+        (1, 0, bytearray([16, 15] + [0]*126), False),
+        # Case 4: VDM supported, descriptor has a statistic type (ID 9=S)
+        (1, 0, bytearray([16, 9] + [0]*126), True),
+        # Case 5: VDM supported, descriptor is None/empty
+        (1, 0, None, False),
+    ])
+    def test_is_vdm_statistic_supported(self, vdm_supported, groups_raw, descriptor, expected):
+        self.api.xcvr_eeprom.read = MagicMock(side_effect=[vdm_supported, groups_raw])
+        self.api.xcvr_eeprom.read_raw = MagicMock(return_value=descriptor)
+        result = self.api.is_vdm_statistic_supported()
+        assert result == expected
+
     @pytest.mark.parametrize("mock_response, expected", [
         (
             [   # mock_response

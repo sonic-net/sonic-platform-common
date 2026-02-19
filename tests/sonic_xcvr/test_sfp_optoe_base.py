@@ -25,11 +25,23 @@ class TestSfpOptoeBase(object):
  
     def test_is_transceiver_vdm_supported_non_cmis(self):
         self.sfp_optoe_api.get_xcvr_api = MagicMock(return_value=self.sff8472_api)
-        try:
+        with pytest.raises(NotImplementedError):
             self.sfp_optoe_api.is_transceiver_vdm_supported()
-        except NotImplementedError:
-            exception_raised = True
-        assert exception_raised
+
+    def test_is_vdm_statistic_supported_non_cmis(self):
+        self.sfp_optoe_api.get_xcvr_api = MagicMock(return_value=self.sff8472_api)
+        with pytest.raises(NotImplementedError):
+            self.sfp_optoe_api.is_vdm_statistic_supported()
+
+    def test_get_transceiver_vdm_real_value_basic_non_cmis(self):
+        self.sfp_optoe_api.get_xcvr_api = MagicMock(return_value=self.sff8472_api)
+        with pytest.raises(NotImplementedError):
+            self.sfp_optoe_api.get_transceiver_vdm_real_value_basic()
+
+    def test_get_transceiver_vdm_real_value_statistic_non_cmis(self):
+        self.sfp_optoe_api.get_xcvr_api = MagicMock(return_value=self.sff8472_api)
+        with pytest.raises(NotImplementedError):
+            self.sfp_optoe_api.get_transceiver_vdm_real_value_statistic()
 
     @pytest.mark.parametrize("mock_response1, mock_response2, expected", [ 
         (0, cmis_api, 0), 
@@ -107,6 +119,48 @@ class TestSfpOptoeBase(object):
         result = self.sfp_optoe_api.get_vdm_unfreeze_status()
         assert result == expected
 
+    @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
+        (True, cmis_api, True),
+        (False, cmis_api, False),
+        (None, None, None),
+    ])
+    def test_is_vdm_statistic_supported(self, mock_response1, mock_response2, expected):
+        self.sfp_optoe_api.get_xcvr_api = MagicMock()
+        self.sfp_optoe_api.get_xcvr_api.return_value = mock_response2
+        self.cmis_api.is_vdm_statistic_supported = MagicMock()
+        self.cmis_api.is_vdm_statistic_supported.return_value = mock_response1
+
+        result = self.sfp_optoe_api.is_vdm_statistic_supported()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
+        ({'key1': 1.0}, cmis_api, {'key1': 1.0}),
+        (None, cmis_api, None),
+        (None, None, None),
+    ])
+    def test_get_transceiver_vdm_real_value_basic(self, mock_response1, mock_response2, expected):
+        self.sfp_optoe_api.get_xcvr_api = MagicMock()
+        self.sfp_optoe_api.get_xcvr_api.return_value = mock_response2
+        self.cmis_api.get_transceiver_vdm_real_value_basic = MagicMock()
+        self.cmis_api.get_transceiver_vdm_real_value_basic.return_value = mock_response1
+
+        result = self.sfp_optoe_api.get_transceiver_vdm_real_value_basic()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
+        ({'key1': 1.0}, cmis_api, {'key1': 1.0}),
+        (None, cmis_api, None),
+        (None, None, None),
+    ])
+    def test_get_transceiver_vdm_real_value_statistic(self, mock_response1, mock_response2, expected):
+        self.sfp_optoe_api.get_xcvr_api = MagicMock()
+        self.sfp_optoe_api.get_xcvr_api.return_value = mock_response2
+        self.cmis_api.get_transceiver_vdm_real_value_statistic = MagicMock()
+        self.cmis_api.get_transceiver_vdm_real_value_statistic.return_value = mock_response1
+
+        result = self.sfp_optoe_api.get_transceiver_vdm_real_value_statistic()
+        assert result == expected
+
     @patch("builtins.open", new_callable=mock_open)
     @patch.object(SfpOptoeBase, 'get_eeprom_path')
     def test_set_optoe_write_timeout_success(self, mock_get_eeprom_path, mock_open):
@@ -143,11 +197,8 @@ class TestSfpOptoeBase(object):
 
     def test_set_power(self):
         mode = 1
-        try:
+        with pytest.raises(NotImplementedError):
             self.sfp_optoe_api.set_power(mode)
-        except NotImplementedError:
-            exception_raised = True
-        assert exception_raised
  
     def test_default_page(self):
         with patch("builtins.open", mock_open(read_data=b'\x01')) as mocked_file:
