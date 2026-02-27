@@ -167,6 +167,27 @@ class CmisApi(XcvrApi):
     def _get_vdm_key_to_db_prefix_map(self):
         return CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP
 
+    def _get_vdm_key_to_db_prefix_map_by_observable_type(self, observable_type):
+        """
+        Returns the VDM key-to-DB-prefix map filtered by observable type,
+        using the 'B'/'S' classification from VDM_TYPE as the single source of truth.
+
+        Args:
+            observable_type: 'B' for basic (instantaneous), 'S' for statistic (min/max/avg)
+
+        Returns:
+            dict: Filtered subset of _get_vdm_key_to_db_prefix_map()
+        """
+        vdm_type_dict = self.xcvr_eeprom.mem_map.codes.VDM_TYPE
+        matching_names = {
+            info[0] for info in vdm_type_dict.values()
+            if len(info) > 3 and info[3] == observable_type
+        }
+        return {
+            k: v for k, v in self._get_vdm_key_to_db_prefix_map().items()
+            if k in matching_names
+        }
+
     @staticmethod
     def _strip_str(val):
         return val.rstrip() if isinstance(val, str) else val
@@ -1678,20 +1699,45 @@ class CmisApi(XcvrApi):
 
         return False
 
+    @read_only_cached_api_return
     def is_transceiver_vdm_supported(self):
         '''
         This function returns whether VDM is supported
         '''
         return self.vdm is not None and self.xcvr_eeprom.read(consts.VDM_SUPPORTED)
 
-    def get_vdm(self, field_option=None):
+    @read_only_cached_api_return
+    def is_vdm_statistic_supported(self):
         '''
-        This function returns all the VDM items, including real time monitor value, threholds and flags
+        This function returns whether the optic advertises any VDM statistic
+        observable types (min/max/avg) in its VDM descriptor pages.
+
+        Returns:
+            bool: True if at least one statistic observable type is advertised, False otherwise.
         '''
+        if self.vdm is None:
+            return False
+        return self.vdm.is_vdm_statistic_supported()
+
+    def get_vdm(self, field_option=None, observable_type=None):
+        '''
+        This function returns all the VDM items, including real time monitor value, thresholds and flags
+
+        Args:
+            field_option: Bitmask to select real value, threshold, and/or flag fields.
+                Defaults to ALL_FIELD (all fields).
+            observable_type: Bitmask to filter by observable type.
+                VDM_OBSERVABLE_BASIC (0x1) for basic (instantaneous) types,
+                VDM_OBSERVABLE_STATISTIC (0x2) for statistic (min/max/avg) types,
+                VDM_OBSERVABLE_ALL (0x3) for both. Defaults to VDM_OBSERVABLE_ALL.
+        '''
+        if self.vdm is None:
+            return {}
         if field_option is None:
             field_option = self.vdm.ALL_FIELD
-        vdm = self.vdm.get_vdm_allpage(field_option) if self.vdm is not None else {}
-        return vdm
+        if observable_type is None:
+            observable_type = self.vdm.VDM_OBSERVABLE_ALL
+        return self.vdm.get_vdm_allpage(field_option, observable_type) or {}
 
     def get_module_firmware_fault_state_changed(self):
         '''
@@ -2382,7 +2428,20 @@ class CmisApi(XcvrApi):
 
     def get_transceiver_vdm_real_value(self):
         """
-        Retrieves VDM real value for this xcvr
+        Retrieves all VDM real values (both basic and statistic) for this xcvr.
+        This is a convenience method that merges basic and statistic results.
+
+        Returns:
+            Dictionary with all VDM real values.
+        """
+        result = {}
+        result.update(self.get_transceiver_vdm_real_value_basic())
+        result.update(self.get_transceiver_vdm_real_value_statistic())
+        return result
+
+    def get_transceiver_vdm_real_value_basic(self):
+        """
+        Retrieves basic VDM real values for this xcvr.
 
         Returns:
             A dict containing the following keys/values :
@@ -2394,21 +2453,9 @@ class CmisApi(XcvrApi):
         esnr_host_input{lane_num}                      = FLOAT                  ; eSNR value in dB for host input
         pam4_level_transition_media_input{lane_num}    = FLOAT                  ; PAM4 level transition parameter in dB for media input
         pam4_level_transition_host_input{lane_num}     = FLOAT                  ; PAM4 level transition parameter in dB for host input
-        prefec_ber_min_media_input{lane_num}           = FLOAT                  ; Pre-FEC BER minimum value for media input
-        prefec_ber_max_media_input{lane_num}           = FLOAT                  ; Pre-FEC BER maximum value for media input
-        prefec_ber_avg_media_input{lane_num}           = FLOAT                  ; Pre-FEC BER average value for media input
         prefec_ber_curr_media_input{lane_num}          = FLOAT                  ; Pre-FEC BER current value for media input
-        prefec_ber_min_host_input{lane_num}            = FLOAT                  ; Pre-FEC BER minimum value for host input
-        prefec_ber_max_host_input{lane_num}            = FLOAT                  ; Pre-FEC BER maximum value for host input
-        prefec_ber_avg_host_input{lane_num}            = FLOAT                  ; Pre-FEC BER average value for host input
         prefec_ber_curr_host_input{lane_num}           = FLOAT                  ; Pre-FEC BER current value for host input
-        errored_frames_min_media_input{lane_num}       = FLOAT                  ; Errored frames minimum value for media input
-        errored_frames_max_media_input{lane_num}       = FLOAT                  ; Errored frames maximum value for media input
-        errored_frames_avg_media_input{lane_num}       = FLOAT                  ; Errored frames average value for media input
         errored_frames_curr_media_input{lane_num}      = FLOAT                  ; Errored frames current value for media input
-        errored_frames_min_host_input{lane_num}        = FLOAT                  ; Errored frames minimum value for host input
-        errored_frames_max_host_input{lane_num}        = FLOAT                  ; Errored frames maximum value for host input
-        errored_frames_avg_host_input{lane_num}        = FLOAT                  ; Errored frames average value for host input
         errored_frames_curr_host_input{lane_num}       = FLOAT                  ; Errored frames current value for host input
 
         ;C-CMIS specific fields
@@ -2433,8 +2480,40 @@ class CmisApi(XcvrApi):
         ========================================================================
         """
         vdm_real_value_dict = dict()
-        vdm_raw_dict = self.get_vdm(self.vdm.VDM_REAL_VALUE)
-        for vdm_observable_type, db_key_name_prefix in self._get_vdm_key_to_db_prefix_map().items():
+        vdm_raw_dict = self.get_vdm(self.vdm.VDM_REAL_VALUE, self.vdm.VDM_OBSERVABLE_BASIC)
+        for vdm_observable_type, db_key_name_prefix in self._get_vdm_key_to_db_prefix_map_by_observable_type('B').items():
+            for lane in range(1, self.NUM_CHANNELS + 1):
+                db_key_name = f"{db_key_name_prefix}{lane}"
+                self._update_vdm_dict(vdm_real_value_dict, db_key_name, vdm_raw_dict, vdm_observable_type,
+                                                    VdmSubtypeIndex.VDM_SUBTYPE_REAL_VALUE, lane)
+        return vdm_real_value_dict
+
+    def get_transceiver_vdm_real_value_statistic(self):
+        """
+        Retrieves statistic (min/max/avg) VDM real values for this xcvr.
+
+        Returns:
+            A dict containing the following keys/values :
+        ========================================================================
+        key                                            = TRANSCEIVER_VDM_REAL_VALUE|ifname    ; information module VDM sample on port
+        ; field                                        = value
+        prefec_ber_min_media_input{lane_num}           = FLOAT                  ; Pre-FEC BER minimum value for media input
+        prefec_ber_max_media_input{lane_num}           = FLOAT                  ; Pre-FEC BER maximum value for media input
+        prefec_ber_avg_media_input{lane_num}           = FLOAT                  ; Pre-FEC BER average value for media input
+        prefec_ber_min_host_input{lane_num}            = FLOAT                  ; Pre-FEC BER minimum value for host input
+        prefec_ber_max_host_input{lane_num}            = FLOAT                  ; Pre-FEC BER maximum value for host input
+        prefec_ber_avg_host_input{lane_num}            = FLOAT                  ; Pre-FEC BER average value for host input
+        errored_frames_min_media_input{lane_num}       = FLOAT                  ; Errored frames minimum value for media input
+        errored_frames_max_media_input{lane_num}       = FLOAT                  ; Errored frames maximum value for media input
+        errored_frames_avg_media_input{lane_num}       = FLOAT                  ; Errored frames average value for media input
+        errored_frames_min_host_input{lane_num}        = FLOAT                  ; Errored frames minimum value for host input
+        errored_frames_max_host_input{lane_num}        = FLOAT                  ; Errored frames maximum value for host input
+        errored_frames_avg_host_input{lane_num}        = FLOAT                  ; Errored frames average value for host input
+        ========================================================================
+        """
+        vdm_real_value_dict = dict()
+        vdm_raw_dict = self.get_vdm(self.vdm.VDM_REAL_VALUE, self.vdm.VDM_OBSERVABLE_STATISTIC)
+        for vdm_observable_type, db_key_name_prefix in self._get_vdm_key_to_db_prefix_map_by_observable_type('S').items():
             for lane in range(1, self.NUM_CHANNELS + 1):
                 db_key_name = f"{db_key_name_prefix}{lane}"
                 self._update_vdm_dict(vdm_real_value_dict, db_key_name, vdm_raw_dict, vdm_observable_type,
@@ -2495,7 +2574,7 @@ class CmisApi(XcvrApi):
         rxsigpower_xxx{lane_num}                         = FLOAT         ; rx signal power in dbm (high/low alarm/warning)        ========================================================================
         """
         vdm_thresholds_dict = dict()
-        vdm_raw_dict = self.get_vdm(self.vdm.VDM_THRESHOLD)
+        vdm_raw_dict = self.get_vdm(self.vdm.VDM_THRESHOLD, self.vdm.VDM_OBSERVABLE_ALL)
         for vdm_observable_type, db_key_name_prefix in self._get_vdm_key_to_db_prefix_map().items():
             for lane in range(1, self.NUM_CHANNELS + 1):
                 for vdm_threshold_type in range(VdmSubtypeIndex.VDM_SUBTYPE_HALARM_THRESHOLD.value, VdmSubtypeIndex.VDM_SUBTYPE_LWARN_THRESHOLD.value + 1):
@@ -2562,7 +2641,7 @@ class CmisApi(XcvrApi):
         rxsigpower_xxx{lane_num}                         = FLOAT         ; rx signal power in dbm (high/low alarm/warning flag)
         """
         vdm_flags_dict = dict()
-        vdm_raw_dict = self.get_vdm(self.vdm.VDM_FLAG)
+        vdm_raw_dict = self.get_vdm(self.vdm.VDM_FLAG, self.vdm.VDM_OBSERVABLE_ALL)
         for vdm_observable_type, db_key_name_prefix in self._get_vdm_key_to_db_prefix_map().items():
             for lane in range(1, self.NUM_CHANNELS + 1):
                 for vdm_flag_type in range(VdmSubtypeIndex.VDM_SUBTYPE_HALARM_FLAG.value, VdmSubtypeIndex.VDM_SUBTYPE_LWARN_FLAG.value + 1):

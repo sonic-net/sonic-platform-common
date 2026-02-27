@@ -63,13 +63,34 @@ class SfpOptoeBase(SfpBase):
         api = self.get_xcvr_api()
         return api.is_transceiver_vdm_supported() if api is not None else None
 
+    def is_vdm_statistic_supported(self):
+        """
+        Returns whether the optic advertises any VDM statistic observable types
+        """
+        api = self.get_xcvr_api()
+        return api.is_vdm_statistic_supported() if api is not None else None
+
     def get_transceiver_vdm_real_value(self):
         """
-        Retrieves VDM real (sample) values for this xcvr (applicable for CMIS and C-CMIS)
+        Retrieves all VDM real (sample) values for this xcvr (applicable for CMIS and C-CMIS)
         Specifically, it retrieves sample data from pages 24h to 27h
         """
         api = self.get_xcvr_api()
         return api.get_transceiver_vdm_real_value() if api is not None else None
+
+    def get_transceiver_vdm_real_value_basic(self):
+        """
+        Retrieves basic (instantaneous) VDM real values for this xcvr
+        """
+        api = self.get_xcvr_api()
+        return api.get_transceiver_vdm_real_value_basic() if api is not None else None
+
+    def get_transceiver_vdm_real_value_statistic(self):
+        """
+        Retrieves statistic (min/max/avg) VDM real values for this xcvr
+        """
+        api = self.get_xcvr_api()
+        return api.get_transceiver_vdm_real_value_statistic() if api is not None else None
 
     def get_transceiver_vdm_thresholds(self):
         api = self.get_xcvr_api()
