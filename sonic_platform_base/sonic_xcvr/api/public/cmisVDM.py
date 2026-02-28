@@ -24,6 +24,11 @@ class CmisVdmApi(XcvrApi):
     VDM_FLAG = 0x4
     ALL_FIELD = 0xff
 
+    # Observable type filters
+    VDM_OBSERVABLE_BASIC = 0x1      # Basic (instantaneous) observable types
+    VDM_OBSERVABLE_STATISTIC = 0x2  # Statistic (min/max/avg) observable types
+    VDM_OBSERVABLE_ALL = 0x3        # Both basic and statistic
+
     def __init__(self, xcvr_eeprom):
         super(CmisVdmApi, self).__init__(xcvr_eeprom)
     
@@ -36,7 +41,7 @@ class CmisVdmApi(XcvrApi):
         result = mantissa*10**(scale_exponent-24)
         return result
 
-    def get_vdm_page(self, page, VDM_flag_page, field_option=ALL_FIELD):
+    def get_vdm_page(self, page, VDM_flag_page, field_option=ALL_FIELD, observable_type=VDM_OBSERVABLE_ALL):
         '''
         This function returns VDM items from a specific VDM page.
         Output format is a dictionary. Key is observable type; value is a dictionary.
@@ -52,6 +57,15 @@ class CmisVdmApi(XcvrApi):
             vdm_high_warn_flag,
             vdm_low_warn_flag
         ]
+
+        Args:
+            page: VDM descriptor page (0x20-0x23)
+            VDM_flag_page: Raw flag page data or None
+            field_option: Bitmask to select real value, threshold, and/or flag fields
+            observable_type: Bitmask to filter by observable type.
+                VDM_OBSERVABLE_BASIC (0x1) for basic (instantaneous) types,
+                VDM_OBSERVABLE_STATISTIC (0x2) for statistic (min/max/avg) types,
+                VDM_OBSERVABLE_ALL (0x3) for both.
         '''
         if page not in [0x20, 0x21, 0x22, 0x23]:
             raise ValueError('Page not in VDM Descriptor range!')
@@ -75,6 +89,14 @@ class CmisVdmApi(XcvrApi):
                 continue
 
             vdm_info_dict = VDM_TYPE_DICT[typeID]
+
+            # Filter by observable type (basic vs statistic)
+            vdm_obs_type = vdm_info_dict[3] if len(vdm_info_dict) > 3 else 'B'
+            if vdm_obs_type == 'B' and not (observable_type & self.VDM_OBSERVABLE_BASIC):
+                continue
+            if vdm_obs_type == 'S' and not (observable_type & self.VDM_OBSERVABLE_STATISTIC):
+                continue
+
             thrshID = VDM_thresholdID[index]
             vdm_type = vdm_info_dict[0]
             vdm_format = vdm_info_dict[1]
@@ -178,7 +200,7 @@ class CmisVdmApi(XcvrApi):
                     vdm_low_warn_flag]
         return vdm_Page_data
 
-    def get_vdm_allpage(self, field_option=ALL_FIELD ):
+    def get_vdm_allpage(self, field_option=ALL_FIELD, observable_type=VDM_OBSERVABLE_ALL):
         '''
         This function returns VDM items from all advertised VDM pages.
         Output format is a dictionary. Key is observable type; value is a dictionary.
@@ -194,6 +216,13 @@ class CmisVdmApi(XcvrApi):
             vdm_high_warn_flag,
             vdm_low_warn_flag
         ]
+
+        Args:
+            field_option: Bitmask to select real value, threshold, and/or flag fields
+            observable_type: Bitmask to filter by observable type.
+                VDM_OBSERVABLE_BASIC (0x1) for basic (instantaneous) types,
+                VDM_OBSERVABLE_STATISTIC (0x2) for statistic (min/max/avg) types,
+                VDM_OBSERVABLE_ALL (0x3) for both.
         '''
         vdm_pages_supported = self.xcvr_eeprom.read(consts.VDM_SUPPORTED)
         if not vdm_pages_supported:
@@ -210,6 +239,37 @@ class CmisVdmApi(XcvrApi):
             vdm_flag_page = None
 
         for page in range(VDM_START_PAGE, VDM_START_PAGE + vdm_groups_supported_raw + 1):
-            vdm_current_page = self.get_vdm_page(page, vdm_flag_page, field_option)
+            vdm_current_page = self.get_vdm_page(page, vdm_flag_page, field_option, observable_type)
             vdm.update(vdm_current_page)
         return vdm
+
+    def is_vdm_statistic_supported(self):
+        '''
+        Checks whether the optic advertises any VDM statistic observable types
+        by scanning the VDM descriptor pages for type IDs classified as 'S' in VDM_TYPE.
+
+        Returns:
+            bool: True if at least one statistic observable type is advertised, False otherwise.
+        '''
+        vdm_pages_supported = self.xcvr_eeprom.read(consts.VDM_SUPPORTED)
+        if not vdm_pages_supported:
+            return False
+        vdm_groups_supported_raw = self.xcvr_eeprom.read(consts.VDM_SUPPORTED_PAGE)
+        if vdm_groups_supported_raw is None:
+            return False
+
+        VDM_START_PAGE = 0x20
+        VDM_TYPE_DICT = self.xcvr_eeprom.mem_map.codes.VDM_TYPE
+
+        for page in range(VDM_START_PAGE, VDM_START_PAGE + vdm_groups_supported_raw + 1):
+            vdm_descriptor = self.xcvr_eeprom.read_raw(page * PAGE_SIZE + PAGE_OFFSET, PAGE_SIZE)
+            if not vdm_descriptor:
+                continue
+            # Odd addresses contain the VDM observable type IDs
+            vdm_typeIDs = vdm_descriptor[1::2]
+            for typeID in vdm_typeIDs:
+                if typeID in VDM_TYPE_DICT:
+                    info = VDM_TYPE_DICT[typeID]
+                    if len(info) > 3 and info[3] == 'S':
+                        return True
+        return False
