@@ -222,10 +222,28 @@ class XcvrApi(object):
         """
         raise NotImplementedError
 
+    def is_vdm_statistic_supported(self):
+        """
+        Retrieves whether the optic advertises any VDM statistic observables (applicable for CMIS and C-CMIS)
+        """
+        raise NotImplementedError
+
     def get_transceiver_vdm_real_value(self):
         """
-        Retrieves VDM real (sample) values for this xcvr (applicable for CMIS and C-CMIS)
+        Retrieves all VDM real (sample) values for this xcvr (applicable for CMIS and C-CMIS)
         Specifically, it retrieves sample data from pages 24h to 27h
+        """
+        raise NotImplementedError
+
+    def get_transceiver_vdm_real_value_basic(self):
+        """
+        Retrieves basic (instantaneous) VDM real values for this xcvr (applicable for CMIS and C-CMIS)
+        """
+        raise NotImplementedError
+
+    def get_transceiver_vdm_real_value_statistic(self):
+        """
+        Retrieves statistic (min/max/avg) VDM real values for this xcvr (applicable for CMIS and C-CMIS)
         """
         raise NotImplementedError
 
