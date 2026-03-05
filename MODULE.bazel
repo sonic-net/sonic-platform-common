@@ -1,4 +1,8 @@
-module(name = "sonic-platform-common")
+# Keep bazel_compatibility in sync with sonic-buildimage's .bazelversion.
+module(
+    name = "sonic-platform-common",
+    bazel_compatibility = [">=8.5.1", "<=8.5.1"],
+)
 
 bazel_dep(name = "rules_python", version = "1.0.0")
 bazel_dep(name = "aspect_rules_py", version = "1.7.1")
