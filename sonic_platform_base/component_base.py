@@ -76,7 +76,7 @@ class ComponentBase(object):
             A string containing the component firmware update notification if required.
             By default 'None' value will be used, which indicates that no actions are required
         """
-        return None
+        return 'None'
 
     def install_firmware(self, image_path):
         """
