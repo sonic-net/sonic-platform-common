@@ -1959,19 +1959,11 @@ class CmisApi(XcvrApi):
             if ImageARunning == 1:
                 RunningImage = 'A'
                 ActiveFirmware = ImageA
-                if ImageBValid == 0:
-                    InactiveFirmware = ImageB
-                else:
-                    #In case of single bank module, inactive firmware version can be read from EEPROM
-                    InactiveFirmware = self.get_module_inactive_firmware() + ".0"
+                InactiveFirmware = ImageB
             elif ImageBRunning == 1:
                 RunningImage = 'B'
                 ActiveFirmware = ImageB
-                if ImageAValid == 0:
-                    InactiveFirmware = ImageA
-                else:
-                    #In case of single bank module, inactive firmware version can be read from EEPROM
-                    InactiveFirmware = self.get_module_inactive_firmware() + ".0"
+                InactiveFirmware = ImageA
             else:
                 RunningImage = 'N/A'
             if ImageACommitted == 1:

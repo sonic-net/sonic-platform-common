@@ -54,6 +54,7 @@ setup(
         'sonic_platform_base.sonic_xcvr.mem_maps.credo',
         'sonic_platform_base.sonic_xcvr.codes.credo',
         'sonic_platform_base.sonic_xcvr.api.innolight',
+        'sonic_platform_base.sonic_xcvr.api.hisense',
         'sonic_platform_base.sonic_xcvr.api.amphenol',
         'sonic_platform_base.sonic_xcvr.codes.amphenol',
         'sonic_platform_base.sonic_xcvr.mem_maps.amphenol',

@@ -7,6 +7,7 @@ from sonic_platform_base.sonic_xcvr.mem_maps.credo.aec_800g import CmisAec800gMe
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
 from sonic_platform_base.sonic_xcvr.codes.credo.aec_800g import CmisAec800gCodes
 from sonic_platform_base.sonic_xcvr.api.innolight.fr_800g import CmisFr800gApi
+from sonic_platform_base.sonic_xcvr.api.hisense.aoc_2x100g import CmisAocSingleBankApi
 from sonic_platform_base.sonic_xcvr.api.amphenol.backplane import AmphBackplaneImpl
 from sonic_platform_base.sonic_xcvr.fields import consts
 from sonic_platform_base.sonic_xcvr.xcvr_api_factory import XcvrApiFactory
@@ -63,6 +64,16 @@ class TestXcvrApiFactory(object):
         CmisMemMap = MagicMock()
         XcvrEeprom = MagicMock()
         CmisFr800gApi = MagicMock()
+        self.api.create_xcvr_api()
+
+    @patch('sonic_platform_base.sonic_xcvr.xcvr_api_factory.XcvrApiFactory._get_vendor_name', MagicMock(return_value='Hisense'))
+    @patch('sonic_platform_base.sonic_xcvr.xcvr_api_factory.XcvrApiFactory._get_vendor_part_num', MagicMock(return_value='DEF8504-2C03-MB3'))
+    def test_create_xcvr_api_hisense(self):
+        self.api.reader = self.mock_reader
+        CmisCodes = MagicMock()
+        CmisMemMap = MagicMock()
+        XcvrEeprom = MagicMock()
+        CmisAocSingleBankApi = MagicMock()
         self.api.create_xcvr_api()
 
     @pytest.mark.parametrize("reader, expected_api", [
