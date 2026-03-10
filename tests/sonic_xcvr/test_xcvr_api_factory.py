@@ -70,11 +70,8 @@ class TestXcvrApiFactory(object):
     @patch('sonic_platform_base.sonic_xcvr.xcvr_api_factory.XcvrApiFactory._get_vendor_part_num', MagicMock(return_value='DEF8504-2C03-MB3'))
     def test_create_xcvr_api_hisense(self):
         self.api.reader = self.mock_reader
-        CmisCodes = MagicMock()
-        CmisMemMap = MagicMock()
-        XcvrEeprom = MagicMock()
-        CmisAocSingleBankApi = MagicMock()
-        self.api.create_xcvr_api()
+        api = self.api.create_xcvr_api()
+        assert isinstance(api, CmisAocSingleBankApi)
 
     @pytest.mark.parametrize("reader, expected_api", [
         (mock_reader_sff8636, Sff8636Api),

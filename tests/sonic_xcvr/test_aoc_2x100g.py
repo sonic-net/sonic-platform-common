@@ -16,9 +16,11 @@ class TestCmisAocSingleBankApi(object):
     api = CmisAocSingleBankApi(eeprom)
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ({'status': 1, 'rpl': (128, 1, [0x43, 0, 2, 5, 0, 10] + [0] * 122)}, {'status': True, 'info': "", 'result': None}),
-        ({'status': 1, 'rpl': (128, 1, [0x40, 0, 1, 0, 0, 1] + [0] * 122)}, {'status': True, 'info': "", 'result': None}),
-        ({'status': 1, 'rpl': (128, 1, [0x44] + [0] * 127)}, {'status': True, 'info': "", 'result': None}),
+        ({'status': 1, 'rpl': (128, 1, [0x43, 0, 2, 5, 0, 3] + [0] * 122)}, {'status': True, 'info': "", 'result': 
+        ('2.5.3', 1, 1, 0, 'N/A', 0, 0, 1, '2.5.3', '1.1.0')}),
+        ({'status': 1, 'rpl': (128, 1, [0x40, 0, 1, 0, 0, 1] + [0] * 122)}, {'status': True, 'info': "", 'result': 
+        ('1.0.1', 0, 0, 0, 'N/A', 0, 0, 1, 'N/A', 'N/A')}),
+        ({'status': 1, 'rpl': (128, 1, [0x44] + [0] * 127)}, {'status': True, 'info': "", 'result': ('N/A', 0, 0, 1, 'N/A', 0, 0, 1, 'N/A', 'N/A')}),
         ({'status': 1, 'rpl': (None, 1, [0] * 128)}, {'status': False, 'info': "", 'result': 0}),
         ({'status': 1, 'rpl': (128, None, [0] * 128)}, {'status': False, 'info': "", 'result': 0}),
         ({'status': 1, 'rpl': (128, 0, [0] * 128)}, {'status': False, 'info': "", 'result': None}),
@@ -33,9 +35,8 @@ class TestCmisAocSingleBankApi(object):
         self.api.cdb.get_fw_info = MagicMock()
         self.api.cdb.get_fw_info.return_value = mock_response
         result = self.api.get_module_fw_info()
-        if result['status'] == False:
-            assert result['result'] == expected['result']
         assert result['status'] == expected['status']
+        assert result['result'] == expected['result']
 
     def test_get_module_fw_info_cdb_none(self):
         self.api.cdb = None
