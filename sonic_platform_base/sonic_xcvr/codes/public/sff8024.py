@@ -285,6 +285,7 @@ class Sff8024(XcvrCodes):
         149: 'EEI-400G-RTLR-4-L',
         150: 'EEI-800G-RTLR-8-S',
         151: 'EEI-800G-RTLR-8-L',
+        160: 'IB XDR',
     }
 
     # MMF media interface IDs
