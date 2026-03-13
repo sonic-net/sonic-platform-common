@@ -790,6 +790,24 @@ class ChassisBase(device_base.DeviceBase):
         """
         raise NotImplementedError
     
+    def get_management_port_link_status_override(self, intf: str) -> bool | None:
+        """
+        Override the kernel-reported management port link status.
+
+        On some platforms, the kernel-reported operstate for the management
+        interface may not reflect the true link state. Platform implementations
+        can override this method to query the real link state from hardware.
+
+        Args:
+            intf: The management interface name (e.g., 'eth0').
+
+        Returns:
+            bool or None: True if the management port link is up,
+                          False if down,
+                          None if not implemented (default; use kernel operstate).
+        """
+        return None
+
     def get_bmc(self):
         """
         Get bmc device on this chassis
