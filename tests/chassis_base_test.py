@@ -25,8 +25,6 @@ class TestChassisBase:
                 [chassis.get_dpu_id, [], {"name": "DPU0"}],
                 [chassis.get_dataplane_state, [], {}],
                 [chassis.get_controlplane_state, [], {}],
-                [chassis.change_sed_password, ["new_password"], {}],
-                [chassis.reset_sed_password, [], {}],
             ]
 
         for method in not_implemented_methods:
@@ -67,6 +65,13 @@ class TestChassisBase:
         mock_bmc = "mock_bmc_instance"
         chassis._bmc = mock_bmc
         assert(chassis.get_bmc() == mock_bmc)
+
+    def test_get_sed_mgmt(self):
+        chassis = ChassisBase()
+        assert(chassis.get_sed_mgmt() == None)
+        mock_sed_mgmt = "mock_sed_mgmt_instance"
+        chassis._sed_mgmt = mock_sed_mgmt
+        assert(chassis.get_sed_mgmt() == mock_sed_mgmt)
 
     def test_is_bmc(self):
         chassis = ChassisBase()
