@@ -23,7 +23,20 @@ class TestLeakageSensorBase:
         leakage_sensor = LeakageSensorBase("test_sensor")
 
         assert leakage_sensor.get_name() == "test_sensor"
+        assert leakage_sensor.get_leak_sensor_type() == None
+        assert leakage_sensor.get_leak_sensor_location() == None
+        assert leakage_sensor.get_leak_severity() == LeakSeverity.CRITICAL
         assert leakage_sensor.is_leak() == False
+
+        leakage_sensor2 = LeakageSensorBase("test_sensor2", type="rope",
+                                            location="drip tray",
+                                            severity=LeakSeverity.MINOR)
+        
+        assert leakage_sensor2.get_name() == "test_sensor2"
+        assert leakage_sensor2.get_leak_sensor_type() == "rope"
+        assert leakage_sensor2.get_leak_sensor_location() == "drip tray"
+        assert leakage_sensor2.get_leak_severity() == LeakSeverity.MINOR
+        assert leakage_sensor2.is_leak() == False
 
     @staticmethod
     def test_severity_constants():
@@ -94,7 +107,7 @@ class TestLeakageSensorBase:
         Test get_leak_severity default value is None
         '''
         sensor = LeakageSensorBase("sensor1")
-        assert sensor.get_leak_severity() is None
+        assert sensor.get_leak_severity() is LeakSeverity.CRITICAL
 
     @staticmethod
     def test_get_leak_severity_critical():
@@ -132,6 +145,7 @@ class TestLeakageSensorBase:
         returning a real LeakSensorProfileBase object
         '''
         class RopeProfile(LeakSensorProfileBase):
+            def get_type(self): return ""
             def get_leak_max_minor_duration_sec(self):
                 return 300
 
@@ -193,13 +207,12 @@ class TestLeakSensorProfileBase:
     '''
 
     @staticmethod
-    def test_get_leak_max_minor_duration_sec_not_implemented():
+    def test_not_implemented():
         '''
         Test get_leak_max_minor_duration_sec raises NotImplementedError — must be overridden by platform
         '''
-        profile = LeakSensorProfileBase()
-        with pytest.raises(NotImplementedError):
-            profile.get_leak_max_minor_duration_sec()
+        with pytest.raises(TypeError):
+            _ = LeakSensorProfileBase()
 
     @staticmethod
     def test_concrete_profile_implementation():
@@ -207,6 +220,7 @@ class TestLeakSensorProfileBase:
         Test that a concrete subclass can override get_leak_max_minor_duration_sec
         '''
         class RopeProfile(LeakSensorProfileBase):
+            def get_type(self): return "rope"
             def get_leak_max_minor_duration_sec(self):
                 return 300
 
@@ -219,14 +233,17 @@ class TestLeakSensorProfileBase:
         Test profiles for all sensor types specified in the spec: rope=300, spot=600, flex_pcb=180
         '''
         class RopeProfile(LeakSensorProfileBase):
+            def get_type(self): return "rope"
             def get_leak_max_minor_duration_sec(self):
                 return 300
 
         class SpotProfile(LeakSensorProfileBase):
+            def get_type(self): return "spot"
             def get_leak_max_minor_duration_sec(self):
                 return 600
 
         class FlexPcbProfile(LeakSensorProfileBase):
+            def get_type(self): return "flex_pcb"
             def get_leak_max_minor_duration_sec(self):
                 return 180
 
@@ -235,6 +252,7 @@ class TestLeakSensorProfileBase:
             profile = profile_cls()
             assert profile.get_leak_max_minor_duration_sec() == expected_duration, \
                 f"{sensor_type} profile duration mismatch"
+            assert profile.get_type() == sensor_type
 
 class TestLiquidCoolingBase():
     '''
@@ -246,7 +264,7 @@ class TestLiquidCoolingBase():
         '''
         Test liquid cooling base default implementation
         '''
-        liquid_cooling = LiquidCoolingBase()
+        liquid_cooling = LiquidCoolingBase([])
 
         assert liquid_cooling.get_num_leak_sensors() == 0
         assert liquid_cooling.get_all_leak_sensors() == []
@@ -257,10 +275,11 @@ class TestLiquidCoolingBase():
         '''
         Test get_leak_sensor method with an out-of-range index
         '''
-        liquid_cooling = LiquidCoolingBase()
-        liquid_cooling.leakage_sensors = [LeakageSensorBase("Sensor1"), 
-                                          LeakageSensorBase("Sensor2"), 
-                                          LeakageSensorBase("Sensor3")]
+        common = {"type": "rope", "location": "chassis",
+                       "severity": LeakSeverity.MINOR}
+        liquid_cooling = LiquidCoolingBase([LeakageSensorBase("Sensor1", **common), 
+                                            LeakageSensorBase("Sensor2", **common), 
+                                            LeakageSensorBase("Sensor3", **common)])
 
         # Redirect stderr to capture error message
         captured_output = StringIO()
@@ -283,7 +302,6 @@ class TestLiquidCoolingBase():
         sensor1 = LeakageSensorBase("Sensor1")
         sensor2 = LeakageSensorBase("Sensor2")
         liquid_cooling = LiquidCoolingBase(
-            leakage_sensors_num=3,
             leakage_sensors_list=[sensor0, sensor1, sensor2]
         )
 
@@ -315,7 +333,6 @@ class TestLiquidCoolingBase():
         critical_sensor.leak_severity = LeakSeverity.CRITICAL
 
         liquid_cooling = LiquidCoolingBase(
-            leakage_sensors_num=3,
             leakage_sensors_list=[ok_sensor, minor_sensor, critical_sensor]
         )
 
@@ -343,7 +360,7 @@ class TestLiquidCoolingBase():
             s.leak_type = "spot"
             sensors.append(s)
 
-        liquid_cooling = LiquidCoolingBase(leakage_sensors_num=3, leakage_sensors_list=sensors)
+        liquid_cooling = LiquidCoolingBase(leakage_sensors_list=sensors)
         assert liquid_cooling.get_leak_sensor_status() == []
 
     @staticmethod
@@ -356,7 +373,6 @@ class TestLiquidCoolingBase():
         faulty_sensor.leak_sensor_ok = False  # faulty but not reporting a leak
 
         liquid_cooling = LiquidCoolingBase(
-            leakage_sensors_num=1,
             leakage_sensors_list=[faulty_sensor]
         )
         assert liquid_cooling.get_leak_sensor_status() == []
@@ -368,6 +384,7 @@ class TestLiquidCoolingBase():
         Simulates full platform implementation per spec.
         '''
         class RopeProfile(LeakSensorProfileBase):
+            def get_type(self): return "rope"
             def get_leak_max_minor_duration_sec(self):
                 return 300
 
@@ -387,7 +404,6 @@ class TestLiquidCoolingBase():
         s2.leak_severity = LeakSeverity.MINOR
 
         liquid_cooling = LiquidCoolingBase(
-            leakage_sensors_num=2,
             leakage_sensors_list=[s1, s2]
         )
 

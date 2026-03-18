@@ -5,7 +5,10 @@
     to interact with a liquid cooling module in SONiC
 """
 
+from abc import ABC, abstractmethod
 from enum import Enum
+from typing import Dict, List
+
 from . import device_base
 from .sensor_base import SensorBase
 import sys
@@ -21,15 +24,19 @@ class LeakageSensorBase(SensorBase):
     LEAK_SEVERITY_CRITICAL = LeakSeverity.CRITICAL
     LEAK_SEVERITY_MINOR    = LeakSeverity.MINOR
 
-    def __init__(self, name):
-        self.name = name
-        self.leaking = False
-        self.leak_sensor_ok = True
-        self.leak_type = None
-        self.leak_location = None
-        self.leak_severity = None
+    def __init__(self,
+                 name: str, *,
+                 type: str|None = None,
+                 location: str|None = None,
+                 severity: LeakSeverity = LeakSeverity.CRITICAL):
+        self.name: str = name
+        self.leaking: bool = False
+        self.leak_sensor_ok: bool = True
+        self.leak_type: str|None = type
+        self.leak_location = location
+        self.leak_severity = severity
 
-    def get_name(self):
+    def get_name(self) -> str:
         """
         Retrieves the name of the leakage sensor
 
@@ -38,7 +45,7 @@ class LeakageSensorBase(SensorBase):
         """
         return self.name
 
-    def is_leak(self):
+    def is_leak(self) -> bool:
         """
         Retrieves the leak status of the sensor.
         The platform should apply debounce logic before reporting/clearing leak.
@@ -48,7 +55,7 @@ class LeakageSensorBase(SensorBase):
         """
         return self.leaking
 
-    def is_leak_sensor_ok(self):
+    def is_leak_sensor_ok(self) -> bool:
         """
         Retrieves the state of leak sensor whether it is ok or faulty
 
@@ -57,7 +64,7 @@ class LeakageSensorBase(SensorBase):
         """
         return self.leak_sensor_ok
 
-    def get_leak_sensor_type(self):
+    def get_leak_sensor_type(self) -> str|None:
         """
         Retrieves the leak sensor type
 
@@ -66,7 +73,7 @@ class LeakageSensorBase(SensorBase):
         """
         return self.leak_type
 
-    def get_leak_sensor_location(self):
+    def get_leak_sensor_location(self) -> str|None:
         """
         Retrieves the location of leak sensor
 
@@ -75,7 +82,7 @@ class LeakageSensorBase(SensorBase):
         """
         return self.leak_location
 
-    def get_leak_severity(self):
+    def get_leak_severity(self) -> LeakSeverity:
         """
         Retrieves the severity of leak
 
@@ -90,20 +97,30 @@ class LeakageSensorBase(SensorBase):
         """
         raise NotImplementedError
 
-
-class LeakSensorProfileBase(object):
+class LeakSensorProfileBase(ABC):
     """
     Platform-specific leak sensor profile, which defines APIs pre leaksensor type
     """
 
-    def get_leak_max_minor_duration_sec(self):
+    @abstractmethod
+    def get_type(self) -> str:
+        """
+        Retrieves the type of sensor that this profile is describing.
+
+        Returns:
+            str: the type being described
+        """
+        pass
+
+    @abstractmethod
+    def get_leak_max_minor_duration_sec(self) -> int:
         """
         Maximum time before a minor leak is marked critical.
 
         Returns:
             int: time in seconds
         """
-        raise NotImplementedError
+        pass
 
 
 class LiquidCoolingBase(device_base.DeviceBase):
@@ -111,48 +128,52 @@ class LiquidCoolingBase(device_base.DeviceBase):
     Base class for implementing liquid cooling system
     """
 
-    def __init__(self, leakage_sensors_num = 0, leakage_sensors_list = None):
-        self.leakage_sensors_num = leakage_sensors_num
-        self.leakage_sensors = leakage_sensors_list if leakage_sensors_list else []
+    def __init__(self,
+                 leakage_sensors_list: List[LeakageSensorBase] = [],
+                 *,
+                 profiles: List[LeakSensorProfileBase] = []):
+        self.leakage_sensors: List[LeakageSensorBase] = leakage_sensors_list
+        self.profiles: Dict[str, LeakSensorProfileBase] = {
+            p.get_type(): p for p in profiles
+        }
 
-    def get_num_leak_sensors(self):
+    def get_num_leak_sensors(self) -> int:
         """
         Retrieves the number of leakage sensors
  
         Returns:
             int: The number of leakage sensors
         """
-        return self.leakage_sensors_num
+        return len(self.leakage_sensors)
     
-    def get_leak_sensor(self, index):
+    def get_leak_sensor(self, index: int) -> LeakageSensorBase|None:
         """
         Retrieves the leakage sensor by index
         """
-        sensor = None
+        sensor = self.leakage_sensors[index] \
+            if index < len(self.leakage_sensors) else None
 
-        try:
-            sensor = self.leakage_sensors[index]
-        except IndexError:
+        if sensor is None:
             sys.stderr.write("Leakage sensor index {} out of range (0-{})\n".format(
                              index, len(self.leakage_sensors)-1))
 
         return sensor
- 
-    def get_all_leak_sensors(self):
+
+    def get_all_leak_sensors(self) -> List[LeakageSensorBase]:
         """
         Retrieves the list of leakage sensors
  
         Returns:
-            list: A list of leakage sensor names
+            List[LeakageSensorBase]: A list of leakage sensor names
         """
         return self.leakage_sensors
 
-    def get_leak_sensor_status(self):
+    def get_leak_sensor_status(self) -> List[LeakageSensorBase]:
         """
         Retrieves the leak status of the sensors
 
         Returns:
-            list: A list of leakage sensor names that are leaking, empty list if no leakage
+            List[str]: A list of leakage sensors that are leaking, empty list if no leakage
         """
         leaking_sensors = []
         for sensor in self.leakage_sensors:
@@ -160,3 +181,22 @@ class LiquidCoolingBase(device_base.DeviceBase):
                 leaking_sensors.append(sensor)
         return leaking_sensors
 
+    def get_all_profiles(self) -> List[LeakSensorProfileBase]:
+        """
+        Retrieves the list of leak sensor profiles.
+
+        Returns:
+            List[LeakSensorProfile]: A list of all leak sensor profiles
+        """
+        return list(self.profiles.values())
+
+    def get_profile(self, type: str) -> LeakSensorProfileBase|None:
+        """
+        Retrives the profile with the given name.
+        """
+        profile = getattr(self.profiles, type, None)
+
+        if profile is None:
+            sys.stderr.write(f"Leakage sensor profile {type} doesn't exist")
+
+        return profile
