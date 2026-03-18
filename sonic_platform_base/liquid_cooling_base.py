@@ -10,17 +10,25 @@ from .sensor_base import SensorBase
 import sys
 
 class LeakageSensorBase(SensorBase):
+    # Define the leak severities
+    LEAK_SEVERITY_CRITICAL   = "CRITICAL"
+    LEAK_SEVERITY_MINOR      = "MINOR"
+
     def __init__(self, name):
         self.name = name
         self.leaking = False
+        self.leak_sensor_ok = True
+        self.leak_type = None
+        self.leak_location = None
+        self.leak_severity = None
 
     def get_name(self):
         """
         Retrieves the name of the leakage sensor
 
         Returns:
-            tring: the name of the leakage sensor
-        """        
+            string: the name of the leakage sensor
+        """
         return self.name
 
     def is_leak(self):
@@ -29,8 +37,66 @@ class LeakageSensorBase(SensorBase):
 
         Returns:
             bool: True if leak is detected, False if not
-        """        
+        """
         return self.leaking
+
+    def is_leak_sensor_ok(self):
+        """
+        Retrieves the state of leak sensor whether it is ok or faulty
+
+        Returns:
+            bool: True if leak sensor is ok, False if it is faulty
+        """
+        return self.leak_sensor_ok
+
+    def get_leak_sensor_type(self):
+        """
+        Retrieves the leak sensor type
+
+        Returns:
+            string: the type of the leakage sensor
+        """
+        return self.leak_type
+
+    def get_leak_location(self):
+        """
+        Retrieves the location of leak sensor
+
+        Returns:
+            string: the location of the leakage sensor
+        """
+        return self.leak_location
+
+    def get_leak_severity(self):
+        """
+        Retrieves the severity of leak
+
+        Returns:
+            string: returns either LEAK_SEVERITY_CRITICAL or LEAK_SEVERITY_MINOR
+        """
+        return self.leak_severity
+
+    def get_profile(self):
+        """
+        Returns the leak sensor profile associated with this sensor.
+        """
+        raise NotImplementedError
+
+
+class LeakSensorProfileBase(object):
+    """
+    Platform-specific leak sensor profile, which defines APIs pre leaksensor type
+    """
+
+    def get_leak_max_minor_duration_sec(self):
+        """
+        Maximum time before a minor leak is marked critical.
+
+        Returns:
+            int: time in seconds
+        """
+        raise NotImplementedError
+
 
 class LiquidCoolingBase(device_base.DeviceBase):
     """

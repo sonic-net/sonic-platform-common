@@ -260,6 +260,15 @@ class ModuleBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
+    def power_cycle(self):
+        """
+        Request to do a powercycle of the module.
+
+        Returns:
+            bool: True if the request has been issued successfully, False if not
+        """
+        raise NotImplementedError
+
     def get_maximum_consumed_power(self):
         """
         Retrives the maximum power drawn by this module
