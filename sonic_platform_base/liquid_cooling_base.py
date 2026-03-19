@@ -33,7 +33,8 @@ class LeakageSensorBase(SensorBase):
 
     def is_leak(self):
         """
-        Retrieves the leak status of the sensor
+        Retrieves the leak status of the sensor.
+        The platform should apply debounce logic before reporting/clearing leak.
 
         Returns:
             bool: True if leak is detected, False if not
@@ -58,7 +59,7 @@ class LeakageSensorBase(SensorBase):
         """
         return self.leak_type
 
-    def get_leak_location(self):
+    def get_leak_sensor_location(self):
         """
         Retrieves the location of leak sensor
 
@@ -76,7 +77,7 @@ class LeakageSensorBase(SensorBase):
         """
         return self.leak_severity
 
-    def get_profile(self):
+    def get_leak_profile(self):
         """
         Returns the leak sensor profile associated with this sensor.
         """

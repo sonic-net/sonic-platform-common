@@ -260,7 +260,7 @@ class ModuleBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
-    def power_cycle(self):
+    def do_power_cycle(self):
         """
         Request to do a powercycle of the module.
 
