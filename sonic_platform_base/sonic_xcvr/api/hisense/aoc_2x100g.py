@@ -4,13 +4,18 @@
     Firmware management for modules that use single-bank firmware architecture.
 """
 from ..public.cmis import CmisApi
-from ...cdb.cdb_fw import CdbFwHandler
-from ...codes.public.cdb import CdbCodes
-from ...mem_maps.public.cdb import CdbMemMap
+from ...fields import cdb_consts
 
 class CmisAocSingleBankApi(CmisApi):
+    def __init__(self, xcvr_eeprom):
+        super().__init__(xcvr_eeprom, init_cdb_fw_handler=True)
+
     def get_module_fw_info(self):
         """
+        Override for single-bank firmware modules. These modules only have one firmware bank (Image A), 
+        so Image B is always reported as N/A. The inactive firmware version is read from 
+        EEPROM instead of CDB.
+
         This function returns firmware Image A and B version, running version, committed version
         and whether both firmware images are valid.
         Operational Status: 1 = running, 0 = not running
@@ -20,43 +25,39 @@ class CmisAocSingleBankApi(CmisApi):
         txt = ''
         if self.cdb is None:
             return {'status': False, 'info': "CDB Not supported", 'result': None}
-        try:
-            fw_hdlr = CdbFwHandler(
-                self.xcvr_eeprom.reader,
-                self.xcvr_eeprom.writer,
-                CdbMemMap(CdbCodes)
-            )
-        except Exception:
+
+        fw_hdlr = self.cdb_fw_hdlr
+        if fw_hdlr is None:
             return {'status': False, 'info': "CDB FW handler init failed", 'result': None}
-        
+
         fw_info = fw_hdlr.get_firmware_info()
-        if not fw_info:
+        if fw_info is False or fw_info is None:
             return {'status': False, 'info': "Failed to get firmware info", 'result': None}
-        
-        fw_status = fw_info.get('Cdb1FirmwareStatus', {})
-        ImageARunning = int(fw_status.get('CdbBankAOperStatus', False))
-        ImageACommitted = int(fw_status.get('CdbBankAAdminStatus', False))
-        ImageAValid = int(fw_status.get('CdbBankAValidStatus', True))
-        ImageBRunning = int(fw_status.get('CdbBankBOperStatus', False))
-        ImageBCommitted = int(fw_status.get('CdbBankBAdminStatus', False))
-        ImageBValid = int(fw_status.get('CdbBankBValidStatus', True))
+
+        fw_status = fw_info.get(cdb_consts.CDB1_FIRMWARE_STATUS, {})
+        ImageARunning = int(fw_status.get(cdb_consts.CDB1_BANKA_OPER_STATUS, False))
+        ImageACommitted = int(fw_status.get(cdb_consts.CDB1_BANKA_ADMIN_STATUS, False))
+        ImageAValid = int(fw_status.get(cdb_consts.CDB1_BANKA_VALID_STATUS, True))
+        ImageBRunning = int(fw_status.get(cdb_consts.CDB1_BANKB_OPER_STATUS, False))
+        ImageBCommitted = int(fw_status.get(cdb_consts.CDB1_BANKB_ADMIN_STATUS, False))
+        ImageBValid = int(fw_status.get(cdb_consts.CDB1_BANKB_VALID_STATUS, True))
 
         if ImageAValid == 0:
             ImageA = '{}.{}.{}'.format(
-                fw_info.get('CdbBankAMajorVersion', 0),
-                fw_info.get('CdbBankAMinorVersion', 0),
-                fw_info.get('CdbBankABuildVersion', 0)
+                fw_info.get(cdb_consts.CDB1_BANKA_MAJOR_VERSION, 0),
+                fw_info.get(cdb_consts.CDB1_BANKA_MINOR_VERSION, 0),
+                fw_info.get(cdb_consts.CDB1_BANKA_BUILD_VERSION, 0)
             )
         else:
             ImageA = "N/A"
         txt += 'Image A Version: {}\n'.format(ImageA)
         ImageB = "N/A"
         txt += 'Image B Version: {}\n'.format(ImageB)
-        
+
         FactoryImage = '{}.{}.{}'.format(
-            fw_info.get('CdbFactoryMajorVersion', 0),
-            fw_info.get('CdbFactoryMinorVersion', 0),
-            fw_info.get('CdbFactoryBuildVersion', 0)
+            fw_info.get(cdb_consts.CDB1_FACTORY_MAJOR_VERSION, 0),
+            fw_info.get(cdb_consts.CDB1_FACTORY_MINOR_VERSION, 0),
+            fw_info.get(cdb_consts.CDB1_FACTORY_BUILD_VERSION, 0)
         )
         txt += 'Factory Image Version: {}\n'.format(FactoryImage)
 
@@ -65,7 +66,7 @@ class CmisAocSingleBankApi(CmisApi):
         if ImageARunning == 1:
             RunningImage = 'A'
             ActiveFirmware = ImageA
-            # In case of single bank module, inactive firmware version can be read from EEPROM
+            # Single-bank module: only Image A is present; inactive FW read from EEPROM
             InactiveFirmware = self.get_module_inactive_firmware() + ".0"
         else:
             RunningImage = 'N/A'
