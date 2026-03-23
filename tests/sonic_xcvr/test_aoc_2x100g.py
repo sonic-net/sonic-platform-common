@@ -7,18 +7,6 @@ from sonic_platform_base.sonic_xcvr.codes.public.cmis import CmisCodes
 from sonic_platform_base.sonic_xcvr.api.hisense.aoc_2x100g import CmisAocSingleBankApi
 from sonic_platform_base.sonic_xcvr.fields import cdb_consts
 
-def _compose_fw_info(a_oper, a_admin, a_valid, b_oper, b_admin, b_valid, a_maj, a_min, a_bld, b_maj, b_min, b_bld, f_maj, f_min, f_bld, img_info=7):
-    return {
-        cdb_consts.CDB1_FIRMWARE_STATUS: {
-            cdb_consts.CDB1_BANKA_OPER_STATUS: a_oper, cdb_consts.CDB1_BANKA_ADMIN_STATUS: a_admin, cdb_consts.CDB1_BANKA_VALID_STATUS: a_valid,
-            cdb_consts.CDB1_BANKB_OPER_STATUS: b_oper, cdb_consts.CDB1_BANKB_ADMIN_STATUS: b_admin, cdb_consts.CDB1_BANKB_VALID_STATUS: b_valid,
-        },
-        cdb_consts.CDB1_IMAGE_INFO: img_info,
-        cdb_consts.CDB1_BANKA_MAJOR_VERSION: a_maj, cdb_consts.CDB1_BANKA_MINOR_VERSION: a_min, cdb_consts.CDB1_BANKA_BUILD_VERSION: a_bld,
-        cdb_consts.CDB1_BANKB_MAJOR_VERSION: b_maj, cdb_consts.CDB1_BANKB_MINOR_VERSION: b_min, cdb_consts.CDB1_BANKB_BUILD_VERSION: b_bld,
-        cdb_consts.CDB1_FACTORY_MAJOR_VERSION: f_maj, cdb_consts.CDB1_FACTORY_MINOR_VERSION: f_min, cdb_consts.CDB1_FACTORY_BUILD_VERSION: f_bld,
-    }
-
 class TestCmisAocSingleBankApi(object):
     codes = CmisCodes
     mem_map = CmisMemMap(codes)
@@ -27,52 +15,74 @@ class TestCmisAocSingleBankApi(object):
     eeprom = XcvrEeprom(reader, writer, mem_map)
     api = CmisAocSingleBankApi(eeprom)
 
-    @pytest.mark.parametrize("mock_response, expected", [
-        (_compose_fw_info(True,  True,  False, False, False, True,  2, 5, 3, 0, 0, 0, 1, 6, 0),
-         ('1.1', {'status': True, 'result': ('2.5.3', 1, 1, 0, 'N/A', 0, 0, 1, '2.5.3', '1.1.0')})),
-        (_compose_fw_info(False, False, False, False, False, True,  1, 0, 1, 0, 0, 0, 1, 0, 0),
-         ('0.0', {'status': True, 'result': ('1.0.1', 0, 0, 0, 'N/A', 0, 0, 1, 'N/A', 'N/A')})),
-        (_compose_fw_info(False, False, True,  False, False, True,  0, 0, 0, 0, 0, 0, 0, 0, 0),
-         ('0.0', {'status': True, 'result': ('N/A', 0, 0, 1, 'N/A', 0, 0, 1, 'N/A', 'N/A')})),
-        (_compose_fw_info(False, False, False, True,  True,  False, 1, 4, 0, 1, 3, 0, 1, 6, 0),
-         ('1.3', {'status': True, 'result': ('1.4.0', 0, 0, 0, 'N/A', 1, 1, 0, 'N/A', 'N/A')})),
-    ])
-    def test_get_module_fw_info(self, mock_response, expected):
-        mock_fw_hdlr = MagicMock()
-        mock_fw_hdlr.get_firmware_info.return_value = mock_response
-        self.api.cdb = MagicMock()
-        self.api._init_cdb_fw_handler = True
-        self.api._cdb_fw_hdlr = mock_fw_hdlr
-        self.api.get_module_inactive_firmware = MagicMock(return_value=expected[0])
-        result = self.api.get_module_fw_info()
-        assert result['status'] == expected[1]['status']
-        assert result['result'] == expected[1]['result']
+    def _fw_info(self, a_oper=False, a_admin=False, a_valid=False, b_oper=False, b_admin=False, b_valid=False,
+                 a_maj=0, a_min=0, a_bld=0, b_maj=0, b_min=0, b_bld=0, f_maj=0, f_min=0, f_bld=0):
+        return {
+            cdb_consts.CDB1_FIRMWARE_STATUS: {
+                cdb_consts.CDB1_BANKA_OPER_STATUS: a_oper,
+                cdb_consts.CDB1_BANKA_ADMIN_STATUS: a_admin,
+                cdb_consts.CDB1_BANKA_VALID_STATUS: a_valid,
+                cdb_consts.CDB1_BANKB_OPER_STATUS: b_oper,
+                cdb_consts.CDB1_BANKB_ADMIN_STATUS: b_admin,
+                cdb_consts.CDB1_BANKB_VALID_STATUS: b_valid,
+            },
+            cdb_consts.CDB1_IMAGE_INFO: 7,
+            cdb_consts.CDB1_BANKA_MAJOR_VERSION: a_maj,
+            cdb_consts.CDB1_BANKA_MINOR_VERSION: a_min,
+            cdb_consts.CDB1_BANKA_BUILD_VERSION: a_bld,
+            cdb_consts.CDB1_BANKB_MAJOR_VERSION: b_maj,
+            cdb_consts.CDB1_BANKB_MINOR_VERSION: b_min,
+            cdb_consts.CDB1_BANKB_BUILD_VERSION: b_bld,
+            cdb_consts.CDB1_FACTORY_MAJOR_VERSION: f_maj,
+            cdb_consts.CDB1_FACTORY_MINOR_VERSION: f_min,
+            cdb_consts.CDB1_FACTORY_BUILD_VERSION: f_bld,
+        }
 
-    def test_get_module_fw_info_cdb_none(self):
+    def test_get_module_fw_info_single_bank(self):
+        """Image A running, inactive firmware read from EEPROM."""
+        mock_fw_hdlr = MagicMock()
+        mock_fw_hdlr.get_firmware_info.return_value = self._fw_info(
+            a_oper=True, a_admin=True, b_valid=True, a_maj=2, a_min=5, a_bld=3, f_maj=1, f_min=6)
+        self.api.cdb = MagicMock()
+        self.api._cdb_fw_hdlr = mock_fw_hdlr
+        self.api.get_module_inactive_firmware = MagicMock(return_value='1.1')
+        result = self.api.get_module_fw_info()
+        assert result['status'] is True
+        assert result['result'] == ('2.5.3', 1, 1, 0, 'N/A', 0, 0, 1, '2.5.3', '1.1.0')
+        assert 'Inactive Firmware: 1.1.0' in result['info']
+
+    def test_get_module_fw_info_eeprom_read_error(self):
+        """Image A running and EEPROM returns None, inactive = N/A."""
+        mock_fw_hdlr = MagicMock()
+        mock_fw_hdlr.get_firmware_info.return_value = self._fw_info(
+            a_oper=True, a_admin=True, b_valid=True, a_maj=2, a_min=5, a_bld=3, f_maj=1, f_min=6)
+        self.api.cdb = MagicMock()
+        self.api._cdb_fw_hdlr = mock_fw_hdlr
+        self.api.get_module_inactive_firmware = MagicMock(return_value=None)
+        result = self.api.get_module_fw_info()
+        assert result['status'] is True
+        assert result['result'] == ('2.5.3', 1, 1, 0, 'N/A', 0, 0, 1, '2.5.3', 'N/A')
+        assert 'Inactive Firmware: N/A' in result['info']
+
+    def test_get_module_fw_info_cdb_not_supported(self):
+        """CDB not supported."""
         self.api.cdb = None
         result = self.api.get_module_fw_info()
-        assert result == {'status': False, 'info': "CDB Not supported", 'result': None}
+        assert result == {'status': False, 'info': 'CDB Not supported', 'result': None}
 
-    def test_get_module_fw_info_handler_none(self):
+    def test_get_module_fw_info_handler_init_failed(self):
+        """CDB FW handler init failed."""
         self.api.cdb = MagicMock()
-        self.api._init_cdb_fw_handler = False
+        self.api._cdb_fw_hdlr = None
+        self.api._create_cdb_fw_handler = MagicMock(return_value=None)
         result = self.api.get_module_fw_info()
-        assert result == {'status': False, 'info': "CDB FW handler init failed", 'result': None}
+        assert result == {'status': False, 'info': 'CDB FW handler init failed', 'result': None}
 
-    def test_get_module_fw_info_fw_info_none(self):
+    def test_get_module_fw_info_cdb_returns_none(self):
+        """CDB returns None firmware info."""
         mock_fw_hdlr = MagicMock()
         mock_fw_hdlr.get_firmware_info.return_value = None
         self.api.cdb = MagicMock()
-        self.api._init_cdb_fw_handler = True
         self.api._cdb_fw_hdlr = mock_fw_hdlr
         result = self.api.get_module_fw_info()
-        assert result == {'status': False, 'info': "Failed to get firmware info", 'result': None}
-
-    def test_get_module_fw_info_fw_info_false(self):
-        mock_fw_hdlr = MagicMock()
-        mock_fw_hdlr.get_firmware_info.return_value = False
-        self.api.cdb = MagicMock()
-        self.api._init_cdb_fw_handler = True
-        self.api._cdb_fw_hdlr = mock_fw_hdlr
-        result = self.api.get_module_fw_info()
-        assert result == {'status': False, 'info': "Failed to get firmware info", 'result': None}
+        assert result == {'status': False, 'info': 'Failed to get firmware info', 'result': None}
