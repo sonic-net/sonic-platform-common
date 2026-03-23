@@ -82,6 +82,11 @@ pytest tests/ --cov=sonic_platform_base --cov-report=term-missing
 - **Backwards compatibility**: CRITICAL — don't break existing vendor implementations
 - **Abstract methods**: New abstract methods must have default implementations to avoid breaking subclasses
 - **Documentation**: All new API methods need docstrings
+- **PR description template**: Fill out all sections of the [PR template](.github/pull_request_template.md) when submitting a pull request:
+  - **Description**: Describe your changes in detail
+  - **Motivation and Context**: Why is this change required? What problem does it solve? Reference issues with "fixes #xxxx"
+  - **How Has This Been Tested?**: Describe how you tested your changes, including test environment and tests run
+  - **Additional Information**: Any other relevant details (optional)
 
 ## Common Patterns
 
@@ -89,14 +94,14 @@ pytest tests/ --cov=sonic_platform_base --cov-report=term-missing
 ```python
 class NewFeatureBase:
     """Base class for new feature abstraction"""
-    
+
     def get_name(self):
         """Get the name of the feature component
         Returns:
             string: Name of the component
         """
         raise NotImplementedError
-    
+
     def get_status(self):
         """Get operational status
         Returns:
