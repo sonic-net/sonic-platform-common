@@ -1908,14 +1908,30 @@ class CmisApi(XcvrApi):
         if self.cdb is None:
             return {'status': False, 'info': "CDB Not supported", 'result': None}
 
+        # Create CDB FW handler with exception handling
         if self._cdb_fw_hdlr is None:
-            self._cdb_fw_hdlr = self._create_cdb_fw_handler()
+            try:
+                self._cdb_fw_hdlr = self._create_cdb_fw_handler()
+            except Exception as e:
+                logger.error("CDB FW handler init assertion failed: %s", e)
+                return {'status': False, 'info': "CDB FW handler init failed", 'result': None}
             if self._cdb_fw_hdlr is None:
                 return {'status': False, 'info': "CDB FW handler init failed", 'result': None}
 
         fw_info = self._cdb_fw_hdlr.get_firmware_info()
+
+        # password issue
         if fw_info is False or fw_info is None:
-            return {'status': False, 'info': "Failed to get firmware info", 'result': None}
+            status = self.cdb.cdb1_chkstatus()
+            if status == 0x46:
+                logger.info('Get module FW info: Need to enter password')
+                # Reset password for module using CMIS 4.0
+                self.cdb.module_enter_password(0)
+                fw_info = self._cdb_fw_hdlr.get_firmware_info()
+
+        if fw_info is False or fw_info is None:
+            # Return 0 distinguishes busy/command failure and interface fail from unsupported CDB
+            return {'status': False, 'info': "Failed to get firmware info", 'result': 0}
 
         fw_status = fw_info.get(cdb_consts.CDB1_FIRMWARE_STATUS, {})
         ImageARunning = int(fw_status.get(cdb_consts.CDB1_BANKA_OPER_STATUS, False))
@@ -1970,7 +1986,7 @@ class CmisApi(XcvrApi):
             CommittedImage = 'B'
         else:
             CommittedImage = 'N/A'
-            
+
         txt += 'Running Image: {}\n'.format(RunningImage)
         txt += 'Committed Image: {}\n'.format(CommittedImage)
         txt += 'Active Firmware: {}\n'.format(ActiveFirmware)

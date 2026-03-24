@@ -1593,8 +1593,8 @@ class TestCmis(object):
             cdb_consts.CDB1_FACTORY_MAJOR_VERSION: 0, cdb_consts.CDB1_FACTORY_MINOR_VERSION: 0, cdb_consts.CDB1_FACTORY_BUILD_VERSION: 0},
             {'status': True, 'result': ('1.0.0', 0, 0, 0, '2.0.0', 1, 1, 0, '2.0.0', '1.0.0')}
         ),
-        (None, {'status': False, 'result': None}),
-        (False, {'status': False, 'result': None}),
+        (None, {'status': False, 'result': 0}),
+        (False, {'status': False, 'result': 0}),
     ])
     def test_get_module_fw_info(self, mock_response, expected):
         self.api.cdb = MagicMock()

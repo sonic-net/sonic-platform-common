@@ -85,4 +85,4 @@ class TestCmisAocSingleBankApi(object):
         self.api.cdb = MagicMock()
         self.api._cdb_fw_hdlr = mock_fw_hdlr
         result = self.api.get_module_fw_info()
-        assert result == {'status': False, 'info': 'Failed to get firmware info', 'result': None}
+        assert result == {'status': False, 'info': 'Failed to get firmware info', 'result': 0}
