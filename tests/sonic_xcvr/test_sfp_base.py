@@ -2,6 +2,11 @@ import pytest
 from sonic_platform_base.sfp_base import SfpBase
 from unittest.mock import MagicMock
 
+def test_get_power_override_support_default():
+    sfp = SfpBase()
+
+    assert sfp.get_power_override_support() is None
+
 def test_remove_xcvr_api_and_refresh():
     """
     Test that remove_xcvr_api clears the cached API and that get_xcvr_api
@@ -62,4 +67,4 @@ def test_old_api_handle_survives_remove_xcvr_api():
     # Thread 1 still uses old handle without crashing
     assert t1_api.get_transceiver_bulk_status() == "bulk1"
     # New handle returns its own result
-    assert t2_api.get_transceiver_bulk_status() == "bulk2" 
+    assert t2_api.get_transceiver_bulk_status() == "bulk2"
