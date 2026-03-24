@@ -261,6 +261,16 @@ class SfpOptoeBase(SfpBase):
         api = self.get_xcvr_api()
         return api.rx_disable_channel(channel, disable) if api is not None else None
 
+    def get_power_override_support(self):
+        """
+        Retrieves whether power override is supported by this SFP
+
+        Returns:
+            bool: True if power override is supported, False if not supported
+            None: if xcvr_api is not available
+        """
+        api = self.get_xcvr_api()
+        return api.get_power_override_support() if api is not None else None
 
     def get_power_override(self):
         api = self.get_xcvr_api()
