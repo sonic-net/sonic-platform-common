@@ -7,6 +7,7 @@
 
 from enum import Enum
 from ...fields import consts
+from ...fields import cdb_consts
 from ..xcvr_api import XcvrApi
 
 import logging
@@ -1907,86 +1908,89 @@ class CmisApi(XcvrApi):
         if self.cdb is None:
             return {'status': False, 'info': "CDB Not supported", 'result': None}
 
-        # get fw info (CMD 0100h)
-        result = self.cdb.get_fw_info()
-        status = result['status']
-        rpllen, rpl_chkcode, rpl = result['rpl']
+        # Create CDB FW handler with exception handling
+        if self._cdb_fw_hdlr is None:
+            try:
+                self._cdb_fw_hdlr = self._create_cdb_fw_handler()
+            except Exception as e:
+                logger.error("CDB FW handler init assertion failed: %s", e)
+                return {'status': False, 'info': "CDB FW handler init failed", 'result': None}
+            if self._cdb_fw_hdlr is None:
+                return {'status': False, 'info': "CDB FW handler init failed", 'result': None}
 
-        # Interface NACK or timeout
-        if (rpllen is None) or (rpl_chkcode is None):
-            return {'status': False, 'info': "Interface fail", 'result': 0} # Return result 0 for distinguishing CDB is maybe in busy or failure.
+        fw_info = self._cdb_fw_hdlr.get_firmware_info()
 
         # password issue
-        if status == 0x46:
-            string = 'Get module FW info: Need to enter password\n'
-            logger.info(string)
-            # Reset password for module using CMIS 4.0
-            self.cdb.module_enter_password(0)
-            result = self.cdb.get_fw_info()
-            status = result['status']
-            rpllen, rpl_chkcode, rpl = result['rpl']
+        if fw_info is False or fw_info is None:
+            status = self.cdb.cdb1_chkstatus()
+            if status == 0x46:
+                logger.info('Get module FW info: Need to enter password')
+                # Reset password for module using CMIS 4.0
+                self.cdb.module_enter_password(0)
+                fw_info = self._cdb_fw_hdlr.get_firmware_info()
 
-        if status == 1 and self.cdb.cdb_chkcode(rpl) == rpl_chkcode:
-            # Regiter 9Fh:136
-            fwStatus = rpl[0]
-            ImageARunning = (fwStatus & 0x01) # bit 0 - image A is running
-            ImageACommitted = ((fwStatus >> 1) & 0x01) # bit 1 - image A is committed
-            ImageAValid = ((fwStatus >> 2) & 0x01) # bit 2 - image A is valid
-            ImageBRunning = ((fwStatus >> 4) & 0x01) # bit 4 - image B is running
-            ImageBCommitted = ((fwStatus >> 5) & 0x01)  # bit 5 - image B is committed
-            ImageBValid = ((fwStatus >> 6) & 0x01) # bit 6 - image B is valid
+        if fw_info is False or fw_info is None:
+            # Return 0 distinguishes busy/command failure and interface fail from unsupported CDB
+            return {'status': False, 'info': "Failed to get firmware info", 'result': 0}
 
-            if ImageAValid == 0:
-                # Registers 9Fh:138,139; 140,141
-                ImageA = '%d.%d.%d' %(rpl[2], rpl[3], ((rpl[4]<< 8) | rpl[5]))
-            else:
-                ImageA = "N/A"
-            txt += 'Image A Version: %s\n' %ImageA
+        fw_status = fw_info.get(cdb_consts.CDB1_FIRMWARE_STATUS, {})
+        ImageARunning = int(fw_status.get(cdb_consts.CDB1_BANKA_OPER_STATUS, False))
+        ImageACommitted = int(fw_status.get(cdb_consts.CDB1_BANKA_ADMIN_STATUS, False))
+        ImageAValid = int(fw_status.get(cdb_consts.CDB1_BANKA_VALID_STATUS, True))
+        ImageBRunning = int(fw_status.get(cdb_consts.CDB1_BANKB_OPER_STATUS, False))
+        ImageBCommitted = int(fw_status.get(cdb_consts.CDB1_BANKB_ADMIN_STATUS, False))
+        ImageBValid = int(fw_status.get(cdb_consts.CDB1_BANKB_VALID_STATUS, True))
 
-            if ImageBValid == 0:
-                # Registers 9Fh:174,175; 176.177
-                ImageB = '%d.%d.%d' %(rpl[38], rpl[39], ((rpl[40]<< 8) | rpl[41]))
-            else:
-                ImageB = "N/A"
-            txt += 'Image B Version: %s\n' %ImageB
-
-            if rpllen > 77:
-                factory_image = '%d.%d.%d' % (rpl[74], rpl[75], ((rpl[76] << 8) | rpl[77]))
-                txt += 'Factory Image Version: %s\n' %factory_image
-
-            ActiveFirmware = 'N/A'
-            InactiveFirmware = 'N/A'
-            if ImageARunning == 1:
-                RunningImage = 'A'
-                ActiveFirmware = ImageA
-                if ImageBValid == 0:
-                    InactiveFirmware = ImageB
-                else:
-                    #In case of single bank module, inactive firmware version can be read from EEPROM
-                    InactiveFirmware = self.get_module_inactive_firmware() + ".0"
-            elif ImageBRunning == 1:
-                RunningImage = 'B'
-                ActiveFirmware = ImageB
-                if ImageAValid == 0:
-                    InactiveFirmware = ImageA
-                else:
-                    #In case of single bank module, inactive firmware version can be read from EEPROM
-                    InactiveFirmware = self.get_module_inactive_firmware() + ".0"
-            else:
-                RunningImage = 'N/A'
-            if ImageACommitted == 1:
-                CommittedImage = 'A'
-            elif ImageBCommitted == 1:
-                CommittedImage = 'B'
-            else:
-                CommittedImage = 'N/A'
-            txt += 'Running Image: %s\n' % (RunningImage)
-            txt += 'Committed Image: %s\n' % (CommittedImage)
-            txt += 'Active Firmware: {}\n'.format(ActiveFirmware)
-            txt += 'Inactive Firmware: {}\n'.format(InactiveFirmware)
+        if ImageAValid == 0:
+            ImageA = '{}.{}.{}'.format(
+                fw_info.get(cdb_consts.CDB1_BANKA_MAJOR_VERSION, 0),
+                fw_info.get(cdb_consts.CDB1_BANKA_MINOR_VERSION, 0),
+                fw_info.get(cdb_consts.CDB1_BANKA_BUILD_VERSION, 0)
+            )
         else:
-            txt += 'Reply payload check code error\n'
-            return {'status': False, 'info': txt, 'result': None}
+            ImageA = "N/A"
+        txt += 'Image A Version: {}\n'.format(ImageA)
+
+        if ImageBValid == 0:
+            ImageB = '{}.{}.{}'.format(
+                fw_info.get(cdb_consts.CDB1_BANKB_MAJOR_VERSION, 0),
+                fw_info.get(cdb_consts.CDB1_BANKB_MINOR_VERSION, 0),
+                fw_info.get(cdb_consts.CDB1_BANKB_BUILD_VERSION, 0)
+            )
+        else:
+            ImageB = "N/A"
+        txt += 'Image B Version: {}\n'.format(ImageB)
+
+        FactoryImage = '{}.{}.{}'.format(
+            fw_info.get(cdb_consts.CDB1_FACTORY_MAJOR_VERSION, 0),
+            fw_info.get(cdb_consts.CDB1_FACTORY_MINOR_VERSION, 0),
+            fw_info.get(cdb_consts.CDB1_FACTORY_BUILD_VERSION, 0)
+        )
+        txt += 'Factory Image Version: {}\n'.format(FactoryImage)
+
+        ActiveFirmware = 'N/A'
+        InactiveFirmware = 'N/A'
+        if ImageARunning == 1:
+            RunningImage = 'A'
+            ActiveFirmware = ImageA
+            InactiveFirmware = ImageB
+        elif ImageBRunning == 1:
+            RunningImage = 'B'
+            ActiveFirmware = ImageB
+            InactiveFirmware = ImageA
+        else:
+            RunningImage = 'N/A'
+        if ImageACommitted == 1:
+            CommittedImage = 'A'
+        elif ImageBCommitted == 1:
+            CommittedImage = 'B'
+        else:
+            CommittedImage = 'N/A'
+
+        txt += 'Running Image: {}\n'.format(RunningImage)
+        txt += 'Committed Image: {}\n'.format(CommittedImage)
+        txt += 'Active Firmware: {}\n'.format(ActiveFirmware)
+        txt += 'Inactive Firmware: {}\n'.format(InactiveFirmware)
         return {'status': True, 'info': txt, 'result': (ImageA, ImageARunning, ImageACommitted, ImageAValid, ImageB, ImageBRunning, ImageBCommitted, ImageBValid, ActiveFirmware, InactiveFirmware)}
 
     def cdb_run_firmware(self, mode = 0x01):

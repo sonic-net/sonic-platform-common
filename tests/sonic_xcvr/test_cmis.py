@@ -10,6 +10,7 @@ from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
 from sonic_platform_base.sonic_xcvr.codes.public.cmis import CmisCodes
 from sonic_platform_base.sonic_xcvr.codes.public.sff8024 import Sff8024
 from sonic_platform_base.sonic_xcvr.fields import consts
+from sonic_platform_base.sonic_xcvr.fields import cdb_consts
 
 class TestCmis(object):
     codes = CmisCodes
@@ -1560,30 +1561,49 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ({'status':1, 'rpl':(128, 1, [0] * 128)}, {'status': True, 'info': "", 'result': 0}),
-        ({'status':1, 'rpl':(None, 1, [0] * 128)}, {'status': False, 'info': "", 'result': 0}),
-        ({'status':1, 'rpl':(128, None, [0] * 128)}, {'status': False, 'info': "", 'result': 0}),
-        ({'status':1, 'rpl':(128, 0, [0] * 128)}, {'status': False, 'info': "", 'result': None}),
-        ({'status':1, 'rpl':(128, 1, [67, 3, 2, 2, 3, 183] + [0] * 104)}, {'status': True, 'info': "", 'result': None}),
-        ({'status':1, 'rpl':(128, 1, [52, 3, 2, 2, 3, 183] + [0] * 104)}, {'status': True, 'info': "", 'result': None}),
-        ({'status':1, 'rpl':(110, 1, [3, 3, 2, 2, 3, 183] + [0] * 104)}, {'status': True, 'info': "", 'result': None}),
-        ({'status':1, 'rpl':(110, 1, [48, 3, 2, 2, 3, 183] + [0] * 104)}, {'status': True, 'info': "", 'result': None}),
-        ({'status':0x46, 'rpl':(128, 0, [0] * 128)}, {'status': False, 'info': "", 'result': None}),
+        (
+            {cdb_consts.CDB1_FIRMWARE_STATUS: {cdb_consts.CDB1_BANKA_OPER_STATUS: True, cdb_consts.CDB1_BANKA_ADMIN_STATUS: True, cdb_consts.CDB1_BANKA_VALID_STATUS: False,
+                                  cdb_consts.CDB1_BANKB_OPER_STATUS: False, cdb_consts.CDB1_BANKB_ADMIN_STATUS: False, cdb_consts.CDB1_BANKB_VALID_STATUS: False},
+            cdb_consts.CDB1_IMAGE_INFO: 7, cdb_consts.CDB1_BANKA_MAJOR_VERSION: 1, cdb_consts.CDB1_BANKA_MINOR_VERSION: 2, cdb_consts.CDB1_BANKA_BUILD_VERSION: 3,
+            cdb_consts.CDB1_BANKB_MAJOR_VERSION: 4, cdb_consts.CDB1_BANKB_MINOR_VERSION: 5, cdb_consts.CDB1_BANKB_BUILD_VERSION: 6,
+            cdb_consts.CDB1_FACTORY_MAJOR_VERSION: 0, cdb_consts.CDB1_FACTORY_MINOR_VERSION: 0, cdb_consts.CDB1_FACTORY_BUILD_VERSION: 0},
+            {'status': True, 'result': ('1.2.3', 1, 1, 0, '4.5.6', 0, 0, 0, '1.2.3', '4.5.6')}
+        ),
+        (
+            {cdb_consts.CDB1_FIRMWARE_STATUS: {cdb_consts.CDB1_BANKA_OPER_STATUS: True, cdb_consts.CDB1_BANKA_ADMIN_STATUS: True, cdb_consts.CDB1_BANKA_VALID_STATUS: False,
+                                  cdb_consts.CDB1_BANKB_OPER_STATUS: False, cdb_consts.CDB1_BANKB_ADMIN_STATUS: False, cdb_consts.CDB1_BANKB_VALID_STATUS: True},
+            cdb_consts.CDB1_IMAGE_INFO: 7, cdb_consts.CDB1_BANKA_MAJOR_VERSION: 2, cdb_consts.CDB1_BANKA_MINOR_VERSION: 5, cdb_consts.CDB1_BANKA_BUILD_VERSION: 3,
+            cdb_consts.CDB1_BANKB_MAJOR_VERSION: 0, cdb_consts.CDB1_BANKB_MINOR_VERSION: 0, cdb_consts.CDB1_BANKB_BUILD_VERSION: 0,
+            cdb_consts.CDB1_FACTORY_MAJOR_VERSION: 1, cdb_consts.CDB1_FACTORY_MINOR_VERSION: 6, cdb_consts.CDB1_FACTORY_BUILD_VERSION: 0},
+            {'status': True, 'result': ('2.5.3', 1, 1, 0, 'N/A', 0, 0, 1, '2.5.3', 'N/A')}
+        ),
+        (
+            {cdb_consts.CDB1_FIRMWARE_STATUS: {cdb_consts.CDB1_BANKA_OPER_STATUS: False, cdb_consts.CDB1_BANKA_ADMIN_STATUS: False, cdb_consts.CDB1_BANKA_VALID_STATUS: True,
+                                  cdb_consts.CDB1_BANKB_OPER_STATUS: False, cdb_consts.CDB1_BANKB_ADMIN_STATUS: False, cdb_consts.CDB1_BANKB_VALID_STATUS: True},
+            cdb_consts.CDB1_IMAGE_INFO: 7, cdb_consts.CDB1_BANKA_MAJOR_VERSION: 0, cdb_consts.CDB1_BANKA_MINOR_VERSION: 0, cdb_consts.CDB1_BANKA_BUILD_VERSION: 0,
+            cdb_consts.CDB1_BANKB_MAJOR_VERSION: 0, cdb_consts.CDB1_BANKB_MINOR_VERSION: 0, cdb_consts.CDB1_BANKB_BUILD_VERSION: 0,
+            cdb_consts.CDB1_FACTORY_MAJOR_VERSION: 0, cdb_consts.CDB1_FACTORY_MINOR_VERSION: 0, cdb_consts.CDB1_FACTORY_BUILD_VERSION: 0},
+            {'status': True, 'result': ('N/A', 0, 0, 1, 'N/A', 0, 0, 1, 'N/A', 'N/A')}
+        ),
+        (
+            {cdb_consts.CDB1_FIRMWARE_STATUS: {cdb_consts.CDB1_BANKA_OPER_STATUS: False, cdb_consts.CDB1_BANKA_ADMIN_STATUS: False, cdb_consts.CDB1_BANKA_VALID_STATUS: False,
+                                  cdb_consts.CDB1_BANKB_OPER_STATUS: True, cdb_consts.CDB1_BANKB_ADMIN_STATUS: True, cdb_consts.CDB1_BANKB_VALID_STATUS: False},
+            cdb_consts.CDB1_IMAGE_INFO: 7, cdb_consts.CDB1_BANKA_MAJOR_VERSION: 1, cdb_consts.CDB1_BANKA_MINOR_VERSION: 0, cdb_consts.CDB1_BANKA_BUILD_VERSION: 0,
+            cdb_consts.CDB1_BANKB_MAJOR_VERSION: 2, cdb_consts.CDB1_BANKB_MINOR_VERSION: 0, cdb_consts.CDB1_BANKB_BUILD_VERSION: 0,
+            cdb_consts.CDB1_FACTORY_MAJOR_VERSION: 0, cdb_consts.CDB1_FACTORY_MINOR_VERSION: 0, cdb_consts.CDB1_FACTORY_BUILD_VERSION: 0},
+            {'status': True, 'result': ('1.0.0', 0, 0, 0, '2.0.0', 1, 1, 0, '2.0.0', '1.0.0')}
+        ),
+        (None, {'status': False, 'result': 0}),
+        (False, {'status': False, 'result': 0}),
     ])
     def test_get_module_fw_info(self, mock_response, expected):
         self.api.cdb = MagicMock()
-        self.api.cdb.cdb_chkcode = MagicMock()
-        self.api.cdb.cdb_chkcode.return_value = 1
-        self.api.get_module_active_firmware = MagicMock()
-        self.api.get_module_active_firmware.return_value = "1.0"
-        self.api.get_module_inactive_firmware = MagicMock()
-        self.api.get_module_inactive_firmware.return_value = "1.1"
-        self.api.cdb.get_fw_info = MagicMock()
-        self.api.cdb.get_fw_info.return_value = mock_response
+        mock_fw_hdlr = MagicMock()
+        mock_fw_hdlr.get_firmware_info.return_value = mock_response
+        self.api._cdb_fw_hdlr = mock_fw_hdlr
         result = self.api.get_module_fw_info()
-        if result['status'] == False: # Check 'result' when 'status' == False for distinguishing error type.
-            assert result['result'] == expected['result']
         assert result['status'] == expected['status']
+        assert result['result'] == expected['result']
 
     @pytest.mark.parametrize("mock_response, expected", [
         ({'status':0, 'rpl':(18, 0, [0] * 18)}, {'status': False, 'info': "", 'feature': None}),
