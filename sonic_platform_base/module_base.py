@@ -35,6 +35,7 @@ class ModuleBase(device_base.DeviceBase):
     MODULE_TYPE_LINE    = "LINE-CARD"
     MODULE_TYPE_FABRIC  = "FABRIC-CARD"
     MODULE_TYPE_DPU  = "DPU"
+    MODULE_TYPE_SWITCH_HOST = "SWITCH_HOST"
 
     # Possible card status for modular chassis
     # Module state is Empty if no module is inserted in the slot
@@ -171,17 +172,18 @@ class ModuleBase(device_base.DeviceBase):
     def get_name(self):
         """
         Retrieves the name of the module prefixed by SUPERVISOR, LINE-CARD,
-        FABRIC-CARD, DPU0, DPUX
+        FABRIC-CARD, DPU, or SWITCH_HOST
 
         Returns:
             A string, the module name prefixed by one of MODULE_TYPE_SUPERVISOR,
-            MODULE_TYPE_LINE or MODULE_TYPE_FABRIC or MODULE_TYPE_DPU and followed
-            by a 0-based index.
+            MODULE_TYPE_LINE, MODULE_TYPE_FABRIC, MODULE_TYPE_DPU, or
+            MODULE_TYPE_SWITCH_HOST and followed by a 0-based index.
 
             Ex. A Chassis having 1 supervisor, 4 line-cards and 6 fabric-cards
             can provide names SUPERVISOR0, LINE-CARD0 to LINE-CARD3,
             FABRIC-CARD0 to FABRIC-CARD5.
-            A SmartSwitch having 4 DPUs names DPU0 to DPU3
+            A SmartSwitch having 4 DPUs names DPU0 to DPU3.
+            A BMC managing a switch host provides SWITCH_HOST0.
         """
         raise NotImplementedError
 
@@ -209,8 +211,8 @@ class ModuleBase(device_base.DeviceBase):
 
         Returns:
             A string, the module-type from one of the predefined types:
-            MODULE_TYPE_SUPERVISOR, MODULE_TYPE_LINE or MODULE_TYPE_FABRIC
-            or MODULE_TYPE_DPU
+            MODULE_TYPE_SUPERVISOR, MODULE_TYPE_LINE, MODULE_TYPE_FABRIC,
+            MODULE_TYPE_DPU, or MODULE_TYPE_SWITCH_HOST
         """
         raise NotImplementedError
 
