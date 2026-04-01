@@ -158,6 +158,16 @@ class ChassisBase(device_base.DeviceBase):
         """
         return False
 
+    def is_bmc(self):
+        """
+        Retrieves whether the sonic instance is a BMC
+
+        Returns:
+            A bool value, should return False by default. BMC card instances
+            running SONiC should return True
+        """
+        return False
+
     def init_midplane_switch(self):
         """
         Initializes the midplane functionality of the modular chassis. For
