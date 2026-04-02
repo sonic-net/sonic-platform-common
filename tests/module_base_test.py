@@ -766,7 +766,7 @@ class TestModuleBase:
         """Test that _set_module_gnoi_halt_in_progress uses transition lock"""
         db = MagicMock()
         self.module.state_db = db
-        
+
         mock_lock = MagicMock()
         with patch.object(self.module, "get_name", return_value="DPU0"), \
              patch.object(self.module, "_transition_operation_lock", return_value=mock_lock):
@@ -959,11 +959,11 @@ class TestModuleBase:
         self.module.state_db = db
         # Flag is set, start_time and transition_type are available, timeout exceeded
         db.hget.side_effect = ["True", "900", "startup"]
-        
+
         with patch.object(self.module, "get_name", return_value="DPU0"), \
              patch.object(self.module, "_transition_operation_lock"), \
              patch.object(self.module, "_load_transition_timeouts", return_value={"startup": 300}), \
-             patch.object(self.module, "clear_module_state_transition") as mock_clear, \
+             patch.object(self.module, "_clear_transition_fields") as mock_clear, \
              patch("time.time", return_value=1500):
             # Timeout: 1500 - 900 = 600 > 300
             assert self.module.get_module_state_transition("dpu0") is False
@@ -975,7 +975,7 @@ class TestModuleBase:
         self.module.state_db = db
         # Flag is set, start_time and transition_type are available, within timeout
         db.hget.side_effect = ["True", "1400", "startup"]
-        
+
         with patch.object(self.module, "get_name", return_value="DPU0"), \
              patch.object(self.module, "_transition_operation_lock"), \
              patch.object(self.module, "_load_transition_timeouts", return_value={"startup": 300}), \
@@ -991,7 +991,7 @@ class TestModuleBase:
         self.module.state_db = db
         # Flag is set but start_time is None
         db.hget.side_effect = ["True", None, "startup"]
-        
+
         with patch.object(self.module, "get_name", return_value="DPU0"), \
              patch.object(self.module, "_transition_operation_lock"), \
              patch.object(self.module, "clear_module_state_transition") as mock_clear:
@@ -1004,7 +1004,7 @@ class TestModuleBase:
         self.module.state_db = db
         # Flag is set, start_time exists but transition_type is None
         db.hget.side_effect = ["True", "1000", None]
-        
+
         with patch.object(self.module, "get_name", return_value="DPU0"), \
              patch.object(self.module, "_transition_operation_lock"), \
              patch.object(self.module, "clear_module_state_transition") as mock_clear:
@@ -1017,12 +1017,12 @@ class TestModuleBase:
         db = MagicMock()
         self.module.state_db = db
         db.hget.side_effect = ["True", "900", transition_type]
-        
+
         timeout_value = 300
         with patch.object(self.module, "get_name", return_value="DPU0"), \
              patch.object(self.module, "_transition_operation_lock"), \
              patch.object(self.module, "_load_transition_timeouts", return_value={transition_type: timeout_value}), \
-             patch.object(self.module, "clear_module_state_transition") as mock_clear, \
+             patch.object(self.module, "_clear_transition_fields") as mock_clear, \
              patch("time.time", return_value=1500):
             # Timeout: 1500 - 900 = 600 > 300
             assert self.module.get_module_state_transition("dpu0") is False
