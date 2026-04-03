@@ -247,6 +247,9 @@ class ChassisBase(device_base.DeviceBase):
         Retrieves module represented by (0-based) index <index>
         On a SmartSwitch index:0 will fetch DPU0 and so on
 
+        In case of a Switch modelled as a chassis with BMC card,
+        On BMC : index 0 will fetch BMC, index 1 will SWITCH-HOST
+
         Args:
             index: An integer, the index (0-based) of the module to
             retrieve
@@ -273,6 +276,7 @@ class ChassisBase(device_base.DeviceBase):
             module_name: A string, prefixed by SUPERVISOR, LINE-CARD or FABRIC-CARD
             Ex. SUPERVISOR0, LINE-CARD1, FABRIC-CARD5
             SmartSwitch Example: DPU0, DPU1, DPU2 ... DPUX
+            In case of a Switch modelled as a chassis with BMC card: SWITCH-HOST, BMC
 
         Returns:
             An integer, the index of the ModuleBase object in the module_list

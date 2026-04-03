@@ -178,6 +178,9 @@ class ModuleBase(device_base.DeviceBase):
         Retrieves the name of the module prefixed by SUPERVISOR, LINE-CARD,
         FABRIC-CARD, DPU0, DPUX
 
+        It can also return back name SWITCH-HOST, BMC for module types viz.
+        MODULE_TYPE_SWITCH_HOST, MODULE_TYPE_BMC
+
         Returns:
             A string, the module name prefixed by one of MODULE_TYPE_SUPERVISOR,
             MODULE_TYPE_LINE or MODULE_TYPE_FABRIC or MODULE_TYPE_DPU and followed
@@ -187,6 +190,7 @@ class ModuleBase(device_base.DeviceBase):
             can provide names SUPERVISOR0, LINE-CARD0 to LINE-CARD3,
             FABRIC-CARD0 to FABRIC-CARD5.
             A SmartSwitch having 4 DPUs names DPU0 to DPU3
+            A SWitch with BMC card on it can give back SWITCH-HOST or BMC
         """
         raise NotImplementedError
 
