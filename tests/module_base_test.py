@@ -1028,6 +1028,34 @@ class TestModuleBase:
             assert self.module.get_module_state_transition("dpu0") is False
             mock_clear.assert_called_once_with("DPU0")
 
+    def test_get_module_state_transition_timeout_no_deadlock_with_real_lock(self, tmp_path):
+        """Verify the timeout path completes without deadlock when using
+        the real file-based transition lock.  Before the fix, this would
+        hang forever because get_module_state_transition() held the lock
+        and then called clear_module_state_transition() which tried to
+        acquire the same lock again."""
+        db = MagicMock()
+        self.module.state_db = db
+        # Stale flag: start_time=900, now=1500, timeout=300 → 600 > 300
+        db.hget.side_effect = ["True", "900", "startup"]
+
+        lock_file = str(tmp_path / "{}_transition.lock")
+
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "TRANSITION_OPERATION_LOCK_FILE_PATH", lock_file), \
+             patch.object(self.module, "_load_transition_timeouts", return_value={"startup": 300}), \
+             patch("time.time", return_value=1500):
+            # Use the REAL _transition_operation_lock (no mock).
+            # If _clear_transition_fields re-entered clear_module_state_transition,
+            # the second flock(LOCK_EX) would block and this test would time out.
+            result = self.module.get_module_state_transition("dpu0")
+
+        assert result is False
+        # Verify the stale fields were cleared via hdel
+        db.hdel.assert_any_call("CHASSIS_MODULE_TABLE|DPU0", "transition_in_progress")
+        db.hdel.assert_any_call("CHASSIS_MODULE_TABLE|DPU0", "transition_type")
+        db.hdel.assert_any_call("CHASSIS_MODULE_TABLE|DPU0", "transition_start_time")
+
     # ---------------------------------- Edge timeout semantics coverage --------
     @pytest.mark.parametrize(
         "timeouts,hget_vals,now,expected",
