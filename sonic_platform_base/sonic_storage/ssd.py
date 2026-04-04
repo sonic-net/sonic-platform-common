@@ -256,7 +256,7 @@ class SsdUtil(StorageCommon):
         if self.reserved_blocks == NOT_AVAILABLE:
             rbc_raw = self.parse_id_number("[{}]".format(hex(INNODISK_RESERVED_BLOCKS_ID)[2:]).upper(), self.vendor_ssd_info)
             if rbc_raw == NOT_AVAILABLE:
-                self.reserved_blocks == NOT_AVAILABLE
+                self.reserved_blocks = NOT_AVAILABLE
             else:
                 self.reserved_blocks = rbc_raw.split()[-2].strip("[]")
 
@@ -310,7 +310,7 @@ class SsdUtil(StorageCommon):
             if self.reserved_blocks == NOT_AVAILABLE:
                 rbc_raw = self.parse_id_number(VIRTIUM_RESERVED_BLOCKS_ID, self.vendor_ssd_info)
                 if rbc_raw == NOT_AVAILABLE:
-                    self.reserved_blocks == NOT_AVAILABLE
+                    self.reserved_blocks = NOT_AVAILABLE
                 else:
                     self.reserved_blocks = rbc_raw.split()[-1]
 
