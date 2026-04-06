@@ -45,6 +45,12 @@ class TestModuleBase:
         with pytest.raises(NotImplementedError):
             getattr(self.module, method_name)()
 
+    def test_module_type_switch_host_constant(self):
+        '''
+        MODULE_TYPE_SWITCH_HOST models the Switch-Host managed by the BMC.
+        '''
+        assert ModuleBase.MODULE_TYPE_SWITCH_HOST == "SWITCH_HOST"
+
     def test_is_host_detection(self):
         # Test when /.dockerenv does not exist (host environment)
         with patch("os.path.exists", return_value=False):
@@ -1061,7 +1067,7 @@ class TestModuleBase:
     def test_do_power_cycle_success_via_concrete_subclass(self):
         '''
         Test a concrete ModuleBase subclass implementing do_power_cycle() that succeeds.
-        Simulates a Switch-Host module being power-cycled by the BMC.
+        Simulates a Switch-Host module (MODULE_TYPE_SWITCH_HOST) being power-cycled by the BMC.
         '''
         with patch("sonic_py_common.daemon_base.db_connect", lambda *a, **k: None):
             class SwitchHostModule(ModuleBase):
@@ -1070,7 +1076,7 @@ class TestModuleBase:
                     self._power_cycle_called = False
 
                 def get_name(self):
-                    return "Switch-Host"
+                    return ModuleBase.MODULE_TYPE_SWITCH_HOST
 
                 def do_power_cycle(self):
                     self._power_cycle_called = True
@@ -1084,12 +1090,12 @@ class TestModuleBase:
     def test_do_power_cycle_failure_via_concrete_subclass(self):
         '''
         Test a concrete ModuleBase subclass where do_power_cycle() fails.
-        Simulates a hardware failure during power cycle.
+        Simulates a hardware failure during power cycle of the Switch-Host.
         '''
         with patch("sonic_py_common.daemon_base.db_connect", lambda *a, **k: None):
             class SwitchHostModule(ModuleBase):
                 def get_name(self):
-                    return "Switch-Host"
+                    return ModuleBase.MODULE_TYPE_SWITCH_HOST
 
                 def do_power_cycle(self):
                     return False  # hardware error
