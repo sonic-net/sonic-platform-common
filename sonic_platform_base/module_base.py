@@ -36,10 +36,8 @@ class ModuleBase(device_base.DeviceBase):
     MODULE_TYPE_FABRIC  = "FABRIC-CARD"
     MODULE_TYPE_DPU  = "DPU"
 
-    # Module Type for Switch on the device which has BMC
+    # Module Type for Switch on a device having BMC(which controls switch power state)
     MODULE_TYPE_SWITCH_HOST = "SWITCH_HOST"
-    # Module Type for BMC
-    MODULE_TYPE_BMC = "BMC"
 
     # Possible card status for modular chassis
     # Module state is Empty if no module is inserted in the slot
@@ -178,8 +176,7 @@ class ModuleBase(device_base.DeviceBase):
         Retrieves the name of the module prefixed by SUPERVISOR, LINE-CARD,
         FABRIC-CARD, DPU0, DPUX
 
-        It can also return back name SWITCH-HOST, BMC for module types viz.
-        MODULE_TYPE_SWITCH_HOST, MODULE_TYPE_BMC
+        It can return name 'SWITCH-HOST' for module type MODULE_TYPE_SWITCH_HOST
 
         Returns:
             A string, the module name prefixed by one of MODULE_TYPE_SUPERVISOR,
@@ -190,7 +187,6 @@ class ModuleBase(device_base.DeviceBase):
             can provide names SUPERVISOR0, LINE-CARD0 to LINE-CARD3,
             FABRIC-CARD0 to FABRIC-CARD5.
             A SmartSwitch having 4 DPUs names DPU0 to DPU3
-            A SWitch with BMC card on it can give back SWITCH-HOST or BMC
         """
         raise NotImplementedError
 
