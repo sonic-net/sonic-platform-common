@@ -561,7 +561,7 @@ class TestModuleBase:
              patch("os.path.exists", return_value=True) as pexists, \
              patch("builtins.open", return_value=MockFile("{}")):
             self.module._load_transition_timeouts()
-            pexists.assert_called_with("/usr/share/sonic/x86_64-dellemc_z9332f_d1508-r0/platform.json")
+            pexists.assert_called_with("/usr/share/sonic/device/x86_64-dellemc_z9332f_d1508-r0/platform.json")
         ModuleBase._TRANSITION_TIMEOUTS_CACHE = None
 
     def test_load_transition_timeouts_platform_path_container(self):
