@@ -100,7 +100,7 @@ class ModuleBase(device_base.DeviceBase):
         self.is_host = self._is_host()
 
         self.state_db = None
-    
+
     def get_state_db(self):
         """
         Initializes and returns the state database connector.
@@ -433,7 +433,7 @@ class ModuleBase(device_base.DeviceBase):
             if not self.set_module_state_transition(module_name, "startup"):
                 sys.stderr.write("Failed to set module state transition for admin state UP\n")
                 return False
- 
+
             admin_status = self.set_admin_state(True)
 
             # This is only valid on platforms which have pci_rescan sensord changes required. If it is not implemented,
@@ -662,6 +662,23 @@ class ModuleBase(device_base.DeviceBase):
                 sys.stderr.write("Error setting transition flag for module {}: {}\n".format(module_name, str(e)))
                 return False
 
+    def _clear_transition_fields(self, module_name):
+        """
+        Internal helper that clears the transition fields without acquiring the lock.
+        Caller must already hold _transition_operation_lock().
+        """
+        module_name = module_name.upper()
+        module_key = "CHASSIS_MODULE_TABLE|" + module_name
+        state_db = self.get_state_db()
+        try:
+            state_db.hdel(module_key, "transition_in_progress")
+            state_db.hdel(module_key, "transition_type")
+            state_db.hdel(module_key, "transition_start_time")
+            return True
+        except Exception as e:
+            sys.stderr.write("Error clearing transition flag for module {}: {}\n".format(module_name, str(e)))
+            return False
+
     def clear_module_state_transition(self, module_name):
         """
         Clears the module state transition flag 'transition_in_progress' and corresponding fields in the CHASSIS_MODULE_TABLE.
@@ -671,18 +688,8 @@ class ModuleBase(device_base.DeviceBase):
         Returns:
             bool: Returns True if the flag is successfully cleared, False otherwise.
         """
-        module_name = module_name.upper()
-        module_key = "CHASSIS_MODULE_TABLE|" + module_name
-        state_db = self.get_state_db()
         with self._transition_operation_lock():
-            try:
-                state_db.hdel(module_key, "transition_in_progress")
-                state_db.hdel(module_key, "transition_type")
-                state_db.hdel(module_key, "transition_start_time")
-                return True
-            except Exception as e:
-                sys.stderr.write("Error clearing transition flag for module {}: {}\n".format(module_name, str(e)))
-                return False
+            return self._clear_transition_fields(module_name)
 
     def get_module_state_transition(self, module_name):
         """
@@ -709,8 +716,8 @@ class ModuleBase(device_base.DeviceBase):
                         current_time = int(time.time())
                         timeout = self._load_transition_timeouts().get(transition_type, 0)
                         if current_time - start_time > timeout:
-                            # Timeout occurred, clear the flag
-                            self.clear_module_state_transition(module_name)
+                            # Timeout occurred, clear the flag (lock already held)
+                            self._clear_transition_fields(module_name)
                             return False
 
                 return current_flag == "True"

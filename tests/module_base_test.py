@@ -766,7 +766,7 @@ class TestModuleBase:
         """Test that _set_module_gnoi_halt_in_progress uses transition lock"""
         db = MagicMock()
         self.module.state_db = db
-        
+
         mock_lock = MagicMock()
         with patch.object(self.module, "get_name", return_value="DPU0"), \
              patch.object(self.module, "_transition_operation_lock", return_value=mock_lock):
@@ -959,11 +959,11 @@ class TestModuleBase:
         self.module.state_db = db
         # Flag is set, start_time and transition_type are available, timeout exceeded
         db.hget.side_effect = ["True", "900", "startup"]
-        
+
         with patch.object(self.module, "get_name", return_value="DPU0"), \
              patch.object(self.module, "_transition_operation_lock"), \
              patch.object(self.module, "_load_transition_timeouts", return_value={"startup": 300}), \
-             patch.object(self.module, "clear_module_state_transition") as mock_clear, \
+             patch.object(self.module, "_clear_transition_fields") as mock_clear, \
              patch("time.time", return_value=1500):
             # Timeout: 1500 - 900 = 600 > 300
             assert self.module.get_module_state_transition("dpu0") is False
@@ -975,7 +975,7 @@ class TestModuleBase:
         self.module.state_db = db
         # Flag is set, start_time and transition_type are available, within timeout
         db.hget.side_effect = ["True", "1400", "startup"]
-        
+
         with patch.object(self.module, "get_name", return_value="DPU0"), \
              patch.object(self.module, "_transition_operation_lock"), \
              patch.object(self.module, "_load_transition_timeouts", return_value={"startup": 300}), \
@@ -991,7 +991,7 @@ class TestModuleBase:
         self.module.state_db = db
         # Flag is set but start_time is None
         db.hget.side_effect = ["True", None, "startup"]
-        
+
         with patch.object(self.module, "get_name", return_value="DPU0"), \
              patch.object(self.module, "_transition_operation_lock"), \
              patch.object(self.module, "clear_module_state_transition") as mock_clear:
@@ -1004,7 +1004,7 @@ class TestModuleBase:
         self.module.state_db = db
         # Flag is set, start_time exists but transition_type is None
         db.hget.side_effect = ["True", "1000", None]
-        
+
         with patch.object(self.module, "get_name", return_value="DPU0"), \
              patch.object(self.module, "_transition_operation_lock"), \
              patch.object(self.module, "clear_module_state_transition") as mock_clear:
@@ -1017,16 +1017,44 @@ class TestModuleBase:
         db = MagicMock()
         self.module.state_db = db
         db.hget.side_effect = ["True", "900", transition_type]
-        
+
         timeout_value = 300
         with patch.object(self.module, "get_name", return_value="DPU0"), \
              patch.object(self.module, "_transition_operation_lock"), \
              patch.object(self.module, "_load_transition_timeouts", return_value={transition_type: timeout_value}), \
-             patch.object(self.module, "clear_module_state_transition") as mock_clear, \
+             patch.object(self.module, "_clear_transition_fields") as mock_clear, \
              patch("time.time", return_value=1500):
             # Timeout: 1500 - 900 = 600 > 300
             assert self.module.get_module_state_transition("dpu0") is False
             mock_clear.assert_called_once_with("DPU0")
+
+    def test_get_module_state_transition_timeout_no_deadlock_with_real_lock(self, tmp_path):
+        """Verify the timeout path completes without deadlock when using
+        the real file-based transition lock.  Before the fix, this would
+        hang forever because get_module_state_transition() held the lock
+        and then called clear_module_state_transition() which tried to
+        acquire the same lock again."""
+        db = MagicMock()
+        self.module.state_db = db
+        # Stale flag: start_time=900, now=1500, timeout=300 → 600 > 300
+        db.hget.side_effect = ["True", "900", "startup"]
+
+        lock_file = str(tmp_path / "{}_transition.lock")
+
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "TRANSITION_OPERATION_LOCK_FILE_PATH", lock_file), \
+             patch.object(self.module, "_load_transition_timeouts", return_value={"startup": 300}), \
+             patch("time.time", return_value=1500):
+            # Use the REAL _transition_operation_lock (no mock).
+            # If _clear_transition_fields re-entered clear_module_state_transition,
+            # the second flock(LOCK_EX) would block and this test would time out.
+            result = self.module.get_module_state_transition("dpu0")
+
+        assert result is False
+        # Verify the stale fields were cleared via hdel
+        db.hdel.assert_any_call("CHASSIS_MODULE_TABLE|DPU0", "transition_in_progress")
+        db.hdel.assert_any_call("CHASSIS_MODULE_TABLE|DPU0", "transition_type")
+        db.hdel.assert_any_call("CHASSIS_MODULE_TABLE|DPU0", "transition_start_time")
 
     # ---------------------------------- Edge timeout semantics coverage --------
     @pytest.mark.parametrize(
