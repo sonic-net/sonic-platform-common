@@ -7,6 +7,7 @@ from io import StringIO
 import pytest
 from sonic_platform_base.liquid_cooling_base import LeakageSensorBase
 from sonic_platform_base.liquid_cooling_base import LeakSensorProfileBase
+from sonic_platform_base.liquid_cooling_base import LeakSeverity
 from sonic_platform_base.liquid_cooling_base import LiquidCoolingBase
 
 class TestLeakageSensorBase:
@@ -27,10 +28,13 @@ class TestLeakageSensorBase:
     @staticmethod
     def test_severity_constants():
         '''
-        Test LEAK_SEVERITY_CRITICAL and LEAK_SEVERITY_MINOR constants
+        Test LEAK_SEVERITY_CRITICAL and LEAK_SEVERITY_MINOR are LeakSeverity enum members,
+        and that the LeakSeverity enum has the expected string values.
         '''
-        assert LeakageSensorBase.LEAK_SEVERITY_CRITICAL == "CRITICAL"
-        assert LeakageSensorBase.LEAK_SEVERITY_MINOR == "MINOR"
+        assert LeakSeverity.CRITICAL.value == "CRITICAL"
+        assert LeakSeverity.MINOR.value == "MINOR"
+        assert LeakageSensorBase.LEAK_SEVERITY_CRITICAL is LeakSeverity.CRITICAL
+        assert LeakageSensorBase.LEAK_SEVERITY_MINOR is LeakSeverity.MINOR
 
     @staticmethod
     def test_is_leak_sensor_ok_default():
@@ -95,20 +99,22 @@ class TestLeakageSensorBase:
     @staticmethod
     def test_get_leak_severity_critical():
         '''
-        Test get_leak_severity returns CRITICAL constant
+        Test get_leak_severity returns LeakSeverity.CRITICAL enum member
         '''
         sensor = LeakageSensorBase("sensor1")
-        sensor.leak_severity = LeakageSensorBase.LEAK_SEVERITY_CRITICAL
-        assert sensor.get_leak_severity() == "CRITICAL"
+        sensor.leak_severity = LeakSeverity.CRITICAL
+        assert sensor.get_leak_severity() is LeakSeverity.CRITICAL
+        assert sensor.get_leak_severity().value == "CRITICAL"
 
     @staticmethod
     def test_get_leak_severity_minor():
         '''
-        Test get_leak_severity returns MINOR constant
+        Test get_leak_severity returns LeakSeverity.MINOR enum member
         '''
         sensor = LeakageSensorBase("sensor1")
-        sensor.leak_severity = LeakageSensorBase.LEAK_SEVERITY_MINOR
-        assert sensor.get_leak_severity() == "MINOR"
+        sensor.leak_severity = LeakSeverity.MINOR
+        assert sensor.get_leak_severity() is LeakSeverity.MINOR
+        assert sensor.get_leak_severity().value == "MINOR"
 
     @staticmethod
     def test_get_leak_profile_not_implemented():
@@ -156,13 +162,13 @@ class TestLeakageSensorBase:
         sensor.leak_sensor_ok = True
         sensor.leak_type = "flex_pcb"
         sensor.leak_location = "front_panel"
-        sensor.leak_severity = LeakageSensorBase.LEAK_SEVERITY_CRITICAL
+        sensor.leak_severity = LeakSeverity.CRITICAL
 
         assert sensor.is_leak() == True
         assert sensor.is_leak_sensor_ok() == True
         assert sensor.get_leak_sensor_type() == "flex_pcb"
         assert sensor.get_leak_sensor_location() == "front_panel"
-        assert sensor.get_leak_severity() == LeakageSensorBase.LEAK_SEVERITY_CRITICAL
+        assert sensor.get_leak_severity() is LeakSeverity.CRITICAL
 
     @staticmethod
     def test_faulty_leaking_sensor():
@@ -173,12 +179,12 @@ class TestLeakageSensorBase:
         sensor.leaking = True
         sensor.leak_sensor_ok = False
         sensor.leak_type = "spot"
-        sensor.leak_severity = LeakageSensorBase.LEAK_SEVERITY_MINOR
+        sensor.leak_severity = LeakSeverity.MINOR
 
         assert sensor.is_leak() == True
         assert sensor.is_leak_sensor_ok() == False
         assert sensor.get_leak_sensor_type() == "spot"
-        assert sensor.get_leak_severity() == LeakageSensorBase.LEAK_SEVERITY_MINOR
+        assert sensor.get_leak_severity() is LeakSeverity.MINOR
 
 
 class TestLeakSensorProfileBase:
@@ -300,13 +306,13 @@ class TestLiquidCoolingBase():
         minor_sensor.leaking = True
         minor_sensor.leak_type = "rope"
         minor_sensor.leak_location = "zone_b"
-        minor_sensor.leak_severity = LeakageSensorBase.LEAK_SEVERITY_MINOR
+        minor_sensor.leak_severity = LeakSeverity.MINOR
 
         critical_sensor = LeakageSensorBase("critical_sensor")
         critical_sensor.leaking = True
         critical_sensor.leak_type = "flex_pcb"
         critical_sensor.leak_location = "zone_c"
-        critical_sensor.leak_severity = LeakageSensorBase.LEAK_SEVERITY_CRITICAL
+        critical_sensor.leak_severity = LeakSeverity.CRITICAL
 
         liquid_cooling = LiquidCoolingBase(
             leakage_sensors_num=3,
@@ -321,8 +327,8 @@ class TestLiquidCoolingBase():
 
         # Verify the leaking sensors carry correct severity
         severities = {s.get_name(): s.get_leak_severity() for s in leaking}
-        assert severities["minor_sensor"] == LeakageSensorBase.LEAK_SEVERITY_MINOR
-        assert severities["critical_sensor"] == LeakageSensorBase.LEAK_SEVERITY_CRITICAL
+        assert severities["minor_sensor"] is LeakSeverity.MINOR
+        assert severities["critical_sensor"] is LeakSeverity.CRITICAL
 
     @staticmethod
     def test_get_leak_sensor_status_none_leaking():
@@ -378,7 +384,7 @@ class TestLiquidCoolingBase():
         s1 = PlatformRopeSensor("rope_sensor_0", "rear")
         s2 = PlatformRopeSensor("rope_sensor_1", "front")
         s2.leaking = True
-        s2.leak_severity = LeakageSensorBase.LEAK_SEVERITY_MINOR
+        s2.leak_severity = LeakSeverity.MINOR
 
         liquid_cooling = LiquidCoolingBase(
             leakage_sensors_num=2,
@@ -391,6 +397,6 @@ class TestLiquidCoolingBase():
         assert leaking[0].get_name() == "rope_sensor_1"
         assert leaking[0].get_leak_sensor_type() == "rope"
         assert leaking[0].get_leak_sensor_location() == "front"
-        assert leaking[0].get_leak_severity() == LeakageSensorBase.LEAK_SEVERITY_MINOR
+        assert leaking[0].get_leak_severity() is LeakSeverity.MINOR
         assert leaking[0].get_leak_profile().get_leak_max_minor_duration_sec() == 300
 

@@ -5,14 +5,21 @@
     to interact with a liquid cooling module in SONiC
 """
 
+from enum import Enum
 from . import device_base
 from .sensor_base import SensorBase
 import sys
 
+
+class LeakSeverity(Enum):
+    MINOR    = "MINOR"
+    CRITICAL = "CRITICAL"
+
+
 class LeakageSensorBase(SensorBase):
-    # Define the leak severities
-    LEAK_SEVERITY_CRITICAL   = "CRITICAL"
-    LEAK_SEVERITY_MINOR      = "MINOR"
+    # Keep string aliases for backwards compatibility
+    LEAK_SEVERITY_CRITICAL = LeakSeverity.CRITICAL
+    LEAK_SEVERITY_MINOR    = LeakSeverity.MINOR
 
     def __init__(self, name):
         self.name = name
@@ -73,7 +80,7 @@ class LeakageSensorBase(SensorBase):
         Retrieves the severity of leak
 
         Returns:
-            string: returns either LEAK_SEVERITY_CRITICAL or LEAK_SEVERITY_MINOR
+            LeakSeverity: LeakSeverity.CRITICAL or LeakSeverity.MINOR, or None if no leak
         """
         return self.leak_severity
 
