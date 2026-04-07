@@ -500,7 +500,7 @@ class ModuleBase(device_base.DeviceBase):
         if self.is_host:
             from sonic_py_common import device_info
             platform = device_info.get_platform()
-            platform_json_path = f"/usr/share/sonic/{platform}/platform.json"
+            platform_json_path = f"/usr/share/sonic/device/{platform}/platform.json"
         else:
             platform_json_path = "/usr/share/sonic/platform/platform.json"
 
