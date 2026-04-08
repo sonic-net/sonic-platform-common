@@ -73,6 +73,8 @@ class ChassisBase(device_base.DeviceBase):
         # BMC
         self._bmc = None
 
+        # SED (Self-Encrypting Drive) password management
+        self._sed_mgmt = None
 
     def get_base_mac(self):
         """
@@ -799,3 +801,11 @@ class ChassisBase(device_base.DeviceBase):
         """
         return self._bmc
 
+    def get_sed_mgmt(self):
+        """
+        Get SED (Self-Encrypting Drive) password management object for the platform.
+
+        Returns:
+            An object derived from SedMgmtBase, or None if SED management is not supported.
+        """
+        return self._sed_mgmt

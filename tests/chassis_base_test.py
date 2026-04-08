@@ -65,3 +65,10 @@ class TestChassisBase:
         mock_bmc = "mock_bmc_instance"
         chassis._bmc = mock_bmc
         assert(chassis.get_bmc() == mock_bmc)
+
+    def test_get_sed_mgmt(self):
+        chassis = ChassisBase()
+        assert(chassis.get_sed_mgmt() == None)
+        mock_sed_mgmt = "mock_sed_mgmt_instance"
+        chassis._sed_mgmt = mock_sed_mgmt
+        assert(chassis.get_sed_mgmt() == mock_sed_mgmt)
