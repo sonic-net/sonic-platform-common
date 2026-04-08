@@ -37,7 +37,7 @@ class ModuleBase(device_base.DeviceBase):
     MODULE_TYPE_DPU  = "DPU"
 
     # Module Type for Switch on a device having BMC(which controls switch power state)
-    MODULE_TYPE_SWITCH_HOST = "SWITCH_HOST"
+    MODULE_TYPE_SWITCH_HOST = "SWITCH-HOST"
 
     # Possible card status for modular chassis
     # Module state is Empty if no module is inserted in the slot

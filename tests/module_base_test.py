@@ -49,7 +49,7 @@ class TestModuleBase:
         '''
         MODULE_TYPE_SWITCH_HOST models the Switch-Host managed by the BMC.
         '''
-        assert ModuleBase.MODULE_TYPE_SWITCH_HOST == "SWITCH_HOST"
+        assert ModuleBase.MODULE_TYPE_SWITCH_HOST == "SWITCH-HOST"
 
     def test_is_host_detection(self):
         # Test when /.dockerenv does not exist (host environment)
