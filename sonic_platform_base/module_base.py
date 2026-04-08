@@ -214,8 +214,8 @@ class ModuleBase(device_base.DeviceBase):
 
         Returns:
             A string, the module-type from one of the predefined types:
-            MODULE_TYPE_SUPERVISOR, MODULE_TYPE_LINE or MODULE_TYPE_FABRIC
-            or MODULE_TYPE_DPU
+            MODULE_TYPE_SUPERVISOR, MODULE_TYPE_LINE, MODULE_TYPE_FABRIC,
+            MODULE_TYPE_DPU, or MODULE_TYPE_SWITCH_HOST
         """
         raise NotImplementedError
 

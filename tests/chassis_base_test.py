@@ -66,6 +66,17 @@ class TestChassisBase:
         chassis._bmc = mock_bmc
         assert(chassis.get_bmc() == mock_bmc)
 
+    def test_is_bmc(self):
+        chassis = ChassisBase()
+        assert chassis.is_bmc() is False
+
+        class BmcChassis(ChassisBase):
+            def is_bmc(self):
+                return True
+
+        bmc = BmcChassis()
+        assert bmc.is_bmc() is True
+
     def test_switch_host_module_at_index_zero(self):
         '''
         On a BMC chassis, only the Switch-Host is modelled as a module.
