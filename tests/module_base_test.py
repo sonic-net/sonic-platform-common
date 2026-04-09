@@ -38,11 +38,18 @@ class TestModuleBase:
     # ------------------------------------------------------ Not Implemented API --
     @pytest.mark.parametrize(
         "method_name",
-        ["get_dpu_id", "get_reboot_cause", "get_state_info", "get_pci_bus_info", "pci_detach", "pci_reattach"],
+        ["get_dpu_id", "get_reboot_cause", "get_state_info", "get_pci_bus_info", "pci_detach", "pci_reattach",
+         "do_power_cycle"],
     )
     def test_not_implemented_methods_raise(self, method_name):
         with pytest.raises(NotImplementedError):
             getattr(self.module, method_name)()
+
+    def test_module_type_switch_host_constant(self):
+        '''
+        MODULE_TYPE_SWITCH_HOST models the Switch-Host managed by the BMC.
+        '''
+        assert ModuleBase.MODULE_TYPE_SWITCH_HOST == "SWITCH-HOST"
 
     def test_is_host_detection(self):
         # Test when /.dockerenv does not exist (host environment)
@@ -1074,3 +1081,65 @@ class TestModuleBase:
              patch.object(self.module, "_load_transition_timeouts", return_value=timeouts), \
              patch("time.time", return_value=now):
             assert self.module.set_module_state_transition("dpu0", "startup") is expected
+
+    # ------------------------------------------- do_power_cycle tests ---------
+
+    def test_do_power_cycle_raises_not_implemented(self):
+        '''
+        Test that base class do_power_cycle raises NotImplementedError.
+        Vendors must override this method to provide hardware power cycle support.
+        '''
+        with pytest.raises(NotImplementedError):
+            self.module.do_power_cycle()
+
+    def test_do_power_cycle_success_via_concrete_subclass(self):
+        '''
+        Test a concrete ModuleBase subclass implementing do_power_cycle() that succeeds.
+        Simulates a Switch-Host module (MODULE_TYPE_SWITCH_HOST) being power-cycled by the BMC.
+        '''
+        with patch("sonic_py_common.daemon_base.db_connect", lambda *a, **k: None):
+            class SwitchHostModule(ModuleBase):
+                def __init__(self):
+                    super().__init__()
+                    self._power_cycle_called = False
+
+                def get_name(self):
+                    return ModuleBase.MODULE_TYPE_SWITCH_HOST
+
+                def do_power_cycle(self):
+                    self._power_cycle_called = True
+                    return True
+
+            module = SwitchHostModule()
+            result = module.do_power_cycle()
+            assert result is True
+            assert module._power_cycle_called is True
+
+    def test_do_power_cycle_failure_via_concrete_subclass(self):
+        '''
+        Test a concrete ModuleBase subclass where do_power_cycle() fails.
+        Simulates a hardware failure during power cycle of the Switch-Host.
+        '''
+        with patch("sonic_py_common.daemon_base.db_connect", lambda *a, **k: None):
+            class SwitchHostModule(ModuleBase):
+                def get_name(self):
+                    return ModuleBase.MODULE_TYPE_SWITCH_HOST
+
+                def do_power_cycle(self):
+                    return False  # hardware error
+
+            module = SwitchHostModule()
+            assert module.do_power_cycle() is False
+
+    def test_do_power_cycle_independent_of_set_admin_state(self):
+        '''
+        Test that do_power_cycle and set_admin_state are independent APIs.
+        Both raise NotImplementedError on the base class and must be
+        overridden separately by the platform implementation.
+        '''
+        with pytest.raises(NotImplementedError):
+            self.module.do_power_cycle()
+        with pytest.raises(NotImplementedError):
+            self.module.set_admin_state(True)
+        with pytest.raises(NotImplementedError):
+            self.module.set_admin_state(False)

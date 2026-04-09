@@ -65,3 +65,34 @@ class TestChassisBase:
         mock_bmc = "mock_bmc_instance"
         chassis._bmc = mock_bmc
         assert(chassis.get_bmc() == mock_bmc)
+
+    def test_is_bmc(self):
+        chassis = ChassisBase()
+        assert chassis.is_bmc() is False
+
+        class BmcChassis(ChassisBase):
+            def is_bmc(self):
+                return True
+
+        bmc = BmcChassis()
+        assert bmc.is_bmc() is True
+
+    def test_switch_host_module_at_index_zero(self):
+        '''
+        On a BMC chassis, only the Switch-Host is modelled as a module.
+        get_all_modules() returns [switch_host] and index 0 fetches it.
+        get_module_index() maps the Switch-Host name back to index 0.
+        '''
+        from sonic_platform_base.module_base import ModuleBase
+
+        class SwitchHostModule(ModuleBase):
+            def get_name(self):
+                return ModuleBase.MODULE_TYPE_SWITCH_HOST
+
+        switch_host = SwitchHostModule()
+        chassis = ChassisBase()
+        chassis._module_list = [switch_host]
+
+        assert chassis.get_num_modules() == 1
+        assert chassis.get_all_modules() == [switch_host]
+        assert chassis.get_module(0) is switch_host

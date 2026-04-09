@@ -158,6 +158,16 @@ class ChassisBase(device_base.DeviceBase):
         """
         return False
 
+    def is_bmc(self):
+        """
+        Retrieves whether the sonic instance is a BMC
+
+        Returns:
+            A bool value, should return False by default. BMC card instances
+            running SONiC should return True
+        """
+        return False
+
     def init_midplane_switch(self):
         """
         Initializes the midplane functionality of the modular chassis. For
@@ -247,6 +257,9 @@ class ChassisBase(device_base.DeviceBase):
         Retrieves module represented by (0-based) index <index>
         On a SmartSwitch index:0 will fetch DPU0 and so on
 
+        In case of a Switch modelled as a chassis with BMC card,
+        On BMC : index 0 will fetch SWITCH-HOST
+
         Args:
             index: An integer, the index (0-based) of the module to
             retrieve
@@ -273,6 +286,7 @@ class ChassisBase(device_base.DeviceBase):
             module_name: A string, prefixed by SUPERVISOR, LINE-CARD or FABRIC-CARD
             Ex. SUPERVISOR0, LINE-CARD1, FABRIC-CARD5
             SmartSwitch Example: DPU0, DPU1, DPU2 ... DPUX
+            In case of a Switch modelled as a chassis with BMC card: SWITCH-HOST
 
         Returns:
             An integer, the index of the ModuleBase object in the module_list

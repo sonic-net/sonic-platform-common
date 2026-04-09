@@ -36,6 +36,9 @@ class ModuleBase(device_base.DeviceBase):
     MODULE_TYPE_FABRIC  = "FABRIC-CARD"
     MODULE_TYPE_DPU  = "DPU"
 
+    # Module Type for Switch on a device having BMC(which controls switch power state)
+    MODULE_TYPE_SWITCH_HOST = "SWITCH-HOST"
+
     # Possible card status for modular chassis
     # Module state is Empty if no module is inserted in the slot
     MODULE_STATUS_EMPTY   = "Empty"
@@ -173,6 +176,8 @@ class ModuleBase(device_base.DeviceBase):
         Retrieves the name of the module prefixed by SUPERVISOR, LINE-CARD,
         FABRIC-CARD, DPU0, DPUX
 
+        It can return name 'SWITCH-HOST' for module type MODULE_TYPE_SWITCH_HOST
+
         Returns:
             A string, the module name prefixed by one of MODULE_TYPE_SUPERVISOR,
             MODULE_TYPE_LINE or MODULE_TYPE_FABRIC or MODULE_TYPE_DPU and followed
@@ -209,8 +214,8 @@ class ModuleBase(device_base.DeviceBase):
 
         Returns:
             A string, the module-type from one of the predefined types:
-            MODULE_TYPE_SUPERVISOR, MODULE_TYPE_LINE or MODULE_TYPE_FABRIC
-            or MODULE_TYPE_DPU
+            MODULE_TYPE_SUPERVISOR, MODULE_TYPE_LINE, MODULE_TYPE_FABRIC,
+            MODULE_TYPE_DPU, or MODULE_TYPE_SWITCH_HOST
         """
         raise NotImplementedError
 
@@ -254,6 +259,15 @@ class ModuleBase(device_base.DeviceBase):
         Args:
             up: A boolean, True to set the admin-state to UP. False to set the
             admin-state to DOWN.
+
+        Returns:
+            bool: True if the request has been issued successfully, False if not
+        """
+        raise NotImplementedError
+
+    def do_power_cycle(self):
+        """
+        Request to do a powercycle of the module.
 
         Returns:
             bool: True if the request has been issued successfully, False if not
