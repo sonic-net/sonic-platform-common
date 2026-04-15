@@ -35,49 +35,70 @@ class PcieUtil(PcieBase):
 
     # load current PCIe device
     def get_pcie_device(self):
-        pciDict = {}
         pciList = []
-        p1 = "^(\w+):(\w+)\.(\w)\s(.*)\s*\(*.*\)*"
-        p2 = "^.*:.*:.*:(\w+)\s*\(*.*\)*"
-        command1 = ["sudo", "lspci"]
-        command2 = ["sudo", "lspci", "-n"]
-        # run command 1
-        proc1 = subprocess.Popen(command1, universal_newlines=True, stdout=subprocess.PIPE)
-        output1 = proc1.stdout.readlines()
-        (out, err) = proc1.communicate()
-        # run command 2
-        proc2 = subprocess.Popen(command2, universal_newlines=True, stdout=subprocess.PIPE)
-        output2 = proc2.stdout.readlines()
-        (out, err) = proc2.communicate()
+        seen = set()
 
-        if proc1.returncode > 0:
-            for line1 in output1:
-                print(line1.strip())
-            return
-        elif proc2.returncode > 0:
-            for line2 in output2:
-                print(line2.strip())
-            return
-        else:
-            for (line1, line2) in zip(output1, output2):
-                pciDict.clear()
-                match1 = re.search(p1, line1.strip())
-                match2 = re.search(p2, line2.strip())
-                if match1 and match2:
-                    Bus = match1.group(1)
-                    Dev = match1.group(2)
-                    Fn = match1.group(3)
-                    Name = match1.group(4)
-                    Id = match2.group(1)
-                    pciDict["name"] = Name
-                    pciDict["bus"] = Bus
-                    pciDict["dev"] = Dev
-                    pciDict["fn"] = Fn
-                    pciDict["id"] = Id
-                    pciList.append(pciDict)
-                    pciDict = deepcopy(pciDict)
-                else:
-                    print("CAN NOT MATCH PCIe DEVICE")
+        # Domain-aware output:
+        #   0002:01:00.0 Ethernet controller: ...
+        p1 = r"^([0-9a-fA-F]{4}):([0-9a-fA-F]{2}):([0-9a-fA-F]{2})\.([0-7])\s+(.*)$"
+        # Numeric output:
+        #   0002:01:00.0 0200: 177d:a065 ...
+        p2 = r"^[0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\.[0-7]\s+[0-9a-fA-F]{4}:\s*([0-9a-fA-F]{4}):([0-9a-fA-F]{4}).*$"
+
+        command1 = ["sudo", "lspci", "-D"]
+        command2 = ["sudo", "lspci", "-D", "-n"]
+
+        proc1 = subprocess.Popen(command1, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output1, err1 = proc1.communicate()
+
+        proc2 = subprocess.Popen(command2, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output2, err2 = proc2.communicate()
+
+        if proc1.returncode != 0:
+            print(output1)
+            print(err1)
+            return []
+        if proc2.returncode != 0:
+            print(output2)
+            print(err2)
+            return []
+
+        lines1 = output1.splitlines()
+        lines2 = output2.splitlines()
+
+        for line1, line2 in zip(lines1, lines2):
+            match1 = re.search(p1, line1.strip())
+            match2 = re.search(p2, line2.strip())
+            if not (match1 and match2):
+                print("CAN NOT MATCH PCIe DEVICE")
+                print("lspci   :", line1.strip())
+                print("lspci -n:", line2.strip())
+                continue
+
+            domain = match1.group(1).lower()
+            bus = match1.group(2).lower()
+            dev = match1.group(3).lower()
+            fn = match1.group(4).lower()
+            name = match1.group(5).strip()
+            vendor = match2.group(1).lower()
+            device = match2.group(2).lower()
+
+            key = (domain, bus, dev, fn)
+            if key in seen:
+                continue
+            seen.add(key)
+
+            pciDict = {
+                "name": name,
+                "domain": domain,
+                "bus": bus,
+                "dev": dev,
+                "fn": fn,
+                "id": device,
+                "vendor": vendor
+            }
+            pciList.append(deepcopy(pciDict))
+
         return pciList
 
     # check the sysfs tree for each PCIe device
@@ -91,10 +112,17 @@ class PcieUtil(PcieBase):
     def get_pcie_check(self):
         self.load_config_file()
         for item_conf in self.confInfo:
+            domain_conf = item_conf.get("domain", "0000")
             bus_conf = item_conf["bus"]
             dev_conf = item_conf["dev"]
             fn_conf = item_conf["fn"]
-            if self.check_pcie_sysfs(bus=int(bus_conf, base=16), device=int(dev_conf, base=16), func=int(fn_conf, base=16)):
+
+            if self.check_pcie_sysfs(
+                domain=int(domain_conf, base=16),
+                bus=int(bus_conf, base=16),
+                device=int(dev_conf, base=16),
+                func=int(fn_conf, base=16)
+            ):
                 item_conf["result"] = "Passed"
             else:
                 item_conf["result"] = "Failed"
@@ -142,5 +170,6 @@ class PcieUtil(PcieBase):
         conf_rev = "_{}".format(self._conf_rev) if self._conf_rev else ""
         config_file = "{}/pcie{}.yaml".format(self.config_path, conf_rev)
         with open(config_file, "w") as conf_file:
-            yaml.dump(curInfo, conf_file, default_flow_style=False)
+            yaml.dump(curInfo, conf_file, default_flow_style=False, sort_keys=False)
         return
+        
