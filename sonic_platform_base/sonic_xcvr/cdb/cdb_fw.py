@@ -41,6 +41,14 @@ class CdbFwHandler(CdbCmdHandler):
 
         return True
 
+    def get_fw_mgmt_features(self):
+        """
+        Get firmware management features
+        """
+        if self.start_payload_size == 0 and self.rw_length_ext == 0:
+            return None
+        return (self.start_payload_size, self.rw_length_ext, self.is_lpl_only)
+
     def get_firmware_info(self):
         """
         Get firmware information

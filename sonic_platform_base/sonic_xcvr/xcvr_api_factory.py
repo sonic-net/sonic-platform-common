@@ -90,7 +90,8 @@ class XcvrApiFactory(object):
              ('EOPTOLINK' in vendor_name and vendor_pn in EOP_800G_VENDOR_PN_LIST):
             api = self._create_api(CmisCodes, CmisMemMap, CmisFr800gApi)
         elif vendor_name == 'Hisense' and vendor_pn is not None and re.match(HISENSE_2X100G_VENDOR_PN, vendor_pn):
-            api = self._create_api(CmisCodes, CmisMemMap, CmisAocSingleBankApi)
+            xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CmisMemMap(CmisCodes))
+            api = CmisAocSingleBankApi(xcvr_eeprom, init_cdb_fw_handler=True)
         else:
             xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CmisMemMap(CmisCodes))
             api = CmisApi(xcvr_eeprom, init_cdb_fw_handler=True)

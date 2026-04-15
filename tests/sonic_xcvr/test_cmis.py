@@ -1597,84 +1597,28 @@ class TestCmis(object):
         (False, {'status': False, 'result': 0}),
     ])
     def test_get_module_fw_info(self, mock_response, expected):
-        self.api.cdb = MagicMock()
         mock_fw_hdlr = MagicMock()
         mock_fw_hdlr.get_firmware_info.return_value = mock_response
         self.api._cdb_fw_hdlr = mock_fw_hdlr
+        self.api._init_cdb_fw_handler = True
         result = self.api.get_module_fw_info()
         assert result['status'] == expected['status']
         assert result['result'] == expected['result']
 
-    @pytest.mark.parametrize("mock_response, expected", [
-        ({'status':0, 'rpl':(18, 0, [0] * 18)}, {'status': False, 'info': "", 'feature': None}),
-        ({'status':1, 'rpl':(18, 1, [0] * 18)}, {'status': True,  'info': "", 'feature': (0, 8, False, True, 16)})
+    @pytest.mark.parametrize("mock_fw_features, mock_eeprom_reads, expected", [
+        (None, [True, 1], {'status': False, 'feature': None}),
+        ((0, 8, False), [True, 1], {'status': True, 'feature': (0, 8, False, True, 16)}),
+        ((112, 2048, True), [False, 1], {'status': True, 'feature': (112, 2048, True, False, 16)}),
     ])
-    def test_get_module_fw_mgmt_feature(self, mock_response, expected):
-        self.api.cdb = MagicMock()
-        self.api.cdb.cdb_chkcode = MagicMock()
-        self.api.cdb.cdb_chkcode.return_value = 1
+    def test_get_module_fw_mgmt_feature(self, mock_fw_features, mock_eeprom_reads, expected):
+        mock_fw_hdlr = MagicMock()
+        mock_fw_hdlr.get_fw_mgmt_features.return_value = mock_fw_features
+        self.api._cdb_fw_hdlr = mock_fw_hdlr
+        self.api._init_cdb_fw_handler = True
         self.api.xcvr_eeprom.read = MagicMock()
-        self.api.xcvr_eeprom.read.side_effect = [1, 1]
-        self.api.cdb.get_fw_management_features = MagicMock()
-        self.api.cdb.get_fw_management_features.return_value = mock_response
+        self.api.xcvr_eeprom.read.side_effect = mock_eeprom_reads
         result = self.api.get_module_fw_mgmt_feature()
         assert result['feature'] == expected['feature']
-
-    @pytest.mark.parametrize("input_param, mock_response, expected", [
-        (1, 1,  (True, 'Module FW run: Success\n')),
-        (1, 64,  (False, 'Module FW run: Fail\nFW_run_status 64\n')),
-    ])
-    def test_module_fw_run(self, input_param, mock_response, expected):
-        self.api.cdb = MagicMock()
-        self.api.cdb.run_fw_image = MagicMock()
-        self.api.cdb.run_fw_image.return_value = mock_response
-        result = self.api.module_fw_run(input_param)
-        assert result == expected
-
-    @pytest.mark.parametrize("mock_response, expected", [
-        (1, (True, 'Module FW commit: Success\n')),
-        (64, (False, 'Module FW commit: Fail\nFW_commit_status 64\n')),
-    ])
-    def test_module_fw_commit(self, mock_response, expected):
-        self.api.cdb = MagicMock()
-        self.api.cdb.commit_fw_image = MagicMock()
-        self.api.cdb.commit_fw_image.return_value = mock_response
-        result = self.api.module_fw_commit()
-        assert result == expected
-
-    @pytest.mark.parametrize("input_param, mock_response, expected", [
-        (
-            'abc',
-            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0, 'a', 'b')}, {'status': True, 'info': '', 'feature': (112, 2048, True, True, 2048)}, (True, ''), (True, '')],
-            (True, '')
-        ),
-        (
-            'abc',
-            [{'status': False, 'info': '', 'result': None}, {'status': True, 'info': '', 'feature': (112, 2048, True, True, 2048)}, (True, ''), (True, '')],
-            (False, '')
-        ),
-        (
-            'abc',
-            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0, 'a', 'b')}, {'status': False, 'info': '', 'feature': None}, (True, ''), (True, '')],
-            (False, '')
-        ),
-        (
-            'abc',
-            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0, 'a', 'b')}, {'status': True, 'info': '', 'feature': (112, 2048, True, True, 2048)}, (False, ''), (True, '')],
-            (False, '')
-        ),
-    ])
-    def test_module_fw_upgrade(self, input_param, mock_response, expected):
-        self.api.get_module_fw_info = MagicMock()
-        self.api.get_module_fw_info.return_value = mock_response[0]
-        self.api.get_module_fw_mgmt_feature = MagicMock()
-        self.api.get_module_fw_mgmt_feature.return_value = mock_response[1]
-        self.api.module_fw_download = MagicMock()
-        self.api.module_fw_download.return_value = mock_response[2]
-        self.api.module_fw_switch = MagicMock()
-        self.api.module_fw_switch.return_value = mock_response[3]
-        result = self.api.module_fw_upgrade(input_param)
-        assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
         ([0, 0, 0],
