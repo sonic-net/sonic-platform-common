@@ -3086,3 +3086,104 @@ class TestCmis(object):
             second_handle =self.api.cdb_fw_hdlr
             assert first_handle is second_handle
             assert mock_create_handler.call_count == 1
+
+    def test_is_cdb_supported_flat_memory(self):
+        self.api.is_flat_memory = MagicMock(return_value=True)
+        assert self.api.is_cdb_supported() == False
+
+    @pytest.mark.parametrize("cdb_inst, expected", [
+        (None, False),
+        (0, False),
+        (1, True),
+        (2, True),
+        (3, False),
+    ])
+    def test_is_cdb_supported_values(self, cdb_inst, expected):
+        self.api.is_flat_memory = MagicMock(return_value=False)
+        self.api.xcvr_eeprom.read = MagicMock(return_value=cdb_inst)
+        assert self.api.is_cdb_supported() == expected
+
+    @pytest.mark.parametrize("status_dict, expected", [
+        (None, None),
+        ({cdb_consts.CDB1_IS_BUSY: False, cdb_consts.CDB1_HAS_FAILED: False, cdb_consts.CDB1_STATUS: 0x01}, 0x01),
+        ({cdb_consts.CDB1_IS_BUSY: True, cdb_consts.CDB1_HAS_FAILED: False, cdb_consts.CDB1_STATUS: 0x02}, 0x82),
+        ({cdb_consts.CDB1_IS_BUSY: False, cdb_consts.CDB1_HAS_FAILED: True, cdb_consts.CDB1_STATUS: 0x05}, 0x45),
+    ])
+    def test_get_status_code(self, status_dict, expected):
+        mock_fw_hdlr = MagicMock()
+        mock_fw_hdlr.get_cmd_status_code.return_value = status_dict
+        self.api._cdb_fw_hdlr = mock_fw_hdlr
+        self.api._init_cdb_fw_handler = True
+        assert self.api.get_status_code() == expected
+
+    def _setup_cdb_fw_hdlr(self):
+        mock_fw_hdlr = MagicMock()
+        self.api._cdb_fw_hdlr = mock_fw_hdlr
+        self.api._init_cdb_fw_handler = True
+        return mock_fw_hdlr
+
+    @pytest.mark.parametrize("method, handler_method, args", [
+        ('cdb_run_firmware', 'run_fw_image', [0x01]),
+        ('cdb_commit_firmware', 'commit_fw_image', []),
+        ('cdb_firmware_download_complete', 'complete_fw_download', []),
+        ('cdb_start_firmware_download', 'start_fw_download', ['/tmp/fw.bin']),
+        ('cdb_lpl_block_write', 'write_lpl_block', [0x1000, b'\x01\x02']),
+        ('cdb_enter_host_password', 'enter_password', [0x00001011]),
+    ])
+    def test_cdb_commands_success(self, method, handler_method, args):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        getattr(mock_fw_hdlr, handler_method).return_value = True
+        result = getattr(self.api, method)(*args)
+        assert result == 1
+
+    @pytest.mark.parametrize("method, handler_method, args", [
+        ('cdb_run_firmware', 'run_fw_image', [0x01]),
+        ('cdb_commit_firmware', 'commit_fw_image', []),
+        ('cdb_firmware_download_complete', 'complete_fw_download', []),
+        ('cdb_start_firmware_download', 'start_fw_download', ['/tmp/fw.bin']),
+        ('cdb_lpl_block_write', 'write_lpl_block', [0x1000, b'\x01\x02']),
+        ('cdb_enter_host_password', 'enter_password', [0x00001011]),
+    ])
+    def test_cdb_commands_failure(self, method, handler_method, args):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        getattr(mock_fw_hdlr, handler_method).return_value = False
+        mock_fw_hdlr.get_cmd_status_code.return_value = {
+            cdb_consts.CDB1_IS_BUSY: False,
+            cdb_consts.CDB1_HAS_FAILED: True,
+            cdb_consts.CDB1_STATUS: 0x04,
+        }
+        result = getattr(self.api, method)(*args)
+        assert result == 0x44
+
+    @pytest.mark.parametrize("method, args", [
+        ('cdb_run_firmware', [0x01]),
+        ('cdb_commit_firmware', []),
+        ('cdb_firmware_download_complete', []),
+        ('cdb_start_firmware_download', ['/tmp/fw.bin']),
+        ('cdb_lpl_block_write', [0x1000, b'\x01\x02']),
+        ('cdb_epl_block_write', [0x1000, b'\x01\x02']),
+        ('cdb_enter_host_password', [0x00001011]),
+    ])
+    def test_cdb_commands_no_handler(self, method, args):
+        self.api._cdb_fw_hdlr = None
+        self.api._init_cdb_fw_handler = False
+        result = getattr(self.api, method)(*args)
+        assert result == 0
+
+    def test_cdb_epl_block_write_success(self):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.write_epl_block.return_value = True
+        result = self.api.cdb_epl_block_write(0x1000, b'\xAA' * 128)
+        assert result == 1
+        mock_fw_hdlr.write_epl_pages.assert_called_once()
+
+    def test_cdb_epl_block_write_failure(self):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.write_epl_block.return_value = False
+        mock_fw_hdlr.get_cmd_status_code.return_value = {
+            cdb_consts.CDB1_IS_BUSY: False,
+            cdb_consts.CDB1_HAS_FAILED: True,
+            cdb_consts.CDB1_STATUS: 0x02,
+        }
+        result = self.api.cdb_epl_block_write(0x1000, b'\xAA' * 128)
+        assert result == 0x42

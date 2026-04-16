@@ -267,9 +267,9 @@ class CmisCdbFw:
         if self.cdb_fw_hdlr is None:
             return 0
         if self.cdb_fw_hdlr.enter_password(password) is True:
-            logger.info('Enter password status: Success')
+            logger.info('CDB host auth status: Success')
             return 1
         status = self.get_status_code()
-        logger.info('Enter password status: Fail- %s', self.cdb_fw_hdlr.get_last_cmd_status())
+        logger.info('CDB host auth status: Fail- %s', self.cdb_fw_hdlr.get_last_cmd_status())
         return status
 
