@@ -775,13 +775,13 @@ class TestCdbCmdHandler:
     @patch('builtins.print')
     def test_send_cmd_print_messages(self, mock_print):
         """Test that send_cmd prints appropriate error messages"""
-        # Test write failure message
+        # Test write failure message (uses logger.debug, not print)
         cmd_id = 0x1234
         self.handler.write_cmd = MagicMock(return_value=False)
         
         result = self.handler.send_cmd(cmd_id)
         
-        mock_print.assert_called_with(f"Failed to write CDB command: {cmd_id}")
+        mock_print.assert_not_called()
         assert result is None
         
         # Test timeout message

@@ -198,7 +198,7 @@ class TestCdbFwHandler:
         assert result == True
         self.handler.send_cmd.assert_called_once_with(
             cdb_consts.CDB_RUN_FIRMWARE_IMAGE_CMD,
-            {"runmode": 0x0, "delay": 2},
+            {"runmode": 0x0, "delay": 512},
             timeout=cdb_consts.CDB_RUN_FIRMWARE_CMD_TIMEOUT
         )
     

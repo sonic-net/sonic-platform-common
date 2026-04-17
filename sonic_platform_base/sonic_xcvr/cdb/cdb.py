@@ -4,9 +4,12 @@
    CDB Command handler
 """
 
+import logging
 import time
 from ..fields import cdb_consts
 from ..xcvr_eeprom import XcvrEeprom
+
+logger = logging.getLogger(__name__)
 
 class CdbCmdHandler(XcvrEeprom):
     def __init__(self, reader, writer, mem_map):
@@ -64,12 +67,12 @@ class CdbCmdHandler(XcvrEeprom):
         assert timeout > delay, "Timeout must be greater than delay"
 
         while (delay < timeout):
-            status = self.read(cdb_consts.CDB1_CMD_STATUS)
+            time.sleep(cdb_consts.CDB_MAX_CAPTURE_TIME / 1000)
+            delay += cdb_consts.CDB_MAX_CAPTURE_TIME
 
+            status = self.read(cdb_consts.CDB1_CMD_STATUS)
             if (status is None) or \
                     (True == status[cdb_consts.CDB1_IS_BUSY]):
-                time.sleep(cdb_consts.CDB_MAX_CAPTURE_TIME / 1000)
-                delay += cdb_consts.CDB_MAX_CAPTURE_TIME
                 continue
 
             if (True == status[cdb_consts.CDB1_HAS_FAILED]):
@@ -91,7 +94,7 @@ class CdbCmdHandler(XcvrEeprom):
         self.last_cmd_status = None
         # Write the command to the CDB
         if True != self.write_cmd(cdb_cmd_id, payload):
-            print(f"Failed to write CDB command: {cdb_cmd_id}")
+            logger.debug("Failed to write CDB command: %s", cdb_cmd_id)
             return None
 
         # Wait for the command to complete

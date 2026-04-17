@@ -5,8 +5,12 @@
    CMD : 0100h to 011Fh
 """
 
+import logging
+import time
 from ..fields import cdb_consts
 from .cdb import CdbCmdHandler
+
+logger = logging.getLogger(__name__)
 
 class CdbFwHandler(CdbCmdHandler):
     def __init__(self, reader, writer, mem_map):
@@ -54,7 +58,7 @@ class CdbFwHandler(CdbCmdHandler):
         Get firmware information
         """
         if True != self.send_cmd(cdb_consts.CDB_GET_FIRMWARE_INFO_CMD):
-            print("Failed to get firmware info")
+            logger.debug("Failed to get firmware info")
             return False
 
         # Read the firmware info
@@ -138,7 +142,7 @@ class CdbFwHandler(CdbCmdHandler):
             self.abort_fw_download()  # Abort on error
         return False, 0
 
-    def run_fw_image(self, runmode=0x0, resetdelay=2):
+    def run_fw_image(self, runmode=0x0, resetdelay=512):
             """
             Run the firmware image(default is non-hitless reset)
             :param runmode: 0x0: run the image, 0x1:
@@ -150,8 +154,10 @@ class CdbFwHandler(CdbCmdHandler):
             }
 
             # Send the CDB run firmware image command
-            return self.send_cmd(cdb_consts.CDB_RUN_FIRMWARE_IMAGE_CMD, payload,
+            result = self.send_cmd(cdb_consts.CDB_RUN_FIRMWARE_IMAGE_CMD, payload,
                                 timeout=cdb_consts.CDB_RUN_FIRMWARE_CMD_TIMEOUT)
+            time.sleep((resetdelay + 50) / 1000) # Wait "delay time" to avoid other cmd sent before "run_fw_image" start
+            return result
 
     def complete_fw_download(self):
         """
