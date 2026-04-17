@@ -71,8 +71,8 @@ class PcieUtil(PcieBase):
             match2 = re.search(p2, line2.strip())
             if not (match1 and match2):
                 print("CAN NOT MATCH PCIe DEVICE")
-                print("lspci   :", line1.strip())
-                print("lspci -n:", line2.strip())
+                print("lspci -D  :", line1.strip())
+                print("lspci -D -n:", line2.strip())
                 continue
 
             domain = match1.group(1).lower()
