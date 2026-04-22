@@ -114,6 +114,21 @@ class TestCdbFwHandler:
         
         result = handler.initFwHandler()
         assert result == True
+
+    def test_get_fw_mgmt_features_none(self):
+        """Test get_fw_mgmt_features returns None when both sizes are 0"""
+        self.handler.start_payload_size = 0
+        self.handler.rw_length_ext = 0
+        result = self.handler.get_fw_mgmt_features()
+        assert result is None
+
+    def test_get_fw_mgmt_features_valid(self):
+        """Test get_fw_mgmt_features returns tuple when initialized"""
+        self.handler.start_payload_size = 112
+        self.handler.rw_length_ext = 2048
+        self.handler.is_lpl_only = True
+        result = self.handler.get_fw_mgmt_features()
+        assert result == (112, 2048, True)
     
     def test_get_firmware_info_success(self):
         """Test successful get_firmware_info"""
@@ -189,7 +204,8 @@ class TestCdbFwHandler:
         with pytest.raises(ValueError, match="Firmware image file is too small"):
             self.handler.start_fw_download("/path/to/firmware.bin")
     
-    def test_run_fw_image_default_params(self):
+    @patch('sonic_platform_base.sonic_xcvr.cdb.cdb_fw.time.sleep')
+    def test_run_fw_image_default_params(self, mock_sleep):
         """Test run_fw_image with default parameters"""
         self.handler.send_cmd = MagicMock(return_value=True)
         
@@ -201,8 +217,10 @@ class TestCdbFwHandler:
             {"runmode": 0x0, "delay": 512},
             timeout=cdb_consts.CDB_RUN_FIRMWARE_CMD_TIMEOUT
         )
+        mock_sleep.assert_called_once_with((512 + 50) / 1000)
     
-    def test_run_fw_image_custom_params(self):
+    @patch('sonic_platform_base.sonic_xcvr.cdb.cdb_fw.time.sleep')
+    def test_run_fw_image_custom_params(self, mock_sleep):
         """Test run_fw_image with custom parameters"""
         self.handler.send_cmd = MagicMock(return_value=True)
         
@@ -214,6 +232,7 @@ class TestCdbFwHandler:
             {"runmode": 0x2, "delay": 5},
             timeout=cdb_consts.CDB_RUN_FIRMWARE_CMD_TIMEOUT
         )
+        mock_sleep.assert_called_once_with((5 + 50) / 1000)
     
     def test_complete_fw_download(self):
         """Test complete_fw_download"""

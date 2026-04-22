@@ -8,11 +8,10 @@
 from enum import Enum
 from ...fields import consts
 from ..xcvr_api import XcvrApi
-from .cdb import CmisCdbFw
+from .cdb_fw import CmisCdbFw
 import logging
 from ...codes.public.cmis import CmisCodes
 from ...codes.public.sff8024 import Sff8024
-from ...fields import consts
 from .cmisVDM import CmisVdmApi
 import time
 import copy
@@ -136,7 +135,8 @@ class CmisApi(CmisCdbFw, XcvrApi):
     def __init__(self, xcvr_eeprom, init_cdb_fw_handler=False):
         super(CmisApi, self).__init__(xcvr_eeprom)
         self.vdm = CmisVdmApi(xcvr_eeprom) if not self.is_flat_memory() else None
-        self._init_cdb(xcvr_eeprom, init_cdb_fw_handler)
+        self._init_cdb_fw_handler = init_cdb_fw_handler
+        self._cdb_fw_hdlr = None
 
     def _get_vdm_key_to_db_prefix_map(self):
         return CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP
@@ -1664,6 +1664,22 @@ class CmisApi(CmisCdbFw, XcvrApi):
             return func(lane_mask, enable)
 
         logger.error('Invalid loopback mode:%s, lane_mask:%#x', loopback_mode, lane_mask)
+        return False
+
+    def is_cdb_supported(self):
+        '''
+        This function returns whether CDB is supported
+        '''
+        if self.is_flat_memory():
+            return False
+
+        cdb_inst = self.xcvr_eeprom.read(consts.CDB_SUPPORT)
+        if cdb_inst is None:
+            return False
+
+        if cdb_inst == 1 or cdb_inst == 2:
+            return True
+
         return False
 
     @read_only_cached_api_return

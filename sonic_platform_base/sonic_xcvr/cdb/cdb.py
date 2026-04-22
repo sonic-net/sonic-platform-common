@@ -94,24 +94,24 @@ class CdbCmdHandler(XcvrEeprom):
         self.last_cmd_status = None
         # Write the command to the CDB
         if True != self.write_cmd(cdb_cmd_id, payload):
-            logger.debug("Failed to write CDB command: %s", cdb_cmd_id)
+            logger.info("Failed to write CDB command: %s", cdb_cmd_id)
             return None
 
         # Wait for the command to complete
         ret, status = self.wait_for_cdb_status(timeout)
         self.last_cmd_status = status
         if not ret:
-            print(f"CDB command: {cdb_cmd_id} failed to complete or read status")
+            logger.info("CDB command: %s failed to complete or read status", cdb_cmd_id)
             return None
 
         is_busy = status[cdb_consts.CDB1_IS_BUSY]
         if True == is_busy:
-            print(f"CDB command: {cdb_cmd_id} is busy with status: {status[cdb_consts.CDB1_STATUS]}")
+            logger.info("CDB command: %s is busy with status: %s", cdb_cmd_id, status[cdb_consts.CDB1_STATUS])
             return False
 
         is_failed = status[cdb_consts.CDB1_HAS_FAILED]
         if True == is_failed:
-            print(f"CDB command: {cdb_cmd_id} failed with status: {status[cdb_consts.CDB1_STATUS]}")
+            logger.info("CDB command: %s failed with status: %s", cdb_cmd_id, status[cdb_consts.CDB1_STATUS])
             return False
 
         return status[cdb_consts.CDB1_STATUS] == 0x1
@@ -134,9 +134,11 @@ class CdbCmdHandler(XcvrEeprom):
     def enter_password(self, password=cdb_consts.CDB_DEFAULT_PASSWORD):
         """
         Enter host password via CDB command 0001h.
-        Default host password is 00001011h.
         Returns True if password accepted, False/None otherwise.
         """
+        if not isinstance(password, int) or password < 0 or password > 0xFFFFFFFF:
+            logger.info("Invalid password: must be an integer in range 0..0xFFFFFFFF")
+            return False
         payload = {"password": password}
         return self.send_cmd(cdb_consts.CDB_ENTER_PASSWORD_CMD, payload)
     

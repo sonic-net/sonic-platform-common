@@ -25,13 +25,13 @@ class CdbFwHandler(CdbCmdHandler):
         Initialize the firmware handler
         """
         if True != self.send_cmd(cdb_consts.CDB_GET_FIRMWARE_MGMT_FEATURES_CMD):
-            print("Failed to get firmware management features")
+            logger.info("Failed to get firmware management features")
             return False
 
         # Read the firmware management features
         reply = self.read_reply(cdb_consts.CDB_GET_FIRMWARE_MGMT_FEATURES_CMD)
         if reply is None:
-            print("Failed to read firmware management features")
+            logger.info("Failed to read firmware management features")
             return False
 
         self.start_payload_size = reply[cdb_consts.CDB_START_CMD_PAYLOAD_SIZE]
@@ -58,7 +58,7 @@ class CdbFwHandler(CdbCmdHandler):
         Get firmware information
         """
         if True != self.send_cmd(cdb_consts.CDB_GET_FIRMWARE_INFO_CMD):
-            logger.debug("Failed to get firmware info")
+            logger.info("Failed to get firmware info")
             return False
 
         # Read the firmware info
@@ -143,21 +143,24 @@ class CdbFwHandler(CdbCmdHandler):
         return False, 0
 
     def run_fw_image(self, runmode=0x0, resetdelay=512):
-            """
-            Run the firmware image(default is non-hitless reset)
-            :param runmode: 0x0: run the image, 0x1:
-            reset the module, 0x2: run and reset
-            """
-            payload = {
-                "runmode" : runmode,
-                "delay" : resetdelay
-            }
+        """
+        Run the firmware image(default is non-hitless reset)
+        :param runmode: 0x0: run the image, 0x1:
+        reset the module, 0x2: run and reset
+        :param resetdelay: delay in ms before module reset
+        """
+        payload = {
+            "runmode" : runmode,
+            "delay" : resetdelay
+        }
 
-            # Send the CDB run firmware image command
-            result = self.send_cmd(cdb_consts.CDB_RUN_FIRMWARE_IMAGE_CMD, payload,
-                                timeout=cdb_consts.CDB_RUN_FIRMWARE_CMD_TIMEOUT)
-            time.sleep((resetdelay + 50) / 1000) # Wait "delay time" to avoid other cmd sent before "run_fw_image" start
-            return result
+        # Send the CDB run firmware image command
+        result = self.send_cmd(cdb_consts.CDB_RUN_FIRMWARE_IMAGE_CMD, payload,
+                            timeout=cdb_consts.CDB_RUN_FIRMWARE_CMD_TIMEOUT)
+        if result is True:
+            # Wait "delay time" to avoid other cmd sent before "run_fw_image" start
+            time.sleep((resetdelay + 50) / 1000)
+        return result
 
     def complete_fw_download(self):
         """
