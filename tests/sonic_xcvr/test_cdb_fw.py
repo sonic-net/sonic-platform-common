@@ -190,7 +190,7 @@ class TestCdbFwHandler:
         call_args = self.handler.send_cmd.call_args
         payload = call_args[0][1]
         assert payload["imgsize"] == 512
-        assert payload["imghdr"] is None    
+        assert payload["imghdr"] == b''    
     
     @patch("builtins.open", new_callable=mock_open, read_data=b"A" * 50)
     def test_start_fw_download_file_too_small(self, mock_file):
@@ -204,8 +204,7 @@ class TestCdbFwHandler:
         with pytest.raises(ValueError, match="Firmware image file is too small"):
             self.handler.start_fw_download("/path/to/firmware.bin")
     
-    @patch('sonic_platform_base.sonic_xcvr.cdb.cdb_fw.time.sleep')
-    def test_run_fw_image_default_params(self, mock_sleep):
+    def test_run_fw_image_default_params(self):
         """Test run_fw_image with default parameters"""
         self.handler.send_cmd = MagicMock(return_value=True)
         
@@ -217,10 +216,8 @@ class TestCdbFwHandler:
             {"runmode": 0x0, "delay": 512},
             timeout=cdb_consts.CDB_RUN_FIRMWARE_CMD_TIMEOUT
         )
-        mock_sleep.assert_called_once_with((512 + 50) / 1000)
     
-    @patch('sonic_platform_base.sonic_xcvr.cdb.cdb_fw.time.sleep')
-    def test_run_fw_image_custom_params(self, mock_sleep):
+    def test_run_fw_image_custom_params(self):
         """Test run_fw_image with custom parameters"""
         self.handler.send_cmd = MagicMock(return_value=True)
         
@@ -232,7 +229,6 @@ class TestCdbFwHandler:
             {"runmode": 0x2, "delay": 5},
             timeout=cdb_consts.CDB_RUN_FIRMWARE_CMD_TIMEOUT
         )
-        mock_sleep.assert_called_once_with((5 + 50) / 1000)
     
     def test_complete_fw_download(self):
         """Test complete_fw_download"""

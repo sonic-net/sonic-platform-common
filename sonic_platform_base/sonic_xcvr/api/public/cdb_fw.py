@@ -6,8 +6,6 @@
 
 from ...fields import consts
 from ...fields import cdb_consts
-from ...codes.public.cdb import CdbCodes
-from ...mem_maps.public.cdb import CdbMemMap
 from ...cdb.cdb_fw import CdbFwHandler as CdbFw
 import time
 import logging
@@ -36,8 +34,7 @@ class CmisCdbFw:
             return None
 
         try:
-            cdb_mem_map = CdbMemMap(CdbCodes)
-            return CdbFw(self.xcvr_eeprom.reader, self.xcvr_eeprom.writer, cdb_mem_map)
+            return CdbFw(self.xcvr_eeprom.reader, self.xcvr_eeprom.writer, self._cdb_mem_map)
         except AssertionError as err:
             logger.error("Failed to initialize CDB firmware handler due to assertion: %s", err)
         except Exception as err:
@@ -104,7 +101,7 @@ class CmisCdbFw:
 
         # password issue
         if fw_info is False or fw_info is None:
-            if self.get_status_code() == 70:
+            if self.get_status_code() == cdb_consts.CDB_PASSWORD_ERROR_STATUS:
                 logger.info('Get module FW info: Need to enter password')
                 self.cdb_fw_hdlr.enter_password()
                 fw_info = self.cdb_fw_hdlr.get_firmware_info()
@@ -236,7 +233,7 @@ class CmisCdbFw:
         else:
             fw_run_status = self.get_status_code()
             # password issue
-            if fw_run_status == 70:
+            if fw_run_status == cdb_consts.CDB_PASSWORD_ERROR_STATUS:
                 string = 'Module FW run: Need to enter password\n'
                 logger.info(string)
                 self.cdb_fw_hdlr.enter_password()
@@ -274,7 +271,7 @@ class CmisCdbFw:
         else:
             fw_commit_status = self.get_status_code()
             # password issue
-            if fw_commit_status == 70:
+            if fw_commit_status == cdb_consts.CDB_PASSWORD_ERROR_STATUS:
                 string = 'Module FW commit: Need to enter password\n'
                 logger.info(string)
                 self.cdb_fw_hdlr.enter_password()
@@ -343,69 +340,57 @@ class CmisCdbFw:
         logger.info('CDB host auth status: Fail- %s', self.cdb_fw_hdlr.get_last_cmd_status())
         return status
 
-    def module_fw_download(self, startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength, imagepath):
+    def module_fw_start_download(self, imagepath):
         """
-        This function performs the download of a firmware image to module eeprom
-        It starts CDB download by writing the header of start header size
-        from the designated firmware file to the local payload page 0x9F, with CDB command 0101h.
+        Start firmware download with CDB command 0101h.
+        Handles password retry if the module requires authentication.
 
-        Then it repeatedly reads from the given firmware file and write to the payload
-        space advertised from the first step. We use CDB command 0103h to write to the local payload;
-        we use CDB command 0104h to write to the extended paylaod. This step repeats until it reaches
-        end of the firmware file, or the CDB status failed.
-
-        The last step is to complete the firmware upgrade with CDB command 0107h.
-
-        Note that if the download process fails anywhere in the middle, we need to run CDB command 0102h
-        to abort the upgrade before we restart another upgrade process.
-
-        This function returns True if download successfully completes. Otherwise it will return False where it fails.
+        This function returns True on success.
+        Otherwise it will return False.
         """
-        txt = ''
         if self.cdb_fw_hdlr is None:
             return False, "CDB NOT supported on this module"
 
-        # start fw download (CMD 0101h)
-        starttime = time.time()
         logger.info('\nStart FW downloading')
-        logger.info("startLPLsize is %d" %startLPLsize)
         try:
             result = self.cdb_fw_hdlr.start_fw_download(imagepath)
         except FileNotFoundError:
-            txt += 'Image path  %s is incorrect.\n' % imagepath
+            txt = 'Image path %s is incorrect.\n' % imagepath
             logger.info(txt)
             return False, txt
 
         if result is True:
-            string = 'Start module FW download: Success\n'
-            logger.info(string)
-        else:
-            fw_start_status = self.get_status_code()
-            # password error
-            if fw_start_status == 70:
-                string = 'Start module FW download: Need to enter password\n'
-                logger.info(string)
-                self.cdb_fw_hdlr.enter_password()
-                if self.cdb_fw_hdlr.start_fw_download(imagepath) is not True:
-                    txt += 'Start module FW download: Fail after password retry\n'
-                    self.cdb_fw_hdlr.abort_fw_download()
-                    logger.info(txt)
-                    return False, txt
-            else:
-                string = 'Start module FW download: Fail\n'
-                txt += string
-                self.cdb_fw_hdlr.abort_fw_download()
-                txt += 'FW_start_status %d\n' %fw_start_status
-                logger.info(txt)
-                return False, txt
-        elapsedtime = time.time()-starttime
-        logger.info('Start module FW download time: %.2f s' %elapsedtime)
+            logger.info('Start module FW download: Success\n')
+            return True, ''
 
-        # start periodically writing (CMD 0103h or 0104h)
-        if lplonly_flag:
-            BLOCK_SIZE = cdb_consts.LPL_MAX_PAYLOAD_SIZE
-        else:
-            BLOCK_SIZE = maxblocksize
+        fw_start_status = self.get_status_code()
+        # password error - retry with default password
+        if fw_start_status == cdb_consts.CDB_PASSWORD_ERROR_STATUS:
+            logger.info('Start module FW download: Need to enter password\n')
+            self.cdb_fw_hdlr.enter_password()
+            if self.cdb_fw_hdlr.start_fw_download(imagepath) is True:
+                return True, ''
+            txt = 'Start module FW download: Fail after password retry\n'
+            self.cdb_fw_hdlr.abort_fw_download()
+            logger.info(txt)
+            return False, txt
+
+        txt = 'Start module FW download: Fail\n'
+        self.cdb_fw_hdlr.abort_fw_download()
+        txt += 'FW_start_status %d\n' % fw_start_status
+        logger.info(txt)
+        return False, txt
+
+    def module_fw_write_blocks(self, imagepath, startLPLsize, maxblocksize, lplonly_flag):
+        """
+        Write firmware blocks using CDB command 0103h (LPL) or 0104h (EPL).
+        Aborts the download if any block write fails.
+
+        This function returns True on success.
+        Otherwise it will return False.
+        """
+        starttime = time.time()
+        BLOCK_SIZE = cdb_consts.LPL_MAX_PAYLOAD_SIZE if lplonly_flag else maxblocksize
 
         with open(imagepath, 'rb') as f:
             f.seek(0, 2)
@@ -426,35 +411,62 @@ class CmisCdbFw:
                 if result is not True:
                     self.cdb_fw_hdlr.abort_fw_download()
                     fw_download_status = self.get_status_code()
-                    txt += 'CDB download failed. CDB Status: %d\n' %fw_download_status
+                    txt = 'CDB download failed. CDB Status: %d\n' % fw_download_status
                     logger.info(txt)
                     return False, txt
-                elapsedtime = time.time()-starttime
                 address += count
                 remaining -= count
                 progress = (imagesize - remaining) * 100.0 / imagesize
-                logger.info('Address: {:#08x}; Count: {}; Remain: {:#08x}; Progress: {:.2f}%; Time: {:.2f}s'.format(address, count, remaining, progress, elapsedtime))
+                elapsedtime = time.time() - starttime
+                logger.info('Address: {:#08x}; Count: {}; Remain: {:#08x}; Progress: {:.2f}%; Time: {:.2f}s'.format(
+                    address, count, remaining, progress, elapsedtime))
 
-        elapsedtime = time.time()-starttime
-        logger.info('Total module FW download time: %.2f s' %elapsedtime)
+        logger.info('Total module FW download time: %.2f s' % (time.time() - starttime))
+        return True, ''
 
-        time.sleep(2)
-        # complete FW download (CMD 0107h)
+    def module_fw_complete_download(self):
+        """
+        Complete firmware download with CDB command 0107h.
+
+        This function returns True on success.
+        Otherwise it will return False.
+        """
         result = self.cdb_fw_hdlr.complete_fw_download()
         if result is True:
-            string = 'Module FW download complete: Success'
-            logger.info(string)
-            txt += string
-        else:
-            fw_complete_status = self.get_status_code()
-            txt += 'Module FW download complete: Fail\n'
-            txt += 'FW_complete_status %d\n' %fw_complete_status
+            txt = 'Module FW download complete: Success\n'
             logger.info(txt)
+            return True, txt
+
+        fw_complete_status = self.get_status_code()
+        txt = 'Module FW download complete: Fail\n'
+        txt += 'FW_complete_status %d\n' % fw_complete_status
+        logger.info(txt)
+        return False, txt
+
+    def module_fw_download(self, startLPLsize, maxblocksize, lplonly_flag, autopaging_flag, writelength, imagepath):
+        """
+        This function performs the full firmware download sequence:
+        1. Start download with password retry
+        2. Write firmware blocks
+        3. Complete download
+
+        This function returns True on success.
+        Otherwise it will return False.
+        """
+        success, txt = self.module_fw_start_download(imagepath)
+        if not success:
             return False, txt
-        elapsedtime = time.time()-elapsedtime-starttime
-        string = 'Complete module FW download time: %.2f s\n' %elapsedtime
-        logger.info(string)
-        txt += string
+
+        success, msg = self.module_fw_write_blocks(imagepath, startLPLsize, maxblocksize, lplonly_flag)
+        txt += msg
+        if not success:
+            return False, txt
+
+        success, msg = self.module_fw_complete_download()
+        txt += msg
+        if not success:
+            return False, txt
+
         return True, txt
 
     def module_fw_upgrade(self, imagepath):
@@ -507,9 +519,17 @@ class CmisCdbFw:
         except (ValueError, TypeError):
             return result['status'], result['info']
         if ImageAValid_init == 0 and ImageBValid_init == 0:
-            self.module_fw_run(mode = 0x01)
+            success, info = self.module_fw_run(mode = 0x01)
+            if not success:
+                txt += 'Module FW switch: run failed\n' + info
+                logger.info(txt)
+                return False, txt
             time.sleep(60)
-            self.module_fw_commit()
+            success, info = self.module_fw_commit()
+            if not success:
+                txt += 'Module FW switch: commit failed\n' + info
+                logger.info(txt)
+                return False, txt
             result = self.get_module_fw_info()
             try:
                 (ImageA, ImageARunning, ImageACommitted, ImageAValid,
