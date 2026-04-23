@@ -2048,47 +2048,47 @@ class TestCmis(object):
 
     @patch('sonic_platform_base.sonic_xcvr.api.public.cdb_fw.time.sleep')
     def test_module_fw_switch_success(self, mock_sleep):
-        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
-        mock_fw_hdlr.run_fw_image.return_value = True
-        mock_fw_hdlr.commit_fw_image.return_value = True
-        self.api.get_module_fw_info = MagicMock(side_effect=[
-            {'status': True, 'result': ('1.0.0', 1, 1, 0, '2.0.0', 0, 0, 0, '1.0.0', '2.0.0')},
-            {'status': True, 'result': ('1.0.0', 0, 0, 0, '2.0.0', 1, 1, 0, '2.0.0', '1.0.0')},
-        ])
-        result = self.api.module_fw_switch()
-        assert result[0] is True
+        self._setup_cdb_fw_hdlr()
+        with patch.object(self.api, 'module_fw_run', return_value=(True, 'Success')), \
+             patch.object(self.api, 'module_fw_commit', return_value=(True, 'Success')), \
+             patch.object(self.api, 'get_module_fw_info', side_effect=[
+                {'status': True, 'result': ('1.0.0', 1, 1, 0, '2.0.0', 0, 0, 0, '1.0.0', '2.0.0')},
+                {'status': True, 'result': ('1.0.0', 0, 0, 0, '2.0.0', 1, 1, 0, '2.0.0', '1.0.0')},
+             ]):
+            result = self.api.module_fw_switch()
+            assert result[0] is True
 
     @patch('sonic_platform_base.sonic_xcvr.api.public.cdb_fw.time.sleep')
     def test_module_fw_switch_no_change(self, mock_sleep):
-        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
-        mock_fw_hdlr.run_fw_image.return_value = True
-        mock_fw_hdlr.commit_fw_image.return_value = True
-        self.api.get_module_fw_info = MagicMock(side_effect=[
-            {'status': True, 'result': ('1.0.0', 1, 1, 0, '2.0.0', 0, 0, 0, '1.0.0', '2.0.0')},
-            {'status': True, 'result': ('1.0.0', 1, 1, 0, '2.0.0', 0, 0, 0, '1.0.0', '2.0.0')},
-        ])
-        result = self.api.module_fw_switch()
-        assert result[0] is False
-        assert 'Switch did not happen' in result[1]
+        self._setup_cdb_fw_hdlr()
+        with patch.object(self.api, 'module_fw_run', return_value=(True, 'Success')), \
+             patch.object(self.api, 'module_fw_commit', return_value=(True, 'Success')), \
+             patch.object(self.api, 'get_module_fw_info', side_effect=[
+                {'status': True, 'result': ('1.0.0', 1, 1, 0, '2.0.0', 0, 0, 0, '1.0.0', '2.0.0')},
+                {'status': True, 'result': ('1.0.0', 1, 1, 0, '2.0.0', 0, 0, 0, '1.0.0', '2.0.0')},
+             ]):
+            result = self.api.module_fw_switch()
+            assert result[0] is False
+            assert 'Switch did not happen' in result[1]
 
     @patch('sonic_platform_base.sonic_xcvr.api.public.cdb_fw.time.sleep')
     def test_module_fw_switch_not_both_valid(self, mock_sleep):
         self._setup_cdb_fw_hdlr()
-        self.api.get_module_fw_info = MagicMock(return_value={
+        with patch.object(self.api, 'get_module_fw_info', return_value={
             'status': True, 'result': ('1.0.0', 1, 1, 1, '2.0.0', 0, 0, 0, '1.0.0', '2.0.0')
-        })
-        result = self.api.module_fw_switch()
-        assert result[0] is False
-        assert 'Not both images are valid' in result[1]
+        }):
+            result = self.api.module_fw_switch()
+            assert result[0] is False
+            assert 'Not both images are valid' in result[1]
 
     @patch('sonic_platform_base.sonic_xcvr.api.public.cdb_fw.time.sleep')
     def test_module_fw_switch_info_fail(self, mock_sleep):
         self._setup_cdb_fw_hdlr()
-        self.api.get_module_fw_info = MagicMock(return_value={
+        with patch.object(self.api, 'get_module_fw_info', return_value={
             'status': False, 'info': 'CDB error', 'result': None
-        })
-        result = self.api.module_fw_switch()
-        assert result[0] is False
+        }):
+            result = self.api.module_fw_switch()
+            assert result[0] is False
 
     @pytest.mark.parametrize("mock_response, expected", [
         ([0, 0, 0],

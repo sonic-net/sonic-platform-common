@@ -6,7 +6,6 @@
 """
 
 import logging
-import time
 from ..fields import cdb_consts
 from .cdb import CdbCmdHandler
 
@@ -74,7 +73,7 @@ class CdbFwHandler(CdbCmdHandler):
             filesize = fw_file.tell() # Get the file size
             fw_file.seek(0, 0)  # Move back to the start of the file
             # Read the image file header bytes
-            header_data = None
+            header_data = b''
             if self.start_payload_size > 0:
                 header_data = fw_file.read(self.start_payload_size)
                 if len(header_data) < self.start_payload_size:
@@ -123,7 +122,7 @@ class CdbFwHandler(CdbCmdHandler):
                         # For EPL, write the data in pages
                         self.write_epl_pages(blkdata)
                         if True != self.write_epl_block(blkaddr, blkdata):
-                            print(f"Failed to write EPL block at address {blkaddr}")
+                            logger.error("Failed to write EPL block at address %s", blkaddr)
                             return False, blkaddr
 
                     # Update address for next chunk by the actual number of bytes written
@@ -132,13 +131,13 @@ class CdbFwHandler(CdbCmdHandler):
                 return True, blkaddr  # Return success and total bytes written
 
         except FileNotFoundError:
-            print(f"Error: Firmware image file not found: {imgpath}")
+            logger.error("Firmware image file not found: %s", imgpath)
             return False, 0
         except ValueError as ve:
-            print(f"Error: {str(ve)}")
+            logger.error("Error: %s", str(ve))
             return False, 0
         except Exception as e:
-            print(f"Error downloading firmware image: {str(e)}")
+            logger.error("Error downloading firmware image: %s", str(e))
             self.abort_fw_download()  # Abort on error
         return False, 0
 
@@ -155,12 +154,8 @@ class CdbFwHandler(CdbCmdHandler):
         }
 
         # Send the CDB run firmware image command
-        result = self.send_cmd(cdb_consts.CDB_RUN_FIRMWARE_IMAGE_CMD, payload,
+        return self.send_cmd(cdb_consts.CDB_RUN_FIRMWARE_IMAGE_CMD, payload,
                             timeout=cdb_consts.CDB_RUN_FIRMWARE_CMD_TIMEOUT)
-        if result is True:
-            # Wait "delay time" to avoid other cmd sent before "run_fw_image" start
-            time.sleep((resetdelay + 50) / 1000)
-        return result
 
     def complete_fw_download(self):
         """

@@ -6,8 +6,6 @@
 
 from ...fields import consts
 from ...fields import cdb_consts
-from ...codes.public.cdb import CdbCodes
-from ...mem_maps.public.cdb import CdbMemMap
 from ...cdb.cdb_fw import CdbFwHandler as CdbFw
 import time
 import logging
@@ -36,8 +34,7 @@ class CmisCdbFw:
             return None
 
         try:
-            cdb_mem_map = CdbMemMap(CdbCodes)
-            return CdbFw(self.xcvr_eeprom.reader, self.xcvr_eeprom.writer, cdb_mem_map)
+            return CdbFw(self.xcvr_eeprom.reader, self.xcvr_eeprom.writer, self._cdb_mem_map)
         except AssertionError as err:
             logger.error("Failed to initialize CDB firmware handler due to assertion: %s", err)
         except Exception as err:
@@ -104,7 +101,7 @@ class CmisCdbFw:
 
         # password issue
         if fw_info is False or fw_info is None:
-            if self.get_status_code() == 70:
+            if self.get_status_code() == cdb_consts.CDB_PASSWORD_ERROR_STATUS:
                 logger.info('Get module FW info: Need to enter password')
                 self.cdb_fw_hdlr.enter_password()
                 fw_info = self.cdb_fw_hdlr.get_firmware_info()
@@ -236,7 +233,7 @@ class CmisCdbFw:
         else:
             fw_run_status = self.get_status_code()
             # password issue
-            if fw_run_status == 70:
+            if fw_run_status == cdb_consts.CDB_PASSWORD_ERROR_STATUS:
                 string = 'Module FW run: Need to enter password\n'
                 logger.info(string)
                 self.cdb_fw_hdlr.enter_password()
@@ -274,7 +271,7 @@ class CmisCdbFw:
         else:
             fw_commit_status = self.get_status_code()
             # password issue
-            if fw_commit_status == 70:
+            if fw_commit_status == cdb_consts.CDB_PASSWORD_ERROR_STATUS:
                 string = 'Module FW commit: Need to enter password\n'
                 logger.info(string)
                 self.cdb_fw_hdlr.enter_password()
@@ -382,7 +379,7 @@ class CmisCdbFw:
         else:
             fw_start_status = self.get_status_code()
             # password error
-            if fw_start_status == 70:
+            if fw_start_status == cdb_consts.CDB_PASSWORD_ERROR_STATUS:
                 string = 'Start module FW download: Need to enter password\n'
                 logger.info(string)
                 self.cdb_fw_hdlr.enter_password()
@@ -507,9 +504,17 @@ class CmisCdbFw:
         except (ValueError, TypeError):
             return result['status'], result['info']
         if ImageAValid_init == 0 and ImageBValid_init == 0:
-            self.module_fw_run(mode = 0x01)
+            success, info = self.module_fw_run(mode = 0x01)
+            if not success:
+                txt += 'Module FW switch: run failed\n' + info
+                logger.info(txt)
+                return False, txt
             time.sleep(60)
-            self.module_fw_commit()
+            success, info = self.module_fw_commit()
+            if not success:
+                txt += 'Module FW switch: commit failed\n' + info
+                logger.info(txt)
+                return False, txt
             result = self.get_module_fw_info()
             try:
                 (ImageA, ImageARunning, ImageACommitted, ImageAValid,
