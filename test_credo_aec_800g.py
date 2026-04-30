@@ -1,18 +1,18 @@
 from unittest.mock import patch
 from mock import MagicMock
 import pytest
-from sonic_platform_base.sonic_xcvr.api.public.cmisTargetFWUpgrade import TARGET_E0_VALUE, TARGET_LIST, CmisTargetFWUpgradeAPI
-from sonic_platform_base.sonic_xcvr.codes.public.cmisTargetFWUpgrade import CmisTargetFWUpgradeCodes
-from sonic_platform_base.sonic_xcvr.mem_maps.public.cmisTargetFWUpgrade import CmisTargetFWUpgradeMemMap
+from sonic_platform_base.sonic_xcvr.api.credo.aec_800g import TARGET_E0_VALUE, TARGET_LIST, CredoAec800gApi
+from sonic_platform_base.sonic_xcvr.codes.credo.aec_800g import CredoAec800gCodes
+from sonic_platform_base.sonic_xcvr.mem_maps.credo.aec_800g import CredoAec800gMemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
 
 class TestCmis(object):
-    codes = CmisTargetFWUpgradeCodes
-    mem_map = CmisTargetFWUpgradeMemMap(codes)
+    codes = CredoAec800gCodes
+    mem_map = CredoAec800gMemMap(codes)
     reader = MagicMock(return_value=None)
     writer = MagicMock()
     eeprom = XcvrEeprom(reader, writer, mem_map)
-    api = CmisTargetFWUpgradeAPI(eeprom)
+    api = CredoAec800gApi(eeprom)
 
     @pytest.mark.parametrize("target,write_results,accessible,exception,expected_result", [
         (1, [False, True, True, True], True, None, False),  # Failed to set target mode
@@ -25,8 +25,8 @@ class TestCmis(object):
     def test_set_firmware_download_target_end(self, target, write_results, accessible, exception, expected_result):
         self.api.xcvr_eeprom.write = MagicMock()
         self.api.xcvr_eeprom.write.side_effect = write_results
-        with patch('sonic_platform_base.sonic_xcvr.api.public.cmisTargetFWUpgrade.CmisTargetFWUpgradeAPI._is_remote_target_accessible', return_value=accessible):
-            with patch('sonic_platform_base.sonic_xcvr.api.public.cmisTargetFWUpgrade.CmisTargetFWUpgradeAPI._restore_target_to_E0', return_value=False):
+        with patch('sonic_platform_base.sonic_xcvr.api.credo.aec_800g.CredoAec800gApi._is_remote_target_accessible', return_value=accessible):
+            with patch('sonic_platform_base.sonic_xcvr.api.credo.aec_800g.CredoAec800gApi._restore_target_to_E0', return_value=False):
                 if exception is not None:
                     self.api.xcvr_eeprom.write.side_effect = exception
 
@@ -43,7 +43,7 @@ class TestCmis(object):
         (True, True)
     ])
     @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_transceiver_info_firmware_versions', MagicMock(side_effect=({}, Exception('error'), {})))
-    @patch('sonic_platform_base.sonic_xcvr.api.public.cmisTargetFWUpgrade.CmisTargetFWUpgradeAPI._get_server_firmware_version', MagicMock())
+    @patch('sonic_platform_base.sonic_xcvr.api.credo.aec_800g.CredoAec800gApi._get_server_firmware_version', MagicMock())
     @patch('traceback.format_exception')
     def test_get_transceiver_info_firmware_versions_failure(self, mock_format_exception, set_firmware_result, exception_raised):
         expected_output = {'active_firmware': 'N/A', 'inactive_firmware': 'N/A', 'e1_active_firmware': 'N/A',\
@@ -78,7 +78,7 @@ class TestCmis(object):
     ])
     def test_get_transceiver_info_firmware_versions_success(self, fw_info_dict, server_fw_info_dict, expected_output):
         with patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_transceiver_info_firmware_versions', side_effect=fw_info_dict):
-            with patch('sonic_platform_base.sonic_xcvr.api.public.cmisTargetFWUpgrade.CmisTargetFWUpgradeAPI._get_server_firmware_version', side_effect=server_fw_info_dict):
+            with patch('sonic_platform_base.sonic_xcvr.api.credo.aec_800g.CredoAec800gApi._get_server_firmware_version', side_effect=server_fw_info_dict):
                 self.api.set_firmware_download_target_end = MagicMock(return_value=True)
 
                 result = self.api.get_transceiver_info_firmware_versions()
