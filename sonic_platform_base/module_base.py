@@ -53,6 +53,16 @@ class ModuleBase(device_base.DeviceBase):
     # Module state is Present when it is powered up, but entered a fault state.
     # Module is not able to go Online.
     MODULE_STATUS_FAULT   = "Fault"
+    # Module state when module is detected, is able to run SONiC, but is not yet running SONiC.
+    # Modules in this state will be attempted to be converted to SONiC via calls to module.provision_module()
+    # This state does not make much sense if provision_module() is not implemented. 
+    MODULE_STATUS_PROVISION_READY = "ProvisionReady"
+    # Module state if module is currently undergoing provisioning.
+    # Module is not expected to be contactable in this state.
+    MODULE_STATUS_PROVISION_PENDING = "ProvisionPending"
+    # Module state once module has been provisioned successfully,
+    # but the chassis requires a reboot to fully incorporate the module. 
+    MODULE_STATUS_PROVISIONED = "Provisioned"
     # Module state is Online when fully operational
     MODULE_STATUS_ONLINE  = "Online"
 
@@ -226,7 +236,9 @@ class ModuleBase(device_base.DeviceBase):
         Returns:
             A string, the operational status of the module from one of the
             predefined status values: MODULE_STATUS_EMPTY, MODULE_STATUS_OFFLINE,
-            MODULE_STATUS_FAULT, MODULE_STATUS_PRESENT or MODULE_STATUS_ONLINE
+            MODULE_STATUS_FAULT, MODULE_STATUS_PRESENT, MODULE_STATUS_PROVISION_READY,
+            MODULE_STATUS_PROVISION_PENDING, MODULE_STATUS_PROVISIONED,
+            or MODULE_STATUS_ONLINE
         """
         raise NotImplementedError
 
@@ -281,6 +293,17 @@ class ModuleBase(device_base.DeviceBase):
         Returns:
             A float, with value of the maximum consumable power of the
             module.
+        """
+        raise NotImplementedError
+
+    def provision_module(self):
+        """
+        Request to provision the module.
+        This method should be implemented if the module supports
+        MODULE_STATUS_PROVISION_READY state.
+
+        Returns:
+            bool: True if the request has been issued successfully, False if not
         """
         raise NotImplementedError
 
