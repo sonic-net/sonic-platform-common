@@ -43,8 +43,8 @@ class TestCmisAocSingleBankApi(object):
         mock_fw_hdlr = MagicMock()
         mock_fw_hdlr.get_firmware_info.return_value = self._fw_info(
             a_oper=True, a_admin=True, b_valid=True, a_maj=2, a_min=5, a_bld=3, f_maj=1, f_min=6)
-        self.api.cdb = MagicMock()
         self.api._cdb_fw_hdlr = mock_fw_hdlr
+        self.api._init_cdb_fw_handler = True
         self.api.get_module_inactive_firmware = MagicMock(return_value='1.1')
         result = self.api.get_module_fw_info()
         assert result['status'] is True
@@ -56,8 +56,8 @@ class TestCmisAocSingleBankApi(object):
         mock_fw_hdlr = MagicMock()
         mock_fw_hdlr.get_firmware_info.return_value = self._fw_info(
             a_oper=True, a_admin=True, b_valid=True, a_maj=2, a_min=5, a_bld=3, f_maj=1, f_min=6)
-        self.api.cdb = MagicMock()
         self.api._cdb_fw_hdlr = mock_fw_hdlr
+        self.api._init_cdb_fw_handler = True
         self.api.get_module_inactive_firmware = MagicMock(return_value=None)
         result = self.api.get_module_fw_info()
         assert result['status'] is True
@@ -66,23 +66,25 @@ class TestCmisAocSingleBankApi(object):
 
     def test_get_module_fw_info_cdb_not_supported(self):
         """CDB not supported."""
-        self.api.cdb = None
+        self.api._cdb_fw_hdlr = None
+        self.api._init_cdb_fw_handler = False
         result = self.api.get_module_fw_info()
         assert result == {'status': False, 'info': 'CDB Not supported', 'result': None}
 
     def test_get_module_fw_info_handler_init_failed(self):
         """CDB FW handler init failed."""
-        self.api.cdb = MagicMock()
         self.api._cdb_fw_hdlr = None
+        self.api._init_cdb_fw_handler = True
         self.api._create_cdb_fw_handler = MagicMock(return_value=None)
         result = self.api.get_module_fw_info()
-        assert result == {'status': False, 'info': 'CDB FW handler init failed', 'result': None}
+        assert result == {'status': False, 'info': 'CDB Not supported', 'result': None}
 
     def test_get_module_fw_info_cdb_returns_none(self):
         """CDB returns None firmware info."""
         mock_fw_hdlr = MagicMock()
         mock_fw_hdlr.get_firmware_info.return_value = None
-        self.api.cdb = MagicMock()
+        mock_fw_hdlr.get_cmd_status_code.return_value = None
         self.api._cdb_fw_hdlr = mock_fw_hdlr
+        self.api._init_cdb_fw_handler = True
         result = self.api.get_module_fw_info()
         assert result == {'status': False, 'info': 'Failed to get firmware info', 'result': 0}

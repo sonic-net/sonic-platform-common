@@ -85,12 +85,15 @@ class XcvrApiFactory(object):
         vendor_pn = self._get_vendor_part_num()
 
         if vendor_name == 'Credo' and vendor_pn in CREDO_800G_AEC_VENDOR_PN_LIST:
-            api = self._create_api(CredoAec800gCodes, CredoAec800gMemMap, CredoAec800gApi)
+            xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CredoAec800gMemMap(CredoAec800gCodes))
+            api = CredoAec800gApi(xcvr_eeprom, init_cdb_fw_handler=True)
         elif ('INNOLIGHT' in vendor_name and vendor_pn in INL_800G_VENDOR_PN_LIST) or \
              ('EOPTOLINK' in vendor_name and vendor_pn in EOP_800G_VENDOR_PN_LIST):
-            api = self._create_api(CmisCodes, CmisMemMap, CmisFr800gApi)
+            xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CmisMemMap(CmisCodes))
+            api = CmisFr800gApi(xcvr_eeprom, init_cdb_fw_handler=True)
         elif vendor_name == 'Hisense' and vendor_pn is not None and re.match(HISENSE_2X100G_VENDOR_PN, vendor_pn):
-            api = self._create_api(CmisCodes, CmisMemMap, CmisAocSingleBankApi)
+            xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CmisMemMap(CmisCodes))
+            api = CmisAocSingleBankApi(xcvr_eeprom, init_cdb_fw_handler=True)
         else:
             xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CmisMemMap(CmisCodes))
             api = CmisApi(xcvr_eeprom, init_cdb_fw_handler=True)

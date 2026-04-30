@@ -5,8 +5,11 @@
    CMD : 0100h to 011Fh
 """
 
+import logging
 from ..fields import cdb_consts
 from .cdb import CdbCmdHandler
+
+logger = logging.getLogger(__name__)
 
 class CdbFwHandler(CdbCmdHandler):
     def __init__(self, reader, writer, mem_map):
@@ -21,13 +24,13 @@ class CdbFwHandler(CdbCmdHandler):
         Initialize the firmware handler
         """
         if True != self.send_cmd(cdb_consts.CDB_GET_FIRMWARE_MGMT_FEATURES_CMD):
-            print("Failed to get firmware management features")
+            logger.info("Failed to get firmware management features")
             return False
 
         # Read the firmware management features
         reply = self.read_reply(cdb_consts.CDB_GET_FIRMWARE_MGMT_FEATURES_CMD)
         if reply is None:
-            print("Failed to read firmware management features")
+            logger.info("Failed to read firmware management features")
             return False
 
         self.start_payload_size = reply[cdb_consts.CDB_START_CMD_PAYLOAD_SIZE]
@@ -41,12 +44,20 @@ class CdbFwHandler(CdbCmdHandler):
 
         return True
 
+    def get_fw_mgmt_features(self):
+        """
+        Get firmware management features
+        """
+        if self.start_payload_size == 0 and self.rw_length_ext == 0:
+            return None
+        return (self.start_payload_size, self.rw_length_ext, self.is_lpl_only)
+
     def get_firmware_info(self):
         """
         Get firmware information
         """
         if True != self.send_cmd(cdb_consts.CDB_GET_FIRMWARE_INFO_CMD):
-            print("Failed to get firmware info")
+            logger.info("Failed to get firmware info")
             return False
 
         # Read the firmware info
@@ -62,7 +73,7 @@ class CdbFwHandler(CdbCmdHandler):
             filesize = fw_file.tell() # Get the file size
             fw_file.seek(0, 0)  # Move back to the start of the file
             # Read the image file header bytes
-            header_data = None
+            header_data = b''
             if self.start_payload_size > 0:
                 header_data = fw_file.read(self.start_payload_size)
                 if len(header_data) < self.start_payload_size:
@@ -111,7 +122,7 @@ class CdbFwHandler(CdbCmdHandler):
                         # For EPL, write the data in pages
                         self.write_epl_pages(blkdata)
                         if True != self.write_epl_block(blkaddr, blkdata):
-                            print(f"Failed to write EPL block at address {blkaddr}")
+                            logger.error("Failed to write EPL block at address %s", blkaddr)
                             return False, blkaddr
 
                     # Update address for next chunk by the actual number of bytes written
@@ -120,30 +131,31 @@ class CdbFwHandler(CdbCmdHandler):
                 return True, blkaddr  # Return success and total bytes written
 
         except FileNotFoundError:
-            print(f"Error: Firmware image file not found: {imgpath}")
+            logger.error("Firmware image file not found: %s", imgpath)
             return False, 0
         except ValueError as ve:
-            print(f"Error: {str(ve)}")
+            logger.error("Error: %s", str(ve))
             return False, 0
         except Exception as e:
-            print(f"Error downloading firmware image: {str(e)}")
+            logger.error("Error downloading firmware image: %s", str(e))
             self.abort_fw_download()  # Abort on error
         return False, 0
 
-    def run_fw_image(self, runmode=0x0, resetdelay=2):
-            """
-            Run the firmware image(default is non-hitless reset)
-            :param runmode: 0x0: run the image, 0x1:
-            reset the module, 0x2: run and reset
-            """
-            payload = {
-                "runmode" : runmode,
-                "delay" : resetdelay
-            }
+    def run_fw_image(self, runmode=0x0, resetdelay=512):
+        """
+        Run the firmware image(default is non-hitless reset)
+        :param runmode: 0x0: run the image, 0x1:
+        reset the module, 0x2: run and reset
+        :param resetdelay: delay in ms before module reset
+        """
+        payload = {
+            "runmode" : runmode,
+            "delay" : resetdelay
+        }
 
-            # Send the CDB run firmware image command
-            return self.send_cmd(cdb_consts.CDB_RUN_FIRMWARE_IMAGE_CMD, payload,
-                                timeout=cdb_consts.CDB_RUN_FIRMWARE_CMD_TIMEOUT)
+        # Send the CDB run firmware image command
+        return self.send_cmd(cdb_consts.CDB_RUN_FIRMWARE_IMAGE_CMD, payload,
+                            timeout=cdb_consts.CDB_RUN_FIRMWARE_CMD_TIMEOUT)
 
     def complete_fw_download(self):
         """
