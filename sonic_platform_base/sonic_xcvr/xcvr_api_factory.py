@@ -79,7 +79,7 @@ class XcvrApiFactory(object):
        vendor_pn = part_num.decode('utf-8', errors='ignore')
        return vendor_pn.strip()
 
-    def _create_cmis_api(self):
+    def _create_cmis_api(self, bank=0):
         api = None
         vendor_name = self._get_vendor_name()
         vendor_pn = self._get_vendor_part_num()
@@ -92,10 +92,10 @@ class XcvrApiFactory(object):
         elif vendor_name == 'Hisense' and vendor_pn is not None and re.match(HISENSE_2X100G_VENDOR_PN, vendor_pn):
             api = self._create_api(CmisCodes, CmisMemMap, CmisAocSingleBankApi)
         else:
-            xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CmisMemMap(CmisCodes))
+            xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CmisMemMap(CmisCodes, bank=bank))
             api = CmisApi(xcvr_eeprom, init_cdb_fw_handler=True)
             if api.is_coherent_module():
-                xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CCmisMemMap(CmisCodes))
+                xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CCmisMemMap(CmisCodes, bank=bank))
                 api = CCmisApi(xcvr_eeprom, init_cdb_fw_handler=True)
         return api
 
@@ -115,7 +115,7 @@ class XcvrApiFactory(object):
         xcvr_eeprom = XcvrEeprom(self.reader, self.writer, mem_map)
         return api_class(xcvr_eeprom)
 
-    def create_xcvr_api(self):
+    def create_xcvr_api(self, bank=0):
         id = self._get_id()
 
         # Instantiate various Optics implementation based upon their respective ID as per SFF8024
@@ -123,10 +123,10 @@ class XcvrApiFactory(object):
             0x03: (self._create_api, (Sff8472Codes, Sff8472MemMap, Sff8472Api)),
             0x0D: (self._create_qsfp_api, ()),
             0x11: (self._create_api, (Sff8636Codes, Sff8636MemMap, Sff8636Api)),
-            0x18: (self._create_cmis_api, ()),
-            0x19: (self._create_cmis_api, ()),
-            0x1b: (self._create_cmis_api, ()),
-            0x1e: (self._create_cmis_api, ()),
+            0x18: (self._create_cmis_api, (bank,)),
+            0x19: (self._create_cmis_api, (bank,)),
+            0x1b: (self._create_cmis_api, (bank,)),
+            0x1e: (self._create_cmis_api, (bank,)),
             0x7e: (self._create_api, (AmphBackplaneCodes,
                                      AmphBackplaneMemMap, AmphBackplaneImpl)),
         }

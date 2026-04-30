@@ -473,7 +473,7 @@ class SfpBase(device_base.DeviceBase):
         """
         Updates the XcvrApi associated with this SFP
         """
-        self._xcvr_api = self._xcvr_api_factory.create_xcvr_api()
+        self._xcvr_api = self._xcvr_api_factory.create_xcvr_api(bank=self.bank)
 
     def get_xcvr_api(self):
         """
