@@ -129,6 +129,7 @@ class LiquidCoolingBase(device_base.DeviceBase):
     """
 
     def __init__(self,
+                 leakage_sensors_num: int = 0,
                  leakage_sensors_list: List[LeakageSensorBase] = [],
                  *,
                  profiles: List[LeakSensorProfileBase] = []):
