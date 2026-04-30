@@ -277,7 +277,8 @@ class TestLiquidCoolingBase():
         '''
         common = {"type": "rope", "location": "chassis",
                        "severity": LeakSeverity.MINOR}
-        liquid_cooling = LiquidCoolingBase([LeakageSensorBase("Sensor1", **common), 
+        liquid_cooling = LiquidCoolingBase(0,
+                                           [LeakageSensorBase("Sensor1", **common),
                                             LeakageSensorBase("Sensor2", **common), 
                                             LeakageSensorBase("Sensor3", **common)])
 
