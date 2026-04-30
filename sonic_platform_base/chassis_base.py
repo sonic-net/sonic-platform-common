@@ -51,6 +51,10 @@ class ChassisBase(device_base.DeviceBase):
         # available on the chassis
         self._psu_list = []
 
+        # List of PdbBase-derived objects representing all power distribution boards
+        # available on the chassis
+        self._pdb_list = []
+
         # List of ThermalBase-derived objects representing all thermals
         # available on the chassis
         self._thermal_list = []
@@ -482,6 +486,52 @@ class ChassisBase(device_base.DeviceBase):
                              index, len(self._psu_list)-1))
 
         return psu
+
+    ##############################################
+    # PDB methods
+    ##############################################
+
+    def get_num_pdbs(self):
+        """
+        Retrieves the number of power distribution boards available on this chassis
+
+        Returns:
+            An integer, the number of power distribution boards available on this
+            chassis
+        """
+        return len(self._pdb_list)
+
+    def get_all_pdbs(self):
+        """
+        Retrieves all power distribution boards available on this chassis
+
+        Returns:
+            A list of objects derived from PdbBase representing all power
+            distribution boards available on this chassis
+        """
+        return self._pdb_list
+
+    def get_pdb(self, index):
+        """
+        Retrieves power distribution board object represented by (0-based) index <index>
+
+        Args:
+            index: An integer, the index (0-based) of the power distribution board object to
+            retrieve
+
+        Returns:
+            An object dervied from PdbBase representing the specified power
+            distribution board object
+        """
+        pdb = None
+
+        try:
+            pdb = self._pdb_list[index]
+        except IndexError:
+            sys.stderr.write("PDB index {} out of range (0-{})\n".format(
+                             index, len(self._pdb_list)-1))
+
+        return pdb
 
     ##############################################
     # THERMAL methods
