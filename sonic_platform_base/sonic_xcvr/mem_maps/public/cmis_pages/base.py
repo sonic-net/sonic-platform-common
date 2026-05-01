@@ -6,7 +6,7 @@
 
 from typing import Dict
 from ...xcvr_mem_map import XcvrMemMap
-from ....fields.xcvr_field import RegField
+from ....fields.xcvr_field import RegField, RegGroupField
 from .cmis_page_consts import CMIS_NUM_BANKED_PAGES, CMIS_ARCH_PAGES
 
 def get_field_from_pages(field_name, *pages):
@@ -19,7 +19,7 @@ def get_field_from_pages(field_name, *pages):
 class CmisPage(XcvrMemMap):
     fields: Dict[str, list[RegField]]  # This is a Dictionary of list of fields
 
-    def __init__(self, codes, page, bank):
+    def __init__(self, codes, page, bank=0):
         super(CmisPage, self).__init__(codes)
         self._page = page
         self._bank = bank
@@ -64,3 +64,25 @@ class CmisPage(XcvrMemMap):
 
     def get_field_values(self, field: str):
         return self.fields[field]
+
+    def register_fields(self, memmap):
+        """Compose this page's fields onto the memory map.
+
+        Each key in self.fields becomes both the setattr name on memmap and the
+        RegGroupField.name. If memmap already carries a RegGroupField under the
+        same key (from a previously-registered page), this page's contributions
+        are merged in and the field list is re-sorted by offset to preserve the
+        RegGroupField invariant (first member must have the smallest offset).
+        """
+        for key, contribs in self.fields.items():
+            if not contribs:
+                continue
+            existing = getattr(memmap, key, None)
+            if isinstance(existing, RegGroupField):
+                merged = sorted(
+                    list(existing.fields) + list(contribs),
+                    key=lambda f: f.get_offset(),
+                )
+                setattr(memmap, key, RegGroupField(existing.name, *merged))
+            else:
+                setattr(memmap, key, RegGroupField(key, *contribs))

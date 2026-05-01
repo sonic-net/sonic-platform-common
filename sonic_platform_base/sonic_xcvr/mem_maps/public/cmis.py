@@ -6,8 +6,15 @@
 
 from ..xcvr_mem_map import XcvrMemMap
 from ...fields.xcvr_field import (
+    CodeRegField,
+    DateField,
+    HexRegField,
+    NumberRegField,
+    RegBitField,
     RegGroupField,
+    StringRegField,
 )
+from ...fields.public.cmis import CableLenField
 from ...fields import consts
 from ...fields.consts import *
 from .cmis_pages.base import CMIS_NUM_NON_BANKED_PAGES, CMIS_ARCH_PAGES, get_field_from_pages
@@ -204,64 +211,17 @@ class CmisMemMap(CmisFlatMemMap):
         self.performance_monitoring_page = CmisVdmAdvertisingCtrlPage(codes, bank=bank)  # 0x2F
         self.cdb_message_page = CmisCdbMessagePage(codes, bank=bank)  # 0x9F
 
-        # This memmap should contain ONLY upper page >= 01h fields
-        self.ADVERTISING = RegGroupField(consts.ADVERTISING_FIELD,
-            *get_field_from_pages(consts.ADVERTISING_FIELD, self.advertising_page, self.datapath_status_page)
-        )
-
-        self.MODULE_LEVEL_MONITORS = RegGroupField(consts.MODULE_MONITORS_FIELD,
-            *get_field_from_pages(consts.MODULE_MONITORS_FIELD, self.tunable_module_monitors_page, self.advertising_page)
-        )
-
-        self.MODULE_CHAR_ADVT = RegGroupField(consts.MODULE_CHAR_ADVT_FIELD,
-            *get_field_from_pages(consts.MODULE_CHAR_ADVT_FIELD, self.advertising_page)
-        )
-
-        self.THRESHOLDS = RegGroupField(consts.THRESHOLDS_FIELD,
-            *get_field_from_pages(consts.THRESHOLDS_FIELD, self.thresholds_page)
-        )
-
-        self.LANE_DATAPATH_CTRL = RegGroupField(consts.LANE_DATAPATH_CTRL_FIELD,
-            *get_field_from_pages(consts.LANE_DATAPATH_CTRL_FIELD, self.datapath_control_page)
-        )
-
-        self.TX_POWER_ALARM_FLAGS = RegGroupField(consts.TX_POWER_ALARM_FLAGS_FIELD,
-            *get_field_from_pages(consts.TX_POWER_ALARM_FLAGS_FIELD, self.datapath_status_page)
-        )
-
-        self.TX_BIAS_ALARM_FLAGS = RegGroupField(consts.TX_BIAS_ALARM_FLAGS_FIELD,
-            *get_field_from_pages(consts.TX_BIAS_ALARM_FLAGS_FIELD, self.datapath_status_page)
-        )
-
-        self.RX_POWER_ALARM_FLAGS = RegGroupField(consts.RX_POWER_ALARM_FLAGS_FIELD,
-            *get_field_from_pages(consts.RX_POWER_ALARM_FLAGS_FIELD, self.datapath_status_page)
-        )
-
-        self.LANE_DATAPATH_STATUS = RegGroupField(consts.LANE_DATAPATH_STATUS_FIELD,
-            *get_field_from_pages(consts.LANE_DATAPATH_STATUS_FIELD, self.datapath_status_page, self.tunable_module_monitors_page)
-        )
-
-        self.TRANS_LOOPBACK = RegGroupField(consts.TRANS_LOOPBACK_FIELD,
-            *get_field_from_pages(consts.TRANS_LOOPBACK_FIELD, self.loopback_page)
-        )
-
-        self.TRANS_PM = RegGroupField(consts.TRANS_PM_FIELD,
-            *get_field_from_pages(consts.TRANS_PM_FIELD, self.performance_monitoring_page)
-        )
-
-        self.TRANS_CDB = RegGroupField(consts.TRANS_CDB_FIELD,
-            *get_field_from_pages(consts.TRANS_CDB_FIELD, self.advertising_page, self.cdb_message_page)
-        )
-
-        self.STAGED_CTRL0 = RegGroupField("%s_%d" % (consts.STAGED_CTRL_FIELD, 0),
-            *get_field_from_pages("%s_%d" % (consts.STAGED_CTRL_FIELD, 0), self.datapath_control_page)
-        )
-
-        self.SIGNAL_INTEGRITY_CTRL_ADVT = RegGroupField(consts.SIGNAL_INTEGRITY_CTRL_ADVT_FIELD,
-            *get_field_from_pages(consts.SIGNAL_INTEGRITY_CTRL_ADVT_FIELD, self.advertising_page)
-        )
-
-        self.STAGED_CTRL0_TX_RX_CTRL = RegGroupField(consts.STAGED_CTRL0_TX_RX_CTRL_FIELD,
-            *get_field_from_pages(consts.STAGED_CTRL0_TX_RX_CTRL_FIELD, self.datapath_control_page)
-        )
-        # TODO: add remaining fields
+        # Each page registers its own fields onto this memory map. Cross-page
+        # field groups (e.g., ADVERTISING_FIELD spans pg_01 + pg_11) are merged
+        # automatically by CmisPage.register_fields.
+        for page in (
+            self.advertising_page,
+            self.thresholds_page,
+            self.datapath_control_page,
+            self.datapath_status_page,
+            self.tunable_module_monitors_page,
+            self.loopback_page,
+            self.performance_monitoring_page,
+            self.cdb_message_page,
+        ):
+            page.register_fields(self)
