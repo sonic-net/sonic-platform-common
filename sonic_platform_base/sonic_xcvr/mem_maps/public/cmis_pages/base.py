@@ -78,11 +78,12 @@ class CmisPage(XcvrMemMap):
             if not contribs:
                 continue
             existing = getattr(memmap, key, None)
+            field_key = key
+            field_values = contribs
             if isinstance(existing, RegGroupField):
-                merged = sorted(
+                field_key = existing.name
+                field_values = sorted(
                     list(existing.fields) + list(contribs),
                     key=lambda f: f.get_offset(),
                 )
-                setattr(memmap, key, RegGroupField(existing.name, *merged))
-            else:
-                setattr(memmap, key, RegGroupField(key, *contribs))
+            setattr(memmap, key, RegGroupField(field_key, *field_values))

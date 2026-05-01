@@ -29,12 +29,12 @@ class CdbStatusField(NumberRegField):
         is_busy = decoded_deps.get(cdb_consts.CDB1_IS_BUSY)
         failed = decoded_deps.get(cdb_consts.CDB1_HAS_FAILED)
         cmd_status = decoded_deps.get(cdb_consts.CDB1_STATUS)
-
+       
         if is_busy:
             status = self.get_status(CdbCodes.CDB_IN_PROGRESS, cmd_status)
         elif failed:
             status = self.get_status(CdbCodes.CDB_CMD_FAILED, cmd_status)
         else:
             status = self.get_status(CdbCodes.CDB_CMD_SUCCESS, cmd_status)
-
+        
         return status

@@ -20,8 +20,8 @@ from ....fields import consts
 
 
 class CmisAdministrativeUpperPage(CmisPage):
-    def __init__(self, codes, bank=0):
-        super().__init__(codes, page=ADMINISTRATIVE_PAGE, bank=bank)
+    def __init__(self, codes):
+        super().__init__(codes, page=ADMINISTRATIVE_PAGE, bank=0)
 
         # ADMIN_INFO_FIELD - upper page fields wrapped in EXT_ID_FIELD
         self.fields[consts.ADMIN_INFO_FIELD] = [

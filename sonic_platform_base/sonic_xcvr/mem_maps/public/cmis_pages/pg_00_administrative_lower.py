@@ -15,8 +15,8 @@ from ....fields import consts
 
 
 class CmisAdministrativeLowerPage(CmisPage):
-    def __init__(self, codes, bank=0):
-        super().__init__(codes, page=ADMINISTRATIVE_PAGE, bank=bank)
+    def __init__(self, codes):
+        super().__init__(codes, page=ADMINISTRATIVE_PAGE, bank=0)
 
         # MGMT_CHAR_FIELD
         self.fields[consts.MGMT_CHAR_FIELD] = [

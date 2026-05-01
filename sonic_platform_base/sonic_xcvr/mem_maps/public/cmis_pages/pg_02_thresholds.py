@@ -11,8 +11,8 @@ from ....fields import consts
 
 
 class CmisThresholdsPage(CmisPage):
-    def __init__(self, codes, bank=0):
-        super().__init__(codes, page=THRESHOLDS_PAGE, bank=bank)
+    def __init__(self, codes):
+        super().__init__(codes, page=THRESHOLDS_PAGE, bank=0)
 
         # THRESHOLDS_FIELD
         self.fields[consts.THRESHOLDS_FIELD] = [
