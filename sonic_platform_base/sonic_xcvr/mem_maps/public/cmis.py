@@ -17,7 +17,7 @@ from ...fields.xcvr_field import (
 from ...fields.public.cmis import CableLenField
 from ...fields import consts
 from ...fields.consts import *
-from .cmis_pages.base import CMIS_NUM_NON_BANKED_PAGES, CMIS_ARCH_PAGES, get_field_from_pages
+from .cmis_pages.base import CMIS_NUM_NON_BANKED_PAGES, CMIS_ARCH_PAGES
 
 # Import page classes
 from .cmis_pages import (
@@ -41,117 +41,14 @@ class CmisFlatMemMap(XcvrMemMap):
         self._bank = bank
         super(CmisFlatMemMap, self).__init__(codes)
 
-        self.MGMT_CHARACTERISTICS = RegGroupField(consts.MGMT_CHAR_FIELD,
-            NumberRegField(consts.MGMT_CHAR_MISC_FIELD, self.getaddr(0x0, 2),
-                RegBitField(consts.FLAT_MEM_FIELD, 7)
-            )
-        )
+        # Page 0x00 is split into a lower-half page (offsets 0-127) and an
+        # upper-half page (offsets 128-255). Each page class owns its half;
+        # register_fields merges shared field groups (e.g. ADMIN_INFO_FIELD).
+        self.administrative_lower_page = CmisAdministrativeLowerPage(codes, bank=bank)
+        self.administrative_upper_page = CmisAdministrativeUpperPage(codes, bank=bank)
 
-        # This memmap should contain ONLY Lower page 00h and upper page 00h fields
-        self.ADMIN_INFO = RegGroupField(consts.ADMIN_INFO_FIELD,
-            CodeRegField(consts.ID_FIELD, self.getaddr(0x0, 0), self.codes.XCVR_IDENTIFIERS),
-            CodeRegField(consts.ID_ABBRV_FIELD, self.getaddr(0x0, 128), self.codes.XCVR_IDENTIFIER_ABBRV),
-            StringRegField(consts.VENDOR_NAME_FIELD, self.getaddr(0x0, 129), size=16),
-            HexRegField(consts.VENDOR_OUI_FIELD, self.getaddr(0x0, 145), size=3),
-            StringRegField(consts.VENDOR_PART_NO_FIELD, self.getaddr(0x0, 148), size=16),
-            StringRegField(consts.VENDOR_REV_FIELD, self.getaddr(0x0, 164), size=2),
-            StringRegField(consts.VENDOR_SERIAL_NO_FIELD, self.getaddr(0x0, 166), size=16),
-            DateField(consts.VENDOR_DATE_FIELD, self.getaddr(0x0, 182), size=8),
-            RegGroupField(consts.EXT_ID_FIELD,
-                CodeRegField(consts.POWER_CLASS_FIELD, self.getaddr(0x0, 200), self.codes.POWER_CLASSES,
-                    *(RegBitField("%s_%d" % (consts.POWER_CLASS_FIELD, bit), bit) for bit in range(5, 8))
-                ),
-                NumberRegField(consts.MAX_POWER_FIELD, self.getaddr(0x0, 201), scale=4.0),
-            ),
-            NumberRegField(consts.LEN_MULT_FIELD, self.getaddr(0x0, 202),
-                *(RegBitField("%s_%d" % (consts.LEN_MULT_FIELD, bit), bit) for bit in range (6, 8))
-            ),
-            CableLenField(consts.LENGTH_ASSEMBLY_FIELD, self.getaddr(0x0, 202),
-                *(RegBitField("%s_%d" % (consts.LENGTH_ASSEMBLY_FIELD, bit), bit) for bit in range(0, 6))
-            ),
-
-            CodeRegField(consts.CONNECTOR_FIELD, self.getaddr(0x0, 203), self.codes.CONNECTORS),
-
-            RegGroupField(consts.APPLS_ADVT_FIELD,
-                *(CodeRegField("%s_%d" % (consts.HOST_ELECTRICAL_INTERFACE, app), self.getaddr(0x0, 86 + 4 * (app - 1)),
-                    self.codes.HOST_ELECTRICAL_INTERFACE) for app in range(1, 9)),
-
-                *(CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_850NM, app), self.getaddr(0x0, 87 + 4 * (app- 1)),
-                    self.codes.NM_850_MEDIA_INTERFACE) for app in range(1, 9)),
-
-                *(CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_SM, app), self.getaddr(0x0, 87 + 4 * (app - 1)),
-                    self.codes.SM_MEDIA_INTERFACE) for app in range(1, 9)),
-
-                *(CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_PASSIVE_COPPER, app), self.getaddr(0x0, 87 + 4 * (app - 1)),
-                    self.codes.PASSIVE_COPPER_MEDIA_INTERFACE) for app in range(1, 9)),
-
-                *(CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_ACTIVE_CABLE, app), self.getaddr(0x0, 87 + 4 * (app - 1)),
-                    self.codes.ACTIVE_CABLE_MEDIA_INTERFACE) for app in range(1, 9)),
-
-                *(CodeRegField("%s_%d" % (consts.MODULE_MEDIA_INTERFACE_BASE_T, app), self.getaddr(0x0, 87 + 4 * (app - 1)),
-                    self.codes.BASE_T_MEDIA_INTERFACE) for app in range(1, 9)),
-
-                *(NumberRegField("%s_%d" % (consts.MEDIA_LANE_COUNT, lane), self.getaddr(0x0, 88 + 4 * (lane - 1)),
-                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 4))
-                    ) for lane in range(1, 9)),
-
-                *(NumberRegField("%s_%d" % (consts.HOST_LANE_COUNT, lane), self.getaddr(0x0, 88 + 4 * (lane - 1)),
-                    *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8))
-                    ) for lane in range(1, 9)),
-
-                *(NumberRegField("%s_%d" % (consts.HOST_LANE_ASSIGNMENT_OPTION, lane), self.getaddr(0x0, 89 + 4 * (lane - 1)),
-                    format="B", size=1) for lane in range(1, 9)),
-            ),
-
-            CodeRegField(consts.HOST_ELECTRICAL_INTERFACE, self.getaddr(0x0, 86), self.codes.HOST_ELECTRICAL_INTERFACE),
-            CodeRegField(consts.MEDIA_TYPE_FIELD, self.getaddr(0x0, 85), self.codes.MODULE_MEDIA_TYPE),
-            CodeRegField(consts.MODULE_MEDIA_INTERFACE_850NM, self.getaddr(0x0, 87), self.codes.NM_850_MEDIA_INTERFACE),
-            CodeRegField(consts.MODULE_MEDIA_INTERFACE_SM, self.getaddr(0x0, 87), self.codes.SM_MEDIA_INTERFACE),
-            CodeRegField(consts.MODULE_MEDIA_INTERFACE_PASSIVE_COPPER, self.getaddr(0x0, 87), self.codes.PASSIVE_COPPER_MEDIA_INTERFACE),
-            CodeRegField(consts.MODULE_MEDIA_INTERFACE_ACTIVE_CABLE, self.getaddr(0x0, 87), self.codes.ACTIVE_CABLE_MEDIA_INTERFACE),
-            CodeRegField(consts.MODULE_MEDIA_INTERFACE_BASE_T, self.getaddr(0x0, 87), self.codes.BASE_T_MEDIA_INTERFACE),
-            NumberRegField(consts.MEDIA_LANE_COUNT, self.getaddr(0x0, 88),
-                *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 4))
-            ),
-            NumberRegField(consts.HOST_LANE_COUNT, self.getaddr(0x0, 88),
-                *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8))
-            ),
-            NumberRegField(consts.HOST_LANE_ASSIGNMENT_OPTION, self.getaddr(0x0, 89), format="B", size=1),
-            CodeRegField(consts.MEDIA_INTERFACE_TECH, self.getaddr(0x0, 212), self.codes.MEDIA_INTERFACE_TECH),
-            NumberRegField(consts.CMIS_MAJOR_REVISION, self.getaddr(0x0, 1),
-                *(RegBitField("Bit%d" % (bit), bit) for bit in range (4, 8))
-            ),
-            NumberRegField(consts.CMIS_MINOR_REVISION, self.getaddr(0x0, 1),
-                *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 4))
-            ),
-            NumberRegField(consts.ACTIVE_FW_MAJOR_REV, self.getaddr(0x0, 39), format="B", size=1),
-            NumberRegField(consts.ACTIVE_FW_MINOR_REV, self.getaddr(0x0, 40), format="B", size=1),
-        )
-
-        self.PAGE0_MODULE_LEVEL_MONITORS = RegGroupField(consts.MODULE_MONITORS_PAGE0_FIELD,
-            NumberRegField(consts.TEMPERATURE_FIELD, self.getaddr(0x0, 14), size=2, format=">h", scale=256.0),
-            NumberRegField(consts.VOLTAGE_FIELD, self.getaddr(0x0, 16), size=2, format=">H", scale=10000.0),
-            NumberRegField(consts.AUX1_MON, self.getaddr(0x0, 18), format=">h", size=2),
-            NumberRegField(consts.AUX2_MON, self.getaddr(0x0, 20), format=">h", size=2),
-            NumberRegField(consts.AUX3_MON, self.getaddr(0x0, 22), format=">h", size=2),
-            NumberRegField(consts.CUSTOM_MON, self.getaddr(0x0, 24), format=">H", size=2),
-        )
-
-        self.TRANS_MODULE_STATUS = RegGroupField(consts.TRANS_MODULE_STATUS_FIELD,
-            CodeRegField(consts.MODULE_STATE, self.getaddr(0x0, 3), self.codes.MODULE_STATE,
-                 *(RegBitField("Bit%d" % (bit), bit) for bit in range (1, 4))
-            ),
-            NumberRegField(consts.MODULE_FIRMWARE_FAULT_INFO, self.getaddr(0x0, 8), size=1),
-            NumberRegField(consts.MODULE_FLAG_BYTE1, self.getaddr(0x0, 9), size=1),
-            NumberRegField(consts.MODULE_FLAG_BYTE2, self.getaddr(0x0, 10), size=1),
-            NumberRegField(consts.MODULE_FLAG_BYTE3, self.getaddr(0x0, 11), size=1),
-            NumberRegField(consts.CDB1_STATUS, self.getaddr(0x0, 37), size=1),
-            CodeRegField(consts.MODULE_FAULT_CAUSE, self.getaddr(0x0, 41), self.codes.MODULE_FAULT_CAUSE),
-        )
-
-        self.TRANS_CONFIG = RegGroupField(consts.TRANS_CONFIG_FIELD,
-            NumberRegField(consts.MODULE_LEVEL_CONTROL, self.getaddr(0x0, 26), size=1, ro=False),
-        )
+        for page in (self.administrative_lower_page, self.administrative_upper_page):
+            page.register_fields(self)
 
     @property
     def bank(self):
