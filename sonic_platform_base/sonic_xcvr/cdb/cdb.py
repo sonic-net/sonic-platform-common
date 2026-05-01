@@ -4,12 +4,14 @@
    CDB Command handler
 """
 
-import logging
 import time
+from sonic_py_common.syslogger import SysLogger
 from ..fields import cdb_consts
 from ..xcvr_eeprom import XcvrEeprom
 
-logger = logging.getLogger(__name__)
+SYSLOG_IDENTIFIER = "Cdb"
+log = SysLogger(SYSLOG_IDENTIFIER)
+log.logger.propagate = False
 
 class CdbCmdHandler(XcvrEeprom):
     def __init__(self, reader, writer, mem_map):
@@ -94,24 +96,24 @@ class CdbCmdHandler(XcvrEeprom):
         self.last_cmd_status = None
         # Write the command to the CDB
         if True != self.write_cmd(cdb_cmd_id, payload):
-            logger.info("Failed to write CDB command: %s", cdb_cmd_id)
+            log.log_notice("Failed to write CDB command: {}".format(cdb_cmd_id))
             return None
 
         # Wait for the command to complete
         ret, status = self.wait_for_cdb_status(timeout)
         self.last_cmd_status = status
         if not ret:
-            logger.info("CDB command: %s failed to complete or read status", cdb_cmd_id)
+            log.log_notice("CDB command: {} failed to complete or read status".format(cdb_cmd_id))
             return None
 
         is_busy = status[cdb_consts.CDB1_IS_BUSY]
         if True == is_busy:
-            logger.info("CDB command: %s is busy with status: %s", cdb_cmd_id, status[cdb_consts.CDB1_STATUS])
+            log.log_notice("CDB command: {} is busy with status: {}".format(cdb_cmd_id, status[cdb_consts.CDB1_STATUS]))
             return False
 
         is_failed = status[cdb_consts.CDB1_HAS_FAILED]
         if True == is_failed:
-            logger.info("CDB command: %s failed with status: %s", cdb_cmd_id, status[cdb_consts.CDB1_STATUS])
+            log.log_notice("CDB command: {} failed with status: {}".format(cdb_cmd_id, status[cdb_consts.CDB1_STATUS]))
             return False
 
         return status[cdb_consts.CDB1_STATUS] == 0x1
@@ -137,7 +139,7 @@ class CdbCmdHandler(XcvrEeprom):
         Returns True if password accepted, False/None otherwise.
         """
         if not isinstance(password, int) or password < 0 or password > 0xFFFFFFFF:
-            logger.info("Invalid password: must be an integer in range 0..0xFFFFFFFF")
+            log.log_notice("Invalid password: must be an integer in range 0..0xFFFFFFFF")
             return False
         payload = {"password": password}
         return self.send_cmd(cdb_consts.CDB_ENTER_PASSWORD_CMD, payload)

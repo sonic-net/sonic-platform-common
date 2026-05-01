@@ -772,30 +772,30 @@ class TestCdbCmdHandler:
         result = self.handler.send_cmd(cdb_consts.CDB_WRITE_FIRMWARE_EPL_CMD, epl_payload)
         assert result == True
     
-    @patch('sonic_platform_base.sonic_xcvr.cdb.cdb.logger')
-    def test_send_cmd_log_messages(self, mock_logger):
+    @patch('sonic_platform_base.sonic_xcvr.cdb.cdb.log')
+    def test_send_cmd_log_messages(self, mock_log):
         """Test that send_cmd logs appropriate error messages"""
-        # Test write failure message (uses logger.info)
+        # Test write failure message
         cmd_id = 0x1234
         self.handler.write_cmd = MagicMock(return_value=False)
         
         result = self.handler.send_cmd(cmd_id)
         
-        mock_logger.info.assert_called()
+        mock_log.log_notice.assert_called()
         assert result is None
         
         # Test timeout message
-        mock_logger.reset_mock()
+        mock_log.reset_mock()
         self.handler.write_cmd = MagicMock(return_value=True)
         self.handler.wait_for_cdb_status = MagicMock(return_value=[False, None])
         
         result = self.handler.send_cmd(cmd_id)
         
-        mock_logger.info.assert_called_with("CDB command: %s failed to complete or read status", cmd_id)
+        mock_log.log_notice.assert_called_with("CDB command: {} failed to complete or read status".format(cmd_id))
         assert result is None
         
         # Test busy message
-        mock_logger.reset_mock()
+        mock_log.reset_mock()
         status_value = 0x5
         self.handler.wait_for_cdb_status = MagicMock(return_value=[True, {
             cdb_consts.CDB1_IS_BUSY: True,
@@ -805,11 +805,11 @@ class TestCdbCmdHandler:
         
         result = self.handler.send_cmd(cmd_id)
         
-        mock_logger.info.assert_called_with("CDB command: %s is busy with status: %s", cmd_id, status_value)
+        mock_log.log_notice.assert_called_with("CDB command: {} is busy with status: {}".format(cmd_id, status_value))
         assert result == False
         
         # Test failed message
-        mock_logger.reset_mock()
+        mock_log.reset_mock()
         status_value = 0x6
         self.handler.wait_for_cdb_status = MagicMock(return_value=[True, {
             cdb_consts.CDB1_IS_BUSY: False,
@@ -819,7 +819,7 @@ class TestCdbCmdHandler:
         
         result = self.handler.send_cmd(cmd_id)
         
-        mock_logger.info.assert_called_with("CDB command: %s failed with status: %s", cmd_id, status_value)
+        mock_log.log_notice.assert_called_with("CDB command: {} failed with status: {}".format(cmd_id, status_value))
         assert result == False
     
     # Boundary tests

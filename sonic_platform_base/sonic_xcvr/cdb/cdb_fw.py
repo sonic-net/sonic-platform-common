@@ -5,11 +5,13 @@
    CMD : 0100h to 011Fh
 """
 
-import logging
+from sonic_py_common.syslogger import SysLogger
 from ..fields import cdb_consts
 from .cdb import CdbCmdHandler
 
-logger = logging.getLogger(__name__)
+SYSLOG_IDENTIFIER = "CdbFw"
+log = SysLogger(SYSLOG_IDENTIFIER)
+log.logger.propagate = False
 
 class CdbFwHandler(CdbCmdHandler):
     def __init__(self, reader, writer, mem_map):
@@ -24,13 +26,13 @@ class CdbFwHandler(CdbCmdHandler):
         Initialize the firmware handler
         """
         if True != self.send_cmd(cdb_consts.CDB_GET_FIRMWARE_MGMT_FEATURES_CMD):
-            logger.info("Failed to get firmware management features")
+            log.log_notice("Failed to get firmware management features")
             return False
 
         # Read the firmware management features
         reply = self.read_reply(cdb_consts.CDB_GET_FIRMWARE_MGMT_FEATURES_CMD)
         if reply is None:
-            logger.info("Failed to read firmware management features")
+            log.log_notice("Failed to read firmware management features")
             return False
 
         self.start_payload_size = reply[cdb_consts.CDB_START_CMD_PAYLOAD_SIZE]
@@ -57,7 +59,7 @@ class CdbFwHandler(CdbCmdHandler):
         Get firmware information
         """
         if True != self.send_cmd(cdb_consts.CDB_GET_FIRMWARE_INFO_CMD):
-            logger.info("Failed to get firmware info")
+            log.log_notice("Failed to get firmware info")
             return False
 
         # Read the firmware info
@@ -122,7 +124,7 @@ class CdbFwHandler(CdbCmdHandler):
                         # For EPL, write the data in pages
                         self.write_epl_pages(blkdata)
                         if True != self.write_epl_block(blkaddr, blkdata):
-                            logger.error("Failed to write EPL block at address %s", blkaddr)
+                            log.log_error("Failed to write EPL block at address {}".format(blkaddr))
                             return False, blkaddr
 
                     # Update address for next chunk by the actual number of bytes written
@@ -131,13 +133,13 @@ class CdbFwHandler(CdbCmdHandler):
                 return True, blkaddr  # Return success and total bytes written
 
         except FileNotFoundError:
-            logger.error("Firmware image file not found: %s", imgpath)
+            log.log_error("Firmware image file not found: {}".format(imgpath))
             return False, 0
         except ValueError as ve:
-            logger.error("Error: %s", str(ve))
+            log.log_error("Error: {}".format(ve))
             return False, 0
         except Exception as e:
-            logger.error("Error downloading firmware image: %s", str(e))
+            log.log_error("Error downloading firmware image: {}".format(e))
             self.abort_fw_download()  # Abort on error
         return False, 0
 

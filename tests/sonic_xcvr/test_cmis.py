@@ -1892,36 +1892,52 @@ class TestCmis(object):
             'abc',
             [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0, 'a', 'b')},
              {'status': True, 'info': '', 'feature': (112, 2048, True, True, 2048)},
-             (True, ''), (True, '')],
+             (True, ''), (True, ''), (True, '')],
             (True, '')
         ),
         (
             'abc',
             [{'status': False, 'info': '', 'result': None},
              {'status': True, 'info': '', 'feature': (112, 2048, True, True, 2048)},
-             (True, ''), (True, '')],
+             (True, ''), (True, ''), (True, '')],
             (False, '')
         ),
         (
             'abc',
             [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0, 'a', 'b')},
              {'status': False, 'info': '', 'feature': None},
-             (True, ''), (True, '')],
+             (True, ''), (True, ''), (True, '')],
             (False, '')
         ),
         (
             'abc',
             [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0, 'a', 'b')},
              {'status': True, 'info': '', 'feature': (112, 2048, True, True, 2048)},
-             (False, ''), (True, '')],
+             (False, ''), (True, ''), (True, '')],
             (False, '')
         ),
+        (
+            'abc',
+            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0, 'a', 'b')},
+             {'status': True, 'info': '', 'feature': (112, 2048, True, True, 2048)},
+             (True, ''), (False, 'run error'), (True, '')],
+            (False, 'Module FW run failed\nrun error')
+        ),
+        (
+            'abc',
+            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0, 'a', 'b')},
+             {'status': True, 'info': '', 'feature': (112, 2048, True, True, 2048)},
+             (True, ''), (True, ''), (False, 'commit error')],
+            (False, 'Module FW commit failed\ncommit error')
+        ),
     ])
-    def test_module_fw_upgrade(self, input_param, mock_response, expected):
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cdb_fw.time.sleep')
+    def test_module_fw_upgrade(self, mock_sleep, input_param, mock_response, expected):
         with patch.object(self.api, 'get_module_fw_info', return_value=mock_response[0]), \
              patch.object(self.api, 'get_module_fw_mgmt_feature', return_value=mock_response[1]), \
              patch.object(self.api, 'module_fw_download', return_value=mock_response[2]), \
-             patch.object(self.api, 'module_fw_switch', return_value=mock_response[3]):
+             patch.object(self.api, 'module_fw_run', return_value=mock_response[3]), \
+             patch.object(self.api, 'module_fw_commit', return_value=mock_response[4]):
             result = self.api.module_fw_upgrade(input_param)
             assert result == expected
 
@@ -2046,49 +2062,6 @@ class TestCmis(object):
         assert result[0] is False
         assert 'FW_complete_status' in result[1]
 
-    @patch('sonic_platform_base.sonic_xcvr.api.public.cdb_fw.time.sleep')
-    def test_module_fw_switch_success(self, mock_sleep):
-        self._setup_cdb_fw_hdlr()
-        with patch.object(self.api, 'module_fw_run', return_value=(True, 'Success')), \
-             patch.object(self.api, 'module_fw_commit', return_value=(True, 'Success')), \
-             patch.object(self.api, 'get_module_fw_info', side_effect=[
-                {'status': True, 'result': ('1.0.0', 1, 1, 0, '2.0.0', 0, 0, 0, '1.0.0', '2.0.0')},
-                {'status': True, 'result': ('1.0.0', 0, 0, 0, '2.0.0', 1, 1, 0, '2.0.0', '1.0.0')},
-             ]):
-            result = self.api.module_fw_switch()
-            assert result[0] is True
-
-    @patch('sonic_platform_base.sonic_xcvr.api.public.cdb_fw.time.sleep')
-    def test_module_fw_switch_no_change(self, mock_sleep):
-        self._setup_cdb_fw_hdlr()
-        with patch.object(self.api, 'module_fw_run', return_value=(True, 'Success')), \
-             patch.object(self.api, 'module_fw_commit', return_value=(True, 'Success')), \
-             patch.object(self.api, 'get_module_fw_info', side_effect=[
-                {'status': True, 'result': ('1.0.0', 1, 1, 0, '2.0.0', 0, 0, 0, '1.0.0', '2.0.0')},
-                {'status': True, 'result': ('1.0.0', 1, 1, 0, '2.0.0', 0, 0, 0, '1.0.0', '2.0.0')},
-             ]):
-            result = self.api.module_fw_switch()
-            assert result[0] is False
-            assert 'Switch did not happen' in result[1]
-
-    @patch('sonic_platform_base.sonic_xcvr.api.public.cdb_fw.time.sleep')
-    def test_module_fw_switch_not_both_valid(self, mock_sleep):
-        self._setup_cdb_fw_hdlr()
-        with patch.object(self.api, 'get_module_fw_info', return_value={
-            'status': True, 'result': ('1.0.0', 1, 1, 1, '2.0.0', 0, 0, 0, '1.0.0', '2.0.0')
-        }):
-            result = self.api.module_fw_switch()
-            assert result[0] is False
-            assert 'Not both images are valid' in result[1]
-
-    @patch('sonic_platform_base.sonic_xcvr.api.public.cdb_fw.time.sleep')
-    def test_module_fw_switch_info_fail(self, mock_sleep):
-        self._setup_cdb_fw_hdlr()
-        with patch.object(self.api, 'get_module_fw_info', return_value={
-            'status': False, 'info': 'CDB error', 'result': None
-        }):
-            result = self.api.module_fw_switch()
-            assert result[0] is False
 
     @pytest.mark.parametrize("mock_response, expected", [
         ([0, 0, 0],
