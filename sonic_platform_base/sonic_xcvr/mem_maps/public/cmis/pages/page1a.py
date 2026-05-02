@@ -65,13 +65,21 @@ class ElsfpAdvertisementsFlagsCtrlPage(CmisPage):
             ),
 
             # Byte 140: control mode (bit 0) and number of lanes (bits 7-1)
-            NumberRegField(
+            RegGroupField(
                 elsfp_consts.CONTROL_MODE_AND_LANE_COUNT,
-                self.getaddr(140),
-                CodeRegField(elsfp_consts.CONTROL_MODE_APC_ACC, 0, self.codes.CONTROL_MODE),
-                RegBitsField(elsfp_consts.NUMBER_OF_LANES, bitpos=1, size=7),
-                size=1,
-                format="B",
+                CodeRegField(
+                    elsfp_consts.CONTROL_MODE_APC_ACC,
+                    self.getaddr(140),
+                    self.codes.CONTROL_MODE,
+                    RegBitsField("ControlModeBit", bitpos=0, size=1),
+                ),
+                NumberRegField(
+                    elsfp_consts.NUMBER_OF_LANES,
+                    self.getaddr(140),
+                    RegBitsField("LaneCountBits", bitpos=1, size=7),
+                    size=1,
+                    format="B",
+                ),
             ),
 
             # Bias current thresholds (U16, 100 uA increments)
@@ -213,7 +221,6 @@ class ElsfpAdvertisementsFlagsCtrlPage(CmisPage):
                     for lane in range(1, 9)
                 ),
                 size=1,
-                bitdecode=True,
             ),
             NumberRegField(
                 elsfp_consts.LOW_BIAS_ALARM_INDEXED_FIELD,
@@ -223,7 +230,6 @@ class ElsfpAdvertisementsFlagsCtrlPage(CmisPage):
                     for lane in range(1, 9)
                 ),
                 size=1,
-                bitdecode=True,
             ),
             NumberRegField(
                 elsfp_consts.HIGH_BIAS_WARN_INDEXED_FIELD,
@@ -233,7 +239,6 @@ class ElsfpAdvertisementsFlagsCtrlPage(CmisPage):
                     for lane in range(1, 9)
                 ),
                 size=1,
-                bitdecode=True,
             ),
             NumberRegField(
                 elsfp_consts.LOW_BIAS_WARN_INDEXED_FIELD,
@@ -243,7 +248,6 @@ class ElsfpAdvertisementsFlagsCtrlPage(CmisPage):
                     for lane in range(1, 9)
                 ),
                 size=1,
-                bitdecode=True,
             ),
             NumberRegField(
                 elsfp_consts.HIGH_POWER_ALARM_INDEXED_FIELD,
@@ -253,7 +257,6 @@ class ElsfpAdvertisementsFlagsCtrlPage(CmisPage):
                     for lane in range(1, 9)
                 ),
                 size=1,
-                bitdecode=True,
             ),
             NumberRegField(
                 elsfp_consts.LOW_POWER_ALARM_INDEXED_FIELD,
@@ -263,7 +266,6 @@ class ElsfpAdvertisementsFlagsCtrlPage(CmisPage):
                     for lane in range(1, 9)
                 ),
                 size=1,
-                bitdecode=True,
             ),
             NumberRegField(
                 elsfp_consts.HIGH_POWER_WARN_INDEXED_FIELD,
@@ -273,7 +275,6 @@ class ElsfpAdvertisementsFlagsCtrlPage(CmisPage):
                     for lane in range(1, 9)
                 ),
                 size=1,
-                bitdecode=True,
             ),
             NumberRegField(
                 elsfp_consts.LOW_POWER_WARN_INDEXED_FIELD,
@@ -283,7 +284,6 @@ class ElsfpAdvertisementsFlagsCtrlPage(CmisPage):
                     for lane in range(1, 9)
                 ),
                 size=1,
-                bitdecode=True,
             ),
 
             # 198-205: per-lane alarm/warn masks (1 bit per lane)
@@ -296,7 +296,6 @@ class ElsfpAdvertisementsFlagsCtrlPage(CmisPage):
                 ),
                 size=1,
                 ro=False,
-                bitdecode=True,
             ),
             NumberRegField(
                 elsfp_consts.LOW_BIAS_ALARM_MASK_FIELD,
@@ -307,7 +306,6 @@ class ElsfpAdvertisementsFlagsCtrlPage(CmisPage):
                 ),
                 size=1,
                 ro=False,
-                bitdecode=True,
             ),
             NumberRegField(
                 elsfp_consts.HIGH_BIAS_WARN_MASK_FIELD,
@@ -318,7 +316,6 @@ class ElsfpAdvertisementsFlagsCtrlPage(CmisPage):
                 ),
                 size=1,
                 ro=False,
-                bitdecode=True,
             ),
             NumberRegField(
                 elsfp_consts.LOW_BIAS_WARN_MASK_FIELD,
@@ -329,7 +326,6 @@ class ElsfpAdvertisementsFlagsCtrlPage(CmisPage):
                 ),
                 size=1,
                 ro=False,
-                bitdecode=True,
             ),
             NumberRegField(
                 elsfp_consts.HIGH_POWER_ALARM_MASK_FIELD,
@@ -340,7 +336,6 @@ class ElsfpAdvertisementsFlagsCtrlPage(CmisPage):
                 ),
                 size=1,
                 ro=False,
-                bitdecode=True,
             ),
             NumberRegField(
                 elsfp_consts.LOW_POWER_ALARM_MASK_FIELD,
@@ -351,7 +346,6 @@ class ElsfpAdvertisementsFlagsCtrlPage(CmisPage):
                 ),
                 size=1,
                 ro=False,
-                bitdecode=True,
             ),
             NumberRegField(
                 elsfp_consts.HIGH_POWER_WARN_MASK_FIELD,
@@ -362,7 +356,6 @@ class ElsfpAdvertisementsFlagsCtrlPage(CmisPage):
                 ),
                 size=1,
                 ro=False,
-                bitdecode=True,
             ),
             NumberRegField(
                 elsfp_consts.LOW_POWER_WARN_MASK_FIELD,
@@ -373,7 +366,6 @@ class ElsfpAdvertisementsFlagsCtrlPage(CmisPage):
                 ),
                 size=1,
                 ro=False,
-                bitdecode=True,
             ),
 
             # 210-211: global alarm/warn masks per lane
@@ -386,7 +378,6 @@ class ElsfpAdvertisementsFlagsCtrlPage(CmisPage):
                 ),
                 size=1,
                 ro=False,
-                bitdecode=True,
             ),
             NumberRegField(
                 elsfp_consts.GLOBAL_WARN_MASK_FIELD,
@@ -397,7 +388,6 @@ class ElsfpAdvertisementsFlagsCtrlPage(CmisPage):
                 ),
                 size=1,
                 ro=False,
-                bitdecode=True,
             ),
 
             # 212-219: per-lane 4-bit fault and warning codes

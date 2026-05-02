@@ -33,6 +33,11 @@ class CmisCodes(Sff8024):
         17: 'L-band tunable laser',
     }
 
+    MODULE_FUNCTION_TYPE = {
+        0: 'Transmission Module',
+        1: 'Resource Module',
+    }
+
     MODULE_STATE = {
         1: 'ModuleLowPwr',
         2: 'ModulePwrUp',
