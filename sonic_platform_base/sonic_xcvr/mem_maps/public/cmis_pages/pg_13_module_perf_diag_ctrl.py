@@ -11,8 +11,8 @@ from ....fields import consts
 
 
 class CmisModulePerfDiagCtrlPage(CmisPage):
-    def __init__(self, codes, bank=0):
-        super().__init__(codes, page=MODULE_PERF_DIAG_CTRL_PAGE, bank=bank)
+    def __init__(self, codes, bank=0, page=MODULE_PERF_DIAG_CTRL_PAGE):
+        super().__init__(codes, page=page, bank=bank)
 
         # TRANS_LOOPBACK_FIELD
         self.fields[consts.TRANS_LOOPBACK_FIELD] = [

@@ -14,8 +14,8 @@ from ....fields import consts
 
 
 class CmisTunableLaserCtrlStatusPage(CmisPage):
-    def __init__(self, codes, bank=0):
-        super().__init__(codes, page=TUNABLE_LASER_CTRL_STATUS_PAGE, bank=bank)
+    def __init__(self, codes, bank=0, page=TUNABLE_LASER_CTRL_STATUS_PAGE):
+        super().__init__(codes, page=page, bank=bank)
 
         # MODULE_MONITORS_FIELD
         self.fields[consts.MODULE_MONITORS_FIELD] = [

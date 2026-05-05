@@ -14,8 +14,8 @@ from ....fields import consts
 
 
 class CmisVdmAdvertisingCtrlPage(CmisPage):
-    def __init__(self, codes, bank=0):
-        super().__init__(codes, page=VDM_ADVERTISING_CTRL_PAGE, bank=bank)
+    def __init__(self, codes, bank=0, page=VDM_ADVERTISING_CTRL_PAGE):
+        super().__init__(codes, page=page, bank=bank)
 
         # TRANS_PM_FIELD
         self.fields[consts.TRANS_PM_FIELD] = [

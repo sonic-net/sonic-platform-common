@@ -11,8 +11,8 @@ from ....fields import consts
 
 
 class CmisCdbMessagePage(CmisPage):
-    def __init__(self, codes, bank=0):
-        super().__init__(codes, page=CDB_MESSAGE_PAGE, bank=bank)
+    def __init__(self, codes, bank=0, page=CDB_MESSAGE_PAGE):
+        super().__init__(codes, page=page, bank=bank)
 
         # TRANS_CDB_FIELD (partial - page 9F fields only)
         self.fields[consts.TRANS_CDB_FIELD] = [

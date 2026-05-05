@@ -16,8 +16,8 @@ from ....fields import consts
 
 
 class CmisAdvertisingPage(CmisPage):
-    def __init__(self, codes):
-        super().__init__(codes, page=ADVERTISING_PAGE, bank=0)
+    def __init__(self, codes, page=ADVERTISING_PAGE):
+        super().__init__(codes, page=page, bank=0)
 
         # ADVERTISING_FIELD
         self.fields[consts.ADVERTISING_FIELD] = [

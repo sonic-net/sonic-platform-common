@@ -16,8 +16,8 @@ from ....fields import consts
 
 
 class CmisLaneDatapathStatusPage(CmisPage):
-    def __init__(self, codes, bank=0):
-        super().__init__(codes, page=LANE_DATAPATH_STATUS_PAGE, bank=bank)
+    def __init__(self, codes, bank=0, page=LANE_DATAPATH_STATUS_PAGE):
+        super().__init__(codes, page=page, bank=bank)
 
         # TX_POWER_ALARM_FLAGS_FIELD
         self.fields[consts.TX_POWER_ALARM_FLAGS_FIELD] = [

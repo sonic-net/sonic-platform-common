@@ -15,8 +15,8 @@ from ....fields import consts
 
 
 class CmisLaneDatapathConfigPage(CmisPage):
-    def __init__(self, codes, bank=0):
-        super().__init__(codes, page=LANE_DATAPATH_CONFIG_PAGE, bank=bank)
+    def __init__(self, codes, bank=0, page=LANE_DATAPATH_CONFIG_PAGE):
+        super().__init__(codes, page=page, bank=bank)
 
         # LANE_DATAPATH_CTRL_FIELD
         self.fields[consts.LANE_DATAPATH_CTRL_FIELD] = [
