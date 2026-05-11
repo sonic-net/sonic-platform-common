@@ -275,8 +275,8 @@ class SsdUtil(StorageCommon):
                 health_raw = self.parse_id_number(VIRTIUM_HEALTH_ID, self.vendor_ssd_info)
                 self.health = float(health_raw.split()[2]) if health_raw != NOT_AVAILABLE else NOT_AVAILABLE
             else :
-                nand_endurance = self._parse_re(r'(?m)NAND_Endurance.*?(\d+)\s*$', self.vendor_ssd_info)
-                avg_erase_count = self._parse_re(r'(?m)Average_Erase_Count.*?(\d+)\s*$', self.vendor_ssd_info)
+                nand_endurance = self._parse_re(r'NAND_Endurance\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info)
+                avg_erase_count = self._parse_re(r'Average_Erase_Count\s*\d*\s*(\d+?)\s+', self.vendor_ssd_info)
                 if nand_endurance != NOT_AVAILABLE and avg_erase_count != NOT_AVAILABLE:
                     try:
                         self.health = 100 - (float(avg_erase_count) * 100 / float(nand_endurance))
@@ -342,7 +342,7 @@ class SsdUtil(StorageCommon):
 
                 if average_erase_count != NOT_AVAILABLE and nand_endurance != NOT_AVAILABLE:
                     try:
-                        self.health = 100 - (float(average_erase_count.split()[-1]) * 100 / float(nand_endurance.split()[-1]))
+                        self.health = 100 - (float(average_erase_count.split()[-1]) * 100 / float(nand_endurance))
                     except (ValueError, ZeroDivisionError) as ex:
                         self.log.log_info("SsdUtil parse_micron_info exception: {}".format(ex))
                         pass
