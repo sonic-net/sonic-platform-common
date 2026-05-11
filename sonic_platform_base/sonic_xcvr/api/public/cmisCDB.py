@@ -27,6 +27,7 @@ class CmisCdbApi(XcvrApi):
         super(CmisCdbApi, self).__init__(xcvr_eeprom)
         self.cdb_instance_supported = self.xcvr_eeprom.read(consts.CDB_SUPPORT)
         self.failed_status_dict = self.xcvr_eeprom.mem_map.codes.CDB_FAIL_STATUS
+        self._fw_max_duration_ms = None
         #assert self.cdb_instance_supported != 0
 
     def cdb1_chkflags(self):
@@ -75,9 +76,14 @@ class CmisCdbApi(XcvrApi):
             checksum += byte
         return 0xff - (checksum & 0xff)
 
-    def cdb1_chkstatus(self):
+    def cdb1_chkstatus(self, max_wait_ms=None, poll_interval_ms=100):
         '''
         This function checks the CDB status.
+
+        Polls CdbStatus1 (00h:37) until CdbIsBusy clears or timeout.
+        max_wait_ms: poll ceiling in ms (None => legacy 60 s).
+        poll_interval_ms: polling cadence in ms (default 100).
+
         The format of returned values is busy flag, failed flag and cause
 
         CDB command status
@@ -121,11 +127,17 @@ class CmisCdbApi(XcvrApi):
             20h-2Fh=For individual STS command or task error
             30h-3Fh=Custom
         '''
+        if max_wait_ms is None:
+            max_iters = MAX_WAIT
+        else:
+            # Round up so the requested bound is always honored.
+            max_iters = max(1, (int(max_wait_ms) + poll_interval_ms - 1) // poll_interval_ms)
+        poll_interval_s = poll_interval_ms / 1000.0
         status = self.xcvr_eeprom.read(consts.CDB1_STATUS)
         is_busy = bool(((0x80 if status is None else status) >> 7) & 0x1)
         cnt = 0
-        while is_busy and cnt < MAX_WAIT:
-            time.sleep(0.1)
+        while is_busy and cnt < max_iters:
+            time.sleep(poll_interval_s)
             status = self.xcvr_eeprom.read(consts.CDB1_STATUS)
             is_busy = bool(((0x80 if status is None else status) >> 7) & 0x1)
             cnt += 1
@@ -223,8 +235,9 @@ class CmisCdbApi(XcvrApi):
     # Firmware Update Features Supported
     def get_fw_management_features(self):
         '''
-        This command is used to query supported firmware update features
-        It returns the status and reply message of this CDB command 0041h.
+        Query supported firmware update features (CDB CMD 0041h).
+        Returns {'status', 'rpl'}. On success, also caches MaxDuration*
+        timeouts from rpl into self._fw_max_duration_ms.
         '''
         cmd = bytearray(b'\x00\x41\x00\x00\x00\x00\x00\x00')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
@@ -241,7 +254,60 @@ class CmisCdbApi(XcvrApi):
         logger.info(txt)
 
         rpl = self.read_cdb()
+        if status == 0x1:
+            self._parse_fw_mgmt_durations(rpl)
         return {'status': status, 'rpl': rpl}
+
+    def _parse_fw_mgmt_durations(self, rpl):
+        '''
+        Parse the reply of CDB CMD 0041h (Firmware Management Features) and
+        populate self._fw_max_duration_ms with per-command max execution
+        durations advertised by the module.
+
+        Per CMIS spec, the reply LPL layout (from 9Fh:136) of interest is:
+            +1   (137)     bit 3 = MaxDurationCoding (0 => x1 ms, 1 => x10 ms)
+            +8,9 (144-145) MaxDurationStart    (U16 BE, in M*ms)
+            +10,11(146-147)MaxDurationAbort    (U16 BE, in M*ms)
+            +12,13(148-149)MaxDurationWrite    (U16 BE, in M*ms)
+            +14,15(150-151)MaxDurationComplete (U16 BE, in M*ms)
+            +16,17(152-153)MaxDurationCopy     (U16 BE, in M*ms)
+
+        rpl is the tuple (rpllen, rpl_chkcode, rpl_bytes) returned by
+        read_cdb(); rpl_bytes is the LPL payload starting at 9Fh:136.
+        '''
+        self._fw_max_duration_ms = {}
+        if not rpl:
+            return
+        _rpllen, _chk, rpl_bytes = rpl
+        if rpl_bytes is None or len(rpl_bytes) < 18:
+            return
+        multiplier_ms = 10 if (rpl_bytes[1] >> 3) & 0x1 else 1
+        def _u16(off):
+            return ((rpl_bytes[off] << 8) | rpl_bytes[off + 1]) * multiplier_ms
+        self._fw_max_duration_ms = {
+            'start':    _u16(8),
+            'abort':    _u16(10),
+            'write':    _u16(12),
+            'complete': _u16(14),
+            'copy':     _u16(16),
+        }
+
+    def _get_fw_max_duration_ms(self, key):
+        '''
+        Return advertised max duration (ms) for FW mgmt CDB command `key`
+        ('start'/'abort'/'write'/'complete'/'copy'), or None if unavailable.
+        Lazily fetches CDB 0041h if the cache is not yet populated.
+        '''
+        if self._fw_max_duration_ms is None:
+            try:
+                self.get_fw_management_features()
+            except Exception as e:
+                logger.warning(
+                    'CDB 0041h (Firmware Management Features) query failed: %s', e)
+            if self._fw_max_duration_ms is None:
+                self._fw_max_duration_ms = {}
+        val = self._fw_max_duration_ms.get(key)
+        return val if val and val > 0 else None
 
     # Get FW info
     def get_fw_info(self):
@@ -286,7 +352,9 @@ class CmisCdbApi(XcvrApi):
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
         self.write_cdb(cmd)
         time.sleep(MAX_CDB_CMD_FOREGROUND_PROCESSING_TIME_tCDBF)
-        status = self.cdb1_chkstatus()
+        status = self.cdb1_chkstatus(
+            max_wait_ms=self._get_fw_max_duration_ms('start'),
+            poll_interval_ms=2000)
         if (status != 0x1):
             if status > 127:
                 txt = 'Start firmware download status: Busy'
@@ -309,7 +377,8 @@ class CmisCdbApi(XcvrApi):
         cmd = bytearray(b'\x01\x02\x00\x00\x00\x00\x00\x00')
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
         self.write_cdb(cmd)
-        status = self.cdb1_chkstatus()
+        status = self.cdb1_chkstatus(
+            max_wait_ms=self._get_fw_max_duration_ms('abort'))
         if (status != 0x1):
             if status > 127:
                 txt = 'Abort firmware download status: Busy'
@@ -340,7 +409,8 @@ class CmisCdbApi(XcvrApi):
         cmd += paddedPayload
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
         self.write_cdb(cmd)
-        status = self.cdb1_chkstatus()
+        status = self.cdb1_chkstatus(
+            max_wait_ms=self._get_fw_max_duration_ms('write'))
         if (status != 0x1):
             if status > 127:
                 txt = 'LPL firmware download status: Busy'
@@ -394,7 +464,8 @@ class CmisCdbApi(XcvrApi):
         cmd[131-INIT_OFFSET] =  epl_len       & 0xff
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
         self.write_cdb(cmd)
-        status = self.cdb1_chkstatus()
+        status = self.cdb1_chkstatus(
+            max_wait_ms=self._get_fw_max_duration_ms('write'))
         if (status != 0x1):
             if status > 127:
                 txt = 'EPL firmware download status: Busy'
@@ -417,7 +488,9 @@ class CmisCdbApi(XcvrApi):
         cmd[133-INIT_OFFSET] = self.cdb_chkcode(cmd)
         self.write_cdb(cmd)
         time.sleep(MAX_CDB_CMD_FOREGROUND_PROCESSING_TIME_tCDBF)
-        status = self.cdb1_chkstatus()
+        status = self.cdb1_chkstatus(
+            max_wait_ms=self._get_fw_max_duration_ms('complete'),
+            poll_interval_ms=1000)
         if (status != 0x1):
             if status > 127:
                 txt = 'Firmware download complete status: Busy'
