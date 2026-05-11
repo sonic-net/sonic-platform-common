@@ -1905,7 +1905,7 @@ class TestSsd:
         virtium_ssd.disk_io_writes = 'N/A'
         virtium_ssd.reserved_blocks = 'N/A'
         virtium_ssd.vendor_ssd_info = output_virtium_vendor.replace(
-            "177           Reserved_Attribute          0      22301   100   100        50 \n", "").replace(
+            "232           Reserved_Attribute          0        100   100   100         0 \n", "").replace(
             "241           Total_LBAs_Written          0     629509   100   100         0 \n", "").replace(
             "242              Total_LBAs_Read          0    1482095   100   100         0 \n", "")
 
