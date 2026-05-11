@@ -342,7 +342,7 @@ class SsdUtil(StorageCommon):
 
                 if average_erase_count != NOT_AVAILABLE and nand_endurance != NOT_AVAILABLE:
                     try:
-                        self.health = 100 - (float(average_erase_count) * 100 / float(nand_endurance))
+                        self.health = 100 - (float(average_erase_count.split()[-1]) * 100 / float(nand_endurance.split()[-1]))
                     except (ValueError, ZeroDivisionError) as ex:
                         self.log.log_info("SsdUtil parse_micron_info exception: {}".format(ex))
                         pass
