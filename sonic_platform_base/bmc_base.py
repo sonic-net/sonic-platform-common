@@ -268,8 +268,7 @@ class BMCBase(device_base.DeviceBase):
             A boolean indicating whether the BMC device is present
         """
         from sonic_py_common import device_info
-        bmc_data = device_info.get_bmc_data()
-        if bmc_data and bmc_data.get('bmc_addr'):
+        if device_info.is_switch_host() and device_info.get_bmc_data():
             return True
         return False
 

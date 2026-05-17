@@ -53,17 +53,28 @@ class TestBMCBase:
         bmc = BMCBase('169.254.0.1')
         assert bmc.get_name() == BMCBase.BMC_NAME
 
-    def test_get_presence_true(self):
-        """Test get_presence returns True when BMC data is present"""
-        with mock.patch('sonic_py_common.device_info.get_bmc_data', create=True, return_value={'bmc_addr': '169.254.0.1'}):
-            bmc = BMCBase('169.254.0.1')
-            assert bmc.get_presence() == True
+    @mock.patch('sonic_py_common.device_info.is_switch_host', create=True, return_value=True)
+    @mock.patch('sonic_py_common.device_info.get_bmc_data', create=True,
+                return_value={'bmc_addr': '169.254.0.1'})
+    def test_get_presence_true(self, _mock_get_bmc_data, _mock_is_switch_host):
+        """Test get_presence returns True on Switch-Host when bmc.json data exists"""
+        bmc = BMCBase('169.254.0.1')
+        assert bmc.get_presence() is True
 
-    def test_get_presence_false(self):
-        """Test get_presence returns False when BMC data is not present"""
-        with mock.patch('sonic_py_common.device_info.get_bmc_data', create=True, return_value=None):
-            bmc = BMCBase('169.254.0.1')
-            assert bmc.get_presence() == False
+    @mock.patch('sonic_py_common.device_info.is_switch_host', create=True, return_value=True)
+    @mock.patch('sonic_py_common.device_info.get_bmc_data', create=True, return_value=None)
+    def test_get_presence_false_no_bmc_data(self, _mock_get_bmc_data, _mock_is_switch_host):
+        """Test get_presence returns False when /etc/sonic/bmc.json is unavailable"""
+        bmc = BMCBase('169.254.0.1')
+        assert bmc.get_presence() is False
+
+    @mock.patch('sonic_py_common.device_info.is_switch_host', create=True, return_value=False)
+    @mock.patch('sonic_py_common.device_info.get_bmc_data', create=True,
+                return_value={'bmc_addr': '169.254.0.1'})
+    def test_get_presence_false_not_switch_host(self, _mock_get_bmc_data, _mock_is_switch_host):
+        """Test get_presence returns False on Switch-BMC even if bmc.json data exists"""
+        bmc = BMCBase('169.254.0.1')
+        assert bmc.get_presence() is False
 
     def test_is_replaceable(self):
         """Test is_replaceable returns False"""
