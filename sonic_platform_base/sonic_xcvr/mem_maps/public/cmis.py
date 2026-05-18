@@ -22,6 +22,7 @@ from .cmis_pages.cmis_page_consts import (
     CMIS_NUM_NON_BANKED_PAGES,
     CMIS_ARCH_PAGES,
 )
+from .cmis_pages.base import cmis_linear_offset
 
 # Import page classes
 from .cmis_pages import (
@@ -66,43 +67,12 @@ class CmisFlatMemMap(XcvrMemMap):
         return self._bank
 
     def getaddr(self, page, offset, page_size=128):
+        """Linear EEPROM offset for `(page, self.bank, offset)`.
+
+        See cmis_linear_offset for the full addressing rules (including bank
+        clamping for non-banked and CDB pages).
         """
-        Calculate linear offset for CMIS memory map using instance's bank.
-
-        For lower memory (page 0, offset < 128):
-            linear_offset = offset
-
-        For non-banked pages (00h-0Fh):
-            bank is clamped to 0 because writing the BankSelect register is
-            not necessary for these pages per CMIS 5.x.
-
-        For paged memory:
-            offset_in_paged_area = (page * page_size + offset) - 128
-            bytes_per_bank = CMIS_ARCH_PAGES * page_size  (256 * 128 = 32KB)
-            linear_offset = 128 + (bank * bytes_per_bank) + offset_in_paged_area
-
-        Simplified:
-            linear_offset = (bank * CMIS_ARCH_PAGES + page) * page_size + offset
-
-        Note: Each bank is treated as a full 256-page (32KB) architectural block,
-        even though only pages 10h-FFh (240 pages) are actually banked. This ensures
-        proper alignment and matches the kernel driver behavior.
-        """
-        if page == 0 and offset < 128:
-            # Lower memory - not affected by banking or paging.
-            return offset
-
-        # If we are accessing a non-banked page, there is no reason to set the bank
-        # to a non-zero value. 
-        bank = 0 if page < CMIS_NUM_NON_BANKED_PAGES else self.bank
-        # Note: we consider CDB pages as non-banked here, though it
-        # is possible to have multiple CDB instances exposed for a module where
-        # each instance is accessible via bank selection.
-        # This can be deleted once support for multiple CDB instances is added.
-        bank = 0 if 0x9F <= page <= 0xAF else bank
-        # For all paged memory (including bank 0), use the unified formula
-        # that treats each bank as a 256-page (32KB) block
-        return (bank * CMIS_ARCH_PAGES + page) * page_size + offset
+        return cmis_linear_offset(page, self.bank, offset, page_size)
 
 class CmisMemMap(CmisFlatMemMap):
     def __init__(self, codes, bank=0):

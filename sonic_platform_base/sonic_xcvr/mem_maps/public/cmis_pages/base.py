@@ -7,7 +7,29 @@
 from typing import Dict
 from ...xcvr_mem_map import XcvrMemMap
 from ....fields.xcvr_field import RegField, RegGroupField
-from .cmis_page_consts import CMIS_ARCH_PAGES
+from .cmis_page_consts import CMIS_ARCH_PAGES, CMIS_NUM_NON_BANKED_PAGES
+
+
+def cmis_linear_offset(page, bank, offset, page_size=128):
+    """Compute the linear EEPROM offset for a CMIS (page, bank, offset) triple.
+
+    Lower memory (page 0, offset < 128) is unaffected by paging or banking.
+
+    Bank is clamped to 0 for:
+      - non-banked pages (00h-0Fh): writing BankSelect is not required per CMIS 5.x
+      - CDB pages (9Fh-AFh): treated as non-banked here, though the spec permits
+        multiple CDB instances reachable via bank selection. Revisit if support
+        for multiple CDB instances is added.
+
+    Each bank is a full 256-page (32KB) architectural block, matching the kernel
+    driver layout, even though only pages 10h-FFh (240 pages) are actually banked.
+    """
+    if page == 0 and offset < 128:
+        return offset
+    if page < CMIS_NUM_NON_BANKED_PAGES or 0x9F <= page <= 0xAF:
+        bank = 0
+    return (bank * CMIS_ARCH_PAGES + page) * page_size + offset
+
 
 def get_field_from_pages(field_name, *pages):
         fields = []
@@ -36,31 +58,12 @@ class CmisPage(XcvrMemMap):
         return self._bank
 
     def getaddr(self, offset, page_size=128):
+        """Linear EEPROM offset for this page's `(page, bank)` at `offset`.
+
+        See cmis_linear_offset for the full addressing rules (including bank
+        clamping for non-banked and CDB pages).
         """
-        Calculate linear offset for CMIS memory map using instance's bank.
-
-        For lower memory (page 0, offset < 128):
-            linear_offset = offset
-
-        For paged memory:
-            offset_in_paged_area = (page * page_size + offset) - 128
-            bytes_per_bank = CMIS_ARCH_PAGES * page_size  (256 * 128 = 32KB)
-            linear_offset = 128 + (bank * bytes_per_bank) + offset_in_paged_area
-
-        Simplified:
-            linear_offset = (bank * CMIS_ARCH_PAGES + page) * page_size + offset
-
-        Note: Each bank is treated as a full 256-page (32KB) architectural block,
-        even though only pages 10h-FFh (240 pages) are actually banked. This ensures
-        proper alignment and matches the kernel driver behavior.
-        """
-        if self._page == 0 and offset < 128:
-            # Lower memory - not affected by banking
-            return offset
-
-        # For all paged memory (including bank 0), use the unified formula
-        # that treats each bank as a 256-page (32KB) block
-        return (self._bank * CMIS_ARCH_PAGES + self._page) * page_size + offset
+        return cmis_linear_offset(self._page, self._bank, offset, page_size)
 
     def get_field_values(self, field: str):
         return self.fields[field]
