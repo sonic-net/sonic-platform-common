@@ -196,53 +196,94 @@ class TestSfpOptoeBase(object):
 
         mock_open.assert_called()
 
+    @patch.object(SfpOptoeBase, 'get_eeprom_path')
+    def test_set_optoe_max_bank_size_success(self, mock_get_eeprom_path):
+        mock_get_eeprom_path.return_value = "/sys/bus/i2c/devices/1-0050/eeprom"
+        expected_path = "/sys/bus/i2c/devices/1-0050/max_bank_size"
+
+        m = mock_open(read_data="0")
+        with patch("builtins.open", m):
+            self.sfp_optoe_api.set_optoe_max_bank_size(4)
+
+        m.assert_any_call(expected_path)
+        m.assert_any_call(expected_path, mode='w')
+        m().write.assert_called_once_with("4")
+
+    @patch.object(SfpOptoeBase, 'get_eeprom_path')
+    def test_set_optoe_max_bank_size_skips_when_value_matches(self, mock_get_eeprom_path):
+        mock_get_eeprom_path.return_value = "/sys/bus/i2c/devices/1-0050/eeprom"
+        expected_path = "/sys/bus/i2c/devices/1-0050/max_bank_size"
+
+        m = mock_open(read_data="4")
+        with patch("builtins.open", m):
+            self.sfp_optoe_api.set_optoe_max_bank_size(4)
+
+        m.assert_called_once_with(expected_path)
+        m().write.assert_not_called()
+
+    @patch.object(SfpOptoeBase, 'get_eeprom_path')
+    def test_set_optoe_max_bank_size_missing_sysfs_is_noop(self, mock_get_eeprom_path):
+        mock_get_eeprom_path.return_value = "/sys/bus/i2c/devices/1-0050/eeprom"
+        m = mock_open()
+        m.side_effect = FileNotFoundError
+
+        with patch("builtins.open", m):
+            self.sfp_optoe_api.set_optoe_max_bank_size(4)
+
+        m.assert_called_once_with("/sys/bus/i2c/devices/1-0050/max_bank_size")
+
     @patch('sonic_platform_base.sonic_xcvr.sfp_optoe_base.SfpBase.refresh_xcvr_api')
     @patch.object(SfpOptoeBase, 'set_optoe_max_bank_size')
-    @patch.object(SfpOptoeBase, '_read_optoe_max_bank_size')
     @patch.object(SfpOptoeBase, 'bank', new_callable=PropertyMock)
-    def test_refresh_xcvr_api_nonzero_bank_writes_max_bank_size(self, mock_bank, mock_read, mock_set, mock_super):
-        mock_bank.return_value = 1
-        mock_read.return_value = 4
+    def test_refresh_xcvr_api_bank_zero_skips_sync(self, mock_bank, mock_set, mock_super):
+        mock_bank.return_value = 0
+        self.sfp_optoe_api._xcvr_api = MagicMock()
+
         self.sfp_optoe_api.refresh_xcvr_api()
+
+        self.sfp_optoe_api._xcvr_api.get_max_supported_banks.assert_not_called()
+        mock_set.assert_not_called()
+        mock_super.assert_called_once()
+
+    @patch('sonic_platform_base.sonic_xcvr.sfp_optoe_base.SfpBase.refresh_xcvr_api')
+    @patch.object(SfpOptoeBase, 'set_optoe_max_bank_size')
+    @patch.object(SfpOptoeBase, 'bank', new_callable=PropertyMock)
+    def test_refresh_xcvr_api_nonzero_bank_writes_max_bank_size(self, mock_bank, mock_set, mock_super):
+        mock_bank.return_value = 1
+        self.sfp_optoe_api._xcvr_api = MagicMock()
+        self.sfp_optoe_api._xcvr_api.get_max_supported_banks.return_value = 4
+
+        self.sfp_optoe_api.refresh_xcvr_api()
+
+        self.sfp_optoe_api._xcvr_api.get_max_supported_banks.assert_called_once()
         mock_set.assert_called_once_with(4)
         mock_super.assert_called_once()
 
-    @pytest.mark.parametrize("id_byte, flat_mem_byte, banks_byte, expected", [
-        # Non-CMIS IDs short-circuit before any further reads
-        (0x03, None, None, None),       # SFP
-        (0x0D, None, None, None),       # QSFP+
-        (0x11, None, None, None),       # QSFP28
-        # Flat-memory CMIS modules short-circuit before the banks-byte read
-        (0x18, 0x80, None, None),       # bit 7 set: flat memory
-        (0x18, 0xFF, None, None),       # bit 7 set + other bits: still flat
-        # All four CMIS IDs reach the banks-byte read when flat_mem=0
-        (0x18, 0x00, 0x00, 0),          # QSFP-DD, 1 bank -> sysfs 0 (banking off)
-        (0x19, 0x00, 0x01, 2),          # OSFP, 2 banks
-        (0x1b, 0x00, 0x02, 4),          # DSFP, 4 banks
-        (0x1e, 0x00, 0x01, 2),          # QSFP+ CMIS, 2 banks
-        # Bits 0-6 in byte 2 are ignored by the &0x80 flat-mem mask
-        (0x18, 0x7F, 0x02, 4),          # all bits except bit 7: still paged
-        # Reserved encoding 0b11 in banks byte maps to None
-        (0x18, 0x00, 0x03, None),
-        # Bits 2-7 in banks byte 142 are ignored by the &0x03 mask
-        (0x18, 0x00, 0x62, 4),          # VDM/Diag bits set + 0b10 in low bits
-        (0x18, 0x00, 0xFB, None),       # high bits set + 0b11 reserved in low bits
-        # Read failures propagate as None
-        (None, None, None, None),       # ID byte read fails
-        (0x18, None, None, None),       # flat-mem byte read fails
-        (0x18, 0x00, None, None),       # banks byte read fails
-    ])
-    def test_read_optoe_max_bank_size(self, id_byte, flat_mem_byte, banks_byte, expected):
-        def fake_read(offset, num_bytes):
-            if offset == 0:
-                return bytearray([id_byte]) if id_byte is not None else None
-            if offset == 2:
-                return bytearray([flat_mem_byte]) if flat_mem_byte is not None else None
-            if offset == 270:
-                return bytearray([banks_byte]) if banks_byte is not None else None
-            return None
-        with patch.object(SfpOptoeBase, 'read_eeprom', side_effect=fake_read):
-            assert self.sfp_optoe_api._read_optoe_max_bank_size() == expected
+    @patch('sonic_platform_base.sonic_xcvr.sfp_optoe_base.SfpBase.refresh_xcvr_api')
+    @patch.object(SfpOptoeBase, 'set_optoe_max_bank_size')
+    @patch.object(SfpOptoeBase, 'bank', new_callable=PropertyMock)
+    def test_refresh_xcvr_api_nonzero_bank_noop_when_api_unsupported(self, mock_bank, mock_set, mock_super):
+        mock_bank.return_value = 1
+        self.sfp_optoe_api._xcvr_api = MagicMock()
+        self.sfp_optoe_api._xcvr_api.get_max_supported_banks.side_effect = AttributeError
+
+        self.sfp_optoe_api.refresh_xcvr_api()
+
+        mock_set.assert_not_called()
+        mock_super.assert_called_once()
+
+    @patch.object(CmisApi, 'is_flat_memory', return_value=True)
+    def test_get_max_supported_banks_flat_mem(self, _mock_flat):
+        assert self.cmis_api.get_max_supported_banks() == 0
+
+    @patch.object(CmisApi, 'is_flat_memory', return_value=False)
+    def test_get_max_supported_banks_reads_banks_supported_field(self, _mock_flat):
+        self.cmis_api.xcvr_eeprom.read = MagicMock(return_value=4)
+
+        result = self.cmis_api.get_max_supported_banks()
+
+        self.cmis_api.xcvr_eeprom.read.assert_called_once_with('BanksSupported')
+        assert result == 4
 
     def test_set_power(self):
         mode = 1
