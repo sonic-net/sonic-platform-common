@@ -22,7 +22,7 @@ from .pages.consts import (
     CMIS_NUM_NON_BANKED_PAGES,
     CMIS_ARCH_PAGES,
 )
-from .pages.page import cmis_linear_offset
+from .pages.page import CmisPage
 
 # Import page classes
 from .pages import (
@@ -69,10 +69,10 @@ class CmisFlatMemMap(XcvrMemMap):
     def getaddr(self, page, offset, page_size=128):
         """Linear EEPROM offset for `(page, self.bank, offset)`.
 
-        See cmis_linear_offset for the full addressing rules (including bank
+        See CmisPage.linear_offset for the full addressing rules (including bank
         clamping for non-banked and CDB pages).
         """
-        return cmis_linear_offset(page, self.bank, offset, page_size)
+        return CmisPage.linear_offset(page, self.bank, offset, page_size)
 
 class CmisMemMap(CmisFlatMemMap):
     def __init__(self, codes, bank=0):

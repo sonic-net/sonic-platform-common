@@ -10,34 +10,6 @@ from .....fields.xcvr_field import RegField, RegGroupField
 from .consts import CMIS_ARCH_PAGES, CMIS_NUM_NON_BANKED_PAGES
 
 
-def cmis_linear_offset(page, bank, offset, page_size=128):
-    """Compute the linear EEPROM offset for a CMIS (page, bank, offset) triple.
-
-    Lower memory (page 0, offset < 128) is unaffected by paging or banking.
-
-    Bank is clamped to 0 for:
-      - non-banked pages (00h-0Fh): writing BankSelect is not required per CMIS 5.x
-      - CDB pages (9Fh-AFh): treated as non-banked here, though the spec permits
-        multiple CDB instances reachable via bank selection. Revisit if support
-        for multiple CDB instances is added.
-
-    Each bank is a full 256-page (32KB) architectural block, matching the kernel
-    driver layout, even though only pages 10h-FFh (240 pages) are actually banked.
-    """
-    if page == 0 and offset < 128:
-        return offset
-    if page < CMIS_NUM_NON_BANKED_PAGES or 0x9F <= page <= 0xAF:
-        bank = 0
-    return (bank * CMIS_ARCH_PAGES + page) * page_size + offset
-
-
-def get_field_from_pages(field_name, *pages):
-        fields = []
-        for page in pages:
-            if hasattr(page, 'fields') and field_name in page.fields:
-                fields.extend(page.fields[field_name])
-        return fields
-
 class CmisPage(XcvrMemMap):
     fields: Dict[str, list[RegField]]  # This is a Dictionary of list of fields
 
@@ -57,13 +29,42 @@ class CmisPage(XcvrMemMap):
         """Returns the bank number (read-only)."""
         return self._bank
 
+    @staticmethod
+    def linear_offset(page, bank, offset, page_size=128):
+        """Compute the linear EEPROM offset for a CMIS (page, bank, offset) triple.
+
+        Lower memory (page 0, offset < 128) is unaffected by paging or banking.
+
+        Bank is clamped to 0 for:
+          - non-banked pages (00h-0Fh): writing BankSelect is not required per CMIS 5.x
+          - CDB pages (9Fh-AFh): treated as non-banked here, though the spec permits
+            multiple CDB instances reachable via bank selection. Revisit if support
+            for multiple CDB instances is added.
+
+        Each bank is a full 256-page (32KB) architectural block, matching the kernel
+        driver layout, even though only pages 10h-FFh (240 pages) are actually banked.
+        """
+        if page == 0 and offset < 128:
+            return offset
+        if page < CMIS_NUM_NON_BANKED_PAGES or 0x9F <= page <= 0xAF:
+            bank = 0
+        return (bank * CMIS_ARCH_PAGES + page) * page_size + offset
+
+    @staticmethod
+    def get_field_from_pages(field_name, *pages):
+        fields = []
+        for page in pages:
+            if hasattr(page, 'fields') and field_name in page.fields:
+                fields.extend(page.fields[field_name])
+        return fields
+
     def getaddr(self, offset, page_size=128):
         """Linear EEPROM offset for this page's `(page, bank)` at `offset`.
 
-        See cmis_linear_offset for the full addressing rules (including bank
+        See CmisPage.linear_offset for the full addressing rules (including bank
         clamping for non-banked and CDB pages).
         """
-        return cmis_linear_offset(self._page, self._bank, offset, page_size)
+        return CmisPage.linear_offset(self._page, self._bank, offset, page_size)
 
     def get_field_values(self, field: str):
         return self.fields[field]
