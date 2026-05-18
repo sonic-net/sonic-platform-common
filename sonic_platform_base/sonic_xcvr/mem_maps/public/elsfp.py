@@ -11,6 +11,8 @@ from .cmis import CmisFlatMemMap
 from .cmis.pages import (
     CmisAdvertisingPage,
     CmisThresholdsPage,
+    CmisVdmAdvertisingCtrlPage,
+    CmisCdbMessagePage,
     ElsfpAdvertisementsFlagsCtrlPage,
     ElsfpSetpointsMonitorsPage,
 )
@@ -25,6 +27,8 @@ class ElsfpMemMap(CmisFlatMemMap):
     - Page 02h: CMIS Thresholds
     - Page 1Ah: ELSFP Advertisements, Flags, and Controls
     - Page 1Bh: ELSFP Setpoints and Monitors
+    - Page 2Fh: CMIS VDM Advertising and Control (optional on ELSFP modules)
+    - Page 9Fh: CMIS CDB Message (optional on ELSFP modules)
 
     Excludes CMIS pages 10h, 11h, 12h, 13h (lane datapath and module control pages).
     """
@@ -38,4 +42,6 @@ class ElsfpMemMap(CmisFlatMemMap):
             CmisThresholdsPage(codes),                 # 0x02
             ElsfpAdvertisementsFlagsCtrlPage(codes, bank=bank),   # 0x1A
             ElsfpSetpointsMonitorsPage(codes, bank=bank),         # 0x1B
+            CmisVdmAdvertisingCtrlPage(codes, bank=bank),  # 0x2F
+            CmisCdbMessagePage(codes, bank=bank),          # 0x9F
         )
