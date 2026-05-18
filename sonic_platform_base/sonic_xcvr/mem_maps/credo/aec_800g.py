@@ -14,10 +14,9 @@ from ...fields.xcvr_field import (
 )
 from ...fields import consts
 
-
 class CredoAec800gMemMap(CmisMemMap):
-    def __init__(self, codes):
-        super().__init__(codes)
+    def __init__(self, codes, bank=0):
+        super().__init__(codes, bank=bank)
 
         self.CMIS_TARGET_SERVER_INFO = RegGroupField(consts.CMIS_TARGET_SERVER_INFO,
             NumberRegField(consts.PAGE_SELECT_BYTE, self.getaddr(0, 127), format="B", size=1, ro=False),
