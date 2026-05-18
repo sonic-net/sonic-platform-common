@@ -300,6 +300,31 @@ class SfpOptoeBase(SfpBase):
         api = self.get_xcvr_api()
         return api.set_lpmode(lpmode) if api is not None else None
 
+    def get_lpmode_via_pin(self):
+        """
+        Retrieves the lpmode (low power mode) status of this SFP via the
+        hardware LPMode pin. Platform vendors must implement this if they
+        want to control lpmode via the hardware pin instead of EEPROM.
+
+        Returns:
+            A Boolean, True if lpmode is enabled, False if disabled
+        """
+        raise NotImplementedError
+
+    def set_lpmode_via_pin(self, lpmode):
+        """
+        Sets the lpmode (low power mode) of this SFP via the hardware
+        LPMode pin. Platform vendors must implement this if they want to
+        control lpmode via the hardware pin instead of EEPROM.
+
+        Args:
+            lpmode: A Boolean, True to enable lpmode, False to disable it
+
+        Returns:
+            A boolean, True if lpmode is set successfully, False if not
+        """
+        raise NotImplementedError
+
     def set_power(self, mode):
         raise NotImplementedError
 

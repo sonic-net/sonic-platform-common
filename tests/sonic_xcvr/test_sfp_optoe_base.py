@@ -285,6 +285,14 @@ class TestSfpOptoeBase(object):
         mode = 1
         with pytest.raises(NotImplementedError):
             self.sfp_optoe_api.set_power(mode)
+
+    def test_get_lpmode_via_pin_not_implemented(self):
+        with pytest.raises(NotImplementedError):
+            SfpOptoeBase().get_lpmode_via_pin()
+
+    def test_set_lpmode_via_pin_not_implemented(self):
+        with pytest.raises(NotImplementedError):
+            SfpOptoeBase().set_lpmode_via_pin(True)
  
     def test_default_page(self):
         with patch("builtins.open", mock_open(read_data=b'\x01')) as mocked_file:
