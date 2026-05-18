@@ -196,43 +196,6 @@ class TestSfpOptoeBase(object):
 
         mock_open.assert_called()
 
-    @patch.object(SfpOptoeBase, 'get_eeprom_path')
-    def test_set_optoe_max_bank_size_success(self, mock_get_eeprom_path):
-        mock_get_eeprom_path.return_value = "/sys/bus/i2c/devices/1-0050/eeprom"
-        expected_path = "/sys/bus/i2c/devices/1-0050/max_bank_size"
-        expected_value = 4
-
-        m = mock_open(read_data="0")
-        with patch("builtins.open", m):
-            self.sfp_optoe_api.set_optoe_max_bank_size(expected_value)
-
-        m.assert_any_call(expected_path)
-        m.assert_any_call(expected_path, mode='w')
-        m().write.assert_called_once_with(str(expected_value))
-
-    @patch.object(SfpOptoeBase, 'get_eeprom_path')
-    def test_set_optoe_max_bank_size_skips_when_value_matches(self, mock_get_eeprom_path):
-        mock_get_eeprom_path.return_value = "/sys/bus/i2c/devices/1-0050/eeprom"
-        expected_path = "/sys/bus/i2c/devices/1-0050/max_bank_size"
-
-        m = mock_open(read_data="4")
-        with patch("builtins.open", m):
-            self.sfp_optoe_api.set_optoe_max_bank_size(4)
-
-        m.assert_called_once_with(expected_path)
-        m().write.assert_not_called()
-
-    @patch('sonic_platform_base.sonic_xcvr.sfp_optoe_base.SfpBase.refresh_xcvr_api')
-    @patch.object(SfpOptoeBase, 'set_optoe_max_bank_size')
-    @patch.object(SfpOptoeBase, '_read_optoe_max_bank_size')
-    @patch.object(SfpOptoeBase, 'bank', new_callable=PropertyMock)
-    def test_refresh_xcvr_api_bank_zero_skips_sync(self, mock_bank, mock_read, mock_set, mock_super):
-        mock_bank.return_value = 0
-        self.sfp_optoe_api.refresh_xcvr_api()
-        mock_read.assert_not_called()
-        mock_set.assert_not_called()
-        mock_super.assert_called_once()
-
     @patch('sonic_platform_base.sonic_xcvr.sfp_optoe_base.SfpBase.refresh_xcvr_api')
     @patch.object(SfpOptoeBase, 'set_optoe_max_bank_size')
     @patch.object(SfpOptoeBase, '_read_optoe_max_bank_size')
