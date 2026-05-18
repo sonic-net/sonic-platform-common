@@ -4,15 +4,15 @@
     CMIS Page 01h - Advertising Page
 """
 
-from .base import CmisPage
-from .cmis_page_consts import ADVERTISING_PAGE
-from ....fields.xcvr_field import (
+from .page import CmisPage
+from .consts import ADVERTISING_PAGE
+from .....fields.xcvr_field import (
     CodeRegField,
     NumberRegField,
     RegBitField,
     RegGroupField,
 )
-from ....fields import consts
+from .....fields import consts
 
 
 class CmisAdvertisingPage(CmisPage):

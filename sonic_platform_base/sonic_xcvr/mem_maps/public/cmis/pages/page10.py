@@ -4,14 +4,14 @@
     CMIS Page 10h - Lane Datapath Configuration Page
 """
 
-from .base import CmisPage
-from .cmis_page_consts import LANE_DATAPATH_CONFIG_PAGE
-from ....fields.xcvr_field import (
+from .page import CmisPage
+from .consts import LANE_DATAPATH_CONFIG_PAGE
+from .....fields.xcvr_field import (
     NumberRegField,
     RegBitField,
     RegBitsField,
 )
-from ....fields import consts
+from .....fields import consts
 
 
 class CmisLaneDatapathConfigPage(CmisPage):

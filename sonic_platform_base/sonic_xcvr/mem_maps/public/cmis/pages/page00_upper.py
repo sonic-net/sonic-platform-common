@@ -1,12 +1,12 @@
 """
-    pg_00_administrative_upper.py
+    page00_upper.py
 
     Implementation of CmisAdministrativeUpperPage for CMIS page 0x00 upper memory (offsets 128-255)
 """
 
-from .base import CmisPage
-from .cmis_page_consts import ADMINISTRATIVE_PAGE
-from ....fields.xcvr_field import (
+from .page import CmisPage
+from .consts import ADMINISTRATIVE_PAGE
+from .....fields.xcvr_field import (
     CodeRegField,
     NumberRegField,
     RegBitField,
@@ -15,8 +15,8 @@ from ....fields.xcvr_field import (
     HexRegField,
     DateField,
 )
-from ....fields.public.cmis import CableLenField
-from ....fields import consts
+from .....fields.public.cmis import CableLenField
+from .....fields import consts
 
 
 class CmisAdministrativeUpperPage(CmisPage):

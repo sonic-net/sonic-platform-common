@@ -4,8 +4,8 @@
     Implementation of XcvrMemMap for CMIS Rev 5.0
 """
 
-from ..xcvr_mem_map import XcvrMemMap
-from ...fields.xcvr_field import (
+from ...xcvr_mem_map import XcvrMemMap
+from ....fields.xcvr_field import (
     CodeRegField,
     DateField,
     HexRegField,
@@ -14,18 +14,18 @@ from ...fields.xcvr_field import (
     RegGroupField,
     StringRegField,
 )
-from ...fields.public.cmis import CableLenField
-from ...fields import consts
-from ...fields.consts import *
-from .cmis_pages.cmis_page_consts import (
+from ....fields.public.cmis import CableLenField
+from ....fields import consts
+from ....fields.consts import *
+from .pages.consts import (
     CMIS_EEPROM_PAGE_SIZE,
     CMIS_NUM_NON_BANKED_PAGES,
     CMIS_ARCH_PAGES,
 )
-from .cmis_pages.base import cmis_linear_offset
+from .pages.page import cmis_linear_offset
 
 # Import page classes
-from .cmis_pages import (
+from .pages import (
     CmisAdministrativeLowerPage,
     CmisAdministrativeUpperPage,
     CmisAdvertisingPage,

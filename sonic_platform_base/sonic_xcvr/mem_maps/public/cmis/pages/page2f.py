@@ -4,13 +4,13 @@
     CMIS Page 2Fh - VDM Advertising and Control Page
 """
 
-from .base import CmisPage
-from .cmis_page_consts import VDM_ADVERTISING_CTRL_PAGE
-from ....fields.xcvr_field import (
+from .page import CmisPage
+from .consts import VDM_ADVERTISING_CTRL_PAGE
+from .....fields.xcvr_field import (
     NumberRegField,
     RegBitField,
 )
-from ....fields import consts
+from .....fields import consts
 
 
 class CmisVdmAdvertisingCtrlPage(CmisPage):

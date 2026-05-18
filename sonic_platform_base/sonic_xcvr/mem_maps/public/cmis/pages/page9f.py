@@ -4,10 +4,10 @@
     CMIS Page 9Fh - CDB Message Page
 """
 
-from .base import CmisPage
-from .cmis_page_consts import CDB_MESSAGE_PAGE
-from ....fields.xcvr_field import NumberRegField
-from ....fields import consts
+from .page import CmisPage
+from .consts import CDB_MESSAGE_PAGE
+from .....fields.xcvr_field import NumberRegField
+from .....fields import consts
 
 
 class CmisCdbMessagePage(CmisPage):

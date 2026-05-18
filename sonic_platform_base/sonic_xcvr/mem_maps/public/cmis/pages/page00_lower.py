@@ -1,17 +1,17 @@
 """
-    pg_00_administrative_lower.py
+    page00_lower.py
 
     Implementation of CmisAdministrativeLowerPage for CMIS page 0x00 lower memory (offsets 0-127)
 """
 
-from .base import CmisPage
-from .cmis_page_consts import ADMINISTRATIVE_PAGE
-from ....fields.xcvr_field import (
+from .page import CmisPage
+from .consts import ADMINISTRATIVE_PAGE
+from .....fields.xcvr_field import (
     CodeRegField,
     NumberRegField,
     RegBitField,
 )
-from ....fields import consts
+from .....fields import consts
 
 
 class CmisAdministrativeLowerPage(CmisPage):

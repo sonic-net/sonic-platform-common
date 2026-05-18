@@ -4,10 +4,10 @@
     CMIS Page 13h - Module Performance and Diagnostic Control Page
 """
 
-from .base import CmisPage
-from .cmis_page_consts import MODULE_PERF_DIAG_CTRL_PAGE
-from ....fields.xcvr_field import NumberRegField
-from ....fields import consts
+from .page import CmisPage
+from .consts import MODULE_PERF_DIAG_CTRL_PAGE
+from .....fields.xcvr_field import NumberRegField
+from .....fields import consts
 
 
 class CmisModulePerfDiagCtrlPage(CmisPage):

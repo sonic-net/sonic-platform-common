@@ -4,10 +4,10 @@
     CMIS Page 02h - Thresholds Page
 """
 
-from .base import CmisPage
-from .cmis_page_consts import THRESHOLDS_PAGE
-from ....fields.xcvr_field import NumberRegField
-from ....fields import consts
+from .page import CmisPage
+from .consts import THRESHOLDS_PAGE
+from .....fields.xcvr_field import NumberRegField
+from .....fields import consts
 
 
 class CmisThresholdsPage(CmisPage):

@@ -4,15 +4,15 @@
     CMIS Page 11h - Lane Datapath Status Page
 """
 
-from .base import CmisPage
-from .cmis_page_consts import LANE_DATAPATH_STATUS_PAGE
-from ....fields.xcvr_field import (
+from .page import CmisPage
+from .consts import LANE_DATAPATH_STATUS_PAGE
+from .....fields.xcvr_field import (
     CodeRegField,
     NumberRegField,
     RegBitField,
     RegGroupField,
 )
-from ....fields import consts
+from .....fields import consts
 
 
 class CmisLaneDatapathStatusPage(CmisPage):

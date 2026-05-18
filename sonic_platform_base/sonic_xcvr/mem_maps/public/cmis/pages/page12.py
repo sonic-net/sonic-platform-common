@@ -4,13 +4,13 @@
     CMIS Page 12h - Tunable Laser Control and Status Page
 """
 
-from .base import CmisPage
-from .cmis_page_consts import TUNABLE_LASER_CTRL_STATUS_PAGE
-from ....fields.xcvr_field import (
+from .page import CmisPage
+from .consts import TUNABLE_LASER_CTRL_STATUS_PAGE
+from .....fields.xcvr_field import (
     NumberRegField,
     RegBitField,
 )
-from ....fields import consts
+from .....fields import consts
 
 
 class CmisTunableLaserCtrlStatusPage(CmisPage):

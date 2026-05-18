@@ -1,13 +1,13 @@
 """
-    base.py
+    page.py
 
     Abstract class for CMIS pages
 """
 
 from typing import Dict
-from ...xcvr_mem_map import XcvrMemMap
-from ....fields.xcvr_field import RegField, RegGroupField
-from .cmis_page_consts import CMIS_ARCH_PAGES, CMIS_NUM_NON_BANKED_PAGES
+from ....xcvr_mem_map import XcvrMemMap
+from .....fields.xcvr_field import RegField, RegGroupField
+from .consts import CMIS_ARCH_PAGES, CMIS_NUM_NON_BANKED_PAGES
 
 
 def cmis_linear_offset(page, bank, offset, page_size=128):
