@@ -152,4 +152,10 @@ class CmisCodes(Sff8024):
         15: '0'
     }
 
+    MAX_BANKS_SUPPORTED = {
+        0: 0,
+        1: 2,
+        2: 4
+    }
+
     # TODO: Add other codes

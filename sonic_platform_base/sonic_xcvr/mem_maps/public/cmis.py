@@ -177,7 +177,7 @@ class CmisFlatMemMap(XcvrMemMap):
             return offset
 
         # If we are accessing a non-banked page, there is no reason to set the bank
-        # to a non-zero value. 
+        # to a non-zero value.
         bank = 0 if page < CMIS_NUM_NON_BANKED_PAGES else self.bank
         # Note: we consider CDB pages as non-banked here, though it
         # is possible to have multiple CDB instances exposed for a module where
@@ -227,7 +227,7 @@ class CmisMemMap(CmisFlatMemMap):
             RegGroupField(consts.APPLS_ADVT_FIELD_PAGE01,
                 *(NumberRegField("%s_%d" % (consts.MEDIA_LANE_ASSIGNMENT_OPTION, app), self.getaddr(0x1, 176 + (app - 1)),
                     format="B", size=1) for app in range(1, 16)),
-                
+
                 *(CodeRegField("%s_%d" % (consts.HOST_ELECTRICAL_INTERFACE, app), self.getaddr(0x1, 223 + 4 * (app - 9)),
                     self.codes.HOST_ELECTRICAL_INTERFACE) for app in range(9, 16)),
 
@@ -274,9 +274,11 @@ class CmisMemMap(CmisFlatMemMap):
                 RegBitField(consts.VDM_SUPPORTED, 6),
                 RegBitField(consts.DIAG_PAGE_SUPPORT_ADVT_FIELD, 5),
             ),
-            NumberRegField(consts.BANKS_SUPPORTED_FIELD, self.getaddr(0x1, 142),
+
+            CodeRegField(consts.BANKS_SUPPORTED_FIELD, self.getaddr(0x1, 142), self.codes.MAX_BANKS_SUPPORTED,
                 *(RegBitField("Bit%d" % bit, bit) for bit in range(0, 2))
             ),
+
             NumberRegField(consts.TX_INPUT_EQ_MAX, self.getaddr(0x1, 153),
                 *(RegBitField("Bit%d" % (bit), bit) for bit in range (0 , 4))
             ),
@@ -359,7 +361,7 @@ class CmisMemMap(CmisFlatMemMap):
             NumberRegField(consts.DATAPATH_DEINIT_FIELD, self.getaddr(0x10, 128), ro=False),
             NumberRegField(consts.TX_DISABLE_FIELD, self.getaddr(0x10, 130), ro=False),
             NumberRegField(consts.RX_DISABLE_FIELD, self.getaddr(0x10, 138), ro=False,
-                *(RegBitField("%s_%d" % (consts.RX_DISABLE_FIELD, channel), bitpos, ro=False) 
+                *(RegBitField("%s_%d" % (consts.RX_DISABLE_FIELD, channel), bitpos, ro=False)
                   for channel, bitpos in zip(range(1, 9), range(0, 8)))  # 8 channels
             )
         )
