@@ -7,7 +7,7 @@
 from typing import Dict
 from ...xcvr_mem_map import XcvrMemMap
 from ....fields.xcvr_field import RegField, RegGroupField
-from .cmis_page_consts import CMIS_NUM_BANKED_PAGES, CMIS_ARCH_PAGES
+from .cmis_page_consts import CMIS_ARCH_PAGES
 
 def get_field_from_pages(field_name, *pages):
         fields = []

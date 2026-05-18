@@ -6,7 +6,6 @@
 
 from .base import CmisPage
 from .cmis_page_consts import (
-    CMIS_NUM_BANKED_PAGES,
     CMIS_NUM_NON_BANKED_PAGES,
     CMIS_EEPROM_PAGE_SIZE,
     ADMINISTRATIVE_PAGE,
@@ -32,7 +31,6 @@ from .pg_9f_cdb_message import CmisCdbMessagePage
 
 __all__ = [
     'CmisPage',
-    'CMIS_NUM_BANKED_PAGES',
     'CMIS_NUM_NON_BANKED_PAGES',
     'CMIS_EEPROM_PAGE_SIZE',
     'ADMINISTRATIVE_PAGE',

@@ -17,7 +17,11 @@ from ...fields.xcvr_field import (
 from ...fields.public.cmis import CableLenField
 from ...fields import consts
 from ...fields.consts import *
-from .cmis_pages.base import CMIS_NUM_NON_BANKED_PAGES, CMIS_ARCH_PAGES
+from .cmis_pages.cmis_page_consts import (
+    CMIS_EEPROM_PAGE_SIZE,
+    CMIS_NUM_NON_BANKED_PAGES,
+    CMIS_ARCH_PAGES,
+)
 
 # Import page classes
 from .cmis_pages import (
