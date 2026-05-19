@@ -289,6 +289,16 @@ class SfpBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
+    def get_power_override_support(self):
+        """
+        Retrieves whether power override is supported by this SFP
+
+        Returns:
+            bool: True if power override is supported, False if not supported
+            None: if not implemented or xcvr_api is not available
+        """
+        return None
+
     def get_temperature(self):
         """
         Retrieves the temperature of this SFP
