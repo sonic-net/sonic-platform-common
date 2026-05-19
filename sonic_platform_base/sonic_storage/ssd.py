@@ -338,11 +338,11 @@ class SsdUtil(StorageCommon):
 
             if health_raw == NOT_AVAILABLE:
                 average_erase_count = self.parse_id_number(MICRON_AVG_ERASE_COUNT_ID, self.vendor_ssd_info)
-                erase_fail_count = self.parse_id_number(MICRON_ERASE_FAIL_COUNT_ID, self.vendor_ssd_info)
+                nand_endurance = self._parse_re(r'(?m)NAND_Endurance.*?(\d+)\s*$', self.vendor_ssd_info)
 
-                if average_erase_count != NOT_AVAILABLE and erase_fail_count != NOT_AVAILABLE:
+                if average_erase_count != NOT_AVAILABLE and nand_endurance != NOT_AVAILABLE:
                     try:
-                        self.health = 100 - (float(average_erase_count) * 100 / float(nand_endurance))
+                        self.health = 100 - (float(average_erase_count.split()[-1]) * 100 / float(nand_endurance))
                     except (ValueError, ZeroDivisionError) as ex:
                         self.log.log_info("SsdUtil parse_micron_info exception: {}".format(ex))
                         pass
