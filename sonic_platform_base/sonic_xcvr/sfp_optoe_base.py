@@ -332,9 +332,8 @@ class SfpOptoeBase(SfpBase):
         if self.bank != 0:
             try:
                 max_bank_size = self._xcvr_api.get_max_supported_banks() if self._xcvr_api is not None else 0
-            except:
+            except (AttributeError, NotImplementedError):
                 max_bank_size = 0
-                pass
 
             if 0 != max_bank_size:
                 self.set_optoe_max_bank_size(max_bank_size)
