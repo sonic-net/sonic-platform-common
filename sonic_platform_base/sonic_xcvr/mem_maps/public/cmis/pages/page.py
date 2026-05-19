@@ -50,14 +50,6 @@ class CmisPage(XcvrMemMap):
             bank = 0
         return (bank * CMIS_ARCH_PAGES + page) * page_size + offset
 
-    @staticmethod
-    def get_field_from_pages(field_name, *pages):
-        fields = []
-        for page in pages:
-            if hasattr(page, 'fields') and field_name in page.fields:
-                fields.extend(page.fields[field_name])
-        return fields
-
     def getaddr(self, offset, page_size=128):
         """Linear EEPROM offset for this page's `(page, bank)` at `offset`.
 
