@@ -20,14 +20,19 @@ from .consts import (
 )
 from .page00_lower import CmisAdministrativeLowerPage
 from .page00_upper import CmisAdministrativeUpperPage
+from .page00_cdb import CdbAdminStatusPage
 from .page01 import CmisAdvertisingPage
 from .page02 import CmisThresholdsPage
+from .page04 import CCmisModuleConfigSupportPage
 from .page10 import CmisLaneDatapathConfigPage
 from .page11 import CmisLaneDatapathStatusPage
 from .page12 import CmisTunableLaserCtrlStatusPage
 from .page13 import CmisModulePerfDiagCtrlPage
 from .page2f import CmisVdmAdvertisingCtrlPage
+from .page34 import CCmisMediaLaneFecPmPage
+from .page35 import CCmisMediaLaneLinkPmPage
 from .page9f import CmisCdbMessagePage
+from .page9f_cdb import CdbLplMessagePage
 
 __all__ = [
     'CmisPage',
@@ -44,13 +49,18 @@ __all__ = [
     'CDB_MESSAGE_PAGE',
     'CmisAdministrativeLowerPage',
     'CmisAdministrativeUpperPage',
+    'CdbAdminStatusPage',
     'CmisAdvertisingPage',
     'CmisThresholdsPage',
+    'CCmisModuleConfigSupportPage',
     'CmisLaneDatapathConfigPage',
     'CmisLaneDatapathStatusPage',
     'CmisTunableLaserCtrlStatusPage',
     'CmisModulePerfDiagCtrlPage',
     'CmisVdmAdvertisingCtrlPage',
+    'CCmisMediaLaneFecPmPage',
+    'CCmisMediaLaneLinkPmPage',
     'CmisCdbMessagePage',
+    'CdbLplMessagePage',
 ]
 

@@ -10,6 +10,7 @@ from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis import (
     CMIS_ARCH_PAGES,
     CMIS_EEPROM_PAGE_SIZE,
 )
+from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.pages.page import CmisPage
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
 from sonic_platform_base.sonic_xcvr.codes.public.cmis import CmisCodes
 from sonic_platform_base.sonic_xcvr.codes.public.sff8024 import Sff8024
@@ -27,17 +28,16 @@ class TestCmisMemMap:
 
     codes = CmisCodes
 
-    # The getaddr() tests encode the optoe driver's linear addressing
+    # The linear_offset() tests encode the optoe driver's linear addressing
     # contract: each bank is a 256-page (32 KiB) block in the EEPROM
     # file, and the lower 128 bytes of page 00h are not shifted.
 
     @pytest.mark.parametrize("bank", [0, 1, 2, 3])
     @pytest.mark.parametrize("offset", [0, 1, 64, 127])
-    def test_getaddr_lower_memory_invariant_across_banks(self, bank, offset):
+    def test_linear_offset_lower_memory_invariant_across_banks(self, bank, offset):
         """Lower memory (page 0, offset < 128) maps to the same linear
         offset for every bank."""
-        mem_map = CmisMemMap(self.codes, bank=bank)
-        assert mem_map.getaddr(0, offset) == offset
+        assert CmisPage.linear_offset(0, bank, offset) == offset
 
     @pytest.mark.parametrize("page,offset", [
         (0x00, 128),    # Upper page 00h, first byte
@@ -48,12 +48,11 @@ class TestCmisMemMap:
         (0x11, 154),    # TX power monitor region
         (0x9F, 134),    # CDB reply length
     ])
-    def test_getaddr_bank_zero_matches_legacy_linear_offset(self, page, offset):
-        """With bank=0, getaddr() must collapse to the pre-banking
+    def test_linear_offset_bank_zero_matches_legacy_linear_offset(self, page, offset):
+        """With bank=0, linear_offset() must collapse to the pre-banking
         formula (page * 128 + offset). Guards against silent regression
         for existing single-bank consumers."""
-        mem_map = CmisMemMap(self.codes, bank=0)
-        assert mem_map.getaddr(page, offset) == page * CMIS_EEPROM_PAGE_SIZE + offset
+        assert CmisPage.linear_offset(page, 0, offset) == page * CMIS_EEPROM_PAGE_SIZE + offset
 
     @pytest.mark.parametrize("bank", [1, 2, 3])
     @pytest.mark.parametrize("page,offset", [
@@ -65,11 +64,11 @@ class TestCmisMemMap:
         (0xB0, 128),    # First banked page after CDB region
         (0xFF, 255),    # Last banked page
     ])
-    def test_getaddr_banked_pages_shift_by_32kb_per_bank(self, bank, page, offset):
+    def test_linear_offset_banked_pages_shift_by_32kb_per_bank(self, bank, page, offset):
         """Banked pages (10h-9Eh and B0h-FFh) shift by exactly bank * 32 KiB
         versus bank 0. This is the formula's load-bearing invariant."""
-        bank0 = CmisMemMap(self.codes, bank=0).getaddr(page, offset)
-        bankn = CmisMemMap(self.codes, bank=bank).getaddr(page, offset)
+        bank0 = CmisPage.linear_offset(page, 0, offset)
+        bankn = CmisPage.linear_offset(page, bank, offset)
         assert bankn - bank0 == bank * BYTES_PER_BANK
 
     @pytest.mark.parametrize("bank", [1, 2, 3])
@@ -85,12 +84,13 @@ class TestCmisMemMap:
         (0xA5, 200),    # Mid CDB range
         (0xAF, 255),    # Last CDB page
     ])
-    def test_getaddr_non_banked_pages_share_offset_across_banks(self, bank, page, offset):
+    def test_linear_offset_non_banked_pages_share_offset_across_banks(self, bank, page, offset):
         """Pages 00h-0Fh and CDB pages 9Fh-AFh produce the same linear offset
-        regardless of self.bank: getaddr() clamps bank to 0 because there is
-        no reason to write the BankSelect register for these pages."""
-        bank0 = CmisMemMap(self.codes, bank=0).getaddr(page, offset)
-        bankn = CmisMemMap(self.codes, bank=bank).getaddr(page, offset)
+        regardless of the bank argument: linear_offset() clamps bank to 0
+        because there is no reason to write the BankSelect register for these
+        pages."""
+        bank0 = CmisPage.linear_offset(page, 0, offset)
+        bankn = CmisPage.linear_offset(page, bank, offset)
         assert bankn == bank0
 
     @pytest.mark.parametrize("bank,page,offset,expected", [
@@ -108,11 +108,10 @@ class TestCmisMemMap:
         (2, 0x9F, 0,   0x9F * 128),                          # 20352
         (3, 0xAF, 255, 0xAF * 128 + 255),                    # 22655
     ])
-    def test_getaddr_specific_worked_examples(self, bank, page, offset, expected):
+    def test_linear_offset_specific_worked_examples(self, bank, page, offset, expected):
         """Concrete numeric checks for both branches of the clamp, so a
         future reader can verify the formula without redoing the arithmetic."""
-        mem_map = CmisMemMap(self.codes, bank=bank)
-        assert mem_map.getaddr(page, offset) == expected
+        assert CmisPage.linear_offset(page, bank, offset) == expected
 
 
 class TestCmis(object):

@@ -11,6 +11,7 @@ from sonic_platform_base.sonic_xcvr.mem_maps.public.cdb import (
 )
 from sonic_platform_base.sonic_xcvr.fields import cdb_consts
 from sonic_platform_base.sonic_xcvr.cdb.cdb import CdbCmdHandler
+from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.pages.page import CmisPage
 
 
 class MockCodes:
@@ -30,10 +31,12 @@ class TestCdbMemMap:
     def test_init(self):
         """Test CdbMemMap initialization"""
         assert self.mem_map.codes == self.codes
-        assert hasattr(self.mem_map, 'query_status')
-        assert hasattr(self.mem_map, 'cdb1_status')
-        assert hasattr(self.mem_map, 'cdb1_firmware_info')
-        assert hasattr(self.mem_map, 'cdb_firmware_mgmt_features')
+        # Field groups are registered via page classes under their const names
+        # rather than as snake_case Python attributes, so look them up via get_field().
+        assert self.mem_map.get_field(cdb_consts.CDB1_QUERY_STATUS) is not None
+        assert self.mem_map.get_field(cdb_consts.CDB1_CMD_STATUS_FIELD) is not None
+        assert self.mem_map.get_field(cdb_consts.CDB1_FIRMWARE_INFO) is not None
+        assert self.mem_map.get_field(cdb_consts.CDB_FIRMWARE_MGMT_FEATURES) is not None
         assert hasattr(self.mem_map, 'cdb1_query_status_cmd')
         assert hasattr(self.mem_map, 'cdb1_firmware_info_cmd')
         assert hasattr(self.mem_map, 'cdb1_firmware_mgmt_features_cmd')
@@ -45,17 +48,17 @@ class TestCdbMemMap:
         assert hasattr(self.mem_map, 'cdb1_write_lpl_block_cmd')
         assert hasattr(self.mem_map, 'cdb1_write_epl_block_cmd')
     
-    def test_getaddr(self):
-        """Test getaddr method"""
+    def test_linear_offset(self):
+        """Test the addressing formula used by CDB fields (always bank 0)."""
         # Test default page size
-        assert self.mem_map.getaddr(0, 0) == 0
-        assert self.mem_map.getaddr(1, 0) == 128
-        assert self.mem_map.getaddr(1, 10) == 138
-        assert self.mem_map.getaddr(2, 20) == 276
-        
+        assert CmisPage.linear_offset(0, 0, 0) == 0
+        assert CmisPage.linear_offset(1, 0, 0) == 128
+        assert CmisPage.linear_offset(1, 0, 10) == 138
+        assert CmisPage.linear_offset(2, 0, 20) == 276
+
         # Test custom page size
-        assert self.mem_map.getaddr(1, 10, page_size=256) == 266
-        assert self.mem_map.getaddr(2, 20, page_size=256) == 532
+        assert CmisPage.linear_offset(1, 0, 10, page_size=256) == 266
+        assert CmisPage.linear_offset(2, 0, 20, page_size=256) == 532
     
     def test_get_all_cdb_cmds(self):
         """Test _get_all_cdb_cmds method"""

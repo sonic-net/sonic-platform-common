@@ -9,6 +9,8 @@
 from .cmis import (
     CmisFlatMemMap,
     CmisMemMap,
+)
+from .pages.consts import (
     CMIS_EEPROM_PAGE_SIZE,
     CMIS_NUM_NON_BANKED_PAGES,
     CMIS_ARCH_PAGES,

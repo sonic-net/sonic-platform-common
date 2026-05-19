@@ -5,26 +5,6 @@
 """
 
 from ...xcvr_mem_map import XcvrMemMap
-from ....fields.xcvr_field import (
-    CodeRegField,
-    DateField,
-    HexRegField,
-    NumberRegField,
-    RegBitField,
-    RegGroupField,
-    StringRegField,
-)
-from ....fields.public.cmis import CableLenField
-from ....fields import consts
-from ....fields.consts import *
-from .pages.consts import (
-    CMIS_EEPROM_PAGE_SIZE,
-    CMIS_NUM_NON_BANKED_PAGES,
-    CMIS_ARCH_PAGES,
-)
-from .pages.page import CmisPage
-
-# Import page classes
 from .pages import (
     CmisAdministrativeLowerPage,
     CmisAdministrativeUpperPage,
@@ -65,14 +45,6 @@ class CmisFlatMemMap(XcvrMemMap):
     def bank(self):
         """Returns the bank number (read-only)."""
         return self._bank
-
-    def getaddr(self, page, offset, page_size=128):
-        """Linear EEPROM offset for `(page, self.bank, offset)`.
-
-        See CmisPage.linear_offset for the full addressing rules (including bank
-        clamping for non-banked and CDB pages).
-        """
-        return CmisPage.linear_offset(page, self.bank, offset, page_size)
 
 class CmisMemMap(CmisFlatMemMap):
     def __init__(self, codes, bank=0):
