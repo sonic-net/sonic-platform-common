@@ -338,34 +338,30 @@ class SfpOptoeBase(SfpBase):
             pass
 
     def set_optoe_max_bank_size(self, max_bank_size):
-        """Write max_bank_size to the optoe sysfs entry. Reads the current value first and skips the write if it already matches, since the driver tears down and recreates the eeprom bin file on every write regardless of whether the value changed. Exceptions propagate: a failure here means banked EEPROM offsets won't be accessible, and a loud failure now is preferable to a confusing read-past-EOF later."""
-        sys_path = self.get_eeprom_path().replace("eeprom", "max_bank_size")
-        with open(sys_path) as f:
-            if int(f.read().strip()) == max_bank_size:
-                return
-        with open(sys_path, mode='w') as f:
-            f.write(str(max_bank_size))
+        """Set max optoe bank size"""
 
-    def _read_optoe_max_bank_size(self):
-        """Determine optoe max_bank_size from the module's CMIS BanksSupported advertisement, or None if non-CMIS, flat-memory, or unreadable."""
-        id_byte = self.read_eeprom(0, 1)
-        if id_byte is None or id_byte[0] not in CMIS_MODULE_IDS:
-            return None
-        flat_mem = self.read_eeprom(CMIS_FLAT_MEM_FILE_OFFSET, 1)
-        if flat_mem is None or flat_mem[0] & CMIS_FLAT_MEM_BIT_MASK:
-            return None
-        raw = self.read_eeprom(CMIS_BANKS_SUPPORTED_FILE_OFFSET, 1)
-        if raw is None:
-            return None
-        return CMIS_BANKS_SUPPORTED_TO_MAX_BANK_SIZE.get(raw[0] & 0x03)
+        sys_path = self.get_eeprom_path().replace("eeprom", "max_bank_size")
+        try:
+            with open(sys_path) as f:
+                if int(f.read().strip()) == max_bank_size:
+                    return
+            with open(sys_path, mode='w') as f:
+                f.write(str(max_bank_size))
+        except FileNotFoundError:
+            # Some platforms/drivers do not expose max_bank_size in sysfs.
+            return
 
     def refresh_xcvr_api(self):
-        """Sync optoe max_bank_size to the module's BanksSupported before building the XcvrApi, so subsequent banked reads don't land past EOF. Only runs when self.bank is non-zero so we don't enable banking based on a module that may erroneously advertise it."""
-        if self.bank != 0:
-            max_bank_size = self._read_optoe_max_bank_size()
-            if max_bank_size is not None:
-                self.set_optoe_max_bank_size(max_bank_size)
         super().refresh_xcvr_api()
+
+        if self.bank != 0:
+            try:
+                max_bank_size = self._xcvr_api.get_max_supported_banks() if self._xcvr_api is not None else 0
+            except (AttributeError, NotImplementedError):
+                max_bank_size = 0
+
+            if 0 != max_bank_size:
+                self.set_optoe_max_bank_size(max_bank_size)
 
     def get_optoe_current_page(self):
         return self.read_eeprom(SFP_OPTOE_PAGE_SELECT_OFFSET, 1)[0]
