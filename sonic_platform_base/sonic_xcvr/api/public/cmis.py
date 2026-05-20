@@ -144,6 +144,14 @@ class CmisApi(CmisCdbFw, XcvrApi):
     def _get_vdm_key_to_db_prefix_map(self):
         return CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP
 
+    def get_max_supported_banks(self):
+        """Returns max supported banks"""
+
+        if self.is_flat_memory():
+            return 0
+        
+        return self.xcvr_eeprom.read(consts.BANKS_SUPPORTED_FIELD)
+
     def _get_vdm_key_to_db_prefix_map_by_observable_type(self, observable_type):
         """
         Returns the VDM key-to-DB-prefix map filtered by observable type,
