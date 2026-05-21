@@ -26,8 +26,8 @@ from .....fields import elsfp_consts
 class ElsfpSetpointsMonitorsPage(CmisPage):
     """ELSFP-specific CMIS Page 1Bh implementation."""
 
-    def __init__(self, codes, bank=0):
-        super().__init__(codes, page=ELSFP_SETPOINTS_MON_PAGE, bank=bank)
+    def __init__(self, codes, bank=0, page=ELSFP_SETPOINTS_MON_PAGE):
+        super().__init__(codes, page=page, bank=bank)
 
         # ------------------------------------------------------------------
         # ELSFP_SETPOINTS_FIELD (Bytes 128-183, Table 11)

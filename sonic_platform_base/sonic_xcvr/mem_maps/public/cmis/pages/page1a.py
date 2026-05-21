@@ -25,8 +25,8 @@ from .....fields import elsfp_consts
 class ElsfpAdvertisementsFlagsCtrlPage(CmisPage):
     """ELSFP-specific CMIS Page 1Ah implementation."""
 
-    def __init__(self, codes, bank=0):
-        super().__init__(codes, page=ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank=bank)
+    def __init__(self, codes, bank=0, page=ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE):
+        super().__init__(codes, page=page, bank=bank)
 
         # ------------------------------------------------------------------
         # ELSFP_MODULE_ADVERTISEMENTS_FIELD (Bytes 128-164, Table 4)
