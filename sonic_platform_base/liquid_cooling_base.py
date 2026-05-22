@@ -32,8 +32,8 @@ class LeakageSensorBase(SensorBase):
         self.name: str = name
         self.leaking: bool = False
         self.leak_sensor_ok: bool = True
-        self.leak_type: str|None = type
-        self.leak_location = location
+        self.leak_type: str = type or 'unknown'
+        self.leak_location: str = location or 'unknown'
         self.leak_severity = severity
 
     def get_name(self) -> str:
@@ -64,7 +64,7 @@ class LeakageSensorBase(SensorBase):
         """
         return self.leak_sensor_ok
 
-    def get_leak_sensor_type(self) -> str|None:
+    def get_leak_sensor_type(self) -> str:
         """
         Retrieves the leak sensor type
 
@@ -73,7 +73,7 @@ class LeakageSensorBase(SensorBase):
         """
         return self.leak_type
 
-    def get_leak_sensor_location(self) -> str|None:
+    def get_leak_sensor_location(self) -> str:
         """
         Retrieves the location of leak sensor
 

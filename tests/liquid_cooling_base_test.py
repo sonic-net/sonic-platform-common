@@ -23,8 +23,8 @@ class TestLeakageSensorBase:
         leakage_sensor = LeakageSensorBase("test_sensor")
 
         assert leakage_sensor.get_name() == "test_sensor"
-        assert leakage_sensor.get_leak_sensor_type() == None
-        assert leakage_sensor.get_leak_sensor_location() == None
+        assert leakage_sensor.get_leak_sensor_type() == 'unknown'
+        assert leakage_sensor.get_leak_sensor_location() == 'unknown'
         assert leakage_sensor.get_leak_severity() == LeakSeverity.CRITICAL
         assert leakage_sensor.is_leak() == False
 
@@ -72,7 +72,7 @@ class TestLeakageSensorBase:
         Test get_leak_sensor_type default value is None
         '''
         sensor = LeakageSensorBase("sensor1")
-        assert sensor.get_leak_sensor_type() is None
+        assert sensor.get_leak_sensor_type() is 'unknown'
 
     @staticmethod
     def test_get_leak_sensor_type_set():
@@ -90,7 +90,7 @@ class TestLeakageSensorBase:
         Test get_leak_sensor_location default value is None
         '''
         sensor = LeakageSensorBase("sensor1")
-        assert sensor.get_leak_sensor_location() is None
+        assert sensor.get_leak_sensor_location() is 'unknown'
 
     @staticmethod
     def test_get_leak_sensor_location_set():
