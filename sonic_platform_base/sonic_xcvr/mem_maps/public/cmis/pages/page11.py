@@ -1,5 +1,5 @@
 """
-    pg_11_lane_datapath_status.py
+    page11.py
 
     CMIS Page 11h - Lane Datapath Status Page
 """

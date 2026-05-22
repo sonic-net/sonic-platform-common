@@ -1,5 +1,5 @@
 """
-    pg_13_module_perf_diag_ctrl.py
+    page13.py
 
     CMIS Page 13h - Module Performance and Diagnostic Control Page
 """

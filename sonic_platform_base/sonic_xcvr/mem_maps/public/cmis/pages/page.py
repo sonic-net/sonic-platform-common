@@ -4,14 +4,14 @@
     Abstract class for CMIS pages
 """
 
-from typing import Dict
+from typing import Dict, List
 from ....xcvr_mem_map import XcvrMemMap
-from .....fields.xcvr_field import RegField, RegGroupField
+from .....fields.xcvr_field import XcvrField, RegGroupField
 from .consts import CMIS_ARCH_PAGES, CMIS_NUM_NON_BANKED_PAGES
 
 
 class CmisPage(XcvrMemMap):
-    fields: Dict[str, list[RegField]]  # This is a Dictionary of list of fields
+    fields: Dict[str, List[XcvrField]]  # This is a Dictionary of list of fields
 
     def __init__(self, codes, page, bank=0):
         super(CmisPage, self).__init__(codes)

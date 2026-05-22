@@ -1,5 +1,5 @@
 """
-    pg_10_lane_datapath_config.py
+    page10.py
 
     CMIS Page 10h - Lane Datapath Configuration Page
 """

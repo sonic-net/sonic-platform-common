@@ -6,7 +6,7 @@ import pytest
 from sonic_platform_base.sonic_xcvr.sfp_optoe_base import SfpOptoeBase, SFP_OPTOE_UPPER_PAGE0_OFFSET, SFP_OPTOE_PAGE_SELECT_OFFSET
 from sonic_platform_base.sonic_xcvr.api.public.c_cmis import CCmisApi
 from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi
-from sonic_platform_base.sonic_xcvr.mem_maps.public.c_cmis import CCmisMemMap 
+from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.c_cmis import CCmisMemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom 
 from sonic_platform_base.sonic_xcvr.codes.public.cmis import CmisCodes 
 from sonic_platform_base.sonic_xcvr.api.public.sff8472 import Sff8472Api

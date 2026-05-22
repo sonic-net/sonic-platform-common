@@ -1,5 +1,5 @@
 """
-    pg_02_thresholds.py
+    page02.py
 
     CMIS Page 02h - Thresholds Page
 """

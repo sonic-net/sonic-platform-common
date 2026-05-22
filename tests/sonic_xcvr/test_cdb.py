@@ -2,7 +2,7 @@
 import pytest
 import struct
 from unittest.mock import MagicMock, patch
-from sonic_platform_base.sonic_xcvr.mem_maps.public.cdb import (
+from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.cdb import (
     CdbMemMap, CDBCommand, CdbStatusQuery, CdbGetFirmwareInfo,
     CdbGetFirmwareMgmtFeatures, CdbStartFirmwareDownload,
     CdbAbortFirmwareDownload, CdbCompleteFirmwareDownload,

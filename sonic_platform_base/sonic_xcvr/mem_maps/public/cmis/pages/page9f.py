@@ -1,5 +1,5 @@
 """
-    pg_9f_cdb_message.py
+    page9f.py
 
     CMIS Page 9Fh - CDB Message Page
 """

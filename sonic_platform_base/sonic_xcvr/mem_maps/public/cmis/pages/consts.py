@@ -1,5 +1,5 @@
 """
-    cmis_page_consts.py
+    consts.py
 
     Constants for CMIS memory map pages
 """

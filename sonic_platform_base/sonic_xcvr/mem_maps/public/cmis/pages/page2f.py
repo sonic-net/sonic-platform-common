@@ -1,5 +1,5 @@
 """
-    pg_2f_vdm_advertising_ctrl.py
+    page2f.py
 
     CMIS Page 2Fh - VDM Advertising and Control Page
 """

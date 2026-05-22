@@ -1,5 +1,5 @@
 """
-    pg_12_tunable_laser_ctrl_status.py
+    page12.py
 
     CMIS Page 12h - Tunable Laser Control and Status Page
 """

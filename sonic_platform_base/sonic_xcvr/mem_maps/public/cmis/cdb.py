@@ -1,8 +1,8 @@
 
-from ...fields import cdb_consts
-from ..xcvr_mem_map import XcvrMemMap
+from ....fields import cdb_consts
+from ...xcvr_mem_map import XcvrMemMap
 
-from .cmis.pages import CdbAdminStatusPage, CdbLplMessagePage
+from .pages import CdbAdminStatusPage, CdbLplMessagePage
 
 import struct
 
@@ -38,6 +38,9 @@ class CdbMemMap(XcvrMemMap):
         self.pages.extend(pages)
         for page in pages:
             page.register_fields(self)
+        # XcvrMemMap caches _fields on first get_field(); invalidate so newly
+        # registered RegGroupFields are picked up on the next lookup.
+        self._fields = None
 
     def _get_all_cdb_cmds(self):
         if not self.cdb_cmds:

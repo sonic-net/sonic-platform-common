@@ -40,6 +40,9 @@ class CmisFlatMemMap(XcvrMemMap):
         self.pages.extend(pages)
         for page in pages:
             page.register_fields(self)
+        # XcvrMemMap caches _fields on first get_field(); invalidate so newly
+        # registered RegGroupFields are picked up on the next lookup.
+        self._fields = None
 
     @property
     def bank(self):

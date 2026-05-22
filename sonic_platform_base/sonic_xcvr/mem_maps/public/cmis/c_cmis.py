@@ -5,7 +5,7 @@
 """
 
 from .cmis import CmisMemMap
-from .cmis.pages import (
+from .pages import (
     CCmisModuleConfigSupportPage,
     CCmisMediaLaneFecPmPage,
     CCmisMediaLaneLinkPmPage,
