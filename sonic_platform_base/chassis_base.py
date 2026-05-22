@@ -174,6 +174,17 @@ class ChassisBase(device_base.DeviceBase):
         """
         return False
 
+    def is_liquid_cooled(self):
+        """
+        Gets back if the device is Liquid/Hybrid cooled or not
+
+        Returns:
+            A bool value, should return False by default.
+            Air cooled devices return back False
+            Liquid/Hybrid cooled devices return back True
+        """
+        return False
+
     def init_midplane_switch(self):
         """
         Initializes the midplane functionality of the modular chassis. For
