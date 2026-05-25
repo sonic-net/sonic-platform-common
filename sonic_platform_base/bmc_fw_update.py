@@ -46,12 +46,13 @@ def main():
             # Wait for BMC to become operational
             max_retries = 5
             bmc_is_up = False
-            for _ in range(max_retries):
+            for retry in range(max_retries):
                 bmc_is_up = bmc.get_status()
                 if bmc_is_up:
                     break
-                logger.log_notice("Waiting for BMC to restart...")
-                time.sleep(20)
+                if retry < max_retries - 1:
+                    logger.log_notice("Waiting for BMC to restart...")
+                    time.sleep(20)
 
             if not bmc_is_up:
                 logger.log_error("BMC did not become operational after restart")
