@@ -24,7 +24,7 @@ from sonic_platform_base import bmc_fw_update
 class TestBMCFWUpdate:
     """Test class for bmc_fw_update module"""
 
-    @mock.patch('bmc_fw_update.time.sleep')
+    @mock.patch('sonic_platform_base.bmc_fw_update.time.sleep')
     @mock.patch('sys.exit')
     @mock.patch('sonic_py_common.logger.Logger')
     def test_main_success_bmc_firmware_updated(self, mock_logger_class, mock_exit, mock_sleep):
@@ -54,7 +54,7 @@ class TestBMCFWUpdate:
         mock_bmc.get_firmware_id.assert_called_once()
         mock_bmc.request_bmc_reset.assert_called_once()
         mock_bmc.get_status.assert_called_once()
-        mock_sleep.assert_not_called()
+        mock_sleep.assert_called_once_with(20)
         mock_exit.assert_not_called()
 
     @mock.patch('sys.exit')
