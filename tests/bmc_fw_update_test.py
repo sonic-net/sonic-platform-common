@@ -167,3 +167,58 @@ class TestBMCFWUpdate:
 
         mock_logger.log_error.assert_called_once_with('Failed to restart BMC. Error 1: Reset failed')
         mock_exit.assert_called_once_with(1)
+
+    @mock.patch('sonic_platform_base.bmc_fw_update.time.sleep')
+    @mock.patch('sys.exit')
+    @mock.patch('sonic_py_common.logger.Logger')
+    def test_main_bmc_waiting_after_restart(self, mock_logger_class, mock_exit, mock_sleep):
+        """Test waiting loop when BMC is not yet operational after restart"""
+        mock_logger = mock.MagicMock()
+        mock_bmc = mock.MagicMock()
+        mock_chassis = mock.MagicMock()
+        mock_platform = mock.MagicMock()
+        mock_chassis.get_bmc.return_value = mock_bmc
+        mock_platform.get_chassis.return_value = mock_chassis
+        mock_sonic_platform = mock.MagicMock()
+        mock_sonic_platform.platform.Platform.return_value = mock_platform
+        mock_logger_class.return_value = mock_logger
+        mock_bmc.update_firmware.return_value = (0, ('Success', ['BMC_FW_0']))
+        mock_bmc.get_firmware_id.return_value = 'BMC_FW_0'
+        mock_bmc.request_bmc_reset.return_value = (0, 'BMC reset successful')
+        mock_bmc.get_status.side_effect = [False, True]
+
+        test_args = ['bmc_fw_update.py', '/path/to/firmware.bin']
+        with mock.patch.dict(sys.modules, {'sonic_platform': mock_sonic_platform}):
+            with mock.patch.object(sys, 'argv', test_args):
+                bmc_fw_update.main()
+
+        mock_logger.log_notice.assert_any_call("Waiting for BMC to restart...")
+        mock_sleep.assert_any_call(20)
+        mock_exit.assert_not_called()
+
+    @mock.patch('sonic_platform_base.bmc_fw_update.time.sleep')
+    @mock.patch('sys.exit')
+    @mock.patch('sonic_py_common.logger.Logger')
+    def test_main_bmc_not_operational_after_restart(self, mock_logger_class, mock_exit, mock_sleep):
+        """Test failure when BMC does not become operational after restart"""
+        mock_logger = mock.MagicMock()
+        mock_bmc = mock.MagicMock()
+        mock_chassis = mock.MagicMock()
+        mock_platform = mock.MagicMock()
+        mock_chassis.get_bmc.return_value = mock_bmc
+        mock_platform.get_chassis.return_value = mock_chassis
+        mock_sonic_platform = mock.MagicMock()
+        mock_sonic_platform.platform.Platform.return_value = mock_platform
+        mock_logger_class.return_value = mock_logger
+        mock_bmc.update_firmware.return_value = (0, ('Success', ['BMC_FW_0']))
+        mock_bmc.get_firmware_id.return_value = 'BMC_FW_0'
+        mock_bmc.request_bmc_reset.return_value = (0, 'BMC reset successful')
+        mock_bmc.get_status.return_value = False
+
+        test_args = ['bmc_fw_update.py', '/path/to/firmware.bin']
+        with mock.patch.dict(sys.modules, {'sonic_platform': mock_sonic_platform}):
+            with mock.patch.object(sys, 'argv', test_args):
+                bmc_fw_update.main()
+
+        mock_logger.log_error.assert_any_call("BMC did not become operational after restart")
+        mock_exit.assert_called_once_with(1)
