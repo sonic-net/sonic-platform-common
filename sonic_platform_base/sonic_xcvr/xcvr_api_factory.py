@@ -11,7 +11,7 @@ from .codes.public.cmis import CmisCodes
 from .api.public.cmis import CmisApi
 from .api.public.c_cmis import CCmisApi
 from .mem_maps.public.cmis import CmisMemMap
-from .mem_maps.public.c_cmis import CCmisMemMap
+from .mem_maps.public.cmis.c_cmis import CCmisMemMap
 
 from .codes.credo.aec_800g import CredoAec800gCodes
 from .api.credo.aec_800g import CredoAec800gApi

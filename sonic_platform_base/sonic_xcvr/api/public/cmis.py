@@ -13,7 +13,7 @@ import logging
 from ...codes.public.cmis import CmisCodes
 from ...codes.public.cdb import CdbCodes
 from ...codes.public.sff8024 import Sff8024
-from ...mem_maps.public.cdb import CdbMemMap
+from ...mem_maps.public.cmis.cdb import CdbMemMap
 from .cmisVDM import CmisVdmApi
 import time
 import copy

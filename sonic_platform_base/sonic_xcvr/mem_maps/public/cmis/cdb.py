@@ -1,20 +1,8 @@
 
-from ...fields import cdb_consts
-from ..xcvr_mem_map import XcvrMemMap
+from ....fields import cdb_consts
+from ...xcvr_mem_map import XcvrMemMap
 
-from ...fields.xcvr_field import (
-    XcvrField,
-    CodeRegField,
-    DateField,
-    HexRegField,
-    NumberRegField,
-    RegBitField,
-    RegBitsField,
-    RegGroupField,
-    StringRegField,
-)
-
-from ...fields.public.cmis import CdbStatusField
+from .pages import CdbAdminStatusPage, CdbLplMessagePage
 
 import struct
 
@@ -23,55 +11,14 @@ class CdbMemMap(XcvrMemMap):
         super(CdbMemMap, self).__init__(codes)
 
         self.cdb_cmds = {}
+        self.pages = []
 
-        self.query_status = CodeRegField(cdb_consts.CDB1_QUERY_STATUS,
-                                            self.getaddr(cdb_consts.LPL_PAGE, 137),
-                                            self.codes.CDB_QUERY_STATUS)
-
-        self.cdb1_status = RegGroupField(cdb_consts.CDB1_CMD_STATUS_FIELD,
-            NumberRegField(cdb_consts.CDB1_CMD_STATUS, self.getaddr(0x0, 37),
-                RegBitField(cdb_consts.CDB1_IS_BUSY, 7),
-                RegBitField(cdb_consts.CDB1_HAS_FAILED, 6),
-                RegBitsField(cdb_consts.CDB1_STATUS, bitpos=0, size=6), bitdecode=True),
-            CdbStatusField(cdb_consts.CDB1_COMMAND_RESULT, self.getaddr(0x0, 37), size=1, format="B",
-                           deps=[(cdb_consts.CDB1_IS_BUSY, cdb_consts.CDB1_HAS_FAILED, cdb_consts.CDB1_STATUS)]),
-        )
-
-        self.cdb1_firmware_info = RegGroupField(cdb_consts.CDB1_FIRMWARE_INFO,
-                    NumberRegField(cdb_consts.CDB1_FIRMWARE_STATUS, self.getaddr(cdb_consts.LPL_PAGE, 136),
-                       RegBitField(cdb_consts.CDB1_BANKA_OPER_STATUS, 0),
-                       RegBitField(cdb_consts.CDB1_BANKA_ADMIN_STATUS, 1),
-                       RegBitField(cdb_consts.CDB1_BANKA_VALID_STATUS, 2),
-                       RegBitField(cdb_consts.CDB1_BANKB_OPER_STATUS, 4),
-                       RegBitField(cdb_consts.CDB1_BANKB_ADMIN_STATUS, 5),
-                       RegBitField(cdb_consts.CDB1_BANKB_VALID_STATUS, 6),
-                       bitdecode=True
-                    ),
-                    NumberRegField(cdb_consts.CDB1_IMAGE_INFO, self.getaddr(cdb_consts.LPL_PAGE, 137),
-                               RegBitField(cdb_consts.CDB1_IMAGEA_VERSION_PRESENT, 0),
-                               RegBitField(cdb_consts.CDB1_IMAGEB_VERSION_PRESENT, 1),
-                               RegBitField(cdb_consts.CDB1_FACTIMG_VERSION_PRESENT, 2)),
-                NumberRegField(cdb_consts.CDB1_BANKA_MAJOR_VERSION, self.getaddr(cdb_consts.LPL_PAGE, 138), size=1),
-                NumberRegField(cdb_consts.CDB1_BANKA_MINOR_VERSION, self.getaddr(cdb_consts.LPL_PAGE, 139), size=1),
-                NumberRegField(cdb_consts.CDB1_BANKA_BUILD_VERSION, self.getaddr(cdb_consts.LPL_PAGE, 140), size=2, format=">H"),
-                NumberRegField(cdb_consts.CDB1_BANKB_MAJOR_VERSION, self.getaddr(cdb_consts.LPL_PAGE, 174), size=1),
-                NumberRegField(cdb_consts.CDB1_BANKB_MINOR_VERSION, self.getaddr(cdb_consts.LPL_PAGE, 175), size=1),
-                NumberRegField(cdb_consts.CDB1_BANKB_BUILD_VERSION, self.getaddr(cdb_consts.LPL_PAGE, 176), size=2, format=">H"),
-                NumberRegField(cdb_consts.CDB1_FACTORY_MAJOR_VERSION, self.getaddr(cdb_consts.LPL_PAGE, 210), size=1),
-                NumberRegField(cdb_consts.CDB1_FACTORY_MINOR_VERSION, self.getaddr(cdb_consts.LPL_PAGE, 211), size=1),
-                NumberRegField(cdb_consts.CDB1_FACTORY_BUILD_VERSION, self.getaddr(cdb_consts.LPL_PAGE, 212), size=2, format=">H"),
-        )
-
-        self.cdb_firmware_mgmt_features = RegGroupField(cdb_consts.CDB_FIRMWARE_MGMT_FEATURES,
-            NumberRegField(cdb_consts.CDB_FIRMWARE_MGMT_ADV, self.getaddr(cdb_consts.LPL_PAGE, 137),
-                    RegBitField(cdb_consts.CDB_MAX_DURATION_ENCODING, 3),
-                    RegBitField(cdb_consts.CDB_ABORT_CMD_SUPPORTED, 0)),
-            NumberRegField(cdb_consts.CDB_START_CMD_PAYLOAD_SIZE, self.getaddr(cdb_consts.LPL_PAGE, 138)),
-            NumberRegField(cdb_consts.CDB_READ_WRITE_LENGTH_EXT, self.getaddr(cdb_consts.LPL_PAGE, 140), scale=0.125),
-            CodeRegField(cdb_consts.CDB_WRITE_MECHANISM, self.getaddr(cdb_consts.LPL_PAGE, 141),
-                    self.codes.CDB_WRITE_METHOD),
-            CodeRegField(cdb_consts.CDB_READ_MECHANISM, self.getaddr(cdb_consts.LPL_PAGE, 142),
-                    self.codes.CDB_READ_METHOD),
+        # Register CDB-specific fields via page classes (same scheme as CmisMemMap):
+        #   page 00h - CDB1 status byte
+        #   page 9Fh - LPL message area (firmware info, mgmt features, query status)
+        self.add_pages(
+            CdbAdminStatusPage(codes),
+            CdbLplMessagePage(codes),
         )
 
         self.cdb1_query_status_cmd = CdbStatusQuery()
@@ -86,6 +33,15 @@ class CdbMemMap(XcvrMemMap):
         self.cdb1_write_epl_block_cmd = CdbWriteEplBlock()
         self.cdb1_enter_password_cmd = CdbEnterPassword()
 
+    def add_pages(self, *pages):
+        """Append pages to self.pages and register their fields onto self."""
+        self.pages.extend(pages)
+        for page in pages:
+            page.register_fields(self)
+        # XcvrMemMap caches _fields on first get_field(); invalidate so newly
+        # registered RegGroupFields are picked up on the next lookup.
+        self._fields = None
+
     def _get_all_cdb_cmds(self):
         if not self.cdb_cmds:
            for key in dir(self):
@@ -98,9 +54,6 @@ class CdbMemMap(XcvrMemMap):
         if cmd_id in self._get_all_cdb_cmds():
             return self.cdb_cmds[cmd_id]
         return None
-
-    def getaddr(self, page, offset, page_size=128):
-        return page * page_size + offset
 
 class CDBCommand():
     """
