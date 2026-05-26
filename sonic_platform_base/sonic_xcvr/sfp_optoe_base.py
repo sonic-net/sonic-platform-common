@@ -11,6 +11,15 @@ SFP_OPTOE_PAGE_SELECT_OFFSET = 127
 SFP_OPTOE_UPPER_PAGE0_OFFSET = 128
 SFP_OPTOE_PAGE_SIZE = 128
 
+CMIS_MODULE_IDS = (0x18, 0x19, 0x1b, 0x1e)
+# Lower-memory byte 2 bit 7: 1 = flat memory (lower + upper page 00h only), 0 = paged.
+CMIS_FLAT_MEM_FILE_OFFSET = 2
+CMIS_FLAT_MEM_BIT_MASK = 0x80
+# Page 01h byte 142 in the optoe linear EEPROM file at bank-0 stride.
+CMIS_BANKS_SUPPORTED_FILE_OFFSET = 270
+# CMIS AdvBnkSupport (page 01h byte 142, bits 0-1): 00b->1, 01b->2, 10b->4 banks.
+CMIS_BANKS_SUPPORTED_TO_MAX_BANK_SIZE = {0: 0, 1: 2, 2: 4}
+
 class SfpOptoeBase(SfpBase):
     def __init__(self, bank=0):
         SfpBase.__init__(self, bank=bank)
@@ -291,6 +300,31 @@ class SfpOptoeBase(SfpBase):
         api = self.get_xcvr_api()
         return api.set_lpmode(lpmode) if api is not None else None
 
+    def get_lpmode_via_pin(self):
+        """
+        Retrieves the lpmode (low power mode) status of this SFP via the
+        hardware LPMode pin. Platform vendors must implement this if they
+        want to control lpmode via the hardware pin instead of EEPROM.
+
+        Returns:
+            A Boolean, True if lpmode is enabled, False if disabled
+        """
+        raise NotImplementedError
+
+    def set_lpmode_via_pin(self, lpmode):
+        """
+        Sets the lpmode (low power mode) of this SFP via the hardware
+        LPMode pin. Platform vendors must implement this if they want to
+        control lpmode via the hardware pin instead of EEPROM.
+
+        Args:
+            lpmode: A Boolean, True to enable lpmode, False to disable it
+
+        Returns:
+            A boolean, True if lpmode is set successfully, False if not
+        """
+        raise NotImplementedError
+
     def set_power(self, mode):
         raise NotImplementedError
 
@@ -302,6 +336,32 @@ class SfpOptoeBase(SfpBase):
                 f.write(str(write_max))
         except (OSError, IOError):
             pass
+
+    def set_optoe_max_bank_size(self, max_bank_size):
+        """Set max optoe bank size"""
+
+        sys_path = self.get_eeprom_path().replace("eeprom", "max_bank_size")
+        try:
+            with open(sys_path) as f:
+                if int(f.read().strip()) == max_bank_size:
+                    return
+            with open(sys_path, mode='w') as f:
+                f.write(str(max_bank_size))
+        except FileNotFoundError:
+            # Some platforms/drivers do not expose max_bank_size in sysfs.
+            return
+
+    def refresh_xcvr_api(self):
+        super().refresh_xcvr_api()
+
+        if self.bank != 0:
+            try:
+                max_bank_size = self._xcvr_api.get_max_supported_banks() if self._xcvr_api is not None else 0
+            except (AttributeError, NotImplementedError):
+                max_bank_size = 0
+
+            if 0 != max_bank_size:
+                self.set_optoe_max_bank_size(max_bank_size)
 
     def get_optoe_current_page(self):
         return self.read_eeprom(SFP_OPTOE_PAGE_SELECT_OFFSET, 1)[0]

@@ -5,12 +5,115 @@ import traceback
 import random
 from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi, CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP, THRESHOLD_TYPE_STR_MAP
 from sonic_platform_base.sonic_xcvr.api.public.cmis import FLAG_TYPE_STR_MAP, CMIS_XCVR_INFO_DEFAULT_DICT
-from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis import CmisMemMap
+from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis import (
+    CmisMemMap,
+    CMIS_ARCH_PAGES,
+    CMIS_EEPROM_PAGE_SIZE,
+)
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
 from sonic_platform_base.sonic_xcvr.codes.public.cmis import CmisCodes
 from sonic_platform_base.sonic_xcvr.codes.public.sff8024 import Sff8024
 from sonic_platform_base.sonic_xcvr.fields import consts
 from sonic_platform_base.sonic_xcvr.fields import cdb_consts
+
+# Bytes per bank in the optoe linear EEPROM file (32 KiB).
+BYTES_PER_BANK = CMIS_ARCH_PAGES * CMIS_EEPROM_PAGE_SIZE
+
+
+class TestCmisMemMap:
+    """
+    Unit tests for CmisMemMap.
+    """
+
+    codes = CmisCodes
+
+    # The getaddr() tests encode the optoe driver's linear addressing
+    # contract: each bank is a 256-page (32 KiB) block in the EEPROM
+    # file, and the lower 128 bytes of page 00h are not shifted.
+
+    @pytest.mark.parametrize("bank", [0, 1, 2, 3])
+    @pytest.mark.parametrize("offset", [0, 1, 64, 127])
+    def test_getaddr_lower_memory_invariant_across_banks(self, bank, offset):
+        """Lower memory (page 0, offset < 128) maps to the same linear
+        offset for every bank."""
+        mem_map = CmisMemMap(self.codes, bank=bank)
+        assert mem_map.getaddr(0, offset) == offset
+
+    @pytest.mark.parametrize("page,offset", [
+        (0x00, 128),    # Upper page 00h, first byte
+        (0x00, 255),    # Upper page 00h, last byte
+        (0x01, 0),      # Page 01h start
+        (0x01, 200),    # Page 01h, advertising region
+        (0x10, 128),    # First banked page per CMIS spec
+        (0x11, 154),    # TX power monitor region
+        (0x9F, 134),    # CDB reply length
+    ])
+    def test_getaddr_bank_zero_matches_legacy_linear_offset(self, page, offset):
+        """With bank=0, getaddr() must collapse to the pre-banking
+        formula (page * 128 + offset). Guards against silent regression
+        for existing single-bank consumers."""
+        mem_map = CmisMemMap(self.codes, bank=0)
+        assert mem_map.getaddr(page, offset) == page * CMIS_EEPROM_PAGE_SIZE + offset
+
+    @pytest.mark.parametrize("bank", [1, 2, 3])
+    @pytest.mark.parametrize("page,offset", [
+        (0x10, 128),    # First banked page per CMIS spec
+        (0x11, 200),    # TX power monitor region
+        (0x12, 222),    # Laser tuning page
+        (0x60, 150),    # Mid banked range
+        (0x9E, 200),    # Last banked page before CDB region
+        (0xB0, 128),    # First banked page after CDB region
+        (0xFF, 255),    # Last banked page
+    ])
+    def test_getaddr_banked_pages_shift_by_32kb_per_bank(self, bank, page, offset):
+        """Banked pages (10h-9Eh and B0h-FFh) shift by exactly bank * 32 KiB
+        versus bank 0. This is the formula's load-bearing invariant."""
+        bank0 = CmisMemMap(self.codes, bank=0).getaddr(page, offset)
+        bankn = CmisMemMap(self.codes, bank=bank).getaddr(page, offset)
+        assert bankn - bank0 == bank * BYTES_PER_BANK
+
+    @pytest.mark.parametrize("bank", [1, 2, 3])
+    @pytest.mark.parametrize("page,offset", [
+        # Pages 00h-0Fh: non-banked per CMIS 5.x
+        (0x00, 128),    # Upper page 00h, first byte
+        (0x00, 255),    # Upper page 00h, last byte
+        (0x01, 142),    # BanksSupported field byte
+        (0x05, 200),    # Mid non-banked range
+        (0x0F, 255),    # Last spec-defined non-banked page
+        # Pages 9Fh-AFh: CDB region, also treated as non-banked here
+        (0x9F, 128),    # First CDB page
+        (0xA5, 200),    # Mid CDB range
+        (0xAF, 255),    # Last CDB page
+    ])
+    def test_getaddr_non_banked_pages_share_offset_across_banks(self, bank, page, offset):
+        """Pages 00h-0Fh and CDB pages 9Fh-AFh produce the same linear offset
+        regardless of self.bank: getaddr() clamps bank to 0 because there is
+        no reason to write the BankSelect register for these pages."""
+        bank0 = CmisMemMap(self.codes, bank=0).getaddr(page, offset)
+        bankn = CmisMemMap(self.codes, bank=bank).getaddr(page, offset)
+        assert bankn == bank0
+
+    @pytest.mark.parametrize("bank,page,offset,expected", [
+        # bank=0 baseline: formula collapses to page * 128 + offset
+        (0, 0x00, 128, 128),
+        (0, 0x01, 0,   128),
+        (0, 0x10, 128, 0x10 * 128 + 128),                    # 2176
+        # Banked page (>= 0x10, not in CDB range) shifts by bank * 32KiB
+        (1, 0x10, 128, BYTES_PER_BANK + 0x10 * 128 + 128),   # 34944
+        (3, 0xFF, 255, (3 * 256 + 0xFF) * 128 + 255),        # 131199
+        # Non-banked page (< 0x10) clamps to bank 0 regardless of self.bank
+        (1, 0x00, 128, 128),
+        (2, 0x05, 200, 0x05 * 128 + 200),                    # 840
+        # CDB pages 9Fh-AFh also clamp to bank 0
+        (2, 0x9F, 0,   0x9F * 128),                          # 20352
+        (3, 0xAF, 255, 0xAF * 128 + 255),                    # 22655
+    ])
+    def test_getaddr_specific_worked_examples(self, bank, page, offset, expected):
+        """Concrete numeric checks for both branches of the clamp, so a
+        future reader can verify the formula without redoing the arithmetic."""
+        mem_map = CmisMemMap(self.codes, bank=bank)
+        assert mem_map.getaddr(page, offset) == expected
+
 
 class TestCmis(object):
     codes = CmisCodes
@@ -36,8 +139,10 @@ class TestCmis(object):
                     delattr(self.api, attr)
 
     def setup_method(self, method):
-        """Clear cached values before each test case."""
+        """Clear cached values and CDB handler state before each test case."""
         self.clear_cache()
+        self.api._cdb_fw_hdlr = None
+        self.api._init_cdb_fw_handler = False
 
     @pytest.mark.parametrize("mock_response, expected", [
         ("1234567890", "1234567890"),
@@ -1560,6 +1665,147 @@ class TestCmis(object):
         result = self.api.get_module_level_flag()
         assert result == expected
 
+    @patch('sonic_platform_base.sonic_xcvr.cdb.cdb_fw.CdbFwHandler.initFwHandler', MagicMock(return_value=True))
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.is_cdb_supported')
+    def test_create_cdb_fw_handler(self, mock_cdb_support):
+        mock_cdb_support.return_value = False
+        assert self.api._create_cdb_fw_handler() is None
+        assert self.api._init_cdb_fw_handler is False
+        mock_cdb_support.return_value = True
+        assert self.api._create_cdb_fw_handler()
+        
+        with patch.object(self.api, '_init_cdb_fw_handler', new=False):
+            assert self.api.cdb_fw_hdlr is None
+        with patch.object(self.api, '_init_cdb_fw_handler', new=True):
+            assert self.api.cdb_fw_hdlr is not None
+
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.is_cdb_supported', MagicMock(return_value=True))
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cdb_fw.CdbFw', side_effect=AssertionError("test assertion"))
+    def test_create_cdb_fw_handler_assertion_error(self, mock_cdb_fw):
+        result = self.api._create_cdb_fw_handler()
+        assert result is None
+        assert self.api._init_cdb_fw_handler is False
+
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.is_cdb_supported', MagicMock(return_value=True))
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cdb_fw.CdbFw', side_effect=Exception("unexpected error"))
+    def test_create_cdb_fw_handler_general_exception(self, mock_cdb_fw):
+        result = self.api._create_cdb_fw_handler()
+        assert result is None
+        assert self.api._init_cdb_fw_handler is False
+
+    @patch('sonic_platform_base.sonic_xcvr.cdb.cdb_fw.CdbFwHandler.initFwHandler', MagicMock(return_value=True))
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.is_cdb_supported', MagicMock(return_value=True))
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi._create_cdb_fw_handler')  
+    def test_lazy_create_cdb_fw_handler(self, mock_create_handler):
+        mock_create_handler.return_value = MagicMock()
+        self.api._cdb_fw_hdlr = None
+        with patch.object(self.api, '_init_cdb_fw_handler', new=True):
+            first_handle = self.api.cdb_fw_hdlr
+            second_handle =self.api.cdb_fw_hdlr
+            assert first_handle is second_handle
+            assert mock_create_handler.call_count == 1
+
+    def test_is_cdb_supported_flat_memory(self):
+        self.api.is_flat_memory = MagicMock(return_value=True)
+        assert self.api.is_cdb_supported() == False
+
+    @pytest.mark.parametrize("cdb_inst, expected", [
+        (None, False),
+        (0, False),
+        (1, True),
+        (2, True),
+        (3, False),
+    ])
+    def test_is_cdb_supported_values(self, cdb_inst, expected):
+        self.api.is_flat_memory = MagicMock(return_value=False)
+        self.api.xcvr_eeprom.read = MagicMock(return_value=cdb_inst)
+        assert self.api.is_cdb_supported() == expected
+
+    @pytest.mark.parametrize("status_dict, expected", [
+        (None, 0),
+        ({cdb_consts.CDB1_IS_BUSY: False, cdb_consts.CDB1_HAS_FAILED: False, cdb_consts.CDB1_STATUS: 0x01}, 0x01),
+        ({cdb_consts.CDB1_IS_BUSY: True, cdb_consts.CDB1_HAS_FAILED: False, cdb_consts.CDB1_STATUS: 0x02}, 0x82),
+        ({cdb_consts.CDB1_IS_BUSY: False, cdb_consts.CDB1_HAS_FAILED: True, cdb_consts.CDB1_STATUS: 0x05}, 0x45),
+    ])
+    def test_get_status_code(self, status_dict, expected):
+        mock_fw_hdlr = MagicMock()
+        mock_fw_hdlr.get_cmd_status_code.return_value = status_dict
+        self.api._cdb_fw_hdlr = mock_fw_hdlr
+        self.api._init_cdb_fw_handler = True
+        assert self.api.get_status_code() == expected
+
+    def _setup_cdb_fw_hdlr(self):
+        mock_fw_hdlr = MagicMock()
+        self.api._cdb_fw_hdlr = mock_fw_hdlr
+        self.api._init_cdb_fw_handler = True
+        return mock_fw_hdlr
+
+    @pytest.mark.parametrize("method, handler_method, args", [
+        ('cdb_run_firmware', 'run_fw_image', [0x01]),
+        ('cdb_commit_firmware', 'commit_fw_image', []),
+        ('cdb_firmware_download_complete', 'complete_fw_download', []),
+        ('cdb_start_firmware_download', 'start_fw_download', ['/tmp/fw.bin']),
+        ('cdb_lpl_block_write', 'write_lpl_block', [0x1000, b'\x01\x02']),
+        ('cdb_enter_host_password', 'enter_password', [0x00001011]),
+    ])
+    def test_cdb_commands_success(self, method, handler_method, args):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        getattr(mock_fw_hdlr, handler_method).return_value = True
+        result = getattr(self.api, method)(*args)
+        assert result == 1
+
+    @pytest.mark.parametrize("method, handler_method, args", [
+        ('cdb_run_firmware', 'run_fw_image', [0x01]),
+        ('cdb_commit_firmware', 'commit_fw_image', []),
+        ('cdb_firmware_download_complete', 'complete_fw_download', []),
+        ('cdb_start_firmware_download', 'start_fw_download', ['/tmp/fw.bin']),
+        ('cdb_lpl_block_write', 'write_lpl_block', [0x1000, b'\x01\x02']),
+        ('cdb_enter_host_password', 'enter_password', [0x00001011]),
+    ])
+    def test_cdb_commands_failure(self, method, handler_method, args):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        getattr(mock_fw_hdlr, handler_method).return_value = False
+        mock_fw_hdlr.get_cmd_status_code.return_value = {
+            cdb_consts.CDB1_IS_BUSY: False,
+            cdb_consts.CDB1_HAS_FAILED: True,
+            cdb_consts.CDB1_STATUS: 0x04,
+        }
+        result = getattr(self.api, method)(*args)
+        assert result == 0x44
+
+    @pytest.mark.parametrize("method, args", [
+        ('cdb_run_firmware', [0x01]),
+        ('cdb_commit_firmware', []),
+        ('cdb_firmware_download_complete', []),
+        ('cdb_start_firmware_download', ['/tmp/fw.bin']),
+        ('cdb_lpl_block_write', [0x1000, b'\x01\x02']),
+        ('cdb_epl_block_write', [0x1000, b'\x01\x02']),
+        ('cdb_enter_host_password', [0x00001011]),
+    ])
+    def test_cdb_commands_no_handler(self, method, args):
+        self.api._cdb_fw_hdlr = None
+        self.api._init_cdb_fw_handler = False
+        result = getattr(self.api, method)(*args)
+        assert result == 0
+
+    def test_cdb_epl_block_write_success(self):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.write_epl_block.return_value = True
+        result = self.api.cdb_epl_block_write(0x1000, b'\xAA' * 128)
+        assert result == 1
+        mock_fw_hdlr.write_epl_pages.assert_called_once()
+
+    def test_cdb_epl_block_write_failure(self):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.write_epl_block.return_value = False
+        mock_fw_hdlr.get_cmd_status_code.return_value = {
+            cdb_consts.CDB1_IS_BUSY: False,
+            cdb_consts.CDB1_HAS_FAILED: True,
+            cdb_consts.CDB1_STATUS: 0x02,
+        }
+        result = self.api.cdb_epl_block_write(0x1000, b'\xAA' * 128)
+        assert result == 0x42
+
     @pytest.mark.parametrize("mock_response, expected", [
         (
             {cdb_consts.CDB1_FIRMWARE_STATUS: {cdb_consts.CDB1_BANKA_OPER_STATUS: True, cdb_consts.CDB1_BANKA_ADMIN_STATUS: True, cdb_consts.CDB1_BANKA_VALID_STATUS: False,
@@ -1597,84 +1843,328 @@ class TestCmis(object):
         (False, {'status': False, 'result': 0}),
     ])
     def test_get_module_fw_info(self, mock_response, expected):
-        self.api.cdb = MagicMock()
         mock_fw_hdlr = MagicMock()
         mock_fw_hdlr.get_firmware_info.return_value = mock_response
         self.api._cdb_fw_hdlr = mock_fw_hdlr
+        self.api._init_cdb_fw_handler = True
         result = self.api.get_module_fw_info()
         assert result['status'] == expected['status']
         assert result['result'] == expected['result']
 
-    @pytest.mark.parametrize("mock_response, expected", [
-        ({'status':0, 'rpl':(18, 0, [0] * 18)}, {'status': False, 'info': "", 'feature': None}),
-        ({'status':1, 'rpl':(18, 1, [0] * 18)}, {'status': True,  'info': "", 'feature': (0, 8, False, True, 16)})
+    @pytest.mark.parametrize("mock_fw_features, mock_eeprom_reads, expected", [
+        (None, [True, 1], {'status': False, 'feature': None}),
+        ((0, 8, False), [True, 1], {'status': True, 'feature': (0, 8, False, True, 16)}),
+        ((112, 2048, True), [False, 1], {'status': True, 'feature': (112, 2048, True, False, 16)}),
     ])
-    def test_get_module_fw_mgmt_feature(self, mock_response, expected):
-        self.api.cdb = MagicMock()
-        self.api.cdb.cdb_chkcode = MagicMock()
-        self.api.cdb.cdb_chkcode.return_value = 1
+    def test_get_module_fw_mgmt_feature(self, mock_fw_features, mock_eeprom_reads, expected):
+        mock_fw_hdlr = MagicMock()
+        mock_fw_hdlr.get_fw_mgmt_features.return_value = mock_fw_features
+        self.api._cdb_fw_hdlr = mock_fw_hdlr
+        self.api._init_cdb_fw_handler = True
         self.api.xcvr_eeprom.read = MagicMock()
-        self.api.xcvr_eeprom.read.side_effect = [1, 1]
-        self.api.cdb.get_fw_management_features = MagicMock()
-        self.api.cdb.get_fw_management_features.return_value = mock_response
+        self.api.xcvr_eeprom.read.side_effect = mock_eeprom_reads
         result = self.api.get_module_fw_mgmt_feature()
         assert result['feature'] == expected['feature']
 
-    @pytest.mark.parametrize("input_param, mock_response, expected", [
-        (1, 1,  (True, 'Module FW run: Success\n')),
-        (1, 64,  (False, 'Module FW run: Fail\nFW_run_status 64\n')),
+    def test_get_module_fw_mgmt_feature_writelength_none(self):
+        mock_fw_hdlr = MagicMock()
+        mock_fw_hdlr.get_fw_mgmt_features.return_value = (112, 2048, True)
+        self.api._cdb_fw_hdlr = mock_fw_hdlr
+        self.api._init_cdb_fw_handler = True
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.side_effect = [True, None]
+        result = self.api.get_module_fw_mgmt_feature()
+        assert result['status'] is False
+        assert result['feature'] is None
+
+    def test_get_module_fw_info_password_retry(self):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.get_firmware_info.side_effect = [
+            False,
+            {cdb_consts.CDB1_FIRMWARE_STATUS: {
+                cdb_consts.CDB1_BANKA_OPER_STATUS: True, cdb_consts.CDB1_BANKA_ADMIN_STATUS: True, cdb_consts.CDB1_BANKA_VALID_STATUS: False,
+                cdb_consts.CDB1_BANKB_OPER_STATUS: False, cdb_consts.CDB1_BANKB_ADMIN_STATUS: False, cdb_consts.CDB1_BANKB_VALID_STATUS: False},
+            cdb_consts.CDB1_IMAGE_INFO: 7,
+            cdb_consts.CDB1_BANKA_MAJOR_VERSION: 1, cdb_consts.CDB1_BANKA_MINOR_VERSION: 0, cdb_consts.CDB1_BANKA_BUILD_VERSION: 0,
+            cdb_consts.CDB1_BANKB_MAJOR_VERSION: 2, cdb_consts.CDB1_BANKB_MINOR_VERSION: 0, cdb_consts.CDB1_BANKB_BUILD_VERSION: 0,
+            cdb_consts.CDB1_FACTORY_MAJOR_VERSION: 0, cdb_consts.CDB1_FACTORY_MINOR_VERSION: 0, cdb_consts.CDB1_FACTORY_BUILD_VERSION: 0}
+        ]
+        mock_fw_hdlr.get_cmd_status_code.return_value = {
+            cdb_consts.CDB1_IS_BUSY: False,
+            cdb_consts.CDB1_HAS_FAILED: True,
+            cdb_consts.CDB1_STATUS: 0x06,
+        }
+        result = self.api.get_module_fw_info()
+        assert result['status'] is True
+        mock_fw_hdlr.enter_password.assert_called_once()
+
+    @pytest.mark.parametrize("input_param, run_result, expected", [
+        (1, True,  (True, 'Module FW run: Success\n')),
+        (1, False, (False, 'Module FW run: Fail\nFW_run_status 64\n')),
     ])
-    def test_module_fw_run(self, input_param, mock_response, expected):
-        self.api.cdb = MagicMock()
-        self.api.cdb.run_fw_image = MagicMock()
-        self.api.cdb.run_fw_image.return_value = mock_response
+    def test_module_fw_run(self, input_param, run_result, expected):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.run_fw_image.return_value = run_result
+        if not run_result:
+            mock_fw_hdlr.get_cmd_status_code.return_value = {
+                cdb_consts.CDB1_IS_BUSY: False,
+                cdb_consts.CDB1_HAS_FAILED: True,
+                cdb_consts.CDB1_STATUS: 0x00,
+            }
         result = self.api.module_fw_run(input_param)
         assert result == expected
 
-    @pytest.mark.parametrize("mock_response, expected", [
-        (1, (True, 'Module FW commit: Success\n')),
-        (64, (False, 'Module FW commit: Fail\nFW_commit_status 64\n')),
+    def test_module_fw_run_no_handler(self):
+        self.api._cdb_fw_hdlr = None
+        self.api._init_cdb_fw_handler = False
+        result = self.api.module_fw_run(1)
+        assert result == (False, "CDB NOT supported on this module")
+
+    def test_module_fw_run_password_retry_success(self):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.run_fw_image.side_effect = [False, True]
+        mock_fw_hdlr.get_cmd_status_code.return_value = {
+            cdb_consts.CDB1_IS_BUSY: False,
+            cdb_consts.CDB1_HAS_FAILED: True,
+            cdb_consts.CDB1_STATUS: 0x06,
+        }
+        result = self.api.module_fw_run(1)
+        assert result == (True, 'Module FW run: Success after password retry\n')
+        mock_fw_hdlr.enter_password.assert_called_once()
+
+    def test_module_fw_run_password_retry_fail(self):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.run_fw_image.side_effect = [False, False]
+        mock_fw_hdlr.get_cmd_status_code.return_value = {
+            cdb_consts.CDB1_IS_BUSY: False,
+            cdb_consts.CDB1_HAS_FAILED: True,
+            cdb_consts.CDB1_STATUS: 0x06,
+        }
+        status, txt = self.api.module_fw_run(1)
+        assert status is False
+        assert 'Fail after password retry' in txt
+
+    @pytest.mark.parametrize("commit_result, expected", [
+        (True, (True, 'Module FW commit: Success\n')),
+        (False, (False, 'Module FW commit: Fail\nFW_commit_status 64\n')),
     ])
-    def test_module_fw_commit(self, mock_response, expected):
-        self.api.cdb = MagicMock()
-        self.api.cdb.commit_fw_image = MagicMock()
-        self.api.cdb.commit_fw_image.return_value = mock_response
+    def test_module_fw_commit(self, commit_result, expected):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.commit_fw_image.return_value = commit_result
+        if not commit_result:
+            mock_fw_hdlr.get_cmd_status_code.return_value = {
+                cdb_consts.CDB1_IS_BUSY: False,
+                cdb_consts.CDB1_HAS_FAILED: True,
+                cdb_consts.CDB1_STATUS: 0x00,
+            }
         result = self.api.module_fw_commit()
         assert result == expected
+
+    def test_module_fw_commit_no_handler(self):
+        self.api._cdb_fw_hdlr = None
+        self.api._init_cdb_fw_handler = False
+        result = self.api.module_fw_commit()
+        assert result == (False, "CDB NOT supported on this module")
+
+    def test_module_fw_commit_password_retry_success(self):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.commit_fw_image.side_effect = [False, True]
+        mock_fw_hdlr.get_cmd_status_code.return_value = {
+            cdb_consts.CDB1_IS_BUSY: False,
+            cdb_consts.CDB1_HAS_FAILED: True,
+            cdb_consts.CDB1_STATUS: 0x06,
+        }
+        result = self.api.module_fw_commit()
+        assert result == (True, 'Module FW commit: Success after password retry\n')
+        mock_fw_hdlr.enter_password.assert_called_once()
+
+    def test_module_fw_commit_password_retry_fail(self):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.commit_fw_image.side_effect = [False, False]
+        mock_fw_hdlr.get_cmd_status_code.return_value = {
+            cdb_consts.CDB1_IS_BUSY: False,
+            cdb_consts.CDB1_HAS_FAILED: True,
+            cdb_consts.CDB1_STATUS: 0x06,
+        }
+        status, txt = self.api.module_fw_commit()
+        assert status is False
+        assert 'Fail after password retry' in txt
 
     @pytest.mark.parametrize("input_param, mock_response, expected", [
         (
             'abc',
-            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0, 'a', 'b')}, {'status': True, 'info': '', 'feature': (112, 2048, True, True, 2048)}, (True, ''), (True, '')],
+            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0, 'a', 'b')},
+             {'status': True, 'info': '', 'feature': (112, 2048, True, True, 2048)},
+             (True, ''), (True, ''), (True, '')],
             (True, '')
         ),
         (
             'abc',
-            [{'status': False, 'info': '', 'result': None}, {'status': True, 'info': '', 'feature': (112, 2048, True, True, 2048)}, (True, ''), (True, '')],
+            [{'status': False, 'info': '', 'result': None},
+             {'status': True, 'info': '', 'feature': (112, 2048, True, True, 2048)},
+             (True, ''), (True, ''), (True, '')],
             (False, '')
         ),
         (
             'abc',
-            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0, 'a', 'b')}, {'status': False, 'info': '', 'feature': None}, (True, ''), (True, '')],
+            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0, 'a', 'b')},
+             {'status': False, 'info': '', 'feature': None},
+             (True, ''), (True, ''), (True, '')],
             (False, '')
         ),
         (
             'abc',
-            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0, 'a', 'b')}, {'status': True, 'info': '', 'feature': (112, 2048, True, True, 2048)}, (False, ''), (True, '')],
+            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0, 'a', 'b')},
+             {'status': True, 'info': '', 'feature': (112, 2048, True, True, 2048)},
+             (False, ''), (True, ''), (True, '')],
             (False, '')
+        ),
+        (
+            'abc',
+            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0, 'a', 'b')},
+             {'status': True, 'info': '', 'feature': (112, 2048, True, True, 2048)},
+             (True, ''), (False, 'run error'), (True, '')],
+            (False, 'Module FW run failed\nrun error')
+        ),
+        (
+            'abc',
+            [{'status': True, 'info': '', 'result': ('a', 1, 1, 0, 'b', 0, 0, 0, 'a', 'b')},
+             {'status': True, 'info': '', 'feature': (112, 2048, True, True, 2048)},
+             (True, ''), (True, ''), (False, 'commit error')],
+            (False, 'Module FW commit failed\ncommit error')
         ),
     ])
-    def test_module_fw_upgrade(self, input_param, mock_response, expected):
-        self.api.get_module_fw_info = MagicMock()
-        self.api.get_module_fw_info.return_value = mock_response[0]
-        self.api.get_module_fw_mgmt_feature = MagicMock()
-        self.api.get_module_fw_mgmt_feature.return_value = mock_response[1]
-        self.api.module_fw_download = MagicMock()
-        self.api.module_fw_download.return_value = mock_response[2]
-        self.api.module_fw_switch = MagicMock()
-        self.api.module_fw_switch.return_value = mock_response[3]
-        result = self.api.module_fw_upgrade(input_param)
-        assert result == expected
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cdb_fw.time.sleep')
+    def test_module_fw_upgrade(self, mock_sleep, input_param, mock_response, expected):
+        with patch.object(self.api, 'get_module_fw_info', return_value=mock_response[0]), \
+             patch.object(self.api, 'get_module_fw_mgmt_feature', return_value=mock_response[1]), \
+             patch.object(self.api, 'module_fw_download', return_value=mock_response[2]), \
+             patch.object(self.api, 'module_fw_run', return_value=mock_response[3]), \
+             patch.object(self.api, 'module_fw_commit', return_value=mock_response[4]):
+            result = self.api.module_fw_upgrade(input_param)
+            assert result == expected
+
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cdb_fw.time.sleep')
+    def test_module_fw_download_no_handler(self, mock_sleep):
+        self.api._cdb_fw_hdlr = None
+        self.api._init_cdb_fw_handler = False
+        result = self.api.module_fw_download(112, 2048, True, True, 2048, '/tmp/fw.bin')
+        assert result == (False, "CDB NOT supported on this module")
+
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cdb_fw.time.sleep')
+    def test_module_fw_download_file_not_found(self, mock_sleep):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.start_fw_download.side_effect = FileNotFoundError()
+        result = self.api.module_fw_download(112, 2048, True, True, 2048, '/nonexistent/fw.bin')
+        assert result[0] is False
+        assert 'incorrect' in result[1]
+
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cdb_fw.time.sleep')
+    @patch('builtins.open', new_callable=lambda: lambda *a, **k: MagicMock)
+    def test_module_fw_download_start_fail(self, mock_open_cls, mock_sleep):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.start_fw_download.return_value = False
+        mock_fw_hdlr.get_cmd_status_code.return_value = {
+            cdb_consts.CDB1_IS_BUSY: False,
+            cdb_consts.CDB1_HAS_FAILED: True,
+            cdb_consts.CDB1_STATUS: 0x04,
+        }
+        result = self.api.module_fw_download(112, 2048, True, True, 2048, '/tmp/fw.bin')
+        assert result[0] is False
+        assert 'Fail' in result[1]
+        mock_fw_hdlr.abort_fw_download.assert_called_once()
+
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cdb_fw.time.sleep')
+    def test_module_fw_download_start_password_retry_success(self, mock_sleep):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.start_fw_download.side_effect = [False, True]
+        mock_fw_hdlr.get_cmd_status_code.return_value = {
+            cdb_consts.CDB1_IS_BUSY: False,
+            cdb_consts.CDB1_HAS_FAILED: True,
+            cdb_consts.CDB1_STATUS: 0x06,
+        }
+        mock_fw_hdlr.write_lpl_block.return_value = True
+        mock_fw_hdlr.complete_fw_download.return_value = True
+        from unittest.mock import mock_open
+        m = mock_open(read_data=b'\x00' * 256)
+        m.return_value.seek = MagicMock()
+        m.return_value.tell = MagicMock(return_value=256)
+        with patch('builtins.open', m):
+            result = self.api.module_fw_download(112, 2048, True, True, 2048, '/tmp/fw.bin')
+        assert result[0] is True
+        mock_fw_hdlr.enter_password.assert_called_once()
+
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cdb_fw.time.sleep')
+    def test_module_fw_download_lpl_success(self, mock_sleep):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.start_fw_download.return_value = True
+        mock_fw_hdlr.write_lpl_block.return_value = True
+        mock_fw_hdlr.complete_fw_download.return_value = True
+        from unittest.mock import mock_open
+        m = mock_open(read_data=b'\x00' * 256)
+        m.return_value.seek = MagicMock()
+        m.return_value.tell = MagicMock(return_value=256)
+        with patch('builtins.open', m):
+            result = self.api.module_fw_download(112, 2048, True, True, 2048, '/tmp/fw.bin')
+        assert result[0] is True
+        assert 'Success' in result[1]
+
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cdb_fw.time.sleep')
+    def test_module_fw_download_epl_success(self, mock_sleep):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.start_fw_download.return_value = True
+        mock_fw_hdlr.write_epl_block.return_value = True
+        mock_fw_hdlr.complete_fw_download.return_value = True
+        from unittest.mock import mock_open
+        m = mock_open(read_data=b'\x00' * 256)
+        m.return_value.seek = MagicMock()
+        m.return_value.tell = MagicMock(return_value=256)
+        with patch('builtins.open', m):
+            result = self.api.module_fw_download(112, 2048, False, True, 2048, '/tmp/fw.bin')
+        assert result[0] is True
+        assert 'Success' in result[1]
+        mock_fw_hdlr.write_epl_pages.assert_called()
+
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cdb_fw.time.sleep')
+    def test_module_fw_download_block_write_fail(self, mock_sleep):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.start_fw_download.return_value = True
+        mock_fw_hdlr.write_lpl_block.return_value = False
+        mock_fw_hdlr.get_cmd_status_code.return_value = {
+            cdb_consts.CDB1_IS_BUSY: False,
+            cdb_consts.CDB1_HAS_FAILED: True,
+            cdb_consts.CDB1_STATUS: 0x04,
+        }
+        from unittest.mock import mock_open
+        m = mock_open(read_data=b'\x00' * 256)
+        m.return_value.seek = MagicMock()
+        m.return_value.tell = MagicMock(return_value=256)
+        with patch('builtins.open', m):
+            result = self.api.module_fw_download(112, 2048, True, True, 2048, '/tmp/fw.bin')
+        assert result[0] is False
+        assert 'CDB download failed' in result[1]
+        mock_fw_hdlr.abort_fw_download.assert_called_once()
+
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cdb_fw.time.sleep')
+    def test_module_fw_download_complete_fail(self, mock_sleep):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.start_fw_download.return_value = True
+        mock_fw_hdlr.write_lpl_block.return_value = True
+        mock_fw_hdlr.complete_fw_download.return_value = False
+        mock_fw_hdlr.get_cmd_status_code.return_value = {
+            cdb_consts.CDB1_IS_BUSY: False,
+            cdb_consts.CDB1_HAS_FAILED: True,
+            cdb_consts.CDB1_STATUS: 0x04,
+        }
+        from unittest.mock import mock_open
+        m = mock_open(read_data=b'\x00' * 256)
+        m.return_value.seek = MagicMock()
+        m.return_value.tell = MagicMock(return_value=256)
+        with patch('builtins.open', m):
+            result = self.api.module_fw_download(112, 2048, True, True, 2048, '/tmp/fw.bin')
+        assert result[0] is False
+        assert 'FW_complete_status' in result[1]
+
 
     @pytest.mark.parametrize("mock_response, expected", [
         ([0, 0, 0],
@@ -3116,29 +3606,3 @@ class TestCmis(object):
         self.api.xcvr_eeprom.read.return_value = mock_response[1]
         result = self.api.get_tx_adaptive_eq_fail_flag()
         assert result == expected
-
-    @patch('sonic_platform_base.sonic_xcvr.cdb.cdb_fw.CdbFwHandler.initFwHandler', MagicMock(return_value=True))
-    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.is_cdb_supported')
-    def test_create_cdb_fw_handler(self, mock_cdb_support):
-        mock_cdb_support.return_value = False
-        assert self.api._create_cdb_fw_handler() is None
-        assert self.api._init_cdb_fw_handler is False
-        mock_cdb_support.return_value = True
-        assert self.api._create_cdb_fw_handler()
-        
-        with patch.object(self.api, '_init_cdb_fw_handler', new=False):
-            assert self.api.cdb_fw_hdlr is None
-        with patch.object(self.api, '_init_cdb_fw_handler', new=True):
-            assert self.api.cdb_fw_hdlr is not None
-
-    @patch('sonic_platform_base.sonic_xcvr.cdb.cdb_fw.CdbFwHandler.initFwHandler', MagicMock(return_value=True))
-    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.is_cdb_supported', MagicMock(return_value=True))
-    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi._create_cdb_fw_handler')  
-    def test_lazy_create_cdb_fw_handler(self, mock_create_handler):
-        mock_create_handler.return_value = MagicMock()
-        self.api._cdb_fw_hdlr = None
-        with patch.object(self.api, '_init_cdb_fw_handler', new=True):
-            first_handle = self.api.cdb_fw_hdlr
-            second_handle =self.api.cdb_fw_hdlr
-            assert first_handle is second_handle
-            assert mock_create_handler.call_count == 1

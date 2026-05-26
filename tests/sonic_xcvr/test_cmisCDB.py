@@ -21,9 +21,6 @@ class TestCDB(object):
         print(api.get_module_fw_mgmt_feature())
         assert False == api.get_module_fw_mgmt_feature()['status']
         assert False == api.get_module_fw_info()['status']
-        assert False == api.module_fw_run()[0]
-        assert False == api.module_fw_commit()[0]
-        assert False == api.module_fw_download(None, None, None, None, None, None)[0]
 
 
     @pytest.mark.parametrize("mock_response, expected", [

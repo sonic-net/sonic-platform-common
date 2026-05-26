@@ -1788,6 +1788,23 @@ class TestSsd:
         assert(Innodisk_ssd.get_disk_io_writes() == '150370')
         assert(Innodisk_ssd.get_reserved_blocks() == '59')
 
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_Innodisk_ssd))
+    def test_Innodisk_missing_io_vendor_attributes(self):
+        Innodisk_ssd = SsdUtil('/dev/sda')
+        Innodisk_ssd.disk_io_reads = 'N/A'
+        Innodisk_ssd.disk_io_writes = 'N/A'
+        Innodisk_ssd.reserved_blocks = 'N/A'
+        Innodisk_ssd.vendor_ssd_info = output_Innodisk_vendor_info.replace(
+            "[E8]  Percentage os spare remaining               [    0]         [E80300640100000000000000]\n", "").replace(
+            "[F1]  Total LBAs Written                          [150370]         [F102006401624B0200000000]\n", "").replace(
+            "[F2]  Total LBAs Read                             [73954]         [F202006401E2200100000000]\n", "")
+
+        Innodisk_ssd.parse_innodisk_info()
+
+        assert(Innodisk_ssd.get_disk_io_reads() == 'N/A')
+        assert(Innodisk_ssd.get_disk_io_writes() == 'N/A')
+        assert(Innodisk_ssd.get_reserved_blocks() == 'N/A')
+
 
     @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_Innodisk_vendor_info))
     @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil.model', "InnoDisk")
@@ -1879,6 +1896,24 @@ class TestSsd:
         virtium_ssd = SsdUtil('/dev/sda')
         assert virtium_ssd.get_disk_io_writes() == "18782480803"
         assert virtium_ssd.get_temperature() == "42"
+
+    @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell')
+    def test_virtium_missing_io_vendor_attributes(self, mock_exec):
+        mock_exec.side_effect = [output_virtium_generic, output_virtium_vendor]
+        virtium_ssd = SsdUtil('/dev/sda')
+        virtium_ssd.disk_io_reads = 'N/A'
+        virtium_ssd.disk_io_writes = 'N/A'
+        virtium_ssd.reserved_blocks = 'N/A'
+        virtium_ssd.vendor_ssd_info = output_virtium_vendor.replace(
+            "232           Reserved_Attribute          0        100   100   100         0 \n", "").replace(
+            "241           Total_LBAs_Written          0     629509   100   100         0 \n", "").replace(
+            "242              Total_LBAs_Read          0    1482095   100   100         0 \n", "")
+
+        virtium_ssd.parse_virtium_info()
+
+        assert virtium_ssd.get_disk_io_reads() == 'N/A'
+        assert virtium_ssd.get_disk_io_writes() == 'N/A'
+        assert virtium_ssd.get_reserved_blocks() == 'N/A'
 
 
     @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell')

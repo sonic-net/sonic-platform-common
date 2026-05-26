@@ -244,19 +244,19 @@ class SsdUtil(StorageCommon):
         if self.disk_io_reads == NOT_AVAILABLE:
             io_reads_raw = self.parse_id_number("[{}]".format(hex(INNODISK_IO_READS_ID)[2:]).upper(), self.vendor_ssd_info)
             if io_reads_raw == NOT_AVAILABLE:
-                self.disk_io_reads == NOT_AVAILABLE
+                self.disk_io_reads = NOT_AVAILABLE
             else:
                 self.disk_io_reads = io_reads_raw.split()[-2].strip("[]")
         if self.disk_io_writes == NOT_AVAILABLE:
             io_writes_raw = self.parse_id_number("[{}]".format(hex(INNODISK_IO_WRITES_ID)[2:]).upper(), self.vendor_ssd_info)
             if io_writes_raw == NOT_AVAILABLE:
-                self.disk_io_writes == NOT_AVAILABLE
+                self.disk_io_writes = NOT_AVAILABLE
             else:
                 self.disk_io_writes = io_writes_raw.split()[-2].strip("[]")
         if self.reserved_blocks == NOT_AVAILABLE:
             rbc_raw = self.parse_id_number("[{}]".format(hex(INNODISK_RESERVED_BLOCKS_ID)[2:]).upper(), self.vendor_ssd_info)
             if rbc_raw == NOT_AVAILABLE:
-                self.reserved_blocks == NOT_AVAILABLE
+                self.reserved_blocks = NOT_AVAILABLE
             else:
                 self.reserved_blocks = rbc_raw.split()[-2].strip("[]")
 
@@ -296,21 +296,21 @@ class SsdUtil(StorageCommon):
             if self.disk_io_reads == NOT_AVAILABLE:
                 io_reads_raw = self.parse_id_number(VIRTIUM_IO_READS_ID, self.vendor_ssd_info)
                 if io_reads_raw == NOT_AVAILABLE:
-                    self.disk_io_reads == NOT_AVAILABLE
+                    self.disk_io_reads = NOT_AVAILABLE
                 else:
                     self.disk_io_reads = io_reads_raw.split()[-1]
 
             if self.disk_io_writes == NOT_AVAILABLE:
                 io_writes_raw = self.parse_id_number(VIRTIUM_IO_WRITES_ID, self.vendor_ssd_info)
                 if io_writes_raw == NOT_AVAILABLE:
-                    self.disk_io_writes == NOT_AVAILABLE
+                    self.disk_io_writes = NOT_AVAILABLE
                 else:
                     self.disk_io_writes = io_writes_raw.split()[-1]
 
             if self.reserved_blocks == NOT_AVAILABLE:
                 rbc_raw = self.parse_id_number(VIRTIUM_RESERVED_BLOCKS_ID, self.vendor_ssd_info)
                 if rbc_raw == NOT_AVAILABLE:
-                    self.reserved_blocks == NOT_AVAILABLE
+                    self.reserved_blocks = NOT_AVAILABLE
                 else:
                     self.reserved_blocks = rbc_raw.split()[-1]
 

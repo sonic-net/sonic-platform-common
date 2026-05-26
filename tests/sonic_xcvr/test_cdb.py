@@ -7,7 +7,7 @@ from sonic_platform_base.sonic_xcvr.mem_maps.public.cdb import (
     CdbGetFirmwareMgmtFeatures, CdbStartFirmwareDownload,
     CdbAbortFirmwareDownload, CdbCompleteFirmwareDownload,
     CdbRunFirmwareDownload, CdbCommitFirmwareDownload,
-    CdbWriteLplBlock, CdbWriteEplBlock
+    CdbWriteLplBlock, CdbWriteEplBlock, CdbEnterPassword
 )
 from sonic_platform_base.sonic_xcvr.fields import cdb_consts
 from sonic_platform_base.sonic_xcvr.cdb.cdb import CdbCmdHandler
@@ -772,30 +772,30 @@ class TestCdbCmdHandler:
         result = self.handler.send_cmd(cdb_consts.CDB_WRITE_FIRMWARE_EPL_CMD, epl_payload)
         assert result == True
     
-    @patch('builtins.print')
-    def test_send_cmd_print_messages(self, mock_print):
-        """Test that send_cmd prints appropriate error messages"""
+    @patch('sonic_platform_base.sonic_xcvr.cdb.cdb.log')
+    def test_send_cmd_log_messages(self, mock_log):
+        """Test that send_cmd logs appropriate error messages"""
         # Test write failure message
         cmd_id = 0x1234
         self.handler.write_cmd = MagicMock(return_value=False)
         
         result = self.handler.send_cmd(cmd_id)
         
-        mock_print.assert_called_with(f"Failed to write CDB command: {cmd_id}")
+        mock_log.log_notice.assert_called()
         assert result is None
         
         # Test timeout message
-        mock_print.reset_mock()
+        mock_log.reset_mock()
         self.handler.write_cmd = MagicMock(return_value=True)
         self.handler.wait_for_cdb_status = MagicMock(return_value=[False, None])
         
         result = self.handler.send_cmd(cmd_id)
         
-        mock_print.assert_called_with(f"CDB command: {cmd_id} failed to complete or read status")
+        mock_log.log_notice.assert_called_with("CDB command: {} failed to complete or read status".format(cmd_id))
         assert result is None
         
         # Test busy message
-        mock_print.reset_mock()
+        mock_log.reset_mock()
         status_value = 0x5
         self.handler.wait_for_cdb_status = MagicMock(return_value=[True, {
             cdb_consts.CDB1_IS_BUSY: True,
@@ -805,11 +805,11 @@ class TestCdbCmdHandler:
         
         result = self.handler.send_cmd(cmd_id)
         
-        mock_print.assert_called_with(f"CDB command: {cmd_id} is busy with status: {status_value}")
+        mock_log.log_notice.assert_called_with("CDB command: {} is busy with status: {}".format(cmd_id, status_value))
         assert result == False
         
         # Test failed message
-        mock_print.reset_mock()
+        mock_log.reset_mock()
         status_value = 0x6
         self.handler.wait_for_cdb_status = MagicMock(return_value=[True, {
             cdb_consts.CDB1_IS_BUSY: False,
@@ -819,7 +819,7 @@ class TestCdbCmdHandler:
         
         result = self.handler.send_cmd(cmd_id)
         
-        mock_print.assert_called_with(f"CDB command: {cmd_id} failed with status: {status_value}")
+        mock_log.log_notice.assert_called_with("CDB command: {} failed with status: {}".format(cmd_id, status_value))
         assert result == False
     
     # Boundary tests
@@ -861,3 +861,72 @@ class TestCdbCmdHandler:
             result = self.handler.send_cmd(cmd_id)
             
             assert result == expected, f"Failed for combination: busy={is_busy}, failed={has_failed}, status={status}"
+
+    def test_get_last_cmd_status(self):
+        """Test get_last_cmd_status reads from eeprom"""
+        with patch.object(self.handler, 'read', return_value={'test': 'value'}):
+            assert self.handler.get_last_cmd_status() == {'test': 'value'}
+
+    def test_get_last_cmd_status_none(self):
+        """Test get_last_cmd_status returns None when eeprom read fails"""
+        with patch.object(self.handler, 'read', return_value=None):
+            assert self.handler.get_last_cmd_status() is None
+
+    @pytest.mark.parametrize("password, expected", [
+        ("not_an_int", False),
+        (-1, False),
+        (0x100000000, False),
+        (12.5, False),
+        (None, False),
+    ])
+    def test_enter_password_invalid(self, password, expected):
+        """Test enter_password with invalid passwords"""
+        result = self.handler.enter_password(password)
+        assert result == expected
+
+    def test_enter_password_valid(self):
+        """Test enter_password with valid password"""
+        self.handler.send_cmd = MagicMock(return_value=True)
+        result = self.handler.enter_password(0x00001011)
+        assert result is True
+        self.handler.send_cmd.assert_called_once_with(
+            cdb_consts.CDB_ENTER_PASSWORD_CMD,
+            {"password": 0x00001011}
+        )
+
+    def test_enter_password_default(self):
+        """Test enter_password with default password"""
+        self.handler.send_cmd = MagicMock(return_value=True)
+        result = self.handler.enter_password()
+        assert result is True
+        self.handler.send_cmd.assert_called_once_with(
+            cdb_consts.CDB_ENTER_PASSWORD_CMD,
+            {"password": cdb_consts.CDB_DEFAULT_PASSWORD}
+        )
+
+    def test_write_lpl_block(self):
+        """Test write_lpl_block sends correct command"""
+        self.handler.send_cmd = MagicMock(return_value=True)
+        result = self.handler.write_lpl_block(0x1000, b'\x01\x02')
+        assert result is True
+        self.handler.send_cmd.assert_called_once_with(
+            cdb_consts.CDB_WRITE_FIRMWARE_LPL_CMD,
+            {"blkaddr": 0x1000, "blkdata": b'\x01\x02'}
+        )
+
+
+class TestCdbEnterPassword:
+    """Test cases for CdbEnterPassword command"""
+
+    def test_init(self):
+        cmd = CdbEnterPassword()
+        assert cmd.cmd_id == cdb_consts.CDB_ENTER_PASSWORD_CMD
+        assert cmd.epl == 0
+        assert cmd.lpl == 4
+
+    def test_encode(self):
+        cmd = CdbEnterPassword()
+        encoded = cmd.encode({"password": 0x00001011})
+        lpl_data = encoded[8:]
+        assert len(lpl_data) == 4
+        assert struct.unpack(">I", lpl_data)[0] == 0x00001011

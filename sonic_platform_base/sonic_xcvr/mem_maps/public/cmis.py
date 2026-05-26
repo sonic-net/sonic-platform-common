@@ -19,11 +19,17 @@ from ...fields import consts
 from ...fields.consts import *
 from ...fields.public.cmis import CableLenField
 
+# Constants matching optoe driver
+CMIS_EEPROM_PAGE_SIZE = 128
+CMIS_NUM_NON_BANKED_PAGES = 16   # pages 00h-0Fh
+CMIS_ARCH_PAGES = 256            # architectural pages per bank (matches OPTOE_ARCH_PAGES)
+
 class CmisFlatMemMap(XcvrMemMap):
     """
     Memory map for CMIS flat memory (Lower page and Upper page 0h ONLY)
     """
-    def __init__(self, codes):
+    def __init__(self, codes, bank=0):
+        self._bank = bank
         super(CmisFlatMemMap, self).__init__(codes)
 
         self.MGMT_CHARACTERISTICS = RegGroupField(consts.MGMT_CHAR_FIELD,
@@ -138,12 +144,53 @@ class CmisFlatMemMap(XcvrMemMap):
             NumberRegField(consts.MODULE_LEVEL_CONTROL, self.getaddr(0x0, 26), size=1, ro=False),
         )
 
+    @property
+    def bank(self):
+        """Returns the bank number (read-only)."""
+        return self._bank
+
     def getaddr(self, page, offset, page_size=128):
-        return page * page_size + offset
+        """
+        Calculate linear offset for optoe driver using instance's bank.
+
+        For lower memory (page 0, offset < 128):
+            linear_offset = offset
+
+        For non-banked pages (00h-0Fh):
+            bank is clamped to 0 because writing the BankSelect register is
+            not necessary for these pages per CMIS 5.x.
+
+        For paged memory:
+            offset_in_paged_area = (page * page_size + offset) - 128
+            bytes_per_bank = CMIS_ARCH_PAGES * page_size  (256 * 128 = 32KB)
+            linear_offset = 128 + (bank * bytes_per_bank) + offset_in_paged_area
+
+        Simplified:
+            linear_offset = (bank * CMIS_ARCH_PAGES + page) * page_size + offset
+
+        Note: Each bank is treated as a full 256-page (32KB) architectural block,
+        even though only pages 10h-FFh (240 pages) are actually banked. This ensures
+        proper alignment and matches the kernel driver behavior.
+        """
+        if page == 0 and offset < 128:
+            # Lower memory - not affected by banking or paging.
+            return offset
+
+        # If we are accessing a non-banked page, there is no reason to set the bank
+        # to a non-zero value.
+        bank = 0 if page < CMIS_NUM_NON_BANKED_PAGES else self.bank
+        # Note: we consider CDB pages as non-banked here, though it
+        # is possible to have multiple CDB instances exposed for a module where
+        # each instance is accessible via bank selection.
+        # This can be deleted once support for multiple CDB instances is added.
+        bank = 0 if 0x9F <= page <= 0xAF else bank
+        # For all paged memory (including bank 0), use the unified formula
+        # that treats each bank as a 256-page (32KB) block
+        return (bank * CMIS_ARCH_PAGES + page) * page_size + offset
 
 class CmisMemMap(CmisFlatMemMap):
-    def __init__(self, codes):
-        super(CmisMemMap, self).__init__(codes)
+    def __init__(self, codes, bank=0):
+        super(CmisMemMap, self).__init__(codes, bank=bank)
 
         # This memmap should contain ONLY upper page >= 01h fields
         self.ADVERTISING = RegGroupField(consts.ADVERTISING_FIELD,
@@ -180,7 +227,7 @@ class CmisMemMap(CmisFlatMemMap):
             RegGroupField(consts.APPLS_ADVT_FIELD_PAGE01,
                 *(NumberRegField("%s_%d" % (consts.MEDIA_LANE_ASSIGNMENT_OPTION, app), self.getaddr(0x1, 176 + (app - 1)),
                     format="B", size=1) for app in range(1, 16)),
-                
+
                 *(CodeRegField("%s_%d" % (consts.HOST_ELECTRICAL_INTERFACE, app), self.getaddr(0x1, 223 + 4 * (app - 9)),
                     self.codes.HOST_ELECTRICAL_INTERFACE) for app in range(9, 16)),
 
@@ -227,6 +274,11 @@ class CmisMemMap(CmisFlatMemMap):
                 RegBitField(consts.VDM_SUPPORTED, 6),
                 RegBitField(consts.DIAG_PAGE_SUPPORT_ADVT_FIELD, 5),
             ),
+
+            CodeRegField(consts.BANKS_SUPPORTED_FIELD, self.getaddr(0x1, 142), self.codes.MAX_BANKS_SUPPORTED,
+                *(RegBitField("Bit%d" % bit, bit) for bit in range(0, 2))
+            ),
+
             NumberRegField(consts.TX_INPUT_EQ_MAX, self.getaddr(0x1, 153),
                 *(RegBitField("Bit%d" % (bit), bit) for bit in range (0 , 4))
             ),
@@ -309,7 +361,7 @@ class CmisMemMap(CmisFlatMemMap):
             NumberRegField(consts.DATAPATH_DEINIT_FIELD, self.getaddr(0x10, 128), ro=False),
             NumberRegField(consts.TX_DISABLE_FIELD, self.getaddr(0x10, 130), ro=False),
             NumberRegField(consts.RX_DISABLE_FIELD, self.getaddr(0x10, 138), ro=False,
-                *(RegBitField("%s_%d" % (consts.RX_DISABLE_FIELD, channel), bitpos, ro=False) 
+                *(RegBitField("%s_%d" % (consts.RX_DISABLE_FIELD, channel), bitpos, ro=False)
                   for channel, bitpos in zip(range(1, 9), range(0, 8)))  # 8 channels
             )
         )
@@ -702,6 +754,3 @@ class CmisMemMap(CmisFlatMemMap):
         )
 
         # TODO: add remaining fields
-
-    def getaddr(self, page, offset, page_size=128):
-        return page * page_size + offset

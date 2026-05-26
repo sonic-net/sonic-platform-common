@@ -84,6 +84,7 @@ class CdbMemMap(XcvrMemMap):
         self.cdb1_commit_fw_download_cmd = CdbCommitFirmwareDownload()
         self.cdb1_write_lpl_block_cmd = CdbWriteLplBlock()
         self.cdb1_write_epl_block_cmd = CdbWriteEplBlock()
+        self.cdb1_enter_password_cmd = CdbEnterPassword()
 
     def _get_all_cdb_cmds(self):
         if not self.cdb_cmds:
@@ -359,4 +360,18 @@ class CdbWriteEplBlock(CDBCommand):
         assert self.epl <= cdb_consts.EPL_MAX_PAYLOAD_SIZE, "EPL size must be less than 2048"
         lpl_data = struct.pack(">I", blkaddr) # EPL block data is written separately
         return super(CdbWriteEplBlock, self).encode(payload=lpl_data)
+
+class CdbEnterPassword(CDBCommand):
+    """
+    CDB command 0x0001 to enter host password.
+    The default host password is 00001011h. Password is placed in
+    Page 9Fh, Byte 136-139.
+    """
+    def __init__(self, cmd_id=cdb_consts.CDB_ENTER_PASSWORD_CMD):
+        super(CdbEnterPassword, self).__init__(cmd_id, epl=0, lpl=4)
+
+    def encode(self, payload):
+        password = payload.get("password")
+        lpl_data = struct.pack(">I", password)
+        return super(CdbEnterPassword, self).encode(payload=lpl_data)
 

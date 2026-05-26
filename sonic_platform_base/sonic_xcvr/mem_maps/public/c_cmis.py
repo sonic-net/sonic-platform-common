@@ -12,8 +12,8 @@ from ...fields import consts
 from .cmis import CmisMemMap
 
 class CCmisMemMap(CmisMemMap):
-    def __init__(self, codes):
-        super(CCmisMemMap, self).__init__(codes)
+    def __init__(self, codes, bank=0):
+        super(CCmisMemMap, self).__init__(codes, bank=bank)
 
         self.MODULE_CONFIG_SUPPORT = RegGroupField(consts.MODULE_CONFIG_SUPPORT_FIELD,
             NumberRegField(consts.SUPPORT_GRID, self.getaddr(0x4, 128)),

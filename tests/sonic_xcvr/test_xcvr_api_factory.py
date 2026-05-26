@@ -48,23 +48,17 @@ class TestXcvrApiFactory(object):
 
     @patch('sonic_platform_base.sonic_xcvr.xcvr_api_factory.XcvrApiFactory._get_vendor_name', MagicMock(return_value='Credo'))
     @patch('sonic_platform_base.sonic_xcvr.xcvr_api_factory.XcvrApiFactory._get_vendor_part_num', MagicMock(return_value='CAC81X321M2MC1MS'))
-    def test_create_xcvr_api(self):
+    def test_create_xcvr_api_credo(self):
         self.api.reader = self.mock_reader
-        CredoAec800gCodes = MagicMock()
-        CredoAec800gMemMap = MagicMock()
-        XcvrEeprom = MagicMock()
-        CredoAec800gApi = MagicMock()
-        self.api.create_xcvr_api()
+        api = self.api.create_xcvr_api()
+        assert isinstance(api, CredoAec800gApi)
 
     @patch('sonic_platform_base.sonic_xcvr.xcvr_api_factory.XcvrApiFactory._get_vendor_name', MagicMock(return_value='CISCO-INNOLIGHT'))
     @patch('sonic_platform_base.sonic_xcvr.xcvr_api_factory.XcvrApiFactory._get_vendor_part_num', MagicMock(return_value='T-DH8CNT-NCI'))
-    def test_create_xcvr_api(self):
+    def test_create_xcvr_api_innolight(self):
         self.api.reader = self.mock_reader
-        CmisCodes = MagicMock()
-        CmisMemMap = MagicMock()
-        XcvrEeprom = MagicMock()
-        CmisFr800gApi = MagicMock()
-        self.api.create_xcvr_api()
+        api = self.api.create_xcvr_api()
+        assert isinstance(api, CmisFr800gApi)
 
     @patch('sonic_platform_base.sonic_xcvr.xcvr_api_factory.XcvrApiFactory._get_vendor_name', MagicMock(return_value='Hisense'))
     @patch('sonic_platform_base.sonic_xcvr.xcvr_api_factory.XcvrApiFactory._get_vendor_part_num', MagicMock(return_value='DEF8504-2C03-MB3'))

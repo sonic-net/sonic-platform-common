@@ -56,6 +56,10 @@ class ChassisBase(device_base.DeviceBase):
         # available on the chassis
         self._psu_list = []
 
+        # List of PdbBase-derived objects representing all power distribution boards
+        # available on the chassis
+        self._pdb_list = []
+
         # List of ThermalBase-derived objects representing all thermals
         # available on the chassis
         self._thermal_list = []
@@ -78,6 +82,8 @@ class ChassisBase(device_base.DeviceBase):
         # BMC
         self._bmc = None
 
+        # SED (Self-Encrypting Drive) password management
+        self._sed_mgmt = None
 
     def get_base_mac(self):
         """
@@ -187,6 +193,17 @@ class ChassisBase(device_base.DeviceBase):
                  COOLING_TYPE_UNKNOWN.
         """
         return self.COOLING_TYPE_UNKNOWN
+
+    def is_liquid_cooled(self):
+        """
+        Gets back if the device is Liquid/Hybrid cooled or not
+
+        Returns:
+            A bool value, should return False by default.
+            Air cooled devices return back False
+            Liquid/Hybrid cooled devices return back True
+        """
+        return False
 
     def init_midplane_switch(self):
         """
@@ -502,6 +519,52 @@ class ChassisBase(device_base.DeviceBase):
                              index, len(self._psu_list)-1))
 
         return psu
+
+    ##############################################
+    # PDB methods
+    ##############################################
+
+    def get_num_pdbs(self):
+        """
+        Retrieves the number of power distribution boards available on this chassis
+
+        Returns:
+            An integer, the number of power distribution boards available on this
+            chassis
+        """
+        return len(self._pdb_list)
+
+    def get_all_pdbs(self):
+        """
+        Retrieves all power distribution boards available on this chassis
+
+        Returns:
+            A list of objects derived from PdbBase representing all power
+            distribution boards available on this chassis
+        """
+        return self._pdb_list
+
+    def get_pdb(self, index):
+        """
+        Retrieves power distribution board object represented by (0-based) index <index>
+
+        Args:
+            index: An integer, the index (0-based) of the power distribution board object to
+            retrieve
+
+        Returns:
+            An object dervied from PdbBase representing the specified power
+            distribution board object
+        """
+        pdb = None
+
+        try:
+            pdb = self._pdb_list[index]
+        except IndexError:
+            sys.stderr.write("PDB index {} out of range (0-{})\n".format(
+                             index, len(self._pdb_list)-1))
+
+        return pdb
 
     ##############################################
     # THERMAL methods
@@ -833,3 +896,11 @@ class ChassisBase(device_base.DeviceBase):
         """
         return self._bmc
 
+    def get_sed_mgmt(self):
+        """
+        Get SED (Self-Encrypting Drive) password management object for the platform.
+
+        Returns:
+            An object derived from SedMgmtBase, or None if SED management is not supported.
+        """
+        return self._sed_mgmt

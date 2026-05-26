@@ -114,6 +114,21 @@ class TestCdbFwHandler:
         
         result = handler.initFwHandler()
         assert result == True
+
+    def test_get_fw_mgmt_features_none(self):
+        """Test get_fw_mgmt_features returns None when both sizes are 0"""
+        self.handler.start_payload_size = 0
+        self.handler.rw_length_ext = 0
+        result = self.handler.get_fw_mgmt_features()
+        assert result is None
+
+    def test_get_fw_mgmt_features_valid(self):
+        """Test get_fw_mgmt_features returns tuple when initialized"""
+        self.handler.start_payload_size = 112
+        self.handler.rw_length_ext = 2048
+        self.handler.is_lpl_only = True
+        result = self.handler.get_fw_mgmt_features()
+        assert result == (112, 2048, True)
     
     def test_get_firmware_info_success(self):
         """Test successful get_firmware_info"""
@@ -175,7 +190,7 @@ class TestCdbFwHandler:
         call_args = self.handler.send_cmd.call_args
         payload = call_args[0][1]
         assert payload["imgsize"] == 512
-        assert payload["imghdr"] is None    
+        assert payload["imghdr"] == b''    
     
     @patch("builtins.open", new_callable=mock_open, read_data=b"A" * 50)
     def test_start_fw_download_file_too_small(self, mock_file):
@@ -198,7 +213,7 @@ class TestCdbFwHandler:
         assert result == True
         self.handler.send_cmd.assert_called_once_with(
             cdb_consts.CDB_RUN_FIRMWARE_IMAGE_CMD,
-            {"runmode": 0x0, "delay": 2},
+            {"runmode": 0x0, "delay": 512},
             timeout=cdb_consts.CDB_RUN_FIRMWARE_CMD_TIMEOUT
         )
     
