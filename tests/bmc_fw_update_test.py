@@ -193,7 +193,9 @@ class TestBMCFWUpdate:
                 bmc_fw_update.main()
 
         mock_logger.log_notice.assert_any_call("Waiting for BMC to restart...")
-        mock_sleep.assert_any_call(20)
+        assert mock_bmc.get_status.call_count == 2
+        assert mock_sleep.call_count == 2
+        mock_sleep.assert_has_calls([mock.call(20), mock.call(20)])
         mock_exit.assert_not_called()
 
     @mock.patch('sonic_platform_base.bmc_fw_update.time.sleep')
@@ -221,4 +223,6 @@ class TestBMCFWUpdate:
                 bmc_fw_update.main()
 
         mock_logger.log_error.assert_any_call("BMC did not become operational after restart")
+        assert mock_bmc.get_status.call_count == 5
+        assert mock_sleep.call_count == 5
         mock_exit.assert_called_once_with(1)
