@@ -1,4 +1,4 @@
-"""pg_1b_elsfp_setpoints_mon.py
+"""page1b.py
 
 CMIS Page 1Bh - Laser Setpoints and Monitors for ELSFP.
 
