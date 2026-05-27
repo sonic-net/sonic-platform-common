@@ -6,6 +6,7 @@ Handles BMC firmware update process
 """
 
 import sys
+import time
 
 def main():
     try:
@@ -39,6 +40,24 @@ def main():
             if ret != 0:
                 logger.log_error(f'Failed to restart BMC. Error {ret}: {error_msg}')
                 sys.exit(1)
+
+            # Wait for BMC to restart itself
+            time.sleep(20)
+            # Wait for BMC to become operational
+            max_retries = 5
+            bmc_is_up = False
+            for retry in range(max_retries):
+                bmc_is_up = bmc.get_status()
+                if bmc_is_up:
+                    break
+                if retry < max_retries - 1:
+                    logger.log_notice("Waiting for BMC to restart...")
+                    time.sleep(20)
+
+            if not bmc_is_up:
+                logger.log_error("BMC did not become operational after restart")
+                sys.exit(1)
+
             logger.log_notice("BMC firmware update completed successfully")
 
     except Exception as e:
