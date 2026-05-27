@@ -8,7 +8,7 @@
 from .cmis import CmisFlatMemMap
 
 # Import CMIS page classes (excluding pages 10h, 11h, 12h, 13h)
-from .cmis.pages import (
+from .pages import (
     CmisAdvertisingPage,
     CmisThresholdsPage,
     CmisVdmAdvertisingCtrlPage,

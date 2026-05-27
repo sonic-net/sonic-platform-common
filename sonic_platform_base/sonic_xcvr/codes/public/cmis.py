@@ -105,6 +105,24 @@ class CmisCodes(Sff8024):
         22: ['Errored Frames Average Host Input', 'F16', 1, 'S'],
         23: ['Errored Frames Current Value Media Input', 'F16', 1, 'B'],
         24: ['Errored Frames Current Value Host Input', 'F16', 1, 'B'],
+        25: ['FERC Total Accumulated Media Input', 'F16', 1, 'S'],
+        26: ['FERC Total Accumulated Host Input', 'F16', 1, 'S'],
+        27: ['SEWmax Minimum Sample Value Media Input', 'U16', 1, 'S'],
+        28: ['SEWmax Minimum Sample Value Host Input', 'U16', 1, 'S'],
+        29: ['SEWmax Maximum Sample Value Media Input', 'U16', 1, 'S'],
+        30: ['SEWmax Maximum Sample Value Host Input', 'U16', 1, 'S'],
+        31: ['SEWmax Sample Average Value Media Input', 'U16', 1, 'S'],
+        32: ['SEWmax Sample Average Value Host Input', 'U16', 1, 'S'],
+        33: ['SEWmax Current Sample Value Media Input', 'U16', 1, 'B'],
+        34: ['SEWmax Current Sample Value Host Input', 'U16', 1, 'B'],
+        77: ['Vcc2p6 Voltage Monitor [V]', 'U16', 100e-6, 'B'],
+        78: ['Vcc1p8 Voltage Monitor [V]', 'U16', 100e-6, 'B'],
+        79: ['Vcc1p2 Voltage Monitor [V]', 'U16', 100e-6, 'B'],
+        80: ['Vcc0p9 Voltage Monitor [V]', 'U16', 100e-6, 'B'],
+        81: ['Vcc0p7A Voltage Monitor [V]', 'U16', 100e-6, 'B'],
+        82: ['Vcc0p7B Voltage Monitor [V]', 'U16', 100e-6, 'B'],
+        83: ['Vcc12 Voltage Monitor [V]', 'U16', 250e-6, 'B'],
+        84: ['ELS Input Power [dBm]', 'S16', 0.01, 'B'],
         128: ['Modulator Bias X/I [%]', 'U16', 100.0/65535, 'B'],
         129: ['Modulator Bias X/Q [%]', 'U16', 100.0/65535, 'B'],
         130: ['Modulator Bias Y/I [%]', 'U16', 100.0/65535, 'B'],
@@ -161,57 +179,6 @@ class CmisCodes(Sff8024):
         0: 0,
         1: 2,
         2: 4
-    }
-
-    # ELSFP-specific codes
-    CONTROL_MODE = {
-        0: 'ACC',  # Automatic Current Control
-        1: 'APC',  # Automatic Power Control
-    }
-
-    LANE_FAULT_CODE = {
-        0: 'No alarm detected',
-        1: 'Automatic Power Control (APC) control loop failure',
-        2: 'Automatic Current Control (ACC) control loop failure',
-        3: 'Reserved',
-        4: 'Reserved',
-        5: 'Reserved',
-        6: 'Reserved',
-        7: 'Reserved',
-        8: 'Reserved',
-        9: 'Vendor specific fault',
-        10: 'Vendor specific fault',
-        11: 'Vendor specific fault',
-        12: 'Vendor specific fault',
-        13: 'Vendor specific fault',
-        14: 'Vendor specific fault',
-        15: 'Vendor specific fault',
-    }
-
-    LANE_WARNING_CODE = {
-        0: 'No warning detected',
-        1: 'Automatic Power Control (APC) control loop warning',
-        2: 'Automatic Current Control (ACC) control loop warning',
-        3: 'Reserved',
-        4: 'Reserved',
-        5: 'Reserved',
-        6: 'Reserved',
-        7: 'Reserved',
-        8: 'Reserved',
-        9: 'Vendor specific warning',
-        10: 'Vendor specific warning',
-        11: 'Vendor specific warning',
-        12: 'Vendor specific warning',
-        13: 'Vendor specific warning',
-        14: 'Vendor specific warning',
-        15: 'Vendor specific warning',
-    }
-
-    LANE_STATE = {
-        0: 'Lane Output off',
-        1: 'Lane Output ramping',
-        2: 'Lane Output on',
-        3: 'Reserved',
     }
 
     # TODO: Add other codes
