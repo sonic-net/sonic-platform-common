@@ -332,6 +332,7 @@ class TestModuleBase:
         db = MagicMock()
         self.module.state_db = db
         with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_record_dpu_reboot_time", return_value=True), \
              patch.object(self.module, "set_module_state_transition", return_value=True), \
              patch.object(self.module, "clear_module_state_transition", return_value=True), \
              patch.object(self.module, "set_admin_state", return_value=True) as mset:
@@ -362,6 +363,7 @@ class TestModuleBase:
 
     def test_set_admin_state_gracefully_pre_shutdown_warn(self, capsys):
         with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_record_dpu_reboot_time", return_value=True), \
              patch.object(self.module, "set_module_state_transition", return_value=True), \
              patch.object(self.module, "clear_module_state_transition", return_value=True), \
              patch.object(self.module, "set_admin_state", return_value=True), \
@@ -383,6 +385,7 @@ class TestModuleBase:
     def test_set_admin_state_gracefully_clear_transition_fail_down(self, capsys):
         """Test clear_module_state_transition failure for admin DOWN path (lines 463-464)"""
         with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_record_dpu_reboot_time", return_value=True), \
              patch.object(self.module, "set_module_state_transition", return_value=True), \
              patch.object(self.module, "clear_module_state_transition", return_value=False), \
              patch.object(self.module, "set_admin_state", return_value=True), \
@@ -394,6 +397,7 @@ class TestModuleBase:
     def test_set_admin_state_gracefully_set_transition_fail_down(self, capsys):
         """Test set_module_state_transition failure for admin DOWN path (lines 448-450)"""
         with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_record_dpu_reboot_time", return_value=True), \
              patch.object(self.module, "set_module_state_transition", return_value=False):
             assert self.module.set_admin_state_gracefully(False) is False
         assert "Failed to set module state transition for admin state DOWN" in capsys.readouterr().err
@@ -401,6 +405,7 @@ class TestModuleBase:
     def test_set_admin_state_gracefully_graceful_shutdown_fail(self, capsys):
         """Test graceful shutdown handler failure/timeout (lines 456-458)"""
         with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_record_dpu_reboot_time", return_value=True), \
              patch.object(self.module, "set_module_state_transition", return_value=True), \
              patch.object(self.module, "clear_module_state_transition", return_value=True), \
              patch.object(self.module, "set_admin_state", return_value=True), \
@@ -426,6 +431,7 @@ class TestModuleBase:
     def test_set_admin_state_gracefully_all_failures_down_path(self, capsys):
         """Test multiple failure scenarios in the DOWN path for maximum coverage"""
         with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_record_dpu_reboot_time", return_value=True), \
              patch.object(self.module, "set_module_state_transition", return_value=True), \
              patch.object(self.module, "clear_module_state_transition", return_value=False), \
              patch.object(self.module, "set_admin_state", return_value=True), \
@@ -1143,3 +1149,74 @@ class TestModuleBase:
             self.module.set_admin_state(True)
         with pytest.raises(NotImplementedError):
             self.module.set_admin_state(False)
+
+    # ---------------------------------- _record_dpu_reboot_time tests --
+    def test_record_dpu_reboot_time_success(self, tmp_path):
+        """Test that _record_dpu_reboot_time writes the correct file."""
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch("sonic_platform_base.module_base.MODULE_REBOOT_CAUSE_DIR", str(tmp_path)):
+            result = self.module._record_dpu_reboot_time()
+            assert result is True
+            path = tmp_path / "dpu0" / "prev_reboot_time.txt"
+            assert path.exists()
+            content = path.read_text()
+            # Verify format: YYYY_MM_DD_HH_MM_SS
+            assert len(content.split("_")) == 6
+
+    def test_record_dpu_reboot_time_failure(self, capsys):
+        """Test that _record_dpu_reboot_time handles errors gracefully."""
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch("os.makedirs", side_effect=PermissionError("denied")):
+            result = self.module._record_dpu_reboot_time()
+            assert result is False
+        assert "Failed to record DPU reboot time for DPU0" in capsys.readouterr().err
+
+    # ---------------------------------- reboot_gracefully tests --
+    def test_reboot_gracefully_records_time_then_reboots(self, tmp_path):
+        """Test that reboot_gracefully writes time file and calls reboot()."""
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch("sonic_platform_base.module_base.MODULE_REBOOT_CAUSE_DIR", str(tmp_path)), \
+             patch.object(self.module, "reboot", return_value=True) as mock_reboot:
+            result = self.module.reboot_gracefully(ModuleBase.MODULE_REBOOT_DPU)
+            assert result is True
+            mock_reboot.assert_called_once_with(ModuleBase.MODULE_REBOOT_DPU)
+            # Verify time file was created
+            path = tmp_path / "dpu0" / "prev_reboot_time.txt"
+            assert path.exists()
+
+    def test_reboot_gracefully_still_reboots_on_time_record_failure(self):
+        """Test that reboot proceeds even if time recording fails."""
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_record_dpu_reboot_time", return_value=False), \
+             patch.object(self.module, "reboot", return_value=True) as mock_reboot:
+            result = self.module.reboot_gracefully(ModuleBase.MODULE_REBOOT_DPU)
+            assert result is True
+            mock_reboot.assert_called_once_with(ModuleBase.MODULE_REBOOT_DPU)
+
+    # ---------------------------------- set_admin_state_gracefully records time --
+    def test_set_admin_state_gracefully_down_records_time(self, tmp_path):
+        """Test that admin-down path calls _record_dpu_reboot_time."""
+        db = MagicMock()
+        self.module.state_db = db
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_record_dpu_reboot_time", return_value=True) as mock_record, \
+             patch.object(self.module, "set_module_state_transition", return_value=True), \
+             patch.object(self.module, "clear_module_state_transition", return_value=True), \
+             patch.object(self.module, "set_admin_state", return_value=True), \
+             patch.object(self.module, "module_pre_shutdown", return_value=True), \
+             patch.object(self.module, "_graceful_shutdown_handler", return_value=True):
+            assert self.module.set_admin_state_gracefully(False) is True
+            mock_record.assert_called_once()
+
+    def test_set_admin_state_gracefully_up_does_not_record_time(self):
+        """Test that admin-up path does NOT call _record_dpu_reboot_time."""
+        db = MagicMock()
+        self.module.state_db = db
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_record_dpu_reboot_time", return_value=True) as mock_record, \
+             patch.object(self.module, "set_module_state_transition", return_value=True), \
+             patch.object(self.module, "clear_module_state_transition", return_value=True), \
+             patch.object(self.module, "set_admin_state", return_value=True), \
+             patch.object(self.module, "module_post_startup", return_value=True):
+            assert self.module.set_admin_state_gracefully(True) is True
+            mock_record.assert_not_called()
