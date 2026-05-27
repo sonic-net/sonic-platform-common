@@ -45,6 +45,11 @@ CDB_START_CMD_PAYLOAD_SIZE = "CdbStartCmdPayloadSize"
 CDB_READ_WRITE_LENGTH_EXT = "CdbReadWriteLengthExt"
 CDB_WRITE_MECHANISM = "CdbWriteMechanism"
 CDB_READ_MECHANISM = "CdbReadMechanism"
+CDB_MAX_DURATION_START = "CdbMaxDurationStart"
+CDB_MAX_DURATION_ABORT = "CdbMaxDurationAbort"
+CDB_MAX_DURATION_WRITE = "CdbMaxDurationWrite"
+CDB_MAX_DURATION_COMPLETE = "CdbMaxDurationComplete"
+CDB_MAX_DURATION_COPY = "CdbMaxDurationCopy"
 
 
 LPL_PAGE = 0x9F
@@ -59,6 +64,7 @@ EPL_MAX_PAYLOAD_SIZE = 2048
 CDB_MAX_ACCESS_HOLD_OFF_PERIOD = 4960 # tCDBF msec
 CDB_MAX_CAPTURE_TIME = 100 # tCDBC msec
 CDB_RUN_FIRMWARE_CMD_TIMEOUT = 15000 # Delay to switch to new firmware in msec
+CDB_TIMEOUT_SAFETY_MARGIN = 5000 # Safety margin for timeouts in msec
 
 #CDB Commands
 CDB_CMD_ID_LEN = 2

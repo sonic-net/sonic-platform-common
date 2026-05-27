@@ -63,4 +63,9 @@ class CdbLplMessagePage(CmisPage):
             NumberRegField(cdb_consts.CDB_READ_WRITE_LENGTH_EXT, self.getaddr(140), scale=0.125),
             CodeRegField(cdb_consts.CDB_WRITE_MECHANISM, self.getaddr(141), codes.CDB_WRITE_METHOD),
             CodeRegField(cdb_consts.CDB_READ_MECHANISM, self.getaddr(142), codes.CDB_READ_METHOD),
+            NumberRegField(cdb_consts.CDB_MAX_DURATION_START, self.getaddr(144), size=2, format=">H"),
+            NumberRegField(cdb_consts.CDB_MAX_DURATION_ABORT, self.getaddr(146), size=2, format=">H"),
+            NumberRegField(cdb_consts.CDB_MAX_DURATION_WRITE, self.getaddr(148), size=2, format=">H"),
+            NumberRegField(cdb_consts.CDB_MAX_DURATION_COMPLETE, self.getaddr(150), size=2, format=">H"),
+            NumberRegField(cdb_consts.CDB_MAX_DURATION_COPY, self.getaddr(152), size=2, format=">H"),
         ]

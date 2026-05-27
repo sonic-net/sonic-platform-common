@@ -63,7 +63,7 @@ class CdbCmdHandler(XcvrEeprom):
         """
         delay = 0
         if timeout is None:
-            timeout = cdb_consts.CDB_MAX_ACCESS_HOLD_OFF_PERIOD  + 5000  # 5 sec safety margin
+            timeout = cdb_consts.CDB_MAX_ACCESS_HOLD_OFF_PERIOD + cdb_consts.CDB_TIMEOUT_SAFETY_MARGIN
         status = None
 
         assert timeout > delay, "Timeout must be greater than delay"
@@ -144,7 +144,7 @@ class CdbCmdHandler(XcvrEeprom):
         payload = {"password": password}
         return self.send_cmd(cdb_consts.CDB_ENTER_PASSWORD_CMD, payload)
     
-    def write_lpl_block(self, blkaddr, blkdata):
+    def write_lpl_block(self, blkaddr, blkdata, timeout=None):
         """
         Write LPL block
         """
@@ -153,7 +153,7 @@ class CdbCmdHandler(XcvrEeprom):
             "blkdata" : blkdata
         }
         # Send the CDB write firmware LPL command
-        return self.send_cmd(cdb_consts.CDB_WRITE_FIRMWARE_LPL_CMD, payload)
+        return self.send_cmd(cdb_consts.CDB_WRITE_FIRMWARE_LPL_CMD, payload, timeout=timeout)
 
     def write_epl_pages(self, blkdata):
         """
@@ -171,7 +171,7 @@ class CdbCmdHandler(XcvrEeprom):
             remaining_data = blkdata[pages * cdb_consts.PAGE_SIZE:]
             assert True == self.write_epl_page(pages + cdb_consts.EPL_PAGE, remaining_data)
 
-    def write_epl_block(self, blkaddr, blkdata):
+    def write_epl_block(self, blkaddr, blkdata, timeout=None):
         """
         Write EPL block
         """
@@ -181,4 +181,4 @@ class CdbCmdHandler(XcvrEeprom):
         }
 
         # Send the CDB write firmware EPL command
-        return self.send_cmd(cdb_consts.CDB_WRITE_FIRMWARE_EPL_CMD, payload)
+        return self.send_cmd(cdb_consts.CDB_WRITE_FIRMWARE_EPL_CMD, payload, timeout=timeout)
