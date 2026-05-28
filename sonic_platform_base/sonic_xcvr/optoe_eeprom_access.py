@@ -37,20 +37,6 @@ class OptoeEepromAccessMixin(EepromAccessMixin, ABC):
         except (OSError, IOError):
             pass
 
-    def read_optoe_max_bank_size(self):
-        """Determine optoe max_bank_size from the module's CMIS BanksSupported advertisement, or None if non-CMIS, flat-memory, or unreadable."""
-        id_byte = self.read_eeprom(0, 1)
-        if id_byte is None or id_byte[0] not in CMIS_MODULE_IDS:
-            return None
-        flat_mem = self.read_eeprom(CMIS_FLAT_MEM_FILE_OFFSET, 1)
-        if flat_mem is None or flat_mem[0] & CMIS_FLAT_MEM_BIT_MASK:
-            return None
-        raw = self.read_eeprom(CMIS_BANKS_SUPPORTED_FILE_OFFSET, 1)
-        if raw is None:
-            return None
-        return CMIS_BANKS_SUPPORTED_TO_MAX_BANK_SIZE.get(raw[0] & 0x03)
-
-
     def set_optoe_write_timeout(self, write_timeout):
         sys_path = self.get_eeprom_path()
         sys_path = sys_path.replace("eeprom", "write_timeout")
