@@ -1,6 +1,6 @@
 from abc import ABC
 
-class EepromAccessMixin(ABC):
+class EepromReadWriteMixin(ABC):
     def read_eeprom(self, offset, num_bytes):
         """
         read eeprom specfic bytes beginning from a random offset with size as num_bytes

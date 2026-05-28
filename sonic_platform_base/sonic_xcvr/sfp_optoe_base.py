@@ -6,9 +6,9 @@
 """
 
 from ..sfp_base import SfpBase
-from .optoe_eeprom_access import OptoeEepromAccessMixin
+from .optoe_eeprom_rw import OptoeEepromReadWriteMixin
 
-class SfpOptoeBase(SfpBase, OptoeEepromAccessMixin):
+class SfpOptoeBase(SfpBase, OptoeEepromReadWriteMixin):
     def __init__(self, bank=0):
         SfpBase.__init__(self, bank=bank)
 

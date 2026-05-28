@@ -9,9 +9,9 @@ import sys
 from . import device_base
 
 from .sonic_xcvr.xcvr_api_factory import XcvrApiFactory
-from sonic_platform_base.sonic_xcvr.eeprom_access import EepromAccessMixin
+from sonic_platform_base.sonic_xcvr.eeprom_rw import EepromReadWriteMixin
 
-class SfpBase(device_base.DeviceBase, EepromAccessMixin):
+class SfpBase(device_base.DeviceBase, EepromReadWriteMixin):
     """
     Abstract base class for interfacing with a SFP module
     """

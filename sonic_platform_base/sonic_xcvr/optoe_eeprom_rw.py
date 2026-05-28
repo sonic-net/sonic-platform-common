@@ -1,4 +1,4 @@
-from sonic_platform_base.sonic_xcvr.eeprom_access import EepromAccessMixin
+from sonic_platform_base.sonic_xcvr.eeprom_rw import EepromReadWriteMixin
 from abc import ABC, abstractmethod
 
 SFP_OPTOE_PAGE_SELECT_OFFSET = 127
@@ -14,7 +14,7 @@ CMIS_BANKS_SUPPORTED_FILE_OFFSET = 270
 # CMIS AdvBnkSupport (page 01h byte 142, bits 0-1): 00b->1, 01b->2, 10b->4 banks.
 CMIS_BANKS_SUPPORTED_TO_MAX_BANK_SIZE = {0: 0, 1: 2, 2: 4}
 
-class OptoeEepromAccessMixin(EepromAccessMixin, ABC):
+class OptoeEepromReadWriteMixin(EepromReadWriteMixin, ABC):
     @abstractmethod
     def get_eeprom_path(self) -> str:
         pass
@@ -30,12 +30,16 @@ class OptoeEepromAccessMixin(EepromAccessMixin, ABC):
 
     def set_optoe_max_bank_size(self, max_bank_size):
         """Write max_bank_size to the optoe driver's sysfs entry; required before banked EEPROM offsets are accessible"""
+        sys_path = self.get_eeprom_path().replace("eeprom", "max_bank_size")
         try:
-            sys_path = self.get_eeprom_path().replace("eeprom", "max_bank_size")
+            with open(sys_path) as f:
+                if int(f.read().strip()) == max_bank_size:
+                    return
             with open(sys_path, mode='w') as f:
                 f.write(str(max_bank_size))
-        except (OSError, IOError):
-            pass
+        except FileNotFoundError:
+            # Some platforms/drivers do not expose max_bank_size in sysfs.
+            return
 
     def set_optoe_write_timeout(self, write_timeout):
         sys_path = self.get_eeprom_path()
