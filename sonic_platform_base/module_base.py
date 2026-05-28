@@ -9,6 +9,7 @@ import sys
 import os
 import fcntl
 import time
+from datetime import datetime, timezone
 from . import device_base
 import json
 import contextlib
@@ -18,6 +19,9 @@ import subprocess
 PCIE_DETACH_INFO_TABLE = "PCIE_DETACH_INFO"
 PCIE_OPERATION_DETACHING = "detaching"
 PCIE_OPERATION_ATTACHING = "attaching"
+
+# Reboot cause directory for DPU modules
+MODULE_REBOOT_CAUSE_DIR = "/host/reboot-cause/module/"
 
 class ModuleBase(device_base.DeviceBase):
     """
@@ -248,6 +252,26 @@ class ModuleBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
+    def reboot_gracefully(self, reboot_type):
+        """
+        Records the reboot time and then issues the reboot request.
+
+        This wrapper ensures prev_reboot_time.txt is written at the moment the
+        reboot command is issued, eliminating the race condition where chassisd
+        might restart (e.g. config reload) before detecting the Online→Offline
+        transition.
+
+        Args:
+            reboot_type: A string, the type of reboot requested from one of the
+            predefined reboot types: MODULE_REBOOT_DEFAULT, MODULE_REBOOT_CPU_COMPLEX,
+            MODULE_REBOOT_FPGA_COMPLEX, MODULE_REBOOT_DPU or MODULE_REBOOT_SMARTSWITCH
+
+        Returns:
+            bool: True if the request has been issued successfully, False if not
+        """
+        self._record_dpu_reboot_time()
+        return self.reboot(reboot_type)
+
     def set_admin_state(self, up):
         """
         Request to keep the card in administratively up/down state.
@@ -287,6 +311,35 @@ class ModuleBase(device_base.DeviceBase):
     ##############################################
     # SmartSwitch methods
     ##############################################
+
+    def _record_dpu_reboot_time(self):
+        """
+        Records the current UTC time to prev_reboot_time.txt for this module.
+
+        Called at the moment a reboot or admin-down command is issued, so that
+        chassisd can later compare this timestamp against the stored reboot-cause
+        timestamp to detect whether a new reboot occurred — even if chassisd
+        restarts (e.g. config reload) before it observes the Online→Offline
+        transition.
+
+        The file is written to:
+            /host/reboot-cause/module/{module_name_lower}/prev_reboot_time.txt
+
+        Returns:
+            bool: True if the file was written successfully, False otherwise.
+        """
+        try:
+            module_name = self.get_name()
+            time_str = datetime.now(timezone.utc).strftime("%Y_%m_%d_%H_%M_%S")
+            path = os.path.join(MODULE_REBOOT_CAUSE_DIR, module_name.lower(), "prev_reboot_time.txt")
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, 'w') as f:
+                f.write(time_str)
+            return True
+        except Exception as e:
+            sys.stderr.write("Failed to record DPU reboot time for {}: {}\n".format(
+                self.get_name(), str(e)))
+            return False
 
     def get_dpu_id(self):
         """
@@ -460,6 +513,11 @@ class ModuleBase(device_base.DeviceBase):
 
             return admin_status
         else:
+            # Record the reboot time at command invocation so chassisd can
+            # detect new reboots even if it restarts before observing the
+            # Online→Offline transition.
+            self._record_dpu_reboot_time()
+
             # Initiate graceful shutdown before setting admin state to down.
             if not self.set_module_state_transition(module_name, "shutdown"):
                 sys.stderr.write("Failed to set module state transition for admin state DOWN\n")
