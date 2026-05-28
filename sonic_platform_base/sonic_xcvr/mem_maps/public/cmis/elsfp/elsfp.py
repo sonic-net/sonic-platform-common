@@ -5,14 +5,18 @@
     Extends CMIS Rev 5.0 with ELSFP-specific pages 1Ah and 1Bh
 """
 
-from .cmis import CmisFlatMemMap
+from ..cmis import CmisFlatMemMap
 
-# Import CMIS page classes (excluding pages 10h, 11h, 12h, 13h)
-from .pages import (
+# Standard CMIS page classes that an ELSFP module exposes.
+from ..pages import (
     CmisAdvertisingPage,
     CmisThresholdsPage,
     CmisVdmAdvertisingCtrlPage,
     CmisCdbMessagePage,
+)
+
+# ELSFP-specific page classes (pages 1Ah and 1Bh).
+from .pages import (
     ElsfpAdvertisementsFlagsCtrlPage,
     ElsfpSetpointsMonitorsPage,
 )

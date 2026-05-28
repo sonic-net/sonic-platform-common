@@ -5,21 +5,21 @@ CMIS Page 1Ah - ELSFP Advertisements, Flags, and Controls.
 Layout follows OIF-ELSFP-CMIS-01.0 Tables 4-10 for:
   * Module advertisements (bytes 128-164)
   * Lane faults and warnings (bytes 165-181)
-  * Laser save/restore (bytes 182-185)
+  * Laser save/restore (bytes 184-185)
   * Alarms, warnings, masks, and codes (bytes 186-219)
   * Controls, state, and additional info (bytes 220-255)
 """
 
-from .page import CmisPage
+from ...pages.page import CmisPage
 from .consts import ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE
-from .....fields.xcvr_field import (
+from ......fields.xcvr_field import (
     NumberRegField,
     CodeRegField,
     RegBitField,
     RegBitsField,
     RegGroupField,
 )
-from .....fields import elsfp_consts
+from ......fields import elsfp_consts
 
 
 class ElsfpAdvertisementsFlagsCtrlPage(CmisPage):
@@ -191,7 +191,7 @@ class ElsfpAdvertisementsFlagsCtrlPage(CmisPage):
         ]
 
         # ------------------------------------------------------------------
-        # ELSFP_LASER_SAVE_RESTORE_FIELD (Bytes 182-185, Table 6)
+        # ELSFP_LASER_SAVE_RESTORE_FIELD (Bytes 184-185, Table 6)
         # ------------------------------------------------------------------
         self.fields[elsfp_consts.ELSFP_LASER_SAVE_RESTORE_FIELD] = [
             # 184: SaveRestoreCommand (RW), 185: SaveRestoreConfirm (RO)
@@ -474,6 +474,7 @@ class ElsfpAdvertisementsFlagsCtrlPage(CmisPage):
                     RegBitField(
                         "%s%d" % (elsfp_consts.OUTPUT_FIBER_CHECKED_FLAG_LANE_FIELD, lane),
                         lane - 1,
+                        ro=False,
                     )
                     for lane in range(1, 9)
                 ),

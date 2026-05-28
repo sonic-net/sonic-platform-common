@@ -14,13 +14,13 @@ Per-lane values are exposed via RegGroupField containing per-lane
 NumberRegField entries with appropriate scaling to physical units.
 """
 
-from .page import CmisPage
+from ...pages.page import CmisPage
 from .consts import ELSFP_SETPOINTS_MON_PAGE
-from .....fields.xcvr_field import (
+from ......fields.xcvr_field import (
     NumberRegField,
     RegGroupField,
 )
-from .....fields import elsfp_consts
+from ......fields import elsfp_consts
 
 
 class ElsfpSetpointsMonitorsPage(CmisPage):
