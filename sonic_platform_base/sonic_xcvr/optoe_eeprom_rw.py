@@ -5,15 +5,6 @@ SFP_OPTOE_PAGE_SELECT_OFFSET = 127
 SFP_OPTOE_UPPER_PAGE0_OFFSET = 128
 SFP_OPTOE_PAGE_SIZE = 128
 
-CMIS_MODULE_IDS = (0x18, 0x19, 0x1b, 0x1e)
-# Lower-memory byte 2 bit 7: 1 = flat memory (lower + upper page 00h only), 0 = paged.
-CMIS_FLAT_MEM_FILE_OFFSET = 2
-CMIS_FLAT_MEM_BIT_MASK = 0x80
-# Page 01h byte 142 in the optoe linear EEPROM file at bank-0 stride.
-CMIS_BANKS_SUPPORTED_FILE_OFFSET = 270
-# CMIS AdvBnkSupport (page 01h byte 142, bits 0-1): 00b->1, 01b->2, 10b->4 banks.
-CMIS_BANKS_SUPPORTED_TO_MAX_BANK_SIZE = {0: 0, 1: 2, 2: 4}
-
 class OptoeEepromReadWriteMixin(EepromReadWriteMixin, ABC):
     @abstractmethod
     def get_eeprom_path(self) -> str:
