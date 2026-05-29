@@ -6,6 +6,7 @@
 """
 import re
 from .xcvr_eeprom import XcvrEeprom
+from .eeprom_rw import get_id, get_revision_compliance, get_vendor_name, get_vendor_part_num
 # TODO: remove the following imports
 from .codes.public.cmis import CmisCodes
 from .api.public.cmis import CmisApi
@@ -36,11 +37,6 @@ from .codes.public.sff8472 import Sff8472Codes
 from .api.public.sff8472 import Sff8472Api
 from .mem_maps.public.sff8472 import Sff8472MemMap
 
-VENDOR_NAME_OFFSET = 129
-VENDOR_PART_NUM_OFFSET = 148
-VENDOR_NAME_LENGTH = 16
-VENDOR_PART_NUM_LENGTH = 16
-
 CREDO_800G_AEC_VENDOR_PN_LIST = ["CAC81X321M2MC1MS", "CAC815321M2MC1MS", "CAC82X321M2MC1MS"]
 INL_800G_VENDOR_PN_LIST = ["T-DL8CNT-NCI", "T-DH8CNT-NCI", "T-DH8CNT-N00", "T-DP4CNH-NCI", "T-DP8CNT-NNO",
                            "T-DP8CNH-NNO", "T-DC8CNT-NNO", "T-DP8CNL-NNO", "T-OL8CNT-N00", "T-OH8CNH-N00",
@@ -54,30 +50,16 @@ class XcvrApiFactory(object):
         self.writer = writer
 
     def _get_id(self):
-        id_byte_raw = self.reader(0, 1)
-        if id_byte_raw is None:
-            return None
-        return id_byte_raw[0]
+        return get_id(self.reader)
 
     def _get_revision_compliance(self):
-        id_byte_raw = self.reader(1, 1)
-        if id_byte_raw is None:
-            return None
-        return id_byte_raw[0]
+        return get_revision_compliance(self.reader)
 
     def _get_vendor_name(self):
-       name_data = self.reader(VENDOR_NAME_OFFSET, VENDOR_NAME_LENGTH)
-       if name_data is None:
-           return None
-       vendor_name = name_data.decode('utf-8', errors='ignore')
-       return vendor_name.strip()
+        return get_vendor_name(self.reader)
 
     def _get_vendor_part_num(self):
-       part_num = self.reader(VENDOR_PART_NUM_OFFSET, VENDOR_PART_NUM_LENGTH)
-       if part_num is None:
-           return None
-       vendor_pn = part_num.decode('utf-8', errors='ignore')
-       return vendor_pn.strip()
+        return get_vendor_part_num(self.reader)
 
     def _create_cmis_api(self, bank=0):
         api = None

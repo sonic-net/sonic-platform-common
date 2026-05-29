@@ -3,14 +3,15 @@ from enum import Enum
 from dataclasses import dataclass
 
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
+from sonic_platform_base.sonic_xcvr.eeprom_rw import get_vendor_name, get_vendor_part_num
 
 
 class OeId(Enum):
-    NVIDIA_SP6 = 1
+    pass
 
 
 class ElsfpId(Enum):
-    EXAMPLE = 1
+    pass
 
 
 @dataclass
@@ -29,11 +30,16 @@ class OeApiFactory:
         return api_class(oe_eeprom)
 
     def create_oe_api(self):
-        if self._oe.hardware_id.oe_id == OeId.NVIDIA_SP6:
-            # Create NVIDIA API
-            pass
+        # if self._oe.hardware_id.oe_id == OeId.EXAMPLE:
+        #     self._create_api(...)
 
         raise ValueError(f"Could not determine what OE API to use for OE ID: {self._oe.hardware_id.oe_id}")
+
+
+@dataclass
+class ElsfpInfo:
+    vendor_name: str
+    vendor_part_number: str
 
 
 class ElsfpApiFactory:
@@ -45,16 +51,21 @@ class ElsfpApiFactory:
         elsfp_eeprom = XcvrEeprom(self._elsfp.read_eeprom, self._elsfp.write_eeprom, mem_map)
         return api_class(elsfp_eeprom)
 
+    def _get_elsfp_info(self) -> ElsfpInfo:
+        return ElsfpInfo(
+            vendor_name=get_vendor_name(self._elsfp.read_eeprom),
+            vendor_part_number=get_vendor_part_num(self._elsfp.read_eeprom),
+        )
+
     def create_elsfp_api(self):
         if self._elsfp.hardware_id.elsfp_id is None:
-            # read vendor name or part number from EEPROM
+            # Read vendor name & part number from EEPROM
             # and determine the correct memory map to use
             # based on that information.
-            pass
-        elif self._elsfp.hardware_id.elsfp_id == ElsfpId.EXAMPLE:
-            # ELSFP ID is set -- use whatever API is
-            # appropriate for that ID.
-            pass
+            elsfp_info = self._get_elsfp_info()
+
+        # if self._elsfp.hardware_id.elsfp_id == ElsfpId.EXAMPLE:
+        #     self._create_api(...)
 
         raise ValueError(
             f"Could not determine what ELSFP API to use for CPO HW ID. "
