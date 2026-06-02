@@ -1,12 +1,38 @@
-from abc import abstractmethod
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from enum import Enum
+from typing import Optional
 
+from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
 from sonic_platform_base.sonic_xcvr.eeprom_rw import EepromReadWriteMixin
-from sonic_platform_base.sonic_xcvr.cpo.cpo_api_factory import (
-    CpoApiFactory,
-    OeApiFactory,
-    ElsfpApiFactory,
-    CpoHardwareId,
-)
+
+
+class OeId(Enum):
+    pass
+
+
+class ElsfpId(Enum):
+    pass
+
+
+@dataclass
+class CpoHardwareId:
+    oe_id: OeId
+    elsfp_id: Optional[ElsfpId]
+
+
+class CpoApiFactory(ABC):
+    def __init__(self, device: "CpoDeviceBase"):
+        self._device = device
+
+    def _create_api(self, codes_class, mem_map_class, api_class):
+        mem_map = mem_map_class(codes_class, self._device.bank)
+        eeprom = XcvrEeprom(self._device.read_eeprom, self._device.write_eeprom, mem_map)
+        return api_class(eeprom)
+
+    @abstractmethod
+    def create_api(self):
+        raise NotImplementedError
 
 
 class CpoDeviceBase(EepromReadWriteMixin):
@@ -29,22 +55,8 @@ class CpoDeviceBase(EepromReadWriteMixin):
         return self._api
 
 
-class OeBase(CpoDeviceBase):
-    def _make_api_factory(self) -> CpoApiFactory:
-        return OeApiFactory(self)
-
-    # TODO: Implement OE-specific methods
-
-
-class ElsfpBase(CpoDeviceBase):
-    def _make_api_factory(self) -> CpoApiFactory:
-        return ElsfpApiFactory(self)
-
-    # TODO: Implement ELSFP-specific methods
-
-
 class CpoBase:
-    def __init__(self, hardware_id: CpoHardwareId, oe: OeBase, elsfp: ElsfpBase):
+    def __init__(self, hardware_id: CpoHardwareId, oe: "OeBase", elsfp: "ElsfpBase"):
         self.hardware_id = hardware_id
         self.oe = oe
         self.elsfp = elsfp

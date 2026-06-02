@@ -1,7 +1,8 @@
 from mock import MagicMock
 
-from sonic_platform_base.sonic_xcvr.cpo.cpo_base import OeBase, ElsfpBase, CpoBase
-from sonic_platform_base.sonic_xcvr.cpo.cpo_api_factory import CpoHardwareId
+from sonic_platform_base.sonic_xcvr.cpo.cpo_base import CpoBase, CpoHardwareId
+from sonic_platform_base.sonic_xcvr.cpo.oe import OeBase
+from sonic_platform_base.sonic_xcvr.cpo.elsfp import ElsfpBase
 
 # OeId/ElsfpId currently define no members; these tests don't depend on the
 # specific ids (the factory's create methods are mocked), so use sentinels.
