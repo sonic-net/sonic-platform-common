@@ -32,8 +32,15 @@ class ElsfpApi(CmisApi):
 
         Returns:
             True if the write succeeded, False otherwise.
+
+        Raises:
+            ValueError: If lane_mask has bits set outside the 8-lane range (0x00-0xFF).
         """
+        if lane_mask & ~0xFF:
+            raise ValueError("lane_mask 0x%X has bits set outside the 8-lane range (0x00-0xFF)" % lane_mask)
         current = self.xcvr_eeprom.read(field)
+        if current is None:
+            return False
         if value:
             current |= lane_mask
         else:
@@ -150,7 +157,10 @@ class ElsfpApi(CmisApi):
 
     def get_save_restore_confirmation(self) -> elsfp_consts.SaveRestoreConfirmationCode:
         value = self.xcvr_eeprom.read(elsfp_consts.SAVE_RESTORE_CONFIRM)
-        return elsfp_consts.SaveRestoreConfirmationCode(value)
+        try:
+            return elsfp_consts.SaveRestoreConfirmationCode(value)
+        except ValueError:
+            return elsfp_consts.SaveRestoreConfirmationCode.UNKNOWN
 
     ###############################################################
     #         Alarms/warnings values, alarm/warning codes         #
@@ -287,7 +297,7 @@ class ElsfpApi(CmisApi):
         # Returns per-lane frequency in GHz (raw register in 5 GHz steps, scaled by 1/0.2)
         return self.xcvr_eeprom.read(elsfp_consts.LANE_FREQ_FIELD)
 
-    def get_opt_check_power_setpoint(self) -> int:
+    def get_opt_check_power_setpoint(self) -> float:
         # Returns optical power setpoint for fiber check in mW (raw register in 1 mW steps)
         return self.xcvr_eeprom.read(elsfp_consts.OPT_CHECK_POWER_SETPOINT)
 

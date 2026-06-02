@@ -59,6 +59,7 @@ class SaveRestoreCommand(Enum):
     SAVE_SET2_ALARM_WARNING_MASKS = 0x29
 
 class SaveRestoreConfirmationCode(Enum):
+    UNKNOWN = 0x00
     SUCCESS = 0x01
     IN_PROGRESS = 0x02
     INVALID_COMMAND = 0x03

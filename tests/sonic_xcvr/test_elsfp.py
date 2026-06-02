@@ -270,6 +270,12 @@ class TestBankedLaneControls:
         result = api.get_per_lane_enable()
         assert _bitmask_from_lane_list(result) == 0b00000001
 
+    def test_lane_mask_out_of_range_raises(self, api):
+        # Per-lane fields are single-byte (8 lanes), so a bit above bit 7
+        # would overflow the 'B' pack format; the API must reject it up front.
+        with pytest.raises(ValueError):
+            api.set_per_lane_enable(0x100, True)
+
     def test_per_lane_state(self, mem_eeprom, api):
         # Byte 221 holds lanes 1-4, 2 bits per lane.
         # 0b00000110: lane 1 = bits 1-0 = 0b10 = 2 → 'Lane Output on'
