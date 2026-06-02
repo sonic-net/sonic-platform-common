@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from typing import Optional
 from enum import Enum
 from dataclasses import dataclass
@@ -20,20 +21,26 @@ class CpoHardwareId:
     elsfp_id: Optional[ElsfpId]
 
 
-class OeApiFactory:
-    def __init__(self, oe: "OeBase"):
-        self._oe = oe
+class CpoApiFactory(ABC):
+    def __init__(self, device: "CpoDeviceBase"):
+        self._device = device
 
     def _create_api(self, codes_class, mem_map_class, api_class):
-        mem_map = mem_map_class(codes_class, self._oe.bank)
-        oe_eeprom = XcvrEeprom(self._oe.read_eeprom, self._oe.write_eeprom, mem_map)
-        return api_class(oe_eeprom)
+        mem_map = mem_map_class(codes_class, self._device.bank)
+        eeprom = XcvrEeprom(self._device.read_eeprom, self._device.write_eeprom, mem_map)
+        return api_class(eeprom)
 
-    def create_oe_api(self):
-        # if self._oe.hardware_id.oe_id == OeId.EXAMPLE:
+    @abstractmethod
+    def create_api(self):
+        raise NotImplementedError
+
+
+class OeApiFactory(CpoApiFactory):
+    def create_api(self):
+        # if self._device.hardware_id.oe_id == OeId.EXAMPLE:
         #     self._create_api(...)
 
-        raise ValueError(f"Could not determine what OE API to use for OE ID: {self._oe.hardware_id.oe_id}")
+        raise ValueError(f"Could not determine what OE API to use for OE ID: {self._device.hardware_id.oe_id}")
 
 
 @dataclass
@@ -42,33 +49,25 @@ class ElsfpInfo:
     vendor_part_number: str
 
 
-class ElsfpApiFactory:
-    def __init__(self, elsfp: "ElsfpBase"):
-        self._elsfp = elsfp
-
-    def _create_api(self, codes_class, mem_map_class, api_class):
-        mem_map = mem_map_class(codes_class, self._elsfp.bank)
-        elsfp_eeprom = XcvrEeprom(self._elsfp.read_eeprom, self._elsfp.write_eeprom, mem_map)
-        return api_class(elsfp_eeprom)
-
+class ElsfpApiFactory(CpoApiFactory):
     def _get_elsfp_info(self) -> ElsfpInfo:
-        eeprom_info = ModuleEepromInfo(self._elsfp.read_eeprom)
+        eeprom_info = ModuleEepromInfo(self._device.read_eeprom)
         return ElsfpInfo(
             vendor_name=eeprom_info.get_vendor_name(),
             vendor_part_number=eeprom_info.get_vendor_part_num(),
         )
 
-    def create_elsfp_api(self):
-        if self._elsfp.hardware_id.elsfp_id is None:
+    def create_api(self):
+        if self._device.hardware_id.elsfp_id is None:
             # Read vendor name & part number from EEPROM
             # and determine the correct memory map to use
             # based on that information.
             elsfp_info = self._get_elsfp_info()
 
-        # if self._elsfp.hardware_id.elsfp_id == ElsfpId.EXAMPLE:
+        # if self._device.hardware_id.elsfp_id == ElsfpId.EXAMPLE:
         #     self._create_api(...)
 
         raise ValueError(
             f"Could not determine what ELSFP API to use for CPO HW ID. "
-            f"OE ID: {self._elsfp.hardware_id.oe_id}, ELSFP ID: {self._elsfp.hardware_id.elsfp_id}"
+            f"OE ID: {self._device.hardware_id.oe_id}, ELSFP ID: {self._device.hardware_id.elsfp_id}"
         )

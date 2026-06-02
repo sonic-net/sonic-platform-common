@@ -14,25 +14,25 @@ SOME_ELSFP_ID = object()
 
 
 class TestOeApiFactory(object):
-    def test_create_oe_api_raises(self):
+    def test_create_api_raises(self):
         oe = MagicMock()
         oe.hardware_id = CpoHardwareId(oe_id=SOME_OE_ID, elsfp_id=None)
         factory = OeApiFactory(oe)
         with pytest.raises(ValueError):
-            factory.create_oe_api()
+            factory.create_api()
 
 
 class TestElsfpApiFactory(object):
-    def test_create_elsfp_api_raises_when_id_none(self):
+    def test_create_api_raises_when_id_none(self):
         elsfp = MagicMock()
         elsfp.hardware_id = CpoHardwareId(oe_id=SOME_OE_ID, elsfp_id=None)
         factory = ElsfpApiFactory(elsfp)
         with pytest.raises(ValueError):
-            factory.create_elsfp_api()
+            factory.create_api()
 
-    def test_create_elsfp_api_raises_when_id_set(self):
+    def test_create_api_raises_when_id_set(self):
         elsfp = MagicMock()
         elsfp.hardware_id = CpoHardwareId(oe_id=SOME_OE_ID, elsfp_id=SOME_ELSFP_ID)
         factory = ElsfpApiFactory(elsfp)
         with pytest.raises(ValueError):
-            factory.create_elsfp_api()
+            factory.create_api()

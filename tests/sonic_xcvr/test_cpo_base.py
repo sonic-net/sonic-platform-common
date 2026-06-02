@@ -10,49 +10,49 @@ SOME_ELSFP_ID = object()
 
 
 class TestOeBase(object):
-    def test_get_oe_api_refreshes_when_none(self):
+    def test_get_api_refreshes_when_none(self):
         oe = OeBase(CpoHardwareId(oe_id=SOME_OE_ID, elsfp_id=SOME_ELSFP_ID))
         fake_api = MagicMock()
-        oe._oe_api_factory.create_oe_api = MagicMock(return_value=fake_api)
+        oe._api_factory.create_api = MagicMock(return_value=fake_api)
 
-        result = oe.get_oe_api()
+        result = oe.get_api()
 
-        oe._oe_api_factory.create_oe_api.assert_called_once_with()
+        oe._api_factory.create_api.assert_called_once_with()
         assert result is fake_api
 
-    def test_get_oe_api_cached(self):
+    def test_get_api_cached(self):
         oe = OeBase(CpoHardwareId(oe_id=SOME_OE_ID, elsfp_id=SOME_ELSFP_ID))
         fake_api = MagicMock()
-        oe._oe_api_factory.create_oe_api = MagicMock(return_value=fake_api)
+        oe._api_factory.create_api = MagicMock(return_value=fake_api)
 
         # First call populates the cache, second call should reuse it.
-        first = oe.get_oe_api()
-        second = oe.get_oe_api()
+        first = oe.get_api()
+        second = oe.get_api()
 
-        oe._oe_api_factory.create_oe_api.assert_called_once_with()
+        oe._api_factory.create_api.assert_called_once_with()
         assert first is second is fake_api
 
 
 class TestElsfpBase(object):
-    def test_get_elsfp_api_refreshes_when_none(self):
+    def test_get_api_refreshes_when_none(self):
         elsfp = ElsfpBase(CpoHardwareId(oe_id=SOME_OE_ID, elsfp_id=SOME_ELSFP_ID))
         fake_api = MagicMock()
-        elsfp._elsfp_api_factory.create_elsfp_api = MagicMock(return_value=fake_api)
+        elsfp._api_factory.create_api = MagicMock(return_value=fake_api)
 
-        result = elsfp.get_elsfp_api()
+        result = elsfp.get_api()
 
-        elsfp._elsfp_api_factory.create_elsfp_api.assert_called_once_with()
+        elsfp._api_factory.create_api.assert_called_once_with()
         assert result is fake_api
 
-    def test_get_elsfp_api_cached(self):
+    def test_get_api_cached(self):
         elsfp = ElsfpBase(CpoHardwareId(oe_id=SOME_OE_ID, elsfp_id=SOME_ELSFP_ID))
         fake_api = MagicMock()
-        elsfp._elsfp_api_factory.create_elsfp_api = MagicMock(return_value=fake_api)
+        elsfp._api_factory.create_api = MagicMock(return_value=fake_api)
 
-        first = elsfp.get_elsfp_api()
-        second = elsfp.get_elsfp_api()
+        first = elsfp.get_api()
+        second = elsfp.get_api()
 
-        elsfp._elsfp_api_factory.create_elsfp_api.assert_called_once_with()
+        elsfp._api_factory.create_api.assert_called_once_with()
         assert first is second is fake_api
 
 
