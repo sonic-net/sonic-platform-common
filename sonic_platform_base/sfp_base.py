@@ -9,7 +9,7 @@ import sys
 from . import device_base
 
 from .sonic_xcvr.xcvr_api_factory import XcvrApiFactory
-from sonic_platform_base.sonic_xcvr.eeprom_rw import EepromReadWriteMixin
+from .sonic_xcvr.eeprom_rw import EepromReadWriteMixin
 
 class SfpBase(device_base.DeviceBase, EepromReadWriteMixin):
     """

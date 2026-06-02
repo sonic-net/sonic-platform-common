@@ -1,7 +1,7 @@
 from mock import MagicMock
 import pytest
 
-from sonic_platform_base.sonic_xcvr.cpo_api_factory import (
+from sonic_platform_base.sonic_xcvr.cpo.cpo_api_factory import (
     OeApiFactory,
     ElsfpApiFactory,
     CpoHardwareId,

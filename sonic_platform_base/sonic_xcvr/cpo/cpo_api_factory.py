@@ -3,7 +3,7 @@ from enum import Enum
 from dataclasses import dataclass
 
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
-from sonic_platform_base.sonic_xcvr.eeprom_rw import get_vendor_name, get_vendor_part_num
+from sonic_platform_base.sonic_xcvr.eeprom_rw import ModuleEepromInfo
 
 
 class OeId(Enum):
@@ -52,9 +52,10 @@ class ElsfpApiFactory:
         return api_class(elsfp_eeprom)
 
     def _get_elsfp_info(self) -> ElsfpInfo:
+        eeprom_info = ModuleEepromInfo(self._elsfp.read_eeprom)
         return ElsfpInfo(
-            vendor_name=get_vendor_name(self._elsfp.read_eeprom),
-            vendor_part_number=get_vendor_part_num(self._elsfp.read_eeprom),
+            vendor_name=eeprom_info.get_vendor_name(),
+            vendor_part_number=eeprom_info.get_vendor_part_num(),
         )
 
     def create_elsfp_api(self):

@@ -1,5 +1,5 @@
 from sonic_platform_base.sonic_xcvr.eeprom_rw import EepromReadWriteMixin
-from sonic_platform_base.sonic_xcvr.cpo_api_factory import OeApiFactory, ElsfpApiFactory, CpoHardwareId
+from sonic_platform_base.sonic_xcvr.cpo.cpo_api_factory import OeApiFactory, ElsfpApiFactory, CpoHardwareId
 
 
 class OeBase(EepromReadWriteMixin):
@@ -13,6 +13,7 @@ class OeBase(EepromReadWriteMixin):
         self._oe_api = self._oe_api_factory.create_oe_api()
 
     def get_oe_api(self):
+        """Return a cached OE API instance, creating it on first access."""
         if self._oe_api is None:
             self.refresh_oe_api()
         return self._oe_api
@@ -21,7 +22,7 @@ class OeBase(EepromReadWriteMixin):
 
 
 class ElsfpBase(EepromReadWriteMixin):
-    def __init__(self, hardware_id: CpoHardwareId = None, bank: int = 0):
+    def __init__(self, hardware_id: CpoHardwareId, bank: int = 0):
         self.bank = bank
         self._elsfp_api = None
         self.hardware_id = hardware_id
@@ -31,6 +32,7 @@ class ElsfpBase(EepromReadWriteMixin):
         self._elsfp_api = self._elsfp_api_factory.create_elsfp_api()
 
     def get_elsfp_api(self):
+        """Return a cached ELSFP API instance, creating it on first access."""
         if self._elsfp_api is None:
             self.refresh_elsfp_api()
         return self._elsfp_api
