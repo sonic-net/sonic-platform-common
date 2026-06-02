@@ -47,6 +47,8 @@ setup(
         'sonic_platform_base.sonic_xcvr.mem_maps.public',
         'sonic_platform_base.sonic_xcvr.mem_maps.public.cmis',
         'sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.pages',
+        'sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.elsfp',
+        'sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.elsfp.pages',
         'sonic_platform_base.sonic_xcvr.api',
         'sonic_platform_base.sonic_xcvr.api.public',
         'sonic_platform_base.sonic_xcvr.codes',
