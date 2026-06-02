@@ -1,5 +1,7 @@
 # ELSFP-specific field name constants (Pages 1Ah and 1Bh)
 
+from enum import Enum
+
 # Group name constants (used as group fields)
 ELSFP_MODULE_ADVERTISEMENTS_FIELD = "ElsfpModuleAdvertisements"
 ELSFP_LANE_FAULTS_WARNINGS_FIELD = "ElsfpLaneFaultsWarnings"
@@ -43,6 +45,25 @@ WARN_FLAG_LANE_FIELD = "WarnFlagLanes"
 # Laser Setting and Save/Restore (Bytes 182-185)
 SAVE_RESTORE_COMMAND = "SaveRestoreCommand"
 SAVE_RESTORE_CONFIRM = "SaveRestoreConfirm"
+
+class SaveRestoreCommand(Enum):
+    RESTORE_FACTORY_SETTINGS_FOR_LANE_CONTROLS = 0x10
+    RESTORE_SET1_LANE_CONTROLS = 0x11
+    RESTORE_SET2_LANE_CONTROLS = 0x12
+    SAVE_SET1_LANE_CONTROLS = 0x18
+    SAVE_SET2_LANE_CONTROLS = 0x19
+    RESTORE_FACTORY_SETTINGS_FOR_FLAGS_AND_WARNINGS = 0x20
+    RESTORE_SET1_ALARM_WARNING_MASKS = 0x21
+    RESTORE_SET2_ALARM_WARNING_MASKS = 0x22
+    SAVE_SET1_ALARM_WARNING_MASKS = 0x28
+    SAVE_SET2_ALARM_WARNING_MASKS = 0x29
+
+class SaveRestoreConfirmationCode(Enum):
+    SUCCESS = 0x01
+    IN_PROGRESS = 0x02
+    INVALID_COMMAND = 0x03
+    NO_RELEVANT_SAVED_CONTENT = 0x04
+    FAILED = 0x08
 
 # Laser Alarms, Warnings, Faults, and Masks (Bytes 186-219)
 HIGH_BIAS_ALARM_INDEXED_FIELD = "HighBiasAlarmIndexed"
