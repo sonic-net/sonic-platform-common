@@ -33,11 +33,6 @@ class CmisCodes(Sff8024):
         17: 'L-band tunable laser',
     }
 
-    MODULE_FUNCTION_TYPE = {
-        0: 'Transmission Module',
-        1: 'Resource Module',
-    }
-
     MODULE_STATE = {
         1: 'ModuleLowPwr',
         2: 'ModulePwrUp',
@@ -105,24 +100,6 @@ class CmisCodes(Sff8024):
         22: ['Errored Frames Average Host Input', 'F16', 1, 'S'],
         23: ['Errored Frames Current Value Media Input', 'F16', 1, 'B'],
         24: ['Errored Frames Current Value Host Input', 'F16', 1, 'B'],
-        25: ['FERC Total Accumulated Media Input', 'F16', 1, 'S'],
-        26: ['FERC Total Accumulated Host Input', 'F16', 1, 'S'],
-        27: ['SEWmax Minimum Sample Value Media Input', 'U16', 1, 'S'],
-        28: ['SEWmax Minimum Sample Value Host Input', 'U16', 1, 'S'],
-        29: ['SEWmax Maximum Sample Value Media Input', 'U16', 1, 'S'],
-        30: ['SEWmax Maximum Sample Value Host Input', 'U16', 1, 'S'],
-        31: ['SEWmax Sample Average Value Media Input', 'U16', 1, 'S'],
-        32: ['SEWmax Sample Average Value Host Input', 'U16', 1, 'S'],
-        33: ['SEWmax Current Sample Value Media Input', 'U16', 1, 'B'],
-        34: ['SEWmax Current Sample Value Host Input', 'U16', 1, 'B'],
-        77: ['Vcc2p6 Voltage Monitor [V]', 'U16', 100e-6, 'B'],
-        78: ['Vcc1p8 Voltage Monitor [V]', 'U16', 100e-6, 'B'],
-        79: ['Vcc1p2 Voltage Monitor [V]', 'U16', 100e-6, 'B'],
-        80: ['Vcc0p9 Voltage Monitor [V]', 'U16', 100e-6, 'B'],
-        81: ['Vcc0p7A Voltage Monitor [V]', 'U16', 100e-6, 'B'],
-        82: ['Vcc0p7B Voltage Monitor [V]', 'U16', 100e-6, 'B'],
-        83: ['Vcc12 Voltage Monitor [V]', 'U16', 250e-6, 'B'],
-        84: ['ELS Input Power [dBm]', 'S16', 0.01, 'B'],
         128: ['Modulator Bias X/I [%]', 'U16', 100.0/65535, 'B'],
         129: ['Modulator Bias X/Q [%]', 'U16', 100.0/65535, 'B'],
         130: ['Modulator Bias Y/I [%]', 'U16', 100.0/65535, 'B'],
