@@ -655,9 +655,6 @@ class CmisApi(CmisCdbFw, XcvrApi):
     def is_flat_memory(self):
         return self.xcvr_eeprom.read(consts.FLAT_MEM_FIELD) is not False
 
-    def get_module_function_type(self):
-        return self.xcvr_eeprom.read(consts.MODULE_FUNCTION_TYPE)
-
     def get_temperature_support(self):
         return not self.is_flat_memory()
 
@@ -1181,9 +1178,6 @@ class CmisApi(CmisCdbFw, XcvrApi):
         This function returns the application select code that each host lane has
         '''
         if (self.is_flat_memory()):
-            return defaultdict(lambda: 'N/A')
-
-        if self.get_module_function_type() == 'Resource Module':
             return defaultdict(lambda: 'N/A')
 
         active_apsel_code = self.xcvr_eeprom.read(consts.ACTIVE_APSEL_CODE)
