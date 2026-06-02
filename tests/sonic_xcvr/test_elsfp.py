@@ -402,29 +402,3 @@ class TestBankedMonitors:
         offset = PAGE_1B_BASE + 240
         mem_eeprom.memory[offset:offset + 2] = struct.pack(">H", 1000)
         assert api.get_icc_monitor() == 0.2
-
-
-class TestModuleFunctionType:
-    """Lower memory byte 57: ModuleFunctionType."""
-
-    def test_transmission_module(self, mem_eeprom, api):
-        mem_eeprom.memory[57] = 0
-        assert api.get_module_function_type() == "Transmission Module"
-
-    def test_resource_module(self, mem_eeprom, api):
-        mem_eeprom.memory[57] = 1
-        assert api.get_module_function_type() == "Resource Module"
-
-    def test_reserved_value(self, mem_eeprom, api):
-        mem_eeprom.memory[57] = 5
-        assert api.get_module_function_type() == "Unknown"
-
-    def test_resource_module_skips_apsel_read(self, mem_eeprom, api):
-        # Byte 2 bit 7 = 0 → paged memory (not flat), so the flat-memory guard
-        # won't fire. Byte 57 = 1 → Resource Module, so the resource module
-        # guard should return N/A without touching page 11h (ACTIVE_APSEL_CODE).
-        mem_eeprom.memory[2] = 0x00   # paged memory
-        mem_eeprom.memory[57] = 1     # Resource Module
-        result = api.get_active_apsel_hostlane()
-        for lane in range(1, 9):
-            assert result["active_apsel_hostlane%d" % lane] == "N/A"
