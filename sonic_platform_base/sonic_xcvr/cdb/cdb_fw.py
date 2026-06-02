@@ -23,7 +23,7 @@ class CdbFwHandler(CdbCmdHandler):
         self.timeout_abort = None
         self.timeout_write = None
         self.timeout_complete = None
-        self.timeout_copy = None
+
         assert True == self.initFwHandler(), "Failed to initialize firmware handler"
 
     def initFwHandler(self):
@@ -50,12 +50,16 @@ class CdbFwHandler(CdbCmdHandler):
             self.rw_length_ext = min(cdb_consts.EPL_MAX_PAYLOAD_SIZE, self.rw_length_ext)
 
         multiplier = 10 if reply.get(cdb_consts.CDB_MAX_DURATION_ENCODING, 0) else 1
-        self.timeout_start = reply.get(cdb_consts.CDB_MAX_DURATION_START, 0) * multiplier + cdb_consts.CDB_TIMEOUT_SAFETY_MARGIN
-        self.timeout_abort = reply.get(cdb_consts.CDB_MAX_DURATION_ABORT, 0) * multiplier + cdb_consts.CDB_TIMEOUT_SAFETY_MARGIN
-        self.timeout_write = reply.get(cdb_consts.CDB_MAX_DURATION_WRITE, 0) * multiplier + cdb_consts.CDB_TIMEOUT_SAFETY_MARGIN
-        self.timeout_complete = reply.get(cdb_consts.CDB_MAX_DURATION_COMPLETE, 0) * multiplier + cdb_consts.CDB_TIMEOUT_SAFETY_MARGIN
-        self.timeout_copy = reply.get(cdb_consts.CDB_MAX_DURATION_COPY, 0) * multiplier + cdb_consts.CDB_TIMEOUT_SAFETY_MARGIN
-
+        duration_start = reply.get(cdb_consts.CDB_MAX_DURATION_START, 0)
+        duration_abort = reply.get(cdb_consts.CDB_MAX_DURATION_ABORT, 0)
+        duration_write = reply.get(cdb_consts.CDB_MAX_DURATION_WRITE, 0)
+        duration_complete = reply.get(cdb_consts.CDB_MAX_DURATION_COMPLETE, 0)
+        
+        self.timeout_start = duration_start * multiplier + cdb_consts.CDB_TIMEOUT_SAFETY_MARGIN if duration_start else None
+        self.timeout_abort = duration_abort * multiplier + cdb_consts.CDB_TIMEOUT_SAFETY_MARGIN if duration_abort else None
+        self.timeout_write = duration_write * multiplier + cdb_consts.CDB_TIMEOUT_SAFETY_MARGIN if duration_write else None
+        self.timeout_complete = duration_complete * multiplier + cdb_consts.CDB_TIMEOUT_SAFETY_MARGIN if duration_complete else None
+        
         return True
 
     def get_fw_mgmt_features(self):
@@ -132,7 +136,9 @@ class CdbFwHandler(CdbCmdHandler):
                     # TODO Handle auto paging for EPL
                     # Write the block data to the EPL
                     if self.is_lpl_only:
-                        self.write_lpl_block(blkaddr, blkdata, timeout=self.timeout_write)
+                        if True != self.write_lpl_block(blkaddr, blkdata, timeout=self.timeout_write):
+                            log.log_error("Failed to write LPL block at address {}".format(blkaddr))
+                            return False, blkaddr
                     else:
                         # For EPL, write the data in pages
                         self.write_epl_pages(blkdata)

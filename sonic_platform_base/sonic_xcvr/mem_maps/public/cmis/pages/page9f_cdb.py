@@ -52,7 +52,7 @@ class CdbLplMessagePage(CmisPage):
             NumberRegField(cdb_consts.CDB1_FACTORY_BUILD_VERSION, self.getaddr(212), size=2, format=">H"),
         ]
 
-        # Firmware management features group (bytes 137..142)
+        # Firmware management features group (bytes 137..153)
         self.fields[cdb_consts.CDB_FIRMWARE_MGMT_FEATURES] = [
             NumberRegField(
                 cdb_consts.CDB_FIRMWARE_MGMT_ADV, self.getaddr(137),
