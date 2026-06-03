@@ -1,14 +1,17 @@
 from abc import ABC
-from typing import Optional
 
 
 class ModuleEepromInfo:
+    ID_OFFSET = 0
+    ID_LENGTH = 1
+    CMIS_REV_OFFSET = 1
+    CMIS_REV_LENGTH = 1
     VENDOR_NAME_OFFSET = 129
     VENDOR_PART_NUM_OFFSET = 148
     VENDOR_NAME_LENGTH = 16
     VENDOR_PART_NUM_LENGTH = 16
 
-    def __init__(self, reader, offset: Optional[int] = None):
+    def __init__(self, reader, offset: int = 0):
         self.reader = reader
         # Offset can be used to shift any reads farther into
         # the address space to accomodate cases where a device's
@@ -18,16 +21,16 @@ class ModuleEepromInfo:
         self.offset = offset
 
     def _translate(self, initial_offset: int) -> int:
-        return initial_offset + self.offset if self.offset else initial_offset
+        return initial_offset + self.offset
 
     def get_id(self):
-        id_byte_raw = self.reader(self._translate(0), 1)
+        id_byte_raw = self.reader(self._translate(self.ID_OFFSET), self.ID_LENGTH)
         if id_byte_raw is None:
             return None
         return id_byte_raw[0]
 
     def get_revision_compliance(self):
-        id_byte_raw = self.reader(self._translate(1), 1)
+        id_byte_raw = self.reader(self._translate(self.CMIS_REV_OFFSET), self.CMIS_REV_LENGTH)
         if id_byte_raw is None:
             return None
         return id_byte_raw[0]
