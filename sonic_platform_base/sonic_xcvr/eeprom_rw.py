@@ -1,11 +1,17 @@
 from abc import ABC
 
 
-class ModuleEepromInfo:
+class ModuleEepromLowerMemoryInfo:
+    """
+    This class is designed to provide raw read access to lower memory of a
+    module's EEPROM for API / memory map bootstrapping purposes. It is not
+    intended to provide access to upper memory. That is the job of the
+    memory map / API abstraction that already exists.
+    """
     ID_OFFSET = 0
     ID_LENGTH = 1
-    CMIS_REV_OFFSET = 1
-    CMIS_REV_LENGTH = 1
+    REV_OFFSET = 1
+    REV_LENGTH = 1
     VENDOR_NAME_OFFSET = 129
     VENDOR_PART_NUM_OFFSET = 148
     VENDOR_NAME_LENGTH = 16
@@ -30,7 +36,7 @@ class ModuleEepromInfo:
         return id_byte_raw[0]
 
     def get_revision_compliance(self):
-        id_byte_raw = self.reader(self._translate(self.CMIS_REV_OFFSET), self.CMIS_REV_LENGTH)
+        id_byte_raw = self.reader(self._translate(self.REV_OFFSET), self.REV_LENGTH)
         if id_byte_raw is None:
             return None
         return id_byte_raw[0]

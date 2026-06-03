@@ -6,7 +6,7 @@
 """
 import re
 from .xcvr_eeprom import XcvrEeprom
-from .eeprom_rw import ModuleEepromInfo
+from .eeprom_rw import ModuleEepromLowerMemoryInfo
 # TODO: remove the following imports
 from .codes.public.cmis import CmisCodes
 from .api.public.cmis import CmisApi
@@ -50,16 +50,16 @@ class XcvrApiFactory(object):
         self.writer = writer
 
     def _get_id(self):
-        return ModuleEepromInfo(self.reader).get_id()
+        return ModuleEepromLowerMemoryInfo(self.reader).get_id()
 
     def _get_revision_compliance(self):
-        return ModuleEepromInfo(self.reader).get_revision_compliance()
+        return ModuleEepromLowerMemoryInfo(self.reader).get_revision_compliance()
 
     def _get_vendor_name(self):
-        return ModuleEepromInfo(self.reader).get_vendor_name()
+        return ModuleEepromLowerMemoryInfo(self.reader).get_vendor_name()
 
     def _get_vendor_part_num(self):
-        return ModuleEepromInfo(self.reader).get_vendor_part_num()
+        return ModuleEepromLowerMemoryInfo(self.reader).get_vendor_part_num()
 
     def _create_cmis_api(self, bank=0):
         api = None

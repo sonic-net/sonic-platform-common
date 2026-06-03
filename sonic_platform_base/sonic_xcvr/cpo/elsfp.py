@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from sonic_platform_base.sonic_xcvr.cpo.cpo_base import CpoApiFactory, CpoDeviceBase
-from sonic_platform_base.sonic_xcvr.eeprom_rw import ModuleEepromInfo
+from sonic_platform_base.sonic_xcvr.eeprom_rw import ModuleEepromLowerMemoryInfo
 
 
 @dataclass
@@ -11,14 +11,14 @@ class ElsfpInfo:
 
 
 class ElsfpApiFactory(CpoApiFactory):
-    def _get_elsfp_page_0_offset(self) -> int:
+    def _get_elsfp_lower_mem_offset(self) -> int:
         offsets = {}
         return offsets.get(self._device.hardware_id.oe_id, 0)
 
     def _get_elsfp_info(self) -> ElsfpInfo:
-        eeprom_info = ModuleEepromInfo(
+        eeprom_info = ModuleEepromLowerMemoryInfo(
             self._device.read_eeprom,
-            offset=self._get_elsfp_page_0_offset()
+            offset=self._get_elsfp_lower_mem_offset()
         )
         return ElsfpInfo(
             vendor_name=eeprom_info.get_vendor_name(),
