@@ -5,7 +5,7 @@ import sonic_platform_base.sonic_xcvr.fields.elsfp_consts as elsfp_consts
 
 class ElsfpApi(XcvrApi):
 
-    def _unpack_lane_bits(self, field: str, num_lanes: int = 8) -> list[int]:
+    def _read_lane_bits(self, field: str, num_lanes: int = 8) -> list[int]:
         """Read a per-lane bitmask field and unpack it into a per-lane list.
 
         Args:
@@ -168,73 +168,73 @@ class ElsfpApi(XcvrApi):
     ###############################################################
 
     def get_per_lane_high_bias_alarms(self) -> list[int]:
-        return self._unpack_lane_bits(elsfp_consts.HIGH_BIAS_ALARM_INDEXED_FIELD)
+        return self._read_lane_bits(elsfp_consts.HIGH_BIAS_ALARM_INDEXED_FIELD)
 
     def get_per_lane_low_bias_alarms(self) -> list[int]:
-        return self._unpack_lane_bits(elsfp_consts.LOW_BIAS_ALARM_INDEXED_FIELD)
+        return self._read_lane_bits(elsfp_consts.LOW_BIAS_ALARM_INDEXED_FIELD)
 
     def get_per_lane_high_bias_warnings(self) -> list[int]:
-        return self._unpack_lane_bits(elsfp_consts.HIGH_BIAS_WARN_INDEXED_FIELD)
+        return self._read_lane_bits(elsfp_consts.HIGH_BIAS_WARN_INDEXED_FIELD)
 
     def get_per_lane_low_bias_warnings(self) -> list[int]:
-        return self._unpack_lane_bits(elsfp_consts.LOW_BIAS_WARN_INDEXED_FIELD)
+        return self._read_lane_bits(elsfp_consts.LOW_BIAS_WARN_INDEXED_FIELD)
 
     def get_per_lane_high_power_alarms(self) -> list[int]:
-        return self._unpack_lane_bits(elsfp_consts.HIGH_POWER_ALARM_INDEXED_FIELD)
+        return self._read_lane_bits(elsfp_consts.HIGH_POWER_ALARM_INDEXED_FIELD)
 
     def get_per_lane_low_power_alarms(self) -> list[int]:
-        return self._unpack_lane_bits(elsfp_consts.LOW_POWER_ALARM_INDEXED_FIELD)
+        return self._read_lane_bits(elsfp_consts.LOW_POWER_ALARM_INDEXED_FIELD)
 
     def get_per_lane_high_power_warnings(self) -> list[int]:
-        return self._unpack_lane_bits(elsfp_consts.HIGH_POWER_WARN_INDEXED_FIELD)
+        return self._read_lane_bits(elsfp_consts.HIGH_POWER_WARN_INDEXED_FIELD)
 
     def get_per_lane_low_power_warnings(self) -> list[int]:
-        return self._unpack_lane_bits(elsfp_consts.LOW_POWER_WARN_INDEXED_FIELD)
+        return self._read_lane_bits(elsfp_consts.LOW_POWER_WARN_INDEXED_FIELD)
 
     def get_per_lane_high_bias_alarm_mask(self) -> list[int]:
-        return self._unpack_lane_bits(elsfp_consts.HIGH_BIAS_ALARM_MASK_FIELD)
+        return self._read_lane_bits(elsfp_consts.HIGH_BIAS_ALARM_MASK_FIELD)
 
     def set_per_lane_high_bias_alarm_mask(self, lane_mask: int, masked: bool) -> bool:
         return self._set_lane_bits(elsfp_consts.HIGH_BIAS_ALARM_MASK_FIELD, lane_mask, masked)
 
     def get_per_lane_low_bias_alarm_mask(self) -> list[int]:
-        return self._unpack_lane_bits(elsfp_consts.LOW_BIAS_ALARM_MASK_FIELD)
+        return self._read_lane_bits(elsfp_consts.LOW_BIAS_ALARM_MASK_FIELD)
 
     def set_per_lane_low_bias_alarm_mask(self, lane_mask: int, masked: bool) -> bool:
         return self._set_lane_bits(elsfp_consts.LOW_BIAS_ALARM_MASK_FIELD, lane_mask, masked)
 
     def get_per_lane_high_bias_warning_mask(self) -> list[int]:
-        return self._unpack_lane_bits(elsfp_consts.HIGH_BIAS_WARN_MASK_FIELD)
+        return self._read_lane_bits(elsfp_consts.HIGH_BIAS_WARN_MASK_FIELD)
 
     def set_per_lane_high_bias_warning_mask(self, lane_mask: int, masked: bool) -> bool:
         return self._set_lane_bits(elsfp_consts.HIGH_BIAS_WARN_MASK_FIELD, lane_mask, masked)
 
     def get_per_lane_low_bias_warning_mask(self) -> list[int]:
-        return self._unpack_lane_bits(elsfp_consts.LOW_BIAS_WARN_MASK_FIELD)
+        return self._read_lane_bits(elsfp_consts.LOW_BIAS_WARN_MASK_FIELD)
 
     def set_per_lane_low_bias_warning_mask(self, lane_mask: int, masked: bool) -> bool:
         return self._set_lane_bits(elsfp_consts.LOW_BIAS_WARN_MASK_FIELD, lane_mask, masked)
 
     def get_per_lane_high_power_alarm_mask(self) -> list[int]:
-        return self._unpack_lane_bits(elsfp_consts.HIGH_POWER_ALARM_MASK_FIELD)
+        return self._read_lane_bits(elsfp_consts.HIGH_POWER_ALARM_MASK_FIELD)
 
     def set_per_lane_high_power_alarm_mask(self, lane_mask: int, masked: bool) -> bool:
         return self._set_lane_bits(elsfp_consts.HIGH_POWER_ALARM_MASK_FIELD, lane_mask, masked)
 
     def get_per_lane_low_power_alarm_mask(self) -> list[int]:
-        return self._unpack_lane_bits(elsfp_consts.LOW_POWER_ALARM_MASK_FIELD)
+        return self._read_lane_bits(elsfp_consts.LOW_POWER_ALARM_MASK_FIELD)
 
     def set_per_lane_low_power_alarm_mask(self, lane_mask: int, masked: bool) -> bool:
         return self._set_lane_bits(elsfp_consts.LOW_POWER_ALARM_MASK_FIELD, lane_mask, masked)
 
     def get_per_lane_high_power_warning_mask(self) -> list[int]:
-        return self._unpack_lane_bits(elsfp_consts.HIGH_POWER_WARN_MASK_FIELD)
+        return self._read_lane_bits(elsfp_consts.HIGH_POWER_WARN_MASK_FIELD)
 
     def set_per_lane_high_power_warning_mask(self, lane_mask: int, masked: bool) -> bool:
         return self._set_lane_bits(elsfp_consts.HIGH_POWER_WARN_MASK_FIELD, lane_mask, masked)
 
     def get_per_lane_low_power_warning_mask(self) -> list[int]:
-        return self._unpack_lane_bits(elsfp_consts.LOW_POWER_WARN_MASK_FIELD)
+        return self._read_lane_bits(elsfp_consts.LOW_POWER_WARN_MASK_FIELD)
 
     def set_per_lane_low_power_warning_mask(self, lane_mask: int, masked: bool) -> bool:
         return self._set_lane_bits(elsfp_consts.LOW_POWER_WARN_MASK_FIELD, lane_mask, masked)
@@ -242,13 +242,13 @@ class ElsfpApi(XcvrApi):
     # Global alarm and warning masks
 
     def get_per_lane_global_alarm_mask(self) -> list[int]:
-        return self._unpack_lane_bits(elsfp_consts.GLOBAL_ALARM_MASK_FIELD)
+        return self._read_lane_bits(elsfp_consts.GLOBAL_ALARM_MASK_FIELD)
 
     def set_per_lane_global_alarm_mask(self, lane_mask: int, masked: bool) -> bool:
         return self._set_lane_bits(elsfp_consts.GLOBAL_ALARM_MASK_FIELD, lane_mask, masked)
 
     def get_per_lane_global_warn_mask(self) -> list[int]:
-        return self._unpack_lane_bits(elsfp_consts.GLOBAL_WARN_MASK_FIELD)
+        return self._read_lane_bits(elsfp_consts.GLOBAL_WARN_MASK_FIELD)
 
     def set_per_lane_global_warn_mask(self, lane_mask: int, masked: bool) -> bool:
         return self._set_lane_bits(elsfp_consts.GLOBAL_WARN_MASK_FIELD, lane_mask, masked)
@@ -265,7 +265,7 @@ class ElsfpApi(XcvrApi):
     ###############################################################
 
     def get_per_lane_enable(self) -> list[int]:
-        return self._unpack_lane_bits(elsfp_consts.LANE_ENABLE_FIELD)
+        return self._read_lane_bits(elsfp_consts.LANE_ENABLE_FIELD)
 
     def set_per_lane_enable(self, lane_mask: int, enabled: bool) -> bool:
         return self._set_lane_bits(elsfp_consts.LANE_ENABLE_FIELD, lane_mask, enabled)
@@ -279,7 +279,7 @@ class ElsfpApi(XcvrApi):
     ###############################################################
 
     def get_per_lane_output_fiber_checked(self) -> list[int]:
-        return self._unpack_lane_bits(elsfp_consts.OUTPUT_FIBER_CHECKED_FLAG_LANE_FIELD)
+        return self._read_lane_bits(elsfp_consts.OUTPUT_FIBER_CHECKED_FLAG_LANE_FIELD)
 
     def set_lane_output_fiber_checked(self, lane_mask: int, checked: bool) -> bool:
         return self._set_lane_bits(elsfp_consts.OUTPUT_FIBER_CHECKED_FLAG_LANE_FIELD, lane_mask, checked)
