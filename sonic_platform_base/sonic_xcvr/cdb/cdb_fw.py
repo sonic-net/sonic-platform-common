@@ -19,6 +19,11 @@ class CdbFwHandler(CdbCmdHandler):
         self.start_payload_size = 0
         self.is_lpl_only = False
         self.rw_length_ext = 0
+        self.timeout_start = None
+        self.timeout_abort = None
+        self.timeout_write = None
+        self.timeout_complete = None
+
         assert True == self.initFwHandler(), "Failed to initialize firmware handler"
 
     def initFwHandler(self):
@@ -44,6 +49,17 @@ class CdbFwHandler(CdbCmdHandler):
         else:
             self.rw_length_ext = min(cdb_consts.EPL_MAX_PAYLOAD_SIZE, self.rw_length_ext)
 
+        multiplier = 10 if reply.get(cdb_consts.CDB_MAX_DURATION_ENCODING, 0) else 1
+        duration_start = reply.get(cdb_consts.CDB_MAX_DURATION_START, 0)
+        duration_abort = reply.get(cdb_consts.CDB_MAX_DURATION_ABORT, 0)
+        duration_write = reply.get(cdb_consts.CDB_MAX_DURATION_WRITE, 0)
+        duration_complete = reply.get(cdb_consts.CDB_MAX_DURATION_COMPLETE, 0)
+        
+        self.timeout_start = duration_start * multiplier + cdb_consts.CDB_TIMEOUT_SAFETY_MARGIN if duration_start else None
+        self.timeout_abort = duration_abort * multiplier + cdb_consts.CDB_TIMEOUT_SAFETY_MARGIN if duration_abort else None
+        self.timeout_write = duration_write * multiplier + cdb_consts.CDB_TIMEOUT_SAFETY_MARGIN if duration_write else None
+        self.timeout_complete = duration_complete * multiplier + cdb_consts.CDB_TIMEOUT_SAFETY_MARGIN if duration_complete else None
+        
         return True
 
     def get_fw_mgmt_features(self):
@@ -88,7 +104,8 @@ class CdbFwHandler(CdbCmdHandler):
         }
 
         # Send the CDB start firmware download command
-        return self.send_cmd(cdb_consts.CDB_START_FIRMWARE_DOWNLOAD_CMD, payload)
+        return self.send_cmd(cdb_consts.CDB_START_FIRMWARE_DOWNLOAD_CMD, payload,
+                            timeout=self.timeout_start)
 
     def download_fw_image(self, imgpath):
         """
@@ -119,11 +136,13 @@ class CdbFwHandler(CdbCmdHandler):
                     # TODO Handle auto paging for EPL
                     # Write the block data to the EPL
                     if self.is_lpl_only:
-                        self.write_lpl_block(blkaddr, blkdata)
+                        if True != self.write_lpl_block(blkaddr, blkdata, timeout=self.timeout_write):
+                            log.log_error("Failed to write LPL block at address {}".format(blkaddr))
+                            return False, blkaddr
                     else:
                         # For EPL, write the data in pages
                         self.write_epl_pages(blkdata)
-                        if True != self.write_epl_block(blkaddr, blkdata):
+                        if True != self.write_epl_block(blkaddr, blkdata, timeout=self.timeout_write):
                             log.log_error("Failed to write EPL block at address {}".format(blkaddr))
                             return False, blkaddr
 
@@ -164,11 +183,13 @@ class CdbFwHandler(CdbCmdHandler):
         Complete the firmware download
         """
         # Send the CDB complete firmware download command
-        return self.send_cmd(cdb_consts.CDB_COMPLETE_FIRMWARE_DOWNLOAD_CMD)
+        return self.send_cmd(cdb_consts.CDB_COMPLETE_FIRMWARE_DOWNLOAD_CMD,
+                            timeout=self.timeout_complete)
 
     def commit_fw_image(self):
         return self.send_cmd(cdb_consts.CDB_COMMIT_FIRMWARE_IMAGE_CMD)
 
     def abort_fw_download(self):
-        return self.send_cmd(cdb_consts.CDB_ABORT_FIRMWARE_DOWNLOAD_CMD)
+        return self.send_cmd(cdb_consts.CDB_ABORT_FIRMWARE_DOWNLOAD_CMD,
+                            timeout=self.timeout_abort)
 

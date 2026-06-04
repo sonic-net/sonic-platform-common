@@ -914,7 +914,8 @@ class TestCdbCmdHandler:
         assert result is True
         self.handler.send_cmd.assert_called_once_with(
             cdb_consts.CDB_WRITE_FIRMWARE_LPL_CMD,
-            {"blkaddr": 0x1000, "blkdata": b'\x01\x02'}
+            {"blkaddr": 0x1000, "blkdata": b'\x01\x02'},
+            timeout=None
         )
 
 
