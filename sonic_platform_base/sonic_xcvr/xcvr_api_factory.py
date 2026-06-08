@@ -17,6 +17,9 @@ from .codes.credo.aec_800g import CredoAec800gCodes
 from .api.credo.aec_800g import CredoAec800gApi
 from .mem_maps.credo.aec_800g import CredoAec800gMemMap
 
+from .api.arista.cmis_enhanced_lpo import CmisEnhancedLpoApi
+from .mem_maps.arista.cmis_enhanced_lpo import CmisEnhancedLpoMemMap
+
 from .api.innolight.fr_800g import CmisFr800gApi
 from .api.hisense.aoc_2x100g import CmisAocSingleBankApi
 
@@ -42,6 +45,7 @@ VENDOR_NAME_LENGTH = 16
 VENDOR_PART_NUM_LENGTH = 16
 
 CREDO_800G_AEC_VENDOR_PN_LIST = ["CAC81X321M2MC1MS", "CAC815321M2MC1MS", "CAC82X321M2MC1MS"]
+ARISTA_ENHANCED_LPO_PN_LIST = ["LPO-800G-2DR4"]
 INL_800G_VENDOR_PN_LIST = ["T-DL8CNT-NCI", "T-DH8CNT-NCI", "T-DH8CNT-N00", "T-DP4CNH-NCI", "T-DP8CNT-NNO",
                            "T-DP8CNH-NNO", "T-DC8CNT-NNO", "T-DP8CNL-NNO", "T-OL8CNT-N00", "T-OH8CNH-N00",
                            "T-OH8CNH-NNO", "T-OL8CNT-NNO"]
@@ -94,6 +98,9 @@ class XcvrApiFactory(object):
         elif vendor_name == 'Hisense' and vendor_pn is not None and re.match(HISENSE_2X100G_VENDOR_PN, vendor_pn):
             xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CmisMemMap(CmisCodes, bank=bank))
             api = CmisAocSingleBankApi(xcvr_eeprom, init_cdb_fw_handler=True)
+        elif vendor_pn in ARISTA_ENHANCED_LPO_PN_LIST:
+            xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CmisEnhancedLpoMemMap(CmisCodes, bank=bank))
+            api = CmisEnhancedLpoApi(xcvr_eeprom, init_cdb_fw_handler=True)
         else:
             xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CmisMemMap(CmisCodes, bank=bank))
             api = CmisApi(xcvr_eeprom, init_cdb_fw_handler=True)
