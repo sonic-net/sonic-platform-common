@@ -40,6 +40,7 @@ class Sff8024(XcvrCodes):
         29: 'x8 MiniLink',
         30: 'QSFP+ or later with CMIS',
        126: 'Backplane Cartridge',
+       128: 'CPO',  # Vendor-specific allocation for Co-Packaged Optics
     }
 
     XCVR_IDENTIFIER_ABBRV = {
@@ -75,6 +76,7 @@ class Sff8024(XcvrCodes):
         29: 'Link-x8',
         30: 'QSFP+C',
         126: 'BP',  # Backplane Cartridge
+        128: 'CPO',
     }
 
     CONNECTORS = {
