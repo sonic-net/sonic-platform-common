@@ -28,10 +28,33 @@ MOCK_CPO_JSON = {
     }
 }
 
+class MinimalCpoOptoe(CpoOptoeBase):
+    """Minimal concrete subclass implementing the abstract methods as no-ops"""
+    def check_fiber_dirty(self):
+        pass
+
+    def check_calibration(self):
+        pass
+
+    def is_els_power_sufficient(self):
+        pass
+
+    def is_calibration_checked(self):
+        pass
+
+    def is_fiber_checked(self):
+        pass
+
+    def is_els_tx_on(self):
+        pass
+
+    def is_els_tx_enabled(self):
+        pass
+
 @pytest.fixture
 def cpo_instance():
     """Fixture to create a CpoOptoeBase instance with test attributes"""
-    instance = CpoOptoeBase()
+    instance = MinimalCpoOptoe()
     instance._oe_id = 0
     instance._els_id = 0
     instance._port_id = 0
