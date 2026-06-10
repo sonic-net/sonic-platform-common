@@ -80,6 +80,15 @@ class ChassisBase(device_base.DeviceBase):
         # SED (Self-Encrypting Drive) password management
         self._sed_mgmt = None
 
+        # On platforms that provide an optical_devices.json file (e.g.
+        # platforms using co-packaged optics, where each port can be driven
+        # by multiple devices), populate the SFP list based on the optical
+        # device topology described in that file
+        from sonic_py_common import device_info
+        optical_device_data = device_info.get_optical_devices_data()
+        if optical_device_data:
+            self.construct_sfp_list_for_topology(optical_device_data)
+
     def get_base_mac(self):
         """
         Retrieves the base MAC address for the chassis
@@ -700,6 +709,21 @@ class ChassisBase(device_base.DeviceBase):
     ##############################################
     # SFP methods
     ##############################################
+
+    def construct_sfp_list_for_topology(self, optical_device_data):
+        """
+        Construct objects representing the devices driving traffic through
+        a front panel port on the chassis based on topology data in
+        optical_devices.json and appends them to self._sfp_list
+
+        Subclasses should implement this method on platforms that provide
+        an optical_devices.json file.
+
+        Args:
+            optical_device_data: Optical device topology data parsed from
+                optical_devices.json
+        """
+        raise NotImplementedError
 
     def get_num_sfps(self):
         """

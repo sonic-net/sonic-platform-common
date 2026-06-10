@@ -1,6 +1,16 @@
+import pytest
+from unittest import mock
+
 from sonic_platform_base.chassis_base import ChassisBase
 
 class TestChassisBase:
+
+    @pytest.fixture(autouse=True)
+    def _mock_optical_devices_data(self):
+        with mock.patch("sonic_py_common.device_info.get_optical_devices_data",
+                        return_value=None) as mock_get:
+            self.mock_get_optical_devices_data = mock_get
+            yield
 
     def test_reboot_cause(self):
         chassis = ChassisBase()
@@ -161,3 +171,39 @@ class TestChassisBase:
         assert chassis.get_pdb(-4) is None
         err_neg = capsys.readouterr().err
         assert "PDB index -4 out of range (0-2)" in err_neg
+
+    def test_no_optical_devices_data(self):
+        chassis = ChassisBase()
+        self.mock_get_optical_devices_data.assert_called_once()
+        assert chassis.get_num_sfps() == 0
+
+    def test_optical_devices_data_base_class_not_implemented(self):
+        self.mock_get_optical_devices_data.return_value = {"devices": {}, "interfaces": {}}
+        with pytest.raises(NotImplementedError):
+            ChassisBase()
+
+    def test_construct_sfp_list_for_topology(self):
+        optical_device_data = {
+            "devices": {
+                "OE1": {"device_type": "optical_engine"},
+                "ELS1": {"device_type": "external_laser_source"},
+            },
+            "interfaces": {
+                "Ethernet0": {
+                    "associated_devices": [
+                        {"device_id": "OE1", "bank": 0},
+                        {"device_id": "ELS1", "bank": 0},
+                    ]
+                }
+            },
+        }
+        self.mock_get_optical_devices_data.return_value = optical_device_data
+
+        class CpoChassis(ChassisBase):
+            def construct_sfp_list_for_topology(self, optical_device_data):
+                for interface in optical_device_data["interfaces"]:
+                    self._sfp_list.append(interface)
+
+        chassis = CpoChassis()
+        assert chassis.get_num_sfps() == 1
+        assert chassis.get_sfp(0) == "Ethernet0"
