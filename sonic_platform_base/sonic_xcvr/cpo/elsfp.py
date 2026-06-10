@@ -11,14 +11,10 @@ class ElsfpInfo:
 
 
 class ElsfpApiFactory(CpoApiFactory):
-    def _get_elsfp_lower_mem_offset(self) -> int:
-        offsets = {}
-        return offsets.get(self._device.hardware_id.oe_id, 0)
-
     def _get_elsfp_info(self) -> ElsfpInfo:
         eeprom_info = ModuleEepromLowerMemoryInfo(
             self._device.read_eeprom,
-            offset=self._get_elsfp_lower_mem_offset()
+            offset=self._device.hardware_id.elsfp_low_mem_offset
         )
         return ElsfpInfo(
             vendor_name=eeprom_info.get_vendor_name(),

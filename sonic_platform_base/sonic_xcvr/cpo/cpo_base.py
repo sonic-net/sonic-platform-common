@@ -16,9 +16,10 @@ class ElsfpId(Enum):
 
 
 @dataclass
-class CpoHardwareId:
+class CpoHardwareInfo:
     oe_id: OeId
     elsfp_id: Optional[ElsfpId]
+    elsfp_low_mem_offset: int = 0
 
 
 class CpoApiFactory(ABC):
@@ -36,7 +37,7 @@ class CpoApiFactory(ABC):
 
 
 class CpoDeviceBase(EepromReadWriteMixin):
-    def __init__(self, hardware_id: CpoHardwareId, bank: int = 0):
+    def __init__(self, hardware_id: CpoHardwareInfo, bank: int = 0):
         self.bank = bank
         self.hardware_id = hardware_id
         self._api = None
@@ -56,7 +57,7 @@ class CpoDeviceBase(EepromReadWriteMixin):
 
 
 class CpoBase:
-    def __init__(self, hardware_id: CpoHardwareId, oe: "OeBase", elsfp: "ElsfpBase"):
+    def __init__(self, hardware_id: CpoHardwareInfo, oe: "OeBase", elsfp: "ElsfpBase"):
         self.hardware_id = hardware_id
         self.oe = oe
         self.elsfp = elsfp

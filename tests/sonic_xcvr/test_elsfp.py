@@ -5,7 +5,7 @@ import struct
 from sonic_platform_base.sonic_xcvr.codes.public.elsfp import ElsfpCodes
 from sonic_platform_base.sonic_xcvr.fields import consts, elsfp_consts
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.elsfp import ElsfpMemMap
-from sonic_platform_base.sonic_xcvr.cpo.cpo_base import CpoHardwareId
+from sonic_platform_base.sonic_xcvr.cpo.cpo_base import CpoHardwareInfo
 from sonic_platform_base.sonic_xcvr.cpo.elsfp import ElsfpApiFactory
 
 
@@ -18,14 +18,14 @@ SOME_ELSFP_ID = object()
 class TestElsfpApiFactory(object):
     def test_create_api_raises_when_id_none(self):
         elsfp = MagicMock()
-        elsfp.hardware_id = CpoHardwareId(oe_id=SOME_OE_ID, elsfp_id=None)
+        elsfp.hardware_id = CpoHardwareInfo(oe_id=SOME_OE_ID, elsfp_id=None)
         factory = ElsfpApiFactory(elsfp)
         with pytest.raises(ValueError):
             factory.create_api()
 
     def test_create_api_raises_when_id_set(self):
         elsfp = MagicMock()
-        elsfp.hardware_id = CpoHardwareId(oe_id=SOME_OE_ID, elsfp_id=SOME_ELSFP_ID)
+        elsfp.hardware_id = CpoHardwareInfo(oe_id=SOME_OE_ID, elsfp_id=SOME_ELSFP_ID)
         factory = ElsfpApiFactory(elsfp)
         with pytest.raises(ValueError):
             factory.create_api()
