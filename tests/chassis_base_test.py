@@ -95,6 +95,10 @@ class TestChassisBase:
         liquid = LiquidCooledChassis()
         assert liquid.is_liquid_cooled() is True
 
+    def test_get_liquid_cooling(self):
+        chassis = ChassisBase()
+        assert chassis.get_liquid_cooling() is NotImplementedError
+
     def test_switch_host_module_at_index_zero(self):
         '''
         On a BMC chassis, only the Switch-Host is modelled as a module.

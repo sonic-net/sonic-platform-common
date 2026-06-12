@@ -185,6 +185,16 @@ class ChassisBase(device_base.DeviceBase):
         """
         return False
 
+    def get_liquid_cooling(self):
+        """
+        Retrieves the liquid cooling object of the chassis
+
+        Returns:
+            An object derived from LiquidCoolingBase representing the
+            chassis liquid cooling subsystem (including leakage sensors).
+        """
+        return NotImplementedError
+    
     def init_midplane_switch(self):
         """
         Initializes the midplane functionality of the modular chassis. For
