@@ -14,17 +14,16 @@ tests_dir = os.path.dirname(os.path.abspath(__file__))
 pcie_config_file = os.path.join(tests_dir, 'pcie.yaml')
 
 lspci_output = '''\
-00:01.0 PCI A
-00:02.0 PCI B
-00:02.1 PCI C
-01:00.0 PCI D
+0000:00:01.0 PCI A
+0000:00:02.0 PCI B
+0000:00:02.1 PCI C0000:01:00.0 PCI D
 '''
 
 lspci_ID_output = '''\
-00:01.0 0001: 0000:000a
-00:02.0 0002: 0000:000b
-00:02.1 0003: 0000:000c
-01:00.0 0004: 0000:000d
+0000:00:01.0 0001: 0000:000a
+0000:00:02.0 0002: 0000:000b
+0000:00:02.1 0003: 0000:000c
+0000:01:00.0 0004: 0000:000d
 '''
 
 pci_sysfs_paths = [
@@ -35,17 +34,17 @@ pci_sysfs_paths = [
 ]
 
 pcie_device_list = [
-    {'bus': '00', 'dev': '01', 'fn': '0', 'id': '000a', 'name': 'PCI A'},
-    {'bus': '00', 'dev': '02', 'fn': '0', 'id': '000b', 'name': 'PCI B'},
-    {'bus': '00', 'dev': '02', 'fn': '1', 'id': '000c', 'name': 'PCI C'},
-    {'bus': '01', 'dev': '00', 'fn': '0', 'id': '000d', 'name': 'PCI D'},
+    {'domain': '0000', 'bus': '00', 'dev': '01', 'fn': '0', 'id': '000a', 'vendor': '0000', 'name': 'PCI A'},
+    {'domain': '0000', 'bus': '00', 'dev': '02', 'fn': '0', 'id': '000b', 'vendor': '0000', 'name': 'PCI B'},
+    {'domain': '0000', 'bus': '00', 'dev': '02', 'fn': '1', 'id': '000c', 'vendor': '0000', 'name': 'PCI C'},
+    {'domain': '0000', 'bus': '01', 'dev': '00', 'fn': '0', 'id': '000d', 'vendor': '0000', 'name': 'PCI D'},
 ]
 
 pcie_check_output = [
-    {'bus': '00', 'dev': '01', 'fn': '0', 'id': '000a', 'name': 'PCI A', 'result': 'Passed'},
-    {'bus': '00', 'dev': '02', 'fn': '0', 'id': '000b', 'name': 'PCI B', 'result': 'Passed'},
-    {'bus': '00', 'dev': '02', 'fn': '1', 'id': '000c', 'name': 'PCI C', 'result': 'Passed'},
-    {'bus': '01', 'dev': '00', 'fn': '0', 'id': '000d', 'name': 'PCI D', 'result': 'Passed'}
+    {'domain': '0000', 'bus': '00', 'dev': '01', 'fn': '0', 'id': '000a', 'vendor': '0000', 'name': 'PCI A', 'result': 'Passed'},
+    {'domain': '0000', 'bus': '00', 'dev': '02', 'fn': '0', 'id': '000b', 'vendor': '0000', 'name': 'PCI B', 'result': 'Passed'},
+    {'domain': '0000', 'bus': '00', 'dev': '02', 'fn': '1', 'id': '000c', 'vendor': '0000', 'name': 'PCI C', 'result': 'Passed'},
+    {'domain': '0000', 'bus': '01', 'dev': '00', 'fn': '0', 'id': '000d', 'vendor': '0000', 'name': 'PCI D', 'result': 'Passed'}
 ]
 
 pcie_aer_correctable_content = '''\
@@ -131,16 +130,18 @@ class TestPcieCommon:
     def test_get_pcie_devices(self, subprocess_popen_mock):
 
         def subprocess_popen_side_effect(*args, **kwargs):
-            if args[0] == ['sudo', 'lspci']:
-                output = lspci_output.splitlines()
-            elif args[0] == ['sudo', 'lspci', '-n']:
-                output = lspci_ID_output.splitlines()
+            if args[0] == ['sudo', 'lspci', '-D']:
+                communicate_output = (lspci_output, '')
+            elif args[0] == ['sudo', 'lspci', '-D', '-n']:
+                communicate_output = (lspci_ID_output, '')
+            else:
+                raise AssertionError("Unexpected command: {}".format(args[0]))
 
             popen_mock = mock.Mock()
             popen_attributes = {
                 'returncode': 0,
-                'communicate.return_value': ('', ''),
-                'stdout.readlines.return_value': output
+                'communicate.return_value': communicate_output,
+                'stdout.readlines.return_value': communicate_output[0].splitlines()
             }
             popen_mock.configure_mock(**popen_attributes)
             return popen_mock
