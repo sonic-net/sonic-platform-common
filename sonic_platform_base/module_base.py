@@ -71,6 +71,20 @@ class ModuleBase(device_base.DeviceBase):
     # Module reboot type to reboot SMART SWITCH
     MODULE_REBOOT_SMARTSWITCH = "SMARTSWITCH"
 
+    # Possible midplane down reasons for SmartSwitch.
+    MIDPLANE_DOWN_REASON_POWER_LOSS = "Power Loss"
+    MIDPLANE_DOWN_REASON_THERMAL_OVERLOAD_CPU = "Thermal Overload: CPU"
+    MIDPLANE_DOWN_REASON_THERMAL_OVERLOAD_ASIC = "Thermal Overload: ASIC"
+    MIDPLANE_DOWN_REASON_THERMAL_OVERLOAD_OTHER = "Thermal Overload: Other"
+    MIDPLANE_DOWN_REASON_INSUFFICIENT_FAN_SPEED = "Insufficient Fan Speed"
+    MIDPLANE_DOWN_REASON_WATCHDOG = "Watchdog"
+    MIDPLANE_DOWN_REASON_HARDWARE_OTHER = "Hardware - Other"
+    MIDPLANE_DOWN_REASON_HARDWARE_BIOS = "BIOS"
+    MIDPLANE_DOWN_REASON_HARDWARE_CPU = "CPU"
+    MIDPLANE_DOWN_REASON_HARDWARE_BUTTON = "Push button"
+    MIDPLANE_DOWN_REASON_HARDWARE_RESET_FROM_ASIC = "Reset from ASIC"
+    MIDPLANE_DOWN_REASON_NON_HARDWARE = "Non-Hardware"
+
     def __init__(self):
         # List of ComponentBase-derived objects representing all components
         # available on the module
@@ -1095,6 +1109,19 @@ class ModuleBase(device_base.DeviceBase):
         Returns:
             A string, the IP-address of the module reachable over the midplane
 
+        """
+        raise NotImplementedError
+
+    def get_midplane_down_reason(self):
+        """
+         Retrieves the midplane down reason.
+
+        Returns:
+            A tuple (string, string) where the first element is a string
+            containing the midplane down reason. This string must
+            be one of the predefined strings in this class. If the first
+            string is "MIDPLANE_DOWN_REASON_HARDWARE_OTHER", the second string can be
+            used to pass a description of the midplane down reason.
         """
         raise NotImplementedError
 
