@@ -48,23 +48,12 @@ class XcvrApiFactory(object):
     def __init__(self, reader, writer):
         self.reader = reader
         self.writer = writer
-
-    def _get_id(self):
-        return ModuleEepromLowerMemoryInfo(self.reader).get_id()
-
-    def _get_revision_compliance(self):
-        return ModuleEepromLowerMemoryInfo(self.reader).get_revision_compliance()
-
-    def _get_vendor_name(self):
-        return ModuleEepromLowerMemoryInfo(self.reader).get_vendor_name()
-
-    def _get_vendor_part_num(self):
-        return ModuleEepromLowerMemoryInfo(self.reader).get_vendor_part_num()
+        self.lower_memory_info = ModuleEepromLowerMemoryInfo(self.reader)
 
     def _create_cmis_api(self, bank=0):
         api = None
-        vendor_name = self._get_vendor_name()
-        vendor_pn = self._get_vendor_part_num()
+        vendor_name = self.lower_memory_info.get_vendor_name()
+        vendor_pn = self.lower_memory_info.get_vendor_part_num()
 
         if vendor_name == 'Credo' and vendor_pn in CREDO_800G_AEC_VENDOR_PN_LIST:
             xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CredoAec800gMemMap(CredoAec800gCodes, bank=bank))
@@ -88,7 +77,7 @@ class XcvrApiFactory(object):
         """
         QSFP/QSFP+ API implementation
         """
-        revision_compliance = self._get_revision_compliance()
+        revision_compliance = self.lower_memory_info.get_revision_compliance()
         if revision_compliance >= 3:
             return self._create_api(Sff8636Codes, Sff8636MemMap, Sff8636Api)
         else:
@@ -101,7 +90,7 @@ class XcvrApiFactory(object):
         return api_class(xcvr_eeprom)
 
     def create_xcvr_api(self, bank=0):
-        id = self._get_id()
+        id = self.lower_memory_info.get_id()
 
         # Instantiate various Optics implementation based upon their respective ID as per SFF8024
         id_mapping = {
