@@ -65,6 +65,10 @@ class ChassisBase(device_base.DeviceBase):
         # available on the chassis
         self._sfp_list = []
 
+        # List of CpoBase-derived objects representing all CPO ports
+        # available on the chassis, indexed by physical port.
+        self._cpo_list = []
+
         # Object derived from WatchdogBase for interacting with hardware watchdog
         self._watchdog = None
 
@@ -768,6 +772,41 @@ class ChassisBase(device_base.DeviceBase):
 
         return sfp
 
+    def get_num_cpos(self):
+        """
+        Retrieves the number of CPO ports available on this chassis
+
+        Returns:
+            An integer, the number of CPO ports available on this chassis
+        """
+        return len(self._cpo_list)
+
+    def get_all_cpos(self):
+        """
+        Retrieves all CPO ports available on this chassis
+
+        Returns:
+            A list of objects derived from CpoBase representing all CPO ports
+            available on this chassis
+        """
+        return [cpo for cpo in self._cpo_list if cpo is not None]
+
+    def get_cpo(self, index):
+        """
+        Retrieves the CPO port corresponding to physical port <index>, if
+        that port is driven by CPO devices.
+
+        Args:
+            index: An integer (>=0), the physical port index (same indexing as
+                   get_sfp()).
+
+        Returns:
+            An object derived from CpoBase representing the specified CPO port,
+            or None if the port is not a CPO port.
+        """
+        if 0 <= index < len(self._cpo_list):
+            return self._cpo_list[index]
+        return None
 
     def get_port_or_cage_type(self, index):
         """
