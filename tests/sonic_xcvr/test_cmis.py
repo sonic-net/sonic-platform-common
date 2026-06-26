@@ -1637,6 +1637,32 @@ class TestCmis(object):
         result = self.api.set_loopback_mode(input_param[0], input_param[1])
         assert result == expected
 
+    @pytest.mark.parametrize("host_lane_count, media_lane_count, expected_host_mask, expected_media_mask", [
+        (8, 8, 0xff, 0xff),
+        (4, 4, 0x0f, 0x0f),
+        (4, 1, 0x0f, 0x01),
+    ])
+    def test_set_loopback_mode_none_uses_active_lane_mask(self, host_lane_count, media_lane_count,
+                                                          expected_host_mask, expected_media_mask):
+        self.api.set_host_input_loopback = MagicMock(return_value=True)
+        self.api.set_host_output_loopback = MagicMock(return_value=True)
+        self.api.set_media_input_loopback = MagicMock(return_value=True)
+        self.api.set_media_output_loopback = MagicMock(return_value=True)
+        self.api.get_active_apsel_hostlane = MagicMock(return_value={"ActiveAppSelLane1": 1})
+        self.api.get_host_lane_count = MagicMock(return_value=host_lane_count)
+        self.api.get_media_lane_count = MagicMock(return_value=media_lane_count)
+        assert self.api.set_loopback_mode('none') == True
+        self.api.set_host_input_loopback.assert_called_once_with(expected_host_mask, False)
+        self.api.set_host_output_loopback.assert_called_once_with(expected_host_mask, False)
+        self.api.set_media_input_loopback.assert_called_once_with(expected_media_mask, False)
+        self.api.set_media_output_loopback.assert_called_once_with(expected_media_mask, False)
+
+    def test_set_loopback_mode_none_returns_false_when_lane_count_unknown(self):
+        self.api.get_active_apsel_hostlane = MagicMock(return_value={"ActiveAppSelLane1": 0})
+        self.api.get_host_lane_count = MagicMock(return_value=0)
+        self.api.get_media_lane_count = MagicMock(return_value=0)
+        assert self.api.set_loopback_mode('none') == False
+
     def test_is_transceiver_vdm_supported_no_vdm(self):
         self.api.vdm = None
         assert self.api.is_transceiver_vdm_supported() == False
