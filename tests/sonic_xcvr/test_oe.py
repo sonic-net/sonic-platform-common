@@ -1,18 +1,23 @@
 from mock import MagicMock
-import pytest
 
-from sonic_platform_base.sonic_xcvr.cpo.cpo_base import CpoHardwareInfo
+from sonic_platform_base.sonic_xcvr.api.broadcom.davisson_oe import DavissonTh6OeApi
+from sonic_platform_base.sonic_xcvr.cpo.cpo_base import CpoHardwareInfo, OeId
 from sonic_platform_base.sonic_xcvr.cpo.oe import OeApiFactory
-
-# OeId/ElsfpId currently define no members; use sentinels to represent
-# "an id is set" in tests that exercise the not-yet-supported code paths.
-SOME_OE_ID = object()
+from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.davisson_oe import DavissonTh6OeMemMap
 
 
 class TestOeApiFactory(object):
-    def test_create_api_raises(self):
+    def test_create_api_davisson(self):
         oe = MagicMock()
-        oe.hardware_id = CpoHardwareInfo(oe_id=SOME_OE_ID, elsfp_id=None)
+        oe.bank = 2
+        oe.hardware_id = CpoHardwareInfo(oe_id=OeId.BROADCOM_DAVISSON, elsfp_id=None)
         factory = OeApiFactory(oe)
-        with pytest.raises(ValueError):
-            factory.create_api()
+
+        api = factory.create_api()
+
+        assert isinstance(api, DavissonTh6OeApi)
+        assert isinstance(api.xcvr_eeprom.mem_map, DavissonTh6OeMemMap)
+        # The device's bank and EEPROM accessors must be threaded through.
+        assert api.xcvr_eeprom.mem_map.bank == 2
+        assert api.xcvr_eeprom.reader is oe.read_eeprom
+        assert api.xcvr_eeprom.writer is oe.write_eeprom

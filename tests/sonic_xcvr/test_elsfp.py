@@ -1,34 +1,43 @@
 import pytest
-from mock import MagicMock
+from mock import MagicMock, patch
 import struct
 
+from sonic_platform_base.sonic_xcvr.api.broadcom.davisson_elsfp import DavissonTh6ElsfpApi
 from sonic_platform_base.sonic_xcvr.codes.public.elsfp import ElsfpCodes
 from sonic_platform_base.sonic_xcvr.fields import consts, elsfp_consts
+from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.davisson_elsfp import DavissonTh6ElsfpMemMap
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.elsfp import ElsfpMemMap
-from sonic_platform_base.sonic_xcvr.cpo.cpo_base import CpoHardwareInfo
+from sonic_platform_base.sonic_xcvr.cpo.cpo_base import CpoHardwareInfo, OeId
 from sonic_platform_base.sonic_xcvr.cpo.elsfp import ElsfpApiFactory
-
-
-# OeId/ElsfpId currently define no members; use sentinels to represent
-# "an id is set" in tests that exercise the not-yet-supported code paths.
-SOME_OE_ID = object()
-SOME_ELSFP_ID = object()
+from sonic_platform_base.sonic_xcvr.eeprom_rw import ModuleEepromLowerMemoryInfo
+from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.pages.consts import (
+    CMIS_EEPROM_PAGE_SIZE
+)
 
 
 class TestElsfpApiFactory(object):
-    def test_create_api_raises_when_id_none(self):
+    def test_create_api_davisson(self):
         elsfp = MagicMock()
-        elsfp.hardware_id = CpoHardwareInfo(oe_id=SOME_OE_ID, elsfp_id=None)
+        elsfp.bank = 1
+        elsfp.hardware_id = CpoHardwareInfo(
+            oe_id=OeId.BROADCOM_DAVISSON,
+            elsfp_id=None,
+            elsfp_low_mem_offset=0xB0 * CMIS_EEPROM_PAGE_SIZE,
+        )
         factory = ElsfpApiFactory(elsfp)
-        with pytest.raises(ValueError):
-            factory.create_api()
 
-    def test_create_api_raises_when_id_set(self):
-        elsfp = MagicMock()
-        elsfp.hardware_id = CpoHardwareInfo(oe_id=SOME_OE_ID, elsfp_id=SOME_ELSFP_ID)
-        factory = ElsfpApiFactory(elsfp)
-        with pytest.raises(ValueError):
-            factory.create_api()
+        # The factory probes vendor name/part number from the EEPROM before
+        # dispatching; stub out the lower-memory reads.
+        with patch.object(ModuleEepromLowerMemoryInfo, 'get_vendor_name', return_value='BROADCOM'), \
+             patch.object(ModuleEepromLowerMemoryInfo, 'get_vendor_part_num', return_value='DAVISSON-TH6'):
+            api = factory.create_api()
+
+        assert isinstance(api, DavissonTh6ElsfpApi)
+        assert isinstance(api.xcvr_eeprom.mem_map, DavissonTh6ElsfpMemMap)
+        # The device's bank and EEPROM accessors must be threaded through.
+        assert api.xcvr_eeprom.mem_map.bank == 1
+        assert api.xcvr_eeprom.reader is elsfp.read_eeprom
+        assert api.xcvr_eeprom.writer is elsfp.write_eeprom
 
 
 from sonic_platform_base.sonic_xcvr.api.public.elsfp import ElsfpApi
