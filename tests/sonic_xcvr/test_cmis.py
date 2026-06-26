@@ -1174,106 +1174,33 @@ class TestCmis(object):
         result = self.api.get_active_apsel_hostlane()
         assert result == expected
 
+
     @pytest.mark.parametrize(
-        "is_flat_memory, active_apsel, appl_advt, expected",
+        "appl, is_flat_memory, appl_advt, expected",
         [
-            # AppSel 2 is the configured 4-lane application.
-            (False, 2,
+            # Default (appl=None): reads from lower page.
+            (None, False, {}, 8),
+            # appl=2 on a non-flat module with 2 apps: returns host_lane_count.
+            (2, False,
              {1: {'host_lane_count': 1}, 2: {'host_lane_count': 4}},
              4),
-            # AppSel 1 is the configured 1-lane application.
-            (False, 1,
+            # appl=1 returns that app's count.
+            (1, False,
              {1: {'host_lane_count': 1}, 2: {'host_lane_count': 4}},
              1),
+            # Flat memory with explicit appl returns 0.
+            (1, True, {}, 0),
+            # appl=0 returns 0.
+            (0, False, {1: {'host_lane_count': 1}}, 0),
+            # appl not in advertisement returns 0.
+            (5, False, {1: {'host_lane_count': 1}}, 0),
         ]
     )
-    def test_get_active_appsel_host_lane_count(
-        self, is_flat_memory, active_apsel, appl_advt, expected
-    ):
-        # patch.object as a context manager so mocks don't leak onto self.api
-        # (which is a class-shared instance) and break later tests like
-        # test_get_application_advertisement.
-        self.api.xcvr_eeprom.read = MagicMock(return_value=active_apsel)
+    def test_get_host_lane_count(self, appl, is_flat_memory, appl_advt, expected):
+        self.api.xcvr_eeprom.read = MagicMock(return_value=8)
         with patch.object(self.api, 'is_flat_memory', return_value=is_flat_memory), \
              patch.object(self.api, 'get_application_advertisement', return_value=appl_advt):
-            assert self.api.get_active_appsel_host_lane_count() == expected
-
-    @pytest.mark.parametrize(
-        "is_flat_memory, active_apsel, appl_advt",
-        [
-            # Flat memory: page 11h is unreadable.
-            (True, None, {}),
-            # AppSel read returns None.
-            (False, None,
-             {1: {'host_lane_count': 1}, 2: {'host_lane_count': 4}}),
-            # AppSel read returns 0 (no app active).
-            (False, 0,
-             {1: {'host_lane_count': 1}, 2: {'host_lane_count': 4}}),
-            # AppSel code has no matching descriptor.
-            (False, 5,
-             {1: {'host_lane_count': 1}, 2: {'host_lane_count': 4}}),
-            # Descriptor present but missing host_lane_count.
-            (False, 2,
-             {1: {'host_lane_count': 1}, 2: {}}),
-        ]
-    )
-    def test_get_active_appsel_host_lane_count_raises(
-        self, is_flat_memory, active_apsel, appl_advt
-    ):
-        self.api.xcvr_eeprom.read = MagicMock(return_value=active_apsel)
-        with patch.object(self.api, 'is_flat_memory', return_value=is_flat_memory), \
-             patch.object(self.api, 'get_application_advertisement', return_value=appl_advt):
-            with pytest.raises(RuntimeError):
-                self.api.get_active_appsel_host_lane_count()
-
-    @pytest.mark.parametrize(
-        "is_flat_memory, active_apsel, appl_advt, expected",
-        [
-            # AppSel 2 is the configured 4-lane media application.
-            (False, 2,
-             {1: {'media_lane_count': 1}, 2: {'media_lane_count': 4}},
-             4),
-            # AppSel 1 is the configured 1-lane media application.
-            (False, 1,
-             {1: {'media_lane_count': 1}, 2: {'media_lane_count': 4}},
-             1),
-        ]
-    )
-    def test_get_active_appsel_media_lane_count(
-        self, is_flat_memory, active_apsel, appl_advt, expected
-    ):
-        self.api.xcvr_eeprom.read = MagicMock(return_value=active_apsel)
-        with patch.object(self.api, 'is_flat_memory', return_value=is_flat_memory), \
-             patch.object(self.api, 'get_application_advertisement', return_value=appl_advt):
-            assert self.api.get_active_appsel_media_lane_count() == expected
-
-    @pytest.mark.parametrize(
-        "is_flat_memory, active_apsel, appl_advt",
-        [
-            # Flat memory: page 11h is unreadable.
-            (True, None, {}),
-            # AppSel read returns None.
-            (False, None,
-             {1: {'media_lane_count': 1}, 2: {'media_lane_count': 4}}),
-            # AppSel read returns 0 (no app active).
-            (False, 0,
-             {1: {'media_lane_count': 1}, 2: {'media_lane_count': 4}}),
-            # AppSel code has no matching descriptor.
-            (False, 5,
-             {1: {'media_lane_count': 1}, 2: {'media_lane_count': 4}}),
-            # Descriptor present but missing media_lane_count.
-            (False, 2,
-             {1: {'media_lane_count': 1}, 2: {}}),
-        ]
-    )
-    def test_get_active_appsel_media_lane_count_raises(
-        self, is_flat_memory, active_apsel, appl_advt
-    ):
-        self.api.xcvr_eeprom.read = MagicMock(return_value=active_apsel)
-        with patch.object(self.api, 'is_flat_memory', return_value=is_flat_memory), \
-             patch.object(self.api, 'get_application_advertisement', return_value=appl_advt):
-            with pytest.raises(RuntimeError):
-                self.api.get_active_appsel_media_lane_count()
+            assert self.api.get_host_lane_count(appl) == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
         (-10, -10)
@@ -1533,7 +1460,8 @@ class TestCmis(object):
     def test_set_host_input_loopback(self, input_param, mock_response, host_lane_count, expected):
         self.api.get_loopback_capability = MagicMock()
         self.api.get_loopback_capability.return_value = mock_response
-        self.api.get_active_appsel_host_lane_count = MagicMock(return_value=host_lane_count)
+        self.api.get_active_apsel_hostlane = MagicMock(return_value={"ActiveAppSelLane1": 1})
+        self.api.get_host_lane_count = MagicMock(return_value=host_lane_count)
         self.api.xcvr_eeprom.read = MagicMock()
         self.api.xcvr_eeprom.read.side_effect = [0x0f,0x0f]
         self.api.xcvr_eeprom.write = MagicMock()
@@ -1578,7 +1506,8 @@ class TestCmis(object):
     def test_set_host_output_loopback(self, input_param, mock_response, host_lane_count, expected):
         self.api.get_loopback_capability = MagicMock()
         self.api.get_loopback_capability.return_value = mock_response
-        self.api.get_active_appsel_host_lane_count = MagicMock(return_value=host_lane_count)
+        self.api.get_active_apsel_hostlane = MagicMock(return_value={"ActiveAppSelLane1": 1})
+        self.api.get_host_lane_count = MagicMock(return_value=host_lane_count)
         self.api.xcvr_eeprom.read = MagicMock()
         self.api.xcvr_eeprom.read.side_effect = [0x0f,0x0f]
         self.api.xcvr_eeprom.write = MagicMock()
@@ -1623,7 +1552,8 @@ class TestCmis(object):
     def test_set_media_input_loopback(self, input_param, mock_response, media_lane_count, expected):
         self.api.get_loopback_capability = MagicMock()
         self.api.get_loopback_capability.return_value = mock_response
-        self.api.get_active_appsel_media_lane_count = MagicMock(return_value=media_lane_count)
+        self.api.get_active_apsel_hostlane = MagicMock(return_value={"ActiveAppSelLane1": 1})
+        self.api.get_media_lane_count = MagicMock(return_value=media_lane_count)
         self.api.xcvr_eeprom.read = MagicMock()
         self.api.xcvr_eeprom.read.side_effect = [0x0f,0x0f]
         self.api.xcvr_eeprom.write = MagicMock()
@@ -1668,7 +1598,8 @@ class TestCmis(object):
     def test_set_media_output_loopback(self, input_param, mock_response, media_lane_count, expected):
         self.api.get_loopback_capability = MagicMock()
         self.api.get_loopback_capability.return_value = mock_response
-        self.api.get_active_appsel_media_lane_count = MagicMock(return_value=media_lane_count)
+        self.api.get_active_apsel_hostlane = MagicMock(return_value={"ActiveAppSelLane1": 1})
+        self.api.get_media_lane_count = MagicMock(return_value=media_lane_count)
         self.api.xcvr_eeprom.read = MagicMock()
         self.api.xcvr_eeprom.read.side_effect = [0x0f,0x0f]
         self.api.xcvr_eeprom.write = MagicMock()
@@ -1687,9 +1618,11 @@ class TestCmis(object):
         (['media-side-input', 0xF0, False], True, True),
         (['media-side-output', 0xF0, False], True, True),
         (['', 0xF0, False], True, False),
-
+        # 4-lane module case: 0x0f is the all-lanes mask for 4 lanes.
+        (['host-side-input', 0x0F, True, 4], True, True),
     ])
     def test_set_loopback_mode(self, input_param, mock_response, expected):
+        lane_count = input_param[3] if len(input_param) > 3 else 8
         self.api.set_host_input_loopback = MagicMock()
         self.api.set_host_input_loopback.return_value = mock_response
         self.api.set_host_output_loopback = MagicMock()
@@ -1698,8 +1631,9 @@ class TestCmis(object):
         self.api.set_media_input_loopback.return_value = mock_response
         self.api.set_media_output_loopback = MagicMock()
         self.api.set_media_output_loopback.return_value = mock_response
-        self.api.get_active_appsel_host_lane_count = MagicMock(return_value=8)
-        self.api.get_active_appsel_media_lane_count = MagicMock(return_value=8)
+        self.api.get_active_apsel_hostlane = MagicMock(return_value={"ActiveAppSelLane1": 1})
+        self.api.get_host_lane_count = MagicMock(return_value=lane_count)
+        self.api.get_media_lane_count = MagicMock(return_value=lane_count)
         result = self.api.set_loopback_mode(input_param[0], input_param[1])
         assert result == expected
 
