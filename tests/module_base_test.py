@@ -447,6 +447,7 @@ class TestModuleBase:
         with patch("sonic_py_common.device_info.get_platform", return_value="test_platform"), \
              patch("os.path.exists", return_value=False):
             assert self.module._load_transition_timeouts() == {
+                "recovery": 600,
                 "startup": 300,
                 "shutdown": 180,
                 "reboot": 240,
@@ -459,6 +460,7 @@ class TestModuleBase:
         self.module.is_host = False
         with patch("os.path.exists", return_value=False):
             assert self.module._load_transition_timeouts() == {
+                "recovery": 600,
                 "startup": 300,
                 "shutdown": 180,
                 "reboot": 240,
@@ -480,6 +482,7 @@ class TestModuleBase:
              patch("os.path.exists", return_value=True), \
              patch("builtins.open", return_value=mf):
             assert self.module._load_transition_timeouts() == {
+                "recovery": 600,
                 "startup": 600,
                 "shutdown": 360,
                 "reboot": 480,
@@ -500,6 +503,7 @@ class TestModuleBase:
         with patch("os.path.exists", return_value=True), \
              patch("builtins.open", return_value=mf):
             assert self.module._load_transition_timeouts() == {
+                "recovery": 600,
                 "startup": 600,
                 "shutdown": 360,
                 "reboot": 480,
@@ -514,6 +518,7 @@ class TestModuleBase:
         with patch("os.path.exists", return_value=True), \
              patch("builtins.open", return_value=mf):
             assert self.module._load_transition_timeouts() == {
+                "recovery": 600,
                 "startup": 500,
                 "shutdown": 180,
                 "reboot": 240,
@@ -528,6 +533,7 @@ class TestModuleBase:
              patch("os.path.exists", return_value=True), \
              patch("builtins.open", side_effect=Exception("read error")):
             assert self.module._load_transition_timeouts() == {
+                "recovery": 600,
                 "startup": 300,
                 "shutdown": 180,
                 "reboot": 240,
@@ -542,6 +548,7 @@ class TestModuleBase:
         with patch("os.path.exists", return_value=True), \
              patch("builtins.open", side_effect=Exception("read error")):
             assert self.module._load_transition_timeouts() == {
+                "recovery": 600,
                 "startup": 300,
                 "shutdown": 180,
                 "reboot": 240,
