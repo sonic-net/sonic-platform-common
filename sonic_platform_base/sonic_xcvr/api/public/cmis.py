@@ -2037,6 +2037,12 @@ class CmisApi(CmisCdbFw, XcvrApi):
         txcurrpower{lane_num}                          = FLOAT                  ; tx current output power in dbm
         rxtotpower{lane_num}                           = FLOAT                  ; rx total power in  dbm
         rxsigpower{lane_num}                           = FLOAT                  ; rx signal power in dbm
+        clkreloop{lane_num}                            = FLOAT                  ; clock recovery loop in percentage
+        sopmdshort{lane_num}                           = FLOAT                  ; second order polarization mode dispersion, low granularity in ps^2
+        snrmargin{lane_num}                            = FLOAT                  ; snr margin in db
+        qfactor{lane_num}                              = FLOAT                  ; q-factor in db
+        qmargin{lane_num}                              = FLOAT                  ; q-margin in db
+        cfoshort{lane_num}                             = FLOAT                  ; carrier frequency offset, low granularity in MHz
         ========================================================================
         """
         vdm_real_value_dict = dict()
@@ -2131,7 +2137,14 @@ class CmisApi(CmisCdbFw, XcvrApi):
         cfo_xxx{lane_num}                                = FLOAT         ; carrier frequency offset in Hz (high/low alarm/warning)
         txcurrpower_xxx{lane_num}                        = FLOAT         ; tx current output power in dbm (high/low alarm/warning)
         rxtotpower_xxx{lane_num}                         = FLOAT         ; rx total power in  dbm (high/low alarm/warning)
-        rxsigpower_xxx{lane_num}                         = FLOAT         ; rx signal power in dbm (high/low alarm/warning)        ========================================================================
+        rxsigpower_xxx{lane_num}                         = FLOAT         ; rx signal power in dbm (high/low alarm/warning)
+        clkreloop_xxx{lane_num}                          = FLOAT         ; clock recovery loop in percentage (high/low alarm/warning)
+        sopmdshort_xxx{lane_num}                         = FLOAT         ; second order polarization mode dispersion, low granularity in ps^2 (high/low alarm/warning)
+        snrmargin_xxx{lane_num}                          = FLOAT         ; snr margin in db (high/low alarm/warning)
+        qfactor_xxx{lane_num}                            = FLOAT         ; q-factor in db (high/low alarm/warning)
+        qmargin_xxx{lane_num}                            = FLOAT         ; q-margin in db (high/low alarm/warning)
+        cfoshort_xxx{lane_num}                           = FLOAT         ; carrier frequency offset, low granularity in MHz (high/low alarm/warning)
+        ========================================================================
         """
         vdm_thresholds_dict = dict()
         vdm_raw_dict = self.get_vdm(self.vdm.VDM_THRESHOLD, self.vdm.VDM_OBSERVABLE_ALL)
@@ -2199,6 +2212,12 @@ class CmisApi(CmisCdbFw, XcvrApi):
         txcurrpower_xxx{lane_num}                        = FLOAT         ; tx current output power in dbm (high/low alarm/warning flag)
         rxtotpower_xxx{lane_num}                         = FLOAT         ; rx total power in  dbm (high/low alarm/warning flag)
         rxsigpower_xxx{lane_num}                         = FLOAT         ; rx signal power in dbm (high/low alarm/warning flag)
+        clkreloop_xxx{lane_num}                          = FLOAT         ; clock recovery loop in percentage (high/low alarm/warning flag)
+        sopmdshort_xxx{lane_num}                         = FLOAT         ; second order polarization mode dispersion, low granularity in ps^2 (high/low alarm/warning flag)
+        snrmargin_xxx{lane_num}                          = FLOAT         ; snr margin in db (high/low alarm/warning flag)
+        qfactor_xxx{lane_num}                            = FLOAT         ; q-factor in db (high/low alarm/warning flag)
+        qmargin_xxx{lane_num}                            = FLOAT         ; q-margin in db (high/low alarm/warning flag)
+        cfoshort_xxx{lane_num}                           = FLOAT         ; carrier frequency offset, low granularity in MHz (high/low alarm/warning flag)
         """
         vdm_flags_dict = dict()
         vdm_raw_dict = self.get_vdm(self.vdm.VDM_FLAG, self.vdm.VDM_OBSERVABLE_ALL)
