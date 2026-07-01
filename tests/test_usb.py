@@ -8,7 +8,7 @@ tests_path = os.path.dirname(os.path.abspath(__file__))
 mocked_libs_path = os.path.join(tests_path, "mocked_libs")  # noqa: E402,F401
 sys.path.insert(0, mocked_libs_path)
 
-from .mocked_libs.blkinfo import BlkDiskInfo  # noqa: E402,F401
+from blkinfo import BlkDiskInfo  # noqa: E402,F401
 from sonic_platform_base.sonic_storage import usb
 
 class TestUsb:
