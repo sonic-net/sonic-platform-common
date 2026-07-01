@@ -58,6 +58,8 @@ setup(
         'sonic_platform_base.sonic_xcvr.codes.public',
         'sonic_platform_base.sonic_xcvr.codes.bailly',
         'sonic_platform_base.sonic_xcvr.utils',
+        'sonic_platform_base.sonic_xcvr.api.arista',
+        'sonic_platform_base.sonic_xcvr.mem_maps.arista',
         'sonic_platform_base.sonic_xcvr.api.credo',
         'sonic_platform_base.sonic_xcvr.mem_maps.credo',
         'sonic_platform_base.sonic_xcvr.codes.credo',
