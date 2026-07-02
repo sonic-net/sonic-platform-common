@@ -144,6 +144,17 @@ class TestCmis(object):
         self.api._init_cdb_fw_handler = False
 
     @pytest.mark.parametrize("mock_response, expected", [
+        ("VENDOR_NAME", "VENDOR_NAME"),
+        ("A\x00\x00\x00\x00\x00Networks\n", "ANetworks"),
+    ])
+    def test_get_manufacturer(self, mock_response, expected):
+        self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.return_value = mock_response
+        self.clear_cache('get_manufacturer')
+        result = self.api.get_manufacturer()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response, expected", [
         ("1234567890", "1234567890"),
         ("ABCD", "ABCD")
     ])
