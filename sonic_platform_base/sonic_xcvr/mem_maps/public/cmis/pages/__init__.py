@@ -31,6 +31,7 @@ from .page13 import CmisModulePerfDiagCtrlPage
 from .page2f import CmisVdmAdvertisingCtrlPage
 from .page34 import CCmisMediaLaneFecPmPage
 from .page35 import CCmisMediaLaneLinkPmPage
+from .page3a import CCmisDataPathHostIfPmPage
 from .page9f import CmisCdbMessagePage
 from .page9f_cdb import CdbLplMessagePage
 
@@ -60,6 +61,7 @@ __all__ = [
     'CmisVdmAdvertisingCtrlPage',
     'CCmisMediaLaneFecPmPage',
     'CCmisMediaLaneLinkPmPage',
+    'CCmisDataPathHostIfPmPage',
     'CmisCdbMessagePage',
     'CdbLplMessagePage',
 ]
