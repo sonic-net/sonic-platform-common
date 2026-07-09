@@ -91,7 +91,7 @@ class ChassisBase(device_base.DeviceBase):
         from sonic_py_common import device_info
         optical_device_data = device_info.get_optical_devices_data()
         if optical_device_data:
-            self.construct_sfp_list_for_topology(optical_device_data)
+            self.construct_optical_devices(optical_device_data)
 
     def get_base_mac(self):
         """
@@ -714,11 +714,11 @@ class ChassisBase(device_base.DeviceBase):
     # SFP methods
     ##############################################
 
-    def construct_sfp_list_for_topology(self, optical_device_data):
+    def construct_optical_devices(self, optical_device_data):
         """
         Construct objects representing the devices driving traffic through
         a front panel port on the chassis based on topology data in
-        optical_devices.json and appends them to self._sfp_list
+        optical_devices.json
 
         Subclasses should implement this method on platforms that provide
         an optical_devices.json file.
