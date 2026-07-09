@@ -54,6 +54,10 @@ class RedfishClient:
     ERR_CODE_GENERIC_ERROR = -12
     ERR_CODE_IDENTICAL_VERSION = -13
 
+    # Readiness-poll defaults for wait_until_redfish_ready() (after a BMC restart).
+    READY_POLL_TIMEOUT = 300     # seconds, hard upper bound on the readiness wait
+    READY_POLL_INTERVAL = 10     # seconds between readiness probes
+
     CURL_ERR_OK = 0
     CURL_ERR_OPERATION_TIMEDOUT = 28
     CURL_ERR_COULDNT_RESOLVE_HOST = 6
@@ -1014,28 +1018,33 @@ class RedfishClient:
     '''
     Login Redfish server and get bearer token
 
+    Args:
+        log_errors: When False, log failures at notice not error (readiness poll).
+
     Returns:
         An integer, return code
     '''
-    def login(self):
+    def login(self, *, log_errors=True):
         if self.has_login():
             return RedfishClient.ERR_CODE_OK
+
+        log_fn = logger.log_error if log_errors else logger.log_notice
 
         try:
             password = self.__password_callback()
         except Exception as e:
-            logger.log_error(f'{str(e)}')
+            log_fn(f'{str(e)}')
             return RedfishClient.ERR_CODE_PASSWORD_UNAVAILABLE
 
         cmd = self.__build_login_cmd(password)
         ret, _, response, error = self.exec_curl_cmd(cmd)
 
         if (ret != 0):
-            logger.log_error(f'Login failure: code {ret}, {error}')
+            log_fn(f'Login failure: code {ret}, {error}')
             return ret
 
         if response is None or len(response) == 0:
-            logger.log_error('Got empty Redfish login response')
+            log_fn('Got empty Redfish login response')
             return RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
 
         try:
@@ -1046,29 +1055,29 @@ class RedfishClient:
                     json_response = json.loads(body)
                     if 'error' in json_response:
                         error_msg = json_response['error']['message']
-                        logger.log_error(f'Login failure: {error_msg}')
+                        log_fn(f'Login failure: {error_msg}')
                         self.log_multi_line_str(response)
                         return RedfishClient.ERR_CODE_GENERIC_ERROR
                 except Exception as e:
-                    logger.log_error(f'Login failure: Exception during parsing body: {str(e)}')
+                    log_fn(f'Login failure: Exception during parsing body: {str(e)}')
                     self.log_multi_line_str(response)
 
             # Extract both token and session ID from headers
             token = headers.get('x-auth-token')
             if not token:
-                logger.log_error('Login failure: no "X-Auth-Token" header found')
+                log_fn('Login failure: no "X-Auth-Token" header found')
                 self.log_multi_line_str(response)
                 return RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
 
             location = headers.get('location')
             if not location:
-                logger.log_error('Login failure: no "Location" header found')
+                log_fn('Login failure: no "Location" header found')
                 self.log_multi_line_str(response)
                 return RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
 
             session_id = location.split('/')[-1]
             if not session_id:
-                logger.log_error('Login failure: could not extract session ID from Location header')
+                log_fn('Login failure: could not extract session ID from Location header')
                 self.log_multi_line_str(response)
                 return RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
 
@@ -1078,7 +1087,7 @@ class RedfishClient:
             return RedfishClient.ERR_CODE_OK
 
         except Exception as e:
-            logger.log_error(f'Login failure: exception {str(e)}')
+            log_fn(f'Login failure: exception {str(e)}')
             self.log_multi_line_str(response)
             return RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
 
@@ -1141,6 +1150,46 @@ class RedfishClient:
             logger.log_error('Logout failed: Empty response')
             return RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
     
+    '''
+    Poll a quiet login() until the Redfish service accepts it or the timeout
+    elapses. Used after a BMC restart; a successful login is a stronger "ready"
+    signal than ping / L3.
+
+    Args:
+        timeout: Hard upper bound in seconds on the total wait.
+        interval: Seconds to sleep between probes.
+
+    Returns:
+        ERR_CODE_OK (0) when ready, else the last non-OK code seen (timeout or a
+        non-transient failure).
+    '''
+    def wait_until_redfish_ready(self, timeout=READY_POLL_TIMEOUT,
+                                 interval=READY_POLL_INTERVAL):
+        # Drop any cached session first, or login() short-circuits to OK on the
+        # cached token and falsely reports "ready". invalidate_session() is
+        # local-only, so (unlike a logout DELETE) it can't log an ERROR.
+        self.invalidate_session()
+
+        deadline = time.time() + timeout
+        last_code = None
+        while True:
+            last_code = self.login(log_errors=False)
+            if last_code == RedfishClient.ERR_CODE_OK:
+                self.logout()
+                logger.log_notice('BMC Redfish service is ready')
+                return RedfishClient.ERR_CODE_OK
+
+            # Fail fast only on a local permanent error. AUTH_FAILURE (401) is
+            # transient here: on boot the web server precedes the auth backend.
+            if last_code == RedfishClient.ERR_CODE_PASSWORD_UNAVAILABLE:
+                return last_code
+
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                return last_code
+            logger.log_notice('Waiting for BMC Redfish service to become ready...')
+            time.sleep(min(interval, remaining))
+
     '''
     Get firmware inventory
 
