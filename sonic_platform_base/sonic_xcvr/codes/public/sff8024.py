@@ -39,7 +39,13 @@ class Sff8024(XcvrCodes):
         28: 'x4 MiniLink/OcuLink',
         29: 'x8 MiniLink',
         30: 'QSFP+ or later with CMIS',
+        31: 'SFP-DD', #SFP-DD with CMIS
+        32: 'SFP+C', #SFP+ with CMIS
+        33: 'OSFP-XD', #OSFP-XD with CMIS
+        34: 'OIF-ELSP', #OIF-ELSP with CMIS
+        38: 'XPO',
        126: 'Backplane Cartridge',
+       128: 'CPO',  # Vendor-specific allocation for Co-Packaged Optics
     }
 
     XCVR_IDENTIFIER_ABBRV = {
@@ -73,8 +79,14 @@ class Sff8024(XcvrCodes):
         27: 'DSFP',
         28: 'Link-x4',
         29: 'Link-x8',
-        30: 'QSFP+C',
+        30: 'QSFP+C', #QSFP+ with CMIS
+        31: 'SFP-DD', #SFP-DD with CMIS
+        32: 'SFP+C', #SFP+ with CMIS
+        33: 'OSFP-XD', #OSFP-XD with CMIS
+        34: 'OIF-ELSP', #OIF-ELSP with CMIS
+        38: 'XPO',
         126: 'BP',  # Backplane Cartridge
+        128: 'CPO',
     }
 
     CONNECTORS = {
@@ -171,6 +183,7 @@ class Sff8024(XcvrCodes):
         71: '400GBASE-DR4, 100GAUI-1 C2M',
         72: '400GBASE-FR4',
         73: '400GBASE-LR4-6',
+        75: '400GBASE-LR4-10',
         127: '256GFC-SW4',
         128: 'Capable of 64GFC',
         129: 'Capable of 128GFC'
@@ -325,6 +338,8 @@ class Sff8024(XcvrCodes):
         32: '800G-VR8 (Placeholder)',
         33: '800G-VR4.2',
         34: '800G-SR4.2',
+        35: '1.6T-VR8.2',
+        36: '1.6T-SR8.2'
     }
 
     # SMF media interface IDs
@@ -418,6 +433,19 @@ class Sff8024(XcvrCodes):
         92: 'ZR200-OFEC-QPSK-HB',
         93: 'ZR100-OFEC-QPSK-HA',
         94: 'ZR100-OFEC-QPSK-HB',
+        95: 'FLEXO-4-DO-16QAM/FOIC4.8-DO',
+        96: 'FLEXO-3-DO-8QAM/FOIC3.6-DO',
+        97: 'FLEXO-2-DO-QPSK/FOIC2.4-DO',
+        98: 'FLEXO-2-DO-16QAM/FOIC2.8-DO',
+        99: 'FLEXO-1-DO-QPSK/FOIC1.4-DO',
+        100: 'FLEXO-4e-DO-QPSK/FOIC4e.4-DO',
+        101: 'FLEXO-4-DO-QPSK/FOIC4.4-DO',
+        102: 'FLEXO-8e-DO-16QAM/FOIC8e.8-DO',
+        103: 'FLEXO-8-DO-16QAM/FOIC8.8-DO',
+        104: 'FLEXO-8e-DPO-16QAM/FOIC8e.8-DPO',
+        105: 'FLEXO-8-DPO-16QAM/FOIC8.8-DPO',
+        106: 'FLEXO-6e-DPO-16QAM/FOIC6e.8-DPO',
+        107: 'FLEXO-6-DPO-16QAM/FOIC6.8-DPO',
         108: '800ZR-A (0x01) 150 GHz DWDM',
         109: '800ZR-B (0x02) 150 GHz DWDM',
         110: '800ZR-C (0x03) 150 GHz DWDM',
@@ -436,6 +464,7 @@ class Sff8024(XcvrCodes):
         144: '200G-DR2-LPO',
         145: '400G-DR4-LPO',
         146: '800G-DR8-LPO',
+        147: '800G-FR4-LPO'
     }
 
     # Passive and Linear Active Copper Cable and Passive Loopback media interface codes

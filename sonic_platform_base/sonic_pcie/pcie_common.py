@@ -37,8 +37,8 @@ class PcieUtil(PcieBase):
     def get_pcie_device(self):
         pciDict = {}
         pciList = []
-        p1 = "^(\w+):(\w+)\.(\w)\s(.*)\s*\(*.*\)*"
-        p2 = "^.*:.*:.*:(\w+)\s*\(*.*\)*"
+        p1 = r"^(\w+):(\w+)\.(\w)\s(.*)\s*\(*.*\)*"
+        p2 = r"^.*:.*:.*:(\w+)\s*\(*.*\)*"
         command1 = ["sudo", "lspci"]
         command2 = ["sudo", "lspci", "-n"]
         # run command 1

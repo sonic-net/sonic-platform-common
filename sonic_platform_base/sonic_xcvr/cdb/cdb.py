@@ -5,12 +5,18 @@
 """
 
 import time
+from sonic_py_common.syslogger import SysLogger
 from ..fields import cdb_consts
 from ..xcvr_eeprom import XcvrEeprom
+
+SYSLOG_IDENTIFIER = "Cdb"
+log = SysLogger(SYSLOG_IDENTIFIER)
+log.logger.propagate = False
 
 class CdbCmdHandler(XcvrEeprom):
     def __init__(self, reader, writer, mem_map):
         super(CdbCmdHandler, self).__init__(reader, writer, mem_map)
+        self.last_cmd_status = None
 
     def read_reply(self, cdb_cmd_id):
         """
@@ -57,7 +63,7 @@ class CdbCmdHandler(XcvrEeprom):
         """
         delay = 0
         if timeout is None:
-            timeout = cdb_consts.CDB_MAX_ACCESS_HOLD_OFF_PERIOD  + 5000  # 5 sec safety margin
+            timeout = cdb_consts.CDB_MAX_ACCESS_HOLD_OFF_PERIOD + cdb_consts.CDB_TIMEOUT_SAFETY_MARGIN
         status = None
 
         assert timeout > delay, "Timeout must be greater than delay"
@@ -87,25 +93,27 @@ class CdbCmdHandler(XcvrEeprom):
         """
         Send CDB command, wait for completion and check status
         """
+        self.last_cmd_status = None
         # Write the command to the CDB
         if True != self.write_cmd(cdb_cmd_id, payload):
-            print(f"Failed to write CDB command: {cdb_cmd_id}")
+            log.log_notice("Failed to write CDB command: {}".format(cdb_cmd_id))
             return None
 
         # Wait for the command to complete
         ret, status = self.wait_for_cdb_status(timeout)
+        self.last_cmd_status = status
         if not ret:
-            print(f"CDB command: {cdb_cmd_id} failed to complete or read status")
+            log.log_notice("CDB command: {} failed to complete or read status".format(cdb_cmd_id))
             return None
 
         is_busy = status[cdb_consts.CDB1_IS_BUSY]
         if True == is_busy:
-            print(f"CDB command: {cdb_cmd_id} is busy with status: {status[cdb_consts.CDB1_STATUS]}")
+            log.log_notice("CDB command: {} is busy with status: {}".format(cdb_cmd_id, status[cdb_consts.CDB1_STATUS]))
             return False
 
         is_failed = status[cdb_consts.CDB1_HAS_FAILED]
         if True == is_failed:
-            print(f"CDB command: {cdb_cmd_id} failed with status: {status[cdb_consts.CDB1_STATUS]}")
+            log.log_notice("CDB command: {} failed with status: {}".format(cdb_cmd_id, status[cdb_consts.CDB1_STATUS]))
             return False
 
         return status[cdb_consts.CDB1_STATUS] == 0x1
@@ -117,8 +125,26 @@ class CdbCmdHandler(XcvrEeprom):
         """
         status = self.read(cdb_consts.CDB1_COMMAND_RESULT)
         return status
+
+    def get_cmd_status_code(self):
+        """
+        Get the cached status dict from the last send_cmd call.
+        Returns None if no command was sent or I2C failed.
+        """
+        return self.last_cmd_status
+
+    def enter_password(self, password=cdb_consts.CDB_DEFAULT_PASSWORD):
+        """
+        Enter host password via CDB command 0001h.
+        Returns True if password accepted, False/None otherwise.
+        """
+        if not isinstance(password, int) or password < 0 or password > 0xFFFFFFFF:
+            log.log_notice("Invalid password: must be an integer in range 0..0xFFFFFFFF")
+            return False
+        payload = {"password": password}
+        return self.send_cmd(cdb_consts.CDB_ENTER_PASSWORD_CMD, payload)
     
-    def write_lpl_block(self, blkaddr, blkdata):
+    def write_lpl_block(self, blkaddr, blkdata, timeout=None):
         """
         Write LPL block
         """
@@ -127,9 +153,7 @@ class CdbCmdHandler(XcvrEeprom):
             "blkdata" : blkdata
         }
         # Send the CDB write firmware LPL command
-        if True != self.write_cmd(cdb_consts.CDB_WRITE_FIRMWARE_LPL_CMD, payload):
-            status = self.get_last_cmd_status()
-            print(f"Write LPL block status: {status}")
+        return self.send_cmd(cdb_consts.CDB_WRITE_FIRMWARE_LPL_CMD, payload, timeout=timeout)
 
     def write_epl_pages(self, blkdata):
         """
@@ -147,7 +171,7 @@ class CdbCmdHandler(XcvrEeprom):
             remaining_data = blkdata[pages * cdb_consts.PAGE_SIZE:]
             assert True == self.write_epl_page(pages + cdb_consts.EPL_PAGE, remaining_data)
 
-    def write_epl_block(self, blkaddr, blkdata):
+    def write_epl_block(self, blkaddr, blkdata, timeout=None):
         """
         Write EPL block
         """
@@ -157,4 +181,4 @@ class CdbCmdHandler(XcvrEeprom):
         }
 
         # Send the CDB write firmware EPL command
-        return self.send_cmd(cdb_consts.CDB_WRITE_FIRMWARE_EPL_CMD, payload)
+        return self.send_cmd(cdb_consts.CDB_WRITE_FIRMWARE_EPL_CMD, payload, timeout=timeout)
