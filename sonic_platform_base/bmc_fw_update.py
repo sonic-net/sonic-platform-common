@@ -8,6 +8,10 @@ Handles BMC firmware update process
 import sys
 import time
 
+# request_bmc_reset() returns before the BMC drops; wait for it to go down first
+# so we don't read the still-up pre-reset BMC as ready.
+BMC_RESET_SETTLE_TIME = 20  # seconds
+
 def main():
     try:
         import sonic_platform
@@ -41,21 +45,14 @@ def main():
                 logger.log_error(f'Failed to restart BMC. Error {ret}: {error_msg}')
                 sys.exit(1)
 
-            # Wait for BMC to restart itself
-            time.sleep(20)
-            # Wait for BMC to become operational
-            max_retries = 5
-            bmc_is_up = False
-            for retry in range(max_retries):
-                bmc_is_up = bmc.get_status()
-                if bmc_is_up:
-                    break
-                if retry < max_retries - 1:
-                    logger.log_notice("Waiting for BMC to restart...")
-                    time.sleep(20)
+            # Let the BMC drop before polling (see BMC_RESET_SETTLE_TIME).
+            time.sleep(BMC_RESET_SETTLE_TIME)
 
-            if not bmc_is_up:
-                logger.log_error("BMC did not become operational after restart")
+            # Redfish accepting a login implies L3 is back too -- no ping loop needed.
+            code = bmc.wait_until_redfish_ready()
+            if code != 0:
+                logger.log_error(f"BMC Redfish service did not become ready after "
+                                 f"restart (last error code: {code})")
                 sys.exit(1)
 
             logger.log_notice("BMC firmware update completed successfully")
