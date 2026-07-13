@@ -1,0 +1,4 @@
+common --registry=https://bcr.bazel.build
+common --registry=https://raw.githubusercontent.com/aspect-build/bazel-central-registry/aspect_rules_py-v1.7.1
+common --@pip//venv=default
+common --@rules_python//python/config_settings:python_version=3.11.6
