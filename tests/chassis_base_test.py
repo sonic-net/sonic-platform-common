@@ -6,10 +6,10 @@ from sonic_platform_base.chassis_base import ChassisBase
 class TestChassisBase:
 
     @pytest.fixture(autouse=True)
-    def _mock_optical_devices_data(self):
-        with mock.patch("sonic_py_common.device_info.get_optical_devices_data",
+    def _mock_cpo_data(self):
+        with mock.patch("sonic_py_common.device_info.get_cpo_data",
                         return_value=None) as mock_get:
-            self.mock_get_optical_devices_data = mock_get
+            self.mock_get_cpo_data = mock_get
             yield
 
     def test_reboot_cause(self):
@@ -172,18 +172,18 @@ class TestChassisBase:
         err_neg = capsys.readouterr().err
         assert "PDB index -4 out of range (0-2)" in err_neg
 
-    def test_no_optical_devices_data(self):
+    def test_no_cpo_data(self):
         chassis = ChassisBase()
-        self.mock_get_optical_devices_data.assert_called_once()
-        assert chassis.get_num_sfps() == 0
+        self.mock_get_cpo_data.assert_called_once()
+        assert chassis.get_num_cpos() == 0
 
-    def test_optical_devices_data_base_class_not_implemented(self):
-        self.mock_get_optical_devices_data.return_value = {"devices": {}, "interfaces": {}}
+    def test_cpo_data_base_class_not_implemented(self):
+        self.mock_get_cpo_data.return_value = {"devices": {}, "interfaces": {}}
         with pytest.raises(NotImplementedError):
             ChassisBase()
 
     def test_construct_sfp_list_for_topology(self):
-        optical_device_data = {
+        cpo_data = {
             "devices": {
                 "OE1": {"device_type": "optical_engine"},
                 "ELS1": {"device_type": "external_laser_source"},
@@ -197,13 +197,13 @@ class TestChassisBase:
                 }
             },
         }
-        self.mock_get_optical_devices_data.return_value = optical_device_data
+        self.mock_get_cpo_data.return_value = cpo_data
 
         class CpoChassis(ChassisBase):
-            def construct_sfp_list_for_topology(self, optical_device_data):
-                for interface in optical_device_data["interfaces"]:
-                    self._sfp_list.append(interface)
+            def construct_cpo_devices(self, cpo_data):
+                for interface in cpo_data["interfaces"]:
+                    self._cpo_list.append(interface)
 
         chassis = CpoChassis()
-        assert chassis.get_num_sfps() == 1
-        assert chassis.get_sfp(0) == "Ethernet0"
+        assert chassis.get_num_cpos() == 1
+        assert chassis.get_cpo(0) == "Ethernet0"
