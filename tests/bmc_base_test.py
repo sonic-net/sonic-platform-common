@@ -166,6 +166,31 @@ class TestBMCBase:
         assert ret == RedfishClient.ERR_CODE_OK
         mock_logout.assert_not_called()
 
+    @mock.patch.object(RedfishClient, 'wait_until_redfish_ready')
+    def test_wait_until_redfish_ready_delegates(self, mock_wait):
+        """BMCBase.wait_until_redfish_ready passes args/return through to RedfishClient."""
+        # Non-zero so the return assertion actually tests pass-through (0 would pass
+        # even if the delegator ignored the result and returned OK).
+        mock_wait.return_value = RedfishClient.ERR_CODE_TIMEOUT
+
+        bmc = BMCBase('169.254.0.1')
+        ret = bmc.wait_until_redfish_ready(timeout=123, interval=7)
+
+        assert ret == RedfishClient.ERR_CODE_TIMEOUT
+        mock_wait.assert_called_once_with(123, 7)
+
+    @mock.patch.object(RedfishClient, 'wait_until_redfish_ready')
+    def test_wait_until_redfish_ready_default_args(self, mock_wait):
+        """BMCBase.wait_until_redfish_ready defaults come from RedfishClient constants."""
+        mock_wait.return_value = RedfishClient.ERR_CODE_SERVER_UNREACHABLE
+
+        bmc = BMCBase('169.254.0.1')
+        ret = bmc.wait_until_redfish_ready()
+
+        assert ret == RedfishClient.ERR_CODE_SERVER_UNREACHABLE
+        mock_wait.assert_called_once_with(RedfishClient.READY_POLL_TIMEOUT,
+                                          RedfishClient.READY_POLL_INTERVAL)
+
     def test_is_bmc_eeprom_content_valid_empty(self):
         """Test _is_bmc_eeprom_content_valid with empty data"""
         bmc = BMCBase('169.254.0.1')

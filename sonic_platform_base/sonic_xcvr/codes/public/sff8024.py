@@ -39,6 +39,11 @@ class Sff8024(XcvrCodes):
         28: 'x4 MiniLink/OcuLink',
         29: 'x8 MiniLink',
         30: 'QSFP+ or later with CMIS',
+        31: 'SFP-DD', #SFP-DD with CMIS
+        32: 'SFP+C', #SFP+ with CMIS
+        33: 'OSFP-XD', #OSFP-XD with CMIS
+        34: 'OIF-ELSP', #OIF-ELSP with CMIS
+        38: 'XPO',
        126: 'Backplane Cartridge',
        128: 'CPO',  # Vendor-specific allocation for Co-Packaged Optics
     }
@@ -74,7 +79,12 @@ class Sff8024(XcvrCodes):
         27: 'DSFP',
         28: 'Link-x4',
         29: 'Link-x8',
-        30: 'QSFP+C',
+        30: 'QSFP+C', #QSFP+ with CMIS
+        31: 'SFP-DD', #SFP-DD with CMIS
+        32: 'SFP+C', #SFP+ with CMIS
+        33: 'OSFP-XD', #OSFP-XD with CMIS
+        34: 'OIF-ELSP', #OIF-ELSP with CMIS
+        38: 'XPO',
         126: 'BP',  # Backplane Cartridge
         128: 'CPO',
     }
@@ -173,6 +183,7 @@ class Sff8024(XcvrCodes):
         71: '400GBASE-DR4, 100GAUI-1 C2M',
         72: '400GBASE-FR4',
         73: '400GBASE-LR4-6',
+        75: '400GBASE-LR4-10',
         127: '256GFC-SW4',
         128: 'Capable of 64GFC',
         129: 'Capable of 128GFC'
@@ -327,6 +338,8 @@ class Sff8024(XcvrCodes):
         32: '800G-VR8 (Placeholder)',
         33: '800G-VR4.2',
         34: '800G-SR4.2',
+        35: '1.6T-VR8.2',
+        36: '1.6T-SR8.2'
     }
 
     # SMF media interface IDs
@@ -451,6 +464,7 @@ class Sff8024(XcvrCodes):
         144: '200G-DR2-LPO',
         145: '400G-DR4-LPO',
         146: '800G-DR8-LPO',
+        147: '800G-FR4-LPO'
     }
 
     # Passive and Linear Active Copper Cable and Passive Loopback media interface codes
