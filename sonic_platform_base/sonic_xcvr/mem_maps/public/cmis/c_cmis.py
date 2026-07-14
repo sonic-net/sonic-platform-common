@@ -9,6 +9,11 @@ from .pages import (
     CCmisModuleConfigSupportPage,
     CCmisMediaLaneFecPmPage,
     CCmisMediaLaneLinkPmPage,
+<<<<<<< HEAD
+=======
+    CCmisDataPathHostIfPmPage,
+    CCmisPmAdvertisementPage,
+>>>>>>> bec9ff8 (NOS-11204: Add C-CMIS PM API logic and advertising (#147))
 )
 
 
@@ -21,4 +26,9 @@ class CCmisMemMap(CmisMemMap):
             CCmisModuleConfigSupportPage(codes, bank=bank),  # 0x04
             CCmisMediaLaneFecPmPage(codes, bank=bank),       # 0x34
             CCmisMediaLaneLinkPmPage(codes, bank=bank),      # 0x35
+<<<<<<< HEAD
+=======
+            CCmisDataPathHostIfPmPage(codes, bank=bank),     # 0x3A
+            CCmisPmAdvertisementPage(codes, bank=bank),      # 0x42
+>>>>>>> bec9ff8 (NOS-11204: Add C-CMIS PM API logic and advertising (#147))
         )

@@ -292,6 +292,7 @@ CTRLS_ADVT_FIELD = "Supported Controls Advertisement"
 FLAGS_ADVT_FIELD = "Supported Flags Advertisement"
 PAGE_SUPPORT_ADVT_FIELD = "Supported Pages Advertisement"
 DIAG_PAGE_SUPPORT_ADVT_FIELD = "Supported Diagnostic Pages Advertisement"
+COHERENT_PAGES_SUPPORT_ADVT_FIELD = "Supported Coherent Pages Advertisement"
 TX_FLAGS_ADVT_FIELD = "Supported TX Flags Advertisement"
 RX_FLAGS_ADVT_FIELD = "Supported RX Flags Advertisement"
 LANE_MON_ADVT_FIELD = "Supported Lane Monitor Advertisement"
@@ -484,6 +485,121 @@ RX_MAX_SOPROC_PM = "rxMaxSigSoprocPm"
 RX_AVG_MER_PM = "rxAvgMerPm"
 RX_MIN_MER_PM = "rxMinMerPm"
 RX_MAX_MER_PM = "rxMaxMerPm"
+
+## Performance Monitoring Advertisement (Page 42h)
+PM_ADVT_FIELD = "PmAdvertisement"
+
+# Byte 128 (page 34h RX bit-count fields)
+RX_BITS_PM_IMPL = "rxBitsPmImpl"
+RX_BITS_SUB_INTERVAL_PM_IMPL = "rxBitsSubIntPmImpl"
+RX_CORR_BITS_PM_IMPL = "rxCorrBitsPmImpl"
+RX_MIN_CORR_BITS_SUB_INTERVAL_PM_IMPL = "rxMinCorrBitsSubIntPmImpl"
+RX_MAX_CORR_BITS_SUB_INTERVAL_PM_IMPL = "rxMaxCorrBitsSubIntPmImpl"
+
+# Byte 129 (page 34h RX frame-count fields)
+RX_FRAMES_PM_IMPL = "rxFramesPmImpl"
+RX_FRAMES_SUB_INTERVAL_PM_IMPL = "rxFramesSubIntPmImpl"
+RX_FRAMES_UNCORR_ERR_PM_IMPL = "rxFramesUncorrErrPmImpl"
+RX_MIN_FRAMES_UNCORR_ERR_SUB_INTERVAL_PM_IMPL = "rxMinFramesUncorrErrSubintPmImpl"
+RX_MAX_FRAMES_UNCORR_ERR_SUB_INTERVAL_PM_IMPL = "rxMaxFramesUncorrErrSubintPmImpl"
+
+# Byte 130 (CD/DGD)
+RX_CD_IMPL = "rxCdImpl"
+RX_AVG_CD_PM_IMPL = "rxAvgCdPmImpl"
+RX_MIN_CD_PM_IMPL = "rxMinCdPmImpl"
+RX_MAX_CD_PM_IMPL = "rxMaxCdPmImpl"
+RX_DGD_IMPL = "rxDgdImpl"
+RX_AVG_DGD_PM_IMPL = "rxAvgDgdPmImpl"
+RX_MIN_DGD_PM_IMPL = "rxMinDgdPmImpl"
+RX_MAX_DGD_PM_IMPL = "rxMaxDgdPmImpl"
+
+# Byte 131 (LG-SOPMD/PDL)
+RX_LG_SOPMD_IMPL = "rxLGSopmdImpl"
+RX_AVG_LG_SOPMD_PM_IMPL = "rxAvgLGSopmdPmImpl"
+RX_MIN_LG_SOPMD_PM_IMPL = "rxMinLGSopmdPmImpl"
+RX_MAX_LG_SOPMD_PM_IMPL = "rxMaxLGSopmdPmImpl"
+RX_PDL_IMPL = "rxPdlImpl"
+RX_AVG_PDL_PM_IMPL = "rxAvgPdlPmImpl"
+RX_MIN_PDL_PM_IMPL = "rxMinPdlPmImpl"
+RX_MAX_PDL_PM_IMPL = "rxMaxPdlPmImpl"
+
+# Byte 132 (OSNR/eSNR)
+RX_OSNR_IMPL = "rxOsnrImpl"
+RX_AVG_OSNR_PM_IMPL = "rxAvgOsnrPmImpl"
+RX_MIN_OSNR_PM_IMPL = "rxMinOsnrPmImpl"
+RX_MAX_OSNR_PM_IMPL = "rxMaxOsnrPmImpl"
+RX_ESNR_IMPL = "rxEsnrImpl"
+RX_AVG_ESNR_PM_IMPL = "rxAvgEsnrPmImpl"
+RX_MIN_ESNR_PM_IMPL = "rxMinEsnrPmImpl"
+RX_MAX_ESNR_PM_IMPL = "rxMaxEsnrPmImpl"
+
+# Byte 133 (CFO/EVM)
+RX_CFO_IMPL = "rxCfoImpl"
+RX_AVG_CFO_PM_IMPL = "rxAvgCfoPmImpl"
+RX_MIN_CFO_PM_IMPL = "rxMinCfoPmImpl"
+RX_MAX_CFO_PM_IMPL = "rxMaxCfoPmImpl"
+RX_EVM_IMPL = "rxEvmModemImpl"
+RX_AVG_EVM_PM_IMPL = "rxAvgEvmModemPmImpl"
+RX_MIN_EVM_PM_IMPL = "rxMinEvmModemPmImpl"
+RX_MAX_EVM_PM_IMPL = "rxMaxEvmModemPmImpl"
+
+# Byte 134 (SOPROC/TX power)
+RX_SOPROC_IMPL = "rxSopcrImpl"
+RX_AVG_SOPROC_PM_IMPL = "rxAvgSopcrPmImpl"
+RX_MIN_SOPROC_PM_IMPL = "rxMinSopcrPmImpl"
+RX_MAX_SOPROC_PM_IMPL = "rxMaxSopcrPmImpl"
+TX_POWER_IMPL = "txPowerImpl"
+TX_AVG_POWER_PM_IMPL = "txAvgPowerPmImpl"
+TX_MIN_POWER_PM_IMPL = "txMinPowerPmImpl"
+TX_MAX_POWER_PM_IMPL = "txMaxPowerPmImpl"
+
+# Byte 135 (RX power/RX sig power)
+RX_POWER_IMPL = "rxPowerImpl"
+RX_AVG_POWER_PM_IMPL = "rxAvgPowerPmImpl"
+RX_MIN_POWER_PM_IMPL = "rxMinPowerPmImpl"
+RX_MAX_POWER_PM_IMPL = "rxMaxPowerPmImpl"
+RX_SIG_POWER_IMPL = "rxSigPowerImpl"
+RX_AVG_SIG_POWER_PM_IMPL = "rxAvgSigPowerPmImpl"
+RX_MIN_SIG_POWER_PM_IMPL = "rxMinSigPowerPmImpl"
+RX_MAX_SIG_POWER_PM_IMPL = "rxMaxSigPowerPmImpl"
+
+# Byte 136 (page 33h alarm-latch gates - consts only, not wired into get_pm_all)
+RX_MEDIA_FED_PM_IMPL = "rxMediaFedPmImpl"
+RX_MEDIA_FDD_PM_IMPL = "rxMediaFddPmImpl"
+
+# Byte 137 (page 3Bh alarm-latch gates - consts only, not wired into get_pm_all)
+TX_HOST_FED_PM_IMPL = "txHostFedPmImpl"
+TX_HOST_FDD_PM_IMPL = "txHostFddPmImpl"
+
+# Byte 138 (clock recovery/HG-SOPMD)
+RX_CLOCK_REC_IMPL = "rxClockRecPmImpl"
+RX_AVG_CLOCK_REC_PM_IMPL = "rxAvgClockRecPmImpl"
+RX_MIN_CLOCK_REC_PM_IMPL = "rxMinClockRecPmImpl"
+RX_MAX_CLOCK_REC_PM_IMPL = "rxMaxClockRecPmImpl"
+RX_HG_SOPMD_IMPL = "rxHGSopmdImpl"
+RX_AVG_HG_SOPMD_PM_IMPL = "rxAvgHGSopmdPmImpl"
+RX_MIN_HG_SOPMD_PM_IMPL = "rxMinHGSopmdPmImpl"
+RX_MAX_HG_SOPMD_PM_IMPL = "rxMaxHGSopmdPmImpl"
+
+# Byte 139 (SNR margin/MER)
+RX_SNR_MARGIN_IMPL = "rxSNRMarginPmImpl"
+RX_AVG_SNR_MARGIN_PM_IMPL = "rxAvgSNRMarginPmImpl"
+RX_MIN_SNR_MARGIN_PM_IMPL = "rxMinSNRMarginPmImpl"
+RX_MAX_SNR_MARGIN_PM_IMPL = "rxMaxSNRMarginPmImpl"
+RX_MER_IMPL = "rxMERPmImpl"
+RX_AVG_MER_PM_IMPL = "rxAvgMERPmImpl"
+RX_MIN_MER_PM_IMPL = "rxMinMERPmImpl"
+RX_MAX_MER_PM_IMPL = "rxMaxMERPmImpl"
+
+# Byte 140 (Q-factor/Q-margin)
+RX_QFACTOR_IMPL = "rxQFactorPmImpl"
+RX_AVG_QFACTOR_PM_IMPL = "rxAvgQFactorPmImpl"
+RX_MIN_QFACTOR_PM_IMPL = "rxMinQFactorPmImpl"
+RX_MAX_QFACTOR_PM_IMPL = "rxMaxQFactorPmImpl"
+RX_QMARGIN_IMPL = "rxQMarginPmImpl"
+RX_AVG_QMARGIN_PM_IMPL = "rxAvgQMarginPmImpl"
+RX_MIN_QMARGIN_PM_IMPL = "rxMinQMarginPmImpl"
+RX_MAX_QMARGIN_PM_IMPL = "rxMaxQMarginPmImpl"
 
 # CDB
 TRANS_CDB_FIELD = "TransceiverCdb"

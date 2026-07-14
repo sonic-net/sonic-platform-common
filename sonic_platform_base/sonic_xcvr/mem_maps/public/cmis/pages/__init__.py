@@ -31,6 +31,11 @@ from .page13 import CmisModulePerfDiagCtrlPage
 from .page2f import CmisVdmAdvertisingCtrlPage
 from .page34 import CCmisMediaLaneFecPmPage
 from .page35 import CCmisMediaLaneLinkPmPage
+<<<<<<< HEAD
+=======
+from .page3a import CCmisDataPathHostIfPmPage
+from .page42 import CCmisPmAdvertisementPage
+>>>>>>> bec9ff8 (NOS-11204: Add C-CMIS PM API logic and advertising (#147))
 from .page9f import CmisCdbMessagePage
 from .page9f_cdb import CdbLplMessagePage
 
@@ -60,6 +65,11 @@ __all__ = [
     'CmisVdmAdvertisingCtrlPage',
     'CCmisMediaLaneFecPmPage',
     'CCmisMediaLaneLinkPmPage',
+<<<<<<< HEAD
+=======
+    'CCmisDataPathHostIfPmPage',
+    'CCmisPmAdvertisementPage',
+>>>>>>> bec9ff8 (NOS-11204: Add C-CMIS PM API logic and advertising (#147))
     'CmisCdbMessagePage',
     'CdbLplMessagePage',
 ]
