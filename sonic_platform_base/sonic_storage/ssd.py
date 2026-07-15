@@ -6,6 +6,11 @@
 #  - InnoDisk
 #  - StorFly
 #  - Virtium
+#  - Swissbit
+#  - Intel
+#  - Transcend
+#  - ATP
+#  - Micron
 
 try:
     import re
@@ -104,9 +109,9 @@ class SsdUtil(StorageCommon):
         # Known vendor part
         if self.model:
             vendor = self._parse_vendor()
-            # For Virtium, ATP NVMe SSD, parse_generic_ssd_info should be called.
+            # For Virtium, ATP, Micron NVMe SSD, parse_generic_ssd_info should be called.
             # Skip here, otherwise data will be overwritten by N/A.
-            if vendor in ['Virtium', 'ATP'] and "nvme" in self.dev:
+            if vendor in ['Virtium', 'ATP', 'Micron'] and "nvme" in self.dev:
                 return
 
             if vendor:
