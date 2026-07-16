@@ -88,8 +88,8 @@ class CCmisApi(CmisApi):
         '''
         freq_grid = self.get_freq_grid()
         channel = self.xcvr_eeprom.read(consts.LASER_CONFIG_CHANNEL)
-        if freq_grid == 75:
-            config_freq = 193100 + channel * freq_grid/3
+        if freq_grid in (75, 150):
+            config_freq = 193100 + channel * 25
         else:
             config_freq = 193100 + channel * freq_grid
         return config_freq
@@ -154,7 +154,7 @@ class CCmisApi(CmisApi):
         '''
         This function sets the laser frequency. Unit in GHz
         ZR application will not support fine tuning of the laser
-        SONiC will only support 75 GHz and 100GHz frequency grids
+        SONiC will support 75 GHz, 100GHz and 150GHz frequency grids
         Return True if the provision succeeds, False if it fails
         '''
         grid_supported, low_ch_num, hi_ch_num, _, _ = self.get_supported_freq_config()
@@ -169,6 +169,10 @@ class CCmisApi(CmisApi):
             assert grid_supported_100GHz
             freq_grid = 0x50
             channel_number = int(round((freq - 193100)/100))
+        elif grid == 150:
+            freq_grid = 0x80
+            channel_number = int(round((freq - 193100)/25))
+            assert channel_number % 6 == 0
         else:
             return False
         self.xcvr_eeprom.write(consts.GRID_SPACING, freq_grid)

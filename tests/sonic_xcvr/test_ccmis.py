@@ -39,6 +39,7 @@ class TestCCmis(object):
         (75, 12, 193400),
         (75, -30, 192350),
         (100, 10, 194100),
+        (150, 12, 193400),
     ])
     def test_get_laser_config_freq(self, mock_response1, mock_response2, expected):
         self.api.get_freq_grid = MagicMock()
@@ -98,6 +99,7 @@ class TestCCmis(object):
     @pytest.mark.parametrize("input_param, mock_response",[
         ((193100,75), (0xff, -72, 120, 191300, 196100)),
         ((195950,100), (0xff, -72, 120, 191300, 196100)),
+        ((193400,150), (0xff, -72, 120, 191300, 196100)),
     ])
     def test_set_laser_freq(self, input_param, mock_response):
         self.api.is_flat_memory = MagicMock()
