@@ -7,6 +7,7 @@ from ...fields import consts
 from .cmis import CmisApi, CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP, CMIS_XCVR_INFO_DEFAULT_DICT
 import time
 import copy
+from ...utils.cache import read_only_cached_api_return
 
 C_CMIS_DELTA_VDM_KEY_TO_DB_PREFIX_KEY_MAP = {
     'Modulator Bias X/I [%]' : 'biasxi',
@@ -187,21 +188,74 @@ class CCmisApi(CmisApi):
         time.sleep(1)
         return status
 
+    @read_only_cached_api_return
+    def _is_rx_clockrec_pm_implemented(self):
+        '''
+        Returns True if the Page 42h clock recovery loop PM advertisement bit is
+        set.
+        '''
+        return (self.is_coherent_module() and not self.is_flat_memory()
+                and bool(self.xcvr_eeprom.read(consts.RX_CLOCK_REC_IMPL)))
+
+    @read_only_cached_api_return
+    def _is_rx_lg_sopmd_pm_implemented(self):
+        '''
+        Returns True if the Page 42h low-granularity SOPMD PM advertisement bit is
+        set.
+        '''
+        return (self.is_coherent_module() and not self.is_flat_memory()
+                and bool(self.xcvr_eeprom.read(consts.RX_LG_SOPMD_IMPL)))
+
+    @read_only_cached_api_return
+    def _is_rx_snr_margin_pm_implemented(self):
+        '''
+        Returns True if the Page 42h SNR margin PM advertisement bit is set.
+        '''
+        return (self.is_coherent_module() and not self.is_flat_memory()
+                and bool(self.xcvr_eeprom.read(consts.RX_SNR_MARGIN_IMPL)))
+
+    @read_only_cached_api_return
+    def _is_rx_qfactor_pm_implemented(self):
+        '''
+        Returns True if the Page 42h Q-factor PM advertisement bit is set.
+        '''
+        return (self.is_coherent_module() and not self.is_flat_memory()
+                and bool(self.xcvr_eeprom.read(consts.RX_QFACTOR_IMPL)))
+
+    @read_only_cached_api_return
+    def _is_rx_qmargin_pm_implemented(self):
+        '''
+        Returns True if the Page 42h Q-margin PM advertisement bit is set.
+        '''
+        return (self.is_coherent_module() and not self.is_flat_memory()
+                and bool(self.xcvr_eeprom.read(consts.RX_QMARGIN_IMPL)))
+
     def get_pm_all(self):
         '''
-        This function returns the PMs reported in Page 34h and 35h in OIF C-CMIS document
-        CD:     unit in ps/nm
-        DGD:    unit in ps
-        SOPMD:  unit in ps^2
-        PDL:    unit in dB
-        OSNR:   unit in dB
-        ESNR:   unit in dB
-        CFO:    unit in MHz
-        TXpower:unit in dBm
-        RXpower:unit in dBm
-        RX sig power:   unit in dBm
-        SOPROC: unit in krad/s
-        MER:    unit in dB
+        This function returns the PMs reported in Page 34h, 35h and 3Ah in the
+        OIF C-CMIS document.
+        CD:                     unit in ps/nm
+        DGD:                    unit in ps
+        SOPMD:                  unit in ps^2
+        PDL:                    unit in dB
+        OSNR:                   unit in dB
+        ESNR:                   unit in dB
+        CFO:                    unit in MHz
+        EVM:                    unit in %
+        TXpower:                unit in dBm
+        RXpower:                unit in dBm
+        RX sig power:           unit in dBm
+        SOPROC:                 unit in krad/s
+        MER:                    unit in dB
+        Clock recovery:         unit in %
+        Low-granularity SOPMD:  unit in ps^2
+        SNR margin:             unit in dB
+        Q-factor:               unit in dB
+        Q-margin:               unit in dB
+
+        The raw Page 34h RX FEC counters (rx_bits_pm, rx_corr_bits_pm, rx_frames_pm,
+        ...) are also included alongside the derived preFEC_* ratios computed from
+        them, so downstream consumers can publish the raw counter values.
         '''
         PM_dict = dict()
 
@@ -220,6 +274,12 @@ class CCmisApi(CmisApi):
             PM_dict['preFEC_BER_avg'] = 1.0
             PM_dict['preFEC_BER_min'] = 1.0
             PM_dict['preFEC_BER_max'] = 1.0
+        # Raw page 34h RX FEC bit counters (published to the counters table).
+        PM_dict['rx_bits_pm'] = rx_bits_pm
+        PM_dict['rx_bits_subint_pm'] = rx_bits_subint_pm
+        PM_dict['rx_corr_bits_pm'] = rx_corr_bits_pm
+        PM_dict['rx_min_corr_bits_subint_pm'] = rx_min_corr_bits_subint_pm
+        PM_dict['rx_max_corr_bits_subint_pm'] = rx_max_corr_bits_subint_pm
         rx_frames_pm = self.xcvr_eeprom.read(consts.RX_FRAMES_PM)
         rx_frames_subint_pm = self.xcvr_eeprom.read(consts.RX_FRAMES_SUB_INTERVAL_PM)
         rx_frames_uncorr_err_pm = self.xcvr_eeprom.read(consts.RX_FRAMES_UNCORR_ERR_PM)
@@ -235,6 +295,12 @@ class CCmisApi(CmisApi):
             PM_dict['preFEC_uncorr_frame_ratio_avg'] = 0
             PM_dict['preFEC_uncorr_frame_ratio_min'] = 0
             PM_dict['preFEC_uncorr_frame_ratio_max'] = 0
+        # Raw page 34h RX FEC frame counters (published to the counters table).
+        PM_dict['rx_frames_pm'] = rx_frames_pm
+        PM_dict['rx_frames_subint_pm'] = rx_frames_subint_pm
+        PM_dict['rx_frames_uncorr_err_pm'] = rx_frames_uncorr_err_pm
+        PM_dict['rx_min_frames_uncorr_err_subint_pm'] = rx_min_frames_uncorr_err_subint_pm
+        PM_dict['rx_max_frames_uncorr_err_subint_pm'] = rx_max_frames_uncorr_err_subint_pm
         PM_dict['rx_cd_avg'] = self.xcvr_eeprom.read(consts.RX_AVG_CD_PM)
         PM_dict['rx_cd_min'] = self.xcvr_eeprom.read(consts.RX_MIN_CD_PM)
         PM_dict['rx_cd_max'] = self.xcvr_eeprom.read(consts.RX_MAX_CD_PM)
@@ -286,6 +352,48 @@ class CCmisApi(CmisApi):
         PM_dict['rx_mer_avg'] = self.xcvr_eeprom.read(consts.RX_AVG_MER_PM)
         PM_dict['rx_mer_min'] = self.xcvr_eeprom.read(consts.RX_MIN_MER_PM)
         PM_dict['rx_mer_max'] = self.xcvr_eeprom.read(consts.RX_MAX_MER_PM)
+
+        # Page 35h monitors added after the original release. These are gated on
+        # their Page 42h advertisement bit: the keys are only added when the field
+        # is advertised as implemented, and omitted otherwise.
+        if self._is_rx_clockrec_pm_implemented():
+            PM_dict['rx_clockrec_avg'] = self.xcvr_eeprom.read(consts.RX_AVG_CLOCK_REC_PM)
+            PM_dict['rx_clockrec_min'] = self.xcvr_eeprom.read(consts.RX_MIN_CLOCK_REC_PM)
+            PM_dict['rx_clockrec_max'] = self.xcvr_eeprom.read(consts.RX_MAX_CLOCK_REC_PM)
+
+        if self._is_rx_lg_sopmd_pm_implemented():
+            PM_dict['rx_lg_sopmd_avg'] = self.xcvr_eeprom.read(consts.RX_AVG_LG_SOPMD_PM)
+            PM_dict['rx_lg_sopmd_min'] = self.xcvr_eeprom.read(consts.RX_MIN_LG_SOPMD_PM)
+            PM_dict['rx_lg_sopmd_max'] = self.xcvr_eeprom.read(consts.RX_MAX_LG_SOPMD_PM)
+
+        if self._is_rx_snr_margin_pm_implemented():
+            PM_dict['rx_snr_margin_avg'] = self.xcvr_eeprom.read(consts.RX_AVG_SNR_MARGIN_PM)
+            PM_dict['rx_snr_margin_min'] = self.xcvr_eeprom.read(consts.RX_MIN_SNR_MARGIN_PM)
+            PM_dict['rx_snr_margin_max'] = self.xcvr_eeprom.read(consts.RX_MAX_SNR_MARGIN_PM)
+
+        if self._is_rx_qfactor_pm_implemented():
+            PM_dict['rx_qfactor_avg'] = self.xcvr_eeprom.read(consts.RX_AVG_QFACTOR_PM)
+            PM_dict['rx_qfactor_min'] = self.xcvr_eeprom.read(consts.RX_MIN_QFACTOR_PM)
+            PM_dict['rx_qfactor_max'] = self.xcvr_eeprom.read(consts.RX_MAX_PM_QFACTOR)
+
+        if self._is_rx_qmargin_pm_implemented():
+            PM_dict['rx_qmargin_avg'] = self.xcvr_eeprom.read(consts.RX_AVG_QMARGIN_PM)
+            PM_dict['rx_qmargin_min'] = self.xcvr_eeprom.read(consts.RX_MIN_QMARGIN_PM)
+            PM_dict['rx_qmargin_max'] = self.xcvr_eeprom.read(consts.RX_MAX_QMARGIN_PM)
+
+        # Page 3Ah - data path host interface PM
+        PM_dict['tx_bits_pm'] = self.xcvr_eeprom.read(consts.TX_BITS_PM)
+        PM_dict['tx_bits_subint_pm'] = self.xcvr_eeprom.read(consts.TX_BITS_SUB_INTERVAL_PM)
+        PM_dict['tx_corr_bits_pm'] = self.xcvr_eeprom.read(consts.TX_CORR_BITS_PM)
+        PM_dict['tx_min_corr_bits_subint_pm'] = self.xcvr_eeprom.read(consts.TX_MIN_CORR_BITS_SUB_INTERVAL_PM)
+        PM_dict['tx_max_corr_bits_subint_pm'] = self.xcvr_eeprom.read(consts.TX_MAX_CORR_BITS_SUB_INTERVAL_PM)
+        PM_dict['tx_frames_pm'] = self.xcvr_eeprom.read(consts.TX_FRAMES_PM)
+        PM_dict['tx_frames_subint_pm'] = self.xcvr_eeprom.read(consts.TX_FRAMES_SUB_INTERVAL_PM)
+        PM_dict['tx_frames_uncorr_err_pm'] = self.xcvr_eeprom.read(consts.TX_FRAMES_UNCORR_ERR_PM)
+        PM_dict['tx_min_frames_uncorr_err_subint_pm'] = self.xcvr_eeprom.read(consts.TX_MIN_FRAMES_UNCORR_ERR_SUB_INTERVAL_PM)
+        PM_dict['tx_max_frames_uncorr_err_subint_pm'] = self.xcvr_eeprom.read(consts.TX_MAX_FRAMES_UNCORR_ERR_SUB_INTERVAL_PM)
+        PM_dict['tx_corrected_frames_pm'] = self.xcvr_eeprom.read(consts.TX_CORRECTED_FRAMES_PM)
+        PM_dict['tx_corrected_frames_subint_pm'] = self.xcvr_eeprom.read(consts.TX_CORRECTED_FRAMES_SUB_INTERVAL_PM)
         return PM_dict
 
     def _get_xcvr_info_default_dict(self):
@@ -418,6 +526,16 @@ class CCmisApi(CmisApi):
         ========================================================================
         key                          = TRANSCEIVER_PM|ifname            ; information of PM on port
         ; field                      = value 
+        rx_bits_pm                   = INTEGER                          ; media rx bits over PM interval
+        rx_bits_subint_pm            = INTEGER                          ; media rx bits over sub-interval
+        rx_corr_bits_pm              = INTEGER                          ; media rx corrected bits over PM interval
+        rx_min_corr_bits_subint_pm   = INTEGER                          ; media rx min corrected bits over sub-interval
+        rx_max_corr_bits_subint_pm   = INTEGER                          ; media rx max corrected bits over sub-interval
+        rx_frames_pm                 = INTEGER                          ; media rx frames over PM interval
+        rx_frames_subint_pm          = INTEGER                          ; media rx frames over sub-interval
+        rx_frames_uncorr_err_pm      = INTEGER                          ; media rx uncorrectable frames over PM interval
+        rx_min_frames_uncorr_err_subint_pm = INTEGER                    ; media rx min uncorrectable frames over sub-interval
+        rx_max_frames_uncorr_err_subint_pm = INTEGER                    ; media rx max uncorrectable frames over sub-interval
         prefec_ber_avg               = FLOAT                            ; prefec ber avg
         prefec_ber_min               = FLOAT                            ; prefec ber min
         prefec_ber_max               = FLOAT                            ; prefec ber max
@@ -457,16 +575,64 @@ class CCmisApi(CmisApi):
         rx_sig_power_avg             = FLOAT                            ; rx signal power avg
         rx_sig_power_min             = FLOAT                            ; rx signal power min
         rx_sig_power_max             = FLOAT                            ; rx signal power max
+        evm_avg                      = FLOAT                            ; error vector magnitude avg
+        evm_min                      = FLOAT                            ; error vector magnitude min
+        evm_max                      = FLOAT                            ; error vector magnitude max
+        clockrec_avg                 = FLOAT                            ; clock recovery loop monitor avg
+        clockrec_min                 = FLOAT                            ; clock recovery loop monitor min
+        clockrec_max                 = FLOAT                            ; clock recovery loop monitor max
+        lg_sopmd_avg                 = FLOAT                            ; low granularity SOPMD avg
+        lg_sopmd_min                 = FLOAT                            ; low granularity SOPMD min
+        lg_sopmd_max                 = FLOAT                            ; low granularity SOPMD max
+        snr_margin_avg               = FLOAT                            ; SNR margin avg
+        snr_margin_min               = FLOAT                            ; SNR margin min
+        snr_margin_max               = FLOAT                            ; SNR margin max
+        qfactor_avg                  = FLOAT                            ; Q factor avg
+        qfactor_min                  = FLOAT                            ; Q factor min
+        qfactor_max                  = FLOAT                            ; Q factor max
+        qmargin_avg                  = FLOAT                            ; Q margin avg
+        qmargin_min                  = FLOAT                            ; Q margin min
+        qmargin_max                  = FLOAT                            ; Q margin max
+        tx_bits_pm                   = INTEGER                          ; host tx bits over PM interval
+        tx_bits_subint_pm            = INTEGER                          ; host tx bits over sub-interval
+        tx_corr_bits_pm              = INTEGER                          ; host tx corrected bits over PM interval
+        tx_min_corr_bits_subint_pm   = INTEGER                          ; host tx min corrected bits over sub-interval
+        tx_max_corr_bits_subint_pm   = INTEGER                          ; host tx max corrected bits over sub-interval
+        tx_frames_pm                 = INTEGER                          ; host tx frames over PM interval
+        tx_frames_subint_pm          = INTEGER                          ; host tx frames over sub-interval
+        tx_frames_uncorr_err_pm      = INTEGER                          ; host tx uncorrectable frames over PM interval
+        tx_min_frames_uncorr_err_subint_pm = INTEGER                    ; host tx min uncorrectable frames over sub-interval
+        tx_max_frames_uncorr_err_subint_pm = INTEGER                    ; host tx max uncorrectable frames over sub-interval
+        tx_corrected_frames_pm       = INTEGER                          ; host tx corrected frames over PM interval
+        tx_corrected_frames_subint_pm = INTEGER                         ; host tx corrected frames over sub-interval
         ========================================================================
+
+        Note: the later Page 35h additions (clock recovery, LG-SOPMD, SNR margin,
+        Q-factor, Q-margin) are gated on their Page 42h advertisement bit, so they
+        surface here as None on modules that don't advertise them, preserving
+        backwards compatibility.
         """
         trans_pm = dict()
         PM_dict = self.get_pm_all()
+        # Page 34h media lane FEC PM counters
+        trans_pm['rx_bits_pm'] = PM_dict['rx_bits_pm']
+        trans_pm['rx_bits_subint_pm'] = PM_dict['rx_bits_subint_pm']
+        trans_pm['rx_corr_bits_pm'] = PM_dict['rx_corr_bits_pm']
+        trans_pm['rx_min_corr_bits_subint_pm'] = PM_dict['rx_min_corr_bits_subint_pm']
+        trans_pm['rx_max_corr_bits_subint_pm'] = PM_dict['rx_max_corr_bits_subint_pm']
+        trans_pm['rx_frames_pm'] = PM_dict['rx_frames_pm']
+        trans_pm['rx_frames_subint_pm'] = PM_dict['rx_frames_subint_pm']
+        trans_pm['rx_frames_uncorr_err_pm'] = PM_dict['rx_frames_uncorr_err_pm']
+        trans_pm['rx_min_frames_uncorr_err_subint_pm'] = PM_dict['rx_min_frames_uncorr_err_subint_pm']
+        trans_pm['rx_max_frames_uncorr_err_subint_pm'] = PM_dict['rx_max_frames_uncorr_err_subint_pm']
+        # Page 34h media lane FEC PM - derived values
         trans_pm['prefec_ber_avg'] = PM_dict['preFEC_BER_avg']
         trans_pm['prefec_ber_min'] = PM_dict['preFEC_BER_min']
         trans_pm['prefec_ber_max'] = PM_dict['preFEC_BER_max']
         trans_pm['uncorr_frames_avg'] = PM_dict['preFEC_uncorr_frame_ratio_avg']
         trans_pm['uncorr_frames_min'] = PM_dict['preFEC_uncorr_frame_ratio_min']
         trans_pm['uncorr_frames_max'] = PM_dict['preFEC_uncorr_frame_ratio_max']
+        # Page 35h media lane link PM
         trans_pm['cd_avg'] = PM_dict['rx_cd_avg']
         trans_pm['cd_min'] = PM_dict['rx_cd_min']
         trans_pm['cd_max'] = PM_dict['rx_cd_max']
@@ -503,4 +669,33 @@ class CCmisApi(CmisApi):
         trans_pm['rx_sig_power_avg'] = PM_dict['rx_sigpwr_avg']
         trans_pm['rx_sig_power_min'] = PM_dict['rx_sigpwr_min']
         trans_pm['rx_sig_power_max'] = PM_dict['rx_sigpwr_max']
+        # Page 35h media lane link PM - advertisement gated values
+        trans_pm['clockrec_avg'] = PM_dict.get('rx_clockrec_avg')
+        trans_pm['clockrec_min'] = PM_dict.get('rx_clockrec_min')
+        trans_pm['clockrec_max'] = PM_dict.get('rx_clockrec_max')
+        trans_pm['lg_sopmd_avg'] = PM_dict.get('rx_lg_sopmd_avg')
+        trans_pm['lg_sopmd_min'] = PM_dict.get('rx_lg_sopmd_min')
+        trans_pm['lg_sopmd_max'] = PM_dict.get('rx_lg_sopmd_max')
+        trans_pm['snr_margin_avg'] = PM_dict.get('rx_snr_margin_avg')
+        trans_pm['snr_margin_min'] = PM_dict.get('rx_snr_margin_min')
+        trans_pm['snr_margin_max'] = PM_dict.get('rx_snr_margin_max')
+        trans_pm['qfactor_avg'] = PM_dict.get('rx_qfactor_avg')
+        trans_pm['qfactor_min'] = PM_dict.get('rx_qfactor_min')
+        trans_pm['qfactor_max'] = PM_dict.get('rx_qfactor_max')
+        trans_pm['qmargin_avg'] = PM_dict.get('rx_qmargin_avg')
+        trans_pm['qmargin_min'] = PM_dict.get('rx_qmargin_min')
+        trans_pm['qmargin_max'] = PM_dict.get('rx_qmargin_max')
+        # Page 3Ah host interface PM counters
+        trans_pm['tx_bits_pm'] = PM_dict['tx_bits_pm']
+        trans_pm['tx_bits_subint_pm'] = PM_dict['tx_bits_subint_pm']
+        trans_pm['tx_corr_bits_pm'] = PM_dict['tx_corr_bits_pm']
+        trans_pm['tx_min_corr_bits_subint_pm'] = PM_dict['tx_min_corr_bits_subint_pm']
+        trans_pm['tx_max_corr_bits_subint_pm'] = PM_dict['tx_max_corr_bits_subint_pm']
+        trans_pm['tx_frames_pm'] = PM_dict['tx_frames_pm']
+        trans_pm['tx_frames_subint_pm'] = PM_dict['tx_frames_subint_pm']
+        trans_pm['tx_frames_uncorr_err_pm'] = PM_dict['tx_frames_uncorr_err_pm']
+        trans_pm['tx_min_frames_uncorr_err_subint_pm'] = PM_dict['tx_min_frames_uncorr_err_subint_pm']
+        trans_pm['tx_max_frames_uncorr_err_subint_pm'] = PM_dict['tx_max_frames_uncorr_err_subint_pm']
+        trans_pm['tx_corrected_frames_pm'] = PM_dict['tx_corrected_frames_pm']
+        trans_pm['tx_corrected_frames_subint_pm'] = PM_dict['tx_corrected_frames_subint_pm']
         return trans_pm
