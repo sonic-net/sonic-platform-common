@@ -1174,6 +1174,34 @@ class TestCmis(object):
         result = self.api.get_active_apsel_hostlane()
         assert result == expected
 
+
+    @pytest.mark.parametrize(
+        "appl, is_flat_memory, appl_advt, expected",
+        [
+            # Default (appl=None): reads from lower page.
+            (None, False, {}, 8),
+            # appl=2 on a non-flat module with 2 apps: returns host_lane_count.
+            (2, False,
+             {1: {'host_lane_count': 1}, 2: {'host_lane_count': 4}},
+             4),
+            # appl=1 returns that app's count.
+            (1, False,
+             {1: {'host_lane_count': 1}, 2: {'host_lane_count': 4}},
+             1),
+            # Flat memory with explicit appl returns 0.
+            (1, True, {}, 0),
+            # appl=0 returns 0.
+            (0, False, {1: {'host_lane_count': 1}}, 0),
+            # appl not in advertisement returns 0.
+            (5, False, {1: {'host_lane_count': 1}}, 0),
+        ]
+    )
+    def test_get_host_lane_count(self, appl, is_flat_memory, appl_advt, expected):
+        self.api.xcvr_eeprom.read = MagicMock(return_value=8)
+        with patch.object(self.api, 'is_flat_memory', return_value=is_flat_memory), \
+             patch.object(self.api, 'get_application_advertisement', return_value=appl_advt):
+            assert self.api.get_host_lane_count(appl) == expected
+
     @pytest.mark.parametrize("mock_response, expected", [
         (-10, -10)
     ])
@@ -1395,37 +1423,45 @@ class TestCmis(object):
         result = self.api.get_loopback_capability()
         assert result == expected
 
-    @pytest.mark.parametrize("input_param, mock_response, expected",[
-        ([0xf, True], None, False),
+    @pytest.mark.parametrize("input_param, mock_response, host_lane_count, expected",[
+        ([0xf, True], None, 8, False),
         ([0xf, True], {
             'host_side_input_loopback_supported': False,
             'simultaneous_host_media_loopback_supported': True,
             'per_lane_host_loopback_supported': True,
-        }, False),
+        }, 8, False),
         ([0xf, True], {
             'host_side_input_loopback_supported': True,
             'simultaneous_host_media_loopback_supported': True,
             'per_lane_host_loopback_supported': False,
-        }, False),
+        }, 8, False),
         ([0xf, True], {
             'host_side_input_loopback_supported': True,
             'simultaneous_host_media_loopback_supported': False,
             'per_lane_host_loopback_supported': True,
-        }, False),
+        }, 8, False),
         ([0xf, True], {
             'host_side_input_loopback_supported': True,
             'simultaneous_host_media_loopback_supported': True,
             'per_lane_host_loopback_supported': True,
-        }, True),
+        }, 8, True),
         ([0xf, False], {
             'host_side_input_loopback_supported': True,
             'simultaneous_host_media_loopback_supported': True,
             'per_lane_host_loopback_supported': True,
-        }, True),
+        }, 8, True),
+        # 4-lane module: 0x0f is the all-lanes mask, so per_lane=False must succeed.
+        ([0x0f, True], {
+            'host_side_input_loopback_supported': True,
+            'simultaneous_host_media_loopback_supported': True,
+            'per_lane_host_loopback_supported': False,
+        }, 4, True),
     ])
-    def test_set_host_input_loopback(self, input_param, mock_response, expected):
+    def test_set_host_input_loopback(self, input_param, mock_response, host_lane_count, expected):
         self.api.get_loopback_capability = MagicMock()
         self.api.get_loopback_capability.return_value = mock_response
+        self.api.get_active_apsel_hostlane = MagicMock(return_value={"ActiveAppSelLane1": 1})
+        self.api.get_host_lane_count = MagicMock(return_value=host_lane_count)
         self.api.xcvr_eeprom.read = MagicMock()
         self.api.xcvr_eeprom.read.side_effect = [0x0f,0x0f]
         self.api.xcvr_eeprom.write = MagicMock()
@@ -1433,37 +1469,45 @@ class TestCmis(object):
         result = self.api.set_host_input_loopback(input_param[0], input_param[1])
         assert result == expected
 
-    @pytest.mark.parametrize("input_param, mock_response, expected",[
-        ([0xf, True], None, False),
+    @pytest.mark.parametrize("input_param, mock_response, host_lane_count, expected",[
+        ([0xf, True], None, 8, False),
         ([0xf, True], {
             'host_side_output_loopback_supported': False,
             'simultaneous_host_media_loopback_supported': True,
             'per_lane_host_loopback_supported': True,
-        }, False),
+        }, 8, False),
         ([0xf, True], {
             'host_side_output_loopback_supported': True,
             'simultaneous_host_media_loopback_supported': True,
             'per_lane_host_loopback_supported': False,
-        }, False),
+        }, 8, False),
         ([0xf, True], {
             'host_side_output_loopback_supported': True,
             'simultaneous_host_media_loopback_supported': False,
             'per_lane_host_loopback_supported': True,
-        }, False),
+        }, 8, False),
         ([0xf, True], {
             'host_side_output_loopback_supported': True,
             'simultaneous_host_media_loopback_supported': True,
             'per_lane_host_loopback_supported': True,
-        }, True),
+        }, 8, True),
         ([0xf, False], {
             'host_side_output_loopback_supported': True,
             'simultaneous_host_media_loopback_supported': True,
             'per_lane_host_loopback_supported': True,
-        }, True),
+        }, 8, True),
+        # 4-lane module: 0x0f is the all-lanes mask, so per_lane=False must succeed.
+        ([0x0f, True], {
+            'host_side_output_loopback_supported': True,
+            'simultaneous_host_media_loopback_supported': True,
+            'per_lane_host_loopback_supported': False,
+        }, 4, True),
     ])
-    def test_set_host_output_loopback(self, input_param, mock_response, expected):
+    def test_set_host_output_loopback(self, input_param, mock_response, host_lane_count, expected):
         self.api.get_loopback_capability = MagicMock()
         self.api.get_loopback_capability.return_value = mock_response
+        self.api.get_active_apsel_hostlane = MagicMock(return_value={"ActiveAppSelLane1": 1})
+        self.api.get_host_lane_count = MagicMock(return_value=host_lane_count)
         self.api.xcvr_eeprom.read = MagicMock()
         self.api.xcvr_eeprom.read.side_effect = [0x0f,0x0f]
         self.api.xcvr_eeprom.write = MagicMock()
@@ -1471,37 +1515,45 @@ class TestCmis(object):
         result = self.api.set_host_output_loopback(input_param[0], input_param[1])
         assert result == expected
 
-    @pytest.mark.parametrize("input_param, mock_response, expected",[
-        ([0xf, True], None, False),
+    @pytest.mark.parametrize("input_param, mock_response, media_lane_count, expected",[
+        ([0xf, True], None, 8, False),
         ([0xf, True], {
             'media_side_input_loopback_supported': False,
             'simultaneous_host_media_loopback_supported': True,
             'per_lane_media_loopback_supported': True,
-        }, False),
+        }, 8, False),
         ([0xf, True], {
             'media_side_input_loopback_supported': True,
             'simultaneous_host_media_loopback_supported': True,
             'per_lane_media_loopback_supported': False,
-        }, False),
+        }, 8, False),
         ([0xf, True], {
             'media_side_input_loopback_supported': True,
             'simultaneous_host_media_loopback_supported': False,
             'per_lane_media_loopback_supported': True,
-        }, False),
+        }, 8, False),
         ([0xf, True], {
             'media_side_input_loopback_supported': True,
             'simultaneous_host_media_loopback_supported': True,
             'per_lane_media_loopback_supported': True,
-        }, True),
+        }, 8, True),
         ([0xf, False], {
             'media_side_input_loopback_supported': True,
             'simultaneous_host_media_loopback_supported': True,
             'per_lane_media_loopback_supported': True,
-        }, True),
+        }, 8, True),
+        # 4-lane module: 0x0f is the all-lanes mask, so per_lane=False must succeed.
+        ([0x0f, True], {
+            'media_side_input_loopback_supported': True,
+            'simultaneous_host_media_loopback_supported': True,
+            'per_lane_media_loopback_supported': False,
+        }, 4, True),
     ])
-    def test_set_media_input_loopback(self, input_param, mock_response, expected):
+    def test_set_media_input_loopback(self, input_param, mock_response, media_lane_count, expected):
         self.api.get_loopback_capability = MagicMock()
         self.api.get_loopback_capability.return_value = mock_response
+        self.api.get_active_apsel_hostlane = MagicMock(return_value={"ActiveAppSelLane1": 1})
+        self.api.get_media_lane_count = MagicMock(return_value=media_lane_count)
         self.api.xcvr_eeprom.read = MagicMock()
         self.api.xcvr_eeprom.read.side_effect = [0x0f,0x0f]
         self.api.xcvr_eeprom.write = MagicMock()
@@ -1509,37 +1561,45 @@ class TestCmis(object):
         result = self.api.set_media_input_loopback(input_param[0], input_param[1])
         assert result == expected
 
-    @pytest.mark.parametrize("input_param, mock_response, expected",[
-        ([0xf, True], None, False),
+    @pytest.mark.parametrize("input_param, mock_response, media_lane_count, expected",[
+        ([0xf, True], None, 8, False),
         ([0xf, True], {
             'media_side_output_loopback_supported': False,
             'simultaneous_host_media_loopback_supported': True,
             'per_lane_media_loopback_supported': True,
-        }, False),
+        }, 8, False),
         ([0xf, True], {
             'media_side_output_loopback_supported': True,
             'simultaneous_host_media_loopback_supported': True,
             'per_lane_media_loopback_supported': False,
-        }, False),
+        }, 8, False),
         ([0xf, True], {
             'media_side_output_loopback_supported': True,
             'simultaneous_host_media_loopback_supported': False,
             'per_lane_media_loopback_supported': True,
-        }, False),
+        }, 8, False),
         ([0xf, True], {
             'media_side_output_loopback_supported': True,
             'simultaneous_host_media_loopback_supported': True,
             'per_lane_media_loopback_supported': True,
-        }, True),
+        }, 8, True),
         ([0xf, False], {
             'media_side_output_loopback_supported': True,
             'simultaneous_host_media_loopback_supported': True,
             'per_lane_media_loopback_supported': True,
-        }, True),
+        }, 8, True),
+        # 4-lane module: 0x0f is the all-lanes mask, so per_lane=False must succeed.
+        ([0x0f, True], {
+            'media_side_output_loopback_supported': True,
+            'simultaneous_host_media_loopback_supported': True,
+            'per_lane_media_loopback_supported': False,
+        }, 4, True),
     ])
-    def test_set_media_output_loopback(self, input_param, mock_response, expected):
+    def test_set_media_output_loopback(self, input_param, mock_response, media_lane_count, expected):
         self.api.get_loopback_capability = MagicMock()
         self.api.get_loopback_capability.return_value = mock_response
+        self.api.get_active_apsel_hostlane = MagicMock(return_value={"ActiveAppSelLane1": 1})
+        self.api.get_media_lane_count = MagicMock(return_value=media_lane_count)
         self.api.xcvr_eeprom.read = MagicMock()
         self.api.xcvr_eeprom.read.side_effect = [0x0f,0x0f]
         self.api.xcvr_eeprom.write = MagicMock()
@@ -1558,9 +1618,11 @@ class TestCmis(object):
         (['media-side-input', 0xF0, False], True, True),
         (['media-side-output', 0xF0, False], True, True),
         (['', 0xF0, False], True, False),
-
+        # 4-lane module case: 0x0f is the all-lanes mask for 4 lanes.
+        (['host-side-input', 0x0F, True, 4], True, True),
     ])
     def test_set_loopback_mode(self, input_param, mock_response, expected):
+        lane_count = input_param[3] if len(input_param) > 3 else 8
         self.api.set_host_input_loopback = MagicMock()
         self.api.set_host_input_loopback.return_value = mock_response
         self.api.set_host_output_loopback = MagicMock()
@@ -1569,8 +1631,37 @@ class TestCmis(object):
         self.api.set_media_input_loopback.return_value = mock_response
         self.api.set_media_output_loopback = MagicMock()
         self.api.set_media_output_loopback.return_value = mock_response
+        self.api.get_active_apsel_hostlane = MagicMock(return_value={"ActiveAppSelLane1": 1})
+        self.api.get_host_lane_count = MagicMock(return_value=lane_count)
+        self.api.get_media_lane_count = MagicMock(return_value=lane_count)
         result = self.api.set_loopback_mode(input_param[0], input_param[1])
         assert result == expected
+
+    @pytest.mark.parametrize("host_lane_count, media_lane_count, expected_host_mask, expected_media_mask", [
+        (8, 8, 0xff, 0xff),
+        (4, 4, 0x0f, 0x0f),
+        (4, 1, 0x0f, 0x01),
+    ])
+    def test_set_loopback_mode_none_uses_active_lane_mask(self, host_lane_count, media_lane_count,
+                                                          expected_host_mask, expected_media_mask):
+        self.api.set_host_input_loopback = MagicMock(return_value=True)
+        self.api.set_host_output_loopback = MagicMock(return_value=True)
+        self.api.set_media_input_loopback = MagicMock(return_value=True)
+        self.api.set_media_output_loopback = MagicMock(return_value=True)
+        self.api.get_active_apsel_hostlane = MagicMock(return_value={"ActiveAppSelLane1": 1})
+        self.api.get_host_lane_count = MagicMock(return_value=host_lane_count)
+        self.api.get_media_lane_count = MagicMock(return_value=media_lane_count)
+        assert self.api.set_loopback_mode('none') == True
+        self.api.set_host_input_loopback.assert_called_once_with(expected_host_mask, False)
+        self.api.set_host_output_loopback.assert_called_once_with(expected_host_mask, False)
+        self.api.set_media_input_loopback.assert_called_once_with(expected_media_mask, False)
+        self.api.set_media_output_loopback.assert_called_once_with(expected_media_mask, False)
+
+    def test_set_loopback_mode_none_returns_false_when_lane_count_unknown(self):
+        self.api.get_active_apsel_hostlane = MagicMock(return_value={"ActiveAppSelLane1": 0})
+        self.api.get_host_lane_count = MagicMock(return_value=0)
+        self.api.get_media_lane_count = MagicMock(return_value=0)
+        assert self.api.set_loopback_mode('none') == False
 
     def test_is_transceiver_vdm_supported_no_vdm(self):
         self.api.vdm = None

@@ -158,6 +158,18 @@ class BMCBase(device_base.DeviceBase):
             return self.rf_client.logout()
         return RedfishClient.ERR_CODE_OK
 
+    def wait_until_redfish_ready(self, timeout=RedfishClient.READY_POLL_TIMEOUT,
+                                 interval=RedfishClient.READY_POLL_INTERVAL):
+        """
+        Wait until the BMC's Redfish service accepts a login again (e.g. after a
+        restart); thin pass-through to RedfishClient. Returns a RedfishClient
+        return code (ERR_CODE_OK when ready).
+
+        NOT decorated with @with_session_management -- its _login() would fail
+        while the BMC is rebooting and defeat the wait.
+        """
+        return self.rf_client.wait_until_redfish_ready(timeout, interval)
+
     def open_session(self):
         """
         Open a session with the BMC via the NOS BMC account credentials.

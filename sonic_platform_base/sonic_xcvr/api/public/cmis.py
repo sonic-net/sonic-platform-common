@@ -1118,11 +1118,30 @@ class CmisApi(CmisCdbFw, XcvrApi):
         duration = self.xcvr_eeprom.read(consts.MODULE_PWRDN_DURATION)
         return float(duration) if duration is not None else 0
 
-    def get_host_lane_count(self):
+    def get_host_lane_count(self, appl=None):
         '''
-        This function returns number of host lanes for default application
+        Returns the number of host lanes.
+
+        When appl is None, returns the default application's host lane count
+        from the lower page (Page 00h).  When appl is provided, looks up that
+        application's host_lane_count in the application advertisement (Page 00h
+        upper / Page 01h), mirroring the behaviour of get_media_lane_count.
+
+        Args:
+            appl (int or None): Application selector code (1-based).  Pass None
+                (default) to preserve the legacy behaviour.
+
+        Returns:
+            int: Host lane count, or 0 when the count cannot be determined.
         '''
-        return self.xcvr_eeprom.read(consts.HOST_LANE_COUNT)
+        if appl is None:
+            return self.xcvr_eeprom.read(consts.HOST_LANE_COUNT)
+        if self.is_flat_memory():
+            return 0
+        if appl <= 0:
+            return 0
+        appl_advt = self.get_application_advertisement()
+        return appl_advt[appl]['host_lane_count'] if len(appl_advt) >= appl else 0
 
     def get_media_lane_count(self, appl=1):
         '''
@@ -1196,7 +1215,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
         result = self.xcvr_eeprom.read(consts.MEDIA_OUTPUT_LOOPBACK)
         if result is None:
             return None
-        return result == 1
+        return bool(result)
 
     def get_media_input_loopback(self):
         '''
@@ -1205,7 +1224,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
         result = self.xcvr_eeprom.read(consts.MEDIA_INPUT_LOOPBACK)
         if result is None:
             return None
-        return result == 1
+        return bool(result)
 
     def get_host_output_loopback(self):
         '''
@@ -1496,7 +1515,17 @@ class CmisApi(CmisCdbFw, XcvrApi):
             logger.error('Host input loopback is not supported')
             return False
 
-        if loopback_capability['per_lane_host_loopback_supported'] is False and lane_mask != 0xff:
+        appl = self.get_active_apsel_hostlane().get("%s%d" % (consts.ACTIVE_APSEL_HOSTLANE, 1), 0)
+        host_lane_count = self.get_host_lane_count(appl)
+        if not host_lane_count:
+            logger.error('Cannot determine active host lane count (appl=%r)', appl)
+            return False
+        all_lanes_mask = (1 << host_lane_count) - 1
+
+        if lane_mask == 0xff:
+            lane_mask = all_lanes_mask
+
+        if loopback_capability['per_lane_host_loopback_supported'] is False and lane_mask != all_lanes_mask:
             logger.error('Per-lane host input loopback is not supported, lane_mask:%#x', lane_mask)
             return False
 
@@ -1504,8 +1533,10 @@ class CmisApi(CmisCdbFw, XcvrApi):
             media_input_val = self.xcvr_eeprom.read(consts.MEDIA_INPUT_LOOPBACK)
             media_output_val = self.xcvr_eeprom.read(consts.MEDIA_OUTPUT_LOOPBACK)
             if media_input_val or media_output_val:
+                m_in_str = f"{media_input_val:#x}" if media_input_val is not None else "None"
+                m_out_str = f"{media_output_val:#x}" if media_output_val is not None else "None"
                 txt = 'Simultaneous host media loopback is not supported\n'
-                txt += f'media_input_val:{media_input_val:#x}, media_output_val:{media_output_val:#x}'
+                txt += f'media_input_val:{m_in_str}, media_output_val:{m_out_str}'
                 logger.error(txt)
                 return False
 
@@ -1537,7 +1568,17 @@ class CmisApi(CmisCdbFw, XcvrApi):
             logger.error('Host output loopback is not supported')
             return False
 
-        if loopback_capability['per_lane_host_loopback_supported'] is False and lane_mask != 0xff:
+        appl = self.get_active_apsel_hostlane().get("%s%d" % (consts.ACTIVE_APSEL_HOSTLANE, 1), 0)
+        host_lane_count = self.get_host_lane_count(appl)
+        if not host_lane_count:
+            logger.error('Cannot determine active host lane count (appl=%r)', appl)
+            return False
+        all_lanes_mask = (1 << host_lane_count) - 1
+
+        if lane_mask == 0xff:
+            lane_mask = all_lanes_mask
+
+        if loopback_capability['per_lane_host_loopback_supported'] is False and lane_mask != all_lanes_mask:
             logger.error('Per-lane host output loopback is not supported, lane_mask:%#x', lane_mask)
             return False
 
@@ -1545,8 +1586,10 @@ class CmisApi(CmisCdbFw, XcvrApi):
             media_input_val = self.xcvr_eeprom.read(consts.MEDIA_INPUT_LOOPBACK)
             media_output_val = self.xcvr_eeprom.read(consts.MEDIA_OUTPUT_LOOPBACK)
             if media_input_val or media_output_val:
+                m_in_str = f"{media_input_val:#x}" if media_input_val is not None else "None"
+                m_out_str = f"{media_output_val:#x}" if media_output_val is not None else "None"
                 txt = 'Simultaneous host media loopback is not supported\n'
-                txt += f'media_input_val:{media_input_val:x}, media_output_val:{media_output_val:#x}'
+                txt += f'media_input_val:{m_in_str}, media_output_val:{m_out_str}'
                 logger.error(txt)
                 return False
 
@@ -1578,7 +1621,17 @@ class CmisApi(CmisCdbFw, XcvrApi):
             logger.error('Media input loopback is not supported')
             return False
 
-        if loopback_capability['per_lane_media_loopback_supported'] is False and lane_mask != 0xff:
+        appl = self.get_active_apsel_hostlane().get("%s%d" % (consts.ACTIVE_APSEL_HOSTLANE, 1), 0)
+        media_lane_count = self.get_media_lane_count(appl)
+        if not media_lane_count:
+            logger.error('Cannot determine active media lane count (appl=%r)', appl)
+            return False
+        all_lanes_mask = (1 << media_lane_count) - 1
+
+        if lane_mask == 0xff:
+            lane_mask = all_lanes_mask
+
+        if loopback_capability['per_lane_media_loopback_supported'] is False and lane_mask != all_lanes_mask:
             logger.error('Per-lane media input loopback is not supported, lane_mask:%#x', lane_mask)
             return False
 
@@ -1586,8 +1639,10 @@ class CmisApi(CmisCdbFw, XcvrApi):
             host_input_val = self.xcvr_eeprom.read(consts.HOST_INPUT_LOOPBACK)
             host_output_val = self.xcvr_eeprom.read(consts.HOST_OUTPUT_LOOPBACK)
             if host_input_val or host_output_val:
+                h_in_str = f"{host_input_val:#x}" if host_input_val is not None else "None"
+                h_out_str = f"{host_output_val:#x}" if host_output_val is not None else "None"
                 txt = 'Simultaneous host media loopback is not supported\n'
-                txt += f'host_input_val:{host_input_val:#x}, host_output_val:{host_output_val:#x}'
+                txt += f'host_input_val:{h_in_str}, host_output_val:{h_out_str}'
                 logger.error(txt)
                 return False
 
@@ -1619,7 +1674,17 @@ class CmisApi(CmisCdbFw, XcvrApi):
             logger.error('Media output loopback is not supported')
             return False
 
-        if loopback_capability['per_lane_media_loopback_supported'] is False and lane_mask != 0xff:
+        appl = self.get_active_apsel_hostlane().get("%s%d" % (consts.ACTIVE_APSEL_HOSTLANE, 1), 0)
+        media_lane_count = self.get_media_lane_count(appl)
+        if not media_lane_count:
+            logger.error('Cannot determine active media lane count (appl=%r)', appl)
+            return False
+        all_lanes_mask = (1 << media_lane_count) - 1
+
+        if lane_mask == 0xff:
+            lane_mask = all_lanes_mask
+
+        if loopback_capability['per_lane_media_loopback_supported'] is False and lane_mask != all_lanes_mask:
             logger.error('Per-lane media output loopback is not supported, lane_mask:%#x', lane_mask)
             return False
 
@@ -1627,8 +1692,10 @@ class CmisApi(CmisCdbFw, XcvrApi):
             host_input_val = self.xcvr_eeprom.read(consts.HOST_INPUT_LOOPBACK)
             host_output_val = self.xcvr_eeprom.read(consts.HOST_OUTPUT_LOOPBACK)
             if host_input_val or host_output_val:
+                h_in_str = f"{host_input_val:#x}" if host_input_val is not None else "None"
+                h_out_str = f"{host_output_val:#x}" if host_output_val is not None else "None"
                 txt = 'Simultaneous host media loopback is not supported\n'
-                txt += f'host_input_val:{host_input_val:#x}, host_output_val:{host_output_val:#x}'
+                txt += f'host_input_val:{h_in_str}, host_output_val:{h_out_str}'
                 logger.error(txt)
                 return False
 
@@ -1663,11 +1730,19 @@ class CmisApi(CmisCdbFw, XcvrApi):
         }
 
         if loopback_mode == 'none':
+            appl = self.get_active_apsel_hostlane().get("%s%d" % (consts.ACTIVE_APSEL_HOSTLANE, 1), 0)
+            host_lane_count = self.get_host_lane_count(appl)
+            media_lane_count = self.get_media_lane_count(appl)
+            if not host_lane_count or not media_lane_count:
+                logger.error("Cannot determine active lane counts for loopback 'none' (appl=%r)", appl)
+                return False
+            host_all_lanes_mask = (1 << host_lane_count) - 1
+            media_all_lanes_mask = (1 << media_lane_count) - 1
             return all([
-                self.set_host_input_loopback(0xff, False),
-                self.set_host_output_loopback(0xff, False),
-                self.set_media_input_loopback(0xff, False),
-                self.set_media_output_loopback(0xff, False)
+                self.set_host_input_loopback(host_all_lanes_mask, False),
+                self.set_host_output_loopback(host_all_lanes_mask, False),
+                self.set_media_input_loopback(media_all_lanes_mask, False),
+                self.set_media_output_loopback(media_all_lanes_mask, False)
             ])
 
         func = loopback_functions.get(loopback_mode)
