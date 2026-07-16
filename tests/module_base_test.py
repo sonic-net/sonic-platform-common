@@ -839,6 +839,21 @@ class TestModuleBase:
             call(self._key("DPU0"), "transition_start_time", "1000"),
         ])
 
+    def test_set_module_state_transition_recovery(self):
+        """The 'recovery' transition type must be accepted (added to defaults)."""
+        db = MagicMock()
+        self.module.state_db = db
+        db.hget.return_value = None
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_transition_operation_lock"), \
+             patch("time.time", return_value=1000):
+            assert self.module.set_module_state_transition("dpu0", "recovery") is True
+        db.hset.assert_has_calls([
+            call(self._key("DPU0"), "transition_in_progress", "True"),
+            call(self._key("DPU0"), "transition_type", "recovery"),
+            call(self._key("DPU0"), "transition_start_time", "1000"),
+        ])
+
     def test_set_module_state_transition_within_timeout(self, capsys):
         db = MagicMock()
         self.module.state_db = db
