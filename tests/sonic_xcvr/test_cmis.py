@@ -965,10 +965,33 @@ class TestCmis(object):
     @pytest.mark.parametrize("mock_response, expected", [
         ('Copper cable', False),
         ('400ZR', True),
+        # FOIC-named media interfaces (e.g. 800G-ZR+ FOIC, no 'ZR' substring)
+        # are coherent too; only reachable when CoherentPagesSupported is
+        # unavailable (mocked read() below defaults to None).
+        ('FOIC1.4-DO (G.709.3/Y.1331.3)', True),
     ])
     def test_is_coherent_module(self, mock_response, expected):
+        self.clear_cache('is_coherent_module')
+        # CoherentPagesSupported unavailable: force the string-matching
+        # fallback path regardless of what earlier tests left behind on the
+        # shared self.api.xcvr_eeprom mock.
+        self.api.xcvr_eeprom.read = MagicMock(return_value=None)
         self.api.get_module_media_interface = MagicMock()
         self.api.get_module_media_interface.return_value = mock_response
+        result = self.api.is_coherent_module()
+        assert result == expected
+
+    @pytest.mark.parametrize("mock_response, expected", [
+        (1, True),
+        (0, False),
+    ])
+    def test_is_coherent_module_coherent_pages_bit(self, mock_response, expected):
+        # When CoherentPagesSupported is advertised, it takes precedence over
+        # the media interface name (which is deliberately left un-mocked /
+        # not matching 'ZR' or 'FOIC', to prove the bit alone decides this).
+        self.clear_cache('is_coherent_module')
+        self.api.get_module_media_interface = MagicMock(return_value='Copper cable')
+        self.api.xcvr_eeprom.read = MagicMock(return_value=mock_response)
         result = self.api.is_coherent_module()
         assert result == expected
 
