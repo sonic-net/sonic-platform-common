@@ -90,6 +90,22 @@ class TestSfpOptoeBase(object):
         result = self.sfp_optoe_api.get_rx_disable_channel()
         assert result == expected
 
+    @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
+        (True, cmis_api, True),
+        (False, cmis_api, False),
+        (None, None, None),
+    ])
+    def test_get_power_override_support(self, mock_response1, mock_response2, expected):
+        self.sfp_optoe_api.get_xcvr_api = MagicMock()
+        self.sfp_optoe_api.get_xcvr_api.return_value = mock_response2
+        self.cmis_api.get_power_override_support = MagicMock()
+        self.cmis_api.get_power_override_support.return_value = mock_response1
+
+        result = self.sfp_optoe_api.get_power_override_support()
+        assert result == expected
+        if mock_response2 is not None:
+            self.cmis_api.get_power_override_support.assert_called_once()
+
 
     @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
         (0, cmis_api, 0),
