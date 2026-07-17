@@ -19,6 +19,7 @@ class CdbFwHandler(CdbCmdHandler):
         self.start_payload_size = 0
         self.is_lpl_only = False
         self.rw_length_ext = 0
+        self.is_abort_supported = False
         self.timeout_start = None
         self.timeout_abort = None
         self.timeout_write = None
@@ -40,16 +41,18 @@ class CdbFwHandler(CdbCmdHandler):
             log.log_notice("Failed to read firmware management features")
             return False
 
+        mgmt_features_adv = reply.get(cdb_consts.CDB_FIRMWARE_MGMT_ADV, {})
         self.start_payload_size = reply[cdb_consts.CDB_START_CMD_PAYLOAD_SIZE]
         self.is_lpl_only = reply[cdb_consts.CDB_WRITE_MECHANISM] == "LPL"
         self.rw_length_ext = reply[cdb_consts.CDB_READ_WRITE_LENGTH_EXT] + 8
+        self.is_abort_supported = bool(mgmt_features_adv.get(cdb_consts.CDB_ABORT_CMD_SUPPORTED, 0))
 
         if self.is_lpl_only:
             self.rw_length_ext = min(cdb_consts.LPL_MAX_PAYLOAD_SIZE, self.rw_length_ext)
         else:
             self.rw_length_ext = min(cdb_consts.EPL_MAX_PAYLOAD_SIZE, self.rw_length_ext)
 
-        multiplier = 10 if reply.get(cdb_consts.CDB_MAX_DURATION_ENCODING, 0) else 1
+        multiplier = 10 if mgmt_features_adv.get(cdb_consts.CDB_MAX_DURATION_ENCODING, 0) else 1
         duration_start = reply.get(cdb_consts.CDB_MAX_DURATION_START, 0)
         duration_abort = reply.get(cdb_consts.CDB_MAX_DURATION_ABORT, 0)
         duration_write = reply.get(cdb_consts.CDB_MAX_DURATION_WRITE, 0)
@@ -68,7 +71,7 @@ class CdbFwHandler(CdbCmdHandler):
         """
         if self.start_payload_size == 0 and self.rw_length_ext == 0:
             return None
-        return (self.start_payload_size, self.rw_length_ext, self.is_lpl_only)
+        return (self.start_payload_size, self.rw_length_ext, self.is_lpl_only, self.is_abort_supported)
 
     def get_firmware_info(self):
         """

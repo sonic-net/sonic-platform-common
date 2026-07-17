@@ -127,8 +127,9 @@ class TestCdbFwHandler:
         self.handler.start_payload_size = 112
         self.handler.rw_length_ext = 2048
         self.handler.is_lpl_only = True
+        self.handler.is_abort_supported = True
         result = self.handler.get_fw_mgmt_features()
-        assert result == (112, 2048, True)
+        assert result == (112, 2048, True, True)
     
     def test_get_firmware_info_success(self):
         """Test successful get_firmware_info"""
