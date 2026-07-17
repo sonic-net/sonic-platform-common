@@ -102,7 +102,8 @@ CMIS_XCVR_INFO_DEFAULT_DICT = {
         "vendor_rev": "N/A",
         "cmis_rev": "N/A",
         "specification_compliance": "N/A",
-        "vdm_supported": "N/A"
+        "vdm_supported": "N/A",
+        "cdb_supported": "N/A"
         }
 
 class CmisApi(CmisCdbFw, XcvrApi):
@@ -388,7 +389,8 @@ class CmisApi(CmisCdbFw, XcvrApi):
             "vendor_rev": self._strip_str(self.get_vendor_rev()),
             "cmis_rev": self.get_cmis_rev(),
             "specification_compliance": self.get_module_media_type(),
-            "vdm_supported": self.is_transceiver_vdm_supported()
+            "vdm_supported": self.is_transceiver_vdm_supported(),
+            "cdb_supported": self.is_cdb_supported()
         })
         apsel_dict = self.get_active_apsel_hostlane()
         for lane in range(1, self.NUM_CHANNELS + 1):

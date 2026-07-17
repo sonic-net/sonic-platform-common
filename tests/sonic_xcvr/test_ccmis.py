@@ -189,6 +189,7 @@ class TestCCmis(object):
                     'connector': 'LC',
                     'vendor_date': '21010100',
                     'vdm_supported': True,
+                    'cdb_supported': True,
                 },
                 (-20, 0),
                 (0xff, -72, 120, 191300, 196100)
@@ -218,6 +219,7 @@ class TestCCmis(object):
                 'connector': 'LC',
                 'vendor_date': '21010100',
                 'vdm_supported': True,
+                'cdb_supported': True,
                 'supported_min_laser_freq': 191300,
                 'supported_max_laser_freq': 196100,
                 'supported_max_tx_power': 0,
