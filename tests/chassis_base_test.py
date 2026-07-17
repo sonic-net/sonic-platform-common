@@ -1,6 +1,16 @@
+import pytest
+from unittest import mock
+
 from sonic_platform_base.chassis_base import ChassisBase
 
 class TestChassisBase:
+
+    @pytest.fixture(autouse=True)
+    def _mock_cpo_data(self):
+        with mock.patch("sonic_py_common.device_info.get_cpo_data",
+                        return_value=None) as mock_get:
+            self.mock_get_cpo_data = mock_get
+            yield
 
     def test_reboot_cause(self):
         chassis = ChassisBase()
@@ -161,3 +171,39 @@ class TestChassisBase:
         assert chassis.get_pdb(-4) is None
         err_neg = capsys.readouterr().err
         assert "PDB index -4 out of range (0-2)" in err_neg
+
+    def test_no_cpo_data(self):
+        chassis = ChassisBase()
+        self.mock_get_cpo_data.assert_called_once()
+        assert chassis.get_num_cpos() == 0
+
+    def test_cpo_data_base_class_not_implemented(self):
+        self.mock_get_cpo_data.return_value = {"devices": {}, "interfaces": {}}
+        with pytest.raises(NotImplementedError):
+            ChassisBase()
+
+    def test_construct_sfp_list_for_topology(self):
+        cpo_data = {
+            "devices": {
+                "OE1": {"device_type": "optical_engine"},
+                "ELS1": {"device_type": "external_laser_source"},
+            },
+            "interfaces": {
+                "Ethernet0": {
+                    "associated_devices": [
+                        {"device_id": "OE1", "bank": 0},
+                        {"device_id": "ELS1", "bank": 0},
+                    ]
+                }
+            },
+        }
+        self.mock_get_cpo_data.return_value = cpo_data
+
+        class CpoChassis(ChassisBase):
+            def construct_cpo_devices(self, cpo_data):
+                for interface in cpo_data["interfaces"]:
+                    self._cpo_list.append(interface)
+
+        chassis = CpoChassis()
+        assert chassis.get_num_cpos() == 1
+        assert chassis.get_cpo(0) == "Ethernet0"
