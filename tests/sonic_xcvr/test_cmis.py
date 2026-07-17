@@ -1943,8 +1943,8 @@ class TestCmis(object):
 
     @pytest.mark.parametrize("mock_fw_features, mock_eeprom_reads, expected", [
         (None, [True, 1], {'status': False, 'feature': None}),
-        ((0, 8, False), [True, 1], {'status': True, 'feature': (0, 8, False, True, 16)}),
-        ((112, 2048, True), [False, 1], {'status': True, 'feature': (112, 2048, True, False, 16)}),
+        ((0, 8, False, True), [True, 1], {'status': True, 'feature': (0, 8, False, True, 16)}),
+        ((112, 2048, True, False), [False, 1], {'status': True, 'feature': (112, 2048, True, False, 16)}),
     ])
     def test_get_module_fw_mgmt_feature(self, mock_fw_features, mock_eeprom_reads, expected):
         mock_fw_hdlr = MagicMock()
