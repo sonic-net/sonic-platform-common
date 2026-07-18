@@ -1052,15 +1052,20 @@ class CmisApi(CmisCdbFw, XcvrApi):
         '''
         Returns True if the module follow C-CMIS spec, False otherwise
 
-        Prefers the CoherentPagesSupported bit (Page 01h byte 142 bit 4,
-        OIF-CMIS 5.x+) when the module advertises it, since it is defined by
-        spec rather than inferred from a free-text media interface name.
-        Falls back to matching 'ZR' or 'FOIC' in the media interface name for
-        modules/CMIS revisions that do not expose this bit.
+        CoherentPagesSupported (Page 01h byte 142 bit 4) is only defined by
+        OIF-CMIS starting at revision 5.3; on earlier revisions that bit is
+        Reserved, and real modules are not guaranteed to report it as 0, so
+        it cannot be trusted to mean "not coherent" there. Only honor the
+        bit on modules that report CMIS 5.3 or later; every other module
+        keeps using the 'ZR'/'FOIC' substring match against the media
+        interface name, exactly as before this bit existed.
         '''
-        coherent_pages_supported = self.xcvr_eeprom.read(consts.COHERENT_PAGES_SUPPORTED)
-        if coherent_pages_supported is not None:
-            return bool(coherent_pages_supported)
+        cmis_major = self.xcvr_eeprom.read(consts.CMIS_MAJOR_REVISION)
+        cmis_minor = self.xcvr_eeprom.read(consts.CMIS_MINOR_REVISION)
+        if cmis_major is not None and cmis_minor is not None and (cmis_major, cmis_minor) >= (5, 3):
+            coherent_pages_supported = self.xcvr_eeprom.read(consts.COHERENT_PAGES_SUPPORTED)
+            if coherent_pages_supported is not None:
+                return bool(coherent_pages_supported)
         mintf = self.get_module_media_interface()
         return any(kw in mintf for kw in ('ZR', 'FOIC'))
 
