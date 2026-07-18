@@ -83,10 +83,10 @@ pytest tests/ --cov=sonic_platform_base --cov-report=term-missing
 - **Abstract methods**: New abstract methods must have default implementations to avoid breaking subclasses
 - **Documentation**: All new API methods need docstrings
 - **PR description template**: Fill out all sections of the [PR template](.github/pull_request_template.md) when submitting a pull request:
-  - **Description**: Describe your changes in detail
-  - **Motivation and Context**: Why is this change required? What problem does it solve? Reference issues with "fixes #xxxx"
-  - **How Has This Been Tested?**: Describe how you tested your changes, including test environment and tests run
-  - **Additional Information**: Any other relevant details (optional)
+  - **Description of PR**: Summary of the change, motivation/context, reviewer entry point, and dependencies; reference issues with `fixes #xxxx` / `closes #xxxx`.
+  - **Type of change**: Mark the box(es) that apply — bug fix, new feature, refactor / cleanup, documentation update, test improvement.
+  - **Approach**: Motivation; how you did it; how you verified/tested it; any platform-specific notes.
+  - **Documentation**: Link to wiki / doc updates relevant to new features or test cases.
 
 ## Common Patterns
 
