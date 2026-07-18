@@ -5,6 +5,101 @@ from sonic_platform_base.sonic_xcvr.api.public.c_cmis import CCmisApi, C_CMIS_XC
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.c_cmis import CCmisMemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
 from sonic_platform_base.sonic_xcvr.codes.public.cmis import CmisCodes
+from sonic_platform_base.sonic_xcvr.fields import consts
+
+
+# Page 42h "Impl" advertisement bits for the *newly added* Page 35h monitors.
+# The original Page 34h/35h fields are always read (no advertisement gating).
+_PM_IMPL_CONSTS = [
+    consts.RX_CLOCK_REC_IMPL, consts.RX_LG_SOPMD_IMPL, consts.RX_SNR_MARGIN_IMPL,
+    consts.RX_QFACTOR_IMPL, consts.RX_QMARGIN_IMPL,
+]
+
+# Page 3Ah host-interface counters are ungated: always present in get_pm_all().
+_PAGE_3AH_EXPECTED = {
+    'tx_bits_pm': 2000000, 'tx_bits_subint_pm': 20000, 'tx_corr_bits_pm': 2000,
+    'tx_min_corr_bits_subint_pm': 16, 'tx_max_corr_bits_subint_pm': 24,
+    'tx_frames_pm': 20000, 'tx_frames_subint_pm': 200, 'tx_frames_uncorr_err_pm': 0,
+    'tx_min_frames_uncorr_err_subint_pm': 0, 'tx_max_frames_uncorr_err_subint_pm': 0,
+    'tx_corrected_frames_pm': 5, 'tx_corrected_frames_subint_pm': 1,
+}
+
+# Raw Page 34h RX FEC counters: always present (ungated, mirror the ratio reads).
+_PAGE_34_RAW_EXPECTED = {
+    'rx_bits_pm': 1000000, 'rx_bits_subint_pm': 10000, 'rx_corr_bits_pm': 1000,
+    'rx_min_corr_bits_subint_pm': 8, 'rx_max_corr_bits_subint_pm': 12,
+    'rx_frames_pm': 10000, 'rx_frames_subint_pm': 100, 'rx_frames_uncorr_err_pm': 0,
+    'rx_min_frames_uncorr_err_subint_pm': 0, 'rx_max_frames_uncorr_err_subint_pm': 0,
+}
+
+# Original Page 34h/35h keys: always emitted by get_pm_all() (no advertisement gating).
+_PAGE_34_35_OLD_EXPECTED = {
+    'preFEC_BER_avg': 0.001, 'preFEC_BER_min': 0.0008, 'preFEC_BER_max': 0.0012,
+    'preFEC_uncorr_frame_ratio_avg': 0, 'preFEC_uncorr_frame_ratio_min': 0, 'preFEC_uncorr_frame_ratio_max': 0,
+    'rx_cd_avg': 1400, 'rx_cd_min': 1300, 'rx_cd_max': 1500,
+    'rx_dgd_avg': 7.0, 'rx_dgd_min': 5.5, 'rx_dgd_max': 9.2,
+    'rx_sopmd_avg': 40, 'rx_sopmd_min': 20, 'rx_sopmd_max': 60,
+    'rx_pdl_avg': 1.0, 'rx_pdl_min': 0.8, 'rx_pdl_max': 1.2,
+    'rx_osnr_avg': 28, 'rx_osnr_min': 26, 'rx_osnr_max': 30,
+    'rx_esnr_avg': 17, 'rx_esnr_min': 15, 'rx_esnr_max': 18,
+    'rx_cfo_avg': 200, 'rx_cfo_min': 150, 'rx_cfo_max': 250,
+    'rx_evm_avg': 15, 'rx_evm_min': 13, 'rx_evm_max': 18,
+    'tx_power_avg': -10, 'tx_power_min': -9.5, 'tx_power_max': -10.5,
+    'rx_power_avg': -8, 'rx_power_min': -7, 'rx_power_max': -9,
+    'rx_sigpwr_avg': -8, 'rx_sigpwr_min': -7, 'rx_sigpwr_max': -9,
+    'rx_soproc_avg': 5, 'rx_soproc_min': 3, 'rx_soproc_max': 8,
+    'rx_mer_avg': 0, 'rx_mer_min': 0, 'rx_mer_max': 0,
+}
+
+# Newly added Page 35h keys: only emitted when advertised implemented in Page 42h.
+_PAGE_35_NEW_EXPECTED = {
+    'rx_clockrec_avg': 1.5, 'rx_clockrec_min': 1.0, 'rx_clockrec_max': 2.0,
+    'rx_lg_sopmd_avg': 41, 'rx_lg_sopmd_min': 21, 'rx_lg_sopmd_max': 61,
+    'rx_snr_margin_avg': 3.0, 'rx_snr_margin_min': 2.0, 'rx_snr_margin_max': 4.0,
+    'rx_qfactor_avg': 10.0, 'rx_qfactor_min': 9.0, 'rx_qfactor_max': 11.0,
+    'rx_qmargin_avg': 1.0, 'rx_qmargin_min': 0.5, 'rx_qmargin_max': 1.5,
+}
+
+
+def _pm_all_read_map():
+    """Const -> mocked xcvr_eeprom.read() return value, with everything implemented."""
+    values = {
+        # Page 34h - media FEC PM raw counters
+        consts.RX_BITS_PM: 1000000, consts.RX_BITS_SUB_INTERVAL_PM: 10000,
+        consts.RX_CORR_BITS_PM: 1000, consts.RX_MIN_CORR_BITS_SUB_INTERVAL_PM: 8,
+        consts.RX_MAX_CORR_BITS_SUB_INTERVAL_PM: 12,
+        consts.RX_FRAMES_PM: 10000, consts.RX_FRAMES_SUB_INTERVAL_PM: 100,
+        consts.RX_FRAMES_UNCORR_ERR_PM: 0, consts.RX_MIN_FRAMES_UNCORR_ERR_SUB_INTERVAL_PM: 0,
+        consts.RX_MAX_FRAMES_UNCORR_ERR_SUB_INTERVAL_PM: 0,
+        # Page 35h - media lane link PM
+        consts.RX_AVG_CD_PM: 1400, consts.RX_MIN_CD_PM: 1300, consts.RX_MAX_CD_PM: 1500,
+        consts.RX_AVG_DGD_PM: 7.0, consts.RX_MIN_DGD_PM: 5.5, consts.RX_MAX_DGD_PM: 9.2,
+        consts.RX_AVG_SOPMD_PM: 40, consts.RX_MIN_SOPMD_PM: 20, consts.RX_MAX_SOPMD_PM: 60,
+        consts.RX_AVG_PDL_PM: 1.0, consts.RX_MIN_PDL_PM: 0.8, consts.RX_MAX_PDL_PM: 1.2,
+        consts.RX_AVG_OSNR_PM: 28, consts.RX_MIN_OSNR_PM: 26, consts.RX_MAX_OSNR_PM: 30,
+        consts.RX_AVG_ESNR_PM: 17, consts.RX_MIN_ESNR_PM: 15, consts.RX_MAX_ESNR_PM: 18,
+        consts.RX_AVG_CFO_PM: 200, consts.RX_MIN_CFO_PM: 150, consts.RX_MAX_CFO_PM: 250,
+        consts.RX_AVG_EVM_PM: 15, consts.RX_MIN_EVM_PM: 13, consts.RX_MAX_EVM_PM: 18,
+        consts.TX_AVG_POWER_PM: -10, consts.TX_MIN_POWER_PM: -9.5, consts.TX_MAX_POWER_PM: -10.5,
+        consts.RX_AVG_POWER_PM: -8, consts.RX_MIN_POWER_PM: -7, consts.RX_MAX_POWER_PM: -9,
+        consts.RX_AVG_SIG_POWER_PM: -8, consts.RX_MIN_SIG_POWER_PM: -7, consts.RX_MAX_SIG_POWER_PM: -9,
+        consts.RX_AVG_SOPROC_PM: 5, consts.RX_MIN_SOPROC_PM: 3, consts.RX_MAX_SOPROC_PM: 8,
+        consts.RX_AVG_MER_PM: 0, consts.RX_MIN_MER_PM: 0, consts.RX_MAX_MER_PM: 0,
+        consts.RX_AVG_CLOCK_REC_PM: 1.5, consts.RX_MIN_CLOCK_REC_PM: 1.0, consts.RX_MAX_CLOCK_REC_PM: 2.0,
+        consts.RX_AVG_LG_SOPMD_PM: 41, consts.RX_MIN_LG_SOPMD_PM: 21, consts.RX_MAX_LG_SOPMD_PM: 61,
+        consts.RX_AVG_SNR_MARGIN_PM: 3.0, consts.RX_MIN_SNR_MARGIN_PM: 2.0, consts.RX_MAX_SNR_MARGIN_PM: 4.0,
+        consts.RX_AVG_QFACTOR_PM: 10.0, consts.RX_MIN_QFACTOR_PM: 9.0, consts.RX_MAX_PM_QFACTOR: 11.0,
+        consts.RX_AVG_QMARGIN_PM: 1.0, consts.RX_MIN_QMARGIN_PM: 0.5, consts.RX_MAX_QMARGIN_PM: 1.5,
+        # Page 3Ah - data path host interface PM
+        consts.TX_BITS_PM: 2000000, consts.TX_BITS_SUB_INTERVAL_PM: 20000, consts.TX_CORR_BITS_PM: 2000,
+        consts.TX_MIN_CORR_BITS_SUB_INTERVAL_PM: 16, consts.TX_MAX_CORR_BITS_SUB_INTERVAL_PM: 24,
+        consts.TX_FRAMES_PM: 20000, consts.TX_FRAMES_SUB_INTERVAL_PM: 200, consts.TX_FRAMES_UNCORR_ERR_PM: 0,
+        consts.TX_MIN_FRAMES_UNCORR_ERR_SUB_INTERVAL_PM: 0, consts.TX_MAX_FRAMES_UNCORR_ERR_SUB_INTERVAL_PM: 0,
+        consts.TX_CORRECTED_FRAMES_PM: 5, consts.TX_CORRECTED_FRAMES_SUB_INTERVAL_PM: 1,
+    }
+    for impl in _PM_IMPL_CONSTS:
+        values[impl] = True
+    return values
 
 
 class TestCCmis(object):
@@ -117,48 +212,67 @@ class TestCCmis(object):
         self.api.get_supported_power_config.return_value = mock_response
         self.api.set_tx_power(input_param)
 
-    @pytest.mark.parametrize("mock_response, expected", [
-        (
-            [
-                1000000, 10000, 1000, 8, 12,              # preFEC_BER
-                10000, 100, 0, 0, 0,                      # uncorr_frame
-                1400, 1300, 1500,                         # CD
-                7.0, 5.5, 9.2,                            # DGD
-                40, 20, 60,                               # SOPMD
-                1.0, 0.8, 1.2,                            # PDL
-                28, 26, 30,                               # OSNR
-                17, 15, 18,                               # ESNR
-                200, 150, 250,                            # CFO
-                15, 13, 18,                               # EVM
-                -10, -9.5, -10.5,                         # TX power
-                -8, -7, -9,                               # RX total power
-                -8, -7, -9,                               # RX channel power
-                5, 3, 8,                                  # SOPROc
-                0, 0, 0,                                  # MER                
-            ],
-            {
-                'preFEC_BER_avg': 0.001, 'preFEC_BER_min': 0.0008, 'preFEC_BER_max': 0.0012,
-                'preFEC_uncorr_frame_ratio_avg': 0, 'preFEC_uncorr_frame_ratio_min': 0, 'preFEC_uncorr_frame_ratio_max': 0,
-                'rx_cd_avg': 1400, 'rx_cd_min': 1300, 'rx_cd_max': 1500,
-                'rx_dgd_avg': 7.0, 'rx_dgd_min': 5.5, 'rx_dgd_max': 9.2,
-                'rx_sopmd_avg': 40, 'rx_sopmd_min': 20, 'rx_sopmd_max': 60,
-                'rx_pdl_avg': 1.0, 'rx_pdl_min': 0.8, 'rx_pdl_max': 1.2,
-                'rx_osnr_avg': 28, 'rx_osnr_min': 26, 'rx_osnr_max': 30,
-                'rx_esnr_avg': 17, 'rx_esnr_min': 15, 'rx_esnr_max': 18,
-                'rx_cfo_avg': 200, 'rx_cfo_min': 150, 'rx_cfo_max': 250,
-                'rx_evm_avg': 15, 'rx_evm_min': 13, 'rx_evm_max': 18,
-                'tx_power_avg': -10, 'tx_power_min': -9.5, 'tx_power_max': -10.5,
-                'rx_power_avg': -8, 'rx_power_min': -7, 'rx_power_max': -9,
-                'rx_sigpwr_avg': -8, 'rx_sigpwr_min': -7, 'rx_sigpwr_max': -9,
-                'rx_soproc_avg': 5, 'rx_soproc_min': 3, 'rx_soproc_max': 8,
-                'rx_mer_avg': 0, 'rx_mer_min': 0, 'rx_mer_max': 0
-            }
-        )
-    ])
-    def test_get_pm_all(self, mock_response, expected):
-        self.api.xcvr_eeprom.read = MagicMock()
-        self.api.xcvr_eeprom.read.side_effect = mock_response
-        result = self.api.get_pm_all()
+    def test_get_pm_all_all_implemented(self):
+        values = _pm_all_read_map()
+        self.api.xcvr_eeprom.read = MagicMock(side_effect=lambda c: values.get(c))
+        # Clear any read_only_cached_api_return caches so each test's mock is honored
+        # (the shared api instance persists across tests).
+        for attr in [a for a in vars(self.api) if a.endswith('_cache')]:
+            setattr(self.api, attr, {})
+        with patch.object(self.api, 'is_flat_memory', return_value=False), \
+             patch.object(self.api, 'is_coherent_module', return_value=True):
+            result = self.api.get_pm_all()
+        expected = dict(_PAGE_34_35_OLD_EXPECTED)
+        expected.update(_PAGE_34_RAW_EXPECTED)
+        expected.update(_PAGE_35_NEW_EXPECTED)
+        expected.update(_PAGE_3AH_EXPECTED)
+        assert result == expected
+
+    def test_get_pm_all_unimplemented_new_fields_omitted(self):
+        values = _pm_all_read_map()
+        # Advertise two of the newly added Page 35h monitors as NOT implemented.
+        values[consts.RX_QFACTOR_IMPL] = False
+        values[consts.RX_CLOCK_REC_IMPL] = False
+        self.api.xcvr_eeprom.read = MagicMock(side_effect=lambda c: values.get(c))
+        # Clear any read_only_cached_api_return caches so each test's mock is honored
+        # (the shared api instance persists across tests).
+        for attr in [a for a in vars(self.api) if a.endswith('_cache')]:
+            setattr(self.api, attr, {})
+        with patch.object(self.api, 'is_flat_memory', return_value=False), \
+             patch.object(self.api, 'is_coherent_module', return_value=True):
+            result = self.api.get_pm_all()
+        # Unimplemented new-field trios are omitted entirely.
+        for key in ('rx_qfactor_avg', 'rx_qfactor_min', 'rx_qfactor_max',
+                    'rx_clockrec_avg', 'rx_clockrec_min', 'rx_clockrec_max'):
+            assert key not in result
+        # Other implemented new fields carry their values.
+        assert result['rx_qmargin_avg'] == 1.0
+        assert result['rx_snr_margin_avg'] == 3.0
+        # Original Page 34h/35h fields are always present (no advertisement gating).
+        for key, val in _PAGE_34_35_OLD_EXPECTED.items():
+            assert result[key] == val
+        # Raw Page 34h counters are always present too.
+        for key, val in _PAGE_34_RAW_EXPECTED.items():
+            assert result[key] == val
+        # Page 3Ah counters are always present regardless of advertisement.
+        assert result['tx_bits_pm'] == 2000000
+
+    def test_get_pm_all_flat_memory_keeps_legacy_fields(self):
+        values = _pm_all_read_map()
+        self.api.xcvr_eeprom.read = MagicMock(side_effect=lambda c: values.get(c))
+        # Clear any read_only_cached_api_return caches so each test's mock is honored
+        # (the shared api instance persists across tests).
+        for attr in [a for a in vars(self.api) if a.endswith('_cache')]:
+            setattr(self.api, attr, {})
+        with patch.object(self.api, 'is_flat_memory', return_value=True):
+            result = self.api.get_pm_all()
+        # Flat-memory omits every advertisement-gated new Page 35h field...
+        for key in _PAGE_35_NEW_EXPECTED:
+            assert key not in result
+        # ...while the original Page 34h/35h fields and Page 3Ah counters remain.
+        expected = dict(_PAGE_34_35_OLD_EXPECTED)
+        expected.update(_PAGE_34_RAW_EXPECTED)
+        expected.update(_PAGE_3AH_EXPECTED)
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected",[
@@ -493,20 +607,10 @@ class TestCCmis(object):
     @pytest.mark.parametrize("mock_response, expected", [
         (
             {
-                'preFEC_BER_avg': 0.001, 'preFEC_BER_min': 0.0008, 'preFEC_BER_max': 0.0012,
-                'preFEC_uncorr_frame_ratio_avg': 0, 'preFEC_uncorr_frame_ratio_min': 0, 'preFEC_uncorr_frame_ratio_max': 0,
-                'rx_cd_avg': 1400, 'rx_cd_min': 1300, 'rx_cd_max': 1500,
-                'rx_dgd_avg': 7.0, 'rx_dgd_min': 5.5, 'rx_dgd_max': 9.2,
-                'rx_sopmd_avg': 40, 'rx_sopmd_min': 20, 'rx_sopmd_max': 60,
-                'rx_pdl_avg': 1.0, 'rx_pdl_min': 0.8, 'rx_pdl_max': 1.2,
-                'rx_osnr_avg': 28, 'rx_osnr_min': 26, 'rx_osnr_max': 30,
-                'rx_esnr_avg': 17, 'rx_esnr_min': 15, 'rx_esnr_max': 18,
-                'rx_cfo_avg': 200, 'rx_cfo_min': 150, 'rx_cfo_max': 250,
-                'rx_evm_avg': 15, 'rx_evm_min': 13, 'rx_evm_max': 18,
-                'tx_power_avg': -10, 'tx_power_min': -9.5, 'tx_power_max': -10.5,
-                'rx_power_avg': -8, 'rx_power_min': -7, 'rx_power_max': -9,
-                'rx_sigpwr_avg': -8, 'rx_sigpwr_min': -7, 'rx_sigpwr_max': -9,
-                'rx_soproc_avg': 5, 'rx_soproc_min': 3, 'rx_soproc_max': 8,
+                **_PAGE_34_35_OLD_EXPECTED,
+                **_PAGE_34_RAW_EXPECTED,
+                **_PAGE_35_NEW_EXPECTED,
+                **_PAGE_3AH_EXPECTED,
             },
             {
                 'prefec_ber_avg': 0.001, 'prefec_ber_min': 0.0008, 'prefec_ber_max': 0.0012,
@@ -523,6 +627,13 @@ class TestCCmis(object):
                 'rx_tot_power_avg': -8, 'rx_tot_power_min': -7, 'rx_tot_power_max': -9,
                 'rx_sig_power_avg': -8, 'rx_sig_power_min': -7, 'rx_sig_power_max': -9,
                 'soproc_avg': 5, 'soproc_min': 3, 'soproc_max': 8,
+                'clockrec_avg': 1.5, 'clockrec_min': 1.0, 'clockrec_max': 2.0,
+                'lg_sopmd_avg': 41, 'lg_sopmd_min': 21, 'lg_sopmd_max': 61,
+                'snr_margin_avg': 3.0, 'snr_margin_min': 2.0, 'snr_margin_max': 4.0,
+                'qfactor_avg': 10.0, 'qfactor_min': 9.0, 'qfactor_max': 11.0,
+                'qmargin_avg': 1.0, 'qmargin_min': 0.5, 'qmargin_max': 1.5,
+                **_PAGE_3AH_EXPECTED,
+                **_PAGE_34_RAW_EXPECTED,
             }
         )
     ])
@@ -531,6 +642,24 @@ class TestCCmis(object):
         self.api.get_pm_all.return_value = mock_response
         result = self.api.get_transceiver_pm()
         assert result == expected
+
+    def test_get_transceiver_pm_unimplemented_new_fields_are_none(self):
+        # get_pm_all() omits unimplemented *new* Page 35h keys; get_transceiver_pm()
+        # must not KeyError and should surface them as None. The original Page
+        # 34h/35h fields and Page 3Ah counters carry their values.
+        pm = dict(_PAGE_34_35_OLD_EXPECTED)
+        pm.update(_PAGE_34_RAW_EXPECTED)
+        pm.update(_PAGE_3AH_EXPECTED)
+        self.api.get_pm_all = MagicMock(return_value=pm)
+        result = self.api.get_transceiver_pm()
+        # Omitted new fields surface as None.
+        assert result['qmargin_max'] is None
+        assert result['clockrec_avg'] is None
+        assert result['snr_margin_min'] is None
+        # Original fields and Page 3Ah counters are present.
+        assert result['cd_avg'] == 1400
+        assert result['prefec_ber_avg'] == 0.001
+        assert result['tx_bits_pm'] == 2000000
 
     @pytest.mark.parametrize("mock_response, expected", [
         (0, 0),
