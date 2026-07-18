@@ -88,9 +88,15 @@ class CCmisApi(CmisApi):
         '''
         freq_grid = self.get_freq_grid()
         channel = self.xcvr_eeprom.read(consts.LASER_CONFIG_CHANNEL)
-        if freq_grid in (75, 150):
+        # OIF-CMIS 5.3 Table 8-66: 75GHz is 193.1 + n x 0.025 THz, but 150GHz
+        # is 193.1 + (n+3) x 0.025 THz - the two grids are not interchangeable.
+        if freq_grid == 75:
             config_freq = 193100 + channel * 25
+        elif freq_grid == 150:
+            config_freq = 193100 + (channel + 3) * 25
         else:
+            # All other grids (100/50/25/12.5/6.25/3.125GHz) use a plain
+            # 193.1 + n x grid formula with no additive offset.
             config_freq = 193100 + channel * freq_grid
         return config_freq
 
@@ -171,7 +177,10 @@ class CCmisApi(CmisApi):
             channel_number = int(round((freq - 193100)/100))
         elif grid == 150:
             freq_grid = 0x80
-            channel_number = int(round((freq - 193100)/25))
+            # OIF-CMIS 5.3 Table 8-66: Frequency (THz) = 193.1 + (n+3) x 0.025,
+            # so n = (freq - 193100) / 25 - 3, and n (not n+3) must be a
+            # multiple of 6.
+            channel_number = int(round((freq - 193100)/25)) - 3
             assert channel_number % 6 == 0
         else:
             return False
