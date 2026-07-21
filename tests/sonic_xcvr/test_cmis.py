@@ -1098,9 +1098,9 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("appl, appl_advt, expected", [
-        # Regression: appl present but with an index higher than
-        # len(appl_advt). A previous `len(appl_advt) >= appl` check
-        # incorrectly returned 0 here even though appl_advt[9] exists.
+        # Sparse advertisement: only a high-index App is present (lower ones
+        # were skipped as undecodable SFF-8024 codes), so the App must be
+        # looked up by key - appl_advt[9] exists and returns its count.
         (9, {9: {'media_lane_count': 4}}, 4),
         # appl genuinely absent from the advertisement still returns 0.
         (5, {1: {'media_lane_count': 1}}, 0),
@@ -1178,9 +1178,9 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("appl, appl_advt, expected", [
-        # Regression: appl present but with an index higher than
-        # len(appl_advt). A previous `len(appl_advt) >= appl` check
-        # incorrectly returned 0 here even though appl_advt[9] exists.
+        # Sparse advertisement: only a high-index App is present (lower ones
+        # were skipped as undecodable SFF-8024 codes), so the App must be
+        # looked up by key - appl_advt[9] exists and returns its value.
         (9, {9: {'media_lane_assignment_options': 1}}, 1),
         # appl genuinely absent from the advertisement still returns 0.
         (5, {1: {'media_lane_assignment_options': 1}}, 0),
@@ -1220,10 +1220,9 @@ class TestCmis(object):
             (0, False, {1: {'host_lane_count': 1}}, 0),
             # appl not in advertisement returns 0.
             (5, False, {1: {'host_lane_count': 1}}, 0),
-            # Regression: appl present but with an index higher than
-            # len(appl_advt) (e.g. App index 9 from Page 01h NAD advertised
-            # alongside a single App in the Lower Page). A previous
-            # `len(appl_advt) >= appl` check incorrectly returned 0 here.
+            # Sparse advertisement: only a high-index App is present (lower
+            # ones were skipped as undecodable SFF-8024 codes), so the App
+            # must be looked up by key - appl_advt[9] returns its count.
             (9, False, {9: {'host_lane_count': 8}}, 8),
         ]
     )
