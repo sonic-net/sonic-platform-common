@@ -888,7 +888,7 @@ class TestCdbCmdHandler:
         assert result == expected
 
     def test_enter_password_valid(self):
-        """Test enter_password with valid password"""
+        """Test enter_password sends CDB command 0001h"""
         self.handler.send_cmd = MagicMock(return_value=True)
         result = self.handler.enter_password(0x00001011)
         assert result is True
@@ -898,7 +898,7 @@ class TestCdbCmdHandler:
         )
 
     def test_enter_password_default(self):
-        """Test enter_password with default password"""
+        """Test enter_password with the default password"""
         self.handler.send_cmd = MagicMock(return_value=True)
         result = self.handler.enter_password()
         assert result is True
@@ -906,6 +906,18 @@ class TestCdbCmdHandler:
             cdb_consts.CDB_ENTER_PASSWORD_CMD,
             {"password": cdb_consts.CDB_DEFAULT_PASSWORD}
         )
+
+    def test_enter_password_cdb_failure(self):
+        """Test enter_password propagates a CDB command failure to the caller"""
+        self.handler.send_cmd = MagicMock(return_value=False)
+        assert self.handler.enter_password(0x00001011) is False
+
+    def test_enter_password_invalid_no_cmd(self):
+        """Test an invalid password is rejected without sending a CDB command"""
+        self.handler.send_cmd = MagicMock(return_value=True)
+        result = self.handler.enter_password("not_an_int")
+        assert result is False
+        self.handler.send_cmd.assert_not_called()
 
     def test_write_lpl_block(self):
         """Test write_lpl_block sends correct command"""
