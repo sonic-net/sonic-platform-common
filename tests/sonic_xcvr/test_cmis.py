@@ -965,12 +965,102 @@ class TestCmis(object):
     @pytest.mark.parametrize("mock_response, expected", [
         ('Copper cable', False),
         ('400ZR', True),
+        # FOIC-named media interfaces (e.g. 800G-ZR+ FOIC, no 'ZR' substring)
+        # are coherent too; only reachable when CoherentPagesSupported is
+        # unavailable (mocked read() below defaults to None).
+        ('FOIC1.4-DO (G.709.3/Y.1331.3)', True),
     ])
     def test_is_coherent_module(self, mock_response, expected):
+        self.clear_cache('is_coherent_module')
+        # CoherentPagesSupported unavailable: force the string-matching
+        # fallback path regardless of what earlier tests left behind on the
+        # shared self.api.xcvr_eeprom mock.
+        self.api.xcvr_eeprom.read = MagicMock(return_value=None)
         self.api.get_module_media_interface = MagicMock()
         self.api.get_module_media_interface.return_value = mock_response
         result = self.api.is_coherent_module()
         assert result == expected
+
+    @pytest.mark.parametrize("mock_response, expected", [
+        (1, True),
+        (0, False),
+    ])
+    def test_is_coherent_module_coherent_pages_bit(self, mock_response, expected):
+        # On CMIS 5.3+, CoherentPagesSupported is advertised and takes
+        # precedence over the media interface name (which is deliberately
+        # left un-mocked / not matching 'ZR' or 'FOIC', to prove the bit
+        # alone decides this).
+        self.clear_cache('is_coherent_module')
+        self.api.get_module_media_interface = MagicMock(return_value='Copper cable')
+        def mock_read(field):
+            if field == consts.CMIS_MAJOR_REVISION:
+                return 5
+            if field == consts.CMIS_MINOR_REVISION:
+                return 3
+            if field == consts.COHERENT_PAGES_SUPPORTED:
+                return mock_response
+            return None
+        self.api.xcvr_eeprom.read = MagicMock(side_effect=mock_read)
+        result = self.api.is_coherent_module()
+        assert result == expected
+
+    @pytest.mark.parametrize("cmis_minor, mintf, expected", [
+        (2, '400ZR', True),
+        (2, 'Copper cable', False),
+    ])
+    def test_is_coherent_module_ignores_reserved_bit_pre_5_3(self, cmis_minor, mintf, expected):
+        # Byte 142 bit 4 is Reserved prior to CMIS 5.3 (OIF-CMIS-05.2 Table
+        # 8-41). A pre-5.3 module may report this bit as 0 (the spec's
+        # convention for reserved bits) or 1 (not spec-guaranteed, but not
+        # excluded either) while still being a real coherent module - the
+        # bit must never override the media interface name check for
+        # modules that predate the bit's definition.
+        self.clear_cache('is_coherent_module')
+        self.api.get_module_media_interface = MagicMock(return_value=mintf)
+        def mock_read(field):
+            if field == consts.CMIS_MAJOR_REVISION:
+                return 5
+            if field == consts.CMIS_MINOR_REVISION:
+                return cmis_minor
+            if field == consts.COHERENT_PAGES_SUPPORTED:
+                return 0
+            return None
+        self.api.xcvr_eeprom.read = MagicMock(side_effect=mock_read)
+        result = self.api.is_coherent_module()
+        assert result == expected
+
+    def test_is_coherent_module_unknown_cmis_revision_falls_back(self):
+        # CmisMajorRevision/CmisMinorRevision reads failing (None) must not
+        # crash the (major, minor) >= (5, 3) comparison; behave as if the
+        # bit is untrustworthy and use the string-matching fallback.
+        self.clear_cache('is_coherent_module')
+        self.api.get_module_media_interface = MagicMock(return_value='400ZR')
+        self.api.xcvr_eeprom.read = MagicMock(return_value=None)
+        result = self.api.is_coherent_module()
+        assert result is True
+
+    @pytest.mark.parametrize("mintf", [
+        '400ZR',
+        'FOIC1.4-DO (G.709.3/Y.1331.3)',
+    ])
+    def test_is_coherent_module_name_match_overrides_cleared_bit(self, mintf):
+        # A CMIS 5.3+ coherent module that mis-advertises
+        # CoherentPagesSupported as 0 while still naming a coherent media
+        # interface must stay coherent: the bit can only add detection, it
+        # must never drop a module the name match already covers. This
+        # guarantees no regression vs. the pre-bit ('ZR'/'FOIC') behavior.
+        self.clear_cache('is_coherent_module')
+        self.api.get_module_media_interface = MagicMock(return_value=mintf)
+        def mock_read(field):
+            if field == consts.CMIS_MAJOR_REVISION:
+                return 5
+            if field == consts.CMIS_MINOR_REVISION:
+                return 3
+            if field == consts.COHERENT_PAGES_SUPPORTED:
+                return 0
+            return None
+        self.api.xcvr_eeprom.read = MagicMock(side_effect=mock_read)
+        assert self.api.is_coherent_module() is True
 
     @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
         (True, '1', 0 ),
