@@ -888,23 +888,46 @@ class TestCdbCmdHandler:
         assert result == expected
 
     def test_enter_password_valid(self):
-        """Test enter_password with valid password"""
+        """Test enter_password writes to the Password Entry Area (page 00h 122-125)"""
+        self.handler.write_raw = MagicMock(return_value=True)
         self.handler.send_cmd = MagicMock(return_value=True)
         result = self.handler.enter_password(0x00001011)
         assert result is True
-        self.handler.send_cmd.assert_called_once_with(
-            cdb_consts.CDB_ENTER_PASSWORD_CMD,
-            {"password": 0x00001011}
+        # Password written MSB-first to the Password Entry Area, no CDB command needed
+        self.handler.write_raw.assert_called_once_with(
+            cdb_consts.CDB_HOST_PASSWORD_ENTRY_OFFSET,
+            cdb_consts.CDB_HOST_PASSWORD_ENTRY_SIZE,
+            bytearray(struct.pack(">I", 0x00001011))
         )
+        self.handler.send_cmd.assert_not_called()
 
     def test_enter_password_default(self):
         """Test enter_password with default password"""
+        self.handler.write_raw = MagicMock(return_value=True)
         self.handler.send_cmd = MagicMock(return_value=True)
         result = self.handler.enter_password()
         assert result is True
+        self.handler.write_raw.assert_called_once_with(
+            cdb_consts.CDB_HOST_PASSWORD_ENTRY_OFFSET,
+            cdb_consts.CDB_HOST_PASSWORD_ENTRY_SIZE,
+            bytearray(struct.pack(">I", cdb_consts.CDB_DEFAULT_PASSWORD))
+        )
+        self.handler.send_cmd.assert_not_called()
+
+    def test_enter_password_fallback_to_cdb_command(self):
+        """Test enter_password falls back to CDB command 0001h when the register write fails"""
+        self.handler.write_raw = MagicMock(return_value=False)
+        self.handler.send_cmd = MagicMock(return_value=True)
+        result = self.handler.enter_password(0x00001011)
+        assert result is True
+        self.handler.write_raw.assert_called_once_with(
+            cdb_consts.CDB_HOST_PASSWORD_ENTRY_OFFSET,
+            cdb_consts.CDB_HOST_PASSWORD_ENTRY_SIZE,
+            bytearray(struct.pack(">I", 0x00001011))
+        )
         self.handler.send_cmd.assert_called_once_with(
             cdb_consts.CDB_ENTER_PASSWORD_CMD,
-            {"password": cdb_consts.CDB_DEFAULT_PASSWORD}
+            {"password": 0x00001011}
         )
 
     def test_write_lpl_block(self):

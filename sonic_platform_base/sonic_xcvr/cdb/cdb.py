@@ -4,6 +4,7 @@
    CDB Command handler
 """
 
+import struct
 import time
 from sonic_py_common.syslogger import SysLogger
 from ..fields import cdb_consts
@@ -135,12 +136,30 @@ class CdbCmdHandler(XcvrEeprom):
 
     def enter_password(self, password=cdb_consts.CDB_DEFAULT_PASSWORD):
         """
-        Enter host password via CDB command 0001h.
-        Returns True if password accepted, False/None otherwise.
+        Enter the CMIS host password to unlock protected CDB/EEPROM access.
+
+        Per CMIS, the password is entered by writing the 4-byte value (MSB
+        first) to the Password Entry Area at page 00h bytes 122-125. This
+        register-based mechanism is the standard and is honored by all CMIS
+        modules, so it is attempted first. Some modules also accept the
+        password via CDB command 0001h; that is kept as a fallback for the
+        modules that do not unlock via the Password Entry Area.
+
+        Returns True if the password was delivered, False/None otherwise.
         """
-        if not isinstance(password, int) or password < 0 or password > 0xFFFFFFFF:
+        if not isinstance(password, int) or \
+                password < 0 or password > 0xFFFFFFFF:
             log.log_notice("Invalid password: must be an integer in range 0..0xFFFFFFFF")
             return False
+
+        # Preferred: write the password to the Password Entry Area (MSB first).
+        pwd_bytes = bytearray(struct.pack(">I", password))
+        if self.write_raw(cdb_consts.CDB_HOST_PASSWORD_ENTRY_OFFSET,
+                                  cdb_consts.CDB_HOST_PASSWORD_ENTRY_SIZE, pwd_bytes):
+            return True
+
+        # Fallback: enter the password via CDB command 0001h.
+        log.log_notice("Password Entry Area write failed; falling back to CDB command 0001h")
         payload = {"password": password}
         return self.send_cmd(cdb_consts.CDB_ENTER_PASSWORD_CMD, payload)
     

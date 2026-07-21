@@ -73,6 +73,11 @@ CDB_ENTER_PASSWORD_CMD = 0x0001
 CDB_PASSWORD_ERROR_CODE = 0x06
 CDB_PASSWORD_ERROR_STATUS = 0x46
 CDB_DEFAULT_PASSWORD = 0x00001011
+# CMIS Password Entry Area: page 00h bytes 122-125 (linear offset 122 in lower
+# memory), 32-bit host password written MSB-first. This is the standard,
+# universally-supported way to unlock password-protected CDB/EEPROM access.
+CDB_HOST_PASSWORD_ENTRY_OFFSET = 122
+CDB_HOST_PASSWORD_ENTRY_SIZE = 4
 CDB_CHANGE_PASSWORD_CMD = 0x0002
 CDB_ABORT_CMD = 0x0003
 CDB_MODULE_FEATURE_CMD= 0x0004
