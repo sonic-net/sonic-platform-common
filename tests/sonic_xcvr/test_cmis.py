@@ -1039,6 +1039,29 @@ class TestCmis(object):
         result = self.api.is_coherent_module()
         assert result is True
 
+    @pytest.mark.parametrize("mintf", [
+        '400ZR',
+        'FOIC1.4-DO (G.709.3/Y.1331.3)',
+    ])
+    def test_is_coherent_module_name_match_overrides_cleared_bit(self, mintf):
+        # A CMIS 5.3+ coherent module that mis-advertises
+        # CoherentPagesSupported as 0 while still naming a coherent media
+        # interface must stay coherent: the bit can only add detection, it
+        # must never drop a module the name match already covers. This
+        # guarantees no regression vs. the pre-bit ('ZR'/'FOIC') behavior.
+        self.clear_cache('is_coherent_module')
+        self.api.get_module_media_interface = MagicMock(return_value=mintf)
+        def mock_read(field):
+            if field == consts.CMIS_MAJOR_REVISION:
+                return 5
+            if field == consts.CMIS_MINOR_REVISION:
+                return 3
+            if field == consts.COHERENT_PAGES_SUPPORTED:
+                return 0
+            return None
+        self.api.xcvr_eeprom.read = MagicMock(side_effect=mock_read)
+        assert self.api.is_coherent_module() is True
+
     @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
         (True, '1', 0 ),
         (False, None, 0),

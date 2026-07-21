@@ -1050,24 +1050,27 @@ class CmisApi(CmisCdbFw, XcvrApi):
     @read_only_cached_api_return
     def is_coherent_module(self):
         '''
-        Returns True if the module follow C-CMIS spec, False otherwise
+        Returns True if the module follows the C-CMIS spec, False otherwise.
 
-        CoherentPagesSupported (Page 01h byte 142 bit 4) is only defined by
-        OIF-CMIS starting at revision 5.3; on earlier revisions that bit is
-        Reserved, and real modules are not guaranteed to report it as 0, so
-        it cannot be trusted to mean "not coherent" there. Only honor the
-        bit on modules that report CMIS 5.3 or later; every other module
-        keeps using the 'ZR'/'FOIC' substring match against the media
-        interface name, exactly as before this bit existed.
+        Detection is the union of two independent signals, so the bit can
+        only add coherent modules and never drops one that used to be
+        detected:
+          * the media interface name contains 'ZR' or 'FOIC' - works on
+            every CMIS revision and matches the behavior from before this
+            bit existed, and
+          * CoherentPagesSupported (Page 01h byte 142 bit 4) is set. That
+            bit is only defined from OIF-CMIS 5.3 on (Reserved before, where
+            a real module may report it as a stray 1), so it is only honored
+            when the module reports CMIS 5.3 or later.
         '''
+        mintf = self.get_module_media_interface()
+        if any(kw in mintf for kw in ('ZR', 'FOIC')):
+            return True
         cmis_major = self.xcvr_eeprom.read(consts.CMIS_MAJOR_REVISION)
         cmis_minor = self.xcvr_eeprom.read(consts.CMIS_MINOR_REVISION)
         if cmis_major is not None and cmis_minor is not None and (cmis_major, cmis_minor) >= (5, 3):
-            coherent_pages_supported = self.xcvr_eeprom.read(consts.COHERENT_PAGES_SUPPORTED)
-            if coherent_pages_supported is not None:
-                return bool(coherent_pages_supported)
-        mintf = self.get_module_media_interface()
-        return any(kw in mintf for kw in ('ZR', 'FOIC'))
+            return bool(self.xcvr_eeprom.read(consts.COHERENT_PAGES_SUPPORTED))
+        return False
 
     @read_only_cached_api_return
     def get_datapath_init_duration(self):
