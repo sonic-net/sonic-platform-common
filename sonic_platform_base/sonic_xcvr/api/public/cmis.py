@@ -566,7 +566,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
         thresh = self.xcvr_eeprom.read(consts.THRESHOLDS_FIELD)
         if thresh is None:
             return None
-        tx_bias_scale_raw = self.xcvr_eeprom.read(consts.TX_BIAS_SCALE)
+        tx_bias_scale_raw = self._get_tx_bias_scale_raw()
         if tx_bias_scale_raw is not None:
             tx_bias_scale = 2**tx_bias_scale_raw if tx_bias_scale_raw < 3 else 1
         else:
@@ -667,9 +667,11 @@ class CmisApi(CmisCdbFw, XcvrApi):
     def get_voltage_support(self):
         return not self.is_flat_memory()
 
+    @read_only_cached_api_return
     def get_rx_los_support(self):
         return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.RX_LOS_SUPPORT)
 
+    @read_only_cached_api_return
     def get_tx_cdr_lol_support(self):
         return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.TX_CDR_LOL_SUPPORT_FIELD)
 
@@ -709,6 +711,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
             rx_los_final.append(bool(rx_los[key]))
         return rx_los_final
 
+    @read_only_cached_api_return
     def get_rx_cdr_lol_support(self):
         return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.RX_CDR_LOL_SUPPORT_FIELD)
 
@@ -792,8 +795,16 @@ class CmisApi(CmisCdbFw, XcvrApi):
             rx_output_status_dict[key] = bool(value)
         return rx_output_status_dict
 
+    @read_only_cached_api_return
     def get_tx_bias_support(self):
         return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.TX_BIAS_SUPPORT_FIELD)
+
+    @read_only_cached_api_return
+    def _get_tx_bias_scale_raw(self):
+        # The TX bias scaling exponent is a static per-module advertisement, so
+        # cache it; the per-cycle get_tx_bias / threshold paths read it every
+        # call otherwise. Returns None on a failed read so the cache re-reads.
+        return self.xcvr_eeprom.read(consts.TX_BIAS_SCALE)
 
     def get_tx_bias(self):
         '''
@@ -804,7 +815,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
             return None
         if not tx_bias_support:
             return ["N/A" for _ in range(self.NUM_CHANNELS)]
-        scale_raw = self.xcvr_eeprom.read(consts.TX_BIAS_SCALE)
+        scale_raw = self._get_tx_bias_scale_raw()
         if scale_raw is None:
             return ["N/A" for _ in range(self.NUM_CHANNELS)]
         scale = 2**scale_raw if scale_raw < 3 else 1
@@ -832,6 +843,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
 
         return tx_power
 
+    @read_only_cached_api_return
     def get_tx_power_support(self):
         return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.TX_POWER_SUPPORT_FIELD)
 
@@ -852,9 +864,11 @@ class CmisApi(CmisCdbFw, XcvrApi):
 
         return rx_power
 
+    @read_only_cached_api_return
     def get_rx_power_support(self):
         return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.RX_POWER_SUPPORT_FIELD)
 
+    @read_only_cached_api_return
     def get_tx_fault_support(self):
         return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.TX_FAULT_SUPPORT_FIELD)
 
@@ -876,6 +890,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
             tx_fault_final.append(bool(tx_fault[key]))
         return tx_fault_final
 
+    @read_only_cached_api_return
     def get_tx_los_support(self):
         return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.TX_LOS_SUPPORT_FIELD)
 
@@ -940,6 +955,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
 
         return self.xcvr_eeprom.write(consts.TX_DISABLE_FIELD, channel_state)
 
+    @read_only_cached_api_return
     def get_rx_disable_support(self):
         return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.RX_DISABLE_SUPPORT_FIELD)
 
@@ -1021,12 +1037,14 @@ class CmisApi(CmisCdbFw, XcvrApi):
     def get_power_override_support(self):
         return False
 
+    @read_only_cached_api_return
     def get_module_media_type(self):
         '''
         This function returns module media type: MMF, SMF, Passive Copper Cable, Active Cable Assembly or Base-T.
         '''
         return self.xcvr_eeprom.read(consts.MEDIA_TYPE_FIELD)
 
+    @read_only_cached_api_return
     def get_host_electrical_interface(self):
         '''
         This function returns module host electrical interface. Table 4-5 in SFF-8024 Rev4.6
@@ -1035,6 +1053,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
             return 'N/A'
         return self.xcvr_eeprom.read(consts.HOST_ELECTRICAL_INTERFACE)
 
+    @read_only_cached_api_return
     def get_module_media_interface(self):
         '''
         This function returns module media electrical interface. Table 4-6 ~ 4-10 in SFF-8024 Rev4.6
@@ -1162,6 +1181,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
         appl_advt = self.get_application_advertisement()
         return appl_advt[appl]['media_lane_count'] if len(appl_advt) >= appl else 0
 
+    @read_only_cached_api_return
     def get_media_interface_technology(self):
         '''
         This function returns the media lane technology
@@ -1370,12 +1390,17 @@ class CmisApi(CmisCdbFw, XcvrApi):
             dpinit_pending_dict[key] = bool(value)
         return dpinit_pending_dict
 
+    @read_only_cached_api_return
     def get_supported_power_config(self):
         '''
-        This function returns the supported TX power range
+        This function returns the supported TX power range as a
+        (min, max) tuple, or None if either read fails (so the cache
+        re-reads on a transient failure instead of freezing (None, None)).
         '''
         min_prog_tx_output_power = self.xcvr_eeprom.read(consts.MIN_PROG_OUTPUT_POWER)
         max_prog_tx_output_power = self.xcvr_eeprom.read(consts.MAX_PROG_OUTPUT_POWER)
+        if min_prog_tx_output_power is None or max_prog_tx_output_power is None:
+            return None
         return min_prog_tx_output_power, max_prog_tx_output_power
 
     def reset_module(self, reset = False):
@@ -1471,13 +1496,16 @@ class CmisApi(CmisCdbFw, XcvrApi):
                     return True
         return False
 
+    @read_only_cached_api_return
     def get_diag_page_support(self):
         '''
         This function returns whether the module supports diagnostic pages
         '''
-        diag_page_support = self.xcvr_eeprom.read(consts.DIAG_PAGE_SUPPORT_ADVT_FIELD)
-        return diag_page_support if diag_page_support is not None else False
+        # Return the raw read (None on failure) so the cache re-reads on a
+        # transient failure instead of freezing a False.
+        return self.xcvr_eeprom.read(consts.DIAG_PAGE_SUPPORT_ADVT_FIELD)
 
+    @read_only_cached_api_return
     def get_loopback_capability(self):
         '''
         This function returns the module loopback capability as advertised
@@ -1758,6 +1786,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
         logger.error('Invalid loopback mode:%s, lane_mask:%#x', loopback_mode, lane_mask)
         return False
 
+    @read_only_cached_api_return
     def is_cdb_supported(self):
         '''
         This function returns whether CDB is supported
@@ -1767,12 +1796,11 @@ class CmisApi(CmisCdbFw, XcvrApi):
 
         cdb_inst = self.xcvr_eeprom.read(consts.CDB_SUPPORT)
         if cdb_inst is None:
-            return False
+            # Read failed: return None so the cache re-reads instead of
+            # freezing a False.
+            return None
 
-        if cdb_inst == 1 or cdb_inst == 2:
-            return True
-
-        return False
+        return cdb_inst == 1 or cdb_inst == 2
 
     @read_only_cached_api_return
     def is_transceiver_vdm_supported(self):
@@ -2534,6 +2562,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
             return None
         return tx_input_max_val
 
+    @read_only_cached_api_return
     def get_tx_adaptive_eq_fail_flag_supported(self):
         """
         Returns whether the TX Adaptive Input EQ Fail Flag field is supported.
@@ -2558,85 +2587,94 @@ class CmisApi(CmisCdbFw, XcvrApi):
             tx_adaptive_eq_fail_flag_val_final.append(bool(tx_adaptive_eq_fail_flag_val[key]))
         return tx_adaptive_eq_fail_flag_val_final
 
+    @read_only_cached_api_return
     def get_tx_cdr_supported(self):
         '''
         This function returns the supported TX CDR field
         '''
         tx_cdr_support = self.xcvr_eeprom.read(consts.TX_CDR_SUPPORT_FIELD)
-        if not tx_cdr_support or tx_cdr_support is None:
-            return False
+        if tx_cdr_support is None:
+            return None
         return tx_cdr_support
 
+    @read_only_cached_api_return
     def get_rx_cdr_supported(self):
         '''
         This function returns the supported RX CDR field
         '''
         rx_cdr_support = self.xcvr_eeprom.read(consts.RX_CDR_SUPPORT_FIELD)
-        if not rx_cdr_support or rx_cdr_support is None:
-            return False
+        if rx_cdr_support is None:
+            return None
         return rx_cdr_support
 
+    @read_only_cached_api_return
     def get_tx_input_eq_fixed_supported(self):
         '''
         This function returns the supported TX input eq field
         '''
         tx_fixed_support = self.xcvr_eeprom.read(consts.TX_INPUT_EQ_FIXED_MANUAL_CTRL_SUPPORT_FIELD)
-        if not tx_fixed_support or tx_fixed_support is None:
-            return False
+        if tx_fixed_support is None:
+            return None
         return tx_fixed_support
 
+    @read_only_cached_api_return
     def get_tx_input_adaptive_eq_supported(self):
         '''
         This function returns the supported TX input adaptive eq field
         '''
         tx_adaptive_support = self.xcvr_eeprom.read(consts.TX_INPUT_ADAPTIVE_EQ_SUPPORT_FIELD)
-        if not tx_adaptive_support or tx_adaptive_support is None:
-            return False
+        if tx_adaptive_support is None:
+            return None
         return tx_adaptive_support
 
+    @read_only_cached_api_return
     def get_tx_input_recall_buf1_supported(self):
         '''
         This function returns the supported TX input recall buf1 field
         '''
         tx_recall_buf1_support = self.xcvr_eeprom.read(consts.TX_INPUT_EQ_RECALL_BUF1_SUPPORT_FIELD)
-        if not tx_recall_buf1_support or tx_recall_buf1_support is None:
-            return False
+        if tx_recall_buf1_support is None:
+            return None
         return tx_recall_buf1_support
 
+    @read_only_cached_api_return
     def get_tx_input_recall_buf2_supported(self):
         '''
         This function returns the supported TX input recall buf2 field
         '''
         tx_recall_buf2_support = self.xcvr_eeprom.read(consts.TX_INPUT_EQ_RECALL_BUF2_SUPPORT_FIELD)
-        if not tx_recall_buf2_support or tx_recall_buf2_support is None:
-            return False
+        if tx_recall_buf2_support is None:
+            return None
         return tx_recall_buf2_support
 
+    @read_only_cached_api_return
     def get_rx_ouput_amp_ctrl_supported(self):
         '''
         This function returns the supported RX output amp control field
         '''
         rx_amp_support = self.xcvr_eeprom.read(consts.RX_OUTPUT_AMP_CTRL_SUPPORT_FIELD)
-        if not rx_amp_support or rx_amp_support is None:
-            return False
+        if rx_amp_support is None:
+            return None
         return rx_amp_support
 
+    @read_only_cached_api_return
     def get_rx_output_eq_pre_ctrl_supported(self):
         '''
         This function returns the supported RX output eq pre control field
         '''
         rx_pre_support = self.xcvr_eeprom.read(consts.RX_OUTPUT_EQ_PRE_CTRL_SUPPORT_FIELD)
-        if not rx_pre_support or rx_pre_support is None:
-            return False
+        if rx_pre_support is None:
+            return None
         return rx_pre_support
 
+    @read_only_cached_api_return
     def get_rx_output_eq_post_ctrl_supported(self):
         '''
         This function returns the supported RX output eq post control field
         '''
         rx_post_support = self.xcvr_eeprom.read(consts.RX_OUTPUT_EQ_POST_CTRL_SUPPORT_FIELD)
-        if not rx_post_support or rx_post_support is None:
-            return False
+        if rx_post_support is None:
+            return None
         return rx_post_support
 
     def scs_lane_write(self, si_param, host_lanes_mask, si_settings_dict):

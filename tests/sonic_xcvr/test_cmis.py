@@ -1388,7 +1388,9 @@ class TestCmis(object):
     @pytest.mark.parametrize("mock_response, expected", [
         (False, False),
         (True, True),
-        (None, False)
+        # A failed (None) read returns None so the @read_only_cached_api_return
+        # cache re-reads instead of freezing a False.
+        (None, None)
     ])
     def test_get_diag_page_support(self, mock_response, expected):
         self.api.xcvr_eeprom.read = MagicMock()
@@ -1800,7 +1802,8 @@ class TestCmis(object):
         assert self.api.is_cdb_supported() == False
 
     @pytest.mark.parametrize("cdb_inst, expected", [
-        (None, False),
+        # A failed (None) read returns None so the cache re-reads.
+        (None, None),
         (0, False),
         (1, True),
         (2, True),
