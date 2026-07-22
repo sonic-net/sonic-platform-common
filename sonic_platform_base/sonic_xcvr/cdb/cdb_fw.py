@@ -5,8 +5,13 @@
    CMD : 0100h to 011Fh
 """
 
+from sonic_py_common.syslogger import SysLogger
 from ..fields import cdb_consts
 from .cdb import CdbCmdHandler
+
+SYSLOG_IDENTIFIER = "CdbFw"
+log = SysLogger(SYSLOG_IDENTIFIER)
+log.logger.propagate = False
 
 class CdbFwHandler(CdbCmdHandler):
     def __init__(self, reader, writer, mem_map):
@@ -14,6 +19,12 @@ class CdbFwHandler(CdbCmdHandler):
         self.start_payload_size = 0
         self.is_lpl_only = False
         self.rw_length_ext = 0
+        self.is_abort_supported = False
+        self.timeout_start = None
+        self.timeout_abort = None
+        self.timeout_write = None
+        self.timeout_complete = None
+
         assert True == self.initFwHandler(), "Failed to initialize firmware handler"
 
     def initFwHandler(self):
@@ -21,32 +32,53 @@ class CdbFwHandler(CdbCmdHandler):
         Initialize the firmware handler
         """
         if True != self.send_cmd(cdb_consts.CDB_GET_FIRMWARE_MGMT_FEATURES_CMD):
-            print("Failed to get firmware management features")
+            log.log_notice("Failed to get firmware management features")
             return False
 
         # Read the firmware management features
         reply = self.read_reply(cdb_consts.CDB_GET_FIRMWARE_MGMT_FEATURES_CMD)
         if reply is None:
-            print("Failed to read firmware management features")
+            log.log_notice("Failed to read firmware management features")
             return False
 
+        mgmt_features_adv = reply.get(cdb_consts.CDB_FIRMWARE_MGMT_ADV, {})
         self.start_payload_size = reply[cdb_consts.CDB_START_CMD_PAYLOAD_SIZE]
         self.is_lpl_only = reply[cdb_consts.CDB_WRITE_MECHANISM] == "LPL"
         self.rw_length_ext = reply[cdb_consts.CDB_READ_WRITE_LENGTH_EXT] + 8
+        self.is_abort_supported = bool(mgmt_features_adv.get(cdb_consts.CDB_ABORT_CMD_SUPPORTED, 0))
 
         if self.is_lpl_only:
             self.rw_length_ext = min(cdb_consts.LPL_MAX_PAYLOAD_SIZE, self.rw_length_ext)
         else:
             self.rw_length_ext = min(cdb_consts.EPL_MAX_PAYLOAD_SIZE, self.rw_length_ext)
 
+        multiplier = 10 if mgmt_features_adv.get(cdb_consts.CDB_MAX_DURATION_ENCODING, 0) else 1
+        duration_start = reply.get(cdb_consts.CDB_MAX_DURATION_START, 0)
+        duration_abort = reply.get(cdb_consts.CDB_MAX_DURATION_ABORT, 0)
+        duration_write = reply.get(cdb_consts.CDB_MAX_DURATION_WRITE, 0)
+        duration_complete = reply.get(cdb_consts.CDB_MAX_DURATION_COMPLETE, 0)
+        
+        self.timeout_start = duration_start * multiplier + cdb_consts.CDB_TIMEOUT_SAFETY_MARGIN if duration_start else None
+        self.timeout_abort = duration_abort * multiplier + cdb_consts.CDB_TIMEOUT_SAFETY_MARGIN if duration_abort else None
+        self.timeout_write = duration_write * multiplier + cdb_consts.CDB_TIMEOUT_SAFETY_MARGIN if duration_write else None
+        self.timeout_complete = duration_complete * multiplier + cdb_consts.CDB_TIMEOUT_SAFETY_MARGIN if duration_complete else None
+        
         return True
+
+    def get_fw_mgmt_features(self):
+        """
+        Get firmware management features
+        """
+        if self.start_payload_size == 0 and self.rw_length_ext == 0:
+            return None
+        return (self.start_payload_size, self.rw_length_ext, self.is_lpl_only, self.is_abort_supported)
 
     def get_firmware_info(self):
         """
         Get firmware information
         """
         if True != self.send_cmd(cdb_consts.CDB_GET_FIRMWARE_INFO_CMD):
-            print("Failed to get firmware info")
+            log.log_notice("Failed to get firmware info")
             return False
 
         # Read the firmware info
@@ -62,7 +94,7 @@ class CdbFwHandler(CdbCmdHandler):
             filesize = fw_file.tell() # Get the file size
             fw_file.seek(0, 0)  # Move back to the start of the file
             # Read the image file header bytes
-            header_data = None
+            header_data = b''
             if self.start_payload_size > 0:
                 header_data = fw_file.read(self.start_payload_size)
                 if len(header_data) < self.start_payload_size:
@@ -75,7 +107,8 @@ class CdbFwHandler(CdbCmdHandler):
         }
 
         # Send the CDB start firmware download command
-        return self.send_cmd(cdb_consts.CDB_START_FIRMWARE_DOWNLOAD_CMD, payload)
+        return self.send_cmd(cdb_consts.CDB_START_FIRMWARE_DOWNLOAD_CMD, payload,
+                            timeout=self.timeout_start)
 
     def download_fw_image(self, imgpath):
         """
@@ -106,12 +139,14 @@ class CdbFwHandler(CdbCmdHandler):
                     # TODO Handle auto paging for EPL
                     # Write the block data to the EPL
                     if self.is_lpl_only:
-                        self.write_lpl_block(blkaddr, blkdata)
+                        if True != self.write_lpl_block(blkaddr, blkdata, timeout=self.timeout_write):
+                            log.log_error("Failed to write LPL block at address {}".format(blkaddr))
+                            return False, blkaddr
                     else:
                         # For EPL, write the data in pages
                         self.write_epl_pages(blkdata)
-                        if True != self.write_epl_block(blkaddr, blkdata):
-                            print(f"Failed to write EPL block at address {blkaddr}")
+                        if True != self.write_epl_block(blkaddr, blkdata, timeout=self.timeout_write):
+                            log.log_error("Failed to write EPL block at address {}".format(blkaddr))
                             return False, blkaddr
 
                     # Update address for next chunk by the actual number of bytes written
@@ -120,41 +155,44 @@ class CdbFwHandler(CdbCmdHandler):
                 return True, blkaddr  # Return success and total bytes written
 
         except FileNotFoundError:
-            print(f"Error: Firmware image file not found: {imgpath}")
+            log.log_error("Firmware image file not found: {}".format(imgpath))
             return False, 0
         except ValueError as ve:
-            print(f"Error: {str(ve)}")
+            log.log_error("Error: {}".format(ve))
             return False, 0
         except Exception as e:
-            print(f"Error downloading firmware image: {str(e)}")
+            log.log_error("Error downloading firmware image: {}".format(e))
             self.abort_fw_download()  # Abort on error
         return False, 0
 
-    def run_fw_image(self, runmode=0x0, resetdelay=2):
-            """
-            Run the firmware image(default is non-hitless reset)
-            :param runmode: 0x0: run the image, 0x1:
-            reset the module, 0x2: run and reset
-            """
-            payload = {
-                "runmode" : runmode,
-                "delay" : resetdelay
-            }
+    def run_fw_image(self, runmode=0x0, resetdelay=512):
+        """
+        Run the firmware image(default is non-hitless reset)
+        :param runmode: 0x0: run the image, 0x1:
+        reset the module, 0x2: run and reset
+        :param resetdelay: delay in ms before module reset
+        """
+        payload = {
+            "runmode" : runmode,
+            "delay" : resetdelay
+        }
 
-            # Send the CDB run firmware image command
-            return self.send_cmd(cdb_consts.CDB_RUN_FIRMWARE_IMAGE_CMD, payload,
-                                timeout=cdb_consts.CDB_RUN_FIRMWARE_CMD_TIMEOUT)
+        # Send the CDB run firmware image command
+        return self.send_cmd(cdb_consts.CDB_RUN_FIRMWARE_IMAGE_CMD, payload,
+                            timeout=cdb_consts.CDB_RUN_FIRMWARE_CMD_TIMEOUT)
 
     def complete_fw_download(self):
         """
         Complete the firmware download
         """
         # Send the CDB complete firmware download command
-        return self.send_cmd(cdb_consts.CDB_COMPLETE_FIRMWARE_DOWNLOAD_CMD)
+        return self.send_cmd(cdb_consts.CDB_COMPLETE_FIRMWARE_DOWNLOAD_CMD,
+                            timeout=self.timeout_complete)
 
     def commit_fw_image(self):
         return self.send_cmd(cdb_consts.CDB_COMMIT_FIRMWARE_IMAGE_CMD)
 
     def abort_fw_download(self):
-        return self.send_cmd(cdb_consts.CDB_ABORT_FIRMWARE_DOWNLOAD_CMD)
+        return self.send_cmd(cdb_consts.CDB_ABORT_FIRMWARE_DOWNLOAD_CMD,
+                            timeout=self.timeout_abort)
 

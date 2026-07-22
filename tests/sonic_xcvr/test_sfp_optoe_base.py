@@ -1,11 +1,13 @@
 from unittest.mock import mock_open
-from mock import MagicMock 
-from mock import patch 
-import pytest 
-from sonic_platform_base.sonic_xcvr.sfp_optoe_base import SfpOptoeBase, SFP_OPTOE_UPPER_PAGE0_OFFSET, SFP_OPTOE_PAGE_SELECT_OFFSET
+from mock import MagicMock
+from mock import patch
+from mock import PropertyMock
+import pytest
+from sonic_platform_base.sonic_xcvr.sfp_optoe_base import SfpOptoeBase
+from sonic_platform_base.sonic_xcvr.optoe_eeprom_rw import SFP_OPTOE_UPPER_PAGE0_OFFSET, SFP_OPTOE_PAGE_SELECT_OFFSET
 from sonic_platform_base.sonic_xcvr.api.public.c_cmis import CCmisApi
 from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi
-from sonic_platform_base.sonic_xcvr.mem_maps.public.c_cmis import CCmisMemMap 
+from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.c_cmis import CCmisMemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom 
 from sonic_platform_base.sonic_xcvr.codes.public.cmis import CmisCodes 
 from sonic_platform_base.sonic_xcvr.api.public.sff8472 import Sff8472Api
@@ -195,10 +197,107 @@ class TestSfpOptoeBase(object):
 
         mock_open.assert_called()
 
+    @patch.object(SfpOptoeBase, 'get_eeprom_path')
+    def test_set_optoe_max_bank_size_success(self, mock_get_eeprom_path):
+        mock_get_eeprom_path.return_value = "/sys/bus/i2c/devices/1-0050/eeprom"
+        expected_path = "/sys/bus/i2c/devices/1-0050/max_bank_size"
+
+        m = mock_open(read_data="0")
+        with patch("builtins.open", m):
+            self.sfp_optoe_api.set_optoe_max_bank_size(4)
+
+        m.assert_any_call(expected_path)
+        m.assert_any_call(expected_path, mode='w')
+        m().write.assert_called_once_with("4")
+
+    @patch.object(SfpOptoeBase, 'get_eeprom_path')
+    def test_set_optoe_max_bank_size_skips_when_value_matches(self, mock_get_eeprom_path):
+        mock_get_eeprom_path.return_value = "/sys/bus/i2c/devices/1-0050/eeprom"
+        expected_path = "/sys/bus/i2c/devices/1-0050/max_bank_size"
+
+        m = mock_open(read_data="4")
+        with patch("builtins.open", m):
+            self.sfp_optoe_api.set_optoe_max_bank_size(4)
+
+        m.assert_called_once_with(expected_path)
+        m().write.assert_not_called()
+
+    @patch.object(SfpOptoeBase, 'get_eeprom_path')
+    def test_set_optoe_max_bank_size_missing_sysfs_is_noop(self, mock_get_eeprom_path):
+        mock_get_eeprom_path.return_value = "/sys/bus/i2c/devices/1-0050/eeprom"
+        m = mock_open()
+        m.side_effect = FileNotFoundError
+
+        with patch("builtins.open", m):
+            self.sfp_optoe_api.set_optoe_max_bank_size(4)
+
+        m.assert_called_once_with("/sys/bus/i2c/devices/1-0050/max_bank_size")
+
+    @patch('sonic_platform_base.sonic_xcvr.sfp_optoe_base.SfpBase.refresh_xcvr_api')
+    @patch.object(SfpOptoeBase, 'set_optoe_max_bank_size')
+    @patch.object(SfpOptoeBase, 'bank', new_callable=PropertyMock)
+    def test_refresh_xcvr_api_bank_zero_skips_sync(self, mock_bank, mock_set, mock_super):
+        mock_bank.return_value = 0
+        self.sfp_optoe_api._xcvr_api = MagicMock()
+
+        self.sfp_optoe_api.refresh_xcvr_api()
+
+        self.sfp_optoe_api._xcvr_api.get_max_supported_banks.assert_not_called()
+        mock_set.assert_not_called()
+        mock_super.assert_called_once()
+
+    @patch('sonic_platform_base.sonic_xcvr.sfp_optoe_base.SfpBase.refresh_xcvr_api')
+    @patch.object(SfpOptoeBase, 'set_optoe_max_bank_size')
+    @patch.object(SfpOptoeBase, 'bank', new_callable=PropertyMock)
+    def test_refresh_xcvr_api_nonzero_bank_writes_max_bank_size(self, mock_bank, mock_set, mock_super):
+        mock_bank.return_value = 1
+        self.sfp_optoe_api._xcvr_api = MagicMock()
+        self.sfp_optoe_api._xcvr_api.get_max_supported_banks.return_value = 4
+
+        self.sfp_optoe_api.refresh_xcvr_api()
+
+        self.sfp_optoe_api._xcvr_api.get_max_supported_banks.assert_called_once()
+        mock_set.assert_called_once_with(4)
+        mock_super.assert_called_once()
+
+    @patch('sonic_platform_base.sonic_xcvr.sfp_optoe_base.SfpBase.refresh_xcvr_api')
+    @patch.object(SfpOptoeBase, 'set_optoe_max_bank_size')
+    @patch.object(SfpOptoeBase, 'bank', new_callable=PropertyMock)
+    def test_refresh_xcvr_api_nonzero_bank_noop_when_api_unsupported(self, mock_bank, mock_set, mock_super):
+        mock_bank.return_value = 1
+        self.sfp_optoe_api._xcvr_api = MagicMock()
+        self.sfp_optoe_api._xcvr_api.get_max_supported_banks.side_effect = AttributeError
+
+        self.sfp_optoe_api.refresh_xcvr_api()
+
+        mock_set.assert_not_called()
+        mock_super.assert_called_once()
+
+    @patch.object(CmisApi, 'is_flat_memory', return_value=True)
+    def test_get_max_supported_banks_flat_mem(self, _mock_flat):
+        assert self.cmis_api.get_max_supported_banks() == 0
+
+    @patch.object(CmisApi, 'is_flat_memory', return_value=False)
+    def test_get_max_supported_banks_reads_banks_supported_field(self, _mock_flat):
+        self.cmis_api.xcvr_eeprom.read = MagicMock(return_value=4)
+
+        result = self.cmis_api.get_max_supported_banks()
+
+        self.cmis_api.xcvr_eeprom.read.assert_called_once_with('BanksSupported')
+        assert result == 4
+
     def test_set_power(self):
         mode = 1
         with pytest.raises(NotImplementedError):
             self.sfp_optoe_api.set_power(mode)
+
+    def test_get_lpmode_via_pin_not_implemented(self):
+        with pytest.raises(NotImplementedError):
+            SfpOptoeBase().get_lpmode_via_pin()
+
+    def test_set_lpmode_via_pin_not_implemented(self):
+        with pytest.raises(NotImplementedError):
+            SfpOptoeBase().set_lpmode_via_pin(True)
  
     def test_default_page(self):
         with patch("builtins.open", mock_open(read_data=b'\x01')) as mocked_file:
@@ -210,3 +309,55 @@ class TestSfpOptoeBase(object):
             assert data == b'\x01'
             self.sfp_optoe_api.write_eeprom.assert_called_once_with(SFP_OPTOE_PAGE_SELECT_OFFSET, 1, b'\x00')
             self.sfp_optoe_api.get_optoe_current_page.assert_called_once()
+
+    @patch("builtins.open", new_callable=mock_open)
+    @patch.object(SfpOptoeBase, 'get_eeprom_path')
+    def test_set_optoe_write_max_success(self, mock_get_eeprom_path, mock_open):
+        mock_get_eeprom_path.return_value = "/sys/bus/i2c/devices/1-0050/eeprom"
+        expected_path = "/sys/bus/i2c/devices/1-0050/write_max"
+        expected_write_max = 16
+
+        SfpOptoeBase().set_optoe_write_max(expected_write_max)
+
+        mock_open.assert_called_once_with(expected_path, mode='w')
+        mock_open().write.assert_called_once_with(str(expected_write_max))
+
+    @patch("builtins.open", new_callable=mock_open)
+    @patch.object(SfpOptoeBase, 'get_eeprom_path')
+    def test_set_optoe_write_max_error(self, mock_get_eeprom_path, mock_open):
+        mock_get_eeprom_path.return_value = "/sys/bus/i2c/devices/1-0050/eeprom"
+        mock_open.side_effect = OSError
+
+        # Exception is swallowed -- no exception should propagate.
+        SfpOptoeBase().set_optoe_write_max(16)
+
+        mock_open.assert_called()
+
+    def test_get_optoe_current_page(self):
+        sfp = SfpOptoeBase()
+        sfp.read_eeprom = MagicMock(return_value=bytearray([0x10]))
+
+        assert sfp.get_optoe_current_page() == 0x10
+        sfp.read_eeprom.assert_called_once_with(SFP_OPTOE_PAGE_SELECT_OFFSET, 1)
+
+    @patch("builtins.open", new_callable=mock_open)
+    @patch.object(SfpOptoeBase, 'get_eeprom_path')
+    def test_write_eeprom_success(self, mock_get_eeprom_path, mock_open):
+        mock_get_eeprom_path.return_value = "/sys/class/eeprom"
+
+        result = SfpOptoeBase().write_eeprom(5, 2, bytearray([0xaa, 0xbb, 0xcc]))
+
+        assert result is True
+        mock_open.assert_called_once_with("/sys/class/eeprom", mode='r+b', buffering=0)
+        mock_open().seek.assert_called_once_with(5)
+        mock_open().write.assert_called_once_with(bytearray([0xaa, 0xbb]))
+
+    @patch("builtins.open", new_callable=mock_open)
+    @patch.object(SfpOptoeBase, 'get_eeprom_path')
+    def test_write_eeprom_error(self, mock_get_eeprom_path, mock_open):
+        mock_get_eeprom_path.return_value = "/sys/class/eeprom"
+        mock_open.side_effect = IOError
+
+        result = SfpOptoeBase().write_eeprom(0, 1, bytearray([0x00]))
+
+        assert result is False

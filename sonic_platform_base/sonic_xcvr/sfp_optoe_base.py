@@ -6,12 +6,9 @@
 """
 
 from ..sfp_base import SfpBase
+from .optoe_eeprom_rw import OptoeEepromReadWriteMixin
 
-SFP_OPTOE_PAGE_SELECT_OFFSET = 127
-SFP_OPTOE_UPPER_PAGE0_OFFSET = 128
-SFP_OPTOE_PAGE_SIZE = 128
-
-class SfpOptoeBase(SfpBase):
+class SfpOptoeBase(SfpBase, OptoeEepromReadWriteMixin):
     def __init__(self, bank=0):
         SfpBase.__init__(self, bank=bank)
 
@@ -291,55 +288,45 @@ class SfpOptoeBase(SfpBase):
         api = self.get_xcvr_api()
         return api.set_lpmode(lpmode) if api is not None else None
 
+    def get_lpmode_via_pin(self):
+        """
+        Retrieves the lpmode (low power mode) status of this SFP via the
+        hardware LPMode pin. Platform vendors must implement this if they
+        want to control lpmode via the hardware pin instead of EEPROM.
+
+        Returns:
+            A Boolean, True if lpmode is enabled, False if disabled
+        """
+        raise NotImplementedError
+
+    def set_lpmode_via_pin(self, lpmode):
+        """
+        Sets the lpmode (low power mode) of this SFP via the hardware
+        LPMode pin. Platform vendors must implement this if they want to
+        control lpmode via the hardware pin instead of EEPROM.
+
+        Args:
+            lpmode: A Boolean, True to enable lpmode, False to disable it
+
+        Returns:
+            A boolean, True if lpmode is set successfully, False if not
+        """
+        raise NotImplementedError
+
     def set_power(self, mode):
         raise NotImplementedError
 
-    def set_optoe_write_max(self, write_max):
-        sys_path = self.get_eeprom_path()
-        sys_path = sys_path.replace("eeprom", "write_max")
-        try:
-            with open(sys_path, mode='w') as f:
-                f.write(str(write_max))
-        except (OSError, IOError):
-            pass
+    def refresh_xcvr_api(self):
+        super().refresh_xcvr_api()
 
-    def get_optoe_current_page(self):
-        return self.read_eeprom(SFP_OPTOE_PAGE_SELECT_OFFSET, 1)[0]
+        if self.bank != 0:
+            try:
+                max_bank_size = self._xcvr_api.get_max_supported_banks() if self._xcvr_api is not None else 0
+            except (AttributeError, NotImplementedError):
+                max_bank_size = 0
 
-    def set_page0(self):
-        self.write_eeprom(SFP_OPTOE_PAGE_SELECT_OFFSET, 1, bytearray([0x00]))
-
-    def set_optoe_write_timeout(self, write_timeout):
-        sys_path = self.get_eeprom_path()
-        sys_path = sys_path.replace("eeprom", "write_timeout")
-        try:
-            with open(sys_path, mode='w') as f:
-                f.write(str(write_timeout))
-        except (OSError, IOError):
-            pass
-
-    def read_eeprom(self, offset, num_bytes):
-        try:
-            with open(self.get_eeprom_path(), mode='rb', buffering=0) as f:
-                if offset >= SFP_OPTOE_UPPER_PAGE0_OFFSET  and \
-                    offset < (SFP_OPTOE_UPPER_PAGE0_OFFSET+SFP_OPTOE_PAGE_SIZE) and \
-                        self.get_optoe_current_page() != 0:
-                    # Restoring the page to 0 helps in cases where the optoe driver failed to restore
-                    # the page when say the module was busy with CDB command processing
-                   self.set_page0()
-                f.seek(offset)
-                return bytearray(f.read(num_bytes))
-        except (OSError, IOError):
-            return None
-
-    def write_eeprom(self, offset, num_bytes, write_buffer):
-        try:
-            with open(self.get_eeprom_path(), mode='r+b', buffering=0) as f:
-                f.seek(offset)
-                f.write(write_buffer[0:num_bytes])
-        except (OSError, IOError):
-            return False
-        return True
+            if 0 != max_bank_size:
+                self.set_optoe_max_bank_size(max_bank_size)
 
     def reset(self):
         """

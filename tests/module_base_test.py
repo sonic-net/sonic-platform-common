@@ -38,11 +38,18 @@ class TestModuleBase:
     # ------------------------------------------------------ Not Implemented API --
     @pytest.mark.parametrize(
         "method_name",
-        ["get_dpu_id", "get_reboot_cause", "get_state_info", "get_pci_bus_info", "pci_detach", "pci_reattach"],
+        ["get_dpu_id", "get_reboot_cause", "get_state_info", "get_pci_bus_info", "pci_detach", "pci_reattach",
+         "do_power_cycle"],
     )
     def test_not_implemented_methods_raise(self, method_name):
         with pytest.raises(NotImplementedError):
             getattr(self.module, method_name)()
+
+    def test_module_type_switch_host_constant(self):
+        '''
+        MODULE_TYPE_SWITCH_HOST models the Switch-Host managed by the BMC.
+        '''
+        assert ModuleBase.MODULE_TYPE_SWITCH_HOST == "SWITCH-HOST"
 
     def test_is_host_detection(self):
         # Test when /.dockerenv does not exist (host environment)
@@ -440,6 +447,7 @@ class TestModuleBase:
         with patch("sonic_py_common.device_info.get_platform", return_value="test_platform"), \
              patch("os.path.exists", return_value=False):
             assert self.module._load_transition_timeouts() == {
+                "recovery": 600,
                 "startup": 300,
                 "shutdown": 180,
                 "reboot": 240,
@@ -452,6 +460,7 @@ class TestModuleBase:
         self.module.is_host = False
         with patch("os.path.exists", return_value=False):
             assert self.module._load_transition_timeouts() == {
+                "recovery": 600,
                 "startup": 300,
                 "shutdown": 180,
                 "reboot": 240,
@@ -473,6 +482,7 @@ class TestModuleBase:
              patch("os.path.exists", return_value=True), \
              patch("builtins.open", return_value=mf):
             assert self.module._load_transition_timeouts() == {
+                "recovery": 600,
                 "startup": 600,
                 "shutdown": 360,
                 "reboot": 480,
@@ -493,6 +503,7 @@ class TestModuleBase:
         with patch("os.path.exists", return_value=True), \
              patch("builtins.open", return_value=mf):
             assert self.module._load_transition_timeouts() == {
+                "recovery": 600,
                 "startup": 600,
                 "shutdown": 360,
                 "reboot": 480,
@@ -507,6 +518,7 @@ class TestModuleBase:
         with patch("os.path.exists", return_value=True), \
              patch("builtins.open", return_value=mf):
             assert self.module._load_transition_timeouts() == {
+                "recovery": 600,
                 "startup": 500,
                 "shutdown": 180,
                 "reboot": 240,
@@ -521,6 +533,7 @@ class TestModuleBase:
              patch("os.path.exists", return_value=True), \
              patch("builtins.open", side_effect=Exception("read error")):
             assert self.module._load_transition_timeouts() == {
+                "recovery": 600,
                 "startup": 300,
                 "shutdown": 180,
                 "reboot": 240,
@@ -535,6 +548,7 @@ class TestModuleBase:
         with patch("os.path.exists", return_value=True), \
              patch("builtins.open", side_effect=Exception("read error")):
             assert self.module._load_transition_timeouts() == {
+                "recovery": 600,
                 "startup": 300,
                 "shutdown": 180,
                 "reboot": 240,
@@ -561,7 +575,7 @@ class TestModuleBase:
              patch("os.path.exists", return_value=True) as pexists, \
              patch("builtins.open", return_value=MockFile("{}")):
             self.module._load_transition_timeouts()
-            pexists.assert_called_with("/usr/share/sonic/x86_64-dellemc_z9332f_d1508-r0/platform.json")
+            pexists.assert_called_with("/usr/share/sonic/device/x86_64-dellemc_z9332f_d1508-r0/platform.json")
         ModuleBase._TRANSITION_TIMEOUTS_CACHE = None
 
     def test_load_transition_timeouts_platform_path_container(self):
@@ -766,7 +780,7 @@ class TestModuleBase:
         """Test that _set_module_gnoi_halt_in_progress uses transition lock"""
         db = MagicMock()
         self.module.state_db = db
-        
+
         mock_lock = MagicMock()
         with patch.object(self.module, "get_name", return_value="DPU0"), \
              patch.object(self.module, "_transition_operation_lock", return_value=mock_lock):
@@ -822,6 +836,21 @@ class TestModuleBase:
         db.hset.assert_has_calls([
             call(self._key("DPU0"), "transition_in_progress", "True"),
             call(self._key("DPU0"), "transition_type", "startup"),
+            call(self._key("DPU0"), "transition_start_time", "1000"),
+        ])
+
+    def test_set_module_state_transition_recovery(self):
+        """The 'recovery' transition type must be accepted (added to defaults)."""
+        db = MagicMock()
+        self.module.state_db = db
+        db.hget.return_value = None
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_transition_operation_lock"), \
+             patch("time.time", return_value=1000):
+            assert self.module.set_module_state_transition("dpu0", "recovery") is True
+        db.hset.assert_has_calls([
+            call(self._key("DPU0"), "transition_in_progress", "True"),
+            call(self._key("DPU0"), "transition_type", "recovery"),
             call(self._key("DPU0"), "transition_start_time", "1000"),
         ])
 
@@ -959,11 +988,11 @@ class TestModuleBase:
         self.module.state_db = db
         # Flag is set, start_time and transition_type are available, timeout exceeded
         db.hget.side_effect = ["True", "900", "startup"]
-        
+
         with patch.object(self.module, "get_name", return_value="DPU0"), \
              patch.object(self.module, "_transition_operation_lock"), \
              patch.object(self.module, "_load_transition_timeouts", return_value={"startup": 300}), \
-             patch.object(self.module, "clear_module_state_transition") as mock_clear, \
+             patch.object(self.module, "_clear_transition_fields") as mock_clear, \
              patch("time.time", return_value=1500):
             # Timeout: 1500 - 900 = 600 > 300
             assert self.module.get_module_state_transition("dpu0") is False
@@ -975,7 +1004,7 @@ class TestModuleBase:
         self.module.state_db = db
         # Flag is set, start_time and transition_type are available, within timeout
         db.hget.side_effect = ["True", "1400", "startup"]
-        
+
         with patch.object(self.module, "get_name", return_value="DPU0"), \
              patch.object(self.module, "_transition_operation_lock"), \
              patch.object(self.module, "_load_transition_timeouts", return_value={"startup": 300}), \
@@ -991,7 +1020,7 @@ class TestModuleBase:
         self.module.state_db = db
         # Flag is set but start_time is None
         db.hget.side_effect = ["True", None, "startup"]
-        
+
         with patch.object(self.module, "get_name", return_value="DPU0"), \
              patch.object(self.module, "_transition_operation_lock"), \
              patch.object(self.module, "clear_module_state_transition") as mock_clear:
@@ -1004,7 +1033,7 @@ class TestModuleBase:
         self.module.state_db = db
         # Flag is set, start_time exists but transition_type is None
         db.hget.side_effect = ["True", "1000", None]
-        
+
         with patch.object(self.module, "get_name", return_value="DPU0"), \
              patch.object(self.module, "_transition_operation_lock"), \
              patch.object(self.module, "clear_module_state_transition") as mock_clear:
@@ -1017,16 +1046,44 @@ class TestModuleBase:
         db = MagicMock()
         self.module.state_db = db
         db.hget.side_effect = ["True", "900", transition_type]
-        
+
         timeout_value = 300
         with patch.object(self.module, "get_name", return_value="DPU0"), \
              patch.object(self.module, "_transition_operation_lock"), \
              patch.object(self.module, "_load_transition_timeouts", return_value={transition_type: timeout_value}), \
-             patch.object(self.module, "clear_module_state_transition") as mock_clear, \
+             patch.object(self.module, "_clear_transition_fields") as mock_clear, \
              patch("time.time", return_value=1500):
             # Timeout: 1500 - 900 = 600 > 300
             assert self.module.get_module_state_transition("dpu0") is False
             mock_clear.assert_called_once_with("DPU0")
+
+    def test_get_module_state_transition_timeout_no_deadlock_with_real_lock(self, tmp_path):
+        """Verify the timeout path completes without deadlock when using
+        the real file-based transition lock.  Before the fix, this would
+        hang forever because get_module_state_transition() held the lock
+        and then called clear_module_state_transition() which tried to
+        acquire the same lock again."""
+        db = MagicMock()
+        self.module.state_db = db
+        # Stale flag: start_time=900, now=1500, timeout=300 → 600 > 300
+        db.hget.side_effect = ["True", "900", "startup"]
+
+        lock_file = str(tmp_path / "{}_transition.lock")
+
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "TRANSITION_OPERATION_LOCK_FILE_PATH", lock_file), \
+             patch.object(self.module, "_load_transition_timeouts", return_value={"startup": 300}), \
+             patch("time.time", return_value=1500):
+            # Use the REAL _transition_operation_lock (no mock).
+            # If _clear_transition_fields re-entered clear_module_state_transition,
+            # the second flock(LOCK_EX) would block and this test would time out.
+            result = self.module.get_module_state_transition("dpu0")
+
+        assert result is False
+        # Verify the stale fields were cleared via hdel
+        db.hdel.assert_any_call("CHASSIS_MODULE_TABLE|DPU0", "transition_in_progress")
+        db.hdel.assert_any_call("CHASSIS_MODULE_TABLE|DPU0", "transition_type")
+        db.hdel.assert_any_call("CHASSIS_MODULE_TABLE|DPU0", "transition_start_time")
 
     # ---------------------------------- Edge timeout semantics coverage --------
     @pytest.mark.parametrize(
@@ -1046,3 +1103,65 @@ class TestModuleBase:
              patch.object(self.module, "_load_transition_timeouts", return_value=timeouts), \
              patch("time.time", return_value=now):
             assert self.module.set_module_state_transition("dpu0", "startup") is expected
+
+    # ------------------------------------------- do_power_cycle tests ---------
+
+    def test_do_power_cycle_raises_not_implemented(self):
+        '''
+        Test that base class do_power_cycle raises NotImplementedError.
+        Vendors must override this method to provide hardware power cycle support.
+        '''
+        with pytest.raises(NotImplementedError):
+            self.module.do_power_cycle()
+
+    def test_do_power_cycle_success_via_concrete_subclass(self):
+        '''
+        Test a concrete ModuleBase subclass implementing do_power_cycle() that succeeds.
+        Simulates a Switch-Host module (MODULE_TYPE_SWITCH_HOST) being power-cycled by the BMC.
+        '''
+        with patch("sonic_py_common.daemon_base.db_connect", lambda *a, **k: None):
+            class SwitchHostModule(ModuleBase):
+                def __init__(self):
+                    super().__init__()
+                    self._power_cycle_called = False
+
+                def get_name(self):
+                    return ModuleBase.MODULE_TYPE_SWITCH_HOST
+
+                def do_power_cycle(self):
+                    self._power_cycle_called = True
+                    return True
+
+            module = SwitchHostModule()
+            result = module.do_power_cycle()
+            assert result is True
+            assert module._power_cycle_called is True
+
+    def test_do_power_cycle_failure_via_concrete_subclass(self):
+        '''
+        Test a concrete ModuleBase subclass where do_power_cycle() fails.
+        Simulates a hardware failure during power cycle of the Switch-Host.
+        '''
+        with patch("sonic_py_common.daemon_base.db_connect", lambda *a, **k: None):
+            class SwitchHostModule(ModuleBase):
+                def get_name(self):
+                    return ModuleBase.MODULE_TYPE_SWITCH_HOST
+
+                def do_power_cycle(self):
+                    return False  # hardware error
+
+            module = SwitchHostModule()
+            assert module.do_power_cycle() is False
+
+    def test_do_power_cycle_independent_of_set_admin_state(self):
+        '''
+        Test that do_power_cycle and set_admin_state are independent APIs.
+        Both raise NotImplementedError on the base class and must be
+        overridden separately by the platform implementation.
+        '''
+        with pytest.raises(NotImplementedError):
+            self.module.do_power_cycle()
+        with pytest.raises(NotImplementedError):
+            self.module.set_admin_state(True)
+        with pytest.raises(NotImplementedError):
+            self.module.set_admin_state(False)

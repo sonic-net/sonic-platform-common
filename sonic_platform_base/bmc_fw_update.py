@@ -6,6 +6,11 @@ Handles BMC firmware update process
 """
 
 import sys
+import time
+
+# request_bmc_reset() returns before the BMC drops; wait for it to go down first
+# so we don't read the still-up pre-reset BMC as ready.
+BMC_RESET_SETTLE_TIME = 20  # seconds
 
 def main():
     try:
@@ -39,6 +44,17 @@ def main():
             if ret != 0:
                 logger.log_error(f'Failed to restart BMC. Error {ret}: {error_msg}')
                 sys.exit(1)
+
+            # Let the BMC drop before polling (see BMC_RESET_SETTLE_TIME).
+            time.sleep(BMC_RESET_SETTLE_TIME)
+
+            # Redfish accepting a login implies L3 is back too -- no ping loop needed.
+            code = bmc.wait_until_redfish_ready()
+            if code != 0:
+                logger.log_error(f"BMC Redfish service did not become ready after "
+                                 f"restart (last error code: {code})")
+                sys.exit(1)
+
             logger.log_notice("BMC firmware update completed successfully")
 
     except Exception as e:

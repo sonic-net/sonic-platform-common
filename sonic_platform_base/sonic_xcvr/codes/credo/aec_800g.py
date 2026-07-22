@@ -1,5 +1,9 @@
-from ..public.cmisTargetFWUpgrade import CmisTargetFWUpgradeCodes
+from ..public.cmis import CmisCodes
 
-class CmisAec800gCodes(CmisTargetFWUpgradeCodes):
-    # Vendor specific implementation to be added here
-    pass
+
+class CredoAec800gCodes(CmisCodes):
+    TARGET_MODE = {
+        0: 'local',
+        1: 'remote-A',
+        2: 'remote-B'
+    }

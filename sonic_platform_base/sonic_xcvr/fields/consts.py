@@ -7,6 +7,7 @@ STATUS_FIELD = "Status Indicators"
 STATUS_IND_BITS_FIELD = "Status Indicator Bits"
 
 FLAT_MEM_FIELD = "Flat_mem"
+MODULE_FUNCTION_TYPE = "ModuleFunctionType"
 CONNECTOR_FIELD = "Connector"
 
 DIAG_MON_TYPE_FIELD = "Diagnostic Monitoring Type"
@@ -182,6 +183,7 @@ MODULE_PWRUP_DURATION = "ModulePowerUpDuration"
 MODULE_PWRDN_DURATION = "ModulePowerDownDuration"
 DP_TX_TURNON_DURATION = "DPTxTurnOnDuration"
 DP_TX_TURNOFF_DURATION = "DPTxTurnOffDuration"
+BANKS_SUPPORTED_FIELD = "BanksSupported"
 
 # DOM
 TRANS_DOM_FIELD = "TransceiverDom"
@@ -303,6 +305,7 @@ LEN_MULT_FIELD = "LengthMultiplier"
 MAX_POWER_FIELD = "MaxPower"
 MGMT_CHAR_FIELD = "Management Characteristics"
 MGMT_CHAR_MISC_FIELD = "Management Characteristics (Misc)"
+EXTENDED_MODULE_INFO_FIELD = "ExtendedModuleInfo"
 
 MODULE_CHAR_ADVT_FIELD = "Module Characteristics Advertising"
 

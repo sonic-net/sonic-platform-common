@@ -36,6 +36,9 @@ class ModuleBase(device_base.DeviceBase):
     MODULE_TYPE_FABRIC  = "FABRIC-CARD"
     MODULE_TYPE_DPU  = "DPU"
 
+    # Module Type for Switch on a device having BMC(which controls switch power state)
+    MODULE_TYPE_SWITCH_HOST = "SWITCH-HOST"
+
     # Possible card status for modular chassis
     # Module state is Empty if no module is inserted in the slot
     MODULE_STATUS_EMPTY   = "Empty"
@@ -100,7 +103,7 @@ class ModuleBase(device_base.DeviceBase):
         self.is_host = self._is_host()
 
         self.state_db = None
-    
+
     def get_state_db(self):
         """
         Initializes and returns the state database connector.
@@ -173,6 +176,8 @@ class ModuleBase(device_base.DeviceBase):
         Retrieves the name of the module prefixed by SUPERVISOR, LINE-CARD,
         FABRIC-CARD, DPU0, DPUX
 
+        It can return name 'SWITCH-HOST' for module type MODULE_TYPE_SWITCH_HOST
+
         Returns:
             A string, the module name prefixed by one of MODULE_TYPE_SUPERVISOR,
             MODULE_TYPE_LINE or MODULE_TYPE_FABRIC or MODULE_TYPE_DPU and followed
@@ -209,8 +214,8 @@ class ModuleBase(device_base.DeviceBase):
 
         Returns:
             A string, the module-type from one of the predefined types:
-            MODULE_TYPE_SUPERVISOR, MODULE_TYPE_LINE or MODULE_TYPE_FABRIC
-            or MODULE_TYPE_DPU
+            MODULE_TYPE_SUPERVISOR, MODULE_TYPE_LINE, MODULE_TYPE_FABRIC,
+            MODULE_TYPE_DPU, or MODULE_TYPE_SWITCH_HOST
         """
         raise NotImplementedError
 
@@ -254,6 +259,15 @@ class ModuleBase(device_base.DeviceBase):
         Args:
             up: A boolean, True to set the admin-state to UP. False to set the
             admin-state to DOWN.
+
+        Returns:
+            bool: True if the request has been issued successfully, False if not
+        """
+        raise NotImplementedError
+
+    def do_power_cycle(self):
+        """
+        Request to do a powercycle of the module.
 
         Returns:
             bool: True if the request has been issued successfully, False if not
@@ -433,7 +447,7 @@ class ModuleBase(device_base.DeviceBase):
             if not self.set_module_state_transition(module_name, "startup"):
                 sys.stderr.write("Failed to set module state transition for admin state UP\n")
                 return False
- 
+
             admin_status = self.set_admin_state(True)
 
             # This is only valid on platforms which have pci_rescan sensord changes required. If it is not implemented,
@@ -474,7 +488,8 @@ class ModuleBase(device_base.DeviceBase):
         "startup": 300,      # 5 mins
         "shutdown": 180,     # 3 mins
         "reboot": 240,       # 4 mins
-        "halt_services": 60  # 1 min
+        "halt_services": 60, # 1 min
+        "recovery": 600      # 10 mins
     }
 
     _TRANSITION_TIMEOUTS_CACHE = None
@@ -500,7 +515,7 @@ class ModuleBase(device_base.DeviceBase):
         if self.is_host:
             from sonic_py_common import device_info
             platform = device_info.get_platform()
-            platform_json_path = f"/usr/share/sonic/{platform}/platform.json"
+            platform_json_path = f"/usr/share/sonic/device/{platform}/platform.json"
         else:
             platform_json_path = "/usr/share/sonic/platform/platform.json"
 
@@ -662,6 +677,23 @@ class ModuleBase(device_base.DeviceBase):
                 sys.stderr.write("Error setting transition flag for module {}: {}\n".format(module_name, str(e)))
                 return False
 
+    def _clear_transition_fields(self, module_name):
+        """
+        Internal helper that clears the transition fields without acquiring the lock.
+        Caller must already hold _transition_operation_lock().
+        """
+        module_name = module_name.upper()
+        module_key = "CHASSIS_MODULE_TABLE|" + module_name
+        state_db = self.get_state_db()
+        try:
+            state_db.hdel(module_key, "transition_in_progress")
+            state_db.hdel(module_key, "transition_type")
+            state_db.hdel(module_key, "transition_start_time")
+            return True
+        except Exception as e:
+            sys.stderr.write("Error clearing transition flag for module {}: {}\n".format(module_name, str(e)))
+            return False
+
     def clear_module_state_transition(self, module_name):
         """
         Clears the module state transition flag 'transition_in_progress' and corresponding fields in the CHASSIS_MODULE_TABLE.
@@ -671,18 +703,8 @@ class ModuleBase(device_base.DeviceBase):
         Returns:
             bool: Returns True if the flag is successfully cleared, False otherwise.
         """
-        module_name = module_name.upper()
-        module_key = "CHASSIS_MODULE_TABLE|" + module_name
-        state_db = self.get_state_db()
         with self._transition_operation_lock():
-            try:
-                state_db.hdel(module_key, "transition_in_progress")
-                state_db.hdel(module_key, "transition_type")
-                state_db.hdel(module_key, "transition_start_time")
-                return True
-            except Exception as e:
-                sys.stderr.write("Error clearing transition flag for module {}: {}\n".format(module_name, str(e)))
-                return False
+            return self._clear_transition_fields(module_name)
 
     def get_module_state_transition(self, module_name):
         """
@@ -709,8 +731,8 @@ class ModuleBase(device_base.DeviceBase):
                         current_time = int(time.time())
                         timeout = self._load_transition_timeouts().get(transition_type, 0)
                         if current_time - start_time > timeout:
-                            # Timeout occurred, clear the flag
-                            self.clear_module_state_transition(module_name)
+                            # Timeout occurred, clear the flag (lock already held)
+                            self._clear_transition_fields(module_name)
                             return False
 
                 return current_flag == "True"

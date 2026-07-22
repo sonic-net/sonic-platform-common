@@ -6,6 +6,11 @@
 #  - InnoDisk
 #  - StorFly
 #  - Virtium
+#  - Swissbit
+#  - Intel
+#  - Transcend
+#  - ATP
+#  - Micron
 
 try:
     import re
@@ -104,9 +109,9 @@ class SsdUtil(StorageCommon):
         # Known vendor part
         if self.model:
             vendor = self._parse_vendor()
-            # For Virtium, ATP NVMe SSD, parse_generic_ssd_info should be called.
+            # For Virtium, ATP, Micron NVMe SSD, parse_generic_ssd_info should be called.
             # Skip here, otherwise data will be overwritten by N/A.
-            if vendor in ['Virtium', 'ATP'] and "nvme" in self.dev:
+            if vendor in ['Virtium', 'ATP', 'Micron'] and "nvme" in self.dev:
                 return
 
             if vendor:
@@ -244,19 +249,19 @@ class SsdUtil(StorageCommon):
         if self.disk_io_reads == NOT_AVAILABLE:
             io_reads_raw = self.parse_id_number("[{}]".format(hex(INNODISK_IO_READS_ID)[2:]).upper(), self.vendor_ssd_info)
             if io_reads_raw == NOT_AVAILABLE:
-                self.disk_io_reads == NOT_AVAILABLE
+                self.disk_io_reads = NOT_AVAILABLE
             else:
                 self.disk_io_reads = io_reads_raw.split()[-2].strip("[]")
         if self.disk_io_writes == NOT_AVAILABLE:
             io_writes_raw = self.parse_id_number("[{}]".format(hex(INNODISK_IO_WRITES_ID)[2:]).upper(), self.vendor_ssd_info)
             if io_writes_raw == NOT_AVAILABLE:
-                self.disk_io_writes == NOT_AVAILABLE
+                self.disk_io_writes = NOT_AVAILABLE
             else:
                 self.disk_io_writes = io_writes_raw.split()[-2].strip("[]")
         if self.reserved_blocks == NOT_AVAILABLE:
             rbc_raw = self.parse_id_number("[{}]".format(hex(INNODISK_RESERVED_BLOCKS_ID)[2:]).upper(), self.vendor_ssd_info)
             if rbc_raw == NOT_AVAILABLE:
-                self.reserved_blocks == NOT_AVAILABLE
+                self.reserved_blocks = NOT_AVAILABLE
             else:
                 self.reserved_blocks = rbc_raw.split()[-2].strip("[]")
 
@@ -296,21 +301,21 @@ class SsdUtil(StorageCommon):
             if self.disk_io_reads == NOT_AVAILABLE:
                 io_reads_raw = self.parse_id_number(VIRTIUM_IO_READS_ID, self.vendor_ssd_info)
                 if io_reads_raw == NOT_AVAILABLE:
-                    self.disk_io_reads == NOT_AVAILABLE
+                    self.disk_io_reads = NOT_AVAILABLE
                 else:
                     self.disk_io_reads = io_reads_raw.split()[-1]
 
             if self.disk_io_writes == NOT_AVAILABLE:
                 io_writes_raw = self.parse_id_number(VIRTIUM_IO_WRITES_ID, self.vendor_ssd_info)
                 if io_writes_raw == NOT_AVAILABLE:
-                    self.disk_io_writes == NOT_AVAILABLE
+                    self.disk_io_writes = NOT_AVAILABLE
                 else:
                     self.disk_io_writes = io_writes_raw.split()[-1]
 
             if self.reserved_blocks == NOT_AVAILABLE:
                 rbc_raw = self.parse_id_number(VIRTIUM_RESERVED_BLOCKS_ID, self.vendor_ssd_info)
                 if rbc_raw == NOT_AVAILABLE:
-                    self.reserved_blocks == NOT_AVAILABLE
+                    self.reserved_blocks = NOT_AVAILABLE
                 else:
                     self.reserved_blocks = rbc_raw.split()[-1]
 

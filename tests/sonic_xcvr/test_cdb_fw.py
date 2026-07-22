@@ -114,6 +114,22 @@ class TestCdbFwHandler:
         
         result = handler.initFwHandler()
         assert result == True
+
+    def test_get_fw_mgmt_features_none(self):
+        """Test get_fw_mgmt_features returns None when both sizes are 0"""
+        self.handler.start_payload_size = 0
+        self.handler.rw_length_ext = 0
+        result = self.handler.get_fw_mgmt_features()
+        assert result is None
+
+    def test_get_fw_mgmt_features_valid(self):
+        """Test get_fw_mgmt_features returns tuple when initialized"""
+        self.handler.start_payload_size = 112
+        self.handler.rw_length_ext = 2048
+        self.handler.is_lpl_only = True
+        self.handler.is_abort_supported = True
+        result = self.handler.get_fw_mgmt_features()
+        assert result == (112, 2048, True, True)
     
     def test_get_firmware_info_success(self):
         """Test successful get_firmware_info"""
@@ -175,7 +191,7 @@ class TestCdbFwHandler:
         call_args = self.handler.send_cmd.call_args
         payload = call_args[0][1]
         assert payload["imgsize"] == 512
-        assert payload["imghdr"] is None    
+        assert payload["imghdr"] == b''    
     
     @patch("builtins.open", new_callable=mock_open, read_data=b"A" * 50)
     def test_start_fw_download_file_too_small(self, mock_file):
@@ -198,7 +214,7 @@ class TestCdbFwHandler:
         assert result == True
         self.handler.send_cmd.assert_called_once_with(
             cdb_consts.CDB_RUN_FIRMWARE_IMAGE_CMD,
-            {"runmode": 0x0, "delay": 2},
+            {"runmode": 0x0, "delay": 512},
             timeout=cdb_consts.CDB_RUN_FIRMWARE_CMD_TIMEOUT
         )
     
@@ -218,11 +234,13 @@ class TestCdbFwHandler:
     def test_complete_fw_download(self):
         """Test complete_fw_download"""
         self.handler.send_cmd = MagicMock(return_value=True)
+        self.handler.timeout_complete = 20000
         
         result = self.handler.complete_fw_download()
         
         assert result == True
-        self.handler.send_cmd.assert_called_once_with(cdb_consts.CDB_COMPLETE_FIRMWARE_DOWNLOAD_CMD)
+        self.handler.send_cmd.assert_called_once_with(cdb_consts.CDB_COMPLETE_FIRMWARE_DOWNLOAD_CMD,
+                            timeout=self.handler.timeout_complete)
     
     def test_commit_fw_image(self):
         """Test commit_fw_image"""
@@ -236,11 +254,13 @@ class TestCdbFwHandler:
     def test_abort_fw_download(self):
         """Test abort_fw_download"""
         self.handler.send_cmd = MagicMock(return_value=True)
+        self.handler.timeout_abort = 5080
         
         result = self.handler.abort_fw_download()
         
         assert result == True
-        self.handler.send_cmd.assert_called_once_with(cdb_consts.CDB_ABORT_FIRMWARE_DOWNLOAD_CMD)
+        self.handler.send_cmd.assert_called_once_with(cdb_consts.CDB_ABORT_FIRMWARE_DOWNLOAD_CMD,
+                            timeout=self.handler.timeout_abort)
     
     @patch("builtins.open", new_callable=mock_open)
     def test_download_fw_image_lpl_success(self, mock_file):
@@ -262,7 +282,7 @@ class TestCdbFwHandler:
         
         assert result == True
         assert bytes_written == 1024
-        self.handler.write_lpl_block.assert_called_once_with(0, b"D" * 1024)
+        self.handler.write_lpl_block.assert_called_once_with(0, b"D" * 1024, timeout=self.handler.timeout_write)
     
     @patch("builtins.open", new_callable=mock_open)
     def test_download_fw_image_epl_success(self, mock_file):
@@ -290,8 +310,8 @@ class TestCdbFwHandler:
         
         # Verify calls
         calls = self.handler.write_epl_block.call_args_list
-        assert calls[0] == call(0, b"D" * 2048)
-        assert calls[1] == call(2048, b"E" * 1024)
+        assert calls[0] == call(0, b"D" * 2048, timeout=self.handler.timeout_write)
+        assert calls[1] == call(2048, b"E" * 1024, timeout=self.handler.timeout_write)
     
     @patch("builtins.open", new_callable=mock_open)
     def test_download_fw_image_no_header(self, mock_file):
@@ -385,9 +405,9 @@ class TestCdbFwHandler:
         
         # Verify calls
         calls = self.handler.write_lpl_block.call_args_list
-        assert calls[0] == call(0, b"A" * 512)
-        assert calls[1] == call(512, b"B" * 512)
-        assert calls[2] == call(1024, b"C" * 256)
+        assert calls[0] == call(0, b"A" * 512, timeout=self.handler.timeout_write)
+        assert calls[1] == call(512, b"B" * 512, timeout=self.handler.timeout_write)
+        assert calls[2] == call(1024, b"C" * 256, timeout=self.handler.timeout_write)
     
     def test_download_fw_image_empty_file_with_header(self):
         """Test download_fw_image with empty file when header is required"""
