@@ -78,6 +78,29 @@ CDB_DEFAULT_PASSWORD = 0x00001011
 # universally-supported way to unlock password-protected CDB/EEPROM access.
 CDB_HOST_PASSWORD_ENTRY_OFFSET = 122
 CDB_HOST_PASSWORD_ENTRY_SIZE = 4
+# CMIS revision: page 00h byte 1, major = bits 7-4, minor = bits 3-0
+# (e.g. 0x53 -> CMIS 5.3). Used to decide whether the PasswordCmdResult
+# register below is defined for this module.
+CDB_CMIS_REVISION = "CdbCmisRevision"
+# PasswordCmdResult (00h:42.3-0) is only defined from CMIS 5.3 onward; on
+# earlier modules those bits are reserved and must not be interpreted.
+CDB_PASSWORD_RESULT_MIN_CMIS_REV = (5, 3)
+# CMIS PasswordCmdResult register: page 00h byte 42, bits 3-0 (00h:42.3-0).
+# Reports the result of the most recent password entry/change written to the
+# Password Entry Area (00h:118-125). Writing the password only delivers it; its
+# acceptance is reported asynchronously here (per CMIS 8.2.14).
+CDB_PASSWORD_CMD_RESULT = "CdbPasswordCmdResult"
+CDB_PASSWORD_CMD_RESULT_CODE = "CdbPasswordCmdResultCode"
+CDB_PASSWORD_RESULT_NOT_SUPPORTED = 0x0    # not supported (legacy before CMIS 5.3)
+CDB_PASSWORD_RESULT_MODULE_ACCEPTED = 0x1  # module password entry/change accepted
+CDB_PASSWORD_RESULT_HOST_ACCEPTED = 0x2    # host password entry/change accepted
+CDB_PASSWORD_RESULT_NOT_ACCEPTED = 0x3     # password entry not accepted
+CDB_PASSWORD_RESULT_IN_PROGRESS = 0x8      # password validation in progress
+# Poll bound for PasswordCmdResult after writing the Password Entry Area. The
+# module updates the result within tWRITE and may reject reads (or report
+# "in progress") until then; give it a small margin.
+CDB_PASSWORD_RESULT_POLL_INTERVAL = 100    # msec
+CDB_PASSWORD_RESULT_POLL_TIMEOUT = 1000    # msec
 CDB_CHANGE_PASSWORD_CMD = 0x0002
 CDB_ABORT_CMD = 0x0003
 CDB_MODULE_FEATURE_CMD= 0x0004

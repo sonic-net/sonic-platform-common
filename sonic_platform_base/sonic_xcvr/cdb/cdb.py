@@ -134,18 +134,86 @@ class CdbCmdHandler(XcvrEeprom):
         """
         return self.last_cmd_status
 
+    def _get_cmis_rev(self):
+        """
+        Read the CMIS revision the module complies to (00h:1).
+
+        Returns a (major, minor) tuple, or None if it could not be read.
+        """
+        rev = self.read(cdb_consts.CDB_CMIS_REVISION)
+        if rev is None:
+            return None
+        return (rev >> 4, rev & 0x0F)
+
+    def _supports_password_cmd_result(self):
+        """
+        Whether the PasswordCmdResult register (00h:42.3-0) is defined for this
+        module. It was introduced in CMIS 5.3; on earlier modules those bits are
+        reserved, so their value must not be used to judge password acceptance.
+
+        Returns False if the CMIS revision cannot be determined, so the code
+        does not interpret a reserved register on a legacy module.
+        """
+        rev = self._get_cmis_rev()
+        return rev is not None and rev >= cdb_consts.CDB_PASSWORD_RESULT_MIN_CMIS_REV
+
+    def _read_password_cmd_result(self):
+        """
+        Poll PasswordCmdResult (00h:42.3-0) until validation completes.
+
+        Per CMIS 8.2.14, after a password entry/change WRITE the module updates
+        PasswordCmdResult within tWRITE, and until then may report "validation
+        in progress" or reject reads of the register. Poll past those transient
+        states, bounded by CDB_PASSWORD_RESULT_POLL_TIMEOUT.
+
+        Returns the 4-bit result code, or None if it could not be determined
+        within the timeout.
+        """
+        elapsed = 0
+        while elapsed < cdb_consts.CDB_PASSWORD_RESULT_POLL_TIMEOUT:
+            result = self.read(cdb_consts.CDB_PASSWORD_CMD_RESULT)
+            if result is not None and \
+                    result != cdb_consts.CDB_PASSWORD_RESULT_IN_PROGRESS:
+                return result
+            time.sleep(cdb_consts.CDB_PASSWORD_RESULT_POLL_INTERVAL / 1000)
+            elapsed += cdb_consts.CDB_PASSWORD_RESULT_POLL_INTERVAL
+        return None
+
+    def _enter_password_via_cdb(self, password):
+        """
+        Enter the host password via CDB command 0001h. Fallback for modules that
+        do not unlock via the Password Entry Area.
+        """
+        payload = {"password": password}
+        return self.send_cmd(cdb_consts.CDB_ENTER_PASSWORD_CMD, payload)
+
     def enter_password(self, password=cdb_consts.CDB_DEFAULT_PASSWORD):
         """
         Enter the CMIS host password to unlock protected CDB/EEPROM access.
 
-        Per CMIS, the password is entered by writing the 4-byte value (MSB
-        first) to the Password Entry Area at page 00h bytes 122-125. This
-        register-based mechanism is the standard and is honored by all CMIS
-        modules, so it is attempted first. Some modules also accept the
-        password via CDB command 0001h; that is kept as a fallback for the
-        modules that do not unlock via the Password Entry Area.
+        Per CMIS 8.2.14 the password is entered by writing the 4-byte value
+        (MSB first) to the Password Entry Area at page 00h bytes 122-125. The
+        write succeeding at the transport level does NOT mean the password was
+        accepted: validation is asynchronous and its outcome is reported in the
+        PasswordCmdResult register (00h:42.3-0). So:
+          1. Write the password to the Password Entry Area (standard method).
+          2. Read PasswordCmdResult to learn whether it was accepted -- but only
+             on CMIS 5.3+ modules, where that register is defined. On earlier
+             modules the register is reserved, so a successful write is taken
+             at face value (best-effort); a module that only unlocks via CDB
+             command 0001h is handled reactively by the caller, which re-enters
+             the password when a protected CDB command returns
+             CDB_PASSWORD_ERROR_STATUS.
+          3. Fall back to CDB command 0001h only when the register method is not
+             usable (transport write failed, or -- on a 5.3+ module -- the
+             PasswordCmdResult could not be determined), for modules that unlock
+             via the CDB command.
+        A password a 5.3+ module explicitly rejects (PasswordCmdResult = "not
+        accepted") is NOT retried via CDB, since the same wrong password would
+        be rejected again.
 
-        Returns True if the password was delivered, False/None otherwise.
+        Returns True if the password was accepted (or, pre-5.3, delivered),
+        False/None otherwise.
         """
         if not isinstance(password, int) or \
                 password < 0 or password > 0xFFFFFFFF:
@@ -154,14 +222,38 @@ class CdbCmdHandler(XcvrEeprom):
 
         # Preferred: write the password to the Password Entry Area (MSB first).
         pwd_bytes = bytearray(struct.pack(">I", password))
-        if self.write_raw(cdb_consts.CDB_HOST_PASSWORD_ENTRY_OFFSET,
-                                  cdb_consts.CDB_HOST_PASSWORD_ENTRY_SIZE, pwd_bytes):
+        if not self.write_raw(cdb_consts.CDB_HOST_PASSWORD_ENTRY_OFFSET,
+                              cdb_consts.CDB_HOST_PASSWORD_ENTRY_SIZE, pwd_bytes):
+            log.log_notice("Password Entry Area write failed; falling back to CDB command 0001h")
+            return self._enter_password_via_cdb(password)
+
+        # PasswordCmdResult (00h:42.3-0) only exists on CMIS 5.3+. On earlier
+        # modules the Password Entry Area write is the standard mechanism and
+        # there is no register to confirm acceptance, so treat the successful
+        # write as success and let the caller's CDB_PASSWORD_ERROR_STATUS path
+        # cover modules that unlock only via CDB command 0001h.
+        if not self._supports_password_cmd_result():
             return True
 
-        # Fallback: enter the password via CDB command 0001h.
-        log.log_notice("Password Entry Area write failed; falling back to CDB command 0001h")
-        payload = {"password": password}
-        return self.send_cmd(cdb_consts.CDB_ENTER_PASSWORD_CMD, payload)
+        # The write only delivered the password; its acceptance is reported
+        # asynchronously in PasswordCmdResult (00h:42.3-0).
+        result = self._read_password_cmd_result()
+        if result in (cdb_consts.CDB_PASSWORD_RESULT_HOST_ACCEPTED,
+                      cdb_consts.CDB_PASSWORD_RESULT_MODULE_ACCEPTED):
+            return True
+
+        if result == cdb_consts.CDB_PASSWORD_RESULT_NOT_ACCEPTED:
+            # Module honored the Password Entry Area and rejected the password;
+            # the CDB command would reject the same password too.
+            log.log_notice("Password not accepted by the module (PasswordCmdResult=0x3)")
+            return False
+
+        # 5.3+ module but the result is NOT_SUPPORTED or could not be
+        # determined: the register method is not usable here, fall back to the
+        # CDB command.
+        log.log_notice("PasswordCmdResult unavailable (result={}); "
+                       "falling back to CDB command 0001h".format(result))
+        return self._enter_password_via_cdb(password)
     
     def write_lpl_block(self, blkaddr, blkdata, timeout=None):
         """
