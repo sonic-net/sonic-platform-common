@@ -29,3 +29,21 @@ class CdbAdminStatusPage(CmisPage):
                 deps=[(cdb_consts.CDB1_IS_BUSY, cdb_consts.CDB1_HAS_FAILED, cdb_consts.CDB1_STATUS)],
             ),
         ]
+
+        # CMIS revision (00h:1): major = bits 7-4, minor = bits 3-0. Read as a
+        # single byte so the CDB handler can decide whether PasswordCmdResult
+        # (00h:42.3-0) is defined for this module (CMIS 5.3+).
+        self.fields[cdb_consts.CDB_CMIS_REVISION] = [
+            NumberRegField(
+                cdb_consts.CDB_CMIS_REVISION, self.getaddr(1), format="B", size=1,
+            ),
+        ]
+
+        # PasswordCmdResult (00h:42.3-0): result of the most recent password
+        # entry/change written to the Password Entry Area (00h:118-125).
+        self.fields[cdb_consts.CDB_PASSWORD_CMD_RESULT] = [
+            NumberRegField(
+                cdb_consts.CDB_PASSWORD_CMD_RESULT, self.getaddr(42),
+                RegBitsField(cdb_consts.CDB_PASSWORD_CMD_RESULT_CODE, bitpos=0, size=4),
+            ),
+        ]

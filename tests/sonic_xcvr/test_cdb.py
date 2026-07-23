@@ -888,8 +888,66 @@ class TestCdbCmdHandler:
         assert result == expected
 
     def test_enter_password_valid(self):
-        """Test enter_password with valid password"""
+        """Test enter_password writes to the Password Entry Area (page 00h 122-125)"""
+        self.handler.write_raw = MagicMock(return_value=True)
         self.handler.send_cmd = MagicMock(return_value=True)
+        # CMIS 5.3+: PasswordCmdResult is defined and reports acceptance
+        self.handler._supports_password_cmd_result = MagicMock(return_value=True)
+        # PasswordCmdResult reports the host password was accepted
+        self.handler.read = MagicMock(return_value=cdb_consts.CDB_PASSWORD_RESULT_HOST_ACCEPTED)
+        result = self.handler.enter_password(0x00001011)
+        assert result is True
+        # Password written MSB-first to the Password Entry Area, no CDB command needed
+        self.handler.write_raw.assert_called_once_with(
+            cdb_consts.CDB_HOST_PASSWORD_ENTRY_OFFSET,
+            cdb_consts.CDB_HOST_PASSWORD_ENTRY_SIZE,
+            bytearray(struct.pack(">I", 0x00001011))
+        )
+        self.handler.read.assert_called_once_with(cdb_consts.CDB_PASSWORD_CMD_RESULT)
+        self.handler.send_cmd.assert_not_called()
+
+    def test_enter_password_default(self):
+        """Test enter_password with default password"""
+        self.handler.write_raw = MagicMock(return_value=True)
+        self.handler.send_cmd = MagicMock(return_value=True)
+        self.handler._supports_password_cmd_result = MagicMock(return_value=True)
+        self.handler.read = MagicMock(return_value=cdb_consts.CDB_PASSWORD_RESULT_HOST_ACCEPTED)
+        result = self.handler.enter_password()
+        assert result is True
+        self.handler.write_raw.assert_called_once_with(
+            cdb_consts.CDB_HOST_PASSWORD_ENTRY_OFFSET,
+            cdb_consts.CDB_HOST_PASSWORD_ENTRY_SIZE,
+            bytearray(struct.pack(">I", cdb_consts.CDB_DEFAULT_PASSWORD))
+        )
+        self.handler.send_cmd.assert_not_called()
+
+    def test_enter_password_module_accepted(self):
+        """Test enter_password accepts a module-password result code as success"""
+        self.handler.write_raw = MagicMock(return_value=True)
+        self.handler.send_cmd = MagicMock(return_value=True)
+        self.handler._supports_password_cmd_result = MagicMock(return_value=True)
+        self.handler.read = MagicMock(return_value=cdb_consts.CDB_PASSWORD_RESULT_MODULE_ACCEPTED)
+        result = self.handler.enter_password(0x00001011)
+        assert result is True
+        self.handler.send_cmd.assert_not_called()
+
+    def test_enter_password_rejected_no_fallback(self):
+        """Test enter_password returns False (no CDB fallback) when the module rejects the password"""
+        self.handler.write_raw = MagicMock(return_value=True)
+        self.handler.send_cmd = MagicMock(return_value=True)
+        self.handler._supports_password_cmd_result = MagicMock(return_value=True)
+        # Module honored the Password Entry Area and rejected the password
+        self.handler.read = MagicMock(return_value=cdb_consts.CDB_PASSWORD_RESULT_NOT_ACCEPTED)
+        result = self.handler.enter_password(0x00001011)
+        assert result is False
+        self.handler.send_cmd.assert_not_called()
+
+    def test_enter_password_result_not_supported_falls_back(self):
+        """Test enter_password falls back to CDB when a 5.3+ module reports PasswordCmdResult not supported"""
+        self.handler.write_raw = MagicMock(return_value=True)
+        self.handler.send_cmd = MagicMock(return_value=True)
+        self.handler._supports_password_cmd_result = MagicMock(return_value=True)
+        self.handler.read = MagicMock(return_value=cdb_consts.CDB_PASSWORD_RESULT_NOT_SUPPORTED)
         result = self.handler.enter_password(0x00001011)
         assert result is True
         self.handler.send_cmd.assert_called_once_with(
@@ -897,15 +955,107 @@ class TestCdbCmdHandler:
             {"password": 0x00001011}
         )
 
-    def test_enter_password_default(self):
-        """Test enter_password with default password"""
+    @patch("sonic_platform_base.sonic_xcvr.cdb.cdb.time.sleep", MagicMock())
+    def test_enter_password_result_in_progress_then_accepted(self):
+        """Test enter_password polls past 'validation in progress' until accepted"""
+        self.handler.write_raw = MagicMock(return_value=True)
         self.handler.send_cmd = MagicMock(return_value=True)
-        result = self.handler.enter_password()
+        self.handler._supports_password_cmd_result = MagicMock(return_value=True)
+        self.handler.read = MagicMock(side_effect=[
+            cdb_consts.CDB_PASSWORD_RESULT_IN_PROGRESS,
+            None,  # module may reject reads until the result is determined
+            cdb_consts.CDB_PASSWORD_RESULT_HOST_ACCEPTED,
+        ])
+        result = self.handler.enter_password(0x00001011)
+        assert result is True
+        assert self.handler.read.call_count == 3
+        self.handler.send_cmd.assert_not_called()
+
+    @patch("sonic_platform_base.sonic_xcvr.cdb.cdb.time.sleep", MagicMock())
+    def test_enter_password_result_timeout_falls_back(self):
+        """Test enter_password falls back to CDB when PasswordCmdResult can't be determined"""
+        self.handler.write_raw = MagicMock(return_value=True)
+        self.handler.send_cmd = MagicMock(return_value=True)
+        self.handler._supports_password_cmd_result = MagicMock(return_value=True)
+        # PasswordCmdResult never resolves within the poll timeout
+        self.handler.read = MagicMock(return_value=cdb_consts.CDB_PASSWORD_RESULT_IN_PROGRESS)
+        result = self.handler.enter_password(0x00001011)
         assert result is True
         self.handler.send_cmd.assert_called_once_with(
             cdb_consts.CDB_ENTER_PASSWORD_CMD,
-            {"password": cdb_consts.CDB_DEFAULT_PASSWORD}
+            {"password": 0x00001011}
         )
+
+    def test_enter_password_fallback_to_cdb_command(self):
+        """Test enter_password falls back to CDB command 0001h when the register write fails"""
+        self.handler.write_raw = MagicMock(return_value=False)
+        self.handler.send_cmd = MagicMock(return_value=True)
+        self.handler.read = MagicMock()
+        result = self.handler.enter_password(0x00001011)
+        assert result is True
+        self.handler.write_raw.assert_called_once_with(
+            cdb_consts.CDB_HOST_PASSWORD_ENTRY_OFFSET,
+            cdb_consts.CDB_HOST_PASSWORD_ENTRY_SIZE,
+            bytearray(struct.pack(">I", 0x00001011))
+        )
+        # Transport write failed -> no PasswordCmdResult read, straight to CDB
+        self.handler.read.assert_not_called()
+        self.handler.send_cmd.assert_called_once_with(
+            cdb_consts.CDB_ENTER_PASSWORD_CMD,
+            {"password": 0x00001011}
+        )
+
+    @pytest.mark.parametrize("rev_byte, expected", [
+        (0x53, (5, 3)),   # CMIS 5.3
+        (0x50, (5, 0)),   # CMIS 5.0
+        (0x40, (4, 0)),   # CMIS 4.0
+        (0x00, (0, 0)),   # unreadable/zero
+    ])
+    def test_get_cmis_rev(self, rev_byte, expected):
+        """Test _get_cmis_rev decodes the major/minor nibbles of 00h:1"""
+        self.handler.read = MagicMock(return_value=rev_byte)
+        assert self.handler._get_cmis_rev() == expected
+        self.handler.read.assert_called_once_with(cdb_consts.CDB_CMIS_REVISION)
+
+    def test_get_cmis_rev_unreadable(self):
+        """Test _get_cmis_rev returns None when the revision cannot be read"""
+        self.handler.read = MagicMock(return_value=None)
+        assert self.handler._get_cmis_rev() is None
+
+    @pytest.mark.parametrize("rev_byte, expected", [
+        (0x53, True),    # CMIS 5.3 -> PasswordCmdResult defined
+        (0x54, True),    # CMIS 5.4
+        (0x60, True),    # CMIS 6.0
+        (0x52, False),   # CMIS 5.2 -> register reserved
+        (0x40, False),   # CMIS 4.0
+    ])
+    def test_supports_password_cmd_result(self, rev_byte, expected):
+        """Test _supports_password_cmd_result gates on CMIS >= 5.3"""
+        self.handler.read = MagicMock(return_value=rev_byte)
+        assert self.handler._supports_password_cmd_result() is expected
+
+    def test_supports_password_cmd_result_unreadable(self):
+        """Test _supports_password_cmd_result is False when the revision is unknown"""
+        self.handler.read = MagicMock(return_value=None)
+        assert self.handler._supports_password_cmd_result() is False
+
+    def test_enter_password_pre_5_3_best_effort(self):
+        """Test enter_password returns True on a pre-5.3 module without reading PasswordCmdResult"""
+        self.handler.write_raw = MagicMock(return_value=True)
+        self.handler.send_cmd = MagicMock(return_value=True)
+        # CMIS 5.2 -> PasswordCmdResult is reserved and must not be interpreted
+        self.handler.read = MagicMock(return_value=0x52)
+        result = self.handler.enter_password(0x00001011)
+        assert result is True
+        # Password delivered via the Password Entry Area only; no CDB command,
+        # and PasswordCmdResult is never read (only the CMIS revision is).
+        self.handler.write_raw.assert_called_once_with(
+            cdb_consts.CDB_HOST_PASSWORD_ENTRY_OFFSET,
+            cdb_consts.CDB_HOST_PASSWORD_ENTRY_SIZE,
+            bytearray(struct.pack(">I", 0x00001011))
+        )
+        self.handler.read.assert_called_once_with(cdb_consts.CDB_CMIS_REVISION)
+        self.handler.send_cmd.assert_not_called()
 
     def test_write_lpl_block(self):
         """Test write_lpl_block sends correct command"""
