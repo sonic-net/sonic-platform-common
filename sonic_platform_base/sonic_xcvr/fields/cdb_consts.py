@@ -99,7 +99,7 @@ CDB_PASSWORD_RESULT_IN_PROGRESS = 0x8      # password validation in progress
 # Poll bound for PasswordCmdResult after writing the Password Entry Area. The
 # module updates the result within tWRITE and may reject reads (or report
 # "in progress") until then; give it a small margin.
-CDB_PASSWORD_RESULT_POLL_INTERVAL = 100    # msec
+CDB_PASSWORD_RESULT_POLL_INTERVAL = 20     # msec
 CDB_PASSWORD_RESULT_POLL_TIMEOUT = 1000    # msec
 CDB_CHANGE_PASSWORD_CMD = 0x0002
 CDB_ABORT_CMD = 0x0003
