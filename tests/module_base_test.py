@@ -39,7 +39,7 @@ class TestModuleBase:
     @pytest.mark.parametrize(
         "method_name",
         ["get_dpu_id", "get_reboot_cause", "get_state_info", "get_pci_bus_info", "pci_detach", "pci_reattach",
-         "do_power_cycle"],
+         "do_power_cycle", "get_midplane_down_reason"],
     )
     def test_not_implemented_methods_raise(self, method_name):
         with pytest.raises(NotImplementedError):

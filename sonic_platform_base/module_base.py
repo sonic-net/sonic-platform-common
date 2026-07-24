@@ -1098,6 +1098,19 @@ class ModuleBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
+    def get_midplane_down_reason(self):
+        """
+        Retrieves the midplane down reason.
+
+        Returns:
+            A tuple (string, string) where the first element is a string
+            containing the midplane down reason. This string must be one of
+            the REBOOT_CAUSE_* strings predefined in ChassisBase. If the first
+            string is "REBOOT_CAUSE_HARDWARE_OTHER", the second string can be
+            used to pass a description of the midplane down reason.
+        """
+        raise NotImplementedError
+
     def is_midplane_reachable(self):
         """
         Retrieves the reachability status of the module from the Supervisor or
