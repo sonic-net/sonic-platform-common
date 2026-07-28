@@ -1064,7 +1064,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
             when the module reports CMIS 5.3 or later.
         '''
         mintf = self.get_module_media_interface()
-        if any(kw in mintf for kw in ('ZR', 'FOIC')):
+        if mintf is not None and any(kw in mintf for kw in ('ZR', 'FOIC')):
             return True
         cmis_major = self.xcvr_eeprom.read(consts.CMIS_MAJOR_REVISION)
         cmis_minor = self.xcvr_eeprom.read(consts.CMIS_MINOR_REVISION)

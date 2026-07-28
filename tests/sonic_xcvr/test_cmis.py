@@ -1062,6 +1062,37 @@ class TestCmis(object):
         self.api.xcvr_eeprom.read = MagicMock(side_effect=mock_read)
         assert self.api.is_coherent_module() is True
 
+    def test_is_coherent_module_media_interface_none_uses_bit(self):
+        # get_module_media_interface() returns None when the media interface
+        # EEPROM read fails. The name check must not crash on None (it is not
+        # iterable) - is_coherent_module() has to fall through to the
+        # CoherentPagesSupported bit on CMIS 5.3+.
+        self.clear_cache('is_coherent_module')
+        self.api.get_module_media_interface = MagicMock(return_value=None)
+        def mock_read(field):
+            if field == consts.CMIS_MAJOR_REVISION:
+                return 5
+            if field == consts.CMIS_MINOR_REVISION:
+                return 3
+            if field == consts.COHERENT_PAGES_SUPPORTED:
+                return 1
+            return None
+        self.api.xcvr_eeprom.read = MagicMock(side_effect=mock_read)
+        assert self.api.is_coherent_module() is True
+
+    def test_coherent_pages_supported_isolated_from_page_support_advt(self):
+        # CoherentPagesSupported (byte 142 bit 4) is its own field, so it must
+        # not change how the neighbouring PAGE_SUPPORT_ADVT_FIELD (bits 6, 5)
+        # decodes. With only bit 4 set: the coherent bit reads True and the
+        # advertisement field still reads 0. (Folding bit 4 into
+        # PAGE_SUPPORT_ADVT_FIELD would shift its decode from >>5 to >>4 and
+        # make it read 1 here - a backward-incompatible change.)
+        data = bytearray([0x10])  # only byte-142 bit 4 set
+        advt = self.mem_map.get_field(consts.PAGE_SUPPORT_ADVT_FIELD)
+        coherent = self.mem_map.get_field(consts.COHERENT_PAGES_SUPPORTED)
+        assert advt.decode(data) == 0
+        assert bool(coherent.decode(data)) is True
+
     @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
         (True, '1', 0 ),
         (False, None, 0),
