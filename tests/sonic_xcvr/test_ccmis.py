@@ -5,6 +5,7 @@ from sonic_platform_base.sonic_xcvr.api.public.c_cmis import CCmisApi, C_CMIS_XC
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.c_cmis import CCmisMemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
 from sonic_platform_base.sonic_xcvr.codes.public.cmis import CmisCodes
+from sonic_platform_base.sonic_xcvr.fields import consts
 
 
 class TestCCmis(object):
@@ -39,6 +40,11 @@ class TestCCmis(object):
         (75, 12, 193400),
         (75, -30, 192350),
         (100, 10, 194100),
+        # OIF-CMIS 5.3 Table 8-66: 150GHz grid is 193.1 + (n+3) x 0.025 THz,
+        # a +75GHz offset from the naive 193.1 + n x 0.025 used for 75GHz.
+        (150, 12, 193475),
+        (150, 0, 193175),
+        (150, -3, 193100),
     ])
     def test_get_laser_config_freq(self, mock_response1, mock_response2, expected):
         self.api.get_freq_grid = MagicMock()
@@ -98,6 +104,10 @@ class TestCCmis(object):
     @pytest.mark.parametrize("input_param, mock_response",[
         ((193100,75), (0xff, -72, 120, 191300, 196100)),
         ((195950,100), (0xff, -72, 120, 191300, 196100)),
+        # 193475 is a valid 150GHz-grid point post-offset-fix (n=12); see
+        # test_set_laser_freq_150ghz_channel_offset for the exact channel
+        # number written.
+        ((193475,150), (0xff, -72, 120, 191300, 196100)),
     ])
     def test_set_laser_freq(self, input_param, mock_response):
         self.api.is_flat_memory = MagicMock()
@@ -107,6 +117,18 @@ class TestCCmis(object):
         self.api.get_supported_freq_config = MagicMock()
         self.api.get_supported_freq_config.return_value = mock_response
         self.api.set_laser_freq(input_param[0], input_param[1])
+
+    def test_set_laser_freq_150ghz_channel_offset(self):
+        # OIF-CMIS 5.3 Table 8-66: Frequency = 193.1 + (n+3) x 0.025 THz for
+        # the 150GHz grid, so the channel number written must be 3 less than
+        # the naive (freq-193100)/25 used for the 75GHz grid.
+        self.api.is_flat_memory = MagicMock(return_value=False)
+        self.api.get_lpmode_support = MagicMock(return_value=False)
+        self.api.get_supported_freq_config = MagicMock(
+            return_value=(0xff, -72, 120, 191300, 196100))
+        self.api.xcvr_eeprom.write = MagicMock(return_value=True)
+        self.api.set_laser_freq(193475, 150)
+        self.api.xcvr_eeprom.write.assert_any_call(consts.LASER_CONFIG_CHANNEL, 12)
 
     @pytest.mark.parametrize("input_param, mock_response",[
         (-10, (-14, -9)),
