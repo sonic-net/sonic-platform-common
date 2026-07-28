@@ -182,7 +182,7 @@ class TestChassisBase:
         with pytest.raises(NotImplementedError):
             ChassisBase()
 
-    def test_construct_sfp_list_for_topology(self):
+    def test_construct_cpo_list_for_topology(self):
         cpo_data = {
             "devices": {
                 "OE1": {"device_type": "optical_engine"},

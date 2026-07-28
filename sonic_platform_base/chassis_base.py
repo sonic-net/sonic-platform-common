@@ -719,7 +719,7 @@ class ChassisBase(device_base.DeviceBase):
         cpo.json
 
         Subclasses should implement this method on platforms that provide
-        an cpo.json file.
+        a cpo.json file.
 
         Args:
             cpo_data: device topology data parsed from cpo.json
@@ -801,9 +801,13 @@ class ChassisBase(device_base.DeviceBase):
             An object derived from CpoBase representing the specified CPO port,
             or None if the port is not a CPO port.
         """
-        if 0 <= index < len(self._cpo_list):
-            return self._cpo_list[index]
-        return None
+        cpo = None
+        try:
+            cpo = self._cpo_list[index]
+        except IndexError:
+            sys.stderr.write("CPO index {} out of range (0-{})\n".format(
+                             index, len(self._cpo_list)-1))
+        return cpo
 
     def get_port_or_cage_type(self, index):
         """
