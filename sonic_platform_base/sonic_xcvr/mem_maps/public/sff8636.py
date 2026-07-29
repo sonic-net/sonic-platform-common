@@ -100,6 +100,16 @@ class Sff8636MemMap(XcvrMemMap):
               for channel, bitpos in zip(range(1, 5), range(0, 4)))
         )
 
+        # Latched free side monitor interrupt flag bytes (SFF-8636
+        # Rev 2.12 Table 6-6): byte 6 holds temperature alarm/warning
+        # flags, byte 7 holds supply voltage alarm/warning flags. The
+        # latches clear on read, so each byte must be read whole (like
+        # CMIS MODULE_FLAG_BYTE1) and decoded by the caller; RegBitField
+        # children would trigger one clearing read per bit.
+        self.TEMP_FLAGS = NumberRegField(consts.TEMP_FLAGS_FIELD, self.get_addr(0, 6), size=1)
+
+        self.VCC_FLAGS = NumberRegField(consts.VCC_FLAGS_FIELD, self.get_addr(0, 7), size=1)
+
         self.TX_DISABLE = NumberRegField(consts.TX_DISABLE_FIELD, self.get_addr(0, 86),
             *(RegBitField("Tx%dDisable" % channel, bitpos, ro=False)
               for channel, bitpos in zip(range(1, 5), range(0, 4))),
