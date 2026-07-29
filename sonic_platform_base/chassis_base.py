@@ -776,7 +776,7 @@ class ChassisBase(device_base.DeviceBase):
         Returns:
             An integer, the number of CPO ports available on this chassis
         """
-        return len(self._cpo_list)
+        return sum(1 for cpo in self._cpo_list if cpo is not None)
 
     def get_all_cpos(self):
         """
