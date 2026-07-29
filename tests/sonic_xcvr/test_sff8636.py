@@ -257,6 +257,59 @@ class TestSff8636(object):
         result = self.api.get_transceiver_status_flags()
         assert result == expected
 
+    @pytest.mark.parametrize(
+        "mock_response, expected",
+        [
+            (
+                # SFF-8636 Rev 2.12 Table 6-6 bit layout, shared by both bytes:
+                #   bit 7 = L-High Alarm
+                #   bit 6 = L-Low Alarm
+                #   bit 5 = L-High Warning
+                #   bit 4 = L-Low Warning
+                #   bits 3-0 reserved/other
+                [
+                    0b1010_0000,  # temp byte 6: high alarm + high warning
+                    0b0101_0000,  # vcc byte 7: low alarm + low warning
+                ],
+                {
+                    "tempHAlarm": True,
+                    "tempLAlarm": False,
+                    "tempHWarn": True,
+                    "tempLWarn": False,
+                    "vccHAlarm": False,
+                    "vccLAlarm": True,
+                    "vccHWarn": False,
+                    "vccLWarn": True,
+                },
+            ),
+            (
+                # no flags asserted on either byte
+                [0b0000_0000, 0b0000_0000],
+                {
+                    "tempHAlarm": False,
+                    "tempLAlarm": False,
+                    "tempHWarn": False,
+                    "tempLWarn": False,
+                    "vccHAlarm": False,
+                    "vccLAlarm": False,
+                    "vccHWarn": False,
+                    "vccLWarn": False,
+                },
+            ),
+            # EEPROM read failure of either byte returns None
+            ([None, 0b0000_0000], None),
+            ([0b0000_0000, None], None),
+        ],
+    )
+    def test_get_transceiver_dom_flags(self, mock_response, expected):
+        self.api.xcvr_eeprom.read.side_effect = mock_response
+        self.api.xcvr_eeprom.read = MagicMock()
+        result = self.api.get_transceiver_dom_flags()
+        assert result == expected
+        # The flag latches clear on read: each byte must be read exactly
+        # once per call, in a single whole-byte access.
+        assert self.api.xcvr_eeprom.read.call_count == 2
+
     @pytest.mark.parametrize("mock_response, expected",[
         (
             [

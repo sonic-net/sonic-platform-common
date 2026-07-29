@@ -15,6 +15,14 @@ class Sff8636Api(XcvrApi):
     NUM_CHANNELS = 4
     POWER_CLASS_PATTERN = r'^Power Class ([1-8])'
 
+    # Bit layout shared by the temperature (byte 6) and Vcc (byte 7)
+    # free side monitor interrupt flag bytes (SFF-8636 Rev 2.12
+    # Table 6-6); bits 3-0 are reserved/other.
+    FLAG_HIGH_ALARM_BITPOS = 7
+    FLAG_LOW_ALARM_BITPOS = 6
+    FLAG_HIGH_WARN_BITPOS = 5
+    FLAG_LOW_WARN_BITPOS = 4
+
     def __init__(self, xcvr_eeprom):
         super(Sff8636Api, self).__init__(xcvr_eeprom)
         self._temp_support = None
@@ -125,6 +133,35 @@ class Sff8636Api(XcvrApi):
             trans_status_flags['tx%dfault' % lane] = tx_fault[lane - 1]
 
         return trans_status_flags
+
+    def get_transceiver_dom_flags(self):
+        """
+        Retrieves the DOM flags for this xcvr
+
+        Reads the latched free side monitor interrupt flags (SFF-8636
+        Rev 2.12 Table 6-6, lower page 00h bytes 6-7). The latches clear on read, so each flag
+        byte is read exactly once per call and all bits are decoded from
+        that single value. Field names match the CMIS
+        get_transceiver_dom_flags keys so consumers of the
+        TRANSCEIVER_DOM_FLAG table see a uniform schema across module types.
+
+        Returns:
+            Dictionary of boolean flags, or None on EEPROM read failure
+        """
+        temp_flags = self.xcvr_eeprom.read(consts.TEMP_FLAGS_FIELD)
+        vcc_flags = self.xcvr_eeprom.read(consts.VCC_FLAGS_FIELD)
+        if temp_flags is None or vcc_flags is None:
+            return None
+        return {
+            "tempHAlarm": bool(temp_flags & (1 << self.FLAG_HIGH_ALARM_BITPOS)),
+            "tempLAlarm": bool(temp_flags & (1 << self.FLAG_LOW_ALARM_BITPOS)),
+            "tempHWarn": bool(temp_flags & (1 << self.FLAG_HIGH_WARN_BITPOS)),
+            "tempLWarn": bool(temp_flags & (1 << self.FLAG_LOW_WARN_BITPOS)),
+            "vccHAlarm": bool(vcc_flags & (1 << self.FLAG_HIGH_ALARM_BITPOS)),
+            "vccLAlarm": bool(vcc_flags & (1 << self.FLAG_LOW_ALARM_BITPOS)),
+            "vccHWarn": bool(vcc_flags & (1 << self.FLAG_HIGH_WARN_BITPOS)),
+            "vccLWarn": bool(vcc_flags & (1 << self.FLAG_LOW_WARN_BITPOS)),
+        }
 
     def get_transceiver_dom_real_value(self):
         """
