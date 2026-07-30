@@ -108,13 +108,8 @@ class TestCCmis(object):
         self.api.get_supported_freq_config.return_value = mock_response
         self.api.set_laser_freq(input_param[0], input_param[1])
 
-    @pytest.mark.parametrize("input_param, mock_response",[
-        (-10, (-14, -9)),
-        (-8, (-12, -8)),
-    ])
-    def test_set_tx_power(self, input_param, mock_response):
-        self.api.get_supported_power_config = MagicMock()
-        self.api.get_supported_power_config.return_value = mock_response
+    @pytest.mark.parametrize("input_param", [-10, -8])
+    def test_set_tx_power(self, input_param):
         self.api.set_tx_power(input_param)
 
     @pytest.mark.parametrize("mock_response, expected", [

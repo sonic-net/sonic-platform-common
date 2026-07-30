@@ -1493,10 +1493,9 @@ class CmisApi(CmisCdbFw, XcvrApi):
     @read_only_cached_api_return
     def get_diag_page_support(self):
         '''
-        This function returns whether the module supports diagnostic pages
+        This function returns whether the module supports diagnostic pages,
+        or None if the EEPROM read fails so the cache re-reads.
         '''
-        # Return the raw read (None on failure) so the cache re-reads on a
-        # transient failure instead of freezing a False.
         return self.xcvr_eeprom.read(consts.DIAG_PAGE_SUPPORT_ADVT_FIELD)
 
     @read_only_cached_api_return
@@ -1783,15 +1782,16 @@ class CmisApi(CmisCdbFw, XcvrApi):
     @read_only_cached_api_return
     def is_cdb_supported(self):
         '''
-        This function returns whether CDB is supported
+        This function returns whether CDB is supported, False for flat memory
+        modules, or None if the EEPROM read fails so the cache re-reads.
         '''
         if self.is_flat_memory():
             return False
 
         cdb_inst = self.xcvr_eeprom.read(consts.CDB_SUPPORT)
         if cdb_inst is None:
-            # Read failed: return None so the cache re-reads instead of
-            # freezing a False.
+            # Required: without this the comparison below would yield a False
+            # for a failed read, which the cache would then pin.
             return None
 
         return cdb_inst == 1 or cdb_inst == 2
@@ -2586,90 +2586,63 @@ class CmisApi(CmisCdbFw, XcvrApi):
         '''
         This function returns the supported TX CDR field
         '''
-        tx_cdr_support = self.xcvr_eeprom.read(consts.TX_CDR_SUPPORT_FIELD)
-        if tx_cdr_support is None:
-            return None
-        return tx_cdr_support
+        return self.xcvr_eeprom.read(consts.TX_CDR_SUPPORT_FIELD)
 
     @read_only_cached_api_return
     def get_rx_cdr_supported(self):
         '''
         This function returns the supported RX CDR field
         '''
-        rx_cdr_support = self.xcvr_eeprom.read(consts.RX_CDR_SUPPORT_FIELD)
-        if rx_cdr_support is None:
-            return None
-        return rx_cdr_support
+        return self.xcvr_eeprom.read(consts.RX_CDR_SUPPORT_FIELD)
 
     @read_only_cached_api_return
     def get_tx_input_eq_fixed_supported(self):
         '''
         This function returns the supported TX input eq field
         '''
-        tx_fixed_support = self.xcvr_eeprom.read(consts.TX_INPUT_EQ_FIXED_MANUAL_CTRL_SUPPORT_FIELD)
-        if tx_fixed_support is None:
-            return None
-        return tx_fixed_support
+        return self.xcvr_eeprom.read(consts.TX_INPUT_EQ_FIXED_MANUAL_CTRL_SUPPORT_FIELD)
 
     @read_only_cached_api_return
     def get_tx_input_adaptive_eq_supported(self):
         '''
         This function returns the supported TX input adaptive eq field
         '''
-        tx_adaptive_support = self.xcvr_eeprom.read(consts.TX_INPUT_ADAPTIVE_EQ_SUPPORT_FIELD)
-        if tx_adaptive_support is None:
-            return None
-        return tx_adaptive_support
+        return self.xcvr_eeprom.read(consts.TX_INPUT_ADAPTIVE_EQ_SUPPORT_FIELD)
 
     @read_only_cached_api_return
     def get_tx_input_recall_buf1_supported(self):
         '''
         This function returns the supported TX input recall buf1 field
         '''
-        tx_recall_buf1_support = self.xcvr_eeprom.read(consts.TX_INPUT_EQ_RECALL_BUF1_SUPPORT_FIELD)
-        if tx_recall_buf1_support is None:
-            return None
-        return tx_recall_buf1_support
+        return self.xcvr_eeprom.read(consts.TX_INPUT_EQ_RECALL_BUF1_SUPPORT_FIELD)
 
     @read_only_cached_api_return
     def get_tx_input_recall_buf2_supported(self):
         '''
         This function returns the supported TX input recall buf2 field
         '''
-        tx_recall_buf2_support = self.xcvr_eeprom.read(consts.TX_INPUT_EQ_RECALL_BUF2_SUPPORT_FIELD)
-        if tx_recall_buf2_support is None:
-            return None
-        return tx_recall_buf2_support
+        return self.xcvr_eeprom.read(consts.TX_INPUT_EQ_RECALL_BUF2_SUPPORT_FIELD)
 
     @read_only_cached_api_return
     def get_rx_ouput_amp_ctrl_supported(self):
         '''
         This function returns the supported RX output amp control field
         '''
-        rx_amp_support = self.xcvr_eeprom.read(consts.RX_OUTPUT_AMP_CTRL_SUPPORT_FIELD)
-        if rx_amp_support is None:
-            return None
-        return rx_amp_support
+        return self.xcvr_eeprom.read(consts.RX_OUTPUT_AMP_CTRL_SUPPORT_FIELD)
 
     @read_only_cached_api_return
     def get_rx_output_eq_pre_ctrl_supported(self):
         '''
         This function returns the supported RX output eq pre control field
         '''
-        rx_pre_support = self.xcvr_eeprom.read(consts.RX_OUTPUT_EQ_PRE_CTRL_SUPPORT_FIELD)
-        if rx_pre_support is None:
-            return None
-        return rx_pre_support
+        return self.xcvr_eeprom.read(consts.RX_OUTPUT_EQ_PRE_CTRL_SUPPORT_FIELD)
 
     @read_only_cached_api_return
     def get_rx_output_eq_post_ctrl_supported(self):
         '''
         This function returns the supported RX output eq post control field
         '''
-        rx_post_support = self.xcvr_eeprom.read(consts.RX_OUTPUT_EQ_POST_CTRL_SUPPORT_FIELD)
-        if rx_post_support is None:
-            return None
-        return rx_post_support
+        return self.xcvr_eeprom.read(consts.RX_OUTPUT_EQ_POST_CTRL_SUPPORT_FIELD)
 
     def scs_lane_write(self, si_param, host_lanes_mask, si_settings_dict):
         '''

@@ -182,7 +182,6 @@ class CCmisApi(CmisApi):
         This function sets the TX output power. Unit in dBm
         Return True if the provision succeeds, False if it fails
         '''
-        min_prog_tx_output_power, max_prog_tx_output_power = self.get_supported_power_config() or (None, None)
         status = self.xcvr_eeprom.write(consts.TX_CONFIG_POWER, tx_power)
         time.sleep(1)
         return status
