@@ -407,6 +407,12 @@ class CmisApi(CmisCdbFw, XcvrApi):
 
     def get_transceiver_info_firmware_versions(self):
         return_dict = {"active_firmware" : "N/A", "inactive_firmware" : "N/A"}
+
+        if not self.is_cdb_supported():
+            return_dict["active_firmware"] = self.get_module_active_firmware()
+            return_dict["inactive_firmware"] = self.get_module_inactive_firmware()
+            return return_dict
+
         result = self.get_module_fw_info()
         if result is None:
             return return_dict
