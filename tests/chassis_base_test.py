@@ -207,3 +207,49 @@ class TestChassisBase:
         chassis = CpoChassis()
         assert chassis.get_num_cpos() == 1
         assert chassis.get_cpo(0) == "Ethernet0"
+
+    def test_sfp_counts_only_valid_objects(self):
+        chassis = ChassisBase()
+        sfp2 = mock.MagicMock()
+        sfp3 = mock.MagicMock()
+        chassis._sfp_list = [None, None, sfp2, sfp3]
+
+        assert chassis.get_num_sfps() == 2
+        assert chassis.get_all_sfps() == [sfp2, sfp3]
+        assert chassis.get_sfp(0) is None
+        assert chassis.get_sfp(2) is sfp2
+
+    def test_port_lists_valid(self):
+        chassis = ChassisBase()
+        chassis._sfp_list = [None, None, mock.MagicMock(), mock.MagicMock()]
+        chassis._cpo_list = [mock.MagicMock(), mock.MagicMock(), None, None]
+
+        assert chassis.get_num_sfps() == 2
+        assert chassis.get_num_cpos() == 2
+
+    def test_port_lists_length_mismatch(self):
+        chassis = ChassisBase()
+        chassis._sfp_list = [None, None, mock.MagicMock(), mock.MagicMock()]
+        chassis._cpo_list = [mock.MagicMock(), mock.MagicMock()]
+
+        with pytest.raises(RuntimeError, match="must be the same length"):
+            chassis.get_num_cpos()
+
+        with pytest.raises(RuntimeError, match="must be the same length"):
+            chassis.get_num_sfps()
+
+    def test_port_lists_double_claimed_port(self):
+        chassis = ChassisBase()
+        chassis._sfp_list = [None, mock.MagicMock(), mock.MagicMock()]
+        chassis._cpo_list = [mock.MagicMock(), mock.MagicMock(), None]
+
+        with pytest.raises(RuntimeError,
+                           match="Physical port 1 has both an SFP and a CPO object"):
+            chassis.get_num_sfps()
+
+    def test_port_lists_single_technology_not_checked(self):
+        chassis = ChassisBase()
+        chassis._sfp_list = [None, mock.MagicMock(), mock.MagicMock()]
+
+        assert chassis.get_num_sfps() == 2
+        assert chassis.get_num_cpos() == 0
