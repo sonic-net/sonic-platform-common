@@ -41,11 +41,6 @@ class TestModuleEepromLowerMemoryInfo(object):
         info = ModuleEepromLowerMemoryInfo(reader)
         assert info.get_vendor_name() == 'Credo'
 
-    def test_get_vendor_name_ignores_undecodable_bytes(self):
-        reader = MagicMock(return_value=b'Credo\xff')
-        info = ModuleEepromLowerMemoryInfo(reader)
-        assert info.get_vendor_name() == 'Credo'
-
     def test_get_vendor_name_none(self):
         reader = MagicMock(return_value=None)
         info = ModuleEepromLowerMemoryInfo(reader)

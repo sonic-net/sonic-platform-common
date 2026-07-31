@@ -409,6 +409,12 @@ class CmisApi(CmisCdbFw, XcvrApi):
 
     def get_transceiver_info_firmware_versions(self):
         return_dict = {"active_firmware" : "N/A", "inactive_firmware" : "N/A"}
+
+        if not self.is_cdb_supported():
+            return_dict["active_firmware"] = self.get_module_active_firmware()
+            return_dict["inactive_firmware"] = self.get_module_inactive_firmware()
+            return return_dict
+
         result = self.get_module_fw_info()
         if result is None:
             return return_dict
@@ -562,7 +568,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
         thresh = self.xcvr_eeprom.read(consts.THRESHOLDS_FIELD)
         if thresh is None:
             return None
-        tx_bias_scale_raw = self.xcvr_eeprom.read(consts.TX_BIAS_SCALE)
+        tx_bias_scale_raw = self._get_tx_bias_scale_raw()
         if tx_bias_scale_raw is not None:
             tx_bias_scale = 2**tx_bias_scale_raw if tx_bias_scale_raw < 3 else 1
         else:
@@ -663,9 +669,11 @@ class CmisApi(CmisCdbFw, XcvrApi):
     def get_voltage_support(self):
         return not self.is_flat_memory()
 
+    @read_only_cached_api_return
     def get_rx_los_support(self):
         return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.RX_LOS_SUPPORT)
 
+    @read_only_cached_api_return
     def get_tx_cdr_lol_support(self):
         return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.TX_CDR_LOL_SUPPORT_FIELD)
 
@@ -705,6 +713,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
             rx_los_final.append(bool(rx_los[key]))
         return rx_los_final
 
+    @read_only_cached_api_return
     def get_rx_cdr_lol_support(self):
         return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.RX_CDR_LOL_SUPPORT_FIELD)
 
@@ -788,8 +797,16 @@ class CmisApi(CmisCdbFw, XcvrApi):
             rx_output_status_dict[key] = bool(value)
         return rx_output_status_dict
 
+    @read_only_cached_api_return
     def get_tx_bias_support(self):
         return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.TX_BIAS_SUPPORT_FIELD)
+
+    @read_only_cached_api_return
+    def _get_tx_bias_scale_raw(self):
+        # The TX bias scaling exponent is a static per-module advertisement, so
+        # cache it; the per-cycle get_tx_bias / threshold paths read it every
+        # call otherwise. Returns None on a failed read so the cache re-reads.
+        return self.xcvr_eeprom.read(consts.TX_BIAS_SCALE)
 
     def get_tx_bias(self):
         '''
@@ -800,7 +817,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
             return None
         if not tx_bias_support:
             return ["N/A" for _ in range(self.NUM_CHANNELS)]
-        scale_raw = self.xcvr_eeprom.read(consts.TX_BIAS_SCALE)
+        scale_raw = self._get_tx_bias_scale_raw()
         if scale_raw is None:
             return ["N/A" for _ in range(self.NUM_CHANNELS)]
         scale = 2**scale_raw if scale_raw < 3 else 1
@@ -828,6 +845,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
 
         return tx_power
 
+    @read_only_cached_api_return
     def get_tx_power_support(self):
         return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.TX_POWER_SUPPORT_FIELD)
 
@@ -848,9 +866,11 @@ class CmisApi(CmisCdbFw, XcvrApi):
 
         return rx_power
 
+    @read_only_cached_api_return
     def get_rx_power_support(self):
         return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.RX_POWER_SUPPORT_FIELD)
 
+    @read_only_cached_api_return
     def get_tx_fault_support(self):
         return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.TX_FAULT_SUPPORT_FIELD)
 
@@ -872,6 +892,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
             tx_fault_final.append(bool(tx_fault[key]))
         return tx_fault_final
 
+    @read_only_cached_api_return
     def get_tx_los_support(self):
         return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.TX_LOS_SUPPORT_FIELD)
 
@@ -936,6 +957,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
 
         return self.xcvr_eeprom.write(consts.TX_DISABLE_FIELD, channel_state)
 
+    @read_only_cached_api_return
     def get_rx_disable_support(self):
         return not self.is_flat_memory() and self.xcvr_eeprom.read(consts.RX_DISABLE_SUPPORT_FIELD)
 
@@ -1017,12 +1039,14 @@ class CmisApi(CmisCdbFw, XcvrApi):
     def get_power_override_support(self):
         return False
 
+    @read_only_cached_api_return
     def get_module_media_type(self):
         '''
         This function returns module media type: MMF, SMF, Passive Copper Cable, Active Cable Assembly or Base-T.
         '''
         return self.xcvr_eeprom.read(consts.MEDIA_TYPE_FIELD)
 
+    @read_only_cached_api_return
     def get_host_electrical_interface(self):
         '''
         This function returns module host electrical interface. Table 4-5 in SFF-8024 Rev4.6
@@ -1031,6 +1055,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
             return 'N/A'
         return self.xcvr_eeprom.read(consts.HOST_ELECTRICAL_INTERFACE)
 
+    @read_only_cached_api_return
     def get_module_media_interface(self):
         '''
         This function returns module media electrical interface. Table 4-6 ~ 4-10 in SFF-8024 Rev4.6
@@ -1120,11 +1145,30 @@ class CmisApi(CmisCdbFw, XcvrApi):
         duration = self.xcvr_eeprom.read(consts.MODULE_PWRDN_DURATION)
         return float(duration) if duration is not None else 0
 
-    def get_host_lane_count(self):
+    def get_host_lane_count(self, appl=None):
         '''
-        This function returns number of host lanes for default application
+        Returns the number of host lanes.
+
+        When appl is None, returns the default application's host lane count
+        from the lower page (Page 00h).  When appl is provided, looks up that
+        application's host_lane_count in the application advertisement (Page 00h
+        upper / Page 01h), mirroring the behaviour of get_media_lane_count.
+
+        Args:
+            appl (int or None): Application selector code (1-based).  Pass None
+                (default) to preserve the legacy behaviour.
+
+        Returns:
+            int: Host lane count, or 0 when the count cannot be determined.
         '''
-        return self.xcvr_eeprom.read(consts.HOST_LANE_COUNT)
+        if appl is None:
+            return self.xcvr_eeprom.read(consts.HOST_LANE_COUNT)
+        if self.is_flat_memory():
+            return 0
+        if appl <= 0:
+            return 0
+        appl_advt = self.get_application_advertisement()
+        return appl_advt[appl]['host_lane_count'] if len(appl_advt) >= appl else 0
 
     def get_media_lane_count(self, appl=1):
         '''
@@ -1139,6 +1183,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
         appl_advt = self.get_application_advertisement()
         return appl_advt[appl]['media_lane_count'] if len(appl_advt) >= appl else 0
 
+    @read_only_cached_api_return
     def get_media_interface_technology(self):
         '''
         This function returns the media lane technology
@@ -1198,7 +1243,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
         result = self.xcvr_eeprom.read(consts.MEDIA_OUTPUT_LOOPBACK)
         if result is None:
             return None
-        return result == 1
+        return bool(result)
 
     def get_media_input_loopback(self):
         '''
@@ -1207,7 +1252,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
         result = self.xcvr_eeprom.read(consts.MEDIA_INPUT_LOOPBACK)
         if result is None:
             return None
-        return result == 1
+        return bool(result)
 
     def get_host_output_loopback(self):
         '''
@@ -1347,12 +1392,17 @@ class CmisApi(CmisCdbFw, XcvrApi):
             dpinit_pending_dict[key] = bool(value)
         return dpinit_pending_dict
 
+    @read_only_cached_api_return
     def get_supported_power_config(self):
         '''
-        This function returns the supported TX power range
+        This function returns the supported TX power range as a
+        (min, max) tuple, or None if either read fails (so the cache
+        re-reads on a transient failure instead of freezing (None, None)).
         '''
         min_prog_tx_output_power = self.xcvr_eeprom.read(consts.MIN_PROG_OUTPUT_POWER)
         max_prog_tx_output_power = self.xcvr_eeprom.read(consts.MAX_PROG_OUTPUT_POWER)
+        if min_prog_tx_output_power is None or max_prog_tx_output_power is None:
+            return None
         return min_prog_tx_output_power, max_prog_tx_output_power
 
     def reset_module(self, reset = False):
@@ -1448,13 +1498,15 @@ class CmisApi(CmisCdbFw, XcvrApi):
                     return True
         return False
 
+    @read_only_cached_api_return
     def get_diag_page_support(self):
         '''
-        This function returns whether the module supports diagnostic pages
+        This function returns whether the module supports diagnostic pages,
+        or None if the EEPROM read fails so the cache re-reads.
         '''
-        diag_page_support = self.xcvr_eeprom.read(consts.DIAG_PAGE_SUPPORT_ADVT_FIELD)
-        return diag_page_support if diag_page_support is not None else False
+        return self.xcvr_eeprom.read(consts.DIAG_PAGE_SUPPORT_ADVT_FIELD)
 
+    @read_only_cached_api_return
     def get_loopback_capability(self):
         '''
         This function returns the module loopback capability as advertised
@@ -1498,7 +1550,17 @@ class CmisApi(CmisCdbFw, XcvrApi):
             logger.error('Host input loopback is not supported')
             return False
 
-        if loopback_capability['per_lane_host_loopback_supported'] is False and lane_mask != 0xff:
+        appl = self.get_active_apsel_hostlane().get("%s%d" % (consts.ACTIVE_APSEL_HOSTLANE, 1), 0)
+        host_lane_count = self.get_host_lane_count(appl)
+        if not host_lane_count:
+            logger.error('Cannot determine active host lane count (appl=%r)', appl)
+            return False
+        all_lanes_mask = (1 << host_lane_count) - 1
+
+        if lane_mask == 0xff:
+            lane_mask = all_lanes_mask
+
+        if loopback_capability['per_lane_host_loopback_supported'] is False and lane_mask != all_lanes_mask:
             logger.error('Per-lane host input loopback is not supported, lane_mask:%#x', lane_mask)
             return False
 
@@ -1506,8 +1568,10 @@ class CmisApi(CmisCdbFw, XcvrApi):
             media_input_val = self.xcvr_eeprom.read(consts.MEDIA_INPUT_LOOPBACK)
             media_output_val = self.xcvr_eeprom.read(consts.MEDIA_OUTPUT_LOOPBACK)
             if media_input_val or media_output_val:
+                m_in_str = f"{media_input_val:#x}" if media_input_val is not None else "None"
+                m_out_str = f"{media_output_val:#x}" if media_output_val is not None else "None"
                 txt = 'Simultaneous host media loopback is not supported\n'
-                txt += f'media_input_val:{media_input_val:#x}, media_output_val:{media_output_val:#x}'
+                txt += f'media_input_val:{m_in_str}, media_output_val:{m_out_str}'
                 logger.error(txt)
                 return False
 
@@ -1539,7 +1603,17 @@ class CmisApi(CmisCdbFw, XcvrApi):
             logger.error('Host output loopback is not supported')
             return False
 
-        if loopback_capability['per_lane_host_loopback_supported'] is False and lane_mask != 0xff:
+        appl = self.get_active_apsel_hostlane().get("%s%d" % (consts.ACTIVE_APSEL_HOSTLANE, 1), 0)
+        host_lane_count = self.get_host_lane_count(appl)
+        if not host_lane_count:
+            logger.error('Cannot determine active host lane count (appl=%r)', appl)
+            return False
+        all_lanes_mask = (1 << host_lane_count) - 1
+
+        if lane_mask == 0xff:
+            lane_mask = all_lanes_mask
+
+        if loopback_capability['per_lane_host_loopback_supported'] is False and lane_mask != all_lanes_mask:
             logger.error('Per-lane host output loopback is not supported, lane_mask:%#x', lane_mask)
             return False
 
@@ -1547,8 +1621,10 @@ class CmisApi(CmisCdbFw, XcvrApi):
             media_input_val = self.xcvr_eeprom.read(consts.MEDIA_INPUT_LOOPBACK)
             media_output_val = self.xcvr_eeprom.read(consts.MEDIA_OUTPUT_LOOPBACK)
             if media_input_val or media_output_val:
+                m_in_str = f"{media_input_val:#x}" if media_input_val is not None else "None"
+                m_out_str = f"{media_output_val:#x}" if media_output_val is not None else "None"
                 txt = 'Simultaneous host media loopback is not supported\n'
-                txt += f'media_input_val:{media_input_val:x}, media_output_val:{media_output_val:#x}'
+                txt += f'media_input_val:{m_in_str}, media_output_val:{m_out_str}'
                 logger.error(txt)
                 return False
 
@@ -1580,7 +1656,17 @@ class CmisApi(CmisCdbFw, XcvrApi):
             logger.error('Media input loopback is not supported')
             return False
 
-        if loopback_capability['per_lane_media_loopback_supported'] is False and lane_mask != 0xff:
+        appl = self.get_active_apsel_hostlane().get("%s%d" % (consts.ACTIVE_APSEL_HOSTLANE, 1), 0)
+        media_lane_count = self.get_media_lane_count(appl)
+        if not media_lane_count:
+            logger.error('Cannot determine active media lane count (appl=%r)', appl)
+            return False
+        all_lanes_mask = (1 << media_lane_count) - 1
+
+        if lane_mask == 0xff:
+            lane_mask = all_lanes_mask
+
+        if loopback_capability['per_lane_media_loopback_supported'] is False and lane_mask != all_lanes_mask:
             logger.error('Per-lane media input loopback is not supported, lane_mask:%#x', lane_mask)
             return False
 
@@ -1588,8 +1674,10 @@ class CmisApi(CmisCdbFw, XcvrApi):
             host_input_val = self.xcvr_eeprom.read(consts.HOST_INPUT_LOOPBACK)
             host_output_val = self.xcvr_eeprom.read(consts.HOST_OUTPUT_LOOPBACK)
             if host_input_val or host_output_val:
+                h_in_str = f"{host_input_val:#x}" if host_input_val is not None else "None"
+                h_out_str = f"{host_output_val:#x}" if host_output_val is not None else "None"
                 txt = 'Simultaneous host media loopback is not supported\n'
-                txt += f'host_input_val:{host_input_val:#x}, host_output_val:{host_output_val:#x}'
+                txt += f'host_input_val:{h_in_str}, host_output_val:{h_out_str}'
                 logger.error(txt)
                 return False
 
@@ -1621,7 +1709,17 @@ class CmisApi(CmisCdbFw, XcvrApi):
             logger.error('Media output loopback is not supported')
             return False
 
-        if loopback_capability['per_lane_media_loopback_supported'] is False and lane_mask != 0xff:
+        appl = self.get_active_apsel_hostlane().get("%s%d" % (consts.ACTIVE_APSEL_HOSTLANE, 1), 0)
+        media_lane_count = self.get_media_lane_count(appl)
+        if not media_lane_count:
+            logger.error('Cannot determine active media lane count (appl=%r)', appl)
+            return False
+        all_lanes_mask = (1 << media_lane_count) - 1
+
+        if lane_mask == 0xff:
+            lane_mask = all_lanes_mask
+
+        if loopback_capability['per_lane_media_loopback_supported'] is False and lane_mask != all_lanes_mask:
             logger.error('Per-lane media output loopback is not supported, lane_mask:%#x', lane_mask)
             return False
 
@@ -1629,8 +1727,10 @@ class CmisApi(CmisCdbFw, XcvrApi):
             host_input_val = self.xcvr_eeprom.read(consts.HOST_INPUT_LOOPBACK)
             host_output_val = self.xcvr_eeprom.read(consts.HOST_OUTPUT_LOOPBACK)
             if host_input_val or host_output_val:
+                h_in_str = f"{host_input_val:#x}" if host_input_val is not None else "None"
+                h_out_str = f"{host_output_val:#x}" if host_output_val is not None else "None"
                 txt = 'Simultaneous host media loopback is not supported\n'
-                txt += f'host_input_val:{host_input_val:#x}, host_output_val:{host_output_val:#x}'
+                txt += f'host_input_val:{h_in_str}, host_output_val:{h_out_str}'
                 logger.error(txt)
                 return False
 
@@ -1665,11 +1765,19 @@ class CmisApi(CmisCdbFw, XcvrApi):
         }
 
         if loopback_mode == 'none':
+            appl = self.get_active_apsel_hostlane().get("%s%d" % (consts.ACTIVE_APSEL_HOSTLANE, 1), 0)
+            host_lane_count = self.get_host_lane_count(appl)
+            media_lane_count = self.get_media_lane_count(appl)
+            if not host_lane_count or not media_lane_count:
+                logger.error("Cannot determine active lane counts for loopback 'none' (appl=%r)", appl)
+                return False
+            host_all_lanes_mask = (1 << host_lane_count) - 1
+            media_all_lanes_mask = (1 << media_lane_count) - 1
             return all([
-                self.set_host_input_loopback(0xff, False),
-                self.set_host_output_loopback(0xff, False),
-                self.set_media_input_loopback(0xff, False),
-                self.set_media_output_loopback(0xff, False)
+                self.set_host_input_loopback(host_all_lanes_mask, False),
+                self.set_host_output_loopback(host_all_lanes_mask, False),
+                self.set_media_input_loopback(media_all_lanes_mask, False),
+                self.set_media_output_loopback(media_all_lanes_mask, False)
             ])
 
         func = loopback_functions.get(loopback_mode)
@@ -1679,21 +1787,22 @@ class CmisApi(CmisCdbFw, XcvrApi):
         logger.error('Invalid loopback mode:%s, lane_mask:%#x', loopback_mode, lane_mask)
         return False
 
+    @read_only_cached_api_return
     def is_cdb_supported(self):
         '''
-        This function returns whether CDB is supported
+        This function returns whether CDB is supported, False for flat memory
+        modules, or None if the EEPROM read fails so the cache re-reads.
         '''
         if self.is_flat_memory():
             return False
 
         cdb_inst = self.xcvr_eeprom.read(consts.CDB_SUPPORT)
         if cdb_inst is None:
-            return False
+            # Required: without this the comparison below would yield a False
+            # for a failed read, which the cache would then pin.
+            return None
 
-        if cdb_inst == 1 or cdb_inst == 2:
-            return True
-
-        return False
+        return cdb_inst == 1 or cdb_inst == 2
 
     @read_only_cached_api_return
     def is_transceiver_vdm_supported(self):
@@ -2455,6 +2564,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
             return None
         return tx_input_max_val
 
+    @read_only_cached_api_return
     def get_tx_adaptive_eq_fail_flag_supported(self):
         """
         Returns whether the TX Adaptive Input EQ Fail Flag field is supported.
@@ -2479,86 +2589,68 @@ class CmisApi(CmisCdbFw, XcvrApi):
             tx_adaptive_eq_fail_flag_val_final.append(bool(tx_adaptive_eq_fail_flag_val[key]))
         return tx_adaptive_eq_fail_flag_val_final
 
+    @read_only_cached_api_return
     def get_tx_cdr_supported(self):
         '''
         This function returns the supported TX CDR field
         '''
-        tx_cdr_support = self.xcvr_eeprom.read(consts.TX_CDR_SUPPORT_FIELD)
-        if not tx_cdr_support or tx_cdr_support is None:
-            return False
-        return tx_cdr_support
+        return self.xcvr_eeprom.read(consts.TX_CDR_SUPPORT_FIELD)
 
+    @read_only_cached_api_return
     def get_rx_cdr_supported(self):
         '''
         This function returns the supported RX CDR field
         '''
-        rx_cdr_support = self.xcvr_eeprom.read(consts.RX_CDR_SUPPORT_FIELD)
-        if not rx_cdr_support or rx_cdr_support is None:
-            return False
-        return rx_cdr_support
+        return self.xcvr_eeprom.read(consts.RX_CDR_SUPPORT_FIELD)
 
+    @read_only_cached_api_return
     def get_tx_input_eq_fixed_supported(self):
         '''
         This function returns the supported TX input eq field
         '''
-        tx_fixed_support = self.xcvr_eeprom.read(consts.TX_INPUT_EQ_FIXED_MANUAL_CTRL_SUPPORT_FIELD)
-        if not tx_fixed_support or tx_fixed_support is None:
-            return False
-        return tx_fixed_support
+        return self.xcvr_eeprom.read(consts.TX_INPUT_EQ_FIXED_MANUAL_CTRL_SUPPORT_FIELD)
 
+    @read_only_cached_api_return
     def get_tx_input_adaptive_eq_supported(self):
         '''
         This function returns the supported TX input adaptive eq field
         '''
-        tx_adaptive_support = self.xcvr_eeprom.read(consts.TX_INPUT_ADAPTIVE_EQ_SUPPORT_FIELD)
-        if not tx_adaptive_support or tx_adaptive_support is None:
-            return False
-        return tx_adaptive_support
+        return self.xcvr_eeprom.read(consts.TX_INPUT_ADAPTIVE_EQ_SUPPORT_FIELD)
 
+    @read_only_cached_api_return
     def get_tx_input_recall_buf1_supported(self):
         '''
         This function returns the supported TX input recall buf1 field
         '''
-        tx_recall_buf1_support = self.xcvr_eeprom.read(consts.TX_INPUT_EQ_RECALL_BUF1_SUPPORT_FIELD)
-        if not tx_recall_buf1_support or tx_recall_buf1_support is None:
-            return False
-        return tx_recall_buf1_support
+        return self.xcvr_eeprom.read(consts.TX_INPUT_EQ_RECALL_BUF1_SUPPORT_FIELD)
 
+    @read_only_cached_api_return
     def get_tx_input_recall_buf2_supported(self):
         '''
         This function returns the supported TX input recall buf2 field
         '''
-        tx_recall_buf2_support = self.xcvr_eeprom.read(consts.TX_INPUT_EQ_RECALL_BUF2_SUPPORT_FIELD)
-        if not tx_recall_buf2_support or tx_recall_buf2_support is None:
-            return False
-        return tx_recall_buf2_support
+        return self.xcvr_eeprom.read(consts.TX_INPUT_EQ_RECALL_BUF2_SUPPORT_FIELD)
 
+    @read_only_cached_api_return
     def get_rx_ouput_amp_ctrl_supported(self):
         '''
         This function returns the supported RX output amp control field
         '''
-        rx_amp_support = self.xcvr_eeprom.read(consts.RX_OUTPUT_AMP_CTRL_SUPPORT_FIELD)
-        if not rx_amp_support or rx_amp_support is None:
-            return False
-        return rx_amp_support
+        return self.xcvr_eeprom.read(consts.RX_OUTPUT_AMP_CTRL_SUPPORT_FIELD)
 
+    @read_only_cached_api_return
     def get_rx_output_eq_pre_ctrl_supported(self):
         '''
         This function returns the supported RX output eq pre control field
         '''
-        rx_pre_support = self.xcvr_eeprom.read(consts.RX_OUTPUT_EQ_PRE_CTRL_SUPPORT_FIELD)
-        if not rx_pre_support or rx_pre_support is None:
-            return False
-        return rx_pre_support
+        return self.xcvr_eeprom.read(consts.RX_OUTPUT_EQ_PRE_CTRL_SUPPORT_FIELD)
 
+    @read_only_cached_api_return
     def get_rx_output_eq_post_ctrl_supported(self):
         '''
         This function returns the supported RX output eq post control field
         '''
-        rx_post_support = self.xcvr_eeprom.read(consts.RX_OUTPUT_EQ_POST_CTRL_SUPPORT_FIELD)
-        if not rx_post_support or rx_post_support is None:
-            return False
-        return rx_post_support
+        return self.xcvr_eeprom.read(consts.RX_OUTPUT_EQ_POST_CTRL_SUPPORT_FIELD)
 
     def scs_lane_write(self, si_param, host_lanes_mask, si_settings_dict):
         '''

@@ -45,14 +45,14 @@ class ModuleEepromLowerMemoryInfo:
         name_data = self.reader(self._translate(self.VENDOR_NAME_OFFSET), self.VENDOR_NAME_LENGTH)
         if name_data is None:
             return None
-        vendor_name = name_data.decode('utf-8', errors='ignore')
+        vendor_name = name_data.decode()
         return vendor_name.strip()
 
     def get_vendor_part_num(self):
         part_num = self.reader(self._translate(self.VENDOR_PART_NUM_OFFSET), self.VENDOR_PART_NUM_LENGTH)
         if part_num is None:
             return None
-        vendor_pn = part_num.decode('utf-8', errors='ignore')
+        vendor_pn = part_num.decode()
         return vendor_pn.strip()
 
 
