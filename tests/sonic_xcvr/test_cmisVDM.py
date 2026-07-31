@@ -128,8 +128,10 @@ class TestVDM(object):
             reads[offset] += 1
             page = (offset - PAGE_OFFSET) // PAGE_SIZE
             if page in (0x20, 0x21, 0x22, 0x23):
-                return descriptor
-            return bytearray(PAGE_SIZE)  # value / threshold pages
+                return descriptor[:size]
+            # value / threshold pages: return exactly the requested width, since
+            # get_vdm_page struct-unpacks these reads (2 B value, 8 B threshold)
+            return bytearray(size)
 
         api.xcvr_eeprom.read_raw = read_raw
         return api, reads
@@ -175,8 +177,8 @@ class TestVDM(object):
             if page == 0x20:
                 v = seq[calls["n"]] if calls["n"] < len(seq) else descriptor
                 calls["n"] += 1
-                return v
-            return bytearray(PAGE_SIZE)
+                return v[:size] if v else v
+            return bytearray(size)
 
         api.xcvr_eeprom.read_raw = read_raw
         assert api.get_vdm_page(0x20, None) == {}      # empty descriptor -> {}
