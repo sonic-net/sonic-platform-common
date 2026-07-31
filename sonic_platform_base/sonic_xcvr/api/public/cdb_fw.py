@@ -72,13 +72,14 @@ class CmisCdbFw:
             log.log_error(txt)
             return {'status': False, 'info': txt, 'feature': None}
 
-        startLPLsize, maxblocksize, lplonly_flag = fw_features
+        startLPLsize, maxblocksize, lplonly_flag, abort_supported = fw_features
         txt += 'Start payload size %d\n' % startLPLsize
         txt += 'Max block size %d\n' % maxblocksize
         if lplonly_flag:
             txt += 'Write to LPL supported\n'
         else:
             txt += 'Write to LPL/EPL supported\n'
+        txt += 'Abort CMD102h supported %s\n' % abort_supported
 
         elapsedtime = time.time()-starttime
         log.log_info('Get module FW upgrade features time: {:.2f} s\n'.format(elapsedtime))

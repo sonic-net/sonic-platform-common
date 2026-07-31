@@ -18,6 +18,9 @@ from .codes.credo.aec_800g import CredoAec800gCodes
 from .api.credo.aec_800g import CredoAec800gApi
 from .mem_maps.credo.aec_800g import CredoAec800gMemMap
 
+from .api.arista.cmis_enhanced_lpo import CmisEnhancedLpoApi
+from .mem_maps.arista.cmis_enhanced_lpo import CmisEnhancedLpoMemMap
+
 from .api.innolight.fr_800g import CmisFr800gApi
 from .api.hisense.aoc_2x100g import CmisAocSingleBankApi
 
@@ -38,6 +41,7 @@ from .api.public.sff8472 import Sff8472Api
 from .mem_maps.public.sff8472 import Sff8472MemMap
 
 CREDO_800G_AEC_VENDOR_PN_LIST = ["CAC81X321M2MC1MS", "CAC815321M2MC1MS", "CAC82X321M2MC1MS"]
+ARISTA_ENHANCED_LPO_PN_LIST = ["LPO-800G-2DR4"]
 INL_800G_VENDOR_PN_LIST = ["T-DL8CNT-NCI", "T-DH8CNT-NCI", "T-DH8CNT-N00", "T-DP4CNH-NCI", "T-DP8CNT-NNO",
                            "T-DP8CNH-NNO", "T-DC8CNT-NNO", "T-DP8CNL-NNO", "T-OL8CNT-N00", "T-OH8CNH-N00",
                            "T-OH8CNH-NNO", "T-OL8CNT-NNO"]
@@ -48,23 +52,12 @@ class XcvrApiFactory(object):
     def __init__(self, reader, writer):
         self.reader = reader
         self.writer = writer
-
-    def _get_id(self):
-        return ModuleEepromLowerMemoryInfo(self.reader).get_id()
-
-    def _get_revision_compliance(self):
-        return ModuleEepromLowerMemoryInfo(self.reader).get_revision_compliance()
-
-    def _get_vendor_name(self):
-        return ModuleEepromLowerMemoryInfo(self.reader).get_vendor_name()
-
-    def _get_vendor_part_num(self):
-        return ModuleEepromLowerMemoryInfo(self.reader).get_vendor_part_num()
+        self.lower_memory_info = ModuleEepromLowerMemoryInfo(self.reader)
 
     def _create_cmis_api(self, bank=0):
         api = None
-        vendor_name = self._get_vendor_name()
-        vendor_pn = self._get_vendor_part_num()
+        vendor_name = self.lower_memory_info.get_vendor_name()
+        vendor_pn = self.lower_memory_info.get_vendor_part_num()
 
         if vendor_name == 'Credo' and vendor_pn in CREDO_800G_AEC_VENDOR_PN_LIST:
             xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CredoAec800gMemMap(CredoAec800gCodes, bank=bank))
@@ -76,6 +69,9 @@ class XcvrApiFactory(object):
         elif vendor_name == 'Hisense' and vendor_pn is not None and re.match(HISENSE_2X100G_VENDOR_PN, vendor_pn):
             xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CmisMemMap(CmisCodes, bank=bank))
             api = CmisAocSingleBankApi(xcvr_eeprom, init_cdb_fw_handler=True)
+        elif vendor_pn in ARISTA_ENHANCED_LPO_PN_LIST:
+            xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CmisEnhancedLpoMemMap(CmisCodes, bank=bank))
+            api = CmisEnhancedLpoApi(xcvr_eeprom, init_cdb_fw_handler=True)
         else:
             xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CmisMemMap(CmisCodes, bank=bank))
             api = CmisApi(xcvr_eeprom, init_cdb_fw_handler=True)
@@ -88,7 +84,7 @@ class XcvrApiFactory(object):
         """
         QSFP/QSFP+ API implementation
         """
-        revision_compliance = self._get_revision_compliance()
+        revision_compliance = self.lower_memory_info.get_revision_compliance()
         if revision_compliance >= 3:
             return self._create_api(Sff8636Codes, Sff8636MemMap, Sff8636Api)
         else:
@@ -101,7 +97,7 @@ class XcvrApiFactory(object):
         return api_class(xcvr_eeprom)
 
     def create_xcvr_api(self, bank=0):
-        id = self._get_id()
+        id = self.lower_memory_info.get_id()
 
         # Instantiate various Optics implementation based upon their respective ID as per SFF8024
         id_mapping = {

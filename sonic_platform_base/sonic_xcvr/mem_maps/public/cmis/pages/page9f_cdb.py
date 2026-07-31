@@ -58,6 +58,7 @@ class CdbLplMessagePage(CmisPage):
                 cdb_consts.CDB_FIRMWARE_MGMT_ADV, self.getaddr(137),
                 RegBitField(cdb_consts.CDB_MAX_DURATION_ENCODING, 3),
                 RegBitField(cdb_consts.CDB_ABORT_CMD_SUPPORTED, 0),
+                bitdecode=True,
             ),
             NumberRegField(cdb_consts.CDB_START_CMD_PAYLOAD_SIZE, self.getaddr(138)),
             NumberRegField(cdb_consts.CDB_READ_WRITE_LENGTH_EXT, self.getaddr(140), scale=0.125),

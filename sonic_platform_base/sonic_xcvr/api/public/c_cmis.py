@@ -88,9 +88,15 @@ class CCmisApi(CmisApi):
         '''
         freq_grid = self.get_freq_grid()
         channel = self.xcvr_eeprom.read(consts.LASER_CONFIG_CHANNEL)
+        # OIF-CMIS 5.3 Table 8-66: 75GHz is 193.1 + n x 0.025 THz, but 150GHz
+        # is 193.1 + (n+3) x 0.025 THz - the two grids are not interchangeable.
         if freq_grid == 75:
-            config_freq = 193100 + channel * freq_grid/3
+            config_freq = 193100 + channel * 25
+        elif freq_grid == 150:
+            config_freq = 193100 + (channel + 3) * 25
         else:
+            # All other grids (100/50/25/12.5/6.25/3.125GHz) use a plain
+            # 193.1 + n x grid formula with no additive offset.
             config_freq = 193100 + channel * freq_grid
         return config_freq
 
@@ -154,7 +160,7 @@ class CCmisApi(CmisApi):
         '''
         This function sets the laser frequency. Unit in GHz
         ZR application will not support fine tuning of the laser
-        SONiC will only support 75 GHz and 100GHz frequency grids
+        SONiC will support 75 GHz, 100GHz and 150GHz frequency grids
         Return True if the provision succeeds, False if it fails
         '''
         grid_supported, low_ch_num, hi_ch_num, _, _ = self.get_supported_freq_config()
@@ -169,6 +175,13 @@ class CCmisApi(CmisApi):
             assert grid_supported_100GHz
             freq_grid = 0x50
             channel_number = int(round((freq - 193100)/100))
+        elif grid == 150:
+            freq_grid = 0x80
+            # OIF-CMIS 5.3 Table 8-66: Frequency (THz) = 193.1 + (n+3) x 0.025,
+            # so n = (freq - 193100) / 25 - 3, and n (not n+3) must be a
+            # multiple of 6.
+            channel_number = int(round((freq - 193100)/25)) - 3
+            assert channel_number % 6 == 0
         else:
             return False
         self.xcvr_eeprom.write(consts.GRID_SPACING, freq_grid)
@@ -182,7 +195,6 @@ class CCmisApi(CmisApi):
         This function sets the TX output power. Unit in dBm
         Return True if the provision succeeds, False if it fails
         '''
-        min_prog_tx_output_power, max_prog_tx_output_power = self.get_supported_power_config()
         status = self.xcvr_eeprom.write(consts.TX_CONFIG_POWER, tx_power)
         time.sleep(1)
         return status
@@ -340,7 +352,7 @@ class CCmisApi(CmisApi):
         if xcvr_info is None:
             return None
 
-        min_power, max_power = self.get_supported_power_config()
+        min_power, max_power = self.get_supported_power_config() or (None, None)
         _, _, _, low_freq_supported, high_freq_supported = self.get_supported_freq_config()
         xcvr_info.update({
             'supported_max_tx_power': max_power,

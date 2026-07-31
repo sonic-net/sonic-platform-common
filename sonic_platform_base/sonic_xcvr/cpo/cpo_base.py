@@ -8,7 +8,7 @@ from sonic_platform_base.sonic_xcvr.eeprom_rw import EepromReadWriteMixin
 
 
 class OeId(Enum):
-    pass
+    BROADCOM_DAVISSON = 1
 
 
 class ElsfpId(Enum):

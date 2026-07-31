@@ -20,51 +20,26 @@ def mock_reader_sff8636(start, length):
 def mock_reader_sff8436(start, length):
     return bytes([0x0d]) if start == 0 else bytes ([0x00])
 
-class BytesMock(bytes):
-    def decode(self, encoding='utf-8', errors='strict'):
-        return 'DecodedCredo'
+def mock_reader_cmis(start, length):
+    return bytes([0x18])
 
 class TestXcvrApiFactory(object):
-    read_eeprom = MagicMock
-    write_eeprom = MagicMock
-    api = XcvrApiFactory(read_eeprom, write_eeprom)
-
-    def test_get_vendor_name(self):
-        self.api.reader = MagicMock()
-        self.api.reader.return_value = b'Credo'
-        with patch.object(BytesMock, 'decode', return_value='DecodedCredo'):
-            result = self.api._get_vendor_name()
-        assert result == 'Credo'.strip()
-
-    def test_get_vendor_part_num(self):
-        self.api.reader = MagicMock()
-        self.api.reader.return_value = b'CAC81X321M2MC1MS'
-        with patch.object(BytesMock, 'decode', return_value='DecodedCAC81X321M2MC1MS'):
-            result = self.api._get_vendor_part_num()
-        assert result == 'CAC81X321M2MC1MS'.strip()
-
-    def mock_reader(self, start, length):
-        return bytes([0x18])
-
-    @patch('sonic_platform_base.sonic_xcvr.xcvr_api_factory.XcvrApiFactory._get_vendor_name', MagicMock(return_value='Credo'))
-    @patch('sonic_platform_base.sonic_xcvr.xcvr_api_factory.XcvrApiFactory._get_vendor_part_num', MagicMock(return_value='CAC81X321M2MC1MS'))
+    @patch('sonic_platform_base.sonic_xcvr.eeprom_rw.ModuleEepromLowerMemoryInfo.get_vendor_name', MagicMock(return_value='Credo'))
+    @patch('sonic_platform_base.sonic_xcvr.eeprom_rw.ModuleEepromLowerMemoryInfo.get_vendor_part_num', MagicMock(return_value='CAC81X321M2MC1MS'))
     def test_create_xcvr_api_credo(self):
-        self.api.reader = self.mock_reader
-        api = self.api.create_xcvr_api()
+        api = XcvrApiFactory(mock_reader_cmis, MagicMock()).create_xcvr_api()
         assert isinstance(api, CredoAec800gApi)
 
-    @patch('sonic_platform_base.sonic_xcvr.xcvr_api_factory.XcvrApiFactory._get_vendor_name', MagicMock(return_value='CISCO-INNOLIGHT'))
-    @patch('sonic_platform_base.sonic_xcvr.xcvr_api_factory.XcvrApiFactory._get_vendor_part_num', MagicMock(return_value='T-DH8CNT-NCI'))
+    @patch('sonic_platform_base.sonic_xcvr.eeprom_rw.ModuleEepromLowerMemoryInfo.get_vendor_name', MagicMock(return_value='CISCO-INNOLIGHT'))
+    @patch('sonic_platform_base.sonic_xcvr.eeprom_rw.ModuleEepromLowerMemoryInfo.get_vendor_part_num', MagicMock(return_value='T-DH8CNT-NCI'))
     def test_create_xcvr_api_innolight(self):
-        self.api.reader = self.mock_reader
-        api = self.api.create_xcvr_api()
+        api = XcvrApiFactory(mock_reader_cmis, MagicMock()).create_xcvr_api()
         assert isinstance(api, CmisFr800gApi)
 
-    @patch('sonic_platform_base.sonic_xcvr.xcvr_api_factory.XcvrApiFactory._get_vendor_name', MagicMock(return_value='Hisense'))
-    @patch('sonic_platform_base.sonic_xcvr.xcvr_api_factory.XcvrApiFactory._get_vendor_part_num', MagicMock(return_value='DEF8504-2C03-MB3'))
+    @patch('sonic_platform_base.sonic_xcvr.eeprom_rw.ModuleEepromLowerMemoryInfo.get_vendor_name', MagicMock(return_value='Hisense'))
+    @patch('sonic_platform_base.sonic_xcvr.eeprom_rw.ModuleEepromLowerMemoryInfo.get_vendor_part_num', MagicMock(return_value='DEF8504-2C03-MB3'))
     def test_create_xcvr_api_hisense(self):
-        self.api.reader = self.mock_reader
-        api = self.api.create_xcvr_api()
+        api = XcvrApiFactory(mock_reader_cmis, MagicMock()).create_xcvr_api()
         assert isinstance(api, CmisAocSingleBankApi)
 
     @pytest.mark.parametrize("reader, expected_api", [
@@ -72,19 +47,14 @@ class TestXcvrApiFactory(object):
         (mock_reader_sff8436, Sff8436Api),
     ])
     def test_create_xcvr_api_8436_8636(self, reader, expected_api):
-        self.api.reader = reader
-        api = self.api.create_xcvr_api()
+        api = XcvrApiFactory(reader, MagicMock()).create_xcvr_api()
         assert isinstance(api, expected_api)
-        
+
     @patch('sonic_platform_base.sonic_xcvr.xcvr_api_factory.XcvrApiFactory._create_api', MagicMock(side_effect=Exception('')))
     @patch('sonic_platform_base.sonic_xcvr.xcvr_api_factory.XcvrApiFactory._create_cmis_api', MagicMock(side_effect=Exception('')))
     def test_create_xcvr_api_with_exception(self):
-        self.api.reader = self.mock_reader
-        CmisCodes = MagicMock()
-        CmisMemMap = MagicMock()
-        XcvrEeprom = MagicMock()
-        CmisFr800gApi = MagicMock()
-        assert self.api.create_xcvr_api() is None
+        api = XcvrApiFactory(mock_reader_cmis, MagicMock())
+        assert api.create_xcvr_api() is None
 
 class TestAmphBackplaneImpl:
     @pytest.fixture
