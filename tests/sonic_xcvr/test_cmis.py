@@ -1946,8 +1946,8 @@ class TestCmis(object):
 
     @pytest.mark.parametrize("mock_fw_features, mock_eeprom_reads, expected", [
         (None, [True, 1], {'status': False, 'feature': None}),
-        ((0, 8, False), [True, 1], {'status': True, 'feature': (0, 8, False, True, 16)}),
-        ((112, 2048, True), [False, 1], {'status': True, 'feature': (112, 2048, True, False, 16)}),
+        ((0, 8, False, True), [True, 1], {'status': True, 'feature': (0, 8, False, True, 16)}),
+        ((112, 2048, True, False), [False, 1], {'status': True, 'feature': (112, 2048, True, False, 16)}),
     ])
     def test_get_module_fw_mgmt_feature(self, mock_fw_features, mock_eeprom_reads, expected):
         mock_fw_hdlr = MagicMock()
@@ -3657,6 +3657,8 @@ class TestCmis(object):
             run_num -= 1
 
     def test_get_transceiver_info_firmware_versions(self):
+        self.api.is_cdb_supported = MagicMock()
+        self.api.is_cdb_supported.return_value = True
         self.api.get_module_fw_info = MagicMock()
         self.api.get_module_fw_info.return_value = None
         expected_result = {"active_firmware" : "N/A", "inactive_firmware" : "N/A"}
@@ -3670,6 +3672,16 @@ class TestCmis(object):
 
         expected_result = {"active_firmware" : "2.0.0", "inactive_firmware" : "1.0.0"}
         self.api.get_module_fw_info.side_effect = [{'result': ( '', '', '', '', '', '', '', '','2.0.0', '1.0.0')}]
+        result = self.api.get_transceiver_info_firmware_versions()
+        assert result == expected_result
+
+        # Fall back to lower memory registers when CDB is not supported
+        self.api.is_cdb_supported.return_value = False
+        self.api.get_module_active_firmware = MagicMock()
+        self.api.get_module_active_firmware.return_value = "2.0"
+        self.api.get_module_inactive_firmware = MagicMock()
+        self.api.get_module_inactive_firmware.return_value = "1.0"
+        expected_result = {"active_firmware" : "2.0", "inactive_firmware" : "1.0"}
         result = self.api.get_transceiver_info_firmware_versions()
         assert result == expected_result
 

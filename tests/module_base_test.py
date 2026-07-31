@@ -447,6 +447,7 @@ class TestModuleBase:
         with patch("sonic_py_common.device_info.get_platform", return_value="test_platform"), \
              patch("os.path.exists", return_value=False):
             assert self.module._load_transition_timeouts() == {
+                "recovery": 600,
                 "startup": 300,
                 "shutdown": 180,
                 "reboot": 240,
@@ -459,6 +460,7 @@ class TestModuleBase:
         self.module.is_host = False
         with patch("os.path.exists", return_value=False):
             assert self.module._load_transition_timeouts() == {
+                "recovery": 600,
                 "startup": 300,
                 "shutdown": 180,
                 "reboot": 240,
@@ -480,6 +482,7 @@ class TestModuleBase:
              patch("os.path.exists", return_value=True), \
              patch("builtins.open", return_value=mf):
             assert self.module._load_transition_timeouts() == {
+                "recovery": 600,
                 "startup": 600,
                 "shutdown": 360,
                 "reboot": 480,
@@ -500,6 +503,7 @@ class TestModuleBase:
         with patch("os.path.exists", return_value=True), \
              patch("builtins.open", return_value=mf):
             assert self.module._load_transition_timeouts() == {
+                "recovery": 600,
                 "startup": 600,
                 "shutdown": 360,
                 "reboot": 480,
@@ -514,6 +518,7 @@ class TestModuleBase:
         with patch("os.path.exists", return_value=True), \
              patch("builtins.open", return_value=mf):
             assert self.module._load_transition_timeouts() == {
+                "recovery": 600,
                 "startup": 500,
                 "shutdown": 180,
                 "reboot": 240,
@@ -528,6 +533,7 @@ class TestModuleBase:
              patch("os.path.exists", return_value=True), \
              patch("builtins.open", side_effect=Exception("read error")):
             assert self.module._load_transition_timeouts() == {
+                "recovery": 600,
                 "startup": 300,
                 "shutdown": 180,
                 "reboot": 240,
@@ -542,6 +548,7 @@ class TestModuleBase:
         with patch("os.path.exists", return_value=True), \
              patch("builtins.open", side_effect=Exception("read error")):
             assert self.module._load_transition_timeouts() == {
+                "recovery": 600,
                 "startup": 300,
                 "shutdown": 180,
                 "reboot": 240,
@@ -829,6 +836,21 @@ class TestModuleBase:
         db.hset.assert_has_calls([
             call(self._key("DPU0"), "transition_in_progress", "True"),
             call(self._key("DPU0"), "transition_type", "startup"),
+            call(self._key("DPU0"), "transition_start_time", "1000"),
+        ])
+
+    def test_set_module_state_transition_recovery(self):
+        """The 'recovery' transition type must be accepted (added to defaults)."""
+        db = MagicMock()
+        self.module.state_db = db
+        db.hget.return_value = None
+        with patch.object(self.module, "get_name", return_value="DPU0"), \
+             patch.object(self.module, "_transition_operation_lock"), \
+             patch("time.time", return_value=1000):
+            assert self.module.set_module_state_transition("dpu0", "recovery") is True
+        db.hset.assert_has_calls([
+            call(self._key("DPU0"), "transition_in_progress", "True"),
+            call(self._key("DPU0"), "transition_type", "recovery"),
             call(self._key("DPU0"), "transition_start_time", "1000"),
         ])
 
