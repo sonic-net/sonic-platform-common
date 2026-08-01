@@ -302,8 +302,8 @@ class TestSff8636(object):
         ],
     )
     def test_get_transceiver_dom_flags(self, mock_response, expected):
-        self.api.xcvr_eeprom.read.side_effect = mock_response
         self.api.xcvr_eeprom.read = MagicMock()
+        self.api.xcvr_eeprom.read.side_effect = mock_response
         result = self.api.get_transceiver_dom_flags()
         assert result == expected
         # The flag latches clear on read: each byte must be read exactly
