@@ -84,6 +84,23 @@ class CmisVdmApi(XcvrApi):
         vdm_thrshPage = page + 8
         vdm_Page_data = {}
         VDM_TYPE_DICT = self.xcvr_eeprom.mem_map.codes.VDM_TYPE
+
+        if field_option & self.VDM_REAL_VALUE:
+            vdm_value_page_raw = self.xcvr_eeprom.read_raw(
+                vdm_valuePage * PAGE_SIZE + PAGE_OFFSET, PAGE_SIZE, True)
+            if not vdm_value_page_raw:
+                return {}
+        else:
+            vdm_value_page_raw = None
+
+        if field_option & self.VDM_THRESHOLD:
+            vdm_thrsh_page_raw = self.xcvr_eeprom.read_raw(
+                vdm_thrshPage * PAGE_SIZE + PAGE_OFFSET, PAGE_SIZE, True)
+            if not vdm_thrsh_page_raw:
+                return {}
+        else:
+            vdm_thrsh_page_raw = None
+
         for index, typeID in enumerate(vdm_typeID):
             if typeID not in VDM_TYPE_DICT:
                 continue
@@ -102,15 +119,10 @@ class CmisVdmApi(XcvrApi):
             vdm_format = vdm_info_dict[1]
             scale = vdm_info_dict[2]
 
-            vdm_value_offset = vdm_valuePage * PAGE_SIZE + PAGE_OFFSET + VDM_SIZE * index
-            vdm_high_alarm_offset = vdm_thrshPage * PAGE_SIZE + PAGE_OFFSET + THRSH_SPACING * thrshID
-            vdm_low_alarm_offset = vdm_high_alarm_offset + 2
-            vdm_high_warn_offset = vdm_high_alarm_offset + 4
-            vdm_low_warn_offset = vdm_high_alarm_offset + 6
-
             if field_option & self.VDM_REAL_VALUE:
-                vdm_value_raw = self.xcvr_eeprom.read_raw(vdm_value_offset, VDM_SIZE, True)
-                if not vdm_value_raw:
+                value_slice = VDM_SIZE * index
+                vdm_value_raw = vdm_value_page_raw[value_slice:value_slice + VDM_SIZE]
+                if len(vdm_value_raw) < VDM_SIZE:
                     continue
                 if vdm_format == 'S16':
                     vdm_value = struct.unpack('>h',vdm_value_raw)[0] * scale
@@ -125,8 +137,9 @@ class CmisVdmApi(XcvrApi):
                 vdm_value = None
 
             if field_option & self.VDM_THRESHOLD:
-                vdm_thrsh_raw = self.xcvr_eeprom.read_raw(vdm_high_alarm_offset, VDM_SIZE*4, True)
-                if not vdm_thrsh_raw:
+                thrsh_slice = THRSH_SPACING * thrshID
+                vdm_thrsh_raw = vdm_thrsh_page_raw[thrsh_slice:thrsh_slice + VDM_SIZE * 4]
+                if len(vdm_thrsh_raw) < VDM_SIZE * 4:
                     continue
                 vdm_thrsh_high_alarm_raw = vdm_thrsh_raw[0:2]
                 vdm_thrsh_low_alarm_raw = vdm_thrsh_raw[2:4]
