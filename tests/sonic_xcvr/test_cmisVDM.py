@@ -24,7 +24,7 @@ class TestVDM(object):
     @pytest.mark.parametrize("input_param, mock_response, expected", [
         (
             [0x20, [0]*128],    # input_param
-            [                   # mock_response
+            [                   # mock_response: descriptor page, value page, threshold page
                 (
                     16, 9, 16, 11, 16, 13, 16, 15, 32, 10, 33, 10,  0,  0,  0,  0,
                     80,128, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
@@ -35,15 +35,8 @@ class TestVDM(object):
                     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
                     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
                 ),
-                
-                bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
-                bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
-                bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
-                bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
-                bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
-                bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
-                bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
-                bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
+                bytearray(128),  # value page (128B of zeros)
+                bytearray(128),  # threshold page (128B of zeros)
             ],
             {
                 'Pre-FEC BER Minimum Media Input': {1: [0, 0, 0, 0, 0, False, False, False, False]},
@@ -55,7 +48,7 @@ class TestVDM(object):
                     2: [0, 0, 0, 0, 0, False, False, False, False],
                 },
                 'Modulator Bias X/I [%]': {1: [0, 0, 0, 0, 0, False, False, False, False]},
-                'Tx Power [dBm]': {1: [0, 0, 0, 0, 0, False, False, False, False]},               
+                'Tx Power [dBm]': {1: [0, 0, 0, 0, 0, False, False, False, False]},
             }
         )
     ])
@@ -68,7 +61,7 @@ class TestVDM(object):
     @pytest.mark.parametrize("input_param, mock_response, expected", [
         (
             [0x20, [0]*128],    # input_param
-            [                   # mock_response
+            [                   # mock_response: descriptor reads OK, value page read returns None
                 (
                     16, 9, 16, 11, 16, 13, 16, 15, 32, 10, 33, 10,  0,  0,  0,  0,
                     80,128, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
@@ -79,15 +72,7 @@ class TestVDM(object):
                     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
                     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
                 ),
-
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
+                None,  # value page read failed
             ],
             {}
         )
@@ -202,14 +187,8 @@ class TestVDM(object):
         )
         mock_responses = [
             descriptor,
-            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
-            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
-            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
-            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
-            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
-            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
-            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
-            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
+            bytearray(128),  # value page
+            bytearray(128),  # threshold page
         ]
         self.api.xcvr_eeprom.read_raw = MagicMock(side_effect=mock_responses)
         result = self.api.get_vdm_page(0x20, [0]*128, observable_type=CmisVdmApi.VDM_OBSERVABLE_BASIC)
@@ -235,14 +214,8 @@ class TestVDM(object):
         )
         mock_responses = [
             descriptor,
-            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
-            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
-            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
-            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
-            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
-            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
-            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
-            bytearray(b'\x00\x00'), bytearray(b'\x00\x00\x00\x00\x00\x00\x00\x00'),
+            bytearray(128),  # value page
+            bytearray(128),  # threshold page
         ]
         self.api.xcvr_eeprom.read_raw = MagicMock(side_effect=mock_responses)
         result = self.api.get_vdm_page(0x20, [0]*128, observable_type=CmisVdmApi.VDM_OBSERVABLE_STATISTIC)
