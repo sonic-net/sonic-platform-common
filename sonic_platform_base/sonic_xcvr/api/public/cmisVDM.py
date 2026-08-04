@@ -6,7 +6,6 @@
 
 from ...fields import consts
 from ..xcvr_api import XcvrApi
-from ...utils.cache import read_only_cached_api_return
 import struct
 import time
 
@@ -35,11 +34,13 @@ class CmisVdmApi(XcvrApi):
 
     def __init__(self, xcvr_eeprom):
         super(CmisVdmApi, self).__init__(xcvr_eeprom)
+        # Raw VDM descriptor pages, keyed by page. Populated lazily by
+        # _read_vdm_descriptor_page; recreated with the api object on OIR/reboot.
+        self._vdm_descriptor = {}
 
-    @read_only_cached_api_return
     def _read_vdm_descriptor_page(self, page):
         '''
-        Read and cache a raw VDM descriptor page (0x20-0x23).
+        Read a raw VDM descriptor page (0x20-0x23), caching it on the instance.
 
         The VDM descriptors -- observable Type ID, threshold-set ID, and
         monitored-lane assignment for each of the 64 slots in the page -- are a
@@ -49,15 +50,19 @@ class CmisVdmApi(XcvrApi):
         reused across DOM cycles, removing one 128 B page read per descriptor
         page per port per cycle.
 
-        Caching is handled by read_only_cached_api_return, keyed per descriptor
-        page: it respects the class-level cache_enabled flag and only memoizes a
-        non-empty read, so a transient read failure is retried rather than
-        cached. The cache lives on the api object, which xcvrd recreates on
-        module re-insertion, so it is naturally invalidated when the module
-        changes.
+        Only a non-empty read is cached, so a transient read failure is retried
+        on the next cycle rather than disabling VDM for the life of the api
+        object. Pages are cached independently, and only the pages actually
+        requested are read. The cache lives on the api object, which xcvrd
+        recreates on module re-insertion, so it needs no explicit invalidation.
+        Honors cache_enabled, which CmisApi wires on from its own flag.
         '''
         offset = page * PAGE_SIZE + PAGE_OFFSET
-        return self.xcvr_eeprom.read_raw(offset, PAGE_SIZE)
+        if not self.cache_enabled:
+            return self.xcvr_eeprom.read_raw(offset, PAGE_SIZE)
+        if not self._vdm_descriptor.get(page):
+            self._vdm_descriptor[page] = self.xcvr_eeprom.read_raw(offset, PAGE_SIZE)
+        return self._vdm_descriptor[page]
 
     def get_F16(self, value):
         '''

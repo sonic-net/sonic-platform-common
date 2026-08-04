@@ -3,54 +3,6 @@ from unittest.mock import MagicMock
 from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi
 from sonic_platform_base.sonic_xcvr.codes.public.sff8024 import Sff8024
 from sonic_platform_base.sonic_xcvr.fields import consts
-from sonic_platform_base.sonic_xcvr.utils.cache import read_only_cached_api_return
-
-
-class _ArgCacheTarget:
-    """Minimal target exercising read_only_cached_api_return with arguments."""
-    def __init__(self):
-        self.cache_enabled = True
-        self.reads = []
-
-    @read_only_cached_api_return
-    def read_page(self, page):
-        self.reads.append(page)
-        return self._page_value(page)
-
-
-class TestReadOnlyCacheDecoratorWithArgs:
-    def test_caches_per_argument(self):
-        target = _ArgCacheTarget()
-        target._page_value = lambda page: [page]
-        # Same arg cached; distinct args cached independently.
-        assert target.read_page(0x20) == [0x20]
-        assert target.read_page(0x20) == [0x20]
-        assert target.read_page(0x21) == [0x21]
-        assert target.read_page(0x21) == [0x21]
-        assert target.reads == [0x20, 0x21]
-
-    def test_empty_result_not_cached(self):
-        target = _ArgCacheTarget()
-        seq = {"n": 0}
-
-        # First read for the page returns empty, then a non-empty value.
-        def read_page(page):
-            v = [] if seq["n"] == 0 else [page]
-            seq["n"] += 1
-            return v
-        target._page_value = read_page
-        assert target.read_page(0x20) == []     # empty, retried next time
-        assert target.read_page(0x20) == [0x20]  # now cached
-        assert target.read_page(0x20) == [0x20]  # served from cache
-        assert seq["n"] == 2
-
-    def test_disabled_does_not_cache(self):
-        target = _ArgCacheTarget()
-        target.cache_enabled = False
-        target._page_value = lambda page: [page]
-        target.read_page(0x20)
-        target.read_page(0x20)
-        assert target.reads == [0x20, 0x20]
 
 class TestReadOnlyCacheDecorator:
     def setup_method(self):
