@@ -58,6 +58,61 @@ class TestChassisBase:
 
             assert exception_raised
 
+    @mock.patch('sonic_py_common.device_info.is_switch_bmc', return_value=True)
+    def test_system_led_bmc(self, _mock_is_switch_bmc):
+        # BMC platforms have no controllable system LED, so the base class
+        # provides no-op defaults instead of raising NotImplementedError.
+        chassis = ChassisBase()
+        assert(chassis.initizalize_system_led() == True)
+        assert(chassis.set_status_led("green") == False)
+        assert(chassis.get_status_led() == "N/A")
+
+    @mock.patch.object(chassis_base, 'device_info', None)
+    def test_system_led_no_device_info(self):
+        # chassis_base tolerates device_info being None when sonic_py_common is
+        # shadowed by a partial mock. These methods must still raise
+        # NotImplementedError rather than AttributeError in that case.
+        chassis = ChassisBase()
+        not_implemented_methods = [
+                [chassis.initizalize_system_led, [], {}],
+                [chassis.set_status_led, ["COLOR"], {}],
+                [chassis.get_status_led, [], {}],
+            ]
+
+        for method in not_implemented_methods:
+            exception_raised = False
+            try:
+                func = method[0]
+                args = method[1]
+                kwargs = method[2]
+                func(*args, **kwargs)
+            except NotImplementedError:
+                exception_raised = True
+
+            assert exception_raised
+
+    @mock.patch('sonic_py_common.device_info.is_switch_bmc', return_value=False)
+    def test_system_led_non_bmc(self, _mock_is_switch_bmc):
+        # Non-BMC platforms are expected to implement these themselves.
+        chassis = ChassisBase()
+        not_implemented_methods = [
+                [chassis.initizalize_system_led, [], {}],
+                [chassis.set_status_led, ["COLOR"], {}],
+                [chassis.get_status_led, [], {}],
+            ]
+
+        for method in not_implemented_methods:
+            exception_raised = False
+            try:
+                func = method[0]
+                args = method[1]
+                kwargs = method[2]
+                func(*args, **kwargs)
+            except NotImplementedError:
+                exception_raised = True
+
+            assert exception_raised
+
     def test_smartswitch(self):
         chassis = ChassisBase()
         assert(chassis.is_smartswitch() == False)
