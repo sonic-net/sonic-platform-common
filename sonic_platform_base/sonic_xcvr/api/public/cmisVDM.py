@@ -31,7 +31,33 @@ class CmisVdmApi(XcvrApi):
 
     def __init__(self, xcvr_eeprom):
         super(CmisVdmApi, self).__init__(xcvr_eeprom)
-    
+        # Raw VDM descriptor pages, keyed by page. Populated lazily by
+        # _read_vdm_descriptor_page; recreated with the api object on OIR/reboot.
+        self._vdm_descriptor = {}
+
+    def _read_vdm_descriptor_page(self, page):
+        '''
+        Read a raw VDM descriptor page (0x20-0x23), caching it on the instance.
+
+        The VDM descriptors -- observable Type ID, threshold-set ID, and
+        monitored-lane assignment for each of the 64 slots in the page -- are a
+        static, read-only module advertisement in CMIS: they describe how the
+        VDM value/threshold pages are laid out and do not change while the
+        module is powered/plugged in. So the descriptor page is read once and
+        reused across DOM cycles, removing one 128 B page read per descriptor
+        page per port per cycle.
+
+        Only a non-empty read is cached, so a transient read failure is retried
+        on the next cycle rather than disabling VDM for the life of the api
+        object. Pages are cached independently, and only the pages actually
+        requested are read. The cache lives on the api object, which xcvrd
+        recreates on module re-insertion, so it needs no explicit invalidation.
+        '''
+        if not self._vdm_descriptor.get(page):
+            offset = page * PAGE_SIZE + PAGE_OFFSET
+            self._vdm_descriptor[page] = self.xcvr_eeprom.read_raw(offset, PAGE_SIZE)
+        return self._vdm_descriptor[page]
+
     def get_F16(self, value):
         '''
         This function converts raw data to "F16" format defined in cmis.
@@ -69,7 +95,7 @@ class CmisVdmApi(XcvrApi):
         '''
         if page not in [0x20, 0x21, 0x22, 0x23]:
             raise ValueError('Page not in VDM Descriptor range!')
-        vdm_descriptor = self.xcvr_eeprom.read_raw(page * PAGE_SIZE + PAGE_OFFSET, PAGE_SIZE)
+        vdm_descriptor = self._read_vdm_descriptor_page(page)
         if not vdm_descriptor:
             return {}
 
