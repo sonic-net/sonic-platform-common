@@ -29,9 +29,6 @@ class CmisVdmApi(XcvrApi):
     VDM_OBSERVABLE_STATISTIC = 0x2  # Statistic (min/max/avg) observable types
     VDM_OBSERVABLE_ALL = 0x3        # Both basic and statistic
 
-    # Default caching disabled; CmisApi wires cache_enabled onto the instance.
-    cache_enabled = False
-
     def __init__(self, xcvr_eeprom):
         super(CmisVdmApi, self).__init__(xcvr_eeprom)
         # Raw VDM descriptor pages, keyed by page. Populated lazily by
@@ -55,12 +52,9 @@ class CmisVdmApi(XcvrApi):
         object. Pages are cached independently, and only the pages actually
         requested are read. The cache lives on the api object, which xcvrd
         recreates on module re-insertion, so it needs no explicit invalidation.
-        Honors cache_enabled, which CmisApi wires on from its own flag.
         '''
-        offset = page * PAGE_SIZE + PAGE_OFFSET
-        if not self.cache_enabled:
-            return self.xcvr_eeprom.read_raw(offset, PAGE_SIZE)
         if not self._vdm_descriptor.get(page):
+            offset = page * PAGE_SIZE + PAGE_OFFSET
             self._vdm_descriptor[page] = self.xcvr_eeprom.read_raw(offset, PAGE_SIZE)
         return self._vdm_descriptor[page]
 

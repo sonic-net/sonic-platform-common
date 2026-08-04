@@ -9,10 +9,13 @@ from sonic_platform_base.sonic_xcvr.codes.public.cmis import CmisCodes
 class TestVDM(object):
     codes = CmisCodes
     mem_map = CmisMemMap(codes)
-    reader = MagicMock(return_value=None)
-    writer = MagicMock()
-    eeprom = XcvrEeprom(reader, writer, mem_map)
-    api = CmisVdmApi(eeprom)
+
+    def setup_method(self):
+        # Fresh api per test: the descriptor-page cache lives on the api
+        # instance, so a shared api would serve one test's cached descriptor to
+        # the next instead of the descriptor that test mocks.
+        eeprom = XcvrEeprom(MagicMock(return_value=None), MagicMock(), self.mem_map)
+        self.api = CmisVdmApi(eeprom)
 
     @pytest.mark.parametrize("input_param, expected", [
         (0x9200, 0.000512)
@@ -121,9 +124,8 @@ class TestVDM(object):
         api.xcvr_eeprom.read_raw = read_raw
         return api, reads
 
-    def test_vdm_descriptor_page_cached_when_enabled(self):
+    def test_vdm_descriptor_page_cached(self):
         api, reads = self._make_vdm_api_with_counting_reader()
-        api.cache_enabled = True
         desc_off = 0x20 * PAGE_SIZE + PAGE_OFFSET
         val_off = 0x24 * PAGE_SIZE + PAGE_OFFSET
         for _ in range(3):
@@ -132,17 +134,8 @@ class TestVDM(object):
         assert reads[desc_off] == 1
         assert reads[val_off] == 3
 
-    def test_vdm_descriptor_page_not_cached_when_disabled(self):
-        api, reads = self._make_vdm_api_with_counting_reader()
-        api.cache_enabled = False
-        desc_off = 0x20 * PAGE_SIZE + PAGE_OFFSET
-        api.get_vdm_page(0x20, None)
-        api.get_vdm_page(0x20, None)
-        assert reads[desc_off] == 2
-
     def test_vdm_descriptor_cache_is_per_page(self):
         api, reads = self._make_vdm_api_with_counting_reader()
-        api.cache_enabled = True
         for page in (0x20, 0x21, 0x20, 0x21):
             api.get_vdm_page(page, None)
         assert reads[0x20 * PAGE_SIZE + PAGE_OFFSET] == 1
@@ -152,7 +145,6 @@ class TestVDM(object):
         """A transient empty descriptor read must not be cached -> retried."""
         eeprom = XcvrEeprom(MagicMock(), MagicMock(), CmisMemMap(CmisCodes))
         api = CmisVdmApi(eeprom)
-        api.cache_enabled = True
         descriptor = tuple([16, 9] + [0] * (PAGE_SIZE - 2))
         seq = [None, descriptor, descriptor]  # first read fails, then succeeds
         calls = {"n": 0}
