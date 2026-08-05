@@ -1097,6 +1097,19 @@ class TestCmis(object):
         result = self.api.get_media_lane_count(appl)
         assert result == expected
 
+    @pytest.mark.parametrize("appl, appl_advt, expected", [
+        # Sparse advertisement: only a high-index App is present (lower ones
+        # were skipped as undecodable SFF-8024 codes), so the App must be
+        # looked up by key - appl_advt[9] exists and returns its count.
+        (9, {9: {'media_lane_count': 4}}, 4),
+        # appl genuinely absent from the advertisement still returns 0.
+        (5, {1: {'media_lane_count': 1}}, 0),
+    ])
+    def test_get_media_lane_count_sparse_appl_advt(self, appl, appl_advt, expected):
+        self.api.is_flat_memory = MagicMock(return_value=False)
+        with patch.object(self.api, 'get_application_advertisement', return_value=appl_advt):
+            assert self.api.get_media_lane_count(appl) == expected
+
     @pytest.mark.parametrize("mock_response, expected", [
         ('C-band tunable laser', 'C-band tunable laser')
     ])
@@ -1164,6 +1177,19 @@ class TestCmis(object):
         result = self.api.get_media_lane_assignment_option(appl)
         assert result == expected
 
+    @pytest.mark.parametrize("appl, appl_advt, expected", [
+        # Sparse advertisement: only a high-index App is present (lower ones
+        # were skipped as undecodable SFF-8024 codes), so the App must be
+        # looked up by key - appl_advt[9] exists and returns its value.
+        (9, {9: {'media_lane_assignment_options': 1}}, 1),
+        # appl genuinely absent from the advertisement still returns 0.
+        (5, {1: {'media_lane_assignment_options': 1}}, 0),
+    ])
+    def test_get_media_lane_assignment_option_sparse_appl_advt(self, appl, appl_advt, expected):
+        self.api.is_flat_memory = MagicMock(return_value=False)
+        with patch.object(self.api, 'get_application_advertisement', return_value=appl_advt):
+            assert self.api.get_media_lane_assignment_option(appl) == expected
+
     @pytest.mark.parametrize("mock_response, expected", [
         ({'ActiveAppSelLane1': 1},
          {'ActiveAppSelLane1': 1})
@@ -1194,6 +1220,10 @@ class TestCmis(object):
             (0, False, {1: {'host_lane_count': 1}}, 0),
             # appl not in advertisement returns 0.
             (5, False, {1: {'host_lane_count': 1}}, 0),
+            # Sparse advertisement: only a high-index App is present (lower
+            # ones were skipped as undecodable SFF-8024 codes), so the App
+            # must be looked up by key - appl_advt[9] returns its count.
+            (9, False, {9: {'host_lane_count': 8}}, 8),
         ]
     )
     def test_get_host_lane_count(self, appl, is_flat_memory, appl_advt, expected):
