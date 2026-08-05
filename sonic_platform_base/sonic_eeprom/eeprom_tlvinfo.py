@@ -406,6 +406,16 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
             return super(TlvInfoDecoder, self).modelstr(e)
 
         return t[2].decode("ascii")
+    
+
+    def vendorstr(self, e):
+        '''
+        Returns the value field of the Vendor Name TLV as a string
+        '''
+        (is_valid, t) = self.get_tlv_field(e, self._TLV_CODE_VENDOR_NAME)
+        if not is_valid:
+            return super(TlvInfoDecoder, self).vendorstr(e)
+        return t[2].decode("ascii")
 
 
     def serial_number_str(self, e):
