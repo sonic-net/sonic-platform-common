@@ -6,6 +6,7 @@
 """
 
 import sys
+from sonic_py_common import device_info
 from . import device_base
 from . import sfp_base
 
@@ -91,7 +92,6 @@ class ChassisBase(device_base.DeviceBase):
 
         # On platforms that provide a cpo.json file, populate self._cpo_list
         # based on the device topology described in that file
-        from sonic_py_common import device_info
         cpo_data = device_info.get_cpo_data()
         if cpo_data:
             self.construct_cpo_devices(cpo_data)
