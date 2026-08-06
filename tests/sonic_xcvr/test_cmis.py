@@ -969,6 +969,26 @@ class TestCmis(object):
     def test_is_coherent_module(self, mock_response, expected):
         self.api.get_module_media_interface = MagicMock()
         self.api.get_module_media_interface.return_value = mock_response
+        # Pre-CMIS-5.3 modules don't advertise Coherent Pages support, so
+        # is_coherent_module() must fall back to the media-interface heuristic.
+        self.api.xcvr_eeprom.read = MagicMock(return_value=None)
+        result = self.api.is_coherent_module()
+        assert result == expected
+
+    @pytest.mark.parametrize("cmis_rev, coherent_pages_supported, flat_mem, expected", [
+        ((5, 3), True, False, True),
+        ((5, 3), False, False, False),
+        ((5, 3), True, True, False),
+        ((5, 4), True, False, True),
+    ])
+    def test_is_coherent_module_cmis_5_3_plus(self, cmis_rev, coherent_pages_supported, flat_mem, expected):
+        values = {
+            consts.CMIS_MAJOR_REVISION: cmis_rev[0],
+            consts.CMIS_MINOR_REVISION: cmis_rev[1],
+            consts.COHERENT_PAGES_SUPPORT_ADVT_FIELD: coherent_pages_supported,
+        }
+        self.api.xcvr_eeprom.read = MagicMock(side_effect=lambda c: values.get(c))
+        self.api.is_flat_memory = MagicMock(return_value=flat_mem)
         result = self.api.is_coherent_module()
         assert result == expected
 

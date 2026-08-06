@@ -1075,8 +1075,20 @@ class CmisApi(CmisCdbFw, XcvrApi):
     @read_only_cached_api_return
     def is_coherent_module(self):
         '''
-        Returns True if the module follow C-CMIS spec, False otherwise
+        Returns True if the module follows C-CMIS spec, False otherwise.
+
+        CMIS 5.3 introduced a C-CMIS advertisement bit on Page 01h 
+        (byte 142, bit 4). For modules complying with CMIS 5.3 or
+        later, that bit is used for checking C-CMIS support.
         '''
+        cmis_rev = self.get_cmis_rev()
+        try:
+            cmis_rev_float = float(cmis_rev) if cmis_rev else None
+        except ValueError:
+            cmis_rev_float = None
+        if cmis_rev_float is not None and cmis_rev_float >= 5.3:
+            return not self.is_flat_memory() and bool(self.xcvr_eeprom.read(consts.COHERENT_PAGES_SUPPORT_ADVT_FIELD))
+
         mintf = self.get_module_media_interface()
         return False if 'ZR' not in mintf else True
 

@@ -307,6 +307,46 @@ class XcvrApi(object):
         rx_sig_power_avg             = FLOAT                            ; rx signal power avg
         rx_sig_power_min             = FLOAT                            ; rx signal power min
         rx_sig_power_max             = FLOAT                            ; rx signal power max
+        evm_avg                      = FLOAT                            ; error vector magnitude avg
+        evm_min                      = FLOAT                            ; error vector magnitude min
+        evm_max                      = FLOAT                            ; error vector magnitude max
+        clockrec_avg                 = FLOAT                            ; clock recovery loop monitor avg
+        clockrec_min                 = FLOAT                            ; clock recovery loop monitor min
+        clockrec_max                 = FLOAT                            ; clock recovery loop monitor max
+        lg_sopmd_avg                 = FLOAT                            ; low granularity SOPMD avg
+        lg_sopmd_min                 = FLOAT                            ; low granularity SOPMD min
+        lg_sopmd_max                 = FLOAT                            ; low granularity SOPMD max
+        snr_margin_avg               = FLOAT                            ; SNR margin avg
+        snr_margin_min               = FLOAT                            ; SNR margin min
+        snr_margin_max               = FLOAT                            ; SNR margin max
+        qfactor_avg                  = FLOAT                            ; Q factor avg
+        qfactor_min                  = FLOAT                            ; Q factor min
+        qfactor_max                  = FLOAT                            ; Q factor max
+        qmargin_avg                  = FLOAT                            ; Q margin avg
+        qmargin_min                  = FLOAT                            ; Q margin min
+        qmargin_max                  = FLOAT                            ; Q margin max
+        tx_bits_pm                   = INTEGER                          ; host tx bits over PM interval
+        tx_bits_subint_pm            = INTEGER                          ; host tx bits over sub-interval
+        tx_corr_bits_pm              = INTEGER                          ; host tx corrected bits over PM interval
+        tx_min_corr_bits_subint_pm   = INTEGER                          ; host tx min corrected bits over sub-interval
+        tx_max_corr_bits_subint_pm   = INTEGER                          ; host tx max corrected bits over sub-interval
+        tx_frames_pm                 = INTEGER                          ; host tx frames over PM interval
+        tx_frames_subint_pm          = INTEGER                          ; host tx frames over sub-interval
+        tx_frames_uncorr_err_pm      = INTEGER                          ; host tx uncorrectable frames over PM interval
+        tx_min_frames_uncorr_err_subint_pm = INTEGER                    ; host tx min uncorrectable frames over sub-interval
+        tx_max_frames_uncorr_err_subint_pm = INTEGER                    ; host tx max uncorrectable frames over sub-interval
+        tx_corrected_frames_pm       = INTEGER                          ; host tx corrected frames over PM interval
+        tx_corrected_frames_subint_pm = INTEGER                         ; host tx corrected frames over sub-interval
+        rx_bits_pm                   = INTEGER                          ; media rx bits over PM interval
+        rx_bits_subint_pm            = INTEGER                          ; media rx bits over sub-interval
+        rx_corr_bits_pm              = INTEGER                          ; media rx corrected bits over PM interval
+        rx_min_corr_bits_subint_pm   = INTEGER                          ; media rx min corrected bits over sub-interval
+        rx_max_corr_bits_subint_pm   = INTEGER                          ; media rx max corrected bits over sub-interval
+        rx_frames_pm                 = INTEGER                          ; media rx frames over PM interval
+        rx_frames_subint_pm          = INTEGER                          ; media rx frames over sub-interval
+        rx_frames_uncorr_err_pm      = INTEGER                          ; media rx uncorrectable frames over PM interval
+        rx_min_frames_uncorr_err_subint_pm = INTEGER                    ; media rx min uncorrectable frames over sub-interval
+        rx_max_frames_uncorr_err_subint_pm = INTEGER                    ; media rx max uncorrectable frames over sub-interval
 
         If there is an issue with reading the xcvr, None should be returned.
         """
