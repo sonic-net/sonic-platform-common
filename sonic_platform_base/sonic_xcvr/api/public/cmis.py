@@ -175,7 +175,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
 
     @staticmethod
     def _strip_str(val):
-        return val.rstrip() if isinstance(val, str) else val
+        return val.replace('\x00', '').rstrip() if isinstance(val, str) else val
 
     def _update_vdm_dict(self, dict_to_update, new_key, vdm_raw_dict, vdm_observable_type, vdm_subtype_index, lane):
         """
