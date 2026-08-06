@@ -713,7 +713,8 @@ class ModuleBase(device_base.DeviceBase):
         Args:
             module_name: The name of the module.
         Returns:
-            bool: Returns True if the flag is set, False otherwise.
+            bool: True when the flag, transition type, and non-expired start
+                time describe an active transition; False otherwise.
         """
         module_name = module_name.upper()
         module_key = "CHASSIS_MODULE_TABLE|" + module_name
@@ -721,22 +722,31 @@ class ModuleBase(device_base.DeviceBase):
         with self._transition_operation_lock():
             try:
                 current_flag = state_db.hget(module_key, "transition_in_progress")
+                if current_flag != "True":
+                    return False
 
-                # Clear the flag if it's set but has exceeded the timeout period
-                if current_flag == "True":
-                    start_time_str = state_db.hget(module_key, "transition_start_time")
-                    transition_type = state_db.hget(module_key, "transition_type")
-                    if start_time_str is not None and transition_type is not None:
-                        start_time = int(start_time_str)
-                        current_time = int(time.time())
-                        timeout = self._load_transition_timeouts().get(transition_type, 0)
-                        if current_time - start_time > timeout:
-                            # Timeout occurred, clear the flag (lock already held)
-                            self._clear_transition_fields(module_name)
-                            return False
+                start_time_str = state_db.hget(module_key, "transition_start_time")
+                transition_type = state_db.hget(module_key, "transition_type")
 
-                return current_flag == "True"
+                if start_time_str is None or transition_type not in self._TRANSITION_TIMEOUT_DEFAULTS:
+                    self._clear_transition_fields(module_name)
+                    return False
+
+                try:
+                    start_time = int(start_time_str)
+                except (TypeError, ValueError):
+                    self._clear_transition_fields(module_name)
+                    return False
+
+                current_time = int(time.time())
+                timeout = self._load_transition_timeouts().get(transition_type, 0)
+                if current_time - start_time > timeout:
+                    self._clear_transition_fields(module_name)
+                    return False
+
+                return True
             except Exception as e:
+                sys.stderr.write("Error getting transition flag for module {}: {}\n".format(module_name, str(e)))
                 return False
 
     ##############################################
@@ -1095,6 +1105,19 @@ class ModuleBase(device_base.DeviceBase):
         Returns:
             A string, the IP-address of the module reachable over the midplane
 
+        """
+        raise NotImplementedError
+
+    def get_midplane_down_reason(self):
+        """
+        Retrieves the midplane down reason.
+
+        Returns:
+            A tuple (string, string) where the first element is a string
+            containing the midplane down reason. This string must be one of
+            the REBOOT_CAUSE_* strings predefined in ChassisBase. If the first
+            string is "REBOOT_CAUSE_HARDWARE_OTHER", the second string can be
+            used to pass a description of the midplane down reason.
         """
         raise NotImplementedError
 

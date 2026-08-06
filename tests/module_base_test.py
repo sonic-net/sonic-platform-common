@@ -39,7 +39,7 @@ class TestModuleBase:
     @pytest.mark.parametrize(
         "method_name",
         ["get_dpu_id", "get_reboot_cause", "get_state_info", "get_pci_bus_info", "pci_detach", "pci_reattach",
-         "do_power_cycle"],
+         "do_power_cycle", "get_midplane_down_reason"],
     )
     def test_not_implemented_methods_raise(self, method_name):
         with pytest.raises(NotImplementedError):
@@ -958,9 +958,11 @@ class TestModuleBase:
     def test_get_module_state_transition(self, ret, expected):
         db = MagicMock()
         self.module.state_db = db
-        db.hget.side_effect = [ret, None, None] if ret == "True" else [ret]
+        db.hget.side_effect = [ret, "1000", "startup"] if ret == "True" else [ret]
         with patch.object(self.module, "get_name", return_value="DPU0"), \
-             patch.object(self.module, "_transition_operation_lock"):
+             patch.object(self.module, "_transition_operation_lock"), \
+             patch.object(self.module, "_load_transition_timeouts", return_value={"startup": 300}), \
+             patch("time.time", return_value=1100):
             assert self.module.get_module_state_transition("dpu0") is expected
         db.hget.assert_any_call(self._key("DPU0"), "transition_in_progress")
 
@@ -976,9 +978,11 @@ class TestModuleBase:
     def test_get_module_state_transition_various_modules(self, mod):
         db = MagicMock()
         self.module.state_db = db
-        db.hget.side_effect = ["True", None, None]
+        db.hget.side_effect = ["True", "1000", "startup"]
         with patch.object(self.module, "get_name", return_value=mod), \
-             patch.object(self.module, "_transition_operation_lock"):
+             patch.object(self.module, "_transition_operation_lock"), \
+             patch.object(self.module, "_load_transition_timeouts", return_value={"startup": 300}), \
+             patch("time.time", return_value=1100):
             assert self.module.get_module_state_transition(mod.lower()) is True
         db.hget.assert_any_call(self._key(mod), "transition_in_progress")
 
@@ -1014,31 +1018,23 @@ class TestModuleBase:
             assert self.module.get_module_state_transition("dpu0") is True
             mock_clear.assert_not_called()
 
-    def test_get_module_state_transition_missing_start_time(self):
-        """Test that get_module_state_transition returns True when start_time is missing"""
+    @pytest.mark.parametrize("start_time,transition_type", [
+        (None, "startup"),
+        ("1000", None),
+        ("not-a-timestamp", "startup"),
+        ("1000", "invalid"),
+    ])
+    def test_get_module_state_transition_invalid_metadata(self, start_time, transition_type):
+        """Incomplete or invalid transition metadata is cleared and treated as inactive."""
         db = MagicMock()
         self.module.state_db = db
-        # Flag is set but start_time is None
-        db.hget.side_effect = ["True", None, "startup"]
+        db.hget.side_effect = ["True", start_time, transition_type]
 
         with patch.object(self.module, "get_name", return_value="DPU0"), \
              patch.object(self.module, "_transition_operation_lock"), \
-             patch.object(self.module, "clear_module_state_transition") as mock_clear:
-            assert self.module.get_module_state_transition("dpu0") is True
-            mock_clear.assert_not_called()
-
-    def test_get_module_state_transition_missing_transition_type(self):
-        """Test that get_module_state_transition returns True when transition_type is missing"""
-        db = MagicMock()
-        self.module.state_db = db
-        # Flag is set, start_time exists but transition_type is None
-        db.hget.side_effect = ["True", "1000", None]
-
-        with patch.object(self.module, "get_name", return_value="DPU0"), \
-             patch.object(self.module, "_transition_operation_lock"), \
-             patch.object(self.module, "clear_module_state_transition") as mock_clear:
-            assert self.module.get_module_state_transition("dpu0") is True
-            mock_clear.assert_not_called()
+             patch.object(self.module, "_clear_transition_fields") as mock_clear:
+            assert self.module.get_module_state_transition("dpu0") is False
+            mock_clear.assert_called_once_with("DPU0")
 
     @pytest.mark.parametrize("transition_type", ["startup", "shutdown", "reboot"])
     def test_get_module_state_transition_timeout_for_different_types(self, transition_type):
