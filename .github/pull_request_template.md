@@ -1,23 +1,45 @@
-<!-- Provide a general summary of your changes in the Title above -->
-
-#### Description
 <!--
-     Describe your changes in detail
+Please make sure you've read and understood our contributing guidelines;
+https://github.com/Azure/SONiC/blob/gh-pages/CONTRIBUTING.md
+
+Please provide following information to help code review process a bit easier:
+-->
+### Description of PR
+<!--
+- Please include a summary of the change and which issue is fixed.
+- Please also include relevant motivation and context. Where should reviewer start? background context?
+- List any dependencies that are required for this change.
 -->
 
-#### Motivation and Context
+Summary:
+Fixes # (issue)
+
+### Type of change
+
 <!--
-     Why is this change required? What problem does it solve?
-     If this pull request closes/resolves an open Issue, make sure you
-     include the text "fixes #xxxx", "closes #xxxx" or "resolves #xxxx" here
+- Fill x for your type of change.
+- e.g.
+- [x] Bug fix
 -->
 
-#### How Has This Been Tested?
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Refactor / cleanup
+- [ ] Documentation update
+- [ ] Test improvement
+
+### Approach
+#### What is the motivation for this PR?
+
+#### How did you do it?
+
+#### How did you verify/test it?
+
+#### Any platform specific information?
+
+### Documentation
 <!--
-     Please describe in detail how you tested your changes.
-     Include details of your testing environment, and the tests you ran to
-     see how your change affects other areas of the code, etc.
+(If it's a new feature, new test case)
+Did you update documentation/Wiki relevant to your implementation?
+Link to the wiki page?
 -->
-
-#### Additional Information (Optional)
-
