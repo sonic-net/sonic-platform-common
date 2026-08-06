@@ -985,7 +985,48 @@ class ChassisBase(device_base.DeviceBase):
                       status='6' Bad cable.
         """
         raise NotImplementedError
-    
+
+    def get_elsfp_change_event(self, timeout=0):
+        """
+        Returns a nested dictionary containing the ELSFPs which have
+        experienced a presence change at chassis level
+
+        This is the CPO (co-packaged optics) counterpart of get_change_event().
+        For a CPO port the optical engine is co-packaged and always present, so
+        the ELSFP is the only removable device. Since get_change_event() is a
+        single blocking event stream, ELSFP events are reported through this
+        separate stream so that the CPO and the traditional transceiver tasks
+        can each block on their own stream without consuming each other's
+        events. Implementations must therefore not report ELSFP events on
+        get_change_event().
+
+        An ELSFP may be associated with more than one physical port. In that
+        case the event is reported once for each of those physical ports.
+
+        Args:
+            timeout: Timeout in milliseconds (optional). If timeout == 0,
+                this method will block until a change is detected.
+
+        Returns:
+            (bool, dict):
+                - True if call successful, False if not;
+                - A nested dictionary where key is the device type 'elsfp',
+                  value is a dictionary with key:value pairs in the format of
+                  {'device_id':'device_event'},
+                  where device_id is the physical port index the ELSFP is
+                  associated with and device_event,
+                             status='1' represents ELSFP inserted,
+                             status='0' represents ELSFP removed.
+                  Ex. {'elsfp':{'1':'1', '2':'1', '11':'0'}}
+                      indicates that the ELSFP shared by physical ports 1 and 2
+                      has been inserted and the ELSFP on physical port 11 has
+                      been removed.
+                  The error statuses defined for get_change_event() ('2' I2C bus
+                  stuck, '3' Bad eeprom, '4' Unsupported cable, '5' High
+                  Temperature, '6' Bad cable) apply here as well.
+        """
+        raise NotImplementedError
+
     def get_bmc(self):
         """
         Get bmc device on this chassis
