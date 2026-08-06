@@ -229,6 +229,10 @@ AUX3_HIGH_ALARM = "Aux3MonitorHighAlarmThreshold"
 AUX3_LOW_ALARM = "Aux3MonitorLowAlarmThreshold"
 AUX3_HIGH_WARN = "Aux3MonitorHighWarningThreshold"
 AUX3_LOW_WARN = "Aux3MonitorLowWarningThreshold"
+CUSTOM_MON_HIGH_ALARM = "CustomMonHighAlarmThreshold"
+CUSTOM_MON_LOW_ALARM = "CustomMonLowAlarmThreshold"
+CUSTOM_MON_HIGH_WARN = "CustomMonHighWarningThreshold"
+CUSTOM_MON_LOW_WARN = "CustomMonLowWarningThreshold"
 TX_POWER_HIGH_ALARM = "TxOpticalPowerHighAlarmThreshold"
 TX_POWER_LOW_ALARM = "TxOpticalPowerLowAlarmThreshold"
 TX_POWER_HIGH_WARN = "TxOpticalPowerHighWarningThreshold"
@@ -507,3 +511,8 @@ SERVER_FW_VERSION = "ServerFirmwareVersion"
 VENDOR_CUSTOM = "VendorCustom"
 TARGET_MODE = "TargetMode"
 CARTRDIGE_SLOT_ID = "CartridgeSlotID"
+
+# ELSFP field-name constants now live in fields/elsfp_consts.py (imported
+# verbatim from upstream nexthop-ai/sonic-platform-common#2). Use:
+#     from . import elsfp_consts as ec
+#     ec.ELSFP_MONITORS_FIELD, ec.BIAS_HIGH_ALARM, ...
