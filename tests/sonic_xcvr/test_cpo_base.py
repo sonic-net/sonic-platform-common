@@ -68,3 +68,15 @@ class TestCpoBase(object):
         assert cpo.hardware_id is hardware_id
         assert cpo.oe is oe
         assert cpo.elsfp is elsfp
+
+    def test_get_xcvr_api_returns_oe_api(self):
+        hardware_id = CpoHardwareInfo(oe_id=SOME_OE_ID, elsfp_id=SOME_ELSFP_ID)
+        oe = OeBase(hardware_id)
+        elsfp = ElsfpBase(hardware_id)
+        oe_api = MagicMock()
+        oe.get_api = MagicMock(return_value=oe_api)
+
+        cpo = CpoBase(hardware_id, oe, elsfp)
+
+        assert cpo.get_xcvr_api() is oe_api
+        oe.get_api.assert_called_with()

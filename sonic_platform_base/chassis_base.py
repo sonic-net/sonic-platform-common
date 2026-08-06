@@ -6,6 +6,7 @@
 """
 
 import sys
+from sonic_py_common import device_info
 from . import device_base
 from . import sfp_base
 
@@ -63,8 +64,17 @@ class ChassisBase(device_base.DeviceBase):
         self._current_sensor_list = []
 
         # List of SfpBase-derived objects representing all sfps
-        # available on the chassis
+        # available on the chassis, indexed by physical port.
         self._sfp_list = []
+
+        # List of CpoBase-derived objects representing all CPO ports
+        # available on the chassis, indexed by physical port.
+        self._cpo_list = []
+
+        # Set once the port lists have been checked for consistency. The check
+        # is deferred until the lists are first accessed, since subclasses
+        # populate them after ChassisBase.__init__ has returned.
+        self._port_lists_validated = False
 
         # Object derived from WatchdogBase for interacting with hardware watchdog
         self._watchdog = None
@@ -80,6 +90,12 @@ class ChassisBase(device_base.DeviceBase):
 
         # SED (Self-Encrypting Drive) password management
         self._sed_mgmt = None
+
+        # On platforms that provide a cpo.json file, populate self._cpo_list
+        # based on the device topology described in that file
+        cpo_data = device_info.get_cpo_data()
+        if cpo_data:
+            self.construct_cpo_devices(cpo_data)
 
     def get_base_mac(self):
         """
@@ -702,6 +718,52 @@ class ChassisBase(device_base.DeviceBase):
     # SFP methods
     ##############################################
 
+    def construct_cpo_devices(self, cpo_data):
+        """
+        Construct objects representing the devices driving traffic through
+        a front panel port on the chassis based on topology data in
+        cpo.json
+
+        Subclasses should implement this method on platforms that provide
+        a cpo.json file.
+
+        Args:
+            cpo_data: device topology data parsed from cpo.json
+        """
+        raise NotImplementedError
+
+    def _validate_port_lists(self):
+        """
+        Check that _sfp_list and _cpo_list follow the indexing convention:
+        both are indexed by physical front panel port, with None at the
+        indices driven by the other technology. A platform which has only one
+        kind of port need only populate the corresponding list.
+        """
+        if self._port_lists_validated:
+            return
+
+        if not self._sfp_list or not self._cpo_list:
+            # This is a platform that only has one type of transceiver technology.
+            # We do not need to perform validation against both lists, because only
+            # one will be used.
+            return
+
+        if len(self._sfp_list) != len(self._cpo_list):
+            raise RuntimeError(
+                "_sfp_list (length {}) and _cpo_list (length {}) must be the "
+                "same length: both are indexed by physical front panel port, "
+                "with None at the indices driven by the other technology".format(
+                    len(self._sfp_list), len(self._cpo_list)))
+
+        for index, (sfp, cpo) in enumerate(zip(self._sfp_list, self._cpo_list)):
+            if sfp is not None and cpo is not None:
+                raise RuntimeError(
+                    "Physical port {} has both an SFP and a CPO object; each "
+                    "port must appear in exactly one of _sfp_list and "
+                    "_cpo_list".format(index))
+
+        self._port_lists_validated = True
+
     def get_num_sfps(self):
         """
         Retrieves the number of sfps available on this chassis
@@ -709,7 +771,8 @@ class ChassisBase(device_base.DeviceBase):
         Returns:
             An integer, the number of sfps available on this chassis
         """
-        return len(self._sfp_list)
+        self._validate_port_lists()
+        return sum(1 for sfp in self._sfp_list if sfp is not None)
 
     def get_all_sfps(self):
         """
@@ -719,6 +782,7 @@ class ChassisBase(device_base.DeviceBase):
             A list of objects derived from SfpBase representing all sfps
             available on this chassis
         """
+        self._validate_port_lists()
         return [ sfp for sfp in self._sfp_list if sfp is not None ]
 
     def get_sfp(self, index):
@@ -733,10 +797,12 @@ class ChassisBase(device_base.DeviceBase):
                    0 for Ethernet0, 1 for Ethernet4 and so on for another platform.
 
         Returns:
-            An object dervied from SfpBase representing the specified sfp
+            An object dervied from SfpBase representing the specified sfp,
+            or None if the port is not an SFP port
         """
         sfp = None
 
+        self._validate_port_lists()
         try:
             sfp = self._sfp_list[index]
         except IndexError:
@@ -745,6 +811,48 @@ class ChassisBase(device_base.DeviceBase):
 
         return sfp
 
+    def get_num_cpos(self):
+        """
+        Retrieves the number of CPO ports available on this chassis
+
+        Returns:
+            An integer, the number of CPO ports available on this chassis
+        """
+        self._validate_port_lists()
+        return sum(1 for cpo in self._cpo_list if cpo is not None)
+
+    def get_all_cpos(self):
+        """
+        Retrieves all CPO ports available on this chassis
+
+        Returns:
+            A list of objects derived from CpoBase representing all CPO ports
+            available on this chassis
+        """
+        self._validate_port_lists()
+        return [cpo for cpo in self._cpo_list if cpo is not None]
+
+    def get_cpo(self, index):
+        """
+        Retrieves the CPO port corresponding to physical port <index>, if
+        that port is driven by CPO devices.
+
+        Args:
+            index: An integer (>=0), the physical port index (same indexing as
+                   get_sfp()).
+
+        Returns:
+            An object derived from CpoBase representing the specified CPO port,
+            or None if the port is not a CPO port.
+        """
+        cpo = None
+        self._validate_port_lists()
+        try:
+            cpo = self._cpo_list[index]
+        except IndexError:
+            sys.stderr.write("CPO index {} out of range (0-{})\n".format(
+                             index, len(self._cpo_list)-1))
+        return cpo
 
     def get_port_or_cage_type(self, index):
         """
