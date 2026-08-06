@@ -86,6 +86,7 @@ class CmisAdvertisingPage(CmisPage):
                 RegBitField(consts.VDM_SUPPORTED, 6),
                 RegBitField(consts.DIAG_PAGE_SUPPORT_ADVT_FIELD, 5),
             ),
+            RegBitField(consts.COHERENT_PAGES_SUPPORTED, offset=self.getaddr(142), bitpos=4),
             CodeRegField(consts.BANKS_SUPPORTED_FIELD, self.getaddr(142), codes.MAX_BANKS_SUPPORTED,
                 *(RegBitField("Bit%d" % bit, bit) for bit in range(0, 2))
             ),
