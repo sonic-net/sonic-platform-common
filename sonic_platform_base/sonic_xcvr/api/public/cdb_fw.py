@@ -44,6 +44,35 @@ class CmisCdbFw:
         self._init_cdb_fw_handler = False
         return None
 
+    def _enter_password(self, password=cdb_consts.CDB_DEFAULT_PASSWORD):
+        """
+        Enter the CMIS host password to unlock protected CDB/EEPROM access.
+
+        The password is entered via CDB command 0001h first, since that path is
+        synchronous (send_cmd waits for and checks the CDB status). If it fails
+        -- or CDB is not available at all -- fall back to the non-CDB Password
+        Entry Area write (the register is in the CMIS memory map, not the CDB
+        one).
+
+        Returns True if the password was accepted (or delivered best-effort),
+        False otherwise.
+        """
+        if not isinstance(password, int) or \
+                password < 0 or password > 0xFFFFFFFF:
+            log.log_notice('Invalid password: must be an integer in range 0..0xFFFFFFFF')
+            return False
+
+        if self.cdb_fw_hdlr is None:
+            log.log_notice('CDB not available; entering password via Password Entry Area write')
+            return self.enter_password_via_memory(password) is True
+
+        if self.cdb_fw_hdlr.enter_password(password) is True:
+            return True
+
+        log.log_notice('CDB command 0001h password entry failed; '
+                       'falling back to Password Entry Area write')
+        return self.enter_password_via_memory(password) is True
+
     def get_module_fw_mgmt_feature(self, verbose = False):
         """
         This function obtains CDB features supported by the module from CDB command 0041h,
@@ -105,7 +134,7 @@ class CmisCdbFw:
         if fw_info is False or fw_info is None:
             if self.get_status_code() == cdb_consts.CDB_PASSWORD_ERROR_STATUS:
                 log.log_notice('Get module FW info: Need to enter password')
-                self.cdb_fw_hdlr.enter_password()
+                self._enter_password()
                 fw_info = self.cdb_fw_hdlr.get_firmware_info()
 
         if fw_info is False or fw_info is None:
@@ -238,7 +267,7 @@ class CmisCdbFw:
             if fw_run_status == cdb_consts.CDB_PASSWORD_ERROR_STATUS:
                 string = 'Module FW run: Need to enter password\n'
                 log.log_notice(string)
-                self.cdb_fw_hdlr.enter_password()
+                self._enter_password()
                 result = self.cdb_fw_hdlr.run_fw_image(mode)
                 if result is not True:
                     txt += 'Module FW run: Fail after password retry\n'
@@ -276,7 +305,7 @@ class CmisCdbFw:
             if fw_commit_status == cdb_consts.CDB_PASSWORD_ERROR_STATUS:
                 string = 'Module FW commit: Need to enter password\n'
                 log.log_notice(string)
-                self.cdb_fw_hdlr.enter_password()
+                self._enter_password()
                 result = self.cdb_fw_hdlr.commit_fw_image()
                 if result is not True:
                     txt += 'Module FW commit: Fail after password retry\n'
@@ -339,7 +368,7 @@ class CmisCdbFw:
     def cdb_enter_host_password(self, password):
         if self.cdb_fw_hdlr is None:
             return 0
-        if self.cdb_fw_hdlr.enter_password(password) is True:
+        if self._enter_password(password) is True:
             log.log_notice('CDB host auth status: Success')
             return 1
         status = self.get_status_code()
@@ -373,7 +402,7 @@ class CmisCdbFw:
         # password error - retry with default password
         if fw_start_status == cdb_consts.CDB_PASSWORD_ERROR_STATUS:
             log.log_notice('Start module FW download: Need to enter password\n')
-            self.cdb_fw_hdlr.enter_password()
+            self._enter_password()
             if self.cdb_fw_hdlr.start_fw_download(imagepath) is True:
                 return True, ''
             txt = 'Start module FW download: Fail after password retry\n'

@@ -13,7 +13,7 @@ class TestCdbFwHandler:
         self.reader = MagicMock()
         self.writer = MagicMock()
         self.mem_map = MagicMock()
-        
+
         # Mock the parent class initialization
         with patch.object(CdbFwHandler, 'initFwHandler', return_value=True):
             self.handler = CdbFwHandler(self.reader, self.writer, self.mem_map)
@@ -441,7 +441,7 @@ class TestCdbFwHandlerIntegration:
         reader = MagicMock()
         writer = MagicMock()
         mem_map = MagicMock()
-        
+
         # Mock successful initialization
         with patch.object(CdbFwHandler, 'send_cmd', return_value=True):
             with patch.object(CdbFwHandler, 'read_reply', return_value={

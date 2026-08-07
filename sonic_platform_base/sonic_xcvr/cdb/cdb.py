@@ -135,15 +135,22 @@ class CdbCmdHandler(XcvrEeprom):
 
     def enter_password(self, password=cdb_consts.CDB_DEFAULT_PASSWORD):
         """
-        Enter host password via CDB command 0001h.
-        Returns True if password accepted, False/None otherwise.
+        Enter the host password via CDB command 0001h. This path is synchronous:
+        send_cmd waits for and checks the CDB status.
+
+        Modules that do not unlock this way are handled by the caller, which
+        falls back to the non-CDB Password Entry Area write on the CmisApi.
+
+        Returns True if the password was accepted, False/None otherwise.
         """
-        if not isinstance(password, int) or password < 0 or password > 0xFFFFFFFF:
+        if not isinstance(password, int) or \
+                password < 0 or password > 0xFFFFFFFF:
             log.log_notice("Invalid password: must be an integer in range 0..0xFFFFFFFF")
             return False
+
         payload = {"password": password}
         return self.send_cmd(cdb_consts.CDB_ENTER_PASSWORD_CMD, payload)
-    
+
     def write_lpl_block(self, blkaddr, blkdata, timeout=None):
         """
         Write LPL block
