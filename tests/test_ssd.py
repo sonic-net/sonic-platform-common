@@ -1951,6 +1951,19 @@ class TestSsd:
         assert(micron_ssd.get_disk_io_writes() == '9607694422')
         assert(micron_ssd.get_reserved_blocks() == '475')
 
+    def test_micron_ssd_health_from_nand_endurance(self):
+        micron_output = output_micron_ssd.replace(
+            "202 Percent_Lifetime_Used   0x0031   075   075   000    Pre-fail  Offline      -       25\n",
+            "202 Unknown_Attribute       0x0031   075   075   000    Pre-fail  Offline      -       25\n"
+            "999 NAND_Endurance          0x0032   100   100   000    Old_age   Always       -       3028\n"
+        )
+
+        with mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell',
+                        mock.MagicMock(return_value=micron_output)):
+            micron_ssd = SsdUtil('/dev/sda')
+
+        assert micron_ssd.get_health() == 75.0
+
 
     @mock.patch('sonic_platform_base.sonic_storage.ssd.SsdUtil._execute_shell', mock.MagicMock(return_value=output_intel_ssd))
     def test_intel_ssd(self):
