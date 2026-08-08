@@ -1,0 +1,405 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library", "py_test")
+
+py_library(
+    name = "mocked_libs",
+    srcs = glob(["mocked_libs/*.py"]),
+    imports = ["."],
+)
+
+PYTEST_DEPS = [
+    "@pip//pytest",
+    "@pip//mock",
+]
+
+RUNTIME_DEPS = [
+    "@pip//redis",
+    "@pip//natsort",
+    "@pip//pyyaml",
+    "@pip//psutil",
+]
+
+SONIC_DEPS = [
+    "@sonic-py-common//:sonic-py-common",
+]
+
+SONIC_CONFIG_ENGINE_DEPS = [
+    "@sonic-config-engine//:sonic-config-engine",
+]
+
+# Base module tests
+py_test(
+    name = "chassis_base_test",
+    srcs = ["chassis_base_test.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + SONIC_DEPS + [
+        "//sonic_platform_base:chassis_base",
+    ],
+)
+
+py_test(
+    name = "module_base_test",
+    srcs = ["module_base_test.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + SONIC_DEPS + [
+        "//sonic_platform_base:module_base",
+    ],
+)
+
+py_test(
+    name = "fan_base_test",
+    srcs = ["fan_base_test.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + SONIC_DEPS + [
+        "//sonic_platform_base:fan_base",
+    ],
+)
+
+py_test(
+    name = "psu_base_test",
+    srcs = ["psu_base_test.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + SONIC_DEPS + [
+        "//sonic_platform_base:psu_base",
+    ],
+)
+
+py_test(
+    name = "sensor_base_test",
+    srcs = ["sensor_base_test.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + SONIC_DEPS + [
+        "//sonic_platform_base:sensor_base",
+    ],
+)
+
+py_test(
+    name = "sensor_fs_test",
+    srcs = ["sensor_fs_test.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + RUNTIME_DEPS + SONIC_DEPS + [
+        "//sonic_platform_base:sensor_base",
+        "//sonic_platform_base:sensor_fs",
+    ],
+)
+
+py_test(
+    name = "liquid_cooling_base_test",
+    srcs = ["liquid_cooling_base_test.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + RUNTIME_DEPS + SONIC_DEPS + [
+        "//sonic_platform_base:sensor_base",
+        "//sonic_platform_base:liquid_cooling_base",
+    ],
+)
+
+py_test(
+    name = "eeprom_base_test",
+    srcs = ["eeprom_base_test.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + RUNTIME_DEPS + SONIC_DEPS + [
+        "//sonic_platform_base/sonic_eeprom",
+    ],
+)
+
+py_test(
+    name = "pcie_common_test",
+    srcs = ["pcie_common_test.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + RUNTIME_DEPS + SONIC_DEPS + [
+        "//sonic_platform_base/sonic_pcie",
+    ],
+)
+
+py_test(
+    name = "sfputilhelper_test",
+    srcs = ["sfputilhelper_test.py"],
+    data = [
+        "port_config.ini",
+        "platform_json/hwsku.json",
+        "platform_json/hwsku_role.json",
+        "platform_json/platform.json",
+    ],
+    imports = ["."],
+    package_collisions = "warning",
+    venv = "default",
+    deps = PYTEST_DEPS + RUNTIME_DEPS + SONIC_DEPS + SONIC_CONFIG_ENGINE_DEPS + [
+        "//sonic_platform_base:sfp_base",
+        "//sonic_platform_base/sonic_sfp",
+    ],
+)
+
+py_test(
+    name = "thermal_manager_test",
+    srcs = ["thermal_manager_test.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + RUNTIME_DEPS + SONIC_DEPS + [
+        "//sonic_platform_base/sonic_thermal_control",
+    ],
+)
+
+py_test(
+    name = "test_ssd",
+    srcs = ["test_ssd.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + RUNTIME_DEPS + SONIC_DEPS + [
+        ":mocked_libs",
+        "//sonic_platform_base/sonic_storage",
+    ],
+)
+
+py_test(
+    name = "test_emmc",
+    srcs = ["test_emmc.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + RUNTIME_DEPS + SONIC_DEPS + [
+        ":mocked_libs",
+        "//sonic_platform_base/sonic_storage",
+    ],
+)
+
+py_test(
+    name = "test_usb",
+    srcs = ["test_usb.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + RUNTIME_DEPS + SONIC_DEPS + [
+        ":mocked_libs",
+        "//sonic_platform_base/sonic_storage",
+    ],
+)
+
+py_test(
+    name = "test_storage_common",
+    srcs = ["test_storage_common.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + RUNTIME_DEPS + SONIC_DEPS + [
+        ":mocked_libs",
+        "//sonic_platform_base/sonic_storage",
+    ],
+)
+
+py_test(
+    name = "test_storage_devices",
+    srcs = ["test_storage_devices.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + RUNTIME_DEPS + SONIC_DEPS + [
+        ":mocked_libs",
+        "//sonic_platform_base/sonic_storage",
+    ],
+)
+
+# Sonic xcvr tests
+py_test(
+    name = "test_cmis",
+    srcs = ["sonic_xcvr/test_cmis.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + SONIC_DEPS + [
+        "//sonic_platform_base/sonic_xcvr",
+    ],
+)
+
+py_test(
+    name = "test_ccmis",
+    srcs = ["sonic_xcvr/test_ccmis.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + SONIC_DEPS + [
+        "//sonic_platform_base/sonic_xcvr",
+    ],
+)
+
+py_test(
+    name = "test_cmisCDB",
+    srcs = ["sonic_xcvr/test_cmisCDB.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + SONIC_DEPS + [
+        "//sonic_platform_base/sonic_xcvr",
+    ],
+)
+
+py_test(
+    name = "test_cmisVDM",
+    srcs = ["sonic_xcvr/test_cmisVDM.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + SONIC_DEPS + [
+        "//sonic_platform_base/sonic_xcvr",
+    ],
+)
+
+py_test(
+    name = "test_cmisTargetFWUpgrade",
+    srcs = ["sonic_xcvr/test_cmisTargetFWUpgrade.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + SONIC_DEPS + [
+        "//sonic_platform_base/sonic_xcvr",
+    ],
+)
+
+py_test(
+    name = "test_cmis_cache",
+    srcs = ["sonic_xcvr/test_cmis_cache.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + SONIC_DEPS + [
+        "//sonic_platform_base/sonic_xcvr",
+    ],
+)
+
+py_test(
+    name = "test_cdb",
+    srcs = ["sonic_xcvr/test_cdb.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + SONIC_DEPS + [
+        "//sonic_platform_base/sonic_xcvr",
+    ],
+)
+
+py_test(
+    name = "test_cdb_fw",
+    srcs = ["sonic_xcvr/test_cdb_fw.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + RUNTIME_DEPS + SONIC_DEPS + [
+        "//sonic_platform_base/sonic_xcvr",
+    ],
+)
+
+py_test(
+    name = "test_sff8472",
+    srcs = ["sonic_xcvr/test_sff8472.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + SONIC_DEPS + [
+        "//sonic_platform_base/sonic_xcvr",
+    ],
+)
+
+py_test(
+    name = "test_sff8436",
+    srcs = ["sonic_xcvr/test_sff8436.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + SONIC_DEPS + [
+        "//sonic_platform_base/sonic_xcvr",
+    ],
+)
+
+py_test(
+    name = "test_sff8636",
+    srcs = ["sonic_xcvr/test_sff8636.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + SONIC_DEPS + [
+        "//sonic_platform_base/sonic_xcvr",
+    ],
+)
+
+py_test(
+    name = "test_sfp_base",
+    srcs = ["sonic_xcvr/test_sfp_base.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + SONIC_DEPS + [
+        "//sonic_platform_base:sfp_base",
+        "//sonic_platform_base/sonic_xcvr",
+    ],
+)
+
+py_test(
+    name = "test_sfp_optoe_base",
+    srcs = ["sonic_xcvr/test_sfp_optoe_base.py"],
+    imports = ["."],
+    package_collisions = "warning",
+    venv = "default",
+    deps = PYTEST_DEPS + RUNTIME_DEPS + SONIC_DEPS + [
+        "//sonic_platform_base:sfp_base",
+        "//sonic_platform_base/sonic_xcvr",
+    ],
+)
+
+py_test(
+    name = "test_xcvr_api_factory",
+    srcs = ["sonic_xcvr/test_xcvr_api_factory.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + SONIC_DEPS + [
+        "//sonic_platform_base/sonic_xcvr",
+    ],
+)
+
+py_test(
+    name = "test_xcvr_field",
+    srcs = ["sonic_xcvr/test_xcvr_field.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + SONIC_DEPS + [
+        "//sonic_platform_base/sonic_xcvr",
+    ],
+)
+
+py_test(
+    name = "test_fr_800g",
+    srcs = ["sonic_xcvr/test_fr_800g.py"],
+    imports = ["."],
+    venv = "default",
+    deps = PYTEST_DEPS + SONIC_DEPS + [
+        "//sonic_platform_base/sonic_xcvr",
+    ],
+)
+
+test_suite(
+    name = "all_tests",
+    tests = [
+        ":chassis_base_test",
+        ":eeprom_base_test",
+        ":fan_base_test",
+        ":liquid_cooling_base_test",
+        ":module_base_test",
+        ":pcie_common_test",
+        ":psu_base_test",
+        ":sensor_base_test",
+        ":sensor_fs_test",
+        ":sfputilhelper_test",
+        ":test_ccmis",
+        ":test_cdb",
+        ":test_cdb_fw",
+        ":test_cmis",
+        ":test_cmisCDB",
+        ":test_cmisTargetFWUpgrade",
+        ":test_cmisVDM",
+        ":test_cmis_cache",
+        ":test_emmc",
+        ":test_fr_800g",
+        ":test_sff8436",
+        ":test_sff8472",
+        ":test_sff8636",
+        ":test_sfp_base",
+        ":test_sfp_optoe_base",
+        ":test_ssd",
+        ":test_storage_common",
+        ":test_storage_devices",
+        ":test_usb",
+        ":test_xcvr_api_factory",
+        ":test_xcvr_field",
+        ":thermal_manager_test",
+    ],
+)

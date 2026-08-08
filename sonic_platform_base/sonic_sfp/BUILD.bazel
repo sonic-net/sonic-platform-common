@@ -1,0 +1,13 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+
+filegroup(
+    name = "files",
+    srcs = glob(["*.py"]) + glob(["*.json"], allow_empty = True),
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "sonic_sfp",
+    srcs = glob(["*.py"]),
+    visibility = ["//visibility:public"],
+)

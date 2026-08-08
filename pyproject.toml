@@ -1,0 +1,25 @@
+[project]
+name = "sonic-platform-common"
+version = "1.0.0"
+description = "Platform-specific peripheral hardware interface APIs for SONiC"
+requires-python = ">=3.11"
+dependencies = [
+    "natsort>=8.4.0",
+    "PyYAML>=6.0.2",
+    "redis>=5.0.0",
+    "psutil>=5.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "mock>=5.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-shard>=0.1.0",
+    "build>=1.0.0",
+    "setuptools>=61.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
