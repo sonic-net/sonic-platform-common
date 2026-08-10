@@ -36,6 +36,8 @@ class TestChassisBase:
                 [chassis.get_dpu_id, [], {"name": "DPU0"}],
                 [chassis.get_elsfp_change_event, [], {}],
                 [chassis.get_elsfp_change_event, [1000], {}],
+                [chassis.get_change_event, [], {}],
+                [chassis.get_change_event, [1000], {}],
                 [chassis.get_dataplane_state, [], {}],
                 [chassis.get_controlplane_state, [], {}],
             ]
