@@ -391,9 +391,17 @@ class TestSff8636(object):
                                        expected, expected_reads):
         self.api.get_temperature_support = MagicMock(return_value=temp_support)
         self.api.get_voltage_support = MagicMock(return_value=vcc_support)
+
         # Key the mock on the field name rather than call order, so a swapped
-        # or mis-mapped field would fail instead of silently passing.
-        self.api.xcvr_eeprom.read = MagicMock(side_effect=lambda field: eeprom[field])
+        # or mis-mapped field would fail instead of silently passing. Raw
+        # bytes are decoded through the real mem map field so the bitdecode
+        # bit positions are exercised, not just the API plumbing.
+        def read_field(field):
+            raw = eeprom[field]
+            if raw is None:
+                return None
+            return self.mem_map.get_field(field).decode(bytearray([raw]))
+        self.api.xcvr_eeprom.read = MagicMock(side_effect=read_field)
 
         result = self.api.get_transceiver_dom_flags()
 

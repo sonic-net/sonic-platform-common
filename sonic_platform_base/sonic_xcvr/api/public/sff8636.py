@@ -15,16 +15,6 @@ class Sff8636Api(XcvrApi):
     NUM_CHANNELS = 4
     POWER_CLASS_PATTERN = r'^Power Class ([1-8])'
 
-    # Bit layout shared by the temperature (byte 6) and Vcc (byte 7)
-    # free side monitor interrupt flag bytes (SFF-8636 Rev 2.12
-    # Table 6-6). In byte 6, bits 3-2 are reserved and bits 1-0 are the
-    # TC readiness and initialization complete flags; in byte 7, bits 3-0
-    # are reserved.
-    FLAG_HIGH_ALARM_BITPOS = 7
-    FLAG_LOW_ALARM_BITPOS = 6
-    FLAG_HIGH_WARN_BITPOS = 5
-    FLAG_LOW_WARN_BITPOS = 4
-
     def __init__(self, xcvr_eeprom):
         super(Sff8636Api, self).__init__(xcvr_eeprom)
         self._temp_support = None
@@ -155,9 +145,12 @@ class Sff8636Api(XcvrApi):
         data is not trustworthy: the monitor is not advertised, the
         advertisement could not be read, or the flag byte itself could not be
         read. Consumers render an absent flag as N/A, which is the honest
-        answer in all three cases. Note the flag bytes must be compared
-        against None and not tested for truth: 0x00 is the normal state of a
-        healthy module and its four flags are a real "no excursion" result.
+        answer in all three cases.
+
+        Each flag byte is a single field whose RegBitField children are
+        decoded from one read (bitdecode), so the clear-on-read latch is
+        consumed exactly once per byte and the read already returns the
+        {flag name: bool} dict in the CMIS key schema.
 
         Returns:
             Dictionary of boolean flags, containing only the groups that
@@ -169,22 +162,12 @@ class Sff8636Api(XcvrApi):
         if self.get_temperature_support():
             temp_flags = self.xcvr_eeprom.read(consts.TEMP_FLAGS_FIELD)
             if temp_flags is not None:
-                dom_flags.update({
-                    "tempHAlarm": bool(temp_flags & (1 << self.FLAG_HIGH_ALARM_BITPOS)),
-                    "tempLAlarm": bool(temp_flags & (1 << self.FLAG_LOW_ALARM_BITPOS)),
-                    "tempHWarn": bool(temp_flags & (1 << self.FLAG_HIGH_WARN_BITPOS)),
-                    "tempLWarn": bool(temp_flags & (1 << self.FLAG_LOW_WARN_BITPOS)),
-                })
+                dom_flags.update(temp_flags)
 
         if self.get_voltage_support():
             vcc_flags = self.xcvr_eeprom.read(consts.VCC_FLAGS_FIELD)
             if vcc_flags is not None:
-                dom_flags.update({
-                    "vccHAlarm": bool(vcc_flags & (1 << self.FLAG_HIGH_ALARM_BITPOS)),
-                    "vccLAlarm": bool(vcc_flags & (1 << self.FLAG_LOW_ALARM_BITPOS)),
-                    "vccHWarn": bool(vcc_flags & (1 << self.FLAG_HIGH_WARN_BITPOS)),
-                    "vccLWarn": bool(vcc_flags & (1 << self.FLAG_LOW_WARN_BITPOS)),
-                })
+                dom_flags.update(vcc_flags)
 
         return dom_flags
 
