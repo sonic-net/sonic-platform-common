@@ -1066,10 +1066,12 @@ class CmisApi(CmisCdbFw, XcvrApi):
         mintf = self.get_module_media_interface()
         if mintf is not None and any(kw in mintf for kw in ('ZR', 'FOIC')):
             return True
-        cmis_major = self.xcvr_eeprom.read(consts.CMIS_MAJOR_REVISION)
-        cmis_minor = self.xcvr_eeprom.read(consts.CMIS_MINOR_REVISION)
-        if cmis_major is not None and cmis_minor is not None and (cmis_major, cmis_minor) >= (5, 3):
-            return bool(self.xcvr_eeprom.read(consts.COHERENT_PAGES_SUPPORTED))
+        try:
+            cmis_rev = self.get_cmis_rev()
+            if tuple(int(x) for x in cmis_rev.split('.')) >= (5, 3):
+                return bool(self.xcvr_eeprom.read(consts.COHERENT_PAGES_SUPPORTED))
+        except (ValueError, AttributeError):
+            pass
         return False
 
     @read_only_cached_api_return
