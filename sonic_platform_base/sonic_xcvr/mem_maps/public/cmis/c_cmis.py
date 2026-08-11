@@ -9,6 +9,8 @@ from .pages import (
     CCmisModuleConfigSupportPage,
     CCmisMediaLaneFecPmPage,
     CCmisMediaLaneLinkPmPage,
+    CCmisDataPathHostIfPmPage,
+    CCmisPmAdvertisementPage
 )
 
 
@@ -21,4 +23,6 @@ class CCmisMemMap(CmisMemMap):
             CCmisModuleConfigSupportPage(codes, bank=bank),  # 0x04
             CCmisMediaLaneFecPmPage(codes, bank=bank),       # 0x34
             CCmisMediaLaneLinkPmPage(codes, bank=bank),      # 0x35
+            CCmisDataPathHostIfPmPage(codes, bank=bank),     # 0x3A
+            CCmisPmAdvertisementPage(codes, bank=bank),      # 0x42
         )
