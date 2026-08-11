@@ -1080,17 +1080,18 @@ class TestCmis(object):
         self.api.xcvr_eeprom.read = MagicMock(side_effect=mock_read)
         assert self.api.is_coherent_module() is True
 
-    def test_coherent_pages_supported_isolated_from_page_support_advt(self):
-        # CoherentPagesSupported (byte 142 bit 4) is its own field, so it must
-        # not change how the neighbouring PAGE_SUPPORT_ADVT_FIELD (bits 6, 5)
-        # decodes. With only bit 4 set: the coherent bit reads True and the
-        # advertisement field still reads 0. (Folding bit 4 into
-        # PAGE_SUPPORT_ADVT_FIELD would shift its decode from >>5 to >>4 and
-        # make it read 1 here - a backward-incompatible change.)
+    def test_page_support_advt_bitdecode_exposes_coherent_bit(self):
+        # PAGE_SUPPORT_ADVT_FIELD uses bitdecode, so it decodes each advertised
+        # bit individually instead of collapsing byte 142 into one shifted
+        # integer. With only bit 4 set the coherent bit is True and the
+        # neighbouring VDM / diagnostic bits stay False.
         data = bytearray([0x10])  # only byte-142 bit 4 set
-        advt = self.mem_map.get_field(consts.PAGE_SUPPORT_ADVT_FIELD)
+        decoded = self.mem_map.get_field(consts.PAGE_SUPPORT_ADVT_FIELD).decode(data)
+        assert decoded[consts.COHERENT_PAGES_SUPPORTED] is True
+        assert decoded[consts.VDM_SUPPORTED] is False
+        assert decoded[consts.DIAG_PAGE_SUPPORT_ADVT_FIELD] is False
+        # still individually addressable, as is_coherent_module() reads it
         coherent = self.mem_map.get_field(consts.COHERENT_PAGES_SUPPORTED)
-        assert advt.decode(data) == 0
         assert bool(coherent.decode(data)) is True
 
     @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
