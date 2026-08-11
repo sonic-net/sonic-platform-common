@@ -6,7 +6,13 @@
 """
 
 import sys
-from sonic_py_common import device_info
+try:
+    from sonic_py_common import device_info
+except ImportError:
+    # Unit-test packages may shadow sonic_py_common with a partial mock that
+    # does not provide device_info. This should not occur outside of test
+    # environments.
+    device_info = None
 from . import device_base
 from . import sfp_base
 
@@ -93,7 +99,7 @@ class ChassisBase(device_base.DeviceBase):
 
         # On platforms that provide a cpo.json file, populate self._cpo_list
         # based on the device topology described in that file
-        cpo_data = device_info.get_cpo_data()
+        cpo_data = device_info.get_cpo_data() if device_info else None
         if cpo_data:
             self.construct_cpo_devices(cpo_data)
 
