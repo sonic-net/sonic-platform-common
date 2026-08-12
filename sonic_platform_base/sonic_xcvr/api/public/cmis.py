@@ -1075,10 +1075,29 @@ class CmisApi(CmisCdbFw, XcvrApi):
     @read_only_cached_api_return
     def is_coherent_module(self):
         '''
-        Returns True if the module follow C-CMIS spec, False otherwise
+        Returns True if the module follows the C-CMIS spec, False otherwise.
+
+        Detection is the union of two independent signals, so the bit can
+        only add coherent modules and never drops one that used to be
+        detected:
+          * the media interface name contains 'ZR' or 'FOIC' - works on
+            every CMIS revision and matches the behavior from before this
+            bit existed, and
+          * CoherentPagesSupported (Page 01h byte 142 bit 4) is set. That
+            bit is only defined from OIF-CMIS 5.3 on (Reserved before, where
+            a real module may report it as a stray 1), so it is only honored
+            when the module reports CMIS 5.3 or later.
         '''
         mintf = self.get_module_media_interface()
-        return False if 'ZR' not in mintf else True
+        if mintf is not None and any(kw in mintf for kw in ('ZR', 'FOIC')):
+            return True
+        try:
+            cmis_rev = self.get_cmis_rev()
+            if tuple(int(x) for x in cmis_rev.split('.')) >= (5, 3):
+                return bool(self.xcvr_eeprom.read(consts.COHERENT_PAGES_SUPPORTED))
+        except (ValueError, AttributeError):
+            pass
+        return False
 
     @read_only_cached_api_return
     def get_datapath_init_duration(self):
