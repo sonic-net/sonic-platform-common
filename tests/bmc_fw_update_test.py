@@ -41,7 +41,7 @@ class TestBMCFWUpdate:
         mock_bmc.update_firmware.return_value = (0, ('Success', ['BMC_FW_0', 'OTHER_FW']))
         mock_bmc.get_firmware_id.return_value = 'BMC_FW_0'
         mock_bmc.request_bmc_reset.return_value = (0, 'BMC reset successful')
-        mock_bmc.get_status.return_value = True
+        mock_bmc.wait_until_redfish_ready.return_value = 0
 
         test_args = ['bmc_fw_update.py', '/path/to/firmware.bin']
         with mock.patch.dict(sys.modules, {'sonic_platform': mock_sonic_platform}):
@@ -53,7 +53,8 @@ class TestBMCFWUpdate:
         mock_bmc.update_firmware.assert_called_once_with('/path/to/firmware.bin')
         mock_bmc.get_firmware_id.assert_called_once()
         mock_bmc.request_bmc_reset.assert_called_once()
-        mock_bmc.get_status.assert_called_once()
+        mock_bmc.wait_until_redfish_ready.assert_called_once()
+        mock_bmc.get_status.assert_not_called()
         mock_sleep.assert_called_once_with(20)
         mock_exit.assert_not_called()
 
@@ -143,9 +144,10 @@ class TestBMCFWUpdate:
         mock_logger.log_error.assert_called_once_with('Failed to update BMC firmware. Error 1: Update failed')
         mock_exit.assert_called_once_with(1)
 
+    @mock.patch('sonic_platform_base.bmc_fw_update.time.sleep')
     @mock.patch('sys.exit')
     @mock.patch('sonic_py_common.logger.Logger')
-    def test_main_bmc_reset_failure(self, mock_logger_class, mock_exit):
+    def test_main_bmc_reset_failure(self, mock_logger_class, mock_exit, mock_sleep):
         """Test main when BMC reset fails"""
         mock_logger = mock.MagicMock()
         mock_bmc = mock.MagicMock()
@@ -159,6 +161,9 @@ class TestBMCFWUpdate:
         mock_bmc.update_firmware.return_value = (0, ('Success', ['BMC_FW_0']))
         mock_bmc.get_firmware_id.return_value = 'BMC_FW_0'
         mock_bmc.request_bmc_reset.return_value = (1, 'Reset failed')
+        # sys.exit is mocked to a no-op, so main() falls through past the reset
+        # failure; keep the readiness probe benign so it adds no extra error/exit.
+        mock_bmc.wait_until_redfish_ready.return_value = 0
 
         test_args = ['bmc_fw_update.py', '/path/to/firmware.bin']
         with mock.patch.dict(sys.modules, {'sonic_platform': mock_sonic_platform}):
@@ -171,8 +176,8 @@ class TestBMCFWUpdate:
     @mock.patch('sonic_platform_base.bmc_fw_update.time.sleep')
     @mock.patch('sys.exit')
     @mock.patch('sonic_py_common.logger.Logger')
-    def test_main_bmc_waiting_after_restart(self, mock_logger_class, mock_exit, mock_sleep):
-        """Test waiting loop when BMC is not yet operational after restart"""
+    def test_main_redfish_not_ready_after_restart(self, mock_logger_class, mock_exit, mock_sleep):
+        """Test failure when the Redfish service does not become ready after restart"""
         mock_logger = mock.MagicMock()
         mock_bmc = mock.MagicMock()
         mock_chassis = mock.MagicMock()
@@ -185,44 +190,18 @@ class TestBMCFWUpdate:
         mock_bmc.update_firmware.return_value = (0, ('Success', ['BMC_FW_0']))
         mock_bmc.get_firmware_id.return_value = 'BMC_FW_0'
         mock_bmc.request_bmc_reset.return_value = (0, 'BMC reset successful')
-        mock_bmc.get_status.side_effect = [False, True]
+        # -6 == ERR_CODE_TIMEOUT: readiness never reached before the deadline.
+        mock_bmc.wait_until_redfish_ready.return_value = -6
 
         test_args = ['bmc_fw_update.py', '/path/to/firmware.bin']
         with mock.patch.dict(sys.modules, {'sonic_platform': mock_sonic_platform}):
             with mock.patch.object(sys, 'argv', test_args):
                 bmc_fw_update.main()
 
-        mock_logger.log_notice.assert_any_call("Waiting for BMC to restart...")
-        assert mock_bmc.get_status.call_count == 2
-        assert mock_sleep.call_count == 2
-        mock_sleep.assert_has_calls([mock.call(20), mock.call(20)])
-        mock_exit.assert_not_called()
-
-    @mock.patch('sonic_platform_base.bmc_fw_update.time.sleep')
-    @mock.patch('sys.exit')
-    @mock.patch('sonic_py_common.logger.Logger')
-    def test_main_bmc_not_operational_after_restart(self, mock_logger_class, mock_exit, mock_sleep):
-        """Test failure when BMC does not become operational after restart"""
-        mock_logger = mock.MagicMock()
-        mock_bmc = mock.MagicMock()
-        mock_chassis = mock.MagicMock()
-        mock_platform = mock.MagicMock()
-        mock_chassis.get_bmc.return_value = mock_bmc
-        mock_platform.get_chassis.return_value = mock_chassis
-        mock_sonic_platform = mock.MagicMock()
-        mock_sonic_platform.platform.Platform.return_value = mock_platform
-        mock_logger_class.return_value = mock_logger
-        mock_bmc.update_firmware.return_value = (0, ('Success', ['BMC_FW_0']))
-        mock_bmc.get_firmware_id.return_value = 'BMC_FW_0'
-        mock_bmc.request_bmc_reset.return_value = (0, 'BMC reset successful')
-        mock_bmc.get_status.return_value = False
-
-        test_args = ['bmc_fw_update.py', '/path/to/firmware.bin']
-        with mock.patch.dict(sys.modules, {'sonic_platform': mock_sonic_platform}):
-            with mock.patch.object(sys, 'argv', test_args):
-                bmc_fw_update.main()
-
-        mock_logger.log_error.assert_any_call("BMC did not become operational after restart")
-        assert mock_bmc.get_status.call_count == 5
-        assert mock_sleep.call_count == 5
+        # Only the settle sleep runs; the ping wait loop is gone.
+        mock_bmc.get_status.assert_not_called()
+        mock_bmc.wait_until_redfish_ready.assert_called_once()
+        mock_sleep.assert_called_once_with(20)
+        mock_logger.log_error.assert_any_call(
+            "BMC Redfish service did not become ready after restart (last error code: -6)")
         mock_exit.assert_called_once_with(1)
