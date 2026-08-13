@@ -25,29 +25,112 @@ class TestLeakageSensorBase:
         assert leakage_sensor.get_name() == "test_sensor"
         assert leakage_sensor.get_leak_sensor_type() == 'unknown'
         assert leakage_sensor.get_leak_sensor_location() == 'unknown'
-        assert leakage_sensor.get_leak_severity() == LeakSeverity.CRITICAL
+        assert leakage_sensor.get_leak_severity() is None
         assert leakage_sensor.is_leak() == False
 
         leakage_sensor2 = LeakageSensorBase("test_sensor2", type="rope",
                                             location="drip tray",
                                             severity=LeakSeverity.MINOR)
-        
+
         assert leakage_sensor2.get_name() == "test_sensor2"
         assert leakage_sensor2.get_leak_sensor_type() == "rope"
         assert leakage_sensor2.get_leak_sensor_location() == "drip tray"
-        assert leakage_sensor2.get_leak_severity() == LeakSeverity.MINOR
+        assert leakage_sensor2.get_leak_severity() is None
         assert leakage_sensor2.is_leak() == False
+
+        # The configured severity is reported once the sensor leaks
+        leakage_sensor2.leaking = True
+        assert leakage_sensor2.get_leak_severity() is LeakSeverity.MINOR
 
     @staticmethod
     def test_severity_constants():
         '''
-        Test LEAK_SEVERITY_CRITICAL and LEAK_SEVERITY_MINOR are LeakSeverity enum members,
-        and that the LeakSeverity enum has the expected string values.
+        Test LEAK_SEVERITY_CRITICAL and LEAK_SEVERITY_MINOR are LeakSeverity
+        enum members, and that the LeakSeverity enum has the expected string
+        values.
         '''
         assert LeakSeverity.CRITICAL.value == "CRITICAL"
         assert LeakSeverity.MINOR.value == "MINOR"
         assert LeakageSensorBase.LEAK_SEVERITY_CRITICAL is LeakSeverity.CRITICAL
         assert LeakageSensorBase.LEAK_SEVERITY_MINOR is LeakSeverity.MINOR
+
+    @staticmethod
+    def test_is_test_leak_default():
+        '''
+        Test is_test_leak defaults to False, so a leak is treated as physical
+        unless the platform explicitly flags it as injected
+        '''
+        sensor = LeakageSensorBase("sensor1")
+        assert sensor.is_test_leak() == False
+
+    @staticmethod
+    def test_is_test_leak_injected():
+        '''
+        Test a leaking sensor can be flagged as carrying an injected leak
+        '''
+        sensor = LeakageSensorBase("sensor1")
+        sensor.leaking = True
+        sensor.test_leak = True
+        assert sensor.is_leak() == True
+        assert sensor.is_test_leak() == True
+
+    @staticmethod
+    def test_is_test_leak_false_when_not_leaking():
+        '''
+        Test a test_leak flag left set on a non-leaking sensor is not
+        reported: is_test_leak() describes the leak currently reported by the
+        sensor, so with no leak there is nothing to attribute to an injection
+        '''
+        sensor = LeakageSensorBase("sensor1")
+        sensor.test_leak = True
+        assert sensor.is_test_leak() == False
+
+    @staticmethod
+    def test_is_test_leak_without_init_chaining():
+        '''
+        Test is_test_leak is safe on a vendor subclass that does not chain
+        super().__init__(), since test_leak has a class-level default
+        '''
+        class NoSuper(LeakageSensorBase):
+            def __init__(self, name):
+                self.name = name
+                self.leaking = False
+                self.leak_sensor_ok = True
+                self.leak_type = 'rope'
+                self.leak_location = 'front'
+                self.leak_severity = LeakSeverity.CRITICAL
+
+        sensor = NoSuper("sensor1")
+        assert sensor.is_test_leak() == False
+
+    @staticmethod
+    def test_accessors_follow_is_leak_override():
+        '''
+        Test get_leak_severity and is_test_leak consult is_leak() — the
+        documented override point for platforms that read hardware — rather
+        than the internal leaking attribute
+        '''
+        class HardwareSensor(LeakageSensorBase):
+            def __init__(self, name):
+                super().__init__(name, severity=LeakSeverity.MINOR)
+                self.hw_leak = False
+
+            def is_leak(self):
+                # Reads "hardware" state, never touches self.leaking
+                return self.hw_leak
+
+        sensor = HardwareSensor("sensor1")
+        assert sensor.get_leak_severity() is None
+        assert sensor.is_test_leak() == False
+
+        # A genuine leak surfacing through the override carries its severity
+        sensor.hw_leak = True
+        assert sensor.get_leak_severity() is LeakSeverity.MINOR
+        assert sensor.is_test_leak() == False
+
+        # An injected leak surfacing through the override is flagged
+        sensor.test_leak = True
+        assert sensor.is_test_leak() == True
 
     @staticmethod
     def test_is_leak_sensor_ok_default():
@@ -72,7 +155,7 @@ class TestLeakageSensorBase:
         Test get_leak_sensor_type default value is None
         '''
         sensor = LeakageSensorBase("sensor1")
-        assert sensor.get_leak_sensor_type() is 'unknown'
+        assert sensor.get_leak_sensor_type() == 'unknown'
 
     @staticmethod
     def test_get_leak_sensor_type_set():
@@ -90,7 +173,7 @@ class TestLeakageSensorBase:
         Test get_leak_sensor_location default value is None
         '''
         sensor = LeakageSensorBase("sensor1")
-        assert sensor.get_leak_sensor_location() is 'unknown'
+        assert sensor.get_leak_sensor_location() == 'unknown'
 
     @staticmethod
     def test_get_leak_sensor_location_set():
@@ -107,7 +190,7 @@ class TestLeakageSensorBase:
         Test get_leak_severity default value is None
         '''
         sensor = LeakageSensorBase("sensor1")
-        assert sensor.get_leak_severity() is LeakSeverity.CRITICAL
+        assert sensor.get_leak_severity() is None
 
     @staticmethod
     def test_get_leak_severity_critical():
@@ -115,6 +198,7 @@ class TestLeakageSensorBase:
         Test get_leak_severity returns LeakSeverity.CRITICAL enum member
         '''
         sensor = LeakageSensorBase("sensor1")
+        sensor.leaking = True
         sensor.leak_severity = LeakSeverity.CRITICAL
         assert sensor.get_leak_severity() is LeakSeverity.CRITICAL
         assert sensor.get_leak_severity().value == "CRITICAL"
@@ -125,6 +209,7 @@ class TestLeakageSensorBase:
         Test get_leak_severity returns LeakSeverity.MINOR enum member
         '''
         sensor = LeakageSensorBase("sensor1")
+        sensor.leaking = True
         sensor.leak_severity = LeakSeverity.MINOR
         assert sensor.get_leak_severity() is LeakSeverity.MINOR
         assert sensor.get_leak_severity().value == "MINOR"
@@ -258,7 +343,7 @@ class TestLiquidCoolingBase():
     '''
     Collection of LiquidCoolingBase test methods
     '''
-    
+
     @staticmethod
     def test_liquid_cooling_base_init():
         '''
@@ -279,7 +364,7 @@ class TestLiquidCoolingBase():
                        "severity": LeakSeverity.MINOR}
         liquid_cooling = LiquidCoolingBase(0,
                                            [LeakageSensorBase("Sensor1", **common),
-                                            LeakageSensorBase("Sensor2", **common), 
+                                            LeakageSensorBase("Sensor2", **common),
                                             LeakageSensorBase("Sensor3", **common)])
 
         # Redirect stderr to capture error message
@@ -379,6 +464,33 @@ class TestLiquidCoolingBase():
         assert liquid_cooling.get_leak_sensor_status() == []
 
     @staticmethod
+    def test_get_profile():
+        '''
+        Test get_profile returns the registered profile by type, and None
+        for an unknown type — including dict method names, which must not be
+        reachable through the type lookup
+        '''
+        class RopeProfile(LeakSensorProfileBase):
+            def get_type(self): return "rope"
+            def get_leak_max_minor_duration_sec(self):
+                return 300
+
+        profile = RopeProfile()
+        liquid_cooling = LiquidCoolingBase(profiles=[profile])
+
+        captured_output = StringIO()
+        sys.stderr = captured_output
+        try:
+            assert liquid_cooling.get_profile("rope") is profile
+            assert liquid_cooling.get_profile("flood") is None
+            assert liquid_cooling.get_profile("items") is None
+        finally:
+            sys.stderr = sys.__stderr__
+
+        captured_output.seek(0)
+        assert "flood" in captured_output.read()
+
+    @staticmethod
     def test_liquid_cooling_with_sensor_profiles():
         '''
         Test LiquidCoolingBase with concrete sensors that return profiles.
@@ -416,4 +528,3 @@ class TestLiquidCoolingBase():
         assert leaking[0].get_leak_sensor_location() == "front"
         assert leaking[0].get_leak_severity() is LeakSeverity.MINOR
         assert leaking[0].get_leak_profile().get_leak_max_minor_duration_sec() == 300
-
