@@ -158,16 +158,17 @@ class TestEepromTlvinfo:
             assert exit_mock.called
 
     def test_eeprom_tlvinfo_update_eeprom_db(self):
-        # Test updating eeprom to DB by mocking redis hmset
+        # Test updating eeprom to DB by mocking the STATE_DB connector hmset
         eeprom_class = eeprom_tlvinfo.TlvInfoDecoder(EEPROM_SYMLINK_FULL_PATH, 0, '', True)
         eeprom = eeprom_class.read_eeprom()
-        eeprom_class.redis_client.hmset = mock.MagicMock(return_value = True)
+        eeprom_class.state_db.hmset = mock.MagicMock(return_value = True)
         assert(0 == eeprom_class.update_eeprom_db(eeprom))
 
     def test_eeprom_tlvinfo_read_eeprom_db(self):
-        # Test reading from DB by mocking redis hget
+        # Test reading from DB by mocking the STATE_DB connector get.
+        # SonicV2Connector.get() returns a decoded str (not bytes).
         eeprom_class = eeprom_tlvinfo.TlvInfoDecoder(EEPROM_SYMLINK_FULL_PATH, 0, '', True)
-        eeprom_class.redis_client.hget = mock.MagicMock(return_value = b'1')
+        eeprom_class.state_db.get = mock.MagicMock(return_value = '1')
         assert(0 == eeprom_class.read_eeprom_db())
 
 class TestEepromDecoder(object):

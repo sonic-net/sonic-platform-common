@@ -13,13 +13,9 @@ from __future__ import print_function
 try:
     import sys
 
-    import redis
-
     from . import eeprom_base    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
 except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
-
-STATE_DB_INDEX = 6
 
 #
 # TlvInfo Format - This eeprom format was defined by Cumulus Networks
@@ -79,7 +75,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
                                              ro)
         self.eeprom_start = start
         self.eeprom_max_len = max_len
-        self._redis_client = None
+        self._state_db = None
 
 
     def __print_db(self, code, num=0):
@@ -618,20 +614,22 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
         return 'crc32'
 
     @property
-    def redis_client(self):
-        """Handy property to get a redis client. Make sure only create the redis client once.
+    def state_db(self):
+        """Handy property to get a STATE_DB connector. Only create it once.
 
         Returns:
-            A redis client instance
+            A connected SonicV2Connector instance bound to STATE_DB
         """
-        if not self._redis_client:
-            self._redis_client = redis.Redis(db=STATE_DB_INDEX)
-        return self._redis_client
+        if not self._state_db:
+            from swsscommon.swsscommon import SonicV2Connector
+            self._state_db = SonicV2Connector()
+            self._state_db.connect(self._state_db.STATE_DB)
+        return self._state_db
 
     def _redis_hget(self, key, field):
-        value = self.redis_client.hget(key, field)
+        value = self.state_db.get(self.state_db.STATE_DB, key, field)
         if value is not None:
-            value = value.decode().rstrip('\0')
+            value = value.rstrip('\0')
         return value
 
     def visit_eeprom(self, e, visitor):
