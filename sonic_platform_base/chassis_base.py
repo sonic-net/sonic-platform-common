@@ -7,7 +7,6 @@
 
 import sys
 from . import device_base
-from . import sfp_base
 
 class ChassisBase(device_base.DeviceBase):
     """

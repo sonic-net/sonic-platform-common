@@ -71,7 +71,6 @@ setup(
     install_requires=[
         'natsort',
         'PyYAML',
-        'redis',
     ] + sonic_dependencies,
     setup_requires = [
         'pytest-runner',

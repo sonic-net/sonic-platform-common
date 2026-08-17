@@ -13,13 +13,9 @@ from __future__ import print_function
 try:
     import sys
 
-    import redis
-
     from . import eeprom_base    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
 except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
-
-STATE_DB_INDEX = 6
 
 #
 # TlvInfo Format - This eeprom format was defined by Cumulus Networks
@@ -79,7 +75,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
                                              ro)
         self.eeprom_start = start
         self.eeprom_max_len = max_len
-        self._redis_client = None
+        self._state_db = None
 
 
     def __print_db(self, code, num=0):
@@ -618,20 +614,29 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
         return 'crc32'
 
     @property
-    def redis_client(self):
-        """Handy property to get a redis client. Make sure only create the redis client once.
+    def state_db(self):
+        """Handy property to get a STATE_DB connector. Only create it once.
+
+        Connects with retry_on=False so an unreachable STATE_DB fails fast
+        instead of blocking in swsscommon's unbounded reconnect loop. This
+        preserves the old redis.Redis(db=...) behavior, which raised a
+        ConnectionError rather than hanging when the DB was down.
 
         Returns:
-            A redis client instance
+            A connected SonicV2Connector instance bound to STATE_DB
         """
-        if not self._redis_client:
-            self._redis_client = redis.Redis(db=STATE_DB_INDEX)
-        return self._redis_client
+        if not self._state_db:
+            from swsscommon.swsscommon import SonicV2Connector
+            self._state_db = SonicV2Connector()
+            self._state_db.connect(self._state_db.STATE_DB, retry_on=False)
+        return self._state_db
 
     def _redis_hget(self, key, field):
-        value = self.redis_client.hget(key, field)
+        # Name kept for backward-compat (tests call it directly); the backend
+        # is now swsscommon's STATE_DB connector, not redis-py.
+        value = self.state_db.get(self.state_db.STATE_DB, key, field)
         if value is not None:
-            value = value.decode().rstrip('\0')
+            value = value.rstrip('\0')
         return value
 
     def visit_eeprom(self, e, visitor):
@@ -728,19 +733,25 @@ class EepromDecodeVisitor(EepromDefaultVisitor):
 
 
 class EepromRedisVisitor(EepromDefaultVisitor):
+    # Name kept for backward-compat; writes go to STATE_DB via swsscommon's
+    # SonicV2Connector, not redis-py.
     def __init__(self, eeprom_object):
         self.eeprom_object = eeprom_object
-        self.redis_client = eeprom_object.redis_client
+        self.state_db = eeprom_object.state_db
         self.vendor_ext_tlv_num = 0
         self.fvs = {}
         self.error = None
+
+    def _hmset(self, key):
+        fvs = {k: str(v) for k, v in self.fvs.items()}
+        self.state_db.hmset(self.state_db.STATE_DB, key, fvs)
 
     def visit_header(self, eeprom_id, version, header_length):
         if eeprom_id is not None:
             self.fvs['Id String'] = eeprom_id
             self.fvs['Version'] = version
             self.fvs['Total Length'] = header_length
-            self.redis_client.hmset("EEPROM_INFO|TlvHeader", self.fvs)
+            self._hmset("EEPROM_INFO|TlvHeader")
             self.fvs.clear()
 
     def visit_tlv(self, name, code, length, value):
@@ -754,13 +765,13 @@ class EepromRedisVisitor(EepromDefaultVisitor):
             self.fvs['Name'] = name
             self.fvs['Len'] = length
             self.fvs['Value'] = value
-        self.redis_client.hmset('EEPROM_INFO|{}'.format(hex(code)), self.fvs)
+        self._hmset('EEPROM_INFO|{}'.format(hex(code)))
         self.fvs.clear()
 
     def visit_end(self, eeprom_data):
         if self.vendor_ext_tlv_num > 0:
             self.fvs['Num_vendor_ext'] = str(self.vendor_ext_tlv_num)
-            self.redis_client.hmset('EEPROM_INFO|{}'.format(hex(self.eeprom_object._TLV_CODE_VENDOR_EXT)), self.fvs)
+            self._hmset('EEPROM_INFO|{}'.format(hex(self.eeprom_object._TLV_CODE_VENDOR_EXT)))
             self.fvs.clear()
 
         (is_valid, _) = self.eeprom_object.is_checksum_valid(eeprom_data)
@@ -769,11 +780,11 @@ class EepromRedisVisitor(EepromDefaultVisitor):
         else:
             self.fvs['Valid'] = '0'
 
-        self.redis_client.hmset('EEPROM_INFO|Checksum', self.fvs)
+        self._hmset('EEPROM_INFO|Checksum')
         self.fvs.clear()
 
         self.fvs['Initialized'] = '1'
-        self.redis_client.hmset('EEPROM_INFO|State', self.fvs)
+        self._hmset('EEPROM_INFO|State')
 
     def set_error(self, error):
         self.error = error
