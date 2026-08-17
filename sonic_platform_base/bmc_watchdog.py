@@ -20,9 +20,13 @@ import syslog
 from sonic_platform_base.watchdog_base import WatchdogBase
 
 
-# Default IPC socket served by the hw-watchdog-mgrd daemon.  This must match
-# SOCKET_PATH in the platform's hw-watchdog-mgrd.py daemon.
-SOCKET_PATH = "/run/hw-watchdog-mgrd.sock"
+# Default IPC socket served by the hw-watchdog-mgrd daemon.  The socket lives in
+# a dedicated directory (not a bare file under /run) so that directory can be
+# bind-mounted into the pmon container, letting watchdogutil run inside pmon as
+# well as on the host.  This must match SOCKET_PATH in the platform's
+# hw-watchdog-mgrd.py daemon.
+SOCKET_DIR = "/run/hw-watchdog-mgrd"
+SOCKET_PATH = os.path.join(SOCKET_DIR, "hw-watchdog-mgrd.sock")
 SOCKET_TIMEOUT = 5  # seconds
 
 # Default read-only sysfs view of the hardware watchdog state.  Used only as a

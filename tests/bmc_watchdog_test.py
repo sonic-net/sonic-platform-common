@@ -36,7 +36,7 @@ def make_sock_mock(response):
 class TestBMCWatchdog:
     def test_init_defaults(self):
         wd = BMCWatchdog()
-        assert wd.socket_path == "/run/hw-watchdog-mgrd.sock"
+        assert wd.socket_path == "/run/hw-watchdog-mgrd/hw-watchdog-mgrd.sock"
         assert wd.sysfs_path == "/sys/class/watchdog/watchdog0/"
 
     def test_init_custom_paths(self):
