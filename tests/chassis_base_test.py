@@ -1,10 +1,25 @@
+import builtins
+import importlib
+
+import pytest
+from unittest import mock
+
+from sonic_platform_base import chassis_base
 from sonic_platform_base.chassis_base import ChassisBase
 
 class TestChassisBase:
 
+    @pytest.fixture(autouse=True)
+    def _mock_cpo_data(self):
+        with mock.patch("sonic_py_common.device_info.get_cpo_data",
+                        return_value=None) as mock_get:
+            self.mock_get_cpo_data = mock_get
+            yield
+
     def test_reboot_cause(self):
         chassis = ChassisBase()
         assert(chassis.REBOOT_CAUSE_POWER_LOSS == "Power Loss")
+        assert(chassis.REBOOT_CAUSE_POWER_DOWN_REQUEST_FROM_BMC == "Power down request from BMC")
         assert(chassis.REBOOT_CAUSE_THERMAL_OVERLOAD_CPU == "Thermal Overload: CPU")
         assert(chassis.REBOOT_CAUSE_THERMAL_OVERLOAD_ASIC == "Thermal Overload: ASIC")
         assert(chassis.REBOOT_CAUSE_THERMAL_OVERLOAD_OTHER == "Thermal Overload: Other")
@@ -23,6 +38,10 @@ class TestChassisBase:
                 [chassis.get_uid_led, [], {}],
                 [chassis.set_uid_led, ["COLOR"], {}],
                 [chassis.get_dpu_id, [], {"name": "DPU0"}],
+                [chassis.get_elsfp_change_event, [], {}],
+                [chassis.get_elsfp_change_event, [1000], {}],
+                [chassis.get_change_event, [], {}],
+                [chassis.get_change_event, [1000], {}],
                 [chassis.get_dataplane_state, [], {}],
                 [chassis.get_controlplane_state, [], {}],
             ]
@@ -161,3 +180,111 @@ class TestChassisBase:
         assert chassis.get_pdb(-4) is None
         err_neg = capsys.readouterr().err
         assert "PDB index -4 out of range (0-2)" in err_neg
+
+    def test_no_cpo_data(self):
+        chassis = ChassisBase()
+        self.mock_get_cpo_data.assert_called_once()
+        assert chassis.get_num_cpos() == 0
+
+    def test_cpo_data_base_class_not_implemented(self):
+        self.mock_get_cpo_data.return_value = {"devices": {}, "interfaces": {}}
+        with pytest.raises(NotImplementedError):
+            ChassisBase()
+
+    def test_construct_cpo_list_for_topology(self):
+        cpo_data = {
+            "devices": {
+                "OE1": {"device_type": "optical_engine"},
+                "ELS1": {"device_type": "external_laser_source"},
+            },
+            "interfaces": {
+                "Ethernet0": {
+                    "associated_devices": [
+                        {"device_id": "OE1", "bank": 0},
+                        {"device_id": "ELS1", "bank": 0},
+                    ]
+                }
+            },
+        }
+        self.mock_get_cpo_data.return_value = cpo_data
+
+        class CpoChassis(ChassisBase):
+            def construct_cpo_devices(self, cpo_data):
+                for interface in cpo_data["interfaces"]:
+                    self._cpo_list.append(interface)
+
+        chassis = CpoChassis()
+        assert chassis.get_num_cpos() == 1
+        assert chassis.get_cpo(0) == "Ethernet0"
+
+    def test_device_info_import_failure(self):
+        # Some unit-test packages shadow sonic_py_common with a partial mock
+        # that does not provide device_info. chassis_base must still import
+        # successfully so these tests do not fail, since device_info is only
+        # required for CPO hardware.
+        real_import = builtins.__import__
+
+        def failing_import(name, *args, **kwargs):
+            if name == "sonic_py_common":
+                raise ImportError("no module named sonic_py_common.device_info")
+            return real_import(name, *args, **kwargs)
+
+        try:
+            with mock.patch.object(builtins, "__import__", failing_import):
+                importlib.reload(chassis_base)
+
+            assert chassis_base.device_info is None
+            chassis = chassis_base.ChassisBase()
+            self.mock_get_cpo_data.assert_not_called()
+            assert chassis.get_num_cpos() == 0
+        finally:
+            # Restore the module for the remaining tests
+            importlib.reload(chassis_base)
+
+        assert chassis_base.device_info is not None
+
+    def test_sfp_counts_only_valid_objects(self):
+        chassis = ChassisBase()
+        sfp2 = mock.MagicMock()
+        sfp3 = mock.MagicMock()
+        chassis._sfp_list = [None, None, sfp2, sfp3]
+
+        assert chassis.get_num_sfps() == 2
+        assert chassis.get_all_sfps() == [sfp2, sfp3]
+        assert chassis.get_sfp(0) is None
+        assert chassis.get_sfp(2) is sfp2
+
+    def test_port_lists_valid(self):
+        chassis = ChassisBase()
+        chassis._sfp_list = [None, None, mock.MagicMock(), mock.MagicMock()]
+        chassis._cpo_list = [mock.MagicMock(), mock.MagicMock(), None, None]
+
+        assert chassis.get_num_sfps() == 2
+        assert chassis.get_num_cpos() == 2
+
+    def test_port_lists_length_mismatch(self):
+        chassis = ChassisBase()
+        chassis._sfp_list = [None, None, mock.MagicMock(), mock.MagicMock()]
+        chassis._cpo_list = [mock.MagicMock(), mock.MagicMock()]
+
+        with pytest.raises(RuntimeError, match="must be the same length"):
+            chassis.get_num_cpos()
+
+        with pytest.raises(RuntimeError, match="must be the same length"):
+            chassis.get_num_sfps()
+
+    def test_port_lists_double_claimed_port(self):
+        chassis = ChassisBase()
+        chassis._sfp_list = [None, mock.MagicMock(), mock.MagicMock()]
+        chassis._cpo_list = [mock.MagicMock(), mock.MagicMock(), None]
+
+        with pytest.raises(RuntimeError,
+                           match="Physical port 1 has both an SFP and a CPO object"):
+            chassis.get_num_sfps()
+
+    def test_port_lists_single_technology_not_checked(self):
+        chassis = ChassisBase()
+        chassis._sfp_list = [None, mock.MagicMock(), mock.MagicMock()]
+
+        assert chassis.get_num_sfps() == 2
+        assert chassis.get_num_cpos() == 0

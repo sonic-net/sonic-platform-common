@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
+from sonic_platform_base import device_base
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
 from sonic_platform_base.sonic_xcvr.eeprom_rw import EepromReadWriteMixin
 
@@ -36,7 +37,7 @@ class CpoApiFactory(ABC):
         raise NotImplementedError
 
 
-class CpoDeviceBase(EepromReadWriteMixin):
+class CpoDeviceBase(device_base.DeviceBase, EepromReadWriteMixin):
     def __init__(self, hardware_id: CpoHardwareInfo, bank: int = 0):
         self.bank = bank
         self.hardware_id = hardware_id
@@ -55,16 +56,25 @@ class CpoDeviceBase(EepromReadWriteMixin):
             self.refresh_api()
         return self._api
 
+    def remove_api(self):
+        self._api = None
 
-class CpoBase:
+
+class CpoBase(device_base.DeviceBase):
     def __init__(self, hardware_id: CpoHardwareInfo, oe: "OeBase", elsfp: "ElsfpBase"):
         self.hardware_id = hardware_id
         self.oe = oe
         self.elsfp = elsfp
 
-# TODO: Implement CPO-specific methods
-#     def do_fiber_check(self, lane):
-#         self.oe.get_api().do_fiber_check(lane)
-#
-#     def tx_disable(self, lane):
-#         self.elsfp.get_api().tx_disable(lane)
+    def refresh_xcvr_api(self):
+        self.oe.refresh_api()
+        self.elsfp.refresh_api()
+
+    def get_xcvr_api(self):
+        # We always default to the OE API for CPO. If the ELSFP API is required,
+        # then that can be accessed via self.elsfp.get_api() directly.
+        return self.oe.get_api()
+
+    def remove_xcvr_api(self):
+        self.oe.remove_api()
+        self.elsfp.remove_api()

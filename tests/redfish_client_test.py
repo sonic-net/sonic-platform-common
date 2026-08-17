@@ -92,6 +92,186 @@ class TestRedfishClient:
         assert rf.get_login_token() is None
     
     @mock.patch('subprocess.Popen')
+    def test_login_log_errors_false_uses_notice(self, mock_popen):
+        """login(log_errors=False) routes failures to notice, not error (quiet probe)."""
+        output = (load_redfish_response('mock_bmc_empty_response_auth_failure'), b'')
+        mock_popen.return_value.communicate.return_value = output
+        mock_popen.return_value.returncode = 0
+        rf = RedfishClient(TestRedfishClient.CURL_PATH,
+                           TestRedfishClient.BMC_INTERNAL_IP_ADDR,
+                           self.user_callback,
+                           self.password_callback)
+
+        with mock.patch('sonic_platform_base.redfish_client.logger') as mock_logger:
+            ret = rf.login(log_errors=False)
+
+        assert ret == RedfishClient.ERR_CODE_AUTH_FAILURE
+        mock_logger.log_error.assert_not_called()
+        assert mock_logger.log_notice.called
+
+    @mock.patch('subprocess.Popen')
+    def test_login_log_errors_true_uses_error(self, mock_popen):
+        """login() defaults to log_errors=True and logs failures at error level."""
+        output = (load_redfish_response('mock_bmc_empty_response_auth_failure'), b'')
+        mock_popen.return_value.communicate.return_value = output
+        mock_popen.return_value.returncode = 0
+        rf = RedfishClient(TestRedfishClient.CURL_PATH,
+                           TestRedfishClient.BMC_INTERNAL_IP_ADDR,
+                           self.user_callback,
+                           self.password_callback)
+
+        with mock.patch('sonic_platform_base.redfish_client.logger') as mock_logger:
+            ret = rf.login()
+
+        assert ret == RedfishClient.ERR_CODE_AUTH_FAILURE
+        mock_logger.log_error.assert_called()
+
+    def test_wait_until_redfish_ready_first_try(self):
+        """Ready on the first probe: returns OK, logs out the probe session, no sleep."""
+        rf = RedfishClient(TestRedfishClient.CURL_PATH,
+                           TestRedfishClient.BMC_INTERNAL_IP_ADDR,
+                           self.user_callback,
+                           self.password_callback)
+        with mock.patch.object(rf, 'login', return_value=RedfishClient.ERR_CODE_OK) as mock_login, \
+             mock.patch.object(rf, 'logout', return_value=RedfishClient.ERR_CODE_OK) as mock_logout, \
+             mock.patch('sonic_platform_base.redfish_client.time') as mock_time:
+            mock_time.time.return_value = 1000.0
+            ret = rf.wait_until_redfish_ready(timeout=300, interval=10)
+
+        assert ret == RedfishClient.ERR_CODE_OK
+        mock_login.assert_called_once_with(log_errors=False)
+        # Pre-loop drop now uses invalidate_session(); logout() only runs post-success.
+        assert mock_logout.call_count == 1
+        mock_time.sleep.assert_not_called()
+
+    def test_wait_until_redfish_ready_after_retries(self):
+        """Not ready twice, then ready: keeps polling, sleeping between probes."""
+        rf = RedfishClient(TestRedfishClient.CURL_PATH,
+                           TestRedfishClient.BMC_INTERNAL_IP_ADDR,
+                           self.user_callback,
+                           self.password_callback)
+        with mock.patch.object(rf, 'login',
+                               side_effect=[RedfishClient.ERR_CODE_SERVER_UNREACHABLE,
+                                            RedfishClient.ERR_CODE_SERVER_UNREACHABLE,
+                                            RedfishClient.ERR_CODE_OK]) as mock_login, \
+             mock.patch.object(rf, 'logout') as mock_logout, \
+             mock.patch('sonic_platform_base.redfish_client.time') as mock_time:
+            mock_time.time.return_value = 1000.0  # constant -> deadline never passes
+            ret = rf.wait_until_redfish_ready(timeout=300, interval=10)
+
+        assert ret == RedfishClient.ERR_CODE_OK
+        assert mock_login.call_count == 3
+        assert mock_time.sleep.call_count == 2
+        mock_time.sleep.assert_has_calls([mock.call(10), mock.call(10)])
+        assert mock_logout.call_count == 1  # post-success only (pre-loop drop = invalidate_session)
+
+    def test_wait_until_redfish_ready_timeout_returns_last_code(self):
+        """Deadline passes while still failing: returns the last non-OK code."""
+        rf = RedfishClient(TestRedfishClient.CURL_PATH,
+                           TestRedfishClient.BMC_INTERNAL_IP_ADDR,
+                           self.user_callback,
+                           self.password_callback)
+        with mock.patch.object(rf, 'login',
+                               return_value=RedfishClient.ERR_CODE_SERVER_UNREACHABLE) as mock_login, \
+             mock.patch.object(rf, 'logout') as mock_logout, \
+             mock.patch('sonic_platform_base.redfish_client.time') as mock_time:
+            # deadline = 1000 + 300 = 1300; first remaining check at 1400 -> remaining <= 0.
+            mock_time.time.side_effect = [1000.0, 1400.0]
+            ret = rf.wait_until_redfish_ready(timeout=300, interval=10)
+
+        assert ret == RedfishClient.ERR_CODE_SERVER_UNREACHABLE
+        mock_login.assert_called_once_with(log_errors=False)
+        mock_time.sleep.assert_not_called()
+        mock_logout.assert_not_called()  # pre-loop drop = invalidate_session; no success logout on timeout
+
+    def test_wait_until_redfish_ready_fail_fast_on_password_unavailable(self):
+        """PASSWORD_UNAVAILABLE is a local permanent error: bail out immediately."""
+        rf = RedfishClient(TestRedfishClient.CURL_PATH,
+                           TestRedfishClient.BMC_INTERNAL_IP_ADDR,
+                           self.user_callback,
+                           self.password_callback)
+        # Single-element side_effect (not return_value): if the -8 fail-fast ever
+        # regressed, the loop would ask for a 2nd login and hit StopIteration --
+        # a clean failure instead of an infinite hang (time/sleep are mocked).
+        with mock.patch.object(rf, 'login',
+                               side_effect=[RedfishClient.ERR_CODE_PASSWORD_UNAVAILABLE]) as mock_login, \
+             mock.patch.object(rf, 'logout'), \
+             mock.patch('sonic_platform_base.redfish_client.time') as mock_time:
+            mock_time.time.return_value = 1000.0
+            ret = rf.wait_until_redfish_ready(timeout=300, interval=10)
+
+        assert ret == RedfishClient.ERR_CODE_PASSWORD_UNAVAILABLE
+        mock_login.assert_called_once_with(log_errors=False)
+        mock_time.sleep.assert_not_called()
+
+    def test_wait_until_redfish_ready_auth_failure_is_transient(self):
+        """AUTH_FAILURE (401) must NOT fail fast -- it can be transient during boot."""
+        rf = RedfishClient(TestRedfishClient.CURL_PATH,
+                           TestRedfishClient.BMC_INTERNAL_IP_ADDR,
+                           self.user_callback,
+                           self.password_callback)
+        with mock.patch.object(rf, 'login',
+                               side_effect=[RedfishClient.ERR_CODE_AUTH_FAILURE,
+                                            RedfishClient.ERR_CODE_OK]) as mock_login, \
+             mock.patch.object(rf, 'logout'), \
+             mock.patch('sonic_platform_base.redfish_client.time') as mock_time:
+            mock_time.time.return_value = 1000.0
+            ret = rf.wait_until_redfish_ready(timeout=300, interval=10)
+
+        assert ret == RedfishClient.ERR_CODE_OK
+        assert mock_login.call_count == 2  # kept polling past the 401
+        mock_time.sleep.assert_called_once_with(10)
+
+    def test_wait_until_redfish_ready_sleep_capped_to_remaining(self):
+        """Near the deadline, sleep is min(interval, remaining) so it never overshoots."""
+        rf = RedfishClient(TestRedfishClient.CURL_PATH,
+                           TestRedfishClient.BMC_INTERNAL_IP_ADDR,
+                           self.user_callback,
+                           self.password_callback)
+        with mock.patch.object(rf, 'login',
+                               side_effect=[RedfishClient.ERR_CODE_SERVER_UNREACHABLE,
+                                            RedfishClient.ERR_CODE_OK]) as mock_login, \
+             mock.patch.object(rf, 'logout'), \
+             mock.patch('sonic_platform_base.redfish_client.time') as mock_time:
+            # deadline = 1000 + 300 = 1300; remaining check at 1297 -> remaining = 3 (< interval).
+            mock_time.time.side_effect = [1000.0, 1297.0]
+            ret = rf.wait_until_redfish_ready(timeout=300, interval=10)
+
+        assert ret == RedfishClient.ERR_CODE_OK
+        mock_time.sleep.assert_called_once_with(3.0)
+
+    @mock.patch('subprocess.Popen')
+    def test_wait_until_redfish_ready_ignores_cached_session(self, mock_popen):
+        """A cached session must not short-circuit the probe: the method drops the
+        cached session first, so the first login() actually re-authenticates."""
+        side_effects = []
+        for fname in ['mock_bmc_login_token_response',   # real re-login probe
+                      'mock_bmc_logout_response']:        # logout after ready
+            output = (load_redfish_response(fname), b'')
+            mock_process = mock.Mock()
+            mock_process.communicate.return_value = output
+            mock_process.returncode = 0
+            side_effects.append(mock_process)
+        mock_popen.side_effect = side_effects
+
+        rf = RedfishClient(TestRedfishClient.CURL_PATH,
+                           TestRedfishClient.BMC_INTERNAL_IP_ADDR,
+                           self.user_callback,
+                           self.password_callback)
+        # Simulate a cached session so has_login() would be True.
+        rf._RedfishClient__token = 'cached-token'
+        rf._RedfishClient__session_id = 'cached-session'
+        assert rf.has_login() is True
+
+        ret = rf.wait_until_redfish_ready(timeout=300, interval=10)
+
+        assert ret == RedfishClient.ERR_CODE_OK
+        # 2 curl calls prove a real re-login happened: login + post-success logout.
+        # The pre-loop invalidate_session() is local (no curl); without it, login()
+        # would short-circuit on the cached token, leaving only 1 (the logout).
+        assert mock_popen.call_count == 2
+
+    @mock.patch('subprocess.Popen')
     def test_get_bmc_version(self, mock_popen):
         """Test getting BMC firmware version"""
         side_effects = []

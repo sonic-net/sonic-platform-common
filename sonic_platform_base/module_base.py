@@ -488,7 +488,8 @@ class ModuleBase(device_base.DeviceBase):
         "startup": 300,      # 5 mins
         "shutdown": 180,     # 3 mins
         "reboot": 240,       # 4 mins
-        "halt_services": 60  # 1 min
+        "halt_services": 60, # 1 min
+        "recovery": 600      # 10 mins
     }
 
     _TRANSITION_TIMEOUTS_CACHE = None

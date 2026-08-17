@@ -31,7 +31,33 @@ class CmisVdmApi(XcvrApi):
 
     def __init__(self, xcvr_eeprom):
         super(CmisVdmApi, self).__init__(xcvr_eeprom)
-    
+        # Raw VDM descriptor pages, keyed by page. Populated lazily by
+        # _read_vdm_descriptor_page; recreated with the api object on OIR/reboot.
+        self._vdm_descriptor = {}
+
+    def _read_vdm_descriptor_page(self, page):
+        '''
+        Read a raw VDM descriptor page (0x20-0x23), caching it on the instance.
+
+        The VDM descriptors -- observable Type ID, threshold-set ID, and
+        monitored-lane assignment for each of the 64 slots in the page -- are a
+        static, read-only module advertisement in CMIS: they describe how the
+        VDM value/threshold pages are laid out and do not change while the
+        module is powered/plugged in. So the descriptor page is read once and
+        reused across DOM cycles, removing one 128 B page read per descriptor
+        page per port per cycle.
+
+        Only a non-empty read is cached, so a transient read failure is retried
+        on the next cycle rather than disabling VDM for the life of the api
+        object. Pages are cached independently, and only the pages actually
+        requested are read. The cache lives on the api object, which xcvrd
+        recreates on module re-insertion, so it needs no explicit invalidation.
+        '''
+        if not self._vdm_descriptor.get(page):
+            offset = page * PAGE_SIZE + PAGE_OFFSET
+            self._vdm_descriptor[page] = self.xcvr_eeprom.read_raw(offset, PAGE_SIZE)
+        return self._vdm_descriptor[page]
+
     def get_F16(self, value):
         '''
         This function converts raw data to "F16" format defined in cmis.
@@ -69,7 +95,7 @@ class CmisVdmApi(XcvrApi):
         '''
         if page not in [0x20, 0x21, 0x22, 0x23]:
             raise ValueError('Page not in VDM Descriptor range!')
-        vdm_descriptor = self.xcvr_eeprom.read_raw(page * PAGE_SIZE + PAGE_OFFSET, PAGE_SIZE)
+        vdm_descriptor = self._read_vdm_descriptor_page(page)
         if not vdm_descriptor:
             return {}
 
@@ -84,6 +110,23 @@ class CmisVdmApi(XcvrApi):
         vdm_thrshPage = page + 8
         vdm_Page_data = {}
         VDM_TYPE_DICT = self.xcvr_eeprom.mem_map.codes.VDM_TYPE
+
+        if field_option & self.VDM_REAL_VALUE:
+            vdm_value_page_raw = self.xcvr_eeprom.read_raw(
+                vdm_valuePage * PAGE_SIZE + PAGE_OFFSET, PAGE_SIZE, True)
+            if not vdm_value_page_raw:
+                return {}
+        else:
+            vdm_value_page_raw = None
+
+        if field_option & self.VDM_THRESHOLD:
+            vdm_thrsh_page_raw = self.xcvr_eeprom.read_raw(
+                vdm_thrshPage * PAGE_SIZE + PAGE_OFFSET, PAGE_SIZE, True)
+            if not vdm_thrsh_page_raw:
+                return {}
+        else:
+            vdm_thrsh_page_raw = None
+
         for index, typeID in enumerate(vdm_typeID):
             if typeID not in VDM_TYPE_DICT:
                 continue
@@ -102,15 +145,10 @@ class CmisVdmApi(XcvrApi):
             vdm_format = vdm_info_dict[1]
             scale = vdm_info_dict[2]
 
-            vdm_value_offset = vdm_valuePage * PAGE_SIZE + PAGE_OFFSET + VDM_SIZE * index
-            vdm_high_alarm_offset = vdm_thrshPage * PAGE_SIZE + PAGE_OFFSET + THRSH_SPACING * thrshID
-            vdm_low_alarm_offset = vdm_high_alarm_offset + 2
-            vdm_high_warn_offset = vdm_high_alarm_offset + 4
-            vdm_low_warn_offset = vdm_high_alarm_offset + 6
-
             if field_option & self.VDM_REAL_VALUE:
-                vdm_value_raw = self.xcvr_eeprom.read_raw(vdm_value_offset, VDM_SIZE, True)
-                if not vdm_value_raw:
+                value_slice = VDM_SIZE * index
+                vdm_value_raw = vdm_value_page_raw[value_slice:value_slice + VDM_SIZE]
+                if len(vdm_value_raw) < VDM_SIZE:
                     continue
                 if vdm_format == 'S16':
                     vdm_value = struct.unpack('>h',vdm_value_raw)[0] * scale
@@ -125,8 +163,9 @@ class CmisVdmApi(XcvrApi):
                 vdm_value = None
 
             if field_option & self.VDM_THRESHOLD:
-                vdm_thrsh_raw = self.xcvr_eeprom.read_raw(vdm_high_alarm_offset, VDM_SIZE*4, True)
-                if not vdm_thrsh_raw:
+                thrsh_slice = THRSH_SPACING * thrshID
+                vdm_thrsh_raw = vdm_thrsh_page_raw[thrsh_slice:thrsh_slice + VDM_SIZE * 4]
+                if len(vdm_thrsh_raw) < VDM_SIZE * 4:
                     continue
                 vdm_thrsh_high_alarm_raw = vdm_thrsh_raw[0:2]
                 vdm_thrsh_low_alarm_raw = vdm_thrsh_raw[2:4]
