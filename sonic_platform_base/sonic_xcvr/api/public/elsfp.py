@@ -120,32 +120,42 @@ class ElsfpApi(XcvrApi):
         This function will return a dictionary mapping lanes to an integer representing
         whether the lane has had a fault or not (0 == no fault, 1 == fault)
 
-        Example:
+        These flags are latched and cleared on read. Only the 8 lanes of the
+        currently selected bank are read and reported; the other banks' flags are
+        left latched for a read at that bank. Lanes are numbered absolutely, so
+        bank 0 reports lanes 1-8, bank 1 reports lanes 9-16, and so on.
+
+        Example (bank 1):
           {
-              "FaultFlagLane1": 0,
-              "FaultFlagLane2": 1,
-              "FaultFlagLane3": 0,
+              "FaultFlagLane9": 0,
+              "FaultFlagLane10": 1,
+              "FaultFlagLane11": 0,
               # ... etc ...
-              "FaultFlagLane32": 1,
+              "FaultFlagLane16": 1,
           }
         """
-        return self.xcvr_eeprom.read(elsfp_consts.FAULT_FLAG_LANE_FIELD)
+        return self.xcvr_eeprom.read(elsfp_consts.FAULT_FLAG_LANE_FIELDS[self.xcvr_eeprom.mem_map.bank])
 
     def get_per_lane_warn_flags(self) -> dict[str, int]:
         """
         This function will return a dictionary mapping lanes to an integer representing
         whether the lane has had a warning or not (0 == no warning, 1 == warning)
 
-        Example:
+        These flags are latched and cleared on read. Only the 8 lanes of the
+        currently selected bank are read and reported; the other banks' flags are
+        left latched for a read at that bank. Lanes are numbered absolutely, so
+        bank 0 reports lanes 1-8, bank 1 reports lanes 9-16, and so on.
+
+        Example (bank 1):
           {
-              "WarnFlagLane1": 0,
-              "WarnFlagLane2": 1,
-              "WarnFlagLane3": 0,
+              "WarnFlagLane9": 0,
+              "WarnFlagLane10": 1,
+              "WarnFlagLane11": 0,
               # ... etc ...
-              "WarnFlagLane32": 1,
+              "WarnFlagLane16": 1,
           }
         """
-        return self.xcvr_eeprom.read(elsfp_consts.WARN_FLAG_LANE_FIELD)
+        return self.xcvr_eeprom.read(elsfp_consts.WARN_FLAG_LANE_FIELDS[self.xcvr_eeprom.mem_map.bank])
 
     ###############################################################
     #              Lane setting and saving and restoring          #

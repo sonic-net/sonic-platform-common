@@ -7,11 +7,16 @@ from sonic_platform_base.sonic_xcvr.codes.public.elsfp import ElsfpCodes
 from sonic_platform_base.sonic_xcvr.fields import consts, elsfp_consts
 from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.davisson_elsfp import DavissonTh6ElsfpMemMap
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.elsfp import ElsfpMemMap
+from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.elsfp.pages.consts import (
+    ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE,
+)
+from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.pages.page import CmisPage
 from sonic_platform_base.sonic_xcvr.cpo.cpo_base import CpoHardwareInfo, OeId
 from sonic_platform_base.sonic_xcvr.cpo.elsfp import ElsfpApiFactory
 from sonic_platform_base.sonic_xcvr.eeprom_rw import ModuleEepromLowerMemoryInfo
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.pages.consts import (
-    CMIS_EEPROM_PAGE_SIZE
+    CMIS_EEPROM_PAGE_SIZE,
+    CMIS_LANES_PER_BANK,
 )
 
 
@@ -171,20 +176,81 @@ class TestLaneFaultsWarnings:
         assert api.get_lane_summary_warning() == False
 
     def test_per_lane_fault_flags(self, mem_eeprom, api):
-        # Lanes 1-8 are packed into byte 166, one bit per lane.
-        mem_eeprom.memory[PAGE_1A_BASE + 166] = 0b00000101  # lanes 1 and 3
+        # Bank 0's 8 lanes are packed into byte 166, one bit per lane.
+        mem_eeprom.memory[PAGE_1A_BASE + 166] = 0b10000101  # lanes 1, 3 and 8
         result = api.get_per_lane_fault_flags()
-        assert result["FaultFlagLane1"] == 1
-        assert result["FaultFlagLane2"] == 0
-        assert result["FaultFlagLane3"] == 1
+        assert result == {
+            "FaultFlagLane1": 1,
+            "FaultFlagLane2": 0,
+            "FaultFlagLane3": 1,
+            "FaultFlagLane4": 0,
+            "FaultFlagLane5": 0,
+            "FaultFlagLane6": 0,
+            "FaultFlagLane7": 0,
+            "FaultFlagLane8": 1,
+        }
+
+    def test_per_lane_fault_flags_ignores_other_banks(self, mem_eeprom, api):
+        # 167-169 hold lanes 9-32 (banks 1-3) and must not leak into bank 0.
+        mem_eeprom.memory[PAGE_1A_BASE + 166] = 0x00
+        for offset in range(167, 170):
+            mem_eeprom.memory[PAGE_1A_BASE + offset] = 0xFF
+        result = api.get_per_lane_fault_flags()
+        assert set(result.values()) == {0}
 
     def test_per_lane_warn_flags(self, mem_eeprom, api):
-        # Lanes 1-8 are packed into byte 174, one bit per lane.
-        mem_eeprom.memory[PAGE_1A_BASE + 174] = 0b00000110  # lanes 2 and 3
+        # Bank 0's 8 lanes are packed into byte 174, one bit per lane.
+        mem_eeprom.memory[PAGE_1A_BASE + 174] = 0b10000110  # lanes 2, 3 and 8
         result = api.get_per_lane_warn_flags()
-        assert result["WarnFlagLane1"] == 0
-        assert result["WarnFlagLane2"] == 1
-        assert result["WarnFlagLane3"] == 1
+        assert result == {
+            "WarnFlagLane1": 0,
+            "WarnFlagLane2": 1,
+            "WarnFlagLane3": 1,
+            "WarnFlagLane4": 0,
+            "WarnFlagLane5": 0,
+            "WarnFlagLane6": 0,
+            "WarnFlagLane7": 0,
+            "WarnFlagLane8": 1,
+        }
+
+    def test_per_lane_warn_flags_ignores_other_banks(self, mem_eeprom, api):
+        # 175-177 hold lanes 9-32 (banks 1-3) and must not leak into bank 0.
+        mem_eeprom.memory[PAGE_1A_BASE + 174] = 0x00
+        for offset in range(175, 178):
+            mem_eeprom.memory[PAGE_1A_BASE + offset] = 0xFF
+        result = api.get_per_lane_warn_flags()
+        assert set(result.values()) == {0}
+
+    @pytest.mark.parametrize("bank", [0, 1, 2, 3])
+    @pytest.mark.parametrize("method, base_offset, key_prefix", [
+        ("get_per_lane_fault_flags", 166, "FaultFlagLane"),
+        ("get_per_lane_warn_flags",  174, "WarnFlagLane"),
+    ])
+    def test_flags_report_only_selected_bank(self, bank, method, base_offset, key_prefix):
+        """Bank N reports the byte holding lanes 8N+1..8N+8, keyed by absolute lane."""
+        eeprom = InMemoryEeprom(ElsfpMemMap(ElsfpCodes, bank=bank), num_banks=4)
+        api = ElsfpApi(eeprom.eeprom)
+
+        # The 4-byte block lives in this bank's page image. Give each byte a
+        # distinct single-bit pattern so reading the wrong one is detectable.
+        page_base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, 0)
+        patterns = [0b00000001, 0b00000010, 0b00000100, 0b00001000]
+        for i, pattern in enumerate(patterns):
+            eeprom.memory[page_base + base_offset + i] = pattern
+
+        result = getattr(api, method)()
+
+        # Keys cover this bank's absolute lane range, e.g. bank 1 -> lanes 9-16.
+        first_lane = CMIS_LANES_PER_BANK * bank
+        assert set(result) == {
+            "%s%d" % (key_prefix, first_lane + lane)
+            for lane in range(1, CMIS_LANES_PER_BANK + 1)
+        }
+
+        # The byte for bank N sets bit N, i.e. lane N+1 of that bank.
+        expected_lane = first_lane + bank + 1
+        assert result["%s%d" % (key_prefix, expected_lane)] == 1
+        assert sum(result.values()) == 1
 
 
 class TestLaserSaveRestore:

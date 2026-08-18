@@ -9,6 +9,8 @@ CMIS_EEPROM_PAGE_SIZE = 128
 CMIS_NUM_NON_BANKED_PAGES = 16   # pages 00h-0Fh
 CMIS_ARCH_PAGES = 256            # architectural pages per bank (matches OPTOE_ARCH_PAGES)
 
+CMIS_LANES_PER_BANK = 8          # lanes covered by one bank
+
 # CMIS page number constants
 ADMINISTRATIVE_PAGE = 0x00
 ADVERTISING_PAGE = 0x01
