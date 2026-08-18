@@ -22,6 +22,8 @@ class CmisCdbFw:
     CDB firmware upgrade operations for CMIS modules.
     """
 
+    cdb_fw_hdlr = None
+
     def __init__(self, xcvr_eeprom):
         self.xcvr_eeprom = xcvr_eeprom
         self._cdb_mem_map = CdbMemMap(CdbCodes)
