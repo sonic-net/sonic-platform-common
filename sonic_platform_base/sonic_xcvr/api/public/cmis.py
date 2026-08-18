@@ -105,7 +105,7 @@ CMIS_XCVR_INFO_DEFAULT_DICT = {
         "vdm_supported": "N/A"
         }
 
-class CmisApi(CmisCdbFw, XcvrApi):
+class CmisApi(XcvrApi):
     NUM_CHANNELS = 8
     LowPwrRequestSW = 4
     LowPwrAllowRequestHW = 6
@@ -134,12 +134,22 @@ class CmisApi(CmisCdbFw, XcvrApi):
         """
         cls.cache_enabled = bool(enabled)
 
-    def __init__(self, xcvr_eeprom, init_cdb_fw_handler=False):
+    def __init__(self, xcvr_eeprom):
         super(CmisApi, self).__init__(xcvr_eeprom)
         self.vdm = CmisVdmApi(xcvr_eeprom) if not self.is_flat_memory() else None
-        self._init_cdb_fw_handler = init_cdb_fw_handler
-        self._cdb_fw_hdlr = None
-        self._cdb_mem_map = CdbMemMap(CdbCodes) if init_cdb_fw_handler else None
+
+        self.cdb_fw = None
+        if self.is_cdb_supported():
+            self.cdb_fw = CmisCdbFw(xcvr_eeprom)
+
+    def get_module_fw_info(self):
+        """
+        Get firmware information from the CDB helper when supported.
+        """
+        if self.cdb_fw is None:
+            return {'status': False, 'info': "CDB Not supported", 'result': None}
+
+        return self.cdb_fw.get_module_fw_info()
 
     def _get_vdm_key_to_db_prefix_map(self):
         return CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP

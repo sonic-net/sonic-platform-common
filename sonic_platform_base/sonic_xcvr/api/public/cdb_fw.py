@@ -20,20 +20,12 @@ class CmisCdbFw:
     CDB firmware upgrade operations for CMIS modules.
     """
 
-    @property
-    def cdb_fw_hdlr(self):
-        if not self._init_cdb_fw_handler:
-            return None
-
-        if self._cdb_fw_hdlr is None:
-            self._cdb_fw_hdlr = self._create_cdb_fw_handler()
-        return self._cdb_fw_hdlr
+    def __init__(self, xcvr_eeprom):
+        self.xcvr_eeprom = xcvr_eeprom
+        self._cdb_mem_map = CdbMemMap(CdbCodes)
+        self.cdb_fw_hdlr = self._create_cdb_fw_handler()
 
     def _create_cdb_fw_handler(self):
-        if not self.is_cdb_supported():
-            self._init_cdb_fw_handler = False
-            return None
-
         try:
             return CdbFw(self.xcvr_eeprom.reader, self.xcvr_eeprom.writer, self._cdb_mem_map)
         except AssertionError as err:
@@ -41,7 +33,6 @@ class CmisCdbFw:
         except Exception as err:
             log.log_error("Failed to initialize CDB firmware handler: {}".format(err))
 
-        self._init_cdb_fw_handler = False
         return None
 
     def get_module_fw_mgmt_feature(self, verbose = False):
