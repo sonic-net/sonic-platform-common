@@ -7,6 +7,8 @@
 from ...fields import consts
 from ...fields import cdb_consts
 from ...cdb.cdb_fw import CdbFwHandler as CdbFw
+from ...mem_maps.public.cmis.cdb import CdbMemMap
+from ...codes.public.cdb import CdbCodes
 import time
 from sonic_py_common.syslogger import SysLogger
 
