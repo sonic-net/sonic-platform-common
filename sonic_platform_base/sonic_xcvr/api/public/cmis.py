@@ -78,14 +78,7 @@ CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP = {
     "Errored Frames Current Value Host Input" : "errored_frames_curr_host_input"
 }
 
-# Transceiver info fields that reside on banked pages (10h-1Fh, 20h-2Fh)
-# and therefore vary by bank.
-CMIS_XCVR_INFO_BANKED_DEFAULT_DICT = {
-        **{f"active_apsel_hostlane{i}": "N/A" for i in range(1, 9)}
-        }
-
-# Transceiver info fields that reside on non-banked pages and do not vary by bank.
-CMIS_XCVR_INFO_NON_BANKED_DEFAULT_DICT = {
+CMIS_XCVR_INFO_DEFAULT_DICT = {
         "type": "N/A",
         "type_abbrv_name": "N/A",
         "hardware_rev": "N/A",
@@ -100,6 +93,7 @@ CMIS_XCVR_INFO_NON_BANKED_DEFAULT_DICT = {
         "nominal_bit_rate": "N/A",
         "vendor_date": "N/A",
         "vendor_oui": "N/A",
+        **{f"active_apsel_hostlane{i}": "N/A" for i in range(1, 9)},
         "application_advertisement": "N/A",
         "host_lane_count": "N/A",
         "media_lane_count": "N/A",
@@ -109,11 +103,6 @@ CMIS_XCVR_INFO_NON_BANKED_DEFAULT_DICT = {
         "cmis_rev": "N/A",
         "specification_compliance": "N/A",
         "vdm_supported": "N/A"
-        }
-
-CMIS_XCVR_INFO_DEFAULT_DICT = {
-        **CMIS_XCVR_INFO_NON_BANKED_DEFAULT_DICT,
-        **CMIS_XCVR_INFO_BANKED_DEFAULT_DICT
         }
 
 class CmisApi(CmisCdbFw, XcvrApi):
@@ -370,7 +359,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
     def _get_xcvr_info_default_dict(self):
         return CMIS_XCVR_INFO_DEFAULT_DICT
 
-    def get_non_banked_transceiver_info(self):
+    def get_transceiver_info(self):
         admin_info = self.xcvr_eeprom.read(consts.ADMIN_INFO_FIELD)
         if admin_info is None:
             return None
@@ -378,7 +367,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
         ext_id = admin_info[consts.EXT_ID_FIELD]
         power_class = ext_id[consts.POWER_CLASS_FIELD]
         max_power = ext_id[consts.MAX_POWER_FIELD]
-        xcvr_info = copy.deepcopy(CMIS_XCVR_INFO_NON_BANKED_DEFAULT_DICT)
+        xcvr_info = copy.deepcopy(self._get_xcvr_info_default_dict())
         xcvr_info.update({
             "type": admin_info[consts.ID_FIELD],
             "type_abbrv_name": admin_info[consts.ID_ABBRV_FIELD],
@@ -401,18 +390,6 @@ class CmisApi(CmisCdbFw, XcvrApi):
             "specification_compliance": self.get_module_media_type(),
             "vdm_supported": self.is_transceiver_vdm_supported()
         })
-        # In normal case will get a valid value for each of the fields. If get a 'None' value
-        # means there was a failure while reading the EEPROM, either because the EEPROM was
-        # not ready yet or experiencing some other issues. It shouldn't return a dict with a
-        # wrong field value, instead should return a 'None' to indicate to XCVRD that retry is
-        # needed.
-        if None in xcvr_info.values():
-            return None
-        else:
-            return xcvr_info
-
-    def get_banked_transceiver_info(self):
-        xcvr_info = copy.deepcopy(CMIS_XCVR_INFO_BANKED_DEFAULT_DICT)
         apsel_dict = self.get_active_apsel_hostlane()
         for lane in range(1, self.NUM_CHANNELS + 1):
             xcvr_info["%s%d" % ("active_apsel_hostlane", lane)] = \
@@ -427,18 +404,6 @@ class CmisApi(CmisCdbFw, XcvrApi):
             return None
         else:
             return xcvr_info
-
-    def get_transceiver_info(self):
-        xcvr_info = self.get_non_banked_transceiver_info()
-        if xcvr_info is None:
-            return None
-
-        banked_xcvr_info = self.get_banked_transceiver_info()
-        if banked_xcvr_info is None:
-            return None
-
-        xcvr_info.update(banked_xcvr_info)
-        return xcvr_info
 
     def get_transceiver_info_firmware_versions(self):
         return_dict = {"active_firmware" : "N/A", "inactive_firmware" : "N/A"}
@@ -460,40 +425,6 @@ class CmisApi(CmisCdbFw, XcvrApi):
         return_dict["inactive_firmware"] = InactiveFirmware
         return return_dict
 
-    def get_non_banked_transceiver_dom_real_value(self):
-        temp = self.get_module_temperature()
-        voltage = self.get_voltage()
-        if temp is None or voltage is None:
-            return None
-
-        bulk_status = {
-            "temperature": temp,
-            "voltage": voltage
-        }
-
-        laser_temp_dict = self.get_laser_temperature()
-        try:
-            bulk_status['laser_temperature'] = laser_temp_dict['monitor value']
-        except (KeyError, TypeError):
-            pass
-
-        return bulk_status
-
-    def get_banked_transceiver_dom_real_value(self):
-        tx_bias = self.get_tx_bias()
-        rx_power = self.get_rx_power()
-        tx_power = self.get_tx_power()
-        if tx_bias is None or rx_power is None or tx_power is None:
-            return None
-
-        bulk_status = dict()
-        for i in range(1, self.NUM_CHANNELS + 1):
-            bulk_status["tx%dbias" % i] = tx_bias[i - 1]
-            bulk_status["rx%dpower" % i] = float("{:.3f}".format(self.mw_to_dbm(rx_power[i - 1]))) if rx_power[i - 1] != 'N/A' else 'N/A'
-            bulk_status["tx%dpower" % i] = float("{:.3f}".format(self.mw_to_dbm(tx_power[i - 1]))) if tx_power[i - 1] != 'N/A' else 'N/A'
-
-        return bulk_status
-
     def get_transceiver_dom_real_value(self):
         """
         Retrieves DOM sensor values for this transceiver
@@ -504,18 +435,48 @@ class CmisApi(CmisCdbFw, XcvrApi):
         Returns:
             Dictionary
         """
-        bulk_status = self.get_non_banked_transceiver_dom_real_value()
-        if bulk_status is None:
+        temp = self.get_module_temperature()
+        voltage = self.get_voltage()
+        tx_bias = self.get_tx_bias()
+        rx_power = self.get_rx_power()
+        tx_power = self.get_tx_power()
+        read_failed = temp is None or \
+                      voltage is None or \
+                      tx_bias is None or \
+                      rx_power is None or \
+                      tx_power is None
+        if read_failed:
             return None
 
-        banked_bulk_status = self.get_banked_transceiver_dom_real_value()
-        if banked_bulk_status is None:
-            return None
+        bulk_status = {
+            "temperature": temp,
+            "voltage": voltage
+        }
 
-        bulk_status.update(banked_bulk_status)
+        for i in range(1, self.NUM_CHANNELS + 1):
+            bulk_status["tx%dbias" % i] = tx_bias[i - 1]
+            bulk_status["rx%dpower" % i] = float("{:.3f}".format(self.mw_to_dbm(rx_power[i - 1]))) if rx_power[i - 1] != 'N/A' else 'N/A'
+            bulk_status["tx%dpower" % i] = float("{:.3f}".format(self.mw_to_dbm(tx_power[i - 1]))) if tx_power[i - 1] != 'N/A' else 'N/A'
+
+        laser_temp_dict = self.get_laser_temperature()
+        try:
+            bulk_status['laser_temperature'] = laser_temp_dict['monitor value']
+        except (KeyError, TypeError):
+            pass
+
         return bulk_status
 
-    def get_non_banked_transceiver_dom_flags(self):
+    def get_transceiver_dom_flags(self):
+        """
+        Retrieves the DOM flags for this xcvr
+
+        The returned dictionary contains boolean values representing various DOM flags.
+        All registers accessed by this function are latched and correspond to the
+        TRANSCEIVER_DOM_FLAG table in the STATE_DB.
+
+        Returns:
+            Dictionary
+        """
         dom_flag_dict = dict()
         module_flag = self.get_module_level_flag()
 
@@ -549,10 +510,6 @@ class CmisApi(CmisCdbFw, XcvrApi):
         except TypeError:
             pass
 
-        return dom_flag_dict
-
-    def get_banked_transceiver_dom_flags(self):
-        dom_flag_dict = dict()
         if not self.is_flat_memory():
             tx_power_flag_dict = self.get_tx_power_flag()
             if tx_power_flag_dict:
@@ -576,21 +533,6 @@ class CmisApi(CmisCdbFw, XcvrApi):
                     dom_flag_dict['tx%dbiasHWarn' % lane] = tx_bias_flag_dict['tx_bias_high_warn']['TxBiasHighWarnFlag%d' % lane]
                     dom_flag_dict['tx%dbiasLWarn' % lane] = tx_bias_flag_dict['tx_bias_low_warn']['TxBiasLowWarnFlag%d' % lane]
 
-        return dom_flag_dict
-
-    def get_transceiver_dom_flags(self):
-        """
-        Retrieves the DOM flags for this xcvr
-
-        The returned dictionary contains boolean values representing various DOM flags.
-        All registers accessed by this function are latched and correspond to the
-        TRANSCEIVER_DOM_FLAG table in the STATE_DB.
-
-        Returns:
-            Dictionary
-        """
-        dom_flag_dict = self.get_non_banked_transceiver_dom_flags()
-        dom_flag_dict.update(self.get_banked_transceiver_dom_flags())
         return dom_flag_dict
 
     def get_transceiver_threshold_info(self):
@@ -2008,14 +1950,20 @@ class CmisApi(CmisCdbFw, XcvrApi):
                        'custom_mon_flags': custom_mon_flags}
         return module_flag
 
-    def get_non_banked_transceiver_status(self):
+    def get_transceiver_status(self):
+        """
+        Retrieves the current status of the transceiver module.
+
+        Accesses non-latched registers to gather information about the module's state,
+        fault causes, and datapath-level statuses, including TX and RX statuses.
+
+        Returns:
+            dict: A dictionary containing boolean values for various status fields, as defined in
+                the TRANSCEIVER_STATUS table in STATE_DB.
+        """
         trans_status = dict()
         trans_status['module_state'] = self.get_module_state()
         trans_status['module_fault_cause'] = self.get_module_fault_cause()
-        return trans_status
-
-    def get_banked_transceiver_status(self):
-        trans_status = dict()
         if not self.is_flat_memory():
             dp_state_dict = self.get_datapath_state()
             if dp_state_dict:
@@ -2050,22 +1998,17 @@ class CmisApi(CmisCdbFw, XcvrApi):
                     trans_status['dpinit_pending_hostlane%d' % lane] = dpinit_pending_dict.get('DPInitPending%d' % lane)
         return trans_status
 
-    def get_transceiver_status(self):
+    def get_transceiver_status_flags(self):
         """
-        Retrieves the current status of the transceiver module.
+        Retrieves the current flag status of the transceiver module.
 
-        Accesses non-latched registers to gather information about the module's state,
-        fault causes, and datapath-level statuses, including TX and RX statuses.
+        Accesses latched registers to gather information about both
+        module-level and datapath-level states (including TX/RX related flags).
 
         Returns:
-            dict: A dictionary containing boolean values for various status fields, as defined in
-                the TRANSCEIVER_STATUS table in STATE_DB.
+            dict: A dictionary containing boolean values for various flags, as defined in
+                the TRANSCEIVER_STATUS_FLAGS table in STATE_DB.
         """
-        trans_status = self.get_non_banked_transceiver_status()
-        trans_status.update(self.get_banked_transceiver_status())
-        return trans_status
-
-    def get_non_banked_transceiver_status_flags(self):
         status_flags_dict = dict()
         try:
             dp_fw_fault, module_fw_fault, module_state_changed = self.get_module_firmware_fault_state_changed()
@@ -2077,10 +2020,6 @@ class CmisApi(CmisCdbFw, XcvrApi):
         except TypeError:
             pass
 
-        return status_flags_dict
-
-    def get_banked_transceiver_status_flags(self):
-        status_flags_dict = dict()
         if not self.is_flat_memory():
             fault_types = {
                 'tx{lane_num}fault': self.get_tx_fault(),
@@ -2096,21 +2035,6 @@ class CmisApi(CmisCdbFw, XcvrApi):
                     key = fault_type_template.format(lane_num=lane)
                     status_flags_dict[key] = fault_values[lane - 1] if fault_values else "N/A"
 
-        return status_flags_dict
-
-    def get_transceiver_status_flags(self):
-        """
-        Retrieves the current flag status of the transceiver module.
-
-        Accesses latched registers to gather information about both
-        module-level and datapath-level states (including TX/RX related flags).
-
-        Returns:
-            dict: A dictionary containing boolean values for various flags, as defined in
-                the TRANSCEIVER_STATUS_FLAGS table in STATE_DB.
-        """
-        status_flags_dict = self.get_non_banked_transceiver_status_flags()
-        status_flags_dict.update(self.get_banked_transceiver_status_flags())
         return status_flags_dict
 
     def get_transceiver_loopback(self):

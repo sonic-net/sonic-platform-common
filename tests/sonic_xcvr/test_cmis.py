@@ -1,5 +1,6 @@
 from unittest.mock import patch
 from mock import MagicMock
+import copy
 import pytest
 import traceback
 import random
@@ -625,7 +626,11 @@ class TestCmis(object):
         self.api.get_tx_bias_support = MagicMock()
         self.api.get_tx_bias_support.return_value = mock_response[0]
         self.api.xcvr_eeprom.read = MagicMock()
-        self.api.xcvr_eeprom.read.side_effect = mock_response[1:]
+        # Deep copied because get_tx_bias() scales the dict it reads in place, and
+        # mock_response is a literal owned by the parametrize mark above: mutating it
+        # would leak the scaled values into any later run of this case, e.g. when a
+        # subclass re-runs this suite against another api.
+        self.api.xcvr_eeprom.read.side_effect = copy.deepcopy(mock_response[1:])
         result = self.api.get_tx_bias()
         assert result == expected
 
