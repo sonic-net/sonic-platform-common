@@ -589,6 +589,96 @@ class TestElsfpDomRealValue:
         assert api.get_elsfp_dom_real_value() == {**non_banked_dom, **banked_dom}
 
 
+class TestElsfpDomFlags:
+    """get_elsfp_dom_flags() and the banked / non-banked halves it is composed of."""
+
+    PER_LANE_FLAG_NAMES = (
+        "laser_bias_alarm_high",
+        "laser_bias_alarm_low",
+        "laser_bias_warn_high",
+        "laser_bias_warn_low",
+        "optical_power_alarm_high",
+        "optical_power_alarm_low",
+        "optical_power_warn_high",
+        "optical_power_warn_low",
+    )
+
+    def _populate_flags(self, mem_eeprom, bank=0):
+        """Raise one flag of every kind the aggregate reports.
+
+        Page 1Ah gets a high laser bias alarm on the bank's first lane and a
+        low optical power warning on its second lane. Page 00h lower memory gets
+        a case temperature high alarm and a supply voltage high warning.
+        """
+        # Page 1Ah bytes 186-193 hold one bitmask byte per per-lane flag, bit 0
+        # being the first lane of the bank.
+        high_bias_alarm_byte = 186
+        low_optical_power_warn_byte = 193
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, 0)
+        mem_eeprom.memory[base + high_bias_alarm_byte] = 0b0000_0001
+        mem_eeprom.memory[base + low_optical_power_warn_byte] = 0b0000_0010
+        # Byte 9: case temperature flags in the low nibble, supply voltage flags
+        # in the high nibble, each ordered high alarm, low alarm, high warn, low warn.
+        mem_eeprom.memory[9] = 0b0100_0001
+
+    def test_per_lane_flags(self, mem_eeprom, api):
+        self._populate_flags(mem_eeprom)
+        flags = api.get_banked_elsfp_dom_flags()
+
+        assert flags["laser_bias_alarm_high_lane1"] is True
+        assert flags["optical_power_warn_low_lane2"] is True
+        # Every other per-lane flag is clear.
+        assert flags["laser_bias_alarm_high_lane2"] is False
+        assert flags["optical_power_warn_low_lane1"] is False
+
+        # Lanes with nothing set report no flag at all.
+        assert not any(flags["%s_lane3" % name] for name in self.PER_LANE_FLAG_NAMES)
+
+    def test_banked_flags_cover_every_lane_of_the_bank(self, mem_eeprom, api):
+        self._populate_flags(mem_eeprom)
+        flags = api.get_banked_elsfp_dom_flags()
+        expected_keys = {
+            "%s_lane%d" % (name, lane)
+            for name in self.PER_LANE_FLAG_NAMES
+            for lane in range(1, CMIS_LANES_PER_BANK + 1)
+        }
+        assert set(flags) == expected_keys
+
+    @pytest.mark.parametrize("bank", [0, 1, 2, 3])
+    def test_banked_flags_use_absolute_lane_numbers(self, bank):
+        """Bank N keys its flags by absolute lane, e.g. bank 1 -> lanes 9-16."""
+        mem_eeprom = InMemoryEeprom(ElsfpMemMap(ElsfpCodes, bank=bank), num_banks=4)
+        api = ElsfpApi(mem_eeprom.eeprom)
+        self._populate_flags(mem_eeprom, bank)
+
+        flags = api.get_banked_elsfp_dom_flags()
+
+        first_lane = CMIS_LANES_PER_BANK * bank + 1
+        assert flags["laser_bias_alarm_high_lane%d" % first_lane] is True
+        assert flags["optical_power_warn_low_lane%d" % (first_lane + 1)] is True
+
+    def test_module_level_flags(self, mem_eeprom, api):
+        self._populate_flags(mem_eeprom)
+        assert api.get_non_banked_elsfp_dom_flags() == {
+            "temperature_alarm_high": True,
+            "temperature_alarm_low": False,
+            "temperature_warn_high": False,
+            "temperature_warn_low": False,
+            "voltage_alarm_high": False,
+            "voltage_alarm_low": False,
+            "voltage_warn_high": True,
+            "voltage_warn_low": False,
+        }
+
+    def test_get_elsfp_dom_flags_is_union_of_halves(self, mem_eeprom, api):
+        self._populate_flags(mem_eeprom)
+        non_banked_flags = api.get_non_banked_elsfp_dom_flags()
+        banked_flags = api.get_banked_elsfp_dom_flags()
+        # The halves must not overlap, otherwise "union" would be ambiguous.
+        assert not set(non_banked_flags) & set(banked_flags)
+        assert api.get_elsfp_dom_flags() == {**non_banked_flags, **banked_flags}
+
+
 class TestElsfpFirmwareVersions:
     """get_elsfp_info_firmware_versions()"""
 

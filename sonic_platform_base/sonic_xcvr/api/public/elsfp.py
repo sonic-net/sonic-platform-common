@@ -3,6 +3,7 @@ import typing
 
 from ..xcvr_api import XcvrApi
 from ...fields import consts
+from ...mem_maps.public.cmis.pages.consts import CMIS_LANES_PER_BANK
 import sonic_platform_base.sonic_xcvr.fields.elsfp_consts as elsfp_consts
 
 ELSFP_INFO_DEFAULT_DICT = {
@@ -528,8 +529,57 @@ class ElsfpApi(XcvrApi):
             return None
         return {**non_banked_dom, **banked_dom}
 
+    def get_non_banked_elsfp_dom_flags(self) -> dict:
+        module_flag_byte1 = self.xcvr_eeprom.read(consts.MODULE_FLAG_BYTE1)
+        if module_flag_byte1 is None:
+            return None
+
+        # Byte 9 packs the case temperature flags into its low nibble and the
+        # supply voltage flags into its high nibble, each ordered high alarm,
+        # low alarm, high warning, low warning.
+        flags = {}
+        for monitor, nibble in (("temperature", module_flag_byte1 & 0xF),
+                                ("voltage", (module_flag_byte1 >> 4) & 0xF)):
+            flags.update({
+                "%s_alarm_high" % monitor: bool(nibble & 0x1),
+                "%s_alarm_low" % monitor: bool((nibble >> 1) & 0x1),
+                "%s_warn_high" % monitor: bool((nibble >> 2) & 0x1),
+                "%s_warn_low" % monitor: bool((nibble >> 3) & 0x1)
+            })
+        return flags
+
+    def get_banked_elsfp_dom_flags(self) -> dict:
+        alarms = {
+            "laser_bias_alarm_high": self.get_per_lane_high_bias_alarms(),
+            "laser_bias_alarm_low": self.get_per_lane_low_bias_alarms(),
+            "optical_power_alarm_high": self.get_per_lane_high_power_alarms(),
+            "optical_power_alarm_low": self.get_per_lane_low_power_alarms()
+        }
+        warnings = {
+            "laser_bias_warn_high": self.get_per_lane_high_bias_warnings(),
+            "laser_bias_warn_low": self.get_per_lane_low_bias_warnings(),
+            "optical_power_warn_high": self.get_per_lane_high_power_warnings(),
+            "optical_power_warn_low": self.get_per_lane_low_power_warnings()
+        }
+        if None in alarms.values() or None in warnings.values():
+            return None
+
+        flags = {}
+        first_lane = self.xcvr_eeprom.mem_map.bank * CMIS_LANES_PER_BANK + 1
+        for index in range(CMIS_LANES_PER_BANK):
+            lane = first_lane + index
+            for name, lane_bits in {**alarms, **warnings}.items():
+                flags["%s_lane%d" % (name, lane)] = bool(lane_bits[index])
+        return flags
+
     def get_elsfp_dom_flags(self) -> dict:
-        raise NotImplementedError
+        # A 'None' from either half means an EEPROM read failed, so return 'None'
+        # to tell the caller to retry rather than handing back a partial dict.
+        non_banked_flags = self.get_non_banked_elsfp_dom_flags()
+        banked_flags = self.get_banked_elsfp_dom_flags()
+        if non_banked_flags is None or banked_flags is None:
+            return None
+        return {**non_banked_flags, **banked_flags}
 
     def get_elsfp_threshold_info(self) -> dict:
         raise NotImplementedError
