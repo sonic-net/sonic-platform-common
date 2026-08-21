@@ -523,6 +523,72 @@ class TestBankedMonitors:
         assert api.get_icc_monitor() == 0.2
 
 
+class TestElsfpDomRealValue:
+    """get_elsfp_dom_real_value() and the banked / non-banked halves it is composed of."""
+
+    EXPECTED_NON_BANKED_DOM = {
+        "temperature": 40.0,
+        "voltage": 3.3,
+    }
+
+    EXPECTED_BANKED_DOM = {
+        "per_lane_laser_bias_current": {
+            "BiasCurrentMonitor%d" % lane: 0.01 * lane
+            for lane in range(1, CMIS_LANES_PER_BANK + 1)
+        },
+        "per_lane_optical_power": {
+            "OptPowerMonitor%d" % lane: 2.0 * lane
+            for lane in range(1, CMIS_LANES_PER_BANK + 1)
+        },
+        "per_lane_voltage": {
+            "VoltageMonitor%d" % lane: pytest.approx(0.15 * lane)
+            for lane in range(1, CMIS_LANES_PER_BANK + 1)
+        },
+        "icc": 0.2,
+    }
+
+    def _populate_non_banked_dom(self, mem_eeprom):
+        """Fill page 00h lower memory with the module level monitors."""
+        mem = mem_eeprom.memory
+        # Temperature: bytes 14-15, scale=256.0 -> deg C.
+        mem[14:16] = struct.pack(">h", 40 * 256)
+        # Voltage: bytes 16-17, scale=10000.0 -> V.
+        mem[16:18] = struct.pack(">H", 33000)
+
+    def _populate_banked_dom(self, mem_eeprom):
+        """Fill page 1Bh (bank 0) with the per-lane monitors."""
+        base = CmisPage.linear_offset(ELSFP_SETPOINTS_MON_PAGE, 0, 0)
+        mem = mem_eeprom.memory
+        for lane in range(1, CMIS_LANES_PER_BANK + 1):
+            # Bias current monitor: 2 bytes per lane from 184, scale=10000.0 -> A.
+            bias_offset = base + 184 + 2 * (lane - 1)
+            mem[bias_offset:bias_offset + 2] = struct.pack(">H", 100 * lane)
+            # Optical power monitor: 2 bytes per lane from 200, scale=100.0 -> mW.
+            power_offset = base + 200 + 2 * (lane - 1)
+            mem[power_offset:power_offset + 2] = struct.pack(">H", 200 * lane)
+            # Voltage monitor: 1 byte per lane from 232, 15 mV steps -> V.
+            mem[base + 232 + (lane - 1)] = 10 * lane
+        # ICC monitor: bytes 240-241, scale=5000.0 -> A.
+        mem[base + 240:base + 242] = struct.pack(">H", 1000)
+
+    def test_get_non_banked_elsfp_dom_real_value(self, mem_eeprom, api):
+        self._populate_non_banked_dom(mem_eeprom)
+        assert api.get_non_banked_elsfp_dom_real_value() == self.EXPECTED_NON_BANKED_DOM
+
+    def test_get_banked_elsfp_dom_real_value(self, mem_eeprom, api):
+        self._populate_banked_dom(mem_eeprom)
+        assert api.get_banked_elsfp_dom_real_value() == self.EXPECTED_BANKED_DOM
+
+    def test_get_elsfp_dom_real_value_is_union_of_halves(self, mem_eeprom, api):
+        self._populate_non_banked_dom(mem_eeprom)
+        self._populate_banked_dom(mem_eeprom)
+        non_banked_dom = api.get_non_banked_elsfp_dom_real_value()
+        banked_dom = api.get_banked_elsfp_dom_real_value()
+        # The halves must not overlap, otherwise "union" would be ambiguous.
+        assert not set(non_banked_dom) & set(banked_dom)
+        assert api.get_elsfp_dom_real_value() == {**non_banked_dom, **banked_dom}
+
+
 class TestElsfpFirmwareVersions:
     """get_elsfp_info_firmware_versions()"""
 

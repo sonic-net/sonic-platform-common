@@ -37,6 +37,23 @@ ELSFP_INFO_DEFAULT_DICT = {
         }
 
 
+ELSFP_NON_BANKED_DOM_REAL_VALUE_DEFAULT_DICT = {
+        "temperature": "N/A",
+        "voltage": "N/A"
+        }
+
+ELSFP_BANKED_DOM_REAL_VALUE_DEFAULT_DICT = {
+        "per_lane_laser_bias_current": "N/A",
+        "per_lane_optical_power": "N/A",
+        "per_lane_voltage": "N/A",
+        "icc": "N/A"
+        }
+
+ELSFP_DOM_REAL_VALUE_DEFAULT_DICT = {
+        **ELSFP_NON_BANKED_DOM_REAL_VALUE_DEFAULT_DICT,
+        **ELSFP_BANKED_DOM_REAL_VALUE_DEFAULT_DICT
+        }
+
 class ElsfpApi(XcvrApi):
 
     def _read_lane_bits(self, field: str, num_lanes: int = 8) -> list[int]:
@@ -390,6 +407,24 @@ class ElsfpApi(XcvrApi):
         return self.xcvr_eeprom.read(elsfp_consts.ICC_MONITOR)
 
     ###############################################################
+    #           Module monitors (Page 00h lower memory)           #
+    ###############################################################
+
+    def get_module_temperature(self) -> float:
+        # Returns module case temperature in deg C
+        temperature = self.xcvr_eeprom.read(consts.TEMPERATURE_FIELD)
+        if temperature is None:
+            return None
+        return float("{:.3f}".format(temperature))
+
+    def get_module_voltage(self) -> float:
+        # Returns the monitored value of the 3.3 V supply voltage in V
+        voltage = self.xcvr_eeprom.read(consts.VOLTAGE_FIELD)
+        if voltage is None:
+            return None
+        return float("{:.3f}".format(voltage))
+
+    ###############################################################
     #      Aggregate APIs consumed directly by the xcvrd daemon   #
     ###############################################################
 
@@ -460,8 +495,38 @@ class ElsfpApi(XcvrApi):
             "inactive_firmware": "%s.%s" % (inactive_fw_major, inactive_fw_minor)
         }
 
+    def get_non_banked_elsfp_dom_real_value(self) -> dict:
+        dom = copy.deepcopy(ELSFP_NON_BANKED_DOM_REAL_VALUE_DEFAULT_DICT)
+        dom.update({
+            "temperature": self.get_module_temperature(),
+            "voltage": self.get_module_voltage()
+        })
+
+        if None in dom.values():
+            return None
+        return dom
+
+    def get_banked_elsfp_dom_real_value(self) -> dict:
+        dom = copy.deepcopy(ELSFP_BANKED_DOM_REAL_VALUE_DEFAULT_DICT)
+        dom.update({
+            "per_lane_laser_bias_current": self.get_per_lane_bias_current_monitor(),
+            "per_lane_optical_power": self.get_per_lane_opt_power_monitor(),
+            "per_lane_voltage": self.get_per_lane_voltage_monitor(),
+            "icc": self.get_icc_monitor()
+        })
+
+        if None in dom.values():
+            return None
+        return dom
+
     def get_elsfp_dom_real_value(self) -> dict:
-        raise NotImplementedError
+        # A 'None' from either half means an EEPROM read failed, so return 'None'
+        # to tell the caller to retry rather than handing back a partial dict.
+        non_banked_dom = self.get_non_banked_elsfp_dom_real_value()
+        banked_dom = self.get_banked_elsfp_dom_real_value()
+        if non_banked_dom is None or banked_dom is None:
+            return None
+        return {**non_banked_dom, **banked_dom}
 
     def get_elsfp_dom_flags(self) -> dict:
         raise NotImplementedError
