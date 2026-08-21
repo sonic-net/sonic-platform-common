@@ -1,7 +1,41 @@
+import copy
 import typing
 
 from ..xcvr_api import XcvrApi
+from ...fields import consts
 import sonic_platform_base.sonic_xcvr.fields.elsfp_consts as elsfp_consts
+
+ELSFP_INFO_DEFAULT_DICT = {
+        "type": "N/A",
+        "type_abbrv_name": "N/A",
+        "hardware_rev": "N/A",
+        "serial": "N/A",
+        "manufacturer": "N/A",
+        "model": "N/A",
+        "connector": "N/A",
+        "encoding": "N/A",
+        "ext_identifier": "N/A",
+        "ext_rateselect_compliance": "N/A",
+        "cable_length": "N/A",
+        "nominal_bit_rate": "N/A",
+        "vendor_date": "N/A",
+        "vendor_oui": "N/A",
+        "cable_type": "N/A",
+        "media_interface_technology": "N/A",
+        "vendor_rev": "N/A",
+        "cmis_rev": "N/A",
+        "specification_compliance": "N/A",
+        "vdm_supported": "N/A",
+        "lane_count": "N/A",
+        "control_mode": "N/A",
+        "max_optical_power": "N/A",
+        "min_optical_power": "N/A",
+        "max_laser_bias": "N/A",
+        "min_laser_bias": "N/A",
+        "lane_to_fiber_mapping": "N/A",
+        "lane_frequency": "N/A"
+        }
+
 
 class ElsfpApi(XcvrApi):
 
@@ -354,3 +388,75 @@ class ElsfpApi(XcvrApi):
     def get_icc_monitor(self) -> float:
         # Returns VCC current monitor in A (raw register in 200 uA steps, scaled by 1/5000)
         return self.xcvr_eeprom.read(elsfp_consts.ICC_MONITOR)
+
+    ###############################################################
+    #      Aggregate APIs consumed directly by the xcvrd daemon   #
+    ###############################################################
+
+    def get_elsfp_info(self) -> dict:
+        admin_info = self.xcvr_eeprom.read(consts.ADMIN_INFO_FIELD)
+        if admin_info is None:
+            return None
+
+        ext_id = admin_info[consts.EXT_ID_FIELD]
+        power_class = ext_id[consts.POWER_CLASS_FIELD]
+        max_power = ext_id[consts.MAX_POWER_FIELD]
+
+        hw_major_rev = self.xcvr_eeprom.read(consts.HW_MAJOR_REV)
+        hw_minor_rev = self.xcvr_eeprom.read(consts.HW_MINOR_REV)
+        hardware_rev = None if hw_major_rev is None or hw_minor_rev is None \
+            else "%s.%s" % (hw_major_rev, hw_minor_rev)
+
+        info = copy.deepcopy(ELSFP_INFO_DEFAULT_DICT)
+        info.update({
+            "type": admin_info[consts.ID_FIELD],
+            "type_abbrv_name": admin_info[consts.ID_ABBRV_FIELD],
+            "hardware_rev": hardware_rev,
+            "serial": admin_info[consts.VENDOR_SERIAL_NO_FIELD].rstrip(),
+            "manufacturer": admin_info[consts.VENDOR_NAME_FIELD].rstrip(),
+            "model": admin_info[consts.VENDOR_PART_NO_FIELD].rstrip(),
+            "connector": admin_info[consts.CONNECTOR_FIELD],
+            "ext_identifier": "%s (%sW Max)" % (power_class, max_power),
+            "cable_length": float(admin_info[consts.LENGTH_ASSEMBLY_FIELD]),
+            "vendor_date": admin_info[consts.VENDOR_DATE_FIELD].rstrip(),
+            "vendor_oui": admin_info[consts.VENDOR_OUI_FIELD],
+            "cable_type": "Length Cable Assembly(m)",
+            "media_interface_technology": admin_info[consts.MEDIA_INTERFACE_TECH],
+            "vendor_rev": admin_info[consts.VENDOR_REV_FIELD].rstrip(),
+            "cmis_rev": "%s.%s" % (admin_info[consts.CMIS_MAJOR_REVISION],
+                                   admin_info[consts.CMIS_MINOR_REVISION]),
+            "specification_compliance": admin_info[consts.MEDIA_TYPE_FIELD],
+            "vdm_supported": self.xcvr_eeprom.read(consts.VDM_SUPPORTED),
+            "lane_count": self.get_lane_count(),
+            "control_mode": self.get_control_mode(),
+            "max_optical_power": self.get_max_optical_power(),
+            "min_optical_power": self.get_min_optical_power(),
+            "max_laser_bias": self.get_max_laser_bias(),
+            "min_laser_bias": self.get_min_laser_bias(),
+            "lane_to_fiber_mapping": self.get_lane_to_fiber_mapping(),
+            "lane_frequency": self.get_per_lane_freq()
+        })
+
+        # A 'None' means an EEPROM read failed, so return 'None' to tell the
+        # caller to retry rather than handing back a partial dict.
+        if None in info.values():
+            return None
+        return info
+
+    def get_elsfp_info_firmware_versions(self) -> dict:
+        raise NotImplementedError
+
+    def get_elsfp_dom_real_value(self) -> dict:
+        raise NotImplementedError
+
+    def get_elsfp_dom_flags(self) -> dict:
+        raise NotImplementedError
+
+    def get_elsfp_threshold_info(self) -> dict:
+        raise NotImplementedError
+
+    def get_elsfp_status(self) -> dict:
+        raise NotImplementedError
+
+    def get_elsfp_status_flags(self) -> dict:
+        raise NotImplementedError

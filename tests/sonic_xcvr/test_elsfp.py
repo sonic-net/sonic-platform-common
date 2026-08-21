@@ -9,13 +9,14 @@ from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.davisson_elsfp import Davi
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.elsfp import ElsfpMemMap
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.elsfp.pages.consts import (
     ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE,
+    ELSFP_SETPOINTS_MON_PAGE,
 )
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.pages.page import CmisPage
 from sonic_platform_base.sonic_xcvr.cpo.cpo_base import CpoHardwareInfo, OeId
 from sonic_platform_base.sonic_xcvr.cpo.elsfp import ElsfpApiFactory
 from sonic_platform_base.sonic_xcvr.eeprom_rw import ModuleEepromLowerMemoryInfo
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.pages.consts import (
-    CMIS_EEPROM_PAGE_SIZE,
+    ADVERTISING_PAGE,
     CMIS_LANES_PER_BANK,
 )
 
@@ -27,7 +28,7 @@ class TestElsfpApiFactory(object):
         elsfp.hardware_id = CpoHardwareInfo(
             oe_id=OeId.BROADCOM_DAVISSON,
             elsfp_id=None,
-            elsfp_low_mem_offset=0xB0 * CMIS_EEPROM_PAGE_SIZE,
+            elsfp_low_mem_offset=CmisPage.linear_offset(0xB0, 0, 0),
         )
         factory = ElsfpApiFactory(elsfp)
 
@@ -97,10 +98,6 @@ class TestElsfpCodes:
         assert ElsfpCodes.LANE_STATE[2] == 'Lane Output on'
 
 
-# Linear base address for page 1Ah fields (bank 0): page * 128 = 0x1A * 128
-PAGE_1A_BASE = 0x1A * 128
-
-
 @pytest.fixture
 def mem_eeprom():
     return InMemoryEeprom(ElsfpMemMap(ElsfpCodes))
@@ -136,23 +133,27 @@ class TestModuleAdvertisements:
         ("get_optical_power_low_warn",   155,  500,  5.0),
     ])
     def test_read_only_fields(self, mem_eeprom, api, method, byte_offset, raw_value, expected):
-        offset = PAGE_1A_BASE + byte_offset
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 0)
+        offset = base + byte_offset
         mem_eeprom.memory[offset:offset + 2] = struct.pack(">H", raw_value)
         assert getattr(api, method)() == pytest.approx(expected)
 
     def test_get_control_mode_acc(self, mem_eeprom, api):
-        mem_eeprom.memory[PAGE_1A_BASE + 140] = 0x00  # bit 0 = 0 → ACC
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 0)
+        mem_eeprom.memory[base + 140] = 0x00  # bit 0 = 0 → ACC
         assert api.get_control_mode() == 'ACC'
 
     def test_get_control_mode_apc(self, mem_eeprom, api):
-        mem_eeprom.memory[PAGE_1A_BASE + 140] = 0x01  # bit 0 = 1 → APC
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 0)
+        mem_eeprom.memory[base + 140] = 0x01  # bit 0 = 1 → APC
         assert api.get_control_mode() == 'APC'
 
     def test_get_lane_count(self, mem_eeprom, api):
         #   bit 7   bit 6   bit 5   bit 4   bit 3   bit 2   bit 1   bit 0
         #  [                NUMBER_OF_LANES (7 bits)              ] [APC]
         # NUMBER_OF_LANES occupies bits 7-1. 8 lanes -> raw = 8 << 1 = 0x10.
-        mem_eeprom.memory[PAGE_1A_BASE + 140] = 0x10
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 0)
+        mem_eeprom.memory[base + 140] = 0x10
         assert api.get_lane_count() == 8
 
 
@@ -160,24 +161,29 @@ class TestLaneFaultsWarnings:
     """Table 5 (bytes 165-181): read-only fault and warning flags."""
 
     def test_lane_summary_fault_set(self, mem_eeprom, api):
-        mem_eeprom.memory[PAGE_1A_BASE + 165] = 0x04  # bit 2
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 0)
+        mem_eeprom.memory[base + 165] = 0x04  # bit 2
         assert api.get_lane_summary_fault() == True
 
     def test_lane_summary_fault_clear(self, mem_eeprom, api):
-        mem_eeprom.memory[PAGE_1A_BASE + 165] = 0x00
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 0)
+        mem_eeprom.memory[base + 165] = 0x00
         assert api.get_lane_summary_fault() == False
 
     def test_lane_summary_warning_set(self, mem_eeprom, api):
-        mem_eeprom.memory[PAGE_1A_BASE + 165] = 0x08  # bit 3
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 0)
+        mem_eeprom.memory[base + 165] = 0x08  # bit 3
         assert api.get_lane_summary_warning() == True
 
     def test_lane_summary_warning_clear(self, mem_eeprom, api):
-        mem_eeprom.memory[PAGE_1A_BASE + 165] = 0x00
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 0)
+        mem_eeprom.memory[base + 165] = 0x00
         assert api.get_lane_summary_warning() == False
 
     def test_per_lane_fault_flags(self, mem_eeprom, api):
         # Bank 0's 8 lanes are packed into byte 166, one bit per lane.
-        mem_eeprom.memory[PAGE_1A_BASE + 166] = 0b10000101  # lanes 1, 3 and 8
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 0)
+        mem_eeprom.memory[base + 166] = 0b10000101  # lanes 1, 3 and 8
         result = api.get_per_lane_fault_flags()
         assert result == {
             "FaultFlagLane1": 1,
@@ -192,15 +198,17 @@ class TestLaneFaultsWarnings:
 
     def test_per_lane_fault_flags_ignores_other_banks(self, mem_eeprom, api):
         # 167-169 hold lanes 9-32 (banks 1-3) and must not leak into bank 0.
-        mem_eeprom.memory[PAGE_1A_BASE + 166] = 0x00
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 0)
+        mem_eeprom.memory[base + 166] = 0x00
         for offset in range(167, 170):
-            mem_eeprom.memory[PAGE_1A_BASE + offset] = 0xFF
+            mem_eeprom.memory[base + offset] = 0xFF
         result = api.get_per_lane_fault_flags()
         assert set(result.values()) == {0}
 
     def test_per_lane_warn_flags(self, mem_eeprom, api):
         # Bank 0's 8 lanes are packed into byte 174, one bit per lane.
-        mem_eeprom.memory[PAGE_1A_BASE + 174] = 0b10000110  # lanes 2, 3 and 8
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 0)
+        mem_eeprom.memory[base + 174] = 0b10000110  # lanes 2, 3 and 8
         result = api.get_per_lane_warn_flags()
         assert result == {
             "WarnFlagLane1": 0,
@@ -215,9 +223,10 @@ class TestLaneFaultsWarnings:
 
     def test_per_lane_warn_flags_ignores_other_banks(self, mem_eeprom, api):
         # 175-177 hold lanes 9-32 (banks 1-3) and must not leak into bank 0.
-        mem_eeprom.memory[PAGE_1A_BASE + 174] = 0x00
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 0)
+        mem_eeprom.memory[base + 174] = 0x00
         for offset in range(175, 178):
-            mem_eeprom.memory[PAGE_1A_BASE + offset] = 0xFF
+            mem_eeprom.memory[base + offset] = 0xFF
         result = api.get_per_lane_warn_flags()
         assert set(result.values()) == {0}
 
@@ -233,10 +242,10 @@ class TestLaneFaultsWarnings:
 
         # The 4-byte block lives in this bank's page image. Give each byte a
         # distinct single-bit pattern so reading the wrong one is detectable.
-        page_base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, 0)
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, 0)
         patterns = [0b00000001, 0b00000010, 0b00000100, 0b00001000]
         for i, pattern in enumerate(patterns):
-            eeprom.memory[page_base + base_offset + i] = pattern
+            eeprom.memory[base + base_offset + i] = pattern
 
         result = getattr(api, method)()
 
@@ -269,8 +278,9 @@ class TestLaserSaveRestore:
         SaveRestoreCommand.RESTORE_SET2_ALARM_WARNING_MASKS,
     ])
     def test_write_save_restore_command(self, mem_eeprom, api, command):
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 0)
         api.write_save_restore_command(command)
-        assert mem_eeprom.memory[PAGE_1A_BASE + 184] == command.value
+        assert mem_eeprom.memory[base + 184] == command.value
 
     @pytest.mark.parametrize("raw_value, expected_code", [
         (0x01, SaveRestoreConfirmationCode.SUCCESS),
@@ -280,7 +290,8 @@ class TestLaserSaveRestore:
         (0x08, SaveRestoreConfirmationCode.FAILED),
     ])
     def test_get_save_restore_confirmation(self, mem_eeprom, api, raw_value, expected_code):
-        mem_eeprom.memory[PAGE_1A_BASE + 185] = raw_value
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 0)
+        mem_eeprom.memory[base + 185] = raw_value
         assert api.get_save_restore_confirmation() == expected_code
 
 
@@ -300,7 +311,8 @@ class TestBankedAlarmsWarningsMasks:
         ("get_per_lane_low_power_warnings",  193, 0b11111111),
     ])
     def test_alarm_indexed_field(self, mem_eeprom, api, method, byte_offset, raw_byte):
-        mem_eeprom.memory[PAGE_1A_BASE + byte_offset] = raw_byte
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 0)
+        mem_eeprom.memory[base + byte_offset] = raw_byte
         result = getattr(api, method)()
         assert _bitmask_from_lane_list(result) == raw_byte
 
@@ -344,14 +356,16 @@ class TestBankedAlarmsWarningsMasks:
     def test_per_lane_fault_code(self, mem_eeprom, api):
         # Fault code occupies bits 3-0 of each byte in 212-219.
         # Write 0x05 to byte 212 -> FaultCode1 raw = 5 -> decoded = LANE_FAULT_CODE[5] = 'Reserved'.
-        mem_eeprom.memory[PAGE_1A_BASE + 212] = 0x05
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 0)
+        mem_eeprom.memory[base + 212] = 0x05
         result = api.get_per_lane_fault_code()
         assert result["FaultCode1"] == 'Reserved'
 
     def test_per_lane_warning_code(self, mem_eeprom, api):
         # Warning code occupies bits 7-4 of each byte in 212-219.
         # Write 0x50 to byte 212 -> WarningCode1 raw = 5 -> decoded = LANE_WARNING_CODE[5] = 'Reserved'.
-        mem_eeprom.memory[PAGE_1A_BASE + 212] = 0x50
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 0)
+        mem_eeprom.memory[base + 212] = 0x50
         result = api.get_per_lane_warning_code()
         assert result["WarningCode1"] == 'Reserved'
 
@@ -380,11 +394,12 @@ class TestBankedLaneControls:
         # Byte 221 holds lanes 1-4, 2 bits per lane.
         # 0b00000110: lane 1 = bits 1-0 = 0b10 = 2 → 'Lane Output on'
         #             lane 2 = bits 3-2 = 0b01 = 1 → 'Lane Output ramping'
-        mem_eeprom.memory[PAGE_1A_BASE + 221] = 0b00000110
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 0)
+        mem_eeprom.memory[base + 221] = 0b00000110
         # Byte 222 holds lanes 5-8, 2 bits per lane.
         # 0b00001100: lane 5 = bits 1-0 = 0b00 = 0 → 'Lane Output off'
         #             lane 6 = bits 3-2 = 0b11 = 3 → 'Reserved'
-        mem_eeprom.memory[PAGE_1A_BASE + 222] = 0b00001100
+        mem_eeprom.memory[base + 222] = 0b00001100
         result = api.get_per_lane_state()
         assert result["LaneState1"] == 'Lane Output on'
         assert result["LaneState2"] == 'Lane Output ramping'
@@ -397,7 +412,8 @@ class TestOutputFiberChecked:
 
     def test_get_per_lane_output_fiber_checked(self, mem_eeprom, api):
         # Field returns list[int], one entry per lane (index 0 = lane 1).
-        mem_eeprom.memory[PAGE_1A_BASE + 223] = 0b00000101  # lanes 1 and 3
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 0)
+        mem_eeprom.memory[base + 223] = 0b00000101  # lanes 1 and 3
         result = api.get_per_lane_output_fiber_checked()
         assert result[0] == 1  # lane 1
         assert result[1] == 0  # lane 2
@@ -417,26 +433,25 @@ class TestLaneMappingFreqPower:
 
     def test_lane_to_fiber_mapping(self, mem_eeprom, api):
         # NumberRegField with scale=1, format="B": decoded = raw byte as int.
-        mem_eeprom.memory[PAGE_1A_BASE + 224] = 0x0F
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 0)
+        mem_eeprom.memory[base + 224] = 0x0F
         result = api.get_lane_to_fiber_mapping()
         assert result["LaneToFiberMapping1"] == 15
 
     def test_per_lane_freq(self, mem_eeprom, api):
         # LaneFreq1 is a 2-byte big-endian U16 at byte 232, scale=0.2.
         # raw=100 -> decoded = 100 / 0.2 = 500.0 GHz.
-        offset = PAGE_1A_BASE + 232
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 0)
+        offset = base + 232
         mem_eeprom.memory[offset:offset + 2] = struct.pack(">H", 100)
         result = api.get_per_lane_freq()
         assert result["LaneFreq1"] == 500.0
 
     def test_opt_check_power_setpoint(self, mem_eeprom, api):
         # Single byte, scale=1.0. raw=5 -> decoded = 5 / 1.0 = 5.0 mW.
-        mem_eeprom.memory[PAGE_1A_BASE + 248] = 5
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 0)
+        mem_eeprom.memory[base + 248] = 5
         assert api.get_opt_check_power_setpoint() == 5.0
-
-
-# Page 1Bh base address (bank 0): page * 128 = 0x1B * 128
-PAGE_1B_BASE = 0x1B * 128
 
 
 class TestBankedSetpoints:
@@ -478,7 +493,8 @@ class TestBankedMonitors:
 
     def test_bias_current_monitor(self, mem_eeprom, api):
         # Verify lane 2 is read from the correct address (bytes 186-187).
-        offset = PAGE_1B_BASE + 186
+        base = CmisPage.linear_offset(ELSFP_SETPOINTS_MON_PAGE, 0, 0)
+        offset = base + 186
         mem_eeprom.memory[offset:offset + 2] = struct.pack(">H", 2000)
         result = api.get_per_lane_bias_current_monitor()
         assert result["BiasCurrentMonitor2"] == 0.2
@@ -486,19 +502,109 @@ class TestBankedMonitors:
     def test_opt_power_monitor(self, mem_eeprom, api):
         # Verify lane 2 is read from the correct address (bytes 202-203).
         # raw=2000 -> decoded = 2000 / 100 = 20.0 mW.
-        offset = PAGE_1B_BASE + 202
+        base = CmisPage.linear_offset(ELSFP_SETPOINTS_MON_PAGE, 0, 0)
+        offset = base + 202
         mem_eeprom.memory[offset:offset + 2] = struct.pack(">H", 2000)
         result = api.get_per_lane_opt_power_monitor()
         assert result["OptPowerMonitor2"] == 20.0
 
     def test_voltage_monitor(self, mem_eeprom, api):
         # raw=255 -> decoded = 255 / (1000/15) = 255 * 0.015 = 3.825 V.
-        mem_eeprom.memory[PAGE_1B_BASE + 233] = 255
+        base = CmisPage.linear_offset(ELSFP_SETPOINTS_MON_PAGE, 0, 0)
+        mem_eeprom.memory[base + 233] = 255
         result = api.get_per_lane_voltage_monitor()
         assert result["VoltageMonitor2"] == pytest.approx(3.825)
 
     def test_icc_monitor(self, mem_eeprom, api):
         # raw=1000 -> decoded = 1000 / 5000 = 0.2 A.
-        offset = PAGE_1B_BASE + 240
+        base = CmisPage.linear_offset(ELSFP_SETPOINTS_MON_PAGE, 0, 0)
+        offset = base + 240
         mem_eeprom.memory[offset:offset + 2] = struct.pack(">H", 1000)
         assert api.get_icc_monitor() == 0.2
+
+
+class TestElsfpInfo:
+    """get_elsfp_info()"""
+
+    EXPECTED_INFO = {
+        "type": "OIF-ELSP",
+        "type_abbrv_name": "OIF-ELSP",
+        "hardware_rev": "1.2",
+        "serial": "SN0123456789",
+        "manufacturer": "BROADCOM",
+        "model": "DAVISSON-TH6",
+        "connector": "LC",
+        "encoding": "N/A",
+        "ext_identifier": "Power Class 8 (20.0W Max)",
+        "ext_rateselect_compliance": "N/A",
+        "cable_length": 3.0,
+        "nominal_bit_rate": "N/A",
+        "vendor_date": "2026-08-21",
+        "vendor_oui": "00-17-6a",
+        "cable_type": "Length Cable Assembly(m)",
+        "media_interface_technology": "1310 nm DFB",
+        "vendor_rev": "A1",
+        "cmis_rev": "1.0",
+        "specification_compliance": "sm_media_interface",
+        "vdm_supported": True,
+        "lane_count": CMIS_LANES_PER_BANK,
+        "control_mode": "APC",
+        "max_optical_power": 10.0,
+        "min_optical_power": 5.0,
+        "max_laser_bias": 0.1,
+        "min_laser_bias": 0.05,
+        "lane_to_fiber_mapping": {
+            "LaneToFiberMapping%d" % lane: lane
+            for lane in range(1, CMIS_LANES_PER_BANK + 1)
+        },
+        "lane_frequency": {
+            "LaneFreq%d" % lane: 500.0 * lane
+            for lane in range(1, CMIS_LANES_PER_BANK + 1)
+        },
+    }
+
+    def _populate_info(self, mem_eeprom):
+        """Fill pages 00h, 01h and 1Ah with the fields get_elsfp_info() reads."""
+        mem = mem_eeprom.memory
+        # Page 00h lower memory (linear address == byte offset).
+        mem[0] = 0x22                               # identifier
+        mem[1] = 0x10                               # CMIS rev: major bits 7-4, minor bits 3-0
+        mem[85] = 2                                 # module media type -> sm_media_interface
+        # Page 00h upper memory.
+        mem[128] = 0x22                             # identifier abbreviation
+        mem[129:145] = b"BROADCOM        "          # vendor name (16 bytes, space padded)
+        mem[145:148] = bytes((0x00, 0x17, 0x6A))    # vendor OUI
+        mem[148:164] = b"DAVISSON-TH6    "          # vendor part number (16 bytes)
+        mem[164:166] = b"A1"                        # vendor revision (2 bytes)
+        mem[166:182] = b"SN0123456789    "          # vendor serial number (16 bytes)
+        mem[182:190] = b"260821  "                  # date code YYMMDD + 2 byte lot code
+        mem[200] = 7 << 5                           # power class (bits 7-5) -> Power Class 8
+        mem[201] = 80                               # max power, scale=4.0 -> 20.0 W
+        mem[202] = (1 << 6) | 3                     # length multiplier 1 (x1), base length 3
+        mem[203] = 7                                # connector -> LC
+        mem[212] = 4                                # media interface tech -> 1310 nm DFB
+        # Page 01h.
+        page_01_base = CmisPage.linear_offset(ADVERTISING_PAGE, 0, 0)
+        mem[page_01_base + 130] = 1                 # hardware revision major
+        mem[page_01_base + 131] = 2                 # hardware revision minor
+        mem[page_01_base + 142] = 1 << 6            # PageSupportAdvertisement: VdmSupported
+        # Page 1Ah (bank 0).
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 0)
+        # Max/min optical power, scale=100.0 (10 uW steps -> mW).
+        mem[base + 128:base + 130] = struct.pack(">H", 1000)
+        mem[base + 130:base + 132] = struct.pack(">H", 500)
+        # Max/min laser bias, scale=10000.0 (100 uA steps -> A).
+        mem[base + 132:base + 134] = struct.pack(">H", 1000)
+        mem[base + 134:base + 136] = struct.pack(">H", 500)
+        # Byte 140: lane count in bits 7-1, control mode in bit 0 (1 -> APC).
+        mem[base + 140] = (CMIS_LANES_PER_BANK << 1) | 1
+        for lane in range(1, CMIS_LANES_PER_BANK + 1):
+            # Lane-to-fiber mapping: 1 byte per lane starting at 224.
+            mem[base + 224 + (lane - 1)] = lane
+            # Lane frequency: 2 bytes per lane starting at 232, scale=0.2 -> GHz.
+            freq_offset = base + 232 + 2 * (lane - 1)
+            mem[freq_offset:freq_offset + 2] = struct.pack(">H", 100 * lane)
+
+    def test_get_elsfp_info(self, mem_eeprom, api):
+        self._populate_info(mem_eeprom)
+        assert api.get_elsfp_info() == self.EXPECTED_INFO
