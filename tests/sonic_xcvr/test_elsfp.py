@@ -523,6 +523,30 @@ class TestBankedMonitors:
         assert api.get_icc_monitor() == 0.2
 
 
+class TestElsfpFirmwareVersions:
+    """get_elsfp_info_firmware_versions()"""
+
+    def test_get_elsfp_info_firmware_versions(self, mem_eeprom, api):
+        mem = mem_eeprom.memory
+        # Page 00h lower memory: active firmware major/minor.
+        mem[39] = 1
+        mem[40] = 2
+        # Page 01h: inactive firmware major/minor.
+        page_01_base = CmisPage.linear_offset(ADVERTISING_PAGE, 0, 0)
+        mem[page_01_base + 128] = 3
+        mem[page_01_base + 129] = 4
+        assert api.get_elsfp_info_firmware_versions() == {
+            "active_firmware": "1.2",
+            "inactive_firmware": "3.4",
+        }
+
+    def test_get_elsfp_info_firmware_versions_read_failure(self, api):
+        # A failed EEPROM read must surface as None so the caller retries
+        # instead of caching a partial result.
+        with patch.object(api.xcvr_eeprom, "read", return_value=None):
+            assert api.get_elsfp_info_firmware_versions() is None
+
+
 class TestElsfpInfo:
     """get_elsfp_info()"""
 

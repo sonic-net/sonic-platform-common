@@ -444,7 +444,21 @@ class ElsfpApi(XcvrApi):
         return info
 
     def get_elsfp_info_firmware_versions(self) -> dict:
-        raise NotImplementedError
+        # TODO: Currently this function just reads the firmware version
+        # information from lower memory. Once CDB support is added to ElsfpApi, we
+        # should only read from lower memory if CDB support is not advertised by the
+        # module.
+        active_fw_major = self.xcvr_eeprom.read(consts.ACTIVE_FW_MAJOR_REV)
+        active_fw_minor = self.xcvr_eeprom.read(consts.ACTIVE_FW_MINOR_REV)
+        inactive_fw_major = self.xcvr_eeprom.read(consts.INACTIVE_FW_MAJOR_REV)
+        inactive_fw_minor = self.xcvr_eeprom.read(consts.INACTIVE_FW_MINOR_REV)
+        if None in (active_fw_major, active_fw_minor, inactive_fw_major, inactive_fw_minor):
+            return None
+
+        return {
+            "active_firmware": "%s.%s" % (active_fw_major, active_fw_minor),
+            "inactive_firmware": "%s.%s" % (inactive_fw_major, inactive_fw_minor)
+        }
 
     def get_elsfp_dom_real_value(self) -> dict:
         raise NotImplementedError
