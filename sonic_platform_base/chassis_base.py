@@ -884,6 +884,18 @@ class ChassisBase(device_base.DeviceBase):
     # System LED methods
     ##############################################
 
+    def initizalize_system_led(self):
+        """
+        Initialize the system status LED.
+
+        Returns:
+            bool: True if the system LED was initialized successfully.
+        """
+        if device_info and device_info.is_switch_bmc():
+            # BMC platforms have no controllable system LED, nothing to initialize.
+            return True
+        raise NotImplementedError
+
     def set_status_led(self, color):
         """
         Sets the state of the system LED
@@ -895,6 +907,9 @@ class ChassisBase(device_base.DeviceBase):
         Returns:
             bool: True if system LED state is set successfully, False if not
         """
+        if device_info and device_info.is_switch_bmc():
+            # BMC platforms have no controllable system LED.
+            return False
         raise NotImplementedError
 
     def get_status_led(self):
@@ -905,6 +920,9 @@ class ChassisBase(device_base.DeviceBase):
             A string, one of the valid LED color strings which could be vendor
             specified.
         """
+        if device_info and device_info.is_switch_bmc():
+            # BMC platforms have no controllable system LED.
+            return "N/A"
         raise NotImplementedError
 
     ##############################################
