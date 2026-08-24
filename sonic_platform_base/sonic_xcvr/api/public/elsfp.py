@@ -582,7 +582,59 @@ class ElsfpApi(XcvrApi):
         return {**non_banked_flags, **banked_flags}
 
     def get_elsfp_threshold_info(self) -> dict:
-        raise NotImplementedError
+        # ELSFP specific thresholds (Page 1Ah)
+        bias_thresholds = {
+            "bias_alarm_high": self.get_laser_bias_high_alarm(),
+            "bias_alarm_low": self.get_laser_bias_low_alarm(),
+            "bias_warn_high": self.get_laser_bias_high_warn(),
+            "bias_warn_low": self.get_laser_bias_low_warn()
+        }
+        optical_power_thresholds = {
+            "optical_power_alarm_high": self.get_optical_power_high_alarm(),
+            "optical_power_alarm_low": self.get_optical_power_low_alarm(),
+            "optical_power_warn_high": self.get_optical_power_high_warn(),
+            "optical_power_warn_low": self.get_optical_power_low_warn()
+        }
+        if None in bias_thresholds.values() or None in optical_power_thresholds.values():
+            return None
+
+        threshold_info = {
+            **{name: float("{:.3f}".format(amps * 1000)) for name, amps in bias_thresholds.items()},
+            **{name: float("{:.3f}".format(self.mw_to_dbm(mw)))
+               for name, mw in optical_power_thresholds.items()}
+        }
+
+        # Standard CMIS module thresholds (Page 02h).
+        thresh = self.xcvr_eeprom.read(consts.THRESHOLDS_FIELD)
+        tx_bias_scale_raw = self.xcvr_eeprom.read(consts.TX_BIAS_SCALE)
+        if thresh is None or tx_bias_scale_raw is None:
+            return None
+        tx_bias_scale = 2**tx_bias_scale_raw if tx_bias_scale_raw < 3 else 1
+
+        threshold_info.update({
+            "temphighalarm": float("{:.3f}".format(thresh[consts.TEMP_HIGH_ALARM_FIELD])),
+            "templowalarm": float("{:.3f}".format(thresh[consts.TEMP_LOW_ALARM_FIELD])),
+            "temphighwarning": float("{:.3f}".format(thresh[consts.TEMP_HIGH_WARNING_FIELD])),
+            "templowwarning": float("{:.3f}".format(thresh[consts.TEMP_LOW_WARNING_FIELD])),
+            "vcchighalarm": float("{:.3f}".format(thresh[consts.VOLTAGE_HIGH_ALARM_FIELD])),
+            "vcclowalarm": float("{:.3f}".format(thresh[consts.VOLTAGE_LOW_ALARM_FIELD])),
+            "vcchighwarning": float("{:.3f}".format(thresh[consts.VOLTAGE_HIGH_WARNING_FIELD])),
+            "vcclowwarning": float("{:.3f}".format(thresh[consts.VOLTAGE_LOW_WARNING_FIELD])),
+            "rxpowerhighalarm": float("{:.3f}".format(self.mw_to_dbm(thresh[consts.RX_POWER_HIGH_ALARM_FIELD]))),
+            "rxpowerlowalarm": float("{:.3f}".format(self.mw_to_dbm(thresh[consts.RX_POWER_LOW_ALARM_FIELD]))),
+            "rxpowerhighwarning": float("{:.3f}".format(self.mw_to_dbm(thresh[consts.RX_POWER_HIGH_WARNING_FIELD]))),
+            "rxpowerlowwarning": float("{:.3f}".format(self.mw_to_dbm(thresh[consts.RX_POWER_LOW_WARNING_FIELD]))),
+            "txpowerhighalarm": float("{:.3f}".format(self.mw_to_dbm(thresh[consts.TX_POWER_HIGH_ALARM_FIELD]))),
+            "txpowerlowalarm": float("{:.3f}".format(self.mw_to_dbm(thresh[consts.TX_POWER_LOW_ALARM_FIELD]))),
+            "txpowerhighwarning": float("{:.3f}".format(self.mw_to_dbm(thresh[consts.TX_POWER_HIGH_WARNING_FIELD]))),
+            "txpowerlowwarning": float("{:.3f}".format(self.mw_to_dbm(thresh[consts.TX_POWER_LOW_WARNING_FIELD]))),
+            "txbiashighalarm": float("{:.3f}".format(thresh[consts.TX_BIAS_HIGH_ALARM_FIELD] * tx_bias_scale)),
+            "txbiaslowalarm": float("{:.3f}".format(thresh[consts.TX_BIAS_LOW_ALARM_FIELD] * tx_bias_scale)),
+            "txbiashighwarning": float("{:.3f}".format(thresh[consts.TX_BIAS_HIGH_WARNING_FIELD] * tx_bias_scale)),
+            "txbiaslowwarning": float("{:.3f}".format(thresh[consts.TX_BIAS_LOW_WARNING_FIELD] * tx_bias_scale))
+        })
+
+        return threshold_info
 
     def get_elsfp_status(self) -> dict:
         raise NotImplementedError

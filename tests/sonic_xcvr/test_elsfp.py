@@ -18,6 +18,7 @@ from sonic_platform_base.sonic_xcvr.eeprom_rw import ModuleEepromLowerMemoryInfo
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.pages.consts import (
     ADVERTISING_PAGE,
     CMIS_LANES_PER_BANK,
+    THRESHOLDS_PAGE,
 )
 
 
@@ -788,3 +789,78 @@ class TestElsfpInfo:
     def test_get_elsfp_info(self, mem_eeprom, api):
         self._populate_info(mem_eeprom)
         assert api.get_elsfp_info() == self.EXPECTED_INFO
+
+
+class TestElsfpThresholdInfo:
+    """get_elsfp_threshold_info()"""
+
+    EXPECTED_THRESHOLD_INFO = {
+        # Page 1Ah: one module-wide register per threshold, applying to every
+        # laser. Bytes 141-148 are raw 100 uA steps -> mA.
+        "bias_alarm_high": 100.0,
+        "bias_alarm_low": 10.0,
+        "bias_warn_high": 90.0,
+        "bias_warn_low": 20.0,
+        # Page 1Ah bytes 149-156, raw 10 uW steps -> dBm.
+        "optical_power_alarm_high": 10.0,
+        "optical_power_alarm_low": -10.0,
+        "optical_power_warn_high": 9.542,
+        "optical_power_warn_low": -6.99,
+        # Page 02h: the standard CMIS module thresholds.
+        "temphighalarm": 75.0,
+        "templowalarm": -5.0,
+        "temphighwarning": 70.0,
+        "templowwarning": 0.0,
+        "vcchighalarm": 3.6,
+        "vcclowalarm": 3.0,
+        "vcchighwarning": 3.5,
+        "vcclowwarning": 3.1,
+        "rxpowerhighalarm": 3.01,
+        "rxpowerlowalarm": -10.0,
+        "rxpowerhighwarning": 0.0,
+        "rxpowerlowwarning": -6.99,
+        "txpowerhighalarm": 3.01,
+        "txpowerlowalarm": -10.0,
+        "txpowerhighwarning": 0.0,
+        "txpowerlowwarning": -6.99,
+        # Raw 1/500 A steps -> mA, doubled by a TX bias scaling exponent of 1.
+        "txbiashighalarm": 20.0,
+        "txbiaslowalarm": 2.0,
+        "txbiashighwarning": 18.0,
+        "txbiaslowwarning": 4.0,
+    }
+
+    def _populate_thresholds(self, mem_eeprom):
+        mem = mem_eeprom.memory
+
+        # Page 1Ah: module-wide bias thresholds (bytes 141-148, 100 uA steps)
+        # and optical power thresholds (bytes 149-156, 10 uW steps).
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 0)
+        for offset, raw in ((141, 1000), (143, 100), (145, 900), (147, 200),
+                            (149, 1000), (151, 10), (153, 900), (155, 20)):
+            mem[base + offset:base + offset + 2] = struct.pack(">H", raw)
+
+        # Page 02h: the standard CMIS module thresholds.
+        page_02_base = CmisPage.linear_offset(THRESHOLDS_PAGE, 0, 0)
+        for offset, fmt, raw in (
+            (128, ">h", 75 * 256), (130, ">h", -5 * 256),      # temperature alarms
+            (132, ">h", 70 * 256), (134, ">h", 0),             # temperature warnings
+            (136, ">H", 36000), (138, ">H", 30000),            # voltage alarms
+            (140, ">H", 35000), (142, ">H", 31000),            # voltage warnings
+            (176, ">H", 20000), (178, ">H", 1000),             # tx power alarms
+            (180, ">H", 10000), (182, ">H", 2000),             # tx power warnings
+            (184, ">H", 5000), (186, ">H", 500),               # tx bias alarms
+            (188, ">H", 4500), (190, ">H", 1000),              # tx bias warnings
+            (192, ">H", 20000), (194, ">H", 1000),             # rx power alarms
+            (196, ">H", 10000), (198, ">H", 2000),             # rx power warnings
+        ):
+            mem[page_02_base + offset:page_02_base + offset + 2] = struct.pack(fmt, raw)
+
+        # Page 01h: TX bias scaling exponent (byte 160, bits 4-3).
+        page_01_base = CmisPage.linear_offset(ADVERTISING_PAGE, 0, 0)
+        mem[page_01_base + 160] = 1 << 3
+
+    def test_get_elsfp_threshold_info(self, mem_eeprom, api):
+        self._populate_thresholds(mem_eeprom)
+        assert api.get_elsfp_threshold_info() == self.EXPECTED_THRESHOLD_INFO
+
