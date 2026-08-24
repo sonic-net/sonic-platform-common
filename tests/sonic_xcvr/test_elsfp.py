@@ -909,3 +909,96 @@ class TestElsfpStatusFlags:
             "WarnFlagLane7": False,
             "WarnFlagLane8": False,
         }
+
+
+class TestElsfpStatus:
+    """get_elsfp_status() and the banked / non-banked halves it is composed of."""
+
+    EXPECTED_NON_BANKED_STATUS = {
+        "module_state": "ModuleFault",
+        "module_fault_cause": "Transmitter fault",
+    }
+
+    EXPECTED_BANKED_STATUS = {
+        "enable_lane1": True,
+        "enable_lane2": False,
+        "enable_lane3": True,
+        "enable_lane4": False,
+        "enable_lane5": False,
+        "enable_lane6": False,
+        "enable_lane7": False,
+        "enable_lane8": True,
+        "state_lane1": "Lane Output on",
+        "state_lane2": "Lane Output ramping",
+        "state_lane3": "Lane Output off",
+        "state_lane4": "Lane Output off",
+        "state_lane5": "Lane Output off",
+        "state_lane6": "Reserved",
+        "state_lane7": "Lane Output off",
+        "state_lane8": "Lane Output off",
+        "output_fiber_checked_lane1": True,
+        "output_fiber_checked_lane2": True,
+        "output_fiber_checked_lane3": False,
+        "output_fiber_checked_lane4": False,
+        "output_fiber_checked_lane5": False,
+        "output_fiber_checked_lane6": False,
+        "output_fiber_checked_lane7": False,
+        "output_fiber_checked_lane8": False,
+        "fault_code_lane1": "Automatic Power Control (APC) control loop failure",
+        "fault_code_lane2": "Automatic Current Control (ACC) control loop failure",
+        "fault_code_lane3": "No alarm detected",
+        "fault_code_lane4": "No alarm detected",
+        "fault_code_lane5": "No alarm detected",
+        "fault_code_lane6": "No alarm detected",
+        "fault_code_lane7": "No alarm detected",
+        "fault_code_lane8": "No alarm detected",
+        "warning_code_lane1": "Automatic Current Control (ACC) control loop warning",
+        "warning_code_lane2": "No warning detected",
+        "warning_code_lane3": "No warning detected",
+        "warning_code_lane4": "No warning detected",
+        "warning_code_lane5": "No warning detected",
+        "warning_code_lane6": "No warning detected",
+        "warning_code_lane7": "No warning detected",
+        "warning_code_lane8": "No warning detected",
+    }
+
+    def _populate_status(self, mem_eeprom, bank=0):
+        """Put the module into ModuleFault with a mix of per-lane state.
+
+        Page 00h lower carries the module state and fault cause. Page 1Ah
+        carries the per-lane enable bits, lane states, output fiber checked
+        bits, and the packed fault and warning codes.
+        """
+        # Byte 3 bits 3-1: module state, byte 41: fault cause.
+        mem_eeprom.memory[3] = 5 << 1  # ModuleFault
+        mem_eeprom.memory[41] = 4      # Transmitter fault
+
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, 0)
+        # Byte 220: one enable bit per lane, bit 0 being the bank's first lane.
+        mem_eeprom.memory[base + 220] = 0b1000_0101  # lanes 1, 3 and 8
+        # Bytes 221-222: 2 bits of state per lane, 4 lanes to a byte.
+        # Byte 221 holds lanes 1-4: lane 1 = 0b10 (on), lane 2 = 0b01 (ramping).
+        mem_eeprom.memory[base + 221] = 0b0000_0110
+        # Byte 222 holds lanes 5-8: lane 6 = 0b11 (reserved).
+        mem_eeprom.memory[base + 222] = 0b0000_1100
+        # Byte 223: one output fiber checked bit per lane.
+        mem_eeprom.memory[base + 223] = 0b0000_0011  # lanes 1 and 2
+        # Bytes 212-219: one byte per lane, low nibble the fault code and high
+        # nibble the warning code.
+        mem_eeprom.memory[base + 212] = 0x21  # lane 1: APC fault, ACC warning
+        mem_eeprom.memory[base + 213] = 0x02  # lane 2: ACC fault, no warning
+
+    def test_get_non_banked_elsfp_status(self, mem_eeprom, api):
+        self._populate_status(mem_eeprom)
+        assert api.get_non_banked_elsfp_status() == self.EXPECTED_NON_BANKED_STATUS
+
+    def test_get_banked_elsfp_status(self, mem_eeprom, api):
+        self._populate_status(mem_eeprom)
+        assert api.get_banked_elsfp_status() == self.EXPECTED_BANKED_STATUS
+
+    def test_get_elsfp_status(self, mem_eeprom, api):
+        self._populate_status(mem_eeprom)
+        assert api.get_elsfp_status() == {
+            **self.EXPECTED_NON_BANKED_STATUS,
+            **self.EXPECTED_BANKED_STATUS,
+        }

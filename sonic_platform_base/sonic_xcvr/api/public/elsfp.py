@@ -431,6 +431,14 @@ class ElsfpApi(XcvrApi):
             return None
         return float("{:.3f}".format(voltage))
 
+    def get_module_state(self) -> str:
+        # Returns the CMIS module state, e.g. "ModuleReady"
+        return self.xcvr_eeprom.read(consts.MODULE_STATE)
+
+    def get_module_fault_cause(self) -> str:
+        # Returns the fault cause reported when the module state is ModuleFault
+        return self.xcvr_eeprom.read(consts.MODULE_FAULT_CAUSE)
+
     def get_module_firmware_fault_info(self) -> dict[str, bool]:
         """
         This function returns the firmware fault and module state change flags
@@ -663,8 +671,50 @@ class ElsfpApi(XcvrApi):
 
         return threshold_info
 
+    def get_non_banked_elsfp_status(self) -> dict:
+        status = {
+            "module_state": self.get_module_state(),
+            "module_fault_cause": self.get_module_fault_cause()
+        }
+        if None in status.values():
+            return None
+        return status
+
+    def get_banked_elsfp_status(self) -> dict:
+        lane_enable = self.get_per_lane_enable()
+        lane_state = self.get_per_lane_state()
+        output_fiber_checked = self.get_per_lane_output_fiber_checked()
+        fault_code = self.get_per_lane_fault_code()
+        warning_code = self.get_per_lane_warning_code()
+        if lane_enable is None or lane_state is None or output_fiber_checked is None \
+                or fault_code is None or warning_code is None:
+            return None
+
+        status = {}
+        first_lane = self.xcvr_eeprom.mem_map.bank * CMIS_LANES_PER_BANK + 1
+        for index, enabled in enumerate(lane_enable):
+            status["enable_lane%d" % (first_lane + index)] = bool(enabled)
+
+        for index in range(len(lane_state)):
+            status["state_lane%d" % (first_lane + index)] = \
+                lane_state["%s%d" % (elsfp_consts.LANE_STATE_FIELD, index + 1)]
+
+        for index, checked in enumerate(output_fiber_checked):
+            status["output_fiber_checked_lane%d" % (first_lane + index)] = bool(checked)
+
+        for name, field, codes in (("fault_code", elsfp_consts.FAULT_CODE_FIELD, fault_code),
+                                   ("warning_code", elsfp_consts.WARNING_CODE_FIELD, warning_code)):
+            for index in range(len(codes)):
+                status["%s_lane%d" % (name, first_lane + index)] = \
+                    codes["%s%d" % (field, index + 1)]
+        return status
+
     def get_elsfp_status(self) -> dict:
-        raise NotImplementedError
+        non_banked_status = self.get_non_banked_elsfp_status()
+        banked_status = self.get_banked_elsfp_status()
+        if non_banked_status is None or banked_status is None:
+            return None
+        return {**non_banked_status, **banked_status}
 
     def get_elsfp_status_flags(self) -> dict:
         status_flags = {
