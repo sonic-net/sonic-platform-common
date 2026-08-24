@@ -167,10 +167,10 @@ class ElsfpApi(XcvrApi):
     def get_lane_summary_warning(self) -> bool:
         return self.xcvr_eeprom.read(elsfp_consts.LANE_SUMMARY_WARNING)
 
-    def get_per_lane_fault_flags(self) -> dict[str, int]:
+    def get_per_lane_fault_flags(self) -> dict[str, bool]:
         """
-        This function will return a dictionary mapping lanes to an integer representing
-        whether the lane has had a fault or not (0 == no fault, 1 == fault)
+        This function will return a dictionary mapping lanes to a boolean representing
+        whether the lane has had a fault or not
 
         These flags are latched and cleared on read. Only the 8 lanes of the
         currently selected bank are read and reported; the other banks' flags are
@@ -179,19 +179,22 @@ class ElsfpApi(XcvrApi):
 
         Example (bank 1):
           {
-              "FaultFlagLane9": 0,
-              "FaultFlagLane10": 1,
-              "FaultFlagLane11": 0,
+              "FaultFlagLane9": False,
+              "FaultFlagLane10": True,
+              "FaultFlagLane11": False,
               # ... etc ...
-              "FaultFlagLane16": 1,
+              "FaultFlagLane16": True,
           }
         """
-        return self.xcvr_eeprom.read(elsfp_consts.FAULT_FLAG_LANE_FIELDS[self.xcvr_eeprom.mem_map.bank])
+        flags = self.xcvr_eeprom.read(elsfp_consts.FAULT_FLAG_LANE_FIELDS[self.xcvr_eeprom.mem_map.bank])
+        if flags is None:
+            return None
+        return {field: bool(value) for field, value in flags.items()}
 
-    def get_per_lane_warn_flags(self) -> dict[str, int]:
+    def get_per_lane_warn_flags(self) -> dict[str, bool]:
         """
-        This function will return a dictionary mapping lanes to an integer representing
-        whether the lane has had a warning or not (0 == no warning, 1 == warning)
+        This function will return a dictionary mapping lanes to a boolean representing
+        whether the lane has had a warning or not
 
         These flags are latched and cleared on read. Only the 8 lanes of the
         currently selected bank are read and reported; the other banks' flags are
@@ -200,14 +203,17 @@ class ElsfpApi(XcvrApi):
 
         Example (bank 1):
           {
-              "WarnFlagLane9": 0,
-              "WarnFlagLane10": 1,
-              "WarnFlagLane11": 0,
+              "WarnFlagLane9": False,
+              "WarnFlagLane10": True,
+              "WarnFlagLane11": False,
               # ... etc ...
-              "WarnFlagLane16": 1,
+              "WarnFlagLane16": True,
           }
         """
-        return self.xcvr_eeprom.read(elsfp_consts.WARN_FLAG_LANE_FIELDS[self.xcvr_eeprom.mem_map.bank])
+        flags = self.xcvr_eeprom.read(elsfp_consts.WARN_FLAG_LANE_FIELDS[self.xcvr_eeprom.mem_map.bank])
+        if flags is None:
+            return None
+        return {field: bool(value) for field, value in flags.items()}
 
     ###############################################################
     #              Lane setting and saving and restoring          #
@@ -425,6 +431,27 @@ class ElsfpApi(XcvrApi):
             return None
         return float("{:.3f}".format(voltage))
 
+    def get_module_firmware_fault_info(self) -> dict[str, bool]:
+        """
+        This function returns the firmware fault and module state change flags
+        packed into the low 3 bits of byte 8.
+
+        Returns:
+          {
+              "datapath_firmware_fault": False,
+              "module_firmware_fault": True,
+              "module_state_changed": True,
+          }
+        """
+        firmware_fault_info = self.xcvr_eeprom.read(consts.MODULE_FIRMWARE_FAULT_INFO)
+        if firmware_fault_info is None:
+            return None
+        return {
+            "datapath_firmware_fault": bool((firmware_fault_info >> 2) & 0x1),
+            "module_firmware_fault": bool((firmware_fault_info >> 1) & 0x1),
+            "module_state_changed": bool(firmware_fault_info & 0x1)
+        }
+
     ###############################################################
     #      Aggregate APIs consumed directly by the xcvrd daemon   #
     ###############################################################
@@ -640,4 +667,18 @@ class ElsfpApi(XcvrApi):
         raise NotImplementedError
 
     def get_elsfp_status_flags(self) -> dict:
-        raise NotImplementedError
+        status_flags = {
+            "lane_summary_fault": self.get_lane_summary_fault(),
+            "lane_summary_warning": self.get_lane_summary_warning()
+        }
+        fault_flags = self.get_per_lane_fault_flags()
+        warn_flags = self.get_per_lane_warn_flags()
+        firmware_fault_info = self.get_module_firmware_fault_info()
+        if None in status_flags.values() or fault_flags is None or warn_flags is None \
+                or firmware_fault_info is None:
+            return None
+
+        status_flags.update(firmware_fault_info)
+        status_flags.update(fault_flags)
+        status_flags.update(warn_flags)
+        return status_flags

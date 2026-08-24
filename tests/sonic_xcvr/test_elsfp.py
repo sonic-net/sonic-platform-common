@@ -187,14 +187,14 @@ class TestLaneFaultsWarnings:
         mem_eeprom.memory[base + 166] = 0b10000101  # lanes 1, 3 and 8
         result = api.get_per_lane_fault_flags()
         assert result == {
-            "FaultFlagLane1": 1,
-            "FaultFlagLane2": 0,
-            "FaultFlagLane3": 1,
-            "FaultFlagLane4": 0,
-            "FaultFlagLane5": 0,
-            "FaultFlagLane6": 0,
-            "FaultFlagLane7": 0,
-            "FaultFlagLane8": 1,
+            "FaultFlagLane1": True,
+            "FaultFlagLane2": False,
+            "FaultFlagLane3": True,
+            "FaultFlagLane4": False,
+            "FaultFlagLane5": False,
+            "FaultFlagLane6": False,
+            "FaultFlagLane7": False,
+            "FaultFlagLane8": True,
         }
 
     def test_per_lane_fault_flags_ignores_other_banks(self, mem_eeprom, api):
@@ -204,7 +204,7 @@ class TestLaneFaultsWarnings:
         for offset in range(167, 170):
             mem_eeprom.memory[base + offset] = 0xFF
         result = api.get_per_lane_fault_flags()
-        assert set(result.values()) == {0}
+        assert set(result.values()) == {False}
 
     def test_per_lane_warn_flags(self, mem_eeprom, api):
         # Bank 0's 8 lanes are packed into byte 174, one bit per lane.
@@ -212,14 +212,14 @@ class TestLaneFaultsWarnings:
         mem_eeprom.memory[base + 174] = 0b10000110  # lanes 2, 3 and 8
         result = api.get_per_lane_warn_flags()
         assert result == {
-            "WarnFlagLane1": 0,
-            "WarnFlagLane2": 1,
-            "WarnFlagLane3": 1,
-            "WarnFlagLane4": 0,
-            "WarnFlagLane5": 0,
-            "WarnFlagLane6": 0,
-            "WarnFlagLane7": 0,
-            "WarnFlagLane8": 1,
+            "WarnFlagLane1": False,
+            "WarnFlagLane2": True,
+            "WarnFlagLane3": True,
+            "WarnFlagLane4": False,
+            "WarnFlagLane5": False,
+            "WarnFlagLane6": False,
+            "WarnFlagLane7": False,
+            "WarnFlagLane8": True,
         }
 
     def test_per_lane_warn_flags_ignores_other_banks(self, mem_eeprom, api):
@@ -229,7 +229,7 @@ class TestLaneFaultsWarnings:
         for offset in range(175, 178):
             mem_eeprom.memory[base + offset] = 0xFF
         result = api.get_per_lane_warn_flags()
-        assert set(result.values()) == {0}
+        assert set(result.values()) == {False}
 
     @pytest.mark.parametrize("bank", [0, 1, 2, 3])
     @pytest.mark.parametrize("method, base_offset, key_prefix", [
@@ -259,7 +259,7 @@ class TestLaneFaultsWarnings:
 
         # The byte for bank N sets bit N, i.e. lane N+1 of that bank.
         expected_lane = first_lane + bank + 1
-        assert result["%s%d" % (key_prefix, expected_lane)] == 1
+        assert result["%s%d" % (key_prefix, expected_lane)] is True
         assert sum(result.values()) == 1
 
 
@@ -864,3 +864,48 @@ class TestElsfpThresholdInfo:
         self._populate_thresholds(mem_eeprom)
         assert api.get_elsfp_threshold_info() == self.EXPECTED_THRESHOLD_INFO
 
+
+class TestElsfpStatusFlags:
+    """get_elsfp_status_flags()"""
+
+    def _populate_status_flags(self, mem_eeprom, bank=0):
+        """Raise a fault on two lanes and a warning on one, plus the module flags.
+
+        Byte 166 + bank gets a fault on the bank's first and third lanes and
+        byte 174 + bank a warning on its second lane. Byte 165 summarises those:
+        the module raises the summary bit whenever ANY lane has a fault or a
+        warning, so with both kinds present both bits are set.
+        """
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, 0)
+        mem_eeprom.memory[base + 165] = 0x0C  # bit 2: summary fault, bit 3: summary warning
+        mem_eeprom.memory[base + 166 + bank] = 0b0000_0101
+        mem_eeprom.memory[base + 174 + bank] = 0b0000_0010
+        # Page 00h lower byte 8: bit 2 datapath firmware fault, bit 1 module
+        # firmware fault, bit 0 module state changed.
+        mem_eeprom.memory[8] = 0b0000_0011
+
+    def test_get_elsfp_status_flags(self, mem_eeprom, api):
+        self._populate_status_flags(mem_eeprom)
+        assert api.get_elsfp_status_flags() == {
+            "lane_summary_fault": True,
+            "lane_summary_warning": True,
+            "datapath_firmware_fault": False,
+            "module_firmware_fault": True,
+            "module_state_changed": True,
+            "FaultFlagLane1": True,
+            "FaultFlagLane2": False,
+            "FaultFlagLane3": True,
+            "FaultFlagLane4": False,
+            "FaultFlagLane5": False,
+            "FaultFlagLane6": False,
+            "FaultFlagLane7": False,
+            "FaultFlagLane8": False,
+            "WarnFlagLane1": False,
+            "WarnFlagLane2": True,
+            "WarnFlagLane3": False,
+            "WarnFlagLane4": False,
+            "WarnFlagLane5": False,
+            "WarnFlagLane6": False,
+            "WarnFlagLane7": False,
+            "WarnFlagLane8": False,
+        }
