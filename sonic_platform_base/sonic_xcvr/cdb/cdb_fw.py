@@ -35,9 +35,9 @@ class CdbFwHandler(CdbCmdHandler):
             log.log_notice("Failed to read firmware management features")
             return False
 
-        self.start_payload_size = reply[cdb_consts.CDB_START_CMD_PAYLOAD_SIZE]
+        self.start_payload_size = int(reply[cdb_consts.CDB_START_CMD_PAYLOAD_SIZE])
         self.is_lpl_only = reply[cdb_consts.CDB_WRITE_MECHANISM] == "LPL"
-        self.rw_length_ext = reply[cdb_consts.CDB_READ_WRITE_LENGTH_EXT] + 8
+        self.rw_length_ext = int(reply[cdb_consts.CDB_READ_WRITE_LENGTH_EXT]) + 8
 
         if self.is_lpl_only:
             self.rw_length_ext = min(cdb_consts.LPL_MAX_PAYLOAD_SIZE, self.rw_length_ext)
