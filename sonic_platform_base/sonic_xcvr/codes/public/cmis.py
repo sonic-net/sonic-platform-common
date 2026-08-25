@@ -142,7 +142,13 @@ class CmisCodes(Sff8024):
         144: ['Rx Total Power [dBm]', 'S16', 0.01, 'B'],
         145: ['Rx Signal Power [dBm]', 'S16', 0.01, 'B'],
         146: ['SOP ROC [krad/s]', 'U16', 1, 'B'],
-        147: ['MER [dB]', 'U16', 0.1, 'B']
+        147: ['MER [dB]', 'U16', 0.1, 'B'],
+        148: ['Clock Recovery Loop [%]', 'S16', 100.0/32767, 'B'],
+        149: ['SOPMD low granularity [ps^2]', 'U16', 1, 'B'],
+        150: ['SNR Margin [dB]', 'S16', 0.1, 'B'],
+        151: ['Q-Factor [dB]', 'U16', 0.1, 'B'],
+        152: ['Q-Margin [dB]', 'S16', 0.1, 'B'],
+        153: ['CFO low granularity [MHz]', 'S16', 5, 'B']
     }
 
     CDB_FAIL_STATUS = {
