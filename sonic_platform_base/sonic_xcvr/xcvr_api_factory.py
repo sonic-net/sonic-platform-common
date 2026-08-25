@@ -16,6 +16,7 @@ from .mem_maps.public.cmis.c_cmis import CCmisMemMap
 
 from .codes.credo.aec_800g import CredoAec800gCodes
 from .api.credo.aec_800g import CredoAec800gApi
+from .api.credo.cmis_credo import CmisCredoApi
 from .mem_maps.credo.aec_800g import CredoAec800gMemMap
 
 from .api.arista.cmis_enhanced_lpo import CmisEnhancedLpoApi
@@ -41,7 +42,10 @@ from .api.public.sff8472 import Sff8472Api
 from .mem_maps.public.sff8472 import Sff8472MemMap
 
 CREDO_800G_AEC_VENDOR_PN_LIST = ["CAC81X321M2MC1MS", "CAC815321M2MC1MS", "CAC82X321M2MC1MS"]
+CREDO_ZFL_VENDOR_PN_LIST = ["CFZ8D8S2M12AA1HW"]
+
 ARISTA_ENHANCED_LPO_PN_LIST = ["LPO-800G-2DR4"]
+
 INL_800G_VENDOR_PN_LIST = ["T-DL8CNT-NCI", "T-DH8CNT-NCI", "T-DH8CNT-N00", "T-DP4CNH-NCI", "T-DP8CNT-NNO",
                            "T-DP8CNH-NNO", "T-DC8CNT-NNO", "T-DP8CNL-NNO", "T-OL8CNT-N00", "T-OH8CNH-N00",
                            "T-OH8CNH-NNO", "T-OL8CNT-NNO"]
@@ -59,9 +63,14 @@ class XcvrApiFactory(object):
         vendor_name = self.lower_memory_info.get_vendor_name()
         vendor_pn = self.lower_memory_info.get_vendor_part_num()
 
-        if vendor_name == 'Credo' and vendor_pn in CREDO_800G_AEC_VENDOR_PN_LIST:
-            xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CredoAec800gMemMap(CredoAec800gCodes, bank=bank))
-            api = CredoAec800gApi(xcvr_eeprom, init_cdb_fw_handler=True)
+        if vendor_name == 'Credo':
+            if vendor_pn in CREDO_800G_AEC_VENDOR_PN_LIST:
+                xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CredoAec800gMemMap(CredoAec800gCodes, bank=bank))
+                api = CredoAec800gApi(xcvr_eeprom, init_cdb_fw_handler=True)
+            else:
+                xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CmisMemMap(CmisCodes, bank=bank))
+                api = CmisCredoApi(xcvr_eeprom, init_cdb_fw_handler=True)
+
         elif ('INNOLIGHT' in vendor_name and vendor_pn in INL_800G_VENDOR_PN_LIST) or \
              ('EOPTOLINK' in vendor_name and vendor_pn in EOP_800G_VENDOR_PN_LIST):
             xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CmisMemMap(CmisCodes, bank=bank))
