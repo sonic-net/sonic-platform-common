@@ -5,6 +5,7 @@ class TestChassisBase:
     def test_reboot_cause(self):
         chassis = ChassisBase()
         assert(chassis.REBOOT_CAUSE_POWER_LOSS == "Power Loss")
+        assert(chassis.REBOOT_CAUSE_POWER_DOWN_REQUEST_FROM_BMC == "Power down request from BMC")
         assert(chassis.REBOOT_CAUSE_THERMAL_OVERLOAD_CPU == "Thermal Overload: CPU")
         assert(chassis.REBOOT_CAUSE_THERMAL_OVERLOAD_ASIC == "Thermal Overload: ASIC")
         assert(chassis.REBOOT_CAUSE_THERMAL_OVERLOAD_OTHER == "Thermal Overload: Other")
