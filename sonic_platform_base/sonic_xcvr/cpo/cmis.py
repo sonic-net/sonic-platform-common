@@ -15,7 +15,12 @@ This allows xcvrd to selectively read banked and non-banked information separate
 when required for CPO hardware.
 """
 
+import logging
+
 from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi
+
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 
 class CpoCmisApi(CmisApi):
@@ -23,6 +28,7 @@ class CpoCmisApi(CmisApi):
         temp = self.get_module_temperature()
         voltage = self.get_voltage()
         if temp is None or voltage is None:
+            logger.error('Could not read temp/voltage. temp: %r, voltage: %r', temp, voltage)
             return None
 
         bulk_status = {
@@ -33,8 +39,8 @@ class CpoCmisApi(CmisApi):
         laser_temp_dict = self.get_laser_temperature()
         try:
             bulk_status['laser_temperature'] = laser_temp_dict['monitor value']
-        except (KeyError, TypeError):
-            pass
+        except (KeyError, TypeError) as e:
+            logger.error('laser_temperature unavailable: %r', e)
 
         return bulk_status
 
@@ -43,6 +49,8 @@ class CpoCmisApi(CmisApi):
         rx_power = self.get_rx_power()
         tx_power = self.get_tx_power()
         if tx_bias is None or rx_power is None or tx_power is None:
+            logger.error('Could not read tx bias/rx power/tx power. tx_bias: %r, rx_power: %r, tx_power: %r',
+                         tx_bias, rx_power, tx_power)
             return None
 
         bulk_status = dict()
@@ -82,8 +90,8 @@ class CpoCmisApi(CmisApi):
                 'vccHWarn': voltage_flags['voltage_high_warn_flag'],
                 'vccLWarn': voltage_flags['voltage_low_warn_flag']
             })
-        except TypeError:
-            pass
+        except TypeError as e:
+            logger.error('Could not read module level case temp/voltage flags: %r', e)
         try:
             _, aux2_mon_type, aux3_mon_type = self.get_aux_mon_type()
             if aux2_mon_type == 0:
@@ -96,8 +104,8 @@ class CpoCmisApi(CmisApi):
                 dom_flag_dict['lasertempLAlarm'] = module_flag['aux3_flags']['aux3_low_alarm_flag']
                 dom_flag_dict['lasertempHWarn'] = module_flag['aux3_flags']['aux3_high_warn_flag']
                 dom_flag_dict['lasertempLWarn'] = module_flag['aux3_flags']['aux3_low_warn_flag']
-        except TypeError:
-            pass
+        except TypeError as e:
+            logger.error('Laser temperature flags unavailable: %r', e)
 
         return dom_flag_dict
 
@@ -189,8 +197,8 @@ class CpoCmisApi(CmisApi):
                 'module_firmware_fault': module_fw_fault,
                 'module_state_changed': module_state_changed
             })
-        except TypeError:
-            pass
+        except TypeError as e:
+            logger.error('Could not read module firmware fault state: %r', e)
 
         return status_flags_dict
 
