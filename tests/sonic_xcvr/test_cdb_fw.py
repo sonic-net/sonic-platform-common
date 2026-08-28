@@ -109,11 +109,13 @@ class TestCdbFwHandler:
         handler.read_reply = MagicMock(return_value={
             cdb_consts.CDB_START_CMD_PAYLOAD_SIZE: 256,
             cdb_consts.CDB_WRITE_MECHANISM: "EPL",
-            cdb_consts.CDB_READ_WRITE_LENGTH_EXT: 5000
+            cdb_consts.CDB_READ_WRITE_LENGTH_EXT: 800.0
         })
-        
+
         result = handler.initFwHandler()
         assert result == True
+        assert isinstance(handler.rw_length_ext, int)
+        assert handler.rw_length_ext == 808
 
     def test_get_fw_mgmt_features_none(self):
         """Test get_fw_mgmt_features returns None when both sizes are 0"""
