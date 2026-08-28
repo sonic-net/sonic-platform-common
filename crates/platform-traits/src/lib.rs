@@ -361,15 +361,13 @@ pub trait PlatformApi: Send {
     /// Not supported by default, as [`set_psu_led`](Self::set_psu_led) is: a
     /// platform whose fan LEDs are not software-controllable should not have to
     /// write a method to say so.
-    fn set_fan_led(
-        &mut self,
-        fan_name: &str,
-        drawer_name: &str,
-        color: &str,
-    ) -> Result<(), PlatformError> {
-        // Kept on one line: tarpaulin attributes a multi-line `format!` to its
-        // first line and reports the argument line as never hit.
-        Err(PlatformError::NotSupported(format!("fan LED for {fan_name} in {drawer_name} -> {color}")))
+    fn set_fan_led(&mut self, fan_name: &str, drawer_name: &str, color: &str) -> Result<(), PlatformError> {
+        // rustfmt owns this layout.  Note for anyone reading a coverage
+        // report: tarpaulin attributes a multi-line `format!` to its first
+        // line, so the argument line below shows as never hit even when it is.
+        Err(PlatformError::NotSupported(format!(
+            "fan LED for {fan_name} in {drawer_name} -> {color}"
+        )))
     }
 
     /// Leak sensor profiles, published once to `LEAK_PROFILE` at start-up.
@@ -401,9 +399,12 @@ pub trait PlatformApi: Send {
     /// hot-swappable PSU, so the colour published back in
     /// [`PsuInfo::status_led`] is the aggregate, not what was just requested.
     fn set_psu_led(&mut self, psu_name: &str, color: &str) -> Result<(), PlatformError> {
-        // Kept on one line: tarpaulin attributes a multi-line `format!` to its
-        // first line and reports the argument line as never hit.
-        Err(PlatformError::NotSupported(format!("status LED for {psu_name} -> {color}")))
+        // rustfmt owns this layout.  Note for anyone reading a coverage
+        // report: tarpaulin attributes a multi-line `format!` to its first
+        // line, so the argument line below shows as never hit even when it is.
+        Err(PlatformError::NotSupported(format!(
+            "status LED for {psu_name} -> {color}"
+        )))
     }
 
     /// Return the platform-specific thermal manager.
@@ -516,17 +517,11 @@ mod tests {
         assert!(matches!(err, PlatformError::NotSupported(_)));
         // The message names both the device and the colour, because it reaches
         // the daemon's log and "not supported" alone does not say what failed.
-        assert_eq!(
-            err.to_string(),
-            "not supported: status LED for PSU 1 -> green"
-        );
+        assert_eq!(err.to_string(), "not supported: status LED for PSU 1 -> green");
 
         let err = p.set_fan_led("fan1", "drawer1", "red").unwrap_err();
         assert!(matches!(err, PlatformError::NotSupported(_)));
-        assert_eq!(
-            err.to_string(),
-            "not supported: fan LED for fan1 in drawer1 -> red"
-        );
+        assert_eq!(err.to_string(), "not supported: fan LED for fan1 in drawer1 -> red");
     }
 
     /// `ThermalManager`'s lifecycle hooks are all no-ops by default, so a
