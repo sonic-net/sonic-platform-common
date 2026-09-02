@@ -856,8 +856,9 @@ class ChassisBase(device_base.DeviceBase):
         try:
             cpo = self._cpo_list[index]
         except IndexError:
-            sys.stderr.write("CPO index {} out of range (0-{})\n".format(
-                             index, len(self._cpo_list)-1))
+            if len(self._cpo_list) > 0:
+                sys.stderr.write("CPO index {} out of range (0-{})\n".format(
+                                 index, len(self._cpo_list)-1))
         return cpo
 
     def get_port_or_cage_type(self, index):

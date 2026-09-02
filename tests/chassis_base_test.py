@@ -343,3 +343,26 @@ class TestChassisBase:
 
         assert chassis.get_num_sfps() == 2
         assert chassis.get_num_cpos() == 0
+
+    def test_get_cpo_out_of_range(self, capsys):
+        """get_cpo() only logs an out-of-range index when the CPO list is populated."""
+        chassis = ChassisBase()
+
+        # Empty CPO list (non-CPO platform): out-of-range lookups stay silent so
+        # xcvrd's per-port probing does not spam the log.
+        assert chassis.get_cpo(0) is None
+        assert chassis.get_cpo(5) is None
+        assert capsys.readouterr().err == ""
+
+        cpo0, cpo1 = mock.MagicMock(), mock.MagicMock()
+        chassis._cpo_list = [cpo0, cpo1]
+        assert chassis.get_cpo(0) is cpo0
+        assert chassis.get_cpo(1) is cpo1
+        assert capsys.readouterr().err == ""
+
+        # Populated CPO list: out-of-range index is logged to stderr.
+        assert chassis.get_cpo(2) is None
+        assert "CPO index 2 out of range (0-1)" in capsys.readouterr().err
+
+        assert chassis.get_cpo(-3) is None
+        assert "CPO index -3 out of range (0-1)" in capsys.readouterr().err
