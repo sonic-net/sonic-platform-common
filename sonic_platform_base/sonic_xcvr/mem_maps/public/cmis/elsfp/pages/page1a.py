@@ -11,6 +11,7 @@ Layout follows OIF-ELSFP-CMIS-01.0 Tables 4-10 for:
 """
 
 from ...pages.page import CmisPage
+from ...pages.consts import CMIS_LANES_PER_BANK
 from .consts import ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE
 from ......fields.xcvr_field import (
     NumberRegField,
@@ -157,36 +158,43 @@ class ElsfpAdvertisementsFlagsCtrlPage(CmisPage):
                 format="B",
             ),
 
-            # Bytes 166-169: per-lane fault flags for lanes 1-32
-            RegGroupField(
-                elsfp_consts.FAULT_FLAG_LANE_FIELD,
-                *(
-                    NumberRegField(
-                        "%s%d" % ("FaultFlagLane", lane),
-                        self.getaddr(166 + (lane - 1) // 8),
-                        RegBitField(
-                            "Bit%d" % ((lane - 1) % 8),
-                            (lane - 1) % 8,
-                        ),
-                    )
-                    for lane in range(1, 33)
-                ),
+            # Bytes 166-169: per-lane fault flags for lanes 1-32, one byte per bank
+            # (166 = bank 0 / lanes 1-8, 167 = bank 1 / lanes 9-16, and so on). Each
+            # byte is a separate field because the flags are latched and cleared on
+            # read: reading one bank must not clear the other banks' flags. Lane
+            # numbering within the member fields stays absolute across all banks.
+            *(
+                RegGroupField(
+                    elsfp_consts.FAULT_FLAG_LANE_FIELDS[flag_bank],
+                    *(
+                        NumberRegField(
+                            "%s%d" % (elsfp_consts.FAULT_FLAG_LANE_PREFIX,
+                                      flag_bank * CMIS_LANES_PER_BANK + lane),
+                            self.getaddr(166 + flag_bank),
+                            RegBitField("Bit%d" % (lane - 1), lane - 1),
+                        )
+                        for lane in range(1, CMIS_LANES_PER_BANK + 1)
+                    ),
+                )
+                for flag_bank in range(len(elsfp_consts.FAULT_FLAG_LANE_FIELDS))
             ),
 
-            # Bytes 174-177: per-lane warning flags for lanes 1-32
-            RegGroupField(
-                elsfp_consts.WARN_FLAG_LANE_FIELD,
-                *(
-                    NumberRegField(
-                        "%s%d" % ("WarnFlagLane", lane),
-                        self.getaddr(174 + (lane - 1) // 8),
-                        RegBitField(
-                            "Bit%d" % ((lane - 1) % 8),
-                            (lane - 1) % 8,
-                        ),
-                    )
-                    for lane in range(1, 33)
-                ),
+            # Bytes 174-177: per-lane warning flags for lanes 1-32, split per bank
+            # exactly as the fault flags above (174 = bank 0, 175 = bank 1, ...).
+            *(
+                RegGroupField(
+                    elsfp_consts.WARN_FLAG_LANE_FIELDS[flag_bank],
+                    *(
+                        NumberRegField(
+                            "%s%d" % (elsfp_consts.WARN_FLAG_LANE_PREFIX,
+                                      flag_bank * CMIS_LANES_PER_BANK + lane),
+                            self.getaddr(174 + flag_bank),
+                            RegBitField("Bit%d" % (lane - 1), lane - 1),
+                        )
+                        for lane in range(1, CMIS_LANES_PER_BANK + 1)
+                    ),
+                )
+                for flag_bank in range(len(elsfp_consts.WARN_FLAG_LANE_FIELDS))
             ),
         ]
 
