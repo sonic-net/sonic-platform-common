@@ -879,7 +879,34 @@ class TestElsfpThresholdInfo:
 
 
 class TestElsfpStatusFlags:
-    """get_elsfp_status_flags()"""
+    """get_elsfp_status_flags() and the banked / non-banked halves it is composed of."""
+
+    EXPECTED_NON_BANKED_STATUS_FLAGS = {
+        "lane_summary_fault": True,
+        "lane_summary_warning": True,
+        "datapath_firmware_fault": False,
+        "module_firmware_fault": True,
+        "module_state_changed": True,
+    }
+
+    EXPECTED_BANKED_STATUS_FLAGS = {
+        "FaultFlagLane1": True,
+        "FaultFlagLane2": False,
+        "FaultFlagLane3": True,
+        "FaultFlagLane4": False,
+        "FaultFlagLane5": False,
+        "FaultFlagLane6": False,
+        "FaultFlagLane7": False,
+        "FaultFlagLane8": False,
+        "WarnFlagLane1": False,
+        "WarnFlagLane2": True,
+        "WarnFlagLane3": False,
+        "WarnFlagLane4": False,
+        "WarnFlagLane5": False,
+        "WarnFlagLane6": False,
+        "WarnFlagLane7": False,
+        "WarnFlagLane8": False,
+    }
 
     def _populate_status_flags(self, mem_eeprom, bank=0):
         """Raise a fault on two lanes and a warning on one, plus the module flags.
@@ -897,30 +924,37 @@ class TestElsfpStatusFlags:
         # firmware fault, bit 0 module state changed.
         mem_eeprom.memory[8] = 0b0000_0011
 
+    def test_get_non_banked_elsfp_status_flags(self, mem_eeprom, api):
+        self._populate_status_flags(mem_eeprom)
+        assert api.get_non_banked_elsfp_status_flags() == self.EXPECTED_NON_BANKED_STATUS_FLAGS
+
+    def test_get_banked_elsfp_status_flags(self, mem_eeprom, api):
+        self._populate_status_flags(mem_eeprom)
+        assert api.get_banked_elsfp_status_flags() == self.EXPECTED_BANKED_STATUS_FLAGS
+
+    def test_get_banked_elsfp_status_flags_reads_own_lane_group(self):
+        """A bank 1 API reads byte 167 / 175 and reports lanes 9-16, leaving the
+        other lane groups' latched flags untouched."""
+        eeprom = InMemoryEeprom(ElsfpMemMap(ElsfpCodes, bank=1), num_banks=4)
+        api = ElsfpApi(eeprom.eeprom)
+        self._populate_status_flags(eeprom, bank=1)
+        # Bank 0's lane group has every flag raised; none of it may leak through.
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 1, 0)
+        eeprom.memory[base + 166] = 0xFF
+        eeprom.memory[base + 174] = 0xFF
+
+        assert api.get_banked_elsfp_status_flags() == {
+            "%s%d" % (prefix, lane + CMIS_LANES_PER_BANK): value
+            for prefix in ("FaultFlagLane", "WarnFlagLane")
+            for lane in range(1, CMIS_LANES_PER_BANK + 1)
+            for value in [self.EXPECTED_BANKED_STATUS_FLAGS["%s%d" % (prefix, lane)]]
+        }
+
     def test_get_elsfp_status_flags(self, mem_eeprom, api):
         self._populate_status_flags(mem_eeprom)
         assert api.get_elsfp_status_flags() == {
-            "lane_summary_fault": True,
-            "lane_summary_warning": True,
-            "datapath_firmware_fault": False,
-            "module_firmware_fault": True,
-            "module_state_changed": True,
-            "FaultFlagLane1": True,
-            "FaultFlagLane2": False,
-            "FaultFlagLane3": True,
-            "FaultFlagLane4": False,
-            "FaultFlagLane5": False,
-            "FaultFlagLane6": False,
-            "FaultFlagLane7": False,
-            "FaultFlagLane8": False,
-            "WarnFlagLane1": False,
-            "WarnFlagLane2": True,
-            "WarnFlagLane3": False,
-            "WarnFlagLane4": False,
-            "WarnFlagLane5": False,
-            "WarnFlagLane6": False,
-            "WarnFlagLane7": False,
-            "WarnFlagLane8": False,
+            **self.EXPECTED_NON_BANKED_STATUS_FLAGS,
+            **self.EXPECTED_BANKED_STATUS_FLAGS,
         }
 
 

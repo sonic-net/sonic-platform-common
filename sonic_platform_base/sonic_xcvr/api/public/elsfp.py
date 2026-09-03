@@ -727,19 +727,35 @@ class ElsfpApi(XcvrApi):
             return None
         return {**non_banked_status, **banked_status}
 
-    def get_elsfp_status_flags(self) -> dict:
+    def get_non_banked_elsfp_status_flags(self) -> dict:
         status_flags = {
             "lane_summary_fault": self.get_lane_summary_fault(),
             "lane_summary_warning": self.get_lane_summary_warning()
         }
-        fault_flags = self.get_per_lane_fault_flags()
-        warn_flags = self.get_per_lane_warn_flags()
         firmware_fault_info = self.get_module_firmware_fault_info()
-        if None in status_flags.values() or fault_flags is None or warn_flags is None \
-                or firmware_fault_info is None:
+        if None in status_flags.values() or firmware_fault_info is None:
             return None
 
         status_flags.update(firmware_fault_info)
-        status_flags.update(fault_flags)
-        status_flags.update(warn_flags)
         return status_flags
+
+    def get_banked_elsfp_status_flags(self) -> dict:
+        # The per-lane fault and warning flags (page 1Ah bytes 166-169 and
+        # 174-177) are laid out linearly in the memory map and not banked in
+        # the traditional sense (requiring a write to the BankSelect register).
+        # Instead, the API only reads the byte associated with our bank, so
+        # we still consider this data bank dependent.
+        fault_flags = self.get_per_lane_fault_flags()
+        warn_flags = self.get_per_lane_warn_flags()
+        if fault_flags is None or warn_flags is None:
+            return None
+        return {**fault_flags, **warn_flags}
+
+    def get_elsfp_status_flags(self) -> dict:
+        # A 'None' from either half means an EEPROM read failed, so return 'None'
+        # to tell the caller to retry rather than handing back a partial dict.
+        non_banked_flags = self.get_non_banked_elsfp_status_flags()
+        banked_flags = self.get_banked_elsfp_status_flags()
+        if non_banked_flags is None or banked_flags is None:
+            return None
+        return {**non_banked_flags, **banked_flags}
