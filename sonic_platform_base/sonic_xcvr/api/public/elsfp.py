@@ -27,6 +27,7 @@ ELSFP_INFO_DEFAULT_DICT = {
         "cmis_rev": "N/A",
         "specification_compliance": "N/A",
         "vdm_supported": "N/A",
+        "cdb_supported": "N/A",
         "lane_count": "N/A",
         "control_mode": "N/A",
         "max_optical_power": "N/A",
@@ -460,6 +461,15 @@ class ElsfpApi(XcvrApi):
             "module_state_changed": bool(firmware_fault_info & 0x1)
         }
 
+    def is_cdb_supported(self) -> bool:
+        """
+        Returns whether the module advertises CDB support
+        """
+        cdb_inst = self.xcvr_eeprom.read(consts.CDB_SUPPORT)
+        if cdb_inst is None:
+            return None
+        return cdb_inst == 1 or cdb_inst == 2
+
     ###############################################################
     #      Aggregate APIs consumed directly by the xcvrd daemon   #
     ###############################################################
@@ -498,6 +508,7 @@ class ElsfpApi(XcvrApi):
                                    admin_info[consts.CMIS_MINOR_REVISION]),
             "specification_compliance": admin_info[consts.MEDIA_TYPE_FIELD],
             "vdm_supported": self.xcvr_eeprom.read(consts.VDM_SUPPORTED),
+            "cdb_supported": self.is_cdb_supported(),
             "lane_count": self.get_lane_count(),
             "control_mode": self.get_control_mode(),
             "max_optical_power": self.get_max_optical_power(),

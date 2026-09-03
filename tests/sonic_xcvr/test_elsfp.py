@@ -728,6 +728,7 @@ class TestElsfpInfo:
         "cmis_rev": "1.0",
         "specification_compliance": "sm_media_interface",
         "vdm_supported": True,
+        "cdb_supported": True,
         "lane_count": CMIS_LANES_PER_BANK,
         "control_mode": "APC",
         "max_optical_power": 10.0,
@@ -769,6 +770,7 @@ class TestElsfpInfo:
         mem[page_01_base + 130] = 1                 # hardware revision major
         mem[page_01_base + 131] = 2                 # hardware revision minor
         mem[page_01_base + 142] = 1 << 6            # PageSupportAdvertisement: VdmSupported
+        mem[page_01_base + 163] = 1 << 6            # CdbSupport: one CDB instance
         # Page 1Ah (bank 0).
         base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 0)
         # Max/min optical power, scale=100.0 (10 uW steps -> mW).
@@ -789,6 +791,17 @@ class TestElsfpInfo:
     def test_get_elsfp_info(self, mem_eeprom, api):
         self._populate_info(mem_eeprom)
         assert api.get_elsfp_info() == self.EXPECTED_INFO
+
+    @pytest.mark.parametrize("cdb_inst, expected", [
+        (0, False),   # CDB not supported
+        (1, True),    # one CDB instance
+        (2, True),    # two CDB instances
+        (3, False),   # reserved encoding
+    ])
+    def test_is_cdb_supported(self, mem_eeprom, api, cdb_inst, expected):
+        page_01_base = CmisPage.linear_offset(ADVERTISING_PAGE, 0, 0)
+        mem_eeprom.memory[page_01_base + 163] = cdb_inst << 6
+        assert api.is_cdb_supported() is expected
 
 
 class TestElsfpThresholdInfo:
