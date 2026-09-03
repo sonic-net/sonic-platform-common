@@ -1,10 +1,13 @@
 from dataclasses import dataclass
 
 from sonic_platform_base.sonic_xcvr.api.broadcom.davisson_elsfp import DavissonTh6ElsfpApi
+from sonic_platform_base.sonic_xcvr.api.nvidia.cpo_els import NvidiaCpoElsCmisApi
+from sonic_platform_base.sonic_xcvr.codes.nvidia.cpo_els import NvidiaCpoElsCodes
 from sonic_platform_base.sonic_xcvr.codes.public.elsfp import ElsfpCodes
 from sonic_platform_base.sonic_xcvr.cpo.cpo_base import CpoApiFactory, CpoDeviceBase, OeId
 from sonic_platform_base.sonic_xcvr.eeprom_rw import ModuleEepromLowerMemoryInfo
 from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.davisson_elsfp import DavissonTh6ElsfpMemMap
+from sonic_platform_base.sonic_xcvr.mem_maps.nvidia.cpo_els import NvidiaCpoElsCmisMemMap
 
 
 @dataclass
@@ -35,6 +38,13 @@ class ElsfpApiFactory(CpoApiFactory):
                     codes_class=ElsfpCodes,
                     mem_map_class=DavissonTh6ElsfpMemMap,
                     api_class=DavissonTh6ElsfpApi
+                )
+
+            if self._device.hardware_id.oe_id == OeId.NVIDIA_SPC6_CPO:
+                return self._create_api(
+                    codes_class=NvidiaCpoElsCodes,
+                    mem_map_class=NvidiaCpoElsCmisMemMap,
+                    api_class=NvidiaCpoElsCmisApi
                 )
 
         # if self._device.hardware_id.elsfp_id == ElsfpId.EXAMPLE:
