@@ -485,7 +485,12 @@ class ElsfpApi(XcvrApi):
 
         lane_to_fiber_mapping = self.get_lane_to_fiber_mapping()
         lane_frequency = self.get_per_lane_freq()
-        if lane_to_fiber_mapping is None or lane_frequency is None:
+        max_optical_power = self.get_max_optical_power()
+        min_optical_power = self.get_min_optical_power()
+        max_laser_bias = self.get_max_laser_bias()
+        min_laser_bias = self.get_min_laser_bias()
+        if None in (lane_to_fiber_mapping, lane_frequency, max_optical_power, min_optical_power,
+                    max_laser_bias, min_laser_bias):
             return None
 
         info = copy.deepcopy(ELSFP_INFO_DEFAULT_DICT)
@@ -511,10 +516,10 @@ class ElsfpApi(XcvrApi):
             "cdb_supported": self.is_cdb_supported(),
             "lane_count": self.get_lane_count(),
             "control_mode": self.get_control_mode(),
-            "max_optical_power": self.get_max_optical_power(),
-            "min_optical_power": self.get_min_optical_power(),
-            "max_laser_bias": self.get_max_laser_bias(),
-            "min_laser_bias": self.get_min_laser_bias()
+            "max_optical_power": float("{:.3f}".format(self.mw_to_dbm(max_optical_power))),
+            "min_optical_power": float("{:.3f}".format(self.mw_to_dbm(min_optical_power))),
+            "max_laser_bias": float("{:.3f}".format(self.amps_to_ma(max_laser_bias))),
+            "min_laser_bias": float("{:.3f}".format(self.amps_to_ma(min_laser_bias)))
         })
 
         # Per-lane fields are flattened to "<name>_lane<N>" scalars, with N the
@@ -572,13 +577,16 @@ class ElsfpApi(XcvrApi):
         dom["icc"] = icc
 
         # Per-lane monitors are flattened to "<name>_lane<N>" scalars, with N the
-        # absolute lane number for the selected bank.
+        # absolute lane number for the selected bank. Units are normalized to
+        # match the units that their associated thresholds are reported in.
         first_lane = self.xcvr_eeprom.mem_map.bank * CMIS_LANES_PER_BANK + 1
-        for name, field, values in (("laser_bias_current", elsfp_consts.BIAS_CURRENT_MONITOR_FIELD, bias_current),
-                                    ("optical_power", elsfp_consts.OPT_POWER_MONITOR_FIELD, optical_power),
-                                    ("voltage", elsfp_consts.VOLTAGE_MONITOR_FIELD, voltage)):
+        for name, field, values, convert in (
+                ("laser_bias_current", elsfp_consts.BIAS_CURRENT_MONITOR_FIELD, bias_current, self.amps_to_ma),
+                ("optical_power", elsfp_consts.OPT_POWER_MONITOR_FIELD, optical_power, self.mw_to_dbm),
+                ("voltage", elsfp_consts.VOLTAGE_MONITOR_FIELD, voltage, lambda volts: volts)):
             for index in range(len(values)):
-                dom["%s_lane%d" % (name, first_lane + index)] = values["%s%d" % (field, index + 1)]
+                value = convert(values["%s%d" % (field, index + 1)])
+                dom["%s_lane%d" % (name, first_lane + index)] = float("{:.3f}".format(value))
         return dom
 
     def get_elsfp_dom_real_value(self) -> dict:
@@ -660,7 +668,7 @@ class ElsfpApi(XcvrApi):
             return None
 
         threshold_info = {
-            **{name: float("{:.3f}".format(amps * 1000)) for name, amps in bias_thresholds.items()},
+            **{name: float("{:.3f}".format(self.amps_to_ma(amps))) for name, amps in bias_thresholds.items()},
             **{name: float("{:.3f}".format(self.mw_to_dbm(mw)))
                for name, mw in optical_power_thresholds.items()}
         }

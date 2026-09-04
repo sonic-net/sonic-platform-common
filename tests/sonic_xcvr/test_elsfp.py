@@ -532,13 +532,26 @@ class TestElsfpDomRealValue:
         "voltage": 3.3,
     }
 
+    # Per-lane optical power test values, one row per lane: the raw register
+    # value (10 uW steps), the mW it decodes to, and the dBm the API reports.
+    OPTICAL_POWER_LANES = [
+        (1,      0.01,   -20.0),
+        (10,     0.1,    -10.0),
+        (50,     0.5,    -3.01),
+        (100,    1.0,     0.0),
+        (200,    2.0,     3.01),
+        (500,    5.0,     6.99),
+        (1000,  10.0,    10.0),
+        (10000, 100.0,   20.0),
+    ]
+
     # Per-lane monitors are flattened to "<name>_lane<N>" scalars with absolute
     # lane numbers.
     EXPECTED_BANKED_DOM = {
-        **{"laser_bias_current_lane%d" % lane: 0.01 * lane
+        **{"laser_bias_current_lane%d" % lane: 10.0 * lane
            for lane in range(1, CMIS_LANES_PER_BANK + 1)},
-        **{"optical_power_lane%d" % lane: 2.0 * lane
-           for lane in range(1, CMIS_LANES_PER_BANK + 1)},
+        **{"optical_power_lane%d" % (index + 1): dbm
+           for index, (_, _, dbm) in enumerate(OPTICAL_POWER_LANES)},
         **{"voltage_lane%d" % lane: pytest.approx(0.15 * lane)
            for lane in range(1, CMIS_LANES_PER_BANK + 1)},
         "icc": 0.2,
@@ -562,7 +575,8 @@ class TestElsfpDomRealValue:
             mem[bias_offset:bias_offset + 2] = struct.pack(">H", 100 * lane)
             # Optical power monitor: 2 bytes per lane from 200, scale=100.0 -> mW.
             power_offset = base + 200 + 2 * (lane - 1)
-            mem[power_offset:power_offset + 2] = struct.pack(">H", 200 * lane)
+            raw_power = self.OPTICAL_POWER_LANES[lane - 1][0]
+            mem[power_offset:power_offset + 2] = struct.pack(">H", raw_power)
             # Voltage monitor: 1 byte per lane from 232, 15 mV steps -> V.
             mem[base + 232 + (lane - 1)] = 10 * lane
         # ICC monitor: bytes 240-241, scale=5000.0 -> A.
@@ -593,8 +607,8 @@ class TestElsfpDomRealValue:
             for lane in expected_lanes
         }
         # The bank's first register maps to its first absolute lane.
-        assert dom["laser_bias_current_lane%d" % first_lane] == 0.01
-        assert dom["optical_power_lane%d" % (first_lane + 1)] == 4.0
+        assert dom["laser_bias_current_lane%d" % first_lane] == 10.0
+        assert dom["optical_power_lane%d" % (first_lane + 1)] == self.OPTICAL_POWER_LANES[1][2]
 
     def test_get_elsfp_dom_real_value_is_union_of_halves(self, mem_eeprom, api):
         self._populate_non_banked_dom(mem_eeprom)
@@ -748,9 +762,9 @@ class TestElsfpInfo:
         "lane_count": CMIS_LANES_PER_BANK,
         "control_mode": "APC",
         "max_optical_power": 10.0,
-        "min_optical_power": 5.0,
-        "max_laser_bias": 0.1,
-        "min_laser_bias": 0.05,
+        "min_optical_power": 6.99,
+        "max_laser_bias": 100.0,
+        "min_laser_bias": 50.0,
         # Per-lane fields are flattened to "<name>_lane<N>" scalars with
         # absolute lane numbers.
         **{"fiber_mapping_lane%d" % lane: lane
