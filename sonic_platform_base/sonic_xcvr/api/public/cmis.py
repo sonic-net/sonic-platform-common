@@ -323,6 +323,90 @@ class CmisApi(CmisCdbFw, XcvrApi):
         cmis_rev = [str(num) for num in [cmis_major, cmis_minor]]
         return '.'.join(cmis_rev)
 
+    def _supports_password_cmd_result(self):
+        """
+        Whether the PasswordCmdResult register (00h:42.3-0) is defined for this
+        module. It was introduced in CMIS 5.3; on earlier modules those bits are
+        reserved, so their value must not be used to judge password acceptance.
+
+        Returns False if the CMIS revision cannot be determined, so the code
+        does not interpret a reserved register on a legacy module.
+        """
+        try:
+            major, minor = (int(part) for part in self.get_cmis_rev().split("."))
+        except (AttributeError, ValueError):
+            return False
+        return (major, minor) >= consts.PASSWORD_RESULT_MIN_CMIS_REV
+
+    def _read_password_cmd_result(self):
+        """
+        Poll PasswordCmdResult (00h:42.3-0) until validation completes.
+
+        Per CMIS 8.2.14, after a password entry/change WRITE the module updates
+        PasswordCmdResult within tWRITE, and until then may report "validation
+        in progress" or reject reads of the register. Poll past those transient
+        states, bounded by PASSWORD_RESULT_POLL_TIMEOUT.
+
+        Returns the 4-bit result code, or None if it could not be determined
+        within the timeout.
+        """
+        elapsed = 0
+        while elapsed < consts.PASSWORD_RESULT_POLL_TIMEOUT:
+            result = self.xcvr_eeprom.read(consts.PASSWORD_CMD_RESULT)
+            if result is not None and \
+                    result != consts.PASSWORD_RESULT_IN_PROGRESS:
+                return result
+            time.sleep(consts.PASSWORD_RESULT_POLL_INTERVAL / 1000)
+            elapsed += consts.PASSWORD_RESULT_POLL_INTERVAL
+        return None
+
+    def enter_password_via_memory(self, password):
+        """
+        Enter the host password by writing the 4-byte value (MSB first) to the
+        Password Entry Area (page 00h bytes 122-125). This is the non-CDB
+        password entry method, used as a fallback for modules that unlock via
+        that register rather than CDB command 0001h.
+
+        Per CMIS 8.2.14 the write only delivers the password; its acceptance is
+        reported asynchronously in PasswordCmdResult (00h:42.3-0), which is only
+        defined on CMIS 5.3+ modules. So:
+          - On CMIS 5.3+, poll PasswordCmdResult and honor its verdict; a module
+            that explicitly rejects the password returns False.
+          - On earlier modules the register is reserved, so a successful write
+            is taken at face value (best-effort). The same best-effort result is
+            returned on 5.3+ when the register reports "not supported" or its
+            outcome cannot be determined.
+
+        Returns True if the password was accepted (or, best-effort, delivered),
+        False otherwise.
+        """
+        # NumberRegField(format=">I") packs the password MSB-first for us.
+        if not self.xcvr_eeprom.write(consts.PASSWORD_ENTRY, password):
+            logger.warning("Password Entry Area write failed")
+            return False
+
+        # PasswordCmdResult (00h:42.3-0) only exists on CMIS 5.3+. On earlier
+        # modules there is no register to confirm acceptance, so treat the
+        # successful write as success.
+        if not self._supports_password_cmd_result():
+            return True
+
+        result = self._read_password_cmd_result()
+        if result in (consts.PASSWORD_RESULT_HOST_ACCEPTED,
+                      consts.PASSWORD_RESULT_MODULE_ACCEPTED):
+            return True
+
+        if result == consts.PASSWORD_RESULT_NOT_ACCEPTED:
+            # Module honored the Password Entry Area and rejected the password.
+            logger.warning("Password not accepted by the module (PasswordCmdResult=0x3)")
+            return False
+
+        # 5.3+ module but the result is NOT_SUPPORTED or could not be determined:
+        # no register confirmation available, so treat the write as best-effort.
+        logger.warning("PasswordCmdResult unavailable (result={}); "
+                       "treating Password Entry Area write as best-effort".format(result))
+        return True
+
     # Transceiver status
     def get_module_state(self):
         '''
