@@ -645,10 +645,10 @@ class ElsfpApi(XcvrApi):
     def get_elsfp_threshold_info(self) -> dict:
         # ELSFP specific thresholds (Page 1Ah)
         bias_thresholds = {
-            "bias_alarm_high": self.get_laser_bias_high_alarm(),
-            "bias_alarm_low": self.get_laser_bias_low_alarm(),
-            "bias_warn_high": self.get_laser_bias_high_warn(),
-            "bias_warn_low": self.get_laser_bias_low_warn()
+            "laser_bias_alarm_high": self.get_laser_bias_high_alarm(),
+            "laser_bias_alarm_low": self.get_laser_bias_low_alarm(),
+            "laser_bias_warn_high": self.get_laser_bias_high_warn(),
+            "laser_bias_warn_low": self.get_laser_bias_low_warn()
         }
         optical_power_thresholds = {
             "optical_power_alarm_high": self.get_optical_power_high_alarm(),
@@ -673,14 +673,14 @@ class ElsfpApi(XcvrApi):
         tx_bias_scale = 2**tx_bias_scale_raw if tx_bias_scale_raw < 3 else 1
 
         threshold_info.update({
-            "temphighalarm": float("{:.3f}".format(thresh[consts.TEMP_HIGH_ALARM_FIELD])),
-            "templowalarm": float("{:.3f}".format(thresh[consts.TEMP_LOW_ALARM_FIELD])),
-            "temphighwarning": float("{:.3f}".format(thresh[consts.TEMP_HIGH_WARNING_FIELD])),
-            "templowwarning": float("{:.3f}".format(thresh[consts.TEMP_LOW_WARNING_FIELD])),
-            "vcchighalarm": float("{:.3f}".format(thresh[consts.VOLTAGE_HIGH_ALARM_FIELD])),
-            "vcclowalarm": float("{:.3f}".format(thresh[consts.VOLTAGE_LOW_ALARM_FIELD])),
-            "vcchighwarning": float("{:.3f}".format(thresh[consts.VOLTAGE_HIGH_WARNING_FIELD])),
-            "vcclowwarning": float("{:.3f}".format(thresh[consts.VOLTAGE_LOW_WARNING_FIELD])),
+            "temperature_alarm_high": float("{:.3f}".format(thresh[consts.TEMP_HIGH_ALARM_FIELD])),
+            "temperature_alarm_low": float("{:.3f}".format(thresh[consts.TEMP_LOW_ALARM_FIELD])),
+            "temperature_warn_high": float("{:.3f}".format(thresh[consts.TEMP_HIGH_WARNING_FIELD])),
+            "temperature_warn_low": float("{:.3f}".format(thresh[consts.TEMP_LOW_WARNING_FIELD])),
+            "voltage_alarm_high": float("{:.3f}".format(thresh[consts.VOLTAGE_HIGH_ALARM_FIELD])),
+            "voltage_alarm_low": float("{:.3f}".format(thresh[consts.VOLTAGE_LOW_ALARM_FIELD])),
+            "voltage_warn_high": float("{:.3f}".format(thresh[consts.VOLTAGE_HIGH_WARNING_FIELD])),
+            "voltage_warn_low": float("{:.3f}".format(thresh[consts.VOLTAGE_LOW_WARNING_FIELD])),
             "rxpowerhighalarm": float("{:.3f}".format(self.mw_to_dbm(thresh[consts.RX_POWER_HIGH_ALARM_FIELD]))),
             "rxpowerlowalarm": float("{:.3f}".format(self.mw_to_dbm(thresh[consts.RX_POWER_LOW_ALARM_FIELD]))),
             "rxpowerhighwarning": float("{:.3f}".format(self.mw_to_dbm(thresh[consts.RX_POWER_HIGH_WARNING_FIELD]))),
