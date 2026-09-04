@@ -158,17 +158,67 @@ class TestEepromTlvinfo:
             assert exit_mock.called
 
     def test_eeprom_tlvinfo_update_eeprom_db(self):
-        # Test updating eeprom to DB by mocking redis hmset
+        # Test updating eeprom to DB by mocking the STATE_DB connector hmset.
+        # Inject a mock connector before touching .state_db so the property
+        # never builds a real SonicV2Connector / connects to STATE_DB.
         eeprom_class = eeprom_tlvinfo.TlvInfoDecoder(EEPROM_SYMLINK_FULL_PATH, 0, '', True)
         eeprom = eeprom_class.read_eeprom()
-        eeprom_class.redis_client.hmset = mock.MagicMock(return_value = True)
+        eeprom_class._state_db = mock.MagicMock()
+        eeprom_class._state_db.hmset = mock.MagicMock(return_value = True)
         assert(0 == eeprom_class.update_eeprom_db(eeprom))
 
+        # _hmset must coerce every value to str: SonicV2Connector.hmset takes a
+        # map<string,string> and rejects ints, whereas redis-py stringified
+        # them implicitly. Assert on every captured hmset call.
+        assert eeprom_class._state_db.hmset.call_count > 0
+        for call in eeprom_class._state_db.hmset.call_args_list:
+            fvs = call.args[2]
+            for field, value in fvs.items():
+                assert isinstance(value, str), \
+                    "hmset value for {!r} is {!r}, expected str".format(field, value)
+
     def test_eeprom_tlvinfo_read_eeprom_db(self):
-        # Test reading from DB by mocking redis hget
+        # Test reading from DB by mocking the STATE_DB connector get.
+        # SonicV2Connector.get() returns a decoded str (not bytes), so the
+        # side_effect returns field-specific decoded values (including a
+        # trailing-NUL value that _redis_hget must strip, and None for a
+        # missing field) rather than a constant, and the connector calls are
+        # asserted below.
         eeprom_class = eeprom_tlvinfo.TlvInfoDecoder(EEPROM_SYMLINK_FULL_PATH, 0, '', True)
-        eeprom_class.redis_client.hget = mock.MagicMock(return_value = b'1')
+
+        # Inject a mock connector before touching .state_db so the property
+        # never builds a real SonicV2Connector / connects to STATE_DB.
+        eeprom_class._state_db = mock.MagicMock()
+        state_db = eeprom_class.state_db
+        db_values = {
+            ('EEPROM_INFO|State', 'Initialized'): '1',
+            # Trailing NUL must be stripped by _redis_hget.rstrip('\0').
+            ('EEPROM_INFO|TlvHeader', 'Version'): '1\x00',
+            ('EEPROM_INFO|TlvHeader', 'Id String'): 'TlvInfo',
+            ('EEPROM_INFO|TlvHeader', 'Total Length'): '170',
+            ('EEPROM_INFO|Checksum', 'Valid'): '1',
+        }
+
+        def fake_get(db, key, field):
+            # Only STATE_DB is expected; a missing field yields None so the
+            # None-handling path (e.g. Num_vendor_ext -> ValueError/TypeError)
+            # is exercised too.
+            assert db == state_db.STATE_DB
+            return db_values.get((key, field))
+
+        state_db.get = mock.MagicMock(side_effect=fake_get)
+
         assert(0 == eeprom_class.read_eeprom_db())
+
+        # The Initialized gate and the header/checksum fields must have been
+        # read from STATE_DB via the connector.
+        state_db.get.assert_any_call(state_db.STATE_DB, 'EEPROM_INFO|State', 'Initialized')
+        state_db.get.assert_any_call(state_db.STATE_DB, 'EEPROM_INFO|TlvHeader', 'Version')
+        state_db.get.assert_any_call(state_db.STATE_DB, 'EEPROM_INFO|Checksum', 'Valid')
+        # The trailing NUL on Version must be stripped before use.
+        assert eeprom_class._redis_hget('EEPROM_INFO|TlvHeader', 'Version') == '1'
+        # A field absent from the DB decodes to None (no NUL-strip on None).
+        assert eeprom_class._redis_hget('EEPROM_INFO|TlvHeader', 'Missing') is None
 
 class TestEepromDecoder(object):
     def setup(self):

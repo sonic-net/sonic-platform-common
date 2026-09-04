@@ -14,7 +14,6 @@ except ImportError:
     # environments.
     device_info = None
 from . import device_base
-from . import sfp_base
 
 class ChassisBase(device_base.DeviceBase):
     """
