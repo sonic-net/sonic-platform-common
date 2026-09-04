@@ -33,9 +33,7 @@ ELSFP_INFO_DEFAULT_DICT = {
         "max_optical_power": "N/A",
         "min_optical_power": "N/A",
         "max_laser_bias": "N/A",
-        "min_laser_bias": "N/A",
-        "lane_to_fiber_mapping": "N/A",
-        "lane_frequency": "N/A"
+        "min_laser_bias": "N/A"
         }
 
 
@@ -45,9 +43,6 @@ ELSFP_NON_BANKED_DOM_REAL_VALUE_DEFAULT_DICT = {
         }
 
 ELSFP_BANKED_DOM_REAL_VALUE_DEFAULT_DICT = {
-        "per_lane_laser_bias_current": "N/A",
-        "per_lane_optical_power": "N/A",
-        "per_lane_voltage": "N/A",
         "icc": "N/A"
         }
 
@@ -488,6 +483,11 @@ class ElsfpApi(XcvrApi):
         hardware_rev = None if hw_major_rev is None or hw_minor_rev is None \
             else "%s.%s" % (hw_major_rev, hw_minor_rev)
 
+        lane_to_fiber_mapping = self.get_lane_to_fiber_mapping()
+        lane_frequency = self.get_per_lane_freq()
+        if lane_to_fiber_mapping is None or lane_frequency is None:
+            return None
+
         info = copy.deepcopy(ELSFP_INFO_DEFAULT_DICT)
         info.update({
             "type": admin_info[consts.ID_FIELD],
@@ -514,10 +514,17 @@ class ElsfpApi(XcvrApi):
             "max_optical_power": self.get_max_optical_power(),
             "min_optical_power": self.get_min_optical_power(),
             "max_laser_bias": self.get_max_laser_bias(),
-            "min_laser_bias": self.get_min_laser_bias(),
-            "lane_to_fiber_mapping": self.get_lane_to_fiber_mapping(),
-            "lane_frequency": self.get_per_lane_freq()
+            "min_laser_bias": self.get_min_laser_bias()
         })
+
+        # Per-lane fields are flattened to "<name>_lane<N>" scalars, with N the
+        # absolute lane number for the selected bank.
+        first_lane = self.xcvr_eeprom.mem_map.bank * CMIS_LANES_PER_BANK + 1
+        for name, field, values in (("fiber_mapping", elsfp_consts.LANE_TO_FIBER_MAPPING_FIELD,
+                                     lane_to_fiber_mapping),
+                                    ("frequency", elsfp_consts.LANE_FREQ_FIELD, lane_frequency)):
+            for index in range(len(values)):
+                info["%s_lane%d" % (name, first_lane + index)] = values["%s%d" % (field, index + 1)]
 
         # A 'None' means an EEPROM read failed, so return 'None' to tell the
         # caller to retry rather than handing back a partial dict.
@@ -554,16 +561,24 @@ class ElsfpApi(XcvrApi):
         return dom
 
     def get_banked_elsfp_dom_real_value(self) -> dict:
-        dom = copy.deepcopy(ELSFP_BANKED_DOM_REAL_VALUE_DEFAULT_DICT)
-        dom.update({
-            "per_lane_laser_bias_current": self.get_per_lane_bias_current_monitor(),
-            "per_lane_optical_power": self.get_per_lane_opt_power_monitor(),
-            "per_lane_voltage": self.get_per_lane_voltage_monitor(),
-            "icc": self.get_icc_monitor()
-        })
-
-        if None in dom.values():
+        bias_current = self.get_per_lane_bias_current_monitor()
+        optical_power = self.get_per_lane_opt_power_monitor()
+        voltage = self.get_per_lane_voltage_monitor()
+        icc = self.get_icc_monitor()
+        if None in (bias_current, optical_power, voltage, icc):
             return None
+
+        dom = copy.deepcopy(ELSFP_BANKED_DOM_REAL_VALUE_DEFAULT_DICT)
+        dom["icc"] = icc
+
+        # Per-lane monitors are flattened to "<name>_lane<N>" scalars, with N the
+        # absolute lane number for the selected bank.
+        first_lane = self.xcvr_eeprom.mem_map.bank * CMIS_LANES_PER_BANK + 1
+        for name, field, values in (("laser_bias_current", elsfp_consts.BIAS_CURRENT_MONITOR_FIELD, bias_current),
+                                    ("optical_power", elsfp_consts.OPT_POWER_MONITOR_FIELD, optical_power),
+                                    ("voltage", elsfp_consts.VOLTAGE_MONITOR_FIELD, voltage)):
+            for index in range(len(values)):
+                dom["%s_lane%d" % (name, first_lane + index)] = values["%s%d" % (field, index + 1)]
         return dom
 
     def get_elsfp_dom_real_value(self) -> dict:
@@ -749,7 +764,17 @@ class ElsfpApi(XcvrApi):
         warn_flags = self.get_per_lane_warn_flags()
         if fault_flags is None or warn_flags is None:
             return None
-        return {**fault_flags, **warn_flags}
+
+        # Flatten and convert the mem-map names ("FaultFlagLane9") in these dictionaries
+        # to the snake case "<name>_lane<N>".
+        status_flags = {}
+        first_lane = self.xcvr_eeprom.mem_map.bank * CMIS_LANES_PER_BANK + 1
+        for name, prefix, flags in (("fault_flag", elsfp_consts.FAULT_FLAG_LANE_PREFIX, fault_flags),
+                                    ("warning_flag", elsfp_consts.WARN_FLAG_LANE_PREFIX, warn_flags)):
+            for index in range(len(flags)):
+                lane = first_lane + index
+                status_flags["%s_lane%d" % (name, lane)] = flags["%s%d" % (prefix, lane)]
+        return status_flags
 
     def get_elsfp_status_flags(self) -> dict:
         # A 'None' from either half means an EEPROM read failed, so return 'None'

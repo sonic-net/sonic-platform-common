@@ -532,19 +532,15 @@ class TestElsfpDomRealValue:
         "voltage": 3.3,
     }
 
+    # Per-lane monitors are flattened to "<name>_lane<N>" scalars with absolute
+    # lane numbers.
     EXPECTED_BANKED_DOM = {
-        "per_lane_laser_bias_current": {
-            "BiasCurrentMonitor%d" % lane: 0.01 * lane
-            for lane in range(1, CMIS_LANES_PER_BANK + 1)
-        },
-        "per_lane_optical_power": {
-            "OptPowerMonitor%d" % lane: 2.0 * lane
-            for lane in range(1, CMIS_LANES_PER_BANK + 1)
-        },
-        "per_lane_voltage": {
-            "VoltageMonitor%d" % lane: pytest.approx(0.15 * lane)
-            for lane in range(1, CMIS_LANES_PER_BANK + 1)
-        },
+        **{"laser_bias_current_lane%d" % lane: 0.01 * lane
+           for lane in range(1, CMIS_LANES_PER_BANK + 1)},
+        **{"optical_power_lane%d" % lane: 2.0 * lane
+           for lane in range(1, CMIS_LANES_PER_BANK + 1)},
+        **{"voltage_lane%d" % lane: pytest.approx(0.15 * lane)
+           for lane in range(1, CMIS_LANES_PER_BANK + 1)},
         "icc": 0.2,
     }
 
@@ -556,9 +552,9 @@ class TestElsfpDomRealValue:
         # Voltage: bytes 16-17, scale=10000.0 -> V.
         mem[16:18] = struct.pack(">H", 33000)
 
-    def _populate_banked_dom(self, mem_eeprom):
-        """Fill page 1Bh (bank 0) with the per-lane monitors."""
-        base = CmisPage.linear_offset(ELSFP_SETPOINTS_MON_PAGE, 0, 0)
+    def _populate_banked_dom(self, mem_eeprom, bank=0):
+        """Fill page 1Bh of the given bank with the per-lane monitors."""
+        base = CmisPage.linear_offset(ELSFP_SETPOINTS_MON_PAGE, bank, 0)
         mem = mem_eeprom.memory
         for lane in range(1, CMIS_LANES_PER_BANK + 1):
             # Bias current monitor: 2 bytes per lane from 184, scale=10000.0 -> A.
@@ -579,6 +575,26 @@ class TestElsfpDomRealValue:
     def test_get_banked_elsfp_dom_real_value(self, mem_eeprom, api):
         self._populate_banked_dom(mem_eeprom)
         assert api.get_banked_elsfp_dom_real_value() == self.EXPECTED_BANKED_DOM
+
+    @pytest.mark.parametrize("bank", [0, 1, 2, 3])
+    def test_banked_dom_uses_absolute_lane_numbers(self, bank):
+        """Bank N keys its monitors by absolute lane, e.g. bank 1 -> lanes 9-16."""
+        mem_eeprom = InMemoryEeprom(ElsfpMemMap(ElsfpCodes, bank=bank), num_banks=4)
+        api = ElsfpApi(mem_eeprom.eeprom)
+        self._populate_banked_dom(mem_eeprom, bank)
+
+        dom = api.get_banked_elsfp_dom_real_value()
+
+        first_lane = CMIS_LANES_PER_BANK * bank + 1
+        expected_lanes = range(first_lane, first_lane + CMIS_LANES_PER_BANK)
+        assert set(dom) == {"icc"} | {
+            "%s_lane%d" % (name, lane)
+            for name in ("laser_bias_current", "optical_power", "voltage")
+            for lane in expected_lanes
+        }
+        # The bank's first register maps to its first absolute lane.
+        assert dom["laser_bias_current_lane%d" % first_lane] == 0.01
+        assert dom["optical_power_lane%d" % (first_lane + 1)] == 4.0
 
     def test_get_elsfp_dom_real_value_is_union_of_halves(self, mem_eeprom, api):
         self._populate_non_banked_dom(mem_eeprom)
@@ -735,18 +751,16 @@ class TestElsfpInfo:
         "min_optical_power": 5.0,
         "max_laser_bias": 0.1,
         "min_laser_bias": 0.05,
-        "lane_to_fiber_mapping": {
-            "LaneToFiberMapping%d" % lane: lane
-            for lane in range(1, CMIS_LANES_PER_BANK + 1)
-        },
-        "lane_frequency": {
-            "LaneFreq%d" % lane: 500.0 * lane
-            for lane in range(1, CMIS_LANES_PER_BANK + 1)
-        },
+        # Per-lane fields are flattened to "<name>_lane<N>" scalars with
+        # absolute lane numbers.
+        **{"fiber_mapping_lane%d" % lane: lane
+           for lane in range(1, CMIS_LANES_PER_BANK + 1)},
+        **{"frequency_lane%d" % lane: 500.0 * lane
+           for lane in range(1, CMIS_LANES_PER_BANK + 1)},
     }
 
-    def _populate_info(self, mem_eeprom):
-        """Fill pages 00h, 01h and 1Ah with the fields get_elsfp_info() reads."""
+    def _populate_info(self, mem_eeprom, bank=0):
+        """Fill pages 00h, 01h and 1Ah (of the given bank) with the fields get_elsfp_info() reads."""
         mem = mem_eeprom.memory
         # Page 00h lower memory (linear address == byte offset).
         mem[0] = 0x22                               # identifier
@@ -771,8 +785,8 @@ class TestElsfpInfo:
         mem[page_01_base + 131] = 2                 # hardware revision minor
         mem[page_01_base + 142] = 1 << 6            # PageSupportAdvertisement: VdmSupported
         mem[page_01_base + 163] = 1 << 6            # CdbSupport: one CDB instance
-        # Page 1Ah (bank 0).
-        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 0)
+        # Page 1Ah.
+        base = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, 0)
         # Max/min optical power, scale=100.0 (10 uW steps -> mW).
         mem[base + 128:base + 130] = struct.pack(">H", 1000)
         mem[base + 130:base + 132] = struct.pack(">H", 500)
@@ -791,6 +805,26 @@ class TestElsfpInfo:
     def test_get_elsfp_info(self, mem_eeprom, api):
         self._populate_info(mem_eeprom)
         assert api.get_elsfp_info() == self.EXPECTED_INFO
+
+    @pytest.mark.parametrize("bank", [0, 1, 2, 3])
+    def test_info_uses_absolute_lane_numbers(self, bank):
+        """Bank N keys its per-lane info by absolute lane, e.g. bank 1 -> lanes 9-16."""
+        mem_eeprom = InMemoryEeprom(ElsfpMemMap(ElsfpCodes, bank=bank), num_banks=4)
+        api = ElsfpApi(mem_eeprom.eeprom)
+        self._populate_info(mem_eeprom, bank)
+
+        info = api.get_elsfp_info()
+
+        first_lane = CMIS_LANES_PER_BANK * bank + 1
+        expected_lanes = range(first_lane, first_lane + CMIS_LANES_PER_BANK)
+        per_lane_keys = (
+            ["fiber_mapping_lane%d" % lane for lane in expected_lanes] +
+            ["frequency_lane%d" % lane for lane in expected_lanes]
+        )
+        assert all(key in info for key in per_lane_keys)
+        # The bank's first register maps to its first absolute lane.
+        assert info["fiber_mapping_lane%d" % first_lane] == 1
+        assert info["frequency_lane%d" % (first_lane + 1)] == 1000.0
 
     @pytest.mark.parametrize("cdb_inst, expected", [
         (0, False),   # CDB not supported
@@ -890,22 +924,22 @@ class TestElsfpStatusFlags:
     }
 
     EXPECTED_BANKED_STATUS_FLAGS = {
-        "FaultFlagLane1": True,
-        "FaultFlagLane2": False,
-        "FaultFlagLane3": True,
-        "FaultFlagLane4": False,
-        "FaultFlagLane5": False,
-        "FaultFlagLane6": False,
-        "FaultFlagLane7": False,
-        "FaultFlagLane8": False,
-        "WarnFlagLane1": False,
-        "WarnFlagLane2": True,
-        "WarnFlagLane3": False,
-        "WarnFlagLane4": False,
-        "WarnFlagLane5": False,
-        "WarnFlagLane6": False,
-        "WarnFlagLane7": False,
-        "WarnFlagLane8": False,
+        "fault_flag_lane1": True,
+        "fault_flag_lane2": False,
+        "fault_flag_lane3": True,
+        "fault_flag_lane4": False,
+        "fault_flag_lane5": False,
+        "fault_flag_lane6": False,
+        "fault_flag_lane7": False,
+        "fault_flag_lane8": False,
+        "warning_flag_lane1": False,
+        "warning_flag_lane2": True,
+        "warning_flag_lane3": False,
+        "warning_flag_lane4": False,
+        "warning_flag_lane5": False,
+        "warning_flag_lane6": False,
+        "warning_flag_lane7": False,
+        "warning_flag_lane8": False,
     }
 
     def _populate_status_flags(self, mem_eeprom, bank=0):
@@ -944,10 +978,10 @@ class TestElsfpStatusFlags:
         eeprom.memory[base + 174] = 0xFF
 
         assert api.get_banked_elsfp_status_flags() == {
-            "%s%d" % (prefix, lane + CMIS_LANES_PER_BANK): value
-            for prefix in ("FaultFlagLane", "WarnFlagLane")
+            "%s_lane%d" % (name, lane + CMIS_LANES_PER_BANK): value
+            for name in ("fault_flag", "warning_flag")
             for lane in range(1, CMIS_LANES_PER_BANK + 1)
-            for value in [self.EXPECTED_BANKED_STATUS_FLAGS["%s%d" % (prefix, lane)]]
+            for value in [self.EXPECTED_BANKED_STATUS_FLAGS["%s_lane%d" % (name, lane)]]
         }
 
     def test_get_elsfp_status_flags(self, mem_eeprom, api):
