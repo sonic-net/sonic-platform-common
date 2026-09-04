@@ -14,6 +14,11 @@ from ...codes.public.cmis import CmisCodes
 from ...codes.public.cdb import CdbCodes
 from ...codes.public.sff8024 import Sff8024
 from ...mem_maps.public.cmis.cdb import CdbMemMap
+from ...fields import consts
+from ...cdb.cdb_fw import CdbFwHandler as CdbFw
+from ..xcvr_api import XcvrApi
+from ..cdb_capable_mixin import CdbCapableMixin
+from .cmisCDB import CmisCdbApi
 from .cmisVDM import CmisVdmApi
 import time
 import copy
@@ -55,6 +60,9 @@ FLAG_TYPE_STR_MAP = {
 }
 
 CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP = {
+    "Laser Age [%]" : "laser_age",
+    "TEC Current [%]" : "tec_current",
+    "Laser Frequency Error [MHz]" : "laser_frequency_err",
     "Laser Temperature [C]" : "laser_temperature_media",
     "eSNR Media Input [dB]" : "esnr_media_input",
     "PAM4 Level Transition Parameter Media Input [dB]" : "pam4_level_transition_media_input",
@@ -75,7 +83,8 @@ CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP = {
     "Errored Frames Minimum Host Input" : "errored_frames_min_host_input",
     "Errored Frames Maximum Host Input" : "errored_frames_max_host_input",
     "Errored Frames Average Host Input" : "errored_frames_avg_host_input",
-    "Errored Frames Current Value Host Input" : "errored_frames_curr_host_input"
+    "Errored Frames Current Value Host Input" : "errored_frames_curr_host_input",
+    "ELS Input Power [dBm]" : "els_input_power"
 }
 
 CMIS_XCVR_INFO_DEFAULT_DICT = {
@@ -105,7 +114,7 @@ CMIS_XCVR_INFO_DEFAULT_DICT = {
         "vdm_supported": "N/A"
         }
 
-class CmisApi(CmisCdbFw, XcvrApi):
+class CmisApi(XcvrApi, CdbCapableMixin):
     NUM_CHANNELS = 8
     LowPwrRequestSW = 4
     LowPwrAllowRequestHW = 6
@@ -134,8 +143,9 @@ class CmisApi(CmisCdbFw, XcvrApi):
         """
         cls.cache_enabled = bool(enabled)
 
-    def __init__(self, xcvr_eeprom, init_cdb_fw_handler=False):
+    def __init__(self, xcvr_eeprom, init_cdb_fw_handler=False, cdb_mem_map=None):
         super(CmisApi, self).__init__(xcvr_eeprom)
+        self._init_cdb_mem_map(cdb_mem_map)
         self.vdm = CmisVdmApi(xcvr_eeprom) if not self.is_flat_memory() else None
         self._init_cdb_fw_handler = init_cdb_fw_handler
         self._cdb_fw_hdlr = None
