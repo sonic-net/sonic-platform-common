@@ -17,6 +17,10 @@ class XcvrApi(object):
             return float("NaN")
         return round(10. * log10(mW), 3)
 
+    @staticmethod
+    def amps_to_ma(amps):
+        return amps * 1000
+
     def get_model(self):
         """
         Retrieves the model (part number) of the xcvr
