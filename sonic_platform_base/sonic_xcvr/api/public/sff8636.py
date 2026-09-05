@@ -126,6 +126,51 @@ class Sff8636Api(XcvrApi):
 
         return trans_status_flags
 
+    def get_transceiver_dom_flags(self):
+        """
+        Retrieves the DOM flags for this xcvr
+
+        Reads the clear on read latched free side monitor interrupt flags.
+        Refer to: SFF-8636 Rev 2.12 Table 6-6, lower page 00h bytes 6-7
+
+        Field names match the CMIS get_transceiver_dom_flags keys, so consumers of the
+        TRANSCEIVER_DOM_FLAG table see the same key names across module
+        types.
+
+        Every flag in Table 6-6 is optional (only L-Temp High Alarm is
+        required, and only for separable modules), and the spec provides no
+        per-flag advertisement. We gate each flag group behind its associated monitor.
+
+        A group's keys are omitted rather than reported as False whenever its
+        data is not trustworthy: the monitor is not advertised, the
+        advertisement could not be read, or the flag byte itself could not be
+        read. Consumers render an absent flag as N/A, which is the honest
+        answer in all three cases.
+
+        Each flag byte is a single field whose RegBitField children are
+        decoded from one read (bitdecode), so the clear-on-read latch is
+        consumed exactly once per byte and the read already returns the
+        {flag name: bool} dict in the CMIS key schema.
+
+        Returns:
+            Dictionary of boolean flags, containing only the groups that
+            yielded trustworthy data, and empty if neither did -- in which
+            case xcvrd posts no DOM flags for the port
+        """
+        dom_flags = {}
+
+        if self.get_temperature_support():
+            temp_flags = self.xcvr_eeprom.read(consts.TEMP_FLAGS_FIELD)
+            if temp_flags is not None:
+                dom_flags.update(temp_flags)
+
+        if self.get_voltage_support():
+            vcc_flags = self.xcvr_eeprom.read(consts.VCC_FLAGS_FIELD)
+            if vcc_flags is not None:
+                dom_flags.update(vcc_flags)
+
+        return dom_flags
+
     def get_transceiver_dom_real_value(self):
         """
         Retrieves DOM sensor values for this transceiver
