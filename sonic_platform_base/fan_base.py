@@ -46,6 +46,15 @@ class FanBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
+    def get_speed_rpm(self):
+        """
+        Retrieves the speed of fan in RPM
+
+        Returns:
+           An integer, the speed of the fan in RPM
+        """
+        raise NotImplementedError
+
     def get_target_speed(self):
         """
         Retrieves the target (expected) speed of the fan
