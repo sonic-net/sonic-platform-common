@@ -298,6 +298,10 @@ class Sff8024(XcvrCodes):
         149: 'EEI-400G-RTLR-4-L',
         150: 'EEI-800G-RTLR-8-S',
         151: 'EEI-800G-RTLR-8-L',
+        152: 'EEI-200G-RTLR-1',
+        153: 'EEI-400G-RTLR-2',
+        154: 'EEI-800G-RTLR-4',
+        155: 'EEI-1.6T-RTLR-8',
         160: 'IB XDR',
     }
 
