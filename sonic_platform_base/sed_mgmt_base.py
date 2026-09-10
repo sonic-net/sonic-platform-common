@@ -32,11 +32,12 @@ def _read_sed_config_value(key):
 class SedMgmtBase:
     """
     Base class for SED password management.
-    Implements change_sed_password and reset_sed_password using abstract getters.
+    Implements change_sed_password, reset_sed_password, and wipe_ssd using abstract getters.
     """
 
     SED_PW_CHANGE_SCRIPT = '/usr/local/bin/sed_pw_change.sh'
     SED_PW_RESET_SCRIPT = '/usr/local/bin/sed_pw_reset.sh'
+    SSD_ERASE_SCRIPT = '/usr/local/bin/ssd_erase.sh'
 
     def get_min_sed_password_len(self):
         """
@@ -62,6 +63,15 @@ class SedMgmtBase:
 
         Returns:
             str: Default password, or None on failure.
+        """
+        raise NotImplementedError
+
+    def get_psid(self):
+        """
+        Return the SED PSID (Physical Security ID) for this platform.
+
+        Returns:
+            str: PSID string, or None if it cannot be retrieved.
         """
         raise NotImplementedError
 
@@ -141,4 +151,39 @@ class SedMgmtBase:
             return True
         except Exception as e:
             logger.log_error(f"Failed to reset SED password: {e}")
+            return False
+
+    def wipe_ssd(self):
+        """
+        Graceful SSD wipe: crypto erase (PSID revert) + NVMe block erase.
+
+        Returns:
+            bool: True on success, False otherwise.
+        """
+        try:
+            psid = self.get_psid()
+            if not psid:
+                logger.log_error("Failed to get PSID from platform.")
+                return False
+            default_pw = self.get_default_sed_password()
+            if not default_pw:
+                logger.log_error("Failed to get default SED password.")
+                return False
+            bank_a = self.get_tpm_bank_a_address()
+            bank_b = self.get_tpm_bank_b_address()
+            if not bank_a or not bank_b:
+                logger.log_error(f"TPM bank address is not valid: bank_a: {bank_a}, bank_b: {bank_b}. Check {SED_CONFIG_PATH}.")
+                return False
+            subprocess.check_call(
+                [self.SSD_ERASE_SCRIPT,
+                 '-a', bank_a, '-b', bank_b,
+                 '-p', default_pw, '-s', psid],
+                universal_newlines=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                start_new_session=True,
+            )
+            return True
+        except Exception as e:
+            logger.log_error(f"Failed to wipe SSD: {e}")
             return False
