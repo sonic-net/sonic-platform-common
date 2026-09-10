@@ -5,6 +5,7 @@
 """
 from ..public.cmis import CmisApi
 from ...fields.broadcom import bailly
+from ...cdb.broadcom.bailly import BaillyCdbFwHandler
 
 class BaillyApi(CmisApi):
     RLM_THRESHOLD_FIELDS = {
@@ -376,3 +377,22 @@ class BaillyApi(CmisApi):
         Bailly has no laser temperature acquisition register, return none.
         """
         return None
+
+    # Override cdb_fw_hdlr property from parent CmisCdbFw
+    @property
+    def cdb_fw_hdlr(self):
+        if not self._init_cdb_fw_handler:
+            return None
+        if self._cdb_fw_hdlr is None:
+            # Instantiate vendor-specific BaillyCdbFwHandler instead of base CdbFwHandler
+            self._cdb_fw_hdlr = BaillyCdbFwHandler(
+                self.xcvr_eeprom.reader,
+                self.xcvr_eeprom.writer,
+                self._cdb_mem_map,
+            )
+        return self._cdb_fw_hdlr
+    # Override firmware upgreade function
+    def module_fw_upgrade(self, imagepath, timeout=5):
+        #Todo parse firmware hearder
+        # load/run/commit
+        pass
