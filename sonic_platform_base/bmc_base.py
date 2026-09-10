@@ -22,6 +22,16 @@ except ImportError as e:
 
 logger = Logger('bmc_base')
 
+STATE_DB_ID = 6
+EEPROM_INFO_TABLE = 'EEPROM_INFO'
+SONIC_BMC_EEPROM_TLV_MAP = {
+    'Model': 0x21,
+    'PartNumber': 0x22,
+    'SerialNumber': 0x23,
+    'Revision': 0x27,
+    'Manufacturer': 0x2B,
+}
+
 
 """
 Wrapper to manage a session with login/logout for each API call.
@@ -30,6 +40,8 @@ def with_session_management(api_func):
     @wraps(api_func)
     def wrapper(self, *args, **kwargs):
         try:
+            if self._is_sonic_bmc_os():
+                raise Exception('Operation not supported when BMC OS is sonic')
             if self.rf_client is None:
                 raise Exception('RedfishClient instance is None')
             
@@ -69,6 +81,7 @@ class BMCBase(device_base.DeviceBase):
             addr: A string of the BMC IP address
         """
         self.addr = addr
+        self._remote_state_db = None
         self.rf_client = RedfishClient(BMCBase.CURL_PATH,
                                         addr,
                                         self._get_login_user_callback,
@@ -123,6 +136,53 @@ class BMCBase(device_base.DeviceBase):
             A string containing the BMC EEPROM ID
         """
         raise NotImplementedError
+
+    def _is_sonic_bmc_os(self):
+        from sonic_py_common import device_info
+        return device_info.get_bmc_os() == device_info.BMC_OS_SONIC
+
+    def _get_remote_state_db(self):
+        if self._remote_state_db is not None:
+            return self._remote_state_db
+        from sonic_py_common import daemon_base
+        self._remote_state_db = daemon_base.db_connect_remote(STATE_DB_ID, self.addr)
+        return self._remote_state_db
+
+    def _read_eeprom_tlv_value(self, tlv_code):
+        from swsscommon import swsscommon
+        table = swsscommon.Table(self._get_remote_state_db(), EEPROM_INFO_TABLE)
+        ok, fvs = table.get(hex(tlv_code))
+        if not ok:
+            return None
+        return dict(fvs).get('Value')
+
+    def _is_remote_eeprom_initialized(self):
+        """
+        Check whether syseepromd on the BMC has finished writing EEPROM_INFO
+        to its STATE_DB, i.e. EEPROM_INFO|State:Initialized == '1'.
+        """
+        from swsscommon import swsscommon
+        table = swsscommon.Table(self._get_remote_state_db(), EEPROM_INFO_TABLE)
+        ok, fvs = table.get('State')
+        if not ok:
+            return False
+        return dict(fvs).get('Initialized') == '1'
+
+    def _get_eeprom_from_sonic_bmc_redis(self):
+        try:
+            if not self._is_remote_eeprom_initialized():
+                logger.log_notice('BMC EEPROM info is not initialized yet on the remote Redis')
+                return {}
+            eeprom_info = {}
+            for field_name, tlv_code in SONIC_BMC_EEPROM_TLV_MAP.items():
+                value = self._read_eeprom_tlv_value(tlv_code)
+                if value:
+                    eeprom_info[field_name] = value
+            eeprom_info['PowerState'] = 'On' if self.get_status() else 'Off'
+            return eeprom_info
+        except Exception as e:
+            logger.log_error(f'Failed to get BMC EEPROM from remote Redis: {str(e)}')
+            return {}
 
     def _get_ip_addr(self):
         """
@@ -182,6 +242,8 @@ class BMCBase(device_base.DeviceBase):
             credentials: None or a tuple (session_id, token)
 
         """
+        if self._is_sonic_bmc_os():
+            raise Exception('Operation not supported when BMC OS is sonic')
         return self.rf_client.open_session()
 
     @with_session_management
@@ -291,10 +353,7 @@ class BMCBase(device_base.DeviceBase):
         Returns:
             A string containing the model of the BMC device
         """
-        eeprom_info = self.get_eeprom()
-        if not self._is_bmc_eeprom_content_valid(eeprom_info):
-            return None
-        return eeprom_info.get('Model')
+        return self.get_eeprom().get('Model')
 
     def get_serial(self):
         """
@@ -303,10 +362,7 @@ class BMCBase(device_base.DeviceBase):
         Returns:
             A string containing the serial number of the BMC device
         """
-        eeprom_info = self.get_eeprom()
-        if not self._is_bmc_eeprom_content_valid(eeprom_info):
-            return None
-        return eeprom_info.get('SerialNumber')
+        return self.get_eeprom().get('SerialNumber')
 
     def get_revision(self):
         """
@@ -315,6 +371,8 @@ class BMCBase(device_base.DeviceBase):
         Returns:
             A string containing the revision of the BMC device
         """
+        if self._is_sonic_bmc_os():
+            return self.get_eeprom().get('Revision', 'N/A')
         return 'N/A'
 
     def get_status(self):
@@ -351,6 +409,8 @@ class BMCBase(device_base.DeviceBase):
             Returns an empty dictionary {} if EEPROM information cannot be retrieved
         """
         try:
+            if self._is_sonic_bmc_os():
+                return self._get_eeprom_from_sonic_bmc_redis()
             ret, eeprom_info = self._get_eeprom_info(self._get_eeprom_id())
             if not self._is_bmc_eeprom_content_valid(eeprom_info) or ret != RedfishClient.ERR_CODE_OK:
                 logger.log_error(f'Failed to get BMC EEPROM info: {ret}')
@@ -368,7 +428,8 @@ class BMCBase(device_base.DeviceBase):
             A string containing the BMC firmware version.
             Returns 'N/A' if the BMC firmware version cannot be retrieved
         """
-        ret = 0
+        if self._is_sonic_bmc_os():
+            raise Exception('Operation not supported when BMC OS is sonic')
         try:
             ret, version = self._get_firmware_version(self.get_firmware_id())
             if ret != RedfishClient.ERR_CODE_OK:
