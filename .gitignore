@@ -13,3 +13,5 @@ sonic_platform_common.egg-info/
 htmlcov/
 coverage.xml
 test-results.xml
+
+bazel-*
