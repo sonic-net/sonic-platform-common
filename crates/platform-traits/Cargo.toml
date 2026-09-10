@@ -1,0 +1,12 @@
+[package]
+name = "platform-traits"
+version = "0.1.0"
+edition = "2021"
+# std::io::Error::other, used by the From<io::Error> impl below, landed in 1.74.
+rust-version = "1.74"
+authors = ["SONiC Team <sonic-dev@lists.sonicfoundation.dev>"]
+description = "Vendor-agnostic platform API traits for SONiC daemons"
+license = "Apache-2.0"
+
+[dependencies]
+# No external dependencies — only std.

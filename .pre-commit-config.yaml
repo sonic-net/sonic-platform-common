@@ -1,0 +1,45 @@
+# Pre-commit hooks for the Rust crates in this repository.
+#
+#   pip3 install pre-commit && pre-commit install
+#
+# Scope is deliberate: only Rust sources and the manifests beside them.  The
+# Python half of this repository predates these hooks by years, and pointing a
+# whitespace or end-of-file fixer at it would rewrite thousands of lines the
+# first time anyone ran `pre-commit run --all-files`.  What is here is what
+# `make ci-format` checks, moved one step earlier so that CI is not the first
+# place a contributor learns about it.
+#
+# The hook set matches sonic-dash-ha's, which is the only other Rust in SONiC,
+# minus the hooks that would reach outside that scope.  The pin is newer than
+# its v4.4.0: that release uses stage names pre-commit now warns about on every
+# run, and a warning nobody can act on trains people to ignore warnings.
+default_stages: [pre-commit]
+default_install_hook_types: [pre-commit]
+
+repos:
+  - repo: local
+    hooks:
+      - id: rustfmt
+        name: rustfmt
+        # rustfmt rather than sonic-dash-ha's `cargo fmt` hook, for the reason
+        # the Makefile gives: cargo resolves every dependency in the manifest
+        # before it formats a line, and rustfmt only parses.  Both read
+        # rustfmt.toml at the repository root, so the result is the same.
+        entry: rustfmt --edition 2021
+        language: system
+        files: \.rs$
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      # Repository-wide, because neither can rewrite a file.
+      - id: check-merge-conflict
+      - id: detect-private-key
+      - id: check-toml
+      # Rust only, because these do rewrite.
+      - id: trailing-whitespace
+        files: \.rs$
+      - id: end-of-file-fixer
+        files: \.rs$
+      - id: mixed-line-ending
+        files: \.rs$
