@@ -241,7 +241,12 @@ class TestCmis(object):
     def test_supports_password_cmd_result(self, rev_str, expected):
         """_supports_password_cmd_result gates on CMIS >= 5.3"""
         self.api.get_cmis_rev = MagicMock(return_value=rev_str)
-        assert self.api._supports_password_cmd_result() is expected
+        try:
+            assert self.api._supports_password_cmd_result() is expected
+        finally:
+            # self.api is shared across tests; leaving the mock in place would
+            # make every later get_cmis_rev() caller see this revision.
+            del self.api.get_cmis_rev
 
     @patch("sonic_platform_base.sonic_xcvr.api.public.cmis.time.sleep", MagicMock())
     def test_read_password_cmd_result_polls_past_in_progress(self):
@@ -1896,9 +1901,6 @@ class TestCmis(object):
 
     def _setup_cdb_fw_hdlr(self):
         mock_fw_hdlr = MagicMock()
-        # CDB command 0001h succeeds by default, so _enter_password does not
-        # fall back to the Password Entry Area write unless a test asks for it.
-        mock_fw_hdlr.enter_password.return_value = True
         self.api._cdb_fw_hdlr = mock_fw_hdlr
         self.api._init_cdb_fw_handler = True
         return mock_fw_hdlr
@@ -1923,6 +1925,7 @@ class TestCmis(object):
         ('cdb_firmware_download_complete', 'complete_fw_download', []),
         ('cdb_start_firmware_download', 'start_fw_download', ['/tmp/fw.bin']),
         ('cdb_lpl_block_write', 'write_lpl_block', [0x1000, b'\x01\x02']),
+        ('cdb_enter_host_password', 'enter_password', [0x00001011]),
     ])
     def test_cdb_commands_failure(self, method, handler_method, args):
         mock_fw_hdlr = self._setup_cdb_fw_hdlr()
@@ -1934,73 +1937,6 @@ class TestCmis(object):
         }
         result = getattr(self.api, method)(*args)
         assert result == 0x44
-
-    def test_cdb_enter_host_password_failure(self):
-        """Both CDB command 0001h and the Password Entry Area fallback fail"""
-        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
-        mock_fw_hdlr.enter_password.return_value = False
-        mock_fw_hdlr.get_cmd_status_code.return_value = {
-            cdb_consts.CDB1_IS_BUSY: False,
-            cdb_consts.CDB1_HAS_FAILED: True,
-            cdb_consts.CDB1_STATUS: 0x04,
-        }
-        self.api.enter_password_via_memory = MagicMock(return_value=False)
-        assert self.api.cdb_enter_host_password(0x00001011) == 0x44
-        self.api.enter_password_via_memory.assert_called_once_with(0x00001011)
-        del self.api.enter_password_via_memory
-
-    def test_enter_password_cdb_success(self):
-        """_enter_password stops at CDB command 0001h when it succeeds"""
-        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
-        mock_fw_hdlr.enter_password.return_value = True
-        self.api.enter_password_via_memory = MagicMock(return_value=True)
-        assert self.api._enter_password() is True
-        mock_fw_hdlr.enter_password.assert_called_once_with(cdb_consts.CDB_DEFAULT_PASSWORD)
-        self.api.enter_password_via_memory.assert_not_called()
-        del self.api.enter_password_via_memory
-
-    @pytest.mark.parametrize("memory_result, expected", [
-        (True, True),
-        (False, False),
-    ])
-    def test_enter_password_memory_fallback(self, memory_result, expected):
-        """_enter_password falls back to the Password Entry Area write and propagates its result"""
-        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
-        mock_fw_hdlr.enter_password.return_value = False
-        self.api.enter_password_via_memory = MagicMock(return_value=memory_result)
-        assert self.api._enter_password(0x00001011) is expected
-        mock_fw_hdlr.enter_password.assert_called_once_with(0x00001011)
-        self.api.enter_password_via_memory.assert_called_once_with(0x00001011)
-        del self.api.enter_password_via_memory
-
-    @pytest.mark.parametrize("memory_result, expected", [
-        (True, True),
-        (False, False),
-    ])
-    def test_enter_password_no_cdb_handler(self, memory_result, expected):
-        """_enter_password goes straight to the Password Entry Area write without CDB"""
-        self.api._cdb_fw_hdlr = None
-        self.api._init_cdb_fw_handler = False
-        self.api.enter_password_via_memory = MagicMock(return_value=memory_result)
-        assert self.api._enter_password(0x00001011) is expected
-        self.api.enter_password_via_memory.assert_called_once_with(0x00001011)
-        del self.api.enter_password_via_memory
-
-    @pytest.mark.parametrize("password", [
-        "not_an_int",
-        -1,
-        0x100000000,
-        12.5,
-        None,
-    ])
-    def test_enter_password_invalid(self, password):
-        """_enter_password rejects out-of-range passwords without touching either path"""
-        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
-        self.api.enter_password_via_memory = MagicMock(return_value=True)
-        assert self.api._enter_password(password) is False
-        mock_fw_hdlr.enter_password.assert_not_called()
-        self.api.enter_password_via_memory.assert_not_called()
-        del self.api.enter_password_via_memory
 
     @pytest.mark.parametrize("method, args", [
         ('cdb_run_firmware', [0x01]),
@@ -2126,6 +2062,66 @@ class TestCmis(object):
         result = self.api.get_module_fw_info()
         assert result['status'] is True
         mock_fw_hdlr.enter_password.assert_called_once()
+
+    def test_get_module_fw_info_eeprom_password_fallback(self):
+        """CDB command 0001h does not unlock the module, the EEPROM password entry does"""
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.get_firmware_info.side_effect = [
+            False,
+            False,
+            {cdb_consts.CDB1_FIRMWARE_STATUS: {
+                cdb_consts.CDB1_BANKA_OPER_STATUS: True, cdb_consts.CDB1_BANKA_ADMIN_STATUS: True, cdb_consts.CDB1_BANKA_VALID_STATUS: False,
+                cdb_consts.CDB1_BANKB_OPER_STATUS: False, cdb_consts.CDB1_BANKB_ADMIN_STATUS: False, cdb_consts.CDB1_BANKB_VALID_STATUS: False},
+            cdb_consts.CDB1_IMAGE_INFO: 7,
+            cdb_consts.CDB1_BANKA_MAJOR_VERSION: 1, cdb_consts.CDB1_BANKA_MINOR_VERSION: 0, cdb_consts.CDB1_BANKA_BUILD_VERSION: 0,
+            cdb_consts.CDB1_BANKB_MAJOR_VERSION: 2, cdb_consts.CDB1_BANKB_MINOR_VERSION: 0, cdb_consts.CDB1_BANKB_BUILD_VERSION: 0,
+            cdb_consts.CDB1_FACTORY_MAJOR_VERSION: 0, cdb_consts.CDB1_FACTORY_MINOR_VERSION: 0, cdb_consts.CDB1_FACTORY_BUILD_VERSION: 0}
+        ]
+        mock_fw_hdlr.get_cmd_status_code.return_value = {
+            cdb_consts.CDB1_IS_BUSY: False,
+            cdb_consts.CDB1_HAS_FAILED: True,
+            cdb_consts.CDB1_STATUS: 0x06,
+        }
+        self.api.enter_password_via_memory = MagicMock(return_value=True)
+        result = self.api.get_module_fw_info()
+        assert result['status'] is True
+        mock_fw_hdlr.enter_password.assert_called_once()
+        self.api.enter_password_via_memory.assert_called_once_with(cdb_consts.CDB_DEFAULT_PASSWORD)
+        del self.api.enter_password_via_memory
+
+    def test_get_module_fw_info_eeprom_password_fallback_fails(self):
+        """Neither password entry method unlocks the module"""
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.get_firmware_info.return_value = False
+        mock_fw_hdlr.get_cmd_status_code.return_value = {
+            cdb_consts.CDB1_IS_BUSY: False,
+            cdb_consts.CDB1_HAS_FAILED: True,
+            cdb_consts.CDB1_STATUS: 0x06,
+        }
+        self.api.enter_password_via_memory = MagicMock(return_value=False)
+        result = self.api.get_module_fw_info()
+        assert result['status'] is False
+        assert result['result'] == 0
+        # EEPROM fallback failed -> no third CDB read is attempted
+        assert mock_fw_hdlr.get_firmware_info.call_count == 2
+        self.api.enter_password_via_memory.assert_called_once_with(cdb_consts.CDB_DEFAULT_PASSWORD)
+        del self.api.enter_password_via_memory
+
+    def test_get_module_fw_info_no_password_fallback_on_other_error(self):
+        """A non-password CDB failure must not trigger either password path"""
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.get_firmware_info.return_value = False
+        mock_fw_hdlr.get_cmd_status_code.return_value = {
+            cdb_consts.CDB1_IS_BUSY: False,
+            cdb_consts.CDB1_HAS_FAILED: True,
+            cdb_consts.CDB1_STATUS: 0x04,
+        }
+        self.api.enter_password_via_memory = MagicMock(return_value=True)
+        result = self.api.get_module_fw_info()
+        assert result['status'] is False
+        mock_fw_hdlr.enter_password.assert_not_called()
+        self.api.enter_password_via_memory.assert_not_called()
+        del self.api.enter_password_via_memory
 
     @pytest.mark.parametrize("input_param, run_result, expected", [
         (1, True,  (True, 'Module FW run: Success\n')),
