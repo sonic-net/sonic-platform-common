@@ -7,11 +7,16 @@
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Dict, List
+from typing import Dict, List, TYPE_CHECKING
 
 from . import device_base
 from .sensor_base import SensorBase
 import sys
+
+if TYPE_CHECKING:
+    # Imported for type annotations only: a runtime import would be circular,
+    # as leakage_sensor_test_base imports LeakSeverity from this module.
+    from .leakage_sensor_test_base import LeakageSensorTestBase
 
 
 class LeakSeverity(Enum):
@@ -23,6 +28,10 @@ class LeakageSensorBase(SensorBase):
     # Keep string aliases for backwards compatibility
     LEAK_SEVERITY_CRITICAL = LeakSeverity.CRITICAL
     LEAK_SEVERITY_MINOR    = LeakSeverity.MINOR
+
+    # Class-level default so is_test_leak() is safe on vendor subclasses that
+    # do not chain super().__init__()
+    test_leak: bool = False
 
     def __init__(self,
                  name: str, *,
@@ -82,20 +91,36 @@ class LeakageSensorBase(SensorBase):
         """
         return self.leak_location
 
-    def get_leak_severity(self) -> LeakSeverity:
+    def get_leak_severity(self) -> LeakSeverity|None:
         """
         Retrieves the severity of leak
 
         Returns:
-            LeakSeverity: LeakSeverity.CRITICAL or LeakSeverity.MINOR, or None if no leak
+            LeakSeverity: LeakSeverity.CRITICAL or LeakSeverity.MINOR, or None
+            if no leak
         """
-        return self.leak_severity
+        return self.leak_severity if self.is_leak() else None
+
+    def is_test_leak(self) -> bool:
+        """
+        Retrieves whether the leak currently reported by this sensor originates
+        from a test injection rather than from the hardware.
+
+        A test leak is observable end to end (it is published like any other
+        leak) but must never be used to trigger a mitigation action.
+
+        Returns:
+            bool: True if the reported leak was injected by a leak test,
+                  False otherwise
+        """
+        return self.is_leak() and self.test_leak
 
     def get_leak_profile(self):
         """
         Returns the leak sensor profile associated with this sensor.
         """
         raise NotImplementedError
+
 
 class LeakSensorProfileBase(ABC):
     """
@@ -191,11 +216,22 @@ class LiquidCoolingBase(device_base.DeviceBase):
         """
         return list(self.profiles.values())
 
+    def get_leak_sensor_test(self) -> 'LeakageSensorTestBase|None':
+        """
+        Retrieves the leak test interface of this platform.
+
+        Returns:
+            LeakageSensorTestBase: the leak test interface defined in
+            leakage_sensor_test_base, or None if the platform does not support
+            leak test injection
+        """
+        return None
+
     def get_profile(self, type: str) -> LeakSensorProfileBase|None:
         """
         Retrives the profile with the given name.
         """
-        profile = getattr(self.profiles, type, None)
+        profile = self.profiles.get(type)
 
         if profile is None:
             sys.stderr.write(f"Leakage sensor profile {type} doesn't exist")
