@@ -1185,7 +1185,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
         if appl <= 0:
             return 0
         appl_advt = self.get_application_advertisement()
-        return appl_advt[appl]['host_lane_count'] if len(appl_advt) >= appl else 0
+        return appl_advt[appl]['host_lane_count'] if appl in appl_advt else 0
 
     def get_media_lane_count(self, appl=1):
         '''
@@ -1198,7 +1198,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
             return 0
 
         appl_advt = self.get_application_advertisement()
-        return appl_advt[appl]['media_lane_count'] if len(appl_advt) >= appl else 0
+        return appl_advt[appl]['media_lane_count'] if appl in appl_advt else 0
 
     @read_only_cached_api_return
     def get_media_interface_technology(self):
@@ -1235,7 +1235,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
             return 0
 
         appl_advt = self.get_application_advertisement()
-        return appl_advt[appl]['media_lane_assignment_options'] if len(appl_advt) >= appl else 0
+        return appl_advt[appl]['media_lane_assignment_options'] if appl in appl_advt else 0
 
     def get_active_apsel_hostlane(self):
         '''
