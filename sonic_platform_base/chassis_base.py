@@ -816,6 +816,27 @@ class ChassisBase(device_base.DeviceBase):
 
         return sfp
 
+    def get_media_settings_key(self, physical_port, transceiver_dict, port_speed, lane_count):
+        """
+        Derive a platform-specific media settings key for the given port.
+
+        This is an optional vendor override hook. Platforms may implement it to
+        return a custom key used to look up SerDes SI settings in
+        media_settings.json. When a non-None key is returned, it takes the
+        highest precedence over the vendor, media and medium lane speed keys.
+
+        Args:
+            physical_port: physical port number for this logical port
+            transceiver_dict: dictionary of transceiver info keyed by physical port
+            port_speed: logical port speed in Mbps
+            lane_count: number of lanes for this logical port
+
+        Returns:
+            A platform-specific key string, or None if the platform does not
+            provide a custom key (default behavior).
+        """
+        return None
+
     def get_num_cpos(self):
         """
         Retrieves the number of CPO ports available on this chassis
