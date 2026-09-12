@@ -17,6 +17,19 @@ class XcvrApi(object):
             return float("NaN")
         return round(10. * log10(mW), 3)
 
+    @staticmethod
+    def amps_to_ma(amps):
+        """
+        Converts a current from amperes to milliamperes
+
+        Args:
+            amps: A number, the current in amperes (A)
+
+        Returns:
+            A number, the same current in milliamperes (mA)
+        """
+        return amps * 1000
+
     def get_model(self):
         """
         Retrieves the model (part number) of the xcvr
