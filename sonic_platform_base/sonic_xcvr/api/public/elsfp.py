@@ -466,7 +466,12 @@ class ElsfpApi(XcvrApi):
         return cdb_inst == 1 or cdb_inst == 2
 
     ###############################################################
-    #      Aggregate APIs consumed directly by the xcvrd daemon   #
+    #    Aggregate APIs consumed directly by the xcvrd daemon     #
+    #                                                             #
+    # Each method returns a flat dictionary of logically grouped  #
+    # information. If a read failure occurs for ANY piece of      #
+    # information read during the method, None is returned so     #
+    # the client can retry.                                       #
     ###############################################################
 
     def get_elsfp_info(self) -> dict:

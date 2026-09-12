@@ -19,6 +19,15 @@ class XcvrApi(object):
 
     @staticmethod
     def amps_to_ma(amps):
+        """
+        Converts a current from amperes to milliamperes
+
+        Args:
+            amps: A number, the current in amperes (A)
+
+        Returns:
+            A number, the same current in milliamperes (mA)
+        """
         return amps * 1000
 
     def get_model(self):
