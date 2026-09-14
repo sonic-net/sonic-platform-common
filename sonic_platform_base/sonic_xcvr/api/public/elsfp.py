@@ -53,6 +53,14 @@ ELSFP_DOM_REAL_VALUE_DEFAULT_DICT = {
 
 class ElsfpApi(XcvrApi):
 
+    def _get_first_lane_for_bank(self) -> int:
+        """Return the absolute number of the first lane in the selected bank.
+
+        Lanes are numbered absolutely across banks, so bank 0 starts at lane 1,
+        bank 1 at lane 9, and so on.
+        """
+        return self.xcvr_eeprom.mem_map.bank * CMIS_LANES_PER_BANK + 1
+
     def _read_lane_bits(self, field: str, num_lanes: int = 8) -> list[int]:
         """Read a per-lane bitmask field and unpack it into a per-lane list.
 
@@ -529,7 +537,7 @@ class ElsfpApi(XcvrApi):
 
         # Per-lane fields are flattened to "<name>_lane<N>" scalars, with N the
         # absolute lane number for the selected bank.
-        first_lane = self.xcvr_eeprom.mem_map.bank * CMIS_LANES_PER_BANK + 1
+        first_lane = self._get_first_lane_for_bank()
         for name, field, values in (("fiber_mapping", elsfp_consts.LANE_TO_FIBER_MAPPING_FIELD,
                                      lane_to_fiber_mapping),
                                     ("frequency", elsfp_consts.LANE_FREQ_FIELD, lane_frequency)):
@@ -584,7 +592,7 @@ class ElsfpApi(XcvrApi):
         # Per-lane monitors are flattened to "<name>_lane<N>" scalars, with N the
         # absolute lane number for the selected bank. Units are normalized to
         # match the units that their associated thresholds are reported in.
-        first_lane = self.xcvr_eeprom.mem_map.bank * CMIS_LANES_PER_BANK + 1
+        first_lane = self._get_first_lane_for_bank()
         for name, field, values, convert in (
                 ("laser_bias_current", elsfp_consts.BIAS_CURRENT_MONITOR_FIELD, bias_current, self.amps_to_ma),
                 ("optical_power", elsfp_consts.OPT_POWER_MONITOR_FIELD, optical_power, self.mw_to_dbm),
@@ -639,7 +647,7 @@ class ElsfpApi(XcvrApi):
             return None
 
         flags = {}
-        first_lane = self.xcvr_eeprom.mem_map.bank * CMIS_LANES_PER_BANK + 1
+        first_lane = self._get_first_lane_for_bank()
         for index in range(CMIS_LANES_PER_BANK):
             lane = first_lane + index
             for name, lane_bits in {**alarms, **warnings}.items():
@@ -730,7 +738,7 @@ class ElsfpApi(XcvrApi):
             return None
 
         status = {}
-        first_lane = self.xcvr_eeprom.mem_map.bank * CMIS_LANES_PER_BANK + 1
+        first_lane = self._get_first_lane_for_bank()
         for index, enabled in enumerate(lane_enable):
             status["enable_lane%d" % (first_lane + index)] = bool(enabled)
 
@@ -781,7 +789,7 @@ class ElsfpApi(XcvrApi):
         # Flatten and convert the mem-map names ("FaultFlagLane9") in these dictionaries
         # to the snake case "<name>_lane<N>".
         status_flags = {}
-        first_lane = self.xcvr_eeprom.mem_map.bank * CMIS_LANES_PER_BANK + 1
+        first_lane = self._get_first_lane_for_bank()
         for name, prefix, flags in (("fault_flag", elsfp_consts.FAULT_FLAG_LANE_PREFIX, fault_flags),
                                     ("warning_flag", elsfp_consts.WARN_FLAG_LANE_PREFIX, warn_flags)):
             for index in range(len(flags)):
