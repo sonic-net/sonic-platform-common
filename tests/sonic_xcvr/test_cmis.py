@@ -421,14 +421,18 @@ class TestCmis(object):
         result = self.api.is_flat_memory()
         assert result == expected
 
-    @pytest.mark.parametrize("mock_response, expected", [
-        (False, True)
+    @pytest.mark.parametrize("flat_memory, support, expected", [
+        (False, True, True),
+        (False, False, False),
+        (False, None, None),
+        (True, None, False),
+        (None, None, None),
     ])
-    def test_get_temperature_support(self, mock_response, expected):
-        self.api.is_flat_memory = MagicMock()
-        self.api.is_flat_memory.return_value = mock_response
-        result = self.api.get_temperature_support()
-        assert result == expected
+    def test_get_temperature_support(self, flat_memory, support, expected):
+        values = {consts.FLAT_MEM_FIELD: flat_memory,
+                  consts.TEMP_SUPPORT_FIELD: support}
+        with patch.object(self.api.xcvr_eeprom, "read", side_effect=values.get):
+            assert CmisApi.get_temperature_support(self.api) is expected
 
     @pytest.mark.parametrize("mock_response, expected", [
         (False, True)
