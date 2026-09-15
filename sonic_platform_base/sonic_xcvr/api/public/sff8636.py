@@ -273,7 +273,10 @@ class Sff8636Api(XcvrApi):
         return self.xcvr_eeprom.read(consts.TX_DISABLE_FIELD)
 
     def get_module_temperature(self):
-        if not self.get_temperature_support():
+        temp_support = self.get_temperature_support()
+        if temp_support is None:
+            return None
+        if not temp_support:
             return 'N/A'
         temp = self.xcvr_eeprom.read(consts.TEMPERATURE_FIELD)
         if temp is None:
@@ -373,16 +376,26 @@ class Sff8636Api(XcvrApi):
         return self._is_copper
 
     def get_temperature_support(self):
-        if self.is_copper():
+        is_copper = self.is_copper()
+        if is_copper is None:
+            return None
+        if is_copper:
             return False
+
         if self._temp_support is None:
-            rev_compliance = self.xcvr_eeprom.read(consts.REV_COMPLIANCE_FIELD)
-            # TODO: instead of checking for specific decoded value, should
-            # get the raw code and check if it is >= 0x08, i.e. Rev 2.8 or higher
-            if rev_compliance == Sff8636Codes.REV_COMPLIANCE[8]:
+            # SFF-8636 Byte1 is Revision Compliance. For raw code >= 0x08
+            # (Rev 2.8+), Page00h Byte220 bit5 explicitly advertises
+            # whether temperature monitoring is implemented. Older revisions
+            # retain the legacy assumption that module temperature is present.
+            rev_compliance = self.xcvr_eeprom.read(consts.REV_COMPLIANCE_RAW_FIELD)
+            if rev_compliance is None:
+                return None
+
+            if rev_compliance >= 0x08:
                 self._temp_support = self.xcvr_eeprom.read(consts.TEMP_SUPPORT_FIELD)
             else:
                 self._temp_support = True
+
         return self._temp_support
 
     def get_voltage_support(self):

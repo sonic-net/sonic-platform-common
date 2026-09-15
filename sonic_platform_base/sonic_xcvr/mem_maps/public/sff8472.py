@@ -96,6 +96,7 @@ class Sff8472MemMap(XcvrMemMap):
             RegBitField(consts.TX_DISABLE_SELECT_FIELD, 6, ro=False),
             RegBitField(consts.TX_FAULT_FIELD, 2),
             RegBitField(consts.RX_LOS_FIELD, 1),
+            RegBitField(consts.DATA_NOT_READY_FIELD, 0),
         )
 
         ext_cal_deps = [consts.INT_CAL_FIELD,

@@ -612,7 +612,10 @@ class CmisApi(CmisCdbFw, XcvrApi):
         '''
         This function returns the module case temperature and its thresholds. Unit in deg C
         '''
-        if not self.get_temperature_support():
+        temp_support = self.get_temperature_support()
+        if temp_support is None:
+            return None
+        if not temp_support:
             return 'N/A'
         temp = self.xcvr_eeprom.read(consts.TEMPERATURE_FIELD)
         if temp is None:
@@ -662,7 +665,16 @@ class CmisApi(CmisCdbFw, XcvrApi):
         return self.xcvr_eeprom.read(consts.FLAT_MEM_FIELD) is not False
 
     def get_temperature_support(self):
-        return not self.is_flat_memory()
+        # CMIS Lower Page00h Byte2 bit7: Flat_mem.
+        # A failed capability read is not the same as "unsupported".
+        flat_mem = self.xcvr_eeprom.read(consts.FLAT_MEM_FIELD)
+        if flat_mem is None:
+            return None
+        if flat_mem:
+            return False
+
+        # CMIS Page01h Byte159 bit0: TempMonSupported.
+        return self.xcvr_eeprom.read(consts.TEMP_SUPPORT_FIELD)
 
     def get_voltage_support(self):
         return not self.is_flat_memory()

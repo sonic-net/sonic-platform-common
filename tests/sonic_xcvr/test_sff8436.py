@@ -7,6 +7,7 @@ from sonic_platform_base.sonic_xcvr.api.public.sff8436 import Sff8436Api
 from sonic_platform_base.sonic_xcvr.codes.public.sff8436 import Sff8436Codes
 from sonic_platform_base.sonic_xcvr.mem_maps.public.sff8436 import Sff8436MemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
+from sonic_platform_base.sonic_xcvr.xcvr_api_factory import XcvrApiFactory
 from sonic_platform_base.sonic_xcvr.fields import consts
 
 
@@ -268,3 +269,52 @@ class TestSff8436(object):
         assert result == expected
 
 
+
+    @staticmethod
+    def _temperature_api(values):
+        api = Sff8436Api.__new__(Sff8436Api)
+        api.xcvr_eeprom = MagicMock(spec=XcvrEeprom)
+        api.xcvr_eeprom.read.side_effect = values.get
+        api._temp_support = None
+        api._is_copper = None
+        return api
+
+    @pytest.mark.parametrize("support, expected", [(None, None), (False, 'N/A')])
+    def test_temperature_unavailable_does_not_read_monitor(self, support, expected):
+        api = self._temperature_api({})
+        with patch.object(api, 'get_temperature_support', return_value=support):
+            assert api.get_module_temperature() == expected
+        api.xcvr_eeprom.read.assert_not_called()
+
+    @pytest.mark.parametrize("value", [None, -20.5, 0.0, 35.125])
+    def test_supported_temperature_read(self, value):
+        api = self._temperature_api({
+            consts.DATA_NOT_READY_FIELD: False,
+            consts.TEMPERATURE_FIELD: value,
+        })
+        with patch.object(api, 'get_temperature_support', return_value=True):
+            assert api.get_module_temperature() == value
+
+    @pytest.mark.parametrize("copper, expected", [(None, None), (True, False)])
+    def test_copper_detection_failure_and_unsupported(self, copper, expected):
+        api = self._temperature_api({})
+        with patch.object(api, 'is_copper', return_value=copper):
+            assert api.get_temperature_support() is expected
+        api.xcvr_eeprom.read.assert_not_called()
+
+    def test_sff8436_optical_temperature_supported(self):
+        api = self._temperature_api({})
+        with patch.object(api, 'is_copper', return_value=False):
+            assert api.get_temperature_support() is True
+
+    def test_qsfp_factory_unreadable_revision(self):
+        factory = XcvrApiFactory(MagicMock(), MagicMock())
+        with patch.object(factory.lower_memory_info, 'get_revision_compliance', return_value=None), \
+                patch.object(factory, '_create_api') as create:
+            assert factory._create_qsfp_api() is None
+            create.assert_not_called()
+
+    @pytest.mark.parametrize("identifier", [0x0c, 0x17])
+    def test_legacy_qsfp_identifiers(self, identifier):
+        factory = XcvrApiFactory(lambda offset, size: bytes([identifier]), MagicMock())
+        assert isinstance(factory.create_xcvr_api(), Sff8436Api)
