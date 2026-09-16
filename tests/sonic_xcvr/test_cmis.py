@@ -126,6 +126,7 @@ class TestCmisMemMap:
         reader = MagicMock(return_value=bytes([initial_value]))
         writer = MagicMock(return_value=True)
         api = CmisApi(XcvrEeprom(reader, writer, mem_map))
+        reader.reset_mock()
 
         assert getattr(api, api_method)() is True
         reader.assert_called_once_with(freeze_request.get_offset(), 1)
