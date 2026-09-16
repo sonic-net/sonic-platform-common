@@ -211,7 +211,11 @@ class CmisApi(CmisCdbFw, XcvrApi):
 
         Returns True if the provision succeeds and False incase of failure.
         '''
-        return self.xcvr_eeprom.write(consts.VDM_CONTROL, VDM_FREEZE)
+        vdm_control = self.xcvr_eeprom.read(consts.VDM_CONTROL)
+        if vdm_control is None:
+            return False
+
+        return self.xcvr_eeprom.write(consts.VDM_CONTROL, vdm_control | VDM_FREEZE)
 
     def get_vdm_freeze_status(self):
         '''
@@ -229,7 +233,11 @@ class CmisApi(CmisCdbFw, XcvrApi):
 
         Returns True if the provision succeeds and False incase of failure.
         '''
-        return self.xcvr_eeprom.write(consts.VDM_CONTROL, VDM_UNFREEZE)
+        vdm_control = self.xcvr_eeprom.read(consts.VDM_CONTROL)
+        if vdm_control is None:
+            return False
+
+        return self.xcvr_eeprom.write(consts.VDM_CONTROL, vdm_control & ~VDM_FREEZE)
 
     def get_vdm_unfreeze_status(self):
         '''
@@ -2884,4 +2892,3 @@ class CmisApi(CmisCdbFw, XcvrApi):
         return 'OK'
 
     # TODO: other XcvrApi methods
-

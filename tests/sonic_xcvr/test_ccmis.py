@@ -2,6 +2,7 @@ from mock import MagicMock
 from mock import patch
 import pytest
 from sonic_platform_base.sonic_xcvr.api.public.c_cmis import CCmisApi, C_CMIS_XCVR_INFO_DEFAULT_DICT
+from sonic_platform_base.sonic_xcvr.api.public.cmis import VDM_FREEZE
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.c_cmis import CCmisMemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
 from sonic_platform_base.sonic_xcvr.codes.public.cmis import CmisCodes
@@ -569,23 +570,34 @@ class TestCCmis(object):
         result = self.api.get_vdm_unfreeze_status()
         assert result == expected
 
-    @pytest.mark.parametrize("mock_response, expected", [
-        (0, 0),
-        (1, 1),
+    @pytest.mark.parametrize("read_value, write_return, expected", [
+        (0x00, True, True),
+        (0x05, True, True),
+        (0x00, False, False),
+        (None, None, False),
     ])
-    def test_freeze_vdm_stats(self, mock_response, expected):
-        self.api.xcvr_eeprom.write = MagicMock()
-        self.api.xcvr_eeprom.write.return_value = mock_response
+    def test_freeze_vdm_stats(self, read_value, write_return, expected):
+        self.api.xcvr_eeprom.read = MagicMock(return_value=read_value)
+        self.api.xcvr_eeprom.write = MagicMock(return_value=write_return)
         result = self.api.freeze_vdm_stats()
         assert result == expected
+        if read_value is not None:
+            self.api.xcvr_eeprom.write.assert_called_once_with(consts.VDM_CONTROL, read_value | VDM_FREEZE)
+        else:
+            self.api.xcvr_eeprom.write.assert_not_called()
 
-    @pytest.mark.parametrize("mock_response, expected", [
-        (0, 0),
-        (1, 1),
+    @pytest.mark.parametrize("read_value, write_return, expected", [
+        (0x80, True, True),
+        (0x85, True, True),
+        (0x80, False, False),
+        (None, None, False),
     ])
-    def test_unfreeze_vdm_stats(self, mock_response, expected):
-        self.api.xcvr_eeprom.write = MagicMock()
-        self.api.xcvr_eeprom.write.return_value = mock_response
+    def test_unfreeze_vdm_stats(self, read_value, write_return, expected):
+        self.api.xcvr_eeprom.read = MagicMock(return_value=read_value)
+        self.api.xcvr_eeprom.write = MagicMock(return_value=write_return)
         result = self.api.unfreeze_vdm_stats()
         assert result == expected
-
+        if read_value is not None:
+            self.api.xcvr_eeprom.write.assert_called_once_with(consts.VDM_CONTROL, read_value & ~VDM_FREEZE)
+        else:
+            self.api.xcvr_eeprom.write.assert_not_called()
