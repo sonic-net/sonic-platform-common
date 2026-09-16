@@ -1,0 +1,18 @@
+#
+# SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
+# Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+[package]
+name = "platform-api"
+version = "0.1.0"
+edition = "2021"
+# The slave image is on 1.86; nothing here needs more than 2021 provides.
+rust-version = "1.82"
+license = "Apache-2.0"
+description = "The SONiC platform API, generated from platform_api/facade.pyi"
+
+# Deliberately no dependencies.  A vendor implementing this natively should
+# not inherit PyO3, and the daemons should not link an interpreter they do not
+# use.  The bridge that does need PyO3 is a separate crate.
+[dependencies]

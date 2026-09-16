@@ -1,0 +1,43 @@
+#
+# SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
+# Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# What stubtest cannot check, and why.
+#
+# GENERATED from platform_api/facade.pyi by generator/generate.py.  Do not edit:
+# regenerate.  Being generated is the point -- an allowlist maintained by hand
+# grows an entry every time someone wants a failure to go away, and this one
+# can only ever contain the aliases the stub declares.
+#
+# Nothing else belongs here.  A real disagreement between the stub and the
+# generated code is the one thing the gate exists to catch.
+#
+# Each entry below is a `Literal[...]` type alias.  They are emitted into
+# facade.py as well as declared in the stub, so a consumer can reach the
+# permitted values through typing.get_args(); but a runtime `Literal` object is
+# not a Union as far as stubtest is concerned, and it reports the alias as
+# mismatched however it is spelled.  typeshed allowlists its own for the same
+# reason.
+
+platform_api.facade.LedColor
+platform_api.facade.FanDirection
+platform_api.facade.FanKind
+platform_api.facade.PowerEntityKind
+platform_api.facade.ModuleType
+platform_api.facade.ModuleStatus
+platform_api.facade.SensorKind
+platform_api.facade.LeakSeverity
+platform_api.facade.ChangeEventKind

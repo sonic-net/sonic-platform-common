@@ -1,0 +1,218 @@
+{{ header }}
+"""The Python facade over the vendor's platform API.
+
+GENERATED from platform_api/facade.pyi by generator/generate.py.  Do not edit:
+regenerate.  Adding a field or a row is one edit, to the stub.
+
+Every base-class call here goes through `_call`, which treats a `None` return
+exactly as it treats `NotImplementedError`.  That is not a simplification --
+it is what every daemon's own `try_get()` already does (thermalctld:104,
+psud:272, chassisd:183, sensormond:36, bmcctld:297), and the facade has to
+reproduce it or the rows it publishes differ from the rows the Python daemons
+publish today.
+"""
+
+from typing import Literal
+
+from . import _escape_hatch
+
+# Base-class methods a consumer reaches that this facade deliberately does not
+# declare, and why.  Here at runtime as well as in the stub so that the answer
+# to "why is there no get_num_psus" is in the module somebody is reading.
+OMITTED = (
+{%- for path, reason in model.omitted %}
+    ({{ path | tojson }}, {{ reason | tojson }}),
+{%- endfor %}
+)
+
+{% for e in model.enums %}
+{{ e.name }} = Literal[{% for v in e.values %}{{ v | tojson }}{{ ', ' if not loop.last }}{% endfor %}]
+{%- endfor %}
+
+
+def _call(fn, default=None):
+    """Invoke a base-class getter, or say it is not there.
+
+    Three ways a platform declines to answer, collapsed into one: the method
+    is absent, it raises `NotImplementedError`, or it returns None.  A fourth
+    -- `return NotImplementedError`, which five base-class methods write and
+    which hands back a truthy class object -- is caught here too.
+    """
+    if fn is None:
+        return default
+    try:
+        r = fn()
+    except NotImplementedError:
+        return default
+    if r is None or r is NotImplementedError:
+        return default
+    return r
+
+
+def _get(obj, name):
+    return getattr(obj, name, None)
+
+
+def _iter(seq):
+    return seq if seq is not None else ()
+
+
+def _pairs(mapping):
+    """A mapping as (key, value) pairs, in the order the platform read them.
+
+    Nothing for a platform that answered something other than a mapping: this
+    runs in a polling loop, and the alternative is an AttributeError every
+    cycle on hardware that is merely unusual.
+    """
+    return mapping.items() if hasattr(mapping, 'items') else ()
+
+
+def _one(obj):
+    """A singular accessor as a list of at most one.
+
+    `get_watchdog()` answers one object or nothing.  Iterating it directly
+    would be a TypeError on most platforms, and on one that answered a string
+    it would be one row per character.
+    """
+    return () if obj is None else (obj,)
+
+
+def _default(v, d):
+    return d if v is None else v
+
+
+def _at(v, i):
+    """One slot of a fixed-arity tuple return.
+
+    A platform that answered with something unindexable, or with a shorter
+    tuple than the base class documents, reads as absent rather than as a
+    crash in a polling loop.
+    """
+    if v is None:
+        return None
+    try:
+        return v[i]
+    except (TypeError, IndexError, KeyError):
+        return None
+
+
+def _fmt(v, template, parent, i):
+    """A name, or the key its consumers already publish it under."""
+    if v is not None:
+        return str(v)
+    return template.format(parent=parent, i=i + 1)
+
+
+def _scalar(v, sentinels, coerce_from):
+    """`Observed()`: a sentinel is a missing reading, not a value.
+
+    Vendors return the number as int, str or a numpy scalar as readily as
+    float, at positions the base class documents as float.  Both this and the
+    Rust bridge normalise through the same declared table, so the two sides
+    cannot disagree about what "no reading" looks like.
+    """
+    if v is None:
+        return None
+    for s in sentinels:
+        if v == s:
+            return None
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        return v
+    for kind in coerce_from:
+        if kind == 'str' and isinstance(v, str):
+            try:
+                return float(v)
+            except ValueError:
+                return None
+        if kind == 'int':
+            try:
+                return int(v)
+            except (TypeError, ValueError):
+                pass
+    return None
+
+{% for row in model.rows %}
+
+class {{ row.name }}(object):
+    """{{ row.doc | replace('\n', '\n    ') }}"""
+
+    __slots__ = ({% for f in row.fields %}'{{ f.name }}', {% endfor %})
+
+    def __init__(self, **fields):
+        """Keyword-only, and uniform across every row.
+
+        Spelling the columns out again here would duplicate `__slots__`, which
+        is the list the stub already carries -- and a constructor that drifts
+        from it is exactly what the generator exists to prevent.
+        """
+        for key in self.__slots__:
+            setattr(self, key, fields.pop(key, None))
+        if fields:
+            raise TypeError('{{ row.name }} got unexpected field(s): %s'
+                            % ', '.join(sorted(fields)))
+
+    def __repr__(self):
+        return '{{ row.name }}(%s)' % ', '.join(
+            '%s=%r' % (k, getattr(self, k)) for k in self.__slots__)
+
+    def __eq__(self, other):
+        if not isinstance(other, {{ row.name }}):
+            return NotImplemented
+        return all(getattr(self, k) == getattr(other, k) for k in self.__slots__)
+{% endfor %}
+
+class PlatformApi(object):
+    """Rows and actions over a vendor's `ChassisBase`."""
+
+    def __init__(self, chassis):
+        self._chassis = chassis
+        self._hatch = _escape_hatch.EscapeHatches(chassis)
+{% for row in model.rows %}
+{%- if row.sources or row.singleton %}
+    def _row_{{ row.snake }}(self, dev, parent, i, fixed):
+        return {{ row.name }}(
+{%- for f in row.fields %}
+            {{ f.name }}={{ f.py_expr }},
+{%- endfor %}
+        )
+
+    def _walk_{{ row.snake }}(self):
+        """Every {{ row.name }} paired with the device it was read from.
+
+        One traversal serves both the snapshot and the by-name lookup, so an
+        action cannot disagree with the snapshot about what a row is called.
+        """
+        out = []
+{{ row.walk_body }}
+        return out
+{% if row.addressed %}
+    def _find_{{ row.snake }}(self, name):
+        """The device behind a published {{ row.name }} name."""
+        for row, dev in self._walk_{{ row.snake }}():
+            if row.name == name:
+                return dev
+        raise KeyError('no {{ row.name }} named %r' % name)
+{% endif %}
+{%- endif %}
+{% endfor %}
+{%- for m in model.methods %}
+{%- if m.kind == 'snapshot' %}
+    def {{ m.name }}(self):
+        """{{ m.doc or 'Every %s, in declared order.' % m.row }}"""
+{%- if m.singleton %}
+        return self._walk_{{ model.row(m.row).snake }}()[0][0]
+{%- else %}
+        return [row for row, _dev in self._walk_{{ model.row(m.row).snake }}()]
+{%- endif %}
+{% elif m.kind == 'action' %}
+    def {{ m.name }}(self{% for p, _t in m.params %}, {{ p }}{% endfor %}):
+        """{{ m.doc | replace('\n', '\n        ') }}"""
+{{ m.body }}
+{% elif m.kind == 'escape' %}
+    def {{ m.name }}(self{% for p, _t in m.params %}, {{ p }}{% endfor %}):
+        """Hand-written: {{ m.escape_reason | replace('\n', ' ') }}"""
+        return self._hatch.{{ m.name }}({% for p, _t in m.params %}{{ p }}{{ ', ' if not loop.last }}{% endfor %})
+{% endif %}
+{%- endfor %}

@@ -1,0 +1,20 @@
+{{ header }}
+# What stubtest cannot check, and why.
+#
+# GENERATED from platform_api/facade.pyi by generator/generate.py.  Do not edit:
+# regenerate.  Being generated is the point -- an allowlist maintained by hand
+# grows an entry every time someone wants a failure to go away, and this one
+# can only ever contain the aliases the stub declares.
+#
+# Nothing else belongs here.  A real disagreement between the stub and the
+# generated code is the one thing the gate exists to catch.
+#
+# Each entry below is a `Literal[...]` type alias.  They are emitted into
+# facade.py as well as declared in the stub, so a consumer can reach the
+# permitted values through typing.get_args(); but a runtime `Literal` object is
+# not a Union as far as stubtest is concerned, and it reports the alias as
+# mismatched however it is spelled.  typeshed allowlists its own for the same
+# reason.
+{% for e in model.enums %}
+platform_api.facade.{{ e.name }}
+{%- endfor %}

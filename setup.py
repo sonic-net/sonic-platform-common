@@ -30,7 +30,9 @@ setup(
     url='https://github.com/Azure/sonic-platform-common',
     maintainer='Joe LeVeque',
     maintainer_email='jolevequ@microsoft.com',
+    package_data={'platform_api': ['*.pyi', 'py.typed']},
     packages=[
+        'platform_api',
         'sonic_eeprom',
         'sonic_led',
         'sonic_fan',

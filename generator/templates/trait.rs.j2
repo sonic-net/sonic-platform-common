@@ -1,0 +1,163 @@
+{{ header }}
+//! The platform API, in Rust.
+//!
+//! GENERATED from platform_api/facade.pyi by generator/generate.py.  Do not
+//! edit: regenerate.
+//!
+//! In phase 1 the only implementation is the PyO3 bridge in `platform-pyo3`,
+//! which calls a vendor's existing Python.  In phase 2 a vendor implements
+//! this trait natively and the bridge stops being registered; the daemons see
+//! the same trait either way, which is the whole point of declaring it here
+//! rather than in the bridge.
+//!
+//! Every method returns `Result`.  A platform that does not implement
+//! something answers `Err(PlatformError::NotSupported)`, which is how the
+//! caller tells "this platform has no PSU LED" from "the PSU LED is off" --
+//! a distinction the Python API loses, because there a getter that raises and
+//! a getter that returns None are the same event.
+
+use crate::{PlatformError, Threshold};
+{% for e in model.enums %}
+
+/// `{{ e.name }}`, as declared in the stub.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum {{ e.name }} {
+{%- for value, variant in e.variants %}
+    /// `{{ value }}`
+    {{ variant }},
+{%- endfor %}
+}
+
+impl {{ e.name }} {
+    /// The spelling the Python side uses.  The two must not drift, so both
+    /// come from the one declaration.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+{%- for value, variant in e.variants %}
+            {{ e.name }}::{{ variant }} => {{ value | tojson }},
+{%- endfor %}
+        }
+    }
+
+    /// `None` for a value the stub does not declare -- a vendor inventing a
+    /// colour is a platform bug, not a variant to add here quietly.
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+{%- for value, variant in e.variants %}
+            {{ value | tojson }} => Some({{ e.name }}::{{ variant }}),
+{%- endfor %}
+            _ => None,
+        }
+    }
+}
+
+impl std::fmt::Display for {{ e.name }} {
+    /// The spelling the Python side uses, so that a log line and a DB row
+    /// cannot disagree about what colour was asked for.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+{%- endfor %}
+{% for row in model.rows %}
+
+/// {{ row.doc | rustdoc('') }}
+{% if row.can_default %}#[derive(Debug, Clone, PartialEq, Default)]{% else %}#[derive(Debug, Clone, PartialEq)]{% endif %}
+pub struct {{ row.name }} {
+{%- for f in row.fields %}
+    pub {{ f.rust_name }}: {{ f.rust_ty }},
+{%- endfor %}
+}
+{%- endfor %}
+
+/// The platform, as the daemons see it.
+///
+/// `&mut self` throughout: an implementation may cache what it reads within a
+/// polling cycle, and the snapshot methods are exactly where that cache is
+/// refreshed.
+pub trait PlatformApi: Send {
+{%- for m in model.methods %}
+{%- if m.kind == 'snapshot' %}
+
+{%- if m.singleton %}
+    /// {{ (m.doc or 'The chassis itself.') | rustdoc }}
+{%- else %}
+    /// {{ (m.doc or 'Every %s, in declared order.' % m.row) | rustdoc }}
+    ///
+    /// Order is part of the contract: it is what lets the Rust and the Python
+    /// implementations be compared row for row.
+{%- endif %}
+    ///
+{%- if m.singleton %}
+    /// No default: a chassis that cannot describe itself has nothing an empty
+    /// value could stand in for.
+    fn {{ m.rust_name }}(&mut self) -> Result<{{ m.rust_ret }}, PlatformError> {
+        Err(PlatformError::NotSupported({{ m.name | tojson }}.to_string()))
+    }
+{%- else %}
+    /// Empty by default, so that adding a row type to the schema does not
+    /// break every implementation that does not have one -- a platform with
+    /// no BMC should not have to write a method to say so.
+    fn {{ m.rust_name }}(&mut self) -> Result<{{ m.rust_ret }}, PlatformError> {
+        Ok(Vec::new())
+    }
+{%- endif %}
+{%- elif m.kind == 'escape' %}
+
+    /// {{ m.escape_reason | replace('\n', ' ') | truncate(300) | rustdoc }}
+{%- if m.rust_ret == '()' %}
+    ///
+    /// A no-op by default: most platforms have no thermal manager, and one
+    /// that says so by erroring would have every caller log a warning per
+    /// cycle on hardware that is working exactly as designed.
+    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<(), PlatformError> {
+        {%- for p, _t in m.params %}
+        let _ = {{ p }};
+        {%- endfor %}
+        Ok(())
+    }
+{%- elif m.rust_ret.startswith('Option<') %}
+    ///
+    /// `None` by default, which is how a platform says it has no answer
+    /// rather than that the call failed.
+    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
+        {%- for p, _t in m.params %}
+        let _ = {{ p }};
+        {%- endfor %}
+        Ok(None)
+    }
+{%- elif m.rust_ret.startswith('Vec<') %}
+    ///
+    /// Empty by default.
+    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
+        {%- for p, _t in m.params %}
+        let _ = {{ p }};
+        {%- endfor %}
+        Ok(Vec::new())
+    }
+{%- else %}
+    ///
+    /// No default: what this answers has no empty value that is not also a
+    /// lie, so a platform that cannot answer has to say so.
+    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
+        {%- for p, _t in m.params %}
+        let _ = {{ p }};
+        {%- endfor %}
+        Err(PlatformError::NotSupported({{ m.name | tojson }}.to_string()))
+    }
+{%- endif %}
+{%- else %}
+
+    /// {{ (m.doc or m.name) | rustdoc }}
+    ///
+    /// Not supported by default: a platform whose {{ m.name }} is not
+    /// software-controllable should not have to write a method to say so.
+    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
+        {%- for p, _t in m.params %}
+        let _ = {{ p }};
+        {%- endfor %}
+        Err(PlatformError::NotSupported({{ m.name | tojson }}.to_string()))
+    }
+{%- endif %}
+{%- endfor %}
+}

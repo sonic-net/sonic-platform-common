@@ -1,0 +1,94 @@
+{{ header }}
+//! Rust calling the Python facade, through PyO3.
+//!
+//! GENERATED from platform_api/facade.pyi by generator/generate.py.  Do not
+//! edit: regenerate.
+//!
+//! One GIL acquisition per call, and one call per polling cycle per row type.
+//! That is the reason the facade is flat: reaching the base classes directly
+//! would cross the boundary once per attribute per device, and a chassis with
+//! sixty transceivers has thousands of attributes.
+//!
+//! Nothing here holds a Python object other than the facade itself.  No row
+//! carries a handle, no argument is a callback, and no call re-enters Python
+//! from Rust from Python -- the thermal manager's chassis argument is held on
+//! the Python side, which is what `tm_*` being argument-less means.
+
+use pyo3::prelude::*;
+
+use platform_api::{
+    {% for e in model.enums %}{{ e.name }}, {% endfor %}
+    {% for row in model.rows %}{{ row.name }}, {% endfor %}
+    PlatformApi, PlatformError, Threshold,
+};
+
+use crate::{err, flag, num, rows, text, thr_arg, threshold, Bridge};
+{% for row in model.rows %}
+
+/// Read one `{{ row.name }}` off the object the facade returned.
+fn {{ row.snake }}(row: &Bound<'_, PyAny>) -> Result<{{ row.name }}, PlatformError> {
+    Ok({{ row.name }} {
+{%- for f in row.fields %}
+        {{ f.rust_name }}: {{ f.rust_expr }},
+{%- endfor %}
+    })
+}
+{%- endfor %}
+
+impl PlatformApi for Bridge {
+{%- for m in model.methods %}
+{%- if m.kind == 'snapshot' and m.singleton %}
+
+    fn {{ m.rust_name }}(&mut self) -> Result<{{ m.rust_ret }}, PlatformError> {
+        Python::with_gil(|py| {
+            let row = self
+                .facade
+                .bind(py)
+                .call_method0({{ m.name | tojson }})
+                .map_err(|e| err(py, e))?;
+            {{ model.row(m.row).snake }}(&row)
+        })
+    }
+{%- elif m.kind == 'snapshot' %}
+
+    fn {{ m.rust_name }}(&mut self) -> Result<{{ m.rust_ret }}, PlatformError> {
+        Python::with_gil(|py| {
+            let rows = self
+                .facade
+                .bind(py)
+                .call_method0({{ m.name | tojson }})
+                .map_err(|e| err(py, e))?;
+            let mut out = Vec::new();
+            for row in rows.try_iter().map_err(|e| err(py, e))? {
+                let row = row.map_err(|e| err(py, e))?;
+                out.push({{ model.row(m.row).snake }}(&row)?);
+            }
+            Ok(out)
+        })
+    }
+{%- elif m.rust_ret == '()' %}
+
+    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<(), PlatformError> {
+        Python::with_gil(|py| {
+            self.facade
+                .bind(py)
+                .call_method1({{ m.name | tojson }}, ({{ m.rust_args }}))
+                .map_err(|e| err(py, e))?;
+            Ok(())
+        })
+    }
+{%- else %}
+
+    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1({{ m.name | tojson }}, ({{ m.rust_args }}))
+                .map_err(|e| err(py, e))?;
+            {{ m.rust_ret_conv }}
+        })
+    }
+{%- endif %}
+{%- endfor %}
+}
