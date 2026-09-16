@@ -1,0 +1,62 @@
+# Transceiver definitions loaded by `xcvr-emud` for the integration tests.
+#
+# Index 0 is the device under test and is plugged in at startup. Index 1 is
+# identical but starts unplugged so that presence / hot-plug behaviour can be
+# exercised.
+#
+# ASCII fields are padded with spaces to their full register width, as CMIS
+# requires, so that the API's trailing-whitespace stripping is exercised.
+#
+# Values here are asserted on directly by the tests, so keep the two in sync.
+transceivers:
+  0:
+    present: true
+    defaults: &defaults
+      SFF8024Identifier: "QSFP_DD"
+      SFF8024IdentifierCopy: "QSFP_DD"
+      VendorName: "SONiC-EMU       "
+      VendorPN: "EMU-400G-DR4    "
+      VendorRev: "0A"
+      VendorOUI: 0x00179C
+      VendorSN: "EMUSN0000001    "
+      DateCode:
+        Year: "25"
+        Month: "06"
+        DayOfMonth: "01"
+        LotCode: "A1"
+      LengthMultiplier: "MULTIPLIER_100"
+      BaseLength: 1
+      CmisRevision:
+        Major: 5
+        Minor: 2
+      MediaType: "OPTICAL_SMF"
+      ModulePowerClass: "CLASS_8"
+      MaxPower: 40 # 10.0 W
+      BanksSupported: "BANKS_0_3_SUPPORTED"
+      ConnectorType: "MPO_1X16"
+      ModuleActiveFirmwareMajorRevision: 2
+      ModuleActiveFirmwareMinorRevision: 3
+      ModuleInactiveFirmwareMajorRevision: 2
+      ModuleInactiveFirmwareMinorRevision: 1
+      MemoryModel: "PAGED"
+      MciMaxSpeed: "UP_TO_400_KHZ"
+      ApplicationDescriptor:
+        - HostInterfaceID: 79 # 400GAUI-4-S C2M (Annex 120G)
+          MediaInterfaceID: 28 # 400GBASE-DR4 (Cl 124)
+          HostLaneCount: 4
+          MediaLaneCount: 4
+          HostLaneAssignmentOptions: 0b1
+        - HostInterfaceID: 71 # 200GBASE-CR2 (Clause 162)
+          MediaInterfaceID: 23 # 200GBASE-DR4 (Cl 121)
+          HostLaneCount: 2
+          MediaLaneCount: 2
+          HostLaneAssignmentOptions: 0b101
+      MediaLaneAssignmentOptions:
+        - 0b001
+        - 0b101
+      MaxDurationDPInit: "BETWEEN_1_AND_5_S"
+      OutputDisableTxSupported: "SUPPORTED"
+      SteppedConfigOnly: "STEP_BY_STEP"
+  1:
+    present: false
+    defaults: *defaults
