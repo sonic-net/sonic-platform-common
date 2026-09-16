@@ -9,6 +9,7 @@ from .consts import VDM_ADVERTISING_CTRL_PAGE
 from .....fields.xcvr_field import (
     NumberRegField,
     RegBitField,
+    RegBitsField,
 )
 from .....fields import consts
 
@@ -22,7 +23,12 @@ class CmisVdmAdvertisingCtrlPage(CmisPage):
             NumberRegField(consts.VDM_SUPPORTED_PAGE, self.getaddr(128),
                 *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 2))
             ),
-            NumberRegField(consts.VDM_CONTROL, self.getaddr(144), size=1, ro=False),
+            NumberRegField(consts.VDM_CONTROL, self.getaddr(144),
+                RegBitsField(consts.VDM_FREEZE_REQUEST, bitpos=7, size=1, ro=False),
+                RegBitsField(consts.VDM_POWER_SAVING_MODE, bitpos=6, size=1, ro=False),
+                RegBitsField(consts.VDM_MON_DUTY_CYCLE, bitpos=2, size=4, ro=False),
+                RegBitsField(consts.VDM_RESERVED, bitpos=0, size=2, ro=True)
+            ),
             NumberRegField(consts.VDM_STATUS, self.getaddr(145),
                 RegBitField(consts.VDM_UNFREEZE_DONE, 6),
                 RegBitField(consts.VDM_FREEZE_DONE, 7),
