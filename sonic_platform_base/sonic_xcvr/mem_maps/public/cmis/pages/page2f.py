@@ -27,7 +27,8 @@ class CmisVdmAdvertisingCtrlPage(CmisPage):
                 RegBitsField(consts.VDM_FREEZE_REQUEST, bitpos=7, size=1, ro=False),
                 RegBitsField(consts.VDM_POWER_SAVING_MODE, bitpos=6, size=1, ro=False),
                 RegBitsField(consts.VDM_MON_DUTY_CYCLE, bitpos=2, size=4, ro=False),
-                RegBitsField(consts.VDM_RESERVED, bitpos=0, size=2, ro=True)
+                RegBitsField(consts.VDM_RESERVED, bitpos=0, size=2, ro=True),
+                ro=False
             ),
             NumberRegField(consts.VDM_STATUS, self.getaddr(145),
                 RegBitField(consts.VDM_UNFREEZE_DONE, 6),
