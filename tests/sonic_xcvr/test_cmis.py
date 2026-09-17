@@ -113,6 +113,25 @@ class TestCmisMemMap:
         future reader can verify the formula without redoing the arithmetic."""
         assert CmisPage.linear_offset(page, bank, offset) == expected
 
+    @pytest.mark.parametrize("api_method, initial_value, expected_value", [
+        ("freeze_vdm_stats", 0x55, 0xD5),
+        ("unfreeze_vdm_stats", 0xD5, 0x55),
+    ])
+    def test_vdm_freeze_request_preserves_other_control_bits(
+            self, api_method, initial_value, expected_value):
+        """FreezeRequest is Page 2Fh byte 144 bit 7 in CMIS 5.4."""
+        mem_map = CmisMemMap(self.codes)
+        freeze_request = mem_map.get_field(consts.VDM_FREEZE_REQUEST)
+        reader = MagicMock(return_value=bytes([initial_value]))
+        writer = MagicMock(return_value=True)
+        api = CmisApi(XcvrEeprom(reader, writer, mem_map))
+        reader.reset_mock()
+
+        assert getattr(api, api_method)() is True
+        reader.assert_called_once_with(freeze_request.get_offset(), 1)
+        writer.assert_called_once_with(
+            freeze_request.get_offset(), 1, bytearray([expected_value]))
+
 
 class TestCmis(object):
     codes = CmisCodes
