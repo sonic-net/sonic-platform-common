@@ -1,0 +1,23 @@
+# Root BUILD file for sonic-platform-common
+
+load("@tar.bzl//:tar.bzl", "tar", "mutate")
+
+# Package sonic-platform-common for distribution
+# TODO: cleanup this once sonic-build-infra has a rule that can package py_library targets.
+tar(
+    name = "dist",
+    srcs = [
+        "//sonic_platform_base:files",
+        "//sonic_platform_base/sonic_eeprom:files",
+        "//sonic_platform_base/sonic_pcie:files",
+        "//sonic_platform_base/sonic_sfp:files",
+        "//sonic_platform_base/sonic_storage:files",
+        "//sonic_platform_base/sonic_thermal_control:files",
+        "//sonic_platform_base/sonic_xcvr:files",
+        "//sonic_y_cable:files",
+    ],
+    mutate = mutate(
+        package_dir = "/usr/lib/python3/dist-packages",
+    ),
+    visibility = ["//visibility:public"],
+)
