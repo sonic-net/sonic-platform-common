@@ -15,10 +15,10 @@ else:
     import mock
 
 try:
-    from sonic_py_common import logger
+    from sonic_py_common import syslogger
 except ImportError:
     sys.modules['sonic_py_common'] = mock.MagicMock()
-    sys.modules['sonic_py_common.logger'] = mock.MagicMock()
+    sys.modules['sonic_py_common.syslogger'] = mock.MagicMock()
 
 from sonic_platform_base.redfish_client import RedfishClient
 
@@ -1214,10 +1214,13 @@ class TestRedfishClient:
         assert result.get('aborted') == True
         assert 'aborted' in result['ret_msg'].lower()
 
+    # 'time.time' is patched process-wide, so the module logger is mocked out too:
+    # logging builds every LogRecord from time.time() and would drain side_effect.
+    @mock.patch('sonic_platform_base.redfish_client.logger')
     @mock.patch('subprocess.Popen')
     @mock.patch('time.time')
     @mock.patch('time.sleep')
-    def test_wait_task_completion_timeout(self, mock_sleep, mock_time, mock_popen):
+    def test_wait_task_completion_timeout(self, mock_sleep, mock_time, mock_popen, mock_logger):
         """Test __wait_task_completion with timeout"""
         side_effects = []
         

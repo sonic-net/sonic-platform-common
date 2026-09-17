@@ -12,10 +12,10 @@ else:
     import mock
 
 try:
-    from sonic_py_common import logger
+    from sonic_py_common import syslogger
 except ImportError:
     sys.modules['sonic_py_common'] = mock.MagicMock()
-    sys.modules['sonic_py_common.logger'] = mock.MagicMock()
+    sys.modules['sonic_py_common.syslogger'] = mock.MagicMock()
 
 from sonic_platform_base.sed_mgmt_base import (
     SedMgmtBase,
