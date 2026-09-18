@@ -7,6 +7,14 @@ from packaging import version
 # sonic_dependencies, version requirement only supports '>='
 sonic_dependencies = ['sonic-py-common', 'sonic-config-engine']
 
+testing_packages = [
+    'pytest',
+    'pytest-cov',
+    # The fork supports current SONiC gRPC and package-qualified proto imports.
+    'xcvr-emu @ git+https://github.com/az-pz/'
+    'xcvr-emu.git@3aca04f89de6dfecf33bea29509234164d917a81',
+]
+
 for package in sonic_dependencies:
     try:
         package_dist = pkg_resources.get_distribution(package.split(">=")[0])
@@ -91,10 +99,10 @@ setup(
         'pytest-runner',
         'wheel'
     ],
-    tests_require = [
-        'pytest',
-        'pytest-cov',
-    ],
+    tests_require = testing_packages,
+    extras_require = {
+        'testing': testing_packages,
+    },
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Environment :: Plugins',
