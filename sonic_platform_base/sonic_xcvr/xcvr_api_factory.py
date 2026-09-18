@@ -61,23 +61,23 @@ class XcvrApiFactory(object):
 
         if vendor_name == 'Credo' and vendor_pn in CREDO_800G_AEC_VENDOR_PN_LIST:
             xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CredoAec800gMemMap(CredoAec800gCodes, bank=bank))
-            api = CredoAec800gApi(xcvr_eeprom, init_cdb_fw_handler=True)
+            api = CredoAec800gApi(xcvr_eeprom)
         elif ('INNOLIGHT' in vendor_name and vendor_pn in INL_800G_VENDOR_PN_LIST) or \
              ('EOPTOLINK' in vendor_name and vendor_pn in EOP_800G_VENDOR_PN_LIST):
             xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CmisMemMap(CmisCodes, bank=bank))
-            api = CmisFr800gApi(xcvr_eeprom, init_cdb_fw_handler=True)
+            api = CmisFr800gApi(xcvr_eeprom)
         elif vendor_name == 'Hisense' and vendor_pn is not None and re.match(HISENSE_2X100G_VENDOR_PN, vendor_pn):
             xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CmisMemMap(CmisCodes, bank=bank))
-            api = CmisAocSingleBankApi(xcvr_eeprom, init_cdb_fw_handler=True)
+            api = CmisAocSingleBankApi(xcvr_eeprom)
         elif vendor_pn in ARISTA_ENHANCED_LPO_PN_LIST:
             xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CmisEnhancedLpoMemMap(CmisCodes, bank=bank))
-            api = CmisEnhancedLpoApi(xcvr_eeprom, init_cdb_fw_handler=True)
+            api = CmisEnhancedLpoApi(xcvr_eeprom)
         else:
             xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CmisMemMap(CmisCodes, bank=bank))
-            api = CmisApi(xcvr_eeprom, init_cdb_fw_handler=True)
+            api = CmisApi(xcvr_eeprom)
             if api.is_coherent_module():
                 xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CCmisMemMap(CmisCodes, bank=bank))
-                api = CCmisApi(xcvr_eeprom, init_cdb_fw_handler=True)
+                api = CCmisApi(xcvr_eeprom)
         return api
 
     def _create_qsfp_api(self):
