@@ -36,6 +36,7 @@ class TestSedMgmtBase:
             [sed.get_min_sed_password_len],
             [sed.get_max_sed_password_len],
             [sed.get_default_sed_password],
+            [sed.get_psid],
         ]
         for method_list in not_implemented_methods:
             with pytest.raises(NotImplementedError):
@@ -70,6 +71,9 @@ class ConcreteSedMgmt(SedMgmtBase):
 
     def get_default_sed_password(self):
         return 'default_secret'
+
+    def get_psid(self):
+        return 'PSID1234567890ABCDEF1234567890ABCDEF'
 
     def get_tpm_bank_a_address(self):
         return '0x81010001'
@@ -157,6 +161,88 @@ class TestSedMgmtBaseWithConcrete:
         mock_check_call.side_effect = subprocess.CalledProcessError(1, 'sed_pw_reset.sh')
         sed = ConcreteSedMgmt()
         assert sed.reset_sed_password() is False
+
+
+class TestSedMgmtBaseWipeSsd:
+    """Test SedMgmtBase.wipe_ssd."""
+
+    @mock.patch('subprocess.run')
+    def test_wipe_ssd_success(self, mock_run):
+        """wipe_ssd puts the TPM banks on argv, the secrets on stdin, and returns True."""
+        sed = ConcreteSedMgmt()
+        assert sed.wipe_ssd() is True
+        mock_run.assert_called_once()
+        call_args = mock_run.call_args[0][0]
+        kwargs = mock_run.call_args[1]
+        assert call_args[0] == SedMgmtBase.SSD_ERASE_SCRIPT
+        assert call_args[call_args.index('-a') + 1] == '0x81010001'
+        assert call_args[call_args.index('-b') + 1] == '0x81010002'
+        assert kwargs['input'] == ('SED_DEFAULT_PW=default_secret\n'
+                                   'SED_PSID=PSID1234567890ABCDEF1234567890ABCDEF\n')
+        # start_new_session=True is critical: wipe must survive SSH drop.
+        assert kwargs.get('start_new_session') is True
+        assert kwargs.get('check') is True
+
+    @mock.patch('subprocess.run')
+    def test_wipe_ssd_keeps_secrets_off_argv(self, mock_run):
+        """Secrets must not reach argv: /proc/<pid>/cmdline is world-readable."""
+        sed = ConcreteSedMgmt()
+        assert sed.wipe_ssd() is True
+        call_args = mock_run.call_args[0][0]
+        assert 'default_secret' not in call_args
+        assert 'PSID1234567890ABCDEF1234567890ABCDEF' not in call_args
+        assert '-p' not in call_args
+        assert '-s' not in call_args
+
+    @mock.patch('subprocess.run')
+    def test_wipe_ssd_rejects_newline_in_secret(self, mock_run):
+        """A newline in a secret would forge extra KEY=VALUE lines on stdin."""
+        sed = ConcreteSedMgmt()
+        with mock.patch.object(sed, 'get_psid', return_value='PSID\nSED_DEFAULT_PW=forged'):
+            assert sed.wipe_ssd() is False
+        mock_run.assert_not_called()
+
+    @mock.patch('subprocess.run')
+    def test_wipe_ssd_preserves_quotes_and_backslashes(self, mock_run):
+        """Newline is the only rejected byte; the KEY=VALUE form quotes nothing, so
+        quotes and backslashes must reach the script verbatim rather than mangled."""
+        awkward = r'a\"b\\c "d" $e `f` g=h'
+        sed = ConcreteSedMgmt()
+        with mock.patch.object(sed, 'get_psid', return_value=awkward):
+            assert sed.wipe_ssd() is True
+        assert f'SED_PSID={awkward}\n' in mock_run.call_args[1]['input']
+
+    def test_wipe_ssd_no_psid(self):
+        """wipe_ssd returns False when PSID is not available."""
+        sed = ConcreteSedMgmt()
+        with mock.patch.object(sed, 'get_psid', return_value=None):
+            assert sed.wipe_ssd() is False
+
+    def test_wipe_ssd_no_default_password(self):
+        """wipe_ssd returns False when default password is not available."""
+        sed = ConcreteSedMgmt()
+        with mock.patch.object(sed, 'get_default_sed_password', return_value=None):
+            assert sed.wipe_ssd() is False
+
+    def test_wipe_ssd_missing_bank_a(self):
+        """wipe_ssd returns False when bank_a is missing."""
+        sed = ConcreteSedMgmt()
+        with mock.patch.object(sed, 'get_tpm_bank_a_address', return_value=None):
+            assert sed.wipe_ssd() is False
+
+    def test_wipe_ssd_missing_bank_b(self):
+        """wipe_ssd returns False when bank_b is missing."""
+        sed = ConcreteSedMgmt()
+        with mock.patch.object(sed, 'get_tpm_bank_b_address', return_value=''):
+            assert sed.wipe_ssd() is False
+
+    @mock.patch('subprocess.run')
+    def test_wipe_ssd_script_fails(self, mock_run):
+        """wipe_ssd returns False when ssd_erase.sh exits non-zero."""
+        import subprocess
+        mock_run.side_effect = subprocess.CalledProcessError(11, 'ssd_erase.sh')
+        sed = ConcreteSedMgmt()
+        assert sed.wipe_ssd() is False
 
 
 class TestReadSedConfigValue:
