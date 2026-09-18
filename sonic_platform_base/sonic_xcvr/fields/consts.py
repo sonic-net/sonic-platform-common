@@ -173,6 +173,29 @@ HW_MAJOR_REV = "ModuleHardwareMajorRevision"
 HW_MINOR_REV = "ModuleHardwareMinorRevision"
 CMIS_MAJOR_REVISION = "CmisMajorRevision"
 CMIS_MINOR_REVISION = "CmisMinorRevision"
+
+# CMIS Password Entry Area: page 00h bytes 122-125, 32-bit host password written
+# MSB-first (big-endian). Standard, universally-supported way to unlock
+# password-protected CDB/EEPROM access (per CMIS 8.2.14).
+PASSWORD_ENTRY = "PasswordEntry"
+PASSWORD_ENTRY_OFFSET = 122
+PASSWORD_ENTRY_SIZE = 4
+# PasswordCmdResult (00h:42.3-0): result of the most recent password entry/change
+# written to the Password Entry Area. Writing the password only delivers it; its
+# acceptance is reported asynchronously here. Only defined from CMIS 5.3 onward;
+# on earlier modules those bits are reserved and must not be interpreted.
+PASSWORD_CMD_RESULT = "PasswordCmdResult"
+PASSWORD_RESULT_MIN_CMIS_REV = (5, 3)
+PASSWORD_RESULT_NOT_SUPPORTED = 0x0    # not supported (legacy before CMIS 5.3)
+PASSWORD_RESULT_MODULE_ACCEPTED = 0x1  # module password entry/change accepted
+PASSWORD_RESULT_HOST_ACCEPTED = 0x2    # host password entry/change accepted
+PASSWORD_RESULT_NOT_ACCEPTED = 0x3     # password entry not accepted
+PASSWORD_RESULT_IN_PROGRESS = 0x8      # password validation in progress
+# Poll bound for PasswordCmdResult after writing the Password Entry Area. The
+# module updates the result within tWRITE and may reject reads (or report
+# "in progress") until then; give it a small margin.
+PASSWORD_RESULT_POLL_INTERVAL = 20     # msec
+PASSWORD_RESULT_POLL_TIMEOUT = 1000    # msec
 ACTIVE_FW_MAJOR_REV = "ModuleActiveFirmwareMajorRevision"
 ACTIVE_FW_MINOR_REV = "ModuleActiveFirmwareMinorRevision"
 INACTIVE_FW_MAJOR_REV = "ModuleInactiveFirmwareMajorRevision"
