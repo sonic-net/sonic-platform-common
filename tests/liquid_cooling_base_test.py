@@ -271,6 +271,27 @@ class TestLiquidCoolingBase():
         assert liquid_cooling.get_leak_sensor_status() == []
 
     @staticmethod
+    def test_get_major_leak_num_min_sensors_default():
+        '''
+        By default the platform does not support the MAJOR classification, so the
+        MIN-N value is 0.
+        '''
+        liquid_cooling = LiquidCoolingBase([])
+        assert liquid_cooling.get_major_leak_num_min_sensors() == 0
+
+    @staticmethod
+    def test_get_major_leak_num_min_sensors_override():
+        '''
+        A platform may report a non-zero MIN-N by overriding the method.
+        '''
+        class MajorLiquidCooling(LiquidCoolingBase):
+            def get_major_leak_num_min_sensors(self):
+                return 2
+
+        liquid_cooling = MajorLiquidCooling([])
+        assert liquid_cooling.get_major_leak_num_min_sensors() == 2
+
+    @staticmethod
     def test_get_leak_sensor_out_of_range():
         '''
         Test get_leak_sensor method with an out-of-range index

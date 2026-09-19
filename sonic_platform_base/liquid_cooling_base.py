@@ -19,6 +19,21 @@ class LeakSeverity(Enum):
     CRITICAL = "CRITICAL"
 
 
+class SystemLeakStatus:
+    """System-level (aggregate) leak status tokens written by thermalctld to the
+    SYSTEM_LEAK_STATUS table's device_leak_status field and consumed by bmcctld.
+
+    This is intentionally separate from the per-sensor LeakSeverity: an individual
+    leakage sensor is only ever MINOR or CRITICAL, whereas the system aggregate can
+    additionally be MAJOR (MIN-N or more concurrent minor leaks, or a single minor
+    leak that has persisted beyond its escalation timer). NONE means no active leak.
+    """
+    CRITICAL = "CRITICAL"
+    MAJOR    = "MAJOR"
+    MINOR    = "MINOR"
+    NONE     = "None"
+
+
 class LeakageSensorBase(SensorBase):
     # Keep string aliases for backwards compatibility
     LEAK_SEVERITY_CRITICAL = LeakSeverity.CRITICAL
@@ -181,6 +196,22 @@ class LiquidCoolingBase(device_base.DeviceBase):
             if sensor.is_leak():
                 leaking_sensors.append(sensor)
         return leaking_sensors
+
+    def get_major_leak_num_min_sensors(self) -> int:
+        """
+        Retrieves MIN-N, the platform-defined minimum number of concurrent Minor
+        leaks at or above which the system aggregate leak severity is classified as
+        MAJOR. This is a system-wide value (not per sensor).
+
+        A user configured `system_major_leak_num_min_sensors` in the CONFIG_DB
+        LEAK_CONTROL_POLICY table overrides this value.
+
+        Returns:
+            int: MIN-N. A value of 0 means the platform does not support the MAJOR
+                 classification, in which case thermalctld does not apply
+                 MAJOR_SYSTEM_LEAK.
+        """
+        return 0
 
     def get_all_profiles(self) -> List[LeakSensorProfileBase]:
         """
