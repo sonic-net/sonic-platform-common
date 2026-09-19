@@ -257,6 +257,167 @@ class TestSff8636(object):
         result = self.api.get_transceiver_status_flags()
         assert result == expected
 
+    # SFF-8636 Rev 2.12 Table 6-6 bit layout, shared by both flag bytes:
+    #   bit 7 = L-High Alarm
+    #   bit 6 = L-Low Alarm
+    #   bit 5 = L-High Warning
+    #   bit 4 = L-Low Warning
+    # Byte 6 bits 3-2 are reserved and bits 1-0 are TC readiness /
+    # initialization complete; byte 7 bits 3-0 are reserved.
+    @pytest.mark.parametrize(
+        "temp_support, vcc_support, eeprom, expected, expected_reads",
+        [
+            (
+                # both monitors advertised (byte 220 bits 5 and 4 set)
+                True, True,
+                {
+                    consts.TEMP_FLAGS_FIELD: 0b1010_0000,  # high alarm + high warning
+                    consts.VCC_FLAGS_FIELD: 0b0101_0000,   # low alarm + low warning
+                },
+                {
+                    "tempHAlarm": True,
+                    "tempLAlarm": False,
+                    "tempHWarn": True,
+                    "tempLWarn": False,
+                    "vccHAlarm": False,
+                    "vccLAlarm": True,
+                    "vccHWarn": False,
+                    "vccLWarn": True,
+                },
+                [consts.TEMP_FLAGS_FIELD, consts.VCC_FLAGS_FIELD],
+            ),
+            (
+                # both monitors advertised, no flags asserted: 0x00 is a real
+                # "no excursion" result and must still report all eight keys
+                True, True,
+                {consts.TEMP_FLAGS_FIELD: 0b0000_0000, consts.VCC_FLAGS_FIELD: 0b0000_0000},
+                {
+                    "tempHAlarm": False,
+                    "tempLAlarm": False,
+                    "tempHWarn": False,
+                    "tempLWarn": False,
+                    "vccHAlarm": False,
+                    "vccLAlarm": False,
+                    "vccHWarn": False,
+                    "vccLWarn": False,
+                },
+                [consts.TEMP_FLAGS_FIELD, consts.VCC_FLAGS_FIELD],
+            ),
+            (
+                # temperature monitoring not implemented (byte 220 bit 5 clear):
+                # the temp flag byte must not be read or reported at all
+                False, True,
+                {consts.VCC_FLAGS_FIELD: 0b1000_0000},
+                {
+                    "vccHAlarm": True,
+                    "vccLAlarm": False,
+                    "vccHWarn": False,
+                    "vccLWarn": False,
+                },
+                [consts.VCC_FLAGS_FIELD],
+            ),
+            (
+                # supply voltage monitoring not implemented (byte 220 bit 4 clear)
+                True, False,
+                {consts.TEMP_FLAGS_FIELD: 0b0001_0000},
+                {
+                    "tempHAlarm": False,
+                    "tempLAlarm": False,
+                    "tempHWarn": False,
+                    "tempLWarn": True,
+                },
+                [consts.TEMP_FLAGS_FIELD],
+            ),
+            # neither monitor implemented (e.g. a copper cable): nothing is
+            # read and nothing is claimed, so xcvrd posts no DOM flags
+            (False, False, {}, {}, []),
+            # EEPROM read failure of a flag byte drops only that group; the
+            # other group is still reported and the absent keys render as N/A
+            # rather than as a False that was never measured
+            (
+                True, True,
+                {consts.TEMP_FLAGS_FIELD: None, consts.VCC_FLAGS_FIELD: 0},
+                {
+                    "vccHAlarm": False,
+                    "vccLAlarm": False,
+                    "vccHWarn": False,
+                    "vccLWarn": False,
+                },
+                [consts.TEMP_FLAGS_FIELD, consts.VCC_FLAGS_FIELD],
+            ),
+            (
+                True, True,
+                {consts.TEMP_FLAGS_FIELD: 0, consts.VCC_FLAGS_FIELD: None},
+                {
+                    "tempHAlarm": False,
+                    "tempLAlarm": False,
+                    "tempHWarn": False,
+                    "tempLWarn": False,
+                },
+                [consts.TEMP_FLAGS_FIELD, consts.VCC_FLAGS_FIELD],
+            ),
+            # read failure of the monitor advertisement itself is treated as
+            # "not implemented": that group is skipped, its flag byte is never
+            # read, and both cases render as N/A, so an unreadable
+            # advertisement cannot be mistaken for a measured in-limits result
+            (
+                None, True,
+                {consts.VCC_FLAGS_FIELD: 0b0000_0000},
+                {
+                    "vccHAlarm": False,
+                    "vccLAlarm": False,
+                    "vccHWarn": False,
+                    "vccLWarn": False,
+                },
+                [consts.VCC_FLAGS_FIELD],
+            ),
+            (
+                # a latched temperature alarm survives an unrelated failure of
+                # the voltage advertisement: no group is discarded on account
+                # of another group's failure
+                True, None,
+                {consts.TEMP_FLAGS_FIELD: 0b1000_0000},
+                {
+                    "tempHAlarm": True,
+                    "tempLAlarm": False,
+                    "tempHWarn": False,
+                    "tempLWarn": False,
+                },
+                [consts.TEMP_FLAGS_FIELD],
+            ),
+        ],
+    )
+    def test_get_transceiver_dom_flags(self, temp_support, vcc_support, eeprom,
+                                       expected, expected_reads):
+        self.api.get_temperature_support = MagicMock(return_value=temp_support)
+        self.api.get_voltage_support = MagicMock(return_value=vcc_support)
+
+        # Key the mock on the field name rather than call order, so a swapped
+        # or mis-mapped field would fail instead of silently passing. Raw
+        # bytes are decoded through the real mem map field so the bitdecode
+        # bit positions are exercised, not just the API plumbing.
+        def read_field(field):
+            raw = eeprom[field]
+            if raw is None:
+                return None
+            return self.mem_map.get_field(field).decode(bytearray([raw]))
+        self.api.xcvr_eeprom.read = MagicMock(side_effect=read_field)
+
+        result = self.api.get_transceiver_dom_flags()
+
+        assert result == expected
+        # The flag latches clear on read: each advertised byte must be read
+        # exactly once per call, in a single whole-byte access, and a byte
+        # whose monitor is not advertised must not be read at all.
+        assert [c.args[0] for c in self.api.xcvr_eeprom.read.call_args_list] == expected_reads
+
+    def test_dom_flag_fields_map_to_table_6_6_bytes(self):
+        """TempFlags/VccFlags must resolve to lower page 00h bytes 6 and 7."""
+        assert self.mem_map.get_field(consts.TEMP_FLAGS_FIELD).get_offset() == 6
+        assert self.mem_map.get_field(consts.TEMP_FLAGS_FIELD).get_size() == 1
+        assert self.mem_map.get_field(consts.VCC_FLAGS_FIELD).get_offset() == 7
+        assert self.mem_map.get_field(consts.VCC_FLAGS_FIELD).get_size() == 1
+
     @pytest.mark.parametrize("mock_response, expected",[
         (
             [
