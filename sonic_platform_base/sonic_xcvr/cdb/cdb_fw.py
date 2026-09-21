@@ -19,6 +19,7 @@ class CdbFwHandler(CdbCmdHandler):
         self.start_payload_size = 0
         self.is_lpl_only = False
         self.rw_length_ext = 0
+        self.is_abort_supported = False
         assert True == self.initFwHandler(), "Failed to initialize firmware handler"
 
     def initFwHandler(self):
@@ -35,9 +36,11 @@ class CdbFwHandler(CdbCmdHandler):
             log.log_notice("Failed to read firmware management features")
             return False
 
+        mgmt_features_adv = reply.get(cdb_consts.CDB_FIRMWARE_MGMT_ADV, {})
         self.start_payload_size = int(reply[cdb_consts.CDB_START_CMD_PAYLOAD_SIZE])
         self.is_lpl_only = reply[cdb_consts.CDB_WRITE_MECHANISM] == "LPL"
         self.rw_length_ext = int(reply[cdb_consts.CDB_READ_WRITE_LENGTH_EXT]) + 8
+        self.is_abort_supported = bool(mgmt_features_adv.get(cdb_consts.CDB_ABORT_CMD_SUPPORTED, 0))
 
         if self.is_lpl_only:
             self.rw_length_ext = min(cdb_consts.LPL_MAX_PAYLOAD_SIZE, self.rw_length_ext)
@@ -52,7 +55,7 @@ class CdbFwHandler(CdbCmdHandler):
         """
         if self.start_payload_size == 0 and self.rw_length_ext == 0:
             return None
-        return (self.start_payload_size, self.rw_length_ext, self.is_lpl_only)
+        return (self.start_payload_size, self.rw_length_ext, self.is_lpl_only, self.is_abort_supported)
 
     def get_firmware_info(self):
         """
