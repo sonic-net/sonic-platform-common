@@ -1235,6 +1235,16 @@ class RedfishClient:
         if (ret == RedfishClient.ERR_CODE_OK):
             try:
                 json_response = json.loads(response)
+                if 'error' in json_response:
+                    code = json_response['error'].get('code', '')
+                    # A member the device does not carry is an expected result of
+                    # probing, not a fault. The code spelling varies: an SPC6 BMC
+                    # answers Base.x.y.ResourceMissingAtURI, others ResourceNotFound.
+                    if any(m in code for m in ('ResourceMissingAtURI', 'ResourceNotFound')):
+                        logger.log_notice(f'Firmware inventory holds no member {fw_id}')
+                        return (RedfishClient.ERR_CODE_URI_NOT_FOUND, version)
+                    logger.log_error(f'Got redfish error on querying {fw_id} version: {code}')
+                    return (RedfishClient.ERR_CODE_GENERIC_ERROR, version)
                 if 'Version' in json_response:
                     version = json_response['Version']
                 else:
