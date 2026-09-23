@@ -1,7 +1,7 @@
 """
     bailly.py
 
-    Implementation of Bailly CPO extensions to the CMIS specification.
+    Implementation of Micas Bailly CPO specific in addition to the CMIS specification.
 """
 from ..public.cmis import CmisApi
 from ...fields.broadcom import bailly
@@ -114,40 +114,6 @@ class BaillyApi(CmisApi):
         '''
         return self.xcvr_eeprom.read(bailly.LASER_OPTICAL_POWER_MONITOR_FIELD)
 
-    # RLM control APIs.
-
-    def set_rlm_lpmode(self, lpmode):
-        """Set all ELS lasers to low-power or full-power mode."""
-        value = 0x00 if lpmode else 0xFF
-        return self.xcvr_eeprom.write(
-            bailly.LASER_POWER_MODE_CONTROL_BITS_FIELD, value
-        )
-
-    def set_rlm_tx_disable(self, disable):
-        """Enable or disable Tx for every ELS laser."""
-        return self.set_rlm_tx_disable_channel(0xFFFF, disable)
-
-    def set_rlm_tx_disable_channel(self, channel_mask, disable):
-        """Apply Tx-disable to the ELS lasers selected by a bit mask."""
-        low = self.xcvr_eeprom.read(bailly.LASER_DISABLE_CONTROL_7_0)
-        high = self.xcvr_eeprom.read(bailly.LASER_DISABLE_CONTROL_15_8)
-        if low is None or high is None:
-            return False
-
-        current = int(low) | (int(high) << 8)
-        if disable:
-            current |= channel_mask & 0xFFFF
-        else:
-            current &= ~(channel_mask & 0xFFFF)
-
-        low_ok = self.xcvr_eeprom.write(
-            bailly.LASER_DISABLE_CONTROL_7_0, current & 0xFF
-        )
-        high_ok = self.xcvr_eeprom.write(
-            bailly.LASER_DISABLE_CONTROL_15_8, (current >> 8) & 0xFF
-        )
-        return bool(low_ok and high_ok)
-
     # Public ELSFP API compatibility aliases. Bailly hardware calls the
     # external laser source an RLM, so keep that terminology below this layer.
 
@@ -177,10 +143,6 @@ class BaillyApi(CmisApi):
     def get_per_lane_voltage_monitor(self):
         """Return ELSFP voltage monitors through the public API name."""
         return self.get_rlm_laser_voltage()
-
-    def set_per_lane_enable(self, lane_mask, enabled):
-        """Set ELSFP lane enable state through the public API name."""
-        return self.set_rlm_tx_disable_channel(lane_mask, not enabled)
 
     # RLM aggregate-read APIs.
 
