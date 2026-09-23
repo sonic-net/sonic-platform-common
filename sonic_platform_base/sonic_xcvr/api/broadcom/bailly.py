@@ -148,6 +148,40 @@ class BaillyApi(CmisApi):
         )
         return bool(low_ok and high_ok)
 
+    # Public ELSFP API compatibility aliases. Bailly hardware calls the
+    # external laser source an RLM, so keep that terminology below this layer.
+
+    def get_elsfp_status(self):
+        """Return ELSFP status through the public API name."""
+        return self.get_rlm_status()
+
+    def get_elsfp_dom_real_value(self):
+        """Return ELSFP module monitors through the public API name."""
+        monitors = self.get_rlm_monitor_values()
+        if monitors is None:
+            return None
+        return {
+            "temperature": monitors.get("els_temperature"),
+            "voltage": monitors.get("els_voltage"),
+            "tec_current": monitors.get("rlm_tec_current"),
+        }
+
+    def get_per_lane_bias_current_monitor(self):
+        """Return ELSFP laser bias monitors through the public API name."""
+        return self.get_rlm_laser_current()
+
+    def get_per_lane_opt_power_monitor(self):
+        """Return ELSFP optical power monitors through the public API name."""
+        return self.get_rlm_laser_power()
+
+    def get_per_lane_voltage_monitor(self):
+        """Return ELSFP voltage monitors through the public API name."""
+        return self.get_rlm_laser_voltage()
+
+    def set_per_lane_enable(self, lane_mask, enabled):
+        """Set ELSFP lane enable state through the public API name."""
+        return self.set_rlm_tx_disable_channel(lane_mask, not enabled)
+
     # RLM aggregate-read APIs.
 
     def get_rlm_monitor_values(self):
