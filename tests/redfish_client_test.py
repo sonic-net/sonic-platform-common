@@ -298,6 +298,62 @@ class TestRedfishClient:
         assert version == 'V.88.0002.0500-04'
     
     @mock.patch('subprocess.Popen')
+    def test_get_bmc_version_missing_inventory_member(self, mock_popen):
+        """A firmware ID the device does not carry must not read as success.
+
+        The BMC answers a missing inventory member with an HTTP 400 and a
+        Redfish error body. curl exits 0 on that, so without inspecting the
+        body the query returns ERR_CODE_OK with the 'N/A' it started from -
+        indistinguishable from a device whose version really is unknown.
+        """
+        side_effects = []
+        for fname in ['mock_bmc_login_token_response', \
+            'mock_get_bmc_info_missing_response']:
+            output = (load_redfish_response(fname), b'')
+            mock_process = mock.Mock()
+            mock_process.communicate.return_value = output
+            mock_process.returncode = 0
+            side_effects.append(mock_process)
+
+        mock_popen.side_effect = side_effects
+        rf = RedfishClient(TestRedfishClient.CURL_PATH,
+                           TestRedfishClient.BMC_INTERNAL_IP_ADDR,
+                           self.user_callback,
+                           self.password_callback)
+
+        ret = rf.login()
+        assert ret == RedfishClient.ERR_CODE_OK
+
+        ret, version = rf.redfish_api_get_firmware_version('TEST_FW_BMC_0')
+        assert ret == RedfishClient.ERR_CODE_URI_NOT_FOUND
+        assert version == 'N/A'
+
+    @mock.patch('subprocess.Popen')
+    def test_get_bmc_version_unrecognized_error(self, mock_popen):
+        """An error that is not a missing resource must stay loud, not read as absent"""
+        side_effects = []
+        for fname in ['mock_bmc_login_token_response', \
+            'mock_get_bmc_info_error_response']:
+            output = (load_redfish_response(fname), b'')
+            mock_process = mock.Mock()
+            mock_process.communicate.return_value = output
+            mock_process.returncode = 0
+            side_effects.append(mock_process)
+
+        mock_popen.side_effect = side_effects
+        rf = RedfishClient(TestRedfishClient.CURL_PATH,
+                           TestRedfishClient.BMC_INTERNAL_IP_ADDR,
+                           self.user_callback,
+                           self.password_callback)
+
+        ret = rf.login()
+        assert ret == RedfishClient.ERR_CODE_OK
+
+        ret, version = rf.redfish_api_get_firmware_version('TEST_FW_BMC_0')
+        assert ret == RedfishClient.ERR_CODE_GENERIC_ERROR
+        assert version == 'N/A'
+
+    @mock.patch('subprocess.Popen')
     def test_change_bmc_login_password_root_user_success(self, mock_popen):
         """Test changing BMC login password for root user"""
         side_effects = []
