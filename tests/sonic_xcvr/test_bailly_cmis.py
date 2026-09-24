@@ -112,6 +112,81 @@ class TestBaillyApi:
         assert self.api.get_rlm_laser_power() == expected
         self.mock_eeprom.read.assert_called_with(bailly.LASER_OPTICAL_POWER_MONITOR_FIELD)
 
+    def test_get_elsfp_info(self):
+        rlm_info = {
+            'cpo_info': {
+                bailly.CPO_IDENTIFIER: 'ELS Identifier',
+                bailly.CPO_REVISION: 0x12,
+                bailly.LASER_COUNT: 8,
+                bailly.LASER_WAVELENGTH_GRID: 'CWDM4',
+            },
+            'rlm_vendor_info': {
+                bailly.VENDOR_NAME_ASCII_FIELD: 'BROADCOM ',
+                bailly.VENDOR_OUI_HEX_FIELD: 'ec-01-e2',
+                bailly.VENDOR_PART_NUMBER_ASCII_FIELD: 'ARLM ',
+                bailly.VENDOR_REVISION_ASCII_FIELD: 'A0 ',
+                bailly.VENDOR_SERIAL_NUMBER_ASCII_FIELD: 'SN ',
+                bailly.DATE_CODE_FIELD: '2024-02-26 ',
+                bailly.MAX_POWER_CONSUMPTION_FIELD: 12.0,
+            },
+            'laser_power_mode': {
+                bailly.LASER_POWER_MODE_CONTROL_BITS_FIELD: 0,
+            },
+        }
+        with patch.object(self.api, 'get_rlm_info', return_value=rlm_info):
+            assert self.api.get_elsfp_info() == {
+                'type': 'ELS Identifier',
+                'hardware_rev': '1.2',
+                'lane_count': 8,
+                'manufacturer': 'BROADCOM',
+                'vendor_oui': 'ec-01-e2',
+                'model': 'ARLM',
+                'vendor_rev': 'A0',
+                'serial': 'SN',
+                'vendor_date': '2024-02-26',
+                'max_power_consumption': 12.0,
+                'laser_wavelength_grid': 'CWDM4',
+                'low_power_control': 0,
+            }
+
+    def test_get_elsfp_info_none(self):
+        with patch.object(self.api, 'get_rlm_info', return_value=None):
+            assert self.api.get_elsfp_info() is None
+
+    def test_get_elsfp_read_aliases(self):
+        with patch.object(
+                self.api, 'get_rlm_status', return_value={'ready': True}):
+            assert self.api.get_elsfp_status() == {'ready': True}
+
+        with patch.object(self.api, 'get_rlm_monitor_values',
+                          return_value=None):
+            assert self.api.get_elsfp_dom_real_value() is None
+        with patch.object(
+                self.api,
+                'get_rlm_monitor_values',
+                return_value={
+                    'els_temperature': 25.0,
+                    'els_voltage': 3.3,
+                    'rlm_tec_current': 1.5,
+                }):
+            assert self.api.get_elsfp_dom_real_value() == {
+                'temperature': 25.0,
+                'voltage': 3.3,
+                'tec_current': 1.5,
+            }
+
+        aliases = (
+            ('get_elsfp_threshold_info', 'get_rlm_thresholds'),
+            ('get_per_lane_bias_current_monitor',
+             'get_rlm_laser_current'),
+            ('get_per_lane_opt_power_monitor', 'get_rlm_laser_power'),
+            ('get_per_lane_voltage_monitor', 'get_rlm_laser_voltage'),
+        )
+        for public_name, rlm_name in aliases:
+            expected = {'value': public_name}
+            with patch.object(self.api, rlm_name, return_value=expected):
+                assert getattr(self.api, public_name)() == expected
+
     def test_get_rlm_monitor_values(self):
         self.mock_eeprom.read.return_value = {
             bailly.MODULE_TEMPERATURE_MONITOR: 25.1234,
