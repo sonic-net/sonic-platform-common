@@ -58,6 +58,11 @@ class TestChassisBase:
 
             assert exception_raised
 
+    def test_get_media_settings_key(self):
+        # The base hook is an optional vendor override and must default to None
+        chassis = ChassisBase()
+        assert chassis.get_media_settings_key(0, {}, 100000, 4) is None
+
     @mock.patch('sonic_py_common.device_info.is_switch_bmc', return_value=True)
     def test_system_led_bmc(self, _mock_is_switch_bmc):
         # BMC platforms have no controllable system LED, so the base class
