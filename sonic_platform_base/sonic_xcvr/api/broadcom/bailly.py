@@ -117,6 +117,51 @@ class BaillyApi(CmisApi):
     # Public ELSFP API compatibility aliases. Bailly hardware calls the
     # external laser source an RLM, so keep that terminology below this layer.
 
+    def get_elsfp_info(self):
+        """Return existing RLM information through public ELSFP names."""
+        rlm_info = self.get_rlm_info()
+        if not isinstance(rlm_info, dict):
+            return None
+
+        cpo_info = rlm_info.get("cpo_info") or {}
+        vendor_info = rlm_info.get("rlm_vendor_info") or {}
+        power_mode = rlm_info.get("laser_power_mode") or {}
+        info = {
+            "type": cpo_info.get(bailly.CPO_IDENTIFIER),
+            "hardware_rev": self._format_revision(
+                cpo_info.get(bailly.CPO_REVISION)
+            ),
+            "lane_count": cpo_info.get(bailly.LASER_COUNT),
+            "manufacturer": self._strip_str(
+                vendor_info.get(bailly.VENDOR_NAME_ASCII_FIELD)
+            ),
+            "vendor_oui": vendor_info.get(bailly.VENDOR_OUI_HEX_FIELD),
+            "model": self._strip_str(
+                vendor_info.get(bailly.VENDOR_PART_NUMBER_ASCII_FIELD)
+            ),
+            "vendor_rev": self._strip_str(
+                vendor_info.get(bailly.VENDOR_REVISION_ASCII_FIELD)
+            ),
+            "serial": self._strip_str(
+                vendor_info.get(bailly.VENDOR_SERIAL_NUMBER_ASCII_FIELD)
+            ),
+            "vendor_date": self._strip_str(
+                vendor_info.get(bailly.DATE_CODE_FIELD)
+            ),
+            "max_power_consumption": vendor_info.get(
+                bailly.MAX_POWER_CONSUMPTION_FIELD
+            ),
+            "laser_wavelength_grid": cpo_info.get(
+                bailly.LASER_WAVELENGTH_GRID
+            ),
+            "low_power_control": power_mode.get(
+                bailly.LASER_POWER_MODE_CONTROL_BITS_FIELD
+            ),
+        }
+        return {
+            key: value for key, value in info.items() if value is not None
+        }
+
     def get_elsfp_status(self):
         """Return ELSFP status through the public API name."""
         return self.get_rlm_status()
@@ -131,6 +176,10 @@ class BaillyApi(CmisApi):
             "voltage": monitors.get("els_voltage"),
             "tec_current": monitors.get("rlm_tec_current"),
         }
+
+    def get_elsfp_threshold_info(self):
+        """Return existing RLM thresholds through the public API name."""
+        return self.get_rlm_thresholds()
 
     def get_per_lane_bias_current_monitor(self):
         """Return ELSFP laser bias monitors through the public API name."""
