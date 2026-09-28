@@ -23,7 +23,7 @@ from ...utils.cache import read_only_cached_api_return
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
-VDM_FREEZE = 128
+VDM_FREEZE = 1
 VDM_UNFREEZE = 0
 
 DATAPATH_INIT_DURATION_MULTIPLIER = 10
@@ -211,7 +211,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
 
         Returns True if the provision succeeds and False incase of failure.
         '''
-        return self.xcvr_eeprom.write(consts.VDM_CONTROL, VDM_FREEZE)
+        return self.xcvr_eeprom.write(consts.VDM_FREEZE_REQUEST, VDM_FREEZE)
 
     def get_vdm_freeze_status(self):
         '''
@@ -229,7 +229,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
 
         Returns True if the provision succeeds and False incase of failure.
         '''
-        return self.xcvr_eeprom.write(consts.VDM_CONTROL, VDM_UNFREEZE)
+        return self.xcvr_eeprom.write(consts.VDM_FREEZE_REQUEST, VDM_UNFREEZE)
 
     def get_vdm_unfreeze_status(self):
         '''
