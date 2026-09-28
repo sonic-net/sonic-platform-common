@@ -302,3 +302,61 @@ class TestSff8636(object):
         result = self.api.get_transceiver_dom_real_value()
         assert result == expected
 
+
+
+    @staticmethod
+    def _temperature_api(values):
+        api = Sff8636Api.__new__(Sff8636Api)
+        api.xcvr_eeprom = MagicMock(spec=XcvrEeprom)
+        api.xcvr_eeprom.read.side_effect = values.get
+        api._temp_support = None
+        api._is_copper = None
+        return api
+
+    @pytest.mark.parametrize("support, expected", [(None, None), (False, 'N/A')])
+    def test_temperature_unavailable_does_not_read_monitor(self, support, expected):
+        api = self._temperature_api({})
+        with patch.object(api, 'get_temperature_support', return_value=support):
+            assert api.get_module_temperature() == expected
+        api.xcvr_eeprom.read.assert_not_called()
+
+    @pytest.mark.parametrize("value", [None, -20.5, 0.0, 35.125])
+    def test_supported_temperature_read(self, value):
+        api = self._temperature_api({
+            consts.DATA_NOT_READY_FIELD: False,
+            consts.TEMPERATURE_FIELD: value,
+        })
+        with patch.object(api, 'get_temperature_support', return_value=True):
+            assert api.get_module_temperature() == value
+
+    @pytest.mark.parametrize("copper, expected", [(None, None), (True, False)])
+    def test_copper_detection_failure_and_unsupported(self, copper, expected):
+        api = self._temperature_api({})
+        with patch.object(api, 'is_copper', return_value=copper):
+            assert api.get_temperature_support() is expected
+        api.xcvr_eeprom.read.assert_not_called()
+
+    @pytest.mark.parametrize("revision", [7, 8, 9, 10])
+    @pytest.mark.parametrize("supported", [False, True])
+    def test_sff8636_revision_and_capability_raw_eeprom(self, revision, supported):
+        data = bytearray(256)
+        data[1] = revision
+        data[220] = 0x20 if supported else 0
+        api = self._temperature_api({})
+        api.xcvr_eeprom = XcvrEeprom(
+            lambda offset, size: data[offset:offset + size], MagicMock(),
+            Sff8636MemMap(Sff8636Codes))
+        with patch.object(api, 'is_copper', return_value=False):
+            assert api.get_temperature_support() is (supported if revision >= 8 else True)
+
+    @pytest.mark.parametrize("failed_field", [consts.REV_COMPLIANCE_RAW_FIELD,
+                                             consts.TEMP_SUPPORT_FIELD])
+    def test_sff8636_failed_capability_read_is_retried(self, failed_field):
+        values = {consts.REV_COMPLIANCE_RAW_FIELD: 9, consts.TEMP_SUPPORT_FIELD: True}
+        api = self._temperature_api(values)
+        recovered = values[failed_field]
+        values[failed_field] = None
+        with patch.object(api, 'is_copper', return_value=False):
+            assert api.get_temperature_support() is None
+            values[failed_field] = recovered
+            assert api.get_temperature_support() is True
