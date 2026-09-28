@@ -84,6 +84,34 @@ class TestXcvrApiFactory(object):
         CmisFr800gApi = MagicMock()
         assert self.api.create_xcvr_api() is None
 
+    @pytest.mark.parametrize("identifier", [0x0c, 0x17])
+    def test_legacy_qsfp_identifiers(self, identifier):
+        factory = XcvrApiFactory(lambda offset, size: bytes([identifier]), MagicMock())
+        with patch.object(factory, '_create_api') as create:
+            assert factory.create_xcvr_api() is create.return_value
+            create.assert_called_once()
+            assert create.call_args[0][2] is Sff8436Api
+
+    def test_unavailable_qsfp_revision(self):
+        def reader(offset, size):
+            return bytes([0x0d]) if offset == 0 else None
+        factory = XcvrApiFactory(reader, MagicMock())
+        with patch.object(factory, '_create_api') as create:
+            assert factory.create_xcvr_api() is None
+            create.assert_not_called()
+
+    @pytest.mark.parametrize("identifier", [0x1f, 0x20, 0x21])
+    def test_new_cmis_identifiers(self, identifier):
+        factory = XcvrApiFactory(lambda offset, size: bytes([identifier]), MagicMock())
+        with patch.object(factory, '_create_cmis_api') as create:
+            assert factory.create_xcvr_api() is create.return_value
+            create.assert_called_once_with()
+
+    @pytest.mark.parametrize("identifier", [0x1a, 0xff])
+    def test_unmapped_identifiers(self, identifier):
+        factory = XcvrApiFactory(lambda offset, size: bytes([identifier]), MagicMock())
+        assert factory.create_xcvr_api() is None
+
 class TestAmphBackplaneImpl:
     @pytest.fixture
     def amph_backplane(self, monkeypatch):

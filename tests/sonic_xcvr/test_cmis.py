@@ -315,14 +315,18 @@ class TestCmis(object):
         result = self.api.is_flat_memory()
         assert result == expected
 
-    @pytest.mark.parametrize("mock_response, expected", [
-        (False, True)
+    @pytest.mark.parametrize("flat_memory, support, expected", [
+        (False, True, True),
+        (False, False, False),
+        (False, None, None),
+        (True, None, False),
+        (None, None, None),
     ])
-    def test_get_temperature_support(self, mock_response, expected):
-        self.api.is_flat_memory = MagicMock()
-        self.api.is_flat_memory.return_value = mock_response
-        result = self.api.get_temperature_support()
-        assert result == expected
+    def test_get_temperature_support(self, flat_memory, support, expected):
+        values = {consts.FLAT_MEM_FIELD: flat_memory,
+                  consts.TEMP_SUPPORT_FIELD: support}
+        with patch.object(self.api.xcvr_eeprom, "read", side_effect=values.get):
+            assert CmisApi.get_temperature_support(self.api) is expected
 
     @pytest.mark.parametrize("mock_response, expected", [
         (False, True)
@@ -3109,3 +3113,36 @@ class TestCmis(object):
             second_handle =self.api.cdb_fw_hdlr
             assert first_handle is second_handle
             assert mock_create_handler.call_count == 1
+
+    @staticmethod
+    def _temperature_api(values):
+        # Isolate temperature reads from unrelated CDB initialization.
+        api = CmisApi.__new__(CmisApi)
+        api.xcvr_eeprom = MagicMock(spec=XcvrEeprom)
+        api.xcvr_eeprom.read.side_effect = values.get
+        return api
+
+    @pytest.mark.parametrize("support, expected", [(None, None), (False, 'N/A')])
+    def test_temperature_unavailable_does_not_read_monitor(self, support, expected):
+        api = self._temperature_api({})
+        with patch.object(api, 'get_temperature_support', return_value=support):
+            assert api.get_module_temperature() == expected
+        api.xcvr_eeprom.read.assert_not_called()
+
+    @pytest.mark.parametrize("value", [None, -20.5, 0.0, 35.125])
+    def test_supported_temperature_read(self, value):
+        api = self._temperature_api({consts.TEMPERATURE_FIELD: value})
+        with patch.object(api, 'get_temperature_support', return_value=True):
+            assert api.get_module_temperature() == value
+
+    @pytest.mark.parametrize("supported", [False, True])
+    def test_cmis_temperature_advertisement_raw_eeprom(self, supported):
+        data = bytearray(512)
+        data[287] = 1 if supported else 0  # Page 01h, byte 159, bit 0.
+        data[14:16] = bytes([35, 128])
+        api = self._temperature_api({})
+        api.xcvr_eeprom = XcvrEeprom(
+            lambda offset, size: data[offset:offset + size], MagicMock(),
+            CmisMemMap(CmisCodes))
+        assert api.get_temperature_support() is supported
+        assert api.get_module_temperature() == (35.5 if supported else 'N/A')
