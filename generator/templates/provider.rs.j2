@@ -1,0 +1,72 @@
+{{ header }}
+//! Every implementation of the platform API, behind one concrete type.
+//!
+//! GENERATED from platform_api/facade.pyi by generator/generate.py.  Do not
+//! edit: regenerate.
+//!
+//! [`Platform`] is an enum rather than a `Box<dyn PlatformApi>` because
+//! chassisd takes the platform through a generic parameter and hands the same
+//! borrow to a power cycler (`PlatformCycler<'a, P: PlatformApi>`, which the
+//! daemon's own comment records as deliberate: "the two cannot both be taken
+//! through one trait object").  A trait object there does not compile even
+//! with `?Sized`, because `&mut P` with `P: ?Sized` cannot be unsized to
+//! `&mut dyn PlatformApi`.  A `Sized` enum keeps every one of those signatures
+//! working unchanged, which is what lets a second implementation arrive
+//! without a daemon being touched.
+//!
+//! The delegation below is mechanical and long.  It is generated for the same
+//! reason the trait is: so the arms cannot drift from the trait, or from each
+//! other, when a method is added to the stub.
+
+{#
+    Only what the forwarded signatures below actually name.  The bridge
+    imports every enum and row because it converts them; a forwarder mentions
+    a type only where it appears in a return or a parameter, so importing the
+    bridge's list unchanged leaves nine unused imports.
+-#}
+use platform_api::{
+    {% for n in model.provider_imports %}{{ n }}, {% endfor %}
+    PlatformApi, PlatformError,
+};
+
+/// The implementation this call opened.
+///
+/// Which arm exists is a build-time fact; which arm is used is the switch the
+/// daemon was started with.  The two are separate on purpose: a build can
+/// carry an implementation nobody has turned on yet.
+pub enum Platform {
+    /// The vendor's Python, reached through PyO3.
+    Pyo3(platform_pyo3::Bridge),
+{%- raw %}
+    /// A native Rust implementation of the same trait.
+    #[cfg(feature = "platform-native")]
+    Native(platform_native::Platform),
+{%- endraw %}
+}
+
+impl PlatformApi for Platform {
+{%- for m in model.methods %}
+
+    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.{{ m.rust_name }}({{ m.rust_fwd_args }}),
+{%- raw %}
+            #[cfg(feature = "platform-native")]
+{%- endraw %}
+            Self::Native(p) => p.{{ m.rust_name }}({{ m.rust_fwd_args }}),
+        }
+    }
+{%- endfor %}
+
+    /// Forwarded like everything else: the bridge runs Python's `atexit`
+    /// handlers, a native implementation is free to do nothing.
+    fn finalize(&mut self) {
+        match self {
+            Self::Pyo3(p) => p.finalize(),
+{%- raw %}
+            #[cfg(feature = "platform-native")]
+{%- endraw %}
+            Self::Native(p) => p.finalize(),
+        }
+    }
+}

@@ -12,4 +12,5 @@ sonic_platform_common.egg-info/
 .coverage
 htmlcov/
 coverage.xml
+rust-coverage.xml
 test-results.xml

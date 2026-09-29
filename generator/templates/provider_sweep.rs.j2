@@ -1,0 +1,93 @@
+{{ header }}
+//! Every forwarder in the enum, called, with what Python received asserted.
+//!
+//! GENERATED from platform_api/facade.pyi by generator/generate.py.  Do not
+//! edit: regenerate.
+//!
+//! `src/generated.rs` is sixty methods of delegation that a template wrote,
+//! and it is tempting to argue from the template: one loop body, no branches,
+//! so one method standing for the rest.  That argument is about the
+//! generator.  It is not evidence about the code that shipped, it is not what
+//! a coverage report measures, and it stops being true the day someone hand
+//! -edits the generated file.  So: all sixty, called.  (`finalize` is the
+//! sixty-first arm and the one the stub does not describe, so it is not
+//! generated here; `delegation_test.rs` covers it.)
+//!
+//! What is asserted is the argument list Python was handed, not merely that
+//! something happened.  A forwarder can only really go wrong one way -- by
+//! passing its parameters on in the wrong order -- and only where two of them
+//! share a type, which eight of these methods have: `(component,
+//! image_path)`, `(task_id, filename, path)`, `(bus, dev, func)`.  Rust will
+//! not catch a swap there, and neither would a test that only checked the
+//! call arrived.  Every value below is therefore distinct and states its own
+//! position.
+//!
+//! The facade here records and refuses rather than answering.  Return
+//! conversion belongs to platform-pyo3, whose `bridge_test.rs` drives it
+//! against mocks that answer; repeating it here would test the bridge a
+//! second time and the enum no better.
+
+use std::ffi::CStr;
+
+use platform_api::{
+    {% for n in model.sweep_imports %}{{ n }}, {% endfor %}PlatformApi,
+};
+use platform_provider::Platform;
+use pyo3::ffi::c_str;
+use pyo3::prelude::*;
+use pyo3::types::PyModule;
+
+/// A facade that writes down what it was asked and then declines.
+///
+/// `__getattr__` means it answers to all sixty-one names without listing any,
+/// so it cannot fall behind the stub the way a hand-written double would.
+/// Refusing keeps every method the same shape regardless of what it returns:
+/// the exception is the bridge's problem, and the caller discards it.
+const RECORDER: &CStr = c_str!(
+    r#"
+class Facade:
+    def __init__(self):
+        self.calls = []
+    def __getattr__(self, name):
+        def record(*args):
+            self.calls.append('%s%r' % (name, args))
+            raise NotImplementedError(name)
+        return record
+"#
+);
+
+/// A `Platform::Pyo3` over a recording facade, and the facade to read after.
+fn platform() -> (Platform, Py<PyAny>) {
+    Python::with_gil(|py| {
+        let m =
+            PyModule::from_code(py, RECORDER, c_str!("recorder.py"), c_str!("recorder")).unwrap();
+        let facade = m.getattr("Facade").unwrap().call0().unwrap();
+        (
+            Platform::Pyo3(platform_pyo3::Bridge::from_facade(facade.clone().unbind())),
+            facade.unbind(),
+        )
+    })
+}
+
+/// What Python was asked, once.
+///
+/// Exactly one call, because the failure this guards against is an arm that
+/// answers out of the enum without reaching an implementation at all -- which
+/// records nothing, and which the caller cannot otherwise tell from a platform
+/// that declined.
+fn one_call(facade: &Py<PyAny>) -> String {
+    Python::with_gil(|py| {
+        let calls: Vec<String> = facade.bind(py).getattr("calls").unwrap().extract().unwrap();
+        assert_eq!(calls.len(), 1, "one call into Python, got {calls:?}");
+        calls.into_iter().next().unwrap()
+    })
+}
+{%- for m in model.methods %}
+
+#[test]
+fn {{ m.rust_name }}_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.{{ m.rust_name }}({{ m.rust_sweep_args }});
+    assert_eq!(one_call(&facade), {{ m.py_sweep_call }});
+}
+{%- endfor %}

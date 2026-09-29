@@ -30,7 +30,9 @@ setup(
     url='https://github.com/Azure/sonic-platform-common',
     maintainer='Joe LeVeque',
     maintainer_email='jolevequ@microsoft.com',
+    package_data={'platform_api': ['*.pyi', 'py.typed']},
     packages=[
+        'platform_api',
         'sonic_eeprom',
         'sonic_led',
         'sonic_fan',
@@ -95,6 +97,22 @@ setup(
         'pytest',
         'pytest-cov',
     ],
+    # `pip3 install ".[testing]"` is what CI runs before `pytest` and before
+    # `generator/check.sh`.  Until this existed the extra resolved to nothing --
+    # pip warns about an unknown extra and carries on -- so the stub's two type
+    # gates were installed nowhere and ran nowhere.
+    extras_require = {
+        'testing': [
+            'pytest',
+            'pytest-cov',
+            # mypy ships `stubtest`, which is the gate that catches the facade
+            # and its .pyi drifting apart.
+            'mypy',
+            # generator/generate.py renders its outputs with it, and the tests
+            # run the generator in process.
+            'jinja2',
+        ],
+    },
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Environment :: Plugins',

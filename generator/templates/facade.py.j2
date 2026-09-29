@@ -1,0 +1,345 @@
+{{ header }}
+"""The Python facade over the vendor's platform API.
+
+GENERATED from platform_api/facade.pyi by generator/generate.py.  Do not edit:
+regenerate.  Adding a field or a row is one edit, to the stub.
+
+Every base-class call here goes through `_call`, which treats a `None` return
+exactly as it treats `NotImplementedError`.  That is not a simplification --
+it is what every daemon's own `try_get()` already does (thermalctld:104,
+psud:272, chassisd:183, sensormond:36, bmcctld:297), and the facade has to
+reproduce it or the rows it publishes differ from the rows the Python daemons
+publish today.
+"""
+
+import enum
+from typing import Literal
+
+from . import _escape_hatch
+
+# Base-class methods a consumer reaches that this facade deliberately does not
+# declare, and why.  Here at runtime as well as in the stub so that the answer
+# to "why is there no get_num_psus" is in the module somebody is reading.
+OMITTED = (
+{%- for path, reason in model.omitted %}
+    ({{ path | tojson }}, {{ reason | tojson }}),
+{%- endfor %}
+)
+
+{% for e in model.enums %}
+{{ e.name }} = Literal[{% for v in e.values %}{{ v | tojson }}{{ ', ' if not loop.last }}{% endfor %}]
+{%- endfor %}
+
+
+def _call(fn, default=None):
+    """Invoke a base-class getter, or say it is not there.
+
+    Three ways a platform declines to answer, collapsed into one: the method
+    is absent, it raises `NotImplementedError`, or it returns None.  A fourth
+    -- `return NotImplementedError`, which five base-class methods write and
+    which hands back a truthy class object -- is caught here too.
+    """
+    if fn is None:
+        return default
+    try:
+        r = fn()
+    except NotImplementedError:
+        return default
+    if r is None or r is NotImplementedError:
+        return default
+    return r
+
+
+def _get(obj, name):
+    return getattr(obj, name, None)
+
+
+def _iter(seq):
+    return seq if seq is not None else ()
+
+
+def _pairs(mapping):
+    """A mapping as (key, value) pairs, in the order the platform read them.
+
+    Nothing for a platform that answered something other than a mapping: this
+    runs in a polling loop, and the alternative is an AttributeError every
+    cycle on hardware that is merely unusual.
+    """
+    return mapping.items() if hasattr(mapping, 'items') else ()
+
+
+def _one(obj):
+    """A singular accessor as a list of at most one.
+
+    `get_watchdog()` answers one object or nothing.  Iterating it directly
+    would be a TypeError on most platforms, and on one that answered a string
+    it would be one row per character.
+    """
+    return () if obj is None else (obj,)
+
+
+def _default(v, d):
+    return d if v is None else v
+
+
+def _at(v, i):
+    """One slot of a fixed-arity tuple return.
+
+    A platform that answered with something unindexable, or with a shorter
+    tuple than the base class documents, reads as absent rather than as a
+    crash in a polling loop.
+
+    A platform that answered a bare string instead of the tuple means the
+    whole string, the way chassisd reads `get_midplane_down_reason()`: it is
+    the first slot, and there is no second.  Indexing it would split the
+    reason into characters.
+    """
+    if v is None:
+        return None
+    if isinstance(v, str):
+        return v if i == 0 else None
+    try:
+        return v[i]
+    except (TypeError, IndexError, KeyError):
+        return None
+
+
+def _fmt(v, template, parent, i):
+    """A name, or the key its consumers already publish it under."""
+    if v is not None:
+        return str(v)
+    return template.format(parent=parent, i=i + 1)
+
+
+def _enum(v):
+    """A column the stub declares as one of a fixed set of strings.
+
+    The base classes document these as `str`, but a vendor is free to answer
+    with an `enum.Enum` whose *value* is that string -- mlnx's
+    `get_leak_severity()` does.  Both spellings mean the same thing to a
+    Python caller, so the difference went unnoticed until the Rust bridge,
+    which downcasts to `str`, failed the whole row read.
+
+    Normalising here rather than in the bridge keeps the two sides reading the
+    same declaration: the stub says the column is a string, so it crosses as
+    one.
+    """
+    return v.value if isinstance(v, enum.Enum) else v
+
+
+def _call_with_name(name_fn, fn):
+    """`WithName()`: a getter that takes the device's own name.
+
+    `ModuleBase.get_module_state_transition(module_name)` is one; Python passes
+    the name too (`chassisd:1271`).  Called with no argument it raises, and
+    since a row is built eagerly that one column takes the whole row with it --
+    on a SmartSwitch NPU it left chassisd logging "Failed to read the modules"
+    every cycle with no CHASSIS_MIDPLANE_TABLE published.
+
+    The name is read through the same `get_name()` the row's own `name` column
+    uses, so the two cannot drift apart.
+    """
+    if fn is None:
+        return None
+    name = _call(name_fn)
+    if name is None:
+        return None
+    try:
+        r = fn(name)
+    except NotImplementedError:
+        return None
+    return None if (r is None or r is NotImplementedError) else r
+
+
+def _call_narrowed(fn):
+    """`Narrowed()`: a vendor that narrowed the signature has no answer here.
+
+    `ChassisBase.get_dpu_id` is `(self, **kwargs)` in the base class and
+    `(self, name)` on Mellanox, so the zero-argument call the row makes raises
+    TypeError on a SmartSwitch NPU.  The row is built eagerly, so without this
+    that one column takes the whole `ChassisInfo` with it -- and the caller
+    that only wanted `is_smartswitch` reads None and concludes the platform is
+    a fixed switch.
+
+    Narrow on purpose: `_call` does not catch TypeError, because everywhere
+    else a TypeError means the generator emitted the wrong call.
+    """
+    if fn is None:
+        return None
+    try:
+        return _call(fn)
+    except TypeError:
+        return None
+
+
+def _truthy(v):
+    """`Truthy()`: the field is used in a boolean context, so evaluate it as one.
+
+    `LeakageSensorBase.is_leak` is declared bool but Mellanox answers the
+    string 'N/A' when the sysfs read fails (liquid_cooling.py:46-57), and the
+    Python daemon's `if sensor_is_leak:` (thermalctld:676) therefore treats it
+    as leaking.  Normalising the sentinel to None instead would make a failed
+    leak sensor read as "not leaking" -- the one direction that matters, since
+    bmcctld cuts power on CRITICAL and would never see one.
+
+    None stays None: `if None:` is false in Python too, so an absent reading
+    keeps behaving the way the daemon already expects.
+    """
+    return None if v is None else bool(v)
+
+
+def _scalar(v, sentinels, coerce_from):
+    """`Observed()`: a sentinel is a missing reading, not a value.
+
+    Vendors return the number as int, str or a numpy scalar as readily as
+    float, at positions the base class documents as float.  Both this and the
+    Rust bridge normalise through the same declared table, so the two sides
+    cannot disagree about what "no reading" looks like.
+    """
+    if v is None:
+        return None
+    for s in sentinels:
+        if v == s:
+            return None
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        return v
+    for kind in coerce_from:
+        if kind == 'str' and isinstance(v, str):
+            try:
+                return float(v)
+            except ValueError:
+                return None
+        if kind == 'int':
+            try:
+                return int(v)
+            except (TypeError, ValueError):
+                pass
+    return None
+
+{% for row in model.rows %}
+
+class {{ row.name }}(object):
+    """{{ row.doc | replace('\n', '\n    ') }}"""
+
+    __slots__ = ({% for f in row.fields %}'{{ f.name }}', {% endfor %})
+
+    def __init__(self, **fields):
+        """Keyword-only, and uniform across every row.
+
+        Spelling the columns out again here would duplicate `__slots__`, which
+        is the list the stub already carries -- and a constructor that drifts
+        from it is exactly what the generator exists to prevent.
+        """
+        for key in self.__slots__:
+            setattr(self, key, fields.pop(key, None))
+        if fields:
+            raise TypeError('{{ row.name }} got unexpected field(s): %s'
+                            % ', '.join(sorted(fields)))
+
+    def __repr__(self):
+        return '{{ row.name }}(%s)' % ', '.join(
+            '%s=%r' % (k, getattr(self, k)) for k in self.__slots__)
+
+    def __eq__(self, other):
+        if not isinstance(other, {{ row.name }}):
+            return NotImplemented
+        return all(getattr(self, k) == getattr(other, k) for k in self.__slots__)
+{% endfor %}
+
+{% for row in model.rows %}{% if row.projected %}
+class {{ row.name }}Cols(object):
+    """Which columns of `{{ row.name }}` a caller wants read.
+
+    One bit per declinable column, numbered by `generate.py` from the same
+    declaration that numbers `{{ row.name }}Col` on the Rust side -- they are
+    written by one pass and cannot disagree.  Columns outside the set are left
+    at their absent value rather than read.
+    """
+
+{%- for f in row.fields %}{% if f.col_bit is not none %}
+    {{ f.name | upper }} = 1 << {{ f.col_bit }}
+{%- endif %}{% endfor %}
+
+    NONE = 0
+    ALL = {{ row.all_cols }}
+
+{% endif %}{% endfor %}
+class PlatformApi(object):
+    """Rows and actions over a vendor's `ChassisBase`."""
+
+    def __init__(self, chassis):
+        self._chassis = chassis
+        self._hatch = _escape_hatch.EscapeHatches(chassis)
+{% for row in model.rows %}
+{%- if row.sources or row.singleton %}
+    def _row_{{ row.snake }}(self, dev, parent, i, fixed{% if row.projected %}, cols{% endif %}):
+{%- for var, call, mask in row.shared_calls %}
+        # One call, sliced by every column that wants a piece of it: the
+        # platform need not answer the same thing twice, and some of these
+        # getters block and log.  See `_share_calls`.
+{%- if mask is not none %}
+        {{ var }} = {{ call }} if cols & {{ mask }} else None
+{%- else %}
+        {{ var }} = {{ call }}
+{%- endif %}
+{%- endfor %}
+        return {{ row.name }}(
+{%- for f in row.fields %}
+            {{ f.name }}={{ f.py_expr }},
+{%- endfor %}
+        )
+
+    def _walk_{{ row.snake }}(self{% if row.projected %}, cols{% endif %}):
+        """Every {{ row.name }} paired with the device it was read from.
+
+        One traversal serves both the snapshot and the by-name lookup, so an
+        action cannot disagree with the snapshot about what a row is called.
+        """
+        out = []
+{{ row.walk_body }}
+        return out
+{% if row.addressed %}
+    def _find_{{ row.snake }}(self, name):
+        """The device behind a published {{ row.name }} name."""
+{%- if row.projected %}
+        # Names only: resolving one costs a walk, and an action that then sets
+        # a speed has no use for the other columns of every other row.
+        for row, dev in self._walk_{{ row.snake }}(0):
+{%- else %}
+        for row, dev in self._walk_{{ row.snake }}():
+{%- endif %}
+            if row.name == name:
+                return dev
+        raise KeyError('no {{ row.name }} named %r' % name)
+{% endif %}
+{%- endif %}
+{% endfor %}
+{%- for m in model.methods %}
+{%- if m.kind == 'snapshot' %}
+    def {{ m.name }}(self{% if m.projected %}, cols={{ model.row(m.row).all_cols }}{% endif %}):
+        """{{ m.doc or 'Every %s, in declared order.' % m.row }}
+{%- if m.projected %}
+
+        `cols` is a bit per declinable column (see `{{ m.row }}Cols` on the Rust
+        side, and `Snapshot(projected=True)`).  Columns outside it are left at
+        their absent value rather than read.  The default is every column, so a
+        caller that does not care reads what it always read.
+{%- endif %}
+        """
+{%- if m.singleton %}
+        return self._walk_{{ model.row(m.row).snake }}({% if m.projected %}cols{% endif %})[0][0]
+{%- else %}
+        return [row for row, _dev in self._walk_{{ model.row(m.row).snake }}({% if m.projected %}cols{% endif %})]
+{%- endif %}
+{% elif m.kind == 'action' %}
+    def {{ m.name }}(self{% for p, _t in m.params %}, {{ p }}{% endfor %}):
+        """{{ m.doc | replace('\n', '\n        ') }}"""
+{{ m.body }}
+{% elif m.kind == 'escape' %}
+    def {{ m.name }}(self{% for p, _t in m.params %}, {{ p }}{% endfor %}):
+        """Hand-written: {{ m.escape_reason | replace('\n', ' ') }}"""
+        return self._hatch.{{ m.name }}({% for p, _t in m.params %}{{ p }}{{ ', ' if not loop.last }}{% endfor %})
+{% endif %}
+{%- endfor %}
