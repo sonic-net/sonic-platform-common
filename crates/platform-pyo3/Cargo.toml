@@ -1,0 +1,18 @@
+#
+# SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
+# Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+[package]
+name = "platform-pyo3"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+license = "Apache-2.0"
+description = "Rust calling the Python platform API facade, for phase 1"
+
+[dependencies]
+platform-api = { path = "../platform-api" }
+# auto-initialize: the daemon owns the process, so the interpreter is started
+# on first use rather than by an embedding harness.
+pyo3 = { version = "0.23", features = ["auto-initialize"] }

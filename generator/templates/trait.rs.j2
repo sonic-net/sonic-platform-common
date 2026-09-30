@@ -1,0 +1,281 @@
+{{ header }}
+//! The platform API, in Rust.
+//!
+//! GENERATED from platform_api/facade.pyi by generator/generate.py.  Do not
+//! edit: regenerate.
+//!
+//! In phase 1 the only implementation is the PyO3 bridge in `platform-pyo3`,
+//! which calls a vendor's existing Python.  In phase 2 a vendor implements
+//! this trait natively and the bridge stops being registered; the daemons see
+//! the same trait either way, which is the whole point of declaring it here
+//! rather than in the bridge.
+//!
+//! Every method returns `Result`.  A platform that does not implement
+//! something answers `Err(PlatformError::NotSupported)`, which is how the
+//! caller tells "this platform has no PSU LED" from "the PSU LED is off" --
+//! a distinction the Python API loses, because there a getter that raises and
+//! a getter that returns None are the same event.
+
+use crate::{PlatformError, Threshold};
+{% for e in model.enums %}
+
+/// `{{ e.name }}`, as declared in the stub.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum {{ e.name }} {
+{%- for value, variant in e.variants %}
+    /// `{{ value }}`
+    {{ variant }},
+{%- endfor %}
+}
+
+impl {{ e.name }} {
+    /// The spelling the Python side uses.  The two must not drift, so both
+    /// come from the one declaration.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+{%- for value, variant in e.variants %}
+            {{ e.name }}::{{ variant }} => {{ value | tojson }},
+{%- endfor %}
+        }
+    }
+
+    /// `None` for a value the stub does not declare -- a vendor inventing a
+    /// colour is a platform bug, not a variant to add here quietly.
+    // Not `FromStr`: an undeclared value is an absent reading, not an error
+    // with a type of its own, and every caller wants the `Option`.
+    #[allow(clippy::should_implement_trait)]
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+{%- for value, variant in e.variants %}
+            {{ value | tojson }} => Some({{ e.name }}::{{ variant }}),
+{%- endfor %}
+            _ => None,
+        }
+    }
+}
+
+impl std::fmt::Display for {{ e.name }} {
+    /// The spelling the Python side uses, so that a log line and a DB row
+    /// cannot disagree about what colour was asked for.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+{%- endfor %}
+{% for row in model.rows %}
+
+/// {{ row.doc | rustdoc('') }}
+{% if row.can_default %}#[derive(Debug, Clone, PartialEq, Default)]{% else %}#[derive(Debug, Clone, PartialEq)]{% endif %}
+pub struct {{ row.name }} {
+{%- for f in row.fields %}
+    pub {{ f.rust_name }}: {{ f.rust_ty }},
+{%- endfor %}
+}
+{%- if row.projected %}
+
+/// One declinable column of `{{ row.name }}`.
+///
+/// The discriminant is the bit this column occupies in `{{ row.name }}Cols`,
+/// and it is the wire format the facade reads -- the same `generate.py` pass
+/// writes both, so they cannot be numbered differently.  Adding a column
+/// appends; reordering the stub renumbers the wire.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(u8)]
+pub enum {{ row.name }}Col {
+{%- for f in row.fields %}{% if f.col_bit is not none %}
+    /// `{{ f.name }}`, from `{{ f.from_ }}`.
+    {{ f.name | camel }} = {{ f.col_bit }},
+{%- endif %}{% endfor %}
+}
+
+impl {{ row.name }}Col {
+    /// Every column, in declaration order.
+    pub const ALL: &'static [{{ row.name }}Col] = &[
+{%- for f in row.fields %}{% if f.col_bit is not none %}
+        {{ row.name }}Col::{{ f.name | camel }},
+{%- endif %}{% endfor %}
+    ];
+
+    /// The bit this column sets in a `{{ row.name }}Cols`.
+    pub const fn bit(self) -> u64 {
+        1u64 << (self as u8)
+    }
+
+    /// The column's name, for `Debug` and for reading a log line.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+{%- for f in row.fields %}{% if f.col_bit is not none %}
+            {{ row.name }}Col::{{ f.name | camel }} => {{ f.name | tojson }},
+{%- endif %}{% endfor %}
+        }
+    }
+}
+
+/// Which columns of `{{ row.name }}` a caller wants read.
+///
+/// **Columns outside the set are unspecified, not guaranteed absent.** An
+/// implementation that has no notion of columns may fill them anyway and is
+/// still correct; the set is a hint that lets a caller decline work, not a
+/// promise about what it will not receive.  That is what keeps this parameter
+/// implementable by something that is not the PyO3 facade.
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct {{ row.name }}Cols(u64);
+
+impl {{ row.name }}Cols {
+    /// Nothing declinable: the columns that come from the traversal are still
+    /// read, which is what makes a by-name lookup possible.
+    pub const NONE: Self = {{ row.name }}Cols(0);
+    /// Every column -- what a caller that has not thought about it should pass.
+    pub const ALL: Self = {{ row.name }}Cols({{ row.all_cols }});
+{%- for f in row.fields %}{% if f.col_bit is not none %}
+    pub const {{ f.name | upper }}: Self = {{ row.name }}Cols(1u64 << {{ f.col_bit }});
+{%- endif %}{% endfor %}
+
+    /// The set holding just this column.  Lets a caller name a column once,
+    /// as a `{{ row.name }}Col`, instead of once as a column and again as a
+    /// constant that has to be spelled the same way.
+    pub const fn of(col: {{ row.name }}Col) -> Self {
+        {{ row.name }}Cols(col.bit())
+    }
+
+    /// Both sets.  `const` so a daemon can state its columns once, at the top.
+    pub const fn with(self, other: Self) -> Self {
+        {{ row.name }}Cols(self.0 | other.0)
+    }
+
+    /// Whether one column was asked for.
+    pub const fn contains(self, col: {{ row.name }}Col) -> bool {
+        self.0 & col.bit() != 0
+    }
+
+    /// The wire form.  For the bridge; a caller should name columns instead.
+    pub const fn bits(self) -> u64 {
+        self.0
+    }
+}
+
+impl std::fmt::Debug for {{ row.name }}Cols {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{{ row.name }}Cols[")?;
+        let mut first = true;
+        for col in {{ row.name }}Col::ALL {
+            if self.contains(*col) {
+                if !first {
+                    write!(f, "|")?;
+                }
+                write!(f, "{}", col.as_str())?;
+                first = false;
+            }
+        }
+        write!(f, "]")
+    }
+}
+{%- endif %}
+{%- endfor %}
+
+/// The platform, as the daemons see it.
+///
+/// `&mut self` throughout: an implementation may cache what it reads within a
+/// polling cycle, and the snapshot methods are exactly where that cache is
+/// refreshed.
+pub trait PlatformApi: Send {
+{%- for m in model.methods %}
+{%- if m.kind == 'snapshot' %}
+
+{%- if m.singleton %}
+    /// {{ (m.doc or 'The chassis itself.') | rustdoc }}
+{%- else %}
+    /// {{ (m.doc or 'Every %s, in declared order.' % m.row) | rustdoc }}
+    ///
+    /// Order is part of the contract: it is what lets the Rust and the Python
+    /// implementations be compared row for row.
+{%- endif %}
+    ///
+{%- if m.singleton %}
+    /// No default: a chassis that cannot describe itself has nothing an empty
+    /// value could stand in for.
+    fn {{ m.rust_name }}(&mut self{% if m.projected %}, cols: {{ m.row }}Cols{% endif %}) -> Result<{{ m.rust_ret }}, PlatformError> {
+        let _ = ({% if m.projected %}cols,{% endif %});
+        Err(PlatformError::NotSupported({{ m.name | tojson }}.to_string()))
+    }
+{%- else %}
+    /// Empty by default, so that adding a row type to the schema does not
+    /// break every implementation that does not have one -- a platform with
+    /// no BMC should not have to write a method to say so.
+    fn {{ m.rust_name }}(&mut self{% if m.projected %}, cols: {{ m.row }}Cols{% endif %}) -> Result<{{ m.rust_ret }}, PlatformError> {
+        let _ = ({% if m.projected %}cols,{% endif %});
+        Ok(Vec::new())
+    }
+{%- endif %}
+{%- elif m.kind == 'escape' %}
+
+    /// {{ m.escape_reason | replace('\n', ' ') | truncate(300) | rustdoc }}
+{%- if m.rust_ret == '()' %}
+    ///
+    /// A no-op by default: most platforms have no thermal manager, and one
+    /// that says so by erroring would have every caller log a warning per
+    /// cycle on hardware that is working exactly as designed.
+    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<(), PlatformError> {
+        {%- for p, _t in m.params %}
+        let _ = {{ p }};
+        {%- endfor %}
+        Ok(())
+    }
+{%- elif m.rust_ret.startswith('Option<') %}
+    ///
+    /// `None` by default, which is how a platform says it has no answer
+    /// rather than that the call failed.
+    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
+        {%- for p, _t in m.params %}
+        let _ = {{ p }};
+        {%- endfor %}
+        Ok(None)
+    }
+{%- elif m.rust_ret.startswith('Vec<') %}
+    ///
+    /// Empty by default.
+    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
+        {%- for p, _t in m.params %}
+        let _ = {{ p }};
+        {%- endfor %}
+        Ok(Vec::new())
+    }
+{%- else %}
+    ///
+    /// No default: what this answers has no empty value that is not also a
+    /// lie, so a platform that cannot answer has to say so.
+    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
+        {%- for p, _t in m.params %}
+        let _ = {{ p }};
+        {%- endfor %}
+        Err(PlatformError::NotSupported({{ m.name | tojson }}.to_string()))
+    }
+{%- endif %}
+{%- else %}
+
+    /// {{ (m.doc or m.name) | rustdoc }}
+    ///
+    /// Not supported by default: a platform whose {{ m.name }} is not
+    /// software-controllable should not have to write a method to say so.
+    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
+        {%- for p, _t in m.params %}
+        let _ = {{ p }};
+        {%- endfor %}
+        Err(PlatformError::NotSupported({{ m.name | tojson }}.to_string()))
+    }
+{%- endif %}
+{%- endfor %}
+
+    /// Release whatever the implementation set up, once, on the way out.
+    ///
+    /// The one member of this trait that is not a projection of the stub: it
+    /// is a lifecycle hook, not a vendor call.  It exists because a daemon
+    /// must be able to end without naming the implementation it was given --
+    /// the PyO3 bridge has Python `atexit` handlers to run here, a native
+    /// implementation has nothing, and `main` should not have to know which
+    /// it holds.
+    ///
+    /// Does nothing by default, so an implementation with no teardown -- and
+    /// every test double is one -- says so by staying silent.
+    fn finalize(&mut self) {}
+}

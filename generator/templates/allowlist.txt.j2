@@ -1,0 +1,32 @@
+{{ header }}
+# What stubtest cannot check, and why.
+#
+# GENERATED from platform_api/facade.pyi by generator/generate.py.  Do not edit:
+# regenerate.  Being generated is the point -- an allowlist maintained by hand
+# grows an entry every time someone wants a failure to go away, and this one
+# can only ever contain the aliases the stub declares.
+#
+# Nothing else belongs here.  A real disagreement between the stub and the
+# generated code is the one thing the gate exists to catch.
+#
+# The first group is `Literal[...]` type aliases.  They are emitted into
+# facade.py as well as declared in the stub, so a consumer can reach the
+# permitted values through typing.get_args(); but a runtime `Literal` object is
+# not a Union as far as stubtest is concerned, and it reports the alias as
+# mismatched however it is spelled.  typeshed allowlists its own for the same
+# reason.
+{% for e in model.enums %}
+platform_api.facade.{{ e.name }}
+{%- endfor %}
+
+# The second group is what `Snapshot(projected=True)` adds.  The stub declares
+# a projected snapshot as returning its rows; the generator gives the method a
+# `cols` parameter and emits the `<Row>Cols` bit constants beside it.  Neither
+# is spelled in the stub because both are derived from that one declaration,
+# and writing them there as well would be a second copy to drift.
+{% for row in model.rows %}{% if row.projected %}
+platform_api.facade.{{ row.name }}Cols
+{%- endif %}{% endfor %}
+{%- for m in model.methods %}{% if m.kind == 'snapshot' and m.projected %}
+platform_api.facade.PlatformApi.{{ m.name }}
+{%- endif %}{% endfor %}

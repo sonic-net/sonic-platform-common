@@ -1,0 +1,9 @@
+# Cargo build output.
+target/
+# platform-api is only ever consumed as a path dependency -- by platform-pyo3
+# beside it and by the daemons' own workspace -- so nothing ever resolves
+# against a lock file of its own.  One appears anyway the moment somebody runs
+# cargo inside this directory, and then sits in `git status` looking like it
+# belongs to the crate.  platform-pyo3 keeps its lock because check.sh builds
+# that one standalone.
+Cargo.lock

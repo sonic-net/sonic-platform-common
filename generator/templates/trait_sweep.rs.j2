@@ -1,0 +1,83 @@
+{{ header }}
+//! Every default the trait declares, every enum value and every column, run.
+//!
+//! GENERATED from platform_api/facade.pyi by generator/generate.py.  Do not
+//! edit: regenerate.
+//!
+//! Nothing else calls a default: the bridge and the provider override every
+//! method.  But the defaults are the contract a test double, or a native
+//! implementation that is not finished, stands on -- an empty list where a
+//! platform simply has none of a thing, `NotSupported` naming the method where
+//! an empty answer would be a lie.  So each is called here on an
+//! implementation that overrides nothing, and its answer is checked against
+//! what the trait says it is.
+//!
+//! The enums and the column sets are spelled here and again in Python, from
+//! the one stub.  Every value is round-tripped and every column's bit and name
+//! read back, so a drift between the spellings fails here rather than in a DB
+//! row.
+
+use platform_api::*;
+
+/// An implementation of nothing: every answer below is the trait's own.
+struct Nothing;
+
+impl PlatformApi for Nothing {}
+
+#[test]
+fn finalize_does_nothing_by_default() {
+    Nothing.finalize();
+}
+{%- for m in model.methods %}
+{%- if m.kind == 'snapshot' %}{% set answer = 'not_supported' if m.singleton else 'empty' %}
+{%- elif m.kind == 'escape' and m.rust_ret == '()' %}{% set answer = 'nothing' %}
+{%- elif m.kind == 'escape' and m.rust_ret.startswith('Option<') %}{% set answer = 'none' %}
+{%- elif m.kind == 'escape' and m.rust_ret.startswith('Vec<') %}{% set answer = 'empty' %}
+{%- else %}{% set answer = 'not_supported' %}{% endif %}
+
+#[test]
+fn {{ m.rust_name }}_defaults_to_{{ answer }}() {
+    match Nothing.{{ m.rust_name }}({{ m.rust_sweep_args }}) {
+{%- if answer == 'not_supported' %}
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, {{ m.name | tojson }}),
+{%- elif answer == 'empty' %}
+        Ok(rows) => assert!(rows.is_empty()),
+{%- elif answer == 'none' %}
+        Ok(None) => {}
+{%- else %}
+        Ok(()) => {}
+{%- endif %}
+        _ => panic!("{{ m.name }} is not the trait's default"),
+    }
+}
+{%- endfor %}
+{%- for e in model.enums %}
+
+#[test]
+fn every_{{ e.name | snake }}_value_round_trips() {
+{%- for value, variant in e.variants %}
+    assert_eq!({{ e.name }}::from_str({{ value | tojson }}), Some({{ e.name }}::{{ variant }}));
+    assert_eq!({{ e.name }}::{{ variant }}.to_string(), {{ value | tojson }});
+{%- endfor %}
+    assert_eq!({{ e.name }}::from_str("undeclared"), None);
+}
+{%- endfor %}
+{%- for row in model.rows if row.projected %}
+
+#[test]
+fn every_{{ row.name | snake }}_column_has_a_bit_and_a_name_of_its_own() {
+    let mut seen = {{ row.name }}Cols::NONE;
+    for col in {{ row.name }}Col::ALL {
+        assert!(!seen.contains(*col), "{} shares a bit", col.as_str());
+        seen = seen.with({{ row.name }}Cols::of(*col));
+    }
+    assert_eq!(seen, {{ row.name }}Cols::ALL);
+    assert_eq!(seen.bits(), {{ row.name }}Cols::ALL.bits());
+{%- for f in row.fields %}{% if f.col_bit is not none %}
+    assert_eq!({{ row.name }}Col::{{ f.name | camel }}.as_str(), {{ f.name | tojson }});
+    assert_eq!({{ row.name }}Cols::{{ f.name | upper }}, {{ row.name }}Cols::of({{ row.name }}Col::{{ f.name | camel }}));
+{%- endif %}{% endfor %}
+    assert_eq!(format!("{:?}", {{ row.name }}Cols::NONE), "{{ row.name }}Cols[]");
+    assert!(format!("{:?}", {{ row.name }}Cols::ALL).starts_with("{{ row.name }}Cols["));
+}
+{%- endfor %}
