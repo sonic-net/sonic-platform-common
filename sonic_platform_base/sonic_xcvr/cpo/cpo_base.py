@@ -75,6 +75,15 @@ class CpoBase(device_base.DeviceBase):
         # then that can be accessed via self.elsfp.get_api() directly.
         return self.oe.get_api()
 
+    def get_els_base_page(self):
+        """Return the platform's additive page offset for raw ELS EEPROM access.
+
+        A zero offset is valid only when logical and physical page numbers
+        match. Platforms with other layouts must supply their translation;
+        callers must not guess an offset for an unsupported platform.
+        """
+        raise NotImplementedError("ELS EEPROM page mapping is not implemented")
+
     def remove_xcvr_api(self):
         self.oe.remove_api()
         self.elsfp.remove_api()

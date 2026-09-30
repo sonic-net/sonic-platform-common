@@ -1,7 +1,7 @@
 import copy
 import typing
 
-from ..xcvr_api import XcvrApi
+from .elsfp_base import ElsfpApiBase
 from ...fields import consts
 from ...mem_maps.public.cmis.pages.consts import CMIS_LANES_PER_BANK
 import sonic_platform_base.sonic_xcvr.fields.elsfp_consts as elsfp_consts
@@ -51,7 +51,12 @@ ELSFP_DOM_REAL_VALUE_DEFAULT_DICT = {
         **ELSFP_BANKED_DOM_REAL_VALUE_DEFAULT_DICT
         }
 
-class ElsfpApi(XcvrApi):
+
+class ElsfpApi(ElsfpApiBase):
+
+    def get_elsfp_module_state(self):
+        """Expose the existing ELS state through the shared ELSFP contract."""
+        return self.get_module_state()
 
     def _get_first_lane_for_bank(self) -> int:
         """Return the absolute number of the first lane in the selected bank.

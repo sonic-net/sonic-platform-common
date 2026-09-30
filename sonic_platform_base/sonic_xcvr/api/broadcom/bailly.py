@@ -4,9 +4,11 @@
     Implementation of Micas Bailly CPO specific in addition to the CMIS specification.
 """
 from ..public.cmis import CmisApi
+from ..public.elsfp_base import ElsfpApiBase
 from ...fields.broadcom import bailly
 
-class BaillyApi(CmisApi):
+
+class BaillyApi(CmisApi, ElsfpApiBase):
     RLM_THRESHOLD_FIELDS = {
         "els_temphighalarm": bailly.RLM_TEMP_HIGH_ALARM_FIELD,
         "els_templowalarm": bailly.RLM_TEMP_LOW_ALARM_FIELD,
