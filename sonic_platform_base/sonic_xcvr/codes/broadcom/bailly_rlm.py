@@ -1,7 +1,6 @@
 from ..public.cmis import CmisCodes
 
 class BaillyCodes(CmisCodes):
-    # Vendor specific implementation to be added here
     XCVR_IDENTIFIERS = {
         **CmisCodes.XCVR_IDENTIFIERS,
         128: 'CPO Bailly',
