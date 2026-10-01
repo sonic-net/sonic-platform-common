@@ -165,8 +165,14 @@ class BaillyApi(CmisApi, ElsfpApiBase):
         }
 
     def get_elsfp_status(self):
-        """Return ELSFP status through the public API name."""
-        return self.get_rlm_status()
+        """Return RLM status using public ELSFP field names."""
+        status = self.get_rlm_status()
+        if status is None:
+            return None
+        return {
+            "module_low_power_state": status.get("els_module_low_power_state"),
+            "interrupt_status": status.get("els_interrupt_status"),
+        }
 
     def get_elsfp_dom_real_value(self):
         """Return ELSFP module monitors through the public API name."""
@@ -180,8 +186,26 @@ class BaillyApi(CmisApi, ElsfpApiBase):
         }
 
     def get_elsfp_threshold_info(self):
-        """Return existing RLM thresholds through the public API name."""
-        return self.get_rlm_thresholds()
+        """Return supported RLM thresholds using public ELSFP field names."""
+        thresholds = self.get_rlm_thresholds()
+        if thresholds is None:
+            return None
+        return {
+            "temperature_alarm_high": thresholds.get("els_temphighalarm"),
+            "temperature_alarm_low": thresholds.get("els_templowalarm"),
+            "temperature_warn_high": thresholds.get("els_temphighwarning"),
+            "temperature_warn_low": thresholds.get("els_templowwarning"),
+            "voltage_alarm_high": thresholds.get("els_vcchighalarm"),
+            "voltage_alarm_low": thresholds.get("els_vcclowalarm"),
+            "voltage_warn_high": thresholds.get("els_vcchighwarning"),
+            "voltage_warn_low": thresholds.get("els_vcclowwarning"),
+            "optical_power_alarm_high": thresholds.get("els_txpowerhighalarm"),
+            "optical_power_alarm_low": thresholds.get("els_txpowerlowalarm"),
+            "optical_power_warn_high": thresholds.get("els_txpowerhighwarning"),
+            "optical_power_warn_low": thresholds.get("els_txpowerlowwarning"),
+            "laser_bias_alarm_high": thresholds.get("els_txbiashighalarm"),
+            "laser_bias_warn_high": thresholds.get("els_txbiashighwarning"),
+        }
 
     def get_per_lane_bias_current_monitor(self):
         """Return ELSFP laser bias monitors through the public API name."""

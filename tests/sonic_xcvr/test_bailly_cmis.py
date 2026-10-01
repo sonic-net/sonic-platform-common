@@ -154,10 +154,6 @@ class TestBaillyApi:
             assert self.api.get_elsfp_info() is None
 
     def test_get_elsfp_read_aliases(self):
-        with patch.object(
-                self.api, 'get_rlm_status', return_value={'ready': True}):
-            assert self.api.get_elsfp_status() == {'ready': True}
-
         with patch.object(self.api, 'get_rlm_monitor_values',
                           return_value=None):
             assert self.api.get_elsfp_dom_real_value() is None
@@ -176,7 +172,6 @@ class TestBaillyApi:
             }
 
         aliases = (
-            ('get_elsfp_threshold_info', 'get_rlm_thresholds'),
             ('get_per_lane_bias_current_monitor',
              'get_rlm_laser_current'),
             ('get_per_lane_opt_power_monitor', 'get_rlm_laser_power'),
@@ -239,12 +234,44 @@ class TestBaillyApi:
             'els_txbiashighalarm': 162.5,
             'els_txbiashighwarning': 156.248,
         }
+        assert self.api.get_elsfp_threshold_info() == {
+            'temperature_alarm_high': 85.123,
+            'temperature_alarm_low': -5.0,
+            'temperature_warn_high': 75.0,
+            'temperature_warn_low': 0.0,
+            'voltage_alarm_high': 3.63,
+            'voltage_alarm_low': 2.97,
+            'voltage_warn_high': 3.465,
+            'voltage_warn_low': 3.135,
+            'optical_power_alarm_high': 7.0,
+            'optical_power_alarm_low': -6.9,
+            'optical_power_warn_high': 4.0,
+            'optical_power_warn_low': -2.9,
+            'laser_bias_alarm_high': 162.5,
+            'laser_bias_warn_high': 156.248,
+        }
+        self.mock_eeprom.read.assert_called_with(bailly.LASER_POWER_MODE_CONTROL_FIELD)
+
+    def test_get_elsfp_threshold_info_missing_values(self):
+        self.mock_eeprom.read.return_value = {
+            bailly.THRESHOLD_VALUES_FIELD: {
+                bailly.RLM_TEMP_LOW_WARNING_FIELD: 0.0,
+            }
+        }
+        thresholds = self.api.get_elsfp_threshold_info()
+        assert thresholds.pop('temperature_warn_low') == 0.0
+        assert len(thresholds) == 13
+        assert all(value is None for value in thresholds.values())
+        assert 'laser_bias_alarm_low' not in thresholds
+        assert 'laser_bias_warn_low' not in thresholds
 
     def test_get_rlm_thresholds_none(self):
         self.mock_eeprom.read.return_value = None
         assert self.api.get_rlm_thresholds() is None
+        assert self.api.get_elsfp_threshold_info() is None
         self.mock_eeprom.read.return_value = {}
         assert self.api.get_rlm_thresholds() is None
+        assert self.api.get_elsfp_threshold_info() is None
 
     def test_get_rlm_flags(self):
         self.mock_eeprom.read.return_value = {
@@ -272,19 +299,27 @@ class TestBaillyApi:
         self.mock_eeprom.read.return_value = None
         assert self.api.get_rlm_flags() is None
 
-    def test_get_rlm_status(self):
+    @pytest.mark.parametrize('power_state', ['Low power mode', 'High power mode', None])
+    @pytest.mark.parametrize('interrupt', ['Interrupt event occurred', 'No interrupt', None])
+    def test_get_rlm_and_elsfp_status(self, power_state, interrupt):
         self.mock_eeprom.read.return_value = {
-            bailly.MODULE_LOW_POWER_STATE: 'Low power mode',
-            bailly.INTL_INTERRUPT_STATUS: 'Interrupt event occurred',
+            bailly.MODULE_LOW_POWER_STATE: power_state,
+            bailly.INTL_INTERRUPT_STATUS: interrupt,
         }
         assert self.api.get_rlm_status() == {
-            'els_module_low_power_state': 'Low power mode',
-            'els_interrupt_status': 'Interrupt event occurred',
+            'els_module_low_power_state': power_state,
+            'els_interrupt_status': interrupt,
         }
+        assert self.api.get_elsfp_status() == {
+            'module_low_power_state': power_state,
+            'interrupt_status': interrupt,
+        }
+        self.mock_eeprom.read.assert_called_with(bailly.LASER_STATUS_FIELD)
 
     def test_get_rlm_status_none(self):
         self.mock_eeprom.read.return_value = None
         assert self.api.get_rlm_status() is None
+        assert self.api.get_elsfp_status() is None
 
     def test_get_transceiver_dom_real_value_adds_rlm_values(self):
         with patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_transceiver_dom_real_value') as mock_super:
