@@ -1,3 +1,4 @@
+import pytest
 from mock import MagicMock
 
 from sonic_platform_base.sonic_xcvr.cpo.cpo_base import CpoBase, CpoHardwareInfo, OeId
@@ -8,6 +9,16 @@ from sonic_platform_base.sonic_xcvr.cpo.elsfp import ElsfpBase
 # are mocked); any valid id will do.
 SOME_OE_ID = OeId.BROADCOM_DAVISSON
 SOME_ELSFP_ID = None
+
+# Methods that the *Base classes declare but leave for the platform to
+# implement. Each entry is (method_name, args). Add a new abstract method
+# here to get NotImplementedError coverage for it.
+ABSTRACT_METHODS = [
+    ("get_reset_status", ()),
+    ("reset", ()),
+    ("get_lpmode", ()),
+    ("set_lpmode", (True,)),
+]
 
 
 class TestOeBase(object):
@@ -33,6 +44,13 @@ class TestOeBase(object):
         oe._api_factory.create_api.assert_called_once_with()
         assert first is second is fake_api
 
+    @pytest.mark.parametrize("method_name, args", ABSTRACT_METHODS)
+    def test_abstract_methods_throw(self, method_name, args):
+        oe = OeBase(CpoHardwareInfo(oe_id=SOME_OE_ID, elsfp_id=SOME_ELSFP_ID))
+
+        with pytest.raises(NotImplementedError):
+            getattr(oe, method_name)(*args)
+
 
 class TestElsfpBase(object):
     def test_get_api_refreshes_when_none(self):
@@ -55,6 +73,13 @@ class TestElsfpBase(object):
 
         elsfp._api_factory.create_api.assert_called_once_with()
         assert first is second is fake_api
+
+    @pytest.mark.parametrize("method_name, args", ABSTRACT_METHODS)
+    def test_abstract_methods_throw(self, method_name, args):
+        elsfp = ElsfpBase(CpoHardwareInfo(oe_id=SOME_OE_ID, elsfp_id=SOME_ELSFP_ID))
+
+        with pytest.raises(NotImplementedError):
+            getattr(elsfp, method_name)(*args)
 
 
 class TestCpoBase(object):
@@ -80,3 +105,11 @@ class TestCpoBase(object):
 
         assert cpo.get_xcvr_api() is oe_api
         oe.get_api.assert_called_with()
+
+    @pytest.mark.parametrize("method_name, args", ABSTRACT_METHODS)
+    def test_abstract_methods_throw(self, method_name, args):
+        hardware_id = CpoHardwareInfo(oe_id=SOME_OE_ID, elsfp_id=SOME_ELSFP_ID)
+        cpo = CpoBase(hardware_id, OeBase(hardware_id), ElsfpBase(hardware_id))
+
+        with pytest.raises(NotImplementedError):
+            getattr(cpo, method_name)(*args)

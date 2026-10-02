@@ -50,4 +50,41 @@ class ElsfpBase(CpoDeviceBase):
     def _make_api_factory(self) -> CpoApiFactory:
         return ElsfpApiFactory(self)
 
-    # TODO: Implement ELSFP-specific methods
+    def get_reset_status(self) -> bool:
+        """
+        Retrieves the state of the ELSFP hardware reset pin.
+
+        Returns:
+            A Boolean, True if the ELSFP is held in reset, False if not
+        """
+        raise NotImplementedError
+
+    def reset(self) -> bool:
+        """
+        Resets the ELSFP by pulsing the hardware reset pin.
+
+        Returns:
+            A boolean, True if successful, False if not
+        """
+        raise NotImplementedError
+
+    def get_lpmode(self) -> bool:
+        """
+        Retrieves the state of the ELSFP hardware LPMode pin.
+
+        Returns:
+            A Boolean, True if the pin asserts low power mode, False if not
+        """
+        raise NotImplementedError
+
+    def set_lpmode(self, lpmode: bool) -> bool:
+        """
+        Sets the ELSFP hardware LPMode pin.
+
+        Args:
+            lpmode: A Boolean, True to assert low power mode, False to deassert it
+
+        Returns:
+            A boolean, True if successful, False if not
+        """
+        raise NotImplementedError
