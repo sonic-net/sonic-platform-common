@@ -53,10 +53,9 @@ from .eeprom_utils import InMemoryEeprom
 
 
 @pytest.mark.parametrize("method, arguments", [
-    ("set_elsfp_lpmode", (True,)),
-    ("reset_elsfp", ()),
-    ("get_elsfp_module_state", ()),
-    ("supports_per_lane_enable", ()),
+    ("set_lpmode", (True,)),
+    ("set_lpmode", (False,)),
+    ("reset", ()),
 ])
 def test_optional_cpo_calls_fail_without_eeprom_access(method, arguments):
     eeprom = MagicMock()
