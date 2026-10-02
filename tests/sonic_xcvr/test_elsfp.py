@@ -52,6 +52,21 @@ from sonic_platform_base.sonic_xcvr.fields.elsfp_consts import SaveRestoreComman
 from .eeprom_utils import InMemoryEeprom
 
 
+@pytest.mark.parametrize("method, arguments", [
+    ("set_elsfp_lpmode", (True,)),
+    ("reset_elsfp", ()),
+    ("get_elsfp_module_state", ()),
+    ("supports_per_lane_enable", ()),
+])
+def test_optional_cpo_calls_fail_without_eeprom_access(method, arguments):
+    eeprom = MagicMock()
+    api = ElsfpApi(eeprom)
+    with pytest.raises(NotImplementedError, match="ELS.*not implemented"):
+        getattr(api, method)(*arguments)
+    eeprom.read.assert_not_called()
+    eeprom.write.assert_not_called()
+
+
 class TestElsfpMemMap:
     mem_map = ElsfpMemMap(ElsfpCodes)
 

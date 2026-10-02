@@ -1,7 +1,7 @@
 import copy
 import typing
 
-from .elsfp_base import ElsfpApiBase
+from ..xcvr_api import XcvrApi
 from ...fields import consts
 from ...mem_maps.public.cmis.pages.consts import CMIS_LANES_PER_BANK
 import sonic_platform_base.sonic_xcvr.fields.elsfp_consts as elsfp_consts
@@ -51,12 +51,23 @@ ELSFP_DOM_REAL_VALUE_DEFAULT_DICT = {
         **ELSFP_BANKED_DOM_REAL_VALUE_DEFAULT_DICT
         }
 
+class ElsfpApi(XcvrApi):
 
-class ElsfpApi(ElsfpApiBase):
+    def set_elsfp_lpmode(self, low_power: bool) -> bool:
+        """Set ELS low-power mode; platforms implement this optional control."""
+        raise NotImplementedError("ELS low-power control is not implemented")
 
-    def get_elsfp_module_state(self):
-        """Expose the existing ELS state through the shared ELSFP contract."""
-        return self.get_module_state()
+    def reset_elsfp(self) -> bool:
+        """Reset the ELS module; platforms implement this optional control."""
+        raise NotImplementedError("ELS reset is not implemented")
+
+    def get_elsfp_module_state(self) -> str:
+        """Return ELS module state through the optional CPO caller interface."""
+        raise NotImplementedError("ELS module state is not implemented")
+
+    def supports_per_lane_enable(self) -> bool:
+        """Report per-lane control support before a combined OE/ELS operation."""
+        raise NotImplementedError("ELS per-lane control support query is not implemented")
 
     def _get_first_lane_for_bank(self) -> int:
         """Return the absolute number of the first lane in the selected bank.

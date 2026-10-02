@@ -4,11 +4,9 @@
     Implementation of Micas Bailly CPO specific in addition to the CMIS specification.
 """
 from ..public.cmis import CmisApi
-from ..public.elsfp_base import ElsfpApiBase
 from ...fields.broadcom import bailly
 
-
-class BaillyApi(CmisApi, ElsfpApiBase):
+class BaillyApi(CmisApi):
     RLM_THRESHOLD_FIELDS = {
         "els_temphighalarm": bailly.RLM_TEMP_HIGH_ALARM_FIELD,
         "els_templowalarm": bailly.RLM_TEMP_LOW_ALARM_FIELD,
@@ -115,109 +113,6 @@ class BaillyApi(CmisApi, ElsfpApiBase):
         This function returns RLM laser optical power monitor values.
         '''
         return self.xcvr_eeprom.read(bailly.LASER_OPTICAL_POWER_MONITOR_FIELD)
-
-    # Public ELSFP API compatibility aliases. Bailly hardware calls the
-    # external laser source an RLM, so keep that terminology below this layer.
-
-    def get_elsfp_info(self):
-        """Return existing RLM information through public ELSFP names."""
-        rlm_info = self.get_rlm_info()
-        if not isinstance(rlm_info, dict):
-            return None
-
-        cpo_info = rlm_info.get("cpo_info") or {}
-        vendor_info = rlm_info.get("rlm_vendor_info") or {}
-        power_mode = rlm_info.get("laser_power_mode") or {}
-        info = {
-            "type": cpo_info.get(bailly.CPO_IDENTIFIER),
-            "hardware_rev": self._format_revision(
-                cpo_info.get(bailly.CPO_REVISION)
-            ),
-            "lane_count": cpo_info.get(bailly.LASER_COUNT),
-            "manufacturer": self._strip_str(
-                vendor_info.get(bailly.VENDOR_NAME_ASCII_FIELD)
-            ),
-            "vendor_oui": vendor_info.get(bailly.VENDOR_OUI_HEX_FIELD),
-            "model": self._strip_str(
-                vendor_info.get(bailly.VENDOR_PART_NUMBER_ASCII_FIELD)
-            ),
-            "vendor_rev": self._strip_str(
-                vendor_info.get(bailly.VENDOR_REVISION_ASCII_FIELD)
-            ),
-            "serial": self._strip_str(
-                vendor_info.get(bailly.VENDOR_SERIAL_NUMBER_ASCII_FIELD)
-            ),
-            "vendor_date": self._strip_str(
-                vendor_info.get(bailly.DATE_CODE_FIELD)
-            ),
-            "max_power_consumption": vendor_info.get(
-                bailly.MAX_POWER_CONSUMPTION_FIELD
-            ),
-            "laser_wavelength_grid": cpo_info.get(
-                bailly.LASER_WAVELENGTH_GRID
-            ),
-            "low_power_control": power_mode.get(
-                bailly.LASER_POWER_MODE_CONTROL_BITS_FIELD
-            ),
-        }
-        return {
-            key: value for key, value in info.items() if value is not None
-        }
-
-    def get_elsfp_status(self):
-        """Return RLM status using public ELSFP field names."""
-        status = self.get_rlm_status()
-        if status is None:
-            return None
-        return {
-            "module_low_power_state": status.get("els_module_low_power_state"),
-            "interrupt_status": status.get("els_interrupt_status"),
-        }
-
-    def get_elsfp_dom_real_value(self):
-        """Return ELSFP module monitors through the public API name."""
-        monitors = self.get_rlm_monitor_values()
-        if monitors is None:
-            return None
-        return {
-            "temperature": monitors.get("els_temperature"),
-            "voltage": monitors.get("els_voltage"),
-            "tec_current": monitors.get("rlm_tec_current"),
-        }
-
-    def get_elsfp_threshold_info(self):
-        """Return supported RLM thresholds using public ELSFP field names."""
-        thresholds = self.get_rlm_thresholds()
-        if thresholds is None:
-            return None
-        return {
-            "temperature_alarm_high": thresholds.get("els_temphighalarm"),
-            "temperature_alarm_low": thresholds.get("els_templowalarm"),
-            "temperature_warn_high": thresholds.get("els_temphighwarning"),
-            "temperature_warn_low": thresholds.get("els_templowwarning"),
-            "voltage_alarm_high": thresholds.get("els_vcchighalarm"),
-            "voltage_alarm_low": thresholds.get("els_vcclowalarm"),
-            "voltage_warn_high": thresholds.get("els_vcchighwarning"),
-            "voltage_warn_low": thresholds.get("els_vcclowwarning"),
-            "optical_power_alarm_high": thresholds.get("els_txpowerhighalarm"),
-            "optical_power_alarm_low": thresholds.get("els_txpowerlowalarm"),
-            "optical_power_warn_high": thresholds.get("els_txpowerhighwarning"),
-            "optical_power_warn_low": thresholds.get("els_txpowerlowwarning"),
-            "laser_bias_alarm_high": thresholds.get("els_txbiashighalarm"),
-            "laser_bias_warn_high": thresholds.get("els_txbiashighwarning"),
-        }
-
-    def get_per_lane_bias_current_monitor(self):
-        """Return ELSFP laser bias monitors through the public API name."""
-        return self.get_rlm_laser_current()
-
-    def get_per_lane_opt_power_monitor(self):
-        """Return ELSFP optical power monitors through the public API name."""
-        return self.get_rlm_laser_power()
-
-    def get_per_lane_voltage_monitor(self):
-        """Return ELSFP voltage monitors through the public API name."""
-        return self.get_rlm_laser_voltage()
 
     # RLM aggregate-read APIs.
 

@@ -112,76 +112,6 @@ class TestBaillyApi:
         assert self.api.get_rlm_laser_power() == expected
         self.mock_eeprom.read.assert_called_with(bailly.LASER_OPTICAL_POWER_MONITOR_FIELD)
 
-    def test_get_elsfp_info(self):
-        rlm_info = {
-            'cpo_info': {
-                bailly.CPO_IDENTIFIER: 'ELS Identifier',
-                bailly.CPO_REVISION: 0x12,
-                bailly.LASER_COUNT: 8,
-                bailly.LASER_WAVELENGTH_GRID: 'CWDM4',
-            },
-            'rlm_vendor_info': {
-                bailly.VENDOR_NAME_ASCII_FIELD: 'BROADCOM ',
-                bailly.VENDOR_OUI_HEX_FIELD: 'ec-01-e2',
-                bailly.VENDOR_PART_NUMBER_ASCII_FIELD: 'ARLM ',
-                bailly.VENDOR_REVISION_ASCII_FIELD: 'A0 ',
-                bailly.VENDOR_SERIAL_NUMBER_ASCII_FIELD: 'SN ',
-                bailly.DATE_CODE_FIELD: '2024-02-26 ',
-                bailly.MAX_POWER_CONSUMPTION_FIELD: 12.0,
-            },
-            'laser_power_mode': {
-                bailly.LASER_POWER_MODE_CONTROL_BITS_FIELD: 0,
-            },
-        }
-        with patch.object(self.api, 'get_rlm_info', return_value=rlm_info):
-            assert self.api.get_elsfp_info() == {
-                'type': 'ELS Identifier',
-                'hardware_rev': '1.2',
-                'lane_count': 8,
-                'manufacturer': 'BROADCOM',
-                'vendor_oui': 'ec-01-e2',
-                'model': 'ARLM',
-                'vendor_rev': 'A0',
-                'serial': 'SN',
-                'vendor_date': '2024-02-26',
-                'max_power_consumption': 12.0,
-                'laser_wavelength_grid': 'CWDM4',
-                'low_power_control': 0,
-            }
-
-    def test_get_elsfp_info_none(self):
-        with patch.object(self.api, 'get_rlm_info', return_value=None):
-            assert self.api.get_elsfp_info() is None
-
-    def test_get_elsfp_read_aliases(self):
-        with patch.object(self.api, 'get_rlm_monitor_values',
-                          return_value=None):
-            assert self.api.get_elsfp_dom_real_value() is None
-        with patch.object(
-                self.api,
-                'get_rlm_monitor_values',
-                return_value={
-                    'els_temperature': 25.0,
-                    'els_voltage': 3.3,
-                    'rlm_tec_current': 1.5,
-                }):
-            assert self.api.get_elsfp_dom_real_value() == {
-                'temperature': 25.0,
-                'voltage': 3.3,
-                'tec_current': 1.5,
-            }
-
-        aliases = (
-            ('get_per_lane_bias_current_monitor',
-             'get_rlm_laser_current'),
-            ('get_per_lane_opt_power_monitor', 'get_rlm_laser_power'),
-            ('get_per_lane_voltage_monitor', 'get_rlm_laser_voltage'),
-        )
-        for public_name, rlm_name in aliases:
-            expected = {'value': public_name}
-            with patch.object(self.api, rlm_name, return_value=expected):
-                assert getattr(self.api, public_name)() == expected
-
     def test_get_rlm_monitor_values(self):
         self.mock_eeprom.read.return_value = {
             bailly.MODULE_TEMPERATURE_MONITOR: 25.1234,
@@ -234,44 +164,12 @@ class TestBaillyApi:
             'els_txbiashighalarm': 162.5,
             'els_txbiashighwarning': 156.248,
         }
-        assert self.api.get_elsfp_threshold_info() == {
-            'temperature_alarm_high': 85.123,
-            'temperature_alarm_low': -5.0,
-            'temperature_warn_high': 75.0,
-            'temperature_warn_low': 0.0,
-            'voltage_alarm_high': 3.63,
-            'voltage_alarm_low': 2.97,
-            'voltage_warn_high': 3.465,
-            'voltage_warn_low': 3.135,
-            'optical_power_alarm_high': 7.0,
-            'optical_power_alarm_low': -6.9,
-            'optical_power_warn_high': 4.0,
-            'optical_power_warn_low': -2.9,
-            'laser_bias_alarm_high': 162.5,
-            'laser_bias_warn_high': 156.248,
-        }
-        self.mock_eeprom.read.assert_called_with(bailly.LASER_POWER_MODE_CONTROL_FIELD)
-
-    def test_get_elsfp_threshold_info_missing_values(self):
-        self.mock_eeprom.read.return_value = {
-            bailly.THRESHOLD_VALUES_FIELD: {
-                bailly.RLM_TEMP_LOW_WARNING_FIELD: 0.0,
-            }
-        }
-        thresholds = self.api.get_elsfp_threshold_info()
-        assert thresholds.pop('temperature_warn_low') == 0.0
-        assert len(thresholds) == 13
-        assert all(value is None for value in thresholds.values())
-        assert 'laser_bias_alarm_low' not in thresholds
-        assert 'laser_bias_warn_low' not in thresholds
 
     def test_get_rlm_thresholds_none(self):
         self.mock_eeprom.read.return_value = None
         assert self.api.get_rlm_thresholds() is None
-        assert self.api.get_elsfp_threshold_info() is None
         self.mock_eeprom.read.return_value = {}
         assert self.api.get_rlm_thresholds() is None
-        assert self.api.get_elsfp_threshold_info() is None
 
     def test_get_rlm_flags(self):
         self.mock_eeprom.read.return_value = {
@@ -299,27 +197,19 @@ class TestBaillyApi:
         self.mock_eeprom.read.return_value = None
         assert self.api.get_rlm_flags() is None
 
-    @pytest.mark.parametrize('power_state', ['Low power mode', 'High power mode', None])
-    @pytest.mark.parametrize('interrupt', ['Interrupt event occurred', 'No interrupt', None])
-    def test_get_rlm_and_elsfp_status(self, power_state, interrupt):
+    def test_get_rlm_status(self):
         self.mock_eeprom.read.return_value = {
-            bailly.MODULE_LOW_POWER_STATE: power_state,
-            bailly.INTL_INTERRUPT_STATUS: interrupt,
+            bailly.MODULE_LOW_POWER_STATE: 'Low power mode',
+            bailly.INTL_INTERRUPT_STATUS: 'Interrupt event occurred',
         }
         assert self.api.get_rlm_status() == {
-            'els_module_low_power_state': power_state,
-            'els_interrupt_status': interrupt,
+            'els_module_low_power_state': 'Low power mode',
+            'els_interrupt_status': 'Interrupt event occurred',
         }
-        assert self.api.get_elsfp_status() == {
-            'module_low_power_state': power_state,
-            'interrupt_status': interrupt,
-        }
-        self.mock_eeprom.read.assert_called_with(bailly.LASER_STATUS_FIELD)
 
     def test_get_rlm_status_none(self):
         self.mock_eeprom.read.return_value = None
         assert self.api.get_rlm_status() is None
-        assert self.api.get_elsfp_status() is None
 
     def test_get_transceiver_dom_real_value_adds_rlm_values(self):
         with patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_transceiver_dom_real_value') as mock_super:
