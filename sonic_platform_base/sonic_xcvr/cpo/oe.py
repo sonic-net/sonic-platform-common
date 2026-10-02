@@ -20,4 +20,41 @@ class OeBase(CpoDeviceBase):
     def _make_api_factory(self) -> CpoApiFactory:
         return OeApiFactory(self)
 
-    # TODO: Implement OE-specific methods
+    def get_reset_status(self) -> bool:
+        """
+        Retrieves the state of the OE hardware reset pin.
+
+        Returns:
+            A Boolean, True if the OE is held in reset, False if not
+        """
+        raise NotImplementedError
+
+    def reset(self) -> bool:
+        """
+        Resets the OE by pulsing the hardware reset pin.
+
+        Returns:
+            A boolean, True if successful, False if not
+        """
+        raise NotImplementedError
+
+    def get_lpmode(self) -> bool:
+        """
+        Retrieves the state of the OE hardware LPMode pin.
+
+        Returns:
+            A Boolean, True if the pin asserts low power mode, False if not
+        """
+        raise NotImplementedError
+
+    def set_lpmode(self, lpmode: bool) -> bool:
+        """
+        Sets the OE hardware LPMode pin.
+
+        Args:
+            lpmode: A Boolean, True to assert low power mode, False to deassert it
+
+        Returns:
+            A boolean, True if successful, False if not
+        """
+        raise NotImplementedError

@@ -78,3 +78,42 @@ class CpoBase(device_base.DeviceBase):
     def remove_xcvr_api(self):
         self.oe.remove_api()
         self.elsfp.remove_api()
+
+    def get_reset_status(self) -> bool:
+        """
+        Retrieves the state of the hardware reset pin(s).
+
+        Returns:
+            A Boolean, True if the CPO is held in reset, False if not
+        """
+        raise NotImplementedError
+
+    def reset(self) -> bool:
+        """
+        Resets by pulsing the hardware reset pin(s).
+
+        Returns:
+            A boolean, True if successful, False if not
+        """
+        raise NotImplementedError
+
+    def get_lpmode(self) -> bool:
+        """
+        Retrieves the state of the hardware LPMode pin(s).
+
+        Returns:
+            A Boolean, True if the pin asserts low power mode, False if not
+        """
+        raise NotImplementedError
+
+    def set_lpmode(self, lpmode: bool) -> bool:
+        """
+        Sets the hardware LPMode pin(s).
+
+        Args:
+            lpmode: A Boolean, True to assert low power mode, False to deassert it
+
+        Returns:
+            A boolean, True if successful, False if not
+        """
+        raise NotImplementedError
