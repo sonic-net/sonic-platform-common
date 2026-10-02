@@ -1162,6 +1162,31 @@ class CmisApi(CmisCdbFw, XcvrApi):
         duration = self.xcvr_eeprom.read(consts.MODULE_PWRDN_DURATION)
         return float(duration) if duration is not None else 0
 
+    
+    def get_max_module_power(self):
+        """
+        Returns maximum module power in watts (float), from CMIS byte 201.
+        
+        This is the maximum power the module can draw, used by PowerFence
+        for zone-based power budget management.
+        
+        Returns:
+            float: Maximum module power in watts, or None if not available
+        """
+        try:
+            admin_info = self.xcvr_eeprom.read(consts.ADMIN_INFO_FIELD)
+            if admin_info is None:
+                return None
+            ext_id = admin_info.get(consts.EXT_ID_FIELD)
+            if ext_id is None:
+                return None
+            max_power = ext_id.get(consts.MAX_POWER_FIELD)
+            if max_power is not None:
+                return float(max_power)
+            return None
+        except Exception:
+            return None
+
     def get_host_lane_count(self, appl=None):
         '''
         Returns the number of host lanes.
