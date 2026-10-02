@@ -53,6 +53,14 @@ ELSFP_DOM_REAL_VALUE_DEFAULT_DICT = {
 
 class ElsfpApi(XcvrApi):
 
+    def set_lpmode(self, low_power: bool) -> bool:
+        """Set ELS low-power mode; platforms implement this optional control."""
+        raise NotImplementedError("ELS low-power control is not implemented")
+
+    def reset(self) -> bool:
+        """Reset the ELS module; platforms implement this optional control."""
+        raise NotImplementedError("ELS reset is not implemented")
+
     def _get_first_lane_for_bank(self) -> int:
         """Return the absolute number of the first lane in the selected bank.
 
