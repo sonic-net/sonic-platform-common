@@ -1,0 +1,10 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sonic-platform-common"
+version = "1.0.0"
+
+[project.optional-dependencies]
+dev = ["pytest", "mock", "PyYAML", "pytest-asyncio"]
