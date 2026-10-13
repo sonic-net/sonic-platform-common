@@ -1,20 +1,3 @@
-#
-# SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
 """The generator and its omission check, run the way check.sh runs them.
 
 `generate.py --check` is the gate that keeps the checked-in facade and the
@@ -40,6 +23,9 @@ pytest.importorskip('jinja2')
 import api_coverage  # noqa: E402
 import generate  # noqa: E402
 import parse_pyi  # noqa: E402
+from model import FieldSpec, RowSpec, rust_type, strip_optional  # noqa: E402
+
+from platform_api import facade  # noqa: E402
 
 from .platform_api_schema_test import GOOD_API, GOOD_ROW, HEADER  # noqa: E402
 
@@ -116,11 +102,15 @@ def test_an_arity_problem_stops_the_generator_before_it_writes(tmp_path, monkeyp
     ('(cls, index)', ['index']),
     ('(self, scale=...)', []),
     ('(self, unit, scale=...)', ['unit']),
-    # Nothing after *args is positional.
-    ('(self, index, *args, key)', ['index']),
     ('(self, **kwargs)', []),
-    # A keyword-only argument without a default still has to be passed.
+    # A keyword-only argument without a default still has to be passed,
+    # whether a bare `*` or a `*args` is what made it keyword-only.  The
+    # `*args` spelling used to end the scan, so a getter that needed `key`
+    # read as one that needed nothing and passed the arity check.
     ('(self, *, key)', ['key']),
+    ('(self, index, *args, key)', ['index', 'key']),
+    ('(self, *a, x)', ['x']),
+    ('(self, *args, key=..., **kwargs)', []),
 ])
 def test_the_arguments_a_caller_must_pass_are_read_from_the_signature(signature, required):
     assert generate._required_args(signature) == required
@@ -167,6 +157,192 @@ def test_no_readable_inventory_means_nothing_to_check_against(tmp_path, content)
     if content is not None:
         path.write_text(content)
     assert generate.check_arity(model_of(tmp_path), inventory_path=str(path)) == []
+
+
+# -- the stub against the base classes ---------------------------------------
+
+BASE = '''
+from enum import Enum
+
+
+class Colours(Enum):
+    GREEN = "green"
+    RED = "red"
+
+
+class Wide(Enum):
+    GREEN = "green"
+    RED = "red"
+    BLUE = "blue"
+
+
+class DeviceBase(object):
+    def set_status_led(self, color):
+        """
+        Sets the state of the device status LED
+
+        Returns:
+            bool: True if status LED state is set successfully, False if not
+        """
+        raise NotImplementedError
+
+
+class FanBase(DeviceBase):
+    pattern = "\\d"          # not a raw string, like the shipped ones
+'''
+
+
+def base_dir(tmp_path):
+    path = tmp_path / 'base'
+    path.mkdir()
+    (path / 'device_base.py').write_text(BASE)
+    (path / 'half_written.py').write_text('def (:\n')
+    return str(path)
+
+
+def contract_model(tmp_path, returns, calls):
+    path = tmp_path / 'facade.pyi'
+    path.write_text(HEADER + GOOD_ROW + GOOD_API + '''
+    @platform_method(On(row="Foo"), Calls("%s"), Unsupported(on="error"))
+    def set_foo_led(self, foo: str, color: Colour) -> %s: ...
+''' % (calls, returns))
+    return parse_pyi.parse(str(path))
+
+
+@pytest.mark.parametrize('returns, calls, literals, problems', [
+    ('Optional[bool]', 'FanBase.set_status_led', {'Colour': ('Colours', '')}, []),
+    # The base class answers a bool, inherited from DeviceBase.
+    ('None', 'FanBase.set_status_led', {'Colour': ('Colours', '')},
+     ['set_foo_led returns None, but FanBase.set_status_led answers a bool --'
+      ' declare Optional[bool], or its False reaches the caller as success']),
+    ('Optional[bool]', 'FanBase.set_nothing', {'Colour': ('Colours', '')},
+     ['set_foo_led calls FanBase.set_nothing, which the base classes do not define']),
+    ('Optional[bool]', 'FanBase.set_status_led', {},
+     ['Colour is used at set_foo_led(color), but LITERAL_CONSTANTS does not say'
+      ' which base-class constants it stands for']),
+    ('Optional[bool]', 'FanBase.set_status_led', {'Colour': ('DeviceBase', 'STATUS_')},
+     ['Colour stands for DeviceBase.STATUS_*, which defines no constants']),
+    ('Optional[bool]', 'FanBase.set_status_led', {'Colour': ('Wide', '')},
+     ['Colour lacks blue, which Wide.* defines -- a vendor answering it would'
+      ' read as None']),
+])
+def test_the_stub_is_held_to_what_the_base_classes_answer(
+        tmp_path, returns, calls, literals, problems):
+    model = contract_model(tmp_path, returns, calls)
+    assert generate.check_contract(
+        model, base_dir=base_dir(tmp_path), literals=literals) == problems
+
+
+def test_no_base_classes_to_check_against_is_a_problem_not_a_pass(tmp_path):
+    model = contract_model(tmp_path, 'Optional[bool]', 'FanBase.set_status_led')
+    missing = str(tmp_path / 'nowhere')
+    assert generate.check_contract(model, base_dir=missing) == [
+        'no base classes under %s to check the stub against' % missing]
+
+
+def test_a_contract_problem_stops_the_generator_before_it_writes(
+        tmp_path, monkeypatch, capsys):
+    moved = outputs_under(monkeypatch, tmp_path)
+    monkeypatch.setattr(generate, 'check_contract',
+                        lambda model: ['set_foo_led returns None'])
+
+    assert run(monkeypatch, 'generate.py') == 1
+    assert 'contract: set_foo_led returns None' in capsys.readouterr().err
+    assert not any(os.path.exists(p) for p in moved.values())
+
+
+# -- what one column expands to ----------------------------------------------
+
+def column(name, py_type, from_, **kw):
+    """One column as the parser would hand it over, before `build` runs."""
+    base, optional = strip_optional(py_type)
+    f = FieldSpec(name=name, py_type=py_type, base=base, optional=optional,
+                  from_=from_, **kw)
+    f.shared_var = None
+    f.rust_ty = rust_type(py_type, set())
+    return f
+
+
+def facade_eval(expr, **names):
+    """Evaluate a generated column expression with the facade's own helpers."""
+    return eval(expr, dict(vars(facade)), names)
+
+
+class Bare:
+    """A device that implements nothing, so every getter reads as absent."""
+
+
+def test_a_declined_column_with_a_named_default_holds_the_name_not_the_template():
+    # The read and the decline must agree on what an absent column holds.  The
+    # decline used to emit the declared default verbatim, so a caller that
+    # turned the column off got the template '{parent} fan {i}' where one whose
+    # platform did not implement the getter got 'PSU 1 fan 1'.
+    f = column('label', 'str', 'FanBase.get_label',
+               unsupported_on='default', default='{parent} fan {i}')
+    f.col_bit = 3
+    expr = generate._py_field_expr(f)
+    where = dict(dev=Bare(), parent='PSU 1', i=0)
+    assert facade_eval(expr, cols=1 << 3, **where) == 'PSU 1 fan 1'
+    assert facade_eval(expr, cols=0, **where) == 'PSU 1 fan 1'
+
+
+def test_a_declined_column_with_a_plain_default_still_holds_the_default():
+    f = column('replaceable', 'bool', 'FanBase.is_replaceable',
+               unsupported_on='default', default=False)
+    f.col_bit = 0
+    assert facade_eval(generate._py_field_expr(f), cols=0, dev=Bare(),
+                       parent='', i=0) is False
+
+
+def shared_row(*fields):
+    row = RowSpec(name='Foo', fields=list(fields))
+    row.projected = True
+    generate._assign_col_bits(row)
+    generate._share_calls(row)
+    return row
+
+
+def test_a_shared_call_is_gated_on_the_bits_of_the_columns_that_slice_it():
+    row = shared_row(
+        column('cause', 'Optional[str]', 'ChassisBase.get_reboot_cause', at=0),
+        column('detail', 'Optional[str]', 'ChassisBase.get_reboot_cause', at=1))
+    [(_var, _call, mask)] = row.shared_calls
+    assert mask == 0b11
+
+
+def test_a_shared_call_one_of_whose_slicers_cannot_be_declined_is_always_made():
+    # `name` never gets a bit -- the by-name lookup has to see it -- so a call
+    # it shares has to be made whatever the caller asked for.  Gated on the
+    # sibling's bit alone, declining the sibling left `_at(None, 0)`: no name.
+    row = shared_row(
+        column('name', 'str', 'DeviceBase.get_identity', at=0),
+        column('serial', 'Optional[str]', 'DeviceBase.get_identity', at=1))
+    assert [f.col_bit for f in row.fields] == [None, 0]
+    [(_var, _call, mask)] = row.shared_calls
+    assert mask is None
+
+
+@pytest.mark.parametrize('py_type, width', [
+    ('Optional[Percent]', 'u32'),
+    ('Optional[Rpm]', 'u32'),
+    ('Optional[Count]', 'u32'),
+    ('Optional[PositionInParent]', 'i32'),
+    ('Optional[int]', 'i64'),
+    ('int', 'i64'),
+])
+def test_a_number_narrowed_to_an_integer_goes_through_the_checked_cast(py_type, width):
+    # `as` saturates: -1 crossed as a u32 0 and NaN as 0, each a plausible
+    # reading nobody took.  The bridge's `int_cast` answers None instead.
+    expr = generate._rust_field_expr(column('n', py_type, 'FanBase.get_n'), set())
+    assert 'int_cast::<%s>' % width in expr
+    assert ' as ' not in expr
+
+
+@pytest.mark.parametrize('ret', ['Option<i64>', 'u32'])
+def test_a_returned_integer_goes_through_the_checked_cast(ret):
+    conv = generate._rust_ret_conv(ret, set())
+    assert 'int_cast::<%s>' % ret.replace('Option<', '').rstrip('>') in conv
+    assert ' as ' not in conv
 
 
 # -- api_coverage.py ---------------------------------------------------------

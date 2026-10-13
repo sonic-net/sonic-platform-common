@@ -1,20 +1,3 @@
-//
-// SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
 //! Phase 1: a Rust daemon reaching a vendor's Python platform API.
 //!
 //! [`Bridge`] holds one Python object -- the facade -- and nothing else. The
@@ -25,7 +8,7 @@
 use platform_api::{PlatformError, Threshold};
 use pyo3::exceptions::{PyKeyError, PyNotImplementedError};
 use pyo3::prelude::*;
-use pyo3::types::PyString;
+use pyo3::types::{PyBool, PyString};
 
 mod generated;
 
@@ -230,21 +213,28 @@ pub(crate) fn thr_arg(py: Python<'_>, t: Threshold) -> Py<PyAny> {
 
 /// A limit column, keeping the side of `Union[int, float]` it arrived on.
 ///
-/// Checked int-first, and with bools excluded: `bool` is a subclass of `int`
-/// in Python, so `isinstance(True, int)` is true and an unguarded read would
-/// turn a flag into the threshold `1`.
+/// Checked int-first, and with bools read as absent: `bool` is a subclass of
+/// `int` in Python, so `isinstance(True, int)` is true, `True` extracts as the
+/// integer 1 and as the float 1.0 alike, and an unguarded read would turn a
+/// flag into the limit `1`.  Excluding bools from the int arm alone is not
+/// enough -- the float arm below takes them just as readily -- so a bool is
+/// turned away before either arm runs.  A flag where a number is declared is
+/// bad data, not the number one; the facade drops it for the same reason, and
+/// this guard is for a row that did not come through the facade.
+///
+/// "N/A" is absent here as it is in `flag` and `num`: a limit the platform
+/// could not read is a missing limit, and failing the extraction would take
+/// the whole row -- every sensor's limits -- with it.
 pub(crate) fn threshold(
     row: &Bound<'_, PyAny>,
     key: &str,
 ) -> Result<Option<Threshold>, PlatformError> {
     let v = attr(row, key)?;
-    if v.is_none() {
+    if v.is_none() || is_na(&v) || v.is_instance_of::<PyBool>() {
         return Ok(None);
     }
-    if v.extract::<bool>().is_err() {
-        if let Ok(i) = v.extract::<i64>() {
-            return Ok(Some(Threshold::Int(i)));
-        }
+    if let Ok(i) = v.extract::<i64>() {
+        return Ok(Some(Threshold::Int(i)));
     }
     v.extract::<f64>()
         .map(|f| Some(Threshold::Float(f)))
@@ -287,12 +277,38 @@ pub(crate) fn num(row: &Bound<'_, PyAny>, key: &str) -> Result<Option<f64>, Plat
     v.extract::<f64>().map(Some).map_err(|e| err(row.py(), e))
 }
 
+/// A number `num` read as f64, narrowed to the integer width the stub declares.
+///
+/// Truncates toward zero, as `as` would: a vendor reporting `50.7` for a
+/// percentage means fifty, and that is what a Python daemon formatting it with
+/// `int()` publishes.  What `as` gets wrong is everything else -- it
+/// saturates, so `-1` becomes a `u32` 0, `NaN` becomes 0, and `1e12` becomes
+/// `u32::MAX`, each a plausible reading nobody took.  A fan reporting `-1`
+/// for "could not read" would cross as a stopped fan.
+///
+/// None rather than an error, for the reason `num` reads "N/A" as None: a
+/// value that cannot be the declared quantity is a reading the platform could
+/// not take, and the columns this reads are `Optional` for exactly that.  An
+/// error would take the whole row -- and with it the snapshot -- for one bad
+/// column, which is the failure `is_na` exists to stop.  A non-optional
+/// column falls back to its declared default, and a non-optional return
+/// value reports the absence as an error where it is unwrapped.
+pub(crate) fn int_cast<T: TryFrom<i128>>(v: f64) -> Option<T> {
+    if !v.is_finite() {
+        return None;
+    }
+    // `as i128` saturates too, but at bounds no 64-bit target can hold, so a
+    // value too large for any of them still fails the `try_from` below.
+    T::try_from(v.trunc() as i128).ok()
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 //
 // The bridge against a real facade lives in tests/bridge_test.rs.  What is here
-// is the two things that cannot be reached through one: a column shape the
-// facade never produces, and a shutdown step whose whole effect is on the
-// interpreter.
+// is what cannot be reached through one: column shapes the facade never
+// produces -- a None list, a bool or "N/A" where a limit belongs, which the
+// facade drops before they cross -- the integer narrowing on its own, and a
+// shutdown step whose whole effect is on the interpreter.
 
 #[cfg(test)]
 mod tests {
@@ -321,6 +337,106 @@ mod tests {
             let got = rows(&row, "events", |_| Ok(0u8)).unwrap();
             assert!(got.is_empty());
         });
+    }
+
+    /// A row object no facade has touched: one attribute per case.
+    fn raw_row(py: Python<'_>) -> Bound<'_, PyAny> {
+        PyModule::from_code(
+            py,
+            c_str!(
+                r#"
+class R:
+    yes = True
+    no = False
+    na = 'N/A'
+    na_spaced = ' n/a '
+    whole = 105
+    real = 105.0
+    word = 'hot'
+ROW = R()
+"#
+            ),
+            c_str!("raw_row.py"),
+            c_str!("raw_row"),
+        )
+        .unwrap()
+        .getattr("ROW")
+        .unwrap()
+    }
+
+    /// A bool is not a limit, on either side of the union.
+    ///
+    /// The old guard only kept `True` out of the int arm; the float arm took
+    /// it as 1.0, so a flag where a limit belongs crossed as the threshold 1
+    /// -- the very thing the guard's comment said could not happen.  `False`
+    /// would have crossed as 0.0, a limit every reading is above.
+    #[test]
+    fn a_bool_where_a_limit_belongs_is_no_limit_at_all() {
+        Python::with_gil(|py| {
+            let row = raw_row(py);
+            assert_eq!(threshold(&row, "yes").unwrap(), None);
+            assert_eq!(threshold(&row, "no").unwrap(), None);
+        });
+    }
+
+    /// "N/A" is a limit the platform could not read, as it is a reading for
+    /// `num` and a flag for `flag`; failing it would fail the whole row.
+    #[test]
+    fn a_limit_reported_as_na_is_absent_rather_than_an_error() {
+        Python::with_gil(|py| {
+            let row = raw_row(py);
+            assert_eq!(threshold(&row, "na").unwrap(), None);
+            assert_eq!(threshold(&row, "na_spaced").unwrap(), None);
+        });
+    }
+
+    /// The guards turn away bools and "N/A" and nothing else: the two sides
+    /// of the union still cross as they arrived, and a string that is not the
+    /// sentinel is still the type error it always was.
+    #[test]
+    fn a_limit_still_keeps_its_side_of_the_union_and_garbage_still_fails() {
+        Python::with_gil(|py| {
+            let row = raw_row(py);
+            assert_eq!(threshold(&row, "whole").unwrap(), Some(Threshold::Int(105)));
+            assert_eq!(
+                threshold(&row, "real").unwrap(),
+                Some(Threshold::Float(105.0))
+            );
+            assert!(matches!(
+                threshold(&row, "word"),
+                Err(PlatformError::Backend(_))
+            ));
+        });
+    }
+
+    /// A number that cannot be the declared integer is absent, not the value
+    /// `as` would saturate it to.  Each of these crossed as a plausible
+    /// reading: `-1` -- a common "could not read" -- as a stopped fan, `NaN`
+    /// as 0, and anything past the width as its maximum.
+    #[test]
+    fn a_number_the_declared_width_cannot_hold_is_absent_rather_than_saturated() {
+        assert_eq!(int_cast::<u32>(-1.0), None);
+        assert_eq!(int_cast::<u32>(f64::NAN), None);
+        assert_eq!(int_cast::<u32>(f64::INFINITY), None);
+        assert_eq!(int_cast::<i64>(f64::NEG_INFINITY), None);
+        assert_eq!(int_cast::<u32>(4_294_967_296.0), None);
+        assert_eq!(int_cast::<i32>(-2_147_483_649.0), None);
+        assert_eq!(int_cast::<u64>(1e30), None);
+        assert_eq!(int_cast::<i64>(-1e30), None);
+    }
+
+    /// What does fit crosses as `as` always carried it: truncated toward zero,
+    /// negatives kept where the width is signed, and the edges of the width
+    /// still inside it.
+    #[test]
+    fn a_number_the_declared_width_can_hold_is_truncated_as_before() {
+        assert_eq!(int_cast::<u32>(50.0), Some(50));
+        assert_eq!(int_cast::<u32>(50.7), Some(50));
+        assert_eq!(int_cast::<u32>(-0.5), Some(0));
+        assert_eq!(int_cast::<i32>(-1.0), Some(-1));
+        assert_eq!(int_cast::<i64>(-7.9), Some(-7));
+        assert_eq!(int_cast::<u32>(4_294_967_295.0), Some(u32::MAX));
+        assert_eq!(int_cast::<i32>(-2_147_483_648.0), Some(i32::MIN));
     }
 
     /// The handlers run, and running them is the whole point.

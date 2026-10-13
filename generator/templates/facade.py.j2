@@ -1,4 +1,3 @@
-{{ header }}
 """The Python facade over the vendor's platform API.
 
 GENERATED from platform_api/facade.pyi by generator/generate.py.  Do not edit:
@@ -111,20 +110,29 @@ def _fmt(v, template, parent, i):
     return template.format(parent=parent, i=i + 1)
 
 
-def _enum(v):
-    """A column the stub declares as one of a fixed set of strings.
+def _text(v):
+    """A column the stub declares as a string: `str`, or one of a fixed set.
 
-    The base classes document these as `str`, but a vendor is free to answer
-    with an `enum.Enum` whose *value* is that string -- mlnx's
-    `get_leak_severity()` does.  Both spellings mean the same thing to a
-    Python caller, so the difference went unnoticed until the Rust bridge,
-    which downcasts to `str`, failed the whole row read.
+    The Python daemons publish these with `str()`, so whatever a vendor
+    answers with is publishable.  The Rust bridge downcasts to `str`, and one
+    column that is not took the whole row read with it.  Two answers do that:
+
+    - an `enum.Enum` whose *value* is the string -- mlnx's
+      `get_leak_severity()`.  It crosses as that value, which is what a
+      Python caller comparing it to the string sees.
+    - anything else that is not a string -- accton's PDDF fan answers
+      `get_direction()` with False when the read fails, and thermalctld
+      publishes "False".  It crosses as `str()` of itself.
 
     Normalising here rather than in the bridge keeps the two sides reading the
     same declaration: the stub says the column is a string, so it crosses as
     one.
     """
-    return v.value if isinstance(v, enum.Enum) else v
+    if v is None or isinstance(v, str):
+        return v
+    if isinstance(v, enum.Enum):
+        v = v.value
+    return v if isinstance(v, str) else str(v)
 
 
 def _call_with_name(name_fn, fn):
@@ -184,6 +192,9 @@ def _truthy(v):
 
     None stays None: `if None:` is false in Python too, so an absent reading
     keeps behaving the way the daemon already expects.
+
+    An action's bool answer goes through here too, for the same reason: its
+    caller reads it as `if not answer:`.
     """
     return None if v is None else bool(v)
 

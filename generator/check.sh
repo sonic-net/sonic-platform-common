@@ -55,20 +55,27 @@ python3 -m pytest tests/platform_api_facade_test.py tests/platform_api_schema_te
 # Each crate is linted through its own manifest: clippy does not lint a
 # dependency, so the trait crate linted only through the other two is never
 # linted at all.
+#
+# --locked, as CI passes it: a manifest edited without its lock, or a lock
+# edited by hand, fails here rather than resolving afresh and passing on
+# versions CI will refuse.  Not for platform-api: it keeps no lock -- see its
+# .gitignore -- so --locked would refuse to create one and fail every run, and
+# it has no dependencies for a lock to pin.  What it is built with is pinned
+# where it is consumed, by the two locks below.
 echo '== the Rust side builds clean =='
 cargo clippy --manifest-path crates/platform-api/Cargo.toml --all-targets -- -D warnings
-cargo clippy --manifest-path crates/platform-pyo3/Cargo.toml --all-targets -- -D warnings
-cargo clippy --manifest-path crates/platform-provider/Cargo.toml --all-targets -- -D warnings
+cargo clippy --locked --manifest-path crates/platform-pyo3/Cargo.toml --all-targets -- -D warnings
+cargo clippy --locked --manifest-path crates/platform-provider/Cargo.toml --all-targets -- -D warnings
 
 echo '== the trait and its column sets =='
 cargo test --manifest-path crates/platform-api/Cargo.toml
 
 echo '== Rust reads what Python wrote =='
-cargo test --manifest-path crates/platform-pyo3/Cargo.toml
+cargo test --locked --manifest-path crates/platform-pyo3/Cargo.toml
 
 # The provider is not reachable from the pyo3 crate's manifest, so it needs
 # its own line or it is compiled by nothing until a daemon build picks it up.
 # Its sweep imports platform_api.facade, which is why PYTHONPATH is exported
 # at the top of this file.
 echo '== every arm of the provider forwards =='
-cargo test --manifest-path crates/platform-provider/Cargo.toml
+cargo test --locked --manifest-path crates/platform-provider/Cargo.toml

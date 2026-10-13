@@ -1,20 +1,3 @@
-#
-# SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
 """The guard rails the stub is read through.
 
 `mypy` checks that the metadata is well typed and `stubtest` checks that the
@@ -117,7 +100,7 @@ def test_a_column_with_both_from_and_parent_is_refused(tmp_path):
 
 
 def test_a_sentinel_on_an_enumeration_is_refused(tmp_path):
-    # 'N/A' is a value of FanDirection; a sentinel there deletes an answer.
+    # A Literal's values are answers; a sentinel there deletes one.
     body = GOOD_ROW.replace(
         'heat: Annotated[Optional[Celsius], From("ThermalBase.get_temperature")]',
         'heat: Annotated[Optional[Colour], From("FanBase.get_direction"), '
@@ -151,6 +134,42 @@ def test_a_parent_default_that_does_not_match_the_via_depth_is_refused(tmp_path)
         'via=("ChassisBase.get_all_modules", "ModuleBase.get_all_bars"), '
         'parent_default="only one")') + GOOD_API
     refuses(tmp_path, body, 'parent_default has 1 entries for 2 via level')
+
+
+def test_a_parent_default_mismatch_on_a_mapping_source_names_the_mapping(tmp_path):
+    # A mapping= source has no positional argument; naming the source by its
+    # first one turned this error into an IndexError that named nothing.
+    body = GOOD_ROW.replace(
+        'FlattenSource("ChassisBase.get_all_foos", parent_default="chassis 1")',
+        'FlattenSource(mapping="ChassisBase.get_foo_map", '
+        'parent_default=("one", "two"))') + GOOD_API
+    refuses(tmp_path, body,
+            'ChassisBase.get_foo_map: parent_default has 2 entries for 1 via level')
+
+
+def test_a_parent_default_mismatch_on_a_provider_source_names_the_provider(tmp_path):
+    body = GOOD_ROW.replace(
+        'FlattenSource("ChassisBase.get_all_foos", parent_default="chassis 1")',
+        'FlattenSource(provider="foos", parent_default=("one", "two"))') + GOOD_API
+    refuses(tmp_path, body, 'foos: parent_default has 2 entries for 1 via level')
+
+
+def test_a_limit_that_is_not_optional_is_refused(tmp_path):
+    # There is no neutral limit to fall back to, and the Rust row could no
+    # longer derive Default; the generator used to emit an Option where the
+    # field was declared bare, which did not compile.
+    body = GOOD_ROW.replace(
+        'heat: Annotated[Optional[Celsius], From("ThermalBase.get_temperature")]',
+        'heat: Annotated[Threshold, From("ThermalBase.get_high_threshold")]') + GOOD_API
+    refuses(tmp_path, body, 'Foo.heat: a Threshold has no neutral value')
+
+
+def test_an_optional_limit_is_accepted(tmp_path):
+    body = GOOD_ROW.replace(
+        'heat: Annotated[Optional[Celsius], From("ThermalBase.get_temperature")]',
+        'heat: Annotated[Optional[Threshold], From("ThermalBase.get_high_threshold")]'
+    ) + GOOD_API
+    assert parse(tmp_path, body).rows[0].fields[-1].base == 'Threshold'
 
 
 def test_a_source_with_two_origins_is_refused(tmp_path):

@@ -1,20 +1,3 @@
-//
-// SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
 //! The platform API, in Rust.
 //!
 //! GENERATED from platform_api/facade.pyi by generator/generate.py.  Do not
@@ -77,51 +60,6 @@ impl LedColor {
 }
 
 impl std::fmt::Display for LedColor {
-    /// The spelling the Python side uses, so that a log line and a DB row
-    /// cannot disagree about what colour was asked for.
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-
-/// `FanDirection`, as declared in the stub.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum FanDirection {
-    /// `intake`
-    Intake,
-    /// `exhaust`
-    Exhaust,
-    /// `N/A`
-    NA,
-}
-
-impl FanDirection {
-    /// The spelling the Python side uses.  The two must not drift, so both
-    /// come from the one declaration.
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            FanDirection::Intake => "intake",
-            FanDirection::Exhaust => "exhaust",
-            FanDirection::NA => "N/A",
-        }
-    }
-
-    /// `None` for a value the stub does not declare -- a vendor inventing a
-    /// colour is a platform bug, not a variant to add here quietly.
-    // Not `FromStr`: an undeclared value is an absent reading, not an error
-    // with a type of its own, and every caller wants the `Option`.
-    #[allow(clippy::should_implement_trait)]
-    pub fn from_str(s: &str) -> Option<Self> {
-        match s {
-            "intake" => Some(FanDirection::Intake),
-            "exhaust" => Some(FanDirection::Exhaust),
-            "N/A" => Some(FanDirection::NA),
-            _ => None,
-        }
-    }
-}
-
-impl std::fmt::Display for FanDirection {
     /// The spelling the Python side uses, so that a log line and a DB row
     /// cannot disagree about what colour was asked for.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -285,6 +223,12 @@ pub enum ModuleStatus {
     Present,
     /// `Fault`
     Fault,
+    /// `ProvisionReady`
+    Provisionready,
+    /// `ProvisionPending`
+    Provisionpending,
+    /// `Provisioned`
+    Provisioned,
     /// `Online`
     Online,
 }
@@ -299,6 +243,9 @@ impl ModuleStatus {
             ModuleStatus::Powereddown => "PoweredDown",
             ModuleStatus::Present => "Present",
             ModuleStatus::Fault => "Fault",
+            ModuleStatus::Provisionready => "ProvisionReady",
+            ModuleStatus::Provisionpending => "ProvisionPending",
+            ModuleStatus::Provisioned => "Provisioned",
             ModuleStatus::Online => "Online",
         }
     }
@@ -315,6 +262,9 @@ impl ModuleStatus {
             "PoweredDown" => Some(ModuleStatus::Powereddown),
             "Present" => Some(ModuleStatus::Present),
             "Fault" => Some(ModuleStatus::Fault),
+            "ProvisionReady" => Some(ModuleStatus::Provisionready),
+            "ProvisionPending" => Some(ModuleStatus::Provisionpending),
+            "Provisioned" => Some(ModuleStatus::Provisioned),
             "Online" => Some(ModuleStatus::Online),
             _ => None,
         }
@@ -505,10 +455,10 @@ pub struct FanInfo {
     pub serial: Option<String>,
     pub speed_pct: Option<u32>,
     pub target_speed_pct: Option<u32>,
-    pub direction: Option<FanDirection>,
+    pub direction: Option<String>,
     pub is_under_speed: Option<bool>,
     pub is_over_speed: Option<bool>,
-    pub status_led: Option<LedColor>,
+    pub status_led: Option<String>,
 }
 
 /// One declinable column of `FanInfo`.
@@ -666,7 +616,7 @@ pub struct FanDrawerInfo {
     pub is_replaceable: bool,
     pub model: Option<String>,
     pub serial: Option<String>,
-    pub status_led: Option<LedColor>,
+    pub status_led: Option<String>,
     pub maximum_consumed_power: Option<f64>,
 }
 
@@ -808,7 +758,7 @@ pub struct PsuInfo {
     pub serial: Option<String>,
     pub revision: Option<String>,
     pub power_good: bool,
-    pub status_led: Option<LedColor>,
+    pub status_led: Option<String>,
     pub voltage: Option<f64>,
     pub current: Option<f64>,
     pub power: Option<f64>,
@@ -846,7 +796,7 @@ pub struct ChassisInfo {
     pub dpu_id: Option<i64>,
     pub dataplane_state: Option<bool>,
     pub controlplane_state: Option<bool>,
-    pub status_led: Option<LedColor>,
+    pub status_led: Option<String>,
 }
 
 /// One declinable column of `ChassisInfo`.
@@ -1634,7 +1584,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose set_fan_led is not
     /// software-controllable should not have to write a method to say so.
-    fn set_fan_led(&mut self, fan: &str, color: LedColor) -> Result<(), PlatformError> {
+    fn set_fan_led(&mut self, fan: &str, color: LedColor) -> Result<Option<bool>, PlatformError> {
         let _ = fan;
         let _ = color;
         Err(PlatformError::NotSupported("set_fan_led".to_string()))
@@ -1644,7 +1594,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose set_fan_drawer_led is not
     /// software-controllable should not have to write a method to say so.
-    fn set_fan_drawer_led(&mut self, drawer: &str, color: LedColor) -> Result<(), PlatformError> {
+    fn set_fan_drawer_led(&mut self, drawer: &str, color: LedColor) -> Result<Option<bool>, PlatformError> {
         let _ = drawer;
         let _ = color;
         Err(PlatformError::NotSupported("set_fan_drawer_led".to_string()))
@@ -1654,7 +1604,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose set_fan_speed is not
     /// software-controllable should not have to write a method to say so.
-    fn set_fan_speed(&mut self, fan: &str, speed: u32) -> Result<(), PlatformError> {
+    fn set_fan_speed(&mut self, fan: &str, speed: u32) -> Result<Option<bool>, PlatformError> {
         let _ = fan;
         let _ = speed;
         Err(PlatformError::NotSupported("set_fan_speed".to_string()))
@@ -1664,7 +1614,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose set_psu_led is not
     /// software-controllable should not have to write a method to say so.
-    fn set_psu_led(&mut self, psu: &str, color: LedColor) -> Result<(), PlatformError> {
+    fn set_psu_led(&mut self, psu: &str, color: LedColor) -> Result<Option<bool>, PlatformError> {
         let _ = psu;
         let _ = color;
         Err(PlatformError::NotSupported("set_psu_led".to_string()))
@@ -1719,7 +1669,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose get_psu_master_led is not
     /// software-controllable should not have to write a method to say so.
-    fn get_psu_master_led(&mut self, psu: &str) -> Result<Option<LedColor>, PlatformError> {
+    fn get_psu_master_led(&mut self, psu: &str) -> Result<Option<String>, PlatformError> {
         let _ = psu;
         Err(PlatformError::NotSupported("get_psu_master_led".to_string()))
     }
@@ -1733,7 +1683,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose set_psu_master_led is not
     /// software-controllable should not have to write a method to say so.
-    fn set_psu_master_led(&mut self, psu: &str, color: LedColor) -> Result<(), PlatformError> {
+    fn set_psu_master_led(&mut self, psu: &str, color: LedColor) -> Result<Option<bool>, PlatformError> {
         let _ = psu;
         let _ = color;
         Err(PlatformError::NotSupported("set_psu_master_led".to_string()))
@@ -1743,7 +1693,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose reboot_module is not
     /// software-controllable should not have to write a method to say so.
-    fn reboot_module(&mut self, module: &str, reboot_type: &str) -> Result<(), PlatformError> {
+    fn reboot_module(&mut self, module: &str, reboot_type: &str) -> Result<Option<bool>, PlatformError> {
         let _ = module;
         let _ = reboot_type;
         Err(PlatformError::NotSupported("reboot_module".to_string()))
@@ -1753,7 +1703,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose set_module_admin_state is not
     /// software-controllable should not have to write a method to say so.
-    fn set_module_admin_state(&mut self, module: &str, up: bool) -> Result<(), PlatformError> {
+    fn set_module_admin_state(&mut self, module: &str, up: bool) -> Result<Option<bool>, PlatformError> {
         let _ = module;
         let _ = up;
         Err(PlatformError::NotSupported("set_module_admin_state".to_string()))
@@ -1767,7 +1717,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose set_module_admin_state_gracefully is not
     /// software-controllable should not have to write a method to say so.
-    fn set_module_admin_state_gracefully(&mut self, module: &str, up: bool) -> Result<(), PlatformError> {
+    fn set_module_admin_state_gracefully(&mut self, module: &str, up: bool) -> Result<Option<bool>, PlatformError> {
         let _ = module;
         let _ = up;
         Err(PlatformError::NotSupported("set_module_admin_state_gracefully".to_string()))
@@ -1777,7 +1727,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose power_cycle_module is not
     /// software-controllable should not have to write a method to say so.
-    fn power_cycle_module(&mut self, module: &str) -> Result<(), PlatformError> {
+    fn power_cycle_module(&mut self, module: &str) -> Result<Option<bool>, PlatformError> {
         let _ = module;
         Err(PlatformError::NotSupported("power_cycle_module".to_string()))
     }
@@ -1786,7 +1736,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose module_pre_shutdown is not
     /// software-controllable should not have to write a method to say so.
-    fn module_pre_shutdown(&mut self, module: &str) -> Result<(), PlatformError> {
+    fn module_pre_shutdown(&mut self, module: &str) -> Result<Option<bool>, PlatformError> {
         let _ = module;
         Err(PlatformError::NotSupported("module_pre_shutdown".to_string()))
     }
@@ -1795,16 +1745,19 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose module_post_startup is not
     /// software-controllable should not have to write a method to say so.
-    fn module_post_startup(&mut self, module: &str) -> Result<(), PlatformError> {
+    fn module_post_startup(&mut self, module: &str) -> Result<Option<bool>, PlatformError> {
         let _ = module;
         Err(PlatformError::NotSupported("module_post_startup".to_string()))
     }
 
     /// `pass_key`: the base class takes the module's own name as well.
     ///
+    /// False is the answer that matters: another operation holds the module
+    /// and has not timed out, and the caller must leave it alone.
+    ///
     /// Not supported by default: a platform whose set_module_state_transition is not
     /// software-controllable should not have to write a method to say so.
-    fn set_module_state_transition(&mut self, module: &str, transition_type: &str) -> Result<(), PlatformError> {
+    fn set_module_state_transition(&mut self, module: &str, transition_type: &str) -> Result<Option<bool>, PlatformError> {
         let _ = module;
         let _ = transition_type;
         Err(PlatformError::NotSupported("set_module_state_transition".to_string()))
@@ -1814,7 +1767,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose clear_module_state_transition is not
     /// software-controllable should not have to write a method to say so.
-    fn clear_module_state_transition(&mut self, module: &str) -> Result<(), PlatformError> {
+    fn clear_module_state_transition(&mut self, module: &str) -> Result<Option<bool>, PlatformError> {
         let _ = module;
         Err(PlatformError::NotSupported("clear_module_state_transition".to_string()))
     }
@@ -1823,7 +1776,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose clear_module_gnoi_halt is not
     /// software-controllable should not have to write a method to say so.
-    fn clear_module_gnoi_halt(&mut self, module: &str) -> Result<(), PlatformError> {
+    fn clear_module_gnoi_halt(&mut self, module: &str) -> Result<Option<bool>, PlatformError> {
         let _ = module;
         Err(PlatformError::NotSupported("clear_module_gnoi_halt".to_string()))
     }
@@ -1832,7 +1785,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose set_sensor_high_threshold is not
     /// software-controllable should not have to write a method to say so.
-    fn set_sensor_high_threshold(&mut self, sensor: &str, value: Threshold) -> Result<(), PlatformError> {
+    fn set_sensor_high_threshold(&mut self, sensor: &str, value: Threshold) -> Result<Option<bool>, PlatformError> {
         let _ = sensor;
         let _ = value;
         Err(PlatformError::NotSupported("set_sensor_high_threshold".to_string()))
@@ -1842,7 +1795,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose set_sensor_low_threshold is not
     /// software-controllable should not have to write a method to say so.
-    fn set_sensor_low_threshold(&mut self, sensor: &str, value: Threshold) -> Result<(), PlatformError> {
+    fn set_sensor_low_threshold(&mut self, sensor: &str, value: Threshold) -> Result<Option<bool>, PlatformError> {
         let _ = sensor;
         let _ = value;
         Err(PlatformError::NotSupported("set_sensor_low_threshold".to_string()))
@@ -1879,11 +1832,11 @@ pub trait PlatformApi: Send {
     }
 
     /// `ComponentBase.update_firmware` returns False on a missing path and
-    /// nothing at all on success, so there is no value worth declaring.
+    /// nothing at all on success, so only a False says anything.
     ///
     /// Not supported by default: a platform whose update_firmware is not
     /// software-controllable should not have to write a method to say so.
-    fn update_firmware(&mut self, component: &str, image_path: &str) -> Result<(), PlatformError> {
+    fn update_firmware(&mut self, component: &str, image_path: &str) -> Result<Option<bool>, PlatformError> {
         let _ = component;
         let _ = image_path;
         Err(PlatformError::NotSupported("update_firmware".to_string()))
@@ -1927,7 +1880,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose initialize_system_led is not
     /// software-controllable should not have to write a method to say so.
-    fn initialize_system_led(&mut self) -> Result<(), PlatformError> {
+    fn initialize_system_led(&mut self) -> Result<Option<bool>, PlatformError> {
         Err(PlatformError::NotSupported("initialize_system_led".to_string()))
     }
 
@@ -1935,7 +1888,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose init_midplane_switch is not
     /// software-controllable should not have to write a method to say so.
-    fn init_midplane_switch(&mut self) -> Result<(), PlatformError> {
+    fn init_midplane_switch(&mut self) -> Result<Option<bool>, PlatformError> {
         Err(PlatformError::NotSupported("init_midplane_switch".to_string()))
     }
 
@@ -1944,9 +1897,14 @@ pub trait PlatformApi: Send {
     /// `health_checker/manager.py:77`.  It is not a pmon daemon -- it runs on
     /// the host -- which is why this one method is worth naming.
     ///
+    /// The colour is a `str`, not a `LedColor`: healthd takes it from the
+    /// platform's `system_health_monitoring_config.json`, where vendors use
+    /// their own ("amber_blink", "orange_blink", "yellow").  The answer is
+    /// `set_status_led`'s bool, so a caller can log a set that failed.
+    ///
     /// Not supported by default: a platform whose set_chassis_led is not
     /// software-controllable should not have to write a method to say so.
-    fn set_chassis_led(&mut self, color: LedColor) -> Result<(), PlatformError> {
+    fn set_chassis_led(&mut self, color: &str) -> Result<Option<bool>, PlatformError> {
         let _ = color;
         Err(PlatformError::NotSupported("set_chassis_led".to_string()))
     }

@@ -1,20 +1,3 @@
-#
-# SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
 """The Python facade over the vendor's platform API.
 
 GENERATED from platform_api/facade.pyi by generator/generate.py.  Do not edit:
@@ -109,11 +92,10 @@ OMITTED = (
 
 
 LedColor = Literal["green", "amber", "red", "off"]
-FanDirection = Literal["intake", "exhaust", "N/A"]
 FanKind = Literal["drawer", "module", "psu", "pdb"]
 PowerEntityKind = Literal["psu", "pdb"]
 ModuleType = Literal["SUPERVISOR", "LINE-CARD", "FABRIC-CARD", "DPU", "SWITCH-HOST"]
-ModuleStatus = Literal["Empty", "Offline", "PoweredDown", "Present", "Fault", "Online"]
+ModuleStatus = Literal["Empty", "Offline", "PoweredDown", "Present", "Fault", "ProvisionReady", "ProvisionPending", "Provisioned", "Online"]
 SensorKind = Literal["voltage", "current"]
 LeakSeverity = Literal["MINOR", "CRITICAL"]
 ChangeEventKind = Literal["removed", "inserted", "i2c_stuck", "bad_eeprom", "unsupported_cable", "high_temperature", "bad_cable"]
@@ -199,20 +181,29 @@ def _fmt(v, template, parent, i):
     return template.format(parent=parent, i=i + 1)
 
 
-def _enum(v):
-    """A column the stub declares as one of a fixed set of strings.
+def _text(v):
+    """A column the stub declares as a string: `str`, or one of a fixed set.
 
-    The base classes document these as `str`, but a vendor is free to answer
-    with an `enum.Enum` whose *value* is that string -- mlnx's
-    `get_leak_severity()` does.  Both spellings mean the same thing to a
-    Python caller, so the difference went unnoticed until the Rust bridge,
-    which downcasts to `str`, failed the whole row read.
+    The Python daemons publish these with `str()`, so whatever a vendor
+    answers with is publishable.  The Rust bridge downcasts to `str`, and one
+    column that is not took the whole row read with it.  Two answers do that:
+
+    - an `enum.Enum` whose *value* is the string -- mlnx's
+      `get_leak_severity()`.  It crosses as that value, which is what a
+      Python caller comparing it to the string sees.
+    - anything else that is not a string -- accton's PDDF fan answers
+      `get_direction()` with False when the read fails, and thermalctld
+      publishes "False".  It crosses as `str()` of itself.
 
     Normalising here rather than in the bridge keeps the two sides reading the
     same declaration: the stub says the column is a string, so it crosses as
     one.
     """
-    return v.value if isinstance(v, enum.Enum) else v
+    if v is None or isinstance(v, str):
+        return v
+    if isinstance(v, enum.Enum):
+        v = v.value
+    return v if isinstance(v, str) else str(v)
 
 
 def _call_with_name(name_fn, fn):
@@ -272,6 +263,9 @@ def _truthy(v):
 
     None stays None: `if None:` is false in Python too, so an absent reading
     keeps behaving the way the daemon already expects.
+
+    An action's bool answer goes through here too, for the same reason: its
+    caller reads it as `if not answer:`.
     """
     return None if v is None else bool(v)
 
@@ -1124,7 +1118,7 @@ class PlatformApi(object):
 
     def _row_thermal_info(self, dev, parent, i, fixed):
         return ThermalInfo(
-            name=_fmt(_call(_get(dev, 'get_name')), '{parent} Thermal {i}', parent, i),
+            name=_fmt(_text(_call(_get(dev, 'get_name'))), '{parent} Thermal {i}', parent, i),
             parent_name=parent,
             position_in_parent=_call(_get(dev, 'get_position_in_parent')),
             is_replaceable=_default(_call(_get(dev, 'is_replaceable')), False),
@@ -1185,7 +1179,7 @@ class PlatformApi(object):
 
     def _row_fan_info(self, dev, parent, i, fixed, cols):
         return FanInfo(
-            name=_fmt(_call(_get(dev, 'get_name')), '{parent} fan {i}', parent, i),
+            name=_fmt(_text(_call(_get(dev, 'get_name'))), '{parent} fan {i}', parent, i),
             kind=fixed['kind'],
             parent_name=parent,
             drawer_name=fixed['drawer_name'],
@@ -1193,14 +1187,14 @@ class PlatformApi(object):
             presence=(_default(_call(_get(dev, 'get_presence')), False)) if cols & (1 << 1) else False,
             status=(_default(_call(_get(dev, 'get_status')), False)) if cols & (1 << 2) else False,
             is_replaceable=(_default(_call(_get(dev, 'is_replaceable')), False)) if cols & (1 << 3) else False,
-            model=(_call(_get(dev, 'get_model'))) if cols & (1 << 4) else None,
-            serial=(_call(_get(dev, 'get_serial'))) if cols & (1 << 5) else None,
+            model=(_text(_call(_get(dev, 'get_model')))) if cols & (1 << 4) else None,
+            serial=(_text(_call(_get(dev, 'get_serial')))) if cols & (1 << 5) else None,
             speed_pct=(_scalar(_call(_get(dev, 'get_speed')), ('N/A',), ('int', 'str'))) if cols & (1 << 6) else None,
             target_speed_pct=(_scalar(_call(_get(dev, 'get_target_speed')), ('N/A',), ('int', 'str'))) if cols & (1 << 7) else None,
-            direction=(_enum(_call(_get(dev, 'get_direction')))) if cols & (1 << 8) else None,
+            direction=(_text(_call(_get(dev, 'get_direction')))) if cols & (1 << 8) else None,
             is_under_speed=(_call(_get(dev, 'is_under_speed'))) if cols & (1 << 9) else None,
             is_over_speed=(_call(_get(dev, 'is_over_speed'))) if cols & (1 << 10) else None,
-            status_led=(_enum(_call(_get(dev, 'get_status_led')))) if cols & (1 << 11) else None,
+            status_led=(_text(_call(_get(dev, 'get_status_led')))) if cols & (1 << 11) else None,
         )
 
     def _walk_fan_info(self, cols):
@@ -1244,14 +1238,14 @@ class PlatformApi(object):
 
     def _row_fan_drawer_info(self, dev, parent, i, fixed, cols):
         return FanDrawerInfo(
-            name=_fmt(_call(_get(dev, 'get_name')), 'drawer {i}', parent, i),
+            name=_fmt(_text(_call(_get(dev, 'get_name'))), 'drawer {i}', parent, i),
             position_in_parent=(_call(_get(dev, 'get_position_in_parent'))) if cols & (1 << 0) else None,
             presence=(_default(_call(_get(dev, 'get_presence')), False)) if cols & (1 << 1) else False,
             status=(_call(_get(dev, 'get_status'))) if cols & (1 << 2) else None,
             is_replaceable=(_default(_call(_get(dev, 'is_replaceable')), False)) if cols & (1 << 3) else False,
-            model=(_call(_get(dev, 'get_model'))) if cols & (1 << 4) else None,
-            serial=(_call(_get(dev, 'get_serial'))) if cols & (1 << 5) else None,
-            status_led=(_enum(_call(_get(dev, 'get_status_led')))) if cols & (1 << 6) else None,
+            model=(_text(_call(_get(dev, 'get_model')))) if cols & (1 << 4) else None,
+            serial=(_text(_call(_get(dev, 'get_serial')))) if cols & (1 << 5) else None,
+            status_led=(_text(_call(_get(dev, 'get_status_led')))) if cols & (1 << 6) else None,
             maximum_consumed_power=(_scalar(_call(_get(dev, 'get_maximum_consumed_power')), ('N/A',), ('int', 'str'))) if cols & (1 << 7) else None,
         )
 
@@ -1279,16 +1273,16 @@ class PlatformApi(object):
 
     def _row_psu_info(self, dev, parent, i, fixed):
         return PsuInfo(
-            name=_fmt(_call(_get(dev, 'get_name')), 'PSU {i}', parent, i),
+            name=_fmt(_text(_call(_get(dev, 'get_name'))), 'PSU {i}', parent, i),
             kind=fixed['kind'],
             position_in_parent=_call(_get(dev, 'get_position_in_parent')),
             presence=_default(_call(_get(dev, 'get_presence')), False),
             is_replaceable=_default(_call(_get(dev, 'is_replaceable')), False),
-            model=_call(_get(dev, 'get_model')),
-            serial=_call(_get(dev, 'get_serial')),
-            revision=_call(_get(dev, 'get_revision')),
+            model=_text(_call(_get(dev, 'get_model'))),
+            serial=_text(_call(_get(dev, 'get_serial'))),
+            revision=_text(_call(_get(dev, 'get_revision'))),
             power_good=_default(_call(_get(dev, 'get_powergood_status')), False),
-            status_led=_enum(_call(_get(dev, 'get_status_led'))),
+            status_led=_text(_call(_get(dev, 'get_status_led'))),
             voltage=_scalar(_call(_get(dev, 'get_voltage')), ('N/A',), ('int', 'str')),
             current=_scalar(_call(_get(dev, 'get_current')), ('N/A',), ('int', 'str')),
             power=_scalar(_call(_get(dev, 'get_power')), ('N/A',), ('int', 'str')),
@@ -1336,26 +1330,26 @@ class PlatformApi(object):
         # getters block and log.  See `_share_calls`.
         _shared0 = _call(_get(dev, 'get_reboot_cause')) if cols & 6144 else None
         return ChassisInfo(
-            name=_default(_call(_get(dev, 'get_name')), 'chassis 1'),
+            name=_default(_text(_call(_get(dev, 'get_name'))), 'chassis 1'),
             presence=(_default(_call(_get(dev, 'get_presence')), True)) if cols & (1 << 0) else True,
-            model=(_call(_get(dev, 'get_model'))) if cols & (1 << 1) else None,
-            serial=(_call(_get(dev, 'get_serial'))) if cols & (1 << 2) else None,
-            revision=(_call(_get(dev, 'get_revision'))) if cols & (1 << 3) else None,
+            model=(_text(_call(_get(dev, 'get_model')))) if cols & (1 << 1) else None,
+            serial=(_text(_call(_get(dev, 'get_serial')))) if cols & (1 << 2) else None,
+            revision=(_text(_call(_get(dev, 'get_revision')))) if cols & (1 << 3) else None,
             status=(_call(_get(dev, 'get_status'))) if cols & (1 << 4) else None,
-            base_mac=(_call(_get(dev, 'get_base_mac'))) if cols & (1 << 5) else None,
+            base_mac=(_text(_call(_get(dev, 'get_base_mac')))) if cols & (1 << 5) else None,
             is_modular_chassis=(_default(_call(_get(dev, 'is_modular_chassis')), False)) if cols & (1 << 6) else False,
             is_smartswitch=(_default(_call(_get(dev, 'is_smartswitch')), False)) if cols & (1 << 7) else False,
             is_dpu=(_default(_call(_get(dev, 'is_dpu')), False)) if cols & (1 << 8) else False,
             is_bmc=(_default(_call(_get(dev, 'is_bmc')), False)) if cols & (1 << 9) else False,
             is_liquid_cooled=(_default(_call(_get(dev, 'is_liquid_cooled')), False)) if cols & (1 << 10) else False,
-            reboot_cause=(_at(_shared0, 0)) if cols & (1 << 11) else None,
-            reboot_cause_detail=(_at(_shared0, 1)) if cols & (1 << 12) else None,
+            reboot_cause=(_text(_at(_shared0, 0))) if cols & (1 << 11) else None,
+            reboot_cause_detail=(_text(_at(_shared0, 1))) if cols & (1 << 12) else None,
             my_slot=(_scalar(_call(_get(dev, 'get_my_slot')), ('N/A',), ('int', 'str'))) if cols & (1 << 13) else None,
             supervisor_slot=(_scalar(_call(_get(dev, 'get_supervisor_slot')), ('N/A',), ('int', 'str'))) if cols & (1 << 14) else None,
             dpu_id=(_scalar(_call_narrowed(_get(dev, 'get_dpu_id')), ('N/A',), ('int', 'str'))) if cols & (1 << 15) else None,
             dataplane_state=(_call(_get(dev, 'get_dataplane_state'))) if cols & (1 << 16) else None,
             controlplane_state=(_call(_get(dev, 'get_controlplane_state'))) if cols & (1 << 17) else None,
-            status_led=(_enum(_call(_get(dev, 'get_status_led')))) if cols & (1 << 18) else None,
+            status_led=(_text(_call(_get(dev, 'get_status_led')))) if cols & (1 << 18) else None,
         )
 
     def _walk_chassis_info(self, cols):
@@ -1371,22 +1365,22 @@ class PlatformApi(object):
 
     def _row_module_info(self, dev, parent, i, fixed, cols):
         return ModuleInfo(
-            name=_fmt(_call(_get(dev, 'get_name')), 'Module {i}', parent, i),
+            name=_fmt(_text(_call(_get(dev, 'get_name'))), 'Module {i}', parent, i),
             parent_name=parent,
             position_in_parent=(_call(_get(dev, 'get_position_in_parent'))) if cols & (1 << 0) else None,
             presence=(_default(_call(_get(dev, 'get_presence')), False)) if cols & (1 << 1) else False,
             status=(_call(_get(dev, 'get_status'))) if cols & (1 << 2) else None,
             is_replaceable=(_default(_call(_get(dev, 'is_replaceable')), False)) if cols & (1 << 3) else False,
-            model=(_call(_get(dev, 'get_model'))) if cols & (1 << 4) else None,
-            serial=(_call(_get(dev, 'get_serial'))) if cols & (1 << 5) else None,
-            description=(_call(_get(dev, 'get_description'))) if cols & (1 << 6) else None,
+            model=(_text(_call(_get(dev, 'get_model')))) if cols & (1 << 4) else None,
+            serial=(_text(_call(_get(dev, 'get_serial')))) if cols & (1 << 5) else None,
+            description=(_text(_call(_get(dev, 'get_description')))) if cols & (1 << 6) else None,
             slot=(_scalar(_call(_get(dev, 'get_slot')), ('N/A',), ('int', 'str'))) if cols & (1 << 7) else None,
-            type=(_enum(_call(_get(dev, 'get_type')))) if cols & (1 << 8) else None,
-            oper_status=(_enum(_call(_get(dev, 'get_oper_status')))) if cols & (1 << 9) else None,
-            base_mac=(_call(_get(dev, 'get_base_mac'))) if cols & (1 << 10) else None,
+            type=(_text(_call(_get(dev, 'get_type')))) if cols & (1 << 8) else None,
+            oper_status=(_text(_call(_get(dev, 'get_oper_status')))) if cols & (1 << 9) else None,
+            base_mac=(_text(_call(_get(dev, 'get_base_mac')))) if cols & (1 << 10) else None,
             dpu_id=(_scalar(_call(_get(dev, 'get_dpu_id')), ('N/A',), ('int', 'str'))) if cols & (1 << 11) else None,
             maximum_consumed_power=(_scalar(_call(_get(dev, 'get_maximum_consumed_power')), ('N/A',), ('int', 'str'))) if cols & (1 << 12) else None,
-            midplane_ip=(_call(_get(dev, 'get_midplane_ip'))) if cols & (1 << 13) else None,
+            midplane_ip=(_text(_call(_get(dev, 'get_midplane_ip')))) if cols & (1 << 13) else None,
             is_midplane_reachable=(_call(_get(dev, 'is_midplane_reachable'))) if cols & (1 << 14) else None,
             state_transition=(_call_with_name(_get(dev, 'get_name'), _get(dev, 'get_module_state_transition'))) if cols & (1 << 15) else None,
         )
@@ -1415,10 +1409,10 @@ class PlatformApi(object):
 
     def _row_component_info(self, dev, parent, i, fixed):
         return ComponentInfo(
-            name=_fmt(_call(_get(dev, 'get_name')), '{parent} component {i}', parent, i),
+            name=_fmt(_text(_call(_get(dev, 'get_name'))), '{parent} component {i}', parent, i),
             parent_name=parent,
-            description=_call(_get(dev, 'get_description')),
-            firmware_version=_call(_get(dev, 'get_firmware_version')),
+            description=_text(_call(_get(dev, 'get_description'))),
+            firmware_version=_text(_call(_get(dev, 'get_firmware_version'))),
         )
 
     def _walk_component_info(self):
@@ -1449,12 +1443,12 @@ class PlatformApi(object):
 
     def _row_sensor_info(self, dev, parent, i, fixed):
         return SensorInfo(
-            name=_fmt(_call(_get(dev, 'get_name')), '{parent} sensor {i}', parent, i),
+            name=_fmt(_text(_call(_get(dev, 'get_name'))), '{parent} sensor {i}', parent, i),
             kind=fixed['kind'],
             parent_name=parent,
             position_in_parent=_call(_get(dev, 'get_position_in_parent')),
             is_replaceable=_default(_call(_get(dev, 'is_replaceable')), False),
-            unit=_call(_get(dev, 'get_unit')),
+            unit=_text(_call(_get(dev, 'get_unit'))),
             value=_scalar(_call(_get(dev, 'get_value')), ('N/A',), ('int', 'str')),
             high_threshold=_scalar(_call(_get(dev, 'get_high_threshold')), ('N/A',), ('int', 'str')),
             low_threshold=_scalar(_call(_get(dev, 'get_low_threshold')), ('N/A',), ('int', 'str')),
@@ -1507,7 +1501,7 @@ class PlatformApi(object):
 
     def _row_leak_profile(self, dev, parent, i, fixed):
         return LeakProfile(
-            type=_fmt(_call(_get(dev, 'get_type')), 'profile {i}', parent, i),
+            type=_fmt(_text(_call(_get(dev, 'get_type'))), 'profile {i}', parent, i),
             max_minor_duration_sec=_scalar(_call(_get(dev, 'get_leak_max_minor_duration_sec')), ('N/A',), ('int', 'str')),
         )
 
@@ -1533,14 +1527,14 @@ class PlatformApi(object):
 
     def _row_leak_sensor_info(self, dev, parent, i, fixed):
         return LeakSensorInfo(
-            name=_fmt(_call(_get(dev, 'get_name')), 'leakage{i}', parent, i),
+            name=_fmt(_text(_call(_get(dev, 'get_name'))), 'leakage{i}', parent, i),
             parent_name=parent,
-            sensor_type=_call(_get(dev, 'get_leak_sensor_type')),
-            location=_call(_get(dev, 'get_leak_sensor_location')),
+            sensor_type=_text(_call(_get(dev, 'get_leak_sensor_type'))),
+            location=_text(_call(_get(dev, 'get_leak_sensor_location'))),
             is_leak=_truthy(_call(_get(dev, 'is_leak'))),
             is_ok=_call(_get(dev, 'is_leak_sensor_ok')),
-            severity=_enum(_call(_get(dev, 'get_leak_severity'))),
-            profile_type=_call(_get(_call(_get(dev, 'get_leak_profile')), 'get_type')),
+            severity=_text(_call(_get(dev, 'get_leak_severity'))),
+            profile_type=_text(_call(_get(_call(_get(dev, 'get_leak_profile')), 'get_type'))),
             profile_max_minor_duration_sec=_scalar(_call(_get(_call(_get(dev, 'get_leak_profile')), 'get_leak_max_minor_duration_sec')), ('N/A',), ('int', 'str')),
         )
 
@@ -1637,14 +1631,14 @@ class PlatformApi(object):
 
     def _row_bmc_info(self, dev, parent, i, fixed):
         return BmcInfo(
-            name=_default(_call(_get(dev, 'get_name')), 'BMC'),
+            name=_default(_text(_call(_get(dev, 'get_name'))), 'BMC'),
             presence=_default(_call(_get(dev, 'get_presence')), False),
-            model=_call(_get(dev, 'get_model')),
-            serial=_call(_get(dev, 'get_serial')),
-            revision=_call(_get(dev, 'get_revision')),
+            model=_text(_call(_get(dev, 'get_model'))),
+            serial=_text(_call(_get(dev, 'get_serial'))),
+            revision=_text(_call(_get(dev, 'get_revision'))),
             status=_call(_get(dev, 'get_status')),
             is_replaceable=_default(_call(_get(dev, 'is_replaceable')), False),
-            version=_call(_get(dev, 'get_version')),
+            version=_text(_call(_get(dev, 'get_version'))),
         )
 
     def _walk_bmc_info(self):
@@ -1768,7 +1762,7 @@ singleton accessor would have to invent a row to say so.
         fn = _get(dev, 'set_status_led')
         if fn is None:
             raise NotImplementedError('FanBase.set_status_led is not implemented')
-        return fn(color)
+        return _truthy(fn(color))
 
     def set_fan_drawer_led(self, drawer, color):
         """"""
@@ -1776,7 +1770,7 @@ singleton accessor would have to invent a row to say so.
         fn = _get(dev, 'set_status_led')
         if fn is None:
             raise NotImplementedError('FanDrawerBase.set_status_led is not implemented')
-        return fn(color)
+        return _truthy(fn(color))
 
     def set_fan_speed(self, fan, speed):
         """"""
@@ -1784,7 +1778,7 @@ singleton accessor would have to invent a row to say so.
         fn = _get(dev, 'set_speed')
         if fn is None:
             raise NotImplementedError('FanBase.set_speed is not implemented')
-        return fn(speed)
+        return _truthy(fn(speed))
 
     def set_psu_led(self, psu, color):
         """"""
@@ -1792,7 +1786,7 @@ singleton accessor would have to invent a row to say so.
         fn = _get(dev, 'set_status_led')
         if fn is None:
             raise NotImplementedError('PsuBase.set_status_led is not implemented')
-        return fn(color)
+        return _truthy(fn(color))
 
     def get_module_reboot_cause(self, module):
         """Why a module last restarted, asked when it restarts.
@@ -1858,7 +1852,7 @@ singleton accessor would have to invent a row to say so.
         fn = _get(dev, 'set_status_master_led')
         if fn is None:
             raise NotImplementedError('PsuBase.set_status_master_led is not implemented')
-        return fn(color)
+        return _truthy(fn(color))
 
     def reboot_module(self, module, reboot_type):
         """"""
@@ -1866,7 +1860,7 @@ singleton accessor would have to invent a row to say so.
         fn = _get(dev, 'reboot')
         if fn is None:
             raise NotImplementedError('ModuleBase.reboot is not implemented')
-        return fn(reboot_type)
+        return _truthy(fn(reboot_type))
 
     def set_module_admin_state(self, module, up):
         """"""
@@ -1874,7 +1868,7 @@ singleton accessor would have to invent a row to say so.
         fn = _get(dev, 'set_admin_state')
         if fn is None:
             raise NotImplementedError('ModuleBase.set_admin_state is not implemented')
-        return fn(up)
+        return _truthy(fn(up))
 
     def set_module_admin_state_gracefully(self, module, up):
         """Admin-down that lets the module's services stop first.
@@ -1886,7 +1880,7 @@ singleton accessor would have to invent a row to say so.
         fn = _get(dev, 'set_admin_state_gracefully')
         if fn is None:
             raise NotImplementedError('ModuleBase.set_admin_state_gracefully is not implemented')
-        return fn(up)
+        return _truthy(fn(up))
 
     def power_cycle_module(self, module):
         """"""
@@ -1894,7 +1888,7 @@ singleton accessor would have to invent a row to say so.
         fn = _get(dev, 'do_power_cycle')
         if fn is None:
             raise NotImplementedError('ModuleBase.do_power_cycle is not implemented')
-        return fn()
+        return _truthy(fn())
 
     def module_pre_shutdown(self, module):
         """"""
@@ -1902,7 +1896,7 @@ singleton accessor would have to invent a row to say so.
         fn = _get(dev, 'module_pre_shutdown')
         if fn is None:
             raise NotImplementedError('ModuleBase.module_pre_shutdown is not implemented')
-        return fn()
+        return _truthy(fn())
 
     def module_post_startup(self, module):
         """"""
@@ -1910,15 +1904,18 @@ singleton accessor would have to invent a row to say so.
         fn = _get(dev, 'module_post_startup')
         if fn is None:
             raise NotImplementedError('ModuleBase.module_post_startup is not implemented')
-        return fn()
+        return _truthy(fn())
 
     def set_module_state_transition(self, module, transition_type):
-        """`pass_key`: the base class takes the module's own name as well."""
+        """`pass_key`: the base class takes the module's own name as well.
+
+        False is the answer that matters: another operation holds the module
+        and has not timed out, and the caller must leave it alone."""
         dev = self._find_module_info(module)
         fn = _get(dev, 'set_module_state_transition')
         if fn is None:
             raise NotImplementedError('ModuleBase.set_module_state_transition is not implemented')
-        return fn(module, transition_type)
+        return _truthy(fn(module, transition_type))
 
     def clear_module_state_transition(self, module):
         """"""
@@ -1926,7 +1923,7 @@ singleton accessor would have to invent a row to say so.
         fn = _get(dev, 'clear_module_state_transition')
         if fn is None:
             raise NotImplementedError('ModuleBase.clear_module_state_transition is not implemented')
-        return fn(module)
+        return _truthy(fn(module))
 
     def clear_module_gnoi_halt(self, module):
         """"""
@@ -1934,7 +1931,7 @@ singleton accessor would have to invent a row to say so.
         fn = _get(dev, 'clear_module_gnoi_halt_in_progress')
         if fn is None:
             raise NotImplementedError('ModuleBase.clear_module_gnoi_halt_in_progress is not implemented')
-        return fn()
+        return _truthy(fn())
 
     def set_sensor_high_threshold(self, sensor, value):
         """"""
@@ -1942,7 +1939,7 @@ singleton accessor would have to invent a row to say so.
         fn = _get(dev, 'set_high_threshold')
         if fn is None:
             raise NotImplementedError('SensorBase.set_high_threshold is not implemented')
-        return fn(value)
+        return _truthy(fn(value))
 
     def set_sensor_low_threshold(self, sensor, value):
         """"""
@@ -1950,7 +1947,7 @@ singleton accessor would have to invent a row to say so.
         fn = _get(dev, 'set_low_threshold')
         if fn is None:
             raise NotImplementedError('SensorBase.set_low_threshold is not implemented')
-        return fn(value)
+        return _truthy(fn(value))
 
     def get_available_firmware_version(self, component, image_path):
         """"""
@@ -1974,16 +1971,16 @@ singleton accessor would have to invent a row to say so.
         fn = _get(dev, 'install_firmware')
         if fn is None:
             raise NotImplementedError('ComponentBase.install_firmware is not implemented')
-        return fn(image_path)
+        return _truthy(fn(image_path))
 
     def update_firmware(self, component, image_path):
         """`ComponentBase.update_firmware` returns False on a missing path and
-        nothing at all on success, so there is no value worth declaring."""
+        nothing at all on success, so only a False says anything."""
         dev = self._find_component_info(component)
         fn = _get(dev, 'update_firmware')
         if fn is None:
             raise NotImplementedError('ComponentBase.update_firmware is not implemented')
-        return fn(image_path)
+        return _truthy(fn(image_path))
 
     def auto_update_firmware(self, component, image_path, boot_type):
         """Returns one of `ComponentBase.FW_AUTO_*`."""
@@ -2010,7 +2007,7 @@ singleton accessor would have to invent a row to say so.
         fn = _get(target, 'disarm')
         if fn is None:
             raise NotImplementedError('ChassisBase.get_watchdog.disarm is not implemented')
-        return fn()
+        return _truthy(fn())
 
     def initialize_system_led(self):
         """The base class spells this `initizalize_system_led`.
@@ -2020,24 +2017,29 @@ singleton accessor would have to invent a row to say so.
         fn = _get(self._chassis, 'initizalize_system_led')
         if fn is None:
             raise NotImplementedError('ChassisBase.initizalize_system_led is not implemented')
-        return fn()
+        return _truthy(fn())
 
     def init_midplane_switch(self):
         """"""
         fn = _get(self._chassis, 'init_midplane_switch')
         if fn is None:
             raise NotImplementedError('ChassisBase.init_midplane_switch is not implemented')
-        return fn()
+        return _truthy(fn())
 
     def set_chassis_led(self, color):
         """The whole platform API surface healthd reaches.
 
         `health_checker/manager.py:77`.  It is not a pmon daemon -- it runs on
-        the host -- which is why this one method is worth naming."""
+        the host -- which is why this one method is worth naming.
+
+        The colour is a `str`, not a `LedColor`: healthd takes it from the
+        platform's `system_health_monitoring_config.json`, where vendors use
+        their own ("amber_blink", "orange_blink", "yellow").  The answer is
+        `set_status_led`'s bool, so a caller can log a set that failed."""
         fn = _get(self._chassis, 'set_status_led')
         if fn is None:
             raise NotImplementedError('ChassisBase.set_status_led is not implemented')
-        return fn(color)
+        return _truthy(fn(color))
 
     def change_sed_password(self, new_password):
         """"""
@@ -2045,7 +2047,7 @@ singleton accessor would have to invent a row to say so.
         fn = _get(target, 'change_sed_password')
         if fn is None:
             raise NotImplementedError('ChassisBase.get_sed_mgmt.change_sed_password is not implemented')
-        return fn(new_password)
+        return _truthy(fn(new_password))
 
     def reset_sed_password(self):
         """"""
@@ -2053,7 +2055,7 @@ singleton accessor would have to invent a row to say so.
         fn = _get(target, 'reset_sed_password')
         if fn is None:
             raise NotImplementedError('ChassisBase.get_sed_mgmt.reset_sed_password is not implemented')
-        return fn()
+        return _truthy(fn())
 
     def bmc_open_session(self):
         """Hand-written: every BMC command answers a tuple, and not the same tuple: (code, message), (code, (message, (session_id, token))) and (code, (task_id, message)) all appear. Unpacking each into one row shape is a decision per method rather than a rule."""

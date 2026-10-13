@@ -1,20 +1,3 @@
-#
-# SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
 """The cross-language platform API.
 
 This stub is the source of truth.  Three things are generated from it and none
@@ -83,8 +66,11 @@ from .types import (
 # (`FanBase.FAN_DIRECTION_NOT_APPLICABLE`).
 _MISSING: Observed = Observed(sentinels=("N/A",), coerce_from=("int", "str"))
 
+# The four colours `DeviceBase.STATUS_LED_COLOR_*` names: what a daemon sets
+# on a fan or a PSU.  An LED is *read* as `str`, because a vendor answers
+# with its own colours (mlnx: "orange", "green_blink"), and the Python
+# daemons publish whatever it answered.
 LedColor = Literal["green", "amber", "red", "off"]
-FanDirection = Literal["intake", "exhaust", "N/A"]
 # "pdb" is psud's alone: its `_update_psu_fan_data` runs over PDBs as well as
 # PSUs (`psud:757`, `:942`), where thermalctld's FanUpdater walks drawers,
 # modules and PSUs only (`thermalctld:396-407`).  One row list serves both, so
@@ -95,7 +81,10 @@ PowerEntityKind = Literal["psu", "pdb"]
 # ModuleBase.MODULE_TYPE_*; the strings the base class defines, not new ones.
 ModuleType = Literal["SUPERVISOR", "LINE-CARD", "FABRIC-CARD", "DPU", "SWITCH-HOST"]
 # ModuleBase.MODULE_STATUS_*.
-ModuleStatus = Literal["Empty", "Offline", "PoweredDown", "Present", "Fault", "Online"]
+ModuleStatus = Literal[
+    "Empty", "Offline", "PoweredDown", "Present", "Fault",
+    "ProvisionReady", "ProvisionPending", "Provisioned", "Online",
+]
 SensorKind = Literal["voltage", "current"]
 # LeakageSensorBase.LEAK_SEVERITY_*; the enum member names, as strings.
 LeakSeverity = Literal["MINOR", "CRITICAL"]
@@ -246,11 +235,14 @@ class FanInfo:
     speed_pct: Annotated[Optional[Percent], From("FanBase.get_speed"), _MISSING]
     target_speed_pct: Annotated[Optional[Percent], From("FanBase.get_target_speed"), _MISSING]
     # No sentinel handling: FAN_DIRECTION_NOT_APPLICABLE is the string 'N/A',
-    # so here it is a value rather than a missing reading.
-    direction: Annotated[Optional[FanDirection], From("FanBase.get_direction")]
+    # so here it is a value rather than a missing reading.  A `str` and not the
+    # three `FAN_DIRECTION_*`, for the reason an LED is: vendors answer with
+    # their own spelling (PDDF's valmaps say "INTAKE", "EXHAUST", "UNKNOWN"),
+    # and thermalctld and psud publish whatever they answered.
+    direction: Annotated[Optional[str], From("FanBase.get_direction")]
     is_under_speed: Annotated[Optional[bool], From("FanBase.is_under_speed")]
     is_over_speed: Annotated[Optional[bool], From("FanBase.is_over_speed")]
-    status_led: Annotated[Optional[LedColor], From("FanBase.get_status_led")]
+    status_led: Annotated[Optional[str], From("FanBase.get_status_led")]
 
     # thermalctld:396-409 -- drawers, then modules, then PSUs.  A drawer fan
     # whose drawer has no name is published under the chassis.
@@ -319,7 +311,7 @@ class FanDrawerInfo:
     ]
     model: Annotated[Optional[str], From("DeviceBase.get_model")]
     serial: Annotated[Optional[str], From("DeviceBase.get_serial")]
-    status_led: Annotated[Optional[LedColor], From("FanDrawerBase.get_status_led")]
+    status_led: Annotated[Optional[str], From("FanDrawerBase.get_status_led")]
     maximum_consumed_power: Annotated[
         Optional[Watt], From("FanDrawerBase.get_maximum_consumed_power"), _MISSING
     ]
@@ -363,7 +355,7 @@ class PsuInfo:
     power_good: Annotated[
         bool, From("PsuBase.get_powergood_status"), Unsupported(on="default", default=False)
     ]
-    status_led: Annotated[Optional[LedColor], From("PsuBase.get_status_led")]
+    status_led: Annotated[Optional[str], From("PsuBase.get_status_led")]
 
     voltage: Annotated[Optional[Volt], From("PsuBase.get_voltage"), _MISSING]
     current: Annotated[Optional[Ampere], From("PsuBase.get_current"), _MISSING]
@@ -460,7 +452,7 @@ class ChassisInfo:
 
     dataplane_state: Annotated[Optional[bool], From("ChassisBase.get_dataplane_state")]
     controlplane_state: Annotated[Optional[bool], From("ChassisBase.get_controlplane_state")]
-    status_led: Annotated[Optional[LedColor], From("ChassisBase.get_status_led")]
+    status_led: Annotated[Optional[str], From("ChassisBase.get_status_led")]
 
     def __init__(self, **fields: object) -> None:
         """Keyword-only, as every row is."""
@@ -1188,9 +1180,15 @@ class PlatformApi:
 
 
     # -- actions, addressed by name ---------------------------------------
+    #
+    # An action answers what its base-class method answers.  Where that is a
+    # bool the action is `Optional[bool]`, None when the vendor returned
+    # nothing: chassisd backs off a DPU whose transition lock is held, and an
+    # action declared `None` turned the base class's False into success.
+    # `generate.py` holds each declaration to the base class's docstring.
 
     @platform_method(On(row="FanInfo"), Calls("FanBase.set_status_led"), Unsupported(on="error"))
-    def set_fan_led(self, fan: str, color: LedColor) -> None:
+    def set_fan_led(self, fan: str, color: LedColor) -> Optional[bool]:
         """Set the LED on one fan.
 
         Separate from `set_fan_drawer_led` on purpose.  thermalctld sets the
@@ -1202,11 +1200,11 @@ class PlatformApi:
     @platform_method(
         On(row="FanDrawerInfo"), Calls("FanDrawerBase.set_status_led"), Unsupported(on="error")
     )
-    def set_fan_drawer_led(self, drawer: str, color: LedColor) -> None: ...
+    def set_fan_drawer_led(self, drawer: str, color: LedColor) -> Optional[bool]: ...
     @platform_method(On(row="FanInfo"), Calls("FanBase.set_speed"), Unsupported(on="error"))
-    def set_fan_speed(self, fan: str, speed: Percent) -> None: ...
+    def set_fan_speed(self, fan: str, speed: Percent) -> Optional[bool]: ...
     @platform_method(On(row="PsuInfo"), Calls("PsuBase.set_status_led"), Unsupported(on="error"))
-    def set_psu_led(self, psu: str, color: LedColor) -> None: ...
+    def set_psu_led(self, psu: str, color: LedColor) -> Optional[bool]: ...
 
     @platform_method(
         On(row="ModuleInfo"), Calls("ModuleBase.get_reboot_cause")
@@ -1248,7 +1246,7 @@ class PlatformApi:
     @platform_method(
         On(row="PsuInfo"), Calls("PsuBase.get_status_master_led"), Unsupported(on="error")
     )
-    def get_psu_master_led(self, psu: str) -> Optional[LedColor]:
+    def get_psu_master_led(self, psu: str) -> Optional[str]:
         """The colour of the LED every hot-swappable PSU shares.
 
         `PsuBase.get_status_master_led` is a `@classmethod` over a class
@@ -1259,7 +1257,7 @@ class PlatformApi:
     @platform_method(
         On(row="PsuInfo"), Calls("PsuBase.set_status_master_led"), Unsupported(on="error")
     )
-    def set_psu_master_led(self, psu: str, color: LedColor) -> None:
+    def set_psu_master_led(self, psu: str, color: LedColor) -> Optional[bool]:
         """One LED shared by every hot-swappable PSU.
 
         Addressed through a PSU row like the getter, and for the same reason:
@@ -1269,17 +1267,17 @@ class PlatformApi:
         """
 
     @platform_method(On(row="ModuleInfo"), Calls("ModuleBase.reboot"), Unsupported(on="error"))
-    def reboot_module(self, module: str, reboot_type: str) -> None: ...
+    def reboot_module(self, module: str, reboot_type: str) -> Optional[bool]: ...
     @platform_method(
         On(row="ModuleInfo"), Calls("ModuleBase.set_admin_state"), Unsupported(on="error")
     )
-    def set_module_admin_state(self, module: str, up: bool) -> None: ...
+    def set_module_admin_state(self, module: str, up: bool) -> Optional[bool]: ...
     @platform_method(
         On(row="ModuleInfo"),
         Calls("ModuleBase.set_admin_state_gracefully"),
         Unsupported(on="error"),
     )
-    def set_module_admin_state_gracefully(self, module: str, up: bool) -> None:
+    def set_module_admin_state_gracefully(self, module: str, up: bool) -> Optional[bool]:
         """Admin-down that lets the module's services stop first.
 
         Separate from `set_module_admin_state` because it blocks for as long
@@ -1290,45 +1288,49 @@ class PlatformApi:
     @platform_method(
         On(row="ModuleInfo"), Calls("ModuleBase.do_power_cycle"), Unsupported(on="error")
     )
-    def power_cycle_module(self, module: str) -> None: ...
+    def power_cycle_module(self, module: str) -> Optional[bool]: ...
     @platform_method(
         On(row="ModuleInfo"), Calls("ModuleBase.module_pre_shutdown"), Unsupported(on="error")
     )
-    def module_pre_shutdown(self, module: str) -> None: ...
+    def module_pre_shutdown(self, module: str) -> Optional[bool]: ...
     @platform_method(
         On(row="ModuleInfo"), Calls("ModuleBase.module_post_startup"), Unsupported(on="error")
     )
-    def module_post_startup(self, module: str) -> None: ...
+    def module_post_startup(self, module: str) -> Optional[bool]: ...
 
     @platform_method(
         On(row="ModuleInfo", pass_key=True),
         Calls("ModuleBase.set_module_state_transition"),
         Unsupported(on="error"),
     )
-    def set_module_state_transition(self, module: str, transition_type: str) -> None:
-        """`pass_key`: the base class takes the module's own name as well."""
+    def set_module_state_transition(self, module: str, transition_type: str) -> Optional[bool]:
+        """`pass_key`: the base class takes the module's own name as well.
+
+        False is the answer that matters: another operation holds the module
+        and has not timed out, and the caller must leave it alone.
+        """
 
     @platform_method(
         On(row="ModuleInfo", pass_key=True),
         Calls("ModuleBase.clear_module_state_transition"),
         Unsupported(on="error"),
     )
-    def clear_module_state_transition(self, module: str) -> None: ...
+    def clear_module_state_transition(self, module: str) -> Optional[bool]: ...
     @platform_method(
         On(row="ModuleInfo"),
         Calls("ModuleBase.clear_module_gnoi_halt_in_progress"),
         Unsupported(on="error"),
     )
-    def clear_module_gnoi_halt(self, module: str) -> None: ...
+    def clear_module_gnoi_halt(self, module: str) -> Optional[bool]: ...
 
     @platform_method(
         On(row="SensorInfo"), Calls("SensorBase.set_high_threshold"), Unsupported(on="error")
     )
-    def set_sensor_high_threshold(self, sensor: str, value: Threshold) -> None: ...
+    def set_sensor_high_threshold(self, sensor: str, value: Threshold) -> Optional[bool]: ...
     @platform_method(
         On(row="SensorInfo"), Calls("SensorBase.set_low_threshold"), Unsupported(on="error")
     )
-    def set_sensor_low_threshold(self, sensor: str, value: Threshold) -> None: ...
+    def set_sensor_low_threshold(self, sensor: str, value: Threshold) -> Optional[bool]: ...
 
     # -- component firmware: queries that take an argument -----------------
     #
@@ -1361,9 +1363,9 @@ class PlatformApi:
         On(row="ComponentInfo"), Calls("ComponentBase.update_firmware"),
         Unsupported(on="error"),
     )
-    def update_firmware(self, component: str, image_path: str) -> None:
+    def update_firmware(self, component: str, image_path: str) -> Optional[bool]:
         """`ComponentBase.update_firmware` returns False on a missing path and
-        nothing at all on success, so there is no value worth declaring."""
+        nothing at all on success, so only a False says anything."""
 
     @platform_method(
         On(row="ComponentInfo"), Calls("ComponentBase.auto_update_firmware"),
@@ -1388,7 +1390,7 @@ class PlatformApi:
     def disarm_watchdog(self) -> Optional[bool]: ...
 
     @platform_method(Calls("ChassisBase.initizalize_system_led"), Unsupported(on="error"))
-    def initialize_system_led(self) -> None:
+    def initialize_system_led(self) -> Optional[bool]:
         """The base class spells this `initizalize_system_led`.
 
         The typo is part of the shipped API, so `Calls` carries it; the facade
@@ -1396,14 +1398,19 @@ class PlatformApi:
         """
 
     @platform_method(Calls("ChassisBase.init_midplane_switch"), Unsupported(on="error"))
-    def init_midplane_switch(self) -> None: ...
+    def init_midplane_switch(self) -> Optional[bool]: ...
 
     @platform_method(Calls("ChassisBase.set_status_led"), Unsupported(on="error"))
-    def set_chassis_led(self, color: LedColor) -> None:
+    def set_chassis_led(self, color: str) -> Optional[bool]:
         """The whole platform API surface healthd reaches.
 
         `health_checker/manager.py:77`.  It is not a pmon daemon -- it runs on
         the host -- which is why this one method is worth naming.
+
+        The colour is a `str`, not a `LedColor`: healthd takes it from the
+        platform's `system_health_monitoring_config.json`, where vendors use
+        their own ("amber_blink", "orange_blink", "yellow").  The answer is
+        `set_status_led`'s bool, so a caller can log a set that failed.
         """
 
     # -- sed ---------------------------------------------------------------

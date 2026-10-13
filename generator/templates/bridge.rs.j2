@@ -1,4 +1,3 @@
-{{ header }}
 //! Rust calling the Python facade, through PyO3.
 //!
 //! GENERATED from platform_api/facade.pyi by generator/generate.py.  Do not
@@ -23,7 +22,7 @@ use platform_api::{
     PlatformApi, PlatformError, Threshold,
 };
 
-use crate::{err, flag, num, rows, text, thr_arg, threshold, Bridge};
+use crate::{err, flag, int_cast, num, rows, text, thr_arg, threshold, Bridge};
 {% for row in model.rows %}
 
 /// Read one `{{ row.name }}` off the object the facade returned.

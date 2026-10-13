@@ -1,20 +1,3 @@
-//
-// SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
 //! Every implementation of the platform API, behind one concrete type.
 //!
 //! GENERATED from platform_api/facade.pyi by generator/generate.py.  Do not
@@ -158,7 +141,7 @@ impl PlatformApi for Platform {
         }
     }
 
-    fn set_fan_led(&mut self, fan: &str, color: LedColor) -> Result<(), PlatformError> {
+    fn set_fan_led(&mut self, fan: &str, color: LedColor) -> Result<Option<bool>, PlatformError> {
         match self {
             Self::Pyo3(p) => p.set_fan_led(fan, color),
             #[cfg(feature = "platform-native")]
@@ -166,7 +149,7 @@ impl PlatformApi for Platform {
         }
     }
 
-    fn set_fan_drawer_led(&mut self, drawer: &str, color: LedColor) -> Result<(), PlatformError> {
+    fn set_fan_drawer_led(&mut self, drawer: &str, color: LedColor) -> Result<Option<bool>, PlatformError> {
         match self {
             Self::Pyo3(p) => p.set_fan_drawer_led(drawer, color),
             #[cfg(feature = "platform-native")]
@@ -174,7 +157,7 @@ impl PlatformApi for Platform {
         }
     }
 
-    fn set_fan_speed(&mut self, fan: &str, speed: u32) -> Result<(), PlatformError> {
+    fn set_fan_speed(&mut self, fan: &str, speed: u32) -> Result<Option<bool>, PlatformError> {
         match self {
             Self::Pyo3(p) => p.set_fan_speed(fan, speed),
             #[cfg(feature = "platform-native")]
@@ -182,7 +165,7 @@ impl PlatformApi for Platform {
         }
     }
 
-    fn set_psu_led(&mut self, psu: &str, color: LedColor) -> Result<(), PlatformError> {
+    fn set_psu_led(&mut self, psu: &str, color: LedColor) -> Result<Option<bool>, PlatformError> {
         match self {
             Self::Pyo3(p) => p.set_psu_led(psu, color),
             #[cfg(feature = "platform-native")]
@@ -206,7 +189,7 @@ impl PlatformApi for Platform {
         }
     }
 
-    fn get_psu_master_led(&mut self, psu: &str) -> Result<Option<LedColor>, PlatformError> {
+    fn get_psu_master_led(&mut self, psu: &str) -> Result<Option<String>, PlatformError> {
         match self {
             Self::Pyo3(p) => p.get_psu_master_led(psu),
             #[cfg(feature = "platform-native")]
@@ -214,7 +197,7 @@ impl PlatformApi for Platform {
         }
     }
 
-    fn set_psu_master_led(&mut self, psu: &str, color: LedColor) -> Result<(), PlatformError> {
+    fn set_psu_master_led(&mut self, psu: &str, color: LedColor) -> Result<Option<bool>, PlatformError> {
         match self {
             Self::Pyo3(p) => p.set_psu_master_led(psu, color),
             #[cfg(feature = "platform-native")]
@@ -222,7 +205,7 @@ impl PlatformApi for Platform {
         }
     }
 
-    fn reboot_module(&mut self, module: &str, reboot_type: &str) -> Result<(), PlatformError> {
+    fn reboot_module(&mut self, module: &str, reboot_type: &str) -> Result<Option<bool>, PlatformError> {
         match self {
             Self::Pyo3(p) => p.reboot_module(module, reboot_type),
             #[cfg(feature = "platform-native")]
@@ -230,7 +213,7 @@ impl PlatformApi for Platform {
         }
     }
 
-    fn set_module_admin_state(&mut self, module: &str, up: bool) -> Result<(), PlatformError> {
+    fn set_module_admin_state(&mut self, module: &str, up: bool) -> Result<Option<bool>, PlatformError> {
         match self {
             Self::Pyo3(p) => p.set_module_admin_state(module, up),
             #[cfg(feature = "platform-native")]
@@ -238,7 +221,7 @@ impl PlatformApi for Platform {
         }
     }
 
-    fn set_module_admin_state_gracefully(&mut self, module: &str, up: bool) -> Result<(), PlatformError> {
+    fn set_module_admin_state_gracefully(&mut self, module: &str, up: bool) -> Result<Option<bool>, PlatformError> {
         match self {
             Self::Pyo3(p) => p.set_module_admin_state_gracefully(module, up),
             #[cfg(feature = "platform-native")]
@@ -246,7 +229,7 @@ impl PlatformApi for Platform {
         }
     }
 
-    fn power_cycle_module(&mut self, module: &str) -> Result<(), PlatformError> {
+    fn power_cycle_module(&mut self, module: &str) -> Result<Option<bool>, PlatformError> {
         match self {
             Self::Pyo3(p) => p.power_cycle_module(module),
             #[cfg(feature = "platform-native")]
@@ -254,7 +237,7 @@ impl PlatformApi for Platform {
         }
     }
 
-    fn module_pre_shutdown(&mut self, module: &str) -> Result<(), PlatformError> {
+    fn module_pre_shutdown(&mut self, module: &str) -> Result<Option<bool>, PlatformError> {
         match self {
             Self::Pyo3(p) => p.module_pre_shutdown(module),
             #[cfg(feature = "platform-native")]
@@ -262,7 +245,7 @@ impl PlatformApi for Platform {
         }
     }
 
-    fn module_post_startup(&mut self, module: &str) -> Result<(), PlatformError> {
+    fn module_post_startup(&mut self, module: &str) -> Result<Option<bool>, PlatformError> {
         match self {
             Self::Pyo3(p) => p.module_post_startup(module),
             #[cfg(feature = "platform-native")]
@@ -270,7 +253,7 @@ impl PlatformApi for Platform {
         }
     }
 
-    fn set_module_state_transition(&mut self, module: &str, transition_type: &str) -> Result<(), PlatformError> {
+    fn set_module_state_transition(&mut self, module: &str, transition_type: &str) -> Result<Option<bool>, PlatformError> {
         match self {
             Self::Pyo3(p) => p.set_module_state_transition(module, transition_type),
             #[cfg(feature = "platform-native")]
@@ -278,7 +261,7 @@ impl PlatformApi for Platform {
         }
     }
 
-    fn clear_module_state_transition(&mut self, module: &str) -> Result<(), PlatformError> {
+    fn clear_module_state_transition(&mut self, module: &str) -> Result<Option<bool>, PlatformError> {
         match self {
             Self::Pyo3(p) => p.clear_module_state_transition(module),
             #[cfg(feature = "platform-native")]
@@ -286,7 +269,7 @@ impl PlatformApi for Platform {
         }
     }
 
-    fn clear_module_gnoi_halt(&mut self, module: &str) -> Result<(), PlatformError> {
+    fn clear_module_gnoi_halt(&mut self, module: &str) -> Result<Option<bool>, PlatformError> {
         match self {
             Self::Pyo3(p) => p.clear_module_gnoi_halt(module),
             #[cfg(feature = "platform-native")]
@@ -294,7 +277,7 @@ impl PlatformApi for Platform {
         }
     }
 
-    fn set_sensor_high_threshold(&mut self, sensor: &str, value: Threshold) -> Result<(), PlatformError> {
+    fn set_sensor_high_threshold(&mut self, sensor: &str, value: Threshold) -> Result<Option<bool>, PlatformError> {
         match self {
             Self::Pyo3(p) => p.set_sensor_high_threshold(sensor, value),
             #[cfg(feature = "platform-native")]
@@ -302,7 +285,7 @@ impl PlatformApi for Platform {
         }
     }
 
-    fn set_sensor_low_threshold(&mut self, sensor: &str, value: Threshold) -> Result<(), PlatformError> {
+    fn set_sensor_low_threshold(&mut self, sensor: &str, value: Threshold) -> Result<Option<bool>, PlatformError> {
         match self {
             Self::Pyo3(p) => p.set_sensor_low_threshold(sensor, value),
             #[cfg(feature = "platform-native")]
@@ -334,7 +317,7 @@ impl PlatformApi for Platform {
         }
     }
 
-    fn update_firmware(&mut self, component: &str, image_path: &str) -> Result<(), PlatformError> {
+    fn update_firmware(&mut self, component: &str, image_path: &str) -> Result<Option<bool>, PlatformError> {
         match self {
             Self::Pyo3(p) => p.update_firmware(component, image_path),
             #[cfg(feature = "platform-native")]
@@ -366,7 +349,7 @@ impl PlatformApi for Platform {
         }
     }
 
-    fn initialize_system_led(&mut self) -> Result<(), PlatformError> {
+    fn initialize_system_led(&mut self) -> Result<Option<bool>, PlatformError> {
         match self {
             Self::Pyo3(p) => p.initialize_system_led(),
             #[cfg(feature = "platform-native")]
@@ -374,7 +357,7 @@ impl PlatformApi for Platform {
         }
     }
 
-    fn init_midplane_switch(&mut self) -> Result<(), PlatformError> {
+    fn init_midplane_switch(&mut self) -> Result<Option<bool>, PlatformError> {
         match self {
             Self::Pyo3(p) => p.init_midplane_switch(),
             #[cfg(feature = "platform-native")]
@@ -382,7 +365,7 @@ impl PlatformApi for Platform {
         }
     }
 
-    fn set_chassis_led(&mut self, color: LedColor) -> Result<(), PlatformError> {
+    fn set_chassis_led(&mut self, color: &str) -> Result<Option<bool>, PlatformError> {
         match self {
             Self::Pyo3(p) => p.set_chassis_led(color),
             #[cfg(feature = "platform-native")]

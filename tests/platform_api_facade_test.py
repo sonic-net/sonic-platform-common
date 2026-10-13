@@ -1,20 +1,3 @@
-#
-# SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
 """The generated facade, against a chassis that misbehaves the way real ones do.
 
 Every mock below reproduces something a shipped platform actually does: a PSU
@@ -559,8 +542,8 @@ def test_an_unreadable_or_absent_eeprom_is_false():
 
 
 def test_a_vendor_enum_crosses_as_the_string_the_stub_declares():
-    # Every enumerated column is declared `Literal[...]`, i.e. a str, and the
-    # Rust bridge downcasts to str.  A vendor is free to answer with an
+    # Every text column is declared `str` or `Literal[...]`, and the Rust
+    # bridge downcasts to str.  A vendor is free to answer with an
     # `enum.Enum` whose value is that string instead -- mlnx's
     # get_leak_severity() does, and on hardware that failed the whole row read
     # and left LIQUID_COOLING_INFO empty, silently, because the daemon treats
@@ -612,6 +595,31 @@ def test_an_action_addresses_the_row_by_the_name_the_snapshot_published():
     assert fan.led == 'amber'
 
 
+def test_a_text_column_crosses_as_str_of_what_the_vendor_answered():
+    # The Python daemons publish these with str(): accton's PDDF fan answers
+    # get_direction() with False when the read fails, and thermalctld writes
+    # "False".  The bridge downcasts to str, so a bool failed the whole row.
+    drawer = Drawer('D1', [Fan('f1', 50, False), Fan('f2', 50, 'INTAKE'),
+                           Fan('f3', 50, None)])
+    fans = PlatformApi(Chassis(drawers=[drawer])).get_fans()
+    assert [f.direction for f in fans] == ['False', 'INTAKE', None]
+
+
+@pytest.mark.parametrize('answer, read', [
+    (True, True), (False, False), (None, None), (0, False), ('Executed', True),
+])
+def test_an_action_answers_the_way_python_reads_the_answer(answer, read):
+    # A caller reads it as `if not answer:` (chassisd:1405), and a vendor
+    # answers with whatever its helper returned -- pddf's ledutil says
+    # "Executed".  The bridge extracts a bool strictly.
+    class Answering(Fan):
+        def set_status_led(self, color):
+            return answer
+
+    api = PlatformApi(Chassis(drawers=[Drawer('D1', [Answering('f1', 50)])]))
+    assert api.set_fan_led('f1', 'red') is read
+
+
 def test_an_unknown_row_name_is_a_key_error():
     api = PlatformApi(Chassis(drawers=[Drawer('D1', [Fan('f1', 50)])]))
     with pytest.raises(KeyError):
@@ -622,6 +630,14 @@ def test_a_chassis_level_action_needs_no_row():
     chassis = Chassis()
     PlatformApi(chassis).set_chassis_led('green')
     assert chassis.led == 'green'
+
+
+def test_the_chassis_led_takes_a_vendor_colour_and_answers_whether_it_took():
+    # healthd's colours come from system_health_monitoring_config.json, where
+    # vendors write their own; set_status_led's bool comes back to the caller.
+    chassis = Chassis()
+    assert PlatformApi(chassis).set_chassis_led('amber_blink') is True
+    assert chassis.led == 'amber_blink'
 
 
 def test_an_action_a_platform_does_not_implement_says_so():

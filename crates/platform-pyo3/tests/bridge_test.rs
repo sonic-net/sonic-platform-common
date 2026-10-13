@@ -1,20 +1,3 @@
-//
-// SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
 //! The generated bridge against the generated facade, over a mock chassis.
 //!
 //! Both sides of the boundary come from the one stub, so what these tests
@@ -27,7 +10,12 @@
 //! `platform_api.facade` imports.  `cargo test` from the crate directory will
 //! not find it on its own; see generator/check.sh.
 
-use platform_api::{ChassisInfoCols, FanDrawerInfoCols, FanInfoCols, LedColor, ModuleInfoCols, PlatformApi, PlatformError};
+use std::ffi::CString;
+
+use platform_api::{
+    ChassisInfoCols, FanDrawerInfoCols, FanInfoCols, LedColor, ModuleInfoCols, ModuleStatus,
+    PlatformApi, PlatformError,
+};
 use platform_pyo3::Bridge;
 use pyo3::ffi::c_str;
 use pyo3::prelude::*;
@@ -59,15 +47,18 @@ class Fan:
     def __init__(self, name):
         self._name = name
         self.led = None
+        self.direction = 'N/A'  # FAN_DIRECTION_NOT_APPLICABLE: a value
     def get_name(self):
         return self._name
     def get_speed(self):
         return 50.0            # a whole number, as a float
     def get_direction(self):
-        return 'N/A'           # FAN_DIRECTION_NOT_APPLICABLE: a value
+        return self.direction
     def set_status_led(self, color):
         self.led = color
         return True
+    def get_status_led(self):
+        return self.led
 
 class Drawer:
     def __init__(self, name, fans):
@@ -93,12 +84,16 @@ class Module:
     def __init__(self, name):
         self._name = name
         self.rebooted = None
+        self.oper = 'Online'
+        self.lock = True
     def get_name(self):
         return self._name
     def get_type(self):
         return 'LINE-CARD'
     def get_oper_status(self):
-        return 'Online'
+        return self.oper
+    def set_module_state_transition(self, module_name, transition_type):
+        return self.lock
     def get_reboot_cause(self):
         return ('Software', 'requested')
     def is_midplane_reachable(self):
@@ -120,6 +115,7 @@ class Chassis:
         self._psus = [Psu('PSU-1', True, [Thermal(None, '51')]),
                       Psu('PSU-2', False, [Thermal('hidden', 1.0)])]
         self.led = None
+        self.led_answer = True
         self.module = Module('LC1')
     def get_reboot_cause(self):
         return ('Watchdog', 'counted down')
@@ -143,7 +139,9 @@ class Chassis:
         return True
     def set_status_led(self, color):
         self.led = color
-        return True
+        return self.led_answer
+    def get_status_led(self):
+        return self.led
 
 CHASSIS = Chassis()
 "#
@@ -450,7 +448,9 @@ fn loaded() -> Bridge {
         let hatch = facade.getattr("_hatch").unwrap();
         hatch.setattr("_pcie", m.getattr("PCIE").unwrap()).unwrap();
         hatch.setattr("_pcie_tried", true).unwrap();
-        hatch.setattr("_storage", m.getattr("STORAGE").unwrap()).unwrap();
+        hatch
+            .setattr("_storage", m.getattr("STORAGE").unwrap())
+            .unwrap();
         hatch.setattr("_storage_tried", true).unwrap();
         Bridge::from_facade(facade.unbind())
     })
@@ -507,14 +507,100 @@ fn a_field_with_a_declared_default_does_not_arrive_as_a_hole() {
 #[test]
 fn a_whole_number_reported_as_a_float_still_fits_the_declared_width() {
     let (mut api, _chassis) = bridge();
-    assert_eq!(api.get_fans(FanInfoCols::ALL).unwrap()[0].speed_pct, Some(50));
+    assert_eq!(
+        api.get_fans(FanInfoCols::ALL).unwrap()[0].speed_pct,
+        Some(50)
+    );
+}
+
+#[test]
+fn a_number_the_declared_width_cannot_hold_is_absent_rather_than_saturated() {
+    // `-1` is how a fan says it could not read its speed, and `as u32` turned
+    // it into 0 -- a stopped fan, which is an alarm. NaN went the same way.
+    // Neither is a reading, so neither crosses as one.
+    let (mut api, chassis) = bridge();
+    Python::with_gil(|py| {
+        let fan = chassis.bind(py).getattr("fan").unwrap();
+        let answers = py
+            .eval(c_str!("(lambda: -1, lambda: float('nan'))"), None, None)
+            .unwrap();
+        fan.setattr("get_speed", answers.get_item(0).unwrap())
+            .unwrap();
+        fan.setattr("get_target_speed", answers.get_item(1).unwrap())
+            .unwrap();
+    });
+    let fan = &api.get_fans(FanInfoCols::ALL).unwrap()[0];
+    assert_eq!(fan.speed_pct, None, "-1 is not 0%");
+    assert_eq!(fan.target_speed_pct, None, "NaN is not 0%");
 }
 
 #[test]
 fn fan_direction_na_crosses_as_a_value() {
-    use platform_api::FanDirection;
     let (mut api, _chassis) = bridge();
-    assert_eq!(api.get_fans(FanInfoCols::ALL).unwrap()[0].direction, Some(FanDirection::NA));
+    assert_eq!(
+        api.get_fans(FanInfoCols::ALL).unwrap()[0].direction.as_deref(),
+        Some("N/A")
+    );
+}
+
+/// A fan's direction reads as the platform spelled it.  PDDF's valmaps answer
+/// "INTAKE" and "UNKNOWN", and accton's fan answers False when the read
+/// fails; thermalctld publishes `str()` of each.  The first read as None and
+/// the second failed the whole row.
+#[test]
+fn a_fan_direction_reads_as_the_platform_spelled_it() {
+    let (mut api, chassis) = bridge();
+    for (answer, read) in [("'INTAKE'", "INTAKE"), ("'UNKNOWN'", "UNKNOWN"), ("False", "False")] {
+        Python::with_gil(|py| {
+            let v = py.eval(&CString::new(answer).unwrap(), None, None).unwrap();
+            chassis.bind(py).getattr("fan").unwrap().setattr("direction", v).unwrap();
+        });
+        let fans = api.get_fans(FanInfoCols::ALL).unwrap();
+        assert_eq!(fans[0].direction.as_deref(), Some(read), "{answer}");
+    }
+}
+
+/// Every `MODULE_STATUS_*` the base class defines reads as itself.  The three
+/// for provisioning were missing from `ModuleStatus`, so a module being
+/// provisioned read as None -- which chassisd publishes as Offline.
+#[test]
+fn every_module_status_the_base_class_defines_reads_as_itself() {
+    let (mut api, chassis) = bridge();
+    for (answer, status) in [
+        ("ProvisionReady", ModuleStatus::Provisionready),
+        ("ProvisionPending", ModuleStatus::Provisionpending),
+        ("Provisioned", ModuleStatus::Provisioned),
+    ] {
+        Python::with_gil(|py| {
+            chassis.bind(py).getattr("module").unwrap().setattr("oper", answer).unwrap();
+        });
+        let m = &api.get_modules(ModuleInfoCols::ALL).unwrap()[0];
+        assert_eq!(m.oper_status, Some(status));
+        assert_eq!(status.as_str(), answer);
+    }
+}
+
+/// An action answers what the base class answers.  `set_module_state_transition`
+/// answers False when another operation holds the module, and chassisd must
+/// leave the DPU alone then; declared `-> None`, the False read as success.
+/// The answer is read the way Python's `if not answer:` reads it, so a
+/// vendor's 0 or "Executed" crosses as the bool Python saw.
+#[test]
+fn an_action_answers_what_the_base_class_answered() {
+    let (mut api, chassis) = bridge();
+    for (answer, read) in [
+        ("True", Some(true)),
+        ("False", Some(false)),
+        ("None", None),
+        ("0", Some(false)),
+        ("'Executed'", Some(true)),
+    ] {
+        Python::with_gil(|py| {
+            let v = py.eval(&CString::new(answer).unwrap(), None, None).unwrap();
+            chassis.bind(py).getattr("module").unwrap().setattr("lock", v).unwrap();
+        });
+        assert_eq!(api.set_module_state_transition("LC1", "recovery").unwrap(), read, "{answer}");
+    }
 }
 
 #[test]
@@ -558,11 +644,48 @@ fn something_the_platform_does_not_implement_is_not_supported() {
 #[test]
 fn a_chassis_level_action_needs_no_row() {
     let (mut api, chassis) = bridge();
-    api.set_chassis_led(LedColor::Green).unwrap();
+    api.set_chassis_led("green").unwrap();
     Python::with_gil(|py| {
         let led = chassis.bind(py).getattr("led").unwrap();
         assert_eq!(led.extract::<String>().unwrap(), "green");
     });
+}
+
+/// healthd takes the system LED colour from the platform's
+/// system_health_monitoring_config.json, and vendors write their own there.
+/// It crosses as given, and so does `set_status_led`'s answer, so healthd can
+/// log a set that failed.  A platform that answers nothing is not a failure.
+#[test]
+fn the_chassis_led_takes_a_vendor_colour_and_answers_whether_it_took() {
+    let (mut api, chassis) = bridge();
+    assert_eq!(api.set_chassis_led("amber_blink").unwrap(), Some(true));
+    Python::with_gil(|py| {
+        let led = chassis.bind(py).getattr("led").unwrap();
+        assert_eq!(led.extract::<String>().unwrap(), "amber_blink");
+        chassis.bind(py).setattr("led_answer", false).unwrap();
+    });
+    assert_eq!(api.set_chassis_led("red").unwrap(), Some(false));
+    Python::with_gil(|py| chassis.bind(py).setattr("led_answer", py.None()).unwrap());
+    assert_eq!(api.set_chassis_led("red").unwrap(), None);
+}
+
+/// An LED reads as the colour the platform answered.  mlnx answers "orange"
+/// and "green_blink", which are not among the four `LedColor` names, and the
+/// Python daemons publish them as they are; dropping them to None would
+/// publish "N/A" instead.
+#[test]
+fn an_led_reads_as_the_colour_the_platform_answered() {
+    let (mut api, chassis) = bridge();
+    api.set_chassis_led("green_blink").unwrap();
+    Python::with_gil(|py| {
+        let fan = chassis.bind(py).getattr("fan").unwrap();
+        fan.setattr("led", "orange").unwrap();
+    });
+    let info = api.get_chassis_info(ChassisInfoCols::ALL).unwrap();
+    assert_eq!(info.status_led.as_deref(), Some("green_blink"));
+    let fans = api.get_fans(FanInfoCols::ALL).unwrap();
+    let fan = fans.iter().find(|f| f.name == "fan 1").unwrap();
+    assert_eq!(fan.status_led.as_deref(), Some("orange"));
 }
 
 #[test]
@@ -573,7 +696,6 @@ fn a_platform_without_a_thermal_manager_is_quiet() {
     assert_eq!(api.tm_get_interval().unwrap(), None);
     api.tm_deinitialize().unwrap();
 }
-
 
 #[test]
 fn the_chassis_crosses_as_one_row() {
@@ -590,8 +712,14 @@ fn returning_the_exception_class_crosses_as_absent() {
     // Five base-class methods `return NotImplementedError` rather than
     // raising it.  It is truthy, so an unguarded bridge would publish it.
     let (mut api, _chassis) = bridge();
-    assert_eq!(api.get_chassis_info(ChassisInfoCols::ALL).unwrap().my_slot, None);
-    assert_eq!(api.get_modules(ModuleInfoCols::ALL).unwrap()[0].is_midplane_reachable, None);
+    assert_eq!(
+        api.get_chassis_info(ChassisInfoCols::ALL).unwrap().my_slot,
+        None
+    );
+    assert_eq!(
+        api.get_modules(ModuleInfoCols::ALL).unwrap()[0].is_midplane_reachable,
+        None
+    );
 }
 
 #[test]
@@ -642,7 +770,12 @@ fn a_two_level_mapping_crosses_as_rows() {
         ]
     );
     assert_eq!(
-        batch.events.iter().find(|e| e.device_id == "12").unwrap().status,
+        batch
+            .events
+            .iter()
+            .find(|e| e.device_id == "12")
+            .unwrap()
+            .status,
         "9"
     );
 }
@@ -674,7 +807,6 @@ fn a_bool_is_not_a_limit() {
     assert_eq!(odd.high_threshold, None);
 }
 
-
 // -- every generated reader, against a chassis that answers ----------------
 
 #[test]
@@ -684,15 +816,23 @@ fn every_row_type_crosses() {
 
     let psus = api.get_psus().unwrap();
     assert_eq!(
-        psus.iter().map(|p| (p.name.as_str(), p.kind)).collect::<Vec<_>>(),
-        vec![("PSU-1", PowerEntityKind::Psu), ("PDB-1", PowerEntityKind::Pdb)]
+        psus.iter()
+            .map(|p| (p.name.as_str(), p.kind))
+            .collect::<Vec<_>>(),
+        vec![
+            ("PSU-1", PowerEntityKind::Psu),
+            ("PDB-1", PowerEntityKind::Pdb)
+        ]
     );
     assert_eq!(psus[0].voltage, Some(12.0));
     assert!(psus[0].power_good);
 
     let sensors = api.get_sensors().unwrap();
     assert_eq!(
-        sensors.iter().map(|s| (s.name.as_str(), s.kind)).collect::<Vec<_>>(),
+        sensors
+            .iter()
+            .map(|s| (s.name.as_str(), s.kind))
+            .collect::<Vec<_>>(),
         vec![
             ("sys-v", SensorKind::Voltage),
             ("lc-v", SensorKind::Voltage),
@@ -703,7 +843,10 @@ fn every_row_type_crosses() {
 
     let components = api.get_components().unwrap();
     assert_eq!(
-        components.iter().map(|c| c.name.as_str()).collect::<Vec<_>>(),
+        components
+            .iter()
+            .map(|c| c.name.as_str())
+            .collect::<Vec<_>>(),
         vec!["BIOS", "LC-CPLD"]
     );
     assert_eq!(components[0].firmware_version.as_deref(), Some("1.2"));
@@ -714,7 +857,10 @@ fn every_row_type_crosses() {
 
     let eeprom = api.get_eeprom().unwrap();
     assert_eq!(
-        eeprom.iter().map(|e| (e.source.as_str(), e.code.as_str())).collect::<Vec<_>>(),
+        eeprom
+            .iter()
+            .map(|e| (e.source.as_str(), e.code.as_str()))
+            .collect::<Vec<_>>(),
         vec![("chassis", "0x21"), ("module", "0x22"), ("bmc", "Model")]
     );
 
@@ -723,7 +869,10 @@ fn every_row_type_crosses() {
     assert_eq!(bmcs[0].version.as_deref(), Some("4.5"));
 
     let watchdogs = api.get_watchdogs().unwrap();
-    assert_eq!((watchdogs[0].is_armed, watchdogs[0].remaining_time), (Some(true), Some(42)));
+    assert_eq!(
+        (watchdogs[0].is_armed, watchdogs[0].remaining_time),
+        (Some(true), Some(42))
+    );
 
     let asics = api.get_asics().unwrap();
     assert_eq!(
@@ -738,7 +887,13 @@ fn a_leak_sensor_reaches_through_its_profile() {
     let mut api = loaded();
 
     let profiles = api.get_leak_profiles().unwrap();
-    assert_eq!((profiles[0].r#type.as_str(), profiles[0].max_minor_duration_sec), ("rack", Some(30)));
+    assert_eq!(
+        (
+            profiles[0].r#type.as_str(),
+            profiles[0].max_minor_duration_sec
+        ),
+        ("rack", Some(30))
+    );
 
     let sensors = api.get_leak_sensors().unwrap();
     let s = &sensors[0];
@@ -760,9 +915,15 @@ fn a_getter_that_takes_the_devices_name_is_given_it() {
     // The fixture answers true only for its own name, so a stub that passed the
     // wrong string -- or none -- would not satisfy this.
     let mut api = loaded();
-    let modules = api.get_modules(ModuleInfoCols::ALL).expect("the row must be readable");
+    let modules = api
+        .get_modules(ModuleInfoCols::ALL)
+        .expect("the row must be readable");
     let m = modules.iter().find(|m| m.name == "LC1").expect("LC1");
-    assert_eq!(m.state_transition, Some(true), "the getter must receive this module's own name");
+    assert_eq!(
+        m.state_transition,
+        Some(true),
+        "the getter must receive this module's own name"
+    );
 }
 
 #[test]
@@ -774,9 +935,14 @@ fn a_narrowed_getter_costs_its_own_column_and_not_the_row() {
     // with four live DPUs, silently.  The column may be absent; the row may
     // not be.
     let mut api = loaded();
-    let info = api.get_chassis_info(ChassisInfoCols::ALL).expect("the row must survive a narrowed getter");
+    let info = api
+        .get_chassis_info(ChassisInfoCols::ALL)
+        .expect("the row must survive a narrowed getter");
     assert_eq!(info.dpu_id, None, "a narrowed signature reads as absent");
-    assert!(info.is_modular_chassis, "the rest of the row is still readable");
+    assert!(
+        info.is_modular_chassis,
+        "the rest of the row is still readable"
+    );
 }
 
 #[test]
@@ -792,8 +958,15 @@ fn a_leak_sensor_that_cannot_be_read_reports_leaking() {
     // on.  Measured on slm-111 against the Python daemon on the same box.
     let mut api = loaded();
     let sensors = api.get_leak_sensors().unwrap();
-    let faulty = sensors.iter().find(|s| s.name == "leak-2").expect("leak-2 row");
-    assert_eq!(faulty.is_leak, Some(true), "'N/A' must not read as 'not leaking'");
+    let faulty = sensors
+        .iter()
+        .find(|s| s.name == "leak-2")
+        .expect("leak-2 row");
+    assert_eq!(
+        faulty.is_leak,
+        Some(true),
+        "'N/A' must not read as 'not leaking'"
+    );
 }
 
 #[test]
@@ -818,11 +991,15 @@ fn a_component_firmware_query_crosses_with_its_argument() {
     // about: the image path is the second argument of a two-argument call, and
     // a bridge that dropped it would still compile and still return a string.
     assert_eq!(
-        api.get_available_firmware_version("LC-CPLD", "/tmp/fw.bin").unwrap().as_deref(),
+        api.get_available_firmware_version("LC-CPLD", "/tmp/fw.bin")
+            .unwrap()
+            .as_deref(),
         Some("2.0 from /tmp/fw.bin")
     );
     assert_eq!(
-        api.get_firmware_update_notification("LC-CPLD", "/tmp/fw.bin").unwrap().as_deref(),
+        api.get_firmware_update_notification("LC-CPLD", "/tmp/fw.bin")
+            .unwrap()
+            .as_deref(),
         Some("cold reboot required for /tmp/fw.bin")
     );
 }
@@ -870,7 +1047,10 @@ fn the_platform_writes_its_own_eeprom_table() {
     // does, and it needs the bytes `read_eeprom()` returned. The pair crosses
     // as one call so the raw image never has to.
     let mut api = loaded();
-    assert!(api.eeprom_update_db().unwrap(), "0 from the platform is success");
+    assert!(
+        api.eeprom_update_db().unwrap(),
+        "0 from the platform is success"
+    );
 }
 
 #[test]
@@ -878,7 +1058,9 @@ fn the_pcie_parts_list_survives_one_malformed_entry() {
     let mut api = loaded();
     let rows = api.get_pcie_devices().unwrap();
     assert_eq!(
-        rows.iter().map(|d| (d.name.as_str(), d.bus, d.dev, d.r#fn, d.present)).collect::<Vec<_>>(),
+        rows.iter()
+            .map(|d| (d.name.as_str(), d.bus, d.dev, d.r#fn, d.present))
+            .collect::<Vec<_>>(),
         vec![("ASIC", 5, 31, 0, true), ("NIC", 6, 0, 1, false)],
         "hex strings are parsed as hex, 'Passed' is the only present, and the \
          entry with no bus is dropped without taking the others with it"
@@ -891,7 +1073,9 @@ fn aer_counters_arrive_flattened_out_of_their_severities() {
     let mut rows = api.get_pcie_aer_stats(5, 31, 0).unwrap();
     rows.sort_by(|a, b| (&a.severity, &a.field).cmp(&(&b.severity, &b.field)));
     assert_eq!(
-        rows.iter().map(|r| (r.severity.as_str(), r.field.as_str(), r.value.as_str())).collect::<Vec<_>>(),
+        rows.iter()
+            .map(|r| (r.severity.as_str(), r.field.as_str(), r.value.as_str()))
+            .collect::<Vec<_>>(),
         vec![
             ("correctable", "BadTLP", "0"),
             ("correctable", "RxErr", "3"),
@@ -908,7 +1092,9 @@ fn a_disk_with_no_utility_class_is_still_a_row() {
     let mut api = loaded();
     let rows = api.get_storage_devices().unwrap();
     assert_eq!(
-        rows.iter().map(|d| (d.name.as_str(), d.available)).collect::<Vec<_>>(),
+        rows.iter()
+            .map(|d| (d.name.as_str(), d.available))
+            .collect::<Vec<_>>(),
         vec![("sda", true), ("sdb", false)]
     );
     let sda = &rows[0];
@@ -916,7 +1102,10 @@ fn a_disk_with_no_utility_class_is_still_a_row() {
     assert_eq!(sda.health, "98");
     // The two counters cross as numbers where the readings cross as text,
     // because stormond does arithmetic on these and on none of the others.
-    assert_eq!((sda.fs_io_reads, sda.fs_io_writes), (Some(4242), Some(2121)));
+    assert_eq!(
+        (sda.fs_io_reads, sda.fs_io_writes),
+        (Some(4242), Some(2121))
+    );
     assert_eq!(rows[1].model, "N/A");
     assert_eq!(rows[1].fs_io_reads, None);
 }
@@ -937,19 +1126,37 @@ fn every_bmc_command_unpacks_its_own_payload_shape() {
         (Some("sid-1"), Some("tok-1"))
     );
 
-    assert_eq!(api.bmc_close_session("sid-1").unwrap().message.as_deref(), Some("closed sid-1"));
-    assert_eq!(api.bmc_reset_root_password().unwrap().message.as_deref(), Some("reset"));
-    assert_eq!(api.bmc_reset(true).unwrap().message.as_deref(), Some("graceful"));
     assert_eq!(
-        api.bmc_update_firmware("/tmp/bmc.fwpkg").unwrap().message.as_deref(),
+        api.bmc_close_session("sid-1").unwrap().message.as_deref(),
+        Some("closed sid-1")
+    );
+    assert_eq!(
+        api.bmc_reset_root_password().unwrap().message.as_deref(),
+        Some("reset")
+    );
+    assert_eq!(
+        api.bmc_reset(true).unwrap().message.as_deref(),
+        Some("graceful")
+    );
+    assert_eq!(
+        api.bmc_update_firmware("/tmp/bmc.fwpkg")
+            .unwrap()
+            .message
+            .as_deref(),
         Some("flashed /tmp/bmc.fwpkg"),
         "the component list beside the message is not the message"
     );
 
     let dump = api.bmc_trigger_debug_log_dump().unwrap();
-    assert_eq!((dump.task_id.as_deref(), dump.message.as_deref()), (Some("task-9"), Some("started")));
     assert_eq!(
-        api.bmc_get_debug_log_dump("task-9", "d.tar", "/tmp").unwrap().message.as_deref(),
+        (dump.task_id.as_deref(), dump.message.as_deref()),
+        (Some("task-9"), Some("started"))
+    );
+    assert_eq!(
+        api.bmc_get_debug_log_dump("task-9", "d.tar", "/tmp")
+            .unwrap()
+            .message
+            .as_deref(),
         Some("/tmp/d.tar for task-9")
     );
 }
@@ -984,10 +1191,10 @@ class Rec:
 
 class Psu(Rec):
     # The catch-all answers True, which is not a colour; this one is read back
-    # as one, so it has to answer like a platform.
+    # as one, so it has to answer like a platform -- mlnx's own colour.
     def get_status_master_led(self):
         self.calls.append(('get_status_master_led', ()))
-        return 'green'
+        return 'orange'
 
 class Chassis(Rec):
     def __init__(self):
@@ -1103,21 +1310,45 @@ fn every_action_crosses_and_marshals_what_it_was_given() {
     );
 
     api.set_fan_drawer_led("D1", LedColor::Green).unwrap();
-    assert_eq!(calls(&chassis, "drawer", &["set_status_led"])[0].1, "('green',)");
+    assert_eq!(
+        calls(&chassis, "drawer", &["set_status_led"])[0].1,
+        "('green',)"
+    );
 
     api.set_psu_led("P1", LedColor::Red).unwrap();
     api.set_psu_master_led("P1", LedColor::Off).unwrap();
-    api.get_psu_master_led("P1").unwrap();
+    assert_eq!(api.get_psu_master_led("P1").unwrap().as_deref(), Some("orange"));
     assert_eq!(
-        calls(&chassis, "psu", &["set_status_led", "set_status_master_led", "get_status_master_led"]).iter().map(|(m, _)| m.as_str()).collect::<Vec<_>>(),
-        vec!["set_status_led", "set_status_master_led", "get_status_master_led"]
+        calls(
+            &chassis,
+            "psu",
+            &[
+                "set_status_led",
+                "set_status_master_led",
+                "get_status_master_led"
+            ]
+        )
+        .iter()
+        .map(|(m, _)| m.as_str())
+        .collect::<Vec<_>>(),
+        vec![
+            "set_status_led",
+            "set_status_master_led",
+            "get_status_master_led"
+        ]
     );
 
     // A limit keeps its side of Union[int, float] on the way out too.
-    api.set_sensor_high_threshold("v1", Threshold::Int(3600)).unwrap();
-    api.set_sensor_low_threshold("v1", Threshold::Float(2.5)).unwrap();
+    api.set_sensor_high_threshold("v1", Threshold::Int(3600))
+        .unwrap();
+    api.set_sensor_low_threshold("v1", Threshold::Float(2.5))
+        .unwrap();
     assert_eq!(
-        calls(&chassis, "sensor", &["set_high_threshold", "set_low_threshold"]),
+        calls(
+            &chassis,
+            "sensor",
+            &["set_high_threshold", "set_low_threshold"]
+        ),
         vec![
             ("set_high_threshold".into(), "(3600,)".into()),
             ("set_low_threshold".into(), "(2.5,)".into()),
@@ -1128,8 +1359,23 @@ fn every_action_crosses_and_marshals_what_it_was_given() {
     api.update_firmware("C1", "/i").unwrap();
     api.auto_update_firmware("C1", "/i", "cold").unwrap();
     assert_eq!(
-        calls(&chassis, "component", &["install_firmware", "update_firmware", "auto_update_firmware"]).iter().map(|(m, _)| m.as_str()).collect::<Vec<_>>(),
-        vec!["install_firmware", "update_firmware", "auto_update_firmware"]
+        calls(
+            &chassis,
+            "component",
+            &[
+                "install_firmware",
+                "update_firmware",
+                "auto_update_firmware"
+            ]
+        )
+        .iter()
+        .map(|(m, _)| m.as_str())
+        .collect::<Vec<_>>(),
+        vec![
+            "install_firmware",
+            "update_firmware",
+            "auto_update_firmware"
+        ]
     );
 
     api.reboot_module("M1", "DPU").unwrap();
@@ -1141,32 +1387,70 @@ fn every_action_crosses_and_marshals_what_it_was_given() {
     api.set_module_state_transition("M1", "recovery").unwrap();
     api.clear_module_state_transition("M1").unwrap();
     api.clear_module_gnoi_halt("M1").unwrap();
-    let module = calls(&chassis, "module", &["reboot", "set_admin_state",
-        "set_admin_state_gracefully", "do_power_cycle", "module_pre_shutdown",
-        "module_post_startup", "set_module_state_transition",
-        "clear_module_state_transition", "clear_module_gnoi_halt_in_progress"]);
+    let module = calls(
+        &chassis,
+        "module",
+        &[
+            "reboot",
+            "set_admin_state",
+            "set_admin_state_gracefully",
+            "do_power_cycle",
+            "module_pre_shutdown",
+            "module_post_startup",
+            "set_module_state_transition",
+            "clear_module_state_transition",
+            "clear_module_gnoi_halt_in_progress",
+        ],
+    );
     assert_eq!(module[0], ("reboot".into(), "('DPU',)".into()));
-    assert_eq!(module[1], ("set_admin_state".into(), "(True,)".into()),
-               "a bool crosses as True, not as 1");
+    assert_eq!(
+        module[1],
+        ("set_admin_state".into(), "(True,)".into()),
+        "a bool crosses as True, not as 1"
+    );
     // pass_key: the locator is the base class's first argument as well.
-    assert_eq!(module[6], ("set_module_state_transition".into(),
-                           "('M1', 'recovery')".into()));
+    assert_eq!(
+        module[6],
+        (
+            "set_module_state_transition".into(),
+            "('M1', 'recovery')".into()
+        )
+    );
     assert_eq!(module.len(), 9);
 
     api.arm_watchdog(60).unwrap();
     api.disarm_watchdog().unwrap();
-    assert_eq!(calls(&chassis, "watchdog", &["arm", "disarm"])[0], ("arm".into(), "(60,)".into()));
+    assert_eq!(
+        calls(&chassis, "watchdog", &["arm", "disarm"])[0],
+        ("arm".into(), "(60,)".into())
+    );
 
     api.change_sed_password("pw").unwrap();
     api.reset_sed_password().unwrap();
-    assert_eq!(calls(&chassis, "sed", &["change_sed_password", "reset_sed_password"])[0], ("change_sed_password".into(), "('pw',)".into()));
+    assert_eq!(
+        calls(
+            &chassis,
+            "sed",
+            &["change_sed_password", "reset_sed_password"]
+        )[0],
+        ("change_sed_password".into(), "('pw',)".into())
+    );
 
-    api.set_chassis_led(LedColor::Green).unwrap();
+    api.set_chassis_led("green").unwrap();
     api.initialize_system_led().unwrap();
     api.init_midplane_switch().unwrap();
-    let ch = calls(&chassis, "chassis", &["set_status_led", "initizalize_system_led",
-        "init_midplane_switch"]);
-    assert!(ch.iter().any(|(m, a)| m == "set_status_led" && a == "('green',)"));
+    let ch = calls(
+        &chassis,
+        "chassis",
+        &[
+            "set_status_led",
+            "initizalize_system_led",
+            "init_midplane_switch",
+        ],
+    );
+    assert!(ch
+        .iter()
+        .any(|(m, a)| m == "set_status_led" && a == "('green',)"));
     // The base class spells it with the typo; the facade does not have to.
     assert!(ch.iter().any(|(m, _)| m == "initizalize_system_led"));
 }

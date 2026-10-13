@@ -1,20 +1,3 @@
-//
-// SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
 //! Rust calling the Python facade, through PyO3.
 //!
 //! GENERATED from platform_api/facade.pyi by generator/generate.py.  Do not
@@ -33,13 +16,13 @@
 use pyo3::prelude::*;
 
 use platform_api::{
-    LedColor, FanDirection, FanKind, PowerEntityKind, ModuleType, ModuleStatus, SensorKind, LeakSeverity, ChangeEventKind,
+    LedColor, FanKind, PowerEntityKind, ModuleType, ModuleStatus, SensorKind, LeakSeverity, ChangeEventKind,
     ThermalInfo, FanInfo, FanDrawerInfo, PsuInfo, ChassisInfo, ModuleInfo, ComponentInfo, SensorInfo, LeakProfile, LeakSensorInfo, WatchdogInfo, ChangeEvent, ChangeEventBatch, PcieDevice, PcieAerStat, StorageDeviceInfo, EepromTlv, AsicInfo, BmcInfo, ModuleRebootCause, ModuleMidplaneDownReason, BmcResult,
     FanInfoCols, FanDrawerInfoCols, ChassisInfoCols, ModuleInfoCols,
     PlatformApi, PlatformError, Threshold,
 };
 
-use crate::{err, flag, num, rows, text, thr_arg, threshold, Bridge};
+use crate::{err, flag, int_cast, num, rows, text, thr_arg, threshold, Bridge};
 
 
 /// Read one `ThermalInfo` off the object the facade returned.
@@ -47,7 +30,7 @@ fn thermal_info(row: &Bound<'_, PyAny>) -> Result<ThermalInfo, PlatformError> {
     Ok(ThermalInfo {
         name: text(row, "name")?.unwrap_or_default(),
         parent_name: text(row, "parent_name")?.unwrap_or_default(),
-        position_in_parent: num(row, "position_in_parent")?.map(|v| v as i32),
+        position_in_parent: num(row, "position_in_parent")?.and_then(int_cast::<i32>),
         is_replaceable: flag(row, "is_replaceable")?.unwrap_or(false),
         temperature: num(row, "temperature")?,
         high_threshold: threshold(row, "high_threshold")?,
@@ -66,18 +49,18 @@ fn fan_info(row: &Bound<'_, PyAny>) -> Result<FanInfo, PlatformError> {
         kind: text(row, "kind")?.and_then(|s| FanKind::from_str(&s)).ok_or_else(|| PlatformError::Backend("kind is missing or not a declared value".to_string()))?,
         parent_name: text(row, "parent_name")?.unwrap_or_default(),
         drawer_name: text(row, "drawer_name")?.unwrap_or_default(),
-        position_in_parent: num(row, "position_in_parent")?.map(|v| v as i32),
+        position_in_parent: num(row, "position_in_parent")?.and_then(int_cast::<i32>),
         presence: flag(row, "presence")?.unwrap_or(false),
         status: flag(row, "status")?.unwrap_or(false),
         is_replaceable: flag(row, "is_replaceable")?.unwrap_or(false),
         model: text(row, "model")?,
         serial: text(row, "serial")?,
-        speed_pct: num(row, "speed_pct")?.map(|v| v as u32),
-        target_speed_pct: num(row, "target_speed_pct")?.map(|v| v as u32),
-        direction: text(row, "direction")?.and_then(|s| FanDirection::from_str(&s)),
+        speed_pct: num(row, "speed_pct")?.and_then(int_cast::<u32>),
+        target_speed_pct: num(row, "target_speed_pct")?.and_then(int_cast::<u32>),
+        direction: text(row, "direction")?,
         is_under_speed: flag(row, "is_under_speed")?,
         is_over_speed: flag(row, "is_over_speed")?,
-        status_led: text(row, "status_led")?.and_then(|s| LedColor::from_str(&s)),
+        status_led: text(row, "status_led")?,
     })
 }
 
@@ -85,13 +68,13 @@ fn fan_info(row: &Bound<'_, PyAny>) -> Result<FanInfo, PlatformError> {
 fn fan_drawer_info(row: &Bound<'_, PyAny>) -> Result<FanDrawerInfo, PlatformError> {
     Ok(FanDrawerInfo {
         name: text(row, "name")?.unwrap_or_default(),
-        position_in_parent: num(row, "position_in_parent")?.map(|v| v as i32),
+        position_in_parent: num(row, "position_in_parent")?.and_then(int_cast::<i32>),
         presence: flag(row, "presence")?.unwrap_or(false),
         status: flag(row, "status")?,
         is_replaceable: flag(row, "is_replaceable")?.unwrap_or(false),
         model: text(row, "model")?,
         serial: text(row, "serial")?,
-        status_led: text(row, "status_led")?.and_then(|s| LedColor::from_str(&s)),
+        status_led: text(row, "status_led")?,
         maximum_consumed_power: num(row, "maximum_consumed_power")?,
     })
 }
@@ -101,14 +84,14 @@ fn psu_info(row: &Bound<'_, PyAny>) -> Result<PsuInfo, PlatformError> {
     Ok(PsuInfo {
         name: text(row, "name")?.unwrap_or_default(),
         kind: text(row, "kind")?.and_then(|s| PowerEntityKind::from_str(&s)).ok_or_else(|| PlatformError::Backend("kind is missing or not a declared value".to_string()))?,
-        position_in_parent: num(row, "position_in_parent")?.map(|v| v as i32),
+        position_in_parent: num(row, "position_in_parent")?.and_then(int_cast::<i32>),
         presence: flag(row, "presence")?.unwrap_or(false),
         is_replaceable: flag(row, "is_replaceable")?.unwrap_or(false),
         model: text(row, "model")?,
         serial: text(row, "serial")?,
         revision: text(row, "revision")?,
         power_good: flag(row, "power_good")?.unwrap_or(false),
-        status_led: text(row, "status_led")?.and_then(|s| LedColor::from_str(&s)),
+        status_led: text(row, "status_led")?,
         voltage: num(row, "voltage")?,
         current: num(row, "current")?,
         power: num(row, "power")?,
@@ -142,12 +125,12 @@ fn chassis_info(row: &Bound<'_, PyAny>) -> Result<ChassisInfo, PlatformError> {
         is_liquid_cooled: flag(row, "is_liquid_cooled")?.unwrap_or(false),
         reboot_cause: text(row, "reboot_cause")?,
         reboot_cause_detail: text(row, "reboot_cause_detail")?,
-        my_slot: num(row, "my_slot")?.map(|v| v as i64),
-        supervisor_slot: num(row, "supervisor_slot")?.map(|v| v as i64),
-        dpu_id: num(row, "dpu_id")?.map(|v| v as i64),
+        my_slot: num(row, "my_slot")?.and_then(int_cast::<i64>),
+        supervisor_slot: num(row, "supervisor_slot")?.and_then(int_cast::<i64>),
+        dpu_id: num(row, "dpu_id")?.and_then(int_cast::<i64>),
         dataplane_state: flag(row, "dataplane_state")?,
         controlplane_state: flag(row, "controlplane_state")?,
-        status_led: text(row, "status_led")?.and_then(|s| LedColor::from_str(&s)),
+        status_led: text(row, "status_led")?,
     })
 }
 
@@ -156,18 +139,18 @@ fn module_info(row: &Bound<'_, PyAny>) -> Result<ModuleInfo, PlatformError> {
     Ok(ModuleInfo {
         name: text(row, "name")?.unwrap_or_default(),
         parent_name: text(row, "parent_name")?.unwrap_or_default(),
-        position_in_parent: num(row, "position_in_parent")?.map(|v| v as i32),
+        position_in_parent: num(row, "position_in_parent")?.and_then(int_cast::<i32>),
         presence: flag(row, "presence")?.unwrap_or(false),
         status: flag(row, "status")?,
         is_replaceable: flag(row, "is_replaceable")?.unwrap_or(false),
         model: text(row, "model")?,
         serial: text(row, "serial")?,
         description: text(row, "description")?,
-        slot: num(row, "slot")?.map(|v| v as i64),
+        slot: num(row, "slot")?.and_then(int_cast::<i64>),
         r#type: text(row, "type")?.and_then(|s| ModuleType::from_str(&s)),
         oper_status: text(row, "oper_status")?.and_then(|s| ModuleStatus::from_str(&s)),
         base_mac: text(row, "base_mac")?,
-        dpu_id: num(row, "dpu_id")?.map(|v| v as i64),
+        dpu_id: num(row, "dpu_id")?.and_then(int_cast::<i64>),
         maximum_consumed_power: num(row, "maximum_consumed_power")?,
         midplane_ip: text(row, "midplane_ip")?,
         is_midplane_reachable: flag(row, "is_midplane_reachable")?,
@@ -191,7 +174,7 @@ fn sensor_info(row: &Bound<'_, PyAny>) -> Result<SensorInfo, PlatformError> {
         name: text(row, "name")?.unwrap_or_default(),
         kind: text(row, "kind")?.and_then(|s| SensorKind::from_str(&s)).ok_or_else(|| PlatformError::Backend("kind is missing or not a declared value".to_string()))?,
         parent_name: text(row, "parent_name")?.unwrap_or_default(),
-        position_in_parent: num(row, "position_in_parent")?.map(|v| v as i32),
+        position_in_parent: num(row, "position_in_parent")?.and_then(int_cast::<i32>),
         is_replaceable: flag(row, "is_replaceable")?.unwrap_or(false),
         unit: text(row, "unit")?,
         value: num(row, "value")?,
@@ -208,7 +191,7 @@ fn sensor_info(row: &Bound<'_, PyAny>) -> Result<SensorInfo, PlatformError> {
 fn leak_profile(row: &Bound<'_, PyAny>) -> Result<LeakProfile, PlatformError> {
     Ok(LeakProfile {
         r#type: text(row, "type")?.unwrap_or_default(),
-        max_minor_duration_sec: num(row, "max_minor_duration_sec")?.map(|v| v as i64),
+        max_minor_duration_sec: num(row, "max_minor_duration_sec")?.and_then(int_cast::<i64>),
     })
 }
 
@@ -223,7 +206,7 @@ fn leak_sensor_info(row: &Bound<'_, PyAny>) -> Result<LeakSensorInfo, PlatformEr
         is_ok: flag(row, "is_ok")?,
         severity: text(row, "severity")?.and_then(|s| LeakSeverity::from_str(&s)),
         profile_type: text(row, "profile_type")?,
-        profile_max_minor_duration_sec: num(row, "profile_max_minor_duration_sec")?.map(|v| v as i64),
+        profile_max_minor_duration_sec: num(row, "profile_max_minor_duration_sec")?.and_then(int_cast::<i64>),
     })
 }
 
@@ -231,7 +214,7 @@ fn leak_sensor_info(row: &Bound<'_, PyAny>) -> Result<LeakSensorInfo, PlatformEr
 fn watchdog_info(row: &Bound<'_, PyAny>) -> Result<WatchdogInfo, PlatformError> {
     Ok(WatchdogInfo {
         is_armed: flag(row, "is_armed")?,
-        remaining_time: num(row, "remaining_time")?.map(|v| v as i64),
+        remaining_time: num(row, "remaining_time")?.and_then(int_cast::<i64>),
     })
 }
 
@@ -257,9 +240,9 @@ fn change_event_batch(row: &Bound<'_, PyAny>) -> Result<ChangeEventBatch, Platfo
 fn pcie_device(row: &Bound<'_, PyAny>) -> Result<PcieDevice, PlatformError> {
     Ok(PcieDevice {
         name: text(row, "name")?.unwrap_or_default(),
-        bus: num(row, "bus")?.map(|v| v as i64).unwrap_or(Default::default()),
-        dev: num(row, "dev")?.map(|v| v as i64).unwrap_or(Default::default()),
-        r#fn: num(row, "fn")?.map(|v| v as i64).unwrap_or(Default::default()),
+        bus: num(row, "bus")?.and_then(int_cast::<i64>).unwrap_or(Default::default()),
+        dev: num(row, "dev")?.and_then(int_cast::<i64>).unwrap_or(Default::default()),
+        r#fn: num(row, "fn")?.and_then(int_cast::<i64>).unwrap_or(Default::default()),
         present: flag(row, "present")?.unwrap_or(Default::default()),
     })
 }
@@ -286,8 +269,8 @@ fn storage_device_info(row: &Bound<'_, PyAny>) -> Result<StorageDeviceInfo, Plat
         disk_io_reads: text(row, "disk_io_reads")?.unwrap_or_default(),
         disk_io_writes: text(row, "disk_io_writes")?.unwrap_or_default(),
         reserved_blocks: text(row, "reserved_blocks")?.unwrap_or_default(),
-        fs_io_reads: num(row, "fs_io_reads")?.map(|v| v as i64),
-        fs_io_writes: num(row, "fs_io_writes")?.map(|v| v as i64),
+        fs_io_reads: num(row, "fs_io_reads")?.and_then(int_cast::<i64>),
+        fs_io_writes: num(row, "fs_io_writes")?.and_then(int_cast::<i64>),
     })
 }
 
@@ -343,7 +326,7 @@ fn module_midplane_down_reason(row: &Bound<'_, PyAny>) -> Result<ModuleMidplaneD
 /// Read one `BmcResult` off the object the facade returned.
 fn bmc_result(row: &Bound<'_, PyAny>) -> Result<BmcResult, PlatformError> {
     Ok(BmcResult {
-        code: num(row, "code")?.map(|v| v as i64).unwrap_or(Default::default()),
+        code: num(row, "code")?.and_then(int_cast::<i64>).unwrap_or(Default::default()),
         message: text(row, "message")?,
         session_id: text(row, "session_id")?,
         token: text(row, "token")?,
@@ -556,43 +539,47 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn set_fan_led(&mut self, fan: &str, color: LedColor) -> Result<(), PlatformError> {
+    fn set_fan_led(&mut self, fan: &str, color: LedColor) -> Result<Option<bool>, PlatformError> {
         Python::with_gil(|py| {
-            self.facade
+            let v = self
+                .facade
                 .bind(py)
                 .call_method1("set_fan_led", (fan, color.as_str(), ))
                 .map_err(|e| err(py, e))?;
-            Ok(())
+            v.extract().map_err(|e| err(py, e))
         })
     }
 
-    fn set_fan_drawer_led(&mut self, drawer: &str, color: LedColor) -> Result<(), PlatformError> {
+    fn set_fan_drawer_led(&mut self, drawer: &str, color: LedColor) -> Result<Option<bool>, PlatformError> {
         Python::with_gil(|py| {
-            self.facade
+            let v = self
+                .facade
                 .bind(py)
                 .call_method1("set_fan_drawer_led", (drawer, color.as_str(), ))
                 .map_err(|e| err(py, e))?;
-            Ok(())
+            v.extract().map_err(|e| err(py, e))
         })
     }
 
-    fn set_fan_speed(&mut self, fan: &str, speed: u32) -> Result<(), PlatformError> {
+    fn set_fan_speed(&mut self, fan: &str, speed: u32) -> Result<Option<bool>, PlatformError> {
         Python::with_gil(|py| {
-            self.facade
+            let v = self
+                .facade
                 .bind(py)
                 .call_method1("set_fan_speed", (fan, speed, ))
                 .map_err(|e| err(py, e))?;
-            Ok(())
+            v.extract().map_err(|e| err(py, e))
         })
     }
 
-    fn set_psu_led(&mut self, psu: &str, color: LedColor) -> Result<(), PlatformError> {
+    fn set_psu_led(&mut self, psu: &str, color: LedColor) -> Result<Option<bool>, PlatformError> {
         Python::with_gil(|py| {
-            self.facade
+            let v = self
+                .facade
                 .bind(py)
                 .call_method1("set_psu_led", (psu, color.as_str(), ))
                 .map_err(|e| err(py, e))?;
-            Ok(())
+            v.extract().map_err(|e| err(py, e))
         })
     }
 
@@ -618,136 +605,146 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn get_psu_master_led(&mut self, psu: &str) -> Result<Option<LedColor>, PlatformError> {
+    fn get_psu_master_led(&mut self, psu: &str) -> Result<Option<String>, PlatformError> {
         Python::with_gil(|py| {
             let v = self
                 .facade
                 .bind(py)
                 .call_method1("get_psu_master_led", (psu, ))
                 .map_err(|e| err(py, e))?;
-            let s: Option<String> = v.extract().map_err(|e| err(py, e))?;
-            let out = s.and_then(|s| LedColor::from_str(&s));
-            Ok(out)
+            v.extract().map_err(|e| err(py, e))
         })
     }
 
-    fn set_psu_master_led(&mut self, psu: &str, color: LedColor) -> Result<(), PlatformError> {
+    fn set_psu_master_led(&mut self, psu: &str, color: LedColor) -> Result<Option<bool>, PlatformError> {
         Python::with_gil(|py| {
-            self.facade
+            let v = self
+                .facade
                 .bind(py)
                 .call_method1("set_psu_master_led", (psu, color.as_str(), ))
                 .map_err(|e| err(py, e))?;
-            Ok(())
+            v.extract().map_err(|e| err(py, e))
         })
     }
 
-    fn reboot_module(&mut self, module: &str, reboot_type: &str) -> Result<(), PlatformError> {
+    fn reboot_module(&mut self, module: &str, reboot_type: &str) -> Result<Option<bool>, PlatformError> {
         Python::with_gil(|py| {
-            self.facade
+            let v = self
+                .facade
                 .bind(py)
                 .call_method1("reboot_module", (module, reboot_type, ))
                 .map_err(|e| err(py, e))?;
-            Ok(())
+            v.extract().map_err(|e| err(py, e))
         })
     }
 
-    fn set_module_admin_state(&mut self, module: &str, up: bool) -> Result<(), PlatformError> {
+    fn set_module_admin_state(&mut self, module: &str, up: bool) -> Result<Option<bool>, PlatformError> {
         Python::with_gil(|py| {
-            self.facade
+            let v = self
+                .facade
                 .bind(py)
                 .call_method1("set_module_admin_state", (module, up, ))
                 .map_err(|e| err(py, e))?;
-            Ok(())
+            v.extract().map_err(|e| err(py, e))
         })
     }
 
-    fn set_module_admin_state_gracefully(&mut self, module: &str, up: bool) -> Result<(), PlatformError> {
+    fn set_module_admin_state_gracefully(&mut self, module: &str, up: bool) -> Result<Option<bool>, PlatformError> {
         Python::with_gil(|py| {
-            self.facade
+            let v = self
+                .facade
                 .bind(py)
                 .call_method1("set_module_admin_state_gracefully", (module, up, ))
                 .map_err(|e| err(py, e))?;
-            Ok(())
+            v.extract().map_err(|e| err(py, e))
         })
     }
 
-    fn power_cycle_module(&mut self, module: &str) -> Result<(), PlatformError> {
+    fn power_cycle_module(&mut self, module: &str) -> Result<Option<bool>, PlatformError> {
         Python::with_gil(|py| {
-            self.facade
+            let v = self
+                .facade
                 .bind(py)
                 .call_method1("power_cycle_module", (module, ))
                 .map_err(|e| err(py, e))?;
-            Ok(())
+            v.extract().map_err(|e| err(py, e))
         })
     }
 
-    fn module_pre_shutdown(&mut self, module: &str) -> Result<(), PlatformError> {
+    fn module_pre_shutdown(&mut self, module: &str) -> Result<Option<bool>, PlatformError> {
         Python::with_gil(|py| {
-            self.facade
+            let v = self
+                .facade
                 .bind(py)
                 .call_method1("module_pre_shutdown", (module, ))
                 .map_err(|e| err(py, e))?;
-            Ok(())
+            v.extract().map_err(|e| err(py, e))
         })
     }
 
-    fn module_post_startup(&mut self, module: &str) -> Result<(), PlatformError> {
+    fn module_post_startup(&mut self, module: &str) -> Result<Option<bool>, PlatformError> {
         Python::with_gil(|py| {
-            self.facade
+            let v = self
+                .facade
                 .bind(py)
                 .call_method1("module_post_startup", (module, ))
                 .map_err(|e| err(py, e))?;
-            Ok(())
+            v.extract().map_err(|e| err(py, e))
         })
     }
 
-    fn set_module_state_transition(&mut self, module: &str, transition_type: &str) -> Result<(), PlatformError> {
+    fn set_module_state_transition(&mut self, module: &str, transition_type: &str) -> Result<Option<bool>, PlatformError> {
         Python::with_gil(|py| {
-            self.facade
+            let v = self
+                .facade
                 .bind(py)
                 .call_method1("set_module_state_transition", (module, transition_type, ))
                 .map_err(|e| err(py, e))?;
-            Ok(())
+            v.extract().map_err(|e| err(py, e))
         })
     }
 
-    fn clear_module_state_transition(&mut self, module: &str) -> Result<(), PlatformError> {
+    fn clear_module_state_transition(&mut self, module: &str) -> Result<Option<bool>, PlatformError> {
         Python::with_gil(|py| {
-            self.facade
+            let v = self
+                .facade
                 .bind(py)
                 .call_method1("clear_module_state_transition", (module, ))
                 .map_err(|e| err(py, e))?;
-            Ok(())
+            v.extract().map_err(|e| err(py, e))
         })
     }
 
-    fn clear_module_gnoi_halt(&mut self, module: &str) -> Result<(), PlatformError> {
+    fn clear_module_gnoi_halt(&mut self, module: &str) -> Result<Option<bool>, PlatformError> {
         Python::with_gil(|py| {
-            self.facade
+            let v = self
+                .facade
                 .bind(py)
                 .call_method1("clear_module_gnoi_halt", (module, ))
                 .map_err(|e| err(py, e))?;
-            Ok(())
+            v.extract().map_err(|e| err(py, e))
         })
     }
 
-    fn set_sensor_high_threshold(&mut self, sensor: &str, value: Threshold) -> Result<(), PlatformError> {
+    fn set_sensor_high_threshold(&mut self, sensor: &str, value: Threshold) -> Result<Option<bool>, PlatformError> {
         Python::with_gil(|py| {
-            self.facade
+            let v = self
+                .facade
                 .bind(py)
                 .call_method1("set_sensor_high_threshold", (sensor, thr_arg(py, value), ))
                 .map_err(|e| err(py, e))?;
-            Ok(())
+            v.extract().map_err(|e| err(py, e))
         })
     }
 
-    fn set_sensor_low_threshold(&mut self, sensor: &str, value: Threshold) -> Result<(), PlatformError> {
+    fn set_sensor_low_threshold(&mut self, sensor: &str, value: Threshold) -> Result<Option<bool>, PlatformError> {
         Python::with_gil(|py| {
-            self.facade
+            let v = self
+                .facade
                 .bind(py)
                 .call_method1("set_sensor_low_threshold", (sensor, thr_arg(py, value), ))
                 .map_err(|e| err(py, e))?;
-            Ok(())
+            v.extract().map_err(|e| err(py, e))
         })
     }
 
@@ -784,13 +781,14 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn update_firmware(&mut self, component: &str, image_path: &str) -> Result<(), PlatformError> {
+    fn update_firmware(&mut self, component: &str, image_path: &str) -> Result<Option<bool>, PlatformError> {
         Python::with_gil(|py| {
-            self.facade
+            let v = self
+                .facade
                 .bind(py)
                 .call_method1("update_firmware", (component, image_path, ))
                 .map_err(|e| err(py, e))?;
-            Ok(())
+            v.extract().map_err(|e| err(py, e))
         })
     }
 
@@ -802,7 +800,7 @@ impl PlatformApi for Bridge {
                 .call_method1("auto_update_firmware", (component, image_path, boot_type, ))
                 .map_err(|e| err(py, e))?;
             let n: Option<f64> = v.extract().map_err(|e| err(py, e))?;
-            Ok(n.map(|x| x as i64))
+            Ok(n.and_then(int_cast::<i64>))
         })
     }
 
@@ -814,7 +812,7 @@ impl PlatformApi for Bridge {
                 .call_method1("arm_watchdog", (seconds, ))
                 .map_err(|e| err(py, e))?;
             let n: Option<f64> = v.extract().map_err(|e| err(py, e))?;
-            Ok(n.map(|x| x as i64))
+            Ok(n.and_then(int_cast::<i64>))
         })
     }
 
@@ -829,33 +827,36 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn initialize_system_led(&mut self) -> Result<(), PlatformError> {
+    fn initialize_system_led(&mut self) -> Result<Option<bool>, PlatformError> {
         Python::with_gil(|py| {
-            self.facade
+            let v = self
+                .facade
                 .bind(py)
                 .call_method1("initialize_system_led", ())
                 .map_err(|e| err(py, e))?;
-            Ok(())
+            v.extract().map_err(|e| err(py, e))
         })
     }
 
-    fn init_midplane_switch(&mut self) -> Result<(), PlatformError> {
+    fn init_midplane_switch(&mut self) -> Result<Option<bool>, PlatformError> {
         Python::with_gil(|py| {
-            self.facade
+            let v = self
+                .facade
                 .bind(py)
                 .call_method1("init_midplane_switch", ())
                 .map_err(|e| err(py, e))?;
-            Ok(())
+            v.extract().map_err(|e| err(py, e))
         })
     }
 
-    fn set_chassis_led(&mut self, color: LedColor) -> Result<(), PlatformError> {
+    fn set_chassis_led(&mut self, color: &str) -> Result<Option<bool>, PlatformError> {
         Python::with_gil(|py| {
-            self.facade
+            let v = self
+                .facade
                 .bind(py)
-                .call_method1("set_chassis_led", (color.as_str(), ))
+                .call_method1("set_chassis_led", (color, ))
                 .map_err(|e| err(py, e))?;
-            Ok(())
+            v.extract().map_err(|e| err(py, e))
         })
     }
 

@@ -1,20 +1,3 @@
-//
-// SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
 //! Every default the trait declares, every enum value and every column, run.
 //!
 //! GENERATED from platform_api/facade.pyi by generator/generate.py.  Do not
@@ -375,7 +358,7 @@ fn init_midplane_switch_defaults_to_not_supported() {
 
 #[test]
 fn set_chassis_led_defaults_to_not_supported() {
-    match Nothing.set_chassis_led(LedColor::Green) {
+    match Nothing.set_chassis_led("arg0") {
         Err(PlatformError::NotSupported(what)) => assert_eq!(what, "set_chassis_led"),
         _ => panic!("set_chassis_led is not the trait's default"),
     }
@@ -547,17 +530,6 @@ fn every_led_color_value_round_trips() {
 }
 
 #[test]
-fn every_fan_direction_value_round_trips() {
-    assert_eq!(FanDirection::from_str("intake"), Some(FanDirection::Intake));
-    assert_eq!(FanDirection::Intake.to_string(), "intake");
-    assert_eq!(FanDirection::from_str("exhaust"), Some(FanDirection::Exhaust));
-    assert_eq!(FanDirection::Exhaust.to_string(), "exhaust");
-    assert_eq!(FanDirection::from_str("N/A"), Some(FanDirection::NA));
-    assert_eq!(FanDirection::NA.to_string(), "N/A");
-    assert_eq!(FanDirection::from_str("undeclared"), None);
-}
-
-#[test]
 fn every_fan_kind_value_round_trips() {
     assert_eq!(FanKind::from_str("drawer"), Some(FanKind::Drawer));
     assert_eq!(FanKind::Drawer.to_string(), "drawer");
@@ -606,6 +578,12 @@ fn every_module_status_value_round_trips() {
     assert_eq!(ModuleStatus::Present.to_string(), "Present");
     assert_eq!(ModuleStatus::from_str("Fault"), Some(ModuleStatus::Fault));
     assert_eq!(ModuleStatus::Fault.to_string(), "Fault");
+    assert_eq!(ModuleStatus::from_str("ProvisionReady"), Some(ModuleStatus::Provisionready));
+    assert_eq!(ModuleStatus::Provisionready.to_string(), "ProvisionReady");
+    assert_eq!(ModuleStatus::from_str("ProvisionPending"), Some(ModuleStatus::Provisionpending));
+    assert_eq!(ModuleStatus::Provisionpending.to_string(), "ProvisionPending");
+    assert_eq!(ModuleStatus::from_str("Provisioned"), Some(ModuleStatus::Provisioned));
+    assert_eq!(ModuleStatus::Provisioned.to_string(), "Provisioned");
     assert_eq!(ModuleStatus::from_str("Online"), Some(ModuleStatus::Online));
     assert_eq!(ModuleStatus::Online.to_string(), "Online");
     assert_eq!(ModuleStatus::from_str("undeclared"), None);

@@ -1,8 +1,3 @@
-#
-# SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-#
 [package]
 name = "platform-provider"
 version = "0.1.0"
@@ -23,13 +18,17 @@ platform-pyo3 = { path = "../platform-pyo3" }
 #
 # platform-native = { path = "../platform-native", optional = true }
 
-[features]
-# Declared ahead of the dependency so the `#[cfg(feature = ...)]` arms in
-# src/generated.rs are known cfgs today; without this, Rust 1.80+ reports them
-# as `unexpected_cfgs`.  When the native crate arrives this becomes
-# `platform-native = ["dep:platform-native"]` and the commented dependency
-# above is uncommented -- two lines, both in this file.
-platform-native = []
+# No `[features]` entry for it.  An empty `platform-native = []` would make the
+# `#[cfg(feature = "platform-native")]` arms in src/generated.rs known cfgs, but
+# it would also make the feature selectable -- and `--features platform-native`
+# or `--all-features` would then compile arms naming a crate that is not a
+# dependency.  What those arms need today is only to be a known cfg, so that
+# Rust 1.80+ does not report them as `unexpected_cfgs`; that is what this
+# declares, without offering a feature nothing can satisfy.  When the native
+# crate arrives, uncommenting the dependency above creates the feature, and
+# this entry becomes redundant rather than wrong.
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("platform-native"))'] }
 
 [dev-dependencies]
 # The delegation test drives a real `Bridge` over a mock chassis, the way

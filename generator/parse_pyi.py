@@ -1,20 +1,3 @@
-#
-# SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
 """Read `platform_api/facade.pyi` into the model, with `ast`.
 
 The stub is never imported.  `ast` is in the standard library, so the
@@ -197,6 +180,14 @@ def _sources(node, consts):
             else:
                 raise ParseError('via takes a path or a Via(), got %r' % (entry,))
         via = tuple(via)
+        provider = skw.get('provider', '')
+        mapping = skw.get('mapping', '')
+        from_ = sargs[0] if sargs else skw.get('from_', '')
+        # Named by whichever origin it has.  `sargs[0]` is only the positional
+        # `from_`; a `mapping=` or `provider=` source has no positional
+        # argument, and indexing for one turned the parent_default error below
+        # into an IndexError that named nothing.
+        label = from_ or mapping or provider or 'FlattenSource()'
         pd = skw.get('parent_default', '')
         if isinstance(pd, str):
             pd = (pd,)
@@ -204,10 +195,7 @@ def _sources(node, consts):
         if len(pd) != levels:
             raise ParseError(
                 '%s: parent_default has %d entries for %d via level(s)'
-                % (sargs[0], len(pd), levels))
-        provider = skw.get('provider', '')
-        mapping = skw.get('mapping', '')
-        from_ = sargs[0] if sargs else skw.get('from_', '')
+                % (label, len(pd), levels))
         if sum(1 for x in (from_, mapping, provider) if x) != 1:
             raise ParseError(
                 'a FlattenSource takes exactly one of from_, mapping or '
@@ -398,6 +386,15 @@ def _validate(model):
                 raise ParseError(
                     '%s.%s: %s is an enumeration; a sentinel here would delete a value'
                     % (row.name, f.name, f.base))
+            # A limit has no neutral value: a missing one cannot fall back to
+            # 0 without becoming a limit every reading crosses, and Rust's
+            # `Threshold` has no Default for the row to derive.  Every limit
+            # the base classes document can be unreadable, so `Optional` is
+            # the only honest spelling.
+            if f.base == 'Threshold' and not f.optional:
+                raise ParseError(
+                    '%s.%s: a Threshold has no neutral value; declare it '
+                    'Optional[Threshold]' % (row.name, f.name))
 
     declared = {r.name for r in model.rows}
     for m in model.methods:

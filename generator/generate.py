@@ -1,20 +1,3 @@
-#
-# SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
 """Render the back ends from the model.
 
 The expressions and the traversal bodies are built here rather than in the
@@ -28,44 +11,21 @@ person to touch it.
 """
 
 import argparse
+import ast
 import json
 import os
 import re
 import sys
+import warnings
 
 import jinja2
 
-from model import _snake as _snake_of, rust_type
+from model import _snake as _snake_of, rust_type, strip_optional
 from parse_pyi import parse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, os.pardir))
 TEMPLATES = os.path.join(HERE, 'templates')
-
-_LICENCE = '''SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-SPDX-License-Identifier: Apache-2.0
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.'''
-
-
-def _header(path):
-    """The same licence, in the comment syntax of the file it heads."""
-    mark = '//' if path.endswith('.rs') else '#'
-    lines = [mark] + ['%s %s' % (mark, ln) if ln else mark
-                      for ln in _LICENCE.split('\n')] + [mark]
-    return '\n'.join(lines)
-
 
 OUTPUTS = {
     'facade.py.j2': os.path.join(ROOT, 'platform_api', 'facade.py'),
@@ -80,10 +40,18 @@ OUTPUTS = {
 }
 
 # Semantic integer types.  A vendor is free to return 50.0 where the base class
-# documents an int, so the bridge reads every number as f64 and casts here
+# documents an int, so the bridge reads every number as f64 and narrows it
 # rather than asking PyO3 for a u32 and failing on a float that is a whole
-# number anyway.
+# number anyway.  The narrowing is platform-pyo3's `int_cast`, not `as`: `as`
+# saturates, so a fan answering -1 for "could not read" crossed as a stopped
+# fan and a NaN as 0.
 INT_CASTS = {'u32', 'i32', 'i64', 'u64'}
+
+
+def _int_cast(ty):
+    """The `Option<f64>` -> `Option<ty>` step, None where `ty` cannot hold it."""
+    return '.and_then(int_cast::<%s>)' % ty
+
 
 IND = ' ' * 8
 
@@ -151,11 +119,19 @@ def _share_calls(row):
         # wants neither would still wait for it.  The mask is every bit that
         # slices this call; `None` when no bit is set, which is what the
         # columns' own gates already read as absent.
+        #
+        # Only when every slicer has a bit, though.  A member without one --
+        # `name`, which `_assign_col_bits` never numbers, declared with `at=`
+        # -- is read whatever the caller asked for, so its slice of a call
+        # gated on its siblings' bits would be `_at(None, k)`: a row with no
+        # name whenever the caller declined the others.  Such a call is made
+        # unconditionally, as it would be for that column alone.
         mask = 0
         for f in fields:
             if f.col_bit is not None:
                 mask |= 1 << f.col_bit
-        row.shared_calls.append((var, call, mask if row.projected else None))
+        gated = row.projected and all(f.col_bit is not None for f in fields)
+        row.shared_calls.append((var, call, mask if gated else None))
         for f in fields:
             f.shared_var = var
 
@@ -197,16 +173,29 @@ def _gated(f, expr):
     """
     if f.col_bit is None:
         return expr
-    absent = repr(f.default) if f.unsupported_on == 'default' else 'None'
+    if f.unsupported_on != 'default':
+        absent = 'None'
+    elif _is_template(f.default):
+        # The same resolution the read takes when the getter answers nothing,
+        # or a declined column would hold the raw `'{parent} fan {i}'` where
+        # an unimplemented one holds `'PSU 1 fan 1'`.
+        absent = '_fmt(None, %r, parent, i)' % f.default
+    else:
+        absent = repr(f.default)
     return '(%s) if cols & (1 << %d) else %s' % (expr, f.col_bit, absent)
+
+
+def _is_template(default):
+    """A declared default that names its row: `'{parent} fan {i}'`."""
+    return isinstance(default, str) and '{' in default
 
 
 def _py_field_expr(f, enums=()):
     """How `facade.py` fills one column of one row.
 
-    `enums` are the `Literal` aliases; a column typed as one of them is
-    declared to be a string, so whatever the vendor answers with is narrowed
-    to that by `_enum()` before it leaves the facade.
+    `enums` are the `Literal` aliases.  A column typed as one of them, or as
+    `str`, is declared to be a string, so whatever the vendor answers with is
+    made one by `_text()` before it leaves the facade.
     """
     if f.is_parent:
         if f.name == 'parent_name':
@@ -226,15 +215,15 @@ def _py_field_expr(f, enums=()):
     if f.at is not None:
         call = '_at(%s, %d)' % (call, f.at)
 
-    if f.base in enums:
-        call = '_enum(%s)' % call
+    if f.base in enums or f.base == 'str':
+        call = '_text(%s)' % call
 
     if f.truthy:
         expr = '_truthy(%s)' % call
     elif f.sentinels or f.coerce_from:
         expr = '_scalar(%s, %r, %r)' % (call, tuple(f.sentinels), tuple(f.coerce_from))
     elif f.unsupported_on == 'default':
-        if isinstance(f.default, str) and '{' in f.default:
+        if _is_template(f.default):
             expr = '_fmt(%s, %r, parent, i)' % (call, f.default)
         else:
             expr = '_default(%s, %r)' % (call, f.default)
@@ -290,8 +279,13 @@ def _rust_field_expr(f, enums, rows=()):
             'flag(row, %s)?.unwrap_or(%s)' % (json.dumps(key), _rust_default(f, inner))
 
     if inner == 'Threshold':
+        # `parse_pyi._validate` refuses a non-Optional limit: there is no
+        # neutral one to fall back to, and the row could no longer derive
+        # Default.  Asserted rather than assumed, so a model built some other
+        # way fails here instead of emitting a type mismatch into the bridge.
+        assert f.optional, '%s: a Threshold column must be Optional' % key
         return 'threshold(row, %s)?' % json.dumps(key)
-    cast = '.map(|v| v as %s)' % inner if inner in INT_CASTS else ''
+    cast = _int_cast(inner) if inner in INT_CASTS else ''
     got = 'num(row, %s)?%s' % (json.dumps(key), cast)
     if f.optional:
         return got
@@ -326,10 +320,10 @@ def _rust_ret_conv(rust_ret, enums, rows=()):
     if inner in INT_CASTS:
         conv = 'let n: Option<f64> = v.extract().map_err(|e| err(py, e))?;'
         if optional:
-            return conv + '\n            Ok(n.map(|x| x as %s))' % inner
-        return (conv + '\n            n.map(|x| x as %s).ok_or_else(|| '
+            return conv + '\n            Ok(n%s)' % _int_cast(inner)
+        return (conv + '\n            n%s.ok_or_else(|| '
                 'PlatformError::Backend(%s.to_string()))'
-                % (inner, json.dumps('missing value')))
+                % (_int_cast(inner), json.dumps('missing value, or not a %s' % inner)))
     return 'v.extract().map_err(|e| err(py, e))'
 
 
@@ -552,6 +546,21 @@ def _at_wrap(call, m):
     return call if m.calls_at is None else '_at(%s, %d)' % (call, m.calls_at)
 
 
+def _answer(call, m):
+    """What an action hands back: its slot, then, for a bool, its truth.
+
+    A caller acts on these answers the way Python does -- `if not answer:`
+    (chassisd:1405) -- and vendors answer with whatever their helper returned:
+    an int, or "Executed" (pddf ledutil.py:35).  The bridge extracts a `bool`
+    strictly, so without `_truthy()` an answer Python reads as True would
+    fail the call.
+    """
+    call = _at_wrap(call, m)
+    if strip_optional(m.returns)[0] == 'bool':
+        call = '_truthy(%s)' % call
+    return call
+
+
 def _returned_row(m, model):
     """The row a method hands back, if its return type names one."""
     base = m.returns.strip()
@@ -613,7 +622,7 @@ def _action_body(m, model):
                             ', '.join('%s=_at(answer, %d)' % (f.name, f.at)
                                       for f in built.fields)))
         else:
-            lines.append('%sreturn %s' % (IND, _at_wrap('fn(%s)' % args, m)))
+            lines.append('%sreturn %s' % (IND, _answer('fn(%s)' % args, m)))
         return '\n'.join(lines)
 
     row = model.row(m.row)
@@ -630,7 +639,7 @@ def _action_body(m, model):
                 % (head, IND, args, IND, built.name,
                    ', '.join('%s=_at(answer, %d)' % (f.name, f.at)
                              for f in built.fields)))
-    return head + '%sreturn %s' % (IND, _at_wrap('fn(%s)' % args, m))
+    return head + '%sreturn %s' % (IND, _answer('fn(%s)' % args, m))
 
 
 # --------------------------------------------------------------------------
@@ -639,8 +648,16 @@ def _required_args(signature):
     """The arguments a caller must supply, from an inventory signature string.
 
     `scope_scan` renders defaults as `name=...`, so a bare name after `self`
-    and before any `*` is one the caller has to pass.
+    is one the caller has to pass -- positional or keyword-only alike.  A
+    marker (`*`, `*args`) does not end the scan: a keyword-only argument with
+    no default is as required as a positional one, `(self, *, key)` and
+    `(self, *args, key)` both included.  `**kwargs` is skipped like any
+    other marker; nothing can follow it.
     """
+    # Splitting on commas is safe because of where the string comes from:
+    # `scope_scan._signature` writes names, `*`/`**` prefixes and `=...` and
+    # nothing else -- no annotations and no default values, so no
+    # `Dict[str, int]` or `(1, 2)` whose own commas would split a parameter.
     inner = signature.strip()[1:-1]
     parts = [x.strip() for x in inner.split(',')]
     # Drop the receiver, whatever it is called: `self` on an ordinary method,
@@ -651,8 +668,6 @@ def _required_args(signature):
     out = []
     for part in parts:
         if not part or part.startswith('*') or '=' in part:
-            if part.startswith('*') and part != '*':
-                break          # *args / **kwargs: nothing after is positional
             continue
         out.append(part)
     return out
@@ -706,6 +721,146 @@ def check_arity(model, inventory_path=os.path.join(HERE, 'inventory.json')):
                            ' -- declare WithName() or pass them'
                            % (row.name, f.name, f.from_,
                               sigs.get((cls, f.getter), ''), ', '.join(need)))
+    return bad
+
+
+# The base-class constants each `Literal` alias stands for: (class, prefix).
+# An empty prefix names an `enum.Enum`, whose members are the values.  An
+# alias that a vendor's answer is read into, or that a daemon's argument is
+# passed from, has to be listed here: a new one cannot skip the check by not
+# being named.
+LITERAL_CONSTANTS = {
+    'LedColor': ('DeviceBase', 'STATUS_LED_COLOR_'),
+    'ModuleType': ('ModuleBase', 'MODULE_TYPE_'),
+    'ModuleStatus': ('ModuleBase', 'MODULE_STATUS_'),
+    'LeakSeverity': ('LeakSeverity', ''),
+}
+
+# How a base-class docstring says its method answers a bool: "bool: True if",
+# "A bool value", "A boolean, True if", "Boolean False if".
+_BOOL_ANSWER = re.compile(r'Returns?:\s*(?:a\s+)?bool(?:ean)?\b', re.I)
+
+
+def _base_classes(base_dir):
+    """Every class in the base package: name -> (bases, str constants, docstrings).
+
+    Read with `ast`, not imported: the base classes import swsscommon, which
+    the generator has no business needing.
+    """
+    out = {}
+    for dirpath, dirnames, filenames in os.walk(base_dir):
+        dirnames.sort()
+        for fn in sorted(filenames):
+            if not fn.endswith('.py'):
+                continue
+            with open(os.path.join(dirpath, fn)) as f, warnings.catch_warnings():
+                # Their regexes are not raw strings; that is theirs to fix.
+                warnings.simplefilter('ignore', SyntaxWarning)
+                try:
+                    tree = ast.parse(f.read())
+                except SyntaxError:
+                    continue
+            for node in tree.body:
+                if not isinstance(node, ast.ClassDef) or node.name in out:
+                    continue
+                consts, docs = {}, {}
+                for item in node.body:
+                    if (isinstance(item, ast.Assign) and len(item.targets) == 1
+                            and isinstance(item.targets[0], ast.Name)
+                            and isinstance(item.value, ast.Constant)
+                            and isinstance(item.value.value, str)):
+                        consts[item.targets[0].id] = item.value.value
+                    elif isinstance(item, ast.FunctionDef):
+                        docs[item.name] = ast.get_docstring(item) or ''
+                bases = [b.id for b in node.bases if isinstance(b, ast.Name)]
+                out[node.name] = (bases, consts, docs)
+    return out
+
+
+def _docstring(classes, cls, meth):
+    """`cls.meth`'s docstring, looked up the way Python resolves the method."""
+    todo, seen = [cls], set()
+    while todo:
+        c = todo.pop(0)
+        if c in seen or c not in classes:
+            continue
+        seen.add(c)
+        bases, _consts, docs = classes[c]
+        if meth in docs:
+            return docs[meth]
+        todo.extend(bases)
+    return None
+
+
+def check_contract(model, base_dir=os.path.join(ROOT, 'sonic_platform_base'),
+                   literals=None):
+    """Hold the stub to what the base classes say their methods answer.
+
+    The checks above verify that what the stub names exists and can be called;
+    nothing verified what it *answers*.  Every test is generated from, or
+    written against, the same stub, so a declaration narrower than the base
+    class passes all of them.  `set_module_state_transition` was declared
+    `-> None`: the base class's False -- another operation holds the module --
+    reached chassisd as success, so its recovery would power-cycle a DPU an
+    operator was shutting down.  `ModuleStatus` lacked the three
+    `MODULE_STATUS_PROVISION*`, which would have read as None.
+
+    Two rules:
+
+    - an action whose base-class method documents a bool answer is
+      `Optional[bool]`;
+    - a `Literal` that a vendor's answer is read into, or that an action's
+      argument is passed from, holds every value of the base-class constants
+      it stands for (`LITERAL_CONSTANTS`).
+    """
+    literals = LITERAL_CONSTANTS if literals is None else literals
+    classes = _base_classes(base_dir)
+    if not classes:
+        return ['no base classes under %s to check the stub against' % base_dir]
+    bad = []
+
+    for m in model.methods:
+        # A path through another object (`ChassisBase.get_watchdog.arm`) names
+        # a class the base package does not spell out; skip it.
+        if m.kind != 'action' or not m.calls or m.calls.count('.') != 1:
+            continue
+        cls, meth = m.calls.split('.')
+        doc = _docstring(classes, cls, meth)
+        if doc is None:
+            bad.append('%s calls %s, which the base classes do not define'
+                       % (m.name, m.calls))
+        elif _BOOL_ANSWER.search(doc) and strip_optional(m.returns)[0] != 'bool':
+            bad.append('%s returns %s, but %s answers a bool -- declare'
+                       ' Optional[bool], or its False reaches the caller as'
+                       ' success' % (m.name, m.returns, m.calls))
+
+    used = {}
+    for row in model.rows:
+        for f in row.fields:
+            if f.from_ and f.base in model.enum_names:
+                used.setdefault(f.base, '%s.%s' % (row.name, f.name))
+    for m in model.methods:
+        if m.kind == 'action':
+            for p, t in m.params:
+                if strip_optional(t)[0] in model.enum_names:
+                    used.setdefault(strip_optional(t)[0], '%s(%s)' % (m.name, p))
+    values = {e.name: set(e.values) for e in model.enums}
+    for alias, where in sorted(used.items()):
+        if alias not in literals:
+            bad.append('%s is used at %s, but LITERAL_CONSTANTS does not say'
+                       ' which base-class constants it stands for' % (alias, where))
+            continue
+        cls, prefix = literals[alias]
+        consts = classes.get(cls, ((), {}, {}))[1]
+        want = {v for k, v in consts.items() if k.startswith(prefix)}
+        if not want:
+            bad.append('%s stands for %s.%s*, which defines no constants'
+                       % (alias, cls, prefix))
+            continue
+        missing = sorted(want - values[alias])
+        if missing:
+            bad.append('%s lacks %s, which %s.%s* defines -- a vendor answering'
+                       ' it would read as None' % (alias, ', '.join(missing), cls, prefix))
     return bad
 
 
@@ -859,7 +1014,7 @@ def render(model):
     env.filters['snake'] = _snake_of
     out = {}
     for tpl, path in OUTPUTS.items():
-        text = env.get_template(tpl).render(model=model, header=_header(path))
+        text = env.get_template(tpl).render(model=model)
         # Trailing whitespace once, here, rather than in three templates.  A
         # blank line inside a doc comment is the usual source, and rustfmt and
         # most linters would strip it back out -- at which point `--check`
@@ -875,10 +1030,11 @@ def main():
     args = ap.parse_args()
 
     model = build(parse())
-    problems = check_arity(model)
+    problems = (['arity: %s' % p for p in check_arity(model)]
+                + ['contract: %s' % p for p in check_contract(model)])
     if problems:
         for p in problems:
-            print('arity: %s' % p, file=sys.stderr)
+            print(p, file=sys.stderr)
         return 1
     rendered = render(model)
 
