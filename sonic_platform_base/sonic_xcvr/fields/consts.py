@@ -115,6 +115,7 @@ HIGH_POWER_CLASS_ENABLE_CLASS_8 = "High Power Class Enable (Class 8)"
 # SFF-8636
 
 REV_COMPLIANCE_FIELD = "Revision Compliance"
+REV_COMPLIANCE_RAW_FIELD = "Revision Compliance Raw"
 
 # SFF-8472
 
@@ -149,6 +150,7 @@ DOM_FIELD = "DOM"
 PAGING_SUPPORT_FIELD = "Paging Implemented"
 
 STATUS_CTRL_FIELD = "Status/Control"
+DATA_NOT_READY_FIELD = "Data Not Ready"
 TX_DISABLE_SELECT_FIELD = "Soft TX Disable Select"
 
 # CMIS
@@ -295,6 +297,7 @@ DIAG_PAGE_SUPPORT_ADVT_FIELD = "Supported Diagnostic Pages Advertisement"
 COHERENT_PAGES_SUPPORTED = "CoherentPagesSupported"
 TX_FLAGS_ADVT_FIELD = "Supported TX Flags Advertisement"
 RX_FLAGS_ADVT_FIELD = "Supported RX Flags Advertisement"
+MODULE_MON_ADVT_FIELD = "Supported Module Monitor Advertisement"
 LANE_MON_ADVT_FIELD = "Supported Lane Monitor Advertisement"
 LANE_DATAPATH_CTRL_FIELD = "Lane Control and Data Path Control"
 LANE_DATAPATH_STATUS_FIELD = "Lane Status and Data Path Status"
