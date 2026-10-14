@@ -5,6 +5,10 @@ from sonic_platform_base.sonic_xcvr.codes.public.elsfp import ElsfpCodes
 from sonic_platform_base.sonic_xcvr.cpo.cpo_base import CpoApiFactory, CpoDeviceBase, OeId
 from sonic_platform_base.sonic_xcvr.eeprom_rw import ModuleEepromLowerMemoryInfo
 from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.davisson_elsfp import DavissonTh6ElsfpMemMap
+from sonic_platform_base.sonic_xcvr.codes.broadcom.bailly import BaillyCodes
+from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.bailly import BaillyElsfpMemMap
+from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
+from sonic_platform_base.sonic_xcvr.api.broadcom.bailly_elsfp import BaillyElsfpApi
 
 
 @dataclass
@@ -25,17 +29,24 @@ class ElsfpApiFactory(CpoApiFactory):
         )
 
     def create_api(self):
-        if self._device.hardware_id.elsfp_id is None:
-            # Read vendor name & part number from EEPROM
-            # and determine the correct memory map to use
-            # based on that information.
-            elsfp_info = self._get_elsfp_info()
-            if self._device.hardware_id.oe_id == OeId.BROADCOM_DAVISSON:
+        if self._device.hardware_id.oe_id == OeId.BROADCOM_DAVISSON:
+            if self._device.hardware_id.elsfp_id is None:
+                # Read vendor name & part number from EEPROM
+                # and determine the correct memory map to use
+                # based on that information.
+                elsfp_info = self._get_elsfp_info()
                 return self._create_api(
                     codes_class=ElsfpCodes,
                     mem_map_class=DavissonTh6ElsfpMemMap,
                     api_class=DavissonTh6ElsfpApi
                 )
+
+        if self._device.hardware_id.oe_id == OeId.BROADCOM_BAILLY:
+            device = self._device
+            mem_map = BaillyElsfpMemMap(
+                BaillyCodes, bank=device.bank, base_page=device.base_page)
+            eeprom = XcvrEeprom(device.read_eeprom, device.write_eeprom, mem_map)
+            return BaillyElsfpApi(eeprom)
 
         # if self._device.hardware_id.elsfp_id == ElsfpId.EXAMPLE:
         #     self._create_api(...)
