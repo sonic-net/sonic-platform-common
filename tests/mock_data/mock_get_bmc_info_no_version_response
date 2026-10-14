@@ -1,0 +1,13 @@
+{
+  "@odata.id": "/redfish/v1/UpdateService/FirmwareInventory/TEST_FW_BMC_0",
+  "@odata.type": "#SoftwareInventory.v1_4_0.SoftwareInventory",
+  "Description": "BMC image",
+  "Id": "TEST_FW_BMC_0",
+  "Name": "Software Inventory",
+  "Status": {
+    "Health": "OK",
+    "State": "Enabled"
+  },
+  "Updateable": true
+}
+HTTP Status Code: 200

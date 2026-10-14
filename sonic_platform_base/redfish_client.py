@@ -1238,8 +1238,14 @@ class RedfishClient:
                 if 'Version' in json_response:
                     version = json_response['Version']
                 else:
-                    msg = 'Error: Version not found in Redfish response'
-                    logger.log_error(f'{msg}')
+                    # A BMC may answer a missing member with 400, so the reason identifies it.
+                    reason = json_response.get('error', {}).get('code', '').rsplit('.', 1)[-1]
+                    if reason in ('ResourceNotFound', 'ResourceMissingAtURI'):
+                        ret = RedfishClient.ERR_CODE_URI_NOT_FOUND
+                    else:
+                        ret = RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
+                    msg = f'Version not found in Redfish response on querying {fw_id} version'
+                    logger.log_notice(f'{msg}')
             except json.JSONDecodeError as e:
                 msg = f'Error: Invalid Redfish response JSON format on querying {fw_id} version'
                 logger.log_notice(f'{msg}')
