@@ -5,7 +5,7 @@
 """
 
 from .page import CmisPage
-from .consts import ADMINISTRATIVE_PAGE
+from .consts import ADMINISTRATIVE_PAGE, CMIS_EEPROM_PAGE_SIZE
 from .....fields.xcvr_field import (
     CodeRegField,
     NumberRegField,
@@ -15,6 +15,15 @@ from .....fields import consts
 
 
 class CmisAdministrativeLowerPage(CmisPage):
+    def getaddr(self, offset, page_size=CMIS_EEPROM_PAGE_SIZE):
+        # Lower memory is not pageable, so a module that mirrors it onto another
+        # part of the address space can only place it in upper memory. Therefore,
+        # if we are mapped to a different page, we should add 128 to the offset
+        # to ensure we register this page's fields in upper memory.
+        if self._page != ADMINISTRATIVE_PAGE:
+            offset += page_size
+        return super().getaddr(offset, page_size)
+
     def __init__(self, codes, page=ADMINISTRATIVE_PAGE):
         super().__init__(codes, page=page, bank=0)
 
@@ -116,4 +125,3 @@ class CmisAdministrativeLowerPage(CmisPage):
         self.fields[consts.EXTENDED_MODULE_INFO_FIELD] = [
             CodeRegField(consts.MODULE_FUNCTION_TYPE, self.getaddr(57), codes.MODULE_FUNCTION_TYPE),
         ]
-
