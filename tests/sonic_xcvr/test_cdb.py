@@ -52,13 +52,13 @@ class TestCdbMemMap:
         """Test the addressing formula used by CDB fields (always bank 0)."""
         # Test default page size
         assert CmisPage.linear_offset(0, 0, 0) == 0
-        assert CmisPage.linear_offset(1, 0, 0) == 128
-        assert CmisPage.linear_offset(1, 0, 10) == 138
-        assert CmisPage.linear_offset(2, 0, 20) == 276
+        assert CmisPage.linear_offset(1, 0, 128) == 256
+        assert CmisPage.linear_offset(1, 0, 138) == 266
+        assert CmisPage.linear_offset(2, 0, 148) == 404
 
         # Test custom page size
-        assert CmisPage.linear_offset(1, 0, 10, page_size=256) == 266
-        assert CmisPage.linear_offset(2, 0, 20, page_size=256) == 532
+        assert CmisPage.linear_offset(1, 0, 138, page_size=256) == 394
+        assert CmisPage.linear_offset(2, 0, 148, page_size=256) == 660
     
     def test_get_all_cdb_cmds(self):
         """Test _get_all_cdb_cmds method"""

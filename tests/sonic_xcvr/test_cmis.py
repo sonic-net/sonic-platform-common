@@ -12,6 +12,7 @@ from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis import (
     CMIS_EEPROM_PAGE_SIZE,
 )
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.pages.page import CmisPage
+from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.pages import CmisAdministrativeLowerPage
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
 from sonic_platform_base.sonic_xcvr.codes.public.cmis import CmisCodes
 from sonic_platform_base.sonic_xcvr.codes.public.sff8024 import Sff8024
@@ -43,7 +44,6 @@ class TestCmisMemMap:
     @pytest.mark.parametrize("page,offset", [
         (0x00, 128),    # Upper page 00h, first byte
         (0x00, 255),    # Upper page 00h, last byte
-        (0x01, 0),      # Page 01h start
         (0x01, 200),    # Page 01h, advertising region
         (0x10, 128),    # First banked page per CMIS spec
         (0x11, 154),    # TX power monitor region
@@ -97,7 +97,6 @@ class TestCmisMemMap:
     @pytest.mark.parametrize("bank,page,offset,expected", [
         # bank=0 baseline: formula collapses to page * 128 + offset
         (0, 0x00, 128, 128),
-        (0, 0x01, 0,   128),
         (0, 0x10, 128, 0x10 * 128 + 128),                    # 2176
         # Banked page (>= 0x10, not in CDB range) shifts by bank * 32KiB
         (1, 0x10, 128, BYTES_PER_BANK + 0x10 * 128 + 128),   # 34944
@@ -106,7 +105,6 @@ class TestCmisMemMap:
         (1, 0x00, 128, 128),
         (2, 0x05, 200, 0x05 * 128 + 200),                    # 840
         # CDB pages 9Fh-AFh also clamp to bank 0
-        (2, 0x9F, 0,   0x9F * 128),                          # 20352
         (3, 0xAF, 255, 0xAF * 128 + 255),                    # 22655
     ])
     def test_linear_offset_specific_worked_examples(self, bank, page, offset, expected):
@@ -132,6 +130,44 @@ class TestCmisMemMap:
         reader.assert_called_once_with(freeze_request.get_offset(), 1)
         writer.assert_called_once_with(
             freeze_request.get_offset(), 1, bytearray([expected_value]))
+
+    @pytest.mark.parametrize("bank", [0, 1])
+    @pytest.mark.parametrize("page", [0x01, 0x10, 0x9F, 0xB0, 0xFF])
+    @pytest.mark.parametrize("offset", [0, 1, 127])
+    def test_linear_offset_rejects_lower_memory_offset_on_nonzero_page(self, bank, page, offset):
+        """CMIS offsets 0-127 are lower memory, which is fixed and has no paging.
+        As a result, any offset < 128 should raise if we are trying to read a non-zero page.
+        """
+        with pytest.raises(ValueError):
+            CmisPage.linear_offset(page, bank, offset)
+
+
+class TestCmisAdministrativeLowerPage:
+    """Lower memory addressing, on page 00h and when mirrored onto another page."""
+
+    MIRROR_PAGE = 0xB0
+
+    @pytest.mark.parametrize("offset", [0, 14, 127])
+    def test_default_page_is_linear_offset(self, offset):
+        # On page 00h lower memory is the first 128 bytes of the EEPROM file.
+        assert CmisAdministrativeLowerPage(CmisCodes).getaddr(offset) == offset
+
+    @pytest.mark.parametrize("offset", [0, 14, 127])
+    def test_mirrored_page_lands_in_upper_half(self, offset):
+        # Only upper memory is pageable, so if the lower-memory page is remapped
+        # elsewhere, its contents should occupy bytes 128-255.
+        page = CmisAdministrativeLowerPage(CmisCodes, page=self.MIRROR_PAGE)
+        assert page.getaddr(offset) == \
+            CmisPage.linear_offset(self.MIRROR_PAGE, 0, CMIS_EEPROM_PAGE_SIZE + offset)
+
+    def test_mirrored_page_fields_all_within_upper_half(self):
+        page = CmisAdministrativeLowerPage(CmisCodes, page=self.MIRROR_PAGE)
+        first = CmisPage.linear_offset(self.MIRROR_PAGE, 0, CMIS_EEPROM_PAGE_SIZE)
+        end = first + CMIS_EEPROM_PAGE_SIZE
+        fields = [f for contribs in page.fields.values() for f in contribs]
+        assert fields
+        for field in fields:
+            assert first <= field.get_offset() < end, field.name
 
 
 class TestCmis(object):
