@@ -4,7 +4,7 @@
     Implementation of XcvrMemMap for Bailly extending CMIS
 """
 
-from ..public.cmis import CmisMemMap
+from ..public.cmis import CmisFlatMemMap, CmisMemMap
 from ..public.cmis.pages.page import CmisPage
 from ...fields.xcvr_field import (
     CodeRegField,
@@ -222,3 +222,35 @@ class BaillyMemMap(CmisMemMap):
             _BaillyRlmInfoPage(codes, RLM_INFO_PAGE + base_page),
             _BaillyRlmThresholdPage(codes, RLM_THRESHOLD_PAGE + base_page),
         )
+
+
+class BaillyElsfpMemMap(CmisFlatMemMap):
+    """
+    Memory map for a Bailly ELS endpoint.
+
+    The Bailly ELS registers are exposed through its optical engine's EEPROM
+    on pages 0xB0-0xB2, offset by the ELS base page. The OE's CMIS pages are
+    not part of the ELS map.
+    """
+
+    RLM_CONTROL_PAGE = 0xB0
+    RLM_INFO_PAGE = 0xB1
+    RLM_THRESHOLD_PAGE = 0xB2
+
+    def __init__(self, codes, bank=0, base_page=0):
+        # Bypass CmisFlatMemMap.__init__ so that only the RLM pages are
+        # registered, as is done for the Davisson ELSFP memory map.
+        self._bank = bank
+        self._base_page = base_page
+        super(CmisFlatMemMap, self).__init__(codes)
+        self.pages = []
+
+        self.add_pages(
+            _BaillyRlmControlPage(codes, self.RLM_CONTROL_PAGE + base_page),
+            _BaillyRlmInfoPage(codes, self.RLM_INFO_PAGE + base_page),
+            _BaillyRlmThresholdPage(codes, self.RLM_THRESHOLD_PAGE + base_page),
+        )
+
+    @property
+    def base_page(self):
+        return self._base_page

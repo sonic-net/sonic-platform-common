@@ -53,6 +53,39 @@ ELSFP_DOM_REAL_VALUE_DEFAULT_DICT = {
 
 class ElsfpApi(XcvrApi):
 
+    # Module global controls, lower memory byte 26
+    SOFTWARE_RESET_BIT = 3
+    LOW_POWER_REQUEST_SW_BIT = 4
+
+    def _set_module_control_bit(self, bit: int, value: bool) -> bool:
+        current = self.xcvr_eeprom.read(consts.MODULE_LEVEL_CONTROL)
+        if current is None:
+            return False
+        if value:
+            current |= 1 << bit
+        else:
+            current &= ~(1 << bit)
+        return self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, current)
+
+    def set_lpmode(self, low_power: bool) -> bool:
+        """
+        Request low-power or full-power mode through the LowPwrRequestSW
+        control (byte 26, bit 4).
+
+        Returns:
+            True if the control was written, False otherwise.
+        """
+        return self._set_module_control_bit(self.LOW_POWER_REQUEST_SW_BIT, low_power)
+
+    def reset(self) -> bool:
+        """
+        Reset the ELSFP through the SoftwareReset control (byte 26, bit 3).
+
+        Returns:
+            True if the control was written, False otherwise.
+        """
+        return self._set_module_control_bit(self.SOFTWARE_RESET_BIT, True)
+
     def _get_first_lane_for_bank(self) -> int:
         """Return the absolute number of the first lane in the selected bank.
 
