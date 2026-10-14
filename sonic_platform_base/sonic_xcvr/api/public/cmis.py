@@ -381,6 +381,9 @@ class CmisApi(CmisCdbFw, XcvrApi):
         False otherwise.
         """
         # NumberRegField(format=">I") packs the password MSB-first for us.
+        if not isinstance(password, int) or password < 0 or password > 0xFFFFFFFF:
+            logger.warning("Invalid password: must be an integer in range 0..0xFFFFFFFF")
+            return False
         if not self.xcvr_eeprom.write(consts.PASSWORD_ENTRY, password):
             logger.warning("Password Entry Area write failed")
             return False
