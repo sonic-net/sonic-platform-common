@@ -17,8 +17,15 @@ except ImportError:
     sys.modules['sonic_py_common'] = mock.MagicMock()
     sys.modules['sonic_py_common.logger'] = mock.MagicMock()
 
-from sonic_platform_base.bmc_base import BMCBase
+from sonic_platform_base.bmc_base import BMCBase, SONIC_BMC_EEPROM_TLV_MAP
 from sonic_platform_base.redfish_client import RedfishClient
+
+OPENBMC_PATCH = mock.patch(
+    'sonic_py_common.device_info.get_bmc_os',
+    return_value='openbmc')
+SONIC_BMC_PATCH = mock.patch(
+    'sonic_py_common.device_info.get_bmc_os',
+    return_value='sonic')
 
 
 class TestBMCBase:
@@ -81,8 +88,33 @@ class TestBMCBase:
         bmc = BMCBase('169.254.0.1')
         assert bmc.is_replaceable() == False
 
-    def test_get_revision(self):
-        """Test get_revision returns N/A"""
+    @OPENBMC_PATCH
+    def test_get_revision_openbmc(self, mock_get_bmc_os):
+        """Test get_revision returns N/A when BMC OS is openbmc"""
+        bmc = BMCBase('169.254.0.1')
+        assert bmc.get_revision() == 'N/A'
+
+    @SONIC_BMC_PATCH
+    @mock.patch.object(BMCBase, 'get_eeprom')
+    def test_get_revision_sonic_bmc_success(self, mock_get_eeprom, mock_get_bmc_os):
+        """Test get_revision returns the value from SONiC BMC EEPROM"""
+        mock_get_eeprom.return_value = {'Model': 'P4102-A01', 'Revision': 'A02'}
+        bmc = BMCBase('169.254.0.1')
+        assert bmc.get_revision() == 'A02'
+
+    @SONIC_BMC_PATCH
+    @mock.patch.object(BMCBase, 'get_eeprom')
+    def test_get_revision_sonic_bmc_missing_field(self, mock_get_eeprom, mock_get_bmc_os):
+        """Test get_revision returns N/A when Revision field is absent"""
+        mock_get_eeprom.return_value = {'Model': 'P4102-A01'}
+        bmc = BMCBase('169.254.0.1')
+        assert bmc.get_revision() == 'N/A'
+
+    @SONIC_BMC_PATCH
+    @mock.patch.object(BMCBase, 'get_eeprom')
+    def test_get_revision_sonic_bmc_invalid_eeprom(self, mock_get_eeprom, mock_get_bmc_os):
+        """Test get_revision returns N/A when SONiC BMC EEPROM is empty"""
+        mock_get_eeprom.return_value = {}
         bmc = BMCBase('169.254.0.1')
         assert bmc.get_revision() == 'N/A'
 
@@ -232,11 +264,13 @@ class ConcreteBMC(BMCBase):
 class TestBMCBaseWithConcrete:
     """Test BMCBase methods that require concrete implementation"""
 
+    @OPENBMC_PATCH
     @mock.patch.object(RedfishClient, 'redfish_api_get_firmware_version')
     @mock.patch.object(RedfishClient, 'login')
     @mock.patch.object(RedfishClient, 'logout')
     @mock.patch.object(RedfishClient, 'has_login')
-    def test_get_version_success(self, mock_has_login, mock_logout, mock_login, mock_get_fw_version):
+    def test_get_version_success(self, mock_has_login, mock_logout, mock_login, mock_get_fw_version,
+                                 mock_get_bmc_os):
         """Test get_version with successful version retrieval"""
         mock_has_login.return_value = False
         mock_login.return_value = RedfishClient.ERR_CODE_OK
@@ -249,11 +283,13 @@ class TestBMCBaseWithConcrete:
         assert version == 'V.88.0002.0500'
         mock_get_fw_version.assert_called_once_with('BMC_FW_0')
 
+    @OPENBMC_PATCH
     @mock.patch.object(RedfishClient, 'redfish_api_get_firmware_version')
     @mock.patch.object(RedfishClient, 'login')
     @mock.patch.object(RedfishClient, 'logout')
     @mock.patch.object(RedfishClient, 'has_login')
-    def test_get_version_failure(self, mock_has_login, mock_logout, mock_login, mock_get_fw_version):
+    def test_get_version_failure(self, mock_has_login, mock_logout, mock_login, mock_get_fw_version,
+                                 mock_get_bmc_os):
         """Test get_version with failure"""
         mock_has_login.return_value = False
         mock_login.return_value = RedfishClient.ERR_CODE_OK
@@ -265,11 +301,13 @@ class TestBMCBaseWithConcrete:
         
         assert version == 'N/A'
 
+    @OPENBMC_PATCH
     @mock.patch.object(RedfishClient, 'redfish_api_get_firmware_version')
     @mock.patch.object(RedfishClient, 'login')
     @mock.patch.object(RedfishClient, 'logout')
     @mock.patch.object(RedfishClient, 'has_login')
-    def test_get_version_exception(self, mock_has_login, mock_logout, mock_login, mock_get_fw_version):
+    def test_get_version_exception(self, mock_has_login, mock_logout, mock_login, mock_get_fw_version,
+                                   mock_get_bmc_os):
         """Test get_version with exception"""
         mock_has_login.return_value = False
         mock_login.return_value = RedfishClient.ERR_CODE_OK
@@ -281,11 +319,13 @@ class TestBMCBaseWithConcrete:
         
         assert version == 'N/A'
 
+    @OPENBMC_PATCH
     @mock.patch.object(RedfishClient, 'redfish_api_get_eeprom_info')
     @mock.patch.object(RedfishClient, 'login')
     @mock.patch.object(RedfishClient, 'logout')
     @mock.patch.object(RedfishClient, 'has_login')
-    def test_get_eeprom_success(self, mock_has_login, mock_logout, mock_login, mock_get_eeprom):
+    def test_get_eeprom_success(self, mock_has_login, mock_logout, mock_login, mock_get_eeprom,
+                                mock_get_bmc_os):
         """Test get_eeprom with successful retrieval"""
         mock_has_login.return_value = False
         mock_login.return_value = RedfishClient.ERR_CODE_OK
@@ -299,11 +339,13 @@ class TestBMCBaseWithConcrete:
         assert result == eeprom_data
         mock_get_eeprom.assert_called_once_with('BMC_eeprom')
 
+    @OPENBMC_PATCH
     @mock.patch.object(RedfishClient, 'redfish_api_get_eeprom_info')
     @mock.patch.object(RedfishClient, 'login')
     @mock.patch.object(RedfishClient, 'logout')
     @mock.patch.object(RedfishClient, 'has_login')
-    def test_get_eeprom_failure(self, mock_has_login, mock_logout, mock_login, mock_get_eeprom):
+    def test_get_eeprom_failure(self, mock_has_login, mock_logout, mock_login, mock_get_eeprom,
+                                mock_get_bmc_os):
         """Test get_eeprom with failure"""
         mock_has_login.return_value = False
         mock_login.return_value = RedfishClient.ERR_CODE_OK
@@ -315,11 +357,13 @@ class TestBMCBaseWithConcrete:
         
         assert result == {}
 
+    @OPENBMC_PATCH
     @mock.patch.object(RedfishClient, 'redfish_api_get_eeprom_info')
     @mock.patch.object(RedfishClient, 'login')
     @mock.patch.object(RedfishClient, 'logout')
     @mock.patch.object(RedfishClient, 'has_login')
-    def test_get_eeprom_exception(self, mock_has_login, mock_logout, mock_login, mock_get_eeprom):
+    def test_get_eeprom_exception(self, mock_has_login, mock_logout, mock_login, mock_get_eeprom,
+                                  mock_get_bmc_os):
         """Test get_eeprom with exception"""
         mock_has_login.return_value = False
         mock_login.return_value = RedfishClient.ERR_CODE_OK
@@ -331,7 +375,128 @@ class TestBMCBaseWithConcrete:
         
         assert result == {}
 
-    def test_wrapper_rf_client_none_exception(self):
+    @SONIC_BMC_PATCH
+    @mock.patch.object(ConcreteBMC, '_get_eeprom_from_sonic_bmc_redis')
+    @mock.patch.object(RedfishClient, 'redfish_api_get_eeprom_info')
+    def test_get_eeprom_sonic_bmc_routes_to_redis(self, mock_get_eeprom, mock_get_sonic_eeprom,
+                                                  mock_get_bmc_os):
+        """Test get_eeprom uses remote Redis path when BMC OS is sonic"""
+        sonic_eeprom = {
+            'Model': 'P4102-A01',
+            'PartNumber': '699-24102-0100-EB1',
+            'SerialNumber': 'MT260560000K',
+        }
+        mock_get_sonic_eeprom.return_value = sonic_eeprom
+
+        bmc = ConcreteBMC('169.254.0.1')
+        result = bmc.get_eeprom()
+
+        assert result == sonic_eeprom
+        mock_get_sonic_eeprom.assert_called_once()
+        mock_get_eeprom.assert_not_called()
+
+    @SONIC_BMC_PATCH
+    @mock.patch.object(ConcreteBMC, '_is_remote_eeprom_initialized', return_value=True)
+    @mock.patch.object(ConcreteBMC, 'get_status')
+    @mock.patch.object(ConcreteBMC, '_read_eeprom_tlv_value')
+    def test_get_eeprom_from_sonic_bmc_redis_success(self, mock_read_tlv, mock_get_status,
+                                                      mock_is_initialized, mock_get_bmc_os):
+        """Test SONiC BMC EEPROM read from remote STATE_DB TLV fields"""
+        mock_read_tlv.side_effect = lambda tlv_code: {
+            SONIC_BMC_EEPROM_TLV_MAP['Model']: 'P4102-A01',
+            SONIC_BMC_EEPROM_TLV_MAP['PartNumber']: '699-24102-0100-EB1',
+            SONIC_BMC_EEPROM_TLV_MAP['SerialNumber']: 'MT260560000K',
+            SONIC_BMC_EEPROM_TLV_MAP['Revision']: 'A02',
+            SONIC_BMC_EEPROM_TLV_MAP['Manufacturer']: 'NVIDIA',
+        }.get(tlv_code)
+        mock_get_status.return_value = True
+
+        bmc = ConcreteBMC('169.254.0.1')
+        result = bmc._get_eeprom_from_sonic_bmc_redis()
+
+        assert result == {
+            'Model': 'P4102-A01',
+            'PartNumber': '699-24102-0100-EB1',
+            'SerialNumber': 'MT260560000K',
+            'Revision': 'A02',
+            'Manufacturer': 'NVIDIA',
+            'PowerState': 'On',
+        }
+
+    @SONIC_BMC_PATCH
+    @mock.patch.object(ConcreteBMC, '_is_remote_eeprom_initialized', return_value=True)
+    @mock.patch.object(ConcreteBMC, 'get_status')
+    @mock.patch.object(ConcreteBMC, '_read_eeprom_tlv_value')
+    def test_get_eeprom_from_sonic_bmc_redis_power_off(self, mock_read_tlv, mock_get_status,
+                                                        mock_is_initialized, mock_get_bmc_os):
+        """Test SONiC BMC EEPROM reports PowerState Off when get_status is False"""
+        mock_read_tlv.return_value = None
+        mock_get_status.return_value = False
+
+        bmc = ConcreteBMC('169.254.0.1')
+        result = bmc._get_eeprom_from_sonic_bmc_redis()
+
+        assert result == {'PowerState': 'Off'}
+
+    @SONIC_BMC_PATCH
+    @mock.patch.object(ConcreteBMC, '_is_remote_eeprom_initialized', return_value=True)
+    @mock.patch.object(ConcreteBMC, '_read_eeprom_tlv_value', side_effect=Exception("redis down"))
+    def test_get_eeprom_from_sonic_bmc_redis_failure(self, mock_read_tlv, mock_is_initialized, mock_get_bmc_os):
+        """Test SONiC BMC EEPROM read returns empty dict on failure"""
+        bmc = ConcreteBMC('169.254.0.1')
+        result = bmc._get_eeprom_from_sonic_bmc_redis()
+        assert result == {}
+
+    @SONIC_BMC_PATCH
+    @mock.patch.object(ConcreteBMC, '_is_remote_eeprom_initialized', return_value=False)
+    @mock.patch.object(ConcreteBMC, 'get_status')
+    @mock.patch.object(ConcreteBMC, '_read_eeprom_tlv_value')
+    def test_get_eeprom_from_sonic_bmc_redis_not_initialized(self, mock_read_tlv, mock_get_status,
+                                                              mock_is_initialized, mock_get_bmc_os):
+        """Test SONiC BMC EEPROM read returns empty dict when syseepromd hasn't populated STATE_DB yet"""
+        bmc = ConcreteBMC('169.254.0.1')
+        result = bmc._get_eeprom_from_sonic_bmc_redis()
+
+        assert result == {}
+        mock_read_tlv.assert_not_called()
+        mock_get_status.assert_not_called()
+
+    @mock.patch.object(ConcreteBMC, '_get_remote_state_db')
+    @mock.patch('swsscommon.swsscommon.Table')
+    def test_is_remote_eeprom_initialized_true(self, mock_table_cls, mock_get_remote_state_db):
+        """Test _is_remote_eeprom_initialized returns True when State.Initialized is '1'"""
+        mock_table = mock.MagicMock()
+        mock_table.get.return_value = (True, [('Initialized', '1')])
+        mock_table_cls.return_value = mock_table
+
+        bmc = ConcreteBMC('169.254.0.1')
+        assert bmc._is_remote_eeprom_initialized() is True
+        mock_table.get.assert_called_once_with('State')
+
+    @mock.patch.object(ConcreteBMC, '_get_remote_state_db')
+    @mock.patch('swsscommon.swsscommon.Table')
+    def test_is_remote_eeprom_initialized_false_not_set(self, mock_table_cls, mock_get_remote_state_db):
+        """Test _is_remote_eeprom_initialized returns False when the State key is missing"""
+        mock_table = mock.MagicMock()
+        mock_table.get.return_value = (False, [])
+        mock_table_cls.return_value = mock_table
+
+        bmc = ConcreteBMC('169.254.0.1')
+        assert bmc._is_remote_eeprom_initialized() is False
+
+    @mock.patch.object(ConcreteBMC, '_get_remote_state_db')
+    @mock.patch('swsscommon.swsscommon.Table')
+    def test_is_remote_eeprom_initialized_false_zero(self, mock_table_cls, mock_get_remote_state_db):
+        """Test _is_remote_eeprom_initialized returns False when Initialized is not '1'"""
+        mock_table = mock.MagicMock()
+        mock_table.get.return_value = (True, [('Initialized', '0')])
+        mock_table_cls.return_value = mock_table
+
+        bmc = ConcreteBMC('169.254.0.1')
+        assert bmc._is_remote_eeprom_initialized() is False
+
+    @OPENBMC_PATCH
+    def test_wrapper_rf_client_none_exception(self, mock_get_bmc_os):
         """Test wrapper raises exception when RedfishClient instance is None"""
         bmc = ConcreteBMC('169.254.0.1')
         
@@ -350,11 +515,13 @@ class TestBMCBaseWithConcrete:
                 assert ret == RedfishClient.ERR_CODE_GENERIC_ERROR
                 assert 'RedfishClient instance is None' in str(data)
 
+    @OPENBMC_PATCH
     @mock.patch.object(RedfishClient, 'redfish_api_get_eeprom_info')
     @mock.patch.object(RedfishClient, 'login')
     @mock.patch.object(RedfishClient, 'logout')
     @mock.patch.object(RedfishClient, 'has_login')
-    def test_get_model(self, mock_has_login, mock_logout, mock_login, mock_get_eeprom):
+    def test_get_model(self, mock_has_login, mock_logout, mock_login, mock_get_eeprom,
+                       mock_get_bmc_os):
         """Test get_model"""
         mock_has_login.return_value = False
         mock_login.return_value = RedfishClient.ERR_CODE_OK
@@ -367,11 +534,13 @@ class TestBMCBaseWithConcrete:
         
         assert model == 'P3809'
 
+    @OPENBMC_PATCH
     @mock.patch.object(RedfishClient, 'redfish_api_get_eeprom_info')
     @mock.patch.object(RedfishClient, 'login')
     @mock.patch.object(RedfishClient, 'logout')
     @mock.patch.object(RedfishClient, 'has_login')
-    def test_get_model_returns_none(self, mock_has_login, mock_logout, mock_login, mock_get_eeprom):
+    def test_get_model_returns_none(self, mock_has_login, mock_logout, mock_login, mock_get_eeprom,
+                                    mock_get_bmc_os):
         """Test get_model returns None when EEPROM is invalid"""
         mock_has_login.return_value = False
         mock_login.return_value = RedfishClient.ERR_CODE_OK
@@ -383,11 +552,13 @@ class TestBMCBaseWithConcrete:
         
         assert model is None
 
+    @OPENBMC_PATCH
     @mock.patch.object(RedfishClient, 'redfish_api_get_eeprom_info')
     @mock.patch.object(RedfishClient, 'login')
     @mock.patch.object(RedfishClient, 'logout')
     @mock.patch.object(RedfishClient, 'has_login')
-    def test_get_serial(self, mock_has_login, mock_logout, mock_login, mock_get_eeprom):
+    def test_get_serial(self, mock_has_login, mock_logout, mock_login, mock_get_eeprom,
+                        mock_get_bmc_os):
         """Test get_serial"""
         mock_has_login.return_value = False
         mock_login.return_value = RedfishClient.ERR_CODE_OK
@@ -400,11 +571,13 @@ class TestBMCBaseWithConcrete:
         
         assert serial == '123456'
 
+    @OPENBMC_PATCH
     @mock.patch.object(RedfishClient, 'redfish_api_get_eeprom_info')
     @mock.patch.object(RedfishClient, 'login')
     @mock.patch.object(RedfishClient, 'logout')
     @mock.patch.object(RedfishClient, 'has_login')
-    def test_get_serial_returns_none(self, mock_has_login, mock_logout, mock_login, mock_get_eeprom):
+    def test_get_serial_returns_none(self, mock_has_login, mock_logout, mock_login, mock_get_eeprom,
+                                     mock_get_bmc_os):
         """Test get_serial returns None when EEPROM is invalid"""
         mock_has_login.return_value = False
         mock_login.return_value = RedfishClient.ERR_CODE_OK
@@ -416,11 +589,13 @@ class TestBMCBaseWithConcrete:
         
         assert serial is None
 
+    @OPENBMC_PATCH
     @mock.patch.object(RedfishClient, 'redfish_api_update_firmware')
     @mock.patch.object(RedfishClient, 'login')
     @mock.patch.object(RedfishClient, 'logout')
     @mock.patch.object(RedfishClient, 'has_login')
-    def test_update_firmware_success(self, mock_has_login, mock_logout, mock_login, mock_update_fw):
+    def test_update_firmware_success(self, mock_has_login, mock_logout, mock_login, mock_update_fw,
+                                     mock_get_bmc_os):
         """Test update_firmware with success"""
         mock_has_login.return_value = False
         mock_login.return_value = RedfishClient.ERR_CODE_OK
@@ -435,11 +610,13 @@ class TestBMCBaseWithConcrete:
         assert updated_components == ['BMC_FW_0']
         mock_update_fw.assert_called_once_with('test_image.bin', fw_ids=['BMC_FW_0'])
 
+    @OPENBMC_PATCH
     @mock.patch.object(RedfishClient, 'redfish_api_trigger_bmc_debug_log_dump')
     @mock.patch.object(RedfishClient, 'login')
     @mock.patch.object(RedfishClient, 'logout')
     @mock.patch.object(RedfishClient, 'has_login')
-    def test_trigger_bmc_debug_log_dump(self, mock_has_login, mock_logout, mock_login, mock_trigger):
+    def test_trigger_bmc_debug_log_dump(self, mock_has_login, mock_logout, mock_login, mock_trigger,
+                                        mock_get_bmc_os):
         """Test trigger_bmc_debug_log_dump"""
         mock_has_login.return_value = False
         mock_login.return_value = RedfishClient.ERR_CODE_OK
@@ -453,11 +630,13 @@ class TestBMCBaseWithConcrete:
         assert task_id == 'task_123'
         assert err_msg is None
 
+    @OPENBMC_PATCH
     @mock.patch.object(RedfishClient, 'redfish_api_get_bmc_debug_log_dump')
     @mock.patch.object(RedfishClient, 'login')
     @mock.patch.object(RedfishClient, 'logout')
     @mock.patch.object(RedfishClient, 'has_login')
-    def test_get_bmc_debug_log_dump(self, mock_has_login, mock_logout, mock_login, mock_get_dump):
+    def test_get_bmc_debug_log_dump(self, mock_has_login, mock_logout, mock_login, mock_get_dump,
+                                    mock_get_bmc_os):
         """Test get_bmc_debug_log_dump"""
         mock_has_login.return_value = False
         mock_login.return_value = RedfishClient.ERR_CODE_OK
@@ -470,11 +649,13 @@ class TestBMCBaseWithConcrete:
         assert ret == RedfishClient.ERR_CODE_OK
         mock_get_dump.assert_called_once_with('task_123', 'dump.tar', '/tmp', 60)
 
+    @OPENBMC_PATCH
     @mock.patch.object(RedfishClient, 'redfish_api_request_bmc_reset')
     @mock.patch.object(RedfishClient, 'login')
     @mock.patch.object(RedfishClient, 'logout')
     @mock.patch.object(RedfishClient, 'has_login')
-    def test_request_bmc_reset_graceful(self, mock_has_login, mock_logout, mock_login, mock_reset):
+    def test_request_bmc_reset_graceful(self, mock_has_login, mock_logout, mock_login, mock_reset,
+                                        mock_get_bmc_os):
         """Test request_bmc_reset with graceful=True"""
         mock_has_login.return_value = False
         mock_login.return_value = RedfishClient.ERR_CODE_OK
@@ -487,6 +668,7 @@ class TestBMCBaseWithConcrete:
         assert ret == RedfishClient.ERR_CODE_OK
         mock_reset.assert_called_once_with(RedfishClient.REDFISH_BMC_GRACEFUL_RESTART)
 
+    @OPENBMC_PATCH
     @mock.patch.object(RedfishClient, 'redfish_api_set_min_password_length')
     @mock.patch.object(RedfishClient, 'redfish_api_change_login_password')
     @mock.patch.object(RedfishClient, 'redfish_api_get_min_password_length')
@@ -494,7 +676,8 @@ class TestBMCBaseWithConcrete:
     @mock.patch.object(RedfishClient, 'logout')
     @mock.patch.object(RedfishClient, 'has_login')
     def test_bmc_reset_root_password_success(self, mock_has_login, mock_logout, mock_login, 
-                                           mock_get_min_length, mock_change_pw, mock_set_min_length):
+                                           mock_get_min_length, mock_change_pw, mock_set_min_length,
+                                           mock_get_bmc_os):
         """Test reset_root_password successful flow"""
         mock_has_login.return_value = False
         mock_login.return_value = RedfishClient.ERR_CODE_OK
@@ -513,11 +696,13 @@ class TestBMCBaseWithConcrete:
         mock_set_min_length.assert_any_call(12)
         mock_change_pw.assert_called_once_with('rootpass', BMCBase.ROOT_ACCOUNT)
 
+    @OPENBMC_PATCH
     @mock.patch.object(RedfishClient, 'redfish_api_get_min_password_length')
     @mock.patch.object(RedfishClient, 'login')
     @mock.patch.object(RedfishClient, 'logout')
     @mock.patch.object(RedfishClient, 'has_login')
-    def test_reset_root_password_no_default_password(self, mock_has_login, mock_logout, mock_login, mock_get_min_length):
+    def test_reset_root_password_no_default_password(self, mock_has_login, mock_logout, mock_login,
+                                                      mock_get_min_length, mock_get_bmc_os):
         """Test reset_root_password when _get_default_root_password returns None"""
         mock_has_login.return_value = False
         mock_login.return_value = RedfishClient.ERR_CODE_OK
@@ -532,12 +717,13 @@ class TestBMCBaseWithConcrete:
         assert msg == "BMC root account default password not found"
         mock_change_pw.assert_not_called()
 
+    @OPENBMC_PATCH
     @mock.patch.object(RedfishClient, 'redfish_api_get_min_password_length')
     @mock.patch.object(RedfishClient, 'login')
     @mock.patch.object(RedfishClient, 'logout')
     @mock.patch.object(RedfishClient, 'has_login')
     def test_bmc_reset_root_password_get_min_length_fail(self, mock_has_login, mock_logout, 
-                                                       mock_login, mock_get_min_length):
+                                                       mock_login, mock_get_min_length, mock_get_bmc_os):
         """Test reset_root_password failure at get min length step"""
         mock_has_login.return_value = False
         mock_login.return_value = RedfishClient.ERR_CODE_OK
@@ -551,13 +737,15 @@ class TestBMCBaseWithConcrete:
         assert 'Failed to get current min password length: Get failed' in msg
         mock_get_min_length.assert_called_once()
 
+    @OPENBMC_PATCH
     @mock.patch.object(RedfishClient, 'redfish_api_set_min_password_length')
     @mock.patch.object(RedfishClient, 'redfish_api_get_min_password_length')
     @mock.patch.object(RedfishClient, 'login')
     @mock.patch.object(RedfishClient, 'logout')
     @mock.patch.object(RedfishClient, 'has_login')
     def test_bmc_reset_root_password_set_min_length_fail(self, mock_has_login, mock_logout, 
-                                                       mock_login, mock_get_min_length, mock_set_min_length):
+                                                       mock_login, mock_get_min_length, mock_set_min_length,
+                                                       mock_get_bmc_os):
         """Test reset_root_password failure at set min length step"""
         mock_has_login.return_value = False
         mock_login.return_value = RedfishClient.ERR_CODE_OK
@@ -573,6 +761,7 @@ class TestBMCBaseWithConcrete:
         mock_get_min_length.assert_called_once()
         mock_set_min_length.assert_called_once_with(8)
 
+    @OPENBMC_PATCH
     @mock.patch.object(RedfishClient, 'redfish_api_set_min_password_length')
     @mock.patch.object(RedfishClient, 'redfish_api_change_login_password')
     @mock.patch.object(RedfishClient, 'redfish_api_get_min_password_length')
@@ -580,7 +769,8 @@ class TestBMCBaseWithConcrete:
     @mock.patch.object(RedfishClient, 'logout')
     @mock.patch.object(RedfishClient, 'has_login')
     def test_bmc_reset_root_password_change_password_fail(self, mock_has_login, mock_logout, mock_login,
-                                                        mock_get_min_length, mock_change_pw, mock_set_min_length):
+                                                        mock_get_min_length, mock_change_pw, mock_set_min_length,
+                                                        mock_get_bmc_os):
         """Test reset_root_password failure at change password step"""
         mock_has_login.return_value = False
         mock_login.return_value = RedfishClient.ERR_CODE_OK
@@ -598,8 +788,9 @@ class TestBMCBaseWithConcrete:
         assert mock_set_min_length.call_count == 2
         mock_change_pw.assert_called_once_with('rootpass', BMCBase.ROOT_ACCOUNT)
 
+    @OPENBMC_PATCH
     @mock.patch.object(RedfishClient, 'open_session')
-    def test_open_session_success(self, mock_open_session):
+    def test_open_session_success(self, mock_open_session, mock_get_bmc_os):
         """Test open_session with successful session creation"""
         mock_open_session.return_value = (RedfishClient.ERR_CODE_OK, ('Login successful', ('session_123', 'token_abc')))
         
@@ -611,11 +802,13 @@ class TestBMCBaseWithConcrete:
         assert credentials == ('session_123', 'token_abc')
         mock_open_session.assert_called_once()
 
+    @OPENBMC_PATCH
     @mock.patch.object(RedfishClient, 'close_session')
     @mock.patch.object(RedfishClient, 'login')
     @mock.patch.object(RedfishClient, 'logout')
     @mock.patch.object(RedfishClient, 'has_login')
-    def test_close_session_success(self, mock_has_login, mock_logout, mock_login, mock_close_session):
+    def test_close_session_success(self, mock_has_login, mock_logout, mock_login, mock_close_session,
+                                   mock_get_bmc_os):
         """Test close_session with successful session closure"""
         mock_has_login.return_value = False
         mock_login.return_value = RedfishClient.ERR_CODE_OK
