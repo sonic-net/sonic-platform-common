@@ -12,6 +12,8 @@ variables:
   DIFF_COVER_CHECK_THRESHOLD: 80
   DIFF_COVER_ENABLE: 'true'
   DIFF_COVER_WORKING_DIRECTORY: $(System.DefaultWorkingDirectory)
+  # Python from pytest, and the Rust crates' from cargo-llvm-cov.
+  DIFF_COVER_COVERAGE_FILES: 'coverage.xml rust-coverage.xml'
   ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
     BRANCH_NAME: $(System.PullRequest.TargetBranch)
   ${{ else }}:
@@ -115,6 +117,51 @@ steps:
     pip3 uninstall --yes sonic-platform-common
     pytest
   displayName: 'Test Python 3'
+
+# The platform API stub is the single source three back ends are generated
+# from, so nothing downstream can catch it drifting -- the generator would
+# happily reproduce the drift.  These are its gates: mypy over the stub,
+# stubtest between the stub and the facade it generates, and a regeneration
+# that must come out byte-identical to what is checked in.
+- script: |
+    set -ex
+    bash generator/check.sh --python-only
+  displayName: 'Check platform API stub'
+
+# The three crates the stub also generates, built, linted and tested with line
+# coverage, so the diff coverage check counts them beside the Python.
+#
+# They are made members of one workspace for the run.  A crate's coverage is
+# reported only for its workspace's members, and the bridge's and the
+# provider's tests are what run most of the trait crate's generated code; three
+# separate runs would credit it with its own tests alone.  The provider's lock
+# already pins all three crates and their dependencies, so it seeds the
+# workspace's.
+#
+# The slave image has the toolchain but not the LLVM tools matching it, and
+# its rustup home belongs to root.  The target directory is deleted afterwards:
+# the agent's disk is nearly full.
+- script: |
+    set -ex
+    sudo env RUSTUP_HOME=/usr/.cargo /usr/.cargo/bin/rustup component add llvm-tools-preview
+    mkdir -p ~/.cargo/bin
+    curl -sSfL -o /tmp/cargo-llvm-cov.tar.gz \
+      https://github.com/taiki-e/cargo-llvm-cov/releases/download/v0.9.1/cargo-llvm-cov-x86_64-unknown-linux-gnu.tar.gz
+    echo "b3f68e625481fed9b16444174f3fa5ebcdbde4a1878803a35eabe2dcefcdc41a  /tmp/cargo-llvm-cov.tar.gz" | sha256sum -c -
+    tar xzf /tmp/cargo-llvm-cov.tar.gz -C ~/.cargo/bin
+    export PATH=$HOME/.cargo/bin:$PATH
+    # The bridge tests import platform_api.facade; the package was uninstalled
+    # after the Python tests, so it is found in the checkout.
+    export PYTHONPATH=$(System.DefaultWorkingDirectory)
+    export CARGO_TARGET_DIR=$(Agent.TempDirectory)/rust-target CARGO_PROFILE_DEV_DEBUG=0
+    printf '%s\n' '[workspace]' \
+      'members = ["crates/platform-api", "crates/platform-pyo3", "crates/platform-provider"]' \
+      'resolver = "2"' > Cargo.toml
+    cp crates/platform-provider/Cargo.lock Cargo.lock
+    cargo clippy --locked --workspace --all-targets -- -D warnings
+    cargo llvm-cov --locked --workspace --cobertura --output-path rust-coverage.xml
+    rm -rf Cargo.toml Cargo.lock "$CARGO_TARGET_DIR"
+  displayName: 'Test Rust crates with coverage'
 
 - task: PublishTestResults@2
   inputs:

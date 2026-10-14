@@ -1,0 +1,37 @@
+[package]
+name = "platform-provider"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+license = "Apache-2.0"
+description = "Every platform API implementation, behind one concrete type"
+
+[dependencies]
+platform-api = { path = "../platform-api" }
+# The implementation every platform runs today.  Not optional: a build that
+# could not reach the vendor's Python would have nothing to fall back to.
+platform-pyo3 = { path = "../platform-pyo3" }
+# A native Rust implementation of the same trait, when one exists.  Adding the
+# line below is the whole of "this build carries the native implementation" --
+# Cargo derives the `platform-native` feature from the optional dependency, so
+# there is no second place to keep in step.
+#
+# platform-native = { path = "../platform-native", optional = true }
+
+# No `[features]` entry for it.  An empty `platform-native = []` would make the
+# `#[cfg(feature = "platform-native")]` arms in src/generated.rs known cfgs, but
+# it would also make the feature selectable -- and `--features platform-native`
+# or `--all-features` would then compile arms naming a crate that is not a
+# dependency.  What those arms need today is only to be a known cfg, so that
+# Rust 1.80+ does not report them as `unexpected_cfgs`; that is what this
+# declares, without offering a feature nothing can satisfy.  When the native
+# crate arrives, uncommenting the dependency above creates the feature, and
+# this entry becomes redundant rather than wrong.
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("platform-native"))'] }
+
+[dev-dependencies]
+# The delegation test drives a real `Bridge` over a mock chassis, the way
+# platform-pyo3's own tests do.  Needs `PYTHONPATH` to include the repository
+# root so `platform_api.facade` imports -- see generator/check.sh.
+pyo3 = { version = "0.23", features = ["auto-initialize"] }
