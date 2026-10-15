@@ -1160,7 +1160,12 @@ class CmisApi(CmisCdbFw, XcvrApi):
         if self.is_flat_memory():
             return 0
         duration = self.xcvr_eeprom.read(consts.MODULE_PWRDN_DURATION)
-        return float(duration) if duration is not None else 0
+        if duration is None:
+            return 0
+        # Some modules advertise a MaxDurationModulePwrDn they do not actually
+        # meet in practice. Wait at least 3 seconds, or more if the module
+        # advertises a greater duration than that.
+        return max(float(duration), 3000)
 
     def get_host_lane_count(self, appl=None):
         '''
