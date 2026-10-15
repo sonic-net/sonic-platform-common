@@ -15,12 +15,12 @@ try:
     from functools import wraps
     from . import device_base
     from .redfish_client import RedfishClient
-    from sonic_py_common.logger import Logger
+    from sonic_py_common.syslogger import SysLogger
 except ImportError as e:
     raise ImportError (str(e) + "- required module not found")
 
 
-logger = Logger('bmc_base')
+logger = SysLogger('bmc_base')
 
 
 """
