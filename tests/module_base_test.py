@@ -1,6 +1,8 @@
 # Unit tests for sonic_platform_base.module_base.ModuleBase
 import json
+import sys
 import time
+import types
 from unittest.mock import MagicMock, patch, call
 import pytest
 import subprocess
@@ -22,6 +24,25 @@ class MockFile:
     def fileno(self):
         self.fileno_called = True
         return 123
+
+
+def test_get_state_db_uses_unix_socket():
+    module = ModuleBase()
+    state_db = MagicMock()
+    swsscommon_package = types.ModuleType("swsscommon")
+    swsscommon_module = types.ModuleType("swsscommon.swsscommon")
+    swsscommon_module.DBConnector = MagicMock(return_value=state_db)
+    swsscommon_package.swsscommon = swsscommon_module
+
+    with patch.dict(sys.modules, {
+            "swsscommon": swsscommon_package,
+            "swsscommon.swsscommon": swsscommon_module,
+    }):
+        assert module.get_state_db() is state_db
+        assert module.get_state_db() is state_db
+
+    swsscommon_module.DBConnector.assert_called_once_with(
+        "STATE_DB", 0, False)
 
 
 class TestModuleBase:
