@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from sonic_platform_base.sonic_xcvr.api.broadcom.davisson_elsfp import DavissonTh6ElsfpApi
-from sonic_platform_base.sonic_xcvr.codes.broadcom.davisson import DavissonElsfpCodes
+from sonic_platform_base.sonic_xcvr.codes.broadcom.davisson_elsfp import DavissonTh6ElsfpCodes
 from sonic_platform_base.sonic_xcvr.cpo.cpo_base import CpoApiFactory, CpoDeviceBase, OeId
 from sonic_platform_base.sonic_xcvr.eeprom_rw import ModuleEepromLowerMemoryInfo
 from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.davisson_elsfp import DavissonTh6ElsfpMemMap
@@ -32,7 +32,7 @@ class ElsfpApiFactory(CpoApiFactory):
             elsfp_info = self._get_elsfp_info()
             if self._device.hardware_id.oe_id == OeId.BROADCOM_DAVISSON:
                 return self._create_api(
-                    codes_class=DavissonElsfpCodes,
+                    codes_class=DavissonTh6ElsfpCodes,
                     mem_map_class=DavissonTh6ElsfpMemMap,
                     api_class=DavissonTh6ElsfpApi
                 )

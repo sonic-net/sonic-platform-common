@@ -3,6 +3,7 @@ from mock import MagicMock, patch
 import struct
 
 from sonic_platform_base.sonic_xcvr.api.broadcom.davisson_elsfp import DavissonTh6ElsfpApi
+from sonic_platform_base.sonic_xcvr.codes.broadcom.davisson_elsfp import DavissonTh6ElsfpCodes
 from sonic_platform_base.sonic_xcvr.codes.public.elsfp import ElsfpCodes
 from sonic_platform_base.sonic_xcvr.fields import consts, elsfp_consts
 from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.davisson_elsfp import DavissonTh6ElsfpMemMap
@@ -41,6 +42,7 @@ class TestElsfpApiFactory(object):
 
         assert isinstance(api, DavissonTh6ElsfpApi)
         assert isinstance(api.xcvr_eeprom.mem_map, DavissonTh6ElsfpMemMap)
+        assert api.xcvr_eeprom.mem_map.codes is DavissonTh6ElsfpCodes
         # The device's bank and EEPROM accessors must be threaded through.
         assert api.xcvr_eeprom.mem_map.bank == 1
         assert api.xcvr_eeprom.reader is elsfp.read_eeprom
