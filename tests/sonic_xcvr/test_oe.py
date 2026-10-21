@@ -1,6 +1,7 @@
 from mock import MagicMock
 
 from sonic_platform_base.sonic_xcvr.api.broadcom.davisson_oe import DavissonTh6OeApi
+from sonic_platform_base.sonic_xcvr.codes.broadcom.davisson_oe import DavissonTh6OeCodes
 from sonic_platform_base.sonic_xcvr.cpo.cpo_base import CpoHardwareInfo, OeId
 from sonic_platform_base.sonic_xcvr.cpo.oe import OeApiFactory
 from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.davisson_oe import DavissonTh6OeMemMap
@@ -17,6 +18,7 @@ class TestOeApiFactory(object):
 
         assert isinstance(api, DavissonTh6OeApi)
         assert isinstance(api.xcvr_eeprom.mem_map, DavissonTh6OeMemMap)
+        assert api.xcvr_eeprom.mem_map.codes is DavissonTh6OeCodes
         # The device's bank and EEPROM accessors must be threaded through.
         assert api.xcvr_eeprom.mem_map.bank == 2
         assert api.xcvr_eeprom.reader is oe.read_eeprom
