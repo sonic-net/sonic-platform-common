@@ -30,9 +30,9 @@ setup(
     url='https://github.com/Azure/sonic-platform-common',
     maintainer='Joe LeVeque',
     maintainer_email='jolevequ@microsoft.com',
-    package_data={'platform_api': ['*.pyi', 'py.typed']},
+    package_data={'sonic_platform_api': ['*.pyi', 'py.typed']},
     packages=[
-        'platform_api',
+        'sonic_platform_api',
         'sonic_eeprom',
         'sonic_led',
         'sonic_fan',
@@ -106,11 +106,15 @@ setup(
             'pytest',
             'pytest-cov',
             # mypy ships `stubtest`, which is the gate that catches the facade
-            # and its .pyi drifting apart.
-            'mypy',
+            # and its .pyi drifting apart.  Bounded, as jinja2 is below: both
+            # gates compare against what these versions produce, so a new
+            # release would otherwise fail unrelated changes the day it ships.
+            # Move the bounds in a change of their own.
+            'mypy>=2.4,<2.5',
             # generator/generate.py renders its outputs with it, and the tests
-            # run the generator in process.
-            'jinja2',
+            # run the generator in process; `generate.py --check` compares
+            # them byte for byte.
+            'jinja2>=3.1,<3.2',
         ],
     },
     classifiers=[

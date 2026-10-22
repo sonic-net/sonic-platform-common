@@ -1,20 +1,3 @@
-#
-# SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
 """The generated facade, against a chassis that misbehaves the way real ones do.
 
 Every mock below reproduces something a shipped platform actually does: a PSU
@@ -26,7 +9,10 @@ whole reason the daemons each grew a `try_get()` is that none of this is rare.
 
 import contextlib
 import enum
+import functools
+import signal
 import sys
+import threading
 from unittest import mock
 
 import pytest
@@ -41,8 +27,8 @@ except ImportError:
     sys.modules['sonic_py_common.logger'] = mock.MagicMock()
     sys.modules['sonic_py_common.syslogger'] = mock.MagicMock()
 
-from platform_api.facade import (ChassisInfoCols, FanDrawerInfoCols, FanInfoCols,
-                                 ModuleInfoCols, PlatformApi)
+from sonic_platform_api.facade import (ChassisInfoCols, FanDrawerInfoCols,
+                                       FanInfoCols, ModuleInfoCols, PlatformApi)
 
 
 class Thermal(object):
@@ -65,12 +51,18 @@ class Thermal(object):
 
 
 class Fan(object):
-    def __init__(self, name, speed=None, direction=None):
+    def __init__(self, name, speed=None, direction=None, present=True):
         self._name, self._speed, self._direction = name, speed, direction
+        self._present = present
         self.led = None
 
     def get_name(self):
         return self._name
+
+    def get_presence(self):
+        # A fan that is there: thermalctld reads a fan's speeds and direction
+        # only then (thermalctld:471-478).
+        return self._present
 
     def get_speed(self):
         return self._speed
@@ -475,9 +467,9 @@ def test_a_declined_column_is_not_read_at_all():
         setattr(fan, getter, record)
     api = PlatformApi(Chassis(drawers=[Drawer('D1', [fan])]))
 
-    # What psud asks for: direction, speed and LED.
+    # What psud asks for, absorbing: direction, speed and LED.
     cols = FanInfoCols.DIRECTION | FanInfoCols.SPEED_PCT | FanInfoCols.STATUS_LED
-    row, = api.get_fans(cols)
+    row, = api.get_fans(cols, absorb=True)
 
     assert 'is_under_speed' not in fan.asked, 'a declined column was read'
     assert 'is_over_speed' not in fan.asked
@@ -495,9 +487,9 @@ def test_the_default_projection_reads_every_column():
     assert row.speed_pct == 50 and row.direction == 'intake'
 
 
-def test_resolving_a_name_does_not_read_the_other_columns():
-    """`_find_fan_info` walks every fan to resolve one name.  Reading each
-    one's speed and thresholds on the way is work no action asked for."""
+def test_resolving_a_key_does_not_read_the_other_columns():
+    """`_find_fan_info` follows the key to one fan.  Reading its speed and
+    thresholds on the way is work no action asked for."""
     fan = Fan('f1', 50, 'intake')
     fan.asked = []
     for getter in ('get_speed', 'is_under_speed'):
@@ -507,8 +499,8 @@ def test_resolving_a_name_does_not_read_the_other_columns():
         setattr(fan, getter, record)
     api = PlatformApi(Chassis(drawers=[Drawer('D1', [fan])]))
 
-    assert api._find_fan_info('f1') is fan
-    assert fan.asked == [], 'a name lookup read columns it had no use for'
+    assert api._find_fan_info('fan_drawers[0]/fans[0]') is fan
+    assert fan.asked == [], 'a key lookup read columns it had no use for'
 
 
 def test_fan_direction_na_is_a_value_and_survives():
@@ -542,25 +534,28 @@ def test_the_platform_writes_its_own_eeprom_table():
     # lose the vendor's success convention on the way across.
     eeprom = _Eeprom()
     api = PlatformApi(Chassis(eeprom=eeprom))
-    assert api.eeprom_update_db() is True
+    assert api.eeprom_update_db() == 'updated'
     assert eeprom.wrote == b'raw', 'the bytes read must be the bytes written'
 
 
-def test_a_failed_eeprom_write_is_false_not_an_exception():
-    # syseepromd logs and leaves the table alone; a raise here would kill the
-    # daemon on a platform whose EEPROM is briefly unreadable.
+def test_a_failed_eeprom_write_says_so_and_does_not_raise():
+    # syseepromd logs "Failed to update EEPROM info in database" and leaves
+    # the table alone (syseepromd:91-94); a raise here would kill the daemon on
+    # a platform whose EEPROM is briefly unwritable.
     api = PlatformApi(Chassis(eeprom=_Eeprom(rc=-1)))
-    assert api.eeprom_update_db() is False
+    assert api.eeprom_update_db() == 'update_failed'
 
 
-def test_an_unreadable_or_absent_eeprom_is_false():
-    assert PlatformApi(Chassis(eeprom=_Eeprom(data=None))).eeprom_update_db() is False
-    assert PlatformApi(Chassis()).eeprom_update_db() is False, 'no get_eeprom at all'
+def test_an_unreadable_or_absent_eeprom_says_the_read_failed():
+    # syseepromd logs "Failed to read EEPROM" for this one (syseepromd:86-88),
+    # and only for this one.
+    assert PlatformApi(Chassis(eeprom=_Eeprom(data=None))).eeprom_update_db() == 'read_failed'
+    assert PlatformApi(Chassis()).eeprom_update_db() == 'read_failed', 'no get_eeprom at all'
 
 
 def test_a_vendor_enum_crosses_as_the_string_the_stub_declares():
-    # Every enumerated column is declared `Literal[...]`, i.e. a str, and the
-    # Rust bridge downcasts to str.  A vendor is free to answer with an
+    # Every text column is declared `str` or `Literal[...]`, and the Rust
+    # bridge downcasts to str.  A vendor is free to answer with an
     # `enum.Enum` whose value is that string instead -- mlnx's
     # get_leak_severity() does, and on hardware that failed the whole row read
     # and left LIQUID_COOLING_INFO empty, silently, because the daemon treats
@@ -604,12 +599,37 @@ def test_a_pdb_fan_is_a_row_and_says_which_it_is():
 
 # -- actions ---------------------------------------------------------------
 
-def test_an_action_addresses_the_row_by_the_name_the_snapshot_published():
+def test_an_action_addresses_the_row_by_the_key_the_snapshot_published():
     fan = Fan('f1', 50)
     api = PlatformApi(Chassis(drawers=[Drawer('D1', [fan])]))
-    published = api.get_fans()[0].name
+    published = api.get_fans()[0].key
     api.set_fan_led(published, 'amber')
     assert fan.led == 'amber'
+
+
+def test_a_text_column_crosses_as_str_of_what_the_vendor_answered():
+    # The Python daemons publish these with str(): accton's PDDF fan answers
+    # get_direction() with False when the read fails, and thermalctld writes
+    # "False".  The bridge downcasts to str, so a bool failed the whole row.
+    drawer = Drawer('D1', [Fan('f1', 50, False), Fan('f2', 50, 'INTAKE'),
+                           Fan('f3', 50, None)])
+    fans = PlatformApi(Chassis(drawers=[drawer])).get_fans()
+    assert [f.direction for f in fans] == ['False', 'INTAKE', None]
+
+
+@pytest.mark.parametrize('answer, read', [
+    (True, True), (False, False), (None, None), (0, False), ('Executed', True),
+])
+def test_an_action_answers_the_way_python_reads_the_answer(answer, read):
+    # A caller reads it as `if not answer:` (chassisd:1405), and a vendor
+    # answers with whatever its helper returned -- pddf's ledutil says
+    # "Executed".  The bridge extracts a bool strictly.
+    class Answering(Fan):
+        def set_status_led(self, color):
+            return answer
+
+    api = PlatformApi(Chassis(drawers=[Drawer('D1', [Answering('f1', 50)])]))
+    assert api.set_fan_led('fan_drawers[0]/fans[0]', 'red') is read
 
 
 def test_an_unknown_row_name_is_a_key_error():
@@ -622,6 +642,14 @@ def test_a_chassis_level_action_needs_no_row():
     chassis = Chassis()
     PlatformApi(chassis).set_chassis_led('green')
     assert chassis.led == 'green'
+
+
+def test_the_chassis_led_takes_a_vendor_colour_and_answers_whether_it_took():
+    # healthd's colours come from system_health_monitoring_config.json, where
+    # vendors write their own; set_status_led's bool comes back to the caller.
+    chassis = Chassis()
+    assert PlatformApi(chassis).set_chassis_led('amber_blink') is True
+    assert chassis.led == 'amber_blink'
 
 
 def test_an_action_a_platform_does_not_implement_says_so():
@@ -710,6 +738,181 @@ def test_run_policy_without_a_successful_load_does_nothing():
 
     PlatformApi(WithManager()).tm_run_policy()
     assert Manager.calls == []
+
+
+def test_tm_stop_stops_the_manager_and_leaves_it_initialised():
+    # thermalctld's signal handler calls stop() alone (thermalctld:1610-1612);
+    # deinitialize() comes later, from deinit().
+    Manager.calls = []
+
+    class WithManager(Chassis):
+        def get_thermal_manager(self):
+            return Manager
+
+    api = PlatformApi(WithManager())
+    api.tm_initialize()
+    api.tm_stop()
+    assert Manager.calls[-1] == 'stop'
+    api.tm_deinitialize()
+    assert Manager.calls[-2:] == ['stop', 'deinitialize']
+
+
+def test_tm_stop_is_quiet_without_a_manager_or_a_stop():
+    class Unstoppable(object):
+        @classmethod
+        def stop(cls):
+            raise NotImplementedError
+
+    class WithUnstoppable(Chassis):
+        def get_thermal_manager(self):
+            return Unstoppable
+
+    PlatformApi(Chassis()).tm_stop()
+    PlatformApi(WithUnstoppable()).tm_stop()
+
+
+# -- shutdown delivery -------------------------------------------------------
+#
+# What the pyo3 bridge does around building the vendor's chassis, step by
+# step: arm, build, capture, reset the table, disarm.  pytest runs these on the
+# main thread, which is where the bridge does it too.
+
+@pytest.fixture
+def shutdown_state(monkeypatch):
+    from sonic_platform_api import _escape_hatch
+    saved = {sig: signal.getsignal(sig) for sig in (signal.SIGTERM, signal.SIGINT)}
+    monkeypatch.setattr(_escape_hatch, '_shutdown_handlers', {})
+    monkeypatch.setattr(_escape_hatch, '_shutdown_notified', threading.Lock())
+    monkeypatch.setattr(_escape_hatch, '_capturing', False)
+    monkeypatch.setattr(_escape_hatch, '_deferred_signals', [])
+    yield _escape_hatch
+    for sig, handler in saved.items():
+        signal.signal(sig, handler)
+
+
+class LikeMlnx(object):
+    """mlnx's utils.watch_shutdown_signals() and _handle_shutdown_signal, with
+    os.kill() recorded instead of sent."""
+
+    def __init__(self):
+        self.event = threading.Event()
+        self.killed = []
+        self.runs = 0
+
+    def _handle(self, previous, signum, frame):
+        self.runs += 1
+        self.event.set()
+        if callable(previous):
+            previous(signum, frame)
+        elif previous == signal.SIG_DFL:
+            signal.signal(signum, signal.SIG_DFL)
+            self.killed.append(signum)
+
+    def watch(self):
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            signal.signal(sig, functools.partial(self._handle, signal.getsignal(sig)))
+
+
+def _build(hatch, vendor):
+    """The bridge's sequence, with `vendor.watch()` as the chassis build."""
+    assert hatch.arm_shutdown_capture()
+    vendor.watch()
+    hatch.capture_shutdown_handlers()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        signal.signal(sig, signal.SIG_DFL)
+    return hatch.disarm_shutdown_capture()
+
+
+def test_notify_shutdown_runs_the_vendors_handler_once_and_kills_nothing(shutdown_state):
+    vendor = LikeMlnx()
+    assert _build(shutdown_state, vendor) == []
+    assert not vendor.event.is_set()
+
+    api = PlatformApi(Chassis())
+    api.notify_shutdown()
+    api.notify_shutdown()
+    PlatformApi(Chassis()).notify_shutdown()   # any handle: the state is the process's
+
+    assert vendor.event.is_set()
+    assert vendor.runs == 1
+    assert vendor.killed == []
+    # The table is the daemon's again, and nothing of the vendor's is in it.
+    assert signal.getsignal(signal.SIGTERM) == signal.SIG_DFL
+
+
+def test_notify_shutdown_from_another_thread(shutdown_state):
+    vendor = LikeMlnx()
+    _build(shutdown_state, vendor)
+    t = threading.Thread(target=PlatformApi(Chassis()).notify_shutdown)
+    t.start()
+    t.join()
+    assert vendor.event.is_set() and vendor.killed == []
+
+
+def test_notify_shutdown_without_a_vendor_handler_does_nothing(shutdown_state):
+    class Quiet(object):
+        def watch(self):
+            pass
+
+    assert _build(shutdown_state, Quiet()) == []
+    PlatformApi(Chassis()).notify_shutdown()
+    assert shutdown_state._shutdown_handlers == {}
+
+
+def test_a_vendor_handler_that_raises_does_not_stop_the_shutdown(shutdown_state, capsys):
+    class Exits(object):
+        def watch(self):
+            def handler(signum, frame):
+                raise SystemExit(1)
+            signal.signal(signal.SIGTERM, handler)
+
+    _build(shutdown_state, Exits())
+    PlatformApi(Chassis()).notify_shutdown()
+    assert 'vendor shutdown handler for SIGTERM failed: SystemExit(1)' in capsys.readouterr().err
+
+
+def test_the_first_handler_kept_stays(shutdown_state):
+    first, second = LikeMlnx(), LikeMlnx()
+    _build(shutdown_state, first)
+    _build(shutdown_state, second)
+    PlatformApi(Chassis()).notify_shutdown()
+    assert first.runs == 1 and second.runs == 0
+
+
+def test_a_signal_sent_while_the_chassis_is_built_is_kept_for_the_daemon(shutdown_state):
+    class SignalledDuringBuild(LikeMlnx):
+        def watch(self):
+            super(SignalledDuringBuild, self).watch()
+            signal.raise_signal(signal.SIGTERM)
+
+    vendor = SignalledDuringBuild()
+    assert _build(shutdown_state, vendor) == [signal.SIGTERM]
+    # The vendor saw it as a Python daemon's would, and chained to the no-op.
+    assert vendor.event.is_set() and vendor.killed == []
+    assert shutdown_state.disarm_shutdown_capture() == []
+
+
+def test_the_shutdown_notify_hands_on_is_not_kept_as_a_signal(shutdown_state):
+    # Another thread notifies while a bridge is being built: the vendor's chain
+    # ends in the no-op, which must not take it for a signal the daemon missed.
+    vendor = LikeMlnx()
+    assert shutdown_state.arm_shutdown_capture()
+    vendor.watch()
+    shutdown_state.capture_shutdown_handlers()
+    PlatformApi(Chassis()).notify_shutdown()
+    assert vendor.event.is_set()
+    assert shutdown_state.disarm_shutdown_capture() == []
+
+
+def test_off_the_main_thread_nothing_is_armed(shutdown_state):
+    before = signal.getsignal(signal.SIGTERM)
+    armed = []
+    t = threading.Thread(target=lambda: armed.append(shutdown_state.arm_shutdown_capture()))
+    t.start()
+    t.join()
+    assert armed == [False]
+    assert signal.getsignal(signal.SIGTERM) is before
+    assert shutdown_state.disarm_shutdown_capture() == []
 
 
 # -- chassis and modules ---------------------------------------------------
@@ -812,7 +1015,7 @@ def test_modules_carry_the_strings_the_base_class_defines():
     # the cause is bug 14: the detail is what chassisd publishes as the
     # record's `comment`, and dropping it wrote `N/A` on a SmartSwitch where the
     # Python daemon wrote 'Reset due to Power off'.
-    rc = api.get_module_reboot_cause('LC1')
+    rc = api.get_module_reboot_cause('modules[0]')
     assert (rc.cause, rc.detail) == ('Software', 'requested')
 
 
@@ -826,14 +1029,14 @@ def test_a_module_that_cannot_say_why_it_rebooted_says_so():
     """
     api = PlatformApi(Chassis(modules=[Module('LC1')]))
     with pytest.raises(NotImplementedError, match='ModuleBase.get_reboot_cause'):
-        api.get_module_reboot_cause('LC1')
+        api.get_module_reboot_cause('modules[0]')
 
 
 def test_a_module_says_why_its_midplane_went_down():
     """chassisd asks when a DPU's midplane goes down without a planned
     transition, and publishes both halves joined.  One call, both slots."""
     api = PlatformApi(RichChassis(modules=[FullModule('LC1')], modular=True))
-    reason = api.get_module_midplane_down_reason('LC1')
+    reason = api.get_module_midplane_down_reason('modules[0]')
     assert (reason.reason, reason.detail) == ('Power Loss', 'DPU power rail dropped')
     assert not hasattr(api.get_modules()[0], 'midplane_down_reason')
 
@@ -845,7 +1048,7 @@ def test_a_midplane_down_reason_given_as_a_string_is_the_whole_reason():
         def get_midplane_down_reason(self):
             return 'Power Loss'
     api = PlatformApi(RichChassis(modules=[StringModule('LC1')], modular=True))
-    reason = api.get_module_midplane_down_reason('LC1')
+    reason = api.get_module_midplane_down_reason('modules[0]')
     assert (reason.reason, reason.detail) == ('Power Loss', None)
 
 
@@ -854,7 +1057,7 @@ def test_a_module_that_cannot_say_why_its_midplane_went_down_says_so():
     caller sees; chassisd then publishes the reason as 'Unknown'."""
     api = PlatformApi(Chassis(modules=[Module('LC1')]))
     with pytest.raises(NotImplementedError, match='ModuleBase.get_midplane_down_reason'):
-        api.get_module_midplane_down_reason('LC1')
+        api.get_module_midplane_down_reason('modules[0]')
 
 
 def test_two_columns_of_one_getter_share_one_call():
@@ -891,13 +1094,14 @@ def test_two_columns_of_one_getter_share_one_call():
 
 def test_a_module_action_reaches_the_module():
     mod = FullModule('LC1')
-    PlatformApi(RichChassis(modules=[mod])).reboot_module('LC1', 'DPU')
+    PlatformApi(RichChassis(modules=[mod])).reboot_module('modules[0]', 'DPU')
     assert mod.rebooted == 'DPU'
 
 
 def test_pass_key_hands_the_module_its_own_name():
+    # The action takes the key; the base class takes the module's name.
     mod = FullModule('LC1')
-    PlatformApi(RichChassis(modules=[mod])).set_module_state_transition('LC1', 'recovery')
+    PlatformApi(RichChassis(modules=[mod])).set_module_state_transition('modules[0]', 'recovery')
     assert mod.transition == ('LC1', 'recovery')
 
 
@@ -975,12 +1179,12 @@ def test_components_come_from_the_chassis_and_from_modules():
 
 def test_a_firmware_query_takes_an_argument_and_is_not_a_column():
     api = PlatformApi(SensorChassis(components=[Component('BIOS')]))
-    assert api.get_available_firmware_version('BIOS', '/tmp/fw.bin') == 'from /tmp/fw.bin'
+    assert api.get_available_firmware_version('components[0]', '/tmp/fw.bin') == 'from /tmp/fw.bin'
 
 
 def test_a_component_action_reaches_the_component():
     comp = Component('BIOS')
-    PlatformApi(SensorChassis(components=[comp])).install_firmware('BIOS', '/tmp/fw.bin')
+    PlatformApi(SensorChassis(components=[comp])).install_firmware('components[0]', '/tmp/fw.bin')
     assert comp.installed == '/tmp/fw.bin'
 
 
@@ -1000,10 +1204,10 @@ def test_a_platform_with_no_sensors_yaml_is_the_common_case():
     assert len(api.get_sensors()) == 1
 
 
-def test_a_sensor_threshold_is_set_on_the_sensor_the_snapshot_named():
+def test_a_sensor_threshold_is_set_on_the_sensor_the_snapshot_keyed():
     sensor = Sensor('v1', 3300)
     api = PlatformApi(SensorChassis(voltage=[sensor]))
-    api.set_sensor_high_threshold('v1', 3600)
+    api.set_sensor_high_threshold(api.get_sensors()[0].key, 3600)
     assert sensor.high == 3600
 
 
@@ -1426,33 +1630,33 @@ class RecordingChassis(object):
 
 # (facade method, args, which device should have been asked, base-class method)
 ACTIONS = [
-    ('set_fan_led', ('fan 1', 'amber'), 'fan', 'set_status_led'),
-    ('set_fan_speed', ('fan 1', 30), 'fan', 'set_speed'),
-    ('set_fan_drawer_led', ('D1', 'green'), 'drawer', 'set_status_led'),
-    ('set_psu_led', ('P1', 'red'), 'psu', 'set_status_led'),
-    ('get_psu_master_led', ('P1',), 'psu', 'get_status_master_led'),
-    ('set_psu_master_led', ('P1', 'green'), 'psu', 'set_status_master_led'),
-    ('set_sensor_high_threshold', ('v1', 10), 'sensor', 'set_high_threshold'),
-    ('set_sensor_low_threshold', ('v1', 1), 'sensor', 'set_low_threshold'),
-    ('install_firmware', ('C1', '/i'), 'component', 'install_firmware'),
-    ('update_firmware', ('C1', '/i'), 'component', 'update_firmware'),
-    ('auto_update_firmware', ('C1', '/i', 'cold'), 'component', 'auto_update_firmware'),
-    ('get_available_firmware_version', ('C1', '/i'), 'component',
+    ('set_fan_led', ('fan_drawers[0]/fans[0]', 'amber'), 'fan', 'set_status_led'),
+    ('set_fan_speed', ('fan_drawers[0]/fans[0]', 30), 'fan', 'set_speed'),
+    ('set_fan_drawer_led', ('fan_drawers[0]', 'green'), 'drawer', 'set_status_led'),
+    ('set_psu_led', ('psus[0]', 'red'), 'psu', 'set_status_led'),
+    ('get_psu_master_led', ('psus[0]',), 'psu', 'get_status_master_led'),
+    ('set_psu_master_led', ('psus[0]', 'green'), 'psu', 'set_status_master_led'),
+    ('set_sensor_high_threshold', ('voltage_sensors[0]', 10), 'sensor', 'set_high_threshold'),
+    ('set_sensor_low_threshold', ('voltage_sensors[0]', 1), 'sensor', 'set_low_threshold'),
+    ('install_firmware', ('components[0]', '/i'), 'component', 'install_firmware'),
+    ('update_firmware', ('components[0]', '/i'), 'component', 'update_firmware'),
+    ('auto_update_firmware', ('components[0]', '/i', 'cold'), 'component', 'auto_update_firmware'),
+    ('get_available_firmware_version', ('components[0]', '/i'), 'component',
      'get_available_firmware_version'),
-    ('get_firmware_update_notification', ('C1', '/i'), 'component',
+    ('get_firmware_update_notification', ('components[0]', '/i'), 'component',
      'get_firmware_update_notification'),
-    ('reboot_module', ('M1', 'DPU'), 'module', 'reboot'),
-    ('set_module_admin_state', ('M1', True), 'module', 'set_admin_state'),
-    ('set_module_admin_state_gracefully', ('M1', True), 'module',
+    ('reboot_module', ('modules[0]', 'DPU'), 'module', 'reboot'),
+    ('set_module_admin_state', ('modules[0]', True), 'module', 'set_admin_state'),
+    ('set_module_admin_state_gracefully', ('modules[0]', True), 'module',
      'set_admin_state_gracefully'),
-    ('power_cycle_module', ('M1',), 'module', 'do_power_cycle'),
-    ('module_pre_shutdown', ('M1',), 'module', 'module_pre_shutdown'),
-    ('module_post_startup', ('M1',), 'module', 'module_post_startup'),
-    ('set_module_state_transition', ('M1', 'rec'), 'module',
+    ('power_cycle_module', ('modules[0]',), 'module', 'do_power_cycle'),
+    ('module_pre_shutdown', ('modules[0]',), 'module', 'module_pre_shutdown'),
+    ('module_post_startup', ('modules[0]',), 'module', 'module_post_startup'),
+    ('set_module_state_transition', ('modules[0]', 'rec'), 'module',
      'set_module_state_transition'),
-    ('clear_module_state_transition', ('M1',), 'module',
+    ('clear_module_state_transition', ('modules[0]',), 'module',
      'clear_module_state_transition'),
-    ('clear_module_gnoi_halt', ('M1',), 'module',
+    ('clear_module_gnoi_halt', ('modules[0]',), 'module',
      'clear_module_gnoi_halt_in_progress'),
     ('set_chassis_led', ('green',), 'chassis', 'set_status_led'),
     ('initialize_system_led', (), 'chassis', 'initizalize_system_led'),
@@ -1493,11 +1697,12 @@ def test_an_action_passes_its_arguments_through(method, args, device, expected):
     chassis = RecordingChassis([expected])
     getattr(PlatformApi(chassis), method)(*args)
     passed = getattr(chassis, device).calls[0][1]
-    # With On(), the first argument is the row name and is consumed by the
-    # lookup -- unless the declaration says pass_key, which only
-    # set_module_state_transition and clear_module_state_transition do.
+    # With On(), the first argument is the row's key and is consumed by the
+    # lookup -- and where the declaration says pass_key, which only
+    # set_module_state_transition and clear_module_state_transition do, the
+    # base class gets the module's own name in its place.
     if method.endswith('module_state_transition'):
-        assert passed == args
+        assert passed == ('M1',) + args[1:]
     elif device in ('chassis', 'watchdog', 'sed'):
         assert passed == args
     else:
@@ -1512,7 +1717,7 @@ def test_an_action_passes_its_arguments_through(method, args, device, expected):
 
 import inspect
 
-from platform_api import facade as facade_module
+from sonic_platform_api import facade as facade_module
 
 ROW_CLASSES = [
     obj for _name, obj in inspect.getmembers(facade_module, inspect.isclass)
@@ -1583,6 +1788,11 @@ def test_scalar_coerces_from_the_declared_types_only():
     scalar = facade_module._scalar
     assert scalar(1.5, (), ()) == 1.5
     assert scalar('12', ('N/A',), ('int', 'str')) == 12
+    assert isinstance(scalar('12', ('N/A',), ('int', 'str')), int)
+    # A whole number keeps every digit; a float would round it.
+    assert scalar('9007199254740993', ('N/A',), ('int', 'str')) == 9007199254740993
+    assert scalar('45.7', ('N/A',), ('int', 'str')) == 45.7
+    assert scalar('45.7', ('N/A',), ('int',)) is None
     assert scalar('1.5', ('N/A',), ('str',)) == 1.5
     assert scalar('nonsense', (), ('str',)) is None
     assert scalar(object(), (), ('int',)) is None
@@ -1624,6 +1834,13 @@ def test_omitted_is_readable_at_runtime():
     assert any(path == 'ChassisBase.get_num_psus'
                for path, _reason in facade_module.OMITTED)
     assert all(reason for _path, reason in facade_module.OMITTED)
+
+
+def test_deferred_is_readable_at_runtime_and_names_its_phase():
+    assert any(path == 'SfpBase.get_transceiver_info'
+               for path, _reason in facade_module.DEFERRED)
+    assert all('phase' in reason for _path, reason in facade_module.DEFERRED)
+    assert not {p for p, _r in facade_module.DEFERRED} & {p for p, _r in facade_module.OMITTED}
 
 
 # -- the hand-written half, against answers that are the wrong shape -------
@@ -1730,7 +1947,7 @@ def test_a_module_with_no_name_still_parents_its_asics():
 
 
 def test_the_sensors_yaml_provider_is_quiet_when_there_is_no_file():
-    from platform_api import _escape_hatch
+    from sonic_platform_api import _escape_hatch
     hatch = _escape_hatch.EscapeHatches(Chassis())
     assert hatch.voltage_sensors_from_yaml() == []
     assert hatch.current_sensors_from_yaml() == []
@@ -1785,7 +2002,7 @@ class FakePcie(object):
 
 
 def _hatch_with_pcie(pcie):
-    from platform_api import _escape_hatch
+    from sonic_platform_api import _escape_hatch
     hatch = _escape_hatch.EscapeHatches(Chassis())
     hatch._pcie, hatch._pcie_tried = pcie, True
     return hatch
@@ -1833,8 +2050,23 @@ def test_aer_stats_flatten_to_one_row_per_counter():
     }
 
 
+def test_a_platform_without_a_pcie_yaml_has_an_empty_parts_list(tmp_path):
+    """The base class answers a missing pcie.yaml with `sys.exit()`, after
+    printing two lines.  Let through, that is an exception a minute in a daemon
+    that is not Python, and two more lines in syslog each time; so it is the
+    empty list it means, and the object is not asked again."""
+    from sonic_platform_base.sonic_pcie.pcie_common import PcieUtil
+    util = PcieUtil(str(tmp_path))
+    hatch = _hatch_with_pcie(util)
+    with mock.patch.object(util, 'load_config_file', wraps=util.load_config_file) as load:
+        assert hatch.get_pcie_devices() == []
+        assert hatch.get_pcie_devices() == []
+        assert hatch.get_pcie_aer_stats(0, 0, 0) == []
+    assert load.call_count == 1
+
+
 def test_a_platform_with_no_pcie_module_answers_empty_rather_than_raising():
-    from platform_api import _escape_hatch
+    from sonic_platform_api import _escape_hatch
     hatch = _escape_hatch.EscapeHatches(Chassis())
     hatch._pcie_tried = True
     assert hatch.get_pcie_devices() == []
@@ -1892,7 +2124,7 @@ class FakeDisk(object):
 
 
 def _hatch_with_storage(devices):
-    from platform_api import _escape_hatch
+    from sonic_platform_api import _escape_hatch
 
     class Devices(object):
         pass
@@ -1929,12 +2161,51 @@ def test_a_disk_with_no_utility_class_is_a_row_that_says_so():
     assert row.model == 'N/A' and row.fs_io_reads is None
 
 
-def test_one_unreadable_field_does_not_cost_the_rest_of_the_disk():
-    disk = FakeDisk(broken=('get_temperature', 'get_fs_io_reads'))
-    row, = _hatch_with_storage({'sda': disk}).get_storage_devices()
-    assert row.temperature == 'N/A'
-    assert row.fs_io_reads is None
-    assert row.firmware == 'EDA7602Q', 'the rest of the disk still reads'
+def test_a_reading_that_raises_costs_that_pass_and_not_the_disk():
+    """stormond reads a disk in two passes, each in its own `try`: model and
+    serial once (stormond:315-332), the refresh every cycle
+    (stormond:339-393).  Whatever one raises -- NotImplementedError
+    included -- ends that pass for that disk, which publishes nothing of it,
+    and is logged as `str(ex)`; the other pass, and the other disks, go on."""
+    disk = FakeDisk(broken=('get_temperature',))
+    other = FakeDisk()
+    rows = _hatch_with_storage({'sda': disk, 'sdb': other}).get_storage_devices()
+    row = rows[0]
+    assert row.error == 'get_temperature' and row.static_error is None
+    assert (row.firmware, row.health, row.temperature, row.fs_io_reads) == (
+        'N/A', 'N/A', 'N/A', None), 'a failed pass publishes nothing of itself'
+    assert (row.model, row.serial) == ('SAMSUNG MZ', 'S3Z'), 'the other pass still reads'
+    assert rows[1].error is None and rows[1].temperature == '31', 'nor does it cost the other disk'
+
+
+def test_a_disk_whose_model_raises_is_a_static_error_only():
+    row, = _hatch_with_storage({'sda': FakeDisk(broken=('get_serial',))}).get_storage_devices()
+    assert row.static_error == 'get_serial' and row.error is None
+    assert (row.model, row.serial) == ('N/A', 'N/A'), 'the model it did read is not published either'
+    assert row.firmware == 'EDA7602Q'
+
+
+def test_any_exception_a_disk_raises_is_its_own():
+    """Not only the four the readings used to catch: a RuntimeError out of a
+    vendor's getter took the whole call -- and stormond with it -- where
+    Python catches it per disk."""
+    class Odd(FakeDisk):
+        def get_health(self):
+            raise RuntimeError('i2c timeout')
+
+    rows = _hatch_with_storage({'sda': Odd(), 'sdb': FakeDisk()}).get_storage_devices()
+    assert [(r.name, r.error) for r in rows] == [('sda', 'i2c timeout'), ('sdb', None)]
+
+
+def test_a_counter_that_is_not_a_number_is_absent_not_an_error():
+    """The getter answered; whether its answer parses is the facade's
+    business, not a failure of the disk's refresh."""
+    class Wordy(FakeDisk):
+        def get_fs_io_reads(self):
+            return 'many'
+
+    row, = _hatch_with_storage({'sda': Wordy()}).get_storage_devices()
+    assert row.error is None and row.fs_io_reads is None and row.fs_io_writes == 2121
 
 
 def test_the_counters_cross_as_numbers_and_the_readings_as_text():
@@ -1946,7 +2217,7 @@ def test_the_counters_cross_as_numbers_and_the_readings_as_text():
 
 
 def test_a_platform_with_no_storage_object_answers_empty():
-    from platform_api import _escape_hatch
+    from sonic_platform_api import _escape_hatch
     hatch = _escape_hatch.EscapeHatches(Chassis())
     hatch._storage_tried = True
     assert hatch.get_storage_devices() == []
@@ -1989,7 +2260,7 @@ def _module(name, **attrs):
 
 
 def _hatch():
-    from platform_api import _escape_hatch
+    from sonic_platform_api import _escape_hatch
     return _escape_hatch.EscapeHatches(Chassis())
 
 
@@ -2043,8 +2314,9 @@ def test_a_platform_without_its_own_pcie_class_falls_back_to_the_base_one():
 
 
 def test_a_platform_with_neither_pcie_class_is_not_an_error():
-    """The rows come back empty and pcied says it found nothing, which is the
-    same thing the Python daemon does with a missing config file."""
+    """The rows come back empty and pcied publishes no verdict.  The Python
+    daemon raises out of its constructor instead, and a restart cannot bring a
+    module back, so either way nothing is checked."""
     hatch = _hatch()
     with platform_dir(), fake_modules(**{
         'sonic_platform.pcie': None,
@@ -2111,17 +2383,18 @@ def test_the_storage_object_is_built_once_and_absence_is_not_an_error():
     assert hatch.get_storage_devices() == []
 
 
-def test_a_disk_whose_parse_fails_still_publishes_what_it_has():
-    """stormond's own per-device `except` fires after its dict is half-built
-    and it writes nothing; this writes the readings the constructor saw, which
-    is a stale row rather than no row."""
+def test_a_disk_whose_parse_fails_publishes_none_of_its_refresh():
+    """stormond's per-device `except` fires before anything of the refresh is
+    written (stormond:346, 392-393), so neither is anything here: the row
+    says why, and carries the model and serial its other pass read."""
     class Stubborn(FakeDisk):
         def fetch_parse_info(self, path):
             raise OSError('smartctl not found')
 
     row, = _hatch_with_storage({'sda': Stubborn()}).get_storage_devices()
     assert row.available is True
-    assert row.firmware == 'EDA7602Q', 'the constructor\'s reading, not this cycle\'s'
+    assert row.error == 'smartctl not found'
+    assert row.firmware == 'N/A' and row.model == 'SAMSUNG MZ'
 
 
 def test_the_facade_forwards_the_non_chassis_methods_to_the_hatch():
@@ -2145,22 +2418,23 @@ def test_the_facade_forwards_the_non_chassis_methods_to_the_hatch():
 # -- the eeprom hatch's three ways to have nothing -----------------------------
 
 
-def test_a_platform_with_no_eeprom_at_all_answers_false():
+def test_a_platform_with_no_eeprom_at_all_cannot_read_one():
     """Three ways not to have one, and a platform uses all three: no method,
     a method that raises, and a method that answers None."""
     hatch = _hatch()
-    assert hatch.eeprom_update_db() is False          # Chassis().get_eeprom raises
+    assert hatch.eeprom_update_db() == 'read_failed'  # Chassis().get_eeprom raises
 
     class NoMethod(object):
         pass
 
-    from platform_api import _escape_hatch
-    assert _escape_hatch.EscapeHatches(NoMethod()).eeprom_update_db() is False
+    from sonic_platform_api import _escape_hatch
+    assert _escape_hatch.EscapeHatches(NoMethod()).eeprom_update_db() == 'read_failed'
 
 
-def test_an_eeprom_that_cannot_be_read_leaves_the_table_alone():
-    """False rather than raising: the daemon logs and leaves the table as it
-    was, which beats half of one."""
+def test_an_eeprom_that_cannot_be_read_or_written_says_which():
+    """An answer rather than raising: the daemon logs which half failed
+    (syseepromd:85-96) and leaves the table as it was, which beats half of
+    one."""
     class Unreadable(object):
         def read_eeprom(self):
             raise NotImplementedError
@@ -2176,10 +2450,11 @@ def test_an_eeprom_that_cannot_be_read_leaves_the_table_alone():
         def update_eeprom_db(self, data):
             raise NotImplementedError
 
-    from platform_api import _escape_hatch
-    for eeprom in (Unreadable(), Empty(), Unwritable()):
+    from sonic_platform_api import _escape_hatch
+    for eeprom, said in ((Unreadable(), 'read_failed'), (Empty(), 'read_failed'),
+                         (Unwritable(), 'update_failed')):
         hatch = _escape_hatch.EscapeHatches(Chassis(eeprom=eeprom))
-        assert hatch.eeprom_update_db() is False
+        assert hatch.eeprom_update_db() == said
 
 
 def test_the_platforms_own_writer_reports_success_as_zero():
@@ -2195,9 +2470,10 @@ def test_the_platforms_own_writer_reports_success_as_zero():
         def update_eeprom_db(self, data):
             return self.rc
 
-    from platform_api import _escape_hatch
-    assert _escape_hatch.EscapeHatches(Chassis(eeprom=Eeprom(0))).eeprom_update_db() is True
-    assert _escape_hatch.EscapeHatches(Chassis(eeprom=Eeprom(1))).eeprom_update_db() is False
+    from sonic_platform_api import _escape_hatch
+    assert _escape_hatch.EscapeHatches(Chassis(eeprom=Eeprom(0))).eeprom_update_db() == 'updated'
+    assert (_escape_hatch.EscapeHatches(Chassis(eeprom=Eeprom(1))).eeprom_update_db()
+            == 'update_failed')
 
 
 def test_a_thermal_manager_that_refuses_to_report_an_interval():
@@ -2399,6 +2675,45 @@ def test_sensors_from_the_platform_yaml_are_published_first():
         ('yaml-v', 'voltage'), ('sys-v', 'voltage'), ('yaml-c', 'current')]
 
 
+class NamelessSensor(Sensor):
+    def get_name(self):
+        raise NotImplementedError
+
+
+def test_nameless_sensors_are_named_and_numbered_as_sensormond_does():
+    # sensormond:209 numbers the sensors.yaml ones and the chassis' own as one
+    # list, under '{parent} voltage_sensor {i}' (sensormond:246); a module's
+    # start again at 1 (:218-226); current sensors are 'current_sensor'
+    # (:356, 394).  The key is the device's own position all the same.
+    mod = Module('LC1')
+    mod.get_all_voltage_sensors = lambda: [NamelessSensor(None, 1, 'mV'),
+                                           NamelessSensor(None, 2, 'mV')]
+    mod.get_all_current_sensors = lambda: [NamelessSensor(None, 3, 'mA')]
+    chassis = SensorChassis(voltage=[NamelessSensor(None, 4, 'mV'), Sensor('sys-v', 5, 'mV')],
+                            current=[NamelessSensor(None, 6, 'mA')],
+                            modules=[mod], modular=True)
+    api = PlatformApi(chassis)
+    api._hatch._sensors_data = {
+        'voltage_sensors': [{'name': 'yaml-v1', 'sensor': '/sys/x'},
+                            {'name': 'yaml-v2', 'sensor': '/sys/y'}],
+        'current_sensors': [{'name': 'yaml-c', 'sensor': '/sys/z'}],
+    }
+    assert [(r.name, r.key) for r in api.get_sensors()] == [
+        ('yaml-v1', 'voltage_sensors_from_yaml[0]'),
+        ('yaml-v2', 'voltage_sensors_from_yaml[1]'),
+        ('chassis 1 voltage_sensor 3', 'voltage_sensors[0]'),
+        ('sys-v', 'voltage_sensors[1]'),
+        ('LC1 voltage_sensor 1', 'modules[0]/voltage_sensors[0]'),
+        ('LC1 voltage_sensor 2', 'modules[0]/voltage_sensors[1]'),
+        ('yaml-c', 'current_sensors_from_yaml[0]'),
+        ('chassis 1 current_sensor 2', 'current_sensors[0]'),
+        ('LC1 current_sensor 1', 'modules[0]/current_sensors[0]'),
+    ]
+    # Without a sensors.yaml the chassis' own count from 1.
+    assert [r.name for r in PlatformApi(chassis).get_sensors()][:2] == \
+        ['chassis 1 voltage_sensor 1', 'sys-v']
+
+
 # -- an optional source whose sequence goes wrong mid-iteration -------------
 #
 # `_call` already turns a raising accessor into an absent one, so the
@@ -2553,3 +2868,589 @@ def test_a_change_event_whose_mapping_is_not_a_mapping_yields_nothing():
 def test_update_firmware_whose_payload_is_flat_degrades_to_a_message():
     api = PlatformApi(OddChassis(bmc=OddBmc(update_firmware=(0, 'done'))))
     assert api.bmc_update_firmware('/i').message == 'done'
+
+
+# -- device keys -----------------------------------------------------------
+#
+# Names are not unique, and an action addressed by one acted on whichever
+# device came first.  A key is the path the walk took to the device.
+
+def _two_cards():
+    """A modular chassis whose two line cards each have a "BIOS"."""
+    cards = []
+    for name in ('LC1', 'LC2'):
+        card = Module(name)
+        card.bios = Component('BIOS')
+        card.get_all_components = lambda c=card: [c.bios]
+        cards.append(card)
+    return cards, SensorChassis(components=[Component('CPLD')], modules=cards, modular=True)
+
+
+def test_two_components_with_one_name_are_two_keys():
+    cards, chassis = _two_cards()
+    rows = PlatformApi(chassis).get_components()
+    assert [(r.name, r.parent_name, r.key, r.parent_key) for r in rows] == [
+        ('CPLD', 'chassis 1', 'components[0]', None),
+        ('BIOS', 'LC1', 'modules[0]/components[0]', 'modules[0]'),
+        ('BIOS', 'LC2', 'modules[1]/components[0]', 'modules[1]'),
+    ]
+
+
+def test_firmware_goes_to_the_component_the_key_names_not_the_first_by_that_name():
+    cards, chassis = _two_cards()
+    api = PlatformApi(chassis)
+    second = [r for r in api.get_components() if r.parent_name == 'LC2'][0]
+    assert api.install_firmware(second.key, '/tmp/fw.bin') is True
+    assert (cards[0].bios.installed, cards[1].bios.installed) == (None, '/tmp/fw.bin')
+
+
+def test_a_fan_carries_its_drawer_s_key_to_light_the_drawer_by():
+    fan = Fan('f1', 50)
+    drawer = Drawer('D1', [fan])
+    drawer.set_status_led = lambda color: setattr(drawer, 'led', color) or True
+    api = PlatformApi(Chassis(drawers=[drawer], psus=[Psu('P1', fans=[Fan('pf', 10)])]))
+    by_name = {r.name: r for r in api.get_fans()}
+    assert (by_name['f1'].key, by_name['f1'].parent_key) == ('fan_drawers[0]/fans[0]', 'fan_drawers[0]')
+    assert (by_name['pf'].key, by_name['pf'].parent_key) == ('psus[0]/fans[0]', 'psus[0]')
+    assert api.set_fan_drawer_led(by_name['f1'].parent_key, 'red') is True
+    assert drawer.led == 'red'
+
+
+@pytest.mark.parametrize('key', [
+    'psus[0]',                     # a PSU's key, handed to a fan action
+    'fan_drawers[0]/fans[5]',      # past the end of the list
+    'fan_drawers[0]/fans',         # a step that should carry a position
+    'fan_drawers[-1]/fans[0]',     # not a position
+    'fan 1',                       # a name
+    '',
+])
+def test_a_key_that_leads_to_no_fan_is_refused(key):
+    api = PlatformApi(Chassis(drawers=[Drawer('D1', [Fan('f1', 50)])], psus=[Psu('P1')]))
+    with pytest.raises(KeyError):
+        api.set_fan_led(key, 'red')
+
+
+def test_a_key_does_not_lead_where_the_walk_would_not():
+    # Module components are walked on a modular chassis only, so a key shaped
+    # like one leads nowhere on any other.
+    cards, chassis = _two_cards()
+    chassis._modular = False
+    with pytest.raises(KeyError):
+        PlatformApi(chassis).install_firmware('modules[1]/components[0]', '/tmp/fw.bin')
+
+
+def test_a_module_name_resolves_as_chassisd_resolves_it():
+    cards, chassis = _two_cards()
+    chassis.get_module_index = lambda name: {'LC1': 0, 'LC2': 1}.get(name, -1)
+    api = PlatformApi(chassis)
+    assert api.get_module_key('LC2') == 'modules[1]'
+    assert api.get_module_key('LC9') is None
+    del chassis.get_module_index
+    with pytest.raises(NotImplementedError, match='ChassisBase.get_module_index'):
+        api.get_module_key('LC1')
+
+
+def test_a_component_name_resolves_as_fwutil_resolves_it():
+    cards, chassis = _two_cards()
+    api = PlatformApi(chassis)
+    assert api.get_component_key('CPLD') == 'components[0]'
+    assert api.get_component_key('BIOS') is None
+    assert api.get_module_component_key('LC2', 'BIOS') == 'modules[1]/components[0]'
+    assert api.get_module_component_key('LC9', 'BIOS') is None
+    assert api.get_module_component_key('LC1', 'CPLD') is None
+    # fwutil's module commands refuse a chassis that is not modular.
+    chassis._modular = False
+    assert api.get_module_component_key('LC2', 'BIOS') is None
+
+
+def test_a_name_two_devices_answer_to_is_refused_rather_than_guessed():
+    cards, chassis = _two_cards()
+    chassis._comp.append(Component('CPLD'))
+    cards[1]._name = 'LC1'
+    api = PlatformApi(chassis)
+    with pytest.raises(ValueError, match='ambiguous'):
+        api.get_component_key('CPLD')
+    with pytest.raises(ValueError, match='ambiguous'):
+        api.get_module_component_key('LC1', 'BIOS')
+
+
+# -- a device that fails costs its own row (Snapshot(per_row_errors=True)) ---
+#
+# thermalctld reads each thermal and each fan in its own `try`, psud each PSU
+# and PDB, sensormond each sensor.  A getter that raises -- an I2C read that
+# times out, a PMBus page that answers garbage -- costs that device's
+# readings for the cycle and nothing else.
+
+def _eio():
+    return OSError(5, 'Input/output error')
+
+
+class FailingThermal(Thermal):
+    def get_temperature(self):
+        raise _eio()
+
+
+def test_one_thermal_that_fails_costs_only_its_own_readings():
+    api = PlatformApi(Chassis(thermals=[
+        Thermal('t1', 40.0), FailingThermal('t2', 41.0), Thermal('t3', 42.0)]))
+    rows = api.get_thermals()
+    assert [(r.name, r.temperature, r.error) for r in rows] == [
+        ('t1', 40.0, None),
+        ('t2', None, '[Errno 5] Input/output error'),
+        ('t3', 42.0, None),
+    ]
+    assert rows[1].error_repr == "OSError(5, 'Input/output error')"
+    assert rows[0].error_repr is None
+
+
+def test_a_thermal_whose_name_cannot_be_read_fails_the_call():
+    # Python reads the name outside its per-thermal `try` (thermalctld:1156),
+    # so that one fails the cycle there and the call here.
+    class Nameless(Thermal):
+        def get_name(self):
+            raise _eio()
+
+    with pytest.raises(OSError):
+        PlatformApi(Chassis(thermals=[Thermal('t1', 40.0), Nameless('t2')])).get_thermals()
+
+
+def test_a_fan_that_fails_is_still_a_row_with_its_name():
+    class Stalled(Fan):
+        def get_speed(self):
+            raise RuntimeError('tacho read failed')
+
+    api = PlatformApi(Chassis(drawers=[Drawer('D1', [Fan('f1', 50), Stalled('f2', 0)])]))
+    rows = api.get_fans()
+    assert [(r.name, r.speed_pct, r.error) for r in rows] == [
+        ('f1', 50, None), ('f2', None, 'tacho read failed')]
+    assert rows[1].error_repr == "RuntimeError('tacho read failed')"
+    assert rows[1].key == 'fan_drawers[0]/fans[1]'
+
+
+def test_a_psu_getter_that_raises_costs_that_column_only():
+    # psud reads every column through `try_get`, which takes any exception for
+    # "no answer" (psud:271-292): the PSU is published with that one field
+    # N/A and nothing is logged.  `Snapshot(absorbs=True)`.
+    class Faulty(Psu):
+        def get_voltage(self):
+            raise ValueError('bad PMBus word')
+
+        def get_current(self):
+            return 7
+
+    rows = PlatformApi(Chassis(psus=[Psu('PSU-1'), Faulty('PSU-2')])).get_psus()
+    assert [(r.name, r.voltage, r.current, r.presence) for r in rows] == [
+        ('PSU-1', None, None, True), ('PSU-2', None, 7, True)]
+    assert not hasattr(rows[1], 'error'), 'a PSU row carries no error: Python logs none'
+
+
+def test_a_psu_whose_name_raises_is_still_named_after_its_place():
+    class Nameless(Psu):
+        def get_name(self):
+            raise RuntimeError('no FRU')
+
+    row, = PlatformApi(Chassis(psus=[Nameless()])).get_psus()
+    assert (row.name, row.presence) == ('PSU 1', True)
+
+
+def test_the_column_whose_getter_raised_is_named():
+    # The column is what lets thermalctld do what Python had done by the time
+    # the exception struck; see `RowError`.
+    t, = PlatformApi(Chassis(thermals=[FailingThermal('t2', 41.0)])).get_thermals()
+    assert t.error_column == 'temperature'
+
+    class Stalled(Fan):
+        def get_speed(self):
+            raise RuntimeError('tacho read failed')
+
+    f, = PlatformApi(Chassis(drawers=[Drawer('D1', [Stalled('f1', 0)])])).get_fans()
+    assert f.error_column == 'speed_pct'
+
+    class Bad(Sensor):
+        def get_value(self):
+            raise _eio()
+
+    v, = PlatformApi(SensorChassis(voltage=[Bad('v1')])).get_sensors()
+    assert v.error_column == 'value'
+    ok, = PlatformApi(Chassis(thermals=[Thermal('t1', 40.0)])).get_thermals()
+    assert ok.error_column is None
+
+
+class OrderedFan(Fan):
+    """A fan that records what it was asked, in order, and fails at `fail`."""
+
+    def __init__(self, name, fail=None):
+        Fan.__init__(self, name, 50, 'exhaust')
+        self.asked, self._fail = [], fail
+
+    def _ask(self, what, value):
+        self.asked.append(what)
+        if what == self._fail:
+            raise RuntimeError(what)
+        return value
+
+    def get_name(self):
+        return self._ask('get_name', self._name)
+
+    def get_position_in_parent(self):
+        return self._ask('get_position_in_parent', 1)
+
+    def is_replaceable(self):
+        return self._ask('is_replaceable', True)
+
+    def get_presence(self):
+        return self._ask('get_presence', True)
+
+    def get_speed(self):
+        return self._ask('get_speed', 50)
+
+    def get_target_speed(self):
+        return self._ask('get_target_speed', 55)
+
+    def is_under_speed(self):
+        return self._ask('is_under_speed', False)
+
+    def is_over_speed(self):
+        return self._ask('is_over_speed', False)
+
+    def get_status(self):
+        return self._ask('get_status', True)
+
+    def get_direction(self):
+        return self._ask('get_direction', 'exhaust')
+
+    def get_model(self):
+        return self._ask('get_model', 'M')
+
+    def get_serial(self):
+        return self._ask('get_serial', 'S')
+
+    def get_status_led(self):
+        return self._ask('get_status_led', 'green')
+
+
+def test_a_fan_is_read_in_thermalctlds_order():
+    # thermalctld:457-479, then model and serial as the row is written
+    # (thermalctld:529-530); the LED in its own pass (thermalctld:558-570).
+    fan = OrderedFan('f1')
+    PlatformApi(Chassis(drawers=[Drawer('D1', [fan])])).get_fans()
+    assert fan.asked == ['get_name', 'get_position_in_parent', 'is_replaceable', 'get_presence',
+                         'get_speed', 'get_target_speed', 'is_under_speed', 'is_over_speed',
+                         'get_status', 'get_direction', 'get_model', 'get_serial',
+                         'get_status_led']
+
+
+def test_a_failed_fan_keeps_what_was_read_before_the_getter_that_raised():
+    fan = OrderedFan('f1', fail='get_target_speed')
+    row, = PlatformApi(Chassis(drawers=[Drawer('D1', [fan])])).get_fans()
+    assert (row.presence, row.speed_pct, row.is_replaceable) == (True, 50, True)
+    assert (row.target_speed_pct, row.model, row.status) == (None, None, False)
+    assert row.error_column == 'target_speed_pct'
+    assert fan.asked[-1] == 'get_target_speed', 'nothing after it is asked'
+
+
+def test_an_absent_fan_is_not_asked_what_only_a_present_one_answers():
+    # thermalctld asks for the speeds, their verdicts, the status and the
+    # direction only `if presence:` (thermalctld:471-478): an absent fan
+    # whose speed would raise is still published, with those N/A.
+    class Absent(OrderedFan):
+        def get_presence(self):
+            return self._ask('get_presence', False)
+
+    fan = Absent('f1', fail='get_speed')
+    row, = PlatformApi(Chassis(drawers=[Drawer('D1', [fan])])).get_fans()
+    assert (row.presence, row.error, row.error_column) == (False, None, None)
+    assert (row.speed_pct, row.target_speed_pct, row.is_under_speed, row.is_over_speed,
+            row.status, row.direction) == (None, None, None, None, False, None)
+    assert (row.model, row.serial) == ('M', 'S'), 'what Python asks of any fan, it asks'
+    assert fan.asked == ['get_name', 'get_position_in_parent', 'is_replaceable', 'get_presence',
+                         'get_model', 'get_serial', 'get_status_led']
+
+
+def test_absorbing_does_not_gate_on_the_fans_own_presence():
+    # psud gates a PSU's fans on the PSU's presence, never the fan's
+    # (psud:945-950), and does not ask for the fan's presence at all.
+    class Absent(OrderedFan):
+        def get_presence(self):
+            return self._ask('get_presence', False)
+
+    fan = Absent('f1', fail='get_speed')
+    api = PlatformApi(Chassis(drawers=[Drawer('D1', [fan])]))
+    row, = api.get_fans(absorb=True)
+    assert (row.speed_pct, row.direction) == (None, 'exhaust'), 'asked, and the raise absorbed'
+    assert 'get_speed' in fan.asked and 'get_direction' in fan.asked
+    fan.asked[:] = []
+    row, = api.get_fans(FanInfoCols.SPEED_PCT | FanInfoCols.DIRECTION, absorb=True)
+    assert row.direction == 'exhaust', 'nor when the caller did not ask for presence'
+    assert 'get_presence' not in fan.asked
+
+
+def test_absorbing_reads_every_fan_column_on_its_own():
+    # psud reads a PSU's fans one `try_get` at a time (psud:943-960).
+    fan = OrderedFan('f1', fail='get_target_speed')
+    api = PlatformApi(Chassis(drawers=[Drawer('D1', [fan])]))
+    row, = api.get_fans(absorb=True)
+    assert (row.speed_pct, row.target_speed_pct, row.model) == (50, None, 'M')
+    assert (row.error, row.error_repr, row.error_column) == (None, None, None)
+    assert fan.asked[-1] == 'get_status_led', 'every column is still asked'
+
+
+def test_a_reading_keeps_the_side_of_int_or_float_it_arrived_on():
+    # thermalctld publishes `str(temperature)`: 3 is "3", 3.0 is "3.0"
+    # (thermalctld:1272).
+    rows = PlatformApi(Chassis(thermals=[Thermal('i', 3), Thermal('f', 3.0)])).get_thermals()
+    assert [(type(r.temperature), r.temperature) for r in rows] == [(int, 3), (float, 3.0)]
+    fans = PlatformApi(Chassis(drawers=[Drawer('D1', [Fan('a', 50), Fan('b', 50.5)])])).get_fans()
+    assert [r.speed_pct for r in fans] == [50, 50.5]
+    assert type(fans[0].speed_pct) is int
+
+
+@pytest.mark.parametrize('method,called', [
+    ('set_module_admin_state', 'set_admin_state'),
+    ('set_module_admin_state_gracefully', 'set_admin_state_gracefully'),
+])
+def test_the_admin_state_reaches_the_platform_as_chassisd_passes_it(method, called):
+    # chassisd hands the module its MODULE_ADMIN_UP / MODULE_ADMIN_DOWN, the
+    # ints 1 and 0 (chassisd:103-104, 333, 377); `up` is a bool on this side.
+    for up, want in ((True, 1), (False, 0)):
+        chassis = RecordingChassis([called])
+        getattr(PlatformApi(chassis), method)('modules[0]', up)
+        passed, = chassis.module.calls[0][1]
+        assert (type(passed), passed) == (int, want)
+
+
+def test_a_sensor_that_fails_is_still_a_row():
+    class Bad(Sensor):
+        def get_value(self):
+            raise _eio()
+
+    rows = PlatformApi(SensorChassis(voltage=[Bad('v1'), Sensor('v2', 12000, 'mV')])).get_sensors()
+    assert [(r.name, r.error_repr) for r in rows] == [
+        ('v1', "OSError(5, 'Input/output error')"), ('v2', None)]
+
+
+def test_a_drawer_that_fails_still_fails_the_call():
+    # Drawers are not read in a `try` of their own (thermalctld:399-400).
+    class Broken(Drawer):
+        def get_presence(self):
+            raise _eio()
+
+    with pytest.raises(OSError):
+        PlatformApi(Chassis(drawers=[Broken('D1', [])])).get_fan_drawers()
+
+
+def test_declining_is_not_failing():
+    # NotImplementedError, and None, are a platform without the getter.
+    api = PlatformApi(Chassis(thermals=[Thermal('t', None)]))
+    assert api.get_thermals()[0].error is None
+
+
+# -- thermals by key, by kind, and on demand -----------------------------------
+
+class CountingThermal(Thermal):
+    """A thermal that counts what it was asked."""
+
+    def __init__(self, name, temp=40.0, high=80.0):
+        Thermal.__init__(self, name, temp, high)
+        self.asked = []
+
+    def get_temperature(self):
+        self.asked.append('temperature')
+        return self._temp
+
+    def get_high_threshold(self):
+        self.asked.append('high')
+        return self._high
+
+    def get_position_in_parent(self):
+        self.asked.append('position')
+        return 7
+
+
+def test_every_thermal_source_says_what_it_is_and_where():
+    chassis = LoadedChassis()
+    chassis._thermals = [Thermal('c', 1.0)]
+    chassis._psus = [Psu('P1', thermals=[Thermal('p', 2.0)])]
+    chassis.module._thermals = [Thermal('m', 3.0)]
+    chassis.module._psus = [Psu(None, thermals=[Thermal('mp', 4.0)])]
+    rows = PlatformApi(chassis).get_thermals()
+    assert [(r.name, r.kind, r.key, r.parent_key) for r in rows] == [
+        ('c', 'chassis', 'thermals[0]', None),
+        ('p', 'psu', 'psus[0]/thermals[0]', 'psus[0]'),
+        ('pdb-t', 'pdb', 'pdbs[0]/thermals[0]', 'pdbs[0]'),
+        ('m', 'module', 'modules[0]/thermals[0]', 'modules[0]'),
+        ('mp', 'module_psu', 'modules[0]/psus[0]/thermals[0]', 'modules[0]/psus[0]'),
+    ]
+
+
+def test_a_skipped_thermal_reads_only_its_name_and_position():
+    due, skipped = CountingThermal('due'), CountingThermal('skipped')
+    api = PlatformApi(Chassis(thermals=[due, skipped]))
+    rows = api.get_thermals(skip=['thermals[1]', 'thermals[9]'])
+    assert skipped.asked == ['position']
+    assert (rows[1].name, rows[1].position_in_parent, rows[1].temperature) == ('skipped', 7, None)
+    assert due.asked == ['position', 'temperature', 'high']
+    assert (rows[0].temperature, rows[0].high_threshold) == (40.0, 80.0)
+
+
+def test_a_key_not_in_the_skip_list_is_read_in_full():
+    # A thermal seen for the first time is due, as a name Python has no
+    # last-update time for is (thermalctld:1137).
+    t = CountingThermal('new')
+    PlatformApi(Chassis(thermals=[t])).get_thermals(skip=['psus[0]/thermals[0]'])
+    assert 'temperature' in t.asked
+
+
+def test_no_temperature_means_no_limits_asked_for():
+    # thermalctld:1246-1253.  'N/A' is no temperature too.
+    for temp in (None, 'N/A'):
+        t = CountingThermal('t', temp=temp)
+        row, = PlatformApi(Chassis(thermals=[t])).get_thermals()
+        assert 'high' not in t.asked
+        assert row.high_threshold is None
+
+
+def test_a_declined_temperature_declines_the_limits_with_it():
+    from sonic_platform_api.facade import ThermalInfoCols
+    t = CountingThermal('t')
+    PlatformApi(Chassis(thermals=[t])).get_thermals(ThermalInfoCols.HIGH_THRESHOLD)
+    assert t.asked == []
+
+
+# -- names the daemons publish -------------------------------------------------
+
+def test_an_unnamed_pdb_is_not_named_after_a_psu():
+    # psud:260-268: 'PSU {i}' and 'PDB {i}'.
+    class WithPdb(Chassis):
+        def get_all_pdbs(self):
+            return [Psu(None)]
+
+    rows = PlatformApi(WithPdb(psus=[Psu(None)])).get_psus()
+    assert [(r.name, r.kind) for r in rows] == [('PSU 1', 'psu'), ('PDB 1', 'pdb')]
+
+
+@pytest.mark.parametrize('presence, published', [
+    (NotImplementedError, True),
+    (None, True),
+    (False, False),
+    (True, True),
+])
+def test_a_pdb_that_does_not_say_whether_it_is_there_is_taken_to_be(presence, published):
+    # thermalctld:1189 asks `try_get(pdb.get_presence)`, and the 'N/A' it
+    # answers for no answer is truthy.
+    class Pdb(Psu):
+        def get_presence(self):
+            if presence is NotImplementedError:
+                raise NotImplementedError
+            return presence
+
+    class WithPdb(Chassis):
+        def get_all_pdbs(self):
+            return [Pdb('PDB-1', thermals=[Thermal('pdb-t', 30.0)])]
+
+    got = names(PlatformApi(WithPdb()).get_thermals())
+    assert got == ([('pdb-t', 'PDB-1')] if published else [])
+
+
+class VirtualDrawer(Drawer):
+    """Mellanox's drawer for fans that are not hot-swappable: named 'N/A'."""
+
+    def get_name(self):
+        return 'N/A'
+
+
+class NamelessDrawer(Drawer):
+    def get_name(self):
+        raise NotImplementedError
+
+
+@pytest.mark.parametrize('drawer', [VirtualDrawer, NamelessDrawer])
+def test_the_fans_of_a_drawer_without_a_name_are_the_chassiss(drawer):
+    # thermalctld:450-456: drawer_name is str(try_get(get_name)), 'N/A', and
+    # the fan is published under the chassis.
+    api = PlatformApi(Chassis(drawers=[drawer(None, [Fan('fan1', 50), Fan(None, 60)])]))
+    assert [(f.name, f.parent_name, f.drawer_name) for f in api.get_fans()] == [
+        ('fan1', 'chassis 1', 'N/A'),
+        ('chassis 1 fan 2', 'chassis 1', 'N/A'),
+    ]
+    # And the drawer itself is 'N/A', which thermalctld publishes nothing for.
+    assert [d.name for d in api.get_fan_drawers()] == ['N/A']
+
+
+# -- keys that lead nowhere ----------------------------------------------------
+
+def test_a_key_that_leads_nowhere_is_device_not_found():
+    from sonic_platform_api.facade import DeviceNotFound
+    api = PlatformApi(Chassis(drawers=[Drawer('D1', [Fan('f1', 50)])]))
+    for key in ('fan_drawers[9]/fans[0]', 'not a key', 'psus[0]'):
+        with pytest.raises(DeviceNotFound):
+            api.set_fan_led(key, 'red')
+    assert issubclass(DeviceNotFound, KeyError)
+
+
+def test_a_vendors_own_key_error_is_not_device_not_found():
+    from sonic_platform_api.facade import DeviceNotFound
+
+    class Picky(Fan):
+        def set_status_led(self, color):
+            raise KeyError(color)
+
+    api = PlatformApi(Chassis(drawers=[Drawer('D1', [Picky('f1', 50)])]))
+    with pytest.raises(KeyError) as caught:
+        api.set_fan_led('fan_drawers[0]/fans[0]', 'red')
+    assert not isinstance(caught.value, DeviceNotFound)
+
+
+# -- sensors.yaml sensors are built once ----------------------------------------
+
+def test_the_sensors_yaml_sensors_are_built_once_and_remember(tmp_path):
+    """sensormond builds them once (sensormond:521-523), and `SensorFs` seeds
+    its recorded extremes from the reading it was built with and moves them as
+    readings come in.  Rebuilt per call, they recorded the current value and
+    nothing else."""
+    sysfs = tmp_path / 'in1_input'
+    api = PlatformApi(Chassis())
+    api._hatch._sensors_data = {'voltage_sensors': [{'name': 'yaml-v', 'sensor': str(sysfs)}]}
+    seen = []
+    for value in (1000, 1200, 900):
+        sysfs.write_text('%d\n' % value)
+        row, = api.get_sensors()
+        seen.append((row.value, row.min_recorded, row.max_recorded))
+    assert seen == [(1000, 1000, 1000), (1200, 1000, 1200), (900, 900, 1200)]
+    assert api._hatch.voltage_sensors_from_yaml() is api._hatch.voltage_sensors_from_yaml()
+
+
+# -- what a row says about itself ----------------------------------------------
+
+def test_a_secret_column_is_there_but_not_shown():
+    from sonic_platform_api.facade import BmcResult
+    row = BmcResult(code=0, message='ok', session_id='s1', token='SECRET-TOKEN')
+    assert 'SECRET-TOKEN' not in repr(row)
+    assert "token=<redacted>" in repr(row)
+    assert "session_id='s1'" in repr(row)
+    assert 'token=None' in repr(BmcResult(code=1))
+
+
+def test_a_number_that_is_not_an_int_keeps_its_fraction():
+    import decimal
+    import numbers
+    scalar = facade_module._scalar
+
+    class Float32(object):
+        """A numpy.float32: not a float subclass, converts with __float__."""
+        def __float__(self):
+            return 45.70000076293945
+
+        def __int__(self):
+            return 45
+
+    class Int64(object):
+        def __int__(self):
+            return 7
+
+    numbers.Integral.register(Int64)
+    assert scalar(decimal.Decimal('45.7'), ('N/A',), ('int', 'str')) == 45.7
+    assert scalar(Float32(), ('N/A',), ('int', 'str')) == 45.70000076293945
+    assert scalar(Int64(), ('N/A',), ('int', 'str')) == 7
+    assert isinstance(scalar(Int64(), ('N/A',), ('int', 'str')), int)
+    assert scalar('N/A', ('N/A',), ('int', 'str')) is None

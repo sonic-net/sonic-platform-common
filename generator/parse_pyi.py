@@ -1,21 +1,4 @@
-#
-# SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-"""Read `platform_api/facade.pyi` into the model, with `ast`.
+"""Read `sonic_platform_api/facade.pyi` into the model, with `ast`.
 
 The stub is never imported.  `ast` is in the standard library, so the
 generator has no build-time dependency on a type checker -- `mypy` gates the
@@ -31,6 +14,7 @@ field can refer to one by name rather than repeating it.
 
 import ast
 import os
+import string
 
 from model import (
     EnumSpec,
@@ -39,11 +23,12 @@ from model import (
     MethodSpec,
     RowSpec,
     SourceSpec,
+    rust_type,
     strip_optional,
 )
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-FACADE_PYI = os.path.join(HERE, os.pardir, 'platform_api', 'facade.pyi')
+FACADE_PYI = os.path.join(HERE, os.pardir, 'sonic_platform_api', 'facade.pyi')
 
 
 class ParseError(Exception):
@@ -108,11 +93,12 @@ def _module_consts(tree):
     return consts
 
 
-def _omitted(tree):
-    """The stub's OMITTED declaration: what the facade deliberately leaves out."""
+def _listed(tree, name):
+    """One of the stub's (path, reason) declarations: OMITTED, what the facade
+    deliberately leaves out, or DEFERRED, what a later phase declares."""
     for node in tree.body:
         target = getattr(node, 'target', None)
-        if isinstance(node, ast.AnnAssign) and getattr(target, 'id', '') == 'OMITTED':
+        if isinstance(node, ast.AnnAssign) and getattr(target, 'id', '') == name:
             return tuple(ast.literal_eval(node.value))
     return ()
 
@@ -156,6 +142,10 @@ def _field(node, consts):
             spec.at = kw.get('at', args[1] if len(args) > 1 else None)
         elif name == 'Parent':
             spec.is_parent = True
+        elif name == 'Key':
+            spec.is_key = True
+        elif name == 'ParentKey':
+            spec.is_parent_key = True
         elif name == 'Observed':
             spec.sentinels = tuple(kw.get('sentinels', args[0] if args else ()))
             spec.coerce_from = tuple(kw.get('coerce_from', args[1] if len(args) > 1 else ()))
@@ -165,9 +155,30 @@ def _field(node, consts):
             spec.narrowed = True
         elif name == 'Truthy':
             spec.truthy = True
+        elif name == 'Unguarded':
+            spec.unguarded = True
+        elif name == 'ReadIf':
+            spec.read_if = args[0] if args else kw['column']
+            spec.read_if_truthy = bool(kw.get('truthy', False))
+            spec.read_if_absorbing = bool(kw.get('when_absorbing', True))
+        elif name == 'RowError':
+            as_repr = kw.get('repr', args[0] if args else False)
+            as_column = kw.get('column', args[1] if len(args) > 1 else False)
+            if as_repr and as_column:
+                raise ParseError('%s: RowError() is the message, its repr or the column,'
+                                 ' one of them' % spec.name)
+            spec.row_error = 'repr' if as_repr else 'column' if as_column else 'str'
+        elif name == 'Secret':
+            spec.secret = True
         elif name == 'Unsupported':
             spec.unsupported_on = kw.get('on', args[0] if args else 'none')
             spec.default = kw.get('default', args[1] if len(args) > 1 else None)
+            # 'error' was declared and never generated: it read exactly as
+            # 'none'.  Refused rather than accepted, because the stub is the
+            # contract and a value that changes nothing is a promise nobody keeps.
+            if spec.unsupported_on not in ('none', 'default'):
+                raise ParseError('%s: Unsupported(on=%r) is not implemented; a field is'
+                                 ' "none" or "default"' % (spec.name, spec.unsupported_on))
         else:
             raise ParseError('%s: unknown field metadata %r' % (spec.name, name))
     return spec
@@ -197,6 +208,14 @@ def _sources(node, consts):
             else:
                 raise ParseError('via takes a path or a Via(), got %r' % (entry,))
         via = tuple(via)
+        provider = skw.get('provider', '')
+        mapping = skw.get('mapping', '')
+        from_ = sargs[0] if sargs else skw.get('from_', '')
+        # Named by whichever origin it has.  `sargs[0]` is only the positional
+        # `from_`; a `mapping=` or `provider=` source has no positional
+        # argument, and indexing for one turned the parent_default error below
+        # into an IndexError that named nothing.
+        label = from_ or mapping or provider or 'FlattenSource()'
         pd = skw.get('parent_default', '')
         if isinstance(pd, str):
             pd = (pd,)
@@ -204,27 +223,64 @@ def _sources(node, consts):
         if len(pd) != levels:
             raise ParseError(
                 '%s: parent_default has %d entries for %d via level(s)'
-                % (sargs[0], len(pd), levels))
-        provider = skw.get('provider', '')
-        mapping = skw.get('mapping', '')
-        from_ = sargs[0] if sargs else skw.get('from_', '')
+                % (label, len(pd), levels))
+        when_unsupported = skw.get('when_unsupported', 'absent')
+        if when_unsupported not in ('absent', 'present'):
+            raise ParseError('%s: when_unsupported is "absent" or "present", not %r'
+                             % (label, when_unsupported))
+        if 'when_unsupported' in skw and not skw.get('when'):
+            raise ParseError('%s: when_unsupported without a when' % label)
+        parent_missing = tuple(skw.get('parent_missing', ()))
+        if parent_missing and not (skw.get('parent') and via):
+            raise ParseError('%s: parent_missing needs a parent getter to apply to' % label)
+        sets = tuple(skw.get('sets', ()))
+        if any(v == '@parent_raw' for _f, v in sets) and not (skw.get('parent') and via):
+            raise ParseError('%s: "@parent_raw" needs a parent getter to read' % label)
         if sum(1 for x in (from_, mapping, provider) if x) != 1:
             raise ParseError(
                 'a FlattenSource takes exactly one of from_, mapping or '
                 'provider: %r / %r / %r' % (from_, mapping, provider))
+        index_from_previous = bool(skw.get('index_from_previous', False))
+        if index_from_previous:
+            # One numbering over two lists only makes sense where both hang
+            # off the same fixed parent: with a `via`, `{i}` is the position
+            # under whichever parent this row came from.
+            prev = out[-1] if out else None
+            if prev is None:
+                raise ParseError('%s: index_from_previous on the first source, which'
+                                 ' has nothing before it to count on from' % label)
+            for who, s_via, s_mapping, s_single in ((label, via, mapping, skw.get('single')),
+                                                     (prev.describes, prev.via, prev.mapping,
+                                                      prev.single)):
+                if s_via or s_mapping or s_single:
+                    raise ParseError('%s: index_from_previous needs it and the source before'
+                                     ' it to be plain lists under one fixed parent; %s is not'
+                                     % (label, who))
+            if '{i}' in pd[0]:
+                # The parent would be named by one position and the row by
+                # another.
+                raise ParseError('%s: index_from_previous under a parent named by'
+                                 ' position (%r)' % (label, pd[0]))
+            if prev.parent_default != pd:
+                raise ParseError('%s: index_from_previous counts on from a source under'
+                                 ' another parent (%r, not %r)'
+                                 % (label, prev.parent_default[0], pd[0]))
         out.append(SourceSpec(
             from_=from_,
             mapping=mapping,
             provider=provider,
             via=via,
             when=skw.get('when'),
+            when_unsupported=when_unsupported,
             when_chassis=skw.get('when_chassis'),
             parent=skw.get('parent'),
+            parent_missing=parent_missing,
             parent_default=pd,
+            index_from_previous=index_from_previous,
             optional=bool(skw.get('optional', False)),
             single=bool(skw.get('single', False)),
             reaches=tuple(skw.get('reaches', ())),
-            sets=tuple(skw.get('sets', ())),
+            sets=sets,
         ))
     return out
 
@@ -243,23 +299,42 @@ def _method(node, consts):
     for dec in node.decorator_list:
         if _callee(dec) != 'platform_method':
             continue
+        names = [_resolve(meta, consts)[0] for meta in dec.args]
+        if 'Snapshot' in names and 'EscapeHatch' in names:
+            # A hand-written body reads when it is called and as it is
+            # written; nothing a Snapshot says would reach it.
+            raise ParseError('%s: an EscapeHatch is not also a Snapshot; its body'
+                             ' is hand-written' % spec.name)
         for meta in dec.args:
             name, args, kw = _resolve(meta, consts)
             if name == 'Snapshot':
-                # An EscapeHatch stays one: the body is hand-written whatever
-                # else the declaration says about how often it is read.
-                if spec.kind != 'escape':
-                    spec.kind = 'snapshot'
-                spec.snapshot_scope = kw.get('scope', args[0] if args else 'per_call')
+                if args or 'scope' in kw:
+                    # Declared once and never generated: per_cycle and per_call
+                    # produced the same code.  Every snapshot reads on call.
+                    raise ParseError('%s: Snapshot(scope=...) is not implemented;'
+                                     ' a snapshot reads when it is called' % spec.name)
+                spec.kind = 'snapshot'
                 spec.projected = bool(kw.get('projected', False))
+                spec.skippable = bool(kw.get('skippable', False))
+                spec.per_row_errors = bool(kw.get('per_row_errors', False))
+                spec.absorbs = bool(kw.get('absorbs', False))
+                spec.absorbable = bool(kw.get('absorbable', False))
+                unknown = set(kw) - {'projected', 'skippable', 'per_row_errors',
+                                     'absorbs', 'absorbable'}
+                if unknown:
+                    raise ParseError('%s: Snapshot(%s) is not implemented'
+                                     % (spec.name, ', '.join(sorted(unknown))))
             elif name == 'Unsupported':
-                spec.unsupported_on = kw.get('on', args[0] if args else 'none')
+                raise ParseError('%s: Unsupported() on a method is not implemented: an'
+                                 ' action raises NotImplementedError for a missing method'
+                                 ' and passes on anything else; see Calls' % spec.name)
             elif name == 'On':
                 spec.row = kw.get('row', args[0] if args else None)
                 spec.pass_key = bool(kw.get('pass_key', False))
             elif name == 'Calls':
                 spec.calls = kw.get('path', args[0] if args else None)
                 spec.calls_at = kw.get('at', args[1] if len(args) > 1 else None)
+                spec.calls_ints = tuple(kw.get('ints', ()))
             elif name == 'EscapeHatch':
                 spec.kind = 'escape'
                 spec.escape_reason = kw.get('reason', args[0] if args else '')
@@ -283,7 +358,8 @@ def _method(node, consts):
 def parse(path=FACADE_PYI):
     tree = ast.parse(open(path).read(), filename=path)
     consts = _module_consts(tree)
-    model = Model(enums=_literal_aliases(tree), omitted=_omitted(tree))
+    model = Model(enums=_literal_aliases(tree), omitted=_listed(tree, 'OMITTED'),
+                  deferred=_listed(tree, 'DEFERRED'))
 
     for node in tree.body:
         if not isinstance(node, ast.ClassDef):
@@ -347,7 +423,7 @@ def parse(path=FACADE_PYI):
 def _returned_row(m, declared_rows):
     """The row a method hands back, if its return type names one.
 
-    Not `m.row`: that is the row an action *addresses by name*, which for
+    Not `m.row`: that is the row an action *addresses by key*, which for
     `get_module_reboot_cause(module)` is ModuleInfo.  What it returns is a
     different thing.
     """
@@ -357,11 +433,88 @@ def _returned_row(m, declared_rows):
     return base if base in declared_rows else None
 
 
+def _validate_guard(row, snap):
+    """`per_row_errors`, `skippable` and the column metadata they read."""
+    errs = {f.row_error: f for f in row.fields if f.row_error}
+    guarded = bool(snap and snap.per_row_errors)
+    spelled = {'str': ('error', ''), 'repr': ('error_repr', 'repr=True'),
+               'column': ('error_column', 'column=True')}
+    for f in errs.values():
+        want, arg = spelled[f.row_error]
+        if (f.name, f.py_type) != (want, 'Optional[str]') or f.from_ or f.is_parent \
+                or f.is_key or f.is_parent_key:
+            raise ParseError('%s.%s: RowError(%s) is spelled `%s: Optional[str]` and nothing'
+                             ' else' % (row.name, f.name, arg, want))
+    absorbs = bool(snap and snap.absorbs)
+    absorbable = bool(snap and snap.absorbable)
+    if absorbs and (guarded or absorbable):
+        raise ParseError('%s: absorbs reads every row that way; per_row_errors or absorbable'
+                         ' beside it would never be used' % snap.name)
+    if absorbable and not guarded:
+        raise ParseError('%s: absorbable is a choice between absorbing and per_row_errors;'
+                         ' declare per_row_errors too' % snap.name)
+    if (absorbs or absorbable) and snap.singleton:
+        raise ParseError('%s: a singleton has no rows to read one column at a time'
+                         % snap.name)
+    if (absorbs or absorbable) and any(f.unguarded for f in row.fields):
+        raise ParseError('%s: Unguarded() and absorbing are not one mode any daemon has: a'
+                         ' getter either fails the read or costs its own column' % row.name)
+    if guarded and set(errs) != set(spelled):
+        raise ParseError('%s: its snapshot is per_row_errors, so it declares `error`,'
+                         ' `error_repr` and `error_column` as RowError() columns' % row.name)
+    if errs and not guarded:
+        raise ParseError('%s declares RowError() columns, but no snapshot answering it is'
+                         ' per_row_errors: nothing would ever set them' % row.name)
+    if snap and snap.singleton and guarded:
+        raise ParseError('%s: a singleton has no other rows to keep; per_row_errors is'
+                         ' for a list' % row.name)
+    skippable = bool(snap and snap.skippable)
+    if skippable and not snap.projected:
+        raise ParseError('%s: skippable needs projected -- a skipped row is read with'
+                         ' fewer columns' % snap.name)
+    if skippable and not any(f.is_key for f in row.fields):
+        raise ParseError('%s: skippable names rows by key, and %s has no Key()'
+                         % (snap.name, row.name))
+    earlier = {}
+    for f in row.fields:
+        if f.unguarded:
+            if not (guarded or skippable):
+                raise ParseError('%s.%s: Unguarded() means something only on a row whose'
+                                 ' snapshot is per_row_errors or skippable' % (row.name, f.name))
+            if not f.from_:
+                raise ParseError('%s.%s: Unguarded() is for a column read off the device'
+                                 % (row.name, f.name))
+        # A skipped row reads only its unguarded columns, and `name` is read
+        # whatever the column set says; so on a skippable row it has to be one.
+        if skippable and f.name == 'name' and f.from_ and not f.unguarded:
+            raise ParseError('%s.name: a skipped row still reads its name, so on a'
+                             ' skippable row it is Unguarded()' % row.name)
+        if f.read_if is not None:
+            src = earlier.get(f.read_if)
+            if src is None or not src.from_:
+                raise ParseError('%s.%s: ReadIf(%r) names no column read before it'
+                                 % (row.name, f.name, f.read_if))
+            # Not read is absent: None, or the declared default where there is
+            # one -- what a declined column holds too.
+            if not f.from_ or not (f.optional or f.unsupported_on == 'default'):
+                raise ParseError('%s.%s: ReadIf() is for a column read off the device that'
+                                 ' is Optional or has a default' % (row.name, f.name))
+            if not f.read_if_absorbing and not absorbable:
+                raise ParseError('%s.%s: ReadIf(when_absorbing=False) means something only'
+                                 ' on a snapshot that is absorbable' % (row.name, f.name))
+            if f.unguarded != src.unguarded:
+                raise ParseError('%s.%s: ReadIf(%r) across the guard; both sides or neither'
+                                 % (row.name, f.name, f.read_if))
+        earlier[f.name] = f
+
+
 def _validate(model):
     """Catch in the model what neither mypy nor stubtest can see."""
     enum_names = model.enum_names
+    snapshots = {m.row: m for m in model.methods if m.kind == 'snapshot'}
     for row in model.rows:
         names = {f.name for f in row.fields}
+        _validate_guard(row, snapshots.get(row.name))
         if not row.sources and not (row.singleton or row.nested or row.referenced):
             raise ParseError(
                 '%s has no ORDER and nothing returns it: either declare how it '
@@ -377,6 +530,20 @@ def _validate(model):
                     raise ParseError(
                         '%s: source %s sets unknown field %r'
                         % (row.name, src.from_, fname))
+        # A fallback name is formatted over `{parent}`, `{i}` and the fields
+        # every source fixes; anything else would only fail when a device
+        # without a name turned up.
+        fixed_by_all = (set.intersection(*({n for n, _v in src.sets} for src in row.sources))
+                        if row.sources else set())
+        for f in row.fields:
+            if f.unsupported_on != 'default' or not isinstance(f.default, str):
+                continue
+            for _lit, ref, _spec, _conv in string.Formatter().parse(f.default):
+                if ref is not None and ref not in {'parent', 'i'} | fixed_by_all:
+                    raise ParseError(
+                        '%s.%s: the default %r names {%s}, which is neither {parent},'
+                        ' {i} nor a field every source sets'
+                        % (row.name, f.name, f.default, ref))
         # A field the flatten plan is supposed to fill must actually be filled
         # by every source, or a row silently carries a hole.
         for f in row.fields:
@@ -390,6 +557,21 @@ def _validate(model):
                         '%s.%s is Parent() but source %s does not set it'
                         % (row.name, f.name, src.from_))
         for f in row.fields:
+            if f.row_error:
+                continue
+            if f.is_key or f.is_parent_key:
+                want = ('key', 'DeviceKey') if f.is_key else ('parent_key', 'Optional[DeviceKey]')
+                if (f.name, f.py_type) != want or f.from_ or f.is_parent:
+                    raise ParseError('%s.%s: Key()/ParentKey() is spelled `%s: %s` and nothing else'
+                                     % (row.name, f.name, want[0], want[1]))
+                # The key is the path the traversal took, and an action
+                # follows it back with the same calls.  A mapping entry has no
+                # device behind it to follow back to.
+                for src in row.sources:
+                    if src.mapping:
+                        raise ParseError('%s: a keyed row cannot come from %s'
+                                         % (row.name, src.describes))
+                continue
             if f.from_ and f.is_parent:
                 raise ParseError('%s.%s: both From() and Parent()' % (row.name, f.name))
             if not f.from_ and not f.is_parent:
@@ -398,6 +580,20 @@ def _validate(model):
                 raise ParseError(
                     '%s.%s: %s is an enumeration; a sentinel here would delete a value'
                     % (row.name, f.name, f.base))
+            # A reading or a limit has no neutral value: a missing one cannot
+            # fall back to 0 without becoming a reading -- or a limit every
+            # reading crosses -- and Rust's `Number` has no Default for the
+            # row to derive.  Every one the base classes document can be
+            # unreadable, so `Optional` is the only honest spelling.
+            if f.base == 'float':
+                raise ParseError(
+                    '%s.%s: a float column would publish an int the platform answered'
+                    ' as a float; declare it Number, or the unit it measures'
+                    % (row.name, f.name))
+            if rust_type(f.base, enum_names) == 'Number' and not f.optional:
+                raise ParseError(
+                    '%s.%s: a %s has no neutral value; declare it '
+                    'Optional[%s]' % (row.name, f.name, f.base, f.base))
 
     declared = {r.name for r in model.rows}
     for m in model.methods:
@@ -413,8 +609,13 @@ def _validate(model):
                 raise ParseError('%s: On() needs a first parameter naming the row' % m.name)
             if m.row and model.row(m.row) is not None and model.row(m.row).singleton:
                 raise ParseError(
-                    '%s addresses %s by name, but it is a singleton'
+                    '%s addresses %s by key, but it is a singleton'
                     % (m.name, m.row))
+            params = dict(m.params)
+            for p in getattr(m, 'calls_ints', ()):
+                if params.get(p) != 'bool':
+                    raise ParseError('%s: Calls(ints=...) names %r, which is not a bool'
+                                     ' parameter' % (m.name, p))
 
 
 if __name__ == '__main__':

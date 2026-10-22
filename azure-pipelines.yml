@@ -138,11 +138,17 @@ steps:
 # already pins all three crates and their dependencies, so it seeds the
 # workspace's.
 #
-# The slave image has the toolchain but not the LLVM tools matching it, and
-# its rustup home belongs to root.  The target directory is deleted afterwards:
-# the agent's disk is nearly full.
+# The slave image has the toolchain, rustfmt and clippy included, but not the
+# LLVM tools matching it, and its rustup home belongs to root.
+#
+# The agent's disk is nearly full by this step, too full for the lint's build
+# and the coverage build side by side.  The sonic-buildimage packages downloaded
+# above are installed by now, so they are deleted to make room; neither build
+# keeps incremental state, the lint's is deleted before the coverage build
+# starts, and the coverage build's at the end.
 - script: |
     set -ex
+    sudo rm -rf $(Build.ArtifactStagingDirectory)/target
     sudo env RUSTUP_HOME=/usr/.cargo /usr/.cargo/bin/rustup component add llvm-tools-preview
     mkdir -p ~/.cargo/bin
     curl -sSfL -o /tmp/cargo-llvm-cov.tar.gz \
@@ -150,15 +156,17 @@ steps:
     echo "b3f68e625481fed9b16444174f3fa5ebcdbde4a1878803a35eabe2dcefcdc41a  /tmp/cargo-llvm-cov.tar.gz" | sha256sum -c -
     tar xzf /tmp/cargo-llvm-cov.tar.gz -C ~/.cargo/bin
     export PATH=$HOME/.cargo/bin:$PATH
-    # The bridge tests import platform_api.facade; the package was uninstalled
-    # after the Python tests, so it is found in the checkout.
+    # The bridge tests import sonic_platform_api.facade; the package was
+    # uninstalled after the Python tests, so it is found in the checkout.
     export PYTHONPATH=$(System.DefaultWorkingDirectory)
-    export CARGO_TARGET_DIR=$(Agent.TempDirectory)/rust-target CARGO_PROFILE_DEV_DEBUG=0
+    export CARGO_TARGET_DIR=$(Agent.TempDirectory)/rust-target CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0
     printf '%s\n' '[workspace]' \
       'members = ["crates/platform-api", "crates/platform-pyo3", "crates/platform-provider"]' \
       'resolver = "2"' > Cargo.toml
     cp crates/platform-provider/Cargo.lock Cargo.lock
+    cargo fmt --all -- --check
     cargo clippy --locked --workspace --all-targets -- -D warnings
+    rm -rf "$CARGO_TARGET_DIR"
     cargo llvm-cov --locked --workspace --cobertura --output-path rust-coverage.xml
     rm -rf Cargo.toml Cargo.lock "$CARGO_TARGET_DIR"
   displayName: 'Test Rust crates with coverage'

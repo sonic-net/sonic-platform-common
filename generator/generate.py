@@ -1,20 +1,3 @@
-#
-# SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
 """Render the back ends from the model.
 
 The expressions and the traversal bodies are built here rather than in the
@@ -28,62 +11,42 @@ person to touch it.
 """
 
 import argparse
+import ast
 import json
 import os
 import re
 import sys
+import warnings
 
 import jinja2
 
-from model import _snake as _snake_of, rust_type
+from model import key_segment, keyed, _snake as _snake_of, rust_type, strip_optional, template_fields
 from parse_pyi import parse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, os.pardir))
 TEMPLATES = os.path.join(HERE, 'templates')
 
-_LICENCE = '''SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-SPDX-License-Identifier: Apache-2.0
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.'''
-
-
-def _header(path):
-    """The same licence, in the comment syntax of the file it heads."""
-    mark = '//' if path.endswith('.rs') else '#'
-    lines = [mark] + ['%s %s' % (mark, ln) if ln else mark
-                      for ln in _LICENCE.split('\n')] + [mark]
-    return '\n'.join(lines)
-
-
 OUTPUTS = {
-    'facade.py.j2': os.path.join(ROOT, 'platform_api', 'facade.py'),
+    'facade.py.j2': os.path.join(ROOT, 'sonic_platform_api', 'facade.py'),
     'trait.rs.j2': os.path.join(ROOT, 'crates', 'platform-api', 'src', 'generated.rs'),
     'trait_sweep.rs.j2': os.path.join(
-        ROOT, 'crates', 'platform-api', 'tests', 'generated_sweep.rs'),
+        ROOT, 'crates', 'platform-api', 'tests', 'generated', 'sweep.rs'),
     'bridge.rs.j2': os.path.join(ROOT, 'crates', 'platform-pyo3', 'src', 'generated.rs'),
     'provider.rs.j2': os.path.join(ROOT, 'crates', 'platform-provider', 'src', 'generated.rs'),
     'provider_sweep.rs.j2': os.path.join(
-        ROOT, 'crates', 'platform-provider', 'tests', 'generated_sweep.rs'),
-    'allowlist.txt.j2': os.path.join(ROOT, 'platform_api', 'stubtest_allowlist.txt'),
+        ROOT, 'crates', 'platform-provider', 'tests', 'generated', 'sweep.rs'),
+    'allowlist.txt.j2': os.path.join(ROOT, 'sonic_platform_api', 'stubtest_allowlist.txt'),
 }
 
-# Semantic integer types.  A vendor is free to return 50.0 where the base class
-# documents an int, so the bridge reads every number as f64 and casts here
-# rather than asking PyO3 for a u32 and failing on a float that is a whole
-# number anyway.
+# Semantic integer types.  The bridge reads them with platform-pyo3's
+# `integer`/`int_of` rather than asking PyO3 for a u32: an `int` crosses
+# exactly, a vendor's 50.0 where the base class documents an int is truncated
+# rather than failed, and a value the width cannot hold is absent rather than
+# saturated as `as` would -- a fan answering -1 for "could not read" crossed as
+# a stopped fan.
 INT_CASTS = {'u32', 'i32', 'i64', 'u64'}
+
 
 IND = ' ' * 8
 
@@ -151,11 +114,19 @@ def _share_calls(row):
         # wants neither would still wait for it.  The mask is every bit that
         # slices this call; `None` when no bit is set, which is what the
         # columns' own gates already read as absent.
+        #
+        # Only when every slicer has a bit, though.  A member without one --
+        # `name`, which `_assign_col_bits` never numbers, declared with `at=`
+        # -- is read whatever the caller asked for, so its slice of a call
+        # gated on its siblings' bits would be `_at(None, k)`: a row with no
+        # name whenever the caller declined the others.  Such a call is made
+        # unconditionally, as it would be for that column alone.
         mask = 0
         for f in fields:
             if f.col_bit is not None:
                 mask |= 1 << f.col_bit
-        row.shared_calls.append((var, call, mask if row.projected else None))
+        gated = row.projected and all(f.col_bit is not None for f in fields)
+        row.shared_calls.append((var, call, mask if gated else None))
         for f in fields:
             f.shared_var = var
 
@@ -168,10 +139,9 @@ def _assign_col_bits(row):
     emitted from this one pass -- `generate.py --check` is what keeps the
     Python mask and the Rust constant from drifting.
 
-    `Parent()` columns come from the traversal rather than a getter, so there
-    is nothing to decline; `name` is always read because `_find_<row>()` walks
-    the same rows to resolve a name, and a walk that could not see names would
-    not find anything.
+    `Parent()`, `Key()` and `ParentKey()` columns come from the traversal
+    rather than a getter, so there is nothing to decline; `name` is always
+    read because it is what a caller publishes the row under.
     """
     bit = 0
     for f in row.fields:
@@ -187,6 +157,19 @@ def _assign_col_bits(row):
                          % (row.name, bit))
 
 
+def _absent(f):
+    """What a column holds when it was not read: as if the platform did not
+    implement the getter."""
+    if f.unsupported_on != 'default':
+        return 'None'
+    if _is_template(f.default):
+        # The same resolution the read takes when the getter answers nothing,
+        # or a declined column would hold the raw `'{parent} fan {i}'` where
+        # an unimplemented one holds `'PSU 1 fan 1'`.
+        return _fmt_call('None', f.default)
+    return repr(f.default)
+
+
 def _gated(f, expr):
     """The column's expression, behind its projection bit if it has one.
 
@@ -197,21 +180,36 @@ def _gated(f, expr):
     """
     if f.col_bit is None:
         return expr
-    absent = repr(f.default) if f.unsupported_on == 'default' else 'None'
-    return '(%s) if cols & (1 << %d) else %s' % (expr, f.col_bit, absent)
+    return '(%s) if cols & (1 << %d) else %s' % (expr, f.col_bit, _absent(f))
+
+
+def _is_template(default):
+    """A declared default that names its row: `'{parent} fan {i}'`."""
+    return isinstance(default, str) and '{' in default
+
+
+def _fmt_call(got, default):
+    extra = ''.join(', %s=fixed[%r]' % (n, n) for n in template_fields(default))
+    return '_fmt(%s, %r, parent, i%s)' % (got, default, extra)
 
 
 def _py_field_expr(f, enums=()):
     """How `facade.py` fills one column of one row.
 
-    `enums` are the `Literal` aliases; a column typed as one of them is
-    declared to be a string, so whatever the vendor answers with is narrowed
-    to that by `_enum()` before it leaves the facade.
+    `enums` are the `Literal` aliases.  A column typed as one of them, or as
+    `str`, is declared to be a string, so whatever the vendor answers with is
+    made one by `_text()` before it leaves the facade.
     """
     if f.is_parent:
         if f.name == 'parent_name':
             return 'parent'
         return 'fixed[%r]' % f.name
+    if f.is_key:
+        return "fixed['key']"
+    if f.is_parent_key:
+        return "fixed['parent_key']"
+    if f.row_error:
+        return 'None'
 
     if f.with_name:
         # One hop only: the getter is on the device itself and takes its name.
@@ -226,22 +224,131 @@ def _py_field_expr(f, enums=()):
     if f.at is not None:
         call = '_at(%s, %d)' % (call, f.at)
 
-    if f.base in enums:
-        call = '_enum(%s)' % call
+    if f.base in enums or f.base == 'str':
+        call = '_text(%s)' % call
 
     if f.truthy:
         expr = '_truthy(%s)' % call
     elif f.sentinels or f.coerce_from:
         expr = '_scalar(%s, %r, %r)' % (call, tuple(f.sentinels), tuple(f.coerce_from))
     elif f.unsupported_on == 'default':
-        if isinstance(f.default, str) and '{' in f.default:
-            expr = '_fmt(%s, %r, parent, i)' % (call, f.default)
+        if _is_template(f.default):
+            expr = _fmt_call(call, f.default)
         else:
             expr = '_default(%s, %r)' % (call, f.default)
     else:
         expr = call
 
     return _gated(f, expr)
+
+
+def _row_body(row):
+    """`_row_<row>()` for a row read column by column rather than in one call.
+
+    Three things need it.  `per_row_errors`: the device's getters run inside
+    a `try`, and the first exception ends the reading of that row -- the
+    columns not reached keep their absent value and `error`, `error_repr` and
+    `error_column` say what happened -- while `Unguarded()` columns are read
+    before it and fail the call, as Python reads them outside its own `try`.
+    Absorbing (`Snapshot(absorbs=True)`, or `absorb` on an `absorbable`
+    snapshot): each getter in a `try` of its own, an exception leaving that
+    one column absent, which is psud's `try_get`.  And `ReadIf()`: a column
+    read only when an earlier one came back with a value, which a single
+    constructor call cannot express.
+    """
+    def reads(f):
+        return bool(f.from_)
+
+    guard = row.guarded or row.absorbs or row.absorbable
+    unguarded = [f for f in row.fields if reads(f) and (f.unguarded or not guard)]
+    guarded = [f for f in row.fields if reads(f) and not f.unguarded and guard]
+    in_try = {f.shared_var for f in guarded if f.shared_var}
+    outside = {f.shared_var for f in unguarded if f.shared_var}
+    if in_try & outside:
+        raise ValueError('%s: a call shared across the guard (%s)'
+                         % (row.name, ', '.join(sorted(in_try & outside))))
+
+    def shared(names, indent):
+        out = []
+        for var, call, mask in row.shared_calls:
+            if var not in names:
+                continue
+            gate = ' if cols & %d else None' % mask if mask is not None else ''
+            out.append('%s%s = %s%s' % (indent, var, call, gate))
+        return out
+
+    def assign(f, indent, absorbing=False):
+        expr = f.py_expr
+        if f.read_if and (f.read_if_absorbing or not absorbing):
+            cond = ('row.%s' if f.read_if_truthy else 'row.%s is not None') % f.read_if
+            expr = '(%s) if %s else %s' % (expr, cond, _absent(f))
+        return '%srow.%s = %s' % (indent, f.name, expr)
+
+    def row_errors(indent):
+        """One `try` for the row: the first exception ends it, and the
+        column being read when it struck is the one named."""
+        out = ['%stry:' % indent]
+        done = set()
+        for f in guarded:
+            if f.shared_var and f.shared_var not in done:
+                done.add(f.shared_var)
+                out.append('%s    _column = %r' % (indent, f.name))
+                out += shared({f.shared_var}, indent + '    ')
+            out.append('%s    _column = %r' % (indent, f.name))
+            out.append(assign(f, indent + '    '))
+        out.append('%sexcept Exception as e:' % indent)
+        out.append('%s    row.error = str(e)' % indent)
+        out.append('%s    row.error_repr = repr(e)' % indent)
+        out.append('%s    row.error_column = _column' % indent)
+        return out
+
+    def absorbed(indent):
+        """A `try` per getter: an exception is that column absent, as
+        `try_get` makes it in psud."""
+        out = []
+        done = set()
+        for f in guarded:
+            if f.shared_var and f.shared_var not in done:
+                done.add(f.shared_var)
+                for line in shared({f.shared_var}, ''):
+                    out += ['%stry:' % indent, '%s    %s' % (indent, line),
+                            '%sexcept Exception:' % indent,
+                            '%s    %s = None' % (indent, f.shared_var)]
+            out += ['%stry:' % indent, assign(f, indent + '    ', absorbing=True),
+                    '%sexcept Exception:' % indent,
+                    '%s    row.%s = %s' % (indent, f.name, _absent(f))]
+        return out
+
+    lines = []
+    if row.skippable:
+        lines.append("%sif fixed['key'] in skip:" % IND)
+        lines.append('%s    cols &= %d' % (IND, row.unguarded_mask))
+    lines += shared(outside, IND)
+    # Everything that is not read off the device, and every unguarded column
+    # that no ReadIf holds back, goes in the constructor: in declaration
+    # order, which is the order Python reads them in.
+    later = [f for f in unguarded if f.read_if]
+    lines.append('%srow = %s(' % (IND, row.name))
+    for f in row.fields:
+        if not reads(f) or (f in unguarded and not f.read_if):
+            lines.append('%s    %s=%s,' % (IND, f.name, f.py_expr))
+        else:
+            lines.append('%s    %s=%s,' % (IND, f.name, _absent(f)))
+    lines.append('%s)' % IND)
+    for f in later:
+        lines.append(assign(f, IND))
+    if guarded:
+        if row.absorbs:
+            lines += absorbed(IND)
+        elif row.absorbable:
+            lines.append('%sif absorb:' % IND)
+            lines += absorbed(IND + '    ')
+            lines.append('%selse:' % IND)
+            lines += row_errors(IND + '    ')
+        else:
+            lines += row_errors(IND)
+    lines.append('%sreturn row' % IND)
+    return '\n'.join(lines)
 
 
 # --------------------------------------------------------------------------
@@ -285,14 +392,26 @@ def _rust_field_expr(f, enums, rows=()):
         return 'text(row, %s)?' % json.dumps(key) if f.optional else \
             'text(row, %s)?.unwrap_or_default()' % json.dumps(key)
 
+    if inner == 'DeviceKey':
+        return 'text(row, %s)?.map(DeviceKey::from)%s' % (
+            json.dumps(key), '' if f.optional else '.unwrap_or_default()')
+
     if inner == 'bool':
         return 'flag(row, %s)?' % json.dumps(key) if f.optional else \
             'flag(row, %s)?.unwrap_or(%s)' % (json.dumps(key), _rust_default(f, inner))
 
-    if inner == 'Threshold':
-        return 'threshold(row, %s)?' % json.dumps(key)
-    cast = '.map(|v| v as %s)' % inner if inner in INT_CASTS else ''
-    got = 'num(row, %s)?%s' % (json.dumps(key), cast)
+    if inner == 'Number':
+        # `parse_pyi._validate` refuses a non-Optional number: there is no
+        # neutral one to fall back to, and the row could no longer derive
+        # Default.  Asserted rather than assumed, so a model built some other
+        # way fails here instead of emitting a type mismatch into the bridge.
+        assert f.optional, '%s: a Number column must be Optional' % key
+        return 'int_or_float(row, %s)?' % json.dumps(key)
+    if inner not in INT_CASTS:
+        # `parse_pyi._validate` refuses a `float` column: a number read off
+        # the platform is a `Number`, which keeps an int an int.
+        raise ValueError('%s: no reader for a %s column' % (key, inner))
+    got = 'integer::<%s>(row, %s)?' % (inner, json.dumps(key))
     if f.optional:
         return got
     return '%s.unwrap_or(%s)' % (got, _rust_default(f, inner))
@@ -316,6 +435,13 @@ def _rust_ret_conv(rust_ret, enums, rows=()):
                 '            Ok(out)' % reader)
     if inner in rows:
         return '%s(&v)' % _snake_of(inner)
+    if inner == 'DeviceKey':
+        conv = ('let s: Option<String> = v.extract().map_err(|e| err(py, e))?;\n'
+                '            let out = s.map(DeviceKey::from);')
+        if optional:
+            return conv + '\n            Ok(out)'
+        return (conv + '\n            out.ok_or_else(|| PlatformError::Backend('
+                '"missing key".to_string()))')
     if inner in enums:
         conv = ('let s: Option<String> = v.extract().map_err(|e| err(py, e))?;\n'
                 '            let out = s.and_then(|s| %s::from_str(&s));' % inner)
@@ -324,12 +450,12 @@ def _rust_ret_conv(rust_ret, enums, rows=()):
         return (conv + '\n            out.ok_or_else(|| PlatformError::Backend('
                 '%s.to_string()))' % json.dumps('%s is not a declared value' % inner))
     if inner in INT_CASTS:
-        conv = 'let n: Option<f64> = v.extract().map_err(|e| err(py, e))?;'
+        conv = 'let n = int_of::<%s>(&v).map_err(|e| err(py, e))?;' % inner
         if optional:
-            return conv + '\n            Ok(n.map(|x| x as %s))' % inner
-        return (conv + '\n            n.map(|x| x as %s).ok_or_else(|| '
+            return conv + '\n            Ok(n)'
+        return (conv + '\n            n.ok_or_else(|| '
                 'PlatformError::Backend(%s.to_string()))'
-                % (inner, json.dumps('missing value')))
+                % json.dumps('missing value, or not a %s' % inner))
     return 'v.extract().map_err(|e| err(py, e))'
 
 
@@ -375,10 +501,22 @@ def _sweep_call(m, enums, enum_specs):
         # produce rows, and only the expected call text catches it.
         rust.append('%sCols::ALL' % m.row)
         py.append(_row_all_cols(m.row))
+    if m.kind == 'snapshot' and m.skippable:
+        # Two keys, so that a forwarder passing an empty list, or only the
+        # first, is caught as surely as one dropping the argument.
+        rust.append('&[DeviceKey::from("skip0"), DeviceKey::from("skip1")]')
+        py.append(['skip0', 'skip1'])
+    if m.kind == 'snapshot' and m.absorbable:
+        # `true`, not the default: a forwarder that dropped it is caught.
+        rust.append('true')
+        py.append(True)
     for i, (_name, py_type) in enumerate(m.params):
         t = _rust_param_type(py_type, enums)
         if t == '&str':
             rust.append('"arg%d"' % i)
+            py.append('arg%d' % i)
+        elif t == '&DeviceKey':
+            rust.append('&DeviceKey::from("arg%d")' % i)
             py.append('arg%d' % i)
         elif t == 'bool':
             # `true` rather than `false`: a forwarder that dropped the
@@ -388,8 +526,8 @@ def _sweep_call(m, enums, enum_specs):
         elif t == 'f64':
             rust.append('%d.0' % (i + 1))
             py.append(float(i + 1))
-        elif t == 'Threshold':
-            rust.append('Threshold::Int(%d)' % (i + 1))
+        elif t == 'Number':
+            rust.append('Number::Int(%d)' % (i + 1))
             py.append(i + 1)
         elif t in enums:
             spec = next(e for e in enum_specs if e.name == t)
@@ -408,6 +546,8 @@ def _sweep_call(m, enums, enum_specs):
 def _rust_param_type(py_type, enums):
     """A parameter as a Rust signature spells it: borrowed strings, owned rest."""
     t = rust_type(py_type, enums)
+    if t == 'DeviceKey':
+        return '&DeviceKey'
     return '&str' if t == 'String' else t
 
 
@@ -415,10 +555,10 @@ def _rust_arg(name, py_type, enums):
     """The same parameter, marshalled into the tuple PyO3 passes."""
     t = rust_type(py_type, enums)
     name = _rust_ident(name)
-    if t in enums:
+    if t in enums or t == 'DeviceKey':
         return '%s.as_str()' % name
-    if t == 'Threshold':
-        return 'thr_arg(py, %s)' % name
+    if t == 'Number':
+        return 'int_or_float_arg(py, %s)' % name
     return name
 
 
@@ -426,20 +566,27 @@ def _rust_arg(name, py_type, enums):
 # Python traversal bodies, one per snapshot / action
 # --------------------------------------------------------------------------
 
-def _fixed_literal(src, parent_expr):
+def _fixed_literal(src, parent_expr, key=None, raw_expr=None):
     """The `sets` of one source, as a Python dict expression.
 
-    `'@parent'` is the parent name this source resolved, which is how a drawer
-    fan gets a drawer_name and a PSU fan gets 'N/A'.  It has to be spliced as
-    the expression that holds it at this point in the traversal -- `p0` inside
-    a via loop, a literal for a source with none -- rather than by name.
+    `'@parent'` is the parent name this source resolved, which is how a PSU
+    fan gets its PSU's name.  It has to be spliced as the expression that
+    holds it at this point in the traversal -- `p0` inside a via loop, a
+    literal for a source with none -- rather than by name.  `'@parent_raw'`
+    is what the parent answered before any fallback, which is a drawer fan's
+    `drawer_name`.
     """
-    if not src.sets:
-        return '{}'
     parts = []
+    if key is not None:
+        parts.append("'key': %s" % key[0])
+        parts.append("'parent_key': %s" % key[1])
+    if not src.sets and not parts:
+        return '{}'
     for name, value in src.sets:
         if value == '@parent':
             rendered = parent_expr
+        elif value == '@parent_raw':
+            rendered = '_raw(%s)' % raw_expr
         elif value == '@key':
             rendered = 'str(k)'
         elif value == '@value':
@@ -450,24 +597,43 @@ def _fixed_literal(src, parent_expr):
     return '{%s}' % ', '.join(parts)
 
 
+def _when(src, owner):
+    """The `when` predicate as a condition on `owner`.
+
+    `when_unsupported="present"` passes True as the unanswered default, which
+    is `try_get()`'s truthy 'N/A' in the daemon it reproduces.
+    """
+    default = ', True' if src.when_unsupported == 'present' else ''
+    return '_call(_get(%s, %r)%s)' % (owner, src.when, default)
+
+
+def _row_args(row):
+    """What every `_row_<row>()` call passes after the fixed dict."""
+    return ((', cols' if row.projected else '')
+            + (', skip' if getattr(row, 'skippable', False) else '')
+            + (', absorb' if getattr(row, 'absorbable', False) else ''))
+
+
 def _snapshot_body(row):
     if row.singleton:
-        # The chassis is the device.  Still paired with itself so that the
-        # accessor and any by-name lookup share one shape.
-        return ("%sout.append((self._row_%s(self._chassis, 'chassis 1', 0, {}%s), "
-                "self._chassis))" % (IND, row.snake, ', cols' if row.projected else ''))
+        # The chassis is the device.
+        return ("%sout.append(self._row_%s(self._chassis, 'chassis 1', 0, {}%s))"
+                % (IND, row.snake, _row_args(row)))
     out = []
-    for src in row.sources:
+    for k, src in enumerate(row.sources):
         lines = []
         via = src.via_getters
         indent = IND
         parent_expr = "''"
+        raw_expr = None
+        counted = k + 1 < len(row.sources) and row.sources[k + 1].index_from_previous
 
         if src.when_chassis:
             lines.append('%sif _call(_get(self._chassis, %r)):' % (indent, src.when_chassis))
             indent += '    '
 
         owner = 'self._chassis'
+        kprev = None
         for level, (getter, single) in enumerate(via):
             iv, ov = 'i%d' % level, 'o%d' % level
             if single:
@@ -481,27 +647,46 @@ def _snapshot_body(row):
                              % (indent, iv, ov, owner, getter))
             indent += '    '
             if src.when and level == len(via) - 1:
-                lines.append('%sif not _call(_get(%s, %r)):' % (indent, ov, src.when))
+                lines.append('%sif not %s:' % (indent, _when(src, ov)))
                 lines.append('%s    continue' % indent)
             pname = 'p%d' % level
             got = '_call(_get(%s, %r))' % (ov, src.parent) if src.parent else 'None'
+            if src.parent and (src.parent_missing
+                               or any(v == '@parent_raw' for _f, v in src.sets)):
+                # What the parent answered is kept: '@parent_raw' publishes
+                # it, and a `parent_missing` answer is only a name for that.
+                rname = 'r%d' % level
+                lines.append('%s%s = %s' % (indent, rname, got))
+                got = ('_present(%s, %r)' % (rname, tuple(src.parent_missing))
+                       if src.parent_missing else rname)
+                raw_expr = rname
             lines.append('%s%s = _fmt(%s, %r, %s, %s)'
                          % (indent, pname, got, src.parent_default[level], parent_expr, iv))
+            if keyed(row):
+                seg = key_segment(getter)
+                step = repr(seg) if single else '%r %% %s' % (seg + '[%d]', iv)
+                lines.append('%sk%d = %s' % (indent, level,
+                                             step if kprev is None else '%s + %r + %s' % (kprev, '/', step)))
+                kprev = 'k%d' % level
             parent_expr = pname
             owner = ov
 
         if not via:
             parent_expr = '%r' % src.parent_default[0]
+            if '{i}' in src.parent_default[0]:
+                # The source's own position, as a via level's would be:
+                # 'PSU {i}' names the PSU it falls back for.
+                parent_expr = '%r.format(i=i + 1)' % src.parent_default[0]
 
         if src.mapping:
             # One row per entry.  `_pairs` keeps the mapping's own order and
             # yields nothing for a platform that answered something else.
             lines.append('%sfor i, (k, v) in enumerate(_pairs(_call(_get(%s, %r)))):'
                          % (indent, owner, src.leaf_getter))
-            lines.append('%s    out.append((self._row_%s(None, %s, i, %s%s), None))'
+            lines.append('%s    out.append(self._row_%s(None, %s, i, %s%s))'
                          % (indent, row.snake, parent_expr,
-                            _fixed_literal(src, parent_expr),
-                            ', cols' if row.projected else ''))
+                            _fixed_literal(src, parent_expr, raw_expr=raw_expr),
+                            _row_args(row)))
             block = '\n'.join(lines)
             if src.optional:
                 body = '\n'.join('    ' + ln for ln in block.split('\n'))
@@ -514,16 +699,29 @@ def _snapshot_body(row):
             leaf = 'self._hatch.%s()' % src.provider
         else:
             leaf = '_call(_get(%s, %r))' % (owner, src.leaf_getter)
+        key = None
+        if keyed(row):
+            # An escape hatch's list is a step of its own, named after it.
+            seg = src.provider or key_segment(src.leaf_getter)
+            step = repr(seg) if src.single else '%r %% i' % (seg + '[%d]')
+            key = (step if kprev is None else '%s + %r + %s' % (kprev, '/', step),
+                   kprev or 'None')
+        index = 'i'
+        if src.index_from_previous:
+            # One numbering with the source before (`index_from_previous`):
+            # `{i}` counts on from its rows, the key stays this list's own.
+            lines.append('%sn = len(out) - s%d' % (indent, k - 1))
+            index = 'n + i'
         if src.single:
             # At most one row: `_one` yields nothing when the platform has
             # none, rather than a row whose every column is None.
             lines.append('%sfor i, dev in enumerate(_one(%s)):' % (indent, leaf))
         else:
             lines.append('%sfor i, dev in enumerate(_iter(%s)):' % (indent, leaf))
-        lines.append('%s    out.append((self._row_%s(dev, %s, i, %s%s), dev))'
-                     % (indent, row.snake, parent_expr,
-                        _fixed_literal(src, parent_expr),
-                        ', cols' if row.projected else ''))
+        lines.append('%s    out.append(self._row_%s(dev, %s, %s, %s%s))'
+                     % (indent, row.snake, parent_expr, index,
+                        _fixed_literal(src, parent_expr, key, raw_expr),
+                        _row_args(row)))
 
         block = '\n'.join(lines)
         if src.optional:
@@ -531,7 +729,63 @@ def _snapshot_body(row):
             block = ('%stry:\n%s\n%sexcept NotImplementedError:\n%s    pass'
                      % (IND, body, IND, IND))
         out.append('%s# %s' % (IND, _describe(src)))
+        if counted:
+            out.append('%ss%d = len(out)' % (IND, k))
         out.append(block)
+    return '\n'.join(out)
+
+
+def _find_body(row):
+    """`_find_<row>(key)`: the walk of each source again, one device per hop.
+
+    A key's shape -- its collections, and which steps carry a position --
+    says which source made it, and only a source of this row type is
+    followed: a PSU's key passed to a fan action is refused, not obeyed.  The
+    same `when_chassis` and `when` gates apply as in the walk, so a key leads
+    exactly where a published row would have, and nowhere a row could not.
+    """
+    out = ['%spath = _parse_key(key)' % IND]
+    for src in row.sources:
+        shape = [(key_segment(g), not single) for g, single in src.via_getters]
+        shape.append((src.provider or key_segment(src.leaf_getter), not src.single))
+        lines = ['%sif _shape(path) == %r:' % (IND, tuple(shape))]
+        indent = IND + '    '
+        if src.when_chassis:
+            lines.append('%sif _call(_get(self._chassis, %r)):' % (indent, src.when_chassis))
+            indent += '    '
+        owner = 'self._chassis'
+        via = src.via_getters
+        for level, (getter, single) in enumerate(via):
+            ov = 'o%d' % level
+            if single:
+                lines.append('%s%s = _call(_get(%s, %r))' % (indent, ov, owner, getter))
+            else:
+                lines.append('%s%s = _nth(_call(_get(%s, %r)), path[%d][1])'
+                             % (indent, ov, owner, getter, level))
+            cond = '%s is not None' % ov
+            if src.when and level == len(via) - 1:
+                cond += ' and %s' % _when(src, ov)
+            lines.append('%sif %s:' % (indent, cond))
+            indent += '    '
+            owner = ov
+        if src.provider:
+            leaf = 'self._hatch.%s()' % src.provider
+        else:
+            leaf = '_call(_get(%s, %r))' % (owner, src.leaf_getter)
+        if src.single:
+            lines.append('%sdev = %s' % (indent, leaf))
+        else:
+            lines.append('%sdev = _nth(%s, path[%d][1])' % (indent, leaf, len(via)))
+        lines.append('%sif dev is not None:' % indent)
+        lines.append('%s    return dev' % indent)
+        block = '\n'.join(lines)
+        if src.optional:
+            body = '\n'.join('    ' + ln for ln in block.split('\n'))
+            block = ('%stry:\n%s\n%sexcept NotImplementedError:\n%s    pass'
+                     % (IND, body, IND, IND))
+        out.append('%s# %s' % (IND, _describe(src)))
+        out.append(block)
+    out.append("%sraise DeviceNotFound('no %s at %%r' %% key)" % (IND, row.name))
     return '\n'.join(out)
 
 
@@ -550,6 +804,21 @@ def _at_wrap(call, m):
     stop a field from having to know.
     """
     return call if m.calls_at is None else '_at(%s, %d)' % (call, m.calls_at)
+
+
+def _answer(call, m):
+    """What an action hands back: its slot, then, for a bool, its truth.
+
+    A caller acts on these answers the way Python does -- `if not answer:`
+    (chassisd:1405) -- and vendors answer with whatever their helper returned:
+    an int, or "Executed" (pddf ledutil.py:35).  The bridge extracts a `bool`
+    strictly, so without `_truthy()` an answer Python reads as True would
+    fail the call.
+    """
+    call = _at_wrap(call, m)
+    if strip_optional(m.returns)[0] == 'bool':
+        call = '_truthy(%s)' % call
+    return call
 
 
 def _returned_row(m, model):
@@ -586,13 +855,19 @@ def _action_body(m, model):
     hops = rest.split('.')
     method = hops[-1]
     reach = hops[:-1]
+    def passed(p):
+        # `Calls(ints=...)`: the platform gets what the Python caller passes,
+        # 1 or 0, not the bool the signature takes.
+        return '(1 if %s else 0)' % p if p in m.calls_ints else p
+
     if m.row:
         # pass_key: the base class takes the device's own name as its first
-        # argument as well, so the locator is not consumed by the lookup.
-        passed = m.params if m.pass_key else m.params[1:]
+        # argument as well.  The locator is a key now, so the name is the
+        # device's, asked of the device the key led to.
+        args = ', '.join((["_text(_call(_get(dev, 'get_name')))"] if m.pass_key else [])
+                         + [passed(p) for p, _t in m.params[1:]])
     else:
-        passed = m.params
-    args = ', '.join(p for p, _t in passed)
+        args = ', '.join(passed(p) for p, _t in m.params)
 
     if not m.row:
         # On the chassis itself, or on something reached through it.
@@ -613,7 +888,7 @@ def _action_body(m, model):
                             ', '.join('%s=_at(answer, %d)' % (f.name, f.at)
                                       for f in built.fields)))
         else:
-            lines.append('%sreturn %s' % (IND, _at_wrap('fn(%s)' % args, m)))
+            lines.append('%sreturn %s' % (IND, _answer('fn(%s)' % args, m)))
         return '\n'.join(lines)
 
     row = model.row(m.row)
@@ -630,95 +905,274 @@ def _action_body(m, model):
                 % (head, IND, args, IND, built.name,
                    ', '.join('%s=_at(answer, %d)' % (f.name, f.at)
                              for f in built.fields)))
-    return head + '%sreturn %s' % (IND, _at_wrap('fn(%s)' % args, m))
+    return head + '%sreturn %s' % (IND, _answer('fn(%s)' % args, m))
+
+
+def _action_doc(m):
+    """What an action does, for one whose stub has no docstring.
+
+    Most actions are one base-class call on one row, and `Calls` and `On`
+    already say which.  Without this the facade method gets an empty
+    docstring and the trait method nothing but its own name.
+    """
+    owner, rest = m.calls.split('.', 1)
+    call = '%s.%s()' % (owner, '().'.join(rest.split('.')))
+    if not m.row:
+        return 'Calls `%s`.' % call
+    return 'Calls `%s` on the %s at `%s`.' % (call, m.row, m.params[0][0])
 
 
 # --------------------------------------------------------------------------
 
-def _required_args(signature):
-    """The arguments a caller must supply, from an inventory signature string.
+def _required_args(fn):
+    """The arguments a caller must supply, from a base-class `def`.
 
-    `scope_scan` renders defaults as `name=...`, so a bare name after `self`
-    and before any `*` is one the caller has to pass.
+    Positional ones with no default, and keyword-only ones with no default --
+    `(self, *, key)` and `(self, *args, key)` alike, since either way the
+    caller has to pass `key`.  The receiver is bound by Python whatever it is
+    called: `self`, or `cls` on a classmethod -- `SensorBase.get_unit(cls)` is
+    one -- unless the method is a staticmethod and has none.
     """
-    inner = signature.strip()[1:-1]
-    parts = [x.strip() for x in inner.split(',')]
-    # Drop the receiver, whatever it is called: `self` on an ordinary method,
-    # `cls` on a classmethod -- `SensorBase.get_unit(cls)` is one, and Python
-    # binds it, so a zero-argument call is correct there.
-    if parts and parts[0] in ('self', 'cls'):
-        parts = parts[1:]
-    out = []
-    for part in parts:
-        if not part or part.startswith('*') or '=' in part:
-            if part.startswith('*') and part != '*':
-                break          # *args / **kwargs: nothing after is positional
-            continue
-        out.append(part)
+    a = fn.args
+    positional = a.posonlyargs + a.args
+    required = positional[:len(positional) - len(a.defaults)]
+    static = any(getattr(d, 'id', getattr(d, 'attr', None)) == 'staticmethod'
+                 for d in fn.decorator_list)
+    if required and not static:
+        required = required[1:]
+    out = [x.arg for x in required]
+    out += [x.arg for x, d in zip(a.kwonlyargs, a.kw_defaults) if d is None]
     return out
 
 
-def check_arity(model, inventory_path=os.path.join(HERE, 'inventory.json')):
-    """Reject a column whose getter needs an argument the row does not pass.
+def _resolve_method(classes, cls, meth):
+    """Look `cls.meth` up the way Python does: the class, then its bases.
 
-    This is the check that was missing.  The conformance scan verifies every
-    path named in a `From` *exists* on the vendor object; nothing verified that
-    a zero-argument call still matched the signature.
+    The class's entry for `meth`, or None when nothing on the way defines it.
+    """
+    todo, seen = [cls], set()
+    while todo:
+        c = todo.pop(0)
+        if c in seen or c not in classes:
+            continue
+        seen.add(c)
+        entry = classes[c]
+        if meth in entry.methods:
+            return entry.methods[meth]
+        todo.extend(entry.bases)
+    return None
+
+
+def check_arity(model, base_dir=os.path.join(ROOT, 'sonic_platform_base')):
+    """Reject a column whose getter the base classes do not define, or that
+    needs an argument the row does not pass.
+
     `ModuleBase.get_module_state_transition(self, module_name)` was declared as
     a plain column, the generated call passed nothing, and the TypeError took
     the entire `ModuleInfo` row with it -- on a SmartSwitch NPU that left
     chassisd logging "Failed to read the modules" every cycle and publishing no
     midplane table at all, which is not a shape any unit test reproduces.
 
+    The signatures are read from `sonic_platform_base` with `ast`, as
+    `check_contract` reads it.  They used to come from `inventory.json`, a
+    snapshot taken by `scope_scan.py` against trees CI does not have; with the
+    snapshot missing or stale the check passed, and a getter it had not seen
+    was assumed to take nothing.  Now a path that does not resolve is a
+    problem, not a pass.
+
     Fields declared `WithName()` are exempt: they pass the device's own name.
     A vendor that *narrows* a signature the base class leaves open is a
-    different problem and cannot be seen from here -- that is what `Narrowed()`
-    and the on-hardware arity scan are for.
+    different problem and cannot be seen from here; see `Narrowed()`.
+    A path through another object (`LeakageSensorBase.get_leak_profile.
+    get_type`) names a class the base package does not spell out, and is
+    skipped.
     """
-    try:
-        with open(inventory_path) as f:
-            inv = json.load(f)
-    except (OSError, ValueError):
-        return []                      # no inventory: nothing to check against
-    # The buckets are name -> record for the classes the scan reached and a
-    # plain list of names for the ones it did not; tolerate both rather than
-    # assume, because an assumption here fails open and the check silently
-    # stops checking.
-    sigs = {}
-    for cls, buckets in inv.get('classes', {}).items():
-        if not isinstance(buckets, dict):
-            continue
-        for bucket in ('reached', 'unreached'):
-            b = buckets.get(bucket)
-            if isinstance(b, dict):
-                for name, rec in b.items():
-                    if isinstance(rec, dict):
-                        sigs[(cls, name)] = rec.get('signature', '')
+    classes = _base_classes(base_dir)
+    if not classes:
+        return ['no base classes under %s to check the columns against' % base_dir]
     bad = []
     for row in model.rows:
         for f in row.fields:
             if not f.from_ or f.with_name or '.' in (f.getter or ''):
                 continue
-            cls = f.from_.split('.')[0]
-            need = _required_args(sigs.get((cls, f.getter), '(self)'))
+            method = _resolve_method(classes, f.owner, f.getter)
+            if method is None:
+                bad.append('%s.%s reads %s, which the base classes do not define'
+                           % (row.name, f.name, f.from_))
+                continue
+            need = method.required
             if need:
-                bad.append('%s.%s reads %s%s with no arguments; it requires %s'
+                bad.append('%s.%s reads %s(%s) with no arguments; it requires %s'
                            ' -- declare WithName() or pass them'
-                           % (row.name, f.name, f.from_,
-                              sigs.get((cls, f.getter), ''), ', '.join(need)))
+                           % (row.name, f.name, f.from_, ', '.join(method.params),
+                              ', '.join(need)))
+    return bad
+
+
+# The base-class constants each `Literal` alias stands for: (class, prefix).
+# An empty prefix names an `enum.Enum`, whose members are the values.  An
+# alias that a vendor's answer is read into, or that a daemon's argument is
+# passed from, has to be listed here: a new one cannot skip the check by not
+# being named.
+LITERAL_CONSTANTS = {
+    'LedColor': ('DeviceBase', 'STATUS_LED_COLOR_'),
+    'ModuleType': ('ModuleBase', 'MODULE_TYPE_'),
+    'ModuleStatus': ('ModuleBase', 'MODULE_STATUS_'),
+    'LeakSeverity': ('LeakSeverity', ''),
+}
+
+# How a base-class docstring says its method answers a bool: "bool: True if",
+# "A bool value", "A boolean, True if", "Boolean False if".
+_BOOL_ANSWER = re.compile(r'Returns?:\s*(?:a\s+)?bool(?:ean)?\b', re.I)
+
+
+class _Method(object):
+    """One base-class `def`: what its docstring says, and what it takes."""
+
+    def __init__(self, fn):
+        self.doc = ast.get_docstring(fn) or ''
+        self.required = _required_args(fn)
+        a = fn.args
+        self.params = [x.arg for x in a.posonlyargs + a.args + a.kwonlyargs]
+
+
+class _Class(object):
+    """One base class: its bases, its string constants and its methods."""
+
+    def __init__(self, bases, consts, methods):
+        self.bases, self.consts, self.methods = bases, consts, methods
+
+
+def _base_classes(base_dir):
+    """Every class in the base package, by name.
+
+    Read with `ast`, not imported: the base classes import swsscommon, which
+    the generator has no business needing.
+    """
+    out = {}
+    for dirpath, dirnames, filenames in os.walk(base_dir):
+        dirnames.sort()
+        for fn in sorted(filenames):
+            if not fn.endswith('.py'):
+                continue
+            with open(os.path.join(dirpath, fn)) as f, warnings.catch_warnings():
+                # Their regexes are not raw strings; that is theirs to fix.
+                warnings.simplefilter('ignore', SyntaxWarning)
+                try:
+                    tree = ast.parse(f.read())
+                except SyntaxError:
+                    continue
+            for node in tree.body:
+                if not isinstance(node, ast.ClassDef) or node.name in out:
+                    continue
+                consts, methods = {}, {}
+                for item in node.body:
+                    if (isinstance(item, ast.Assign) and len(item.targets) == 1
+                            and isinstance(item.targets[0], ast.Name)
+                            and isinstance(item.value, ast.Constant)
+                            and isinstance(item.value.value, str)):
+                        consts[item.targets[0].id] = item.value.value
+                    elif isinstance(item, ast.FunctionDef):
+                        methods[item.name] = _Method(item)
+                bases = [b.id for b in node.bases if isinstance(b, ast.Name)]
+                out[node.name] = _Class(bases, consts, methods)
+    return out
+
+
+def _docstring(classes, cls, meth):
+    """`cls.meth`'s docstring, looked up the way Python resolves the method."""
+    method = _resolve_method(classes, cls, meth)
+    return None if method is None else method.doc
+
+
+def check_contract(model, base_dir=os.path.join(ROOT, 'sonic_platform_base'),
+                   literals=None):
+    """Hold the stub to what the base classes say their methods answer.
+
+    `check_arity` verifies that what a column reads exists and can be called;
+    nothing verified what an action *answers*.  Every test is generated from, or
+    written against, the same stub, so a declaration narrower than the base
+    class passes all of them.  `set_module_state_transition` was declared
+    `-> None`: the base class's False -- another operation holds the module --
+    reached chassisd as success, so its recovery would power-cycle a DPU an
+    operator was shutting down.  `ModuleStatus` lacked the three
+    `MODULE_STATUS_PROVISION*`, which would have read as None.
+
+    Two rules:
+
+    - an action whose base-class method documents a bool answer is
+      `Optional[bool]`;
+    - a `Literal` that a vendor's answer is read into, or that an action's
+      argument is passed from, holds every value of the base-class constants
+      it stands for (`LITERAL_CONSTANTS`).
+    """
+    literals = LITERAL_CONSTANTS if literals is None else literals
+    classes = _base_classes(base_dir)
+    if not classes:
+        return ['no base classes under %s to check the stub against' % base_dir]
+    bad = []
+
+    for m in model.methods:
+        # A path through another object (`ChassisBase.get_watchdog.arm`) names
+        # a class the base package does not spell out; skip it.
+        if m.kind != 'action' or not m.calls or m.calls.count('.') != 1:
+            continue
+        cls, meth = m.calls.split('.')
+        doc = _docstring(classes, cls, meth)
+        if doc is None:
+            bad.append('%s calls %s, which the base classes do not define'
+                       % (m.name, m.calls))
+        elif _BOOL_ANSWER.search(doc) and strip_optional(m.returns)[0] != 'bool':
+            bad.append('%s returns %s, but %s answers a bool -- declare'
+                       ' Optional[bool], or its False reaches the caller as'
+                       ' success' % (m.name, m.returns, m.calls))
+
+    used = {}
+    for row in model.rows:
+        for f in row.fields:
+            if f.from_ and f.base in model.enum_names:
+                used.setdefault(f.base, '%s.%s' % (row.name, f.name))
+    for m in model.methods:
+        if m.kind == 'action':
+            for p, t in m.params:
+                if strip_optional(t)[0] in model.enum_names:
+                    used.setdefault(strip_optional(t)[0], '%s(%s)' % (m.name, p))
+    values = {e.name: set(e.values) for e in model.enums}
+    for alias, where in sorted(used.items()):
+        if alias not in literals:
+            bad.append('%s is used at %s, but LITERAL_CONSTANTS does not say'
+                       ' which base-class constants it stands for' % (alias, where))
+            continue
+        cls, prefix = literals[alias]
+        consts = classes[cls].consts if cls in classes else {}
+        want = {v for k, v in consts.items() if k.startswith(prefix)}
+        if not want:
+            bad.append('%s stands for %s.%s*, which defines no constants'
+                       % (alias, cls, prefix))
+            continue
+        missing = sorted(want - values[alias])
+        if missing:
+            bad.append('%s lacks %s, which %s.%s* defines -- a vendor answering'
+                       ' it would read as None' % (alias, ', '.join(missing), cls, prefix))
     return bad
 
 
 def build(model):
-    # Rows an action addresses by name need a lookup; the rest do not, and
+    # Rows an action addresses by key need a lookup; the rest do not, and
     # emitting one anyway would be dead code in a generated file.
     addressed = {m.row for m in model.methods if m.kind == 'action' and m.row}
     enums = model.enum_names
     row_names = {r.name for r in model.rows}
-    projected_rows = {m.row for m in model.methods
-                      if m.kind == 'snapshot' and m.projected}
+    snapshots = {m.row: m for m in model.methods if m.kind == 'snapshot'}
     for row in model.rows:
-        row.projected = row.name in projected_rows
+        snap = snapshots.get(row.name)
+        row.projected = bool(snap and snap.projected)
+        row.skippable = bool(snap and snap.skippable)
+        row.guarded = bool(snap and snap.per_row_errors)
+        row.absorbs = bool(snap and snap.absorbs)
+        row.absorbable = bool(snap and snap.absorbable)
+        row.sequential = (row.guarded or row.absorbs or row.absorbable
+                          or any(f.read_if for f in row.fields))
         row.col_count = 0
         row.all_cols = 0
         if row.projected:
@@ -727,22 +1181,39 @@ def build(model):
         else:
             for f in row.fields:
                 f.col_bit = None
+        # What a skipped row still reads: its unguarded columns.
+        row.unguarded_mask = sum(1 << f.col_bit for f in row.fields
+                                 if f.unguarded and f.col_bit is not None)
         _share_calls(row)
         for f in row.fields:
             f.py_expr = _py_field_expr(f, enums)
             f.rust_ty = rust_type(f.py_type, enums)
             f.rust_expr = _rust_field_expr(f, enums, row_names)
+        row.row_body = _row_body(row) if row.sequential else ''
+        row.secrets = [f.name for f in row.fields if f.secret]
+        row.secrets_py = repr(tuple(row.secrets))
         row.walk_body = _snapshot_body(row)
         row.addressed = row.name in addressed
+        if row.addressed and not keyed(row):
+            raise ValueError('%s is addressed by an action but declares no Key() field'
+                             % row.name)
+        row.find_body = _find_body(row) if row.addressed else ''
+
         # A row can derive Default unless a column is a bare enumeration:
         # there is no neutral colour or fan kind, and picking one would be a
         # value nobody declared.  The rows that can are the ones a test
         # fixture or a partial vendor implementation wants to build piecemeal.
+        # The others get `new()`, taking exactly those columns, so that a
+        # column added to the stub does not break every struct literal that
+        # builds one: `FanInfo { name, ..FanInfo::new(FanKind::Drawer) }`.
         row.can_default = not any(
             f.rust_ty in enums for f in row.fields)
+        row.new_params = [f for f in row.fields if f.rust_ty in enums]
     for m in model.methods:
         if m.kind == 'action':
             m.body = _action_body(m, model)
+            if not m.doc:
+                m.doc = _action_doc(m)
         m.rust_name = m.name
         if m.kind == 'snapshot':
             m.rust_ret = m.row if m.singleton else 'Vec<%s>' % m.row
@@ -750,20 +1221,34 @@ def build(model):
             m.rust_ret = rust_type(m.returns, enums)
         m.rust_params = ''.join(
             ', %s: %s' % (_rust_ident(p), _rust_param_type(t, enums)) for p, t in m.params)
+        # The column set and the skip list are not stub parameters -- they
+        # are the snapshot's own, added by `Snapshot(projected=True)` and
+        # `Snapshot(skippable=True)` -- so they are spliced in here rather
+        # than declared alongside the others.
+        own = []
         if m.kind == 'snapshot' and m.projected:
-            # The column set is not a stub parameter -- it is the snapshot's
-            # own, added by `Snapshot(projected=True)` -- so it is spliced in
-            # here rather than declared alongside the others.
-            m.rust_params = ', cols: %sCols%s' % (m.row, m.rust_params)
+            own.append(('cols', '%sCols' % m.row))
+        if m.kind == 'snapshot' and m.skippable:
+            own.append(('skip', '&[DeviceKey]'))
+        if m.kind == 'snapshot' and m.absorbable:
+            own.append(('absorb', 'bool'))
+        m.rust_params = ''.join(', %s: %s' % p for p in own) + m.rust_params
         m.rust_args = ''.join(
             '%s, ' % _rust_arg(p, t, enums) for p, t in m.params)
         # The same parameters passed straight on, with no conversion: what one
         # Rust implementation hands another.  `rust_args` above is the Python
         # call's argument tuple and has conversions baked in, so a forwarder
         # cannot reuse it.
-        m.rust_fwd_args = ', '.join(
-            (['cols'] if m.kind == 'snapshot' and m.projected else [])
-            + [_rust_ident(p) for p, _t in m.params])
+        fwd = [n for n, _t in own] + [_rust_ident(p) for p, _t in m.params]
+        m.rust_fwd_args = ', '.join(fwd)
+        # What a default body discards, so that rustc does not call it unused.
+        m.rust_unused = '(%s,)' % ', '.join(fwd) if fwd else '()'
+        # What the bridge hands the facade for the snapshot's own parameters.
+        m.py_snapshot_args = '(%s,)' % ', '.join(
+            {'cols': 'cols.bits()',
+             'skip': 'skip.iter().map(DeviceKey::as_str).collect::<Vec<_>>()',
+             'absorb': 'absorb'}[n]
+            for n, _t in own)
         m.rust_sweep_args, call = _sweep_call(m, enums, model.enums)
         # A Rust string literal, not jinja's `tojson`: that one escapes the
         # quote in a Python repr as `\u0027`, which Rust does not spell that
@@ -774,7 +1259,7 @@ def build(model):
     # The names the provider's forwarding impl actually mentions.  It converts
     # nothing, so it needs a type only where one appears in a signature --
     # importing the bridge's full list would leave a third of it unused.
-    # `Threshold` is hand-written in platform-api rather than projected from
+    # `Number` is hand-written in platform-api rather than projected from
     # the stub, so it is not in `enums` or `rows`; it still appears in
     # signatures and still has to be imported when it does.
     declared = ([e.name for e in model.enums]
@@ -782,7 +1267,7 @@ def build(model):
                 # A projected snapshot names its column set in the signature,
                 # and `\bFanInfo\b` does not match `FanInfoCols`.
                 + ['%sCols' % r.name for r in model.rows if r.projected]
-                + ['Threshold'])
+                + ['Number', 'DeviceKey'])
     mentioned = ' '.join(m.rust_ret + m.rust_params for m in model.methods)
     model.provider_imports = [
         n for n in declared if re.search(r'\b%s\b' % re.escape(n), mentioned)]
@@ -859,7 +1344,7 @@ def render(model):
     env.filters['snake'] = _snake_of
     out = {}
     for tpl, path in OUTPUTS.items():
-        text = env.get_template(tpl).render(model=model, header=_header(path))
+        text = env.get_template(tpl).render(model=model)
         # Trailing whitespace once, here, rather than in three templates.  A
         # blank line inside a doc comment is the usual source, and rustfmt and
         # most linters would strip it back out -- at which point `--check`
@@ -875,10 +1360,11 @@ def main():
     args = ap.parse_args()
 
     model = build(parse())
-    problems = check_arity(model)
+    problems = (['arity: %s' % p for p in check_arity(model)]
+                + ['contract: %s' % p for p in check_contract(model)])
     if problems:
         for p in problems:
-            print('arity: %s' % p, file=sys.stderr)
+            print(p, file=sys.stderr)
         return 1
     rendered = render(model)
 
