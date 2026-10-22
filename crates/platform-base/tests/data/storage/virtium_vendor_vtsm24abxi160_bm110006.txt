@@ -1,0 +1,33 @@
+
+SMART attributes
+ ID                    Attribute   High Raw    Low Raw Value Worst Threshold
+  1          Raw_Read_Error_Rate          0          0   100   100         0
+  5           Reserved_Attribute          0          0   100   100         0
+  9               Power_On_Hours          0        496   100   100         0
+ 12            Power_Cycle_Count          0         56   100   100         0
+ 14           Reserved_Attribute          0  313147056   100   100         0
+ 15           Reserved_Attribute          0  312581808   100   100         0
+ 16           Reserved_Attribute          0        263   100   100         0
+ 17           Reserved_Attribute          0        263   100   100         0
+100           Reserved_Attribute          0      59951   100   100         0
+168               NAND_Endurance          0          0   100   100         0
+170           Reserved_Attribute          0          0   100   100         0
+172           Reserved_Attribute          0          0   100   100         0
+173           Reserved_Attribute          0         57   100   100         0
+174           Reserved_Attribute          0         53   100   100         0
+175           Reserved_Attribute          0         36   100   100         0
+181           Total_Program_Fail          0          0   100   100         0
+187    Uncorrectable_Error_Count          0          0   100   100         0
+194          Temperature_Celsius         64         50    50    36         0
+197 Current_Pending_Sector_Count          0          0   100   100        10
+198           Reserved_Attribute          0          0   100   100         0
+199         UDMA_CRC_Error_Count          0          0   100   100         0
+202                   TRIM_Count          0          0     0     0         0
+231           Reserved_Attribute          0        100   100   100         0
+232           Reserved_Attribute          0          0   100   100         0
+234           Reserved_Attribute          0 2250576000   100   100         0
+235           Reserved_Attribute          2  515071040   100   100         0
+241           Total_LBAs_Written          2  181101356   100   100         0
+242              Total_LBAs_Read          0 1411174937   100   100         0
+247           Reserved_Attribute          2  515071040   100   100         0
+248          Remaining_Life_Left          0         36   100   100         0

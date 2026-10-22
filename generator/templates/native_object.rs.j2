@@ -1,0 +1,102 @@
+//! Platform objects, as the native facade and the escape hatches reach them.
+//!
+//! GENERATED from sonic_platform_api/facade.pyi and sonic_platform_base by
+//! generator/generate.py.  Do not edit: regenerate.
+//!
+//! One trait for every platform object, the way Python has one attribute
+//! lookup for every object.  A method is here if the facade or the escape
+//! hatches call it; its default is what the object's *base class* answers,
+//! found the way Python resolves the method (`generator/native.py`,
+//! `default_of`).  A native fan overriding nothing therefore answers what a
+//! Python fan overriding nothing answers, and a method its base class does
+//! not define answers [`Exc::Missing`](crate::py::Exc::Missing) -- the
+//! `getattr(obj, name, None)` the facade reads as "not implemented".
+
+use crate::py::{PyErr, PyResult, PyVal};
+
+/// The base class a platform object derives from, which decides its defaults.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BaseClass {
+    /// Derives from none of them: every method below is missing.
+    Object,
+{%- for b in native.bases %}
+    {{ b }},
+{%- endfor %}
+}
+
+/// A platform object: the chassis, a fan, a PSU, the thermal manager.
+///
+/// Methods take `&self`: Python objects are shared and mutate themselves, so
+/// an implementation keeps what changes behind its own locks.
+pub trait PyObject: Send + Sync {
+    /// The vendor's class name, as `type(obj).__name__` spells it.
+    fn py_class(&self) -> &'static str;
+
+    /// The base class, which decides every default below.
+    fn base_class(&self) -> BaseClass;
+
+    /// The vendor's classes from most derived up, as `type(obj).__mro__`
+    /// would name them before the base classes.  Only class-level state reads
+    /// it -- `PsuBase`'s master LED is an attribute of whichever class set it.
+    fn py_mro(&self) -> Vec<&'static str> {
+        vec![self.py_class()]
+    }
+{% for m in native.methods %}
+    /// Reached as {{ m.owners | join(', ') if m.owners else 'a method of any object' }}.
+    fn {{ m.name }}(&self{{ m.sig() }}) -> PyResult<PyVal> {
+        defaults::{{ m.name }}(self{{ m.args() }})
+    }
+{%- endfor %}
+}
+
+/// What each base class answers, method by method.
+pub mod defaults {
+    use super::*;
+{% for m in native.methods %}
+    #[allow(unused_variables)]
+    pub fn {{ m.name }}<S: PyObject + ?Sized>(s: &S{{ m.sig() }}) -> PyResult<PyVal> {
+        match s.base_class() {
+{%- for cls, kind, where, rust in m.arms %}
+            // {{ kind }}, from {{ where }}
+            BaseClass::{{ cls }} => {{ rust }},
+{%- endfor %}
+            _ => Err(PyErr::missing(s.py_class(), {{ m.name | tojson }})),
+        }
+    }
+{%- endfor %}
+}
+
+/// What a [`DynObject`] answers a call with: `Some` to answer, `None` to let
+/// its base class answer, as a Python method not defined on the class would.
+pub type Handler =
+    Box<dyn Fn(&dyn PyObject, &str, &[PyVal]) -> Option<PyResult<PyVal>> + Send + Sync>;
+
+/// A platform object whose methods are decided at run time, by name.
+///
+/// What a Python class built with `type(name, (base,), methods)` is: the
+/// methods it was given answer, every other one is its base class's.  The
+/// cross-language tests script a chassis this way on both sides.
+pub struct DynObject {
+    pub class: &'static str,
+    pub base: BaseClass,
+    pub handler: Handler,
+}
+
+impl PyObject for DynObject {
+    fn py_class(&self) -> &'static str {
+        self.class
+    }
+
+    fn base_class(&self) -> BaseClass {
+        self.base
+    }
+{%- for m in native.methods %}
+
+    fn {{ m.name }}(&self{{ m.sig() }}) -> PyResult<PyVal> {
+        match (self.handler)(self, {{ m.name | tojson }}, {{ m.as_pyvals() }}) {
+            Some(r) => r,
+            None => defaults::{{ m.name }}(self{{ m.args() }}),
+        }
+    }
+{%- endfor %}
+}

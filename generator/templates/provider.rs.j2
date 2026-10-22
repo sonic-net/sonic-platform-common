@@ -30,12 +30,15 @@ use platform_api::{
 
 /// The implementation this call opened.
 ///
-/// One arm, because the PyO3 bridge is the only implementation there is.  A
-/// native one becomes a second variant here and a second arm in each
-/// forwarder below, and no daemon changes.
+/// Which crate the native arm holds is a build-time fact; which arm is used is
+/// the switch the daemon was started with.  The two are separate on purpose: a
+/// build can carry an implementation nobody has turned on yet.
 pub enum Platform {
     /// The vendor's Python, reached through PyO3.
     Pyo3(platform_pyo3::Bridge),
+    /// A native Rust implementation of the same trait -- a vendor's, or the
+    /// stub, which cannot be constructed.
+    Native(platform_native::Platform),
 }
 
 impl PlatformApi for Platform {
@@ -44,6 +47,7 @@ impl PlatformApi for Platform {
     fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
         match self {
             Self::Pyo3(p) => p.{{ m.rust_name }}({{ m.rust_fwd_args }}),
+            Self::Native(p) => p.{{ m.rust_name }}({{ m.rust_fwd_args }}),
         }
     }
 {%- endfor %}
@@ -53,6 +57,7 @@ impl PlatformApi for Platform {
     fn finalize(&mut self) {
         match self {
             Self::Pyo3(p) => p.finalize(),
+            Self::Native(p) => p.finalize(),
         }
     }
 }

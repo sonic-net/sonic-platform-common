@@ -1,0 +1,5 @@
+
+SMART attributes
+ ID                    Attribute   High Raw    Low Raw Value Worst Threshold
+167          Average_Erase_Count          0        116   100   100         0
+168               NAND_Endurance          0          0   100   100         0

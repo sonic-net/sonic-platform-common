@@ -1,0 +1,13 @@
+[package]
+name = "platform-native"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+license = "Apache-2.0"
+description = "The native platform API of a build that carries none"
+
+# The same dependency a vendor's crate of this name has.  Nothing else: this
+# crate is in every image that does not carry a native implementation, and it
+# has nothing to do there but refuse.
+[dependencies]
+platform-api = { path = "../platform-api" }
