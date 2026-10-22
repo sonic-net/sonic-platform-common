@@ -1531,6 +1531,41 @@ class TestCmis(object):
         self.api.set_lpmode(lpmode)
         self.api.set_lpmode(lpmode, wait_state_change = False)
 
+    # ModuleState occupies bits 3:1 of byte 3, so the raw byte values are
+    # 2 for ModuleLowPwr and 6 for ModuleReady.
+    @pytest.mark.parametrize("state_byte, expected", [
+        (2, True),
+        (6, False),
+    ])
+    def test_get_lpmode_reads_only_the_module_state_field(self, state_byte, expected):
+        """
+        get_lpmode() must read the narrow MODULE_STATE field, never the composite
+        TRANS_MODULE_STATUS_FIELD.
+
+        That group spans bytes 3-41 and therefore covers byte 8 bit 0, the
+        clear-on-read ModuleStateChanged flag. set_lpmode() polls get_lpmode()
+        every 0.1s while waiting for the low-power transition, so reading the
+        composite field here consumes the notification before the module flag
+        collector can observe it.
+        """
+        mem_map = CmisMemMap(self.codes)
+        module_state_field = mem_map.get_field(consts.MODULE_STATE)
+
+        def fake_reader(offset, size):
+            data = bytearray(size)
+            if offset == module_state_field.get_offset():
+                data[0] = state_byte
+            return data
+
+        reader = MagicMock(side_effect=fake_reader)
+        api = CmisApi(XcvrEeprom(reader, MagicMock(return_value=True), mem_map))
+        api.is_flat_memory = MagicMock(return_value=False)
+        api.get_lpmode_support = MagicMock(return_value=True)
+        reader.reset_mock()
+
+        assert api.get_lpmode() == expected
+        reader.assert_called_once_with(module_state_field.get_offset(), module_state_field.get_size())
+
     @pytest.mark.parametrize("mock_response, expected", [
         (False, False),
         (True, True),

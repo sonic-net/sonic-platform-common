@@ -1456,14 +1456,18 @@ class CmisApi(CmisCdbFw, XcvrApi):
         '''
         Retrieves Low power module status
         Returns True if module in low power else returns False.
+
+        Only the narrow MODULE_STATE field is read. The composite
+        TRANS_MODULE_STATUS_FIELD also spans byte 8, whose bit 0 is the
+        clear-on-read ModuleStateChanged flag, so polling it from here would
+        consume the notification before the module flag collector sees it.
         '''
         if self.is_flat_memory() or not self.get_lpmode_support():
             return False
 
-        lpmode = self.xcvr_eeprom.read(consts.TRANS_MODULE_STATUS_FIELD)
-        if lpmode is not None:
-            if lpmode.get('ModuleState') == 'ModuleLowPwr':
-                return True
+        module_state = self.xcvr_eeprom.read(consts.MODULE_STATE)
+        if module_state == 'ModuleLowPwr':
+            return True
         return False
 
     def wait_time_condition(self, condition_func, expected_state, duration_ms, delay_retry):
