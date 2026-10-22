@@ -1,0 +1,18 @@
+[package]
+name = "platform-api-diff"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+license = "Apache-2.0"
+description = "Run one call plan against a platform API implementation, for comparing two"
+publish = false
+
+[dependencies]
+platform-api = { path = "../platform-api" }
+platform-provider = { path = "../platform-provider" }
+serde_json = "1"
+
+# The tests drive the bridge over a base-class chassis, so they need Python
+# and `PYTHONPATH` to include the repository root.
+[dev-dependencies]
+pyo3 = { version = "0.25", features = ["auto-initialize"] }

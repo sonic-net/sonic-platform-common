@@ -128,15 +128,14 @@ steps:
     bash generator/check.sh --python-only
   displayName: 'Check platform API stub'
 
-# The three crates the stub also generates, built, linted and tested with line
-# coverage, so the diff coverage check counts them beside the Python.
+# The crates the stub also generates, the native stub, platform-base and
+# platform-api-diff, built, linted and tested with line coverage, so the diff
+# coverage check counts them beside the Python.
 #
-# They are made members of one workspace for the run.  A crate's coverage is
-# reported only for its workspace's members, and the bridge's and the
-# provider's tests are what run most of the trait crate's generated code; three
-# separate runs would credit it with its own tests alone.  The provider's lock
-# already pins all three crates and their dependencies, so it seeds the
-# workspace's.
+# They are one workspace (crates/Cargo.toml) with one lock.  A crate's coverage
+# is reported only for its workspace's members, and the bridge's and the
+# provider's tests are what run most of the trait crate's generated code, so
+# one run over the workspace credits each crate with all of them.
 #
 # The slave image has the toolchain, rustfmt and clippy included, but not the
 # LLVM tools matching it, and its rustup home belongs to root.
@@ -160,15 +159,11 @@ steps:
     # uninstalled after the Python tests, so it is found in the checkout.
     export PYTHONPATH=$(System.DefaultWorkingDirectory)
     export CARGO_TARGET_DIR=$(Agent.TempDirectory)/rust-target CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0
-    printf '%s\n' '[workspace]' \
-      'members = ["crates/platform-api", "crates/platform-pyo3", "crates/platform-provider"]' \
-      'resolver = "2"' > Cargo.toml
-    cp crates/platform-provider/Cargo.lock Cargo.lock
-    cargo fmt --all -- --check
-    cargo clippy --locked --workspace --all-targets -- -D warnings
+    cargo fmt --manifest-path crates/Cargo.toml --all -- --check
+    cargo clippy --locked --manifest-path crates/Cargo.toml --workspace --all-targets -- -D warnings
     rm -rf "$CARGO_TARGET_DIR"
-    cargo llvm-cov --locked --workspace --cobertura --output-path rust-coverage.xml
-    rm -rf Cargo.toml Cargo.lock "$CARGO_TARGET_DIR"
+    cargo llvm-cov --locked --manifest-path crates/Cargo.toml --workspace --cobertura --output-path rust-coverage.xml
+    rm -rf "$CARGO_TARGET_DIR"
   displayName: 'Test Rust crates with coverage'
 
 - task: PublishTestResults@2
