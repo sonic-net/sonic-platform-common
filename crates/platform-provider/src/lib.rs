@@ -1,20 +1,3 @@
-//
-// SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
 //! Opening the platform API, without naming which implementation.
 //!
 //! A daemon asks for a platform and is handed one.  It never writes
@@ -26,7 +9,7 @@
 //!
 //! * **Is an implementation available?**  A build-time fact -- an
 //!   implementation is a crate, and crates are chosen when the binary is
-//!   built.  Answered by the `platform-native` feature.
+//!   built.  Only the PyO3 bridge exists yet, so `native` is refused.
 //! * **Which one should this daemon use?**  A run-time choice, answered by
 //!   [`PlatformImpl`] and ultimately by `platform_api_<daemon>` in
 //!   `pmon_daemon_control.json`.
@@ -42,6 +25,9 @@ use std::str::FromStr;
 
 use platform_api::PlatformError;
 
+// The generator's output, held byte for byte to what `generate.py --check`
+// regenerates: rustfmt leaves it as written.
+#[rustfmt::skip]
 mod generated;
 
 pub use generated::Platform;
@@ -62,7 +48,8 @@ pub enum PlatformImpl {
     /// implementation a platform has always had.
     #[default]
     Pyo3,
-    /// A native Rust implementation.
+    /// A native Rust implementation.  None exists yet: the switch parses, and
+    /// [`open`] refuses it.
     Native,
 }
 
@@ -118,15 +105,15 @@ const VENDOR_MODULE: &str = "sonic_platform.platform";
 /// leak updater and chassisd's CONFIG_DB watcher each open their own, because
 /// the poll loop holds the first one mutably. Any implementation put behind
 /// this function has to keep that true.
+///
+/// It also leaves the process's SIGTERM and SIGINT dispositions as it found
+/// them -- the PyO3 arm undoes at the OS level whatever the vendor's
+/// constructor installs -- so a daemon may install its signal handlers before
+/// opening the platform or after.
 pub fn open(syslog_ident: &str, which: PlatformImpl) -> Result<Platform, PlatformError> {
     match which {
         PlatformImpl::Pyo3 => Ok(Platform::Pyo3(platform_pyo3::Bridge::new(
             VENDOR_MODULE,
-            syslog_ident,
-        )?)),
-
-        #[cfg(feature = "platform-native")]
-        PlatformImpl::Native => Ok(Platform::Native(platform_native::Platform::new(
             syslog_ident,
         )?)),
 
@@ -135,7 +122,6 @@ pub fn open(syslog_ident: &str, which: PlatformImpl) -> Result<Platform, Platfor
         // rollout that did not happen look like one that did, and nothing in
         // pmon notices a daemon running the wrong thing -- `critical_processes`
         // is empty, so no checker reads it.
-        #[cfg(not(feature = "platform-native"))]
         PlatformImpl::Native => Err(PlatformError::NotSupported(
             "the native platform API is not compiled into this build".to_string(),
         )),
@@ -219,7 +205,7 @@ class Platform:
         });
 
         let p = open("thermalctld", PlatformImpl::Pyo3)
-            .expect("PYTHONPATH must include the repository root, for platform_api.facade");
+            .expect("PYTHONPATH must include the repository root, for sonic_platform_api.facade");
         assert!(matches!(p, Platform::Pyo3(_)));
 
         // Not incidental: `sonic_py_common.logger.Logger` takes its syslog tag
@@ -241,7 +227,6 @@ class Platform:
     /// Asking for an implementation this build does not carry is an error, not
     /// a silent fall back to the other one.
     #[test]
-    #[cfg(not(feature = "platform-native"))]
     fn asking_for_native_without_it_compiled_in_is_refused() {
         match open("thermalctld", PlatformImpl::Native) {
             Err(PlatformError::NotSupported(m)) => {

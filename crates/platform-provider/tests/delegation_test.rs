@@ -1,36 +1,19 @@
-//
-// SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
 //! That the enum reaches a real facade, and gets a real answer back.
 //!
-//! `generated_sweep.rs` calls every forwarder against a facade that records
-//! and refuses; it proves each arm passes its arguments on, and nothing about
-//! what comes back.  These four go the other way: a genuine
-//! `platform_api.facade.PlatformApi` over a mock chassis, so an answer is
-//! built, converted, and has to survive the extra layer the enum adds.  One
+//! The generated sweep calls every forwarder against a facade that records and
+//! refuses; it proves each arm passes its arguments on, and nothing about what
+//! comes back.  These four go the other way: a genuine
+//! `sonic_platform_api.facade.PlatformApi` over a mock chassis, so an answer
+//! is built, converted, and has to survive the extra layer the enum adds.  One
 //! of each shape is enough for that, because the shape is what the return
 //! conversion depends on -- a `Vec`, a single row, an action, and `finalize`,
 //! which is hand-written rather than generated and is the one arm no other
 //! test would notice losing.
 //!
 //! Requires `PYTHONPATH` to include the repository root, so that
-//! `platform_api.facade` imports; see generator/check.sh.
+//! `sonic_platform_api.facade` imports; see generator/check.sh.
 
-use platform_api::{ChassisInfoCols, FanInfoCols, LedColor, PlatformApi};
+use platform_api::{ChassisInfoCols, DeviceKey, FanInfoCols, LedColor, PlatformApi};
 use platform_provider::Platform;
 use pyo3::ffi::c_str;
 use pyo3::prelude::*;
@@ -81,7 +64,7 @@ fn platform() -> (Platform, Py<PyAny>) {
         let m = PyModule::from_code(py, MOCK, c_str!("mock.py"), c_str!("mock")).unwrap();
         let chassis = m.getattr("CHASSIS").unwrap();
         let facade = py
-            .import("platform_api.facade")
+            .import("sonic_platform_api.facade")
             .expect("PYTHONPATH must include the repository root")
             .getattr("PlatformApi")
             .unwrap()
@@ -99,7 +82,9 @@ fn platform() -> (Platform, Py<PyAny>) {
 #[test]
 fn a_list_snapshot_reaches_the_implementation() {
     let (mut p, _chassis) = platform();
-    let fans = p.get_fans(FanInfoCols::ALL).expect("the mock has a fan");
+    let fans = p
+        .get_fans(FanInfoCols::ALL, false)
+        .expect("the mock has a fan");
     assert_eq!(fans.len(), 1, "one fan in, one fan out");
     assert_eq!(fans[0].name, "fan 1");
 }
@@ -118,7 +103,7 @@ fn a_singleton_snapshot_reaches_the_implementation() {
 #[test]
 fn an_action_carries_its_arguments_through() {
     let (mut p, chassis) = platform();
-    p.set_fan_led("fan 1", LedColor::Green)
+    p.set_fan_led(&DeviceKey::from("fan_drawers[0]/fans[0]"), LedColor::Green)
         .expect("the mock fan takes a colour");
     Python::with_gil(|py| {
         let led = chassis

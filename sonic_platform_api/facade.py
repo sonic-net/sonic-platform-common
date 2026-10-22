@@ -1,24 +1,7 @@
-#
-# SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
 """The Python facade over the vendor's platform API.
 
-GENERATED from platform_api/facade.pyi by generator/generate.py.  Do not edit:
-regenerate.  Adding a field or a row is one edit, to the stub.
+GENERATED from sonic_platform_api/facade.pyi by generator/generate.py.  Do not
+edit: regenerate.  Adding a field or a row is one edit, to the stub.
 
 Every base-class call here goes through `_call`, which treats a `None` return
 exactly as it treats `NotImplementedError`.  That is not a simplification --
@@ -29,6 +12,8 @@ publish today.
 """
 
 import enum
+import numbers
+import re
 from typing import Literal
 
 from . import _escape_hatch
@@ -54,25 +39,24 @@ OMITTED = (
     ("PsuBase.get_num_thermals", "len(get_thermals()) filtered on parent"),
     ("FanDrawerBase.get_num_fans", "len(get_fans()) filtered on parent"),
     ("LiquidCoolingBase.get_num_leak_sensors", "len(get_leak_sensors())"),
-    ("ChassisBase.get_component", "rows are addressed by name"),
-    ("ChassisBase.get_fan", "rows are addressed by name"),
-    ("ChassisBase.get_fan_drawer", "rows are addressed by name"),
-    ("ChassisBase.get_module", "rows are addressed by name"),
-    ("ChassisBase.get_psu", "rows are addressed by name"),
-    ("ChassisBase.get_pdb", "rows are addressed by name"),
-    ("ChassisBase.get_thermal", "rows are addressed by name"),
-    ("ChassisBase.get_sfp", "rows are addressed by name"),
-    ("ChassisBase.get_cpo", "rows are addressed by name"),
-    ("ChassisBase.get_module_index", "rows are addressed by name"),
-    ("ModuleBase.get_component", "rows are addressed by name"),
-    ("ModuleBase.get_fan", "rows are addressed by name"),
-    ("ModuleBase.get_psu", "rows are addressed by name"),
-    ("ModuleBase.get_thermal", "rows are addressed by name"),
-    ("ModuleBase.get_sfp", "rows are addressed by name"),
-    ("PsuBase.get_fan", "rows are addressed by name"),
-    ("PsuBase.get_thermal", "rows are addressed by name"),
-    ("FanDrawerBase.get_fan", "rows are addressed by name"),
-    ("SfpBase.get_thermal", "rows are addressed by name"),
+    ("ChassisBase.get_component", "rows are addressed by key"),
+    ("ChassisBase.get_fan", "rows are addressed by key"),
+    ("ChassisBase.get_fan_drawer", "rows are addressed by key"),
+    ("ChassisBase.get_module", "rows are addressed by key"),
+    ("ChassisBase.get_psu", "rows are addressed by key"),
+    ("ChassisBase.get_pdb", "rows are addressed by key"),
+    ("ChassisBase.get_thermal", "rows are addressed by key"),
+    ("ChassisBase.get_sfp", "rows are addressed by key"),
+    ("ChassisBase.get_cpo", "rows are addressed by key"),
+    ("ModuleBase.get_component", "rows are addressed by key"),
+    ("ModuleBase.get_fan", "rows are addressed by key"),
+    ("ModuleBase.get_psu", "rows are addressed by key"),
+    ("ModuleBase.get_thermal", "rows are addressed by key"),
+    ("ModuleBase.get_sfp", "rows are addressed by key"),
+    ("PsuBase.get_fan", "rows are addressed by key"),
+    ("PsuBase.get_thermal", "rows are addressed by key"),
+    ("FanDrawerBase.get_fan", "rows are addressed by key"),
+    ("SfpBase.get_thermal", "rows are addressed by key"),
     ("ChassisBase.get_all_fans", "already reached through drawer, module or PSU"),
     ("LiquidCoolingBase.get_leak_sensor_status", "duplicate of get_all_leak_sensors"),
     ("SensorFs.get_name", "SensorInfo column, read through SensorBase"),
@@ -94,9 +78,6 @@ OMITTED = (
     ("PdbBase.get_voltage", "PsuBase.get_voltage; PdbBase delegates to it"),
     ("PdbBase.get_current", "PsuBase.get_current; PdbBase delegates to it"),
     ("PdbBase.get_power", "PsuBase.get_power; PdbBase delegates to it"),
-    ("PdbBase.get_output_voltage", "PsuInfo.voltage"),
-    ("PdbBase.get_output_current", "PsuInfo.current"),
-    ("PdbBase.get_output_power", "PsuInfo.power"),
     ("BMCWatchdog.arm", "WatchdogBase.arm; BMCWatchdog overrides it"),
     ("BMCWatchdog.disarm", "WatchdogBase.disarm"),
     ("BMCWatchdog.is_armed", "WatchdogBase.is_armed"),
@@ -107,16 +88,63 @@ OMITTED = (
     ("ModuleBase.get_state_db", "the caller opens its own DB connection"),
 )
 
+# What a consumer reaches that a later phase declares, and why not yet.
+DEFERRED = (
+    ("ChassisBase.get_all_sfps", "transceivers: the sonic_xcvr phase"),
+    ("ModuleBase.get_all_sfps", "transceivers: the sonic_xcvr phase"),
+    ("ChassisBase.get_port_or_cage_type", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_error_description", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_lpmode", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_num_thermals", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_power_override", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_reset_status", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_rx_los", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_rx_power", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_transceiver_info", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_transceiver_threshold_info", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_tx_bias", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_tx_disable", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_tx_disable_channel", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_tx_fault", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_tx_power", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_xcvr_api", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.remove_xcvr_api", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.reset", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.set_lpmode", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.set_power", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.set_power_override", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.tx_disable", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.tx_disable_channel", "transceivers: the sonic_xcvr phase"),
+    ("PcieBase.get_pcie_device", "the CLI phase: only pcieutil reaches it"),
+    ("PcieUtil.get_pcie_device", "the CLI phase: only pcieutil reaches it"),
+    ("PcieUtil.dump_conf_yaml", "the CLI phase: only pcieutil reaches it"),
+    ("StorageBase.get_vendor_output", "the CLI phase: only ssdutil --vendor reaches it"),
+    ("SsdUtil.get_vendor_output", "the CLI phase: only ssdutil --vendor reaches it"),
+    ("EmmcUtil.get_vendor_output", "the CLI phase: only ssdutil --vendor reaches it"),
+    ("UsbUtil.get_vendor_output", "the CLI phase: only ssdutil --vendor reaches it"),
+)
+
 
 LedColor = Literal["green", "amber", "red", "off"]
-FanDirection = Literal["intake", "exhaust", "N/A"]
 FanKind = Literal["drawer", "module", "psu", "pdb"]
 PowerEntityKind = Literal["psu", "pdb"]
+ThermalKind = Literal["chassis", "psu", "pdb", "module", "module_psu"]
 ModuleType = Literal["SUPERVISOR", "LINE-CARD", "FABRIC-CARD", "DPU", "SWITCH-HOST"]
-ModuleStatus = Literal["Empty", "Offline", "PoweredDown", "Present", "Fault", "Online"]
+ModuleStatus = Literal["Empty", "Offline", "PoweredDown", "Present", "Fault", "ProvisionReady", "ProvisionPending", "Provisioned", "Online"]
 SensorKind = Literal["voltage", "current"]
+EepromUpdate = Literal["updated", "read_failed", "update_failed"]
 LeakSeverity = Literal["MINOR", "CRITICAL"]
 ChangeEventKind = Literal["removed", "inserted", "i2c_stuck", "bad_eeprom", "unsupported_cable", "high_temperature", "bad_cable"]
+
+
+class DeviceNotFound(KeyError):
+    """No device at a key: one that names nothing, or that is not a key at all.
+
+    A `KeyError`, which is what a lookup that found nothing has always been
+    in Python; its own class so that a `KeyError` a vendor's getter raises --
+    a dictionary miss in a sysfs table -- is not taken for one.  The Rust
+    bridge maps this class, and only this class, to `PlatformError::NotFound`.
+    """
 
 
 def _call(fn, default=None):
@@ -192,27 +220,88 @@ def _at(v, i):
         return None
 
 
-def _fmt(v, template, parent, i):
-    """A name, or the key its consumers already publish it under."""
+_KEY_STEP = re.compile(r'^([a-z][a-z0-9_]*)(?:\[(0|[1-9][0-9]*)\])?$')
+
+
+def _parse_key(key):
+    """A DeviceKey as its steps: (collection, position or None), outermost first.
+
+    `DeviceNotFound` for anything that is not one, the same error an unknown
+    key raises: a caller that built a key by hand has no device to act on
+    either way.
+    """
+    if not isinstance(key, str) or not key:
+        raise DeviceNotFound('not a device key: %r' % (key,))
+    path = []
+    for step in key.split('/'):
+        m = _KEY_STEP.match(step)
+        if m is None:
+            raise DeviceNotFound('not a device key: %r' % (key,))
+        path.append((m.group(1), None if m.group(2) is None else int(m.group(2))))
+    return tuple(path)
+
+
+def _shape(path):
+    """What a key says about the source that made it: the collections, and
+    which steps carry a position."""
+    return tuple((name, pos is not None) for name, pos in path)
+
+
+def _nth(seq, pos):
+    """The device at `pos` in a collection, or None past its end."""
+    items = list(_iter(seq))
+    return items[pos] if pos < len(items) else None
+
+
+def _fmt(v, template, parent, i, **fixed):
+    """A name, or the key its consumers already publish it under.  `fixed`
+    are the fields the source sets that the template also names, a sensor's
+    `{kind}`."""
     if v is not None:
         return str(v)
-    return template.format(parent=parent, i=i + 1)
+    return template.format(parent=parent, i=i + 1, **fixed)
 
 
-def _enum(v):
-    """A column the stub declares as one of a fixed set of strings.
+def _present(v, missing):
+    """A parent's name, or None where it answered one of `missing`.
 
-    The base classes document these as `str`, but a vendor is free to answer
-    with an `enum.Enum` whose *value* is that string -- mlnx's
-    `get_leak_severity()` does.  Both spellings mean the same thing to a
-    Python caller, so the difference went unnoticed until the Rust bridge,
-    which downcasts to `str`, failed the whole row read.
+    `FlattenSource(parent_missing=...)`.  Mellanox's virtual fan drawer is
+    named 'N/A' (fan_drawer.py:118), and thermalctld publishes its fans under
+    the chassis rather than under a drawer called that (thermalctld:450-456).
+    """
+    if v is None or str(v) in missing:
+        return None
+    return v
+
+
+def _raw(v):
+    """What a parent answered, as thermalctld publishes it: `str(try_get())`."""
+    return 'N/A' if v is None else str(v)
+
+
+def _text(v):
+    """A column the stub declares as a string: `str`, or one of a fixed set.
+
+    The Python daemons publish these with `str()`, so whatever a vendor
+    answers with is publishable.  The Rust bridge downcasts to `str`, and one
+    column that is not took the whole row read with it.  Two answers do that:
+
+    - an `enum.Enum` whose *value* is the string -- mlnx's
+      `get_leak_severity()`.  It crosses as that value, which is what a
+      Python caller comparing it to the string sees.
+    - anything else that is not a string -- accton's PDDF fan answers
+      `get_direction()` with False when the read fails, and thermalctld
+      publishes "False".  It crosses as `str()` of itself.
 
     Normalising here rather than in the bridge keeps the two sides reading the
     same declaration: the stub says the column is a string, so it crosses as
     one.
     """
-    return v.value if isinstance(v, enum.Enum) else v
+    if v is None or isinstance(v, str):
+        return v
+    if isinstance(v, enum.Enum):
+        v = v.value
+    return v if isinstance(v, str) else str(v)
 
 
 def _call_with_name(name_fn, fn):
@@ -272,6 +361,9 @@ def _truthy(v):
 
     None stays None: `if None:` is false in Python too, so an absent reading
     keeps behaving the way the daemon already expects.
+
+    An action's bool answer goes through here too, for the same reason: its
+    caller reads it as `if not answer:`.
     """
     return None if v is None else bool(v)
 
@@ -283,6 +375,14 @@ def _scalar(v, sentinels, coerce_from):
     float, at positions the base class documents as float.  Both this and the
     Rust bridge normalise through the same declared table, so the two sides
     cannot disagree about what "no reading" looks like.
+
+    A number that is neither an `int` nor a `float` keeps its fraction: an
+    integral one (`numpy.int64`) becomes an int, anything else that converts
+    (`Decimal`, `numpy.float32`) becomes a float.  Trying `int()` first
+    truncated `Decimal('45.7')` to 45.  A string is the other way round:
+    `int()` first keeps every digit of a whole number past 2**53, and
+    '45.7', which `int()` refuses, is left to the `str` rule.  Where the
+    column is an integer, the bridge narrows it, as it does a float.
     """
     if v is None:
         return None
@@ -300,8 +400,15 @@ def _scalar(v, sentinels, coerce_from):
             except ValueError:
                 return None
         if kind == 'int':
-            try:
+            if isinstance(v, str):
+                try:
+                    return int(v)
+                except ValueError:
+                    continue
+            if isinstance(v, numbers.Integral):
                 return int(v)
+            try:
+                return float(v)
             except (TypeError, ValueError):
                 pass
     return None
@@ -311,7 +418,7 @@ def _scalar(v, sentinels, coerce_from):
 class ThermalInfo(object):
     """One temperature sensor, wherever in the tree it is mounted."""
 
-    __slots__ = ('name', 'parent_name', 'position_in_parent', 'is_replaceable', 'temperature', 'high_threshold', 'low_threshold', 'high_critical_threshold', 'low_critical_threshold', 'min_recorded', 'max_recorded', )
+    __slots__ = ('name', 'kind', 'parent_name', 'key', 'parent_key', 'position_in_parent', 'temperature', 'is_replaceable', 'min_recorded', 'max_recorded', 'high_threshold', 'low_threshold', 'high_critical_threshold', 'low_critical_threshold', 'error', 'error_repr', 'error_column', )
 
     def __init__(self, **fields):
         """Keyword-only, and uniform across every row.
@@ -340,7 +447,7 @@ class FanInfo(object):
     """One fan.  `kind` says where it is mounted, which is what decides
     whether `drawer_name` means anything."""
 
-    __slots__ = ('name', 'kind', 'parent_name', 'drawer_name', 'position_in_parent', 'presence', 'status', 'is_replaceable', 'model', 'serial', 'speed_pct', 'target_speed_pct', 'direction', 'is_under_speed', 'is_over_speed', 'status_led', )
+    __slots__ = ('name', 'kind', 'parent_name', 'key', 'parent_key', 'drawer_name', 'position_in_parent', 'is_replaceable', 'presence', 'speed_pct', 'target_speed_pct', 'is_under_speed', 'is_over_speed', 'status', 'direction', 'model', 'serial', 'status_led', 'error', 'error_repr', 'error_column', )
 
     def __init__(self, **fields):
         """Keyword-only, and uniform across every row.
@@ -368,7 +475,7 @@ class FanInfo(object):
 class FanDrawerInfo(object):
     """One fan drawer: the field-replaceable unit a chassis fan sits in."""
 
-    __slots__ = ('name', 'position_in_parent', 'presence', 'status', 'is_replaceable', 'model', 'serial', 'status_led', 'maximum_consumed_power', )
+    __slots__ = ('name', 'key', 'position_in_parent', 'presence', 'status', 'is_replaceable', 'model', 'serial', 'status_led', 'maximum_consumed_power', )
 
     def __init__(self, **fields):
         """Keyword-only, and uniform across every row.
@@ -397,7 +504,7 @@ class PsuInfo(object):
     """A PSU or a PDB.  `PdbBase` extends `PsuBase` and psud publishes both
     into the same table, so they are one row type with a `kind`."""
 
-    __slots__ = ('name', 'kind', 'position_in_parent', 'presence', 'is_replaceable', 'model', 'serial', 'revision', 'power_good', 'status_led', 'voltage', 'current', 'power', 'input_voltage', 'input_current', 'input_power', 'temperature', 'temperature_high_threshold', 'voltage_high_threshold', 'voltage_low_threshold', 'maximum_supplied_power', 'power_warning_suppress_threshold', 'power_critical_threshold', )
+    __slots__ = ('name', 'kind', 'key', 'position_in_parent', 'presence', 'is_replaceable', 'model', 'serial', 'revision', 'power_good', 'status_led', 'voltage', 'current', 'power', 'input_voltage', 'input_current', 'input_power', 'temperature', 'temperature_high_threshold', 'voltage_high_threshold', 'voltage_low_threshold', 'maximum_supplied_power', 'power_warning_suppress_threshold', 'power_critical_threshold', )
 
     def __init__(self, **fields):
         """Keyword-only, and uniform across every row.
@@ -453,7 +560,7 @@ class ChassisInfo(object):
 class ModuleInfo(object):
     """One line card, fabric card, supervisor or DPU."""
 
-    __slots__ = ('name', 'parent_name', 'position_in_parent', 'presence', 'status', 'is_replaceable', 'model', 'serial', 'description', 'slot', 'type', 'oper_status', 'base_mac', 'dpu_id', 'maximum_consumed_power', 'midplane_ip', 'is_midplane_reachable', 'state_transition', )
+    __slots__ = ('name', 'parent_name', 'key', 'parent_key', 'position_in_parent', 'presence', 'status', 'is_replaceable', 'model', 'serial', 'description', 'slot', 'type', 'oper_status', 'base_mac', 'dpu_id', 'maximum_consumed_power', 'midplane_ip', 'is_midplane_reachable', 'state_transition', )
 
     def __init__(self, **fields):
         """Keyword-only, and uniform across every row.
@@ -481,7 +588,7 @@ class ModuleInfo(object):
 class ComponentInfo(object):
     """One field-upgradeable component: a BIOS, a CPLD, an FPGA, an SSD."""
 
-    __slots__ = ('name', 'parent_name', 'description', 'firmware_version', )
+    __slots__ = ('name', 'parent_name', 'key', 'parent_key', 'description', 'firmware_version', )
 
     def __init__(self, **fields):
         """Keyword-only, and uniform across every row.
@@ -513,7 +620,7 @@ class SensorInfo(object):
     publishes them to two tables off the same loop, and a consumer that wanted
     only one filters."""
 
-    __slots__ = ('name', 'kind', 'parent_name', 'position_in_parent', 'is_replaceable', 'unit', 'value', 'high_threshold', 'low_threshold', 'high_critical_threshold', 'low_critical_threshold', 'min_recorded', 'max_recorded', )
+    __slots__ = ('name', 'kind', 'parent_name', 'key', 'parent_key', 'position_in_parent', 'value', 'is_replaceable', 'unit', 'min_recorded', 'max_recorded', 'high_threshold', 'low_threshold', 'high_critical_threshold', 'low_critical_threshold', 'error', 'error_repr', 'error_column', )
 
     def __init__(self, **fields):
         """Keyword-only, and uniform across every row.
@@ -775,7 +882,7 @@ class StorageDeviceInfo(object):
     and a column that guessed at a number would have to guess again at how to
     print it."""
 
-    __slots__ = ('name', 'available', 'model', 'serial', 'firmware', 'health', 'temperature', 'disk_io_reads', 'disk_io_writes', 'reserved_blocks', 'fs_io_reads', 'fs_io_writes', )
+    __slots__ = ('name', 'available', 'model', 'serial', 'firmware', 'health', 'temperature', 'disk_io_reads', 'disk_io_writes', 'reserved_blocks', 'fs_io_reads', 'fs_io_writes', 'static_error', 'error', )
 
     def __init__(self, **fields):
         """Keyword-only, and uniform across every row.
@@ -998,14 +1105,39 @@ class BmcResult(object):
                             % ', '.join(sorted(fields)))
 
     def __repr__(self):
+        # token: Secret(), so said to be there, not shown.
+        secret = ('token',)
         return 'BmcResult(%s)' % ', '.join(
-            '%s=%r' % (k, getattr(self, k)) for k in self.__slots__)
+            '%s=%s' % (k, '<redacted>' if k in secret and getattr(self, k) is not None
+                       else repr(getattr(self, k))) for k in self.__slots__)
 
     def __eq__(self, other):
         if not isinstance(other, BmcResult):
             return NotImplemented
         return all(getattr(self, k) == getattr(other, k) for k in self.__slots__)
 
+
+
+class ThermalInfoCols(object):
+    """Which columns of `ThermalInfo` a caller wants read.
+
+    One bit per declinable column, numbered by `generate.py` from the same
+    declaration that numbers `ThermalInfoCol` on the Rust side -- they are
+    written by one pass and cannot disagree.  Columns outside the set are left
+    at their absent value rather than read.
+    """
+    POSITION_IN_PARENT = 1 << 0
+    TEMPERATURE = 1 << 1
+    IS_REPLACEABLE = 1 << 2
+    MIN_RECORDED = 1 << 3
+    MAX_RECORDED = 1 << 4
+    HIGH_THRESHOLD = 1 << 5
+    LOW_THRESHOLD = 1 << 6
+    HIGH_CRITICAL_THRESHOLD = 1 << 7
+    LOW_CRITICAL_THRESHOLD = 1 << 8
+
+    NONE = 0
+    ALL = 511
 
 
 class FanInfoCols(object):
@@ -1017,16 +1149,16 @@ class FanInfoCols(object):
     at their absent value rather than read.
     """
     POSITION_IN_PARENT = 1 << 0
-    PRESENCE = 1 << 1
-    STATUS = 1 << 2
-    IS_REPLACEABLE = 1 << 3
-    MODEL = 1 << 4
-    SERIAL = 1 << 5
-    SPEED_PCT = 1 << 6
-    TARGET_SPEED_PCT = 1 << 7
+    IS_REPLACEABLE = 1 << 1
+    PRESENCE = 1 << 2
+    SPEED_PCT = 1 << 3
+    TARGET_SPEED_PCT = 1 << 4
+    IS_UNDER_SPEED = 1 << 5
+    IS_OVER_SPEED = 1 << 6
+    STATUS = 1 << 7
     DIRECTION = 1 << 8
-    IS_UNDER_SPEED = 1 << 9
-    IS_OVER_SPEED = 1 << 10
+    MODEL = 1 << 9
+    SERIAL = 1 << 10
     STATUS_LED = 1 << 11
 
     NONE = 0
@@ -1062,28 +1194,29 @@ class ChassisInfoCols(object):
     written by one pass and cannot disagree.  Columns outside the set are left
     at their absent value rather than read.
     """
-    PRESENCE = 1 << 0
-    MODEL = 1 << 1
-    SERIAL = 1 << 2
-    REVISION = 1 << 3
-    STATUS = 1 << 4
-    BASE_MAC = 1 << 5
-    IS_MODULAR_CHASSIS = 1 << 6
-    IS_SMARTSWITCH = 1 << 7
-    IS_DPU = 1 << 8
-    IS_BMC = 1 << 9
-    IS_LIQUID_COOLED = 1 << 10
-    REBOOT_CAUSE = 1 << 11
-    REBOOT_CAUSE_DETAIL = 1 << 12
-    MY_SLOT = 1 << 13
-    SUPERVISOR_SLOT = 1 << 14
-    DPU_ID = 1 << 15
-    DATAPLANE_STATE = 1 << 16
-    CONTROLPLANE_STATE = 1 << 17
-    STATUS_LED = 1 << 18
+    NAME = 1 << 0
+    PRESENCE = 1 << 1
+    MODEL = 1 << 2
+    SERIAL = 1 << 3
+    REVISION = 1 << 4
+    STATUS = 1 << 5
+    BASE_MAC = 1 << 6
+    IS_MODULAR_CHASSIS = 1 << 7
+    IS_SMARTSWITCH = 1 << 8
+    IS_DPU = 1 << 9
+    IS_BMC = 1 << 10
+    IS_LIQUID_COOLED = 1 << 11
+    REBOOT_CAUSE = 1 << 12
+    REBOOT_CAUSE_DETAIL = 1 << 13
+    MY_SLOT = 1 << 14
+    SUPERVISOR_SLOT = 1 << 15
+    DPU_ID = 1 << 16
+    DATAPLANE_STATE = 1 << 17
+    CONTROLPLANE_STATE = 1 << 18
+    STATUS_LED = 1 << 19
 
     NONE = 0
-    ALL = 524287
+    ALL = 1048575
 
 
 class ModuleInfoCols(object):
@@ -1122,400 +1255,772 @@ class PlatformApi(object):
         self._chassis = chassis
         self._hatch = _escape_hatch.EscapeHatches(chassis)
 
-    def _row_thermal_info(self, dev, parent, i, fixed):
-        return ThermalInfo(
-            name=_fmt(_call(_get(dev, 'get_name')), '{parent} Thermal {i}', parent, i),
+    def _row_thermal_info(self, dev, parent, i, fixed, cols, skip):
+        if fixed['key'] in skip:
+            cols &= 1
+        row = ThermalInfo(
+            name=_fmt(_text(_call(_get(dev, 'get_name'))), '{parent} Thermal {i}', parent, i),
+            kind=fixed['kind'],
             parent_name=parent,
-            position_in_parent=_call(_get(dev, 'get_position_in_parent')),
-            is_replaceable=_default(_call(_get(dev, 'is_replaceable')), False),
-            temperature=_scalar(_call(_get(dev, 'get_temperature')), ('N/A',), ('int', 'str')),
-            high_threshold=_scalar(_call(_get(dev, 'get_high_threshold')), ('N/A',), ('int', 'str')),
-            low_threshold=_scalar(_call(_get(dev, 'get_low_threshold')), ('N/A',), ('int', 'str')),
-            high_critical_threshold=_scalar(_call(_get(dev, 'get_high_critical_threshold')), ('N/A',), ('int', 'str')),
-            low_critical_threshold=_scalar(_call(_get(dev, 'get_low_critical_threshold')), ('N/A',), ('int', 'str')),
-            min_recorded=_scalar(_call(_get(dev, 'get_minimum_recorded')), ('N/A',), ('int', 'str')),
-            max_recorded=_scalar(_call(_get(dev, 'get_maximum_recorded')), ('N/A',), ('int', 'str')),
+            key=fixed['key'],
+            parent_key=fixed['parent_key'],
+            position_in_parent=(_call(_get(dev, 'get_position_in_parent'))) if cols & (1 << 0) else None,
+            temperature=None,
+            is_replaceable=False,
+            min_recorded=None,
+            max_recorded=None,
+            high_threshold=None,
+            low_threshold=None,
+            high_critical_threshold=None,
+            low_critical_threshold=None,
+            error=None,
+            error_repr=None,
+            error_column=None,
         )
+        try:
+            _column = 'temperature'
+            row.temperature = (_scalar(_call(_get(dev, 'get_temperature')), ('N/A',), ('int', 'str'))) if cols & (1 << 1) else None
+            _column = 'is_replaceable'
+            row.is_replaceable = (_default(_call(_get(dev, 'is_replaceable')), False)) if cols & (1 << 2) else False
+            _column = 'min_recorded'
+            row.min_recorded = ((_scalar(_call(_get(dev, 'get_minimum_recorded')), ('N/A',), ('int', 'str'))) if cols & (1 << 3) else None) if row.temperature is not None else None
+            _column = 'max_recorded'
+            row.max_recorded = ((_scalar(_call(_get(dev, 'get_maximum_recorded')), ('N/A',), ('int', 'str'))) if cols & (1 << 4) else None) if row.temperature is not None else None
+            _column = 'high_threshold'
+            row.high_threshold = ((_scalar(_call(_get(dev, 'get_high_threshold')), ('N/A',), ('int', 'str'))) if cols & (1 << 5) else None) if row.temperature is not None else None
+            _column = 'low_threshold'
+            row.low_threshold = ((_scalar(_call(_get(dev, 'get_low_threshold')), ('N/A',), ('int', 'str'))) if cols & (1 << 6) else None) if row.temperature is not None else None
+            _column = 'high_critical_threshold'
+            row.high_critical_threshold = ((_scalar(_call(_get(dev, 'get_high_critical_threshold')), ('N/A',), ('int', 'str'))) if cols & (1 << 7) else None) if row.temperature is not None else None
+            _column = 'low_critical_threshold'
+            row.low_critical_threshold = ((_scalar(_call(_get(dev, 'get_low_critical_threshold')), ('N/A',), ('int', 'str'))) if cols & (1 << 8) else None) if row.temperature is not None else None
+        except Exception as e:
+            row.error = str(e)
+            row.error_repr = repr(e)
+            row.error_column = _column
+        return row
 
-    def _walk_thermal_info(self):
-        """Every ThermalInfo paired with the device it was read from.
+    def _walk_thermal_info(self, cols, skip):
+        """Every ThermalInfo, in declared order.
 
-        One traversal serves both the snapshot and the by-name lookup, so an
-        action cannot disagree with the snapshot about what a row is called.
+        Each row carries its key, the path this walk took to the device; an
+        action follows that path back with `_find_thermal_info()`.
         """
         out = []
         # ChassisBase.get_all_thermals
         for i, dev in enumerate(_iter(_call(_get(self._chassis, 'get_all_thermals')))):
-            out.append((self._row_thermal_info(dev, 'chassis 1', i, {}), dev))
+            out.append(self._row_thermal_info(dev, 'chassis 1', i, {'key': 'thermals[%d]' % i, 'parent_key': None, 'kind': 'chassis'}, cols, skip))
         # PsuBase.get_all_thermals via ChassisBase.get_all_psus
         for i0, o0 in enumerate(_iter(_call(_get(self._chassis, 'get_all_psus')))):
             if not _call(_get(o0, 'get_presence')):
                 continue
             p0 = _fmt(_call(_get(o0, 'get_name')), 'PSU {i}', '', i0)
+            k0 = 'psus[%d]' % i0
             for i, dev in enumerate(_iter(_call(_get(o0, 'get_all_thermals')))):
-                out.append((self._row_thermal_info(dev, p0, i, {}), dev))
+                out.append(self._row_thermal_info(dev, p0, i, {'key': k0 + '/' + 'thermals[%d]' % i, 'parent_key': k0, 'kind': 'psu'}, cols, skip))
         # PdbBase.get_all_thermals via ChassisBase.get_all_pdbs
         try:
             for i0, o0 in enumerate(_iter(_call(_get(self._chassis, 'get_all_pdbs')))):
-                if not _call(_get(o0, 'get_presence')):
+                if not _call(_get(o0, 'get_presence'), True):
                     continue
                 p0 = _fmt(_call(_get(o0, 'get_name')), 'PDB {i}', '', i0)
+                k0 = 'pdbs[%d]' % i0
                 for i, dev in enumerate(_iter(_call(_get(o0, 'get_all_thermals')))):
-                    out.append((self._row_thermal_info(dev, p0, i, {}), dev))
+                    out.append(self._row_thermal_info(dev, p0, i, {'key': k0 + '/' + 'thermals[%d]' % i, 'parent_key': k0, 'kind': 'pdb'}, cols, skip))
         except NotImplementedError:
             pass
         # ModuleBase.get_all_thermals via ChassisBase.get_all_modules
         if _call(_get(self._chassis, 'is_modular_chassis')):
             for i0, o0 in enumerate(_iter(_call(_get(self._chassis, 'get_all_modules')))):
                 p0 = _fmt(_call(_get(o0, 'get_name')), 'Module {i}', '', i0)
+                k0 = 'modules[%d]' % i0
                 for i, dev in enumerate(_iter(_call(_get(o0, 'get_all_thermals')))):
-                    out.append((self._row_thermal_info(dev, p0, i, {}), dev))
+                    out.append(self._row_thermal_info(dev, p0, i, {'key': k0 + '/' + 'thermals[%d]' % i, 'parent_key': k0, 'kind': 'module'}, cols, skip))
         # PsuBase.get_all_thermals via ChassisBase.get_all_modules -> ModuleBase.get_all_psus
         if _call(_get(self._chassis, 'is_modular_chassis')):
             for i0, o0 in enumerate(_iter(_call(_get(self._chassis, 'get_all_modules')))):
                 p0 = _fmt(_call(_get(o0, 'get_name')), 'Module {i}', '', i0)
+                k0 = 'modules[%d]' % i0
                 for i1, o1 in enumerate(_iter(_call(_get(o0, 'get_all_psus')))):
                     if not _call(_get(o1, 'get_presence')):
                         continue
                     p1 = _fmt(_call(_get(o1, 'get_name')), '{parent} PSU {i}', p0, i1)
+                    k1 = k0 + '/' + 'psus[%d]' % i1
                     for i, dev in enumerate(_iter(_call(_get(o1, 'get_all_thermals')))):
-                        out.append((self._row_thermal_info(dev, p1, i, {}), dev))
+                        out.append(self._row_thermal_info(dev, p1, i, {'key': k1 + '/' + 'thermals[%d]' % i, 'parent_key': k1, 'kind': 'module_psu'}, cols, skip))
         return out
 
 
-    def _row_fan_info(self, dev, parent, i, fixed, cols):
-        return FanInfo(
-            name=_fmt(_call(_get(dev, 'get_name')), '{parent} fan {i}', parent, i),
+    def _row_fan_info(self, dev, parent, i, fixed, cols, absorb):
+        row = FanInfo(
+            name=_fmt(None, '{parent} fan {i}', parent, i),
             kind=fixed['kind'],
             parent_name=parent,
+            key=fixed['key'],
+            parent_key=fixed['parent_key'],
             drawer_name=fixed['drawer_name'],
-            position_in_parent=(_call(_get(dev, 'get_position_in_parent'))) if cols & (1 << 0) else None,
-            presence=(_default(_call(_get(dev, 'get_presence')), False)) if cols & (1 << 1) else False,
-            status=(_default(_call(_get(dev, 'get_status')), False)) if cols & (1 << 2) else False,
-            is_replaceable=(_default(_call(_get(dev, 'is_replaceable')), False)) if cols & (1 << 3) else False,
-            model=(_call(_get(dev, 'get_model'))) if cols & (1 << 4) else None,
-            serial=(_call(_get(dev, 'get_serial'))) if cols & (1 << 5) else None,
-            speed_pct=(_scalar(_call(_get(dev, 'get_speed')), ('N/A',), ('int', 'str'))) if cols & (1 << 6) else None,
-            target_speed_pct=(_scalar(_call(_get(dev, 'get_target_speed')), ('N/A',), ('int', 'str'))) if cols & (1 << 7) else None,
-            direction=(_enum(_call(_get(dev, 'get_direction')))) if cols & (1 << 8) else None,
-            is_under_speed=(_call(_get(dev, 'is_under_speed'))) if cols & (1 << 9) else None,
-            is_over_speed=(_call(_get(dev, 'is_over_speed'))) if cols & (1 << 10) else None,
-            status_led=(_enum(_call(_get(dev, 'get_status_led')))) if cols & (1 << 11) else None,
+            position_in_parent=None,
+            is_replaceable=False,
+            presence=False,
+            speed_pct=None,
+            target_speed_pct=None,
+            is_under_speed=None,
+            is_over_speed=None,
+            status=False,
+            direction=None,
+            model=None,
+            serial=None,
+            status_led=None,
+            error=None,
+            error_repr=None,
+            error_column=None,
         )
+        if absorb:
+            try:
+                row.name = _fmt(_text(_call(_get(dev, 'get_name'))), '{parent} fan {i}', parent, i)
+            except Exception:
+                row.name = _fmt(None, '{parent} fan {i}', parent, i)
+            try:
+                row.position_in_parent = (_call(_get(dev, 'get_position_in_parent'))) if cols & (1 << 0) else None
+            except Exception:
+                row.position_in_parent = None
+            try:
+                row.is_replaceable = (_default(_call(_get(dev, 'is_replaceable')), False)) if cols & (1 << 1) else False
+            except Exception:
+                row.is_replaceable = False
+            try:
+                row.presence = (_default(_call(_get(dev, 'get_presence')), False)) if cols & (1 << 2) else False
+            except Exception:
+                row.presence = False
+            try:
+                row.speed_pct = (_scalar(_call(_get(dev, 'get_speed')), ('N/A',), ('int', 'str'))) if cols & (1 << 3) else None
+            except Exception:
+                row.speed_pct = None
+            try:
+                row.target_speed_pct = (_scalar(_call(_get(dev, 'get_target_speed')), ('N/A',), ('int', 'str'))) if cols & (1 << 4) else None
+            except Exception:
+                row.target_speed_pct = None
+            try:
+                row.is_under_speed = (_call(_get(dev, 'is_under_speed'))) if cols & (1 << 5) else None
+            except Exception:
+                row.is_under_speed = None
+            try:
+                row.is_over_speed = (_call(_get(dev, 'is_over_speed'))) if cols & (1 << 6) else None
+            except Exception:
+                row.is_over_speed = None
+            try:
+                row.status = (_default(_call(_get(dev, 'get_status')), False)) if cols & (1 << 7) else False
+            except Exception:
+                row.status = False
+            try:
+                row.direction = (_text(_call(_get(dev, 'get_direction')))) if cols & (1 << 8) else None
+            except Exception:
+                row.direction = None
+            try:
+                row.model = (_text(_call(_get(dev, 'get_model')))) if cols & (1 << 9) else None
+            except Exception:
+                row.model = None
+            try:
+                row.serial = (_text(_call(_get(dev, 'get_serial')))) if cols & (1 << 10) else None
+            except Exception:
+                row.serial = None
+            try:
+                row.status_led = (_text(_call(_get(dev, 'get_status_led')))) if cols & (1 << 11) else None
+            except Exception:
+                row.status_led = None
+        else:
+            try:
+                _column = 'name'
+                row.name = _fmt(_text(_call(_get(dev, 'get_name'))), '{parent} fan {i}', parent, i)
+                _column = 'position_in_parent'
+                row.position_in_parent = (_call(_get(dev, 'get_position_in_parent'))) if cols & (1 << 0) else None
+                _column = 'is_replaceable'
+                row.is_replaceable = (_default(_call(_get(dev, 'is_replaceable')), False)) if cols & (1 << 1) else False
+                _column = 'presence'
+                row.presence = (_default(_call(_get(dev, 'get_presence')), False)) if cols & (1 << 2) else False
+                _column = 'speed_pct'
+                row.speed_pct = ((_scalar(_call(_get(dev, 'get_speed')), ('N/A',), ('int', 'str'))) if cols & (1 << 3) else None) if row.presence else None
+                _column = 'target_speed_pct'
+                row.target_speed_pct = ((_scalar(_call(_get(dev, 'get_target_speed')), ('N/A',), ('int', 'str'))) if cols & (1 << 4) else None) if row.presence else None
+                _column = 'is_under_speed'
+                row.is_under_speed = ((_call(_get(dev, 'is_under_speed'))) if cols & (1 << 5) else None) if row.presence else None
+                _column = 'is_over_speed'
+                row.is_over_speed = ((_call(_get(dev, 'is_over_speed'))) if cols & (1 << 6) else None) if row.presence else None
+                _column = 'status'
+                row.status = ((_default(_call(_get(dev, 'get_status')), False)) if cols & (1 << 7) else False) if row.presence else False
+                _column = 'direction'
+                row.direction = ((_text(_call(_get(dev, 'get_direction')))) if cols & (1 << 8) else None) if row.presence else None
+                _column = 'model'
+                row.model = (_text(_call(_get(dev, 'get_model')))) if cols & (1 << 9) else None
+                _column = 'serial'
+                row.serial = (_text(_call(_get(dev, 'get_serial')))) if cols & (1 << 10) else None
+                _column = 'status_led'
+                row.status_led = (_text(_call(_get(dev, 'get_status_led')))) if cols & (1 << 11) else None
+            except Exception as e:
+                row.error = str(e)
+                row.error_repr = repr(e)
+                row.error_column = _column
+        return row
 
-    def _walk_fan_info(self, cols):
-        """Every FanInfo paired with the device it was read from.
+    def _walk_fan_info(self, cols, absorb):
+        """Every FanInfo, in declared order.
 
-        One traversal serves both the snapshot and the by-name lookup, so an
-        action cannot disagree with the snapshot about what a row is called.
+        Each row carries its key, the path this walk took to the device; an
+        action follows that path back with `_find_fan_info()`.
         """
         out = []
         # FanDrawerBase.get_all_fans via ChassisBase.get_all_fan_drawers
         for i0, o0 in enumerate(_iter(_call(_get(self._chassis, 'get_all_fan_drawers')))):
-            p0 = _fmt(_call(_get(o0, 'get_name')), 'chassis 1', '', i0)
+            r0 = _call(_get(o0, 'get_name'))
+            p0 = _fmt(_present(r0, ('N/A',)), 'chassis 1', '', i0)
+            k0 = 'fan_drawers[%d]' % i0
             for i, dev in enumerate(_iter(_call(_get(o0, 'get_all_fans')))):
-                out.append((self._row_fan_info(dev, p0, i, {'kind': 'drawer', 'drawer_name': p0}, cols), dev))
+                out.append(self._row_fan_info(dev, p0, i, {'key': k0 + '/' + 'fans[%d]' % i, 'parent_key': k0, 'kind': 'drawer', 'drawer_name': _raw(r0)}, cols, absorb))
         # ModuleBase.get_all_fans via ChassisBase.get_all_modules
         for i0, o0 in enumerate(_iter(_call(_get(self._chassis, 'get_all_modules')))):
             p0 = _fmt(_call(_get(o0, 'get_name')), 'Module {i}', '', i0)
+            k0 = 'modules[%d]' % i0
             for i, dev in enumerate(_iter(_call(_get(o0, 'get_all_fans')))):
-                out.append((self._row_fan_info(dev, p0, i, {'kind': 'module', 'drawer_name': 'N/A'}, cols), dev))
+                out.append(self._row_fan_info(dev, p0, i, {'key': k0 + '/' + 'fans[%d]' % i, 'parent_key': k0, 'kind': 'module', 'drawer_name': 'N/A'}, cols, absorb))
         # PsuBase.get_all_fans via ChassisBase.get_all_psus
         for i0, o0 in enumerate(_iter(_call(_get(self._chassis, 'get_all_psus')))):
             p0 = _fmt(_call(_get(o0, 'get_name')), 'PSU {i}', '', i0)
+            k0 = 'psus[%d]' % i0
             for i, dev in enumerate(_iter(_call(_get(o0, 'get_all_fans')))):
-                out.append((self._row_fan_info(dev, p0, i, {'kind': 'psu', 'drawer_name': 'N/A'}, cols), dev))
+                out.append(self._row_fan_info(dev, p0, i, {'key': k0 + '/' + 'fans[%d]' % i, 'parent_key': k0, 'kind': 'psu', 'drawer_name': 'N/A'}, cols, absorb))
         # PsuBase.get_all_fans via ChassisBase.get_all_pdbs
         for i0, o0 in enumerate(_iter(_call(_get(self._chassis, 'get_all_pdbs')))):
             p0 = _fmt(_call(_get(o0, 'get_name')), 'PDB {i}', '', i0)
+            k0 = 'pdbs[%d]' % i0
             for i, dev in enumerate(_iter(_call(_get(o0, 'get_all_fans')))):
-                out.append((self._row_fan_info(dev, p0, i, {'kind': 'pdb', 'drawer_name': 'N/A'}, cols), dev))
+                out.append(self._row_fan_info(dev, p0, i, {'key': k0 + '/' + 'fans[%d]' % i, 'parent_key': k0, 'kind': 'pdb', 'drawer_name': 'N/A'}, cols, absorb))
         return out
 
-    def _find_fan_info(self, name):
-        """The device behind a published FanInfo name."""
-        # Names only: resolving one costs a walk, and an action that then sets
-        # a speed has no use for the other columns of every other row.
-        for row, dev in self._walk_fan_info(0):
-            if row.name == name:
-                return dev
-        raise KeyError('no FanInfo named %r' % name)
+    def _find_fan_info(self, key):
+        """The device at a published FanInfo key.
+
+        One getter per step of the key, not a walk: an action costs what
+        reaching the device costs, and reads nothing else on the way.
+        """
+        path = _parse_key(key)
+        # FanDrawerBase.get_all_fans via ChassisBase.get_all_fan_drawers
+        if _shape(path) == (('fan_drawers', True), ('fans', True)):
+            o0 = _nth(_call(_get(self._chassis, 'get_all_fan_drawers')), path[0][1])
+            if o0 is not None:
+                dev = _nth(_call(_get(o0, 'get_all_fans')), path[1][1])
+                if dev is not None:
+                    return dev
+        # ModuleBase.get_all_fans via ChassisBase.get_all_modules
+        if _shape(path) == (('modules', True), ('fans', True)):
+            o0 = _nth(_call(_get(self._chassis, 'get_all_modules')), path[0][1])
+            if o0 is not None:
+                dev = _nth(_call(_get(o0, 'get_all_fans')), path[1][1])
+                if dev is not None:
+                    return dev
+        # PsuBase.get_all_fans via ChassisBase.get_all_psus
+        if _shape(path) == (('psus', True), ('fans', True)):
+            o0 = _nth(_call(_get(self._chassis, 'get_all_psus')), path[0][1])
+            if o0 is not None:
+                dev = _nth(_call(_get(o0, 'get_all_fans')), path[1][1])
+                if dev is not None:
+                    return dev
+        # PsuBase.get_all_fans via ChassisBase.get_all_pdbs
+        if _shape(path) == (('pdbs', True), ('fans', True)):
+            o0 = _nth(_call(_get(self._chassis, 'get_all_pdbs')), path[0][1])
+            if o0 is not None:
+                dev = _nth(_call(_get(o0, 'get_all_fans')), path[1][1])
+                if dev is not None:
+                    return dev
+        raise DeviceNotFound('no FanInfo at %r' % key)
 
 
     def _row_fan_drawer_info(self, dev, parent, i, fixed, cols):
         return FanDrawerInfo(
-            name=_fmt(_call(_get(dev, 'get_name')), 'drawer {i}', parent, i),
+            name=_default(_text(_call(_get(dev, 'get_name'))), 'N/A'),
+            key=fixed['key'],
             position_in_parent=(_call(_get(dev, 'get_position_in_parent'))) if cols & (1 << 0) else None,
             presence=(_default(_call(_get(dev, 'get_presence')), False)) if cols & (1 << 1) else False,
             status=(_call(_get(dev, 'get_status'))) if cols & (1 << 2) else None,
             is_replaceable=(_default(_call(_get(dev, 'is_replaceable')), False)) if cols & (1 << 3) else False,
-            model=(_call(_get(dev, 'get_model'))) if cols & (1 << 4) else None,
-            serial=(_call(_get(dev, 'get_serial'))) if cols & (1 << 5) else None,
-            status_led=(_enum(_call(_get(dev, 'get_status_led')))) if cols & (1 << 6) else None,
+            model=(_text(_call(_get(dev, 'get_model')))) if cols & (1 << 4) else None,
+            serial=(_text(_call(_get(dev, 'get_serial')))) if cols & (1 << 5) else None,
+            status_led=(_text(_call(_get(dev, 'get_status_led')))) if cols & (1 << 6) else None,
             maximum_consumed_power=(_scalar(_call(_get(dev, 'get_maximum_consumed_power')), ('N/A',), ('int', 'str'))) if cols & (1 << 7) else None,
         )
 
     def _walk_fan_drawer_info(self, cols):
-        """Every FanDrawerInfo paired with the device it was read from.
+        """Every FanDrawerInfo, in declared order.
 
-        One traversal serves both the snapshot and the by-name lookup, so an
-        action cannot disagree with the snapshot about what a row is called.
+        Each row carries its key, the path this walk took to the device; an
+        action follows that path back with `_find_fan_drawer_info()`.
         """
         out = []
         # ChassisBase.get_all_fan_drawers
         for i, dev in enumerate(_iter(_call(_get(self._chassis, 'get_all_fan_drawers')))):
-            out.append((self._row_fan_drawer_info(dev, 'chassis 1', i, {}, cols), dev))
+            out.append(self._row_fan_drawer_info(dev, 'chassis 1', i, {'key': 'fan_drawers[%d]' % i, 'parent_key': None}, cols))
         return out
 
-    def _find_fan_drawer_info(self, name):
-        """The device behind a published FanDrawerInfo name."""
-        # Names only: resolving one costs a walk, and an action that then sets
-        # a speed has no use for the other columns of every other row.
-        for row, dev in self._walk_fan_drawer_info(0):
-            if row.name == name:
+    def _find_fan_drawer_info(self, key):
+        """The device at a published FanDrawerInfo key.
+
+        One getter per step of the key, not a walk: an action costs what
+        reaching the device costs, and reads nothing else on the way.
+        """
+        path = _parse_key(key)
+        # ChassisBase.get_all_fan_drawers
+        if _shape(path) == (('fan_drawers', True),):
+            dev = _nth(_call(_get(self._chassis, 'get_all_fan_drawers')), path[0][1])
+            if dev is not None:
                 return dev
-        raise KeyError('no FanDrawerInfo named %r' % name)
+        raise DeviceNotFound('no FanDrawerInfo at %r' % key)
 
 
     def _row_psu_info(self, dev, parent, i, fixed):
-        return PsuInfo(
-            name=_fmt(_call(_get(dev, 'get_name')), 'PSU {i}', parent, i),
+        row = PsuInfo(
+            name=_fmt(None, '{parent}', parent, i),
             kind=fixed['kind'],
-            position_in_parent=_call(_get(dev, 'get_position_in_parent')),
-            presence=_default(_call(_get(dev, 'get_presence')), False),
-            is_replaceable=_default(_call(_get(dev, 'is_replaceable')), False),
-            model=_call(_get(dev, 'get_model')),
-            serial=_call(_get(dev, 'get_serial')),
-            revision=_call(_get(dev, 'get_revision')),
-            power_good=_default(_call(_get(dev, 'get_powergood_status')), False),
-            status_led=_enum(_call(_get(dev, 'get_status_led'))),
-            voltage=_scalar(_call(_get(dev, 'get_voltage')), ('N/A',), ('int', 'str')),
-            current=_scalar(_call(_get(dev, 'get_current')), ('N/A',), ('int', 'str')),
-            power=_scalar(_call(_get(dev, 'get_power')), ('N/A',), ('int', 'str')),
-            input_voltage=_scalar(_call(_get(dev, 'get_input_voltage')), ('N/A',), ('int', 'str')),
-            input_current=_scalar(_call(_get(dev, 'get_input_current')), ('N/A',), ('int', 'str')),
-            input_power=_scalar(_call(_get(dev, 'get_input_power')), ('N/A',), ('int', 'str')),
-            temperature=_scalar(_call(_get(dev, 'get_temperature')), ('N/A',), ('int', 'str')),
-            temperature_high_threshold=_scalar(_call(_get(dev, 'get_temperature_high_threshold')), ('N/A',), ('int', 'str')),
-            voltage_high_threshold=_scalar(_call(_get(dev, 'get_voltage_high_threshold')), ('N/A',), ('int', 'str')),
-            voltage_low_threshold=_scalar(_call(_get(dev, 'get_voltage_low_threshold')), ('N/A',), ('int', 'str')),
-            maximum_supplied_power=_scalar(_call(_get(dev, 'get_maximum_supplied_power')), ('N/A',), ('int', 'str')),
-            power_warning_suppress_threshold=_scalar(_call(_get(dev, 'get_psu_power_warning_suppress_threshold')), ('N/A',), ('int', 'str')),
-            power_critical_threshold=_scalar(_call(_get(dev, 'get_psu_power_critical_threshold')), ('N/A',), ('int', 'str')),
+            key=fixed['key'],
+            position_in_parent=None,
+            presence=False,
+            is_replaceable=False,
+            model=None,
+            serial=None,
+            revision=None,
+            power_good=False,
+            status_led=None,
+            voltage=None,
+            current=None,
+            power=None,
+            input_voltage=None,
+            input_current=None,
+            input_power=None,
+            temperature=None,
+            temperature_high_threshold=None,
+            voltage_high_threshold=None,
+            voltage_low_threshold=None,
+            maximum_supplied_power=None,
+            power_warning_suppress_threshold=None,
+            power_critical_threshold=None,
         )
+        try:
+            row.name = _fmt(_text(_call(_get(dev, 'get_name'))), '{parent}', parent, i)
+        except Exception:
+            row.name = _fmt(None, '{parent}', parent, i)
+        try:
+            row.position_in_parent = _call(_get(dev, 'get_position_in_parent'))
+        except Exception:
+            row.position_in_parent = None
+        try:
+            row.presence = _default(_call(_get(dev, 'get_presence')), False)
+        except Exception:
+            row.presence = False
+        try:
+            row.is_replaceable = _default(_call(_get(dev, 'is_replaceable')), False)
+        except Exception:
+            row.is_replaceable = False
+        try:
+            row.model = _text(_call(_get(dev, 'get_model')))
+        except Exception:
+            row.model = None
+        try:
+            row.serial = _text(_call(_get(dev, 'get_serial')))
+        except Exception:
+            row.serial = None
+        try:
+            row.revision = _text(_call(_get(dev, 'get_revision')))
+        except Exception:
+            row.revision = None
+        try:
+            row.power_good = (_default(_call(_get(dev, 'get_powergood_status')), False)) if row.presence else False
+        except Exception:
+            row.power_good = False
+        try:
+            row.status_led = _text(_call(_get(dev, 'get_status_led')))
+        except Exception:
+            row.status_led = None
+        try:
+            row.voltage = (_scalar(_call(_get(dev, 'get_voltage')), ('N/A',), ('int', 'str'))) if row.presence else None
+        except Exception:
+            row.voltage = None
+        try:
+            row.current = (_scalar(_call(_get(dev, 'get_current')), ('N/A',), ('int', 'str'))) if row.presence else None
+        except Exception:
+            row.current = None
+        try:
+            row.power = (_scalar(_call(_get(dev, 'get_power')), ('N/A',), ('int', 'str'))) if row.presence else None
+        except Exception:
+            row.power = None
+        try:
+            row.input_voltage = (_scalar(_call(_get(dev, 'get_input_voltage')), ('N/A',), ('int', 'str'))) if row.presence else None
+        except Exception:
+            row.input_voltage = None
+        try:
+            row.input_current = (_scalar(_call(_get(dev, 'get_input_current')), ('N/A',), ('int', 'str'))) if row.presence else None
+        except Exception:
+            row.input_current = None
+        try:
+            row.input_power = (_scalar(_call(_get(dev, 'get_input_power')), ('N/A',), ('int', 'str'))) if row.presence else None
+        except Exception:
+            row.input_power = None
+        try:
+            row.temperature = (_scalar(_call(_get(dev, 'get_temperature')), ('N/A',), ('int', 'str'))) if row.presence else None
+        except Exception:
+            row.temperature = None
+        try:
+            row.temperature_high_threshold = (_scalar(_call(_get(dev, 'get_temperature_high_threshold')), ('N/A',), ('int', 'str'))) if row.presence else None
+        except Exception:
+            row.temperature_high_threshold = None
+        try:
+            row.voltage_high_threshold = (_scalar(_call(_get(dev, 'get_voltage_high_threshold')), ('N/A',), ('int', 'str'))) if row.presence else None
+        except Exception:
+            row.voltage_high_threshold = None
+        try:
+            row.voltage_low_threshold = (_scalar(_call(_get(dev, 'get_voltage_low_threshold')), ('N/A',), ('int', 'str'))) if row.presence else None
+        except Exception:
+            row.voltage_low_threshold = None
+        try:
+            row.maximum_supplied_power = (_scalar(_call(_get(dev, 'get_maximum_supplied_power')), ('N/A',), ('int', 'str'))) if row.presence else None
+        except Exception:
+            row.maximum_supplied_power = None
+        try:
+            row.power_warning_suppress_threshold = _scalar(_call(_get(dev, 'get_psu_power_warning_suppress_threshold')), ('N/A',), ('int', 'str'))
+        except Exception:
+            row.power_warning_suppress_threshold = None
+        try:
+            row.power_critical_threshold = _scalar(_call(_get(dev, 'get_psu_power_critical_threshold')), ('N/A',), ('int', 'str'))
+        except Exception:
+            row.power_critical_threshold = None
+        return row
 
     def _walk_psu_info(self):
-        """Every PsuInfo paired with the device it was read from.
+        """Every PsuInfo, in declared order.
 
-        One traversal serves both the snapshot and the by-name lookup, so an
-        action cannot disagree with the snapshot about what a row is called.
+        Each row carries its key, the path this walk took to the device; an
+        action follows that path back with `_find_psu_info()`.
         """
         out = []
         # ChassisBase.get_all_psus
         for i, dev in enumerate(_iter(_call(_get(self._chassis, 'get_all_psus')))):
-            out.append((self._row_psu_info(dev, 'PSU {i}', i, {'kind': 'psu'}), dev))
+            out.append(self._row_psu_info(dev, 'PSU {i}'.format(i=i + 1), i, {'key': 'psus[%d]' % i, 'parent_key': None, 'kind': 'psu'}))
         # ChassisBase.get_all_pdbs
         try:
             for i, dev in enumerate(_iter(_call(_get(self._chassis, 'get_all_pdbs')))):
-                out.append((self._row_psu_info(dev, 'PDB {i}', i, {'kind': 'pdb'}), dev))
+                out.append(self._row_psu_info(dev, 'PDB {i}'.format(i=i + 1), i, {'key': 'pdbs[%d]' % i, 'parent_key': None, 'kind': 'pdb'}))
         except NotImplementedError:
             pass
         return out
 
-    def _find_psu_info(self, name):
-        """The device behind a published PsuInfo name."""
-        for row, dev in self._walk_psu_info():
-            if row.name == name:
+    def _find_psu_info(self, key):
+        """The device at a published PsuInfo key.
+
+        One getter per step of the key, not a walk: an action costs what
+        reaching the device costs, and reads nothing else on the way.
+        """
+        path = _parse_key(key)
+        # ChassisBase.get_all_psus
+        if _shape(path) == (('psus', True),):
+            dev = _nth(_call(_get(self._chassis, 'get_all_psus')), path[0][1])
+            if dev is not None:
                 return dev
-        raise KeyError('no PsuInfo named %r' % name)
+        # ChassisBase.get_all_pdbs
+        try:
+            if _shape(path) == (('pdbs', True),):
+                dev = _nth(_call(_get(self._chassis, 'get_all_pdbs')), path[0][1])
+                if dev is not None:
+                    return dev
+        except NotImplementedError:
+            pass
+        raise DeviceNotFound('no PsuInfo at %r' % key)
 
 
     def _row_chassis_info(self, dev, parent, i, fixed, cols):
         # One call, sliced by every column that wants a piece of it: the
         # platform need not answer the same thing twice, and some of these
         # getters block and log.  See `_share_calls`.
-        _shared0 = _call(_get(dev, 'get_reboot_cause')) if cols & 6144 else None
+        _shared0 = _call(_get(dev, 'get_reboot_cause')) if cols & 12288 else None
         return ChassisInfo(
-            name=_default(_call(_get(dev, 'get_name')), 'chassis 1'),
-            presence=(_default(_call(_get(dev, 'get_presence')), True)) if cols & (1 << 0) else True,
-            model=(_call(_get(dev, 'get_model'))) if cols & (1 << 1) else None,
-            serial=(_call(_get(dev, 'get_serial'))) if cols & (1 << 2) else None,
-            revision=(_call(_get(dev, 'get_revision'))) if cols & (1 << 3) else None,
-            status=(_call(_get(dev, 'get_status'))) if cols & (1 << 4) else None,
-            base_mac=(_call(_get(dev, 'get_base_mac'))) if cols & (1 << 5) else None,
-            is_modular_chassis=(_default(_call(_get(dev, 'is_modular_chassis')), False)) if cols & (1 << 6) else False,
-            is_smartswitch=(_default(_call(_get(dev, 'is_smartswitch')), False)) if cols & (1 << 7) else False,
-            is_dpu=(_default(_call(_get(dev, 'is_dpu')), False)) if cols & (1 << 8) else False,
-            is_bmc=(_default(_call(_get(dev, 'is_bmc')), False)) if cols & (1 << 9) else False,
-            is_liquid_cooled=(_default(_call(_get(dev, 'is_liquid_cooled')), False)) if cols & (1 << 10) else False,
-            reboot_cause=(_at(_shared0, 0)) if cols & (1 << 11) else None,
-            reboot_cause_detail=(_at(_shared0, 1)) if cols & (1 << 12) else None,
-            my_slot=(_scalar(_call(_get(dev, 'get_my_slot')), ('N/A',), ('int', 'str'))) if cols & (1 << 13) else None,
-            supervisor_slot=(_scalar(_call(_get(dev, 'get_supervisor_slot')), ('N/A',), ('int', 'str'))) if cols & (1 << 14) else None,
-            dpu_id=(_scalar(_call_narrowed(_get(dev, 'get_dpu_id')), ('N/A',), ('int', 'str'))) if cols & (1 << 15) else None,
-            dataplane_state=(_call(_get(dev, 'get_dataplane_state'))) if cols & (1 << 16) else None,
-            controlplane_state=(_call(_get(dev, 'get_controlplane_state'))) if cols & (1 << 17) else None,
-            status_led=(_enum(_call(_get(dev, 'get_status_led')))) if cols & (1 << 18) else None,
+            name=(_default(_text(_call(_get(dev, 'get_name'))), 'chassis 1')) if cols & (1 << 0) else 'chassis 1',
+            presence=(_default(_call(_get(dev, 'get_presence')), True)) if cols & (1 << 1) else True,
+            model=(_text(_call(_get(dev, 'get_model')))) if cols & (1 << 2) else None,
+            serial=(_text(_call(_get(dev, 'get_serial')))) if cols & (1 << 3) else None,
+            revision=(_text(_call(_get(dev, 'get_revision')))) if cols & (1 << 4) else None,
+            status=(_call(_get(dev, 'get_status'))) if cols & (1 << 5) else None,
+            base_mac=(_text(_call(_get(dev, 'get_base_mac')))) if cols & (1 << 6) else None,
+            is_modular_chassis=(_default(_call(_get(dev, 'is_modular_chassis')), False)) if cols & (1 << 7) else False,
+            is_smartswitch=(_default(_call(_get(dev, 'is_smartswitch')), False)) if cols & (1 << 8) else False,
+            is_dpu=(_default(_call(_get(dev, 'is_dpu')), False)) if cols & (1 << 9) else False,
+            is_bmc=(_default(_call(_get(dev, 'is_bmc')), False)) if cols & (1 << 10) else False,
+            is_liquid_cooled=(_default(_call(_get(dev, 'is_liquid_cooled')), False)) if cols & (1 << 11) else False,
+            reboot_cause=(_text(_at(_shared0, 0))) if cols & (1 << 12) else None,
+            reboot_cause_detail=(_text(_at(_shared0, 1))) if cols & (1 << 13) else None,
+            my_slot=(_scalar(_call(_get(dev, 'get_my_slot')), ('N/A',), ('int', 'str'))) if cols & (1 << 14) else None,
+            supervisor_slot=(_scalar(_call(_get(dev, 'get_supervisor_slot')), ('N/A',), ('int', 'str'))) if cols & (1 << 15) else None,
+            dpu_id=(_scalar(_call_narrowed(_get(dev, 'get_dpu_id')), ('N/A',), ('int', 'str'))) if cols & (1 << 16) else None,
+            dataplane_state=(_call(_get(dev, 'get_dataplane_state'))) if cols & (1 << 17) else None,
+            controlplane_state=(_call(_get(dev, 'get_controlplane_state'))) if cols & (1 << 18) else None,
+            status_led=(_text(_call(_get(dev, 'get_status_led')))) if cols & (1 << 19) else None,
         )
 
     def _walk_chassis_info(self, cols):
-        """Every ChassisInfo paired with the device it was read from.
+        """Every ChassisInfo, in declared order.
 
-        One traversal serves both the snapshot and the by-name lookup, so an
-        action cannot disagree with the snapshot about what a row is called.
+        Each row carries its key, the path this walk took to the device; an
+        action follows that path back with `_find_chassis_info()`.
         """
         out = []
-        out.append((self._row_chassis_info(self._chassis, 'chassis 1', 0, {}, cols), self._chassis))
+        out.append(self._row_chassis_info(self._chassis, 'chassis 1', 0, {}, cols))
         return out
 
 
     def _row_module_info(self, dev, parent, i, fixed, cols):
         return ModuleInfo(
-            name=_fmt(_call(_get(dev, 'get_name')), 'Module {i}', parent, i),
+            name=_fmt(_text(_call(_get(dev, 'get_name'))), 'Module {i}', parent, i),
             parent_name=parent,
+            key=fixed['key'],
+            parent_key=fixed['parent_key'],
             position_in_parent=(_call(_get(dev, 'get_position_in_parent'))) if cols & (1 << 0) else None,
             presence=(_default(_call(_get(dev, 'get_presence')), False)) if cols & (1 << 1) else False,
             status=(_call(_get(dev, 'get_status'))) if cols & (1 << 2) else None,
             is_replaceable=(_default(_call(_get(dev, 'is_replaceable')), False)) if cols & (1 << 3) else False,
-            model=(_call(_get(dev, 'get_model'))) if cols & (1 << 4) else None,
-            serial=(_call(_get(dev, 'get_serial'))) if cols & (1 << 5) else None,
-            description=(_call(_get(dev, 'get_description'))) if cols & (1 << 6) else None,
+            model=(_text(_call(_get(dev, 'get_model')))) if cols & (1 << 4) else None,
+            serial=(_text(_call(_get(dev, 'get_serial')))) if cols & (1 << 5) else None,
+            description=(_text(_call(_get(dev, 'get_description')))) if cols & (1 << 6) else None,
             slot=(_scalar(_call(_get(dev, 'get_slot')), ('N/A',), ('int', 'str'))) if cols & (1 << 7) else None,
-            type=(_enum(_call(_get(dev, 'get_type')))) if cols & (1 << 8) else None,
-            oper_status=(_enum(_call(_get(dev, 'get_oper_status')))) if cols & (1 << 9) else None,
-            base_mac=(_call(_get(dev, 'get_base_mac'))) if cols & (1 << 10) else None,
+            type=(_text(_call(_get(dev, 'get_type')))) if cols & (1 << 8) else None,
+            oper_status=(_text(_call(_get(dev, 'get_oper_status')))) if cols & (1 << 9) else None,
+            base_mac=(_text(_call(_get(dev, 'get_base_mac')))) if cols & (1 << 10) else None,
             dpu_id=(_scalar(_call(_get(dev, 'get_dpu_id')), ('N/A',), ('int', 'str'))) if cols & (1 << 11) else None,
             maximum_consumed_power=(_scalar(_call(_get(dev, 'get_maximum_consumed_power')), ('N/A',), ('int', 'str'))) if cols & (1 << 12) else None,
-            midplane_ip=(_call(_get(dev, 'get_midplane_ip'))) if cols & (1 << 13) else None,
+            midplane_ip=(_text(_call(_get(dev, 'get_midplane_ip')))) if cols & (1 << 13) else None,
             is_midplane_reachable=(_call(_get(dev, 'is_midplane_reachable'))) if cols & (1 << 14) else None,
             state_transition=(_call_with_name(_get(dev, 'get_name'), _get(dev, 'get_module_state_transition'))) if cols & (1 << 15) else None,
         )
 
     def _walk_module_info(self, cols):
-        """Every ModuleInfo paired with the device it was read from.
+        """Every ModuleInfo, in declared order.
 
-        One traversal serves both the snapshot and the by-name lookup, so an
-        action cannot disagree with the snapshot about what a row is called.
+        Each row carries its key, the path this walk took to the device; an
+        action follows that path back with `_find_module_info()`.
         """
         out = []
         # ChassisBase.get_all_modules
         for i, dev in enumerate(_iter(_call(_get(self._chassis, 'get_all_modules')))):
-            out.append((self._row_module_info(dev, 'chassis 1', i, {}, cols), dev))
+            out.append(self._row_module_info(dev, 'chassis 1', i, {'key': 'modules[%d]' % i, 'parent_key': None}, cols))
         return out
 
-    def _find_module_info(self, name):
-        """The device behind a published ModuleInfo name."""
-        # Names only: resolving one costs a walk, and an action that then sets
-        # a speed has no use for the other columns of every other row.
-        for row, dev in self._walk_module_info(0):
-            if row.name == name:
+    def _find_module_info(self, key):
+        """The device at a published ModuleInfo key.
+
+        One getter per step of the key, not a walk: an action costs what
+        reaching the device costs, and reads nothing else on the way.
+        """
+        path = _parse_key(key)
+        # ChassisBase.get_all_modules
+        if _shape(path) == (('modules', True),):
+            dev = _nth(_call(_get(self._chassis, 'get_all_modules')), path[0][1])
+            if dev is not None:
                 return dev
-        raise KeyError('no ModuleInfo named %r' % name)
+        raise DeviceNotFound('no ModuleInfo at %r' % key)
 
 
     def _row_component_info(self, dev, parent, i, fixed):
         return ComponentInfo(
-            name=_fmt(_call(_get(dev, 'get_name')), '{parent} component {i}', parent, i),
+            name=_fmt(_text(_call(_get(dev, 'get_name'))), '{parent} component {i}', parent, i),
             parent_name=parent,
-            description=_call(_get(dev, 'get_description')),
-            firmware_version=_call(_get(dev, 'get_firmware_version')),
+            key=fixed['key'],
+            parent_key=fixed['parent_key'],
+            description=_text(_call(_get(dev, 'get_description'))),
+            firmware_version=_text(_call(_get(dev, 'get_firmware_version'))),
         )
 
     def _walk_component_info(self):
-        """Every ComponentInfo paired with the device it was read from.
+        """Every ComponentInfo, in declared order.
 
-        One traversal serves both the snapshot and the by-name lookup, so an
-        action cannot disagree with the snapshot about what a row is called.
+        Each row carries its key, the path this walk took to the device; an
+        action follows that path back with `_find_component_info()`.
         """
         out = []
         # ChassisBase.get_all_components
         for i, dev in enumerate(_iter(_call(_get(self._chassis, 'get_all_components')))):
-            out.append((self._row_component_info(dev, 'chassis 1', i, {}), dev))
+            out.append(self._row_component_info(dev, 'chassis 1', i, {'key': 'components[%d]' % i, 'parent_key': None}))
         # ModuleBase.get_all_components via ChassisBase.get_all_modules
         if _call(_get(self._chassis, 'is_modular_chassis')):
             for i0, o0 in enumerate(_iter(_call(_get(self._chassis, 'get_all_modules')))):
                 p0 = _fmt(_call(_get(o0, 'get_name')), 'Module {i}', '', i0)
+                k0 = 'modules[%d]' % i0
                 for i, dev in enumerate(_iter(_call(_get(o0, 'get_all_components')))):
-                    out.append((self._row_component_info(dev, p0, i, {}), dev))
+                    out.append(self._row_component_info(dev, p0, i, {'key': k0 + '/' + 'components[%d]' % i, 'parent_key': k0}))
         return out
 
-    def _find_component_info(self, name):
-        """The device behind a published ComponentInfo name."""
-        for row, dev in self._walk_component_info():
-            if row.name == name:
+    def _find_component_info(self, key):
+        """The device at a published ComponentInfo key.
+
+        One getter per step of the key, not a walk: an action costs what
+        reaching the device costs, and reads nothing else on the way.
+        """
+        path = _parse_key(key)
+        # ChassisBase.get_all_components
+        if _shape(path) == (('components', True),):
+            dev = _nth(_call(_get(self._chassis, 'get_all_components')), path[0][1])
+            if dev is not None:
                 return dev
-        raise KeyError('no ComponentInfo named %r' % name)
+        # ModuleBase.get_all_components via ChassisBase.get_all_modules
+        if _shape(path) == (('modules', True), ('components', True)):
+            if _call(_get(self._chassis, 'is_modular_chassis')):
+                o0 = _nth(_call(_get(self._chassis, 'get_all_modules')), path[0][1])
+                if o0 is not None:
+                    dev = _nth(_call(_get(o0, 'get_all_components')), path[1][1])
+                    if dev is not None:
+                        return dev
+        raise DeviceNotFound('no ComponentInfo at %r' % key)
 
 
     def _row_sensor_info(self, dev, parent, i, fixed):
-        return SensorInfo(
-            name=_fmt(_call(_get(dev, 'get_name')), '{parent} sensor {i}', parent, i),
+        row = SensorInfo(
+            name=_fmt(None, '{parent} {kind}_sensor {i}', parent, i, kind=fixed['kind']),
             kind=fixed['kind'],
             parent_name=parent,
-            position_in_parent=_call(_get(dev, 'get_position_in_parent')),
-            is_replaceable=_default(_call(_get(dev, 'is_replaceable')), False),
-            unit=_call(_get(dev, 'get_unit')),
-            value=_scalar(_call(_get(dev, 'get_value')), ('N/A',), ('int', 'str')),
-            high_threshold=_scalar(_call(_get(dev, 'get_high_threshold')), ('N/A',), ('int', 'str')),
-            low_threshold=_scalar(_call(_get(dev, 'get_low_threshold')), ('N/A',), ('int', 'str')),
-            high_critical_threshold=_scalar(_call(_get(dev, 'get_high_critical_threshold')), ('N/A',), ('int', 'str')),
-            low_critical_threshold=_scalar(_call(_get(dev, 'get_low_critical_threshold')), ('N/A',), ('int', 'str')),
-            min_recorded=_scalar(_call(_get(dev, 'get_minimum_recorded')), ('N/A',), ('int', 'str')),
-            max_recorded=_scalar(_call(_get(dev, 'get_maximum_recorded')), ('N/A',), ('int', 'str')),
+            key=fixed['key'],
+            parent_key=fixed['parent_key'],
+            position_in_parent=None,
+            value=None,
+            is_replaceable=False,
+            unit=None,
+            min_recorded=None,
+            max_recorded=None,
+            high_threshold=None,
+            low_threshold=None,
+            high_critical_threshold=None,
+            low_critical_threshold=None,
+            error=None,
+            error_repr=None,
+            error_column=None,
         )
+        try:
+            _column = 'name'
+            row.name = _fmt(_text(_call(_get(dev, 'get_name'))), '{parent} {kind}_sensor {i}', parent, i, kind=fixed['kind'])
+            _column = 'position_in_parent'
+            row.position_in_parent = _call(_get(dev, 'get_position_in_parent'))
+            _column = 'value'
+            row.value = _scalar(_call(_get(dev, 'get_value')), ('N/A',), ('int', 'str'))
+            _column = 'is_replaceable'
+            row.is_replaceable = _default(_call(_get(dev, 'is_replaceable')), False)
+            _column = 'unit'
+            row.unit = (_text(_call(_get(dev, 'get_unit')))) if row.value is not None else None
+            _column = 'min_recorded'
+            row.min_recorded = (_scalar(_call(_get(dev, 'get_minimum_recorded')), ('N/A',), ('int', 'str'))) if row.value is not None else None
+            _column = 'max_recorded'
+            row.max_recorded = (_scalar(_call(_get(dev, 'get_maximum_recorded')), ('N/A',), ('int', 'str'))) if row.value is not None else None
+            _column = 'high_threshold'
+            row.high_threshold = (_scalar(_call(_get(dev, 'get_high_threshold')), ('N/A',), ('int', 'str'))) if row.value is not None else None
+            _column = 'low_threshold'
+            row.low_threshold = (_scalar(_call(_get(dev, 'get_low_threshold')), ('N/A',), ('int', 'str'))) if row.value is not None else None
+            _column = 'high_critical_threshold'
+            row.high_critical_threshold = (_scalar(_call(_get(dev, 'get_high_critical_threshold')), ('N/A',), ('int', 'str'))) if row.value is not None else None
+            _column = 'low_critical_threshold'
+            row.low_critical_threshold = (_scalar(_call(_get(dev, 'get_low_critical_threshold')), ('N/A',), ('int', 'str'))) if row.value is not None else None
+        except Exception as e:
+            row.error = str(e)
+            row.error_repr = repr(e)
+            row.error_column = _column
+        return row
 
     def _walk_sensor_info(self):
-        """Every SensorInfo paired with the device it was read from.
+        """Every SensorInfo, in declared order.
 
-        One traversal serves both the snapshot and the by-name lookup, so an
-        action cannot disagree with the snapshot about what a row is called.
+        Each row carries its key, the path this walk took to the device; an
+        action follows that path back with `_find_sensor_info()`.
         """
         out = []
         # EscapeHatches.voltage_sensors_from_yaml
+        s0 = len(out)
         for i, dev in enumerate(_iter(self._hatch.voltage_sensors_from_yaml())):
-            out.append((self._row_sensor_info(dev, 'chassis 1', i, {'kind': 'voltage'}), dev))
+            out.append(self._row_sensor_info(dev, 'chassis 1', i, {'key': 'voltage_sensors_from_yaml[%d]' % i, 'parent_key': None, 'kind': 'voltage'}))
         # ChassisBase.get_all_voltage_sensors
+        n = len(out) - s0
         for i, dev in enumerate(_iter(_call(_get(self._chassis, 'get_all_voltage_sensors')))):
-            out.append((self._row_sensor_info(dev, 'chassis 1', i, {'kind': 'voltage'}), dev))
+            out.append(self._row_sensor_info(dev, 'chassis 1', n + i, {'key': 'voltage_sensors[%d]' % i, 'parent_key': None, 'kind': 'voltage'}))
         # ModuleBase.get_all_voltage_sensors via ChassisBase.get_all_modules
         if _call(_get(self._chassis, 'is_modular_chassis')):
             for i0, o0 in enumerate(_iter(_call(_get(self._chassis, 'get_all_modules')))):
                 p0 = _fmt(_call(_get(o0, 'get_name')), 'Module {i}', '', i0)
+                k0 = 'modules[%d]' % i0
                 for i, dev in enumerate(_iter(_call(_get(o0, 'get_all_voltage_sensors')))):
-                    out.append((self._row_sensor_info(dev, p0, i, {'kind': 'voltage'}), dev))
+                    out.append(self._row_sensor_info(dev, p0, i, {'key': k0 + '/' + 'voltage_sensors[%d]' % i, 'parent_key': k0, 'kind': 'voltage'}))
         # EscapeHatches.current_sensors_from_yaml
+        s3 = len(out)
         for i, dev in enumerate(_iter(self._hatch.current_sensors_from_yaml())):
-            out.append((self._row_sensor_info(dev, 'chassis 1', i, {'kind': 'current'}), dev))
+            out.append(self._row_sensor_info(dev, 'chassis 1', i, {'key': 'current_sensors_from_yaml[%d]' % i, 'parent_key': None, 'kind': 'current'}))
         # ChassisBase.get_all_current_sensors
+        n = len(out) - s3
         for i, dev in enumerate(_iter(_call(_get(self._chassis, 'get_all_current_sensors')))):
-            out.append((self._row_sensor_info(dev, 'chassis 1', i, {'kind': 'current'}), dev))
+            out.append(self._row_sensor_info(dev, 'chassis 1', n + i, {'key': 'current_sensors[%d]' % i, 'parent_key': None, 'kind': 'current'}))
         # ModuleBase.get_all_current_sensors via ChassisBase.get_all_modules
         if _call(_get(self._chassis, 'is_modular_chassis')):
             for i0, o0 in enumerate(_iter(_call(_get(self._chassis, 'get_all_modules')))):
                 p0 = _fmt(_call(_get(o0, 'get_name')), 'Module {i}', '', i0)
+                k0 = 'modules[%d]' % i0
                 for i, dev in enumerate(_iter(_call(_get(o0, 'get_all_current_sensors')))):
-                    out.append((self._row_sensor_info(dev, p0, i, {'kind': 'current'}), dev))
+                    out.append(self._row_sensor_info(dev, p0, i, {'key': k0 + '/' + 'current_sensors[%d]' % i, 'parent_key': k0, 'kind': 'current'}))
         return out
 
-    def _find_sensor_info(self, name):
-        """The device behind a published SensorInfo name."""
-        for row, dev in self._walk_sensor_info():
-            if row.name == name:
+    def _find_sensor_info(self, key):
+        """The device at a published SensorInfo key.
+
+        One getter per step of the key, not a walk: an action costs what
+        reaching the device costs, and reads nothing else on the way.
+        """
+        path = _parse_key(key)
+        # EscapeHatches.voltage_sensors_from_yaml
+        if _shape(path) == (('voltage_sensors_from_yaml', True),):
+            dev = _nth(self._hatch.voltage_sensors_from_yaml(), path[0][1])
+            if dev is not None:
                 return dev
-        raise KeyError('no SensorInfo named %r' % name)
+        # ChassisBase.get_all_voltage_sensors
+        if _shape(path) == (('voltage_sensors', True),):
+            dev = _nth(_call(_get(self._chassis, 'get_all_voltage_sensors')), path[0][1])
+            if dev is not None:
+                return dev
+        # ModuleBase.get_all_voltage_sensors via ChassisBase.get_all_modules
+        if _shape(path) == (('modules', True), ('voltage_sensors', True)):
+            if _call(_get(self._chassis, 'is_modular_chassis')):
+                o0 = _nth(_call(_get(self._chassis, 'get_all_modules')), path[0][1])
+                if o0 is not None:
+                    dev = _nth(_call(_get(o0, 'get_all_voltage_sensors')), path[1][1])
+                    if dev is not None:
+                        return dev
+        # EscapeHatches.current_sensors_from_yaml
+        if _shape(path) == (('current_sensors_from_yaml', True),):
+            dev = _nth(self._hatch.current_sensors_from_yaml(), path[0][1])
+            if dev is not None:
+                return dev
+        # ChassisBase.get_all_current_sensors
+        if _shape(path) == (('current_sensors', True),):
+            dev = _nth(_call(_get(self._chassis, 'get_all_current_sensors')), path[0][1])
+            if dev is not None:
+                return dev
+        # ModuleBase.get_all_current_sensors via ChassisBase.get_all_modules
+        if _shape(path) == (('modules', True), ('current_sensors', True)):
+            if _call(_get(self._chassis, 'is_modular_chassis')):
+                o0 = _nth(_call(_get(self._chassis, 'get_all_modules')), path[0][1])
+                if o0 is not None:
+                    dev = _nth(_call(_get(o0, 'get_all_current_sensors')), path[1][1])
+                    if dev is not None:
+                        return dev
+        raise DeviceNotFound('no SensorInfo at %r' % key)
 
 
     def _row_leak_profile(self, dev, parent, i, fixed):
         return LeakProfile(
-            type=_fmt(_call(_get(dev, 'get_type')), 'profile {i}', parent, i),
+            type=_fmt(_text(_call(_get(dev, 'get_type'))), 'profile {i}', parent, i),
             max_minor_duration_sec=_scalar(_call(_get(dev, 'get_leak_max_minor_duration_sec')), ('N/A',), ('int', 'str')),
         )
 
     def _walk_leak_profile(self):
-        """Every LeakProfile paired with the device it was read from.
+        """Every LeakProfile, in declared order.
 
-        One traversal serves both the snapshot and the by-name lookup, so an
-        action cannot disagree with the snapshot about what a row is called.
+        Each row carries its key, the path this walk took to the device; an
+        action follows that path back with `_find_leak_profile()`.
         """
         out = []
         # LiquidCoolingBase.get_all_profiles via ChassisBase.get_liquid_cooling
@@ -1525,7 +2030,7 @@ class PlatformApi(object):
             if o0 is not None:
                 p0 = _fmt(None, 'chassis 1', '', i0)
                 for i, dev in enumerate(_iter(_call(_get(o0, 'get_all_profiles')))):
-                    out.append((self._row_leak_profile(dev, p0, i, {}), dev))
+                    out.append(self._row_leak_profile(dev, p0, i, {}))
         except NotImplementedError:
             pass
         return out
@@ -1533,22 +2038,22 @@ class PlatformApi(object):
 
     def _row_leak_sensor_info(self, dev, parent, i, fixed):
         return LeakSensorInfo(
-            name=_fmt(_call(_get(dev, 'get_name')), 'leakage{i}', parent, i),
+            name=_fmt(_text(_call(_get(dev, 'get_name'))), 'leakage{i}', parent, i),
             parent_name=parent,
-            sensor_type=_call(_get(dev, 'get_leak_sensor_type')),
-            location=_call(_get(dev, 'get_leak_sensor_location')),
+            sensor_type=_text(_call(_get(dev, 'get_leak_sensor_type'))),
+            location=_text(_call(_get(dev, 'get_leak_sensor_location'))),
             is_leak=_truthy(_call(_get(dev, 'is_leak'))),
             is_ok=_call(_get(dev, 'is_leak_sensor_ok')),
-            severity=_enum(_call(_get(dev, 'get_leak_severity'))),
-            profile_type=_call(_get(_call(_get(dev, 'get_leak_profile')), 'get_type')),
+            severity=_text(_call(_get(dev, 'get_leak_severity'))),
+            profile_type=_text(_call(_get(_call(_get(dev, 'get_leak_profile')), 'get_type'))),
             profile_max_minor_duration_sec=_scalar(_call(_get(_call(_get(dev, 'get_leak_profile')), 'get_leak_max_minor_duration_sec')), ('N/A',), ('int', 'str')),
         )
 
     def _walk_leak_sensor_info(self):
-        """Every LeakSensorInfo paired with the device it was read from.
+        """Every LeakSensorInfo, in declared order.
 
-        One traversal serves both the snapshot and the by-name lookup, so an
-        action cannot disagree with the snapshot about what a row is called.
+        Each row carries its key, the path this walk took to the device; an
+        action follows that path back with `_find_leak_sensor_info()`.
         """
         out = []
         # LiquidCoolingBase.get_all_leak_sensors via ChassisBase.get_liquid_cooling
@@ -1558,7 +2063,7 @@ class PlatformApi(object):
             if o0 is not None:
                 p0 = _fmt(None, 'chassis 1', '', i0)
                 for i, dev in enumerate(_iter(_call(_get(o0, 'get_all_leak_sensors')))):
-                    out.append((self._row_leak_sensor_info(dev, p0, i, {}), dev))
+                    out.append(self._row_leak_sensor_info(dev, p0, i, {}))
         except NotImplementedError:
             pass
         return out
@@ -1571,16 +2076,16 @@ class PlatformApi(object):
         )
 
     def _walk_watchdog_info(self):
-        """Every WatchdogInfo paired with the device it was read from.
+        """Every WatchdogInfo, in declared order.
 
-        One traversal serves both the snapshot and the by-name lookup, so an
-        action cannot disagree with the snapshot about what a row is called.
+        Each row carries its key, the path this walk took to the device; an
+        action follows that path back with `_find_watchdog_info()`.
         """
         out = []
         # ChassisBase.get_watchdog
         try:
             for i, dev in enumerate(_one(_call(_get(self._chassis, 'get_watchdog')))):
-                out.append((self._row_watchdog_info(dev, 'chassis 1', i, {}), dev))
+                out.append(self._row_watchdog_info(dev, 'chassis 1', i, {}))
         except NotImplementedError:
             pass
         return out
@@ -1600,16 +2105,16 @@ class PlatformApi(object):
         )
 
     def _walk_eeprom_tlv(self):
-        """Every EepromTlv paired with the device it was read from.
+        """Every EepromTlv, in declared order.
 
-        One traversal serves both the snapshot and the by-name lookup, so an
-        action cannot disagree with the snapshot about what a row is called.
+        Each row carries its key, the path this walk took to the device; an
+        action follows that path back with `_find_eeprom_tlv()`.
         """
         out = []
         # ChassisBase.get_system_eeprom_info (mapping)
         try:
             for i, (k, v) in enumerate(_pairs(_call(_get(self._chassis, 'get_system_eeprom_info')))):
-                out.append((self._row_eeprom_tlv(None, 'chassis 1', i, {'source': 'chassis', 'code': str(k), 'value': None if v is None else str(v)}), None))
+                out.append(self._row_eeprom_tlv(None, 'chassis 1', i, {'source': 'chassis', 'code': str(k), 'value': None if v is None else str(v)}))
         except NotImplementedError:
             pass
         # ModuleBase.get_system_eeprom_info (mapping) via ChassisBase.get_all_modules
@@ -1618,7 +2123,7 @@ class PlatformApi(object):
                 for i0, o0 in enumerate(_iter(_call(_get(self._chassis, 'get_all_modules')))):
                     p0 = _fmt(_call(_get(o0, 'get_name')), 'Module {i}', '', i0)
                     for i, (k, v) in enumerate(_pairs(_call(_get(o0, 'get_system_eeprom_info')))):
-                        out.append((self._row_eeprom_tlv(None, p0, i, {'source': 'module', 'code': str(k), 'value': None if v is None else str(v)}), None))
+                        out.append(self._row_eeprom_tlv(None, p0, i, {'source': 'module', 'code': str(k), 'value': None if v is None else str(v)}))
         except NotImplementedError:
             pass
         # BMCBase.get_eeprom (mapping) via ChassisBase.get_bmc
@@ -1628,7 +2133,7 @@ class PlatformApi(object):
             if o0 is not None:
                 p0 = _fmt(None, 'BMC', '', i0)
                 for i, (k, v) in enumerate(_pairs(_call(_get(o0, 'get_eeprom')))):
-                    out.append((self._row_eeprom_tlv(None, p0, i, {'source': 'bmc', 'code': str(k), 'value': None if v is None else str(v)}), None))
+                    out.append(self._row_eeprom_tlv(None, p0, i, {'source': 'bmc', 'code': str(k), 'value': None if v is None else str(v)}))
         except NotImplementedError:
             pass
         return out
@@ -1637,27 +2142,27 @@ class PlatformApi(object):
 
     def _row_bmc_info(self, dev, parent, i, fixed):
         return BmcInfo(
-            name=_default(_call(_get(dev, 'get_name')), 'BMC'),
+            name=_default(_text(_call(_get(dev, 'get_name'))), 'BMC'),
             presence=_default(_call(_get(dev, 'get_presence')), False),
-            model=_call(_get(dev, 'get_model')),
-            serial=_call(_get(dev, 'get_serial')),
-            revision=_call(_get(dev, 'get_revision')),
+            model=_text(_call(_get(dev, 'get_model'))),
+            serial=_text(_call(_get(dev, 'get_serial'))),
+            revision=_text(_call(_get(dev, 'get_revision'))),
             status=_call(_get(dev, 'get_status')),
             is_replaceable=_default(_call(_get(dev, 'is_replaceable')), False),
-            version=_call(_get(dev, 'get_version')),
+            version=_text(_call(_get(dev, 'get_version'))),
         )
 
     def _walk_bmc_info(self):
-        """Every BmcInfo paired with the device it was read from.
+        """Every BmcInfo, in declared order.
 
-        One traversal serves both the snapshot and the by-name lookup, so an
-        action cannot disagree with the snapshot about what a row is called.
+        Each row carries its key, the path this walk took to the device; an
+        action follows that path back with `_find_bmc_info()`.
         """
         out = []
         # ChassisBase.get_bmc
         try:
             for i, dev in enumerate(_one(_call(_get(self._chassis, 'get_bmc')))):
-                out.append((self._row_bmc_info(dev, 'chassis 1', i, {}), dev))
+                out.append(self._row_bmc_info(dev, 'chassis 1', i, {}))
         except NotImplementedError:
             pass
         return out
@@ -1666,18 +2171,18 @@ class PlatformApi(object):
 
 
 
-    def get_chassis_info(self, cols=524287):
+    def get_chassis_info(self, cols=1048575):
         """The chassis.
 
-A singleton, so it is not a `list`: there is one chassis and the
-traversal that would flatten it has nothing to walk.
+        A singleton, so it is not a `list`: there is one chassis and the
+        traversal that would flatten it has nothing to walk.
 
         `cols` is a bit per declinable column (see `ChassisInfoCols` on the Rust
         side, and `Snapshot(projected=True)`).  Columns outside it are left at
         their absent value rather than read.  The default is every column, so a
         caller that does not care reads what it always read.
         """
-        return self._walk_chassis_info(cols)[0][0]
+        return self._walk_chassis_info(cols)[0]
 
     def get_modules(self, cols=65535):
         """Every ModuleInfo, in declared order.
@@ -1687,22 +2192,41 @@ traversal that would flatten it has nothing to walk.
         their absent value rather than read.  The default is every column, so a
         caller that does not care reads what it always read.
         """
-        return [row for row, _dev in self._walk_module_info(cols)]
+        return self._walk_module_info(cols)
 
-    def get_thermals(self):
+    def get_thermals(self, cols=511, skip=()):
         """Every ThermalInfo, in declared order.
-        """
-        return [row for row, _dev in self._walk_thermal_info()]
 
-    def get_fans(self, cols=4095):
+        `cols` is a bit per declinable column (see `ThermalInfoCols` on the Rust
+        side, and `Snapshot(projected=True)`).  Columns outside it are left at
+        their absent value rather than read.  The default is every column, so a
+        caller that does not care reads what it always read.
+
+        `skip` is the keys of rows to read only in part: their `Unguarded()`
+        columns, and nothing else (`Snapshot(skippable=True)`).
+
+        A device whose getter raised is still a row, read up to that getter,
+        with `error`, `error_repr` and `error_column` set
+        (`Snapshot(per_row_errors=True)`).
+        """
+        return self._walk_thermal_info(cols, frozenset(skip or ()))
+
+    def get_fans(self, cols=4095, absorb=False):
         """Every FanInfo, in declared order.
 
         `cols` is a bit per declinable column (see `FanInfoCols` on the Rust
         side, and `Snapshot(projected=True)`).  Columns outside it are left at
         their absent value rather than read.  The default is every column, so a
         caller that does not care reads what it always read.
+
+        A device whose getter raised is still a row, read up to that getter,
+        with `error`, `error_repr` and `error_column` set
+        (`Snapshot(per_row_errors=True)`).
+
+        `absorb` reads each column on its own instead, an exception leaving
+        that one absent and no error set (`Snapshot(absorbable=True)`).
         """
-        return [row for row, _dev in self._walk_fan_info(cols)]
+        return self._walk_fan_info(cols, bool(absorb))
 
     def get_fan_drawers(self, cols=255):
         """Every FanDrawerInfo, in declared order.
@@ -1712,50 +2236,57 @@ traversal that would flatten it has nothing to walk.
         their absent value rather than read.  The default is every column, so a
         caller that does not care reads what it always read.
         """
-        return [row for row, _dev in self._walk_fan_drawer_info(cols)]
+        return self._walk_fan_drawer_info(cols)
 
     def get_psus(self):
         """Every PsuInfo, in declared order.
+
+        Each column is read on its own: a getter that raises leaves that one
+        absent, and the rest of the row is read (`Snapshot(absorbs=True)`).
         """
-        return [row for row, _dev in self._walk_psu_info()]
+        return self._walk_psu_info()
 
     def get_components(self):
         """Every ComponentInfo, in declared order.
         """
-        return [row for row, _dev in self._walk_component_info()]
+        return self._walk_component_info()
 
     def get_sensors(self):
         """Every SensorInfo, in declared order.
+
+        A device whose getter raised is still a row, read up to that getter,
+        with `error`, `error_repr` and `error_column` set
+        (`Snapshot(per_row_errors=True)`).
         """
-        return [row for row, _dev in self._walk_sensor_info()]
+        return self._walk_sensor_info()
 
     def get_leak_profiles(self):
-        """Published once at start-up, so read on call rather than cached.
+        """The leak policies, which thermalctld publishes once at start-up.
         """
-        return [row for row, _dev in self._walk_leak_profile()]
+        return self._walk_leak_profile()
 
     def get_leak_sensors(self):
         """Every LeakSensorInfo, in declared order.
         """
-        return [row for row, _dev in self._walk_leak_sensor_info()]
+        return self._walk_leak_sensor_info()
 
     def get_eeprom(self):
         """Every system EEPROM entry the platform exposes, chassis and BMC.
         """
-        return [row for row, _dev in self._walk_eeprom_tlv()]
+        return self._walk_eeprom_tlv()
 
     def get_bmcs(self):
         """A list of at most one, for the same reason as `get_watchdogs`.
         """
-        return [row for row, _dev in self._walk_bmc_info()]
+        return self._walk_bmc_info()
 
     def get_watchdogs(self):
         """A list of at most one.
 
-Not a singleton: a platform without a watchdog has none, and a
-singleton accessor would have to invent a row to say so.
+        Not a singleton: a platform without a watchdog has none, and a
+        singleton accessor would have to invent a row to say so.
         """
-        return [row for row, _dev in self._walk_watchdog_info()]
+        return self._walk_watchdog_info()
 
     def set_fan_led(self, fan, color):
         """Set the LED on one fan.
@@ -1768,31 +2299,31 @@ singleton accessor would have to invent a row to say so.
         fn = _get(dev, 'set_status_led')
         if fn is None:
             raise NotImplementedError('FanBase.set_status_led is not implemented')
-        return fn(color)
+        return _truthy(fn(color))
 
     def set_fan_drawer_led(self, drawer, color):
-        """"""
+        """Calls `FanDrawerBase.set_status_led()` on the FanDrawerInfo at `drawer`."""
         dev = self._find_fan_drawer_info(drawer)
         fn = _get(dev, 'set_status_led')
         if fn is None:
             raise NotImplementedError('FanDrawerBase.set_status_led is not implemented')
-        return fn(color)
+        return _truthy(fn(color))
 
     def set_fan_speed(self, fan, speed):
-        """"""
+        """Calls `FanBase.set_speed()` on the FanInfo at `fan`."""
         dev = self._find_fan_info(fan)
         fn = _get(dev, 'set_speed')
         if fn is None:
             raise NotImplementedError('FanBase.set_speed is not implemented')
-        return fn(speed)
+        return _truthy(fn(speed))
 
     def set_psu_led(self, psu, color):
-        """"""
+        """Calls `PsuBase.set_status_led()` on the PsuInfo at `psu`."""
         dev = self._find_psu_info(psu)
         fn = _get(dev, 'set_status_led')
         if fn is None:
             raise NotImplementedError('PsuBase.set_status_led is not implemented')
-        return fn(color)
+        return _truthy(fn(color))
 
     def get_module_reboot_cause(self, module):
         """Why a module last restarted, asked when it restarts.
@@ -1839,8 +2370,8 @@ singleton accessor would have to invent a row to say so.
         """The colour of the LED every hot-swappable PSU shares.
 
         `PsuBase.get_status_master_led` is a `@classmethod` over a class
-        attribute, so any PSU answers for all of them; the row name is how the
-        facade reaches an instance to ask."""
+        attribute, so any PSU answers for all of them; a PSU row's key is how
+        the facade reaches an instance to ask."""
         dev = self._find_psu_info(psu)
         fn = _get(dev, 'get_status_master_led')
         if fn is None:
@@ -1858,23 +2389,23 @@ singleton accessor would have to invent a row to say so.
         fn = _get(dev, 'set_status_master_led')
         if fn is None:
             raise NotImplementedError('PsuBase.set_status_master_led is not implemented')
-        return fn(color)
+        return _truthy(fn(color))
 
     def reboot_module(self, module, reboot_type):
-        """"""
+        """Calls `ModuleBase.reboot()` on the ModuleInfo at `module`."""
         dev = self._find_module_info(module)
         fn = _get(dev, 'reboot')
         if fn is None:
             raise NotImplementedError('ModuleBase.reboot is not implemented')
-        return fn(reboot_type)
+        return _truthy(fn(reboot_type))
 
     def set_module_admin_state(self, module, up):
-        """"""
+        """Calls `ModuleBase.set_admin_state()` on the ModuleInfo at `module`."""
         dev = self._find_module_info(module)
         fn = _get(dev, 'set_admin_state')
         if fn is None:
             raise NotImplementedError('ModuleBase.set_admin_state is not implemented')
-        return fn(up)
+        return _truthy(fn((1 if up else 0)))
 
     def set_module_admin_state_gracefully(self, module, up):
         """Admin-down that lets the module's services stop first.
@@ -1886,74 +2417,89 @@ singleton accessor would have to invent a row to say so.
         fn = _get(dev, 'set_admin_state_gracefully')
         if fn is None:
             raise NotImplementedError('ModuleBase.set_admin_state_gracefully is not implemented')
-        return fn(up)
+        return _truthy(fn((1 if up else 0)))
 
     def power_cycle_module(self, module):
-        """"""
+        """Calls `ModuleBase.do_power_cycle()` on the ModuleInfo at `module`."""
         dev = self._find_module_info(module)
         fn = _get(dev, 'do_power_cycle')
         if fn is None:
             raise NotImplementedError('ModuleBase.do_power_cycle is not implemented')
-        return fn()
+        return _truthy(fn())
 
     def module_pre_shutdown(self, module):
-        """"""
+        """Calls `ModuleBase.module_pre_shutdown()` on the ModuleInfo at `module`."""
         dev = self._find_module_info(module)
         fn = _get(dev, 'module_pre_shutdown')
         if fn is None:
             raise NotImplementedError('ModuleBase.module_pre_shutdown is not implemented')
-        return fn()
+        return _truthy(fn())
 
     def module_post_startup(self, module):
-        """"""
+        """Calls `ModuleBase.module_post_startup()` on the ModuleInfo at `module`."""
         dev = self._find_module_info(module)
         fn = _get(dev, 'module_post_startup')
         if fn is None:
             raise NotImplementedError('ModuleBase.module_post_startup is not implemented')
-        return fn()
+        return _truthy(fn())
 
     def set_module_state_transition(self, module, transition_type):
-        """`pass_key`: the base class takes the module's own name as well."""
+        """`pass_key`: the base class takes the module's own name as well.
+
+        False is the answer that matters: another operation holds the module
+        and has not timed out, and the caller must leave it alone."""
         dev = self._find_module_info(module)
         fn = _get(dev, 'set_module_state_transition')
         if fn is None:
             raise NotImplementedError('ModuleBase.set_module_state_transition is not implemented')
-        return fn(module, transition_type)
+        return _truthy(fn(_text(_call(_get(dev, 'get_name'))), transition_type))
 
     def clear_module_state_transition(self, module):
-        """"""
+        """Calls `ModuleBase.clear_module_state_transition()` on the ModuleInfo at `module`."""
         dev = self._find_module_info(module)
         fn = _get(dev, 'clear_module_state_transition')
         if fn is None:
             raise NotImplementedError('ModuleBase.clear_module_state_transition is not implemented')
-        return fn(module)
+        return _truthy(fn(_text(_call(_get(dev, 'get_name')))))
 
     def clear_module_gnoi_halt(self, module):
-        """"""
+        """Calls `ModuleBase.clear_module_gnoi_halt_in_progress()` on the ModuleInfo at `module`."""
         dev = self._find_module_info(module)
         fn = _get(dev, 'clear_module_gnoi_halt_in_progress')
         if fn is None:
             raise NotImplementedError('ModuleBase.clear_module_gnoi_halt_in_progress is not implemented')
-        return fn()
+        return _truthy(fn())
 
     def set_sensor_high_threshold(self, sensor, value):
-        """"""
+        """Calls `SensorBase.set_high_threshold()` on the SensorInfo at `sensor`."""
         dev = self._find_sensor_info(sensor)
         fn = _get(dev, 'set_high_threshold')
         if fn is None:
             raise NotImplementedError('SensorBase.set_high_threshold is not implemented')
-        return fn(value)
+        return _truthy(fn(value))
 
     def set_sensor_low_threshold(self, sensor, value):
-        """"""
+        """Calls `SensorBase.set_low_threshold()` on the SensorInfo at `sensor`."""
         dev = self._find_sensor_info(sensor)
         fn = _get(dev, 'set_low_threshold')
         if fn is None:
             raise NotImplementedError('SensorBase.set_low_threshold is not implemented')
-        return fn(value)
+        return _truthy(fn(value))
+
+    def get_module_key(self, name):
+        """Hand-written: answers the key the index leads to, not the index"""
+        return self._hatch.get_module_key(name)
+
+    def get_component_key(self, name):
+        """Hand-written: a name is resolved within one parent, and a duplicate is refused"""
+        return self._hatch.get_component_key(name)
+
+    def get_module_component_key(self, module, name):
+        """Hand-written: see get_component_key"""
+        return self._hatch.get_module_component_key(module, name)
 
     def get_available_firmware_version(self, component, image_path):
-        """"""
+        """Calls `ComponentBase.get_available_firmware_version()` on the ComponentInfo at `component`."""
         dev = self._find_component_info(component)
         fn = _get(dev, 'get_available_firmware_version')
         if fn is None:
@@ -1961,7 +2507,7 @@ singleton accessor would have to invent a row to say so.
         return fn(image_path)
 
     def get_firmware_update_notification(self, component, image_path):
-        """"""
+        """Calls `ComponentBase.get_firmware_update_notification()` on the ComponentInfo at `component`."""
         dev = self._find_component_info(component)
         fn = _get(dev, 'get_firmware_update_notification')
         if fn is None:
@@ -1969,21 +2515,21 @@ singleton accessor would have to invent a row to say so.
         return fn(image_path)
 
     def install_firmware(self, component, image_path):
-        """"""
+        """Calls `ComponentBase.install_firmware()` on the ComponentInfo at `component`."""
         dev = self._find_component_info(component)
         fn = _get(dev, 'install_firmware')
         if fn is None:
             raise NotImplementedError('ComponentBase.install_firmware is not implemented')
-        return fn(image_path)
+        return _truthy(fn(image_path))
 
     def update_firmware(self, component, image_path):
         """`ComponentBase.update_firmware` returns False on a missing path and
-        nothing at all on success, so there is no value worth declaring."""
+        nothing at all on success, so only a False says anything."""
         dev = self._find_component_info(component)
         fn = _get(dev, 'update_firmware')
         if fn is None:
             raise NotImplementedError('ComponentBase.update_firmware is not implemented')
-        return fn(image_path)
+        return _truthy(fn(image_path))
 
     def auto_update_firmware(self, component, image_path, boot_type):
         """Returns one of `ComponentBase.FW_AUTO_*`."""
@@ -2005,12 +2551,12 @@ singleton accessor would have to invent a row to say so.
         return fn(seconds)
 
     def disarm_watchdog(self):
-        """"""
+        """Calls `ChassisBase.get_watchdog().disarm()`."""
         target = _call(_get(self._chassis, 'get_watchdog'))
         fn = _get(target, 'disarm')
         if fn is None:
             raise NotImplementedError('ChassisBase.get_watchdog.disarm is not implemented')
-        return fn()
+        return _truthy(fn())
 
     def initialize_system_led(self):
         """The base class spells this `initizalize_system_led`.
@@ -2020,40 +2566,45 @@ singleton accessor would have to invent a row to say so.
         fn = _get(self._chassis, 'initizalize_system_led')
         if fn is None:
             raise NotImplementedError('ChassisBase.initizalize_system_led is not implemented')
-        return fn()
+        return _truthy(fn())
 
     def init_midplane_switch(self):
-        """"""
+        """Calls `ChassisBase.init_midplane_switch()`."""
         fn = _get(self._chassis, 'init_midplane_switch')
         if fn is None:
             raise NotImplementedError('ChassisBase.init_midplane_switch is not implemented')
-        return fn()
+        return _truthy(fn())
 
     def set_chassis_led(self, color):
         """The whole platform API surface healthd reaches.
 
         `health_checker/manager.py:77`.  It is not a pmon daemon -- it runs on
-        the host -- which is why this one method is worth naming."""
+        the host -- which is why this one method is worth naming.
+
+        The colour is a `str`, not a `LedColor`: healthd takes it from the
+        platform's `system_health_monitoring_config.json`, where vendors use
+        their own ("amber_blink", "orange_blink", "yellow").  The answer is
+        `set_status_led`'s bool, so a caller can log a set that failed."""
         fn = _get(self._chassis, 'set_status_led')
         if fn is None:
             raise NotImplementedError('ChassisBase.set_status_led is not implemented')
-        return fn(color)
+        return _truthy(fn(color))
 
     def change_sed_password(self, new_password):
-        """"""
+        """Calls `ChassisBase.get_sed_mgmt().change_sed_password()`."""
         target = _call(_get(self._chassis, 'get_sed_mgmt'))
         fn = _get(target, 'change_sed_password')
         if fn is None:
             raise NotImplementedError('ChassisBase.get_sed_mgmt.change_sed_password is not implemented')
-        return fn(new_password)
+        return _truthy(fn(new_password))
 
     def reset_sed_password(self):
-        """"""
+        """Calls `ChassisBase.get_sed_mgmt().reset_sed_password()`."""
         target = _call(_get(self._chassis, 'get_sed_mgmt'))
         fn = _get(target, 'reset_sed_password')
         if fn is None:
             raise NotImplementedError('ChassisBase.get_sed_mgmt.reset_sed_password is not implemented')
-        return fn()
+        return _truthy(fn())
 
     def bmc_open_session(self):
         """Hand-written: every BMC command answers a tuple, and not the same tuple: (code, message), (code, (message, (session_id, token))) and (code, (task_id, message)) all appear. Unpacking each into one row shape is a decision per method rather than a rule."""
@@ -2102,6 +2653,14 @@ singleton accessor would have to invent a row to say so.
     def tm_deinitialize(self):
         """Hand-written: see tm_initialize"""
         return self._hatch.tm_deinitialize()
+
+    def tm_stop(self):
+        """Hand-written: see tm_initialize"""
+        return self._hatch.tm_stop()
+
+    def notify_shutdown(self):
+        """Hand-written: Not a base-class method.  A vendor may install SIGTERM/SIGINT handlers while its chassis is built so that its readiness waits abort on shutdown -- mlnx's utils.watch_shutdown_signals() (chassis.py:151), whose event ends the 300 s wait in ThermalUpdater.start() on SPC1.  In a Rust daemon the daemon owns the signals, so the bridge keeps those handlers when the chassis is built and this runs them."""
+        return self._hatch.notify_shutdown()
 
     def eeprom_update_db(self):
         """Hand-written: The platform writes this table itself.  `Eeprom.update_eeprom_db()` (sonic_platform_base/sonic_eeprom/eeprom_tlvinfo.py, which every vendor Eeprom subclasses) decodes the raw EEPROM and hmsets EEPROM_INFO through an EepromRedisVisitor: a TlvHeader row, a Checksum row, a State row, and one row per TLV carrying Name, Len and Value. `get_system_eeprom_info()` -- the source get_eeprom() rows come from -- answers only code->value, so rebuilding that table from the rows would publish a strictly poorer one and `show platform syseeprom` would lose the names and lengths. Calling the platform's own writer keeps the table byte-identical to the Python daemon's; the alternative is reimplementing ONIE TLV decoding in Rust. A platform API that writes a database is a layering fault, and phase 2 cannot carry this method across as-is -- it is declared here so that is a decision someone makes rather than discovers."""

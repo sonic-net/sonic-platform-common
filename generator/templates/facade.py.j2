@@ -1,8 +1,7 @@
-{{ header }}
 """The Python facade over the vendor's platform API.
 
-GENERATED from platform_api/facade.pyi by generator/generate.py.  Do not edit:
-regenerate.  Adding a field or a row is one edit, to the stub.
+GENERATED from sonic_platform_api/facade.pyi by generator/generate.py.  Do not
+edit: regenerate.  Adding a field or a row is one edit, to the stub.
 
 Every base-class call here goes through `_call`, which treats a `None` return
 exactly as it treats `NotImplementedError`.  That is not a simplification --
@@ -13,6 +12,8 @@ publish today.
 """
 
 import enum
+import numbers
+import re
 from typing import Literal
 
 from . import _escape_hatch
@@ -26,9 +27,26 @@ OMITTED = (
 {%- endfor %}
 )
 
+# What a consumer reaches that a later phase declares, and why not yet.
+DEFERRED = (
+{%- for path, reason in model.deferred %}
+    ({{ path | tojson }}, {{ reason | tojson }}),
+{%- endfor %}
+)
+
 {% for e in model.enums %}
 {{ e.name }} = Literal[{% for v in e.values %}{{ v | tojson }}{{ ', ' if not loop.last }}{% endfor %}]
 {%- endfor %}
+
+
+class DeviceNotFound(KeyError):
+    """No device at a key: one that names nothing, or that is not a key at all.
+
+    A `KeyError`, which is what a lookup that found nothing has always been
+    in Python; its own class so that a `KeyError` a vendor's getter raises --
+    a dictionary miss in a sysfs table -- is not taken for one.  The Rust
+    bridge maps this class, and only this class, to `PlatformError::NotFound`.
+    """
 
 
 def _call(fn, default=None):
@@ -104,27 +122,88 @@ def _at(v, i):
         return None
 
 
-def _fmt(v, template, parent, i):
-    """A name, or the key its consumers already publish it under."""
+_KEY_STEP = re.compile(r'^([a-z][a-z0-9_]*)(?:\[(0|[1-9][0-9]*)\])?$')
+
+
+def _parse_key(key):
+    """A DeviceKey as its steps: (collection, position or None), outermost first.
+
+    `DeviceNotFound` for anything that is not one, the same error an unknown
+    key raises: a caller that built a key by hand has no device to act on
+    either way.
+    """
+    if not isinstance(key, str) or not key:
+        raise DeviceNotFound('not a device key: %r' % (key,))
+    path = []
+    for step in key.split('/'):
+        m = _KEY_STEP.match(step)
+        if m is None:
+            raise DeviceNotFound('not a device key: %r' % (key,))
+        path.append((m.group(1), None if m.group(2) is None else int(m.group(2))))
+    return tuple(path)
+
+
+def _shape(path):
+    """What a key says about the source that made it: the collections, and
+    which steps carry a position."""
+    return tuple((name, pos is not None) for name, pos in path)
+
+
+def _nth(seq, pos):
+    """The device at `pos` in a collection, or None past its end."""
+    items = list(_iter(seq))
+    return items[pos] if pos < len(items) else None
+
+
+def _fmt(v, template, parent, i, **fixed):
+    """A name, or the key its consumers already publish it under.  `fixed`
+    are the fields the source sets that the template also names, a sensor's
+    `{kind}`."""
     if v is not None:
         return str(v)
-    return template.format(parent=parent, i=i + 1)
+    return template.format(parent=parent, i=i + 1, **fixed)
 
 
-def _enum(v):
-    """A column the stub declares as one of a fixed set of strings.
+def _present(v, missing):
+    """A parent's name, or None where it answered one of `missing`.
 
-    The base classes document these as `str`, but a vendor is free to answer
-    with an `enum.Enum` whose *value* is that string -- mlnx's
-    `get_leak_severity()` does.  Both spellings mean the same thing to a
-    Python caller, so the difference went unnoticed until the Rust bridge,
-    which downcasts to `str`, failed the whole row read.
+    `FlattenSource(parent_missing=...)`.  Mellanox's virtual fan drawer is
+    named 'N/A' (fan_drawer.py:118), and thermalctld publishes its fans under
+    the chassis rather than under a drawer called that (thermalctld:450-456).
+    """
+    if v is None or str(v) in missing:
+        return None
+    return v
+
+
+def _raw(v):
+    """What a parent answered, as thermalctld publishes it: `str(try_get())`."""
+    return 'N/A' if v is None else str(v)
+
+
+def _text(v):
+    """A column the stub declares as a string: `str`, or one of a fixed set.
+
+    The Python daemons publish these with `str()`, so whatever a vendor
+    answers with is publishable.  The Rust bridge downcasts to `str`, and one
+    column that is not took the whole row read with it.  Two answers do that:
+
+    - an `enum.Enum` whose *value* is the string -- mlnx's
+      `get_leak_severity()`.  It crosses as that value, which is what a
+      Python caller comparing it to the string sees.
+    - anything else that is not a string -- accton's PDDF fan answers
+      `get_direction()` with False when the read fails, and thermalctld
+      publishes "False".  It crosses as `str()` of itself.
 
     Normalising here rather than in the bridge keeps the two sides reading the
     same declaration: the stub says the column is a string, so it crosses as
     one.
     """
-    return v.value if isinstance(v, enum.Enum) else v
+    if v is None or isinstance(v, str):
+        return v
+    if isinstance(v, enum.Enum):
+        v = v.value
+    return v if isinstance(v, str) else str(v)
 
 
 def _call_with_name(name_fn, fn):
@@ -184,6 +263,9 @@ def _truthy(v):
 
     None stays None: `if None:` is false in Python too, so an absent reading
     keeps behaving the way the daemon already expects.
+
+    An action's bool answer goes through here too, for the same reason: its
+    caller reads it as `if not answer:`.
     """
     return None if v is None else bool(v)
 
@@ -195,6 +277,14 @@ def _scalar(v, sentinels, coerce_from):
     float, at positions the base class documents as float.  Both this and the
     Rust bridge normalise through the same declared table, so the two sides
     cannot disagree about what "no reading" looks like.
+
+    A number that is neither an `int` nor a `float` keeps its fraction: an
+    integral one (`numpy.int64`) becomes an int, anything else that converts
+    (`Decimal`, `numpy.float32`) becomes a float.  Trying `int()` first
+    truncated `Decimal('45.7')` to 45.  A string is the other way round:
+    `int()` first keeps every digit of a whole number past 2**53, and
+    '45.7', which `int()` refuses, is left to the `str` rule.  Where the
+    column is an integer, the bridge narrows it, as it does a float.
     """
     if v is None:
         return None
@@ -212,8 +302,15 @@ def _scalar(v, sentinels, coerce_from):
             except ValueError:
                 return None
         if kind == 'int':
-            try:
+            if isinstance(v, str):
+                try:
+                    return int(v)
+                except ValueError:
+                    continue
+            if isinstance(v, numbers.Integral):
                 return int(v)
+            try:
+                return float(v)
             except (TypeError, ValueError):
                 pass
     return None
@@ -239,8 +336,16 @@ class {{ row.name }}(object):
                             % ', '.join(sorted(fields)))
 
     def __repr__(self):
+{%- if row.secrets %}
+        # {{ row.secrets | join(', ') }}: Secret(), so said to be there, not shown.
+        secret = {{ row.secrets_py }}
+        return '{{ row.name }}(%s)' % ', '.join(
+            '%s=%s' % (k, '<redacted>' if k in secret and getattr(self, k) is not None
+                       else repr(getattr(self, k))) for k in self.__slots__)
+{%- else %}
         return '{{ row.name }}(%s)' % ', '.join(
             '%s=%r' % (k, getattr(self, k)) for k in self.__slots__)
+{%- endif %}
 
     def __eq__(self, other):
         if not isinstance(other, {{ row.name }}):
@@ -274,7 +379,10 @@ class PlatformApi(object):
         self._hatch = _escape_hatch.EscapeHatches(chassis)
 {% for row in model.rows %}
 {%- if row.sources or row.singleton %}
-    def _row_{{ row.snake }}(self, dev, parent, i, fixed{% if row.projected %}, cols{% endif %}):
+    def _row_{{ row.snake }}(self, dev, parent, i, fixed{% if row.projected %}, cols{% endif %}{% if row.skippable %}, skip{% endif %}{% if row.absorbable %}, absorb{% endif %}):
+{%- if row.sequential %}
+{{ row.row_body }}
+{%- else %}
 {%- for var, call, mask in row.shared_calls %}
         # One call, sliced by every column that wants a piece of it: the
         # platform need not answer the same thing twice, and some of these
@@ -290,36 +398,32 @@ class PlatformApi(object):
             {{ f.name }}={{ f.py_expr }},
 {%- endfor %}
         )
+{%- endif %}
 
-    def _walk_{{ row.snake }}(self{% if row.projected %}, cols{% endif %}):
-        """Every {{ row.name }} paired with the device it was read from.
+    def _walk_{{ row.snake }}(self{% if row.projected %}, cols{% endif %}{% if row.skippable %}, skip{% endif %}{% if row.absorbable %}, absorb{% endif %}):
+        """Every {{ row.name }}, in declared order.
 
-        One traversal serves both the snapshot and the by-name lookup, so an
-        action cannot disagree with the snapshot about what a row is called.
+        Each row carries its key, the path this walk took to the device; an
+        action follows that path back with `_find_{{ row.snake }}()`.
         """
         out = []
 {{ row.walk_body }}
         return out
 {% if row.addressed %}
-    def _find_{{ row.snake }}(self, name):
-        """The device behind a published {{ row.name }} name."""
-{%- if row.projected %}
-        # Names only: resolving one costs a walk, and an action that then sets
-        # a speed has no use for the other columns of every other row.
-        for row, dev in self._walk_{{ row.snake }}(0):
-{%- else %}
-        for row, dev in self._walk_{{ row.snake }}():
-{%- endif %}
-            if row.name == name:
-                return dev
-        raise KeyError('no {{ row.name }} named %r' % name)
+    def _find_{{ row.snake }}(self, key):
+        """The device at a published {{ row.name }} key.
+
+        One getter per step of the key, not a walk: an action costs what
+        reaching the device costs, and reads nothing else on the way.
+        """
+{{ row.find_body }}
 {% endif %}
 {%- endif %}
 {% endfor %}
 {%- for m in model.methods %}
 {%- if m.kind == 'snapshot' %}
-    def {{ m.name }}(self{% if m.projected %}, cols={{ model.row(m.row).all_cols }}{% endif %}):
-        """{{ m.doc or 'Every %s, in declared order.' % m.row }}
+    def {{ m.name }}(self{% if m.projected %}, cols={{ model.row(m.row).all_cols }}{% endif %}{% if m.skippable %}, skip=(){% endif %}{% if m.absorbable %}, absorb=False{% endif %}):
+        """{{ (m.doc or 'Every %s, in declared order.' % m.row) | replace('\n', '\n        ') }}
 {%- if m.projected %}
 
         `cols` is a bit per declinable column (see `{{ m.row }}Cols` on the Rust
@@ -327,11 +431,36 @@ class PlatformApi(object):
         their absent value rather than read.  The default is every column, so a
         caller that does not care reads what it always read.
 {%- endif %}
+{%- if m.skippable %}
+
+        `skip` is the keys of rows to read only in part: their `Unguarded()`
+        columns, and nothing else (`Snapshot(skippable=True)`).
+{%- endif %}
+{%- if m.per_row_errors %}
+
+        A device whose getter raised is still a row, read up to that getter,
+        with `error`, `error_repr` and `error_column` set
+        (`Snapshot(per_row_errors=True)`).
+{%- endif %}
+{%- if m.absorbable %}
+
+        `absorb` reads each column on its own instead, an exception leaving
+        that one absent and no error set (`Snapshot(absorbable=True)`).
+{%- endif %}
+{%- if m.absorbs %}
+
+        Each column is read on its own: a getter that raises leaves that one
+        absent, and the rest of the row is read (`Snapshot(absorbs=True)`).
+{%- endif %}
         """
 {%- if m.singleton %}
-        return self._walk_{{ model.row(m.row).snake }}({% if m.projected %}cols{% endif %})[0][0]
+        return self._walk_{{ model.row(m.row).snake }}({% if m.projected %}cols{% endif %})[0]
+{%- elif m.skippable %}
+        return self._walk_{{ model.row(m.row).snake }}(cols, frozenset(skip or ()))
+{%- elif m.absorbable %}
+        return self._walk_{{ model.row(m.row).snake }}({% if m.projected %}cols, {% endif %}bool(absorb))
 {%- else %}
-        return [row for row, _dev in self._walk_{{ model.row(m.row).snake }}({% if m.projected %}cols{% endif %})]
+        return self._walk_{{ model.row(m.row).snake }}({% if m.projected %}cols{% endif %})
 {%- endif %}
 {% elif m.kind == 'action' %}
     def {{ m.name }}(self{% for p, _t in m.params %}, {{ p }}{% endfor %}):

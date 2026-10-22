@@ -1,8 +1,7 @@
-{{ header }}
 //! Every implementation of the platform API, behind one concrete type.
 //!
-//! GENERATED from platform_api/facade.pyi by generator/generate.py.  Do not
-//! edit: regenerate.
+//! GENERATED from sonic_platform_api/facade.pyi by generator/generate.py.  Do
+//! not edit: regenerate.
 //!
 //! [`Platform`] is an enum rather than a `Box<dyn PlatformApi>` because
 //! chassisd takes the platform through a generic parameter and hands the same
@@ -31,17 +30,12 @@ use platform_api::{
 
 /// The implementation this call opened.
 ///
-/// Which arm exists is a build-time fact; which arm is used is the switch the
-/// daemon was started with.  The two are separate on purpose: a build can
-/// carry an implementation nobody has turned on yet.
+/// One arm, because the PyO3 bridge is the only implementation there is.  A
+/// native one becomes a second variant here and a second arm in each
+/// forwarder below, and no daemon changes.
 pub enum Platform {
     /// The vendor's Python, reached through PyO3.
     Pyo3(platform_pyo3::Bridge),
-{%- raw %}
-    /// A native Rust implementation of the same trait.
-    #[cfg(feature = "platform-native")]
-    Native(platform_native::Platform),
-{%- endraw %}
 }
 
 impl PlatformApi for Platform {
@@ -50,10 +44,6 @@ impl PlatformApi for Platform {
     fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
         match self {
             Self::Pyo3(p) => p.{{ m.rust_name }}({{ m.rust_fwd_args }}),
-{%- raw %}
-            #[cfg(feature = "platform-native")]
-{%- endraw %}
-            Self::Native(p) => p.{{ m.rust_name }}({{ m.rust_fwd_args }}),
         }
     }
 {%- endfor %}
@@ -63,10 +53,6 @@ impl PlatformApi for Platform {
     fn finalize(&mut self) {
         match self {
             Self::Pyo3(p) => p.finalize(),
-{%- raw %}
-            #[cfg(feature = "platform-native")]
-{%- endraw %}
-            Self::Native(p) => p.finalize(),
         }
     }
 }

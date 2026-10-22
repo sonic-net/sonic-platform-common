@@ -1,53 +1,80 @@
-//
-// SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
 //! The SONiC platform API as Rust sees it.
 //!
-//! Everything in [`generated`] comes from `platform_api/facade.pyi`, with two
-//! exceptions: the error type below, and [`PlatformApi::finalize`], which the
-//! trait template appends because a lifecycle hook has no place in a stub of
-//! vendor calls.
+//! Everything in [`generated`] comes from `sonic_platform_api/facade.pyi`,
+//! with two exceptions: the error type below, and [`PlatformApi::finalize`],
+//! which the trait template appends because a lifecycle hook has no place in a
+//! stub of vendor calls.
 
+// The generator's output, held byte for byte to what `generate.py --check`
+// regenerates: rustfmt leaves it as written.
+#[rustfmt::skip]
 mod generated;
 
 pub use generated::*;
 
-/// A temperature or voltage limit, remembering whether Python said int or float.
+/// A reading or a limit, remembering whether Python said int or float.
 ///
-/// `types.pyi` declares `Threshold = Union[int, float]` because vendors return
-/// both, and that union is not decoration: `show platform temperature` reads
-/// these back out of STATE_DB as strings, so `105` and `105.0` are different
-/// answers. Collapsing the union to f64 at the boundary would rewrite one as
-/// the other on every platform that reports integral limits.
+/// `types.pyi` declares `Number = Union[int, float]` -- and spells every
+/// temperature, voltage, current, power and fan speed as one -- because
+/// vendors return both, and that union is not decoration: the daemons publish
+/// what they got with `str()`, and `show platform temperature` reads it back
+/// out of STATE_DB as a string, so `105` and `105.0` are different answers.
+/// Collapsing the union to f64 at the boundary would rewrite one as the other
+/// on every platform that reports integral numbers.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Threshold {
+pub enum Number {
     /// A Python `int`. Written without a decimal point: `"105"`.
     Int(i64),
     /// A Python `float`. Written with one: `"105.0"`.
     Float(f64),
 }
 
-impl Threshold {
+/// A limit is a [`Number`]; the name says what it is for.
+pub type Threshold = Number;
+
+impl Number {
     /// The value as f64, for comparison rather than for display.
     pub fn as_f64(self) -> f64 {
         match self {
-            Threshold::Int(v) => v as f64,
-            Threshold::Float(v) => v,
+            Number::Int(v) => v as f64,
+            Number::Float(v) => v,
         }
+    }
+}
+
+/// Where a device sits in the platform's object tree: the `key` of a row, and
+/// what every action on that device takes.
+///
+/// Its own type rather than a `&str` so that a display name -- which is not
+/// unique: two line cards each have a "BIOS" -- cannot be passed where a key
+/// is expected.  Build one from a row, or from `get_module_key` /
+/// `get_component_key` when starting from a name; `types.pyi` describes the
+/// spelling, which a caller has no reason to read.
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct DeviceKey(String);
+
+impl DeviceKey {
+    /// The key as the facade spells it.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl From<String> for DeviceKey {
+    fn from(s: String) -> Self {
+        DeviceKey(s)
+    }
+}
+
+impl From<&str> for DeviceKey {
+    fn from(s: &str) -> Self {
+        DeviceKey(s.to_string())
+    }
+}
+
+impl std::fmt::Display for DeviceKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
     }
 }
 
@@ -62,7 +89,7 @@ pub enum PlatformError {
     /// The platform does not implement this.  Not an error to log loudly:
     /// most of the base class is unimplemented on most platforms.
     NotSupported(String),
-    /// A row was addressed by a name no row has.
+    /// A key led to no device of the kind the action acts on.
     NotFound(String),
     /// The platform tried and failed -- an I/O error, a malformed reading, or
     /// an exception the backend did not expect.
@@ -91,7 +118,54 @@ mod tests {
     //! call the same functions from a run-time context, which is the only way
     //! a wrong bit or a wrong name gets caught.
 
-    use crate::{FanInfoCol, FanInfoCols, ModuleInfoCol, ModuleInfoCols};
+    use crate::{
+        BmcResult, DeviceKey, FanInfo, FanInfoCol, FanInfoCols, FanKind, ModuleInfoCol,
+        ModuleInfoCols, ThermalInfo, ThermalKind,
+    };
+
+    #[test]
+    fn a_row_with_a_kind_is_built_from_its_kind() {
+        // No Default: there is no neutral kind.  `new` takes the kind and
+        // leaves every other column empty, so a literal can fill in only
+        // what it cares about.
+        let fan = FanInfo {
+            name: "fan1".to_string(),
+            ..FanInfo::new(FanKind::Drawer)
+        };
+        assert_eq!(
+            (fan.name.as_str(), fan.kind, fan.speed_pct, fan.error),
+            ("fan1", FanKind::Drawer, None, None)
+        );
+        let thermal = ThermalInfo::new(ThermalKind::ModulePsu);
+        assert_eq!(
+            (thermal.kind, thermal.name.as_str(), thermal.temperature),
+            (ThermalKind::ModulePsu, "", None)
+        );
+    }
+
+    #[test]
+    fn a_secret_column_is_said_to_be_there_and_not_shown() {
+        let row = BmcResult {
+            token: Some("SECRET".to_string()),
+            ..BmcResult::default()
+        };
+        let shown = format!("{row:?}");
+        assert!(!shown.contains("SECRET"), "{shown}");
+        assert!(shown.contains("<redacted>"), "{shown}");
+        assert!(format!("{:?}", BmcResult::default()).contains("token: None"));
+    }
+
+    #[test]
+    fn a_device_key_is_the_text_it_was_made_from() {
+        let key = DeviceKey::from("modules[1]/components[0]");
+        assert_eq!(key.as_str(), "modules[1]/components[0]");
+        assert_eq!(key.to_string(), "modules[1]/components[0]");
+        assert_eq!(
+            key,
+            DeviceKey::from(String::from("modules[1]/components[0]"))
+        );
+        assert_eq!(DeviceKey::default().as_str(), "");
+    }
 
     #[test]
     fn a_column_set_holds_exactly_the_columns_put_in_it() {
@@ -110,7 +184,11 @@ mod tests {
             "ALL and the column list disagree about how many there are"
         );
         for col in FanInfoCol::ALL {
-            assert!(FanInfoCols::ALL.contains(*col), "{} missing from ALL", col.as_str());
+            assert!(
+                FanInfoCols::ALL.contains(*col),
+                "{} missing from ALL",
+                col.as_str()
+            );
             assert!(!FanInfoCols::NONE.contains(*col));
         }
     }
@@ -119,9 +197,10 @@ mod tests {
     fn a_column_bit_is_its_declared_position() {
         // The discriminant is the wire format the facade reads: a column that
         // moved would still compile and would read a different column's value.
+        // The order is thermalctld's (see `FanInfo` in the stub).
         assert_eq!(FanInfoCol::PositionInParent.bit(), 1);
-        assert_eq!(FanInfoCol::IsUnderSpeed as u8, 9);
-        assert_eq!(FanInfoCol::IsUnderSpeed.bit(), 1 << 9);
+        assert_eq!(FanInfoCol::IsUnderSpeed as u8, 5);
+        assert_eq!(FanInfoCol::IsUnderSpeed.bit(), 1 << 5);
     }
 
     #[test]
@@ -148,28 +227,34 @@ mod tests {
         }
     }
 
-    /// A trait method a platform does not implement says so, and says which:
-    /// the default is what every implementation without the answer inherits,
-    /// and a caller tells "not implemented" from a failure by it.
     #[test]
     fn a_threshold_compares_as_a_float_whichever_python_returned() {
-        assert_eq!(crate::Threshold::Int(105).as_f64(), 105.0);
+        assert_eq!(crate::Number::Int(105).as_f64(), 105.0);
         assert_eq!(crate::Threshold::Float(105.5).as_f64(), 105.5);
     }
 
     #[test]
     fn an_error_says_which_kind_of_failure_it_is() {
         use crate::PlatformError::{Backend, NotFound, NotSupported};
-        assert_eq!(NotSupported("get_fans".into()).to_string(), "not supported: get_fans");
+        assert_eq!(
+            NotSupported("get_fans".into()).to_string(),
+            "not supported: get_fans"
+        );
         assert_eq!(NotFound("PSU 9".into()).to_string(), "not found: PSU 9");
         assert_eq!(Backend("EIO".into()).to_string(), "platform error: EIO");
     }
 
+    /// A trait method a platform does not implement says so, and says which:
+    /// the default is what every implementation without the answer inherits,
+    /// and a caller tells "not implemented" from a failure by it.
     #[test]
     fn a_platform_that_cannot_say_why_a_midplane_went_down_is_not_supported() {
         struct Nothing;
         impl crate::PlatformApi for Nothing {}
-        match crate::PlatformApi::get_module_midplane_down_reason(&mut Nothing, "DPU0") {
+        match crate::PlatformApi::get_module_midplane_down_reason(
+            &mut Nothing,
+            &crate::DeviceKey::from("modules[0]"),
+        ) {
             Err(crate::PlatformError::NotSupported(what)) => {
                 assert_eq!(what, "get_module_midplane_down_reason")
             }

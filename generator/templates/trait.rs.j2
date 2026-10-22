@@ -1,8 +1,7 @@
-{{ header }}
 //! The platform API, in Rust.
 //!
-//! GENERATED from platform_api/facade.pyi by generator/generate.py.  Do not
-//! edit: regenerate.
+//! GENERATED from sonic_platform_api/facade.pyi by generator/generate.py.  Do
+//! not edit: regenerate.
 //!
 //! In phase 1 the only implementation is the PyO3 bridge in `platform-pyo3`,
 //! which calls a vendor's existing Python.  In phase 2 a vendor implements
@@ -16,7 +15,7 @@
 //! a distinction the Python API loses, because there a getter that raises and
 //! a getter that returns None are the same event.
 
-use crate::{PlatformError, Threshold};
+use crate::{DeviceKey, Number, PlatformError};
 {% for e in model.enums %}
 
 /// `{{ e.name }}`, as declared in the stub.
@@ -65,12 +64,52 @@ impl std::fmt::Display for {{ e.name }} {
 {% for row in model.rows %}
 
 /// {{ row.doc | rustdoc('') }}
-{% if row.can_default %}#[derive(Debug, Clone, PartialEq, Default)]{% else %}#[derive(Debug, Clone, PartialEq)]{% endif %}
+#[derive({% if not row.secrets %}Debug, {% endif %}Clone, PartialEq{% if row.can_default %}, Default{% endif %})]
 pub struct {{ row.name }} {
 {%- for f in row.fields %}
     pub {{ f.rust_name }}: {{ f.rust_ty }},
 {%- endfor %}
 }
+{%- if row.secrets %}
+
+/// Every column but {{ row.secrets | join(', ') }}, which `Secret()` keeps out of
+/// a log line: said to be there, not shown.
+impl std::fmt::Debug for {{ row.name }} {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct({{ row.name | tojson }})
+{%- for f in row.fields %}
+{%- if f.secret %}
+            .field({{ f.name | tojson }}, &self.{{ f.rust_name }}.as_ref().map(|_| "<redacted>"))
+{%- else %}
+            .field({{ f.name | tojson }}, &self.{{ f.rust_name }})
+{%- endif %}
+{%- endfor %}
+            .finish()
+    }
+}
+{%- endif %}
+{%- if row.new_params %}
+
+impl {{ row.name }} {
+    /// A `{{ row.name }}` of the given `{{ row.new_params | map(attribute='name') | join('`, `') }}`, every other column empty.
+    ///
+    /// There is no `Default`, because `{{ row.new_params | map(attribute='name') | join('`, `') }}` has no neutral
+    /// value and one picked here would be a value nobody declared.  Build a
+    /// row as `{{ row.name }} { name, ..{{ row.name }}::new(..) }`, so that a column added to
+    /// the stub does not break the literal.
+    pub fn new({% for f in row.new_params %}{{ f.rust_name }}: {{ f.rust_ty }}{{ ', ' if not loop.last }}{% endfor %}) -> Self {
+        {{ row.name }} {
+{%- for f in row.fields %}
+{%- if f in row.new_params %}
+            {{ f.rust_name }},
+{%- else %}
+            {{ f.rust_name }}: Default::default(),
+{%- endif %}
+{%- endfor %}
+        }
+    }
+}
+{%- endif %}
 {%- if row.projected %}
 
 /// One declinable column of `{{ row.name }}`.
@@ -122,8 +161,8 @@ impl {{ row.name }}Col {
 pub struct {{ row.name }}Cols(u64);
 
 impl {{ row.name }}Cols {
-    /// Nothing declinable: the columns that come from the traversal are still
-    /// read, which is what makes a by-name lookup possible.
+    /// Nothing declinable: the name, the key and the other columns that come
+    /// from the traversal are still read.
     pub const NONE: Self = {{ row.name }}Cols(0);
     /// Every column -- what a caller that has not thought about it should pass.
     pub const ALL: Self = {{ row.name }}Cols({{ row.all_cols }});
@@ -190,31 +229,65 @@ pub trait PlatformApi: Send {
     /// Order is part of the contract: it is what lets the Rust and the Python
     /// implementations be compared row for row.
 {%- endif %}
+{%- if m.skippable %}
+    ///
+    /// `skip` names rows to read in part: a row whose key is in it carries
+    /// its unguarded columns and nothing else.  Any other key, one never
+    /// answered before included, is read in full.
+{%- endif %}
+{%- if m.per_row_errors %}
+    ///
+    /// A device whose getter failed is still a row, read up to that getter,
+    /// with `error` and `error_repr` saying what failed and `error_column`
+    /// which getter it was.  Only the walk itself, or an unguarded column,
+    /// fails the call.
+{%- endif %}
+{%- if m.absorbable %}
+    ///
+    /// `absorb` reads each column on its own instead: a getter that fails
+    /// leaves that column absent and the rest of the row is read, with no
+    /// error set -- psud's `try_get`.
+{%- endif %}
+{%- if m.absorbs %}
+    ///
+    /// Each column is read on its own: a getter that fails leaves that column
+    /// absent and the rest of the row is read, with no error set -- psud's
+    /// `try_get`.
+{%- endif %}
     ///
 {%- if m.singleton %}
     /// No default: a chassis that cannot describe itself has nothing an empty
     /// value could stand in for.
-    fn {{ m.rust_name }}(&mut self{% if m.projected %}, cols: {{ m.row }}Cols{% endif %}) -> Result<{{ m.rust_ret }}, PlatformError> {
-        let _ = ({% if m.projected %}cols,{% endif %});
+    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
+        let _ = {{ m.rust_unused }};
         Err(PlatformError::NotSupported({{ m.name | tojson }}.to_string()))
     }
 {%- else %}
     /// Empty by default, so that adding a row type to the schema does not
     /// break every implementation that does not have one -- a platform with
     /// no BMC should not have to write a method to say so.
-    fn {{ m.rust_name }}(&mut self{% if m.projected %}, cols: {{ m.row }}Cols{% endif %}) -> Result<{{ m.rust_ret }}, PlatformError> {
-        let _ = ({% if m.projected %}cols,{% endif %});
+    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
+        let _ = {{ m.rust_unused }};
         Ok(Vec::new())
     }
 {%- endif %}
 {%- elif m.kind == 'escape' %}
 
-    /// {{ m.escape_reason | replace('\n', ' ') | truncate(300) | rustdoc }}
-{%- if m.rust_ret == '()' %}
+    /// {{ (m.doc or m.escape_reason | replace('\n', ' ') | truncate(300)) | rustdoc }}
+{%- if m.rust_ret == '()' and m.name.startswith('tm_') %}
     ///
     /// A no-op by default: most platforms have no thermal manager, and one
     /// that says so by erroring would have every caller log a warning per
     /// cycle on hardware that is working exactly as designed.
+    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<(), PlatformError> {
+        {%- for p, _t in m.params %}
+        let _ = {{ p }};
+        {%- endfor %}
+        Ok(())
+    }
+{%- elif m.rust_ret == '()' %}
+    ///
+    /// A no-op by default: only a platform that needs it implements it.
     fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<(), PlatformError> {
         {%- for p, _t in m.params %}
         let _ = {{ p }};
@@ -253,7 +326,7 @@ pub trait PlatformApi: Send {
 {%- endif %}
 {%- else %}
 
-    /// {{ (m.doc or m.name) | rustdoc }}
+    /// {{ m.doc | rustdoc }}
     ///
     /// Not supported by default: a platform whose {{ m.name }} is not
     /// software-controllable should not have to write a method to say so.

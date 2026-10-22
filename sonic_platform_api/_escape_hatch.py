@@ -1,20 +1,3 @@
-#
-# SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
 """The bodies the generator cannot derive.
 
 Hand-written, and deliberately small: everything here is declared in
@@ -22,7 +5,10 @@ Hand-written, and deliberately small: everything here is declared in
 a matching declaration is a body somebody should have generated.
 """
 
-from typing import Any, Optional
+import signal
+import sys
+import threading
+from typing import Any, Callable, Optional
 
 
 def _call(fn: Any, default: Any = None) -> Any:
@@ -66,19 +52,119 @@ CHANGE_EVENT_KINDS = {
 }
 
 
+# -- shutdown ---------------------------------------------------------------
+#
+# A vendor may install SIGTERM/SIGINT handlers while its chassis is built, so
+# that its readiness waits abort when the daemon is told to stop: mlnx's
+# `utils.watch_shutdown_signals()` (chassis.py:151) sets an event that ends the
+# 300 s wait in `ThermalUpdater.start()` on SPC1, then chains to whatever
+# handler was installed before it -- and when that is `SIG_DFL` it re-raises
+# the signal, `signal.signal(signum, SIG_DFL); os.kill(os.getpid(), signum)`.
+#
+# In a Python daemon the previous handler is the daemon's own, so the chain is
+# harmless and the wait ends.  In a Rust daemon the daemon owns the signals
+# (the bridge resets the interpreter's table and puts the process's
+# dispositions back), so the vendor's handler would never run -- and if it
+# did, the previous handler it captured would be `SIG_DFL` and it would kill
+# the process mid-shutdown.  So the bridge arms the table with a no-op before
+# the chassis is built, keeps whatever the vendor installed on top of it, and
+# `notify_shutdown()` runs that: the event is set, the chain ends in the
+# no-op, and the daemon carries on with its own shutdown.
+
+_SHUTDOWN_SIGNALS = ('SIGTERM', 'SIGINT')
+
+# signum -> the vendor's handler, the first one kept.  Process-wide: the
+# vendor's state is (mlnx installs its handlers once per process), and the
+# Rust daemons open the platform on more than one thread.
+_shutdown_handlers: dict[int, Callable[..., Any]] = {}
+# Held for good by the first `notify_shutdown()`: a lock rather than a flag so
+# that two threads cannot both get past the check.
+_shutdown_notified = threading.Lock()
+# Between `arm_shutdown_capture()` and `disarm_shutdown_capture()`: the
+# daemon's handlers are out of the way, so a signal that arrives is the
+# daemon's, and is kept for the bridge to raise again.
+_capturing = False
+_deferred_signals: list[int] = []
+
+
+def _ignore_shutdown_signal(signum: int, frame: Any) -> None:
+    """What a vendor's shutdown handler chains to, and what runs for a signal
+    nobody else claimed while the chassis is built.  Never installed for
+    longer than that; the shutdown `notify_shutdown()` hands on is not one to
+    keep."""
+    if _capturing and not _shutdown_notified.locked():
+        _deferred_signals.append(signum)
+
+
+def arm_shutdown_capture() -> bool:
+    """Before the vendor's chassis is built: give a handler installed during
+    the build a harmless previous handler to chain to.
+
+    False off the main thread, where `signal.signal()` raises -- and where a
+    vendor's installer has the same guard, so there is nothing to capture.
+    """
+    global _capturing
+    for name in _SHUTDOWN_SIGNALS:
+        signum = getattr(signal, name, None)
+        if signum is None:
+            continue
+        try:
+            signal.signal(signum, _ignore_shutdown_signal)
+        except (ValueError, OSError):
+            return False
+    _capturing = True
+    return True
+
+
+def capture_shutdown_handlers() -> None:
+    """After the build: keep what the vendor installed over the no-op.  The
+    first handler kept for a signal stays -- a later build finds the vendor's
+    installer already done, and the no-op still in place."""
+    for name in _SHUTDOWN_SIGNALS:
+        signum = getattr(signal, name, None)
+        if signum is None or signum in _shutdown_handlers:
+            continue
+        handler = signal.getsignal(signum)
+        if callable(handler) and handler is not _ignore_shutdown_signal:
+            _shutdown_handlers[signum] = handler
+
+
+def disarm_shutdown_capture() -> list[int]:
+    """Once the interpreter's table is reset: the signals that arrived while
+    the chassis was built, in order, for the bridge to raise again when the
+    daemon's handlers are back.  Without that a SIGTERM sent during start-up
+    would be lost to the daemon."""
+    global _capturing
+    _capturing = False
+    taken = list(_deferred_signals)
+    del _deferred_signals[:]
+    return taken
+
+
+def notify_shutdown() -> None:
+    """Run the vendor's shutdown handler as the signal would have: SIGTERM's,
+    or SIGINT's if it kept only that.  Once per process, and never raising --
+    a handler that fails must not stop the daemon stopping."""
+    if not _shutdown_notified.acquire(blocking=False):
+        return
+    for name in _SHUTDOWN_SIGNALS:
+        signum = getattr(signal, name, None)
+        handler = _shutdown_handlers.get(signum) if signum is not None else None
+        if handler is None:
+            continue
+        try:
+            handler(signum, None)
+        except BaseException as e:  # SystemExit and KeyboardInterrupt too
+            sys.stderr.write('vendor shutdown handler for %s failed: %r\n' % (name, e))
+        return
+
+
 class EscapeHatches(object):
-    """Thermal manager lifecycle, flattened to four argument-less calls.
+    """The hatch bodies, and what they keep between calls.
 
-    `ChassisBase.get_thermal_manager()` returns a *class*, not an instance,
-    and all twelve of its methods are `@classmethod` over process-global
-    state.  Two of them -- `init_thermal_algorithm` and `run_policy` -- take
-    the chassis back as an argument, and the Python policy engine then calls
-    back through it into the platform API.
-
-    Holding the chassis here is what keeps that entirely inside Python.  The
-    Rust side sees four calls that take nothing and return nothing, so the
-    bridge never re-enters Python from Rust from Python, and the thermal
-    policy plugin ecosystem stays where it is.
+    One per facade, holding the chassis.  The thermal manager, the EEPROM,
+    the parsed sensors.yaml, the sensors built from it and the Pcie and
+    storage objects are kept once found, as the Python daemons keep theirs.
     """
 
     def __init__(self, chassis: Any) -> None:
@@ -86,11 +172,25 @@ class EscapeHatches(object):
         self._manager: Any = None
         self._loaded = False
         self._sensors_data: Any = None
+        self._sensors_built: dict[str, Any] = {}
         self._eeprom: Any = None
         self._pcie: Any = None
         self._pcie_tried = False
         self._storage: Any = None
         self._storage_tried = False
+
+    # -- thermal manager ----------------------------------------------------
+    #
+    # `ChassisBase.get_thermal_manager()` returns a *class*, not an instance,
+    # and all twelve of its methods are `@classmethod` over process-global
+    # state.  Two of them -- `init_thermal_algorithm` and `run_policy` -- take
+    # the chassis back as an argument, and the Python policy engine then calls
+    # back through it into the platform API.
+    #
+    # Holding the chassis here is what keeps that entirely inside Python.  The
+    # Rust side sees four calls that take no arguments, so the bridge never
+    # re-enters Python from Rust from Python, and the thermal policy plugin
+    # ecosystem stays where it is.
 
     def _get(self) -> Any:
         """The thermal manager class, or None on a platform without one.
@@ -177,6 +277,24 @@ class EscapeHatches(object):
         mgr.deinitialize()
         self._loaded = False
 
+    def tm_stop(self) -> None:
+        """`stop()` alone: what thermalctld's signal handler does the moment
+        SIGTERM arrives (thermalctld:1610-1612), before `deinit()`."""
+        mgr = self._get()
+        if mgr is None:
+            return
+        try:
+            mgr.stop()
+        except NotImplementedError:
+            pass
+
+    # -- shutdown -------------------------------------------------------------
+
+    def notify_shutdown(self) -> None:
+        """See the module-level `notify_shutdown()`: the handlers it runs are
+        the process's, not this facade's."""
+        notify_shutdown()
+
     # -- system EEPROM ------------------------------------------------------
 
     def _eeprom_obj(self) -> Any:
@@ -195,31 +313,34 @@ class EscapeHatches(object):
                 return None
         return self._eeprom
 
-    def eeprom_update_db(self) -> bool:
-        """`read_eeprom()` then `update_eeprom_db()`, as syseepromd:88-92 does.
+    def eeprom_update_db(self) -> str:
+        """`read_eeprom()` then `update_eeprom_db()`, as syseepromd:85-96 does.
 
         The two belong together: `update_eeprom_db` takes the bytes the first
         call returns, and nothing else in the surface wants them, so handing a
         raw EEPROM image across the language boundary would buy nothing.
 
-        A platform that cannot read it answers False rather than raising: the
-        daemon's response is to log and leave the table alone until the next
-        cycle, which is what the Python one does with its ERR_FAILED_EEPROM.
+        A platform that cannot read it answers 'read_failed' rather than
+        raising, and one that read it and could not write the table
+        'update_failed': syseepromd logs which half it was -- its
+        ERR_FAILED_EEPROM and ERR_FAILED_UPDATE_DB -- and leaves the table
+        alone until the next cycle.
         """
         eeprom = self._eeprom_obj()
         if eeprom is None:
-            return False
+            return 'read_failed'
         try:
             data = eeprom.read_eeprom()
         except (NotImplementedError, AttributeError):
-            return False
+            return 'read_failed'
         if data is None:
-            return False
+            return 'read_failed'
         try:
             # Python's own contract: 0 is success, anything else is failure.
-            return not eeprom.update_eeprom_db(data)
+            failed = eeprom.update_eeprom_db(data)
         except (NotImplementedError, AttributeError):
-            return False
+            return 'update_failed'
+        return 'update_failed' if failed else 'updated'
 
     # -- sensors.yaml -------------------------------------------------------
     #
@@ -230,12 +351,15 @@ class EscapeHatches(object):
     # in the same order, as every other sensor.
 
     def _sensors_yaml(self) -> Any:
-        """The platform's sensors.yaml, or None.
+        """The platform's sensors.yaml, or an empty mapping.
 
         Read once. A platform without the file is the common case, not an
         error -- sensormond:512-526 swallows every failure here for exactly
         that reason, and a facade that shouted instead would shout on most
-        platforms.
+        platforms.  A file whose root is not a mapping is as good as none:
+        sensormond's `'voltage_sensors' in sensors_data` finds no key in a
+        list or a scalar, or raises into that same `except`, and the
+        chassis' own sensors are collected all the same.
         """
         if self._sensors_data is not None:
             return self._sensors_data
@@ -248,23 +372,38 @@ class EscapeHatches(object):
 
             platform_path, _hwsku = device_info.get_paths_to_platform_and_hwsku_dirs()
             with open(os.path.join(platform_path, SENSORS_YAML)) as f:
-                self._sensors_data = yaml.safe_load(f) or {}
+                data = yaml.safe_load(f)
+            if isinstance(data, dict):
+                self._sensors_data = data
         except Exception:
             pass
         return self._sensors_data
 
     def _sensors_fs(self, key: str, cls_name: str) -> Any:
-        data = self._sensors_yaml().get(key)
-        if not data:
-            return []
-        try:
-            from sonic_platform_base import sensor_fs
+        """The sensors.yaml sensors of one kind, built once.
 
-            cls = getattr(sensor_fs, cls_name)
-            # The class is passed to its own factory; that is the signature.
-            return cls.factory(cls, data)
-        except Exception:
-            return []
+        sensormond builds its list once and polls the same objects every
+        cycle (sensormond:521-523), and the objects remember: `SensorFs` seeds
+        its recorded minimum and maximum from the reading it was built with
+        and moves them as readings come in.  Rebuilt per call, they recorded
+        nothing but the current value.  A malformed entry is also warned about
+        once, by the factory, rather than every cycle.
+        """
+        if key in self._sensors_built:
+            return self._sensors_built[key]
+        built: Any = []
+        data = self._sensors_yaml().get(key)
+        if data:
+            try:
+                from sonic_platform_base import sensor_fs
+
+                cls = getattr(sensor_fs, cls_name)
+                # The class is passed to its own factory; that is the signature.
+                built = cls.factory(cls, data)
+            except Exception:
+                built = []
+        self._sensors_built[key] = built
+        return built
 
     def voltage_sensors_from_yaml(self) -> Any:
         return self._sensors_fs('voltage_sensors', 'VoltageSensorFs')
@@ -284,9 +423,9 @@ class EscapeHatches(object):
         """The platform's Pcie object, or None.
 
         Built once.  A platform with neither module is not an error here: the
-        rows come back empty and the daemon says PCIe checking found nothing,
-        which is the same thing the Python daemon does when the config file is
-        missing.
+        rows come back empty and pcied publishes no verdict.  The Python daemon
+        raises out of its constructor instead, and a restart cannot bring a
+        module back, so either way nothing is checked.
         """
         if self._pcie_tried:
             return self._pcie
@@ -316,6 +455,14 @@ class EscapeHatches(object):
 
         `result` is `'Passed'` or `'Failed'`; anything else counts as not
         found, because the only two a caller can act on are those.
+
+        A platform without a pcie.yaml answers with `sys.exit()`:
+        `PcieUtil.load_config_file` prints two lines to stdout and raises
+        SystemExit, on every call.  The Python daemon lets it end the process,
+        quietly and with 0, so supervisord leaves it down.  Here it is the
+        empty parts list it means, and the object is dropped, so the next call
+        does not print the same two lines a minute later, and the one after
+        that, for the life of the switch.
         """
         from .facade import PcieDevice
 
@@ -325,6 +472,9 @@ class EscapeHatches(object):
         try:
             answer = util.get_pcie_check()
         except (NotImplementedError, AttributeError):
+            return []
+        except SystemExit:
+            self._pcie = None
             return []
         rows = []
         for item in answer or []:
@@ -385,8 +535,13 @@ class EscapeHatches(object):
     def get_storage_devices(self) -> Any:
         """Every disk, refreshed.
 
-        One disk that cannot be read does not cost the others: stormond wraps
-        each device in its own try (`stormond:330-367`), and so does this.
+        One disk that cannot be read does not cost the others: stormond reads
+        each disk in its own `try`, twice -- its model and serial once at
+        start-up (`stormond:311-332`), and the rest every cycle, starting with
+        `fetch_parse_info` (`stormond:335-393`) -- and catches whatever is
+        raised, logging `str(ex)`.  So does this, pass for pass: an exception
+        is the disk's `static_error` or `error`, the readings of that pass are
+        'N/A', and the other disks are read as if nothing had happened.
         """
         from .facade import StorageDeviceInfo
 
@@ -394,57 +549,65 @@ class EscapeHatches(object):
         if devices is None:
             return []
 
-        def _text(obj: Any, name: str) -> str:
-            """A getter's answer as Python would have written it to STATE_DB."""
-            try:
-                return str(getattr(obj, name)())
-            except (NotImplementedError, AttributeError, TypeError, ValueError):
-                return 'N/A'
-
-        def _count(obj: Any, name: str) -> Any:
-            try:
-                return int(getattr(obj, name)())
-            except (NotImplementedError, AttributeError, TypeError, ValueError):
+        def _count(v: Any) -> Any:
+            """A counter the daemon does arithmetic on, or None.  The getter
+            answered; this is only whether its answer is a number."""
+            if isinstance(v, bool):
                 return None
+            try:
+                return int(v)
+            except (TypeError, ValueError):
+                return None
+
+        import os
+
+        try:
+            from sonic_platform_base.sonic_storage.storage_devices import BLKDEV_BASE_PATH
+        except Exception:
+            # Only where that module will not import, which is where the
+            # devices came from somewhere else -- stormond itself would not
+            # have started.  Its value.
+            BLKDEV_BASE_PATH = '/dev'
 
         rows = []
         for name, obj in sorted(getattr(devices, 'devices', {}).items()):
+            row = StorageDeviceInfo(
+                name=name, available=obj is not None,
+                model='N/A', serial='N/A', firmware='N/A', health='N/A',
+                temperature='N/A', disk_io_reads='N/A', disk_io_writes='N/A',
+                reserved_blocks='N/A', fs_io_reads=None, fs_io_writes=None,
+                static_error=None, error=None,
+            )
+            rows.append(row)
             if obj is None:
                 # A disk the switch has and no utility class handles.  Carried
                 # rather than dropped; the daemon has a line to say about it.
-                rows.append(StorageDeviceInfo(
-                    name=name, available=False,
-                    model='N/A', serial='N/A', firmware='N/A', health='N/A',
-                    temperature='N/A', disk_io_reads='N/A', disk_io_writes='N/A',
-                    reserved_blocks='N/A', fs_io_reads=None, fs_io_writes=None,
-                ))
                 continue
             try:
-                import os
-
-                from sonic_platform_base.sonic_storage.storage_devices import BLKDEV_BASE_PATH
-
+                model = str(obj.get_model())
+                serial = str(obj.get_serial())
+                row.model, row.serial = model, serial
+            except Exception as e:
+                row.static_error = str(e)
+            try:
                 obj.fetch_parse_info(os.path.join(BLKDEV_BASE_PATH, name))
-            except Exception:
-                # The readings below are then the constructor's rather than
-                # this cycle's, which is what Python publishes too: its
-                # per-device `except` catches after the dict is half-built and
-                # it writes nothing, where this writes what it has.
-                pass
-            rows.append(StorageDeviceInfo(
-                name=name,
-                available=True,
-                model=_text(obj, 'get_model'),
-                serial=_text(obj, 'get_serial'),
-                firmware=_text(obj, 'get_firmware'),
-                health=_text(obj, 'get_health'),
-                temperature=_text(obj, 'get_temperature'),
-                disk_io_reads=_text(obj, 'get_disk_io_reads'),
-                disk_io_writes=_text(obj, 'get_disk_io_writes'),
-                reserved_blocks=_text(obj, 'get_reserved_blocks'),
-                fs_io_reads=_count(obj, 'get_fs_io_reads'),
-                fs_io_writes=_count(obj, 'get_fs_io_writes'),
-            ))
+                # In stormond's order, every one read before the row changes:
+                # a pass that fails part way publishes nothing of it.
+                firmware = str(obj.get_firmware())
+                health = str(obj.get_health())
+                temperature = str(obj.get_temperature())
+                fs_io_reads = _count(obj.get_fs_io_reads())
+                fs_io_writes = _count(obj.get_fs_io_writes())
+                disk_io_reads = str(obj.get_disk_io_reads())
+                disk_io_writes = str(obj.get_disk_io_writes())
+                reserved_blocks = str(obj.get_reserved_blocks())
+            except Exception as e:
+                row.error = str(e)
+                continue
+            row.firmware, row.health, row.temperature = firmware, health, temperature
+            row.fs_io_reads, row.fs_io_writes = fs_io_reads, fs_io_writes
+            row.disk_io_reads, row.disk_io_writes = disk_io_reads, disk_io_writes
+            row.reserved_blocks = reserved_blocks
         return rows
 
     # -- change events ------------------------------------------------------
@@ -616,3 +779,65 @@ class EscapeHatches(object):
 
     def bmc_get_debug_log_dump(self, task_id: str, filename: str, path: str) -> Any:
         return self._result('get_bmc_debug_log_dump', task_id, filename, path)
+
+    # -- from a name to a key -----------------------------------------------
+    #
+    # Each resolves a name the way the Python consumer it replaces does, so a
+    # caller that starts from a name reaches the device that consumer would
+    # have.  The key is what the walk would have published for that device:
+    # the position in the list the walk iterates.
+
+    def get_module_key(self, name: str) -> Any:
+        """chassisd's resolution of a CONFIG_DB module key (chassisd:323).
+
+        `get_module_index()` answers the position in `get_all_modules()`, and
+        a negative one -- the base class's and the vendors' "no such module"
+        -- is None.  An exception is the vendor's, and crosses as one.
+        """
+        fn = getattr(self._chassis, 'get_module_index', None)
+        if fn is None:
+            raise NotImplementedError('ChassisBase.get_module_index is not implemented')
+        index = fn(name)
+        if not isinstance(index, int) or isinstance(index, bool) or index < 0:
+            return None
+        return 'modules[%d]' % index
+
+    def get_component_key(self, name: str) -> Any:
+        """fwutil's `chassis component <name>`: by name among the chassis's."""
+        at = _the_one(_named(self._chassis.get_all_components(), name),
+                      'chassis component %r' % name)
+        return None if at is None else 'components[%d]' % at
+
+    def get_module_component_key(self, module: str, name: str) -> Any:
+        """fwutil's `module <module> component <name>`.
+
+        The module by its own name, and only on a modular chassis, as
+        `fwutil install module` refuses anything else; then the component by
+        name among that module's.
+        """
+        if not self._chassis.is_modular_chassis():
+            return None
+        modules = list(self._chassis.get_all_modules() or ())
+        at = _the_one(_named(modules, module), 'module %r' % module)
+        if at is None:
+            return None
+        comp = _the_one(_named(modules[at].get_all_components(), name),
+                        'component %r on module %r' % (name, module))
+        return None if comp is None else 'modules[%d]/components[%d]' % (at, comp)
+
+
+def _named(devices: Any, name: str) -> list[int]:
+    """The positions of the devices whose `get_name()` is `name`."""
+    return [i for i, dev in enumerate(devices or ()) if dev.get_name() == name]
+
+
+def _the_one(positions: list[int], what: str) -> Any:
+    """The only match, None for none, and an error for more than one.
+
+    fwutil keeps the last of several matches, because it builds a dict; here
+    two devices answering to one name is refused, since acting on either
+    without saying so is the defect a key exists to remove.
+    """
+    if len(positions) > 1:
+        raise ValueError('%s is ambiguous: %d devices answer to it' % (what, len(positions)))
+    return positions[0] if positions else None

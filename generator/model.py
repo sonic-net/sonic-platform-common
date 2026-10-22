@@ -1,55 +1,43 @@
-#
-# SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
 """The intermediate model every back end renders from.
 
-`parse_pyi.py` fills this in from `platform_api/facade.pyi`; the templates
-read it and nothing else.  Keeping the model between them is what lets the
-front end be replaced -- the stub is a choice, the model and the templates are
-the asset.
+`parse_pyi.py` fills this in from `sonic_platform_api/facade.pyi`; the
+templates read it and nothing else.  Keeping the model between them is what
+lets the front end be replaced -- the stub is a choice, the model and the
+templates are the asset.
 
 Type mapping lives here as well, in `rust_type`, rather than in the templates.
 A template that decides types is a template that has to be kept in step with
 two other templates.
 """
 
+import string
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
 # Python spelling -> Rust spelling, for the leaf types the facade uses.
-# Threshold is Union[int, float] in the stub because vendors return both; it
-# lands on f64 and the coercion happens at the boundary.
 SCALARS = {
     'str': 'String',
     'bool': 'bool',
     'float': 'f64',
     'int': 'i64',
-    'Celsius': 'f64',
-    # Not f64: the int/float distinction is load-bearing downstream, so it
-    # crosses as a type that keeps it.  See platform-api's Threshold.
-    'Threshold': 'Threshold',
-    'Percent': 'u32',
+    # `Number` and every unit spelled as one are Union[int, float] in the
+    # stub because vendors return both and the daemons publish what they got:
+    # not f64, so that the int/float distinction crosses.  See platform-api's
+    # Number.
+    'Number': 'Number',
+    'Celsius': 'Number',
+    'Threshold': 'Number',
+    'Percent': 'Number',
     'Rpm': 'u32',
-    'Watt': 'f64',
-    'Volt': 'f64',
-    'Ampere': 'f64',
+    'Watt': 'Number',
+    'Volt': 'Number',
+    'Ampere': 'Number',
     'PositionInParent': 'i32',
     'Index': 'u32',
     'Count': 'u32',
+    # A newtype in platform-api, so rustc rejects a display name passed where
+    # a key is expected.
+    'DeviceKey': 'DeviceKey',
 }
 
 
@@ -78,12 +66,20 @@ class FieldSpec:
     from_: Optional[str] = None       # 'ThermalBase.get_temperature'
     at: Optional[int] = None          # slot of a tuple return
     is_parent: bool = False           # filled by the flatten plan, not by a call
+    is_key: bool = False              # the row's DeviceKey, built by the traversal
+    is_parent_key: bool = False       # the parent's DeviceKey, None for the chassis
     sentinels: tuple = ()
     coerce_from: tuple = ()
     truthy: bool = False              # normalise like Python's `if value:`
     narrowed: bool = False            # a vendor may narrow the getter's signature
     with_name: bool = False           # the getter takes the device's own name
-    unsupported_on: str = 'none'      # none | default | error
+    unguarded: bool = False           # read outside a per_row_errors row's guard
+    read_if: Optional[str] = None     # read only when this earlier column has a value
+    read_if_truthy: bool = False      # ... is truthy, Python's `if column:`
+    read_if_absorbing: bool = True    # ... and also when the row is read absorbing
+    row_error: Optional[str] = None   # 'str' | 'repr' | 'column': what went wrong reading the row
+    secret: bool = False              # never printed by repr / Debug
+    unsupported_on: str = 'none'      # none | default
     col_bit: Optional[int] = None     # bit in the row's column set, if projected
     default: Any = None
     doc: str = ''
@@ -115,13 +111,17 @@ class SourceSpec:
     provider: str = ''
     via: tuple = ()
     when: Optional[str] = None
+    when_unsupported: str = 'absent'  # what an unanswered `when` means: absent | present
     when_chassis: Optional[str] = None
     parent: Optional[str] = None
+    parent_missing: tuple = ()        # parent answers that count as no name
     parent_default: tuple = ()        # normalised to one entry per via level
+    index_from_previous: bool = False # `{i}` carries on from the source before
     optional: bool = False
     single: bool = False
     reaches: tuple = ()
-    sets: tuple = ()                  # ((field, value), ...); '@parent' is the parent name
+    sets: tuple = ()                  # ((field, value), ...); '@parent' is the parent name,
+                                      # '@parent_raw' what the parent answered
 
     @property
     def leaf_getter(self) -> str:
@@ -168,14 +168,17 @@ class MethodSpec:
     returns: str = 'None'
     kind: str = 'action'                         # snapshot | action | escape
     row: Optional[str] = None                    # row type: the snapshot's, or the
-                                                 # row an action addresses by name
+                                                 # row an action addresses by key
     calls: Optional[str] = None                  # 'FanBase.set_status_led'
     calls_at: Optional[int] = None               # slot of a tuple return
+    calls_ints: tuple = ()                       # bool parameters passed on as 1 / 0
     pass_key: bool = False                       # the locator is also arg 0
     singleton: bool = False                      # returns one row, not a list
-    snapshot_scope: Optional[str] = None
     projected: bool = False                       # caller picks the columns
-    unsupported_on: Optional[str] = None
+    skippable: bool = False                       # caller names rows to read in part
+    per_row_errors: bool = False                  # a getter's exception costs one row
+    absorbs: bool = False                         # a getter's exception costs one column
+    absorbable: bool = False                      # the caller says, per call: `absorb`
     escape_reason: str = ''
     reaches: tuple = ()
     doc: str = ''
@@ -199,6 +202,7 @@ class Model:
     methods: list = field(default_factory=list)
     enums: list = field(default_factory=list)
     omitted: tuple = ()   # ((base-class path, reason), ...)
+    deferred: tuple = ()  # ((base-class path, reason), ...), for a later phase
 
     def row(self, name):
         for r in self.rows:
@@ -223,9 +227,16 @@ def _snake(name: str) -> str:
 
 
 def _pascal(value: str) -> str:
-    # 'N/A' is a real value of FanDirection, not a separator.
+    """A value as a Rust variant: 'LINE-CARD' is `LineCard`, 'PoweredDown' stays.
+
+    A part already in mixed case keeps its case past the first letter.
+    `str.capitalize()` alone lowercases the rest, which made the base class's
+    'PoweredDown' the variant `Powereddown`.
+    """
+    # A '/' separates like a '-' does: 'N/A' becomes `NA`.
     cleaned = value.replace('/', '_').replace('-', '_').replace(' ', '_')
-    return ''.join(p.capitalize() for p in cleaned.split('_') if p)
+    return ''.join(p.capitalize() if p.isupper() or p.islower() else p[:1].upper() + p[1:]
+                   for p in cleaned.split('_') if p)
 
 
 def rust_type(py_type: str, enums: set) -> str:
@@ -246,8 +257,35 @@ def rust_type(py_type: str, enums: set) -> str:
     return SCALARS.get(t, t)
 
 
+def key_segment(getter):
+    """A key's step for one getter: the collection it answers, `get_` dropped.
+
+    `get_all_fans` is `fans`; a getter answering one object, `get_watchdog`,
+    is `watchdog`.  The step names the getter so that `_find_<row>()` can call
+    it again without a table.
+    """
+    for prefix in ('get_all_', 'get_'):
+        if getter.startswith(prefix):
+            return getter[len(prefix):]
+    return getter
+
+
+def keyed(row):
+    return any(f.is_key for f in row.fields)
+
+
 def strip_optional(py_type: str):
     t = py_type.strip()
     if t.startswith('Optional[') and t.endswith(']'):
         return t[len('Optional['):-1].strip(), True
     return t, False
+
+
+def template_fields(default):
+    """The fields a fallback name formats besides `{parent}` and `{i}`: ones
+    every source fixes, like a sensor's `{kind}` (parse_pyi checks that)."""
+    out = []
+    for _lit, ref, _spec, _conv in string.Formatter().parse(default):
+        if ref is not None and ref not in ('parent', 'i') and ref not in out:
+            out.append(ref)
+    return out

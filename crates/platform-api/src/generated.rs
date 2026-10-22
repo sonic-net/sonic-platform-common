@@ -1,24 +1,7 @@
-//
-// SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-// Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
 //! The platform API, in Rust.
 //!
-//! GENERATED from platform_api/facade.pyi by generator/generate.py.  Do not
-//! edit: regenerate.
+//! GENERATED from sonic_platform_api/facade.pyi by generator/generate.py.  Do
+//! not edit: regenerate.
 //!
 //! In phase 1 the only implementation is the PyO3 bridge in `platform-pyo3`,
 //! which calls a vendor's existing Python.  In phase 2 a vendor implements
@@ -32,7 +15,7 @@
 //! a distinction the Python API loses, because there a getter that raises and
 //! a getter that returns None are the same event.
 
-use crate::{PlatformError, Threshold};
+use crate::{DeviceKey, Number, PlatformError};
 
 
 /// `LedColor`, as declared in the stub.
@@ -77,51 +60,6 @@ impl LedColor {
 }
 
 impl std::fmt::Display for LedColor {
-    /// The spelling the Python side uses, so that a log line and a DB row
-    /// cannot disagree about what colour was asked for.
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-
-/// `FanDirection`, as declared in the stub.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum FanDirection {
-    /// `intake`
-    Intake,
-    /// `exhaust`
-    Exhaust,
-    /// `N/A`
-    NA,
-}
-
-impl FanDirection {
-    /// The spelling the Python side uses.  The two must not drift, so both
-    /// come from the one declaration.
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            FanDirection::Intake => "intake",
-            FanDirection::Exhaust => "exhaust",
-            FanDirection::NA => "N/A",
-        }
-    }
-
-    /// `None` for a value the stub does not declare -- a vendor inventing a
-    /// colour is a platform bug, not a variant to add here quietly.
-    // Not `FromStr`: an undeclared value is an absent reading, not an error
-    // with a type of its own, and every caller wants the `Option`.
-    #[allow(clippy::should_implement_trait)]
-    pub fn from_str(s: &str) -> Option<Self> {
-        match s {
-            "intake" => Some(FanDirection::Intake),
-            "exhaust" => Some(FanDirection::Exhaust),
-            "N/A" => Some(FanDirection::NA),
-            _ => None,
-        }
-    }
-}
-
-impl std::fmt::Display for FanDirection {
     /// The spelling the Python side uses, so that a log line and a DB row
     /// cannot disagree about what colour was asked for.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -219,6 +157,59 @@ impl std::fmt::Display for PowerEntityKind {
     }
 }
 
+/// `ThermalKind`, as declared in the stub.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum ThermalKind {
+    /// `chassis`
+    Chassis,
+    /// `psu`
+    Psu,
+    /// `pdb`
+    Pdb,
+    /// `module`
+    Module,
+    /// `module_psu`
+    ModulePsu,
+}
+
+impl ThermalKind {
+    /// The spelling the Python side uses.  The two must not drift, so both
+    /// come from the one declaration.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ThermalKind::Chassis => "chassis",
+            ThermalKind::Psu => "psu",
+            ThermalKind::Pdb => "pdb",
+            ThermalKind::Module => "module",
+            ThermalKind::ModulePsu => "module_psu",
+        }
+    }
+
+    /// `None` for a value the stub does not declare -- a vendor inventing a
+    /// colour is a platform bug, not a variant to add here quietly.
+    // Not `FromStr`: an undeclared value is an absent reading, not an error
+    // with a type of its own, and every caller wants the `Option`.
+    #[allow(clippy::should_implement_trait)]
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "chassis" => Some(ThermalKind::Chassis),
+            "psu" => Some(ThermalKind::Psu),
+            "pdb" => Some(ThermalKind::Pdb),
+            "module" => Some(ThermalKind::Module),
+            "module_psu" => Some(ThermalKind::ModulePsu),
+            _ => None,
+        }
+    }
+}
+
+impl std::fmt::Display for ThermalKind {
+    /// The spelling the Python side uses, so that a log line and a DB row
+    /// cannot disagree about what colour was asked for.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 /// `ModuleType`, as declared in the stub.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ModuleType {
@@ -280,11 +271,17 @@ pub enum ModuleStatus {
     /// `Offline`
     Offline,
     /// `PoweredDown`
-    Powereddown,
+    PoweredDown,
     /// `Present`
     Present,
     /// `Fault`
     Fault,
+    /// `ProvisionReady`
+    ProvisionReady,
+    /// `ProvisionPending`
+    ProvisionPending,
+    /// `Provisioned`
+    Provisioned,
     /// `Online`
     Online,
 }
@@ -296,9 +293,12 @@ impl ModuleStatus {
         match self {
             ModuleStatus::Empty => "Empty",
             ModuleStatus::Offline => "Offline",
-            ModuleStatus::Powereddown => "PoweredDown",
+            ModuleStatus::PoweredDown => "PoweredDown",
             ModuleStatus::Present => "Present",
             ModuleStatus::Fault => "Fault",
+            ModuleStatus::ProvisionReady => "ProvisionReady",
+            ModuleStatus::ProvisionPending => "ProvisionPending",
+            ModuleStatus::Provisioned => "Provisioned",
             ModuleStatus::Online => "Online",
         }
     }
@@ -312,9 +312,12 @@ impl ModuleStatus {
         match s {
             "Empty" => Some(ModuleStatus::Empty),
             "Offline" => Some(ModuleStatus::Offline),
-            "PoweredDown" => Some(ModuleStatus::Powereddown),
+            "PoweredDown" => Some(ModuleStatus::PoweredDown),
             "Present" => Some(ModuleStatus::Present),
             "Fault" => Some(ModuleStatus::Fault),
+            "ProvisionReady" => Some(ModuleStatus::ProvisionReady),
+            "ProvisionPending" => Some(ModuleStatus::ProvisionPending),
+            "Provisioned" => Some(ModuleStatus::Provisioned),
             "Online" => Some(ModuleStatus::Online),
             _ => None,
         }
@@ -363,6 +366,51 @@ impl SensorKind {
 }
 
 impl std::fmt::Display for SensorKind {
+    /// The spelling the Python side uses, so that a log line and a DB row
+    /// cannot disagree about what colour was asked for.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// `EepromUpdate`, as declared in the stub.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum EepromUpdate {
+    /// `updated`
+    Updated,
+    /// `read_failed`
+    ReadFailed,
+    /// `update_failed`
+    UpdateFailed,
+}
+
+impl EepromUpdate {
+    /// The spelling the Python side uses.  The two must not drift, so both
+    /// come from the one declaration.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            EepromUpdate::Updated => "updated",
+            EepromUpdate::ReadFailed => "read_failed",
+            EepromUpdate::UpdateFailed => "update_failed",
+        }
+    }
+
+    /// `None` for a value the stub does not declare -- a vendor inventing a
+    /// colour is a platform bug, not a variant to add here quietly.
+    // Not `FromStr`: an undeclared value is an absent reading, not an error
+    // with a type of its own, and every caller wants the `Option`.
+    #[allow(clippy::should_implement_trait)]
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "updated" => Some(EepromUpdate::Updated),
+            "read_failed" => Some(EepromUpdate::ReadFailed),
+            "update_failed" => Some(EepromUpdate::UpdateFailed),
+            _ => None,
+        }
+    }
+}
+
+impl std::fmt::Display for EepromUpdate {
     /// The spelling the Python side uses, so that a log line and a DB row
     /// cannot disagree about what colour was asked for.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -474,19 +522,185 @@ impl std::fmt::Display for ChangeEventKind {
 
 
 /// One temperature sensor, wherever in the tree it is mounted.
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ThermalInfo {
     pub name: String,
+    pub kind: ThermalKind,
     pub parent_name: String,
+    pub key: DeviceKey,
+    pub parent_key: Option<DeviceKey>,
     pub position_in_parent: Option<i32>,
+    pub temperature: Option<Number>,
     pub is_replaceable: bool,
-    pub temperature: Option<f64>,
-    pub high_threshold: Option<Threshold>,
-    pub low_threshold: Option<Threshold>,
-    pub high_critical_threshold: Option<Threshold>,
-    pub low_critical_threshold: Option<Threshold>,
-    pub min_recorded: Option<f64>,
-    pub max_recorded: Option<f64>,
+    pub min_recorded: Option<Number>,
+    pub max_recorded: Option<Number>,
+    pub high_threshold: Option<Number>,
+    pub low_threshold: Option<Number>,
+    pub high_critical_threshold: Option<Number>,
+    pub low_critical_threshold: Option<Number>,
+    pub error: Option<String>,
+    pub error_repr: Option<String>,
+    pub error_column: Option<String>,
+}
+
+impl ThermalInfo {
+    /// A `ThermalInfo` of the given `kind`, every other column empty.
+    ///
+    /// There is no `Default`, because `kind` has no neutral
+    /// value and one picked here would be a value nobody declared.  Build a
+    /// row as `ThermalInfo { name, ..ThermalInfo::new(..) }`, so that a column added to
+    /// the stub does not break the literal.
+    pub fn new(kind: ThermalKind) -> Self {
+        ThermalInfo {
+            name: Default::default(),
+            kind,
+            parent_name: Default::default(),
+            key: Default::default(),
+            parent_key: Default::default(),
+            position_in_parent: Default::default(),
+            temperature: Default::default(),
+            is_replaceable: Default::default(),
+            min_recorded: Default::default(),
+            max_recorded: Default::default(),
+            high_threshold: Default::default(),
+            low_threshold: Default::default(),
+            high_critical_threshold: Default::default(),
+            low_critical_threshold: Default::default(),
+            error: Default::default(),
+            error_repr: Default::default(),
+            error_column: Default::default(),
+        }
+    }
+}
+
+/// One declinable column of `ThermalInfo`.
+///
+/// The discriminant is the bit this column occupies in `ThermalInfoCols`,
+/// and it is the wire format the facade reads -- the same `generate.py` pass
+/// writes both, so they cannot be numbered differently.  Adding a column
+/// appends; reordering the stub renumbers the wire.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(u8)]
+pub enum ThermalInfoCol {
+    /// `position_in_parent`, from `DeviceBase.get_position_in_parent`.
+    PositionInParent = 0,
+    /// `temperature`, from `ThermalBase.get_temperature`.
+    Temperature = 1,
+    /// `is_replaceable`, from `DeviceBase.is_replaceable`.
+    IsReplaceable = 2,
+    /// `min_recorded`, from `ThermalBase.get_minimum_recorded`.
+    MinRecorded = 3,
+    /// `max_recorded`, from `ThermalBase.get_maximum_recorded`.
+    MaxRecorded = 4,
+    /// `high_threshold`, from `ThermalBase.get_high_threshold`.
+    HighThreshold = 5,
+    /// `low_threshold`, from `ThermalBase.get_low_threshold`.
+    LowThreshold = 6,
+    /// `high_critical_threshold`, from `ThermalBase.get_high_critical_threshold`.
+    HighCriticalThreshold = 7,
+    /// `low_critical_threshold`, from `ThermalBase.get_low_critical_threshold`.
+    LowCriticalThreshold = 8,
+}
+
+impl ThermalInfoCol {
+    /// Every column, in declaration order.
+    pub const ALL: &'static [ThermalInfoCol] = &[
+        ThermalInfoCol::PositionInParent,
+        ThermalInfoCol::Temperature,
+        ThermalInfoCol::IsReplaceable,
+        ThermalInfoCol::MinRecorded,
+        ThermalInfoCol::MaxRecorded,
+        ThermalInfoCol::HighThreshold,
+        ThermalInfoCol::LowThreshold,
+        ThermalInfoCol::HighCriticalThreshold,
+        ThermalInfoCol::LowCriticalThreshold,
+    ];
+
+    /// The bit this column sets in a `ThermalInfoCols`.
+    pub const fn bit(self) -> u64 {
+        1u64 << (self as u8)
+    }
+
+    /// The column's name, for `Debug` and for reading a log line.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            ThermalInfoCol::PositionInParent => "position_in_parent",
+            ThermalInfoCol::Temperature => "temperature",
+            ThermalInfoCol::IsReplaceable => "is_replaceable",
+            ThermalInfoCol::MinRecorded => "min_recorded",
+            ThermalInfoCol::MaxRecorded => "max_recorded",
+            ThermalInfoCol::HighThreshold => "high_threshold",
+            ThermalInfoCol::LowThreshold => "low_threshold",
+            ThermalInfoCol::HighCriticalThreshold => "high_critical_threshold",
+            ThermalInfoCol::LowCriticalThreshold => "low_critical_threshold",
+        }
+    }
+}
+
+/// Which columns of `ThermalInfo` a caller wants read.
+///
+/// **Columns outside the set are unspecified, not guaranteed absent.** An
+/// implementation that has no notion of columns may fill them anyway and is
+/// still correct; the set is a hint that lets a caller decline work, not a
+/// promise about what it will not receive.  That is what keeps this parameter
+/// implementable by something that is not the PyO3 facade.
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ThermalInfoCols(u64);
+
+impl ThermalInfoCols {
+    /// Nothing declinable: the name, the key and the other columns that come
+    /// from the traversal are still read.
+    pub const NONE: Self = ThermalInfoCols(0);
+    /// Every column -- what a caller that has not thought about it should pass.
+    pub const ALL: Self = ThermalInfoCols(511);
+    pub const POSITION_IN_PARENT: Self = ThermalInfoCols(1u64 << 0);
+    pub const TEMPERATURE: Self = ThermalInfoCols(1u64 << 1);
+    pub const IS_REPLACEABLE: Self = ThermalInfoCols(1u64 << 2);
+    pub const MIN_RECORDED: Self = ThermalInfoCols(1u64 << 3);
+    pub const MAX_RECORDED: Self = ThermalInfoCols(1u64 << 4);
+    pub const HIGH_THRESHOLD: Self = ThermalInfoCols(1u64 << 5);
+    pub const LOW_THRESHOLD: Self = ThermalInfoCols(1u64 << 6);
+    pub const HIGH_CRITICAL_THRESHOLD: Self = ThermalInfoCols(1u64 << 7);
+    pub const LOW_CRITICAL_THRESHOLD: Self = ThermalInfoCols(1u64 << 8);
+
+    /// The set holding just this column.  Lets a caller name a column once,
+    /// as a `ThermalInfoCol`, instead of once as a column and again as a
+    /// constant that has to be spelled the same way.
+    pub const fn of(col: ThermalInfoCol) -> Self {
+        ThermalInfoCols(col.bit())
+    }
+
+    /// Both sets.  `const` so a daemon can state its columns once, at the top.
+    pub const fn with(self, other: Self) -> Self {
+        ThermalInfoCols(self.0 | other.0)
+    }
+
+    /// Whether one column was asked for.
+    pub const fn contains(self, col: ThermalInfoCol) -> bool {
+        self.0 & col.bit() != 0
+    }
+
+    /// The wire form.  For the bridge; a caller should name columns instead.
+    pub const fn bits(self) -> u64 {
+        self.0
+    }
+}
+
+impl std::fmt::Debug for ThermalInfoCols {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ThermalInfoCols[")?;
+        let mut first = true;
+        for col in ThermalInfoCol::ALL {
+            if self.contains(*col) {
+                if !first {
+                    write!(f, "|")?;
+                }
+                write!(f, "{}", col.as_str())?;
+                first = false;
+            }
+        }
+        write!(f, "]")
+    }
 }
 
 /// One fan.  `kind` says where it is mounted, which is what decides
@@ -496,19 +710,58 @@ pub struct FanInfo {
     pub name: String,
     pub kind: FanKind,
     pub parent_name: String,
+    pub key: DeviceKey,
+    pub parent_key: Option<DeviceKey>,
     pub drawer_name: String,
     pub position_in_parent: Option<i32>,
-    pub presence: bool,
-    pub status: bool,
     pub is_replaceable: bool,
-    pub model: Option<String>,
-    pub serial: Option<String>,
-    pub speed_pct: Option<u32>,
-    pub target_speed_pct: Option<u32>,
-    pub direction: Option<FanDirection>,
+    pub presence: bool,
+    pub speed_pct: Option<Number>,
+    pub target_speed_pct: Option<Number>,
     pub is_under_speed: Option<bool>,
     pub is_over_speed: Option<bool>,
-    pub status_led: Option<LedColor>,
+    pub status: bool,
+    pub direction: Option<String>,
+    pub model: Option<String>,
+    pub serial: Option<String>,
+    pub status_led: Option<String>,
+    pub error: Option<String>,
+    pub error_repr: Option<String>,
+    pub error_column: Option<String>,
+}
+
+impl FanInfo {
+    /// A `FanInfo` of the given `kind`, every other column empty.
+    ///
+    /// There is no `Default`, because `kind` has no neutral
+    /// value and one picked here would be a value nobody declared.  Build a
+    /// row as `FanInfo { name, ..FanInfo::new(..) }`, so that a column added to
+    /// the stub does not break the literal.
+    pub fn new(kind: FanKind) -> Self {
+        FanInfo {
+            name: Default::default(),
+            kind,
+            parent_name: Default::default(),
+            key: Default::default(),
+            parent_key: Default::default(),
+            drawer_name: Default::default(),
+            position_in_parent: Default::default(),
+            is_replaceable: Default::default(),
+            presence: Default::default(),
+            speed_pct: Default::default(),
+            target_speed_pct: Default::default(),
+            is_under_speed: Default::default(),
+            is_over_speed: Default::default(),
+            status: Default::default(),
+            direction: Default::default(),
+            model: Default::default(),
+            serial: Default::default(),
+            status_led: Default::default(),
+            error: Default::default(),
+            error_repr: Default::default(),
+            error_column: Default::default(),
+        }
+    }
 }
 
 /// One declinable column of `FanInfo`.
@@ -522,26 +775,26 @@ pub struct FanInfo {
 pub enum FanInfoCol {
     /// `position_in_parent`, from `DeviceBase.get_position_in_parent`.
     PositionInParent = 0,
-    /// `presence`, from `DeviceBase.get_presence`.
-    Presence = 1,
-    /// `status`, from `DeviceBase.get_status`.
-    Status = 2,
     /// `is_replaceable`, from `DeviceBase.is_replaceable`.
-    IsReplaceable = 3,
-    /// `model`, from `DeviceBase.get_model`.
-    Model = 4,
-    /// `serial`, from `DeviceBase.get_serial`.
-    Serial = 5,
+    IsReplaceable = 1,
+    /// `presence`, from `DeviceBase.get_presence`.
+    Presence = 2,
     /// `speed_pct`, from `FanBase.get_speed`.
-    SpeedPct = 6,
+    SpeedPct = 3,
     /// `target_speed_pct`, from `FanBase.get_target_speed`.
-    TargetSpeedPct = 7,
+    TargetSpeedPct = 4,
+    /// `is_under_speed`, from `FanBase.is_under_speed`.
+    IsUnderSpeed = 5,
+    /// `is_over_speed`, from `FanBase.is_over_speed`.
+    IsOverSpeed = 6,
+    /// `status`, from `DeviceBase.get_status`.
+    Status = 7,
     /// `direction`, from `FanBase.get_direction`.
     Direction = 8,
-    /// `is_under_speed`, from `FanBase.is_under_speed`.
-    IsUnderSpeed = 9,
-    /// `is_over_speed`, from `FanBase.is_over_speed`.
-    IsOverSpeed = 10,
+    /// `model`, from `DeviceBase.get_model`.
+    Model = 9,
+    /// `serial`, from `DeviceBase.get_serial`.
+    Serial = 10,
     /// `status_led`, from `FanBase.get_status_led`.
     StatusLed = 11,
 }
@@ -550,16 +803,16 @@ impl FanInfoCol {
     /// Every column, in declaration order.
     pub const ALL: &'static [FanInfoCol] = &[
         FanInfoCol::PositionInParent,
-        FanInfoCol::Presence,
-        FanInfoCol::Status,
         FanInfoCol::IsReplaceable,
-        FanInfoCol::Model,
-        FanInfoCol::Serial,
+        FanInfoCol::Presence,
         FanInfoCol::SpeedPct,
         FanInfoCol::TargetSpeedPct,
-        FanInfoCol::Direction,
         FanInfoCol::IsUnderSpeed,
         FanInfoCol::IsOverSpeed,
+        FanInfoCol::Status,
+        FanInfoCol::Direction,
+        FanInfoCol::Model,
+        FanInfoCol::Serial,
         FanInfoCol::StatusLed,
     ];
 
@@ -572,16 +825,16 @@ impl FanInfoCol {
     pub const fn as_str(self) -> &'static str {
         match self {
             FanInfoCol::PositionInParent => "position_in_parent",
-            FanInfoCol::Presence => "presence",
-            FanInfoCol::Status => "status",
             FanInfoCol::IsReplaceable => "is_replaceable",
-            FanInfoCol::Model => "model",
-            FanInfoCol::Serial => "serial",
+            FanInfoCol::Presence => "presence",
             FanInfoCol::SpeedPct => "speed_pct",
             FanInfoCol::TargetSpeedPct => "target_speed_pct",
-            FanInfoCol::Direction => "direction",
             FanInfoCol::IsUnderSpeed => "is_under_speed",
             FanInfoCol::IsOverSpeed => "is_over_speed",
+            FanInfoCol::Status => "status",
+            FanInfoCol::Direction => "direction",
+            FanInfoCol::Model => "model",
+            FanInfoCol::Serial => "serial",
             FanInfoCol::StatusLed => "status_led",
         }
     }
@@ -598,22 +851,22 @@ impl FanInfoCol {
 pub struct FanInfoCols(u64);
 
 impl FanInfoCols {
-    /// Nothing declinable: the columns that come from the traversal are still
-    /// read, which is what makes a by-name lookup possible.
+    /// Nothing declinable: the name, the key and the other columns that come
+    /// from the traversal are still read.
     pub const NONE: Self = FanInfoCols(0);
     /// Every column -- what a caller that has not thought about it should pass.
     pub const ALL: Self = FanInfoCols(4095);
     pub const POSITION_IN_PARENT: Self = FanInfoCols(1u64 << 0);
-    pub const PRESENCE: Self = FanInfoCols(1u64 << 1);
-    pub const STATUS: Self = FanInfoCols(1u64 << 2);
-    pub const IS_REPLACEABLE: Self = FanInfoCols(1u64 << 3);
-    pub const MODEL: Self = FanInfoCols(1u64 << 4);
-    pub const SERIAL: Self = FanInfoCols(1u64 << 5);
-    pub const SPEED_PCT: Self = FanInfoCols(1u64 << 6);
-    pub const TARGET_SPEED_PCT: Self = FanInfoCols(1u64 << 7);
+    pub const IS_REPLACEABLE: Self = FanInfoCols(1u64 << 1);
+    pub const PRESENCE: Self = FanInfoCols(1u64 << 2);
+    pub const SPEED_PCT: Self = FanInfoCols(1u64 << 3);
+    pub const TARGET_SPEED_PCT: Self = FanInfoCols(1u64 << 4);
+    pub const IS_UNDER_SPEED: Self = FanInfoCols(1u64 << 5);
+    pub const IS_OVER_SPEED: Self = FanInfoCols(1u64 << 6);
+    pub const STATUS: Self = FanInfoCols(1u64 << 7);
     pub const DIRECTION: Self = FanInfoCols(1u64 << 8);
-    pub const IS_UNDER_SPEED: Self = FanInfoCols(1u64 << 9);
-    pub const IS_OVER_SPEED: Self = FanInfoCols(1u64 << 10);
+    pub const MODEL: Self = FanInfoCols(1u64 << 9);
+    pub const SERIAL: Self = FanInfoCols(1u64 << 10);
     pub const STATUS_LED: Self = FanInfoCols(1u64 << 11);
 
     /// The set holding just this column.  Lets a caller name a column once,
@@ -660,14 +913,15 @@ impl std::fmt::Debug for FanInfoCols {
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct FanDrawerInfo {
     pub name: String,
+    pub key: DeviceKey,
     pub position_in_parent: Option<i32>,
     pub presence: bool,
     pub status: Option<bool>,
     pub is_replaceable: bool,
     pub model: Option<String>,
     pub serial: Option<String>,
-    pub status_led: Option<LedColor>,
-    pub maximum_consumed_power: Option<f64>,
+    pub status_led: Option<String>,
+    pub maximum_consumed_power: Option<Number>,
 }
 
 /// One declinable column of `FanDrawerInfo`.
@@ -741,8 +995,8 @@ impl FanDrawerInfoCol {
 pub struct FanDrawerInfoCols(u64);
 
 impl FanDrawerInfoCols {
-    /// Nothing declinable: the columns that come from the traversal are still
-    /// read, which is what makes a by-name lookup possible.
+    /// Nothing declinable: the name, the key and the other columns that come
+    /// from the traversal are still read.
     pub const NONE: Self = FanDrawerInfoCols(0);
     /// Every column -- what a caller that has not thought about it should pass.
     pub const ALL: Self = FanDrawerInfoCols(255);
@@ -801,6 +1055,7 @@ impl std::fmt::Debug for FanDrawerInfoCols {
 pub struct PsuInfo {
     pub name: String,
     pub kind: PowerEntityKind,
+    pub key: DeviceKey,
     pub position_in_parent: Option<i32>,
     pub presence: bool,
     pub is_replaceable: bool,
@@ -808,20 +1063,57 @@ pub struct PsuInfo {
     pub serial: Option<String>,
     pub revision: Option<String>,
     pub power_good: bool,
-    pub status_led: Option<LedColor>,
-    pub voltage: Option<f64>,
-    pub current: Option<f64>,
-    pub power: Option<f64>,
-    pub input_voltage: Option<f64>,
-    pub input_current: Option<f64>,
-    pub input_power: Option<f64>,
-    pub temperature: Option<f64>,
-    pub temperature_high_threshold: Option<Threshold>,
-    pub voltage_high_threshold: Option<Threshold>,
-    pub voltage_low_threshold: Option<Threshold>,
-    pub maximum_supplied_power: Option<f64>,
-    pub power_warning_suppress_threshold: Option<f64>,
-    pub power_critical_threshold: Option<f64>,
+    pub status_led: Option<String>,
+    pub voltage: Option<Number>,
+    pub current: Option<Number>,
+    pub power: Option<Number>,
+    pub input_voltage: Option<Number>,
+    pub input_current: Option<Number>,
+    pub input_power: Option<Number>,
+    pub temperature: Option<Number>,
+    pub temperature_high_threshold: Option<Number>,
+    pub voltage_high_threshold: Option<Number>,
+    pub voltage_low_threshold: Option<Number>,
+    pub maximum_supplied_power: Option<Number>,
+    pub power_warning_suppress_threshold: Option<Number>,
+    pub power_critical_threshold: Option<Number>,
+}
+
+impl PsuInfo {
+    /// A `PsuInfo` of the given `kind`, every other column empty.
+    ///
+    /// There is no `Default`, because `kind` has no neutral
+    /// value and one picked here would be a value nobody declared.  Build a
+    /// row as `PsuInfo { name, ..PsuInfo::new(..) }`, so that a column added to
+    /// the stub does not break the literal.
+    pub fn new(kind: PowerEntityKind) -> Self {
+        PsuInfo {
+            name: Default::default(),
+            kind,
+            key: Default::default(),
+            position_in_parent: Default::default(),
+            presence: Default::default(),
+            is_replaceable: Default::default(),
+            model: Default::default(),
+            serial: Default::default(),
+            revision: Default::default(),
+            power_good: Default::default(),
+            status_led: Default::default(),
+            voltage: Default::default(),
+            current: Default::default(),
+            power: Default::default(),
+            input_voltage: Default::default(),
+            input_current: Default::default(),
+            input_power: Default::default(),
+            temperature: Default::default(),
+            temperature_high_threshold: Default::default(),
+            voltage_high_threshold: Default::default(),
+            voltage_low_threshold: Default::default(),
+            maximum_supplied_power: Default::default(),
+            power_warning_suppress_threshold: Default::default(),
+            power_critical_threshold: Default::default(),
+        }
+    }
 }
 
 /// The chassis itself.  A singleton: there is one, and it is the device.
@@ -846,7 +1138,7 @@ pub struct ChassisInfo {
     pub dpu_id: Option<i64>,
     pub dataplane_state: Option<bool>,
     pub controlplane_state: Option<bool>,
-    pub status_led: Option<LedColor>,
+    pub status_led: Option<String>,
 }
 
 /// One declinable column of `ChassisInfo`.
@@ -858,49 +1150,52 @@ pub struct ChassisInfo {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]
 pub enum ChassisInfoCol {
+    /// `name`, from `DeviceBase.get_name`.
+    Name = 0,
     /// `presence`, from `DeviceBase.get_presence`.
-    Presence = 0,
+    Presence = 1,
     /// `model`, from `DeviceBase.get_model`.
-    Model = 1,
+    Model = 2,
     /// `serial`, from `DeviceBase.get_serial`.
-    Serial = 2,
+    Serial = 3,
     /// `revision`, from `DeviceBase.get_revision`.
-    Revision = 3,
+    Revision = 4,
     /// `status`, from `DeviceBase.get_status`.
-    Status = 4,
+    Status = 5,
     /// `base_mac`, from `ChassisBase.get_base_mac`.
-    BaseMac = 5,
+    BaseMac = 6,
     /// `is_modular_chassis`, from `ChassisBase.is_modular_chassis`.
-    IsModularChassis = 6,
+    IsModularChassis = 7,
     /// `is_smartswitch`, from `ChassisBase.is_smartswitch`.
-    IsSmartswitch = 7,
+    IsSmartswitch = 8,
     /// `is_dpu`, from `ChassisBase.is_dpu`.
-    IsDpu = 8,
+    IsDpu = 9,
     /// `is_bmc`, from `ChassisBase.is_bmc`.
-    IsBmc = 9,
+    IsBmc = 10,
     /// `is_liquid_cooled`, from `ChassisBase.is_liquid_cooled`.
-    IsLiquidCooled = 10,
+    IsLiquidCooled = 11,
     /// `reboot_cause`, from `ChassisBase.get_reboot_cause`.
-    RebootCause = 11,
+    RebootCause = 12,
     /// `reboot_cause_detail`, from `ChassisBase.get_reboot_cause`.
-    RebootCauseDetail = 12,
+    RebootCauseDetail = 13,
     /// `my_slot`, from `ChassisBase.get_my_slot`.
-    MySlot = 13,
+    MySlot = 14,
     /// `supervisor_slot`, from `ChassisBase.get_supervisor_slot`.
-    SupervisorSlot = 14,
+    SupervisorSlot = 15,
     /// `dpu_id`, from `ChassisBase.get_dpu_id`.
-    DpuId = 15,
+    DpuId = 16,
     /// `dataplane_state`, from `ChassisBase.get_dataplane_state`.
-    DataplaneState = 16,
+    DataplaneState = 17,
     /// `controlplane_state`, from `ChassisBase.get_controlplane_state`.
-    ControlplaneState = 17,
+    ControlplaneState = 18,
     /// `status_led`, from `ChassisBase.get_status_led`.
-    StatusLed = 18,
+    StatusLed = 19,
 }
 
 impl ChassisInfoCol {
     /// Every column, in declaration order.
     pub const ALL: &'static [ChassisInfoCol] = &[
+        ChassisInfoCol::Name,
         ChassisInfoCol::Presence,
         ChassisInfoCol::Model,
         ChassisInfoCol::Serial,
@@ -930,6 +1225,7 @@ impl ChassisInfoCol {
     /// The column's name, for `Debug` and for reading a log line.
     pub const fn as_str(self) -> &'static str {
         match self {
+            ChassisInfoCol::Name => "name",
             ChassisInfoCol::Presence => "presence",
             ChassisInfoCol::Model => "model",
             ChassisInfoCol::Serial => "serial",
@@ -964,30 +1260,31 @@ impl ChassisInfoCol {
 pub struct ChassisInfoCols(u64);
 
 impl ChassisInfoCols {
-    /// Nothing declinable: the columns that come from the traversal are still
-    /// read, which is what makes a by-name lookup possible.
+    /// Nothing declinable: the name, the key and the other columns that come
+    /// from the traversal are still read.
     pub const NONE: Self = ChassisInfoCols(0);
     /// Every column -- what a caller that has not thought about it should pass.
-    pub const ALL: Self = ChassisInfoCols(524287);
-    pub const PRESENCE: Self = ChassisInfoCols(1u64 << 0);
-    pub const MODEL: Self = ChassisInfoCols(1u64 << 1);
-    pub const SERIAL: Self = ChassisInfoCols(1u64 << 2);
-    pub const REVISION: Self = ChassisInfoCols(1u64 << 3);
-    pub const STATUS: Self = ChassisInfoCols(1u64 << 4);
-    pub const BASE_MAC: Self = ChassisInfoCols(1u64 << 5);
-    pub const IS_MODULAR_CHASSIS: Self = ChassisInfoCols(1u64 << 6);
-    pub const IS_SMARTSWITCH: Self = ChassisInfoCols(1u64 << 7);
-    pub const IS_DPU: Self = ChassisInfoCols(1u64 << 8);
-    pub const IS_BMC: Self = ChassisInfoCols(1u64 << 9);
-    pub const IS_LIQUID_COOLED: Self = ChassisInfoCols(1u64 << 10);
-    pub const REBOOT_CAUSE: Self = ChassisInfoCols(1u64 << 11);
-    pub const REBOOT_CAUSE_DETAIL: Self = ChassisInfoCols(1u64 << 12);
-    pub const MY_SLOT: Self = ChassisInfoCols(1u64 << 13);
-    pub const SUPERVISOR_SLOT: Self = ChassisInfoCols(1u64 << 14);
-    pub const DPU_ID: Self = ChassisInfoCols(1u64 << 15);
-    pub const DATAPLANE_STATE: Self = ChassisInfoCols(1u64 << 16);
-    pub const CONTROLPLANE_STATE: Self = ChassisInfoCols(1u64 << 17);
-    pub const STATUS_LED: Self = ChassisInfoCols(1u64 << 18);
+    pub const ALL: Self = ChassisInfoCols(1048575);
+    pub const NAME: Self = ChassisInfoCols(1u64 << 0);
+    pub const PRESENCE: Self = ChassisInfoCols(1u64 << 1);
+    pub const MODEL: Self = ChassisInfoCols(1u64 << 2);
+    pub const SERIAL: Self = ChassisInfoCols(1u64 << 3);
+    pub const REVISION: Self = ChassisInfoCols(1u64 << 4);
+    pub const STATUS: Self = ChassisInfoCols(1u64 << 5);
+    pub const BASE_MAC: Self = ChassisInfoCols(1u64 << 6);
+    pub const IS_MODULAR_CHASSIS: Self = ChassisInfoCols(1u64 << 7);
+    pub const IS_SMARTSWITCH: Self = ChassisInfoCols(1u64 << 8);
+    pub const IS_DPU: Self = ChassisInfoCols(1u64 << 9);
+    pub const IS_BMC: Self = ChassisInfoCols(1u64 << 10);
+    pub const IS_LIQUID_COOLED: Self = ChassisInfoCols(1u64 << 11);
+    pub const REBOOT_CAUSE: Self = ChassisInfoCols(1u64 << 12);
+    pub const REBOOT_CAUSE_DETAIL: Self = ChassisInfoCols(1u64 << 13);
+    pub const MY_SLOT: Self = ChassisInfoCols(1u64 << 14);
+    pub const SUPERVISOR_SLOT: Self = ChassisInfoCols(1u64 << 15);
+    pub const DPU_ID: Self = ChassisInfoCols(1u64 << 16);
+    pub const DATAPLANE_STATE: Self = ChassisInfoCols(1u64 << 17);
+    pub const CONTROLPLANE_STATE: Self = ChassisInfoCols(1u64 << 18);
+    pub const STATUS_LED: Self = ChassisInfoCols(1u64 << 19);
 
     /// The set holding just this column.  Lets a caller name a column once,
     /// as a `ChassisInfoCol`, instead of once as a column and again as a
@@ -1034,6 +1331,8 @@ impl std::fmt::Debug for ChassisInfoCols {
 pub struct ModuleInfo {
     pub name: String,
     pub parent_name: String,
+    pub key: DeviceKey,
+    pub parent_key: Option<DeviceKey>,
     pub position_in_parent: Option<i32>,
     pub presence: bool,
     pub status: Option<bool>,
@@ -1046,7 +1345,7 @@ pub struct ModuleInfo {
     pub oper_status: Option<ModuleStatus>,
     pub base_mac: Option<String>,
     pub dpu_id: Option<i64>,
-    pub maximum_consumed_power: Option<f64>,
+    pub maximum_consumed_power: Option<Number>,
     pub midplane_ip: Option<String>,
     pub is_midplane_reachable: Option<bool>,
     pub state_transition: Option<bool>,
@@ -1155,8 +1454,8 @@ impl ModuleInfoCol {
 pub struct ModuleInfoCols(u64);
 
 impl ModuleInfoCols {
-    /// Nothing declinable: the columns that come from the traversal are still
-    /// read, which is what makes a by-name lookup possible.
+    /// Nothing declinable: the name, the key and the other columns that come
+    /// from the traversal are still read.
     pub const NONE: Self = ModuleInfoCols(0);
     /// Every column -- what a caller that has not thought about it should pass.
     pub const ALL: Self = ModuleInfoCols(65535);
@@ -1222,6 +1521,8 @@ impl std::fmt::Debug for ModuleInfoCols {
 pub struct ComponentInfo {
     pub name: String,
     pub parent_name: String,
+    pub key: DeviceKey,
+    pub parent_key: Option<DeviceKey>,
     pub description: Option<String>,
     pub firmware_version: Option<String>,
 }
@@ -1236,16 +1537,52 @@ pub struct SensorInfo {
     pub name: String,
     pub kind: SensorKind,
     pub parent_name: String,
+    pub key: DeviceKey,
+    pub parent_key: Option<DeviceKey>,
     pub position_in_parent: Option<i32>,
+    pub value: Option<Number>,
     pub is_replaceable: bool,
     pub unit: Option<String>,
-    pub value: Option<f64>,
-    pub high_threshold: Option<Threshold>,
-    pub low_threshold: Option<Threshold>,
-    pub high_critical_threshold: Option<Threshold>,
-    pub low_critical_threshold: Option<Threshold>,
-    pub min_recorded: Option<f64>,
-    pub max_recorded: Option<f64>,
+    pub min_recorded: Option<Number>,
+    pub max_recorded: Option<Number>,
+    pub high_threshold: Option<Number>,
+    pub low_threshold: Option<Number>,
+    pub high_critical_threshold: Option<Number>,
+    pub low_critical_threshold: Option<Number>,
+    pub error: Option<String>,
+    pub error_repr: Option<String>,
+    pub error_column: Option<String>,
+}
+
+impl SensorInfo {
+    /// A `SensorInfo` of the given `kind`, every other column empty.
+    ///
+    /// There is no `Default`, because `kind` has no neutral
+    /// value and one picked here would be a value nobody declared.  Build a
+    /// row as `SensorInfo { name, ..SensorInfo::new(..) }`, so that a column added to
+    /// the stub does not break the literal.
+    pub fn new(kind: SensorKind) -> Self {
+        SensorInfo {
+            name: Default::default(),
+            kind,
+            parent_name: Default::default(),
+            key: Default::default(),
+            parent_key: Default::default(),
+            position_in_parent: Default::default(),
+            value: Default::default(),
+            is_replaceable: Default::default(),
+            unit: Default::default(),
+            min_recorded: Default::default(),
+            max_recorded: Default::default(),
+            high_threshold: Default::default(),
+            low_threshold: Default::default(),
+            high_critical_threshold: Default::default(),
+            low_critical_threshold: Default::default(),
+            error: Default::default(),
+            error_repr: Default::default(),
+            error_column: Default::default(),
+        }
+    }
 }
 
 /// A named leak policy, published once at start-up.
@@ -1363,6 +1700,8 @@ pub struct StorageDeviceInfo {
     pub reserved_blocks: String,
     pub fs_io_reads: Option<i64>,
     pub fs_io_writes: Option<i64>,
+    pub static_error: Option<String>,
+    pub error: Option<String>,
 }
 
 /// One entry of a system EEPROM.
@@ -1451,13 +1790,27 @@ pub struct ModuleMidplaneDownReason {
 /// code is carried rather than raised on: the CLI prints the message on a
 /// non-zero code and carries on, and a facade that raised would turn a
 /// reported failure into an exception the caller has to translate back.
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Clone, PartialEq, Default)]
 pub struct BmcResult {
     pub code: i64,
     pub message: Option<String>,
     pub session_id: Option<String>,
     pub token: Option<String>,
     pub task_id: Option<String>,
+}
+
+/// Every column but token, which `Secret()` keeps out of
+/// a log line: said to be there, not shown.
+impl std::fmt::Debug for BmcResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BmcResult")
+            .field("code", &self.code)
+            .field("message", &self.message)
+            .field("session_id", &self.session_id)
+            .field("token", &self.token.as_ref().map(|_| "<redacted>"))
+            .field("task_id", &self.task_id)
+            .finish()
+    }
 }
 
 /// The platform, as the daemons see it.
@@ -1494,11 +1847,20 @@ pub trait PlatformApi: Send {
     /// Order is part of the contract: it is what lets the Rust and the Python
     /// implementations be compared row for row.
     ///
+    /// `skip` names rows to read in part: a row whose key is in it carries
+    /// its unguarded columns and nothing else.  Any other key, one never
+    /// answered before included, is read in full.
+    ///
+    /// A device whose getter failed is still a row, read up to that getter,
+    /// with `error` and `error_repr` saying what failed and `error_column`
+    /// which getter it was.  Only the walk itself, or an unguarded column,
+    /// fails the call.
+    ///
     /// Empty by default, so that adding a row type to the schema does not
     /// break every implementation that does not have one -- a platform with
     /// no BMC should not have to write a method to say so.
-    fn get_thermals(&mut self) -> Result<Vec<ThermalInfo>, PlatformError> {
-        let _ = ();
+    fn get_thermals(&mut self, cols: ThermalInfoCols, skip: &[DeviceKey]) -> Result<Vec<ThermalInfo>, PlatformError> {
+        let _ = (cols, skip,);
         Ok(Vec::new())
     }
     /// Every FanInfo, in declared order.
@@ -1506,11 +1868,20 @@ pub trait PlatformApi: Send {
     /// Order is part of the contract: it is what lets the Rust and the Python
     /// implementations be compared row for row.
     ///
+    /// A device whose getter failed is still a row, read up to that getter,
+    /// with `error` and `error_repr` saying what failed and `error_column`
+    /// which getter it was.  Only the walk itself, or an unguarded column,
+    /// fails the call.
+    ///
+    /// `absorb` reads each column on its own instead: a getter that fails
+    /// leaves that column absent and the rest of the row is read, with no
+    /// error set -- psud's `try_get`.
+    ///
     /// Empty by default, so that adding a row type to the schema does not
     /// break every implementation that does not have one -- a platform with
     /// no BMC should not have to write a method to say so.
-    fn get_fans(&mut self, cols: FanInfoCols) -> Result<Vec<FanInfo>, PlatformError> {
-        let _ = (cols,);
+    fn get_fans(&mut self, cols: FanInfoCols, absorb: bool) -> Result<Vec<FanInfo>, PlatformError> {
+        let _ = (cols, absorb,);
         Ok(Vec::new())
     }
     /// Every FanDrawerInfo, in declared order.
@@ -1529,6 +1900,10 @@ pub trait PlatformApi: Send {
     ///
     /// Order is part of the contract: it is what lets the Rust and the Python
     /// implementations be compared row for row.
+    ///
+    /// Each column is read on its own: a getter that fails leaves that column
+    /// absent and the rest of the row is read, with no error set -- psud's
+    /// `try_get`.
     ///
     /// Empty by default, so that adding a row type to the schema does not
     /// break every implementation that does not have one -- a platform with
@@ -1554,6 +1929,11 @@ pub trait PlatformApi: Send {
     /// Order is part of the contract: it is what lets the Rust and the Python
     /// implementations be compared row for row.
     ///
+    /// A device whose getter failed is still a row, read up to that getter,
+    /// with `error` and `error_repr` saying what failed and `error_column`
+    /// which getter it was.  Only the walk itself, or an unguarded column,
+    /// fails the call.
+    ///
     /// Empty by default, so that adding a row type to the schema does not
     /// break every implementation that does not have one -- a platform with
     /// no BMC should not have to write a method to say so.
@@ -1561,7 +1941,7 @@ pub trait PlatformApi: Send {
         let _ = ();
         Ok(Vec::new())
     }
-    /// Published once at start-up, so read on call rather than cached.
+    /// The leak policies, which thermalctld publishes once at start-up.
     ///
     /// Order is part of the contract: it is what lets the Rust and the Python
     /// implementations be compared row for row.
@@ -1634,37 +2014,37 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose set_fan_led is not
     /// software-controllable should not have to write a method to say so.
-    fn set_fan_led(&mut self, fan: &str, color: LedColor) -> Result<(), PlatformError> {
+    fn set_fan_led(&mut self, fan: &DeviceKey, color: LedColor) -> Result<Option<bool>, PlatformError> {
         let _ = fan;
         let _ = color;
         Err(PlatformError::NotSupported("set_fan_led".to_string()))
     }
 
-    /// set_fan_drawer_led
+    /// Calls `FanDrawerBase.set_status_led()` on the FanDrawerInfo at `drawer`.
     ///
     /// Not supported by default: a platform whose set_fan_drawer_led is not
     /// software-controllable should not have to write a method to say so.
-    fn set_fan_drawer_led(&mut self, drawer: &str, color: LedColor) -> Result<(), PlatformError> {
+    fn set_fan_drawer_led(&mut self, drawer: &DeviceKey, color: LedColor) -> Result<Option<bool>, PlatformError> {
         let _ = drawer;
         let _ = color;
         Err(PlatformError::NotSupported("set_fan_drawer_led".to_string()))
     }
 
-    /// set_fan_speed
+    /// Calls `FanBase.set_speed()` on the FanInfo at `fan`.
     ///
     /// Not supported by default: a platform whose set_fan_speed is not
     /// software-controllable should not have to write a method to say so.
-    fn set_fan_speed(&mut self, fan: &str, speed: u32) -> Result<(), PlatformError> {
+    fn set_fan_speed(&mut self, fan: &DeviceKey, speed: i64) -> Result<Option<bool>, PlatformError> {
         let _ = fan;
         let _ = speed;
         Err(PlatformError::NotSupported("set_fan_speed".to_string()))
     }
 
-    /// set_psu_led
+    /// Calls `PsuBase.set_status_led()` on the PsuInfo at `psu`.
     ///
     /// Not supported by default: a platform whose set_psu_led is not
     /// software-controllable should not have to write a method to say so.
-    fn set_psu_led(&mut self, psu: &str, color: LedColor) -> Result<(), PlatformError> {
+    fn set_psu_led(&mut self, psu: &DeviceKey, color: LedColor) -> Result<Option<bool>, PlatformError> {
         let _ = psu;
         let _ = color;
         Err(PlatformError::NotSupported("set_psu_led".to_string()))
@@ -1693,7 +2073,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose get_module_reboot_cause is not
     /// software-controllable should not have to write a method to say so.
-    fn get_module_reboot_cause(&mut self, module: &str) -> Result<ModuleRebootCause, PlatformError> {
+    fn get_module_reboot_cause(&mut self, module: &DeviceKey) -> Result<ModuleRebootCause, PlatformError> {
         let _ = module;
         Err(PlatformError::NotSupported("get_module_reboot_cause".to_string()))
     }
@@ -1706,7 +2086,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose get_module_midplane_down_reason is not
     /// software-controllable should not have to write a method to say so.
-    fn get_module_midplane_down_reason(&mut self, module: &str) -> Result<ModuleMidplaneDownReason, PlatformError> {
+    fn get_module_midplane_down_reason(&mut self, module: &DeviceKey) -> Result<ModuleMidplaneDownReason, PlatformError> {
         let _ = module;
         Err(PlatformError::NotSupported("get_module_midplane_down_reason".to_string()))
     }
@@ -1714,12 +2094,12 @@ pub trait PlatformApi: Send {
     /// The colour of the LED every hot-swappable PSU shares.
     ///
     /// `PsuBase.get_status_master_led` is a `@classmethod` over a class
-    /// attribute, so any PSU answers for all of them; the row name is how the
-    /// facade reaches an instance to ask.
+    /// attribute, so any PSU answers for all of them; a PSU row's key is how
+    /// the facade reaches an instance to ask.
     ///
     /// Not supported by default: a platform whose get_psu_master_led is not
     /// software-controllable should not have to write a method to say so.
-    fn get_psu_master_led(&mut self, psu: &str) -> Result<Option<LedColor>, PlatformError> {
+    fn get_psu_master_led(&mut self, psu: &DeviceKey) -> Result<Option<String>, PlatformError> {
         let _ = psu;
         Err(PlatformError::NotSupported("get_psu_master_led".to_string()))
     }
@@ -1733,27 +2113,27 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose set_psu_master_led is not
     /// software-controllable should not have to write a method to say so.
-    fn set_psu_master_led(&mut self, psu: &str, color: LedColor) -> Result<(), PlatformError> {
+    fn set_psu_master_led(&mut self, psu: &DeviceKey, color: LedColor) -> Result<Option<bool>, PlatformError> {
         let _ = psu;
         let _ = color;
         Err(PlatformError::NotSupported("set_psu_master_led".to_string()))
     }
 
-    /// reboot_module
+    /// Calls `ModuleBase.reboot()` on the ModuleInfo at `module`.
     ///
     /// Not supported by default: a platform whose reboot_module is not
     /// software-controllable should not have to write a method to say so.
-    fn reboot_module(&mut self, module: &str, reboot_type: &str) -> Result<(), PlatformError> {
+    fn reboot_module(&mut self, module: &DeviceKey, reboot_type: &str) -> Result<Option<bool>, PlatformError> {
         let _ = module;
         let _ = reboot_type;
         Err(PlatformError::NotSupported("reboot_module".to_string()))
     }
 
-    /// set_module_admin_state
+    /// Calls `ModuleBase.set_admin_state()` on the ModuleInfo at `module`.
     ///
     /// Not supported by default: a platform whose set_module_admin_state is not
     /// software-controllable should not have to write a method to say so.
-    fn set_module_admin_state(&mut self, module: &str, up: bool) -> Result<(), PlatformError> {
+    fn set_module_admin_state(&mut self, module: &DeviceKey, up: bool) -> Result<Option<bool>, PlatformError> {
         let _ = module;
         let _ = up;
         Err(PlatformError::NotSupported("set_module_admin_state".to_string()))
@@ -1767,123 +2147,171 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose set_module_admin_state_gracefully is not
     /// software-controllable should not have to write a method to say so.
-    fn set_module_admin_state_gracefully(&mut self, module: &str, up: bool) -> Result<(), PlatformError> {
+    fn set_module_admin_state_gracefully(&mut self, module: &DeviceKey, up: bool) -> Result<Option<bool>, PlatformError> {
         let _ = module;
         let _ = up;
         Err(PlatformError::NotSupported("set_module_admin_state_gracefully".to_string()))
     }
 
-    /// power_cycle_module
+    /// Calls `ModuleBase.do_power_cycle()` on the ModuleInfo at `module`.
     ///
     /// Not supported by default: a platform whose power_cycle_module is not
     /// software-controllable should not have to write a method to say so.
-    fn power_cycle_module(&mut self, module: &str) -> Result<(), PlatformError> {
+    fn power_cycle_module(&mut self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
         let _ = module;
         Err(PlatformError::NotSupported("power_cycle_module".to_string()))
     }
 
-    /// module_pre_shutdown
+    /// Calls `ModuleBase.module_pre_shutdown()` on the ModuleInfo at `module`.
     ///
     /// Not supported by default: a platform whose module_pre_shutdown is not
     /// software-controllable should not have to write a method to say so.
-    fn module_pre_shutdown(&mut self, module: &str) -> Result<(), PlatformError> {
+    fn module_pre_shutdown(&mut self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
         let _ = module;
         Err(PlatformError::NotSupported("module_pre_shutdown".to_string()))
     }
 
-    /// module_post_startup
+    /// Calls `ModuleBase.module_post_startup()` on the ModuleInfo at `module`.
     ///
     /// Not supported by default: a platform whose module_post_startup is not
     /// software-controllable should not have to write a method to say so.
-    fn module_post_startup(&mut self, module: &str) -> Result<(), PlatformError> {
+    fn module_post_startup(&mut self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
         let _ = module;
         Err(PlatformError::NotSupported("module_post_startup".to_string()))
     }
 
     /// `pass_key`: the base class takes the module's own name as well.
     ///
+    /// False is the answer that matters: another operation holds the module
+    /// and has not timed out, and the caller must leave it alone.
+    ///
     /// Not supported by default: a platform whose set_module_state_transition is not
     /// software-controllable should not have to write a method to say so.
-    fn set_module_state_transition(&mut self, module: &str, transition_type: &str) -> Result<(), PlatformError> {
+    fn set_module_state_transition(&mut self, module: &DeviceKey, transition_type: &str) -> Result<Option<bool>, PlatformError> {
         let _ = module;
         let _ = transition_type;
         Err(PlatformError::NotSupported("set_module_state_transition".to_string()))
     }
 
-    /// clear_module_state_transition
+    /// Calls `ModuleBase.clear_module_state_transition()` on the ModuleInfo at `module`.
     ///
     /// Not supported by default: a platform whose clear_module_state_transition is not
     /// software-controllable should not have to write a method to say so.
-    fn clear_module_state_transition(&mut self, module: &str) -> Result<(), PlatformError> {
+    fn clear_module_state_transition(&mut self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
         let _ = module;
         Err(PlatformError::NotSupported("clear_module_state_transition".to_string()))
     }
 
-    /// clear_module_gnoi_halt
+    /// Calls `ModuleBase.clear_module_gnoi_halt_in_progress()` on the ModuleInfo at `module`.
     ///
     /// Not supported by default: a platform whose clear_module_gnoi_halt is not
     /// software-controllable should not have to write a method to say so.
-    fn clear_module_gnoi_halt(&mut self, module: &str) -> Result<(), PlatformError> {
+    fn clear_module_gnoi_halt(&mut self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
         let _ = module;
         Err(PlatformError::NotSupported("clear_module_gnoi_halt".to_string()))
     }
 
-    /// set_sensor_high_threshold
+    /// Calls `SensorBase.set_high_threshold()` on the SensorInfo at `sensor`.
     ///
     /// Not supported by default: a platform whose set_sensor_high_threshold is not
     /// software-controllable should not have to write a method to say so.
-    fn set_sensor_high_threshold(&mut self, sensor: &str, value: Threshold) -> Result<(), PlatformError> {
+    fn set_sensor_high_threshold(&mut self, sensor: &DeviceKey, value: Number) -> Result<Option<bool>, PlatformError> {
         let _ = sensor;
         let _ = value;
         Err(PlatformError::NotSupported("set_sensor_high_threshold".to_string()))
     }
 
-    /// set_sensor_low_threshold
+    /// Calls `SensorBase.set_low_threshold()` on the SensorInfo at `sensor`.
     ///
     /// Not supported by default: a platform whose set_sensor_low_threshold is not
     /// software-controllable should not have to write a method to say so.
-    fn set_sensor_low_threshold(&mut self, sensor: &str, value: Threshold) -> Result<(), PlatformError> {
+    fn set_sensor_low_threshold(&mut self, sensor: &DeviceKey, value: Number) -> Result<Option<bool>, PlatformError> {
         let _ = sensor;
         let _ = value;
         Err(PlatformError::NotSupported("set_sensor_low_threshold".to_string()))
     }
 
-    /// get_available_firmware_version
+    /// The key of the module `ChassisBase.get_module_index(name)` names.
+    ///
+    /// chassisd's resolution of a CONFIG_DB module key (chassisd:323): the
+    /// index is the module's position in `get_all_modules()`, and a negative
+    /// one, the base class's and the vendors' way of saying there is no such
+    /// module, answers None.  An exception is the vendor's, as in Python.
+    ///
+    /// `None` by default, which is how a platform says it has no answer
+    /// rather than that the call failed.
+    fn get_module_key(&mut self, name: &str) -> Result<Option<DeviceKey>, PlatformError> {
+        let _ = name;
+        Ok(None)
+    }
+
+    /// The key of the chassis component called `name`.
+    ///
+    /// fwutil's resolution for `fwutil ... chassis component <name>`
+    /// (`fwutil/lib.py`, `PlatformDataProvider`): by name among the chassis's
+    /// `get_all_components()`.  None when nothing matches.  Where two match,
+    /// fwutil keeps the last one it listed; this raises instead, because
+    /// acting on one of them silently is the defect the key exists to remove.
+    ///
+    /// `None` by default, which is how a platform says it has no answer
+    /// rather than that the call failed.
+    fn get_component_key(&mut self, name: &str) -> Result<Option<DeviceKey>, PlatformError> {
+        let _ = name;
+        Ok(None)
+    }
+
+    /// The key of the component called `name` on the module called `module`.
+    ///
+    /// fwutil's resolution for `fwutil ... module <module> component <name>`:
+    /// the module by its `get_name()` among `get_all_modules()`, on a modular
+    /// chassis only, as fwutil refuses anything else; then the component by
+    /// its name among that module's.  None when either is not there; a
+    /// duplicate at either level raises, as in `get_component_key`.
+    ///
+    /// `None` by default, which is how a platform says it has no answer
+    /// rather than that the call failed.
+    fn get_module_component_key(&mut self, module: &str, name: &str) -> Result<Option<DeviceKey>, PlatformError> {
+        let _ = module;
+        let _ = name;
+        Ok(None)
+    }
+
+    /// Calls `ComponentBase.get_available_firmware_version()` on the ComponentInfo at `component`.
     ///
     /// Not supported by default: a platform whose get_available_firmware_version is not
     /// software-controllable should not have to write a method to say so.
-    fn get_available_firmware_version(&mut self, component: &str, image_path: &str) -> Result<Option<String>, PlatformError> {
+    fn get_available_firmware_version(&mut self, component: &DeviceKey, image_path: &str) -> Result<Option<String>, PlatformError> {
         let _ = component;
         let _ = image_path;
         Err(PlatformError::NotSupported("get_available_firmware_version".to_string()))
     }
 
-    /// get_firmware_update_notification
+    /// Calls `ComponentBase.get_firmware_update_notification()` on the ComponentInfo at `component`.
     ///
     /// Not supported by default: a platform whose get_firmware_update_notification is not
     /// software-controllable should not have to write a method to say so.
-    fn get_firmware_update_notification(&mut self, component: &str, image_path: &str) -> Result<Option<String>, PlatformError> {
+    fn get_firmware_update_notification(&mut self, component: &DeviceKey, image_path: &str) -> Result<Option<String>, PlatformError> {
         let _ = component;
         let _ = image_path;
         Err(PlatformError::NotSupported("get_firmware_update_notification".to_string()))
     }
 
-    /// install_firmware
+    /// Calls `ComponentBase.install_firmware()` on the ComponentInfo at `component`.
     ///
     /// Not supported by default: a platform whose install_firmware is not
     /// software-controllable should not have to write a method to say so.
-    fn install_firmware(&mut self, component: &str, image_path: &str) -> Result<Option<bool>, PlatformError> {
+    fn install_firmware(&mut self, component: &DeviceKey, image_path: &str) -> Result<Option<bool>, PlatformError> {
         let _ = component;
         let _ = image_path;
         Err(PlatformError::NotSupported("install_firmware".to_string()))
     }
 
     /// `ComponentBase.update_firmware` returns False on a missing path and
-    /// nothing at all on success, so there is no value worth declaring.
+    /// nothing at all on success, so only a False says anything.
     ///
     /// Not supported by default: a platform whose update_firmware is not
     /// software-controllable should not have to write a method to say so.
-    fn update_firmware(&mut self, component: &str, image_path: &str) -> Result<(), PlatformError> {
+    fn update_firmware(&mut self, component: &DeviceKey, image_path: &str) -> Result<Option<bool>, PlatformError> {
         let _ = component;
         let _ = image_path;
         Err(PlatformError::NotSupported("update_firmware".to_string()))
@@ -1893,7 +2321,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose auto_update_firmware is not
     /// software-controllable should not have to write a method to say so.
-    fn auto_update_firmware(&mut self, component: &str, image_path: &str, boot_type: &str) -> Result<Option<i64>, PlatformError> {
+    fn auto_update_firmware(&mut self, component: &DeviceKey, image_path: &str, boot_type: &str) -> Result<Option<i64>, PlatformError> {
         let _ = component;
         let _ = image_path;
         let _ = boot_type;
@@ -1912,7 +2340,7 @@ pub trait PlatformApi: Send {
         Err(PlatformError::NotSupported("arm_watchdog".to_string()))
     }
 
-    /// disarm_watchdog
+    /// Calls `ChassisBase.get_watchdog().disarm()`.
     ///
     /// Not supported by default: a platform whose disarm_watchdog is not
     /// software-controllable should not have to write a method to say so.
@@ -1927,15 +2355,15 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose initialize_system_led is not
     /// software-controllable should not have to write a method to say so.
-    fn initialize_system_led(&mut self) -> Result<(), PlatformError> {
+    fn initialize_system_led(&mut self) -> Result<Option<bool>, PlatformError> {
         Err(PlatformError::NotSupported("initialize_system_led".to_string()))
     }
 
-    /// init_midplane_switch
+    /// Calls `ChassisBase.init_midplane_switch()`.
     ///
     /// Not supported by default: a platform whose init_midplane_switch is not
     /// software-controllable should not have to write a method to say so.
-    fn init_midplane_switch(&mut self) -> Result<(), PlatformError> {
+    fn init_midplane_switch(&mut self) -> Result<Option<bool>, PlatformError> {
         Err(PlatformError::NotSupported("init_midplane_switch".to_string()))
     }
 
@@ -1944,14 +2372,19 @@ pub trait PlatformApi: Send {
     /// `health_checker/manager.py:77`.  It is not a pmon daemon -- it runs on
     /// the host -- which is why this one method is worth naming.
     ///
+    /// The colour is a `str`, not a `LedColor`: healthd takes it from the
+    /// platform's `system_health_monitoring_config.json`, where vendors use
+    /// their own ("amber_blink", "orange_blink", "yellow").  The answer is
+    /// `set_status_led`'s bool, so a caller can log a set that failed.
+    ///
     /// Not supported by default: a platform whose set_chassis_led is not
     /// software-controllable should not have to write a method to say so.
-    fn set_chassis_led(&mut self, color: LedColor) -> Result<(), PlatformError> {
+    fn set_chassis_led(&mut self, color: &str) -> Result<Option<bool>, PlatformError> {
         let _ = color;
         Err(PlatformError::NotSupported("set_chassis_led".to_string()))
     }
 
-    /// change_sed_password
+    /// Calls `ChassisBase.get_sed_mgmt().change_sed_password()`.
     ///
     /// Not supported by default: a platform whose change_sed_password is not
     /// software-controllable should not have to write a method to say so.
@@ -1960,7 +2393,7 @@ pub trait PlatformApi: Send {
         Err(PlatformError::NotSupported("change_sed_password".to_string()))
     }
 
-    /// reset_sed_password
+    /// Calls `ChassisBase.get_sed_mgmt().reset_sed_password()`.
     ///
     /// Not supported by default: a platform whose reset_sed_password is not
     /// software-controllable should not have to write a method to say so.
@@ -2072,29 +2505,70 @@ pub trait PlatformApi: Send {
         Ok(())
     }
 
-    /// The platform writes this table itself.  `Eeprom.update_eeprom_db()` (sonic_platform_base/sonic_eeprom/eeprom_tlvinfo.py, which every vendor Eeprom subclasses) decodes the raw EEPROM and hmsets EEPROM_INFO through an EepromRedisVisitor: a TlvHeader row, a Checksum row, a State row, and one row...
+    /// `ThermalManager.stop()` alone, which thermalctld's signal handler
+    /// calls the moment SIGTERM arrives (thermalctld:1610-1612), well
+    /// before its `deinit()` runs `deinitialize()`.
+    ///
+    /// A no-op by default: most platforms have no thermal manager, and one
+    /// that says so by erroring would have every caller log a warning per
+    /// cycle on hardware that is working exactly as designed.
+    fn tm_stop(&mut self) -> Result<(), PlatformError> {
+        Ok(())
+    }
+
+    /// The daemon is shutting down: let the platform abort what it waits for.
+    ///
+    /// What a Python daemon gets from the vendor's own signal handler, given
+    /// when the Rust daemon handles SIGTERM or SIGINT, before it joins its
+    /// threads.  Idempotent, safe from any thread and on any handle (what it
+    /// acts on is process-wide), and it never raises: a shutdown is not
+    /// stopped by a vendor handler that failed.
+    ///
+    /// A no-op by default: only a platform that needs it implements it.
+    fn notify_shutdown(&mut self) -> Result<(), PlatformError> {
+        Ok(())
+    }
+
+    /// Re-read the system EEPROM and let the platform republish EEPROM_INFO.
+    ///
+    /// `read_failed` when the platform could not read it, `update_failed`
+    /// when it read it and could not write the table; the daemon logs which
+    /// (syseepromd:85-96), and the table is left as it was rather than
+    /// half-written.
     ///
     /// No default: what this answers has no empty value that is not also a
     /// lie, so a platform that cannot answer has to say so.
-    fn eeprom_update_db(&mut self) -> Result<bool, PlatformError> {
+    fn eeprom_update_db(&mut self) -> Result<EepromUpdate, PlatformError> {
         Err(PlatformError::NotSupported("eeprom_update_db".to_string()))
     }
 
-    /// stormond does not reach the platform through the chassis either: `StorageDevices()` walks /sys/block and picks a utility class per disk, and the object it picks may be None.  The readings are only valid after `fetch_parse_info(/dev/<disk>)` has been called for that disk -- an ordering no column...
+    /// Every disk in /sys/block, refreshed.
+    ///
+    /// Calls `fetch_parse_info` for each disk before reading it, which is what
+    /// makes the firmware, health and temperature current rather than whatever
+    /// the constructor saw.
     ///
     /// Empty by default.
     fn get_storage_devices(&mut self) -> Result<Vec<StorageDeviceInfo>, PlatformError> {
         Ok(Vec::new())
     }
 
-    /// pcied does not reach the platform through the chassis at all: it constructs `sonic_platform.pcie.Pcie(platform_path)`, or `sonic_platform_base.sonic_pcie.pcie_common.PcieUtil` when the vendor ships none, and that two-step import with a fallback is a decision rather than a call.  The rows are the...
+    /// Every device `pcie.yaml` expects, and whether the bus has it.
+    ///
+    /// Empty when the platform ships no config file, which is not an error:
+    /// a platform without PCIe checking simply has nothing to say.
+    /// `PcieUtil.load_config_file` answers a missing one with `sys.exit()`,
+    /// which ends a Python daemon; here it is taken as the empty list it
+    /// means, and the platform is not asked again.
     ///
     /// Empty by default.
     fn get_pcie_devices(&mut self) -> Result<Vec<PcieDevice>, PlatformError> {
         Ok(Vec::new())
     }
 
-    /// Same object as get_pcie_devices, so the same two-step construction; and the answer is a mapping of mappings whose keys are whatever the kernel printed in aer_dev_correctable and its two siblings, which no column list can enumerate.
+    /// The AER counters of one device, flattened out of the three severities.
+    ///
+    /// Empty when the device exposes no AER files, which most do not.
     ///
     /// Empty by default.
     fn get_pcie_aer_stats(&mut self, bus: i64, dev: i64, func: i64) -> Result<Vec<PcieAerStat>, PlatformError> {
@@ -2104,7 +2578,10 @@ pub trait PlatformApi: Send {
         Ok(Vec::new())
     }
 
-    /// get_change_event returns a two-level mapping whose leaf is a stringly-typed enumeration documented only in prose, and whose outer keys vary by platform. Flattening it into rows is mechanical, but deciding that `ok` is data rather than an error is not: ok=False is how a platform reports a...
+    /// Block until something changes, or until `timeout_ms` elapses.
+    ///
+    /// `timeout_ms=0` blocks indefinitely, which is what the base class means
+    /// by it and what the daemons rely on.
     ///
     /// No default: what this answers has no empty value that is not also a
     /// lie, so a platform that cannot answer has to say so.

@@ -1,34 +1,22 @@
-#
-# SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
 """How much of the consumed platform API the facade declares.
 
 Named `api_coverage` rather than `coverage`: a module called `coverage.py` in
 this directory shadows the coverage.py package for anything run with this as
 its working directory, which quietly breaks `python3 -m coverage`.
 
-Three numbers, not two.  `covered` is what the stub reads or calls; `omitted`
-is what it deliberately does not, each entry carrying its reason; `todo` is
-the rest.  Rolling the first two together is what makes a migration look
-unfinished forever -- a count is the length of a list, and declaring it as
-well would give a platform two ways to disagree with itself.
+Four numbers.  `covered` is what the stub reads or calls; `omitted` is what it
+deliberately does not, each entry carrying its reason; `deferred` is what a
+later phase declares, each entry naming the phase; `todo` is the rest.
+Rolling the first two together is what makes a migration look unfinished
+forever -- a count is the length of a list, and declaring it as well would
+give a platform two ways to disagree with itself.  Keeping `deferred` apart
+from `todo` is what lets the last one be zero.
 
-`--check` fails when an omission no longer names anything a consumer reaches,
-which is how a reason that has stopped being true gets noticed.
+`--check` fails on any `todo`: everything a consumer reaches is declared,
+omitted with a reason, or deferred to a named phase.  It also fails when an
+omission or a deferral no longer names anything a consumer reaches, or a
+deferral names something the stub now declares, which is how a reason that
+has stopped being true gets noticed.
 """
 
 import argparse
@@ -44,15 +32,25 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 INVENTORY = os.path.join(HERE, 'inventory.json')
 
 
-def omitted(path=FACADE_PYI):
-    """(class, method) -> reason, from the stub's OMITTED declaration."""
+def listed(name, path=FACADE_PYI):
+    """(class, method) -> reason, from one of the stub's declarations."""
     tree = ast.parse(open(path).read(), filename=path)
     for node in tree.body:
         target = getattr(node, 'target', None)
-        if isinstance(node, ast.AnnAssign) and getattr(target, 'id', '') == 'OMITTED':
+        if isinstance(node, ast.AnnAssign) and getattr(target, 'id', '') == name:
             return {tuple(p.split('.', 1)): reason
                     for p, reason in ast.literal_eval(node.value)}
     return {}
+
+
+def omitted(path=FACADE_PYI):
+    """(class, method) -> reason, from the stub's OMITTED declaration."""
+    return listed('OMITTED', path)
+
+
+def deferred(path=FACADE_PYI):
+    """(class, method) -> phase, from the stub's DEFERRED declaration."""
+    return listed('DEFERRED', path)
 
 
 def declared(model):
@@ -102,6 +100,7 @@ def report():
     inv = json.load(open(INVENTORY))
     model = parse()
     skip = omitted()
+    later = deferred()
     have, chained = declared(model)
 
     # A method name the facade reads through a base class counts for every
@@ -119,6 +118,8 @@ def report():
                 state = 'omitted'
             elif meth in have_names:
                 state = 'covered'
+            elif key in later:
+                state = 'deferred'
             else:
                 state = 'todo'
             rows.append((cls, meth, state))
@@ -126,10 +127,17 @@ def report():
     counts = collections.Counter(state for _c, _m, state in rows)
     total = len(rows)
     print('in-scope declarations : %d' % total)
-    for state in ('covered', 'omitted', 'todo'):
+    for state in ('covered', 'omitted', 'deferred', 'todo'):
         n = counts.get(state, 0)
         print('  %-8s %5d  %3.0f%%' % (state, n, 100.0 * n / total if total else 0))
     print()
+
+    by_phase = collections.Counter(later[(c, m)] for c, m, st in rows if st == 'deferred')
+    if by_phase:
+        print('%-50s %5s' % ('deferred, by phase', ''))
+        for phase, n in by_phase.most_common():
+            print('  %-48s %5d' % (phase, n))
+        print()
 
     todo = [(c, m) for c, m, st in rows if st == 'todo']
     if todo:
@@ -139,25 +147,45 @@ def report():
             names = sorted(m for c, m in todo if c == cls)
             print('%-24s %5d  %s' % (cls, n, ', '.join(names)[:70]))
 
-    stale = sorted(k for k in skip
-                   if k[1] not in inv['classes'].get(k[0], {}).get('reached', {}))
-    if stale:
+    def reached(k):
+        return k[1] in inv['classes'].get(k[0], {}).get('reached', {})
+
+    problems = []
+    for name, entries in (('OMITTED', skip), ('DEFERRED', later)):
+        stale = sorted(k for k in entries if not reached(k))
+        if stale:
+            print()
+            print('%s entries that no consumer reaches any more (%d):' % (name, len(stale)))
+            for cls, meth in stale:
+                print('   %s.%s  -- %s' % (cls, meth, entries[(cls, meth)]))
+            problems.append('remove them from %s, or say why they are still listed' % name)
+    done = sorted(k for k in later if k in have or k[1] in have_names)
+    if done:
         print()
-        print('omissions that no consumer reaches any more (%d):' % len(stale))
-        for cls, meth in stale:
-            print('   %s.%s  -- %s' % (cls, meth, skip[(cls, meth)]))
-    return stale
+        print('DEFERRED entries the stub now declares (%d):' % len(done))
+        for cls, meth in done:
+            print('   %s.%s' % (cls, meth))
+        problems.append('remove them from DEFERRED')
+    both = sorted(set(skip) & set(later))
+    if both:
+        print()
+        print('in both OMITTED and DEFERRED (%d): %s'
+              % (len(both), ', '.join('%s.%s' % k for k in both)))
+        problems.append('keep each in one of OMITTED and DEFERRED')
+    if todo:
+        problems.append('declare them, or add them to OMITTED or DEFERRED with the reason')
+    return problems
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--check', action='store_true',
-                    help='fail on an omission nothing reaches any more')
+                    help='fail on a todo, or on an entry that has stopped being true')
     args = ap.parse_args()
-    stale = report()
-    if args.check and stale:
-        print('\nremove them from OMITTED, or say why they are still listed',
-              file=sys.stderr)
+    problems = report()
+    if args.check and problems:
+        for p in problems:
+            print('\n' + p, file=sys.stderr)
         return 1
     return 0
 

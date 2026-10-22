@@ -1,20 +1,3 @@
-#
-# SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
 """The part of the facade a type alone cannot say.
 
 `facade.pyi` declares what the cross-language platform API looks like.  A type
@@ -46,8 +29,9 @@ class From:
     The generator emits the call into `facade.py` wrapped in the standard
     not-implemented handling, so a field never needs its own error path.
 
-    This is also what the conformance scan checks a vendor's `sonic_platform`
-    against: every path named here must exist on the vendor's object.
+    `generate.py` holds the path to the base classes: the class, or one it
+    derives from, has to define the method, and a call with no arguments has
+    to suit its signature.  A path that does not resolve stops the generator.
 
     A path may name more than one getter: `"LeakageSensorBase.get_leak_profile
     .get_type"` calls each in turn, which is how a column that lives one
@@ -70,6 +54,24 @@ class Parent:
     The thermal that a PSU owns is published under that PSU's name, not the
     thermal's own; `parent_name` is how a consumer tells two identically named
     sensors apart.  There is no base-class call behind it.
+    """
+
+@dataclass(frozen=True)
+class Key:
+    """This field carries the row's `DeviceKey`, built by the traversal.
+
+    Like `Parent()`, there is no base-class call behind it: the key is the
+    path the facade walked to reach the device.  Declared as
+    `key: Annotated[DeviceKey, Key()]` on every row an action addresses.
+    """
+
+@dataclass(frozen=True)
+class ParentKey:
+    """This field carries the `DeviceKey` of the device's parent.
+
+    None when the parent is the chassis.  It is how a consumer acts on the
+    parent of a device it holds -- thermalctld sets a fan's drawer LED -- with
+    the same certainty as on the device itself.
     """
 
 @dataclass(frozen=True)
@@ -103,8 +105,8 @@ class Narrowed:
     so on a SmartSwitch NPU the call raises
     `TypeError: get_dpu_id() missing 1 required positional argument: 'name'`.
 
-    The conformance scan does not catch this: it checks that every path named
-    in a `From` exists on the vendor object, not that the arity still matches.
+    `generate.py`'s arity check does not catch this, and cannot: it reads the
+    base class's signature, which accepts the call.
 
     Why it matters more than one column: the facade builds a row eagerly, so
     every field is read on every call.  Without this, one vendor's narrowed
@@ -138,7 +140,7 @@ class Truthy:
     Declaring it `Observed(sentinels=('N/A',))` would be the natural-looking
     choice and is wrong: that turns the sentinel into None, None is falsy, and
     a switch with a failed leak sensor reports `leaking=No` while `bmcctld`
-    waits for a CRITICAL that never comes.  Measured on slm-111: Python wrote
+    waits for a CRITICAL that never comes.  Measured on hardware: Python wrote
     `leaking=Yes` / `device_leak_status=CRITICAL`, the sentinel-to-None port
     wrote `No` / `None`.
 
@@ -166,6 +168,83 @@ class Observed:
 
     sentinels: tuple[object, ...] = ...
     coerce_from: tuple[str, ...] = ...
+
+@dataclass(frozen=True)
+class RowError:
+    """This column carries what went wrong reading the row's device.
+
+    Only on a row whose snapshot is `Snapshot(per_row_errors=True)`: there a
+    getter that raises costs that one row its readings, not the whole call.
+    The row is still returned, in its place, with the columns that were not
+    read at their absent value, and these three set from the first exception
+    -- `error: Annotated[Optional[str], RowError()]` holds `str(exc)`,
+    `error_repr: Annotated[Optional[str], RowError(repr=True)]` holds
+    `repr(exc)`, because the daemons that log it use one or the other
+    (thermalctld:1294 `repr(e)`, sensormond:311 `repr(e)`), and
+    `error_column: Annotated[Optional[str], RowError(column=True)]` names the
+    column whose getter raised.  All None on a row that was read whole.
+
+    The column is what lets a consumer do what Python had done by the time
+    the exception struck.  The guarded columns are read in declaration
+    order, and the row declares them in its Python consumer's order: a fan
+    whose speed raised had already been published as an entity and taken
+    into thermalctld's LED pass (thermalctld:458-479), one whose name raised
+    had not.  The columns before it hold what they read.
+
+    A platform that declines to answer -- `NotImplementedError`, None -- has
+    not failed, and leaves these None as it always did.
+    """
+
+    repr: bool = ...
+    column: bool = ...
+
+@dataclass(frozen=True)
+class Unguarded:
+    """Read outside the row's guard: an exception here fails the whole call.
+
+    On a `per_row_errors` row, for the columns the Python daemon reads outside
+    its per-device `try`.  thermalctld asks each thermal for its name and its
+    position in `_collect_thermals` (thermalctld:1156-1157), before the `try`
+    in `_refresh_temperature_status`, so a thermal whose `get_name()` raises
+    fails that cycle there; the facade has to fail the call to say the same
+    thing.  Also
+    what a `skip`ped row still reads (see `Snapshot.skippable`).
+    """
+
+@dataclass(frozen=True)
+class ReadIf:
+    """Read this column only when `column` -- earlier in the row -- holds a value.
+
+    thermalctld reads a thermal's limits and its recorded extremes only when
+    the temperature itself is there (thermalctld:1246-1253): a sensor that
+    cannot be read is not asked six more questions it cannot answer either.
+    A row that did not read `column` at all, because the caller declined it,
+    does not read this one.
+
+    `truthy` makes the test Python's `if column:` rather than "is not None":
+    thermalctld asks a fan for its speeds, their verdicts, its status and its
+    direction only `if presence:` (thermalctld:471-478), and presence reads
+    False, not None, when the fan is not there.
+
+    `when_absorbing=False` lifts the condition from a row read absorbing
+    (`Snapshot(absorbable=True)` with `absorb`): the condition is one daemon's
+    and the absorbing read another's.  psud reads a PSU's fans gated on the
+    PSU's presence, never the fan's (psud:945-950), and does not ask for the
+    fan's presence at all.
+    """
+
+    column: str
+    truthy: bool = ...
+    when_absorbing: bool = ...
+
+@dataclass(frozen=True)
+class Secret:
+    """Never printed.
+
+    A row's Python `repr` and its Rust `Debug` show every column, and both end
+    up in log lines.  A BMC session token is a credential; the row says it is
+    there, not what it is.
+    """
 
 # --------------------------------------------------------------------------
 # Flattening: how a row is assembled out of the base-class object tree
@@ -223,12 +302,24 @@ class FlattenSource:
         A predicate called on the innermost `via` object, skipping it when
         false.  `"get_presence"` -- a PSU that is not there has no thermals
         worth publishing.
+    when_unsupported
+        What a `when` predicate the platform does not answer means.
+        `"absent"`, the default, skips the object: thermalctld asks a PSU's
+        presence bare (thermalctld:1180), so a None is false there.
+        `"present"` keeps it: thermalctld gates PDB thermals with
+        `try_get(pdb.get_presence)` (thermalctld:1189), whose 'N/A' for an
+        unanswered call is truthy.
     when_chassis
         A predicate on the chassis gating the whole source.  Module thermals
         are collected only on `"is_modular_chassis"`.
     parent
         The getter supplying the parent name, normally `"get_name"`.  None
         when the parent is fixed, as it is for the chassis' own thermals.
+    parent_missing
+        Answers from `parent` that mean "no name", like None does.  Mellanox's
+        virtual fan drawer answers the string 'N/A' (fan_drawer.py:118), and
+        thermalctld publishes the fans of a drawer so named under the chassis
+        (thermalctld:450-455).
     parent_default
         Used when `parent` is absent or returns nothing.  A format string
         over `{i}`, the 1-based index at that level, and `{parent}`, the
@@ -237,7 +328,18 @@ class FlattenSource:
         fallback and the PSU's separately -- `("Module {i}", "{parent} PSU
         {i}")` is what reproduces thermalctld's nested naming.  A bare string
         is shorthand for a single level, and for a source with no `via` it is
-        the fixed parent name.
+        the fixed parent name -- with `{i}` resolved against the row's own
+        position, so that the PSUs at the top of the tree are `PSU 1`, `PSU 2`.
+    index_from_previous
+        The row's `{i}` carries on from the source declared just before it
+        instead of starting again at 1.  sensormond numbers the sensors of
+        sensors.yaml and the chassis' own as one list
+        (`self.fs_sensors + self.chassis.get_all_voltage_sensors()`,
+        sensormond:209), so an unnamed chassis sensor after two yaml ones is
+        `chassis 1 voltage_sensor 3`.  Only between two sources that share
+        one fixed parent: neither has `via`, `mapping` or `single`, and both
+        declare the same `parent_default`.  The key is not affected; it is
+        the path to the device.
     single
         The leaf yields one object rather than a list -- `get_watchdog` does.
         The row list is then of length at most one, which is the honest shape:
@@ -253,9 +355,11 @@ class FlattenSource:
         Field values this source fixes, for the fields that say where a row
         came from rather than what a device reported -- `FanInfo.kind`, and
         `PsuInfo.kind` distinguishing a PDB from a PSU.  The value `"@parent"`
-        means the parent name this source resolved, which is how a drawer fan
-        gets a `drawer_name` and a PSU fan gets `'N/A'`; `"@key"` and
-        `"@value"` are the two halves of a `mapping=` entry.
+        means the parent name this source resolved; `"@parent_raw"` is what
+        the parent answered before any fallback, 'N/A' when it answered
+        nothing -- thermalctld's `str(try_get(parent.get_name))`, which is a
+        drawer fan's `drawer_name` (thermalctld:450).  `"@key"` and `"@value"`
+        are the two halves of a `mapping=` entry.
     """
 
     from_: str = ...
@@ -263,9 +367,12 @@ class FlattenSource:
     provider: Optional[str] = ...
     via: tuple[Union[str, Via], ...] = ...
     when: Optional[str] = ...
+    when_unsupported: Literal["absent", "present"] = ...
     when_chassis: Optional[str] = ...
     parent: Optional[str] = ...
+    parent_missing: tuple[str, ...] = ...
     parent_default: Union[str, tuple[str, ...]] = ...
+    index_from_previous: bool = ...
     optional: bool = ...
     single: bool = ...
     reaches: tuple[str, ...] = ...
@@ -276,8 +383,9 @@ class Flatten:
     """The ordered set of sources a row type is collected from.
 
     Order is part of the contract: consumers index published rows positionally
-    in places, and the Rust and Python sides have to agree row for row or the
-    differential test is meaningless.
+    in places, and a native implementation is tested against this one row for
+    row.  Within one source the order is the platform's; across sources it is
+    the order they are declared in, whole source after whole source.
     """
 
     sources: tuple[FlattenSource, ...]
@@ -288,11 +396,14 @@ class Flatten:
 
 @dataclass(frozen=True)
 class Unsupported:
-    """What a facade field or method does when the base class cannot answer.
+    """What a facade field does when the base class cannot answer.
 
     On a field, `default` may be a format string over `{i}` and `{parent}`,
     which is how a row whose device has no name still gets the key its
-    consumers already publish it under -- `"{parent} Thermal {i}"`.
+    consumers already publish it under -- `"{parent} Thermal {i}"`.  It may
+    also name a field every source fixes with `sets`: sensormond's fallback
+    says which kind of sensor it is (sensormond:246, 394), and
+    `"{parent} {kind}_sensor {i}"` spells both from one declaration.
 
     `NotImplementedError` and a `None` return are the same event -- every
     daemon's `try_get()` already treats them alike, and five base-class
@@ -300,33 +411,34 @@ class Unsupported:
     hands back a truthy class object rather than raising.  The facade collapses
     all three into one declared outcome.
 
-    none    -- the field or row becomes None; the ordinary case
+    none    -- the field becomes None; the ordinary case
     default -- substitute `default`, for the methods whose base-class body is
                already a constant
-    error   -- propagate, for the handful where a caller must be able to tell
-               "unsupported" from "absent"
+
+    Fields only.  An action does not need one: it always raises
+    `NotImplementedError` for a method the platform lacks and passes on
+    whatever else the method raises (see `Calls`).
     """
 
-    on: Literal["none", "default", "error"] = ...
+    on: Literal["none", "default"] = ...
     default: object = ...
 
 @dataclass(frozen=True)
 class On:
-    """The row an action addresses, when its first parameter is a row name.
+    """The row an action addresses, when its first parameter is a row's key.
 
-    `set_fan_led("fan 3", "amber")` has to find the fan called "fan 3", which
-    means walking the same flatten plan the snapshot walks.  Naming the row
-    here is what lets the generator reuse that plan instead of a second
-    lookup written by hand.
+    `set_fan_led("fan_drawers[0]/fans[2]", "amber")` has to reach the device
+    that row was read from, which means following the getters of the source
+    that made the key.  Naming the row here is what lets the generator derive
+    that path from the row's sources instead of a lookup written by hand.
 
-    Absent for an action on the chassis itself, or on class-level state such
-    as the PSU master LED.
+    Absent for an action on the chassis itself.
 
     `pass_key` is for the handful of base-class methods that take the device's
     own name as their first argument -- `ModuleBase.set_module_state_transition`
-    is called on a module *and* handed that module's name.  Without it the
-    locator would be consumed by the lookup and the call would go out one
-    argument short.
+    is called on a module *and* handed that module's name.  The key is
+    consumed by the lookup, and the device's own `get_name()` goes out in its
+    place, as Python's consumers pass it.
     """
 
     row: str
@@ -345,33 +457,37 @@ class Calls:
     `at` picks one slot out of a tuple return, exactly as it does on `From`.
     `ModuleBase.get_reboot_cause()` answers `(cause, detail)` and the caller
     wants the cause.
+
+    `ints` names `bool` parameters the platform is handed as the ints 1 and
+    0, because that is what the Python caller hands it: chassisd passes its
+    MODULE_ADMIN_UP / MODULE_ADMIN_DOWN, 1 and 0, to `set_admin_state`
+    (chassisd:103-104, 333, 377), and a platform that prints the argument or
+    compares it with `is` sees the difference.
+
+    One behaviour for every action: a method the platform does not have
+    raises `NotImplementedError`, which a Rust caller sees as
+    `PlatformError::NotSupported`; anything the method raises is passed on as
+    it is; and what it answers is the action's answer.  A key that leads to
+    no device raises `DeviceNotFound`.
     """
 
     path: str
     at: Optional[int] = ...
+    ints: tuple[str, ...] = ...
 
 @dataclass(frozen=True)
 class Snapshot:
-    """How often the underlying reads happen.
+    """A method answering rows: every one, read when it is called.
 
     A method returning a bare row rather than `list[...]` is a singleton: the
     chassis is the device, so there is nothing to flatten and the row carries
-    no `ORDER`.
-
-    per_cycle
-        Read once per polling cycle and serve every field of every row from
-        that. `get_all_sfps()` over 66 modules at 31 fields each is a second
-        of work; doing it per field is what makes a flattened API slower than
-        the object tree it replaced rather than faster.
-    per_call
-        Read on each call.  Correct for anything a caller polls precisely
-        because it is expected to change.
+    no `ORDER`.  Nothing is cached between calls; a caller polls by calling.
 
     `projected` gives the caller a say in which columns are read.
 
-    Batching the crossing is what `per_cycle` buys: one call carries every
-    row, instead of one crossing per field per device.  Filling every *column*
-    is a separate choice, and it is not free -- the getters run inside the
+    One call carries every row, instead of one crossing per field per device.
+    Filling every *column* is a separate choice, and it is not free -- the
+    getters run inside the
     facade, at the same cost the object tree paid, for columns the caller may
     throw away.  Measured on a Mellanox switch: psud reads four of FanInfo's
     sixteen columns, but asking for the snapshot ran `is_under_speed`, whose
@@ -387,10 +503,36 @@ class Snapshot:
     directly -- may fill them anyway and still be correct.  That keeps the
     parameter a hint rather than an obligation, which is what lets the trait
     outlive this Python implementation.
+
+    `skippable` adds a `skip` list of keys: those rows read only their
+    `Unguarded()` columns, and the rest of the row is left absent.  It is how
+    thermalctld keeps platform.json's `polling_interval`: Python reads a
+    thermal that is not due only for its name and position, and its
+    readings only when due (thermalctld:1126-1158).  A key not in the list --
+    one seen for the first time included -- is read in full, as Python reads
+    a name it has no last-update time for.
+
+    `per_row_errors` confines a getter's exception to the row it was reading
+    (see `RowError`), for the snapshots whose Python consumer isolates each
+    device: thermals and fans in thermalctld (thermalctld:1221-1294, 378-384),
+    sensors in sensormond (sensormond:237-311, 385-459).  Everywhere else --
+    but where a snapshot absorbs, below -- an exception fails the call, as it
+    fails the Python loop.
+
+    `absorbs` is psud's way instead: every getter in a `try` of its own, an
+    exception leaving that column absent and the rest of the row read, which
+    is what `psud:try_get` does with any exception (psud:271-292).  No row
+    error is set; Python logs nothing either.  `absorbable` lets the caller
+    choose, per call, on a snapshot two daemons share: `get_fans` is
+    thermalctld's, per row (thermalctld:378-384), and psud's for a PSU's
+    fans, per column (psud:943-960), so it takes an `absorb` flag.
     """
 
-    scope: Literal["per_call", "per_cycle"]
     projected: bool = ...
+    skippable: bool = ...
+    per_row_errors: bool = ...
+    absorbs: bool = ...
+    absorbable: bool = ...
 
 @dataclass(frozen=True)
 class EscapeHatch:
@@ -415,8 +557,8 @@ class EscapeHatch:
 
     `reaches` names the base-class methods the hand-written body calls.  A
     generated body declares what it touches by construction; a hand-written
-    one has to say, or the conformance scan stops knowing that a vendor must
-    implement it and the coverage report calls it unfinished forever.
+    one has to say, or `api_coverage.py` cannot count what it reaches and
+    reports it unfinished forever.
     """
 
     reason: str
@@ -433,7 +575,6 @@ F = TypeVar("F", bound=Callable[..., object])
 def platform_method(*spec: object) -> Callable[[F], F]:
     """Attach method-level metadata.
 
-    Variadic so that the metadata composes -- a method can carry an
-    `Unsupported` and a `Snapshot`, or be an `EscapeHatch`, without a
-    combining type per pairing.
+    Variadic so that the metadata composes -- an action carries an `On` and
+    a `Calls` -- without a combining type per pairing.
     """

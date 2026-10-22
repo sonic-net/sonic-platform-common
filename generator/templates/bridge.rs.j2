@@ -1,8 +1,7 @@
-{{ header }}
 //! Rust calling the Python facade, through PyO3.
 //!
-//! GENERATED from platform_api/facade.pyi by generator/generate.py.  Do not
-//! edit: regenerate.
+//! GENERATED from sonic_platform_api/facade.pyi by generator/generate.py.  Do
+//! not edit: regenerate.
 //!
 //! One GIL acquisition per call, and one call per polling cycle per row type.
 //! That is the reason the facade is flat: reaching the base classes directly
@@ -20,10 +19,10 @@ use platform_api::{
     {% for e in model.enums %}{{ e.name }}, {% endfor %}
     {% for row in model.rows %}{{ row.name }}, {% endfor %}
     {% for row in model.rows %}{% if row.projected %}{{ row.name }}Cols, {% endif %}{% endfor %}
-    PlatformApi, PlatformError, Threshold,
+    DeviceKey, Number, PlatformApi, PlatformError,
 };
 
-use crate::{err, flag, num, rows, text, thr_arg, threshold, Bridge};
+use crate::{err, flag, int_of, int_or_float, int_or_float_arg, integer, rows, text, Bridge};
 {% for row in model.rows %}
 
 /// Read one `{{ row.name }}` off the object the facade returned.
@@ -40,13 +39,13 @@ impl PlatformApi for Bridge {
 {%- for m in model.methods %}
 {%- if m.kind == 'snapshot' and m.singleton %}
 
-    fn {{ m.rust_name }}(&mut self{% if m.projected %}, cols: {{ m.row }}Cols{% endif %}) -> Result<{{ m.rust_ret }}, PlatformError> {
+    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
         Python::with_gil(|py| {
             let row = self
                 .facade
                 .bind(py)
 {%- if m.projected %}
-                .call_method1({{ m.name | tojson }}, (cols.bits(),))
+                .call_method1({{ m.name | tojson }}, {{ m.py_snapshot_args }})
 {%- else %}
                 .call_method0({{ m.name | tojson }})
 {%- endif %}
@@ -56,13 +55,13 @@ impl PlatformApi for Bridge {
     }
 {%- elif m.kind == 'snapshot' %}
 
-    fn {{ m.rust_name }}(&mut self{% if m.projected %}, cols: {{ m.row }}Cols{% endif %}) -> Result<{{ m.rust_ret }}, PlatformError> {
+    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
         Python::with_gil(|py| {
             let rows = self
                 .facade
                 .bind(py)
 {%- if m.projected %}
-                .call_method1({{ m.name | tojson }}, (cols.bits(),))
+                .call_method1({{ m.name | tojson }}, {{ m.py_snapshot_args }})
 {%- else %}
                 .call_method0({{ m.name | tojson }})
 {%- endif %}

@@ -1,20 +1,3 @@
-#
-# SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
 """The cross-language platform API.
 
 This stub is the source of truth.  Three things are generated from it and none
@@ -34,18 +17,27 @@ language boundary once per attribute of per device.  A row crosses once for the
 whole batch, carries no handle, and takes no callback, so the bridge needs
 neither shared ownership nor re-entrancy.
 
-Rows are addressed by name rather than by index.  The indexed base-class
-accessors are 0-based in some places and 1-based in others, and return None
-rather than raising when the index is out of range.
+Actions address a device by its `DeviceKey`, the path the traversal took to
+reach it, which every addressed row carries.  Not by name: names are not
+unique -- two line cards each have a "BIOS" -- and a lookup by name acted on
+whichever device came first.  Not by the indexed base-class accessors either:
+they are 0-based in some places and 1-based in others, and return None rather
+than raising when the index is out of range; a key holds list positions.  A
+caller that starts from a name resolves it the way Python's consumers do:
+`get_module_key` as chassisd does, `get_component_key` as fwutil does.
 
 Scope is the union of what the four consumer groups actually reach -- the ten
 PMON daemons, healthd, the CLI and the conformance suite.  `generator/
-inventory.json` records that union and is what this file is checked against.
+inventory.json` records that union, and `generator/api_coverage.py` checks
+this file against it.
 
-Not everything here is derived.  Four methods are `EscapeHatch`; see meta.pyi.
+Not everything here is derived.  A method declared `EscapeHatch` has its body
+written by hand in `_escape_hatch.py`, with the reason beside the declaration;
+see meta.pyi.
 
-Status: thermal / fan / fan drawer / power slice.  Chassis, module, sensor,
-component, SFP and leak rows follow the same pattern and are not yet written.
+SFP rows are not yet written.  What the consumers reach and this file does not
+declare is either OMITTED, with the reason it never will be, or DEFERRED, with
+the phase that declares it; `generator/api_coverage.py` counts both.
 """
 
 from typing import Annotated, ClassVar, Final, Literal, Optional
@@ -56,12 +48,18 @@ from .meta import (
     Flatten,
     FlattenSource,
     From,
+    Key,
     Narrowed,
     Observed,
     On,
     Parent,
+    ParentKey,
+    ReadIf,
+    RowError,
+    Secret,
     Snapshot,
     Truthy,
+    Unguarded,
     Unsupported,
     Via,
     WithName,
@@ -70,6 +68,8 @@ from .meta import (
 from .types import (
     Ampere,
     Celsius,
+    DeviceKey,
+    Number,
     PositionInParent,
     Percent,
     Threshold,
@@ -83,20 +83,36 @@ from .types import (
 # (`FanBase.FAN_DIRECTION_NOT_APPLICABLE`).
 _MISSING: Observed = Observed(sentinels=("N/A",), coerce_from=("int", "str"))
 
+# The four colours `DeviceBase.STATUS_LED_COLOR_*` names: what a daemon sets
+# on a fan or a PSU.  An LED is *read* as `str`, because a vendor answers
+# with its own colours (mlnx: "orange", "green_blink"), and the Python
+# daemons publish whatever it answered.
 LedColor = Literal["green", "amber", "red", "off"]
-FanDirection = Literal["intake", "exhaust", "N/A"]
 # "pdb" is psud's alone: its `_update_psu_fan_data` runs over PDBs as well as
 # PSUs (`psud:757`, `:942`), where thermalctld's FanUpdater walks drawers,
 # modules and PSUs only (`thermalctld:396-407`).  One row list serves both, so
 # the source they disagree about has to be nameable.
 FanKind = Literal["drawer", "module", "psu", "pdb"]
 PowerEntityKind = Literal["psu", "pdb"]
+# Where a thermal is mounted: one per source of ThermalInfo.  thermalctld
+# reads PSU and PDB thermals on the PSU interval and the rest on their own
+# (thermalctld:1176-1177), so it has to know which is which without reading
+# it out of a name.
+ThermalKind = Literal["chassis", "psu", "pdb", "module", "module_psu"]
 
 # ModuleBase.MODULE_TYPE_*; the strings the base class defines, not new ones.
 ModuleType = Literal["SUPERVISOR", "LINE-CARD", "FABRIC-CARD", "DPU", "SWITCH-HOST"]
 # ModuleBase.MODULE_STATUS_*.
-ModuleStatus = Literal["Empty", "Offline", "PoweredDown", "Present", "Fault", "Online"]
+ModuleStatus = Literal[
+    "Empty", "Offline", "PoweredDown", "Present", "Fault",
+    "ProvisionReady", "ProvisionPending", "Provisioned", "Online",
+]
 SensorKind = Literal["voltage", "current"]
+# What `eeprom_update_db` did.  syseepromd says which half failed before its
+# own line: "Failed to read EEPROM" when `read_eeprom()` answered None,
+# "Failed to update EEPROM info in database" when `update_eeprom_db()`
+# answered an error (syseepromd:85-96).
+EepromUpdate = Literal["updated", "read_failed", "update_failed"]
 # LeakageSensorBase.LEAK_SEVERITY_*; the enum member names, as strings.
 LeakSeverity = Literal["MINOR", "CRITICAL"]
 
@@ -119,12 +135,21 @@ ChangeEventKind = Literal[
 class ThermalInfo:
     """One temperature sensor, wherever in the tree it is mounted."""
 
+    # The name and the position are read outside thermalctld's per-thermal
+    # `try` (thermalctld:1156-1157), so one that raises fails the call, as it
+    # fails Python's cycle; they are also all a skipped thermal reads.  See
+    # `Unguarded` and `Snapshot.skippable`.
     name: Annotated[
         str,
         From("DeviceBase.get_name"),
         Unsupported(on="default", default="{parent} Thermal {i}"),
+        Unguarded(),
     ]
+    kind: Annotated[ThermalKind, Parent()]
     parent_name: Annotated[str, Parent()]
+    # Where the device is, and what `get_thermals(skip=...)` names; see DeviceKey.
+    key: Annotated[DeviceKey, Key()]
+    parent_key: Annotated[Optional[DeviceKey], ParentKey()]
     # No default here on purpose.  `DeviceBase.get_position_in_parent`
     # documents -1 for "cannot determine", but not one daemon uses that: psud
     # falls back to 0 (psud:932), thermalctld and sensormond fall back to the
@@ -132,39 +157,60 @@ class ThermalInfo:
     # (thermalctld:123,428,458,1087; sensormond:54).  A default baked in here
     # would have to be wrong for at least two of the three, so the row carries
     # the absence and each daemon applies its own -- which is what the Python
-    # it replaces does.  Measured on slm-111: PDB rows, where Mellanox does not
+    # it replaces does.  Measured on hardware: PDB rows, where Mellanox does not
     # implement the getter, were published as 0 by psud and as -1 by the port.
     position_in_parent: Annotated[
-        Optional[PositionInParent], From("DeviceBase.get_position_in_parent"),
+        Optional[PositionInParent], From("DeviceBase.get_position_in_parent"), Unguarded(),
     ]
+    # In thermalctld's order (thermalctld:1245-1253): the temperature and
+    # whether the sensor is replaceable, then -- only when there is a
+    # temperature -- the recorded extremes and the limits.  A row error names
+    # the column being read when it struck, so the order is what says how
+    # far Python got.
+    temperature: Annotated[Optional[Celsius], From("ThermalBase.get_temperature"), _MISSING]
     is_replaceable: Annotated[
         bool, From("DeviceBase.is_replaceable"), Unsupported(on="default", default=False),
     ]
-
-    temperature: Annotated[Optional[Celsius], From("ThermalBase.get_temperature"), _MISSING]
-    high_threshold: Annotated[
-        Optional[Threshold], From("ThermalBase.get_high_threshold"), _MISSING
-    ]
-    low_threshold: Annotated[
-        Optional[Threshold], From("ThermalBase.get_low_threshold"), _MISSING
-    ]
-    high_critical_threshold: Annotated[
-        Optional[Threshold], From("ThermalBase.get_high_critical_threshold"), _MISSING
-    ]
-    low_critical_threshold: Annotated[
-        Optional[Threshold], From("ThermalBase.get_low_critical_threshold"), _MISSING
-    ]
     min_recorded: Annotated[
-        Optional[Celsius], From("ThermalBase.get_minimum_recorded"), _MISSING
+        Optional[Celsius], From("ThermalBase.get_minimum_recorded"), _MISSING,
+        ReadIf("temperature"),
     ]
     max_recorded: Annotated[
-        Optional[Celsius], From("ThermalBase.get_maximum_recorded"), _MISSING
+        Optional[Celsius], From("ThermalBase.get_maximum_recorded"), _MISSING,
+        ReadIf("temperature"),
     ]
+    high_threshold: Annotated[
+        Optional[Threshold], From("ThermalBase.get_high_threshold"), _MISSING,
+        ReadIf("temperature"),
+    ]
+    low_threshold: Annotated[
+        Optional[Threshold], From("ThermalBase.get_low_threshold"), _MISSING,
+        ReadIf("temperature"),
+    ]
+    high_critical_threshold: Annotated[
+        Optional[Threshold], From("ThermalBase.get_high_critical_threshold"), _MISSING,
+        ReadIf("temperature"),
+    ]
+    low_critical_threshold: Annotated[
+        Optional[Threshold], From("ThermalBase.get_low_critical_threshold"), _MISSING,
+        ReadIf("temperature"),
+    ]
+    # What went wrong reading this thermal's readings, if anything did; see
+    # `RowError`.  thermalctld logs `repr(e)` (thermalctld:1294).
+    error: Annotated[Optional[str], RowError()]
+    error_repr: Annotated[Optional[str], RowError(repr=True)]
+    error_column: Annotated[Optional[str], RowError(column=True)]
 
-    # Order reproduces thermalctld._collect_thermals (thermalctld:1100-1145).
-    # A PSU that is not present contributes nothing; the PDB source is absent
-    # rather than empty on a PSU-based platform; module thermals exist only on
-    # a modular chassis.
+    # thermalctld's order (thermalctld:1173-1213).  A PSU that is not present
+    # contributes nothing; the PDB source is absent rather than empty on a
+    # PSU-based platform; module thermals exist only on a modular chassis.
+    #
+    # One difference, on a modular chassis only: thermalctld walks a module's
+    # thermals and then that module's PSU thermals before the next module
+    # (thermalctld:1202-1213), and here each source is whole -- every module's
+    # thermals, then every module's PSU thermals.  Nothing published depends on
+    # it: a thermal is published under its name, with its position within its
+    # own parent, and both are the same either way.
     def __init__(self, **fields: object) -> None:
         """Keyword-only.  The columns are the fields declared above; naming
         them again in a signature would be the one list written twice."""
@@ -174,6 +220,7 @@ class ThermalInfo:
             FlattenSource(
                 "ChassisBase.get_all_thermals",
                 parent_default="chassis 1",
+                sets=(("kind", "chassis"),),
             ),
             FlattenSource(
                 "PsuBase.get_all_thermals",
@@ -181,14 +228,20 @@ class ThermalInfo:
                 when="get_presence",
                 parent="get_name",
                 parent_default="PSU {i}",
+                sets=(("kind", "psu"),),
             ),
+            # `try_get(pdb.get_presence)` (thermalctld:1189): a PDB that does
+            # not say whether it is there is taken to be, where a PSU is
+            # asked bare and must answer.
             FlattenSource(
                 "PdbBase.get_all_thermals",
                 via=("ChassisBase.get_all_pdbs",),
                 when="get_presence",
+                when_unsupported="present",
                 parent="get_name",
                 parent_default="PDB {i}",
                 optional=True,
+                sets=(("kind", "pdb"),),
             ),
             FlattenSource(
                 "ModuleBase.get_all_thermals",
@@ -196,6 +249,7 @@ class ThermalInfo:
                 when_chassis="is_modular_chassis",
                 parent="get_name",
                 parent_default="Module {i}",
+                sets=(("kind", "module"),),
             ),
             FlattenSource(
                 "PsuBase.get_all_thermals",
@@ -204,6 +258,7 @@ class ThermalInfo:
                 when_chassis="is_modular_chassis",
                 parent="get_name",
                 parent_default=("Module {i}", "{parent} PSU {i}"),
+                sets=(("kind", "module_psu"),),
             ),
         )
     )
@@ -219,8 +274,12 @@ class FanInfo:
     ]
     kind: Annotated[FanKind, Parent()]
     parent_name: Annotated[str, Parent()]
-    # 'N/A' for a fan that is not in a drawer.  Left as the string rather than
-    # None because that is what the consumers already publish.
+    # Where the device is, and what every action on it takes; see DeviceKey.
+    key: Annotated[DeviceKey, Key()]
+    parent_key: Annotated[Optional[DeviceKey], ParentKey()]
+    # 'N/A' for a fan that is not in a drawer, or whose drawer has no name.
+    # Left as the string rather than None because that is what the consumers
+    # already publish (thermalctld:450).
     drawer_name: Annotated[str, Parent()]
     # No default here on purpose.  `DeviceBase.get_position_in_parent`
     # documents -1 for "cannot determine", but not one daemon uses that: psud
@@ -229,31 +288,71 @@ class FanInfo:
     # (thermalctld:123,428,458,1087; sensormond:54).  A default baked in here
     # would have to be wrong for at least two of the three, so the row carries
     # the absence and each daemon applies its own -- which is what the Python
-    # it replaces does.  Measured on slm-111: PDB rows, where Mellanox does not
+    # it replaces does.  Measured on hardware: PDB rows, where Mellanox does not
     # implement the getter, were published as 0 by psud and as -1 by the port.
     position_in_parent: Annotated[
         Optional[PositionInParent], From("DeviceBase.get_position_in_parent"),
     ]
 
-    presence: Annotated[bool, From("DeviceBase.get_presence"), Unsupported(on="default", default=False)]
-    status: Annotated[bool, From("DeviceBase.get_status"), Unsupported(on="default", default=False)]
+    # In thermalctld's order (thermalctld:470-479, 529-530): whether the fan
+    # is replaceable, its presence, the speeds and their verdicts, its fault
+    # status and direction, and -- last, as the row is written -- model and
+    # serial.  A row error names the column being read when it struck, so the
+    # order is what says how far Python got: past `position_in_parent` it has
+    # published the fan's entity row and taken the fan into its LED pass.
     is_replaceable: Annotated[
         bool, From("DeviceBase.is_replaceable"), Unsupported(on="default", default=False)
     ]
+    presence: Annotated[bool, From("DeviceBase.get_presence"), Unsupported(on="default", default=False)]
+    # Asked only of a fan that is there, as thermalctld asks them only
+    # `if presence:` (thermalctld:471-478) -- but not when psud reads a PSU's
+    # fans absorbing, which it gates on the PSU's presence instead and never
+    # asks the fan for its own (psud:945-950).  See `ReadIf`.
+    speed_pct: Annotated[
+        Optional[Percent], From("FanBase.get_speed"), _MISSING,
+        ReadIf("presence", truthy=True, when_absorbing=False),
+    ]
+    target_speed_pct: Annotated[
+        Optional[Percent], From("FanBase.get_target_speed"), _MISSING,
+        ReadIf("presence", truthy=True, when_absorbing=False),
+    ]
+    is_under_speed: Annotated[
+        Optional[bool], From("FanBase.is_under_speed"),
+        ReadIf("presence", truthy=True, when_absorbing=False),
+    ]
+    is_over_speed: Annotated[
+        Optional[bool], From("FanBase.is_over_speed"),
+        ReadIf("presence", truthy=True, when_absorbing=False),
+    ]
+    status: Annotated[
+        bool, From("DeviceBase.get_status"), Unsupported(on="default", default=False),
+        ReadIf("presence", truthy=True, when_absorbing=False),
+    ]
+    # No sentinel handling: FAN_DIRECTION_NOT_APPLICABLE is the string 'N/A',
+    # so here it is a value rather than a missing reading.  A `str` and not the
+    # three `FAN_DIRECTION_*`, for the reason an LED is: vendors answer with
+    # their own spelling (PDDF's valmaps say "INTAKE", "EXHAUST", "UNKNOWN"),
+    # and thermalctld and psud publish whatever they answered.
+    direction: Annotated[
+        Optional[str], From("FanBase.get_direction"),
+        ReadIf("presence", truthy=True, when_absorbing=False),
+    ]
     model: Annotated[Optional[str], From("DeviceBase.get_model")]
     serial: Annotated[Optional[str], From("DeviceBase.get_serial")]
-
-    speed_pct: Annotated[Optional[Percent], From("FanBase.get_speed"), _MISSING]
-    target_speed_pct: Annotated[Optional[Percent], From("FanBase.get_target_speed"), _MISSING]
-    # No sentinel handling: FAN_DIRECTION_NOT_APPLICABLE is the string 'N/A',
-    # so here it is a value rather than a missing reading.
-    direction: Annotated[Optional[FanDirection], From("FanBase.get_direction")]
-    is_under_speed: Annotated[Optional[bool], From("FanBase.is_under_speed")]
-    is_over_speed: Annotated[Optional[bool], From("FanBase.is_over_speed")]
-    status_led: Annotated[Optional[LedColor], From("FanBase.get_status_led")]
+    # Read in thermalctld's separate LED pass (thermalctld:558-570), which a
+    # caller asks for on its own.
+    status_led: Annotated[Optional[str], From("FanBase.get_status_led")]
+    # What went wrong reading this fan, if anything did; see `RowError`.
+    # thermalctld refreshes each fan in its own `try`, name included
+    # (thermalctld:378-384), so no column here is Unguarded.
+    error: Annotated[Optional[str], RowError()]
+    error_repr: Annotated[Optional[str], RowError(repr=True)]
+    error_column: Annotated[Optional[str], RowError(column=True)]
 
     # thermalctld:396-409 -- drawers, then modules, then PSUs.  A drawer fan
-    # whose drawer has no name is published under the chassis.
+    # whose drawer has no name -- or is named 'N/A', as Mellanox's virtual
+    # drawer is (fan_drawer.py:118) -- is published under the chassis, with
+    # `drawer_name` 'N/A' (thermalctld:450-456).
     def __init__(self, **fields: object) -> None:
         """Keyword-only.  The columns are the fields declared above; naming
         them again in a signature would be the one list written twice."""
@@ -264,8 +363,9 @@ class FanInfo:
                 "FanDrawerBase.get_all_fans",
                 via=("ChassisBase.get_all_fan_drawers",),
                 parent="get_name",
+                parent_missing=("N/A",),
                 parent_default="chassis 1",
-                sets=(("kind", "drawer"), ("drawer_name", "@parent")),
+                sets=(("kind", "drawer"), ("drawer_name", "@parent_raw")),
             ),
             FlattenSource(
                 "ModuleBase.get_all_fans",
@@ -297,9 +397,14 @@ class FanInfo:
 class FanDrawerInfo:
     """One fan drawer: the field-replaceable unit a chassis fan sits in."""
 
+    # 'N/A' for a drawer that does not name itself: what thermalctld calls it,
+    # and the name it publishes nothing under (thermalctld:423-426).  Actions
+    # reach a drawer by its key, so the name is only ever shown.
     name: Annotated[
-        str, From("DeviceBase.get_name"), Unsupported(on="default", default="drawer {i}")
+        str, From("DeviceBase.get_name"), Unsupported(on="default", default="N/A")
     ]
+    # Where the device is, and what every action on it takes; see DeviceKey.
+    key: Annotated[DeviceKey, Key()]
     # No default here on purpose.  `DeviceBase.get_position_in_parent`
     # documents -1 for "cannot determine", but not one daemon uses that: psud
     # falls back to 0 (psud:932), thermalctld and sensormond fall back to the
@@ -307,7 +412,7 @@ class FanDrawerInfo:
     # (thermalctld:123,428,458,1087; sensormond:54).  A default baked in here
     # would have to be wrong for at least two of the three, so the row carries
     # the absence and each daemon applies its own -- which is what the Python
-    # it replaces does.  Measured on slm-111: PDB rows, where Mellanox does not
+    # it replaces does.  Measured on hardware: PDB rows, where Mellanox does not
     # implement the getter, were published as 0 by psud and as -1 by the port.
     position_in_parent: Annotated[
         Optional[PositionInParent], From("DeviceBase.get_position_in_parent"),
@@ -319,7 +424,7 @@ class FanDrawerInfo:
     ]
     model: Annotated[Optional[str], From("DeviceBase.get_model")]
     serial: Annotated[Optional[str], From("DeviceBase.get_serial")]
-    status_led: Annotated[Optional[LedColor], From("FanDrawerBase.get_status_led")]
+    status_led: Annotated[Optional[str], From("FanDrawerBase.get_status_led")]
     maximum_consumed_power: Annotated[
         Optional[Watt], From("FanDrawerBase.get_maximum_consumed_power"), _MISSING
     ]
@@ -336,10 +441,14 @@ class PsuInfo:
     """A PSU or a PDB.  `PdbBase` extends `PsuBase` and psud publishes both
     into the same table, so they are one row type with a `kind`."""
 
+    # The source's own fallback, 'PSU {i}' or 'PDB {i}', which is psud's
+    # (psud:260-268): an unnamed PDB is not called after a PSU.
     name: Annotated[
-        str, From("DeviceBase.get_name"), Unsupported(on="default", default="PSU {i}")
+        str, From("DeviceBase.get_name"), Unsupported(on="default", default="{parent}")
     ]
     kind: Annotated[PowerEntityKind, Parent()]
+    # Where the device is, and what every action on it takes; see DeviceKey.
+    key: Annotated[DeviceKey, Key()]
     # No default here on purpose.  `DeviceBase.get_position_in_parent`
     # documents -1 for "cannot determine", but not one daemon uses that: psud
     # falls back to 0 (psud:932), thermalctld and sensormond fall back to the
@@ -347,7 +456,7 @@ class PsuInfo:
     # (thermalctld:123,428,458,1087; sensormond:54).  A default baked in here
     # would have to be wrong for at least two of the three, so the row carries
     # the absence and each daemon applies its own -- which is what the Python
-    # it replaces does.  Measured on slm-111: PDB rows, where Mellanox does not
+    # it replaces does.  Measured on hardware: PDB rows, where Mellanox does not
     # implement the getter, were published as 0 by psud and as -1 by the port.
     position_in_parent: Annotated[
         Optional[PositionInParent], From("DeviceBase.get_position_in_parent"),
@@ -360,30 +469,59 @@ class PsuInfo:
     serial: Annotated[Optional[str], From("DeviceBase.get_serial")]
     revision: Annotated[Optional[str], From("DeviceBase.get_revision")]
 
+    # Asked only of a PSU that is there, as psud asks them only `if presence:`
+    # (psud:767, 779-789): a PSU that has been pulled is not asked for what it
+    # cannot answer, which on a driver that tries the I/O anyway costs its
+    # retries and timeouts in every snapshot.  A PDB's input power, which psud
+    # does not read, goes with the other readings.  The LED, the FRU fields
+    # and the power thresholds are asked of any PSU (psud:835-836, 883-885).
     power_good: Annotated[
-        bool, From("PsuBase.get_powergood_status"), Unsupported(on="default", default=False)
+        bool, From("PsuBase.get_powergood_status"), Unsupported(on="default", default=False),
+        ReadIf("presence", truthy=True),
     ]
-    status_led: Annotated[Optional[LedColor], From("PsuBase.get_status_led")]
+    status_led: Annotated[Optional[str], From("PsuBase.get_status_led")]
 
-    voltage: Annotated[Optional[Volt], From("PsuBase.get_voltage"), _MISSING]
-    current: Annotated[Optional[Ampere], From("PsuBase.get_current"), _MISSING]
-    power: Annotated[Optional[Watt], From("PsuBase.get_power"), _MISSING]
-    input_voltage: Annotated[Optional[Volt], From("PsuBase.get_input_voltage"), _MISSING]
-    input_current: Annotated[Optional[Ampere], From("PsuBase.get_input_current"), _MISSING]
-    input_power: Annotated[Optional[Watt], From("PdbBase.get_input_power"), _MISSING]
+    voltage: Annotated[
+        Optional[Volt], From("PsuBase.get_voltage"), _MISSING, ReadIf("presence", truthy=True)
+    ]
+    current: Annotated[
+        Optional[Ampere], From("PsuBase.get_current"), _MISSING, ReadIf("presence", truthy=True)
+    ]
+    power: Annotated[
+        Optional[Watt], From("PsuBase.get_power"), _MISSING, ReadIf("presence", truthy=True)
+    ]
+    input_voltage: Annotated[
+        Optional[Volt], From("PsuBase.get_input_voltage"), _MISSING,
+        ReadIf("presence", truthy=True),
+    ]
+    input_current: Annotated[
+        Optional[Ampere], From("PsuBase.get_input_current"), _MISSING,
+        ReadIf("presence", truthy=True),
+    ]
+    input_power: Annotated[
+        Optional[Watt], From("PdbBase.get_input_power"), _MISSING,
+        ReadIf("presence", truthy=True),
+    ]
 
-    temperature: Annotated[Optional[Celsius], From("PsuBase.get_temperature"), _MISSING]
+    temperature: Annotated[
+        Optional[Celsius], From("PsuBase.get_temperature"), _MISSING,
+        ReadIf("presence", truthy=True),
+    ]
     temperature_high_threshold: Annotated[
-        Optional[Threshold], From("PsuBase.get_temperature_high_threshold"), _MISSING
+        Optional[Threshold], From("PsuBase.get_temperature_high_threshold"), _MISSING,
+        ReadIf("presence", truthy=True),
     ]
     voltage_high_threshold: Annotated[
-        Optional[Threshold], From("PsuBase.get_voltage_high_threshold"), _MISSING
+        Optional[Threshold], From("PsuBase.get_voltage_high_threshold"), _MISSING,
+        ReadIf("presence", truthy=True),
     ]
     voltage_low_threshold: Annotated[
-        Optional[Threshold], From("PsuBase.get_voltage_low_threshold"), _MISSING
+        Optional[Threshold], From("PsuBase.get_voltage_low_threshold"), _MISSING,
+        ReadIf("presence", truthy=True),
     ]
     maximum_supplied_power: Annotated[
-        Optional[Watt], From("PsuBase.get_maximum_supplied_power"), _MISSING
+        Optional[Watt], From("PsuBase.get_maximum_supplied_power"), _MISSING,
+        ReadIf("presence", truthy=True),
     ]
     power_warning_suppress_threshold: Annotated[
         Optional[Watt], From("PsuBase.get_psu_power_warning_suppress_threshold"), _MISSING
@@ -418,6 +556,9 @@ class PsuInfo:
 class ChassisInfo:
     """The chassis itself.  A singleton: there is one, and it is the device."""
 
+    # Declinable, unlike a list row's name: the chassis is walked under the
+    # fixed 'chassis 1', so a projected read that does not ask for this one
+    # does not call `get_name()`, which on some platforms reads the EEPROM.
     name: Annotated[str, From("DeviceBase.get_name"),
                     Unsupported(on="default", default="chassis 1")]
     presence: Annotated[bool, From("DeviceBase.get_presence"),
@@ -460,7 +601,7 @@ class ChassisInfo:
 
     dataplane_state: Annotated[Optional[bool], From("ChassisBase.get_dataplane_state")]
     controlplane_state: Annotated[Optional[bool], From("ChassisBase.get_controlplane_state")]
-    status_led: Annotated[Optional[LedColor], From("ChassisBase.get_status_led")]
+    status_led: Annotated[Optional[str], From("ChassisBase.get_status_led")]
 
     def __init__(self, **fields: object) -> None:
         """Keyword-only, as every row is."""
@@ -471,6 +612,9 @@ class ModuleInfo:
     name: Annotated[str, From("ModuleBase.get_name"),
                     Unsupported(on="default", default="Module {i}")]
     parent_name: Annotated[str, Parent()]
+    # Where the device is, and what every action on it takes; see DeviceKey.
+    key: Annotated[DeviceKey, Key()]
+    parent_key: Annotated[Optional[DeviceKey], ParentKey()]
     # No default here on purpose.  `DeviceBase.get_position_in_parent`
     # documents -1 for "cannot determine", but not one daemon uses that: psud
     # falls back to 0 (psud:932), thermalctld and sensormond fall back to the
@@ -478,7 +622,7 @@ class ModuleInfo:
     # (thermalctld:123,428,458,1087; sensormond:54).  A default baked in here
     # would have to be wrong for at least two of the three, so the row carries
     # the absence and each daemon applies its own -- which is what the Python
-    # it replaces does.  Measured on slm-111: PDB rows, where Mellanox does not
+    # it replaces does.  Measured on hardware: PDB rows, where Mellanox does not
     # implement the getter, were published as 0 by psud and as -1 by the port.
     position_in_parent: Annotated[
         Optional[PositionInParent], From("DeviceBase.get_position_in_parent"),
@@ -525,6 +669,9 @@ class ComponentInfo:
     name: Annotated[str, From("ComponentBase.get_name"),
                     Unsupported(on="default", default="{parent} component {i}")]
     parent_name: Annotated[str, Parent()]
+    # Where the device is, and what every action on it takes; see DeviceKey.
+    key: Annotated[DeviceKey, Key()]
+    parent_key: Annotated[Optional[DeviceKey], ParentKey()]
     description: Annotated[Optional[str], From("ComponentBase.get_description")]
     firmware_version: Annotated[
         Optional[str], From("ComponentBase.get_firmware_version")
@@ -554,10 +701,15 @@ class SensorInfo:
     only one filters.
     """
 
+    # sensormond's own fallback, `'{} voltage_sensor {}'` and
+    # `'{} current_sensor {}'` (sensormond:246, 394).
     name: Annotated[str, From("DeviceBase.get_name"),
-                    Unsupported(on="default", default="{parent} sensor {i}")]
+                    Unsupported(on="default", default="{parent} {kind}_sensor {i}")]
     kind: Annotated[SensorKind, Parent()]
     parent_name: Annotated[str, Parent()]
+    # Where the device is, and what every action on it takes; see DeviceKey.
+    key: Annotated[DeviceKey, Key()]
+    parent_key: Annotated[Optional[DeviceKey], ParentKey()]
     # No default here on purpose.  `DeviceBase.get_position_in_parent`
     # documents -1 for "cannot determine", but not one daemon uses that: psud
     # falls back to 0 (psud:932), thermalctld and sensormond fall back to the
@@ -565,37 +717,49 @@ class SensorInfo:
     # (thermalctld:123,428,458,1087; sensormond:54).  A default baked in here
     # would have to be wrong for at least two of the three, so the row carries
     # the absence and each daemon applies its own -- which is what the Python
-    # it replaces does.  Measured on slm-111: PDB rows, where Mellanox does not
+    # it replaces does.  Measured on hardware: PDB rows, where Mellanox does not
     # implement the getter, were published as 0 by psud and as -1 by the port.
     position_in_parent: Annotated[
         Optional[PositionInParent], From("DeviceBase.get_position_in_parent"),
     ]
+    # In sensormond's order (sensormond:246-271): the value and whether the
+    # sensor is replaceable, then -- only when there is a value -- the unit,
+    # the recorded extremes and the limits.  A row error names the column
+    # being read when it struck, so the order is what says how far Python
+    # got.
+    value: Annotated[Optional[Number], From("SensorBase.get_value"), _MISSING]
     is_replaceable: Annotated[bool, From("DeviceBase.is_replaceable"),
                               Unsupported(on="default", default=False)]
-
     # SensorBase.get_unit is a classmethod returning 'mV' or 'mA'.  Carried as
     # data because the daemon publishes it, and because a consumer reading a
     # bare number off a sensor it did not choose needs to be told.
-    unit: Annotated[Optional[str], From("SensorBase.get_unit")]
-    value: Annotated[Optional[float], From("SensorBase.get_value"), _MISSING]
-    high_threshold: Annotated[
-        Optional[Threshold], From("SensorBase.get_high_threshold"), _MISSING
-    ]
-    low_threshold: Annotated[
-        Optional[Threshold], From("SensorBase.get_low_threshold"), _MISSING
-    ]
-    high_critical_threshold: Annotated[
-        Optional[Threshold], From("SensorBase.get_high_critical_threshold"), _MISSING
-    ]
-    low_critical_threshold: Annotated[
-        Optional[Threshold], From("SensorBase.get_low_critical_threshold"), _MISSING
-    ]
+    unit: Annotated[Optional[str], From("SensorBase.get_unit"), ReadIf("value")]
     min_recorded: Annotated[
-        Optional[float], From("SensorBase.get_minimum_recorded"), _MISSING
+        Optional[Number], From("SensorBase.get_minimum_recorded"), _MISSING, ReadIf("value"),
     ]
     max_recorded: Annotated[
-        Optional[float], From("SensorBase.get_maximum_recorded"), _MISSING
+        Optional[Number], From("SensorBase.get_maximum_recorded"), _MISSING, ReadIf("value"),
     ]
+    high_threshold: Annotated[
+        Optional[Threshold], From("SensorBase.get_high_threshold"), _MISSING, ReadIf("value"),
+    ]
+    low_threshold: Annotated[
+        Optional[Threshold], From("SensorBase.get_low_threshold"), _MISSING, ReadIf("value"),
+    ]
+    high_critical_threshold: Annotated[
+        Optional[Threshold], From("SensorBase.get_high_critical_threshold"), _MISSING,
+        ReadIf("value"),
+    ]
+    low_critical_threshold: Annotated[
+        Optional[Threshold], From("SensorBase.get_low_critical_threshold"), _MISSING,
+        ReadIf("value"),
+    ]
+    # What went wrong reading this sensor, if anything did; see `RowError`.
+    # sensormond refreshes each sensor in its own `try`, name included
+    # (sensormond:237-311, 385-459).
+    error: Annotated[Optional[str], RowError()]
+    error_repr: Annotated[Optional[str], RowError(repr=True)]
+    error_column: Annotated[Optional[str], RowError(column=True)]
 
     def __init__(self, **fields: object) -> None:
         """Keyword-only, as every row is."""
@@ -603,6 +767,9 @@ class SensorInfo:
     # sensormond:209 and :356.  All voltage, then all current; within each,
     # the sensors.yaml ones before the chassis' own, because the daemon
     # concatenates in that order and the row index is what a consumer sees.
+    # The two are one list there, numbered together, so the chassis source
+    # carries the yaml one's index on; a module's sensors start again at 1
+    # (sensormond:218-226, 366-374).
     ORDER: ClassVar[Flatten] = Flatten(
         sources=(
             FlattenSource(
@@ -614,6 +781,7 @@ class SensorInfo:
             FlattenSource(
                 "ChassisBase.get_all_voltage_sensors",
                 parent_default="chassis 1",
+                index_from_previous=True,
                 sets=(("kind", "voltage"),),
             ),
             FlattenSource(
@@ -633,6 +801,7 @@ class SensorInfo:
             FlattenSource(
                 "ChassisBase.get_all_current_sensors",
                 parent_default="chassis 1",
+                index_from_previous=True,
                 sets=(("kind", "current"),),
             ),
             FlattenSource(
@@ -864,6 +1033,14 @@ class StorageDeviceInfo:
     # parse happens here, once, and `None` means "no baseline this cycle".
     fs_io_reads: Annotated[Optional[int], Parent()]
     fs_io_writes: Annotated[Optional[int], Parent()]
+    # What stormond's two passes over this disk would have caught, each as
+    # `str(ex)`: its model and serial, read once at start-up and logged at
+    # ERR when they raise (stormond:311-332), and its refresh --
+    # `fetch_parse_info` and every reading after it -- logged at NOTICE
+    # (stormond:335-393).  A disk is a row either way; the readings of a pass
+    # that failed are 'N/A' and are not Python's to publish.
+    static_error: Annotated[Optional[str], Parent()]
+    error: Annotated[Optional[str], Parent()]
 
     def __init__(self, **fields: object) -> None:
         """Keyword-only, as every row is."""
@@ -1011,7 +1188,8 @@ class BmcResult:
     # open_session answers (code, (message, (session_id, token))); a debug-log
     # dump answers (code, (task_id, message)).  Both are absent elsewhere.
     session_id: Annotated[Optional[str], Parent()]
-    token: Annotated[Optional[str], Parent()]
+    # A credential: kept out of every repr and Debug line; see `Secret`.
+    token: Annotated[Optional[str], Parent(), Secret()]
     task_id: Annotated[Optional[str], Parent()]
 
     def __init__(self, **fields: object) -> None:
@@ -1046,28 +1224,27 @@ OMITTED: Final[tuple[tuple[str, str], ...]] = (
     ("PsuBase.get_num_thermals", "len(get_thermals()) filtered on parent"),
     ("FanDrawerBase.get_num_fans", "len(get_fans()) filtered on parent"),
     ("LiquidCoolingBase.get_num_leak_sensors", "len(get_leak_sensors())"),
-    # Rows are addressed by name.  The indexed accessors are 0-based in some
+    # Rows are addressed by key.  The indexed accessors are 0-based in some
     # places and 1-based in others, and answer None rather than raising when
     # the index is out of range.
-    ("ChassisBase.get_component", "rows are addressed by name"),
-    ("ChassisBase.get_fan", "rows are addressed by name"),
-    ("ChassisBase.get_fan_drawer", "rows are addressed by name"),
-    ("ChassisBase.get_module", "rows are addressed by name"),
-    ("ChassisBase.get_psu", "rows are addressed by name"),
-    ("ChassisBase.get_pdb", "rows are addressed by name"),
-    ("ChassisBase.get_thermal", "rows are addressed by name"),
-    ("ChassisBase.get_sfp", "rows are addressed by name"),
-    ("ChassisBase.get_cpo", "rows are addressed by name"),
-    ("ChassisBase.get_module_index", "rows are addressed by name"),
-    ("ModuleBase.get_component", "rows are addressed by name"),
-    ("ModuleBase.get_fan", "rows are addressed by name"),
-    ("ModuleBase.get_psu", "rows are addressed by name"),
-    ("ModuleBase.get_thermal", "rows are addressed by name"),
-    ("ModuleBase.get_sfp", "rows are addressed by name"),
-    ("PsuBase.get_fan", "rows are addressed by name"),
-    ("PsuBase.get_thermal", "rows are addressed by name"),
-    ("FanDrawerBase.get_fan", "rows are addressed by name"),
-    ("SfpBase.get_thermal", "rows are addressed by name"),
+    ("ChassisBase.get_component", "rows are addressed by key"),
+    ("ChassisBase.get_fan", "rows are addressed by key"),
+    ("ChassisBase.get_fan_drawer", "rows are addressed by key"),
+    ("ChassisBase.get_module", "rows are addressed by key"),
+    ("ChassisBase.get_psu", "rows are addressed by key"),
+    ("ChassisBase.get_pdb", "rows are addressed by key"),
+    ("ChassisBase.get_thermal", "rows are addressed by key"),
+    ("ChassisBase.get_sfp", "rows are addressed by key"),
+    ("ChassisBase.get_cpo", "rows are addressed by key"),
+    ("ModuleBase.get_component", "rows are addressed by key"),
+    ("ModuleBase.get_fan", "rows are addressed by key"),
+    ("ModuleBase.get_psu", "rows are addressed by key"),
+    ("ModuleBase.get_thermal", "rows are addressed by key"),
+    ("ModuleBase.get_sfp", "rows are addressed by key"),
+    ("PsuBase.get_fan", "rows are addressed by key"),
+    ("PsuBase.get_thermal", "rows are addressed by key"),
+    ("FanDrawerBase.get_fan", "rows are addressed by key"),
+    ("SfpBase.get_thermal", "rows are addressed by key"),
     # ChassisBase.get_all_fans is the flat list of fans mounted directly on
     # the chassis.  FanInfo already collects every fan through its drawer, its
     # module or its PSU; adding this source would double-count on a platform
@@ -1099,9 +1276,6 @@ OMITTED: Final[tuple[tuple[str, str], ...]] = (
     ("PdbBase.get_voltage", "PsuBase.get_voltage; PdbBase delegates to it"),
     ("PdbBase.get_current", "PsuBase.get_current; PdbBase delegates to it"),
     ("PdbBase.get_power", "PsuBase.get_power; PdbBase delegates to it"),
-    ("PdbBase.get_output_voltage", "PsuInfo.voltage"),
-    ("PdbBase.get_output_current", "PsuInfo.current"),
-    ("PdbBase.get_output_power", "PsuInfo.power"),
     ("BMCWatchdog.arm", "WatchdogBase.arm; BMCWatchdog overrides it"),
     ("BMCWatchdog.disarm", "WatchdogBase.disarm"),
     ("BMCWatchdog.is_armed", "WatchdogBase.is_armed"),
@@ -1116,9 +1290,61 @@ OMITTED: Final[tuple[tuple[str, str], ...]] = (
     ("ModuleBase.get_state_db", "the caller opens its own DB connection"),
 )
 
+# Base-class methods a consumer reaches that a later phase declares, each with
+# the phase.  Not omissions -- they are meant to be here -- and not unknown
+# either: `generator/api_coverage.py --check` fails on anything a consumer
+# reaches that is in none of the facade, OMITTED and this.
+#
+# Transceivers come with the port of sonic_xcvr, which they are built on;
+# xcvrd and sfputil read the Python platform API until then.  The other two
+# are reached only by the CLI, which keeps reading Python until its bindings.
+DEFERRED: Final[tuple[tuple[str, str], ...]] = (
+    ("ChassisBase.get_all_sfps", "transceivers: the sonic_xcvr phase"),
+    ("ModuleBase.get_all_sfps", "transceivers: the sonic_xcvr phase"),
+    ("ChassisBase.get_port_or_cage_type", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_error_description", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_lpmode", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_num_thermals", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_power_override", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_reset_status", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_rx_los", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_rx_power", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_transceiver_info", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_transceiver_threshold_info", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_tx_bias", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_tx_disable", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_tx_disable_channel", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_tx_fault", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_tx_power", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.get_xcvr_api", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.remove_xcvr_api", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.reset", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.set_lpmode", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.set_power", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.set_power_override", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.tx_disable", "transceivers: the sonic_xcvr phase"),
+    ("SfpBase.tx_disable_channel", "transceivers: the sonic_xcvr phase"),
+    ("PcieBase.get_pcie_device", "the CLI phase: only pcieutil reaches it"),
+    ("PcieUtil.get_pcie_device", "the CLI phase: only pcieutil reaches it"),
+    ("PcieUtil.dump_conf_yaml", "the CLI phase: only pcieutil reaches it"),
+    ("StorageBase.get_vendor_output", "the CLI phase: only ssdutil --vendor reaches it"),
+    ("SsdUtil.get_vendor_output", "the CLI phase: only ssdutil --vendor reaches it"),
+    ("EmmcUtil.get_vendor_output", "the CLI phase: only ssdutil --vendor reaches it"),
+    ("UsbUtil.get_vendor_output", "the CLI phase: only ssdutil --vendor reaches it"),
+)
+
 # --------------------------------------------------------------------------
 # The API
 # --------------------------------------------------------------------------
+
+class DeviceNotFound(KeyError):
+    """No device at a key: one that names nothing, or that is not a key at all.
+
+    What an action raises for a key that leads nowhere.  A `KeyError`, as a
+    lookup that found nothing has always been in Python, and a class of its
+    own so that a `KeyError` out of a vendor's getter is not taken for one:
+    the Rust bridge maps this, and only this, to `PlatformError::NotFound`.
+    """
 
 class PlatformApi:
     def __init__(self, chassis: object) -> None:
@@ -1126,7 +1352,7 @@ class PlatformApi:
 
         The facade never imports `sonic_platform` itself: which vendor package
         is in play is the caller's decision, and keeping it out of here is what
-        lets the conformance suite drive a facade over a mock.
+        lets the tests drive a facade over a mock.
         """
 
     # -- snapshots ---------------------------------------------------------
@@ -1134,7 +1360,7 @@ class PlatformApi:
     # Projected: pcied reads one of these twenty columns
     # (`is_smartswitch`) and psud one (`is_modular_chassis`); chassisd
     # reads seven and thermalctld six.  See `Snapshot.projected`.
-    @platform_method(Snapshot(scope="per_cycle", projected=True))
+    @platform_method(Snapshot(projected=True))
     def get_chassis_info(self) -> ChassisInfo:
         """The chassis.
 
@@ -1144,41 +1370,50 @@ class PlatformApi:
 
     # Projected: chassisd reads eleven of these eighteen columns, psud
     # three -- it wants a module's power draw, not its midplane.
-    @platform_method(Snapshot(scope="per_cycle", projected=True))
+    @platform_method(Snapshot(projected=True))
     def get_modules(self) -> list[ModuleInfo]: ...
-    @platform_method(Snapshot(scope="per_cycle"))
+    # Skippable: thermalctld reads a thermal's readings only when platform.json's
+    # `polling_interval` -- or the PSU interval, for a PSU's or a PDB's -- says
+    # it is due, and every other cycle only its name and position
+    # (thermalctld:1126-1158, 1176-1177).
+    @platform_method(Snapshot(projected=True, skippable=True, per_row_errors=True))
     def get_thermals(self) -> list[ThermalInfo]: ...
     # Projected: psud reads four of these sixteen columns and thermalctld
     # nineteen, and two of the ones psud discards -- is_under_speed and
     # is_over_speed -- reach sysfs files a switched-off PSU leaves empty.  See
     # `Snapshot.projected`.
-    @platform_method(Snapshot(scope="per_cycle", projected=True))
+    # Absorbable: thermalctld refreshes a fan in one `try` (thermalctld:378-384),
+    # psud reads a PSU's fans one `try_get` at a time (psud:943-960); see
+    # `Snapshot.absorbs`.
+    @platform_method(Snapshot(projected=True, per_row_errors=True, absorbable=True))
     def get_fans(self) -> list[FanInfo]: ...
     # Projected: thermalctld reads eight of these nine columns, psud three.
-    @platform_method(Snapshot(scope="per_cycle", projected=True))
+    @platform_method(Snapshot(projected=True))
     def get_fan_drawers(self) -> list[FanDrawerInfo]: ...
-    @platform_method(Snapshot(scope="per_cycle"))
+    # Absorbs: psud reads every column of a PSU through `try_get`, which takes
+    # any exception for "no answer" (psud:271-292).
+    @platform_method(Snapshot(absorbs=True))
     def get_psus(self) -> list[PsuInfo]: ...
-    @platform_method(Snapshot(scope="per_cycle"))
+    @platform_method(Snapshot())
     def get_components(self) -> list[ComponentInfo]: ...
-    @platform_method(Snapshot(scope="per_cycle"))
+    @platform_method(Snapshot(per_row_errors=True))
     def get_sensors(self) -> list[SensorInfo]: ...
 
-    @platform_method(Snapshot(scope="per_call"))
+    @platform_method(Snapshot())
     def get_leak_profiles(self) -> list[LeakProfile]:
-        """Published once at start-up, so read on call rather than cached."""
+        """The leak policies, which thermalctld publishes once at start-up."""
 
-    @platform_method(Snapshot(scope="per_cycle"))
+    @platform_method(Snapshot())
     def get_leak_sensors(self) -> list[LeakSensorInfo]: ...
-    @platform_method(Snapshot(scope="per_cycle"))
+    @platform_method(Snapshot())
     def get_eeprom(self) -> list[EepromTlv]:
         """Every system EEPROM entry the platform exposes, chassis and BMC."""
 
-    @platform_method(Snapshot(scope="per_cycle"))
+    @platform_method(Snapshot())
     def get_bmcs(self) -> list[BmcInfo]:
         """A list of at most one, for the same reason as `get_watchdogs`."""
 
-    @platform_method(Snapshot(scope="per_cycle"))
+    @platform_method(Snapshot())
     def get_watchdogs(self) -> list[WatchdogInfo]:
         """A list of at most one.
 
@@ -1187,10 +1422,21 @@ class PlatformApi:
         """
 
 
-    # -- actions, addressed by name ---------------------------------------
+    # -- actions, addressed by key ----------------------------------------
+    #
+    # Each takes the `key` of the row it acts on, and the facade follows that
+    # path back to the device: the object a Python consumer would have held
+    # from its own traversal.  A key of another row type, or one that no
+    # longer leads anywhere, is refused rather than resolved to something else.
+    #
+    # An action answers what its base-class method answers.  Where that is a
+    # bool the action is `Optional[bool]`, None when the vendor returned
+    # nothing: chassisd backs off a DPU whose transition lock is held, and an
+    # action declared `None` turned the base class's False into success.
+    # `generate.py` holds each declaration to the base class's docstring.
 
-    @platform_method(On(row="FanInfo"), Calls("FanBase.set_status_led"), Unsupported(on="error"))
-    def set_fan_led(self, fan: str, color: LedColor) -> None:
+    @platform_method(On(row="FanInfo"), Calls("FanBase.set_status_led"))
+    def set_fan_led(self, fan: DeviceKey, color: LedColor) -> Optional[bool]:
         """Set the LED on one fan.
 
         Separate from `set_fan_drawer_led` on purpose.  thermalctld sets the
@@ -1199,19 +1445,18 @@ class PlatformApi:
         one call would hide which of them a platform refused.
         """
 
-    @platform_method(
-        On(row="FanDrawerInfo"), Calls("FanDrawerBase.set_status_led"), Unsupported(on="error")
-    )
-    def set_fan_drawer_led(self, drawer: str, color: LedColor) -> None: ...
-    @platform_method(On(row="FanInfo"), Calls("FanBase.set_speed"), Unsupported(on="error"))
-    def set_fan_speed(self, fan: str, speed: Percent) -> None: ...
-    @platform_method(On(row="PsuInfo"), Calls("PsuBase.set_status_led"), Unsupported(on="error"))
-    def set_psu_led(self, psu: str, color: LedColor) -> None: ...
+    @platform_method(On(row="FanDrawerInfo"), Calls("FanDrawerBase.set_status_led"))
+    def set_fan_drawer_led(self, drawer: DeviceKey, color: LedColor) -> Optional[bool]: ...
+    # An int, not a `Percent` reading: what the one caller in the tree hands
+    # `FanBase.set_speed`, ThermalManagerBase's `int()` of the configured
+    # speed (thermal_manager_base.py:151-152, 221).
+    @platform_method(On(row="FanInfo"), Calls("FanBase.set_speed"))
+    def set_fan_speed(self, fan: DeviceKey, speed: int) -> Optional[bool]: ...
+    @platform_method(On(row="PsuInfo"), Calls("PsuBase.set_status_led"))
+    def set_psu_led(self, psu: DeviceKey, color: LedColor) -> Optional[bool]: ...
 
-    @platform_method(
-        On(row="ModuleInfo"), Calls("ModuleBase.get_reboot_cause")
-    )
-    def get_module_reboot_cause(self, module: str) -> ModuleRebootCause:
+    @platform_method(On(row="ModuleInfo"), Calls("ModuleBase.get_reboot_cause"))
+    def get_module_reboot_cause(self, module: DeviceKey) -> ModuleRebootCause:
         """Why a module last restarted, asked when it restarts.
 
         Deliberately not a column of `ModuleInfo`.  A row is built eagerly, so
@@ -1234,10 +1479,8 @@ class PlatformApi:
         cost, and why the fix is a row rather than a second method.
         """
 
-    @platform_method(
-        On(row="ModuleInfo"), Calls("ModuleBase.get_midplane_down_reason")
-    )
-    def get_module_midplane_down_reason(self, module: str) -> ModuleMidplaneDownReason:
+    @platform_method(On(row="ModuleInfo"), Calls("ModuleBase.get_midplane_down_reason"))
+    def get_module_midplane_down_reason(self, module: DeviceKey) -> ModuleMidplaneDownReason:
         """Why a module's midplane went down, asked when it goes down.
 
         A method rather than a column of `ModuleInfo`, by the rule
@@ -1245,21 +1488,17 @@ class PlatformApi:
         moment of the transition, not on every polling cycle.
         """
 
-    @platform_method(
-        On(row="PsuInfo"), Calls("PsuBase.get_status_master_led"), Unsupported(on="error")
-    )
-    def get_psu_master_led(self, psu: str) -> Optional[LedColor]:
+    @platform_method(On(row="PsuInfo"), Calls("PsuBase.get_status_master_led"))
+    def get_psu_master_led(self, psu: DeviceKey) -> Optional[str]:
         """The colour of the LED every hot-swappable PSU shares.
 
         `PsuBase.get_status_master_led` is a `@classmethod` over a class
-        attribute, so any PSU answers for all of them; the row name is how the
-        facade reaches an instance to ask.
+        attribute, so any PSU answers for all of them; a PSU row's key is how
+        the facade reaches an instance to ask.
         """
 
-    @platform_method(
-        On(row="PsuInfo"), Calls("PsuBase.set_status_master_led"), Unsupported(on="error")
-    )
-    def set_psu_master_led(self, psu: str, color: LedColor) -> None:
+    @platform_method(On(row="PsuInfo"), Calls("PsuBase.set_status_master_led"))
+    def set_psu_master_led(self, psu: DeviceKey, color: LedColor) -> Optional[bool]:
         """One LED shared by every hot-swappable PSU.
 
         Addressed through a PSU row like the getter, and for the same reason:
@@ -1268,18 +1507,15 @@ class PlatformApi:
         for it there would fail on every platform.
         """
 
-    @platform_method(On(row="ModuleInfo"), Calls("ModuleBase.reboot"), Unsupported(on="error"))
-    def reboot_module(self, module: str, reboot_type: str) -> None: ...
-    @platform_method(
-        On(row="ModuleInfo"), Calls("ModuleBase.set_admin_state"), Unsupported(on="error")
-    )
-    def set_module_admin_state(self, module: str, up: bool) -> None: ...
-    @platform_method(
-        On(row="ModuleInfo"),
-        Calls("ModuleBase.set_admin_state_gracefully"),
-        Unsupported(on="error"),
-    )
-    def set_module_admin_state_gracefully(self, module: str, up: bool) -> None:
+    @platform_method(On(row="ModuleInfo"), Calls("ModuleBase.reboot"))
+    def reboot_module(self, module: DeviceKey, reboot_type: str) -> Optional[bool]: ...
+    # `up` reaches the platform as 1 or 0, chassisd's MODULE_ADMIN_UP and
+    # MODULE_ADMIN_DOWN (chassisd:103-104, 333, 377, 1422-1423); see `Calls`.
+    @platform_method(On(row="ModuleInfo"), Calls("ModuleBase.set_admin_state", ints=("up",)))
+    def set_module_admin_state(self, module: DeviceKey, up: bool) -> Optional[bool]: ...
+    @platform_method(On(row="ModuleInfo"),
+                     Calls("ModuleBase.set_admin_state_gracefully", ints=("up",)))
+    def set_module_admin_state_gracefully(self, module: DeviceKey, up: bool) -> Optional[bool]:
         """Admin-down that lets the module's services stop first.
 
         Separate from `set_module_admin_state` because it blocks for as long
@@ -1287,48 +1523,95 @@ class PlatformApi:
         of the two it asked for.
         """
 
-    @platform_method(
-        On(row="ModuleInfo"), Calls("ModuleBase.do_power_cycle"), Unsupported(on="error")
-    )
-    def power_cycle_module(self, module: str) -> None: ...
-    @platform_method(
-        On(row="ModuleInfo"), Calls("ModuleBase.module_pre_shutdown"), Unsupported(on="error")
-    )
-    def module_pre_shutdown(self, module: str) -> None: ...
-    @platform_method(
-        On(row="ModuleInfo"), Calls("ModuleBase.module_post_startup"), Unsupported(on="error")
-    )
-    def module_post_startup(self, module: str) -> None: ...
+    @platform_method(On(row="ModuleInfo"), Calls("ModuleBase.do_power_cycle"))
+    def power_cycle_module(self, module: DeviceKey) -> Optional[bool]: ...
+    @platform_method(On(row="ModuleInfo"), Calls("ModuleBase.module_pre_shutdown"))
+    def module_pre_shutdown(self, module: DeviceKey) -> Optional[bool]: ...
+    @platform_method(On(row="ModuleInfo"), Calls("ModuleBase.module_post_startup"))
+    def module_post_startup(self, module: DeviceKey) -> Optional[bool]: ...
 
     @platform_method(
         On(row="ModuleInfo", pass_key=True),
         Calls("ModuleBase.set_module_state_transition"),
-        Unsupported(on="error"),
     )
-    def set_module_state_transition(self, module: str, transition_type: str) -> None:
-        """`pass_key`: the base class takes the module's own name as well."""
+    def set_module_state_transition(self, module: DeviceKey, transition_type: str) -> Optional[bool]:
+        """`pass_key`: the base class takes the module's own name as well.
+
+        False is the answer that matters: another operation holds the module
+        and has not timed out, and the caller must leave it alone.
+        """
 
     @platform_method(
         On(row="ModuleInfo", pass_key=True),
         Calls("ModuleBase.clear_module_state_transition"),
-        Unsupported(on="error"),
     )
-    def clear_module_state_transition(self, module: str) -> None: ...
-    @platform_method(
-        On(row="ModuleInfo"),
-        Calls("ModuleBase.clear_module_gnoi_halt_in_progress"),
-        Unsupported(on="error"),
-    )
-    def clear_module_gnoi_halt(self, module: str) -> None: ...
+    def clear_module_state_transition(self, module: DeviceKey) -> Optional[bool]: ...
+    @platform_method(On(row="ModuleInfo"), Calls("ModuleBase.clear_module_gnoi_halt_in_progress"))
+    def clear_module_gnoi_halt(self, module: DeviceKey) -> Optional[bool]: ...
+
+    @platform_method(On(row="SensorInfo"), Calls("SensorBase.set_high_threshold"))
+    def set_sensor_high_threshold(self, sensor: DeviceKey, value: Threshold) -> Optional[bool]: ...
+    @platform_method(On(row="SensorInfo"), Calls("SensorBase.set_low_threshold"))
+    def set_sensor_low_threshold(self, sensor: DeviceKey, value: Threshold) -> Optional[bool]: ...
+
+    # -- from a name to a key --------------------------------------------
+    #
+    # A caller that starts from a name -- a CONFIG_DB key, a command-line
+    # argument -- resolves it the way the Python consumer it replaces does,
+    # rather than the facade guessing which of several devices a name meant.
 
     @platform_method(
-        On(row="SensorInfo"), Calls("SensorBase.set_high_threshold"), Unsupported(on="error")
+        EscapeHatch(
+            reaches=("ChassisBase.get_module_index",),
+            reason="answers the key the index leads to, not the index",
+        )
     )
-    def set_sensor_high_threshold(self, sensor: str, value: Threshold) -> None: ...
+    def get_module_key(self, name: str) -> Optional[DeviceKey]:
+        """The key of the module `ChassisBase.get_module_index(name)` names.
+
+        chassisd's resolution of a CONFIG_DB module key (chassisd:323): the
+        index is the module's position in `get_all_modules()`, and a negative
+        one, the base class's and the vendors' way of saying there is no such
+        module, answers None.  An exception is the vendor's, as in Python.
+        """
+
     @platform_method(
-        On(row="SensorInfo"), Calls("SensorBase.set_low_threshold"), Unsupported(on="error")
+        EscapeHatch(
+            reaches=("ChassisBase.get_all_components", "ComponentBase.get_name"),
+            reason="a name is resolved within one parent, and a duplicate is refused",
+        )
     )
-    def set_sensor_low_threshold(self, sensor: str, value: Threshold) -> None: ...
+    def get_component_key(self, name: str) -> Optional[DeviceKey]:
+        """The key of the chassis component called `name`.
+
+        fwutil's resolution for `fwutil ... chassis component <name>`
+        (`fwutil/lib.py`, `PlatformDataProvider`): by name among the chassis's
+        `get_all_components()`.  None when nothing matches.  Where two match,
+        fwutil keeps the last one it listed; this raises instead, because
+        acting on one of them silently is the defect the key exists to remove.
+        """
+
+    @platform_method(
+        EscapeHatch(
+            reaches=(
+                "ChassisBase.is_modular_chassis",
+                "ChassisBase.get_all_modules",
+                "ModuleBase.get_name",
+                "ModuleBase.get_all_components",
+                "ComponentBase.get_name",
+            ),
+            reason="see get_component_key",
+        )
+    )
+    def get_module_component_key(self, module: str, name: str) -> Optional[DeviceKey]:
+        """The key of the component called `name` on the module called `module`.
+
+        fwutil's resolution for `fwutil ... module <module> component <name>`:
+        the module by its `get_name()` among `get_all_modules()`, on a modular
+        chassis only, as fwutil refuses anything else; then the component by
+        its name among that module's.  None when either is not there; a
+        duplicate at either level raises, as in `get_component_key`.
+        """
 
     # -- component firmware: queries that take an argument -----------------
     #
@@ -1339,44 +1622,33 @@ class PlatformApi:
     @platform_method(
         On(row="ComponentInfo"),
         Calls("ComponentBase.get_available_firmware_version"),
-        Unsupported(on="error"),
     )
     def get_available_firmware_version(
-        self, component: str, image_path: str
+        self, component: DeviceKey, image_path: str
     ) -> Optional[str]: ...
     @platform_method(
         On(row="ComponentInfo"),
         Calls("ComponentBase.get_firmware_update_notification"),
-        Unsupported(on="error"),
     )
     def get_firmware_update_notification(
-        self, component: str, image_path: str
+        self, component: DeviceKey, image_path: str
     ) -> Optional[str]: ...
-    @platform_method(
-        On(row="ComponentInfo"), Calls("ComponentBase.install_firmware"),
-        Unsupported(on="error"),
-    )
-    def install_firmware(self, component: str, image_path: str) -> Optional[bool]: ...
-    @platform_method(
-        On(row="ComponentInfo"), Calls("ComponentBase.update_firmware"),
-        Unsupported(on="error"),
-    )
-    def update_firmware(self, component: str, image_path: str) -> None:
+    @platform_method(On(row="ComponentInfo"), Calls("ComponentBase.install_firmware"))
+    def install_firmware(self, component: DeviceKey, image_path: str) -> Optional[bool]: ...
+    @platform_method(On(row="ComponentInfo"), Calls("ComponentBase.update_firmware"))
+    def update_firmware(self, component: DeviceKey, image_path: str) -> Optional[bool]:
         """`ComponentBase.update_firmware` returns False on a missing path and
-        nothing at all on success, so there is no value worth declaring."""
+        nothing at all on success, so only a False says anything."""
 
-    @platform_method(
-        On(row="ComponentInfo"), Calls("ComponentBase.auto_update_firmware"),
-        Unsupported(on="error"),
-    )
+    @platform_method(On(row="ComponentInfo"), Calls("ComponentBase.auto_update_firmware"))
     def auto_update_firmware(
-        self, component: str, image_path: str, boot_type: str
+        self, component: DeviceKey, image_path: str, boot_type: str
     ) -> Optional[int]:
         """Returns one of `ComponentBase.FW_AUTO_*`."""
 
     # -- watchdog ----------------------------------------------------------
 
-    @platform_method(Calls("ChassisBase.get_watchdog.arm"), Unsupported(on="error"))
+    @platform_method(Calls("ChassisBase.get_watchdog.arm"))
     def arm_watchdog(self, seconds: int) -> Optional[int]:
         """Arm, and say for how long it actually armed.
 
@@ -1384,37 +1656,38 @@ class PlatformApi:
         be the seconds asked for, and -1 on failure.
         """
 
-    @platform_method(Calls("ChassisBase.get_watchdog.disarm"), Unsupported(on="error"))
+    @platform_method(Calls("ChassisBase.get_watchdog.disarm"))
     def disarm_watchdog(self) -> Optional[bool]: ...
 
-    @platform_method(Calls("ChassisBase.initizalize_system_led"), Unsupported(on="error"))
-    def initialize_system_led(self) -> None:
+    @platform_method(Calls("ChassisBase.initizalize_system_led"))
+    def initialize_system_led(self) -> Optional[bool]:
         """The base class spells this `initizalize_system_led`.
 
         The typo is part of the shipped API, so `Calls` carries it; the facade
         does not have to repeat it.
         """
 
-    @platform_method(Calls("ChassisBase.init_midplane_switch"), Unsupported(on="error"))
-    def init_midplane_switch(self) -> None: ...
+    @platform_method(Calls("ChassisBase.init_midplane_switch"))
+    def init_midplane_switch(self) -> Optional[bool]: ...
 
-    @platform_method(Calls("ChassisBase.set_status_led"), Unsupported(on="error"))
-    def set_chassis_led(self, color: LedColor) -> None:
+    @platform_method(Calls("ChassisBase.set_status_led"))
+    def set_chassis_led(self, color: str) -> Optional[bool]:
         """The whole platform API surface healthd reaches.
 
         `health_checker/manager.py:77`.  It is not a pmon daemon -- it runs on
         the host -- which is why this one method is worth naming.
+
+        The colour is a `str`, not a `LedColor`: healthd takes it from the
+        platform's `system_health_monitoring_config.json`, where vendors use
+        their own ("amber_blink", "orange_blink", "yellow").  The answer is
+        `set_status_led`'s bool, so a caller can log a set that failed.
         """
 
     # -- sed ---------------------------------------------------------------
 
-    @platform_method(
-        Calls("ChassisBase.get_sed_mgmt.change_sed_password"), Unsupported(on="error")
-    )
+    @platform_method(Calls("ChassisBase.get_sed_mgmt.change_sed_password"))
     def change_sed_password(self, new_password: str) -> Optional[bool]: ...
-    @platform_method(
-        Calls("ChassisBase.get_sed_mgmt.reset_sed_password"), Unsupported(on="error")
-    )
+    @platform_method(Calls("ChassisBase.get_sed_mgmt.reset_sed_password"))
     def reset_sed_password(self) -> Optional[bool]: ...
 
     # -- bmc commands ------------------------------------------------------
@@ -1463,7 +1736,6 @@ class PlatformApi:
             "tuples rather than a list of device objects, so there is nothing "
             "for a flatten plan to call a getter on.",
         ),
-        Snapshot(scope="per_cycle"),
     )
     def get_asics(self) -> list[AsicInfo]: ...
 
@@ -1486,6 +1758,31 @@ class PlatformApi:
     def tm_get_interval(self) -> Optional[float]: ...
     @platform_method(EscapeHatch(reason="see tm_initialize"))
     def tm_deinitialize(self) -> None: ...
+    @platform_method(EscapeHatch(reason="see tm_initialize"))
+    def tm_stop(self) -> None:
+        """`ThermalManager.stop()` alone, which thermalctld's signal handler
+        calls the moment SIGTERM arrives (thermalctld:1610-1612), well
+        before its `deinit()` runs `deinitialize()`."""
+
+    @platform_method(
+        EscapeHatch(
+            reason="Not a base-class method.  A vendor may install SIGTERM/SIGINT "
+            "handlers while its chassis is built so that its readiness waits abort "
+            "on shutdown -- mlnx's utils.watch_shutdown_signals() (chassis.py:151), "
+            "whose event ends the 300 s wait in ThermalUpdater.start() on SPC1.  In "
+            "a Rust daemon the daemon owns the signals, so the bridge keeps those "
+            "handlers when the chassis is built and this runs them."
+        )
+    )
+    def notify_shutdown(self) -> None:
+        """The daemon is shutting down: let the platform abort what it waits for.
+
+        What a Python daemon gets from the vendor's own signal handler, given
+        when the Rust daemon handles SIGTERM or SIGINT, before it joins its
+        threads.  Idempotent, safe from any thread and on any handle (what it
+        acts on is process-wide), and it never raises: a shutdown is not
+        stopped by a vendor handler that failed.
+        """
 
     @platform_method(
         EscapeHatch(
@@ -1505,11 +1802,13 @@ class PlatformApi:
             "a decision someone makes rather than discovers."
         )
     )
-    def eeprom_update_db(self) -> bool:
+    def eeprom_update_db(self) -> EepromUpdate:
         """Re-read the system EEPROM and let the platform republish EEPROM_INFO.
 
-        False when the platform could not read or decode it, which the daemon
-        logs -- the table is then left as it was rather than half-written.
+        `read_failed` when the platform could not read it, `update_failed`
+        when it read it and could not write the table; the daemon logs which
+        (syseepromd:85-96), and the table is left as it was rather than
+        half-written.
         """
 
 
@@ -1535,7 +1834,6 @@ class PlatformApi:
             "ordering no column annotation expresses, and the reason this is one "
             "method rather than eleven.",
         ),
-        Snapshot(scope="per_call"),
     )
     def get_storage_devices(self) -> list[StorageDeviceInfo]:
         """Every disk in /sys/block, refreshed.
@@ -1555,14 +1853,15 @@ class PlatformApi:
             "rather than a call.  The rows are the yaml's own columns with hex "
             "strings parsed; nothing else is reshaped.",
         ),
-        Snapshot(scope="per_call"),
     )
     def get_pcie_devices(self) -> list[PcieDevice]:
         """Every device `pcie.yaml` expects, and whether the bus has it.
 
         Empty when the platform ships no config file, which is not an error:
-        `PcieUtil.load_config_file` exits the daemon on a missing one, and a
-        platform without PCIe checking simply has nothing to say.
+        a platform without PCIe checking simply has nothing to say.
+        `PcieUtil.load_config_file` answers a missing one with `sys.exit()`,
+        which ends a Python daemon; here it is taken as the empty list it
+        means, and the platform is not asked again.
         """
 
     @platform_method(
@@ -1573,7 +1872,6 @@ class PlatformApi:
             "whatever the kernel printed in aer_dev_correctable and its two "
             "siblings, which no column list can enumerate.",
         ),
-        Snapshot(scope="per_call"),
     )
     def get_pcie_aer_stats(self, bus: int, dev: int, func: int) -> list[PcieAerStat]:
         """The AER counters of one device, flattened out of the three severities.
@@ -1594,7 +1892,6 @@ class PlatformApi:
             "how a platform reports a system-level event, not how it reports a "
             "failed call."
         ),
-        Snapshot(scope="per_call"),
     )
     def get_change_event(self, timeout_ms: int) -> ChangeEventBatch:
         """Block until something changes, or until `timeout_ms` elapses.

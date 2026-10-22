@@ -1,20 +1,3 @@
-#
-# SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
-# Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
 """Units, so that a reader of the facade knows what a bare number means.
 
 These are aliases, not new types: the base classes return plain numbers and
@@ -33,23 +16,30 @@ the stub honest about what the generated code returns -- if the alias hid it,
 
 from typing import Union
 
-# Temperature, in degrees Celsius.
-Celsius = float
+# A reading or a limit, as the platform answered it.  Vendors return int as
+# often as float, and the daemons publish what they got with `str()`
+# (thermalctld:1272-1281, psud:880-900, sensormond:294-303): a temperature of
+# 3 is "3" in STATE_DB and 3.0 is "3.0".  The union keeps the difference --
+# Rust carries it as `Number` -- where a float would rewrite every int.  The
+# difference is outside what `stubtest` can check; it verifies shape, not
+# types.  The aliases below say what a number measures.
+Number = Union[int, float]
 
-# A temperature or voltage limit.  Vendors return int here as often as float,
-# and the difference is outside what `stubtest` can check -- it verifies shape,
-# not types.  The union is the honest declaration.
-Threshold = Union[int, float]
+# Temperature, in degrees Celsius.
+Celsius = Number
+
+# A temperature, voltage or power limit.
+Threshold = Number
 
 # Fan speed as a percentage of maximum, 0-100.
-Percent = int
+Percent = Number
 
 # Fan speed in revolutions per minute.
 Rpm = int
 
-Watt = float
-Volt = float
-Ampere = float
+Watt = Number
+Volt = Number
+Ampere = Number
 
 # 1-based position of a device within its parent; -1 when unknown.
 PositionInParent = int
@@ -61,3 +51,13 @@ PositionInParent = int
 Index = int
 
 Count = int
+
+# Where a device sits in the object tree, as the facade walked to it: the
+# collections from the chassis down, each with the position in its list.
+# "fan_drawers[1]/fans[0]" is `chassis.get_all_fan_drawers()[1]
+# .get_all_fans()[0]`.  Every addressed row carries one, and every action takes
+# one, because names are not unique: two line cards each have a "BIOS".  The
+# positions are list positions, 0-based throughout, not the indexed accessors'
+# mixed conventions.  Treat it as opaque; build it from a row or from
+# `get_module_key` / `get_component_key`, never by hand.
+DeviceKey = str
