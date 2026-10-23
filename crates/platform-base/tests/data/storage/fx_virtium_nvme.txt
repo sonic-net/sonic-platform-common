@@ -1,0 +1,5 @@
+Model Number:                       Virtium VTPM24CEXI080-BM110006
+Serial Number:   X1
+Firmware Version:  F1
+Percentage Used:  2%
+Temperature:      44 Celsius

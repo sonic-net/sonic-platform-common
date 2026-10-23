@@ -1,0 +1,6 @@
+# Cargo build output.
+target/
+# The workspace keeps one lock, in crates/.  One appears here anyway the
+# moment somebody runs cargo with this directory as the root, and then sits in
+# `git status` looking like it belongs to the crate.
+Cargo.lock

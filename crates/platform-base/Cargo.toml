@@ -1,0 +1,29 @@
+[package]
+name = "platform-base"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+license = "Apache-2.0"
+description = "sonic_platform_base in Rust: what a native platform API implementation builds on"
+
+# platform-api for the rows and the trait this crate's facade implements.
+# libc for what Python's standard library reaches the C library for:
+# syslog's openlog/syslog/closelog, whose process-global identifier a vendor's
+# loggers share.
+[dependencies]
+# Python's `re`, for the tool output sonic_storage parses with it.
+regex = "1"
+platform-api = { path = "../platform-api" }
+libc = "0.2"
+# `json.load`: a dict keeps the order of the file, as Python's does.
+serde_json = { version = "1", features = ["preserve_order"] }
+
+# `testing`: the test doubles in `testing`, for a vendor crate's own tests.
+[features]
+testing = []
+
+# The cross-language test builds the same chassis in Python and reads it
+# through the bridge, so it needs both.
+[dev-dependencies]
+platform-pyo3 = { path = "../platform-pyo3" }
+pyo3 = { version = "0.25", features = ["auto-initialize"] }

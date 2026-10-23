@@ -1,0 +1,5 @@
+
+SMART attributes
+ ID                    Attribute   High Raw     Low Raw Value Worst Threshold
+194          Temperature_Celsius        241          42   100   100         0
+241           Total_LBAs_Written          0 18782480803   100   100         0

@@ -1,0 +1,4 @@
+# Cargo build output.
+target/
+# The workspace keeps one lock, in crates/.
+Cargo.lock
