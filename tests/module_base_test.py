@@ -1,8 +1,6 @@
 # Unit tests for sonic_platform_base.module_base.ModuleBase
 import json
-import sys
 import time
-import types
 from unittest.mock import MagicMock, patch, call
 import pytest
 import subprocess
@@ -24,25 +22,6 @@ class MockFile:
     def fileno(self):
         self.fileno_called = True
         return 123
-
-
-def test_get_state_db_uses_unix_socket():
-    module = ModuleBase()
-    state_db = MagicMock()
-    swsscommon_package = types.ModuleType("swsscommon")
-    swsscommon_module = types.ModuleType("swsscommon.swsscommon")
-    swsscommon_module.DBConnector = MagicMock(return_value=state_db)
-    swsscommon_package.swsscommon = swsscommon_module
-
-    with patch.dict(sys.modules, {
-            "swsscommon": swsscommon_package,
-            "swsscommon.swsscommon": swsscommon_module,
-    }):
-        assert module.get_state_db() is state_db
-        assert module.get_state_db() is state_db
-
-    swsscommon_module.DBConnector.assert_called_once_with(
-        "STATE_DB", 0, False)
 
 
 class TestModuleBase:
@@ -1186,3 +1165,11 @@ class TestModuleBase:
             self.module.set_admin_state(True)
         with pytest.raises(NotImplementedError):
             self.module.set_admin_state(False)
+
+def test_get_state_db_uses_configured_socket_and_caches_connector():
+    module = ModuleBase()
+    with patch("sonic_py_common.daemon_base.db_connect") as connect:
+        first = module.get_state_db()
+        assert first is connect.return_value
+        assert module.get_state_db() is first
+        connect.assert_called_once_with("STATE_DB", use_tcp=False)

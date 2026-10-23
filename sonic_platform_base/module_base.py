@@ -122,8 +122,8 @@ class ModuleBase(device_base.DeviceBase):
             A database connector object for the state database.
         """
         if self.state_db is None:
-            from swsscommon import swsscommon
-            self.state_db = swsscommon.DBConnector("STATE_DB", 0, False)
+            import sonic_py_common.daemon_base as daemon_base
+            self.state_db = daemon_base.db_connect("STATE_DB", use_tcp=False)
         return self.state_db
 
     @contextlib.contextmanager

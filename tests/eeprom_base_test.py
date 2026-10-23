@@ -1,6 +1,4 @@
 import os
-import sys
-import types
 import pytest
 import subprocess
 from unittest import mock
@@ -159,29 +157,6 @@ class TestEepromTlvinfo:
             eeprom_new = eeprom_class.set_eeprom(eeprom, ['0x20 = Invalid'])
             assert exit_mock.called
 
-    def test_state_db_uses_unix_socket(self):
-        eeprom_class = eeprom_tlvinfo.TlvInfoDecoder.__new__(
-            eeprom_tlvinfo.TlvInfoDecoder)
-        eeprom_class._state_db = None
-        state_db = mock.MagicMock()
-        swsscommon_package = types.ModuleType("swsscommon")
-        swsscommon_module = types.ModuleType("swsscommon.swsscommon")
-        swsscommon_module.SonicV2Connector = mock.MagicMock(
-            return_value=state_db)
-        swsscommon_package.swsscommon = swsscommon_module
-
-        with patch.dict(sys.modules, {
-                "swsscommon": swsscommon_package,
-                "swsscommon.swsscommon": swsscommon_module,
-        }):
-            assert eeprom_class.state_db is state_db
-            assert eeprom_class.state_db is state_db
-
-        swsscommon_module.SonicV2Connector.assert_called_once_with(
-            use_unix_socket_path=True)
-        state_db.connect.assert_called_once_with(
-            state_db.STATE_DB, retry_on=False)
-
     def test_eeprom_tlvinfo_update_eeprom_db(self):
         # Test updating eeprom to DB by mocking the STATE_DB connector hmset.
         # Inject a mock connector before touching .state_db so the property
@@ -277,3 +252,4 @@ class TestEepromDecoder(object):
 
     def teardown(self):
         print("TEAR DOWN")
+

@@ -627,7 +627,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
         """
         if not self._state_db:
             from swsscommon.swsscommon import SonicV2Connector
-            self._state_db = SonicV2Connector(use_unix_socket_path=True)
+            self._state_db = SonicV2Connector()
             self._state_db.connect(self._state_db.STATE_DB, retry_on=False)
         return self._state_db
 
