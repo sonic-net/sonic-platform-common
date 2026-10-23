@@ -54,6 +54,50 @@ from sonic_platform_base.sonic_xcvr.fields.elsfp_consts import SaveRestoreComman
 from .eeprom_utils import InMemoryEeprom
 
 
+class TestElsfpModuleControls:
+    """set_lpmode and reset use the CMIS module controls in lower memory byte 26."""
+
+    MODULE_CONTROL_OFFSET = 26
+
+    @pytest.fixture
+    def controls(self):
+        eeprom = InMemoryEeprom(ElsfpMemMap(ElsfpCodes))
+        # Unrelated control bits must be preserved.
+        eeprom.memory[self.MODULE_CONTROL_OFFSET] = 0x41
+        return eeprom, ElsfpApi(eeprom.eeprom)
+
+    def test_set_lpmode_sets_and_clears_bit_4(self, controls):
+        eeprom, api = controls
+        assert api.set_lpmode(True) is True
+        assert eeprom.memory[self.MODULE_CONTROL_OFFSET] == 0x51
+        assert api.set_lpmode(False) is True
+        assert eeprom.memory[self.MODULE_CONTROL_OFFSET] == 0x41
+
+    def test_reset_sets_bit_3(self, controls):
+        eeprom, api = controls
+        assert api.reset() is True
+        assert eeprom.memory[self.MODULE_CONTROL_OFFSET] == 0x49
+
+    @pytest.mark.parametrize("control", [
+        lambda api: api.set_lpmode(True),
+        lambda api: api.set_lpmode(False),
+        lambda api: api.reset(),
+    ])
+    def test_read_failure_writes_nothing(self, control):
+        eeprom = MagicMock()
+        eeprom.read.return_value = None
+        assert control(ElsfpApi(eeprom)) is False
+        eeprom.read.assert_called_once_with(consts.MODULE_LEVEL_CONTROL)
+        eeprom.write.assert_not_called()
+
+    def test_write_failure_is_reported(self):
+        eeprom = MagicMock()
+        eeprom.read.return_value = 0
+        eeprom.write.return_value = False
+        assert ElsfpApi(eeprom).set_lpmode(True) is False
+        eeprom.write.assert_called_once_with(consts.MODULE_LEVEL_CONTROL, 0x10)
+
+
 class TestElsfpMemMap:
     mem_map = ElsfpMemMap(ElsfpCodes)
 
