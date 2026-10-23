@@ -102,6 +102,7 @@ class XcvrApiFactory(object):
         # Instantiate various Optics implementation based upon their respective ID as per SFF8024
         id_mapping = {
             0x03: (self._create_api, (Sff8472Codes, Sff8472MemMap, Sff8472Api)),
+            0x0C: (self._create_qsfp_api, ()),
             0x0D: (self._create_qsfp_api, ()),
             0x11: (self._create_api, (Sff8636Codes, Sff8636MemMap, Sff8636Api)),
             0x18: (self._create_cmis_api, (bank,)),

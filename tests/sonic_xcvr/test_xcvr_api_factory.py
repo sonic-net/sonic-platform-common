@@ -23,6 +23,12 @@ def mock_reader_sff8436(start, length):
 def mock_reader_cmis(start, length):
     return bytes([0x18])
 
+def mock_reader_sff8436_0c(start, length):
+    return bytes([0x0c]) if start == 0 else bytes([0x00])
+
+def mock_reader_sff8636_0c(start, length):
+    return bytes([0x0c]) if start == 0 else bytes([0x06])
+
 class TestXcvrApiFactory(object):
     @patch('sonic_platform_base.sonic_xcvr.eeprom_rw.ModuleEepromLowerMemoryInfo.get_vendor_name', MagicMock(return_value='Credo'))
     @patch('sonic_platform_base.sonic_xcvr.eeprom_rw.ModuleEepromLowerMemoryInfo.get_vendor_part_num', MagicMock(return_value='CAC81X321M2MC1MS'))
@@ -45,6 +51,8 @@ class TestXcvrApiFactory(object):
     @pytest.mark.parametrize("reader, expected_api", [
         (mock_reader_sff8636, Sff8636Api),
         (mock_reader_sff8436, Sff8436Api),
+        (mock_reader_sff8436_0c, Sff8436Api),
+        (mock_reader_sff8636_0c, Sff8636Api),
     ])
     def test_create_xcvr_api_8436_8636(self, reader, expected_api):
         api = XcvrApiFactory(reader, MagicMock()).create_xcvr_api()
