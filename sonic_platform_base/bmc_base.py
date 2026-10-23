@@ -60,6 +60,20 @@ class BMCBase(device_base.DeviceBase):
     BMC_NAME = 'BMC'
     ROOT_ACCOUNT = 'root'
 
+    def reset(self):
+        """
+        Perform a complete BMC hardware reset from the switch host.
+
+        Implementations must drive a host-accessible CPLD, GPIO, or equivalent
+        local hardware control path and must not use Redfish, the host-BMC
+        link, or BMC software. The platform implementation is responsible for
+        asserting reset, holding it for the required duration, and releasing it.
+
+        Returns:
+            bool: True when the hardware reset completed, False otherwise.
+        """
+        raise NotImplementedError
+
     def __init__(self, addr):
         """
         Initialize BMC base class.

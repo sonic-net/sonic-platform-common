@@ -34,6 +34,7 @@ class TestBMCBase:
             [bmc._get_default_root_password, [], {}],
             [bmc.get_firmware_id, [], {}],
             [bmc._get_eeprom_id, [], {}],
+            [bmc.reset, [], {}],
         ]
 
         for method in not_implemented_methods:
