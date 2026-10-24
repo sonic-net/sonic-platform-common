@@ -1458,9 +1458,11 @@ class CmisApi(CmisCdbFw, XcvrApi):
         Returns True if module in low power else returns False.
 
         Only the narrow MODULE_STATE field is read. The composite
-        TRANS_MODULE_STATUS_FIELD also spans byte 8, whose bit 0 is the
-        clear-on-read ModuleStateChanged flag, so polling it from here would
-        consume the notification before the module flag collector sees it.
+        TRANS_MODULE_STATUS_FIELD also spans bytes 8 to 11, all of which are
+        clear-on-read: byte 8 holds the ModuleStateChanged flag and bytes 9
+        to 11 (ModuleFlagByte1..3) hold the latched temperature, voltage and
+        aux alarm/warning flags. Polling it from here would consume those
+        notifications before the module flag collector sees them.
         '''
         if self.is_flat_memory() or not self.get_lpmode_support():
             return False

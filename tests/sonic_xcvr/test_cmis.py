@@ -1537,16 +1537,10 @@ class TestCmis(object):
         (2, True),
         (6, False),
     ])
-    def test_get_lpmode_reads_only_the_module_state_field(self, state_byte, expected):
+    def test_get_lpmode(self, state_byte, expected):
         """
         get_lpmode() must read the narrow MODULE_STATE field, never the composite
         TRANS_MODULE_STATUS_FIELD.
-
-        That group spans bytes 3-41 and therefore covers byte 8 bit 0, the
-        clear-on-read ModuleStateChanged flag. set_lpmode() polls get_lpmode()
-        every 0.1s while waiting for the low-power transition, so reading the
-        composite field here consumes the notification before the module flag
-        collector can observe it.
         """
         mem_map = CmisMemMap(self.codes)
         module_state_field = mem_map.get_field(consts.MODULE_STATE)
