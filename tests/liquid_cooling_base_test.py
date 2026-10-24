@@ -273,7 +273,7 @@ class TestLiquidCoolingBase():
     @staticmethod
     def test_get_major_leak_num_min_sensors_default():
         '''
-        By default the platform does not support the MAJOR classification, so the
+        By default the platform has no count-based MAJOR threshold, so the
         MIN-N value is 0.
         '''
         liquid_cooling = LiquidCoolingBase([])

@@ -207,9 +207,11 @@ class LiquidCoolingBase(device_base.DeviceBase):
         LEAK_CONTROL_POLICY table overrides this value.
 
         Returns:
-            int: MIN-N. A value of 0 means the platform does not support the MAJOR
-                 classification, in which case thermalctld does not apply
-                 MAJOR_SYSTEM_LEAK.
+            int: MIN-N. A value of 0 means the platform has no default for the
+                 count-based MAJOR rule, so thermalctld does not classify
+                 concurrent Minor leaks as MAJOR_SYSTEM_LEAK unless the user
+                 configures a threshold. The time-based rule (a Minor leak
+                 lasting beyond MAX-T) is independent of this value.
         """
         return 0
 
