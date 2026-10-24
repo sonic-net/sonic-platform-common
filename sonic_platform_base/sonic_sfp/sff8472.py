@@ -7,14 +7,7 @@
 from __future__ import print_function
 
 try:
-    import fcntl
     import struct
-    import sys
-    import time
-    import os
-    import getopt
-    import types
-    from math import log10
     from .sff8024 import type_of_transceiver    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
     from .sff8024 import type_abbrv_name    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
     from .sffbase import sffbase    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
@@ -828,49 +821,23 @@ class sff8472Dom(sffbase):
 
                 # External Calibration
 
-                # RX_PWR(uW) = RX_PWR_4 * RX_PWR_AD +
-                #          RX_PWR_3 * RX_PWR_AD +
-                #          RX_PWR_2 * RX_PWR_AD +
-                #          RX_PWR_1 * RX_PWR_AD +
-                #          RX_PWR(0)
-                off = self.dom_ext_calibration_constants['RX_PWR_4']['offset']
-                rx_pwr_byte3 = int(eeprom_data[off], 16)
-                rx_pwr_byte2 = int(eeprom_data[off + 1], 16)
-                rx_pwr_byte1 = int(eeprom_data[off + 2], 16)
-                rx_pwr_byte0 = int(eeprom_data[off + 3], 16)
-                rx_pwr_4 = (rx_pwr_byte3 << 24) | (rx_pwr_byte2 << 16) | (rx_pwr_byte1 << 8) | (rx_pwr_byte0 & 0xff)
+                # SFF-8472 Rev 12.4 section 9.3 5)
+                # Rx_PWR (uW) = Rx_PWR(4) * Rx_PWR_ADe4 (16 bit unsigned integer) +
+                #               Rx_PWR(3) * Rx_PWR_ADe3 (16 bit unsigned integer) +
+                #               Rx_PWR(2) * Rx_PWR_ADe2 (16 bit unsigned integer) +
+                #               Rx_PWR(1) * Rx_PWR_AD (16 bit unsigned integer) +
+                #               Rx_PWR(0)
+                rx_pwr_ad = result
+                result = 0
+                for i in range(0, 5):
+                    field_name = f'RX_PWR_{i}'
+                    rx_pwr = self.dom_ext_calibration_constants[field_name]
+                    off = rx_pwr['offset']
+                    size = rx_pwr['size']
+                    coeff = self.float_from_bytes(eeprom_data[off:off+size])
+                    result += coeff * rx_pwr_ad ** i
 
-                off = self.dom_ext_calibration_constants['RX_PWR_3']['offset']
-                rx_pwr_byte3 = int(eeprom_data[off], 16)
-                rx_pwr_byte2 = int(eeprom_data[off + 1], 16)
-                rx_pwr_byte1 = int(eeprom_data[off + 2], 16)
-                rx_pwr_byte0 = int(eeprom_data[off + 3], 16)
-                rx_pwr_3 = (rx_pwr_byte3 << 24) | (rx_pwr_byte2 << 16) | (rx_pwr_byte1 << 8) | (rx_pwr_byte0 & 0xff)
-
-                off = self.dom_ext_calibration_constants['RX_PWR_2']['offset']
-                rx_pwr_byte3 = int(eeprom_data[off], 16)
-                rx_pwr_byte2 = int(eeprom_data[off + 1], 16)
-                rx_pwr_byte1 = int(eeprom_data[off + 2], 16)
-                rx_pwr_byte0 = int(eeprom_data[off + 3], 16)
-                rx_pwr_2 = (rx_pwr_byte3 << 24) | (rx_pwr_byte2 << 16) | (rx_pwr_byte1 << 8) | (rx_pwr_byte0 & 0xff)
-
-                off = self.dom_ext_calibration_constants['RX_PWR_1']['offset']
-                rx_pwr_byte3 = int(eeprom_data[off], 16)
-                rx_pwr_byte2 = int(eeprom_data[off + 1], 16)
-                rx_pwr_byte1 = int(eeprom_data[off + 2], 16)
-                rx_pwr_byte0 = int(eeprom_data[off + 3], 16)
-                rx_pwr_1 = (rx_pwr_byte3 << 24) | (rx_pwr_byte2 << 16) | (rx_pwr_byte1 << 8) | (rx_pwr_byte0 & 0xff)
-
-                off = self.dom_ext_calibration_constants['RX_PWR_0']['offset']
-                rx_pwr_byte3 = int(eeprom_data[off], 16)
-                rx_pwr_byte2 = int(eeprom_data[off + 1], 16)
-                rx_pwr_byte1 = int(eeprom_data[off + 2], 16)
-                rx_pwr_byte0 = int(eeprom_data[off + 3], 16)
-                rx_pwr_0 = (rx_pwr_byte3 << 24) | (rx_pwr_byte2 << 16) | (rx_pwr_byte1 << 8) | (rx_pwr_byte0 & 0xff)
-
-                rx_pwr = (rx_pwr_4 * result) + (rx_pwr_3 * result) + (rx_pwr_2 * result) + (rx_pwr_1 * result) + rx_pwr_0
-
-                result = float(result * 0.0001)
+                result = result * 0.0001 # uW to mW
                 #print(indent, name, " : ", power_in_dbm_str(result))
                 retval = self.power_in_dbm_str(result)
             else:
