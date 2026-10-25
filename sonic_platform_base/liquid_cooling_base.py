@@ -130,7 +130,8 @@ class LeakSensorProfileBase(ABC):
     @abstractmethod
     def get_leak_max_minor_duration_sec(self) -> int:
         """
-        Maximum time before a minor leak is marked critical.
+        Maximum time a minor leak may persist before the system leak status
+        escalates to MAJOR. Return 0 if the platform does not support this.
 
         Returns:
             int: time in seconds
