@@ -39,7 +39,7 @@ class TestBaillyCommonFactories(unittest.TestCase):
                     offsets[bank, base_page] = api.xcvr_eeprom.mem_map.get_field(consts.TX_DISABLE_FIELD).get_offset()
         self.assertNotEqual(offsets[0, 0], offsets[7, 0])
 
-    def test_els_factory_selects_rlm_without_lower_memory_probe(self):
+    def test_els_factory_selects_rlm_after_lower_memory_probe(self):
         for base_page, expected in ((0, 25.5), (4, 50.25)):
             with self.subTest(base_page=base_page):
                 device = self.device(base_page=base_page)
@@ -51,11 +51,28 @@ class TestBaillyCommonFactories(unittest.TestCase):
                 self.assertIsInstance(api, BaillyElsfpApi)
                 self.assertIsInstance(api.xcvr_eeprom.mem_map, BaillyElsfpMemMap)
                 self.assertEqual(api.xcvr_eeprom.mem_map.base_page, base_page)
-                device.read_eeprom.assert_not_called()
+                self.assertTrue(device.read_eeprom.called)
                 device.write_eeprom.assert_not_called()
                 self.assertEqual(api.get_module_temperature(), expected)
                 self.assertIs(api.xcvr_eeprom.reader, device.read_eeprom)
                 self.assertIs(api.xcvr_eeprom.writer, device.write_eeprom)
+
+    def test_explicit_elsfp_id_does_not_fall_back_to_bailly(self):
+        device = self.device()
+        device.hardware_id.elsfp_id = 123
+        with self.assertRaises(ValueError):
+            ElsfpApiFactory(device).create_api()
+        device.read_eeprom.assert_not_called()
+
+    def test_davisson_keeps_automatic_identification(self):
+        device = self.device()
+        device.hardware_id.oe_id = OeId.BROADCOM_DAVISSON
+        factory = ElsfpApiFactory(device)
+        factory._get_elsfp_info = MagicMock()
+        factory._create_api = MagicMock()
+        self.assertIs(factory.create_api(), factory._create_api.return_value)
+        factory._get_elsfp_info.assert_called_once_with()
+        factory._create_api.assert_called_once()
 
 
 if __name__ == "__main__":

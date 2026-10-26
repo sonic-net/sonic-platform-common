@@ -29,24 +29,24 @@ class ElsfpApiFactory(CpoApiFactory):
         )
 
     def create_api(self):
-        if self._device.hardware_id.oe_id == OeId.BROADCOM_DAVISSON:
-            if self._device.hardware_id.elsfp_id is None:
-                # Read vendor name & part number from EEPROM
-                # and determine the correct memory map to use
-                # based on that information.
-                elsfp_info = self._get_elsfp_info()
+        if self._device.hardware_id.elsfp_id is None:
+            # Read vendor name & part number from EEPROM
+            # and determine the correct memory map to use
+            # based on that information.
+            elsfp_info = self._get_elsfp_info()
+            if self._device.hardware_id.oe_id == OeId.BROADCOM_DAVISSON:
                 return self._create_api(
                     codes_class=ElsfpCodes,
                     mem_map_class=DavissonTh6ElsfpMemMap,
                     api_class=DavissonTh6ElsfpApi
                 )
 
-        if self._device.hardware_id.oe_id == OeId.BROADCOM_BAILLY:
-            device = self._device
-            mem_map = BaillyElsfpMemMap(
-                BaillyCodes, bank=device.bank, base_page=device.base_page)
-            eeprom = XcvrEeprom(device.read_eeprom, device.write_eeprom, mem_map)
-            return BaillyElsfpApi(eeprom)
+            if self._device.hardware_id.oe_id == OeId.BROADCOM_BAILLY:
+                device = self._device
+                mem_map = BaillyElsfpMemMap(
+                    BaillyCodes, bank=device.bank, base_page=device.base_page)
+                eeprom = XcvrEeprom(device.read_eeprom, device.write_eeprom, mem_map)
+                return BaillyElsfpApi(eeprom)
 
         # if self._device.hardware_id.elsfp_id == ElsfpId.EXAMPLE:
         #     self._create_api(...)
