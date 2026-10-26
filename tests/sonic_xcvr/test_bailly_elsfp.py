@@ -60,11 +60,11 @@ def program_rlm(eeprom, laser_count=8):
         eeprom.put(CONTROL_PAGE, 186 + laser, "B", 150 + laser)          # V * 100
         eeprom.put(CONTROL_PAGE, 203 + 2 * laser, ">H", 7000 + laser)    # mW * 100
 
-    eeprom.put_str(INFO_PAGE, 129, 16, "BAILLY VENDOR")
-    eeprom.put(INFO_PAGE, 145, "3B", 0x00, 0x90, 0xFB)
-    eeprom.put_str(INFO_PAGE, 148, 16, "RLM-PN")
+    eeprom.put_str(INFO_PAGE, 129, 16, "TEST VENDOR")
+    eeprom.put(INFO_PAGE, 145, "3B", 0x02, 0x00, 0x00)
+    eeprom.put_str(INFO_PAGE, 148, 16, "TEST-PART")
     eeprom.put_str(INFO_PAGE, 164, 2, "A1")
-    eeprom.put_str(INFO_PAGE, 166, 16, "SN123")
+    eeprom.put_str(INFO_PAGE, 166, 16, "TEST-SN-0001")
     eeprom.put_str(INFO_PAGE, 182, 8, "260102AB")
     eeprom.put(INFO_PAGE, 200, "B", 48)                        # 12 W
 
@@ -110,11 +110,11 @@ class TestBaillyElsfpApi:
         info = api.get_elsfp_info()
         assert info["type"] == "CPO Bailly"
         assert info["hardware_rev"] == "1.2"
-        assert info["manufacturer"] == "BAILLY VENDOR"
-        assert info["model"] == "RLM-PN"
-        assert info["serial"] == "SN123"
+        assert info["manufacturer"] == "TEST VENDOR"
+        assert info["model"] == "TEST-PART"
+        assert info["serial"] == "TEST-SN-0001"
         assert info["vendor_rev"] == "A1"
-        assert info["vendor_oui"] == "00-90-fb"
+        assert info["vendor_oui"] == "02-00-00"
         assert info["vendor_date"] == "2026-01-02 AB"
         assert info["ext_identifier"] == "12.0W Max"
         assert info["lane_count"] == 8

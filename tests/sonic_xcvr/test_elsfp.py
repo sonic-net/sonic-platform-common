@@ -35,8 +35,8 @@ class TestElsfpApiFactory(object):
 
         # The factory probes vendor name/part number from the EEPROM before
         # dispatching; stub out the lower-memory reads.
-        with patch.object(ModuleEepromLowerMemoryInfo, 'get_vendor_name', return_value='BROADCOM'), \
-             patch.object(ModuleEepromLowerMemoryInfo, 'get_vendor_part_num', return_value='DAVISSON-TH6'):
+        with patch.object(ModuleEepromLowerMemoryInfo, 'get_vendor_name', return_value='TEST VENDOR'), \
+             patch.object(ModuleEepromLowerMemoryInfo, 'get_vendor_part_num', return_value='TEST-PART'):
             api = factory.create_api()
 
         assert isinstance(api, DavissonTh6ElsfpApi)
@@ -785,9 +785,9 @@ class TestElsfpInfo:
         "type": "OIF-ELSP",
         "type_abbrv_name": "OIF-ELSP",
         "hardware_rev": "1.2",
-        "serial": "SN0123456789",
-        "manufacturer": "BROADCOM",
-        "model": "DAVISSON-TH6",
+        "serial": "TEST-SN-0001",
+        "manufacturer": "TEST VENDOR",
+        "model": "TEST-PART",
         "connector": "LC",
         "encoding": "N/A",
         "ext_identifier": "Power Class 8 (20.0W Max)",
@@ -795,7 +795,7 @@ class TestElsfpInfo:
         "cable_length": 3.0,
         "nominal_bit_rate": "N/A",
         "vendor_date": "2026-08-21",
-        "vendor_oui": "00-17-6a",
+        "vendor_oui": "02-00-00",
         "cable_type": "Length Cable Assembly(m)",
         "media_interface_technology": "1310 nm DFB",
         "vendor_rev": "A1",
@@ -826,11 +826,11 @@ class TestElsfpInfo:
         mem[85] = 2                                 # module media type -> sm_media_interface
         # Page 00h upper memory.
         mem[128] = 0x22                             # identifier abbreviation
-        mem[129:145] = b"BROADCOM        "          # vendor name (16 bytes, space padded)
-        mem[145:148] = bytes((0x00, 0x17, 0x6A))    # vendor OUI
-        mem[148:164] = b"DAVISSON-TH6    "          # vendor part number (16 bytes)
+        mem[129:145] = b"TEST VENDOR".ljust(16, b" ")  # synthetic vendor name
+        mem[145:148] = bytes((0x02, 0x00, 0x00))        # locally administered test identifier
+        mem[148:164] = b"TEST-PART".ljust(16, b" ")    # synthetic part number
         mem[164:166] = b"A1"                        # vendor revision (2 bytes)
-        mem[166:182] = b"SN0123456789    "          # vendor serial number (16 bytes)
+        mem[166:182] = b"TEST-SN-0001".ljust(16, b" ")  # synthetic serial number
         mem[182:190] = b"260821  "                  # date code YYMMDD + 2 byte lot code
         mem[200] = 7 << 5                           # power class (bits 7-5) -> Power Class 8
         mem[201] = 80                               # max power, scale=4.0 -> 20.0 W
