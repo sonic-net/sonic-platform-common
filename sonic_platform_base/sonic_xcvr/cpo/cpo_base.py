@@ -60,6 +60,49 @@ class CpoDeviceBase(device_base.DeviceBase, EepromReadWriteMixin):
     def remove_api(self):
         self._api = None
 
+    # Platform hooks for low-power mode and reset. Platforms implement them with
+    # whatever their hardware provides, such as dedicated pins or EEPROM
+    # controls. Client code that wants the software path can call the protocol API
+    # from get_api() directly.
+    def get_reset_status(self) -> bool:
+        """
+        Retrieves the reset state of the CPO endpoint
+
+        Returns:
+            A Boolean, True if the CPO endpoint is held in reset, False if not
+        """
+        raise NotImplementedError
+
+    def reset(self) -> bool:
+        """
+        Resets the CPO endpoint
+
+        Returns:
+            A boolean, True if successful, False if not
+        """
+        raise NotImplementedError
+
+    def get_lpmode(self) -> bool:
+        """
+        Retrieves the low-power mode of the CPO endpoint
+
+        Returns:
+            A Boolean, True if the CPO endpoint is in low-power mode, False if not
+        """
+        raise NotImplementedError
+
+    def set_lpmode(self, lpmode: bool) -> bool:
+        """
+        Puts the CPO endpoint in low-power or full-power mode
+
+        Args:
+            lpmode: A Boolean, True to enter low-power mode, False to leave it
+
+        Returns:
+            A boolean, True if successful, False if not
+        """
+        raise NotImplementedError
+
 
 class CpoBase(device_base.DeviceBase):
     def __init__(self, hardware_id: CpoHardwareInfo, oe: "OeBase", elsfp: "ElsfpBase"):

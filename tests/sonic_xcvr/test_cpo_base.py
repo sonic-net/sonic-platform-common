@@ -87,6 +87,23 @@ class TestElsfpBase(object):
         assert first is second is fake_api
 
 
+@pytest.mark.parametrize("endpoint_class", [OeBase, ElsfpBase])
+@pytest.mark.parametrize("method_name, args", PLATFORM_HOOKS)
+def test_endpoint_hooks_can_be_overridden_without_creating_api(endpoint_class, method_name, args):
+    implementation = MagicMock(return_value=True)
+
+    def hook(self, *values):
+        return implementation(*values)
+
+    platform_class = type("PlatformEndpoint", (endpoint_class,), {method_name: hook})
+    endpoint = platform_class(CpoHardwareInfo(oe_id=SOME_OE_ID, elsfp_id=SOME_ELSFP_ID))
+    endpoint._api_factory.create_api = MagicMock()
+
+    assert getattr(endpoint, method_name)(*args) is True
+    implementation.assert_called_once_with(*args)
+    endpoint._api_factory.create_api.assert_not_called()
+
+
 class TestCpoBase(object):
     def test_init(self):
         hardware_id = CpoHardwareInfo(oe_id=SOME_OE_ID, elsfp_id=SOME_ELSFP_ID)
