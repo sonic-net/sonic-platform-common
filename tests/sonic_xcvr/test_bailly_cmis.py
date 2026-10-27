@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch, Mock
 from sonic_platform_base.sonic_xcvr.api.broadcom.bailly import BaillyApi
 from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.bailly import BaillyMemMap
 from sonic_platform_base.sonic_xcvr.codes.broadcom.bailly import BaillyCodes
+from sonic_platform_base.sonic_xcvr.fields import consts
 from sonic_platform_base.sonic_xcvr.fields.broadcom import bailly
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
 
@@ -292,3 +293,122 @@ class TestBaillyApi:
         with patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_transceiver_info') as mock_super:
             mock_super.return_value = None
             assert self.api.get_transceiver_info() is None
+
+
+# Test BaillyApi staged control set (set_application / scs_apply_datapath_init)
+BAILLY_MODULE = 'sonic_platform_base.sonic_xcvr.api.broadcom.bailly'
+APSEL_BLOCK_START = 2193
+DPINIT_FIELD_NAME = "{}_0".format(consts.STAGED_CTRL_APPLY_DPINIT_FIELD)
+
+class TestBaillyStagedControlSet:
+    @pytest.fixture(autouse=True)
+    def _no_sleep(self):
+        with patch('{}.time.sleep'.format(BAILLY_MODULE)):
+            yield
+
+    def setup_method(self):
+        self.mock_eeprom = MagicMock(spec=XcvrEeprom)
+        self.mock_eeprom.mem_map = MagicMock()
+        self.api = BaillyApi(self.mock_eeprom)
+        self.api.NUM_CHANNELS = NUM_CHANNELS
+        self.api.is_flat_memory = MagicMock(return_value=False)
+
+        ap_sel_fields = {}
+        for lane in range(1, NUM_CHANNELS + 1):
+            field = MagicMock()
+            field.get_offset.return_value = APSEL_BLOCK_START + lane - 1
+            field.get_size.return_value = 1
+            ap_sel_fields["{}_{}_{}".format(consts.STAGED_CTRL_APSEL_FIELD, 0, lane)] = field
+        self.mock_eeprom.mem_map.get_field.side_effect = ap_sel_fields.get
+
+    def _expect_reg_value(self, *values):
+        self.mock_eeprom.read_raw.return_value = tuple(values)
+
+    def test_set_application_writes_whole_ap_sel_block(self):
+        self._expect_reg_value(*(0x10,) * 4 + (0x18,) * 4)
+        self.mock_eeprom.write_raw.return_value = True
+
+        assert self.api.set_application(0xff, 1, 0) is True
+        self.mock_eeprom.write_raw.assert_called_once_with(
+            APSEL_BLOCK_START, NUM_CHANNELS, bytearray([0x10] * 4 + [0x18] * 4))
+
+    def test_set_application_800g_has_no_lane_group_bit(self):
+        self._expect_reg_value(*(0x61,) * NUM_CHANNELS)
+        self.mock_eeprom.write_raw.return_value = True
+
+        assert self.api.set_application(0xff, 6, 1) is True
+        assert self.mock_eeprom.write_raw.call_args[0][2] == bytearray([0x61] * NUM_CHANNELS)
+
+    def test_set_application_ec_bit(self):
+        self._expect_reg_value(*(0x11,) * 4 + (0x19,) * 4)
+        self.mock_eeprom.write_raw.return_value = True
+
+        assert self.api.set_application(0x0f, 1, 1) is True
+        assert self.mock_eeprom.write_raw.call_args[0][2] == bytearray([0x11] * 4 + [0x19] * 4)
+
+    def test_set_application_no_lane_selected(self):
+        assert self.api.set_application(0, 1, 0) is False
+        self.mock_eeprom.write_raw.assert_not_called()
+
+    def test_set_application_invalid_appl_code(self):
+        assert self.api.set_application(0xff, 0x10, 0) is False
+        self.mock_eeprom.write_raw.assert_not_called()
+
+    def test_set_application_flat_memory(self):
+        self.api.is_flat_memory.return_value = True
+        assert self.api.set_application(0xff, 1, 0) is False
+        self.mock_eeprom.write_raw.assert_not_called()
+
+    def test_set_application_missing_ap_sel_field(self):
+        self.mock_eeprom.mem_map.get_field.side_effect = None
+        self.mock_eeprom.mem_map.get_field.return_value = None
+        assert self.api.set_application(0xff, 1, 0) is False
+        self.mock_eeprom.write_raw.assert_not_called()
+
+    def test_set_application_write_raw_failed(self):
+        self._expect_reg_value(*(0x00,) * NUM_CHANNELS)
+        self.mock_eeprom.write_raw.return_value = False
+        assert self.api.set_application(0xff, 1, 0) is False
+
+    def test_set_application_verify_retry_success(self):
+        self.mock_eeprom.write_raw.return_value = True
+        # 首次回读为旧值, 重试后读回写入值
+        self.mock_eeprom.read_raw.side_effect = [
+            tuple([0x00] * NUM_CHANNELS),
+            tuple([0x00] * NUM_CHANNELS),
+            tuple([0x10] * 4 + [0x18] * 4),
+        ]
+        assert self.api.set_application(0xff, 1, 0) is True
+
+    def test_set_application_verify_failed(self):
+        self.mock_eeprom.write_raw.return_value = True
+        self._expect_reg_value(*(0x00,) * NUM_CHANNELS)
+        assert self.api.set_application(0xff, 1, 0) is False
+
+    def test_set_application_verify_read_error(self):
+        self.mock_eeprom.write_raw.return_value = True
+        self.mock_eeprom.read_raw.side_effect = Exception('read failed')
+        assert self.api.set_application(0xff, 1, 0) is False
+
+    def test_scs_apply_datapath_init_writes_full_lane_mask(self):
+        self.mock_eeprom.write.return_value = True
+        assert self.api.scs_apply_datapath_init(0x0f) is True
+        self.mock_eeprom.write.assert_called_once_with(DPINIT_FIELD_NAME, 0xff)
+
+    def test_scs_apply_datapath_init_zero_channel(self):
+        self.mock_eeprom.write.return_value = True
+        assert self.api.scs_apply_datapath_init(0) is True
+        self.mock_eeprom.write.assert_called_once_with(DPINIT_FIELD_NAME, 0)
+
+    def test_scs_apply_datapath_init_write_failed(self):
+        self.mock_eeprom.write.return_value = False
+        assert self.api.scs_apply_datapath_init(0xff) is False
+
+    def test_scs_apply_datapath_init_write_error(self):
+        self.mock_eeprom.write.side_effect = Exception('write failed')
+        assert self.api.scs_apply_datapath_init(0xff) is False
+
+    def test_get_all_application_raw(self):
+        self._expect_reg_value(*(0x11,) * NUM_CHANNELS)
+        assert self.api._get_all_application_raw() == bytearray([0x11] * NUM_CHANNELS)
+        self.mock_eeprom.read_raw.assert_called_once_with(APSEL_BLOCK_START, NUM_CHANNELS)
