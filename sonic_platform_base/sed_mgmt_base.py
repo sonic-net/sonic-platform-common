@@ -7,10 +7,10 @@
 
 
 import subprocess
-from sonic_py_common.logger import Logger
+from sonic_py_common.syslogger import SysLogger
 
 
-logger = Logger('sed_mgmt_base')
+logger = SysLogger('sed_mgmt_base')
 
 
 SED_CONFIG_PATH = '/etc/sonic/sed_config.conf'
