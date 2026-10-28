@@ -7,6 +7,8 @@
 from ...fields import consts
 from ...fields import cdb_consts
 from ...cdb.cdb_fw import CdbFwHandler as CdbFw
+from ...codes.public.cdb import CdbCodes
+from ...mem_maps.public.cmis.cdb import CdbMemMap
 import time
 from sonic_py_common.syslogger import SysLogger
 
@@ -18,7 +20,26 @@ log.logger.propagate = False
 class CmisCdbFw:
     """
     CDB firmware upgrade operations for CMIS modules.
+
+    An API mixing in this class enables the CDB firmware handler by setting
+    _init_cdb_fw_handler and _cdb_mem_map in its constructor, or later with
+    enable_cdb_fw_handler(). It also needs is_cdb_supported() and xcvr_eeprom.
     """
+
+    _init_cdb_fw_handler = False
+    _cdb_fw_hdlr = None
+    _cdb_mem_map = None
+
+    def enable_cdb_fw_handler(self):
+        """
+        Enable the CDB firmware handler on an API built without it.
+
+        The handler is created on first use, and only if the module
+        advertises CDB support.
+        """
+        if self._cdb_mem_map is None:
+            self._cdb_mem_map = CdbMemMap(CdbCodes)
+        self._init_cdb_fw_handler = True
 
     @property
     def cdb_fw_hdlr(self):
@@ -404,6 +425,19 @@ class CmisCdbFw:
         This function returns True on success.
         Otherwise it will return False.
         """
+        try:
+            for _ in self.module_fw_write_blocks_iter(imagepath, startLPLsize, maxblocksize, lplonly_flag):
+                pass
+        except RuntimeError as err:
+            return False, str(err)
+        return True, ''
+
+    def module_fw_write_blocks_iter(self, imagepath, startLPLsize, maxblocksize, lplonly_flag):
+        """
+        Write firmware blocks using CDB command 0103h (LPL) or 0104h (EPL),
+        yielding the number of bytes written by each block.
+        Aborts the download and raises RuntimeError if any block write fails.
+        """
         starttime = time.time()
         BLOCK_SIZE = cdb_consts.LPL_MAX_PAYLOAD_SIZE if lplonly_flag else maxblocksize
 
@@ -427,23 +461,23 @@ class CmisCdbFw:
                         self.cdb_fw_hdlr.abort_fw_download()
                         txt = 'CDB download failed: {}'.format(err)
                         log.log_error(txt)
-                        return False, txt
+                        raise RuntimeError(txt) from err
                     result = self.cdb_fw_hdlr.write_epl_block(address, data)
                 if result is not True:
                     self.cdb_fw_hdlr.abort_fw_download()
                     fw_download_status = self.get_status_code()
                     txt = 'CDB download failed. CDB Status: %d\n' % fw_download_status
                     log.log_notice(txt)
-                    return False, txt
+                    raise RuntimeError(txt)
                 address += count
                 remaining -= count
                 progress = (imagesize - remaining) * 100.0 / imagesize
                 elapsedtime = time.time() - starttime
                 log.log_info('Address: {:#08x}; Count: {}; Remain: {:#08x}; Progress: {:.2f}%; Time: {:.2f}s'.format(
                     address, count, remaining, progress, elapsedtime))
+                yield count
 
         log.log_info('Total module FW download time: {:.2f} s'.format(time.time() - starttime))
-        return True, ''
 
     def module_fw_complete_download(self):
         """

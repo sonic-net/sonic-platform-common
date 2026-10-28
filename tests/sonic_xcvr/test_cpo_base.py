@@ -3,17 +3,24 @@ from mock import MagicMock, call
 
 from sonic_platform_base.sonic_xcvr.api.nvidia.cpo_els import NvidiaCpoElsCmisApi
 from sonic_platform_base.sonic_xcvr.api.nvidia.cpo_oe import NvidiaCpoOeCmisApi
+from sonic_platform_base.sonic_xcvr.api.public.cdb_fw import CmisCdbFw
 from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi
-from sonic_platform_base.sonic_xcvr.api.public.elsfp import ElsfpApi
+from sonic_platform_base.sonic_xcvr.cdb.nvidia.cpo_els_memmap import NvidiaCpoElsCdbMemMap
+from sonic_platform_base.sonic_xcvr.cdb.nvidia.cpo_oe_memmap import NvidiaCpoOeCdbMemMap
+from sonic_platform_base.sonic_xcvr.codes.nvidia.cpo_oe import NvidiaCpoOeCodes
 from sonic_platform_base.sonic_xcvr.mem_maps.nvidia.cpo_els import NvidiaCpoElsCmisMemMap
 from sonic_platform_base.sonic_xcvr.mem_maps.nvidia.cpo_oe import NvidiaCpoOeMemMap
-from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis import CmisMemMap
-from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.elsfp.elsfp import ElsfpMemMap
-
-from sonic_platform_base.sonic_xcvr.cpo.cpo_base import CpoBase, CpoHardwareInfo, OeId
+from sonic_platform_base.sonic_xcvr.cpo.cpo_base import (
+    CpoApiFactory,
+    CpoBase,
+    CpoHardwareInfo,
+    OeId,
+)
 from sonic_platform_base.sonic_xcvr.cpo.cpo_optoe_base import OptoeOeBase, OptoeElsfpBase
 from sonic_platform_base.sonic_xcvr.cpo.oe import OeBase
 from sonic_platform_base.sonic_xcvr.cpo.elsfp import ElsfpBase
+from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis import CmisMemMap
+from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.elsfp.elsfp import ElsfpMemMap
 
 # These tests don't depend on the specific ids (the factory's create methods
 # are mocked); any valid id will do.
@@ -237,7 +244,7 @@ class TestNvidiaSpc6(object):
         device.write_eeprom = MagicMock(return_value=True)
         return device
 
-    def test_oe_api_is_standard_cmis_on_the_requested_bank(self):
+    def test_oe_api_is_the_nvidia_engine_on_the_requested_bank(self):
         for bank in range(4):
             oe = self._with_readable_eeprom(OeBase(self.HARDWARE_ID, bank=bank))
 
@@ -246,9 +253,8 @@ class TestNvidiaSpc6(object):
             assert isinstance(api, NvidiaCpoOeCmisApi)
             assert isinstance(api.xcvr_eeprom.mem_map, NvidiaCpoOeMemMap)
             assert api.xcvr_eeprom.mem_map.bank == bank
-            # The NVIDIA classes override nothing yet, so the engine answers as
-            # the standard CMIS module it is. What the names buy is somewhere
-            # for the vendor pages to land without touching the factory again.
+            # The NVIDIA map and codes override nothing, so the engine still
+            # answers as the standard CMIS module it is.
             assert isinstance(api, CmisApi)
             assert isinstance(api.xcvr_eeprom.mem_map, CmisMemMap)
 
@@ -259,12 +265,71 @@ class TestNvidiaSpc6(object):
 
         assert isinstance(api, NvidiaCpoElsCmisApi)
         assert isinstance(api.xcvr_eeprom.mem_map, NvidiaCpoElsCmisMemMap)
-        # Same here: the generic ELSFP surface, under the name the vendor
-        # tables will arrive behind.
-        assert isinstance(api, ElsfpApi)
-        assert isinstance(api.xcvr_eeprom.mem_map, ElsfpMemMap)
+        # The laser source is reached for firmware operations, which are the
+        # CMIS CDB ones, so the api has to carry the CDB firmware surface.
+        assert isinstance(api, CmisCdbFw)
         # The factory identifies the source from lower memory before it
         # dispatches, for whichever vendor wants the answer. NVIDIA does not
         # need it - the engine's id already names both halves - so this only
         # pins that reaching the api does not depend on what it reads.
-        assert elsfp.read_eeprom.call_args_list == [call(129, 16), call(148, 16)]
+        assert elsfp.read_eeprom.call_args_list[:2] == [call(129, 16), call(148, 16)]
+
+
+def _wire_eeprom(device):
+    """The api constructors only need a callable pair; nothing is read here."""
+    device.read_eeprom = MagicMock(return_value=bytearray(b"\x00"))
+    device.write_eeprom = MagicMock(return_value=True)
+    return device
+
+
+class _FactoryWithoutACdbMap(CpoApiFactory):
+    """Builds the NVIDIA OE api the way the real factory did before the vendor
+    CDB map was passed down. Stubbed here rather than borrowing a vendor whose
+    api happens to lack CDB, so the test turns on the missing map alone.
+    """
+
+    def create_api(self):
+        return self._create_api(codes_class=NvidiaCpoOeCodes,
+                                mem_map_class=NvidiaCpoOeMemMap,
+                                api_class=NvidiaCpoOeCmisApi)
+
+
+class _OeBuiltWithoutACdbMap(OeBase):
+    def _make_api_factory(self):
+        return _FactoryWithoutACdbMap(self)
+
+
+class TestNvidiaCdbMemMapReachesTheApi(object):
+    """The NVIDIA CPO halves talk CDB, so the factory that builds them has to
+    hand the vendor CDB map down. Without it ``cdb_handler`` stays None and
+    every CDB-backed getter silently answers nothing."""
+
+    def test_oe_api_gets_the_nvidia_cdb_mem_map(self):
+        oe = _wire_eeprom(OeBase(CpoHardwareInfo(oe_id=OeId.NVIDIA_SPC6_CPO,
+                                                 elsfp_id=None)))
+
+        api = oe.get_api()
+
+        assert isinstance(api, NvidiaCpoOeCmisApi)
+        assert api.cdb_handler is not None
+        assert isinstance(api.cdb_handler.mem_map, NvidiaCpoOeCdbMemMap)
+
+    def test_els_api_gets_the_nvidia_cdb_mem_map(self):
+        elsfp = _wire_eeprom(ElsfpBase(CpoHardwareInfo(oe_id=OeId.NVIDIA_SPC6_CPO,
+                                                       elsfp_id=None)))
+
+        api = elsfp.get_api()
+
+        assert isinstance(api, NvidiaCpoElsCmisApi)
+        assert api.cdb_handler is not None
+        assert isinstance(api.cdb_handler.mem_map, NvidiaCpoElsCdbMemMap)
+
+    def test_a_half_without_a_vendor_cdb_map_has_no_handler(self):
+        """The regression the three tests above guard against, from the other
+        side: a factory that builds the very same api but leaves the map out
+        yields an api whose every CDB-backed getter answers nothing.
+        """
+        oe = _wire_eeprom(_OeBuiltWithoutACdbMap(
+            CpoHardwareInfo(oe_id=OeId.NVIDIA_SPC6_CPO, elsfp_id=None)))
+
+        assert oe.get_api().cdb_handler is None

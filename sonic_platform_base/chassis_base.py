@@ -97,8 +97,16 @@ class ChassisBase(device_base.DeviceBase):
         self._sed_mgmt = None
 
         # On platforms that provide a cpo.json file, populate self._cpo_list
-        # based on the device topology described in that file
-        cpo_data = device_info.get_cpo_data() if device_info else None
+        # based on the device topology described in that file. Finding it means
+        # identifying the platform, which reads machine.conf and can fall back
+        # to CONFIG_DB, and neither is reachable from every context a chassis
+        # is built in; a device that cannot be identified is treated as one
+        # without CPO ports. Building from a topology that was found is left to
+        # fail loudly, since on a CPO platform that is a real fault.
+        try:
+            cpo_data = device_info.get_cpo_data() if device_info else None
+        except Exception:
+            cpo_data = None
         if cpo_data:
             self.construct_cpo_devices(cpo_data)
 
