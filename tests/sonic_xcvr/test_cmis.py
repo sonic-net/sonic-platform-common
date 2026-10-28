@@ -1268,7 +1268,11 @@ class TestCmis(object):
     @pytest.mark.parametrize("mock_response1, mock_response2, expected", [
         (True, '1', 0 ),
         (False, None, 0),
-        (False, '6', 6.0),
+        (False, '6', 3000.0),
+        (False, '50', 3000.0),
+        (False, '500', 3000.0),
+        (False, '3000', 3000.0),
+        (False, '5000', 5000.0),
         (False, '80000', 80000.0),
     ])
     def test_get_module_pwr_down_duration(self, mock_response1, mock_response2, expected):
