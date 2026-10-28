@@ -241,6 +241,22 @@ class TestChassisBase:
         self.mock_get_cpo_data.assert_called_once()
         assert chassis.get_num_cpos() == 0
 
+    def test_cpo_lookup_failure_leaves_a_usable_chassis(self):
+        """A device that cannot be identified reports no CPO ports.
+
+        Finding cpo.json means identifying the platform, which reads
+        machine.conf and can fall back to CONFIG_DB. Not every caller of
+        ChassisBase() can reach either, and such a caller still needs a
+        chassis it can use.
+        """
+        self.mock_get_cpo_data.side_effect = FileNotFoundError(
+            2, "No such file or directory", "/host/machine.conf")
+
+        chassis = ChassisBase()
+
+        assert chassis.get_num_cpos() == 0
+        assert chassis.get_all_cpos() == []
+
     def test_cpo_data_base_class_not_implemented(self):
         self.mock_get_cpo_data.return_value = {"devices": {}, "interfaces": {}}
         with pytest.raises(NotImplementedError):

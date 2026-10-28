@@ -383,3 +383,10 @@ class SfpOptoeBase(SfpBase, OptoeEepromReadWriteMixin):
         """
         api = self.get_xcvr_api()
         return api.set_high_power_class(power_class, enable) if api is not None else False
+
+    def set_cdb_target(self, cdb_target):
+        """
+        Set CDB target to perform CDB commands on an ELS target and not on default vModule/OE target which is 0.
+        Should be implemented by the platform vendor.
+        """
+        raise NotImplementedError

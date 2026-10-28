@@ -1,10 +1,15 @@
 from dataclasses import dataclass
 
 from sonic_platform_base.sonic_xcvr.api.broadcom.davisson_elsfp import DavissonTh6ElsfpApi
+from sonic_platform_base.sonic_xcvr.api.nvidia.cpo_els import NvidiaCpoElsCmisApi
+from sonic_platform_base.sonic_xcvr.cdb.nvidia.cpo_els_codes import NvidiaCpoElsCdbCodes
+from sonic_platform_base.sonic_xcvr.cdb.nvidia.cpo_els_memmap import NvidiaCpoElsCdbMemMap
 from sonic_platform_base.sonic_xcvr.codes.broadcom.davisson_elsfp import DavissonTh6ElsfpCodes
+from sonic_platform_base.sonic_xcvr.codes.nvidia.cpo_els import NvidiaCpoElsCodes
 from sonic_platform_base.sonic_xcvr.cpo.cpo_base import CpoApiFactory, CpoDeviceBase, OeId
 from sonic_platform_base.sonic_xcvr.eeprom_rw import ModuleEepromLowerMemoryInfo
 from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.davisson_elsfp import DavissonTh6ElsfpMemMap
+from sonic_platform_base.sonic_xcvr.mem_maps.nvidia.cpo_els import NvidiaCpoElsCmisMemMap
 
 
 @dataclass
@@ -37,6 +42,15 @@ class ElsfpApiFactory(CpoApiFactory):
                     api_class=DavissonTh6ElsfpApi
                 )
 
+            if self._device.hardware_id.oe_id == OeId.NVIDIA_SPC6_CPO:
+                return self._create_api(
+                    codes_class=NvidiaCpoElsCodes,
+                    mem_map_class=NvidiaCpoElsCmisMemMap,
+                    api_class=NvidiaCpoElsCmisApi,
+                    init_cdb_fw_handler=True,
+                    cdb_mem_map=NvidiaCpoElsCdbMemMap(NvidiaCpoElsCdbCodes)
+                )
+
         # if self._device.hardware_id.elsfp_id == ElsfpId.EXAMPLE:
         #     self._create_api(...)
 
@@ -50,4 +64,41 @@ class ElsfpBase(CpoDeviceBase):
     def _make_api_factory(self) -> CpoApiFactory:
         return ElsfpApiFactory(self)
 
-    # TODO: Implement ELSFP-specific methods
+    def get_reset_status(self) -> bool:
+        """
+        Retrieves the state of the ELSFP hardware reset pin.
+
+        Returns:
+            A Boolean, True if the ELSFP is held in reset, False if not
+        """
+        raise NotImplementedError
+
+    def reset(self) -> bool:
+        """
+        Resets the ELSFP by pulsing the hardware reset pin.
+
+        Returns:
+            A boolean, True if successful, False if not
+        """
+        raise NotImplementedError
+
+    def get_lpmode(self) -> bool:
+        """
+        Retrieves the state of the ELSFP hardware LPMode pin.
+
+        Returns:
+            A Boolean, True if the pin asserts low power mode, False if not
+        """
+        raise NotImplementedError
+
+    def set_lpmode(self, lpmode: bool) -> bool:
+        """
+        Sets the ELSFP hardware LPMode pin.
+
+        Args:
+            lpmode: A Boolean, True to assert low power mode, False to deassert it
+
+        Returns:
+            A boolean, True if successful, False if not
+        """
+        raise NotImplementedError
