@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import MagicMock
 
-from sonic_platform_base.sonic_xcvr.api.broadcom.bailly import BaillyApi
+from sonic_platform_base.sonic_xcvr.api.broadcom.bailly_oe import BaillyOeApi
 from sonic_platform_base.sonic_xcvr.api.broadcom.bailly_elsfp import BaillyElsfpApi
 from sonic_platform_base.sonic_xcvr.cpo.cpo_base import CpoHardwareInfo, OeId
 from sonic_platform_base.sonic_xcvr.cpo.oe import OeApiFactory
@@ -30,7 +30,7 @@ class TestBaillyCommonFactories(unittest.TestCase):
                 with self.subTest(bank=bank, base_page=base_page):
                     device = self.device(bank, base_page)
                     api = OeApiFactory(device).create_api()
-                    self.assertIsInstance(api, BaillyApi)
+                    self.assertIsInstance(api, BaillyOeApi)
                     self.assertIsInstance(api.xcvr_eeprom.mem_map, BaillyMemMap)
                     self.assertEqual(api.xcvr_eeprom.mem_map.bank, bank)
                     self.assertIn(0xB0 + base_page, [p.page for p in api.xcvr_eeprom.mem_map.pages])
