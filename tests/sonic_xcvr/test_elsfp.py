@@ -536,13 +536,14 @@ class TestBankedSetpoints:
 class TestBankedMonitors:
     """Table 12 (bytes 184-241): per-lane bias, optical power, voltage monitors and ICC."""
 
-    def test_bias_current_monitor(self, mem_eeprom, api):
+    @pytest.mark.parametrize("raw, expected_amps", [(0, 0.0), (2000, 0.2), (65535, 6.5535)])
+    def test_bias_current_monitor(self, mem_eeprom, api, raw, expected_amps):
         # Verify lane 2 is read from the correct address (bytes 186-187).
         base = CmisPage.linear_offset(ELSFP_SETPOINTS_MON_PAGE, 0, 0)
         offset = base + 186
-        mem_eeprom.memory[offset:offset + 2] = struct.pack(">H", 2000)
+        mem_eeprom.memory[offset:offset + 2] = struct.pack(">H", raw)
         result = api.get_per_lane_bias_current_monitor()
-        assert result["BiasCurrentMonitor2"] == 0.2
+        assert result["BiasCurrentMonitor2"] == pytest.approx(expected_amps)
 
     def test_opt_power_monitor(self, mem_eeprom, api):
         # Verify lane 2 is read from the correct address (bytes 202-203).
