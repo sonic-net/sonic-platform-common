@@ -38,10 +38,11 @@ def test_factory_creates_separate_oe_and_els_maps(endpoints):
     assert oe.xcvr_eeprom is not els.xcvr_eeprom
     assert oe.xcvr_eeprom.mem_map.bank == 1
     assert [page.page for page in els.xcvr_eeprom.mem_map.pages] == [0xB4, 0xB5, 0xB6]
-    from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.bailly import BaillyMemMap
-    assert isinstance(oe.xcvr_eeprom.mem_map, BaillyMemMap)
-    assert {0xB4, 0xB5, 0xB6}.issubset({page.page for page in oe.xcvr_eeprom.mem_map.pages})
-    assert oe.xcvr_eeprom.mem_map.get_field(bailly.CPO_MODULE_MONITORS_FIELD) is not None
+    from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.bailly import BaillyOeMemMap
+    assert isinstance(oe.xcvr_eeprom.mem_map, BaillyOeMemMap)
+    assert {0xB4, 0xB5, 0xB6}.isdisjoint({page.page for page in oe.xcvr_eeprom.mem_map.pages})
+    with pytest.raises(KeyError):
+        oe.xcvr_eeprom.mem_map.get_field(bailly.CPO_MODULE_MONITORS_FIELD)
     with pytest.raises(KeyError):
         els.xcvr_eeprom.mem_map.get_field(consts.TEMPERATURE_FIELD)
     assert not hasattr(oe, "get_rlm_monitor_values")

@@ -9,7 +9,7 @@ from sonic_platform_base.sonic_xcvr.api.broadcom.bailly_elsfp import BaillyElsfp
 from sonic_platform_base.sonic_xcvr.cpo.cpo_base import CpoHardwareInfo, OeId
 from sonic_platform_base.sonic_xcvr.cpo.oe import OeApiFactory
 from sonic_platform_base.sonic_xcvr.cpo.elsfp import ElsfpApiFactory
-from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.bailly import BaillyMemMap, BaillyElsfpMemMap
+from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.bailly import BaillyOeMemMap, BaillyElsfpMemMap
 from sonic_platform_base.sonic_xcvr.fields import consts
 
 
@@ -23,7 +23,7 @@ class TestBaillyCommonFactories(unittest.TestCase):
             write_eeprom=MagicMock(return_value=True), data=data,
         )
 
-    def test_oe_factory_preserves_bank_and_rlm_page(self):
+    def test_oe_factory_selects_oe_only_map_and_preserves_bank(self):
         offsets = {}
         for bank in (0, 7):
             for base_page in (0, 4):
@@ -31,9 +31,9 @@ class TestBaillyCommonFactories(unittest.TestCase):
                     device = self.device(bank, base_page)
                     api = OeApiFactory(device).create_api()
                     self.assertIsInstance(api, BaillyOeApi)
-                    self.assertIsInstance(api.xcvr_eeprom.mem_map, BaillyMemMap)
+                    self.assertIs(type(api.xcvr_eeprom.mem_map), BaillyOeMemMap)
                     self.assertEqual(api.xcvr_eeprom.mem_map.bank, bank)
-                    self.assertIn(0xB0 + base_page, [p.page for p in api.xcvr_eeprom.mem_map.pages])
+                    self.assertNotIn(0xB0 + base_page, [p.page for p in api.xcvr_eeprom.mem_map.pages])
                     self.assertIs(api.xcvr_eeprom.reader, device.read_eeprom)
                     self.assertIs(api.xcvr_eeprom.writer, device.write_eeprom)
                     offsets[bank, base_page] = api.xcvr_eeprom.mem_map.get_field(consts.TX_DISABLE_FIELD).get_offset()

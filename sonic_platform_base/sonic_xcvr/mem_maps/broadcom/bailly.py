@@ -207,6 +207,10 @@ class _BaillyRlmThresholdPage(CmisPage):
         ]
 
 
+class BaillyOeMemMap(CmisMemMap):
+    """OE-only CMIS pages; RLM pages belong to BaillyElsfpMemMap."""
+
+
 class BaillyMemMap(CmisMemMap):
     def __init__(self, codes, bank=0, base_page=0):
         self._bank = bank
