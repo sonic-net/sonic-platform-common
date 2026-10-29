@@ -4,9 +4,10 @@ import pytest
 from sonic_platform_base.sonic_xcvr.codes.broadcom.bailly import BaillyCodes
 from sonic_platform_base.sonic_xcvr.fields import consts
 from sonic_platform_base.sonic_xcvr.fields.broadcom import bailly
-from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.bailly import (
-    BaillyElsfpMemMap, BaillyMemMap, BaillyOeMemMap,
-)
+from sonic_platform_base.sonic_xcvr.mem_maps.broadcom import bailly as legacy_module
+from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.bailly import BaillyMemMap
+from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.bailly_oe import BaillyOeMemMap
+from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.bailly_elsfp import BaillyElsfpMemMap
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis import CmisMemMap
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.pages.page import CmisPage
 
@@ -42,3 +43,15 @@ def test_endpoint_maps_have_disjoint_pages_and_legacy_keeps_both(bank, base_page
         consts.TX_DISABLE_FIELD).get_offset()
     assert legacy.get_field(bailly.MODULE_TEMPERATURE_MONITOR).get_offset() == els.get_field(
         bailly.MODULE_TEMPERATURE_MONITOR).get_offset()
+
+
+def test_legacy_module_keeps_endpoint_imports_compatible():
+    assert legacy_module.BaillyOeMemMap is BaillyOeMemMap
+    assert legacy_module.BaillyElsfpMemMap is BaillyElsfpMemMap
+    assert BaillyOeMemMap.__module__.endswith(".bailly_oe")
+    assert BaillyElsfpMemMap.__module__.endswith(".bailly_elsfp")
+    legacy = BaillyMemMap(BaillyCodes)
+    els = BaillyElsfpMemMap(BaillyCodes)
+    assert {page.page: type(page) for page in legacy.pages if page.page >= 0xB0} == {
+        page.page: type(page) for page in els.pages
+    }

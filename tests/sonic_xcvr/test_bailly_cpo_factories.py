@@ -9,7 +9,8 @@ from sonic_platform_base.sonic_xcvr.api.broadcom.bailly_elsfp import BaillyElsfp
 from sonic_platform_base.sonic_xcvr.cpo.cpo_base import CpoHardwareInfo, OeId
 from sonic_platform_base.sonic_xcvr.cpo.oe import OeApiFactory
 from sonic_platform_base.sonic_xcvr.cpo.elsfp import ElsfpApiFactory
-from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.bailly import BaillyOeMemMap, BaillyElsfpMemMap
+from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.bailly_oe import BaillyOeMemMap
+from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.bailly_elsfp import BaillyElsfpMemMap
 from sonic_platform_base.sonic_xcvr.fields import consts
 
 

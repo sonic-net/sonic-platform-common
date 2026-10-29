@@ -8,7 +8,7 @@ from sonic_platform_base.sonic_xcvr.api.broadcom.bailly_elsfp import BaillyElsfp
 from sonic_platform_base.sonic_xcvr.api.public.elsfp import ElsfpApi
 from sonic_platform_base.sonic_xcvr.codes.broadcom.bailly import BaillyCodes
 from sonic_platform_base.sonic_xcvr.fields import consts
-from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.bailly import BaillyElsfpMemMap
+from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.bailly_elsfp import BaillyElsfpMemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
 
 BASE_PAGE = 4
