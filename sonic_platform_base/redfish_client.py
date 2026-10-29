@@ -1,31 +1,43 @@
 """
     redfish_client.py
 
-    RedfishClient class provides functionality for BMC access via CURL requests of Redfish APIs.
+    RedfishClient class provides BMC access via Redfish APIs, built on the DMTF redfish library.
 
 """
 
 
-import subprocess
 import json
-import time
+import logging
+import os
 import re
-import shlex
+import time
 from datetime import datetime
+
 from sonic_py_common.logger import Logger
 
 
 logger = Logger('redfish_client')
 
+# The library logs request headers, incl. the session token, at DEBUG: keep its records out of all logs
+logging.getLogger('redfish').addHandler(logging.NullHandler())
+logging.getLogger('redfish').propagate = False
+
 
 class RedfishClient:
-    
+
     '''
-    cURL wrapper for Redfish commands
+    Redfish client of the BMC
     '''
 
     DEFAULT_TIMEOUT = 3
     DEFAULT_LOGIN_TIMEOUT = 4
+    ACTION_TIMEOUT = 120
+    # Retries of a GET on timeout; other requests are never resent
+    MAX_RETRY = 2
+
+    SCHEME_HTTPS = 'https'
+    SCHEME_HTTP = 'http'
+    DEFAULT_SCHEME = SCHEME_HTTPS
 
     REDFISH_URI_FW_INVENTORY = '/redfish/v1/UpdateService/FirmwareInventory'
     REDFISH_URI_CHASSIS_INVENTORY = '/redfish/v1/Chassis'
@@ -43,7 +55,7 @@ class RedfishClient:
     ERR_CODE_AUTH_FAILURE = -1
     ERR_CODE_INVALID_JSON_FORMAT = -2
     ERR_CODE_UNEXPECTED_RESPONSE = -3
-    ERR_CODE_CURL_FAILURE = -4
+    ERR_CODE_CURL_FAILURE = -4  # transport failure; name kept for API compatibility
     ERR_CODE_NOT_LOGIN = -5
     ERR_CODE_TIMEOUT = -6
     ERR_CODE_LOWER_VERSION = -7
@@ -58,22 +70,17 @@ class RedfishClient:
     READY_POLL_TIMEOUT = 300     # seconds, hard upper bound on the readiness wait
     READY_POLL_INTERVAL = 10     # seconds between readiness probes
 
-    CURL_ERR_OK = 0
-    CURL_ERR_OPERATION_TIMEDOUT = 28
-    CURL_ERR_COULDNT_RESOLVE_HOST = 6
-    CURL_ERR_FAILED_CONNECT_TO_HOST = 7
-    CURL_ERR_SSL_CONNECT_ERROR = 35
-
-    CURL_TO_REDFISH_ERROR_MAP = \
-    {
-        CURL_ERR_COULDNT_RESOLVE_HOST :   ERR_CODE_SERVER_UNREACHABLE,
-        CURL_ERR_FAILED_CONNECT_TO_HOST : ERR_CODE_SERVER_UNREACHABLE,
-        CURL_ERR_SSL_CONNECT_ERROR :      ERR_CODE_SERVER_UNREACHABLE,
-        CURL_ERR_OPERATION_TIMEDOUT :     ERR_CODE_TIMEOUT,
-        CURL_ERR_OK :                     ERR_CODE_OK
+    # Checked before the HTTP status: a BMC may answer a missing resource with 400
+    REDFISH_REASON_TO_ERR_CODE = {
+        'ResourceNotFound':       ERR_CODE_URI_NOT_FOUND,
+        'ResourceMissingAtURI':   ERR_CODE_URI_NOT_FOUND,
+        'ActionParameterUnknown': ERR_CODE_UNSUPPORTED_PARAMETER,
     }
 
-    HTTP_STATUS_CODE_SUCCESS_EMPTY = '204'
+    HTTP_STATUS_TO_ERR_CODE = {
+        401: ERR_CODE_AUTH_FAILURE,
+        404: ERR_CODE_URI_NOT_FOUND,
+    }
 
     REDFISH_BMC_GRACEFUL_RESTART = 'GracefulRestart'
     REDFISH_BMC_FORCE_RESTART = 'ForceRestart'
@@ -88,495 +95,270 @@ class RedfishClient:
     for example class BMC which holds the responsibility of generating password from TPM.
 
     Args:
-        curl_path: A string, path to cURL binary
         ip_addr: A string, IP address of the BMC
         user_callback: A callback function which returns the user name string
         password_callback: A callback function which returns the password string
+        scheme_callback: A callback function which returns the URI scheme, 'https' (default) or 'http'
+        cafile: A string, CA file to verify the BMC certificate with. If None, it is not verified.
     '''
-    def __init__(self, curl_path, ip_addr, user_callback, password_callback):
-        self.__curl_path = curl_path
+    def __init__(self, ip_addr, user_callback, password_callback, scheme_callback=None, cafile=None):
         self.__svr_ip = ip_addr
         self.__user_callback = user_callback
         self.__password_callback = password_callback
-        self.__token = None
-        self.__session_id = None
+        self.__scheme_callback = scheme_callback
+        # Imported here, not at module level: every pmon daemon imports this module, BMC or not
+        import redfish
+        # max_retry=0: the library's own retry resends any request, even an action; __send resends only GETs
+        self.__rf = redfish.redfish_client(base_url=f'{RedfishClient.DEFAULT_SCHEME}://{ip_addr}',
+                                           timeout=RedfishClient.DEFAULT_LOGIN_TIMEOUT,
+                                           max_retry=0,
+                                           cafile=cafile,
+                                           check_connectivity=False)
         self.__task_status_event_handlers = {}
         self.__register_task_status_event_handlers()
         logger.log_notice(f'RedfishClient instance (to {self.__svr_ip}) is created\n')
 
     '''
-    Build the POST command to login and get bearer token
-    Uses -D - to dump headers to stdout for parsing
-
-    Args:
-        password: A string, password for the user
-    
-    Returns:
-        A string, the cURL command to be executed
-    '''
-    def __build_login_cmd(self, password):
-        user = self.__user_callback()
-        cmd = f'{self.__curl_path} -m {RedfishClient.DEFAULT_LOGIN_TIMEOUT} -k -D - ' \
-              f'-H "Content-Type: application/json" ' \
-              f'-X POST https://{self.__svr_ip}{RedfishClient.REDFISH_URI_SESSION_SERVICE} ' \
-              f'-d \'{{"UserName" : "{user}", "Password" : "{password}"}}\''
-        return cmd
-
-    '''
-    Build the DELETE command to logout and release the session
+    Build the base URL of all Redfish requests; an unsupported scheme falls back to DEFAULT_SCHEME
 
     Returns:
-        A string, the cURL command to be executed
+        A string, '<scheme>://<BMC IP address>'
     '''
-    def __build_logout_cmd(self, session_id=None):
-        if not session_id:
-            session_id = self.__session_id
-        cmd = f'{self.__curl_path} -k -H "X-Auth-Token: {self.__token}" ' \
-              f'-X DELETE https://{self.__svr_ip}{RedfishClient.REDFISH_URI_SESSION_SERVICE}/{session_id}'
-        return cmd
+    def __base_url(self):
+        scheme = self.__scheme_callback() if self.__scheme_callback \
+                 else RedfishClient.DEFAULT_SCHEME
+        if scheme not in (RedfishClient.SCHEME_HTTPS, RedfishClient.SCHEME_HTTP):
+            logger.log_error(f'Unsupported Redfish URI scheme "{scheme}", '
+                             f'falling back to {RedfishClient.DEFAULT_SCHEME}\n')
+            scheme = RedfishClient.DEFAULT_SCHEME
+        return f'{scheme}://{self.__svr_ip}'
 
     '''
-    Build the POST command to do firmware update-multipart
-
-    Args:
-        fw_image: A string, path to the firmware image file
-        fw_ids: A list of strings, firmware IDs to be updated. If None or empty, the BMC will infer the targets from the image.
-        force_update: A boolean, whether to force update even if the same or lower version is detected.
+    Get the redfish library client for a new request, pointed at the current base URL
 
     Returns:
-        A string, the cURL command to be executed
+        The redfish library client
     '''
-    def __build_fw_update_multipart_cmd(self, fw_image, fw_ids = None, force_update=False):
-        if fw_ids:
-            targets = [f'"{RedfishClient.REDFISH_URI_FW_INVENTORY}/{fw_id}"' for fw_id in fw_ids]
-            targets_str = ', '.join(targets)
-            targets_str =  f', "Targets":[{targets_str}]'
-        else:
-            targets_str = ''
-        force_update_str = 'true' if force_update else 'false'
-        cmd = f'{self.__curl_path} -k -H "X-Auth-Token: {self.__token}" ' \
-              f'https://{self.__svr_ip}' \
-              f'{RedfishClient.REDFISH_URI_UPDATE_SERVICE_UPDATE_MULTIPART} ' \
-              f"--form 'UpdateParameters={{\"ForceUpdate\":{force_update_str}" \
-              f"{targets_str}}};type=application/json' " \
-              f'--form "UpdateFile=@{fw_image};type=application/octet-stream"'
-        return cmd
+    def __connection(self):
+        self.__rf.set_base_url(self.__base_url())
+        return self.__rf
 
     '''
-    Build the POST command to request BMC reset
+    Get the error under a RetriesExhaustedError of the redfish library
 
     Args:
-        bmc_reset_type: A string, type of BMC reset. Valid values are GracefulRestart and ForceRestart.
+        exc: An exception raised by the redfish library
 
     Returns:
-        A string, the cURL command to be executed
+        The exception that caused exc if exc is a RetriesExhaustedError, exc otherwise
     '''
-    def __build_request_bmc_reset_cmd(self, bmc_reset_type=REDFISH_BMC_GRACEFUL_RESTART):
-        cmd = f'{self.__curl_path} -k -H "X-Auth-Token: {self.__token}" ' \
-              f'-H "Content-Type: application/json" ' \
-              f'-X POST https://{self.__svr_ip}' \
-              f'{RedfishClient.REDFISH_REQUEST_BMC_RESET} ' \
-              f'-d \'{{"ResetType": "{bmc_reset_type}"}}\''
-        return cmd
+    def __unwrap_retries(self, exc):
+        from redfish.rest.v1 import RetriesExhaustedError
+        if isinstance(exc, RetriesExhaustedError) and exc.__cause__:
+            return exc.__cause__
+        return exc
 
     '''
-    Build the PATCH command to change login password
+    Translate an exception raised on the way to the BMC to RedfishClient error code
 
     Args:
-        new_password: A string, the new password to be applied
-        user: A string, the user name whose password is to be changed. If None, use the user from user_callback.
-    
-    Returns:
-        A string, the cURL command to be executed
-    '''
-    def __build_change_password_cmd(self, new_password, user):
-        if user is None:
-            user = self.__user_callback()
-        cmd = f'{self.__curl_path} -k -H "X-Auth-Token: {self.__token}" ' \
-              f'-H "Content-Type: application/json" -X PATCH ' \
-              f'https://{self.__svr_ip}' \
-              f'{RedfishClient.REDFISH_URI_ACCOUNTS}/{user} ' \
-              f'-d \'{{"Password" : "{new_password}"}}\''
-        return cmd
+        exc: An exception raised by the redfish library
 
-    '''
-    Build the PATCH command to set minimum password length
-
-    Args:
-        min_length: An integer, the minimum password length to be set
-
-    Returns:
-        A string, the cURL command to be executed
-    '''
-    def __build_set_min_password_length_cmd(self, min_length):
-        payload = {"MinPasswordLength": min_length}
-        cmd = f'{self.__curl_path} -k -H "X-Auth-Token: {self.__token}" ' \
-              f'-H "Content-Type: application/json" ' \
-              f'-X PATCH -d \'{json.dumps(payload)}\' ' \
-              f'https://{self.__svr_ip}{RedfishClient.REDFISH_URI_ACCOUNT_SERVICE}'
-        return cmd
-
-    '''
-    Build the POST command to start BMC debug dump request Redfish Task
-
-    Returns:
-        A string, the cURL command to be executed
-    '''
-    def __build_bmc_debug_log_dump_cmd(self):
-        cmd = f'{self.__curl_path} -k -H "X-Auth-Token: {self.__token}" ' \
-              f'-H "Content-Type: application/json" ' \
-              f'-X POST https://{self.__svr_ip}' \
-              f'{RedfishClient.REDFISH_BMC_LOG_DUMP}/LogService.CollectDiagnosticData ' \
-              '-d \'{"DiagnosticDataType":"Manager"}\''
-        return cmd
-    
-    '''
-    Build the GET command
-
-    Args:
-        uri: A string, the Redfish URI to be accessed
-        output_file: A string, path to the output file
-    
-    Returns:
-        A string, the cURL command to be executed
-    '''
-    def __build_get_cmd(self, uri, output_file = None):
-        output_str = '' if not output_file else f'--output {output_file}'
-        cmd = f'{self.__curl_path} -m {RedfishClient.DEFAULT_TIMEOUT} -k ' \
-              f'-H "X-Auth-Token: {self.__token}" --request GET ' \
-              f'--location https://{self.__svr_ip}{uri} ' \
-              f'{output_str}'
-        return cmd
-    
-    '''
-    Obfuscate sensitive authentication data in login response
-
-    Args:
-        response: A string, the cURL output to be obfuscated
-    
-    Returns:
-        A string, the obfuscated cURL output
-    '''
-    def __obfuscate_login_response(self, response):
-        # Obfuscate X-Auth-Token in headers
-        pattern = r'X-Auth-Token: [^\r\n]+'
-        replacement = 'X-Auth-Token: ******'
-        obfuscated = re.sub(pattern, replacement, response)
-        
-        # Obfuscate session ID in Location header
-        pattern = r'(Location: [^\r\n]*SessionService/Sessions/)[^\r\n\s]+'
-        replacement = r'\1******'
-        obfuscated = re.sub(pattern, replacement, obfuscated)
-        
-        # Obfuscate session ID in @odata.id field
-        pattern = r'("@odata\.id": "[^"]*SessionService/Sessions/)[^"]*(")'
-        replacement = r'\1******\2'
-        obfuscated = re.sub(pattern, replacement, obfuscated)
-        
-        # Obfuscate session ID in Id field
-        pattern = r'("Id": ")[^"]*(")'
-        replacement = r'\1******\2'
-        obfuscated = re.sub(pattern, replacement, obfuscated)
-        
-        # Obfuscate UserName field
-        pattern = r'("UserName": ")[^"]*(")'
-        replacement = r'\1******\2'
-        obfuscated = re.sub(pattern, replacement, obfuscated)
-        
-        # Also obfuscate any token in response body
-        pattern = r'"token": "[^"]*"'
-        replacement = '"token": "******"'
-        obfuscated = re.sub(pattern, replacement, obfuscated)
-        
-        return obfuscated
-
-    '''
-    Obfuscate username and session IDs in logout response
-
-    Args:
-        response: A string, the cURL output to be obfuscated
-    
-    Returns:
-        A string, the obfuscated cURL output
-    '''
-    def __obfuscate_logout_response(self, response):
-        # Obfuscate username in the response
-        pattern = r"User '[^']+'"
-        replacement = "User '******'"
-        obfuscation_response = re.sub(pattern, replacement, response)
-        
-        # Obfuscate username in the response
-        pattern = r'("data": "User \')[^\']+(\' logged out")'
-        replacement = r'\1******\2'
-        obfuscation_response = re.sub(pattern, replacement, obfuscation_response)
-        
-        # Obfuscate session ID in the response
-        pattern = r'(SessionService/Sessions/)[^\s"}\r\n]+'
-        replacement = r'\1******'
-        obfuscation_response = re.sub(pattern, replacement, obfuscation_response)
-        
-        return obfuscation_response
-
-    '''
-    Obfuscate username and password while asking for bearer token
-
-    Args:
-        cmd: A string, the cURL command to be obfuscated
-    
-    Returns:
-        A string, the obfuscated cURL command
-    '''
-    def __obfuscate_user_password(self, cmd):
-        # Obfuscate 'UserName' and 'Password' in the payload
-        pattern = r'"UserName" : "[^"]*", "Password" : "[^"]*"'
-        replacement = '"UserName" : "******", "Password" : "******"'
-        obfuscation_cmd = re.sub(pattern, replacement, cmd)
-
-        # Obfuscate username and password in the command line parameter
-        pattern =  r'-u [!-~]+:[!-~]+'
-        replacement = '-u ******:******'
-        obfuscation_cmd = re.sub(pattern, replacement, obfuscation_cmd)
-        return obfuscation_cmd
-
-    '''
-    Obfuscate bearer token passed to cURL
-
-    Args:
-        cmd: A string, the cURL command to be obfuscated
-    
-    Returns:
-        A string, the obfuscated cURL command
-    '''
-    def __obfuscate_auth_token(self, cmd):
-        pattern = r'X-Auth-Token: [^"]+'
-        replacement = 'X-Auth-Token: ******'
-        obfuscation_cmd = re.sub(pattern, replacement, cmd)
-        return obfuscation_cmd
-
-    '''
-    Obfuscate password while asking for password change
-
-    Args:
-        cmd: A string, the cURL command to be obfuscated
-    
-    Returns:
-        A string, the obfuscated cURL command
-    '''
-    def __obfuscate_password(self, cmd):
-        pattern = r'"Password" : "[^"]*"'
-        replacement = '"Password" : "******"'
-        obfuscation_cmd = re.sub(pattern, replacement, cmd)
-        return obfuscation_cmd
-
-    '''
-    Obfuscate username while asking for password change
-
-    Args:
-        cmd: A string, the cURL command to be obfuscated
-    
-    Returns:
-        A string, the obfuscated cURL command
-    '''
-    def __obfuscate_username_in_url(self, cmd):
-        pattern = r'/AccountService/Accounts/[^/\s]+'
-        replacement = '/AccountService/Accounts/******'
-        obfuscation_cmd = re.sub(pattern, replacement, cmd)
-        return obfuscation_cmd
-
-    '''
-    Obfuscate session ID in URLs
-
-    Args:
-        cmd: A string, the cURL command to be obfuscated
-    
-    Returns:
-        A string, the obfuscated cURL command
-    '''
-    def __obfuscate_session_id_in_url(self, cmd):
-        pattern = r'/SessionService/Sessions/[^/\s]+'
-        replacement = '/SessionService/Sessions/******'
-        obfuscation_cmd = re.sub(pattern, replacement, cmd)
-        return obfuscation_cmd
-
-    '''
-    Parse cURL output to extract response and HTTP status code
-
-    Args:
-        curl_output: A string, the cURL output to be parsed
-    
-    Returns:
-        A tuple of response string and HTTP status code string
-    '''
-    def __parse_curl_output(self, curl_output):
-        response_str = None
-        http_status_code = None
-        pattern = r'([\s\S]*?)(?:\n)?HTTP Status Code: (\d+)$'
-        match = re.search(pattern, curl_output, re.MULTILINE)
-        if match:
-            response_str = match.group(1)
-            http_status_code = match.group(2)
-        return (response_str, http_status_code)
-    
-    '''
-    Parse cURL output with headers from -D - flag
-    Used only for login to extract headers and body from stdout
-
-    Args:
-        curl_output: A string, the cURL output to be parsed
-    
-    Returns: A tuple of headers dictionary and body string
-    '''
-    def __get_headers_and_body_from_curl_output(self, curl_output):
-        # Parse curl -D - output - headers and body separated by double newline
-        headers = {}
-        body = curl_output
-        # Split headers and body on double newline (handles both \r\n\r\n and \n\n)
-        parts = re.split(r'\r?\n\r?\n', curl_output, 1)
-        if len(parts) == 2:
-            headers_section, body = parts
-            for line in headers_section.split('\n'):
-                line = line.strip()
-                if ':' in line:
-                    key, value = line.split(':', 1)
-                    # Normalize header keys to lowercase for case-insensitive access (HTTP/1.1 & HTTP/2)
-                    headers[key.strip().lower()] = value.strip()
-        return headers, body
-
-    '''
-    Translate cURL error code to RedfishClient error code
-
-    Args:
-        curl_error: An integer, cURL error code
-    
     Returns:
         An integer, RedfishClient error code
     '''
-    def __curl_errors_to_redfish_errors_translation(self, curl_error):
-        return self.CURL_TO_REDFISH_ERROR_MAP.get(
-                    curl_error, RedfishClient.ERR_CODE_CURL_FAILURE)
+    def __exception_to_err_code(self, exc):
+        import requests
+        from redfish.rest.v1 import InvalidCredentialsError, RedfishPasswordChangeRequiredError, \
+            ServerDownOrUnreachableError, SessionCreationError
+        exc = self.__unwrap_retries(exc)
+        if isinstance(exc, requests.exceptions.Timeout):
+            return RedfishClient.ERR_CODE_TIMEOUT
+        if isinstance(exc, (requests.exceptions.ConnectionError, ServerDownOrUnreachableError)):
+            return RedfishClient.ERR_CODE_SERVER_UNREACHABLE
+        if isinstance(exc, (InvalidCredentialsError, RedfishPasswordChangeRequiredError)):
+            return RedfishClient.ERR_CODE_AUTH_FAILURE
+        if isinstance(exc, SessionCreationError):
+            return RedfishClient.ERR_CODE_GENERIC_ERROR
+        if isinstance(exc, requests.exceptions.RequestException):
+            return RedfishClient.ERR_CODE_CURL_FAILURE
+        return RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
 
     '''
-    Update token in the command.
+    Tell whether an exception means that the BMC dropped an open connection, for example
+    a kept-alive one from before a BMC reboot, as opposed to a connection that could not be opened
 
     Args:
-        cmd: A string, the cURL command to be updated
-    
+        exc: An exception raised by the redfish library
+
     Returns:
-        A string, the updated cURL command
+        A boolean
     '''
-    def __update_token_in_command(self, cmd):
-        pattern = r'X-Auth-Token:\s*[^\s\"\']+'
-        new_cmd = re.sub(pattern, 'X-Auth-Token: ' + self.__token, cmd)
-        return new_cmd
+    def __is_dropped_connection(self, exc):
+        import requests
+        from urllib3.exceptions import ProtocolError
+        exc = self.__unwrap_retries(exc)
+        return isinstance(exc, requests.exceptions.ConnectionError) and \
+            bool(exc.args) and isinstance(exc.args[0], ProtocolError)
 
     '''
-    Execute cURL command and return the output and error messages
+    Classify a Redfish response by its Redfish message reason first, then by its HTTP status
 
     Args:
-        cmd: A string, the cURL command to be executed
-    
+        response: A RestResponse of the redfish library
+
     Returns:
-        A tuple of (ret, http_status_code, output_str, error_str)
+        A tuple of (ret, json_response, err_msg)
     '''
-    def __exec_curl_cmd_internal(self, cmd):
-        task_mon = (RedfishClient.REDFISH_URI_TASKS in cmd)
-        login_cmd = (RedfishClient.REDFISH_URI_SESSION_SERVICE in cmd and 'POST' in cmd)
-        logout_cmd = (RedfishClient.REDFISH_URI_SESSION_SERVICE in cmd and 'DELETE' in cmd)
-        password_change = (RedfishClient.REDFISH_URI_ACCOUNTS in cmd and 'PATCH' in cmd)
-        obfuscation_cmd = self.__obfuscate_user_password(cmd)
-        obfuscation_cmd = self.__obfuscate_auth_token(obfuscation_cmd)
-        if password_change:
-            obfuscation_cmd = self.__obfuscate_username_in_url(obfuscation_cmd)
-            obfuscation_cmd = self.__obfuscate_password(obfuscation_cmd)
-        if logout_cmd:
-            obfuscation_cmd = self.__obfuscate_session_id_in_url(obfuscation_cmd)
-        cmd_str = obfuscation_cmd
-        exec_cmd_msg = f'Execute cURL command: {cmd_str}'
+    def __classify_response(self, response):
+        from redfish.rest.v1 import JsonDecodingError
+        try:
+            json_response = response.dict
+        except JsonDecodingError:
+            if response.status < 400:
+                return (RedfishClient.ERR_CODE_INVALID_JSON_FORMAT, None, 'Invalid JSON format')
+            json_response = {}
 
-        if not task_mon:
-            logger.log_notice(f'{exec_cmd_msg}')
+        error = json_response.get('error') if isinstance(json_response, dict) else None
+        if response.status < 400 and error is None:
+            return (RedfishClient.ERR_CODE_OK, json_response, '')
 
-        # Instruct cURL to append HTTP status code after JSON response
-        cmd += ' -w "\nHTTP Status Code: %{http_code}"'
-        process = subprocess.Popen(shlex.split(cmd),
-                                   stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE)
-        output, error = process.communicate()
-        output_str, http_status_code = self.__parse_curl_output(output.decode('utf-8'))
-        error_str = error.decode('utf-8')
-        ret = process.returncode
+        error = error or {}
+        messages = error.get('@Message.ExtendedInfo') or \
+                   [{'MessageId': error.get('code', ''), 'Message': error.get('message', '')}]
+        reasons = [msg.get('MessageId', '').rsplit('.', 1)[-1] for msg in messages]
+        ret = next((RedfishClient.REDFISH_REASON_TO_ERR_CODE[reason] for reason in reasons
+                    if reason in RedfishClient.REDFISH_REASON_TO_ERR_CODE),
+                   RedfishClient.HTTP_STATUS_TO_ERR_CODE.get(response.status, RedfishClient.ERR_CODE_GENERIC_ERROR))
+        err_msg = next((msg['Message'] for msg in messages if msg.get('Message')),
+                       f'HTTP status code {response.status}')
+        return (ret, json_response, err_msg)
 
-        if (ret == RedfishClient.CURL_ERR_OK):
-            # cURL will print r/x statistics on stderr, ignore it
-            error_str = ''
-            ret = RedfishClient.ERR_CODE_OK
+    '''
+    Send a Redfish request; a GET is resent after a timeout or a dropped connection, up to MAX_RETRY times
 
-            # For login/logout command, obfuscate the response (and headers from -D -)
-            if login_cmd:
-                obfuscation_output_str = self.__obfuscate_login_response(output_str)
-            elif logout_cmd:
-                obfuscation_output_str = self.__obfuscate_logout_response(output_str)
-            else:
-                obfuscation_output_str = output_str
+    Args:
+        method: A string, the HTTP method
+        uri: A string, the Redfish URI
+        quiet: A boolean, whether to skip logging a successful exchange
+        timeout: An integer, the socket timeout in seconds; DEFAULT_TIMEOUT for a GET, ACTION_TIMEOUT otherwise if None
+        kwargs: body/headers of the request
 
-            # No HTTP status code found, return immediately. This is unlikely to happen.
-            if http_status_code is None:
-                logger.log_error(f'HTTP status code not found')
-                logger.log_notice(f'cURL output:')
-                self.log_multi_line_str(obfuscation_output_str)
-                return (RedfishClient.ERR_CODE_CURL_FAILURE, http_status_code, output_str, 'Unexpected curl output')
+    Returns:
+        A tuple of (ret, response, err_msg)
+    '''
+    def __send(self, method, uri, quiet=False, timeout=None, **kwargs):
+        is_get = (method == 'GET')
+        if timeout is None:
+            timeout = RedfishClient.DEFAULT_TIMEOUT if is_get else RedfishClient.ACTION_TIMEOUT
+        log_uri = re.sub(r'/(Sessions|Accounts)/[^/]+', r'/\1/******', uri)
 
-            if not task_mon:
-                logger.log_notice(f'HTTP status code: {http_status_code}')
-                logger.log_notice(f'cURL output:')
-                self.log_multi_line_str(obfuscation_output_str)
-        else:
-            logger.log_notice(f'cURL error:')
-            self.log_multi_line_str(error_str)
-            ret = self.__curl_errors_to_redfish_errors_translation(ret)
+        for _ in range(1 + RedfishClient.MAX_RETRY if is_get else 1):
+            # The library rewrites the headers it is given; a callable body is rebuilt for every send
+            send_kwargs = dict(kwargs)
+            if 'headers' in kwargs:
+                send_kwargs['headers'] = dict(kwargs['headers'])
+            if callable(kwargs.get('body')):
+                send_kwargs['body'] = kwargs['body']()
+            try:
+                send = getattr(self.__connection(), method.lower())
+                response = send(uri, timeout=timeout, **send_kwargs)
+            except Exception as e:
+                ret, err_msg = self.__exception_to_err_code(e), str(e.__cause__ or e)
+                logger.log_notice(f'Redfish {method} {log_uri} failed: {err_msg}')
+                if ret == RedfishClient.ERR_CODE_TIMEOUT or self.__is_dropped_connection(e):
+                    continue
+                return (ret, None, err_msg)
 
-        return (ret, http_status_code, output_str, error_str)
+            if not quiet or response.status >= 400:
+                logger.log_notice(f'Redfish {method} {log_uri}: HTTP {response.status}')
+            return (RedfishClient.ERR_CODE_OK, response, '')
+        return (ret, None, err_msg)
+
+    '''
+    Send a Redfish request in the current session. On HTTP 401, re-login and resend it once.
+
+    Args:
+        method: A string, the HTTP method
+        uri: A string, the Redfish URI
+        login_again: A boolean, whether to re-login on HTTP 401
+        raw: A boolean, return the response itself instead of its JSON body on success
+        quiet: A boolean, whether to skip logging a successful exchange
+        kwargs: body/headers of the request
+
+    Returns:
+        A tuple of (ret, json_response or response, err_msg)
+    '''
+    def __request(self, method, uri, login_again=True, raw=False, quiet=False, **kwargs):
+        if not self.has_login():
+            logger.log_error('Need to login first before executing Redfish request')
+            return (RedfishClient.ERR_CODE_NOT_LOGIN, None, 'Not login')
+
+        ret, response, err_msg = self.__send(method, uri, quiet, **kwargs)
+        if response is not None and response.status == 401 and login_again:
+            # Token may become invalid, for example, remote side may clear the session table or change password.
+            logger.log_notice('Re-login and retry last request...')
+            self.invalidate_session()
+            ret = self.login()
+            if ret != RedfishClient.ERR_CODE_OK:
+                return (ret, None, 'Authentication failure')
+            ret, response, err_msg = self.__send(method, uri, quiet, **kwargs)
+
+        if response is None:
+            return (ret, None, err_msg)
+        if response.status == 401:
+            self.invalidate_session()
+        if raw and response.status < 400:
+            return (RedfishClient.ERR_CODE_OK, response, '')
+        ret, json_response, err_msg = self.__classify_response(response)
+        if ret != RedfishClient.ERR_CODE_OK:
+            logger.log_notice(f'Redfish {method} request failed with error {ret}: {err_msg}')
+        return (ret, json_response, err_msg)
 
     '''
     Extract URI from the job response
 
     Args:
-        response: A string, the cURL output to be parsed
-    
+        json_response: A dictionary, the task status response
+
     Returns:
         A tuple of (ret, err_msg, uri)
     '''
-    def __get_uri_from_response(self, response):
-        try:
-            json_response = json.loads(response)
-        except Exception as e:
-            msg = 'Error: Invalid JSON format'
-            return (RedfishClient.ERR_CODE_INVALID_JSON_FORMAT, msg, None)
-
+    def __get_uri_from_response(self, json_response):
         if "Payload" not in json_response:
-            ret = RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
-            err_msg = "Error: Missing 'Payload' field"
-            return (ret, err_msg, None)
+            return (RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE, "Error: Missing 'Payload' field", None)
 
         payload = json_response["Payload"]
         if "HttpHeaders" not in payload:
-            ret = RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
-            err_msg = "Error: Missing 'HttpHeaders' field"
-            return (ret, err_msg, None)
+            return (RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE, "Error: Missing 'HttpHeaders' field", None)
 
-        http_headers = payload["HttpHeaders"]
         uri = None
-        for header in http_headers:
+        for header in payload["HttpHeaders"]:
             if "Location" in header:
                 uri = header.split()[-1]
 
         if not uri:
-            ret = RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
-            err_msg = "Error: Missing 'Location' field"
-            return (ret, err_msg, None)
+            return (RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE, "Error: Missing 'Location' field", None)
 
         return (RedfishClient.ERR_CODE_OK, "", uri)
-    
+
+    '''
+    Get the ID of the task started by a Redfish request
+
+    Args:
+        json_response: A dictionary, the response of the request
+
+    Returns:
+        A tuple of (ret, task_id, err_msg)
+    '''
+    def __get_task_id(self, json_response):
+        if 'TaskStatus' not in json_response:
+            return (RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE, None, "Error: Missing 'TaskStatus' field in response")
+        status = json_response['TaskStatus']
+        if status != 'OK':
+            return (RedfishClient.ERR_CODE_GENERIC_ERROR, None, f'Error: Return status is {status}')
+        return (RedfishClient.ERR_CODE_OK, json_response.get('Id', ''), '')
+
     '''
     Wait for given task to complete
 
@@ -585,18 +367,15 @@ class RedfishClient:
         timeout: An integer, overall timeout in seconds
         progress_callback: A callback function to report progress
         sleep_timeout: An integer, sleep time between polling in seconds
-    
+
     Returns:
         A dictionary with the following fields:
             ret_code: return code
             ret_msg:  return message
-            response: cURL output from the last polling
+            response: JSON response of the last polling
     '''
     def __wait_task_completion(self, task_id, timeout = 1800, progress_callback = None, sleep_timeout = 2):
-        # Construct the command to poll task status by given task id
         uri = f'{RedfishClient.REDFISH_URI_TASKS}/{task_id}'
-        cmd = self.__build_get_cmd(uri)
-        obfuscation_cmd = self.__obfuscate_auth_token(cmd)
         prev_status = None
         prev_percent = None
         start_tm = time.time()
@@ -608,13 +387,12 @@ class RedfishClient:
             result = {
                 'ret_code': RedfishClient.ERR_CODE_OK,
                 'ret_msg': '',
-                'response': ''
+                'response': None
             }
-            now = datetime.now()
-            timestamp = now.strftime("%H:%M:%S.%f")
+            timestamp = datetime.now().strftime("%H:%M:%S.%f")
 
-            ret, http_status_code, response, err_msg = self.exec_curl_cmd(cmd)
-            result['response'] = response
+            ret, json_response, err_msg = self.__request('GET', uri, quiet=True)
+            result['response'] = json_response
 
             # If timeout occurred, check if we exceeded the overall timeout counter, otherwise continue polling
             if (ret == RedfishClient.ERR_CODE_TIMEOUT and (timeout_cnt < 10)):
@@ -627,14 +405,6 @@ class RedfishClient:
             if (ret != RedfishClient.ERR_CODE_OK):
                 result['ret_code'] = ret
                 result['ret_msg'] = f"Error: {err_msg}"
-                return result
-
-            # Parse JSON response
-            try:
-                json_response = json.loads(response)
-            except Exception as e:
-                result['ret_code'] = RedfishClient.ERR_CODE_INVALID_JSON_FORMAT
-                result['ret_msg'] = 'Error: Invalid JSON format'
                 return result
 
             # Format validation
@@ -652,12 +422,10 @@ class RedfishClient:
             status = json_response["TaskStatus"]
             percent = json_response['PercentComplete']
 
-            # Log cURL command and response only if status or percent changed
+            # Log the task status only if status or percent changed
             if (prev_status != status or prev_percent != percent):
-                logger.log_notice(f'Execute cURL command at {timestamp}: {obfuscation_cmd}')
-                logger.log_notice(f'HTTP status code: {http_status_code}')
-                logger.log_notice('cURL output:')
-                self.log_multi_line_str(response)
+                logger.log_notice(f'Task {task_id} status at {timestamp}:')
+                self.log_multi_line_str(json.dumps(json_response, indent=2))
 
                 prev_status = status
                 prev_percent = percent
@@ -709,13 +477,13 @@ class RedfishClient:
             'ComponentUpdateSkipped': self.__component_update_skipped_handler,
             'TaskAborted': self.__task_aborted_handler
         }
-    
+
     '''
     Validate message arguments for some task status event handlers
 
     Args:
         event_msg: A dictionary, the event message to be validated
-    
+
     Returns:
         A tuple of (is_valid, err_msg)
     '''
@@ -735,7 +503,7 @@ class RedfishClient:
     Args:
         event_msg: A dictionary, the event message to be handled
         context: A dictionary, context to be updated
-    
+
     Returns:
         A tuple of (ret, err_msg)
     '''
@@ -756,7 +524,7 @@ class RedfishClient:
     Args:
         event_msg: A dictionary, the event message to be handled
         context: A dictionary, context to be updated
-    
+
     Returns:
         A tuple of (ret, err_msg)
     '''
@@ -857,81 +625,14 @@ class RedfishClient:
             logger.log_notice(f'{line}')
 
     '''
-    Wrapper function to execute the given cURL command which can deal with invalid bearer token case.
-
-    Args:
-        cmd: A string, the cURL command to be executed
-        max_retries: An integer, maximum retries on timeout
-
-    Returns:
-        A tuple of (ret, http_status_code, output_str, error_str)
-    '''
-    def exec_curl_cmd(self, cmd, max_retries=2):
-        is_login_cmd = (RedfishClient.REDFISH_URI_SESSION_SERVICE in cmd and 'POST' in cmd)
-
-        # Not login, return
-        if (not self.has_login()) and (not is_login_cmd):
-            logger.log_error('Need to login first before executing cURL command')
-            return (RedfishClient.ERR_CODE_NOT_LOGIN, None, 'Not login', 'Not login')
-
-        ret, http_status_code, output_str, error_str = self.__exec_curl_cmd_internal(cmd)
-
-        # cURL execution timeout, try again
-        i = 0
-        while (i < max_retries) and (ret == RedfishClient.ERR_CODE_TIMEOUT):
-            # Increase timeout temporarily
-            timeout = None
-            match = re.search(r'-m\s*(\d+)', cmd)
-            if match:
-                timeout = int(match.group(1))
-                timeout += 2
-                cmd = re.sub(r'-m\s*\d+', f'-m {timeout}', cmd)
-            ret, http_status_code, output_str, error_str \
-                = self.__exec_curl_cmd_internal(cmd)
-            i += 1
-
-        if not http_status_code == '401':
-            return (ret, http_status_code, output_str, error_str)
-
-        # Authentication failure might happen in case of:
-        #   - Incorrect password.
-        #   - Token may become invalid, for example, remote side may clear the session table or change password.
-        if is_login_cmd:
-            return (RedfishClient.ERR_CODE_AUTH_FAILURE, http_status_code, 'Authentication failure', 'Authentication failed')
-
-        # Authentication failure for other commands.
-        # Re-login, retry the command and expect to recover.
-        logger.log_notice('Re-login and retry last command...')
-        self.invalidate_session()
-        ret = self.login()
-        if ret == RedfishClient.ERR_CODE_OK:
-            logger.log_notice('Login successfully. Rerun last command\n')
-            cmd = self.__update_token_in_command(cmd)
-            ret, http_status_code, output_str, error_str = self.__exec_curl_cmd_internal(cmd)
-            if ret != RedfishClient.ERR_CODE_OK:
-                logger.log_notice(f'Command rerun returns error {ret}\n')
-            elif http_status_code == '401':
-                logger.log_notice('Command rerun fails as authentication failure\n')
-                self.invalidate_session()
-            return (RedfishClient.ERR_CODE_AUTH_FAILURE, http_status_code, 'Authentication failure', 'Authentication failure')
-        elif ret == RedfishClient.ERR_CODE_AUTH_FAILURE:
-            logger.log_notice('Failed to login. Return as authentication failure\n')
-            self.invalidate_session()
-            return (ret, http_status_code, 'Authentication failure', 'Authentication failure')
-        else:
-            logger.log_notice(f'Failed to login, error : {ret}\n')
-            self.invalidate_session()
-            return (ret, http_status_code, 'Login failure', 'Login failure')
-
-    '''
     Get current login token
 
     Returns:
         A string, the current bearer token
     '''
     def get_login_token(self):
-        return self.__token
-    
+        return self.__rf.get_session_key()
+
     '''
     Get current session ID
 
@@ -939,15 +640,16 @@ class RedfishClient:
         A string, the current session ID
     '''
     def get_session_id(self):
-        return self.__session_id
+        location = self.__rf.get_session_location()
+        return location.rstrip('/').split('/')[-1] if location else None
 
     '''
     Invalidate current token and session ID
     '''
     def invalidate_session(self):
         logger.log_notice(f'Invalidate login token and session')
-        self.__token = None
-        self.__session_id = None
+        self.__rf.set_session_key(None)
+        self.__rf.set_session_location(None)
 
     '''
     Open a new session by logging in and return the session ID and token
@@ -959,7 +661,7 @@ class RedfishClient:
         self.login()
         if not self.has_login():
             return RedfishClient.ERR_CODE_NOT_LOGIN, ('Failed to open session', None)
-        return RedfishClient.ERR_CODE_OK, ('Login successful', (self.__session_id, self.__token))
+        return RedfishClient.ERR_CODE_OK, ('Login successful', (self.get_session_id(), self.get_login_token()))
 
     '''
     Close the given session by session ID
@@ -975,14 +677,12 @@ class RedfishClient:
             if not self.has_login():
                 return RedfishClient.ERR_CODE_NOT_LOGIN, 'Not logged in'
 
-            cmd = self.__build_get_cmd(RedfishClient.REDFISH_URI_SESSION_SERVICE)
-            ret, _, response, error = self.exec_curl_cmd(cmd)
+            ret, json_response, error = self.__request('GET', RedfishClient.REDFISH_URI_SESSION_SERVICE)
             if ret != RedfishClient.ERR_CODE_OK:
                 msg = f'Failed to get session list: {error}'
                 logger.log_error(msg)
                 return ret, msg
 
-            json_response = json.loads(response)
             members = json_response.get('Members', [])
             session_exists = False
             for member in members:
@@ -1013,7 +713,7 @@ class RedfishClient:
         A boolean, True if already logged in; False otherwise
     '''
     def has_login(self):
-        return self.__token is not None and self.__session_id is not None
+        return self.__rf.get_session_key() is not None and self.__rf.get_session_location() is not None
 
     '''
     Login Redfish server and get bearer token
@@ -1036,63 +736,40 @@ class RedfishClient:
             log_fn(f'{str(e)}')
             return RedfishClient.ERR_CODE_PASSWORD_UNAVAILABLE
 
-        cmd = self.__build_login_cmd(password)
-        ret, _, response, error = self.exec_curl_cmd(cmd)
+        from redfish.rest.v1 import AuthMethod, RedfishPasswordChangeRequiredError
+        # Resent once if the BMC dropped the connection, as it does to a kept-alive one when it reboots
+        for resend in (False, True):
+            rf = self.__connection()
+            try:
+                rf.login(username=self.__user_callback(), password=password, auth=AuthMethod.SESSION)
+                break
+            except Exception as e:
+                if not resend and self.__is_dropped_connection(e):
+                    logger.log_notice(f'Login failed on a dropped connection, resending: {e.__cause__ or e}')
+                    continue
+                # The BMC opened a session that can only change the password; close it there too
+                if isinstance(e, RedfishPasswordChangeRequiredError):
+                    self.logout()
+                self.invalidate_session()
+                ret = self.__exception_to_err_code(e)
+                log_fn(f'Login failure: code {ret}, {e.__cause__ or e}')
+                return ret
+            finally:
+                rf.set_password(None)  # nosemgrep: python.django.security.audit.unvalidated-password.unvalidated-password
 
-        if (ret != 0):
-            log_fn(f'Login failure: code {ret}, {error}')
-            return ret
-
-        if response is None or len(response) == 0:
-            log_fn('Got empty Redfish login response')
+        if not self.has_login():
+            log_fn('Login failure: no session token or location in the response')
+            self.invalidate_session()
             return RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
 
-        try:
-            # Parse headers and body from -D - output
-            headers, body = self.__get_headers_and_body_from_curl_output(response)
-            if body:
-                try:
-                    json_response = json.loads(body)
-                    if 'error' in json_response:
-                        error_msg = json_response['error']['message']
-                        log_fn(f'Login failure: {error_msg}')
-                        self.log_multi_line_str(response)
-                        return RedfishClient.ERR_CODE_GENERIC_ERROR
-                except Exception as e:
-                    log_fn(f'Login failure: Exception during parsing body: {str(e)}')
-                    self.log_multi_line_str(response)
-
-            # Extract both token and session ID from headers
-            token = headers.get('x-auth-token')
-            if not token:
-                log_fn('Login failure: no "X-Auth-Token" header found')
-                self.log_multi_line_str(response)
-                return RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
-
-            location = headers.get('location')
-            if not location:
-                log_fn('Login failure: no "Location" header found')
-                self.log_multi_line_str(response)
-                return RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
-
-            session_id = location.split('/')[-1]
-            if not session_id:
-                log_fn('Login failure: could not extract session ID from Location header')
-                self.log_multi_line_str(response)
-                return RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
-
-            self.__token = token
-            self.__session_id = session_id
-            logger.log_notice('Redfish login successfully with session token and session ID updated')
-            return RedfishClient.ERR_CODE_OK
-
-        except Exception as e:
-            log_fn(f'Login failure: exception {str(e)}')
-            self.log_multi_line_str(response)
-            return RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
+        logger.log_notice('Redfish login successfully with session token and session ID updated')
+        return RedfishClient.ERR_CODE_OK
 
     '''
     Logout Redfish server
+
+    Args:
+        session_id: A string, the session to close; the current one if None
 
     Returns:
         An integer, return code
@@ -1108,48 +785,18 @@ class RedfishClient:
             return RedfishClient.ERR_CODE_OK
 
         logger.log_notice('Logout redfish session')
-        cmd = self.__build_logout_cmd(session_id)
-        ret, _, response, _ = self.exec_curl_cmd(cmd)
+        uri = f'{RedfishClient.REDFISH_URI_SESSION_SERVICE}/{session_id or self.get_session_id()}'
+        ret, _, err_msg = self.__request('DELETE', uri, login_again=False)
         # Invalidate token and session ID anyway (if session_id=None)
         if not session_id:
             self.invalidate_session()
 
-        if (ret != 0):
-            msg = 'Logout failure: curl command returns error\n'
-            logger.log_notice(f'{msg}')
-            return ret
-
-        # Logout returns JSON with success message
-        if response and len(response) > 0:
-            try:
-                json_response = json.loads(response)
-                if 'error' in json_response:
-                    error_msg = json_response['error']['message']
-                    logger.log_error(f'Logout failed: {error_msg}')
-                    self.log_multi_line_str(response)
-                    return RedfishClient.ERR_CODE_GENERIC_ERROR
-
-                if '@Message.ExtendedInfo' in json_response:
-                    for info in json_response['@Message.ExtendedInfo']:
-                        message_id = info.get('MessageId', '')
-                        if 'Success' in message_id:
-                            logger.log_notice('Redfish logout successful')
-                            return RedfishClient.ERR_CODE_OK
-                    logger.log_error('Logout failed: No success message in response')
-                    self.log_multi_line_str(response)
-                    return RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
-                else:
-                    logger.log_error('Logout failed: No Message.ExtendedInfo in response')
-                    self.log_multi_line_str(response)
-                    return RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
-            except Exception as e:
-                logger.log_error(f'Logout failed: exception {str(e)}')
-                self.log_multi_line_str(response)
-                return RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
+        if ret != RedfishClient.ERR_CODE_OK:
+            logger.log_notice(f'Logout failure: {err_msg}')
         else:
-            logger.log_error('Logout failed: Empty response')
-            return RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
-    
+            logger.log_notice('Redfish logout successful')
+        return ret
+
     '''
     Poll a quiet login() until the Redfish service accepts it or the timeout
     elapses. Used after a BMC restart; a successful login is a stronger "ready"
@@ -1197,24 +844,16 @@ class RedfishClient:
         A tuple of (ret, fw_list)
     '''
     def redfish_api_get_firmware_list(self):
-        cmd = self.__build_get_cmd(RedfishClient.REDFISH_URI_FW_INVENTORY)
-        ret, _, response, error = self.exec_curl_cmd(cmd)
+        ret, json_response, error = self.__request('GET', RedfishClient.REDFISH_URI_FW_INVENTORY)
         if (ret != RedfishClient.ERR_CODE_OK):
             logger.log_error(f'Fail to get firmware list: {error}')
             return (ret, [])
-        try:
-            json_response = json.loads(response)
-            item_list = json_response["Members"]
-        except json.JSONDecodeError as e:
-            return (RedfishClient.ERR_CODE_INVALID_JSON_FORMAT, [])
-        except Exception as e:
+        if 'Members' not in json_response:
             return (RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE, [])
         fw_list = []
-        for item in item_list:
+        for item in json_response['Members']:
             fw_id = item["@odata.id"].split('/')[-1]
             ret, version = self.redfish_api_get_firmware_version(fw_id)
-            if (ret != RedfishClient.ERR_CODE_OK):
-                version = "N/A"
             fw_list.append((fw_id, version))
         return (RedfishClient.ERR_CODE_OK, fw_list)
 
@@ -1228,36 +867,16 @@ class RedfishClient:
         A tuple of (ret, version)
     '''
     def redfish_api_get_firmware_version(self, fw_id):
-        version = 'N/A'
         uri = f'{RedfishClient.REDFISH_URI_FW_INVENTORY}/{fw_id}'
-        cmd = self.__build_get_cmd(uri)
-        ret, _, response, error_msg = self.exec_curl_cmd(cmd)
-        if (ret == RedfishClient.ERR_CODE_OK):
-            try:
-                json_response = json.loads(response)
-                if 'Version' in json_response:
-                    version = json_response['Version']
-                else:
-                    # A BMC may answer a missing member with 400, so the reason identifies it.
-                    reason = json_response.get('error', {}).get('code', '').rsplit('.', 1)[-1]
-                    if reason in ('ResourceNotFound', 'ResourceMissingAtURI'):
-                        ret = RedfishClient.ERR_CODE_URI_NOT_FOUND
-                    else:
-                        ret = RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
-                    msg = f'Version not found in Redfish response on querying {fw_id} version'
-                    logger.log_notice(f'{msg}')
-            except json.JSONDecodeError as e:
-                msg = f'Error: Invalid Redfish response JSON format on querying {fw_id} version'
-                logger.log_notice(f'{msg}')
-                ret = RedfishClient.ERR_CODE_INVALID_JSON_FORMAT
-            except Exception as e:
-                msg = f'Error: Exception {str(e)} caught on querying {fw_id} version'
-                logger.log_notice(f'{msg}')
-                ret = RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
-        else:
-            msg = f'Got error {ret} on querying {fw_id} version: {error_msg}'
-            logger.log_error(f'{msg}')
-        return (ret, version)
+        ret, json_response, error_msg = self.__request('GET', uri)
+        if ret == RedfishClient.ERR_CODE_OK and 'Version' not in json_response:
+            ret, error_msg = RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE, 'Version not found in Redfish response'
+        if ret != RedfishClient.ERR_CODE_OK:
+            # Callers probe candidate firmware IDs, so a missing member is not an error
+            log_fn = logger.log_notice if ret == RedfishClient.ERR_CODE_URI_NOT_FOUND else logger.log_error
+            log_fn(f'Got error {ret} on querying {fw_id} version: {error_msg}')
+            return (ret, 'N/A')
+        return (ret, json_response['Version'])
 
     '''
     Update firmware
@@ -1266,7 +885,7 @@ class RedfishClient:
         fw_image: A string, the firmware image file path
         fw_ids: A list of strings, the firmware IDs to be updated. If None, BMC will infer the IDs from the image.
         force_update: A boolean, whether to force update even if the version is lower or identical
-        timeout: An integer, overall timeout in seconds
+        timeout: An integer, overall timeout in seconds; the image upload alone may wait this long for the BMC's reply
         progress_callback: A callback function to report progress
 
     Returns:
@@ -1275,38 +894,33 @@ class RedfishClient:
     def redfish_api_update_firmware(self, fw_image, fw_ids = None, \
             force_update=True, timeout=1800, progress_callback=None):
 
+        update_parameters = {'ForceUpdate': force_update}
+        if fw_ids:
+            update_parameters['Targets'] = [f'{RedfishClient.REDFISH_URI_FW_INVENTORY}/{fw_id}' for fw_id in fw_ids]
+        try:
+            image = open(fw_image, 'rb')
+        except OSError as e:
+            return (RedfishClient.ERR_CODE_GENERIC_ERROR, f'Error: {e}', [])
+
+        def body():
+            image.seek(0)
+            return {
+                'UpdateParameters': (None, json.dumps(update_parameters), 'application/json'),
+                'UpdateFile': (os.path.basename(fw_image), image, 'application/octet-stream')
+            }
+
         # Trigger FW upgrade
-        cmd = self.__build_fw_update_multipart_cmd(fw_image,
-                                                   fw_ids=fw_ids,
-                                                   force_update=force_update)
-        ret, _, response, error_msg = self.exec_curl_cmd(cmd)
+        with image:
+            # The BMC may check the image before it replies, so wait as long as the whole update may take
+            ret, json_response, error_msg = self.__request('POST', RedfishClient.REDFISH_URI_UPDATE_SERVICE_UPDATE_MULTIPART,
+                                                           body=body, headers={'Content-Type': 'multipart/form-data'},
+                                                           timeout=timeout)
         if (ret != RedfishClient.ERR_CODE_OK):
             return (ret, f'Error: {error_msg}', [])
 
-        try:
-            json_response = json.loads(response)
-        except Exception as e:
-            msg = 'Error: Invalid JSON format'
-            return (RedfishClient.ERR_CODE_INVALID_JSON_FORMAT, msg, [])
-
-        # Retrieve task id from response
-        task_id = ''
-        if 'error' in json_response: # Error found
-            err = json_response['error']
-            if 'message' in err:
-                err_msg = err['message']
-                ret = RedfishClient.ERR_CODE_GENERIC_ERROR
-            else:
-                ret = RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
-                err_msg = "Missing 'message' field"
-            return (ret, f'Error: {err_msg}', [])
-        elif 'TaskStatus' in json_response:
-            status = json_response['TaskStatus']
-            if status == 'OK':
-                task_id = json_response['Id']
-            else:
-                ret = RedfishClient.ERR_CODE_GENERIC_ERROR
-                return (ret, f'Error: Return status is {status}', [])
+        ret, task_id, error_msg = self.__get_task_id(json_response)
+        if (ret != RedfishClient.ERR_CODE_OK):
+            return (ret, error_msg, [])
 
         # Wait for completion
         result = self.__wait_task_completion(task_id, timeout, progress_callback)
@@ -1334,40 +948,15 @@ class RedfishClient:
     '''
     def redfish_api_trigger_bmc_debug_log_dump(self):
         task_id = '-1'
-        cmd = self.__build_bmc_debug_log_dump_cmd()
-        ret, _, response, error_msg = self.exec_curl_cmd(cmd)
+        uri = f'{RedfishClient.REDFISH_BMC_LOG_DUMP}/LogService.CollectDiagnosticData'
+        ret, json_response, error_msg = self.__request('POST', uri, body={'DiagnosticDataType': 'Manager'})
         if (ret != RedfishClient.ERR_CODE_OK):
             return (ret, (task_id, f'Error: {error_msg}'))
 
-        try:
-            json_response = json.loads(response)
-        except Exception as e:
-            msg = 'Error: Invalid JSON format'
-            return (RedfishClient.ERR_CODE_INVALID_JSON_FORMAT, (task_id, msg))
-
-        # Retrieve task id from response
-        if 'error' in json_response:
-            err = json_response['error']
-            if 'message' in err:
-                err_msg = err['message']
-                ret = RedfishClient.ERR_CODE_GENERIC_ERROR
-            else:
-                ret = RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
-                err_msg = "Missing 'message' field"
-            return (ret, (task_id, f'Error: {err_msg}'))
-        elif 'TaskStatus' in json_response:
-            status = json_response['TaskStatus']
-            if status == 'OK':
-                task_id = json_response.get('Id', '')
-                ret = RedfishClient.ERR_CODE_OK
-                return (ret, (task_id, None))
-            else:
-                ret = RedfishClient.ERR_CODE_GENERIC_ERROR
-                return (ret, (task_id, f'Error: Return status is {status}'))
-        else:
-            ret = RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
-            err_msg = "Missing 'error' or 'TaskStatus' field in response"
-            return (ret, (task_id, f'Error: {err_msg}'))
+        ret, new_task_id, error_msg = self.__get_task_id(json_response)
+        if (ret != RedfishClient.ERR_CODE_OK):
+            return (ret, (task_id, error_msg))
+        return (RedfishClient.ERR_CODE_OK, (new_task_id, None))
 
     '''
     Get BMC debug log dump file
@@ -1385,25 +974,21 @@ class RedfishClient:
         result = self.__wait_task_completion(task_id, timeout)
         ret = result['ret_code']
         error_msg = result['ret_msg']
-        response = result['response']
 
         if ret != RedfishClient.ERR_CODE_OK:
             return (ret, error_msg)
 
-        ret, error_msg, uri = self.__get_uri_from_response(response)
+        ret, error_msg, uri = self.__get_uri_from_response(result['response'])
         if ret != RedfishClient.ERR_CODE_OK:
             return (ret, error_msg)
 
-        if not uri:
-            ret = RedfishClient.ERR_CODE_GENERIC_ERROR
+        ret, response, error_msg = self.__request('GET', f'{uri}/attachment', raw=True)
+        if ret != RedfishClient.ERR_CODE_OK:
             return (ret, error_msg)
 
-        output_file = f'{file_path}/{filename}'
-        uri += '/attachment'
-        cmd = self.__build_get_cmd(uri, output_file=output_file)
-        ret, _, response, error_msg = self.exec_curl_cmd(cmd)
-
-        return (ret, error_msg)
+        with open(f'{file_path}/{filename}', 'wb') as f:
+            f.write(response.read)
+        return (RedfishClient.ERR_CODE_OK, '')
 
     '''
     Reads all the eeproms of the bmc
@@ -1412,23 +997,15 @@ class RedfishClient:
         A tuple of (ret, eeprom_list)
     '''
     def redfish_api_get_eeprom_list(self):
-        cmd = self.__build_get_cmd(RedfishClient.REDFISH_URI_CHASSIS_INVENTORY)
-        ret, _, response, error = self.exec_curl_cmd(cmd)
-
+        ret, json_response, error = self.__request('GET', RedfishClient.REDFISH_URI_CHASSIS_INVENTORY)
         if (ret != RedfishClient.ERR_CODE_OK):
             logger.log_error(f'Fail to get eeprom list: {error}')
             return (ret, [])
-
-        try:
-            json_response = json.loads(response)
-            item_list = json_response["Members"]
-        except json.JSONDecodeError as e:
-            return (RedfishClient.ERR_CODE_INVALID_JSON_FORMAT, [])
-        except Exception as e:
+        if 'Members' not in json_response:
             return (RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE, [])
 
         eeprom_list = []
-        for item in item_list:
+        for item in json_response['Members']:
             component_url = item.get("@odata.id")
             if not component_url:
                 continue
@@ -1445,37 +1022,16 @@ class RedfishClient:
 
     Args:
         component_name: A string, the component name
-    
+
     Returns:
         A tuple of (ret, eeprom_info)
     '''
     def redfish_api_get_eeprom_info(self, component_name):
         uri = f'{RedfishClient.REDFISH_URI_CHASSIS_INVENTORY}/{component_name}'
-        cmd = self.__build_get_cmd(uri)
-        ret, _, response, err_msg = self.exec_curl_cmd(cmd)
-
-        bad_eeprom_info = {'State': 'Fail'}
+        ret, json_response, err_msg = self.__request('GET', uri)
         if (ret != RedfishClient.ERR_CODE_OK):
             logger.log_error(f'Fail to get eeprom info for {component_name}: {err_msg}')
-            return (ret, bad_eeprom_info)
-
-        try:
-            json_response = json.loads(response)
-        except json.JSONDecodeError as e:
-            ret = RedfishClient.ERR_CODE_INVALID_JSON_FORMAT
-            return (ret, bad_eeprom_info)
-        except Exception as e:
-            ret = RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
-            return (ret, bad_eeprom_info)
-
-        if 'error' in json_response:
-            err = json_response['error']
-            if ('code' in err) and ('ResourceNotFound' in err['code']):
-                ret = RedfishClient.ERR_CODE_URI_NOT_FOUND
-            else:
-                ret = RedfishClient.ERR_CODE_GENERIC_ERROR
-            logger.log_error(f'Got redfish error response for {component_name} query')
-            return (ret, bad_eeprom_info)
+            return (ret, {'State': 'Fail'})
 
         eeprom_info = {}
         for key,value in json_response.items():
@@ -1500,55 +1056,28 @@ class RedfishClient:
     Args:
         new_password: A string, the new password
         user: A string, the user name. If None, change password of itself
-    
+
     Returns:
         A tuple of (ret, error_msg)
     '''
     def redfish_api_change_login_password(self, new_password, user=None):
         logger.log_notice('Changing BMC password\n')
-        cmd = self.__build_change_password_cmd(new_password, user)
-        ret, http_status_code, response, error = self.exec_curl_cmd(cmd)
+        if user is None:
+            user = self.__user_callback()
+        uri = f'{RedfishClient.REDFISH_URI_ACCOUNTS}/{user}'
+        ret, json_response, error_msg = self.__request('PATCH', uri, body={'Password': new_password})
+        if ret == RedfishClient.ERR_CODE_OK:
+            for info in json_response.get('Password@Message.ExtendedInfo', []):
+                if info.get('MessageId', '').endswith('Error'):
+                    ret, error_msg = RedfishClient.ERR_CODE_GENERIC_ERROR, info.get('Message', '')
+                    logger.log_error(f'Resolution: {info.get("Resolution")}')
+                    break
 
-        # Redfish PATCH commands can return 204 with empty content on success
-        if http_status_code == RedfishClient.HTTP_STATUS_CODE_SUCCESS_EMPTY:
-            logger.log_notice(f'Password changed successfully (HTTP {http_status_code})')
-            return (RedfishClient.ERR_CODE_OK, '')
-
-        if (ret != RedfishClient.ERR_CODE_OK):
-            logger.log_error(f'Fail to change login password: {error}')
-            return (ret, f'Error: {error}')
-        else:
-            try:
-                json_response = json.loads(response)
-                if 'error' in json_response:
-                    msg = json_response['error']['message']
-                    logger.log_error(f'Fail to change login password: {msg}')
-                    ret = RedfishClient.ERR_CODE_GENERIC_ERROR
-                    return (ret, msg)
-
-                if 'Password@Message.ExtendedInfo' in json_response:
-                    for info in json_response['Password@Message.ExtendedInfo']:
-                        if info['MessageId'].endswith('Error'):
-                            msg = info['Message']
-                            logger.log_error(f'Fail to change login password: {msg}')
-                            resolution = info['Resolution']
-                            logger.log_error(f'Resolution: {resolution}')
-                            ret = RedfishClient.ERR_CODE_GENERIC_ERROR
-                            return (ret, msg)
-
-                if '@Message.ExtendedInfo' in json_response:
-                    for info in json_response['@Message.ExtendedInfo']:
-                        if info['MessageId'].endswith('Success'):
-                            logger.log_notice('Password changed successfully')
-                            return (RedfishClient.ERR_CODE_OK, '')
-
-                msg = 'Error: Unexpected response format'
-                logger.log_error(f'Fail to change login password. {msg}')
-                return (RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE, msg)
-            except json.JSONDecodeError as e:
-                return (RedfishClient.ERR_CODE_INVALID_JSON_FORMAT, 'Error: Invalid JSON format')
-            except Exception as e:
-                return (RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE, 'Error: Unexpected response format')
+        if ret != RedfishClient.ERR_CODE_OK:
+            logger.log_error(f'Fail to change login password: {error_msg}')
+            return (ret, error_msg)
+        logger.log_notice('Password changed successfully')
+        return (RedfishClient.ERR_CODE_OK, '')
 
     '''
     Set minimum password length for BMC accounts
@@ -1561,36 +1090,13 @@ class RedfishClient:
     '''
     def redfish_api_set_min_password_length(self, min_length):
         logger.log_notice(f'Setting BMC minimum password length to {min_length}')
-        cmd = self.__build_set_min_password_length_cmd(min_length)
-        ret, http_status_code, response, error = self.exec_curl_cmd(cmd)
-
-        # Redfish PATCH commands can return 204 with empty content on success
-        if http_status_code == RedfishClient.HTTP_STATUS_CODE_SUCCESS_EMPTY:
-            logger.log_notice(f'Minimum password length set to {min_length} successfully (HTTP {http_status_code})')
-            return (RedfishClient.ERR_CODE_OK, '')
-
-        if (ret != RedfishClient.ERR_CODE_OK):
-            logger.log_error(f'Fail to set minimum password length: {error}')
-            return (ret, f'Error: {error}')
-
-        try:
-            json_response = json.loads(response)
-            if 'error' in json_response:
-                msg = json_response['error'].get('message', "Missing 'message' field")
-                logger.log_error(f'Fail to set minimum password length: {msg}')
-                return (RedfishClient.ERR_CODE_GENERIC_ERROR, msg)
-            if '@Message.ExtendedInfo' in json_response:
-                for info in json_response['@Message.ExtendedInfo']:
-                    if info.get('MessageId', '').endswith('Success'):
-                        logger.log_notice(f'Minimum password length set to {min_length} successfully')
-                        return (RedfishClient.ERR_CODE_OK, '')
-            msg = 'Error: Unexpected response format'
-            logger.log_error(f'Fail to set minimum password length: {msg}')
-            return (RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE, msg)
-        except json.JSONDecodeError as e:
-            return (RedfishClient.ERR_CODE_INVALID_JSON_FORMAT, 'Error: Invalid JSON format')
-        except Exception as e:
-            return (RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE, f'Error: {str(e)}')
+        ret, _, error_msg = self.__request('PATCH', RedfishClient.REDFISH_URI_ACCOUNT_SERVICE,
+                                           body={'MinPasswordLength': min_length})
+        if ret != RedfishClient.ERR_CODE_OK:
+            logger.log_error(f'Fail to set minimum password length: {error_msg}')
+            return (ret, error_msg)
+        logger.log_notice(f'Minimum password length set to {min_length} successfully')
+        return (RedfishClient.ERR_CODE_OK, '')
 
     '''
     Get minimum password length for BMC accounts
@@ -1602,26 +1108,15 @@ class RedfishClient:
                     or error message string on failure
     '''
     def redfish_api_get_min_password_length(self):
-        cmd = self.__build_get_cmd(RedfishClient.REDFISH_URI_ACCOUNT_SERVICE)
-        ret, _, response, error = self.exec_curl_cmd(cmd)
+        ret, json_response, error_msg = self.__request('GET', RedfishClient.REDFISH_URI_ACCOUNT_SERVICE)
         if (ret != RedfishClient.ERR_CODE_OK):
-            logger.log_error(f'Fail to get minimum password length: {error}')
-            return (ret, f'Error: {error}')
-        try:
-            json_response = json.loads(response)
-            if 'error' in json_response:
-                msg = json_response['error'].get('message', "Missing 'message' field")
-                logger.log_error(f'Fail to get minimum password length: {msg}')
-                return (RedfishClient.ERR_CODE_GENERIC_ERROR, msg)
-            min_length = json_response.get('MinPasswordLength')
-            if min_length is None:
-                return (RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE,
-                        'Error: MinPasswordLength not found in response')
-            return (RedfishClient.ERR_CODE_OK, min_length)
-        except json.JSONDecodeError as e:
-            return (RedfishClient.ERR_CODE_INVALID_JSON_FORMAT, 'Error: Invalid JSON format')
-        except Exception as e:
-            return (RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE, f'Error: {str(e)}')
+            logger.log_error(f'Fail to get minimum password length: {error_msg}')
+            return (ret, error_msg)
+        min_length = json_response.get('MinPasswordLength')
+        if min_length is None:
+            return (RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE,
+                    'Error: MinPasswordLength not found in response')
+        return (RedfishClient.ERR_CODE_OK, min_length)
 
     '''
     Request BMC to reset itself
@@ -1633,38 +1128,8 @@ class RedfishClient:
         A tuple of (ret, error_msg)
     '''
     def redfish_api_request_bmc_reset(self, bmc_reset_type=REDFISH_BMC_GRACEFUL_RESTART):
-        cmd = self.__build_request_bmc_reset_cmd(bmc_reset_type)
-        ret, _, response, err_msg = self.exec_curl_cmd(cmd)
-        json_response = None
-
-        if (ret != RedfishClient.ERR_CODE_OK):
-            logger.log_notice(f'Reset BMC return not OK, ret {ret}, response {response}, err msg {err_msg}')
-            return (ret, err_msg)
-
-        if response is None or len(response) == 0:
-            logger.log_notice(f'Reset BMC return OK, ret {ret}, err msg {err_msg}')
-            return (RedfishClient.ERR_CODE_OK, '')
-
-        logger.log_notice(f"After requesting BMC {bmc_reset_type}, got response {response} and error {err_msg}")
-
-        try:
-            json_response = json.loads(response)
-        except json.JSONDecodeError as e:
-            msg = 'Error: Invalid JSON format'
-            return (RedfishClient.ERR_CODE_INVALID_JSON_FORMAT, msg)
-        except Exception as e:
-            msg = 'Error: unexpected response'
-            return (RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE, msg)
-
-        if 'error' in json_response:
-            err = json_response['error']
-            if 'message' in err:
-                err_msg = err['message']
-                ret = RedfishClient.ERR_CODE_GENERIC_ERROR
-                if 'ActionParameterUnknown' in err.get('code', ''):
-                    ret = RedfishClient.ERR_CODE_UNSUPPORTED_PARAMETER
-            else:
-                ret = RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
-                err_msg = "Missing 'message' field"
-
-        return (ret, err_msg)
+        ret, _, error_msg = self.__request('POST', RedfishClient.REDFISH_REQUEST_BMC_RESET,
+                                           body={'ResetType': bmc_reset_type})
+        if ret != RedfishClient.ERR_CODE_OK:
+            logger.log_notice(f'Reset BMC returned error {ret}: {error_msg}')
+        return (ret, error_msg)

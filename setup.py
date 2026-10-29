@@ -86,6 +86,7 @@ setup(
     install_requires=[
         'natsort',
         'PyYAML',
+        'redfish>=3.4.2',
     ] + sonic_dependencies,
     setup_requires = [
         'pytest-runner',
