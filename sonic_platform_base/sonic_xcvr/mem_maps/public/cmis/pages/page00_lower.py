@@ -110,6 +110,7 @@ class CmisAdministrativeLowerPage(CmisPage):
         # TRANS_CONFIG_FIELD
         self.fields[consts.TRANS_CONFIG_FIELD] = [
             NumberRegField(consts.MODULE_LEVEL_CONTROL, self.getaddr(26), size=1, ro=False),
+            NumberRegField(consts.MODULE_PRECODING_CONTROL, self.getaddr(29), size=1, ro=False),
         ]
 
         # EXTENDED_MODULE_INFO_FIELD

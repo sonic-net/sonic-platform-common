@@ -3724,6 +3724,92 @@ class TestCmis(object):
         self.api.stage_custom_si_settings(0x0f, optics_si_dict)
         assert self.api.xcvr_eeprom.write.call_count == 4
 
+    @pytest.mark.parametrize("flat_mem, read_val, expected", [
+        (False, 0x00, {'TP1': False, 'TP4': False}),
+        (False, 0x04, {'TP1': False, 'TP4': True}),
+        (False, 0x08, {'TP1': True, 'TP4': False}),
+        (False, 0xF3, {'TP1': False, 'TP4': False}),
+        (False, 0xFF, {'TP1': True, 'TP4': True}),
+        (False, None, None),
+        (True, 0x0C, None),
+    ])
+    def test_get_module_precoding(self, flat_mem, read_val, expected):
+        self.api.xcvr_eeprom.read = MagicMock(return_value=read_val)
+        with patch.object(self.api, 'is_flat_memory', return_value=flat_mem):
+            assert self.api.get_module_precoding() == expected
+
+    @pytest.mark.parametrize("precoding, read_val, expected_write", [
+        # TP1 OFF / TP4 ON, other bits (e.g. bit 0) preserved
+        ({'TP1': False, 'TP4': True}, 0x09, 0x05),
+        ({'TP1': True, 'TP4': True}, 0x01, 0x0D),
+        ({'TP1': 0, 'TP4': 1}, 0xFF, 0xF7),
+        ({'TP4': False}, 0x0C, 0x08),
+        ({'TP1': True}, 0x00, 0x08),
+    ])
+    def test_set_module_precoding(self, precoding, read_val, expected_write):
+        self.api.xcvr_eeprom.read = MagicMock(return_value=read_val)
+        self.api.xcvr_eeprom.write = MagicMock(return_value=True)
+        with patch.object(self.api, 'is_flat_memory', return_value=False):
+            assert self.api.set_module_precoding(precoding)
+        self.api.xcvr_eeprom.read.assert_called_once_with(consts.MODULE_PRECODING_CONTROL)
+        self.api.xcvr_eeprom.write.assert_called_once_with(consts.MODULE_PRECODING_CONTROL, expected_write)
+
+    def test_set_module_precoding_no_change(self):
+        self.api.xcvr_eeprom.read = MagicMock(return_value=0x04)
+        self.api.xcvr_eeprom.write = MagicMock(return_value=True)
+        with patch.object(self.api, 'is_flat_memory', return_value=False):
+            assert self.api.set_module_precoding({'TP1': False, 'TP4': True})
+        self.api.xcvr_eeprom.write.assert_not_called()
+
+    def test_set_module_precoding_empty(self):
+        self.api.xcvr_eeprom.read = MagicMock(return_value=0x00)
+        self.api.xcvr_eeprom.write = MagicMock(return_value=True)
+        assert self.api.set_module_precoding({})
+        self.api.xcvr_eeprom.read.assert_not_called()
+        self.api.xcvr_eeprom.write.assert_not_called()
+
+    @pytest.mark.parametrize("precoding", [
+        None, ['TP1'], {'TP2': True}, {'TP1': 'on'}, {'TP1': '1'}, {'TP1': 2}, {'TP4': None},
+    ])
+    def test_set_module_precoding_invalid(self, precoding):
+        self.api.xcvr_eeprom.read = MagicMock(return_value=0x00)
+        self.api.xcvr_eeprom.write = MagicMock(return_value=True)
+        with patch.object(self.api, 'is_flat_memory', return_value=False):
+            assert not self.api.set_module_precoding(precoding)
+        self.api.xcvr_eeprom.write.assert_not_called()
+
+    @pytest.mark.parametrize("flat_mem, read_val, write_ret", [
+        (True, 0x00, True),
+        (False, None, True),
+        (False, 0x08, False),
+    ])
+    def test_set_module_precoding_failure(self, flat_mem, read_val, write_ret):
+        self.api.xcvr_eeprom.read = MagicMock(return_value=read_val)
+        self.api.xcvr_eeprom.write = MagicMock(return_value=write_ret)
+        with patch.object(self.api, 'is_flat_memory', return_value=flat_mem):
+            assert not self.api.set_module_precoding({'TP1': False, 'TP4': True})
+
+    @pytest.mark.parametrize("set_ret, expected", [(True, True), (False, False)])
+    def test_stage_custom_si_settings_module_precoding(self, set_ret, expected):
+        rx_si = {"OutputEqPreCursorTargetRx": {"OutputEqPreCursorTargetRx1": 2}}
+        precoding = {'TP1': False, 'TP4': True}
+        optics_si_dict = dict(rx_si, **{consts.MODULE_PRECODING: precoding})
+        with patch.object(self.api, 'stage_rx_si_settings', return_value=True) as mock_rx, \
+             patch.object(self.api, 'stage_tx_si_settings', return_value=True) as mock_tx, \
+             patch.object(self.api, 'set_module_precoding', return_value=set_ret) as mock_set:
+            assert self.api.stage_custom_si_settings(0xff, optics_si_dict) == expected
+        mock_rx.assert_called_once_with(0xff, rx_si)
+        mock_tx.assert_called_once_with(0xff, {})
+        mock_set.assert_called_once_with(precoding)
+
+    def test_stage_custom_si_settings_without_module_precoding(self):
+        optics_si_dict = {"OutputEqPreCursorTargetRx": {"OutputEqPreCursorTargetRx1": 2}}
+        with patch.object(self.api, 'stage_rx_si_settings', return_value=True), \
+             patch.object(self.api, 'stage_tx_si_settings', return_value=True), \
+             patch.object(self.api, 'set_module_precoding') as mock_set:
+            assert self.api.stage_custom_si_settings(0xff, optics_si_dict)
+        mock_set.assert_not_called()
+
     def test_get_error_description(self):
         with patch.object(self.api, 'is_flat_memory') as mock_method:
             mock_method.return_value = False
