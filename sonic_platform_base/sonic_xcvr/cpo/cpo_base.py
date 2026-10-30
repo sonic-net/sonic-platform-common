@@ -10,6 +10,7 @@ from sonic_platform_base.sonic_xcvr.eeprom_rw import EepromReadWriteMixin
 
 class OeId(Enum):
     BROADCOM_DAVISSON = 1
+    NVIDIA_SPC6_CPO = 2
 
 
 class ElsfpId(Enum):
