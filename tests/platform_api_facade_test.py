@@ -11,6 +11,7 @@ import contextlib
 import enum
 import errno
 import functools
+import json
 import signal
 import sys
 import threading
@@ -1878,7 +1879,7 @@ def test_omitted_is_readable_at_runtime():
 
 
 def test_deferred_is_readable_at_runtime_and_names_its_phase():
-    assert any(path == 'SfpBase.get_transceiver_info'
+    assert any(path == 'SfpBase.get_power_override'
                for path, _reason in facade_module.DEFERRED)
     assert all('phase' in reason for _path, reason in facade_module.DEFERRED)
     assert not {p for p, _r in facade_module.DEFERRED} & {p for p, _r in facade_module.OMITTED}
@@ -3563,3 +3564,113 @@ def test_a_number_that_is_not_an_int_keeps_its_fraction():
     assert scalar(Int64(), ('N/A',), ('int', 'str')) == 7
     assert isinstance(scalar(Int64(), ('N/A',), ('int', 'str')), int)
     assert scalar('N/A', ('N/A',), ('int', 'str')) is None
+
+
+def sfp_facade(sfp):
+    """Keep the same slot object behind inventory, actions and decoder reads."""
+    from types import SimpleNamespace
+    return PlatformApi(SimpleNamespace(get_all_sfps=lambda: [sfp]))
+
+
+def test_sfp_inventory_and_capability_discovery_do_not_read_hardware():
+    sfp = mock.Mock(spec=['get_presence', 'get_transceiver_pm'])
+    api = sfp_facade(sfp)
+    key = api.get_sfps()[0].key
+    assert api.sfp_has_method(key, 'get_transceiver_pm')
+    assert not api.sfp_has_method(key, 'is_transceiver_vdm_supported')
+    assert sfp.mock_calls == []
+    sfp.get_presence.return_value = False
+    assert api.sfp_get_presence(key) is False
+    sfp.get_presence.assert_called_once_with()
+    sfp.get_transceiver_pm.assert_not_called()
+
+
+@pytest.mark.parametrize('key', ['sfps[-1]', 'sfps[1]', 'fans[0]', 'sfps[0]/fans[0]'])
+def test_sfp_actions_and_hatches_reject_keys_outside_the_inventory(key):
+    from sonic_platform_api.facade import DeviceNotFound
+    sfp = mock.Mock()
+    api = sfp_facade(sfp)
+    with pytest.raises(DeviceNotFound):
+        api.sfp_set_lpmode(key, True)
+    with pytest.raises(DeviceNotFound):
+        api.sfp_read_eeprom(key, 0, 1)
+    assert sfp.mock_calls == []
+
+
+@pytest.mark.parametrize('method', [
+    'get_transceiver_info', 'get_transceiver_info_firmware_versions',
+    'get_transceiver_status', 'get_transceiver_status_flags',
+    'get_transceiver_dom_real_value', 'get_transceiver_dom_flags',
+    'get_transceiver_threshold_info', 'get_transceiver_pm', 'get_temperature',
+    'get_transceiver_vdm_real_value_basic', 'get_transceiver_vdm_real_value_statistic',
+    'get_transceiver_vdm_flags', 'get_transceiver_vdm_thresholds',
+])
+def test_sfp_json_readings_preserve_vendor_fields_and_nonfinite_values(method):
+    sfp = mock.Mock(spec=[method])
+    getter = getattr(sfp, method)
+    getter.return_value = {
+        'power': float('-inf'), 'nested': [float('inf'), float('nan'), None],
+        'note': 'quoted "Infinity" and NaN', 'temperature': 42.5,
+        'vendor': b'ACME', 7: False,
+    }
+    api = sfp_facade(sfp)
+    result = json.loads(getattr(api, 'sfp_' + method)(api.get_sfps()[0].key))
+    assert result == {
+        'power': '-inf', 'nested': ['inf', 'nan', None],
+        'note': 'quoted "Infinity" and NaN', 'temperature': 42.5,
+        'vendor': "b'ACME'", '7': False,
+    }
+    getter.assert_called_once_with()
+    getter.return_value = None
+    assert json.loads(getattr(api, 'sfp_' + method)('sfps[0]')) is None
+
+
+def test_sfp_legacy_dom_fallback_does_not_mask_modern_empty_reads_or_errors():
+    legacy = mock.Mock(spec=['get_transceiver_bulk_status'])
+    legacy.get_transceiver_bulk_status.return_value = {'rx1power': float('-inf')}
+    assert json.loads(sfp_facade(legacy).sfp_get_transceiver_dom_real_value('sfps[0]')) == {
+        'rx1power': '-inf',
+    }
+    modern = mock.Mock(spec=['get_transceiver_dom_real_value', 'get_transceiver_bulk_status'])
+    modern.get_transceiver_dom_real_value.return_value = None
+    api = sfp_facade(modern)
+    assert json.loads(api.sfp_get_transceiver_dom_real_value('sfps[0]')) is None
+    modern.get_transceiver_dom_real_value.side_effect = OSError('EEPROM read failed')
+    with pytest.raises(OSError, match='EEPROM read failed'):
+        api.sfp_get_transceiver_dom_real_value('sfps[0]')
+    modern.get_transceiver_bulk_status.assert_not_called()
+
+
+def test_sfp_direct_reads_follow_decoder_replacement_without_aggregate_reads():
+    sfp = mock.Mock(spec=['get_xcvr_api', 'remove_xcvr_api', 'get_transceiver_status'])
+    first, second = mock.Mock(), mock.Mock()
+    first.get_datapath_state.return_value = {'DP1State': 'Deactivated'}
+    second.get_datapath_state.return_value = {'DP1State': 'Activated'}
+    sfp.get_xcvr_api.side_effect = [first, second]
+    api = sfp_facade(sfp)
+    key = api.get_sfps()[0].key
+    assert json.loads(api.sfp_get_datapath_state(key)) == {'DP1State': 'Deactivated'}
+    api.sfp_remove_xcvr_api(key)
+    assert json.loads(api.sfp_get_datapath_state(key)) == {'DP1State': 'Activated'}
+    sfp.remove_xcvr_api.assert_called_once_with()
+    sfp.get_transceiver_status.assert_not_called()
+
+
+def test_sfp_eeprom_preserves_binary_buffers_misses_and_failed_writes():
+    sfp = mock.Mock(spec=['read_eeprom', 'write_eeprom'])
+    api = sfp_facade(sfp)
+    key = api.get_sfps()[0].key
+    sfp.read_eeprom.return_value = bytearray([0, 128, 255])
+    assert api.sfp_read_eeprom(key, 129, 3) == b'\x00\x80\xff'
+    sfp.read_eeprom.assert_called_once_with(129, 3)
+    sfp.read_eeprom.return_value = None
+    assert api.sfp_read_eeprom(key, 129, 3) is None
+    sfp.write_eeprom.return_value = False
+    assert api.sfp_write_eeprom(key, 129, b'\x00\x80\xff') is False
+    sfp.write_eeprom.assert_called_once_with(129, 3, b'\x00\x80\xff')
+    with pytest.raises(ValueError):
+        api.sfp_read_eeprom(key, -1, 3)
+    with pytest.raises(ValueError):
+        api.sfp_read_eeprom(key, 0, -1)
+    with pytest.raises(ValueError):
+        api.sfp_write_eeprom(key, -1, b'')

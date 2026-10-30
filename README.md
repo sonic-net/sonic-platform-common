@@ -7,6 +7,25 @@
 
 Collection of Python packages which provide a common interface to platform-specific hardware peripherals in SONiC
 
+## Cross-language transceiver API
+
+`sonic_platform_api/facade.pyi` declares the shared API consumed by Rust
+`xcvrd-rs`. `get_sfps()` returns slot rows with `DeviceKey` identifiers;
+`sfp_*` reads and actions address those keys. Inventory does not read EEPROM or
+consume latched flags. Direct decoder reads resolve the current `get_xcvr_api()`
+on the same slot used by change-event handling.
+
+Open-ended transceiver dictionaries cross as `Json` (JSON-encoded strings),
+preserving vendor fields, nested values, nulls and non-finite readings as
+`"-inf"`, `"inf"` and `"nan"`. EEPROM operations use bytes and preserve read
+misses and failed writes. No vendor base-class changes are required.
+
+After editing the declaration, run `python3 generator/generate.py` and
+`generator/check.sh` with the `testing` extra installed. The generator produces
+the Python facade, Rust trait, PyO3 bridge and provider delegations. Daemons
+depend on `platform-api` and `platform-provider`, and need the matching
+`sonic_platform_api` Python package at runtime.
+
 # Contribution guide
 
 All contributors must sign a contribution license agreement (CLA) before contributions can be accepted. This process is now automated via a GitHub bot when submitting new pull request. If the contributor has not yet signed a CLA, the bot will create a comment on the pull request containing a link to electronically sign the CLA.

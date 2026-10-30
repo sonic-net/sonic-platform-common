@@ -83,6 +83,13 @@ fn one_call(facade: &Py<PyAny>) -> String {
 }
 
 #[test]
+fn get_sfps_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.get_sfps();
+    assert_eq!(one_call(&facade), "get_sfps()");
+}
+
+#[test]
 fn get_chassis_info_forwards() {
     let (mut p, facade) = platform();
     let _ = p.get_chassis_info(ChassisInfoCols::ALL);
@@ -171,6 +178,286 @@ fn get_watchdogs_forwards() {
     let (mut p, facade) = platform();
     let _ = p.get_watchdogs();
     assert_eq!(one_call(&facade), "get_watchdogs()");
+}
+
+#[test]
+fn sfp_get_presence_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_get_presence(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_get_presence('arg0',)");
+}
+
+#[test]
+fn sfp_is_replaceable_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_is_replaceable(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_is_replaceable('arg0',)");
+}
+
+#[test]
+fn sfp_get_reset_status_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_get_reset_status(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_get_reset_status('arg0',)");
+}
+
+#[test]
+fn sfp_get_lpmode_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_get_lpmode(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_get_lpmode('arg0',)");
+}
+
+#[test]
+fn sfp_get_error_description_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_get_error_description(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_get_error_description('arg0',)");
+}
+
+#[test]
+fn sfp_get_type_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_get_type(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_get_type('arg0',)");
+}
+
+#[test]
+fn sfp_has_method_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_has_method(&DeviceKey::from("arg0"), "arg1");
+    assert_eq!(one_call(&facade), "sfp_has_method('arg0', 'arg1')");
+}
+
+#[test]
+fn sfp_get_transceiver_info_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_get_transceiver_info(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_get_transceiver_info('arg0',)");
+}
+
+#[test]
+fn sfp_get_transceiver_info_firmware_versions_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_get_transceiver_info_firmware_versions(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_get_transceiver_info_firmware_versions('arg0',)");
+}
+
+#[test]
+fn sfp_get_transceiver_status_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_get_transceiver_status(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_get_transceiver_status('arg0',)");
+}
+
+#[test]
+fn sfp_get_transceiver_status_flags_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_get_transceiver_status_flags(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_get_transceiver_status_flags('arg0',)");
+}
+
+#[test]
+fn sfp_get_transceiver_dom_real_value_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_get_transceiver_dom_real_value(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_get_transceiver_dom_real_value('arg0',)");
+}
+
+#[test]
+fn sfp_get_transceiver_dom_flags_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_get_transceiver_dom_flags(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_get_transceiver_dom_flags('arg0',)");
+}
+
+#[test]
+fn sfp_get_transceiver_threshold_info_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_get_transceiver_threshold_info(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_get_transceiver_threshold_info('arg0',)");
+}
+
+#[test]
+fn sfp_get_temperature_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_get_temperature(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_get_temperature('arg0',)");
+}
+
+#[test]
+fn sfp_get_transceiver_pm_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_get_transceiver_pm(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_get_transceiver_pm('arg0',)");
+}
+
+#[test]
+fn sfp_is_transceiver_vdm_supported_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_is_transceiver_vdm_supported(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_is_transceiver_vdm_supported('arg0',)");
+}
+
+#[test]
+fn sfp_is_vdm_statistic_supported_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_is_vdm_statistic_supported(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_is_vdm_statistic_supported('arg0',)");
+}
+
+#[test]
+fn sfp_get_transceiver_vdm_real_value_basic_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_get_transceiver_vdm_real_value_basic(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_get_transceiver_vdm_real_value_basic('arg0',)");
+}
+
+#[test]
+fn sfp_get_transceiver_vdm_real_value_statistic_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_get_transceiver_vdm_real_value_statistic(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_get_transceiver_vdm_real_value_statistic('arg0',)");
+}
+
+#[test]
+fn sfp_get_transceiver_vdm_flags_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_get_transceiver_vdm_flags(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_get_transceiver_vdm_flags('arg0',)");
+}
+
+#[test]
+fn sfp_get_transceiver_vdm_thresholds_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_get_transceiver_vdm_thresholds(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_get_transceiver_vdm_thresholds('arg0',)");
+}
+
+#[test]
+fn sfp_get_vdm_freeze_status_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_get_vdm_freeze_status(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_get_vdm_freeze_status('arg0',)");
+}
+
+#[test]
+fn sfp_get_vdm_unfreeze_status_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_get_vdm_unfreeze_status(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_get_vdm_unfreeze_status('arg0',)");
+}
+
+#[test]
+fn sfp_set_lpmode_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_set_lpmode(&DeviceKey::from("arg0"), true);
+    assert_eq!(one_call(&facade), "sfp_set_lpmode('arg0', True)");
+}
+
+#[test]
+fn sfp_reset_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_reset(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_reset('arg0',)");
+}
+
+#[test]
+fn sfp_remove_xcvr_api_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_remove_xcvr_api(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_remove_xcvr_api('arg0',)");
+}
+
+#[test]
+fn sfp_freeze_vdm_stats_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_freeze_vdm_stats(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_freeze_vdm_stats('arg0',)");
+}
+
+#[test]
+fn sfp_unfreeze_vdm_stats_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_unfreeze_vdm_stats(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_unfreeze_vdm_stats('arg0',)");
+}
+
+#[test]
+fn sfp_read_eeprom_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_read_eeprom(&DeviceKey::from("arg0"), 2, 3);
+    assert_eq!(one_call(&facade), "sfp_read_eeprom('arg0', 2, 3)");
+}
+
+#[test]
+fn sfp_write_eeprom_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_write_eeprom(&DeviceKey::from("arg0"), 2, &[0, 128, 255]);
+    assert_eq!(one_call(&facade), "sfp_write_eeprom('arg0', 2, b'\\x00\\x80\\xff')");
+}
+
+#[test]
+fn sfp_is_flat_memory_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_is_flat_memory(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_is_flat_memory('arg0',)");
+}
+
+#[test]
+fn sfp_get_module_type_abbreviation_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_get_module_type_abbreviation(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_get_module_type_abbreviation('arg0',)");
+}
+
+#[test]
+fn sfp_is_coherent_module_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_is_coherent_module(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_is_coherent_module('arg0',)");
+}
+
+#[test]
+fn sfp_get_module_state_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_get_module_state(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_get_module_state('arg0',)");
+}
+
+#[test]
+fn sfp_get_cmis_rev_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_get_cmis_rev(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_get_cmis_rev('arg0',)");
+}
+
+#[test]
+fn sfp_get_application_advertisement_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_get_application_advertisement(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_get_application_advertisement('arg0',)");
+}
+
+#[test]
+fn sfp_get_datapath_state_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_get_datapath_state(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_get_datapath_state('arg0',)");
+}
+
+#[test]
+fn sfp_get_config_datapath_hostlane_status_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_get_config_datapath_hostlane_status(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_get_config_datapath_hostlane_status('arg0',)");
+}
+
+#[test]
+fn sfp_get_dpinit_pending_forwards() {
+    let (mut p, facade) = platform();
+    let _ = p.sfp_get_dpinit_pending(&DeviceKey::from("arg0"));
+    assert_eq!(one_call(&facade), "sfp_get_dpinit_pending('arg0',)");
 }
 
 #[test]

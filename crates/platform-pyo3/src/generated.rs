@@ -17,7 +17,7 @@ use pyo3::prelude::*;
 
 use platform_api::{
     LedColor, FanKind, PowerEntityKind, ThermalKind, ModuleType, ModuleStatus, SensorKind, EepromUpdate, LeakSeverity, ChangeEventKind,
-    ThermalInfo, FanInfo, FanDrawerInfo, PsuInfo, ChassisInfo, ModuleInfo, ComponentInfo, SensorInfo, LeakProfile, LeakSensorInfo, WatchdogInfo, ChangeEvent, ChangeEventBatch, PcieDevice, PcieAerStat, StorageDeviceInfo, EepromTlv, AsicInfo, BmcInfo, ModuleRebootCause, ModuleMidplaneDownReason, BmcResult,
+    ThermalInfo, FanInfo, FanDrawerInfo, PsuInfo, ChassisInfo, ModuleInfo, ComponentInfo, SensorInfo, LeakProfile, LeakSensorInfo, WatchdogInfo, SfpInfo, ChangeEvent, ChangeEventBatch, PcieDevice, PcieAerStat, StorageDeviceInfo, EepromTlv, AsicInfo, BmcInfo, ModuleRebootCause, ModuleMidplaneDownReason, BmcResult,
     ThermalInfoCols, FanInfoCols, FanDrawerInfoCols, ChassisInfoCols, ModuleInfoCols,
     DeviceKey, Number, PlatformApi, PlatformError,
 };
@@ -240,6 +240,13 @@ fn watchdog_info(row: &Bound<'_, PyAny>) -> Result<WatchdogInfo, PlatformError> 
     })
 }
 
+/// Read one `SfpInfo` off the object the facade returned.
+fn sfp_info(row: &Bound<'_, PyAny>) -> Result<SfpInfo, PlatformError> {
+    Ok(SfpInfo {
+        key: text(row, "key")?.map(DeviceKey::from).unwrap_or_default(),
+    })
+}
+
 /// Read one `ChangeEvent` off the object the facade returned.
 fn change_event(row: &Bound<'_, PyAny>) -> Result<ChangeEvent, PlatformError> {
     Ok(ChangeEvent {
@@ -359,6 +366,22 @@ fn bmc_result(row: &Bound<'_, PyAny>) -> Result<BmcResult, PlatformError> {
 }
 
 impl PlatformApi for Bridge {
+
+    fn get_sfps(&mut self) -> Result<Vec<SfpInfo>, PlatformError> {
+        Python::with_gil(|py| {
+            let rows = self
+                .facade
+                .bind(py)
+                .call_method0("get_sfps")
+                .map_err(|e| err(py, e))?;
+            let mut out = Vec::new();
+            for row in rows.try_iter().map_err(|e| err(py, e))? {
+                let row = row.map_err(|e| err(py, e))?;
+                out.push(sfp_info(&row)?);
+            }
+            Ok(out)
+        })
+    }
 
     fn get_chassis_info(&mut self, cols: ChassisInfoCols) -> Result<ChassisInfo, PlatformError> {
         Python::with_gil(|py| {
@@ -560,6 +583,445 @@ impl PlatformApi for Bridge {
                 out.push(watchdog_info(&row)?);
             }
             Ok(out)
+        })
+    }
+
+    fn sfp_get_presence(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_presence", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_is_replaceable(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_is_replaceable", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_reset_status(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_reset_status", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_lpmode(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_lpmode", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_error_description(&mut self, sfp: &DeviceKey) -> Result<Option<String>, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_error_description", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_type(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_type", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_has_method(&mut self, sfp: &DeviceKey, method: &str) -> Result<bool, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_has_method", (sfp.as_str(), method, ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_transceiver_info(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_transceiver_info", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_transceiver_info_firmware_versions(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_transceiver_info_firmware_versions", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_transceiver_status(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_transceiver_status", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_transceiver_status_flags(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_transceiver_status_flags", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_transceiver_dom_real_value(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_transceiver_dom_real_value", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_transceiver_dom_flags(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_transceiver_dom_flags", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_transceiver_threshold_info(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_transceiver_threshold_info", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_temperature(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_temperature", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_transceiver_pm(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_transceiver_pm", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_is_transceiver_vdm_supported(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_is_transceiver_vdm_supported", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_is_vdm_statistic_supported(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_is_vdm_statistic_supported", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_transceiver_vdm_real_value_basic(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_transceiver_vdm_real_value_basic", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_transceiver_vdm_real_value_statistic(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_transceiver_vdm_real_value_statistic", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_transceiver_vdm_flags(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_transceiver_vdm_flags", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_transceiver_vdm_thresholds(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_transceiver_vdm_thresholds", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_vdm_freeze_status(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_vdm_freeze_status", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_vdm_unfreeze_status(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_vdm_unfreeze_status", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_set_lpmode(&mut self, sfp: &DeviceKey, on: bool) -> Result<Option<bool>, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_set_lpmode", (sfp.as_str(), on, ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_reset(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_reset", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_remove_xcvr_api(&mut self, sfp: &DeviceKey) -> Result<(), PlatformError> {
+        Python::with_gil(|py| {
+            self.facade
+                .bind(py)
+                .call_method1("sfp_remove_xcvr_api", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            Ok(())
+        })
+    }
+
+    fn sfp_freeze_vdm_stats(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_freeze_vdm_stats", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_unfreeze_vdm_stats(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_unfreeze_vdm_stats", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_read_eeprom(&mut self, sfp: &DeviceKey, offset: i64, num_bytes: i64) -> Result<Option<Vec<u8>>, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_read_eeprom", (sfp.as_str(), offset, num_bytes, ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_write_eeprom(&mut self, sfp: &DeviceKey, offset: i64, data: &[u8]) -> Result<Option<bool>, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_write_eeprom", (sfp.as_str(), offset, pyo3::types::PyBytes::new(py, data), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_is_flat_memory(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_is_flat_memory", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_module_type_abbreviation(&mut self, sfp: &DeviceKey) -> Result<Option<String>, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_module_type_abbreviation", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_is_coherent_module(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_is_coherent_module", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_module_state(&mut self, sfp: &DeviceKey) -> Result<Option<String>, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_module_state", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_cmis_rev(&mut self, sfp: &DeviceKey) -> Result<Option<String>, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_cmis_rev", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_application_advertisement(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_application_advertisement", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_datapath_state(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_datapath_state", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_config_datapath_hostlane_status(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_config_datapath_hostlane_status", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_dpinit_pending(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::with_gil(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_dpinit_pending", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
         })
     }
 

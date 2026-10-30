@@ -1616,6 +1616,16 @@ pub struct WatchdogInfo {
     pub remaining_time: Option<i64>,
 }
 
+/// A chassis transceiver slot, including empty cages.
+///
+/// Inventory does not read EEPROM or latched flags. Reads and actions address
+/// the key individually so a presence check cannot consume a DOM alarm, and
+/// CMIS bring-up need not decode an entire module for one state field.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SfpInfo {
+    pub key: DeviceKey,
+}
+
 /// One device that changed, out of the two-level mapping the base class
 /// returns.
 ///
@@ -1819,6 +1829,18 @@ impl std::fmt::Debug for BmcResult {
 /// polling cycle, and the snapshot methods are exactly where that cache is
 /// refreshed.
 pub trait PlatformApi: Send {
+    /// Transceiver slots in chassis list order, addressed by DeviceKey.
+    ///
+    /// Order is part of the contract: it is what lets the Rust and the Python
+    /// implementations be compared row for row.
+    ///
+    /// Empty by default, so that adding a row type to the schema does not
+    /// break every implementation that does not have one -- a platform with
+    /// no BMC should not have to write a method to say so.
+    fn get_sfps(&mut self) -> Result<Vec<SfpInfo>, PlatformError> {
+        let _ = ();
+        Ok(Vec::new())
+    }
     /// The chassis.
     ///
     /// A singleton, so it is not a `list`: there is one chassis and the
@@ -2003,6 +2025,372 @@ pub trait PlatformApi: Send {
     fn get_watchdogs(&mut self) -> Result<Vec<WatchdogInfo>, PlatformError> {
         let _ = ();
         Ok(Vec::new())
+    }
+
+    /// Calls `DeviceBase.get_presence()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_get_presence is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_get_presence(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_get_presence".to_string()))
+    }
+
+    /// Calls `DeviceBase.is_replaceable()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_is_replaceable is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_is_replaceable(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_is_replaceable".to_string()))
+    }
+
+    /// Calls `SfpBase.get_reset_status()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_get_reset_status is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_get_reset_status(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_get_reset_status".to_string()))
+    }
+
+    /// Calls `SfpBase.get_lpmode()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_get_lpmode is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_get_lpmode(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_get_lpmode".to_string()))
+    }
+
+    /// Calls `SfpBase.get_error_description()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_get_error_description is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_get_error_description(&mut self, sfp: &DeviceKey) -> Result<Option<String>, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_get_error_description".to_string()))
+    }
+
+    /// The slot's sfp_type attribute, for example QSFP_DD.
+    ///
+    /// No default: what this answers has no empty value that is not also a
+    /// lie, so a platform that cannot answer has to say so.
+    fn sfp_get_type(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_get_type".to_string()))
+    }
+
+    /// Whether the SFP exposes a method, without reading hardware.
+    ///
+    /// No default: what this answers has no empty value that is not also a
+    /// lie, so a platform that cannot answer has to say so.
+    fn sfp_has_method(&mut self, sfp: &DeviceKey, method: &str) -> Result<bool, PlatformError> {
+        let _ = sfp;
+        let _ = method;
+        Err(PlatformError::NotSupported("sfp_has_method".to_string()))
+    }
+
+    /// Calls `SfpBase.get_transceiver_info()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_get_transceiver_info is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_get_transceiver_info(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_get_transceiver_info".to_string()))
+    }
+
+    /// Calls `SfpOptoeBase.get_transceiver_info_firmware_versions()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_get_transceiver_info_firmware_versions is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_get_transceiver_info_firmware_versions(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_get_transceiver_info_firmware_versions".to_string()))
+    }
+
+    /// Calls `SfpOptoeBase.get_transceiver_status()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_get_transceiver_status is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_get_transceiver_status(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_get_transceiver_status".to_string()))
+    }
+
+    /// Calls `SfpOptoeBase.get_transceiver_status_flags()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_get_transceiver_status_flags is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_get_transceiver_status_flags(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_get_transceiver_status_flags".to_string()))
+    }
+
+    /// DOM readings, with the legacy bulk-status fallback.
+    ///
+    /// No default: what this answers has no empty value that is not also a
+    /// lie, so a platform that cannot answer has to say so.
+    fn sfp_get_transceiver_dom_real_value(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_get_transceiver_dom_real_value".to_string()))
+    }
+
+    /// Calls `SfpOptoeBase.get_transceiver_dom_flags()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_get_transceiver_dom_flags is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_get_transceiver_dom_flags(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_get_transceiver_dom_flags".to_string()))
+    }
+
+    /// Calls `SfpBase.get_transceiver_threshold_info()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_get_transceiver_threshold_info is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_get_transceiver_threshold_info(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_get_transceiver_threshold_info".to_string()))
+    }
+
+    /// Calls `SfpBase.get_temperature()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_get_temperature is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_get_temperature(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_get_temperature".to_string()))
+    }
+
+    /// Calls `SfpOptoeBase.get_transceiver_pm()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_get_transceiver_pm is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_get_transceiver_pm(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_get_transceiver_pm".to_string()))
+    }
+
+    /// Calls `SfpOptoeBase.is_transceiver_vdm_supported()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_is_transceiver_vdm_supported is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_is_transceiver_vdm_supported(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_is_transceiver_vdm_supported".to_string()))
+    }
+
+    /// Calls `SfpOptoeBase.is_vdm_statistic_supported()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_is_vdm_statistic_supported is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_is_vdm_statistic_supported(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_is_vdm_statistic_supported".to_string()))
+    }
+
+    /// Calls `SfpOptoeBase.get_transceiver_vdm_real_value_basic()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_get_transceiver_vdm_real_value_basic is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_get_transceiver_vdm_real_value_basic(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_get_transceiver_vdm_real_value_basic".to_string()))
+    }
+
+    /// Calls `SfpOptoeBase.get_transceiver_vdm_real_value_statistic()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_get_transceiver_vdm_real_value_statistic is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_get_transceiver_vdm_real_value_statistic(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_get_transceiver_vdm_real_value_statistic".to_string()))
+    }
+
+    /// Calls `SfpOptoeBase.get_transceiver_vdm_flags()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_get_transceiver_vdm_flags is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_get_transceiver_vdm_flags(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_get_transceiver_vdm_flags".to_string()))
+    }
+
+    /// Calls `SfpOptoeBase.get_transceiver_vdm_thresholds()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_get_transceiver_vdm_thresholds is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_get_transceiver_vdm_thresholds(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_get_transceiver_vdm_thresholds".to_string()))
+    }
+
+    /// Calls `SfpOptoeBase.get_vdm_freeze_status()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_get_vdm_freeze_status is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_get_vdm_freeze_status(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_get_vdm_freeze_status".to_string()))
+    }
+
+    /// Calls `SfpOptoeBase.get_vdm_unfreeze_status()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_get_vdm_unfreeze_status is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_get_vdm_unfreeze_status(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_get_vdm_unfreeze_status".to_string()))
+    }
+
+    /// Calls `SfpBase.set_lpmode()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_set_lpmode is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_set_lpmode(&mut self, sfp: &DeviceKey, on: bool) -> Result<Option<bool>, PlatformError> {
+        let _ = sfp;
+        let _ = on;
+        Err(PlatformError::NotSupported("sfp_set_lpmode".to_string()))
+    }
+
+    /// Calls `SfpBase.reset()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_reset is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_reset(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_reset".to_string()))
+    }
+
+    /// Calls `SfpBase.remove_xcvr_api()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_remove_xcvr_api is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_remove_xcvr_api(&mut self, sfp: &DeviceKey) -> Result<(), PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_remove_xcvr_api".to_string()))
+    }
+
+    /// Calls `SfpOptoeBase.freeze_vdm_stats()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_freeze_vdm_stats is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_freeze_vdm_stats(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_freeze_vdm_stats".to_string()))
+    }
+
+    /// Calls `SfpOptoeBase.unfreeze_vdm_stats()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_unfreeze_vdm_stats is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_unfreeze_vdm_stats(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_unfreeze_vdm_stats".to_string()))
+    }
+
+    /// Read at an optoe-linear offset. None means the read failed.
+    ///
+    /// `None` by default, which is how a platform says it has no answer
+    /// rather than that the call failed.
+    fn sfp_read_eeprom(&mut self, sfp: &DeviceKey, offset: i64, num_bytes: i64) -> Result<Option<Vec<u8>>, PlatformError> {
+        let _ = sfp;
+        let _ = offset;
+        let _ = num_bytes;
+        Ok(None)
+    }
+
+    /// Write bytes at an optoe-linear offset, returning the vendor result.
+    ///
+    /// `None` by default, which is how a platform says it has no answer
+    /// rather than that the call failed.
+    fn sfp_write_eeprom(&mut self, sfp: &DeviceKey, offset: i64, data: &[u8]) -> Result<Option<bool>, PlatformError> {
+        let _ = sfp;
+        let _ = offset;
+        let _ = data;
+        Ok(None)
+    }
+
+    /// Calls `SfpBase.get_xcvr_api().is_flat_memory()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_is_flat_memory is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_is_flat_memory(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_is_flat_memory".to_string()))
+    }
+
+    /// Calls `SfpBase.get_xcvr_api().get_module_type_abbreviation()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_get_module_type_abbreviation is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_get_module_type_abbreviation(&mut self, sfp: &DeviceKey) -> Result<Option<String>, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_get_module_type_abbreviation".to_string()))
+    }
+
+    /// Calls `SfpBase.get_xcvr_api().is_coherent_module()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_is_coherent_module is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_is_coherent_module(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_is_coherent_module".to_string()))
+    }
+
+    /// Calls `SfpBase.get_xcvr_api().get_module_state()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_get_module_state is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_get_module_state(&mut self, sfp: &DeviceKey) -> Result<Option<String>, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_get_module_state".to_string()))
+    }
+
+    /// Calls `SfpBase.get_xcvr_api().get_cmis_rev()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_get_cmis_rev is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_get_cmis_rev(&mut self, sfp: &DeviceKey) -> Result<Option<String>, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_get_cmis_rev".to_string()))
+    }
+
+    /// Calls `SfpBase.get_xcvr_api().get_application_advertisement()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_get_application_advertisement is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_get_application_advertisement(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_get_application_advertisement".to_string()))
+    }
+
+    /// Calls `SfpBase.get_xcvr_api().get_datapath_state()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_get_datapath_state is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_get_datapath_state(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_get_datapath_state".to_string()))
+    }
+
+    /// Calls `SfpBase.get_xcvr_api().get_config_datapath_hostlane_status()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_get_config_datapath_hostlane_status is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_get_config_datapath_hostlane_status(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_get_config_datapath_hostlane_status".to_string()))
+    }
+
+    /// Calls `SfpBase.get_xcvr_api().get_dpinit_pending()` on the SfpInfo at `sfp`.
+    ///
+    /// Not supported by default: a platform whose sfp_get_dpinit_pending is not
+    /// software-controllable should not have to write a method to say so.
+    fn sfp_get_dpinit_pending(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        let _ = sfp;
+        Err(PlatformError::NotSupported("sfp_get_dpinit_pending".to_string()))
     }
 
     /// Set the LED on one fan.

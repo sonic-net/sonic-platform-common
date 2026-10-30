@@ -17,6 +17,8 @@ from typing import Any, Optional
 # Python spelling -> Rust spelling, for the leaf types the facade uses.
 SCALARS = {
     'str': 'String',
+    'Json': 'String',
+    'bytes': 'Vec<u8>',
     'bool': 'bool',
     'float': 'f64',
     'int': 'i64',

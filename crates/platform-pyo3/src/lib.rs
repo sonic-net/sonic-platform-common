@@ -27,6 +27,16 @@ pub struct Bridge {
     facade: Py<PyAny>,
 }
 
+impl Clone for Bridge {
+    /// Share the facade and chassis, including hot-plug decoder invalidation.
+    /// Separate handles avoid holding a Rust lock during a blocking event poll.
+    fn clone(&self) -> Self {
+        Python::with_gil(|py| Self {
+            facade: self.facade.clone_ref(py),
+        })
+    }
+}
+
 impl Bridge {
     /// Build a facade over the vendor's chassis.
     ///
