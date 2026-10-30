@@ -310,6 +310,10 @@ LASER_TUNING_DETAIL = "TxTuningDetail"
 # CONFIG
 TRANS_CONFIG_FIELD = "TransceiverConfig"
 MODULE_LEVEL_CONTROL = "ModuleControl"
+MODULE_PRECODING_CONTROL = "ModulePrecodingControl"
+MODULE_PRECODING = "ModulePrecoding"
+MODULE_PRECODING_TP1 = "TP1"
+MODULE_PRECODING_TP4 = "TP4"
 
 APPLS_ADVT_FIELD = "Applications Advertisement"
 APPLS_ADVT_FIELD_PAGE01 = "Applications Advertisement Pag01"

@@ -109,6 +109,8 @@ class CmisApi(CmisCdbFw, XcvrApi):
     NUM_CHANNELS = 8
     LowPwrRequestSW = 4
     LowPwrAllowRequestHW = 6
+    ModulePrecodingTp4Bit = 2
+    ModulePrecodingTp1Bit = 3
 
     LPO_HOST_ELECTRICAL_INTERFACE_IDS = [
         Sff8024.HOST_ELECTRICAL_INTERFACE[32],
@@ -2756,6 +2758,20 @@ class CmisApi(CmisCdbFw, XcvrApi):
         '''
         return self.xcvr_eeprom.read(consts.RX_OUTPUT_EQ_POST_CTRL_SUPPORT_FIELD)
 
+    def get_module_precoding(self):
+        '''
+        This function returns the module TP1/TP4 precoding settings
+        '''
+        if self.is_flat_memory():
+            return None
+        val = self.xcvr_eeprom.read(consts.MODULE_PRECODING_CONTROL)
+        if val is None:
+            return None
+        return {
+            consts.MODULE_PRECODING_TP1: bool(val & (1 << self.ModulePrecodingTp1Bit)),
+            consts.MODULE_PRECODING_TP4: bool(val & (1 << self.ModulePrecodingTp4Bit)),
+        }
+
     def scs_lane_write(self, si_param, host_lanes_mask, si_settings_dict):
         '''
         This function sets each lane val based on SI param
@@ -2926,15 +2942,57 @@ class CmisApi(CmisCdbFw, XcvrApi):
 
         return True
 
+    def set_module_precoding(self, precoding_dict):
+        '''
+        Sets the module-wide TP1/TP4 precoding controls. The controls apply to all
+        lanes of the module. The host re-applies them on every module initialization.
+
+        Args:
+            precoding_dict: dict with optional keys 'TP1' and/or 'TP4', each
+                            set to True/1 (ON) or False/0 (OFF)
+
+        Returns:
+            True if successful or nothing to change, False otherwise
+        '''
+        bit_map = {
+            consts.MODULE_PRECODING_TP1: self.ModulePrecodingTp1Bit,
+            consts.MODULE_PRECODING_TP4: self.ModulePrecodingTp4Bit,
+        }
+        if not isinstance(precoding_dict, dict):
+            logger.error('Invalid module precoding settings: %r', precoding_dict)
+            return False
+        for key, enable in precoding_dict.items():
+            if key not in bit_map or isinstance(enable, str) or enable not in (0, 1):
+                logger.error('Invalid module precoding setting %r: %r', key, enable)
+                return False
+        if not precoding_dict:
+            return True
+        if self.is_flat_memory():
+            return False
+
+        val = self.xcvr_eeprom.read(consts.MODULE_PRECODING_CONTROL)
+        if val is None:
+            return False
+        new_val = val
+        for key, enable in precoding_dict.items():
+            mask = 1 << bit_map[key]
+            new_val = (new_val | mask) if enable else (new_val & ~mask)
+        if new_val == val:
+            return True
+        return self.xcvr_eeprom.write(consts.MODULE_PRECODING_CONTROL, new_val)
+
     def stage_custom_si_settings(self, host_lanes_mask, optics_si_dict):
         # Create TX/RX specific si_dict
         rx_si_settings = {}
         tx_si_settings = {}
+        module_precoding = None
         for si_param in optics_si_dict:
             if si_param.endswith("Tx"):
                 tx_si_settings[si_param] = optics_si_dict[si_param]
             elif si_param.endswith("Rx"):
                 rx_si_settings[si_param] = optics_si_dict[si_param]
+            elif si_param == consts.MODULE_PRECODING:
+                module_precoding = optics_si_dict[si_param]
 
         # stage RX si settings
         if not self.stage_rx_si_settings(host_lanes_mask, rx_si_settings):
@@ -2942,6 +3000,10 @@ class CmisApi(CmisCdbFw, XcvrApi):
 
         # stage TX si settings
         if not self.stage_tx_si_settings(host_lanes_mask, tx_si_settings):
+            return False
+
+        # Module-wide control, written directly rather than staged per lane
+        if module_precoding is not None and not self.set_module_precoding(module_precoding):
             return False
 
         return True
