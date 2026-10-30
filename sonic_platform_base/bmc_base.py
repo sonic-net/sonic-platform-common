@@ -74,6 +74,20 @@ class BMCBase(device_base.DeviceBase):
                                         self._get_login_user_callback,
                                         self._get_login_password_callback)
 
+    def reset(self):
+        """
+        Perform a complete BMC hardware reset from the switch host.
+
+        Implementations must drive a host-accessible CPLD, GPIO, or equivalent
+        local hardware control path and must not use Redfish, the host-BMC
+        link, or BMC software. The platform implementation is responsible for
+        asserting reset, holding it for the required duration, and releasing it.
+
+        Returns:
+            bool: True when the hardware reset completed, False otherwise.
+        """
+        raise NotImplementedError
+
     def _get_login_user_callback(self):
         """
         Get BMC username/account for login before Redfish commands from NOS.
