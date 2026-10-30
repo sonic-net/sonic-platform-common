@@ -1,0 +1,15 @@
+# The crates beside the stub, as one workspace with one lock.
+#
+# One lock rather than one per crate: the provider, the bridge and the native
+# stub have to resolve platform-api to the same package, and a lock per crate
+# could pin them apart without anything noticing until a consumer linked two.
+[workspace]
+members = [
+    "platform-api",
+    "platform-pyo3",
+    "platform-provider",
+    "platform-native",
+    "platform-base",
+    "platform-api-diff",
+]
+resolver = "2"

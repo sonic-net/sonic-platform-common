@@ -1,0 +1,209 @@
+//! The platform API over native platform objects.
+//!
+//! GENERATED from sonic_platform_api/facade.pyi by generator/generate.py.  Do
+//! not edit: regenerate.
+//!
+//! Line for line, what `sonic_platform_api/facade.py` does over a vendor's
+//! Python objects and then what `platform-pyo3` does with the rows it gets
+//! back -- the same traversals, in the same order, calling the same getters,
+//! with the same normalisation, and failing with the same text.  A row is
+//! built in two steps for that reason: its columns as Python values first
+//! (`Py<Row>`, the facade's row object), then read into the Rust row
+//! (`read_<row>`, the bridge's reader).  See `generator/native.py` for which
+//! function each piece stands for.
+#![allow(
+    clippy::redundant_closure_call,
+    clippy::needless_borrow,
+    // The singleton walk is the same shape as every other: a list it pushes to.
+    clippy::vec_init_then_push,
+    // An absorbed column is `Ok(<its read>)` whatever the read is; where the
+    // read is one call, its `?` and the `Ok` cancel.
+    clippy::needless_question_mark
+)]
+
+use platform_api::{
+    {% for e in model.enums %}{{ e.name }}, {% endfor %}
+    {% for row in model.rows %}{{ row.name }}, {% endfor %}
+    {% for row in model.rows %}{% if row.projected %}{{ row.name }}Cols, {% endif %}{% endfor %}
+    DeviceKey, Number, PlatformApi, PlatformError,
+};
+
+use std::collections::HashSet;
+
+use crate::escape_hatch::EscapeHatches;
+use crate::facade_rt::*;
+use crate::py::{Exc, PyErr, PyResult, PyVal};
+{% for row in model.rows %}
+
+/// `{{ row.name }}` as the facade builds it: one Python value per column.
+#[derive(Clone, {% if not row.secrets %}Debug, {% endif %}Default)]
+pub struct Py{{ row.name }} {
+{%- for f in row.fields %}
+    pub {{ f.rust_name }}: {{ f.native_pytype }},
+{%- endfor %}
+}
+{%- if row.secrets %}
+
+/// The facade's `__repr__`: {{ row.secrets | join(', ') }} said to be there, not shown.
+impl std::fmt::Debug for Py{{ row.name }} {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct({{ ('Py' ~ row.name) | rust_str }})
+{%- for f in row.fields %}
+{%- if f.secret %}
+            .field({{ f.name | rust_str }}, &if self.{{ f.rust_name }}.is_none() { PyVal::None } else { PyVal::str("<redacted>") })
+{%- else %}
+            .field({{ f.name | rust_str }}, &self.{{ f.rust_name }})
+{%- endif %}
+{%- endfor %}
+            .finish()
+    }
+}
+{%- endif %}
+
+/// The bridge's read of one `{{ row.name }}`.
+pub fn read_{{ row.snake }}(row: &Py{{ row.name }}) -> Result<{{ row.name }}, PlatformError> {
+    Ok({{ row.name }} {
+{%- for f in row.fields %}
+        {{ f.rust_name }}: {{ f.native_read }},
+{%- endfor %}
+    })
+}
+{%- endfor %}
+
+/// `fixed[name]`: a column the traversal supplies; `KeyError` if it does not.
+fn fixed_get(fixed: &[(&str, PyVal)], name: &str) -> PyResult<PyVal> {
+    fixed
+        .iter()
+        .find(|(k, _)| *k == name)
+        .map(|(_, v)| v.clone())
+        .ok_or_else(|| PyErr::key_error(name))
+}
+
+/// `_fmt(v, template, parent, i, **fixed)` for a template that also names
+/// fields the source fixes -- a sensor's `{kind}` (`names`).  Those are put
+/// in first, as `str()` would spell them, then `{parent}` and `{i}`.
+fn fmt_name_with(
+    v: &PyVal,
+    template: &str,
+    parent: &str,
+    i: usize,
+    fixed: &[(&str, PyVal)],
+    names: &[&str],
+) -> PyResult<PyVal> {
+    if !v.is_none() {
+        return Ok(PyVal::Str(v.py_str()));
+    }
+    let mut t = template.to_string();
+    for n in names {
+        let field = format!("{}{}{}", '{', n, '}');
+        t = t.replace(&field, &fixed_get(fixed, n)?.py_str());
+    }
+    Ok(fmt_name(&PyVal::None, &t, parent, i))
+}
+
+/// `PlatformApi` over a vendor's `ChassisBase`.
+pub struct BaseFacade {
+    chassis: PyVal,
+    hatch: EscapeHatches,
+}
+
+impl BaseFacade {
+    /// The facade over `chassis`; `hatch` carries what the escape hatches
+    /// need from the vendor beyond the chassis itself.
+    pub fn new(chassis: PyVal, hatch: EscapeHatches) -> Self {
+        BaseFacade { chassis, hatch }
+    }
+
+    pub fn chassis(&self) -> &PyVal {
+        &self.chassis
+    }
+{% for row in model.rows %}
+{%- if row.sources or row.singleton %}
+
+    #[allow(unused_variables)]
+    fn row_{{ row.snake }}(&self, dev: &PyVal, parent: &str, i: usize, fixed: &[(&str, PyVal)]{% if row.projected %}, cols: u64{% endif %}{% if row.skippable %}, skip: &HashSet<&str>{% endif %}{% if row.absorbable %}, absorb: bool{% endif %}) -> PyResult<Py{{ row.name }}> {
+{%- if row.native_body %}
+{%- for l in row.native_body %}
+        {{ l }}
+{%- endfor %}
+{%- else %}
+{%- for l in row.native_lets %}
+        {{ l }}
+{%- endfor %}
+        Ok(Py{{ row.name }} {
+{%- for f in row.fields %}
+            {{ f.rust_name }}: {{ f.native_expr }},
+{%- endfor %}
+        })
+{%- endif %}
+    }
+
+    /// Every {{ row.name }}, in declared order: `_walk_{{ row.snake }}`.
+    fn walk_{{ row.snake }}(&self{% if row.projected %}, cols: u64{% endif %}{% if row.skippable %}, skip: &HashSet<&str>{% endif %}{% if row.absorbable %}, absorb: bool{% endif %}) -> PyResult<Vec<Py{{ row.name }}>> {
+        let mut out = Vec::new();
+{{ row.native_walk }}
+        Ok(out)
+    }
+{%- if row.addressed %}
+
+    /// The device at a published {{ row.name }} key: `_find_{{ row.snake }}`.
+    fn find_{{ row.snake }}(&self, key: &str) -> PyResult<PyVal> {
+{%- for l in row.native_find %}
+        {{ l }}
+{%- endfor %}
+    }
+{%- endif %}
+{%- endif %}
+{%- endfor %}
+}
+
+impl PlatformApi for BaseFacade {
+{%- for m in model.methods %}
+{%- if m.kind == 'snapshot' %}
+
+    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
+{%- if m.skippable %}
+        // `frozenset(skip or ())`.
+        let skip: HashSet<&str> = skip.iter().map(DeviceKey::as_str).collect();
+{%- endif %}
+        let rows = self.walk_{{ model.row(m.row).snake }}({{ m.native_walk_args }}).map_err(err)?;
+{%- if m.singleton %}
+        // `[0]`: the walk is the chassis, always one row.
+        let row = rows
+            .into_iter()
+            .next()
+            .ok_or_else(|| err(PyErr::index_error("list index out of range")))?;
+        read_{{ model.row(m.row).snake }}(&row)
+{%- else %}
+        let mut out = Vec::new();
+        for row in &rows {
+            out.push(read_{{ model.row(m.row).snake }}(row)?);
+        }
+        Ok(out)
+{%- endif %}
+    }
+{%- elif m.kind == 'action' %}
+
+    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
+        let v = (|| -> PyResult<{% if m.native_built %}Py{{ m.native_built }}{% else %}PyVal{% endif %}> {
+{%- for l in m.native_body %}
+            {{ l }}
+{%- endfor %}
+        })()
+        .map_err(err)?;
+        {{ m.native_conv }}
+    }
+{%- else %}
+
+    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
+        self.hatch.{{ m.name }}(&self.chassis{% if m.native_fwd %}, {{ m.native_fwd }}{% endif %})
+    }
+{%- endif %}
+{%- endfor %}
+
+    /// Python's `atexit` handlers, which a native implementation registers in
+    /// [`crate::atexit`] where its Python counterpart called `atexit.register`.
+    fn finalize(&mut self) {
+        crate::atexit::run();
+    }
+}

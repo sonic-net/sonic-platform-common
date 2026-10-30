@@ -56,34 +56,20 @@ python3 -m pytest tests/platform_api_facade_test.py tests/platform_api_schema_te
 # Formatting, of the hand-written Rust only: the generated files are declared
 # `#[rustfmt::skip]` and held instead to what the generator writes, above.
 echo '== the Rust side is formatted =='
-cargo fmt --manifest-path crates/platform-api/Cargo.toml -- --check
-cargo fmt --manifest-path crates/platform-pyo3/Cargo.toml -- --check
-cargo fmt --manifest-path crates/platform-provider/Cargo.toml -- --check
+cargo fmt --manifest-path crates/Cargo.toml --all -- --check
 
-# Each crate is linted through its own manifest: clippy does not lint a
-# dependency, so the trait crate linted only through the other two is never
-# linted at all.
+# The crates are one workspace (crates/Cargo.toml), linted and tested as one:
+# --workspace makes every member a crate clippy lints, rather than a
+# dependency it skips.
 #
-# --locked, as CI passes it: a manifest edited without its lock, or a lock
-# edited by hand, fails here rather than resolving afresh and passing on
-# versions CI will refuse.  Not for platform-api: it keeps no lock -- see its
-# .gitignore -- so --locked would refuse to create one and fail every run, and
-# it has no dependencies for a lock to pin.  What it is built with is pinned
-# where it is consumed, by the two locks below.
+# --locked, as CI passes it: a manifest edited without the workspace lock, or
+# the lock edited by hand, fails here rather than resolving afresh and passing
+# on versions CI will refuse.
+#
+# The bridge's and the provider's tests import sonic_platform_api.facade, which
+# is why PYTHONPATH is exported at the top of this file.
 echo '== the Rust side builds clean =='
-cargo clippy --manifest-path crates/platform-api/Cargo.toml --all-targets -- -D warnings
-cargo clippy --locked --manifest-path crates/platform-pyo3/Cargo.toml --all-targets -- -D warnings
-cargo clippy --locked --manifest-path crates/platform-provider/Cargo.toml --all-targets -- -D warnings
+cargo clippy --locked --manifest-path crates/Cargo.toml --workspace --all-targets -- -D warnings
 
-echo '== the trait and its column sets =='
-cargo test --manifest-path crates/platform-api/Cargo.toml
-
-echo '== Rust reads what Python wrote =='
-cargo test --locked --manifest-path crates/platform-pyo3/Cargo.toml
-
-# The provider is not reachable from the pyo3 crate's manifest, so it needs its
-# own line or it is compiled by nothing until a daemon build picks it up.  Its
-# sweep imports sonic_platform_api.facade, which is why PYTHONPATH is exported
-# at the top of this file.
-echo '== every arm of the provider forwards =='
-cargo test --locked --manifest-path crates/platform-provider/Cargo.toml
+echo '== the trait, the bridge, the provider, the native stub, platform-base and platform-api-diff =='
+cargo test --locked --manifest-path crates/Cargo.toml --workspace

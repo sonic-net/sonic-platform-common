@@ -22,9 +22,13 @@ import jinja2
 
 from model import key_segment, keyed, _snake as _snake_of, rust_type, strip_optional, template_fields
 from parse_pyi import parse
+import native
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, os.pardir))
+# The base classes the stub is held to and the native defaults come from:
+# the repository's, wherever the outputs are written.
+BASE_DIR = os.path.join(ROOT, 'sonic_platform_base')
 TEMPLATES = os.path.join(HERE, 'templates')
 
 OUTPUTS = {
@@ -37,6 +41,12 @@ OUTPUTS = {
     'provider_sweep.rs.j2': os.path.join(
         ROOT, 'crates', 'platform-provider', 'tests', 'generated', 'sweep.rs'),
     'allowlist.txt.j2': os.path.join(ROOT, 'sonic_platform_api', 'stubtest_allowlist.txt'),
+    'native_object.rs.j2': os.path.join(
+        ROOT, 'crates', 'platform-base', 'src', 'generated', 'object.rs'),
+    'native_facade.rs.j2': os.path.join(
+        ROOT, 'crates', 'platform-base', 'src', 'generated', 'facade.rs'),
+    'native_object_sweep.rs.j2': os.path.join(
+        ROOT, 'crates', 'platform-base', 'tests', 'generated', 'object_sweep.rs'),
 }
 
 # Semantic integer types.  The bridge reads them with platform-pyo3's
@@ -1090,7 +1100,7 @@ def _docstring(classes, cls, meth):
     return None if method is None else method.doc
 
 
-def check_contract(model, base_dir=os.path.join(ROOT, 'sonic_platform_base'),
+def check_contract(model, base_dir=BASE_DIR,
                    literals=None):
     """Hold the stub to what the base classes say their methods answer.
 
@@ -1282,6 +1292,12 @@ def build(model):
     taken = ' '.join(m.rust_params for m in model.methods)
     model.sweep_imports = [
         n for n in declared if re.search(r'\b%s\b' % re.escape(n), taken)]
+
+    # The native back end reads the same model, after everything above has
+    # filled it in: it reuses the column bits, the shared calls and the Rust
+    # signatures rather than deciding any of them again.
+    native.build_facade(model)
+    model.native = native.build_object(model, BASE_DIR)
     return model
 
 
@@ -1347,9 +1363,13 @@ def render(model):
     env.filters['rustdoc'] = _rustdoc
     env.filters['camel'] = lambda n: ''.join(p.title() for p in n.split('_'))
     env.filters['snake'] = _snake_of
+    # A Rust string literal.  Not `tojson`, which escapes `<`, `>` and `'` for
+    # HTML as `\u003c`, nor `json.dumps`, whose `\uXXXX`, `\b` and `\f` are
+    # no more Rust escapes than that is.
+    env.filters['rust_str'] = native.rust_str
     out = {}
     for tpl, path in OUTPUTS.items():
-        text = env.get_template(tpl).render(model=model)
+        text = env.get_template(tpl).render(model=model, native=getattr(model, 'native', None))
         # Trailing whitespace once, here, rather than in three templates.  A
         # blank line inside a doc comment is the usual source, and rustfmt and
         # most linters would strip it back out -- at which point `--check`

@@ -11,6 +11,16 @@ platform-api = { path = "../platform-api" }
 # The implementation every platform runs today.  Not optional: a build that
 # could not reach the vendor's Python would have nothing to fall back to.
 platform-pyo3 = { path = "../platform-pyo3" }
+# The native implementation.  Not optional either: every build carries a
+# crate by this name, and which one is decided outside this manifest.  Here it
+# is the stub beside this crate, which refuses to open.  An image with a
+# vendor's native implementation builds this crate from a copy whose
+# `../platform-native` is the vendor's crate of the same name --
+# sonic-buildimage assembles that copy, because cargo cannot [patch] a path
+# dependency.  A path rather than anything a patch could reach also means a
+# consumer taking this crate from git gets the stub from the same commit, with
+# nothing else to resolve.
+platform-native = { path = "../platform-native" }
 
 [dev-dependencies]
 # The delegation test drives a real `Bridge` over a mock chassis, the way
