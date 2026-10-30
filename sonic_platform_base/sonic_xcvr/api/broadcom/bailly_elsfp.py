@@ -13,12 +13,13 @@
 import copy
 
 from ..public.elsfp import (
-    ElsfpApi,
     ELSFP_BANKED_DOM_REAL_VALUE_DEFAULT_DICT,
     ELSFP_INFO_DEFAULT_DICT,
 )
+from ..xcvr_api import XcvrApi
 from ...fields import elsfp_consts
 from ...fields.broadcom import bailly
+from ...mem_maps.public.cmis.pages.consts import CMIS_LANES_PER_BANK
 
 BAILLY_MAX_LASERS = 16
 
@@ -26,7 +27,7 @@ MODULE_STATE_LOW_POWER = "ModuleLowPwr"
 MODULE_STATE_READY = "ModuleReady"
 
 
-class BaillyElsfpApi(ElsfpApi):
+class BaillyElsfpApi(XcvrApi):
     RLM_THRESHOLD_FIELDS = {
         "els_temphighalarm": bailly.RLM_TEMP_HIGH_ALARM_FIELD,
         "els_templowalarm": bailly.RLM_TEMP_LOW_ALARM_FIELD,
@@ -191,6 +192,10 @@ class BaillyElsfpApi(ElsfpApi):
 
     # Public ELSFP adapters. These do not redefine RLM register decoding.
 
+    def _get_first_lane_for_bank(self) -> int:
+        """Preserve the public aggregate numbering for the selected endpoint."""
+        return self.xcvr_eeprom.mem_map.bank * CMIS_LANES_PER_BANK + 1
+
     @staticmethod
     def _lane_count_from_info(cpo_info):
         if cpo_info is None:
@@ -306,6 +311,13 @@ class BaillyElsfpApi(ElsfpApi):
                 dom["%s_lane%d" % (name, first_lane + index)] = float("{:.3f}".format(value))
         return dom
 
+    def get_elsfp_dom_real_value(self) -> dict:
+        module = self.get_non_banked_elsfp_dom_real_value()
+        lasers = self.get_banked_elsfp_dom_real_value()
+        if module is None or lasers is None:
+            return None
+        return {**module, **lasers}
+
     def _get_rlm_threshold(self, name):
         values = self.get_rlm_thresholds()
         return values.get(name) if values is not None else None
@@ -381,6 +393,13 @@ class BaillyElsfpApi(ElsfpApi):
         # Expose only the existing module-level alarms. Per-laser alarm
         # reporting requires hardware capability/bit-semantics verification.
         return {}
+
+    def get_elsfp_dom_flags(self) -> dict:
+        module = self.get_non_banked_elsfp_dom_flags()
+        lasers = self.get_banked_elsfp_dom_flags()
+        if module is None or lasers is None:
+            return None
+        return {**module, **lasers}
 
     def _module_state_from_status(self, status):
         if status is None:
@@ -463,6 +482,20 @@ class BaillyElsfpApi(ElsfpApi):
 
     def get_banked_elsfp_status_flags(self) -> dict:
         return self.get_banked_elsfp_dom_flags()
+
+    def get_elsfp_status(self) -> dict:
+        module = self.get_non_banked_elsfp_status()
+        lasers = self.get_banked_elsfp_status()
+        if module is None or lasers is None:
+            return None
+        return {**module, **lasers}
+
+    def get_elsfp_status_flags(self) -> dict:
+        module = self.get_non_banked_elsfp_status_flags()
+        lasers = self.get_banked_elsfp_status_flags()
+        if module is None or lasers is None:
+            return None
+        return {**module, **lasers}
 
     # The shared lower memory belongs to the OE. Never use generic ELSFP
     # byte-26 controls here; the existing RLM controls remain unavailable.

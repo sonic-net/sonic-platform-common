@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from sonic_platform_base.sonic_xcvr.api.broadcom.bailly_elsfp import BaillyElsfpApi
 from sonic_platform_base.sonic_xcvr.api.public.elsfp import ElsfpApi
+from sonic_platform_base.sonic_xcvr.api.xcvr_api import XcvrApi
 from sonic_platform_base.sonic_xcvr.codes.broadcom.bailly import BaillyCodes
 from sonic_platform_base.sonic_xcvr.fields import consts
 from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.bailly_elsfp import BaillyElsfpMemMap
@@ -99,8 +100,14 @@ class TestBaillyElsfpMemMap:
 
 
 class TestBaillyElsfpApi:
-    def test_is_public_elsfp_api(self, api):
-        assert isinstance(api, ElsfpApi)
+    def test_standard_elsfp_register_methods_are_not_inherited(self, api, eeprom):
+        assert isinstance(api, XcvrApi)
+        assert not isinstance(api, ElsfpApi)
+        with patch.object(ElsfpApi, 'future_standard_register_method', create=True):
+            assert not hasattr(api, 'future_standard_register_method')
+        assert not hasattr(api, 'write_save_restore_command')
+        assert not hasattr(api, 'get_per_lane_fault_flags')
+        assert eeprom.writes == []
 
     def test_lane_count(self, api, eeprom):
         assert api.get_lane_count() == 8
@@ -201,6 +208,23 @@ class TestBaillyElsfpApi:
 
 
 class TestBaillyElsfpSeparatedAggregates:
+    @pytest.mark.parametrize('aggregate,module,lasers', [
+        ('get_elsfp_dom_real_value', 'get_non_banked_elsfp_dom_real_value', 'get_banked_elsfp_dom_real_value'),
+        ('get_elsfp_dom_flags', 'get_non_banked_elsfp_dom_flags', 'get_banked_elsfp_dom_flags'),
+        ('get_elsfp_status', 'get_non_banked_elsfp_status', 'get_banked_elsfp_status'),
+        ('get_elsfp_status_flags', 'get_non_banked_elsfp_status_flags', 'get_banked_elsfp_status_flags'),
+    ])
+    @pytest.mark.parametrize('failed', ['module', 'lasers', None])
+    def test_owned_aggregates_preserve_public_result_and_partial_failure(
+            self, api, aggregate, module, lasers, failed):
+        module_result = None if failed == 'module' else {'module_value': 1}
+        laser_result = None if failed == 'lasers' else {'laser_value': 2}
+        with patch.object(api, module, return_value=module_result), \
+                patch.object(api, lasers, return_value=laser_result):
+            expected = getattr(ElsfpApi, aggregate)(api)
+            assert getattr(api, aggregate)() == expected
+            assert expected == (None if failed else {'module_value': 1, 'laser_value': 2})
+
     def test_dom_has_rlm_tec_current_and_wavelength(self, api, eeprom):
         eeprom.put(CONTROL_PAGE, 250, ">h", 32767)
         assert api.get_elsfp_dom_real_value()["tec_current"] == 100.0
