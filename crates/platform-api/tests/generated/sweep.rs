@@ -29,6 +29,14 @@ fn finalize_does_nothing_by_default() {
 }
 
 #[test]
+fn get_sfps_defaults_to_empty() {
+    match Nothing.get_sfps() {
+        Ok(rows) => assert!(rows.is_empty()),
+        _ => panic!("get_sfps is not the trait's default"),
+    }
+}
+
+#[test]
 fn get_chassis_info_defaults_to_not_supported() {
     match Nothing.get_chassis_info(ChassisInfoCols::ALL) {
         Err(PlatformError::NotSupported(what)) => assert_eq!(what, "get_chassis_info"),
@@ -129,6 +137,326 @@ fn get_watchdogs_defaults_to_empty() {
     match Nothing.get_watchdogs() {
         Ok(rows) => assert!(rows.is_empty()),
         _ => panic!("get_watchdogs is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_get_presence_defaults_to_not_supported() {
+    match Nothing.sfp_get_presence(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_get_presence"),
+        _ => panic!("sfp_get_presence is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_is_replaceable_defaults_to_not_supported() {
+    match Nothing.sfp_is_replaceable(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_is_replaceable"),
+        _ => panic!("sfp_is_replaceable is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_get_reset_status_defaults_to_not_supported() {
+    match Nothing.sfp_get_reset_status(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_get_reset_status"),
+        _ => panic!("sfp_get_reset_status is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_get_lpmode_defaults_to_not_supported() {
+    match Nothing.sfp_get_lpmode(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_get_lpmode"),
+        _ => panic!("sfp_get_lpmode is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_get_error_description_defaults_to_not_supported() {
+    match Nothing.sfp_get_error_description(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_get_error_description"),
+        _ => panic!("sfp_get_error_description is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_get_type_defaults_to_not_supported() {
+    match Nothing.sfp_get_type(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_get_type"),
+        _ => panic!("sfp_get_type is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_has_method_defaults_to_not_supported() {
+    match Nothing.sfp_has_method(&DeviceKey::from("arg0"), "arg1") {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_has_method"),
+        _ => panic!("sfp_has_method is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_get_transceiver_info_defaults_to_not_supported() {
+    match Nothing.sfp_get_transceiver_info(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_get_transceiver_info"),
+        _ => panic!("sfp_get_transceiver_info is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_get_transceiver_info_firmware_versions_defaults_to_not_supported() {
+    match Nothing.sfp_get_transceiver_info_firmware_versions(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_get_transceiver_info_firmware_versions"),
+        _ => panic!("sfp_get_transceiver_info_firmware_versions is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_get_transceiver_status_defaults_to_not_supported() {
+    match Nothing.sfp_get_transceiver_status(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_get_transceiver_status"),
+        _ => panic!("sfp_get_transceiver_status is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_get_transceiver_status_flags_defaults_to_not_supported() {
+    match Nothing.sfp_get_transceiver_status_flags(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_get_transceiver_status_flags"),
+        _ => panic!("sfp_get_transceiver_status_flags is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_get_transceiver_dom_real_value_defaults_to_not_supported() {
+    match Nothing.sfp_get_transceiver_dom_real_value(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_get_transceiver_dom_real_value"),
+        _ => panic!("sfp_get_transceiver_dom_real_value is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_get_transceiver_dom_flags_defaults_to_not_supported() {
+    match Nothing.sfp_get_transceiver_dom_flags(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_get_transceiver_dom_flags"),
+        _ => panic!("sfp_get_transceiver_dom_flags is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_get_transceiver_threshold_info_defaults_to_not_supported() {
+    match Nothing.sfp_get_transceiver_threshold_info(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_get_transceiver_threshold_info"),
+        _ => panic!("sfp_get_transceiver_threshold_info is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_get_temperature_defaults_to_not_supported() {
+    match Nothing.sfp_get_temperature(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_get_temperature"),
+        _ => panic!("sfp_get_temperature is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_get_transceiver_pm_defaults_to_not_supported() {
+    match Nothing.sfp_get_transceiver_pm(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_get_transceiver_pm"),
+        _ => panic!("sfp_get_transceiver_pm is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_is_transceiver_vdm_supported_defaults_to_not_supported() {
+    match Nothing.sfp_is_transceiver_vdm_supported(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_is_transceiver_vdm_supported"),
+        _ => panic!("sfp_is_transceiver_vdm_supported is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_is_vdm_statistic_supported_defaults_to_not_supported() {
+    match Nothing.sfp_is_vdm_statistic_supported(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_is_vdm_statistic_supported"),
+        _ => panic!("sfp_is_vdm_statistic_supported is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_get_transceiver_vdm_real_value_basic_defaults_to_not_supported() {
+    match Nothing.sfp_get_transceiver_vdm_real_value_basic(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_get_transceiver_vdm_real_value_basic"),
+        _ => panic!("sfp_get_transceiver_vdm_real_value_basic is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_get_transceiver_vdm_real_value_statistic_defaults_to_not_supported() {
+    match Nothing.sfp_get_transceiver_vdm_real_value_statistic(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_get_transceiver_vdm_real_value_statistic"),
+        _ => panic!("sfp_get_transceiver_vdm_real_value_statistic is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_get_transceiver_vdm_flags_defaults_to_not_supported() {
+    match Nothing.sfp_get_transceiver_vdm_flags(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_get_transceiver_vdm_flags"),
+        _ => panic!("sfp_get_transceiver_vdm_flags is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_get_transceiver_vdm_thresholds_defaults_to_not_supported() {
+    match Nothing.sfp_get_transceiver_vdm_thresholds(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_get_transceiver_vdm_thresholds"),
+        _ => panic!("sfp_get_transceiver_vdm_thresholds is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_get_vdm_freeze_status_defaults_to_not_supported() {
+    match Nothing.sfp_get_vdm_freeze_status(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_get_vdm_freeze_status"),
+        _ => panic!("sfp_get_vdm_freeze_status is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_get_vdm_unfreeze_status_defaults_to_not_supported() {
+    match Nothing.sfp_get_vdm_unfreeze_status(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_get_vdm_unfreeze_status"),
+        _ => panic!("sfp_get_vdm_unfreeze_status is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_set_lpmode_defaults_to_not_supported() {
+    match Nothing.sfp_set_lpmode(&DeviceKey::from("arg0"), true) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_set_lpmode"),
+        _ => panic!("sfp_set_lpmode is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_reset_defaults_to_not_supported() {
+    match Nothing.sfp_reset(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_reset"),
+        _ => panic!("sfp_reset is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_remove_xcvr_api_defaults_to_not_supported() {
+    match Nothing.sfp_remove_xcvr_api(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_remove_xcvr_api"),
+        _ => panic!("sfp_remove_xcvr_api is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_freeze_vdm_stats_defaults_to_not_supported() {
+    match Nothing.sfp_freeze_vdm_stats(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_freeze_vdm_stats"),
+        _ => panic!("sfp_freeze_vdm_stats is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_unfreeze_vdm_stats_defaults_to_not_supported() {
+    match Nothing.sfp_unfreeze_vdm_stats(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_unfreeze_vdm_stats"),
+        _ => panic!("sfp_unfreeze_vdm_stats is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_read_eeprom_defaults_to_none() {
+    match Nothing.sfp_read_eeprom(&DeviceKey::from("arg0"), 2, 3) {
+        Ok(None) => {}
+        _ => panic!("sfp_read_eeprom is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_write_eeprom_defaults_to_none() {
+    match Nothing.sfp_write_eeprom(&DeviceKey::from("arg0"), 2, &[0, 128, 255]) {
+        Ok(None) => {}
+        _ => panic!("sfp_write_eeprom is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_is_flat_memory_defaults_to_not_supported() {
+    match Nothing.sfp_is_flat_memory(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_is_flat_memory"),
+        _ => panic!("sfp_is_flat_memory is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_get_module_type_abbreviation_defaults_to_not_supported() {
+    match Nothing.sfp_get_module_type_abbreviation(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_get_module_type_abbreviation"),
+        _ => panic!("sfp_get_module_type_abbreviation is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_is_coherent_module_defaults_to_not_supported() {
+    match Nothing.sfp_is_coherent_module(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_is_coherent_module"),
+        _ => panic!("sfp_is_coherent_module is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_get_module_state_defaults_to_not_supported() {
+    match Nothing.sfp_get_module_state(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_get_module_state"),
+        _ => panic!("sfp_get_module_state is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_get_cmis_rev_defaults_to_not_supported() {
+    match Nothing.sfp_get_cmis_rev(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_get_cmis_rev"),
+        _ => panic!("sfp_get_cmis_rev is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_get_application_advertisement_defaults_to_not_supported() {
+    match Nothing.sfp_get_application_advertisement(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_get_application_advertisement"),
+        _ => panic!("sfp_get_application_advertisement is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_get_datapath_state_defaults_to_not_supported() {
+    match Nothing.sfp_get_datapath_state(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_get_datapath_state"),
+        _ => panic!("sfp_get_datapath_state is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_get_config_datapath_hostlane_status_defaults_to_not_supported() {
+    match Nothing.sfp_get_config_datapath_hostlane_status(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_get_config_datapath_hostlane_status"),
+        _ => panic!("sfp_get_config_datapath_hostlane_status is not the trait's default"),
+    }
+}
+
+#[test]
+fn sfp_get_dpinit_pending_defaults_to_not_supported() {
+    match Nothing.sfp_get_dpinit_pending(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_get_dpinit_pending"),
+        _ => panic!("sfp_get_dpinit_pending is not the trait's default"),
     }
 }
 

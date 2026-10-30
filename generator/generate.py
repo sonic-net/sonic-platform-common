@@ -523,6 +523,9 @@ def _sweep_call(m, enums, enum_specs):
         elif t == '&DeviceKey':
             rust.append('&DeviceKey::from("arg%d")' % i)
             py.append('arg%d' % i)
+        elif t == '&[u8]':
+            rust.append('&[0, 128, 255]')
+            py.append(bytes([0, 128, 255]))
         elif t == 'bool':
             # `true` rather than `false`: a forwarder that dropped the
             # argument and passed the type's default would still be caught.
@@ -553,6 +556,8 @@ def _rust_param_type(py_type, enums):
     t = rust_type(py_type, enums)
     if t == 'DeviceKey':
         return '&DeviceKey'
+    if py_type == 'bytes':
+        return '&[u8]'
     return '&str' if t == 'String' else t
 
 
@@ -564,6 +569,8 @@ def _rust_arg(name, py_type, enums):
         return '%s.as_str()' % name
     if t == 'Number':
         return 'int_or_float_arg(py, %s)' % name
+    if py_type == 'bytes':
+        return 'pyo3::types::PyBytes::new(py, %s)' % name
     return name
 
 
@@ -823,6 +830,8 @@ def _answer(call, m):
     call = _at_wrap(call, m)
     if strip_optional(m.returns)[0] == 'bool':
         call = '_truthy(%s)' % call
+    if m.returns == 'Json':
+        call = '_escape_hatch.json_dumps(%s)' % call
     return call
 
 
@@ -898,11 +907,13 @@ def _action_body(m, model):
 
     row = model.row(m.row)
     key = m.params[0][0]
-    head = ('%sdev = self._find_%s(%s)\n'
-            '%sfn = _get(dev, %r)\n'
+    head = '%sdev = self._find_%s(%s)\n' % (IND, row.snake, key)
+    for hop in reach:
+        head += '%sdev = _call(_get(dev, %r))\n' % (IND, hop)
+    head += ('%sfn = _get(dev, %r)\n'
             '%sif fn is None:\n'
             '%s    raise NotImplementedError(%r)\n'
-            % (IND, row.snake, key, IND, method, IND, IND,
+            % (IND, method, IND, IND,
                '%s is not implemented' % m.calls))
     built = _row_from_one_call(m, model)
     if built is not None:
@@ -1165,7 +1176,9 @@ def check_contract(model, base_dir=os.path.join(ROOT, 'sonic_platform_base'),
 def build(model):
     # Rows an action addresses by key need a lookup; the rest do not, and
     # emitting one anyway would be dead code in a generated file.
-    addressed = {m.row for m in model.methods if m.kind == 'action' and m.row}
+    addressed = {m.row for m in model.methods if m.row and (
+        m.kind == 'action' or
+        (m.kind == 'escape' and m.params and m.params[0][1] == 'DeviceKey'))}
     enums = model.enum_names
     row_names = {r.name for r in model.rows}
     snapshots = {m.row: m for m in model.methods if m.kind == 'snapshot'}

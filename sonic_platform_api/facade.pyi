@@ -35,9 +35,9 @@ Not everything here is derived.  A method declared `EscapeHatch` has its body
 written by hand in `_escape_hatch.py`, with the reason beside the declaration;
 see meta.pyi.
 
-SFP rows are not yet written.  What the consumers reach and this file does not
-declare is either OMITTED, with the reason it never will be, or DEFERRED, with
-the phase that declares it; `generator/api_coverage.py` counts both.
+What the consumers reach and this file does not declare is either OMITTED,
+with the reason it never will be, or DEFERRED, with the phase that declares it;
+`generator/api_coverage.py` counts both.
 """
 
 from typing import Annotated, ClassVar, Final, Literal, Optional
@@ -69,6 +69,7 @@ from .types import (
     Ampere,
     Celsius,
     DeviceKey,
+    Json,
     Number,
     PositionInParent,
     Percent,
@@ -918,6 +919,24 @@ class WatchdogInfo:
     )
 
 
+class SfpInfo:
+    """A chassis transceiver slot, including empty cages.
+
+    Inventory does not read EEPROM or latched flags. Reads and actions address
+    the key individually so a presence check cannot consume a DOM alarm, and
+    CMIS bring-up need not decode an entire module for one state field.
+    """
+
+    key: Annotated[DeviceKey, Key()]
+
+    def __init__(self, **fields: object) -> None:
+        """Keyword-only, as every row is."""
+
+    ORDER: ClassVar[Flatten] = Flatten(
+        sources=(FlattenSource("ChassisBase.get_all_sfps", parent_default="chassis 1"),)
+    )
+
+
 class ChangeEvent:
     """One device that changed, out of the two-level mapping the base class
     returns.
@@ -1299,27 +1318,16 @@ OMITTED: Final[tuple[tuple[str, str], ...]] = (
 # xcvrd and sfputil read the Python platform API until then.  The other two
 # are reached only by the CLI, which keeps reading Python until its bindings.
 DEFERRED: Final[tuple[tuple[str, str], ...]] = (
-    ("ChassisBase.get_all_sfps", "transceivers: the sonic_xcvr phase"),
-    ("ModuleBase.get_all_sfps", "transceivers: the sonic_xcvr phase"),
     ("ChassisBase.get_port_or_cage_type", "transceivers: the sonic_xcvr phase"),
-    ("SfpBase.get_error_description", "transceivers: the sonic_xcvr phase"),
-    ("SfpBase.get_lpmode", "transceivers: the sonic_xcvr phase"),
     ("SfpBase.get_num_thermals", "transceivers: the sonic_xcvr phase"),
     ("SfpBase.get_power_override", "transceivers: the sonic_xcvr phase"),
-    ("SfpBase.get_reset_status", "transceivers: the sonic_xcvr phase"),
     ("SfpBase.get_rx_los", "transceivers: the sonic_xcvr phase"),
     ("SfpBase.get_rx_power", "transceivers: the sonic_xcvr phase"),
-    ("SfpBase.get_transceiver_info", "transceivers: the sonic_xcvr phase"),
-    ("SfpBase.get_transceiver_threshold_info", "transceivers: the sonic_xcvr phase"),
     ("SfpBase.get_tx_bias", "transceivers: the sonic_xcvr phase"),
     ("SfpBase.get_tx_disable", "transceivers: the sonic_xcvr phase"),
     ("SfpBase.get_tx_disable_channel", "transceivers: the sonic_xcvr phase"),
     ("SfpBase.get_tx_fault", "transceivers: the sonic_xcvr phase"),
     ("SfpBase.get_tx_power", "transceivers: the sonic_xcvr phase"),
-    ("SfpBase.get_xcvr_api", "transceivers: the sonic_xcvr phase"),
-    ("SfpBase.remove_xcvr_api", "transceivers: the sonic_xcvr phase"),
-    ("SfpBase.reset", "transceivers: the sonic_xcvr phase"),
-    ("SfpBase.set_lpmode", "transceivers: the sonic_xcvr phase"),
     ("SfpBase.set_power", "transceivers: the sonic_xcvr phase"),
     ("SfpBase.set_power_override", "transceivers: the sonic_xcvr phase"),
     ("SfpBase.tx_disable", "transceivers: the sonic_xcvr phase"),
@@ -1356,6 +1364,10 @@ class PlatformApi:
         """
 
     # -- snapshots ---------------------------------------------------------
+
+    @platform_method(Snapshot())
+    def get_sfps(self) -> list[SfpInfo]:
+        """Transceiver slots in chassis list order, addressed by DeviceKey."""
 
     # Projected: pcied reads one of these twenty columns
     # (`is_smartswitch`) and psud one (`is_modular_chassis`); chassisd
@@ -1421,6 +1433,119 @@ class PlatformApi:
         singleton accessor would have to invent a row to say so.
         """
 
+
+    # -- transceivers -----------------------------------------------------
+
+    @platform_method(On(row="SfpInfo"), Calls("DeviceBase.get_presence"))
+    def sfp_get_presence(self, sfp: DeviceKey) -> Optional[bool]: ...
+    @platform_method(On(row="SfpInfo"), Calls("DeviceBase.is_replaceable"))
+    def sfp_is_replaceable(self, sfp: DeviceKey) -> Optional[bool]: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpBase.get_reset_status"))
+    def sfp_get_reset_status(self, sfp: DeviceKey) -> Optional[bool]: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpBase.get_lpmode"))
+    def sfp_get_lpmode(self, sfp: DeviceKey) -> Optional[bool]: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpBase.get_error_description"))
+    def sfp_get_error_description(self, sfp: DeviceKey) -> Optional[str]: ...
+
+    @platform_method(On(row="SfpInfo"), EscapeHatch(
+        reason="sfp_type is a vendor attribute, not a base-class getter.",
+    ))
+    def sfp_get_type(self, sfp: DeviceKey) -> str:
+        """The slot's sfp_type attribute, for example QSFP_DD."""
+
+    @platform_method(On(row="SfpInfo"), EscapeHatch(
+        reason="Legacy PM capability probing must not invoke a getter or "
+        "consume latched flags; hasattr is not a base-class call.",
+    ))
+    def sfp_has_method(self, sfp: DeviceKey, method: str) -> bool:
+        """Whether the SFP exposes a method, without reading hardware."""
+
+    @platform_method(On(row="SfpInfo"), Calls("SfpBase.get_transceiver_info"))
+    def sfp_get_transceiver_info(self, sfp: DeviceKey) -> Json: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpOptoeBase.get_transceiver_info_firmware_versions"))
+    def sfp_get_transceiver_info_firmware_versions(self, sfp: DeviceKey) -> Json: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpOptoeBase.get_transceiver_status"))
+    def sfp_get_transceiver_status(self, sfp: DeviceKey) -> Json: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpOptoeBase.get_transceiver_status_flags"))
+    def sfp_get_transceiver_status_flags(self, sfp: DeviceKey) -> Json: ...
+    @platform_method(On(row="SfpInfo"), EscapeHatch(
+        reaches=("SfpOptoeBase.get_transceiver_dom_real_value", "SfpBase.get_transceiver_bulk_status"),
+        reason="Use bulk status only when the modern DOM method is absent, "
+        "not when it returns None or raises.",
+    ))
+    def sfp_get_transceiver_dom_real_value(self, sfp: DeviceKey) -> Json:
+        """DOM readings, with the legacy bulk-status fallback."""
+
+    @platform_method(On(row="SfpInfo"), Calls("SfpOptoeBase.get_transceiver_dom_flags"))
+    def sfp_get_transceiver_dom_flags(self, sfp: DeviceKey) -> Json: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpBase.get_transceiver_threshold_info"))
+    def sfp_get_transceiver_threshold_info(self, sfp: DeviceKey) -> Json: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpBase.get_temperature"))
+    def sfp_get_temperature(self, sfp: DeviceKey) -> Json: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpOptoeBase.get_transceiver_pm"))
+    def sfp_get_transceiver_pm(self, sfp: DeviceKey) -> Json: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpOptoeBase.is_transceiver_vdm_supported"))
+    def sfp_is_transceiver_vdm_supported(self, sfp: DeviceKey) -> Optional[bool]: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpOptoeBase.is_vdm_statistic_supported"))
+    def sfp_is_vdm_statistic_supported(self, sfp: DeviceKey) -> Optional[bool]: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpOptoeBase.get_transceiver_vdm_real_value_basic"))
+    def sfp_get_transceiver_vdm_real_value_basic(self, sfp: DeviceKey) -> Json: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpOptoeBase.get_transceiver_vdm_real_value_statistic"))
+    def sfp_get_transceiver_vdm_real_value_statistic(self, sfp: DeviceKey) -> Json: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpOptoeBase.get_transceiver_vdm_flags"))
+    def sfp_get_transceiver_vdm_flags(self, sfp: DeviceKey) -> Json: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpOptoeBase.get_transceiver_vdm_thresholds"))
+    def sfp_get_transceiver_vdm_thresholds(self, sfp: DeviceKey) -> Json: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpOptoeBase.get_vdm_freeze_status"))
+    def sfp_get_vdm_freeze_status(self, sfp: DeviceKey) -> Optional[bool]: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpOptoeBase.get_vdm_unfreeze_status"))
+    def sfp_get_vdm_unfreeze_status(self, sfp: DeviceKey) -> Optional[bool]: ...
+
+    @platform_method(On(row="SfpInfo"), Calls("SfpBase.set_lpmode"))
+    def sfp_set_lpmode(self, sfp: DeviceKey, on: bool) -> Optional[bool]: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpBase.reset"))
+    def sfp_reset(self, sfp: DeviceKey) -> Optional[bool]: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpBase.remove_xcvr_api"))
+    def sfp_remove_xcvr_api(self, sfp: DeviceKey) -> None: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpOptoeBase.freeze_vdm_stats"))
+    def sfp_freeze_vdm_stats(self, sfp: DeviceKey) -> Optional[bool]: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpOptoeBase.unfreeze_vdm_stats"))
+    def sfp_unfreeze_vdm_stats(self, sfp: DeviceKey) -> Optional[bool]: ...
+
+    @platform_method(On(row="SfpInfo"), EscapeHatch(
+        reason="read_eeprom is a platform hook without a base-class declaration; "
+        "normalise its bytearray to bytes, preserving a None read miss.",
+    ))
+    def sfp_read_eeprom(self, sfp: DeviceKey, offset: int, num_bytes: int) -> Optional[bytes]:
+        """Read at an optoe-linear offset. None means the read failed."""
+
+    @platform_method(On(row="SfpInfo"), EscapeHatch(
+        reason="write_eeprom is a platform hook without a base-class declaration; "
+        "its length argument must be derived from the supplied bytes.",
+    ))
+    def sfp_write_eeprom(self, sfp: DeviceKey, offset: int, data: bytes) -> Optional[bool]:
+        """Write bytes at an optoe-linear offset, returning the vendor result."""
+
+    # Resolve get_xcvr_api on every call: module replacement invalidates its
+    # cache on the same SFP object the inventory and change-event paths use.
+    @platform_method(On(row="SfpInfo"), Calls("SfpBase.get_xcvr_api.is_flat_memory"))
+    def sfp_is_flat_memory(self, sfp: DeviceKey) -> Optional[bool]: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpBase.get_xcvr_api.get_module_type_abbreviation"))
+    def sfp_get_module_type_abbreviation(self, sfp: DeviceKey) -> Optional[str]: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpBase.get_xcvr_api.is_coherent_module"))
+    def sfp_is_coherent_module(self, sfp: DeviceKey) -> Optional[bool]: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpBase.get_xcvr_api.get_module_state"))
+    def sfp_get_module_state(self, sfp: DeviceKey) -> Optional[str]: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpBase.get_xcvr_api.get_cmis_rev"))
+    def sfp_get_cmis_rev(self, sfp: DeviceKey) -> Optional[str]: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpBase.get_xcvr_api.get_application_advertisement"))
+    def sfp_get_application_advertisement(self, sfp: DeviceKey) -> Json: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpBase.get_xcvr_api.get_datapath_state"))
+    def sfp_get_datapath_state(self, sfp: DeviceKey) -> Json: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpBase.get_xcvr_api.get_config_datapath_hostlane_status"))
+    def sfp_get_config_datapath_hostlane_status(self, sfp: DeviceKey) -> Json: ...
+    @platform_method(On(row="SfpInfo"), Calls("SfpBase.get_xcvr_api.get_dpinit_pending"))
+    def sfp_get_dpinit_pending(self, sfp: DeviceKey) -> Json: ...
 
     # -- actions, addressed by key ----------------------------------------
     #
@@ -1899,4 +2024,3 @@ class PlatformApi:
         `timeout_ms=0` blocks indefinitely, which is what the base class means
         by it and what the daemons rely on.
         """
-

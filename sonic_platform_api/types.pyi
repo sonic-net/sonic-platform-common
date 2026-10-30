@@ -25,6 +25,13 @@ from typing import Union
 # types.  The aliases below say what a number measures.
 Number = Union[int, float]
 
+# JSON-encoded transceiver data. Keys depend on module type, lane count and
+# vendor extensions, so they cannot be enumerated as fixed row columns.
+# Non-finite readings use Python's strings ("-inf", "inf", "nan"); None is
+# JSON null. Keeping the wire type a string leaves the native trait independent
+# of a particular JSON library.
+Json = str
+
 # Temperature, in degrees Celsius.
 Celsius = Number
 

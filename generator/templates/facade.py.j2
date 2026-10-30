@@ -469,6 +469,6 @@ class PlatformApi(object):
 {% elif m.kind == 'escape' %}
     def {{ m.name }}(self{% for p, _t in m.params %}, {{ p }}{% endfor %}):
         """Hand-written: {{ m.escape_reason | replace('\n', ' ') }}"""
-        return self._hatch.{{ m.name }}({% for p, _t in m.params %}{{ p }}{{ ', ' if not loop.last }}{% endfor %})
+        return self._hatch.{{ m.name }}({% for p, t in m.params %}{% if loop.first and m.row and t == 'DeviceKey' %}self._find_{{ model.row(m.row).snake }}({{ p }}){% else %}{{ p }}{% endif %}{{ ', ' if not loop.last }}{% endfor %})
 {% endif %}
 {%- endfor %}

@@ -18,7 +18,7 @@
 //! other, when a method is added to the stub.
 
 use platform_api::{
-    LedColor, EepromUpdate, ThermalInfo, FanInfo, FanDrawerInfo, PsuInfo, ChassisInfo, ModuleInfo, ComponentInfo, SensorInfo, LeakProfile, LeakSensorInfo, WatchdogInfo, ChangeEventBatch, PcieDevice, PcieAerStat, StorageDeviceInfo, EepromTlv, AsicInfo, BmcInfo, ModuleRebootCause, ModuleMidplaneDownReason, BmcResult, ThermalInfoCols, FanInfoCols, FanDrawerInfoCols, ChassisInfoCols, ModuleInfoCols, Number, DeviceKey,
+    LedColor, EepromUpdate, ThermalInfo, FanInfo, FanDrawerInfo, PsuInfo, ChassisInfo, ModuleInfo, ComponentInfo, SensorInfo, LeakProfile, LeakSensorInfo, WatchdogInfo, SfpInfo, ChangeEventBatch, PcieDevice, PcieAerStat, StorageDeviceInfo, EepromTlv, AsicInfo, BmcInfo, ModuleRebootCause, ModuleMidplaneDownReason, BmcResult, ThermalInfoCols, FanInfoCols, FanDrawerInfoCols, ChassisInfoCols, ModuleInfoCols, Number, DeviceKey,
     PlatformApi, PlatformError,
 };
 
@@ -27,12 +27,19 @@ use platform_api::{
 /// One arm, because the PyO3 bridge is the only implementation there is.  A
 /// native one becomes a second variant here and a second arm in each
 /// forwarder below, and no daemon changes.
+#[derive(Clone)]
 pub enum Platform {
     /// The vendor's Python, reached through PyO3.
     Pyo3(platform_pyo3::Bridge),
 }
 
 impl PlatformApi for Platform {
+
+    fn get_sfps(&mut self) -> Result<Vec<SfpInfo>, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.get_sfps(),
+        }
+    }
 
     fn get_chassis_info(&mut self, cols: ChassisInfoCols) -> Result<ChassisInfo, PlatformError> {
         match self {
@@ -109,6 +116,246 @@ impl PlatformApi for Platform {
     fn get_watchdogs(&mut self) -> Result<Vec<WatchdogInfo>, PlatformError> {
         match self {
             Self::Pyo3(p) => p.get_watchdogs(),
+        }
+    }
+
+    fn sfp_get_presence(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_get_presence(sfp),
+        }
+    }
+
+    fn sfp_is_replaceable(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_is_replaceable(sfp),
+        }
+    }
+
+    fn sfp_get_reset_status(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_get_reset_status(sfp),
+        }
+    }
+
+    fn sfp_get_lpmode(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_get_lpmode(sfp),
+        }
+    }
+
+    fn sfp_get_error_description(&mut self, sfp: &DeviceKey) -> Result<Option<String>, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_get_error_description(sfp),
+        }
+    }
+
+    fn sfp_get_type(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_get_type(sfp),
+        }
+    }
+
+    fn sfp_has_method(&mut self, sfp: &DeviceKey, method: &str) -> Result<bool, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_has_method(sfp, method),
+        }
+    }
+
+    fn sfp_get_transceiver_info(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_get_transceiver_info(sfp),
+        }
+    }
+
+    fn sfp_get_transceiver_info_firmware_versions(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_get_transceiver_info_firmware_versions(sfp),
+        }
+    }
+
+    fn sfp_get_transceiver_status(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_get_transceiver_status(sfp),
+        }
+    }
+
+    fn sfp_get_transceiver_status_flags(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_get_transceiver_status_flags(sfp),
+        }
+    }
+
+    fn sfp_get_transceiver_dom_real_value(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_get_transceiver_dom_real_value(sfp),
+        }
+    }
+
+    fn sfp_get_transceiver_dom_flags(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_get_transceiver_dom_flags(sfp),
+        }
+    }
+
+    fn sfp_get_transceiver_threshold_info(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_get_transceiver_threshold_info(sfp),
+        }
+    }
+
+    fn sfp_get_temperature(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_get_temperature(sfp),
+        }
+    }
+
+    fn sfp_get_transceiver_pm(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_get_transceiver_pm(sfp),
+        }
+    }
+
+    fn sfp_is_transceiver_vdm_supported(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_is_transceiver_vdm_supported(sfp),
+        }
+    }
+
+    fn sfp_is_vdm_statistic_supported(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_is_vdm_statistic_supported(sfp),
+        }
+    }
+
+    fn sfp_get_transceiver_vdm_real_value_basic(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_get_transceiver_vdm_real_value_basic(sfp),
+        }
+    }
+
+    fn sfp_get_transceiver_vdm_real_value_statistic(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_get_transceiver_vdm_real_value_statistic(sfp),
+        }
+    }
+
+    fn sfp_get_transceiver_vdm_flags(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_get_transceiver_vdm_flags(sfp),
+        }
+    }
+
+    fn sfp_get_transceiver_vdm_thresholds(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_get_transceiver_vdm_thresholds(sfp),
+        }
+    }
+
+    fn sfp_get_vdm_freeze_status(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_get_vdm_freeze_status(sfp),
+        }
+    }
+
+    fn sfp_get_vdm_unfreeze_status(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_get_vdm_unfreeze_status(sfp),
+        }
+    }
+
+    fn sfp_set_lpmode(&mut self, sfp: &DeviceKey, on: bool) -> Result<Option<bool>, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_set_lpmode(sfp, on),
+        }
+    }
+
+    fn sfp_reset(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_reset(sfp),
+        }
+    }
+
+    fn sfp_remove_xcvr_api(&mut self, sfp: &DeviceKey) -> Result<(), PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_remove_xcvr_api(sfp),
+        }
+    }
+
+    fn sfp_freeze_vdm_stats(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_freeze_vdm_stats(sfp),
+        }
+    }
+
+    fn sfp_unfreeze_vdm_stats(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_unfreeze_vdm_stats(sfp),
+        }
+    }
+
+    fn sfp_read_eeprom(&mut self, sfp: &DeviceKey, offset: i64, num_bytes: i64) -> Result<Option<Vec<u8>>, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_read_eeprom(sfp, offset, num_bytes),
+        }
+    }
+
+    fn sfp_write_eeprom(&mut self, sfp: &DeviceKey, offset: i64, data: &[u8]) -> Result<Option<bool>, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_write_eeprom(sfp, offset, data),
+        }
+    }
+
+    fn sfp_is_flat_memory(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_is_flat_memory(sfp),
+        }
+    }
+
+    fn sfp_get_module_type_abbreviation(&mut self, sfp: &DeviceKey) -> Result<Option<String>, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_get_module_type_abbreviation(sfp),
+        }
+    }
+
+    fn sfp_is_coherent_module(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_is_coherent_module(sfp),
+        }
+    }
+
+    fn sfp_get_module_state(&mut self, sfp: &DeviceKey) -> Result<Option<String>, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_get_module_state(sfp),
+        }
+    }
+
+    fn sfp_get_cmis_rev(&mut self, sfp: &DeviceKey) -> Result<Option<String>, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_get_cmis_rev(sfp),
+        }
+    }
+
+    fn sfp_get_application_advertisement(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_get_application_advertisement(sfp),
+        }
+    }
+
+    fn sfp_get_datapath_state(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_get_datapath_state(sfp),
+        }
+    }
+
+    fn sfp_get_config_datapath_hostlane_status(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_get_config_datapath_hostlane_status(sfp),
+        }
+    }
+
+    fn sfp_get_dpinit_pending(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        match self {
+            Self::Pyo3(p) => p.sfp_get_dpinit_pending(sfp),
         }
     }
 

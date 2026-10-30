@@ -1891,3 +1891,94 @@ fn a_name_crosses_to_the_key_python_would_have_resolved() {
         other => panic!("expected NotSupported, got {other:?}"),
     }
 }
+
+#[test]
+fn transceiver_handles_share_hotplug_state_and_preserve_binary_io() {
+    let mut api = Python::with_gil(|py| {
+        let m = PyModule::from_code(
+            py,
+            c_str!(
+                r#"
+from sonic_platform_api.facade import PlatformApi
+
+class Decoder:
+    def __init__(self, generation):
+        self.generation = generation
+    def get_module_state(self):
+        return "generation %d" % self.generation
+
+class Sfp:
+    sfp_type = "QSFP_DD"
+    def __init__(self):
+        self.generation = 1
+        self.decoder = None
+    def get_presence(self):
+        return True
+    def get_xcvr_api(self):
+        if self.decoder is None:
+            self.decoder = Decoder(self.generation)
+        return self.decoder
+    def remove_xcvr_api(self):
+        self.decoder = None
+    def get_transceiver_threshold_info(self):
+        return {"rxpowerlowalarm": float("-inf")}
+    def read_eeprom(self, offset, length):
+        assert offset == 129
+        return bytearray([0, 128, 255]) if length == 3 else None
+    def write_eeprom(self, offset, length, data):
+        assert (offset, length, data) == (129, 3, b"\x00\x80\xff")
+        assert isinstance(data, bytes)
+        return False
+
+class Chassis:
+    def __init__(self):
+        self.sfp = Sfp()
+    def get_all_sfps(self):
+        return [self.sfp]
+    def get_change_event(self, timeout):
+        self.sfp.generation += 1
+        self.sfp.remove_xcvr_api()
+        return False, {"sfp": {0: "0"}, "sfp_error": {0: "vendor error"}}
+
+facade = PlatformApi(Chassis())
+"#
+            ),
+            c_str!("sfp_test.py"),
+            c_str!("sfp_test"),
+        )
+        .unwrap();
+        Bridge::from_facade(m.getattr("facade").unwrap().unbind())
+    });
+    let key = api.get_sfps().unwrap().remove(0).key;
+    let mut handle = api.clone();
+    assert_eq!(handle.sfp_get_presence(&key).unwrap(), Some(true));
+    assert_eq!(handle.sfp_get_type(&key).unwrap(), "QSFP_DD");
+    assert_eq!(
+        handle.sfp_get_module_state(&key).unwrap().as_deref(),
+        Some("generation 1")
+    );
+    let events = api.get_change_event(1).unwrap();
+    assert!(!events.ok);
+    assert_eq!(events.events[1].status, "vendor error");
+    assert_eq!(
+        handle.sfp_get_module_state(&key).unwrap().as_deref(),
+        Some("generation 2")
+    );
+    assert_eq!(
+        handle.sfp_get_transceiver_threshold_info(&key).unwrap(),
+        r#"{"rxpowerlowalarm": "-inf"}"#
+    );
+    assert_eq!(
+        handle.sfp_read_eeprom(&key, 129, 3).unwrap(),
+        Some(vec![0, 128, 255])
+    );
+    assert_eq!(handle.sfp_read_eeprom(&key, 129, 0).unwrap(), None);
+    assert_eq!(
+        handle.sfp_write_eeprom(&key, 129, &[0, 128, 255]).unwrap(),
+        Some(false)
+    );
+    assert!(matches!(
+        handle.sfp_read_eeprom(&DeviceKey::from("fans[0]"), 0, 1),
+        Err(PlatformError::NotFound(_))
+    ));
+}

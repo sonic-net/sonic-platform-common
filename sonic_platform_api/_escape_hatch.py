@@ -5,10 +5,24 @@ Hand-written, and deliberately small: everything here is declared in
 a matching declaration is a body somebody should have generated.
 """
 
+import json
 import signal
 import sys
 import threading
 from typing import Any, Callable, Optional
+
+
+def json_dumps(value: Any) -> str:
+    """Encode vendor transceiver data without losing non-finite readings.
+
+    Parse constants, not substrings: quoted text containing Infinity or NaN
+    must remain unchanged, including escaped quotes and Unicode.
+    """
+    encoded = json.dumps(value, default=str)
+    normalized = json.loads(encoded, parse_constant={
+        '-Infinity': '-inf', 'Infinity': 'inf', 'NaN': 'nan',
+    }.__getitem__)
+    return json.dumps(normalized, allow_nan=False)
 
 
 def _call(fn: Any, default: Any = None) -> Any:
@@ -178,6 +192,35 @@ class EscapeHatches(object):
         self._pcie_tried = False
         self._storage: Any = None
         self._storage_tried = False
+
+    def sfp_get_type(self, sfp: Any) -> str:
+        """Read the vendor's slot type attribute."""
+        return str(sfp.sfp_type)
+
+    def sfp_has_method(self, sfp: Any, method: str) -> bool:
+        """Discover an optional method without invoking it."""
+        return hasattr(sfp, method)
+
+    def sfp_get_transceiver_dom_real_value(self, sfp: Any) -> str:
+        """Use legacy bulk status only when the modern method is absent."""
+        method = ('get_transceiver_dom_real_value'
+                  if hasattr(sfp, 'get_transceiver_dom_real_value')
+                  else 'get_transceiver_bulk_status')
+        return json_dumps(getattr(sfp, method)())
+
+    def sfp_read_eeprom(self, sfp: Any, offset: int, num_bytes: int) -> Optional[bytes]:
+        """Read the platform hook, preserving a read miss."""
+        if offset < 0 or num_bytes < 0:
+            raise ValueError('EEPROM offset and length must be non-negative')
+        value = sfp.read_eeprom(offset, num_bytes)
+        return None if value is None else bytes(value)
+
+    def sfp_write_eeprom(self, sfp: Any, offset: int, data: bytes) -> Optional[bool]:
+        """Write the supplied bytes and their exact length."""
+        if offset < 0:
+            raise ValueError('EEPROM offset must be non-negative')
+        result = sfp.write_eeprom(offset, len(data), data)
+        return None if result is None else bool(result)
 
     # -- thermal manager ----------------------------------------------------
     #

@@ -427,6 +427,10 @@ class Unsupported:
 class On:
     """The row an action addresses, when its first parameter is a row's key.
 
+    With EscapeHatch, the generated facade resolves that key and passes the
+    device to the hand-written body instead. Key validation and traversal stay
+    identical to generated actions; no Python object crosses to the caller.
+
     `set_fan_led("fan_drawers[0]/fans[2]", "amber")` has to reach the device
     that row was read from, which means following the getters of the source
     that made the key.  Naming the row here is what lets the generator derive

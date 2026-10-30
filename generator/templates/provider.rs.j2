@@ -33,6 +33,7 @@ use platform_api::{
 /// One arm, because the PyO3 bridge is the only implementation there is.  A
 /// native one becomes a second variant here and a second arm in each
 /// forwarder below, and no daemon changes.
+#[derive(Clone)]
 pub enum Platform {
     /// The vendor's Python, reached through PyO3.
     Pyo3(platform_pyo3::Bridge),
