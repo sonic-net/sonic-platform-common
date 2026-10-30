@@ -5,6 +5,10 @@ from sonic_platform_base.sonic_xcvr.codes.broadcom.davisson_elsfp import Davisso
 from sonic_platform_base.sonic_xcvr.cpo.cpo_base import CpoApiFactory, CpoDeviceBase, OeId
 from sonic_platform_base.sonic_xcvr.eeprom_rw import ModuleEepromLowerMemoryInfo
 from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.davisson_elsfp import DavissonTh6ElsfpMemMap
+from sonic_platform_base.sonic_xcvr.codes.broadcom.bailly import BaillyCodes
+from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.bailly_elsfp import BaillyElsfpMemMap
+from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
+from sonic_platform_base.sonic_xcvr.api.broadcom.bailly_elsfp import BaillyElsfpApi
 
 
 @dataclass
@@ -37,6 +41,13 @@ class ElsfpApiFactory(CpoApiFactory):
                     api_class=DavissonTh6ElsfpApi
                 )
 
+            if self._device.hardware_id.oe_id == OeId.BROADCOM_BAILLY:
+                device = self._device
+                mem_map = BaillyElsfpMemMap(
+                    BaillyCodes, bank=device.bank, base_page=device.base_page)
+                eeprom = XcvrEeprom(device.read_eeprom, device.write_eeprom, mem_map)
+                return BaillyElsfpApi(eeprom)
+
         # if self._device.hardware_id.elsfp_id == ElsfpId.EXAMPLE:
         #     self._create_api(...)
 
@@ -49,5 +60,3 @@ class ElsfpApiFactory(CpoApiFactory):
 class ElsfpBase(CpoDeviceBase):
     def _make_api_factory(self) -> CpoApiFactory:
         return ElsfpApiFactory(self)
-
-    # TODO: Implement ELSFP-specific methods

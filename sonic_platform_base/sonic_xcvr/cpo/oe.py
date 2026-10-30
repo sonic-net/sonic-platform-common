@@ -2,6 +2,10 @@ from sonic_platform_base.sonic_xcvr.api.broadcom.davisson_oe import DavissonTh6O
 from sonic_platform_base.sonic_xcvr.codes.broadcom.davisson_oe import DavissonTh6OeCodes
 from sonic_platform_base.sonic_xcvr.cpo.cpo_base import CpoApiFactory, CpoDeviceBase, OeId
 from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.davisson_oe import DavissonTh6OeMemMap
+from sonic_platform_base.sonic_xcvr.codes.broadcom.bailly import BaillyCodes
+from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.bailly_oe import BaillyOeMemMap
+from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
+from sonic_platform_base.sonic_xcvr.api.broadcom.bailly_oe import BaillyOeApi
 
 
 class OeApiFactory(CpoApiFactory):
@@ -13,11 +17,15 @@ class OeApiFactory(CpoApiFactory):
                 api_class=DavissonTh6OeApi
             )
 
+        if self._device.hardware_id.oe_id == OeId.BROADCOM_BAILLY:
+            device = self._device
+            mem_map = BaillyOeMemMap(BaillyCodes, bank=device.bank)
+            eeprom = XcvrEeprom(device.read_eeprom, device.write_eeprom, mem_map)
+            return BaillyOeApi(eeprom)
+
         raise ValueError(f"Could not determine what OE API to use for OE ID: {self._device.hardware_id.oe_id}")
 
 
 class OeBase(CpoDeviceBase):
     def _make_api_factory(self) -> CpoApiFactory:
         return OeApiFactory(self)
-
-    # TODO: Implement OE-specific methods

@@ -36,8 +36,8 @@ class TestElsfpApiFactory(object):
 
         # The factory probes vendor name/part number from the EEPROM before
         # dispatching; stub out the lower-memory reads.
-        with patch.object(ModuleEepromLowerMemoryInfo, 'get_vendor_name', return_value='BROADCOM'), \
-             patch.object(ModuleEepromLowerMemoryInfo, 'get_vendor_part_num', return_value='DAVISSON-TH6'):
+        with patch.object(ModuleEepromLowerMemoryInfo, 'get_vendor_name', return_value='TEST VENDOR'), \
+             patch.object(ModuleEepromLowerMemoryInfo, 'get_vendor_part_num', return_value='TEST-PART'):
             api = factory.create_api()
 
         assert isinstance(api, DavissonTh6ElsfpApi)
@@ -52,6 +52,50 @@ class TestElsfpApiFactory(object):
 from sonic_platform_base.sonic_xcvr.api.public.elsfp import ElsfpApi
 from sonic_platform_base.sonic_xcvr.fields.elsfp_consts import SaveRestoreCommand, SaveRestoreConfirmationCode
 from .eeprom_utils import InMemoryEeprom
+
+
+class TestElsfpModuleControls:
+    """set_lpmode and reset use the CMIS module controls in lower memory byte 26."""
+
+    MODULE_CONTROL_OFFSET = 26
+
+    @pytest.fixture
+    def controls(self):
+        eeprom = InMemoryEeprom(ElsfpMemMap(ElsfpCodes))
+        # Unrelated control bits must be preserved.
+        eeprom.memory[self.MODULE_CONTROL_OFFSET] = 0x41
+        return eeprom, ElsfpApi(eeprom.eeprom)
+
+    def test_set_lpmode_sets_and_clears_bit_4(self, controls):
+        eeprom, api = controls
+        assert api.set_lpmode(True) is True
+        assert eeprom.memory[self.MODULE_CONTROL_OFFSET] == 0x51
+        assert api.set_lpmode(False) is True
+        assert eeprom.memory[self.MODULE_CONTROL_OFFSET] == 0x41
+
+    def test_reset_sets_bit_3(self, controls):
+        eeprom, api = controls
+        assert api.reset() is True
+        assert eeprom.memory[self.MODULE_CONTROL_OFFSET] == 0x49
+
+    @pytest.mark.parametrize("control", [
+        lambda api: api.set_lpmode(True),
+        lambda api: api.set_lpmode(False),
+        lambda api: api.reset(),
+    ])
+    def test_read_failure_writes_nothing(self, control):
+        eeprom = MagicMock()
+        eeprom.read.return_value = None
+        assert control(ElsfpApi(eeprom)) is False
+        eeprom.read.assert_called_once_with(consts.MODULE_LEVEL_CONTROL)
+        eeprom.write.assert_not_called()
+
+    def test_write_failure_is_reported(self):
+        eeprom = MagicMock()
+        eeprom.read.return_value = 0
+        eeprom.write.return_value = False
+        assert ElsfpApi(eeprom).set_lpmode(True) is False
+        eeprom.write.assert_called_once_with(consts.MODULE_LEVEL_CONTROL, 0x10)
 
 
 class TestElsfpMemMap:
@@ -494,13 +538,14 @@ class TestBankedSetpoints:
 class TestBankedMonitors:
     """Table 12 (bytes 184-241): per-lane bias, optical power, voltage monitors and ICC."""
 
-    def test_bias_current_monitor(self, mem_eeprom, api):
+    @pytest.mark.parametrize("raw, expected_amps", [(0, 0.0), (2000, 0.2), (65535, 6.5535)])
+    def test_bias_current_monitor(self, mem_eeprom, api, raw, expected_amps):
         # Verify lane 2 is read from the correct address (bytes 186-187).
         base = CmisPage.linear_offset(ELSFP_SETPOINTS_MON_PAGE, 0, 0)
         offset = base + 186
-        mem_eeprom.memory[offset:offset + 2] = struct.pack(">H", 2000)
+        mem_eeprom.memory[offset:offset + 2] = struct.pack(">H", raw)
         result = api.get_per_lane_bias_current_monitor()
-        assert result["BiasCurrentMonitor2"] == 0.2
+        assert result["BiasCurrentMonitor2"] == pytest.approx(expected_amps)
 
     def test_opt_power_monitor(self, mem_eeprom, api):
         # Verify lane 2 is read from the correct address (bytes 202-203).
@@ -743,9 +788,9 @@ class TestElsfpInfo:
         "type": "OIF-ELSP",
         "type_abbrv_name": "OIF-ELSP",
         "hardware_rev": "1.2",
-        "serial": "SN0123456789",
-        "manufacturer": "BROADCOM",
-        "model": "DAVISSON-TH6",
+        "serial": "TEST-SN-0001",
+        "manufacturer": "TEST VENDOR",
+        "model": "TEST-PART",
         "connector": "LC",
         "encoding": "N/A",
         "ext_identifier": "Power Class 8 (20.0W Max)",
@@ -753,7 +798,7 @@ class TestElsfpInfo:
         "cable_length": 3.0,
         "nominal_bit_rate": "N/A",
         "vendor_date": "2026-08-21",
-        "vendor_oui": "00-17-6a",
+        "vendor_oui": "02-00-00",
         "cable_type": "Length Cable Assembly(m)",
         "media_interface_technology": "1310 nm DFB",
         "vendor_rev": "A1",
@@ -784,11 +829,11 @@ class TestElsfpInfo:
         mem[85] = 2                                 # module media type -> sm_media_interface
         # Page 00h upper memory.
         mem[128] = 0x22                             # identifier abbreviation
-        mem[129:145] = b"BROADCOM        "          # vendor name (16 bytes, space padded)
-        mem[145:148] = bytes((0x00, 0x17, 0x6A))    # vendor OUI
-        mem[148:164] = b"DAVISSON-TH6    "          # vendor part number (16 bytes)
+        mem[129:145] = b"TEST VENDOR".ljust(16, b" ")  # synthetic vendor name
+        mem[145:148] = bytes((0x02, 0x00, 0x00))        # locally administered test identifier
+        mem[148:164] = b"TEST-PART".ljust(16, b" ")    # synthetic part number
         mem[164:166] = b"A1"                        # vendor revision (2 bytes)
-        mem[166:182] = b"SN0123456789    "          # vendor serial number (16 bytes)
+        mem[166:182] = b"TEST-SN-0001".ljust(16, b" ")  # synthetic serial number
         mem[182:190] = b"260821  "                  # date code YYMMDD + 2 byte lot code
         mem[200] = 7 << 5                           # power class (bits 7-5) -> Power Class 8
         mem[201] = 80                               # max power, scale=4.0 -> 20.0 W
