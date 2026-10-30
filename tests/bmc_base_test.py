@@ -6,6 +6,7 @@
 
 import sys
 import pytest
+import requests
 if sys.version_info.major == 3:
     from unittest import mock
 else:
@@ -75,6 +76,63 @@ class TestBMCBase:
         """Test get_presence returns False on Switch-BMC even if bmc.json data exists"""
         bmc = BMCBase('169.254.0.1')
         assert bmc.get_presence() is False
+
+    def test_get_redfish_scheme_callback_default(self):
+        """Test the Redfish scheme defaults to HTTPS when not overridden"""
+        bmc = BMCBase('169.254.0.1')
+        assert bmc._get_redfish_scheme_callback() == RedfishClient.SCHEME_HTTPS
+
+    def test_redfish_scheme_override_reaches_the_bmc(self):
+        """A vendor BMC class selects the Redfish URI scheme of every request"""
+        class HttpBMC(BMCBase):
+            def _get_login_user_callback(self):
+                return 'admin'
+
+            def _get_login_password_callback(self):
+                return 'password'
+
+            def _get_redfish_scheme_callback(self):
+                return RedfishClient.SCHEME_HTTP
+
+        def bmc_reply(adapter, request, **kwargs):
+            resp = requests.Response()
+            resp.status_code = 200 if request.method == 'GET' else 201
+            resp._content, resp.request = b'{}', request
+            resp.headers.update({'X-Auth-Token': 'token',
+                                 'Location': '/redfish/v1/SessionService/Sessions/session'})
+            return resp
+
+        with mock.patch.object(requests.adapters.HTTPAdapter, 'send', autospec=True,
+                               side_effect=bmc_reply) as send:
+            assert HttpBMC('169.254.0.1').rf_client.login() == RedfishClient.ERR_CODE_OK
+        urls = [call.args[1].url for call in send.call_args_list]
+        assert urls and all(url.startswith('http://169.254.0.1/') for url in urls)
+
+    def test_redfish_cafile_override_reaches_the_bmc(self):
+        """A vendor BMC class provides a CA file to verify the BMC certificate with"""
+        class VerifiedBMC(BMCBase):
+            def _get_login_user_callback(self):
+                return 'admin'
+
+            def _get_login_password_callback(self):
+                return 'password'
+
+            def _get_redfish_cafile(self):
+                return '/etc/ssl/certs/bmc-ca.pem'
+
+        def bmc_reply(adapter, request, **kwargs):
+            resp = requests.Response()
+            resp.status_code = 200 if request.method == 'GET' else 201
+            resp._content, resp.request = b'{}', request
+            resp.headers.update({'X-Auth-Token': 'token',
+                                 'Location': '/redfish/v1/SessionService/Sessions/session'})
+            return resp
+
+        assert BMCBase('169.254.0.1')._get_redfish_cafile() is None
+        with mock.patch.object(requests.adapters.HTTPAdapter, 'send', autospec=True,
+                               side_effect=bmc_reply) as send:
+            assert VerifiedBMC('169.254.0.1').rf_client.login() == RedfishClient.ERR_CODE_OK
+        assert {call.kwargs['verify'] for call in send.call_args_list} == {'/etc/ssl/certs/bmc-ca.pem'}
 
     def test_is_replaceable(self):
         """Test is_replaceable returns False"""
@@ -220,7 +278,7 @@ class ConcreteBMC(BMCBase):
         return 'testpass'
     
     def _get_default_root_password(self):
-        return 'rootpass'
+        return 'password'
     
     def get_firmware_id(self):
         return 'BMC_FW_0'
@@ -511,7 +569,7 @@ class TestBMCBaseWithConcrete:
         mock_get_min_length.assert_called_once()
         mock_set_min_length.assert_any_call(8)
         mock_set_min_length.assert_any_call(12)
-        mock_change_pw.assert_called_once_with('rootpass', BMCBase.ROOT_ACCOUNT)
+        mock_change_pw.assert_called_once_with('password', BMCBase.ROOT_ACCOUNT)
 
     @mock.patch.object(RedfishClient, 'redfish_api_get_min_password_length')
     @mock.patch.object(RedfishClient, 'login')
@@ -531,6 +589,42 @@ class TestBMCBaseWithConcrete:
         assert ret == RedfishClient.ERR_CODE_GENERIC_ERROR
         assert msg == "BMC root account default password not found"
         mock_change_pw.assert_not_called()
+
+    def test_get_version_when_the_firmware_id_is_unknown(self):
+        """Test get_version when the vendor class cannot name its firmware ID"""
+        bmc = ConcreteBMC('169.254.0.1')
+        with mock.patch.object(bmc, 'get_firmware_id', side_effect=NotImplementedError('no firmware ID')):
+            assert bmc.get_version() == 'N/A'
+
+    @mock.patch.object(RedfishClient, 'redfish_api_update_firmware')
+    @mock.patch.object(RedfishClient, 'login', return_value=RedfishClient.ERR_CODE_OK)
+    @mock.patch.object(RedfishClient, 'logout', return_value=RedfishClient.ERR_CODE_OK)
+    @mock.patch.object(RedfishClient, 'has_login', return_value=False)
+    def test_update_firmware_without_a_message(self, mock_has_login, mock_logout, mock_login, mock_update_fw):
+        """Test update_firmware logs no empty line when the update reports no message"""
+        mock_update_fw.return_value = (RedfishClient.ERR_CODE_OK, '', ['BMC_FW_0'])
+        bmc = ConcreteBMC('169.254.0.1')
+        with mock.patch('sonic_platform_base.bmc_base.logger') as log:
+            assert bmc.update_firmware('test_image.bin') == (RedfishClient.ERR_CODE_OK, ('', ['BMC_FW_0']))
+        assert mock.call('') not in log.log_notice.call_args_list
+
+    @mock.patch.object(RedfishClient, 'redfish_api_set_min_password_length')
+    @mock.patch.object(RedfishClient, 'redfish_api_change_login_password',
+                       return_value=(RedfishClient.ERR_CODE_OK, ''))
+    @mock.patch.object(RedfishClient, 'redfish_api_get_min_password_length',
+                       return_value=(RedfishClient.ERR_CODE_OK, 12))
+    @mock.patch.object(RedfishClient, 'login', return_value=RedfishClient.ERR_CODE_OK)
+    @mock.patch.object(RedfishClient, 'logout', return_value=RedfishClient.ERR_CODE_OK)
+    @mock.patch.object(RedfishClient, 'has_login', return_value=False)
+    def test_reset_root_password_restore_min_length_fail(self, mock_has_login, mock_logout, mock_login,
+                                                         mock_get_min_length, mock_change_pw, mock_set_min_length):
+        """Test reset_root_password when restoring the min password length fails"""
+        mock_set_min_length.side_effect = [(RedfishClient.ERR_CODE_OK, ''),
+                                           (RedfishClient.ERR_CODE_GENERIC_ERROR, 'restore failed')]
+        bmc = ConcreteBMC('169.254.0.1')
+        assert bmc.reset_root_password() == \
+            (RedfishClient.ERR_CODE_GENERIC_ERROR, 'Failed to restore min password length to 12: restore failed')
+        mock_change_pw.assert_called_once_with('password', BMCBase.ROOT_ACCOUNT)
 
     @mock.patch.object(RedfishClient, 'redfish_api_get_min_password_length')
     @mock.patch.object(RedfishClient, 'login')
@@ -596,7 +690,7 @@ class TestBMCBaseWithConcrete:
         assert 'Failed to change root password: Change failed' in msg
         mock_get_min_length.assert_called_once()
         assert mock_set_min_length.call_count == 2
-        mock_change_pw.assert_called_once_with('rootpass', BMCBase.ROOT_ACCOUNT)
+        mock_change_pw.assert_called_once_with('password', BMCBase.ROOT_ACCOUNT)
 
     @mock.patch.object(RedfishClient, 'open_session')
     def test_open_session_success(self, mock_open_session):
