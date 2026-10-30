@@ -80,9 +80,12 @@ class CdbCmdHandler(XcvrEeprom):
             if (True == status[cdb_consts.CDB1_HAS_FAILED]):
                 break
 
-            if (False == status[cdb_consts.CDB1_IS_BUSY]) and \
-                    (False == status[cdb_consts.CDB1_HAS_FAILED]):
-                break
+            # A command result of 0 is reserved: the status is not set yet,
+            # or was cleared by a module reset (e.g. Run Firmware Image).
+            if status[cdb_consts.CDB1_STATUS] == 0:
+                continue
+
+            break
 
         if delay >= timeout or status is None:
             return [False, status]

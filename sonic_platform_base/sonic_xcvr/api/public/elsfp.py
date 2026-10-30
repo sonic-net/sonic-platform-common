@@ -1,9 +1,14 @@
 import copy
 import typing
 
+from ..cdb_capable_mixin import CdbCapableMixin
 from ..xcvr_api import XcvrApi
+from .cdb_fw import CmisCdbFw
+from ...codes.public.cdb import CdbCodes
 from ...fields import consts
+from ...mem_maps.public.cmis.cdb import CdbMemMap
 from ...mem_maps.public.cmis.pages.consts import CMIS_LANES_PER_BANK
+from ...utils.cache import read_only_cached_api_return
 import sonic_platform_base.sonic_xcvr.fields.elsfp_consts as elsfp_consts
 
 ELSFP_INFO_DEFAULT_DICT = {
@@ -51,7 +56,31 @@ ELSFP_DOM_REAL_VALUE_DEFAULT_DICT = {
         **ELSFP_BANKED_DOM_REAL_VALUE_DEFAULT_DICT
         }
 
-class ElsfpApi(XcvrApi):
+class ElsfpApi(CmisCdbFw, XcvrApi, CdbCapableMixin):
+    # What read_only_cached_api_return consults. Declared here rather than
+    # inherited, since this class is built on XcvrApi and not on CmisApi.
+    cache_enabled = True
+
+    def __init__(self, xcvr_eeprom, cdb_mem_map=None,
+                 init_cdb_fw_handler=True):
+        super(ElsfpApi, self).__init__(xcvr_eeprom)
+        self._init_vendor_cdb_mem_map(cdb_mem_map)
+        self._init_cdb_fw_handler = init_cdb_fw_handler
+        self._cdb_fw_hdlr = None
+        self._cdb_mem_map = CdbMemMap(CdbCodes) if init_cdb_fw_handler else None
+
+    @read_only_cached_api_return
+    def is_cdb_supported(self):
+        '''
+        This function returns whether CDB is supported, or None if the EEPROM
+        read fails so the cache re-reads.
+        '''
+
+        cdb_inst = self.xcvr_eeprom.read(consts.CDB_SUPPORT)
+        if cdb_inst is None:
+            return None
+
+        return cdb_inst == 1 or cdb_inst == 2
 
     def _get_first_lane_for_bank(self) -> int:
         """Return the absolute number of the first lane in the selected bank.
@@ -464,15 +493,6 @@ class ElsfpApi(XcvrApi):
             "module_state_changed": bool(firmware_fault_info & 0x1)
         }
 
-    def is_cdb_supported(self) -> bool:
-        """
-        Returns whether the module advertises CDB support
-        """
-        cdb_inst = self.xcvr_eeprom.read(consts.CDB_SUPPORT)
-        if cdb_inst is None:
-            return None
-        return cdb_inst == 1 or cdb_inst == 2
-
     ###############################################################
     #    Aggregate APIs consumed directly by the xcvrd daemon     #
     #                                                             #
@@ -551,10 +571,6 @@ class ElsfpApi(XcvrApi):
         return info
 
     def get_elsfp_info_firmware_versions(self) -> dict:
-        # TODO: Currently this function just reads the firmware version
-        # information from lower memory. Once CDB support is added to ElsfpApi, we
-        # should only read from lower memory if CDB support is not advertised by the
-        # module.
         active_fw_major = self.xcvr_eeprom.read(consts.ACTIVE_FW_MAJOR_REV)
         active_fw_minor = self.xcvr_eeprom.read(consts.ACTIVE_FW_MINOR_REV)
         inactive_fw_major = self.xcvr_eeprom.read(consts.INACTIVE_FW_MAJOR_REV)
