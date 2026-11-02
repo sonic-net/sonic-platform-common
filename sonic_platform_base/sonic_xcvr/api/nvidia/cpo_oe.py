@@ -29,6 +29,7 @@ import logging
 
 from ..cdb_capable_mixin import CdbCapableMixin
 from ...cpo.cmis import CpoCmisApi
+from ...utils.cache import read_only_cached_api_return
 from .cpo_cdb import CDB_TARGET_OE, NvidiaCpoCdbTargetMixin
 from ...cdb.nvidia.cpo_oe_memmap import (
     CDB_READ_OE_TELEMETRY_CMD,
@@ -153,11 +154,8 @@ class NvidiaCpoOeCmisApi(NvidiaCpoCdbTargetMixin, CpoCmisApi, CdbCapableMixin):
                 dom_flag_dict.pop(template % lane, None)
         return dom_flag_dict
 
-    def get_transceiver_info(self):
-        xcvr_info = super().get_transceiver_info()
-        if xcvr_info is not None:
-            xcvr_info.update(self.get_oe_telemetry_info())
-        return xcvr_info
+    def get_transceiver_info_after_power_up(self):
+        return self.get_oe_telemetry_info()
 
     def get_transceiver_info_firmware_versions(self):
         firmware_info = super().get_transceiver_info_firmware_versions()
@@ -278,10 +276,13 @@ class NvidiaCpoOeCmisApi(NvidiaCpoCdbTargetMixin, CpoCmisApi, CdbCapableMixin):
         telemetry = self.get_oe_telemetry(request_mask) or {}
         return {name: telemetry.get(src, 'N/A') for src, name in fields}
 
+    @read_only_cached_api_return
     def get_oe_telemetry_info(self):
-        """The 0x9030 OE serial number."""
-        return self._get_oe_telemetry_fields(OE_TELEMETRY_INFO_REQUEST_MASK,
+        """The 0x9030 OE serial number, or ``None`` if the OE does not report
+        it, so the read is retried rather than cached."""
+        info = self._get_oe_telemetry_fields(OE_TELEMETRY_INFO_REQUEST_MASK,
                                              _OE_TELEMETRY_INFO_FIELDS)
+        return info if any(value != 'N/A' for value in info.values()) else None
 
     def get_oe_telemetry_firmware_versions(self):
         """The 0x9030 OE firmware version (major, minor, release candidate)."""

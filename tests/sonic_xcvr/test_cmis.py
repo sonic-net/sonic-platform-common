@@ -4072,6 +4072,12 @@ class TestCmis(object):
                 assert 0, traceback.format_exc()
             run_num -= 1
 
+    def test_get_transceiver_info_after_power_up_not_implemented_by_default(self):
+        with patch.object(self.api.xcvr_eeprom, 'read') as mock_read:
+            with pytest.raises(NotImplementedError):
+                self.api.get_transceiver_info_after_power_up()
+            mock_read.assert_not_called()
+
     def test_get_transceiver_info_firmware_versions(self):
         self.api.is_cdb_supported = MagicMock()
         self.api.is_cdb_supported.return_value = True

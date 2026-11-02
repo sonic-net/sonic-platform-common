@@ -523,10 +523,31 @@ class TestOeTelemetryInfoFirmwareAndStatus:
         api, _ = _api_with_reply()
         assert api.get_oe_telemetry_info() == {"oe_sn": "MT2420XZ0ABC"}
 
-    def test_info_na_when_telemetry_unavailable(self):
+    def test_info_none_when_telemetry_unavailable(self):
         api, cdb = _api_with_reply()
         cdb.send_cmd.return_value = False
-        assert api.get_oe_telemetry_info() == {"oe_sn": "N/A"}
+        assert api.get_oe_telemetry_info() is None
+
+    def test_info_none_when_oe_sn_not_valid(self):
+        api, _ = _api_with_reply(valid_ext=0)
+        assert api.get_oe_telemetry_info() is None
+
+    @patch.object(NvidiaCpoOeCmisApi, "cache_enabled", True)
+    def test_info_is_cached_once_read(self):
+        api, cdb = _api_with_reply()
+        assert api.get_oe_telemetry_info() == {"oe_sn": "MT2420XZ0ABC"}
+        assert api.get_oe_telemetry_info() == {"oe_sn": "MT2420XZ0ABC"}
+        assert cdb.send_cmd.call_count == 1
+
+    @patch.object(NvidiaCpoOeCmisApi, "cache_enabled", True)
+    def test_info_is_retried_until_read(self):
+        api, cdb = _api_with_reply()
+        cdb.send_cmd.return_value = False
+        assert api.get_oe_telemetry_info() is None
+        cdb.send_cmd.return_value = True
+        assert api.get_oe_telemetry_info() == {"oe_sn": "MT2420XZ0ABC"}
+        assert api.get_oe_telemetry_info() == {"oe_sn": "MT2420XZ0ABC"}
+        assert cdb.send_cmd.call_count == 2
 
     def test_firmware_versions_request_the_version(self):
         api, cdb = _api_with_reply()
@@ -578,11 +599,12 @@ class TestOeTelemetryInfoFirmwareAndStatus:
 
 class TestOeTelemetryPublishing:
 
-    def test_transceiver_info_adds_oe_sn(self):
+    def test_transceiver_info_does_not_read_oe_sn(self):
         api = _new_oe_api_stub()
-        api.get_oe_telemetry_info = MagicMock(return_value={"oe_sn": "N/A"})
+        api.get_oe_telemetry_info = MagicMock()
         with patch.object(CmisApi, "get_transceiver_info", return_value={"serial": "SN1"}):
-            assert api.get_transceiver_info() == {"serial": "SN1", "oe_sn": "N/A"}
+            assert api.get_transceiver_info() == {"serial": "SN1"}
+        api.get_oe_telemetry_info.assert_not_called()
 
     def test_firmware_info_adds_oe_version(self):
         api = _new_oe_api_stub()
@@ -595,12 +617,10 @@ class TestOeTelemetryPublishing:
                 "oe_ver_major": 0, "oe_ver_minor": 8, "oe_ver_rc": 0,
             }
 
-    def test_transceiver_info_none_when_eeprom_not_ready(self):
+    def test_transceiver_info_after_power_up_is_the_oe_sn(self):
         api = _new_oe_api_stub()
-        api.get_oe_telemetry_info = MagicMock()
-        with patch.object(CmisApi, "get_transceiver_info", return_value=None):
-            assert api.get_transceiver_info() is None
-        api.get_oe_telemetry_info.assert_not_called()
+        api.get_oe_telemetry_info = MagicMock(return_value={"oe_sn": "TSMC-T80K86-09_x4_y27"})
+        assert api.get_transceiver_info_after_power_up() == {"oe_sn": "TSMC-T80K86-09_x4_y27"}
 
     def test_banked_status_adds_dynamic_oe_telemetry(self):
         api = _new_oe_api_stub()
