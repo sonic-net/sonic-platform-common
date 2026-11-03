@@ -587,7 +587,7 @@ class TestGetElsLaserDomSensors:
         assert dom["power_consumption"] == 30.5
         assert dom["laser_mpd_lane1"] == 1.5
 
-    def test_the_banked_dom_half_fails_when_the_cdb_read_fails(self):
+    def test_the_other_readings_stay_when_the_cdb_read_fails(self):
         cdb = MagicMock()
         cdb.send_cmd.return_value = False
         api = _new_els_api_stub(cdb_handler=cdb)
@@ -596,8 +596,11 @@ class TestGetElsLaserDomSensors:
         api.get_per_lane_voltage_monitor = MagicMock(return_value={})
         api.get_icc_monitor = MagicMock(return_value=0.1)
 
-        # A partial dict would hide the missing laser readings (#5357091).
-        assert api.get_banked_elsfp_dom_real_value() is None
+        dom = api.get_banked_elsfp_dom_real_value()
+        assert dom["icc"] == 0.1
+        assert "power_consumption" not in dom
+        assert not any(key.startswith(("laser_mpd_", "tec_voltage_", "health_value_",
+                                       "tec_health_value_")) for key in dom)
 
     def test_the_setpoints_join_the_banked_dom_half(self):
         api = self._api_with_raw({})
@@ -771,11 +774,7 @@ class TestTheBankedSplitReadsTheRightPages:
 
 
 class TestIsCdbSupported:
-    """The generic answer is the CMIS advertisement, as it is for a transceiver.
-
-    NVIDIA's laser source is the exception and says so in its own class: it
-    reports CDB_SUPPORT as 0 while answering the standard firmware commands.
-    """
+    """The answer is the CMIS advertisement, as it is for a transceiver."""
 
     @staticmethod
     def _generic_api(advertised):
@@ -813,12 +812,14 @@ class TestIsCdbSupported:
         api.is_cdb_supported()
         assert api.xcvr_eeprom.read.call_count == 2
 
-    def test_the_nvidia_laser_source_overrides_its_own_advertisement(self):
+    @pytest.mark.parametrize("advertised, expected",
+                             [(0, False), (1, True), (2, True), (None, None)])
+    def test_the_nvidia_laser_source_reads_its_advertisement(self, advertised, expected):
         api = _new_els_api_stub()
-        api.xcvr_eeprom.read = MagicMock(return_value=0)
+        api.xcvr_eeprom.read = MagicMock(return_value=advertised)
 
-        assert api.is_cdb_supported() is True
-        api.xcvr_eeprom.read.assert_not_called()
+        assert api.is_cdb_supported() is expected
+        api.xcvr_eeprom.read.assert_called_once_with(consts.CDB_SUPPORT)
 
 
 def _patterned_api(bank=0):

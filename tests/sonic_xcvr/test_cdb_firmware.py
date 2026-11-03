@@ -410,7 +410,7 @@ class TestCdbFwHandlerEnable(object):
         assert api.cdb_fw_hdlr is None
         mock_cdb_fw.assert_not_called()
 
-    @pytest.mark.parametrize("cdb_support", [0, 1, 2])
+    @pytest.mark.parametrize("cdb_support", [1, 2])
     @patch('sonic_platform_base.sonic_xcvr.api.public.cdb_fw.CdbFw')
     def test_els_api_supports_cdb_firmware(self, mock_cdb_fw, cdb_support):
         api = NvidiaCpoElsCmisApi(self.eeprom(cdb_support))
@@ -419,5 +419,13 @@ class TestCdbFwHandlerEnable(object):
 
         api.enable_cdb_fw_handler()
 
-        # The ELSFP is driven over CDB whatever it advertises (is_cdb_supported).
         assert api.cdb_fw_hdlr._handler is mock_cdb_fw.return_value
+
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cdb_fw.CdbFw')
+    def test_els_api_keeps_the_handler_off_without_cdb_support(self, mock_cdb_fw):
+        api = NvidiaCpoElsCmisApi(self.eeprom(0))
+
+        api.enable_cdb_fw_handler()
+
+        assert api.cdb_fw_hdlr is None
+        mock_cdb_fw.assert_not_called()

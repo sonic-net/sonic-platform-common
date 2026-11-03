@@ -71,18 +71,6 @@ logger.addHandler(logging.NullHandler())
 class NvidiaCpoElsCmisApi(NvidiaCpoCdbTargetMixin, ElsfpApi):
     CDB_TARGET = CDB_TARGET_ELS
 
-    def is_cdb_supported(self):
-        """This laser source supports CDB despite what it advertises.
-
-        It reports CDB_SUPPORT as 0 while answering the standard firmware
-        commands - reading the version off one returns 42.40.15 where the
-        optical engine beside it returns 95.10.742 - so honouring the
-        advertisement would refuse a path that demonstrably works.
-
-        Remove this override once the laser source firmware sets the field.
-        """
-        return True
-
     @property
     def _untargeted_cdb_handler(self):
         """The vendor CDB handler, without NvidiaCpoCdbTargetMixin's target selection.
@@ -169,10 +157,9 @@ class NvidiaCpoElsCmisApi(NvidiaCpoCdbTargetMixin, ElsfpApi):
             return None
         dom.update(self.get_els_setpoint_values())
         laser_dom = self.get_els_laser_dom_sensors()
-        if laser_dom is None:
-            # Without the laser monitoring the readings are not complete.
-            return None
-        dom.update(laser_dom)
+        if laser_dom is not None:
+            # A failed laser monitoring read does not hide the other readings.
+            dom.update(laser_dom)
         return dom
 
     def get_els_setpoint_values(self):
@@ -197,8 +184,8 @@ class NvidiaCpoElsCmisApi(NvidiaCpoCdbTargetMixin, ElsfpApi):
                                  laser_mask=0x00):
         """CDB 0x9018: read NVIDIA ELS laser monitoring block (raw decoded reply).
 
-        Returns {} if the module has no CDB, and None if the command or the
-        reading of its reply fails.
+        Returns {} if the API has no CDB memory map, and None if the command
+        or the reading of its reply fails.
         """
         cdb_handler = self._untargeted_cdb_handler
         if cdb_handler is None:
