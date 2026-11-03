@@ -2589,6 +2589,71 @@ class TestCmis(object):
         assert written == [cdb_consts.LPL_MAX_PAYLOAD_SIZE]
         mock_fw_hdlr.abort_fw_download.assert_called_once()
 
+    def _fail_second_lpl_block(self, mock_fw_hdlr):
+        mock_fw_hdlr.write_lpl_block.side_effect = [True, False]
+        failed = {
+            cdb_consts.CDB1_IS_BUSY: False,
+            cdb_consts.CDB1_HAS_FAILED: True,
+            cdb_consts.CDB1_STATUS: 0x05,
+        }
+        aborted = {
+            cdb_consts.CDB1_IS_BUSY: False,
+            cdb_consts.CDB1_HAS_FAILED: False,
+            cdb_consts.CDB1_STATUS: 0x01,
+        }
+        # The Abort overwrites the status of the failed block write.
+        mock_fw_hdlr.get_cmd_status_code.side_effect = \
+            lambda: aborted if mock_fw_hdlr.abort_fw_download.called else failed
+        from unittest.mock import mock_open
+        m = mock_open(read_data=b'\x00' * 256)
+        m.return_value.seek = MagicMock()
+        m.return_value.tell = MagicMock(return_value=112 + 3 * cdb_consts.LPL_MAX_PAYLOAD_SIZE)
+        with patch('builtins.open', m):
+            with pytest.raises(RuntimeError) as excinfo:
+                list(self.api.module_fw_write_blocks_iter('/tmp/fw.bin', 112, 2048, True))
+        return str(excinfo.value)
+
+    def test_module_fw_write_blocks_iter_reports_the_failed_block_status(self):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.is_abort_supported = True
+        mock_fw_hdlr.wait_for_cdb_status.return_value = [True, {}]
+        mock_fw_hdlr.abort_fw_download.return_value = True
+
+        assert 'CDB Status: 69' in self._fail_second_lpl_block(mock_fw_hdlr)
+        mock_fw_hdlr.abort_fw_download.assert_called_once_with()
+
+    def test_module_fw_write_blocks_iter_no_abort_when_not_supported(self):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.is_abort_supported = False
+
+        assert 'CDB Status: 69' in self._fail_second_lpl_block(mock_fw_hdlr)
+        mock_fw_hdlr.wait_for_cdb_status.assert_not_called()
+        mock_fw_hdlr.abort_fw_download.assert_not_called()
+
+    def test_module_fw_write_blocks_iter_no_abort_when_cdb_busy(self):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.is_abort_supported = True
+        mock_fw_hdlr.wait_for_cdb_status.return_value = [False, None]
+
+        assert 'CDB Status: 69' in self._fail_second_lpl_block(mock_fw_hdlr)
+        mock_fw_hdlr.abort_fw_download.assert_not_called()
+
+    def test_module_fw_start_download_no_abort_when_not_supported(self):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.is_abort_supported = False
+        mock_fw_hdlr.start_fw_download.return_value = False
+        mock_fw_hdlr.get_cmd_status_code.return_value = {
+            cdb_consts.CDB1_IS_BUSY: False,
+            cdb_consts.CDB1_HAS_FAILED: True,
+            cdb_consts.CDB1_STATUS: 0x04,
+        }
+
+        success, txt = self.api.module_fw_start_download('/tmp/fw.bin')
+
+        assert success is False
+        assert 'FW_start_status 68' in txt
+        mock_fw_hdlr.abort_fw_download.assert_not_called()
+
     @patch('sonic_platform_base.sonic_xcvr.api.public.cdb_fw.time.sleep')
     def test_module_fw_download_complete_fail(self, mock_sleep):
         mock_fw_hdlr = self._setup_cdb_fw_hdlr()
