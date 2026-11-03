@@ -1,0 +1,4 @@
+# Keep pytest/mock aligned with the selected config-engine test lock.
+pytest==8.4.2
+mock==3.0.5
+pytest-cov==6.2.1

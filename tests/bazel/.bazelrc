@@ -1,0 +1,9 @@
+common --registry=https://raw.githubusercontent.com/securely1g/sonic-bazel-registry/main
+common --registry=https://bcr.bazel.build
+common --lockfile_mode=update
+common --platforms=@sonic_build_infra//platforms:x86_64_trixie
+common --host_platform=@sonic_build_infra//platforms:x86_64_trixie
+common --@sonic_swss_common//tools/bazel:yang_modules=True
+common --noincompatible_disallow_empty_glob
+test --test_output=errors
+try-import %workspace%/.bazelrc.user

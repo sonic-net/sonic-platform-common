@@ -1,6 +1,5 @@
 import os
 import pytest
-import subprocess
 from unittest import mock
 from unittest.mock import patch, MagicMock
 from sonic_platform_base.sonic_eeprom import eeprom_base, eeprom_tlvinfo
@@ -37,13 +36,16 @@ class TestEepromTlvinfo:
         """
         if not os.path.exists(os.path.dirname(EEPROM_HEX_FILE_FULL_PATH)):
             assert False, "File {} is not exist".format(EEPROM_HEX_FILE_FULL_PATH)
-        subprocess.check_call(['/usr/bin/xxd', '-r', '-p', EEPROM_HEX_FILE_FULL_PATH, EEPROM_SYMLINK_FULL_PATH])
+        with open(EEPROM_HEX_FILE_FULL_PATH) as source:
+            payload = bytes.fromhex(source.read())
+        with open(EEPROM_SYMLINK_FULL_PATH, 'wb') as output:
+            output.write(payload)
     
     @classmethod
     def teardown_class(cls):
         # Remove the mock eeprom after test
-        if os.path.exists(os.path.dirname(EEPROM_HEX_FILE_FULL_PATH)):
-            subprocess.check_call(['rm', '-f', EEPROM_SYMLINK_FULL_PATH])
+        if os.path.exists(EEPROM_SYMLINK_FULL_PATH):
+            os.remove(EEPROM_SYMLINK_FULL_PATH)
 
     def test_eeprom_tlvinfo_read_api(self):
         # Test using the api to fetch Base MAC, Switch Addr Range, Model,

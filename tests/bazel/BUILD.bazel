@@ -1,0 +1,97 @@
+load("@platform_tests_pip//:requirements.bzl", "requirement")
+load("@rules_python//python:py_binary.bzl", "py_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+# The test application, not the reusable package, supplies its SONiC runtime.
+_RUNTIME_DEPS = [
+    "@sonic_platform_common//:sonic_platform_common",
+    "@sonic_buildimage//src/sonic-config-engine:sonic_config_engine",
+    "@sonic_buildimage//src/sonic-py-common:sonic_py_common",
+]
+
+py_binary(
+    name = "unit_runner",
+    testonly = True,
+    srcs = ["unit_runner.py"],
+    data = ["@sonic_platform_common//:test_sources"],
+    legacy_create_init = False,
+    python_version = "3.13",
+    deps = _RUNTIME_DEPS + [
+        requirement("mock"),
+        requirement("pytest"),
+        requirement("pytest-cov"),
+    ],
+)
+
+sh_test(
+    name = "unit_tests",
+    size = "large",
+    timeout = "long",
+    srcs = ["@sonic_swss_common//tools/bazel/runtime:run_with_runtime.py"],
+    args = [
+        "$(rootpath @sonic_swss_common//tools/bazel/runtime:test_runtime)",
+        "-",
+        "enabled",
+        "$(rootpath :unit_runner)",
+        "$(rootpath @sonic_platform_common//:setup.py)",
+    ],
+    data = [
+        ":unit_runner",
+        "@sonic_platform_common//:setup.py",
+        "@sonic_platform_common//:test_sources",
+        "@sonic_swss_common//tools/bazel/runtime:test_runtime",
+    ],
+    target_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+)
+
+py_binary(
+    name = "installed_wheel_runner",
+    testonly = True,
+    srcs = ["installed_wheel_probe.py"],
+    data = [
+        "@sonic_buildimage//src/sonic-config-engine:sonic_config_engine_wheel",
+        "@sonic_buildimage//src/sonic-py-common:sonic_py_common_wheel",
+        "@sonic_buildimage//src/sonic-yang-mgmt:sonic_yang_mgmt_wheel",
+        "@sonic_platform_common//:setup.py",
+        "@sonic_platform_common//:sonic_platform_common_wheel",
+        "@sonic_platform_common//:test_sources",
+    ],
+    legacy_create_init = False,
+    main = "installed_wheel_probe.py",
+    python_version = "3.13",
+    deps = _RUNTIME_DEPS + ["@sonic_buildimage//tools/bazel/tests:wheel_test_helpers"],
+)
+
+sh_test(
+    name = "installed_wheel_test",
+    size = "medium",
+    srcs = ["@sonic_swss_common//tools/bazel/runtime:run_with_runtime.py"],
+    args = [
+        "$(rootpath @sonic_swss_common//tools/bazel/runtime:test_runtime)",
+        "-",
+        "enabled",
+        "$(rootpath :installed_wheel_runner)",
+        "--wheel=$(rootpath @sonic_platform_common//:sonic_platform_common_wheel)",
+        "--setup=$(rootpath @sonic_platform_common//:setup.py)",
+        "--common-wheel=$(rootpath @sonic_buildimage//src/sonic-py-common:sonic_py_common_wheel)",
+        "--config-wheel=$(rootpath @sonic_buildimage//src/sonic-config-engine:sonic_config_engine_wheel)",
+        "--yang-wheel=$(rootpath @sonic_buildimage//src/sonic-yang-mgmt:sonic_yang_mgmt_wheel)",
+    ],
+    data = [
+        ":installed_wheel_runner",
+        "@sonic_buildimage//src/sonic-config-engine:sonic_config_engine_wheel",
+        "@sonic_buildimage//src/sonic-py-common:sonic_py_common_wheel",
+        "@sonic_buildimage//src/sonic-yang-mgmt:sonic_yang_mgmt_wheel",
+        "@sonic_platform_common//:setup.py",
+        "@sonic_platform_common//:sonic_platform_common_wheel",
+        "@sonic_platform_common//:test_sources",
+        "@sonic_swss_common//tools/bazel/runtime:test_runtime",
+    ],
+    target_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+)

@@ -1,0 +1,86 @@
+# Test-only application root. Production images consume the platform-common
+# module directly; they do not acquire a dependency back on sonic-buildimage.
+module(name = "sonic_platform_common_tests")
+
+bazel_dep(name = "sonic-platform-common", version = "1.0.0", repo_name = "sonic_platform_common")
+local_path_override(
+    module_name = "sonic-platform-common",
+    path = "../..",
+)
+
+bazel_dep(name = "sonic-buildimage", version = "0.0.0", repo_name = "sonic_buildimage")
+git_override(
+    module_name = "sonic-buildimage",
+    commit = "c743d7521e80fc1733e5cc0ffc24889b08f78444",
+    remote = "https://github.com/securely1g/sonic-buildimage.git",
+)
+
+# Preserve the tested image root's explicit overrides, which are not inherited.
+git_override(
+    module_name = "sonic-swss",
+    commit = "252a506ae5a94e36a4e330b736a3781a9f7bcf9b",
+    remote = "https://github.com/securely1g/sonic-swss.git",
+)
+
+single_version_override(
+    module_name = "rules_go",
+    version = "0.64.1-sonic.1",
+)
+
+single_version_override(
+    module_name = "rules_cc",
+    version = "0.2.20",
+)
+
+single_version_override(
+    module_name = "tar.bzl",
+    version = "0.10.5-sonic.1",
+)
+
+single_version_override(
+    module_name = "libnl3",
+    version = "3.7.0.sonic.6",
+)
+
+single_version_override(
+    module_name = "re2",
+    version = "2024-07-02.bcr.1",
+)
+
+single_version_override(
+    module_name = "sonic-build-infra",
+    version = "0.0.25-17a1e555291c64be1a6ff008f33352bffc4f8e5c",
+)
+
+single_version_override(
+    module_name = "sonic-rust-deps",
+    version = "0.0.4-6d9c70f708d7420e9e2b2cdc906b80cee6b140f1",
+)
+
+bazel_dep(name = "rules_python", version = "1.9.0")
+bazel_dep(name = "rules_shell", version = "0.8.0")
+bazel_dep(name = "platforms", version = "1.1.0")
+bazel_dep(name = "sonic-build-infra", version = "0.0.25-17a1e555291c64be1a6ff008f33352bffc4f8e5c", repo_name = "sonic_build_infra")
+bazel_dep(name = "sonic-swss-common", version = "0.0.7-f7fda40c02b3a8b4bbbff3d17fca3dff83f4cbad", repo_name = "sonic_swss_common")
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(
+    is_default = True,
+    python_version = "3.13",
+)
+python.toolchain(python_version = "3.11")
+
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+pip.parse(
+    hub_name = "platform_tests_pip",
+    python_version = "3.13",
+    requirements_lock = "//:requirements_lock.txt",
+)
+use_repo(pip, "platform_tests_pip")
+
+# The image's Rust extension requires a root tag even for Python-only tests.
+# No Rust target participates in this test application.
+bazel_dep(name = "rules_rs", version = "0.1.0")
+
+rust = use_extension("@rules_rs//rs:rules_rust_reexported_extensions.bzl", "rust")
+rust.toolchain(versions = [])

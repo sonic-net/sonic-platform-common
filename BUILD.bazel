@@ -1,0 +1,73 @@
+load("@platform_common_pip//:requirements.bzl", "requirement")
+load("@rules_python//python:packaging.bzl", "py_wheel")
+load("@rules_python//python:py_library.bzl", "py_library")
+
+package(default_visibility = ["//visibility:public"])
+
+# Every .py under these owner package directories is installed by setup.py.
+# The installed-wheel test checks this selection against setup.py independently.
+_SOURCES = glob(["sonic_*/**/*.py"])
+
+# Applications provide sonic-py-common/config-engine and their native runtime.
+# Their existing source targets belong to sonic-buildimage; the integration test
+# root consumes them without making the wheel depend on its consuming image.
+py_library(
+    name = "sonic_platform_common",
+    srcs = _SOURCES,
+    imports = ["."],
+    deps = [
+        requirement("natsort"),
+        requirement("psutil"),
+        requirement("pyyaml"),
+    ],
+)
+
+filegroup(
+    name = "wheel_payload",
+    srcs = _SOURCES,
+)
+
+py_wheel(
+    name = "sonic_platform_common_wheel",
+    author = "SONiC Team",
+    author_email = "linuxnetdev@microsoft.com",
+    distribution = "sonic-platform-common",
+    extra_distinfo_files = {
+        "LICENSE": "licenses/LICENSE",
+        "ThirdPartyLicenses.txt": "licenses/ThirdPartyLicenses.txt",
+    },
+    homepage = "https://github.com/Azure/sonic-platform-common",
+    license = "Apache 2.0",
+    python_tag = "py3",
+    requires = [
+        "natsort",
+        "PyYAML",
+        "sonic-py-common",
+        "sonic-config-engine",
+    ],
+    summary = "Platform-specific peripheral hardware interface APIs for SONiC",
+    version = "1.0",
+    deps = [":wheel_payload"],
+)
+
+exports_files(["setup.py"])
+
+filegroup(
+    name = "test_sources",
+    testonly = True,
+    srcs = _SOURCES + glob(
+        ["tests/**"],
+        exclude = [
+            "tests/bazel/**",
+            "**/__pycache__/**",
+            "**/*.pyc",
+        ],
+    ) + [
+        "LICENSE",
+        "ThirdPartyLicenses.txt",
+        "pytest.ini",
+        "setup.cfg",
+        "setup.py",
+        "test_credo_aec_800g.py",
+    ],
+)

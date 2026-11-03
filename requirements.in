@@ -1,0 +1,6 @@
+# Runtime requirements declared in setup.py, excluding SONiC-owned packages.
+# Owner outputs are supplied by applications and the integration-test root.
+natsort==8.4.0
+PyYAML==6.0.2
+# Storage modules import psutil; the legacy builder supplied it separately.
+psutil==7.0.0

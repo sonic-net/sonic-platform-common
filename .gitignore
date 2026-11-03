@@ -13,3 +13,11 @@ sonic_platform_common.egg-info/
 htmlcov/
 coverage.xml
 test-results.xml
+# Generated Bazel outputs and dependency-resolution evidence.
+/bazel-*
+/MODULE.bazel.lock
+/.bazelrc.user
+/tests/bazel/bazel-*
+/tests/bazel/MODULE.bazel.lock
+/tests/bazel/.bazelrc.user
+/bazel-evidence/

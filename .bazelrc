@@ -1,0 +1,5 @@
+common --registry=https://raw.githubusercontent.com/securely1g/sonic-bazel-registry/main
+common --registry=https://bcr.bazel.build
+common --lockfile_mode=update
+test --test_output=errors
+try-import %workspace%/.bazelrc.user
