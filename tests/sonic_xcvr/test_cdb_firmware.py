@@ -241,6 +241,30 @@ class TestCdbFirmwareMixin(object):
         api.module_fw_run.assert_not_called()
         api.module_fw_commit.assert_not_called()
 
+    @pytest.mark.parametrize("operation", [
+        lambda device: list(device.download_firmware('/tmp/fw.bin')),
+        lambda device: list(device.upgrade_firmware('/tmp/fw.bin')),
+        lambda device: device.run_firmware(),
+        lambda device: device.commit_firmware(),
+        lambda device: device.get_firmware_info(),
+    ])
+    @pytest.mark.parametrize("cdb_support, advertised, message", [
+        # The device advertises CDB, but its CDB did not answer.
+        (1, True, 'CDB firmware handler could not be initialized; the device may not be ready'),
+        # The CDB support of the device cannot be read.
+        (None, False, 'Failed to read the CDB support of the device; the device may not be ready'),
+    ])
+    def test_device_not_ready(self, api, operation, cdb_support, advertised, message):
+        api.cdb_fw_hdlr = None
+        api.xcvr_eeprom.read.side_effect = {consts.CDB_SUPPORT: cdb_support}.get
+        api.is_cdb_supported.return_value = advertised
+        with pytest.raises(RuntimeError, match=message):
+            operation(FakeDevice(api))
+        api.module_fw_start_download.assert_not_called()
+        api.module_fw_run.assert_not_called()
+        api.module_fw_commit.assert_not_called()
+        api.get_module_fw_info.assert_not_called()
+
     @pytest.mark.parametrize("device_class", [OeBase, ElsfpBase])
     def test_cpo_devices_use_their_own_api(self, api, device_class):
         device = device_class(CpoHardwareInfo(oe_id=OeId.BROADCOM_DAVISSON, elsfp_id=None))
@@ -322,7 +346,9 @@ class TestFirmwareInfo(object):
 
     def test_eeprom_firmware_info_without_cdb(self, api):
         api.cdb_fw_hdlr = None
+        api.is_cdb_supported.return_value = False
         versions = {
+            consts.CDB_SUPPORT: 0,
             consts.ACTIVE_FW_MAJOR_REV: 1, consts.ACTIVE_FW_MINOR_REV: 2,
             consts.INACTIVE_FW_MAJOR_REV: 1, consts.INACTIVE_FW_MINOR_REV: 1,
         }

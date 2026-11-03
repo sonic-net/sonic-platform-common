@@ -50,8 +50,32 @@ class CdbFirmwareMixin(object):
             raise NotImplementedError('The device API does not support CDB firmware management')
         enable()
         if api.cdb_fw_hdlr is None:
-            raise NotImplementedError('The device does not support CDB firmware management')
+            raise self._no_cdb_fw_handler_error(api)
         return api
+
+    @staticmethod
+    def _no_cdb_fw_handler_error(api):
+        """
+        Return the error for a device API whose CDB firmware handler is not
+        available.
+
+        Only a device that does not advertise CDB support gets
+        NotImplementedError, which get_firmware_info() answers from the
+        EEPROM. A device that advertises CDB, or whose CDB support cannot be
+        read, may just not be ready, for example while its CDB is busy or
+        while it restarts after a firmware run: it gets RuntimeError, so that
+        it is not reported as a device without CDB.
+        """
+        try:
+            cdb_support = api.xcvr_eeprom.read(consts.CDB_SUPPORT)
+        except KeyError:
+            # The memory map has no CDB support field.
+            return NotImplementedError('The device does not support CDB firmware management')
+        if cdb_support is None:
+            return RuntimeError('Failed to read the CDB support of the device; the device may not be ready')
+        if api.is_cdb_supported():
+            return RuntimeError('The CDB firmware handler could not be initialized; the device may not be ready')
+        return NotImplementedError('The device does not support CDB firmware management')
 
     @staticmethod
     def _read_fw_version(api, major_field, minor_field):
@@ -146,7 +170,8 @@ class CdbFirmwareMixin(object):
         Raises:
             NotImplementedError: The device does not support CDB firmware
                 management
-            RuntimeError: A CDB firmware command failed
+            RuntimeError: A CDB firmware command failed, or the device is
+                not ready
         """
         yield from self._download(self._get_cdb_fw_api(), file_path)
 
@@ -165,7 +190,8 @@ class CdbFirmwareMixin(object):
         Raises:
             NotImplementedError: The device does not support CDB firmware
                 management
-            RuntimeError: The CDB command failed
+            RuntimeError: The CDB command failed, or the device is not
+                ready
         """
         self._run(self._get_cdb_fw_api(), mode)
         return True
@@ -181,7 +207,8 @@ class CdbFirmwareMixin(object):
         Raises:
             NotImplementedError: The device does not support CDB firmware
                 management
-            RuntimeError: The CDB command failed
+            RuntimeError: The CDB command failed, or the device is not
+                ready
         """
         self._commit(self._get_cdb_fw_api())
         return True
@@ -203,7 +230,8 @@ class CdbFirmwareMixin(object):
         Raises:
             NotImplementedError: The device does not support CDB firmware
                 management
-            RuntimeError: A CDB firmware command failed
+            RuntimeError: A CDB firmware command failed, or the device is
+                not ready
         """
         api = self._get_cdb_fw_api()
         yield from self._download(api, file_path)
@@ -226,8 +254,8 @@ class CdbFirmwareMixin(object):
             not report is 'N/A'.
 
         Raises:
-            RuntimeError: The CDB command failed, or the device API is not
-                available
+            RuntimeError: The CDB command failed, the device API is not
+                available, or the device is not ready
         """
         try:
             result = self._get_cdb_fw_api().get_module_fw_info()
