@@ -2549,6 +2549,21 @@ class TestCmis(object):
         assert 'CDB download failed' in result[1]
         mock_fw_hdlr.abort_fw_download.assert_called_once()
 
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cdb_fw.time.sleep')
+    def test_module_fw_download_epl_page_write_fail(self, mock_sleep):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.start_fw_download.return_value = True
+        mock_fw_hdlr.write_epl_pages.side_effect = AssertionError('Failed to write EPL page 0xa0 of the module')
+        from unittest.mock import mock_open
+        m = mock_open(read_data=b'\x00' * 256)
+        m.return_value.seek = MagicMock()
+        m.return_value.tell = MagicMock(return_value=256)
+        with patch('builtins.open', m):
+            result = self.api.module_fw_download(112, 2048, False, True, 2048, '/tmp/fw.bin')
+        assert result[0] is False
+        assert 'CDB download failed at block address 0x0: Failed to write EPL page 0xa0 of the module' in result[1]
+        mock_fw_hdlr.write_epl_block.assert_not_called()
+
     @pytest.mark.parametrize("lplonly_flag, write_method", [(True, 'write_lpl_block'), (False, 'write_epl_block')])
     def test_module_fw_write_blocks_iter_yields_each_block(self, lplonly_flag, write_method):
         mock_fw_hdlr = self._setup_cdb_fw_hdlr()

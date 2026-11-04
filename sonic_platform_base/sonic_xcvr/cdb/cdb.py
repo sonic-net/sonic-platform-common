@@ -167,12 +167,14 @@ class CdbCmdHandler(XcvrEeprom):
 
         for page in range(pages):
             page_data = blkdata[page * cdb_consts.PAGE_SIZE : (page + 1) * cdb_consts.PAGE_SIZE]
-            assert True == self.write_epl_page(page + cdb_consts.EPL_PAGE, page_data)
+            assert True == self.write_epl_page(page + cdb_consts.EPL_PAGE, page_data), \
+                'Failed to write EPL page {:#04x} of the module'.format(page + cdb_consts.EPL_PAGE)
 
         # Handle any remaining data that doesn't fit into a full page
         if len(blkdata) % cdb_consts.PAGE_SIZE != 0:
             remaining_data = blkdata[pages * cdb_consts.PAGE_SIZE:]
-            assert True == self.write_epl_page(pages + cdb_consts.EPL_PAGE, remaining_data)
+            assert True == self.write_epl_page(pages + cdb_consts.EPL_PAGE, remaining_data), \
+                'Failed to write EPL page {:#04x} of the module'.format(pages + cdb_consts.EPL_PAGE)
 
     def write_epl_block(self, blkaddr, blkdata, timeout=None):
         """

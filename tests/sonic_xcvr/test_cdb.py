@@ -614,6 +614,17 @@ class TestCdbCmdHandler:
         result = self.handler.write_epl_page(page, data)
         
         assert result == False
+
+    @pytest.mark.parametrize("size, failed_page", [
+        (cdb_consts.PAGE_SIZE * 2, cdb_consts.EPL_PAGE + 1),
+        (cdb_consts.PAGE_SIZE + 10, cdb_consts.EPL_PAGE + 1),
+    ])
+    def test_write_epl_pages_write_failure_names_page(self, size, failed_page):
+        """A failed EPL page write names the page that failed"""
+        self.handler.write_raw = MagicMock(side_effect=[True, False])
+
+        with pytest.raises(AssertionError, match='Failed to write EPL page {:#04x} of the module'.format(failed_page)):
+            self.handler.write_epl_pages(b'\x00' * size)
     
     # Tests for wait_for_cdb_status method
     @staticmethod

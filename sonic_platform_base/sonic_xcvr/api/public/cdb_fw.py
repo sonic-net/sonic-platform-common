@@ -476,7 +476,7 @@ class CmisCdbFw:
                         self.cdb_fw_hdlr.write_epl_pages(data)
                     except AssertionError as err:
                         self._abort_fw_download()
-                        txt = 'CDB download failed: {}'.format(err)
+                        txt = 'CDB download failed at block address {:#x}: {}'.format(address, err)
                         log.log_error(txt)
                         raise RuntimeError(txt) from err
                     result = self.cdb_fw_hdlr.write_epl_block(address, data)
