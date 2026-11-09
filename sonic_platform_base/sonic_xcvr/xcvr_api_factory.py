@@ -21,6 +21,9 @@ from .mem_maps.credo.aec_800g import CredoAec800gMemMap
 from .api.arista.cmis_enhanced_lpo import CmisEnhancedLpoApi
 from .mem_maps.arista.cmis_enhanced_lpo import CmisEnhancedLpoMemMap
 
+from .api.pinewave.cmis_module_precoding import PinewaveCmisApi
+from .mem_maps.pinewave.cmis_module_precoding import PinewaveCmisMemMap
+
 from .api.innolight.fr_800g import CmisFr800gApi
 from .api.hisense.aoc_2x100g import CmisAocSingleBankApi
 
@@ -42,6 +45,7 @@ from .mem_maps.public.sff8472 import Sff8472MemMap
 
 CREDO_800G_AEC_VENDOR_PN_LIST = ["CAC81X321M2MC1MS", "CAC815321M2MC1MS", "CAC82X321M2MC1MS"]
 ARISTA_ENHANCED_LPO_PN_LIST = ["LPO-800G-2DR4"]
+PINEWAVE_VENDOR_PN_LIST = ["T-RH8ENH-NMT"]
 INL_800G_VENDOR_PN_LIST = ["T-DL8CNT-NCI", "T-DH8CNT-NCI", "T-DH8CNT-N00", "T-DP4CNH-NCI", "T-DP8CNT-NNO",
                            "T-DP8CNH-NNO", "T-DC8CNT-NNO", "T-DP8CNL-NNO", "T-OL8CNT-N00", "T-OH8CNH-N00",
                            "T-OH8CNH-NNO", "T-OL8CNT-NNO"]
@@ -72,6 +76,9 @@ class XcvrApiFactory(object):
         elif vendor_pn in ARISTA_ENHANCED_LPO_PN_LIST:
             xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CmisEnhancedLpoMemMap(CmisCodes, bank=bank))
             api = CmisEnhancedLpoApi(xcvr_eeprom, init_cdb_fw_handler=True)
+        elif vendor_name == 'PINEWAVE' and vendor_pn in PINEWAVE_VENDOR_PN_LIST:
+            xcvr_eeprom = XcvrEeprom(self.reader, self.writer, PinewaveCmisMemMap(CmisCodes, bank=bank))
+            api = PinewaveCmisApi(xcvr_eeprom, init_cdb_fw_handler=True)
         else:
             xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CmisMemMap(CmisCodes, bank=bank))
             api = CmisApi(xcvr_eeprom, init_cdb_fw_handler=True)
