@@ -32,13 +32,13 @@ def with_session_management(api_func):
         try:
             if self.rf_client is None:
                 raise Exception('RedfishClient instance is None')
-            
+
             self._login()
             ret, data = api_func(self, *args, **kwargs)
 
             if ret != RedfishClient.ERR_CODE_OK:
                 logger.log_notice(f'Failed to execute {api_func.__name__}: {ret}')
-            
+
             self._logout()
             return (ret, data)
         except Exception as e:
@@ -56,7 +56,6 @@ class BMCBase(device_base.DeviceBase):
     It also acts as base class of RedfishClient wrapper.
     """
 
-    CURL_PATH = '/usr/bin/curl'
     BMC_NAME = 'BMC'
     ROOT_ACCOUNT = 'root'
 
@@ -69,10 +68,29 @@ class BMCBase(device_base.DeviceBase):
             addr: A string of the BMC IP address
         """
         self.addr = addr
-        self.rf_client = RedfishClient(BMCBase.CURL_PATH,
-                                        addr,
-                                        self._get_login_user_callback,
-                                        self._get_login_password_callback)
+        self.rf_client = RedfishClient(addr,
+                                       self._get_login_user_callback,
+                                       self._get_login_password_callback,
+                                       self._get_redfish_scheme_callback,
+                                       cafile=self._get_redfish_cafile())
+
+    def _get_redfish_scheme_callback(self):
+        """
+        Get the Redfish URI scheme; a vendor class may override it for a BMC that serves Redfish without TLS.
+
+        Returns:
+            A string containing the URI scheme, 'https' by default
+        """
+        return RedfishClient.SCHEME_HTTPS
+
+    def _get_redfish_cafile(self):
+        """
+        Get the CA file to verify the BMC's Redfish certificate with; a vendor class may override it.
+
+        Returns:
+            A string containing the CA file path, or None (default) only where the BMC certificate is self-signed
+        """
+        return None
 
     def _get_login_user_callback(self):
         """
@@ -368,7 +386,6 @@ class BMCBase(device_base.DeviceBase):
             A string containing the BMC firmware version.
             Returns 'N/A' if the BMC firmware version cannot be retrieved
         """
-        ret = 0
         try:
             ret, version = self._get_firmware_version(self.get_firmware_id())
             if ret != RedfishClient.ERR_CODE_OK:
@@ -376,7 +393,7 @@ class BMCBase(device_base.DeviceBase):
                 return 'N/A'
             return version
         except Exception as e:
-            logger.log_error(f'Failed to get BMC firmware version: {str(e)}')  
+            logger.log_error(f'Failed to get BMC firmware version: {str(e)}')
             return 'N/A'
 
     @with_session_management
