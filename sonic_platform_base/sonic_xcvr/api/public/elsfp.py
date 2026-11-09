@@ -1,4 +1,5 @@
 import copy
+import time
 import typing
 
 from ..xcvr_api import XcvrApi
@@ -52,6 +53,57 @@ ELSFP_DOM_REAL_VALUE_DEFAULT_DICT = {
         }
 
 class ElsfpApi(XcvrApi):
+
+    # Module global controls, lower memory byte 26
+    SOFTWARE_RESET_BIT = 3
+    LOW_POWER_REQUEST_SW_BIT = 4
+    LOW_POWER_ALLOW_REQUEST_HW_BIT = 6
+
+    def _set_module_control_bit(self, bit: int, value: bool) -> bool:
+        current = self.xcvr_eeprom.read(consts.MODULE_LEVEL_CONTROL)
+        if current is None:
+            return False
+        if value:
+            current |= 1 << bit
+        else:
+            current &= ~(1 << bit)
+        return self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, current)
+
+    def set_lpmode(self, low_power: bool) -> bool:
+        """
+        Request low-power or full-power mode through the LowPwrRequestSW
+        control (byte 26, bit 4). Full-power mode also clears
+        LowPwrAllowRequestHW (bit 6), so the LPMode pin cannot keep the
+        module in low-power mode. Other control bits are preserved.
+
+        Returns:
+            True if the control was written, False otherwise.
+        """
+        current = self.xcvr_eeprom.read(consts.MODULE_LEVEL_CONTROL)
+        if current is None:
+            return False
+        if low_power:
+            current |= 1 << self.LOW_POWER_REQUEST_SW_BIT
+        else:
+            current &= ~((1 << self.LOW_POWER_REQUEST_SW_BIT)
+                         | (1 << self.LOW_POWER_ALLOW_REQUEST_HW_BIT))
+        return self.xcvr_eeprom.write(consts.MODULE_LEVEL_CONTROL, current)
+
+    def reset(self) -> bool:
+        """Request software reset and wait for ModuleReady or ModuleLowPwr.
+
+        Return False if the control cannot be written or recovery times out.
+        The recovery delay and polling match the CMIS software-reset path.
+        """
+        if not self._set_module_control_bit(self.SOFTWARE_RESET_BIT, True):
+            return False
+        # Allow the two-wire interface to recover before polling module state.
+        time.sleep(2)
+        for _ in range(5):
+            if self.get_module_state() in ("ModuleReady", "ModuleLowPwr"):
+                return True
+            time.sleep(1)
+        return False
 
     def _get_first_lane_for_bank(self) -> int:
         """Return the absolute number of the first lane in the selected bank.
