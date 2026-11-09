@@ -45,12 +45,15 @@ jobs:
           test "$(uname -m)" = x86_64
           test "$(. /etc/os-release; echo "$VERSION_CODENAME")" = trixie
           bazel build //:sonic_platform_common_wheel
-          bazel build //:sonic_platform_common_wheel
           (
             cd tests/bazel
             bazel --output_base="$BAZEL_TEST_OUTPUT_BASE" test //:unit_tests //:installed_wheel_test --local_test_jobs=1
           )
           git -c safe.directory="$GITHUB_WORKSPACE" diff --exit-code
+      - name: Check source edits and exact wheel restoration
+        run: |
+          python3 -B -m unittest discover -s tests/bazel -p test_wheel_incremental.py
+          python3 -B tests/bazel/wheel_incremental.py
       - name: Retain wheel and test evidence
         if: always()
         env:

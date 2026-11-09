@@ -1,0 +1,478 @@
+{
+  "artifact_id": 13275038437,
+  "run_id": 41728860989,
+  "source_head": "6bcb3c9fbe53156cf100b386a7be213eafdc0851",
+  "phases": {
+    "baseline": {
+      "actionsExecuted": "1",
+      "actionData": [
+        {
+          "mnemonic": "BazelWorkspaceStatusAction",
+          "actionsExecuted": "1",
+          "firstStartedMs": "1793744164480",
+          "lastEndedMs": "1793744164488",
+          "actionsCreated": "1"
+        },
+        {
+          "mnemonic": "TranslateBuildInfo",
+          "actionsCreated": "2"
+        },
+        {
+          "mnemonic": "CcStrip",
+          "actionsCreated": "1"
+        },
+        {
+          "mnemonic": "PyWriteBuildData",
+          "actionsCreated": "1"
+        },
+        {
+          "mnemonic": "Middleman",
+          "actionsCreated": "4"
+        },
+        {
+          "mnemonic": "RepoMappingManifest",
+          "actionsCreated": "5"
+        },
+        {
+          "mnemonic": "FileWrite",
+          "actionsCreated": "4"
+        },
+        {
+          "mnemonic": "PythonZipper",
+          "actionsCreated": "1"
+        },
+        {
+          "mnemonic": "TemplateExpand",
+          "actionsCreated": "4"
+        },
+        {
+          "mnemonic": "SymlinkTree",
+          "actionsCreated": "4"
+        },
+        {
+          "mnemonic": "CppLink",
+          "actionsCreated": "1"
+        },
+        {
+          "mnemonic": "Symlink",
+          "actionsCreated": "2"
+        },
+        {
+          "mnemonic": "PyWheel",
+          "actionsCreated": "1"
+        },
+        {
+          "mnemonic": "SourceSymlinkManifest",
+          "actionsCreated": "4"
+        },
+        {
+          "mnemonic": "PyCompile",
+          "actionsCreated": "15"
+        },
+        {
+          "mnemonic": "ExecutableSymlink",
+          "actionsCreated": "1"
+        },
+        {
+          "mnemonic": "CppCompile",
+          "actionsCreated": "2"
+        }
+      ],
+      "runnerCount": [
+        {
+          "name": "total",
+          "count": 1
+        },
+        {
+          "name": "internal",
+          "count": 1
+        }
+      ],
+      "actionCacheStatistics": {
+        "sizeInBytes": "2982",
+        "misses": 1,
+        "missDetails": [
+          {},
+          {
+            "reason": "DIFFERENT_DEPS"
+          },
+          {
+            "reason": "DIFFERENT_ENVIRONMENT"
+          },
+          {
+            "reason": "DIFFERENT_FILES"
+          },
+          {
+            "reason": "CORRUPTED_CACHE_ENTRY"
+          },
+          {
+            "reason": "NOT_CACHED"
+          },
+          {
+            "reason": "UNCONDITIONAL_EXECUTION",
+            "count": 1
+          }
+        ]
+      }
+    },
+    "no-op": {
+      "actionsExecuted": "1",
+      "actionData": [
+        {
+          "mnemonic": "BazelWorkspaceStatusAction",
+          "actionsExecuted": "1",
+          "firstStartedMs": "1793744165023",
+          "lastEndedMs": "1793744165026",
+          "actionsCreated": "1"
+        },
+        {
+          "mnemonic": "TranslateBuildInfo",
+          "actionsCreated": "2"
+        },
+        {
+          "mnemonic": "CcStrip",
+          "actionsCreated": "1"
+        },
+        {
+          "mnemonic": "PyWriteBuildData",
+          "actionsCreated": "1"
+        },
+        {
+          "mnemonic": "Middleman",
+          "actionsCreated": "4"
+        },
+        {
+          "mnemonic": "RepoMappingManifest",
+          "actionsCreated": "5"
+        },
+        {
+          "mnemonic": "FileWrite",
+          "actionsCreated": "4"
+        },
+        {
+          "mnemonic": "PythonZipper",
+          "actionsCreated": "1"
+        },
+        {
+          "mnemonic": "TemplateExpand",
+          "actionsCreated": "4"
+        },
+        {
+          "mnemonic": "SymlinkTree",
+          "actionsCreated": "4"
+        },
+        {
+          "mnemonic": "CppLink",
+          "actionsCreated": "1"
+        },
+        {
+          "mnemonic": "Symlink",
+          "actionsCreated": "2"
+        },
+        {
+          "mnemonic": "PyWheel",
+          "actionsCreated": "1"
+        },
+        {
+          "mnemonic": "SourceSymlinkManifest",
+          "actionsCreated": "4"
+        },
+        {
+          "mnemonic": "PyCompile",
+          "actionsCreated": "15"
+        },
+        {
+          "mnemonic": "ExecutableSymlink",
+          "actionsCreated": "1"
+        },
+        {
+          "mnemonic": "CppCompile",
+          "actionsCreated": "2"
+        }
+      ],
+      "runnerCount": [
+        {
+          "name": "total",
+          "count": 1
+        },
+        {
+          "name": "internal",
+          "count": 1
+        }
+      ],
+      "actionCacheStatistics": {
+        "sizeInBytes": "2982",
+        "misses": 1,
+        "missDetails": [
+          {},
+          {
+            "reason": "DIFFERENT_DEPS"
+          },
+          {
+            "reason": "DIFFERENT_ENVIRONMENT"
+          },
+          {
+            "reason": "DIFFERENT_FILES"
+          },
+          {
+            "reason": "CORRUPTED_CACHE_ENTRY"
+          },
+          {
+            "reason": "NOT_CACHED"
+          },
+          {
+            "reason": "UNCONDITIONAL_EXECUTION",
+            "count": 1
+          }
+        ]
+      }
+    },
+    "edited": {
+      "actionsExecuted": "2",
+      "actionData": [
+        {
+          "mnemonic": "PyWheel",
+          "actionsExecuted": "1",
+          "firstStartedMs": "1793744165328",
+          "lastEndedMs": "1793744165938",
+          "systemTime": "0.037s",
+          "userTime": "0.367s",
+          "actionsCreated": "1"
+        },
+        {
+          "mnemonic": "BazelWorkspaceStatusAction",
+          "actionsExecuted": "1",
+          "firstStartedMs": "1793744165309",
+          "lastEndedMs": "1793744165311",
+          "actionsCreated": "1"
+        },
+        {
+          "mnemonic": "TranslateBuildInfo",
+          "actionsCreated": "2"
+        },
+        {
+          "mnemonic": "CcStrip",
+          "actionsCreated": "1"
+        },
+        {
+          "mnemonic": "PyWriteBuildData",
+          "actionsCreated": "1"
+        },
+        {
+          "mnemonic": "Middleman",
+          "actionsCreated": "4"
+        },
+        {
+          "mnemonic": "RepoMappingManifest",
+          "actionsCreated": "5"
+        },
+        {
+          "mnemonic": "FileWrite",
+          "actionsCreated": "4"
+        },
+        {
+          "mnemonic": "PythonZipper",
+          "actionsCreated": "1"
+        },
+        {
+          "mnemonic": "TemplateExpand",
+          "actionsCreated": "4"
+        },
+        {
+          "mnemonic": "SymlinkTree",
+          "actionsCreated": "4"
+        },
+        {
+          "mnemonic": "CppLink",
+          "actionsCreated": "1"
+        },
+        {
+          "mnemonic": "Symlink",
+          "actionsCreated": "2"
+        },
+        {
+          "mnemonic": "SourceSymlinkManifest",
+          "actionsCreated": "4"
+        },
+        {
+          "mnemonic": "PyCompile",
+          "actionsCreated": "15"
+        },
+        {
+          "mnemonic": "ExecutableSymlink",
+          "actionsCreated": "1"
+        },
+        {
+          "mnemonic": "CppCompile",
+          "actionsCreated": "2"
+        }
+      ],
+      "runnerCount": [
+        {
+          "name": "total",
+          "count": 2
+        },
+        {
+          "name": "internal",
+          "count": 1
+        },
+        {
+          "name": "processwrapper-sandbox",
+          "count": 1,
+          "execKind": "Local"
+        }
+      ],
+      "actionCacheStatistics": {
+        "sizeInBytes": "2939",
+        "misses": 2,
+        "missDetails": [
+          {},
+          {
+            "reason": "DIFFERENT_DEPS"
+          },
+          {
+            "reason": "DIFFERENT_ENVIRONMENT"
+          },
+          {
+            "reason": "DIFFERENT_FILES",
+            "count": 1
+          },
+          {
+            "reason": "CORRUPTED_CACHE_ENTRY"
+          },
+          {
+            "reason": "NOT_CACHED"
+          },
+          {
+            "reason": "UNCONDITIONAL_EXECUTION",
+            "count": 1
+          }
+        ]
+      }
+    },
+    "restored": {
+      "actionsCreated": "35",
+      "actionsExecuted": "2",
+      "actionsCreatedNotIncludingAspects": "35",
+      "actionData": [
+        {
+          "mnemonic": "PyWheel",
+          "actionsExecuted": "1",
+          "firstStartedMs": "1793744166618",
+          "lastEndedMs": "1793744166672",
+          "actionsCreated": "2"
+        },
+        {
+          "mnemonic": "BazelWorkspaceStatusAction",
+          "actionsExecuted": "1",
+          "firstStartedMs": "1793744166368",
+          "lastEndedMs": "1793744166371",
+          "actionsCreated": "1"
+        },
+        {
+          "mnemonic": "TranslateBuildInfo",
+          "actionsCreated": "2"
+        },
+        {
+          "mnemonic": "CcStrip",
+          "actionsCreated": "1"
+        },
+        {
+          "mnemonic": "PyWriteBuildData",
+          "actionsCreated": "2"
+        },
+        {
+          "mnemonic": "Middleman",
+          "actionsCreated": "6"
+        },
+        {
+          "mnemonic": "RepoMappingManifest",
+          "actionsCreated": "8"
+        },
+        {
+          "mnemonic": "FileWrite",
+          "actionsCreated": "7"
+        },
+        {
+          "mnemonic": "PythonZipper",
+          "actionsCreated": "2"
+        },
+        {
+          "mnemonic": "TemplateExpand",
+          "actionsCreated": "8"
+        },
+        {
+          "mnemonic": "SymlinkTree",
+          "actionsCreated": "6"
+        },
+        {
+          "mnemonic": "CppLink",
+          "actionsCreated": "1"
+        },
+        {
+          "mnemonic": "Symlink",
+          "actionsCreated": "2"
+        },
+        {
+          "mnemonic": "SourceSymlinkManifest",
+          "actionsCreated": "6"
+        },
+        {
+          "mnemonic": "PyCompile",
+          "actionsCreated": "30"
+        },
+        {
+          "mnemonic": "ExecutableSymlink",
+          "actionsCreated": "2"
+        },
+        {
+          "mnemonic": "CppCompile",
+          "actionsCreated": "2"
+        }
+      ],
+      "runnerCount": [
+        {
+          "name": "total",
+          "count": 2
+        },
+        {
+          "name": "disk cache hit",
+          "count": 1,
+          "execKind": "Remote"
+        },
+        {
+          "name": "internal",
+          "count": 1
+        }
+      ],
+      "actionCacheStatistics": {
+        "sizeInBytes": "2982",
+        "hits": 11,
+        "misses": 2,
+        "missDetails": [
+          {},
+          {
+            "reason": "DIFFERENT_DEPS"
+          },
+          {
+            "reason": "DIFFERENT_ENVIRONMENT"
+          },
+          {
+            "reason": "DIFFERENT_FILES",
+            "count": 1
+          },
+          {
+            "reason": "CORRUPTED_CACHE_ENTRY"
+          },
+          {
+            "reason": "NOT_CACHED"
+          },
+          {
+            "reason": "UNCONDITIONAL_EXECUTION",
+            "count": 1
+          }
+        ]
+      }
+    }
+  }
+}

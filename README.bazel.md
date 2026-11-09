@@ -66,6 +66,31 @@ runtime dependencies are borrowed from test runfiles; this proves the installed
 owner wheel boundary, not an independently installed complete image environment.
 Full SNMP container/service validation is tracked separately by buildimage #124.
 
+## Check incremental wheel builds
+
+Run this check from an idle checkout after the owner wheel build:
+
+```sh
+python3 -B tests/bazel/wheel_incremental.py
+```
+
+The check temporarily changes the public Y-cable switch-counter constant, builds
+the wheel and imports that API from an isolated extracted installation. Only the
+edited Python file and its wheel RECORD may change; all other payloads and file
+modes must match. A no-op must execute no uncached processes and no actions beyond
+Bazel's single workspace-status bookkeeping action. The check restores the
+original source even when the edited build or probe fails, and requires the
+restored wheel to match the original SHA-256. Existing caches are retained.
+
+CI runs this separately from the original source/runtime tests and retains each
+phase's wheel, build events, execution log, timing and installed-API result under
+`bazel-evidence/incremental`. Receipts separate logged/uncached spawns from Bazel's
+total action count, every mnemonic and runner counts. Bazel's action count
+includes disk/remote-cache-served work and excludes local action-cache hits;
+a cached wheel action is not an uncached wheel process. Missing or incomplete
+action accounting fails the check. This tests source-to-wheel invalidation and
+cache restoration; it does not replace the full runtime or hardware tests.
+
 ## Dependency locks and evidence
 
 The committed `requirements_lock.txt` files pin Python packages and hashes.
