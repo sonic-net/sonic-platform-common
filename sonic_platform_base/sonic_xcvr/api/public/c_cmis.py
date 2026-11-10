@@ -26,7 +26,13 @@ C_CMIS_DELTA_VDM_KEY_TO_DB_PREFIX_KEY_MAP = {
     'CFO [MHz]' : 'cfo',
     'Tx Power [dBm]' : 'txcurrpower',
     'Rx Total Power [dBm]' : 'rxtotpower',
-    'Rx Signal Power [dBm]' : 'rxsigpower'
+    'Rx Signal Power [dBm]' : 'rxsigpower',
+    'Clock Recovery Loop [%]' : 'clkreloop',
+    'SOPMD low granularity [ps^2]' : 'sopmdshort',
+    'SNR Margin [dB]' : 'snrmargin',
+    'Q-Factor [dB]' : 'qfactor',
+    'Q-Margin [dB]' : 'qmargin',
+    'CFO low granularity [MHz]' : 'cfoshort'
 }
 
 VDM_SUBTYPE_IDX_MAP= {
