@@ -107,6 +107,24 @@ pub const PLATFORM_JSON_FILE: &str = "platform.json";
 pub const GLOBAL_BMC_DATA_FILE: &str = "/etc/sonic/bmc.json";
 pub const BMC_BUILD_CONFIG_FILE: &str = "/etc/sonic/bmc_config.json";
 
+pub const BMC_OS_SONIC: &str = "sonic";
+pub const BMC_OS_OPENBMC: &str = "openbmc";
+
+/// `device_info.get_bmc_os()`: read the hardware SKU's bmc_os.json.
+/// Missing, unreadable or invalid configuration defaults to SONiC, as upstream.
+pub fn get_bmc_os() -> &'static str {
+    let read = || -> PyResult<PyVal> {
+        crate::json::load(&io::join(&get_path_to_hwsku_dir()?, "bmc_os.json"))
+    };
+    match read()
+        .ok()
+        .and_then(|data| crate::json::get(&data, "os").cloned())
+    {
+        Some(PyVal::Str(value)) if value == BMC_OS_OPENBMC => BMC_OS_OPENBMC,
+        _ => BMC_OS_SONIC,
+    }
+}
+
 /// `get_bmc_build_config()`: the file's JSON, or None on any failure.
 pub fn get_bmc_build_config() -> Option<PyVal> {
     if !io::exists(BMC_BUILD_CONFIG_FILE) {
@@ -273,6 +291,26 @@ mod tests {
     /// it is, and the callers that test it with `if platform:` take it as no
     /// platform -- here a platform.json sitting in the bare device directory
     /// is not read.
+    #[test]
+    fn bmc_os_uses_hwsku_configuration_with_sonic_as_the_fallback() {
+        let root = crate::testing::Root::new();
+        let old = HWSKU.lock().unwrap().replace("BMC-TEST".into());
+        root.write("/host/machine.conf", "onie_platform=test-platform\n");
+        let path = "/usr/share/sonic/platform/BMC-TEST/bmc_os.json";
+        assert_eq!(get_bmc_os(), BMC_OS_SONIC);
+        for (text, expected) in [
+            (r#"{"os":"openbmc"}"#, BMC_OS_OPENBMC),
+            (r#"{"os":"sonic"}"#, BMC_OS_SONIC),
+            (r#"{"os":"unknown"}"#, BMC_OS_SONIC),
+            ("{", BMC_OS_SONIC),
+            ("{}", BMC_OS_SONIC),
+        ] {
+            root.write(path, text);
+            assert_eq!(get_bmc_os(), expected, "{text}");
+        }
+        *HWSKU.lock().unwrap() = old;
+    }
+
     #[test]
     fn an_empty_platform_is_no_platform_where_python_tests_it() {
         let root = Root::new();

@@ -72,6 +72,33 @@ fn name(n: &str) -> PyResult<PyVal> {
     Ok(PyVal::str(n))
 }
 
+#[test]
+fn power_budget_values_default_only_when_the_getter_is_unsupported() {
+    for (answer, expected) in [
+        (Err(PyErr::not_implemented()), Some(Number::Float(0.0))),
+        (Ok(PyVal::None), None),
+        (Ok(PyVal::Float(12.5)), Some(Number::Float(12.5))),
+        (Err(PyErr::os_error(5, None)), None),
+    ] {
+        let psu = obj(
+            BaseClass::PsuBase,
+            vec![
+                ("get_presence", Ok(PyVal::Bool(true))),
+                ("get_maximum_supplied_power", answer),
+            ],
+        );
+        let chassis = obj(
+            BaseClass::ChassisBase,
+            vec![("get_all_psus", Ok(PyVal::List(vec![psu])))],
+        );
+        let mut facade = BaseFacade::new(chassis, EscapeHatches::new());
+        assert_eq!(
+            facade.get_psus().unwrap()[0].maximum_supplied_power,
+            expected
+        );
+    }
+}
+
 /// The facade's own semantics, natively; the differential test holds them
 /// equal to Python's.  A virtual drawer named 'N/A' puts its fans under the
 /// chassis; a thermal whose threshold read fails is still a row; a skipped
@@ -296,5 +323,67 @@ fn a_nameless_sensor_is_named_by_kind_and_position() {
                 "modules[0]/current_sensors[0]".to_string()
             ),
         ]
+    );
+}
+
+#[test]
+fn scoped_psu_fans_skip_unrelated_devices_and_read_details_only_when_requested() {
+    let speed_reads = Arc::new(AtomicUsize::new(0));
+    let reads = Arc::clone(&speed_reads);
+    let fan = PyVal::Obj(Arc::new(DynObject {
+        class: "PsuFan",
+        base: BaseClass::FanBase,
+        handler: Box::new(move |_, method, _| match method {
+            "get_name" => Some(name("psu-fan")),
+            "get_status_led" => Some(name("green")),
+            "get_direction" => Some(name("intake")),
+            "get_speed" => {
+                reads.fetch_add(1, Ordering::SeqCst);
+                Some(Ok(PyVal::Int(50)))
+            }
+            _ => None,
+        }),
+    }));
+    let psu = obj(
+        BaseClass::PsuBase,
+        vec![
+            ("get_name", name("PSU 1")),
+            ("get_all_fans", Ok(PyVal::List(vec![fan]))),
+        ],
+    );
+    let chassis = obj(
+        BaseClass::ChassisBase,
+        vec![
+            ("get_all_psus", Ok(PyVal::List(vec![psu.clone()]))),
+            ("get_all_pdbs", Ok(PyVal::List(vec![psu]))),
+            (
+                "get_all_fan_drawers",
+                Err(PyErr::other("RuntimeError", "unrelated drawer")),
+            ),
+            (
+                "get_all_modules",
+                Err(PyErr::other("RuntimeError", "unrelated module")),
+            ),
+        ],
+    );
+    let mut facade = BaseFacade::new(chassis, EscapeHatches::new());
+    let key = DeviceKey::from("psus[0]");
+    let led_only = facade.get_psu_fans(&key, false).unwrap();
+    assert_eq!(led_only[0].status_led.as_deref(), Some("green"));
+    assert_eq!(led_only[0].speed_pct, None);
+    assert_eq!(speed_reads.load(Ordering::SeqCst), 0);
+    let details = facade.get_psu_fans(&key, true).unwrap();
+    assert_eq!(details[0].speed_pct, Some(Number::Int(50)));
+    assert_eq!(details[0].direction.as_deref(), Some("intake"));
+    assert_eq!(details[0].parent_key.as_ref(), Some(&key));
+    assert_eq!(details[0].key.as_str(), "psus[0]/fans[0]");
+    assert_eq!(speed_reads.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        facade
+            .get_psu_fans(&DeviceKey::from("pdbs[0]"), false)
+            .unwrap()[0]
+            .key
+            .as_str(),
+        "pdbs[0]/fans[0]"
     );
 }

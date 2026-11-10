@@ -317,7 +317,7 @@ pub(crate) fn flag(row: &Bound<'_, PyAny>, key: &str) -> Result<Option<bool>, Pl
     if v.is_none() || is_na(&v) {
         return Ok(None);
     }
-    v.extract::<bool>().map(Some).map_err(|e| err(row.py(), e))
+    v.is_truthy().map(Some).map_err(|e| err(row.py(), e))
 }
 
 /// A number going the other way: Rust to Python.

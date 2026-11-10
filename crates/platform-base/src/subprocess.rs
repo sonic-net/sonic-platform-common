@@ -2,7 +2,7 @@
 //! the exceptions it raises and their text: a command that fails is logged
 //! by `str()` of the `CalledProcessError`, which quotes the whole argv.
 
-use std::io::Read;
+use std::io::{Read, Write};
 use std::os::unix::process::ExitStatusExt;
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::mpsc;
@@ -91,37 +91,67 @@ fn spawn(argv: &[&str], cmd: &mut Command) -> PyResult<Child> {
     cmd.spawn().map_err(|e| PyErr::from_io(&e, Some(argv[0])))
 }
 
-/// `check_call(argv, stdout=DEVNULL, stderr=PIPE)`: the pipe is never read,
-/// only closed once the command is done.
+/// `check_call(argv, stdout=DEVNULL, stderr=DEVNULL)`.
 pub fn check_call_quiet(argv: &[&str]) -> PyResult<()> {
-    let mut child = spawn(
-        argv,
-        Command::new(argv[0])
-            .args(&argv[1..])
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped()),
-    )?;
-    let st = child.wait().map_err(|e| PyErr::from_io(&e, None))?;
-    drop(child.stderr.take());
-    match returncode(st) {
+    match run_quiet_status(argv)? {
         0 => Ok(()),
         rc => Err(called_process_error(argv, rc)),
     }
 }
 
-/// `Popen(argv, stdout=PIPE, stderr=PIPE).communicate()`: no timeout.
-pub fn communicate(argv: &[&str]) -> PyResult<Completed> {
-    let child = spawn(
+pub fn run_quiet_status(argv: &[&str]) -> PyResult<i32> {
+    let mut child = spawn(
         argv,
         Command::new(argv[0])
             .args(&argv[1..])
-            .stdin(Stdio::inherit())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null()),
+    )?;
+    child
+        .wait()
+        .map(returncode)
+        .map_err(|e| PyErr::from_io(&e, None))
+}
+
+/// `Popen(argv, stdout=PIPE, stderr=PIPE).communicate()`: no timeout.
+pub fn communicate(argv: &[&str]) -> PyResult<Completed> {
+    communicate_input(argv, None)
+}
+
+/// Pass sensitive request data through a private pipe, never process arguments.
+pub fn communicate_input(argv: &[&str], input: Option<&[u8]>) -> PyResult<Completed> {
+    let mut child = spawn(
+        argv,
+        Command::new(argv[0])
+            .args(&argv[1..])
+            .stdin(if input.is_some() {
+                Stdio::piped()
+            } else {
+                Stdio::inherit()
+            })
             .stdout(Stdio::piped())
             .stderr(Stdio::piped()),
     )?;
+    // Write concurrently so a child producing output before reading cannot
+    // deadlock against a full stdin pipe. wait_with_output drains both outputs.
+    let writer = input.map(|bytes| {
+        let bytes = bytes.to_vec();
+        let mut pipe = child.stdin.take().expect("piped stdin");
+        thread::spawn(move || pipe.write_all(&bytes))
+    });
     let out = child
         .wait_with_output()
         .map_err(|e| PyErr::from_io(&e, None))?;
+    if let Some(writer) = writer {
+        let result = writer
+            .join()
+            .map_err(|_| PyErr::other("RuntimeError", "request pipe writer panicked"))?;
+        // A rejected request may exit before consuming its input; preserve the
+        // command's exit status and stderr in that case.
+        if out.status.success() {
+            result.map_err(|e| PyErr::from_io(&e, None))?;
+        }
+    }
     Ok(Completed {
         returncode: returncode(out.status),
         stdout: out.stdout,
@@ -229,6 +259,17 @@ pub fn text(b: &[u8]) -> PyResult<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn quiet_status_preserves_exit_codes_without_command_exceptions() {
+        for (script, status) in [
+            ("exit 0", 0),
+            ("head -c 262144 /dev/zero >&2; exit 7", 7),
+            ("kill -9 $$", -9),
+        ] {
+            assert_eq!(run_quiet_status(&["sh", "-c", script]).unwrap(), status);
+        }
+    }
 
     #[test]
     fn failures_read_as_python_words_them() {

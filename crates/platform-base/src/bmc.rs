@@ -6,7 +6,7 @@
 //! own `_login` and `get_version` where it overrides them.  Every method a
 //! vendor does not override is the base class's, as in Python.
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use crate::device_info;
 use crate::logger::{self, Logger, ModuleLogger};
@@ -17,6 +17,13 @@ use crate::redfish_client::{self as rf, is_exception, Credentials, RedfishClient
 pub const CURL_PATH: &str = "/usr/bin/curl";
 pub const BMC_NAME: &str = "BMC";
 pub const ROOT_ACCOUNT: &str = "root";
+const UNSUPPORTED_SONIC_BMC: &str = "Operation not supported when BMC OS is sonic";
+const STATE_DB_ID: i64 = 6;
+
+/// Older Python base classes keep the pre-SONiC Redfish-only contract.
+pub(crate) fn is_sonic_bmc_os() -> bool {
+    crate::object::BMC_HAS_SONIC_OS && device_info::get_bmc_os() == device_info::BMC_OS_SONIC
+}
 
 /// The module's `logger = Logger('bmc_base')`.
 pub static LOGGER: ModuleLogger = ModuleLogger::new();
@@ -76,6 +83,9 @@ pub struct Bmc<V: BmcVendor> {
     addr: PyVal,
     pub rf_client: RedfishClient,
     pub vendor: V,
+    remote_state_db: Mutex<Option<crate::db::Db>>,
+    #[cfg(any(test, feature = "testing"))]
+    test_bmc_os: Option<&'static str>,
 }
 
 impl<V: BmcVendor> Credentials for Bmc<V> {
@@ -102,7 +112,25 @@ impl<V: BmcVendor> Bmc<V> {
             addr,
             rf_client,
             vendor,
+            remote_state_db: Mutex::new(None),
+            #[cfg(any(test, feature = "testing"))]
+            test_bmc_os: None,
         }
+    }
+
+    #[cfg(any(test, feature = "testing"))]
+    /// Select an explicit fixture OS without changing process-wide configuration.
+    pub fn with_test_bmc_os(mut self, os: &'static str) -> Self {
+        self.test_bmc_os = Some(os);
+        self
+    }
+
+    fn is_sonic_os(&self) -> bool {
+        #[cfg(any(test, feature = "testing"))]
+        if let Some(os) = self.test_bmc_os {
+            return os == device_info::BMC_OS_SONIC;
+        }
+        is_sonic_bmc_os()
     }
 
     /// `BMCBase._login()`.
@@ -139,6 +167,13 @@ impl<V: BmcVendor> Bmc<V> {
         name: &str,
         api: impl FnOnce() -> PyResult<(i128, PyVal)>,
     ) -> PyResult<PyVal> {
+        if self.is_sonic_os() {
+            log().log_notice(&format!("{name} is not supported when BMC OS is sonic"));
+            return Ok(PyVal::Tuple(vec![
+                PyVal::Int(rf::ERR_CODE_GENERIC_ERROR),
+                PyVal::str(UNSUPPORTED_SONIC_BMC),
+            ]));
+        }
         let r = (|| -> PyResult<(i128, PyVal)> {
             self.login()?;
             let (ret, data) = api()?;
@@ -226,6 +261,9 @@ impl<V: BmcVendor> Bmc<V> {
     }
 
     fn eeprom(&self) -> PyResult<PyVal> {
+        if self.is_sonic_os() {
+            return self.sonic_eeprom();
+        }
         let r = (|| -> PyResult<PyVal> {
             let id = self.vendor.get_eeprom_id()?;
             let (ret, info) = Self::unpack(self.get_eeprom_info(&id)?)?;
@@ -245,6 +283,63 @@ impl<V: BmcVendor> Bmc<V> {
         }
     }
 
+    /// SONiC BMC's STATE_DB EEPROM_INFO, cached by connection, not by value.
+    fn sonic_eeprom(&self) -> PyResult<PyVal> {
+        let read = || -> PyResult<PyVal> {
+            let mut connection = self
+                .remote_state_db
+                .lock()
+                .map_err(|_| PyErr::runtime_error("remote STATE_DB connection poisoned"))?;
+            if connection.is_none() {
+                let host = match &self.addr {
+                    PyVal::Str(host) => host,
+                    _ => return Err(PyErr::type_error("remote Redis address must be a string")),
+                };
+                *connection = Some(crate::db::Db::connect_addr(host, 6379, STATE_DB_ID)?);
+            }
+            let db = connection.as_ref().expect("connected remote STATE_DB");
+            if db.hget("EEPROM_INFO|State", "Initialized")?.as_deref() != Some("1") {
+                log().log_notice("BMC EEPROM info is not initialized yet on the remote Redis");
+                return Ok(PyVal::Dict(vec![]));
+            }
+            let mut fields = Vec::new();
+            for (name, key) in [
+                ("Model", "0x21"),
+                ("PartNumber", "0x22"),
+                ("SerialNumber", "0x23"),
+                ("Revision", "0x27"),
+                ("Manufacturer", "0x2b"),
+            ] {
+                if let Some(value) = db
+                    .hget(&format!("EEPROM_INFO|{key}"), "Value")?
+                    .filter(|v| !v.is_empty())
+                {
+                    fields.push((PyVal::str(name), PyVal::str(value)));
+                }
+            }
+            drop(connection);
+            fields.push((
+                PyVal::str("PowerState"),
+                PyVal::str(if self.get_status()?.truthy() {
+                    "On"
+                } else {
+                    "Off"
+                }),
+            ));
+            Ok(PyVal::Dict(fields))
+        };
+        match read() {
+            Err(error) if is_exception(&error) => {
+                log().log_error(&format!(
+                    "Failed to get BMC EEPROM from remote Redis: {}",
+                    error.str()
+                ));
+                Ok(PyVal::Dict(vec![]))
+            }
+            result => result,
+        }
+    }
+
     fn eeprom_field(&self, key: &str) -> PyResult<PyVal> {
         let info = self.eeprom()?;
         if !self.is_bmc_eeprom_content_valid(&info)? {
@@ -255,6 +350,10 @@ impl<V: BmcVendor> Bmc<V> {
 
     /// `BMCBase.get_version()`.
     pub fn base_get_version(&self) -> PyResult<PyVal> {
+        if self.is_sonic_os() {
+            log().log_notice("get_version is not supported when BMC OS is sonic");
+            return Ok(PyVal::str("N/A"));
+        }
         let r = (|| -> PyResult<PyVal> {
             let id = self.get_firmware_id()?;
             let (ret, version) = Self::unpack(self.get_firmware_version_of(&id)?)?;
@@ -307,6 +406,9 @@ impl<V: BmcVendor> PyObject for Bmc<V> {
         self.eeprom_field("SerialNumber")
     }
     fn get_revision(&self) -> PyResult<PyVal> {
+        if self.is_sonic_os() {
+            return ops::get(&self.eeprom()?, "Revision", PyVal::str("N/A"));
+        }
         Ok(PyVal::str("N/A"))
     }
     /// One ping, a second's wait: a ping that fails is False, one that
@@ -341,6 +443,13 @@ impl<V: BmcVendor> PyObject for Bmc<V> {
         V::get_version(self)
     }
     fn open_session(&self) -> PyResult<PyVal> {
+        if self.is_sonic_os() {
+            log().log_notice("open_session is not supported when BMC OS is sonic");
+            return Ok(PyVal::Tuple(vec![
+                PyVal::Int(rf::ERR_CODE_GENERIC_ERROR),
+                PyVal::Tuple(vec![PyVal::str(UNSUPPORTED_SONIC_BMC), PyVal::None]),
+            ]));
+        }
         self.rf_client.open_session(self)
     }
     fn close_session(&self, session_id: &str) -> PyResult<PyVal> {
@@ -439,10 +548,7 @@ impl<V: BmcVendor> PyObject for Bmc<V> {
                     .redfish_api_set_min_password_length(self, &saved_min_length)?;
                 return Ok((ret, PyVal::Str(msg)));
             }
-            log().log_notice(&format!(
-                "Changed BMC root password to default: {}",
-                default_root_password.py_str()
-            ));
+            log().log_notice("Changed BMC root password to default");
             let (ret, err_msg) = self
                 .rf_client
                 .redfish_api_set_min_password_length(self, &saved_min_length)?;
@@ -660,7 +766,7 @@ mod tests {
         let curl = crate::testing::FakeCurl::new();
         let addr = || PyVal::str("169.254.0.1");
         // No firmware ID: NotImplementedError, logged, and 'N/A'.
-        let plain = Bmc::with_curl(addr(), Plain, &curl.path());
+        let plain = openbmc(addr(), Plain, &curl.path());
         assert_eq!(
             plain.get_firmware_id().map_err(|e| e.exc.name()),
             Err("NotImplementedError")
@@ -668,7 +774,7 @@ mod tests {
         assert_eq!(plain.get_version().unwrap().py_repr(), "'N/A'");
         assert!(curl.take_requests().is_empty());
         // The base class's: the vendor's ID, in a session of its own.
-        let named = Bmc::with_curl(addr(), Named, &curl.path());
+        let named = openbmc(addr(), Named, &curl.path());
         curl.reply("GET", FW_UNIT, 200, r#"{"Version": "7.1"}"#);
         assert_eq!(named.get_version().unwrap().py_repr(), "'7.1'");
         assert_eq!(
@@ -684,7 +790,7 @@ mod tests {
         curl.forget("GET", FW_UNIT);
         assert_eq!(named.get_version().unwrap().py_repr(), "'N/A'");
         // A vendor's own.
-        let own = Bmc::with_curl(addr(), Own, &curl.path());
+        let own = openbmc(addr(), Own, &curl.path());
         assert_eq!(own.get_version().unwrap().py_repr(), "'own'");
         // BMCBase's callbacks raise until a vendor gives them.
         assert_eq!(
@@ -707,7 +813,7 @@ mod tests {
     #[test]
     fn a_firmware_update_targets_the_vendors_firmware_id() {
         let curl = crate::testing::FakeCurl::new();
-        let named = Bmc::with_curl(PyVal::str("169.254.0.1"), Named, &curl.path());
+        let named = openbmc(PyVal::str("169.254.0.1"), Named, &curl.path());
         let r = named.update_firmware("/nonexistent/bmc.fwpkg").unwrap();
         assert!(r.py_repr().starts_with("(-"), "{}", r.py_repr());
         assert_eq!(
@@ -752,8 +858,67 @@ mod tests {
         }
     }
 
+    fn openbmc<V: BmcVendor>(addr: PyVal, vendor: V, curl: &str) -> Bmc<V> {
+        Bmc::with_curl(addr, vendor, curl).with_test_bmc_os("openbmc")
+    }
+
+    #[test]
+    fn sonic_bmc_reads_initialized_remote_revision_and_preserves_empty_fallback() {
+        let _root = Root::new();
+        let redis = crate::testing::FakeRedis::get();
+        redis.flush();
+        let curl = FakeCurl::new();
+        let b = Bmc::with_curl(
+            PyVal::str("127.0.0.1"),
+            Unit { root_pw: "pw" },
+            &curl.path(),
+        )
+        .with_test_bmc_os("sonic");
+        *b.remote_state_db.lock().unwrap() =
+            Some(crate::db::Db::connect_addr("127.0.0.1", redis.port(), 6).unwrap());
+        assert_eq!(b.get_revision().unwrap(), PyVal::str("N/A"));
+        redis.hset(6, "EEPROM_INFO|State", &[("Initialized", "1")]);
+        redis.hset(6, "EEPROM_INFO|0x27", &[("Value", "R2")]);
+        redis.hset(6, "EEPROM_INFO|0x21", &[("Value", "Model")]);
+        assert_eq!(b.get_revision().unwrap(), PyVal::str("R2"));
+        assert_eq!(b.get_model().unwrap(), PyVal::str("Model"));
+        redis.hdel(6, "EEPROM_INFO|0x27", "Value");
+        assert_eq!(b.get_revision().unwrap(), PyVal::str("N/A"));
+        redis.set(6, "EEPROM_INFO|0x27", "not a hash");
+        assert_eq!(b.get_revision().unwrap(), PyVal::str("N/A"));
+        assert!(curl.take_requests().is_empty());
+        redis.flush();
+    }
+
+    #[test]
+    fn sonic_bmc_session_apis_return_the_python_unsupported_shapes() {
+        let curl = FakeCurl::new();
+        let b = Bmc::with_curl(
+            PyVal::str("127.0.0.1"),
+            Unit { root_pw: "pw" },
+            &curl.path(),
+        )
+        .with_test_bmc_os("sonic");
+        assert_eq!(b.base_get_version().unwrap(), PyVal::str("N/A"));
+        assert_eq!(
+            b.close_session("s1").unwrap(),
+            t2(
+                rf::ERR_CODE_GENERIC_ERROR,
+                PyVal::str(UNSUPPORTED_SONIC_BMC)
+            )
+        );
+        assert_eq!(
+            b.open_session().unwrap(),
+            t2(
+                rf::ERR_CODE_GENERIC_ERROR,
+                PyVal::Tuple(vec![PyVal::str(UNSUPPORTED_SONIC_BMC), PyVal::None])
+            )
+        );
+        assert!(curl.take_requests().is_empty());
+    }
+
     fn unit(curl: &FakeCurl, root_pw: &'static str) -> Bmc<Unit> {
-        Bmc::with_curl(PyVal::str("169.254.0.1"), Unit { root_pw }, &curl.path())
+        openbmc(PyVal::str("169.254.0.1"), Unit { root_pw }, &curl.path())
     }
 
     fn get(path: &str) -> String {
@@ -805,7 +970,7 @@ mod tests {
         assert!(!b.rf_client.has_login());
         assert_eq!(b.get_eeprom().unwrap().py_repr(), "{}");
         // No eeprom ID: NotImplementedError, logged.
-        let plain = Bmc::with_curl(PyVal::str("169.254.0.1"), Plain, &curl.path());
+        let plain = openbmc(PyVal::str("169.254.0.1"), Plain, &curl.path());
         assert_eq!(plain.get_eeprom().unwrap().py_repr(), "{}");
         assert_eq!(plain.get_serial().unwrap().py_repr(), "None");
     }
@@ -823,13 +988,13 @@ mod tests {
         );
         root.write("/etc/sonic/bmc.json", r#"{"bmc_addr": "169.254.0.1"}"#);
         assert_eq!(b.get_presence().unwrap().py_repr(), "True");
-        let odd = Bmc::with_curl(PyVal::Int(5), Unit { root_pw: "" }, &curl.path());
+        let odd = openbmc(PyVal::Int(5), Unit { root_pw: "" }, &curl.path());
         assert_eq!(
             odd.get_status().map_err(|e| e.str()).err().as_deref(),
             Some("expected str, bytes or os.PathLike object, not int")
         );
         // One ping, where there is a ping to run.
-        let local = Bmc::with_curl(PyVal::str("127.0.0.1"), Unit { root_pw: "" }, &curl.path());
+        let local = openbmc(PyVal::str("127.0.0.1"), Unit { root_pw: "" }, &curl.path());
         match local.get_status() {
             Ok(PyVal::Bool(_)) => {}
             Err(e) => assert_eq!(e.exc.name(), "FileNotFoundError"),
@@ -865,11 +1030,10 @@ mod tests {
             "{}",
             cmds[2]
         );
-        assert!(
-            cmds[3].contains(r#"{"Password" : "R00tDefault!"}"#),
-            "{}",
-            cmds[3]
-        );
+        assert!(!cmds[3].contains("R00tDefault!"));
+        assert!(std::fs::read_to_string(curl.dir().join("private-configs"))
+            .unwrap()
+            .contains("R00tDefault!"));
         assert!(
             cmds[4].contains(r#"{"MinPasswordLength": 8}"#),
             "{}",
@@ -918,7 +1082,7 @@ mod tests {
         // No default password: NotImplementedError, which the decorator
         // answers as its (empty) text.
         curl.reply("GET", ACCOUNT_SERVICE, 200, r#"{"MinPasswordLength": 8}"#);
-        let plain = Bmc::with_curl(PyVal::str("169.254.0.1"), Plain, &curl.path());
+        let plain = openbmc(PyVal::str("169.254.0.1"), Plain, &curl.path());
         assert_eq!(plain.reset_root_password().unwrap().py_repr(), "(-12, '')");
     }
 
@@ -1018,7 +1182,7 @@ mod tests {
         let eeprom = "{'Model': 'P4501-0001', 'SerialNumber': 'MT2401X00042', 'State': 'Ok', 'Health': 'Ok', 'HealthRollup': 'Ok'}";
         let mut out = Vec::new();
         let new = |addr| {
-            Bmc::with_curl(
+            openbmc(
                 addr,
                 TestVendor {
                     pw: dir.join("password"),

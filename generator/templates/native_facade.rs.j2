@@ -172,6 +172,26 @@ impl PlatformApi for BaseFacade {
         Ok(out)
 {%- endif %}
     }
+{%- elif m.name == 'get_psu_fans' %}
+
+    fn get_psu_fans(&mut self, key: &DeviceKey, include_details: bool) -> Result<Vec<FanInfo>, PlatformError> {
+        let psu = self.find_psu_info(key.as_str()).map_err(err)?;
+        let kind = if key.as_str().starts_with("pdbs[") { "pdb" } else { "psu" };
+        let path = parse_key(key.as_str()).map_err(err)?;
+        let index = path[0].1.ok_or_else(|| PlatformError::NotFound(key.to_string()))?;
+        let parent = fmt_name(&text(call(get(&psu, |o| o.get_name())).map_err(err)?),
+            if kind == "pdb" { "PDB {i}" } else { "PSU {i}" }, "", index).py_str();
+        let cols = FanInfoCols::NONE{% for column in m.columns %}.with(FanInfoCols::{{ column | upper }}){% endfor %};
+        let cols = if include_details { cols{% for column in m.detail_columns %}.with(FanInfoCols::{{ column | upper }}){% endfor %} } else { cols };
+        let fans = iter(call(get(&psu, |o| o.get_all_fans())).map_err(err)?).map_err(err)?;
+        let mut out = Vec::new();
+        for (i, fan) in fans.iter().enumerate() {
+            let fixed = [("key", PyVal::Str(format!("{}/fans[{i}]", key.as_str()))), ("parent_key", PyVal::Str(key.as_str().into())), ("kind", PyVal::Str(kind.into())), ("drawer_name", PyVal::Str("N/A".into()))];
+            let row = self.row_fan_info(fan, &parent, i, &fixed, cols.bits(), true).map_err(err)?;
+            out.push(read_fan_info(&row)?);
+        }
+        Ok(out)
+    }
 {%- elif m.kind == 'action' %}
 
     fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {

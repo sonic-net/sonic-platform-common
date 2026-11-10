@@ -33,6 +33,7 @@ from model import _snake, key_segment, keyed, rust_type, strip_optional, templat
 # platform object passed back in, as the thermal manager is handed the chassis.
 EXTRA = (
     ('ChassisBase', 'get_thermal_manager', ()),
+    ('LiquidCoolingBase', 'get_major_leak_num_min_sensors', ()),
     # What `get_module_key` resolves a module name with, as chassisd does.
     ('ChassisBase', 'get_module_index', (('module_name', 'str'),)),
     ('ChassisBase', 'get_eeprom', ()),
@@ -523,6 +524,7 @@ def build_object(model, base_dir):
         'methods': methods,
         'bases': BASES,
         'bodies': {k: sorted(v) for k, v in sorted(bodies.items())},
+        'bmc_sonic_os': '_is_sonic_bmc_os' in classes.get('BMCBase', ((), {}, {}))[1],
     }
 
 
@@ -573,9 +575,13 @@ def _base_call(f, dev='dev'):
     hops = f.getter.split('.')
     for i, hop in enumerate(hops):
         last = i == len(hops) - 1
-        wrap = 'call_narrowed' if (last and f.narrowed) else 'call'
         ref = call if i == 0 else '&' + call
-        call = '%s(get(%s, |o| o.%s()))?' % (wrap, ref, hop)
+        if last and f.preserve_none:
+            call = 'call_unsupported_default(get(%s, |o| o.%s()), %s)?' % (
+                ref, hop, _pyval_literal(f.default))
+        else:
+            wrap = 'call_narrowed' if (last and f.narrowed) else 'call'
+            call = '%s(get(%s, |o| o.%s()))?' % (wrap, ref, hop)
     return call
 
 
@@ -595,7 +601,7 @@ def _fmt_call(got, default):
 
 def _absent(f):
     """`_absent`."""
-    if f.unsupported_on != 'default':
+    if f.unsupported_on != 'default' or f.preserve_none:
         return 'PyVal::None'
     if _is_template(f.default):
         return _fmt_call('PyVal::None', f.default)

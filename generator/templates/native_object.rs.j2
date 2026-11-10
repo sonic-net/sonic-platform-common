@@ -14,6 +14,9 @@
 
 use crate::py::{PyErr, PyResult, PyVal};
 
+// The Python source determines the contract, including older release branches.
+pub(crate) const BMC_HAS_SONIC_OS: bool = {{ 'true' if native.bmc_sonic_os else 'false' }};
+
 /// The base class a platform object derives from, which decides its defaults.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BaseClass {

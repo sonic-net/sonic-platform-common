@@ -31,6 +31,7 @@ RUST_OUT_DIR = os.path.join(ROOT, 'build', 'generated')
 # the repository's, wherever the outputs are written.
 BASE_DIR = os.path.join(ROOT, 'sonic_platform_base')
 TEMPLATES = os.path.join(HERE, 'templates')
+RUST_OUT_DIR = os.path.join(ROOT, 'build', 'generated')
 
 OUTPUTS = {
     'facade.py.j2': os.path.join(ROOT, 'sonic_platform_api', 'facade.py'),
@@ -74,8 +75,11 @@ def _py_base_call(f):
         # Only the final hop is the one a vendor narrows -- the hops before it
         # walk the object tree and a TypeError there would be a real bug.
         last = i == len(hops) - 1
-        call = ('_call_narrowed(_get(%s, %r))' if (last and f.narrowed)
-                else '_call(_get(%s, %r))') % (call, hop)
+        if last and f.preserve_none:
+            call = '_call_unsupported_default(_get(%s, %r), %r)' % (call, hop, f.default)
+        else:
+            call = ('_call_narrowed(_get(%s, %r))' if (last and f.narrowed)
+                    else '_call(_get(%s, %r))') % (call, hop)
     return call
 
 
@@ -112,7 +116,9 @@ def _share_calls(row):
     row.shared_calls = []
     for f in row.fields:
         f.shared_var = None
-        if f.is_parent or f.with_name or f.at is None or not f.getter:
+        if f.is_parent or f.with_name or not f.getter:
+            continue
+        if f.at is None and (row.guarded or row.absorbs or row.absorbable or f.read_if):
             continue
         seen.setdefault(_py_base_call(f), []).append(f)
     for call, fields in seen.items():
@@ -176,7 +182,7 @@ def _assign_col_bits(row):
 def _absent(f):
     """What a column holds when it was not read: as if the platform did not
     implement the getter."""
-    if f.unsupported_on != 'default':
+    if f.unsupported_on != 'default' or f.preserve_none:
         return 'None'
     if _is_template(f.default):
         # The same resolution the read takes when the getter answers nothing,
@@ -1226,6 +1232,19 @@ def build(model):
             f.rust_ty in enums for f in row.fields)
         row.new_params = [f for f in row.fields if f.rust_ty in enums]
     for m in model.methods:
+        if m.columns or m.detail_columns:
+            if m.name != 'get_psu_fans':
+                raise ValueError('%s: escape projections are only supported for get_psu_fans'
+                                 % m.name)
+            row_name = m.returns.removeprefix('list[').removesuffix(']')
+            row = model.row(row_name)
+            if row is None or not row.projected:
+                raise ValueError('%s: escape projections require a projected row' % m.name)
+            bits = {f.name: f.col_bit for f in row.fields if f.col_bit is not None}
+            if any(name not in bits for name in m.columns + m.detail_columns):
+                raise ValueError('%s: unknown escape projection column' % m.name)
+            m.column_mask = sum(1 << bits[name] for name in m.columns)
+            m.detail_column_mask = sum(1 << bits[name] for name in m.detail_columns)
         if m.kind == 'action':
             m.body = _action_body(m, model)
             if not m.doc:

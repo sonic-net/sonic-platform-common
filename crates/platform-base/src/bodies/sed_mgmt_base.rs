@@ -105,8 +105,15 @@ fn banks<S: PyObject + ?Sized>(s: &S) -> PyResult<Option<(PyVal, PyVal)>> {
     Ok(Some((bank_a, bank_b)))
 }
 
-fn run_script(script: &str, bank_a: &PyVal, bank_b: &PyVal, pw: &str) -> PyResult<()> {
-    subprocess::check_call_quiet(&[script, "-a", arg(bank_a)?, "-b", arg(bank_b)?, "-p", pw])
+fn run_script(script: &str, bank_a: &PyVal, bank_b: &PyVal, pw: &str) -> PyResult<bool> {
+    let status =
+        subprocess::run_quiet_status(&[script, "-a", arg(bank_a)?, "-b", arg(bank_b)?, "-p", pw])?;
+    if status != 0 {
+        logger().log_error(&format!(
+            "SED password script failed with exit status {status}"
+        ));
+    }
+    Ok(status == 0)
 }
 
 /// `SedMgmtBase.change_sed_password`.
@@ -126,11 +133,10 @@ pub fn change_sed_password<S: PyObject + ?Sized>(s: &S, new_password: &str) -> P
         let Some((bank_a, bank_b)) = banks(s)? else {
             return Ok(false);
         };
-        run_script(SED_PW_CHANGE_SCRIPT, &bank_a, &bank_b, new_password)?;
-        Ok(true)
+        run_script(SED_PW_CHANGE_SCRIPT, &bank_a, &bank_b, new_password)
     })();
     Ok(PyVal::Bool(r.unwrap_or_else(|e| {
-        logger().log_error(&format!("Failed to change SED password: {}", e.str()));
+        logger().log_error(&format!("Failed to change SED password ({})", e.exc.name()));
         false
     })))
 }
@@ -146,11 +152,10 @@ pub fn reset_sed_password<S: PyObject + ?Sized>(s: &S) -> PyResult<PyVal> {
         let Some((bank_a, bank_b)) = banks(s)? else {
             return Ok(false);
         };
-        run_script(SED_PW_RESET_SCRIPT, &bank_a, &bank_b, arg(&default_pw)?)?;
-        Ok(true)
+        run_script(SED_PW_RESET_SCRIPT, &bank_a, &bank_b, arg(&default_pw)?)
     })();
     Ok(PyVal::Bool(r.unwrap_or_else(|e| {
-        logger().log_error(&format!("Failed to reset SED password: {}", e.str()));
+        logger().log_error(&format!("Failed to reset SED password ({})", e.exc.name()));
         false
     })))
 }
@@ -260,5 +265,62 @@ mod tests {
             "tpm_bank_a=0x81010001\ntpm_bank_b=0x81010002\n",
         );
         assert_eq!(s.reset_sed_password().unwrap(), PyVal::Bool(false));
+    }
+
+    #[test]
+    fn password_failures_do_not_expose_credentials() {
+        let secret = "synthetic-sed-password-42";
+        for operation in ["change_sed_password", "reset_sed_password"] {
+            let s = DynObject {
+                class: "SedMgmt",
+                base: BaseClass::SedMgmtBase,
+                handler: Box::new(move |_, method, _| match method {
+                    "get_min_sed_password_len" | "get_default_sed_password" => {
+                        Some(Err(PyErr::value_error(secret)))
+                    }
+                    _ => None,
+                }),
+            };
+            let (result, logs) = crate::logger::capture_logs(|| {
+                if operation == "change_sed_password" {
+                    s.change_sed_password(secret)
+                } else {
+                    s.reset_sed_password()
+                }
+            });
+            assert_eq!(result.unwrap(), PyVal::Bool(false));
+            assert!(!logs.is_empty());
+            for line in logs {
+                assert!(!line.contains(secret), "{line}");
+                assert!(line.contains("ValueError"));
+            }
+        }
+    }
+
+    #[test]
+    fn failed_password_scripts_log_only_the_exit_status() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = Root::new();
+        let path = root.dir.join("password-script");
+        let secret = "synthetic-sed-password-42";
+        std::fs::write(&path, "#!/bin/sh\nprintf '%s' \"$@\" >&2\nexit 7\n").unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let (result, logs) = crate::logger::capture_logs(|| {
+            run_script(
+                path.to_str().unwrap(),
+                &PyVal::str("bank-a"),
+                &PyVal::str("bank-b"),
+                secret,
+            )
+        });
+        assert!(!result.unwrap());
+        assert!(!logs.is_empty());
+        assert!(logs.iter().any(|line| line.contains("exit status 7")));
+        for line in logs {
+            assert!(!line.contains(secret), "{line}");
+            assert!(!line.contains("bank-a"), "{line}");
+            assert!(!line.contains("bank-b"), "{line}");
+        }
     }
 }

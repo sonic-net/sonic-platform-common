@@ -422,6 +422,9 @@ class Unsupported:
 
     on: Literal["none", "default"] = ...
     default: object = ...
+    # Preserve a vendor's None reading while defaulting only absent or
+    # NotImplemented getters. Used by power-budget values: unknown is not zero.
+    preserve_none: bool = False
 
 @dataclass(frozen=True)
 class On:
@@ -563,6 +566,11 @@ class EscapeHatch:
 
     reason: str
     reaches: tuple[str, ...] = ...
+    # Optional named projections passed to the hand-written implementation
+    # together with its owning facade, and rendered into the Rust fallback.
+    # Projection metadata is currently supported only for get_psu_fans.
+    columns: tuple[str, ...] = ...
+    detail_columns: tuple[str, ...] = ...
 
 @dataclass(frozen=True)
 class Rust:

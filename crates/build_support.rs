@@ -1,5 +1,3 @@
-// Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
 // Shared build-script entry point for crates generated from the platform API.
 use std::env;
 use std::fs;
@@ -68,7 +66,7 @@ fn generate() {
         });
     assert!(
         status.success(),
-        "platform generator failed for {crate_name}: {status}"
+        "platform generator failed for {crate_name}: {status}; the host Python must provide Jinja2 and the complete platform-common generator/stub sources; set SONIC_PLATFORM_GENERATOR_PYTHON to that interpreter"
     );
     // Missing or externally edited output must rerun generation as well.
     watch_sources(Path::new(&output), None);

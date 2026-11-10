@@ -426,8 +426,11 @@ class FanDrawerInfo:
     serial: Annotated[Optional[str], From("DeviceBase.get_serial")]
     status_led: Annotated[Optional[str], From("FanDrawerBase.get_status_led")]
     maximum_consumed_power: Annotated[
-        Optional[Watt], From("FanDrawerBase.get_maximum_consumed_power"), _MISSING
+        Optional[Watt], From("FanDrawerBase.get_maximum_consumed_power"), _MISSING,
+        Unsupported(on="default", default=0.0, preserve_none=True),
     ]
+
+    name_text: Annotated[Optional[str], From("DeviceBase.get_name")]
 
     def __init__(self, **fields: object) -> None:
         """Keyword-only.  The columns are the fields declared above; naming
@@ -521,6 +524,7 @@ class PsuInfo:
     ]
     maximum_supplied_power: Annotated[
         Optional[Watt], From("PsuBase.get_maximum_supplied_power"), _MISSING,
+        Unsupported(on="default", default=0.0, preserve_none=True),
         ReadIf("presence", truthy=True),
     ]
     power_warning_suppress_threshold: Annotated[
@@ -642,7 +646,8 @@ class ModuleInfo:
     base_mac: Annotated[Optional[str], From("ModuleBase.get_base_mac")]
     dpu_id: Annotated[Optional[int], From("ModuleBase.get_dpu_id"), _MISSING]
     maximum_consumed_power: Annotated[
-        Optional[Watt], From("ModuleBase.get_maximum_consumed_power"), _MISSING
+        Optional[Watt], From("ModuleBase.get_maximum_consumed_power"), _MISSING,
+        Unsupported(on="default", default=0.0, preserve_none=True),
     ]
     midplane_ip: Annotated[Optional[str], From("ModuleBase.get_midplane_ip")]
     # Another `return NotImplementedError`, so absent rather than truthy.
@@ -652,6 +657,14 @@ class ModuleInfo:
     state_transition: Annotated[
         Optional[bool], From("ModuleBase.get_module_state_transition"), WithName()
     ]
+
+    # Publication keeps the vendor's spelling, while the typed columns above
+    # remain available for decisions and recovery.
+    name_text: Annotated[Optional[str], From("ModuleBase.get_name")]
+    presence_text: Annotated[Optional[str], From("DeviceBase.get_presence")]
+    replaceable_text: Annotated[Optional[str], From("DeviceBase.is_replaceable")]
+    slot_text: Annotated[Optional[str], From("ModuleBase.get_slot")]
+    oper_status_text: Annotated[Optional[str], From("ModuleBase.get_oper_status")]
 
     def __init__(self, **fields: object) -> None:
         """Keyword-only, as every row is."""
@@ -1387,6 +1400,14 @@ class PlatformApi:
     # `Snapshot.absorbs`.
     @platform_method(Snapshot(projected=True, per_row_errors=True, absorbable=True))
     def get_fans(self) -> list[FanInfo]: ...
+
+    @platform_method(EscapeHatch(
+        reaches=("PsuBase.get_all_fans",),
+        columns=("status_led",),
+        detail_columns=("speed_pct", "direction"),
+        reason="psud reads only one PSU's fans, with details on insertion and LEDs on steady passes."
+    ))
+    def get_psu_fans(self, key: DeviceKey, include_details: bool) -> list[FanInfo]: ...
     # Projected: thermalctld reads eight of these nine columns, psud three.
     @platform_method(Snapshot(projected=True))
     def get_fan_drawers(self) -> list[FanDrawerInfo]: ...
@@ -1402,6 +1423,12 @@ class PlatformApi:
     @platform_method(Snapshot())
     def get_leak_profiles(self) -> list[LeakProfile]:
         """The leak policies, which thermalctld publishes once at start-up."""
+
+    @platform_method(EscapeHatch(
+        reaches=("LiquidCoolingBase.get_major_leak_num_min_sensors",),
+        reason="A system-wide liquid-cooling policy value, not a sensor column."
+    ))
+    def get_major_leak_num_min_sensors(self) -> Optional[int]: ...
 
     @platform_method(Snapshot())
     def get_leak_sensors(self) -> list[LeakSensorInfo]: ...

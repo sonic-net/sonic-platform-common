@@ -233,6 +233,19 @@ impl EscapeHatches {
 
     // -- thermal manager ---------------------------------------------------
 
+    pub fn get_major_leak_num_min_sensors(
+        &self,
+        chassis: &PyVal,
+    ) -> Result<Option<i64>, PlatformError> {
+        let cooling =
+            facade_rt::call(facade_rt::get(chassis, |o| o.get_liquid_cooling())).map_err(err)?;
+        let value = facade_rt::call(facade_rt::get(&cooling, |o| {
+            o.get_major_leak_num_min_sensors()
+        }))
+        .map_err(err)?;
+        facade_rt::ret_int(&value)
+    }
+
     /// `_get()`: the manager, or None; `NotImplementedError` is None.
     fn manager(&self, chassis: &PyVal) -> PyResult<PyVal> {
         if self.manager.borrow().is_none() {
@@ -466,11 +479,14 @@ impl EscapeHatches {
         let made = match self.pcie_factory {
             Some(factory) => match factory(&platform_path) {
                 Ok(p) => p,
-                // `except Exception`, which a `SystemExit` gets past.
-                Err(e) if crate::redfish_client::is_exception(&e) => {
+                // Only an unavailable vendor module selects the generic utility.
+                Err(e) if matches!(e.exc.name(), "ImportError" | "ModuleNotFoundError") => {
                     std::sync::Arc::new(PcieUtil::new(&platform_path))
                 }
-                Err(e) => return Err(e),
+                Err(e) => {
+                    *self.pcie_tried.borrow_mut() = false;
+                    return Err(e);
+                }
             },
             None => std::sync::Arc::new(PcieUtil::new(&platform_path)),
         };
@@ -1110,6 +1126,51 @@ mod tests {
                     .map(|(_, r)| r.clone())
             }),
         }))
+    }
+
+    #[test]
+    fn the_system_leak_minimum_is_exposed_by_the_native_facade() {
+        for minimum in [0, 2, 5] {
+            let cooling = obj(
+                BaseClass::LiquidCoolingBase,
+                vec![("get_major_leak_num_min_sensors", Ok(PyVal::Int(minimum)))],
+            );
+            let mut facade = BaseFacade::new(
+                chassis(vec![("get_liquid_cooling", Ok(cooling))]),
+                EscapeHatches::new(),
+            );
+            assert_eq!(
+                facade.get_major_leak_num_min_sensors(),
+                Ok(Some(minimum as i64))
+            );
+        }
+        let mut unsupported = BaseFacade::new(chassis(vec![]), EscapeHatches::new());
+        assert_eq!(unsupported.get_major_leak_num_min_sensors(), Ok(None));
+    }
+
+    #[test]
+    fn a_failed_vendor_pcie_constructor_is_retried_without_fallback() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        static ATTEMPTS: AtomicUsize = AtomicUsize::new(0);
+        fn broken(_: &str) -> PyResult<Arc<dyn PcieApi>> {
+            ATTEMPTS.fetch_add(1, Ordering::SeqCst);
+            Err(PyErr::other("RuntimeError", "vendor hardware failed"))
+        }
+        let _root = with_a_platform();
+        let mut facade = BaseFacade::new(chassis(vec![]), EscapeHatches::with_pcie(broken));
+        assert!(facade.get_pcie_devices().is_err());
+        assert!(facade.get_pcie_devices().is_err());
+        assert_eq!(ATTEMPTS.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn an_import_error_selects_the_generic_native_pcie_utility() {
+        fn unavailable(_: &str) -> PyResult<Arc<dyn PcieApi>> {
+            Err(PyErr::other("ImportError", "no vendor PCIe module"))
+        }
+        let _root = with_a_platform();
+        let mut facade = BaseFacade::new(chassis(vec![]), EscapeHatches::with_pcie(unavailable));
+        assert_eq!(facade.get_pcie_devices(), Ok(Vec::new()));
     }
 
     fn chassis(answers: Vec<(&'static str, PyResult<PyVal>)>) -> PyVal {

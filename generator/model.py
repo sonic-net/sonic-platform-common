@@ -80,6 +80,7 @@ class FieldSpec:
     row_error: Optional[str] = None   # 'str' | 'repr' | 'column': what went wrong reading the row
     secret: bool = False              # never printed by repr / Debug
     unsupported_on: str = 'none'      # none | default
+    preserve_none: bool = False       # default only an unsupported getter, not a None reading
     col_bit: Optional[int] = None     # bit in the row's column set, if projected
     default: Any = None
     doc: str = ''
@@ -180,6 +181,8 @@ class MethodSpec:
     absorbs: bool = False                         # a getter's exception costs one column
     absorbable: bool = False                      # the caller says, per call: `absorb`
     escape_reason: str = ''
+    columns: tuple = ()
+    detail_columns: tuple = ()
     reaches: tuple = ()
     doc: str = ''
 

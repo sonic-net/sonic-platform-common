@@ -33,6 +33,7 @@ const SCRIPT: &str = r#"d=$(dirname "$0"); m=; u=; data=; of=
 printf '%s' "$*" | tr '\n' ' ' >> "$d/commands"; echo >> "$d/commands"
 while [ $# -gt 0 ]; do
   case $1 in
+    --config) cat > "$d/private-config"; cat "$d/private-config" >> "$d/private-configs"; shift ;;
     -X|--request) m=$2; shift ;;
     -d|--data|-F|--form) data=$2; shift ;;
     -o|--output) of=$2; shift ;;

@@ -54,6 +54,96 @@ from sonic_platform_base.sonic_xcvr.fields.elsfp_consts import SaveRestoreComman
 from .eeprom_utils import InMemoryEeprom
 
 
+class TestElsfpModuleControls:
+    """set_lpmode and reset use the CMIS module controls in lower memory byte 26."""
+
+    MODULE_CONTROL_OFFSET = 26
+
+    @pytest.fixture
+    def controls(self):
+        eeprom = InMemoryEeprom(ElsfpMemMap(ElsfpCodes))
+        # Bit 6 permits the hardware low-power request; bit 0 is unrelated.
+        eeprom.memory[self.MODULE_CONTROL_OFFSET] = 0x41
+        return eeprom, ElsfpApi(eeprom.eeprom)
+
+    def test_full_power_clears_software_and_hardware_requests(self, controls):
+        eeprom, api = controls
+        assert api.set_lpmode(True) is True
+        assert eeprom.memory[self.MODULE_CONTROL_OFFSET] == 0x51
+        assert api.set_lpmode(False) is True
+        assert eeprom.memory[self.MODULE_CONTROL_OFFSET] == 0x01
+
+    @pytest.mark.parametrize("initial, low_power, expected", [
+        (0x01, True, 0x11),
+        (0x01, False, 0x01),
+        (0x41, True, 0x51),
+        (0x41, False, 0x01),
+        (0x91, True, 0x91),
+        (0x91, False, 0x81),
+        (0xFF, True, 0xFF),
+        (0xFF, False, 0xAF),
+    ])
+    def test_low_power_requests_preserve_other_control_bits(self, controls, initial, low_power, expected):
+        eeprom, api = controls
+        eeprom.memory[self.MODULE_CONTROL_OFFSET] = initial
+        assert api.set_lpmode(low_power) is True
+        assert eeprom.memory[self.MODULE_CONTROL_OFFSET] == expected
+
+    @pytest.mark.parametrize("state", ["ModuleReady", "ModuleLowPwr"])
+    def test_reset_sets_bit_3_and_waits_for_recovery(self, controls, state):
+        eeprom, api = controls
+        with patch.object(api, "get_module_state", return_value=state), \
+                patch("sonic_platform_base.sonic_xcvr.api.public.elsfp.time.sleep") as sleep:
+            assert api.reset() is True
+        assert eeprom.memory[self.MODULE_CONTROL_OFFSET] == 0x49
+        sleep.assert_called_once_with(2)
+
+    def test_reset_tolerates_transient_unavailable_state(self, controls):
+        _, api = controls
+        with patch.object(api, "get_module_state", side_effect=[None, "ModulePwrUp", "ModuleReady"]) as state, \
+                patch("sonic_platform_base.sonic_xcvr.api.public.elsfp.time.sleep") as sleep:
+            assert api.reset() is True
+        assert state.call_count == 3
+        assert [call.args for call in sleep.call_args_list] == [(2,), (1,), (1,)]
+
+    def test_reset_recovery_timeout_returns_failure(self, controls):
+        _, api = controls
+        with patch.object(api, "get_module_state", return_value="ModuleFault") as state, \
+                patch("sonic_platform_base.sonic_xcvr.api.public.elsfp.time.sleep") as sleep:
+            assert api.reset() is False
+        assert state.call_count == 5
+        assert [call.args for call in sleep.call_args_list] == [(2,)] + [(1,)] * 5
+
+    def test_failed_reset_write_does_not_poll(self, controls):
+        eeprom, api = controls
+        with patch.object(eeprom.eeprom, "write", return_value=False), \
+                patch.object(api, "get_module_state") as state, \
+                patch("sonic_platform_base.sonic_xcvr.api.public.elsfp.time.sleep") as sleep:
+            assert api.reset() is False
+        state.assert_not_called()
+        sleep.assert_not_called()
+
+    @pytest.mark.parametrize("control", [
+        lambda api: api.set_lpmode(True),
+        lambda api: api.set_lpmode(False),
+        lambda api: api.reset(),
+    ])
+    def test_read_failure_writes_nothing(self, control):
+        eeprom = MagicMock()
+        eeprom.read.return_value = None
+        assert control(ElsfpApi(eeprom)) is False
+        eeprom.read.assert_called_once_with(consts.MODULE_LEVEL_CONTROL)
+        eeprom.write.assert_not_called()
+
+    @pytest.mark.parametrize("low_power, expected", [(True, 0x50), (False, 0x00)])
+    def test_write_failure_is_reported(self, low_power, expected):
+        eeprom = MagicMock()
+        eeprom.read.return_value = 0x50
+        eeprom.write.return_value = False
+        assert ElsfpApi(eeprom).set_lpmode(low_power) is False
+        eeprom.write.assert_called_once_with(consts.MODULE_LEVEL_CONTROL, expected)
+
+
 class TestElsfpMemMap:
     mem_map = ElsfpMemMap(ElsfpCodes)
 

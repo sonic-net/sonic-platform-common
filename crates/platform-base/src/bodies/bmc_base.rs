@@ -49,6 +49,14 @@ pub fn get_presence<S: PyObject + ?Sized>(s: &S) -> PyResult<PyVal> {
     Ok(PyVal::Bool(crate::bmc::presence()?))
 }
 
+/// `BMCBase.get_revision`, including SONiC BMC's EEPROM revision.
+pub fn get_revision<S: PyObject + ?Sized>(s: &S) -> PyResult<PyVal> {
+    if crate::bmc::is_sonic_bmc_os() {
+        return crate::py::ops::get(&s.get_eeprom()?, "Revision", PyVal::str("N/A"));
+    }
+    Ok(PyVal::str("N/A"))
+}
+
 /// `BMCBase.get_serial`.
 #[allow(unused_variables)]
 pub fn get_serial<S: PyObject + ?Sized>(s: &S) -> PyResult<PyVal> {
@@ -108,6 +116,33 @@ mod tests {
         fn py_class(&self) -> &'static str {
             "Vendor"
         }
+    }
+
+    #[test]
+    fn revision_default_dispatch_matches_the_python_base_contract() {
+        use crate::object::{BaseClass, PyObject};
+        struct Eeprom;
+        impl PyObject for Eeprom {
+            fn py_class(&self) -> &'static str {
+                "EepromBmc"
+            }
+            fn base_class(&self) -> BaseClass {
+                BaseClass::BMCBase
+            }
+            fn get_eeprom(&self) -> crate::py::PyResult<PyVal> {
+                Ok(PyVal::Dict(vec![(
+                    PyVal::str("Revision"),
+                    PyVal::str("R3"),
+                )]))
+            }
+        }
+        let _root = crate::testing::Root::new();
+        let expected = if crate::object::BMC_HAS_SONIC_OS {
+            "R3"
+        } else {
+            "N/A"
+        };
+        assert_eq!(super::get_revision(&Eeprom).unwrap(), PyVal::str(expected));
     }
 
     /// The two that need no instance answer as the base class does.

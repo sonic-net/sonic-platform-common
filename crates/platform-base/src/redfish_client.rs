@@ -22,6 +22,64 @@ use crate::logger::{self, Logger, ModuleLogger};
 use crate::py::{ops, split_ws, splitlines, PyErr, PyResult, PyVal};
 use crate::{shlex, subprocess};
 
+fn shell_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "'\"'\"'"))
+}
+
+/// Move password JSON, authentication headers and HTTP basic credentials into
+/// curl's stdin configuration. No shell executes the command string.
+fn private_transport(arguments: Vec<String>) -> PyResult<(Vec<String>, Option<Vec<u8>>)> {
+    let mut out = Vec::new();
+    let mut config = String::new();
+    let mut args = arguments.into_iter();
+    while let Some(argument) = args.next() {
+        if matches!(
+            argument.as_str(),
+            "-d" | "--data" | "-H" | "--header" | "-u" | "--user"
+        ) {
+            let value = args
+                .next()
+                .ok_or_else(|| PyErr::value_error("missing curl option value"))?;
+            let option = match argument.as_str() {
+                "-u" | "--user" => Some("user"),
+                "-H" | "--header" if value.to_ascii_lowercase().starts_with("x-auth-token:") => {
+                    Some("header")
+                }
+                "-d" | "--data"
+                    if serde_json::from_str::<serde_json::Value>(&value)
+                        .ok()
+                        .is_some_and(|data| {
+                            data.get("Password").is_some() || data.get("UserName").is_some()
+                        }) =>
+                {
+                    Some("data")
+                }
+                _ => None,
+            };
+            if let Some(option) = option {
+                // curl config supports these escapes, independently of shell quoting.
+                let value = value
+                    .replace('\\', "\\\\")
+                    .replace('"', "\\\"")
+                    .replace('\n', "\\n")
+                    .replace('\r', "\\r")
+                    .replace('\t', "\\t");
+                config.push_str(&format!("{option} = \"{value}\"\n"));
+            } else {
+                out.extend([argument, value]);
+            }
+        } else {
+            out.push(argument);
+        }
+    }
+    if config.is_empty() {
+        Ok((out, None))
+    } else {
+        out.extend(["--config".into(), "-".into()]);
+        Ok((out, Some(config.into_bytes())))
+    }
+}
+
 pub const DEFAULT_TIMEOUT: i128 = 3;
 pub const DEFAULT_LOGIN_TIMEOUT: i128 = 4;
 
@@ -240,12 +298,11 @@ impl RedfishClient {
 
     fn build_login_cmd(&self, creds: &dyn Credentials, password: &PyVal) -> PyResult<String> {
         let user = creds.user()?;
+        let payload = serde_json::json!({"UserName": user.py_str(), "Password": password.py_str()})
+            .to_string();
         Ok(format!(
-            "{} -m {DEFAULT_LOGIN_TIMEOUT} -k -D - -H \"Content-Type: application/json\" -X POST https://{}{REDFISH_URI_SESSION_SERVICE} -d '{{\"UserName\" : \"{}\", \"Password\" : \"{}\"}}'",
-            self.curl_path,
-            self.svr_ip,
-            user.py_str(),
-            password.py_str()
+            "{} -m {DEFAULT_LOGIN_TIMEOUT} -k -D - -H \"Content-Type: application/json\" -X POST https://{}{REDFISH_URI_SESSION_SERVICE} -d {}",
+            self.curl_path, self.svr_ip, shell_quote(&payload)
         ))
     }
 
@@ -305,11 +362,10 @@ impl RedfishClient {
             Some(u) => u.to_string(),
             None => creds.user()?.py_str(),
         };
+        let payload = serde_json::json!({"Password": new_password}).to_string();
         Ok(format!(
-            "{} -k -H \"X-Auth-Token: {}\" -H \"Content-Type: application/json\" -X PATCH https://{}{REDFISH_URI_ACCOUNTS}/{user} -d '{{\"Password\" : \"{new_password}\"}}'",
-            self.curl_path,
-            self.tok(),
-            self.svr_ip
+            "{} -k -H \"X-Auth-Token: {}\" -H \"Content-Type: application/json\" -X PATCH https://{}{REDFISH_URI_ACCOUNTS}/{user} -d {}",
+            self.curl_path, self.tok(), self.svr_ip, shell_quote(&payload)
         ))
     }
 
@@ -346,6 +402,7 @@ impl RedfishClient {
         )
     }
 
+    #[cfg(test)]
     fn obfuscate_login_response(response: &str) -> String {
         let o = re(r"X-Auth-Token: [^\r\n]+")
             .replace_all(response, NoExpand("X-Auth-Token: ******"))
@@ -480,16 +537,19 @@ impl RedfishClient {
         if logout_cmd {
             ob = Self::obfuscate_session_id_in_url(&ob);
         }
+        if login_cmd || password_change {
+            ob = "[credential request]".into();
+        }
         if !task_mon {
             notice(&format!("Execute cURL command: {ob}"));
         }
         let full = format!("{cmd} -w \"\nHTTP Status Code: %{{http_code}}\"");
-        let argv = shlex::split(&full)?;
+        let (argv, input) = private_transport(shlex::split(&full)?)?;
         let argv: Vec<&str> = argv.iter().map(String::as_str).collect();
         if argv.is_empty() {
             return Err(PyErr::index_error("list index out of range"));
         }
-        let done = subprocess::communicate(&argv)?;
+        let done = subprocess::communicate_input(&argv, input.as_deref())?;
         let utf8 = crate::py::codec::Codec::Utf8;
         let (output_str, http) =
             Self::parse_curl_output(&crate::py::codec::decode(utf8, &done.stdout)?);
@@ -500,7 +560,9 @@ impl RedfishClient {
             error_str = String::new();
             ret = ERR_CODE_OK;
             let shown = match &output_str {
-                Some(o) if login_cmd => Some(Self::obfuscate_login_response(o)),
+                Some(_) if login_cmd || password_change => {
+                    Some("[credential response suppressed]".into())
+                }
                 Some(o) if logout_cmd => Some(Self::obfuscate_logout_response(o)),
                 // re.sub() on the None that no status line leaves.
                 None if login_cmd || logout_cmd => {
@@ -527,6 +589,9 @@ impl RedfishClient {
                 log_multi_line_str(shown.as_deref());
             }
         } else {
+            if login_cmd || password_change {
+                error_str = "credential request failed".into();
+            }
             notice("cURL error:");
             log_multi_line_str(Some(&error_str));
             ret = curl_errors_to_redfish_errors(done.returncode);
@@ -713,7 +778,7 @@ impl RedfishClient {
         let password = match creds.password() {
             Ok(p) => p,
             Err(e) if is_exception(&e) => {
-                log_fn(&e.str());
+                log_fn("Login failure: password callback failed");
                 return Ok(ERR_CODE_PASSWORD_UNAVAILABLE);
             }
             Err(e) => return Err(e),
@@ -721,7 +786,7 @@ impl RedfishClient {
         let cmd = self.build_login_cmd(creds, &password)?;
         let e = self.exec_curl_cmd(creds, &cmd)?;
         if e.ret != 0 {
-            log_fn(&format!("Login failure: code {}, {}", e.ret, e.error));
+            log_fn(&format!("Login failure: code {}", e.ret));
             return Ok(e.ret);
         }
         let response = match &e.output {
@@ -736,9 +801,8 @@ impl RedfishClient {
             let parsed = (|| -> PyResult<Option<i128>> {
                 let json_response = json::loads(&body)?;
                 if ops::has(&json_response, "error")? {
-                    let msg = ops::item(&ops::item(&json_response, "error")?, "message")?;
-                    log_fn(&format!("Login failure: {}", msg.py_str()));
-                    log_multi_line_str(Some(&response));
+                    ops::item(&ops::item(&json_response, "error")?, "message")?;
+                    log_fn("Login failure: server returned an error");
                     return Ok(Some(ERR_CODE_GENERIC_ERROR));
                 }
                 Ok(None)
@@ -747,11 +811,7 @@ impl RedfishClient {
                 Ok(Some(code)) => return Ok(code),
                 Ok(None) => {}
                 Err(e) if is_exception(&e) => {
-                    log_fn(&format!(
-                        "Login failure: Exception during parsing body: {}",
-                        e.str()
-                    ));
-                    log_multi_line_str(Some(&response));
+                    log_fn("Login failure: could not parse response body");
                 }
                 Err(e) => return Err(e),
             }
@@ -761,7 +821,6 @@ impl RedfishClient {
             Some(t) if !t.is_empty() => t,
             _ => {
                 log_fn("Login failure: no \"X-Auth-Token\" header found");
-                log_multi_line_str(Some(&response));
                 return Ok(ERR_CODE_UNEXPECTED_RESPONSE);
             }
         };
@@ -769,14 +828,12 @@ impl RedfishClient {
             Some(l) if !l.is_empty() => l,
             _ => {
                 log_fn("Login failure: no \"Location\" header found");
-                log_multi_line_str(Some(&response));
                 return Ok(ERR_CODE_UNEXPECTED_RESPONSE);
             }
         };
         let session_id = location.rsplit('/').next().unwrap_or("").to_string();
         if session_id.is_empty() {
             log_fn("Login failure: could not extract session ID from Location header");
-            log_multi_line_str(Some(&response));
             return Ok(ERR_CODE_UNEXPECTED_RESPONSE);
         }
         if let Ok(mut s) = self.session.lock() {
@@ -1840,6 +1897,45 @@ mod tests {
     use super::*;
 
     #[test]
+    fn credentials_with_quotes_backslashes_and_newlines_use_private_stdin() {
+        struct Special;
+        impl Credentials for Special {
+            fn user(&self) -> PyResult<PyVal> {
+                Ok(PyVal::str("u'\"\\\n名"))
+            }
+            fn password(&self) -> PyResult<PyVal> {
+                Ok(PyVal::str("unused"))
+            }
+        }
+        let password = "p'\"\\\n秘密";
+        let client = RedfishClient::new("curl", "1.2.3.4");
+        let cmd = client
+            .build_login_cmd(&Special, &PyVal::str(password))
+            .unwrap();
+        let (argv, input) = private_transport(shlex::split(&cmd).unwrap()).unwrap();
+        assert!(!argv
+            .iter()
+            .any(|arg| arg.contains(password) || arg.contains("UserName")));
+        assert!(argv.ends_with(&["--config".into(), "-".into()]));
+        let config = String::from_utf8(input.unwrap()).unwrap();
+        let encoded = config.trim().strip_prefix("data = ").unwrap();
+        let payload: String = serde_json::from_str(encoded).unwrap();
+        let data: serde_json::Value = serde_json::from_str(&payload).unwrap();
+        assert_eq!(data["Password"], password);
+        assert_eq!(data["UserName"], "u'\"\\\n名");
+        let (argv, input) = private_transport(vec![
+            "curl".into(),
+            "-H".into(),
+            "X-Auth-Token: private-token".into(),
+        ])
+        .unwrap();
+        assert!(!argv.join(" ").contains("private-token"));
+        assert!(String::from_utf8(input.unwrap())
+            .unwrap()
+            .contains("private-token"));
+    }
+
+    #[test]
     fn curl_output_and_headers_parse_as_python() {
         let (o, c) = RedfishClient::parse_curl_output("{\"a\": 1}\nHTTP Status Code: 200");
         assert_eq!(
@@ -2103,6 +2199,78 @@ mod tests {
         }
         curl.take_requests();
         assert_eq!(c.login(&Creds, true).unwrap(), ERR_CODE_OK);
+        assert!(curl.take_requests().is_empty());
+    }
+
+    #[test]
+    fn login_logs_do_not_expose_credentials() {
+        let token = "synthetic-login-token-42";
+        let secret = "synthetic-login-secret-42";
+        let good_headers = format!("X-Auth-Token: {token}\r\nLocation: {SESSIONS}/s1");
+        let cases = [
+            (
+                format!("X-Auth-Token: {token}"),
+                "{}".to_string(),
+                ERR_CODE_UNEXPECTED_RESPONSE,
+            ),
+            (
+                format!("x-auth-token: {token}"),
+                "{}".to_string(),
+                ERR_CODE_UNEXPECTED_RESPONSE,
+            ),
+            (good_headers.clone(), "{bad".to_string(), ERR_CODE_OK),
+            (
+                good_headers.clone(),
+                format!(r#"{{"error":{{"message":"{secret}"}}}}"#),
+                ERR_CODE_GENERIC_ERROR,
+            ),
+            (
+                format!("X-Auth-Token: {token}\r\nLocation: {SESSIONS}/"),
+                "{}".to_string(),
+                ERR_CODE_UNEXPECTED_RESPONSE,
+            ),
+            (good_headers, "{}".to_string(), ERR_CODE_OK),
+        ];
+        for log_errors in [true, false] {
+            for (headers, body, expected) in &cases {
+                let curl = FakeCurl::new();
+                curl.reply_raw("POST", SESSIONS, 201, &login_reply(headers, body));
+                let c = client(&curl);
+                let (result, logs) = crate::logger::capture_logs(|| c.login(&Creds, log_errors));
+                assert_eq!(result.unwrap(), *expected);
+                assert_eq!(c.has_login(), *expected == ERR_CODE_OK);
+                assert!(!logs.is_empty());
+                for line in logs {
+                    assert!(!line.contains(token), "{line}");
+                    assert!(!line.contains(secret), "{line}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn password_callback_failure_does_not_log_its_error_text() {
+        struct FailedCredentials;
+        impl Credentials for FailedCredentials {
+            fn user(&self) -> PyResult<PyVal> {
+                Ok(PyVal::str("nosuser"))
+            }
+            fn password(&self) -> PyResult<PyVal> {
+                Err(PyErr::value_error("synthetic-callback-secret-42"))
+            }
+        }
+        let curl = FakeCurl::new();
+        let c = client(&curl);
+        for log_errors in [true, false] {
+            let (result, logs) =
+                crate::logger::capture_logs(|| c.login(&FailedCredentials, log_errors));
+            assert_eq!(result.unwrap(), ERR_CODE_PASSWORD_UNAVAILABLE);
+            assert!(!c.has_login());
+            assert!(!logs.is_empty());
+            for line in logs {
+                assert!(!line.contains("synthetic-callback-secret-42"), "{line}");
+            }
+        }
         assert!(curl.take_requests().is_empty());
     }
 
@@ -2798,7 +2966,9 @@ mod tests {
         };
         assert_eq!(change(204, ""), "(0, '')");
         assert_eq!(curl.take_requests(), [format!("PATCH {acc}")]);
-        assert!(curl.take_commands()[0].contains(r#"-d {"Password" : "N3w!"}"#));
+        assert!(!curl.take_commands()[0].contains("N3w!"));
+        let config = std::fs::read_to_string(curl.dir().join("private-config")).unwrap();
+        assert!(config.contains("N3w!"));
         assert_eq!(
             change(
                 200,
@@ -2835,7 +3005,7 @@ mod tests {
                 c.redfish_api_change_login_password(&Creds, "N3w!", None)
                     .unwrap()
             ),
-            "(-10, 'Error: no route')"
+            "(-10, 'Error: credential request failed')"
         );
         curl.reply("PATCH", &format!("{REDFISH_URI_ACCOUNTS}/root"), 204, "");
         assert_eq!(

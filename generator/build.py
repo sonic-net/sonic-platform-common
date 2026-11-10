@@ -1,5 +1,3 @@
-# Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
 """Generate one crate's Rust sources and contract tests into Cargo's OUT_DIR."""
 
 import argparse

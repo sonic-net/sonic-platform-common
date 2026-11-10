@@ -42,6 +42,15 @@ pub fn call(r: PyResult<PyVal>) -> PyResult<PyVal> {
     }
 }
 
+/// Default an unsupported getter while retaining an explicitly unknown value.
+pub fn call_unsupported_default(r: PyResult<PyVal>, fallback: PyVal) -> PyResult<PyVal> {
+    match r {
+        Err(error) if matches!(error.exc, Exc::Missing | Exc::NotImplementedError) => Ok(fallback),
+        Ok(PyVal::NotImplementedClass) => Ok(fallback),
+        other => other,
+    }
+}
+
 /// `_call_narrowed(fn)`: `_call`, and a `TypeError` is no answer as well.
 pub fn call_narrowed(r: PyResult<PyVal>) -> PyResult<PyVal> {
     match call(r) {
@@ -350,8 +359,7 @@ pub fn rd_flag(v: &PyVal) -> Result<Option<bool>, PlatformError> {
     match v {
         PyVal::None => Ok(None),
         v if is_na(v) => Ok(None),
-        PyVal::Bool(b) => Ok(Some(*b)),
-        other => Err(downcast(other, "PyBool")),
+        other => Ok(Some(other.truthy())),
     }
 }
 
@@ -555,9 +563,8 @@ mod tests {
 
     #[test]
     fn the_readers_fail_the_way_pyo3_fails() {
-        assert!(
-            matches!(rd_flag(&PyVal::Int(1)), Err(PlatformError::Backend(m)) if m == "'int' object cannot be converted to 'PyBool'")
-        );
+        assert_eq!(rd_flag(&PyVal::Int(1)).unwrap(), Some(true));
+        assert_eq!(rd_flag(&PyVal::Int(0)).unwrap(), Some(false));
         assert_eq!(rd_flag(&PyVal::str(" N/a ")).unwrap(), None);
         assert!(
             matches!(rd_number(&PyVal::str("x")), Err(PlatformError::Backend(m)) if m == "must be real number, not str")

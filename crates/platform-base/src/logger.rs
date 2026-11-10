@@ -38,6 +38,33 @@ static STATE: Mutex<State> = Mutex::new(State {
 });
 static ARGV0: Mutex<Option<String>> = Mutex::new(None);
 
+#[cfg(test)]
+thread_local! {
+    static CAPTURED_LOGS: std::cell::RefCell<Option<Vec<String>>> = const {
+        std::cell::RefCell::new(None)
+    };
+}
+
+#[cfg(test)]
+pub(crate) fn capture_logs<T>(run: impl FnOnce() -> T) -> (T, Vec<String>) {
+    struct Reset;
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            CAPTURED_LOGS.with(|logs| *logs.borrow_mut() = None);
+        }
+    }
+    CAPTURED_LOGS.with(|logs| {
+        let mut logs = logs.borrow_mut();
+        assert!(logs.is_none());
+        *logs = Some(Vec::new());
+    });
+    let reset = Reset;
+    let result = run();
+    let logs = CAPTURED_LOGS.with(|logs| logs.borrow_mut().take().unwrap());
+    drop(reset);
+    (result, logs)
+}
+
 /// `sys.argv[0]`, which the PyO3 bridge sets to the daemon's syslog
 /// identifier and which a `Logger()` with no identifier uses.
 pub fn set_argv0(ident: &str) {
@@ -78,6 +105,17 @@ pub fn closelog() {
 /// `syslog.syslog(priority, msg)`: opens with `sys.argv[0]` first if nothing
 /// is open, as CPython's module does.
 pub fn syslog(priority: i32, msg: &str) {
+    #[cfg(test)]
+    if CAPTURED_LOGS.with(|logs| {
+        if let Some(logs) = logs.borrow_mut().as_mut() {
+            logs.push(msg.to_string());
+            true
+        } else {
+            false
+        }
+    }) {
+        return;
+    }
     let open = STATE.lock().map(|s| s.open).unwrap_or(true);
     if !open {
         openlog(&argv0(), 0, libc::LOG_USER);

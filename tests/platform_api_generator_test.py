@@ -560,3 +560,19 @@ def test_no_two_values_of_an_enumeration_become_one_variant():
     for e in parse_pyi.parse().enums:
         variants = [v for _value, v in e.variants]
         assert len(set(variants)) == len(variants), e.name
+
+
+@pytest.mark.parametrize('columns, detail_columns', [
+    (('status_led',), ()),
+    ((), ('speed_pct',)),
+])
+def test_projected_escape_requires_a_supported_rust_implementation(columns, detail_columns):
+    model = parse_pyi.parse()
+    model.methods.append(MethodSpec(
+        name='get_other_psu_fans', kind='escape', returns='list[FanInfo]',
+        params=[('key', 'DeviceKey'), ('include_details', 'bool')],
+        columns=columns, detail_columns=detail_columns,
+        escape_reason='A second scoped fan read needs projection-aware Rust support.',
+    ))
+    with pytest.raises(ValueError, match=r'get_other_psu_fans:.*only supported for get_psu_fans'):
+        generate.build(model)

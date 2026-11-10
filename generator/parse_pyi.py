@@ -173,6 +173,9 @@ def _field(node, consts):
         elif name == 'Unsupported':
             spec.unsupported_on = kw.get('on', args[0] if args else 'none')
             spec.default = kw.get('default', args[1] if len(args) > 1 else None)
+            spec.preserve_none = bool(kw.get('preserve_none', False))
+            if spec.preserve_none and spec.unsupported_on != 'default':
+                raise ParseError('%s: preserve_none requires a declared default' % spec.name)
             # 'error' was declared and never generated: it read exactly as
             # 'none'.  Refused rather than accepted, because the stub is the
             # contract and a value that changes nothing is a promise nobody keeps.
@@ -339,6 +342,8 @@ def _method(node, consts):
                 spec.kind = 'escape'
                 spec.escape_reason = kw.get('reason', args[0] if args else '')
                 spec.reaches = tuple(kw.get('reaches', ()))
+                spec.columns = tuple(kw.get('columns', ()))
+                spec.detail_columns = tuple(kw.get('detail_columns', ()))
             else:
                 raise ParseError('%s: unknown method metadata %r' % (spec.name, name))
 

@@ -125,6 +125,49 @@ mod tests {
     };
 
     #[test]
+    fn scoped_fan_fallback_uses_the_declared_led_and_detail_columns() {
+        use crate::{PlatformApi, PlatformError};
+        #[derive(Default)]
+        struct Snapshot {
+            calls: Vec<(FanInfoCols, bool)>,
+        }
+        impl PlatformApi for Snapshot {
+            fn get_fans(
+                &mut self,
+                columns: FanInfoCols,
+                absorb: bool,
+            ) -> Result<Vec<FanInfo>, PlatformError> {
+                self.calls.push((columns, absorb));
+                Ok(vec![
+                    FanInfo {
+                        name: "wanted".into(),
+                        parent_key: Some("psus[0]".into()),
+                        ..FanInfo::new(FanKind::Psu)
+                    },
+                    FanInfo {
+                        name: "other".into(),
+                        parent_key: Some("psus[1]".into()),
+                        ..FanInfo::new(FanKind::Psu)
+                    },
+                ])
+            }
+        }
+        let mut platform = Snapshot::default();
+        for details in [false, true] {
+            let fans = platform
+                .get_psu_fans(&DeviceKey::from("psus[0]"), details)
+                .unwrap();
+            assert_eq!(fans.len(), 1);
+            assert_eq!(fans[0].name, "wanted");
+            let (columns, absorb) = *platform.calls.last().unwrap();
+            assert!(absorb);
+            assert!(columns.contains(FanInfoCol::StatusLed));
+            assert_eq!(columns.contains(FanInfoCol::SpeedPct), details);
+            assert_eq!(columns.contains(FanInfoCol::Direction), details);
+        }
+    }
+
+    #[test]
     fn a_row_with_a_kind_is_built_from_its_kind() {
         // No Default: there is no neutral kind.  `new` takes the kind and
         // leaves every other column empty, so a literal can fill in only
