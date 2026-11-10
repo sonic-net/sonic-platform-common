@@ -1,14 +1,4 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["local>sonic-net/sonic-pipelines//renovate/default"],
-  "packageRules": [
-    // nosemgrep: package_managers.renovate.renovate-missing-minimum-release-age.renovate-missing-minimum-release-age -- minimumReleaseAge inherited from shared preset
-    {
-      "description": "Update PyO3 declarations across all crates together.",
-      "matchManagers": ["cargo"],
-      "matchPackageNames": ["pyo3"],
-      "groupName": "PyO3",
-      "rangeStrategy": "bump"
-    }
-  ]
+  "extends": ["local>sonic-net/sonic-pipelines//renovate/default"]
 }

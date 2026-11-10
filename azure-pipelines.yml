@@ -160,16 +160,6 @@ steps:
     # uninstalled after the Python tests, so it is found in the checkout.
     export PYTHONPATH=$(System.DefaultWorkingDirectory)
     export CARGO_TARGET_DIR=$(Agent.TempDirectory)/rust-target CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0
-    set -o pipefail
-    git ls-files -z -- ':(glob)**/crates/*/Cargo.toml' |
-      while IFS= read -r -d '' manifest; do
-        if [[ -f "${manifest%/*}/Cargo.lock" ]]; then
-          cargo test --locked --manifest-path "$manifest"
-        else
-          cargo test --manifest-path "$manifest"
-        fi
-      done
-    rm -rf "$CARGO_TARGET_DIR"
     printf '%s\n' '[workspace]' \
       'members = ["crates/platform-api", "crates/platform-pyo3", "crates/platform-provider"]' \
       'resolver = "2"' > Cargo.toml
