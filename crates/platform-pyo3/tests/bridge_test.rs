@@ -1891,3 +1891,17 @@ fn a_name_crosses_to_the_key_python_would_have_resolved() {
         other => panic!("expected NotSupported, got {other:?}"),
     }
 }
+
+#[test]
+fn integer_presence_preserves_python_truthiness() {
+    let (mut api, chassis) = bridge();
+    Python::with_gil(|py| {
+        let fan = chassis.bind(py).getattr("fan").unwrap();
+        fan.setattr(
+            "get_presence",
+            py.eval(c_str!("lambda: 1"), None, None).unwrap(),
+        )
+        .unwrap();
+    });
+    assert!(api.get_fans(FanInfoCols::PRESENCE, false).unwrap()[0].presence);
+}

@@ -170,6 +170,17 @@ def _get(obj, name):
     return getattr(obj, name, None)
 
 
+def _call_unsupported_default(fn, default):
+    """Default only an unsupported getter; None remains an unknown reading."""
+    if fn is None:
+        return default
+    try:
+        value = fn()
+    except NotImplementedError:
+        return default
+    return default if value is NotImplementedError else value
+
+
 def _iter(seq):
     return seq if seq is not None else ()
 
@@ -475,7 +486,7 @@ class FanInfo(object):
 class FanDrawerInfo(object):
     """One fan drawer: the field-replaceable unit a chassis fan sits in."""
 
-    __slots__ = ('name', 'key', 'position_in_parent', 'presence', 'status', 'is_replaceable', 'model', 'serial', 'status_led', 'maximum_consumed_power', )
+    __slots__ = ('name', 'key', 'position_in_parent', 'presence', 'status', 'is_replaceable', 'model', 'serial', 'status_led', 'maximum_consumed_power', 'name_text', )
 
     def __init__(self, **fields):
         """Keyword-only, and uniform across every row.
@@ -560,7 +571,7 @@ class ChassisInfo(object):
 class ModuleInfo(object):
     """One line card, fabric card, supervisor or DPU."""
 
-    __slots__ = ('name', 'parent_name', 'key', 'parent_key', 'position_in_parent', 'presence', 'status', 'is_replaceable', 'model', 'serial', 'description', 'slot', 'type', 'oper_status', 'base_mac', 'dpu_id', 'maximum_consumed_power', 'midplane_ip', 'is_midplane_reachable', 'state_transition', )
+    __slots__ = ('name', 'parent_name', 'key', 'parent_key', 'position_in_parent', 'presence', 'status', 'is_replaceable', 'model', 'serial', 'description', 'slot', 'type', 'oper_status', 'base_mac', 'dpu_id', 'maximum_consumed_power', 'midplane_ip', 'is_midplane_reachable', 'state_transition', 'name_text', 'presence_text', 'replaceable_text', 'slot_text', 'oper_status_text', )
 
     def __init__(self, **fields):
         """Keyword-only, and uniform across every row.
@@ -1181,9 +1192,10 @@ class FanDrawerInfoCols(object):
     SERIAL = 1 << 5
     STATUS_LED = 1 << 6
     MAXIMUM_CONSUMED_POWER = 1 << 7
+    NAME_TEXT = 1 << 8
 
     NONE = 0
-    ALL = 255
+    ALL = 511
 
 
 class ChassisInfoCols(object):
@@ -1243,9 +1255,14 @@ class ModuleInfoCols(object):
     MIDPLANE_IP = 1 << 13
     IS_MIDPLANE_REACHABLE = 1 << 14
     STATE_TRANSITION = 1 << 15
+    NAME_TEXT = 1 << 16
+    PRESENCE_TEXT = 1 << 17
+    REPLACEABLE_TEXT = 1 << 18
+    SLOT_TEXT = 1 << 19
+    OPER_STATUS_TEXT = 1 << 20
 
     NONE = 0
-    ALL = 65535
+    ALL = 2097151
 
 
 class PlatformApi(object):
@@ -1535,8 +1552,12 @@ class PlatformApi(object):
 
 
     def _row_fan_drawer_info(self, dev, parent, i, fixed, cols):
+        # One call, sliced by every column that wants a piece of it: the
+        # platform need not answer the same thing twice, and some of these
+        # getters block and log.  See `_share_calls`.
+        _shared0 = _call(_get(dev, 'get_name'))
         return FanDrawerInfo(
-            name=_default(_text(_call(_get(dev, 'get_name'))), 'N/A'),
+            name=_default(_text(_shared0), 'N/A'),
             key=fixed['key'],
             position_in_parent=(_call(_get(dev, 'get_position_in_parent'))) if cols & (1 << 0) else None,
             presence=(_default(_call(_get(dev, 'get_presence')), False)) if cols & (1 << 1) else False,
@@ -1545,7 +1566,8 @@ class PlatformApi(object):
             model=(_text(_call(_get(dev, 'get_model')))) if cols & (1 << 4) else None,
             serial=(_text(_call(_get(dev, 'get_serial')))) if cols & (1 << 5) else None,
             status_led=(_text(_call(_get(dev, 'get_status_led')))) if cols & (1 << 6) else None,
-            maximum_consumed_power=(_scalar(_call(_get(dev, 'get_maximum_consumed_power')), ('N/A',), ('int', 'str'))) if cols & (1 << 7) else None,
+            maximum_consumed_power=(_scalar(_call_unsupported_default(_get(dev, 'get_maximum_consumed_power'), 0.0), ('N/A',), ('int', 'str'))) if cols & (1 << 7) else None,
+            name_text=(_text(_shared0)) if cols & (1 << 8) else None,
         )
 
     def _walk_fan_drawer_info(self, cols):
@@ -1679,7 +1701,7 @@ class PlatformApi(object):
         except Exception:
             row.voltage_low_threshold = None
         try:
-            row.maximum_supplied_power = (_scalar(_call(_get(dev, 'get_maximum_supplied_power')), ('N/A',), ('int', 'str'))) if row.presence else None
+            row.maximum_supplied_power = (_scalar(_call_unsupported_default(_get(dev, 'get_maximum_supplied_power'), 0.0), ('N/A',), ('int', 'str'))) if row.presence else None
         except Exception:
             row.maximum_supplied_power = None
         try:
@@ -1773,27 +1795,52 @@ class PlatformApi(object):
 
 
     def _row_module_info(self, dev, parent, i, fixed, cols):
+        # One call, sliced by every column that wants a piece of it: the
+        # platform need not answer the same thing twice, and some of these
+        # getters block and log.  See `_share_calls`.
+        _shared0 = _call(_get(dev, 'get_name'))
+        # One call, sliced by every column that wants a piece of it: the
+        # platform need not answer the same thing twice, and some of these
+        # getters block and log.  See `_share_calls`.
+        _shared1 = _call(_get(dev, 'get_presence')) if cols & 131074 else None
+        # One call, sliced by every column that wants a piece of it: the
+        # platform need not answer the same thing twice, and some of these
+        # getters block and log.  See `_share_calls`.
+        _shared2 = _call(_get(dev, 'is_replaceable')) if cols & 262152 else None
+        # One call, sliced by every column that wants a piece of it: the
+        # platform need not answer the same thing twice, and some of these
+        # getters block and log.  See `_share_calls`.
+        _shared3 = _call(_get(dev, 'get_slot')) if cols & 524416 else None
+        # One call, sliced by every column that wants a piece of it: the
+        # platform need not answer the same thing twice, and some of these
+        # getters block and log.  See `_share_calls`.
+        _shared4 = _call(_get(dev, 'get_oper_status')) if cols & 1049088 else None
         return ModuleInfo(
-            name=_fmt(_text(_call(_get(dev, 'get_name'))), 'Module {i}', parent, i),
+            name=_fmt(_text(_shared0), 'Module {i}', parent, i),
             parent_name=parent,
             key=fixed['key'],
             parent_key=fixed['parent_key'],
             position_in_parent=(_call(_get(dev, 'get_position_in_parent'))) if cols & (1 << 0) else None,
-            presence=(_default(_call(_get(dev, 'get_presence')), False)) if cols & (1 << 1) else False,
+            presence=(_default(_shared1, False)) if cols & (1 << 1) else False,
             status=(_call(_get(dev, 'get_status'))) if cols & (1 << 2) else None,
-            is_replaceable=(_default(_call(_get(dev, 'is_replaceable')), False)) if cols & (1 << 3) else False,
+            is_replaceable=(_default(_shared2, False)) if cols & (1 << 3) else False,
             model=(_text(_call(_get(dev, 'get_model')))) if cols & (1 << 4) else None,
             serial=(_text(_call(_get(dev, 'get_serial')))) if cols & (1 << 5) else None,
             description=(_text(_call(_get(dev, 'get_description')))) if cols & (1 << 6) else None,
-            slot=(_scalar(_call(_get(dev, 'get_slot')), ('N/A',), ('int', 'str'))) if cols & (1 << 7) else None,
+            slot=(_scalar(_shared3, ('N/A',), ('int', 'str'))) if cols & (1 << 7) else None,
             type=(_text(_call(_get(dev, 'get_type')))) if cols & (1 << 8) else None,
-            oper_status=(_text(_call(_get(dev, 'get_oper_status')))) if cols & (1 << 9) else None,
+            oper_status=(_text(_shared4)) if cols & (1 << 9) else None,
             base_mac=(_text(_call(_get(dev, 'get_base_mac')))) if cols & (1 << 10) else None,
             dpu_id=(_scalar(_call(_get(dev, 'get_dpu_id')), ('N/A',), ('int', 'str'))) if cols & (1 << 11) else None,
-            maximum_consumed_power=(_scalar(_call(_get(dev, 'get_maximum_consumed_power')), ('N/A',), ('int', 'str'))) if cols & (1 << 12) else None,
+            maximum_consumed_power=(_scalar(_call_unsupported_default(_get(dev, 'get_maximum_consumed_power'), 0.0), ('N/A',), ('int', 'str'))) if cols & (1 << 12) else None,
             midplane_ip=(_text(_call(_get(dev, 'get_midplane_ip')))) if cols & (1 << 13) else None,
             is_midplane_reachable=(_call(_get(dev, 'is_midplane_reachable'))) if cols & (1 << 14) else None,
             state_transition=(_call_with_name(_get(dev, 'get_name'), _get(dev, 'get_module_state_transition'))) if cols & (1 << 15) else None,
+            name_text=(_text(_shared0)) if cols & (1 << 16) else None,
+            presence_text=(_text(_shared1)) if cols & (1 << 17) else None,
+            replaceable_text=(_text(_shared2)) if cols & (1 << 18) else None,
+            slot_text=(_text(_shared3)) if cols & (1 << 19) else None,
+            oper_status_text=(_text(_shared4)) if cols & (1 << 20) else None,
         )
 
     def _walk_module_info(self, cols):
@@ -2184,7 +2231,7 @@ class PlatformApi(object):
         """
         return self._walk_chassis_info(cols)[0]
 
-    def get_modules(self, cols=65535):
+    def get_modules(self, cols=2097151):
         """Every ModuleInfo, in declared order.
 
         `cols` is a bit per declinable column (see `ModuleInfoCols` on the Rust
@@ -2228,7 +2275,11 @@ class PlatformApi(object):
         """
         return self._walk_fan_info(cols, bool(absorb))
 
-    def get_fan_drawers(self, cols=255):
+    def get_psu_fans(self, key, include_details):
+        """Hand-written: psud reads only one PSU's fans, with details on insertion and LEDs on steady passes."""
+        return self._hatch.get_psu_fans(self, key, include_details, 2048, 264)
+
+    def get_fan_drawers(self, cols=511):
         """Every FanDrawerInfo, in declared order.
 
         `cols` is a bit per declinable column (see `FanDrawerInfoCols` on the Rust
@@ -2264,6 +2315,10 @@ class PlatformApi(object):
         """The leak policies, which thermalctld publishes once at start-up.
         """
         return self._walk_leak_profile()
+
+    def get_major_leak_num_min_sensors(self):
+        """Hand-written: A system-wide liquid-cooling policy value, not a sensor column."""
+        return self._hatch.get_major_leak_num_min_sensors()
 
     def get_leak_sensors(self):
         """Every LeakSensorInfo, in declared order.

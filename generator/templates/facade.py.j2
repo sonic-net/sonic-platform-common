@@ -72,6 +72,17 @@ def _get(obj, name):
     return getattr(obj, name, None)
 
 
+def _call_unsupported_default(fn, default):
+    """Default only an unsupported getter; None remains an unknown reading."""
+    if fn is None:
+        return default
+    try:
+        value = fn()
+    except NotImplementedError:
+        return default
+    return default if value is NotImplementedError else value
+
+
 def _iter(seq):
     return seq if seq is not None else ()
 
@@ -469,6 +480,6 @@ class PlatformApi(object):
 {% elif m.kind == 'escape' %}
     def {{ m.name }}(self{% for p, _t in m.params %}, {{ p }}{% endfor %}):
         """Hand-written: {{ m.escape_reason | replace('\n', ' ') }}"""
-        return self._hatch.{{ m.name }}({% for p, _t in m.params %}{{ p }}{{ ', ' if not loop.last }}{% endfor %})
+        return self._hatch.{{ m.name }}({% if m.columns or m.detail_columns %}self, {% endif %}{% for p, _t in m.params %}{{ p }}{{ ', ' if not loop.last }}{% endfor %}{% if m.columns or m.detail_columns %}, {{ m.column_mask }}, {{ m.detail_column_mask }}{% endif %})
 {% endif %}
 {%- endfor %}
