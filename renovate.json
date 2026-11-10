@@ -3,7 +3,7 @@
   "extends": ["local>sonic-net/sonic-pipelines//renovate/default"],
   "packageRules": [
     {
-      "description": "Keep the bridge and provider on the same PyO3 version.",
+      "description": "Update PyO3 declarations across all crates together.",
       "matchManagers": ["cargo"],
       "matchPackageNames": ["pyo3"],
       "groupName": "PyO3",
