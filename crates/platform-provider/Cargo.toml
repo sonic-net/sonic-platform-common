@@ -2,7 +2,7 @@
 name = "platform-provider"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.82"
+rust-version = "1.83"
 license = "Apache-2.0"
 description = "Every platform API implementation, behind one concrete type"
 
