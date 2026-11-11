@@ -10,6 +10,6 @@ description = "Rust calling the Python platform API facade, for phase 1"
 platform-api = { path = "../platform-api" }
 # auto-initialize: the daemon owns the process, so the interpreter is started
 # on first use rather than by an embedding harness.
-pyo3 = { version = "0.29", features = ["auto-initialize"] }
+pyo3 = { version = "0.30", features = ["auto-initialize"] }
 # sigaction, to leave the process's shutdown signals as the bridge found them.
 libc = "0.2"
