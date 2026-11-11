@@ -185,7 +185,7 @@ class Platform:
     fn opening_the_pyo3_implementation_reaches_the_vendor_and_names_the_caller() {
         use pyo3::prelude::*;
 
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let m = pyo3::types::PyModule::from_code(
                 py,
                 VENDOR_STUB,
@@ -212,7 +212,7 @@ class Platform:
         // from `sys.argv[0]`, so this is the difference between the vendor's
         // Python logging as `pmon#thermalctld` and logging as `pmon#`, which
         // sonic-mgmt's loganalyzer does not match.
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let argv: Vec<String> = py
                 .import("sys")
                 .unwrap()
