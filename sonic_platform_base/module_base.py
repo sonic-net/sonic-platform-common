@@ -277,6 +277,15 @@ class ModuleBase(device_base.DeviceBase):
         """
         raise NotImplementedError
 
+    def is_shutdown_allowed(self):
+        """
+        Indicate whether this module can be administratively shut down.
+
+        Returns:
+            bool: True if shutdown is allowed, False if not
+        """
+        raise NotImplementedError
+
     def do_power_cycle(self):
         """
         Request to do a powercycle of the module.
