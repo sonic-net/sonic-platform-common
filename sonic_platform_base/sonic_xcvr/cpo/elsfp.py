@@ -2,9 +2,16 @@ from dataclasses import dataclass
 
 from sonic_platform_base.sonic_xcvr.api.broadcom.davisson_elsfp import DavissonTh6ElsfpApi
 from sonic_platform_base.sonic_xcvr.codes.broadcom.davisson_elsfp import DavissonTh6ElsfpCodes
+from sonic_platform_base.sonic_xcvr.api.nvidia.cpo_els import NvidiaCpoElsCmisApi
+from sonic_platform_base.sonic_xcvr.codes.nvidia.cpo_els import NvidiaCpoElsCodes
 from sonic_platform_base.sonic_xcvr.cpo.cpo_base import CpoApiFactory, CpoDeviceBase, OeId
 from sonic_platform_base.sonic_xcvr.eeprom_rw import ModuleEepromLowerMemoryInfo
 from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.davisson_elsfp import DavissonTh6ElsfpMemMap
+from sonic_platform_base.sonic_xcvr.codes.broadcom.bailly import BaillyCodes
+from sonic_platform_base.sonic_xcvr.mem_maps.broadcom.bailly_elsfp import BaillyElsfpMemMap
+from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
+from sonic_platform_base.sonic_xcvr.api.broadcom.bailly_elsfp import BaillyElsfpApi
+from sonic_platform_base.sonic_xcvr.mem_maps.nvidia.cpo_els import NvidiaCpoElsCmisMemMap
 
 
 @dataclass
@@ -37,6 +44,19 @@ class ElsfpApiFactory(CpoApiFactory):
                     api_class=DavissonTh6ElsfpApi
                 )
 
+            if self._device.hardware_id.oe_id == OeId.BROADCOM_BAILLY:
+                device = self._device
+                mem_map = BaillyElsfpMemMap(
+                    BaillyCodes, bank=device.bank, base_page=device.base_page)
+                eeprom = XcvrEeprom(device.read_eeprom, device.write_eeprom, mem_map)
+                return BaillyElsfpApi(eeprom)
+            if self._device.hardware_id.oe_id == OeId.NVIDIA_SPC6_CPO:
+                return self._create_api(
+                    codes_class=NvidiaCpoElsCodes,
+                    mem_map_class=NvidiaCpoElsCmisMemMap,
+                    api_class=NvidiaCpoElsCmisApi
+                )
+
         # if self._device.hardware_id.elsfp_id == ElsfpId.EXAMPLE:
         #     self._create_api(...)
 
@@ -50,4 +70,19 @@ class ElsfpBase(CpoDeviceBase):
     def _make_api_factory(self) -> CpoApiFactory:
         return ElsfpApiFactory(self)
 
-    # TODO: Implement ELSFP-specific methods
+    def get_reset_status(self) -> bool:
+        """Return whether the ELSFP is held in reset; platforms provide readback."""
+        raise NotImplementedError
+
+    def get_lpmode(self) -> bool:
+        """Return ELSFP low-power status; platforms provide readback."""
+        raise NotImplementedError
+
+    def set_lpmode(self, lpmode: bool) -> bool:
+        """Request ELSFP low-power mode through its API; platforms may override."""
+        return self.get_api().set_lpmode(lpmode)
+
+    def reset(self) -> bool:
+        """Reset the ELSFP through its API; platforms may override.
+        """
+        return self.get_api().reset()

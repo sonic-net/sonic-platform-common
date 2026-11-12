@@ -2,7 +2,7 @@
 name = "platform-provider"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.82"
+rust-version = "1.83"
 license = "Apache-2.0"
 description = "Every platform API implementation, behind one concrete type"
 
@@ -16,4 +16,4 @@ platform-pyo3 = { path = "../platform-pyo3" }
 # The delegation test drives a real `Bridge` over a mock chassis, the way
 # platform-pyo3's own tests do.  Needs `PYTHONPATH` to include the repository
 # root so `sonic_platform_api.facade` imports -- see generator/check.sh.
-pyo3 = { version = "0.25", features = ["auto-initialize"] }
+pyo3 = { version = "0.29", features = ["auto-initialize"] }

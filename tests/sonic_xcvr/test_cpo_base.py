@@ -1,6 +1,17 @@
-from mock import MagicMock
+import pytest
+from mock import MagicMock, call
+
+from sonic_platform_base.sonic_xcvr.api.nvidia.cpo_els import NvidiaCpoElsCmisApi
+from sonic_platform_base.sonic_xcvr.api.nvidia.cpo_oe import NvidiaCpoOeCmisApi
+from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi
+from sonic_platform_base.sonic_xcvr.api.public.elsfp import ElsfpApi
+from sonic_platform_base.sonic_xcvr.mem_maps.nvidia.cpo_els import NvidiaCpoElsCmisMemMap
+from sonic_platform_base.sonic_xcvr.mem_maps.nvidia.cpo_oe import NvidiaCpoOeMemMap
+from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis import CmisMemMap
+from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.elsfp.elsfp import ElsfpMemMap
 
 from sonic_platform_base.sonic_xcvr.cpo.cpo_base import CpoBase, CpoHardwareInfo, OeId
+from sonic_platform_base.sonic_xcvr.cpo.cpo_optoe_base import OptoeOeBase, OptoeElsfpBase
 from sonic_platform_base.sonic_xcvr.cpo.oe import OeBase
 from sonic_platform_base.sonic_xcvr.cpo.elsfp import ElsfpBase
 
@@ -9,8 +20,30 @@ from sonic_platform_base.sonic_xcvr.cpo.elsfp import ElsfpBase
 SOME_OE_ID = OeId.BROADCOM_DAVISSON
 SOME_ELSFP_ID = None
 
+# Endpoint hooks, as (method_name, args). Control defaults call the API;
+# status readback remains platform-defined.
+PLATFORM_HOOKS = [
+    ("get_reset_status", ()),
+    ("reset", ()),
+    ("get_lpmode", ()),
+    ("set_lpmode", (True,)),
+]
+
+# Tx-disable is a hook of the CPO virtual module only.
+CPO_PLATFORM_HOOKS = PLATFORM_HOOKS + [
+    ("get_tx_disable", ()),
+    ("tx_disable", (True,)),
+]
+
 
 class TestOeBase(object):
+    @pytest.mark.parametrize("method_name, args", [("get_reset_status", ()), ("get_lpmode", ())])
+    def test_platform_hooks_raise(self, method_name, args):
+        oe = OeBase(CpoHardwareInfo(oe_id=SOME_OE_ID, elsfp_id=SOME_ELSFP_ID))
+
+        with pytest.raises(NotImplementedError):
+            getattr(oe, method_name)(*args)
+
     def test_get_api_refreshes_when_none(self):
         oe = OeBase(CpoHardwareInfo(oe_id=SOME_OE_ID, elsfp_id=SOME_ELSFP_ID))
         fake_api = MagicMock()
@@ -35,6 +68,13 @@ class TestOeBase(object):
 
 
 class TestElsfpBase(object):
+    @pytest.mark.parametrize("method_name, args", [("get_reset_status", ()), ("get_lpmode", ())])
+    def test_platform_hooks_raise(self, method_name, args):
+        elsfp = ElsfpBase(CpoHardwareInfo(oe_id=SOME_OE_ID, elsfp_id=SOME_ELSFP_ID))
+
+        with pytest.raises(NotImplementedError):
+            getattr(elsfp, method_name)(*args)
+
     def test_get_api_refreshes_when_none(self):
         elsfp = ElsfpBase(CpoHardwareInfo(oe_id=SOME_OE_ID, elsfp_id=SOME_ELSFP_ID))
         fake_api = MagicMock()
@@ -55,6 +95,23 @@ class TestElsfpBase(object):
 
         elsfp._api_factory.create_api.assert_called_once_with()
         assert first is second is fake_api
+
+
+@pytest.mark.parametrize("endpoint_class", [OeBase, ElsfpBase])
+@pytest.mark.parametrize("method_name, args", PLATFORM_HOOKS)
+def test_endpoint_hooks_can_be_overridden_without_creating_api(endpoint_class, method_name, args):
+    implementation = MagicMock(return_value=True)
+
+    def hook(self, *values):
+        return implementation(*values)
+
+    platform_class = type("PlatformEndpoint", (endpoint_class,), {method_name: hook})
+    endpoint = platform_class(CpoHardwareInfo(oe_id=SOME_OE_ID, elsfp_id=SOME_ELSFP_ID))
+    endpoint._api_factory.create_api = MagicMock()
+
+    assert getattr(endpoint, method_name)(*args) is True
+    implementation.assert_called_once_with(*args)
+    endpoint._api_factory.create_api.assert_not_called()
 
 
 class TestCpoBase(object):
@@ -80,3 +137,134 @@ class TestCpoBase(object):
 
         assert cpo.get_xcvr_api() is oe_api
         oe.get_api.assert_called_with()
+
+    @pytest.mark.parametrize("method_name, args", PLATFORM_HOOKS)
+    @pytest.mark.parametrize("result", [True, False])
+    def test_controls_delegate_to_oe_object_not_els_or_direct_api(self, method_name, args, result):
+        hardware_id = CpoHardwareInfo(SOME_OE_ID, SOME_ELSFP_ID)
+        oe, elsfp = MagicMock(), MagicMock()
+        getattr(oe, method_name).return_value = result
+        cpo = CpoBase(hardware_id, oe, elsfp)
+
+        assert getattr(cpo, method_name)(*args) is result
+        getattr(oe, method_name).assert_called_once_with(*args)
+        oe.get_api.assert_not_called()
+        assert elsfp.mock_calls == []
+
+    @pytest.mark.parametrize("method_name, args", [("get_tx_disable", ()), ("tx_disable", (True,))])
+    def test_tx_disable_still_requires_platform_hook(self, method_name, args):
+        cpo = CpoBase(None, MagicMock(), MagicMock())
+        with pytest.raises(NotImplementedError):
+            getattr(cpo, method_name)(*args)
+
+    def test_platform_hooks_can_be_implemented(self):
+        class PlatformCpo(CpoBase):
+            def set_lpmode(self, lpmode):
+                return "platform"
+
+        oe_api = MagicMock()
+        cpo = PlatformCpo(None, MagicMock(get_api=MagicMock(return_value=oe_api)), MagicMock())
+
+        assert cpo.set_lpmode(True) == "platform"
+        oe_api.set_lpmode.assert_not_called()
+
+
+class StubOptoeOe(OptoeOeBase):
+    def get_eeprom_path(self):
+        return "/unused-eeprom"
+
+
+class StubOptoeElsfp(OptoeElsfpBase):
+    def get_eeprom_path(self):
+        return "/unused-eeprom"
+
+
+@pytest.mark.parametrize("endpoint_class", [OeBase, ElsfpBase, StubOptoeOe, StubOptoeElsfp])
+@pytest.mark.parametrize("method_name, args", [
+    ("set_lpmode", (True,)), ("set_lpmode", (False,)), ("reset", ()),
+])
+@pytest.mark.parametrize("result", [True, False])
+def test_endpoint_controls_forward_arguments_and_result(endpoint_class, method_name, args, result):
+    endpoint = endpoint_class(CpoHardwareInfo(SOME_OE_ID, SOME_ELSFP_ID))
+    api = MagicMock()
+    getattr(api, method_name).return_value = result
+    endpoint._api_factory.create_api = MagicMock(return_value=api)
+
+    assert getattr(endpoint, method_name)(*args) is result
+    getattr(api, method_name).assert_called_once_with(*args)
+
+
+@pytest.mark.parametrize("endpoint_class", [OeBase, ElsfpBase, StubOptoeOe, StubOptoeElsfp])
+@pytest.mark.parametrize("method_name, args", [("set_lpmode", (True,)), ("reset", ())])
+def test_endpoint_controls_preserve_unsupported_api_operations(endpoint_class, method_name, args):
+    endpoint = endpoint_class(CpoHardwareInfo(SOME_OE_ID, SOME_ELSFP_ID))
+    api = MagicMock()
+    getattr(api, method_name).side_effect = NotImplementedError("unsupported endpoint control")
+    endpoint._api_factory.create_api = MagicMock(return_value=api)
+
+    with pytest.raises(NotImplementedError, match="unsupported endpoint control"):
+        getattr(endpoint, method_name)(*args)
+
+
+@pytest.mark.parametrize("endpoint_class", [OeBase, ElsfpBase, StubOptoeOe, StubOptoeElsfp])
+@pytest.mark.parametrize("method_name, args", [("set_lpmode", (True,)), ("reset", ())])
+def test_platform_override_bypasses_optoe_api_default(endpoint_class, method_name, args):
+    hardware_control = MagicMock(return_value=True)
+
+    def control(self, *values):
+        return hardware_control(*values)
+
+    platform_class = type("PlatformEndpoint", (endpoint_class,), {method_name: control})
+    endpoint = platform_class(CpoHardwareInfo(SOME_OE_ID, SOME_ELSFP_ID))
+    endpoint._api_factory.create_api = MagicMock()
+
+    assert getattr(endpoint, method_name)(*args) is True
+    hardware_control.assert_called_once_with(*args)
+    endpoint._api_factory.create_api.assert_not_called()
+
+
+class TestNvidiaSpc6(object):
+    """The real factories, for the ids the NVIDIA SPC6 CPO platform declares."""
+
+    # The laser source declares no id of its own, so the engine's id is the
+    # whole hardware identity and selects both apis.
+    HARDWARE_ID = CpoHardwareInfo(oe_id=OeId.NVIDIA_SPC6_CPO, elsfp_id=None)
+
+    @staticmethod
+    def _with_readable_eeprom(device):
+        """CmisApi reads the EEPROM as it is built, so give it bytes to read."""
+        device.read_eeprom = MagicMock(side_effect=lambda offset, size: bytearray(size))
+        device.write_eeprom = MagicMock(return_value=True)
+        return device
+
+    def test_oe_api_is_standard_cmis_on_the_requested_bank(self):
+        for bank in range(4):
+            oe = self._with_readable_eeprom(OeBase(self.HARDWARE_ID, bank=bank))
+
+            api = oe.get_api()
+
+            assert isinstance(api, NvidiaCpoOeCmisApi)
+            assert isinstance(api.xcvr_eeprom.mem_map, NvidiaCpoOeMemMap)
+            assert api.xcvr_eeprom.mem_map.bank == bank
+            # The NVIDIA classes override nothing yet, so the engine answers as
+            # the standard CMIS module it is. What the names buy is somewhere
+            # for the vendor pages to land without touching the factory again.
+            assert isinstance(api, CmisApi)
+            assert isinstance(api.xcvr_eeprom.mem_map, CmisMemMap)
+
+    def test_elsfp_api_is_the_nvidia_laser_source(self):
+        elsfp = self._with_readable_eeprom(ElsfpBase(self.HARDWARE_ID))
+
+        api = elsfp.get_api()
+
+        assert isinstance(api, NvidiaCpoElsCmisApi)
+        assert isinstance(api.xcvr_eeprom.mem_map, NvidiaCpoElsCmisMemMap)
+        # Same here: the generic ELSFP surface, under the name the vendor
+        # tables will arrive behind.
+        assert isinstance(api, ElsfpApi)
+        assert isinstance(api.xcvr_eeprom.mem_map, ElsfpMemMap)
+        # The factory identifies the source from lower memory before it
+        # dispatches, for whichever vendor wants the answer. NVIDIA does not
+        # need it - the engine's id already names both halves - so this only
+        # pins that reaching the api does not depend on what it reads.
+        assert elsfp.read_eeprom.call_args_list == [call(129, 16), call(148, 16)]

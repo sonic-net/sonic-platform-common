@@ -48,7 +48,7 @@ impl Bridge {
     /// kept, not run: the daemon hands it the shutdown with
     /// `notify_shutdown()` (see [`release_python_signal_handlers`]).
     pub fn new(vendor_module: &str, syslog_ident: &str) -> Result<Self, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             py.import("sys")
                 .and_then(|sys| sys.setattr("argv", vec![syslog_ident]))
                 .map_err(|e| err(py, e))?;
@@ -122,7 +122,7 @@ impl Bridge {
 /// Idempotent -- CPython clears each callback as it runs it -- and best-effort,
 /// because failing to clean up must not stop the daemon exiting.
 pub fn run_python_atexit_handlers() {
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         match py
             .import("atexit")
             .and_then(|m| m.call_method0("_run_exitfuncs"))
@@ -287,7 +287,7 @@ pub(crate) fn text(row: &Bound<'_, PyAny>, key: &str) -> Result<Option<String>, 
         return Ok(None);
     }
     let s = v
-        .downcast::<PyString>()
+        .cast::<PyString>()
         .map_err(|_| PlatformError::Backend(format!("{key} is not a string")))?;
     s.extract().map(Some).map_err(|e| err(row.py(), e))
 }
@@ -463,7 +463,7 @@ mod tests {
     /// row rather than the one column.
     #[test]
     fn a_column_that_is_none_where_rows_belong_is_no_rows() {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let m = PyModule::from_code(
                 py,
                 c_str!("class R:\n    events = None\nROW = R()\n"),
@@ -516,7 +516,7 @@ ROW = R()
     /// would have crossed as 0.0, a limit every reading is above.
     #[test]
     fn a_bool_where_a_limit_belongs_is_no_limit_at_all() {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let row = raw_row(py);
             assert_eq!(int_or_float(&row, "yes").unwrap(), None);
             assert_eq!(int_or_float(&row, "no").unwrap(), None);
@@ -527,7 +527,7 @@ ROW = R()
     /// `num` and a flag for `flag`; failing it would fail the whole row.
     #[test]
     fn a_limit_reported_as_na_is_absent_rather_than_an_error() {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let row = raw_row(py);
             assert_eq!(int_or_float(&row, "na").unwrap(), None);
             assert_eq!(int_or_float(&row, "na_spaced").unwrap(), None);
@@ -539,7 +539,7 @@ ROW = R()
     /// sentinel is still the type error it always was.
     #[test]
     fn a_limit_still_keeps_its_side_of_the_union_and_garbage_still_fails() {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let row = raw_row(py);
             assert_eq!(int_or_float(&row, "whole").unwrap(), Some(Number::Int(105)));
             assert_eq!(
@@ -574,7 +574,7 @@ ROW = R()
     /// it is.  A float is still truncated, and None and "N/A" are no reading.
     #[test]
     fn an_integer_column_keeps_an_int_exact_and_truncates_only_a_float() {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let row = raw_row(py);
             assert_eq!(
                 integer::<i64>(&row, "past_f64").unwrap(),
@@ -618,7 +618,7 @@ ROW = R()
     /// only way to tell this function from a no-op.
     #[test]
     fn the_interpreters_exit_handlers_are_given_their_chance() {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let m = PyModule::from_code(
                 py,
                 c_str!(

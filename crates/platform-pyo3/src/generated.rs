@@ -369,7 +369,7 @@ fn bmc_result(row: &Bound<'_, PyAny>) -> Result<BmcResult, PlatformError> {
 impl PlatformApi for Bridge {
 
     fn get_sfps(&self, indices: &[u32]) -> Result<Vec<SfpInfo>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let rows = self
                 .facade
                 .bind(py)
@@ -385,7 +385,7 @@ impl PlatformApi for Bridge {
     }
 
     fn get_chassis_info(&self, cols: ChassisInfoCols) -> Result<ChassisInfo, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let row = self
                 .facade
                 .bind(py)
@@ -396,7 +396,7 @@ impl PlatformApi for Bridge {
     }
 
     fn get_modules(&self, cols: ModuleInfoCols) -> Result<Vec<ModuleInfo>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let rows = self
                 .facade
                 .bind(py)
@@ -412,7 +412,7 @@ impl PlatformApi for Bridge {
     }
 
     fn get_thermals(&self, cols: ThermalInfoCols, skip: &[DeviceKey]) -> Result<Vec<ThermalInfo>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let rows = self
                 .facade
                 .bind(py)
@@ -428,7 +428,7 @@ impl PlatformApi for Bridge {
     }
 
     fn get_fans(&self, cols: FanInfoCols, absorb: bool) -> Result<Vec<FanInfo>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let rows = self
                 .facade
                 .bind(py)
@@ -444,7 +444,7 @@ impl PlatformApi for Bridge {
     }
 
     fn get_fan_drawers(&self, cols: FanDrawerInfoCols) -> Result<Vec<FanDrawerInfo>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let rows = self
                 .facade
                 .bind(py)
@@ -460,7 +460,7 @@ impl PlatformApi for Bridge {
     }
 
     fn get_psus(&self) -> Result<Vec<PsuInfo>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let rows = self
                 .facade
                 .bind(py)
@@ -476,7 +476,7 @@ impl PlatformApi for Bridge {
     }
 
     fn get_components(&self) -> Result<Vec<ComponentInfo>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let rows = self
                 .facade
                 .bind(py)
@@ -492,7 +492,7 @@ impl PlatformApi for Bridge {
     }
 
     fn get_sensors(&self) -> Result<Vec<SensorInfo>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let rows = self
                 .facade
                 .bind(py)
@@ -508,7 +508,7 @@ impl PlatformApi for Bridge {
     }
 
     fn get_leak_profiles(&self) -> Result<Vec<LeakProfile>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let rows = self
                 .facade
                 .bind(py)
@@ -524,7 +524,7 @@ impl PlatformApi for Bridge {
     }
 
     fn get_leak_sensors(&self) -> Result<Vec<LeakSensorInfo>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let rows = self
                 .facade
                 .bind(py)
@@ -540,7 +540,7 @@ impl PlatformApi for Bridge {
     }
 
     fn get_eeprom(&self) -> Result<Vec<EepromTlv>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let rows = self
                 .facade
                 .bind(py)
@@ -556,7 +556,7 @@ impl PlatformApi for Bridge {
     }
 
     fn get_bmcs(&self) -> Result<Vec<BmcInfo>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let rows = self
                 .facade
                 .bind(py)
@@ -572,7 +572,7 @@ impl PlatformApi for Bridge {
     }
 
     fn get_watchdogs(&self) -> Result<Vec<WatchdogInfo>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let rows = self
                 .facade
                 .bind(py)
@@ -588,7 +588,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_get_presence(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -599,7 +599,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_is_replaceable(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -610,7 +610,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_get_reset_status(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -621,7 +621,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_get_lpmode(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -632,7 +632,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_get_error_description(&self, sfp: &DeviceKey) -> Result<Option<String>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -643,7 +643,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_get_type(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -654,7 +654,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_uses_legacy_pm(&self, sfp: &DeviceKey) -> Result<bool, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -665,7 +665,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_get_transceiver_info(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -676,7 +676,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_get_transceiver_info_firmware_versions(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -687,7 +687,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_get_transceiver_status(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -698,7 +698,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_get_transceiver_status_flags(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -709,7 +709,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_get_transceiver_dom_real_value(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -720,7 +720,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_get_transceiver_dom_flags(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -731,7 +731,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_get_transceiver_threshold_info(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -742,7 +742,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_get_temperature(&self, sfp: &DeviceKey) -> Result<Option<Number>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -753,7 +753,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_get_transceiver_pm(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -764,7 +764,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_is_transceiver_vdm_supported(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -775,7 +775,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_is_vdm_statistic_supported(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -786,7 +786,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_get_transceiver_vdm_real_value_basic(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -797,7 +797,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_get_transceiver_vdm_real_value_statistic(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -808,7 +808,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_get_transceiver_vdm_flags(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -819,7 +819,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_get_transceiver_vdm_thresholds(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -830,7 +830,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_get_vdm_freeze_status(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -841,7 +841,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_get_vdm_unfreeze_status(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -852,7 +852,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_set_lpmode(&self, sfp: &DeviceKey, on: bool) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -863,7 +863,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_reset(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -874,7 +874,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_remove_xcvr_api(&self, sfp: &DeviceKey) -> Result<(), PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             self.facade
                 .bind(py)
                 .call_method1("sfp_remove_xcvr_api", (sfp.as_str(), ))
@@ -884,7 +884,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_freeze_vdm_stats(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -895,7 +895,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_unfreeze_vdm_stats(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -906,7 +906,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_read_eeprom(&self, sfp: &DeviceKey, offset: i64, num_bytes: i64) -> Result<Option<Vec<u8>>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -917,7 +917,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_write_eeprom(&self, sfp: &DeviceKey, offset: i64, data: &[u8]) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -928,7 +928,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_is_flat_memory(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -939,7 +939,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_get_module_type_abbreviation(&self, sfp: &DeviceKey) -> Result<Option<String>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -950,7 +950,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_is_coherent_module(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -961,7 +961,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_get_module_state(&self, sfp: &DeviceKey) -> Result<Option<String>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -972,7 +972,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_get_cmis_rev(&self, sfp: &DeviceKey) -> Result<Option<String>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -983,7 +983,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_get_application_advertisement(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -994,7 +994,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_get_datapath_state(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1005,7 +1005,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_get_config_datapath_hostlane_status(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1016,7 +1016,7 @@ impl PlatformApi for Bridge {
     }
 
     fn sfp_get_dpinit_pending(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1027,7 +1027,7 @@ impl PlatformApi for Bridge {
     }
 
     fn set_fan_led(&self, fan: &DeviceKey, color: LedColor) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1038,7 +1038,7 @@ impl PlatformApi for Bridge {
     }
 
     fn set_fan_drawer_led(&self, drawer: &DeviceKey, color: LedColor) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1049,7 +1049,7 @@ impl PlatformApi for Bridge {
     }
 
     fn set_fan_speed(&self, fan: &DeviceKey, speed: i64) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1060,7 +1060,7 @@ impl PlatformApi for Bridge {
     }
 
     fn set_psu_led(&self, psu: &DeviceKey, color: LedColor) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1071,7 +1071,7 @@ impl PlatformApi for Bridge {
     }
 
     fn get_module_reboot_cause(&self, module: &DeviceKey) -> Result<ModuleRebootCause, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1082,7 +1082,7 @@ impl PlatformApi for Bridge {
     }
 
     fn get_module_midplane_down_reason(&self, module: &DeviceKey) -> Result<ModuleMidplaneDownReason, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1093,7 +1093,7 @@ impl PlatformApi for Bridge {
     }
 
     fn get_psu_master_led(&self, psu: &DeviceKey) -> Result<Option<String>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1104,7 +1104,7 @@ impl PlatformApi for Bridge {
     }
 
     fn set_psu_master_led(&self, psu: &DeviceKey, color: LedColor) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1115,7 +1115,7 @@ impl PlatformApi for Bridge {
     }
 
     fn reboot_module(&self, module: &DeviceKey, reboot_type: &str) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1126,7 +1126,7 @@ impl PlatformApi for Bridge {
     }
 
     fn set_module_admin_state(&self, module: &DeviceKey, up: bool) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1137,7 +1137,7 @@ impl PlatformApi for Bridge {
     }
 
     fn set_module_admin_state_gracefully(&self, module: &DeviceKey, up: bool) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1148,7 +1148,7 @@ impl PlatformApi for Bridge {
     }
 
     fn power_cycle_module(&self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1159,7 +1159,7 @@ impl PlatformApi for Bridge {
     }
 
     fn module_pre_shutdown(&self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1170,7 +1170,7 @@ impl PlatformApi for Bridge {
     }
 
     fn module_post_startup(&self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1181,7 +1181,7 @@ impl PlatformApi for Bridge {
     }
 
     fn set_module_state_transition(&self, module: &DeviceKey, transition_type: &str) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1192,7 +1192,7 @@ impl PlatformApi for Bridge {
     }
 
     fn clear_module_state_transition(&self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1203,7 +1203,7 @@ impl PlatformApi for Bridge {
     }
 
     fn clear_module_gnoi_halt(&self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1214,7 +1214,7 @@ impl PlatformApi for Bridge {
     }
 
     fn set_sensor_high_threshold(&self, sensor: &DeviceKey, value: Number) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1225,7 +1225,7 @@ impl PlatformApi for Bridge {
     }
 
     fn set_sensor_low_threshold(&self, sensor: &DeviceKey, value: Number) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1236,7 +1236,7 @@ impl PlatformApi for Bridge {
     }
 
     fn get_module_key(&self, name: &str) -> Result<Option<DeviceKey>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1249,7 +1249,7 @@ impl PlatformApi for Bridge {
     }
 
     fn get_component_key(&self, name: &str) -> Result<Option<DeviceKey>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1262,7 +1262,7 @@ impl PlatformApi for Bridge {
     }
 
     fn get_module_component_key(&self, module: &str, name: &str) -> Result<Option<DeviceKey>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1275,7 +1275,7 @@ impl PlatformApi for Bridge {
     }
 
     fn get_available_firmware_version(&self, component: &DeviceKey, image_path: &str) -> Result<Option<String>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1286,7 +1286,7 @@ impl PlatformApi for Bridge {
     }
 
     fn get_firmware_update_notification(&self, component: &DeviceKey, image_path: &str) -> Result<Option<String>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1297,7 +1297,7 @@ impl PlatformApi for Bridge {
     }
 
     fn install_firmware(&self, component: &DeviceKey, image_path: &str) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1308,7 +1308,7 @@ impl PlatformApi for Bridge {
     }
 
     fn update_firmware(&self, component: &DeviceKey, image_path: &str) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1319,7 +1319,7 @@ impl PlatformApi for Bridge {
     }
 
     fn auto_update_firmware(&self, component: &DeviceKey, image_path: &str, boot_type: &str) -> Result<Option<i64>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1331,7 +1331,7 @@ impl PlatformApi for Bridge {
     }
 
     fn arm_watchdog(&self, seconds: i64) -> Result<Option<i64>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1343,7 +1343,7 @@ impl PlatformApi for Bridge {
     }
 
     fn disarm_watchdog(&self) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1354,7 +1354,7 @@ impl PlatformApi for Bridge {
     }
 
     fn initialize_system_led(&self) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1365,7 +1365,7 @@ impl PlatformApi for Bridge {
     }
 
     fn init_midplane_switch(&self) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1376,7 +1376,7 @@ impl PlatformApi for Bridge {
     }
 
     fn set_chassis_led(&self, color: &str) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1387,7 +1387,7 @@ impl PlatformApi for Bridge {
     }
 
     fn change_sed_password(&self, new_password: &str) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1398,7 +1398,7 @@ impl PlatformApi for Bridge {
     }
 
     fn reset_sed_password(&self) -> Result<Option<bool>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1409,7 +1409,7 @@ impl PlatformApi for Bridge {
     }
 
     fn bmc_open_session(&self) -> Result<BmcResult, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1420,7 +1420,7 @@ impl PlatformApi for Bridge {
     }
 
     fn bmc_close_session(&self, session_id: &str) -> Result<BmcResult, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1431,7 +1431,7 @@ impl PlatformApi for Bridge {
     }
 
     fn bmc_reset_root_password(&self) -> Result<BmcResult, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1442,7 +1442,7 @@ impl PlatformApi for Bridge {
     }
 
     fn bmc_reset(&self, graceful: bool) -> Result<BmcResult, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1453,7 +1453,7 @@ impl PlatformApi for Bridge {
     }
 
     fn bmc_update_firmware(&self, image_path: &str) -> Result<BmcResult, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1464,7 +1464,7 @@ impl PlatformApi for Bridge {
     }
 
     fn bmc_trigger_debug_log_dump(&self) -> Result<BmcResult, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1475,7 +1475,7 @@ impl PlatformApi for Bridge {
     }
 
     fn bmc_get_debug_log_dump(&self, task_id: &str, filename: &str, path: &str) -> Result<BmcResult, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1486,7 +1486,7 @@ impl PlatformApi for Bridge {
     }
 
     fn get_asics(&self) -> Result<Vec<AsicInfo>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1501,7 +1501,7 @@ impl PlatformApi for Bridge {
     }
 
     fn tm_initialize(&self) -> Result<(), PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             self.facade
                 .bind(py)
                 .call_method1("tm_initialize", ())
@@ -1511,7 +1511,7 @@ impl PlatformApi for Bridge {
     }
 
     fn tm_run_policy(&self) -> Result<(), PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             self.facade
                 .bind(py)
                 .call_method1("tm_run_policy", ())
@@ -1521,7 +1521,7 @@ impl PlatformApi for Bridge {
     }
 
     fn tm_get_interval(&self) -> Result<Option<f64>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1532,7 +1532,7 @@ impl PlatformApi for Bridge {
     }
 
     fn tm_deinitialize(&self) -> Result<(), PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             self.facade
                 .bind(py)
                 .call_method1("tm_deinitialize", ())
@@ -1542,7 +1542,7 @@ impl PlatformApi for Bridge {
     }
 
     fn tm_stop(&self) -> Result<(), PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             self.facade
                 .bind(py)
                 .call_method1("tm_stop", ())
@@ -1552,7 +1552,7 @@ impl PlatformApi for Bridge {
     }
 
     fn notify_shutdown(&self) -> Result<(), PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             self.facade
                 .bind(py)
                 .call_method1("notify_shutdown", ())
@@ -1562,7 +1562,7 @@ impl PlatformApi for Bridge {
     }
 
     fn eeprom_update_db(&self) -> Result<EepromUpdate, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1575,7 +1575,7 @@ impl PlatformApi for Bridge {
     }
 
     fn get_storage_devices(&self) -> Result<Vec<StorageDeviceInfo>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1590,7 +1590,7 @@ impl PlatformApi for Bridge {
     }
 
     fn get_pcie_devices(&self) -> Result<Vec<PcieDevice>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1605,7 +1605,7 @@ impl PlatformApi for Bridge {
     }
 
     fn get_pcie_aer_stats(&self, bus: i64, dev: i64, func: i64) -> Result<Vec<PcieAerStat>, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
@@ -1620,7 +1620,7 @@ impl PlatformApi for Bridge {
     }
 
     fn get_change_event(&self, timeout_ms: i64) -> Result<ChangeEventBatch, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)

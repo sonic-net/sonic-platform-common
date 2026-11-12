@@ -68,7 +68,7 @@ CHASSIS = Chassis()
 /// A `Platform::Pyo3` over the mock, plus the chassis so a test can look at
 /// what an action did to it.
 fn platform() -> (Platform, Py<PyAny>) {
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let m = PyModule::from_code(py, MOCK, c_str!("mock.py"), c_str!("mock")).unwrap();
         let chassis = m.getattr("CHASSIS").unwrap();
         let facade = py
@@ -102,7 +102,7 @@ fn an_event_wait_and_reads_share_one_platform_without_cloning() {
     let (p, chassis) = platform();
     std::thread::scope(|scope| {
         let poller = scope.spawn(|| p.get_change_event(0));
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             assert!(chassis
                 .bind(py)
                 .getattr("polling")
@@ -116,7 +116,7 @@ fn an_event_wait_and_reads_share_one_platform_without_cloning() {
             p.get_fans(FanInfoCols::ALL, false).unwrap()[0].name,
             "fan 1"
         );
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             chassis
                 .bind(py)
                 .getattr("release")
@@ -144,7 +144,7 @@ fn an_action_carries_its_arguments_through() {
     let (p, chassis) = platform();
     p.set_fan_led(&DeviceKey::from("fan_drawers[0]/fans[0]"), LedColor::Green)
         .expect("the mock fan takes a colour");
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let led = chassis
             .bind(py)
             .getattr("fan")
@@ -164,7 +164,7 @@ fn an_action_carries_its_arguments_through() {
 #[test]
 fn finalize_reaches_the_implementation() {
     let (p, _chassis) = platform();
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let m = PyModule::from_code(
             py,
             c_str!(

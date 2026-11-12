@@ -97,11 +97,11 @@ fn the_vendors_handler_runs_on_notify_and_the_daemon_keeps_its_signals() {
 
     // A SIGTERM sent during start-up lands on the bridge's no-op, and reaches
     // the daemon once its handler is back.
-    Python::with_gil(|py| register(py, SIGNALLED, c_str!("vend_signalled")));
+    Python::attach(|py| register(py, SIGNALLED, c_str!("vend_signalled")));
     assert!(Bridge::new("vend_signalled", "thermalctld").is_ok());
     assert_eq!(DELIVERED.load(Ordering::SeqCst), 1);
 
-    let vendor = Python::with_gil(|py| register(py, LIKE_MLNX, c_str!("vend_mlnx")));
+    let vendor = Python::attach(|py| register(py, LIKE_MLNX, c_str!("vend_mlnx")));
     let api = Bridge::new("vend_mlnx", "thermalctld").unwrap();
     for sig in [libc::SIGTERM, libc::SIGINT] {
         assert_eq!(
@@ -120,7 +120,7 @@ fn the_vendors_handler_runs_on_notify_and_the_daemon_keeps_its_signals() {
             .extract()
             .unwrap()
     };
-    assert!(!Python::with_gil(event_set));
+    assert!(!Python::attach(event_set));
 
     // What the daemon does on SIGTERM.  The vendor's chain ends in the no-op:
     // the process is still here to assert anything at all.
@@ -136,7 +136,7 @@ fn the_vendors_handler_runs_on_notify_and_the_daemon_keeps_its_signals() {
     .join()
     .unwrap();
 
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         assert!(event_set(py));
         let runs: Vec<i32> = vendor.bind(py).getattr("RUNS").unwrap().extract().unwrap();
         assert_eq!(runs, vec![libc::SIGTERM], "once, as SIGTERM");
