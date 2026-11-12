@@ -2437,6 +2437,121 @@ def test_the_storage_object_is_built_once_and_absence_is_not_an_error():
     assert hatch.get_storage_devices() == []
 
 
+@pytest.mark.parametrize('resource', [
+    'pcie', 'storage', 'eeprom', 'manager', 'sensor_yaml', 'sensor_devices',
+    'pcie_reads', 'storage_reads',
+])
+def test_shared_hatch_resources_do_not_publish_partial_initialization(resource, tmp_path):
+    import sonic_platform_base
+
+    api = PlatformApi(EventChassis((True, {})))
+    hatch = api._hatch
+    entered, finish, contender_ready = (threading.Event() for _ in range(3))
+    built, results, errors = [], {}, []
+    reading = resource.endswith('_reads')
+    target = ({'voltage_sensors': []} if resource == 'sensor_yaml'
+              else [object()] if resource == 'sensor_devices' else object())
+
+    def build(*args):
+        built.append(args)
+        if len(built) == 1:
+            entered.set()
+            assert finish.wait(5)
+        elif reading:
+            assert finish.is_set(), 'resource refreshes must not overlap'
+        return target
+
+    class ObservedLock:
+        def __init__(self):
+            self.lock = threading.RLock()
+
+        def __enter__(self):
+            if threading.current_thread() is second:
+                if self.lock.acquire(blocking=False):
+                    return self
+                contender_ready.set()
+            self.lock.acquire()
+            return self
+
+        def __exit__(self, *args):
+            self.lock.release()
+
+    method, lock_name = {
+        'pcie': ('_pcie_util', '_pcie_lock'),
+        'storage': ('_storage_devices', '_storage_lock'),
+        'eeprom': ('_eeprom_obj', '_eeprom_lock'),
+        'manager': ('_get', '_manager_lock'),
+        'sensor_yaml': ('_sensors_yaml', '_sensors_lock'),
+        'sensor_devices': ('voltage_sensors_from_yaml', '_sensors_lock'),
+        'pcie_reads': ('get_pcie_devices', '_pcie_lock'),
+        'storage_reads': ('get_storage_devices', '_storage_lock'),
+    }[resource]
+    setattr(hatch, lock_name, ObservedLock())
+    hatch._chassis.get_eeprom = build
+    hatch._chassis.get_thermal_manager = build
+    if resource == 'sensor_devices':
+        hatch._sensors_data = {'voltage_sensors': [{'name': 'voltage'}]}
+    if resource == 'pcie_reads':
+        class ReadingPcie(FakePcie):
+            def get_pcie_check(self):
+                build()
+                return [{'name': 'Root', 'bus': '00', 'dev': '01', 'fn': '0'}]
+
+        hatch._pcie, hatch._pcie_tried = ReadingPcie(), True
+    if resource == 'storage_reads':
+        class ReadingDisk(FakeDisk):
+            def fetch_parse_info(self, path):
+                build()
+                super().fetch_parse_info(path)
+
+        hatch._storage = _module('devices', devices={'sda': ReadingDisk()})
+        hatch._storage_tried = True
+    (tmp_path / 'sensors.yaml').write_text('{}')
+
+    def run(name):
+        try:
+            results[name] = getattr(hatch, method)()
+        except BaseException as error:
+            errors.append(error)
+        finally:
+            if threading.current_thread() is second:
+                contender_ready.set()
+
+    first = threading.Thread(target=run, args=('first',))
+    second = threading.Thread(target=run, args=('second',))
+    sensor_fs = _module('sensor_fs', VoltageSensorFs=_module('VoltageSensorFs', factory=build))
+    with platform_dir(str(tmp_path)), fake_modules(
+        sonic_platform=_module('sonic_platform'),
+        **{
+            'sonic_platform.pcie': _module('sonic_platform.pcie', Pcie=build),
+            'sonic_platform_base.sonic_storage.storage_devices': _module(
+                'storage_devices', StorageDevices=build, BLKDEV_BASE_PATH='/dev'),
+            'sonic_platform_base.sensor_fs': sensor_fs,
+        },
+    ), mock.patch.object(sonic_platform_base, 'sensor_fs', sensor_fs, create=True), \
+            mock.patch('yaml.safe_load', side_effect=build):
+        first.start()
+        try:
+            assert entered.wait(5)
+            second.start()
+            assert contender_ready.wait(5)
+            assert api.get_change_event(1).ok
+        finally:
+            finish.set()
+            first.join(5)
+            if second.ident is not None:
+                second.join(5)
+    assert not first.is_alive() and not second.is_alive()
+    assert not errors
+    if reading:
+        assert results['first'] == results['second']
+        assert len(results['first']) == 1
+        assert len(built) == 2
+    else:
+        assert results['first'] is results['second'] is target
+        assert len(built) == 1
+
+
 def test_a_disk_whose_parse_fails_publishes_none_of_its_refresh():
     """stormond's per-device `except` fires before anything of the refresh is
     written (stormond:346, 392-393), so neither is anything here: the row
@@ -3816,9 +3931,13 @@ def test_sfp_eeprom_preserves_binary_buffers_misses_and_failed_writes():
     sfp.read_eeprom.assert_called_once_with(129, 3)
     sfp.read_eeprom.return_value = None
     assert api.sfp_read_eeprom(key, 129, 3) is None
-    sfp.write_eeprom.return_value = False
+    def write(offset, length, buffer):
+        buffer[0] = 0x55
+        return False
+
+    sfp.write_eeprom.side_effect = write
     assert api.sfp_write_eeprom(key, 129, b'\x00\x80\xff') is False
-    sfp.write_eeprom.assert_called_once_with(129, 3, b'\x00\x80\xff')
+    sfp.write_eeprom.assert_called_once_with(129, 3, bytearray([0x55, 128, 255]))
     with pytest.raises(ValueError):
         api.sfp_read_eeprom(key, -1, 3)
     with pytest.raises(ValueError):

@@ -2643,13 +2643,13 @@ class PlatformApi(object):
             return _truthy(fn())
 
     def sfp_read_eeprom(self, sfp, offset, num_bytes):
-        """Hand-written: read_eeprom is a platform hook without a base-class declaration; normalise its bytearray to bytes, preserving a None read miss."""
+        """Hand-written: Normalise the inherited EEPROM hook's bytearray to bytes, preserving a None read miss."""
         dev = self._find_sfp_info(sfp)
         with self._hatch.device_lock(dev):
             return self._hatch.sfp_read_eeprom(dev, offset, num_bytes)
 
     def sfp_write_eeprom(self, sfp, offset, data):
-        """Hand-written: write_eeprom is a platform hook without a base-class declaration; its length argument must be derived from the supplied bytes."""
+        """Hand-written: The inherited EEPROM hook requires a bytearray buffer and a length derived from the supplied transport bytes."""
         dev = self._find_sfp_info(sfp)
         with self._hatch.device_lock(dev):
             return self._hatch.sfp_write_eeprom(dev, offset, data)

@@ -1932,7 +1932,8 @@ class Sfp:
         return bytearray([0, 128, 255]) if length == 3 else None
     def write_eeprom(self, offset, length, data):
         assert (offset, length, data) == (129, 3, b"\x00\x80\xff")
-        assert isinstance(data, bytes)
+        assert isinstance(data, bytearray)
+        data[0] = 0x55
         return False
 
 class Chassis:

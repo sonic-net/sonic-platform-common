@@ -1554,18 +1554,21 @@ class PlatformApi:
     def sfp_unfreeze_vdm_stats(self, sfp: DeviceKey) -> Optional[bool]: ...
 
     @platform_method(On(row="SfpInfo"), EscapeHatch(
-        reason="read_eeprom is a platform hook without a base-class declaration; "
-        "normalise its bytearray to bytes, preserving a None read miss.",
+        reason="Normalise the inherited EEPROM hook's bytearray to bytes, "
+        "preserving a None read miss.",
     ))
     def sfp_read_eeprom(self, sfp: DeviceKey, offset: int, num_bytes: int) -> Optional[bytes]:
         """Read at an optoe-linear offset. None means the read failed."""
 
     @platform_method(On(row="SfpInfo"), EscapeHatch(
-        reason="write_eeprom is a platform hook without a base-class declaration; "
-        "its length argument must be derived from the supplied bytes.",
+        reason="The inherited EEPROM hook requires a bytearray buffer and a "
+        "length derived from the supplied transport bytes.",
     ))
     def sfp_write_eeprom(self, sfp: DeviceKey, offset: int, data: bytes) -> Optional[bool]:
-        """Write bytes at an optoe-linear offset, returning the vendor result."""
+        """Write at an optoe-linear offset, returning the vendor result.
+
+        Transport uses bytes; the vendor receives its required bytearray.
+        """
 
     # Resolve get_xcvr_api on every call: module replacement invalidates its
     # cache on the same SFP object the inventory and change-event paths use.

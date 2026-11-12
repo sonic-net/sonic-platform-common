@@ -2312,7 +2312,9 @@ pub trait PlatformApi: Send + Sync {
         Ok(None)
     }
 
-    /// Write bytes at an optoe-linear offset, returning the vendor result.
+    /// Write at an optoe-linear offset, returning the vendor result.
+    ///
+    /// Transport uses bytes; the vendor receives its required bytearray.
     ///
     /// `None` by default, which is how a platform says it has no answer
     /// rather than that the call failed.

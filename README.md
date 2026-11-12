@@ -27,6 +27,11 @@ reads resolve the current `get_xcvr_api()`; an unavailable decoder returns `None
 for optional scalars or JSON `null`, whereas a missing decoder method is
 `NotSupported`.
 
+Lazy thermal-manager, EEPROM, sensor, PCIe and storage construction uses separate
+resource locks, so concurrent calls cannot observe half-built caches. PCIe and
+storage refreshes are serialized within their own resources, not with event
+polling or other device operations.
+
 Open-ended transceiver dictionaries cross as `Json` (JSON-encoded strings),
 preserving vendor fields, nested values, nulls and non-finite readings as
 `"-inf"`, `"inf"` and `"nan"`. This is a temporary untyped boundary: native
@@ -37,8 +42,9 @@ rejects untracked or stale entries. Temperature is already `Optional[Celsius]`,
 not JSON. `sfp_uses_legacy_pm` is the declared capability query for PM without
 the newer VDM interface; it does not invoke either getter.
 
-EEPROM operations use bytes and preserve read misses and failed writes. No
-vendor base-class changes are required.
+EEPROM transport uses bytes; writes convert to the vendor hook's required
+mutable bytearray. Read misses and failed writes are preserved. No vendor
+base-class changes are required.
 
 After editing the declaration, run `python3 generator/generate.py` and
 `generator/check.sh` with the `testing` extra installed. The generator produces
