@@ -2,23 +2,32 @@
     cmis_module_precoding.py
 
     API for Pinewave CMIS modules with module-wide TP1/TP4 precoding control
+    in lower memory byte 29 (Custom in CMIS).
 """
 
 import logging
 
 from ..public.cmis import CmisApi
+from ...fields import consts
 from ...fields import pinewave_consts as pw
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 _BIT_MAP = {
-    pw.MODULE_PRECODING_TP1: 3,
-    pw.MODULE_PRECODING_TP4: 2,
+    consts.MODULE_PRECODING_TP1: 3,
+    consts.MODULE_PRECODING_TP4: 2,
 }
 
 
 class PinewaveCmisApi(CmisApi):
+    def is_module_precoding_supported(self):
+        '''
+        This function returns True: modules selected for this API support the
+        module-wide TP1/TP4 precoding control in byte 29
+        '''
+        return True
+
     def get_module_precoding(self):
         '''
         This function returns the module TP1/TP4 precoding settings as
@@ -32,7 +41,7 @@ class PinewaveCmisApi(CmisApi):
     def set_module_precoding(self, precoding_dict):
         '''
         Sets the module-wide TP1/TP4 precoding controls. Only the requested
-        bits are changed.
+        controls are changed, and the value is read back after the write.
 
         Args:
             precoding_dict: dict with optional keys 'TP1' and/or 'TP4', each
@@ -45,7 +54,7 @@ class PinewaveCmisApi(CmisApi):
             logger.error('Invalid module precoding settings: %r', precoding_dict)
             return False
         for key, enable in precoding_dict.items():
-            if key not in _BIT_MAP or isinstance(enable, str) or enable not in (0, 1):
+            if key not in _BIT_MAP or not isinstance(enable, (bool, int)) or enable not in (0, 1):
                 logger.error('Invalid module precoding setting %r: %r', key, enable)
                 return False
         if not precoding_dict:
@@ -60,11 +69,10 @@ class PinewaveCmisApi(CmisApi):
             new_val = (new_val | mask) if enable else (new_val & ~mask)
         if new_val == val:
             return True
-        return self.xcvr_eeprom.write(pw.MODULE_PRECODING_CONTROL, new_val)
-
-    def stage_custom_si_settings(self, host_lanes_mask, optics_si_dict):
-        if not super().stage_custom_si_settings(host_lanes_mask, optics_si_dict):
+        if not self.xcvr_eeprom.write(pw.MODULE_PRECODING_CONTROL, new_val):
             return False
-        if pw.MODULE_PRECODING in optics_si_dict:
-            return self.set_module_precoding(optics_si_dict[pw.MODULE_PRECODING])
+        readback = self.xcvr_eeprom.read(pw.MODULE_PRECODING_CONTROL)
+        if readback != new_val:
+            logger.error('Module precoding read back %r after writing %r', readback, new_val)
+            return False
         return True

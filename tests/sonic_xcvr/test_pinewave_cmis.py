@@ -4,6 +4,7 @@ import pytest
 from sonic_platform_base.sonic_xcvr.api.pinewave.cmis_module_precoding import PinewaveCmisApi
 from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi
 from sonic_platform_base.sonic_xcvr.codes.public.cmis import CmisCodes
+from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis import CmisMemMap
 from sonic_platform_base.sonic_xcvr.mem_maps.pinewave.cmis_module_precoding import PinewaveCmisMemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
 from sonic_platform_base.sonic_xcvr.xcvr_api_factory import XcvrApiFactory
@@ -12,6 +13,14 @@ from sonic_platform_base.sonic_xcvr.fields import pinewave_consts as pw
 
 def mock_reader_cmis(start, length):
     return bytes([0x18])
+
+
+class TestCmisApiModulePrecodingDefaults(object):
+    def test_defaults(self):
+        api = CmisApi(XcvrEeprom(MagicMock(), MagicMock(), CmisMemMap(CmisCodes)))
+        assert not api.is_module_precoding_supported()
+        assert api.get_module_precoding() is None
+        assert not api.set_module_precoding({'TP1': False})
 
 
 class TestPinewaveCmisMemMap(object):
@@ -23,12 +32,21 @@ class TestPinewaveCmisMemMap(object):
 
 
 class TestPinewaveCmisApi(object):
-    def make_api(self, byte29, write_ret=True):
+    def make_api(self, byte29, write_ret=True, latch=True):
         api = PinewaveCmisApi(XcvrEeprom(MagicMock(), MagicMock(), PinewaveCmisMemMap(CmisCodes)))
-        api.xcvr_eeprom.read = MagicMock(
-            side_effect=lambda field: byte29 if field == pw.MODULE_PRECODING_CONTROL else None)
-        api.xcvr_eeprom.write = MagicMock(return_value=write_ret)
+        reg = {pw.MODULE_PRECODING_CONTROL: byte29}
+
+        def write(field, value):
+            if write_ret and latch:
+                reg[field] = value
+            return write_ret
+
+        api.xcvr_eeprom.read = MagicMock(side_effect=lambda field: reg.get(field))
+        api.xcvr_eeprom.write = MagicMock(side_effect=write)
         return api
+
+    def test_is_module_precoding_supported(self):
+        assert self.make_api(0x0C).is_module_precoding_supported()
 
     @pytest.mark.parametrize("byte29, expected", [
         (0x0C, {'TP1': True, 'TP4': True}),
@@ -49,6 +67,7 @@ class TestPinewaveCmisApi(object):
         api = self.make_api(byte29)
         assert api.set_module_precoding(precoding)
         api.xcvr_eeprom.write.assert_called_once_with(pw.MODULE_PRECODING_CONTROL, expected_write)
+        assert api.xcvr_eeprom.read.call_count == 2
 
     @pytest.mark.parametrize("precoding, byte29", [
         ({'TP1': False}, 0x04),  # already set
@@ -64,6 +83,8 @@ class TestPinewaveCmisApi(object):
         (['TP1'], 0x0C, True),
         ({'TP2': True}, 0x0C, True),
         ({'TP1': 'false'}, 0x0C, True),
+        ({'TP1': '1'}, 0x0C, True),
+        ({'TP1': 1.0}, 0x0C, True),
         ({'TP1': 2}, 0x0C, True),
         ({'TP1': None}, 0x0C, True),
         ({'TP1': False}, None, True),
@@ -73,35 +94,10 @@ class TestPinewaveCmisApi(object):
         api = self.make_api(byte29, write_ret=write_ret)
         assert not api.set_module_precoding(precoding)
 
-    @pytest.mark.parametrize("base_ret, set_ret, expected", [
-        (True, True, True),
-        (True, False, False),
-        (False, True, False),
-    ])
-    def test_stage_custom_si_settings_module_precoding(self, base_ret, set_ret, expected):
-        api = self.make_api(0x0C)
-        optics_si_dict = {"OutputEqPreCursorTargetRx": {"OutputEqPreCursorTargetRx1": 2},
-                          pw.MODULE_PRECODING: {'TP1': False}}
-        with patch.object(CmisApi, 'stage_custom_si_settings', return_value=base_ret) as mock_base, \
-             patch.object(api, 'set_module_precoding', return_value=set_ret) as mock_set:
-            assert api.stage_custom_si_settings(0xff, optics_si_dict) == expected
-        mock_base.assert_called_once_with(0xff, optics_si_dict)
-        if base_ret:
-            mock_set.assert_called_once_with({'TP1': False})
-        else:
-            mock_set.assert_not_called()
-
-    def test_stage_custom_si_settings_without_module_precoding(self):
-        api = self.make_api(0x0C)
-        with patch.object(CmisApi, 'stage_custom_si_settings', return_value=True), \
-             patch.object(api, 'set_module_precoding') as mock_set:
-            assert api.stage_custom_si_settings(0xff, {"OutputEqPreCursorTargetRx": {}})
-        mock_set.assert_not_called()
-
-    def test_stage_custom_si_settings_module_precoding_null(self):
-        api = self.make_api(0x0C)
-        with patch.object(CmisApi, 'stage_custom_si_settings', return_value=True):
-            assert not api.stage_custom_si_settings(0xff, {pw.MODULE_PRECODING: None})
+    def test_set_module_precoding_readback_mismatch(self):
+        api = self.make_api(0x0C, latch=False)
+        assert not api.set_module_precoding({'TP1': False})
+        api.xcvr_eeprom.write.assert_called_once_with(pw.MODULE_PRECODING_CONTROL, 0x04)
 
 
 class TestPinewaveFactory(object):
