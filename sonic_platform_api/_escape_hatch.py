@@ -192,14 +192,22 @@ class EscapeHatches(object):
         self._pcie_tried = False
         self._storage: Any = None
         self._storage_tried = False
+        self._device_locks: dict[int, Any] = {}
+        self._device_locks_guard = threading.Lock()
+
+    def device_lock(self, device: Any) -> Any:
+        """One lock for all facade calls on the same device object."""
+        with self._device_locks_guard:
+            return self._device_locks.setdefault(id(device), threading.RLock())
 
     def sfp_get_type(self, sfp: Any) -> str:
         """Read the vendor's slot type attribute."""
         return str(sfp.sfp_type)
 
-    def sfp_has_method(self, sfp: Any, method: str) -> bool:
-        """Discover an optional method without invoking it."""
-        return hasattr(sfp, method)
+    def sfp_uses_legacy_pm(self, sfp: Any) -> bool:
+        """Select the legacy PM path without invoking either capability."""
+        return (not hasattr(sfp, 'is_transceiver_vdm_supported')
+                and hasattr(sfp, 'get_transceiver_pm'))
 
     def sfp_get_transceiver_dom_real_value(self, sfp: Any) -> str:
         """Use legacy bulk status only when the modern method is absent."""
@@ -655,6 +663,21 @@ class EscapeHatches(object):
 
     # -- change events ------------------------------------------------------
 
+    def _invalidate_sfp(self, device_id: Any) -> None:
+        fn = getattr(self._chassis, 'get_sfp', None)
+        if fn is None or isinstance(device_id, bool) or not isinstance(device_id, (int, str)):
+            return
+        try:
+            index = int(device_id)
+        except ValueError:
+            return
+        if index < 0:
+            return
+        sfp = _call(lambda: fn(index))
+        if sfp is not None:
+            with self.device_lock(sfp):
+                _call(getattr(sfp, 'remove_xcvr_api', None))
+
     def get_change_event(self, timeout_ms: int) -> Any:
         """Flatten what `ChassisBase.get_change_event` answered.
 
@@ -692,6 +715,10 @@ class EscapeHatches(object):
                 continue
             for device_id, status in changes.items():
                 status = str(status)
+                if str(device_type) == 'sfp' and status in ('0', '1'):
+                    # The vendor may have invalidated during an EEPROM read.
+                    # Repeat under the slot lock, after the blocking wait.
+                    self._invalidate_sfp(device_id)
                 events.append(ChangeEvent(
                     device_type=str(device_type),
                     device_id=str(device_id),

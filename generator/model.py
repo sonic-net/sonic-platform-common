@@ -109,6 +109,7 @@ class SourceSpec:
     """One place a row type is collected from."""
 
     from_: str = ''
+    indices: Optional[str] = None     # snapshot parameter naming physical indices
     mapping: str = ''
     provider: str = ''
     via: tuple = ()
@@ -157,6 +158,7 @@ class RowSpec:
     singleton: bool = False   # the chassis is the device; nothing to flatten
     nested: bool = False      # appears only as a column of another row
     referenced: bool = False  # returned by a method, e.g. an escape hatch
+    serialized: bool = False  # addressed calls share a per-device lock
 
     @property
     def snake(self) -> str:
@@ -205,6 +207,7 @@ class Model:
     enums: list = field(default_factory=list)
     omitted: tuple = ()   # ((base-class path, reason), ...)
     deferred: tuple = ()  # ((base-class path, reason), ...), for a later phase
+    deferred_json: tuple = ()  # ((facade method, typed schema to introduce), ...)
 
     def row(self, name):
         for r in self.rows:

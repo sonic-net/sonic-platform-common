@@ -278,6 +278,11 @@ class FlattenSource:
     from_
         The base-class method yielding the leaf devices, e.g.
         `"PsuBase.get_all_thermals"`.
+    indices
+        A snapshot parameter of type `list[Index]`. Instead of enumerating a
+        list, call `from_` with each physical index supplied by the caller.
+        Missing devices are skipped; keys retain the physical index, not the
+        position among returned rows. The same indexed getter resolves keys.
     mapping
         Instead of `from_`, when the base class answers a mapping rather than
         a list of devices.  `get_system_eeprom_info()` is `{tlv_code: value}`
@@ -359,10 +364,12 @@ class FlattenSource:
         the parent answered before any fallback, 'N/A' when it answered
         nothing -- thermalctld's `str(try_get(parent.get_name))`, which is a
         drawer fan's `drawer_name` (thermalctld:450).  `"@key"` and `"@value"`
-        are the two halves of a `mapping=` entry.
+        are the two halves of a `mapping=` entry. `"@index"` is the physical
+        index of an `indices=` source.
     """
 
     from_: str = ...
+    indices: Optional[str] = ...
     mapping: Optional[str] = ...
     provider: Optional[str] = ...
     via: tuple[Union[str, Via], ...] = ...
@@ -386,9 +393,14 @@ class Flatten:
     in places, and a native implementation is tested against this one row for
     row.  Within one source the order is the platform's; across sources it is
     the order they are declared in, whole source after whole source.
+
+    `serialized` holds a per-device lock around addressed calls, including
+    intermediate getters and escape hatches. It does not lock inventory or
+    a blocking change-event wait.
     """
 
     sources: tuple[FlattenSource, ...]
+    serialized: bool = ...
 
 # --------------------------------------------------------------------------
 # Method-level
@@ -472,7 +484,8 @@ class Calls:
     raises `NotImplementedError`, which a Rust caller sees as
     `PlatformError::NotSupported`; anything the method raises is passed on as
     it is; and what it answers is the action's answer.  A key that leads to
-    no device raises `DeviceNotFound`.
+    no device raises `DeviceNotFound`. An intermediate getter answering None
+    short-circuits an optional result to None, or a Json result to JSON null.
     """
 
     path: str

@@ -252,7 +252,7 @@ mod tests {
         struct Nothing;
         impl crate::PlatformApi for Nothing {}
         match crate::PlatformApi::get_module_midplane_down_reason(
-            &mut Nothing,
+            &Nothing,
             &crate::DeviceKey::from("modules[0]"),
         ) {
             Err(crate::PlatformError::NotSupported(what)) => {

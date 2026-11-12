@@ -85,7 +85,7 @@ fn one_call(facade: &Py<PyAny>) -> String {
 
 #[test]
 fn {{ m.rust_name }}_forwards() {
-    let (mut p, facade) = platform();
+    let (p, facade) = platform();
     let _ = p.{{ m.rust_name }}({{ m.rust_sweep_args }});
     assert_eq!(one_call(&facade), {{ m.py_sweep_call }});
 }

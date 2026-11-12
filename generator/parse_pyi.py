@@ -234,6 +234,13 @@ def _sources(node, consts):
         if parent_missing and not (skw.get('parent') and via):
             raise ParseError('%s: parent_missing needs a parent getter to apply to' % label)
         sets = tuple(skw.get('sets', ()))
+        indices = skw.get('indices')
+        if indices and (not from_ or mapping or provider or skw.get('single')
+                        or skw.get('index_from_previous')):
+            raise ParseError('%s: indices needs an indexed from_ source, not a list,'
+                             ' mapping, provider or singleton' % label)
+        if any(v == '@index' for _f, v in sets) and not indices:
+            raise ParseError('%s: "@index" needs an indices source' % label)
         if any(v == '@parent_raw' for _f, v in sets) and not (skw.get('parent') and via):
             raise ParseError('%s: "@parent_raw" needs a parent getter to read' % label)
         if sum(1 for x in (from_, mapping, provider) if x) != 1:
@@ -267,6 +274,7 @@ def _sources(node, consts):
                                  % (label, prev.parent_default[0], pd[0]))
         out.append(SourceSpec(
             from_=from_,
+            indices=indices,
             mapping=mapping,
             provider=provider,
             via=via,
@@ -282,7 +290,7 @@ def _sources(node, consts):
             reaches=tuple(skw.get('reaches', ())),
             sets=sets,
         ))
-    return out
+    return out, bool(kw.get('serialized', False))
 
 
 def _method(node, consts):
@@ -359,7 +367,8 @@ def parse(path=FACADE_PYI):
     tree = ast.parse(open(path).read(), filename=path)
     consts = _module_consts(tree)
     model = Model(enums=_literal_aliases(tree), omitted=_listed(tree, 'OMITTED'),
-                  deferred=_listed(tree, 'DEFERRED'))
+                  deferred=_listed(tree, 'DEFERRED'),
+                  deferred_json=_listed(tree, 'DEFERRED_JSON'))
 
     for node in tree.body:
         if not isinstance(node, ast.ClassDef):
@@ -374,7 +383,7 @@ def parse(path=FACADE_PYI):
         for item in node.body:
             if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name):
                 if item.target.id == 'ORDER':
-                    row.sources = _sources(item, consts)
+                    row.sources, row.serialized = _sources(item, consts)
                 else:
                     f = _field(item, consts)
                     if f:
@@ -525,6 +534,11 @@ def _validate(model):
                 % (row.name,
                    'a singleton' if row.singleton else 'nested in another row'))
         for src in row.sources:
+            if src.indices:
+                snap = snapshots.get(row.name)
+                if snap is None or dict(snap.params).get(src.indices) != 'list[Index]':
+                    raise ParseError('%s: indices=%r needs a snapshot parameter of type'
+                                     ' list[Index]' % (row.name, src.indices))
             for fname, _v in src.sets:
                 if fname not in names:
                     raise ParseError(
@@ -616,6 +630,16 @@ def _validate(model):
                 if params.get(p) != 'bool':
                     raise ParseError('%s: Calls(ints=...) names %r, which is not a bool'
                                      ' parameter' % (m.name, p))
+
+    json_methods = {m.name for m in model.methods if m.returns == 'Json'}
+    tracked = {name for name, _reason in model.deferred_json}
+    for name, reason in model.deferred_json:
+        if name not in json_methods or not reason:
+            raise ParseError('DEFERRED_JSON: %s must name a Json method and its planned'
+                             ' typed schema' % name)
+    if json_methods - tracked:
+        raise ParseError('Json methods need typed-schema follow-ups in DEFERRED_JSON: %s'
+                         % ', '.join(sorted(json_methods - tracked)))
 
 
 if __name__ == '__main__':

@@ -34,6 +34,13 @@ DEFERRED = (
 {%- endfor %}
 )
 
+# Implemented Json results whose schemas still need typed declarations.
+DEFERRED_JSON = (
+{%- for method, schema in model.deferred_json %}
+    ({{ method | tojson }}, {{ schema | tojson }}),
+{%- endfor %}
+)
+
 {% for e in model.enums %}
 {{ e.name }} = Literal[{% for v in e.values %}{{ v | tojson }}{{ ', ' if not loop.last }}{% endfor %}]
 {%- endfor %}
@@ -153,6 +160,19 @@ def _nth(seq, pos):
     """The device at `pos` in a collection, or None past its end."""
     items = list(_iter(seq))
     return items[pos] if pos < len(items) else None
+
+
+def _indices(values):
+    """Physical port indices, never negative list positions or booleans."""
+    for index in values:
+        if type(index) is not int or not 0 <= index <= 0xffffffff:
+            raise ValueError('physical port index must be a non-negative u32')
+        yield index
+
+
+def _indexed(obj, getter, index):
+    fn = _get(obj, getter)
+    return _call(None if fn is None else lambda: fn(index))
 
 
 def _fmt(v, template, parent, i, **fixed):
@@ -400,7 +420,7 @@ class PlatformApi(object):
         )
 {%- endif %}
 
-    def _walk_{{ row.snake }}(self{% if row.projected %}, cols{% endif %}{% if row.skippable %}, skip{% endif %}{% if row.absorbable %}, absorb{% endif %}):
+    def _walk_{{ row.snake }}(self{% for p in row.walk_params %}, {{ p }}{% endfor %}{% if row.projected %}, cols{% endif %}{% if row.skippable %}, skip{% endif %}{% if row.absorbable %}, absorb{% endif %}):
         """Every {{ row.name }}, in declared order.
 
         Each row carries its key, the path this walk took to the device; an
@@ -422,7 +442,7 @@ class PlatformApi(object):
 {% endfor %}
 {%- for m in model.methods %}
 {%- if m.kind == 'snapshot' %}
-    def {{ m.name }}(self{% if m.projected %}, cols={{ model.row(m.row).all_cols }}{% endif %}{% if m.skippable %}, skip=(){% endif %}{% if m.absorbable %}, absorb=False{% endif %}):
+    def {{ m.name }}(self{% for p, _t in m.params %}, {{ p }}{% endfor %}{% if m.projected %}, cols={{ model.row(m.row).all_cols }}{% endif %}{% if m.skippable %}, skip=(){% endif %}{% if m.absorbable %}, absorb=False{% endif %}):
         """{{ (m.doc or 'Every %s, in declared order.' % m.row) | replace('\n', '\n        ') }}
 {%- if m.projected %}
 
@@ -453,15 +473,7 @@ class PlatformApi(object):
         absent, and the rest of the row is read (`Snapshot(absorbs=True)`).
 {%- endif %}
         """
-{%- if m.singleton %}
-        return self._walk_{{ model.row(m.row).snake }}({% if m.projected %}cols{% endif %})[0]
-{%- elif m.skippable %}
-        return self._walk_{{ model.row(m.row).snake }}(cols, frozenset(skip or ()))
-{%- elif m.absorbable %}
-        return self._walk_{{ model.row(m.row).snake }}({% if m.projected %}cols, {% endif %}bool(absorb))
-{%- else %}
-        return self._walk_{{ model.row(m.row).snake }}({% if m.projected %}cols{% endif %})
-{%- endif %}
+        return self._walk_{{ model.row(m.row).snake }}({{ m.py_walk_args }}){% if m.singleton %}[0]{% endif %}
 {% elif m.kind == 'action' %}
     def {{ m.name }}(self{% for p, _t in m.params %}, {{ p }}{% endfor %}):
         """{{ m.doc | replace('\n', '\n        ') }}"""
@@ -469,6 +481,6 @@ class PlatformApi(object):
 {% elif m.kind == 'escape' %}
     def {{ m.name }}(self{% for p, _t in m.params %}, {{ p }}{% endfor %}):
         """Hand-written: {{ m.escape_reason | replace('\n', ' ') }}"""
-        return self._hatch.{{ m.name }}({% for p, t in m.params %}{% if loop.first and m.row and t == 'DeviceKey' %}self._find_{{ model.row(m.row).snake }}({{ p }}){% else %}{{ p }}{% endif %}{{ ', ' if not loop.last }}{% endfor %})
+{{ m.body }}
 {% endif %}
 {%- endfor %}

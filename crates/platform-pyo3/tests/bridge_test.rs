@@ -497,7 +497,7 @@ fn bridge() -> (Bridge, Py<PyAny>) {
 
 #[test]
 fn a_sentinel_arrives_as_absent_and_a_string_arrives_as_a_number() {
-    let (mut api, _chassis) = bridge();
+    let (api, _chassis) = bridge();
     let rows = api.get_thermals(ThermalInfoCols::ALL, &[]).unwrap();
 
     let asic = rows.iter().find(|r| r.name == "ASIC").unwrap();
@@ -515,7 +515,7 @@ fn a_sentinel_arrives_as_absent_and_a_string_arrives_as_a_number() {
 
 #[test]
 fn an_absent_psu_and_a_platform_with_no_pdbs_are_both_quiet() {
-    let (mut api, _chassis) = bridge();
+    let (api, _chassis) = bridge();
     let rows = api.get_thermals(ThermalInfoCols::ALL, &[]).unwrap();
     assert!(rows.iter().all(|r| r.name != "hidden"));
     assert_eq!(rows.len(), 4, "chassis 3 + present PSU 1, no PDBs");
@@ -524,14 +524,14 @@ fn an_absent_psu_and_a_platform_with_no_pdbs_are_both_quiet() {
 #[test]
 fn a_field_with_a_declared_default_does_not_arrive_as_a_hole() {
     // Thermal.is_replaceable raises; the stub declares the default.
-    let (mut api, _chassis) = bridge();
+    let (api, _chassis) = bridge();
     assert!(!api.get_thermals(ThermalInfoCols::ALL, &[]).unwrap()[0].is_replaceable);
 }
 
 #[test]
 fn a_whole_number_reported_as_a_float_stays_a_float() {
     // thermalctld publishes `str(speed)`: "50.0", not "50".
-    let (mut api, _chassis) = bridge();
+    let (api, _chassis) = bridge();
     assert_eq!(
         api.get_fans(FanInfoCols::ALL, false).unwrap()[0].speed_pct,
         Some(Number::Float(50.0))
@@ -544,7 +544,7 @@ fn a_reading_crosses_as_python_answered_it_not_as_a_guess() {
     // turned it into 0 -- a stopped fan, which is an alarm -- and NaN went
     // the same way.  thermalctld publishes `str()` of each, "-1" and "nan",
     // so each crosses as what it is.
-    let (mut api, chassis) = bridge();
+    let (api, chassis) = bridge();
     Python::with_gil(|py| {
         let fan = chassis.bind(py).getattr("fan").unwrap();
         let answers = py
@@ -565,7 +565,7 @@ fn a_reading_crosses_as_python_answered_it_not_as_a_guess() {
 
 #[test]
 fn fan_direction_na_crosses_as_a_value() {
-    let (mut api, _chassis) = bridge();
+    let (api, _chassis) = bridge();
     assert_eq!(
         api.get_fans(FanInfoCols::ALL, false).unwrap()[0]
             .direction
@@ -580,7 +580,7 @@ fn fan_direction_na_crosses_as_a_value() {
 /// the second failed the whole row.
 #[test]
 fn a_fan_direction_reads_as_the_platform_spelled_it() {
-    let (mut api, chassis) = bridge();
+    let (api, chassis) = bridge();
     for (answer, read) in [
         ("'INTAKE'", "INTAKE"),
         ("'UNKNOWN'", "UNKNOWN"),
@@ -605,7 +605,7 @@ fn a_fan_direction_reads_as_the_platform_spelled_it() {
 /// provisioned read as None -- which chassisd publishes as Offline.
 #[test]
 fn every_module_status_the_base_class_defines_reads_as_itself() {
-    let (mut api, chassis) = bridge();
+    let (api, chassis) = bridge();
     for (answer, status) in [
         ("ProvisionReady", ModuleStatus::ProvisionReady),
         ("ProvisionPending", ModuleStatus::ProvisionPending),
@@ -632,7 +632,7 @@ fn every_module_status_the_base_class_defines_reads_as_itself() {
 /// vendor's 0 or "Executed" crosses as the bool Python saw.
 #[test]
 fn an_action_answers_what_the_base_class_answered() {
-    let (mut api, chassis) = bridge();
+    let (api, chassis) = bridge();
     for (answer, read) in [
         ("True", Some(true)),
         ("False", Some(false)),
@@ -660,7 +660,7 @@ fn an_action_answers_what_the_base_class_answered() {
 
 #[test]
 fn an_action_addresses_the_row_by_the_key_the_snapshot_published() {
-    let (mut api, chassis) = bridge();
+    let (api, chassis) = bridge();
     let key = api.get_fans(FanInfoCols::ALL, false).unwrap()[0]
         .key
         .clone();
@@ -679,7 +679,7 @@ fn an_action_addresses_the_row_by_the_key_the_snapshot_published() {
 
 #[test]
 fn an_unknown_key_is_not_found_rather_than_a_backend_failure() {
-    let (mut api, _chassis) = bridge();
+    let (api, _chassis) = bridge();
     match api.set_fan_led(&DeviceKey::from("nope"), LedColor::Red) {
         Err(PlatformError::NotFound(_)) => {}
         other => panic!("expected NotFound, got {other:?}"),
@@ -690,7 +690,7 @@ fn an_unknown_key_is_not_found_rather_than_a_backend_failure() {
 fn a_vendors_own_key_error_is_a_backend_failure_and_not_not_found() {
     // A KeyError out of a vendor's getter is a dictionary miss in its own
     // tables, not a key of ours that led nowhere.
-    let (mut api, chassis) = bridge();
+    let (api, chassis) = bridge();
     Python::with_gil(|py| {
         let fan = chassis.bind(py).getattr("fan").unwrap();
         let picky = py
@@ -706,7 +706,7 @@ fn a_vendors_own_key_error_is_a_backend_failure_and_not_not_found() {
 
 #[test]
 fn a_thermal_that_fails_crosses_as_a_row_saying_why() {
-    let (mut api, chassis) = bridge();
+    let (api, chassis) = bridge();
     Python::with_gil(|py| {
         chassis.bind(py).call_method0("fail_one_thermal").unwrap();
     });
@@ -731,7 +731,7 @@ fn a_thermal_that_fails_crosses_as_a_row_saying_why() {
 /// column, the row is read on, and no error is set.
 #[test]
 fn an_absorbed_failure_costs_one_column_and_sets_no_error() {
-    let (mut api, chassis) = bridge();
+    let (api, chassis) = bridge();
     Python::with_gil(|py| {
         let fan = chassis.bind(py).getattr("fan").unwrap();
         let boom = py.eval(c_str!("lambda: 1 / 0"), None, None).unwrap();
@@ -754,7 +754,7 @@ fn an_absorbed_failure_costs_one_column_and_sets_no_error() {
 /// error.  Absorbing -- psud's way -- it is asked, and the raise absorbed.
 #[test]
 fn an_absent_fan_is_asked_its_speed_only_when_absorbing() {
-    let (mut api, chassis) = bridge();
+    let (api, chassis) = bridge();
     Python::with_gil(|py| {
         let fan = chassis.bind(py).getattr("fan").unwrap();
         let answers = py
@@ -782,7 +782,7 @@ fn an_absent_fan_is_asked_its_speed_only_when_absorbing() {
 /// thermalctld publishes `str(temperature)`, and 41 is "41".
 #[test]
 fn an_integral_reading_crosses_as_an_int() {
-    let (mut api, chassis) = bridge();
+    let (api, chassis) = bridge();
     Python::with_gil(|py| {
         let chassis = chassis.bind(py);
         let module: String = chassis
@@ -804,7 +804,7 @@ fn an_integral_reading_crosses_as_an_int() {
 
 #[test]
 fn a_thermal_says_where_it_is_and_a_skipped_one_is_read_in_part() {
-    let (mut api, _chassis) = bridge();
+    let (api, _chassis) = bridge();
     let rows = api
         .get_thermals(ThermalInfoCols::ALL, &[DeviceKey::from("thermals[0]")])
         .unwrap();
@@ -842,7 +842,7 @@ fn a_thermal_says_where_it_is_and_a_skipped_one_is_read_in_part() {
 fn something_the_platform_does_not_implement_is_not_supported() {
     // The mock has no set_speed on its fan, so the facade raises
     // NotImplementedError; a caller must be able to tell that from a fault.
-    let (mut api, _chassis) = bridge();
+    let (api, _chassis) = bridge();
     let key = api.get_fans(FanInfoCols::ALL, false).unwrap()[0]
         .key
         .clone();
@@ -854,7 +854,7 @@ fn something_the_platform_does_not_implement_is_not_supported() {
 
 #[test]
 fn a_chassis_level_action_needs_no_row() {
-    let (mut api, chassis) = bridge();
+    let (api, chassis) = bridge();
     api.set_chassis_led("green").unwrap();
     Python::with_gil(|py| {
         let led = chassis.bind(py).getattr("led").unwrap();
@@ -868,7 +868,7 @@ fn a_chassis_level_action_needs_no_row() {
 /// log a set that failed.  A platform that answers nothing is not a failure.
 #[test]
 fn the_chassis_led_takes_a_vendor_colour_and_answers_whether_it_took() {
-    let (mut api, chassis) = bridge();
+    let (api, chassis) = bridge();
     assert_eq!(api.set_chassis_led("amber_blink").unwrap(), Some(true));
     Python::with_gil(|py| {
         let led = chassis.bind(py).getattr("led").unwrap();
@@ -886,7 +886,7 @@ fn the_chassis_led_takes_a_vendor_colour_and_answers_whether_it_took() {
 /// publish "N/A" instead.
 #[test]
 fn an_led_reads_as_the_colour_the_platform_answered() {
-    let (mut api, chassis) = bridge();
+    let (api, chassis) = bridge();
     api.set_chassis_led("green_blink").unwrap();
     Python::with_gil(|py| {
         let fan = chassis.bind(py).getattr("fan").unwrap();
@@ -901,7 +901,7 @@ fn an_led_reads_as_the_colour_the_platform_answered() {
 
 #[test]
 fn a_platform_without_a_thermal_manager_is_quiet() {
-    let (mut api, _chassis) = bridge();
+    let (api, _chassis) = bridge();
     api.tm_initialize().unwrap();
     api.tm_run_policy().unwrap();
     assert_eq!(api.tm_get_interval().unwrap(), None);
@@ -923,7 +923,7 @@ fn tm_stop_stops_the_manager_and_nothing_else() {
          class Chassis:\n\
          \x20   def get_thermal_manager(self): return Manager\n"
     );
-    let (mut api, calls) = Python::with_gil(|py| {
+    let (api, calls) = Python::with_gil(|py| {
         let m = PyModule::from_code(py, MANAGER, c_str!("tm.py"), c_str!("tm_stop_mock")).unwrap();
         let chassis = m.getattr("Chassis").unwrap().call0().unwrap();
         let facade = py
@@ -945,7 +945,7 @@ fn tm_stop_stops_the_manager_and_nothing_else() {
 
 #[test]
 fn the_chassis_crosses_as_one_row() {
-    let (mut api, _chassis) = bridge();
+    let (api, _chassis) = bridge();
     let info = api.get_chassis_info(ChassisInfoCols::ALL).unwrap();
     assert_eq!(info.reboot_cause.as_deref(), Some("Watchdog"));
     assert_eq!(info.reboot_cause_detail.as_deref(), Some("counted down"));
@@ -957,7 +957,7 @@ fn the_chassis_crosses_as_one_row() {
 fn returning_the_exception_class_crosses_as_absent() {
     // Five base-class methods `return NotImplementedError` rather than
     // raising it.  It is truthy, so an unguarded bridge would publish it.
-    let (mut api, _chassis) = bridge();
+    let (api, _chassis) = bridge();
     assert_eq!(
         api.get_chassis_info(ChassisInfoCols::ALL).unwrap().my_slot,
         None
@@ -971,7 +971,7 @@ fn returning_the_exception_class_crosses_as_absent() {
 #[test]
 fn a_module_carries_the_strings_the_base_class_defines() {
     use platform_api::{ModuleStatus, ModuleType};
-    let (mut api, _chassis) = bridge();
+    let (api, _chassis) = bridge();
     let m = &api.get_modules(ModuleInfoCols::ALL).unwrap()[0];
     assert_eq!(m.name, "LC1");
     assert_eq!(m.r#type, Some(ModuleType::LineCard));
@@ -980,7 +980,7 @@ fn a_module_carries_the_strings_the_base_class_defines() {
 
 #[test]
 fn a_module_action_reaches_the_module() {
-    let (mut api, chassis) = bridge();
+    let (api, chassis) = bridge();
     api.reboot_module(&DeviceKey::from("modules[0]"), "DPU")
         .unwrap();
     Python::with_gil(|py| {
@@ -997,7 +997,7 @@ fn a_module_action_reaches_the_module() {
 #[test]
 fn a_two_level_mapping_crosses_as_rows() {
     use platform_api::ChangeEventKind;
-    let (mut api, _chassis) = bridge();
+    let (api, _chassis) = bridge();
     let batch = api.get_change_event(100).unwrap();
     assert!(batch.ok);
     let mut seen: Vec<_> = batch
@@ -1032,7 +1032,7 @@ fn a_limit_keeps_the_side_of_the_union_it_arrived_on() {
     use platform_api::Threshold;
     // `show platform temperature` reads these back as strings, so 105 and
     // 105.0 are different answers and the boundary must not rewrite one.
-    let (mut api, _chassis) = bridge();
+    let (api, _chassis) = bridge();
     let rows = api.get_thermals(ThermalInfoCols::ALL, &[]).unwrap();
     let asic = rows.iter().find(|r| r.name == "ASIC").unwrap();
     assert_eq!(asic.high_threshold, Some(Threshold::Int(105)));
@@ -1048,7 +1048,7 @@ fn a_bool_is_not_a_limit() {
     // first -- a flag where a number is declared is bad data, not the number
     // one -- so what crosses is absence. The bridge keeps its own guard for a
     // caller that wired it to something other than the generated facade.
-    let (mut api, _chassis) = bridge();
+    let (api, _chassis) = bridge();
     let rows = api.get_thermals(ThermalInfoCols::ALL, &[]).unwrap();
     let odd = rows.iter().find(|r| r.name == "ODD").unwrap();
     assert_eq!(odd.high_threshold, None);
@@ -1059,7 +1059,7 @@ fn a_bool_is_not_a_limit() {
 #[test]
 fn every_row_type_crosses() {
     use platform_api::{PowerEntityKind, SensorKind};
-    let mut api = loaded();
+    let api = loaded();
 
     let psus = api.get_psus().unwrap();
     assert_eq!(
@@ -1131,7 +1131,7 @@ fn every_row_type_crosses() {
 #[test]
 fn a_leak_sensor_reaches_through_its_profile() {
     use platform_api::LeakSeverity;
-    let mut api = loaded();
+    let api = loaded();
 
     let profiles = api.get_leak_profiles().unwrap();
     assert_eq!(
@@ -1161,7 +1161,7 @@ fn a_getter_that_takes_the_devices_name_is_given_it() {
     // "Failed to read the modules" every cycle and published no midplane table.
     // The fixture answers true only for its own name, so a stub that passed the
     // wrong string -- or none -- would not satisfy this.
-    let mut api = loaded();
+    let api = loaded();
     let modules = api
         .get_modules(ModuleInfoCols::ALL)
         .expect("the row must be readable");
@@ -1181,7 +1181,7 @@ fn a_narrowed_getter_costs_its_own_column_and_not_the_row() {
     // that as "no chassis info" -- exited "not supported" on a SmartSwitch
     // with four live DPUs, silently.  The column may be absent; the row may
     // not be.
-    let mut api = loaded();
+    let api = loaded();
     let info = api
         .get_chassis_info(ChassisInfoCols::ALL)
         .expect("the row must survive a narrowed getter");
@@ -1203,7 +1203,7 @@ fn a_leak_sensor_that_cannot_be_read_reports_leaking() {
     // `leaking=No` and `device_leak_status=None` in STATE_DB for a switch whose
     // leak sensor had failed, so bmcctld never saw the CRITICAL it cuts power
     // on.  Measured on hardware against the Python daemon on the same box.
-    let mut api = loaded();
+    let api = loaded();
     let sensors = api.get_leak_sensors().unwrap();
     let faulty = sensors
         .iter()
@@ -1218,7 +1218,7 @@ fn a_leak_sensor_that_cannot_be_read_reports_leaking() {
 
 #[test]
 fn the_chassis_row_carries_what_the_platform_answered() {
-    let mut api = loaded();
+    let api = loaded();
     let info = api.get_chassis_info(ChassisInfoCols::ALL).unwrap();
     assert!(info.is_modular_chassis);
     assert_eq!(info.reboot_cause.as_deref(), Some("Watchdog"));
@@ -1227,7 +1227,7 @@ fn the_chassis_row_carries_what_the_platform_answered() {
 
 #[test]
 fn a_component_firmware_query_crosses_with_its_argument() {
-    let mut api = loaded();
+    let api = loaded();
     // BIOS has no such method, so this is the not-supported path -- which is
     // the one a caller has to be able to tell from a real answer.
     match api.get_available_firmware_version(&DeviceKey::from("components[0]"), "/tmp/fw.bin") {
@@ -1263,7 +1263,7 @@ fn a_module_is_asked_for_its_reboot_cause_by_key() {
     // NOTICE per call (`module.py:477,482`), so as a column it wrote 358 lines
     // where Python wrote 20. It is a method, and a method has to be handed the
     // module's key.
-    let mut api = loaded();
+    let api = loaded();
     let rc = api
         .get_module_reboot_cause(&DeviceKey::from("modules[0]"))
         .unwrap();
@@ -1278,7 +1278,7 @@ fn a_module_is_asked_for_its_reboot_cause_by_key() {
 fn a_module_is_asked_why_its_midplane_went_down_by_key() {
     // Asked when a DPU's midplane drops without a planned transition, the way
     // the reboot cause is asked when it restarts; one call fills both halves.
-    let mut api = loaded();
+    let api = loaded();
     let why = api
         .get_module_midplane_down_reason(&DeviceKey::from("modules[0]"))
         .unwrap();
@@ -1291,7 +1291,7 @@ fn a_midplane_reason_for_a_module_nobody_has_is_not_found() {
     // The facade raises for a key no row has, and the bridge carries that
     // across as NotFound -- the case chassisd has to tell from a platform
     // that simply has no answer.
-    let mut api = loaded();
+    let api = loaded();
     match api.get_module_midplane_down_reason(&DeviceKey::from("modules[9]")) {
         Err(PlatformError::NotFound(_)) => {}
         other => panic!("expected NotFound, got {other:?}"),
@@ -1303,7 +1303,7 @@ fn the_platform_writes_its_own_eeprom_table() {
     // syseepromd does not publish EEPROM_INFO itself -- `update_eeprom_db()`
     // does, and it needs the bytes `read_eeprom()` returned. The pair crosses
     // as one call so the raw image never has to.
-    let mut api = loaded();
+    let api = loaded();
     assert_eq!(
         api.eeprom_update_db().unwrap(),
         EepromUpdate::Updated,
@@ -1313,7 +1313,7 @@ fn the_platform_writes_its_own_eeprom_table() {
 
 #[test]
 fn the_pcie_parts_list_survives_one_malformed_entry() {
-    let mut api = loaded();
+    let api = loaded();
     let rows = api.get_pcie_devices().unwrap();
     assert_eq!(
         rows.iter()
@@ -1327,7 +1327,7 @@ fn the_pcie_parts_list_survives_one_malformed_entry() {
 
 #[test]
 fn aer_counters_arrive_flattened_out_of_their_severities() {
-    let mut api = loaded();
+    let api = loaded();
     let mut rows = api.get_pcie_aer_stats(5, 31, 0).unwrap();
     rows.sort_by(|a, b| (&a.severity, &a.field).cmp(&(&b.severity, &b.field)));
     assert_eq!(
@@ -1347,7 +1347,7 @@ fn aer_counters_arrive_flattened_out_of_their_severities() {
 fn a_disk_with_no_utility_class_is_still_a_row() {
     // Dropping it would make a switch with an unreadable disk look like a
     // switch without one, and STORAGE_INFO is the only place that shows.
-    let mut api = loaded();
+    let api = loaded();
     let rows = api.get_storage_devices().unwrap();
     assert_eq!(
         rows.iter()
@@ -1372,7 +1372,7 @@ fn a_disk_with_no_utility_class_is_still_a_row() {
 /// `i64::MAX`, which the column holds, as no reading at all.
 #[test]
 fn a_counter_past_what_a_float_holds_crosses_exactly() {
-    let mut api = loaded_then(|storage| {
+    let api = loaded_then(|storage| {
         let disk = storage.getattr("devices").unwrap().get_item("sda").unwrap();
         let py = storage.py();
         let reads = py.eval(c_str!("lambda: 2 ** 53 + 1"), None, None).unwrap();
@@ -1391,7 +1391,7 @@ fn every_bmc_command_unpacks_its_own_payload_shape() {
     // (code, (task_id, message)) -- task id first in that last one. Unpacking
     // any of them with another's rule yields a row that is the wrong way round
     // and still type-checks.
-    let mut api = loaded();
+    let api = loaded();
 
     let open = api.bmc_open_session().unwrap();
     assert_eq!(open.code, 0);
@@ -1576,7 +1576,7 @@ fn calls(chassis: &Py<PyAny>, device: &str, keep: &[&str]) -> Vec<(String, Strin
 #[test]
 fn every_action_crosses_and_marshals_what_it_was_given() {
     use platform_api::{LedColor, Threshold};
-    let (mut api, chassis) = recorder();
+    let (api, chassis) = recorder();
 
     api.set_fan_led(&DeviceKey::from("fan_drawers[0]/fans[0]"), LedColor::Amber)
         .unwrap();
@@ -1840,7 +1840,7 @@ fn handing_the_signals_back_never_costs_us_the_bridge() {
 /// this test the forwarding could be deleted and every other test would pass.
 #[test]
 fn finalize_runs_the_handlers_the_vendor_registered() {
-    let (mut api, _chassis) = bridge();
+    let (api, _chassis) = bridge();
     Python::with_gil(|py| {
         let m = PyModule::from_code(
             py,
@@ -1865,7 +1865,7 @@ fn finalize_runs_the_handlers_the_vendor_registered() {
 
 #[test]
 fn a_row_carries_the_key_its_actions_take() {
-    let (mut api, _chassis) = bridge();
+    let (api, _chassis) = bridge();
     let fan = api.get_fans(FanInfoCols::ALL, false).unwrap().remove(0);
     assert_eq!(fan.key, DeviceKey::from("fan_drawers[0]/fans[0]"));
     // The drawer's key, so a caller can light the drawer of the fan it holds.
@@ -1874,7 +1874,7 @@ fn a_row_carries_the_key_its_actions_take() {
 
 #[test]
 fn a_name_crosses_to_the_key_python_would_have_resolved() {
-    let mut api = loaded();
+    let api = loaded();
     assert_eq!(
         api.get_component_key("BIOS").unwrap(),
         Some(DeviceKey::from("components[0]"))
@@ -1894,7 +1894,7 @@ fn a_name_crosses_to_the_key_python_would_have_resolved() {
 
 #[test]
 fn transceiver_handles_share_hotplug_state_and_preserve_binary_io() {
-    let mut api = Python::with_gil(|py| {
+    let api = Python::with_gil(|py| {
         let m = PyModule::from_code(
             py,
             c_str!(
@@ -1912,6 +1912,7 @@ class Sfp:
     def __init__(self):
         self.generation = 1
         self.decoder = None
+        self.temperatures = iter((42, 42.5, None, float("-inf"), float("inf"), float("nan")))
     def get_presence(self):
         return True
     def get_xcvr_api(self):
@@ -1922,6 +1923,10 @@ class Sfp:
         self.decoder = None
     def get_transceiver_threshold_info(self):
         return {"rxpowerlowalarm": float("-inf")}
+    def get_transceiver_pm(self):
+        raise AssertionError("capability discovery must not read hardware")
+    def get_temperature(self):
+        return next(self.temperatures)
     def read_eeprom(self, offset, length):
         assert offset == 129
         return bytearray([0, 128, 255]) if length == 3 else None
@@ -1933,12 +1938,12 @@ class Sfp:
 class Chassis:
     def __init__(self):
         self.sfp = Sfp()
-    def get_all_sfps(self):
-        return [self.sfp]
+    def get_sfp(self, index):
+        return self.sfp if index == 3 else None
     def get_change_event(self, timeout):
         self.sfp.generation += 1
         self.sfp.remove_xcvr_api()
-        return False, {"sfp": {0: "0"}, "sfp_error": {0: "vendor error"}}
+        return False, {"sfp": {3: "0"}, "sfp_error": {3: "vendor error"}}
 
 facade = PlatformApi(Chassis())
 "#
@@ -1949,16 +1954,40 @@ facade = PlatformApi(Chassis())
         .unwrap();
         Bridge::from_facade(m.getattr("facade").unwrap().unbind())
     });
-    let key = api.get_sfps().unwrap().remove(0).key;
-    let mut handle = api.clone();
+    let rows = api.get_sfps(&[1, 3, 7]).unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].index, 3);
+    let key = rows[0].key.clone();
+    let handle = &api;
     assert_eq!(handle.sfp_get_presence(&key).unwrap(), Some(true));
     assert_eq!(handle.sfp_get_type(&key).unwrap(), "QSFP_DD");
+    assert!(handle.sfp_uses_legacy_pm(&key).unwrap());
+    assert_eq!(
+        handle.sfp_get_temperature(&key).unwrap(),
+        Some(Number::Int(42))
+    );
+    assert_eq!(
+        handle.sfp_get_temperature(&key).unwrap(),
+        Some(Number::Float(42.5))
+    );
+    assert_eq!(handle.sfp_get_temperature(&key).unwrap(), None);
+    for expected in [f64::NEG_INFINITY, f64::INFINITY] {
+        assert_eq!(
+            handle.sfp_get_temperature(&key).unwrap(),
+            Some(Number::Float(expected))
+        );
+    }
+    assert!(matches!(
+        handle.sfp_get_temperature(&key).unwrap(),
+        Some(Number::Float(value)) if value.is_nan()
+    ));
     assert_eq!(
         handle.sfp_get_module_state(&key).unwrap().as_deref(),
         Some("generation 1")
     );
     let events = api.get_change_event(1).unwrap();
     assert!(!events.ok);
+    assert_eq!(events.events[0].device_id, rows[0].index.to_string());
     assert_eq!(events.events[1].status, "vendor error");
     assert_eq!(
         handle.sfp_get_module_state(&key).unwrap().as_deref(),
@@ -1980,5 +2009,52 @@ facade = PlatformApi(Chassis())
     assert!(matches!(
         handle.sfp_read_eeprom(&DeviceKey::from("fans[0]"), 0, 1),
         Err(PlatformError::NotFound(_))
+    ));
+}
+
+#[test]
+fn an_absent_decoder_is_a_missing_read_not_an_unsupported_method() {
+    let api = Python::with_gil(|py| {
+        let m = PyModule::from_code(
+            py,
+            c_str!(
+                r#"
+from sonic_platform_api.facade import PlatformApi
+
+class Sfp:
+    calls = 0
+    def get_xcvr_api(self):
+        self.calls += 1
+        return None if self.calls <= 3 else object()
+
+class Chassis:
+    sfp = Sfp()
+    def get_sfp(self, index):
+        return self.sfp if index == 0 else None
+
+facade = PlatformApi(Chassis())
+"#
+            ),
+            c_str!("absent_decoder.py"),
+            c_str!("absent_decoder"),
+        )
+        .unwrap();
+        Bridge::from_facade(m.getattr("facade").unwrap().unbind())
+    });
+    let key = api.get_sfps(&[0]).unwrap().remove(0).key;
+    assert_eq!(api.sfp_is_flat_memory(&key).unwrap(), None);
+    assert_eq!(api.sfp_get_module_state(&key).unwrap(), None);
+    assert_eq!(api.sfp_get_datapath_state(&key).unwrap(), "null");
+    assert!(matches!(
+        api.sfp_is_flat_memory(&key),
+        Err(PlatformError::NotSupported(_))
+    ));
+    assert!(matches!(
+        api.sfp_get_module_state(&key),
+        Err(PlatformError::NotSupported(_))
+    ));
+    assert!(matches!(
+        api.sfp_get_datapath_state(&key),
+        Err(PlatformError::NotSupported(_))
     ));
 }

@@ -1621,9 +1621,12 @@ pub struct WatchdogInfo {
 /// Inventory does not read EEPROM or latched flags. Reads and actions address
 /// the key individually so a presence check cannot consume a DOM alarm, and
 /// CMIS bring-up need not decode an entire module for one state field.
+/// `index` is the vendor's physical port index, also used by change events;
+/// it is never a position in get_all_sfps().
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SfpInfo {
     pub key: DeviceKey,
+    pub index: u32,
 }
 
 /// One device that changed, out of the two-level mapping the base class
@@ -1825,11 +1828,17 @@ impl std::fmt::Debug for BmcResult {
 
 /// The platform, as the daemons see it.
 ///
-/// `&mut self` throughout: an implementation may cache what it reads within a
-/// polling cycle, and the snapshot methods are exactly where that cache is
-/// refreshed.
-pub trait PlatformApi: Send {
-    /// Transceiver slots in chassis list order, addressed by DeviceKey.
+/// Shared access lets a daemon wait for change events while other threads
+/// read or act on the same platform, without cloning device state. Cache
+/// mutation and per-device synchronization belong to the implementation.
+/// A blocking event wait must not hold locks needed by other operations.
+/// Share one implementation with `Arc`, not independently cloned platforms.
+pub trait PlatformApi: Send + Sync {
+    /// Slots at port_config's physical indices, in the requested order.
+    ///
+    /// Reach each slot through get_sfp(index), never get_all_sfps(). Missing
+    /// indices are skipped without shifting any other slot's key or index.
+    /// Empty cages still have rows. No EEPROM or latched flags are read.
     ///
     /// Order is part of the contract: it is what lets the Rust and the Python
     /// implementations be compared row for row.
@@ -1837,8 +1846,8 @@ pub trait PlatformApi: Send {
     /// Empty by default, so that adding a row type to the schema does not
     /// break every implementation that does not have one -- a platform with
     /// no BMC should not have to write a method to say so.
-    fn get_sfps(&mut self) -> Result<Vec<SfpInfo>, PlatformError> {
-        let _ = ();
+    fn get_sfps(&self, indices: &[u32]) -> Result<Vec<SfpInfo>, PlatformError> {
+        let _ = (indices,);
         Ok(Vec::new())
     }
     /// The chassis.
@@ -1848,7 +1857,7 @@ pub trait PlatformApi: Send {
     ///
     /// No default: a chassis that cannot describe itself has nothing an empty
     /// value could stand in for.
-    fn get_chassis_info(&mut self, cols: ChassisInfoCols) -> Result<ChassisInfo, PlatformError> {
+    fn get_chassis_info(&self, cols: ChassisInfoCols) -> Result<ChassisInfo, PlatformError> {
         let _ = (cols,);
         Err(PlatformError::NotSupported("get_chassis_info".to_string()))
     }
@@ -1860,7 +1869,7 @@ pub trait PlatformApi: Send {
     /// Empty by default, so that adding a row type to the schema does not
     /// break every implementation that does not have one -- a platform with
     /// no BMC should not have to write a method to say so.
-    fn get_modules(&mut self, cols: ModuleInfoCols) -> Result<Vec<ModuleInfo>, PlatformError> {
+    fn get_modules(&self, cols: ModuleInfoCols) -> Result<Vec<ModuleInfo>, PlatformError> {
         let _ = (cols,);
         Ok(Vec::new())
     }
@@ -1881,7 +1890,7 @@ pub trait PlatformApi: Send {
     /// Empty by default, so that adding a row type to the schema does not
     /// break every implementation that does not have one -- a platform with
     /// no BMC should not have to write a method to say so.
-    fn get_thermals(&mut self, cols: ThermalInfoCols, skip: &[DeviceKey]) -> Result<Vec<ThermalInfo>, PlatformError> {
+    fn get_thermals(&self, cols: ThermalInfoCols, skip: &[DeviceKey]) -> Result<Vec<ThermalInfo>, PlatformError> {
         let _ = (cols, skip,);
         Ok(Vec::new())
     }
@@ -1902,7 +1911,7 @@ pub trait PlatformApi: Send {
     /// Empty by default, so that adding a row type to the schema does not
     /// break every implementation that does not have one -- a platform with
     /// no BMC should not have to write a method to say so.
-    fn get_fans(&mut self, cols: FanInfoCols, absorb: bool) -> Result<Vec<FanInfo>, PlatformError> {
+    fn get_fans(&self, cols: FanInfoCols, absorb: bool) -> Result<Vec<FanInfo>, PlatformError> {
         let _ = (cols, absorb,);
         Ok(Vec::new())
     }
@@ -1914,7 +1923,7 @@ pub trait PlatformApi: Send {
     /// Empty by default, so that adding a row type to the schema does not
     /// break every implementation that does not have one -- a platform with
     /// no BMC should not have to write a method to say so.
-    fn get_fan_drawers(&mut self, cols: FanDrawerInfoCols) -> Result<Vec<FanDrawerInfo>, PlatformError> {
+    fn get_fan_drawers(&self, cols: FanDrawerInfoCols) -> Result<Vec<FanDrawerInfo>, PlatformError> {
         let _ = (cols,);
         Ok(Vec::new())
     }
@@ -1930,7 +1939,7 @@ pub trait PlatformApi: Send {
     /// Empty by default, so that adding a row type to the schema does not
     /// break every implementation that does not have one -- a platform with
     /// no BMC should not have to write a method to say so.
-    fn get_psus(&mut self) -> Result<Vec<PsuInfo>, PlatformError> {
+    fn get_psus(&self) -> Result<Vec<PsuInfo>, PlatformError> {
         let _ = ();
         Ok(Vec::new())
     }
@@ -1942,7 +1951,7 @@ pub trait PlatformApi: Send {
     /// Empty by default, so that adding a row type to the schema does not
     /// break every implementation that does not have one -- a platform with
     /// no BMC should not have to write a method to say so.
-    fn get_components(&mut self) -> Result<Vec<ComponentInfo>, PlatformError> {
+    fn get_components(&self) -> Result<Vec<ComponentInfo>, PlatformError> {
         let _ = ();
         Ok(Vec::new())
     }
@@ -1959,7 +1968,7 @@ pub trait PlatformApi: Send {
     /// Empty by default, so that adding a row type to the schema does not
     /// break every implementation that does not have one -- a platform with
     /// no BMC should not have to write a method to say so.
-    fn get_sensors(&mut self) -> Result<Vec<SensorInfo>, PlatformError> {
+    fn get_sensors(&self) -> Result<Vec<SensorInfo>, PlatformError> {
         let _ = ();
         Ok(Vec::new())
     }
@@ -1971,7 +1980,7 @@ pub trait PlatformApi: Send {
     /// Empty by default, so that adding a row type to the schema does not
     /// break every implementation that does not have one -- a platform with
     /// no BMC should not have to write a method to say so.
-    fn get_leak_profiles(&mut self) -> Result<Vec<LeakProfile>, PlatformError> {
+    fn get_leak_profiles(&self) -> Result<Vec<LeakProfile>, PlatformError> {
         let _ = ();
         Ok(Vec::new())
     }
@@ -1983,7 +1992,7 @@ pub trait PlatformApi: Send {
     /// Empty by default, so that adding a row type to the schema does not
     /// break every implementation that does not have one -- a platform with
     /// no BMC should not have to write a method to say so.
-    fn get_leak_sensors(&mut self) -> Result<Vec<LeakSensorInfo>, PlatformError> {
+    fn get_leak_sensors(&self) -> Result<Vec<LeakSensorInfo>, PlatformError> {
         let _ = ();
         Ok(Vec::new())
     }
@@ -1995,7 +2004,7 @@ pub trait PlatformApi: Send {
     /// Empty by default, so that adding a row type to the schema does not
     /// break every implementation that does not have one -- a platform with
     /// no BMC should not have to write a method to say so.
-    fn get_eeprom(&mut self) -> Result<Vec<EepromTlv>, PlatformError> {
+    fn get_eeprom(&self) -> Result<Vec<EepromTlv>, PlatformError> {
         let _ = ();
         Ok(Vec::new())
     }
@@ -2007,7 +2016,7 @@ pub trait PlatformApi: Send {
     /// Empty by default, so that adding a row type to the schema does not
     /// break every implementation that does not have one -- a platform with
     /// no BMC should not have to write a method to say so.
-    fn get_bmcs(&mut self) -> Result<Vec<BmcInfo>, PlatformError> {
+    fn get_bmcs(&self) -> Result<Vec<BmcInfo>, PlatformError> {
         let _ = ();
         Ok(Vec::new())
     }
@@ -2022,7 +2031,7 @@ pub trait PlatformApi: Send {
     /// Empty by default, so that adding a row type to the schema does not
     /// break every implementation that does not have one -- a platform with
     /// no BMC should not have to write a method to say so.
-    fn get_watchdogs(&mut self) -> Result<Vec<WatchdogInfo>, PlatformError> {
+    fn get_watchdogs(&self) -> Result<Vec<WatchdogInfo>, PlatformError> {
         let _ = ();
         Ok(Vec::new())
     }
@@ -2031,7 +2040,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_get_presence is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_get_presence(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+    fn sfp_get_presence(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_get_presence".to_string()))
     }
@@ -2040,7 +2049,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_is_replaceable is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_is_replaceable(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+    fn sfp_is_replaceable(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_is_replaceable".to_string()))
     }
@@ -2049,7 +2058,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_get_reset_status is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_get_reset_status(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+    fn sfp_get_reset_status(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_get_reset_status".to_string()))
     }
@@ -2058,7 +2067,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_get_lpmode is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_get_lpmode(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+    fn sfp_get_lpmode(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_get_lpmode".to_string()))
     }
@@ -2067,7 +2076,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_get_error_description is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_get_error_description(&mut self, sfp: &DeviceKey) -> Result<Option<String>, PlatformError> {
+    fn sfp_get_error_description(&self, sfp: &DeviceKey) -> Result<Option<String>, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_get_error_description".to_string()))
     }
@@ -2076,26 +2085,28 @@ pub trait PlatformApi: Send {
     ///
     /// No default: what this answers has no empty value that is not also a
     /// lie, so a platform that cannot answer has to say so.
-    fn sfp_get_type(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+    fn sfp_get_type(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_get_type".to_string()))
     }
 
-    /// Whether the SFP exposes a method, without reading hardware.
+    /// Whether PM exists without the newer VDM capability interface.
+    ///
+    /// Tests for get_transceiver_pm and the absence of
+    /// is_transceiver_vdm_supported, without invoking either method.
     ///
     /// No default: what this answers has no empty value that is not also a
     /// lie, so a platform that cannot answer has to say so.
-    fn sfp_has_method(&mut self, sfp: &DeviceKey, method: &str) -> Result<bool, PlatformError> {
+    fn sfp_uses_legacy_pm(&self, sfp: &DeviceKey) -> Result<bool, PlatformError> {
         let _ = sfp;
-        let _ = method;
-        Err(PlatformError::NotSupported("sfp_has_method".to_string()))
+        Err(PlatformError::NotSupported("sfp_uses_legacy_pm".to_string()))
     }
 
     /// Calls `SfpBase.get_transceiver_info()` on the SfpInfo at `sfp`.
     ///
     /// Not supported by default: a platform whose sfp_get_transceiver_info is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_get_transceiver_info(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+    fn sfp_get_transceiver_info(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_get_transceiver_info".to_string()))
     }
@@ -2104,7 +2115,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_get_transceiver_info_firmware_versions is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_get_transceiver_info_firmware_versions(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+    fn sfp_get_transceiver_info_firmware_versions(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_get_transceiver_info_firmware_versions".to_string()))
     }
@@ -2113,7 +2124,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_get_transceiver_status is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_get_transceiver_status(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+    fn sfp_get_transceiver_status(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_get_transceiver_status".to_string()))
     }
@@ -2122,7 +2133,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_get_transceiver_status_flags is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_get_transceiver_status_flags(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+    fn sfp_get_transceiver_status_flags(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_get_transceiver_status_flags".to_string()))
     }
@@ -2131,7 +2142,7 @@ pub trait PlatformApi: Send {
     ///
     /// No default: what this answers has no empty value that is not also a
     /// lie, so a platform that cannot answer has to say so.
-    fn sfp_get_transceiver_dom_real_value(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+    fn sfp_get_transceiver_dom_real_value(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_get_transceiver_dom_real_value".to_string()))
     }
@@ -2140,7 +2151,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_get_transceiver_dom_flags is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_get_transceiver_dom_flags(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+    fn sfp_get_transceiver_dom_flags(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_get_transceiver_dom_flags".to_string()))
     }
@@ -2149,7 +2160,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_get_transceiver_threshold_info is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_get_transceiver_threshold_info(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+    fn sfp_get_transceiver_threshold_info(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_get_transceiver_threshold_info".to_string()))
     }
@@ -2158,7 +2169,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_get_temperature is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_get_temperature(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+    fn sfp_get_temperature(&self, sfp: &DeviceKey) -> Result<Option<Number>, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_get_temperature".to_string()))
     }
@@ -2167,7 +2178,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_get_transceiver_pm is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_get_transceiver_pm(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+    fn sfp_get_transceiver_pm(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_get_transceiver_pm".to_string()))
     }
@@ -2176,7 +2187,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_is_transceiver_vdm_supported is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_is_transceiver_vdm_supported(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+    fn sfp_is_transceiver_vdm_supported(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_is_transceiver_vdm_supported".to_string()))
     }
@@ -2185,7 +2196,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_is_vdm_statistic_supported is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_is_vdm_statistic_supported(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+    fn sfp_is_vdm_statistic_supported(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_is_vdm_statistic_supported".to_string()))
     }
@@ -2194,7 +2205,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_get_transceiver_vdm_real_value_basic is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_get_transceiver_vdm_real_value_basic(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+    fn sfp_get_transceiver_vdm_real_value_basic(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_get_transceiver_vdm_real_value_basic".to_string()))
     }
@@ -2203,7 +2214,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_get_transceiver_vdm_real_value_statistic is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_get_transceiver_vdm_real_value_statistic(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+    fn sfp_get_transceiver_vdm_real_value_statistic(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_get_transceiver_vdm_real_value_statistic".to_string()))
     }
@@ -2212,7 +2223,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_get_transceiver_vdm_flags is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_get_transceiver_vdm_flags(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+    fn sfp_get_transceiver_vdm_flags(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_get_transceiver_vdm_flags".to_string()))
     }
@@ -2221,7 +2232,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_get_transceiver_vdm_thresholds is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_get_transceiver_vdm_thresholds(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+    fn sfp_get_transceiver_vdm_thresholds(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_get_transceiver_vdm_thresholds".to_string()))
     }
@@ -2230,7 +2241,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_get_vdm_freeze_status is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_get_vdm_freeze_status(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+    fn sfp_get_vdm_freeze_status(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_get_vdm_freeze_status".to_string()))
     }
@@ -2239,7 +2250,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_get_vdm_unfreeze_status is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_get_vdm_unfreeze_status(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+    fn sfp_get_vdm_unfreeze_status(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_get_vdm_unfreeze_status".to_string()))
     }
@@ -2248,7 +2259,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_set_lpmode is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_set_lpmode(&mut self, sfp: &DeviceKey, on: bool) -> Result<Option<bool>, PlatformError> {
+    fn sfp_set_lpmode(&self, sfp: &DeviceKey, on: bool) -> Result<Option<bool>, PlatformError> {
         let _ = sfp;
         let _ = on;
         Err(PlatformError::NotSupported("sfp_set_lpmode".to_string()))
@@ -2258,7 +2269,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_reset is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_reset(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+    fn sfp_reset(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_reset".to_string()))
     }
@@ -2267,7 +2278,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_remove_xcvr_api is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_remove_xcvr_api(&mut self, sfp: &DeviceKey) -> Result<(), PlatformError> {
+    fn sfp_remove_xcvr_api(&self, sfp: &DeviceKey) -> Result<(), PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_remove_xcvr_api".to_string()))
     }
@@ -2276,7 +2287,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_freeze_vdm_stats is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_freeze_vdm_stats(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+    fn sfp_freeze_vdm_stats(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_freeze_vdm_stats".to_string()))
     }
@@ -2285,7 +2296,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_unfreeze_vdm_stats is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_unfreeze_vdm_stats(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+    fn sfp_unfreeze_vdm_stats(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_unfreeze_vdm_stats".to_string()))
     }
@@ -2294,7 +2305,7 @@ pub trait PlatformApi: Send {
     ///
     /// `None` by default, which is how a platform says it has no answer
     /// rather than that the call failed.
-    fn sfp_read_eeprom(&mut self, sfp: &DeviceKey, offset: i64, num_bytes: i64) -> Result<Option<Vec<u8>>, PlatformError> {
+    fn sfp_read_eeprom(&self, sfp: &DeviceKey, offset: i64, num_bytes: i64) -> Result<Option<Vec<u8>>, PlatformError> {
         let _ = sfp;
         let _ = offset;
         let _ = num_bytes;
@@ -2305,7 +2316,7 @@ pub trait PlatformApi: Send {
     ///
     /// `None` by default, which is how a platform says it has no answer
     /// rather than that the call failed.
-    fn sfp_write_eeprom(&mut self, sfp: &DeviceKey, offset: i64, data: &[u8]) -> Result<Option<bool>, PlatformError> {
+    fn sfp_write_eeprom(&self, sfp: &DeviceKey, offset: i64, data: &[u8]) -> Result<Option<bool>, PlatformError> {
         let _ = sfp;
         let _ = offset;
         let _ = data;
@@ -2316,7 +2327,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_is_flat_memory is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_is_flat_memory(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+    fn sfp_is_flat_memory(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_is_flat_memory".to_string()))
     }
@@ -2325,7 +2336,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_get_module_type_abbreviation is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_get_module_type_abbreviation(&mut self, sfp: &DeviceKey) -> Result<Option<String>, PlatformError> {
+    fn sfp_get_module_type_abbreviation(&self, sfp: &DeviceKey) -> Result<Option<String>, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_get_module_type_abbreviation".to_string()))
     }
@@ -2334,7 +2345,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_is_coherent_module is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_is_coherent_module(&mut self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+    fn sfp_is_coherent_module(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_is_coherent_module".to_string()))
     }
@@ -2343,7 +2354,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_get_module_state is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_get_module_state(&mut self, sfp: &DeviceKey) -> Result<Option<String>, PlatformError> {
+    fn sfp_get_module_state(&self, sfp: &DeviceKey) -> Result<Option<String>, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_get_module_state".to_string()))
     }
@@ -2352,7 +2363,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_get_cmis_rev is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_get_cmis_rev(&mut self, sfp: &DeviceKey) -> Result<Option<String>, PlatformError> {
+    fn sfp_get_cmis_rev(&self, sfp: &DeviceKey) -> Result<Option<String>, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_get_cmis_rev".to_string()))
     }
@@ -2361,7 +2372,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_get_application_advertisement is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_get_application_advertisement(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+    fn sfp_get_application_advertisement(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_get_application_advertisement".to_string()))
     }
@@ -2370,7 +2381,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_get_datapath_state is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_get_datapath_state(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+    fn sfp_get_datapath_state(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_get_datapath_state".to_string()))
     }
@@ -2379,7 +2390,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_get_config_datapath_hostlane_status is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_get_config_datapath_hostlane_status(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+    fn sfp_get_config_datapath_hostlane_status(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_get_config_datapath_hostlane_status".to_string()))
     }
@@ -2388,7 +2399,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose sfp_get_dpinit_pending is not
     /// software-controllable should not have to write a method to say so.
-    fn sfp_get_dpinit_pending(&mut self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+    fn sfp_get_dpinit_pending(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
         let _ = sfp;
         Err(PlatformError::NotSupported("sfp_get_dpinit_pending".to_string()))
     }
@@ -2402,7 +2413,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose set_fan_led is not
     /// software-controllable should not have to write a method to say so.
-    fn set_fan_led(&mut self, fan: &DeviceKey, color: LedColor) -> Result<Option<bool>, PlatformError> {
+    fn set_fan_led(&self, fan: &DeviceKey, color: LedColor) -> Result<Option<bool>, PlatformError> {
         let _ = fan;
         let _ = color;
         Err(PlatformError::NotSupported("set_fan_led".to_string()))
@@ -2412,7 +2423,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose set_fan_drawer_led is not
     /// software-controllable should not have to write a method to say so.
-    fn set_fan_drawer_led(&mut self, drawer: &DeviceKey, color: LedColor) -> Result<Option<bool>, PlatformError> {
+    fn set_fan_drawer_led(&self, drawer: &DeviceKey, color: LedColor) -> Result<Option<bool>, PlatformError> {
         let _ = drawer;
         let _ = color;
         Err(PlatformError::NotSupported("set_fan_drawer_led".to_string()))
@@ -2422,7 +2433,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose set_fan_speed is not
     /// software-controllable should not have to write a method to say so.
-    fn set_fan_speed(&mut self, fan: &DeviceKey, speed: i64) -> Result<Option<bool>, PlatformError> {
+    fn set_fan_speed(&self, fan: &DeviceKey, speed: i64) -> Result<Option<bool>, PlatformError> {
         let _ = fan;
         let _ = speed;
         Err(PlatformError::NotSupported("set_fan_speed".to_string()))
@@ -2432,7 +2443,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose set_psu_led is not
     /// software-controllable should not have to write a method to say so.
-    fn set_psu_led(&mut self, psu: &DeviceKey, color: LedColor) -> Result<Option<bool>, PlatformError> {
+    fn set_psu_led(&self, psu: &DeviceKey, color: LedColor) -> Result<Option<bool>, PlatformError> {
         let _ = psu;
         let _ = color;
         Err(PlatformError::NotSupported("set_psu_led".to_string()))
@@ -2461,7 +2472,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose get_module_reboot_cause is not
     /// software-controllable should not have to write a method to say so.
-    fn get_module_reboot_cause(&mut self, module: &DeviceKey) -> Result<ModuleRebootCause, PlatformError> {
+    fn get_module_reboot_cause(&self, module: &DeviceKey) -> Result<ModuleRebootCause, PlatformError> {
         let _ = module;
         Err(PlatformError::NotSupported("get_module_reboot_cause".to_string()))
     }
@@ -2474,7 +2485,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose get_module_midplane_down_reason is not
     /// software-controllable should not have to write a method to say so.
-    fn get_module_midplane_down_reason(&mut self, module: &DeviceKey) -> Result<ModuleMidplaneDownReason, PlatformError> {
+    fn get_module_midplane_down_reason(&self, module: &DeviceKey) -> Result<ModuleMidplaneDownReason, PlatformError> {
         let _ = module;
         Err(PlatformError::NotSupported("get_module_midplane_down_reason".to_string()))
     }
@@ -2487,7 +2498,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose get_psu_master_led is not
     /// software-controllable should not have to write a method to say so.
-    fn get_psu_master_led(&mut self, psu: &DeviceKey) -> Result<Option<String>, PlatformError> {
+    fn get_psu_master_led(&self, psu: &DeviceKey) -> Result<Option<String>, PlatformError> {
         let _ = psu;
         Err(PlatformError::NotSupported("get_psu_master_led".to_string()))
     }
@@ -2501,7 +2512,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose set_psu_master_led is not
     /// software-controllable should not have to write a method to say so.
-    fn set_psu_master_led(&mut self, psu: &DeviceKey, color: LedColor) -> Result<Option<bool>, PlatformError> {
+    fn set_psu_master_led(&self, psu: &DeviceKey, color: LedColor) -> Result<Option<bool>, PlatformError> {
         let _ = psu;
         let _ = color;
         Err(PlatformError::NotSupported("set_psu_master_led".to_string()))
@@ -2511,7 +2522,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose reboot_module is not
     /// software-controllable should not have to write a method to say so.
-    fn reboot_module(&mut self, module: &DeviceKey, reboot_type: &str) -> Result<Option<bool>, PlatformError> {
+    fn reboot_module(&self, module: &DeviceKey, reboot_type: &str) -> Result<Option<bool>, PlatformError> {
         let _ = module;
         let _ = reboot_type;
         Err(PlatformError::NotSupported("reboot_module".to_string()))
@@ -2521,7 +2532,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose set_module_admin_state is not
     /// software-controllable should not have to write a method to say so.
-    fn set_module_admin_state(&mut self, module: &DeviceKey, up: bool) -> Result<Option<bool>, PlatformError> {
+    fn set_module_admin_state(&self, module: &DeviceKey, up: bool) -> Result<Option<bool>, PlatformError> {
         let _ = module;
         let _ = up;
         Err(PlatformError::NotSupported("set_module_admin_state".to_string()))
@@ -2535,7 +2546,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose set_module_admin_state_gracefully is not
     /// software-controllable should not have to write a method to say so.
-    fn set_module_admin_state_gracefully(&mut self, module: &DeviceKey, up: bool) -> Result<Option<bool>, PlatformError> {
+    fn set_module_admin_state_gracefully(&self, module: &DeviceKey, up: bool) -> Result<Option<bool>, PlatformError> {
         let _ = module;
         let _ = up;
         Err(PlatformError::NotSupported("set_module_admin_state_gracefully".to_string()))
@@ -2545,7 +2556,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose power_cycle_module is not
     /// software-controllable should not have to write a method to say so.
-    fn power_cycle_module(&mut self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+    fn power_cycle_module(&self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
         let _ = module;
         Err(PlatformError::NotSupported("power_cycle_module".to_string()))
     }
@@ -2554,7 +2565,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose module_pre_shutdown is not
     /// software-controllable should not have to write a method to say so.
-    fn module_pre_shutdown(&mut self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+    fn module_pre_shutdown(&self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
         let _ = module;
         Err(PlatformError::NotSupported("module_pre_shutdown".to_string()))
     }
@@ -2563,7 +2574,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose module_post_startup is not
     /// software-controllable should not have to write a method to say so.
-    fn module_post_startup(&mut self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+    fn module_post_startup(&self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
         let _ = module;
         Err(PlatformError::NotSupported("module_post_startup".to_string()))
     }
@@ -2575,7 +2586,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose set_module_state_transition is not
     /// software-controllable should not have to write a method to say so.
-    fn set_module_state_transition(&mut self, module: &DeviceKey, transition_type: &str) -> Result<Option<bool>, PlatformError> {
+    fn set_module_state_transition(&self, module: &DeviceKey, transition_type: &str) -> Result<Option<bool>, PlatformError> {
         let _ = module;
         let _ = transition_type;
         Err(PlatformError::NotSupported("set_module_state_transition".to_string()))
@@ -2585,7 +2596,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose clear_module_state_transition is not
     /// software-controllable should not have to write a method to say so.
-    fn clear_module_state_transition(&mut self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+    fn clear_module_state_transition(&self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
         let _ = module;
         Err(PlatformError::NotSupported("clear_module_state_transition".to_string()))
     }
@@ -2594,7 +2605,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose clear_module_gnoi_halt is not
     /// software-controllable should not have to write a method to say so.
-    fn clear_module_gnoi_halt(&mut self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+    fn clear_module_gnoi_halt(&self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
         let _ = module;
         Err(PlatformError::NotSupported("clear_module_gnoi_halt".to_string()))
     }
@@ -2603,7 +2614,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose set_sensor_high_threshold is not
     /// software-controllable should not have to write a method to say so.
-    fn set_sensor_high_threshold(&mut self, sensor: &DeviceKey, value: Number) -> Result<Option<bool>, PlatformError> {
+    fn set_sensor_high_threshold(&self, sensor: &DeviceKey, value: Number) -> Result<Option<bool>, PlatformError> {
         let _ = sensor;
         let _ = value;
         Err(PlatformError::NotSupported("set_sensor_high_threshold".to_string()))
@@ -2613,7 +2624,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose set_sensor_low_threshold is not
     /// software-controllable should not have to write a method to say so.
-    fn set_sensor_low_threshold(&mut self, sensor: &DeviceKey, value: Number) -> Result<Option<bool>, PlatformError> {
+    fn set_sensor_low_threshold(&self, sensor: &DeviceKey, value: Number) -> Result<Option<bool>, PlatformError> {
         let _ = sensor;
         let _ = value;
         Err(PlatformError::NotSupported("set_sensor_low_threshold".to_string()))
@@ -2628,7 +2639,7 @@ pub trait PlatformApi: Send {
     ///
     /// `None` by default, which is how a platform says it has no answer
     /// rather than that the call failed.
-    fn get_module_key(&mut self, name: &str) -> Result<Option<DeviceKey>, PlatformError> {
+    fn get_module_key(&self, name: &str) -> Result<Option<DeviceKey>, PlatformError> {
         let _ = name;
         Ok(None)
     }
@@ -2643,7 +2654,7 @@ pub trait PlatformApi: Send {
     ///
     /// `None` by default, which is how a platform says it has no answer
     /// rather than that the call failed.
-    fn get_component_key(&mut self, name: &str) -> Result<Option<DeviceKey>, PlatformError> {
+    fn get_component_key(&self, name: &str) -> Result<Option<DeviceKey>, PlatformError> {
         let _ = name;
         Ok(None)
     }
@@ -2658,7 +2669,7 @@ pub trait PlatformApi: Send {
     ///
     /// `None` by default, which is how a platform says it has no answer
     /// rather than that the call failed.
-    fn get_module_component_key(&mut self, module: &str, name: &str) -> Result<Option<DeviceKey>, PlatformError> {
+    fn get_module_component_key(&self, module: &str, name: &str) -> Result<Option<DeviceKey>, PlatformError> {
         let _ = module;
         let _ = name;
         Ok(None)
@@ -2668,7 +2679,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose get_available_firmware_version is not
     /// software-controllable should not have to write a method to say so.
-    fn get_available_firmware_version(&mut self, component: &DeviceKey, image_path: &str) -> Result<Option<String>, PlatformError> {
+    fn get_available_firmware_version(&self, component: &DeviceKey, image_path: &str) -> Result<Option<String>, PlatformError> {
         let _ = component;
         let _ = image_path;
         Err(PlatformError::NotSupported("get_available_firmware_version".to_string()))
@@ -2678,7 +2689,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose get_firmware_update_notification is not
     /// software-controllable should not have to write a method to say so.
-    fn get_firmware_update_notification(&mut self, component: &DeviceKey, image_path: &str) -> Result<Option<String>, PlatformError> {
+    fn get_firmware_update_notification(&self, component: &DeviceKey, image_path: &str) -> Result<Option<String>, PlatformError> {
         let _ = component;
         let _ = image_path;
         Err(PlatformError::NotSupported("get_firmware_update_notification".to_string()))
@@ -2688,7 +2699,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose install_firmware is not
     /// software-controllable should not have to write a method to say so.
-    fn install_firmware(&mut self, component: &DeviceKey, image_path: &str) -> Result<Option<bool>, PlatformError> {
+    fn install_firmware(&self, component: &DeviceKey, image_path: &str) -> Result<Option<bool>, PlatformError> {
         let _ = component;
         let _ = image_path;
         Err(PlatformError::NotSupported("install_firmware".to_string()))
@@ -2699,7 +2710,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose update_firmware is not
     /// software-controllable should not have to write a method to say so.
-    fn update_firmware(&mut self, component: &DeviceKey, image_path: &str) -> Result<Option<bool>, PlatformError> {
+    fn update_firmware(&self, component: &DeviceKey, image_path: &str) -> Result<Option<bool>, PlatformError> {
         let _ = component;
         let _ = image_path;
         Err(PlatformError::NotSupported("update_firmware".to_string()))
@@ -2709,7 +2720,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose auto_update_firmware is not
     /// software-controllable should not have to write a method to say so.
-    fn auto_update_firmware(&mut self, component: &DeviceKey, image_path: &str, boot_type: &str) -> Result<Option<i64>, PlatformError> {
+    fn auto_update_firmware(&self, component: &DeviceKey, image_path: &str, boot_type: &str) -> Result<Option<i64>, PlatformError> {
         let _ = component;
         let _ = image_path;
         let _ = boot_type;
@@ -2723,7 +2734,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose arm_watchdog is not
     /// software-controllable should not have to write a method to say so.
-    fn arm_watchdog(&mut self, seconds: i64) -> Result<Option<i64>, PlatformError> {
+    fn arm_watchdog(&self, seconds: i64) -> Result<Option<i64>, PlatformError> {
         let _ = seconds;
         Err(PlatformError::NotSupported("arm_watchdog".to_string()))
     }
@@ -2732,7 +2743,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose disarm_watchdog is not
     /// software-controllable should not have to write a method to say so.
-    fn disarm_watchdog(&mut self) -> Result<Option<bool>, PlatformError> {
+    fn disarm_watchdog(&self) -> Result<Option<bool>, PlatformError> {
         Err(PlatformError::NotSupported("disarm_watchdog".to_string()))
     }
 
@@ -2743,7 +2754,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose initialize_system_led is not
     /// software-controllable should not have to write a method to say so.
-    fn initialize_system_led(&mut self) -> Result<Option<bool>, PlatformError> {
+    fn initialize_system_led(&self) -> Result<Option<bool>, PlatformError> {
         Err(PlatformError::NotSupported("initialize_system_led".to_string()))
     }
 
@@ -2751,7 +2762,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose init_midplane_switch is not
     /// software-controllable should not have to write a method to say so.
-    fn init_midplane_switch(&mut self) -> Result<Option<bool>, PlatformError> {
+    fn init_midplane_switch(&self) -> Result<Option<bool>, PlatformError> {
         Err(PlatformError::NotSupported("init_midplane_switch".to_string()))
     }
 
@@ -2767,7 +2778,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose set_chassis_led is not
     /// software-controllable should not have to write a method to say so.
-    fn set_chassis_led(&mut self, color: &str) -> Result<Option<bool>, PlatformError> {
+    fn set_chassis_led(&self, color: &str) -> Result<Option<bool>, PlatformError> {
         let _ = color;
         Err(PlatformError::NotSupported("set_chassis_led".to_string()))
     }
@@ -2776,7 +2787,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose change_sed_password is not
     /// software-controllable should not have to write a method to say so.
-    fn change_sed_password(&mut self, new_password: &str) -> Result<Option<bool>, PlatformError> {
+    fn change_sed_password(&self, new_password: &str) -> Result<Option<bool>, PlatformError> {
         let _ = new_password;
         Err(PlatformError::NotSupported("change_sed_password".to_string()))
     }
@@ -2785,7 +2796,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose reset_sed_password is not
     /// software-controllable should not have to write a method to say so.
-    fn reset_sed_password(&mut self) -> Result<Option<bool>, PlatformError> {
+    fn reset_sed_password(&self) -> Result<Option<bool>, PlatformError> {
         Err(PlatformError::NotSupported("reset_sed_password".to_string()))
     }
 
@@ -2793,7 +2804,7 @@ pub trait PlatformApi: Send {
     ///
     /// No default: what this answers has no empty value that is not also a
     /// lie, so a platform that cannot answer has to say so.
-    fn bmc_open_session(&mut self) -> Result<BmcResult, PlatformError> {
+    fn bmc_open_session(&self) -> Result<BmcResult, PlatformError> {
         Err(PlatformError::NotSupported("bmc_open_session".to_string()))
     }
 
@@ -2801,7 +2812,7 @@ pub trait PlatformApi: Send {
     ///
     /// No default: what this answers has no empty value that is not also a
     /// lie, so a platform that cannot answer has to say so.
-    fn bmc_close_session(&mut self, session_id: &str) -> Result<BmcResult, PlatformError> {
+    fn bmc_close_session(&self, session_id: &str) -> Result<BmcResult, PlatformError> {
         let _ = session_id;
         Err(PlatformError::NotSupported("bmc_close_session".to_string()))
     }
@@ -2810,7 +2821,7 @@ pub trait PlatformApi: Send {
     ///
     /// No default: what this answers has no empty value that is not also a
     /// lie, so a platform that cannot answer has to say so.
-    fn bmc_reset_root_password(&mut self) -> Result<BmcResult, PlatformError> {
+    fn bmc_reset_root_password(&self) -> Result<BmcResult, PlatformError> {
         Err(PlatformError::NotSupported("bmc_reset_root_password".to_string()))
     }
 
@@ -2818,7 +2829,7 @@ pub trait PlatformApi: Send {
     ///
     /// No default: what this answers has no empty value that is not also a
     /// lie, so a platform that cannot answer has to say so.
-    fn bmc_reset(&mut self, graceful: bool) -> Result<BmcResult, PlatformError> {
+    fn bmc_reset(&self, graceful: bool) -> Result<BmcResult, PlatformError> {
         let _ = graceful;
         Err(PlatformError::NotSupported("bmc_reset".to_string()))
     }
@@ -2827,7 +2838,7 @@ pub trait PlatformApi: Send {
     ///
     /// No default: what this answers has no empty value that is not also a
     /// lie, so a platform that cannot answer has to say so.
-    fn bmc_update_firmware(&mut self, image_path: &str) -> Result<BmcResult, PlatformError> {
+    fn bmc_update_firmware(&self, image_path: &str) -> Result<BmcResult, PlatformError> {
         let _ = image_path;
         Err(PlatformError::NotSupported("bmc_update_firmware".to_string()))
     }
@@ -2836,7 +2847,7 @@ pub trait PlatformApi: Send {
     ///
     /// No default: what this answers has no empty value that is not also a
     /// lie, so a platform that cannot answer has to say so.
-    fn bmc_trigger_debug_log_dump(&mut self) -> Result<BmcResult, PlatformError> {
+    fn bmc_trigger_debug_log_dump(&self) -> Result<BmcResult, PlatformError> {
         Err(PlatformError::NotSupported("bmc_trigger_debug_log_dump".to_string()))
     }
 
@@ -2844,7 +2855,7 @@ pub trait PlatformApi: Send {
     ///
     /// No default: what this answers has no empty value that is not also a
     /// lie, so a platform that cannot answer has to say so.
-    fn bmc_get_debug_log_dump(&mut self, task_id: &str, filename: &str, path: &str) -> Result<BmcResult, PlatformError> {
+    fn bmc_get_debug_log_dump(&self, task_id: &str, filename: &str, path: &str) -> Result<BmcResult, PlatformError> {
         let _ = task_id;
         let _ = filename;
         let _ = path;
@@ -2854,7 +2865,7 @@ pub trait PlatformApi: Send {
     /// get_all_asics answers a list of (asic_id, pci_address) tuples rather than a list of device objects, so there is nothing for a flatten plan to call a getter on.
     ///
     /// Empty by default.
-    fn get_asics(&mut self) -> Result<Vec<AsicInfo>, PlatformError> {
+    fn get_asics(&self) -> Result<Vec<AsicInfo>, PlatformError> {
         Ok(Vec::new())
     }
 
@@ -2863,7 +2874,7 @@ pub trait PlatformApi: Send {
     /// A no-op by default: most platforms have no thermal manager, and one
     /// that says so by erroring would have every caller log a warning per
     /// cycle on hardware that is working exactly as designed.
-    fn tm_initialize(&mut self) -> Result<(), PlatformError> {
+    fn tm_initialize(&self) -> Result<(), PlatformError> {
         Ok(())
     }
 
@@ -2872,7 +2883,7 @@ pub trait PlatformApi: Send {
     /// A no-op by default: most platforms have no thermal manager, and one
     /// that says so by erroring would have every caller log a warning per
     /// cycle on hardware that is working exactly as designed.
-    fn tm_run_policy(&mut self) -> Result<(), PlatformError> {
+    fn tm_run_policy(&self) -> Result<(), PlatformError> {
         Ok(())
     }
 
@@ -2880,7 +2891,7 @@ pub trait PlatformApi: Send {
     ///
     /// `None` by default, which is how a platform says it has no answer
     /// rather than that the call failed.
-    fn tm_get_interval(&mut self) -> Result<Option<f64>, PlatformError> {
+    fn tm_get_interval(&self) -> Result<Option<f64>, PlatformError> {
         Ok(None)
     }
 
@@ -2889,7 +2900,7 @@ pub trait PlatformApi: Send {
     /// A no-op by default: most platforms have no thermal manager, and one
     /// that says so by erroring would have every caller log a warning per
     /// cycle on hardware that is working exactly as designed.
-    fn tm_deinitialize(&mut self) -> Result<(), PlatformError> {
+    fn tm_deinitialize(&self) -> Result<(), PlatformError> {
         Ok(())
     }
 
@@ -2900,7 +2911,7 @@ pub trait PlatformApi: Send {
     /// A no-op by default: most platforms have no thermal manager, and one
     /// that says so by erroring would have every caller log a warning per
     /// cycle on hardware that is working exactly as designed.
-    fn tm_stop(&mut self) -> Result<(), PlatformError> {
+    fn tm_stop(&self) -> Result<(), PlatformError> {
         Ok(())
     }
 
@@ -2913,7 +2924,7 @@ pub trait PlatformApi: Send {
     /// stopped by a vendor handler that failed.
     ///
     /// A no-op by default: only a platform that needs it implements it.
-    fn notify_shutdown(&mut self) -> Result<(), PlatformError> {
+    fn notify_shutdown(&self) -> Result<(), PlatformError> {
         Ok(())
     }
 
@@ -2926,7 +2937,7 @@ pub trait PlatformApi: Send {
     ///
     /// No default: what this answers has no empty value that is not also a
     /// lie, so a platform that cannot answer has to say so.
-    fn eeprom_update_db(&mut self) -> Result<EepromUpdate, PlatformError> {
+    fn eeprom_update_db(&self) -> Result<EepromUpdate, PlatformError> {
         Err(PlatformError::NotSupported("eeprom_update_db".to_string()))
     }
 
@@ -2937,7 +2948,7 @@ pub trait PlatformApi: Send {
     /// the constructor saw.
     ///
     /// Empty by default.
-    fn get_storage_devices(&mut self) -> Result<Vec<StorageDeviceInfo>, PlatformError> {
+    fn get_storage_devices(&self) -> Result<Vec<StorageDeviceInfo>, PlatformError> {
         Ok(Vec::new())
     }
 
@@ -2950,7 +2961,7 @@ pub trait PlatformApi: Send {
     /// means, and the platform is not asked again.
     ///
     /// Empty by default.
-    fn get_pcie_devices(&mut self) -> Result<Vec<PcieDevice>, PlatformError> {
+    fn get_pcie_devices(&self) -> Result<Vec<PcieDevice>, PlatformError> {
         Ok(Vec::new())
     }
 
@@ -2959,7 +2970,7 @@ pub trait PlatformApi: Send {
     /// Empty when the device exposes no AER files, which most do not.
     ///
     /// Empty by default.
-    fn get_pcie_aer_stats(&mut self, bus: i64, dev: i64, func: i64) -> Result<Vec<PcieAerStat>, PlatformError> {
+    fn get_pcie_aer_stats(&self, bus: i64, dev: i64, func: i64) -> Result<Vec<PcieAerStat>, PlatformError> {
         let _ = bus;
         let _ = dev;
         let _ = func;
@@ -2971,9 +2982,13 @@ pub trait PlatformApi: Send {
     /// `timeout_ms=0` blocks indefinitely, which is what the base class means
     /// by it and what the daemons rely on.
     ///
+    /// The wait holds no device lock. Insert/remove events invalidate the
+    /// affected slot's decoder under its lock before returning, so decoder
+    /// construction overlapping the vendor's wait cannot restore stale state.
+    ///
     /// No default: what this answers has no empty value that is not also a
     /// lie, so a platform that cannot answer has to say so.
-    fn get_change_event(&mut self, timeout_ms: i64) -> Result<ChangeEventBatch, PlatformError> {
+    fn get_change_event(&self, timeout_ms: i64) -> Result<ChangeEventBatch, PlatformError> {
         let _ = timeout_ms;
         Err(PlatformError::NotSupported("get_change_event".to_string()))
     }
@@ -2989,5 +3004,5 @@ pub trait PlatformApi: Send {
     ///
     /// Does nothing by default, so an implementation with no teardown -- and
     /// every test double is one -- says so by staying silent.
-    fn finalize(&mut self) {}
+    fn finalize(&self) {}
 }

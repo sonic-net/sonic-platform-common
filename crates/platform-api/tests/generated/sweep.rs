@@ -30,7 +30,7 @@ fn finalize_does_nothing_by_default() {
 
 #[test]
 fn get_sfps_defaults_to_empty() {
-    match Nothing.get_sfps() {
+    match Nothing.get_sfps(&[2, 7]) {
         Ok(rows) => assert!(rows.is_empty()),
         _ => panic!("get_sfps is not the trait's default"),
     }
@@ -189,10 +189,10 @@ fn sfp_get_type_defaults_to_not_supported() {
 }
 
 #[test]
-fn sfp_has_method_defaults_to_not_supported() {
-    match Nothing.sfp_has_method(&DeviceKey::from("arg0"), "arg1") {
-        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_has_method"),
-        _ => panic!("sfp_has_method is not the trait's default"),
+fn sfp_uses_legacy_pm_defaults_to_not_supported() {
+    match Nothing.sfp_uses_legacy_pm(&DeviceKey::from("arg0")) {
+        Err(PlatformError::NotSupported(what)) => assert_eq!(what, "sfp_uses_legacy_pm"),
+        _ => panic!("sfp_uses_legacy_pm is not the trait's default"),
     }
 }
 

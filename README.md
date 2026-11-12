@@ -10,15 +10,35 @@ Collection of Python packages which provide a common interface to platform-speci
 ## Cross-language transceiver API
 
 `sonic_platform_api/facade.pyi` declares the shared API consumed by Rust
-`xcvrd-rs`. `get_sfps()` returns slot rows with `DeviceKey` identifiers;
-`sfp_*` reads and actions address those keys. Inventory does not read EEPROM or
-consume latched flags. Direct decoder reads resolve the current `get_xcvr_api()`
-on the same slot used by change-event handling.
+`xcvrd-rs`. `get_sfps(indices)` takes the physical indices from `port_config`
+and reaches each slot through `ChassisBase.get_sfp(index)`. Rows carry that
+`index` and an opaque `DeviceKey`; a change event's `device_id` names the same
+physical index. Never subscript the returned rows with a physical port number:
+vendors may start numbering at 0 or 1, and sparse inventories omit non-SFP
+ports. `sfp_*` reads and actions address the row keys. Inventory does not read
+EEPROM or consume latched flags.
+
+The Rust trait uses `&self` and `Send + Sync`. Share one provider with `Arc`;
+neither the provider nor its bridge needs to clone device state. Implementations
+own cache synchronization and must not hold a device lock across an event wait.
+The Python facade serializes per-slot operations, including decoder construction,
+and invalidates decoders under the same lock after insert/remove events. Direct
+reads resolve the current `get_xcvr_api()`; an unavailable decoder returns `None`
+for optional scalars or JSON `null`, whereas a missing decoder method is
+`NotSupported`.
 
 Open-ended transceiver dictionaries cross as `Json` (JSON-encoded strings),
 preserving vendor fields, nested values, nulls and non-finite readings as
-`"-inf"`, `"inf"` and `"nan"`. EEPROM operations use bytes and preserve read
-misses and failed writes. No vendor base-class changes are required.
+`"-inf"`, `"inf"` and `"nan"`. This is a temporary untyped boundary: native
+implementations must reproduce the Python dictionary schemas, and structural
+comparison requires parsing rather than comparing wire strings. `DEFERRED_JSON`
+in the declaration tracks each result's typed-schema follow-up; generation
+rejects untracked or stale entries. Temperature is already `Optional[Celsius]`,
+not JSON. `sfp_uses_legacy_pm` is the declared capability query for PM without
+the newer VDM interface; it does not invoke either getter.
+
+EEPROM operations use bytes and preserve read misses and failed writes. No
+vendor base-class changes are required.
 
 After editing the declaration, run `python3 generator/generate.py` and
 `generator/check.sh` with the `testing` extra installed. The generator produces

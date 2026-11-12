@@ -33,7 +33,6 @@ use platform_api::{
 /// One arm, because the PyO3 bridge is the only implementation there is.  A
 /// native one becomes a second variant here and a second arm in each
 /// forwarder below, and no daemon changes.
-#[derive(Clone)]
 pub enum Platform {
     /// The vendor's Python, reached through PyO3.
     Pyo3(platform_pyo3::Bridge),
@@ -42,7 +41,7 @@ pub enum Platform {
 impl PlatformApi for Platform {
 {%- for m in model.methods %}
 
-    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
+    fn {{ m.rust_name }}(&self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
         match self {
             Self::Pyo3(p) => p.{{ m.rust_name }}({{ m.rust_fwd_args }}),
         }
@@ -51,7 +50,7 @@ impl PlatformApi for Platform {
 
     /// Forwarded like everything else: the bridge runs Python's `atexit`
     /// handlers, a native implementation is free to do nothing.
-    fn finalize(&mut self) {
+    fn finalize(&self) {
         match self {
             Self::Pyo3(p) => p.finalize(),
         }

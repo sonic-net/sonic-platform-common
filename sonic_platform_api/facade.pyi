@@ -20,9 +20,10 @@ neither shared ownership nor re-entrancy.
 Actions address a device by its `DeviceKey`, the path the traversal took to
 reach it, which every addressed row carries.  Not by name: names are not
 unique -- two line cards each have a "BIOS" -- and a lookup by name acted on
-whichever device came first.  Not by the indexed base-class accessors either:
-they are 0-based in some places and 1-based in others, and return None rather
-than raising when the index is out of range; a key holds list positions.  A
+whichever device came first. Most keys hold list positions, not the indexed
+base-class accessors' mixed 0-based and 1-based conventions. SFP keys instead
+hold the physical indices supplied by the caller from port_config: only
+`get_sfp(index)` can preserve their meaning across sparse inventories. A
 caller that starts from a name resolves it the way Python's consumers do:
 `get_module_key` as chassisd does, `get_component_key` as fwutil does.
 
@@ -69,6 +70,7 @@ from .types import (
     Ampere,
     Celsius,
     DeviceKey,
+    Index,
     Json,
     Number,
     PositionInParent,
@@ -925,15 +927,22 @@ class SfpInfo:
     Inventory does not read EEPROM or latched flags. Reads and actions address
     the key individually so a presence check cannot consume a DOM alarm, and
     CMIS bring-up need not decode an entire module for one state field.
+    `index` is the vendor's physical port index, also used by change events;
+    it is never a position in get_all_sfps().
     """
 
     key: Annotated[DeviceKey, Key()]
+    index: Annotated[Index, Parent()]
 
     def __init__(self, **fields: object) -> None:
         """Keyword-only, as every row is."""
 
     ORDER: ClassVar[Flatten] = Flatten(
-        sources=(FlattenSource("ChassisBase.get_all_sfps", parent_default="chassis 1"),)
+        sources=(FlattenSource(
+            "ChassisBase.get_sfp", indices="indices", parent_default="chassis 1",
+            sets=(("index", "@index"),),
+        ),),
+        serialized=True,
     )
 
 
@@ -1233,12 +1242,12 @@ OMITTED: Final[tuple[tuple[str, str], ...]] = (
     ("ChassisBase.get_num_psus", "len(get_psus())"),
     ("ChassisBase.get_num_pdbs", "len(get_psus()) filtered on kind"),
     ("ChassisBase.get_num_thermals", "len(get_thermals())"),
-    ("ChassisBase.get_num_sfps", "len(get_sfps())"),
+    ("ChassisBase.get_num_sfps", "the caller supplies physical indices from port_config"),
     ("ModuleBase.get_num_components", "len(get_components()) filtered on parent"),
     ("ModuleBase.get_num_fans", "len(get_fans()) filtered on parent"),
     ("ModuleBase.get_num_psus", "len(get_psus()) filtered on parent"),
     ("ModuleBase.get_num_thermals", "len(get_thermals()) filtered on parent"),
-    ("ModuleBase.get_num_sfps", "len(get_sfps()) filtered on parent"),
+    ("ModuleBase.get_num_sfps", "the caller supplies physical indices from port_config"),
     ("PsuBase.get_num_fans", "len(get_fans()) filtered on parent"),
     ("PsuBase.get_num_thermals", "len(get_thermals()) filtered on parent"),
     ("FanDrawerBase.get_num_fans", "len(get_fans()) filtered on parent"),
@@ -1253,7 +1262,6 @@ OMITTED: Final[tuple[tuple[str, str], ...]] = (
     ("ChassisBase.get_psu", "rows are addressed by key"),
     ("ChassisBase.get_pdb", "rows are addressed by key"),
     ("ChassisBase.get_thermal", "rows are addressed by key"),
-    ("ChassisBase.get_sfp", "rows are addressed by key"),
     ("ChassisBase.get_cpo", "rows are addressed by key"),
     ("ModuleBase.get_component", "rows are addressed by key"),
     ("ModuleBase.get_fan", "rows are addressed by key"),
@@ -1269,6 +1277,8 @@ OMITTED: Final[tuple[tuple[str, str], ...]] = (
     # module or its PSU; adding this source would double-count on a platform
     # that implements both, and thermalctld does not use it.
     ("ChassisBase.get_all_fans", "already reached through drawer, module or PSU"),
+    ("ChassisBase.get_all_sfps", "filtered list positions are not physical port indices"),
+    ("ModuleBase.get_all_sfps", "the caller supplies physical indices to get_sfps"),
     # Returns the same objects as get_all_leak_sensors(); the docstring says
     # List[str] and the annotation says otherwise, and no consumer reads it as
     # anything but the sensor list.
@@ -1341,6 +1351,28 @@ DEFERRED: Final[tuple[tuple[str, str], ...]] = (
     ("UsbUtil.get_vendor_output", "the CLI phase: only ssdutil --vendor reaches it"),
 )
 
+# These methods are implemented, but their Json schemas are not yet typed.
+# Unlike DEFERRED, this tracks facade methods, not missing base-class calls.
+# The generator rejects stale entries and untracked Json results.
+DEFERRED_JSON: Final[tuple[tuple[str, str], ...]] = (
+    ("sfp_get_transceiver_info", "typed module identity and vendor extensions"),
+    ("sfp_get_transceiver_info_firmware_versions", "typed firmware versions"),
+    ("sfp_get_transceiver_status", "typed module and lane status"),
+    ("sfp_get_transceiver_status_flags", "typed module and lane flags"),
+    ("sfp_get_transceiver_dom_real_value", "typed DOM readings with units"),
+    ("sfp_get_transceiver_dom_flags", "typed DOM alarm and warning flags"),
+    ("sfp_get_transceiver_threshold_info", "typed thresholds with units"),
+    ("sfp_get_transceiver_pm", "typed legacy performance monitoring"),
+    ("sfp_get_transceiver_vdm_real_value_basic", "typed VDM readings with units"),
+    ("sfp_get_transceiver_vdm_real_value_statistic", "typed VDM statistics"),
+    ("sfp_get_transceiver_vdm_flags", "typed VDM alarm and warning flags"),
+    ("sfp_get_transceiver_vdm_thresholds", "typed VDM thresholds with units"),
+    ("sfp_get_application_advertisement", "typed CMIS applications"),
+    ("sfp_get_datapath_state", "typed per-lane datapath states"),
+    ("sfp_get_config_datapath_hostlane_status", "typed per-lane configuration status"),
+    ("sfp_get_dpinit_pending", "typed per-lane initialization status"),
+)
+
 # --------------------------------------------------------------------------
 # The API
 # --------------------------------------------------------------------------
@@ -1366,8 +1398,13 @@ class PlatformApi:
     # -- snapshots ---------------------------------------------------------
 
     @platform_method(Snapshot())
-    def get_sfps(self) -> list[SfpInfo]:
-        """Transceiver slots in chassis list order, addressed by DeviceKey."""
+    def get_sfps(self, indices: list[Index]) -> list[SfpInfo]:
+        """Slots at port_config's physical indices, in the requested order.
+
+        Reach each slot through get_sfp(index), never get_all_sfps(). Missing
+        indices are skipped without shifting any other slot's key or index.
+        Empty cages still have rows. No EEPROM or latched flags are read.
+        """
 
     # Projected: pcied reads one of these twenty columns
     # (`is_smartswitch`) and psud one (`is_modular_chassis`); chassisd
@@ -1457,8 +1494,12 @@ class PlatformApi:
         reason="Legacy PM capability probing must not invoke a getter or "
         "consume latched flags; hasattr is not a base-class call.",
     ))
-    def sfp_has_method(self, sfp: DeviceKey, method: str) -> bool:
-        """Whether the SFP exposes a method, without reading hardware."""
+    def sfp_uses_legacy_pm(self, sfp: DeviceKey) -> bool:
+        """Whether PM exists without the newer VDM capability interface.
+
+        Tests for get_transceiver_pm and the absence of
+        is_transceiver_vdm_supported, without invoking either method.
+        """
 
     @platform_method(On(row="SfpInfo"), Calls("SfpBase.get_transceiver_info"))
     def sfp_get_transceiver_info(self, sfp: DeviceKey) -> Json: ...
@@ -1481,7 +1522,7 @@ class PlatformApi:
     @platform_method(On(row="SfpInfo"), Calls("SfpBase.get_transceiver_threshold_info"))
     def sfp_get_transceiver_threshold_info(self, sfp: DeviceKey) -> Json: ...
     @platform_method(On(row="SfpInfo"), Calls("SfpBase.get_temperature"))
-    def sfp_get_temperature(self, sfp: DeviceKey) -> Json: ...
+    def sfp_get_temperature(self, sfp: DeviceKey) -> Optional[Celsius]: ...
     @platform_method(On(row="SfpInfo"), Calls("SfpOptoeBase.get_transceiver_pm"))
     def sfp_get_transceiver_pm(self, sfp: DeviceKey) -> Json: ...
     @platform_method(On(row="SfpInfo"), Calls("SfpOptoeBase.is_transceiver_vdm_supported"))
@@ -2009,6 +2050,8 @@ class PlatformApi:
             reaches=(
                 "ChassisBase.get_change_event",
                 "ModuleBase.get_change_event",
+                "ChassisBase.get_sfp",
+                "SfpBase.remove_xcvr_api",
             ),
             reason="get_change_event returns a two-level mapping whose leaf is a "
             "stringly-typed enumeration documented only in prose, and whose outer "
@@ -2023,4 +2066,8 @@ class PlatformApi:
 
         `timeout_ms=0` blocks indefinitely, which is what the base class means
         by it and what the daemons rely on.
+
+        The wait holds no device lock. Insert/remove events invalidate the
+        affected slot's decoder under its lock before returning, so decoder
+        construction overlapping the vendor's wait cannot restore stale state.
         """

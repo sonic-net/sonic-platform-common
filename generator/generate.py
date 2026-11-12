@@ -447,6 +447,11 @@ def _rust_ret_conv(rust_ret, enums, rows=()):
             return conv + '\n            Ok(out)'
         return (conv + '\n            out.ok_or_else(|| PlatformError::Backend('
                 '"missing key".to_string()))')
+    if inner == 'Number':
+        if optional:
+            return 'number_of(&v)'
+        return ('number_of(&v)?.ok_or_else(|| PlatformError::Backend('
+                '"missing number".to_string()))')
     if inner in enums:
         conv = ('let s: Option<String> = v.extract().map_err(|e| err(py, e))?;\n'
                 '            let out = s.and_then(|s| %s::from_str(&s));' % inner)
@@ -526,6 +531,9 @@ def _sweep_call(m, enums, enum_specs):
         elif t == '&[u8]':
             rust.append('&[0, 128, 255]')
             py.append(bytes([0, 128, 255]))
+        elif t == '&[u32]':
+            rust.append('&[2, 7]')
+            py.append([2, 7])
         elif t == 'bool':
             # `true` rather than `false`: a forwarder that dropped the
             # argument and passed the type's default would still be caught.
@@ -558,6 +566,8 @@ def _rust_param_type(py_type, enums):
         return '&DeviceKey'
     if py_type == 'bytes':
         return '&[u8]'
+    if t.startswith('Vec<'):
+        return '&[%s]' % t[len('Vec<'):-1]
     return '&str' if t == 'String' else t
 
 
@@ -603,6 +613,8 @@ def _fixed_literal(src, parent_expr, key=None, raw_expr=None):
             rendered = 'str(k)'
         elif value == '@value':
             rendered = 'None if v is None else str(v)'
+        elif value == '@index':
+            rendered = 'i'
         else:
             rendered = repr(value)
         parts.append('%r: %s' % (name, rendered))
@@ -724,7 +736,13 @@ def _snapshot_body(row):
             # `{i}` counts on from its rows, the key stays this list's own.
             lines.append('%sn = len(out) - s%d' % (indent, k - 1))
             index = 'n + i'
-        if src.single:
+        if src.indices:
+            lines.append('%sfor i in _indices(%s):' % (indent, src.indices))
+            lines.append('%s    dev = _indexed(%s, %r, i)'
+                         % (indent, owner, src.leaf_getter))
+            lines.append('%s    if dev is None:' % indent)
+            lines.append('%s        continue' % indent)
+        elif src.single:
             # At most one row: `_one` yields nothing when the platform has
             # none, rather than a row whose every column is None.
             lines.append('%sfor i, dev in enumerate(_one(%s)):' % (indent, leaf))
@@ -784,7 +802,10 @@ def _find_body(row):
             leaf = 'self._hatch.%s()' % src.provider
         else:
             leaf = '_call(_get(%s, %r))' % (owner, src.leaf_getter)
-        if src.single:
+        if src.indices:
+            lines.append('%sdev = _indexed(%s, %r, path[%d][1])'
+                         % (indent, owner, src.leaf_getter, len(via)))
+        elif src.single:
             lines.append('%sdev = %s' % (indent, leaf))
         else:
             lines.append('%sdev = _nth(%s, path[%d][1])' % (indent, leaf, len(via)))
@@ -889,6 +910,9 @@ def _action_body(m, model):
         lines = []
         for hop in reach:
             lines.append('%starget = _call(_get(%s, %r))' % (IND, target, hop))
+            if m.returns == 'Json' or strip_optional(m.returns)[1]:
+                lines.append('%sif target is None:' % IND)
+                lines.append('%s    return %s' % (IND, _answer('None', m)))
             target = 'target'
         lines.append('%sfn = _get(%s, %r)' % (IND, target, method))
         lines.append('%sif fn is None:' % IND)
@@ -908,20 +932,39 @@ def _action_body(m, model):
     row = model.row(m.row)
     key = m.params[0][0]
     head = '%sdev = self._find_%s(%s)\n' % (IND, row.snake, key)
+    indent = IND
+    if row.serialized:
+        head += '%swith self._hatch.device_lock(dev):\n' % indent
+        indent += '    '
     for hop in reach:
-        head += '%sdev = _call(_get(dev, %r))\n' % (IND, hop)
+        head += '%sdev = _call(_get(dev, %r))\n' % (indent, hop)
+        if m.returns == 'Json' or strip_optional(m.returns)[1]:
+            head += '%sif dev is None:\n%s    return %s\n' % (
+                indent, indent, _answer('None', m))
     head += ('%sfn = _get(dev, %r)\n'
             '%sif fn is None:\n'
             '%s    raise NotImplementedError(%r)\n'
-            % (IND, method, IND, IND,
+            % (indent, method, indent, indent,
                '%s is not implemented' % m.calls))
     built = _row_from_one_call(m, model)
     if built is not None:
         return ('%s%sanswer = fn(%s)\n%sreturn %s(%s)'
-                % (head, IND, args, IND, built.name,
+                % (head, indent, args, indent, built.name,
                    ', '.join('%s=_at(answer, %d)' % (f.name, f.at)
                              for f in built.fields)))
-    return head + '%sreturn %s' % (IND, _answer('fn(%s)' % args, m))
+    return head + '%sreturn %s' % (indent, _answer('fn(%s)' % args, m))
+
+
+def _escape_body(m, model):
+    head, args, indent = '', [p for p, _t in m.params], IND
+    if m.row and m.params and m.params[0][1] == 'DeviceKey':
+        row = model.row(m.row)
+        head = '%sdev = self._find_%s(%s)\n' % (indent, row.snake, args[0])
+        args[0] = 'dev'
+        if row.serialized:
+            head += '%swith self._hatch.device_lock(dev):\n' % indent
+            indent += '    '
+    return head + '%sreturn self._hatch.%s(%s)' % (indent, m.name, ', '.join(args))
 
 
 def _action_doc(m):
@@ -1189,6 +1232,8 @@ def build(model):
         row.guarded = bool(snap and snap.per_row_errors)
         row.absorbs = bool(snap and snap.absorbs)
         row.absorbable = bool(snap and snap.absorbable)
+        row.walk_params = list(dict.fromkeys(src.indices for src in row.sources
+                                             if src.indices))
         row.sequential = (row.guarded or row.absorbs or row.absorbable
                           or any(f.read_if for f in row.fields))
         row.col_count = 0
@@ -1232,6 +1277,8 @@ def build(model):
             m.body = _action_body(m, model)
             if not m.doc:
                 m.doc = _action_doc(m)
+        elif m.kind == 'escape':
+            m.body = _escape_body(m, model)
         m.rust_name = m.name
         if m.kind == 'snapshot':
             m.rust_ret = m.row if m.singleton else 'Vec<%s>' % m.row
@@ -1262,11 +1309,17 @@ def build(model):
         # What a default body discards, so that rustc does not call it unused.
         m.rust_unused = '(%s,)' % ', '.join(fwd) if fwd else '()'
         # What the bridge hands the facade for the snapshot's own parameters.
-        m.py_snapshot_args = '(%s,)' % ', '.join(
+        py_args = [_rust_arg(p, t, enums) for p, t in m.params] + [
             {'cols': 'cols.bits()',
              'skip': 'skip.iter().map(DeviceKey::as_str).collect::<Vec<_>>()',
              'absorb': 'absorb'}[n]
-            for n, _t in own)
+            for n, _t in own]
+        m.py_snapshot_args = '(%s,)' % ', '.join(py_args) if py_args else '()'
+        m.py_walk_args = ', '.join(
+            [p for p, _t in m.params]
+            + (['cols'] if m.projected else [])
+            + (['frozenset(skip or ())'] if m.skippable else [])
+            + (['bool(absorb)'] if m.absorbable else []))
         m.rust_sweep_args, call = _sweep_call(m, enums, model.enums)
         # A Rust string literal, not jinja's `tojson`: that one escapes the
         # quote in a Python repr as `\u0027`, which Rust does not spell that

@@ -102,7 +102,7 @@ fn the_vendors_handler_runs_on_notify_and_the_daemon_keeps_its_signals() {
     assert_eq!(DELIVERED.load(Ordering::SeqCst), 1);
 
     let vendor = Python::with_gil(|py| register(py, LIKE_MLNX, c_str!("vend_mlnx")));
-    let mut api = Bridge::new("vend_mlnx", "thermalctld").unwrap();
+    let api = Bridge::new("vend_mlnx", "thermalctld").unwrap();
     for sig in [libc::SIGTERM, libc::SIGINT] {
         assert_eq!(
             handler_of(sig),

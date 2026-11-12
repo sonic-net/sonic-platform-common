@@ -27,6 +27,8 @@ use pyo3::types::PyModule;
 /// test, not this crate's.
 const MOCK: &std::ffi::CStr = c_str!(
     r#"
+import threading
+
 class Fan:
     def __init__(self, name):
         self.name = name
@@ -50,8 +52,14 @@ class Chassis:
     def __init__(self):
         self.fan = Fan('fan 1')
         self.drawer = Drawer('drawer 1', [self.fan])
+        self.polling = threading.Event()
+        self.release = threading.Event()
     def get_all_fan_drawers(self):
         return [self.drawer]
+    def get_change_event(self, timeout):
+        self.polling.set()
+        assert self.release.wait(5)
+        return True, {}
 
 CHASSIS = Chassis()
 "#
@@ -81,7 +89,7 @@ fn platform() -> (Platform, Py<PyAny>) {
 /// not be swallowed by it.
 #[test]
 fn a_list_snapshot_reaches_the_implementation() {
-    let (mut p, _chassis) = platform();
+    let (p, _chassis) = platform();
     let fans = p
         .get_fans(FanInfoCols::ALL, false)
         .expect("the mock has a fan");
@@ -89,11 +97,42 @@ fn a_list_snapshot_reaches_the_implementation() {
     assert_eq!(fans[0].name, "fan 1");
 }
 
+#[test]
+fn an_event_wait_and_reads_share_one_platform_without_cloning() {
+    let (p, chassis) = platform();
+    std::thread::scope(|scope| {
+        let poller = scope.spawn(|| p.get_change_event(0));
+        Python::with_gil(|py| {
+            assert!(chassis
+                .bind(py)
+                .getattr("polling")
+                .unwrap()
+                .call_method1("wait", (5,))
+                .unwrap()
+                .extract::<bool>()
+                .unwrap());
+        });
+        assert_eq!(
+            p.get_fans(FanInfoCols::ALL, false).unwrap()[0].name,
+            "fan 1"
+        );
+        Python::with_gil(|py| {
+            chassis
+                .bind(py)
+                .getattr("release")
+                .unwrap()
+                .call_method0("set")
+                .unwrap();
+        });
+        assert!(poller.join().unwrap().unwrap().ok);
+    });
+}
+
 /// A singleton snapshot: a different template branch from the list above,
 /// because the generator emits `Row` rather than `Vec<Row>`.
 #[test]
 fn a_singleton_snapshot_reaches_the_implementation() {
-    let (mut p, _chassis) = platform();
+    let (p, _chassis) = platform();
     p.get_chassis_info(ChassisInfoCols::ALL)
         .expect("a chassis that answers nothing still describes itself");
 }
@@ -102,7 +141,7 @@ fn a_singleton_snapshot_reaches_the_implementation() {
 /// the parameters in the wrong order and still compile, since both are named.
 #[test]
 fn an_action_carries_its_arguments_through() {
-    let (mut p, chassis) = platform();
+    let (p, chassis) = platform();
     p.set_fan_led(&DeviceKey::from("fan_drawers[0]/fans[0]"), LedColor::Green)
         .expect("the mock fan takes a colour");
     Python::with_gil(|py| {
@@ -124,7 +163,7 @@ fn an_action_carries_its_arguments_through() {
 /// the one method whose forwarding no other test would notice losing.
 #[test]
 fn finalize_reaches_the_implementation() {
-    let (mut p, _chassis) = platform();
+    let (p, _chassis) = platform();
     Python::with_gil(|py| {
         let m = PyModule::from_code(
             py,
