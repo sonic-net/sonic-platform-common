@@ -34,6 +34,10 @@ class CmisPage(XcvrMemMap):
         """Compute the linear EEPROM offset for a CMIS (page, bank, offset) triple.
 
         Lower memory (page 0, offset < 128) is unaffected by paging or banking.
+        Offsets below 128 are lower memory by definition, so they are rejected
+        for any other page: the linear formula would otherwise land
+        on byte (128 + offset) of the previous page. Offsets above 255 are
+        rejected for every page, since they would land on a higher page.
 
         Bank is clamped to 0 for:
           - non-banked pages (00h-0Fh): writing BankSelect is not required per CMIS 5.x
@@ -44,8 +48,14 @@ class CmisPage(XcvrMemMap):
         Each bank is a full 256-page (32KB) architectural block, matching the kernel
         driver layout, even though only pages 10h-FFh (240 pages) are actually banked.
         """
-        if page == 0 and offset < 128:
-            return offset
+        if offset < 128 and page != 0:
+            raise ValueError(
+                f"offset {offset} is lower memory and cannot be addressed on page {page:#04x}; "
+                f"valid offsets in upper memory are 128-255")
+        if offset > 255:
+            raise ValueError(
+                f"offset {offset} is past the end of page {page:#04x}; "
+                f"valid offsets in upper memory are 128-255")
         if page < CMIS_NUM_NON_BANKED_PAGES or 0x9F <= page <= 0xAF:
             bank = 0
         return (bank * CMIS_ARCH_PAGES + page) * page_size + offset

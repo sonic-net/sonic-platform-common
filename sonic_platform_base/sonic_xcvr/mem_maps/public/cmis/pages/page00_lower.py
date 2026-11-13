@@ -5,7 +5,7 @@
 """
 
 from .page import CmisPage
-from .consts import ADMINISTRATIVE_PAGE
+from .consts import ADMINISTRATIVE_PAGE, CMIS_EEPROM_PAGE_SIZE
 from .....fields.xcvr_field import (
     CodeRegField,
     NumberRegField,
@@ -132,3 +132,14 @@ class CmisAdministrativeLowerPage(CmisPage):
             ),
         ]
 
+    def getaddr(self, offset, page_size=CMIS_EEPROM_PAGE_SIZE):
+        """Return the linear address of lower-memory byte `offset` (0-127).
+
+        When lower memory is not remapped (page 0), this is the standard
+        lower-memory address. When it is remapped to another page, its
+        bytes live in upper memory, where valid offsets are 128-255, so
+        `page_size` is added to `offset` to shift it into that range.
+        """
+        if self._page != ADMINISTRATIVE_PAGE:
+            offset += page_size
+        return super().getaddr(offset, page_size)
