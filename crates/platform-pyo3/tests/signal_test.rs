@@ -55,7 +55,7 @@ fn a_handler_installed_before_the_bridge_is_still_installed_after_it() {
          \x20           INSTALLED.append(sig)\n\
          \x20   def get_chassis(self): return _C()\n"
     );
-    let vendor = Python::with_gil(|py| {
+    let vendor = Python::attach(|py| {
         let m = PyModule::from_code(py, VENDOR, c_str!("vend.py"), c_str!("vend_main")).unwrap();
         py.import("sys")
             .unwrap()
@@ -68,7 +68,7 @@ fn a_handler_installed_before_the_bridge_is_still_installed_after_it() {
 
     assert!(Bridge::new("vend_main", "thermalctld").is_ok());
 
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         // Otherwise the vendor's installer raised, nothing was replaced, and
         // what follows proves nothing.
         assert_eq!(

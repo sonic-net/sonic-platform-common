@@ -456,7 +456,7 @@ fn loaded() -> Bridge {
 /// test thread building its own fixture would otherwise swap them out from
 /// under this one.
 fn loaded_then(patch: impl FnOnce(&Bound<'_, PyAny>)) -> Bridge {
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let m = PyModule::from_code(py, LOADED, c_str!("loaded.py"), c_str!("loaded")).unwrap();
         let (chassis, pcie, storage) = (
             m.getattr("CHASSIS").unwrap(),
@@ -481,7 +481,7 @@ fn loaded_then(patch: impl FnOnce(&Bound<'_, PyAny>)) -> Bridge {
 }
 
 fn bridge() -> (Bridge, Py<PyAny>) {
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let m = PyModule::from_code(py, MOCK, c_str!("mock.py"), c_str!("mock")).unwrap();
         let chassis = m.getattr("CHASSIS").unwrap();
         let facade = py
@@ -545,7 +545,7 @@ fn a_reading_crosses_as_python_answered_it_not_as_a_guess() {
     // the same way.  thermalctld publishes `str()` of each, "-1" and "nan",
     // so each crosses as what it is.
     let (mut api, chassis) = bridge();
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let fan = chassis.bind(py).getattr("fan").unwrap();
         let answers = py
             .eval(c_str!("(lambda: -1, lambda: float('nan'))"), None, None)
@@ -586,7 +586,7 @@ fn a_fan_direction_reads_as_the_platform_spelled_it() {
         ("'UNKNOWN'", "UNKNOWN"),
         ("False", "False"),
     ] {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = py.eval(&CString::new(answer).unwrap(), None, None).unwrap();
             chassis
                 .bind(py)
@@ -611,7 +611,7 @@ fn every_module_status_the_base_class_defines_reads_as_itself() {
         ("ProvisionPending", ModuleStatus::ProvisionPending),
         ("Provisioned", ModuleStatus::Provisioned),
     ] {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             chassis
                 .bind(py)
                 .getattr("module")
@@ -640,7 +640,7 @@ fn an_action_answers_what_the_base_class_answered() {
         ("0", Some(false)),
         ("'Executed'", Some(true)),
     ] {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = py.eval(&CString::new(answer).unwrap(), None, None).unwrap();
             chassis
                 .bind(py)
@@ -666,7 +666,7 @@ fn an_action_addresses_the_row_by_the_key_the_snapshot_published() {
         .clone();
     api.set_fan_led(&key, LedColor::Amber).unwrap();
 
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let led = chassis
             .bind(py)
             .getattr("fan")
@@ -691,7 +691,7 @@ fn a_vendors_own_key_error_is_a_backend_failure_and_not_not_found() {
     // A KeyError out of a vendor's getter is a dictionary miss in its own
     // tables, not a key of ours that led nowhere.
     let (mut api, chassis) = bridge();
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let fan = chassis.bind(py).getattr("fan").unwrap();
         let picky = py
             .eval(c_str!("lambda color: {}[color]"), None, None)
@@ -707,7 +707,7 @@ fn a_vendors_own_key_error_is_a_backend_failure_and_not_not_found() {
 #[test]
 fn a_thermal_that_fails_crosses_as_a_row_saying_why() {
     let (mut api, chassis) = bridge();
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         chassis.bind(py).call_method0("fail_one_thermal").unwrap();
     });
     let rows = api.get_thermals(ThermalInfoCols::ALL, &[]).unwrap();
@@ -732,7 +732,7 @@ fn a_thermal_that_fails_crosses_as_a_row_saying_why() {
 #[test]
 fn an_absorbed_failure_costs_one_column_and_sets_no_error() {
     let (mut api, chassis) = bridge();
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let fan = chassis.bind(py).getattr("fan").unwrap();
         let boom = py.eval(c_str!("lambda: 1 / 0"), None, None).unwrap();
         fan.setattr("get_speed", boom).unwrap();
@@ -755,7 +755,7 @@ fn an_absorbed_failure_costs_one_column_and_sets_no_error() {
 #[test]
 fn an_absent_fan_is_asked_its_speed_only_when_absorbing() {
     let (mut api, chassis) = bridge();
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let fan = chassis.bind(py).getattr("fan").unwrap();
         let answers = py
             .eval(c_str!("(lambda: False, lambda: 1 / 0)"), None, None)
@@ -783,7 +783,7 @@ fn an_absent_fan_is_asked_its_speed_only_when_absorbing() {
 #[test]
 fn an_integral_reading_crosses_as_an_int() {
     let (mut api, chassis) = bridge();
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let chassis = chassis.bind(py);
         let module: String = chassis
             .getattr("__class__")
@@ -856,7 +856,7 @@ fn something_the_platform_does_not_implement_is_not_supported() {
 fn a_chassis_level_action_needs_no_row() {
     let (mut api, chassis) = bridge();
     api.set_chassis_led("green").unwrap();
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let led = chassis.bind(py).getattr("led").unwrap();
         assert_eq!(led.extract::<String>().unwrap(), "green");
     });
@@ -870,13 +870,13 @@ fn a_chassis_level_action_needs_no_row() {
 fn the_chassis_led_takes_a_vendor_colour_and_answers_whether_it_took() {
     let (mut api, chassis) = bridge();
     assert_eq!(api.set_chassis_led("amber_blink").unwrap(), Some(true));
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let led = chassis.bind(py).getattr("led").unwrap();
         assert_eq!(led.extract::<String>().unwrap(), "amber_blink");
         chassis.bind(py).setattr("led_answer", false).unwrap();
     });
     assert_eq!(api.set_chassis_led("red").unwrap(), Some(false));
-    Python::with_gil(|py| chassis.bind(py).setattr("led_answer", py.None()).unwrap());
+    Python::attach(|py| chassis.bind(py).setattr("led_answer", py.None()).unwrap());
     assert_eq!(api.set_chassis_led("red").unwrap(), None);
 }
 
@@ -888,7 +888,7 @@ fn the_chassis_led_takes_a_vendor_colour_and_answers_whether_it_took() {
 fn an_led_reads_as_the_colour_the_platform_answered() {
     let (mut api, chassis) = bridge();
     api.set_chassis_led("green_blink").unwrap();
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let fan = chassis.bind(py).getattr("fan").unwrap();
         fan.setattr("led", "orange").unwrap();
     });
@@ -923,7 +923,7 @@ fn tm_stop_stops_the_manager_and_nothing_else() {
          class Chassis:\n\
          \x20   def get_thermal_manager(self): return Manager\n"
     );
-    let (mut api, calls) = Python::with_gil(|py| {
+    let (mut api, calls) = Python::attach(|py| {
         let m = PyModule::from_code(py, MANAGER, c_str!("tm.py"), c_str!("tm_stop_mock")).unwrap();
         let chassis = m.getattr("Chassis").unwrap().call0().unwrap();
         let facade = py
@@ -939,7 +939,7 @@ fn tm_stop_stops_the_manager_and_nothing_else() {
         )
     });
     api.tm_stop().unwrap();
-    let seen: Vec<String> = Python::with_gil(|py| calls.bind(py).extract().unwrap());
+    let seen: Vec<String> = Python::attach(|py| calls.bind(py).extract().unwrap());
     assert_eq!(seen, vec!["stop".to_string()]);
 }
 
@@ -983,7 +983,7 @@ fn a_module_action_reaches_the_module() {
     let (mut api, chassis) = bridge();
     api.reboot_module(&DeviceKey::from("modules[0]"), "DPU")
         .unwrap();
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let v = chassis
             .bind(py)
             .getattr("module")
@@ -1129,7 +1129,7 @@ fn every_row_type_crosses() {
 }
 
 #[test]
-fn a_leak_sensor_reaches_through_its_profile() {
+fn a_dry_leak_sensor_keeps_profile_columns_unread() {
     use platform_api::LeakSeverity;
     let mut api = loaded();
 
@@ -1148,9 +1148,39 @@ fn a_leak_sensor_reaches_through_its_profile() {
     assert_eq!((s.is_leak, s.is_ok), (Some(false), Some(true)));
     assert_eq!(s.severity, Some(LeakSeverity::Minor));
     assert_eq!(s.sensor_type.as_deref(), Some("rope"));
-    // Two hops: the sensor's profile, then the profile's own columns.
-    assert_eq!(s.profile_type.as_deref(), Some("rack"));
-    assert_eq!(s.profile_max_minor_duration_sec, Some(30));
+    assert_eq!(s.profile_type, None);
+    assert_eq!(s.profile_max_minor_duration_sec, None);
+}
+
+#[test]
+fn an_active_minor_leak_reaches_through_its_current_profile() {
+    let code = std::ffi::CString::new(LOADED.to_str().unwrap().replacen(
+        "def is_leak(self):\n        return False",
+        "def is_leak(self):\n        return True",
+        1,
+    ))
+    .unwrap();
+    let mut api = Python::attach(|py| {
+        let module = PyModule::from_code(
+            py,
+            code.as_c_str(),
+            c_str!("loaded_leaking.py"),
+            c_str!("loaded_leaking"),
+        )
+        .unwrap();
+        let facade = py
+            .import("sonic_platform_api.facade")
+            .unwrap()
+            .getattr("PlatformApi")
+            .unwrap()
+            .call1((module.getattr("CHASSIS").unwrap(),))
+            .unwrap();
+        Bridge::from_facade(facade.unbind())
+    });
+    let sensors = api.get_leak_sensors().unwrap();
+    assert_eq!(sensors[0].is_leak, Some(true));
+    assert_eq!(sensors[0].profile_type.as_deref(), Some("rack"));
+    assert_eq!(sensors[0].profile_max_minor_duration_sec, Some(30));
 }
 
 #[test]
@@ -1528,7 +1558,7 @@ CHASSIS = Chassis()
 );
 
 fn recorder() -> (Bridge, Py<PyAny>) {
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let m = PyModule::from_code(py, RECORDER, c_str!("rec.py"), c_str!("rec")).unwrap();
         let chassis = m.getattr("CHASSIS").unwrap();
         let facade = py
@@ -1548,7 +1578,7 @@ fn recorder() -> (Bridge, Py<PyAny>) {
 /// plan the snapshot walks, so every getter on the way past is recorded from
 /// inside the very call being asserted on.
 fn calls(chassis: &Py<PyAny>, device: &str, keep: &[&str]) -> Vec<(String, String)> {
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         // "chassis" is the object itself; anything else is one of its devices.
         // Rec.__getattr__ answers a callable for any name it does not have, so
         // reaching for a device that is not there would silently yield one.
@@ -1772,7 +1802,7 @@ fn every_action_crosses_and_marshals_what_it_was_given() {
 #[test]
 fn the_bridge_names_the_interpreter_for_the_vendor_s_logger() {
     let _ = Bridge::new("a_module_that_does_not_exist", "thermalctld");
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let argv: Vec<String> = py
             .import("sys")
             .unwrap()
@@ -1814,7 +1844,7 @@ fn handing_the_signals_back_never_costs_us_the_bridge() {
          \x20           pass\n\
          \x20   def get_chassis(self): return _C()\n"
     );
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let m = PyModule::from_code(py, VENDOR, c_str!("vend.py"), c_str!("vend_sig")).unwrap();
         py.import("sys")
             .unwrap()
@@ -1841,7 +1871,7 @@ fn handing_the_signals_back_never_costs_us_the_bridge() {
 #[test]
 fn finalize_runs_the_handlers_the_vendor_registered() {
     let (mut api, _chassis) = bridge();
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let m = PyModule::from_code(
             py,
             c_str!(
@@ -1895,7 +1925,7 @@ fn a_name_crosses_to_the_key_python_would_have_resolved() {
 #[test]
 fn integer_presence_preserves_python_truthiness() {
     let (mut api, chassis) = bridge();
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let fan = chassis.bind(py).getattr("fan").unwrap();
         fan.setattr(
             "get_presence",

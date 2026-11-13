@@ -28,7 +28,8 @@ use std::str::FromStr;
 
 use platform_api::PlatformError;
 
-// Cargo generates this module from the platform API declarations.
+// Generated at build time from facade.pyi into OUT_DIR.
+// `generate.py --check` verifies deterministic generation; rustfmt skips it.
 #[rustfmt::skip]
 mod generated {
     include!(concat!(env!("OUT_DIR"), "/src/generated.rs"));
@@ -186,7 +187,7 @@ class Platform:
     fn opening_the_pyo3_implementation_reaches_the_vendor_and_names_the_caller() {
         use pyo3::prelude::*;
 
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let m = pyo3::types::PyModule::from_code(
                 py,
                 VENDOR_STUB,
@@ -213,7 +214,7 @@ class Platform:
         // from `sys.argv[0]`, so this is the difference between the vendor's
         // Python logging as `pmon#thermalctld` and logging as `pmon#`, which
         // sonic-mgmt's loganalyzer does not match.
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let argv: Vec<String> = py
                 .import("sys")
                 .unwrap()

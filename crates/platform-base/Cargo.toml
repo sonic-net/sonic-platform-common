@@ -1,8 +1,9 @@
 [package]
+publish = false
 name = "platform-base"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.82"
+rust-version = "1.83"
 license = "Apache-2.0"
 description = "sonic_platform_base in Rust: what a native platform API implementation builds on"
 
@@ -26,4 +27,4 @@ testing = []
 # through the bridge, so it needs both.
 [dev-dependencies]
 platform-pyo3 = { path = "../platform-pyo3" }
-pyo3 = { version = "0.25", features = ["auto-initialize"] }
+pyo3 = { version = "0.29", features = ["auto-initialize"] }

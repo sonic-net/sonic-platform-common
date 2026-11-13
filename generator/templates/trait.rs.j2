@@ -277,7 +277,12 @@ pub trait PlatformApi: Send {
 {%- if m.name == 'get_psu_fans' %}
     /// Existing implementations can use their projected fan snapshot;
     /// bridges override this to avoid traversing unrelated devices.
+    /// The fallback requires `get_psus` for key validation and takes a full
+    /// PSU snapshot before reading projected fans. Override it for scoped reads.
     fn get_psu_fans(&mut self, key: &DeviceKey, include_details: bool) -> Result<Vec<FanInfo>, PlatformError> {
+        if !self.get_psus()?.iter().any(|psu| &psu.key == key) {
+            return Err(PlatformError::NotFound(key.to_string()));
+        }
         let columns = FanInfoCols::NONE{% for column in m.columns %}.with(FanInfoCols::{{ column | upper }}){% endfor %};
         let columns = if include_details {
             columns{% for column in m.detail_columns %}.with(FanInfoCols::{{ column | upper }}){% endfor %}

@@ -181,6 +181,22 @@ def _call_unsupported_default(fn, default):
     return default if value is NotImplementedError else value
 
 
+_UNSUPPORTED = object()
+
+
+def _cached_call(reads, key, fn, unsupported=None):
+    """Read once per row, preserving unsupported separately from explicit None."""
+    if key not in reads:
+        try:
+            reads[key] = (True, _call_unsupported_default(fn, _UNSUPPORTED))
+        except Exception as error:
+            reads[key] = (False, error)
+    succeeded, value = reads[key]
+    if not succeeded:
+        raise value
+    return unsupported if value is _UNSUPPORTED else value
+
+
 def _iter(seq):
     return seq if seq is not None else ()
 
@@ -515,7 +531,7 @@ class PsuInfo(object):
     """A PSU or a PDB.  `PdbBase` extends `PsuBase` and psud publishes both
     into the same table, so they are one row type with a `kind`."""
 
-    __slots__ = ('name', 'kind', 'key', 'position_in_parent', 'presence', 'is_replaceable', 'model', 'serial', 'revision', 'power_good', 'status_led', 'voltage', 'current', 'power', 'input_voltage', 'input_current', 'input_power', 'temperature', 'temperature_high_threshold', 'voltage_high_threshold', 'voltage_low_threshold', 'maximum_supplied_power', 'power_warning_suppress_threshold', 'power_critical_threshold', )
+    __slots__ = ('name', 'kind', 'key', 'position_in_parent', 'presence', 'is_replaceable', 'model', 'serial', 'revision', 'power_good', 'status_led', 'voltage', 'current', 'power', 'input_voltage', 'input_current', 'input_power', 'temperature', 'temperature_high_threshold', 'voltage_high_threshold', 'voltage_low_threshold', 'maximum_supplied_power', 'maximum_supplied_power_for_budget', 'power_warning_suppress_threshold', 'power_critical_threshold', )
 
     def __init__(self, **fields):
         """Keyword-only, and uniform across every row.
@@ -1598,6 +1614,7 @@ class PlatformApi(object):
 
 
     def _row_psu_info(self, dev, parent, i, fixed):
+        _reads = {}
         row = PsuInfo(
             name=_fmt(None, '{parent}', parent, i),
             kind=fixed['kind'],
@@ -1621,6 +1638,7 @@ class PlatformApi(object):
             voltage_high_threshold=None,
             voltage_low_threshold=None,
             maximum_supplied_power=None,
+            maximum_supplied_power_for_budget=None,
             power_warning_suppress_threshold=None,
             power_critical_threshold=None,
         )
@@ -1701,9 +1719,13 @@ class PlatformApi(object):
         except Exception:
             row.voltage_low_threshold = None
         try:
-            row.maximum_supplied_power = (_scalar(_call_unsupported_default(_get(dev, 'get_maximum_supplied_power'), 0.0), ('N/A',), ('int', 'str'))) if row.presence else None
+            row.maximum_supplied_power = (_scalar(_cached_call(_reads, 'get_maximum_supplied_power', _get(dev, 'get_maximum_supplied_power')), ('N/A',), ('int', 'str'))) if row.presence else None
         except Exception:
             row.maximum_supplied_power = None
+        try:
+            row.maximum_supplied_power_for_budget = (_scalar(_cached_call(_reads, 'get_maximum_supplied_power', _get(dev, 'get_maximum_supplied_power'), unsupported=0.0), ('N/A',), ('int', 'str'))) if row.presence else None
+        except Exception:
+            row.maximum_supplied_power_for_budget = None
         try:
             row.power_warning_suppress_threshold = _scalar(_call(_get(dev, 'get_psu_power_warning_suppress_threshold')), ('N/A',), ('int', 'str'))
         except Exception:
@@ -1712,6 +1734,7 @@ class PlatformApi(object):
             row.power_critical_threshold = _scalar(_call(_get(dev, 'get_psu_power_critical_threshold')), ('N/A',), ('int', 'str'))
         except Exception:
             row.power_critical_threshold = None
+        _reads.clear()
         return row
 
     def _walk_psu_info(self):
@@ -1799,21 +1822,9 @@ class PlatformApi(object):
         # platform need not answer the same thing twice, and some of these
         # getters block and log.  See `_share_calls`.
         _shared0 = _call(_get(dev, 'get_name'))
-        # One call, sliced by every column that wants a piece of it: the
-        # platform need not answer the same thing twice, and some of these
-        # getters block and log.  See `_share_calls`.
         _shared1 = _call(_get(dev, 'get_presence')) if cols & 131074 else None
-        # One call, sliced by every column that wants a piece of it: the
-        # platform need not answer the same thing twice, and some of these
-        # getters block and log.  See `_share_calls`.
         _shared2 = _call(_get(dev, 'is_replaceable')) if cols & 262152 else None
-        # One call, sliced by every column that wants a piece of it: the
-        # platform need not answer the same thing twice, and some of these
-        # getters block and log.  See `_share_calls`.
         _shared3 = _call(_get(dev, 'get_slot')) if cols & 524416 else None
-        # One call, sliced by every column that wants a piece of it: the
-        # platform need not answer the same thing twice, and some of these
-        # getters block and log.  See `_share_calls`.
         _shared4 = _call(_get(dev, 'get_oper_status')) if cols & 1049088 else None
         return ModuleInfo(
             name=_fmt(_text(_shared0), 'Module {i}', parent, i),
@@ -2084,7 +2095,8 @@ class PlatformApi(object):
 
 
     def _row_leak_sensor_info(self, dev, parent, i, fixed):
-        return LeakSensorInfo(
+        _reads = {}
+        row = LeakSensorInfo(
             name=_fmt(_text(_call(_get(dev, 'get_name'))), 'leakage{i}', parent, i),
             parent_name=parent,
             sensor_type=_text(_call(_get(dev, 'get_leak_sensor_type'))),
@@ -2092,9 +2104,13 @@ class PlatformApi(object):
             is_leak=_truthy(_call(_get(dev, 'is_leak'))),
             is_ok=_call(_get(dev, 'is_leak_sensor_ok')),
             severity=_text(_call(_get(dev, 'get_leak_severity'))),
-            profile_type=_text(_call(_get(_call(_get(dev, 'get_leak_profile')), 'get_type'))),
-            profile_max_minor_duration_sec=_scalar(_call(_get(_call(_get(dev, 'get_leak_profile')), 'get_leak_max_minor_duration_sec')), ('N/A',), ('int', 'str')),
+            profile_type=None,
+            profile_max_minor_duration_sec=None,
         )
+        row.profile_type = (_text(_call(_get(_cached_call(_reads, 'get_leak_profile', _get(dev, 'get_leak_profile')), 'get_type')))) if row.is_ok and row.is_leak is True and row.severity == 'MINOR' else None
+        row.profile_max_minor_duration_sec = (_scalar(_call(_get(_cached_call(_reads, 'get_leak_profile', _get(dev, 'get_leak_profile')), 'get_leak_max_minor_duration_sec')), ('N/A',), ('int', 'str'))) if row.is_ok and row.is_leak is True and row.severity == 'MINOR' else None
+        _reads.clear()
+        return row
 
     def _walk_leak_sensor_info(self):
         """Every LeakSensorInfo, in declared order.

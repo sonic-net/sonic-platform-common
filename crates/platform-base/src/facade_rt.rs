@@ -440,7 +440,10 @@ pub fn ret_str(v: &PyVal) -> Result<Option<String>, PlatformError> {
     match v {
         PyVal::None => Ok(None),
         PyVal::Str(s) => Ok(Some(s.clone())),
-        other => Err(downcast(other, "PyString")),
+        other => Err(PlatformError::Backend(format!(
+            "'{}' object is not an instance of 'str'",
+            other.type_name()
+        ))),
     }
 }
 

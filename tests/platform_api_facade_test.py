@@ -1353,13 +1353,13 @@ def test_a_nameless_leak_sensor_gets_the_daemons_own_fallback():
 
 def test_a_two_hop_field_reaches_through_the_profile():
     profile = Profile('rack', 30)
-    lc = LiquidCooling(sensors=[LeakSensor('leak-a', profile=profile)])
+    lc = LiquidCooling(sensors=[LeakSensor('leak-a', leak=True, severity='MINOR', profile=profile)])
     row = PlatformApi(CooledChassis(liquid=lc)).get_leak_sensors()[0]
     assert (row.profile_type, row.profile_max_minor_duration_sec) == ('rack', 30)
 
 
 def test_a_sensor_with_no_profile_leaves_the_profile_columns_absent():
-    lc = LiquidCooling(sensors=[LeakSensor('leak-a')])
+    lc = LiquidCooling(sensors=[LeakSensor('leak-a', leak=True, severity='MINOR')])
     row = PlatformApi(CooledChassis(liquid=lc)).get_leak_sensors()[0]
     assert row.profile_type is None
     assert row.profile_max_minor_duration_sec is None
@@ -3623,7 +3623,7 @@ def test_scoped_psu_fans_reuse_the_owning_facade(monkeypatch):
 
 
 @pytest.mark.parametrize('kind,method,field', [
-    ('psu', 'get_maximum_supplied_power', 'maximum_supplied_power'),
+    ('psu', 'get_maximum_supplied_power', 'maximum_supplied_power_for_budget'),
     ('drawer', 'get_maximum_consumed_power', 'maximum_consumed_power'),
     ('module', 'get_maximum_consumed_power', 'maximum_consumed_power'),
 ])
@@ -3671,3 +3671,65 @@ def test_module_publication_keeps_unknown_status_and_slot_spellings():
     assert row.slot_text == 'vendor-slot'
     assert row.oper_status_text == 'Starting'
     assert sorted(calls) == ['presence', 'slot', 'status'], 'typed and text columns share each getter'
+
+
+@pytest.mark.parametrize('ok,leak,severity', [
+    (False, True, 'MINOR'), (True, False, 'MINOR'),
+    (True, True, 'CRITICAL'), (True, True, None),
+])
+def test_an_irrelevant_leak_profile_cannot_reject_a_sensor_snapshot(ok, leak, severity):
+    calls = []
+    class FaultyProfile(LeakSensor):
+        def get_leak_profile(self):
+            calls.append('profile')
+            raise RuntimeError('unrelated profile is unavailable')
+    sensor = FaultyProfile('leak-a', leak=leak, ok=ok, severity=severity)
+    row = PlatformApi(CooledChassis(liquid=LiquidCooling(sensors=[sensor]))).get_leak_sensors()[0]
+    assert (row.is_ok, row.is_leak, row.severity) == (ok, leak, severity)
+    assert row.profile_type is None and row.profile_max_minor_duration_sec is None
+    assert calls == []
+
+
+def test_a_minor_leak_reads_one_current_profile_per_snapshot():
+    calls = []
+    profile = Profile('rack', 30)
+    class ActiveSensor(LeakSensor):
+        def get_leak_profile(self):
+            calls.append('profile')
+            return profile
+    sensor = ActiveSensor('leak-a', leak=True, severity='MINOR')
+    api = PlatformApi(CooledChassis(liquid=LiquidCooling(sensors=[sensor])))
+    first = api.get_leak_sensors()[0]
+    assert (first.profile_type, first.profile_max_minor_duration_sec) == ('rack', 30)
+    assert calls == ['profile']
+    profile._secs = 5
+    second = api.get_leak_sensors()[0]
+    assert second.profile_max_minor_duration_sec == 5
+    assert calls == ['profile', 'profile']
+
+
+@pytest.mark.parametrize('answer,publication,budget', [
+    ('unsupported', None, 0.0), ('returned_unsupported', None, 0.0),
+    ('unknown', None, None), ('zero', 0.0, 0.0), ('value', 12.5, 12.5),
+    ('error', None, None),
+])
+def test_psu_publication_and_budget_share_one_raw_power_read(answer, publication, budget):
+    calls = []
+    class Psu:
+        def get_name(self): return 'PSU 1'
+        def get_presence(self): return True
+        def get_powergood_status(self): return True
+        def get_maximum_supplied_power(self):
+            calls.append('power')
+            if answer == 'unsupported':
+                raise NotImplementedError()
+            if answer == 'error':
+                raise RuntimeError('temporary read failure')
+            return {'returned_unsupported': NotImplementedError, 'unknown': None,
+                    'zero': 0.0, 'value': 12.5}[answer]
+    class Chassis:
+        def get_all_psus(self): return [Psu()]
+    row = PlatformApi(Chassis()).get_psus()[0]
+    assert row.maximum_supplied_power == publication
+    assert row.maximum_supplied_power_for_budget == budget
+    assert calls == ['power']

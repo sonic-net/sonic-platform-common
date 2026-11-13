@@ -576,7 +576,15 @@ def _base_call(f, dev='dev'):
     for i, hop in enumerate(hops):
         last = i == len(hops) - 1
         ref = call if i == 0 else '&' + call
-        if last and f.preserve_none:
+        prefix = '.'.join(hops[:i + 1])
+        if prefix in getattr(f, 'cached_prefixes', ()):
+            fallback = _pyval_literal(f.default) if last and f.preserve_none else 'PyVal::None'
+            key = _q(prefix)
+            call = ('{ let value = if let Some(value) = reads.get(%s) { value.clone() } '
+                    'else { let value = get(%s, |o| o.%s()); '
+                    'reads.insert(%s, value.clone()); value }; '
+                    'call_unsupported_default(value, %s)? }') % (key, ref, hop, key, fallback)
+        elif last and f.preserve_none:
             call = 'call_unsupported_default(get(%s, |o| o.%s()), %s)?' % (
                 ref, hop, _pyval_literal(f.default))
         else:
@@ -708,6 +716,14 @@ def row_body(row):
         if f.read_if and (f.read_if_absorbing or not absorbing):
             gate = by_name[f.read_if].rust_name
             cond = ('row.%s.truthy()' if f.read_if_truthy else '!row.%s.is_none()') % gate
+            for column, literal in f.read_if_all:
+                column = by_name[column].rust_name
+                if isinstance(literal, bool):
+                    cond += ' && matches!(row.%s, PyVal::Bool(%s))' % (column, str(literal).lower())
+                elif literal is None:
+                    cond += ' && row.%s.is_none()' % column
+                else:
+                    cond += ' && row.%s.py_eq(&%s)' % (column, _pyval_literal(literal))
             expr = 'if %s { %s } else { %s }' % (cond, expr, _absent(f))
         return expr
 
@@ -756,7 +772,8 @@ def row_body(row):
             out.append('%s};' % indent)
         return out
 
-    lines = []
+    lines = ['let mut reads: std::collections::HashMap<&str, PyResult<PyVal>> = '
+             'std::collections::HashMap::new();'] if row.cached_reads else []
     if row.skippable:
         lines.append('let mut cols = cols;')
         lines.append('if skipped(fixed, skip)? {')

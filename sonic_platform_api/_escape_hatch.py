@@ -458,7 +458,7 @@ class EscapeHatches(object):
 
             platform_path, _hwsku = device_info.get_paths_to_platform_and_hwsku_dirs()
         except Exception as e:
-            logging.getLogger('pcied').error('Cannot locate PCIe platform directory: %s', e)
+            logging.getLogger(__name__).error('Cannot locate PCIe platform directory: %s', e)
             return None
         try:
             from sonic_platform.pcie import Pcie
@@ -471,7 +471,7 @@ class EscapeHatches(object):
                 # In this repo but untyped, as every platform base class is.
                 self._pcie = PcieUtil(platform_path)
             except Exception as e:
-                logging.getLogger('pcied').error('Cannot load PCIe utility: %s', e)
+                logging.getLogger(__name__).error('Cannot load PCIe utility: %s', e)
                 self._pcie = None
         except Exception:
             self._pcie_tried = False

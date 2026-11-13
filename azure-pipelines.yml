@@ -36,8 +36,19 @@ steps:
     runVersion: 'latestFromBranch'
     runBranch: 'refs/heads/$(BRANCH_NAME)'
     patterns: |
-      **/*.whl
-      **/*.deb
+      target/debs/bookworm/libyang3_*.deb
+      target/debs/bookworm/python3-libyang*.deb
+      target/debs/bookworm/libnl-3-200_*.deb
+      target/debs/bookworm/libnl-genl-3-200_*.deb
+      target/debs/bookworm/libnl-route-3-200_*.deb
+      target/debs/bookworm/libnl-nf-3-200_*.deb
+      target/debs/bookworm/libswsscommon_1.0.0_amd64.deb
+      target/debs/bookworm/python3-swsscommon_1.0.0_amd64.deb
+      target/python-wheels/bookworm/swsssdk-2.0.1-py3-none-any.whl
+      target/python-wheels/bookworm/sonic_py_common-1.0-py3-none-any.whl
+      target/python-wheels/bookworm/sonic_yang_mgmt-1.0-py3-none-any.whl
+      target/python-wheels/bookworm/sonic_yang_models-1.0-py3-none-any.whl
+      target/python-wheels/bookworm/sonic_config_engine-1.0-py3-none-any.whl
     path: '$(Build.ArtifactStagingDirectory)'
   displayName: "Download artifacts from latest sonic-buildimage build"
 
@@ -64,6 +75,14 @@ steps:
     sudo pip3 install sonic_config_engine-1.0-py3-none-any.whl
   workingDirectory: $(Build.ArtifactStagingDirectory)/target/python-wheels/bookworm/
   displayName: 'Install Python dependencies'
+
+- script: |
+    set -eu
+    artifact_root="${BUILD_ARTIFACTSTAGINGDIRECTORY:?}"
+    sudo rm -rf -- "$artifact_root/target"
+    sudo apt-get clean
+    df -h /
+  displayName: 'Release installed dependency artifacts'
 
 - script: |
     set -ex
@@ -140,14 +159,11 @@ steps:
 # The slave image has the toolchain, rustfmt and clippy included, but not the
 # LLVM tools matching it, and its rustup home belongs to root.
 #
-# The agent's disk is nearly full by this step, too full for the lint's build
-# and the coverage build side by side.  The sonic-buildimage packages downloaded
-# above are installed by now, so they are deleted to make room; neither build
-# keeps incremental state, the lint's is deleted before the coverage build
-# starts, and the coverage build's at the end.
+# Dependency downloads are released before .NET setup. Keep the Rust build
+# footprint bounded too: do not retain incremental state, and delete the lint
+# target before coverage and the coverage target when it finishes.
 - script: |
     set -ex
-    sudo rm -rf $(Build.ArtifactStagingDirectory)/target
     sudo env RUSTUP_HOME=/usr/.cargo /usr/.cargo/bin/rustup component add llvm-tools-preview
     mkdir -p ~/.cargo/bin
     curl -sSfL -o /tmp/cargo-llvm-cov.tar.gz \

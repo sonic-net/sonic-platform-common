@@ -77,6 +77,7 @@ class FieldSpec:
     read_if: Optional[str] = None     # read only when this earlier column has a value
     read_if_truthy: bool = False      # ... is truthy, Python's `if column:`
     read_if_absorbing: bool = True    # ... and also when the row is read absorbing
+    read_if_all: tuple = ()           # additional (earlier column, literal value) conditions
     row_error: Optional[str] = None   # 'str' | 'repr' | 'column': what went wrong reading the row
     secret: bool = False              # never printed by repr / Debug
     unsupported_on: str = 'none'      # none | default

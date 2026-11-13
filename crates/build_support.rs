@@ -5,7 +5,6 @@ use std::path::Path;
 use std::process::Command;
 
 fn watch_sources(path: &Path, extension: Option<&str>) {
-    println!("cargo:rerun-if-changed={}", path.display());
     let mut entries: Vec<_> = fs::read_dir(path)
         .unwrap_or_else(|error| panic!("cannot read generator input {}: {error}", path.display()))
         .map(|entry| entry.expect("generator input directory entry"))
@@ -44,11 +43,20 @@ fn generate() {
         "cargo:rerun-if-changed={}",
         crates_dir.join("build_support.rs").display()
     );
-    watch_sources(&root.join("generator"), None);
+    for script in ["build.py", "generate.py", "model.py", "parse_pyi.py"] {
+        println!(
+            "cargo:rerun-if-changed={}",
+            root.join("generator").join(script).display()
+        );
+    }
+    let native = root.join("generator/native.py");
+    if native.is_file() {
+        println!("cargo:rerun-if-changed={}", native.display());
+    }
+    watch_sources(&root.join("generator/templates"), Some("j2"));
     watch_sources(&root.join("sonic_platform_api"), Some("pyi"));
     watch_sources(&root.join("sonic_platform_base"), Some("py"));
     println!("cargo:rerun-if-env-changed=SONIC_PLATFORM_GENERATOR_PYTHON");
-    println!("cargo:rerun-if-env-changed=PYTHONPATH");
     let python = env::var_os("SONIC_PLATFORM_GENERATOR_PYTHON").unwrap_or_else(|| "python3".into());
     let crate_name = env::var("CARGO_PKG_NAME").expect("crate name");
     let output = env::var_os("OUT_DIR").expect("Cargo output directory");
@@ -56,6 +64,9 @@ fn generate() {
         .arg(root.join("generator/build.py"))
         .args(["--crate", &crate_name, "--out-dir"])
         .arg(&output)
+        // Generator modules are local and base-class contracts are parsed
+        // from source. Runtime facade/test import paths are not build inputs.
+        .env_remove("PYTHONPATH")
         .env("PYTHONDONTWRITEBYTECODE", "1")
         .current_dir(root)
         .status()
@@ -68,6 +79,4 @@ fn generate() {
         status.success(),
         "platform generator failed for {crate_name}: {status}; the host Python must provide Jinja2 and the complete platform-common generator/stub sources; set SONIC_PLATFORM_GENERATOR_PYTHON to that interpreter"
     );
-    // Missing or externally edited output must rerun generation as well.
-    watch_sources(Path::new(&output), None);
 }

@@ -1408,7 +1408,7 @@ fn compare_shutdown(failures: &mut Vec<String>) {
          \x20   raise RuntimeError(\"the vendor's shutdown handler failed\")\n\
          _escape_hatch._shutdown_handlers[signal.SIGTERM] = handler\n"
     );
-    let (py_answers, py_runs) = Python::with_gil(|py| {
+    let (py_answers, py_runs) = Python::attach(|py| {
         let m = PyModule::from_code(
             py,
             VENDOR,
@@ -1534,7 +1534,7 @@ fn the_native_facade_answers_what_the_python_facade_and_bridge_answer() {
 
         // Python first: its constructors and ours both reset the PSU master
         // LED, so each tree is built right before it is read.
-        let (py_results, rs_results) = Python::with_gil(|py| {
+        let (py_results, rs_results) = Python::attach(|py| {
             let m = support(py);
             let facade = build_python(py, &m, &g.nodes, &g.disks);
             py_trace(py, &m);

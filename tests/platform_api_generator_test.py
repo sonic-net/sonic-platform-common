@@ -13,7 +13,10 @@ import ast
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -134,6 +137,39 @@ def test_nondeterministic_generation_fails_the_ci_check(monkeypatch, capsys):
     monkeypatch.setattr(generate, 'render', lambda model: next(outputs))
     assert run(monkeypatch, 'generate.py', '--check') == 1
     assert 'generation is not deterministic' in capsys.readouterr().err
+
+
+def test_hash_seed_dependent_output_fails_the_actual_cli_check(tmp_path):
+    root = Path(generate.__file__).resolve().parent.parent
+    for directory in ('generator', 'sonic_platform_api', 'sonic_platform_base'):
+        shutil.copytree(root / directory, tmp_path / directory,
+                        ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+    script = tmp_path / 'generator/generate.py'
+    source = script.read_text()
+    marker = "        out[path] = '\\n'.join(ln.rstrip() for ln in text.split('\\n'))"
+    assert source.count(marker) == 1
+    # A set iteration is stable within one interpreter and can differ across
+    # builds. The old two-render check in one process accepted this output.
+    source = source.replace(marker, '''        if path.endswith('.rs'):
+            text += '\\n// ' + ','.join({'alpha', 'beta', 'gamma', 'delta',
+                                      'epsilon', 'zeta', 'eta', 'theta'})
+''' + marker)
+    script.write_text(source)
+    environment = dict(os.environ, PYTHONHASHSEED='0', PYTHONDONTWRITEBYTECODE='1')
+    command = [sys.executable, str(script)]
+    subprocess.run(command, env=environment, capture_output=True, text=True, check=True)
+    result = subprocess.run(command + ['--check'], env=environment,
+                            capture_output=True, text=True)
+    assert result.returncode == 1
+    assert 'generation is not deterministic' in result.stderr
+
+
+def test_a_failed_generation_subprocess_reports_its_error(monkeypatch, capsys):
+    def fail(seed):
+        raise subprocess.CalledProcessError(1, ['python'], stderr='cannot render input')
+    monkeypatch.setattr(generate, 'render_in_subprocess', fail)
+    assert run(monkeypatch, 'generate.py', '--check') == 1
+    assert 'subprocess failed: cannot render input' in capsys.readouterr().err
 
 
 def test_an_arity_problem_stops_the_generator_before_it_writes(tmp_path, monkeypatch, capsys):

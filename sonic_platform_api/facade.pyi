@@ -524,6 +524,12 @@ class PsuInfo:
     ]
     maximum_supplied_power: Annotated[
         Optional[Watt], From("PsuBase.get_maximum_supplied_power"), _MISSING,
+        ReadIf("presence", truthy=True),
+    ]
+    # Publication keeps an unavailable value unknown. Only the power budget
+    # substitutes zero for an unsupported getter, while preserving None.
+    maximum_supplied_power_for_budget: Annotated[
+        Optional[Watt], From("PsuBase.get_maximum_supplied_power"), _MISSING,
         Unsupported(on="default", default=0.0, preserve_none=True),
         ReadIf("presence", truthy=True),
     ]
@@ -880,12 +886,16 @@ class LeakSensorInfo:
     # rather than a handle, because what the daemon needs off the profile is
     # two scalars and it needs them on every sensor it escalates.
     profile_type: Annotated[
-        Optional[str], From("LeakageSensorBase.get_leak_profile.get_type")
+        Optional[str], From("LeakageSensorBase.get_leak_profile.get_type"),
+        ReadIf("is_ok", truthy=True,
+               all_of=(("is_leak", True), ("severity", "MINOR"))),
     ]
     profile_max_minor_duration_sec: Annotated[
         Optional[int],
         From("LeakageSensorBase.get_leak_profile.get_leak_max_minor_duration_sec"),
         _MISSING,
+        ReadIf("is_ok", truthy=True,
+               all_of=(("is_leak", True), ("severity", "MINOR"))),
     ]
 
     def __init__(self, **fields: object) -> None:
