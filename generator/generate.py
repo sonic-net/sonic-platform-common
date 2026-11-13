@@ -5,9 +5,9 @@ templates.  A template that decides how a sentinel is normalised is a template
 that has to be kept in step with the two other templates that decide the same
 thing; the point of the exercise is that they cannot drift.
 
-Outputs are checked in.  `--check` re-renders and compares, which is what CI
-runs: a stub edited without regenerating fails there rather than at the next
-person to touch it.
+The Python facade is checked in. Rust sources are generated into Cargo
+`OUT_DIR` during the build. `--check` compares the checked-in Python outputs
+and checks generation in independent processes with different hash seeds.
 """
 
 import argparse
@@ -16,6 +16,7 @@ import json
 import os
 import re
 import sys
+import subprocess
 import warnings
 
 import jinja2
@@ -64,12 +65,35 @@ def _py_base_call(f):
         # Only the final hop is the one a vendor narrows -- the hops before it
         # walk the object tree and a TypeError there would be a real bug.
         last = i == len(hops) - 1
-        if last and f.preserve_none:
+        prefix = '.'.join(hops[:i + 1])
+        if prefix in getattr(f, 'cached_prefixes', ()):
+            default = ', unsupported=%r' % f.default if last and f.preserve_none else ''
+            call = '_cached_call(_reads, %r, _get(%s, %r)%s)' % (prefix, call, hop, default)
+        elif last and f.preserve_none:
             call = '_call_unsupported_default(_get(%s, %r), %r)' % (call, hop, f.default)
         else:
             call = ('_call_narrowed(_get(%s, %r))' if (last and f.narrowed)
                     else '_call(_get(%s, %r))') % (call, hop)
     return call
+
+
+def _cache_reads(row):
+    """Share raw readings without hoisting them past per-field conditions."""
+    prefixes = {}
+    for f in row.fields:
+        f.cached_prefixes = ()
+        if not row.sequential or not f.getter or f.with_name or f.narrowed:
+            continue
+        hops = f.getter.split('.')
+        for i in range(1, len(hops) + 1):
+            prefix = '.'.join(hops[:i])
+            prefixes[prefix] = prefixes.get(prefix, 0) + 1
+    shared = {prefix for prefix, count in prefixes.items() if count > 1}
+    for f in row.fields:
+        if not f.with_name and not f.narrowed:
+            f.cached_prefixes = tuple(prefix for prefix in shared
+                                      if f.getter == prefix or f.getter.startswith(prefix + '.'))
+    row.cached_reads = bool(shared)
 
 
 def _share_calls(row):
@@ -292,6 +316,9 @@ def _row_body(row):
         expr = f.py_expr
         if f.read_if and (f.read_if_absorbing or not absorbing):
             cond = ('row.%s' if f.read_if_truthy else 'row.%s is not None') % f.read_if
+            for column, value in f.read_if_all:
+                operator = 'is' if value is None or isinstance(value, bool) else '=='
+                cond += ' and row.%s %s %r' % (column, operator, value)
             expr = '(%s) if %s else %s' % (expr, cond, _absent(f))
         return '%srow.%s = %s' % (indent, f.name, expr)
 
@@ -330,7 +357,7 @@ def _row_body(row):
                     '%s    row.%s = %s' % (indent, f.name, _absent(f))]
         return out
 
-    lines = []
+    lines = ['%s_reads = {}' % IND] if row.cached_reads else []
     if row.skippable:
         lines.append("%sif fixed['key'] in skip:" % IND)
         lines.append('%s    cols &= %d' % (IND, row.unguarded_mask))
@@ -358,6 +385,8 @@ def _row_body(row):
             lines += row_errors(IND + '    ')
         else:
             lines += row_errors(IND)
+    if row.cached_reads:
+        lines.append('%s_reads.clear()' % IND)
     lines.append('%sreturn row' % IND)
     return '\n'.join(lines)
 
@@ -1195,6 +1224,7 @@ def build(model):
         # What a skipped row still reads: its unguarded columns.
         row.unguarded_mask = sum(1 << f.col_bit for f in row.fields
                                  if f.unguarded and f.col_bit is not None)
+        _cache_reads(row)
         _share_calls(row)
         for f in row.fields:
             f.py_expr = _py_field_expr(f, enums)
@@ -1377,6 +1407,21 @@ def render(model, outputs=None):
     return out
 
 
+def render_in_subprocess(seed):
+    """Parse and render again in an interpreter with an independent hash seed."""
+    command = (
+        'import json, sys; import generate; '
+        'generate.OUTPUTS = json.loads(sys.argv[1]); '
+        'model = generate.build(generate.parse()); '
+        'print(json.dumps(generate.render(model), sort_keys=True))'
+    )
+    environment = dict(os.environ, PYTHONHASHSEED=str(seed), PYTHONDONTWRITEBYTECODE='1')
+    result = subprocess.run(
+        [sys.executable, '-c', command, json.dumps(OUTPUTS)], cwd=HERE,
+        env=environment, text=True, capture_output=True, check=True)
+    return json.loads(result.stdout)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--check', action='store_true',
@@ -1391,9 +1436,16 @@ def main():
             print(p, file=sys.stderr)
         return 1
     rendered = render(model)
-    if args.check and rendered != render(model):
-        print('platform API generation is not deterministic', file=sys.stderr)
-        return 1
+    if args.check:
+        try:
+            independent = [render_in_subprocess(seed) for seed in (0, 1)]
+        except subprocess.CalledProcessError as error:
+            print('platform API generation subprocess failed: ' + error.stderr,
+                  file=sys.stderr)
+            return 1
+        if any(rendered != output for output in independent):
+            print('platform API generation is not deterministic', file=sys.stderr)
+            return 1
 
     stale = []
     for path, text in sorted(rendered.items()):

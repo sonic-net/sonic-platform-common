@@ -231,11 +231,16 @@ class ReadIf:
     and the absorbing read another's.  psud reads a PSU's fans gated on the
     PSU's presence, never the fan's (psud:945-950), and does not ask for the
     fan's presence at all.
+
+    `all_of` requires additional literal equalities on earlier columns.
+    A leak profile is read only for a healthy, leaking MINOR sensor; a dry
+    or CRITICAL sensor must not call an unrelated profile getter.
     """
 
     column: str
     truthy: bool = ...
     when_absorbing: bool = ...
+    all_of: tuple[tuple[str, object], ...] = ...
 
 @dataclass(frozen=True)
 class Secret:

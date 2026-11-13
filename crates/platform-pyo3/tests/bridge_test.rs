@@ -1129,7 +1129,7 @@ fn every_row_type_crosses() {
 }
 
 #[test]
-fn a_leak_sensor_reaches_through_its_profile() {
+fn a_dry_leak_sensor_keeps_profile_columns_unread() {
     use platform_api::LeakSeverity;
     let mut api = loaded();
 
@@ -1148,9 +1148,39 @@ fn a_leak_sensor_reaches_through_its_profile() {
     assert_eq!((s.is_leak, s.is_ok), (Some(false), Some(true)));
     assert_eq!(s.severity, Some(LeakSeverity::Minor));
     assert_eq!(s.sensor_type.as_deref(), Some("rope"));
-    // Two hops: the sensor's profile, then the profile's own columns.
-    assert_eq!(s.profile_type.as_deref(), Some("rack"));
-    assert_eq!(s.profile_max_minor_duration_sec, Some(30));
+    assert_eq!(s.profile_type, None);
+    assert_eq!(s.profile_max_minor_duration_sec, None);
+}
+
+#[test]
+fn an_active_minor_leak_reaches_through_its_current_profile() {
+    let code = std::ffi::CString::new(LOADED.to_str().unwrap().replacen(
+        "def is_leak(self):\n        return False",
+        "def is_leak(self):\n        return True",
+        1,
+    ))
+    .unwrap();
+    let mut api = Python::attach(|py| {
+        let module = PyModule::from_code(
+            py,
+            code.as_c_str(),
+            c_str!("loaded_leaking.py"),
+            c_str!("loaded_leaking"),
+        )
+        .unwrap();
+        let facade = py
+            .import("sonic_platform_api.facade")
+            .unwrap()
+            .getattr("PlatformApi")
+            .unwrap()
+            .call1((module.getattr("CHASSIS").unwrap(),))
+            .unwrap();
+        Bridge::from_facade(facade.unbind())
+    });
+    let sensors = api.get_leak_sensors().unwrap();
+    assert_eq!(sensors[0].is_leak, Some(true));
+    assert_eq!(sensors[0].profile_type.as_deref(), Some("rack"));
+    assert_eq!(sensors[0].profile_max_minor_duration_sec, Some(30));
 }
 
 #[test]
@@ -1895,7 +1925,7 @@ fn a_name_crosses_to_the_key_python_would_have_resolved() {
 #[test]
 fn integer_presence_preserves_python_truthiness() {
     let (mut api, chassis) = bridge();
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let fan = chassis.bind(py).getattr("fan").unwrap();
         fan.setattr(
             "get_presence",
