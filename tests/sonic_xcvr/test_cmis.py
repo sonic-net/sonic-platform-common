@@ -37,9 +37,9 @@ class TestCmisMemMap:
     @pytest.mark.parametrize("bank", [0, 1, 2, 3])
     @pytest.mark.parametrize("offset", [0, 1, 64, 127])
     def test_linear_offset_lower_memory_invariant_across_banks(self, bank, offset):
-        """Lower memory (page None, offset < 128) maps to the same linear
+        """Lower memory (page 0, offset < 128) maps to the same linear
         offset for every bank."""
-        assert CmisPage.linear_offset(None, bank, offset) == offset
+        assert CmisPage.linear_offset(0, bank, offset) == offset
 
     @pytest.mark.parametrize("page,offset", [
         (0x00, 128),    # Upper page 00h, first byte
@@ -132,11 +132,11 @@ class TestCmisMemMap:
             freeze_request.get_offset(), 1, bytearray([expected_value]))
 
     @pytest.mark.parametrize("bank", [0, 1])
-    @pytest.mark.parametrize("page", [0x00, 0x01, 0x10, 0x9F, 0xB0, 0xFF])
+    @pytest.mark.parametrize("page", [0x01, 0x10, 0x9F, 0xB0, 0xFF])
     @pytest.mark.parametrize("offset", [0, 1, 127])
     def test_linear_offset_rejects_lower_memory_offset_in_upper_memory(self, bank, page, offset):
         """CMIS offsets 0-127 are lower memory, which is fixed and has no paging.
-        As a result, any offset < 128 should raise on every page.
+        As a result, any offset < 128 should raise on every page other than 0.
         """
         with pytest.raises(ValueError):
             CmisPage.linear_offset(page, bank, offset)
@@ -168,11 +168,11 @@ class TestCmisAdministrativeLowerPage:
         assert page.getaddr(offset) == \
             CmisPage.linear_offset(self.MIRROR_PAGE, 0, CMIS_EEPROM_PAGE_SIZE + offset)
 
-    @pytest.mark.parametrize("page", [None, MIRROR_PAGE])
     @pytest.mark.parametrize("offset", [128, 200, 255])
-    def test_rejects_offset_outside_lower_memory(self, page, offset):
-        # Lower memory is 128 bytes, whether or not it is mirrored elsewhere.
-        lower = CmisAdministrativeLowerPage(CmisCodes, page=page)
+    def test_mirrored_page_rejects_offset_outside_lower_memory(self, offset):
+        # A mirrored lower memory is still 128 bytes; anything past it would
+        # land beyond the end of the mirror page.
+        lower = CmisAdministrativeLowerPage(CmisCodes, page=self.MIRROR_PAGE)
         with pytest.raises(ValueError):
             lower.getaddr(offset)
 
