@@ -52,7 +52,7 @@ def test_legacy_and_endpoint_maps_own_independent_page_definitions(base_page):
     assert BaillyElsfpMemMap.__module__.endswith(".bailly_elsfp")
     legacy = BaillyMemMap(BaillyCodes, base_page=base_page)
     els = BaillyElsfpMemMap(BaillyCodes, base_page=base_page)
-    legacy_pages = {page.page: page for page in legacy.pages if page.page >= 0xB0}
+    legacy_pages = {page.page: page for page in legacy.pages if page.page is not None and page.page >= 0xB0}
     assert set(legacy_pages) == {page.page for page in els.pages}
     for page in els.pages:
         old_page = legacy_pages[page.page]
@@ -82,7 +82,7 @@ def _field_definition(value):
 def test_all_rlm_field_definitions_match_legacy_map(bank, base_page):
     legacy = BaillyMemMap(BaillyCodes, bank=bank, base_page=base_page)
     els = BaillyElsfpMemMap(BaillyCodes, bank=bank, base_page=base_page)
-    legacy_pages = {page.page: page for page in legacy.pages if page.page >= 0xB0 + base_page}
+    legacy_pages = {page.page: page for page in legacy.pages if page.page is not None and page.page >= 0xB0 + base_page}
     assert legacy_pages.keys() == {page.page for page in els.pages}
     for page in els.pages:
         # Bit0/Bit1 names repeat under different registers. Keep the complete
