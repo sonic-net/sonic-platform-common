@@ -9,6 +9,28 @@ EEPROM_HEX_FILE = "syseeprom.hex"
 TEST_PATH = os.path.dirname(os.path.abspath(__file__))
 EEPROM_HEX_FILE_FULL_PATH = os.path.join(TEST_PATH, EEPROM_HEX_FILE)
 EEPROM_SYMLINK_FULL_PATH = os.path.join(TEST_PATH, EEPROM_SYMLINK)
+
+
+@pytest.mark.parametrize('port,socket_access,expected_socket', [
+    (6379, False, False),
+    (6379, True, True),
+    (0, False, True),
+])
+def test_eeprom_reader_transport(port, socket_access, expected_socket):
+    decoder = object.__new__(eeprom_tlvinfo.TlvInfoDecoder)
+    decoder._state_db = None
+    reader = mock.MagicMock()
+    with mock.patch('sonic_py_common._redis_transport.swsscommon') as native, \
+         mock.patch('sonic_py_common._redis_transport.os.access', return_value=socket_access), \
+         mock.patch('swsscommon.swsscommon.SonicV2Connector', return_value=reader) as connector:
+        native.SonicDBConfig.getDbPort.return_value = port
+        native.SonicDBConfig.getDbSock.return_value = '/run/redis/redis.sock'
+        assert decoder.state_db is reader
+        assert decoder.state_db is reader
+    connector.assert_called_once_with(use_unix_socket_path=expected_socket)
+    reader.connect.assert_called_once_with(reader.STATE_DB, retry_on=False)
+
+
 class TestEepromTlvinfo:
 
     @classmethod
@@ -158,20 +180,20 @@ class TestEepromTlvinfo:
             assert exit_mock.called
 
     def test_eeprom_tlvinfo_update_eeprom_db(self):
-        # Test updating eeprom to DB by mocking the STATE_DB connector hmset.
-        # Inject a mock connector before touching .state_db so the property
-        # never builds a real SonicV2Connector / connects to STATE_DB.
         eeprom_class = eeprom_tlvinfo.TlvInfoDecoder(EEPROM_SYMLINK_FULL_PATH, 0, '', True)
         eeprom = eeprom_class.read_eeprom()
         eeprom_class._state_db = mock.MagicMock()
-        eeprom_class._state_db.hmset = mock.MagicMock(return_value = True)
-        assert(0 == eeprom_class.update_eeprom_db(eeprom))
+        writer = mock.MagicMock()
+        writer.hmset.return_value = True
+        with mock.patch('swsscommon.swsscommon.SonicV2Connector', return_value=writer) as connector:
+            assert 0 == eeprom_class.update_eeprom_db(eeprom)
+        connector.assert_called_once_with(use_unix_socket_path=True, authenticate=True)
+        writer.connect.assert_called_once_with(writer.STATE_DB, retry_on=False)
+        eeprom_class._state_db.hmset.assert_not_called()
 
-        # _hmset must coerce every value to str: SonicV2Connector.hmset takes a
-        # map<string,string> and rejects ints, whereas redis-py stringified
-        # them implicitly. Assert on every captured hmset call.
-        assert eeprom_class._state_db.hmset.call_count > 0
-        for call in eeprom_class._state_db.hmset.call_args_list:
+        # Keep the value-conversion regression on the visitor's owned writer.
+        assert writer.hmset.call_count > 0
+        for call in writer.hmset.call_args_list:
             fvs = call.args[2]
             for field, value in fvs.items():
                 assert isinstance(value, str), \
