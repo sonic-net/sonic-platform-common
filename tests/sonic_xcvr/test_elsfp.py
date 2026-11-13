@@ -22,9 +22,14 @@ from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.pages.consts import (
 )
 
 
+def _addr(page, offset, bank=0):
+    """Linear EEPROM offset of a CMIS (page, offset) pair, in bank 0 unless specified."""
+    return CmisPage.linear_offset(page, bank, offset)
+
+
 class TestElsfpApiFactory(object):
     def test_create_api_davisson(self):
-        low_mem_offset = CmisPage.linear_offset(0xB0, 0, 128)
+        low_mem_offset = _addr(0xB0, 128)
         identifier = 0x80
         vendor_name = 'BROADCOM'
         vendor_part_num = 'DAVISSON-TH6'
@@ -33,9 +38,9 @@ class TestElsfpApiFactory(object):
         mem_eeprom = InMemoryEeprom(DavissonTh6ElsfpMemMap(DavissonTh6ElsfpCodes))
         mem = mem_eeprom.memory
         mem[low_mem_offset] = identifier
-        name_offset = CmisPage.linear_offset(0xB1, 0, 129)
+        name_offset = _addr(0xB1, 129)
         mem[name_offset:name_offset + 16] = vendor_name.ljust(16).encode()
-        part_num_offset = CmisPage.linear_offset(0xB1, 0, 148)
+        part_num_offset = _addr(0xB1, 148)
         mem[part_num_offset:part_num_offset + 16] = vendor_part_num.ljust(16).encode()
 
         elsfp = MagicMock()
@@ -243,23 +248,23 @@ class TestModuleAdvertisements:
         ("get_optical_power_low_warn",   155,  500,  5.0),
     ])
     def test_read_only_fields(self, mem_eeprom, api, method, byte_offset, raw_value, expected):
-        offset = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, byte_offset)
+        offset = _addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, byte_offset)
         mem_eeprom.memory[offset:offset + 2] = struct.pack(">H", raw_value)
         assert getattr(api, method)() == pytest.approx(expected)
 
     def test_get_control_mode_acc(self, mem_eeprom, api):
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 140)] = 0x00  # bit 0 = 0 → ACC
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 140)] = 0x00  # bit 0 = 0 → ACC
         assert api.get_control_mode() == 'ACC'
 
     def test_get_control_mode_apc(self, mem_eeprom, api):
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 140)] = 0x01  # bit 0 = 1 → APC
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 140)] = 0x01  # bit 0 = 1 → APC
         assert api.get_control_mode() == 'APC'
 
     def test_get_lane_count(self, mem_eeprom, api):
         #   bit 7   bit 6   bit 5   bit 4   bit 3   bit 2   bit 1   bit 0
         #  [                NUMBER_OF_LANES (7 bits)              ] [APC]
         # NUMBER_OF_LANES occupies bits 7-1. 8 lanes -> raw = 8 << 1 = 0x10.
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 140)] = 0x10
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 140)] = 0x10
         assert api.get_lane_count() == 8
 
 
@@ -267,24 +272,24 @@ class TestLaneFaultsWarnings:
     """Table 5 (bytes 165-181): read-only fault and warning flags."""
 
     def test_lane_summary_fault_set(self, mem_eeprom, api):
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 165)] = 0x04  # bit 2
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 165)] = 0x04  # bit 2
         assert api.get_lane_summary_fault() == True
 
     def test_lane_summary_fault_clear(self, mem_eeprom, api):
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 165)] = 0x00
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 165)] = 0x00
         assert api.get_lane_summary_fault() == False
 
     def test_lane_summary_warning_set(self, mem_eeprom, api):
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 165)] = 0x08  # bit 3
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 165)] = 0x08  # bit 3
         assert api.get_lane_summary_warning() == True
 
     def test_lane_summary_warning_clear(self, mem_eeprom, api):
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 165)] = 0x00
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 165)] = 0x00
         assert api.get_lane_summary_warning() == False
 
     def test_per_lane_fault_flags(self, mem_eeprom, api):
         # Bank 0's 8 lanes are packed into byte 166, one bit per lane.
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 166)] = 0b10000101  # lanes 1, 3 and 8
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 166)] = 0b10000101  # lanes 1, 3 and 8
         result = api.get_per_lane_fault_flags()
         assert result == {
             "FaultFlagLane1": True,
@@ -299,15 +304,15 @@ class TestLaneFaultsWarnings:
 
     def test_per_lane_fault_flags_ignores_other_banks(self, mem_eeprom, api):
         # 167-169 hold lanes 9-32 (banks 1-3) and must not leak into bank 0.
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 166)] = 0x00
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 166)] = 0x00
         for offset in range(167, 170):
-            mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, offset)] = 0xFF
+            mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, offset)] = 0xFF
         result = api.get_per_lane_fault_flags()
         assert set(result.values()) == {False}
 
     def test_per_lane_warn_flags(self, mem_eeprom, api):
         # Bank 0's 8 lanes are packed into byte 174, one bit per lane.
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 174)] = 0b10000110  # lanes 2, 3 and 8
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 174)] = 0b10000110  # lanes 2, 3 and 8
         result = api.get_per_lane_warn_flags()
         assert result == {
             "WarnFlagLane1": False,
@@ -322,9 +327,9 @@ class TestLaneFaultsWarnings:
 
     def test_per_lane_warn_flags_ignores_other_banks(self, mem_eeprom, api):
         # 175-177 hold lanes 9-32 (banks 1-3) and must not leak into bank 0.
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 174)] = 0x00
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 174)] = 0x00
         for offset in range(175, 178):
-            mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, offset)] = 0xFF
+            mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, offset)] = 0xFF
         result = api.get_per_lane_warn_flags()
         assert set(result.values()) == {False}
 
@@ -342,7 +347,7 @@ class TestLaneFaultsWarnings:
         # distinct single-bit pattern so reading the wrong one is detectable.
         patterns = [0b00000001, 0b00000010, 0b00000100, 0b00001000]
         for i, pattern in enumerate(patterns):
-            eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, base_offset + i)] = pattern
+            eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, base_offset + i, bank)] = pattern
 
         result = getattr(api, method)()
 
@@ -376,7 +381,7 @@ class TestLaserSaveRestore:
     ])
     def test_write_save_restore_command(self, mem_eeprom, api, command):
         api.write_save_restore_command(command)
-        assert mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 184)] == command.value
+        assert mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 184)] == command.value
 
     @pytest.mark.parametrize("raw_value, expected_code", [
         (0x01, SaveRestoreConfirmationCode.SUCCESS),
@@ -386,7 +391,7 @@ class TestLaserSaveRestore:
         (0x08, SaveRestoreConfirmationCode.FAILED),
     ])
     def test_get_save_restore_confirmation(self, mem_eeprom, api, raw_value, expected_code):
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 185)] = raw_value
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 185)] = raw_value
         assert api.get_save_restore_confirmation() == expected_code
 
 
@@ -406,7 +411,7 @@ class TestBankedAlarmsWarningsMasks:
         ("get_per_lane_low_power_warnings",  193, 0b11111111),
     ])
     def test_alarm_indexed_field(self, mem_eeprom, api, method, byte_offset, raw_byte):
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, byte_offset)] = raw_byte
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, byte_offset)] = raw_byte
         result = getattr(api, method)()
         assert _bitmask_from_lane_list(result) == raw_byte
 
@@ -450,14 +455,14 @@ class TestBankedAlarmsWarningsMasks:
     def test_per_lane_fault_code(self, mem_eeprom, api):
         # Fault code occupies bits 3-0 of each byte in 212-219.
         # Write 0x05 to byte 212 -> FaultCode1 raw = 5 -> decoded = LANE_FAULT_CODE[5] = 'Reserved'.
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 212)] = 0x05
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 212)] = 0x05
         result = api.get_per_lane_fault_code()
         assert result["FaultCode1"] == 'Reserved'
 
     def test_per_lane_warning_code(self, mem_eeprom, api):
         # Warning code occupies bits 7-4 of each byte in 212-219.
         # Write 0x50 to byte 212 -> WarningCode1 raw = 5 -> decoded = LANE_WARNING_CODE[5] = 'Reserved'.
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 212)] = 0x50
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 212)] = 0x50
         result = api.get_per_lane_warning_code()
         assert result["WarningCode1"] == 'Reserved'
 
@@ -486,11 +491,11 @@ class TestBankedLaneControls:
         # Byte 221 holds lanes 1-4, 2 bits per lane.
         # 0b00000110: lane 1 = bits 1-0 = 0b10 = 2 → 'Lane Output on'
         #             lane 2 = bits 3-2 = 0b01 = 1 → 'Lane Output ramping'
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 221)] = 0b00000110
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 221)] = 0b00000110
         # Byte 222 holds lanes 5-8, 2 bits per lane.
         # 0b00001100: lane 5 = bits 1-0 = 0b00 = 0 → 'Lane Output off'
         #             lane 6 = bits 3-2 = 0b11 = 3 → 'Reserved'
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 222)] = 0b00001100
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 222)] = 0b00001100
         result = api.get_per_lane_state()
         assert result["LaneState1"] == 'Lane Output on'
         assert result["LaneState2"] == 'Lane Output ramping'
@@ -503,7 +508,7 @@ class TestOutputFiberChecked:
 
     def test_get_per_lane_output_fiber_checked(self, mem_eeprom, api):
         # Field returns list[int], one entry per lane (index 0 = lane 1).
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 223)] = 0b00000101  # lanes 1 and 3
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 223)] = 0b00000101  # lanes 1 and 3
         result = api.get_per_lane_output_fiber_checked()
         assert result[0] == 1  # lane 1
         assert result[1] == 0  # lane 2
@@ -523,21 +528,21 @@ class TestLaneMappingFreqPower:
 
     def test_lane_to_fiber_mapping(self, mem_eeprom, api):
         # NumberRegField with scale=1, format="B": decoded = raw byte as int.
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 224)] = 0x0F
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 224)] = 0x0F
         result = api.get_lane_to_fiber_mapping()
         assert result["LaneToFiberMapping1"] == 15
 
     def test_per_lane_freq(self, mem_eeprom, api):
         # LaneFreq1 is a 2-byte big-endian U16 at byte 232, scale=0.2.
         # raw=100 -> decoded = 100 / 0.2 = 500.0 GHz.
-        offset = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 232)
+        offset = _addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 232)
         mem_eeprom.memory[offset:offset + 2] = struct.pack(">H", 100)
         result = api.get_per_lane_freq()
         assert result["LaneFreq1"] == 500.0
 
     def test_opt_check_power_setpoint(self, mem_eeprom, api):
         # Single byte, scale=1.0. raw=5 -> decoded = 5 / 1.0 = 5.0 mW.
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, 248)] = 5
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 248)] = 5
         assert api.get_opt_check_power_setpoint() == 5.0
 
 
@@ -580,7 +585,7 @@ class TestBankedMonitors:
 
     def test_bias_current_monitor(self, mem_eeprom, api):
         # Verify lane 2 is read from the correct address (bytes 186-187).
-        offset = CmisPage.linear_offset(ELSFP_SETPOINTS_MON_PAGE, 0, 186)
+        offset = _addr(ELSFP_SETPOINTS_MON_PAGE, 186)
         mem_eeprom.memory[offset:offset + 2] = struct.pack(">H", 2000)
         result = api.get_per_lane_bias_current_monitor()
         assert result["BiasCurrentMonitor2"] == 0.2
@@ -588,20 +593,20 @@ class TestBankedMonitors:
     def test_opt_power_monitor(self, mem_eeprom, api):
         # Verify lane 2 is read from the correct address (bytes 202-203).
         # raw=2000 -> decoded = 2000 / 100 = 20.0 mW.
-        offset = CmisPage.linear_offset(ELSFP_SETPOINTS_MON_PAGE, 0, 202)
+        offset = _addr(ELSFP_SETPOINTS_MON_PAGE, 202)
         mem_eeprom.memory[offset:offset + 2] = struct.pack(">H", 2000)
         result = api.get_per_lane_opt_power_monitor()
         assert result["OptPowerMonitor2"] == 20.0
 
     def test_voltage_monitor(self, mem_eeprom, api):
         # raw=255 -> decoded = 255 / (1000/15) = 255 * 0.015 = 3.825 V.
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_SETPOINTS_MON_PAGE, 0, 233)] = 255
+        mem_eeprom.memory[_addr(ELSFP_SETPOINTS_MON_PAGE, 233)] = 255
         result = api.get_per_lane_voltage_monitor()
         assert result["VoltageMonitor2"] == pytest.approx(3.825)
 
     def test_icc_monitor(self, mem_eeprom, api):
         # raw=1000 -> decoded = 1000 / 5000 = 0.2 A.
-        offset = CmisPage.linear_offset(ELSFP_SETPOINTS_MON_PAGE, 0, 240)
+        offset = _addr(ELSFP_SETPOINTS_MON_PAGE, 240)
         mem_eeprom.memory[offset:offset + 2] = struct.pack(">H", 1000)
         assert api.get_icc_monitor() == 0.2
 
@@ -652,16 +657,17 @@ class TestElsfpDomRealValue:
         mem = mem_eeprom.memory
         for lane in range(1, CMIS_LANES_PER_BANK + 1):
             # Bias current monitor: 2 bytes per lane from 184, scale=10000.0 -> A.
-            bias_offset = CmisPage.linear_offset(ELSFP_SETPOINTS_MON_PAGE, bank, 184 + 2 * (lane - 1))
+            bias_offset = _addr(ELSFP_SETPOINTS_MON_PAGE, 184 + 2 * (lane - 1), bank)
             mem[bias_offset:bias_offset + 2] = struct.pack(">H", 100 * lane)
             # Optical power monitor: 2 bytes per lane from 200, scale=100.0 -> mW.
-            power_offset = CmisPage.linear_offset(ELSFP_SETPOINTS_MON_PAGE, bank, 200 + 2 * (lane - 1))
+            power_offset = _addr(ELSFP_SETPOINTS_MON_PAGE, 200 + 2 * (lane - 1), bank)
             raw_power = self.OPTICAL_POWER_LANES[lane - 1][0]
             mem[power_offset:power_offset + 2] = struct.pack(">H", raw_power)
             # Voltage monitor: 1 byte per lane from 232, 15 mV steps -> V.
-            mem[CmisPage.linear_offset(ELSFP_SETPOINTS_MON_PAGE, bank, 232 + (lane - 1))] = 10 * lane
+            mem[_addr(ELSFP_SETPOINTS_MON_PAGE, 232 + (lane - 1), bank)] = 10 * lane
         # ICC monitor: bytes 240-241, scale=5000.0 -> A.
-        mem[CmisPage.linear_offset(ELSFP_SETPOINTS_MON_PAGE, bank, 240):CmisPage.linear_offset(ELSFP_SETPOINTS_MON_PAGE, bank, 242)] = struct.pack(">H", 1000)
+        icc_offset = _addr(ELSFP_SETPOINTS_MON_PAGE, 240, bank)
+        mem[icc_offset:icc_offset + 2] = struct.pack(">H", 1000)
 
     def test_get_non_banked_elsfp_dom_real_value(self, mem_eeprom, api):
         self._populate_non_banked_dom(mem_eeprom)
@@ -726,8 +732,8 @@ class TestElsfpDomFlags:
         # being the first lane of the bank.
         high_bias_alarm_byte = 186
         low_optical_power_warn_byte = 193
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, high_bias_alarm_byte)] = 0b0000_0001
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, low_optical_power_warn_byte)] = 0b0000_0010
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, high_bias_alarm_byte, bank)] = 0b0000_0001
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, low_optical_power_warn_byte, bank)] = 0b0000_0010
         # Byte 9: case temperature flags in the low nibble, supply voltage flags
         # in the high nibble, each ordered high alarm, low alarm, high warn, low warn.
         mem_eeprom.memory[9] = 0b0100_0001
@@ -799,8 +805,8 @@ class TestElsfpFirmwareVersions:
         mem[39] = 1
         mem[40] = 2
         # Page 01h: inactive firmware major/minor.
-        mem[CmisPage.linear_offset(ADVERTISING_PAGE, 0, 128)] = 3
-        mem[CmisPage.linear_offset(ADVERTISING_PAGE, 0, 129)] = 4
+        mem[_addr(ADVERTISING_PAGE, 128)] = 3
+        mem[_addr(ADVERTISING_PAGE, 129)] = 4
         assert api.get_elsfp_info_firmware_versions() == {
             "active_firmware": "1.2",
             "inactive_firmware": "3.4",
@@ -873,24 +879,28 @@ class TestElsfpInfo:
         mem[203] = 7                                # connector -> LC
         mem[212] = 4                                # media interface tech -> 1310 nm DFB
         # Page 01h.
-        mem[CmisPage.linear_offset(ADVERTISING_PAGE, 0, 130)] = 1                 # hardware revision major
-        mem[CmisPage.linear_offset(ADVERTISING_PAGE, 0, 131)] = 2                 # hardware revision minor
-        mem[CmisPage.linear_offset(ADVERTISING_PAGE, 0, 142)] = 1 << 6            # PageSupportAdvertisement: VdmSupported
-        mem[CmisPage.linear_offset(ADVERTISING_PAGE, 0, 163)] = 1 << 6            # CdbSupport: one CDB instance
+        mem[_addr(ADVERTISING_PAGE, 130)] = 1                 # hardware revision major
+        mem[_addr(ADVERTISING_PAGE, 131)] = 2                 # hardware revision minor
+        mem[_addr(ADVERTISING_PAGE, 142)] = 1 << 6            # PageSupportAdvertisement: VdmSupported
+        mem[_addr(ADVERTISING_PAGE, 163)] = 1 << 6            # CdbSupport: one CDB instance
         # Page 1Ah.
         # Max/min optical power, scale=100.0 (10 uW steps -> mW).
-        mem[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, 128):CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, 130)] = struct.pack(">H", 1000)
-        mem[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, 130):CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, 132)] = struct.pack(">H", 500)
+        addr = _addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 128, bank)
+        mem[addr:addr + 2] = struct.pack(">H", 1000)
+        addr = _addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 130, bank)
+        mem[addr:addr + 2] = struct.pack(">H", 500)
         # Max/min laser bias, scale=10000.0 (100 uA steps -> A).
-        mem[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, 132):CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, 134)] = struct.pack(">H", 1000)
-        mem[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, 134):CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, 136)] = struct.pack(">H", 500)
+        addr = _addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 132, bank)
+        mem[addr:addr + 2] = struct.pack(">H", 1000)
+        addr = _addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 134, bank)
+        mem[addr:addr + 2] = struct.pack(">H", 500)
         # Byte 140: lane count in bits 7-1, control mode in bit 0 (1 -> APC).
-        mem[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, 140)] = (CMIS_LANES_PER_BANK << 1) | 1
+        mem[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 140, bank)] = (CMIS_LANES_PER_BANK << 1) | 1
         for lane in range(1, CMIS_LANES_PER_BANK + 1):
             # Lane-to-fiber mapping: 1 byte per lane starting at 224.
-            mem[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, 224 + (lane - 1))] = lane
+            mem[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 224 + (lane - 1), bank)] = lane
             # Lane frequency: 2 bytes per lane starting at 232, scale=0.2 -> GHz.
-            freq_offset = CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, 232 + 2 * (lane - 1))
+            freq_offset = _addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 232 + 2 * (lane - 1), bank)
             mem[freq_offset:freq_offset + 2] = struct.pack(">H", 100 * lane)
 
     def test_get_elsfp_info(self, mem_eeprom, api):
@@ -924,7 +934,7 @@ class TestElsfpInfo:
         (3, False),   # reserved encoding
     ])
     def test_is_cdb_supported(self, mem_eeprom, api, cdb_inst, expected):
-        mem_eeprom.memory[CmisPage.linear_offset(ADVERTISING_PAGE, 0, 163)] = cdb_inst << 6
+        mem_eeprom.memory[_addr(ADVERTISING_PAGE, 163)] = cdb_inst << 6
         assert api.is_cdb_supported() is expected
 
 
@@ -974,7 +984,8 @@ class TestElsfpThresholdInfo:
         # and optical power thresholds (bytes 149-156, 10 uW steps).
         for offset, raw in ((141, 1000), (143, 100), (145, 900), (147, 200),
                             (149, 1000), (151, 10), (153, 900), (155, 20)):
-            mem[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, offset):CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 0, offset + 2)] = struct.pack(">H", raw)
+            addr = _addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, offset)
+            mem[addr:addr + 2] = struct.pack(">H", raw)
 
         # Page 02h: the standard CMIS module thresholds.
         for offset, fmt, raw in (
@@ -989,10 +1000,11 @@ class TestElsfpThresholdInfo:
             (192, ">H", 20000), (194, ">H", 1000),             # rx power alarms
             (196, ">H", 10000), (198, ">H", 2000),             # rx power warnings
         ):
-            mem[CmisPage.linear_offset(THRESHOLDS_PAGE, 0, offset):CmisPage.linear_offset(THRESHOLDS_PAGE, 0, offset + 2)] = struct.pack(fmt, raw)
+            addr = _addr(THRESHOLDS_PAGE, offset)
+            mem[addr:addr + 2] = struct.pack(fmt, raw)
 
         # Page 01h: TX bias scaling exponent (byte 160, bits 4-3).
-        mem[CmisPage.linear_offset(ADVERTISING_PAGE, 0, 160)] = 1 << 3
+        mem[_addr(ADVERTISING_PAGE, 160)] = 1 << 3
 
     def test_get_elsfp_threshold_info(self, mem_eeprom, api):
         self._populate_thresholds(mem_eeprom)
@@ -1037,9 +1049,10 @@ class TestElsfpStatusFlags:
         the module raises the summary bit whenever ANY lane has a fault or a
         warning, so with both kinds present both bits are set.
         """
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, 165)] = 0x0C  # bit 2: summary fault, bit 3: summary warning
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, 166 + bank)] = 0b0000_0101
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, 174 + bank)] = 0b0000_0010
+        # bit 2: summary fault, bit 3: summary warning
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 165, bank)] = 0x0C
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 166 + bank, bank)] = 0b0000_0101
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 174 + bank, bank)] = 0b0000_0010
         # Page 00h lower byte 8: bit 2 datapath firmware fault, bit 1 module
         # firmware fault, bit 0 module state changed.
         mem_eeprom.memory[8] = 0b0000_0011
@@ -1059,8 +1072,8 @@ class TestElsfpStatusFlags:
         api = ElsfpApi(eeprom.eeprom)
         self._populate_status_flags(eeprom, bank=1)
         # Bank 0's lane group has every flag raised; none of it may leak through.
-        eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 1, 166)] = 0xFF
-        eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 1, 174)] = 0xFF
+        eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 166, 1)] = 0xFF
+        eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 174, 1)] = 0xFF
 
         assert api.get_banked_elsfp_status_flags() == {
             "%s_lane%d" % (name, lane + CMIS_LANES_PER_BANK): value
@@ -1140,18 +1153,19 @@ class TestElsfpStatus:
         mem_eeprom.memory[41] = 4      # Transmitter fault
 
         # Byte 220: one enable bit per lane, bit 0 being the bank's first lane.
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, 220)] = 0b1000_0101  # lanes 1, 3 and 8
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 220, bank)] = 0b1000_0101  # lanes 1, 3 and 8
         # Bytes 221-222: 2 bits of state per lane, 4 lanes to a byte.
         # Byte 221 holds lanes 1-4: lane 1 = 0b10 (on), lane 2 = 0b01 (ramping).
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, 221)] = 0b0000_0110
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 221, bank)] = 0b0000_0110
         # Byte 222 holds lanes 5-8: lane 6 = 0b11 (reserved).
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, 222)] = 0b0000_1100
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 222, bank)] = 0b0000_1100
         # Byte 223: one output fiber checked bit per lane.
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, 223)] = 0b0000_0011  # lanes 1 and 2
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 223, bank)] = 0b0000_0011  # lanes 1 and 2
         # Bytes 212-219: one byte per lane, low nibble the fault code and high
         # nibble the warning code.
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, 212)] = 0x21  # lane 1: APC fault, ACC warning
-        mem_eeprom.memory[CmisPage.linear_offset(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, bank, 213)] = 0x02  # lane 2: ACC fault, no warning
+        # Lane 1: APC fault, ACC warning. Lane 2: ACC fault, no warning.
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 212, bank)] = 0x21
+        mem_eeprom.memory[_addr(ELSFP_ADVERTISEMENTS_FLAGS_CTRL_PAGE, 213, bank)] = 0x02
 
     def test_get_non_banked_elsfp_status(self, mem_eeprom, api):
         self._populate_status(mem_eeprom)
