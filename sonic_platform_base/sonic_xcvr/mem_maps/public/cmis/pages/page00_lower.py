@@ -15,15 +15,6 @@ from .....fields import consts
 
 
 class CmisAdministrativeLowerPage(CmisPage):
-    def getaddr(self, offset, page_size=CMIS_EEPROM_PAGE_SIZE):
-        # Lower memory is not pageable. A module that mirrors it onto another
-        # part of the address space can only place it in upper memory. Therefore,
-        # if this page has been remapped elsewhere, we should add 128 to the
-        # offset to ensure we register this page's fields in upper memory.
-        if self._page is not None:
-            offset += page_size
-        return super().getaddr(offset, page_size)
-
     def __init__(self, codes, page=None):
         super().__init__(codes, page=page, bank=0)
 
@@ -140,3 +131,15 @@ class CmisAdministrativeLowerPage(CmisPage):
                 *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 4))
             ),
         ]
+
+    def getaddr(self, offset, page_size=CMIS_EEPROM_PAGE_SIZE):
+        """Return the linear address of lower-memory byte `offset` (0-127).
+
+        When lower memory is not remapped (page is None), this is the
+        standard lower-memory address. When it is remapped to a page, its
+        bytes live in upper memory, where valid offsets are 128-255, so
+        `page_size` is added to `offset` to shift it into that range.
+        """
+        if self._page is not None:
+            offset += page_size
+        return super().getaddr(offset, page_size)
