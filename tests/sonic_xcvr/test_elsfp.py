@@ -15,7 +15,6 @@ from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.elsfp.pages.consts impo
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.pages.page import CmisPage
 from sonic_platform_base.sonic_xcvr.cpo.cpo_base import CpoHardwareInfo, OeId
 from sonic_platform_base.sonic_xcvr.cpo.elsfp import ElsfpApiFactory
-from sonic_platform_base.sonic_xcvr.eeprom_rw import ModuleEepromLowerMemoryInfo
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.pages.consts import (
     ADVERTISING_PAGE,
     CMIS_LANES_PER_BANK,
@@ -25,20 +24,38 @@ from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis.pages.consts import (
 
 class TestElsfpApiFactory(object):
     def test_create_api_davisson(self):
+        low_mem_offset = CmisPage.linear_offset(0xB0, 0, 128)
+        identifier = 0x80
+        vendor_name = 'BROADCOM'
+        vendor_part_num = 'DAVISSON-TH6'
+
+        # Davisson maps lower memory onto page B0h and upper page 00h onto B1h.
+        mem_eeprom = InMemoryEeprom(DavissonTh6ElsfpMemMap(DavissonTh6ElsfpCodes))
+        mem = mem_eeprom.memory
+        mem[low_mem_offset] = identifier
+        name_offset = CmisPage.linear_offset(0xB1, 0, 129)
+        mem[name_offset:name_offset + 16] = vendor_name.ljust(16).encode()
+        part_num_offset = CmisPage.linear_offset(0xB1, 0, 148)
+        mem[part_num_offset:part_num_offset + 16] = vendor_part_num.ljust(16).encode()
+
         elsfp = MagicMock()
         elsfp.bank = 1
+        elsfp.read_eeprom = mem_eeprom.eeprom.reader
+        elsfp.write_eeprom = mem_eeprom.eeprom.writer
         elsfp.hardware_id = CpoHardwareInfo(
             oe_id=OeId.BROADCOM_DAVISSON,
             elsfp_id=None,
-            elsfp_low_mem_offset=CmisPage.linear_offset(0xB0, 0, 128),
+            elsfp_low_mem_offset=low_mem_offset,
         )
         factory = ElsfpApiFactory(elsfp)
 
         # The factory probes vendor name/part number from the EEPROM before
         # dispatching; stub out the lower-memory reads.
-        with patch.object(ModuleEepromLowerMemoryInfo, 'get_vendor_name', return_value='BROADCOM'), \
-             patch.object(ModuleEepromLowerMemoryInfo, 'get_vendor_part_num', return_value='DAVISSON-TH6'):
-            api = factory.create_api()
+        elsfp_info = factory._get_elsfp_info()
+        assert elsfp_info.vendor_name == vendor_name
+        assert elsfp_info.vendor_part_number == vendor_part_num
+
+        api = factory.create_api()
 
         assert isinstance(api, DavissonTh6ElsfpApi)
         assert isinstance(api.xcvr_eeprom.mem_map, DavissonTh6ElsfpMemMap)
