@@ -1,11 +1,11 @@
 """
     page00_lower.py
 
-    Implementation of CmisAdministrativeLowerPage for CMIS page 0x00 lower memory (offsets 0-127)
+    Implementation of CmisAdministrativeLowerPage for CMIS lower memory (offsets 0-127)
 """
 
 from .page import CmisPage
-from .consts import ADMINISTRATIVE_PAGE, CMIS_EEPROM_PAGE_SIZE
+from .consts import CMIS_EEPROM_PAGE_SIZE
 from .....fields.xcvr_field import (
     CodeRegField,
     NumberRegField,
@@ -16,15 +16,15 @@ from .....fields import consts
 
 class CmisAdministrativeLowerPage(CmisPage):
     def getaddr(self, offset, page_size=CMIS_EEPROM_PAGE_SIZE):
-        # Lower memory is not pageable, so a module that mirrors it onto another
+        # Lower memory is not pageable. A module that mirrors it onto another
         # part of the address space can only place it in upper memory. Therefore,
-        # if we are mapped to a different page, we should add 128 to the offset
-        # to ensure we register this page's fields in upper memory.
-        if self._page != ADMINISTRATIVE_PAGE:
+        # if this page has been remapped elsewhere, we should add 128 to the
+        # offset to ensure we register this page's fields in upper memory.
+        if self._page is not None:
             offset += page_size
         return super().getaddr(offset, page_size)
 
-    def __init__(self, codes, page=ADMINISTRATIVE_PAGE):
+    def __init__(self, codes, page=None):
         super().__init__(codes, page=page, bank=0)
 
         # MGMT_CHAR_FIELD

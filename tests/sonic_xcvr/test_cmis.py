@@ -37,9 +37,9 @@ class TestCmisMemMap:
     @pytest.mark.parametrize("bank", [0, 1, 2, 3])
     @pytest.mark.parametrize("offset", [0, 1, 64, 127])
     def test_linear_offset_lower_memory_invariant_across_banks(self, bank, offset):
-        """Lower memory (page 0, offset < 128) maps to the same linear
+        """Lower memory (page None, offset < 128) maps to the same linear
         offset for every bank."""
-        assert CmisPage.linear_offset(0, bank, offset) == offset
+        assert CmisPage.linear_offset(None, bank, offset) == offset
 
     @pytest.mark.parametrize("page,offset", [
         (0x00, 128),    # Upper page 00h, first byte
@@ -132,24 +132,32 @@ class TestCmisMemMap:
             freeze_request.get_offset(), 1, bytearray([expected_value]))
 
     @pytest.mark.parametrize("bank", [0, 1])
-    @pytest.mark.parametrize("page", [0x01, 0x10, 0x9F, 0xB0, 0xFF])
+    @pytest.mark.parametrize("page", [0x00, 0x01, 0x10, 0x9F, 0xB0, 0xFF])
     @pytest.mark.parametrize("offset", [0, 1, 127])
-    def test_linear_offset_rejects_lower_memory_offset_on_nonzero_page(self, bank, page, offset):
+    def test_linear_offset_rejects_lower_memory_offset_in_upper_memory(self, bank, page, offset):
         """CMIS offsets 0-127 are lower memory, which is fixed and has no paging.
-        As a result, any offset < 128 should raise if we are trying to read a non-zero page.
+        As a result, any offset < 128 should raise on every page.
         """
         with pytest.raises(ValueError):
             CmisPage.linear_offset(page, bank, offset)
 
+    @pytest.mark.parametrize("bank", [0, 1])
+    @pytest.mark.parametrize("page", [0x00, 0x01, 0x10, 0x9F, 0xB0, 0xFF])
+    @pytest.mark.parametrize("offset", [256, 300])
+    def test_linear_offset_rejects_offset_past_end_of_page(self, bank, page, offset):
+        """A page ends at offset 255; anything higher would land on a following page."""
+        with pytest.raises(ValueError, match="valid offsets in upper memory are 128-255"):
+            CmisPage.linear_offset(page, bank, offset)
+
 
 class TestCmisAdministrativeLowerPage:
-    """Lower memory addressing, on page 00h and when mirrored onto another page."""
+    """Lower memory addressing, unpaged and when mirrored onto a page."""
 
     MIRROR_PAGE = 0xB0
 
     @pytest.mark.parametrize("offset", [0, 14, 127])
     def test_default_page_is_linear_offset(self, offset):
-        # On page 00h lower memory is the first 128 bytes of the EEPROM file.
+        # Unpaged lower memory is the first 128 bytes of the EEPROM file.
         assert CmisAdministrativeLowerPage(CmisCodes).getaddr(offset) == offset
 
     @pytest.mark.parametrize("offset", [0, 14, 127])
@@ -159,6 +167,14 @@ class TestCmisAdministrativeLowerPage:
         page = CmisAdministrativeLowerPage(CmisCodes, page=self.MIRROR_PAGE)
         assert page.getaddr(offset) == \
             CmisPage.linear_offset(self.MIRROR_PAGE, 0, CMIS_EEPROM_PAGE_SIZE + offset)
+
+    @pytest.mark.parametrize("page", [None, MIRROR_PAGE])
+    @pytest.mark.parametrize("offset", [128, 200, 255])
+    def test_rejects_offset_outside_lower_memory(self, page, offset):
+        # Lower memory is 128 bytes, whether or not it is mirrored elsewhere.
+        lower = CmisAdministrativeLowerPage(CmisCodes, page=page)
+        with pytest.raises(ValueError):
+            lower.getaddr(offset)
 
     def test_mirrored_page_fields_all_within_upper_half(self):
         page = CmisAdministrativeLowerPage(CmisCodes, page=self.MIRROR_PAGE)
