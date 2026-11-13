@@ -1,7 +1,7 @@
 """
     page00_cdb.py
 
-    CDB-side fields in CMIS lower memory: CDB1 status byte at offset 37.
+    CDB-side fields on CMIS Page 00h: CDB1 status byte at offset 37.
 """
 
 from .page import CmisPage
@@ -11,10 +11,10 @@ from .....fields import cdb_consts
 
 
 class CdbAdminStatusPage(CmisPage):
-    """Lower memory fields relevant to CDB: the CDB1 status byte."""
+    """Page 00h fields relevant to CDB: the CDB1 status byte."""
 
     def __init__(self, codes):
-        super().__init__(codes, page=None, bank=0)
+        super().__init__(codes, page=0x00, bank=0)
 
         self.fields[cdb_consts.CDB1_CMD_STATUS_FIELD] = [
             NumberRegField(

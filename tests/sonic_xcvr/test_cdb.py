@@ -51,7 +51,7 @@ class TestCdbMemMap:
     def test_linear_offset(self):
         """Test the addressing formula used by CDB fields (always bank 0)."""
         # Test default page size
-        assert CmisPage.linear_offset(None, 0, 0) == 0
+        assert CmisPage.linear_offset(0, 0, 0) == 0
         assert CmisPage.linear_offset(1, 0, 128) == 256
         assert CmisPage.linear_offset(1, 0, 138) == 266
         assert CmisPage.linear_offset(2, 0, 148) == 404
