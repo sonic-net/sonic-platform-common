@@ -1,0 +1,427 @@
+""	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"\u0001\\u00416\\u00\"t"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"\t42"	42
+"\n0"	0
+" \t {\n  \"a\" : [ 1 , 2 ] ,\r\n\t\"b\":"	JSONDecodeError Expecting value: line 3 column 6 (char 31)
+"  \\\n  \"a\" : [ 1 , 2] ,\r\n\t\"b\":{\"c\":\"\\ud83d\\ude00[}}  "	JSONDecodeError Expecting value: line 1 column 3 (char 2)
+"  {\n  \"\u0001\" : [ 1 3, 2 ] ,\r\n\t\"b\":{\"c\"t:\"\\ud83d\\ude00\"}}  "	JSONDecodeError Invalid control character at: line 2 column 4 (char 7)
+"  {\n  \"4a\" : [ 1 ,72 ] ,\r\n\t\"b\":{\"c\":\"\\ud83d\\u"	JSONDecodeError Invalid \uXXXX escape: line 3 column 19 (char 44)
+"  {\n  \"a\" ,: [ 1 "	JSONDecodeError Expecting ':' delimiter: line 2 column 7 (char 10)
+"  {\n  \"a\" : [ "	JSONDecodeError Expecting value: line 2 column 11 (char 14)
+"  {\n  \"a\" : [ 1  , 2 ] ,\r\n\t\"b\":{\"c"	JSONDecodeError Unterminated string starting at: line 3 column 7 (char 32)
+"  {\n  \"a\" : [ 1 , 2\n] ,\r\n\t\"b\":{\"c\":\"\\ud8d\\ude00\"}}  "	JSONDecodeError Invalid \uXXXX escape: line 4 column 13 (char 37)
+"  {\n  \"a\" : [ 1 , 2 ] \t,\r\n\t\"b\":{\"c\":\"\\9ud83d\\ude00\"}}  "	JSONDecodeError Invalid \escape: line 3 column 12 (char 37)
+"  {\n  \"a\" : [ 1 , 2 ] ,\r\n\t\""	JSONDecodeError Unterminated string starting at: line 3 column 2 (char 26)
+"  {\n  \"a\" : [ 1 , 2 ] ,\r\n\t\"b\":"	JSONDecodeError Expecting value: line 3 column 6 (char 30)
+"  {\n  \"a\" : [ 1 , 2 ] ,\r\n\t\"b\":{\"c\":\""	JSONDecodeError Unterminated string starting at: line 3 column 11 (char 35)
+"  {\n  \"a\" : [ 1 , 2 ] ,\r\n\t\"b\":{\"c\":\"\\u83d\\ude00\"}}  "	JSONDecodeError Invalid \uXXXX escape: line 3 column 13 (char 37)
+"  {\n  \"a\" : [ 1 , 2 ] ,\r\n\t\"b\":{\"c\":\"\\ud83d\\.ude00\"}}  "	JSONDecodeError Invalid \escape: line 3 column 18 (char 42)
+"  {\n  \"a\" : [ 1 , 2 ] ,\r\n\t\"b\":{\"c\":\"\\ud83d\\ude00\"}}+ "	JSONDecodeError Extra data: line 3 column 27 (char 51)
+"  {\n  \"a\" : [ 1 , 2 ] ,\r\n\t\"b\":{\"c\":\\ud83d\\ude00\"}}  "	JSONDecodeError Expecting value: line 3 column 11 (char 35)
+"  {\n  \"a\" : [ 1 , 2 ] ,\r\n\t\"b\"{\"c\":\"\\d83d\\ude00\"}}  "	JSONDecodeError Expecting ':' delimiter: line 3 column 5 (char 29)
+"  {\n  \"a\" : [ 1 , 2 ] ,\r\n\tb\":{\"c\":\"\\d83d\\ude00\"}}  "	JSONDecodeError Expecting property name enclosed in double quotes: line 3 column 2 (char 26)
+"  {\n  \"a\" : [ 1 , 2 ] ,\r\n3-\t\"b\":{\"c\":\"\\ud83d\\udt00\"}}  "	JSONDecodeError Expecting property name enclosed in double quotes: line 3 column 1 (char 25)
+"  {\n  \"a\" : [ 1 , 2 ] 8,\r\n\t\"b\":{\"c\":\"\\ud83d\\ude00\"}} "	JSONDecodeError Expecting ',' delimiter: line 2 column 19 (char 22)
+"  {\n  \"a\" : [ 1 , 2] ] ,\r\n\t\"b\":{\"c\":\"\\ud83d\\ude00\"}}  "	JSONDecodeError Expecting ',' delimiter: line 2 column 18 (char 21)
+"  {\n  \"a\" : [ 1 :, 2 ] ,\r\n\t\""	JSONDecodeError Expecting ',' delimiter: line 2 column 13 (char 16)
+"  {\n  \"a\" : [ 1e, 2 ] ,\r\n\t\"b\":{\"c\":\"\\:d83d\\ude0"	JSONDecodeError Expecting ',' delimiter: line 2 column 12 (char 15)
+"  {\n  \"a\" : [\\ 1 , 2 ] ,\r\n\t\"b\":{\""	JSONDecodeError Expecting value: line 2 column 10 (char 13)
+"  {\n  \"a\" :{ [ 1 , 2 ] ,\r\n\t\"b\":{c\":\"\\ud83d\\u\"de00\"}}  "	JSONDecodeError Expecting property name enclosed in double quotes: line 2 column 10 (char 13)
+"  {\n  \"a\": [ 1 , 2 ] ,\r\n\t\"b\":{\"c\":\"\\ud83d\\ude00\"}}  "	{'a': [1, 2], 'b': {'c': '😀'}}
+"  {\n  \"af\" : [  , 2 ] ,\r\n\t\"b\":{\"c\":+\\ud83d\\ude00\"}}  "	JSONDecodeError Expecting value: line 2 column 13 (char 16)
+"  {\n  7a\" : [ 1 , 2 ] ,\r\n\t\"b\":{\"c\":\"\\ud83d\\ude00\"}}  "	JSONDecodeError Expecting property name enclosed in double quotes: line 2 column 3 (char 6)
+"  {\n \"a\" : [ 1 , 2 ] ,\r\n\t\"b\":{\"c\":\"\\ud83d\\ude00\"}}  E"	JSONDecodeError Extra data: line 3 column 29 (char 52)
+"  {\n f \"a\" : [ 1 , 2 ]+,\r\n\t\"b\":{\"c\":\"\\ud83d,\\ude00\"}}  "	JSONDecodeError Expecting property name enclosed in double quotes: line 2 column 2 (char 5)
+"  {+\n  \"a\" : [ 1, "	JSONDecodeError Expecting property name enclosed in double quotes: line 1 column 4 (char 3)
+" -:0"	JSONDecodeError Expecting value: line 1 column 2 (char 1)
+" 7 "	7
+" x0"	JSONDecodeError Expecting value: line 1 column 2 (char 1)
+"\" E40"	JSONDecodeError Unterminated string starting at: line 1 column 1 (char 0)
+"\"0"	JSONDecodeError Unterminated string starting at: line 1 column 1 (char 0)
+"\"2ust"	JSONDecodeError Unterminated string starting at: line 1 column 1 (char 0)
+"\"5just a string\""	'5just a string'
+"\"@odata.id\": \"/redfish/v1/SessionService/Sessions/abc\", \"Id\": \"abc\", \"UserName\": \"u\", \"Oem\": {}}"	JSONDecodeError Extra data: line 1 column 12 (char 11)
+"\"Members\": [{\"@odata.id\": \"/redish/v1/SessionService/Sessions/x1\"}, {\"@odata.id\": \"/x/y2\"}], \"Members"	JSONDecodeError Extra data: line 1 column 10 (char 9)
+"\"\\\"u0041\\ue0\""	JSONDecodeError Invalid \uXXXX escape: line 1 column 10 (char 9)
+"\"\\0041\\u00\""	JSONDecodeError Invalid \escape: line 1 column 2 (char 1)
+"\"\\\\:0041"	JSONDecodeError Unterminated string starting at: line 1 column 1 (char 0)
+"\"\\u00 41\\u0n0\""	JSONDecodeError Invalid \uXXXX escape: line 1 column 3 (char 2)
+"\"\\u0040\\u00\""	JSONDecodeError Invalid \uXXXX escape: line 1 column 9 (char 8)
+"\"\\u00415:u0"	JSONDecodeError Unterminated string starting at: line 1 column 1 (char 0)
+"\"\\u0041\\00\""	JSONDecodeError Invalid \escape: line 1 column 8 (char 7)
+"\"\\u0041\\u"	JSONDecodeError Invalid \uXXXX escape: line 1 column 9 (char 8)
+"\"\\u0041\\u00\""	JSONDecodeError Invalid \uXXXX escape: line 1 column 9 (char 8)
+"\"\\u0041\\u080"	JSONDecodeError Invalid \uXXXX escape: line 1 column 9 (char 8)
+"\"\\u0041\\u900\""	JSONDecodeError Invalid \uXXXX escape: line 1 column 9 (char 8)
+"\"\\u0041\\{00\"\\"	JSONDecodeError Invalid \escape: line 1 column 8 (char 7)
+"\"\\u0041}\\u00"	JSONDecodeError Invalid \uXXXX escape: line 1 column 10 (char 9)
+"\"\\u004\\u00t\""	JSONDecodeError Invalid \uXXXX escape: line 1 column 3 (char 2)
+"\"\\u00x1\\u00\""	JSONDecodeError Invalid \uXXXX escape: line 1 column 3 (char 2)
+"\"\\u041\\e00z\""	JSONDecodeError Invalid \uXXXX escape: line 1 column 3 (char 2)
+"\"\\u041u00"	JSONDecodeError Invalid \uXXXX escape: line 1 column 3 (char 2)
+"\"\\u0N041\\u00\""	JSONDecodeError Invalid \uXXXX escape: line 1 column 3 (char 2)
+"\"\\u400"	JSONDecodeError Invalid \uXXXX escape: line 1 column 3 (char 2)
+"\"\\uI0091\\7u00\""	JSONDecodeError Invalid \uXXXX escape: line 1 column 3 (char 2)
+"\"fu0041\\u006"	JSONDecodeError Invalid \uXXXX escape: line 1 column 9 (char 8)
+"\"jNs a string\""	'jNs a string'
+"\"jst a stri"	JSONDecodeError Unterminated string starting at: line 1 column 1 (char 0)
+"\"ju\nEt a string\""	JSONDecodeError Invalid control character at: line 1 column 4 (char 3)
+"\"juEt a "	JSONDecodeError Unterminated string starting at: line 1 column 1 (char 0)
+"\"jus1t a string\""	'jus1t a string'
+"\"just  sting\""	'just  sting'
+"\"just a"	JSONDecodeError Unterminated string starting at: line 1 column 1 (char 0)
+"\"just a \\str5in8g\""	JSONDecodeError Invalid \escape: line 1 column 9 (char 8)
+"\"just a s7tring\""	'just a s7tring'
+"\"just a st ring\""	'just a st ring'
+"\"just a str,8ng\""	'just a str,8ng'
+"\"just a strin\""	'just a strin'
+"\"just a string\"+"	JSONDecodeError Extra data: line 1 column 16 (char 15)
+"\"just a strinxg\""	'just a strinxg'
+"\"just a ting\""	'just a ting'
+"\"just aI strizg\""	'just aI strizg'
+"\"just axNstring\""	'just axNstring'
+"\"just. "	JSONDecodeError Unterminated string starting at: line 1 column 1 (char 0)
+"\"just7 a sting\""	'just7 a sting'
+"\"justa\"st ing\""	JSONDecodeError Extra data: line 1 column 8 (char 7)
+"\"jut a sting\""	'jut a sting'
+"\"jutna string\""	'jutna string'
+"\"u"	JSONDecodeError Unterminated string starting at: line 1 column 1 (char 0)
+"\"u0041\\u00\""	JSONDecodeError Invalid \uXXXX escape: line 1 column 8 (char 7)
+"\"u]004\\u00\""	JSONDecodeError Invalid \uXXXX escape: line 1 column 8 (char 7)
+"\"ust a4 string\""	'ust a4 string'
+"\"}just\"a string\""	JSONDecodeError Extra data: line 1 column 8 (char 7)
+"+47"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+",0"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"-\u0001"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"-+0"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"-0\""	JSONDecodeError Extra data: line 1 column 3 (char 2)
+"-0N"	JSONDecodeError Extra data: line 1 column 3 (char 2)
+"-3"	-3
+"-9"	-9
+"-[u0\u00e9"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"-z"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+".-0"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+".5\""	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+".t5"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"0\"zust a string\""	JSONDecodeError Extra data: line 1 column 2 (char 1)
+"0.\t5"	JSONDecodeError Extra data: line 1 column 2 (char 1)
+"0.5"	0.5
+"0.85"	0.85
+"0.]5"	JSONDecodeError Extra data: line 1 column 2 (char 1)
+"00.15"	JSONDecodeError Extra data: line 1 column 2 (char 1)
+"05\u0001"	JSONDecodeError Extra data: line 1 column 2 (char 1)
+"08.5"	JSONDecodeError Extra data: line 1 column 2 (char 1)
+"0Eu"	JSONDecodeError Extra data: line 1 column 2 (char 1)
+"0a"	JSONDecodeError Extra data: line 1 column 2 (char 1)
+"0un5"	JSONDecodeError Extra data: line 1 column 2 (char 1)
+"1\u0001001"	JSONDecodeError Extra data: line 1 column 2 (char 1)
+"12"	12
+"149"	149
+"1E\"4:00"	JSONDecodeError Extra data: line 1 column 2 (char 1)
+"1E3\n04"	JSONDecodeError Extra data: line 2 column 1 (char 4)
+"1E40"	1e+40
+"1E403"	inf
+"1E40e]"	JSONDecodeError Extra data: line 1 column 5 (char 4)
+"1E4\\.I"	JSONDecodeError Extra data: line 1 column 4 (char 3)
+"1E4}"	JSONDecodeError Extra data: line 1 column 4 (char 3)
+"1EN20"	JSONDecodeError Extra data: line 1 column 2 (char 1)
+"1Et00"	JSONDecodeError Extra data: line 1 column 2 (char 1)
+"1IE"	JSONDecodeError Extra data: line 1 column 2 (char 1)
+"1nE400"	JSONDecodeError Extra data: line 1 column 2 (char 1)
+"1{E4z"	JSONDecodeError Extra data: line 1 column 2 (char 1)
+"2jNust a s"	JSONDecodeError Extra data: line 1 column 2 (char 1)
+"32"	32
+"4+"	JSONDecodeError Extra data: line 1 column 2 (char 1)
+"40x2"	JSONDecodeError Extra data: line 1 column 3 (char 2)
+"420"	420
+"42\\"	JSONDecodeError Extra data: line 1 column 3 (char 2)
+"4582"	4582
+"49"	49
+"4N2\""	JSONDecodeError Extra data: line 1 column 2 (char 1)
+"4a4"	JSONDecodeError Extra data: line 1 column 2 (char 1)
+"4x0"	JSONDecodeError Extra data: line 1 column 2 (char 1)
+"5-"	JSONDecodeError Extra data: line 1 column 2 (char 1)
+"50.534"	50.534
+"6-04"	JSONDecodeError Extra data: line 1 column 2 (char 1)
+"6\\u"	JSONDecodeError Extra data: line 1 column 2 (char 1)
+"7.\""	JSONDecodeError Extra data: line 1 column 2 (char 1)
+"7\\u00"	JSONDecodeError Extra data: line 1 column 2 (char 1)
+"80a"	JSONDecodeError Extra data: line 1 column 3 (char 2)
+"91\u000100"	JSONDecodeError Extra data: line 1 column 3 (char 2)
+":.5"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"E0"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"E40"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"E4]00"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"I-0"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"Iu5"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"N0.:5"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"[\"1, 2.5, -3e-2, true, fals"	JSONDecodeError Unterminated string starting at: line 1 column 2 (char 1)
+"[1 2.5, -3e-2, true, false, null, \"a\\u00e9\\n\\t\\\"\\\\\\/\", [}], {}, NaN, Infinity, -Infinity,]"	JSONDecodeError Expecting ',' delimiter: line 1 column 4 (char 3)
+"[1, .5, -3e-2, true,false, null, \"a\\u00e9\\n\\t\\\"\\\\\\/\", [], {}, NaN, Infinity, -Infinty]"	JSONDecodeError Expecting value: line 1 column 5 (char 4)
+"[1, 2.5 -3e-2, true, false, null, \"a\\u00e9\\n\\t\\\"\\\\\\/\", [], {}, NaN, Infini1y, -Infinity]"	JSONDecodeError Expecting ',' delimiter: line 1 column 9 (char 8)
+"[1, 2.5, -3-2, true, false, null, \"a\\u00e9\\n\\t\\\"\\\\\\/\", [], {}, NaN, Infinity, -Infinity]"	JSONDecodeError Expecting ',' delimiter: line 1 column 12 (char 11)
+"[1, 2.5, -3e-1, true, false, null, \"au00e9\\n\\t\\\"\\\\\\/\", [], {}, NaN, Infinity, -Infinity]"	[1, 2.5, -0.3, True, False, None, 'au00e9\n\t"\\/', [], {}, nan, inf, -inf]
+"[1, 2.5, -3e-2, ,true, false, null, \"a\\u00e9\\n\\t\\\"\\\\\\/\", [], {}, NaN, Infinity, -Infinity]"	JSONDecodeError Expecting value: line 1 column 17 (char 16)
+"[1, 2.5, -3e-2, t\\ue, false,"	JSONDecodeError Expecting value: line 1 column 17 (char 16)
+"[1, 2.5, -3e-2, tru, flse, null, \"a\\u00e9\\n\\t\\\"\\\\\\/\",[], {}, NaN, Infinity, -Infinity]"	JSONDecodeError Expecting value: line 1 column 17 (char 16)
+"[1, 2.5, -3e-2, true, f\\alse, null, \"a\\u00e9\\n\\t\\\"\\\\\\\u0001/\", [], {}, NaN, Infinity, -Infinity]"	JSONDecodeError Expecting value: line 1 column 23 (char 22)
+"[1, 2.5, -3e-2, true, false null, \"a\\u00e\\n\\t\\\"\\\\\\/\", [], {}, NaN, Infinity, -Infinity]"	JSONDecodeError Expecting ',' delimiter: line 1 column 29 (char 28)
+"[1, 2.5, -3e-2, true, false, nu\u0001l, \"a\\"	JSONDecodeError Expecting value: line 1 column 30 (char 29)
+"[1, 2.5, -3e-2, true, false, null+, \"a\\u00"	JSONDecodeError Expecting ',' delimiter: line 1 column 34 (char 33)
+"[1, 2.5, -3e-2, true, false, null, \"a\\u00"	JSONDecodeError Invalid \uXXXX escape: line 1 column 39 (char 38)
+"[1, 2.5, -3e-2, true, false, null, \"a\\u00e9\\2\\t\\\"\\\\\\/\", [], {}, NaN, nfinity, -InfiInity]"	JSONDecodeError Invalid \escape: line 1 column 44 (char 43)
+"[1, 2.5, -3e-2, true, false, null, \"a\\u00e9\\n\\t\\"	JSONDecodeError Unterminated string starting at: line 1 column 36 (char 35)
+"[1, 2.5, -3e-2, true, false, null, \"a\\u00e9\\n\\t\\\"\\\\\\/"	JSONDecodeError Unterminated string starting at: line 1 column 36 (char 35)
+"[1, 2.5, -3e-2, true, false, null, \"a\\u00e9\\n\\t\\\"\\\\\\/\", [], "	JSONDecodeError Expecting value: line 1 column 61 (char 60)
+"[1, 2.5, -3e-2, true, false, null, \"a\\u00e9\\n\\t\\\"\\\\\\/\", [], {}, NaN\n\n Infinity, -Infinity]"	JSONDecodeError Expecting ',' delimiter: line 3 column 2 (char 70)
+"[1, 2.5, -3e-2, true, false, null, \"a\\u00e9\\n\\t\\\"\\\\\\/\", [], {}, NaN, Infin\"ty, -Infinity]"	JSONDecodeError Expecting value: line 1 column 70 (char 69)
+"[1, 2.5, -3e-2, true, false, null, \"a\\u00e9\\n\\t\\\"\\\\\\/\", [], {}, NaN, Infinity, -Ifinity]"	JSONDecodeError Expecting value: line 1 column 80 (char 79)
+"[1, 2.5, -3e-2, true, false, null, \"a\\u00e9\\n\\t\\\"\\\\\\/\", [], {}, NaN, Infinityt -Infinity]"	JSONDecodeError Expecting ',' delimiter: line 1 column 78 (char 77)
+"[1, 2.5, -3e-2, true, false, null, \"a\\u00e9\\n\\t\\\"\\\\\\/\", [], {},4 NaN, Infinity, -Infinity]"	JSONDecodeError Expecting ',' delimiter: line 1 column 66 (char 65)
+"[1, 2.5, -3e-2, true, false, null, \"a\\u00e9\\n\\t\\\"\\\\\\/\", ], {}, NaN, Infinity\\, -Infin8ity]"	JSONDecodeError Illegal trailing comma before end of array: line 1 column 55 (char 54)
+"[1, 2.5, -3e-2, true, false, null, \"a\\u00e9\\nt\\\"\\\\\\/N\", [], {}, NaN, Infinity, -Infinity]"	[1, 2.5, -0.03, True, False, None, 'aé\nt"\\/N', [], {}, nan, inf, -inf]
+"[1, 2.5, -3e-2, true, false, null, \"a\\u0{0e9\\n\\t\\\"\\\\\\/\", [], {, Na1N, Infinity, -Infinity]"	JSONDecodeError Invalid \uXXXX escape: line 1 column 39 (char 38)
+"[1, 2.5, -3e-2, true, false, null,\"a\\u00e9\\n\"\\t\\\"\\9\\\\/\", [], {}, NaN, Infinity, -Infinity]"	JSONDecodeError Expecting ',' delimiter: line 1 column 46 (char 45)
+"[1, 2.5, -3e-2, true, false,nnull, a\\u00e9\\n\\t\\\"\\\\\\/\", [], {}, NaN, Infinity, -Infinit]"	JSONDecodeError Expecting value: line 1 column 29 (char 28)
+"[1, 2.5, -3e-2, true, {false, null, \"a\\u00e9\\n\\t\\\"\\\\\\/\", [],{[}, NaN, Infinity, -Infinity]"	JSONDecodeError Expecting property name enclosed in double quotes: line 1 column 24 (char 23)
+"[1, 2.5, -3e-2,true,\tfals, null, \"a\\u00e9\\n\\t\\\"\\\\\\/\", [], {}, NaN, Infinity, -Infinity]"	JSONDecodeError Expecting value: line 1 column 22 (char 21)
+"[1, 2.5, -3e-2ttrue, false, null, \"a\\u00e9\\n\\t\\\"\\\\\\/\"+, [], {}, NaN, Infinity, -Infinity]"	JSONDecodeError Expecting ',' delimiter: line 1 column 15 (char 14)
+"[1, 2.5, -:3e-2, true, false, null, \"a\\u00e9\\n\\t\\\"\\\\\\/\", [], {}, NaN, Infinity, -I"	JSONDecodeError Expecting value: line 1 column 10 (char 9)
+"[1, 2.5,-3e-2, tre, false, null, \"a\\u00e9\\n\\t\\\"\\\\\\/\", [], {}, NaN, Infinity, -Infinity]"	JSONDecodeError Expecting value: line 1 column 16 (char 15)
+"[1, 25, -3e-2, true, false, null, \"a\\u00e9\\n\\t\"\\\\\\/\", [], {}, NaN, Infinity, -Infinity]"	JSONDecodeError Expecting ',' delimiter: line 1 column 48 (char 47)
+"[1,2.5, -3e-2, true, false, nu\tll, \"a\\u00e9\\n\\t\\\"\\\\\\/\", [], {}, NaN, Ifinity, -Infinity]"	JSONDecodeError Expecting value: line 1 column 29 (char 28)
+"[1x, 2.5, -3e-2, true, false, nul"	JSONDecodeError Expecting ',' delimiter: line 1 column 3 (char 2)
+"\\00"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"\\just]a sttring\""	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"\\u0041u008"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"]\"\\u0034\\u00\""	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"]17\"\\u0041\\u00\""	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"a-0"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"aE}400"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"e80"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"f05"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"just"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"n\""	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"n4,"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"t."	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"u"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"u4"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"x,-0"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"xI"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"z0.5\t"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"{"	JSONDecodeError Expecting property name enclosed in double quotes: line 1 column 2 (char 1)
+"{\"\t@Message.ExtendedInfo\": [{\"MessageId\": \"Base.1.8.Success\",n \"Message\": \"ok\"}], \"Password@Message.ExtendedInfo\": [{\"MessageId\": \"x.Error\", \"Message\": \"m\", \"Resolution\": \"r\"}]}"	JSONDecodeError Invalid control character at: line 1 column 3 (char 2)
+"{\"@0Message.ExtendedInfo\": [{\"MessageId\""	JSONDecodeError Expecting ':' delimiter: line 1 column 41 (char 40)
+"{\"@Mesage.ExtendedInfo\": [{\"MessageId\": \"Base.1.8.Success\", \"Message\": \"ok\"}], \"Password@Message.ExtendedInfo\": [{\"MessagxId\": \"x.Error\", \"Message\": \"m\", \"Resolution\": \"r\"}]}"	{'@Mesage.ExtendedInfo': [{'MessageId': 'Base.1.8.Success', 'Message': 'ok'}], 'Password@Message.ExtendedInfo': [{'MessagxId': 'x.Error', 'Message': 'm', 'Resolution': 'r'}]}
+"{\"@Message"	JSONDecodeError Unterminated string starting at: line 1 column 2 (char 1)
+"{\"@Message.Ex1tendedInfo\": [{\"MessageId\": \"Base.1.8.Success\", \"Message\": \"ok\"}x], \"Password@Message.ExtendedInfo\": [{\"MessageId\": \"x.Error\", \"Message\": \"m\", \"Resolution\": \"r\"}]}"	JSONDecodeError Expecting ',' delimiter: line 1 column 79 (char 78)
+"{\"@Message.ExtededInfo\"\t: [{\"MessageId\": \"Base.1.8.Sucess\", \"Message\": \"ok\"}], \"Password@Message.ExtendedInfo\": [{\"MessageId\": \"x.Error\", \"Message\": \"m\", \"Resolution\": \"r\"}]}"	{'@Message.ExtededInfo': [{'MessageId': 'Base.1.8.Sucess', 'Message': 'ok'}], 'Password@Message.ExtendedInfo': [{'MessageId': 'x.Error', 'Message': 'm', 'Resolution': 'r'}]}
+"{\"@Message.ExtendeInfo\": [{\"Message[d\": \"Base.1.8.Success\", \"Message\": \"ok\"}], \"Password@Message.ExtendedInfo\": [{\"MessageId\": \"x.Error\", \"Message\": \"m\", \"Resolution\": \"r\"}]}"	{'@Message.ExtendeInfo': [{'Message[d': 'Base.1.8.Success', 'Message': 'ok'}], 'Password@Message.ExtendedInfo': [{'MessageId': 'x.Error', 'Message': 'm', 'Resolution': 'r'}]}
+"{\"@Message.ExtendedInfo\" [{\"MessageId\": \"Base.1.8.Success\", \"Message\": \"ok\"}], \"Password@Message.ExtendedInf.o\": [{\"MessgeId\": \"x.Error\", \"Message\": \"m\", \"Resolution\": \"r\"}]}"	JSONDecodeError Expecting ':' delimiter: line 1 column 26 (char 25)
+"{\"@Message.ExtendedInfo\": [{\" MessageId\": \"Base.1.8.Success\", \"Message\": \"ok\"}], \"Password@Message.ExtendedInfo\": [{\"MessaeId\": \"x.Error\", \"Message\": \"m\", \"Resolution\": \"r\"}]}"	{'@Message.ExtendedInfo': [{' MessageId': 'Base.1.8.Success', 'Message': 'ok'}], 'Password@Message.ExtendedInfo': [{'MessaeId': 'x.Error', 'Message': 'm', 'Resolution': 'r'}]}
+"{\"@Message.ExtendedInfo\": [{\"Messa:eId\": \"Base.1.8.Success\", \"Message\": \"ok\"}], \"Password@Message.ExtendedInfo\": [{\"MessageId\": \"x.Error\", \"Message\": \"m\", \"Resolution\": \"r\"}]}"	{'@Message.ExtendedInfo': [{'Messa:eId': 'Base.1.8.Success', 'Message': 'ok'}], 'Password@Message.ExtendedInfo': [{'MessageId': 'x.Error', 'Message': 'm', 'Resolution': 'r'}]}
+"{\"@Message.ExtendedInfo\": [{\"MessageIN\": \"Base.1.8.Success\", \"Message\": \"ok\"}], \"Password@Message.ExtendedInfo\": [{\"MessageId\": \"x.Error\", \"Message\": \"m\", \"Resolution\": \"r\"}]}"	{'@Message.ExtendedInfo': [{'MessageIN': 'Base.1.8.Success', 'Message': 'ok'}], 'Password@Message.ExtendedInfo': [{'MessageId': 'x.Error', 'Message': 'm', 'Resolution': 'r'}]}
+"{\"@Message.ExtendedInfo\": [{\"MessageId\": \"Bas.1.8.Success\", \"Message\": \"ok\"}], \"Password@Message.ExtendedInfo\": [{\"Mes"	JSONDecodeError Unterminated string starting at: line 1 column 115 (char 114)
+"{\"@Message.ExtendedInfo\": [{\"MessageId\": \"Base.1.8.Succes\", \"Message\": \"ok\"}], \"Password@Mes"	JSONDecodeError Unterminated string starting at: line 1 column 80 (char 79)
+"{\"@Message.ExtendedInfo\": [{\"MessageId\": \"Base.1.8.Success\", \"Me"	JSONDecodeError Unterminated string starting at: line 1 column 62 (char 61)
+"{\"@Message.ExtendedInfo\": [{\"MessageId\": \"Base.1.8.Success\", \"Message\":"	JSONDecodeError Expecting value: line 1 column 72 (char 71)
+"{\"@Message.ExtendedInfo\": [{\"MessageId\": \"Base.1.8.Success\", \"Message\": \"ok\"}]"	JSONDecodeError Expecting ',' delimiter: line 1 column 79 (char 78)
+"{\"@Message.ExtendedInfo\": [{\"MessageId\": \"Base.1.8.Success\", \"Message\": \"ok\"}], \"Password@"	JSONDecodeError Unterminated string starting at: line 1 column 81 (char 80)
+"{\"@Message.ExtendedInfo\": [{\"MessageId\": \"Base.1.8.Success\", \"Message\": \"ok\"}], \"Password@Message.ExtededInfo\": [{\"MessageId\": \"x.Error\", \"Message\": \"m\", \"Resolution\": \"r\"}]}"	{'@Message.ExtendedInfo': [{'MessageId': 'Base.1.8.Success', 'Message': 'ok'}], 'Password@Message.ExtededInfo': [{'MessageId': 'x.Error', 'Message': 'm', 'Resolution': 'r'}]}
+"{\"@Message.ExtendedInfo\": [{\"MessageId\": \"Base.1.8.Success\", \"Message\": \"ok\"}], \"Password@Message.ExtendedInf1\": [{\"Mess8ageId\": \"x.Error\", \"Message\": \"m\", \"Resolution\": \"r\"}]}"	{'@Message.ExtendedInfo': [{'MessageId': 'Base.1.8.Success', 'Message': 'ok'}], 'Password@Message.ExtendedInf1': [{'Mess8ageId': 'x.Error', 'Message': 'm', 'Resolution': 'r'}]}
+"{\"@Message.ExtendedInfo\": [{\"MessageId\": \"Base.1.8.Success\", \"Message\": \"ok\"}], \"Password@Message.ExtendedInfo\": [{\"MesageId\": \"x.Error\", \"Message\": \"m\", \"Resolution\": \"r\"0]}"	JSONDecodeError Expecting ',' delimiter: line 1 column 172 (char 171)
+"{\"@Message.ExtendedInfo\": [{\"MessageId\": \"Base.1.8.Success\", \"Message\": \"ok\"}], \"Password@Message.ExtendedInfo\": [{\"MessageId\": \"x.Error\", \"Me"	JSONDecodeError Unterminated string starting at: line 1 column 140 (char 139)
+"{\"@Message.ExtendedInfo\": [{\"MessageId\": \"Base.1.8.Success\", \"Message\": \"ok\"}], \"Password@Message.ExtendedInfo\": [{\"MessageId\": \"x.Error\", \"Message\": \"m\", \"Res\nolution\": \"r\"}]}"	JSONDecodeError Invalid control character at: line 1 column 160 (char 159)
+"{\"@Message.ExtendedInfo\": [{\"MessageId\": \"Base.1.8.Success\", \"Message\": \"ok\"}], \"Password@Message.ExtendedInfo\": [{\"MessageId\": \"x.Error\", \"Message\": \"m\", \"Resolution\": \"r\"}]}"	{'@Message.ExtendedInfo': [{'MessageId': 'Base.1.8.Success', 'Message': 'ok'}], 'Password@Message.ExtendedInfo': [{'MessageId': 'x.Error', 'Message': 'm', 'Resolution': 'r'}]}
+"{\"@Message.ExtendedInfo\": [{\"MessageId\": \"Base.1.8.Success\", \"Message\": \"ok\"}], \"Password@Message.ExtendedInfo\": [{\"MessageId\": \"x.Error\", x\"Message\": \"m\", \"Resolution\": \"r\"}]}"	JSONDecodeError Expecting property name enclosed in double quotes: line 1 column 140 (char 139)
+"{\"@Message.ExtendedInfo\": [{\"MessageId\": \"Base.1.8.Success\", \"Message\": \"ok\"}], \"Password@Message.ExtendedInfo\": {\"MessageId\": \"x.Error4\", \"Message\": \"m\", \"Resolution\": \"r\"}]}"	JSONDecodeError Expecting ',' delimiter: line 1 column 174 (char 173)
+"{\"@Message.ExtendedInfo\": [{\"MessageId\": \"Base.1.8.Success\", \"Message\": \"ok\"}], \"Password@essage.Extended0Info\": [{\"MessageId\": \"x.Error\", \"Message\": \"m\", \"Resolution\": \"r\"}]}"	{'@Message.ExtendedInfo': [{'MessageId': 'Base.1.8.Success', 'Message': 'ok'}], 'Password@essage.Extended0Info': [{'MessageId': 'x.Error', 'Message': 'm', 'Resolution': 'r'}]}
+"{\"@Message.ExtendedInfo\": [{\"MessageId\": \"Base.1.8.Success\", \"Message\": \"ok}], \"Password"	JSONDecodeError Expecting ',' delimiter: line 1 column 81 (char 80)
+"{\"@Message.ExtendedInfo\": [{\"MessageId\": \"Base.1.8.Success\", \"Message\"a: \"ok\"}], \"Password@Message.ExtendedInfo\": [{\"MessageId\": \"x.Error\", \"Message\": \"m\", \"Resolution\": \"r\"}]}"	JSONDecodeError Expecting ':' delimiter: line 1 column 71 (char 70)
+"{\"@Message.ExtendedInfo\": [{\"MessageId\": \"Base.1.8.Success\", 1\\Message\": \\\"ok\"}], \"Password@Message.ExtendedInfo\": [{\"MessageId\": \"x.Error\", \"Message\": \"m\", \"Resolution\": \"r\"}]}"	JSONDecodeError Expecting property name enclosed in double quotes: line 1 column 62 (char 61)
+"{\"@Message.ExtendedInfo\": [{\"MessageId\": \"Base.1.8.Success\"\u00e9, \"Message\": \"o"	JSONDecodeError Expecting ',' delimiter: line 1 column 60 (char 59)
+"{\"@Message.ExtendedInfo\": [{\"MessageId\": \"Base.18.Success\", \"Message\": \"ok\"}], \"Password@Message.ExtendedInfo\": [{\"MessageId\": \"x.Error\", }\"Message\": \"m\", \"Resolution\": \"r\"}]}"	JSONDecodeError Illegal trailing comma before end of object: line 1 column 137 (char 136)
+"{\"@Message.ExtendedInfo\": [{\"MessageId.\": \"Base.1.8.Success\", \"Message\": \"ok\"}], \"Password@Message.ExtendedInfo\": [{\"MessageId\": \"x.Error\", \"Message\": \"m\", \"Resolution\": \"r\"}]}"	{'@Message.ExtendedInfo': [{'MessageId.': 'Base.1.8.Success', 'Message': 'ok'}], 'Password@Message.ExtendedInfo': [{'MessageId': 'x.Error', 'Message': 'm', 'Resolution': 'r'}]}
+"{\"@Message.ExtendedInfo\": [{{MessageId\": \"Base.1.8.Success\", \"Message\": \"ok\"}], \"Password@Message.ExtendedInfo\": [{\"MessageId\": \"x.Error\", \"]Message\": \"m, \"Resolution\": \"r\"}]}"	JSONDecodeError Expecting property name enclosed in double quotes: line 1 column 29 (char 28)
+"{\"@Message.ExtendedInzfo\": [{\"MessageId\": \"Base.1.8.Success\", \"Message\": \"ok\"}], \"Pssword@Message.ExtendedInfo\": [{\"MessageId\": \"x.E"	JSONDecodeError Unterminated string starting at: line 1 column 129 (char 128)
+"{\"@Message.NE"	JSONDecodeError Unterminated string starting at: line 1 column 2 (char 1)
+"{\"@Mssage.ExtendedInfo\": [{\"MessageId\": \"Base.1.8.Success\", \"Message\": \"ok\"}], \"Pasword@Message.ExtendedInfo\": [{\"MessageId\": \"x.Error\", \"Message\": \"m\", \"Resolution\": \"r\"}]}"	{'@Mssage.ExtendedInfo': [{'MessageId': 'Base.1.8.Success', 'Message': 'ok'}], 'Pasword@Message.ExtendedInfo': [{'MessageId': 'x.Error', 'Message': 'm', 'Resolution': 'r'}]}
+"{\"@o3ata.id\": \"/redfish/v1/Sess"	JSONDecodeError Unterminated string starting at: line 1 column 15 (char 14)
+"{\"@oda3t\u0001a.id\": \"redfish/v1/SessionService/Sessions/abc\", \"Id\": \"abc\", \"UserName\": \"u\", \"Oem\": {}}"	JSONDecodeError Invalid control character at: line 1 column 9 (char 8)
+"{\"@odata"	JSONDecodeError Unterminated string starting at: line 1 column 2 (char 1)
+"{\"@odata.d\": {/redfishf/v1/SessionService/Sessions/abc\", \"Id\": \"abc\", \"UserName\": \"u\", \"Oem\": {}}"	JSONDecodeError Expecting property name enclosed in double quotes: line 1 column 15 (char 14)
+"{\"@odata.id\""	JSONDecodeError Expecting ':' delimiter: line 1 column 13 (char 12)
+"{\"@odata.id\": \"\n/redfish/v1/SessionService/Sessions/abc\", \"Id\": \"abc\", \"UserName\": \"u\" \"Oem\": {}}"	JSONDecodeError Invalid control character at: line 1 column 16 (char 15)
+"{\"@odata.id\": \"/re"	JSONDecodeError Unterminated string starting at: line 1 column 15 (char 14)
+"{\"@odata.id\": \"/redfih/\\1/SessionService/Sessions/abc\", \"Id\":\"abc\", \"UserName\": \"u\", \"Oem\": {}}"	JSONDecodeError Invalid \escape: line 1 column 24 (char 23)
+"{\"@odata.id\": \"/redfish/v/SessionService/Sessions/abc\", \"Id\": \"abc\", \"UserName\": \"u\", \"Oem\": {}}"	{'@odata.id': '/redfish/v/SessionService/Sessions/abc', 'Id': 'abc', 'UserName': 'u', 'Oem': {}}
+"{\"@odata.id\": \"/redfish/v1/SesionService/Sessions/abc\", \"Id\": \"abc\", \"Us1erName\": \"u\", \"Oem\": {"	JSONDecodeError Expecting property name enclosed in double quotes: line 1 column 96 (char 95)
+"{\"@odata.id\": \"/redfish/v1/Sessio["	JSONDecodeError Unterminated string starting at: line 1 column 15 (char 14)
+"{\"@odata.id\": \"/redfish/v1/SessionS]rvice/Sessions/abc, \"Id\": \"abc\", \"UserName\": \"u\" \"Oem\": {}}"	JSONDecodeError Expecting ',' delimiter: line 1 column 58 (char 57)
+"{\"@odata.id\": \"/redfish/v1/SessionService/Ses9ions/abc\", \"Id\": \"abc\", \"UserName\": \"u\", \"Oem\": {}}"	{'@odata.id': '/redfish/v1/SessionService/Ses9ions/abc', 'Id': 'abc', 'UserName': 'u', 'Oem': {}}
+"{\"@odata.id\": \"/redfish/v1/SessionService/Sessio9ns/abc\", \"Id\": \"abc\", \"UserName\": \"u\", \"Oem\":\n {}}"	{'@odata.id': '/redfish/v1/SessionService/Sessio9ns/abc', 'Id': 'abc', 'UserName': 'u', 'Oem': {}}
+"{\"@odata.id\": \"/redfish/v1/SessionService/Sessions/abc\""	JSONDecodeError Expecting ',' delimiter: line 1 column 56 (char 55)
+"{\"@odata.id\": \"/redfish/v1/SessionService/Sessions/abc\", \"Id\": \"abc\", "	JSONDecodeError Expecting property name enclosed in double quotes: line 1 column 71 (char 70)
+"{\"@odata.id\": \"/redfish/v1/SessionService/Sessions/abc\", \"Id\": \"abc\", \"UserName\""	JSONDecodeError Expecting ':' delimiter: line 1 column 81 (char 80)
+"{\"@odata.id\": \"/redfish/v1/SessionService/Sessions/abc\", \"Id\": \"abc\", \"UserName\": \"u\", \"Oem\": "	JSONDecodeError Expecting value: line 1 column 95 (char 94)
+"{\"@odata.id\": \"/redfish/v1/SessionService/Sessions/abc\", \"Id\": \"abc\", \"UserName\": \"u\", zOem\": {}}"	JSONDecodeError Expecting property name enclosed in double quotes: line 1 column 88 (char 87)
+"{\"@odata.id\": \"/redfish/v1/SessionService/Sessions/abc\", \"Id\": \"abc\", \"UserName\":E\"u\", \"Oem\": {}}"	JSONDecodeError Expecting value: line 1 column 82 (char 81)
+"{\"@odata.id\": \"/redfish/v1/SessionService/Sessions/abc\", \"Id\": \"ac\", \"UserName\": \"u\", Oem\": u{}}"	JSONDecodeError Expecting property name enclosed in double quotes: line 1 column 87 (char 86)
+"{\"@odata.id\": \"/redfish/v1/SessionService/Sessions/abc\", \"d\":"	JSONDecodeError Expecting value: line 1 column 62 (char 61)
+"{\"@odata.id\": \"/redfish/v1/SessionService/Sessions/abc\"u \"Id\": \"abc\", \"UserName\": \"u\", \"Oem\": {}}"	JSONDecodeError Expecting ',' delimiter: line 1 column 56 (char 55)
+"{\"@odata.id\": \"/redfish/v1/SessionService/Sssions/abc\", \"Id\": \"abc\", \"UserName\": \"u\", \"Oem\": {}}"	{'@odata.id': '/redfish/v1/SessionService/Sssions/abc', 'Id': 'abc', 'UserName': 'u', 'Oem': {}}
+"{\"@odata.id\": \"/redfish/v1/SessionSe}rvice/Sessions/abc}, \"Id\": \"abc\", \"UserNa9e\": \"u\", \"Oem\": {}}"	JSONDecodeError Expecting ',' delimiter: line 1 column 60 (char 59)
+"{\"@odata.id\": \"/redfish/v1/SessonService/Sessions/abc\", \"Id\": \"abc\", \"UserName\": \"u\", \"Oem\": {}}"	{'@odata.id': '/redfish/v1/SessonService/Sessions/abc', 'Id': 'abc', 'UserName': 'u', 'Oem': {}}
+"{\"@odata.id\": \"/redfish/v81/SessionService/Sessions/abc\", \"Id\": \"abc\", \"UserName\": \"u\", \"Oem\": {}}"	{'@odata.id': '/redfish/v81/SessionService/Sessions/abc', 'Id': 'abc', 'UserName': 'u', 'Oem': {}}
+"{\"@odata.id\": \"/redftish/v1/SessionService/Sessions/abc\", \"Id\": \"abc\", \"UserName\": \"u\", \"Oem\": {}}"	{'@odata.id': '/redftish/v1/SessionService/Sessions/abc', 'Id': 'abc', 'UserName': 'u', 'Oem': {}}
+"{\"@odata.id\": \"/rexdfish/v1/SessionService/Sessions/abc\", \"Id\": \"abc\", \"UserName\": \"u\", \"Oem\": {}}"	{'@odata.id': '/rexdfish/v1/SessionService/Sessions/abc', 'Id': 'abc', 'UserName': 'u', 'Oem': {}}
+"{\"@odata.id\":\"/redfsh/v1/SessionService/Sessions/abc\", \"Id\": \"abc\", \"UserName\": \"u\", \"Oem\": {}}"	{'@odata.id': '/redfsh/v1/SessionService/Sessions/abc', 'Id': 'abc', 'UserName': 'u', 'Oem': {}}
+"{\"@odata8.id\": \"/redfish/v1/SessionService/Sessions/abc\", \"Id\": \"abc\", \"UserName\": \"u\", \"Oem\": {}}"	{'@odata8.id': '/redfish/v1/SessionService/Sessions/abc', 'Id': 'abc', 'UserName': 'u', 'Oem': {}}
+"{\"@oda{ta.id\": \"/redfish/v1/SessionServi-ce"	JSONDecodeError Unterminated string starting at: line 1 column 16 (char 15)
+"{\"I"	JSONDecodeError Unterminated string starting at: line 1 column 2 (char 1)
+"{\"Id\": \"BMC_7eeprom\", \"Model\": \"P4501\", \"SerialN1umber\": \"MT2234X00123\", \"Status\": {\"State\": \"Enabled\""	JSONDecodeError Expecting ',' delimiter: line 1 column 103 (char 102)
+"{\"Id\": \"BMC_eeprIom\", \"Model\": \"P4501\", \"SerialNumber\": \"MT2234X00123\", \"Status\": {\"State\": \"Ena:bled\", \"Health\": \"OK\"}, \"Version\": 1.5e2, \"Neg\": -0.0, \"Big\": 123456789012345678901234567890}"	{'Id': 'BMC_eeprIom', 'Model': 'P4501', 'SerialNumber': 'MT2234X00123', 'Status': {'State': 'Ena:bled', 'Health': 'OK'}, 'Version': 150.0, 'Neg': -0.0, 'Big': 123456789012345678901234567890}
+"{\"Id\": \"BMC_eeprom\" \"Model\": \"P4501\", \"SerialNumber\": \"MT2234X00123\", \"Status\": {\"State\": \"Enabled\", \"Health\": \"OK\"}, \"Version\": 1.5e2, \"Neg\": -0.0, \"Big\": 123456789012345678901234567890}"	JSONDecodeError Expecting ',' delimiter: line 1 column 21 (char 20)
+"{\"Id\": \"BMC_eeprom\", \"Mdel\": \"P4501\", \"SerialNumber\": \"MT2234X00123\", \"Status\": {\"State\": \"Enabled\", \"Health\": \"OK\"}, \"Version\": 1.5e2,8 \"Neg\": -0.0, \"Big\": 12345678901235678901234567890}"	JSONDecodeError Expecting property name enclosed in double quotes: line 1 column 136 (char 135)
+"{\"Id\": \"BMC_eeprom\", \"Model\": \"IP4501\", \"SerialNumber\": \"MT2234X00123\", \"Status\": {\"State\": \"Enabled\", \"Health\": \"OK\"}, \"Version\": 1.5e2, \"Neg\": -0.0, \"Big\": 123456789012345678901234567890}"	{'Id': 'BMC_eeprom', 'Model': 'IP4501', 'SerialNumber': 'MT2234X00123', 'Status': {'State': 'Enabled', 'Health': 'OK'}, 'Version': 150.0, 'Neg': -0.0, 'Big': 123456789012345678901234567890}
+"{\"Id\": \"BMC_eeprom\", \"Model\": \"P4501\", \"Se2ialNumber\": \"MT2234X00123\", \"Status\": {\"State\": \"Enabled\", \"Health\": 3\"OK\"}, \"Version\": 1.5e2, \"Neg\": -0.0, \"Big\": 123456789012345678901234567890}"	JSONDecodeError Expecting ',' delimiter: line 1 column 114 (char 113)
+"{\"Id\": \"BMC_eeprom\", \"Model\": \"P4501\", \"SerialNumbeer\": \"MT2234X00123\", \"Statu\": {\"State\": \"Enabled\", \"Health\": \"OK\"}, \"Version\": 1.5e2, \"Neg\": -0.0, \"Big\": 123456789012345678901234567890}"	{'Id': 'BMC_eeprom', 'Model': 'P4501', 'SerialNumbeer': 'MT2234X00123', 'Statu': {'State': 'Enabled', 'Health': 'OK'}, 'Version': 150.0, 'Neg': -0.0, 'Big': 123456789012345678901234567890}
+"{\"Id\": \"BMC_eeprom\", \"Model\": \"P4501\", \"SerialNumber\": \"MT2234X00123\", \"9tatus\": {\"State\": \"Enabled\", \"Health\": \"OK\"}, \"Version\": 1.5e2, \"Neg\": -0.0, \"Big: 23456789012345678901234567890}"	JSONDecodeError Unterminated string starting at: line 1 column 151 (char 150)
+"{\"Id\": \"BMC_eeprom\", \"Model\": \"P4501\", \"SerialNumber\": \"MT2234X00123\", \"Stats\": {\"State\": \"Enabled\", \"Health\": \"OK\"}, \"Version\": 1.5e2, \"Neg\": -0.0, \"Big\": 123456789012345678901234567890}"	{'Id': 'BMC_eeprom', 'Model': 'P4501', 'SerialNumber': 'MT2234X00123', 'Stats': {'State': 'Enabled', 'Health': 'OK'}, 'Version': 150.0, 'Neg': -0.0, 'Big': 123456789012345678901234567890}
+"{\"Id\": \"BMC_eeprom\", \"Model\": \"P4501\", \"SerialNumber\": \"MT2234X00123\", \"Status\": {\"Stae\": \"Enabled\", \"Health\": \"OK\"}, \"Version\": 1.5e2, \"Neg\": -0.0, \"Big\": 123456789012345678901234567890}"	{'Id': 'BMC_eeprom', 'Model': 'P4501', 'SerialNumber': 'MT2234X00123', 'Status': {'Stae': 'Enabled', 'Health': 'OK'}, 'Version': 150.0, 'Neg': -0.0, 'Big': 123456789012345678901234567890}
+"{\"Id\": \"BMC_eeprom\", \"Model\": \"P4501\", \"SerialNumber\": \"MT2234X00123\", \"Status\": {\"State\": \"En"	JSONDecodeError Unterminated string starting at: line 1 column 92 (char 91)
+"{\"Id\": \"BMC_eeprom\", \"Model\": \"P4501\", \"SerialNumber\": \"MT2234X00123\", \"Status\": {\"State\": \"Enabled\", \"Heal\u0001h\": \"OK\"}, \"Version\": 1.5e2, \"Neg\": -0.0, \"Big\": 123456789012345678901234567890}"	JSONDecodeError Invalid control character at: line 1 column 108 (char 107)
+"{\"Id\": \"BMC_eeprom\", \"Model\": \"P4501\", \"SerialNumber\": \"MT2234X00123\", \"Status\": {\"State\": \"Enabled\", \"Health\": \"O0K\"}, \"Version\": 1.5e2, \"Neg\": -0.0, \"Big\": 123456789012345:678901234567890}"	JSONDecodeError Expecting ',' delimiter: line 1 column 174 (char 173)
+"{\"Id\": \"BMC_eeprom\", \"Model\": \"P4501\", \"SerialNumber\": \"MT2234X00123\", \"Status\": {\"State\": \"Enabled\", \"Health\": \"OK\"}, \"Verion\": 1.5e2, \"Neg\": -0.0, \"Big\": 123456789012345678901234567890}"	{'Id': 'BMC_eeprom', 'Model': 'P4501', 'SerialNumber': 'MT2234X00123', 'Status': {'State': 'Enabled', 'Health': 'OK'}, 'Verion': 150.0, 'Neg': -0.0, 'Big': 123456789012345678901234567890}
+"{\"Id\": \"BMC_eeprom\", \"Model\": \"P4501\", \"SerialNumber\": \"MT2234X00123\", \"Status\": {\"State\": \"Enabled\", \"Health\": \"OK\"}, \"Version\": 1.5e, \"Neg\": -0.0, \"Big\": 123456789012345678901234567890}"	JSONDecodeError Expecting ',' delimiter: line 1 column 134 (char 133)
+"{\"Id\": \"BMC_eeprom\", \"Model\": \"P4501\", \"SerialNumber\": \"MT2234X00123\", \"Status\": {\"State\": \"Enabled\", \"Health\": \"OK\"}, \"Version\": 1.5e2, \"Neg\": -0.0, \"Big\": 1234567890123456789012345678909}"	{'Id': 'BMC_eeprom', 'Model': 'P4501', 'SerialNumber': 'MT2234X00123', 'Status': {'State': 'Enabled', 'Health': 'OK'}, 'Version': 150.0, 'Neg': -0.0, 'Big': 1234567890123456789012345678909}
+"{\"Id\": \"BMC_eeprom\", \"Model\": \"P4501\", \"SerialNumber\": \"MT2234X00123\", \"Status\": {\"State\": \"Enabled\", \"Health\": \"OK\"}, \"Version\": 1.5e2, \"Neg\": -0.0, \"Big\": 12345678e012345678901234567890}"	{'Id': 'BMC_eeprom', 'Model': 'P4501', 'SerialNumber': 'MT2234X00123', 'Status': {'State': 'Enabled', 'Health': 'OK'}, 'Version': 150.0, 'Neg': -0.0, 'Big': inf}
+"{\"Id\": \"BMC_eeprom\", \"Model\": \"P4501\", \"SerialNumber\": \"MT2234X00123\", \"Status\": {\"State\": \"Enabled\", \"Health\": \"OK\"}, \"Version\": 1.5e2,x \"Neg\": -0.0, \"Big\": 123456789012345678901234567890}"	JSONDecodeError Expecting property name enclosed in double quotes: line 1 column 137 (char 136)
+"{\"Id\": \"BMC_eeprom\", \"Model\": \"P4501\", \"SerialNumber\": \"MT2234X00123\", \"Status\": {\"State\": \"Enabled\", \"Health3\": \"OK\"}, \"Version\": 1.5e2, \"Neg: -0.0, \"Big\": 123456789012345678901234567890}"	JSONDecodeError Expecting ':' delimiter: line 1 column 152 (char 151)
+"{\"Id\": \"BMC_eeprom\", \"Model\": \"P4501\", \"SerialNumber\": \"MT2234X00123\", \"Status\": {\"State\": \"Enbled\", \"Health\": \"OK\"}, \"Version\": 1.5e2, \"Neg\": -0.0, \"i,g\": 123456789012345678901234567890}"	{'Id': 'BMC_eeprom', 'Model': 'P4501', 'SerialNumber': 'MT2234X00123', 'Status': {'State': 'Enbled', 'Health': 'OK'}, 'Version': 150.0, 'Neg': -0.0, 'i,g': 123456789012345678901234567890}
+"{\"Id\": \"BMC_eeprom\", \"Model\": \"P4501\", \"SerialNumber\": \"MT2234X00123\", \"Status\": {\"tat\": \"Enabled\", \"Health\": \"OK\"}, \"Version\": 1.5e2, \"Neg\": -0.0, \"Big\": 13456789012345678901234567890}"	{'Id': 'BMC_eeprom', 'Model': 'P4501', 'SerialNumber': 'MT2234X00123', 'Status': {'tat': 'Enabled', 'Health': 'OK'}, 'Version': 150.0, 'Neg': -0.0, 'Big': 13456789012345678901234567890}
+"{\"Id\": \"BMC_eeprom\", \"Model\": \"P4501\", \"SerialNumber\": \"MT2234X00123\", \"Stat\u00e9us\": {\"State\": \"Enabled\", \"Health\": \"OK\"}, \"Version\": 1.5e2, \"Neg\": -0.0, \"Big\": 123456789012345678901234567890}"	{'Id': 'BMC_eeprom', 'Model': 'P4501', 'SerialNumber': 'MT2234X00123', 'Statéus': {'State': 'Enabled', 'Health': 'OK'}, 'Version': 150.0, 'Neg': -0.0, 'Big': 123456789012345678901234567890}
+"{\"Id\": \"BMC_eeprom\", \"Model\": \"P4501\", \"SerialNumber\": \"MT2234X00123e, \"Status\": {\"State\": \"Enabled\", \"Health\": \"OK\"}, \"Version\": 1.5e2, \"Neg\": -0.0, \"Big\": 123456789012345678901234567890}"	JSONDecodeError Expecting ',' delimiter: line 1 column 73 (char 72)
+"{\"Id\": \"BMC_eeprom\", \"Model\": \"P4501\", \"SerialNumber\": \"MT223X00123\", \"Status\": {\"State\": \"Enabled\", \"Health\": \"OK\"}, \"Versio:n\": 1.5e2, \"Neg\": -0.0, \"Big\": 123456789012345678901234567890}"	{'Id': 'BMC_eeprom', 'Model': 'P4501', 'SerialNumber': 'MT223X00123', 'Status': {'State': 'Enabled', 'Health': 'OK'}, 'Versio:n': 150.0, 'Neg': -0.0, 'Big': 123456789012345678901234567890}
+"{\"Id\": \"BMC_eeprom\", \"Model\": \"P4501\", \"SerialNumber\": \"\\MT2234X00123\", \"Status\": {\"State\": \"Enabled\", \"Health\": \"OK\"}, \"Version\": 1.5e2, \"Neg\": -0.0, \"Big\": 123456789012345678901234567890}"	JSONDecodeError Invalid \escape: line 1 column 57 (char 56)
+"{\"Id\": \"BMC_eeprom\", \"Model\": \"P4501\", \"SerialNumer\": \"MT2234X00123\", \"Status\": {\"State\": \"Enabled\", \"Health\": \"OK\"}, \"Version\": 1.5e2, \"Neg\": -0.0, \"Big\" 123456789012345678901234567890}"	JSONDecodeError Expecting ':' delimiter: line 1 column 156 (char 155)
+"{\"Id\": \"BMC_eeprom\", \"Model\": \"P4501, \"SerialNumber\": \"MT2234X00123\", \"Status\" {\"State\": \"Enabled\", \"Health\": \"OK\"}, \"Version\": 1.5e2, \"Neg\": -0.0, \u0001\"Big\": 123456789012345678901234567890}"	JSONDecodeError Expecting ',' delimiter: line 1 column 40 (char 39)
+"{\"Id\": \"BMC_eeprom\", \"Model\": 0\"P4501\", \"SerialNumber\": \"MT2234X0012"	JSONDecodeError Expecting ',' delimiter: line 1 column 32 (char 31)
+"{\"Id\": \"BMC_eeprom\", \"Model\":\"P4501\", \"SerialNumber\": \"MT2234X00123\", \"Status\": {\"State\": \"Enabled\", \"Health\": \"OK\"}, \"Version\": 1.5e2, \"Neg\": -0.0, \"Big\": 123456789012345678901234567890}"	{'Id': 'BMC_eeprom', 'Model': 'P4501', 'SerialNumber': 'MT2234X00123', 'Status': {'State': 'Enabled', 'Health': 'OK'}, 'Version': 150.0, 'Neg': -0.0, 'Big': 123456789012345678901234567890}
+"{\"Id\": \"BMC_eeprom\", \"Modl\": \"P4501\", \"SerialNumber\": \"MT2234X00123\", \"Sttus\": {\"State\": \"Enabl"	JSONDecodeError Unterminated string starting at: line 1 column 90 (char 89)
+"{\"Id\": \"BMC_eeprom\"[, \"Model\": \"P4501\", \"SerialNumber\": \"MT2234X00123\", \"Status\": {\"State\": \"Enabled\", \"Health\": \"OK\"}, \"Version\": 1.5e2, fNeg\": -0.0, \"Big\": 123456789012345678901234567890}"	JSONDecodeError Expecting ',' delimiter: line 1 column 20 (char 19)
+"{\"Id\": \"BMCe_eeprom\", \"Model\": \"P4501\", u\"SerialNumber\": \"MT2234X00123\", \"Status\": {\"State: \"Enabled\", \"Health\": \"OK\"}, \"Version\": 1.5e2, \"Neg\": -0.0, \"Big\": 123456789012345678901234567890}"	JSONDecodeError Expecting property name enclosed in double quotes: line 1 column 41 (char 40)
+"{\"Id\": BMC_eeprom\", \"Model\": \"P4501\", \"SerialNumber\": \"MT2234X00123\", \"Status\": {\"State\": \"Enabled\", \"Health\": \"OK\"}, \"Version\": 1.5e2, \"Neg\": -0.0, \"B5ig\": 123456789012345678901234567890}"	JSONDecodeError Expecting value: line 1 column 8 (char 7)
+"{\"Id: \"BMC_eeprom\", \"Modael\": \"P4501\", \"SeriaxlNumber\": \"MT2234X00123\", \"Status\": {\"State\": \"Enabled\", \"Health\": \"OK\"}, \"Version\": 1.5e2, \"Neg\": -0.0, \"Big\": 123456789012345678901234567890}"	JSONDecodeError Expecting ':' delimiter: line 1 column 8 (char 7)
+"{\"Mebers\": [{\"@odata.id\": \"/redf8ish/v1/SessionService/Sessions/x1\"}, {\"@odata.id\": \"/x/y2\"}], \"Members@odata.count\": 2}"	{'Mebers': [{'@odata.id': '/redf8ish/v1/SessionService/Sessions/x1'}, {'@odata.id': '/x/y2'}], 'Members@odata.count': 2}
+"{\"MembeNs\": [{\"@odata.id\": \"/redfish/v1/essionService/Sessions/x1\"}, {\"@odata.id\": \"/x1y2\"}], \"Members@odata.count\": 2}"	{'MembeNs': [{'@odata.id': '/redfish/v1/essionService/Sessions/x1'}, {'@odata.id': '/x1y2'}], 'Members@odata.count': 2}
+"{\"Members\": :{\"@o"	JSONDecodeError Expecting value: line 1 column 13 (char 12)
+"{\"Members\": [{\"@Nodata.id\": \"/redfish/v1/SessionService/Sessions/x1\"}, {\"@odata.id\": \"/x/y2\"}], \"M"	JSONDecodeError Unterminated string starting at: line 1 column 97 (char 96)
+"{\"Members\": [{\"@oata.id\": \"/redfish/v1/SessionService/Sessions/x1\"}, {\"@odata.id\":5\"/x/y2\"}], \"Memb}rs@odata.count\": 2}"	JSONDecodeError Expecting ',' delimiter: line 1 column 84 (char 83)
+"{\"Members\": [{\"@odata"	JSONDecodeError Unterminated string starting at: line 1 column 15 (char 14)
+"{\"Members\": [{\"@odata.i\": \"/redfish/v1/SessionService/Sessions/x1\"}, {\"@data.id\": \"/x/y2\"}], \"Members@odata.coun\": 2}"	{'Members': [{'@odata.i': '/redfish/v1/SessionService/Sessions/x1'}, {'@data.id': '/x/y2'}], 'Members@odata.coun': 2}
+"{\"Members\": [{\"@odata.id\": \"\u0001redfish/v1/SessionService/Sesions/x1\"},{\"@odata.id\": \"/x/y2\"}], \"Members@odata.count\": 2}"	JSONDecodeError Invalid control character at: line 1 column 29 (char 28)
+"{\"Members\": [{\"@odata.id\": \"/rdfish}/v1/SessionService/Sessions/x1\"}, {\"@odata.id\": \"/x/y2\"}], \"Members@odata.count\": 2}"	{'Members': [{'@odata.id': '/rdfish}/v1/SessionService/Sessions/x1'}, {'@odata.id': '/x/y2'}], 'Members@odata.count': 2}
+"{\"Members\": [{\"@odata.id\": \"/redfiash/v1/SessionService/Sessions+/x1\"}, {\"@odata.id\": \"/x/y2\"}], \"Members@odata.count\": 2}"	{'Members': [{'@odata.id': '/redfiash/v1/SessionService/Sessions+/x1'}, {'@odata.id': '/x/y2'}], 'Members@odata.count': 2}
+"{\"Members\": [{\"@odata.id\": \"/redfish/v /SessionNService/Sessions/x1\"}, {\"8odata.id\": \"/x/y2\"}], \"Members@odata.count\": 2}"	{'Members': [{'@odata.id': '/redfish/v /SessionNService/Sessions/x1'}, {'8odata.id': '/x/y2'}], 'Members@odata.count': 2}
+"{\"Members\": [{\"@odata.id\": \"/redfish/v1/Sessi"	JSONDecodeError Unterminated string starting at: line 1 column 28 (char 27)
+"{\"Members\": [{\"@odata.id\": \"/redfish/v1/SessioService/Sessions/x1\"}, {\"@odata.id\": \"/x/y2\"}], \"Members@odaxta.count\": 2"	JSONDecodeError Expecting ',' delimiter: line 1 column 120 (char 119)
+"{\"Members\": [{\"@odata.id\": \"/redfish/v1/SessionSer3ice/Ses-ions/x1\"}E, {\"@odata.id\": \"/x/y2\"}], \"Members@odata.count\": 2}"	JSONDecodeError Expecting ',' delimiter: line 1 column 69 (char 68)
+"{\"Members\": [{\"@odata.id\": \"/redfish/v1/SessionService/Se+sions/x1\"}, {\"@ndata.id\": \"/x/y2\"}], \"Members@o\\data.count\": 2}"	JSONDecodeError Invalid \escape: line 1 column 106 (char 105)
+"{\"Members\": [{\"@odata.id\": \"/redfish/v1/SessionService/Sessio[ns/x1\"}, {\"@odata.id\": \"/x/y2\"}], \"Members@odata.count\": 2}"	{'Members': [{'@odata.id': '/redfish/v1/SessionService/Sessio[ns/x1'}, {'@odata.id': '/x/y2'}], 'Members@odata.count': 2}
+"{\"Members\": [{\"@odata.id\": \"/redfish/v1/SessionService/Sessions/x1\"2}, {\"@odata.id\": \"/x/y2\"}], \"Members@odata.count\": 2}"	JSONDecodeError Expecting ',' delimiter: line 1 column 68 (char 67)
+"{\"Members\": [{\"@odata.id\": \"/redfish/v1/SessionService/Sessions/x1\"}, {\"@oadata.id\": \"/x/y2\"}], \"Members@odata.count\": 2}"	{'Members': [{'@odata.id': '/redfish/v1/SessionService/Sessions/x1'}, {'@oadata.id': '/x/y2'}], 'Members@odata.count': 2}
+"{\"Members\": [{\"@odata.id\": \"/redfish/v1/SessionService/Sessions/x1\"}, {\"@odata.i0d\": \"/x/y2\"}], \"Members@odata.count\": 2}"	{'Members': [{'@odata.id': '/redfish/v1/SessionService/Sessions/x1'}, {'@odata.i0d': '/x/y2'}], 'Members@odata.count': 2}
+"{\"Members\": [{\"@odata.id\": \"/redfish/v1/SessionService/Sessions/x1\"}, {\"@odata.id\": \"/x/y\"}], \"Mm"	JSONDecodeError Unterminated string starting at: line 1 column 95 (char 94)
+"{\"Members\": [{\"@odata.id\": \"/redfish/v1/SessionService/Sessions/x1\"}, {\"@odata.id\": \"/x/y2\"}], \"Member\u0001@odaeta.count\": 2}"	JSONDecodeError Invalid control character at: line 1 column 103 (char 102)
+"{\"Members\": [{\"@odata.id\": \"/redfish/v1/SessionService/Sessions/x1\"}, {\"@odata.id\": \"/x/y2\"}], \"Members@odata.count\"1: 2}"	JSONDecodeError Expecting ':' delimiter: line 1 column 117 (char 116)
+"{\"Members\": [{\"@odata.id\": \"/redfish/v1/SessionService/Sessions/x1\"}, {\"@odata.id\": \"/x/y2\"}], \"Members@odatua.count\":  }"	JSONDecodeError Expecting value: line 1 column 121 (char 120)
+"{\"Members\": [{\"@odata.id\": \"/redfish/v1/SessionService/Sessions/x1\"}, {\"@odata.id\": \"/x/y2\"}],] \"Members@odata.count\": 2}"	JSONDecodeError Expecting property name enclosed in double quotes: line 1 column 95 (char 94)
+"{\"Members\": [{\"@odata.id\": \"/redfish/v1/SessionService/Sessions/x1\"}, {\"@odataid\": \"/x/y2\"}], \"Members@odata.count\": 2}"	{'Members': [{'@odata.id': '/redfish/v1/SessionService/Sessions/x1'}, {'@odataid': '/x/y2'}], 'Members@odata.count': 2}
+"{\"Members\": [{\"@odata.id\": \"/redfish/v1/SessionService/Sessions/x15\"}, {\""	JSONDecodeError Unterminated string starting at: line 1 column 73 (char 72)
+"{\"Members\": [{\"@odata.id\": \"/redfish/v1/SessionService/Sssions/x1u}, {\"@odata.id\": \"/x/y2\"}], \"Members@odata.cont\": 2}"	JSONDecodeError Expecting ',' delimiter: line 1 column 72 (char 71)
+"{\"Members\": [{\"@odata.id\": \"/redfish/v1/Sessio{ServiceSessions/x1\"}, {\"@odata.id\": \"/x/y2\"}], \"Members@odata.count\": 2}"	{'Members': [{'@odata.id': '/redfish/v1/Sessio{ServiceSessions/x1'}, {'@odata.id': '/x/y2'}], 'Members@odata.count': 2}
+"{\"Members\": [{\"@odata.id\": \"/redfzsh/v1/SessionService/Sessions/x1\"},{\"@odata.id\": \"/x/y2\"}], \"Membrs@odata.count\": 2}"	{'Members': [{'@odata.id': '/redfzsh/v1/SessionService/Sessions/x1'}, {'@odata.id': '/x/y2'}], 'Membrs@odata.count': 2}
+"{\"Members\": [{\"@odata.id\": /redfish/v1/SessionService/Session6s/x1\"}, {\"@odata.id\": \"/x/y2\"}], \"Members@odata.count\": 2}"	JSONDecodeError Expecting value: line 1 column 28 (char 27)
+"{\"Members\": [{\"@odata2id\": \"/redfish/v1/SessionService/Sessions/x1\"}, {\"@od"	JSONDecodeError Unterminated string starting at: line 1 column 72 (char 71)
+"{\"Members\": [{\"@o{data.id\": \"/redfish/v1/SessionService/Sessions/x1\", {\"@odata.id{: \"/x/y2\"}], \"Members@odata.count\": 2}"	JSONDecodeError Expecting property name enclosed in double quotes: line 1 column 71 (char 70)
+"{\"Members\": {\"@odata.id\": \"/redfish/v1/SessionService/Sessions/x1\"}, {\"2@odata.id\": \"/x/y2\"}], \"Mebers@odata.count\": 2}"	JSONDecodeError Expecting property name enclosed in double quotes: line 1 column 70 (char 69)
+"{\"Members: [{\"@odata.id\": \"/rdfish/v1/SessionService/Sessions/x1\"}, {\"@odat .id\": \"/x/y2\"}], \"Members@odata.count\": 2}"	JSONDecodeError Expecting ':' delimiter: line 1 column 15 (char 14)
+"{\"Memers\": [{\"@odata.id\": \"/redfish/v1/SessionService/Sessions/x1\"}, {\"@odata.id\": \"/x/y2\"}], \"Members@odata.count\": 2}"	{'Memers': [{'@odata.id': '/redfish/v1/SessionService/Sessions/x1'}, {'@odata.id': '/x/y2'}], 'Members@odata.count': 2}
+"{\"Perc"	JSONDecodeError Unterminated string starting at: line 1 column 2 (char 1)
+"{\"PercenComplete\": 100, \"TaskStatus\": \"OK\", \"Message1\": [{\"MessageId\": \"ResourceEvent.1.0.UpdateSuccessful\", \"MessageArgs\": [\"MGX_FW_BMC_0\", \"x\"]}]}"	{'PercenComplete': 100, 'TaskStatus': 'OK', 'Message1': [{'MessageId': 'ResourceEvent.1.0.UpdateSuccessful', 'MessageArgs': ['MGX_FW_BMC_0', 'x']}]}
+"{\"PercentCmplete\": 100, \"TaskStatus\": \"]OK[\", \"Messages\": [{\"MessageId\": \"ResourceEvent.1.0.UpdateSuccessful\", \"MessageArgs\": [\"MGX_FW_BMC_0\", \"x\"]}]}"	{'PercentCmplete': 100, 'TaskStatus': ']OK[', 'Messages': [{'MessageId': 'ResourceEvent.1.0.UpdateSuccessful', 'MessageArgs': ['MGX_FW_BMC_0', 'x']}]}
+"{\"PercentComplet:e\": 100, \"TaskStatus\": \"OK\", \"Messages\": [{\"MessageId\": \"ResourceEvent.2.0.UpdateSuccessful\", \"MessageArgs\": [\"MGX_FW_BMC_0\", \"x\"]}]}"	{'PercentComplet:e': 100, 'TaskStatus': 'OK', 'Messages': [{'MessageId': 'ResourceEvent.2.0.UpdateSuccessful', 'MessageArgs': ['MGX_FW_BMC_0', 'x']}]}
+"{\"PercentComplete\": 10, \"TaskStatus\": \"OK\", \"Mssages\": [{\"MessageId\": \"ResourceEvent.1.0.UpdateSuccessful\", \"MessageArgs\": [\"MGX_FW_BMC_0\", \"x\"]}]}"	{'PercentComplete': 10, 'TaskStatus': 'OK', 'Mssages': [{'MessageId': 'ResourceEvent.1.0.UpdateSuccessful', 'MessageArgs': ['MGX_FW_BMC_0', 'x']}]}
+"{\"PercentComplete\": 100, \"Ta"	JSONDecodeError Unterminated string starting at: line 1 column 26 (char 25)
+"{\"PercentComplete\": 100, \"TasStatus\": \"OK\", \"Messages\": [{\"MessageId\": \"ResourceEvent.1.0.UpdateSuccessful}\", \"MessageArgs\": [\"MGX_FW_BMC_0\", \"x\"]}]}"	{'PercentComplete': 100, 'TasStatus': 'OK', 'Messages': [{'MessageId': 'ResourceEvent.1.0.UpdateSuccessful}', 'MessageArgs': ['MGX_FW_BMC_0', 'x']}]}
+"{\"PercentComplete\": 100, \"TaskSt0tus\": \"OK\", \"Messages\": [{\"MessageId\": \"ResourceEvent.1.0.UpdateSuccessful\", \"MessageArgs\": [\"MGX_FW_BMC_0\", \"x\"]}]}"	{'PercentComplete': 100, 'TaskSt0tus': 'OK', 'Messages': [{'MessageId': 'ResourceEvent.1.0.UpdateSuccessful', 'MessageArgs': ['MGX_FW_BMC_0', 'x']}]}
+"{\"PercentComplete\": 100, \"TaskStatus\": "	JSONDecodeError Expecting value: line 1 column 40 (char 39)
+"{\"PercentComplete\": 100, \"TaskStatus\": \"OK \", \"Messages\": [{\"MessageId\": \"Resource\u00e9vent.1.0.UpdateSuccessful\", \"MessageA"	JSONDecodeError Unterminated string starting at: line 1 column 112 (char 111)
+"{\"PercentComplete\": 100, \"TaskStatus\": \"OK\", \"Mess4ges\": [{\"MessageId\": \"ResourceEvent.1.0.UpdateSuccessul\", \"MessageArgs\": [\"MGX_FW_BMC_0\", \"x\"]}]}"	{'PercentComplete': 100, 'TaskStatus': 'OK', 'Mess4ges': [{'MessageId': 'ResourceEvent.1.0.UpdateSuccessul', 'MessageArgs': ['MGX_FW_BMC_0', 'x']}]}
+"{\"PercentComplete\": 100, \"TaskStatus\": \"OK\", \"Messages\" [{\"MessageId\": \"Resour8eEvent.1.0.UpdateSuccessful\", \"MessageArgs\": [\"MGX_FW_BMC_0\", \"x\"]}]}"	JSONDecodeError Expecting ':' delimiter: line 1 column 57 (char 56)
+"{\"PercentComplete\": 100, \"TaskStatus\": \"OK\", \"Messages\": [-{\"MessageId\": \"ResourceEvent.1.0.UpdateSuccessful\", \"MessageArgs\": [\"MGX_FW_BMC_0\", \"x\"]}]}"	JSONDecodeError Expecting value: line 1 column 59 (char 58)
+"{\"PercentComplete\": 100, \"TaskStatus\": \"OK\", \"Messages\": [{\"MessaeId\": \"ResourceEvNent.1.0.UpdateSuccessful\", \"MessageArgs\": [\"MGX_FW_BMC_0\", \"x5\"]}]}"	{'PercentComplete': 100, 'TaskStatus': 'OK', 'Messages': [{'MessaeId': 'ResourceEvNent.1.0.UpdateSuccessful', 'MessageArgs': ['MGX_FW_BMC_0', 'x5']}]}
+"{\"PercentComplete\": 100, \"TaskStatus\": \"OK\", \"Messages\": [{\"MessageId\".: \"ResourceEvent.1.0.UpdateSuccessful\", \"MessageArgs\": [\"MGX_FW_BMC_0\", \"x\"]}]}"	JSONDecodeError Expecting ':' delimiter: line 1 column 71 (char 70)
+"{\"PercentComplete\": 100, \"TaskStatus\": \"OK\", \"Messages\": [{\"MessageId\": \"ResourceE\\ent.1.0.UpdateSuccessful\", \"MessageArgs\": [\"MGX_FW_BMC_0\", \"x\"]}]}"	JSONDecodeError Invalid \escape: line 1 column 83 (char 82)
+"{\"PercentComplete\": 100, \"TaskStatus\": \"OK\", \"Messages\": [{\"MessageId\": \"ResourceEvent.1.0.U2pdateSuccessful\","	JSONDecodeError Expecting property name enclosed in double quotes: line 1 column 111 (char 110)
+"{\"PercentComplete\": 100, \"TaskStatus\": \"OK\", \"Messages\": [{\"MessageId\": \"ResourceEvent.1.0.UpdateSuc\ncessful\", \"MessageArgs\": [\"MGX_FW_BMC_0\", \"x\"\u00e9]}]}"	JSONDecodeError Invalid control character at: line 1 column 101 (char 100)
+"{\"PercentComplete\": 100, \"TaskStatus\": \"OK\", \"Messages\": [{\"MessageId\": \"ResourceEvent.1.0.UpdateSuccessfu,l\", \"MessageArgs\": [\"MGX_FW_BMC_0\", \"x\"]}]}"	{'PercentComplete': 100, 'TaskStatus': 'OK', 'Messages': [{'MessageId': 'ResourceEvent.1.0.UpdateSuccessfu,l', 'MessageArgs': ['MGX_FW_BMC_0', 'x']}]}
+"{\"PercentComplete\": 100, \"TaskStatus\": \"OK\", \"Messages\": [{\"MessageId\": \"ResourceEvent.1.0.UpdateSuccessful\", \"MessageAr:gs\": [\"MGX_FW_BMC_0\", \"x\"]}]}"	{'PercentComplete': 100, 'TaskStatus': 'OK', 'Messages': [{'MessageId': 'ResourceEvent.1.0.UpdateSuccessful', 'MessageAr:gs': ['MGX_FW_BMC_0', 'x']}]}
+"{\"PercentComplete\": 100, \"TaskStatus\": \"OK\", \"Messages\": [{\"MessageId\": \"ResourceEvent.1.0.UpdateSuccessful\", \"MessageArgs\": [\"MGX_FW_BMC_0\", \"x\"]2}]}"	JSONDecodeError Expecting ',' delimiter: line 1 column 147 (char 146)
+"{\"PercentComplete\": 100, \"TaskStatus\": \"OK\", \"Messages\": [{\"MessageId\": \"ResourceEvent.1.0.UpdateSuccessful\", \"MessageArgs\": [\"MGX_uFW_BMC_0\", \"x\"]}]}"	{'PercentComplete': 100, 'TaskStatus': 'OK', 'Messages': [{'MessageId': 'ResourceEvent.1.0.UpdateSuccessful', 'MessageArgs': ['MGX_uFW_BMC_0', 'x']}]}
+"{\"PercentComplete\": 100, \"TaskStatus\": \"OK\", \"Messages\": [{\"MessageId\": \"ResourceEvent.1.0.UpdateSuccessful\", n\"MessageArgs\": [\"MGX_FW_BMC_0\", \"x\"]}]}"	JSONDecodeError Expecting property name enclosed in double quotes: line 1 column 111 (char 110)
+"{\"PercentComplete\": 100, \"TaskStatus\": \"OK\", \"Messages\": [{\"MessageId\": \"ResourceEvent.1.0.UpdteSuccessful\", \"MessageArgs\": [\"MG+_FW_BMC_0\", \"x\"]}]}"	{'PercentComplete': 100, 'TaskStatus': 'OK', 'Messages': [{'MessageId': 'ResourceEvent.1.0.UpdteSuccessful', 'MessageArgs': ['MG+_FW_BMC_0', 'x']}]}
+"{\"PercentComplete\": 100, \"TaskStatus\": \"OK\", \"Messages\": [{\"MessageId\": \"ResournceEvent.1.0.UpdateSuccessful\", \"MessageArgs\": [\"MGX_FW_BMn_0\", \"x\"]}]}"	{'PercentComplete': 100, 'TaskStatus': 'OK', 'Messages': [{'MessageId': 'ResournceEvent.1.0.UpdateSuccessful', 'MessageArgs': ['MGX_FW_BMn_0', 'x']}]}
+"{\"PercentComplete\": 100, \"TaskStatus\": \"OK\", \"Messages\": [{\"MessageId: \"ResourceEvent.1.0.UpdateSuccessful\" \".MessageArgs\": [\"MGX_FW_BMC_0\", \"x\"]}]}"	JSONDecodeError Expecting ':' delimiter: line 1 column 73 (char 72)
+"{\"PercentComplete\": 100, \"TaskStatus\": \"OK\", \"Messages\": [{MessageId\": \"ResourceEvent.1.0.UpdateSuccessful\", \""	JSONDecodeError Expecting property name enclosed in double quotes: line 1 column 60 (char 59)
+"{\"PercentComplete\": 100, \"TaskStatus\": \"OK\", \"Messges\": [{\"MessageId\": \"ResourceEvent.1.0.UpdateSuccessful\", \"MessageArgs\":0\"MGX_FW_BMC_0\", \"x\"]}]}"	JSONDecodeError Expecting ',' delimiter: line 1 column 125 (char 124)
+"{\"PercentComplete\": 100, \"TaskStatus\": \"OK\",\"Messages\": [{\"MessageId\": \"ResourceEvent.1.0.UpdateSuccessful\", \"MessageArgs\": [\"MGX_FW_BMC_0\", \"x\"]}]}"	{'PercentComplete': 100, 'TaskStatus': 'OK', 'Messages': [{'MessageId': 'ResourceEvent.1.0.UpdateSuccessful', 'MessageArgs': ['MGX_FW_BMC_0', 'x']}]}
+"{\"PercentComplete\": 100, \"TaskStatus\": \"OK\"\\, \"Messages\": [{\"MessageId\": \"ResourceEvent.1.0.UpdateSuccessful\", \"MessageArgs\": [\"MGX_FW_BMC_0\", \"x\"]}]}"	JSONDecodeError Expecting ',' delimiter: line 1 column 44 (char 43)
+"{\"PercentComplete\": 100, \"TaskStatus\"{ \"OK\", \"Messages"	JSONDecodeError Expecting ':' delimiter: line 1 column 38 (char 37)
+"{\"PercentComplete\": 100,5 \"Tasktatus\": \"OK\", \"Messages\": [{\"MessageId\": \"ResourceEvent.1.0.UpdateSuccessful\", \"MessageArgs\": [\"MGX_FW_BMC_0\", \"x\"]}]}"	JSONDecodeError Expecting property name enclosed in double quotes: line 1 column 25 (char 24)
+"{\"PercentComplete\":n 100, \"TaskStatus\": \"OK\", \"Messages\": [{\"MessageId\": \"ResourceEvent.1.0.UpdateSuccessful\", \"MessageArgs\": [\"MGX_FW_BMC_0\", \"x\"]}]}"	JSONDecodeError Expecting value: line 1 column 20 (char 19)
+"{\"PercentComplnte\": 100, \"TaskStatus\": \"OK\",e \"Messages\": ["	JSONDecodeError Expecting property name enclosed in double quotes: line 1 column 45 (char 44)
+"{\"Percent\u00e9Complete\": 100, \"TaskStatus\": \"OK\", \"Messages\""	JSONDecodeError Expecting ':' delimiter: line 1 column 57 (char 56)
+"{\"e"	JSONDecodeError Unterminated string starting at: line 1 column 2 (char 1)
+"{\"eror\": {\"code\": \"Base.1.8.ResourceNotFound\", \"message\": \"The requested resource of type X was not found.\", \"@Message.ExtendedInfo\": []}}"	{'eror': {'code': 'Base.1.8.ResourceNotFound', 'message': 'The requested resource of type X was not found.', '@Message.ExtendedInfo': []}}
+"{\"error\": \"code\": \"Base.1.8.ResourceNotFound\", -\"message\": \"T\\he requested resource of type X was not found.\", \"@Message.ExtendedInfo\": []}}"	JSONDecodeError Expecting ',' delimiter: line 1 column 17 (char 16)
+"{\"error\": {\"cde\": \"Base.1.8.ResourceNotFound\", \"message\": \"The requested resource of type X wasnot found.\", \"@Message.ExtendedInfo\": []}}"	{'error': {'cde': 'Base.1.8.ResourceNotFound', 'message': 'The requested resource of type X wasnot found.', '@Message.ExtendedInfo': []}}
+"{\"error\": {\"cod\te\": \"Base.1.8.Resour1ceNotFound\", \"message\": \"The requested resource of type X was not found.\", \"@Message.ExtendedInf\to\": []}}"	JSONDecodeError Invalid control character at: line 1 column 16 (char 15)
+"{\"error\": {\"code\": \"1ase.1.8.ResourceNotaFound\", \"message\": \"The requested resource of type X was not"	JSONDecodeError Unterminated string starting at: line 1 column 61 (char 60)
+"{\"error\": {\"code\": \"Bas.1.8.Resor"	JSONDecodeError Unterminated string starting at: line 1 column 20 (char 19)
+"{\"error\": {\"code\": \"Base..8.ResourceNotFound\", \"message\": \"The requested re3ource of type X was not found.\", \"@Message.ExtendedInfo\": []}}"	{'error': {'code': 'Base..8.ResourceNotFound', 'message': 'The requested re3ource of type X was not found.', '@Message.ExtendedInfo': []}}
+"{\"error\": {\"code\": \"Base.1.8.Re]sourceNotFound\", \"message\": \"The requested resource of type X was not found.\", \"@Message.ExtendedInfo\": []}}"	{'error': {'code': 'Base.1.8.Re]sourceNotFound', 'message': 'The requested resource of type X was not found.', '@Message.ExtendedInfo': []}}
+"{\"error\": {\"code\": \"Base.1.8.ResourceN"	JSONDecodeError Unterminated string starting at: line 1 column 20 (char 19)
+"{\"error\": {\"code\": \"Base.1.8.ResourceNot\nFound\", \"message\": \"The requested resource of type X was not found.\", \"@Message.ExtendedInfo\": []}}"	JSONDecodeError Invalid control character at: line 1 column 41 (char 40)
+"{\"error\": {\"code\": \"Base.1.8.ResourceNotFound \", \"message\": \"The. requested resource of type X was not found.\", \"@Message.ExtendedInfo\": []}}"	{'error': {'code': 'Base.1.8.ResourceNotFound ', 'message': 'The. requested resource of type X was not found.', '@Message.ExtendedInfo': []}}
+"{\"error\": {\"code\": \"Base.1.8.ResourceNotFound\", \"me7sage: \"The requested resource of type X was not found.\", \"@Message.ExtendedInfo\": []}}"	JSONDecodeError Expecting ':' delimiter: line 1 column 60 (char 59)
+"{\"error\": {\"code\": \"Base.1.8.ResourceNotFound\", \"message\" \"The reque"	JSONDecodeError Expecting ':' delimiter: line 1 column 59 (char 58)
+"{\"error\": {\"code\": \"Base.1.8.ResourceNotFound\", \"message\": \"The -requested resource of type X was not found.\",\\ \"@Message.ExtendedInfo\": []}}"	JSONDecodeError Expecting property name enclosed in double quotes: line 1 column 111 (char 110)
+"{\"error\": {\"code\": \"Base.1.8.ResourceNotFound\", \"message\": \"The requea-ed resou3ce of type X was not found.\", \"@Message.ExtendedInfo\": []}}"	{'error': {'code': 'Base.1.8.ResourceNotFound', 'message': 'The requea-ed resou3ce of type X was not found.', '@Message.ExtendedInfo': []}}
+"{\"error\": {\"code\": \"Base.1.8.ResourceNotFound\", \"message\": \"The requested resour2ce of type X was not found.\", \"@Message.ExtendedInfo\": []}}"	{'error': {'code': 'Base.1.8.ResourceNotFound', 'message': 'The requested resour2ce of type X was not found.', '@Message.ExtendedInfo': []}}
+"{\"error\": {\"code\": \"Base.1.8.ResourceNotFound\", \"message\": \"The requested resource of type X was not ,found.\", \"@Message.ExtendedInfo\": []}}"	{'error': {'code': 'Base.1.8.ResourceNotFound', 'message': 'The requested resource of type X was not ,found.', '@Message.ExtendedInfo': []}}
+"{\"error\": {\"code\": \"Base.1.8.ResourceNotFound\", \"message\": \"The requested resource of type X was not found.\", \"\tMessage.ExtendedInfo\": []}}"	JSONDecodeError Invalid control character at: line 1 column 112 (char 111)
+"{\"error\": {\"code\": \"Base.1.8.ResourceNotFound\", \"message\": \"The requested resource of type X was not found.\", \"@Mess8ge.ExtendedInfo\": []}}"	{'error': {'code': 'Base.1.8.ResourceNotFound', 'message': 'The requested resource of type X was not found.', '@Mess8ge.ExtendedInfo': []}}
+"{\"error\": {\"code\": \"Base.1.8.ResourceNotFound\", \"message\": \"The requested resource of type X was not found.\", \"@Message.Ex5endedInfo\": []}}"	{'error': {'code': 'Base.1.8.ResourceNotFound', 'message': 'The requested resource of type X was not found.', '@Message.Ex5endedInfo': []}}
+"{\"error\": {\"code\": \"Base.1.8.ResourceNotFound\", \"message\": \"The requested resource of type X was not found.\", \"@Message.ExtendedInfo\": [][}"	JSONDecodeError Expecting ',' delimiter: line 1 column 138 (char 137)
+"{\"error\": {\"code\": \"Base.1.8.ResourceNotFound\", \"message\": \"The requested resource of type X was not found.\", \"@Message.Extendedznfo\": []}}"	{'error': {'code': 'Base.1.8.ResourceNotFound', 'message': 'The requested resource of type X was not found.', '@Message.Extendedznfo': []}}
+"{\"error\": {\"code\": \"Base.1.8.ResourceNotFound\", \"message\": \"The requested resource of type X was5not found.\", \"@Message.ExtendedInfo\": []}}"	{'error': {'code': 'Base.1.8.ResourceNotFound', 'message': 'The requested resource of type X was5not found.', '@Message.ExtendedInfo': []}}
+"{\"error\": {\"code\": \"Base.1.8.ResourceNotFound\", \"message\": \"The requested resource of,0type X was not foun.\", \"@Message.ExtendedInfo\": []}}"	{'error': {'code': 'Base.1.8.ResourceNotFound', 'message': 'The requested resource of,0type X was not foun.', '@Message.ExtendedInfo': []}}
+"{\"error\": {\"code\": \"Base.1.8.ResourceNotFound\", \"message\": \"The requested re\u00e9soure of type X was not found.]\", \"@Message.ExtendedInfo\": []}}"	{'error': {'code': 'Base.1.8.ResourceNotFound', 'message': 'The requested reésoure of type X was not found.]', '@Message.ExtendedInfo': []}}
+"{\"error\": {\"code\": \"Base.1.8.ResourceNotFound\", \"message\": \"he request ed resource of type X was not fou2nd.\", \"@Message.ExtendedInfo\": []}}"	{'error': {'code': 'Base.1.8.ResourceNotFound', 'message': 'he request ed resource of type X was not fou2nd.', '@Message.ExtendedInfo': []}}
+"{\"error\": {\"code\": \"Base.1.8.ResourceNotFound\", \"message: \"The requested rsource of type X was notu found.\", \"@Message.ExtendedInfo\": []}}"	JSONDecodeError Expecting ':' delimiter: line 1 column 60 (char 59)
+"{\"error\": {\"code\": \"Base.1.8.ResourceNotFound\",\"message\": \"The requested resource of type X was not fo\\und.\", \"@Message.ExtendedInfo\": []}}"	JSONDecodeError Invalid \uXXXX escape: line 1 column 104 (char 103)
+"{\"error\": {\"code\": \"Base.1.8.RsourceNotFound\t"	JSONDecodeError Invalid control character at: line 1 column 45 (char 44)
+"{\"error\": {\"code\": \"Base.1.8ResourceNotFound\", \"message\": \"The requestad resource of type Xwas not found.\", \"@Message.ExtendedInfo\": []}}"	{'error': {'code': 'Base.1.8ResourceNotFound', 'message': 'The requestad resource of type Xwas not found.', '@Message.ExtendedInfo': []}}
+"{\"error\": {\"code\": \"Bease.1.8.ReNourceNotFound\", \"message\": \"The requested resource of type X was not found.\", \"@Message.ExtendedInfo\": []}}"	{'error': {'code': 'Bease.1.8.ReNourceNotFound', 'message': 'The requested resource of type X was not found.', '@Message.ExtendedInfo': []}}
+"{\"error\": {\"code1: \"Base.1.8.ResourceNotFo{und\", \"message\": \"The requested resource of type X was not found.\", \"@Message.ExtendedInfo\": []}}"	JSONDecodeError Expecting ':' delimiter: line 1 column 21 (char 20)
+"{\"error\":{\"code\": \"Base.1.8.ResourceNotFoun.d\", \"message\": \"The requested resourc"	JSONDecodeError Unterminated string starting at: line 1 column 60 (char 59)
+"{\"er}or\": {\"code\": \"Base.1.8.ResourceNotFound\", \"message\": \"The requested rsource of type X was not found.\", \"@Message.ExtendedInfo\": []}}"	{'er}or': {'code': 'Base.1.8.ResourceNotFound', 'message': 'The requested rsource of type X was not found.', '@Message.ExtendedInfo': []}}
+"{\"{@odata.id\": \"/redfish/v1/SessionService/Sessions/abc , \"Id\": \"ab:\", \"UserName\": \"u\", \"Oem\": {}}"	JSONDecodeError Expecting ',' delimiter: line 1 column 60 (char 59)
+"{1\n40"	JSONDecodeError Expecting property name enclosed in double quotes: line 1 column 2 (char 1)
+"{E\u00e90"	JSONDecodeError Expecting property name enclosed in double quotes: line 1 column 2 (char 1)
+"{Members\" [{\"@odata.id\": \"/redfish/v1/SessionService/Sessions/x1\"}, {\"@odata.5d\": \"/x/y2\"}], \"Members@odata.count\": 2}"	JSONDecodeError Expecting property name enclosed in double quotes: line 1 column 2 (char 1)
+"{error\": {\"code\": \"Base.1.8.ResourceNotFound\", \"message\": \"The requested resource of type X was n\tot found.\", "	JSONDecodeError Expecting property name enclosed in double quotes: line 1 column 2 (char 1)
+"}1-0"	JSONDecodeError Expecting value: line 1 column 1 (char 0)
+"\u00e94f"	JSONDecodeError Expecting value: line 1 column 1 (char 0)

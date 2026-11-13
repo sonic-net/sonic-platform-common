@@ -1,0 +1,31 @@
+
+SMART attributes
+ ID                    Attribute   High Raw    Low Raw Value Worst Threshold
+  1          Raw_Read_Error_Rate          0          0   100   100        70
+  5           Reserved_Attribute          0          0   100   100         0
+  9               Power_On_Hours          0       1288   100   100         0
+ 12            Power_Cycle_Count          0        106   100   100         0
+160   Uncorrectable_Sector_Count          0          0   100   100         0
+161            Valid_Spare_Block          0        267   100   100         0
+163           Reserved_Attribute          0         16   100   100         0
+164           Reserved_Attribute          0     243145   100   100         0
+165          Maximum_Erase_Count          0        194   100   100         0
+166           Reserved_Attribute          0         89   100   100         0
+167          Average_Erase_Count          0        116   100   100         0
+168               NAND_Endurance          0      20000   100   100         0
+177           Reserved_Attribute          0        775   100   100        50
+178           Reserved_Attribute          0          0   100   100         0
+181           Total_Program_Fail          0          0   100   100         0
+182             Total_Erase_Fail          0          0   100   100         0
+187    Uncorrectable_Error_Count          0          0   100   100         0
+192      Sudden_Power_Lost_Count          0         44   100   100         0
+194          Temperature_Celsius          0         35   100   100         0
+195       Hardware_ECC_Recovered          0          0   100   100         0
+196      Reallocated_Event_Count          0          0   100   100        16
+198           Reserved_Attribute          0          0   100   100         0
+199         UDMA_CRC_Error_Count          0          1   100   100        50
+232           Reserved_Attribute          0        100   100   100         0
+241           Total_LBAs_Written          0      63134   100   100         0
+242              Total_LBAs_Read          0    8235204   100   100         0
+248          Remaining_Life_Left          0        100   100   100         0
+249  Remaining_Spare_Block_Count          0        100   100   100         0

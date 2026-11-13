@@ -1,0 +1,6 @@
+iSmart Tool
+[A9]    Total Erase Count           [98]  [00]
+[C2]  Temperature  [ 0x22 ] [ 40 ] [ 52 ] [ 00 ] [ 36 ] [ 0 ]
+[F2] Total LBA read [12345] x
+[F1] Total LBA write [54321] x
+[E8] Spare Blocks [77] x

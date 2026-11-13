@@ -1353,13 +1353,13 @@ def test_a_nameless_leak_sensor_gets_the_daemons_own_fallback():
 
 def test_a_two_hop_field_reaches_through_the_profile():
     profile = Profile('rack', 30)
-    lc = LiquidCooling(sensors=[LeakSensor('leak-a', profile=profile)])
+    lc = LiquidCooling(sensors=[LeakSensor('leak-a', leak=True, severity='MINOR', profile=profile)])
     row = PlatformApi(CooledChassis(liquid=lc)).get_leak_sensors()[0]
     assert (row.profile_type, row.profile_max_minor_duration_sec) == ('rack', 30)
 
 
 def test_a_sensor_with_no_profile_leaves_the_profile_columns_absent():
-    lc = LiquidCooling(sensors=[LeakSensor('leak-a')])
+    lc = LiquidCooling(sensors=[LeakSensor('leak-a', leak=True, severity='MINOR')])
     row = PlatformApi(CooledChassis(liquid=lc)).get_leak_sensors()[0]
     assert row.profile_type is None
     assert row.profile_max_minor_duration_sec is None
@@ -3563,3 +3563,173 @@ def test_a_number_that_is_not_an_int_keeps_its_fraction():
     assert scalar(Int64(), ('N/A',), ('int', 'str')) == 7
     assert isinstance(scalar(Int64(), ('N/A',), ('int', 'str')), int)
     assert scalar('N/A', ('N/A',), ('int', 'str')) is None
+
+
+@pytest.mark.parametrize('minimum', [0, 2, 5])
+def test_system_leak_minimum_is_read_from_the_platform(minimum):
+    class Cooling:
+        def get_major_leak_num_min_sensors(self):
+            return minimum
+    chassis = Chassis()
+    chassis.get_liquid_cooling = lambda: Cooling()
+    assert PlatformApi(chassis).get_major_leak_num_min_sensors() == minimum
+
+
+def test_pcie_constructor_failure_does_not_silently_select_another_driver():
+    class Broken:
+        def __init__(self, path):
+            raise RuntimeError('hardware failure')
+    with platform_dir(), fake_modules(
+        sonic_platform=_module('sonic_platform'),
+        **{'sonic_platform.pcie': _module('sonic_platform.pcie', Pcie=Broken)},
+    ):
+        with pytest.raises(RuntimeError, match='hardware failure'):
+            _hatch()._pcie_util()
+
+
+def test_scoped_psu_fans_skip_unrelated_devices_and_steady_speed_reads():
+    calls = []
+    class PsuFan:
+        def get_name(self): return 'psu-fan'
+        def get_speed(self): calls.append('speed'); return 50
+        def get_direction(self): calls.append('direction'); return 'intake'
+        def get_status_led(self): return 'green'
+    class Psu:
+        def get_name(self): return 'PSU 1'
+        def get_all_fans(self): return [PsuFan()]
+    class OnlyPsus:
+        def get_all_psus(self): return [Psu()]
+        def get_all_fan_drawers(self): raise AssertionError('unrelated drawer')
+        def get_all_modules(self): raise AssertionError('unrelated module')
+    api = PlatformApi(OnlyPsus())
+    row = api.get_psu_fans('psus[0]', True)[0]
+    assert (row.speed_pct, row.direction, row.key, row.parent_key) == (50, 'intake', 'psus[0]/fans[0]', 'psus[0]')
+    calls.clear()
+    assert api.get_psu_fans('psus[0]', False)[0].status_led == 'green'
+    assert calls == []
+
+
+def test_scoped_psu_fans_reuse_the_owning_facade(monkeypatch):
+    class Psu:
+        def get_name(self): return 'PSU 1'
+        def get_all_fans(self): return []
+    class Chassis:
+        def get_all_psus(self): return [Psu()]
+    api = PlatformApi(Chassis())
+    def forbidden(*args, **kwargs):
+        raise AssertionError('a scoped read must not construct another facade')
+    monkeypatch.setattr(facade_module, 'PlatformApi', forbidden)
+    assert api.get_psu_fans('psus[0]', False) == []
+
+
+@pytest.mark.parametrize('kind,method,field', [
+    ('psu', 'get_maximum_supplied_power', 'maximum_supplied_power_for_budget'),
+    ('drawer', 'get_maximum_consumed_power', 'maximum_consumed_power'),
+    ('module', 'get_maximum_consumed_power', 'maximum_consumed_power'),
+])
+@pytest.mark.parametrize('answer,expected', [
+    ('missing', 0.0), ('unsupported', 0.0), ('returned_unsupported', 0.0),
+    ('unknown', None), ('value', 12.5),
+])
+def test_power_budget_defaults_only_unsupported_getters(kind, method, field, answer, expected):
+    from sonic_platform_api.facade import FanDrawerInfoCols, ModuleInfoCols
+    class Device:
+        def get_name(self): return 'PSU 1' if kind == 'psu' else 'device'
+        def get_presence(self): return True
+        def get_powergood_status(self): return True
+    device = Device()
+    if answer != 'missing':
+        def read():
+            if answer == 'unsupported':
+                raise NotImplementedError()
+            return {'returned_unsupported': NotImplementedError, 'unknown': None, 'value': 12.5}[answer]
+        setattr(device, method, read)
+    class Chassis:
+        def get_all_psus(self): return [device] if kind == 'psu' else []
+        def get_all_fan_drawers(self): return [device] if kind == 'drawer' else []
+        def get_all_modules(self): return [device] if kind == 'module' else []
+    api = PlatformApi(Chassis())
+    rows = (api.get_psus() if kind == 'psu' else
+            api.get_fan_drawers(FanDrawerInfoCols.MAXIMUM_CONSUMED_POWER) if kind == 'drawer' else
+            api.get_modules(ModuleInfoCols.MAXIMUM_CONSUMED_POWER))
+    assert getattr(rows[0], field) == expected
+
+
+def test_module_publication_keeps_unknown_status_and_slot_spellings():
+    from sonic_platform_api.facade import ModuleInfoCols
+    calls = []
+    class Module:
+        def get_name(self): return 'LINE-CARD0'
+        def get_presence(self): calls.append('presence'); return None
+        def is_replaceable(self): return None
+        def get_slot(self): calls.append('slot'); return 'vendor-slot'
+        def get_oper_status(self): calls.append('status'); return 'Starting'
+    class Chassis:
+        def get_all_modules(self): return [Module()]
+    row = PlatformApi(Chassis()).get_modules(ModuleInfoCols.ALL)[0]
+    assert row.presence_text is None and row.replaceable_text is None
+    assert row.slot_text == 'vendor-slot'
+    assert row.oper_status_text == 'Starting'
+    assert sorted(calls) == ['presence', 'slot', 'status'], 'typed and text columns share each getter'
+
+
+@pytest.mark.parametrize('ok,leak,severity', [
+    (False, True, 'MINOR'), (True, False, 'MINOR'),
+    (True, True, 'CRITICAL'), (True, True, None),
+])
+def test_an_irrelevant_leak_profile_cannot_reject_a_sensor_snapshot(ok, leak, severity):
+    calls = []
+    class FaultyProfile(LeakSensor):
+        def get_leak_profile(self):
+            calls.append('profile')
+            raise RuntimeError('unrelated profile is unavailable')
+    sensor = FaultyProfile('leak-a', leak=leak, ok=ok, severity=severity)
+    row = PlatformApi(CooledChassis(liquid=LiquidCooling(sensors=[sensor]))).get_leak_sensors()[0]
+    assert (row.is_ok, row.is_leak, row.severity) == (ok, leak, severity)
+    assert row.profile_type is None and row.profile_max_minor_duration_sec is None
+    assert calls == []
+
+
+def test_a_minor_leak_reads_one_current_profile_per_snapshot():
+    calls = []
+    profile = Profile('rack', 30)
+    class ActiveSensor(LeakSensor):
+        def get_leak_profile(self):
+            calls.append('profile')
+            return profile
+    sensor = ActiveSensor('leak-a', leak=True, severity='MINOR')
+    api = PlatformApi(CooledChassis(liquid=LiquidCooling(sensors=[sensor])))
+    first = api.get_leak_sensors()[0]
+    assert (first.profile_type, first.profile_max_minor_duration_sec) == ('rack', 30)
+    assert calls == ['profile']
+    profile._secs = 5
+    second = api.get_leak_sensors()[0]
+    assert second.profile_max_minor_duration_sec == 5
+    assert calls == ['profile', 'profile']
+
+
+@pytest.mark.parametrize('answer,publication,budget', [
+    ('unsupported', None, 0.0), ('returned_unsupported', None, 0.0),
+    ('unknown', None, None), ('zero', 0.0, 0.0), ('value', 12.5, 12.5),
+    ('error', None, None),
+])
+def test_psu_publication_and_budget_share_one_raw_power_read(answer, publication, budget):
+    calls = []
+    class Psu:
+        def get_name(self): return 'PSU 1'
+        def get_presence(self): return True
+        def get_powergood_status(self): return True
+        def get_maximum_supplied_power(self):
+            calls.append('power')
+            if answer == 'unsupported':
+                raise NotImplementedError()
+            if answer == 'error':
+                raise RuntimeError('temporary read failure')
+            return {'returned_unsupported': NotImplementedError, 'unknown': None,
+                    'zero': 0.0, 'value': 12.5}[answer]
+    class Chassis:
+        def get_all_psus(self): return [Psu()]
+    row = PlatformApi(Chassis()).get_psus()[0]
+    assert row.maximum_supplied_power == publication
+    assert row.maximum_supplied_power_for_budget == budget
+    assert calls == ['power']

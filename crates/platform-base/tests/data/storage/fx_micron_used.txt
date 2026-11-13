@@ -1,0 +1,11 @@
+smartctl 7.3 2022-02-28 r5338 [x86_64-linux-6.1.0] (local build)
+=== START OF INFORMATION SECTION ===
+Device Model:     Micron_M600_MTFDDAK256MBF
+Serial Number:    SN123456
+Firmware Version: FW1.0
+User Capacity:    32,017,047,552 bytes [32.0 GB]
+
+ID# ATTRIBUTE_NAME          FLAG     VALUE WORST THRESH TYPE      UPDATED  WHEN_FAILED RAW_VALUE
+202 Percent_Lifetime_Used   0x0000   100   100   000    Old_age   Always       -       7
+246 Total_LBAs_Written      0x0000   100   100   000    Old_age   Always       -       42
+180 Unused_Reserve_NAND_Blk 0x0000   100   100   000    Old_age   Always       -       12

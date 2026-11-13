@@ -161,6 +161,13 @@ def _field(node, consts):
             spec.read_if = args[0] if args else kw['column']
             spec.read_if_truthy = bool(kw.get('truthy', False))
             spec.read_if_absorbing = bool(kw.get('when_absorbing', True))
+            spec.read_if_all = tuple(kw.get('all_of', ()))
+            if any(not isinstance(item, tuple) or len(item) != 2
+                   or not isinstance(item[0], str)
+                   or not isinstance(item[1], (str, bool, int, float, type(None)))
+                   for item in spec.read_if_all):
+                raise ParseError('%s: ReadIf(all_of=...) requires (column, literal) pairs'
+                                 % spec.name)
         elif name == 'RowError':
             as_repr = kw.get('repr', args[0] if args else False)
             as_column = kw.get('column', args[1] if len(args) > 1 else False)
@@ -173,6 +180,9 @@ def _field(node, consts):
         elif name == 'Unsupported':
             spec.unsupported_on = kw.get('on', args[0] if args else 'none')
             spec.default = kw.get('default', args[1] if len(args) > 1 else None)
+            spec.preserve_none = bool(kw.get('preserve_none', False))
+            if spec.preserve_none and spec.unsupported_on != 'default':
+                raise ParseError('%s: preserve_none requires a declared default' % spec.name)
             # 'error' was declared and never generated: it read exactly as
             # 'none'.  Refused rather than accepted, because the stub is the
             # contract and a value that changes nothing is a promise nobody keeps.
@@ -181,6 +191,8 @@ def _field(node, consts):
                                  ' "none" or "default"' % (spec.name, spec.unsupported_on))
         else:
             raise ParseError('%s: unknown field metadata %r' % (spec.name, name))
+    if spec.preserve_none and spec.narrowed:
+        raise ParseError('%s: preserve_none cannot be combined with Narrowed()' % spec.name)
     return spec
 
 
@@ -339,6 +351,8 @@ def _method(node, consts):
                 spec.kind = 'escape'
                 spec.escape_reason = kw.get('reason', args[0] if args else '')
                 spec.reaches = tuple(kw.get('reaches', ()))
+                spec.columns = tuple(kw.get('columns', ()))
+                spec.detail_columns = tuple(kw.get('detail_columns', ()))
             else:
                 raise ParseError('%s: unknown method metadata %r' % (spec.name, name))
 
@@ -490,10 +504,14 @@ def _validate_guard(row, snap):
             raise ParseError('%s.name: a skipped row still reads its name, so on a'
                              ' skippable row it is Unguarded()' % row.name)
         if f.read_if is not None:
-            src = earlier.get(f.read_if)
-            if src is None or not src.from_:
-                raise ParseError('%s.%s: ReadIf(%r) names no column read before it'
-                                 % (row.name, f.name, f.read_if))
+            for column in (f.read_if,) + tuple(item[0] for item in f.read_if_all):
+                src = earlier.get(column)
+                if src is None or not src.from_:
+                    raise ParseError('%s.%s: ReadIf(%r) names no column read before it'
+                                     % (row.name, f.name, column))
+                if f.unguarded != src.unguarded:
+                    raise ParseError('%s.%s: ReadIf(%r) across the guard; both sides or neither'
+                                     % (row.name, f.name, column))
             # Not read is absent: None, or the declared default where there is
             # one -- what a declined column holds too.
             if not f.from_ or not (f.optional or f.unsupported_on == 'default'):
@@ -502,9 +520,6 @@ def _validate_guard(row, snap):
             if not f.read_if_absorbing and not absorbable:
                 raise ParseError('%s.%s: ReadIf(when_absorbing=False) means something only'
                                  ' on a snapshot that is absorbable' % (row.name, f.name))
-            if f.unguarded != src.unguarded:
-                raise ParseError('%s.%s: ReadIf(%r) across the guard; both sides or neither'
-                                 % (row.name, f.name, f.read_if))
         earlier[f.name] = f
 
 

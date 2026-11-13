@@ -688,14 +688,17 @@ class TestBMCBaseWithConcrete:
         mock_set_min_length.return_value = (RedfishClient.ERR_CODE_OK, '')
         
         bmc = ConcreteBMC('169.254.0.1')
-        ret, msg = bmc.reset_root_password()
-        
+        with mock.patch('sonic_platform_base.bmc_base.logger') as logger:
+            ret, msg = bmc.reset_root_password()
+
         assert ret == RedfishClient.ERR_CODE_OK
         assert msg == ''
         mock_get_min_length.assert_called_once()
         mock_set_min_length.assert_any_call(8)
         mock_set_min_length.assert_any_call(12)
         mock_change_pw.assert_called_once_with('rootpass', BMCBase.ROOT_ACCOUNT)
+        logger.log_notice.assert_any_call('Changed BMC root password to default')
+        assert 'rootpass' not in str(logger.mock_calls)
 
     @OPENBMC_PATCH
     @mock.patch.object(RedfishClient, 'redfish_api_get_min_password_length')

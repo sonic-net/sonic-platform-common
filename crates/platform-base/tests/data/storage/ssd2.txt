@@ -1,0 +1,106 @@
+
+smartctl 7.4 2023-08-01 r5530 [x86_64-linux-6.1.0-29-2-amd64] (local build)
+Copyright (C) 2002-23, Bruce Allen, Christian Franke, www.smartmontools.org
+
+=== START OF INFORMATION SECTION ===
+Device Model:     SATA SSD
+Serial Number:    SPG210902J8
+Firmware Version: FW1241
+User Capacity:    32,017,047,552 bytes [32.0 GB]
+Sector Size:      512 bytes logical/physical
+Rotation Rate:    Solid State Device
+Form Factor:      < 1.8 inches
+TRIM Command:     Available
+Device is:        Not in smartctl database 7.3/5528
+ATA Version is:   ACS-3 (minor revision not indicated)
+SATA Version is:  SATA 3.1, 6.0 Gb/s (current: 6.0 Gb/s)
+Local Time is:    Thu Aug 28 22:58:11 2025 UTC
+SMART support is: Available - device has SMART capability.
+SMART support is: Enabled
+
+=== START OF READ SMART DATA SECTION ===
+SMART overall-health self-assessment test result: PASSED
+
+General SMART Values:
+Offline data collection status:  (0x00)	Offline data collection activity
+					was never started.
+					Auto Offline Data Collection: Disabled.
+Self-test execution status:      (   0)	The previous self-test routine completed
+					without error or no self-test has ever
+					been run.
+Total time to complete Offline
+data collection: 		(   30) seconds.
+Offline data collection
+capabilities: 			 (0x7b) SMART execute Offline immediate.
+					Auto Offline data collection on/off support.
+					Suspend Offline collection upon new
+					command.
+					Offline surface scan supported.
+					Self-test supported.
+					Conveyance Self-test supported.
+					Selective Self-test supported.
+SMART capabilities:            (0x0003)	Saves SMART data before entering
+					power-saving mode.
+					Supports SMART auto save timer.
+Error logging capability:        (0x01)	Error logging supported.
+					General Purpose Logging supported.
+Short self-test routine
+recommended polling time: 	 (   1) minutes.
+Extended self-test routine
+recommended polling time: 	 (   2) minutes.
+Conveyance self-test routine
+recommended polling time: 	 (   2) minutes.
+
+SMART Attributes Data Structure revision number: 16
+Vendor Specific SMART Attributes with Thresholds:
+ID# ATTRIBUTE_NAME          FLAG     VALUE WORST THRESH TYPE      UPDATED  WHEN_FAILED RAW_VALUE
+  1 Raw_Read_Error_Rate     0x000b   100   100   050    Pre-fail  Always       -       0
+  5 Reallocated_Sector_Ct   0x0013   100   100   050    Pre-fail  Always       -       0
+  9 Power_On_Hours          0x0012   100   100   000    Old_age   Always       -       27508
+ 12 Power_Cycle_Count       0x0012   100   100   000    Old_age   Always       -       36442
+ 14 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       69009408
+ 15 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       62533296
+ 16 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       85
+ 17 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       85
+100 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       15957694
+168 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       0
+170 Unknown_Attribute       0x0003   100   100   010    Pre-fail  Always       -       29
+172 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       0
+173 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       65535
+174 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       6763
+175 Program_Fail_Count_Chip 0x0012   100   100   000    Old_age   Always       -       3788
+181 Program_Fail_Cnt_Total  0x0012   100   100   000    Old_age   Always       -       0
+187 Reported_Uncorrect      0x0012   100   100   000    Old_age   Always       -       0
+194 Temperature_Celsius     0x0023   070   070   000    Pre-fail  Always       -       30
+197 Current_Pending_Sector  0x0032   100   100   000    Old_age   Always       -       0
+198 Offline_Uncorrectable   0x0012   100   100   000    Old_age   Always       -       0
+199 UDMA_CRC_Error_Count    0x000b   100   100   050    Pre-fail  Always       -       13
+202 Unknown_SSD_Attribute   0x0012   100   100   000    Old_age   Always       -       100
+231 Unknown_SSD_Attribute   0x0013   100   100   000    Pre-fail  Always       -       0
+232 Available_Reservd_Space 0x0013   100   100   000    Pre-fail  Always       -       0
+234 Unknown_Attribute       0x000b   100   100   000    Pre-fail  Always       -       37584067165
+235 Unknown_Attribute       0x000b   100   100   000    Pre-fail  Always       -       187190999136
+241 Total_LBAs_Written      0x0012   100   100   000    Old_age   Always       -       196534949930
+242 Total_LBAs_Read         0x0012   100   100   000    Old_age   Always       -       37584067165
+247 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       1
+248 Unknown_Attribute       0x0012   100   100   000    Old_age   Always       -       0
+
+SMART Error Log Version: 1
+No Errors Logged
+
+SMART Self-test log structure revision number 1
+No self-tests have been logged.  [To run self-tests, use: smartctl -t]
+
+SMART Selective self-test log data structure revision number 0
+Note: revision number not 1 implies that no selective self-test has ever been run
+ SPAN  MIN_LBA  MAX_LBA  CURRENT_TEST_STATUS
+    1        0        0  Not_testing
+    2        0        0  Not_testing
+    3        0        0  Not_testing
+    4        0        0  Not_testing
+    5        0        0  Not_testing
+Selective self-test flags (0x0):
+  After scanning selected spans, do NOT read-scan remainder of disk.
+If Selective self-test is pending on power-up, resume after 0 minute delay.
+
+The above only provides legacy SMART information - try 'smartctl -x' for more

@@ -9,7 +9,10 @@
 //!
 //! * **Is an implementation available?**  A build-time fact -- an
 //!   implementation is a crate, and crates are chosen when the binary is
-//!   built.  Only the PyO3 bridge exists yet, so `native` is refused.
+//!   built.  Answered by which crate named `platform-native` sits beside
+//!   this one when it is built: the stub that refuses to open, or -- in the
+//!   copy sonic-buildimage assembles for a platform that has one -- a
+//!   vendor's.
 //! * **Which one should this daemon use?**  A run-time choice, answered by
 //!   [`PlatformImpl`] and ultimately by `platform_api_<daemon>` in
 //!   `pmon_daemon_control.json`.
@@ -25,10 +28,12 @@ use std::str::FromStr;
 
 use platform_api::PlatformError;
 
-// The generator's output, held byte for byte to what `generate.py --check`
-// regenerates: rustfmt leaves it as written.
+// Generated at build time from facade.pyi into OUT_DIR.
+// `generate.py --check` verifies deterministic generation; rustfmt skips it.
 #[rustfmt::skip]
-mod generated;
+mod generated {
+    include!(concat!(env!("OUT_DIR"), "/src/generated.rs"));
+}
 
 pub use generated::Platform;
 
@@ -48,8 +53,7 @@ pub enum PlatformImpl {
     /// implementation a platform has always had.
     #[default]
     Pyo3,
-    /// A native Rust implementation.  None exists yet: the switch parses, and
-    /// [`open`] refuses it.
+    /// A native Rust implementation.
     Native,
 }
 
@@ -117,14 +121,12 @@ pub fn open(syslog_ident: &str, which: PlatformImpl) -> Result<Platform, Platfor
             syslog_ident,
         )?)),
 
-        // The switch named an implementation this build does not carry.  Say
-        // so and stop: quietly falling back to the bridge would make a
+        // A build without a native implementation carries the stub, whose
+        // `open` refuses: quietly falling back to the bridge would make a
         // rollout that did not happen look like one that did, and nothing in
         // pmon notices a daemon running the wrong thing -- `critical_processes`
         // is empty, so no checker reads it.
-        PlatformImpl::Native => Err(PlatformError::NotSupported(
-            "the native platform API is not compiled into this build".to_string(),
-        )),
+        PlatformImpl::Native => Ok(Platform::Native(platform_native::open(syslog_ident)?)),
     }
 }
 
@@ -225,7 +227,9 @@ class Platform:
     }
 
     /// Asking for an implementation this build does not carry is an error, not
-    /// a silent fall back to the other one.
+    /// a silent fall back to the other one.  Built from this checkout, the
+    /// native arm is the stub, so this is the arm every image without a
+    /// vendor crate takes.
     #[test]
     fn asking_for_native_without_it_compiled_in_is_refused() {
         match open("thermalctld", PlatformImpl::Native) {

@@ -1,0 +1,10 @@
+smartctl 7.3 2022-02-28 r5338 [x86_64-linux-6.1.0] (local build)
+=== START OF INFORMATION SECTION ===
+Device Model:     SFSA032GU1AA1TO-I-OC-216-STD
+Serial Number:    SN123456
+Firmware Version: FW1.0
+User Capacity:    32,017,047,552 bytes [32.0 GB]
+
+ID# ATTRIBUTE_NAME          FLAG     VALUE WORST THRESH TYPE      UPDATED  WHEN_FAILED RAW_VALUE
+248 Percent_Life_Remaining  0x0000   100   100   000    Old_age   Always       -       99
+194 Temperature_Celsius     0x0000   100   100   000    Old_age   Always       -       1 2 3 4 5 6 7 8 31

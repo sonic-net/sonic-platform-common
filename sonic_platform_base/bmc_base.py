@@ -568,7 +568,7 @@ class BMCBase(device_base.DeviceBase):
             logger.log_error(msg)
             self.rf_client.redfish_api_set_min_password_length(saved_min_length)
             return (ret, msg)
-        logger.log_notice(f'Changed BMC root password to default: {default_root_password}')
+        logger.log_notice('Changed BMC root password to default')
 
         ret, err_msg = self.rf_client.redfish_api_set_min_password_length(saved_min_length)
         if ret != RedfishClient.ERR_CODE_OK:

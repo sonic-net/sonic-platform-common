@@ -116,10 +116,11 @@ class RedfishClient:
     '''
     def __build_login_cmd(self, password):
         user = self.__user_callback()
+        payload = shlex.quote(json.dumps({"UserName": str(user), "Password": str(password)}))
         cmd = f'{self.__curl_path} -m {RedfishClient.DEFAULT_LOGIN_TIMEOUT} -k -D - ' \
               f'-H "Content-Type: application/json" ' \
               f'-X POST https://{self.__svr_ip}{RedfishClient.REDFISH_URI_SESSION_SERVICE} ' \
-              f'-d \'{{"UserName" : "{user}", "Password" : "{password}"}}\''
+              f'-d {payload}'
         return cmd
 
     '''
@@ -192,11 +193,12 @@ class RedfishClient:
     def __build_change_password_cmd(self, new_password, user):
         if user is None:
             user = self.__user_callback()
+        payload = shlex.quote(json.dumps({"Password": new_password}))
         cmd = f'{self.__curl_path} -k -H "X-Auth-Token: {self.__token}" ' \
               f'-H "Content-Type: application/json" -X PATCH ' \
               f'https://{self.__svr_ip}' \
               f'{RedfishClient.REDFISH_URI_ACCOUNTS}/{user} ' \
-              f'-d \'{{"Password" : "{new_password}"}}\''
+              f'-d {payload}'
         return cmd
 
     '''
@@ -478,6 +480,38 @@ class RedfishClient:
     Returns:
         A tuple of (ret, http_status_code, output_str, error_str)
     '''
+    @staticmethod
+    def __private_transport(arguments):
+        """Keep credentials out of process arguments using curl's stdin config."""
+        argv, config = [], []
+        args = iter(arguments)
+        for argument in args:
+            if argument not in ('-d', '--data', '-H', '--header', '-u', '--user'):
+                argv.append(argument)
+                continue
+            value = next(args)
+            option = None
+            if argument in ('-u', '--user'):
+                option = 'user'
+            elif argument in ('-H', '--header') and value.lower().startswith('x-auth-token:'):
+                option = 'header'
+            elif argument in ('-d', '--data'):
+                try:
+                    data = json.loads(value)
+                    if isinstance(data, dict) and ('Password' in data or 'UserName' in data):
+                        option = 'data'
+                except (ValueError, TypeError):
+                    pass
+            if option:
+                value = value.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
+                config.append('{} = "{}"\n'.format(option, value))
+            else:
+                argv.extend((argument, value))
+        if config:
+            argv.extend(('--config', '-'))
+            return argv, ''.join(config).encode('utf-8')
+        return argv, None
+
     def __exec_curl_cmd_internal(self, cmd):
         task_mon = (RedfishClient.REDFISH_URI_TASKS in cmd)
         login_cmd = (RedfishClient.REDFISH_URI_SESSION_SERVICE in cmd and 'POST' in cmd)
@@ -490,6 +524,8 @@ class RedfishClient:
             obfuscation_cmd = self.__obfuscate_password(obfuscation_cmd)
         if logout_cmd:
             obfuscation_cmd = self.__obfuscate_session_id_in_url(obfuscation_cmd)
+        if login_cmd or password_change:
+            obfuscation_cmd = '[credential request]'
         cmd_str = obfuscation_cmd
         exec_cmd_msg = f'Execute cURL command: {cmd_str}'
 
@@ -498,10 +534,10 @@ class RedfishClient:
 
         # Instruct cURL to append HTTP status code after JSON response
         cmd += ' -w "\nHTTP Status Code: %{http_code}"'
-        process = subprocess.Popen(shlex.split(cmd),
-                                   stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE)
-        output, error = process.communicate()
+        argv, request_input = self.__private_transport(shlex.split(cmd))
+        process = subprocess.Popen(argv, stdin=subprocess.PIPE if request_input is not None else None,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output, error = process.communicate(input=request_input)
         output_str, http_status_code = self.__parse_curl_output(output.decode('utf-8'))
         error_str = error.decode('utf-8')
         ret = process.returncode
@@ -512,8 +548,8 @@ class RedfishClient:
             ret = RedfishClient.ERR_CODE_OK
 
             # For login/logout command, obfuscate the response (and headers from -D -)
-            if login_cmd:
-                obfuscation_output_str = self.__obfuscate_login_response(output_str)
+            if login_cmd or password_change:
+                obfuscation_output_str = '[credential response suppressed]'
             elif logout_cmd:
                 obfuscation_output_str = self.__obfuscate_logout_response(output_str)
             else:
@@ -531,6 +567,8 @@ class RedfishClient:
                 logger.log_notice(f'cURL output:')
                 self.log_multi_line_str(obfuscation_output_str)
         else:
+            if login_cmd or password_change:
+                error_str = 'credential request failed'
             logger.log_notice(f'cURL error:')
             self.log_multi_line_str(error_str)
             ret = self.__curl_errors_to_redfish_errors_translation(ret)

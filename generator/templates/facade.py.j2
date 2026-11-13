@@ -72,6 +72,33 @@ def _get(obj, name):
     return getattr(obj, name, None)
 
 
+def _call_unsupported_default(fn, default):
+    """Default only an unsupported getter; None remains an unknown reading."""
+    if fn is None:
+        return default
+    try:
+        value = fn()
+    except NotImplementedError:
+        return default
+    return default if value is NotImplementedError else value
+
+
+_UNSUPPORTED = object()
+
+
+def _cached_call(reads, key, fn, unsupported=None):
+    """Read once per row, preserving unsupported separately from explicit None."""
+    if key not in reads:
+        try:
+            reads[key] = (True, _call_unsupported_default(fn, _UNSUPPORTED))
+        except Exception as error:
+            reads[key] = (False, error)
+    succeeded, value = reads[key]
+    if not succeeded:
+        raise value
+    return unsupported if value is _UNSUPPORTED else value
+
+
 def _iter(seq):
     return seq if seq is not None else ()
 
@@ -383,10 +410,12 @@ class PlatformApi(object):
 {%- if row.sequential %}
 {{ row.row_body }}
 {%- else %}
-{%- for var, call, mask in row.shared_calls %}
+{%- if row.shared_calls %}
         # One call, sliced by every column that wants a piece of it: the
         # platform need not answer the same thing twice, and some of these
         # getters block and log.  See `_share_calls`.
+{%- endif %}
+{%- for var, call, mask in row.shared_calls %}
 {%- if mask is not none %}
         {{ var }} = {{ call }} if cols & {{ mask }} else None
 {%- else %}
@@ -469,6 +498,6 @@ class PlatformApi(object):
 {% elif m.kind == 'escape' %}
     def {{ m.name }}(self{% for p, _t in m.params %}, {{ p }}{% endfor %}):
         """Hand-written: {{ m.escape_reason | replace('\n', ' ') }}"""
-        return self._hatch.{{ m.name }}({% for p, _t in m.params %}{{ p }}{{ ', ' if not loop.last }}{% endfor %})
+        return self._hatch.{{ m.name }}({% if m.columns or m.detail_columns %}self, {% endif %}{% for p, _t in m.params %}{{ p }}{{ ', ' if not loop.last }}{% endfor %}{% if m.columns or m.detail_columns %}, {{ m.column_mask }}, {{ m.detail_column_mask }}{% endif %})
 {% endif %}
 {%- endfor %}

@@ -36,8 +36,19 @@ steps:
     runVersion: 'latestFromBranch'
     runBranch: 'refs/heads/$(BRANCH_NAME)'
     patterns: |
-      **/*.whl
-      **/*.deb
+      target/debs/bookworm/libyang3_*.deb
+      target/debs/bookworm/python3-libyang*.deb
+      target/debs/bookworm/libnl-3-200_*.deb
+      target/debs/bookworm/libnl-genl-3-200_*.deb
+      target/debs/bookworm/libnl-route-3-200_*.deb
+      target/debs/bookworm/libnl-nf-3-200_*.deb
+      target/debs/bookworm/libswsscommon_1.0.0_amd64.deb
+      target/debs/bookworm/python3-swsscommon_1.0.0_amd64.deb
+      target/python-wheels/bookworm/swsssdk-2.0.1-py3-none-any.whl
+      target/python-wheels/bookworm/sonic_py_common-1.0-py3-none-any.whl
+      target/python-wheels/bookworm/sonic_yang_mgmt-1.0-py3-none-any.whl
+      target/python-wheels/bookworm/sonic_yang_models-1.0-py3-none-any.whl
+      target/python-wheels/bookworm/sonic_config_engine-1.0-py3-none-any.whl
     path: '$(Build.ArtifactStagingDirectory)'
   displayName: "Download artifacts from latest sonic-buildimage build"
 
@@ -64,6 +75,14 @@ steps:
     sudo pip3 install sonic_config_engine-1.0-py3-none-any.whl
   workingDirectory: $(Build.ArtifactStagingDirectory)/target/python-wheels/bookworm/
   displayName: 'Install Python dependencies'
+
+- script: |
+    set -eu
+    artifact_root="${BUILD_ARTIFACTSTAGINGDIRECTORY:?}"
+    sudo rm -rf -- "$artifact_root/target"
+    sudo apt-get clean
+    df -h /
+  displayName: 'Release installed dependency artifacts'
 
 - script: |
     set -ex
@@ -121,34 +140,30 @@ steps:
 # The platform API stub is the single source three back ends are generated
 # from, so nothing downstream can catch it drifting -- the generator would
 # happily reproduce the drift.  These are its gates: mypy over the stub,
-# stubtest between the stub and the facade it generates, and a regeneration
-# that must come out byte-identical to what is checked in.
+# stubtest between the stub and its facade, and deterministic Rust generation.
+# Cargo generates Rust sources and contract tests in OUT_DIR on a clean build.
 - script: |
     set -ex
     bash generator/check.sh --python-only
   displayName: 'Check platform API stub'
 
-# The three crates the stub also generates, built, linted and tested with line
-# coverage, so the diff coverage check counts them beside the Python.
+# The crates the stub also generates, the native stub, platform-base and
+# platform-api-diff, built, linted and tested with line coverage, so the diff
+# coverage check counts them beside the Python.
 #
-# They are made members of one workspace for the run.  A crate's coverage is
-# reported only for its workspace's members, and the bridge's and the
-# provider's tests are what run most of the trait crate's generated code; three
-# separate runs would credit it with its own tests alone.  The provider's lock
-# already pins all three crates and their dependencies, so it seeds the
-# workspace's.
+# They are one workspace (crates/Cargo.toml) with one lock.  A crate's coverage
+# is reported only for its workspace's members, and the bridge's and the
+# provider's tests are what run most of the trait crate's generated code, so
+# one run over the workspace credits each crate with all of them.
 #
 # The slave image has the toolchain, rustfmt and clippy included, but not the
 # LLVM tools matching it, and its rustup home belongs to root.
 #
-# The agent's disk is nearly full by this step, too full for the lint's build
-# and the coverage build side by side.  The sonic-buildimage packages downloaded
-# above are installed by now, so they are deleted to make room; neither build
-# keeps incremental state, the lint's is deleted before the coverage build
-# starts, and the coverage build's at the end.
+# Dependency downloads are released before .NET setup. Keep the Rust build
+# footprint bounded too: do not retain incremental state, and delete the lint
+# target before coverage and the coverage target when it finishes.
 - script: |
     set -ex
-    sudo rm -rf $(Build.ArtifactStagingDirectory)/target
     sudo env RUSTUP_HOME=/usr/.cargo /usr/.cargo/bin/rustup component add llvm-tools-preview
     mkdir -p ~/.cargo/bin
     curl -sSfL -o /tmp/cargo-llvm-cov.tar.gz \
@@ -160,18 +175,12 @@ steps:
     # uninstalled after the Python tests, so it is found in the checkout.
     export PYTHONPATH=$(System.DefaultWorkingDirectory)
     export CARGO_TARGET_DIR=$(Agent.TempDirectory)/rust-target CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0
-    for manifest in crates/*/Cargo.toml; do
-      cargo metadata --locked --format-version 1 --manifest-path "$manifest" > /dev/null
-    done
-    printf '%s\n' '[workspace]' \
-      'members = ["crates/platform-api", "crates/platform-pyo3", "crates/platform-provider"]' \
-      'resolver = "2"' > Cargo.toml
-    cp crates/platform-provider/Cargo.lock Cargo.lock
-    cargo fmt --all -- --check
-    cargo clippy --locked --workspace --all-targets -- -D warnings
+    cargo fmt --manifest-path crates/Cargo.toml --all -- --check
+    rustfmt --check crates/build_support.rs
+    cargo clippy --locked --manifest-path crates/Cargo.toml --workspace --all-targets -- -D warnings
     rm -rf "$CARGO_TARGET_DIR"
-    cargo llvm-cov --locked --workspace --cobertura --output-path rust-coverage.xml
-    rm -rf Cargo.toml Cargo.lock "$CARGO_TARGET_DIR"
+    cargo llvm-cov --locked --manifest-path crates/Cargo.toml --workspace --cobertura --output-path rust-coverage.xml
+    rm -rf "$CARGO_TARGET_DIR"
   displayName: 'Test Rust crates with coverage'
 
 - task: PublishTestResults@2

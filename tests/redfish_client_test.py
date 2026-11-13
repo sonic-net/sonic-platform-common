@@ -50,6 +50,24 @@ class TestRedfishClient:
     def password_callback(self):
         return TestRedfishClient.BMC_NOS_ACCOUNT_DEFAULT_PASSWORD
 
+
+    @mock.patch('sonic_platform_base.redfish_client.logger')
+    @mock.patch('subprocess.Popen')
+    def test_special_credentials_use_stdin_and_are_not_logged(self, popen, logger):
+        user, password = "u'\"\\\n名", "p'\"\\\n秘密"
+        process = popen.return_value
+        process.returncode = 0
+        process.communicate.return_value = (load_redfish_response('mock_bmc_login_token_response'), b'')
+        rf = RedfishClient(self.CURL_PATH, self.BMC_INTERNAL_IP_ADDR, lambda: user, lambda: password)
+        assert rf.login() == RedfishClient.ERR_CODE_OK
+        argv = popen.call_args.args[0]
+        assert '--config' in argv
+        assert user not in str(argv) and password not in str(argv)
+        config = process.communicate.call_args.kwargs['input'].decode()
+        payload = json.loads(config.strip().split(' = ', 1)[1])
+        assert json.loads(payload) == {'UserName': user, 'Password': password}
+        assert user not in str(logger.mock_calls) and password not in str(logger.mock_calls)
+
     @mock.patch('subprocess.Popen')
     def test_login_success(self, mock_popen):
         """Test successful login"""
@@ -1811,6 +1829,7 @@ class TestRedfishClient:
         side_effects.append(mock.Mock(communicate=mock.Mock(return_value=(response, b'')), returncode=0))
         mock_popen.side_effect = side_effects
         mock_json_loads.side_effect = [
+            {"UserName": self.BMC_NOS_ACCOUNT, "Password": self.BMC_NOS_ACCOUNT_DEFAULT_PASSWORD},
             {"Id": "abc123xyz"},
             ValueError("Test exception")
         ]

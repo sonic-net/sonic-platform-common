@@ -1,0 +1,7 @@
+SmartCmd -m
+Temperature_Celsius 194 37 
+NAND_Endurance 233 3000 
+Average_Erase_Count 232 150 
+242 Host_Reads 999
+241 Host_Writes 888
+232 Reserved 12
