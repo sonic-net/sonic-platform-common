@@ -55,7 +55,7 @@ class TestElsfpApiFactory(object):
         factory = ElsfpApiFactory(elsfp)
 
         # The factory probes vendor name/part number from the EEPROM before
-        # dispatching; stub out the lower-memory reads.
+        # dispatching.
         elsfp_info = factory._get_elsfp_info()
         assert elsfp_info.vendor_name == vendor_name
         assert elsfp_info.vendor_part_number == vendor_part_num
@@ -69,6 +69,8 @@ class TestElsfpApiFactory(object):
         assert api.xcvr_eeprom.mem_map.bank == 1
         assert api.xcvr_eeprom.reader is elsfp.read_eeprom
         assert api.xcvr_eeprom.writer is elsfp.write_eeprom
+        # Lower memory must be read through the memory map's relocated offset.
+        assert api.xcvr_eeprom.read(consts.ID_FIELD) == 'CPO'
 
 
 from sonic_platform_base.sonic_xcvr.api.public.elsfp import ElsfpApi
