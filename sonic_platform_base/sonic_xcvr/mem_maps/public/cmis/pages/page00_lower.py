@@ -1,11 +1,11 @@
 """
     page00_lower.py
 
-    Implementation of CmisAdministrativeLowerPage for CMIS lower memory (offsets 0-127)
+    Implementation of CmisAdministrativeLowerPage for CMIS page 0x00 lower memory (offsets 0-127)
 """
 
 from .page import CmisPage
-from .consts import CMIS_EEPROM_PAGE_SIZE
+from .consts import ADMINISTRATIVE_PAGE, CMIS_EEPROM_PAGE_SIZE
 from .....fields.xcvr_field import (
     CodeRegField,
     NumberRegField,
@@ -15,7 +15,7 @@ from .....fields import consts
 
 
 class CmisAdministrativeLowerPage(CmisPage):
-    def __init__(self, codes, page=None):
+    def __init__(self, codes, page=ADMINISTRATIVE_PAGE):
         super().__init__(codes, page=page, bank=0)
 
         # MGMT_CHAR_FIELD
@@ -135,11 +135,11 @@ class CmisAdministrativeLowerPage(CmisPage):
     def getaddr(self, offset, page_size=CMIS_EEPROM_PAGE_SIZE):
         """Return the linear address of lower-memory byte `offset` (0-127).
 
-        When lower memory is not remapped (page is None), this is the
-        standard lower-memory address. When it is remapped to a page, its
+        When lower memory is not remapped (page 0), this is the standard
+        lower-memory address. When it is remapped to another page, its
         bytes live in upper memory, where valid offsets are 128-255, so
         `page_size` is added to `offset` to shift it into that range.
         """
-        if self._page is not None:
+        if self._page != ADMINISTRATIVE_PAGE:
             offset += page_size
         return super().getaddr(offset, page_size)
