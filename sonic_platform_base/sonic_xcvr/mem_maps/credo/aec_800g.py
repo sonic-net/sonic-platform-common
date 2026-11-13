@@ -13,10 +13,10 @@ from ...fields import consts
 
 
 class _CredoAec800gPage00(CmisPage):
-    """Credo vendor extensions on CMIS Page 00h: page-select byte and target-mode register."""
+    """Credo vendor extensions in CMIS lower memory: page-select byte and target-mode register."""
 
     def __init__(self, codes):
-        super().__init__(codes, page=0x00, bank=0)
+        super().__init__(codes, page=None, bank=0)
         self.fields[consts.CMIS_TARGET_SERVER_INFO] = [
             NumberRegField(consts.PAGE_SELECT_BYTE, self.getaddr(127), format="B", size=1, ro=False),
         ]
