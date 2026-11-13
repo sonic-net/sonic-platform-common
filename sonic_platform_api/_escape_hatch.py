@@ -5,6 +5,7 @@ Hand-written, and deliberately small: everything here is declared in
 a matching declaration is a body somebody should have generated.
 """
 
+import logging
 import signal
 import sys
 import threading
@@ -180,6 +181,28 @@ class EscapeHatches(object):
         self._storage_tried = False
 
     # -- thermal manager ----------------------------------------------------
+
+    def get_major_leak_num_min_sensors(self) -> Optional[int]:
+        cooling = _call(getattr(self._chassis, 'get_liquid_cooling', None))
+        value = _call(getattr(cooling, 'get_major_leak_num_min_sensors', None))
+        return None if value is None else int(value)
+
+    def get_psu_fans(self, api: Any, key: str, include_details: bool,
+                     columns: int, detail_columns: int) -> Any:
+        from . import facade
+
+        psu = api._find_psu_info(key)
+        if include_details:
+            columns |= detail_columns
+        path = getattr(facade, '_parse_key')(key)
+        kind = 'pdb' if path[0][0] == 'pdbs' else 'psu'
+        index = path[0][1] + 1
+        parent = str(_call(getattr(psu, 'get_name', None), '%s %d' % (kind.upper(), index)))
+        return [api._row_fan_info(fan, parent, i, {
+            'key': key + '/fans[%d]' % i, 'parent_key': key,
+            'kind': kind, 'drawer_name': 'N/A',
+        }, columns, True) for i, fan in enumerate(_call(getattr(psu, 'get_all_fans', None), []) or [])]
+
     #
     # `ChassisBase.get_thermal_manager()` returns a *class*, not an instance,
     # and all twelve of its methods are `@classmethod` over process-global
@@ -434,20 +457,25 @@ class EscapeHatches(object):
             from sonic_py_common import device_info
 
             platform_path, _hwsku = device_info.get_paths_to_platform_and_hwsku_dirs()
-        except Exception:
+        except Exception as e:
+            logging.getLogger(__name__).error('Cannot locate PCIe platform directory: %s', e)
             return None
         try:
             from sonic_platform.pcie import Pcie
 
             self._pcie = Pcie(platform_path)
-        except Exception:
+        except ImportError:
             try:
                 from sonic_platform_base.sonic_pcie.pcie_common import PcieUtil
 
                 # In this repo but untyped, as every platform base class is.
-                self._pcie = PcieUtil(platform_path)  # type: ignore[no-untyped-call]
-            except Exception:
+                self._pcie = PcieUtil(platform_path)
+            except Exception as e:
+                logging.getLogger(__name__).error('Cannot load PCIe utility: %s', e)
                 self._pcie = None
+        except Exception:
+            self._pcie_tried = False
+            raise
         return self._pcie
 
     def get_pcie_devices(self) -> Any:
@@ -527,7 +555,7 @@ class EscapeHatches(object):
             from sonic_platform_base.sonic_storage.storage_devices import StorageDevices
 
             # In this repo but untyped, as every platform base class is.
-            self._storage = StorageDevices()  # type: ignore[no-untyped-call]
+            self._storage = StorageDevices()
         except Exception:
             self._storage = None
         return self._storage
