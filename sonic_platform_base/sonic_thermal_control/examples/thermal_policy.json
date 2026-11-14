@@ -1,0 +1,19 @@
+{
+    "interval": 5,
+    "info_types": [
+        { "type": "fan_drawer_info" },
+        { "type": "thermal_info" }
+    ],
+    "policies": [
+        {
+            "name": "fan drawer missing: full speed",
+            "conditions": [ { "type": "fandrawer.presence", "op": "<=", "count": 2 } ],
+            "actions": [ { "type": "fan.all.set_speed", "speed": 100 } ]
+        },
+        {
+            "name": "normal operation: PID",
+            "conditions": [ { "type": "fandrawer.presence", "op": ">", "count": 2 } ],
+            "actions": [ { "type": "thermal.control_algo", "max_speed": 75 } ]
+        }
+    ]
+}
