@@ -95,6 +95,35 @@ def test_a_well_formed_declaration_parses(tmp_path):
     assert [e.name for e in model.enums] == ['Colour']
 
 
+def test_an_indexed_source_needs_the_declared_snapshot_parameter(tmp_path):
+    row = GOOD_ROW.replace('parent_default="chassis 1"',
+                           'indices="indices", parent_default="chassis 1"')
+    refuses(tmp_path, row + GOOD_API, 'snapshot parameter of type list[Index]')
+    api = GOOD_API.replace('get_foos(self)', 'get_foos(self, indices: list[Index])')
+    parse(tmp_path, row + api)
+
+
+def test_a_physical_index_column_needs_an_indexed_source(tmp_path):
+    row = GOOD_ROW.replace('parent_default="chassis 1"',
+                           'sets=(("heat", "@index"),), parent_default="chassis 1"')
+    refuses(tmp_path, row + GOOD_API, '"@index" needs an indices source')
+
+
+def test_a_json_result_requires_a_typed_schema_followup(tmp_path):
+    body = '''
+class PlatformApi:
+    @platform_method(EscapeHatch(reason="Vendor-specific data"))
+    def read_json(self) -> Json: ...
+'''
+    refuses(tmp_path, body, 'typed-schema follow-ups in DEFERRED_JSON')
+    tracked = '''
+DEFERRED_JSON: tuple[tuple[str, str], ...] = (("read_json", "typed vendor data"),)
+'''
+    parse(tmp_path, body + tracked)
+    refuses(tmp_path, body.replace('-> Json', '-> str') + tracked,
+            'read_json must name a Json method')
+
+
 def test_a_row_with_no_order_and_nothing_returning_it_is_refused(tmp_path):
     body = GOOD_ROW.replace('''
     ORDER: ClassVar[Flatten] = Flatten(

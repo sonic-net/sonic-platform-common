@@ -11,6 +11,8 @@ import contextlib
 import enum
 import errno
 import functools
+import json
+import math
 import signal
 import sys
 import threading
@@ -1878,7 +1880,7 @@ def test_omitted_is_readable_at_runtime():
 
 
 def test_deferred_is_readable_at_runtime_and_names_its_phase():
-    assert any(path == 'SfpBase.get_transceiver_info'
+    assert any(path == 'SfpBase.get_power_override'
                for path, _reason in facade_module.DEFERRED)
     assert all('phase' in reason for _path, reason in facade_module.DEFERRED)
     assert not {p for p, _r in facade_module.DEFERRED} & {p for p, _r in facade_module.OMITTED}
@@ -2433,6 +2435,121 @@ def test_the_storage_object_is_built_once_and_absence_is_not_an_error():
     with fake_modules(**{'sonic_platform_base.sonic_storage.storage_devices': None}):
         assert hatch._storage_devices() is None
     assert hatch.get_storage_devices() == []
+
+
+@pytest.mark.parametrize('resource', [
+    'pcie', 'storage', 'eeprom', 'manager', 'sensor_yaml', 'sensor_devices',
+    'pcie_reads', 'storage_reads',
+])
+def test_shared_hatch_resources_do_not_publish_partial_initialization(resource, tmp_path):
+    import sonic_platform_base
+
+    api = PlatformApi(EventChassis((True, {})))
+    hatch = api._hatch
+    entered, finish, contender_ready = (threading.Event() for _ in range(3))
+    built, results, errors = [], {}, []
+    reading = resource.endswith('_reads')
+    target = ({'voltage_sensors': []} if resource == 'sensor_yaml'
+              else [object()] if resource == 'sensor_devices' else object())
+
+    def build(*args):
+        built.append(args)
+        if len(built) == 1:
+            entered.set()
+            assert finish.wait(5)
+        elif reading:
+            assert finish.is_set(), 'resource refreshes must not overlap'
+        return target
+
+    class ObservedLock:
+        def __init__(self):
+            self.lock = threading.RLock()
+
+        def __enter__(self):
+            if threading.current_thread() is second:
+                if self.lock.acquire(blocking=False):
+                    return self
+                contender_ready.set()
+            self.lock.acquire()
+            return self
+
+        def __exit__(self, *args):
+            self.lock.release()
+
+    method, lock_name = {
+        'pcie': ('_pcie_util', '_pcie_lock'),
+        'storage': ('_storage_devices', '_storage_lock'),
+        'eeprom': ('_eeprom_obj', '_eeprom_lock'),
+        'manager': ('_get', '_manager_lock'),
+        'sensor_yaml': ('_sensors_yaml', '_sensors_lock'),
+        'sensor_devices': ('voltage_sensors_from_yaml', '_sensors_lock'),
+        'pcie_reads': ('get_pcie_devices', '_pcie_lock'),
+        'storage_reads': ('get_storage_devices', '_storage_lock'),
+    }[resource]
+    setattr(hatch, lock_name, ObservedLock())
+    hatch._chassis.get_eeprom = build
+    hatch._chassis.get_thermal_manager = build
+    if resource == 'sensor_devices':
+        hatch._sensors_data = {'voltage_sensors': [{'name': 'voltage'}]}
+    if resource == 'pcie_reads':
+        class ReadingPcie(FakePcie):
+            def get_pcie_check(self):
+                build()
+                return [{'name': 'Root', 'bus': '00', 'dev': '01', 'fn': '0'}]
+
+        hatch._pcie, hatch._pcie_tried = ReadingPcie(), True
+    if resource == 'storage_reads':
+        class ReadingDisk(FakeDisk):
+            def fetch_parse_info(self, path):
+                build()
+                super().fetch_parse_info(path)
+
+        hatch._storage = _module('devices', devices={'sda': ReadingDisk()})
+        hatch._storage_tried = True
+    (tmp_path / 'sensors.yaml').write_text('{}')
+
+    def run(name):
+        try:
+            results[name] = getattr(hatch, method)()
+        except BaseException as error:
+            errors.append(error)
+        finally:
+            if threading.current_thread() is second:
+                contender_ready.set()
+
+    first = threading.Thread(target=run, args=('first',))
+    second = threading.Thread(target=run, args=('second',))
+    sensor_fs = _module('sensor_fs', VoltageSensorFs=_module('VoltageSensorFs', factory=build))
+    with platform_dir(str(tmp_path)), fake_modules(
+        sonic_platform=_module('sonic_platform'),
+        **{
+            'sonic_platform.pcie': _module('sonic_platform.pcie', Pcie=build),
+            'sonic_platform_base.sonic_storage.storage_devices': _module(
+                'storage_devices', StorageDevices=build, BLKDEV_BASE_PATH='/dev'),
+            'sonic_platform_base.sensor_fs': sensor_fs,
+        },
+    ), mock.patch.object(sonic_platform_base, 'sensor_fs', sensor_fs, create=True), \
+            mock.patch('yaml.safe_load', side_effect=build):
+        first.start()
+        try:
+            assert entered.wait(5)
+            second.start()
+            assert contender_ready.wait(5)
+            assert api.get_change_event(1).ok
+        finally:
+            finish.set()
+            first.join(5)
+            if second.ident is not None:
+                second.join(5)
+    assert not first.is_alive() and not second.is_alive()
+    assert not errors
+    if reading:
+        assert results['first'] == results['second']
+        assert len(results['first']) == 1
+        assert len(built) == 2
+    else:
+        assert results['first'] is results['second'] is target
+        assert len(built) == 1
 
 
 def test_a_disk_whose_parse_fails_publishes_none_of_its_refresh():
@@ -3563,3 +3680,267 @@ def test_a_number_that_is_not_an_int_keeps_its_fraction():
     assert scalar(Int64(), ('N/A',), ('int', 'str')) == 7
     assert isinstance(scalar(Int64(), ('N/A',), ('int', 'str')), int)
     assert scalar('N/A', ('N/A',), ('int', 'str')) is None
+
+
+def sfp_facade(sfp):
+    """Keep the same slot object behind inventory, actions and decoder reads."""
+    from types import SimpleNamespace
+    return PlatformApi(SimpleNamespace(get_sfp=lambda index: sfp if index == 0 else None))
+
+
+def test_sfp_inventory_and_capability_discovery_do_not_read_hardware():
+    sfp = mock.Mock(spec=['get_presence', 'get_transceiver_pm'])
+    api = sfp_facade(sfp)
+    key = api.get_sfps([0])[0].key
+    assert api.sfp_uses_legacy_pm(key)
+    assert sfp.mock_calls == []
+    sfp.get_presence.return_value = False
+    assert api.sfp_get_presence(key) is False
+    sfp.get_presence.assert_called_once_with()
+    sfp.get_transceiver_pm.assert_not_called()
+
+
+@pytest.mark.parametrize('key', [
+    'sfp[-1]', 'sfp[1]', 'fans[0]', 'sfp[0]/fans[0]', 'sfps[0]',
+])
+def test_sfp_actions_and_hatches_reject_keys_outside_the_inventory(key):
+    from sonic_platform_api.facade import DeviceNotFound
+    sfp = mock.Mock()
+    api = sfp_facade(sfp)
+    with pytest.raises(DeviceNotFound):
+        api.sfp_set_lpmode(key, True)
+    with pytest.raises(DeviceNotFound):
+        api.sfp_read_eeprom(key, 0, 1)
+    assert sfp.mock_calls == []
+
+
+@pytest.mark.parametrize('first_index', [0, 1])
+def test_sfp_rows_keep_physical_indices_across_sparse_inventories(first_index):
+    slots = {
+        first_index: mock.Mock(spec=['get_presence', 'set_lpmode']),
+        first_index + 2: mock.Mock(spec=['get_presence', 'set_lpmode']),
+    }
+    chassis = mock.Mock(spec=['get_sfp', 'get_all_sfps', 'get_change_event'])
+    chassis.get_sfp.side_effect = slots.get
+    chassis.get_all_sfps.return_value = list(slots.values())
+    api = PlatformApi(chassis)
+    rows = api.get_sfps([first_index + 2, first_index + 1, first_index])
+    assert [(row.index, row.key) for row in rows] == [
+        (first_index + 2, 'sfp[%d]' % (first_index + 2)),
+        (first_index, 'sfp[%d]' % first_index),
+    ]
+    assert all(slot.mock_calls == [] for slot in slots.values())
+    slots[first_index].get_presence.return_value = False
+    slots[first_index + 2].get_presence.return_value = True
+    assert api.sfp_get_presence(rows[0].key) is True
+    assert api.sfp_get_presence(rows[1].key) is False
+    api.sfp_set_lpmode(rows[0].key, True)
+    slots[first_index + 2].set_lpmode.assert_called_once_with(True)
+    slots[first_index].set_lpmode.assert_not_called()
+    chassis.get_change_event.return_value = True, {'sfp': {str(rows[0].index): '1'}}
+    event, = api.get_change_event(1).events
+    assert event.device_id == str(rows[0].index)
+    assert api.get_sfps([rows[0].index]) == [rows[0]]
+    assert api.get_sfps([]) == []
+    chassis.get_all_sfps.assert_not_called()
+
+
+@pytest.mark.parametrize('index', [-1, True, '1', 2**32])
+def test_sfp_inventory_rejects_nonphysical_indices_without_reading_a_slot(index):
+    chassis = mock.Mock(spec=['get_sfp'])
+    with pytest.raises(ValueError, match='physical port index'):
+        PlatformApi(chassis).get_sfps([index])
+    chassis.get_sfp.assert_not_called()
+
+
+@pytest.mark.parametrize('pm, vdm, legacy', [
+    (False, False, False), (True, False, True),
+    (False, True, False), (True, True, False),
+])
+def test_sfp_legacy_pm_is_one_declared_capability(pm, vdm, legacy):
+    methods = (['get_transceiver_pm'] if pm else []) + (
+        ['is_transceiver_vdm_supported'] if vdm else [])
+    sfp = mock.Mock(spec=methods)
+    assert sfp_facade(sfp).sfp_uses_legacy_pm('sfp[0]') is legacy
+    assert sfp.mock_calls == []
+
+
+@pytest.mark.parametrize('method', [
+    'get_transceiver_info', 'get_transceiver_info_firmware_versions',
+    'get_transceiver_status', 'get_transceiver_status_flags',
+    'get_transceiver_dom_real_value', 'get_transceiver_dom_flags',
+    'get_transceiver_threshold_info', 'get_transceiver_pm',
+    'get_transceiver_vdm_real_value_basic', 'get_transceiver_vdm_real_value_statistic',
+    'get_transceiver_vdm_flags', 'get_transceiver_vdm_thresholds',
+])
+def test_sfp_json_readings_preserve_vendor_fields_and_nonfinite_values(method):
+    sfp = mock.Mock(spec=[method])
+    getter = getattr(sfp, method)
+    getter.return_value = {
+        'power': float('-inf'), 'nested': [float('inf'), float('nan'), None],
+        'note': 'quoted "Infinity" and NaN', 'temperature': 42.5,
+        'vendor': b'ACME', 7: False,
+    }
+    api = sfp_facade(sfp)
+    result = json.loads(getattr(api, 'sfp_' + method)(api.get_sfps([0])[0].key))
+    assert result == {
+        'power': '-inf', 'nested': ['inf', 'nan', None],
+        'note': 'quoted "Infinity" and NaN', 'temperature': 42.5,
+        'vendor': "b'ACME'", '7': False,
+    }
+    getter.assert_called_once_with()
+    getter.return_value = None
+    assert json.loads(getattr(api, 'sfp_' + method)('sfp[0]')) is None
+
+
+@pytest.mark.parametrize('value', [42, 42.5, None, float('-inf'), float('inf'), float('nan')])
+def test_sfp_temperature_is_a_typed_optional_reading(value):
+    sfp = mock.Mock(spec=['get_temperature'])
+    sfp.get_temperature.return_value = value
+    result = sfp_facade(sfp).sfp_get_temperature('sfp[0]')
+    if isinstance(value, float) and math.isnan(value):
+        assert math.isnan(result)
+    else:
+        assert result == value
+        assert type(result) is type(value)
+
+
+def test_sfp_legacy_dom_fallback_does_not_mask_modern_empty_reads_or_errors():
+    legacy = mock.Mock(spec=['get_transceiver_bulk_status'])
+    legacy.get_transceiver_bulk_status.return_value = {'rx1power': float('-inf')}
+    assert json.loads(sfp_facade(legacy).sfp_get_transceiver_dom_real_value('sfp[0]')) == {
+        'rx1power': '-inf',
+    }
+    modern = mock.Mock(spec=['get_transceiver_dom_real_value', 'get_transceiver_bulk_status'])
+    modern.get_transceiver_dom_real_value.return_value = None
+    api = sfp_facade(modern)
+    assert json.loads(api.sfp_get_transceiver_dom_real_value('sfp[0]')) is None
+    modern.get_transceiver_dom_real_value.side_effect = OSError('EEPROM read failed')
+    with pytest.raises(OSError, match='EEPROM read failed'):
+        api.sfp_get_transceiver_dom_real_value('sfp[0]')
+    modern.get_transceiver_bulk_status.assert_not_called()
+
+
+def test_sfp_direct_reads_follow_decoder_replacement_without_aggregate_reads():
+    sfp = mock.Mock(spec=['get_xcvr_api', 'remove_xcvr_api', 'get_transceiver_status'])
+    first, second = mock.Mock(), mock.Mock()
+    first.get_datapath_state.return_value = {'DP1State': 'Deactivated'}
+    second.get_datapath_state.return_value = {'DP1State': 'Activated'}
+    sfp.get_xcvr_api.side_effect = [first, second]
+    api = sfp_facade(sfp)
+    key = api.get_sfps([0])[0].key
+    assert json.loads(api.sfp_get_datapath_state(key)) == {'DP1State': 'Deactivated'}
+    api.sfp_remove_xcvr_api(key)
+    assert json.loads(api.sfp_get_datapath_state(key)) == {'DP1State': 'Activated'}
+    sfp.remove_xcvr_api.assert_called_once_with()
+    sfp.get_transceiver_status.assert_not_called()
+
+
+@pytest.mark.parametrize('method, absent', [
+    ('sfp_is_flat_memory', None),
+    ('sfp_get_module_state', None),
+    ('sfp_get_datapath_state', 'null'),
+])
+def test_sfp_an_absent_decoder_is_not_an_unsupported_method(method, absent):
+    sfp = mock.Mock(spec=['get_xcvr_api'])
+    sfp.get_xcvr_api.return_value = None
+    api = sfp_facade(sfp)
+    assert getattr(api, method)('sfp[0]') == absent
+    sfp.get_xcvr_api.return_value = object()
+    with pytest.raises(NotImplementedError):
+        getattr(api, method)('sfp[0]')
+    sfp.get_xcvr_api.side_effect = OSError('EEPROM read failed')
+    with pytest.raises(OSError, match='EEPROM read failed'):
+        getattr(api, method)('sfp[0]')
+
+
+@pytest.mark.parametrize('status', ['0', '1'])
+def test_sfp_hotplug_cannot_be_overwritten_by_inflight_decoder_construction(status):
+    from types import SimpleNamespace
+    from sonic_platform_base.sfp_base import SfpBase
+
+    polling, deliver = threading.Event(), threading.Event()
+    constructing, finish = threading.Event(), threading.Event()
+    invalidated = threading.Event()
+
+    class Factory:
+        generation = 1
+
+        def create_xcvr_api(self, bank):
+            generation = self.generation
+            if generation == 1:
+                constructing.set()
+                assert finish.wait(5)
+            return SimpleNamespace(get_module_state=lambda: 'generation %d' % generation)
+
+    sfp = SfpBase()
+    factory = sfp._xcvr_api_factory = Factory()
+    other = mock.Mock(spec=['get_presence'])
+    other.get_presence.return_value = False
+
+    def poll(timeout):
+        polling.set()
+        assert deliver.wait(5)
+        factory.generation = 2
+        sfp.remove_xcvr_api()
+        invalidated.set()
+        return False, {'sfp': {7: status}, 'sfp_error': {7: 'vendor error'}}
+
+    api = PlatformApi(SimpleNamespace(
+        get_sfp={7: sfp, 11: other}.get, get_change_event=poll,
+    ))
+    key, other_key = [row.key for row in api.get_sfps([7, 11])]
+    results, errors = {}, []
+
+    def run(name, fn):
+        try:
+            results[name] = fn()
+        except BaseException as error:
+            errors.append(error)
+
+    poller = threading.Thread(target=run, args=('event', lambda: api.get_change_event(0)))
+    reader = threading.Thread(target=run, args=('read', lambda: api.sfp_get_module_state(key)))
+    poller.start()
+    try:
+        assert polling.wait(5)
+        reader.start()
+        assert constructing.wait(5), 'the event wait must not lock slot reads'
+        assert api.sfp_get_presence(other_key) is False
+        deliver.set()
+        assert invalidated.wait(5)
+    finally:
+        deliver.set()
+        finish.set()
+        poller.join(5)
+        if reader.ident is not None:
+            reader.join(5)
+    assert not poller.is_alive() and not reader.is_alive()
+    assert not errors
+    assert results['read'] == 'generation 1'
+    assert results['event'].ok is False
+    assert results['event'].events[1].status == 'vendor error'
+    assert api.sfp_get_module_state(key) == 'generation 2'
+
+
+def test_sfp_eeprom_preserves_binary_buffers_misses_and_failed_writes():
+    sfp = mock.Mock(spec=['read_eeprom', 'write_eeprom'])
+    api = sfp_facade(sfp)
+    key = api.get_sfps([0])[0].key
+    sfp.read_eeprom.return_value = bytearray([0, 128, 255])
+    assert api.sfp_read_eeprom(key, 129, 3) == b'\x00\x80\xff'
+    sfp.read_eeprom.assert_called_once_with(129, 3)
+    sfp.read_eeprom.return_value = None
+    assert api.sfp_read_eeprom(key, 129, 3) is None
+    def write(offset, length, buffer):
+        buffer[0] = 0x55
+        return False
+
+    sfp.write_eeprom.side_effect = write
+    assert api.sfp_write_eeprom(key, 129, b'\x00\x80\xff') is False
+    sfp.write_eeprom.assert_called_once_with(129, 3, bytearray([0x55, 128, 255]))
+    with pytest.raises(ValueError):
+        api.sfp_read_eeprom(key, -1, 3)
+    with pytest.raises(ValueError):
+        api.sfp_read_eeprom(key, 0, -1)
+    with pytest.raises(ValueError):
+        api.sfp_write_eeprom(key, -1, b'')

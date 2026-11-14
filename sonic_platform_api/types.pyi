@@ -25,6 +25,16 @@ from typing import Union
 # types.  The aliases below say what a number measures.
 Number = Union[int, float]
 
+# JSON-encoded transceiver data. Keys depend on module type, lane count and
+# vendor extensions, so they cannot be enumerated as fixed row columns.
+# Non-finite readings use Python's strings ("-inf", "inf", "nan"); None is
+# JSON null. Keeping the wire type a string leaves the native trait independent
+# of a particular JSON library, but also leaves these results untyped: native
+# implementations must reproduce sonic_xcvr's dictionary shapes and callers
+# cannot compare them structurally without parsing the strings. DEFERRED_JSON
+# in facade.pyi tracks their replacement with typed rows and lane values.
+Json = str
+
 # Temperature, in degrees Celsius.
 Celsius = Number
 
@@ -44,10 +54,9 @@ Ampere = Number
 # 1-based position of a device within its parent; -1 when unknown.
 PositionInParent = int
 
-# 0-based selector accepted by the indexed base-class accessors.  The facade
-# addresses rows by name instead, so this appears only in the ABC mirror --
-# where the parameter must keep the name `index`, because the conformance
-# suite's server dispatches on that name through inspect.signature().
+# Selector accepted by an indexed base-class accessor. SFP indices are the
+# vendor's physical port indices, which may start at 0 or 1; they are not
+# positions in get_all_sfps().
 Index = int
 
 Count = int
@@ -58,6 +67,7 @@ Count = int
 # .get_all_fans()[0]`.  Every addressed row carries one, and every action takes
 # one, because names are not unique: two line cards each have a "BIOS".  The
 # positions are list positions, 0-based throughout, not the indexed accessors'
-# mixed conventions.  Treat it as opaque; build it from a row or from
+# mixed conventions, except for SFP keys: "sfp[3]" resolves get_sfp(3), using
+# the vendor's physical index. Treat it as opaque; build it from a row or from
 # `get_module_key` / `get_component_key`, never by hand.
 DeviceKey = str

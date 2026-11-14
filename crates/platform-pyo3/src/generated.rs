@@ -17,12 +17,12 @@ use pyo3::prelude::*;
 
 use platform_api::{
     LedColor, FanKind, PowerEntityKind, ThermalKind, ModuleType, ModuleStatus, SensorKind, EepromUpdate, LeakSeverity, ChangeEventKind,
-    ThermalInfo, FanInfo, FanDrawerInfo, PsuInfo, ChassisInfo, ModuleInfo, ComponentInfo, SensorInfo, LeakProfile, LeakSensorInfo, WatchdogInfo, ChangeEvent, ChangeEventBatch, PcieDevice, PcieAerStat, StorageDeviceInfo, EepromTlv, AsicInfo, BmcInfo, ModuleRebootCause, ModuleMidplaneDownReason, BmcResult,
+    ThermalInfo, FanInfo, FanDrawerInfo, PsuInfo, ChassisInfo, ModuleInfo, ComponentInfo, SensorInfo, LeakProfile, LeakSensorInfo, WatchdogInfo, SfpInfo, ChangeEvent, ChangeEventBatch, PcieDevice, PcieAerStat, StorageDeviceInfo, EepromTlv, AsicInfo, BmcInfo, ModuleRebootCause, ModuleMidplaneDownReason, BmcResult,
     ThermalInfoCols, FanInfoCols, FanDrawerInfoCols, ChassisInfoCols, ModuleInfoCols,
     DeviceKey, Number, PlatformApi, PlatformError,
 };
 
-use crate::{err, flag, int_of, int_or_float, int_or_float_arg, integer, rows, text, Bridge};
+use crate::{err, flag, int_of, int_or_float, int_or_float_arg, integer, number_of, rows, text, Bridge};
 
 
 /// Read one `ThermalInfo` off the object the facade returned.
@@ -240,6 +240,14 @@ fn watchdog_info(row: &Bound<'_, PyAny>) -> Result<WatchdogInfo, PlatformError> 
     })
 }
 
+/// Read one `SfpInfo` off the object the facade returned.
+fn sfp_info(row: &Bound<'_, PyAny>) -> Result<SfpInfo, PlatformError> {
+    Ok(SfpInfo {
+        key: text(row, "key")?.map(DeviceKey::from).unwrap_or_default(),
+        index: integer::<u32>(row, "index")?.unwrap_or(Default::default()),
+    })
+}
+
 /// Read one `ChangeEvent` off the object the facade returned.
 fn change_event(row: &Bound<'_, PyAny>) -> Result<ChangeEvent, PlatformError> {
     Ok(ChangeEvent {
@@ -360,7 +368,23 @@ fn bmc_result(row: &Bound<'_, PyAny>) -> Result<BmcResult, PlatformError> {
 
 impl PlatformApi for Bridge {
 
-    fn get_chassis_info(&mut self, cols: ChassisInfoCols) -> Result<ChassisInfo, PlatformError> {
+    fn get_sfps(&self, indices: &[u32]) -> Result<Vec<SfpInfo>, PlatformError> {
+        Python::attach(|py| {
+            let rows = self
+                .facade
+                .bind(py)
+                .call_method1("get_sfps", (indices,))
+                .map_err(|e| err(py, e))?;
+            let mut out = Vec::new();
+            for row in rows.try_iter().map_err(|e| err(py, e))? {
+                let row = row.map_err(|e| err(py, e))?;
+                out.push(sfp_info(&row)?);
+            }
+            Ok(out)
+        })
+    }
+
+    fn get_chassis_info(&self, cols: ChassisInfoCols) -> Result<ChassisInfo, PlatformError> {
         Python::attach(|py| {
             let row = self
                 .facade
@@ -371,7 +395,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn get_modules(&mut self, cols: ModuleInfoCols) -> Result<Vec<ModuleInfo>, PlatformError> {
+    fn get_modules(&self, cols: ModuleInfoCols) -> Result<Vec<ModuleInfo>, PlatformError> {
         Python::attach(|py| {
             let rows = self
                 .facade
@@ -387,7 +411,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn get_thermals(&mut self, cols: ThermalInfoCols, skip: &[DeviceKey]) -> Result<Vec<ThermalInfo>, PlatformError> {
+    fn get_thermals(&self, cols: ThermalInfoCols, skip: &[DeviceKey]) -> Result<Vec<ThermalInfo>, PlatformError> {
         Python::attach(|py| {
             let rows = self
                 .facade
@@ -403,7 +427,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn get_fans(&mut self, cols: FanInfoCols, absorb: bool) -> Result<Vec<FanInfo>, PlatformError> {
+    fn get_fans(&self, cols: FanInfoCols, absorb: bool) -> Result<Vec<FanInfo>, PlatformError> {
         Python::attach(|py| {
             let rows = self
                 .facade
@@ -419,7 +443,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn get_fan_drawers(&mut self, cols: FanDrawerInfoCols) -> Result<Vec<FanDrawerInfo>, PlatformError> {
+    fn get_fan_drawers(&self, cols: FanDrawerInfoCols) -> Result<Vec<FanDrawerInfo>, PlatformError> {
         Python::attach(|py| {
             let rows = self
                 .facade
@@ -435,7 +459,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn get_psus(&mut self) -> Result<Vec<PsuInfo>, PlatformError> {
+    fn get_psus(&self) -> Result<Vec<PsuInfo>, PlatformError> {
         Python::attach(|py| {
             let rows = self
                 .facade
@@ -451,7 +475,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn get_components(&mut self) -> Result<Vec<ComponentInfo>, PlatformError> {
+    fn get_components(&self) -> Result<Vec<ComponentInfo>, PlatformError> {
         Python::attach(|py| {
             let rows = self
                 .facade
@@ -467,7 +491,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn get_sensors(&mut self) -> Result<Vec<SensorInfo>, PlatformError> {
+    fn get_sensors(&self) -> Result<Vec<SensorInfo>, PlatformError> {
         Python::attach(|py| {
             let rows = self
                 .facade
@@ -483,7 +507,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn get_leak_profiles(&mut self) -> Result<Vec<LeakProfile>, PlatformError> {
+    fn get_leak_profiles(&self) -> Result<Vec<LeakProfile>, PlatformError> {
         Python::attach(|py| {
             let rows = self
                 .facade
@@ -499,7 +523,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn get_leak_sensors(&mut self) -> Result<Vec<LeakSensorInfo>, PlatformError> {
+    fn get_leak_sensors(&self) -> Result<Vec<LeakSensorInfo>, PlatformError> {
         Python::attach(|py| {
             let rows = self
                 .facade
@@ -515,7 +539,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn get_eeprom(&mut self) -> Result<Vec<EepromTlv>, PlatformError> {
+    fn get_eeprom(&self) -> Result<Vec<EepromTlv>, PlatformError> {
         Python::attach(|py| {
             let rows = self
                 .facade
@@ -531,7 +555,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn get_bmcs(&mut self) -> Result<Vec<BmcInfo>, PlatformError> {
+    fn get_bmcs(&self) -> Result<Vec<BmcInfo>, PlatformError> {
         Python::attach(|py| {
             let rows = self
                 .facade
@@ -547,7 +571,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn get_watchdogs(&mut self) -> Result<Vec<WatchdogInfo>, PlatformError> {
+    fn get_watchdogs(&self) -> Result<Vec<WatchdogInfo>, PlatformError> {
         Python::attach(|py| {
             let rows = self
                 .facade
@@ -563,7 +587,446 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn set_fan_led(&mut self, fan: &DeviceKey, color: LedColor) -> Result<Option<bool>, PlatformError> {
+    fn sfp_get_presence(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_presence", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_is_replaceable(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_is_replaceable", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_reset_status(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_reset_status", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_lpmode(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_lpmode", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_error_description(&self, sfp: &DeviceKey) -> Result<Option<String>, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_error_description", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_type(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_type", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_uses_legacy_pm(&self, sfp: &DeviceKey) -> Result<bool, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_uses_legacy_pm", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_transceiver_info(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_transceiver_info", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_transceiver_info_firmware_versions(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_transceiver_info_firmware_versions", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_transceiver_status(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_transceiver_status", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_transceiver_status_flags(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_transceiver_status_flags", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_transceiver_dom_real_value(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_transceiver_dom_real_value", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_transceiver_dom_flags(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_transceiver_dom_flags", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_transceiver_threshold_info(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_transceiver_threshold_info", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_temperature(&self, sfp: &DeviceKey) -> Result<Option<Number>, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_temperature", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            number_of(&v)
+        })
+    }
+
+    fn sfp_get_transceiver_pm(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_transceiver_pm", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_is_transceiver_vdm_supported(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_is_transceiver_vdm_supported", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_is_vdm_statistic_supported(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_is_vdm_statistic_supported", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_transceiver_vdm_real_value_basic(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_transceiver_vdm_real_value_basic", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_transceiver_vdm_real_value_statistic(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_transceiver_vdm_real_value_statistic", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_transceiver_vdm_flags(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_transceiver_vdm_flags", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_transceiver_vdm_thresholds(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_transceiver_vdm_thresholds", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_vdm_freeze_status(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_vdm_freeze_status", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_vdm_unfreeze_status(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_vdm_unfreeze_status", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_set_lpmode(&self, sfp: &DeviceKey, on: bool) -> Result<Option<bool>, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_set_lpmode", (sfp.as_str(), on, ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_reset(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_reset", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_remove_xcvr_api(&self, sfp: &DeviceKey) -> Result<(), PlatformError> {
+        Python::attach(|py| {
+            self.facade
+                .bind(py)
+                .call_method1("sfp_remove_xcvr_api", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            Ok(())
+        })
+    }
+
+    fn sfp_freeze_vdm_stats(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_freeze_vdm_stats", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_unfreeze_vdm_stats(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_unfreeze_vdm_stats", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_read_eeprom(&self, sfp: &DeviceKey, offset: i64, num_bytes: i64) -> Result<Option<Vec<u8>>, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_read_eeprom", (sfp.as_str(), offset, num_bytes, ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_write_eeprom(&self, sfp: &DeviceKey, offset: i64, data: &[u8]) -> Result<Option<bool>, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_write_eeprom", (sfp.as_str(), offset, pyo3::types::PyBytes::new(py, data), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_is_flat_memory(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_is_flat_memory", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_module_type_abbreviation(&self, sfp: &DeviceKey) -> Result<Option<String>, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_module_type_abbreviation", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_is_coherent_module(&self, sfp: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_is_coherent_module", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_module_state(&self, sfp: &DeviceKey) -> Result<Option<String>, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_module_state", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_cmis_rev(&self, sfp: &DeviceKey) -> Result<Option<String>, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_cmis_rev", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_application_advertisement(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_application_advertisement", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_datapath_state(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_datapath_state", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_config_datapath_hostlane_status(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_config_datapath_hostlane_status", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn sfp_get_dpinit_pending(&self, sfp: &DeviceKey) -> Result<String, PlatformError> {
+        Python::attach(|py| {
+            let v = self
+                .facade
+                .bind(py)
+                .call_method1("sfp_get_dpinit_pending", (sfp.as_str(), ))
+                .map_err(|e| err(py, e))?;
+            v.extract().map_err(|e| err(py, e))
+        })
+    }
+
+    fn set_fan_led(&self, fan: &DeviceKey, color: LedColor) -> Result<Option<bool>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -574,7 +1037,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn set_fan_drawer_led(&mut self, drawer: &DeviceKey, color: LedColor) -> Result<Option<bool>, PlatformError> {
+    fn set_fan_drawer_led(&self, drawer: &DeviceKey, color: LedColor) -> Result<Option<bool>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -585,7 +1048,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn set_fan_speed(&mut self, fan: &DeviceKey, speed: i64) -> Result<Option<bool>, PlatformError> {
+    fn set_fan_speed(&self, fan: &DeviceKey, speed: i64) -> Result<Option<bool>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -596,7 +1059,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn set_psu_led(&mut self, psu: &DeviceKey, color: LedColor) -> Result<Option<bool>, PlatformError> {
+    fn set_psu_led(&self, psu: &DeviceKey, color: LedColor) -> Result<Option<bool>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -607,7 +1070,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn get_module_reboot_cause(&mut self, module: &DeviceKey) -> Result<ModuleRebootCause, PlatformError> {
+    fn get_module_reboot_cause(&self, module: &DeviceKey) -> Result<ModuleRebootCause, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -618,7 +1081,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn get_module_midplane_down_reason(&mut self, module: &DeviceKey) -> Result<ModuleMidplaneDownReason, PlatformError> {
+    fn get_module_midplane_down_reason(&self, module: &DeviceKey) -> Result<ModuleMidplaneDownReason, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -629,7 +1092,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn get_psu_master_led(&mut self, psu: &DeviceKey) -> Result<Option<String>, PlatformError> {
+    fn get_psu_master_led(&self, psu: &DeviceKey) -> Result<Option<String>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -640,7 +1103,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn set_psu_master_led(&mut self, psu: &DeviceKey, color: LedColor) -> Result<Option<bool>, PlatformError> {
+    fn set_psu_master_led(&self, psu: &DeviceKey, color: LedColor) -> Result<Option<bool>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -651,7 +1114,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn reboot_module(&mut self, module: &DeviceKey, reboot_type: &str) -> Result<Option<bool>, PlatformError> {
+    fn reboot_module(&self, module: &DeviceKey, reboot_type: &str) -> Result<Option<bool>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -662,7 +1125,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn set_module_admin_state(&mut self, module: &DeviceKey, up: bool) -> Result<Option<bool>, PlatformError> {
+    fn set_module_admin_state(&self, module: &DeviceKey, up: bool) -> Result<Option<bool>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -673,7 +1136,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn set_module_admin_state_gracefully(&mut self, module: &DeviceKey, up: bool) -> Result<Option<bool>, PlatformError> {
+    fn set_module_admin_state_gracefully(&self, module: &DeviceKey, up: bool) -> Result<Option<bool>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -684,7 +1147,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn power_cycle_module(&mut self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+    fn power_cycle_module(&self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -695,7 +1158,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn module_pre_shutdown(&mut self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+    fn module_pre_shutdown(&self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -706,7 +1169,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn module_post_startup(&mut self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+    fn module_post_startup(&self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -717,7 +1180,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn set_module_state_transition(&mut self, module: &DeviceKey, transition_type: &str) -> Result<Option<bool>, PlatformError> {
+    fn set_module_state_transition(&self, module: &DeviceKey, transition_type: &str) -> Result<Option<bool>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -728,7 +1191,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn clear_module_state_transition(&mut self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+    fn clear_module_state_transition(&self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -739,7 +1202,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn clear_module_gnoi_halt(&mut self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
+    fn clear_module_gnoi_halt(&self, module: &DeviceKey) -> Result<Option<bool>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -750,7 +1213,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn set_sensor_high_threshold(&mut self, sensor: &DeviceKey, value: Number) -> Result<Option<bool>, PlatformError> {
+    fn set_sensor_high_threshold(&self, sensor: &DeviceKey, value: Number) -> Result<Option<bool>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -761,7 +1224,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn set_sensor_low_threshold(&mut self, sensor: &DeviceKey, value: Number) -> Result<Option<bool>, PlatformError> {
+    fn set_sensor_low_threshold(&self, sensor: &DeviceKey, value: Number) -> Result<Option<bool>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -772,7 +1235,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn get_module_key(&mut self, name: &str) -> Result<Option<DeviceKey>, PlatformError> {
+    fn get_module_key(&self, name: &str) -> Result<Option<DeviceKey>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -785,7 +1248,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn get_component_key(&mut self, name: &str) -> Result<Option<DeviceKey>, PlatformError> {
+    fn get_component_key(&self, name: &str) -> Result<Option<DeviceKey>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -798,7 +1261,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn get_module_component_key(&mut self, module: &str, name: &str) -> Result<Option<DeviceKey>, PlatformError> {
+    fn get_module_component_key(&self, module: &str, name: &str) -> Result<Option<DeviceKey>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -811,7 +1274,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn get_available_firmware_version(&mut self, component: &DeviceKey, image_path: &str) -> Result<Option<String>, PlatformError> {
+    fn get_available_firmware_version(&self, component: &DeviceKey, image_path: &str) -> Result<Option<String>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -822,7 +1285,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn get_firmware_update_notification(&mut self, component: &DeviceKey, image_path: &str) -> Result<Option<String>, PlatformError> {
+    fn get_firmware_update_notification(&self, component: &DeviceKey, image_path: &str) -> Result<Option<String>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -833,7 +1296,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn install_firmware(&mut self, component: &DeviceKey, image_path: &str) -> Result<Option<bool>, PlatformError> {
+    fn install_firmware(&self, component: &DeviceKey, image_path: &str) -> Result<Option<bool>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -844,7 +1307,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn update_firmware(&mut self, component: &DeviceKey, image_path: &str) -> Result<Option<bool>, PlatformError> {
+    fn update_firmware(&self, component: &DeviceKey, image_path: &str) -> Result<Option<bool>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -855,7 +1318,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn auto_update_firmware(&mut self, component: &DeviceKey, image_path: &str, boot_type: &str) -> Result<Option<i64>, PlatformError> {
+    fn auto_update_firmware(&self, component: &DeviceKey, image_path: &str, boot_type: &str) -> Result<Option<i64>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -867,7 +1330,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn arm_watchdog(&mut self, seconds: i64) -> Result<Option<i64>, PlatformError> {
+    fn arm_watchdog(&self, seconds: i64) -> Result<Option<i64>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -879,7 +1342,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn disarm_watchdog(&mut self) -> Result<Option<bool>, PlatformError> {
+    fn disarm_watchdog(&self) -> Result<Option<bool>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -890,7 +1353,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn initialize_system_led(&mut self) -> Result<Option<bool>, PlatformError> {
+    fn initialize_system_led(&self) -> Result<Option<bool>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -901,7 +1364,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn init_midplane_switch(&mut self) -> Result<Option<bool>, PlatformError> {
+    fn init_midplane_switch(&self) -> Result<Option<bool>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -912,7 +1375,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn set_chassis_led(&mut self, color: &str) -> Result<Option<bool>, PlatformError> {
+    fn set_chassis_led(&self, color: &str) -> Result<Option<bool>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -923,7 +1386,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn change_sed_password(&mut self, new_password: &str) -> Result<Option<bool>, PlatformError> {
+    fn change_sed_password(&self, new_password: &str) -> Result<Option<bool>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -934,7 +1397,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn reset_sed_password(&mut self) -> Result<Option<bool>, PlatformError> {
+    fn reset_sed_password(&self) -> Result<Option<bool>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -945,7 +1408,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn bmc_open_session(&mut self) -> Result<BmcResult, PlatformError> {
+    fn bmc_open_session(&self) -> Result<BmcResult, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -956,7 +1419,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn bmc_close_session(&mut self, session_id: &str) -> Result<BmcResult, PlatformError> {
+    fn bmc_close_session(&self, session_id: &str) -> Result<BmcResult, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -967,7 +1430,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn bmc_reset_root_password(&mut self) -> Result<BmcResult, PlatformError> {
+    fn bmc_reset_root_password(&self) -> Result<BmcResult, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -978,7 +1441,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn bmc_reset(&mut self, graceful: bool) -> Result<BmcResult, PlatformError> {
+    fn bmc_reset(&self, graceful: bool) -> Result<BmcResult, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -989,7 +1452,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn bmc_update_firmware(&mut self, image_path: &str) -> Result<BmcResult, PlatformError> {
+    fn bmc_update_firmware(&self, image_path: &str) -> Result<BmcResult, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -1000,7 +1463,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn bmc_trigger_debug_log_dump(&mut self) -> Result<BmcResult, PlatformError> {
+    fn bmc_trigger_debug_log_dump(&self) -> Result<BmcResult, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -1011,7 +1474,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn bmc_get_debug_log_dump(&mut self, task_id: &str, filename: &str, path: &str) -> Result<BmcResult, PlatformError> {
+    fn bmc_get_debug_log_dump(&self, task_id: &str, filename: &str, path: &str) -> Result<BmcResult, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -1022,7 +1485,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn get_asics(&mut self) -> Result<Vec<AsicInfo>, PlatformError> {
+    fn get_asics(&self) -> Result<Vec<AsicInfo>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -1037,7 +1500,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn tm_initialize(&mut self) -> Result<(), PlatformError> {
+    fn tm_initialize(&self) -> Result<(), PlatformError> {
         Python::attach(|py| {
             self.facade
                 .bind(py)
@@ -1047,7 +1510,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn tm_run_policy(&mut self) -> Result<(), PlatformError> {
+    fn tm_run_policy(&self) -> Result<(), PlatformError> {
         Python::attach(|py| {
             self.facade
                 .bind(py)
@@ -1057,7 +1520,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn tm_get_interval(&mut self) -> Result<Option<f64>, PlatformError> {
+    fn tm_get_interval(&self) -> Result<Option<f64>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -1068,7 +1531,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn tm_deinitialize(&mut self) -> Result<(), PlatformError> {
+    fn tm_deinitialize(&self) -> Result<(), PlatformError> {
         Python::attach(|py| {
             self.facade
                 .bind(py)
@@ -1078,7 +1541,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn tm_stop(&mut self) -> Result<(), PlatformError> {
+    fn tm_stop(&self) -> Result<(), PlatformError> {
         Python::attach(|py| {
             self.facade
                 .bind(py)
@@ -1088,7 +1551,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn notify_shutdown(&mut self) -> Result<(), PlatformError> {
+    fn notify_shutdown(&self) -> Result<(), PlatformError> {
         Python::attach(|py| {
             self.facade
                 .bind(py)
@@ -1098,7 +1561,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn eeprom_update_db(&mut self) -> Result<EepromUpdate, PlatformError> {
+    fn eeprom_update_db(&self) -> Result<EepromUpdate, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -1111,7 +1574,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn get_storage_devices(&mut self) -> Result<Vec<StorageDeviceInfo>, PlatformError> {
+    fn get_storage_devices(&self) -> Result<Vec<StorageDeviceInfo>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -1126,7 +1589,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn get_pcie_devices(&mut self) -> Result<Vec<PcieDevice>, PlatformError> {
+    fn get_pcie_devices(&self) -> Result<Vec<PcieDevice>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -1141,7 +1604,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn get_pcie_aer_stats(&mut self, bus: i64, dev: i64, func: i64) -> Result<Vec<PcieAerStat>, PlatformError> {
+    fn get_pcie_aer_stats(&self, bus: i64, dev: i64, func: i64) -> Result<Vec<PcieAerStat>, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -1156,7 +1619,7 @@ impl PlatformApi for Bridge {
         })
     }
 
-    fn get_change_event(&mut self, timeout_ms: i64) -> Result<ChangeEventBatch, PlatformError> {
+    fn get_change_event(&self, timeout_ms: i64) -> Result<ChangeEventBatch, PlatformError> {
         Python::attach(|py| {
             let v = self
                 .facade
@@ -1172,7 +1635,7 @@ impl PlatformApi for Bridge {
     /// Vendor cleanup registered with `atexit` runs on a Python daemon's
     /// `sys.exit()` and on nothing here: `process::exit` finalises no
     /// interpreter.  See [`crate::run_python_atexit_handlers`].
-    fn finalize(&mut self) {
+    fn finalize(&self) {
         crate::run_python_atexit_handlers();
     }
 }

@@ -29,12 +29,12 @@ OMITTED = (
     ("ChassisBase.get_num_psus", "len(get_psus())"),
     ("ChassisBase.get_num_pdbs", "len(get_psus()) filtered on kind"),
     ("ChassisBase.get_num_thermals", "len(get_thermals())"),
-    ("ChassisBase.get_num_sfps", "len(get_sfps())"),
+    ("ChassisBase.get_num_sfps", "the caller supplies physical indices from port_config"),
     ("ModuleBase.get_num_components", "len(get_components()) filtered on parent"),
     ("ModuleBase.get_num_fans", "len(get_fans()) filtered on parent"),
     ("ModuleBase.get_num_psus", "len(get_psus()) filtered on parent"),
     ("ModuleBase.get_num_thermals", "len(get_thermals()) filtered on parent"),
-    ("ModuleBase.get_num_sfps", "len(get_sfps()) filtered on parent"),
+    ("ModuleBase.get_num_sfps", "the caller supplies physical indices from port_config"),
     ("PsuBase.get_num_fans", "len(get_fans()) filtered on parent"),
     ("PsuBase.get_num_thermals", "len(get_thermals()) filtered on parent"),
     ("FanDrawerBase.get_num_fans", "len(get_fans()) filtered on parent"),
@@ -46,7 +46,6 @@ OMITTED = (
     ("ChassisBase.get_psu", "rows are addressed by key"),
     ("ChassisBase.get_pdb", "rows are addressed by key"),
     ("ChassisBase.get_thermal", "rows are addressed by key"),
-    ("ChassisBase.get_sfp", "rows are addressed by key"),
     ("ChassisBase.get_cpo", "rows are addressed by key"),
     ("ModuleBase.get_component", "rows are addressed by key"),
     ("ModuleBase.get_fan", "rows are addressed by key"),
@@ -58,6 +57,8 @@ OMITTED = (
     ("FanDrawerBase.get_fan", "rows are addressed by key"),
     ("SfpBase.get_thermal", "rows are addressed by key"),
     ("ChassisBase.get_all_fans", "already reached through drawer, module or PSU"),
+    ("ChassisBase.get_all_sfps", "filtered list positions are not physical port indices"),
+    ("ModuleBase.get_all_sfps", "the caller supplies physical indices to get_sfps"),
     ("LiquidCoolingBase.get_leak_sensor_status", "duplicate of get_all_leak_sensors"),
     ("SensorFs.get_name", "SensorInfo column, read through SensorBase"),
     ("SensorFs.get_value", "SensorInfo column"),
@@ -90,27 +91,16 @@ OMITTED = (
 
 # What a consumer reaches that a later phase declares, and why not yet.
 DEFERRED = (
-    ("ChassisBase.get_all_sfps", "transceivers: the sonic_xcvr phase"),
-    ("ModuleBase.get_all_sfps", "transceivers: the sonic_xcvr phase"),
     ("ChassisBase.get_port_or_cage_type", "transceivers: the sonic_xcvr phase"),
-    ("SfpBase.get_error_description", "transceivers: the sonic_xcvr phase"),
-    ("SfpBase.get_lpmode", "transceivers: the sonic_xcvr phase"),
     ("SfpBase.get_num_thermals", "transceivers: the sonic_xcvr phase"),
     ("SfpBase.get_power_override", "transceivers: the sonic_xcvr phase"),
-    ("SfpBase.get_reset_status", "transceivers: the sonic_xcvr phase"),
     ("SfpBase.get_rx_los", "transceivers: the sonic_xcvr phase"),
     ("SfpBase.get_rx_power", "transceivers: the sonic_xcvr phase"),
-    ("SfpBase.get_transceiver_info", "transceivers: the sonic_xcvr phase"),
-    ("SfpBase.get_transceiver_threshold_info", "transceivers: the sonic_xcvr phase"),
     ("SfpBase.get_tx_bias", "transceivers: the sonic_xcvr phase"),
     ("SfpBase.get_tx_disable", "transceivers: the sonic_xcvr phase"),
     ("SfpBase.get_tx_disable_channel", "transceivers: the sonic_xcvr phase"),
     ("SfpBase.get_tx_fault", "transceivers: the sonic_xcvr phase"),
     ("SfpBase.get_tx_power", "transceivers: the sonic_xcvr phase"),
-    ("SfpBase.get_xcvr_api", "transceivers: the sonic_xcvr phase"),
-    ("SfpBase.remove_xcvr_api", "transceivers: the sonic_xcvr phase"),
-    ("SfpBase.reset", "transceivers: the sonic_xcvr phase"),
-    ("SfpBase.set_lpmode", "transceivers: the sonic_xcvr phase"),
     ("SfpBase.set_power", "transceivers: the sonic_xcvr phase"),
     ("SfpBase.set_power_override", "transceivers: the sonic_xcvr phase"),
     ("SfpBase.tx_disable", "transceivers: the sonic_xcvr phase"),
@@ -122,6 +112,26 @@ DEFERRED = (
     ("SsdUtil.get_vendor_output", "the CLI phase: only ssdutil --vendor reaches it"),
     ("EmmcUtil.get_vendor_output", "the CLI phase: only ssdutil --vendor reaches it"),
     ("UsbUtil.get_vendor_output", "the CLI phase: only ssdutil --vendor reaches it"),
+)
+
+# Implemented Json results whose schemas still need typed declarations.
+DEFERRED_JSON = (
+    ("sfp_get_transceiver_info", "typed module identity and vendor extensions"),
+    ("sfp_get_transceiver_info_firmware_versions", "typed firmware versions"),
+    ("sfp_get_transceiver_status", "typed module and lane status"),
+    ("sfp_get_transceiver_status_flags", "typed module and lane flags"),
+    ("sfp_get_transceiver_dom_real_value", "typed DOM readings with units"),
+    ("sfp_get_transceiver_dom_flags", "typed DOM alarm and warning flags"),
+    ("sfp_get_transceiver_threshold_info", "typed thresholds with units"),
+    ("sfp_get_transceiver_pm", "typed legacy performance monitoring"),
+    ("sfp_get_transceiver_vdm_real_value_basic", "typed VDM readings with units"),
+    ("sfp_get_transceiver_vdm_real_value_statistic", "typed VDM statistics"),
+    ("sfp_get_transceiver_vdm_flags", "typed VDM alarm and warning flags"),
+    ("sfp_get_transceiver_vdm_thresholds", "typed VDM thresholds with units"),
+    ("sfp_get_application_advertisement", "typed CMIS applications"),
+    ("sfp_get_datapath_state", "typed per-lane datapath states"),
+    ("sfp_get_config_datapath_hostlane_status", "typed per-lane configuration status"),
+    ("sfp_get_dpinit_pending", "typed per-lane initialization status"),
 )
 
 
@@ -251,6 +261,19 @@ def _nth(seq, pos):
     """The device at `pos` in a collection, or None past its end."""
     items = list(_iter(seq))
     return items[pos] if pos < len(items) else None
+
+
+def _indices(values):
+    """Physical port indices, never negative list positions or booleans."""
+    for index in values:
+        if type(index) is not int or not 0 <= index <= 0xffffffff:
+            raise ValueError('physical port index must be a non-negative u32')
+        yield index
+
+
+def _indexed(obj, getter, index):
+    fn = _get(obj, getter)
+    return _call(None if fn is None else lambda: fn(index))
 
 
 def _fmt(v, template, parent, i, **fixed):
@@ -728,6 +751,40 @@ class WatchdogInfo(object):
 
     def __eq__(self, other):
         if not isinstance(other, WatchdogInfo):
+            return NotImplemented
+        return all(getattr(self, k) == getattr(other, k) for k in self.__slots__)
+
+
+class SfpInfo(object):
+    """A chassis transceiver slot, including empty cages.
+
+    Inventory does not read EEPROM or latched flags. Reads and actions address
+    the key individually so a presence check cannot consume a DOM alarm, and
+    CMIS bring-up need not decode an entire module for one state field.
+    `index` is the vendor's physical port index, also used by change events;
+    it is never a position in get_all_sfps()."""
+
+    __slots__ = ('key', 'index', )
+
+    def __init__(self, **fields):
+        """Keyword-only, and uniform across every row.
+
+        Spelling the columns out again here would duplicate `__slots__`, which
+        is the list the stub already carries -- and a constructor that drifts
+        from it is exactly what the generator exists to prevent.
+        """
+        for key in self.__slots__:
+            setattr(self, key, fields.pop(key, None))
+        if fields:
+            raise TypeError('SfpInfo got unexpected field(s): %s'
+                            % ', '.join(sorted(fields)))
+
+    def __repr__(self):
+        return 'SfpInfo(%s)' % ', '.join(
+            '%s=%r' % (k, getattr(self, k)) for k in self.__slots__)
+
+    def __eq__(self, other):
+        if not isinstance(other, SfpInfo):
             return NotImplemented
         return all(getattr(self, k) == getattr(other, k) for k in self.__slots__)
 
@@ -2091,6 +2148,42 @@ class PlatformApi(object):
         return out
 
 
+    def _row_sfp_info(self, dev, parent, i, fixed):
+        return SfpInfo(
+            key=fixed['key'],
+            index=fixed['index'],
+        )
+
+    def _walk_sfp_info(self, indices):
+        """Every SfpInfo, in declared order.
+
+        Each row carries its key, the path this walk took to the device; an
+        action follows that path back with `_find_sfp_info()`.
+        """
+        out = []
+        # ChassisBase.get_sfp
+        for i in _indices(indices):
+            dev = _indexed(self._chassis, 'get_sfp', i)
+            if dev is None:
+                continue
+            out.append(self._row_sfp_info(dev, 'chassis 1', i, {'key': 'sfp[%d]' % i, 'parent_key': None, 'index': i}))
+        return out
+
+    def _find_sfp_info(self, key):
+        """The device at a published SfpInfo key.
+
+        One getter per step of the key, not a walk: an action costs what
+        reaching the device costs, and reads nothing else on the way.
+        """
+        path = _parse_key(key)
+        # ChassisBase.get_sfp
+        if _shape(path) == (('sfp', True),):
+            dev = _indexed(self._chassis, 'get_sfp', path[0][1])
+            if dev is not None:
+                return dev
+        raise DeviceNotFound('no SfpInfo at %r' % key)
+
+
 
 
 
@@ -2170,6 +2263,15 @@ class PlatformApi(object):
 
 
 
+
+    def get_sfps(self, indices):
+        """Slots at port_config's physical indices, in the requested order.
+
+        Reach each slot through get_sfp(index), never get_all_sfps(). Missing
+        indices are skipped without shifting any other slot's key or index.
+        Empty cages still have rows. No EEPROM or latched flags are read.
+        """
+        return self._walk_sfp_info(indices)
 
     def get_chassis_info(self, cols=1048575):
         """The chassis.
@@ -2287,6 +2389,378 @@ class PlatformApi(object):
         singleton accessor would have to invent a row to say so.
         """
         return self._walk_watchdog_info()
+
+    def sfp_get_presence(self, sfp):
+        """Calls `DeviceBase.get_presence()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            fn = _get(dev, 'get_presence')
+            if fn is None:
+                raise NotImplementedError('DeviceBase.get_presence is not implemented')
+            return _truthy(fn())
+
+    def sfp_is_replaceable(self, sfp):
+        """Calls `DeviceBase.is_replaceable()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            fn = _get(dev, 'is_replaceable')
+            if fn is None:
+                raise NotImplementedError('DeviceBase.is_replaceable is not implemented')
+            return _truthy(fn())
+
+    def sfp_get_reset_status(self, sfp):
+        """Calls `SfpBase.get_reset_status()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            fn = _get(dev, 'get_reset_status')
+            if fn is None:
+                raise NotImplementedError('SfpBase.get_reset_status is not implemented')
+            return _truthy(fn())
+
+    def sfp_get_lpmode(self, sfp):
+        """Calls `SfpBase.get_lpmode()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            fn = _get(dev, 'get_lpmode')
+            if fn is None:
+                raise NotImplementedError('SfpBase.get_lpmode is not implemented')
+            return _truthy(fn())
+
+    def sfp_get_error_description(self, sfp):
+        """Calls `SfpBase.get_error_description()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            fn = _get(dev, 'get_error_description')
+            if fn is None:
+                raise NotImplementedError('SfpBase.get_error_description is not implemented')
+            return fn()
+
+    def sfp_get_type(self, sfp):
+        """Hand-written: sfp_type is a vendor attribute, not a base-class getter."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            return self._hatch.sfp_get_type(dev)
+
+    def sfp_uses_legacy_pm(self, sfp):
+        """Hand-written: Legacy PM capability probing must not invoke a getter or consume latched flags; hasattr is not a base-class call."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            return self._hatch.sfp_uses_legacy_pm(dev)
+
+    def sfp_get_transceiver_info(self, sfp):
+        """Calls `SfpBase.get_transceiver_info()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            fn = _get(dev, 'get_transceiver_info')
+            if fn is None:
+                raise NotImplementedError('SfpBase.get_transceiver_info is not implemented')
+            return _escape_hatch.json_dumps(fn())
+
+    def sfp_get_transceiver_info_firmware_versions(self, sfp):
+        """Calls `SfpOptoeBase.get_transceiver_info_firmware_versions()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            fn = _get(dev, 'get_transceiver_info_firmware_versions')
+            if fn is None:
+                raise NotImplementedError('SfpOptoeBase.get_transceiver_info_firmware_versions is not implemented')
+            return _escape_hatch.json_dumps(fn())
+
+    def sfp_get_transceiver_status(self, sfp):
+        """Calls `SfpOptoeBase.get_transceiver_status()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            fn = _get(dev, 'get_transceiver_status')
+            if fn is None:
+                raise NotImplementedError('SfpOptoeBase.get_transceiver_status is not implemented')
+            return _escape_hatch.json_dumps(fn())
+
+    def sfp_get_transceiver_status_flags(self, sfp):
+        """Calls `SfpOptoeBase.get_transceiver_status_flags()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            fn = _get(dev, 'get_transceiver_status_flags')
+            if fn is None:
+                raise NotImplementedError('SfpOptoeBase.get_transceiver_status_flags is not implemented')
+            return _escape_hatch.json_dumps(fn())
+
+    def sfp_get_transceiver_dom_real_value(self, sfp):
+        """Hand-written: Use bulk status only when the modern DOM method is absent, not when it returns None or raises."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            return self._hatch.sfp_get_transceiver_dom_real_value(dev)
+
+    def sfp_get_transceiver_dom_flags(self, sfp):
+        """Calls `SfpOptoeBase.get_transceiver_dom_flags()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            fn = _get(dev, 'get_transceiver_dom_flags')
+            if fn is None:
+                raise NotImplementedError('SfpOptoeBase.get_transceiver_dom_flags is not implemented')
+            return _escape_hatch.json_dumps(fn())
+
+    def sfp_get_transceiver_threshold_info(self, sfp):
+        """Calls `SfpBase.get_transceiver_threshold_info()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            fn = _get(dev, 'get_transceiver_threshold_info')
+            if fn is None:
+                raise NotImplementedError('SfpBase.get_transceiver_threshold_info is not implemented')
+            return _escape_hatch.json_dumps(fn())
+
+    def sfp_get_temperature(self, sfp):
+        """Calls `SfpBase.get_temperature()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            fn = _get(dev, 'get_temperature')
+            if fn is None:
+                raise NotImplementedError('SfpBase.get_temperature is not implemented')
+            return fn()
+
+    def sfp_get_transceiver_pm(self, sfp):
+        """Calls `SfpOptoeBase.get_transceiver_pm()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            fn = _get(dev, 'get_transceiver_pm')
+            if fn is None:
+                raise NotImplementedError('SfpOptoeBase.get_transceiver_pm is not implemented')
+            return _escape_hatch.json_dumps(fn())
+
+    def sfp_is_transceiver_vdm_supported(self, sfp):
+        """Calls `SfpOptoeBase.is_transceiver_vdm_supported()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            fn = _get(dev, 'is_transceiver_vdm_supported')
+            if fn is None:
+                raise NotImplementedError('SfpOptoeBase.is_transceiver_vdm_supported is not implemented')
+            return _truthy(fn())
+
+    def sfp_is_vdm_statistic_supported(self, sfp):
+        """Calls `SfpOptoeBase.is_vdm_statistic_supported()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            fn = _get(dev, 'is_vdm_statistic_supported')
+            if fn is None:
+                raise NotImplementedError('SfpOptoeBase.is_vdm_statistic_supported is not implemented')
+            return _truthy(fn())
+
+    def sfp_get_transceiver_vdm_real_value_basic(self, sfp):
+        """Calls `SfpOptoeBase.get_transceiver_vdm_real_value_basic()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            fn = _get(dev, 'get_transceiver_vdm_real_value_basic')
+            if fn is None:
+                raise NotImplementedError('SfpOptoeBase.get_transceiver_vdm_real_value_basic is not implemented')
+            return _escape_hatch.json_dumps(fn())
+
+    def sfp_get_transceiver_vdm_real_value_statistic(self, sfp):
+        """Calls `SfpOptoeBase.get_transceiver_vdm_real_value_statistic()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            fn = _get(dev, 'get_transceiver_vdm_real_value_statistic')
+            if fn is None:
+                raise NotImplementedError('SfpOptoeBase.get_transceiver_vdm_real_value_statistic is not implemented')
+            return _escape_hatch.json_dumps(fn())
+
+    def sfp_get_transceiver_vdm_flags(self, sfp):
+        """Calls `SfpOptoeBase.get_transceiver_vdm_flags()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            fn = _get(dev, 'get_transceiver_vdm_flags')
+            if fn is None:
+                raise NotImplementedError('SfpOptoeBase.get_transceiver_vdm_flags is not implemented')
+            return _escape_hatch.json_dumps(fn())
+
+    def sfp_get_transceiver_vdm_thresholds(self, sfp):
+        """Calls `SfpOptoeBase.get_transceiver_vdm_thresholds()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            fn = _get(dev, 'get_transceiver_vdm_thresholds')
+            if fn is None:
+                raise NotImplementedError('SfpOptoeBase.get_transceiver_vdm_thresholds is not implemented')
+            return _escape_hatch.json_dumps(fn())
+
+    def sfp_get_vdm_freeze_status(self, sfp):
+        """Calls `SfpOptoeBase.get_vdm_freeze_status()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            fn = _get(dev, 'get_vdm_freeze_status')
+            if fn is None:
+                raise NotImplementedError('SfpOptoeBase.get_vdm_freeze_status is not implemented')
+            return _truthy(fn())
+
+    def sfp_get_vdm_unfreeze_status(self, sfp):
+        """Calls `SfpOptoeBase.get_vdm_unfreeze_status()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            fn = _get(dev, 'get_vdm_unfreeze_status')
+            if fn is None:
+                raise NotImplementedError('SfpOptoeBase.get_vdm_unfreeze_status is not implemented')
+            return _truthy(fn())
+
+    def sfp_set_lpmode(self, sfp, on):
+        """Calls `SfpBase.set_lpmode()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            fn = _get(dev, 'set_lpmode')
+            if fn is None:
+                raise NotImplementedError('SfpBase.set_lpmode is not implemented')
+            return _truthy(fn(on))
+
+    def sfp_reset(self, sfp):
+        """Calls `SfpBase.reset()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            fn = _get(dev, 'reset')
+            if fn is None:
+                raise NotImplementedError('SfpBase.reset is not implemented')
+            return _truthy(fn())
+
+    def sfp_remove_xcvr_api(self, sfp):
+        """Calls `SfpBase.remove_xcvr_api()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            fn = _get(dev, 'remove_xcvr_api')
+            if fn is None:
+                raise NotImplementedError('SfpBase.remove_xcvr_api is not implemented')
+            return fn()
+
+    def sfp_freeze_vdm_stats(self, sfp):
+        """Calls `SfpOptoeBase.freeze_vdm_stats()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            fn = _get(dev, 'freeze_vdm_stats')
+            if fn is None:
+                raise NotImplementedError('SfpOptoeBase.freeze_vdm_stats is not implemented')
+            return _truthy(fn())
+
+    def sfp_unfreeze_vdm_stats(self, sfp):
+        """Calls `SfpOptoeBase.unfreeze_vdm_stats()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            fn = _get(dev, 'unfreeze_vdm_stats')
+            if fn is None:
+                raise NotImplementedError('SfpOptoeBase.unfreeze_vdm_stats is not implemented')
+            return _truthy(fn())
+
+    def sfp_read_eeprom(self, sfp, offset, num_bytes):
+        """Hand-written: Normalise the inherited EEPROM hook's bytearray to bytes, preserving a None read miss."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            return self._hatch.sfp_read_eeprom(dev, offset, num_bytes)
+
+    def sfp_write_eeprom(self, sfp, offset, data):
+        """Hand-written: The inherited EEPROM hook requires a bytearray buffer and a length derived from the supplied transport bytes."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            return self._hatch.sfp_write_eeprom(dev, offset, data)
+
+    def sfp_is_flat_memory(self, sfp):
+        """Calls `SfpBase.get_xcvr_api().is_flat_memory()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            dev = _call(_get(dev, 'get_xcvr_api'))
+            if dev is None:
+                return _truthy(None)
+            fn = _get(dev, 'is_flat_memory')
+            if fn is None:
+                raise NotImplementedError('SfpBase.get_xcvr_api.is_flat_memory is not implemented')
+            return _truthy(fn())
+
+    def sfp_get_module_type_abbreviation(self, sfp):
+        """Calls `SfpBase.get_xcvr_api().get_module_type_abbreviation()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            dev = _call(_get(dev, 'get_xcvr_api'))
+            if dev is None:
+                return None
+            fn = _get(dev, 'get_module_type_abbreviation')
+            if fn is None:
+                raise NotImplementedError('SfpBase.get_xcvr_api.get_module_type_abbreviation is not implemented')
+            return fn()
+
+    def sfp_is_coherent_module(self, sfp):
+        """Calls `SfpBase.get_xcvr_api().is_coherent_module()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            dev = _call(_get(dev, 'get_xcvr_api'))
+            if dev is None:
+                return _truthy(None)
+            fn = _get(dev, 'is_coherent_module')
+            if fn is None:
+                raise NotImplementedError('SfpBase.get_xcvr_api.is_coherent_module is not implemented')
+            return _truthy(fn())
+
+    def sfp_get_module_state(self, sfp):
+        """Calls `SfpBase.get_xcvr_api().get_module_state()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            dev = _call(_get(dev, 'get_xcvr_api'))
+            if dev is None:
+                return None
+            fn = _get(dev, 'get_module_state')
+            if fn is None:
+                raise NotImplementedError('SfpBase.get_xcvr_api.get_module_state is not implemented')
+            return fn()
+
+    def sfp_get_cmis_rev(self, sfp):
+        """Calls `SfpBase.get_xcvr_api().get_cmis_rev()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            dev = _call(_get(dev, 'get_xcvr_api'))
+            if dev is None:
+                return None
+            fn = _get(dev, 'get_cmis_rev')
+            if fn is None:
+                raise NotImplementedError('SfpBase.get_xcvr_api.get_cmis_rev is not implemented')
+            return fn()
+
+    def sfp_get_application_advertisement(self, sfp):
+        """Calls `SfpBase.get_xcvr_api().get_application_advertisement()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            dev = _call(_get(dev, 'get_xcvr_api'))
+            if dev is None:
+                return _escape_hatch.json_dumps(None)
+            fn = _get(dev, 'get_application_advertisement')
+            if fn is None:
+                raise NotImplementedError('SfpBase.get_xcvr_api.get_application_advertisement is not implemented')
+            return _escape_hatch.json_dumps(fn())
+
+    def sfp_get_datapath_state(self, sfp):
+        """Calls `SfpBase.get_xcvr_api().get_datapath_state()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            dev = _call(_get(dev, 'get_xcvr_api'))
+            if dev is None:
+                return _escape_hatch.json_dumps(None)
+            fn = _get(dev, 'get_datapath_state')
+            if fn is None:
+                raise NotImplementedError('SfpBase.get_xcvr_api.get_datapath_state is not implemented')
+            return _escape_hatch.json_dumps(fn())
+
+    def sfp_get_config_datapath_hostlane_status(self, sfp):
+        """Calls `SfpBase.get_xcvr_api().get_config_datapath_hostlane_status()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            dev = _call(_get(dev, 'get_xcvr_api'))
+            if dev is None:
+                return _escape_hatch.json_dumps(None)
+            fn = _get(dev, 'get_config_datapath_hostlane_status')
+            if fn is None:
+                raise NotImplementedError('SfpBase.get_xcvr_api.get_config_datapath_hostlane_status is not implemented')
+            return _escape_hatch.json_dumps(fn())
+
+    def sfp_get_dpinit_pending(self, sfp):
+        """Calls `SfpBase.get_xcvr_api().get_dpinit_pending()` on the SfpInfo at `sfp`."""
+        dev = self._find_sfp_info(sfp)
+        with self._hatch.device_lock(dev):
+            dev = _call(_get(dev, 'get_xcvr_api'))
+            if dev is None:
+                return _escape_hatch.json_dumps(None)
+            fn = _get(dev, 'get_dpinit_pending')
+            if fn is None:
+                raise NotImplementedError('SfpBase.get_xcvr_api.get_dpinit_pending is not implemented')
+            return _escape_hatch.json_dumps(fn())
 
     def set_fan_led(self, fan, color):
         """Set the LED on one fan.
@@ -2545,6 +3019,8 @@ class PlatformApi(object):
         `WatchdogBase.arm` answers the seconds it settled on, which need not
         be the seconds asked for, and -1 on failure."""
         target = _call(_get(self._chassis, 'get_watchdog'))
+        if target is None:
+            return None
         fn = _get(target, 'arm')
         if fn is None:
             raise NotImplementedError('ChassisBase.get_watchdog.arm is not implemented')
@@ -2553,6 +3029,8 @@ class PlatformApi(object):
     def disarm_watchdog(self):
         """Calls `ChassisBase.get_watchdog().disarm()`."""
         target = _call(_get(self._chassis, 'get_watchdog'))
+        if target is None:
+            return _truthy(None)
         fn = _get(target, 'disarm')
         if fn is None:
             raise NotImplementedError('ChassisBase.get_watchdog.disarm is not implemented')
@@ -2593,6 +3071,8 @@ class PlatformApi(object):
     def change_sed_password(self, new_password):
         """Calls `ChassisBase.get_sed_mgmt().change_sed_password()`."""
         target = _call(_get(self._chassis, 'get_sed_mgmt'))
+        if target is None:
+            return _truthy(None)
         fn = _get(target, 'change_sed_password')
         if fn is None:
             raise NotImplementedError('ChassisBase.get_sed_mgmt.change_sed_password is not implemented')
@@ -2601,6 +3081,8 @@ class PlatformApi(object):
     def reset_sed_password(self):
         """Calls `ChassisBase.get_sed_mgmt().reset_sed_password()`."""
         target = _call(_get(self._chassis, 'get_sed_mgmt'))
+        if target is None:
+            return _truthy(None)
         fn = _get(target, 'reset_sed_password')
         if fn is None:
             raise NotImplementedError('ChassisBase.get_sed_mgmt.reset_sed_password is not implemented')

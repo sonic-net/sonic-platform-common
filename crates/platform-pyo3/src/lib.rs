@@ -348,8 +348,12 @@ pub(crate) fn int_or_float(
     row: &Bound<'_, PyAny>,
     key: &str,
 ) -> Result<Option<Number>, PlatformError> {
-    let v = attr(row, key)?;
-    if v.is_none() || is_na(&v) || v.is_instance_of::<PyBool>() {
+    number_of(&attr(row, key)?)
+}
+
+/// A scalar reading, with the same int/float and missing-value rules as a column.
+pub(crate) fn number_of(v: &Bound<'_, PyAny>) -> Result<Option<Number>, PlatformError> {
+    if v.is_none() || is_na(v) || v.is_instance_of::<PyBool>() {
         return Ok(None);
     }
     if let Ok(i) = v.extract::<i64>() {
@@ -357,7 +361,7 @@ pub(crate) fn int_or_float(
     }
     v.extract::<f64>()
         .map(|f| Some(Number::Float(f)))
-        .map_err(|e| err(row.py(), e))
+        .map_err(|e| err(v.py(), e))
 }
 
 /// A column that is a list of rows.
