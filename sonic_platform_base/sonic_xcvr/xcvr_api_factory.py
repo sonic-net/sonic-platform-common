@@ -85,6 +85,8 @@ class XcvrApiFactory(object):
         QSFP/QSFP+ API implementation
         """
         revision_compliance = self.lower_memory_info.get_revision_compliance()
+        if revision_compliance is None:
+            return None
         if revision_compliance >= 3:
             return self._create_api(Sff8636Codes, Sff8636MemMap, Sff8636Api)
         else:
@@ -102,12 +104,17 @@ class XcvrApiFactory(object):
         # Instantiate various Optics implementation based upon their respective ID as per SFF8024
         id_mapping = {
             0x03: (self._create_api, (Sff8472Codes, Sff8472MemMap, Sff8472Api)),
+            0x0C: (self._create_api, (Sff8436Codes, Sff8436MemMap, Sff8436Api)),
             0x0D: (self._create_qsfp_api, ()),
             0x11: (self._create_api, (Sff8636Codes, Sff8636MemMap, Sff8636Api)),
+            0x17: (self._create_api, (Sff8436Codes, Sff8436MemMap, Sff8436Api)),
             0x18: (self._create_cmis_api, (bank,)),
             0x19: (self._create_cmis_api, (bank,)),
             0x1b: (self._create_cmis_api, (bank,)),
             0x1e: (self._create_cmis_api, (bank,)),
+            0x1f: (self._create_cmis_api, (bank,)),
+            0x20: (self._create_cmis_api, (bank,)),
+            0x21: (self._create_cmis_api, (bank,)),
             0x7e: (self._create_api, (AmphBackplaneCodes,
                                      AmphBackplaneMemMap, AmphBackplaneImpl)),
         }

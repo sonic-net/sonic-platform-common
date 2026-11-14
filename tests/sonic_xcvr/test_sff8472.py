@@ -1,4 +1,4 @@
-from mock import MagicMock
+from mock import MagicMock, patch
 import sys
 import pytest
 import random
@@ -313,3 +313,51 @@ class TestSff8472(object):
     def test_set_lpmode(self):
         assert not self.api.set_lpmode(True)
         assert not self.api.set_lpmode(False)
+
+
+    @staticmethod
+    def _temperature_api(values):
+        api = Sff8472Api.__new__(Sff8472Api)
+        api.xcvr_eeprom = MagicMock(spec=XcvrEeprom)
+        api.xcvr_eeprom.read.side_effect = values.get
+        api._temp_support = None
+        api._is_copper = None
+        return api
+
+    @pytest.mark.parametrize("support, expected", [(None, None), (False, 'N/A')])
+    def test_temperature_unavailable_does_not_read_monitor(self, support, expected):
+        api = self._temperature_api({})
+        with patch.object(api, 'get_temperature_support', return_value=support):
+            assert api.get_module_temperature() == expected
+        api.xcvr_eeprom.read.assert_not_called()
+
+    @pytest.mark.parametrize("value", [None, -20.5, 0.0, 35.125])
+    def test_supported_temperature_read(self, value):
+        api = self._temperature_api({
+            consts.DATA_NOT_READY_FIELD: False,
+            consts.TEMPERATURE_FIELD: value,
+        })
+        with patch.object(api, 'get_temperature_support', return_value=True):
+            assert api.get_module_temperature() == value
+
+    @pytest.mark.parametrize("ready", [True, None])
+    def test_sfp_not_ready_does_not_read_temperature(self, ready):
+        api = self._temperature_api({
+            consts.DDM_SUPPORT_FIELD: True,
+            consts.DATA_NOT_READY_FIELD: ready,
+        })
+        assert api.get_module_temperature() is None
+        assert all(call.args[0] != consts.TEMPERATURE_FIELD
+                   for call in api.xcvr_eeprom.read.call_args_list)
+
+    def test_sfp_readiness_recovers_on_next_read(self):
+        data = bytearray(512)
+        data[92] = 0x60  # DDM supported, internally calibrated.
+        data[352:354] = bytes([35, 128])
+        data[366] = 1
+        eeprom = XcvrEeprom(lambda offset, size: data[offset:offset + size],
+                            MagicMock(), Sff8472MemMap(Sff8472Codes))
+        api = Sff8472Api(eeprom)
+        assert api.get_module_temperature() is None
+        data[366] = 0
+        assert api.get_module_temperature() == 35.5
