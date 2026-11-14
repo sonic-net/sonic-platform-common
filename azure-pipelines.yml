@@ -7,6 +7,10 @@ trigger:
   branches:
     include:
       - '*'
+    # A push build of a Renovate branch would take the branch name as the
+    # sonic-slave image tag, fail, and report under the required check's name.
+    exclude:
+      - renovate/*
 
 variables:
   DIFF_COVER_CHECK_THRESHOLD: 80
@@ -24,7 +28,7 @@ pool:
   vmImage: 'ubuntu-24.04'
 
 container:
-  image: sonicdev-microsoft.azurecr.io:443/sonic-slave-bookworm:$(BRANCH_NAME)
+  image: sonicdev-microsoft.azurecr.io:443/sonic-slave-trixie:$(BRANCH_NAME)
 
 steps:
 - task: DownloadPipelineArtifact@2
@@ -35,9 +39,22 @@ steps:
     artifact: sonic-buildimage.vs
     runVersion: 'latestFromBranch'
     runBranch: 'refs/heads/$(BRANCH_NAME)'
+    # Only what the job installs: the sonic-slave image leaves the agent's disk
+    # nearly full.
     patterns: |
-      **/*.whl
-      **/*.deb
+      target/debs/trixie/libyang3_*.deb
+      target/debs/trixie/python3-libyang*.deb
+      target/debs/trixie/libnl-3-200_*.deb
+      target/debs/trixie/libnl-genl-3-200_*.deb
+      target/debs/trixie/libnl-route-3-200_*.deb
+      target/debs/trixie/libnl-nf-3-200_*.deb
+      target/debs/trixie/libswsscommon_1.0.0_amd64.deb
+      target/debs/trixie/python3-swsscommon_1.0.0_amd64.deb
+      target/python-wheels/trixie/swsssdk-2.0.1-py3-none-any.whl
+      target/python-wheels/trixie/sonic_py_common-1.0-py3-none-any.whl
+      target/python-wheels/trixie/sonic_yang_mgmt-1.0-py3-none-any.whl
+      target/python-wheels/trixie/sonic_yang_models-1.0-py3-none-any.whl
+      target/python-wheels/trixie/sonic_config_engine-1.0-py3-none-any.whl
     path: '$(Build.ArtifactStagingDirectory)'
   displayName: "Download artifacts from latest sonic-buildimage build"
 
@@ -52,7 +69,7 @@ steps:
                  libnl-nf-3-200_*.deb \
                  libswsscommon_1.0.0_amd64.deb \
                  python3-swsscommon_1.0.0_amd64.deb
-  workingDirectory: $(Build.ArtifactStagingDirectory)/target/debs/bookworm/
+  workingDirectory: $(Build.ArtifactStagingDirectory)/target/debs/trixie/
   displayName: 'Install Debian dependencies'
 
 - script: |
@@ -62,15 +79,17 @@ steps:
     sudo pip3 install sonic_yang_mgmt-1.0-py3-none-any.whl
     sudo pip3 install sonic_yang_models-1.0-py3-none-any.whl
     sudo pip3 install sonic_config_engine-1.0-py3-none-any.whl
-  workingDirectory: $(Build.ArtifactStagingDirectory)/target/python-wheels/bookworm/
+    sudo rm -rf $(Build.ArtifactStagingDirectory)/target
+    df -h /
+  workingDirectory: $(Build.ArtifactStagingDirectory)/target/python-wheels/trixie/
   displayName: 'Install Python dependencies'
 
 - script: |
     set -ex
     # Install .NET CORE
-    curl -sSL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
-    . /etc/os-release
-    sudo apt-add-repository https://packages.microsoft.com/debian/$VERSION_ID/prod
+    sudo mkdir -p /etc/apt/keyrings
+    curl -sSL https://packages.microsoft.com/keys/microsoft-2025.asc | sudo gpg --dearmor -o /etc/apt/keyrings/microsoft-prod.gpg
+    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/debian/13/prod trixie main" | sudo tee /etc/apt/sources.list.d/microsoft-prod.list
     sudo apt-get update
     sudo apt-get install -y dotnet-sdk-8.0
   displayName: "Install .NET CORE"
@@ -160,9 +179,12 @@ steps:
     # uninstalled after the Python tests, so it is found in the checkout.
     export PYTHONPATH=$(System.DefaultWorkingDirectory)
     export CARGO_TARGET_DIR=$(Agent.TempDirectory)/rust-target CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0
+    # Check each crate against its own committed lock file with the image's
+    # Rust, so an update to one of those lock files alone is checked too.
     for manifest in crates/*/Cargo.toml; do
-      cargo metadata --locked --format-version 1 --manifest-path "$manifest" > /dev/null
+      cargo check --locked --all-targets --manifest-path "$manifest"
     done
+    rm -rf "$CARGO_TARGET_DIR"
     printf '%s\n' '[workspace]' \
       'members = ["crates/platform-api", "crates/platform-pyo3", "crates/platform-provider"]' \
       'resolver = "2"' > Cargo.toml
@@ -181,6 +203,13 @@ steps:
     failTaskOnFailedTests: true
   condition: succeededOrFailed()
   displayName: 'Publish Python 3 test results'
+
+# The diff coverage step the pipeline decorator adds installs diff-cover with
+# pip, which cannot replace trixie's Debian-packaged Pygments; without it the
+# step finds no diff-cover and the required coverage check is never posted.
+- script: |
+    sudo apt-get install -y diff-cover
+  displayName: 'Pre-install diff-cover for pipeline decorator'
 
 - task: PublishCodeCoverageResults@1
   inputs:
