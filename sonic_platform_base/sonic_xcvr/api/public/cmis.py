@@ -2926,6 +2926,33 @@ class CmisApi(CmisCdbFw, XcvrApi):
 
         return True
 
+    def is_module_precoding_supported(self):
+        '''
+        This function returns True if the module supports module-wide TP1/TP4
+        precoding control.
+        '''
+        return False
+
+    def get_module_precoding(self):
+        '''
+        This function returns the module-wide TP1/TP4 precoding settings as
+        {'TP1': bool, 'TP4': bool}, or None if unsupported or unreadable
+        '''
+        return None
+
+    def set_module_precoding(self, precoding_dict):
+        '''
+        Sets the module-wide TP1/TP4 precoding controls
+
+        Args:
+            precoding_dict: dict with optional keys 'TP1' and/or 'TP4', each
+                            set to True/1 (ON) or False/0 (OFF)
+
+        Returns:
+            True if successful, False if unsupported or failed
+        '''
+        return False
+
     def stage_custom_si_settings(self, host_lanes_mask, optics_si_dict):
         # Create TX/RX specific si_dict
         rx_si_settings = {}

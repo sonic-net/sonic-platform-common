@@ -537,3 +537,7 @@ SERVER_FW_VERSION = "ServerFirmwareVersion"
 VENDOR_CUSTOM = "VendorCustom"
 TARGET_MODE = "TargetMode"
 CARTRDIGE_SLOT_ID = "CartridgeSlotID"
+
+# Module-wide TP1/TP4 precoding (keys of the get/set_module_precoding() dict)
+MODULE_PRECODING_TP1 = "TP1"
+MODULE_PRECODING_TP4 = "TP4"
