@@ -15,16 +15,15 @@ git_override(
     remote = "https://github.com/securely1g/sonic-buildimage.git",
 )
 
-# Preserve the tested image root's explicit overrides, which are not inherited.
-git_override(
+# The pinned image requests SWSS at 0.0.0 and its overrides are not inherited.
+single_version_override(
     module_name = "sonic-swss",
-    commit = "252a506ae5a94e36a4e330b736a3781a9f7bcf9b",
-    remote = "https://github.com/securely1g/sonic-swss.git",
+    version = "0.0.3-9c3797990d4b5a79100a40fe7689927c18212361",
 )
 
 single_version_override(
     module_name = "rules_go",
-    version = "0.64.1-sonic.1",
+    version = "0.65.0.sonic.1",
 )
 
 single_version_override(
@@ -34,12 +33,12 @@ single_version_override(
 
 single_version_override(
     module_name = "tar.bzl",
-    version = "0.10.5-sonic.1",
+    version = "0.10.5.sonic.2",
 )
 
 single_version_override(
     module_name = "libnl3",
-    version = "3.7.0.sonic.6",
+    version = "3.7.0.sonic.7",
 )
 
 single_version_override(
@@ -49,19 +48,25 @@ single_version_override(
 
 single_version_override(
     module_name = "sonic-build-infra",
-    version = "0.0.25-17a1e555291c64be1a6ff008f33352bffc4f8e5c",
+    version = "0.0.37-316e298e77ab5cfa69af9b0c05ec24d5d94bbe1e",
 )
 
 single_version_override(
     module_name = "sonic-rust-deps",
-    version = "0.0.4-6d9c70f708d7420e9e2b2cdc906b80cee6b140f1",
+    version = "0.0.5-dd364f207d7b320a5af12c81da6d10893f292205",
 )
 
-bazel_dep(name = "rules_python", version = "1.9.0")
+bazel_dep(name = "rules_distroless", version = "0.9.4.sonic.20")
+bazel_dep(name = "rules_python", version = "1.9.0.sonic.1")
 bazel_dep(name = "rules_shell", version = "0.8.0")
+bazel_dep(name = "patchelf", version = "0.18.0.bcr.1")
 bazel_dep(name = "platforms", version = "1.1.0")
-bazel_dep(name = "sonic-build-infra", version = "0.0.25-17a1e555291c64be1a6ff008f33352bffc4f8e5c", repo_name = "sonic_build_infra")
-bazel_dep(name = "sonic-swss-common", version = "0.0.7-f7fda40c02b3a8b4bbbff3d17fca3dff83f4cbad", repo_name = "sonic_swss_common")
+bazel_dep(name = "sonic-build-infra", version = "0.0.37-316e298e77ab5cfa69af9b0c05ec24d5d94bbe1e", repo_name = "sonic_build_infra")
+bazel_dep(name = "sonic-swss-common", version = "0.0.9-334389eae54afd1f4f5ee69f89c3a7ad2062ee61", repo_name = "sonic_swss_common")
+
+# The test image and the shared toolchains must use the same APT package graph.
+apt = use_extension("@rules_distroless//apt:extensions.bzl", "apt")
+apt.import_lock(lock = "@sonic_build_infra//apt:apt.lock.json")
 
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
