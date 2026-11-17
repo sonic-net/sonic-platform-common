@@ -13,10 +13,10 @@ else:
     import mock
 
 try:
-    from sonic_py_common import logger
+    from sonic_py_common import syslogger
 except ImportError:
     sys.modules['sonic_py_common'] = mock.MagicMock()
-    sys.modules['sonic_py_common.logger'] = mock.MagicMock()
+    sys.modules['sonic_py_common.syslogger'] = mock.MagicMock()
 
 from sonic_platform_base import bmc_fw_update
 
@@ -26,7 +26,7 @@ class TestBMCFWUpdate:
 
     @mock.patch('sonic_platform_base.bmc_fw_update.time.sleep')
     @mock.patch('sys.exit')
-    @mock.patch('sonic_py_common.logger.Logger')
+    @mock.patch('sonic_py_common.syslogger.SysLogger')
     def test_main_success_bmc_firmware_updated(self, mock_logger_class, mock_exit, mock_sleep):
         """Test successful firmware update with BMC firmware component updated"""
         mock_logger = mock.MagicMock()
@@ -59,7 +59,7 @@ class TestBMCFWUpdate:
         mock_exit.assert_not_called()
 
     @mock.patch('sys.exit')
-    @mock.patch('sonic_py_common.logger.Logger')
+    @mock.patch('sonic_py_common.syslogger.SysLogger')
     def test_main_success_no_bmc_reset_needed(self, mock_logger_class, mock_exit):
         """Test successful firmware update without BMC reset"""
         mock_logger = mock.MagicMock()
@@ -85,7 +85,7 @@ class TestBMCFWUpdate:
         mock_exit.assert_not_called()
 
     @mock.patch('sys.exit')
-    @mock.patch('sonic_py_common.logger.Logger')
+    @mock.patch('sonic_py_common.syslogger.SysLogger')
     def test_main_missing_arguments(self, mock_logger_class, mock_exit):
         """Test main with missing arguments"""
         mock_logger = mock.MagicMock()
@@ -101,7 +101,7 @@ class TestBMCFWUpdate:
         mock_exit.assert_called_with(1)
 
     @mock.patch('sys.exit')
-    @mock.patch('sonic_py_common.logger.Logger')
+    @mock.patch('sonic_py_common.syslogger.SysLogger')
     def test_main_no_bmc_instance(self, mock_logger_class, mock_exit):
         """Test main when BMC instance is None"""
         mock_logger = mock.MagicMock()
@@ -122,7 +122,7 @@ class TestBMCFWUpdate:
         mock_exit.assert_called_with(1)
 
     @mock.patch('sys.exit')
-    @mock.patch('sonic_py_common.logger.Logger')
+    @mock.patch('sonic_py_common.syslogger.SysLogger')
     def test_main_update_firmware_failure(self, mock_logger_class, mock_exit):
         """Test main when firmware update fails"""
         mock_logger = mock.MagicMock()
@@ -146,7 +146,7 @@ class TestBMCFWUpdate:
 
     @mock.patch('sonic_platform_base.bmc_fw_update.time.sleep')
     @mock.patch('sys.exit')
-    @mock.patch('sonic_py_common.logger.Logger')
+    @mock.patch('sonic_py_common.syslogger.SysLogger')
     def test_main_bmc_reset_failure(self, mock_logger_class, mock_exit, mock_sleep):
         """Test main when BMC reset fails"""
         mock_logger = mock.MagicMock()
@@ -175,7 +175,7 @@ class TestBMCFWUpdate:
 
     @mock.patch('sonic_platform_base.bmc_fw_update.time.sleep')
     @mock.patch('sys.exit')
-    @mock.patch('sonic_py_common.logger.Logger')
+    @mock.patch('sonic_py_common.syslogger.SysLogger')
     def test_main_redfish_not_ready_after_restart(self, mock_logger_class, mock_exit, mock_sleep):
         """Test failure when the Redfish service does not become ready after restart"""
         mock_logger = mock.MagicMock()
