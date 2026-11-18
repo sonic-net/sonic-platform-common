@@ -60,7 +60,7 @@ CHASSIS = Chassis()
 /// A `Platform::Pyo3` over the mock, plus the chassis so a test can look at
 /// what an action did to it.
 fn platform() -> (Platform, Py<PyAny>) {
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let m = PyModule::from_code(py, MOCK, c_str!("mock.py"), c_str!("mock")).unwrap();
         let chassis = m.getattr("CHASSIS").unwrap();
         let facade = py
@@ -105,7 +105,7 @@ fn an_action_carries_its_arguments_through() {
     let (mut p, chassis) = platform();
     p.set_fan_led(&DeviceKey::from("fan_drawers[0]/fans[0]"), LedColor::Green)
         .expect("the mock fan takes a colour");
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let led = chassis
             .bind(py)
             .getattr("fan")
@@ -125,7 +125,7 @@ fn an_action_carries_its_arguments_through() {
 #[test]
 fn finalize_reaches_the_implementation() {
     let (mut p, _chassis) = platform();
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let m = PyModule::from_code(
             py,
             c_str!(

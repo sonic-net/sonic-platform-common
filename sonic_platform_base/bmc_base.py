@@ -88,6 +88,20 @@ class BMCBase(device_base.DeviceBase):
                                         self._get_login_user_callback,
                                         self._get_login_password_callback)
 
+    def reset(self):
+        """
+        Perform a complete BMC hardware reset from the switch host.
+
+        Implementations must drive a host-accessible CPLD, GPIO, or equivalent
+        local hardware control path and must not use Redfish, the host-BMC
+        link, or BMC software. The platform implementation is responsible for
+        asserting reset, holding it for the required duration, and releasing it.
+
+        Returns:
+            bool: True when the hardware reset completed, False otherwise.
+        """
+        raise NotImplementedError
+
     def _get_login_user_callback(self):
         """
         Get BMC username/account for login before Redfish commands from NOS.
@@ -554,7 +568,7 @@ class BMCBase(device_base.DeviceBase):
             logger.log_error(msg)
             self.rf_client.redfish_api_set_min_password_length(saved_min_length)
             return (ret, msg)
-        logger.log_notice('Changed BMC root password to default')
+        logger.log_notice(f'Changed BMC root password to default: {default_root_password}')
 
         ret, err_msg = self.rf_client.redfish_api_set_min_password_length(saved_min_length)
         if ret != RedfishClient.ERR_CODE_OK:

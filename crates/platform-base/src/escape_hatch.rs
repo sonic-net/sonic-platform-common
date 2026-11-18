@@ -4,8 +4,8 @@
 //! method of the same name, followed by the bridge's read of what it returns,
 //! so that a daemon sees the same rows and the same errors either way.
 
-use std::cell::RefCell;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 
 use platform_api::{
     AsicInfo, BmcResult, ChangeEventBatch, DeviceKey, EepromUpdate, PcieAerStat, PcieDevice,
@@ -167,22 +167,21 @@ fn opt_str(v: &PyVal) -> PyVal {
 
 /// `EscapeHatches`: per facade, as the Python one is per facade.
 ///
-/// State behind `RefCell` because the generated walks borrow the facade
-/// immutably while a provider here caches; a facade is used from one thread at
-/// a time (`PlatformApi` is `Send`, not `Sync`).
+/// Caches are synchronized so the facade also satisfies a shared PlatformApi.
+/// Vendor objects are cloned out of a cache before invoking their methods.
 #[derive(Default)]
 pub struct EscapeHatches {
-    manager: RefCell<PyVal>,
-    loaded: RefCell<bool>,
-    sensors_data: RefCell<Option<PyVal>>,
-    eeprom: RefCell<PyVal>,
+    manager: Mutex<PyVal>,
+    loaded: Mutex<bool>,
+    sensors_data: Mutex<Option<PyVal>>,
+    eeprom: Mutex<PyVal>,
     /// `from sonic_platform.pcie import Pcie; Pcie(platform_path)`, when
     /// the vendor has one.
     pcie_factory: Option<PcieFactory>,
-    pcie: RefCell<Option<std::sync::Arc<dyn PcieApi>>>,
-    pcie_tried: RefCell<bool>,
-    storage: RefCell<Option<StorageDevices>>,
-    storage_tried: RefCell<bool>,
+    pcie: Mutex<Option<std::sync::Arc<dyn PcieApi>>>,
+    pcie_tried: Mutex<bool>,
+    storage: Mutex<Option<StorageDevices>>,
+    storage_tried: Mutex<bool>,
     /// What `notify_shutdown()` runs, when the vendor has something to abort.
     shutdown: Option<ShutdownHook>,
 }
@@ -219,8 +218,8 @@ impl EscapeHatches {
     /// setting `_storage` does to the Python ones.
     pub fn with_storage(devices: StorageDevices) -> Self {
         EscapeHatches {
-            storage: RefCell::new(Some(devices)),
-            storage_tried: RefCell::new(true),
+            storage: Mutex::new(Some(devices)),
+            storage_tried: Mutex::new(true),
             ..EscapeHatches::default()
         }
     }
@@ -237,63 +236,100 @@ impl EscapeHatches {
         &self,
         chassis: &PyVal,
     ) -> Result<Option<i64>, PlatformError> {
-        let cooling =
-            facade_rt::call(facade_rt::get(chassis, |o| o.get_liquid_cooling())).map_err(err)?;
+        let cooling = facade_rt::call(facade_rt::get(chassis, |o| o.get_liquid_cooling()))
+            .map_err(|e| facade_rt::call_err(e, "get_major_leak_num_min_sensors"))?;
         let value = facade_rt::call(facade_rt::get(&cooling, |o| {
             o.get_major_leak_num_min_sensors()
         }))
-        .map_err(err)?;
+        .map_err(|e| facade_rt::call_err(e, "get_major_leak_num_min_sensors"))?;
         facade_rt::ret_int(&value)
     }
 
     /// `_get()`: the manager, or None; `NotImplementedError` is None.
     fn manager(&self, chassis: &PyVal) -> PyResult<PyVal> {
-        if self.manager.borrow().is_none() {
+        if self
+            .manager
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .is_none()
+        {
             match optional(chassis, |o| o.get_thermal_manager()) {
                 Ok(None) => return Ok(PyVal::None),
                 Err(e) if e.exc == Exc::NotImplementedError => return Ok(PyVal::None),
                 Err(e) => return Err(e),
-                Ok(Some(m)) => *self.manager.borrow_mut() = m,
+                Ok(Some(m)) => {
+                    *self
+                        .manager
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner()) = m
+                }
             }
         }
-        Ok(self.manager.borrow().clone())
+        Ok(self
+            .manager
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone())
     }
 
     /// `tm_initialize()`: here a `NotImplementedError` from
     /// `get_thermal_manager()` is let through, as thermalctld expects.
     pub fn tm_initialize(&self, chassis: &PyVal) -> Result<(), PlatformError> {
         (|| -> PyResult<()> {
-            if self.manager.borrow().is_none() {
+            if self
+                .manager
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .is_none()
+            {
                 if let Some(m) = optional(chassis, |o| o.get_thermal_manager())? {
-                    *self.manager.borrow_mut() = m;
+                    *self
+                        .manager
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner()) = m;
                 }
             }
-            let mgr = self.manager.borrow().clone();
+            let mgr = self
+                .manager
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .clone();
             if mgr.is_none() {
                 return Ok(());
             }
-            direct(&mgr, "initialize", |o| o.initialize())?;
-            direct(&mgr, "load", |o| o.load(POLICY_FILE))?;
-            direct(&mgr, "init_thermal_algorithm", |o| {
-                o.init_thermal_algorithm(chassis.clone())
-            })?;
-            *self.loaded.borrow_mut() = true;
-            Ok(())
+            let started = (|| -> PyResult<()> {
+                direct(&mgr, "initialize", |o| o.initialize())?;
+                direct(&mgr, "load", |o| o.load(POLICY_FILE))?;
+                direct(&mgr, "init_thermal_algorithm", |o| {
+                    o.init_thermal_algorithm(chassis.clone())
+                })?;
+                Ok(())
+            })();
+            *self
+                .loaded
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner()) = true;
+            started
         })()
-        .map_err(err)
+        .map_err(|error| facade_rt::call_err(error, "tm_initialize"))
     }
 
     /// `tm_run_policy()`: nothing unless loaded.
     pub fn tm_run_policy(&self, chassis: &PyVal) -> Result<(), PlatformError> {
         (|| -> PyResult<()> {
             let mgr = self.manager(chassis)?;
-            if mgr.is_none() || !*self.loaded.borrow() {
+            if mgr.is_none()
+                || !*self
+                    .loaded
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner())
+            {
                 return Ok(());
             }
             direct(&mgr, "run_policy", |o| o.run_policy(chassis.clone()))?;
             Ok(())
         })()
-        .map_err(err)
+        .map_err(|e| facade_rt::call_err(e, "tm_run_policy"))
     }
 
     /// `tm_get_interval()`: seconds as a float, None without a manager.
@@ -330,7 +366,10 @@ impl EscapeHatches {
                 }
             }
             direct(&mgr, "deinitialize", |o| o.deinitialize())?;
-            *self.loaded.borrow_mut() = false;
+            *self
+                .loaded
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner()) = false;
             Ok(())
         })()
         .map_err(err)
@@ -372,39 +411,52 @@ impl EscapeHatches {
 
     /// `_eeprom_obj()`: cached; `NotImplementedError` is None.
     fn eeprom_obj(&self, chassis: &PyVal) -> PyResult<PyVal> {
-        if self.eeprom.borrow().is_none() {
+        if self
+            .eeprom
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .is_none()
+        {
             match optional(chassis, |o| o.get_eeprom()) {
                 Ok(None) => return Ok(PyVal::None),
                 Err(e) if e.exc == Exc::NotImplementedError => return Ok(PyVal::None),
                 Err(e) => return Err(e),
-                Ok(Some(v)) => *self.eeprom.borrow_mut() = v,
+                Ok(Some(v)) => {
+                    *self
+                        .eeprom
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner()) = v
+                }
             }
         }
-        Ok(self.eeprom.borrow().clone())
+        Ok(self
+            .eeprom
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone())
     }
 
     /// `eeprom_update_db()`: `read_eeprom()` then `update_eeprom_db(data)`,
     /// saying which half failed.
     pub fn eeprom_update_db(&self, chassis: &PyVal) -> Result<EepromUpdate, PlatformError> {
-        let swallow = |e: &PyErr| {
-            matches!(
-                e.exc,
-                Exc::NotImplementedError | Exc::AttributeError | Exc::Missing
-            )
-        };
+        let swallow = |e: &PyErr| matches!(e.exc, Exc::NotImplementedError | Exc::Missing);
         (|| -> PyResult<EepromUpdate> {
             let eeprom = self.eeprom_obj(chassis)?;
             if eeprom.is_none() {
                 return Ok(EepromUpdate::ReadFailed);
             }
-            let data = match direct(&eeprom, "read_eeprom", |o| o.read_eeprom()) {
+            let data = match optional(&eeprom, |o| o.read_eeprom())
+                .map(|value| value.unwrap_or(PyVal::None))
+            {
                 Err(e) if swallow(&e) => return Ok(EepromUpdate::ReadFailed),
                 other => other?,
             };
             if data.is_none() {
                 return Ok(EepromUpdate::ReadFailed);
             }
-            match direct(&eeprom, "update_eeprom_db", |o| o.update_eeprom_db(data)) {
+            match optional(&eeprom, |o| o.update_eeprom_db(data))
+                .map(|value| value.unwrap_or(PyVal::Int(1)))
+            {
                 Err(e) if swallow(&e) => Ok(EepromUpdate::UpdateFailed),
                 Ok(failed) if failed.truthy() => Ok(EepromUpdate::UpdateFailed),
                 other => other.map(|_| EepromUpdate::Updated),
@@ -417,7 +469,12 @@ impl EscapeHatches {
 
     /// `_sensors_yaml()`: the platform's sensors.yaml, or `{}`.
     fn sensors_yaml(&self) -> PyResult<PyVal> {
-        if let Some(d) = self.sensors_data.borrow().as_ref() {
+        if let Some(d) = self
+            .sensors_data
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .as_ref()
+        {
             return Ok(d.clone());
         }
         let path = device_info::get_platform()
@@ -441,7 +498,10 @@ impl EscapeHatches {
             }
             _ => PyVal::Dict(Vec::new()),
         };
-        *self.sensors_data.borrow_mut() = Some(data.clone());
+        *self
+            .sensors_data
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(data.clone());
         Ok(data)
     }
 
@@ -468,10 +528,21 @@ impl EscapeHatches {
     /// None; tried once.  An exception that is not an `Exception` gets out,
     /// and leaves None behind.
     fn pcie_util(&self) -> PyResult<Option<std::sync::Arc<dyn PcieApi>>> {
-        if *self.pcie_tried.borrow() {
-            return Ok(self.pcie.borrow().clone());
+        if *self
+            .pcie_tried
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+        {
+            return Ok(self
+                .pcie
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .clone());
         }
-        *self.pcie_tried.borrow_mut() = true;
+        *self
+            .pcie_tried
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()) = true;
         let Ok((platform_path, _hwsku)) = device_info::get_paths_to_platform_and_hwsku_dirs()
         else {
             return Ok(None);
@@ -483,14 +554,21 @@ impl EscapeHatches {
                 Err(e) if matches!(e.exc.name(), "ImportError" | "ModuleNotFoundError") => {
                     std::sync::Arc::new(PcieUtil::new(&platform_path))
                 }
+                Err(e) if e.exc.name() == "SystemExit" => return Ok(None),
                 Err(e) => {
-                    *self.pcie_tried.borrow_mut() = false;
+                    *self
+                        .pcie_tried
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner()) = false;
                     return Err(e);
                 }
             },
             None => std::sync::Arc::new(PcieUtil::new(&platform_path)),
         };
-        *self.pcie.borrow_mut() = Some(made.clone());
+        *self
+            .pcie
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(made.clone());
         Ok(Some(made))
     }
 
@@ -516,7 +594,10 @@ impl EscapeHatches {
                     return Ok(Vec::new())
                 }
                 Err(e) if e.exc.name() == "SystemExit" => {
-                    *self.pcie.borrow_mut() = None;
+                    *self
+                        .pcie
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner()) = None;
                     return Ok(Vec::new());
                 }
                 other => other?,
@@ -618,12 +699,35 @@ impl EscapeHatches {
         &self,
         _chassis: &PyVal,
     ) -> Result<Vec<StorageDeviceInfo>, PlatformError> {
-        if !*self.storage_tried.borrow() {
-            *self.storage_tried.borrow_mut() = true;
-            // Any exception from the constructor is None.
-            *self.storage.borrow_mut() = StorageDevices::new().ok();
+        if !*self
+            .storage_tried
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+        {
+            *self
+                .storage_tried
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner()) = true;
+            match StorageDevices::new() {
+                Ok(devices) => {
+                    *self
+                        .storage
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(devices)
+                }
+                Err(error) => {
+                    *self
+                        .storage_tried
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner()) = false;
+                    return Err(err(error));
+                }
+            }
         }
-        let mut guard = self.storage.borrow_mut();
+        let mut guard = self
+            .storage
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let Some(devices) = guard.as_mut() else {
             return Ok(Vec::new());
         };
@@ -1198,12 +1302,16 @@ mod tests {
         )]);
         assert_eq!(
             EscapeHatches::new().tm_initialize(&c),
-            Err(backend("'Scripted' object has no attribute 'initialize'"))
+            Err(backend(
+                "AttributeError(\"'Scripted' object has no attribute 'initialize'\")"
+            ))
         );
         let c = chassis(vec![("get_thermal_manager", Ok(s("tm")))]);
         assert_eq!(
             EscapeHatches::new().tm_initialize(&c),
-            Err(backend("'str' object has no attribute 'initialize'"))
+            Err(backend(
+                "AttributeError(\"'str' object has no attribute 'initialize'\")"
+            ))
         );
     }
 
@@ -1703,11 +1811,61 @@ mod tests {
     }
 
     #[test]
-    fn without_sys_block_there_is_no_storage() {
+    fn without_sys_block_the_storage_error_is_propagated_and_retried() {
         let _root = Root::new();
-        assert_eq!(
-            EscapeHatches::new().get_storage_devices(&PyVal::None),
-            Ok(vec![])
-        );
+        let hatch = EscapeHatches::new();
+        for _ in 0..2 {
+            assert!(
+                matches!(hatch.get_storage_devices(&PyVal::None), Err(PlatformError::Backend(reason)) if reason.contains("/sys/block"))
+            );
+            assert!(!*hatch.storage_tried.lock().unwrap());
+        }
+    }
+
+    #[test]
+    fn a_failed_startup_does_not_disable_native_policy_rounds() {
+        for step in ["initialize", "load", "init_thermal_algorithm"] {
+            let mut answers = vec![
+                ("initialize", Ok(PyVal::None)),
+                ("load", Ok(PyVal::None)),
+                ("init_thermal_algorithm", Ok(PyVal::None)),
+                (
+                    "run_policy",
+                    Err(PyErr::new(Exc::NotImplementedError, vec![s("set_speed")])),
+                ),
+            ];
+            answers
+                .iter_mut()
+                .find(|(name, _)| *name == step)
+                .unwrap()
+                .1 = Err(PyErr::other("OSError", "startup failed"));
+            let c = chassis(vec![(
+                "get_thermal_manager",
+                Ok(obj(BaseClass::ThermalManagerBase, answers)),
+            )]);
+            let hatch = EscapeHatches::new();
+            assert!(hatch.tm_initialize(&c).is_err());
+            for _ in 0..3 {
+                assert_eq!(
+                    hatch.tm_run_policy(&c),
+                    Err(backend("NotImplementedError('set_speed')"))
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_vendor_pcie_that_exits_is_not_reconstructed_on_each_poll() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        static CALLS: AtomicUsize = AtomicUsize::new(0);
+        fn exits(_: &str) -> PyResult<Arc<dyn PcieApi>> {
+            CALLS.fetch_add(1, Ordering::SeqCst);
+            Err(PyErr::other("SystemExit", ""))
+        }
+        let _root = with_a_platform();
+        let hatch = EscapeHatches::with_pcie(exits);
+        assert_eq!(hatch.get_pcie_devices(&PyVal::None), Ok(vec![]));
+        assert_eq!(hatch.get_pcie_devices(&PyVal::None), Ok(vec![]));
+        assert_eq!(CALLS.load(Ordering::SeqCst), 1);
     }
 }

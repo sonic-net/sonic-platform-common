@@ -22,7 +22,7 @@ use platform_api::{
     DeviceKey, Number, PlatformApi, PlatformError,
 };
 
-use crate::{err, flag, int_of, int_or_float, int_or_float_arg, integer, rows, text, Bridge};
+use crate::{call_err, err, flag, int_of, int_or_float, int_or_float_arg, integer, rows, text, Bridge};
 {% for row in model.rows %}
 
 /// Read one `{{ row.name }}` off the object the facade returned.
@@ -40,7 +40,7 @@ impl PlatformApi for Bridge {
 {%- if m.kind == 'snapshot' and m.singleton %}
 
     fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let row = self
                 .facade
                 .bind(py)
@@ -49,14 +49,14 @@ impl PlatformApi for Bridge {
 {%- else %}
                 .call_method0({{ m.name | tojson }})
 {%- endif %}
-                .map_err(|e| err(py, e))?;
+                .map_err(|e| call_err(py, e, {{ m.name | tojson }}))?;
             {{ model.row(m.row).snake }}(&row)
         })
     }
 {%- elif m.kind == 'snapshot' %}
 
     fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let rows = self
                 .facade
                 .bind(py)
@@ -65,10 +65,10 @@ impl PlatformApi for Bridge {
 {%- else %}
                 .call_method0({{ m.name | tojson }})
 {%- endif %}
-                .map_err(|e| err(py, e))?;
+                .map_err(|e| call_err(py, e, {{ m.name | tojson }}))?;
             let mut out = Vec::new();
             for row in rows.try_iter().map_err(|e| err(py, e))? {
-                let row = row.map_err(|e| err(py, e))?;
+                let row = row.map_err(|e| call_err(py, e, {{ m.name | tojson }}))?;
                 out.push({{ model.row(m.row).snake }}(&row)?);
             }
             Ok(out)
@@ -77,23 +77,23 @@ impl PlatformApi for Bridge {
 {%- elif m.rust_ret == '()' %}
 
     fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<(), PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             self.facade
                 .bind(py)
                 .call_method1({{ m.name | tojson }}, ({{ m.rust_args }}))
-                .map_err(|e| err(py, e))?;
+                .map_err(|e| call_err(py, e, {{ m.name | tojson }}))?;
             Ok(())
         })
     }
 {%- else %}
 
     fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = self
                 .facade
                 .bind(py)
                 .call_method1({{ m.name | tojson }}, ({{ m.rust_args }}))
-                .map_err(|e| err(py, e))?;
+                .map_err(|e| call_err(py, e, {{ m.name | tojson }}))?;
             {{ m.rust_ret_conv }}
         })
     }

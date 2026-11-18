@@ -21,7 +21,7 @@ const UNSUPPORTED_SONIC_BMC: &str = "Operation not supported when BMC OS is soni
 const STATE_DB_ID: i64 = 6;
 
 /// Older Python base classes keep the pre-SONiC Redfish-only contract.
-pub(crate) fn is_sonic_bmc_os() -> bool {
+pub fn is_sonic_bmc_os() -> bool {
     crate::object::BMC_HAS_SONIC_OS && device_info::get_bmc_os() == device_info::BMC_OS_SONIC
 }
 

@@ -21,11 +21,23 @@ bridge come from:
 """
 
 import ast
+import hashlib
+import json
 import os
 import re
 import warnings
 
 from model import _snake, key_segment, keyed, rust_type, strip_optional, template_fields
+
+# Non-Python generator inputs must be watched by Cargo too.
+INPUTS = set()
+
+def read_input(path):
+    path = os.path.realpath(path)
+    INPUTS.add(path)
+    with open(path) as stream:
+        return stream.read()
+
 
 # Methods the hand-written parts of platform-base call that no declaration in
 # the stub names: the escape hatches (`_escape_hatch.py`) and the base-class
@@ -114,6 +126,7 @@ SWEEP_BODIES = {
     # What a base instance constructed with its defaults answers: no leak
     # recorded, and no profiles passed in.
     ('LeakageSensorBase', 'get_leak_severity'): 'ok None',
+    ('LeakageSensorBase', 'is_test_leak'): 'ok False',
     ('LiquidCoolingBase', 'get_all_profiles'): 'ok []',
     # No /etc/sonic/sed_config.conf off a switch: None.
     ('SedMgmtBase', 'get_tpm_bank_a_address'): 'ok None',
@@ -462,7 +475,7 @@ def method_table(model, classes):
         kinds = ['object' if p in m.calls_ints else _param_kind(t, enums) for p, t in passed]
         if m.row and m.pass_key:
             # The base class takes the device's own name in its place, as
-            # get_name() answered it: None too.
+            # get_name() answered it; missing names skip the action.
             kinds = ['object'] + kinds
         target = owner if len(hops) == 1 else reached_through(hops[-1])
         names = arg_names(target or owner, hops[-1], len(kinds))
@@ -509,9 +522,16 @@ def build_object(model, base_dir):
                         % rust_str('%s.%s answers base-class state the'
                                      ' implementation has to provide' % (where, m.name)))
             elif kind == 'body':
-                fn = 'crate::bodies::%s::%s' % (module_of(where), m.name)
-                bodies.setdefault(module_of(where), set()).add(m.name)
-                rust = '%s(s%s)' % (fn, m.args())
+                module = module_of(where)
+                source = os.path.join(os.path.dirname(__file__), '..', 'crates',
+                                      'platform-base', 'src', 'bodies', module + '.rs')
+                available = os.path.exists(source) and re.search(r'pub fn %s[<(]' % re.escape(m.name), read_input(source))
+                if available:
+                    fn = 'crate::bodies::%s::%s' % (module, m.name)
+                    bodies.setdefault(module, set()).add(m.name)
+                    rust = '%s(s%s)' % (fn, m.args())
+                else:
+                    rust = 'Err(PyErr::not_ported(%s))' % rust_str(where + '.' + m.name)
             elif kind == 'raise':
                 rust = 'Err(%s)' % rust
             else:
@@ -576,7 +596,15 @@ def _base_call(f, dev='dev'):
     for i, hop in enumerate(hops):
         last = i == len(hops) - 1
         ref = call if i == 0 else '&' + call
-        if last and f.preserve_none:
+        prefix = '.'.join(hops[:i + 1])
+        if prefix in getattr(f, 'cached_prefixes', ()):
+            fallback = _pyval_literal(f.default) if last and f.preserve_none else 'PyVal::None'
+            key = _q(prefix)
+            call = ('{ let value = if let Some(value) = reads.get(%s) { value.clone() } '
+                    'else { let value = get(%s, |o| o.%s()); '
+                    'reads.insert(%s, value.clone()); value }; '
+                    'call_unsupported_default(value, %s)? }') % (key, ref, hop, key, fallback)
+        elif last and f.preserve_none:
             call = 'call_unsupported_default(get(%s, |o| o.%s()), %s)?' % (
                 ref, hop, _pyval_literal(f.default))
         else:
@@ -708,6 +736,14 @@ def row_body(row):
         if f.read_if and (f.read_if_absorbing or not absorbing):
             gate = by_name[f.read_if].rust_name
             cond = ('row.%s.truthy()' if f.read_if_truthy else '!row.%s.is_none()') % gate
+            for column, literal in f.read_if_all:
+                column = by_name[column].rust_name
+                if isinstance(literal, bool):
+                    cond += ' && matches!(row.%s, PyVal::Bool(%s))' % (column, str(literal).lower())
+                elif literal is None:
+                    cond += ' && row.%s.is_none()' % column
+                else:
+                    cond += ' && row.%s.py_eq(&%s)' % (column, _pyval_literal(literal))
             expr = 'if %s { %s } else { %s }' % (cond, expr, _absent(f))
         return expr
 
@@ -756,7 +792,8 @@ def row_body(row):
             out.append('%s};' % indent)
         return out
 
-    lines = []
+    lines = ['let mut reads: std::collections::HashMap<&str, PyResult<PyVal>> = '
+             'std::collections::HashMap::new();'] if row.cached_reads else []
     if row.skippable:
         lines.append('let mut cols = cols;')
         lines.append('if skipped(fixed, skip)? {')
@@ -922,6 +959,8 @@ def walk_body(row):
                 # list's own.
                 lines.append('%slet n = out.len() - s%d;' % (ind(), k - 1))
                 index = 'n + i'
+            if row.name == 'LeakSensorInfo':
+                leaf = 'leak_snapshot_sensors(%s)?' % leaf
             if src.single:
                 lines.append('%sfor (i, dev) in one(%s).into_iter().enumerate() {' % (ind(), leaf))
             else:
@@ -1113,6 +1152,10 @@ def action_body(m, model):
         for n, hop in enumerate(reach):
             lines.append('let t%d = call(get(&%s, |o| o.%s()))?;' % (n, target, hop))
             target = 't%d' % n
+            # Follow the generated Python action's nullable reach contract.
+            # PR 791 allows a missing watchdog/SED object to answer None.
+            if re.search(r'if target is None:\s+return (?:_truthy\()?None', m.body):
+                lines.append('if %s.is_none() { return Ok(PyVal::None); }' % target)
     else:
         row = model.row(m.row)
         key = m.params[0][0]
@@ -1120,6 +1163,7 @@ def action_body(m, model):
         if m.pass_key:
             # The base class takes the device's own name; the key found it.
             lines.append('let name = text(call(get(&dev, |o| o.get_name()))?);')
+            lines.append('if name.is_none() { return Ok(PyVal::None); }')
         target = 'dev'
     lines.append('let answer = action(get(&%s, |o| o.%s(%s)), %s)?;'
                  % (target, method, args, _q(m.calls)))
@@ -1161,7 +1205,10 @@ def ret_conv(rust_ret, enums):
 def build_facade(model):
     enums = model.enum_names
     rows = {r.name for r in model.rows}
+    indexed_rows = {row.name for row in model.rows if any(
+        getattr(source, 'indices', None) for source in row.sources)}
     for row in model.rows:
+        row.native_unported = row.name in indexed_rows
         row.native_lets = shared_lets(row) if (row.sources or row.singleton) else []
         for f in row.fields:
             f.native_expr = field_expr(f, enums) if (row.sources or row.singleton) else None
@@ -1171,12 +1218,24 @@ def build_facade(model):
                            and (row.sources or row.singleton) else [])
         row.native_walk = walk_body(row) if (row.sources or row.singleton) else ''
         row.native_find = find_body(row) if getattr(row, 'addressed', False) else []
+    hatch_source = read_input(os.path.join(os.path.dirname(__file__), '..', 'crates',
+                                     'platform-base', 'src', 'escape_hatch.rs'))
+    hatches = set(re.findall(r'pub fn (\w+)\(', hatch_source)) | {'get_psu_fans'}
     for m in model.methods:
+        m.native_unported = ((m.kind == 'escape' and m.name not in hatches)
+                             or m.row in indexed_rows)
         if m.kind == 'action':
-            built, lines = action_body(m, model)
+            try:
+                built, lines = action_body(m, model)
+                conversion = ('read_%s(&v)' % _snake(built.name)) if built else ret_conv(m.rust_ret, enums)
+            except ValueError as error:
+                if not str(error).startswith('no native conversion for an action answering '):
+                    raise
+                m.native_unported = True
+                built, lines, conversion = None, [], None
             m.native_built = built.name if built else None
             m.native_body = lines
-            m.native_conv = ('read_%s(&v)' % _snake(built.name)) if built else ret_conv(m.rust_ret, enums)
+            m.native_conv = conversion
         if m.kind == 'snapshot':
             # The snapshot's own parameters, as its walk takes them: the
             # column bits, and the skip list as the set `frozenset(skip)` is.
@@ -1186,3 +1245,42 @@ def build_facade(model):
         # An escape hatch takes the trait method's own parameters, unconverted.
         m.native_fwd = ', '.join('r#' + p if p in ('type', 'fn') else p for p, _t in m.params)
     return model
+
+
+def syntax_fingerprint(tree):
+    # ast.dump changed its empty-field output in Python 3.13. Encode fields
+    # explicitly, omitting only empty type_params introduced in Python 3.12.
+    def encode(value):
+        if isinstance(value, ast.AST):
+            return [type(value).__name__, [(key, encode(item))
+                    for key, item in ast.iter_fields(value)
+                    if key != 'type_params' or item]]
+        if isinstance(value, list):
+            return [encode(item) for item in value]
+        return value
+    data = json.dumps(encode(tree), ensure_ascii=True, default=repr)
+    return hashlib.sha256(data.encode()).hexdigest()
+
+
+def body_fingerprints(model, base_dir):
+    """AST identities for Python bodies that the native implementation ports."""
+    classes = read_classes(base_dir)
+    hashes = {}
+    for module, methods in model.native['bodies'].items():
+        owners = [(name, value) for name, value in classes.items() if module_of(name) == module]
+        for method in methods:
+            nodes = [value[1][method] for _name, value in owners if method in value[1]]
+            if len(nodes) != 1:
+                raise ValueError('native body source is ambiguous: %s.%s' % (module, method))
+            hashes[module + '.' + method] = syntax_fingerprint(nodes[0])
+    return hashes
+
+
+def check_body_fingerprints(model, base_dir, manifest=None):
+    manifest = manifest or os.path.join(os.path.dirname(__file__), 'native_body_hashes.json')
+    expected = json.loads(read_input(manifest))
+    actual = body_fingerprints(model, base_dir)
+    changed = sorted(key for key in set(expected) | set(actual) if expected.get(key) != actual.get(key))
+    if changed:
+        raise ValueError('native Python bodies changed; review the Rust ports before updating '
+                         'generator/native_body_hashes.json: ' + ', '.join(changed))

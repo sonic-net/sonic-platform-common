@@ -58,6 +58,7 @@ pub mod defaults {
 {% for m in native.methods %}
     #[allow(unused_variables)]
     pub fn {{ m.name }}<S: PyObject + ?Sized>(s: &S{{ m.sig() }}) -> PyResult<PyVal> {
+{%- if m.arms %}
         match s.base_class() {
 {%- for cls, kind, where, rust in m.arms %}
             // {{ kind }}, from {{ where }}
@@ -65,6 +66,9 @@ pub mod defaults {
 {%- endfor %}
             _ => Err(PyErr::missing(s.py_class(), {{ m.name | tojson }})),
         }
+{%- else %}
+        Err(PyErr::missing(s.py_class(), {{ m.name | tojson }}))
+{%- endif %}
     }
 {%- endfor %}
 }

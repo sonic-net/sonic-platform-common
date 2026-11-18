@@ -73,29 +73,153 @@ fn name(n: &str) -> PyResult<PyVal> {
 }
 
 #[test]
+fn transition_actions_skip_nameless_modules_and_preserve_optional_answers() {
+    for module_name in [Ok(PyVal::None), Err(PyErr::not_implemented()), name("DPU0")] {
+        for value in [None, Some(false), Some(true)] {
+            let missing_name = !matches!(&module_name, Ok(PyVal::Str(_)));
+            let calls = Arc::new(AtomicUsize::new(0));
+            let observed = Arc::clone(&calls);
+            let module_name = module_name.clone();
+            let module = PyVal::Obj(Arc::new(DynObject {
+                class: "TransitionModule",
+                base: BaseClass::ModuleBase,
+                handler: Box::new(move |_, method, args| match method {
+                    "get_name" => Some(module_name.clone()),
+                    "get_module_state_transition"
+                    | "set_module_state_transition"
+                    | "clear_module_state_transition" => {
+                        observed.fetch_add(1, Ordering::SeqCst);
+                        assert_eq!(args.first(), Some(&PyVal::str("DPU0")));
+                        Some(Ok(value.map_or(PyVal::None, PyVal::Bool)))
+                    }
+                    _ => None,
+                }),
+            }));
+            let chassis = obj(
+                BaseClass::ChassisBase,
+                vec![("get_all_modules", Ok(PyVal::List(vec![module])))],
+            );
+            let mut api = BaseFacade::new(chassis, EscapeHatches::new());
+            let key = DeviceKey::from("modules[0]");
+            let expected = if missing_name { None } else { value };
+            assert_eq!(api.get_module_state_transition(&key), Ok(expected));
+            assert_eq!(
+                api.set_module_state_transition(&key, "recovery"),
+                Ok(expected)
+            );
+            assert_eq!(api.clear_module_state_transition(&key), Ok(expected));
+            assert_eq!(
+                calls.load(Ordering::SeqCst),
+                if missing_name { 0 } else { 3 }
+            );
+        }
+    }
+}
+
+#[test]
 fn power_budget_values_default_only_when_the_getter_is_unsupported() {
-    for (answer, expected) in [
-        (Err(PyErr::not_implemented()), Some(Number::Float(0.0))),
-        (Ok(PyVal::None), None),
-        (Ok(PyVal::Float(12.5)), Some(Number::Float(12.5))),
-        (Err(PyErr::os_error(5, None)), None),
+    for (answer, publication, budget) in [
+        (
+            Err(PyErr::not_implemented()),
+            None,
+            Some(Number::Float(0.0)),
+        ),
+        (
+            Ok(PyVal::NotImplementedClass),
+            None,
+            Some(Number::Float(0.0)),
+        ),
+        (Ok(PyVal::None), None, None),
+        (
+            Ok(PyVal::Float(0.0)),
+            Some(Number::Float(0.0)),
+            Some(Number::Float(0.0)),
+        ),
+        (
+            Ok(PyVal::Float(12.5)),
+            Some(Number::Float(12.5)),
+            Some(Number::Float(12.5)),
+        ),
+        (Err(PyErr::os_error(5, None)), None, None),
     ] {
-        let psu = obj(
-            BaseClass::PsuBase,
-            vec![
-                ("get_presence", Ok(PyVal::Bool(true))),
-                ("get_maximum_supplied_power", answer),
-            ],
-        );
+        let reads = Arc::new(AtomicUsize::new(0));
+        let observed = Arc::clone(&reads);
+        let psu = PyVal::Obj(Arc::new(DynObject {
+            class: "CountingPsu",
+            base: BaseClass::PsuBase,
+            handler: Box::new(move |_, method, _| match method {
+                "get_presence" => Some(Ok(PyVal::Bool(true))),
+                "get_maximum_supplied_power" => {
+                    observed.fetch_add(1, Ordering::SeqCst);
+                    Some(answer.clone())
+                }
+                _ => None,
+            }),
+        }));
         let chassis = obj(
             BaseClass::ChassisBase,
             vec![("get_all_psus", Ok(PyVal::List(vec![psu])))],
         );
         let mut facade = BaseFacade::new(chassis, EscapeHatches::new());
-        assert_eq!(
-            facade.get_psus().unwrap()[0].maximum_supplied_power,
-            expected
+        let row = &facade.get_psus().unwrap()[0];
+        assert_eq!(row.maximum_supplied_power, publication);
+        assert_eq!(row.maximum_supplied_power_for_budget, budget);
+        assert_eq!(reads.load(Ordering::SeqCst), 1);
+    }
+}
+
+#[test]
+fn leak_profiles_are_conditional_and_shared_within_the_native_snapshot() {
+    for (healthy, leaking, severity) in [
+        (true, true, "MINOR"),
+        (true, false, "MINOR"),
+        (false, true, "MINOR"),
+        (true, true, "CRITICAL"),
+    ] {
+        let active = healthy && leaking && severity == "MINOR";
+        let reads = Arc::new(AtomicUsize::new(0));
+        let observed = Arc::clone(&reads);
+        let profile = obj(
+            BaseClass::LeakSensorProfileBase,
+            vec![
+                ("get_type", Ok(PyVal::str("rack"))),
+                ("get_leak_max_minor_duration_sec", Ok(PyVal::Int(7))),
+            ],
         );
+        let sensor = PyVal::Obj(Arc::new(DynObject {
+            class: "LeakSensor",
+            base: BaseClass::LeakageSensorBase,
+            handler: Box::new(move |_, method, _| match method {
+                "get_name" => Some(Ok(PyVal::str("leak1"))),
+                "get_leak_sensor_type" => Some(Ok(PyVal::str("leak"))),
+                "get_leak_sensor_location" => Some(Ok(PyVal::str("rack"))),
+                "is_leak_sensor_ok" => Some(Ok(PyVal::Bool(healthy))),
+                "is_leak" => Some(Ok(PyVal::Bool(leaking))),
+                "get_leak_severity" => Some(Ok(PyVal::str(severity))),
+                "get_leak_profile" => {
+                    observed.fetch_add(1, Ordering::SeqCst);
+                    Some(if active {
+                        Ok(profile.clone())
+                    } else {
+                        Err(PyErr::os_error(5, None))
+                    })
+                }
+                _ => None,
+            }),
+        }));
+        let cooling = obj(
+            BaseClass::LiquidCoolingBase,
+            vec![("get_all_leak_sensors", Ok(PyVal::List(vec![sensor])))],
+        );
+        let chassis = obj(
+            BaseClass::ChassisBase,
+            vec![("get_liquid_cooling", Ok(cooling))],
+        );
+        let mut facade = BaseFacade::new(chassis, EscapeHatches::new());
+        let rows = facade.get_leak_sensors().unwrap();
+        assert_eq!(reads.load(Ordering::SeqCst), usize::from(active));
+        assert_eq!(rows[0].profile_max_minor_duration_sec, active.then_some(7));
+        assert_eq!(rows[0].profile_type.as_deref(), active.then_some("rack"));
     }
 }
 
@@ -386,4 +510,146 @@ fn scoped_psu_fans_skip_unrelated_devices_and_read_details_only_when_requested()
             .as_str(),
         "pdbs[0]/fans[0]"
     );
+}
+
+#[test]
+fn scoped_cycle_errors_keep_repr_and_other_methods_keep_their_messages() {
+    use platform_base::facade_rt::call_err;
+    for method in [
+        "tm_run_policy",
+        "get_leak_sensors",
+        "get_major_leak_num_min_sensors",
+    ] {
+        let error = PyErr::new(
+            platform_base::py::Exc::RuntimeError,
+            vec![PyVal::str("failed"), PyVal::Int(7)],
+        );
+        assert_eq!(
+            call_err(error, method),
+            PlatformError::Backend("RuntimeError('failed', 7)".into())
+        );
+        let unsupported = PyErr::not_implemented_msg("not available");
+        assert_eq!(
+            call_err(unsupported, method),
+            if method == "tm_run_policy" {
+                PlatformError::Backend("NotImplementedError('not available')".into())
+            } else {
+                PlatformError::NotSupported("not available".into())
+            }
+        );
+        assert_eq!(
+            call_err(PyErr::device_not_found("gone"), method),
+            if method == "tm_run_policy" {
+                PlatformError::Backend("DeviceNotFound('gone')".into())
+            } else {
+                PlatformError::NotFound("'gone'".into())
+            }
+        );
+    }
+    let error = PyErr::new(
+        platform_base::py::Exc::RuntimeError,
+        vec![PyVal::str("failed"), PyVal::Int(7)],
+    );
+    assert_eq!(
+        call_err(error, "tm_initialize"),
+        PlatformError::Backend("RuntimeError('failed', 7)".into())
+    );
+}
+
+#[test]
+fn native_test_leaks_use_strict_flags_and_do_not_read_excluded_profiles() {
+    for flag in [
+        PyVal::Bool(true),
+        PyVal::Bool(false),
+        PyVal::Int(1),
+        PyVal::str("yes"),
+        PyVal::None,
+    ] {
+        for physical in [false, true] {
+            for reverse in [false, true] {
+                let is_test = matches!(flag, PyVal::Bool(true));
+                let calls = Arc::new(Mutex::new(Vec::new()));
+                let observed = Arc::clone(&calls);
+                let flag = flag.clone();
+                let profile = obj(
+                    BaseClass::LeakSensorProfileBase,
+                    vec![
+                        ("get_type", name("rack")),
+                        ("get_leak_max_minor_duration_sec", Ok(PyVal::Int(7))),
+                    ],
+                );
+                let injected = PyVal::Obj(Arc::new(DynObject {
+                    class: "TestLeak",
+                    base: BaseClass::LeakageSensorBase,
+                    handler: Box::new(move |_, method, _| {
+                        observed.lock().unwrap().push(method.to_string());
+                        match method {
+                            "get_name" => Some(name("injected")),
+                            "is_leak_sensor_ok" | "is_leak" => Some(Ok(PyVal::Bool(true))),
+                            "get_leak_severity" => Some(name("MINOR")),
+                            "is_test_leak" => Some(Ok(flag.clone())),
+                            "get_leak_profile" => Some(if physical && is_test {
+                                Err(PyErr::os_error(5, None))
+                            } else {
+                                Ok(profile.clone())
+                            }),
+                            _ => None,
+                        }
+                    }),
+                }));
+                let mut sensors = vec![injected];
+                if physical {
+                    sensors.push(obj(
+                        BaseClass::LeakageSensorBase,
+                        vec![
+                            ("get_name", name("physical")),
+                            ("is_leak_sensor_ok", Ok(PyVal::Bool(true))),
+                            ("is_leak", Ok(PyVal::Bool(true))),
+                            ("get_leak_severity", name("CRITICAL")),
+                        ],
+                    ));
+                }
+                if reverse {
+                    sensors.reverse();
+                }
+                let cooling = obj(
+                    BaseClass::LiquidCoolingBase,
+                    vec![("get_all_leak_sensors", Ok(PyVal::List(sensors)))],
+                );
+                let chassis = obj(
+                    BaseClass::ChassisBase,
+                    vec![("get_liquid_cooling", Ok(cooling))],
+                );
+                let mut facade = BaseFacade::new(chassis, EscapeHatches::new());
+                let rows = facade.get_leak_sensors().unwrap();
+                let row = rows.iter().find(|row| row.name == "injected").unwrap();
+                assert_eq!(row.is_test, Some(is_test));
+                assert_eq!(
+                    row.profile_max_minor_duration_sec,
+                    (!(physical && is_test)).then_some(7)
+                );
+                let calls = calls.lock().unwrap();
+                for method in [
+                    "get_name",
+                    "is_leak_sensor_ok",
+                    "is_leak",
+                    "get_leak_severity",
+                    "is_test_leak",
+                ] {
+                    assert_eq!(
+                        calls.iter().filter(|value| *value == method).count(),
+                        1,
+                        "{method}"
+                    );
+                }
+                assert_eq!(
+                    calls
+                        .iter()
+                        .filter(|value| *value == "get_leak_profile")
+                        .count(),
+                    usize::from(!(physical && is_test))
+                );
+            }
+        }
+    }
 }

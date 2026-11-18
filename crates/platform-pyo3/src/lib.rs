@@ -10,7 +10,8 @@ use pyo3::exceptions::PyNotImplementedError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyInt, PyString};
 
-// Cargo generates this module from the platform API declarations.
+// Generated at build time from facade.pyi into OUT_DIR.
+// `generate.py --check` verifies deterministic generation; rustfmt skips it.
 #[rustfmt::skip]
 mod generated {
     include!(concat!(env!("OUT_DIR"), "/src/generated.rs"));
@@ -49,7 +50,7 @@ impl Bridge {
     /// kept, not run: the daemon hands it the shutdown with
     /// `notify_shutdown()` (see [`release_python_signal_handlers`]).
     pub fn new(vendor_module: &str, syslog_ident: &str) -> Result<Self, PlatformError> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             py.import("sys")
                 .and_then(|sys| sys.setattr("argv", vec![syslog_ident]))
                 .map_err(|e| err(py, e))?;
@@ -123,7 +124,7 @@ impl Bridge {
 /// Idempotent -- CPython clears each callback as it runs it -- and best-effort,
 /// because failing to clean up must not stop the daemon exiting.
 pub fn run_python_atexit_handlers() {
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         match py
             .import("atexit")
             .and_then(|m| m.call_method0("_run_exitfuncs"))
@@ -135,6 +136,17 @@ pub fn run_python_atexit_handlers() {
                 // way out; say it where a stderr-to-syslog pipe will catch it.
                 eprintln!("atexit handlers failed during shutdown: {msg}");
                 let _ = py;
+            }
+        }
+        // Embedded Python is not finalized by process::exit(). Flush after
+        // the handlers so the vendor's final output reaches supervisord.
+        if let Ok(sys) = py.import("sys") {
+            for name in ["stdout", "stderr"] {
+                if let Ok(stream) = sys.getattr(name) {
+                    if let Err(error) = stream.call_method0("flush") {
+                        eprintln!("Python {name} flush failed during shutdown: {error}");
+                    }
+                }
             }
         }
     });
@@ -263,6 +275,30 @@ pub(crate) fn err(py: Python<'_>, e: PyErr) -> PlatformError {
     }
 }
 
+/// Policy and liquid-cooling cycle diagnostics use Python's repr(e).
+/// Keep all other calls' existing error strings and unsupported/not-found
+/// categories unchanged. This affects only the Rust bridge's error value.
+pub(crate) fn call_err(py: Python<'_>, error: PyErr, method: &str) -> PlatformError {
+    let keep_repr = match method {
+        "tm_run_policy" => true,
+        "tm_initialize" => !error.is_instance_of::<PyNotImplementedError>(py),
+        "get_leak_sensors" | "get_major_leak_num_min_sensors" => {
+            !error.is_instance_of::<PyNotImplementedError>(py) && !is_device_not_found(py, &error)
+        }
+        _ => false,
+    };
+    if keep_repr {
+        let representation = error
+            .value(py)
+            .repr()
+            .map(|value| value.to_string())
+            .unwrap_or_else(|_| error.value(py).to_string());
+        PlatformError::Backend(representation)
+    } else {
+        err(py, error)
+    }
+}
+
 /// Whether `e` is the facade's `DeviceNotFound`.
 ///
 /// Looked up rather than held: the facade is imported once and then cached by
@@ -288,7 +324,7 @@ pub(crate) fn text(row: &Bound<'_, PyAny>, key: &str) -> Result<Option<String>, 
         return Ok(None);
     }
     let s = v
-        .downcast::<PyString>()
+        .cast::<PyString>()
         .map_err(|_| PlatformError::Backend(format!("{key} is not a string")))?;
     s.extract().map(Some).map_err(|e| err(row.py(), e))
 }
@@ -451,6 +487,52 @@ mod tests {
     use pyo3::ffi::c_str;
     use pyo3::types::PyModule;
 
+    #[test]
+    fn scoped_cycle_errors_preserve_exception_subclass_categories() {
+        Python::attach(|py| {
+            let module = PyModule::from_code(
+                py,
+                c_str!(
+                    r#"
+from sonic_platform_api.facade import DeviceNotFound
+class UnsupportedPolicy(NotImplementedError):
+    pass
+class MissingSensor(DeviceNotFound):
+    pass
+UNSUPPORTED = UnsupportedPolicy('not available')
+MISSING = MissingSensor('gone')
+BACKEND = RuntimeError('failed', 7)
+"#
+                ),
+                c_str!("cycle_errors.py"),
+                c_str!("cycle_errors"),
+            )
+            .unwrap();
+            for method in ["get_leak_sensors", "get_major_leak_num_min_sensors"] {
+                let unsupported = PyErr::from_value(module.getattr("UNSUPPORTED").unwrap());
+                assert_eq!(
+                    call_err(py, unsupported, method),
+                    PlatformError::NotSupported("not available".into())
+                );
+                let missing = PyErr::from_value(module.getattr("MISSING").unwrap());
+                assert_eq!(
+                    call_err(py, missing, method),
+                    PlatformError::NotFound("'gone'".into())
+                );
+                let backend = PyErr::from_value(module.getattr("BACKEND").unwrap());
+                assert_eq!(
+                    call_err(py, backend, method),
+                    PlatformError::Backend("RuntimeError('failed', 7)".into())
+                );
+            }
+            let backend = PyErr::from_value(module.getattr("BACKEND").unwrap());
+            assert_eq!(
+                call_err(py, backend, "tm_initialize"),
+                PlatformError::Backend("RuntimeError('failed', 7)".into())
+            );
+        });
+    }
+
     /// A `None` where a list of rows belongs is an empty list, not an error.
     ///
     /// The facade always builds a list, so this branch is not reachable through
@@ -460,7 +542,7 @@ mod tests {
     /// row rather than the one column.
     #[test]
     fn a_column_that_is_none_where_rows_belong_is_no_rows() {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let m = PyModule::from_code(
                 py,
                 c_str!("class R:\n    events = None\nROW = R()\n"),
@@ -513,7 +595,7 @@ ROW = R()
     /// would have crossed as 0.0, a limit every reading is above.
     #[test]
     fn a_bool_where_a_limit_belongs_is_no_limit_at_all() {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let row = raw_row(py);
             assert_eq!(int_or_float(&row, "yes").unwrap(), None);
             assert_eq!(int_or_float(&row, "no").unwrap(), None);
@@ -524,7 +606,7 @@ ROW = R()
     /// `num` and a flag for `flag`; failing it would fail the whole row.
     #[test]
     fn a_limit_reported_as_na_is_absent_rather_than_an_error() {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let row = raw_row(py);
             assert_eq!(int_or_float(&row, "na").unwrap(), None);
             assert_eq!(int_or_float(&row, "na_spaced").unwrap(), None);
@@ -536,7 +618,7 @@ ROW = R()
     /// sentinel is still the type error it always was.
     #[test]
     fn a_limit_still_keeps_its_side_of_the_union_and_garbage_still_fails() {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let row = raw_row(py);
             assert_eq!(int_or_float(&row, "whole").unwrap(), Some(Number::Int(105)));
             assert_eq!(
@@ -571,7 +653,7 @@ ROW = R()
     /// it is.  A float is still truncated, and None and "N/A" are no reading.
     #[test]
     fn an_integer_column_keeps_an_int_exact_and_truncates_only_a_float() {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let row = raw_row(py);
             assert_eq!(
                 integer::<i64>(&row, "past_f64").unwrap(),
@@ -615,7 +697,7 @@ ROW = R()
     /// only way to tell this function from a no-op.
     #[test]
     fn the_interpreters_exit_handlers_are_given_their_chance() {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let m = PyModule::from_code(
                 py,
                 c_str!(
@@ -633,6 +715,40 @@ ROW = R()
                 m.getattr("RAN").unwrap().len().unwrap(),
                 1,
                 "the handler the vendor registered must have run"
+            );
+        });
+    }
+}
+
+#[cfg(test)]
+mod cycle_error_tests {
+    use super::*;
+    use pyo3::exceptions::{PyOSError, PyValueError};
+
+    #[test]
+    fn cycle_errors_keep_exception_type_and_arguments_without_changing_other_calls() {
+        Python::attach(|py| {
+            for method in [
+                "tm_run_policy",
+                "get_leak_sensors",
+                "get_major_leak_num_min_sensors",
+            ] {
+                assert_eq!(
+                    call_err(py, PyValueError::new_err("bad policy"), method),
+                    PlatformError::Backend("ValueError('bad policy')".into())
+                );
+            }
+            assert_eq!(
+                call_err(py, PyOSError::new_err("read failed"), "get_fans"),
+                PlatformError::Backend("read failed".into())
+            );
+            assert_eq!(
+                call_err(
+                    py,
+                    PyNotImplementedError::new_err("optional"),
+                    "tm_run_policy"
+                ),
+                PlatformError::Backend("NotImplementedError('optional')".into())
             );
         });
     }

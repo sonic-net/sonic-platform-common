@@ -108,7 +108,7 @@ impl BaseFacade {
         &self.chassis
     }
 {% for row in model.rows %}
-{%- if row.sources or row.singleton %}
+{%- if (row.sources or row.singleton) and not row.native_unported %}
 
     #[allow(unused_variables)]
     fn row_{{ row.snake }}(&self, dev: &PyVal, parent: &str, i: usize, fixed: &[(&str, PyVal)]{% if row.projected %}, cols: u64{% endif %}{% if row.skippable %}, skip: &HashSet<&str>{% endif %}{% if row.absorbable %}, absorb: bool{% endif %}) -> PyResult<Py{{ row.name }}> {
@@ -149,14 +149,19 @@ impl BaseFacade {
 
 impl PlatformApi for BaseFacade {
 {%- for m in model.methods %}
-{%- if m.kind == 'snapshot' %}
+{%- if m.native_unported %}
+    fn {{ m.rust_name }}({{ model.native_receiver }}{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
+        let _ = {{ m.rust_unused }};
+        Err(PlatformError::NotSupported({{ ('not ported to the native platform API: ' ~ m.name) | rust_str }}.into()))
+    }
+{%- elif m.kind == 'snapshot' %}
 
-    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
+    fn {{ m.rust_name }}({{ model.native_receiver }}{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
 {%- if m.skippable %}
         // `frozenset(skip or ())`.
         let skip: HashSet<&str> = skip.iter().map(DeviceKey::as_str).collect();
 {%- endif %}
-        let rows = self.walk_{{ model.row(m.row).snake }}({{ m.native_walk_args }}).map_err(err)?;
+        let rows = self.walk_{{ model.row(m.row).snake }}({{ m.native_walk_args }}).map_err(|e| call_err(e, {{ m.name | tojson }}))?;
 {%- if m.singleton %}
         // `[0]`: the walk is the chassis, always one row.
         let row = rows
@@ -174,7 +179,7 @@ impl PlatformApi for BaseFacade {
     }
 {%- elif m.name == 'get_psu_fans' %}
 
-    fn get_psu_fans(&mut self, key: &DeviceKey, include_details: bool) -> Result<Vec<FanInfo>, PlatformError> {
+    fn get_psu_fans({{ model.native_receiver }}, key: &DeviceKey, include_details: bool) -> Result<Vec<FanInfo>, PlatformError> {
         let psu = self.find_psu_info(key.as_str()).map_err(err)?;
         let kind = if key.as_str().starts_with("pdbs[") { "pdb" } else { "psu" };
         let path = parse_key(key.as_str()).map_err(err)?;
@@ -194,7 +199,7 @@ impl PlatformApi for BaseFacade {
     }
 {%- elif m.kind == 'action' %}
 
-    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
+    fn {{ m.rust_name }}({{ model.native_receiver }}{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
         let v = (|| -> PyResult<{% if m.native_built %}Py{{ m.native_built }}{% else %}PyVal{% endif %}> {
 {%- for l in m.native_body %}
             {{ l }}
@@ -205,7 +210,7 @@ impl PlatformApi for BaseFacade {
     }
 {%- else %}
 
-    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
+    fn {{ m.rust_name }}({{ model.native_receiver }}{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
         self.hatch.{{ m.name }}(&self.chassis{% if m.native_fwd %}, {{ m.native_fwd }}{% endif %})
     }
 {%- endif %}
@@ -213,7 +218,7 @@ impl PlatformApi for BaseFacade {
 
     /// Python's `atexit` handlers, which a native implementation registers in
     /// [`crate::atexit`] where its Python counterpart called `atexit.register`.
-    fn finalize(&mut self) {
+    fn finalize({{ model.native_receiver }}) {
         crate::atexit::run();
     }
 }

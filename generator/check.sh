@@ -8,8 +8,9 @@
 # stub, not a per-commit gate.
 #
 # --python-only skips the cargo steps, for a runner with the Python toolchain
-# but no Rust one.  The crates need nothing else: libpython, and this checkout
-# on PYTHONPATH.  CI runs them in a step of its own, with line coverage.
+# but no Rust one. Rust builds also need a host Python 3 with Jinja2;
+# bridge tests import this checkout through PYTHONPATH. CI runs Rust
+# checks in a separate step, with line coverage.
 set -e
 cd "$(dirname "$0")/.."
 export PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}"

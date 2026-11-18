@@ -332,6 +332,26 @@ pub fn err(e: PyErr) -> PlatformError {
     e.to_platform()
 }
 
+/// Match the PyO3 bridge's scoped cycle diagnostics.
+/// Native providers classify exceptions with `Exc`; they have no Python class
+/// hierarchy. A Python helper bridge must map caught subclasses to the canonical
+/// `NotImplementedError` / `DeviceNotFound` variant before handing them here.
+pub fn call_err(error: PyErr, method: &str) -> PlatformError {
+    let keep_repr = match method {
+        "tm_run_policy" => true,
+        "tm_initialize" => error.exc != Exc::NotImplementedError,
+        "get_leak_sensors" | "get_major_leak_num_min_sensors" => {
+            !matches!(error.exc, Exc::NotImplementedError | Exc::DeviceNotFound)
+        }
+        _ => false,
+    };
+    if keep_repr {
+        PlatformError::Backend(error.repr())
+    } else {
+        err(error)
+    }
+}
+
 /// PyO3's text for a value that is not the type it was extracted as.
 fn downcast(v: &PyVal, to: &str) -> PlatformError {
     PlatformError::Backend(format!(
@@ -440,7 +460,10 @@ pub fn ret_str(v: &PyVal) -> Result<Option<String>, PlatformError> {
     match v {
         PyVal::None => Ok(None),
         PyVal::Str(s) => Ok(Some(s.clone())),
-        other => Err(downcast(other, "PyString")),
+        other => Err(PlatformError::Backend(format!(
+            "'{}' object is not an instance of 'str'",
+            other.type_name()
+        ))),
     }
 }
 
@@ -450,6 +473,92 @@ pub fn ret_num(v: &PyVal) -> Result<Option<f64>, PlatformError> {
         return Ok(None);
     }
     as_f64(v).map(Some)
+}
+
+/// Cache the first pass once with strict Python identity for test flags.
+/// Exclude test-sensor profiles while any physical leak is active.
+pub fn leak_snapshot_sensors(sensors: PyVal) -> PyResult<PyVal> {
+    use crate::object::BaseClass;
+    use std::sync::Arc;
+    struct SensorSnapshot {
+        raw: PyVal,
+        name: PyVal,
+        ok: PyVal,
+        leaking: PyVal,
+        severity: PyVal,
+        test: bool,
+        include_profile: bool,
+    }
+    impl PyObject for SensorSnapshot {
+        fn py_class(&self) -> &'static str {
+            "LeakSensorSnapshot"
+        }
+        fn base_class(&self) -> BaseClass {
+            BaseClass::LeakageSensorBase
+        }
+        fn get_name(&self) -> PyResult<PyVal> {
+            Ok(self.name.clone())
+        }
+        fn is_leak_sensor_ok(&self) -> PyResult<PyVal> {
+            Ok(self.ok.clone())
+        }
+        fn is_leak(&self) -> PyResult<PyVal> {
+            Ok(self.leaking.clone())
+        }
+        fn get_leak_severity(&self) -> PyResult<PyVal> {
+            Ok(self.severity.clone())
+        }
+        fn is_test_leak(&self) -> PyResult<PyVal> {
+            Ok(PyVal::Bool(self.test))
+        }
+        fn get_leak_sensor_type(&self) -> PyResult<PyVal> {
+            get(&self.raw, |object| object.get_leak_sensor_type())
+        }
+        fn get_leak_sensor_location(&self) -> PyResult<PyVal> {
+            get(&self.raw, |object| object.get_leak_sensor_location())
+        }
+        fn get_leak_profile(&self) -> PyResult<PyVal> {
+            if self.include_profile {
+                get(&self.raw, |object| object.get_leak_profile())
+            } else {
+                Ok(PyVal::None)
+            }
+        }
+    }
+    let mut readings = Vec::new();
+    for raw in iter(sensors)? {
+        let name = call(get(&raw, |object| object.get_name()))?;
+        let ok = call(get(&raw, |object| object.is_leak_sensor_ok()))?;
+        let leaking = call(get(&raw, |object| object.is_leak()))?;
+        let severity = call(get(&raw, |object| object.get_leak_severity()))?;
+        let test = ok.truthy()
+            && leaking.truthy()
+            && matches!(
+                call(get(&raw, |object| object.is_test_leak()))?,
+                PyVal::Bool(true)
+            );
+        readings.push(SensorSnapshot {
+            raw,
+            name,
+            ok,
+            leaking,
+            severity,
+            test,
+            include_profile: true,
+        });
+    }
+    let physical = readings
+        .iter()
+        .any(|sensor| sensor.ok.truthy() && sensor.leaking.truthy() && !sensor.test);
+    Ok(PyVal::List(
+        readings
+            .into_iter()
+            .map(|mut sensor| {
+                sensor.include_profile = !(physical && sensor.test);
+                PyVal::Obj(Arc::new(sensor))
+            })
+            .collect(),
+    ))
 }
 
 #[cfg(test)]

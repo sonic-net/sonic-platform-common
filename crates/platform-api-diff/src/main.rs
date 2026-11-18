@@ -396,7 +396,7 @@ mod tests {
             "class Chassis:\n    pass\n\n\nclass Platform:\n    def get_chassis(self):\n        return Chassis()\n",
         )
         .unwrap();
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let path = py.import("sys").and_then(|s| s.getattr("path")).unwrap();
             path.call_method1("insert", (0, dir.to_str().unwrap()))
                 .unwrap();

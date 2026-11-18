@@ -57,7 +57,7 @@ class Facade:
 
 /// A `Platform::Pyo3` over a recording facade, and the facade to read after.
 fn platform() -> (Platform, Py<PyAny>) {
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let m =
             PyModule::from_code(py, RECORDER, c_str!("recorder.py"), c_str!("recorder")).unwrap();
         let facade = m.getattr("Facade").unwrap().call0().unwrap();
@@ -75,7 +75,7 @@ fn platform() -> (Platform, Py<PyAny>) {
 /// records nothing, and which the caller cannot otherwise tell from a platform
 /// that declined.
 fn one_call(facade: &Py<PyAny>) -> String {
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let calls: Vec<String> = facade.bind(py).getattr("calls").unwrap().extract().unwrap();
         assert_eq!(calls.len(), 1, "one call into Python, got {calls:?}");
         calls.into_iter().next().unwrap()

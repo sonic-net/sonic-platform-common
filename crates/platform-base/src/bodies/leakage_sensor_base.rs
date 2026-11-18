@@ -11,3 +11,9 @@ use crate::py::{PyResult, PyVal};
 pub fn get_leak_severity<S: PyObject + ?Sized>(_s: &S) -> PyResult<PyVal> {
     Ok(PyVal::None)
 }
+
+/// A default base instance has no injected leak. Stateful implementations
+/// override this alongside `is_leak`, as they override severity above.
+pub fn is_test_leak<S: PyObject + ?Sized>(_s: &S) -> PyResult<PyVal> {
+    Ok(PyVal::Bool(false))
+}
