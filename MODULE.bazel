@@ -1,6 +1,6 @@
 module(
     name = "sonic-platform-common",
-    version = "1.0.0",
+    version = "1.0.1",
     bazel_compatibility = [
         ">=8.5.1",
         "<=8.5.1",
