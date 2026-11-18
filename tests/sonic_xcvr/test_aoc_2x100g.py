@@ -1,11 +1,10 @@
-from unittest.mock import MagicMock
-import pytest
+from unittest.mock import MagicMock, patch
 
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis import CmisMemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
 from sonic_platform_base.sonic_xcvr.codes.public.cmis import CmisCodes
 from sonic_platform_base.sonic_xcvr.api.hisense.aoc_2x100g import CmisAocSingleBankApi
-from sonic_platform_base.sonic_xcvr.fields import cdb_consts
+from sonic_platform_base.sonic_xcvr.fields import cdb_consts, consts
 
 class TestCmisAocSingleBankApi(object):
     codes = CmisCodes
@@ -45,8 +44,9 @@ class TestCmisAocSingleBankApi(object):
             a_oper=True, a_admin=True, b_valid=True, a_maj=2, a_min=5, a_bld=3, f_maj=1, f_min=6)
         self.api._cdb_fw_hdlr = mock_fw_hdlr
         self.api._init_cdb_fw_handler = True
-        self.api.get_module_inactive_firmware = MagicMock(return_value='1.1')
-        result = self.api.get_module_fw_info()
+        with patch.object(self.api, 'is_cdb_supported', return_value=True), \
+             patch.object(self.api, 'get_module_inactive_firmware', return_value='1.1'):
+            result = self.api.get_module_fw_info()
         assert result['status'] is True
         assert result['result'] == ('2.5.3', 1, 1, 0, 'N/A', 0, 0, 1, '2.5.3', '1.1.0')
         assert 'Inactive Firmware: 1.1.0' in result['info']
@@ -58,26 +58,44 @@ class TestCmisAocSingleBankApi(object):
             a_oper=True, a_admin=True, b_valid=True, a_maj=2, a_min=5, a_bld=3, f_maj=1, f_min=6)
         self.api._cdb_fw_hdlr = mock_fw_hdlr
         self.api._init_cdb_fw_handler = True
-        self.api.get_module_inactive_firmware = MagicMock(return_value=None)
-        result = self.api.get_module_fw_info()
+        # Scoped so the None-returning mock does not leak into later tests on
+        # the shared api instance.
+        with patch.object(self.api, 'is_cdb_supported', return_value=True), \
+             patch.object(self.api, 'get_module_inactive_firmware', return_value=None):
+            result = self.api.get_module_fw_info()
         assert result['status'] is True
         assert result['result'] == ('2.5.3', 1, 1, 0, 'N/A', 0, 0, 1, '2.5.3', 'N/A')
         assert 'Inactive Firmware: N/A' in result['info']
 
     def test_get_module_fw_info_cdb_not_supported(self):
-        """CDB not supported."""
+        """CDB not advertised: versions come from the lower memory registers."""
         self.api._cdb_fw_hdlr = None
         self.api._init_cdb_fw_handler = False
-        result = self.api.get_module_fw_info()
-        assert result == {'status': False, 'info': 'CDB Not supported', 'result': None}
+        eeprom_values = {
+            consts.ACTIVE_FW_MAJOR_REV: 1,
+            consts.ACTIVE_FW_MINOR_REV: 2,
+            consts.INACTIVE_FW_MAJOR_REV: 3,
+            consts.INACTIVE_FW_MINOR_REV: 4,
+        }
+        with patch.object(self.api, 'is_cdb_supported', return_value=False), \
+             patch.object(self.api.xcvr_eeprom, 'read', side_effect=eeprom_values.get), \
+             patch.object(self.api, 'is_flat_memory', return_value=False):
+            result = self.api.get_module_fw_info()
+        # CmisApi attaches the lower memory versions to failure returns.
+        assert result == {'status': False, 'info': 'CDB Not supported', 'result': None,
+                          'active_firmware': '1.2', 'inactive_firmware': '3.4'}
 
     def test_get_module_fw_info_handler_init_failed(self):
-        """CDB FW handler init failed."""
+        """CDB advertised, but the CDB FW handler failed to initialize."""
         self.api._cdb_fw_hdlr = None
         self.api._init_cdb_fw_handler = True
         self.api._create_cdb_fw_handler = MagicMock(return_value=None)
-        result = self.api.get_module_fw_info()
-        assert result == {'status': False, 'info': 'CDB Not supported', 'result': None}
+        with patch.object(self.api, 'is_cdb_supported', return_value=True):
+            result = self.api.get_module_fw_info()
+        # CmisApi attaches the lower memory versions to failure returns; the
+        # eeprom mock reads None, which the readers report as N/A.
+        assert result == {'status': False, 'info': 'CDB Not supported', 'result': None,
+                          'active_firmware': 'N/A', 'inactive_firmware': 'N/A'}
 
     def test_get_module_fw_info_cdb_returns_none(self):
         """CDB returns None firmware info."""
@@ -86,5 +104,7 @@ class TestCmisAocSingleBankApi(object):
         mock_fw_hdlr.get_cmd_status_code.return_value = None
         self.api._cdb_fw_hdlr = mock_fw_hdlr
         self.api._init_cdb_fw_handler = True
-        result = self.api.get_module_fw_info()
-        assert result == {'status': False, 'info': 'Failed to get firmware info', 'result': 0}
+        with patch.object(self.api, 'is_cdb_supported', return_value=True):
+            result = self.api.get_module_fw_info()
+        assert result == {'status': False, 'info': 'Failed to get firmware info', 'result': 0,
+                          'active_firmware': 'N/A', 'inactive_firmware': 'N/A'}
