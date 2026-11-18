@@ -13,7 +13,10 @@ import ast
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -134,6 +137,39 @@ def test_nondeterministic_generation_fails_the_ci_check(monkeypatch, capsys):
     monkeypatch.setattr(generate, 'render', lambda model: next(outputs))
     assert run(monkeypatch, 'generate.py', '--check') == 1
     assert 'generation is not deterministic' in capsys.readouterr().err
+
+
+def test_hash_seed_dependent_output_fails_the_actual_cli_check(tmp_path):
+    root = Path(generate.__file__).resolve().parent.parent
+    for directory in ('generator', 'sonic_platform_api', 'sonic_platform_base'):
+        shutil.copytree(root / directory, tmp_path / directory,
+                        ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+    script = tmp_path / 'generator/generate.py'
+    source = script.read_text()
+    marker = "        out[path] = '\\n'.join(ln.rstrip() for ln in text.split('\\n'))"
+    assert source.count(marker) == 1
+    # A set iteration is stable within one interpreter and can differ across
+    # builds. The old two-render check in one process accepted this output.
+    source = source.replace(marker, '''        if path.endswith('.rs'):
+            text += '\\n// ' + ','.join({'alpha', 'beta', 'gamma', 'delta',
+                                      'epsilon', 'zeta', 'eta', 'theta'})
+''' + marker)
+    script.write_text(source)
+    environment = dict(os.environ, PYTHONHASHSEED='0', PYTHONDONTWRITEBYTECODE='1')
+    command = [sys.executable, str(script)]
+    subprocess.run(command, env=environment, capture_output=True, text=True, check=True)
+    result = subprocess.run(command + ['--check'], env=environment,
+                            capture_output=True, text=True)
+    assert result.returncode == 1
+    assert 'generation is not deterministic' in result.stderr
+
+
+def test_a_failed_generation_subprocess_reports_its_error(monkeypatch, capsys):
+    def fail(seed):
+        raise subprocess.CalledProcessError(1, ['python'], stderr='cannot render input')
+    monkeypatch.setattr(generate, 'render_in_subprocess', fail)
+    assert run(monkeypatch, 'generate.py', '--check') == 1
+    assert 'subprocess failed: cannot render input' in capsys.readouterr().err
 
 
 def test_an_arity_problem_stops_the_generator_before_it_writes(tmp_path, monkeypatch, capsys):
@@ -576,3 +612,55 @@ def test_projected_escape_requires_a_supported_rust_implementation(columns, deta
     ))
     with pytest.raises(ValueError, match=r'get_other_psu_fans:.*only supported for get_psu_fans'):
         generate.build(model)
+
+
+def test_cargo_generation_tracks_transitively_imported_helpers(tmp_path):
+    root = Path(GENERATOR).parent
+    for directory in ('generator', 'sonic_platform_api', 'sonic_platform_base'):
+        shutil.copytree(root / directory, tmp_path / directory,
+                        ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+    generator = tmp_path / 'generator'
+    with (generator / 'generate.py').open('a') as stream:
+        stream.write('\nimport cargo_tracking_outer\n')
+    (generator / 'cargo_tracking_outer.py').write_text('import cargo_tracking_inner\n')
+    (generator / 'cargo_tracking_inner.py').write_text('VALUE = 1\n')
+    env = dict(os.environ, PYTHONDONTWRITEBYTECODE='1')
+    env.pop('PYTHONPATH', None)
+    result = subprocess.run(
+        [sys.executable, str(generator / 'build.py'), '--crate', 'platform-api',
+         '--out-dir', str(tmp_path / 'out')], env=env, text=True, capture_output=True)
+    assert result.returncode == 0, result.stderr
+    inputs = {line.removeprefix('cargo:rerun-if-changed=')
+              for line in result.stdout.splitlines() if line.startswith('cargo:rerun-if-changed=')}
+    expected = {'build.py', 'generate.py', 'model.py', 'parse_pyi.py',
+                'cargo_tracking_outer.py', 'cargo_tracking_inner.py'}
+    assert {str(generator / name) for name in expected} <= inputs
+    assert all('__pycache__' not in name and name.endswith('.py') for name in inputs)
+
+
+@pytest.mark.parametrize('change', ['renamed_row', 'missing_flag', 'changed_getter', 'changed_source'])
+@pytest.mark.parametrize('backend', ['check', 'platform-api'] + (
+    ['platform-base'] if any('platform-base' in path for path in generate.OUTPUTS.values()) else []))
+def test_leak_snapshot_schema_drift_stops_all_generators_before_writing(
+        tmp_path, monkeypatch, capsys, change, backend):
+    model = parse_pyi.parse()
+    row = model.row('LeakSensorInfo')
+    if change == 'renamed_row':
+        row.name = 'RenamedLeakSensorInfo'
+        for method in model.methods:
+            if method.row == 'LeakSensorInfo': method.row = row.name
+    elif change == 'missing_flag':
+        row.fields = [field for field in row.fields if field.name != 'is_test']
+    elif change == 'changed_getter':
+        next(field for field in row.fields if field.name == 'is_test').from_ = 'LeakageSensorBase.is_leak'
+    else:
+        row.sources[0].via = ()
+    monkeypatch.setattr(generate, 'parse', lambda: model)
+    output = tmp_path / 'out'
+    outputs_under(monkeypatch, output)
+    if backend == 'check':
+        assert run(monkeypatch, 'generate.py', '--check') == 1
+    else:
+        assert build_outputs.main(['--crate', backend, '--out-dir', str(output)]) == 1
+    assert 'leak snapshot:' in capsys.readouterr().err
+    assert not output.exists(), 'invalid contracts must not publish partial outputs'

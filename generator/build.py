@@ -23,6 +23,21 @@ def write(path, content):
         temporary.unlink(missing_ok=True)
 
 
+def track_modules():
+    """Tell Cargo which generator modules this invocation actually loaded."""
+    directory = Path(__file__).resolve().parent
+    inputs = set()
+    for module in tuple(sys.modules.values()):
+        filename = getattr(module, '__file__', None)
+        if filename is None:
+            continue
+        path = Path(filename).resolve()
+        if path.suffix == '.py' and path.is_relative_to(directory):
+            inputs.add(path)
+    for path in sorted(inputs):
+        print(f'cargo:rerun-if-changed={path}', flush=True)
+
+
 def render(crate):
     model = generate.build(generate.parse())
     problems = (['arity: ' + problem for problem in generate.check_arity(model)]
@@ -50,6 +65,7 @@ def main(argv=None):
             content = '\n'.join('//' + line[3:] if line.startswith('//!') else line
                                 for line in content.split('\n'))
             write(args.out_dir / Path(source).relative_to(prefix), content)
+        track_modules()
         return 0
     except ValueError as error:
         print(error, file=sys.stderr)
