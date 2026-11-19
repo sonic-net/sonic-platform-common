@@ -1,0 +1,97 @@
+
+smartctl 7.4 2023-08-01 r5530 [x86_64-linux-6.1.0-22-2-amd64] (local build)
+Copyright (C) 2002-23, Bruce Allen, Christian Franke, www.smartmontools.org
+
+=== START OF INFORMATION SECTION ===
+Model Family:     Silicon Motion based SSDs
+Device Model:     TS120GMTS420S
+Serial Number:    I074710927
+LU WWN Device Id: 5 7c3548 21ce5198f
+Firmware Version: R0522A0
+User Capacity:    120,034,123,776 bytes [120 GB]
+Sector Size:      512 bytes logical/physical
+Rotation Rate:    Solid State Device
+Form Factor:      M.2
+TRIM Command:     Available, deterministic
+Device is:        In smartctl database 7.3/5528
+ATA Version is:   ACS-2 T13/2015-D revision 3
+SATA Version is:  SATA 3.2, 6.0 Gb/s (current: 6.0 Gb/s)
+Local Time is:    Fri Mar 21 08:22:45 2025 UTC
+SMART support is: Available - device has SMART capability.
+SMART support is: Enabled
+
+=== START OF READ SMART DATA SECTION ===
+SMART overall-health self-assessment test result: PASSED
+
+General SMART Values:
+Offline data collection status:  (0x00)	Offline data collection activity
+					was never started.
+					Auto Offline Data Collection: Disabled.
+Self-test execution status:      (   0)	The previous self-test routine completed
+					without error or no self-test has ever 
+					been run.
+Total time to complete Offline 
+data collection: 		(  120) seconds.
+Offline data collection
+capabilities: 			 (0x11) SMART execute Offline immediate.
+					No Auto Offline data collection support.
+					Suspend Offline collection upon new
+					command.
+					No Offline surface scan supported.
+					Self-test supported.
+					No Conveyance Self-test supported.
+					No Selective Self-test supported.
+SMART capabilities:            (0x0002)	Does not save SMART data before
+					entering power-saving mode.
+					Supports SMART auto save timer.
+Error logging capability:        (0x01)	Error logging supported.
+					General Purpose Logging supported.
+Short self-test routine 
+recommended polling time: 	 (   2) minutes.
+Extended self-test routine
+recommended polling time: 	 (  10) minutes.
+
+SMART Attributes Data Structure revision number: 1
+Vendor Specific SMART Attributes with Thresholds:
+ID# ATTRIBUTE_NAME          FLAG     VALUE WORST THRESH TYPE      UPDATED  WHEN_FAILED RAW_VALUE
+  1 Raw_Read_Error_Rate     0x0032   100   100   050    Old_age   Always       -       0
+  5 Reallocated_Sector_Ct   0x0032   100   100   050    Old_age   Always       -       0
+  9 Power_On_Hours          0x0032   100   100   050    Old_age   Always       -       1221
+ 12 Power_Cycle_Count       0x0032   100   100   050    Old_age   Always       -       53
+160 Uncorrectable_Error_Cnt 0x0032   100   100   050    Old_age   Always       -       0
+161 Valid_Spare_Block_Cnt   0x0033   100   100   050    Pre-fail  Always       -       100
+163 Initial_Bad_Block_Count 0x0032   100   100   050    Old_age   Always       -       14
+164 Total_Erase_Count       0x0032   100   100   050    Old_age   Always       -       2185
+165 Max_Erase_Count         0x0032   100   100   050    Old_age   Always       -       6
+166 Min_Erase_Count         0x0032   100   100   050    Old_age   Always       -       1
+167 Average_Erase_Count     0x0032   100   100   050    Old_age   Always       -       4
+168 Max_Erase_Count_of_Spec 0x0032   100   100   050    Old_age   Always       -       1500
+169 Remaining_Lifetime_Perc 0x0032   100   100   050    Old_age   Always       -       100
+175 Program_Fail_Count_Chip 0x0032   100   100   050    Old_age   Always       -       0
+176 Erase_Fail_Count_Chip   0x0032   100   100   050    Old_age   Always       -       0
+177 Wear_Leveling_Count     0x0032   100   100   050    Old_age   Always       -       0
+178 Runtime_Invalid_Blk_Cnt 0x0032   100   100   050    Old_age   Always       -       0
+181 Program_Fail_Cnt_Total  0x0032   100   100   050    Old_age   Always       -       0
+182 Erase_Fail_Count_Total  0x0032   100   100   050    Old_age   Always       -       0
+192 Power-Off_Retract_Count 0x0032   100   100   050    Old_age   Always       -       51
+194 Temperature_Celsius     0x0022   100   100   050    Old_age   Always       -       33
+195 Hardware_ECC_Recovered  0x0032   100   100   050    Old_age   Always       -       0
+196 Reallocated_Event_Count 0x0032   100   100   050    Old_age   Always       -       0
+197 Current_Pending_Sector  0x0032   100   100   050    Old_age   Always       -       0
+198 Offline_Uncorrectable   0x0032   100   100   050    Old_age   Always       -       0
+199 UDMA_CRC_Error_Count    0x0032   100   100   050    Old_age   Always       -       0
+232 Available_Reservd_Space 0x0032   100   100   050    Old_age   Always       -       100
+241 Host_Writes_32MiB       0x0030   100   100   050    Old_age   Offline      -       5068
+242 Host_Reads_32MiB        0x0030   100   100   050    Old_age   Offline      -       16734
+245 TLC_Writes_32MiB        0x0032   100   100   050    Old_age   Always       -       1035
+
+SMART Error Log Version: 1
+No Errors Logged
+
+SMART Self-test log structure revision number 1
+No self-tests have been logged.  [To run self-tests, use: smartctl -t]
+
+Selective Self-tests/Logging not supported
+
+The above only provides legacy SMART information - try 'smartctl -x' for more
+

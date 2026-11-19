@@ -1,0 +1,2 @@
+
+[Error] Cannot read SMART information on device /dev/nvme0n1

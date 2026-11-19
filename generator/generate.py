@@ -5,9 +5,9 @@ templates.  A template that decides how a sentinel is normalised is a template
 that has to be kept in step with the two other templates that decide the same
 thing; the point of the exercise is that they cannot drift.
 
-Outputs are checked in.  `--check` re-renders and compares, which is what CI
-runs: a stub edited without regenerating fails there rather than at the next
-person to touch it.
+The Python facade is checked in. Rust sources are generated into Cargo
+`OUT_DIR` during the build. `--check` compares the checked-in Python outputs
+and checks generation in independent processes with different hash seeds.
 """
 
 import argparse
@@ -16,16 +16,22 @@ import json
 import os
 import re
 import sys
+import subprocess
 import warnings
 
 import jinja2
 
 from model import key_segment, keyed, _snake as _snake_of, rust_type, strip_optional, template_fields
 from parse_pyi import parse
+import native
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, os.pardir))
+# The base classes the stub is held to and the native defaults come from:
+# the repository's, wherever the outputs are written.
+BASE_DIR = os.path.join(ROOT, 'sonic_platform_base')
 TEMPLATES = os.path.join(HERE, 'templates')
+RUST_OUT_DIR = os.path.join(ROOT, 'build', 'generated')
 
 OUTPUTS = {
     'facade.py.j2': os.path.join(ROOT, 'sonic_platform_api', 'facade.py'),
@@ -37,6 +43,12 @@ OUTPUTS = {
     'provider_sweep.rs.j2': os.path.join(
         ROOT, 'crates', 'platform-provider', 'tests', 'generated', 'sweep.rs'),
     'allowlist.txt.j2': os.path.join(ROOT, 'sonic_platform_api', 'stubtest_allowlist.txt'),
+    'native_object.rs.j2': os.path.join(
+        ROOT, 'crates', 'platform-base', 'src', 'generated', 'object.rs'),
+    'native_facade.rs.j2': os.path.join(
+        ROOT, 'crates', 'platform-base', 'src', 'generated', 'facade.rs'),
+    'native_object_sweep.rs.j2': os.path.join(
+        ROOT, 'crates', 'platform-base', 'tests', 'generated', 'object_sweep.rs'),
 }
 
 # Semantic integer types.  The bridge reads them with platform-pyo3's
@@ -63,9 +75,35 @@ def _py_base_call(f):
         # Only the final hop is the one a vendor narrows -- the hops before it
         # walk the object tree and a TypeError there would be a real bug.
         last = i == len(hops) - 1
-        call = ('_call_narrowed(_get(%s, %r))' if (last and f.narrowed)
-                else '_call(_get(%s, %r))') % (call, hop)
+        prefix = '.'.join(hops[:i + 1])
+        if prefix in getattr(f, 'cached_prefixes', ()):
+            default = ', unsupported=%r' % f.default if last and f.preserve_none else ''
+            call = '_cached_call(_reads, %r, _get(%s, %r)%s)' % (prefix, call, hop, default)
+        elif last and f.preserve_none:
+            call = '_call_unsupported_default(_get(%s, %r), %r)' % (call, hop, f.default)
+        else:
+            call = ('_call_narrowed(_get(%s, %r))' if (last and f.narrowed)
+                    else '_call(_get(%s, %r))') % (call, hop)
     return call
+
+
+def _cache_reads(row):
+    """Share raw readings without hoisting them past per-field conditions."""
+    prefixes = {}
+    for f in row.fields:
+        f.cached_prefixes = ()
+        if not row.sequential or not f.getter or f.with_name or f.narrowed:
+            continue
+        hops = f.getter.split('.')
+        for i in range(1, len(hops) + 1):
+            prefix = '.'.join(hops[:i])
+            prefixes[prefix] = prefixes.get(prefix, 0) + 1
+    shared = {prefix for prefix, count in prefixes.items() if count > 1}
+    for f in row.fields:
+        if not f.with_name and not f.narrowed:
+            f.cached_prefixes = tuple(prefix for prefix in shared
+                                      if f.getter == prefix or f.getter.startswith(prefix + '.'))
+    row.cached_reads = bool(shared)
 
 
 def _share_calls(row):
@@ -101,7 +139,9 @@ def _share_calls(row):
     row.shared_calls = []
     for f in row.fields:
         f.shared_var = None
-        if f.is_parent or f.with_name or f.at is None or not f.getter:
+        if f.is_parent or f.with_name or not f.getter:
+            continue
+        if f.at is None and (row.guarded or row.absorbs or row.absorbable or f.read_if):
             continue
         seen.setdefault(_py_base_call(f), []).append(f)
     for call, fields in seen.items():
@@ -165,7 +205,7 @@ def _assign_col_bits(row):
 def _absent(f):
     """What a column holds when it was not read: as if the platform did not
     implement the getter."""
-    if f.unsupported_on != 'default':
+    if f.unsupported_on != 'default' or f.preserve_none:
         return 'None'
     if _is_template(f.default):
         # The same resolution the read takes when the getter answers nothing,
@@ -286,6 +326,9 @@ def _row_body(row):
         expr = f.py_expr
         if f.read_if and (f.read_if_absorbing or not absorbing):
             cond = ('row.%s' if f.read_if_truthy else 'row.%s is not None') % f.read_if
+            for column, value in f.read_if_all:
+                operator = 'is' if value is None or isinstance(value, bool) else '=='
+                cond += ' and row.%s %s %r' % (column, operator, value)
             expr = '(%s) if %s else %s' % (expr, cond, _absent(f))
         return '%srow.%s = %s' % (indent, f.name, expr)
 
@@ -324,7 +367,7 @@ def _row_body(row):
                     '%s    row.%s = %s' % (indent, f.name, _absent(f))]
         return out
 
-    lines = []
+    lines = ['%s_reads = {}' % IND] if row.cached_reads else []
     if row.skippable:
         lines.append("%sif fixed['key'] in skip:" % IND)
         lines.append('%s    cols &= %d' % (IND, row.unguarded_mask))
@@ -352,6 +395,8 @@ def _row_body(row):
             lines += row_errors(IND + '    ')
         else:
             lines += row_errors(IND)
+    if row.cached_reads:
+        lines.append('%s_reads.clear()' % IND)
     lines.append('%sreturn row' % IND)
     return '\n'.join(lines)
 
@@ -717,6 +762,8 @@ def _snapshot_body(row):
             # `{i}` counts on from its rows, the key stays this list's own.
             lines.append('%sn = len(out) - s%d' % (indent, k - 1))
             index = 'n + i'
+        if row.name == 'LeakSensorInfo':
+            leaf = '_leak_snapshot_sensors(%s)' % leaf
         if src.single:
             # At most one row: `_one` yields nothing when the platform has
             # none, rather than a row whose every column is None.
@@ -869,7 +916,7 @@ def _action_body(m, model):
         # pass_key: the base class takes the device's own name as its first
         # argument as well.  The locator is a key now, so the name is the
         # device's, asked of the device the key led to.
-        args = ', '.join((["_text(_call(_get(dev, 'get_name')))"] if m.pass_key else [])
+        args = ', '.join((["name"] if m.pass_key else [])
                          + [passed(p) for p, _t in m.params[1:]])
     else:
         args = ', '.join(passed(p) for p, _t in m.params)
@@ -898,12 +945,18 @@ def _action_body(m, model):
 
     row = model.row(m.row)
     key = m.params[0][0]
-    head = ('%sdev = self._find_%s(%s)\n'
-            '%sfn = _get(dev, %r)\n'
-            '%sif fn is None:\n'
-            '%s    raise NotImplementedError(%r)\n'
-            % (IND, row.snake, key, IND, method, IND, IND,
-               '%s is not implemented' % m.calls))
+    head = '%sdev = self._find_%s(%s)\n' % (IND, row.snake, key)
+    if m.pass_key:
+        head += '%sname = _text(_call(_get(dev, \'get_name\')))\n' % IND
+        head += '%sif name is None:\n' % IND
+        if strip_optional(m.returns)[1]:
+            head += '%s    return None\n' % IND
+        else:
+            head += '%s    raise NotImplementedError(%r)\n' % (IND, 'Device name is unavailable')
+    head += ('%sfn = _get(dev, %r)\n'
+             '%sif fn is None:\n'
+             '%s    raise NotImplementedError(%r)\n'
+             % (IND, method, IND, IND, '%s is not implemented' % m.calls))
     built = _row_from_one_call(m, model)
     if built is not None:
         return ('%s%sanswer = fn(%s)\n%sreturn %s(%s)'
@@ -1090,7 +1143,7 @@ def _docstring(classes, cls, meth):
     return None if method is None else method.doc
 
 
-def check_contract(model, base_dir=os.path.join(ROOT, 'sonic_platform_base'),
+def check_contract(model, base_dir=BASE_DIR,
                    literals=None):
     """Hold the stub to what the base classes say their methods answer.
 
@@ -1162,7 +1215,42 @@ def check_contract(model, base_dir=os.path.join(ROOT, 'sonic_platform_base'),
     return bad
 
 
+def _validate_leak_snapshot(model):
+    """Keep both snapshot generators tied to the declared leak contract.
+
+    The two-pass wrapper depends on this row's collection and raw getters.
+    Reject schema drift before rendering instead of silently losing the cache.
+    """
+    row = model.row('LeakSensorInfo')
+    if row is None:
+        raise ValueError('leak snapshot: required row LeakSensorInfo is missing')
+    getters = {
+        'name': 'get_name', 'is_ok': 'is_leak_sensor_ok', 'is_leak': 'is_leak',
+        'severity': 'get_leak_severity', 'is_test': 'is_test_leak',
+        'profile_type': 'get_leak_profile.get_type',
+        'profile_max_minor_duration_sec': 'get_leak_profile.get_leak_max_minor_duration_sec',
+    }
+    fields = {field.name: field.from_ for field in row.fields}
+    forwarded = set(getters.values()) | {'get_leak_sensor_type', 'get_leak_sensor_location'}
+    for field in row.fields:
+        if field.from_ and field.from_.removeprefix('LeakageSensorBase.') not in forwarded:
+            raise ValueError('leak snapshot: unsupported snapshot getter for LeakSensorInfo.%s' % field.name)
+    for name, getter in getters.items():
+        expected = 'LeakageSensorBase.' + getter
+        if fields.get(name) != expected:
+            raise ValueError('leak snapshot: LeakSensorInfo.%s must read %s'
+                             % (name, expected))
+    if (len(row.sources) != 1
+            or row.sources[0].from_ != 'LiquidCoolingBase.get_all_leak_sensors'
+            or row.sources[0].via != (('ChassisBase.get_liquid_cooling', True),)
+            or row.sources[0].single):
+        raise ValueError('leak snapshot: LeakSensorInfo must collect '
+                         'LiquidCoolingBase.get_all_leak_sensors through '
+                         'ChassisBase.get_liquid_cooling')
+
+
 def build(model):
+    _validate_leak_snapshot(model)
     # Rows an action addresses by key need a lookup; the rest do not, and
     # emitting one anyway would be dead code in a generated file.
     addressed = {m.row for m in model.methods if m.kind == 'action' and m.row}
@@ -1189,6 +1277,7 @@ def build(model):
         # What a skipped row still reads: its unguarded columns.
         row.unguarded_mask = sum(1 << f.col_bit for f in row.fields
                                  if f.unguarded and f.col_bit is not None)
+        _cache_reads(row)
         _share_calls(row)
         for f in row.fields:
             f.py_expr = _py_field_expr(f, enums)
@@ -1215,6 +1304,19 @@ def build(model):
             f.rust_ty in enums for f in row.fields)
         row.new_params = [f for f in row.fields if f.rust_ty in enums]
     for m in model.methods:
+        if m.columns or m.detail_columns:
+            if m.name != 'get_psu_fans':
+                raise ValueError('%s: escape projections are only supported for get_psu_fans'
+                                 % m.name)
+            row_name = m.returns.removeprefix('list[').removesuffix(']')
+            row = model.row(row_name)
+            if row is None or not row.projected:
+                raise ValueError('%s: escape projections require a projected row' % m.name)
+            bits = {f.name: f.col_bit for f in row.fields if f.col_bit is not None}
+            if any(name not in bits for name in m.columns + m.detail_columns):
+                raise ValueError('%s: unknown escape projection column' % m.name)
+            m.column_mask = sum(1 << bits[name] for name in m.columns)
+            m.detail_column_mask = sum(1 << bits[name] for name in m.detail_columns)
         if m.kind == 'action':
             m.body = _action_body(m, model)
             if not m.doc:
@@ -1282,6 +1384,12 @@ def build(model):
     taken = ' '.join(m.rust_params for m in model.methods)
     model.sweep_imports = [
         n for n in declared if re.search(r'\b%s\b' % re.escape(n), taken)]
+
+    # The native back end reads the same model, after everything above has
+    # filled it in: it reuses the column bits, the shared calls and the Rust
+    # signatures rather than deciding any of them again.
+    native.build_facade(model)
+    model.native = native.build_object(model, BASE_DIR)
     return model
 
 
@@ -1334,7 +1442,7 @@ def _fence_indented(lines):
     return out
 
 
-def render(model):
+def render(model, outputs=None):
     # The output is Rust and Python source, not HTML: autoescaping would turn
     # every `<`, `>` and `&` in a type or a doc comment into an entity.
     # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
@@ -1347,9 +1455,19 @@ def render(model):
     env.filters['rustdoc'] = _rustdoc
     env.filters['camel'] = lambda n: ''.join(p.title() for p in n.split('_'))
     env.filters['snake'] = _snake_of
+    # A Rust string literal.  Not `tojson`, which escapes `<`, `>` and `'` for
+    # HTML as `\u003c`, nor `json.dumps`, whose `\uXXXX`, `\b` and `\f` are
+    # no more Rust escapes than that is.
+    env.filters['rust_str'] = native.rust_str
+    trait = env.get_template('trait.rs.j2').render(model=model)
+    trait = trait[trait.index('pub trait PlatformApi'):]
+    receivers = set(re.findall(r'fn \w+\((&(?:mut )?self)', trait))
+    if len(receivers) != 1:
+        raise ValueError('native facade needs a consistent PlatformApi receiver')
+    model.native_receiver = receivers.pop()
     out = {}
-    for tpl, path in OUTPUTS.items():
-        text = env.get_template(tpl).render(model=model)
+    for tpl, path in (OUTPUTS if outputs is None else outputs).items():
+        text = env.get_template(tpl).render(model=model, native=getattr(model, 'native', None))
         # Trailing whitespace once, here, rather than in three templates.  A
         # blank line inside a doc comment is the usual source, and rustfmt and
         # most linters would strip it back out -- at which point `--check`
@@ -1358,13 +1476,32 @@ def render(model):
     return out
 
 
+def render_in_subprocess(seed):
+    """Parse and render again in an interpreter with an independent hash seed."""
+    command = (
+        'import json, sys; import generate; '
+        'generate.OUTPUTS = json.loads(sys.argv[1]); '
+        'model = generate.build(generate.parse()); '
+        'print(json.dumps(generate.render(model), sort_keys=True))'
+    )
+    environment = dict(os.environ, PYTHONHASHSEED=str(seed), PYTHONDONTWRITEBYTECODE='1')
+    result = subprocess.run(
+        [sys.executable, '-c', command, json.dumps(OUTPUTS)], cwd=HERE,
+        env=environment, text=True, capture_output=True, check=True)
+    return json.loads(result.stdout)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--check', action='store_true',
-                    help='fail if a checked-in output is stale')
+                    help='check committed Python outputs and deterministic Rust generation')
     args = ap.parse_args()
 
-    model = build(parse())
+    try:
+        model = build(parse())
+    except ValueError as error:
+        print(error, file=sys.stderr)
+        return 1
     problems = (['arity: %s' % p for p in check_arity(model)]
                 + ['contract: %s' % p for p in check_contract(model)])
     if problems:
@@ -1372,10 +1509,30 @@ def main():
             print(p, file=sys.stderr)
         return 1
     rendered = render(model)
+    if args.check:
+        try:
+            native.check_body_fingerprints(model, BASE_DIR)
+        except ValueError as error:
+            print(error, file=sys.stderr)
+            return 1
+        try:
+            independent = [render_in_subprocess(seed) for seed in (0, 1)]
+        except subprocess.CalledProcessError as error:
+            print('platform API generation subprocess failed: ' + error.stderr,
+                  file=sys.stderr)
+            return 1
+        if any(rendered != output for output in independent):
+            print('platform API generation is not deterministic', file=sys.stderr)
+            return 1
 
     stale = []
     for path, text in sorted(rendered.items()):
         rel = os.path.relpath(path, ROOT)
+        if path.endswith('.rs'):
+            if args.check:
+                continue
+            path = os.path.join(RUST_OUT_DIR, rel)
+            rel = os.path.relpath(path, ROOT)
         if args.check:
             current = open(path).read() if os.path.exists(path) else None
             if current != text:
@@ -1391,7 +1548,7 @@ def main():
             print('stale, re-run generator/generate.py: %s' % ', '.join(stale),
                   file=sys.stderr)
             return 1
-        print('generated files up to date')
+        print('checked-in Python outputs up to date; Rust generation is deterministic')
     return 0
 
 

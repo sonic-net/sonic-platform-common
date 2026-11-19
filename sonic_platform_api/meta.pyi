@@ -231,11 +231,16 @@ class ReadIf:
     and the absorbing read another's.  psud reads a PSU's fans gated on the
     PSU's presence, never the fan's (psud:945-950), and does not ask for the
     fan's presence at all.
+
+    `all_of` requires additional literal equalities on earlier columns.
+    A leak profile is read only for a healthy, leaking MINOR sensor; a dry
+    or CRITICAL sensor must not call an unrelated profile getter.
     """
 
     column: str
     truthy: bool = ...
     when_absorbing: bool = ...
+    all_of: tuple[tuple[str, object], ...] = ...
 
 @dataclass(frozen=True)
 class Secret:
@@ -422,6 +427,9 @@ class Unsupported:
 
     on: Literal["none", "default"] = ...
     default: object = ...
+    # Preserve a vendor's None reading while defaulting only absent or
+    # NotImplemented getters. Used by power-budget values: unknown is not zero.
+    preserve_none: bool = False
 
 @dataclass(frozen=True)
 class On:
@@ -563,6 +571,11 @@ class EscapeHatch:
 
     reason: str
     reaches: tuple[str, ...] = ...
+    # Optional named projections passed to the hand-written implementation
+    # together with its owning facade, and rendered into the Rust fallback.
+    # Projection metadata is currently supported only for get_psu_fans.
+    columns: tuple[str, ...] = ...
+    detail_columns: tuple[str, ...] = ...
 
 @dataclass(frozen=True)
 class Rust:

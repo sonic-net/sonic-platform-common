@@ -1,8 +1,9 @@
 """The generator and its omission check, run the way check.sh runs them.
 
-`generate.py --check` is the gate that keeps the checked-in facade and the
-three Rust files equal to what the stub says; `api_coverage.py --check` is the
-one that notices an omission whose reason has stopped being true.  Both used
+`generate.py --check` keeps the checked-in facade equal to the stub and checks
+deterministic Rust generation; Cargo generates Rust into OUT_DIR.
+`api_coverage.py --check` notices an omission whose reason has stopped being
+true. Both used
 to run only as command lines, where nothing measured which of their branches a
 change ever took.  They run in process here, so the failures they exist to
 report are exercised too, not only the passing run.
@@ -12,7 +13,10 @@ import ast
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -24,6 +28,7 @@ pytest.importorskip('jinja2')
 
 import api_coverage  # noqa: E402
 import generate  # noqa: E402
+from generator import build as build_outputs  # noqa: E402
 import parse_pyi  # noqa: E402
 from model import FieldSpec, MethodSpec, RowSpec, _pascal, rust_type, strip_optional  # noqa: E402
 
@@ -47,14 +52,15 @@ def outputs_under(monkeypatch, root):
              for tpl, path in generate.OUTPUTS.items()}
     monkeypatch.setattr(generate, 'OUTPUTS', moved)
     monkeypatch.setattr(generate, 'ROOT', str(root))
+    monkeypatch.setattr(generate, 'RUST_OUT_DIR', str(root))
     return moved
 
 
 # -- generate.py -------------------------------------------------------------
 
-def test_the_checked_in_outputs_are_what_the_generator_produces(monkeypatch, capsys):
+def test_python_outputs_match_and_rust_generation_is_deterministic(monkeypatch, capsys):
     assert run(monkeypatch, 'generate.py', '--check') == 0
-    assert 'generated files up to date' in capsys.readouterr().out
+    assert 'Rust generation is deterministic' in capsys.readouterr().out
 
 
 def test_a_fresh_tree_is_written_and_then_checks_clean(tmp_path, monkeypatch, capsys):
@@ -69,7 +75,7 @@ def test_a_fresh_tree_is_written_and_then_checks_clean(tmp_path, monkeypatch, ca
     assert run(monkeypatch, 'generate.py', '--check') == 0
 
 
-def test_an_edited_or_missing_output_is_stale(tmp_path, monkeypatch, capsys):
+def test_edited_python_is_stale_while_rust_source_files_are_not_required(tmp_path, monkeypatch, capsys):
     moved = outputs_under(monkeypatch, tmp_path)
     assert run(monkeypatch, 'generate.py') == 0
     capsys.readouterr()
@@ -82,7 +88,88 @@ def test_an_edited_or_missing_output_is_stale(tmp_path, monkeypatch, capsys):
     err = capsys.readouterr().err
     assert 'stale, re-run generator/generate.py' in err
     assert 'sonic_platform_api/facade.py' in err
-    assert 'crates/platform-api/src/generated.rs' in err
+    assert 'crates/platform-api/src/generated.rs' not in err
+
+
+def test_cargo_generation_recreates_missing_and_edited_outputs(tmp_path):
+    args = ['--crate', 'platform-api', '--out-dir', str(tmp_path)]
+    assert build_outputs.main(args) == 0
+    trait = tmp_path / 'src/generated.rs'
+    sweep = tmp_path / 'tests/generated/sweep.rs'
+    expected = trait.read_text(), sweep.read_text()
+    assert 'pub trait PlatformApi' in expected[0]
+    mtimes = trait.stat().st_mtime_ns, sweep.stat().st_mtime_ns
+    assert build_outputs.main(args) == 0
+    assert (trait.stat().st_mtime_ns, sweep.stat().st_mtime_ns) == mtimes
+    trait.write_text('// edited')
+    sweep.unlink()
+    assert build_outputs.main(args) == 0
+    assert (trait.read_text(), sweep.read_text()) == expected
+
+
+def test_declaration_changes_reach_cargo_generated_sources(tmp_path, monkeypatch):
+    args = ['--crate', 'platform-api', '--out-dir', str(tmp_path / 'out')]
+    assert build_outputs.main(args) == 0
+    trait = tmp_path / 'out/src/generated.rs'
+    before = trait.read_text()
+    stub = tmp_path / 'facade.pyi'
+    with open(parse_pyi.FACADE_PYI) as source:
+        original = source.read()
+    changed = original.replace('def get_chassis_info(', 'def get_chassis_info_updated(')
+    assert changed != original
+    stub.write_text(changed)
+    parse = parse_pyi.parse
+    monkeypatch.setattr(generate, 'parse', lambda: parse(str(stub)))
+    assert build_outputs.main(args) == 0
+    assert trait.read_text() != before
+    assert 'fn get_chassis_info_updated(' in trait.read_text()
+
+
+def test_invalid_contract_stops_cargo_generation_before_writing(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(generate, 'check_contract', lambda model: ['invalid API'])
+    assert build_outputs.main(['--crate', 'platform-api', '--out-dir', str(tmp_path)]) == 1
+    assert 'contract: invalid API' in capsys.readouterr().err
+    assert not list(tmp_path.iterdir())
+
+
+def test_nondeterministic_generation_fails_the_ci_check(monkeypatch, capsys):
+    outputs = iter([{'first.rs': 'first'}, {'first.rs': 'different'}])
+    monkeypatch.setattr(generate, 'render', lambda model: next(outputs))
+    assert run(monkeypatch, 'generate.py', '--check') == 1
+    assert 'generation is not deterministic' in capsys.readouterr().err
+
+
+def test_hash_seed_dependent_output_fails_the_actual_cli_check(tmp_path):
+    root = Path(generate.__file__).resolve().parent.parent
+    for directory in ('generator', 'sonic_platform_api', 'sonic_platform_base', 'crates'):
+        shutil.copytree(root / directory, tmp_path / directory,
+                        ignore=shutil.ignore_patterns('__pycache__', '*.pyc', 'target'))
+    script = tmp_path / 'generator/generate.py'
+    source = script.read_text()
+    marker = "        out[path] = '\\n'.join(ln.rstrip() for ln in text.split('\\n'))"
+    assert source.count(marker) == 1
+    # A set iteration is stable within one interpreter and can differ across
+    # builds. The old two-render check in one process accepted this output.
+    source = source.replace(marker, '''        if path.endswith('.rs'):
+            text += '\\n// ' + ','.join({'alpha', 'beta', 'gamma', 'delta',
+                                      'epsilon', 'zeta', 'eta', 'theta'})
+''' + marker)
+    script.write_text(source)
+    environment = dict(os.environ, PYTHONHASHSEED='0', PYTHONDONTWRITEBYTECODE='1')
+    command = [sys.executable, str(script)]
+    subprocess.run(command, env=environment, capture_output=True, text=True, check=True)
+    result = subprocess.run(command + ['--check'], env=environment,
+                            capture_output=True, text=True)
+    assert result.returncode == 1
+    assert 'generation is not deterministic' in result.stderr
+
+
+def test_a_failed_generation_subprocess_reports_its_error(monkeypatch, capsys):
+    def fail(seed):
+        raise subprocess.CalledProcessError(1, ['python'], stderr='cannot render input')
+    monkeypatch.setattr(generate, 'render_in_subprocess', fail)
+    assert run(monkeypatch, 'generate.py', '--check') == 1
+    assert 'subprocess failed: cannot render input' in capsys.readouterr().err
 
 
 def test_an_arity_problem_stops_the_generator_before_it_writes(tmp_path, monkeypatch, capsys):
@@ -509,3 +596,115 @@ def test_no_two_values_of_an_enumeration_become_one_variant():
     for e in parse_pyi.parse().enums:
         variants = [v for _value, v in e.variants]
         assert len(set(variants)) == len(variants), e.name
+
+
+@pytest.mark.parametrize('columns, detail_columns', [
+    (('status_led',), ()),
+    ((), ('speed_pct',)),
+])
+def test_projected_escape_requires_a_supported_rust_implementation(columns, detail_columns):
+    model = parse_pyi.parse()
+    model.methods.append(MethodSpec(
+        name='get_other_psu_fans', kind='escape', returns='list[FanInfo]',
+        params=[('key', 'DeviceKey'), ('include_details', 'bool')],
+        columns=columns, detail_columns=detail_columns,
+        escape_reason='A second scoped fan read needs projection-aware Rust support.',
+    ))
+    with pytest.raises(ValueError, match=r'get_other_psu_fans:.*only supported for get_psu_fans'):
+        generate.build(model)
+
+
+def test_cargo_generation_tracks_transitively_imported_helpers(tmp_path):
+    root = Path(GENERATOR).parent
+    for directory in ('generator', 'sonic_platform_api', 'sonic_platform_base', 'crates'):
+        shutil.copytree(root / directory, tmp_path / directory,
+                        ignore=shutil.ignore_patterns('__pycache__', '*.pyc', 'target'))
+    generator = tmp_path / 'generator'
+    with (generator / 'generate.py').open('a') as stream:
+        stream.write('\nimport cargo_tracking_outer\n')
+    (generator / 'cargo_tracking_outer.py').write_text('import cargo_tracking_inner\n')
+    (generator / 'cargo_tracking_inner.py').write_text('VALUE = 1\n')
+    env = dict(os.environ, PYTHONDONTWRITEBYTECODE='1')
+    env.pop('PYTHONPATH', None)
+    result = subprocess.run(
+        [sys.executable, str(generator / 'build.py'), '--crate', 'platform-api',
+         '--out-dir', str(tmp_path / 'out')], env=env, text=True, capture_output=True)
+    assert result.returncode == 0, result.stderr
+    inputs = {line.removeprefix('cargo:rerun-if-changed=')
+              for line in result.stdout.splitlines() if line.startswith('cargo:rerun-if-changed=')}
+    expected = {'build.py', 'generate.py', 'model.py', 'parse_pyi.py',
+                'cargo_tracking_outer.py', 'cargo_tracking_inner.py'}
+    assert {str(generator / name) for name in expected} <= inputs
+    assert all('__pycache__' not in name for name in inputs)
+    assert str(tmp_path / 'crates/platform-base/src/escape_hatch.rs') in inputs
+    assert str(tmp_path / 'generator/native_body_hashes.json') in inputs
+
+
+@pytest.mark.parametrize('change', ['renamed_row', 'missing_flag', 'changed_getter', 'changed_source'])
+@pytest.mark.parametrize('backend', ['check', 'platform-api'] + (
+    ['platform-base'] if any('platform-base' in path for path in generate.OUTPUTS.values()) else []))
+def test_leak_snapshot_schema_drift_stops_all_generators_before_writing(
+        tmp_path, monkeypatch, capsys, change, backend):
+    model = parse_pyi.parse()
+    row = model.row('LeakSensorInfo')
+    if change == 'renamed_row':
+        row.name = 'RenamedLeakSensorInfo'
+        for method in model.methods:
+            if method.row == 'LeakSensorInfo': method.row = row.name
+    elif change == 'missing_flag':
+        row.fields = [field for field in row.fields if field.name != 'is_test']
+    elif change == 'changed_getter':
+        next(field for field in row.fields if field.name == 'is_test').from_ = 'LeakageSensorBase.is_leak'
+    else:
+        row.sources[0].via = ()
+    monkeypatch.setattr(generate, 'parse', lambda: model)
+    output = tmp_path / 'out'
+    outputs_under(monkeypatch, output)
+    if backend == 'check':
+        assert run(monkeypatch, 'generate.py', '--check') == 1
+    else:
+        assert build_outputs.main(['--crate', backend, '--out-dir', str(output)]) == 1
+    assert 'leak snapshot:' in capsys.readouterr().err
+    assert not output.exists(), 'invalid contracts must not publish partial outputs'
+
+
+
+def test_new_leak_snapshot_columns_cannot_bypass_native_forwarding():
+    import copy
+    model = parse_pyi.parse()
+    row = model.row('LeakSensorInfo')
+    field = copy.deepcopy(next(f for f in row.fields if f.name == 'location'))
+    field.name = 'model'
+    field.from_ = 'DeviceBase.get_model'
+    row.fields.append(field)
+    with pytest.raises(ValueError, match='unsupported snapshot getter'):
+        generate.build(model)
+
+
+def test_native_body_change_requires_a_port_audit(tmp_path):
+    import copy
+    import json
+    import native
+    model = generate.build(parse_pyi.parse())
+    hashes = native.body_fingerprints(model, generate.BASE_DIR)
+    assert any('init_thermal_algorithm' in key for key in hashes)
+    key = next(key for key in hashes if 'init_thermal_algorithm' in key)
+    hashes[key] = 'outdated-body'
+    manifest = tmp_path / 'native.json'
+    manifest.write_text(json.dumps(hashes))
+    with pytest.raises(ValueError, match='init_thermal_algorithm'):
+        native.check_body_fingerprints(model, generate.BASE_DIR, str(manifest))
+
+
+def test_native_facade_uses_the_rendered_trait_receiver(tmp_path, monkeypatch):
+    model = generate.build(parse_pyi.parse())
+    template_dir = tmp_path / 'templates'
+    import shutil
+    shutil.copytree(generate.TEMPLATES, template_dir)
+    trait = template_dir / 'trait.rs.j2'
+    trait.write_text(trait.read_text().replace('&mut self', '&self'))
+    monkeypatch.setattr(generate, 'TEMPLATES', str(template_dir))
+    output = generate.render(model)
+    facade = next(value for name, value in output.items() if name.endswith('platform-base/src/generated/facade.rs'))
+    assert 'fn tm_initialize(&self)' in facade
+    assert 'fn tm_initialize(&mut self)' not in facade
