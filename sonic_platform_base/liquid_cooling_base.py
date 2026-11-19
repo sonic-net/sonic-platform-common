@@ -7,11 +7,16 @@
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Dict, List
+from typing import Dict, List, TYPE_CHECKING
 
 from . import device_base
 from .sensor_base import SensorBase
 import sys
+
+if TYPE_CHECKING:
+    # Imported for type annotations only: a runtime import would be circular,
+    # as leakage_sensor_test_base imports LeakSeverity from this module.
+    from .leakage_sensor_test_base import LeakageSensorTestBase
 
 
 class LeakSeverity(Enum):
@@ -35,6 +40,7 @@ class LeakageSensorBase(SensorBase):
         self.leak_type: str = type or 'unknown'
         self.leak_location: str = location or 'unknown'
         self.leak_severity = severity
+        self.test_leak = False
 
     def get_name(self) -> str:
         """
@@ -49,6 +55,11 @@ class LeakageSensorBase(SensorBase):
         """
         Retrieves the leak status of the sensor.
         The platform should apply debounce logic before reporting/clearing leak.
+
+        Implementations that read hardware must record the result in
+        self.leaking and must return a bool. The other accessors on this class
+        read self.leaking rather than calling is_leak() again, so one is_leak()
+        call per poll gives a consistent view of the sensor.
 
         Returns:
             bool: True if leak is detected, False if not
@@ -82,20 +93,36 @@ class LeakageSensorBase(SensorBase):
         """
         return self.leak_location
 
-    def get_leak_severity(self) -> LeakSeverity:
+    def get_leak_severity(self) -> LeakSeverity|None:
         """
         Retrieves the severity of leak
 
         Returns:
-            LeakSeverity: LeakSeverity.CRITICAL or LeakSeverity.MINOR, or None if no leak
+            LeakSeverity: LeakSeverity.CRITICAL or LeakSeverity.MINOR, or None
+            if no leak
         """
-        return self.leak_severity
+        return self.leak_severity if self.leaking else None
+
+    def is_test_leak(self) -> bool:
+        """
+        Retrieves whether the leak currently reported by this sensor originates
+        from a test injection rather than from the hardware.
+
+        A test leak is observable end to end (it is published like any other
+        leak) but must never be used to trigger a mitigation action.
+
+        Returns:
+            bool: True if the reported leak was injected by a leak test,
+                  False otherwise
+        """
+        return bool(self.leaking and self.test_leak)
 
     def get_leak_profile(self):
         """
         Returns the leak sensor profile associated with this sensor.
         """
         raise NotImplementedError
+
 
 class LeakSensorProfileBase(ABC):
     """
@@ -130,12 +157,13 @@ class LiquidCoolingBase(device_base.DeviceBase):
 
     def __init__(self,
                  leakage_sensors_num: int = 0,
-                 leakage_sensors_list: List[LeakageSensorBase] = [],
+                 leakage_sensors_list: List[LeakageSensorBase]|None = None,
                  *,
-                 profiles: List[LeakSensorProfileBase] = []):
-        self.leakage_sensors: List[LeakageSensorBase] = leakage_sensors_list
+                 profiles: List[LeakSensorProfileBase]|None = None):
+        self.leakage_sensors: List[LeakageSensorBase] = \
+            leakage_sensors_list if leakage_sensors_list is not None else []
         self.profiles: Dict[str, LeakSensorProfileBase] = {
-            p.get_type(): p for p in profiles
+            p.get_type(): p for p in (profiles or [])
         }
 
     def get_num_leak_sensors(self) -> int:
@@ -191,11 +219,22 @@ class LiquidCoolingBase(device_base.DeviceBase):
         """
         return list(self.profiles.values())
 
+    def get_leak_sensor_test(self) -> 'LeakageSensorTestBase|None':
+        """
+        Retrieves the leak test interface of this platform.
+
+        Returns:
+            LeakageSensorTestBase: the leak test interface defined in
+            leakage_sensor_test_base, or None if the platform does not support
+            leak test injection
+        """
+        return None
+
     def get_profile(self, type: str) -> LeakSensorProfileBase|None:
         """
         Retrives the profile with the given name.
         """
-        profile = getattr(self.profiles, type, None)
+        profile = self.profiles.get(type)
 
         if profile is None:
             sys.stderr.write(f"Leakage sensor profile {type} doesn't exist")
