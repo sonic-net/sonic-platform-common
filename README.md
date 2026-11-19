@@ -7,6 +7,51 @@
 
 Collection of Python packages which provide a common interface to platform-specific hardware peripherals in SONiC
 
+## Cross-language transceiver API
+
+`sonic_platform_api/facade.pyi` declares the shared API consumed by Rust
+`xcvrd-rs`. `get_sfps(indices)` takes the physical indices from `port_config`
+and reaches each slot through `ChassisBase.get_sfp(index)`. Rows carry that
+`index` and an opaque `DeviceKey`; a change event's `device_id` names the same
+physical index. Never subscript the returned rows with a physical port number:
+vendors may start numbering at 0 or 1, and sparse inventories omit non-SFP
+ports. `sfp_*` reads and actions address the row keys. Inventory does not read
+EEPROM or consume latched flags.
+
+The Rust trait uses `&self` and `Send + Sync`. Share one provider with `Arc`;
+neither the provider nor its bridge needs to clone device state. Implementations
+own cache synchronization and must not hold a device lock across an event wait.
+The Python facade serializes per-slot operations, including decoder construction,
+and invalidates decoders under the same lock after insert/remove events. Direct
+reads resolve the current `get_xcvr_api()`; an unavailable decoder returns `None`
+for optional scalars or JSON `null`, whereas a missing decoder method is
+`NotSupported`.
+
+Lazy thermal-manager, EEPROM, sensor, PCIe and storage construction uses separate
+resource locks, so concurrent calls cannot observe half-built caches. PCIe and
+storage refreshes are serialized within their own resources, not with event
+polling or other device operations.
+
+Open-ended transceiver dictionaries cross as `Json` (JSON-encoded strings),
+preserving vendor fields, nested values, nulls and non-finite readings as
+`"-inf"`, `"inf"` and `"nan"`. This is a temporary untyped boundary: native
+implementations must reproduce the Python dictionary schemas, and structural
+comparison requires parsing rather than comparing wire strings. `DEFERRED_JSON`
+in the declaration tracks each result's typed-schema follow-up; generation
+rejects untracked or stale entries. Temperature is already `Optional[Celsius]`,
+not JSON. `sfp_uses_legacy_pm` is the declared capability query for PM without
+the newer VDM interface; it does not invoke either getter.
+
+EEPROM transport uses bytes; writes convert to the vendor hook's required
+mutable bytearray. Read misses and failed writes are preserved. No vendor
+base-class changes are required.
+
+After editing the declaration, run `python3 generator/generate.py` and
+`generator/check.sh` with the `testing` extra installed. The generator produces
+the Python facade, Rust trait, PyO3 bridge and provider delegations. Daemons
+depend on `platform-api` and `platform-provider`, and need the matching
+`sonic_platform_api` Python package at runtime.
+
 # Contribution guide
 
 All contributors must sign a contribution license agreement (CLA) before contributions can be accepted. This process is now automated via a GitHub bot when submitting new pull request. If the contributor has not yet signed a CLA, the bot will create a comment on the pull request containing a link to electronically sign the CLA.

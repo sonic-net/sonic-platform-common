@@ -5,10 +5,24 @@ Hand-written, and deliberately small: everything here is declared in
 a matching declaration is a body somebody should have generated.
 """
 
+import json
 import signal
 import sys
 import threading
 from typing import Any, Callable, Optional
+
+
+def json_dumps(value: Any) -> str:
+    """Encode vendor transceiver data without losing non-finite readings.
+
+    Parse constants, not substrings: quoted text containing Infinity or NaN
+    must remain unchanged, including escaped quotes and Unicode.
+    """
+    encoded = json.dumps(value, default=str)
+    normalized = json.loads(encoded, parse_constant={
+        '-Infinity': '-inf', 'Infinity': 'inf', 'NaN': 'nan',
+    }.__getitem__)
+    return json.dumps(normalized, allow_nan=False)
 
 
 def _call(fn: Any, default: Any = None) -> Any:
@@ -178,6 +192,48 @@ class EscapeHatches(object):
         self._pcie_tried = False
         self._storage: Any = None
         self._storage_tried = False
+        self._manager_lock = threading.RLock()
+        self._eeprom_lock = threading.RLock()
+        self._sensors_lock = threading.RLock()
+        self._pcie_lock = threading.RLock()
+        self._storage_lock = threading.RLock()
+        self._device_locks: dict[int, Any] = {}
+        self._device_locks_guard = threading.Lock()
+
+    def device_lock(self, device: Any) -> Any:
+        """One lock for all facade calls on the same device object."""
+        with self._device_locks_guard:
+            return self._device_locks.setdefault(id(device), threading.RLock())
+
+    def sfp_get_type(self, sfp: Any) -> str:
+        """Read the vendor's slot type attribute."""
+        return str(sfp.sfp_type)
+
+    def sfp_uses_legacy_pm(self, sfp: Any) -> bool:
+        """Select the legacy PM path without invoking either capability."""
+        return (not hasattr(sfp, 'is_transceiver_vdm_supported')
+                and hasattr(sfp, 'get_transceiver_pm'))
+
+    def sfp_get_transceiver_dom_real_value(self, sfp: Any) -> str:
+        """Use legacy bulk status only when the modern method is absent."""
+        method = ('get_transceiver_dom_real_value'
+                  if hasattr(sfp, 'get_transceiver_dom_real_value')
+                  else 'get_transceiver_bulk_status')
+        return json_dumps(getattr(sfp, method)())
+
+    def sfp_read_eeprom(self, sfp: Any, offset: int, num_bytes: int) -> Optional[bytes]:
+        """Read the platform hook, preserving a read miss."""
+        if offset < 0 or num_bytes < 0:
+            raise ValueError('EEPROM offset and length must be non-negative')
+        value = sfp.read_eeprom(offset, num_bytes)
+        return None if value is None else bytes(value)
+
+    def sfp_write_eeprom(self, sfp: Any, offset: int, data: bytes) -> Optional[bool]:
+        """Write the supplied bytes and their exact length."""
+        if offset < 0:
+            raise ValueError('EEPROM offset must be non-negative')
+        result = sfp.write_eeprom(offset, len(data), bytearray(data))
+        return None if result is None else bool(result)
 
     # -- thermal manager ----------------------------------------------------
     #
@@ -198,15 +254,16 @@ class EscapeHatches(object):
         Three ways to not have one, and a platform uses all three: the chassis
         has no such method, the method raises, or it hands back None.
         """
-        if self._manager is None:
-            fn = getattr(self._chassis, 'get_thermal_manager', None)
-            if fn is None:
-                return None
-            try:
-                self._manager = fn()
-            except NotImplementedError:
-                return None
-        return self._manager
+        with self._manager_lock:
+            if self._manager is None:
+                fn = getattr(self._chassis, 'get_thermal_manager', None)
+                if fn is None:
+                    return None
+                try:
+                    self._manager = fn()
+                except NotImplementedError:
+                    return None
+            return self._manager
 
     def tm_initialize(self) -> None:
         """Start-up, in the order `ThermalControlDaemon.__init__` does it.
@@ -223,11 +280,12 @@ class EscapeHatches(object):
         unable to say the same.  Every later call treats that platform as one
         without a manager, as thermalctld does.
         """
-        if self._manager is None:
-            fn = getattr(self._chassis, 'get_thermal_manager', None)
-            if fn is not None:
-                self._manager = fn()
-        mgr = self._manager
+        with self._manager_lock:
+            if self._manager is None:
+                fn = getattr(self._chassis, 'get_thermal_manager', None)
+                if fn is not None:
+                    self._manager = fn()
+            mgr = self._manager
         if mgr is None:
             return
         mgr.initialize()
@@ -303,15 +361,16 @@ class EscapeHatches(object):
         Cached like the thermal manager: `get_eeprom()` opens a device on some
         platforms, and syseepromd asks once a minute forever.
         """
-        if self._eeprom is None:
-            fn = getattr(self._chassis, 'get_eeprom', None)
-            if fn is None:
-                return None
-            try:
-                self._eeprom = fn()
-            except NotImplementedError:
-                return None
-        return self._eeprom
+        with self._eeprom_lock:
+            if self._eeprom is None:
+                fn = getattr(self._chassis, 'get_eeprom', None)
+                if fn is None:
+                    return None
+                try:
+                    self._eeprom = fn()
+                except NotImplementedError:
+                    return None
+            return self._eeprom
 
     def eeprom_update_db(self) -> str:
         """`read_eeprom()` then `update_eeprom_db()`, as syseepromd:85-96 does.
@@ -361,23 +420,24 @@ class EscapeHatches(object):
         list or a scalar, or raises into that same `except`, and the
         chassis' own sensors are collected all the same.
         """
-        if self._sensors_data is not None:
+        with self._sensors_lock:
+            if self._sensors_data is not None:
+                return self._sensors_data
+            self._sensors_data = {}
+            try:
+                import os
+
+                import yaml
+                from sonic_py_common import device_info
+
+                platform_path, _hwsku = device_info.get_paths_to_platform_and_hwsku_dirs()
+                with open(os.path.join(platform_path, SENSORS_YAML)) as f:
+                    data = yaml.safe_load(f)
+                if isinstance(data, dict):
+                    self._sensors_data = data
+            except Exception:
+                pass
             return self._sensors_data
-        self._sensors_data = {}
-        try:
-            import os
-
-            import yaml
-            from sonic_py_common import device_info
-
-            platform_path, _hwsku = device_info.get_paths_to_platform_and_hwsku_dirs()
-            with open(os.path.join(platform_path, SENSORS_YAML)) as f:
-                data = yaml.safe_load(f)
-            if isinstance(data, dict):
-                self._sensors_data = data
-        except Exception:
-            pass
-        return self._sensors_data
 
     def _sensors_fs(self, key: str, cls_name: str) -> Any:
         """The sensors.yaml sensors of one kind, built once.
@@ -389,21 +449,22 @@ class EscapeHatches(object):
         nothing but the current value.  A malformed entry is also warned about
         once, by the factory, rather than every cycle.
         """
-        if key in self._sensors_built:
-            return self._sensors_built[key]
-        built: Any = []
-        data = self._sensors_yaml().get(key)
-        if data:
-            try:
-                from sonic_platform_base import sensor_fs
+        with self._sensors_lock:
+            if key in self._sensors_built:
+                return self._sensors_built[key]
+            built: Any = []
+            data = self._sensors_yaml().get(key)
+            if data:
+                try:
+                    from sonic_platform_base import sensor_fs
 
-                cls = getattr(sensor_fs, cls_name)
-                # The class is passed to its own factory; that is the signature.
-                built = cls.factory(cls, data)
-            except Exception:
-                built = []
-        self._sensors_built[key] = built
-        return built
+                    cls = getattr(sensor_fs, cls_name)
+                    # The class is passed to its own factory; that is the signature.
+                    built = cls.factory(cls, data)
+                except Exception:
+                    built = []
+            self._sensors_built[key] = built
+            return built
 
     def voltage_sensors_from_yaml(self) -> Any:
         return self._sensors_fs('voltage_sensors', 'VoltageSensorFs')
@@ -427,28 +488,29 @@ class EscapeHatches(object):
         raises out of its constructor instead, and a restart cannot bring a
         module back, so either way nothing is checked.
         """
-        if self._pcie_tried:
-            return self._pcie
-        self._pcie_tried = True
-        try:
-            from sonic_py_common import device_info
-
-            platform_path, _hwsku = device_info.get_paths_to_platform_and_hwsku_dirs()
-        except Exception:
-            return None
-        try:
-            from sonic_platform.pcie import Pcie
-
-            self._pcie = Pcie(platform_path)
-        except Exception:
+        with self._pcie_lock:
+            if self._pcie_tried:
+                return self._pcie
+            self._pcie_tried = True
             try:
-                from sonic_platform_base.sonic_pcie.pcie_common import PcieUtil
+                from sonic_py_common import device_info
 
-                # In this repo but untyped, as every platform base class is.
-                self._pcie = PcieUtil(platform_path)  # type: ignore[no-untyped-call]
+                platform_path, _hwsku = device_info.get_paths_to_platform_and_hwsku_dirs()
             except Exception:
-                self._pcie = None
-        return self._pcie
+                return None
+            try:
+                from sonic_platform.pcie import Pcie
+
+                self._pcie = Pcie(platform_path)
+            except Exception:
+                try:
+                    from sonic_platform_base.sonic_pcie.pcie_common import PcieUtil
+
+                    # In this repo but untyped, as every platform base class is.
+                    self._pcie = PcieUtil(platform_path)  # type: ignore[no-untyped-call]
+                except Exception:
+                    self._pcie = None
+            return self._pcie
 
     def get_pcie_devices(self) -> Any:
         """`get_pcie_check()`, with the yaml's hex strings parsed.
@@ -464,52 +526,54 @@ class EscapeHatches(object):
         does not print the same two lines a minute later, and the one after
         that, for the life of the switch.
         """
-        from .facade import PcieDevice
+        with self._pcie_lock:
+            from .facade import PcieDevice
 
-        util = self._pcie_util()
-        if util is None:
-            return []
-        try:
-            answer = util.get_pcie_check()
-        except (NotImplementedError, AttributeError):
-            return []
-        except SystemExit:
-            self._pcie = None
-            return []
-        rows = []
-        for item in answer or []:
+            util = self._pcie_util()
+            if util is None:
+                return []
             try:
-                rows.append(PcieDevice(
-                    name=str(item.get('name', '')),
-                    bus=int(str(item['bus']), 16),
-                    dev=int(str(item['dev']), 16),
-                    fn=int(str(item['fn']), 16),
-                    present=item.get('result') == 'Passed',
-                ))
-            except (KeyError, TypeError, ValueError):
-                # One malformed entry in pcie.yaml does not invalidate the
-                # rest of the parts list.
-                continue
-        return rows
+                answer = util.get_pcie_check()
+            except (NotImplementedError, AttributeError):
+                return []
+            except SystemExit:
+                self._pcie = None
+                return []
+            rows = []
+            for item in answer or []:
+                try:
+                    rows.append(PcieDevice(
+                        name=str(item.get('name', '')),
+                        bus=int(str(item['bus']), 16),
+                        dev=int(str(item['dev']), 16),
+                        fn=int(str(item['fn']), 16),
+                        present=item.get('result') == 'Passed',
+                    ))
+                except (KeyError, TypeError, ValueError):
+                    # One malformed entry in pcie.yaml does not invalidate the
+                    # rest of the parts list.
+                    continue
+            return rows
 
     def get_pcie_aer_stats(self, bus: int, dev: int, func: int) -> Any:
         """`get_pcie_aer_stats()`, flattened out of its three severities."""
-        from .facade import PcieAerStat
+        with self._pcie_lock:
+            from .facade import PcieAerStat
 
-        util = self._pcie_util()
-        if util is None:
-            return []
-        try:
-            answer = util.get_pcie_aer_stats(bus=bus, dev=dev, func=func)
-        except (NotImplementedError, AttributeError):
-            return []
-        rows = []
-        for severity, fields in (answer or {}).items():
-            for field, value in (fields or {}).items():
-                rows.append(PcieAerStat(
-                    severity=str(severity), field=str(field), value=str(value),
-                ))
-        return rows
+            util = self._pcie_util()
+            if util is None:
+                return []
+            try:
+                answer = util.get_pcie_aer_stats(bus=bus, dev=dev, func=func)
+            except (NotImplementedError, AttributeError):
+                return []
+            rows = []
+            for severity, fields in (answer or {}).items():
+                for field, value in (fields or {}).items():
+                    rows.append(PcieAerStat(
+                        severity=str(severity), field=str(field), value=str(value),
+                    ))
+            return rows
 
     # -- storage ------------------------------------------------------------
     #
@@ -520,17 +584,18 @@ class EscapeHatches(object):
 
     def _storage_devices(self) -> Any:
         """The `StorageDevices` composition object, or None."""
-        if self._storage_tried:
-            return self._storage
-        self._storage_tried = True
-        try:
-            from sonic_platform_base.sonic_storage.storage_devices import StorageDevices
+        with self._storage_lock:
+            if self._storage_tried:
+                return self._storage
+            self._storage_tried = True
+            try:
+                from sonic_platform_base.sonic_storage.storage_devices import StorageDevices
 
-            # In this repo but untyped, as every platform base class is.
-            self._storage = StorageDevices()  # type: ignore[no-untyped-call]
-        except Exception:
-            self._storage = None
-        return self._storage
+                # In this repo but untyped, as every platform base class is.
+                self._storage = StorageDevices()  # type: ignore[no-untyped-call]
+            except Exception:
+                self._storage = None
+            return self._storage
 
     def get_storage_devices(self) -> Any:
         """Every disk, refreshed.
@@ -543,74 +608,90 @@ class EscapeHatches(object):
         is the disk's `static_error` or `error`, the readings of that pass are
         'N/A', and the other disks are read as if nothing had happened.
         """
-        from .facade import StorageDeviceInfo
+        with self._storage_lock:
+            from .facade import StorageDeviceInfo
 
-        devices = self._storage_devices()
-        if devices is None:
-            return []
+            devices = self._storage_devices()
+            if devices is None:
+                return []
 
-        def _count(v: Any) -> Any:
-            """A counter the daemon does arithmetic on, or None.  The getter
-            answered; this is only whether its answer is a number."""
-            if isinstance(v, bool):
-                return None
+            def _count(v: Any) -> Any:
+                """A counter the daemon does arithmetic on, or None.  The getter
+                answered; this is only whether its answer is a number."""
+                if isinstance(v, bool):
+                    return None
+                try:
+                    return int(v)
+                except (TypeError, ValueError):
+                    return None
+
+            import os
+
             try:
-                return int(v)
-            except (TypeError, ValueError):
-                return None
+                from sonic_platform_base.sonic_storage.storage_devices import BLKDEV_BASE_PATH
+            except Exception:
+                # Only where that module will not import, which is where the
+                # devices came from somewhere else -- stormond itself would not
+                # have started.  Its value.
+                BLKDEV_BASE_PATH = '/dev'
 
-        import os
-
-        try:
-            from sonic_platform_base.sonic_storage.storage_devices import BLKDEV_BASE_PATH
-        except Exception:
-            # Only where that module will not import, which is where the
-            # devices came from somewhere else -- stormond itself would not
-            # have started.  Its value.
-            BLKDEV_BASE_PATH = '/dev'
-
-        rows = []
-        for name, obj in sorted(getattr(devices, 'devices', {}).items()):
-            row = StorageDeviceInfo(
-                name=name, available=obj is not None,
-                model='N/A', serial='N/A', firmware='N/A', health='N/A',
-                temperature='N/A', disk_io_reads='N/A', disk_io_writes='N/A',
-                reserved_blocks='N/A', fs_io_reads=None, fs_io_writes=None,
-                static_error=None, error=None,
-            )
-            rows.append(row)
-            if obj is None:
-                # A disk the switch has and no utility class handles.  Carried
-                # rather than dropped; the daemon has a line to say about it.
-                continue
-            try:
-                model = str(obj.get_model())
-                serial = str(obj.get_serial())
-                row.model, row.serial = model, serial
-            except Exception as e:
-                row.static_error = str(e)
-            try:
-                obj.fetch_parse_info(os.path.join(BLKDEV_BASE_PATH, name))
-                # In stormond's order, every one read before the row changes:
-                # a pass that fails part way publishes nothing of it.
-                firmware = str(obj.get_firmware())
-                health = str(obj.get_health())
-                temperature = str(obj.get_temperature())
-                fs_io_reads = _count(obj.get_fs_io_reads())
-                fs_io_writes = _count(obj.get_fs_io_writes())
-                disk_io_reads = str(obj.get_disk_io_reads())
-                disk_io_writes = str(obj.get_disk_io_writes())
-                reserved_blocks = str(obj.get_reserved_blocks())
-            except Exception as e:
-                row.error = str(e)
-                continue
-            row.firmware, row.health, row.temperature = firmware, health, temperature
-            row.fs_io_reads, row.fs_io_writes = fs_io_reads, fs_io_writes
-            row.disk_io_reads, row.disk_io_writes = disk_io_reads, disk_io_writes
-            row.reserved_blocks = reserved_blocks
-        return rows
+            rows = []
+            for name, obj in sorted(getattr(devices, 'devices', {}).items()):
+                row = StorageDeviceInfo(
+                    name=name, available=obj is not None,
+                    model='N/A', serial='N/A', firmware='N/A', health='N/A',
+                    temperature='N/A', disk_io_reads='N/A', disk_io_writes='N/A',
+                    reserved_blocks='N/A', fs_io_reads=None, fs_io_writes=None,
+                    static_error=None, error=None,
+                )
+                rows.append(row)
+                if obj is None:
+                    # A disk the switch has and no utility class handles.  Carried
+                    # rather than dropped; the daemon has a line to say about it.
+                    continue
+                try:
+                    model = str(obj.get_model())
+                    serial = str(obj.get_serial())
+                    row.model, row.serial = model, serial
+                except Exception as e:
+                    row.static_error = str(e)
+                try:
+                    obj.fetch_parse_info(os.path.join(BLKDEV_BASE_PATH, name))
+                    # In stormond's order, every one read before the row changes:
+                    # a pass that fails part way publishes nothing of it.
+                    firmware = str(obj.get_firmware())
+                    health = str(obj.get_health())
+                    temperature = str(obj.get_temperature())
+                    fs_io_reads = _count(obj.get_fs_io_reads())
+                    fs_io_writes = _count(obj.get_fs_io_writes())
+                    disk_io_reads = str(obj.get_disk_io_reads())
+                    disk_io_writes = str(obj.get_disk_io_writes())
+                    reserved_blocks = str(obj.get_reserved_blocks())
+                except Exception as e:
+                    row.error = str(e)
+                    continue
+                row.firmware, row.health, row.temperature = firmware, health, temperature
+                row.fs_io_reads, row.fs_io_writes = fs_io_reads, fs_io_writes
+                row.disk_io_reads, row.disk_io_writes = disk_io_reads, disk_io_writes
+                row.reserved_blocks = reserved_blocks
+            return rows
 
     # -- change events ------------------------------------------------------
+
+    def _invalidate_sfp(self, device_id: Any) -> None:
+        fn = getattr(self._chassis, 'get_sfp', None)
+        if fn is None or isinstance(device_id, bool) or not isinstance(device_id, (int, str)):
+            return
+        try:
+            index = int(device_id)
+        except ValueError:
+            return
+        if index < 0:
+            return
+        sfp = _call(lambda: fn(index))
+        if sfp is not None:
+            with self.device_lock(sfp):
+                _call(getattr(sfp, 'remove_xcvr_api', None))
 
     def get_change_event(self, timeout_ms: int) -> Any:
         """Flatten what `ChassisBase.get_change_event` answered.
@@ -649,6 +730,10 @@ class EscapeHatches(object):
                 continue
             for device_id, status in changes.items():
                 status = str(status)
+                if str(device_type) == 'sfp' and status in ('0', '1'):
+                    # The vendor may have invalidated during an EEPROM read.
+                    # Repeat under the slot lock, after the blocking wait.
+                    self._invalidate_sfp(device_id)
                 events.append(ChangeEvent(
                     device_type=str(device_type),
                     device_id=str(device_id),
