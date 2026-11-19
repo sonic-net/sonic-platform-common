@@ -25,10 +25,12 @@ use std::str::FromStr;
 
 use platform_api::PlatformError;
 
-// The generator's output, held byte for byte to what `generate.py --check`
-// regenerates: rustfmt leaves it as written.
+// Generated at build time from facade.pyi into OUT_DIR.
+// `generate.py --check` verifies deterministic generation; rustfmt skips it.
 #[rustfmt::skip]
-mod generated;
+mod generated {
+    include!(concat!(env!("OUT_DIR"), "/src/generated.rs"));
+}
 
 pub use generated::Platform;
 

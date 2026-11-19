@@ -170,6 +170,33 @@ def _get(obj, name):
     return getattr(obj, name, None)
 
 
+def _call_unsupported_default(fn, default):
+    """Default only an unsupported getter; None remains an unknown reading."""
+    if fn is None:
+        return default
+    try:
+        value = fn()
+    except NotImplementedError:
+        return default
+    return default if value is NotImplementedError else value
+
+
+_UNSUPPORTED = object()
+
+
+def _cached_call(reads, key, fn, unsupported=None):
+    """Read once per row, preserving unsupported separately from explicit None."""
+    if key not in reads:
+        try:
+            reads[key] = (True, _call_unsupported_default(fn, _UNSUPPORTED))
+        except Exception as error:
+            reads[key] = (False, error)
+    succeeded, value = reads[key]
+    if not succeeded:
+        raise value
+    return unsupported if value is _UNSUPPORTED else value
+
+
 def _iter(seq):
     return seq if seq is not None else ()
 
@@ -349,6 +376,36 @@ def _call_narrowed(fn):
         return None
 
 
+
+class _LeakSensorSnapshot(object):
+    """One cycle's readings, cached before aggregate classification."""
+    def __init__(self, sensor):
+        self._sensor = sensor
+        self._readings = {}
+        for method in ('get_name', 'is_leak_sensor_ok', 'is_leak', 'get_leak_severity'):
+            self._readings[method] = _call(_get(sensor, method))
+        self._readings['is_test_leak'] = bool(
+            self._readings['is_leak_sensor_ok'] and self._readings['is_leak']
+            and _call(_get(sensor, 'is_test_leak')) is True)
+        self._include_profile = True
+    def __getattr__(self, name):
+        if name in self._readings:
+            return lambda: self._readings[name]
+        return getattr(self._sensor, name, None)
+    def get_leak_profile(self):
+        if not self._include_profile:
+            return None
+        return _call(_get(self._sensor, 'get_leak_profile'))
+
+def _leak_snapshot_sensors(sensors):
+    readings = [_LeakSensorSnapshot(sensor) for sensor in _iter(sensors)]
+    physical = any(sensor.is_leak_sensor_ok() and sensor.is_leak()
+                   and not sensor.is_test_leak() for sensor in readings)
+    for sensor in readings:
+        sensor._include_profile = not (physical and sensor.is_test_leak())
+    return readings
+
+
 def _truthy(v):
     """`Truthy()`: the field is used in a boolean context, so evaluate it as one.
 
@@ -475,7 +532,7 @@ class FanInfo(object):
 class FanDrawerInfo(object):
     """One fan drawer: the field-replaceable unit a chassis fan sits in."""
 
-    __slots__ = ('name', 'key', 'position_in_parent', 'presence', 'status', 'is_replaceable', 'model', 'serial', 'status_led', 'maximum_consumed_power', )
+    __slots__ = ('name', 'key', 'position_in_parent', 'presence', 'status', 'is_replaceable', 'model', 'serial', 'status_led', 'maximum_consumed_power', 'name_text', 'error', 'error_repr', 'error_column', )
 
     def __init__(self, **fields):
         """Keyword-only, and uniform across every row.
@@ -504,7 +561,7 @@ class PsuInfo(object):
     """A PSU or a PDB.  `PdbBase` extends `PsuBase` and psud publishes both
     into the same table, so they are one row type with a `kind`."""
 
-    __slots__ = ('name', 'kind', 'key', 'position_in_parent', 'presence', 'is_replaceable', 'model', 'serial', 'revision', 'power_good', 'status_led', 'voltage', 'current', 'power', 'input_voltage', 'input_current', 'input_power', 'temperature', 'temperature_high_threshold', 'voltage_high_threshold', 'voltage_low_threshold', 'maximum_supplied_power', 'power_warning_suppress_threshold', 'power_critical_threshold', )
+    __slots__ = ('name', 'kind', 'key', 'position_in_parent', 'presence', 'is_replaceable', 'model', 'serial', 'revision', 'power_good', 'status_led', 'voltage', 'current', 'power', 'input_voltage', 'input_current', 'input_power', 'temperature', 'temperature_high_threshold', 'voltage_high_threshold', 'voltage_low_threshold', 'maximum_supplied_power', 'maximum_supplied_power_for_budget', 'power_warning_suppress_threshold', 'power_critical_threshold', )
 
     def __init__(self, **fields):
         """Keyword-only, and uniform across every row.
@@ -560,7 +617,7 @@ class ChassisInfo(object):
 class ModuleInfo(object):
     """One line card, fabric card, supervisor or DPU."""
 
-    __slots__ = ('name', 'parent_name', 'key', 'parent_key', 'position_in_parent', 'presence', 'status', 'is_replaceable', 'model', 'serial', 'description', 'slot', 'type', 'oper_status', 'base_mac', 'dpu_id', 'maximum_consumed_power', 'midplane_ip', 'is_midplane_reachable', 'state_transition', )
+    __slots__ = ('name', 'parent_name', 'key', 'parent_key', 'position_in_parent', 'presence', 'status', 'is_replaceable', 'model', 'serial', 'description', 'slot', 'type', 'oper_status', 'base_mac', 'dpu_id', 'maximum_consumed_power', 'midplane_ip', 'is_midplane_reachable', 'state_transition', 'name_text', 'presence_text', 'replaceable_text', 'slot_text', 'oper_status_text', )
 
     def __init__(self, **fields):
         """Keyword-only, and uniform across every row.
@@ -679,7 +736,7 @@ class LeakProfile(object):
 class LeakSensorInfo(object):
     """One liquid-cooling leak sensor."""
 
-    __slots__ = ('name', 'parent_name', 'sensor_type', 'location', 'is_leak', 'is_ok', 'severity', 'profile_type', 'profile_max_minor_duration_sec', )
+    __slots__ = ('name', 'parent_name', 'sensor_type', 'location', 'is_leak', 'is_ok', 'severity', 'profile_type', 'profile_max_minor_duration_sec', 'is_test', )
 
     def __init__(self, **fields):
         """Keyword-only, and uniform across every row.
@@ -1181,9 +1238,10 @@ class FanDrawerInfoCols(object):
     SERIAL = 1 << 5
     STATUS_LED = 1 << 6
     MAXIMUM_CONSUMED_POWER = 1 << 7
+    NAME_TEXT = 1 << 8
 
     NONE = 0
-    ALL = 255
+    ALL = 511
 
 
 class ChassisInfoCols(object):
@@ -1243,9 +1301,14 @@ class ModuleInfoCols(object):
     MIDPLANE_IP = 1 << 13
     IS_MIDPLANE_REACHABLE = 1 << 14
     STATE_TRANSITION = 1 << 15
+    NAME_TEXT = 1 << 16
+    PRESENCE_TEXT = 1 << 17
+    REPLACEABLE_TEXT = 1 << 18
+    SLOT_TEXT = 1 << 19
+    OPER_STATUS_TEXT = 1 << 20
 
     NONE = 0
-    ALL = 65535
+    ALL = 2097151
 
 
 class PlatformApi(object):
@@ -1535,8 +1598,9 @@ class PlatformApi(object):
 
 
     def _row_fan_drawer_info(self, dev, parent, i, fixed, cols):
-        return FanDrawerInfo(
-            name=_default(_text(_call(_get(dev, 'get_name'))), 'N/A'),
+        _reads = {}
+        row = FanDrawerInfo(
+            name=_default(_text(_cached_call(_reads, 'get_name', _get(dev, 'get_name'))), 'N/A'),
             key=fixed['key'],
             position_in_parent=(_call(_get(dev, 'get_position_in_parent'))) if cols & (1 << 0) else None,
             presence=(_default(_call(_get(dev, 'get_presence')), False)) if cols & (1 << 1) else False,
@@ -1544,9 +1608,22 @@ class PlatformApi(object):
             is_replaceable=(_default(_call(_get(dev, 'is_replaceable')), False)) if cols & (1 << 3) else False,
             model=(_text(_call(_get(dev, 'get_model')))) if cols & (1 << 4) else None,
             serial=(_text(_call(_get(dev, 'get_serial')))) if cols & (1 << 5) else None,
-            status_led=(_text(_call(_get(dev, 'get_status_led')))) if cols & (1 << 6) else None,
-            maximum_consumed_power=(_scalar(_call(_get(dev, 'get_maximum_consumed_power')), ('N/A',), ('int', 'str'))) if cols & (1 << 7) else None,
+            status_led=None,
+            maximum_consumed_power=(_scalar(_call_unsupported_default(_get(dev, 'get_maximum_consumed_power'), 0.0), ('N/A',), ('int', 'str'))) if cols & (1 << 7) else None,
+            name_text=(_text(_cached_call(_reads, 'get_name', _get(dev, 'get_name')))) if cols & (1 << 8) else None,
+            error=None,
+            error_repr=None,
+            error_column=None,
         )
+        try:
+            _column = 'status_led'
+            row.status_led = (_text(_call(_get(dev, 'get_status_led')))) if cols & (1 << 6) else None
+        except Exception as e:
+            row.error = str(e)
+            row.error_repr = repr(e)
+            row.error_column = _column
+        _reads.clear()
+        return row
 
     def _walk_fan_drawer_info(self, cols):
         """Every FanDrawerInfo, in declared order.
@@ -1576,6 +1653,7 @@ class PlatformApi(object):
 
 
     def _row_psu_info(self, dev, parent, i, fixed):
+        _reads = {}
         row = PsuInfo(
             name=_fmt(None, '{parent}', parent, i),
             kind=fixed['kind'],
@@ -1599,6 +1677,7 @@ class PlatformApi(object):
             voltage_high_threshold=None,
             voltage_low_threshold=None,
             maximum_supplied_power=None,
+            maximum_supplied_power_for_budget=None,
             power_warning_suppress_threshold=None,
             power_critical_threshold=None,
         )
@@ -1679,9 +1758,13 @@ class PlatformApi(object):
         except Exception:
             row.voltage_low_threshold = None
         try:
-            row.maximum_supplied_power = (_scalar(_call(_get(dev, 'get_maximum_supplied_power')), ('N/A',), ('int', 'str'))) if row.presence else None
+            row.maximum_supplied_power = (_scalar(_cached_call(_reads, 'get_maximum_supplied_power', _get(dev, 'get_maximum_supplied_power')), ('N/A',), ('int', 'str'))) if row.presence else None
         except Exception:
             row.maximum_supplied_power = None
+        try:
+            row.maximum_supplied_power_for_budget = (_scalar(_cached_call(_reads, 'get_maximum_supplied_power', _get(dev, 'get_maximum_supplied_power'), unsupported=0.0), ('N/A',), ('int', 'str'))) if row.presence else None
+        except Exception:
+            row.maximum_supplied_power_for_budget = None
         try:
             row.power_warning_suppress_threshold = _scalar(_call(_get(dev, 'get_psu_power_warning_suppress_threshold')), ('N/A',), ('int', 'str'))
         except Exception:
@@ -1690,6 +1773,7 @@ class PlatformApi(object):
             row.power_critical_threshold = _scalar(_call(_get(dev, 'get_psu_power_critical_threshold')), ('N/A',), ('int', 'str'))
         except Exception:
             row.power_critical_threshold = None
+        _reads.clear()
         return row
 
     def _walk_psu_info(self):
@@ -1773,27 +1857,40 @@ class PlatformApi(object):
 
 
     def _row_module_info(self, dev, parent, i, fixed, cols):
+        # One call, sliced by every column that wants a piece of it: the
+        # platform need not answer the same thing twice, and some of these
+        # getters block and log.  See `_share_calls`.
+        _shared0 = _call(_get(dev, 'get_name'))
+        _shared1 = _call(_get(dev, 'get_presence')) if cols & 131074 else None
+        _shared2 = _call(_get(dev, 'is_replaceable')) if cols & 262152 else None
+        _shared3 = _call(_get(dev, 'get_slot')) if cols & 524416 else None
+        _shared4 = _call(_get(dev, 'get_oper_status')) if cols & 1049088 else None
         return ModuleInfo(
-            name=_fmt(_text(_call(_get(dev, 'get_name'))), 'Module {i}', parent, i),
+            name=_fmt(_text(_shared0), 'Module {i}', parent, i),
             parent_name=parent,
             key=fixed['key'],
             parent_key=fixed['parent_key'],
             position_in_parent=(_call(_get(dev, 'get_position_in_parent'))) if cols & (1 << 0) else None,
-            presence=(_default(_call(_get(dev, 'get_presence')), False)) if cols & (1 << 1) else False,
+            presence=(_default(_shared1, False)) if cols & (1 << 1) else False,
             status=(_call(_get(dev, 'get_status'))) if cols & (1 << 2) else None,
-            is_replaceable=(_default(_call(_get(dev, 'is_replaceable')), False)) if cols & (1 << 3) else False,
+            is_replaceable=(_default(_shared2, False)) if cols & (1 << 3) else False,
             model=(_text(_call(_get(dev, 'get_model')))) if cols & (1 << 4) else None,
             serial=(_text(_call(_get(dev, 'get_serial')))) if cols & (1 << 5) else None,
             description=(_text(_call(_get(dev, 'get_description')))) if cols & (1 << 6) else None,
-            slot=(_scalar(_call(_get(dev, 'get_slot')), ('N/A',), ('int', 'str'))) if cols & (1 << 7) else None,
+            slot=(_scalar(_shared3, ('N/A',), ('int', 'str'))) if cols & (1 << 7) else None,
             type=(_text(_call(_get(dev, 'get_type')))) if cols & (1 << 8) else None,
-            oper_status=(_text(_call(_get(dev, 'get_oper_status')))) if cols & (1 << 9) else None,
+            oper_status=(_text(_shared4)) if cols & (1 << 9) else None,
             base_mac=(_text(_call(_get(dev, 'get_base_mac')))) if cols & (1 << 10) else None,
             dpu_id=(_scalar(_call(_get(dev, 'get_dpu_id')), ('N/A',), ('int', 'str'))) if cols & (1 << 11) else None,
-            maximum_consumed_power=(_scalar(_call(_get(dev, 'get_maximum_consumed_power')), ('N/A',), ('int', 'str'))) if cols & (1 << 12) else None,
+            maximum_consumed_power=(_scalar(_call_unsupported_default(_get(dev, 'get_maximum_consumed_power'), 0.0), ('N/A',), ('int', 'str'))) if cols & (1 << 12) else None,
             midplane_ip=(_text(_call(_get(dev, 'get_midplane_ip')))) if cols & (1 << 13) else None,
             is_midplane_reachable=(_call(_get(dev, 'is_midplane_reachable'))) if cols & (1 << 14) else None,
             state_transition=(_call_with_name(_get(dev, 'get_name'), _get(dev, 'get_module_state_transition'))) if cols & (1 << 15) else None,
+            name_text=(_text(_shared0)) if cols & (1 << 16) else None,
+            presence_text=(_text(_shared1)) if cols & (1 << 17) else None,
+            replaceable_text=(_text(_shared2)) if cols & (1 << 18) else None,
+            slot_text=(_text(_shared3)) if cols & (1 << 19) else None,
+            oper_status_text=(_text(_shared4)) if cols & (1 << 20) else None,
         )
 
     def _walk_module_info(self, cols):
@@ -2037,7 +2134,8 @@ class PlatformApi(object):
 
 
     def _row_leak_sensor_info(self, dev, parent, i, fixed):
-        return LeakSensorInfo(
+        _reads = {}
+        row = LeakSensorInfo(
             name=_fmt(_text(_call(_get(dev, 'get_name'))), 'leakage{i}', parent, i),
             parent_name=parent,
             sensor_type=_text(_call(_get(dev, 'get_leak_sensor_type'))),
@@ -2045,9 +2143,14 @@ class PlatformApi(object):
             is_leak=_truthy(_call(_get(dev, 'is_leak'))),
             is_ok=_call(_get(dev, 'is_leak_sensor_ok')),
             severity=_text(_call(_get(dev, 'get_leak_severity'))),
-            profile_type=_text(_call(_get(_call(_get(dev, 'get_leak_profile')), 'get_type'))),
-            profile_max_minor_duration_sec=_scalar(_call(_get(_call(_get(dev, 'get_leak_profile')), 'get_leak_max_minor_duration_sec')), ('N/A',), ('int', 'str')),
+            profile_type=None,
+            profile_max_minor_duration_sec=None,
+            is_test=_call(_get(dev, 'is_test_leak')),
         )
+        row.profile_type = (_text(_call(_get(_cached_call(_reads, 'get_leak_profile', _get(dev, 'get_leak_profile')), 'get_type')))) if row.is_ok and row.is_leak is True and row.severity == 'MINOR' else None
+        row.profile_max_minor_duration_sec = (_scalar(_call(_get(_cached_call(_reads, 'get_leak_profile', _get(dev, 'get_leak_profile')), 'get_leak_max_minor_duration_sec')), ('N/A',), ('int', 'str'))) if row.is_ok and row.is_leak is True and row.severity == 'MINOR' else None
+        _reads.clear()
+        return row
 
     def _walk_leak_sensor_info(self):
         """Every LeakSensorInfo, in declared order.
@@ -2062,7 +2165,7 @@ class PlatformApi(object):
             i0 = 0
             if o0 is not None:
                 p0 = _fmt(None, 'chassis 1', '', i0)
-                for i, dev in enumerate(_iter(_call(_get(o0, 'get_all_leak_sensors')))):
+                for i, dev in enumerate(_iter(_leak_snapshot_sensors(_call(_get(o0, 'get_all_leak_sensors'))))):
                     out.append(self._row_leak_sensor_info(dev, p0, i, {}))
         except NotImplementedError:
             pass
@@ -2184,7 +2287,7 @@ class PlatformApi(object):
         """
         return self._walk_chassis_info(cols)[0]
 
-    def get_modules(self, cols=65535):
+    def get_modules(self, cols=2097151):
         """Every ModuleInfo, in declared order.
 
         `cols` is a bit per declinable column (see `ModuleInfoCols` on the Rust
@@ -2228,13 +2331,21 @@ class PlatformApi(object):
         """
         return self._walk_fan_info(cols, bool(absorb))
 
-    def get_fan_drawers(self, cols=255):
+    def get_psu_fans(self, key, include_details):
+        """Hand-written: psud reads only one PSU's fans, with details on insertion and LEDs on steady passes."""
+        return self._hatch.get_psu_fans(self, key, include_details, 2048, 264)
+
+    def get_fan_drawers(self, cols=511):
         """Every FanDrawerInfo, in declared order.
 
         `cols` is a bit per declinable column (see `FanDrawerInfoCols` on the Rust
         side, and `Snapshot(projected=True)`).  Columns outside it are left at
         their absent value rather than read.  The default is every column, so a
         caller that does not care reads what it always read.
+
+        A device whose getter raised is still a row, read up to that getter,
+        with `error`, `error_repr` and `error_column` set
+        (`Snapshot(per_row_errors=True)`).
         """
         return self._walk_fan_drawer_info(cols)
 
@@ -2264,6 +2375,10 @@ class PlatformApi(object):
         """The leak policies, which thermalctld publishes once at start-up.
         """
         return self._walk_leak_profile()
+
+    def get_major_leak_num_min_sensors(self):
+        """Hand-written: A system-wide liquid-cooling policy value, not a sensor column."""
+        return self._hatch.get_major_leak_num_min_sensors()
 
     def get_leak_sensors(self):
         """Every LeakSensorInfo, in declared order.
@@ -2443,24 +2558,46 @@ class PlatformApi(object):
             raise NotImplementedError('ModuleBase.module_post_startup is not implemented')
         return _truthy(fn())
 
+    def get_module_state_transition(self, module):
+        """Read one module's live transition flag without polling its peers.
+
+        chassisd must check the lock immediately before recovery, using the
+        module's own name, rather than a cached all-module snapshot."""
+        dev = self._find_module_info(module)
+        name = _text(_call(_get(dev, 'get_name')))
+        if name is None:
+            return None
+        fn = _get(dev, 'get_module_state_transition')
+        if fn is None:
+            raise NotImplementedError('ModuleBase.get_module_state_transition is not implemented')
+        return _truthy(fn(name))
+
     def set_module_state_transition(self, module, transition_type):
         """`pass_key`: the base class takes the module's own name as well.
 
-        False is the answer that matters: another operation holds the module
-        and has not timed out, and the caller must leave it alone."""
+        Only True confirms that the transition lock was acquired. False
+        means another operation holds it; None means the module name or lock
+        result is unavailable. Both False and None must be treated as lock
+        not acquired: the caller must not proceed with recovery."""
         dev = self._find_module_info(module)
+        name = _text(_call(_get(dev, 'get_name')))
+        if name is None:
+            return None
         fn = _get(dev, 'set_module_state_transition')
         if fn is None:
             raise NotImplementedError('ModuleBase.set_module_state_transition is not implemented')
-        return _truthy(fn(_text(_call(_get(dev, 'get_name'))), transition_type))
+        return _truthy(fn(name, transition_type))
 
     def clear_module_state_transition(self, module):
         """Calls `ModuleBase.clear_module_state_transition()` on the ModuleInfo at `module`."""
         dev = self._find_module_info(module)
+        name = _text(_call(_get(dev, 'get_name')))
+        if name is None:
+            return None
         fn = _get(dev, 'clear_module_state_transition')
         if fn is None:
             raise NotImplementedError('ModuleBase.clear_module_state_transition is not implemented')
-        return _truthy(fn(_text(_call(_get(dev, 'get_name')))))
+        return _truthy(fn(name))
 
     def clear_module_gnoi_halt(self, module):
         """Calls `ModuleBase.clear_module_gnoi_halt_in_progress()` on the ModuleInfo at `module`."""

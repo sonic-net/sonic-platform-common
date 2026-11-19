@@ -401,8 +401,7 @@ class FanDrawerInfo:
     # and the name it publishes nothing under (thermalctld:423-426).  Actions
     # reach a drawer by its key, so the name is only ever shown.
     name: Annotated[
-        str, From("DeviceBase.get_name"), Unsupported(on="default", default="N/A")
-    ]
+        str, From("DeviceBase.get_name"), Unsupported(on="default", default="N/A"), Unguarded()]
     # Where the device is, and what every action on it takes; see DeviceKey.
     key: Annotated[DeviceKey, Key()]
     # No default here on purpose.  `DeviceBase.get_position_in_parent`
@@ -415,19 +414,24 @@ class FanDrawerInfo:
     # it replaces does.  Measured on hardware: PDB rows, where Mellanox does not
     # implement the getter, were published as 0 by psud and as -1 by the port.
     position_in_parent: Annotated[
-        Optional[PositionInParent], From("DeviceBase.get_position_in_parent"),
-    ]
-    presence: Annotated[bool, From("DeviceBase.get_presence"), Unsupported(on="default", default=False)]
-    status: Annotated[Optional[bool], From("DeviceBase.get_status")]
+        Optional[PositionInParent], From("DeviceBase.get_position_in_parent"), Unguarded()]
+    presence: Annotated[bool, From("DeviceBase.get_presence"), Unsupported(on="default", default=False), Unguarded()]
+    status: Annotated[Optional[bool], From("DeviceBase.get_status"), Unguarded()]
     is_replaceable: Annotated[
-        bool, From("DeviceBase.is_replaceable"), Unsupported(on="default", default=False)
-    ]
-    model: Annotated[Optional[str], From("DeviceBase.get_model")]
-    serial: Annotated[Optional[str], From("DeviceBase.get_serial")]
+        bool, From("DeviceBase.is_replaceable"), Unsupported(on="default", default=False), Unguarded()]
+    model: Annotated[Optional[str], From("DeviceBase.get_model"), Unguarded()]
+    serial: Annotated[Optional[str], From("DeviceBase.get_serial"), Unguarded()]
     status_led: Annotated[Optional[str], From("FanDrawerBase.get_status_led")]
     maximum_consumed_power: Annotated[
-        Optional[Watt], From("FanDrawerBase.get_maximum_consumed_power"), _MISSING
-    ]
+        Optional[Watt], From("FanDrawerBase.get_maximum_consumed_power"), _MISSING,
+        Unsupported(on="default", default=0.0, preserve_none=True), Unguarded()]
+
+    name_text: Annotated[Optional[str], From("DeviceBase.get_name"), Unguarded()]
+
+    # LED failures belong to this drawer; metadata failures still propagate.
+    error: Annotated[Optional[str], RowError()]
+    error_repr: Annotated[Optional[str], RowError(repr=True)]
+    error_column: Annotated[Optional[str], RowError(column=True)]
 
     def __init__(self, **fields: object) -> None:
         """Keyword-only.  The columns are the fields declared above; naming
@@ -521,6 +525,13 @@ class PsuInfo:
     ]
     maximum_supplied_power: Annotated[
         Optional[Watt], From("PsuBase.get_maximum_supplied_power"), _MISSING,
+        ReadIf("presence", truthy=True),
+    ]
+    # Publication keeps an unavailable value unknown. Only the power budget
+    # substitutes zero for an unsupported getter, while preserving None.
+    maximum_supplied_power_for_budget: Annotated[
+        Optional[Watt], From("PsuBase.get_maximum_supplied_power"), _MISSING,
+        Unsupported(on="default", default=0.0, preserve_none=True),
         ReadIf("presence", truthy=True),
     ]
     power_warning_suppress_threshold: Annotated[
@@ -642,7 +653,8 @@ class ModuleInfo:
     base_mac: Annotated[Optional[str], From("ModuleBase.get_base_mac")]
     dpu_id: Annotated[Optional[int], From("ModuleBase.get_dpu_id"), _MISSING]
     maximum_consumed_power: Annotated[
-        Optional[Watt], From("ModuleBase.get_maximum_consumed_power"), _MISSING
+        Optional[Watt], From("ModuleBase.get_maximum_consumed_power"), _MISSING,
+        Unsupported(on="default", default=0.0, preserve_none=True),
     ]
     midplane_ip: Annotated[Optional[str], From("ModuleBase.get_midplane_ip")]
     # Another `return NotImplementedError`, so absent rather than truthy.
@@ -652,6 +664,14 @@ class ModuleInfo:
     state_transition: Annotated[
         Optional[bool], From("ModuleBase.get_module_state_transition"), WithName()
     ]
+
+    # Publication keeps the vendor's spelling, while the typed columns above
+    # remain available for decisions and recovery.
+    name_text: Annotated[Optional[str], From("ModuleBase.get_name")]
+    presence_text: Annotated[Optional[str], From("DeviceBase.get_presence")]
+    replaceable_text: Annotated[Optional[str], From("DeviceBase.is_replaceable")]
+    slot_text: Annotated[Optional[str], From("ModuleBase.get_slot")]
+    oper_status_text: Annotated[Optional[str], From("ModuleBase.get_oper_status")]
 
     def __init__(self, **fields: object) -> None:
         """Keyword-only, as every row is."""
@@ -867,13 +887,20 @@ class LeakSensorInfo:
     # rather than a handle, because what the daemon needs off the profile is
     # two scalars and it needs them on every sensor it escalates.
     profile_type: Annotated[
-        Optional[str], From("LeakageSensorBase.get_leak_profile.get_type")
+        Optional[str], From("LeakageSensorBase.get_leak_profile.get_type"),
+        ReadIf("is_ok", truthy=True,
+               all_of=(("is_leak", True), ("severity", "MINOR"))),
     ]
     profile_max_minor_duration_sec: Annotated[
         Optional[int],
         From("LeakageSensorBase.get_leak_profile.get_leak_max_minor_duration_sec"),
         _MISSING,
+        ReadIf("is_ok", truthy=True,
+               all_of=(("is_leak", True), ("severity", "MINOR"))),
     ]
+
+    # The cycle snapshot applies the API's strict True identity rule.
+    is_test: Annotated[Optional[bool], From("LeakageSensorBase.is_test_leak")]
 
     def __init__(self, **fields: object) -> None:
         """Keyword-only, as every row is."""
@@ -1387,8 +1414,16 @@ class PlatformApi:
     # `Snapshot.absorbs`.
     @platform_method(Snapshot(projected=True, per_row_errors=True, absorbable=True))
     def get_fans(self) -> list[FanInfo]: ...
+
+    @platform_method(EscapeHatch(
+        reaches=("PsuBase.get_all_fans",),
+        columns=("status_led",),
+        detail_columns=("speed_pct", "direction"),
+        reason="psud reads only one PSU's fans, with details on insertion and LEDs on steady passes."
+    ))
+    def get_psu_fans(self, key: DeviceKey, include_details: bool) -> list[FanInfo]: ...
     # Projected: thermalctld reads eight of these nine columns, psud three.
-    @platform_method(Snapshot(projected=True))
+    @platform_method(Snapshot(projected=True, per_row_errors=True))
     def get_fan_drawers(self) -> list[FanDrawerInfo]: ...
     # Absorbs: psud reads every column of a PSU through `try_get`, which takes
     # any exception for "no answer" (psud:271-292).
@@ -1402,6 +1437,12 @@ class PlatformApi:
     @platform_method(Snapshot())
     def get_leak_profiles(self) -> list[LeakProfile]:
         """The leak policies, which thermalctld publishes once at start-up."""
+
+    @platform_method(EscapeHatch(
+        reaches=("LiquidCoolingBase.get_major_leak_num_min_sensors",),
+        reason="A system-wide liquid-cooling policy value, not a sensor column."
+    ))
+    def get_major_leak_num_min_sensors(self) -> Optional[int]: ...
 
     @platform_method(Snapshot())
     def get_leak_sensors(self) -> list[LeakSensorInfo]: ...
@@ -1532,13 +1573,26 @@ class PlatformApi:
 
     @platform_method(
         On(row="ModuleInfo", pass_key=True),
+        Calls("ModuleBase.get_module_state_transition"),
+    )
+    def get_module_state_transition(self, module: DeviceKey) -> Optional[bool]:
+        """Read one module's live transition flag without polling its peers.
+
+        chassisd must check the lock immediately before recovery, using the
+        module's own name, rather than a cached all-module snapshot.
+        """
+
+    @platform_method(
+        On(row="ModuleInfo", pass_key=True),
         Calls("ModuleBase.set_module_state_transition"),
     )
     def set_module_state_transition(self, module: DeviceKey, transition_type: str) -> Optional[bool]:
         """`pass_key`: the base class takes the module's own name as well.
 
-        False is the answer that matters: another operation holds the module
-        and has not timed out, and the caller must leave it alone.
+        Only True confirms that the transition lock was acquired. False
+        means another operation holds it; None means the module name or lock
+        result is unavailable. Both False and None must be treated as lock
+        not acquired: the caller must not proceed with recovery.
         """
 
     @platform_method(
@@ -1807,8 +1861,8 @@ class PlatformApi:
 
         `read_failed` when the platform could not read it, `update_failed`
         when it read it and could not write the table; the daemon logs which
-        (syseepromd:85-96), and the table is left as it was rather than
-        half-written.
+        (syseepromd:85-96). The vendor writer may have published a partial
+        table before reporting an update failure.
         """
 
 

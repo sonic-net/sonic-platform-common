@@ -1,7 +1,6 @@
-//! The generated sweep, `tests/generated/sweep.rs`, as a module rustfmt
-//! leaves alone: it is the generator's output, held byte for byte to what
-//! `generate.py --check` regenerates.
+//! Generated contract checks compiled from Cargo's output directory.
 
 #[rustfmt::skip]
-#[path = "generated/sweep.rs"]
-mod sweep;
+mod sweep {
+    include!(concat!(env!("OUT_DIR"), "/tests/generated/sweep.rs"));
+}

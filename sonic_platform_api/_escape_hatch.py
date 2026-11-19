@@ -5,6 +5,7 @@ Hand-written, and deliberately small: everything here is declared in
 a matching declaration is a body somebody should have generated.
 """
 
+import logging
 import signal
 import sys
 import threading
@@ -180,6 +181,28 @@ class EscapeHatches(object):
         self._storage_tried = False
 
     # -- thermal manager ----------------------------------------------------
+
+    def get_major_leak_num_min_sensors(self) -> Optional[int]:
+        cooling = _call(getattr(self._chassis, 'get_liquid_cooling', None))
+        value = _call(getattr(cooling, 'get_major_leak_num_min_sensors', None))
+        return None if value is None else int(value)
+
+    def get_psu_fans(self, api: Any, key: str, include_details: bool,
+                     columns: int, detail_columns: int) -> Any:
+        from . import facade
+
+        psu = api._find_psu_info(key)
+        if include_details:
+            columns |= detail_columns
+        path = getattr(facade, '_parse_key')(key)
+        kind = 'pdb' if path[0][0] == 'pdbs' else 'psu'
+        index = path[0][1] + 1
+        parent = str(_call(getattr(psu, 'get_name', None), '%s %d' % (kind.upper(), index)))
+        return [api._row_fan_info(fan, parent, i, {
+            'key': key + '/fans[%d]' % i, 'parent_key': key,
+            'kind': kind, 'drawer_name': 'N/A',
+        }, columns, True) for i, fan in enumerate(_call(getattr(psu, 'get_all_fans', None), []) or [])]
+
     #
     # `ChassisBase.get_thermal_manager()` returns a *class*, not an instance,
     # and all twelve of its methods are `@classmethod` over process-global
@@ -211,9 +234,9 @@ class EscapeHatches(object):
     def tm_initialize(self) -> None:
         """Start-up, in the order `ThermalControlDaemon.__init__` does it.
 
-        `load()` and `init_thermal_algorithm()` belong with `initialize()`:
-        a manager that has been initialised but not loaded has no policies,
-        and `run_policy` on it is a no-op that looks like a working one.
+        Attempt all start-up steps in Python's order. If a step raises, keep
+        the manager available to later policy rounds, as thermalctld does.
+        A partially loaded policy must not be disabled by a later I/O error.
 
         Unlike the other `tm_*` calls, this one lets a `NotImplementedError`
         from `get_thermal_manager()` through.  thermalctld asks for the manager
@@ -230,17 +253,20 @@ class EscapeHatches(object):
         mgr = self._manager
         if mgr is None:
             return
-        mgr.initialize()
-        mgr.load(POLICY_FILE)
-        mgr.init_thermal_algorithm(self._chassis)
-        self._loaded = True
+        try:
+            mgr.initialize()
+            mgr.load(POLICY_FILE)
+            mgr.init_thermal_algorithm(self._chassis)
+        finally:
+            # Python keeps calling run_policy() after a start-up step raises.
+            self._loaded = True
 
     def tm_run_policy(self) -> None:
         """One policy round.
 
-        Skipped rather than raised when nothing was loaded: a platform whose
-        fan policy lives in firmware ships a `thermal_policy.json` with no
-        policies in it, and that is not an error.
+        Skip before start-up has been attempted or when there is no manager.
+        After a failed start-up step, let the manager run any policies it has,
+        including policies loaded before a later step failed.
         """
         mgr = self._get()
         if mgr is None or not self._loaded:
@@ -323,22 +349,28 @@ class EscapeHatches(object):
         A platform that cannot read it answers 'read_failed' rather than
         raising, and one that read it and could not write the table
         'update_failed': syseepromd logs which half it was -- its
-        ERR_FAILED_EEPROM and ERR_FAILED_UPDATE_DB -- and leaves the table
-        alone until the next cycle.
+        ERR_FAILED_EEPROM and ERR_FAILED_UPDATE_DB. The vendor writer can
+        have published part of the table before reporting a failure.
         """
         eeprom = self._eeprom_obj()
         if eeprom is None:
             return 'read_failed'
+        read = getattr(eeprom, 'read_eeprom', None)
+        if read is None:
+            return 'read_failed'
         try:
-            data = eeprom.read_eeprom()
-        except (NotImplementedError, AttributeError):
+            data = read()
+        except NotImplementedError:
             return 'read_failed'
         if data is None:
             return 'read_failed'
+        update = getattr(eeprom, 'update_eeprom_db', None)
+        if update is None:
+            return 'update_failed'
         try:
             # Python's own contract: 0 is success, anything else is failure.
-            failed = eeprom.update_eeprom_db(data)
-        except (NotImplementedError, AttributeError):
+            failed = update(data)
+        except NotImplementedError:
             return 'update_failed'
         return 'update_failed' if failed else 'updated'
 
@@ -434,20 +466,30 @@ class EscapeHatches(object):
             from sonic_py_common import device_info
 
             platform_path, _hwsku = device_info.get_paths_to_platform_and_hwsku_dirs()
-        except Exception:
+        except Exception as e:
+            logging.getLogger(__name__).error('Cannot locate PCIe platform directory: %s', e)
             return None
         try:
             from sonic_platform.pcie import Pcie
 
             self._pcie = Pcie(platform_path)
-        except Exception:
+        except ImportError:
             try:
                 from sonic_platform_base.sonic_pcie.pcie_common import PcieUtil
 
                 # In this repo but untyped, as every platform base class is.
-                self._pcie = PcieUtil(platform_path)  # type: ignore[no-untyped-call]
-            except Exception:
+                self._pcie = PcieUtil(platform_path)
+            except SystemExit:
                 self._pcie = None
+            except Exception as e:
+                logging.getLogger(__name__).error('Cannot load PCIe utility: %s', e)
+                self._pcie = None
+        except SystemExit:
+            # A missing pcie.yaml can exit from the vendor constructor too.
+            self._pcie = None
+        except Exception:
+            self._pcie_tried = False
+            raise
         return self._pcie
 
     def get_pcie_devices(self) -> Any:
@@ -525,11 +567,15 @@ class EscapeHatches(object):
         self._storage_tried = True
         try:
             from sonic_platform_base.sonic_storage.storage_devices import StorageDevices
-
+        except ImportError as e:
+            logging.getLogger(__name__).error('Cannot load the storage utility: %s', e)
+            return None
+        try:
             # In this repo but untyped, as every platform base class is.
-            self._storage = StorageDevices()  # type: ignore[no-untyped-call]
+            self._storage = StorageDevices()
         except Exception:
-            self._storage = None
+            self._storage_tried = False
+            raise
         return self._storage
 
     def get_storage_devices(self) -> Any:
