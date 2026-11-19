@@ -255,7 +255,10 @@ class Sff8436Api(XcvrApi):
         return self.xcvr_eeprom.read(consts.TX_DISABLE_FIELD)
 
     def get_module_temperature(self):
-        if not self.get_temperature_support():
+        temp_support = self.get_temperature_support()
+        if temp_support is None:
+            return None
+        if not temp_support:
             return 'N/A'
         temp = self.xcvr_eeprom.read(consts.TEMPERATURE_FIELD)
         if temp is None:
@@ -340,7 +343,10 @@ class Sff8436Api(XcvrApi):
         return self._is_copper
 
     def get_temperature_support(self):
-        return not self.is_copper()
+        is_copper = self.is_copper()
+        if is_copper is None:
+            return None
+        return not is_copper
 
     def get_voltage_support(self):
         return not self.is_copper()

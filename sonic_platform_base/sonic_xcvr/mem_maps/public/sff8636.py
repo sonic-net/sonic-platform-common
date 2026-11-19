@@ -22,6 +22,7 @@ class Sff8636MemMap(XcvrMemMap):
 
         self.STATUS = RegGroupField(consts.STATUS_FIELD,
             CodeRegField(consts.REV_COMPLIANCE_FIELD, self.get_addr(0, 1), self.codes.REV_COMPLIANCE),
+            NumberRegField(consts.REV_COMPLIANCE_RAW_FIELD, self.get_addr(0, 1)),
             NumberRegField(consts.STATUS_IND_BITS_FIELD, self.get_addr(0, 2),
                 RegBitField(consts.FLAT_MEM_FIELD, 2)
             )
