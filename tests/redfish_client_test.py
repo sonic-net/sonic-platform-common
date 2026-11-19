@@ -50,6 +50,36 @@ class TestRedfishClient:
     def password_callback(self):
         return TestRedfishClient.BMC_NOS_ACCOUNT_DEFAULT_PASSWORD
 
+
+    @mock.patch('sonic_platform_base.redfish_client.logger')
+    @mock.patch('subprocess.Popen')
+    def test_special_credentials_use_stdin_and_are_not_logged(self, popen, logger):
+        user, password = "u'\"\\\n名", "p'\"\\\n秘密"
+        process = popen.return_value
+        process.returncode = 0
+        process.communicate.return_value = (load_redfish_response('mock_bmc_login_token_response'), b'')
+        rf = RedfishClient(self.CURL_PATH, self.BMC_INTERNAL_IP_ADDR, lambda: user, lambda: password)
+        assert rf.login() == RedfishClient.ERR_CODE_OK
+        argv = popen.call_args.args[0]
+        assert '--config' in argv
+        assert user not in str(argv) and password not in str(argv)
+        config = process.communicate.call_args.kwargs['input'].decode()
+        payload = json.loads(config.strip().split(' = ', 1)[1])
+        assert json.loads(payload) == {'UserName': user, 'Password': password}
+        assert user not in str(logger.mock_calls) and password not in str(logger.mock_calls)
+
+    @mock.patch('subprocess.Popen')
+    def test_credential_request_keeps_the_curl_connection_error(self, popen):
+        process = popen.return_value
+        process.returncode = 7
+        process.communicate.return_value = (b'', b'Failed to connect to BMC: connection refused')
+        client = RedfishClient(self.CURL_PATH, self.BMC_INTERNAL_IP_ADDR,
+                               self.user_callback, self.password_callback)
+        command = client._RedfishClient__build_login_cmd('private-password')
+        _ret, _status, _output, error = client._RedfishClient__exec_curl_cmd_internal(command)
+        assert error == 'Failed to connect to BMC: connection refused'
+        assert 'private-password' not in str(popen.call_args.args[0])
+
     @mock.patch('subprocess.Popen')
     def test_login_success(self, mock_popen):
         """Test successful login"""
@@ -1811,6 +1841,7 @@ class TestRedfishClient:
         side_effects.append(mock.Mock(communicate=mock.Mock(return_value=(response, b'')), returncode=0))
         mock_popen.side_effect = side_effects
         mock_json_loads.side_effect = [
+            {"UserName": self.BMC_NOS_ACCOUNT, "Password": self.BMC_NOS_ACCOUNT_DEFAULT_PASSWORD},
             {"Id": "abc123xyz"},
             ValueError("Test exception")
         ]
@@ -1820,3 +1851,17 @@ class TestRedfishClient:
         ret, msg = rf.redfish_api_get_min_password_length()
         assert ret == RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
         assert msg == 'Error: Test exception'
+
+
+def test_basic_auth_uses_stdin_and_escapes_config_control_characters():
+    secret = 'root:quote" slash\\ line\n tab\t'
+    argv, data = RedfishClient._RedfishClient__private_transport(
+        ['/usr/bin/curl', '--user', secret, '-H', 'X-Auth-Token: private-token',
+         '-d', 'plain-text', 'https://bmc/redfish/v1'])
+    assert secret not in argv
+    assert 'X-Auth-Token: private-token' not in argv
+    assert argv[-2:] == ['--config', '-']
+    assert 'plain-text' in argv
+    assert b'private-token' in data
+    assert b'quote\\"' in data and b'slash\\\\' in data
+    assert b'line\\n' in data and b'tab\\t' in data
