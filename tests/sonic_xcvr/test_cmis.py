@@ -2550,6 +2550,126 @@ class TestCmis(object):
         mock_fw_hdlr.abort_fw_download.assert_called_once()
 
     @patch('sonic_platform_base.sonic_xcvr.api.public.cdb_fw.time.sleep')
+    def test_module_fw_download_epl_page_write_fail(self, mock_sleep):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.start_fw_download.return_value = True
+        mock_fw_hdlr.write_epl_pages.side_effect = AssertionError('Failed to write EPL page 0xa0 of the module')
+        from unittest.mock import mock_open
+        m = mock_open(read_data=b'\x00' * 256)
+        m.return_value.seek = MagicMock()
+        m.return_value.tell = MagicMock(return_value=256)
+        with patch('builtins.open', m):
+            result = self.api.module_fw_download(112, 2048, False, True, 2048, '/tmp/fw.bin')
+        assert result[0] is False
+        assert 'CDB download failed at block address 0x0: Failed to write EPL page 0xa0 of the module' in result[1]
+        mock_fw_hdlr.write_epl_block.assert_not_called()
+
+    @pytest.mark.parametrize("lplonly_flag, write_method", [(True, 'write_lpl_block'), (False, 'write_epl_block')])
+    def test_module_fw_write_blocks_iter_yields_each_block(self, lplonly_flag, write_method):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        getattr(mock_fw_hdlr, write_method).return_value = True
+        from unittest.mock import mock_open
+        m = mock_open(read_data=b'\x00' * 256)
+        m.return_value.seek = MagicMock()
+        m.return_value.tell = MagicMock(return_value=400)
+        with patch('builtins.open', m):
+            blocks = list(self.api.module_fw_write_blocks_iter('/tmp/fw.bin', 112, 128, lplonly_flag))
+        block_size = cdb_consts.LPL_MAX_PAYLOAD_SIZE if lplonly_flag else 128
+        expected = []
+        remaining = 400 - 112
+        while remaining > 0:
+            expected.append(min(remaining, block_size))
+            remaining -= expected[-1]
+        assert blocks == expected
+        assert getattr(mock_fw_hdlr, write_method).call_count == len(expected)
+        mock_fw_hdlr.abort_fw_download.assert_not_called()
+
+    def test_module_fw_write_blocks_iter_aborts_on_failure(self):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.write_lpl_block.side_effect = [True, False]
+        mock_fw_hdlr.get_cmd_status_code.return_value = {
+            cdb_consts.CDB1_IS_BUSY: False,
+            cdb_consts.CDB1_HAS_FAILED: True,
+            cdb_consts.CDB1_STATUS: 0x05,
+        }
+        from unittest.mock import mock_open
+        m = mock_open(read_data=b'\x00' * 256)
+        m.return_value.seek = MagicMock()
+        m.return_value.tell = MagicMock(return_value=112 + 3 * cdb_consts.LPL_MAX_PAYLOAD_SIZE)
+        written = []
+        with patch('builtins.open', m):
+            with pytest.raises(RuntimeError, match='CDB download failed. CDB Status: 69'):
+                for count in self.api.module_fw_write_blocks_iter('/tmp/fw.bin', 112, 2048, True):
+                    written.append(count)
+        assert written == [cdb_consts.LPL_MAX_PAYLOAD_SIZE]
+        mock_fw_hdlr.abort_fw_download.assert_called_once()
+
+    def _fail_second_lpl_block(self, mock_fw_hdlr):
+        mock_fw_hdlr.write_lpl_block.side_effect = [True, False]
+        failed = {
+            cdb_consts.CDB1_IS_BUSY: False,
+            cdb_consts.CDB1_HAS_FAILED: True,
+            cdb_consts.CDB1_STATUS: 0x05,
+        }
+        aborted = {
+            cdb_consts.CDB1_IS_BUSY: False,
+            cdb_consts.CDB1_HAS_FAILED: False,
+            cdb_consts.CDB1_STATUS: 0x01,
+        }
+        # The Abort overwrites the status of the failed block write.
+        mock_fw_hdlr.get_cmd_status_code.side_effect = \
+            lambda: aborted if mock_fw_hdlr.abort_fw_download.called else failed
+        from unittest.mock import mock_open
+        m = mock_open(read_data=b'\x00' * 256)
+        m.return_value.seek = MagicMock()
+        m.return_value.tell = MagicMock(return_value=112 + 3 * cdb_consts.LPL_MAX_PAYLOAD_SIZE)
+        with patch('builtins.open', m):
+            with pytest.raises(RuntimeError) as excinfo:
+                list(self.api.module_fw_write_blocks_iter('/tmp/fw.bin', 112, 2048, True))
+        return str(excinfo.value)
+
+    def test_module_fw_write_blocks_iter_reports_the_failed_block_status(self):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.is_abort_supported = True
+        mock_fw_hdlr.wait_for_cdb_status.return_value = [True, {}]
+        mock_fw_hdlr.abort_fw_download.return_value = True
+
+        assert 'CDB Status: 69' in self._fail_second_lpl_block(mock_fw_hdlr)
+        mock_fw_hdlr.abort_fw_download.assert_called_once_with()
+
+    def test_module_fw_write_blocks_iter_no_abort_when_not_supported(self):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.is_abort_supported = False
+
+        assert 'CDB Status: 69' in self._fail_second_lpl_block(mock_fw_hdlr)
+        mock_fw_hdlr.wait_for_cdb_status.assert_not_called()
+        mock_fw_hdlr.abort_fw_download.assert_not_called()
+
+    def test_module_fw_write_blocks_iter_no_abort_when_cdb_busy(self):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.is_abort_supported = True
+        mock_fw_hdlr.wait_for_cdb_status.return_value = [False, None]
+
+        assert 'CDB Status: 69' in self._fail_second_lpl_block(mock_fw_hdlr)
+        mock_fw_hdlr.abort_fw_download.assert_not_called()
+
+    def test_module_fw_start_download_no_abort_when_not_supported(self):
+        mock_fw_hdlr = self._setup_cdb_fw_hdlr()
+        mock_fw_hdlr.is_abort_supported = False
+        mock_fw_hdlr.start_fw_download.return_value = False
+        mock_fw_hdlr.get_cmd_status_code.return_value = {
+            cdb_consts.CDB1_IS_BUSY: False,
+            cdb_consts.CDB1_HAS_FAILED: True,
+            cdb_consts.CDB1_STATUS: 0x04,
+        }
+
+        success, txt = self.api.module_fw_start_download('/tmp/fw.bin')
+
+        assert success is False
+        assert 'FW_start_status 68' in txt
+        mock_fw_hdlr.abort_fw_download.assert_not_called()
+
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cdb_fw.time.sleep')
     def test_module_fw_download_complete_fail(self, mock_sleep):
         mock_fw_hdlr = self._setup_cdb_fw_hdlr()
         mock_fw_hdlr.start_fw_download.return_value = True
@@ -3966,6 +4086,12 @@ class TestCmis(object):
             except:
                 assert 0, traceback.format_exc()
             run_num -= 1
+
+    def test_get_transceiver_info_after_power_up_not_implemented_by_default(self):
+        with patch.object(self.api.xcvr_eeprom, 'read') as mock_read:
+            with pytest.raises(NotImplementedError):
+                self.api.get_transceiver_info_after_power_up()
+            mock_read.assert_not_called()
 
     def test_get_transceiver_info_firmware_versions(self):
         self.api.is_cdb_supported = MagicMock()

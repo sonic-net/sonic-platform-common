@@ -80,9 +80,12 @@ class CdbCmdHandler(XcvrEeprom):
             if (True == status[cdb_consts.CDB1_HAS_FAILED]):
                 break
 
-            if (False == status[cdb_consts.CDB1_IS_BUSY]) and \
-                    (False == status[cdb_consts.CDB1_HAS_FAILED]):
-                break
+            # A command result of 0 is reserved: the status is not set yet,
+            # or was cleared by a module reset (e.g. Run Firmware Image).
+            if status[cdb_consts.CDB1_STATUS] == 0:
+                continue
+
+            break
 
         if delay >= timeout or status is None:
             return [False, status]
@@ -164,12 +167,14 @@ class CdbCmdHandler(XcvrEeprom):
 
         for page in range(pages):
             page_data = blkdata[page * cdb_consts.PAGE_SIZE : (page + 1) * cdb_consts.PAGE_SIZE]
-            assert True == self.write_epl_page(page + cdb_consts.EPL_PAGE, page_data)
+            assert True == self.write_epl_page(page + cdb_consts.EPL_PAGE, page_data), \
+                'Failed to write EPL page {:#04x} of the module'.format(page + cdb_consts.EPL_PAGE)
 
         # Handle any remaining data that doesn't fit into a full page
         if len(blkdata) % cdb_consts.PAGE_SIZE != 0:
             remaining_data = blkdata[pages * cdb_consts.PAGE_SIZE:]
-            assert True == self.write_epl_page(pages + cdb_consts.EPL_PAGE, remaining_data)
+            assert True == self.write_epl_page(pages + cdb_consts.EPL_PAGE, remaining_data), \
+                'Failed to write EPL page {:#04x} of the module'.format(pages + cdb_consts.EPL_PAGE)
 
     def write_epl_block(self, blkaddr, blkdata, timeout=None):
         """

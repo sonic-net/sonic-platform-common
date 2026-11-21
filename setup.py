@@ -75,6 +75,7 @@ setup(
         'sonic_platform_base.sonic_xcvr.api.broadcom',
         'sonic_platform_base.sonic_xcvr.mem_maps.broadcom',
         'sonic_platform_base.sonic_xcvr.api.nvidia',
+        'sonic_platform_base.sonic_xcvr.cdb.nvidia',
         'sonic_platform_base.sonic_xcvr.codes.nvidia',
         'sonic_platform_base.sonic_xcvr.mem_maps.nvidia',
         'sonic_platform_base.sonic_xcvr.cdb',

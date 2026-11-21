@@ -115,6 +115,20 @@ class XcvrApi(object):
         """
         raise NotImplementedError
 
+    def get_transceiver_info_after_power_up(self):
+        """
+        Retrieves the transceiver info fields that are only reliable once the
+        xcvr has completed its first power up (ModuleReady), and are therefore
+        not reported by get_transceiver_info().
+
+        Returns:
+            A dict with the same value format as get_transceiver_info().
+
+        Raises:
+            NotImplementedError if the xcvr has no such fields.
+        """
+        raise NotImplementedError
+
     def get_transceiver_info_firmware_versions(self):
         """
         Retrieves active and inactive firmware versions of the xcvr
