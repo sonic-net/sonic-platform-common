@@ -17,6 +17,28 @@ from natsort import natsorted
 from sonic_y_cable.y_cable_base import YCableBase
 
 
+def _build_http_opener():
+    """Return an opener that handles only http:// and https://.
+
+    urllib.request.urlopen also opens file://, ftp:// and data:// URLs. The
+    simulator is only ever reached over HTTP, so leave those handlers out and
+    a URL with any other scheme fails with URLError("unknown url type").
+    """
+    opener = urllib.request.OpenerDirector()
+    for handler in (urllib.request.ProxyHandler(),
+                    urllib.request.UnknownHandler(),
+                    urllib.request.HTTPHandler(),
+                    urllib.request.HTTPSHandler(),
+                    urllib.request.HTTPDefaultErrorHandler(),
+                    urllib.request.HTTPRedirectHandler(),
+                    urllib.request.HTTPErrorProcessor()):
+        opener.add_handler(handler)
+    return opener
+
+
+_HTTP_OPENER = _build_http_opener()
+
+
 class YCable(YCableBase):
 
     EEPROM_ERROR = -1
@@ -96,7 +118,7 @@ class YCable(YCableBase):
             try:
                 try:
                     req = urllib.request.Request(get_url)
-                    with urllib.request.urlopen(req, timeout=self.URLOPEN_TIMEOUT) as resp:
+                    with _HTTP_OPENER.open(req, timeout=self.URLOPEN_TIMEOUT) as resp:
                         return json.loads(resp.read().decode('utf-8'))
                 except urllib.error.HTTPError as e:
                     self.log_warning('attempt={}, GET {} for physical_port {} failed with {}, detail: {}'.format(
@@ -153,7 +175,7 @@ class YCable(YCableBase):
                 try:
                     headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
                     req = urllib.request.Request(post_url, post_data, headers, method='POST')
-                    with urllib.request.urlopen(req, timeout=self.URLOPEN_TIMEOUT) as resp:
+                    with _HTTP_OPENER.open(req, timeout=self.URLOPEN_TIMEOUT) as resp:
                         return json.loads(resp.read().decode('utf-8'))
                 except urllib.error.HTTPError as e:
                     self.log_warning('attempt={}, POST {} with data {} for physical_port {} failed with {}, detail: {}'.format(
