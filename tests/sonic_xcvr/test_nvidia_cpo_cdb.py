@@ -133,12 +133,23 @@ class TestCdbTargetHandler(object):
         assert select.call_count == 2
 
     def test_method_fails_when_target_cannot_be_selected(self):
+        # The EEPROM is gone, for example during an ASIC reset: fail like an
+        # EEPROM access error, which the callers handle, and do not raise.
         inner = MagicMock()
         handler = CdbTargetHandler(inner, lambda: False)
 
-        with pytest.raises(RuntimeError, match='Failed to select the CDB target'):
-            handler.send_cmd(0x9018)
+        assert handler.send_cmd(0x9018) is None
+        assert handler.get_cmd_status_code() is None
         inner.send_cmd.assert_not_called()
+        inner.get_cmd_status_code.assert_not_called()
+
+    def test_epl_page_write_fails_when_target_cannot_be_selected(self):
+        inner = MagicMock()
+        handler = CdbTargetHandler(inner, lambda: False)
+
+        with pytest.raises(AssertionError, match='Failed to select the CDB target'):
+            handler.write_epl_pages(b'\x00' * 128)
+        inner.write_epl_pages.assert_not_called()
 
     def test_attributes_pass_through(self):
         inner = MagicMock(start_LPL_size=112)

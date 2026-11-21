@@ -29,6 +29,7 @@ reply, holds a lock of the module, shared by its OE and its ELS.
 import contextlib
 import fcntl
 import functools
+import logging
 import os
 import threading
 import time
@@ -43,6 +44,9 @@ CDB_TARGET_ELS = 1
 # Seconds between two attempts to take a CDB lock held by another process,
 # when waiting at most a given time for it.
 _CDB_LOCK_RETRY_INTERVAL = 0.05
+
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 
 class CdbLock:
@@ -182,7 +186,15 @@ class CdbTargetHandler:
 
     The target is one register for the whole module, so the selection and
     the call hold the CDB lock of the module together.
+
+    The selection fails when the EEPROM of the module cannot be accessed, for
+    example while the ASIC resets. The method then fails the way it does on
+    an EEPROM access error: write_epl_pages() raises AssertionError, and the
+    other methods return None.
     """
+
+    # The methods that raise AssertionError when an EEPROM write fails.
+    _ASSERTING_METHODS = ('write_epl_pages',)
 
     def __init__(self, handler, select_target, lock=contextlib.nullcontext):
         self._handler = handler
@@ -198,7 +210,11 @@ class CdbTargetHandler:
         def call(*args, **kwargs):
             with self._lock():
                 if not self._select_target():
-                    raise RuntimeError('Failed to select the CDB target')
+                    message = 'Failed to select the CDB target for {}'.format(name)
+                    if name in self._ASSERTING_METHODS:
+                        raise AssertionError(message)
+                    logger.warning(message)
+                    return None
                 return attr(*args, **kwargs)
         setattr(self, name, call)
         return call
