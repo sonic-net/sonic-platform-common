@@ -1129,7 +1129,7 @@ fn every_row_type_crosses() {
 }
 
 #[test]
-fn a_leak_sensor_reaches_through_its_profile() {
+fn a_dry_leak_sensor_keeps_profile_columns_unread() {
     use platform_api::LeakSeverity;
     let mut api = loaded();
 
@@ -1148,9 +1148,39 @@ fn a_leak_sensor_reaches_through_its_profile() {
     assert_eq!((s.is_leak, s.is_ok), (Some(false), Some(true)));
     assert_eq!(s.severity, Some(LeakSeverity::Minor));
     assert_eq!(s.sensor_type.as_deref(), Some("rope"));
-    // Two hops: the sensor's profile, then the profile's own columns.
-    assert_eq!(s.profile_type.as_deref(), Some("rack"));
-    assert_eq!(s.profile_max_minor_duration_sec, Some(30));
+    assert_eq!(s.profile_type, None);
+    assert_eq!(s.profile_max_minor_duration_sec, None);
+}
+
+#[test]
+fn an_active_minor_leak_reaches_through_its_current_profile() {
+    let code = std::ffi::CString::new(LOADED.to_str().unwrap().replacen(
+        "def is_leak(self):\n        return False",
+        "def is_leak(self):\n        return True",
+        1,
+    ))
+    .unwrap();
+    let mut api = Python::attach(|py| {
+        let module = PyModule::from_code(
+            py,
+            code.as_c_str(),
+            c_str!("loaded_leaking.py"),
+            c_str!("loaded_leaking"),
+        )
+        .unwrap();
+        let facade = py
+            .import("sonic_platform_api.facade")
+            .unwrap()
+            .getattr("PlatformApi")
+            .unwrap()
+            .call1((module.getattr("CHASSIS").unwrap(),))
+            .unwrap();
+        Bridge::from_facade(facade.unbind())
+    });
+    let sensors = api.get_leak_sensors().unwrap();
+    assert_eq!(sensors[0].is_leak, Some(true));
+    assert_eq!(sensors[0].profile_type.as_deref(), Some("rack"));
+    assert_eq!(sensors[0].profile_max_minor_duration_sec, Some(30));
 }
 
 #[test]
@@ -1171,6 +1201,90 @@ fn a_getter_that_takes_the_devices_name_is_given_it() {
         Some(true),
         "the getter must receive this module's own name"
     );
+}
+
+#[test]
+fn an_addressed_transition_read_passes_the_modules_own_name() {
+    let mut api = loaded();
+    assert_eq!(
+        api.get_module_state_transition(&DeviceKey::from("modules[0]"))
+            .unwrap(),
+        Some(true)
+    );
+}
+
+#[test]
+fn transition_actions_skip_nameless_modules_and_preserve_optional_answers() {
+    let code = CString::new(
+        r#"
+CALLS = []
+class Module:
+    def __init__(self, name_kind, value):
+        self.name_kind, self.value = name_kind, value
+    def get_name(self):
+        if self.name_kind == 'unsupported': raise NotImplementedError
+        return None if self.name_kind == 'none' else 'DPU0'
+    def get_module_state_transition(self, name):
+        CALLS.append(('get', name)); return self.value
+    def set_module_state_transition(self, name, transition):
+        CALLS.append(('set', name)); return self.value
+    def clear_module_state_transition(self, name):
+        CALLS.append(('clear', name)); return self.value
+class Chassis:
+    def __init__(self, module): self.module = module
+    def get_all_modules(self): return [self.module]
+"#,
+    )
+    .unwrap();
+    for name_kind in ["none", "unsupported", "present"] {
+        for value in [None, Some(false), Some(true)] {
+            let (mut api, calls) = Python::attach(|py| {
+                let module = PyModule::from_code(
+                    py,
+                    &code,
+                    c_str!("transition.py"),
+                    c_str!("transition_regression"),
+                )
+                .unwrap();
+                let device = module
+                    .getattr("Module")
+                    .unwrap()
+                    .call1((name_kind, value))
+                    .unwrap();
+                let chassis = module.getattr("Chassis").unwrap().call1((device,)).unwrap();
+                let facade = py
+                    .import("sonic_platform_api.facade")
+                    .unwrap()
+                    .getattr("PlatformApi")
+                    .unwrap()
+                    .call1((chassis,))
+                    .unwrap();
+                (
+                    Bridge::from_facade(facade.unbind()),
+                    module.getattr("CALLS").unwrap().unbind(),
+                )
+            });
+            let key = DeviceKey::from("modules[0]");
+            let expected = if name_kind == "present" { value } else { None };
+            assert_eq!(api.get_module_state_transition(&key), Ok(expected));
+            assert_eq!(
+                api.set_module_state_transition(&key, "recovery"),
+                Ok(expected)
+            );
+            assert_eq!(api.clear_module_state_transition(&key), Ok(expected));
+            let calls: Vec<(String, String)> =
+                Python::attach(|py| calls.bind(py).extract().unwrap());
+            let expected_calls: Vec<(String, String)> = if name_kind == "present" {
+                ["get", "set", "clear"]
+                    .into_iter()
+                    .map(|method| (method.into(), "DPU0".into()))
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            assert_eq!(calls, expected_calls);
+        }
+    }
 }
 
 #[test]
@@ -1890,4 +2004,107 @@ fn a_name_crosses_to_the_key_python_would_have_resolved() {
         Err(PlatformError::NotSupported(_)) => {}
         other => panic!("expected NotSupported, got {other:?}"),
     }
+}
+
+#[test]
+fn integer_presence_preserves_python_truthiness() {
+    let (mut api, chassis) = bridge();
+    Python::attach(|py| {
+        let fan = chassis.bind(py).getattr("fan").unwrap();
+        fan.setattr(
+            "get_presence",
+            py.eval(c_str!("lambda: 1"), None, None).unwrap(),
+        )
+        .unwrap();
+    });
+    assert!(api.get_fans(FanInfoCols::PRESENCE, false).unwrap()[0].presence);
+}
+
+/// Exercise method-name routing through the generated bridge, not call_err alone.
+#[test]
+fn thermal_policy_errors_and_failed_initialization_cross_the_generated_bridge() {
+    Python::attach(|py| {
+        let module = PyModule::from_code(
+            py,
+            c_str!(
+                r#"
+class Manager:
+    def __init__(self): self.calls = 0
+    def initialize(self): pass
+    def load(self, path): pass
+    def init_thermal_algorithm(self, chassis): raise OSError('fan write failed')
+    def run_policy(self, chassis):
+        self.calls += 1
+        raise NotImplementedError('set_speed')
+class Chassis:
+    def __init__(self): self.manager = Manager()
+    def get_thermal_manager(self): return self.manager
+"#
+            ),
+            c_str!("policy_failure.py"),
+            c_str!("policy_failure"),
+        )
+        .unwrap();
+        let chassis = module.getattr("Chassis").unwrap().call0().unwrap();
+        let facade = py
+            .import("sonic_platform_api.facade")
+            .unwrap()
+            .getattr("PlatformApi")
+            .unwrap()
+            .call1((&chassis,))
+            .unwrap();
+        let mut api = Bridge::from_facade(facade.unbind());
+        assert_eq!(
+            api.tm_initialize(),
+            Err(PlatformError::Backend("OSError('fan write failed')".into()))
+        );
+        for _ in 0..3 {
+            assert_eq!(
+                api.tm_run_policy(),
+                Err(PlatformError::Backend(
+                    "NotImplementedError('set_speed')".into()
+                ))
+            );
+        }
+        assert_eq!(
+            chassis
+                .getattr("manager")
+                .unwrap()
+                .getattr("calls")
+                .unwrap()
+                .extract::<usize>()
+                .unwrap(),
+            3
+        );
+    });
+}
+
+#[test]
+fn shutdown_flushes_buffered_vendor_output_after_atexit() {
+    const CHILD: &str = "SONIC_BRIDGE_SHUTDOWN_FLUSH_CHILD";
+    if std::env::var_os(CHILD).is_some() {
+        Python::attach(|py| {
+            py.run(
+                c_str!(
+                    "import atexit; atexit.register(lambda: print('vendor-final-output', end=''))"
+                ),
+                None,
+                None,
+            )
+            .unwrap();
+        });
+        platform_pyo3::run_python_atexit_handlers();
+        std::process::exit(0);
+    }
+    let output = std::process::Command::new(std::env::current_exe().unwrap())
+        .args([
+            "--exact",
+            "shutdown_flushes_buffered_vendor_output_after_atexit",
+            "--nocapture",
+        ])
+        .env(CHILD, "1")
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    assert!(String::from_utf8_lossy(&output.stdout).contains("vendor-final-output"));
 }

@@ -1,0 +1,120 @@
+//! Every default of `PyObject`, for every base class.
+//!
+//! GENERATED from sonic_platform_api/facade.pyi and sonic_platform_base by
+//! generator/generate.py.  Do not edit: regenerate.
+//!
+//! What `generator/native.py` reads a base class's method to answer -- raise
+//! `NotImplementedError`, return a literal, return what its `__init__` set,
+//! or not be there at all -- is what an object deriving from that class and
+//! overriding nothing must answer: through the trait's own defaults, and
+//! through a `DynObject` whose handler answers nothing.  The expected answers
+//! below are Python's `repr()` of those values, written by the generator, so
+//! a Rust default that answers something else for some class shows here.
+//!
+//! A base-class body (`crate::bodies`) is called only where calling it has no
+//! side effects; what it answers is the generator's `SWEEP_BODIES`.
+
+use platform_base::object::{BaseClass, DynObject, PyObject};
+use platform_base::{Exc, PyResult, PyVal};
+
+/// The base classes, in the order the table's columns are.
+const CLASSES: [BaseClass; {{ native.bases | length + 1 }}] = [
+    BaseClass::Object,
+{%- for b in native.bases %}
+    BaseClass::{{ b }},
+{%- endfor %}
+];
+
+/// `(method, what each class in CLASSES answers)`; None where it is not called.
+const TABLE: &[(&str, [Option<&str>; {{ native.bases | length + 1 }}])] = &[
+{%- for m in native.methods %}
+    ({{ m.name | tojson }}, [
+{%- for e in m.sweep %}
+        {% if e is none %}None{% else %}Some({{ e | rust_str }}){% endif %},
+{%- endfor %}
+    ]),
+{%- endfor %}
+];
+
+/// `(method, repr((method, args)))`: a `DynObject` hands its handler its
+/// method's name and arguments.
+const ECHO: &[(&str, &str)] = &[
+{%- for m in native.methods %}
+    ({{ m.name | tojson }}, {{ m.sweep_echo() | rust_str }}),
+{%- endfor %}
+];
+
+/// `method` on `o`, with the sweep's arguments.
+fn call(o: &dyn PyObject, method: &str) -> PyResult<PyVal> {
+    match method {
+{%- for m in native.methods %}
+        {{ m.name | tojson }} => o.{{ m.name }}({{ m.sweep_args() }}),
+{%- endfor %}
+        _ => unreachable!("{method} is not in the table"),
+    }
+}
+
+/// An object that overrides nothing: every method is the trait's default.
+struct Bare(BaseClass);
+
+impl PyObject for Bare {
+    fn py_class(&self) -> &'static str {
+        "Sweep"
+    }
+
+    fn base_class(&self) -> BaseClass {
+        self.0
+    }
+}
+
+/// What a call answered, spelt as the table spells it.
+fn outcome(r: PyResult<PyVal>, method: &str) -> String {
+    match r {
+        Ok(v) => format!("ok {}", v.py_repr()),
+        Err(e) if e.exc == Exc::Missing => {
+            assert_eq!(e.str(), format!("'Sweep' object has no attribute '{method}'"));
+            "missing".to_string()
+        }
+        Err(e) => format!("raise {}: {}", e.exc.name(), e.str()),
+    }
+}
+
+#[test]
+fn every_default_answers_what_its_base_class_does() {
+    let mut wrong = Vec::new();
+    for (column, class) in CLASSES.iter().enumerate() {
+        let bare = Bare(*class);
+        let dynamic = DynObject {
+            class: "Sweep",
+            base: *class,
+            handler: Box::new(|_: &dyn PyObject, _: &str, _: &[PyVal]| None),
+        };
+        assert_eq!(bare.py_mro(), ["Sweep"]);
+        for (method, answers) in TABLE {
+            let Some(want) = answers[column] else {
+                continue;
+            };
+            for (how, o) in [("trait", &bare as &dyn PyObject), ("DynObject", &dynamic)] {
+                let got = outcome(call(o, method), method);
+                if got != *want {
+                    wrong.push(format!("{class:?}.{method} ({how}): {got}, not {want}"));
+                }
+            }
+        }
+    }
+    assert!(wrong.is_empty(), "{} defaults differ:\n{}", wrong.len(), wrong.join("\n"));
+}
+
+#[test]
+fn a_dyn_object_hands_its_handler_the_call() {
+    let echo = DynObject {
+        class: "Echo",
+        base: BaseClass::Object,
+        handler: Box::new(|_: &dyn PyObject, name: &str, args: &[PyVal]| {
+            Some(Ok(PyVal::Tuple(vec![PyVal::str(name), PyVal::List(args.to_vec())])))
+        }),
+    };
+    for (method, want) in ECHO {
+        assert_eq!(outcome(call(&echo, method), method), *want, "{method}");
+    }
+}

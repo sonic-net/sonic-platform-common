@@ -72,6 +72,33 @@ def _get(obj, name):
     return getattr(obj, name, None)
 
 
+def _call_unsupported_default(fn, default):
+    """Default only an unsupported getter; None remains an unknown reading."""
+    if fn is None:
+        return default
+    try:
+        value = fn()
+    except NotImplementedError:
+        return default
+    return default if value is NotImplementedError else value
+
+
+_UNSUPPORTED = object()
+
+
+def _cached_call(reads, key, fn, unsupported=None):
+    """Read once per row, preserving unsupported separately from explicit None."""
+    if key not in reads:
+        try:
+            reads[key] = (True, _call_unsupported_default(fn, _UNSUPPORTED))
+        except Exception as error:
+            reads[key] = (False, error)
+    succeeded, value = reads[key]
+    if not succeeded:
+        raise value
+    return unsupported if value is _UNSUPPORTED else value
+
+
 def _iter(seq):
     return seq if seq is not None else ()
 
@@ -251,6 +278,36 @@ def _call_narrowed(fn):
         return None
 
 
+
+class _LeakSensorSnapshot(object):
+    """One cycle's readings, cached before aggregate classification."""
+    def __init__(self, sensor):
+        self._sensor = sensor
+        self._readings = {}
+        for method in ('get_name', 'is_leak_sensor_ok', 'is_leak', 'get_leak_severity'):
+            self._readings[method] = _call(_get(sensor, method))
+        self._readings['is_test_leak'] = bool(
+            self._readings['is_leak_sensor_ok'] and self._readings['is_leak']
+            and _call(_get(sensor, 'is_test_leak')) is True)
+        self._include_profile = True
+    def __getattr__(self, name):
+        if name in self._readings:
+            return lambda: self._readings[name]
+        return getattr(self._sensor, name, None)
+    def get_leak_profile(self):
+        if not self._include_profile:
+            return None
+        return _call(_get(self._sensor, 'get_leak_profile'))
+
+def _leak_snapshot_sensors(sensors):
+    readings = [_LeakSensorSnapshot(sensor) for sensor in _iter(sensors)]
+    physical = any(sensor.is_leak_sensor_ok() and sensor.is_leak()
+                   and not sensor.is_test_leak() for sensor in readings)
+    for sensor in readings:
+        sensor._include_profile = not (physical and sensor.is_test_leak())
+    return readings
+
+
 def _truthy(v):
     """`Truthy()`: the field is used in a boolean context, so evaluate it as one.
 
@@ -383,10 +440,12 @@ class PlatformApi(object):
 {%- if row.sequential %}
 {{ row.row_body }}
 {%- else %}
-{%- for var, call, mask in row.shared_calls %}
+{%- if row.shared_calls %}
         # One call, sliced by every column that wants a piece of it: the
         # platform need not answer the same thing twice, and some of these
         # getters block and log.  See `_share_calls`.
+{%- endif %}
+{%- for var, call, mask in row.shared_calls %}
 {%- if mask is not none %}
         {{ var }} = {{ call }} if cols & {{ mask }} else None
 {%- else %}
@@ -469,6 +528,6 @@ class PlatformApi(object):
 {% elif m.kind == 'escape' %}
     def {{ m.name }}(self{% for p, _t in m.params %}, {{ p }}{% endfor %}):
         """Hand-written: {{ m.escape_reason | replace('\n', ' ') }}"""
-        return self._hatch.{{ m.name }}({% for p, _t in m.params %}{{ p }}{{ ', ' if not loop.last }}{% endfor %})
+        return self._hatch.{{ m.name }}({% if m.columns or m.detail_columns %}self, {% endif %}{% for p, _t in m.params %}{{ p }}{{ ', ' if not loop.last }}{% endfor %}{% if m.columns or m.detail_columns %}, {{ m.column_mask }}, {{ m.detail_column_mask }}{% endif %})
 {% endif %}
 {%- endfor %}

@@ -1,0 +1,14 @@
+smartctl 7.3 2022-02-28 r5338 [x86_64-linux-6.1.0] (local build)
+=== START OF INFORMATION SECTION ===
+Device Model:     Generic SSD 32G
+Serial Number:    SN123456
+Firmware Version: FW1.0
+User Capacity:    32,017,047,552 bytes [32.0 GB]
+
+ID# ATTRIBUTE_NAME          FLAG     VALUE WORST THRESH TYPE      UPDATED  WHEN_FAILED RAW_VALUE
+  9 Power_On_Hours          0x0000   100   100   000    Old_age   Always       -       1234
+169 Remaining_Lifetime_Perc 0x0000   100   100   000    Old_age   Always       -       97
+194 Temperature_Celsius     0x0000   100   100   000    Old_age   Always       -       38 (Min/Max 20/52)
+232 Available_Reservd_Space 0x0000   100   100   000    Old_age   Always       -       100
+241 Total_LBAs_Written      0x0000   100   100   000    Old_age   Always       -       123456
+242 Total_LBAs_Read         0x0000   100   100   000    Old_age   Always       -       654321

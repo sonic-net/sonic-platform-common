@@ -1,0 +1,8 @@
+
+smartctl 7.4 2023-08-01 r5530 [x86_64-linux-6.1.0-11-2-amd64] (local build)
+Copyright (C) 2002-23, Bruce Allen, Christian Franke, www.smartmontools.org
+
+ID# ATTRIBUTE_NAME          FLAG     VALUE WORST THRESH TYPE      UPDATED WHEN_FAILED RAW_VALUE
+
+194 Temperature_Celsius     0x0023   058  241   000    Pre-fail Always       -       42 (Min/Max 29/115)
+241 Total_LBAs_Written      0x0012   100  100   000    Old_age  Always       -       18782480803

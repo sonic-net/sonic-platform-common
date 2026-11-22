@@ -1,0 +1,120 @@
+smartctl 6.6 2017-11-05 r4594 [x86_64-linux-4.9.0-14-2-amd64] (local build)
+Copyright (C) 2002-17, Bruce Allen, Christian Franke, www.smartmontools.org
+
+=== START OF INFORMATION SECTION ===
+Model Family:     Crucial/Micron MX1/2/300, M5/600, 1100 Client SSDs
+Device Model:     Micron_M550_MTFDDAT064MAY
+Serial Number:    MSA1827061P
+LU WWN Device Id: 5 00a075 10d9c54a7
+Firmware Version: MU01
+User Capacity:    64,023,257,088 bytes [64.0 GB]
+Sector Sizes:     512 bytes logical, 4096 bytes physical
+Rotation Rate:    Solid State Device
+Form Factor:      < 1.8 inches
+Device is:        In smartctl database [for details use: -P show]
+ATA Version is:   ACS-2, ATA8-ACS T13/1699-D revision 6
+SATA Version is:  SATA 3.1, 6.0 Gb/s (current: 3.0 Gb/s)
+Local Time is:    Mon May 20 18:31:29 2024 UTC
+SMART support is: Available - device has SMART capability.
+SMART support is: Enabled
+
+=== START OF READ SMART DATA SECTION ===
+SMART overall-health self-assessment test result: PASSED
+
+General SMART Values:
+Offline data collection status:  (0x80) Offline data collection activity
+                                        was never started.
+                                        Auto Offline Data Collection: Enabled.
+Self-test execution status:      (   0) The previous self-test routine completed
+                                        without error or no self-test has ever
+                                        been run.
+Total time to complete Offline
+data collection:                (  295) seconds.
+Offline data collection
+capabilities:                    (0x7b) SMART execute Offline immediate.
+                                        Auto Offline data collection on/off support.
+                                        Suspend Offline collection upon new
+                                        command.
+                                        Offline surface scan supported.
+                                        Self-test supported.
+                                        Conveyance Self-test supported.
+                                        Selective Self-test supported.
+SMART capabilities:            (0x0003) Saves SMART data before entering
+                                        power-saving mode.
+                                        Supports SMART auto save timer.
+Error logging capability:        (0x01) Error logging supported.
+                                        General Purpose Logging supported.
+Short self-test routine
+recommended polling time:        (   2) minutes.
+Extended self-test routine
+recommended polling time:        (   3) minutes.
+Conveyance self-test routine
+recommended polling time:        (   3) minutes.
+SCT capabilities:              (0x0035) SCT Status supported.
+                                        SCT Feature Control supported.
+                                        SCT Data Table supported.
+
+SMART Attributes Data Structure revision number: 16
+Vendor Specific SMART Attributes with Thresholds:
+ID# ATTRIBUTE_NAME          FLAG     VALUE WORST THRESH TYPE      UPDATED  WHEN_FAILED RAW_VALUE
+  1 Raw_Read_Error_Rate     0x002f   100   100   000    Pre-fail  Always       -       0
+  5 Reallocate_NAND_Blk_Cnt 0x0033   100   100   000    Pre-fail  Always       -       0
+  9 Power_On_Hours          0x0032   100   100   000    Old_age   Always       -       74245
+ 12 Power_Cycle_Count       0x0032   100   100   000    Old_age   Always       -       344
+171 Program_Fail_Count      0x0032   100   100   000    Old_age   Always       -       0
+172 Erase_Fail_Count        0x0032   100   100   000    Old_age   Always       -       0
+173 Ave_Block-Erase_Count   0x0032   075   075   000    Old_age   Always       -       757
+174 Unexpect_Power_Loss_Ct  0x0032   100   100   000    Old_age   Always       -       334
+180 Unused_Reserve_NAND_Blk 0x0033   000   000   000    Pre-fail  Always       -       475
+183 SATA_Interfac_Downshift 0x0032   100   100   000    Old_age   Always       -       0
+184 Error_Correction_Count  0x0032   100   100   000    Old_age   Always       -       0
+187 Reported_Uncorrect      0x0032   100   100   000    Old_age   Always       -       0
+194 Temperature_Celsius     0x0022   068   048   000    Old_age   Always       -       32 (Min/Max 4/52)
+196 Reallocated_Event_Count 0x0032   100   100   000    Old_age   Always       -       16
+197 Current_Pending_Sector  0x0032   100   100   000    Old_age   Always       -       0
+198 Offline_Uncorrectable   0x0030   100   100   000    Old_age   Offline      -       0
+199 UDMA_CRC_Error_Count    0x0032   100   100   000    Old_age   Always       -       0
+202 Percent_Lifetime_Used   0x0031   075   075   000    Pre-fail  Offline      -       25
+206 Write_Error_Rate        0x000e   100   100   000    Old_age   Always       -       0
+210 Success_RAIN_Recov_Cnt  0x0032   100   100   000    Old_age   Always       -       0
+246 Total_Host_Sector_Write 0x0032   100   100   000    Old_age   Always       -       9607694422
+247 Host_Program_Page_Count 0x0032   100   100   000    Old_age   Always       -       340097266
+248 Bckgnd_Program_Page_Cnt 0x0032   100   100   000    Old_age   Always       -       2861592324
+
+SMART Error Log Version: 1
+No Errors Logged
+
+SMART Self-test log structure revision number 1
+Num  Test_Description    Status                  Remaining  LifeTime(hours)  LBA_of_first_error
+# 1  Vendor (0xff)       Completed without error       00%      4927         -
+# 2  Vendor (0xff)       Completed without error       00%      4899         -
+# 3  Vendor (0xff)       Completed without error       00%      4879         -
+# 4  Vendor (0xff)       Completed without error       00%      4850         -
+# 5  Vendor (0xff)       Completed without error       00%      4830         -
+# 6  Vendor (0xff)       Completed without error       00%      4804         -
+# 7  Vendor (0xff)       Completed without error       00%      4792         -
+# 8  Vendor (0xff)       Completed without error       00%      4772         -
+# 9  Vendor (0xff)       Completed without error       00%      4752         -
+#10  Vendor (0xff)       Completed without error       00%      4731         -
+#11  Vendor (0xff)       Completed without error       00%      4711         -
+#12  Vendor (0xff)       Completed without error       00%      4691         -
+#13  Vendor (0xff)       Completed without error       00%      4671         -
+#14  Vendor (0xff)       Completed without error       00%      4635         -
+#15  Vendor (0xff)       Completed without error       00%      4614         -
+#16  Vendor (0xff)       Completed without error       00%      4594         -
+#17  Vendor (0xff)       Completed without error       00%      4574         -
+#18  Vendor (0xff)       Completed without error       00%      4554         -
+#19  Vendor (0xff)       Completed without error       00%      4534         -
+#20  Vendor (0xff)       Completed without error       00%      4513         -
+#21  Vendor (0xff)       Completed without error       00%      4493         -
+
+SMART Selective self-test log data structure revision number 1
+ SPAN  MIN_LBA  MAX_LBA  CURRENT_TEST_STATUS
+    1        0        0  Not_testing
+    2        0        0  Not_testing
+    3        0        0  Not_testing
+    4        0        0  Not_testing
+    5        0        0  Not_testing
+Selective self-test flags (0x0):
+  After scanning selected spans, do NOT read-scan remainder of disk.
+If Selective self-test is pending on power-up, resume after 0 minute delay.

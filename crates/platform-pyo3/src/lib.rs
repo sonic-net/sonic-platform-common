@@ -10,10 +10,12 @@ use pyo3::exceptions::PyNotImplementedError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyInt, PyString};
 
-// The generator's output, held byte for byte to what `generate.py --check`
-// regenerates: rustfmt leaves it as written.
+// Generated at build time from facade.pyi into OUT_DIR.
+// `generate.py --check` verifies deterministic generation; rustfmt skips it.
 #[rustfmt::skip]
-mod generated;
+mod generated {
+    include!(concat!(env!("OUT_DIR"), "/src/generated.rs"));
+}
 
 /// The generated facade's module: where `PlatformApi` and `DeviceNotFound` live.
 const FACADE_MODULE: &str = "sonic_platform_api.facade";
@@ -134,6 +136,17 @@ pub fn run_python_atexit_handlers() {
                 // way out; say it where a stderr-to-syslog pipe will catch it.
                 eprintln!("atexit handlers failed during shutdown: {msg}");
                 let _ = py;
+            }
+        }
+        // Embedded Python is not finalized by process::exit(). Flush after
+        // the handlers so the vendor's final output reaches supervisord.
+        if let Ok(sys) = py.import("sys") {
+            for name in ["stdout", "stderr"] {
+                if let Ok(stream) = sys.getattr(name) {
+                    if let Err(error) = stream.call_method0("flush") {
+                        eprintln!("Python {name} flush failed during shutdown: {error}");
+                    }
+                }
             }
         }
     });
@@ -262,6 +275,30 @@ pub(crate) fn err(py: Python<'_>, e: PyErr) -> PlatformError {
     }
 }
 
+/// Policy and liquid-cooling cycle diagnostics use Python's repr(e).
+/// Keep all other calls' existing error strings and unsupported/not-found
+/// categories unchanged. This affects only the Rust bridge's error value.
+pub(crate) fn call_err(py: Python<'_>, error: PyErr, method: &str) -> PlatformError {
+    let keep_repr = match method {
+        "tm_run_policy" => true,
+        "tm_initialize" => !error.is_instance_of::<PyNotImplementedError>(py),
+        "get_leak_sensors" | "get_major_leak_num_min_sensors" => {
+            !error.is_instance_of::<PyNotImplementedError>(py) && !is_device_not_found(py, &error)
+        }
+        _ => false,
+    };
+    if keep_repr {
+        let representation = error
+            .value(py)
+            .repr()
+            .map(|value| value.to_string())
+            .unwrap_or_else(|_| error.value(py).to_string());
+        PlatformError::Backend(representation)
+    } else {
+        err(py, error)
+    }
+}
+
 /// Whether `e` is the facade's `DeviceNotFound`.
 ///
 /// Looked up rather than held: the facade is imported once and then cached by
@@ -316,7 +353,7 @@ pub(crate) fn flag(row: &Bound<'_, PyAny>, key: &str) -> Result<Option<bool>, Pl
     if v.is_none() || is_na(&v) {
         return Ok(None);
     }
-    v.extract::<bool>().map(Some).map_err(|e| err(row.py(), e))
+    v.is_truthy().map(Some).map_err(|e| err(row.py(), e))
 }
 
 /// A number going the other way: Rust to Python.
@@ -449,6 +486,52 @@ mod tests {
     use super::*;
     use pyo3::ffi::c_str;
     use pyo3::types::PyModule;
+
+    #[test]
+    fn scoped_cycle_errors_preserve_exception_subclass_categories() {
+        Python::attach(|py| {
+            let module = PyModule::from_code(
+                py,
+                c_str!(
+                    r#"
+from sonic_platform_api.facade import DeviceNotFound
+class UnsupportedPolicy(NotImplementedError):
+    pass
+class MissingSensor(DeviceNotFound):
+    pass
+UNSUPPORTED = UnsupportedPolicy('not available')
+MISSING = MissingSensor('gone')
+BACKEND = RuntimeError('failed', 7)
+"#
+                ),
+                c_str!("cycle_errors.py"),
+                c_str!("cycle_errors"),
+            )
+            .unwrap();
+            for method in ["get_leak_sensors", "get_major_leak_num_min_sensors"] {
+                let unsupported = PyErr::from_value(module.getattr("UNSUPPORTED").unwrap());
+                assert_eq!(
+                    call_err(py, unsupported, method),
+                    PlatformError::NotSupported("not available".into())
+                );
+                let missing = PyErr::from_value(module.getattr("MISSING").unwrap());
+                assert_eq!(
+                    call_err(py, missing, method),
+                    PlatformError::NotFound("'gone'".into())
+                );
+                let backend = PyErr::from_value(module.getattr("BACKEND").unwrap());
+                assert_eq!(
+                    call_err(py, backend, method),
+                    PlatformError::Backend("RuntimeError('failed', 7)".into())
+                );
+            }
+            let backend = PyErr::from_value(module.getattr("BACKEND").unwrap());
+            assert_eq!(
+                call_err(py, backend, "tm_initialize"),
+                PlatformError::Backend("RuntimeError('failed', 7)".into())
+            );
+        });
+    }
 
     /// A `None` where a list of rows belongs is an empty list, not an error.
     ///
@@ -632,6 +715,40 @@ ROW = R()
                 m.getattr("RAN").unwrap().len().unwrap(),
                 1,
                 "the handler the vendor registered must have run"
+            );
+        });
+    }
+}
+
+#[cfg(test)]
+mod cycle_error_tests {
+    use super::*;
+    use pyo3::exceptions::{PyOSError, PyValueError};
+
+    #[test]
+    fn cycle_errors_keep_exception_type_and_arguments_without_changing_other_calls() {
+        Python::attach(|py| {
+            for method in [
+                "tm_run_policy",
+                "get_leak_sensors",
+                "get_major_leak_num_min_sensors",
+            ] {
+                assert_eq!(
+                    call_err(py, PyValueError::new_err("bad policy"), method),
+                    PlatformError::Backend("ValueError('bad policy')".into())
+                );
+            }
+            assert_eq!(
+                call_err(py, PyOSError::new_err("read failed"), "get_fans"),
+                PlatformError::Backend("read failed".into())
+            );
+            assert_eq!(
+                call_err(
+                    py,
+                    PyNotImplementedError::new_err("optional"),
+                    "tm_run_policy"
+                ),
+                PlatformError::Backend("NotImplementedError('optional')".into())
             );
         });
     }

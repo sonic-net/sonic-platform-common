@@ -29,6 +29,7 @@ fn finalize_does_nothing_by_default() {
 }
 {%- for m in model.methods %}
 {%- if m.kind == 'snapshot' %}{% set answer = 'not_supported' if m.singleton else 'empty' %}
+{%- elif m.name == 'get_psu_fans' %}{% set answer = 'not_found' %}
 {%- elif m.kind == 'escape' and m.rust_ret == '()' %}{% set answer = 'nothing' %}
 {%- elif m.kind == 'escape' and m.rust_ret.startswith('Option<') %}{% set answer = 'none' %}
 {%- elif m.kind == 'escape' and m.rust_ret.startswith('Vec<') %}{% set answer = 'empty' %}
@@ -39,6 +40,8 @@ fn {{ m.rust_name }}_defaults_to_{{ answer }}() {
     match Nothing.{{ m.rust_name }}({{ m.rust_sweep_args }}) {
 {%- if answer == 'not_supported' %}
         Err(PlatformError::NotSupported(what)) => assert_eq!(what, {{ m.name | tojson }}),
+{%- elif answer == 'not_found' %}
+        Err(PlatformError::NotFound(what)) => assert_eq!(what, "arg0"),
 {%- elif answer == 'empty' %}
         Ok(rows) => assert!(rows.is_empty()),
 {%- elif answer == 'none' %}
