@@ -4,11 +4,23 @@
 //! with two exceptions: the error type below, and [`PlatformApi::finalize`],
 //! which the trait template appends because a lifecycle hook has no place in a
 //! stub of vendor calls.
+//!
+//! Source builds require a host Python 3 interpreter with Jinja2. Set
+//! `SONIC_PLATFORM_GENERATOR_PYTHON` to choose that interpreter.
+//!
+//! Column masks travel with the facade generated from this same declaration.
+//! New columns are appended to preserve existing bit positions; `ALL` expands
+//! to include them and can therefore cause additional vendor reads. Callers
+//! that need a stable set of reads should name their columns explicitly.
+//! Text columns preserve the Python publication spelling alongside typed
+//! values used for comparisons; they are not additional vendor getter calls.
 
-// The generator's output, held byte for byte to what `generate.py --check`
-// regenerates: rustfmt leaves it as written.
+// Generated at build time from facade.pyi into OUT_DIR.
+// `generate.py --check` verifies deterministic generation; rustfmt skips it.
 #[rustfmt::skip]
-mod generated;
+mod generated {
+    include!(concat!(env!("OUT_DIR"), "/src/generated.rs"));
+}
 
 pub use generated::*;
 
@@ -122,6 +134,67 @@ mod tests {
         BmcResult, DeviceKey, FanInfo, FanInfoCol, FanInfoCols, FanKind, ModuleInfoCol,
         ModuleInfoCols, ThermalInfo, ThermalKind,
     };
+
+    #[test]
+    fn scoped_fan_fallback_uses_the_declared_led_and_detail_columns() {
+        use crate::{PlatformApi, PlatformError};
+        #[derive(Default)]
+        struct Snapshot {
+            calls: Vec<(FanInfoCols, bool)>,
+        }
+        impl PlatformApi for Snapshot {
+            fn get_psus(&mut self) -> Result<Vec<crate::PsuInfo>, PlatformError> {
+                Ok(["psus[0]", "psus[2]"]
+                    .into_iter()
+                    .map(|key| crate::PsuInfo {
+                        key: key.into(),
+                        ..crate::PsuInfo::new(crate::PowerEntityKind::Psu)
+                    })
+                    .collect())
+            }
+            fn get_fans(
+                &mut self,
+                columns: FanInfoCols,
+                absorb: bool,
+            ) -> Result<Vec<FanInfo>, PlatformError> {
+                self.calls.push((columns, absorb));
+                Ok(vec![
+                    FanInfo {
+                        name: "wanted".into(),
+                        parent_key: Some("psus[0]".into()),
+                        ..FanInfo::new(FanKind::Psu)
+                    },
+                    FanInfo {
+                        name: "other".into(),
+                        parent_key: Some("psus[1]".into()),
+                        ..FanInfo::new(FanKind::Psu)
+                    },
+                ])
+            }
+        }
+        let mut platform = Snapshot::default();
+        assert!(matches!(
+            platform.get_psu_fans(&DeviceKey::from("psus[7]"), false),
+            Err(PlatformError::NotFound(_))
+        ));
+        assert!(platform.calls.is_empty());
+        for details in [false, true] {
+            let fans = platform
+                .get_psu_fans(&DeviceKey::from("psus[0]"), details)
+                .unwrap();
+            assert_eq!(fans.len(), 1);
+            assert_eq!(fans[0].name, "wanted");
+            let (columns, absorb) = *platform.calls.last().unwrap();
+            assert!(absorb);
+            assert!(columns.contains(FanInfoCol::StatusLed));
+            assert_eq!(columns.contains(FanInfoCol::SpeedPct), details);
+            assert_eq!(columns.contains(FanInfoCol::Direction), details);
+        }
+        assert!(platform
+            .get_psu_fans(&DeviceKey::from("psus[2]"), false)
+            .unwrap()
+            .is_empty());
+    }
 
     #[test]
     fn a_row_with_a_kind_is_built_from_its_kind() {

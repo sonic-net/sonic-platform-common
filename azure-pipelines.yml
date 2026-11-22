@@ -70,6 +70,37 @@ steps:
   displayName: "Download artifacts from latest sonic-buildimage build"
 
 - script: |
+    set -eu
+    artifact_root="${BUILD_ARTIFACTSTAGINGDIRECTORY:?}"
+    missing=0
+    for pattern in \
+      target/debs/trixie/libyang3_*.deb \
+      target/debs/trixie/python3-libyang*.deb \
+      target/debs/trixie/libnl-3-200_*.deb \
+      target/debs/trixie/libnl-genl-3-200_*.deb \
+      target/debs/trixie/libnl-route-3-200_*.deb \
+      target/debs/trixie/libnl-nf-3-200_*.deb \
+      target/debs/trixie/libswsscommon_1.0.0_amd64.deb \
+      target/debs/trixie/python3-swsscommon_1.0.0_amd64.deb \
+      target/python-wheels/trixie/swsssdk-2.0.1-py3-none-any.whl \
+      target/python-wheels/trixie/sonic_py_common-1.0-py3-none-any.whl \
+      target/python-wheels/trixie/sonic_yang_mgmt-1.0-py3-none-any.whl \
+      target/python-wheels/trixie/sonic_yang_models-1.0-py3-none-any.whl \
+      target/python-wheels/trixie/sonic_config_engine-1.0-py3-none-any.whl
+    do
+      found=0
+      for artifact in "$artifact_root"/$pattern; do
+        if [ -f "$artifact" ]; then found=1; fi
+      done
+      if [ "$found" -eq 0 ]; then
+        printf 'Missing downloaded dependency: %s\n' "$pattern" >&2
+        missing=1
+      fi
+    done
+    [ "$missing" -eq 0 ]
+  displayName: 'Verify downloaded dependency artifacts'
+
+- script: |
     set -xe
     sudo apt-get -y purge libnl-3-dev libnl-route-3-dev || true
     sudo dpkg -i libyang3_*.deb \

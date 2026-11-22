@@ -274,7 +274,22 @@ pub trait PlatformApi: Send {
 {%- elif m.kind == 'escape' %}
 
     /// {{ (m.doc or m.escape_reason | replace('\n', ' ') | truncate(300)) | rustdoc }}
-{%- if m.rust_ret == '()' and m.name.startswith('tm_') %}
+{%- if m.name == 'get_psu_fans' %}
+    /// Existing implementations can use their projected fan snapshot;
+    /// bridges override this to avoid traversing unrelated devices.
+    /// The fallback requires `get_psus` for key validation and takes a full
+    /// PSU snapshot before reading projected fans. Override it for scoped reads.
+    fn get_psu_fans(&mut self, key: &DeviceKey, include_details: bool) -> Result<Vec<FanInfo>, PlatformError> {
+        if !self.get_psus()?.iter().any(|psu| &psu.key == key) {
+            return Err(PlatformError::NotFound(key.to_string()));
+        }
+        let columns = FanInfoCols::NONE{% for column in m.columns %}.with(FanInfoCols::{{ column | upper }}){% endfor %};
+        let columns = if include_details {
+            columns{% for column in m.detail_columns %}.with(FanInfoCols::{{ column | upper }}){% endfor %}
+        } else { columns };
+        Ok(self.get_fans(columns, true)?.into_iter().filter(|fan| fan.parent_key.as_ref() == Some(key)).collect())
+    }
+{%- elif m.rust_ret == '()' and m.name.startswith('tm_') %}
     ///
     /// A no-op by default: most platforms have no thermal manager, and one
     /// that says so by erroring would have every caller log a warning per

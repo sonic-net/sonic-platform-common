@@ -8,8 +8,9 @@
 # stub, not a per-commit gate.
 #
 # --python-only skips the cargo steps, for a runner with the Python toolchain
-# but no Rust one.  The crates need nothing else: libpython, and this checkout
-# on PYTHONPATH.  CI runs them in a step of its own, with line coverage.
+# but no Rust one. Rust builds also need a host Python 3 with Jinja2;
+# bridge tests import this checkout through PYTHONPATH. CI runs Rust
+# checks in a separate step, with line coverage.
 set -e
 cd "$(dirname "$0")/.."
 export PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}"
@@ -36,7 +37,7 @@ echo '== the generated Python matches the stub =='
 python3 -m mypy.stubtest sonic_platform_api.facade \
     --allowlist sonic_platform_api/stubtest_allowlist.txt
 
-echo '== the generated files are what the generator produces =='
+echo '== committed Python outputs match; Rust generation is deterministic =='
 (cd generator && python3 generate.py --check)
 
 # api_coverage.py reads only the checked-in inventory and the stub, so unlike
@@ -54,7 +55,7 @@ python3 -m pytest tests/platform_api_facade_test.py tests/platform_api_schema_te
 [ -n "$python_only" ] && exit 0
 
 # Formatting, of the hand-written Rust only: the generated files are declared
-# `#[rustfmt::skip]` and held instead to what the generator writes, above.
+# `#[rustfmt::skip]` and generated in Cargo's OUT_DIR.
 echo '== the Rust side is formatted =='
 cargo fmt --manifest-path crates/platform-api/Cargo.toml -- --check
 cargo fmt --manifest-path crates/platform-pyo3/Cargo.toml -- --check

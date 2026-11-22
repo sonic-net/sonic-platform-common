@@ -25,7 +25,7 @@ HEADER = '''
 from typing import Annotated, ClassVar, Literal, Optional
 
 from .meta import (
-    Calls, EscapeHatch, Flatten, FlattenSource, From, Key, Observed, On, Parent,
+    Calls, EscapeHatch, Flatten, FlattenSource, From, Key, Narrowed, Observed, On, Parent,
     ParentKey, ReadIf, RowError, Snapshot, Unguarded, Unsupported, Via,
     platform_method,
 )
@@ -618,3 +618,28 @@ def test_a_fallback_name_naming_what_not_every_source_sets_is_refused(
 ])
 def test_the_python_spelling_maps_to_the_rust_one(py, rust):
     assert rust_type(py, {'LedColor'}) == rust
+
+
+
+def test_conditional_reads_can_require_multiple_earlier_values(tmp_path):
+    body = GUARDED_ROW.replace('ReadIf("heat")',
+                              'ReadIf("heat", all_of=(("heat", 21.0),))')
+    fields = {f.name: f for f in parse(tmp_path, body + GUARDED_API).rows[0].fields}
+    assert fields['limit'].read_if_all == (("heat", 21.0),)
+
+
+@pytest.mark.parametrize('condition,fragment', [
+    ('(("later", True),)', "names no column read before it"),
+    ('(("heat",),)', "requires (column, literal) pairs"),
+    ('((3, True),)', "requires (column, literal) pairs"),
+])
+def test_invalid_additional_read_conditions_are_rejected(tmp_path, condition, fragment):
+    body = GUARDED_ROW.replace('ReadIf("heat")', 'ReadIf("heat", all_of=' + condition + ')')
+    refuses(tmp_path, body + GUARDED_API, fragment)
+
+
+def test_preserve_none_cannot_silently_disable_narrowed_calls(tmp_path):
+    body = GOOD_ROW.replace('From("ThermalBase.get_temperature")',
+                            'From("ThermalBase.get_temperature"), Narrowed(), '
+                            'Unsupported(on="default", default=0.0, preserve_none=True)')
+    refuses(tmp_path, body + GOOD_API, 'preserve_none cannot be combined with Narrowed()')
