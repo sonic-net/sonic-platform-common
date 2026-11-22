@@ -214,10 +214,12 @@ impl std::fmt::Debug for {{ row.name }}Cols {
 
 /// The platform, as the daemons see it.
 ///
-/// `&mut self` throughout: an implementation may cache what it reads within a
-/// polling cycle, and the snapshot methods are exactly where that cache is
-/// refreshed.
-pub trait PlatformApi: Send {
+/// Shared access lets a daemon wait for change events while other threads
+/// read or act on the same platform, without cloning device state. Cache
+/// mutation and per-device synchronization belong to the implementation.
+/// A blocking event wait must not hold locks needed by other operations.
+/// Share one implementation with `Arc`, not independently cloned platforms.
+pub trait PlatformApi: Send + Sync {
 {%- for m in model.methods %}
 {%- if m.kind == 'snapshot' %}
 
@@ -258,7 +260,7 @@ pub trait PlatformApi: Send {
 {%- if m.singleton %}
     /// No default: a chassis that cannot describe itself has nothing an empty
     /// value could stand in for.
-    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
+    fn {{ m.rust_name }}(&self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
         let _ = {{ m.rust_unused }};
         Err(PlatformError::NotSupported({{ m.name | tojson }}.to_string()))
     }
@@ -266,7 +268,7 @@ pub trait PlatformApi: Send {
     /// Empty by default, so that adding a row type to the schema does not
     /// break every implementation that does not have one -- a platform with
     /// no BMC should not have to write a method to say so.
-    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
+    fn {{ m.rust_name }}(&self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
         let _ = {{ m.rust_unused }};
         Ok(Vec::new())
     }
@@ -279,7 +281,7 @@ pub trait PlatformApi: Send {
     /// A no-op by default: most platforms have no thermal manager, and one
     /// that says so by erroring would have every caller log a warning per
     /// cycle on hardware that is working exactly as designed.
-    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<(), PlatformError> {
+    fn {{ m.rust_name }}(&self{{ m.rust_params }}) -> Result<(), PlatformError> {
         {%- for p, _t in m.params %}
         let _ = {{ p }};
         {%- endfor %}
@@ -288,7 +290,7 @@ pub trait PlatformApi: Send {
 {%- elif m.rust_ret == '()' %}
     ///
     /// A no-op by default: only a platform that needs it implements it.
-    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<(), PlatformError> {
+    fn {{ m.rust_name }}(&self{{ m.rust_params }}) -> Result<(), PlatformError> {
         {%- for p, _t in m.params %}
         let _ = {{ p }};
         {%- endfor %}
@@ -298,7 +300,7 @@ pub trait PlatformApi: Send {
     ///
     /// `None` by default, which is how a platform says it has no answer
     /// rather than that the call failed.
-    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
+    fn {{ m.rust_name }}(&self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
         {%- for p, _t in m.params %}
         let _ = {{ p }};
         {%- endfor %}
@@ -307,7 +309,7 @@ pub trait PlatformApi: Send {
 {%- elif m.rust_ret.startswith('Vec<') %}
     ///
     /// Empty by default.
-    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
+    fn {{ m.rust_name }}(&self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
         {%- for p, _t in m.params %}
         let _ = {{ p }};
         {%- endfor %}
@@ -317,7 +319,7 @@ pub trait PlatformApi: Send {
     ///
     /// No default: what this answers has no empty value that is not also a
     /// lie, so a platform that cannot answer has to say so.
-    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
+    fn {{ m.rust_name }}(&self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
         {%- for p, _t in m.params %}
         let _ = {{ p }};
         {%- endfor %}
@@ -330,7 +332,7 @@ pub trait PlatformApi: Send {
     ///
     /// Not supported by default: a platform whose {{ m.name }} is not
     /// software-controllable should not have to write a method to say so.
-    fn {{ m.rust_name }}(&mut self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
+    fn {{ m.rust_name }}(&self{{ m.rust_params }}) -> Result<{{ m.rust_ret }}, PlatformError> {
         {%- for p, _t in m.params %}
         let _ = {{ p }};
         {%- endfor %}
@@ -350,5 +352,5 @@ pub trait PlatformApi: Send {
     ///
     /// Does nothing by default, so an implementation with no teardown -- and
     /// every test double is one -- says so by staying silent.
-    fn finalize(&mut self) {}
+    fn finalize(&self) {}
 }
