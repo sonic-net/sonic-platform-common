@@ -23,7 +23,7 @@ single_version_override(
 
 single_version_override(
     module_name = "rules_go",
-    version = "0.65.0.sonic.1",
+    version = "0.65.0.sonic.2",
 )
 
 single_version_override(
@@ -38,7 +38,7 @@ single_version_override(
 
 single_version_override(
     module_name = "libnl3",
-    version = "3.7.0.sonic.7",
+    version = "3.7.0.sonic.10",
 )
 
 single_version_override(
@@ -48,20 +48,20 @@ single_version_override(
 
 single_version_override(
     module_name = "sonic-build-infra",
-    version = "0.0.37-316e298e77ab5cfa69af9b0c05ec24d5d94bbe1e",
+    version = "0.0.44-35726399908a3beb947174e9359f902077928289",
 )
 
 single_version_override(
     module_name = "sonic-rust-deps",
-    version = "0.0.5-dd364f207d7b320a5af12c81da6d10893f292205",
+    version = "0.0.5-5bf69bc0a7d9ea9f4a5606264be592867cd29d1e",
 )
 
-bazel_dep(name = "rules_distroless", version = "0.9.4.sonic.20")
+bazel_dep(name = "rules_distroless", version = "0.9.4.sonic.25")
 bazel_dep(name = "rules_python", version = "1.9.0.sonic.2")
 bazel_dep(name = "rules_shell", version = "0.8.0")
 bazel_dep(name = "patchelf", version = "0.18.0.bcr.1")
 bazel_dep(name = "platforms", version = "1.1.0")
-bazel_dep(name = "sonic-build-infra", version = "0.0.37-316e298e77ab5cfa69af9b0c05ec24d5d94bbe1e", repo_name = "sonic_build_infra")
+bazel_dep(name = "sonic-build-infra", version = "0.0.44-35726399908a3beb947174e9359f902077928289", repo_name = "sonic_build_infra")
 bazel_dep(name = "sonic-swss-common", version = "0.0.9-334389eae54afd1f4f5ee69f89c3a7ad2062ee61", repo_name = "sonic_swss_common")
 
 # The test image and the shared toolchains must use the same APT package graph.
