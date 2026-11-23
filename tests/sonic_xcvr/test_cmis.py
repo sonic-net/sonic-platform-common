@@ -1644,8 +1644,7 @@ class TestCmis(object):
     ])
     def test_get_lpmode(self, state_byte, expected):
         """
-        get_lpmode() must read the narrow MODULE_STATE field, never the composite
-        TRANS_MODULE_STATUS_FIELD.
+        The MODULE_STATE field decides the answer, and only that field is read.
         """
         mem_map = CmisMemMap(self.codes)
         module_state_field = mem_map.get_field(consts.MODULE_STATE)
