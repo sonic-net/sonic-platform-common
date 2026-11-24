@@ -21,7 +21,7 @@ def main():
     with tempfile.TemporaryDirectory(dir=os.environ["TEST_TMPDIR"]) as temporary:
         work = Path(temporary)
         for child in source.iterdir():
-            if child.name.startswith("sonic_") or child.name == "tests":
+            if child.name.startswith("sonic_") or child.name in ("generator", "tests"):
                 shutil.copytree(child, work / child.name)
         for name in ("pytest.ini", "setup.cfg", "test_credo_aec_800g.py"):
             shutil.copyfile(source / name, work / name)
@@ -42,6 +42,7 @@ def main():
         report = output / "pytest.xml"
         status = pytest.main([
             "-o", "addopts=", "-v", "--cov=sonic_platform_base",
+            "--cov=sonic_platform_api", "--cov=generator",
             "--cov-report=xml:" + str(output / "coverage.xml"),
             "--cov-report=term", "--junitxml=" + str(report),
             "tests", "test_credo_aec_800g.py",

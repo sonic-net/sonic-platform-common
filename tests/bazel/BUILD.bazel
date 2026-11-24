@@ -17,6 +17,7 @@ py_binary(
     legacy_create_init = False,
     python_version = "3.13",
     deps = _RUNTIME_DEPS + [
+        requirement("jinja2"),
         requirement("mock"),
         requirement("pytest"),
         requirement("pytest-cov"),
