@@ -27,8 +27,10 @@ class MockFile:
 class TestModuleBase:
     # ------------------------------------------------------------------ Setup --
     def setup_method(self):
-        # Prevent real DB connection during ModuleBase __init__
-        self._db_patcher = patch("sonic_py_common.daemon_base.db_connect", lambda *a, **k: None)
+        # Return the test's injected connector for each explicit transport.
+        self._db_patcher = patch(
+            "sonic_py_common.daemon_base.db_connect",
+            lambda *args, **kwargs: getattr(getattr(self, "module", None), "state_db", None))
         self._db_patcher.start()
         self.module = ModuleBase()
 
