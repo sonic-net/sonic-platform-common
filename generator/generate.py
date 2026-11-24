@@ -1423,11 +1423,12 @@ def _fence_indented(lines):
 
 
 def render(model, outputs=None):
-    # The output is Rust and Python source, not HTML: autoescaping would turn
-    # every `<`, `>` and `&` in a type or a doc comment into an entity.
+    # Source code and the stub allowlist must preserve literal type and doc text.
     # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
     env = jinja2.Environment(
         loader=jinja2.FileSystemLoader(TEMPLATES),
+        autoescape=jinja2.select_autoescape(
+            disabled_extensions=("py.j2", "rs.j2", "txt.j2"), default=True),
         keep_trailing_newline=True,
         trim_blocks=False,
         lstrip_blocks=False,

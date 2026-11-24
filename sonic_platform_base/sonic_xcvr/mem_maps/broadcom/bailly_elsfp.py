@@ -1,5 +1,6 @@
 """Bailly ELS memory map with copied RLM page definitions."""
 from ..public.cmis import CmisFlatMemMap
+from ..xcvr_mem_map import XcvrMemMap
 from ..public.cmis.pages.page import CmisPage
 from ...fields.xcvr_field import (
     CodeRegField,
@@ -342,7 +343,7 @@ class BaillyElsfpMemMap(CmisFlatMemMap):
         # registered, as is done for the Davisson ELSFP memory map.
         self._bank = bank
         self._base_page = base_page
-        super(CmisFlatMemMap, self).__init__(codes)
+        XcvrMemMap.__init__(self, codes)
         self.pages = []
 
         self.add_pages(
