@@ -9,10 +9,25 @@ local_path_override(
 )
 
 bazel_dep(name = "sonic-buildimage", version = "0.0.0", repo_name = "sonic_buildimage")
-git_override(
+# Keep the buildimage test helpers and their Bazel definitions at the reviewed
+# fixture revision. The BMC API needs sonic-py-common from upstream #29206.
+# Its setup.py, code generator and other packaged inputs already match.
+_PY_COMMON_SOURCE = "https://raw.githubusercontent.com/sonic-net/sonic-buildimage/a3a2921ff33eb657f61a7af0f26c8b2f57844b2c/src/sonic-py-common/sonic_py_common/"
+_PY_COMMON_DIR = "src/sonic-py-common/sonic_py_common/"
+_PY_COMMON_FILES = {
+    "daemon_base.py": "sha256-mhYeKfRulQzNeSM7SNKs97Cm7Bn+eNl/xImnKvQxgMk=",
+    "device_info.py": "sha256-qEzknJpsvNKFWemec9ypaJqZIZ134uZOK2r+8zB8Coo=",
+    "multi_asic.py": "sha256-B75n5+96mJbobFtNxBzrwCkJt+NsM2Cgpr/jlzpm6zU=",
+    "redis_auth.py": "sha256-QHQNnua/Lj1zKV6CoSw+X2AcN2hDX1ow8QyN39vzy3A=",
+}
+
+archive_override(
     module_name = "sonic-buildimage",
-    commit = "c743d7521e80fc1733e5cc0ffc24889b08f78444",
-    remote = "https://github.com/securely1g/sonic-buildimage.git",
+    urls = ["https://github.com/securely1g/sonic-buildimage/archive/c743d7521e80fc1733e5cc0ffc24889b08f78444.tar.gz"],
+    integrity = "sha256-oOKTQ3eYGtQ147/NWxok3CX5NzeUkGp2KsIbQJbVhFs=",
+    strip_prefix = "sonic-buildimage-c743d7521e80fc1733e5cc0ffc24889b08f78444",
+    remote_file_urls = {_PY_COMMON_DIR + name: [_PY_COMMON_SOURCE + name] for name in _PY_COMMON_FILES},
+    remote_file_integrity = {_PY_COMMON_DIR + name: digest for name, digest in _PY_COMMON_FILES.items()},
 )
 
 # The image fixture predates the public SONiC registry. Resolve its retired

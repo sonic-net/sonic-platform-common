@@ -41,10 +41,11 @@ cd tests/bazel
 bazel test //:unit_tests //:installed_wheel_test --local_test_jobs=1
 ```
 
-This separate test application uses the landed PR #64 image revision
-`c743d7521e80fc1733e5cc0ffc24889b08f78444` and its actual Python/Common source
-interfaces. Keeping image dependencies in this test root avoids a production
-module cycle when `sonic-buildimage` consumes platform-common.
+The test application uses buildimage revision `c743d752` for its wheel rules and
+fixtures. Consumers of the BMC API need a `sonic-py-common` wheel that provides
+`device_info.get_bmc_os()` and `BMC_OS_SONIC`. The fixture builds that wheel
+from the package sources at upstream revision `a3a2921f` and checks both
+interfaces after installation. [Upstream BMC support](https://github.com/sonic-net/sonic-buildimage/pull/29206).
 
 The original `tests/` suite and root `test_credo_aec_800g.py` run together. Existing
 hardware mocks, assertions and skip markers remain intact. The runner copies
