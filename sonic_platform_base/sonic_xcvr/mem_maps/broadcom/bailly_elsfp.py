@@ -1,6 +1,5 @@
 """Bailly ELS memory map with copied RLM page definitions."""
 from ..public.cmis import CmisFlatMemMap
-from ..xcvr_mem_map import XcvrMemMap
 from ..public.cmis.pages.page import CmisPage
 from ...fields.xcvr_field import (
     CodeRegField,
@@ -339,13 +338,12 @@ class BaillyElsfpMemMap(CmisFlatMemMap):
     RLM_THRESHOLD_PAGE = 0xB2
 
     def __init__(self, codes, bank=0, base_page=0):
-        # Bypass CmisFlatMemMap.__init__ so that only the RLM pages are
-        # registered, as is done for the Davisson ELSFP memory map.
-        self._bank = bank
         self._base_page = base_page
-        XcvrMemMap.__init__(self, codes)
-        self.pages = []
+        super().__init__(codes, bank=bank)
 
+    def _add_initial_pages(self, codes):
+        # Only the ELS control, information and threshold pages belong here.
+        base_page = self._base_page
         self.add_pages(
             _BaillyRlmControlPage(codes, self.RLM_CONTROL_PAGE + base_page),
             _BaillyRlmInfoPage(codes, self.RLM_INFO_PAGE + base_page),
