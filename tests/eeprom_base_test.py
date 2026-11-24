@@ -11,23 +11,14 @@ EEPROM_HEX_FILE_FULL_PATH = os.path.join(TEST_PATH, EEPROM_HEX_FILE)
 EEPROM_SYMLINK_FULL_PATH = os.path.join(TEST_PATH, EEPROM_SYMLINK)
 
 
-@pytest.mark.parametrize('port,socket_access,expected_socket', [
-    (6379, False, False),
-    (6379, True, True),
-    (0, False, True),
-])
-def test_eeprom_reader_transport(port, socket_access, expected_socket):
-    decoder = object.__new__(eeprom_tlvinfo.TlvInfoDecoder)
-    decoder._state_db = None
+@pytest.mark.parametrize('use_tcp', [True, False])
+def test_eeprom_reader_transport(use_tcp):
+    decoder = eeprom_tlvinfo.TlvInfoDecoder('/unused', 0, '', True, use_tcp=use_tcp)
     reader = mock.MagicMock()
-    with mock.patch('sonic_py_common._redis_transport.swsscommon') as native, \
-         mock.patch('sonic_py_common._redis_transport.os.access', return_value=socket_access), \
-         mock.patch('swsscommon.swsscommon.SonicV2Connector', return_value=reader) as connector:
-        native.SonicDBConfig.getDbPort.return_value = port
-        native.SonicDBConfig.getDbSock.return_value = '/run/redis/redis.sock'
+    with mock.patch('swsscommon.swsscommon.SonicV2Connector', return_value=reader) as connector:
         assert decoder.state_db is reader
         assert decoder.state_db is reader
-    connector.assert_called_once_with(use_unix_socket_path=expected_socket)
+    connector.assert_called_once_with(use_unix_socket_path=not use_tcp)
     reader.connect.assert_called_once_with(reader.STATE_DB, retry_on=False)
 
 

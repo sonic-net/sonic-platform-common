@@ -1169,7 +1169,7 @@ class TestModuleBase:
 def test_get_state_db_uses_configured_socket_and_caches_connector():
     module = ModuleBase()
     with patch("sonic_py_common.daemon_base.db_connect") as connect:
-        first = module.get_state_db()
+        first = module.get_state_db(use_tcp=False, authenticate=True)
         assert first is connect.return_value
-        assert module.get_state_db() is first
+        assert module.get_state_db(use_tcp=False, authenticate=True) is first
         connect.assert_called_once_with("STATE_DB", use_tcp=False, authenticate=True)

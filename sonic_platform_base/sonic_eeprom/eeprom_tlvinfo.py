@@ -67,7 +67,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
     _TLV_DISPLAY_VENDOR_EXT     = True
 
 
-    def __init__(self, path, start, status, ro, max_len=_TLV_INFO_MAX_LEN):
+    def __init__(self, path, start, status, ro, max_len=_TLV_INFO_MAX_LEN, *, use_tcp=True):
         super(TlvInfoDecoder, self).__init__(path,      \
                                              None,      \
                                              start,     \
@@ -76,6 +76,7 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
         self.eeprom_start = start
         self.eeprom_max_len = max_len
         self._state_db = None
+        self._state_db_use_tcp = use_tcp
 
 
     def __print_db(self, code, num=0):
@@ -626,9 +627,8 @@ class TlvInfoDecoder(eeprom_base.EepromDecoder):
             A connected SonicV2Connector instance bound to STATE_DB
         """
         if not self._state_db:
-            from sonic_py_common._redis_transport import use_local_redis_socket
             from swsscommon.swsscommon import SonicV2Connector
-            self._state_db = SonicV2Connector(use_unix_socket_path=use_local_redis_socket('STATE_DB'))
+            self._state_db = SonicV2Connector(use_unix_socket_path=not self._state_db_use_tcp)
             self._state_db.connect(self._state_db.STATE_DB, retry_on=False)
         return self._state_db
 
