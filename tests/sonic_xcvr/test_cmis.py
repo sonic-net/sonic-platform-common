@@ -1656,7 +1656,9 @@ class TestCmis(object):
             return data
 
         reader = MagicMock(side_effect=fake_reader)
-        api = CmisApi(XcvrEeprom(reader, MagicMock(return_value=True), mem_map))
+        # Built from the class the running suite selected, so TestCpoCmis
+        # exercises CpoCmisApi rather than the base API a second time.
+        api = type(self.api)(XcvrEeprom(reader, MagicMock(return_value=True), mem_map))
         api.is_flat_memory = MagicMock(return_value=False)
         api.get_lpmode_support = MagicMock(return_value=True)
         reader.reset_mock()
