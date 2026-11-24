@@ -1,0 +1,16 @@
+{
+  "error": {
+    "@Message.ExtendedInfo": [
+      {
+        "@odata.type": "#Message.v1_1_1.Message",
+        "Message": "The request failed due to an internal service error.",
+        "MessageId": "Base.1.19.InternalError",
+        "MessageSeverity": "Critical",
+        "Resolution": "Resubmit the request."
+      }
+    ],
+    "code": "Base.1.19.InternalError",
+    "message": "The request failed due to an internal service error."
+  }
+}
+HTTP Status Code: 500

@@ -296,6 +296,62 @@ class TestRedfishClient:
         ret, version = rf.redfish_api_get_firmware_version('TEST_FW_BMC_0')
         assert ret == RedfishClient.ERR_CODE_OK
         assert version == 'V.88.0002.0500-04'
+
+    @mock.patch('subprocess.Popen')
+    def test_get_bmc_version_missing_id(self, mock_popen):
+        """Test getting BMC firmware version for an ID the BMC does not have"""
+        side_effects = []
+        for fname in ['mock_bmc_login_token_response', \
+            'mock_get_bmc_info_missing_uri_response']:
+            output = (load_redfish_response(fname), b'')
+            mock_process = mock.Mock()
+            mock_process.communicate.return_value = output
+            mock_process.returncode = 0
+            side_effects.append(mock_process)
+
+        mock_popen.side_effect = side_effects
+        rf = RedfishClient(TestRedfishClient.CURL_PATH,
+                           TestRedfishClient.BMC_INTERNAL_IP_ADDR,
+                           self.user_callback,
+                           self.password_callback)
+
+        ret = rf.login()
+        assert ret == RedfishClient.ERR_CODE_OK
+
+        # The 400 body is valid JSON, so only the return code flags the miss.
+        ret, version = rf.redfish_api_get_firmware_version('TEST_FW_BMC_0')
+        assert ret == RedfishClient.ERR_CODE_URI_NOT_FOUND
+        assert version == 'N/A'
+
+    @mock.patch('subprocess.Popen')
+    def test_get_bmc_version_no_version_field(self, mock_popen):
+        """Test getting BMC firmware version when the response carries no Version"""
+        side_effects = []
+        for fname in ['mock_bmc_login_token_response', \
+            'mock_get_bmc_info_unrelated_error_response', \
+            'mock_get_bmc_info_no_version_response']:
+            output = (load_redfish_response(fname), b'')
+            mock_process = mock.Mock()
+            mock_process.communicate.return_value = output
+            mock_process.returncode = 0
+            side_effects.append(mock_process)
+
+        mock_popen.side_effect = side_effects
+        rf = RedfishClient(TestRedfishClient.CURL_PATH,
+                           TestRedfishClient.BMC_INTERNAL_IP_ADDR,
+                           self.user_callback,
+                           self.password_callback)
+
+        ret = rf.login()
+        assert ret == RedfishClient.ERR_CODE_OK
+
+        # An error the caller cannot act on, and a body that simply omits
+        # Version, are both reported as an unexpected response - not as a
+        # missing inventory member.
+        for _ in range(2):
+            ret, version = rf.redfish_api_get_firmware_version('TEST_FW_BMC_0')
+            assert ret == RedfishClient.ERR_CODE_UNEXPECTED_RESPONSE
+            assert version == 'N/A'
     
     @mock.patch('subprocess.Popen')
     def test_change_bmc_login_password_root_user_success(self, mock_popen):

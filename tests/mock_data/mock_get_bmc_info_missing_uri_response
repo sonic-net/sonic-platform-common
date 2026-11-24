@@ -1,0 +1,19 @@
+{
+  "error": {
+    "@Message.ExtendedInfo": [
+      {
+        "@odata.type": "#Message.v1_1_1.Message",
+        "Message": "The resource at the URI '/redfish/v1/UpdateService/FirmwareInventory/TEST_FW_BMC_0' was not found.",
+        "MessageArgs": [
+          "/redfish/v1/UpdateService/FirmwareInventory/TEST_FW_BMC_0"
+        ],
+        "MessageId": "Base.1.19.ResourceMissingAtURI",
+        "MessageSeverity": "Critical",
+        "Resolution": "Place a valid resource at the URI or correct the URI and resubmit the request."
+      }
+    ],
+    "code": "Base.1.19.ResourceMissingAtURI",
+    "message": "The resource at the URI '/redfish/v1/UpdateService/FirmwareInventory/TEST_FW_BMC_0' was not found."
+  }
+}
+HTTP Status Code: 400

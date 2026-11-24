@@ -113,6 +113,33 @@ class TestChassisBase:
 
             assert exception_raised
 
+    @mock.patch.object(chassis_base, 'device_info', None)
+    def test_bmc_if_link_status_no_device_info(self):
+        chassis = ChassisBase()
+        assert chassis.get_bmc_if_link_status() == (False, "Platform does not support BMC")
+
+    @mock.patch('sonic_py_common.device_info.is_switch_host', return_value=True)
+    @mock.patch('sonic_py_common.device_info.is_switch_bmc', return_value=False)
+    @mock.patch('sonic_py_common.device_info.get_bmc_data',
+                return_value={'bmc_if_name': 'bmc0', 'bmc_addr': '169.254.100.1'})
+    def test_bmc_if_link_status_link_down(self, _m1, _m2, _m3):
+        chassis = ChassisBase()
+        with mock.patch('builtins.open', mock.mock_open(read_data='down\n')):
+            assert chassis.get_bmc_if_link_status() == (False, 'bmc0 link is down')
+        with mock.patch('builtins.open', side_effect=IOError):
+            assert chassis.get_bmc_if_link_status() == (False, 'bmc0 interface not found')
+
+    @mock.patch('sonic_platform_base.chassis_base.subprocess.run',
+                return_value=mock.MagicMock(returncode=0))
+    @mock.patch('sonic_py_common.device_info.is_switch_host', return_value=True)
+    @mock.patch('sonic_py_common.device_info.is_switch_bmc', return_value=False)
+    @mock.patch('sonic_py_common.device_info.get_bmc_data',
+                return_value={'bmc_if_name': 'bmc0', 'bmc_addr': '169.254.100.1'})
+    def test_bmc_if_link_status_all_ok(self, _m1, _m2, _m3, _m4):
+        chassis = ChassisBase()
+        with mock.patch('builtins.open', mock.mock_open(read_data='up\n')):
+            assert chassis.get_bmc_if_link_status() == (True, '')
+
     def test_smartswitch(self):
         chassis = ChassisBase()
         assert(chassis.is_smartswitch() == False)
