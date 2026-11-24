@@ -76,6 +76,8 @@ modules=[
 for name in modules:
     module=importlib.import_module(name)
     assert pathlib.Path(module.__file__).resolve().is_relative_to(site), (name,module.__file__)
+from sonic_platform_base.module_base import ModuleBase
+assert callable(ModuleBase.is_shutdown_allowed)
 from sonic_py_common import device_info
 assert callable(device_info.get_bmc_os)
 assert device_info.BMC_OS_SONIC == 'sonic'
