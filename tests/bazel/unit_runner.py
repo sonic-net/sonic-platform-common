@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import platform
 import shutil
+import subprocess
 import sys
 import tempfile
 import xml.etree.ElementTree as ET
@@ -27,6 +28,14 @@ def main():
             shutil.copyfile(source / name, work / name)
         os.chdir(work)
         sys.path.insert(0, str(work))
+        # Run the two owner type gates with the same declared interpreter and
+        # import paths as pytest. Both need the staged facade and its stubs.
+        env = dict(os.environ, PYTHONPATH=os.pathsep.join(sys.path))
+        subprocess.run([sys.executable, "-m", "mypy", "--config-file",
+                        "generator/mypy.ini", "sonic_platform_api"], env=env, check=True)
+        subprocess.run([sys.executable, "-m", "mypy.stubtest", "sonic_platform_api.facade",
+                        "--allowlist", "sonic_platform_api/stubtest_allowlist.txt"],
+                       env=env, check=True)
         # Port-mapping tests exercise config-engine's file fallback. Give its
         # real Common connector a private, deliberately unavailable socket so
         # it cannot use an agent's /var/run/redis configuration or live data.

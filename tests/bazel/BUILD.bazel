@@ -19,6 +19,7 @@ py_binary(
     deps = _RUNTIME_DEPS + [
         requirement("jinja2"),
         requirement("mock"),
+        requirement("mypy"),
         requirement("pytest"),
         requirement("pytest-cov"),
     ],
