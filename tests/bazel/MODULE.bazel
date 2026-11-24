@@ -9,11 +9,44 @@ local_path_override(
 )
 
 bazel_dep(name = "sonic-buildimage", version = "0.0.0", repo_name = "sonic_buildimage")
-git_override(
+# Keep the buildimage test helpers and their Bazel definitions at the reviewed
+# fixture revision. The BMC API needs sonic-py-common from upstream #29206.
+# Its setup.py, code generator and other packaged inputs already match.
+_PY_COMMON_SOURCE = "https://raw.githubusercontent.com/sonic-net/sonic-buildimage/a3a2921ff33eb657f61a7af0f26c8b2f57844b2c/src/sonic-py-common/sonic_py_common/"
+_PY_COMMON_DIR = "src/sonic-py-common/sonic_py_common/"
+_PY_COMMON_FILES = {
+    "daemon_base.py": "sha256-mhYeKfRulQzNeSM7SNKs97Cm7Bn+eNl/xImnKvQxgMk=",
+    "device_info.py": "sha256-qEzknJpsvNKFWemec9ypaJqZIZ134uZOK2r+8zB8Coo=",
+    "multi_asic.py": "sha256-B75n5+96mJbobFtNxBzrwCkJt+NsM2Cgpr/jlzpm6zU=",
+    "redis_auth.py": "sha256-QHQNnua/Lj1zKV6CoSw+X2AcN2hDX1ow8QyN39vzy3A=",
+}
+
+archive_override(
     module_name = "sonic-buildimage",
-    commit = "c743d7521e80fc1733e5cc0ffc24889b08f78444",
-    remote = "https://github.com/securely1g/sonic-buildimage.git",
+    urls = ["https://github.com/securely1g/sonic-buildimage/archive/c743d7521e80fc1733e5cc0ffc24889b08f78444.tar.gz"],
+    integrity = "sha256-oOKTQ3eYGtQ147/NWxok3CX5NzeUkGp2KsIbQJbVhFs=",
+    strip_prefix = "sonic-buildimage-c743d7521e80fc1733e5cc0ffc24889b08f78444",
+    remote_file_urls = {_PY_COMMON_DIR + name: [_PY_COMMON_SOURCE + name] for name in _PY_COMMON_FILES},
+    remote_file_integrity = {_PY_COMMON_DIR + name: digest for name, digest in _PY_COMMON_FILES.items()},
 )
+
+# The image fixture predates the public SONiC registry. Resolve its retired
+# dependency versions against the published modules when used from this root.
+single_version_override(module_name = "iproute2", version = "6.15.0.sonic.9")
+single_version_override(module_name = "libyang", version = "3.12.2.sonic.9")
+single_version_override(module_name = "libyang-python", version = "3.1.0.sonic.7")
+single_version_override(module_name = "p4c", version = "1.2.4.2.sonic.7")
+single_version_override(module_name = "p4lang-bmv2", version = "1.15.0.sonic.6")
+single_version_override(module_name = "p4lang-pi", version = "0.1.3.sonic.7")
+single_version_override(module_name = "rules_distroless", version = "0.9.4.sonic.26")
+single_version_override(module_name = "rules_foreign_cc", version = "0.16.0.sonic.2")
+single_version_override(module_name = "socat", version = "1.8.0.2.sonic.8")
+single_version_override(module_name = "sonic-dash", version = "0.0.1-d5c003dd7774c2b43f275c0233acc73a0ea28d2f")
+single_version_override(module_name = "sonic-dash-api", version = "0.0.6-55310bf7437d67411418c974587adcdc1b194d6b")
+single_version_override(module_name = "sonic-fips", version = "1.11.0-2ed0920f2fea7940f4b2b7f5c37e51e225eb1ea6")
+single_version_override(module_name = "sonic-sairedis", version = "0.0.5-6b9b254c0d083f3c75e20c61e88e083a7acf0a67")
+single_version_override(module_name = "sonic-swss-common", version = "0.0.8-2a4ddd070edb719f2e969a880a5cfff711e64e72")
+single_version_override(module_name = "sonic-yang-models", version = "1.0.1-dd732f9512a84966487951250adae8e3e5c9943e")
 
 # The pinned image requests SWSS at 0.0.0 and its overrides are not inherited.
 single_version_override(
@@ -62,7 +95,7 @@ bazel_dep(name = "rules_shell", version = "0.8.0")
 bazel_dep(name = "patchelf", version = "0.18.0.bcr.1")
 bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "sonic-build-infra", version = "0.0.44-35726399908a3beb947174e9359f902077928289", repo_name = "sonic_build_infra")
-bazel_dep(name = "sonic-swss-common", version = "0.0.9-334389eae54afd1f4f5ee69f89c3a7ad2062ee61", repo_name = "sonic_swss_common")
+bazel_dep(name = "sonic-swss-common", version = "0.0.8-2a4ddd070edb719f2e969a880a5cfff711e64e72", repo_name = "sonic_swss_common")
 
 # The test image and the shared toolchains must use the same APT package graph.
 apt = use_extension("@rules_distroless//apt:extensions.bzl", "apt")

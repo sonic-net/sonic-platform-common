@@ -17,7 +17,9 @@ py_binary(
     legacy_create_init = False,
     python_version = "3.13",
     deps = _RUNTIME_DEPS + [
+        requirement("jinja2"),
         requirement("mock"),
+        requirement("mypy"),
         requirement("pytest"),
         requirement("pytest-cov"),
     ],
@@ -26,6 +28,8 @@ py_binary(
 sh_test(
     name = "unit_tests",
     size = "large",
+    # The upstream generator imports trusted sibling modules beside its script.
+    env = {"PYTHONSAFEPATH": ""},
     timeout = "long",
     srcs = ["@sonic_swss_common//tools/bazel/runtime:run_with_runtime.py"],
     args = [

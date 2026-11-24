@@ -26,7 +26,9 @@ class CmisFlatMemMap(XcvrMemMap):
         self._bank = bank
         super(CmisFlatMemMap, self).__init__(codes)
         self.pages = []
+        self._add_initial_pages(codes)
 
+    def _add_initial_pages(self, codes):
         # Page 0x00 is split into a lower-half page (offsets 0-127) and an
         # upper-half page (offsets 128-255). Each page class owns its half;
         # register_fields merges shared field groups (e.g. ADMIN_INFO_FIELD).

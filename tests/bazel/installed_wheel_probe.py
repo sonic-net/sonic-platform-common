@@ -43,6 +43,14 @@ class InstalledWheelTest(unittest.TestCase):
 
     def test_complete_owner_payload_and_metadata(self):
         assert_wheel_contract(INPUTS.wheel.absolute(), self.setup, self.contract, self.installed)
+        for package, patterns in self.contract["package_data"].items():
+            directory = self.setup.parent / package.replace(".", "/")
+            for pattern in patterns:
+                matches = list(directory.glob(pattern))
+                self.assertTrue(matches, (package, pattern))
+                for source in matches:
+                    installed = self.installed.site / source.relative_to(self.setup.parent)
+                    self.assertEqual(installed.read_bytes(), source.read_bytes(), str(installed))
         DETAILS["declared_packages"] = len(set(self.contract["packages"]))
         DETAILS["dependency_boundary"] = "SONiC Python owner wheels installed; declared external/native test dependencies borrowed from runfiles"
 
@@ -54,6 +62,8 @@ for distribution in ('sonic-platform-common','sonic-py-common','sonic-config-eng
     assert metadata.version=='1.0', (distribution,metadata.version)
     assert pathlib.Path(metadata.locate_file('')).resolve()==site, distribution
 modules=[
+    'sonic_py_common.device_info',
+    'sonic_platform_api.facade',
     'sonic_platform_base.chassis_base','sonic_platform_base.fan_base',
     'sonic_platform_base.psu_base','sonic_platform_base.module_base',
     'sonic_platform_base.sonic_eeprom.eeprom_tlvinfo',
@@ -66,6 +76,9 @@ modules=[
 for name in modules:
     module=importlib.import_module(name)
     assert pathlib.Path(module.__file__).resolve().is_relative_to(site), (name,module.__file__)
+from sonic_py_common import device_info
+assert callable(device_info.get_bmc_os)
+assert device_info.BMC_OS_SONIC == 'sonic'
 from sonic_platform_base.sonic_xcvr.codes.public.cmis import CmisCodes
 assert CmisCodes is not None
 from sonic_platform_base.sonic_sfp.sfputilhelper import SfpUtilHelper

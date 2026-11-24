@@ -108,6 +108,15 @@ class CmisCdbFw:
                 self.cdb_fw_hdlr.enter_password()
                 fw_info = self.cdb_fw_hdlr.get_firmware_info()
 
+            # Some modules do not unlock via CDB command 0001h. Fall back to the
+            # non-CDB Password Entry Area write (EEPROM page 00h bytes 122-125).
+            if (fw_info is False or fw_info is None) and \
+                    self.get_status_code() == cdb_consts.CDB_PASSWORD_ERROR_STATUS:
+                log.log_notice('Get module FW info: CDB password entry failed, '
+                               'falling back to EEPROM password entry')
+                if self.enter_password_via_memory(cdb_consts.CDB_DEFAULT_PASSWORD) is True:
+                    fw_info = self.cdb_fw_hdlr.get_firmware_info()
+
         if fw_info is False or fw_info is None:
             # Return 0 distinguishes busy/command failure and interface fail from unsupported CDB
             return {'status': False, 'info': "Failed to get firmware info", 'result': 0}

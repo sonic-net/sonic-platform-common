@@ -8,12 +8,15 @@ package(default_visibility = ["//visibility:public"])
 # The installed-wheel test checks this selection against setup.py independently.
 _SOURCES = glob(["sonic_*/**/*.py"])
 
+_TYPE_FILES = glob(["sonic_platform_api/*.pyi"]) + ["sonic_platform_api/py.typed"]
+
 # Applications provide sonic-py-common/config-engine and their native runtime.
 # Their existing source targets belong to sonic-buildimage; the integration test
 # root consumes them without making the wheel depend on its consuming image.
 py_library(
     name = "sonic_platform_common",
     srcs = _SOURCES,
+    data = _TYPE_FILES,
     imports = ["."],
     deps = [
         requirement("natsort"),
@@ -24,7 +27,7 @@ py_library(
 
 filegroup(
     name = "wheel_payload",
-    srcs = _SOURCES,
+    srcs = _SOURCES + _TYPE_FILES,
 )
 
 py_wheel(
@@ -35,6 +38,14 @@ py_wheel(
     extra_distinfo_files = {
         "LICENSE": "licenses/LICENSE",
         "ThirdPartyLicenses.txt": "licenses/ThirdPartyLicenses.txt",
+    },
+    extra_requires = {
+        "testing": [
+            "pytest",
+            "pytest-cov",
+            "mypy>=2.4,<2.5",
+            "jinja2>=3.1,<3.2",
+        ],
     },
     homepage = "https://github.com/Azure/sonic-platform-common",
     license = "Apache 2.0",
@@ -55,8 +66,8 @@ exports_files(["setup.py"])
 filegroup(
     name = "test_sources",
     testonly = True,
-    srcs = _SOURCES + glob(
-        ["tests/**"],
+    srcs = _SOURCES + _TYPE_FILES + glob(
+        ["generator/**", "tests/**"],
         exclude = [
             "tests/bazel/**",
             "**/__pycache__/**",
@@ -68,6 +79,7 @@ filegroup(
         "pytest.ini",
         "setup.cfg",
         "setup.py",
+        "sonic_platform_api/stubtest_allowlist.txt",
         "test_credo_aec_800g.py",
     ],
 )
