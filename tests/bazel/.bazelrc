@@ -5,5 +5,8 @@ common --platforms=@sonic_build_infra//platforms:x86_64_trixie
 common --host_platform=@sonic_build_infra//platforms:x86_64_trixie
 common --@sonic_swss_common//tools/bazel:yang_modules=True
 common --noincompatible_disallow_empty_glob
+# Generator tests start fresh Python processes and explicitly clear PYTHONPATH.
+# Give them the same declared packages through the Bazel virtual environment.
+build --@rules_python//python/config_settings:bootstrap_impl=script
 test --test_output=errors
 try-import %workspace%/.bazelrc.user
