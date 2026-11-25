@@ -32,6 +32,8 @@ class EepromDecoder(object):
         # Redis STATE_DB, cached data should be fetched from STATE_DB.EEPROM_INFO. 
         self.cache_name = None
         self.cache_update_needed = False
+        self.eeprom_file_handle = None
+        self.eeprom_raw_bytes = None
         self.lock_file = None
 
     def check_status(self):
@@ -229,19 +231,20 @@ class EepromDecoder(object):
         except Exception:
             pass
         self.cache_update_needed = using_eeprom
+        self.eeprom_file_handle = io.open(eeprom_file, "rb")
         return io.open(eeprom_file, "rb")
 
     def read_eeprom(self):
         sizeof_info = 0
         for I in self.f:
             sizeof_info += I[2]
-        o = self.read_eeprom_bytes(sizeof_info)
-        return o
+        self.eeprom_raw_bytes = self.read_eeprom_bytes(sizeof_info)
+        return self.eeprom_raw_bytes
 
     def read_eeprom_bytes(self, byteCount, offset=0):
         F = None
         try:
-            F = self.open_eeprom()
+            F = self.eeprom_file_handle
             F.seek(self.s + offset)
             o = F.read(byteCount)
 
@@ -256,6 +259,7 @@ class EepromDecoder(object):
                 self.cache_update_needed = True
                 F.close()
                 F = self.open_eeprom()
+                F = self.eeprom_file_handle
                 F.seek(self.s + offset)
                 o = F.read(byteCount)
 
@@ -268,7 +272,7 @@ class EepromDecoder(object):
         finally:
             if F is not None:
                 F.close()
-
+                
         return bytearray(o)
 
     def read_eeprom_db(self):
