@@ -3506,12 +3506,11 @@ class TestCmis(object):
         assert result == expected_result
 
     def generate_vdm_flags_expected_dict(base_dict):
-        default_dict = {
-            f'{prefix}_{flag}{lane}': 'N/A'
-            for prefix in CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP.values()
-            for flag in FLAG_TYPE_STR_MAP.values()
-            for lane in range(1, 9)
-        }
+        default_dict = dict()
+        for _, db_prefix_key_map in CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP.items():
+                for _, flag_type_str in FLAG_TYPE_STR_MAP.items():
+                    default_dict.update({f'{db_prefix_key_map}_{flag_type_str}{i}': 'N/A' for i in range(1, 9) for flag_type in ['halarm', 'hwarn', 'lwarn', 'lalarm']})
+
         default_dict.update(base_dict)
         return default_dict
     @pytest.mark.parametrize(
