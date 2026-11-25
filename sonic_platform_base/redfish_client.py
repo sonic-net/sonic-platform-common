@@ -12,10 +12,10 @@ import time
 import re
 import shlex
 from datetime import datetime
-from sonic_py_common.logger import Logger
+from sonic_py_common.syslogger import SysLogger
 
 
-logger = Logger('redfish_client')
+logger = SysLogger('redfish_client')
 
 
 class RedfishClient:
