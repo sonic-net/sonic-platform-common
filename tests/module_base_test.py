@@ -27,8 +27,10 @@ class MockFile:
 class TestModuleBase:
     # ------------------------------------------------------------------ Setup --
     def setup_method(self):
-        # Prevent real DB connection during ModuleBase __init__
-        self._db_patcher = patch("sonic_py_common.daemon_base.db_connect", lambda *a, **k: None)
+        # Return the test's injected connector for each explicit transport.
+        self._db_patcher = patch(
+            "sonic_py_common.daemon_base.db_connect",
+            lambda *args, **kwargs: getattr(getattr(self, "module", None), "state_db", None))
         self._db_patcher.start()
         self.module = ModuleBase()
 
@@ -1189,3 +1191,12 @@ class TestModuleBase:
 
             module = PlatformModule()
             assert module.is_shutdown_allowed() is allowed
+
+
+def test_get_state_db_uses_configured_socket_and_caches_connector():
+    module = ModuleBase()
+    with patch("sonic_py_common.daemon_base.db_connect") as connect:
+        first = module.get_state_db(use_tcp=False, authenticate=True)
+        assert first is connect.return_value
+        assert module.get_state_db(use_tcp=False, authenticate=True) is first
+        connect.assert_called_once_with("STATE_DB", use_tcp=False, authenticate=True)

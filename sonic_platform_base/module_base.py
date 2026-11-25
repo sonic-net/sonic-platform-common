@@ -113,18 +113,22 @@ class ModuleBase(device_base.DeviceBase):
         self.is_host = self._is_host()
 
         self.state_db = None
+        self._state_db_connections = {}
 
-    def get_state_db(self):
-        """
-        Initializes and returns the state database connector.
+    def get_state_db(self, *, use_tcp=True, authenticate=False):
+        """Return the cached STATE_DB connection for the requested access."""
+        from sonic_py_common import daemon_base
 
-        Returns:
-            A database connector object for the state database.
-        """
-        if self.state_db is None:
-            import sonic_py_common.daemon_base as daemon_base
-            self.state_db = daemon_base.db_connect("STATE_DB")
-        return self.state_db
+        if use_tcp and not authenticate:
+            if self.state_db is None:
+                self.state_db = daemon_base.db_connect("STATE_DB")
+            return self.state_db
+
+        options = (use_tcp, authenticate)
+        if options not in self._state_db_connections:
+            self._state_db_connections[options] = daemon_base.db_connect(
+                "STATE_DB", use_tcp=use_tcp, authenticate=authenticate)
+        return self._state_db_connections[options]
 
     @contextlib.contextmanager
     def _file_operation_lock(self, lock_file_path):
@@ -412,7 +416,7 @@ class ModuleBase(device_base.DeviceBase):
             RuntimeError: If state database connection fails
         """
         try:
-            state_db = self.get_state_db()
+            state_db = self.get_state_db(use_tcp=False, authenticate=True)
             PCIE_DETACH_INFO_TABLE_KEY = PCIE_DETACH_INFO_TABLE+"|"+pcie_string
             if operation == PCIE_OPERATION_ATTACHING:
                 state_db.delete(PCIE_DETACH_INFO_TABLE_KEY)
@@ -576,7 +580,7 @@ class ModuleBase(device_base.DeviceBase):
         """
         module_name = self.get_name()
         module_key = "CHASSIS_MODULE_TABLE|" + module_name
-        state_db = self.get_state_db()
+        state_db = self.get_state_db(use_tcp=False)
         with self._transition_operation_lock():
             try:
                 gnoi_halt_flag = state_db.hget(module_key, "gnoi_halt_in_progress")
@@ -593,7 +597,7 @@ class ModuleBase(device_base.DeviceBase):
         """
         module_name = self.get_name()
         module_key = "CHASSIS_MODULE_TABLE|" + module_name
-        state_db = self.get_state_db()
+        state_db = self.get_state_db(use_tcp=False, authenticate=True)
         with self._transition_operation_lock():
             try:
                 state_db.hset(module_key, "gnoi_halt_in_progress", "True")
@@ -610,7 +614,7 @@ class ModuleBase(device_base.DeviceBase):
         """
         module_name = self.get_name()
         module_key = "CHASSIS_MODULE_TABLE|" + module_name
-        state_db = self.get_state_db()
+        state_db = self.get_state_db(use_tcp=False, authenticate=True)
         with self._transition_operation_lock():
             try:
                 state_db.hdel(module_key, "gnoi_halt_in_progress")
@@ -674,7 +678,7 @@ class ModuleBase(device_base.DeviceBase):
 
         module_name = module_name.upper()
         module_key = "CHASSIS_MODULE_TABLE|" + module_name
-        db = self.get_state_db()
+        db = self.get_state_db(use_tcp=False, authenticate=True)
 
         with self._transition_operation_lock():
             try:
@@ -716,7 +720,7 @@ class ModuleBase(device_base.DeviceBase):
         """
         module_name = module_name.upper()
         module_key = "CHASSIS_MODULE_TABLE|" + module_name
-        state_db = self.get_state_db()
+        state_db = self.get_state_db(use_tcp=False, authenticate=True)
         try:
             state_db.hdel(module_key, "transition_in_progress")
             state_db.hdel(module_key, "transition_type")
@@ -749,7 +753,7 @@ class ModuleBase(device_base.DeviceBase):
         """
         module_name = module_name.upper()
         module_key = "CHASSIS_MODULE_TABLE|" + module_name
-        state_db = self.get_state_db()
+        state_db = self.get_state_db(use_tcp=False, authenticate=True)
         with self._transition_operation_lock():
             try:
                 current_flag = state_db.hget(module_key, "transition_in_progress")

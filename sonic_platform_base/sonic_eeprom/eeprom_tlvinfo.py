@@ -737,7 +737,9 @@ class EepromRedisVisitor(EepromDefaultVisitor):
     # SonicV2Connector, not redis-py.
     def __init__(self, eeprom_object):
         self.eeprom_object = eeprom_object
-        self.state_db = eeprom_object.state_db
+        from swsscommon.swsscommon import SonicV2Connector
+        self.state_db = SonicV2Connector(use_unix_socket_path=True, authenticate=True)
+        self.state_db.connect(self.state_db.STATE_DB, retry_on=False)
         self.vendor_ext_tlv_num = 0
         self.fvs = {}
         self.error = None
