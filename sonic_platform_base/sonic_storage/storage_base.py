@@ -100,3 +100,24 @@ class StorageBase(object):
             An integer value of the total number of reserved blocks
         """
         raise NotImplementedError
+
+    def secure_erase(self):
+        """
+        Irrecoverably erase and verify this storage device.
+
+        This method must only be called after the system has pivoted to a
+        RAM-resident root. The platform implementation selects the NIST
+        SP 800-88 Rev.1 erase method.
+
+        Returns:
+            A dict containing success, method_used, and message.
+
+        Raises:
+            NotImplementedError if secure erase is unsupported.
+        """
+        # Vendor implementation steps:
+        # 1. Unmount the device; abort without erasing if unmount fails.
+        # 2. Run the vendor-specific erase action.
+        # 3. Zero-write the entire device.
+        # 4. Verify the entire device byte-for-byte against zero.
+        raise NotImplementedError
