@@ -63,6 +63,12 @@ class CpoDeviceBase(device_base.DeviceBase, EepromReadWriteMixin):
 
 
 class CpoBase(device_base.DeviceBase):
+    PLATFORM_SPECIFIC_FORMAT_MAP = {
+        "info": {"oe": {}, "els": {}},
+        "dom": {"oe": {}, "els": {}},
+        "status": {"oe": {}, "els": {}},
+    }
+
     def __init__(self, hardware_id: CpoHardwareInfo, oe: "OeBase", elsfp: "ElsfpBase"):
         self.hardware_id = hardware_id
         self.oe = oe
@@ -80,6 +86,15 @@ class CpoBase(device_base.DeviceBase):
     def remove_xcvr_api(self):
         self.oe.remove_api()
         self.elsfp.remove_api()
+
+    def get_platform_specific_format_map(self, category: str, endpoint: str) -> dict:
+        """Return static display metadata for an OE or ELS field category.
+
+        Platforms can define PLATFORM_SPECIFIC_FORMAT_MAP with "info", "dom"
+        and "status" categories. Each category has "oe" and "els" dictionaries
+        mapping raw field names to a "label" and an optional "unit".
+        """
+        return self.PLATFORM_SPECIFIC_FORMAT_MAP.get(category, {}).get(endpoint, {})
 
     # Controls default to the associated OE object, preserving platform
     # overrides. Reset and low-power mode affect all banks and associated ports

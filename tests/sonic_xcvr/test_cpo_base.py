@@ -126,6 +126,33 @@ class TestCpoBase(object):
         assert cpo.oe is oe
         assert cpo.elsfp is elsfp
 
+    def test_platform_specific_format_map_is_static_and_scoped(self):
+        class PlatformCpo(CpoBase):
+            PLATFORM_SPECIFIC_FORMAT_MAP = {
+                "info": {"oe": {"vendor_id": {"label": "Vendor ID"}}},
+                "dom": {"els": {"vendor_voltage": {"label": "Vendor Voltage", "unit": "V"}}},
+                "status": {"els": {"vendor_flag": {"label": "Vendor Flag"}}},
+            }
+
+        oe, elsfp = MagicMock(), MagicMock()
+        cpo = PlatformCpo(None, oe, elsfp)
+
+        assert cpo.get_platform_specific_format_map("info", "oe") == {
+            "vendor_id": {"label": "Vendor ID"},
+        }
+        assert cpo.get_platform_specific_format_map("dom", "els") == {
+            "vendor_voltage": {"label": "Vendor Voltage", "unit": "V"},
+        }
+        assert cpo.get_platform_specific_format_map("status", "els") == {
+            "vendor_flag": {"label": "Vendor Flag"},
+        }
+        assert cpo.get_platform_specific_format_map("dom", "oe") == {}
+        assert cpo.get_platform_specific_format_map("other", "els") == {}
+        default_cpo = CpoBase(None, oe, elsfp)
+        assert default_cpo.get_platform_specific_format_map("dom", "els") == {}
+        assert oe.mock_calls == []
+        assert elsfp.mock_calls == []
+
     def test_get_xcvr_api_returns_oe_api(self):
         hardware_id = CpoHardwareInfo(oe_id=SOME_OE_ID, elsfp_id=SOME_ELSFP_ID)
         oe = OeBase(hardware_id)
