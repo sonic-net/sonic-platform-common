@@ -117,3 +117,18 @@ class CmisAdministrativeLowerPage(CmisPage):
             CodeRegField(consts.MODULE_FUNCTION_TYPE, self.getaddr(57), codes.MODULE_FUNCTION_TYPE),
         ]
 
+        # Password Entry Area (00h:122-125): 4-byte host password written
+        # MSB-first (big-endian) to unlock protected CDB/EEPROM access.
+        self.fields[consts.PASSWORD_ENTRY] = [
+            NumberRegField(consts.PASSWORD_ENTRY, self.getaddr(consts.PASSWORD_ENTRY_OFFSET),
+                format=">I", size=consts.PASSWORD_ENTRY_SIZE, ro=False),
+        ]
+
+        # PasswordCmdResult (00h:42.3-0): result of the most recent password
+        # entry/change written to the Password Entry Area.
+        self.fields[consts.PASSWORD_CMD_RESULT] = [
+            NumberRegField(consts.PASSWORD_CMD_RESULT, self.getaddr(42),
+                *(RegBitField("Bit%d" % (bit), bit) for bit in range (0, 4))
+            ),
+        ]
+

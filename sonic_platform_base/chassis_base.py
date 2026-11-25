@@ -5,6 +5,8 @@
     to interact with a chassis device in SONiC.
 """
 
+import os
+import subprocess
 import sys
 try:
     from sonic_py_common import device_info
@@ -951,6 +953,45 @@ class ChassisBase(device_base.DeviceBase):
             specified.
         """
         raise NotImplementedError
+
+    ##############################################
+    # BMC interface methods
+    ##############################################
+
+    def get_bmc_if_link_status(self):
+        """
+        Checks BMC USB interface link state (sysfs) and peer reachability (ping).
+        Vendors may override with a platform-specific signal.
+
+        Returns:
+            tuple: (link_state: bool, message: str)
+        """
+        if not device_info or not (device_info.is_switch_host() or device_info.is_switch_bmc()):
+            return (False, "Platform does not support BMC")
+
+        bmc_data = device_info.get_bmc_data() or {}
+        iface = bmc_data.get('bmc_if_name')
+        peer_ip = bmc_data.get('bmc_addr' if device_info.is_switch_host() else 'bmc_if_addr')
+        if not iface or not peer_ip:
+            return (False, "BMC interface not configured in bmc.json")
+
+        try:
+            with open('/sys/class/net/{}/operstate'.format(iface)) as f:
+                if f.read().strip() != 'up':
+                    return (False, '{} link is down'.format(iface))
+        except (IOError, OSError):
+            return (False, '{} interface not found'.format(iface))
+
+        try:
+            rc = subprocess.run(
+                ['ping', '-c', '1', '-W', '3', '-I', iface, peer_ip],
+                capture_output=True, timeout=10).returncode
+        except Exception:
+            rc = 1
+        if rc != 0:
+            return (False, '{} peer {} unreachable'.format(iface, peer_ip))
+
+        return (True, '')
 
     ##############################################
     # Other methods

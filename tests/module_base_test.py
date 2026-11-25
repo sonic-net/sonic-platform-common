@@ -41,7 +41,7 @@ class TestModuleBase:
     @pytest.mark.parametrize(
         "method_name",
         ["get_dpu_id", "get_reboot_cause", "get_state_info", "get_pci_bus_info", "pci_detach", "pci_reattach",
-         "do_power_cycle", "get_midplane_down_reason"],
+         "do_power_cycle", "get_midplane_down_reason", "is_shutdown_allowed"],
     )
     def test_not_implemented_methods_raise(self, method_name):
         with pytest.raises(NotImplementedError):
@@ -1167,6 +1167,31 @@ class TestModuleBase:
             self.module.set_admin_state(True)
         with pytest.raises(NotImplementedError):
             self.module.set_admin_state(False)
+
+    # ---------------------------------------- is_shutdown_allowed tests --------
+
+    def test_is_shutdown_allowed_raises_not_implemented(self):
+        '''
+        The base class only declares is_shutdown_allowed(). A platform module.py
+        must override it before the CLI can allow an admin-state change.
+        '''
+        with pytest.raises(NotImplementedError):
+            self.module.is_shutdown_allowed()
+
+    @pytest.mark.parametrize("allowed", [True, False])
+    def test_is_shutdown_allowed_platform_override(self, allowed):
+        '''
+        A platform override returns True when the CLI may change admin state
+        and False when shutdown and startup must be refused.
+        '''
+        with patch("sonic_py_common.daemon_base.db_connect", lambda *a, **k: None):
+            class PlatformModule(ModuleBase):
+                def is_shutdown_allowed(self):
+                    return allowed
+
+            module = PlatformModule()
+            assert module.is_shutdown_allowed() is allowed
+
 
 def test_get_state_db_uses_configured_socket_and_caches_connector():
     module = ModuleBase()

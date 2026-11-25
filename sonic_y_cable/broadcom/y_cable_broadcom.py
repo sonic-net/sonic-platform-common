@@ -7132,7 +7132,9 @@ class YCable(YCableBase):
 
         # write the function output to the file
         if platform.system() != "Windows":
-            s = shelve.open(path)
+            # This only writes the dump for offline debugging; nothing here loads it back,
+            # so the pickle-load risk avoid-shelve warns about does not arise in this code.
+            s = shelve.open(path)  # nosemgrep: python.lang.security.deserialization.pickle.avoid-shelve
             s["command"] = cmd_name
             s["out"] = cmd_ret_val
             s.close()

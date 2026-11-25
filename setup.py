@@ -30,7 +30,9 @@ setup(
     url='https://github.com/Azure/sonic-platform-common',
     maintainer='Joe LeVeque',
     maintainer_email='jolevequ@microsoft.com',
+    package_data={'sonic_platform_api': ['*.pyi', 'py.typed']},
     packages=[
+        'sonic_platform_api',
         'sonic_eeprom',
         'sonic_led',
         'sonic_fan',
@@ -60,6 +62,8 @@ setup(
         'sonic_platform_base.sonic_xcvr.utils',
         'sonic_platform_base.sonic_xcvr.api.arista',
         'sonic_platform_base.sonic_xcvr.mem_maps.arista',
+        'sonic_platform_base.sonic_xcvr.api.pinewave',
+        'sonic_platform_base.sonic_xcvr.mem_maps.pinewave',
         'sonic_platform_base.sonic_xcvr.api.credo',
         'sonic_platform_base.sonic_xcvr.mem_maps.credo',
         'sonic_platform_base.sonic_xcvr.codes.credo',
@@ -70,6 +74,9 @@ setup(
         'sonic_platform_base.sonic_xcvr.mem_maps.amphenol',
         'sonic_platform_base.sonic_xcvr.api.broadcom',
         'sonic_platform_base.sonic_xcvr.mem_maps.broadcom',
+        'sonic_platform_base.sonic_xcvr.api.nvidia',
+        'sonic_platform_base.sonic_xcvr.codes.nvidia',
+        'sonic_platform_base.sonic_xcvr.mem_maps.nvidia',
         'sonic_platform_base.sonic_xcvr.cdb',
         'sonic_platform_base.sonic_xcvr.cpo',
         'sonic_psu',
@@ -95,6 +102,26 @@ setup(
         'pytest',
         'pytest-cov',
     ],
+    # `pip3 install ".[testing]"` is what CI runs before `pytest` and before
+    # `generator/check.sh`.  Until this existed the extra resolved to nothing --
+    # pip warns about an unknown extra and carries on -- so the stub's two type
+    # gates were installed nowhere and ran nowhere.
+    extras_require = {
+        'testing': [
+            'pytest',
+            'pytest-cov',
+            # mypy ships `stubtest`, which is the gate that catches the facade
+            # and its .pyi drifting apart.  Bounded, as jinja2 is below: both
+            # gates compare against what these versions produce, so a new
+            # release would otherwise fail unrelated changes the day it ships.
+            # Move the bounds in a change of their own.
+            'mypy>=2.4,<2.5',
+            # generator/generate.py renders its outputs with it, and the tests
+            # run the generator in process; `generate.py --check` compares
+            # them byte for byte.
+            'jinja2>=3.1,<3.2',
+        ],
+    },
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Environment :: Plugins',
