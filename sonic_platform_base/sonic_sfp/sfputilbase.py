@@ -23,6 +23,8 @@ try:
     from .sff8436 import sff8436InterfaceId  # Dot module supports both Python 2 and Python 3 using explicit relative import methods
     from .sff8436 import sff8436Dom    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
     from .inf8628 import inf8628InterfaceId    # Dot module supports both Python 2 and Python 3 using explicit relative import methods
+    import sys
+    import sonic_platform_base.sonic_sfp.ext_media_api as ext_media_module
 except ImportError as e:
     raise ImportError("%s - required module not found" % str(e))
 
@@ -1052,7 +1054,27 @@ class SfpUtilBase(object):
                 transceiver_info_dict['dom_capability'] = str(dom_capability_dict)
 
                 transceiver_info_dict['nominal_bit_rate'] = str(sfp_interface_bulk_data['data']['NominalSignallingRate(UnitsOf100Mbd)']['value'])
+        sys.path.append('/usr/share/sonic/platform')
+        class _sfp_obj:
+            def get_eeprom_sysfs_path(self): return file_path
 
+        sfp_obj = _sfp_obj()
+        ext_dict = ext_media_module.get_static_info(sfp_obj)
+
+        remap = {   'vendor_date' : 'vendor_date_code',
+                'vendorrev' : 'vendor_revision',
+                'serialnum' : 'vendor_serial_number',
+                'vendor_oui' : 'vendor_oui',
+                'modelname' : 'vendor_part_number',
+                'manufacturename' : 'vendor_name',
+                'Connector' : 'connector_type',
+                'type': 'form_factor',
+                'cable_length' : 'cable_length_detailed'}
+        for s in remap:
+            new_val = ext_dict.get(remap[s], 'N/A')
+            if new_val != 'N/A':
+                transceiver_info_dict[s] = new_val
+        transceiver_info_dict.update(ext_dict)
         return transceiver_info_dict
 
     def get_transceiver_dom_info_dict(self, port_num):
