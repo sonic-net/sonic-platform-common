@@ -137,3 +137,25 @@ class ThermalBase(device_base.DeviceBase):
             up to nearest thousandth of one degree Celsius, e.g. 30.125
         """
         raise NotImplementedError
+
+    def get_pid_domain(self):
+        """
+        Retrieves the PID domain the thermal belongs to. A thermal is PID-controlled
+        only if this returns a domain.
+
+        Returns:
+            A string, the name of a pid_domains entry in thermal_config.json, or None
+            if the thermal is not PID-controlled
+        """
+        return None
+
+    def get_pid_setpoint(self):
+        """
+        Retrieves the target temperature the PID controller holds the thermal at
+
+        Returns:
+            A float number, the target temperature in Celsius, or None if the thermal
+            has no target of its own, in which case it is skipped unless its domain's
+            config sets one
+        """
+        return None
