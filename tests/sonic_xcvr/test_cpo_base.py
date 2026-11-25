@@ -126,6 +126,15 @@ class TestCpoBase(object):
         assert cpo.oe is oe
         assert cpo.elsfp is elsfp
 
+    def test_platform_specific_format_maps_default_to_empty(self):
+        oe, elsfp = MagicMock(), MagicMock()
+        cpo = CpoBase(None, oe, elsfp)
+
+        assert cpo.get_platform_specific_info_format_map() == {"oe": {}, "els": {}}
+        assert cpo.get_platform_specific_dom_format_map() == {"oe": {}, "els": {}}
+        assert oe.mock_calls == []
+        assert elsfp.mock_calls == []
+
     def test_get_xcvr_api_returns_oe_api(self):
         hardware_id = CpoHardwareInfo(oe_id=SOME_OE_ID, elsfp_id=SOME_ELSFP_ID)
         oe = OeBase(hardware_id)

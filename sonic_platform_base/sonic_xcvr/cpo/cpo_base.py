@@ -81,6 +81,26 @@ class CpoBase(device_base.DeviceBase):
         self.oe.remove_api()
         self.elsfp.remove_api()
 
+    def get_platform_specific_info_format_map(self) -> dict:
+        """Return display metadata for platform-specific OE and ELS info fields.
+
+        Each of the "oe" and "els" dictionaries maps an info getter's raw
+        field name to a dictionary with a "label" string. Platforms may
+        override this method to provide static metadata without accessing
+        hardware.
+        """
+        return {"oe": {}, "els": {}}
+
+    def get_platform_specific_dom_format_map(self) -> dict:
+        """Return display metadata for platform-specific OE and ELS DOM fields.
+
+        Each of the "oe" and "els" dictionaries maps a DOM getter's raw
+        field name to a dictionary with a "label" string and an optional
+        "unit" string. Platforms may override this method to provide static
+        metadata without accessing hardware.
+        """
+        return {"oe": {}, "els": {}}
+
     # Controls default to the associated OE object, preserving platform
     # overrides. Reset and low-power mode affect all banks and associated ports
     # of the OE, rather than only the interface represented by this object.
