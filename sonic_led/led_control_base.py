@@ -10,6 +10,11 @@ try:
 except ImportError as e:
     raise ImportError (str(e) + " - required module not found")
 
+#
+# Platform API V1 (Deprecated)
+# This class is maintained for backward compatibility. New platforms should
+# implement Platform API V2 (sonic_platform_base.led_base.LedBase).
+#
 class LedControlBase(object):
     __metaclass__ = abc.ABCMeta
 
