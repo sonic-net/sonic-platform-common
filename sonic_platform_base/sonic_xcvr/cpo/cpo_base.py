@@ -63,6 +63,12 @@ class CpoDeviceBase(device_base.DeviceBase, EepromReadWriteMixin):
 
 
 class CpoBase(device_base.DeviceBase):
+    PLATFORM_SPECIFIC_FORMAT_MAP = {
+        "info": {"oe": {}, "els": {}},
+        "dom": {"oe": {}, "els": {}},
+        "status": {"oe": {}, "els": {}},
+    }
+
     def __init__(self, hardware_id: CpoHardwareInfo, oe: "OeBase", elsfp: "ElsfpBase"):
         self.hardware_id = hardware_id
         self.oe = oe
@@ -81,25 +87,14 @@ class CpoBase(device_base.DeviceBase):
         self.oe.remove_api()
         self.elsfp.remove_api()
 
-    def get_platform_specific_info_format_map(self) -> dict:
-        """Return display metadata for platform-specific OE and ELS info fields.
+    def get_platform_specific_format_map(self, category: str, endpoint: str) -> dict:
+        """Return static display metadata for an OE or ELS field category.
 
-        Each of the "oe" and "els" dictionaries maps an info getter's raw
-        field name to a dictionary with a "label" string. Platforms may
-        override this method to provide static metadata without accessing
-        hardware.
+        Platforms can define PLATFORM_SPECIFIC_FORMAT_MAP with "info", "dom"
+        and "status" categories. Each category has "oe" and "els" dictionaries
+        mapping raw field names to a "label" and an optional "unit".
         """
-        return {"oe": {}, "els": {}}
-
-    def get_platform_specific_dom_format_map(self) -> dict:
-        """Return display metadata for platform-specific OE and ELS DOM fields.
-
-        Each of the "oe" and "els" dictionaries maps a DOM getter's raw
-        field name to a dictionary with a "label" string and an optional
-        "unit" string. Platforms may override this method to provide static
-        metadata without accessing hardware.
-        """
-        return {"oe": {}, "els": {}}
+        return self.PLATFORM_SPECIFIC_FORMAT_MAP.get(category, {}).get(endpoint, {})
 
     # Controls default to the associated OE object, preserving platform
     # overrides. Reset and low-power mode affect all banks and associated ports

@@ -126,12 +126,30 @@ class TestCpoBase(object):
         assert cpo.oe is oe
         assert cpo.elsfp is elsfp
 
-    def test_platform_specific_format_maps_default_to_empty(self):
-        oe, elsfp = MagicMock(), MagicMock()
-        cpo = CpoBase(None, oe, elsfp)
+    def test_platform_specific_format_map_is_static_and_scoped(self):
+        class PlatformCpo(CpoBase):
+            PLATFORM_SPECIFIC_FORMAT_MAP = {
+                "info": {"oe": {"vendor_id": {"label": "Vendor ID"}}},
+                "dom": {"els": {"vendor_voltage": {"label": "Vendor Voltage", "unit": "V"}}},
+                "status": {"els": {"vendor_flag": {"label": "Vendor Flag"}}},
+            }
 
-        assert cpo.get_platform_specific_info_format_map() == {"oe": {}, "els": {}}
-        assert cpo.get_platform_specific_dom_format_map() == {"oe": {}, "els": {}}
+        oe, elsfp = MagicMock(), MagicMock()
+        cpo = PlatformCpo(None, oe, elsfp)
+
+        assert cpo.get_platform_specific_format_map("info", "oe") == {
+            "vendor_id": {"label": "Vendor ID"},
+        }
+        assert cpo.get_platform_specific_format_map("dom", "els") == {
+            "vendor_voltage": {"label": "Vendor Voltage", "unit": "V"},
+        }
+        assert cpo.get_platform_specific_format_map("status", "els") == {
+            "vendor_flag": {"label": "Vendor Flag"},
+        }
+        assert cpo.get_platform_specific_format_map("dom", "oe") == {}
+        assert cpo.get_platform_specific_format_map("other", "els") == {}
+        default_cpo = CpoBase(None, oe, elsfp)
+        assert default_cpo.get_platform_specific_format_map("dom", "els") == {}
         assert oe.mock_calls == []
         assert elsfp.mock_calls == []
 
