@@ -1,0 +1,18 @@
+# Qualified generic, non-coherent CMIS models compatible with CmisFr800gApi.
+# Vendor names use case-sensitive shell patterns; part numbers match exactly.
+"*INNOLIGHT*":
+  - T-DL8CNT-NCI
+  - T-DH8CNT-NCI
+  - T-DH8CNT-N00
+  - T-DP4CNH-NCI
+  - T-DP8CNT-NNO
+  - T-DP8CNH-NNO
+  - T-DC8CNT-NNO
+  - T-DP8CNL-NNO
+  - T-OL8CNT-N00
+  - T-OH8CNH-N00
+  - T-OH8CNH-NNO
+  - T-OL8CNT-NNO
+"*EOPTOLINK*":
+  - EOLD-168HG-02-41
+  - EOLD-138HG-02-41

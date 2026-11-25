@@ -77,7 +77,9 @@ class SfpBase(device_base.DeviceBase, EepromReadWriteMixin):
         # available on the SFP
         self._thermal_list = []
         self._bank = bank
-        self._xcvr_api_factory = XcvrApiFactory(self.read_eeprom, self.write_eeprom)
+        self._xcvr_api_factory = XcvrApiFactory(
+            self.read_eeprom, self.write_eeprom,
+            cmis_firmware_config_path_cb=self.get_cmis_firmware_config_path)
         self._xcvr_api = None
 
     @property
@@ -445,6 +447,16 @@ class SfpBase(device_base.DeviceBase, EepromReadWriteMixin):
             like: "Bad EEPROM|Unsupported cable"
         """
         raise NotImplementedError
+
+    def get_cmis_firmware_config_path(self):
+        """Return an optional YAML path adding compatible CMIS firmware models.
+
+        Map case-sensitive vendor patterns to exact part-number lists.
+        Only include models compatible with CmisFr800gApi.
+        Resolved on discovery/refresh after common-list misses.
+        Return None for defaults; do not call get_xcvr_api() here.
+        """
+        return None
 
     def refresh_xcvr_api(self):
         """

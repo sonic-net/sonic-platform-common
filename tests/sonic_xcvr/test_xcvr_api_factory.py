@@ -1,6 +1,9 @@
+from pathlib import Path
 from unittest.mock import patch
 from mock import MagicMock
 import pytest
+
+from sonic_platform_base.sonic_xcvr import xcvr_api_factory
 
 from sonic_platform_base.sonic_xcvr.api.credo.aec_800g import CredoAec800gApi
 from sonic_platform_base.sonic_xcvr.mem_maps.credo.aec_800g import CredoAec800gMemMap
@@ -13,6 +16,11 @@ from sonic_platform_base.sonic_xcvr.fields import consts
 from sonic_platform_base.sonic_xcvr.xcvr_api_factory import XcvrApiFactory
 from sonic_platform_base.sonic_xcvr.api.public.sff8636 import Sff8636Api
 from sonic_platform_base.sonic_xcvr.api.public.sff8436 import Sff8436Api
+from sonic_platform_base.sonic_xcvr.api.public.sff8472 import Sff8472Api
+from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi
+from sonic_platform_base.sonic_xcvr.api.public.c_cmis import CCmisApi
+from sonic_platform_base.sonic_xcvr.api.arista.cmis_enhanced_lpo import CmisEnhancedLpoApi
+from sonic_platform_base.sonic_xcvr.api.pinewave.cmis_module_precoding import PinewaveCmisApi
 
 def mock_reader_sff8636(start, length):
     return bytes([0x0d]) if start == 0 else bytes ([0x06])
@@ -22,6 +30,14 @@ def mock_reader_sff8436(start, length):
 
 def mock_reader_cmis(start, length):
     return bytes([0x18])
+
+
+@pytest.fixture
+def fr800g_config(monkeypatch):
+    monkeypatch.setattr(
+        xcvr_api_factory, "CMIS_FR800G_CONFIG_FILE",
+        Path(__file__).with_name("data") / "cmis_fr800g.yaml")
+
 
 class TestXcvrApiFactory(object):
     @patch('sonic_platform_base.sonic_xcvr.eeprom_rw.ModuleEepromLowerMemoryInfo.get_vendor_name', MagicMock(return_value='Credo'))
@@ -55,6 +71,113 @@ class TestXcvrApiFactory(object):
     def test_create_xcvr_api_with_exception(self):
         api = XcvrApiFactory(mock_reader_cmis, MagicMock())
         assert api.create_xcvr_api() is None
+
+
+    @pytest.mark.parametrize("vendor,part,expected", [
+        ("QUALIFIED", "REGISTER-OPTIC", CmisFr800gApi),
+        ("OTHER", "REGISTER-OPTIC", CmisApi),
+        ("qualified", "REGISTER-OPTIC", CmisApi),
+        ("QUALIFIED", "OTHER", CmisApi),
+        ("QUALIFIED", "register-optic", CmisApi),
+    ])
+    def test_fr800g_exact_membership(
+            self, cmis_eeprom, fr800g_config, vendor, part, expected):
+        data, reader, writer = cmis_eeprom
+        data[129:145] = vendor.encode().ljust(16, b" ")
+        data[148:164] = part.encode().ljust(16, b" ")
+        assert type(XcvrApiFactory(reader, writer).create_xcvr_api()) is expected
+        writer.assert_not_called()
+
+    @pytest.mark.parametrize("vendor,part,module_id,expected", [
+        ("Credo", "CAC81X321M2MC1MS", 0x19, CredoAec800gApi),
+        ("UNKNOWN", "SFP", 0x03, Sff8472Api),
+    ])
+    def test_existing_branch_short_circuits_list(
+            self, cmis_eeprom, vendor, part, module_id, expected):
+        data, reader, writer = cmis_eeprom
+        data[0] = module_id
+        data[129:145] = vendor.encode().ljust(16, b" ")
+        data[148:164] = part.encode().ljust(16, b" ")
+        with patch.object(XcvrApiFactory, "_is_cmis_fr800g_module") as lookup:
+            assert type(XcvrApiFactory(reader, writer).create_xcvr_api()) is expected
+        lookup.assert_not_called()
+
+    @pytest.mark.parametrize("vendor,part,expected", [
+        ("INNOLIGHT", "T-DL8CNT-NCI", CmisFr800gApi),
+        ("CISCO-INNOLIGHT", "T-DH8CNT-NCI", CmisFr800gApi),
+        ("EOPTOLINK", "EOLD-168HG-02-41", CmisFr800gApi),
+        ("CISCO-EOPTOLINK", "EOLD-138HG-02-41", CmisFr800gApi),
+        ("innolight", "T-DL8CNT-NCI", CmisApi),
+        ("cisco-eoptolink", "EOLD-168HG-02-41", CmisApi),
+        ("CISCO-INNOLIGHT", "t-dh8cnt-nci", CmisApi),
+    ])
+    def test_production_list_preserves_vendor_matching(
+            self, cmis_eeprom, vendor, part, expected):
+        data, reader, writer = cmis_eeprom
+        data[129:145] = vendor.encode().ljust(16, b" ")
+        data[148:164] = part.encode().ljust(16, b" ")
+        factory = XcvrApiFactory(reader, writer)
+        with patch.object(factory, "_is_cmis_fr800g_module",
+                          wraps=factory._is_cmis_fr800g_module) as lookup:
+            assert type(factory.create_xcvr_api()) is expected
+        lookup.assert_called_once_with(vendor, part)
+        writer.assert_not_called()
+
+    @pytest.mark.parametrize("vendor,part,coherent,expected", [
+        ("Hisense", "DEF8504-2C01-MB3", False, CmisAocSingleBankApi),
+        ("ARISTA", "LPO-800G-2DR4", False, CmisEnhancedLpoApi),
+        ("PINEWAVE", "T-RH8ENH-NMT", False, PinewaveCmisApi),
+        ("UNKNOWN", "COHERENT", True, CCmisApi),
+    ])
+    def test_unlisted_specialized_apis_unchanged(
+            self, cmis_eeprom, fr800g_config, vendor, part, coherent, expected):
+        data, reader, writer = cmis_eeprom
+        data[129:145] = vendor.encode().ljust(16, b" ")
+        data[148:164] = part.encode().ljust(16, b" ")
+        data[270] = 0x10 if coherent else 0
+        assert type(XcvrApiFactory(reader, writer).create_xcvr_api()) is expected
+        writer.assert_not_called()
+
+    @pytest.mark.parametrize("contents", [
+        None, "[", "[]", "QUALIFIED: REGISTER-OPTIC", "QUALIFIED: [42]",
+    ])
+    def test_invalid_list_keeps_default(
+            self, cmis_eeprom, monkeypatch, tmp_path, caplog, contents):
+        _, reader, writer = cmis_eeprom
+        config = tmp_path / "cmis_fr800g.yaml"
+        if contents is not None:
+            config.write_text(contents)
+        monkeypatch.setattr(xcvr_api_factory, "CMIS_FR800G_CONFIG_FILE", config)
+        assert type(XcvrApiFactory(reader, writer).create_xcvr_api()) is CmisApi
+        assert "Unable to read CMIS firmware compatibility list" in caplog.text
+        writer.assert_not_called()
+
+    def test_list_lookup_waits_for_discovery(self, cmis_eeprom, fr800g_config):
+        data, reader, writer = cmis_eeprom
+        with patch.object(XcvrApiFactory, "_is_cmis_fr800g_module") as lookup:
+            factory = XcvrApiFactory(reader, writer)
+            reader.assert_not_called()
+            lookup.assert_not_called()
+            reader.side_effect = lambda offset, size: None
+            assert factory.create_xcvr_api() is None
+            lookup.assert_not_called()
+        reader.side_effect = lambda offset, size: data[offset:offset + size]
+        assert type(factory.create_xcvr_api()) is CmisFr800gApi
+        writer.assert_not_called()
+
+    def test_production_list_uses_existing_reporter_without_cdb(self, cmis_eeprom):
+        data, reader, writer = cmis_eeprom
+        data[129:145] = b"INNOLIGHT".ljust(16, b" ")
+        data[148:164] = b"T-DL8CNT-NCI".ljust(16, b" ")
+        with patch.object(CmisApi, "is_cdb_supported", return_value=True), patch.object(
+                CmisApi, "get_module_fw_info", side_effect=AssertionError("Unexpected CDB query")) as query:
+            api = XcvrApiFactory(reader, writer).create_xcvr_api()
+            assert type(api) is CmisFr800gApi
+            assert api.get_transceiver_info_firmware_versions() == {
+                "active_firmware": "172.133.0", "inactive_firmware": "171.132.0"}
+        query.assert_not_called()
+        writer.assert_not_called()
+
 
 class TestAmphBackplaneImpl:
     @pytest.fixture
