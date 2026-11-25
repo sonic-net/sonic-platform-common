@@ -9,6 +9,8 @@ EEPROM_HEX_FILE = "syseeprom.hex"
 TEST_PATH = os.path.dirname(os.path.abspath(__file__))
 EEPROM_HEX_FILE_FULL_PATH = os.path.join(TEST_PATH, EEPROM_HEX_FILE)
 EEPROM_SYMLINK_FULL_PATH = os.path.join(TEST_PATH, EEPROM_SYMLINK)
+EEPROM_HEX_FILE_V2 = os.path.join(TEST_PATH, "syseeprom_v2.hex")
+EEPROM_SYMLINK_V2 = os.path.join(TEST_PATH, "vpd_info_v2")
 class TestEepromTlvinfo:
 
     @classmethod
@@ -38,12 +40,15 @@ class TestEepromTlvinfo:
         if not os.path.exists(os.path.dirname(EEPROM_HEX_FILE_FULL_PATH)):
             assert False, "File {} is not exist".format(EEPROM_HEX_FILE_FULL_PATH)
         subprocess.check_call(['/usr/bin/xxd', '-r', '-p', EEPROM_HEX_FILE_FULL_PATH, EEPROM_SYMLINK_FULL_PATH])
+        subprocess.check_call(['/usr/bin/xxd', '-r', '-p', EEPROM_HEX_FILE_V2, EEPROM_SYMLINK_V2])
     
     @classmethod
     def teardown_class(cls):
         # Remove the mock eeprom after test
         if os.path.exists(os.path.dirname(EEPROM_HEX_FILE_FULL_PATH)):
             subprocess.check_call(['rm', '-f', EEPROM_SYMLINK_FULL_PATH])
+        if os.path.exists(os.path.dirname(EEPROM_HEX_FILE_V2)):
+            subprocess.check_call(['rm', '-f', EEPROM_SYMLINK_V2])
 
     def test_eeprom_tlvinfo_read_api(self):
         # Test using the api to fetch Base MAC, Switch Addr Range, Model,
@@ -56,6 +61,19 @@ class TestEepromTlvinfo:
         assert(eeprom_class.modelstr(eeprom).rstrip('\0') == 'MSN2700')
         assert(eeprom_class.serial_number_str(eeprom).rstrip('\0') == 'MT1623X09522')
         assert(eeprom_class.part_number_str(eeprom).rstrip('\0') == 'MSN2700-CS2FO')
+
+    def test_eeprom_tlvinfo_read_api_v2(self):
+        # Test using the updated api (addition of Vendor Name) to fetch Base MAC, Model, Vendor Name,
+        # Serial Number and Part Number.
+        eeprom_class = eeprom_tlvinfo.TlvInfoDecoder(EEPROM_SYMLINK_V2, 0, '', True)
+        eeprom = eeprom_class.read_eeprom()
+        eeprom_class.decode_eeprom(eeprom)
+        assert(eeprom_class.base_mac_addr(eeprom).rstrip('\0') == '34:73:2D:30:70:D8')
+        assert(eeprom_class.switchaddrrange(eeprom).rstrip('\0') == '516')
+        assert(eeprom_class.modelstr(eeprom).rstrip('\0') == '8102-64H-O')
+        assert(eeprom_class.vendorstr(eeprom).rstrip('\0') == 'Cisco')
+        assert(eeprom_class.serial_number_str(eeprom).rstrip('\0') == 'FLM251907U7')
+        assert(eeprom_class.part_number_str(eeprom).rstrip('\0') == 'ECI123')
 
     def test_eeprom_tlvinfo_get_tlv_field(self):
         # Test getting fields by field code
