@@ -141,6 +141,7 @@ class TestFanBase:
         not_implemented_methods = [
             (fan.get_direction,),
             (fan.get_speed,),
+            (fan.get_speed_rpm,),
             (fan.get_target_speed,),
             (fan.get_speed_tolerance,),
             (fan.set_speed, 50),
