@@ -4,6 +4,7 @@ from mock import MagicMock, call
 from sonic_platform_base.sonic_xcvr.api.nvidia.cpo_els import NvidiaCpoElsCmisApi
 from sonic_platform_base.sonic_xcvr.api.nvidia.cpo_oe import NvidiaCpoOeCmisApi
 from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi
+from sonic_platform_base.sonic_xcvr.cpo.cmis import CpoCmisApi
 from sonic_platform_base.sonic_xcvr.api.public.elsfp import ElsfpApi
 from sonic_platform_base.sonic_xcvr.mem_maps.nvidia.cpo_els import NvidiaCpoElsCmisMemMap
 from sonic_platform_base.sonic_xcvr.mem_maps.nvidia.cpo_oe import NvidiaCpoOeMemMap
@@ -264,7 +265,7 @@ class TestNvidiaSpc6(object):
         device.write_eeprom = MagicMock(return_value=True)
         return device
 
-    def test_oe_api_is_standard_cmis_on_the_requested_bank(self):
+    def test_oe_api_is_cpo_cmis_on_the_requested_bank(self):
         for bank in range(4):
             oe = self._with_readable_eeprom(OeBase(self.HARDWARE_ID, bank=bank))
 
@@ -278,6 +279,9 @@ class TestNvidiaSpc6(object):
             # for the vendor pages to land without touching the factory again.
             assert isinstance(api, CmisApi)
             assert isinstance(api.xcvr_eeprom.mem_map, CmisMemMap)
+            # xcvrd reads a CPO port in a banked and a non-banked half, and
+            # raises on an engine api that cannot be read that way.
+            assert isinstance(api, CpoCmisApi)
 
     def test_elsfp_api_is_the_nvidia_laser_source(self):
         elsfp = self._with_readable_eeprom(ElsfpBase(self.HARDWARE_ID))
