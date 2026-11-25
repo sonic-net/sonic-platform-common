@@ -295,9 +295,21 @@ class EepromDecoder(object):
         if self.cache_name:
             F = None
             try:
+                # Ensure the directory exists
+                directory = os.path.dirname(self.cache_name)
+
+                if not os.path.exists(directory):
+                    os.makedirs(directory)
+
+                # Set directory permissions to 755
+                os.chmod(directory, 0o755)
+
                 F = open(self.cache_name, "wb")
                 F.seek(self.s)
                 F.write(e)
+
+                # Set file permissions to 755
+                os.chmod(self.cache_name, 0o755)
             except IOError as e:
                 raise IOError("Failed to write cache : %s" % (str(e)))
             finally:
