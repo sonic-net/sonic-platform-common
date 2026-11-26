@@ -4,7 +4,12 @@
     Factory class responsible for instantiating the appropriate XcvrApi
     implementation for a xcvr module in SONiC
 """
+import logging
 import re
+from fnmatch import fnmatchcase
+from pathlib import Path
+
+import yaml
 from .xcvr_eeprom import XcvrEeprom
 from .eeprom_rw import ModuleEepromLowerMemoryInfo
 # TODO: remove the following imports
@@ -46,28 +51,65 @@ from .mem_maps.public.sff8472 import Sff8472MemMap
 CREDO_800G_AEC_VENDOR_PN_LIST = ["CAC81X321M2MC1MS", "CAC815321M2MC1MS", "CAC82X321M2MC1MS"]
 ARISTA_ENHANCED_LPO_PN_LIST = ["LPO-800G-2DR4"]
 PINEWAVE_MODULE_PRECODING_PN_LIST = ["T-RH8ENH-NMT"]
-INL_800G_VENDOR_PN_LIST = ["T-DL8CNT-NCI", "T-DH8CNT-NCI", "T-DH8CNT-N00", "T-DP4CNH-NCI", "T-DP8CNT-NNO",
-                           "T-DP8CNH-NNO", "T-DC8CNT-NNO", "T-DP8CNL-NNO", "T-OL8CNT-N00", "T-OH8CNH-N00",
-                           "T-OH8CNH-NNO", "T-OL8CNT-NNO"]
-EOP_800G_VENDOR_PN_LIST = ["EOLD-168HG-02-41", "EOLD-138HG-02-41"]
 HISENSE_2X100G_VENDOR_PN = r"DEF8504-2C\d{2}-MB3$"
 
+CMIS_FR800G_CONFIG_FILE = Path(__file__).with_name("cmis_fr800g.yaml")
+
 class XcvrApiFactory(object):
-    def __init__(self, reader, writer):
+    def __init__(self, reader, writer, cmis_firmware_config_path_cb=None):
         self.reader = reader
         self.writer = writer
         self.lower_memory_info = ModuleEepromLowerMemoryInfo(self.reader)
+        self._cmis_firmware_config_path_cb = cmis_firmware_config_path_cb
+
+    @staticmethod
+    def _matches_cmis_firmware_config(config_file, vendor_name, vendor_pn):
+        try:
+            with config_file.open() as stream:
+                modules = yaml.safe_load(stream)
+            if not isinstance(modules, dict):
+                raise ValueError("Expected a vendor-to-PN-list mapping")
+            for vendor_pattern, part_numbers in modules.items():
+                if (not isinstance(vendor_pattern, str) or not isinstance(part_numbers, list) or
+                        not all(isinstance(pn, str) for pn in part_numbers)):
+                    raise ValueError("Expected vendor patterns mapped to lists of part numbers")
+            return any(fnmatchcase(vendor_name, pattern) and vendor_pn in part_numbers
+                       for pattern, part_numbers in modules.items())
+        except (OSError, yaml.YAMLError, ValueError) as error:
+            logging.getLogger(__name__).warning(
+                "Unable to read CMIS firmware compatibility list %s; "
+                "trying remaining rules: %s", config_file, error)
+            return False
+
+    def _is_cmis_fr800g_module(self, vendor_name, vendor_pn):
+        if self._matches_cmis_firmware_config(
+                CMIS_FR800G_CONFIG_FILE, vendor_name, vendor_pn):
+            return True
+
+        # A common file without this model must not hide platform additions.
+        if self._cmis_firmware_config_path_cb is not None:
+            try:
+                config_file = self._cmis_firmware_config_path_cb()
+                if config_file is not None:
+                    return self._matches_cmis_firmware_config(
+                        Path(config_file), vendor_name, vendor_pn)
+            except Exception as error:
+                logging.getLogger(__name__).warning(
+                    "Unable to resolve platform CMIS firmware compatibility list; "
+                    "using default API: %s", error)
+        return False
 
     def _create_cmis_api(self, bank=0):
         api = None
         vendor_name = self.lower_memory_info.get_vendor_name()
         vendor_pn = self.lower_memory_info.get_vendor_part_num()
+        if not isinstance(vendor_name, str) or not isinstance(vendor_pn, str):
+            return None
 
         if vendor_name == 'Credo' and vendor_pn in CREDO_800G_AEC_VENDOR_PN_LIST:
             xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CredoAec800gMemMap(CredoAec800gCodes, bank=bank))
             api = CredoAec800gApi(xcvr_eeprom, init_cdb_fw_handler=True)
-        elif ('INNOLIGHT' in vendor_name and vendor_pn in INL_800G_VENDOR_PN_LIST) or \
-             ('EOPTOLINK' in vendor_name and vendor_pn in EOP_800G_VENDOR_PN_LIST):
+        elif self._is_cmis_fr800g_module(vendor_name, vendor_pn):
             xcvr_eeprom = XcvrEeprom(self.reader, self.writer, CmisMemMap(CmisCodes, bank=bank))
             api = CmisFr800gApi(xcvr_eeprom, init_cdb_fw_handler=True)
         elif vendor_name == 'Hisense' and vendor_pn is not None and re.match(HISENSE_2X100G_VENDOR_PN, vendor_pn):

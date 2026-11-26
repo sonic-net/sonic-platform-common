@@ -30,7 +30,10 @@ setup(
     url='https://github.com/Azure/sonic-platform-common',
     maintainer='Joe LeVeque',
     maintainer_email='jolevequ@microsoft.com',
-    package_data={'sonic_platform_api': ['*.pyi', 'py.typed']},
+    package_data={
+        'sonic_platform_api': ['*.pyi', 'py.typed'],
+        'sonic_platform_base.sonic_xcvr': ['cmis_fr800g.yaml'],
+    },
     packages=[
         'sonic_platform_api',
         'sonic_eeprom',

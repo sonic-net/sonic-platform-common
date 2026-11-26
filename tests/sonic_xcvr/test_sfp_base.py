@@ -68,3 +68,7 @@ def test_old_api_handle_survives_remove_xcvr_api():
     assert t1_api.get_transceiver_bulk_status() == "bulk1"
     # New handle returns its own result
     assert t2_api.get_transceiver_bulk_status() == "bulk2"
+
+
+def test_cmis_firmware_config_default():
+    assert SfpBase().get_cmis_firmware_config_path() is None
