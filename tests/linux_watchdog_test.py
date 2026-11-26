@@ -105,5 +105,66 @@ class LinuxWatchdogTest(unittest.TestCase):
         self.ioctl.side_effect = OSError("nowayout")
         self.assertFalse(device.disarm())
         self.state("unknown")
-        with self.assertRaises(RuntimeError):
-            device.is_armed()
+        self.assertFalse(device.is_armed())
+        self.assertFalse(device.disarm())
+
+    def add_device(self, name, identity):
+        device = self.root / name
+        device.mkdir()
+        (device / "identity").write_text(identity + "\n")
+        (device / "state").write_text("inactive\n")
+        return device
+
+    def test_platform_selects_identity_instead_of_device_order(self):
+        self.add_device("watchdog2", "wdat_wdt")
+        self.add_device("watchdog10", "wdat_wdt")
+        with self.assertRaisesRegex(RuntimeError, "Multiple"):
+            self.module.LinuxWatchdog()
+        device = self.module.LinuxWatchdog(identity="iTCO_wdt")
+        self.assertEqual(device._path, "/dev/watchdog0")
+        with self.assertRaisesRegex(RuntimeError, "Multiple"):
+            self.module.LinuxWatchdog(identity="wdat_wdt")
+        device = self.module.LinuxWatchdog(identity="wdat_wdt", device="watchdog2")
+        self.assertEqual(device._path, "/dev/watchdog2")
+        self.assertEqual(self.module.LinuxWatchdog(device="watchdog10")._path,
+                         "/dev/watchdog10")
+        self.open.assert_not_called()
+
+    def test_explicit_identity_allows_another_linux_driver(self):
+        self.device = self.add_device("watchdog1", "another_driver")
+        device = self.module.LinuxWatchdog(identity="another_driver")
+        self.assertEqual(device.arm(30), 30)
+        self.assertTrue(device.disarm())
+
+    def test_missing_or_unreadable_state_returns_bool_but_disarm_fails(self):
+        device = self.module.LinuxWatchdog()
+        (self.device / "state").unlink()
+        self.assertIs(device.is_armed(), False)
+        self.assertEqual(device.get_remaining_time(), -1)
+        self.assertFalse(device.disarm())
+        self.open.assert_not_called()
+        with patch.object(Path, "read_text", side_effect=PermissionError):
+            self.assertIs(device.is_armed(), False)
+            self.assertFalse(device.disarm())
+        self.open.assert_not_called()
+
+    def test_missing_hardware_is_reported_without_opening_device(self):
+        (self.device / "identity").unlink()
+        with self.assertRaisesRegex(RuntimeError, "No supported"):
+            self.module.LinuxWatchdog()
+        self.open.assert_not_called()
+
+    def test_selected_device_must_match_driver_and_exist(self):
+        self.add_device("watchdog1", "wdat_wdt")
+        for selection in ({"device": "watchdog9"},
+                          {"identity": "wdat_wdt", "device": "watchdog0"}):
+            with self.assertRaisesRegex(RuntimeError, "No supported"):
+                self.module.LinuxWatchdog(**selection)
+        self.open.assert_not_called()
+
+    def test_unsupported_operation_on_explicit_driver_reports_failure(self):
+        self.device = self.add_device("watchdog1", "another_driver")
+        device = self.module.LinuxWatchdog(identity="another_driver")
+        self.ioctl.side_effect = OSError("operation unsupported")
+        self.assertEqual(device.arm(30), -1)
+        self.assertFalse(device.disarm())

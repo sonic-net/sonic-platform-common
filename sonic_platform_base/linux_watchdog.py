@@ -1,4 +1,4 @@
-"""Linux watchdog API for Edgecore platforms using iTCO/wdat watchdogs.
+"""Linux watchdog API without arming hardware during discovery or queries.
 
 Discovery and status reads never open /dev/watchdog: opening it arms hardware.
 Only explicit arm/disarm operations take ownership of the character device.
@@ -13,26 +13,49 @@ from sonic_platform_base.watchdog_base import WatchdogBase
 
 
 class LinuxWatchdog(WatchdogBase):
+    """Use the Linux watchdog userspace API for a platform-selected device.
+
+    ``identity`` selects a kernel driver identity and ``device`` selects an
+    exact sysfs name, for example ``watchdog2``. Platforms may specify both.
+    With neither selector, discovery accepts iTCO/wdat drivers only. An
+    explicit identity permits other drivers implementing the same Linux API.
+
+    Missing or ambiguous hardware raises RuntimeError. Platform get_watchdog()
+    adapters must catch discovery failures and return None for no watchdog.
+    Discovery never opens the character device to probe ioctl capabilities.
+    """
+
     SYSFS = Path("/sys/class/watchdog")
     IDENTITIES = frozenset(("iTCO_wdt", "wdat_wdt"))
+    # Linux UAPI <linux/watchdog.h>; requests do not depend on driver identity.
+    # Drivers may reject optional operations, which arm/disarm report as failure.
     WDIOC_SETOPTIONS = 0x80045704
     WDIOC_KEEPALIVE = 0x80045705
     WDIOC_SETTIMEOUT = 0xC0045706
     WDIOS_DISABLECARD = 1
 
-    def __init__(self):
+    def __init__(self, identity=None, device=None):
         self._fd = None
-        for device in sorted(self.SYSFS.glob("watchdog[0-9]*")):
+        candidates = []
+        identities = self.IDENTITIES if identity is None else (identity,)
+        for entry in self.SYSFS.glob("watchdog[0-9]*"):
+            if not entry.name[len("watchdog"):].isdigit():
+                continue
+            if device is not None and entry.name != device:
+                continue
             try:
-                identity = (device / "identity").read_text().strip()
+                driver = (entry / "identity").read_text().strip()
             except OSError:
                 continue
-            if identity in self.IDENTITIES:
-                self._device = device
-                self._path = "/dev/" + device.name
-                break
-        else:
+            if driver in identities:
+                candidates.append(entry)
+        if not candidates:
             raise RuntimeError("No supported Linux hardware watchdog found")
+        if len(candidates) != 1:
+            raise RuntimeError("Multiple Linux hardware watchdogs found; "
+                               "platform must select an identity or device")
+        self._device = candidates[0]
+        self._path = "/dev/" + self._device.name
 
     def _open(self):
         if self._fd is None:
@@ -44,13 +67,20 @@ class LinuxWatchdog(WatchdogBase):
             fd, self._fd = self._fd, None
             os.close(fd)
 
-    def is_armed(self):
+    def _read_armed_state(self):
         # Kernel state survives short-lived watchdogutil CLI processes.
         # A missing state must not be treated as safely disarmed.
         state = (self._device / "state").read_text().strip()
         if state not in ("active", "inactive"):
             raise RuntimeError("Unknown hardware watchdog state: " + state)
         return state == "active"
+
+    def is_armed(self):
+        """Return a boolean without opening or changing the watchdog device."""
+        try:
+            return self._read_armed_state()
+        except (OSError, RuntimeError):
+            return False
 
     def arm(self, seconds):
         if type(seconds) is not int or not 0 < seconds <= 0x7FFFFFFF:
@@ -76,12 +106,12 @@ class LinuxWatchdog(WatchdogBase):
 
     def disarm(self):
         try:
-            if self._fd is None and not self.is_armed():
+            if self._fd is None and not self._read_armed_state():
                 return True
             options = array.array("i", [self.WDIOS_DISABLECARD])
             fcntl.ioctl(self._open(), self.WDIOC_SETOPTIONS, options, True)
             # Do not report success when nowayout or a driver prevents disable.
-            if self.is_armed():
+            if self._read_armed_state():
                 return False
             self._close()
             return True
@@ -90,7 +120,7 @@ class LinuxWatchdog(WatchdogBase):
 
     def get_remaining_time(self):
         try:
-            if not self.is_armed():
+            if not self._read_armed_state():
                 return -1
             # timeleft is optional. Reading sysfs avoids arming it for a query.
             return int((self._device / "timeleft").read_text().strip())
