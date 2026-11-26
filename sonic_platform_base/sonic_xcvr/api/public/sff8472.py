@@ -248,8 +248,19 @@ class Sff8472Api(XcvrApi):
         return int(tx_disable_list[0])
 
     def get_module_temperature(self):
-        if not self.get_temperature_support():
+        temp_support = self.get_temperature_support()
+        if temp_support is None:
+            return None
+        if not temp_support:
             return 'N/A'
+
+        # SFF-8472 A2h Byte110 bit0: Data_Not_Ready.
+        data_not_ready = self.xcvr_eeprom.read(consts.DATA_NOT_READY_FIELD)
+        if data_not_ready is None:
+            return None
+        if data_not_ready:
+            return None
+
         temp = self.xcvr_eeprom.read(consts.TEMPERATURE_FIELD)
         if temp is None:
             return None
