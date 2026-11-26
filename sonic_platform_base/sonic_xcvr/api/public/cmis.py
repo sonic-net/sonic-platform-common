@@ -138,7 +138,7 @@ class CmisApi(CmisCdbFw, XcvrApi):
         """
         cls.cache_enabled = bool(enabled)
 
-    def __init__(self, xcvr_eeprom, init_cdb_fw_handler=True):
+    def __init__(self, xcvr_eeprom, init_cdb_fw_handler=False):
         super(CmisApi, self).__init__(xcvr_eeprom)
         self.vdm = CmisVdmApi(xcvr_eeprom) if not self.is_flat_memory() else None
         self._init_cdb_fw_handler = init_cdb_fw_handler

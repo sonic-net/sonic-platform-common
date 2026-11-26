@@ -2078,6 +2078,14 @@ class TestCmis(object):
         self.api._init_cdb_fw_handler = True
         assert self.api.get_status_code() == expected
 
+    def test_cdb_fw_handler_is_off_by_default(self):
+        # Callers that rely on the default, such as xcvrd through a platform
+        # API built with CmisApi(eeprom), send no CDB firmware command.
+        api = CmisApi(MagicMock())
+        assert api.cdb_fw_hdlr is None
+        api.enable_cdb_fw_handler()
+        assert api._init_cdb_fw_handler is True
+
     def _setup_cdb_fw_hdlr(self):
         mock_fw_hdlr = MagicMock()
         self.api._cdb_fw_hdlr = mock_fw_hdlr
