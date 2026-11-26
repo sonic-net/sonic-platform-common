@@ -7,6 +7,8 @@
 from ...fields import consts
 from ...fields import cdb_consts
 from ...cdb.cdb_fw import CdbFwHandler as CdbFw
+from ...codes.public.cdb import CdbCodes
+from ...mem_maps.public.cmis.cdb import CdbMemMap
 import time
 from sonic_py_common.syslogger import SysLogger
 
@@ -18,7 +20,26 @@ log.logger.propagate = False
 class CmisCdbFw:
     """
     CDB firmware upgrade operations for CMIS modules.
+
+    An API mixing in this class enables the CDB firmware handler by setting
+    _init_cdb_fw_handler and _cdb_mem_map in its constructor, or later with
+    enable_cdb_fw_handler(). It also needs is_cdb_supported() and xcvr_eeprom.
     """
+
+    _init_cdb_fw_handler = False
+    _cdb_fw_hdlr = None
+    _cdb_mem_map = None
+
+    def enable_cdb_fw_handler(self):
+        """
+        Enable the CDB firmware handler on an API built without it.
+
+        The handler is created on first use, and only if the module
+        advertises CDB support.
+        """
+        if self._cdb_mem_map is None:
+            self._cdb_mem_map = CdbMemMap(CdbCodes)
+        self._init_cdb_fw_handler = True
 
     @property
     def cdb_fw_hdlr(self):
@@ -180,6 +201,110 @@ class CmisCdbFw:
         txt += 'Active Firmware: {}\n'.format(ActiveFirmware)
         txt += 'Inactive Firmware: {}\n'.format(InactiveFirmware)
         return {'status': True, 'info': txt, 'result': (ImageA, ImageARunning, ImageACommitted, ImageAValid, ImageB, ImageBRunning, ImageBCommitted, ImageBValid, ActiveFirmware, InactiveFirmware)}
+
+    def _supports_password_cmd_result(self):
+        """
+        Whether the PasswordCmdResult register (00h:42.3-0) is defined for this
+        module. It was introduced in CMIS 5.3; on earlier modules those bits are
+        reserved, so their value must not be used to judge password acceptance.
+
+        Returns False if the CMIS revision cannot be determined, so the code
+        does not interpret a reserved register on a legacy module.
+        """
+        try:
+            major, minor = (int(part) for part in self.get_cmis_rev().split("."))
+        except (AttributeError, ValueError):
+            return False
+        return (major, minor) >= consts.PASSWORD_RESULT_MIN_CMIS_REV
+
+    def _read_password_cmd_result(self):
+        """
+        Poll PasswordCmdResult (00h:42.3-0) until validation completes.
+
+        Per CMIS 8.2.14, after a password entry/change WRITE the module updates
+        PasswordCmdResult within tWRITE, and until then may report "validation
+        in progress" or reject reads of the register. Poll past those transient
+        states, bounded by PASSWORD_RESULT_POLL_TIMEOUT.
+
+        Returns the 4-bit result code, or None if it could not be determined
+        within the timeout.
+        """
+        elapsed = 0
+        while elapsed < consts.PASSWORD_RESULT_POLL_TIMEOUT:
+            result = self.xcvr_eeprom.read(consts.PASSWORD_CMD_RESULT)
+            if result is not None and \
+                    result != consts.PASSWORD_RESULT_IN_PROGRESS:
+                return result
+            time.sleep(consts.PASSWORD_RESULT_POLL_INTERVAL / 1000)
+            elapsed += consts.PASSWORD_RESULT_POLL_INTERVAL
+        return None
+
+    def enter_password_via_memory(self, password):
+        """
+        Enter the host password by writing the 4-byte value (MSB first) to the
+        Password Entry Area (page 00h bytes 122-125). This is the non-CDB
+        password entry method, used as a fallback for modules that unlock via
+        that register rather than CDB command 0001h.
+
+        Per CMIS 8.2.14 the write only delivers the password; its acceptance is
+        reported asynchronously in PasswordCmdResult (00h:42.3-0), which is only
+        defined on CMIS 5.3+ modules. So:
+          - On CMIS 5.3+, poll PasswordCmdResult and honor its verdict; a module
+            that explicitly rejects the password returns False.
+          - On earlier modules the register is reserved, so a successful write
+            is taken at face value (best-effort). The same best-effort result is
+            returned on 5.3+ when the register reports "not supported" or its
+            outcome cannot be determined.
+
+        Returns True if the password was accepted (or, best-effort, delivered),
+        False otherwise.
+        """
+        # NumberRegField(format=">I") packs the password MSB-first for us.
+        if not isinstance(password, int) or password < 0 or password > 0xFFFFFFFF:
+            log.log_warning("Invalid password: must be an integer in range 0..0xFFFFFFFF")
+            return False
+        if not self.xcvr_eeprom.write(consts.PASSWORD_ENTRY, password):
+            log.log_warning("Password Entry Area write failed")
+            return False
+
+        # PasswordCmdResult (00h:42.3-0) only exists on CMIS 5.3+. On earlier
+        # modules there is no register to confirm acceptance, so treat the
+        # successful write as success.
+        if not self._supports_password_cmd_result():
+            return True
+
+        result = self._read_password_cmd_result()
+        if result in (consts.PASSWORD_RESULT_HOST_ACCEPTED,
+                      consts.PASSWORD_RESULT_MODULE_ACCEPTED):
+            return True
+
+        if result == consts.PASSWORD_RESULT_NOT_ACCEPTED:
+            # Module honored the Password Entry Area and rejected the password.
+            log.log_warning("Password not accepted by the module (PasswordCmdResult=0x3)")
+            return False
+
+        # 5.3+ module but the result is NOT_SUPPORTED or could not be determined:
+        # no register confirmation available, so treat the write as best-effort.
+        log.log_warning("PasswordCmdResult unavailable (result={}); "
+                       "treating Password Entry Area write as best-effort".format(result))
+        return True
+
+    # Transceiver status
+    def _abort_fw_download(self):
+        """
+        Abort a failed firmware download, if the module supports Abort.
+
+        The Abort overwrites the CDB status, so the caller reads the status
+        of the failed command first. The module rejects a new command while
+        the last one is executing, so a CDB that stays busy is not aborted.
+        """
+        if not self.cdb_fw_hdlr.is_abort_supported:
+            return
+        if not self.cdb_fw_hdlr.wait_for_cdb_status()[0]:
+            log.log_notice('Abort module FW download: CDB is busy\n')
+            return
+        if self.cdb_fw_hdlr.abort_fw_download() is not True:
+            log.log_notice('Abort module FW download: Fail\n')
 
     # Returns raw CDB status byte: 1=success, 0x40|code=failed, 0x80|code=busy, 0=no handler
     def get_status_code(self):
@@ -386,12 +511,13 @@ class CmisCdbFw:
             if self.cdb_fw_hdlr.start_fw_download(imagepath) is True:
                 return True, ''
             txt = 'Start module FW download: Fail after password retry\n'
-            self.cdb_fw_hdlr.abort_fw_download()
+            txt += 'FW_start_status %d\n' % self.get_status_code()
+            self._abort_fw_download()
             log.log_notice(txt)
             return False, txt
 
         txt = 'Start module FW download: Fail\n'
-        self.cdb_fw_hdlr.abort_fw_download()
+        self._abort_fw_download()
         txt += 'FW_start_status %d\n' % fw_start_status
         log.log_notice(txt)
         return False, txt
@@ -403,6 +529,19 @@ class CmisCdbFw:
 
         This function returns True on success.
         Otherwise it will return False.
+        """
+        try:
+            for _ in self.module_fw_write_blocks_iter(imagepath, startLPLsize, maxblocksize, lplonly_flag):
+                pass
+        except RuntimeError as err:
+            return False, str(err)
+        return True, ''
+
+    def module_fw_write_blocks_iter(self, imagepath, startLPLsize, maxblocksize, lplonly_flag):
+        """
+        Write firmware blocks using CDB command 0103h (LPL) or 0104h (EPL),
+        yielding the number of bytes written by each block.
+        Aborts the download and raises RuntimeError if any block write fails.
         """
         starttime = time.time()
         BLOCK_SIZE = cdb_consts.LPL_MAX_PAYLOAD_SIZE if lplonly_flag else maxblocksize
@@ -424,26 +563,26 @@ class CmisCdbFw:
                     try:
                         self.cdb_fw_hdlr.write_epl_pages(data)
                     except AssertionError as err:
-                        self.cdb_fw_hdlr.abort_fw_download()
-                        txt = 'CDB download failed: {}'.format(err)
+                        self._abort_fw_download()
+                        txt = 'CDB download failed at block address {:#x}: {}'.format(address, err)
                         log.log_error(txt)
-                        return False, txt
+                        raise RuntimeError(txt) from err
                     result = self.cdb_fw_hdlr.write_epl_block(address, data)
                 if result is not True:
-                    self.cdb_fw_hdlr.abort_fw_download()
                     fw_download_status = self.get_status_code()
-                    txt = 'CDB download failed. CDB Status: %d\n' % fw_download_status
+                    self._abort_fw_download()
+                    txt = 'CDB download failed. CDB Status: %d' % fw_download_status
                     log.log_notice(txt)
-                    return False, txt
+                    raise RuntimeError(txt)
                 address += count
                 remaining -= count
                 progress = (imagesize - remaining) * 100.0 / imagesize
                 elapsedtime = time.time() - starttime
                 log.log_info('Address: {:#08x}; Count: {}; Remain: {:#08x}; Progress: {:.2f}%; Time: {:.2f}s'.format(
                     address, count, remaining, progress, elapsedtime))
+                yield count
 
         log.log_info('Total module FW download time: {:.2f} s'.format(time.time() - starttime))
-        return True, ''
 
     def module_fw_complete_download(self):
         """

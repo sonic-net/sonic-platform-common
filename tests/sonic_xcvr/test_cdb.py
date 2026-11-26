@@ -614,7 +614,51 @@ class TestCdbCmdHandler:
         result = self.handler.write_epl_page(page, data)
         
         assert result == False
+
+    @pytest.mark.parametrize("size, failed_page", [
+        (cdb_consts.PAGE_SIZE * 2, cdb_consts.EPL_PAGE + 1),
+        (cdb_consts.PAGE_SIZE + 10, cdb_consts.EPL_PAGE + 1),
+    ])
+    def test_write_epl_pages_write_failure_names_page(self, size, failed_page):
+        """A failed EPL page write names the page that failed"""
+        self.handler.write_raw = MagicMock(side_effect=[True, False])
+
+        with pytest.raises(AssertionError, match='Failed to write EPL page {:#04x} of the module'.format(failed_page)):
+            self.handler.write_epl_pages(b'\x00' * size)
     
+    # Tests for wait_for_cdb_status method
+    @staticmethod
+    def cdb_status(busy=False, failed=False, result=1):
+        return {cdb_consts.CDB1_IS_BUSY: busy, cdb_consts.CDB1_HAS_FAILED: failed,
+                cdb_consts.CDB1_STATUS: result}
+
+    @pytest.mark.parametrize("statuses, expected", [
+        # Reserved result 0 (status cleared by a reset) is polled until a real result.
+        ([dict(result=0), dict(result=0), dict(result=1)], dict(result=1)),
+        ([dict(result=0), dict(busy=True, result=3), dict(result=1)], dict(result=1)),
+        ([dict(result=0), dict(failed=True, result=5)], dict(failed=True, result=5)),
+        ([None, dict(result=1)], dict(result=1)),
+        ([dict(busy=True, result=3), dict(failed=True, result=2)], dict(failed=True, result=2)),
+    ])
+    @patch('sonic_platform_base.sonic_xcvr.cdb.cdb.time.sleep')
+    def test_wait_for_cdb_status_completes(self, mock_sleep, statuses, expected):
+        self.handler.read = MagicMock(side_effect=[
+            None if status is None else self.cdb_status(**status) for status in statuses])
+
+        assert self.handler.wait_for_cdb_status(1000) == [True, self.cdb_status(**expected)]
+        assert self.handler.read.call_count == len(statuses)
+        self.handler.read.assert_called_with(cdb_consts.CDB1_CMD_STATUS)
+
+    @pytest.mark.parametrize("status", [dict(result=0), dict(busy=True, result=3)])
+    @patch('sonic_platform_base.sonic_xcvr.cdb.cdb.time.sleep')
+    def test_wait_for_cdb_status_times_out(self, mock_sleep, status):
+        self.handler.read = MagicMock(return_value=self.cdb_status(**status))
+
+        ok, _ = self.handler.wait_for_cdb_status(1000)
+
+        assert ok is False
+        assert self.handler.read.call_count == 1000 // cdb_consts.CDB_MAX_CAPTURE_TIME
+
     # Tests for send_cmd method
     def test_send_cmd_success(self):
         """Test successful send_cmd"""

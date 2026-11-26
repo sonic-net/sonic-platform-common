@@ -5,6 +5,7 @@ from typing import Optional
 
 from sonic_platform_base import device_base
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
+from sonic_platform_base.sonic_xcvr.cdb_firmware import CdbFirmwareMixin
 from sonic_platform_base.sonic_xcvr.eeprom_rw import EepromReadWriteMixin
 
 
@@ -29,17 +30,19 @@ class CpoApiFactory(ABC):
     def __init__(self, device: "CpoDeviceBase"):
         self._device = device
 
-    def _create_api(self, codes_class, mem_map_class, api_class):
+    def _create_api(self, codes_class, mem_map_class, api_class, init_cdb_fw_handler=False, cdb_mem_map=None):
         mem_map = mem_map_class(codes_class, self._device.bank)
         eeprom = XcvrEeprom(self._device.read_eeprom, self._device.write_eeprom, mem_map)
-        return api_class(eeprom)
+        if cdb_mem_map is not None:
+            return api_class(eeprom, init_cdb_fw_handler=init_cdb_fw_handler, cdb_mem_map=cdb_mem_map)
+        return api_class(eeprom, init_cdb_fw_handler=init_cdb_fw_handler)
 
     @abstractmethod
     def create_api(self):
         raise NotImplementedError
 
 
-class CpoDeviceBase(device_base.DeviceBase, EepromReadWriteMixin):
+class CpoDeviceBase(device_base.DeviceBase, EepromReadWriteMixin, CdbFirmwareMixin):
     def __init__(self, hardware_id: CpoHardwareInfo, bank: int = 0):
         self.bank = bank
         self.hardware_id = hardware_id
