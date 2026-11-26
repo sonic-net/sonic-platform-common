@@ -1189,3 +1189,31 @@ class TestElsfpStatus:
             **self.EXPECTED_NON_BANKED_STATUS,
             **self.EXPECTED_BANKED_STATUS,
         }
+
+
+class TestElsfpPasswordEntry:
+    """An ELSFP gets the CMIS Password Entry Area fallback of get_module_fw_info()."""
+
+    PASSWORD_ENTRY_OFFSET = 122
+
+    def test_get_module_fw_info_falls_back_to_the_password_entry_area(self):
+        from sonic_platform_base.sonic_xcvr.fields import cdb_consts
+        eeprom = InMemoryEeprom(ElsfpMemMap(ElsfpCodes))
+        api = ElsfpApi(eeprom.eeprom)
+        handler = MagicMock()
+        handler.get_firmware_info.side_effect = [False, False, {
+            cdb_consts.CDB1_FIRMWARE_STATUS: {
+                cdb_consts.CDB1_BANKA_OPER_STATUS: True, cdb_consts.CDB1_BANKA_ADMIN_STATUS: True,
+                cdb_consts.CDB1_BANKA_VALID_STATUS: False, cdb_consts.CDB1_BANKB_OPER_STATUS: False,
+                cdb_consts.CDB1_BANKB_ADMIN_STATUS: False, cdb_consts.CDB1_BANKB_VALID_STATUS: False}}]
+        # CDB command 0001h does not unlock the ELSFP.
+        handler.get_cmd_status_code.return_value = {
+            cdb_consts.CDB1_IS_BUSY: False, cdb_consts.CDB1_HAS_FAILED: True, cdb_consts.CDB1_STATUS: 0x06}
+        api._cdb_fw_hdlr = handler
+        api._init_cdb_fw_handler = True
+
+        result = api.get_module_fw_info()
+
+        assert result['status'] is True
+        password = eeprom.memory[self.PASSWORD_ENTRY_OFFSET:self.PASSWORD_ENTRY_OFFSET + 4]
+        assert password == cdb_consts.CDB_DEFAULT_PASSWORD.to_bytes(4, 'big')

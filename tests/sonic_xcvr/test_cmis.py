@@ -268,7 +268,7 @@ class TestCmis(object):
             # make every later get_cmis_rev() caller see this revision.
             del self.api.get_cmis_rev
 
-    @patch("sonic_platform_base.sonic_xcvr.api.public.cmis.time.sleep", MagicMock())
+    @patch("sonic_platform_base.sonic_xcvr.api.public.cdb_fw.time.sleep", MagicMock())
     def test_read_password_cmd_result_polls_past_in_progress(self):
         """_read_password_cmd_result polls past 'in progress'/unreadable states"""
         self.api.xcvr_eeprom.read = MagicMock(side_effect=[
@@ -279,7 +279,7 @@ class TestCmis(object):
         assert self.api._read_password_cmd_result() == consts.PASSWORD_RESULT_HOST_ACCEPTED
         assert self.api.xcvr_eeprom.read.call_count == 3
 
-    @patch("sonic_platform_base.sonic_xcvr.api.public.cmis.time.sleep", MagicMock())
+    @patch("sonic_platform_base.sonic_xcvr.api.public.cdb_fw.time.sleep", MagicMock())
     def test_read_password_cmd_result_timeout(self):
         """_read_password_cmd_result returns None when the result never resolves"""
         self.api.xcvr_eeprom.read = MagicMock(return_value=consts.PASSWORD_RESULT_IN_PROGRESS)
