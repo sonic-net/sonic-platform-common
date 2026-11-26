@@ -23,7 +23,7 @@ _PY_COMMON_FILES = {
 
 archive_override(
     module_name = "sonic-buildimage",
-    urls = ["https://github.com/securely1g/sonic-buildimage/archive/c743d7521e80fc1733e5cc0ffc24889b08f78444.tar.gz"],
+    urls = ["https://github.com/sonic-net/sonic-buildimage/archive/c743d7521e80fc1733e5cc0ffc24889b08f78444.tar.gz"],
     integrity = "sha256-oOKTQ3eYGtQ147/NWxok3CX5NzeUkGp2KsIbQJbVhFs=",
     strip_prefix = "sonic-buildimage-c743d7521e80fc1733e5cc0ffc24889b08f78444",
     remote_file_urls = {_PY_COMMON_DIR + name: [_PY_COMMON_SOURCE + name] for name in _PY_COMMON_FILES},

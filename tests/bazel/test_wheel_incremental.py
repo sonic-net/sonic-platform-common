@@ -7,8 +7,7 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
-import unittest
-from unittest import mock
+from unittest import TestCase, main, mock
 import warnings
 import zipfile
 
@@ -16,7 +15,7 @@ from wheel_incremental import (ORIGINAL, SOURCE, WHEEL, action_metrics, build, c
                                payload, payload_delta, require_noop)
 
 
-class ActionAccountingTest(unittest.TestCase):
+class ActionAccountingTest(TestCase):
     @classmethod
     def setUpClass(cls):
         # Unmodified ActionSummary messages from the actual four-phase hosted run.
@@ -102,7 +101,7 @@ class ActionAccountingTest(unittest.TestCase):
             self.assertEqual(result["actions"]["total"], 2)
 
 
-class PayloadEvidenceTest(unittest.TestCase):
+class PayloadEvidenceTest(TestCase):
     def setUp(self):
         self.before = {name: {"sha256": "before", "mode": 0o100644 << 16} for name in
                        (SOURCE, "sonic_platform_common-1.0.dist-info/RECORD", "sonic_platform_base/device_base.py")}
@@ -134,7 +133,7 @@ class PayloadEvidenceTest(unittest.TestCase):
                 payload(path)
 
 
-class CheckoutTrustTest(unittest.TestCase):
+class CheckoutTrustTest(TestCase):
     def test_different_owner_checkout_preserves_source_guard_and_restoration(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary) / "checkout"
@@ -183,4 +182,4 @@ class CheckoutTrustTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    main()
