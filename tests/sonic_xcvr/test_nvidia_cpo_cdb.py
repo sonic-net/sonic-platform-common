@@ -21,7 +21,7 @@ import contextlib
 import fcntl
 import os
 import threading
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
@@ -35,6 +35,7 @@ from sonic_platform_base.sonic_xcvr.api.nvidia.cpo_cdb import (
 )
 from sonic_platform_base.sonic_xcvr.api.nvidia.cpo_els import NvidiaCpoElsCmisApi
 from sonic_platform_base.sonic_xcvr.api.nvidia.cpo_oe import NvidiaCpoOeCmisApi
+from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi
 from sonic_platform_base.sonic_xcvr.cdb.cdb import CdbCmdHandler
 
 
@@ -142,6 +143,35 @@ class TestCdbTargetHandler(object):
         assert handler.get_cmd_status_code() is None
         inner.send_cmd.assert_not_called()
         inner.get_cmd_status_code.assert_not_called()
+
+    def test_wait_for_cdb_status_fails_like_an_eeprom_error(self):
+        # wait_for_cdb_status() returns [False, None] on an EEPROM error: the
+        # callers read its first item.
+        inner = MagicMock()
+        handler = CdbTargetHandler(inner, lambda: False)
+
+        assert handler.wait_for_cdb_status() == [False, None]
+        inner.wait_for_cdb_status.assert_not_called()
+
+    @pytest.mark.parametrize("lpl_only", [True, False])
+    def test_download_that_loses_the_target_fails_with_runtime_error(self, lpl_only):
+        # The target cannot be selected after the second block, for example
+        # when the ASIC resets: the download fails, and is not aborted while
+        # the CDB cannot be reached.
+        inner = MagicMock()
+        inner.is_abort_supported = True
+        inner.write_lpl_block.return_value = True
+        inner.write_epl_block.return_value = True
+        selected = iter([True] * (2 if lpl_only else 4))
+        api = CmisApi(MagicMock())
+        api._cdb_fw_hdlr = CdbTargetHandler(inner, lambda: next(selected, False))
+        api._init_cdb_fw_handler = True
+        size = 112 + 3 * 2048
+        with patch('builtins.open', mock_open(read_data=b'\x00' * size)) as image:
+            image.return_value.tell = MagicMock(return_value=size)
+            with pytest.raises(RuntimeError, match='CDB download failed'):
+                list(api.module_fw_write_blocks_iter('/tmp/fw.bin', 112, 2048, lpl_only))
+        inner.abort_fw_download.assert_not_called()
 
     def test_epl_page_write_fails_when_target_cannot_be_selected(self):
         inner = MagicMock()

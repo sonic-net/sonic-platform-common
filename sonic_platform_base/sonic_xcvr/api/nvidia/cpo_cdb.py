@@ -27,6 +27,7 @@ reply, holds a lock of the module, shared by its OE and its ELS.
 """
 
 import contextlib
+import copy
 import fcntl
 import functools
 import logging
@@ -189,12 +190,15 @@ class CdbTargetHandler:
 
     The selection fails when the EEPROM of the module cannot be accessed, for
     example while the ASIC resets. The method then fails the way it does on
-    an EEPROM access error: write_epl_pages() raises AssertionError, and the
-    other methods return None.
+    an EEPROM access error: write_epl_pages() raises AssertionError,
+    wait_for_cdb_status() returns [False, None], and the other methods return
+    None.
     """
 
     # The methods that raise AssertionError when an EEPROM write fails.
     _ASSERTING_METHODS = ('write_epl_pages',)
+    # The result of the methods that do not return None on an EEPROM error.
+    _FAILED_RESULTS = {'wait_for_cdb_status': [False, None]}
 
     def __init__(self, handler, select_target, lock=contextlib.nullcontext):
         self._handler = handler
@@ -214,7 +218,7 @@ class CdbTargetHandler:
                     if name in self._ASSERTING_METHODS:
                         raise AssertionError(message)
                     logger.warning(message)
-                    return None
+                    return copy.copy(self._FAILED_RESULTS.get(name))
                 return attr(*args, **kwargs)
         setattr(self, name, call)
         return call
