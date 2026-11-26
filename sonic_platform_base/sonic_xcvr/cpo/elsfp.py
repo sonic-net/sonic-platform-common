@@ -67,6 +67,9 @@ class ElsfpApiFactory(CpoApiFactory):
 
 
 class ElsfpBase(CpoDeviceBase):
+    # Device type definition. Note, this is a constant.
+    DEVICE_TYPE = "elsfp"
+
     def _make_api_factory(self) -> CpoApiFactory:
         return ElsfpApiFactory(self)
 

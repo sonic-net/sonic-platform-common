@@ -36,6 +36,9 @@ class OeApiFactory(CpoApiFactory):
 
 
 class OeBase(CpoDeviceBase):
+    # Device type definition. Note, this is a constant.
+    DEVICE_TYPE = "oe"
+
     def _make_api_factory(self) -> CpoApiFactory:
         return OeApiFactory(self)
 
