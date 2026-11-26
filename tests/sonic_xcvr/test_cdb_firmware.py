@@ -7,7 +7,7 @@ from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi
 from sonic_platform_base.sonic_xcvr.api.nvidia.cpo_els import NvidiaCpoElsCmisApi
 from sonic_platform_base.sonic_xcvr import cdb_firmware
 from sonic_platform_base.sonic_xcvr.cdb_firmware import (
-    CdbFirmwareMixin, FW_RUN_DELAY)
+    CdbFirmwareMixin, FW_RUN_DELAY, FW_SWITCH_POLL_INTERVAL, FW_SWITCH_TIMEOUT)
 from sonic_platform_base.sonic_xcvr.codes.public.cmis import CmisCodes
 from sonic_platform_base.sonic_xcvr.cpo.cpo_base import CpoHardwareInfo, OeId
 from sonic_platform_base.sonic_xcvr.cpo.elsfp import ElsfpBase
@@ -17,6 +17,14 @@ from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis import CmisMemMap
 from sonic_platform_base.sonic_xcvr.xcvr_eeprom import XcvrEeprom
 
 FEATURE = (112, 2048, True, True)
+
+
+def fw_info(running, committed, invalid=()):
+    """A get_module_fw_info() result: image A holds 1.0.0, image B 1.1.0."""
+    result = ('1.0.0', int(running == 'A'), int(committed == 'A'), int('A' in invalid),
+              '1.1.0', int(running == 'B'), int(committed == 'B'), int('B' in invalid),
+              'N/A', 'N/A')
+    return {'status': True, 'info': '', 'result': result}
 
 
 class FakeDevice(CdbFirmwareMixin):
@@ -43,7 +51,8 @@ def api():
     api.module_fw_complete_download.return_value = (True, 'Module FW download complete: Success\n')
     api.module_fw_run.return_value = (True, 'Module FW run: Success\n')
     api.module_fw_commit.return_value = (True, 'Module FW commit: Success\n')
-    api.get_module_fw_info.return_value = {'status': True, 'info': '', 'result': ()}
+    # Image A runs and is committed. After the run, image B runs.
+    api.get_module_fw_info.side_effect = lambda: fw_info('B' if api.module_fw_run.called else 'A', 'A')
     api.xcvr_eeprom.read.side_effect = KeyError
     return api
 
@@ -218,6 +227,7 @@ class TestCdbFirmwareMixin(object):
         api.module_fw_commit.assert_not_called()
         no_sleep.assert_not_called()
 
+
     @pytest.mark.parametrize("operation", [
         lambda device: list(device.download_firmware('/tmp/fw.bin')),
         lambda device: list(device.upgrade_firmware('/tmp/fw.bin')),
@@ -279,13 +289,104 @@ class TestCdbFirmwareMixin(object):
     def test_upgrade_commits_through_the_refreshed_api(self, no_sleep, api):
         new_api = MagicMock()
         new_api.module_fw_commit.return_value = (True, '')
+        new_api.get_module_fw_info.return_value = fw_info('B', 'A')
         device = FakeDevice(api)
-        device.get_api = MagicMock(side_effect=[api, new_api])
+        device.get_api = MagicMock(side_effect=[api, new_api, new_api])
 
         list(device.upgrade_firmware('/tmp/fw.bin'))
 
         api.module_fw_commit.assert_not_called()
         new_api.module_fw_commit.assert_called_once_with()
+
+
+class TestUpgradeImageSwitch(object):
+    """upgrade_firmware() commits only when the device runs the new image."""
+
+    @pytest.fixture
+    def clock(self):
+        """A clock that advances only when the upgrade sleeps."""
+        now = [0.0]
+        with patch.object(cdb_firmware.time, 'monotonic', side_effect=lambda: now[0]), \
+                patch.object(cdb_firmware.time, 'sleep', side_effect=lambda seconds: now.__setitem__(0, now[0] + seconds)):
+            yield now
+
+    def test_commit_after_the_new_image_runs(self, api, clock):
+        order = MagicMock()
+        api.module_fw_run.side_effect = lambda mode: (order.run(mode), (True, ''))[1]
+        api.get_module_fw_info.side_effect = lambda: (order.info(), fw_info(
+            'B' if api.module_fw_run.called else 'A', 'A'))[1]
+        api.module_fw_commit.side_effect = lambda: (order.commit(), (True, ''))[1]
+
+        list(FakeDevice(api).upgrade_firmware('/tmp/fw.bin'))
+
+        # The running image is read before the download, and again after the run.
+        assert order.mock_calls == [call.info(), call.run(0x01), call.info(), call.commit()]
+
+    @pytest.mark.parametrize("image", ['A', 'B'])
+    def test_the_new_image_is_the_inactive_one(self, api, clock, image):
+        new = 'B' if image == 'A' else 'A'
+        api.get_module_fw_info.side_effect = lambda: fw_info(new if api.module_fw_run.called else image, image)
+        list(FakeDevice(api).upgrade_firmware('/tmp/fw.bin'))
+        api.module_fw_commit.assert_called_once_with()
+
+    def test_wait_while_the_device_restarts(self, api, clock):
+        replies = iter([
+            RuntimeError('The CDB firmware handler could not be initialized; the device may not be ready'),
+            NotImplementedError('The device does not support CDB firmware management'),
+            {'status': False, 'info': 'Failed to get firmware info', 'result': 0},
+            # The device reports the image it ran before the reset.
+            fw_info('A', 'A'),
+            fw_info('B', 'A'),
+        ])
+
+        def info():
+            if not api.module_fw_run.called:
+                return fw_info('A', 'A')
+            reply = next(replies)
+            if isinstance(reply, Exception):
+                raise reply
+            return reply
+
+        api.get_module_fw_info.side_effect = info
+        list(FakeDevice(api).upgrade_firmware('/tmp/fw.bin'))
+        api.module_fw_commit.assert_called_once_with()
+        # FW_RUN_DELAY, then four polls that do not see the new image.
+        assert clock[0] == FW_RUN_DELAY + 4 * FW_SWITCH_POLL_INTERVAL
+
+    @pytest.mark.parametrize("after_run, last", [
+        (lambda: fw_info('A', 'A'), 'firmware image B does not run'),
+        # The device runs the new image, but did not leave the committed one.
+        (lambda: fw_info('B', 'B'), 'firmware image B does not run'),
+        (lambda: {'status': False, 'info': 'Failed to get firmware info', 'result': 0}, 'Failed to get firmware info'),
+    ])
+    def test_no_commit_when_the_new_image_does_not_run(self, api, clock, after_run, last):
+        api.get_module_fw_info.side_effect = lambda: after_run() if api.module_fw_run.called else fw_info('A', 'A')
+        message = (f'The device does not run the new firmware image B {FW_RUN_DELAY + FW_SWITCH_TIMEOUT} s '
+                   f'after the run \\({last}\\); the firmware is not committed')
+        with pytest.raises(RuntimeError, match=message):
+            list(FakeDevice(api).upgrade_firmware('/tmp/fw.bin'))
+        api.module_fw_commit.assert_not_called()
+        assert clock[0] == FW_RUN_DELAY + FW_SWITCH_TIMEOUT
+
+    def test_no_commit_when_the_new_image_is_invalid(self, api, clock):
+        api.get_module_fw_info.side_effect = lambda: (
+            fw_info('B', 'A', invalid='B') if api.module_fw_run.called else fw_info('A', 'A'))
+        with pytest.raises(RuntimeError, match='runs firmware image B, but reports it as invalid'):
+            list(FakeDevice(api).upgrade_firmware('/tmp/fw.bin'))
+        api.module_fw_commit.assert_not_called()
+
+    @pytest.mark.parametrize("before, message", [
+        ({'status': False, 'info': 'Failed to get firmware info\n', 'result': 0},
+         'Failed to get the running firmware image: Failed to get firmware info$'),
+        (fw_info(None, 'A'), 'The device reports no running firmware image'),
+    ])
+    def test_no_download_when_the_running_image_is_unknown(self, api, clock, before, message):
+        api.get_module_fw_info.side_effect = None
+        api.get_module_fw_info.return_value = before
+        with pytest.raises(RuntimeError, match=message):
+            list(FakeDevice(api).upgrade_firmware('/tmp/fw.bin'))
+        api.module_fw_start_download.assert_not_called()
+        api.module_fw_run.assert_not_called()
 
 
 class TestRunDelay(object):
@@ -324,6 +425,7 @@ FW_INFO_TEXT = (
 
 class TestFirmwareInfo(object):
     def test_cdb_firmware_info(self, api):
+        api.get_module_fw_info.side_effect = None
         api.get_module_fw_info.return_value = {'status': True, 'info': FW_INFO_TEXT, 'result': ()}
 
         info = FakeDevice(api).get_firmware_info()
@@ -340,6 +442,7 @@ class TestFirmwareInfo(object):
         api.enable_cdb_fw_handler.assert_called_once_with()
 
     def test_cdb_failure(self, api):
+        api.get_module_fw_info.side_effect = None
         api.get_module_fw_info.return_value = {'status': False, 'info': 'Failed to get firmware info', 'result': 0}
         with pytest.raises(RuntimeError, match='^Failed to get firmware info$'):
             FakeDevice(api).get_firmware_info()

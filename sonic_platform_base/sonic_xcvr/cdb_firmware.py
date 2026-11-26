@@ -26,6 +26,16 @@ FW_RUN_MODE_HITLESS_INACTIVE = 0x01
 # tMgmtInit (2 s in CMIS), with margin.
 FW_RUN_DELAY = 5
 
+# Seconds that an upgrade waits, after FW_RUN_DELAY, for the device to run the
+# new image, and the seconds between two checks. sfputil uses the same values
+# in is_fw_switch_done().
+FW_SWITCH_TIMEOUT = 60
+FW_SWITCH_POLL_INTERVAL = 2
+
+# The image fields of the 'result' tuple of CmisCdbFw.get_module_fw_info(),
+# per image: (version, running, committed, invalid).
+FW_INFO_IMAGES = {'A': slice(0, 4), 'B': slice(4, 8)}
+
 
 class CdbFirmwareMixin(object):
     """
@@ -151,6 +161,61 @@ class CdbFirmwareMixin(object):
         self.refresh_api()
 
     @staticmethod
+    def _image_status(result):
+        """
+        Return the status of the images from a get_module_fw_info() result,
+        as {'A': (version, running, committed, invalid), 'B': (...)}.
+        """
+        return {image: tuple(result[fields]) for image, fields in FW_INFO_IMAGES.items()}
+
+    def _get_running_image(self, api):
+        """Return the image that the device runs, 'A' or 'B'."""
+        result = api.get_module_fw_info()
+        if not result.get('status') or not result.get('result'):
+            info = str(result.get('info') or '').strip() or 'Failed to get firmware info'
+            raise RuntimeError(f'Failed to get the running firmware image: {info}')
+        for image, (_, running, _, _) in self._image_status(result['result']).items():
+            if running == 1:
+                return image
+        raise RuntimeError('The device reports no running firmware image')
+
+    def _wait_for_image_switch(self, previous):
+        """
+        Wait until the device runs the image that was inactive before the run.
+
+        The device may not answer, or may report the image it ran before,
+        while it restarts: wait for at most FW_SWITCH_TIMEOUT seconds, and
+        check every FW_SWITCH_POLL_INTERVAL seconds.
+
+        Raises:
+            RuntimeError: The new image does not run, or the device reports
+                it as invalid
+        """
+        new = 'B' if previous == 'A' else 'A'
+        deadline = time.monotonic() + FW_SWITCH_TIMEOUT
+        while True:
+            try:
+                result = self._get_cdb_fw_api().get_module_fw_info()
+            except (NotImplementedError, RuntimeError) as err:
+                # The device restarts and its CDB is not ready yet.
+                last = str(err)
+            else:
+                if result.get('status') and result.get('result'):
+                    _, running, committed, invalid = self._image_status(result['result'])[new]
+                    if running == 1 and invalid == 1:
+                        raise RuntimeError(f'The device runs firmware image {new}, but reports it as invalid')
+                    if running == 1 and committed == 0:
+                        return
+                    last = f'firmware image {new} does not run'
+                else:
+                    last = str(result.get('info') or '').strip() or 'Failed to get firmware info'
+            if time.monotonic() >= deadline:
+                raise RuntimeError(
+                    f'The device does not run the new firmware image {new} {FW_RUN_DELAY + FW_SWITCH_TIMEOUT} s '
+                    f'after the run ({last}); the firmware is not committed')
+            time.sleep(FW_SWITCH_POLL_INTERVAL)
+
+    @staticmethod
     def _commit(api):
         success, info = api.module_fw_commit()
         if not success:
@@ -218,6 +283,10 @@ class CdbFirmwareMixin(object):
         Upgrades the firmware of the device: downloads the image to the
         inactive bank, runs it and commits it
 
+        The image is committed only when the device runs it: after the run,
+        the upgrade waits for at most FW_SWITCH_TIMEOUT seconds for the device
+        to report the new image as running and not committed.
+
         Args:
             file_path: A string, the path of the firmware image
 
@@ -230,13 +299,17 @@ class CdbFirmwareMixin(object):
         Raises:
             NotImplementedError: The device does not support CDB firmware
                 management
-            RuntimeError: A CDB firmware command failed, or the device is
-                not ready
+            RuntimeError: A CDB firmware command failed, the device is not
+                ready, or the device does not run the new image
         """
         api = self._get_cdb_fw_api()
+        # Read it before the download, so that the upgrade fails before it
+        # writes anything when the device cannot report it.
+        previous = self._get_running_image(api)
         yield from self._download(api, file_path)
         self._run(api, FW_RUN_MODE_HITLESS_INACTIVE)
         # Running the image refreshed the device API.
+        self._wait_for_image_switch(previous)
         self._commit(self._get_cdb_fw_api())
 
     def get_firmware_info(self) -> dict:
