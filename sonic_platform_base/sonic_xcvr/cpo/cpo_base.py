@@ -63,6 +63,9 @@ class CpoDeviceBase(device_base.DeviceBase, EepromReadWriteMixin):
 
 
 class CpoBase(device_base.DeviceBase):
+    # Device type definition. Note, this is a constant.
+    DEVICE_TYPE = "cpo"
+
     PLATFORM_SPECIFIC_FORMAT_MAP = {
         "info": {"oe": {}, "els": {}},
         "dom": {"oe": {}, "els": {}},
