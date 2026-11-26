@@ -18,17 +18,16 @@
 
 """XcvrApi for the NVIDIA CPO Optical Engine (OE).
 
-Reserved for NVIDIA-specific overrides on top of CmisApi. The engine is a plain
-CMIS module whose four banks are its four logical ports, so nothing is
+Reserved for NVIDIA-specific overrides on top of CpoCmisApi. The engine is a
+plain CMIS module whose four banks are its four logical ports, so nothing is
 overridden yet; the CDB-driven OE telemetry getter lands here.
 
-CmisApi is the base rather than CpoCmisApi because CpoCmisApi overrides the
-aggregate getters to read banked and non-banked halves separately. Adopting
-that is a change in what a DOM pass reads, not a rename, so it belongs with the
-work that needs the split rather than here.
+CpoCmisApi is the base rather than CmisApi because xcvrd reads a CPO port in
+two halves, the banked one per port and the non-banked one per engine, and
+those getters only exist there.
 """
-from ..public.cmis import CmisApi
+from ...cpo.cmis import CpoCmisApi
 
 
-class NvidiaCpoOeCmisApi(CmisApi):
+class NvidiaCpoOeCmisApi(CpoCmisApi):
     pass
