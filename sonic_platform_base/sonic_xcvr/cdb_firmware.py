@@ -119,8 +119,11 @@ class CdbFirmwareMixin(object):
         if not abort_supported:
             return
         try:
-            # The module rejects a new command while the last one is executing.
-            api.cdb_fw_hdlr.wait_for_cdb_status()
+            # The module rejects a new command while the last one is executing:
+            # send Abort only when the CDB is idle.
+            if not api.cdb_fw_hdlr.wait_for_cdb_status()[0]:
+                log.log_error('Failed to abort firmware download: the CDB is busy or cannot be reached')
+                return
             if api.cdb_fw_hdlr.abort_fw_download() is not True:
                 log.log_error('Failed to abort firmware download')
         except Exception as err:

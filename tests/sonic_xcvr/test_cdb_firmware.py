@@ -135,6 +135,7 @@ class TestCdbFirmwareMixin(object):
 
     def test_abort_waits_for_the_pending_command(self, api):
         order = MagicMock()
+        order.wait.return_value = [True, {}]
         api.cdb_fw_hdlr.wait_for_cdb_status.side_effect = order.wait
         order.abort.return_value = True
         api.cdb_fw_hdlr.abort_fw_download.side_effect = order.abort
@@ -144,6 +145,19 @@ class TestCdbFirmwareMixin(object):
         blocks.close()
 
         assert order.mock_calls == [call.wait(), call.abort()]
+
+    def test_no_abort_while_the_cdb_is_busy(self, api):
+        # wait_for_cdb_status() timed out: the module would reject the Abort.
+        api.cdb_fw_hdlr.wait_for_cdb_status.return_value = [False, None]
+        blocks = FakeDevice(api).download_firmware('/tmp/fw.bin')
+        next(blocks)
+
+        with patch.object(cdb_firmware.log, 'log_error') as log_error:
+            blocks.close()
+
+        api.cdb_fw_hdlr.abort_fw_download.assert_not_called()
+        log_error.assert_called_once_with(
+            'Failed to abort firmware download: the CDB is busy or cannot be reached')
 
     def test_no_abort_when_not_supported(self, api):
         api.cdb_fw_hdlr.get_fw_mgmt_features.return_value = (112, 2048, True, False)
