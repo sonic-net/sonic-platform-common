@@ -483,7 +483,7 @@ class CmisCdbFw:
                 if result is not True:
                     fw_download_status = self.get_status_code()
                     self._abort_fw_download()
-                    txt = 'CDB download failed. CDB Status: %d\n' % fw_download_status
+                    txt = 'CDB download failed. CDB Status: %d' % fw_download_status
                     log.log_notice(txt)
                     raise RuntimeError(txt)
                 address += count

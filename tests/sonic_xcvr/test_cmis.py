@@ -2634,7 +2634,7 @@ class TestCmis(object):
         mock_fw_hdlr.wait_for_cdb_status.return_value = [True, {}]
         mock_fw_hdlr.abort_fw_download.return_value = True
 
-        assert 'CDB Status: 69' in self._fail_second_lpl_block(mock_fw_hdlr)
+        assert self._fail_second_lpl_block(mock_fw_hdlr) == 'CDB download failed. CDB Status: 69'
         mock_fw_hdlr.abort_fw_download.assert_called_once_with()
 
     def test_module_fw_write_blocks_iter_no_abort_when_not_supported(self):
