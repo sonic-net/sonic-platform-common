@@ -26,15 +26,6 @@ class CpoHardwareInfo:
     elsfp_low_mem_offset: int = 0
 
 
-@dataclass(slots=True)
-class CpoFwOpsEntry:
-    """A firmware operation target resolved by cpoutil."""
-    cpo_module_index: int
-    component_class: str
-    component_index: int
-    file_path: str | None = None
-
-
 class CpoApiFactory(ABC):
     def __init__(self, device: "CpoDeviceBase"):
         self._device = device
