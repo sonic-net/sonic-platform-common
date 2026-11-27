@@ -425,21 +425,27 @@ class CmisApi(CmisCdbFw, XcvrApi):
 
     def get_module_active_firmware(self):
         '''
-        This function returns the active firmware version
+        This function returns the active firmware version, or 'N/A' when the
+        registers cannot be read
         '''
         active_fw_major = self.xcvr_eeprom.read(consts.ACTIVE_FW_MAJOR_REV)
         active_fw_minor = self.xcvr_eeprom.read(consts.ACTIVE_FW_MINOR_REV)
+        if active_fw_major is None or active_fw_minor is None:
+            return 'N/A'
         active_fw = [str(num) for num in [active_fw_major, active_fw_minor]]
         return '.'.join(active_fw)
 
     def get_module_inactive_firmware(self):
         '''
-        This function returns the inactive firmware version
+        This function returns the inactive firmware version, or 'N/A' when the
+        module has no page 01h or the registers cannot be read
         '''
         if self.is_flat_memory():
             return 'N/A'
         inactive_fw_major = self.xcvr_eeprom.read(consts.INACTIVE_FW_MAJOR_REV)
         inactive_fw_minor = self.xcvr_eeprom.read(consts.INACTIVE_FW_MINOR_REV)
+        if inactive_fw_major is None or inactive_fw_minor is None:
+            return 'N/A'
         inactive_fw = [str(num) for num in [inactive_fw_major, inactive_fw_minor]]
         return '.'.join(inactive_fw)
 
@@ -492,25 +498,52 @@ class CmisApi(CmisCdbFw, XcvrApi):
         else:
             return xcvr_info
 
+    def get_module_fw_info(self):
+        '''
+        Retrieves the module firmware info via CDB.
+
+        A CDB read error never raises; it is reported as status False. Whenever
+        status is False (CDB unsupported, command failed or read error) the dict
+        additionally carries 'active_firmware' and 'inactive_firmware' read from
+        the lower memory firmware revision registers, which hold major.minor
+        only. 'status'/'info'/'result' keep their meaning.
+        '''
+        if self.is_cdb_supported():
+            fw_info = super().get_module_fw_info()
+            if fw_info["status"]:
+                return fw_info
+            logger.warning(
+                "Error obtaining firmware info from CDB: %s; falling back to lower memory firmware revisions",
+                fw_info["info"],
+            )
+        else:
+            fw_info = {"status": False, "info": "CDB Not supported", "result": None}
+            logger.debug("CDB not supported; falling back to lower memory firmware revisions")
+        fw_info["active_firmware"] = self.get_module_active_firmware()
+        fw_info["inactive_firmware"] = self.get_module_inactive_firmware()
+        return fw_info
+
     def get_transceiver_info_firmware_versions(self):
-        return_dict = {"active_firmware" : "N/A", "inactive_firmware" : "N/A"}
+        '''
+        Retrieves the active and inactive firmware versions of the module.
 
-        if not self.is_cdb_supported():
-            return_dict["active_firmware"] = self.get_module_active_firmware()
-            return_dict["inactive_firmware"] = self.get_module_inactive_firmware()
-            return return_dict
+        Sourced from CDB when the module supports it and the command succeeds,
+        otherwise from the lower memory firmware revision registers.
 
-        result = self.get_module_fw_info()
-        if result is None:
-            return return_dict
-        try:
-            ( _, _, _, _, _, _, _, _, ActiveFirmware, InactiveFirmware) = result['result']
-        except (ValueError, TypeError):
-            return return_dict
-
-        return_dict["active_firmware"] = ActiveFirmware
-        return_dict["inactive_firmware"] = InactiveFirmware
-        return return_dict
+        Returns:
+            A dictionary {'active_firmware': ..., 'inactive_firmware': ...};
+            each value is a version string or 'N/A' when unavailable.
+        '''
+        fw_info = self.get_module_fw_info()
+        if fw_info['status']:
+            try:
+                (_, _, _, _, _, _, _, _, active_fw, inactive_fw) = fw_info['result']
+                return {"active_firmware": active_fw, "inactive_firmware": inactive_fw}
+            except (ValueError, TypeError):
+                pass
+        # CDB unsupported, failed or malformed: use the lower memory versions get_module_fw_info attaches
+        return {"active_firmware": fw_info.get('active_firmware', 'N/A'),
+                "inactive_firmware": fw_info.get('inactive_firmware', 'N/A')}
 
     def get_transceiver_dom_real_value(self):
         """

@@ -6,6 +6,7 @@ import traceback
 import random
 from sonic_platform_base.sonic_xcvr.api.public.cmis import CmisApi, CMIS_VDM_KEY_TO_DB_PREFIX_KEY_MAP, THRESHOLD_TYPE_STR_MAP
 from sonic_platform_base.sonic_xcvr.api.public.cmis import FLAG_TYPE_STR_MAP, CMIS_XCVR_INFO_DEFAULT_DICT
+from sonic_platform_base.sonic_xcvr.api.public.cdb_fw import CmisCdbFw
 from sonic_platform_base.sonic_xcvr.mem_maps.public.cmis import (
     CmisMemMap,
     CMIS_ARCH_PAGES,
@@ -343,7 +344,10 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ([0, 1], '0.1')
+        ([0, 1], '0.1'),
+        # A failed register read must not be stringified into a version
+        ([None, 1], 'N/A'),
+        ([None, None], 'N/A'),
     ])
     def test_get_module_active_firmware(self, mock_response, expected):
         self.api.xcvr_eeprom.read = MagicMock()
@@ -354,7 +358,9 @@ class TestCmis(object):
         assert result == expected
 
     @pytest.mark.parametrize("mock_response, expected", [
-        ([0, 1], '0.1')
+        ([0, 1], '0.1'),
+        ([1, None], 'N/A'),
+        ([None, None], 'N/A'),
     ])
     def test_get_module_inactive_firmware(self, mock_response, expected):
         self.api.xcvr_eeprom.read = MagicMock()
@@ -2186,6 +2192,7 @@ class TestCmis(object):
         (None, {'status': False, 'result': 0}),
         (False, {'status': False, 'result': 0}),
     ])
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.is_cdb_supported', MagicMock(return_value=True))
     def test_get_module_fw_info(self, mock_response, expected):
         mock_fw_hdlr = MagicMock()
         mock_fw_hdlr.get_firmware_info.return_value = mock_response
@@ -2221,6 +2228,7 @@ class TestCmis(object):
         assert result['status'] is False
         assert result['feature'] is None
 
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.is_cdb_supported', MagicMock(return_value=True))
     def test_get_module_fw_info_password_retry(self):
         mock_fw_hdlr = self._setup_cdb_fw_hdlr()
         mock_fw_hdlr.get_firmware_info.side_effect = [
@@ -2242,6 +2250,7 @@ class TestCmis(object):
         assert result['status'] is True
         mock_fw_hdlr.enter_password.assert_called_once()
 
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.is_cdb_supported', MagicMock(return_value=True))
     def test_get_module_fw_info_eeprom_password_fallback(self):
         """CDB command 0001h does not unlock the module, the EEPROM password entry does"""
         mock_fw_hdlr = self._setup_cdb_fw_hdlr()
@@ -2268,6 +2277,10 @@ class TestCmis(object):
         self.api.enter_password_via_memory.assert_called_once_with(cdb_consts.CDB_DEFAULT_PASSWORD)
         del self.api.enter_password_via_memory
 
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.is_cdb_supported', MagicMock(return_value=True))
+    # CDB fails here, so the lower memory fallback runs; keep it off the shared eeprom mock
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_module_active_firmware', MagicMock(return_value='N/A'))
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_module_inactive_firmware', MagicMock(return_value='N/A'))
     def test_get_module_fw_info_eeprom_password_fallback_fails(self):
         """Neither password entry method unlocks the module"""
         mock_fw_hdlr = self._setup_cdb_fw_hdlr()
@@ -2286,6 +2299,10 @@ class TestCmis(object):
         self.api.enter_password_via_memory.assert_called_once_with(cdb_consts.CDB_DEFAULT_PASSWORD)
         del self.api.enter_password_via_memory
 
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.is_cdb_supported', MagicMock(return_value=True))
+    # CDB fails here, so the lower memory fallback runs; keep it off the shared eeprom mock
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_module_active_firmware', MagicMock(return_value='N/A'))
+    @patch('sonic_platform_base.sonic_xcvr.api.public.cmis.CmisApi.get_module_inactive_firmware', MagicMock(return_value='N/A'))
     def test_get_module_fw_info_no_password_fallback_on_other_error(self):
         """A non-password CDB failure must not trigger either password path"""
         mock_fw_hdlr = self._setup_cdb_fw_hdlr()
@@ -3967,35 +3984,114 @@ class TestCmis(object):
                 assert 0, traceback.format_exc()
             run_num -= 1
 
+    @staticmethod
+    def _fresh_api():
+        # A fresh api over a fresh eeprom: earlier tests leave instance-level
+        # mocks and exhausted side_effect iterators behind on the shared
+        # class fixture.
+        return CmisApi(XcvrEeprom(MagicMock(return_value=None), MagicMock(),
+                                  CmisMemMap(CmisCodes)))
+
     def test_get_transceiver_info_firmware_versions(self):
-        self.api.is_cdb_supported = MagicMock()
-        self.api.is_cdb_supported.return_value = True
-        self.api.get_module_fw_info = MagicMock()
-        self.api.get_module_fw_info.return_value = None
-        expected_result = {"active_firmware" : "N/A", "inactive_firmware" : "N/A"}
-        result = self.api.get_transceiver_info_firmware_versions()
-        assert result == expected_result
+        api = self._fresh_api()
 
-        self.api.get_module_fw_info = MagicMock()
-        self.api.get_module_fw_info.side_effect = {'result': TypeError}
-        result = self.api.get_transceiver_info_firmware_versions()
-        assert result == expected_result
+        # CDB success: versions come from the result tuple.
+        with patch.object(api, 'is_cdb_supported', return_value=True), \
+             patch.object(CmisCdbFw, 'get_module_fw_info',
+                          return_value={'status': True, 'info': '',
+                                        'result': ('', '', '', '', '', '', '', '', '2.0.0', '1.0.0')}):
+            assert api.get_transceiver_info_firmware_versions() == \
+                {"active_firmware": "2.0.0", "inactive_firmware": "1.0.0"}
 
-        expected_result = {"active_firmware" : "2.0.0", "inactive_firmware" : "1.0.0"}
-        self.api.get_module_fw_info.side_effect = [{'result': ( '', '', '', '', '', '', '', '','2.0.0', '1.0.0')}]
-        result = self.api.get_transceiver_info_firmware_versions()
-        assert result == expected_result
+        # CDB not advertised: CDB is never issued, fall back to the lower memory registers.
+        with patch.object(api, 'is_cdb_supported', return_value=False), \
+             patch.object(CmisCdbFw, 'get_module_fw_info') as mock_cdb_fw_info, \
+             patch.object(api, 'get_module_active_firmware', return_value='2.0'), \
+             patch.object(api, 'get_module_inactive_firmware', return_value='1.0'):
+            assert api.get_transceiver_info_firmware_versions() == \
+                {"active_firmware": "2.0", "inactive_firmware": "1.0"}
+            mock_cdb_fw_info.assert_not_called()
 
-        # Fall back to lower memory registers when CDB is not supported
-        self.api.is_cdb_supported.return_value = False
-        self.api.get_module_active_firmware = MagicMock()
-        self.api.get_module_active_firmware.return_value = "2.0"
-        self.api.get_module_inactive_firmware = MagicMock()
-        self.api.get_module_inactive_firmware.return_value = "1.0"
-        expected_result = {"active_firmware" : "2.0", "inactive_firmware" : "1.0"}
-        result = self.api.get_transceiver_info_firmware_versions()
-        assert result == expected_result
+    def test_get_transceiver_info_firmware_versions_lower_memory_fallback(self):
+        api = self._fresh_api()
+        cdb_failed = {'status': False, 'info': 'Failed to get firmware info', 'result': 0}
 
+        with patch.object(api, 'is_cdb_supported', return_value=True), \
+             patch.object(CmisCdbFw, 'get_module_fw_info', return_value=dict(cdb_failed)):
+            # CDB command failed: versions fall back to the lower memory registers
+            with patch.object(api, 'get_module_active_firmware', return_value='2.2'), \
+                 patch.object(api, 'get_module_inactive_firmware', return_value='2.1'):
+                assert api.get_transceiver_info_firmware_versions() == \
+                    {"active_firmware": "2.2", "inactive_firmware": "2.1"}
+
+            # Whatever the module reports is rendered as-is; the api does not
+            # impose a version grammar (all-zero or alphanumeric may be valid)
+            with patch.object(api, 'get_module_active_firmware', return_value='0.0'), \
+                 patch.object(api, 'get_module_inactive_firmware', return_value='1.0b'):
+                assert api.get_transceiver_info_firmware_versions() == \
+                    {"active_firmware": "0.0", "inactive_firmware": "1.0b"}
+
+    # is_cdb_supported() returns None (not False) when the CDB_SUPPORT read
+    # itself fails, so both falsy values must take the fallback path.
+    @pytest.mark.parametrize("cdb_supported", [False, None])
+    def test_get_module_fw_info_cdb_not_advertised(self, cdb_supported):
+        api = self._fresh_api()
+
+        with patch.object(api, 'is_cdb_supported', return_value=cdb_supported), \
+             patch.object(CmisCdbFw, 'get_module_fw_info') as mock_cdb_fw_info, \
+             patch.object(api, 'get_module_active_firmware', return_value='2.2'), \
+             patch.object(api, 'get_module_inactive_firmware', return_value='N/A'):
+            fw_info = api.get_module_fw_info()
+            # The CDB command is never issued when CDB is not advertised.
+            mock_cdb_fw_info.assert_not_called()
+        # Same 'status'/'info'/'result' the CDB layer reports for an absent
+        # handler, so callers that distinguish result None (unsupported) from
+        # result 0 (command failure) are unaffected.
+        assert fw_info['status'] is False
+        assert fw_info['result'] is None
+        assert fw_info['info'] == 'CDB Not supported'
+        assert fw_info['active_firmware'] == '2.2'
+        assert fw_info['inactive_firmware'] == 'N/A'
+
+    def test_get_module_fw_info_attaches_lower_memory_versions_on_failure(self):
+        api = self._fresh_api()
+
+        # CDB advertised but the command failed: 'status'/'info'/'result'
+        # semantics unchanged (firmware upgrade flows poll this method and read
+        # them); the versions are purely additive.
+        cdb_failed = {'status': False, 'info': 'Failed to get firmware info', 'result': 0}
+        with patch.object(api, 'is_cdb_supported', return_value=True), \
+             patch.object(CmisCdbFw, 'get_module_fw_info', return_value=dict(cdb_failed)), \
+             patch.object(api, 'get_module_active_firmware', return_value='2.2'), \
+             patch.object(api, 'get_module_inactive_firmware', return_value='N/A'):
+            fw_info = api.get_module_fw_info()
+        assert fw_info['status'] is False
+        assert fw_info['result'] == 0
+        assert fw_info['info'] == 'Failed to get firmware info'
+        assert fw_info['active_firmware'] == '2.2'
+        assert fw_info['inactive_firmware'] == 'N/A'
+
+        # On CDB success nothing is attached and lower memory is not consulted
+        cdb_ok = {'status': True, 'info': '',
+                  'result': ('', '', '', '', '', '', '', '', '3.2.0', '3.1.0')}
+        with patch.object(api, 'is_cdb_supported', return_value=True), \
+             patch.object(CmisCdbFw, 'get_module_fw_info', return_value=dict(cdb_ok)), \
+             patch.object(api, 'get_module_active_firmware') as mock_active_fw:
+            fw_info = api.get_module_fw_info()
+        assert 'active_firmware' not in fw_info
+        mock_active_fw.assert_not_called()
+
+    def test_get_transceiver_info_firmware_versions_uses_attached_fallback(self):
+        # The enriched failure dict from get_module_fw_info is consumed as-is,
+        # with no second lower memory read.
+        api = self._fresh_api()
+        enriched = {'status': False, 'info': 'CDB Not supported', 'result': None,
+                    'active_firmware': '7.3', 'inactive_firmware': 'N/A'}
+        with patch.object(api, 'get_module_fw_info', return_value=enriched), \
+             patch.object(api, 'get_module_active_firmware') as mock_active_fw:
+            assert api.get_transceiver_info_firmware_versions() == \
+                {"active_firmware": "7.3", "inactive_firmware": "N/A"}
+            mock_active_fw.assert_not_called()
 
     @pytest.mark.parametrize("mock_flat_memory, mock_response, expected", [
         (False, True, True),
