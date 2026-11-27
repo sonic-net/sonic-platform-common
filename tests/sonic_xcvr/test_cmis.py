@@ -1636,6 +1636,36 @@ class TestCmis(object):
         self.api.set_lpmode(lpmode)
         self.api.set_lpmode(lpmode, wait_state_change = False)
 
+    # ModuleState occupies bits 3:1 of byte 3, so the raw byte values are
+    # 2 for ModuleLowPwr and 6 for ModuleReady.
+    @pytest.mark.parametrize("state_byte, expected", [
+        (2, True),
+        (6, False),
+    ])
+    def test_get_lpmode(self, state_byte, expected):
+        """
+        The MODULE_STATE field decides the answer, and only that field is read.
+        """
+        mem_map = CmisMemMap(self.codes)
+        module_state_field = mem_map.get_field(consts.MODULE_STATE)
+
+        def fake_reader(offset, size):
+            data = bytearray(size)
+            if offset == module_state_field.get_offset():
+                data[0] = state_byte
+            return data
+
+        reader = MagicMock(side_effect=fake_reader)
+        # Built from the class the running suite selected, so TestCpoCmis
+        # exercises CpoCmisApi rather than the base API a second time.
+        api = type(self.api)(XcvrEeprom(reader, MagicMock(return_value=True), mem_map))
+        api.is_flat_memory = MagicMock(return_value=False)
+        api.get_lpmode_support = MagicMock(return_value=True)
+        reader.reset_mock()
+
+        assert api.get_lpmode() == expected
+        reader.assert_called_once_with(module_state_field.get_offset(), module_state_field.get_size())
+
     @pytest.mark.parametrize("mock_response, expected", [
         (False, False),
         (True, True),
